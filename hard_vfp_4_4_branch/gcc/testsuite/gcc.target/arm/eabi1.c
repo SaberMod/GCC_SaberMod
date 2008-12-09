@@ -1,4 +1,5 @@
 /* { dg-do run { target arm*-*-symbianelf* arm*-*-eabi* } } */
+/* { dg-skip-if  "Test is specific to base abi variant" { arm*-*-* } { "-mfloat-abi=*" } { "-mfloat-abi=soft -mfloat-abi=softfp" } } */
 /* { dg-options "" } */
 
 /* This file tests most of the non-C++ run-time helper functions
