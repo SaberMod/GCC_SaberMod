@@ -1,0 +1,3 @@
+srcdir = @srcdir@
+-include ./gcc-interface/Makefile
+-include ../gcc-interface/Makefile
