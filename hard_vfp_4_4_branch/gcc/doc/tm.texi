@@ -4323,6 +4323,7 @@ library function is given by @var{fun}.  The hook should return an RTX
 representing the place where the library function result will be returned.
 
 If this hook is not defined, then LIBCALL_VALUE will be used.
+@end deftypefn
 
 @defmac FUNCTION_VALUE_REGNO_P (@var{regno})
 A C expression that is nonzero if @var{regno} is the number of a hard

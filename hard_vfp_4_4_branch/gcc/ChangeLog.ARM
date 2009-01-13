@@ -1,3 +1,7 @@
+2009-01-13  Richard Earnshaw <rearnsha@arm.com>
+
+	* doc/tm.texi (TARGET_LIBCALL_VALUE): Add missing end statement.
+
 2008-12-09  Richard Earnshaw <rearnsha@arm.com>
 
 	ARM Hard-VFP calling convention
