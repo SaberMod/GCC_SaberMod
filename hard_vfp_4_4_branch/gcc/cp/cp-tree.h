@@ -1878,7 +1878,7 @@ struct lang_decl GTY(())
   (IDENTIFIER_OPNAME_P (DECL_NAME (NODE))		\
    ? DECL_LANG_SPECIFIC (NODE)->u.f.operator_code : ERROR_MARK)
 
-/* Nonzero if NODE is an assignment operator.  */
+/* Nonzero if NODE is an assignment operator (including += and such).  */
 #define DECL_ASSIGNMENT_OPERATOR_P(NODE) \
   (DECL_LANG_SPECIFIC (NODE)->decl_flags.assignment_operator_p)
 
@@ -3560,20 +3560,22 @@ typedef enum linkage_kind {
 
 /* Bitmask flags to control type substitution.  */
 typedef enum tsubst_flags_t {
-  tf_none = 0,			/* nothing special */
-  tf_error = 1 << 0,		/* give error messages  */
-  tf_warning = 1 << 1,		/* give warnings too  */
-  tf_ignore_bad_quals = 1 << 2,	/* ignore bad cvr qualifiers */
-  tf_keep_type_decl = 1 << 3,	/* retain typedef type decls
-				   (make_typename_type use) */
-  tf_ptrmem_ok = 1 << 4,	/* pointers to member ok (internal
-				   instantiate_type use) */
-  tf_user = 1 << 5,		/* found template must be a user template
-				   (lookup_template_class use) */
-  tf_conv = 1 << 6,		/* We are determining what kind of
-				   conversion might be permissible,
-				   not actually performing the
-				   conversion.  */
+  tf_none = 0,			 /* nothing special */
+  tf_error = 1 << 0,		 /* give error messages  */
+  tf_warning = 1 << 1,	 	 /* give warnings too  */
+  tf_ignore_bad_quals = 1 << 2,	 /* ignore bad cvr qualifiers */
+  tf_keep_type_decl = 1 << 3,	 /* retain typedef type decls
+				    (make_typename_type use) */
+  tf_ptrmem_ok = 1 << 4,	 /* pointers to member ok (internal
+				    instantiate_type use) */
+  tf_user = 1 << 5,		 /* found template must be a user template
+				    (lookup_template_class use) */
+  tf_conv = 1 << 6,		 /* We are determining what kind of
+				    conversion might be permissible,
+				    not actually performing the
+				    conversion.  */
+  tf_no_access_control = 1 << 7, /* Do not perform access checks, even
+				    when issuing other errors.   */
   /* Convenient substitution flags combinations.  */
   tf_warning_or_error = tf_warning | tf_error
 } tsubst_flags_t;
@@ -4601,6 +4603,7 @@ extern bool reregister_specialization		(tree, tree, tree);
 extern tree fold_non_dependent_expr		(tree);
 extern bool explicit_class_specialization_p     (tree);
 extern struct tinst_level *outermost_tinst_level(void);
+extern bool parameter_of_template_p		(tree, tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -4812,6 +4815,7 @@ extern bool cxx_omp_create_clause_info		(tree, tree, bool, bool, bool);
 extern tree baselink_for_fns                    (tree);
 extern void finish_static_assert                (tree, tree, location_t,
                                                  bool);
+extern tree describable_type			(tree);
 extern tree finish_decltype_type                (tree, bool);
 extern tree finish_trait_expr			(enum cp_trait_kind, tree, tree);
 

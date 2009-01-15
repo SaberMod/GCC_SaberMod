@@ -105,6 +105,9 @@ static enum reg_class *allocno_pref;
 /* Allocated buffers for allocno_pref.  */
 static enum reg_class *allocno_pref_buffer;
 
+/* Record register class of each allocno with the same regno.  */
+static enum reg_class *common_classes;
+
 /* Execution frequency of the current insn.  */
 static int frequency;
 
@@ -139,8 +142,12 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class rclass, bool to_p,
     ira_init_register_move_cost (mode);
 
   if (secondary_class != NO_REGS)
-    return (move_cost[mode][secondary_class][rclass] + sri.extra_cost
-	    + copy_cost (x, mode, secondary_class, to_p, &sri));
+    {
+      if (!move_cost[mode])
+        init_move_cost (mode);
+      return (move_cost[mode][secondary_class][rclass] + sri.extra_cost
+	      + copy_cost (x, mode, secondary_class, to_p, &sri));
+    }
 
   /* For memory, use the memory move cost, for (hard) registers, use
      the cost to move between the register classes, and use 2 for
@@ -148,8 +155,11 @@ copy_cost (rtx x, enum machine_mode mode, enum reg_class rclass, bool to_p,
   if (MEM_P (x) || rclass == NO_REGS)
     return sri.extra_cost + ira_memory_move_cost[mode][rclass][to_p != 0];
   else if (REG_P (x))
-    return
-      (sri.extra_cost + move_cost[mode][REGNO_REG_CLASS (REGNO (x))][rclass]);
+    {
+      if (!move_cost[mode])
+        init_move_cost (mode);
+      return (sri.extra_cost + move_cost[mode][REGNO_REG_CLASS (REGNO (x))][rclass]);
+    }
   else
     /* If this is a constant, we may eventually want to call rtx_cost
        here.  */
@@ -1082,8 +1092,8 @@ print_costs (FILE *f)
 	    {
 	      fprintf (f, " %s:%d", reg_class_names[rclass],
 		       COSTS_OF_ALLOCNO (allocno_costs, i)->cost[k]);
-	      if (flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-		  || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+	      if (flag_ira_region == IRA_REGION_ALL
+		  || flag_ira_region == IRA_REGION_MIXED)
 		fprintf (f, ",%d", COSTS_OF_ALLOCNO (total_costs, i)->cost[k]);
 	    }
 	}
@@ -1173,7 +1183,7 @@ find_allocno_class_costs (void)
 	  int rclass, a_num, parent_a_num;
 	  ira_loop_tree_node_t parent;
 	  int best_cost, allocno_cost;
-	  enum reg_class best, alt_class, common_class;
+	  enum reg_class best, alt_class;
 #ifdef FORBIDDEN_INC_DEC_CLASSES
 	  int inc_dec_p = false;
 #endif
@@ -1187,8 +1197,8 @@ find_allocno_class_costs (void)
 	       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
 	    {
 	      a_num = ALLOCNO_NUM (a);
-	      if ((flag_ira_algorithm == IRA_ALGORITHM_REGIONAL
-		   || flag_ira_algorithm == IRA_ALGORITHM_MIXED)
+	      if ((flag_ira_region == IRA_REGION_ALL
+		   || flag_ira_region == IRA_REGION_MIXED)
 		  && (parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) != NULL
 		  && (parent_a = parent->regno_allocno_map[i]) != NULL
 		  /* There are no caps yet.  */
@@ -1247,6 +1257,7 @@ find_allocno_class_costs (void)
 		      > reg_class_size[alt_class]))
 		alt_class = reg_class_subunion[alt_class][rclass];
 	    }
+	  alt_class = ira_class_translate[alt_class];
 	  if (pass == flag_expensive_optimizations)
 	    {
 	      if (best_cost > temp_costs->mem_cost)
@@ -1260,18 +1271,22 @@ find_allocno_class_costs (void)
 			 i, reg_class_names[best], reg_class_names[alt_class]);
 	    }
 	  if (best_cost > temp_costs->mem_cost)
-	    common_class = NO_REGS;
+	    common_classes[i] = NO_REGS;
+	  else if (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY)
+	    /* Make the common class the biggest class of best and
+	       alt_class.  */
+	    common_classes[i] = alt_class == NO_REGS ? best : alt_class;
 	  else
 	    /* Make the common class a cover class.  Remember all
 	       allocnos with the same regno should have the same cover
 	       class.  */
-	    common_class = ira_class_translate[best];
+	    common_classes[i] = ira_class_translate[best];
 	  for (a = ira_regno_allocno_map[i];
 	       a != NULL;
 	       a = ALLOCNO_NEXT_REGNO_ALLOCNO (a))
 	    {
 	      a_num = ALLOCNO_NUM (a);
-	      if (common_class == NO_REGS)
+	      if (common_classes[i] == NO_REGS)
 		best = NO_REGS;
 	      else
 		{	      
@@ -1283,7 +1298,7 @@ find_allocno_class_costs (void)
 		  for (k = 0; k < cost_classes_num; k++)
 		    {
 		      rclass = cost_classes[k];
-		      if (! ira_class_subset_p[rclass][common_class])
+		      if (! ira_class_subset_p[rclass][common_classes[i]])
 			continue;
 		      /* Ignore classes that are too small for this
 			 operand or invalid for an operand that was
@@ -1319,6 +1334,8 @@ find_allocno_class_costs (void)
 		    }
 		  ALLOCNO_COVER_CLASS_COST (a) = allocno_cost;
 		}
+	      ira_assert (flag_ira_algorithm == IRA_ALGORITHM_PRIORITY
+			  || ira_class_translate[best] == common_classes[i]);
 	      if (internal_flag_ira_verbose > 2 && ira_dump_file != NULL
 		  && (pass == 0 || allocno_pref[a_num] != best))
 		{
@@ -1330,7 +1347,7 @@ find_allocno_class_costs (void)
 			     ALLOCNO_LOOP_TREE_NODE (a)->loop->num);
 		  fprintf (ira_dump_file, ") best %s, cover %s\n",
 			   reg_class_names[best],
-			   reg_class_names[ira_class_translate[best]]);
+			   reg_class_names[common_classes[i]]);
 		}
 	      allocno_pref[a_num] = best;
 	    }
@@ -1439,7 +1456,7 @@ setup_allocno_cover_class_and_costs (void)
     {
       i = ALLOCNO_NUM (a);
       mode = ALLOCNO_MODE (a);
-      cover_class = ira_class_translate[allocno_pref[i]];
+      cover_class = common_classes[ALLOCNO_REGNO (a)];
       ira_assert (allocno_pref[i] == NO_REGS || cover_class != NO_REGS);
       ALLOCNO_MEMORY_COST (a) = COSTS_OF_ALLOCNO (allocno_costs, i)->mem_cost;
       ira_set_allocno_cover_class (a, cover_class);
@@ -1572,6 +1589,9 @@ ira_costs (void)
   allocno_pref_buffer
     = (enum reg_class *) ira_allocate (sizeof (enum reg_class)
 				       * ira_allocnos_num);
+  common_classes
+    = (enum reg_class *) ira_allocate (sizeof (enum reg_class)
+				       * max_reg_num ());
   find_allocno_class_costs ();
   setup_allocno_cover_class_and_costs ();
   /* Because we could process operands only as subregs, check mode of
@@ -1580,6 +1600,7 @@ ira_costs (void)
     if (ira_register_move_cost[ALLOCNO_MODE (a)] == NULL
 	&& have_regs_of_mode[ALLOCNO_MODE (a)])
       ira_init_register_move_cost (ALLOCNO_MODE (a));
+  ira_free (common_classes);
   ira_free (allocno_pref_buffer);
   ira_free (total_costs);
   ira_free (allocno_costs);

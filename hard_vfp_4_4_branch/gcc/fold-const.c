@@ -1,6 +1,6 @@
 /* Fold a constant sub-tree into a single node for C-compiler
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -6008,10 +6008,6 @@ optimize_minmax_comparison (enum tree_code code, tree type, tree op0, tree op1)
    expression would not overflow or that overflow is undefined for the type
    in the language in question.
 
-   We also canonicalize (X + 7) * 4 into X * 4 + 28 in the hope that either
-   the machine has a multiply-accumulate insn or that this is part of an
-   addressing calculation.
-
    If we return a non-null expression, it is an equivalent form of the
    original computation, but need not be in the original type.
 
@@ -7439,7 +7435,17 @@ fold_plusminus_mult_expr (enum tree_code code, tree type, tree arg0, tree arg1)
   else if (TREE_CODE (arg1) == INTEGER_CST)
     {
       arg10 = build_one_cst (type);
-      arg11 = arg1;
+      /* As we canonicalize A - 2 to A + -2 get rid of that sign for
+	 the purpose of this canonicalization.  */
+      if (TREE_INT_CST_HIGH (arg1) == -1
+	  && negate_expr_p (arg1)
+	  && code == PLUS_EXPR)
+	{
+	  arg11 = negate_expr (arg1);
+	  code = MINUS_EXPR;
+	}
+      else
+	arg11 = arg1;
     }
   else
     {
@@ -8047,15 +8053,19 @@ fold_unary (enum tree_code code, tree type, tree op0)
     {
       if (TREE_CODE (arg0) == COMPOUND_EXPR)
 	return build2 (COMPOUND_EXPR, type, TREE_OPERAND (arg0, 0),
-		       fold_build1 (code, type, TREE_OPERAND (arg0, 1)));
+		       fold_build1 (code, type,
+				    fold_convert (TREE_TYPE (op0),
+						  TREE_OPERAND (arg0, 1))));
       else if (TREE_CODE (arg0) == COND_EXPR)
 	{
 	  tree arg01 = TREE_OPERAND (arg0, 1);
 	  tree arg02 = TREE_OPERAND (arg0, 2);
 	  if (! VOID_TYPE_P (TREE_TYPE (arg01)))
-	    arg01 = fold_build1 (code, type, arg01);
+	    arg01 = fold_build1 (code, type,
+				 fold_convert (TREE_TYPE (op0), arg01));
 	  if (! VOID_TYPE_P (TREE_TYPE (arg02)))
-	    arg02 = fold_build1 (code, type, arg02);
+	    arg02 = fold_build1 (code, type,
+				 fold_convert (TREE_TYPE (op0), arg02));
 	  tem = fold_build3 (COND_EXPR, type, TREE_OPERAND (arg0, 0),
 			     arg01, arg02);
 
@@ -9036,17 +9046,17 @@ fold_comparison (enum tree_code code, tree type, tree op0, tree op1)
 	      switch (code)
 		{
 		case EQ_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 == bitpos1);
+		  return constant_boolean_node (bitpos0 == bitpos1, type);
 		case NE_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 != bitpos1);
+		  return constant_boolean_node (bitpos0 != bitpos1, type);
 		case LT_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 < bitpos1);
+		  return constant_boolean_node (bitpos0 < bitpos1, type);
 		case LE_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 <= bitpos1);
+		  return constant_boolean_node (bitpos0 <= bitpos1, type);
 		case GE_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 >= bitpos1);
+		  return constant_boolean_node (bitpos0 >= bitpos1, type);
 		case GT_EXPR:
-		  return build_int_cst (boolean_type_node, bitpos0 > bitpos1);
+		  return constant_boolean_node (bitpos0 > bitpos1, type);
 		default:;
 		}
 	    }
@@ -11678,7 +11688,7 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				   WARN_STRICT_OVERFLOW_MISC);
 	  return fold_build2 (code, type,
 			      fold_convert (type, TREE_OPERAND (arg0, 0)),
-			      negate_expr (arg1));
+			      fold_convert (type, negate_expr (arg1)));
 	}
       if ((!INTEGRAL_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
 	  && TREE_CODE (arg1) == NEGATE_EXPR
@@ -11689,8 +11699,9 @@ fold_binary (enum tree_code code, tree type, tree op0, tree op1)
 				    "when distributing negation across "
 				    "division"),
 				   WARN_STRICT_OVERFLOW_MISC);
-	  return fold_build2 (code, type, negate_expr (arg0),
-			      TREE_OPERAND (arg1, 0));
+	  return fold_build2 (code, type,
+			      fold_convert (type, negate_expr (arg0)),
+			      fold_convert (type, TREE_OPERAND (arg1, 0)));
 	}
 
       /* If arg0 is a multiple of arg1, then rewrite to the fastest div

@@ -1,6 +1,6 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
    Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
@@ -1857,8 +1857,17 @@ cp_tree_equal (tree t1, tree t2)
 	return false;
       return cp_tree_equal (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
-    case VAR_DECL:
     case PARM_DECL:
+      /* For comparing uses of parameters in late-specified return types
+	 with an out-of-class definition of the function.  */
+      if ((!DECL_CONTEXT (t1) || !DECL_CONTEXT (t2))
+	  && same_type_p (TREE_TYPE (t1), TREE_TYPE (t2))
+	  && DECL_NAME (t1) == DECL_NAME (t2))
+	return true;
+      else
+	return false;
+
+    case VAR_DECL:
     case CONST_DECL:
     case FUNCTION_DECL:
     case TEMPLATE_DECL:
@@ -2118,8 +2127,10 @@ pod_type_p (const_tree t)
   if (TREE_CODE (t) == VECTOR_TYPE)
     return 1; /* vectors are (small) arrays of scalars */
 
-  if (! CLASS_TYPE_P (t))
+  if (! RECORD_OR_UNION_CODE_P (TREE_CODE (t)))
     return 0; /* other non-class type (reference or function) */
+  if (! CLASS_TYPE_P (t))
+    return 1; /* struct created by the back end */
   if (CLASSTYPE_NON_POD_P (t))
     return 0;
   return 1;
@@ -2432,6 +2443,10 @@ cp_walk_subtrees (tree *tp, int *walk_subtrees_p, walk_tree_fn func,
       break;
 
     case CAST_EXPR:
+    case REINTERPRET_CAST_EXPR:
+    case STATIC_CAST_EXPR:
+    case CONST_CAST_EXPR:
+    case DYNAMIC_CAST_EXPR:
       if (TREE_TYPE (*tp))
 	WALK_SUBTREE (TREE_TYPE (*tp));
 

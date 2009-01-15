@@ -403,7 +403,7 @@ type_after_usual_arithmetic_conversions (tree t1, tree t2)
 
   /* Perform the integral promotions.  We do not promote real types here.  */
   if (INTEGRAL_OR_ENUMERATION_TYPE_P (t1)
-      && INTEGRAL_OR_ENUMERATION_TYPE_P (t1)) 
+      && INTEGRAL_OR_ENUMERATION_TYPE_P (t2))
     {
       t1 = type_promotes_to (t1);
       t2 = type_promotes_to (t2);
@@ -4189,7 +4189,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
   tree val;
   const char *invalid_op_diag;
 
-  if (arg == error_mark_node)
+  if (error_operand_p (arg))
     return error_mark_node;
 
   if ((invalid_op_diag
@@ -6026,7 +6026,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	}
 
       /* Allow array assignment in compiler-generated code.  */
-      if (! DECL_ARTIFICIAL (current_function_decl))
+      if (!current_function_decl || !DECL_ARTIFICIAL (current_function_decl))
 	{
           /* This routine is used for both initialization and assignment.
              Make sure the diagnostic message differentiates the context.  */

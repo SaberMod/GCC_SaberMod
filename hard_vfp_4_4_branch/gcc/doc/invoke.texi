@@ -338,7 +338,7 @@ Objective-C and Objective-C++ Dialects}.
 -finline-small-functions -fipa-cp -fipa-cp-clone -fipa-matrix-reorg -fipa-pta @gol 
 -fipa-pure-const -fipa-reference -fipa-struct-reorg @gol
 -fipa-type-escape -fira -fira-algorithm=@var{algorithm} @gol
--fira-coalesce -fno-ira-share-save-slots @gol
+-fira-region=@var{region} -fira-coalesce -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
 -fivopts -fkeep-inline-functions -fkeep-static-consts @gol
 -floop-block -floop-interchange -floop-strip-mine @gol
@@ -2152,7 +2152,7 @@ to filter out those warnings.
 Warn also about the use of an uncasted @code{NULL} as sentinel.  When
 compiling only with GCC this is a valid sentinel, as @code{NULL} is defined
 to @code{__null}.  Although it is a null pointer constant not a null pointer,
-it is guaranteed to of the same size as a pointer.  But this use is
+it is guaranteed to be of the same size as a pointer.  But this use is
 not portable across different compilers.
 
 @item -Wno-non-template-friend @r{(C++ and Objective-C++ only)}
@@ -5728,17 +5728,25 @@ allocation.  It is a default if @acronym{IRA} has been ported for the
 target.
 
 @item -fira-algorithm=@var{algorithm}
-Use specified algorithm for the integrated register allocator.  The
-@var{algorithm} argument should be one of @code{regional}, @code{CB},
-or @code{mixed}.  The second algorithm specifies Chaitin-Briggs
-coloring, the first one specifies regional coloring based on
-Chaitin-Briggs coloring, and the third one which is the default
-specifies a mix of Chaitin-Briggs and regional algorithms where loops
-with small register pressure are ignored.  The first algorithm can
-give best result for machines with small size and irregular register
-set, the second one is faster and generates decent code and the
-smallest size code, and the mixed algorithm usually give the best
-results in most cases and for most architectures.
+Use specified coloring algorithm for the integrated register
+allocator.  The @var{algorithm} argument should be @code{priority} or
+@code{CB}.  The first algorithm specifies Chow's priority coloring,
+the second one specifies Chaitin-Briggs coloring.  The second
+algorithm can be unimplemented for some architectures.  If it is
+implemented, it is the default because Chaitin-Briggs coloring as a
+rule generates a better code.
+
+@item -fira-region=@var{region}
+Use specified regions for the integrated register allocator.  The
+@var{region} argument should be one of @code{all}, @code{mixed}, or
+@code{one}.  The first value means using all loops as register
+allocation regions, the second value which is the default means using
+all loops except for loops with small register pressure as the
+regions, and third one means using all function as a single region.
+The first value can give best result for machines with small size and
+irregular register set, the third one results in faster and generates
+decent code and the smallest size code, and the default value usually
+give the best results in most cases and for most architectures.
 
 @item -fira-coalesce
 @opindex fira-coalesce
@@ -5995,8 +6003,8 @@ This reduces the level of indirection needed for accessing the elements
 of the matrix. The second optimization is matrix transposing that
 attemps to change the order of the matrix's dimensions in order to 
 improve cache locality.
-Both optimizations need fwhole-program flag. 
-Transposing is enabled only if profiling information is avaliable.
+Both optimizations need the @option{-fwhole-program} flag. 
+Transposing is enabled only if profiling information is available.
 
 
 @item -ftree-sink
@@ -7609,6 +7617,15 @@ given number of the most frequently executed loops will form regions
 for the regional register allocation.  The default value of the
 parameter is 100.
 
+@item ira-max-conflict-table-size
+Although IRA uses a sophisticated algorithm of compression conflict
+table, the table can be still big for huge functions.  If the conflict
+table for a function could be more than size in MB given by the
+parameter, the conflict table is not built and faster, simpler, and
+lower quality register allocation algorithm will be used.  The
+algorithm do not use pseudo-register conflicts.  The default value of
+the parameter is 2000.
+
 @end table
 @end table
 
@@ -8593,7 +8610,8 @@ example, if a cross-compiler was configured with @samp{configure
 arm-elf}, meaning to compile for an arm processor with elf binaries,
 then you would specify @option{-b arm-elf} to run that cross compiler.
 Because there are other options beginning with @option{-b}, the
-configuration must contain a hyphen.
+configuration must contain a hyphen, or @option{-b} alone should be one
+argument followed by the configuration in the next argument.
 
 @item -V @var{version}
 @opindex V
@@ -8855,8 +8873,11 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm620}, @samp{arm7}, @samp{arm7m}, @samp{arm7d}, @samp{arm7dm},
 @samp{arm7di}, @samp{arm7dmi}, @samp{arm70}, @samp{arm700},
 @samp{arm700i}, @samp{arm710}, @samp{arm710c}, @samp{arm7100},
+@samp{arm720},
 @samp{arm7500}, @samp{arm7500fe}, @samp{arm7tdmi}, @samp{arm7tdmi-s},
-@samp{arm8}, @samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
+@samp{arm710t}, @samp{arm720t}, @samp{arm740t},
+@samp{strongarm}, @samp{strongarm110}, @samp{strongarm1100},
+@samp{strongarm1110},
 @samp{arm8}, @samp{arm810}, @samp{arm9}, @samp{arm9e}, @samp{arm920},
 @samp{arm920t}, @samp{arm922t}, @samp{arm946e-s}, @samp{arm966e-s},
 @samp{arm968e-s}, @samp{arm926ej-s}, @samp{arm940t}, @samp{arm9tdmi},
@@ -8864,7 +8885,8 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
 @samp{arm1156t2-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
-@samp{cortex-a8}, @samp{cortex-r4}, @samp{cortex-r4f}, @samp{cortex-m3},
+@samp{cortex-a8}, @samp{cortex-a9},
+@samp{cortex-r4}, @samp{cortex-r4f}, @samp{cortex-m3},
 @samp{cortex-m1},
 @samp{xscale}, @samp{iwmmxt}, @samp{ep9312}.
 
@@ -8886,7 +8908,8 @@ name to determine what kind of instructions it can emit when generating
 assembly code.  This option can be used in conjunction with or instead
 of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv2a}, @samp{armv3}, @samp{armv3m}, @samp{armv4}, @samp{armv4t},
-@samp{armv5}, @samp{armv5t}, @samp{armv5te}, @samp{armv6}, @samp{armv6j},
+@samp{armv5}, @samp{armv5t}, @samp{armv5e}, @samp{armv5te},
+@samp{armv6}, @samp{armv6j},
 @samp{armv6t2}, @samp{armv6z}, @samp{armv6zk}, @samp{armv6-m},
 @samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m},
 @samp{iwmmxt}, @samp{ep9312}.
