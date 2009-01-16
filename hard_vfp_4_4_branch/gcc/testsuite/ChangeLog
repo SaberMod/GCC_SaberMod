@@ -1,3 +1,41 @@
+2009-01-16  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* gfortran.dg/proc_ptr_13.f90: New.
+
+2009-01-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38850
+	* g++.dg/template/koenig6.C: New test.
+
+2009-01-15  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+        PR C++/29388
+	* g++.dg/template/error37.C: New testcase.
+
+2009-01-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/36334
+	* g++.dg/conversion/memfn1.C: New test.
+
+	PR c++/37646
+	* g++.dg/conversion/memfn2.C: New test.
+
+2008-01-15  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c++/38357
+	* g++.dg/template/crash87.C: New test.
+
+2009-01-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/37843
+	* gcc.target/i386/pr37843-3.c: Replace _Decimal128 with __m128.
+
+2009-01-15  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38636
+	* g++.dg/parse/crash50.C: New test.
+
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/38245

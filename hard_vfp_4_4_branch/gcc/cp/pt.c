@@ -8975,6 +8975,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   if (DECL_P (t))
     return tsubst_decl (t, args, complain);
 
+  if (args == NULL_TREE)
+    return t;
+
   if (TREE_CODE (t) == IDENTIFIER_NODE)
     type = IDENTIFIER_TYPE_VALUE (t);
   else
@@ -11397,9 +11400,12 @@ tsubst_copy_and_build (tree t,
 		       /*fn_p=*/NULL,
 		       complain));
 	  }
+	/* Pass true for koenig_p so that build_new_function_call will
+	   allow hidden friends found by arg-dependent lookup at template
+	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 koenig_p,
+				 /*koenig_p*/true,
 				 complain);
       }
 

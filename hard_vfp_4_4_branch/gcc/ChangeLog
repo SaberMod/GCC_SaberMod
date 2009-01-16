@@ -1,3 +1,44 @@
+2009-01-16  Richard Earnshaw  <rearnsha@arm.com>
+
+	* function.c (aggregate_value_p): Correctly extract the function
+	type from CALL_EXPR_FN lookup.
+
+2009-01-16  Hariharan Sandanagobalane <hariharan@picochip.com>
+
+	* config/picochip/picochip.c (picochip_override_options): Revert
+	CFI asm flag disable commited previously.
+
+2009-01-15  Sebastian Pop  <sebastian.pop@amd.com>
+	    Tobias Grosser  <tobi.grosser@amd.com>
+	    Jan Sjodin  <jan.sjodin@amd.com>
+
+	* graphite.c (scan_tree_for_params): On substractions negate
+	all the coefficients of the term.
+	(clast_to_gcc_expression_red): New.  Handle reduction expressions
+	of more than two operands.
+	(clast_to_gcc_expression): Call clast_to_gcc_expression_red.
+	(get_vdef_before_scop): Handle also the case of default definitions.
+
+2009-01-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* caller-save.c (add_used_regs_1, add_used_regs): New functions.
+	(insert_one_insn): Use them instead of REG_DEAD and REG_INC notes.
+	Also use them when walking CALL_INSN_FUNCTION_USAGE.
+
+2009-01-15  H.J. Lu  <hongjiu.lu@intel.com>
+	    Joey Ye  <joey.ye@intel.com>
+
+	PR middle-end/37843
+	* cfgexpand.c (expand_stack_alignment): Don't update stack
+	boundary nor check incoming stack boundary here.
+	(gimple_expand_cfg): Update stack boundary and check incoming
+	stack boundary here.
+
+2009-01-15  Kenneth Zadeck <zadeck@naturalbridge.com>
+
+	* dce.c (find_call_stack_args, delete_unmarked_insns): Fixed
+	comments.
+	
 2009-01-14  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/38245
