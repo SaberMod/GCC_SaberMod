@@ -1,3 +1,45 @@
+2009-01-22  Dodji Seketeli  <dodji@redhat.com>
+
+	* include/ext/bitmap_allocator.h: Reverting changes related to PR
+	c++/26693.
+
+2009-01-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/29_atomics/headers/stdatomic.h/functions.c: Remove
+	atomic_flag_fence.
+
+2009-01-21  Dodji Seketeli  <dodji@redhat.com>
+
+	* include/ext/bitmap_allocator.h: the typedefs should be made public
+	if we want them to be accessible. This has been revealed by the patch
+	that fixes PR c++/26693 in g++.
+
+2009-01-20  Benjamin Kosnik  <bkoz@redhat.com>
+	    Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libstdc++/38834
+	* config/abi/pre/gnu.ver: Correct char16_t and char32_t exports.
+	* config/os/gnu-linux/ldbl-extra.ver: Tweak.
+
+2009-01-20  Benjamin Kosnik  <bkoz@redhat.com>
+            Rainer Emrich  <r.emrich@de.tecosim.com>
+
+	PR libstdc++/38919
+	* crossconfig.m4: Use GLIBCXX_CHECK_MATH_SUPPORT and
+	GLIBCXX_CHECK_STDLIB_SUPPORT for mingw crosses.
+	* configure: Regenerate.
+
+2009-01-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread (__thread_data_base::__run): Make non-const.
+	* testsuite/30_threads/thread/cons/5.cc: New.
+
+2009-01-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* src/Makefile.am (sources): Add math_stubs_float.cc.
+	* src/Makefile.in: Regenerate.
+	* src/math_stubs_float.cc: New, from libmath/stubs.c.
+
 2009-01-15  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* src/Makefile.am (sources): Add math_stubs_long_double.cc.
