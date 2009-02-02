@@ -2772,8 +2772,7 @@ ira_mark_memory_move_deletion (int dst_regno, int src_regno)
 }
 
 /* Try to assign a hard register (except for FORBIDDEN_REGS) to
-   allocno A and return TRUE in the case of success.  That is an
-   analog of retry_global_alloc for IRA.  */
+   allocno A and return TRUE in the case of success.  */
 static bool
 allocno_reload_assign (ira_allocno_t a, HARD_REG_SET forbidden_regs)
 {
@@ -2962,7 +2961,7 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
   bitmap_iterator bi;
   struct ira_spilled_reg_stack_slot *slot = NULL;
 
-  ira_assert (flag_ira && inherent_size == PSEUDO_REGNO_BYTES (regno)
+  ira_assert (inherent_size == PSEUDO_REGNO_BYTES (regno)
 	      && inherent_size <= total_size
 	      && ALLOCNO_HARD_REGNO (allocno) < 0);
   if (! flag_ira_share_spill_slots)
@@ -3074,7 +3073,7 @@ ira_mark_new_stack_slot (rtx x, int regno, unsigned int total_size)
   int slot_num;
   ira_allocno_t allocno;
 
-  ira_assert (flag_ira && PSEUDO_REGNO_BYTES (regno) <= total_size);
+  ira_assert (PSEUDO_REGNO_BYTES (regno) <= total_size);
   allocno = ira_regno_allocno_map[regno];
   slot_num = -ALLOCNO_HARD_REGNO (allocno) - 2;
   if (slot_num == -1)

@@ -1,3 +1,83 @@
+2009-01-30  Ulrich Drepper  <drepper@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/30928 (partial, works together with recent glibcs)
+	* include/c_std/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_std/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* include/c_global/cstring (memchr, strchr, strpbrk, strrchr, strstr):
+	Provide inlines only if __CORRECT_ISO_CPP_STRING_H_PROTO is not
+	defined.
+	* include/c_global/cwchar (wcschr, wcspbrk, wcsrchr, wcsstr, wmemchr):
+	Provide inlines only if __CORRECT_ISO_CPP_WCHAR_H_PROTO is not
+	defined.
+	* testsuite/21_strings/c_strings/char_t/2.cc (test02): If first
+	argument is const char *, assign result to const char * var, not
+	char *.
+	* testsuite/21_strings/c_strings/wchar_t/2.cc (test02): If first
+	argument is const wchar_t *, assign result to const wchar_t * var, not
+	wchar_t *.
+
+2009-01-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread: Remove unused headers.
+	(__thread_data_base): Remove unused mutex and base.
+	(thread::~thread): Only detach if joinable.
+	(thread::joinable): Test if thread data ptr is empty.
+	(thread::_M_thread_data_mutex): Remove.
+	(thread::_M_get_thread_data): Remove.
+	(thread::_M_make_thread_data): Remove overload, use make_shared.
+	(thread::id::id): Make constructor explicit.
+	* src/thread.cc (thread::join,thread::detach): Throw if not joinable.
+	(thread::_M_start_thread): Break shared_ptr cycle on error.
+	(__thread_proxy): Use shared_ptr swap instead of copy and reset.
+	* testsuite/30_threads/thread/member/4.cc: New.
+	* testsuite/30_threads/thread/member/5.cc: New.
+
+2009-01-28  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/util/testsuite_common_types.h (has_trivial_cons_dtor): New.
+	(standard_layout): Just use !has_virtual_destructor for now.
+	* testsuite/30_threads/mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/timed_mutex/requirements/standard_layout.cc: New.
+	* testsuite/30_threads/recursive_mutex/requirements/
+	standard_layout.cc: New.
+	* testsuite/30_threads/condition_variable/requirements/
+	standard_layout.cc: New.
+	* testsuite/29_atomics/atomic_address/requirements/
+	standard_layout.cc: Adjust.
+	* testsuite/29_atomics/atomic_flag/requirements/
+	standard_layout.cc: Same.
+	* testsuite/29_atomics/atomic_address/requirements/trivial.cc: New.
+	* testsuite/29_atomics/atomic_integral/requirements/trivial.cc: Same.
+	* testsuite/29_atomics/atomic_flag/requirements/trivial.cc: Same.
+	* testsuite/30_threads/condition_variable/requirements/typedefs.cc: New.
+	* testsuite/29_atomics/atomic_integral/cons/assign_neg.cc: Adjust
+	line numbers.
+	* testsuite/29_atomics/atomic_integral/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/assign_neg.cc: Same.
+	* testsuite/29_atomics/atomic/cons/copy_neg.cc: Same.
+	* testsuite/29_atomics/atomic/requirements/standard_layout.cc:
+	Remove, not required.
+
+2009-01-22  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread (__thread_data_base, thread): Rename member
+	functions to match coding style.
+	(thread::thread,thread::operator=): Define move operations.
+	* src/thread.cc (__thread_data_base, thread): Rename member functions.
+	* config/abi/pre/gnu.ver: Adjust.
+
+2009-01-22  Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR libstdc++/38384
+	* acinclude.m4 (GLIBCXX_ENABLE_SYMVERS): Disable symbol versioning
+	on HPUX.
+	* configure: Regenerate.
+
 2009-01-22  Dodji Seketeli  <dodji@redhat.com>
 
 	* include/ext/bitmap_allocator.h: Reverting changes related to PR

@@ -386,7 +386,7 @@ Common Report Var(flag_no_common,0) Optimization
 Do not put uninitialized globals in the common section
 
 fconserve-stack
-Common Var(flag_conserve_stack,0) Optimization
+Common Var(flag_conserve_stack) Optimization
 Do not perform optimizations increasing noticeably stack usage
 
 fcprop-registers
@@ -678,10 +678,6 @@ fipa-struct-reorg
 Common Report Var(flag_ipa_struct_reorg)
 Perform structure layout optimizations based
 on profiling information.
-
-fira
-Common Report Var(flag_ira) Init(0)
-Use integrated register allocator.
 
 fira-algorithm=
 Common Joined RejectNegative

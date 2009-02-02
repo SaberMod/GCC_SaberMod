@@ -1,3 +1,41 @@
+2009-02-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+        PR c++/39053
+        * parser.c (cp_parser_pure_specifier): If there are no tokens left
+        do not call cp_lexer_consume_token.
+
+2009-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39028
+	* parser.c (cp_parser_already_scoped_statement): Handle __label__
+	declarations.
+
+2009-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33465
+	* error.c (dump_expr): Handle FIX_TRUNC_EXPR and FLOAT_EXPR.
+
+2009-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38655
+	* error.c (dump_type_prefix, dump_type_suffix): Handle FIXED_POINT_TYPE.
+
+2009-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* typeck.c (invalid_nonstatic_memfn_p): Use
+	DECL_NONSTATIC_MEMBER_FUNCTION_P.
+
+2009-01-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/37554
+	* call.c (build_over_call): If convert_for_arg_passing returns
+	error_mark_node unconditionally return it.
+
+2009-01-22  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* class.c (check_field_decls): Also inherit packed for bitfields
+	regardless of their type.
+
 2009-01-22  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/38930

@@ -41,12 +41,10 @@
 #else
 
 #include <chrono>
-#include <exception>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <condition_variable>
-#include <type_traits>
 #include <cstddef>
 #include <bits/functexcept.h>
 #include <bits/gthr.h>
@@ -59,17 +57,16 @@ namespace std
 
   typedef shared_ptr<__thread_data_base> __thread_data_ptr;
 
-  class __thread_data_base : public enable_shared_from_this<__thread_data_base>
+  class __thread_data_base
   {
   public:
     __thread_data_base() = default;
     virtual ~__thread_data_base() = default;
     
-    virtual void __run() = 0;
+    virtual void _M_run() = 0;
     
     __gthread_t 	_M_thread_handle;
     __thread_data_ptr 	_M_this_ptr;
-    mutex 		_M_data_mutex;
   };
   
   template<typename _Callable>
@@ -80,7 +77,7 @@ namespace std
       : _M_func(std::forward<_Callable>(__f))
       { }
 
-      void __run()
+      void _M_run()
       { _M_func(); }
 
     private:
@@ -100,21 +97,32 @@ namespace std
     
     template<typename _Callable>
       explicit thread(_Callable __f)
-      : _M_thread_data(__make_thread_data(__f))
-      { __start_thread(); }
+      : _M_thread_data(_M_make_thread_data(__f))
+      { _M_start_thread(); }
 
     template<typename _Callable, typename... _Args>
       thread(_Callable&& __f, _Args&&... __args)
-      : _M_thread_data(__make_thread_data(std::bind(__f, __args...)))
-      { __start_thread(); }
+      : _M_thread_data(_M_make_thread_data(std::bind(__f, __args...)))
+      { _M_start_thread(); }
 
     ~thread()
-    { detach(); }
+    {
+      if (joinable())
+        detach();
+    }
 
     thread(const thread&) = delete;
-    thread(thread&&);
+    thread(thread&& __t)
+    { swap(__t); }
+
     thread& operator=(const thread&) = delete;
-    thread& operator=(thread&&);
+    thread& operator=(thread&& __t)
+    {
+      if (joinable())
+        detach();
+      swap(__t);
+      return *this;
+    }
 
     // members
     void 
@@ -122,7 +130,8 @@ namespace std
     { std::swap(_M_thread_data, __t._M_thread_data); }
 
     bool 
-    joinable() const;
+    joinable() const
+    { return _M_thread_data; }
 
     void 
     join();
@@ -133,6 +142,8 @@ namespace std
     thread::id
     get_id() const;
 
+    /** @pre thread is joinable
+     */
     native_handle_type 
     native_handle()
     { return _M_thread_data->_M_thread_handle; }
@@ -140,30 +151,18 @@ namespace std
     // static members
     static unsigned hardware_concurrency();
 
-    __thread_data_ptr
-    _M_get_thread_data() const
-    {
-      lock_guard<mutex> __l(_M_thread_data_mutex);
-      return _M_thread_data;
-    }
-
   private:
     template<typename _Callable>
       __thread_data_ptr 
-      __make_thread_data(_Callable&& __f)
+      _M_make_thread_data(_Callable&& __f)
       { 
-	return __thread_data_ptr(
-	  new __thread_data<_Callable>(std::forward<_Callable>(__f)));
+	return make_shared<__thread_data<_Callable>>(
+            std::forward<_Callable>(__f));
       }
     
-    __thread_data_ptr
-    __make_thread_data(void(*__f)())
-    { return __thread_data_ptr(new __thread_data<void(*)()>(__f)); }
-    
-    void __start_thread();
+    void _M_start_thread();
 
     __thread_data_ptr 	_M_thread_data;
-    mutable mutex 	_M_thread_data_mutex;
   };
 
   inline void
@@ -229,8 +228,7 @@ namespace std
 
     friend bool 
     operator==(thread::id __x, thread::id __y)
-    { return static_cast<bool>(__gthread_equal(__x._M_thread_id,
-					       __y._M_thread_id)); }
+    { return __gthread_equal(__x._M_thread_id, __y._M_thread_id); }
 
     friend bool
     operator<(thread::id __x, thread::id __y)
@@ -240,6 +238,7 @@ namespace std
       friend basic_ostream<_CharT, _Traits>&
       operator<<(basic_ostream<_CharT, _Traits>&& __out, thread::id __id); 
 
+    explicit 
     id(__gthread_t __id)
     : _M_thread_id(__id)
     { }
@@ -272,10 +271,6 @@ namespace std
       else
 	return __out << __id._M_thread_id;
     }  
-
-  inline bool
-  thread::joinable() const
-  { return get_id() != thread::id(); }
 
   inline thread::id
   thread::get_id() const

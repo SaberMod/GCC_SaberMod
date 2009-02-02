@@ -1502,12 +1502,6 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
   unsigned int j;
   bitmap_iterator bi;
 
-  if (bitmap_bit_p (delta, anything_id))
-    {
-      flag |= bitmap_set_bit (sol, anything_id);
-      goto done;
-    }
-
   /* For x = *ESCAPED and x = *CALLUSED we want to compute the
      reachability set of the rhs var.  As a pointer to a sub-field
      of a variable can also reach all other fields of the variable
@@ -1551,6 +1545,12 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	    }
 	  BITMAP_FREE (vars);
 	}
+    }
+
+  if (bitmap_bit_p (delta, anything_id))
+    {
+      flag |= bitmap_set_bit (sol, anything_id);
+      goto done;
     }
 
   /* For each variable j in delta (Sol(y)), add
@@ -3044,8 +3044,14 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p)
      happens below, since it will fall into the default case. The only
      case we know something about an integer treated like a pointer is
      when it is the NULL pointer, and then we just say it points to
-     NULL.  */
-  if (TREE_CODE (t) == INTEGER_CST
+     NULL.
+
+     Do not do that if -fno-delete-null-pointer-checks though, because
+     in that case *NULL does not fail, so it _should_ alias *anything.
+     It is not worth adding a new option or renaming the existing one,
+     since this case is relatively obscure.  */
+  if (flag_delete_null_pointer_checks
+      && TREE_CODE (t) == INTEGER_CST
       && integer_zerop (t))
     {
       temp.var = nothing_id;
@@ -4703,7 +4709,8 @@ set_uids_in_ptset (tree ptr, bitmap into, bitmap from, bool is_derefed,
 	     type-based pruning disabled.  */
 	  if (vi->is_artificial_var
 	      || !is_derefed
-	      || no_tbaa_pruning)
+	      || no_tbaa_pruning
+	      || vi->no_tbaa_pruning)
 	    bitmap_set_bit (into, DECL_UID (vi->decl));
 	  else
 	    {
@@ -5496,19 +5503,8 @@ compute_points_to_sets (void)
 	    find_func_aliases (phi);
 	}
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
-	{
-	  gimple stmt = gsi_stmt (gsi);
-
-	  find_func_aliases (stmt);
-
-	  /* The information in GIMPLE_CHANGE_DYNAMIC_TYPE statements
-	     has now been captured, and we can remove them.  */
-	  if (gimple_code (stmt) == GIMPLE_CHANGE_DYNAMIC_TYPE)
-	    gsi_remove (&gsi, true);
-	  else
-	    gsi_next (&gsi);
-	}
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	find_func_aliases (gsi_stmt (gsi));
     }
 
 
