@@ -1,7 +1,243 @@
+2009-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39153
+	* g++.dg/cpp0x/defaulted9.C: New test.
+
+	PR c++/30111
+	* g++.dg/init/value7.C: New test.
+
+2009-02-11  Paolo Bonzini  <bonzini@gnu.org>
+
+	* gcc.target/i386/pr38824.c: New testcase.
+
+2009-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38649
+	* g++.dg/cpp0x/defaulted8.C: New test.
+
+	PR c++/36744
+	* g++.dg/cpp0x/rv9p.C: New test.
+
+2009-02-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/aliasing3.adb: New test.
+	* gnat.dg/aliasing3_pkg.ad[sb]: New helper.
+
+2009-02-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/34397
+	* g++.dg/template/crash88.C: New.
+	* g++.dg/template/crash89.C: Likewise.
+
+2009-02-10  Steve Ellcey  <sje@cup.hp.com>
+
+	PR c/39084
+	* gcc.dg/pr39084.c: New test.
+
+2009-02-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/39139
+	* gcc.target/i386/pr39139.c: New test.
+
+2009-02-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/39132
+	* gcc.dg/torture/pr39132.c: New testcase.
+
+2009-02-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/39119
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: New.
+	* gcc.target/x86_64/abi/avx/args.h: Likewise.
+	* gcc.target/x86_64/abi/avx/asm-support.S: Likewise.
+	* gcc.target/x86_64/abi/avx/avx-check.h: Likewise.
+	* gcc.target/x86_64/abi/avx/test_m256_returning.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_m256.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_structs.c: Likewise.
+	* gcc.target/x86_64/abi/avx/test_passing_unions.c: Likewise.
+
+2009-02-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39109
+	* g++.dg/init/value6.C: New test.
+
+2009-02-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/x86_64/abi/abi-x86_64.exp: Use glob instead of
+	find.
+
+2009-02-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20090209-1.c: New test.
+
+2009-02-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/35147
+	PR c++/37737
+	* g++.dg/cpp0x/vt-35147.C: New.
+	* g++.dg/cpp0x/vt-37737-1.C: Likewise.
+	* g++.dg/cpp0x/vt-37737-2.C: Likewise.
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35434
+	* gcc.dg/attr-alias-4.c: New test.
+
+2009-02-06  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39035
+	* gcc.dg/dfp/pr39035.c: New test.
+
+2009-02-06  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/36432
+	* gcc.dg/c90-flex-array-2.c, gcc.dg/c99-flex-array-6.c: New tests.
+
+2009-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39106
+	* g++.dg/opt/thunk3.C: New test.
+
+2009-02-05  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.c-torture/compile/20080625-1.c: Skip for M32C.
+	* gcc.c-torture/compile/limits-stringlit.c: Likewise.
+	* gcc.dg/cdce1.c: Likewise.
+	* gcc.dg/cpp/_Pragma6.c: Likewise.
+	* g++.dg/cpp/_Pragma1.C: Likewise.
+	* gcc.dg/utf32-2.c: Xfail for M32C.
+	* gcc.dg/utf32-1.c: Likewise.
+	* gcc.dg/utf32-3.c: Likewise.
+	* gcc.dg/Wtype-limits.c: Add expected warning messages for 16-bit
+	targets.
+	* gcc.dg/Wtype-limits-Wextra.c: Likewise.
+	* gcc.dg/utf32-4.c: Only run for 32-bit+ targets.
+	* gcc.dg/Wconversion-5.c: Likewise.
+	* gcc.dg/tree-ssa/data-dep-1.c: Likewise.
+	* gcc.dg/tree-ssa/ldist-3.c: Likewise.
+	* gcc.dg/tree-ssa/ldist-5.c: Likewise.
+	* gcc.dg/utf-inc-init.c: Likewise.
+	* gcc.dg/pr11492.c: Xfail for 16-bit targets.
+	* gcc.dg/utf-array.c: Add expected warning messages for M32C.
+	* gcc.dg/utf-array-short-wchar.c: Likewise.
+	* gcc.dg/tree-ssa/pr33920.c: Expect a warning from all 16-bit targets.
+	* gcc.dg/mallign.c: Use size_t instead of long.
+
+2009-02-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/torture/pr31863.C: Generalize dg-timeout-factor.
+
+2009-02-05  Daniel Berlin  <dberlin@dberlin.org>
+
+	* gcc.c-torture/execute/pr39100.c: New.
+
+2009-02-05  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35435
+	* gcc.dg/tls/diag-6.c: New test.
+
+2009-02-04  H.J. Lu  <hongjiu.lu@intel.com>
+
+	AVX Programming Reference (January, 2009)
+	* gcc.target/i386/avx-vpclmulqdq.c: New.
+	* gcc.target/i386/pclmul-avx-check.h: Likewise.
+
+	* gcc.target/i386/i386.exp (check_effective_target_vpclmul): New.
+
+	* gcc.target/i386/pclmulqdq.c (CHECK_H): New.
+	(TEST): Likewise.
+	Include CHECK_H instead of "pclmul-check.h".
+	(pclmul_test): Renamed to ...
+	(TEST): This.
+
+2009-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39095
+	* g++.dg/abi/mangle31.C: New test.
+
+2009-02-03  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/29129
+	* c90-arraydecl-1.c: Do not expect error for [*] in abstract
+	declarator.
+	* vla-6.c: Likewise.  Expect warning not error for [*] lexically
+	inside function prototype but not part of parameter declarator.
+	* vla-11.c: New test.
+
+2009-02-03  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/warn/main-4.C: New test.
+	* g++.old-deja/g++.bugs/900227_01.C: Remove &main warnings.
+
+2009-02-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR C++/36607
+	* g++.dg/expr/cast10.C: New test.
+
+2009-02-03  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/35433
+	* gcc.dg/init-bad-6.c: New test.
+
+2009-02-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/35318
+	* gcc.c-torture/compile/pr35318.c: New test.
+
+	PR inline-asm/39059
+	* gcc.dg/nofixed-point-2.c: New test.
+	* g++.dg/ext/fixed1.C: Adjust expected diagnostics.
+	* g++.dg/ext/fixed2.C: Likewise.
+	* g++.dg/other/error25.C: Likewise.
+	* g++.dg/lookup/crash7.C: Likewise.
+	* g++.dg/cpp0x/decltype-38655.C: Likewise.
+
+	PR c++/39056
+	* g++.dg/cpp0x/initlist13.C: New test.
+
+2009-02-03  Paolo Bonzini  <bonzini@gnu.org>
+
+	PR c++/36897
+	* g++.dg/template/func2.C: New test.
+
+	PR c++/37314
+	* g++.dg/template/typename15.C: New.
+	* g++.dg/template/typename16.C: New.
+
+2009-02-03  Janis Johnson  <janis187@us.ibm.com>
+	    Ben Elliston  <bje@au.ibm.com>
+
+	PR c/39034
+	* gcc.dg/dfp/pr39034.c: New test.
+
+2009-02-02  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR testsuite/38263
+	* gcc.dg/ipa/ipacost-2.c: Add -fpie when pic.
+
+2009-02-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39054
+	* g++.dg/parse/dtor14.C: New test.
+
+2009-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_correct_iso_cpp_string_wchar_protos): New.
+	* g++.dg/ext/builtin10.C: New test.
+
+	PR inline-asm/39058
+	* gcc.target/i386/pr39058.c: New test.
+
+2009-02-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/38937
+	* g++.dg/warn/Wstrict-aliasing-bogus-escape.C: New testcase.
+
 2009-02-01  Paolo Carlini  <paolo.carlini@oracle.com>
 
-        PR c++/39053
-        * g++.dg/parse/crash52.C: New.
+	PR c++/39053
+	* g++.dg/parse/crash52.C: New.
 
 2009-01-30  Richard Guenther  <rguenther@suse.de>
 
@@ -41,7 +277,8 @@
 2009-01-29  Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	PR middle-end/35854
-	* gcc.dg/lower-subreg-1.c: Renamed dump pass from "subreg" to "subreg1"		
+	* gcc.dg/lower-subreg-1.c: Renamed dump pass from "subreg"
+	to "subreg1".
 	
 2009-01-29  Steve Ellcey  <sje@cup.hp.com>
 
@@ -809,7 +1046,8 @@
 	in trunk.
 	* testsuite/gcc.dg/graphite/block-0.c: Update test.
 	* testsuite/gcc.dg/graphite/block-1.c: Same.
-	* testsuite/gcc.dg/graphite/block-2.c: Remove xfail and test for blocking.
+	* testsuite/gcc.dg/graphite/block-2.c: Remove xfail and test
+	for blocking.
 	* testsuite/gcc.dg/graphite/block-4.c: Remove test for strip mine.
 	* testsuite/gcc.dg/graphite/block-3.c: New.
 	* testsuite/gcc.dg/graphite/pr38498.c: New.
@@ -905,7 +1143,7 @@
 
 2009-01-05  Laurent GUERBY  <laurent@guerby.net>
 
-	* gcc.c-torture/compile/20001226-1.c: Generalize 
+	* gcc.c-torture/compile/20001226-1.c: Generalize
 	dg-timeout-factor.
 	* gcc.c-torture/compile/limits-fnargs.c: Add
 	dg-timeout-factor.

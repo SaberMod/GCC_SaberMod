@@ -677,14 +677,14 @@ proper position among the other output files.  */
      && defined(HAVE_AS_GDWARF2_DEBUG_FLAG) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
 #  define ASM_DEBUG_SPEC						\
       (PREFERRED_DEBUGGING_TYPE == DBX_DEBUG				\
-       ? "%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}" ASM_MAP	\
-       : "%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}" ASM_MAP)
+       ? "%{!g0:%{gdwarf-2*:--gdwarf2}%{!gdwarf-2*:%{g*:--gstabs}}}" ASM_MAP	\
+       : "%{!g0:%{gstabs*:--gstabs}%{!gstabs*:%{g*:--gdwarf2}}}" ASM_MAP)
 # else
 #  if defined(DBX_DEBUGGING_INFO) && defined(HAVE_AS_GSTABS_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:--gstabs}" ASM_MAP
+#   define ASM_DEBUG_SPEC "%{g*:%{!g0:--gstabs}}" ASM_MAP
 #  endif
 #  if defined(DWARF2_DEBUGGING_INFO) && defined(HAVE_AS_GDWARF2_DEBUG_FLAG)
-#   define ASM_DEBUG_SPEC "%{g*:--gdwarf2}" ASM_MAP
+#   define ASM_DEBUG_SPEC "%{g*:%{!g0:--gdwarf2}}" ASM_MAP
 #  endif
 # endif
 #endif
@@ -3641,7 +3641,7 @@ process_command (int argc, const char **argv)
 	  /* translate_options () has turned --version into -fversion.  */
 	  printf (_("%s %s%s\n"), programname, pkgversion_string,
 		  version_string);
-	  printf ("Copyright %s 2008 Free Software Foundation, Inc.\n",
+	  printf ("Copyright %s 2009 Free Software Foundation, Inc.\n",
 		  _("(C)"));
 	  fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),

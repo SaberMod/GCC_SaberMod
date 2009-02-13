@@ -82,7 +82,12 @@ lvalue_p_1 (tree ref,
 	  && TREE_CODE (ref) != PARM_DECL
 	  && TREE_CODE (ref) != VAR_DECL
 	  && TREE_CODE (ref) != COMPONENT_REF)
-	return clk_none;
+	{
+	  if (CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (ref))))
+	    return treat_class_rvalues_as_lvalues ? clk_class : clk_none;
+	  else
+	    return clk_none;
+	}
 
       /* lvalue references and named rvalue references are lvalues.  */
       return clk_ordinary;
@@ -487,7 +492,10 @@ force_target_expr (tree type, tree init)
 tree
 get_target_expr (tree init)
 {
-  return build_target_expr_with_type (init, TREE_TYPE (init));
+  if (TREE_CODE (init) == AGGR_INIT_EXPR)
+    return build_target_expr (AGGR_INIT_EXPR_SLOT (init), init);
+  else
+    return build_target_expr_with_type (init, TREE_TYPE (init));
 }
 
 /* If EXPR is a bitfield reference, convert it to the declared type of
