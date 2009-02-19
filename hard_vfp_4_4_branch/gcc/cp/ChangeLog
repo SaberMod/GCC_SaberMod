@@ -1,3 +1,25 @@
+2009-02-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39219
+	* parser.c (cp_parser_enum_specifier): Apply all attributes.
+
+2009-02-18  Jason Merrill  <jason@redhat.com>
+
+	* cfns.h: Tweak pathname for cfns.gperf.
+
+2009-02-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39070
+	* semantics.c (finish_call_expr): Change koenig_p parm to int.
+	If -1, don't set KOENIG_LOOKUP_P but do keep hidden candidates.
+	* cp-tree.h: Adjust prototype.
+	* pt.c (tsubst_copy_and_build) [CALL_EXPR]: Pass -1.
+
+2009-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38950
+	* pt.c (unify)[TEMPLATE_PARM_INDEX]: Convert to the tsubsted type.
+
 2009-02-11  Jason Merrill  <jason@redhat.com>
 
 	PR c++/39153
