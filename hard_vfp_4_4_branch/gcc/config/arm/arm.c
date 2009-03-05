@@ -2901,6 +2901,8 @@ arm_return_in_memory (const_tree type, const_tree fntype)
 {
   HOST_WIDE_INT size;
 
+  size = int_size_in_bytes (type);  /* Negative if not fixed size.  */
+
   if (TARGET_AAPCS_BASED)
     {
       /* Simple, non-aggregate types (ie not including vectors and
@@ -2914,7 +2916,6 @@ arm_return_in_memory (const_tree type, const_tree fntype)
 
       /* Any return value that is no larger than one word can be
 	 returned in r0.  */
-      size = int_size_in_bytes (type);  /* Negative if not fixed size.  */
       if (((unsigned HOST_WIDE_INT) size) <= UNITS_PER_WORD)
 	return false;
 
@@ -2925,15 +2926,16 @@ arm_return_in_memory (const_tree type, const_tree fntype)
       if (aapcs_select_return_coproc (type, fntype) >= 0)
 	return false;
 
+      /* Vector values should be returned using ARM registers, not
+	 memory (unless they're over 16 bytes, which will break since
+	 we only have four call-clobbered registers to play with).  */
+      if (TREE_CODE (type) == VECTOR_TYPE)
+	return (size < 0 || size > (4 * UNITS_PER_WORD));
+
       /* The rest go in memory.  */
       return true;
     }
-  
-  size = int_size_in_bytes (type);
 
-  /* Vector values should be returned using ARM registers, not memory (unless
-     they're over 16 bytes, which will break since we only have four
-     call-clobbered registers to play with).  */
   if (TREE_CODE (type) == VECTOR_TYPE)
     return (size < 0 || size > (4 * UNITS_PER_WORD));
 
