@@ -1,5 +1,5 @@
 /* Callgraph based interprocedural optimizations.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
@@ -1313,7 +1313,6 @@ cgraph_optimize (void)
 
       varpool_assemble_pending_decls ();
     }
-  varpool_output_debug_info ();
   cgraph_process_new_functions ();
   cgraph_state = CGRAPH_STATE_FINISHED;
 

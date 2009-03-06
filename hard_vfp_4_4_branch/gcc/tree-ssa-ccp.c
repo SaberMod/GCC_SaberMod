@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright (C) 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
@@ -1942,8 +1942,7 @@ maybe_fold_offset_to_address (tree addr, tree offset, tree orig_type)
 	   || (TREE_CODE (orig) == COMPONENT_REF
 	       && TREE_CODE (TREE_TYPE (TREE_OPERAND (orig, 1))) == ARRAY_TYPE))
 	  && (TREE_CODE (t) == ARRAY_REF
-	      || (TREE_CODE (t) == COMPONENT_REF
-		  && TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 1))) == ARRAY_TYPE))
+	      || TREE_CODE (t) == COMPONENT_REF)
 	  && !operand_equal_p (TREE_CODE (orig) == ARRAY_REF
 			       ? TREE_OPERAND (orig, 0) : orig,
 			       TREE_CODE (t) == ARRAY_REF

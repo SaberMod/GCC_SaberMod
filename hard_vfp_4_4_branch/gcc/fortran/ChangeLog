@@ -1,3 +1,47 @@
+2009-02-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39309
+	* module.c (read_md5_from_module_file): Add missing quote.
+
+2009-02-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39309
+	* module.c (read_md5_from_module_file): Include mod version
+	in had-changed test.
+
+2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39295
+	* interface.c (compare_type_rank_if): Return 1 if the symbols
+	are the same and deal with external procedures where one is
+	identified to be a function or subroutine by usage but the
+	other is not.
+
+2009-02-26  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/39292
+	* trans-array.c (gfc_conv_array_initializer): Convert all
+	expressions rather than ICEing.
+
+2009-02-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/38914
+	* array.c (ref_dimen_size):  Rename to gfc_ref_dimen_size,
+	make global.  Change function name in error messages.
+	(ref_size):  Change ref_dimen_size to gfc_ref_dimen_size.
+	(gfc_array_ref_shape):  Likewise.
+	* gfortran.h:  Add prototype for gfc_ref_dimen_size.
+	* simplify.c (simplify_bound_dim):  Add ref argument.
+	If the reference isn't a full array, return one for
+	the lower bound and the extent for the upper bound.
+	(simplify_bound):  For array sections, take as from the
+	argument.  Add reference to all to simplify_bound_dim.
+
+2009-02-19  Daniel Franke  <franke.daniel@gmail.com>
+
+	* scanner.c (load_line): At end of line, skip '\r' without setting
+	the truncation flag.
+
 2009-02-18  Daniel Kraft  <d@domob.eu>
 
 	* gfortran.texi: New chapter about compiler characteristics.

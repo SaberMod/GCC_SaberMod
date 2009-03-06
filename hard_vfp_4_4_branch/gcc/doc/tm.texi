@@ -1,5 +1,6 @@
 @c Copyright (C) 1988,1989,1992,1993,1994,1995,1996,1997,1998,1999,2000,2001,
-@c 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+@c 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
+@c Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -4303,20 +4304,12 @@ a new target instead.
 
 @defmac LIBCALL_VALUE (@var{mode})
 A C expression to create an RTX representing the place where a library
-function returns a value of mode @var{mode}.  If the precise function
-being called is known, @var{func} is a tree node
-(@code{FUNCTION_DECL}) for it; otherwise, @var{func} is a null
-pointer.  This makes it possible to use a different value-returning
-convention for specific functions when all their calls are
-known.
+function returns a value of mode @var{mode}.
 
 Note that ``library function'' in this context means a compiler
 support routine, used to perform arithmetic, whose name is known
 specially by the compiler and was not mentioned in the C code being
 compiled.
-
-The definition of @code{LIBRARY_VALUE} need not be concerned aggregate
-data types, because none of the library functions returns such types.
 @end defmac
 
 @deftypefn {Target Hook} rtx TARGET_LIBCALL_VALUE (enum machine_mode
@@ -5239,9 +5232,9 @@ macro, a reasonable default is used.
 @defmac TARGET_C99_FUNCTIONS
 When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
 @code{sinf} and similarly for other functions defined by C99 standard.  The
-default is nonzero that should be proper value for most modern systems, however
-number of existing systems lacks support for these functions in the runtime so
-they needs this macro to be redefined to 0.
+default is zero because a number of existing systems lack support for these
+functions in their runtime so this macro needs to be redefined to one on
+systems that do support the C99 runtime.
 @end defmac
 
 @cindex sincos math function, implicit usage

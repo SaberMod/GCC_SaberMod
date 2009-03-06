@@ -1,6 +1,6 @@
 /* Subroutines used for MIPS code generation.
    Copyright (C) 1989, 1990, 1991, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
@@ -7782,7 +7782,7 @@ mips_mdebug_abi_name (void)
     case ABI_N32:
       return "abiN32";
     case ABI_64:
-      return "abiN64";
+      return "abi64";
     case ABI_EABI:
       return TARGET_64BIT ? "eabi64" : "eabi32";
     default:

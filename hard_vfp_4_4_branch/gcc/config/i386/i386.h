@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for IA-32.
    Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007
+   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -859,7 +859,7 @@ enum target_cpu_default
     1,    1,   1,   1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
-/*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
+/* mm0, mm1, mm2, mm3, mm4, mm5, mm6, mm7*/			\
      0,   0,   0,   0,   0,   0,   0,   0,			\
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      2,   2,   2,   2,   2,   2,   2,   2,			\
@@ -887,7 +887,7 @@ enum target_cpu_default
     1,   1,    1,   1,    1,					\
 /*xmm0,xmm1,xmm2,xmm3,xmm4,xmm5,xmm6,xmm7*/			\
      1,   1,   1,   1,   1,   1,   1,   1,			\
-/*mmx0,mmx1,mmx2,mmx3,mmx4,mmx5,mmx6,mmx7*/			\
+/* mm0, mm1, mm2, mm3, mm4, mm5, mm6, mm7*/			\
      1,   1,   1,   1,   1,   1,   1,   1,			\
 /*  r8,  r9, r10, r11, r12, r13, r14, r15*/			\
      1,   1,   1,   1,   2,   2,   2,   2,			\
@@ -933,47 +933,32 @@ do {									\
       }									\
     j = PIC_OFFSET_TABLE_REGNUM;					\
     if (j != INVALID_REGNUM)						\
-      {									\
-	fixed_regs[j] = 1;						\
-	call_used_regs[j] = 1;						\
-      }									\
+      fixed_regs[j] = call_used_regs[j] = 1;				\
     if (TARGET_64BIT							\
-        && ((cfun && cfun->machine->call_abi == MS_ABI)			\
-            || (!cfun && DEFAULT_ABI == MS_ABI)))			\
+	&& ((cfun && cfun->machine->call_abi == MS_ABI)			\
+	    || (!cfun && DEFAULT_ABI == MS_ABI)))			\
       {									\
-        int i;								\
-        call_used_regs[4 /*RSI*/] = 0;                                  \
-        call_used_regs[5 /*RDI*/] = 0;                                  \
-	for (i = 0; i < 8; i++)						\
-	  call_used_regs[45+i] = 0;					\
-	call_used_regs[27] = call_used_regs[28] = 0;			\
+	call_used_regs[SI_REG] = 0;					\
+	call_used_regs[DI_REG] = 0;					\
+	call_used_regs[XMM6_REG] = 0;					\
+	call_used_regs[XMM7_REG] = 0;					\
+	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
+	  call_used_regs[i] = 0;					\
       }									\
     if (! TARGET_MMX)							\
-      {									\
-	int i;								\
-        for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-          if (TEST_HARD_REG_BIT (reg_class_contents[(int)MMX_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-      }									\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
+	if (TEST_HARD_REG_BIT (reg_class_contents[(int)MMX_REGS], i))	\
+	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
     if (! TARGET_SSE)							\
-      {									\
-	int i;								\
-        for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-          if (TEST_HARD_REG_BIT (reg_class_contents[(int)SSE_REGS], i))	\
-	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-      }									\
-    if (! TARGET_80387 && ! TARGET_FLOAT_RETURNS_IN_80387)		\
-      {									\
-	int i;								\
-	HARD_REG_SET x;							\
-        COPY_HARD_REG_SET (x, reg_class_contents[(int)FLOAT_REGS]);	\
-        for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
-          if (TEST_HARD_REG_BIT (x, i)) 				\
-	    fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
-      }									\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
+	if (TEST_HARD_REG_BIT (reg_class_contents[(int)SSE_REGS], i))	\
+	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
+    if (! (TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387))		\
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)			\
+	if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))	\
+	  fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";	\
     if (! TARGET_64BIT)							\
       {									\
-	int i;								\
 	for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)		\
 	  reg_names[i] = "";						\
 	for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)		\
@@ -1088,7 +1073,7 @@ do {									\
    : (MODE) == VOIDmode && (NREGS) != 1 ? VOIDmode			\
    : (MODE) == VOIDmode ? choose_hard_reg_mode ((REGNO), (NREGS), false) \
    : (MODE) == HImode && !TARGET_PARTIAL_REG_STALL ? SImode		\
-   : (MODE) == QImode && (REGNO) >= 4 && !TARGET_64BIT ? SImode 	\
+   : (MODE) == QImode && (REGNO) > BX_REG && !TARGET_64BIT ? SImode 	\
    : (MODE))
 
 /* Specify the registers used for certain standard purposes.
@@ -1325,7 +1310,7 @@ enum reg_class
 
 #define SMALL_REGISTER_CLASSES 1
 
-#define QI_REG_P(X) (REG_P (X) && REGNO (X) < 4)
+#define QI_REG_P(X) (REG_P (X) && REGNO (X) <= BX_REG)
 
 #define GENERAL_REGNO_P(N) \
   ((N) <= STACK_POINTER_REGNUM || REX_INT_REGNO_P (N))
@@ -1523,7 +1508,8 @@ enum reg_class
    prologue and apilogue.  This is not possible without
    ACCUMULATE_OUTGOING_ARGS.  */
 
-#define ACCUMULATE_OUTGOING_ARGS (TARGET_ACCUMULATE_OUTGOING_ARGS || ix86_cfun_abi () == MS_ABI)
+#define ACCUMULATE_OUTGOING_ARGS \
+  (TARGET_ACCUMULATE_OUTGOING_ARGS || ix86_cfun_abi () == MS_ABI)
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
    instructions to pass outgoing arguments.  */

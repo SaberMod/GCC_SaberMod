@@ -1533,24 +1533,8 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
 };
 
-static int const x86_64_int_parameter_registers[6] =
-{
-  5 /*RDI*/, 4 /*RSI*/, 1 /*RDX*/, 2 /*RCX*/,
-  FIRST_REX_INT_REG /*R8 */, FIRST_REX_INT_REG + 1 /*R9 */
-};
-
-static int const x86_64_ms_abi_int_parameter_registers[4] =
-{
-  2 /*RCX*/, 1 /*RDX*/,
-  FIRST_REX_INT_REG /*R8 */, FIRST_REX_INT_REG + 1 /*R9 */
-};
-
-static int const x86_64_int_return_registers[4] =
-{
-  0 /*RAX*/, 1 /*RDX*/, 5 /*RDI*/, 4 /*RSI*/
-};
-
 /* The "default" register map used in 64bit mode.  */
+
 int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
 {
   0, 1, 2, 3, 4, 5, 6, 7,		/* general regs */
@@ -1633,6 +1617,23 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
 rtx ix86_compare_op0 = NULL_RTX;
 rtx ix86_compare_op1 = NULL_RTX;
 rtx ix86_compare_emitted = NULL_RTX;
+
+/* Define parameter passing and return registers.  */
+
+static int const x86_64_int_parameter_registers[6] =
+{
+  DI_REG, SI_REG, DX_REG, CX_REG, R8_REG, R9_REG
+};
+
+static int const x86_64_ms_abi_int_parameter_registers[4] =
+{
+  CX_REG, DX_REG, R8_REG, R9_REG
+};
+
+static int const x86_64_int_return_registers[4] =
+{
+  AX_REG, DX_REG, DI_REG, SI_REG
+};
 
 /* Define the structure for the machine field in struct function.  */
 
@@ -4759,7 +4760,7 @@ type_natural_mode (const_tree type, CUMULATIVE_ARGS *cum)
 		      {
 			warnedavx = true;
 			warning (0, "AVX vector argument without AVX "
-				 " enabled changes the ABI");
+				 "enabled changes the ABI");
 		      }
 		    return TYPE_MODE (type);
 		  }
@@ -5115,9 +5116,11 @@ classify_argument (enum machine_mode mode, const_tree type,
     case TImode:
       classes[0] = classes[1] = X86_64_INTEGER_CLASS;
       return 2;
-    case CTImode:
     case COImode:
     case OImode:
+      /* OImode shouldn't be used directly.  */
+      gcc_unreachable ();
+    case CTImode:
       return 0;
     case SFmode:
       if (!(bit_offset % 64))
@@ -5468,6 +5471,10 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	}
       break;
 
+    case OImode:
+      /* OImode shouldn't be used directly.  */
+      gcc_unreachable ();
+
     case DFmode:
       if (cum->float_in_sse < 2)
 	break;
@@ -5476,7 +5483,6 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	break;
       /* FALLTHRU */
 
-    case OImode:
     case V8SFmode:
     case V8SImode:
     case V32QImode:
@@ -5673,7 +5679,9 @@ function_arg_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       break;
 
     case OImode:
-      /* In 32bit, we pass OImode in ymm registers.  */
+      /* OImode shouldn't be used directly.  */
+      gcc_unreachable ();
+
     case V8SFmode:
     case V8SImode:
     case V32QImode:
@@ -5738,9 +5746,6 @@ function_arg_64 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
     case V16HImode:
     case V4DFmode:
     case V4DImode:
-      /* In 64bit, we pass TImode in interger registers and OImode on
-	 stack.  */
-
       /* Unnamed 256bit vector mode parameters are passed on stack.  */
       if (!named)
 	return NULL;
@@ -6019,6 +6024,10 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 	   || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
     regno = TARGET_SSE ? FIRST_SSE_REG : 0;
 
+  /* 32-byte vector modes in %ymm0.   */
+  else if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 32)
+    regno = TARGET_AVX ? FIRST_SSE_REG : 0;
+
   /* Floating point return values in %st(0) (unless -mno-fp-ret-in-387).  */
   else if (X87_FLOAT_MODE_P (mode) && TARGET_FLOAT_RETURNS_IN_80387)
     regno = FIRST_FLOAT_REG;
@@ -6035,6 +6044,9 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 	  || (sse_level == 2 && mode == DFmode))
 	regno = FIRST_SSE_REG;
     }
+
+  /* OImode shouldn't be used directly.  */
+  gcc_assert (mode != OImode);
 
   return gen_rtx_REG (orig_mode, regno);
 }
@@ -6172,6 +6184,10 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
       /* SSE values are returned in XMM0, except when it doesn't exist.  */
       if (size == 16)
 	return (TARGET_SSE ? 0 : 1);
+
+      /* AVX values are returned in YMM0, except when it doesn't exist.  */
+      if (size == 32)
+	return TARGET_AVX ? 0 : 1;
     }
 
   if (mode == XFmode)
@@ -6179,6 +6195,10 @@ return_in_memory_32 (const_tree type, enum machine_mode mode)
 
   if (size > 12)
     return 1;
+
+  /* OImode shouldn't be used directly.  */
+  gcc_assert (mode != OImode);
+
   return 0;
 }
 
@@ -18665,8 +18685,12 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
      by SYSV calls.  */
   if (ix86_cfun_abi () == MS_ABI && function_call_abi == SYSV_ABI)
     {
-      static int clobbered_registers[] = {27, 28, 45, 46, 47, 48, 49, 50, 51,
-      					  52, SI_REG, DI_REG};
+      static int clobbered_registers[] = {
+	XMM6_REG, XMM7_REG, XMM8_REG,
+	XMM9_REG, XMM10_REG, XMM11_REG,
+	XMM12_REG, XMM13_REG, XMM14_REG,
+	XMM15_REG, SI_REG, DI_REG
+      };
       unsigned int i;
       rtx vec[ARRAY_SIZE (clobbered_registers) + 2];
       rtx unspec = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx),
@@ -25738,7 +25762,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
       /* Take care for QImode values - they can be in non-QI regs,
 	 but then they do cause partial register stalls.  */
-      if (regno < 4 || TARGET_64BIT)
+      if (regno <= BX_REG || TARGET_64BIT)
 	return 1;
       if (!TARGET_PARTIAL_REG_STALL)
 	return 1;
@@ -26850,7 +26874,7 @@ x86_extended_QIreg_mentioned_p (rtx insn)
   extract_insn_cached (insn);
   for (i = 0; i < recog_data.n_operands; i++)
     if (REG_P (recog_data.operand[i])
-	&& REGNO (recog_data.operand[i]) >= 4)
+	&& REGNO (recog_data.operand[i]) > BX_REG)
        return true;
   return false;
 }
@@ -27120,9 +27144,12 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
     case V16HImode:
     case V8SImode:
     case V8SFmode:
-    case V4DImode:
     case V4DFmode:
       use_vector_set = TARGET_AVX;
+      break;
+    case V4DImode:
+      /* Use ix86_expand_vector_set in 64bit mode only.  */
+      use_vector_set = TARGET_AVX && TARGET_64BIT;
       break;
     default:
       break;
@@ -27262,8 +27289,11 @@ ix86_expand_vector_init_one_var (bool mmx_ok, enum machine_mode mode,
 	 the general case.  */
       return false;
 
-    case V4DFmode:
     case V4DImode:
+      /* Use ix86_expand_vector_set in 64bit mode only.  */
+      if (!TARGET_64BIT)
+	return false;
+    case V4DFmode:
     case V8SFmode:
     case V8SImode:
     case V16HImode:

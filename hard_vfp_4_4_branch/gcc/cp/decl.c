@@ -81,7 +81,6 @@ static tree lookup_and_check_tag (enum tag_types, tree, tag_scope, bool);
 static int walk_namespaces_r (tree, walk_namespaces_fn, void *);
 static void maybe_deduce_size_from_array_init (tree, tree);
 static void layout_var_decl (tree);
-static void maybe_commonize_var (tree);
 static tree check_initializer (tree, tree, int, tree *);
 static void make_rtl_for_nonlocal_decl (tree, tree, const char *);
 static void save_function_data (tree);
@@ -2978,12 +2977,6 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
   gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE);
   gcc_assert (TYPE_P (context));
 
-  /* When the CONTEXT is a dependent type,  NAME could refer to a
-     dependent base class of CONTEXT.  So we cannot peek inside it,
-     even if CONTEXT is a currently open scope.  */
-  if (dependent_type_p (context))
-    return build_typename_type (context, name, fullname, tag_type);
-
   if (!MAYBE_CLASS_TYPE_P (context))
     {
       if (complain & tf_error)
@@ -2991,11 +2984,23 @@ make_typename_type (tree context, tree name, enum tag_types tag_type,
       return error_mark_node;
     }
   
+  /* When the CONTEXT is a dependent type,  NAME could refer to a
+     dependent base class of CONTEXT.  But look inside it anyway
+     if CONTEXT is a currently open scope, in case it refers to a
+     member of the current instantiation or a non-dependent base;
+     lookup will stop when we hit a dependent base.  */
+  if (!dependent_scope_p (context))
+    /* We should only set WANT_TYPE when we're a nested typename type.
+       Then we can give better diagnostics if we find a non-type.  */
+    t = lookup_field (context, name, 0, /*want_type=*/true);
+  else
+    t = NULL_TREE;
+
+  if (!t && dependent_type_p (context)) 
+    return build_typename_type (context, name, fullname, tag_type);
+
   want_template = TREE_CODE (fullname) == TEMPLATE_ID_EXPR;
   
-  /* We should only set WANT_TYPE when we're a nested typename type.
-     Then we can give better diagnostics if we find a non-type.  */
-  t = lookup_field (context, name, 0, /*want_type=*/true);
   if (!t)
     {
       if (complain & tf_error)
@@ -4536,7 +4541,7 @@ layout_var_decl (tree decl)
    we have a weak definition, we must endeavor to create only one
    instance of the variable at link-time.  */
 
-static void
+void
 maybe_commonize_var (tree decl)
 {
   /* Static data in a function with comdat linkage also has comdat
@@ -7660,7 +7665,9 @@ grokdeclarator (const cp_declarator *declarator,
 		    }
 
 		  type = TREE_OPERAND (decl, 0);
-		  name = IDENTIFIER_POINTER (constructor_name (type));
+		  if (TYPE_P (type))
+		    type = constructor_name (type);
+		  name = IDENTIFIER_POINTER (type);
 		  dname = decl;
 		}
 		break;
@@ -8162,8 +8169,9 @@ grokdeclarator (const cp_declarator *declarator,
       switch (TREE_CODE (unqualified_id))
 	{
 	case BIT_NOT_EXPR:
-	  unqualified_id
-	    = constructor_name (TREE_OPERAND (unqualified_id, 0));
+	  unqualified_id = TREE_OPERAND (unqualified_id, 0);
+	  if (TYPE_P (unqualified_id))
+	    unqualified_id = constructor_name (unqualified_id);
 	  break;
 
 	case IDENTIFIER_NODE:
@@ -9039,21 +9047,20 @@ grokdeclarator (const cp_declarator *declarator,
 	    /* Check that the name used for a destructor makes sense.  */
 	    if (sfk == sfk_destructor)
 	      {
+		tree uqname = id_declarator->u.id.unqualified_name;
+
 		if (!ctype)
 		  {
 		    gcc_assert (friendp);
 		    error ("expected qualified name in friend declaration "
-			   "for destructor %qD",
-			   id_declarator->u.id.unqualified_name);
+			   "for destructor %qD", uqname);
 		    return error_mark_node;
 		  }
 
-		if (!same_type_p (TREE_OPERAND
-				  (id_declarator->u.id.unqualified_name, 0),
-				  ctype))
+		if (!check_dtor_name (ctype, TREE_OPERAND (uqname, 0)))
 		  {
 		    error ("declaration of %qD as member of %qT",
-			   id_declarator->u.id.unqualified_name, ctype);
+			   uqname, ctype);
 		    return error_mark_node;
 		  }
 	      }

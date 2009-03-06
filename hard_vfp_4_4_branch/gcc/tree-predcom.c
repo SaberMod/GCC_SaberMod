@@ -1,5 +1,5 @@
 /* Predictive commoning.
-   Copyright (C) 2005, 2007 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
    
 This file is part of GCC.
    
@@ -1374,7 +1374,7 @@ ref_at_iteration (struct loop *loop, tree ref, int iter)
   else
     return NULL_TREE;
 
-  ok = simple_iv (loop, first_stmt (loop->header), idx, &iv, true);
+  ok = simple_iv (loop, loop, idx, &iv, true);
   if (!ok)
     return NULL_TREE;
   iv.base = expand_simple_operations (iv.base);

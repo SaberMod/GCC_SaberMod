@@ -884,7 +884,7 @@ determine_biv_step (gimple phi)
   if (!is_gimple_reg (name))
     return NULL_TREE;
 
-  if (!simple_iv (loop, phi, name, &iv, true))
+  if (!simple_iv (loop, loop, name, &iv, true))
     return NULL_TREE;
 
   return integer_zerop (iv.step) ? NULL_TREE : iv.step;
@@ -990,7 +990,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (!simple_iv (loop, stmt, lhs, iv, true))
+  if (!simple_iv (loop, loop_containing_stmt (stmt), lhs, iv, true))
     return false;
   iv->base = expand_simple_operations (iv->base);
 
@@ -2071,9 +2071,7 @@ add_candidate_1 (struct ivopts_data *data,
     {
       orig_type = TREE_TYPE (base);
       type = generic_type_for (orig_type);
-      /* Don't convert the base to the generic type for pointers as the generic
-	 type is an integer type with the same size as the pointer type.  */
-      if (type != orig_type && !POINTER_TYPE_P (orig_type))
+      if (type != orig_type)
 	{
 	  base = fold_convert (type, base);
 	  step = fold_convert (type, step);
