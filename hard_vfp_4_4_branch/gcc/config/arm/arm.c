@@ -3743,27 +3743,36 @@ aapcs_layout_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
   /* Is this a potential co-processor register candidate?  */
   if (pcum->pcs_variant != ARM_PCS_AAPCS)
     {
-      pcum->aapcs_cprc_slot = aapcs_select_call_coproc (pcum, mode, type);
+      int slot = aapcs_select_call_coproc (pcum, mode, type);
+      pcum->aapcs_cprc_slot = slot;
 
       /* We don't have to apply any of the rules from part B of the
 	 preparation phase, these are handled elsewhere in the
 	 compiler.  */
 
-      if (pcum->aapcs_cprc_slot >= 0
-	  && !pcum->aapcs_cprc_failed[pcum->aapcs_cprc_slot])
+      if (slot >= 0)
 	{
-	  /* C1.cp - Try to allocate the argument to co-processor
-	     registers.  */
-	  if (aapcs_cp_arg_layout[pcum->aapcs_cprc_slot].allocate (pcum, mode,
-								   type))
-	    return;
-	  /* C2.cp - Put the argument on the stack and note that we
-	     can't assign any more candidates in this slot.  We also
-	     need to note that we have allocated stack space, so that
-	     we won't later try to split a non-cprc candidate between
-	     core registers and the stack.  */
-	  pcum->aapcs_cprc_failed[pcum->aapcs_cprc_slot] = true;
-	  pcum->can_split = false;
+	  /* A Co-processor register candidate goes either in its own
+	     class of registers or on the stack.  */
+	  if (!pcum->aapcs_cprc_failed[slot])
+	    {
+	      /* C1.cp - Try to allocate the argument to co-processor
+		 registers.  */
+	      if (aapcs_cp_arg_layout[slot].allocate (pcum, mode, type))
+		return;
+
+	      /* C2.cp - Put the argument on the stack and note that we
+		 can't assign any more candidates in this slot.  We also
+		 need to note that we have allocated stack space, so that
+		 we won't later try to split a non-cprc candidate between
+		 core registers and the stack.  */
+	      pcum->aapcs_cprc_failed[slot] = true;
+	      pcum->can_split = false;
+	    }
+
+	  /* We didn't get a register, so this argument goes on the
+	     stack.  */
+	  gcc_assert (pcum->can_split == false);
 	  return;
 	}
     }

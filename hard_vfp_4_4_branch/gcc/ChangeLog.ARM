@@ -1,4 +1,11 @@
 2009-03-05  Joseph Myers  <joseph@codesourcery.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+
+	* config/arm/arm.c (aapcs_layout_arg): Once a co-processor argument
+	has been put on the stack, all remaining co-processory arguments for
+	that co-processor also go on the stack.
+
+2009-03-05  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/arm/arm.c (arm_return_in_memory): Handle returning
 	vectors of suitable size in registers also for AAPCS case.
