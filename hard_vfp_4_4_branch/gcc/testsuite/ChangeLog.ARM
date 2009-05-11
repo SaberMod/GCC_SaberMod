@@ -1,3 +1,8 @@
+2009-05-11  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_neon_ok):
+	Correct arm_neon.h typo.
+
 2009-03-06  Richard Earnshaw  <rearnsha@arm.com>
 
 	* lib/target-supports.exp (check_effective_target_hard_vfp_ok): Make

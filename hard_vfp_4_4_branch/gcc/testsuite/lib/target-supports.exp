@@ -1403,7 +1403,7 @@ proc check_effective_target_arm_hard_vfp_ok { } {
 proc check_effective_target_arm_neon_ok { } {
     if { [check_effective_target_arm32] } {
         return [check_no_compiler_messages arm_neon_ok object {
-	    #include "arm-neon.h"
+	    #include "arm_neon.h"
             int dummy;
         } "-mfpu=neon -mfloat-abi=softfp"]
     } else {
