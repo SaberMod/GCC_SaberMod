@@ -1,5 +1,19 @@
 2009-05-12  Joseph Myers  <joseph@codesourcery.com>
 
+	* config/arm/arm.c (aapcs_vfp_sub_candidate): Use V2SImode and
+	V4SImode as representatives of all 64-bit and 128-bit vector
+	types.  Allow vector types without vector modes.
+	(aapcs_vfp_is_call_or_return_candidate): Handle vector types
+	without vector modes like BLKmode.
+	(aapcs_vfp_allocate): Handle TImode for non-TARGET_NEON like
+	BLKmode.  Avoid unsupported vector modes or TImode moves for
+	non-TARGET_NEON.
+	(aapcs_vfp_allocate_return_reg): Likewise.
+	(arm_vector_mode_supported_p): Only support V2SImode, V4HImode and
+	V8QImode if TARGET_NEON || TARGET_IWMMXT.
+
+2009-05-12  Joseph Myers  <joseph@codesourcery.com>
+
 	* config/arm/arm.c (arm_handle_pcs_attribute): New.
 	(arm_get_pcs_model): Pass attribute arguments to
 	arm_pcs_from_attribute.

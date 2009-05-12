@@ -3271,6 +3271,7 @@ static int
 aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
 {
   enum machine_mode mode;
+  HOST_WIDE_INT size;
 
   switch (TREE_CODE (type))
     {
@@ -3301,10 +3302,21 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
       break;
 
     case VECTOR_TYPE:
-      mode = TYPE_MODE (type);
-      if (GET_MODE_CLASS (mode) != MODE_VECTOR_INT
-	  && GET_MODE_CLASS (mode) != MODE_VECTOR_FLOAT)
-	return -1;
+      /* Use V2SImode and V4SImode as representatives of all 64-bit
+	 and 128-bit vector types, whether or not those modes are
+	 supported with the present options.  */
+      size = int_size_in_bytes (type);
+      switch (size)
+	{
+	case 8:
+	  mode = V2SImode;
+	  break;
+	case 16:
+	  mode = V4SImode;
+	  break;
+	default:
+	  return -1;
+	}
 
       if (*modep == VOIDmode)
 	*modep = mode;
@@ -3312,9 +3324,7 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
       /* Vector modes are considered to be opaque: two vectors are
 	 equivalent for the purposes of being homogeneous aggregates
 	 if they are the same size.  */
-      if ((GET_MODE_CLASS (*modep) == MODE_VECTOR_INT
-	   || GET_MODE_CLASS (*modep) == MODE_VECTOR_FLOAT)
-	  && GET_MODE_SIZE (*modep) == GET_MODE_SIZE (mode))
+      if (*modep == mode)
 	return 1;
 
       break;
@@ -3438,7 +3448,7 @@ aapcs_vfp_is_call_or_return_candidate (enum machine_mode mode, const_tree type,
       *base_mode = (mode == DCmode ? DFmode : SFmode);
       return true;
     }
-  else if (mode == BLKmode && type)
+  else if (type && (mode == BLKmode || TREE_CODE (type) == VECTOR_TYPE))
     {
       enum machine_mode aggregate_mode = VOIDmode;
       int ag_count = aapcs_vfp_sub_candidate (type, &aggregate_mode);
@@ -3492,18 +3502,33 @@ aapcs_vfp_allocate (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     if (((pcum->aapcs_vfp_regs_free >> regno) & mask) == mask)
       {
 	pcum->aapcs_vfp_reg_alloc = mask << regno;
-	if (mode == BLKmode)
+	if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
 	  {
 	    int i;
-	    rtx par = gen_rtx_PARALLEL (BLKmode,
-					rtvec_alloc (pcum->aapcs_vfp_rcount));
-	    for (i = 0; i < pcum->aapcs_vfp_rcount; i++)
+	    int rcount = pcum->aapcs_vfp_rcount;
+	    int rshift = shift;
+	    enum machine_mode rmode = pcum->aapcs_vfp_rmode;
+	    rtx par;
+	    if (!TARGET_NEON)
 	      {
-		rtx tmp = gen_rtx_REG (pcum->aapcs_vfp_rmode, 
-				       FIRST_VFP_REGNUM + regno + i * shift);
+		/* Avoid using unsupported vector modes.  */
+		if (rmode == V2SImode)
+		  rmode = DImode;
+		else if (rmode == V4SImode)
+		  {
+		    rmode = DImode;
+		    rcount *= 2;
+		    rshift /= 2;
+		  }
+	      }
+	    par = gen_rtx_PARALLEL (mode, rtvec_alloc (rcount));
+	    for (i = 0; i < rcount; i++)
+	      {
+		rtx tmp = gen_rtx_REG (rmode, 
+				       FIRST_VFP_REGNUM + regno + i * rshift);
 		tmp = gen_rtx_EXPR_LIST
 		  (VOIDmode, tmp, 
-		   GEN_INT (i * GET_MODE_SIZE (pcum->aapcs_vfp_rmode)));
+		   GEN_INT (i * GET_MODE_SIZE (rmode)));
 		XVECEXP (par, 0, i) = tmp;
 	      }
 
@@ -3525,7 +3550,7 @@ aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
 	|| (pcs_variant == ARM_PCS_AAPCS_LOCAL
 	    && TARGET_32BIT && TARGET_VFP && TARGET_HARD_FLOAT)))
     return false;
-  if (mode == BLKmode)
+  if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
     {
       int count;
       int ag_mode;
@@ -3535,8 +3560,18 @@ aapcs_vfp_allocate_return_reg (enum arm_pcs pcs_variant ATTRIBUTE_UNUSED,
       
       aapcs_vfp_is_call_or_return_candidate (mode, type, &ag_mode, &count);
 
+      if (!TARGET_NEON)
+	{
+	  if (ag_mode == V2SImode)
+	    ag_mode = DImode;
+	  else if (ag_mode == V4SImode)
+	    {
+	      ag_mode = DImode;
+	      count *= 2;
+	    }
+	}
       shift = GET_MODE_SIZE(ag_mode) / GET_MODE_SIZE(SFmode);
-      par = gen_rtx_PARALLEL (BLKmode, rtvec_alloc (count));
+      par = gen_rtx_PARALLEL (mode, rtvec_alloc (count));
       for (i = 0; i < count; i++)
 	{
 	  rtx tmp = gen_rtx_REG (ag_mode, FIRST_VFP_REGNUM + i * shift);
@@ -19918,9 +19953,10 @@ arm_vector_mode_supported_p (enum machine_mode mode)
       || mode == V16QImode || mode == V4SFmode || mode == V2DImode))
     return true;
 
-  if ((mode == V2SImode)
-      || (mode == V4HImode)
-      || (mode == V8QImode))
+  if ((TARGET_NEON || TARGET_IWMMXT)
+      && ((mode == V2SImode)
+	  || (mode == V4HImode)
+	  || (mode == V8QImode)))
     return true;
 
   return false;
