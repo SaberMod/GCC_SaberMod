@@ -1,3 +1,9 @@
+2009-05-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/arm/eabi1.c: Do not skip for non-base ABI variants.
+	(PCS): Define macro to use base AAPCS.
+	(decl_float, __aeabi_d2f, __aeabi_f2d): Use PCS macro.
+
 2009-05-11  Daniel Jacobowitz  <dan@codesourcery.com>
 
 	* lib/target-supports.exp (check_effective_target_arm_neon_ok):

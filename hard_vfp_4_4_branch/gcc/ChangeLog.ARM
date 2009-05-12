@@ -1,5 +1,19 @@
 2009-05-12  Joseph Myers  <joseph@codesourcery.com>
 
+	* config/arm/arm.c (arm_handle_pcs_attribute): New.
+	(arm_get_pcs_model): Pass attribute arguments to
+	arm_pcs_from_attribute.
+	(arm_init_cumulative_args): Use base AAPCS for conversions from
+	floating-point types to DImode.
+	(arm_attribute_table): Add pcs attribute.
+	(arm_handle_pcs_attribute): New.
+	* config/arm/bpabi.h (DECLARE_LIBRARY_RENAMES): When renaming
+	conversions from floating-point types to DImode, also declare them
+	to use base AAPCS and declare functions they call to use base
+	AAPCS and their RTABI names.
+
+2009-05-12  Joseph Myers  <joseph@codesourcery.com>
+
 	* doc/invoke.texi (-mfloat-abi=@var{name}): Remove statement about
 	-mfloat-abi=hard not being supported for VFP.
 

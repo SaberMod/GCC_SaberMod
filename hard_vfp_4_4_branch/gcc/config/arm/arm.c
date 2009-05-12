@@ -111,6 +111,7 @@ static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
 static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_pcs_attribute (tree *, tree, tree, int, bool *);
 static tree arm_handle_isr_attribute (tree *, tree, tree, int, bool *);
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
@@ -3206,7 +3207,7 @@ arm_get_pcs_model (const_tree type, const_tree decl)
   attr = lookup_attribute ("pcs", TYPE_ATTRIBUTES (type));
   if (attr)
     {
-      user_pcs = arm_pcs_from_attribute (attr);
+      user_pcs = arm_pcs_from_attribute (TREE_VALUE (attr));
       user_convention = true;
     }
 
@@ -3841,6 +3842,16 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 	 them using the base rules too; for example the floating point
 	 support functions always work this way.  */
 
+       if (rtx_equal_p (libname,
+		       convert_optab_libfunc (sfix_optab, DImode, DFmode))
+	  || rtx_equal_p (libname,
+			  convert_optab_libfunc (ufix_optab, DImode, DFmode))
+	  || rtx_equal_p (libname,
+			  convert_optab_libfunc (sfix_optab, DImode, SFmode))
+	  || rtx_equal_p (libname,
+			  convert_optab_libfunc (ufix_optab, DImode, SFmode)))
+	pcum->pcs_variant = ARM_PCS_AAPCS;
+ 
       pcum->aapcs_ncrn = pcum->aapcs_next_ncrn = 0;
       pcum->aapcs_reg = NULL_RTX;
       pcum->aapcs_partial = 0;
@@ -4072,6 +4083,8 @@ const struct attribute_spec arm_attribute_table[] =
   /* Whereas these functions are always known to reside within the 26 bit
      addressing range.  */
   { "short_call",   0, 0, false, true,  true,  NULL },
+  /* Specify the procedure call conventions for a function.  */
+  { "pcs",          1, 1, false, true,  true,  arm_handle_pcs_attribute },
   /* Interrupt Service Routines have special prologue and epilogue requirements.  */
   { "isr",          0, 1, false, false, false, arm_handle_isr_attribute },
   { "interrupt",    0, 1, false, false, false, arm_handle_isr_attribute },
@@ -4171,6 +4184,21 @@ arm_handle_isr_attribute (tree *node, tree name, tree args, int flags,
 	}
     }
 
+  return NULL_TREE;
+}
+
+/* Handle a "pcs" attribute; arguments as in struct
+   attribute_spec.handler.  */
+static tree
+arm_handle_pcs_attribute (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
+			  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (arm_pcs_from_attribute (args) == ARM_PCS_UNKNOWN)
+    {
+      warning (OPT_Wattributes, "%qs attribute ignored",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 
