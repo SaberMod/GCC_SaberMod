@@ -945,8 +945,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
   tree orig_type = NULL;
   if (!processing_template_decl)
     {
-      tree index;
-
       /* Convert the condition to an integer or enumeration type.  */
       cond = build_expr_type_conversion (WANT_INT | WANT_ENUM, cond, true);
       if (cond == NULL_TREE)
@@ -962,18 +960,6 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	     Integral promotions are performed.  */
 	  cond = perform_integral_promotions (cond);
 	  cond = maybe_cleanup_point_expr (cond);
-	}
-
-      if (cond != error_mark_node)
-	{
-	  index = get_unwidened (cond, NULL_TREE);
-	  /* We can't strip a conversion from a signed type to an unsigned,
-	     because if we did, int_fits_type_p would do the wrong thing
-	     when checking case values for being in range,
-	     and it's too hard to do the right thing.  */
-	  if (TYPE_UNSIGNED (TREE_TYPE (cond))
-	      == TYPE_UNSIGNED (TREE_TYPE (index)))
-	    cond = index;
 	}
     }
   if (check_for_bare_parameter_packs (cond))
@@ -3935,6 +3921,9 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
     case GE_EXPR:
     case LT_EXPR:
     case LE_EXPR:
+      if (TREE_OPERAND (cond, 1) == iter)
+	cond = build2 (swap_tree_comparison (TREE_CODE (cond)),
+		       TREE_TYPE (cond), iter, TREE_OPERAND (cond, 0));
       if (TREE_OPERAND (cond, 0) != iter)
 	cond = error_mark_node;
       else
@@ -4599,8 +4588,6 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p)
 	      break;
 	    }
 	}
-      else
-	type = describable_type (expr);
 
       if (type && !type_uses_auto (type))
 	return type;
@@ -4916,6 +4903,24 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
     }
 }
 
+/* Returns true if TYPE is a complete type, an array of unknown bound,
+   or (possibly cv-qualified) void, returns false otherwise.  */
+
+static bool
+check_trait_type (tree type)
+{
+  if (COMPLETE_TYPE_P (type))
+    return true;
+
+  if (TREE_CODE (type) == ARRAY_TYPE && !TYPE_DOMAIN (type))
+    return true;
+
+  if (VOID_TYPE_P (type))
+    return true;
+
+  return false;
+}
+
 /* Process a trait expression.  */
 
 tree
@@ -4964,14 +4969,45 @@ finish_trait_expr (cp_trait_kind kind, tree type1, tree type2)
   if (type2)
     complete_type (type2);
 
-  /* The only required diagnostic.  */
-  if (kind == CPTK_IS_BASE_OF
-      && NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
-      && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
-      && !COMPLETE_TYPE_P (type2))
+  switch (kind)
     {
-      error ("incomplete type %qT not allowed", type2);
-      return error_mark_node;
+    case CPTK_HAS_NOTHROW_ASSIGN:
+    case CPTK_HAS_TRIVIAL_ASSIGN:
+    case CPTK_HAS_NOTHROW_CONSTRUCTOR:
+    case CPTK_HAS_TRIVIAL_CONSTRUCTOR:
+    case CPTK_HAS_NOTHROW_COPY:
+    case CPTK_HAS_TRIVIAL_COPY:
+    case CPTK_HAS_TRIVIAL_DESTRUCTOR:
+    case CPTK_HAS_VIRTUAL_DESTRUCTOR:
+    case CPTK_IS_ABSTRACT:
+    case CPTK_IS_EMPTY:
+    case CPTK_IS_POD:
+    case CPTK_IS_POLYMORPHIC:
+      if (!check_trait_type (type1))
+	{
+	  error ("incomplete type %qT not allowed", type1);
+	  return error_mark_node;
+	}
+      break;
+
+    case CPTK_IS_BASE_OF:
+      if (NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
+	  && !same_type_ignoring_top_level_qualifiers_p (type1, type2)
+	  && !COMPLETE_TYPE_P (type2))
+	{
+	  error ("incomplete type %qT not allowed", type2);
+	  return error_mark_node;
+	}
+      break;
+
+    case CPTK_IS_CLASS:
+    case CPTK_IS_ENUM:
+    case CPTK_IS_UNION:
+      break;
+    
+    case CPTK_IS_CONVERTIBLE_TO:
+    default:
+      gcc_unreachable ();
     }
 
   return (trait_expr_value (kind, type1, type2)

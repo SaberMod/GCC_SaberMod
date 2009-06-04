@@ -458,8 +458,6 @@ struct temp_slot GTY(())
   struct temp_slot *prev;
   /* The rtx to used to reference the slot.  */
   rtx slot;
-  /* The alignment (in bits) of the slot.  */
-  unsigned int align;
   /* The size, in units, of the slot.  */
   HOST_WIDE_INT size;
   /* The type of the object in the slot, or zero if it doesn't correspond
@@ -467,6 +465,8 @@ struct temp_slot GTY(())
      It can be reused if objects of the type of the new slot will always
      conflict with objects of the type of the old slot.  */
   tree type;
+  /* The alignment (in bits) of the slot.  */
+  unsigned int align;
   /* Nonzero if this temporary is currently in use.  */
   char in_use;
   /* Nonzero if this temporary has its address taken.  */
@@ -1942,7 +1942,28 @@ use_register_for_decl (const_tree decl)
   if (DECL_IGNORED_P (decl))
     return true;
 
-  return (optimize || DECL_REGISTER (decl));
+  if (optimize)
+    return true;
+
+  if (!DECL_REGISTER (decl))
+    return false;
+
+  switch (TREE_CODE (TREE_TYPE (decl)))
+    {
+    case RECORD_TYPE:
+    case UNION_TYPE:
+    case QUAL_UNION_TYPE:
+      /* When not optimizing, disregard register keyword for variables with
+	 types containing methods, otherwise the methods won't be callable
+	 from the debugger.  */
+      if (TYPE_METHODS (TREE_TYPE (decl)))
+	return false;
+      break;
+    default:
+      break;
+    }
+
+  return true;
 }
 
 /* Return true if TYPE should be passed by invisible reference.  */
@@ -2967,10 +2988,13 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
       if (data->stack_parm == 0)
 	{
+	  int align = STACK_SLOT_ALIGNMENT (data->passed_type,
+					    GET_MODE (data->entry_parm),
+					    TYPE_ALIGN (data->passed_type));
 	  data->stack_parm
 	    = assign_stack_local (GET_MODE (data->entry_parm),
 				  GET_MODE_SIZE (GET_MODE (data->entry_parm)),
-				  TYPE_ALIGN (data->passed_type));
+				  align);
 	  set_mem_attributes (data->stack_parm, parm, 1);
 	}
 
@@ -3032,11 +3056,13 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all, tree fnargs)
 	    {
 	      rtx rmem, imem;
 	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (parm));
+	      int align = STACK_SLOT_ALIGNMENT (TREE_TYPE (parm),
+						DECL_MODE (parm),
+						TYPE_ALIGN (TREE_TYPE (parm)));
 
 	      /* split_complex_arg put the real and imag parts in
 		 pseudos.  Move them to memory.  */
-	      tmp = assign_stack_local (DECL_MODE (parm), size,
-					TYPE_ALIGN (TREE_TYPE (parm)));
+	      tmp = assign_stack_local (DECL_MODE (parm), size, align);
 	      set_mem_attributes (tmp, parm, 1);
 	      rmem = adjust_address_nv (tmp, inner, 0);
 	      imem = adjust_address_nv (tmp, inner, GET_MODE_SIZE (inner));

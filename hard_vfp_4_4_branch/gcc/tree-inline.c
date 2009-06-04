@@ -1,5 +1,5 @@
 /* Tree inlining.
-   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   Copyright 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Alexandre Oliva <aoliva@redhat.com>
 
@@ -2110,6 +2110,10 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      We need to construct map for the variable anyway as it might be used
      in different SSA names when parameter is set in function.
 
+     Do replacement at -O0 for const arguments replaced by constant.
+     This is important for builtin_constant_p and other construct requiring
+     constant argument to be visible in inlined function body.
+
      FIXME: This usually kills the last connection in between inlined
      function parameter and the actual value in debug info.  Can we do
      better here?  If we just inserted the statement, copy propagation
@@ -2118,7 +2122,9 @@ setup_one_parameter (copy_body_data *id, tree p, tree value, tree fn,
      We might want to introduce a notion that single SSA_NAME might
      represent multiple variables for purposes of debugging. */
   if (gimple_in_ssa_p (cfun) && rhs && def && is_gimple_reg (p)
-      && optimize
+      && (optimize
+          || (TREE_READONLY (p)
+	      && is_gimple_min_invariant (rhs)))
       && (TREE_CODE (rhs) == SSA_NAME
 	  || is_gimple_min_invariant (rhs))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (def))
@@ -3383,7 +3389,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       var = TREE_VALUE (t_step);
       if (TREE_STATIC (var) && !TREE_ASM_WRITTEN (var))
 	{
-	  if (var_ann (var) && referenced_var_check_and_insert (var))
+	  if (var_ann (var) && add_referenced_var (var))
 	    cfun->local_decls = tree_cons (NULL_TREE, var,
 					   cfun->local_decls);
 	}

@@ -1684,8 +1684,14 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    = DECL_SOURCE_LOCATION (newdecl);
 	  DECL_INITIAL (old_result) = DECL_INITIAL (new_result);
 	  if (DECL_FUNCTION_TEMPLATE_P (newdecl))
-	    DECL_ARGUMENTS (old_result)
-	      = DECL_ARGUMENTS (new_result);
+	    {
+	      tree parm;
+	      DECL_ARGUMENTS (old_result)
+		= DECL_ARGUMENTS (new_result);
+	      for (parm = DECL_ARGUMENTS (old_result); parm;
+		   parm = TREE_CHAIN (parm))
+		DECL_CONTEXT (parm) = old_result;
+	    }
 	}
 
       return olddecl;
@@ -1918,6 +1924,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)
     {
+      tree parm;
+
       if (DECL_TEMPLATE_INSTANTIATION (olddecl)
 	  && !DECL_TEMPLATE_INSTANTIATION (newdecl))
 	{
@@ -1974,6 +1982,11 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* Preserve abstractness on cloned [cd]tors.  */
       DECL_ABSTRACT (newdecl) = DECL_ABSTRACT (olddecl);
 
+      /* Update newdecl's parms to point at olddecl.  */
+      for (parm = DECL_ARGUMENTS (newdecl); parm;
+	   parm = TREE_CHAIN (parm))
+	DECL_CONTEXT (parm) = olddecl;
+
       if (! types_match)
 	{
 	  SET_DECL_LANGUAGE (olddecl, DECL_LANGUAGE (newdecl));
@@ -2006,7 +2019,8 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 
 	  DECL_RESULT (newdecl) = DECL_RESULT (olddecl);
-	  /* Don't clear out the arguments if we're redefining a function.  */
+	  /* Don't clear out the arguments if we're just redeclaring a
+	     function.  */
 	  if (DECL_ARGUMENTS (olddecl))
 	    DECL_ARGUMENTS (newdecl) = DECL_ARGUMENTS (olddecl);
 	}
@@ -2806,7 +2820,8 @@ finish_case_label (tree low_value, tree high_value)
   if (!check_switch_goto (switch_stack->level))
     return error_mark_node;
 
-  r = c_add_case_label (switch_stack->cases, cond, TREE_TYPE (cond),
+  r = c_add_case_label (switch_stack->cases, cond,
+			SWITCH_STMT_TYPE (switch_stack->switch_stmt),
 			low_value, high_value);
 
   /* After labels, make any new cleanups in the function go into their
@@ -3168,10 +3183,18 @@ record_builtin_java_type (const char* name, int size)
 {
   tree type, decl;
   if (size > 0)
-    type = make_signed_type (size);
+    type = build_nonstandard_integer_type (size, 0);
   else if (size > -32)
-    { /* "__java_char" or ""__java_boolean".  */
-      type = make_unsigned_type (-size);
+    {
+      tree stype;
+      /* "__java_char" or ""__java_boolean".  */
+      type = build_nonstandard_integer_type (-size, 1);
+      /* Get the signed type cached and attached to the unsigned type,
+	 so it doesn't get garbage-collected at "random" times,
+	 causing potential codegen differences out of different UIDs
+	 and different alias set numbers.  */
+      stype = build_nonstandard_integer_type (-size, 0);
+      TREE_CHAIN (type) = stype;
       /*if (size == -1)	TREE_SET_CODE (type, BOOLEAN_TYPE);*/
     }
   else
@@ -4396,9 +4419,15 @@ check_array_designated_initializer (const constructor_elt *ce)
     {
       /* The parser only allows identifiers as designated
 	 initializers.  */
-      gcc_assert (TREE_CODE (ce->index) == IDENTIFIER_NODE);
-      error ("name %qD used in a GNU-style designated "
-	     "initializer for an array", ce->index);
+      if (ce->index == error_mark_node)
+	error ("name used in a GNU-style designated "
+	       "initializer for an array");
+      else
+	{
+	  gcc_assert (TREE_CODE (ce->index) == IDENTIFIER_NODE);
+	  error ("name %qD used in a GNU-style designated "
+		 "initializer for an array", ce->index);
+	}
       return false;
     }
 
@@ -6546,6 +6575,8 @@ grokfndecl (tree ctype,
       parms = parm;
     }
   DECL_ARGUMENTS (decl) = parms;
+  for (t = parms; t; t = TREE_CHAIN (t))
+    DECL_CONTEXT (t) = decl;
   /* Propagate volatile out from type to decl.  */
   if (TYPE_VOLATILE (type))
     TREE_THIS_VOLATILE (decl) = 1;
@@ -7154,13 +7185,22 @@ compute_array_index_type (tree name, tree size)
       type = TREE_TYPE (size);
     }
 
-  if (value_dependent_expression_p (size))
+  /* We can only call value_dependent_expression_p on integral constant
+     expressions; the parser adds a dummy NOP_EXPR with TREE_SIDE_EFFECTS
+     set if this isn't one.  */
+  if (processing_template_decl
+      && (TREE_SIDE_EFFECTS (size) || value_dependent_expression_p (size)))
     {
-      /* We cannot do any checking for a value-dependent SIZE. Just
-	 build the index type and mark that it requires structural
-	 equality checks.  */
+      /* We cannot do any checking for a SIZE that isn't known to be
+	 constant. Just build the index type and mark that it requires
+	 structural equality checks.  */
       itype = build_index_type (build_min (MINUS_EXPR, sizetype,
 					   size, integer_one_node));
+      if (!TREE_SIDE_EFFECTS (size))
+	{
+	  TYPE_DEPENDENT_P (itype) = 1;
+	  TYPE_DEPENDENT_P_VALID (itype) = 1;
+	}
       SET_TYPE_STRUCTURAL_EQUALITY (itype);
       return itype;
     }
@@ -9305,6 +9345,14 @@ grokdeclarator (const cp_declarator *declarator,
 	      {
 		error ("virtual non-class function %qs", name);
 		virtualp = 0;
+	      }
+	    else if (sfk == sfk_constructor
+		     || sfk == sfk_destructor)
+	      {
+		error (funcdef_flag
+		       ? "%qs defined in a non-class scope"
+		       : "%qs declared in a non-class scope", name);
+		sfk = sfk_none;
 	      }
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE && staticp < 2

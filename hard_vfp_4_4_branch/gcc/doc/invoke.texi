@@ -163,7 +163,7 @@ in the following sections.
 @item Overall Options
 @xref{Overall Options,,Options Controlling the Kind of Output}.
 @gccoptlist{-c  -S  -E  -o @var{file}  -combine  -pipe  -pass-exit-codes  @gol
--x @var{language}  -v  -###  --help@r{[}=@var{class}@r{]}  --target-help  @gol
+-x @var{language}  -v  -###  --help@r{[}=@var{class}@r{[},@dots{}@r{]]}  --target-help  @gol
 --version -wrapper@@@var{file}}
 
 @item C Language Options
@@ -525,6 +525,9 @@ Objective-C and Objective-C++ Dialects}.
 @emph{DEC Alpha/VMS Options}
 @gccoptlist{-mvms-return-codes}
 
+@emph{FR30 Options}
+@gccoptlist{-msmall-model -mno-lsim}
+
 @emph{FRV Options}
 @gccoptlist{-mgpr-32  -mgpr-64  -mfpr-32  -mfpr-64 @gol
 -mhard-float  -msoft-float @gol
@@ -822,6 +825,10 @@ See RS/6000 and PowerPC Options.
 
 @emph{x86-64 Options}
 See i386 and x86-64 Options.
+
+@emph{i386 and x86-64 Windows Options}
+@gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll
+-mnop-fun-dllimport -mthread -mwin32 -mwindows}
 
 @emph{Xstormy16 Options}
 @gccoptlist{-msim}
@@ -1158,11 +1165,10 @@ Print (on the standard output) a description of target-specific command
 line options for each tool.  For some targets extra target-specific
 information may also be printed.
 
-@item --help=@var{class}@r{[},@var{qualifier}@r{]}
+@item --help=@{@var{class}@r{|[}^@r{]}@var{qualifier}@}@r{[},@dots{}@r{]}
 Print (on the standard output) a description of the command line
-options understood by the compiler that fit into a specific class.
-The class can be one of @samp{optimizers}, @samp{warnings}, @samp{target},
-@samp{params}, or @var{language}:
+options understood by the compiler that fit into all specified classes
+and qualifiers.  These are the supported classes:
 
 @table @asis
 @item @samp{optimizers}
@@ -1192,9 +1198,7 @@ version of GCC.
 This will display the options that are common to all languages.
 @end table
 
-It is possible to further refine the output of the @option{--help=}
-option by adding a comma separated list of qualifiers after the
-class.  These can be any from the following list:
+These are the supported qualifiers:
 
 @table @asis
 @item @samp{undocumented}
@@ -1218,7 +1222,7 @@ switches supported by the compiler the following can be used:
 @end smallexample
 
 The sense of a qualifier can be inverted by prefixing it with the
-@var{^} character, so for example to display all binary warning
+@samp{^} character, so for example to display all binary warning
 options (i.e., ones that are either on or off and that do not take an
 argument), which have a description the following can be used:
 
@@ -1226,7 +1230,10 @@ argument), which have a description the following can be used:
 --help=warnings,^joined,^undocumented
 @end smallexample
 
-A class can also be used as a qualifier, although this usually
+The argument to @option{--help=} should not consist solely of inverted
+qualifiers.
+
+Combining several classes is possible, although this usually
 restricts the output by so much that there is nothing to display.  One
 case where it does work however is when one of the classes is
 @var{target}.  So for example to display all the target-specific
@@ -1262,7 +1269,7 @@ options, so for example it is possible to find out which optimizations
 are enabled at @option{-O2} by using:
 
 @smallexample
--O2 --help=optimizers
+-Q -O2 --help=optimizers
 @end smallexample
 
 Alternatively you can discover which binary optimizations are enabled
@@ -4405,11 +4412,11 @@ This option works only with DWARF 2.
 @item -fno-merge-debug-strings
 @opindex fmerge-debug-strings
 @opindex fno-merge-debug-strings
-Direct the linker to merge together strings which are identical in
-different object files.  This is not supported by all assemblers or
-linker.  This decreases the size of the debug information in the
-output file at the cost of increasing link processing time.  This is
-on by default.
+Direct the linker to not merge together strings in the debugging
+information which are identical in different object files.  Merging is
+not supported by all assemblers or linkers.  Merging decreases the size
+of the debug information in the output file at the cost of increasing
+link processing time.  Merging is enabled by default.
 
 @item -fdebug-prefix-map=@var{old}=@var{new}
 @opindex fdebug-prefix-map
@@ -4613,7 +4620,7 @@ Dump after the RTL instruction combination pass.
 
 @item -fdump-rtl-compgotos
 @opindex fdump-rtl-compgotos
-Dump after dumplicating the computed gotos.
+Dump after duplicating the computed gotos.
 
 @item -fdump-rtl-ce1
 @itemx -fdump-rtl-ce2
@@ -6141,7 +6148,7 @@ Matrix flattening tries to replace a m-dimensional matrix
 with its equivalent n-dimensional matrix, where n < m.
 This reduces the level of indirection needed for accessing the elements
 of the matrix. The second optimization is matrix transposing that
-attemps to change the order of the matrix's dimensions in order to 
+attempts to change the order of the matrix's dimensions in order to
 improve cache locality.
 Both optimizations need the @option{-fwhole-program} flag. 
 Transposing is enabled only if profiling information is available.
@@ -8818,11 +8825,13 @@ platform.
 * Darwin Options::
 * DEC Alpha Options::
 * DEC Alpha/VMS Options::
+* FR30 Options::
 * FRV Options::
 * GNU/Linux Options::
 * H8/300 Options::
 * HPPA Options::
 * i386 and x86-64 Options::
+* i386 and x86-64 Windows Options::
 * IA-64 Options::
 * M32C Options::
 * M32R/D Options::
@@ -9130,10 +9139,6 @@ placing the function calls within the scope of a @samp{#pragma
 long_calls_off} directive.  Note these switches have no effect on how
 the compiler generates code to handle function calls via function
 pointers.
-
-@item -mnop-fun-dllimport
-@opindex mnop-fun-dllimport
-Disable support for the @code{dllimport} attribute.
 
 @item -msingle-pic-base
 @opindex msingle-pic-base
@@ -10203,10 +10208,20 @@ Schedules as an EV6 and supports the BWX, FIX, and MAX extensions.
 Schedules as an EV6 and supports the BWX, CIX, FIX, and MAX extensions.
 @end table
 
+Native Linux/GNU toolchains also support the value @samp{native},
+which selects the best architecture option for the host processor.
+@option{-mcpu=native} has no effect if GCC does not recognize
+the processor.
+
 @item -mtune=@var{cpu_type}
 @opindex mtune
 Set only the instruction scheduling parameters for machine type
 @var{cpu_type}.  The instruction set is not changed.
+
+Native Linux/GNU toolchains also support the value @samp{native},
+which selects the best architecture option for the host processor.
+@option{-mtune=native} has no effect if GCC does not recognize
+the processor.
 
 @item -mmemory-latency=@var{time}
 @opindex mmemory-latency
@@ -10243,6 +10258,28 @@ These @samp{-m} options are defined for the DEC Alpha/VMS implementations:
 @opindex mvms-return-codes
 Return VMS condition codes from main.  The default is to return POSIX
 style condition (e.g.@: error) codes.
+@end table
+
+@node FR30 Options
+@subsection FR30 Options
+@cindex FR30 Options
+
+These options are defined specifically for the FR30 port.
+
+@table @gcctabopt
+
+@item -msmall-model
+@opindex msmall-model
+Use the small address space model.  This can produce smaller code, but
+it does assume that all symbolic values and addresses will fit into a
+20-bit range.
+
+@item -mno-lsim
+@opindex mno-lsim
+Assume that run-time support has been provided and so there is no need
+to include the simulator library (@file{libsim.a}) on the linker
+command line.
+
 @end table
 
 @node FRV Options
@@ -11318,7 +11355,7 @@ or @code{remainder} built-in functions: see @ref{Other Builtins} for details.
 @item -mrecip
 @opindex mrecip
 This option will enable GCC to use RCPSS and RSQRTSS instructions (and their
-vectorized variants RCPPS and RSQRTPS) with an additional Newton-Rhapson step
+vectorized variants RCPPS and RSQRTPS) with an additional Newton-Raphson step
 to increase precision instead of DIVSS and SQRTSS (and their vectorized
 variants) for single precision floating point arguments.  These instructions
 are generated only when @option{-funsafe-math-optimizations} is enabled
@@ -12407,6 +12444,20 @@ Generate code for a little endian target.
 @opindex m210
 @opindex m340
 Generate code for the 210 processor.
+
+@item -mno-lsim
+@opindex no-lsim
+Assume that run-time support has been provided and so omit the
+simulator library (@file{libsim.a)} from the linker command line.
+
+@item -mstack-increment=@var{size}
+@opindex mstack-increment
+Set the maximum amount for a single stack increment operation.  Large
+values can increase the speed of programs which contain functions
+that need a large amount of stack space, but they can also trigger a
+segmentation fault if the stack is extended too much.  The default
+value is 0x1000.
+
 @end table
 
 @node MIPS Options
@@ -14248,8 +14299,8 @@ On System V.4 and embedded PowerPC systems, if @option{-meabi} is used,
 compile code the same as @option{-msdata=eabi}, otherwise compile code the
 same as @option{-msdata=sysv}.
 
-@item -msdata-data
-@opindex msdata-data
+@item -msdata=data
+@opindex msdata=data
 On System V.4 and embedded PowerPC systems, put small global
 data in the @samp{.sdata} section.  Put small uninitialized global
 data in the @samp{.sbss} section.  Do not use register @code{r13}
@@ -15415,6 +15466,71 @@ is defined for compatibility with Diab.
 
 These are listed under @xref{i386 and x86-64 Options}.
 
+@node i386 and x86-64 Windows Options
+@subsection i386 and x86-64 Windows Options
+@cindex i386 and x86-64 Windows Options
+
+These additional options are available for Windows targets:
+
+@table @gcctabopt
+@item -mconsole
+@opindex mconsole
+This option is available for Cygwin and MinGW targets.  It
+specifies that a console application is to be generated, by
+instructing the linker to set the PE header subsystem type
+required for console applications.
+This is the default behaviour for Cygwin and MinGW targets.
+
+@item -mcygwin
+@opindex mcygwin
+This option is available for Cygwin targets.  It specifies that
+the Cygwin internal interface is to be used for predefined
+preprocessor macros, C runtime libraries and related linker
+paths and options.  For Cygwin targets this is the default behaviour.
+This option is deprecated and will be removed in a future release.
+
+@item -mno-cygwin
+@opindex mno-cygwin
+This option is available for Cygwin targets.  It specifies that
+the MinGW internal interface is to be used instead of Cygwin's, by
+setting MinGW-related predefined macros and linker paths and default
+library options.
+This option is deprecated and will be removed in a future release.
+
+@item -mdll
+@opindex mdll
+This option is available for Cygwin and MinGW targets.  It
+specifies that a DLL - a dynamic link library - is to be
+generated, enabling the selection of the required runtime
+startup object and entry point.
+
+@item -mnop-fun-dllimport
+@opindex mnop-fun-dllimport
+This option is available for Cygwin and MinGW targets.  It
+specifies that the dllimport attribute should be ignored.
+
+@item -mthread
+@opindex mthread
+This option is available for MinGW targets. It specifies
+that MinGW-specific thread support is to be used.
+
+@item -mwin32
+@opindex mwin32
+This option is available for Cygwin and MinGW targets.  It
+specifies that the typical Windows pre-defined macros are to
+be set in the pre-processor, but does not influence the choice
+of runtime library/startup code.
+
+@item -mwindows
+@opindex mwindows
+This option is available for Cygwin and MinGW targets.  It
+specifies that a GUI application is to be generated by
+instructing the linker to set the PE header subsystem type
+appropriately.
+@end table
+
+See also under @ref{i386 and x86-64 Options} for standard options.
+
 @node Xstormy16 Options
 @subsection Xstormy16 Options
 @cindex Xstormy16 Options
@@ -15664,12 +15780,25 @@ Use it to conform to a non-default application binary interface.
 
 @item -fno-common
 @opindex fno-common
-In C, allocate even uninitialized global variables in the data section of the
-object file, rather than generating them as common blocks.  This has the
-effect that if the same variable is declared (without @code{extern}) in
-two different compilations, you will get an error when you link them.
-The only reason this might be useful is if you wish to verify that the
-program will work on other systems which always work this way.
+In C code, controls the placement of uninitialized global variables.
+Unix C compilers have traditionally permitted multiple definitions of
+such variables in different compilation units by placing the variables
+in a common block.  
+This is the behavior specified by @option{-fcommon}, and is the default 
+for GCC on most targets.  
+On the other hand, this behavior is not required by ISO C, and on some
+targets may carry a speed or code size penalty on variable references.
+The @option{-fno-common} option specifies that the compiler should place 
+uninitialized global variables in the data section of the object file,
+rather than generating them as common blocks.
+This has the effect that if the same variable is declared 
+(without @code{extern}) in two different compilations,
+you will get a multiple-definition error when you link them.
+In this case, you must compile with @option{-fcommon} instead.  
+Compiling with @option{-fno-common} is useful on targets for which 
+it provides better performance, or if you wish to verify that the
+program will work on other systems which always treat uninitialized
+variable declarations this way.
 
 @item -fno-ident
 @opindex fno-ident

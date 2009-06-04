@@ -1,5 +1,5 @@
 #   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008 Free Software Foundation,
+#   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation,
 #   Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
@@ -158,7 +158,7 @@ build_tools="build-texinfo build-byacc build-flex build-bison build-m4 build-fix
 
 # these libraries are used by various programs built for the host environment
 #
-host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber gmp mpfr ppl cloog"
+host_libs="intl mmalloc libiberty opcodes bfd readline tcl tk itcl libgui zlib libcpp libdecnumber gmp mpfr ppl cloog libiconv"
 
 # these tools are built for the host environment
 # Note, the powerpc-eabi build depends on sim occurring before gdb in order to
@@ -446,11 +446,11 @@ case "${target}" in
   *-*-chorusos)
     noconfigdirs="$noconfigdirs target-newlib target-libgloss ${libgcj}"
     ;;
-  powerpc-*-darwin* | x86_64-*-darwin[[912]]*)
+  powerpc-*-darwin*)
     noconfigdirs="$noconfigdirs ld gas gdb gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
-  i[[3456789]]86-*-darwin*)
+  i[[3456789]]86-*-darwin* | x86_64-*-darwin9*)
     noconfigdirs="$noconfigdirs ld gas gprof"
     noconfigdirs="$noconfigdirs sim target-rda"
     ;;
@@ -1315,11 +1315,20 @@ fi
 AC_SUBST(gmplibs)
 AC_SUBST(gmpinc)
 
+# Allow host libstdc++ to be specified for static linking with PPL.
+AC_ARG_WITH(host-libstdcxx, [  --with-host-libstdcxx=L Use linker arguments L to link with libstdc++
+                          when linking with PPL])
+
+case $with_host_libstdcxx in
+  no|yes)
+    AC_MSG_ERROR([-with-host-libstdcxx needs an argument])
+    ;;
+esac
 
 # Check for PPL
 ppl_major_version=0
 ppl_minor_version=10
-ppllibs=" -lppl_c -lppl -lgmpxx "
+ppllibs=" -lppl_c -lppl -lgmpxx $with_host_libstdcxx "
 pplinc=
 
 AC_ARG_WITH(ppl, [  --with-ppl=PATH         Specify prefix directory for the installed PPL package
@@ -1333,7 +1342,7 @@ case $with_ppl in
     ppllibs=
     ;;
   *)
-    ppllibs="-L$with_ppl/lib -lppl_c -lppl -lgmpxx"
+    ppllibs="-L$with_ppl/lib -lppl_c -lppl -lgmpxx $with_host_libstdcxx"
     pplinc="-I$with_ppl/include $pplinc"
     LIBS="$ppllibs $LIBS"
     ;;
@@ -1342,11 +1351,11 @@ if test "x$with_ppl_include" != x; then
   pplinc="-I$with_ppl_include $pplinc"
 fi
 if test "x$with_ppl_lib" != x; then
-  ppllibs="-L$with_ppl_lib -lppl_c -lppl -lgmpxx"
+  ppllibs="-L$with_ppl_lib -lppl_c -lppl -lgmpxx $with_host_libstdcxx"
   LIBS="$ppllibs $LIBS"
 fi
 if test "x$with_ppl$with_ppl_include$with_ppl_lib" = x && test -d ${srcdir}/ppl; then
-  ppllibs='-L$$r/$(HOST_SUBDIR)/ppl/.libs -L$$r/$(HOST_SUBDIR)/ppl/_libs -lppl_c -lppl -lgmpxx '
+  ppllibs='-L$$r/$(HOST_SUBDIR)/ppl/.libs -L$$r/$(HOST_SUBDIR)/ppl/_libs -lppl_c -lppl -lgmpxx '"$with_host_libstdcxx "
   pplinc='-I$$r/$(HOST_SUBDIR)/ppl/include -I$$s/ppl/include '
   LIBS="$ppllibs $LIBS"
 fi

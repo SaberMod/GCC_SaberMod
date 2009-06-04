@@ -3499,9 +3499,9 @@ typedef struct dw_loc_descr_struct GTY(())
 {
   dw_loc_descr_ref dw_loc_next;
   enum dwarf_location_atom dw_loc_opc;
+  int dw_loc_addr;
   dw_val_node dw_loc_oprnd1;
   dw_val_node dw_loc_oprnd2;
-  int dw_loc_addr;
 }
 dw_loc_descr_node;
 
@@ -5128,7 +5128,7 @@ static void add_byte_size_attribute (dw_die_ref, tree);
 static void add_bit_offset_attribute (dw_die_ref, tree);
 static void add_bit_size_attribute (dw_die_ref, tree);
 static void add_prototyped_attribute (dw_die_ref, tree);
-static void add_abstract_origin_attribute (dw_die_ref, tree);
+static dw_die_ref add_abstract_origin_attribute (dw_die_ref, tree);
 static void add_pure_or_virtual_attribute (dw_die_ref, tree);
 static void add_src_coords_attributes (dw_die_ref, tree);
 static void add_name_and_src_coords_attributes (dw_die_ref, tree);
@@ -5149,9 +5149,6 @@ static void gen_descr_array_type_die (tree, struct array_descr_info *, dw_die_re
 #if 0
 static void gen_entry_point_die (tree, dw_die_ref);
 #endif
-static void gen_inlined_enumeration_type_die (tree, dw_die_ref);
-static void gen_inlined_structure_type_die (tree, dw_die_ref);
-static void gen_inlined_union_type_die (tree, dw_die_ref);
 static dw_die_ref gen_enumeration_type_die (tree, dw_die_ref);
 static dw_die_ref gen_formal_parameter_die (tree, tree, dw_die_ref);
 static void gen_unspecified_parameters_die (tree, dw_die_ref);
@@ -5172,11 +5169,10 @@ static void gen_struct_or_union_type_die (tree, dw_die_ref,
 static void gen_subroutine_type_die (tree, dw_die_ref);
 static void gen_typedef_die (tree, dw_die_ref);
 static void gen_type_die (tree, dw_die_ref);
-static void gen_tagged_type_instantiation_die (tree, dw_die_ref);
 static void gen_block_die (tree, dw_die_ref, int);
 static void decls_for_scope (tree, dw_die_ref, int);
 static int is_redundant_typedef (const_tree);
-static void gen_namespace_die (tree);
+static void gen_namespace_die (tree, dw_die_ref);
 static void gen_decl_die (tree, tree, dw_die_ref);
 static dw_die_ref force_decl_die (tree);
 static dw_die_ref force_type_die (tree);
@@ -12479,7 +12475,7 @@ add_prototyped_attribute (dw_die_ref die, tree func_type)
    by looking in either the type declaration or object declaration
    equate table.  */
 
-static inline void
+static inline dw_die_ref
 add_abstract_origin_attribute (dw_die_ref die, tree origin)
 {
   dw_die_ref origin_die = NULL;
@@ -12517,7 +12513,8 @@ add_abstract_origin_attribute (dw_die_ref die, tree origin)
      here.  */
 
   if (origin_die)
-      add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
+    add_AT_die_ref (die, DW_AT_abstract_origin, origin_die);
+  return origin_die;
 }
 
 /* We do not currently support the pure_virtual attribute.  */
@@ -13148,18 +13145,6 @@ retry_incomplete_types (void)
     gen_type_die (VEC_index (tree, incomplete_types, i), comp_unit_die);
 }
 
-/* Generate a DIE to represent an inlined instance of an enumeration type.  */
-
-static void
-gen_inlined_enumeration_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref type_die = new_die (DW_TAG_enumeration_type, context_die, type);
-
-  /* We do not check for TREE_ASM_WRITTEN (type) being set, as the type may
-     be incomplete and such types are not marked.  */
-  add_abstract_origin_attribute (type_die, type);
-}
-
 /* Determine what tag to use for a record type.  */
 
 static enum dwarf_tag
@@ -13182,30 +13167,6 @@ record_type_tag (tree type)
     default:
       gcc_unreachable ();
     }
-}
-
-/* Generate a DIE to represent an inlined instance of a structure type.  */
-
-static void
-gen_inlined_structure_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref type_die = new_die (record_type_tag (type), context_die, type);
-
-  /* We do not check for TREE_ASM_WRITTEN (type) being set, as the type may
-     be incomplete and such types are not marked.  */
-  add_abstract_origin_attribute (type_die, type);
-}
-
-/* Generate a DIE to represent an inlined instance of a union type.  */
-
-static void
-gen_inlined_union_type_die (tree type, dw_die_ref context_die)
-{
-  dw_die_ref type_die = new_die (DW_TAG_union_type, context_die, type);
-
-  /* We do not check for TREE_ASM_WRITTEN (type) being set, as the type may
-     be incomplete and such types are not marked.  */
-  add_abstract_origin_attribute (type_die, type);
 }
 
 /* Generate a DIE to represent an enumeration type.  Note that these DIEs
@@ -13885,6 +13846,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   tree decl_or_origin = decl ? decl : origin;
   dw_die_ref var_die;
   dw_die_ref old_die = decl ? lookup_decl_die (decl) : NULL;
+  dw_die_ref origin_die;
   int declaration = (DECL_EXTERNAL (decl_or_origin)
 		     /* If DECL is COMDAT and has not actually been
 			emitted, we cannot take its address; there
@@ -14016,10 +13978,19 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
       return;
     }
 
+  /* If the compiler emitted a definition for the DECL declaration
+     and if we already emitted a DIE for it, don't emit a second
+     DIE for it again.  */
+  if (old_die
+      && declaration
+      && old_die->die_parent == context_die)
+    return;
+
   var_die = new_die (DW_TAG_variable, context_die, decl);
 
+  origin_die = NULL;
   if (origin != NULL)
-    add_abstract_origin_attribute (var_die, origin);
+    origin_die = add_abstract_origin_attribute (var_die, origin);
 
   /* Loop unrolling can create multiple blocks that refer to the same
      static variable, so we must test for the DW_AT_declaration flag.
@@ -14082,7 +14053,17 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
   if (decl && (DECL_ABSTRACT (decl) || declaration))
     equate_decl_number_to_die (decl, var_die);
 
-  if (! declaration && ! DECL_ABSTRACT (decl_or_origin))
+  if (! declaration
+      && (! DECL_ABSTRACT (decl_or_origin)
+	  /* Local static vars are shared between all clones/inlines,
+	     so emit DW_AT_location on the abstract DIE if DECL_RTL is
+	     already set.  */
+	  || (TREE_CODE (decl_or_origin) == VAR_DECL
+	      && TREE_STATIC (decl_or_origin)
+	      && DECL_RTL_SET_P (decl_or_origin)))
+      /* When abstract origin already has DW_AT_location attribute, no need
+	 to add it again.  */
+      && (origin_die == NULL || get_AT (origin_die, DW_AT_location) == NULL))
     {
       if (TREE_CODE (decl_or_origin) == VAR_DECL && TREE_STATIC (decl_or_origin)
           && !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl_or_origin)))
@@ -14822,46 +14803,6 @@ gen_type_die (tree type, dw_die_ref context_die)
   gen_type_die_with_usage (type, context_die, DINFO_USAGE_DIR_USE);
 }
 
-/* Generate a DIE for a tagged type instantiation.  */
-
-static void
-gen_tagged_type_instantiation_die (tree type, dw_die_ref context_die)
-{
-  if (type == NULL_TREE || type == error_mark_node)
-    return;
-
-  /* We are going to output a DIE to represent the unqualified version of
-     this type (i.e. without any const or volatile qualifiers) so make sure
-     that we have the main variant (i.e. the unqualified version) of this
-     type now.  */
-  gcc_assert (type == type_main_variant (type));
-
-  /* Do not check TREE_ASM_WRITTEN (type) as it may not be set if this is
-     an instance of an unresolved type.  */
-
-  switch (TREE_CODE (type))
-    {
-    case ERROR_MARK:
-      break;
-
-    case ENUMERAL_TYPE:
-      gen_inlined_enumeration_type_die (type, context_die);
-      break;
-
-    case RECORD_TYPE:
-      gen_inlined_structure_type_die (type, context_die);
-      break;
-
-    case UNION_TYPE:
-    case QUAL_UNION_TYPE:
-      gen_inlined_union_type_die (type, context_die);
-      break;
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
 /* Generate a DW_TAG_lexical_block DIE followed by DIEs to represent all of the
    things which are local to the given block.  */
 
@@ -15160,18 +15101,19 @@ declare_in_namespace (tree thing, dw_die_ref context_die)
 /* Generate a DIE for a namespace or namespace alias.  */
 
 static void
-gen_namespace_die (tree decl)
+gen_namespace_die (tree decl, dw_die_ref context_die)
 {
-  dw_die_ref context_die = setup_namespace_context (decl, comp_unit_die);
+  dw_die_ref namespace_die;
 
   /* Namespace aliases have a DECL_ABSTRACT_ORIGIN of the namespace
      they are an alias of.  */
   if (DECL_ABSTRACT_ORIGIN (decl) == NULL)
     {
       /* Output a real namespace or module.  */
-      dw_die_ref namespace_die
-	= new_die (is_fortran () ? DW_TAG_module : DW_TAG_namespace,
-		   context_die, decl);
+      context_die = setup_namespace_context (decl, comp_unit_die);
+      namespace_die = new_die (is_fortran ()
+			       ? DW_TAG_module : DW_TAG_namespace,
+			       context_die, decl);
       /* For Fortran modules defined in different CU don't add src coords.  */
       if (namespace_die->die_tag == DW_TAG_module && DECL_EXTERNAL (decl))
 	add_name_attribute (namespace_die, dwarf2_name (decl, 0));
@@ -15189,9 +15131,11 @@ gen_namespace_die (tree decl)
       dw_die_ref origin_die
 	= force_decl_die (DECL_ABSTRACT_ORIGIN (decl));
 
+      if (DECL_CONTEXT (decl) == NULL_TREE
+	  || TREE_CODE (DECL_CONTEXT (decl)) == NAMESPACE_DECL)
+	context_die = setup_namespace_context (decl, comp_unit_die);
       /* Now create the namespace alias DIE.  */
-      dw_die_ref namespace_die
-	= new_die (DW_TAG_imported_declaration, context_die, decl);
+      namespace_die = new_die (DW_TAG_imported_declaration, context_die, decl);
       add_name_and_src_coords_attributes (namespace_die, decl);
       add_AT_die_ref (namespace_die, DW_AT_import, origin_die);
       equate_decl_number_to_die (decl, namespace_die);
@@ -15302,14 +15246,14 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 	 of some type tag, if the given TYPE_DECL is marked as having been
 	 instantiated from some other (original) TYPE_DECL node (e.g. one which
 	 was generated within the original definition of an inline function) we
-	 have to generate a special (abbreviated) DW_TAG_structure_type,
-	 DW_TAG_union_type, or DW_TAG_enumeration_type DIE here.  */
-      if (TYPE_DECL_IS_STUB (decl) && decl_ultimate_origin (decl) != NULL_TREE
-	  && is_tagged_type (TREE_TYPE (decl)))
-	{
-	  gen_tagged_type_instantiation_die (TREE_TYPE (decl), context_die);
-	  break;
-	}
+	 used to generate a special (abbreviated) DW_TAG_structure_type,
+	 DW_TAG_union_type, or DW_TAG_enumeration_type DIE here.  But nothing
+	 should be actually referencing those DIEs, as variable DIEs with that
+	 type would be emitted already in the abstract origin, so it was always
+	 removed during unused type prunning.  Don't add anything in this
+	 case.  */
+      if (TYPE_DECL_IS_STUB (decl) && decl_ultimate_origin (decl) != NULL_TREE)
+	break;
 
       if (is_redundant_typedef (decl))
 	gen_type_die (TREE_TYPE (decl), context_die);
@@ -15380,7 +15324,7 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 
     case NAMESPACE_DECL:
     case IMPORTED_DECL:
-      gen_namespace_die (decl);
+      gen_namespace_die (decl, context_die);
       break;
 
     default:
@@ -15428,6 +15372,15 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
   dw_die_ref imported_die = NULL;
   dw_die_ref at_import_die;
 
+  if (TREE_CODE (decl) == IMPORTED_DECL)
+    {
+      xloc = expand_location (DECL_SOURCE_LOCATION (decl));
+      decl = IMPORTED_DECL_ASSOCIATED_DECL (decl);
+      gcc_assert (decl);
+    }
+  else
+    xloc = expand_location (input_location);
+
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
     {
       if (is_base_type (TREE_TYPE (decl)))
@@ -15444,19 +15397,6 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
 	  at_import_die = lookup_type_die (TREE_TYPE (decl));
 	  gcc_assert (at_import_die);
 	}
-    }
-  else if (TREE_CODE (decl) == IMPORTED_DECL)
-    {
-      tree imported_ns_decl;
-      /* IMPORTED_DECL nodes that are not imported namespace are just not
-         supported yet.  */
-      gcc_assert (DECL_INITIAL (decl)
-		  && TREE_CODE (DECL_INITIAL (decl)) == NAMESPACE_DECL);
-      imported_ns_decl = DECL_INITIAL (decl);
-      at_import_die = lookup_decl_die (imported_ns_decl);
-      if (!at_import_die)
-	at_import_die = force_decl_die (imported_ns_decl);
-      gcc_assert (at_import_die);
     }
   else
     {
@@ -15490,7 +15430,6 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
 			    lexical_block_die,
 			    lexical_block);
 
-  xloc = expand_location (input_location);
   add_AT_file (imported_die, DW_AT_decl_file, lookup_filename (xloc.file));
   add_AT_unsigned (imported_die, DW_AT_decl_line, xloc.line);
   if (name)

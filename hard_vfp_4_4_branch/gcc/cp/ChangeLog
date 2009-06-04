@@ -1,4 +1,181 @@
+2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR c++/38638
+	* parser.c (cp_parser_elaborated_type_specifier): If we have a
+	typename tag and don't have either a TYPE_DECL or a
+	TEMPLATE_ID_EXPR, set the type to NULL.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/37647
+	* decl.c (grokdeclarator): Reject [con|de]stuctors in a non-class
+	scope.
+
+2009-03-27  Simon Martin  <simartin@users.sourceforge.net>
+
+	PR c++/29727
+	* decl.c (check_array_designated_initializer): Handle error_mark_node.
+
+2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* typeck.c (cp_pointer_sum): Adjust call to pointer_int_sum.
+
+2009-03-26  Andrew Haley  <aph@redhat.com>
+
+	PR C++/39380
+	* decl2.c (possibly_inlined_p): If java exceptions are in use
+	don't inline a decl unless it is explicitly marked inline.
+	* lex.c: (pragma_java_exceptions): New variable.
+	(handle_pragma_java_exceptions): Set pragma_java_exceptions.
+	* cp-tree.h (pragma_java_exceptions): Declare new variable.
+
+2009-03-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28274
+	* name-lookup.c (pushdecl_maybe_friend): Check default args later.
+
+2009-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* semantics.c (handle_omp_for_class_iterator): Swap cond operands and
+	code if iter is the second operand.
+	* parser.c (cp_parser_binary_expression): Add no_toplevel_fold_p
+	argument.  If it is set, don't build the toplevel expression with
+	build_x_binary_op, but build2.
+	(cp_parser_assignment_expression,  cp_parser_omp_for_incr): Adjust
+	callers.
+	(cp_parser_omp_for_cond): Don't assume the first operand of the
+	comparison must be decl.
+
+2009-03-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/37729
+	* pt.c (make_fnparm_pack): Split out from...
+	(instantiate_decl): ...here.
+	(tsubst_pack_expansion): Handle being called in a late-specified
+	return type.
+
+	PR c++/39526
+	* name-lookup.c (pushdecl_maybe_friend): Don't warn about shadowing
+	a parm with a parm.
+
+2009-03-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28879
+	* parser.c (cp_parser_direct_declarator): In a template, wrap 
+	non-constant expression in NOP_EXPR with TREE_SIDE_EFFECTS set.
+	* pt.c (tsubst): Preserve it in a partial instantiation.
+	(dependent_type_p_r): Don't check value_dependent_expression_p.
+	* decl.c (compute_array_index_type): Don't check
+	value_dependent_expression_p if TREE_SIDE_EFFECTS.
+
+	C++ core issue 703
+	* typeck2.c (check_narrowing): Don't complain about loss of 
+	precision when converting a floating-point constant.
+
+2009-03-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/39495
+	* parser.c (cp_parser_omp_for_cond): Don't check lhs if decl is NULL.
+	(cp_parser_omp_for_loop): Always use cp_parser_omp_for_cond.
+
+2009-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (struct cp_token): Reorder fields for 64-bit hosts.
+	(eof_token): Adjust.
+
+2009-03-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39425
+	* parser.c (cp_parser_explicit_specialization): Don't skip the
+	rest of the specialization when begin_specialization returns
+	false.
+
+2009-03-17  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (grokfndecl): Set DECL_CONTEXT on parms.
+	(duplicate_decls): Adjust DECL_CONTEXT of newdecl's parms.
+	* pt.c (check_explicit_specialization): Likewise.
+	(tsubst_copy) [PARM_DECL]: Return a dummy parm if we don't have a
+	local specialization.
+	* tree.c (cp_tree_equal) [PARM_DECL]: Check type and index, not name.
+	* decl2.c (parm_index): New fn.
+	* semantics.c (finish_decltype_type): Don't use describable_type.
+	* mangle.c (write_expression): Likewise.  Mangle ALIGNOF_EXPR.
+	Give a sorry for unsupported codes rather than crash.  Mangle
+	conversions with other than 1 operand.  New mangling for PARM_DECL.
+	* operators.def (ALIGNOF_EXPR): Mangle as "az".
+
+2009-03-17  Jing Yu  <jingyu@google.com>
+
+	PR middle-end/39378
+	* method.c (use_thunk): Change is_thunk from crtl to cfun.
+
+2009-03-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/39475
+	* semantics.c (check_trait_type): New.
+	(finish_trait_expr): Use it.
+
+2009-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* name-lookup.c (cp_emit_debug_info_for_using): Emit USING_STMTs
+	instead of calling imported_module_or_decl debug hook if
+	building_stmt_tree ().
+	* cp-gimplify.c (cp_gimplify_expr): Don't assert the first operand
+	is a NAMESPACE_DECL.
+
+	PR debug/37890
+	* name-lookup.c (do_namespace_alias): Don't call global_decl debug
+	hook at function scope.
+
+	PR debug/39471
+	* cp-gimplify.c (cp_gimplify_expr): Don't set DECL_NAME
+	on IMPORTED_DECL.
+
+2009-03-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39371
+	* semantics.c (finish_switch_cond): Don't call get_unwidened.
+	* decl.c (finish_case_label): Pass SWITCH_STMT_TYPE as 3rd argument
+	instead of TREE_TYPE (cond).
+
+2009-03-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/39060
+	* parser.c (cp_parser_late_parsing_default_args): Continue
+	the loop when cp_parser_assignment_expression returns
+	error_mark_node.
+
+2009-03-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39367
+	* init.c (build_new_1): Don't use a VLA type.
+	(build_vec_init): Handle getting a pointer for BASE.
+
+2009-03-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c++/37520
+	* cp-tree.h: Check NO_DOT_IN_LABEL before NO_DOLLAR_IN_LABEL
+	when mangling symbols.
+
+2009-03-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/33492
+	* error.c (dump_expr): Don't try to print THROW_EXPRs in full.
+
+2009-03-06  Alexandre Oliva  <aoliva@redhat.com>
+
+	* decl.c (record_builtin_java_type): Use canonicalized integer
+	types.
+
 2009-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38908
+	* class.c (is_really_empty_class): New fn.
+	* cp-tree.h: Declare it.
+	* cp-objcp-common.c (cp_expr_size): Use it.
 
 	PR c++/13549
 	* semantics.c (perform_koenig_lookup): Handle TEMPLATE_ID_EXPR.

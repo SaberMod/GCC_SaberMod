@@ -3660,20 +3660,8 @@ extern GTY(()) VEC(tree,gc) *local_classes;
    at a particular location, we can index into the string at
    any other location that provides distinguishing characters).  */
 
-/* Define NO_DOLLAR_IN_LABEL in your favorite tm file if your assembler
-   doesn't allow '$' in symbol names.  */
-#ifndef NO_DOLLAR_IN_LABEL
-
-#define JOINER '$'
-
-#define AUTO_TEMP_NAME "_$tmp_"
-#define VFIELD_BASE "$vf"
-#define VFIELD_NAME "_vptr$"
-#define VFIELD_NAME_FORMAT "_vptr$%s"
-#define ANON_AGGRNAME_FORMAT "$_%d"
-
-#else /* NO_DOLLAR_IN_LABEL */
-
+/* Define NO_DOT_IN_LABEL in your favorite tm file if your assembler
+   doesn't allow '.' in symbol names.  */
 #ifndef NO_DOT_IN_LABEL
 
 #define JOINER '.'
@@ -3686,6 +3674,18 @@ extern GTY(()) VEC(tree,gc) *local_classes;
 #define ANON_AGGRNAME_FORMAT "._%d"
 
 #else /* NO_DOT_IN_LABEL */
+
+#ifndef NO_DOLLAR_IN_LABEL
+
+#define JOINER '$'
+
+#define AUTO_TEMP_NAME "_$tmp_"
+#define VFIELD_BASE "$vf"
+#define VFIELD_NAME "_vptr$"
+#define VFIELD_NAME_FORMAT "_vptr$%s"
+#define ANON_AGGRNAME_FORMAT "$_%d"
+
+#else /* NO_DOLLAR_IN_LABEL */
 
 #define IN_CHARGE_NAME "__in_chrg"
 #define AUTO_TEMP_NAME "__tmp_"
@@ -3709,8 +3709,8 @@ extern GTY(()) VEC(tree,gc) *local_classes;
 	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
 #define ANON_AGGRNAME_FORMAT "__anon_%d"
 
-#endif	/* NO_DOT_IN_LABEL */
 #endif	/* NO_DOLLAR_IN_LABEL */
+#endif	/* NO_DOT_IN_LABEL */
 
 #define THIS_NAME "this"
 
@@ -4171,6 +4171,9 @@ struct tinst_level GTY(())
    e.g  "int f(void)".  */
 extern cp_parameter_declarator *no_parameters;
 
+/* True if we saw "#pragma GCC java_exceptions".  */
+extern bool pragma_java_exceptions;
+
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
 
@@ -4240,6 +4243,7 @@ extern void finish_struct_1			(tree);
 extern int resolves_to_fixed_type_p		(tree, int *);
 extern void init_class_processing		(void);
 extern int is_empty_class			(tree);
+extern bool is_really_empty_class		(tree);
 extern void pushclass				(tree);
 extern void popclass				(void);
 extern void push_nested_class			(tree);
@@ -4435,6 +4439,7 @@ extern bool decl_needed_p			(tree);
 extern void note_vague_linkage_fn		(tree);
 extern tree build_artificial_parm		(tree, tree);
 extern bool possibly_inlined_p			(tree);
+extern int parm_index                           (tree);
 
 /* in error.c */
 extern void init_error				(void);

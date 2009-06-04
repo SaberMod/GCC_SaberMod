@@ -4273,17 +4273,15 @@ static int
 ix86_function_regparm (const_tree type, const_tree decl)
 {
   tree attr;
-  int regparm = ix86_regparm;
+  int regparm;
 
   static bool error_issued;
 
   if (TARGET_64BIT)
-    {
-      if (ix86_function_type_abi (type) == DEFAULT_ABI)
-        return regparm;
-      return DEFAULT_ABI != SYSV_ABI ? X86_64_REGPARM_MAX : X64_REGPARM_MAX;
-    }
+    return (ix86_function_type_abi (type) == SYSV_ABI
+	    ? X86_64_REGPARM_MAX : X64_REGPARM_MAX);
 
+  regparm = ix86_regparm;
   attr = lookup_attribute ("regparm", TYPE_ATTRIBUTES (type));
   if (attr)
     {
@@ -4311,7 +4309,9 @@ ix86_function_regparm (const_tree type, const_tree decl)
     return 2;
 
   /* Use register calling convention for local functions when possible.  */
-  if (decl && TREE_CODE (decl) == FUNCTION_DECL
+  if (decl
+      && TREE_CODE (decl) == FUNCTION_DECL
+      && optimize
       && !profile_flag)
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
@@ -4396,7 +4396,7 @@ ix86_function_sseregparm (const_tree type, const_tree decl, bool warn)
 
   /* For local functions, pass up to SSE_REGPARM_MAX SFmode
      (and DFmode for SSE2) arguments in SSE registers.  */
-  if (decl && TARGET_SSE_MATH && !profile_flag)
+  if (decl && TARGET_SSE_MATH && optimize && !profile_flag)
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
       struct cgraph_local_info *i = cgraph_local_info (CONST_CAST_TREE(decl));
@@ -4618,7 +4618,7 @@ static void
 ix86_maybe_switch_abi (void)
 {
   if (TARGET_64BIT &&
-      call_used_regs[4 /*RSI*/] ==  (cfun->machine->call_abi == MS_ABI))
+      call_used_regs[SI_REG] == (cfun->machine->call_abi == MS_ABI))
     reinit_regs ();
 }
 
@@ -12633,10 +12633,9 @@ ix86_expand_push (enum machine_mode mode, rtx x)
   tmp = gen_rtx_MEM (mode, stack_pointer_rtx);
 
   /* When we push an operand onto stack, it has to be aligned at least
-     at the function argument boundary.  */
-  set_mem_align (tmp,
-		 ix86_function_arg_boundary (mode, NULL_TREE));
-
+     at the function argument boundary.  However since we don't have
+     the argument type, we can't determine the actual argument
+     boundary.  */
   emit_move_insn (tmp, x);
 }
 
@@ -18618,12 +18617,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  rtx pop, int sibcall)
 {
   rtx use = NULL, call;
-  enum calling_abi function_call_abi;
 
-  if (callarg2 && INTVAL (callarg2) == -2)
-    function_call_abi = MS_ABI;
-  else
-    function_call_abi = SYSV_ABI;
   if (pop == const0_rtx)
     pop = NULL;
   gcc_assert (!TARGET_64BIT || !pop);
@@ -18679,12 +18673,13 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       pop = gen_rtx_PLUS (Pmode, stack_pointer_rtx, pop);
       pop = gen_rtx_SET (VOIDmode, stack_pointer_rtx, pop);
       call = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, call, pop));
-      gcc_assert (ix86_cfun_abi () != MS_ABI || function_call_abi != SYSV_ABI);
     }
-  /* We need to represent that SI and DI registers are clobbered
-     by SYSV calls.  */
-  if (ix86_cfun_abi () == MS_ABI && function_call_abi == SYSV_ABI)
+  if (TARGET_64BIT
+      && ix86_cfun_abi () == MS_ABI
+      && (!callarg2 || INTVAL (callarg2) != -2))
     {
+      /* We need to represent that SI and DI registers are clobbered
+	 by SYSV calls.  */
       static int clobbered_registers[] = {
 	XMM6_REG, XMM7_REG, XMM8_REG,
 	XMM9_REG, XMM10_REG, XMM11_REG,
@@ -19347,15 +19342,39 @@ ix86_data_alignment (tree type, int align)
   return align;
 }
 
-/* Compute the alignment for a local variable or a stack slot.  TYPE is
-   the data type, MODE is the widest mode available and ALIGN is the
-   alignment that the object would ordinarily have.  The value of this
-   macro is used instead of that alignment to align the object.  */
+/* Compute the alignment for a local variable or a stack slot.  EXP is
+   the data type or decl itself, MODE is the widest mode available and
+   ALIGN is the alignment that the object would ordinarily have.  The
+   value of this macro is used instead of that alignment to align the
+   object.  */
 
 unsigned int
-ix86_local_alignment (tree type, enum machine_mode mode,
+ix86_local_alignment (tree exp, enum machine_mode mode,
 		      unsigned int align)
 {
+  tree type, decl;
+
+  if (exp && DECL_P (exp))
+    {
+      type = TREE_TYPE (exp);
+      decl = exp;
+    }
+  else
+    {
+      type = exp;
+      decl = NULL;
+    }
+
+  /* Don't do dynamic stack realignment for long long objects with
+     -mpreferred-stack-boundary=2.  */
+  if (!TARGET_64BIT
+      && align == 64
+      && ix86_preferred_stack_boundary < 64
+      && (mode == DImode || (type && TYPE_MODE (type) == DImode))
+      && (!type || !TYPE_USER_ALIGN (type))
+      && (!decl || !DECL_USER_ALIGN (decl)))
+    align = 32;
+
   /* If TYPE is NULL, we are allocating a stack slot for caller-save
      register in MODE.  We will return the largest alignment of XF
      and DF.  */

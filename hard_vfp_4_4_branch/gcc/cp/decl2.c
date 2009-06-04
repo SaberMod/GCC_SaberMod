@@ -3772,7 +3772,7 @@ possibly_inlined_p (tree decl)
   gcc_assert (TREE_CODE (decl) == FUNCTION_DECL);
   if (DECL_UNINLINABLE (decl))
     return false;
-  if (!optimize)
+  if (!optimize || pragma_java_exceptions)
     return DECL_DECLARED_INLINE_P (decl);
   /* When optimizing, we might inline everything when flatten
      attribute or heuristics inlining for size or autoinlining
@@ -3905,6 +3905,29 @@ mark_used (tree decl)
 		      /*expl_inst_class_mem_p=*/false);
 
   processing_template_decl = saved_processing_template_decl;
+}
+
+/* Given function PARM_DECL PARM, return its index in the function's list
+   of parameters, beginning with 1.  */
+
+int
+parm_index (tree parm)
+{
+  int index;
+  tree arg;
+
+  for (index = 1, arg = DECL_ARGUMENTS (DECL_CONTEXT (parm));
+       arg;
+       ++index, arg = TREE_CHAIN (arg))
+    {
+      if (DECL_NAME (parm) == DECL_NAME (arg))
+	break;
+      if (DECL_ARTIFICIAL (arg))
+	--index;
+    }
+
+  gcc_assert (arg);
+  return index;
 }
 
 #include "gt-cp-decl2.h"
