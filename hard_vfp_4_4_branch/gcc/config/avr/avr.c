@@ -219,6 +219,8 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "atmega8hva",   ARCH_AVR4, "__AVR_ATmega8HVA__" },
   { "atmega4hvd",   ARCH_AVR4, "__AVR_ATmega4HVD__" },
   { "atmega8hvd",   ARCH_AVR4, "__AVR_ATmega8HVD__" },
+  { "atmega8c1",    ARCH_AVR4, "__AVR_ATmega8C1__" },
+  { "atmega8m1",    ARCH_AVR4, "__AVR_ATmega8M1__" },
   { "at90pwm1",     ARCH_AVR4, "__AVR_AT90PWM1__" },
   { "at90pwm2",     ARCH_AVR4, "__AVR_AT90PWM2__" },
   { "at90pwm2b",    ARCH_AVR4, "__AVR_AT90PWM2B__" },
@@ -266,6 +268,7 @@ static const struct mcu_type_s avr_mcu_types[] = {
   { "at90can64",    ARCH_AVR5, "__AVR_AT90CAN64__" },
   { "at90pwm216",   ARCH_AVR5, "__AVR_AT90PWM216__" },
   { "at90pwm316",   ARCH_AVR5, "__AVR_AT90PWM316__" },
+  { "atmega16c1",   ARCH_AVR5, "__AVR_ATmega16C1__" },
   { "atmega32c1",   ARCH_AVR5, "__AVR_ATmega32C1__" },
   { "atmega64c1",   ARCH_AVR5, "__AVR_ATmega64C1__" },
   { "atmega16m1",   ARCH_AVR5, "__AVR_ATmega16M1__" },
@@ -364,6 +367,7 @@ void
 avr_override_options (void)
 {
   const struct mcu_type_s *t;
+  static bool warned_no_tablejump_deprecated = false;
 
   flag_delete_null_pointer_checks = 0;
 
@@ -388,6 +392,15 @@ avr_override_options (void)
   if (optimize && !TARGET_NO_TABLEJUMP)
     avr_case_values_threshold = 
       (!AVR_HAVE_JMP_CALL || TARGET_CALL_PROLOGUES) ? 8 : 17;
+
+  if (TARGET_NO_TABLEJUMP
+      && !warned_no_tablejump_deprecated)
+    {
+      inform (input_location, "the -mno-tablejump switch is deprecated");
+      inform (input_location, "GCC 4.4 is the last release with this switch");
+      inform (input_location, "use the -fno-jump-tables switch instead");
+      warned_no_tablejump_deprecated = true;
+    }
 
   tmp_reg_rtx  = gen_rtx_REG (QImode, TMP_REGNO);
   zero_reg_rtx = gen_rtx_REG (QImode, ZERO_REGNO);

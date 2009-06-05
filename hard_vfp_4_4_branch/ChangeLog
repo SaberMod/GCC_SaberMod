@@ -1,3 +1,35 @@
+2009-04-25  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	PR bootstrap/39739
+	* configure.ac (extra_mpfr_configure_flags): Set and AC_SUBST.
+	* Makefile.def (module=mpfr): Use extra_mpfr_configure_flags.
+
+	* configure, Makefile.in: Regenerate.
+
+2009-04-21  Release Manager
+
+	* GCC 4.4.0 released.
+
+2009-04-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac: Change copyright header to refer to version
+	3 of the GNU General Public License and to point readers at the
+	COPYING3 file and the FSF's license web page.
+	* Makefile.def: Likewise.
+	* Makefile.tpl: Likewise.
+	* Makefile.in: Regenerate.
+
+2009-04-09  Nick Clifton  <nickc@redhat.com>
+
+	* COPYING.RUNTIME: New file: Contains a copy of version 3.1 of
+	the GCC Runtime Library Exception.
+
+2009-04-09  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	* configure.ac: Restore match for darwin9 or later. Use double
+	brackets since regeneration eats one pair.
+	* configure: Regenerate.
+
 2009-03-25  Erven Rohou <erven.rohou@inria.fr>
 
         * MAINTAINERS:  Update my email address.

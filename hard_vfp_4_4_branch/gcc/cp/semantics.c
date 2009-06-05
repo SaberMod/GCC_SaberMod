@@ -1422,6 +1422,16 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 {
   gcc_assert (TREE_CODE (decl) == FIELD_DECL);
 
+  if (!object && skip_evaluation)
+    {
+      /* DR 613: Can use non-static data members without an associated
+         object in sizeof/decltype/alignof.  */
+      tree scope = qualifying_scope;
+      if (scope == NULL_TREE)
+	scope = context_for_name_lookup (decl);
+      object = maybe_dummy_object (scope, NULL);
+    }
+
   if (!object)
     {
       if (current_function_decl
@@ -1433,7 +1443,8 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       return error_mark_node;
     }
-  TREE_USED (current_class_ptr) = 1;
+  if (current_class_ptr)
+    TREE_USED (current_class_ptr) = 1;
   if (processing_template_decl && !qualifying_scope)
     {
       tree type = TREE_TYPE (decl);
@@ -1443,7 +1454,9 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
       else
 	{
 	  /* Set the cv qualifiers.  */
-	  int quals = cp_type_quals (TREE_TYPE (current_class_ref));
+	  int quals = (current_class_ref
+		       ? cp_type_quals (TREE_TYPE (current_class_ref))
+		       : TYPE_UNQUALIFIED);
 
 	  if (DECL_MUTABLE_P (decl))
 	    quals &= ~TYPE_QUAL_CONST;
@@ -1836,14 +1849,10 @@ perform_koenig_lookup (tree fn, tree args)
    qualified.  For example a call to `X::f' never generates a virtual
    call.)
 
-   KOENIG_P is 1 if we want to perform argument-dependent lookup,
-   -1 if we don't, but we want to accept functions found by previous
-   argument-dependent lookup, and 0 if we want nothing to do with it.
-
    Returns code for the call.  */
 
 tree
-finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
+finish_call_expr (tree fn, tree args, bool disallow_virtual, bool koenig_p,
 		  tsubst_flags_t complain)
 {
   tree result;
@@ -1866,7 +1875,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
 	  || any_type_dependent_arguments_p (args))
 	{
 	  result = build_nt_call_list (fn, args);
-	  KOENIG_LOOKUP_P (result) = koenig_p > 0;
+	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  if (cfun)
 	    {
 	      do
@@ -1956,7 +1965,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
 
       if (!result)
 	/* A call to a namespace-scope function.  */
-	result = build_new_function_call (fn, args, koenig_p != 0, complain);
+	result = build_new_function_call (fn, args, koenig_p, complain);
     }
   else if (TREE_CODE (fn) == PSEUDO_DTOR_EXPR)
     {
@@ -1982,9 +1991,7 @@ finish_call_expr (tree fn, tree args, bool disallow_virtual, int koenig_p,
   if (processing_template_decl)
     {
       result = build_call_list (TREE_TYPE (result), orig_fn, orig_args);
-      /* Don't repeat arg-dependent lookup at instantiation time if this call
-         is not type-dependent.  */
-      KOENIG_LOOKUP_P (result) = 0;
+      KOENIG_LOOKUP_P (result) = koenig_p;
     }
   return result;
 }
@@ -2824,11 +2831,6 @@ finish_id_expression (tree id_expression,
 	     dependent.  */
 	  if (scope)
 	    {
-	      /* Since this name was dependent, the expression isn't
-		 constant -- yet.  No error is issued because it might
-		 be constant when things are instantiated.  */
-	      if (integral_constant_expression_p)
-		*non_integral_constant_expression_p = true;
 	      if (TYPE_P (scope))
 		{
 		  if (address_p && done)
@@ -2836,16 +2838,16 @@ finish_id_expression (tree id_expression,
 						     done, address_p,
 						     template_p,
 						     template_arg_p);
-		  else if (dependent_type_p (scope))
-		    decl = build_qualified_name (/*type=*/NULL_TREE,
-						 scope,
-						 id_expression,
-						 template_p);
-		  else if (DECL_P (decl))
-		    decl = build_qualified_name (TREE_TYPE (decl),
-						 scope,
-						 id_expression,
-						 template_p);
+		  else
+		    {
+		      tree type = NULL_TREE;
+		      if (DECL_P (decl) && !dependent_scope_p (scope))
+			type = TREE_TYPE (decl);
+		      decl = build_qualified_name (type,
+						   scope,
+						   id_expression,
+						   template_p);
+		    }
 		}
 	      if (TREE_TYPE (decl))
 		decl = convert_from_reference (decl);

@@ -2187,7 +2187,7 @@ vect_analyze_group_access (struct data_reference *dr)
       tree next_step;
       tree prev_init = DR_INIT (data_ref);
       gimple prev = stmt;
-      HOST_WIDE_INT diff, count_in_bytes;
+      HOST_WIDE_INT diff, count_in_bytes, gaps = 0;
 
       while (next)
         {
@@ -2249,6 +2249,8 @@ vect_analyze_group_access (struct data_reference *dr)
 		    fprintf (vect_dump, "interleaved store with gaps");
 		  return false;
 		}
+
+              gaps += diff - 1;
 	    }
 
           /* Store the gap from the previous member of the group. If there is no
@@ -2265,8 +2267,9 @@ vect_analyze_group_access (struct data_reference *dr)
          the type to get COUNT_IN_BYTES.  */
       count_in_bytes = type_size * count;
 
-      /* Check that the size of the interleaving is not greater than STEP.  */
-      if (dr_step < count_in_bytes)
+      /* Check that the size of the interleaving (including gaps) is not greater
+         than STEP.  */
+      if (dr_step && dr_step < count_in_bytes + gaps * type_size)
         {
           if (vect_print_dump_info (REPORT_DETAILS))
             {
@@ -2933,8 +2936,24 @@ vect_build_slp_tree (loop_vec_info loop_vinfo, slp_tree *node,
  
                     return false;
                   }
- 
-                first_load = DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt));
+
+                /* Check that the size of interleaved loads group is not
+                   greater than the SLP group size.  */
+                if (DR_GROUP_SIZE (vinfo_for_stmt (stmt))
+                    > ncopies * group_size)
+                  {
+                    if (vect_print_dump_info (REPORT_SLP))
+                      {
+                        fprintf (vect_dump, "Build SLP failed: the number of "
+                                            "interleaved loads is greater than"
+                                            " the SLP group size ");
+                        print_gimple_stmt (vect_dump, stmt, 0, TDF_SLIM);
+                      }
+
+                    return false;
+                  }
+
+              first_load = DR_GROUP_FIRST_DR (vinfo_for_stmt (stmt));
  
               if (first_load == stmt)
                 {

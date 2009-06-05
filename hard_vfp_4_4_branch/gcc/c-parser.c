@@ -4184,6 +4184,12 @@ c_parser_asm_statement (c_parser *parser)
       return NULL_TREE;
     }
   str = c_parser_asm_string_literal (parser);
+  if (str == NULL_TREE)
+    {
+      parser->lex_untranslated_string = false;
+      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
+      return NULL_TREE;
+    }
   if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     {
       simple = true;
@@ -5584,8 +5590,6 @@ c_parser_postfix_expression_after_primary (c_parser *parser,
 				     "expected %<)%>");
 	  expr.value = build_function_call (expr.value, exprlist);
 	  expr.original_code = ERROR_MARK;
-          if (warn_disallowed_functions)
-            warn_if_disallowed_function_p (expr.value);
 	  break;
 	case CPP_DOT:
 	  /* Structure element reference.  */

@@ -1,3 +1,103 @@
+2009-06-04 Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/39893
+	fortran/data.c (gfc_assign_data_value): If the lvalue is an 
+	assumed character length entity in a data statement, then 
+	return FAILURE to prevent segmentation fault.
+
+2009-06-03  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/40019
+	* trans-types.c (gfc_build_uint_type): Make nonstatic.
+	* trans.h (gfor_fndecl_clz128, gfor_fndecl_ctz128): New prototypes.
+	* trans-types.h (gfc_build_uint_type): Add prototype.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Build
+	gfor_fndecl_clz128 and gfor_fndecl_ctz128.
+	* trans-intrinsic.c (gfc_conv_intrinsic_leadz,
+	gfc_conv_intrinsic_trailz): Call the right builtins or library
+	functions, and cast arguments to unsigned types first.
+	* simplify.c (gfc_simplify_leadz): Deal with negative arguments.
+
+2009-05-22  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/40195
+	* module.c (read_md5_from_module_file): Close file before returning.
+
+2009-05-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/40018
+	* trans-array.c (gfc_trans_array_constructor_value): Fold
+	convert numeric constants.
+	(gfc_build_constant_array_constructor): The same.
+
+2009-05-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/38863
+	* trans-expr.c (gfc_conv_operator_assign): Remove function.
+	* trans.h : Remove prototype for gfc_conv_operator_assign.
+	* trans-stmt.c (gfc_conv_elemental_dependencies): Initialize
+	derivde types with intent(out).
+	(gfc_trans_call): Add mask, count1 and invert arguments. Add
+	code to use mask for WHERE assignments.
+	(gfc_trans_forall_1): Use new arguments for gfc_trans_call.
+	(gfc_trans_where_assign): The gfc_symbol argument is replaced
+	by the corresponding code. If this has a resolved_sym, then
+	gfc_trans_call is called. The call to gfc_conv_operator_assign
+	is removed.
+	(gfc_trans_where_2): Change the last argument in the call to
+	gfc_trans_where_assign.
+	* trans-stmt.h : Modify prototype for gfc_trans_call.
+	* trans.c (gfc_trans_code): Use new args for gfc_trans_call.
+
+2009-05-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/39879
+	* trans_expr.c (gfc_conv_procedure_call): Deep copy a derived
+	type parentheses argument if it is a variable with allocatable
+	components.
+
+2009-04-22  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2009-03-30  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Define BUILT_IN_HUGE_VAL
+	family of intrinsics instead of BUILT_IN_INF family.
+	* trans-intrinsics.c (gfc_conv_intrinsic_nearest): Use
+	BUILT_IN_HUGE_VAL instead of BUILT_IN_INF.
+
+2009-04-21  Release Manager
+
+	* GCC 4.4.0 released.
+
+2009-04-08  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/38152
+	* trans-decl.c (gfc_get_symbol_decl): Correctly set decl location for
+	procedure pointer decls.
+
+2009-04-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline:
+	PR fortran/39519
+	* parse.c (parse_derived): Do not break on finding pointer,
+	allocatable or private components.
+
+2009-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/39594
+	* resolve.c (resolve_common_vars): Add FL_VARIABLE to symbol
+	if it is not a procedure pointer.
+	* primary.c (match_actual_arg): Ditto.
+
+2009-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-types.c (gfc_sym_type, gfc_return_by_reference): For
+	sym->attr.result check sym->ns->proc_name->attr.is_bind_c.
+
 2009-03-18  Ralf Wildenhues  <Ralf.Wildenhues@gmx.de>
 
 	* lang.opt: Unify help texts for -I, -Wconversion, -d, -fopenmp,

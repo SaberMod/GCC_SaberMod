@@ -6324,6 +6324,7 @@ uses_template_parms (tree t)
 	   || TREE_CODE (t) == BASELINK
 	   || TREE_CODE (t) == IDENTIFIER_NODE
 	   || TREE_CODE (t) == TRAIT_EXPR
+	   || TREE_CODE (t) == CONSTRUCTOR
 	   || CONSTANT_CLASS_P (t))
     dependent_p = (type_dependent_expression_p (t)
 		   || value_dependent_expression_p (t));
@@ -9143,6 +9144,14 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 	max = tsubst_expr (omax, args, complain, in_decl,
 			   /*integral_constant_expression_p=*/false);
+
+	/* Fix up type of the magic NOP_EXPR with TREE_SIDE_EFFECTS if
+	   needed.  */
+	if (TREE_CODE (max) == NOP_EXPR
+	    && TREE_SIDE_EFFECTS (omax)
+	    && !TREE_TYPE (max))
+	  TREE_TYPE (max) = TREE_TYPE (TREE_OPERAND (max, 0));
+
 	max = fold_decl_constant_value (max);
 
 	/* If we're in a partial instantiation, preserve the magic NOP_EXPR
@@ -9961,7 +9970,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   enum tree_code code;
   tree r;
 
-  if (t == NULL_TREE || t == error_mark_node)
+  if (t == NULL_TREE || t == error_mark_node || args == NULL_TREE)
     return t;
 
   code = TREE_CODE (t);
@@ -9973,11 +9982,15 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
       if (r == NULL)
 	{
+	  tree c;
 	  /* This can happen for a parameter name used later in a function
 	     declaration (such as in a late-specified return type).  Just
 	     make a dummy decl, since it's only used for its type.  */
 	  gcc_assert (skip_evaluation);	  
-	  r = tsubst_decl (t, args, complain);
+	  /* We copy T because want to tsubst the PARM_DECL only,
+	     not the following PARM_DECLs that are chained to T.  */
+	  c = copy_node (t);
+	  r = tsubst_decl (c, args, complain);
 	  /* Give it the template pattern as its context; its true context
 	     hasn't been instantiated yet and this is good enough for
 	     mangling.  */
@@ -11450,7 +11463,11 @@ tsubst_copy_and_build (tree t,
 		    not appropriate, even if an unqualified-name was used
 		    to denote the function.  */
 		 && !DECL_FUNCTION_MEMBER_P (get_first_fn (function)))
-		|| TREE_CODE (function) == IDENTIFIER_NODE))
+		|| TREE_CODE (function) == IDENTIFIER_NODE)
+	    /* Only do this when substitution turns a dependent call
+	       into a non-dependent call.  */
+	    && type_dependent_expression_p_push (t)
+	    && !any_type_dependent_arguments_p (call_args))
 	  function = perform_koenig_lookup (function, call_args);
 
 	if (TREE_CODE (function) == IDENTIFIER_NODE)
@@ -11481,12 +11498,9 @@ tsubst_copy_and_build (tree t,
 		       /*fn_p=*/NULL,
 		       complain));
 	  }
-	/* Pass -1 for koenig_p so that build_new_function_call will
-	   allow hidden friends found by arg-dependent lookup at template
-	   parsing time.  */
 	return finish_call_expr (function, call_args,
 				 /*disallow_virtual=*/qualified_p,
-				 /*koenig_p*/-1,
+				 koenig_p,
 				 complain);
       }
 
@@ -12256,9 +12270,27 @@ fn_type_unification (tree fn,
        the corresponding deduced argument values.  If the
        substitution results in an invalid type, as described above,
        type deduction fails.  */
-    if (tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE)
-	== error_mark_node)
-      return 1;
+    {
+      tree substed = tsubst (TREE_TYPE (fn), targs, tf_none, NULL_TREE);
+      if (substed == error_mark_node)
+	return 1;
+
+      /* If we're looking for an exact match, check that what we got
+	 is indeed an exact match.  It might not be if some template
+	 parameters are used in non-deduced contexts.  */
+      if (strict == DEDUCE_EXACT)
+	{
+	  tree sarg
+	    = skip_artificial_parms_for (fn, TYPE_ARG_TYPES (substed));
+	  tree arg = args;
+	  if (return_type)
+	    sarg = tree_cons (NULL_TREE, TREE_TYPE (substed), sarg);
+	  for (; arg && sarg;
+	       arg = TREE_CHAIN (arg), sarg = TREE_CHAIN (sarg))
+	    if (!same_type_p (TREE_VALUE (arg), TREE_VALUE (sarg)))
+	      return 1;
+	}
+    }
 
   return result;
 }
@@ -12616,6 +12648,7 @@ resolve_overloaded_unification (tree tparms,
 {
   tree tempargs = copy_node (targs);
   int good = 0;
+  tree goodfn = NULL_TREE;
   bool addr_p;
 
   if (TREE_CODE (arg) == ADDR_EXPR)
@@ -12661,8 +12694,13 @@ resolve_overloaded_unification (tree tparms,
 	  if (subargs)
 	    {
 	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
-	      good += try_one_overload (tparms, targs, tempargs, parm,
-					elem, strict, sub_strict, addr_p);
+	      if (try_one_overload (tparms, targs, tempargs, parm,
+				    elem, strict, sub_strict, addr_p)
+		  && (!goodfn || !decls_match (goodfn, elem)))
+		{
+		  goodfn = elem;
+		  ++good;
+		}
 	    }
 	  --processing_template_decl;
 	}
@@ -12675,9 +12713,14 @@ resolve_overloaded_unification (tree tparms,
     return false;
   else
     for (; arg; arg = OVL_NEXT (arg))
-      good += try_one_overload (tparms, targs, tempargs, parm,
-				TREE_TYPE (OVL_CURRENT (arg)),
-				strict, sub_strict, addr_p);
+      if (try_one_overload (tparms, targs, tempargs, parm,
+			    TREE_TYPE (OVL_CURRENT (arg)),
+			    strict, sub_strict, addr_p)
+	  && (!goodfn || !decls_match (goodfn, OVL_CURRENT (arg))))
+	{
+	  goodfn = OVL_CURRENT (arg);
+	  ++good;
+	}
 
   /* [temp.deduct.type] A template-argument can be deduced from a pointer
      to function or pointer to member function argument if the set of
@@ -13499,6 +13542,13 @@ unify (tree tparms, tree targs, tree parm, tree arg, int strict)
 	 against it unless PARM is also a parameter pack.  */
       if ((template_parameter_pack_p (arg) || PACK_EXPANSION_P (arg))
 	  && !template_parameter_pack_p (parm))
+	return 1;
+
+      /* If the argument deduction results is a METHOD_TYPE,
+         then there is a problem.
+         METHOD_TYPE doesn't map to any real C++ type the result of
+	 the deduction can not be of that type.  */
+      if (TREE_CODE (arg) == METHOD_TYPE)
 	return 1;
 
       TREE_VEC_ELT (INNERMOST_TEMPLATE_ARGS (targs), idx) = arg;
@@ -16123,7 +16173,8 @@ dependent_type_p (tree type)
 bool
 dependent_scope_p (tree scope)
 {
-  return dependent_type_p (scope) && !currently_open_class (scope);
+  return (scope && TYPE_P (scope) && dependent_type_p (scope)
+	  && !currently_open_class (scope));
 }
 
 /* Returns TRUE if EXPRESSION is dependent, according to CRITERION.  */
@@ -16452,6 +16503,19 @@ type_dependent_expression_p (tree expression)
   gcc_assert (TREE_CODE (expression) != TYPE_DECL);
 
   return (dependent_type_p (TREE_TYPE (expression)));
+}
+
+/* Like type_dependent_expression_p, but it also works while not processing
+   a template definition, i.e. during substitution or mangling.  */
+
+bool
+type_dependent_expression_p_push (tree expr)
+{
+  bool b;
+  ++processing_template_decl;
+  b = type_dependent_expression_p (expr);
+  --processing_template_decl;
+  return b;
 }
 
 /* Returns TRUE if ARGS (a TREE_LIST of arguments to a function call)

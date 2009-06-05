@@ -469,13 +469,16 @@ c_strlen (tree src, int only_value)
   else
     offset = tree_low_cst (offset_node, 0);
 
-  /* If the offset is known to be out of bounds, the front-end should
-     have warned already. We call strlen at runtime.  
-
-     ??? Perhaps we should turn this into an assert and force
-     front-ends to define offsets whtin boundaries.  */
+  /* If the offset is known to be out of bounds, warn, and call strlen at
+     runtime.  */
   if (offset < 0 || offset > max)
     {
+     /* Suppress multiple warnings for propagated constant strings.  */
+      if (! TREE_NO_WARNING (src))
+        {
+          warning (0, "offset outside bounds of constant string");
+          TREE_NO_WARNING (src) = 1;
+        }
       return NULL_TREE;
     }
 
@@ -4173,7 +4176,7 @@ expand_builtin_memcmp (tree exp, rtx target, enum machine_mode mode)
 
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_normal (len);
+    arg3_rtx = expand_normal (fold_convert (sizetype, len));
 
     /* Set MEM_SIZE as appropriate.  */
     if (GET_CODE (arg3_rtx) == CONST_INT)

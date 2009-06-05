@@ -1384,9 +1384,37 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
   if (conv)
     return conv;
 
-  if (is_std_init_list (to) && expr
-      && BRACE_ENCLOSED_INITIALIZER_P (expr))
-    return build_list_conv (to, expr, flags);
+  if (expr && BRACE_ENCLOSED_INITIALIZER_P (expr))
+    {
+      if (is_std_init_list (to))
+	return build_list_conv (to, expr, flags);
+
+      /* Allow conversion from an initializer-list with one element to a
+	 scalar type.  */
+      if (SCALAR_TYPE_P (to))
+	{
+	  int nelts = CONSTRUCTOR_NELTS (expr);
+	  tree elt;
+
+	  if (nelts == 0)
+	    elt = integer_zero_node;
+	  else if (nelts == 1)
+	    elt = CONSTRUCTOR_ELT (expr, 0)->value;
+	  else
+	    elt = error_mark_node;
+
+	  conv = implicit_conversion (to, TREE_TYPE (elt), elt,
+				      c_cast_p, flags);
+	  if (conv)
+	    {
+	      conv->check_narrowing = true;
+	      if (BRACE_ENCLOSED_INITIALIZER_P (elt))
+		/* Too many levels of braces, i.e. '{{1}}'.  */
+		conv->bad_p = true;
+	      return conv;
+	    }
+	}
+    }
 
   if (expr != NULL_TREE
       && (MAYBE_CLASS_TYPE_P (from)
@@ -4069,8 +4097,20 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	default:
 	  if ((flags & LOOKUP_COMPLAIN) && (complain & tf_error))
 	    {
-	      op_error (code, code2, arg1, arg2, arg3, "no match");
-	      print_z_candidates (candidates);
+		/* If one of the arguments of the operator represents
+		   an invalid use of member function pointer, try to report
+		   a meaningful error ...  */
+		if (invalid_nonstatic_memfn_p (arg1, tf_error)
+		    || invalid_nonstatic_memfn_p (arg2, tf_error)
+		    || invalid_nonstatic_memfn_p (arg3, tf_error))
+		  /* We displayed the error message.  */;
+		else
+		  {
+		    /* ... Otherwise, report the more generic
+		       "no matching operator found" error */
+		    op_error (code, code2, arg1, arg2, arg3, "no match");
+		    print_z_candidates (candidates);
+		  }
 	    }
 	  result = error_mark_node;
 	  break;
@@ -4517,12 +4557,21 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
   if (convs->bad_p
       && convs->kind != ck_user
+      && convs->kind != ck_list
       && convs->kind != ck_ambig
       && convs->kind != ck_ref_bind
       && convs->kind != ck_rvalue
       && convs->kind != ck_base)
     {
       conversion *t = convs;
+
+      /* Give a helpful error if this is bad because of excess braces.  */
+      if (BRACE_ENCLOSED_INITIALIZER_P (expr)
+	  && SCALAR_TYPE_P (totype)
+	  && CONSTRUCTOR_NELTS (expr) > 0
+	  && BRACE_ENCLOSED_INITIALIZER_P (CONSTRUCTOR_ELT (expr, 0)->value))
+	permerror (input_location, "too many braces around initializer for %qT", totype);
+
       for (; t; t = convs->u.next)
 	{
 	  if (t->kind == ck_user || !t->bad_p)
@@ -4596,6 +4645,17 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	return expr;
       }
     case ck_identity:
+      if (BRACE_ENCLOSED_INITIALIZER_P (expr))
+	{
+	  int nelts = CONSTRUCTOR_NELTS (expr);
+	  if (nelts == 0)
+	    expr = integer_zero_node;
+	  else if (nelts == 1)
+	    expr = CONSTRUCTOR_ELT (expr, 0)->value;
+	  else
+	    gcc_unreachable ();
+	}
+
       if (type_unknown_p (expr))
 	expr = instantiate_type (totype, expr, complain);
       /* Convert a constant to its underlying value, unless we are
@@ -5391,17 +5451,33 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
       else
 	{
 	  /* We must only copy the non-tail padding parts.
-	     Use __builtin_memcpy for the bitwise copy.  */
+	     Use __builtin_memcpy for the bitwise copy.
+	     FIXME fix 22488 so we can go back to using MODIFY_EXPR
+	     instead of an explicit call to memcpy.  */
 	
 	  tree arg0, arg1, arg2, t;
+	  tree test = NULL_TREE;
 
 	  arg2 = TYPE_SIZE_UNIT (as_base);
 	  arg1 = arg;
 	  arg0 = cp_build_unary_op (ADDR_EXPR, to, 0, complain);
+
+	  if (!(optimize && flag_tree_ter))
+	    {
+	      /* When TER is off get_pointer_alignment returns 0, so a call
+		 to __builtin_memcpy is expanded as a call to memcpy, which
+		 is invalid with identical args.  When TER is on it is
+		 expanded as a block move, which should be safe.  */
+	      arg0 = save_expr (arg0);
+	      arg1 = save_expr (arg1);
+	      test = build2 (EQ_EXPR, boolean_type_node, arg0, arg1);
+	    }
 	  t = implicit_built_in_decls[BUILT_IN_MEMCPY];
 	  t = build_call_n (t, 3, arg0, arg1, arg2);
 
 	  t = convert (TREE_TYPE (arg0), t);
+	  if (test)
+	    t = build3 (COND_EXPR, TREE_TYPE (t), test, arg0, t);
 	  val = cp_build_indirect_ref (t, 0, complain);
 	}
 
@@ -6787,11 +6863,56 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn)
 	}
     }
 
-  /* If the two functions are the same (this can happen with declarations
-     in multiple scopes and arg-dependent lookup), arbitrarily choose one.  */
+  /* If the two function declarations represent the same function (this can
+     happen with declarations in multiple scopes and arg-dependent lookup),
+     arbitrarily choose one.  But first make sure the default args we're
+     using match.  */
   if (DECL_P (cand1->fn) && DECL_P (cand2->fn)
       && equal_functions (cand1->fn, cand2->fn))
-    return 1;
+    {
+      tree parms1 = TYPE_ARG_TYPES (TREE_TYPE (cand1->fn));
+      tree parms2 = TYPE_ARG_TYPES (TREE_TYPE (cand2->fn));
+
+      gcc_assert (!DECL_CONSTRUCTOR_P (cand1->fn));
+
+      for (i = 0; i < len; ++i)
+	{
+	  /* Don't crash if the fn is variadic.  */
+	  if (!parms1)
+	    break;
+	  parms1 = TREE_CHAIN (parms1);
+	  parms2 = TREE_CHAIN (parms2);
+	}
+
+      if (off1)
+	parms1 = TREE_CHAIN (parms1);
+      else if (off2)
+	parms2 = TREE_CHAIN (parms2);
+
+      for (; parms1; ++i)
+	{
+	  if (!cp_tree_equal (TREE_PURPOSE (parms1),
+			      TREE_PURPOSE (parms2)))
+	    {
+	      if (warn)
+		{
+		  permerror (input_location, "default argument mismatch in "
+			     "overload resolution");
+		  inform (input_location,
+			  " candidate 1: %q+#F", cand1->fn);
+		  inform (input_location,
+			  " candidate 2: %q+#F", cand2->fn);
+		}
+	      else
+		add_warning (cand1, cand2);
+	      break;
+	    }
+	  parms1 = TREE_CHAIN (parms1);
+	  parms2 = TREE_CHAIN (parms2);
+	}
+
+      return 1;
+    }
 
 tweak:
 

@@ -1,3 +1,187 @@
+2009-06-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40308
+	PR c++/40311
+	* typeck.c (cp_build_modify_expr): Always pass init-lists to the
+	conversion code.
+	* call.c (implicit_conversion): Allow init-list conversion to scalar
+	during direct-initialization, too.  Mark the conversion bad if it
+	has too many levels of braces.
+	(convert_like_real): And give a helpful error.
+
+	PR c++/40306
+	PR c++/40307
+	* decl.c (cp_finish_decl): Handle auto deduction from ().
+	* typeck.c (build_x_indirect_ref): Handle dereferencing an operand
+	with dependent type that is known to be a pointer.
+
+2009-05-27  Jason Merrill  <jason@redhat.com>
+
+	* call.c (implicit_conversion): Handle conversion from
+	initializer-list to scalar.
+	(convert_like_real): Likewise.  Avoid crashing on list
+	initialization with bad conversions.
+
+2009-05-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/38064
+	* typeck.c (cp_build_binary_op): Allow ENUMERAL_TYPE in
+	arithmetic comparisons.
+	(cp_common_type): Handle scoped enums.
+
+2009-05-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/40139
+	* semantics.c (finish_id_expression): Fix logic.
+
+2009-05-06  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/17395
+	* pt.c (tsubst_copy) <case PARM_DECL>: We don't want to tsubst the
+	whole list of PARM_DECLs, just the current one.
+
+2009-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40013
+	* pt.c (tsubst): If magic NOP_EXPR with side-effects has no type,
+	set it from its operand's type after tsubst_expr.
+
+2009-04-23  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/38228
+	* pt.c (unify): Do not allow the result of a template argument
+	deduction to be a METHOD_TYPE.
+	* cvt.c (cp_convert): Report a meaningful error for non-valid use
+	of pointer to member functions during conversions.
+	* call.c (build_new_op): Report a meaningful error for non-valid
+	use of pointer to member functions in binary expressions.
+	* typeck.c (invalid_nonstatic_memfn_p): Do not crash when EXPR is
+	NULL;
+
+2009-04-22  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39639
+	* parser.c (cp_parser_template_argument_list): Display an error
+	when an ellipsis is not preceded by a parameter pack. Also, warn
+	about variadic templates usage without -std=c++0x.
+
+2009-04-21  Release Manager
+
+	* GCC 4.4.0 released.
+
+2009-04-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39763
+	* name-lookup.c (pushdecl_maybe_friend): Avoid all warnings
+	about shadowing by tentative parms.
+
+2009-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39480
+	* call.c (build_over_call): Don't call memcpy if the target is
+	the same as the source.
+
+	PR c++/39750
+	* pt.c (uses_template_parms): Handle CONSTRUCTOR.
+
+2009-04-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39742
+	* call.c (joust): Don't crash on variadic fn.
+
+2009-04-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-04-10  Jason Merrill  <jason@redhat.com>
+
+	PR c++/28301
+	* parser.c (cp_parser_skip_to_end_of_block_or_statement): Return
+	if we see a close brace without an open brace.
+
+2009-04-08  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/39637
+	* parser.c (cp_parser_enumerator_definition): Make sure the
+	initializer of the enumerator doesn't contain any bare parameter pack.
+
+2009-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/34691
+	* name-lookup.c	(merge_functions): Keep multiple extern "C" functions.
+	* call.c (joust): Complain about mismatched default arguments
+	in extern "C" functions.
+	* class.c (resolve_address_of_overloaded_function): Handle multiple
+	extern "C" functions.
+	* pt.c (resolve_overloaded_unification): Likewise.
+
+	* decl.c (grokdeclarator): Reject pointer to qualified function
+	type.
+
+	PR c++/37806, core issue 547
+	* typeck.c (cp_apply_type_quals_to_decl): Don't apply any quals
+	to a typedef.
+	* tree.c (cp_build_qualified_type_real): Don't apply restrict to a 
+	function type.
+	* decl.h (enum decl_context): Add TEMPLATE_TYPE_ARG.
+	* decl.c (groktypename): Add is_template_arg parameter.
+	(grokdeclarator): Allow function cv-quals on a template type arg.
+	* parser.c (cp_parser_new_type_id, cp_parser_type_id): Add
+	is_template_arg argument in calls to groktypename.
+	* cp-tree.h: Adjust prototype.
+	* error.c (dump_type_prefix, dump_type_suffix): Fix plain 
+	FUNCTION_TYPE printing.
+	
+2009-04-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/35146
+	* pt.c (fn_type_unification): For DEDUCE_EXACT check that
+	the deduced template arguments give us the parameter types
+	we're looking for.
+
+2009-04-05  Jason Merrill  <jason@redhat.com>
+
+	C++ DR 613
+	* semantics.c (finish_non_static_data_member): Allow such references
+	without an associated object in sizeof/decltype/alignof.
+
+2009-04-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/39608
+	* semantics.c (finish_id_expression): Don't assume a dependent
+	member of the current instantiation isn't a valid integral
+	constant expression.  Check dependent_scope_p.
+	* pt.c (dependent_scope_p): Check TYPE_P.
+	(tsubst_copy): If args is null, just return.
+
+2009-04-02  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (write_expression): Mangle dependent name as
+	source-name.
+
+	PR c++/38030, 38850, 39070
+	* pt.c (type_dependent_expression_p_push): New fn.
+	(tsubst_copy_and_build) [CALL_EXPR]: Only do arg-dep lookup when the
+	substitution makes the call non-dependent.  Preserve koenig_p.
+	* parser.c (cp_parser_postfix_expression): Only do arg-dep lookup
+	for non-dependent calls.
+	* semantics.c (finish_call_expr): Revert earlier changes.
+	* cp-tree.h: Revert change to finish_call_expr prototype.
+
+2009-03-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Revert
+
+	2009-03-27  Manuel Lopez-Ibanez  <manu@gcc.gnu.org>
+
+	PR c++/35652
+	* typeck.c (cp_pointer_sum): Adjust call to pointer_int_sum.
+
+2009-03-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/39554
+	* parser.c (cp_parser_postfix_expression): Don't call
+	warning_if_disallowed_function_p.
+
 2009-03-27  Andrew Pinski  <andrew_pinski@playstation.sony.com>
 
 	PR c++/38638
