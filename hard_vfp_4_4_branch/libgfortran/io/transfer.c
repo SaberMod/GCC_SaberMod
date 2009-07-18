@@ -2868,7 +2868,7 @@ sset (stream * s, int c, ssize_t nbyte)
     {
       trans = (bytes_left < WRITE_CHUNK) ? bytes_left : WRITE_CHUNK;
       trans = swrite (s, p, trans);
-      if (trans < 0)
+      if (trans <= 0)
 	return trans;
       bytes_left -= trans;
     }
@@ -3252,8 +3252,7 @@ void
 st_read_done (st_parameter_dt *dtp)
 {
   finalize_transfer (dtp);
-  if (is_internal_unit (dtp))
-    free_format_data (dtp->u.p.fmt);
+  free_format_data (dtp);
   free_ionml (dtp);
   if (dtp->u.p.current_unit != NULL)
     unlock_unit (dtp->u.p.current_unit);
@@ -3304,8 +3303,7 @@ st_write_done (st_parameter_dt *dtp)
 	break;
       }
 
-  if (is_internal_unit (dtp))
-    free_format_data (dtp->u.p.fmt);
+  free_format_data (dtp);
   free_ionml (dtp);
   if (dtp->u.p.current_unit != NULL)
     unlock_unit (dtp->u.p.current_unit);

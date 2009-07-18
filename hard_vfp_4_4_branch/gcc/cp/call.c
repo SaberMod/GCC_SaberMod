@@ -240,7 +240,7 @@ check_dtor_name (tree basetype, tree name)
       return false;
     }
 
-  if (!name)
+  if (!name || name == error_mark_node)
     return false;
   return same_type_p (TYPE_MAIN_VARIANT (basetype), TYPE_MAIN_VARIANT (name));
 }
@@ -7361,7 +7361,7 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
 	expr = error_mark_node;
       else
 	{
-	  if (!real_lvalue_p (expr))
+	  if (!lvalue_or_rvalue_with_address_p (expr))
 	    {
 	      tree init;
 	      var = set_up_extended_ref_temp (decl, expr, cleanup, &init);

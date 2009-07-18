@@ -2723,6 +2723,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 	 dealt with in trans-array.c(gfc_conv_array_parameter).  */
       if (e && e->ts.type == BT_DERIVED
 	    && e->ts.derived->attr.alloc_comp
+	    && !(e->symtree && e->symtree->n.sym->attr.pointer)
 	    && (e->expr_type != EXPR_VARIABLE && !e->rank))
         {
 	  int parm_rank;
@@ -4255,6 +4256,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   gfc_ss *ss;
   gfc_ref * ref;
   bool seen_array_ref;
+  bool c = false;
 
   /* The caller has already checked rank>0 and expr_type == EXPR_FUNCTION.  */
   if (expr2->value.function.isym && !gfc_is_intrinsic_libcall (expr2))
@@ -4263,6 +4265,10 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   /* Elemental functions don't need a temporary anyway.  */
   if (expr2->value.function.esym != NULL
       && expr2->value.function.esym->attr.elemental)
+    return NULL;
+
+  /* Fail if rhs is not FULL or a contiguous section.  */
+  if (expr1->ref && !(gfc_full_array_ref_p (expr1->ref, &c) || c))
     return NULL;
 
   /* Fail if EXPR1 can't be expressed as a descriptor.  */
@@ -4399,11 +4405,14 @@ gfc_trans_zero_assign (gfc_expr * expr)
   len = fold_build2 (MULT_EXPR, gfc_array_index_type, len,
 		     fold_convert (gfc_array_index_type, tmp));
 
-  /* Convert arguments to the correct types.  */
+  /* If we are zeroing a local array avoid taking its address by emitting
+     a = {} instead.  */
   if (!POINTER_TYPE_P (TREE_TYPE (dest)))
-    dest = gfc_build_addr_expr (pvoid_type_node, dest);
-  else
-    dest = fold_convert (pvoid_type_node, dest);
+    return build2 (MODIFY_EXPR, void_type_node,
+		   dest, build_constructor (TREE_TYPE (dest), NULL));
+
+  /* Convert arguments to the correct types.  */
+  dest = fold_convert (pvoid_type_node, dest);
   len = fold_convert (size_type_node, len);
 
   /* Construct call to __builtin_memset.  */
@@ -4718,7 +4727,7 @@ copyable_array_p (gfc_expr * expr)
   if (expr->rank < 1 || !expr->ref || expr->ref->next)
     return false;
 
-  if (!gfc_full_array_ref_p (expr->ref))
+  if (!gfc_full_array_ref_p (expr->ref, NULL))
     return false;
 
   /* Next check that it's of a simple enough type.  */

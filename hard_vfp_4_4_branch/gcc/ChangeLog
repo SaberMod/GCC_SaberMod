@@ -1,3 +1,193 @@
+2009-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40780
+	* gimplify.c (gimplify_conversion): Don't change non-conversions into
+	VIEW_CONVERT_EXPR.
+
+2009-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40747
+	* fold-const.c (fold_cond_expr_with_comparison): When folding
+	< and <= to MIN, make sure the MIN uses the same type as the
+	comparison's operands.
+
+2009-07-12  Kai Tietz  <kai.tietz@onevision.com>
+
+	* config/i386/cygming.h (TARGET_OS_CPP_BUILTINS): Define _X86_
+	just for 32-bit case.
+
+2009-07-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/40667
+	* defaults.h (MINIMUM_ALIGNMENT): Define if not defined.
+	* doc/tm.texi (MINIMUM_ALIGNMENT): Document it.
+	* config/i386/i386.h (MINIMUM_ALIGNMENT): Define.
+	* config/i386/i386.c (ix86_minimum_alignment): New function.
+	* config/i386/i386-protos.h (ix86_minimum_alignment): New prototype.
+	* cfgexpand.c (expand_one_var): Use MINIMIM_ALIGNMENT.
+	* emit-rtl.c (gen_reg_rtx): Likewise.
+	* function.c (assign_parms): Likewise.  If nominal_type needs
+	bigger alignment than FUNCTION_ARG_BOUNDARY, use its alignment
+	rather than passed_type's alignment.
+
+	PR target/40668
+	* function.c (assign_parm_setup_stack): Adjust
+	MEM_OFFSET (data->stack_parm) if promoted_mode is different
+	from nominal_mode on big endian.
+
+2009-07-08  Richard Henderson  <rth@redhat.com>
+
+	PR target/38900
+	* config/i386/i386.h (CONDITIONAL_REGISTER_USAGE): Move to i386.c.
+	(enum reg_class): Add CLOBBERED_REGS.
+	(REG_CLASS_NAMES, REG_CLASS_CONTENTS): Likewise.
+	* config/i386/i386.c (ix86_conditional_register_usage): Moved
+	from CONDITIONAL_REGISTER_USAGE; build CLOBBERED_REGS for 64-bit.
+	(ix86_function_ok_for_sibcall): Tidy.  Disallow MS->SYSV sibcalls.
+	(ix86_expand_call): Use sibcall_insn_operand when needed.  Don't
+	force 64-bit sibcalls into R11.
+	* config/i386/constraints.md (U): New constraint.
+	* config/i386/i386.md (sibcall_1, sibcall_value_1): Use it.
+	(sibcall_1_rex64, sibcall_value_1_rex64): Likewise.
+	(sibcall_1_rex64_v, sibcall_value_1_rex64_v): Remove.
+
+2009-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/40666
+	* dbxout.c (dbxout_symbol) <PARM_DECL>: Deal with parameters pointing
+	to variables for debugging purposes.
+
+2009-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40669
+	* tree-tailcall.c (adjust_return_value_with_ops,
+	create_tailcall_accumulator): Set DECL_GIMPLE_REG_P on the temporary
+	if it has complex or vector type.
+
+	Backport from mainline:
+	2009-06-03  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40328
+	* fold-const.c (fold_convert): Fold the build COMPLEX_EXPR.
+
+2009-07-03  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/40587
+	* ira.c (build_insn_chain): Use DF_LR_OUT instead of
+	df_get_live_out.
+	
+2009-07-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40585
+	* tree-cfg.c (gimple_can_duplicate_bb_p): Disallow duplicating
+	basic blocks with GIMPLE_RESX.
+
+2009-07-01  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline:
+	2009-05-11 Martin Jambor <mjambor@suse.cz>
+	
+	* ipa-cp.c (ipcp_cloning_candidate_p): Add missing return false.
+	
+2009-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/40566
+	* convert.c (convert_to_integer) <case COND_EXPR>: Don't convert
+	to type arguments that have void type.
+
+2009-06-30  Ira Rosen  <irar@il.ibm.com>
+
+	PR tree-optimization/40542
+	* tree-vect-analyze.c (vect_determine_vectorization_factor): Don't
+	vectorize volatile types.
+
+2009-06-29  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39902
+	* tree.c (real_zerop, real_onep, real_twop, real_minus_onep):
+	Special-case decimal float constants.
+
+2009-06-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* doc/extend.texi (Additional Floating Types): __float128 is also
+	supported on i386 targets.
+
+2009-06-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/40579
+	* tree-vrp.c (vrp_evaluate_conditional): Bail out early if
+	the IL to simplify has constants that overflowed.
+
+2009-06-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/40550
+	* tree-vect-generic.c (expand_vector_operations_1): Compute in
+	vector_compute_type only when the size of vector_compute_type is
+	less than the size of type.
+
+2009-06-27  Kai Tietz  <kai.tietz@onevision.com>
+
+	Merged from trunk rev/148061
+	2009-06-01  Jakub Jelinek  <jakub@redhat.com>
+	PR other/40024
+	* emutls.c (__emutls_get_address): Change arr->size to mean number
+	of allocated arr->data entries instead of # of slots + 1.
+
+2009-06-22  Steven Bosscher  <steven@gcc.gnu.org>
+	    Matthias Klose  <doko@ubuntu.com>
+
+	PR objc/28050
+	* c-parser.c (c_parser_objc_message_args): Return error_mark_node
+	instead of NULL if a parser error occurs.
+
+2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/40470
+	* config/i386/i386.h (CLASS_LIKELY_SPILLED_P): Add SSE_FIRST_REG.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40460
+	* tree-chrec.h (build_polynomial_chrec): If we cannot determine
+	if there is no evolution of left in the loop bail out.
+	* tree-chrec.c (chrec_fold_multiply_poly_poly): CSE one
+	chrec_fold_multiply.
+
+2009-06-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/40389
+	* tree-ssa-operands.c (parse_ssa_operands): Add NRV results
+	to the addresses taken bitmap.
+
+2009-06-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40446
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: Don't
+	use gen_lowpart if op0 has complex mode.
+
+2009-06-14  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("bswap<mode>2"): Only available on z900.
+
+2009-06-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline:
+	2009-06-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* doc/extend.texi: Add description for __builtin_ia32_crc32di.
+
+2009-06-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40340
+	* tree-ssa-live.c (remove_unused_scope_block_p): Don't prune
+	inlined_function_outer_scope_p blocks for artificial inlines
+	even at -g0/-g1.
+	* tree.c (tree_nonartificial_location): Rewrite using
+	block_nonartificial_location.
+
 2009-06-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* dwarf2out.c (output_cfi_directive): Pass 1 instead of

@@ -1,3 +1,50 @@
+2009-07-15  Janis Johnson  <janis187@us.ibm.com>
+
+	PR libstdc++/40691
+	* include/bits/valarray_after.h (_Expr::operator!): Fix return type.
+	* testsuite/26_numerics/valarray/40691.cc: New test.
+
+2009-07-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* testsuite/29_atomics/atomic_address/cons/aggregate.cc: Remove xfail.
+
+2009-06-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/40600
+	* testsuite/25_algorithms/minmax/2.cc: Fix consistently with
+	std::minmax return type.
+	* testsuite/25_algorithms/minmax/3.cc: Likewise.
+
+2009-06-24  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/40297
+	* include/bits/atomic_0.h: Reverse debug assertions.
+	* include/bits/atomic_2.h: Likewise.
+
+2009-06-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* Revert last Change.
+
+2009-06-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/40497
+	* include/bits/stl_iterator_base_funcs.h (next, prev): Fix the
+	signature per the current C++1x draft (N2857).
+	* testsuite/24_iterators/operations/40497.cc: Add.
+
+2009-06-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* libsupc++/exception_ptr.h (exception_ptr::swap(exception_ptr&&)):
+	Remove.
+	(exception_ptr::operator=(exception_ptr&&)): Cast source to
+	rvalue-reference so that move constructor is called.
+	* testsuite/18_support/exception_ptr/move.cc: New.
+
+2009-06-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/thread (~thread(), operator=(thread&&)): Call terminate
+	if joinable.
+
 2009-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/40296
