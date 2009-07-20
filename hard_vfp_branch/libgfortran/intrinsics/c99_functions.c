@@ -1,31 +1,26 @@
 /* Implementation of various C99 functions 
-   Copyright (C) 2004 Free Software Foundation, Inc.
+   Copyright (C) 2004, 2009 Free Software Foundation, Inc.
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
 
@@ -571,16 +566,16 @@ round(double x)
 
    if (x >= 0.0) 
     {
-      t = ceil(x);
-      if (t - x > 0.5)
-	t -= 1.0;
+      t = floor(x);
+      if (t - x <= -0.5)
+	t += 1.0;
       return (t);
     } 
    else 
     {
-      t = ceil(-x);
-      if (t + x > 0.5)
-	t -= 1.0;
+      t = floor(-x);
+      if (t + x <= -0.5)
+	t += 1.0;
       return (-t);
     }
 }
@@ -600,16 +595,16 @@ roundf(float x)
 
    if (x >= 0.0) 
     {
-      t = ceilf(x);
-      if (t - x > 0.5)
-	t -= 1.0;
+      t = floorf(x);
+      if (t - x <= -0.5)
+	t += 1.0;
       return (t);
     } 
    else 
     {
-      t = ceilf(-x);
-      if (t + x > 0.5)
-	t -= 1.0;
+      t = floorf(-x);
+      if (t + x <= -0.5)
+	t += 1.0;
       return (-t);
     }
 }
@@ -1170,7 +1165,7 @@ csinhl (long double complex a)
 #endif
 
 
-/* cosh(a + i b) = cosh(a) cos(b) - i sinh(a) sin(b)  */
+/* cosh(a + i b) = cosh(a) cos(b) + i sinh(a) sin(b)  */
 #if !defined(HAVE_CCOSHF)
 #define HAVE_CCOSHF 1
 float complex
@@ -1181,7 +1176,7 @@ ccoshf (float complex a)
 
   r = REALPART (a);
   i = IMAGPART (a);
-  COMPLEX_ASSIGN (v, coshf (r) * cosf (i), - (sinhf (r) * sinf (i)));
+  COMPLEX_ASSIGN (v, coshf (r) * cosf (i), sinhf (r) * sinf (i));
   return v;
 }
 #endif
@@ -1196,7 +1191,7 @@ ccosh (double complex a)
 
   r = REALPART (a);
   i = IMAGPART (a);
-  COMPLEX_ASSIGN (v, cosh (r) * cos (i), - (sinh (r) * sin (i)));
+  COMPLEX_ASSIGN (v, cosh (r) * cos (i),  sinh (r) * sin (i));
   return v;
 }
 #endif
@@ -1211,13 +1206,13 @@ ccoshl (long double complex a)
 
   r = REALPART (a);
   i = IMAGPART (a);
-  COMPLEX_ASSIGN (v, coshl (r) * cosl (i), - (sinhl (r) * sinl (i)));
+  COMPLEX_ASSIGN (v, coshl (r) * cosl (i), sinhl (r) * sinl (i));
   return v;
 }
 #endif
 
 
-/* tanh(a + i b) = (tanh(a) + i tan(b)) / (1 - i tanh(a) tan(b))  */
+/* tanh(a + i b) = (tanh(a) + i tan(b)) / (1 + i tanh(a) tan(b))  */
 #if !defined(HAVE_CTANHF)
 #define HAVE_CTANHF 1
 float complex
@@ -1229,7 +1224,7 @@ ctanhf (float complex a)
   rt = tanhf (REALPART (a));
   it = tanf (IMAGPART (a));
   COMPLEX_ASSIGN (n, rt, it);
-  COMPLEX_ASSIGN (d, 1, - (rt * it));
+  COMPLEX_ASSIGN (d, 1, rt * it);
 
   return n / d;
 }
@@ -1246,7 +1241,7 @@ ctanh (double complex a)
   rt = tanh (REALPART (a));
   it = tan (IMAGPART (a));
   COMPLEX_ASSIGN (n, rt, it);
-  COMPLEX_ASSIGN (d, 1, - (rt * it));
+  COMPLEX_ASSIGN (d, 1, rt * it);
 
   return n / d;
 }
@@ -1263,7 +1258,7 @@ ctanhl (long double complex a)
   rt = tanhl (REALPART (a));
   it = tanl (IMAGPART (a));
   COMPLEX_ASSIGN (n, rt, it);
-  COMPLEX_ASSIGN (d, 1, - (rt * it));
+  COMPLEX_ASSIGN (d, 1, rt * it);
 
   return n / d;
 }

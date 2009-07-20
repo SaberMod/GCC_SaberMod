@@ -6,7 +6,7 @@
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -14,19 +14,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 //
 // ISO C++ 14882: 27.6.1  Input streams
@@ -42,7 +37,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     getline(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
       if (__cerb)
 	{
@@ -123,7 +118,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb && __n > 0)
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const char_type __cdelim = traits_type::to_char_type(__delim);	      
@@ -208,7 +203,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef __istream_type::__ctype_type	__ctype_type;
 
       streamsize __extracted = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
@@ -291,7 +286,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       typedef __string_type::size_type		__size_type;
 
       __size_type __extracted = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __istream_type::sentry __cerb(__in, false);
       if (__cerb)
 	{
@@ -373,7 +368,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       __size_type __extracted = 0;
       const __size_type __n = __str.max_size();
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __istream_type::sentry __cerb(__in, true);
       if (__cerb)
 	{
@@ -449,7 +444,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
     getline(char_type* __s, streamsize __n, char_type __delim)
     {
       _M_gcount = 0;
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       sentry __cerb(*this, true);
       if (__cerb)
 	{
@@ -530,7 +525,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
       sentry __cerb(*this, true);
       if (__cerb && __n > 0)
 	{
-	  ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+	  ios_base::iostate __err = ios_base::goodbit;
 	  __try
 	    {
 	      const char_type __cdelim = traits_type::to_char_type(__delim);	      
@@ -619,7 +614,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 
       __size_type __extracted = 0;
       const __size_type __n = __str.max_size();
-      ios_base::iostate __err = ios_base::iostate(ios_base::goodbit);
+      ios_base::iostate __err = ios_base::goodbit;
       __istream_type::sentry __cerb(__in, true);
       if (__cerb)
 	{

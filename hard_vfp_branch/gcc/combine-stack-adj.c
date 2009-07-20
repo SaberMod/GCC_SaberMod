@@ -1,6 +1,6 @@
 /* Combine stack adjustments.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008
+   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -116,7 +116,7 @@ stack_memref_p (rtx x)
     return 1;
   if (GET_CODE (x) == PLUS
       && XEXP (x, 0) == stack_pointer_rtx
-      && GET_CODE (XEXP (x, 1)) == CONST_INT)
+      && CONST_INT_P (XEXP (x, 1)))
     return 1;
 
   return 0;
@@ -298,7 +298,7 @@ adjust_frame_related_expr (rtx last_sp_set, rtx insn,
 	  && SET_DEST (last) == stack_pointer_rtx
 	  && GET_CODE (SET_SRC (last)) == PLUS
 	  && XEXP (SET_SRC (last), 0) == stack_pointer_rtx
-	  && GET_CODE (XEXP (SET_SRC (last), 1)) == CONST_INT)
+	  && CONST_INT_P (XEXP (SET_SRC (last), 1)))
 	{
 	  XEXP (SET_SRC (last), 1)
 	    = GEN_INT (INTVAL (XEXP (SET_SRC (last), 1)) + this_adjust);
@@ -333,9 +333,7 @@ adjust_frame_related_expr (rtx last_sp_set, rtx insn,
   if (note)
     XEXP (note, 0) = new_expr;
   else
-    REG_NOTES (last_sp_set)
-      = gen_rtx_EXPR_LIST (REG_FRAME_RELATED_EXPR, new_expr,
-			   REG_NOTES (last_sp_set));
+    add_reg_note (last_sp_set, REG_FRAME_RELATED_EXPR, new_expr);
 }
 
 /* Subroutine of combine_stack_adjustments, called for each basic block.  */
@@ -368,7 +366,7 @@ combine_stack_adjustments_for_block (basic_block bb)
 	  if (dest == stack_pointer_rtx
 	      && GET_CODE (src) == PLUS
 	      && XEXP (src, 0) == stack_pointer_rtx
-	      && GET_CODE (XEXP (src, 1)) == CONST_INT)
+	      && CONST_INT_P (XEXP (src, 1)))
 	    {
 	      HOST_WIDE_INT this_adjust = INTVAL (XEXP (src, 1));
 
@@ -551,7 +549,7 @@ struct rtl_opt_pass pass_stack_adjustments =
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */
-  0,                                    /* tv_id */
+  TV_COMBINE_STACK_ADJUST,              /* tv_id */
   0,                                    /* properties_required */
   0,                                    /* properties_provided */
   0,                                    /* properties_destroyed */
@@ -561,4 +559,3 @@ struct rtl_opt_pass pass_stack_adjustments =
   TODO_ggc_collect,                     /* todo_flags_finish */
  }
 };
-

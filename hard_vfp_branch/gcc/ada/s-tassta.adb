@@ -6,25 +6,23 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2008, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2009, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
--- ware  Foundation;  either version 2,  or (at your option) any later ver- --
--- sion. GNARL is distributed in the hope that it will be useful, but WITH- --
+-- ware  Foundation;  either version 3,  or (at your option) any later ver- --
+-- sion.  GNAT is distributed in the hope that it will be useful, but WITH- --
 -- OUT ANY WARRANTY;  without even the  implied warranty of MERCHANTABILITY --
--- or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License --
--- for  more details.  You should have  received  a copy of the GNU General --
--- Public License  distributed with GNARL; see file COPYING.  If not, write --
--- to  the  Free Software Foundation,  51  Franklin  Street,  Fifth  Floor, --
--- Boston, MA 02110-1301, USA.                                              --
+-- or FITNESS FOR A PARTICULAR PURPOSE.                                     --
 --                                                                          --
--- As a special exception,  if other files  instantiate  generics from this --
--- unit, or you link  this unit with other files  to produce an executable, --
--- this  unit  does not  by itself cause  the resulting  executable  to  be --
--- covered  by the  GNU  General  Public  License.  This exception does not --
--- however invalidate  any other reasons why  the executable file  might be --
--- covered by the  GNU Public License.                                      --
+-- As a special exception under Section 7 of GPL version 3, you are granted --
+-- additional permissions described in the GCC Runtime Library Exception,   --
+-- version 3.1, as published by the Free Software Foundation.               --
+--                                                                          --
+-- You should have received a copy of the GNU General Public License and    --
+-- a copy of the GCC Runtime Library Exception along with this program;     --
+-- see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see    --
+-- <http://www.gnu.org/licenses/>.                                          --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
 -- Extensive contributions were provided by Ada Core Technologies, Inc.     --
@@ -284,11 +282,10 @@ package body System.Tasking.Stages is
             Write_Lock (P);
             Write_Lock (C);
 
-            if C.Common.Base_Priority < Get_Priority (Self_ID) then
-               Activate_Prio := Get_Priority (Self_ID);
-            else
-               Activate_Prio := C.Common.Base_Priority;
-            end if;
+            Activate_Prio :=
+              (if C.Common.Base_Priority < Get_Priority (Self_ID)
+               then Get_Priority (Self_ID)
+               else C.Common.Base_Priority);
 
             System.Task_Primitives.Operations.Create_Task
               (C, Task_Wrapper'Address,
@@ -302,7 +299,7 @@ package body System.Tasking.Stages is
             --  racing ahead.
 
             if Success then
-               C.Common.State := Runnable;
+               C.Common.State := Activating;
                C.Awake_Count := 1;
                C.Alive_Count := 1;
                P.Awake_Count := P.Awake_Count + 1;
@@ -314,6 +311,21 @@ package body System.Tasking.Stages is
                   pragma Assert (Self_ID /= P);
                   P.Common.Wait_Count := P.Common.Wait_Count + 1;
                end if;
+
+               for J in System.Tasking.Debug.Known_Tasks'Range loop
+                  if System.Tasking.Debug.Known_Tasks (J) = null then
+                     System.Tasking.Debug.Known_Tasks (J) := C;
+                     C.Known_Tasks_Index := J;
+                     exit;
+                  end if;
+               end loop;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Activating, C);
+               end if;
+
+               C.Common.State := Runnable;
 
                Unlock (C);
                Unlock (P);
@@ -502,14 +514,12 @@ package body System.Tasking.Stages is
          raise Program_Error with "potentially blocking operation";
       end if;
 
-      pragma Debug
-        (Debug.Trace (Self_ID, "Create_Task", 'C'));
+      pragma Debug (Debug.Trace (Self_ID, "Create_Task", 'C'));
 
-      if Priority = Unspecified_Priority then
-         Base_Priority := Self_ID.Common.Base_Priority;
-      else
-         Base_Priority := System.Any_Priority (Priority);
-      end if;
+      Base_Priority :=
+        (if Priority = Unspecified_Priority
+         then Self_ID.Common.Base_Priority
+         else System.Any_Priority (Priority));
 
       --  Find parent P of new Task, via master level number
 
@@ -577,6 +587,7 @@ package body System.Tasking.Stages is
          --  confused when waiting for these tasks to terminate.
 
          T.Master_of_Task := Library_Task_Level;
+
       else
          T.Master_of_Task := Master;
       end if;
@@ -609,13 +620,17 @@ package body System.Tasking.Stages is
          T.Common.Task_Image_Len := Len;
       end if;
 
+      Unlock (Self_ID);
+      Unlock_RTS;
+
+      --  Note: we should not call 'new' while holding locks since new
+      --  may use locks (e.g. RTS_Lock under Windows) itself and cause a
+      --  deadlock.
+
       if Build_Entry_Names then
          T.Entry_Names :=
            new Entry_Names_Array (1 .. Entry_Index (Num_Entries));
       end if;
-
-      Unlock (Self_ID);
-      Unlock_RTS;
 
       --  Create TSD as early as possible in the creation of a task, since it
       --  may be used by the operation of Ada code within the task.
@@ -925,7 +940,7 @@ package body System.Tasking.Stages is
       Initialization.Undefer_Abort (Self_ID);
    end Move_Activation_Chain;
 
-   --  Compiler interface only. Do not call from within the RTS.
+   --  Compiler interface only. Do not call from within the RTS
 
    --------------------
    -- Set_Entry_Name --
@@ -1059,11 +1074,10 @@ package body System.Tasking.Stages is
 
       --  Assume a size of the stack taken at this stage
 
-      if Size < Small_Stack_Limit then
-         Overflow_Guard := Small_Overflow_Guard;
-      else
-         Overflow_Guard := Big_Overflow_Guard;
-      end if;
+      Overflow_Guard :=
+        (if Size < Small_Stack_Limit
+         then Small_Overflow_Guard
+         else Big_Overflow_Guard);
 
       if not Parameters.Sec_Stack_Dynamic then
          Self_ID.Common.Compiler_Data.Sec_Stack_Addr :=
@@ -1098,8 +1112,7 @@ package body System.Tasking.Stages is
       Stack_Guard (Self_ID, True);
 
       --  Initialize low-level TCB components, that cannot be initialized by
-      --  the creator. Enter_Task sets Self_ID.Known_Tasks_Index and also
-      --  Self_ID.LL.Thread
+      --  the creator. Enter_Task sets Self_ID.LL.Thread
 
       Enter_Task (Self_ID);
 
@@ -1130,6 +1143,11 @@ package body System.Tasking.Stages is
          --  proceed successfully.
 
          Self_ID.Deferral_Level := 0;
+      end if;
+
+      if Global_Task_Debug_Event_Set then
+         Debug.Signal_Debug_Event
+          (Debug.Debug_Event_Run, Self_ID);
       end if;
 
       begin
@@ -1170,8 +1188,18 @@ package body System.Tasking.Stages is
 
             if Self_ID.Terminate_Alternative then
                Cause := Normal;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Terminated, Self_ID);
+               end if;
             else
                Cause := Abnormal;
+
+               if Global_Task_Debug_Event_Set then
+                  Debug.Signal_Debug_Event
+                   (Debug.Debug_Event_Abort_Terminated, Self_ID);
+               end if;
             end if;
          when others =>
             --  ??? Using an E : others here causes CD2C11A to fail on Tru64
@@ -1196,7 +1224,13 @@ package body System.Tasking.Stages is
             --  procedure, as well as the associated Exception_Occurrence.
 
             Cause := Unhandled_Exception;
+
             Save_Occurrence (EO, SSL.Get_Current_Excep.all.all);
+
+            if Global_Task_Debug_Event_Set then
+               Debug.Signal_Debug_Event
+                 (Debug.Debug_Event_Exception_Terminated, Self_ID);
+            end if;
       end;
 
       --  Look for a task termination handler. This code is for all tasks but
@@ -1390,6 +1424,9 @@ package body System.Tasking.Stages is
       --  unwound. The common notification routine has been called at the
       --  raise point already.
 
+      --  Lock to prevent unsynchronized output
+
+      Initialization.Task_Lock (Self_Id);
       To_Stderr ("task ");
 
       if Self_Id.Common.Task_Image_Len /= 0 then
@@ -1402,6 +1439,7 @@ package body System.Tasking.Stages is
       To_Stderr (" terminated by unhandled exception");
       To_Stderr ((1 => ASCII.LF));
       To_Stderr (Tailored_Exception_Information (Excep.all));
+      Initialization.Task_Unlock (Self_Id);
    end Trace_Unhandled_Exception_In_Task;
 
    ------------------------------------

@@ -1,9 +1,9 @@
 # Configure script for libada.
-#   Copyright 2003, 2004 Free Software Foundation, Inc.
+#   Copyright 2003, 2004, 2009 Free Software Foundation, Inc.
 #
 # This file is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
+# the Free Software Foundation; either version 3 of the License, or
 # (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful, but
@@ -12,10 +12,11 @@
 # General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+# along with this program; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
 
 sinclude(../config/acx.m4)
+sinclude(../config/multi.m4)
 sinclude(../config/override.m4)
 
 AC_INIT
@@ -27,6 +28,7 @@ AC_CONFIG_SRCDIR([Makefile.in])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
+target_alias=${target_alias-$host_alias}
 
 # Determine the noncanonical target name, for directory use.
 ACX_NONCANONICAL_TARGET
@@ -48,9 +50,6 @@ AC_ARG_ENABLE([maintainer-mode],
    maintainer_mode=${enableval}],
   [MAINT='#'])
 AC_SUBST([MAINT])dnl
-
-AC_CANONICAL_SYSTEM
-target_alias=${target_alias-$host_alias}
 
 AM_ENABLE_MULTILIB(, ..)
 # Calculate toolexeclibdir

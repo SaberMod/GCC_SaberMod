@@ -1,5 +1,5 @@
 /* score.h for Sunplus S+CORE processor
-   Copyright (C) 2005, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2005, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Sunnorth.
 
    This file is part of GCC.
@@ -215,6 +215,8 @@
 
 /* Default definitions for size_t and ptrdiff_t.  */
 #define SIZE_TYPE                       "unsigned int"
+
+#define UINTPTR_TYPE			"long unsigned int"
 
 /* Register Usage
 
@@ -555,11 +557,6 @@ extern enum reg_class score_char_to_class[256];
 #define STATIC_CHAIN_REGNUM             23
 
 /* Elimination Frame Pointer and Arg Pointer  */
-/* Value should be nonzero if functions must have frame pointers.
-   Zero means the frame pointer need not be set up (and parms
-   may be accessed via the stack pointer) in functions that seem suitable.
-   This is computed in `reload', in reload1.c.  */
-#define FRAME_POINTER_REQUIRED          cfun->calls_alloca
 
 #define ELIMINABLE_REGS                                \
   {{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},        \
@@ -746,16 +743,6 @@ typedef struct score_args
 /* Maximum number of registers that can appear in a valid memory address.  */
 #define MAX_REGS_PER_ADDRESS            1
 
-#ifdef REG_OK_STRICT
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)   \
-  if (score_address_p (MODE, X, 1))                \
-    goto LABEL;
-#else
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, LABEL)   \
-  if (score_address_p (MODE, X, 0))                \
-    goto LABEL;
-#endif
-
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
    We have two alternate definitions for each of them.
@@ -775,16 +762,6 @@ typedef struct score_args
 #endif
 
 #define REG_OK_FOR_INDEX_P(X) 0
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)   \
-  do {                                           \
-    if (score_legitimize_address (&(X)))         \
-      goto WIN;                                  \
-  } while (0)
-
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)       {}
 
 #define LEGITIMATE_CONSTANT_P(X)        1
 

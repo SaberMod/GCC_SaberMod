@@ -38,7 +38,7 @@ along with GCC; see the file COPYING3.  If not see
       builtin_define_std ("WINNT");				\
       builtin_define_with_int_value ("_INTEGRAL_MAX_BITS",	\
 				     TYPE_PRECISION (intmax_type_node));\
-      if (TARGET_64BIT && DEFAULT_ABI == MS_ABI)			\
+      if (TARGET_64BIT && ix86_abi == MS_ABI)			\
 	{							\
 	  builtin_define ("__MINGW64__");			\
 	  builtin_define_std ("WIN64");				\
@@ -122,6 +122,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef STANDARD_STARTFILE_PREFIX_2
 #define STANDARD_STARTFILE_PREFIX_2 ""
 #endif
+
+/* Put all *tf routines in libgcc.  */
+#undef LIBGCC2_HAS_TF_MODE
+#define LIBGCC2_HAS_TF_MODE 1
+#undef LIBGCC2_TF_CEXT
+#define LIBGCC2_TF_CEXT q
+#undef TF_SIZE
+#define TF_SIZE 113
 
 /* Output STRING, a string representing a filename, to FILE.
    We canonicalize it to be in Unix format (backslashes are replaced

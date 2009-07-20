@@ -1,39 +1,43 @@
 @ libgcc routines for ARM cpu.
 @ Division routines, written by Richard Earnshaw, (rearnsha@armltd.co.uk)
 
-/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004, 2005, 2007, 2008
-   Free Software Foundation, Inc.
+/* Copyright 1995, 1996, 1998, 1999, 2000, 2003, 2004, 2005, 2007, 2008,
+   2009  Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
-Free Software Foundation; either version 2, or (at your option) any
+Free Software Foundation; either version 3, or (at your option) any
 later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 This file is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 /* An executable stack is *not* required for these functions.  */
 #if defined(__ELF__) && defined(__linux__)
 .section .note.GNU-stack,"",%progbits
 .previous
-#endif
+#endif  /* __ELF__ and __linux__ */
 
+#ifdef __ARM_EABI__
+/* Some attributes that are common to all routines in this file.  */
+	/* Tag_ABI_align8_needed: This code does not require 8-byte
+	   alignment from the caller.  */
+	/* .eabi_attribute 24, 0  -- default setting.  */
+	/* Tag_ABI_align8_preserved: This code preserves 8-byte 
+	   alignment in any callee.  */
+	.eabi_attribute 25, 1
+#endif /* __ARM_EABI__ */
 /* ------------------------------------------------------------------------ */
 
 /* We need to know what prefix to add to function names.  */
@@ -1101,6 +1105,27 @@ LSYM(Lover12):
 	FUNC_END div0
 	
 #endif /* L_dvmd_lnx */
+#ifdef L_clear_cache
+#if defined __ARM_EABI__ && defined __linux__
+@ EABI GNU/Linux call to cacheflush syscall.
+	FUNC_START clear_cache
+	push	{r7}
+#if __ARM_ARCH__ >= 7 || defined(__ARM_ARCH_6T2__)
+	movw	r7, #2
+	movt	r7, #0xf
+#else
+	mov	r7, #0xf0000
+	add	r7, r7, #2
+#endif
+	mov	r2, #0
+	swi	0
+	pop	{r7}
+	RET
+	FUNC_END clear_cache
+#else
+#error "This is only for ARM EABI GNU/Linux"
+#endif
+#endif /* L_clear_cache */
 /* ------------------------------------------------------------------------ */
 /* Dword shift operations.  */
 /* All the following Dword shift variants rely on the fact that
@@ -1517,6 +1542,111 @@ LSYM(Lchange_\register):
 	
 #endif /* L_interwork_call_via_rX */
 #endif /* !__thumb2__ */
+
+/* Functions to support compact pic switch tables in thumb1 state.
+   All these routines take an index into the table in r0.  The
+   table is at LR & ~1 (but this must be rounded up in the case
+   of 32-bit entires).  They are only permitted to clobber r12
+   and r14 and r0 must be preserved on exit.  */
+#ifdef L_thumb1_case_sqi
+	
+	.text
+	.align 0
+        .force_thumb
+	.syntax unified
+	THUMB_FUNC_START __gnu_thumb1_case_sqi
+	push	{r1}
+	mov	r1, lr
+	lsrs	r1, r1, #1
+	lsls	r1, r1, #1
+	ldrsb	r1, [r1, r0]
+	lsls	r1, r1, #1
+	add	lr, lr, r1
+	pop	{r1}
+	bx	lr
+	SIZE (__gnu_thumb1_case_sqi)
+#endif
+
+#ifdef L_thumb1_case_uqi
+	
+	.text
+	.align 0
+        .force_thumb
+	.syntax unified
+	THUMB_FUNC_START __gnu_thumb1_case_uqi
+	push	{r1}
+	mov	r1, lr
+	lsrs	r1, r1, #1
+	lsls	r1, r1, #1
+	ldrb	r1, [r1, r0]
+	lsls	r1, r1, #1
+	add	lr, lr, r1
+	pop	{r1}
+	bx	lr
+	SIZE (__gnu_thumb1_case_uqi)
+#endif
+
+#ifdef L_thumb1_case_shi
+	
+	.text
+	.align 0
+        .force_thumb
+	.syntax unified
+	THUMB_FUNC_START __gnu_thumb1_case_shi
+	push	{r0, r1}
+	mov	r1, lr
+	lsrs	r1, r1, #1
+	lsls	r0, r0, #1
+	lsls	r1, r1, #1
+	ldrsh	r1, [r1, r0]
+	lsls	r1, r1, #1
+	add	lr, lr, r1
+	pop	{r0, r1}
+	bx	lr
+	SIZE (__gnu_thumb1_case_shi)
+#endif
+
+#ifdef L_thumb1_case_uhi
+	
+	.text
+	.align 0
+        .force_thumb
+	.syntax unified
+	THUMB_FUNC_START __gnu_thumb1_case_uhi
+	push	{r0, r1}
+	mov	r1, lr
+	lsrs	r1, r1, #1
+	lsls	r0, r0, #1
+	lsls	r1, r1, #1
+	ldrh	r1, [r1, r0]
+	lsls	r1, r1, #1
+	add	lr, lr, r1
+	pop	{r0, r1}
+	bx	lr
+	SIZE (__gnu_thumb1_case_uhi)
+#endif
+
+#ifdef L_thumb1_case_si
+	
+	.text
+	.align 0
+        .force_thumb
+	.syntax unified
+	THUMB_FUNC_START __gnu_thumb1_case_si
+	push	{r0, r1}
+	mov	r1, lr
+	adds.n	r1, r1, #2	/* Align to word.  */
+	lsrs	r1, r1, #2
+	lsls	r0, r0, #2
+	lsls	r1, r1, #2
+	ldr	r0, [r1, r0]
+	adds	r0, r0, r1
+	mov	lr, r0
+	pop	{r0, r1}
+	mov	pc, lr		/* We know we were called from thumb code.  */
+	SIZE (__gnu_thumb1_case_si)
+#endif
+
 #endif /* Arch supports thumb.  */
 
 #ifndef __symbian__

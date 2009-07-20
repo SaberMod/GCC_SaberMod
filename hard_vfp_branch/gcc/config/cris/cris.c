@@ -1,6 +1,6 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
    Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007,
-   2008  Free Software Foundation, Inc.
+   2008, 2009  Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -63,7 +63,7 @@ enum cris_retinsn_type
  { CRIS_RETINSN_UNKNOWN = 0, CRIS_RETINSN_RET, CRIS_RETINSN_JUMP };
 
 /* Per-function machine data.  */
-struct machine_function GTY(())
+struct GTY(()) machine_function
  {
    int needs_return_address_on_stack;
 
@@ -121,6 +121,8 @@ static int cris_arg_partial_bytes (CUMULATIVE_ARGS *, enum machine_mode,
 static tree cris_md_asm_clobbers (tree, tree, tree);
 
 static bool cris_handle_option (size_t, const char *, int);
+
+static bool cris_frame_pointer_required (void);
 
 /* This is the parsed result of the "-max-stack-stackframe=" option.  If
    it (still) is zero, then there was no such option given.  */
@@ -180,6 +182,8 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 #define TARGET_DEFAULT_TARGET_FLAGS (TARGET_DEFAULT | CRIS_SUBTARGET_DEFAULT)
 #undef TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION cris_handle_option
+#undef TARGET_FRAME_POINTER_REQUIRED
+#define TARGET_FRAME_POINTER_REQUIRED cris_frame_pointer_required
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1431,13 +1435,18 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
       if (SET_DEST (exp) == cc0_rtx)
 	{
 	  CC_STATUS_INIT;
-	  cc_status.value1 = SET_SRC (exp);
 
-	  /* Handle flags for the special btstq on one bit.  */
-	  if (GET_CODE (SET_SRC (exp)) == ZERO_EXTRACT
-	      && XEXP (SET_SRC (exp), 1) == const1_rtx)
+	  if (GET_CODE (SET_SRC (exp)) == COMPARE
+	      && XEXP (SET_SRC (exp), 1) == const0_rtx)
+	    cc_status.value1 = XEXP (SET_SRC (exp), 0);
+	  else
+	    cc_status.value1 = SET_SRC (exp);
+
+          /* Handle flags for the special btstq on one bit.  */
+	  if (GET_CODE (cc_status.value1) == ZERO_EXTRACT
+	      && XEXP (cc_status.value1, 1) == const1_rtx)
 	    {
-	      if (CONST_INT_P (XEXP (SET_SRC (exp), 0)))
+	      if (CONST_INT_P (XEXP (cc_status.value1, 0)))
 		/* Using cmpq.  */
 		cc_status.flags = CC_INVERTED;
 	      else
@@ -1445,7 +1454,7 @@ cris_normal_notice_update_cc (rtx exp, rtx insn)
 		cc_status.flags = CC_Z_IN_NOT_N;
 	    }
 
-	  if (GET_CODE (SET_SRC (exp)) == COMPARE)
+	  else if (GET_CODE (SET_SRC (exp)) == COMPARE)
 	    {
 	      if (!REG_P (XEXP (SET_SRC (exp), 0))
 		  && XEXP (SET_SRC (exp), 1) != const0_rtx)
@@ -1854,6 +1863,11 @@ cris_rtx_costs (rtx x, int code, int outer_code, int *total,
 	  return true;
 	}
       return false;
+
+    case ZERO_EXTRACT:
+      if (outer_code != COMPARE)
+        return false;
+      /* fall through */
 
     case ZERO_EXTEND: case SIGN_EXTEND:
       *total = rtx_cost (XEXP (x, 0), outer_code, speed);
@@ -3802,6 +3816,18 @@ cris_md_asm_clobbers (tree outputs, tree inputs, tree in_clobbers)
 		    build_string (strlen (reg_names[CRIS_MOF_REGNUM]),
 				  reg_names[CRIS_MOF_REGNUM]),
 		    clobbers);
+}
+
+/* Implement TARGET_FRAME_POINTER_REQUIRED.
+
+   Really only needed if the stack frame has variable length (alloca
+   or variable sized local arguments (GNU C extension).  See PR39499 and
+   PR38609 for the reason this isn't just 0.  */
+
+bool
+cris_frame_pointer_required (void)
+{
+  return !current_function_sp_is_unchanging;
 }
 
 #if 0

@@ -468,7 +468,7 @@ ira_create_allocno (int regno, bool cap_p, ira_loop_tree_node_t loop_tree_node)
   ALLOCNO_CONFLICT_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_UPDATED_HARD_REG_COSTS (a) = NULL;
   ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) = NULL;
-  ALLOCNO_LEFT_CONFLICTS_NUM (a) = -1;
+  ALLOCNO_LEFT_CONFLICTS_SIZE (a) = -1;
   ALLOCNO_COVER_CLASS (a) = NO_REGS;
   ALLOCNO_UPDATED_COVER_CLASS_COST (a) = 0;
   ALLOCNO_COVER_CLASS_COST (a) = 0;
@@ -2394,7 +2394,8 @@ static ira_allocno_t *regno_top_level_allocno_map;
 static bool
 copy_info_to_removed_store_destinations (int regno)
 {
-  ira_allocno_t a, parent_a;
+  ira_allocno_t a;
+  ira_allocno_t parent_a = NULL;
   ira_loop_tree_node_t parent;
   allocno_live_range_t r;
   bool merged_p;

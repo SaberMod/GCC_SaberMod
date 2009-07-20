@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1999-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -76,6 +76,10 @@ package Sem_Warn is
    --  given character preceded by a dot. Used to process a -gnatw. switch on
    --  the command line or .C in a string literal in pragma Warnings. Returns
    --  True for valid warning character C, False for invalid character.
+
+   procedure Set_GNAT_Mode_Warnings;
+   --  This is called in -gnatg mode to set the warnings for gnat mode. It is
+   --  also used to set the proper warning statuses for -gnatw.g.
 
    ------------------------------------------
    -- Routines to Handle Unused References --
@@ -167,6 +171,14 @@ package Sem_Warn is
    procedure Check_Infinite_Loop_Warning (Loop_Statement : Node_Id);
    --  N is the node for a loop statement. This procedure checks if a warning
    --  should be given for a possible infinite loop, and if so issues it.
+
+   procedure Check_Low_Bound_Tested (Expr : Node_Id);
+   --  Expr is the node for a comparison operation. This procedure checks if
+   --  the comparison is a source comparison of P'First with some other value
+   --  and if so, sets the Low_Bound_Tested flag on entity P to suppress
+   --  warnings about improper low bound assumptions (we assume that if the
+   --  code has a test that explicitly checks P'First, then it is not operating
+   --  in blind assumption mode).
 
    procedure Warn_On_Known_Condition (C : Node_Id);
    --  C is a node for a boolean expression resulting from a relational

@@ -1,5 +1,5 @@
 /* Implementation of the MAXLOC intrinsic
-   Copyright 2002, 2007 Free Software Foundation, Inc.
+   Copyright 2002, 2007, 2009 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,26 +7,21 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
 #include <stdlib.h>
@@ -60,9 +55,7 @@ maxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank-1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_16) * rank);
@@ -79,7 +72,7 @@ maxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 	    runtime_error ("rank of return array in MAXLOC intrinsic"
 			   " should be 1, is %ld", (long int) ret_rank);
 
-	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	  ret_extent = GFC_DESCRIPTOR_EXTENT(retarray,0);
 	  if (ret_extent != rank)
 	    runtime_error ("Incorrect extent in return value of"
 			   " MAXLOC intrnisic: is %ld, should be %ld",
@@ -87,12 +80,12 @@ maxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 	}
     }
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       count[n] = 0;
       if (extent[n] <= 0)
 	{
@@ -184,9 +177,7 @@ mmaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank - 1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_16) * rank);
@@ -205,7 +196,7 @@ mmaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 	    runtime_error ("rank of return array in MAXLOC intrinsic"
 			   " should be 1, is %ld", (long int) ret_rank);
 
-	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	  ret_extent = GFC_DESCRIPTOR_EXTENT(retarray,0);
 	  if (ret_extent != rank)
 	    runtime_error ("Incorrect extent in return value of"
 			   " MAXLOC intrnisic: is %ld, should be %ld",
@@ -219,8 +210,8 @@ mmaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 
 	  for (n=0; n<rank; n++)
 	    {
-	      array_extent = array->dim[n].ubound + 1 - array->dim[n].lbound;
-	      mask_extent = mask->dim[n].ubound + 1 - mask->dim[n].lbound;
+	      array_extent = GFC_DESCRIPTOR_EXTENT(array,n);
+	      mask_extent = GFC_DESCRIPTOR_EXTENT(mask,n);
 	      if (array_extent != mask_extent)
 		runtime_error ("Incorrect extent in MASK argument of"
 			       " MAXLOC intrinsic in dimension %ld:"
@@ -243,13 +234,13 @@ mmaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
   else
     runtime_error ("Funny sized logical array");
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n < rank; n++)
     {
-      sstride[n] = array->dim[n].stride;
-      mstride[n] = mask->dim[n].stride * mask_kind;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask,n);
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       count[n] = 0;
       if (extent[n] <= 0)
 	{
@@ -344,9 +335,7 @@ smaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 
   if (retarray->data == NULL)
     {
-      retarray->dim[0].lbound = 0;
-      retarray->dim[0].ubound = rank-1;
-      retarray->dim[0].stride = 1;
+      GFC_DIMENSION_SET(retarray->dim[0], 0, rank-1, 1);
       retarray->dtype = (retarray->dtype & ~GFC_DTYPE_RANK_MASK) | 1;
       retarray->offset = 0;
       retarray->data = internal_malloc_size (sizeof (GFC_INTEGER_16) * rank);
@@ -363,13 +352,13 @@ smaxloc0_16_r8 (gfc_array_i16 * const restrict retarray,
 	    runtime_error ("rank of return array in MAXLOC intrinsic"
 			   " should be 1, is %ld", (long int) ret_rank);
 
-	  ret_extent = retarray->dim[0].ubound + 1 - retarray->dim[0].lbound;
+	  ret_extent = GFC_DESCRIPTOR_EXTENT(retarray,0);
 	    if (ret_extent != rank)
 	      runtime_error ("dimension of return array incorrect");
 	}
     }
 
-  dstride = retarray->dim[0].stride;
+  dstride = GFC_DESCRIPTOR_STRIDE(retarray,0);
   dest = retarray->data;
   for (n = 0; n<rank; n++)
     dest[n * dstride] = 0 ;

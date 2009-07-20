@@ -115,7 +115,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "rtl.h"
-#include "c-tree.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "tree-flow-inline.h"
@@ -131,7 +130,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "params.h"
 #include "fibheap.h"
-#include "c-common.h"
 #include "intl.h"
 #include "function.h"
 #include "basic-block.h"
@@ -142,6 +140,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
+#include "tree-ssa-sccvn.h"
 
 /* We need to collect a lot of data from the original malloc,
    particularly as the gimplifier has converted:
@@ -245,6 +244,14 @@ typedef struct access_site_info *access_site_info_p;
 DEF_VEC_P (access_site_info_p);
 DEF_VEC_ALLOC_P (access_site_info_p, heap);
 
+/* Calls to free when flattening a matrix.  */
+
+struct free_info
+{
+  gimple stmt;
+  tree func;
+};
+
 /* Information about matrix to flatten.  */
 struct matrix_info
 {
@@ -277,11 +284,7 @@ struct matrix_info
   tree allocation_function_decl;
 
   /* The calls to free for each level of indirection.  */
-  struct free_info
-  {
-    gimple stmt;
-    tree func;
-  } *free_stmts;
+  struct free_info *free_stmts;
 
   /* An array which holds for each dimension its size. where
      dimension 0 is the outer most (one that contains all the others).
@@ -1865,8 +1868,9 @@ transform_access_sites (void **slot, void *data ATTRIBUTE_UNUSED)
 		    tmp = create_tmp_var (TREE_TYPE (lhs), "new");
 		    add_referenced_var (tmp);
 		    rhs = gimple_assign_rhs1 (acc_info->stmt);
-		    new_stmt = gimple_build_assign (tmp,
-						    TREE_OPERAND (rhs, 0));
+		    rhs = fold_convert (TREE_TYPE (tmp),
+					TREE_OPERAND (rhs, 0));
+		    new_stmt = gimple_build_assign (tmp, rhs);
 		    tmp = make_ssa_name (tmp, new_stmt);
 		    gimple_assign_set_lhs (new_stmt, tmp);
 		    gsi = gsi_for_stmt (acc_info->stmt);
@@ -2419,12 +2423,11 @@ struct simple_ipa_opt_pass pass_ipa_matrix_reorg =
   NULL,				/* sub */
   NULL,				/* next */
   0,				/* static_pass_number */
-  0,				/* tv_id */
+  TV_NONE,			/* tv_id */
   0,				/* properties_required */
-  PROP_trees,			/* properties_provided */
+  0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
   TODO_dump_cgraph | TODO_dump_func	/* todo_flags_finish */
  }
 };
-

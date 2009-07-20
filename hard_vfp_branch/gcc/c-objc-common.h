@@ -21,9 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_C_OBJC_COMMON
 #define GCC_C_OBJC_COMMON
 
-/* In c-objc-common.c.  */
-extern void c_initialize_diagnostics (diagnostic_context *);
-
 /* Lang hooks that are shared between C and ObjC are defined here.  Hooks
    specific to C or ObjC go in c-lang.c and objc/objc-lang.c, respectively.  */
 
@@ -43,16 +40,12 @@ extern void c_initialize_diagnostics (diagnostic_context *);
 #define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
-#undef LANG_HOOKS_EXPAND_EXPR
-#define LANG_HOOKS_EXPAND_EXPR c_expand_expr
 #undef LANG_HOOKS_MARK_ADDRESSABLE
 #define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
 #undef LANG_HOOKS_PARSE_FILE
 #define LANG_HOOKS_PARSE_FILE c_common_parse_file
 #undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
 #define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
-#undef LANG_HOOKS_STATICP
-#define LANG_HOOKS_STATICP c_staticp
 #undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL c_warn_unused_global_decl
 #undef LANG_HOOKS_PRINT_IDENTIFIER

@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -39,6 +39,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Ch8;  use Sem_Ch8;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
@@ -86,9 +87,6 @@ package body Sem_Ch13 is
    --  Attributes that do not specify a representation characteristic are
    --  operational attributes.
 
-   function Address_Aliased_Entity (N : Node_Id) return Entity_Id;
-   --  If expression N is of the form E'Address, return E
-
    procedure New_Stream_Subprogram
      (N    : Node_Id;
       Ent  : Entity_Id;
@@ -120,10 +118,14 @@ package body Sem_Ch13 is
    --  processing is to take advantage of back-annotations of size and
    --  alignment values performed by the back end.
 
+   --  Note: the reason we store a Source_Ptr value instead of a Node_Id
+   --  is that by the time Validate_Unchecked_Conversions is called, Sprint
+   --  will already have modified all Sloc values if the -gnatD option is set.
+
    type UC_Entry is record
-      Enode  : Node_Id;   -- node used for posting warnings
-      Source : Entity_Id; -- source type for unchecked conversion
-      Target : Entity_Id; -- target type for unchecked conversion
+      Eloc   : Source_Ptr; -- node used for posting warnings
+      Source : Entity_Id;  -- source type for unchecked conversion
+      Target : Entity_Id;  -- target type for unchecked conversion
    end record;
 
    package Unchecked_Conversions is new Table.Table (
@@ -159,6 +161,9 @@ package body Sem_Ch13 is
 
       Y : Entity_Id;
       --  The entity of the object being overlaid
+
+      Off : Boolean;
+      --  Whether the address is offseted within Y
    end record;
 
    package Address_Clause_Checks is new Table.Table (
@@ -168,33 +173,6 @@ package body Sem_Ch13 is
      Table_Initial        => 20,
      Table_Increment      => 200,
      Table_Name           => "Address_Clause_Checks");
-
-   ----------------------------
-   -- Address_Aliased_Entity --
-   ----------------------------
-
-   function Address_Aliased_Entity (N : Node_Id) return Entity_Id is
-   begin
-      if Nkind (N) = N_Attribute_Reference
-        and then Attribute_Name (N) = Name_Address
-      then
-         declare
-            P : Node_Id;
-
-         begin
-            P := Prefix (N);
-            while Nkind_In (P, N_Selected_Component, N_Indexed_Component) loop
-               P := Prefix (P);
-            end loop;
-
-            if Is_Entity_Name (P) then
-               return Entity (P);
-            end if;
-         end;
-      end if;
-
-      return Empty;
-   end Address_Aliased_Entity;
 
    -----------------------------------------
    -- Adjust_Record_For_Reverse_Bit_Order --
@@ -686,9 +664,51 @@ package body Sem_Ch13 is
    --  Start of processing for Analyze_Attribute_Definition_Clause
 
    begin
+      --  Process Ignore_Rep_Clauses option
+
       if Ignore_Rep_Clauses then
-         Rewrite (N, Make_Null_Statement (Sloc (N)));
-         return;
+         case Id is
+
+            --  The following should be ignored. They do not affect legality
+            --  and may be target dependent. The basic idea of -gnatI is to
+            --  ignore any rep clauses that may be target dependent but do not
+            --  affect legality (except possibly to be rejected because they
+            --  are incompatible with the compilation target).
+
+            when Attribute_Address        |
+                 Attribute_Alignment      |
+                 Attribute_Bit_Order      |
+                 Attribute_Component_Size |
+                 Attribute_Machine_Radix  |
+                 Attribute_Object_Size    |
+                 Attribute_Size           |
+                 Attribute_Small          |
+                 Attribute_Stream_Size    |
+                 Attribute_Value_Size     =>
+
+               Rewrite (N, Make_Null_Statement (Sloc (N)));
+               return;
+
+            --  The following should not be ignored, because in the first place
+            --  they are reasonably portable, and should not cause problems in
+            --  compiling code from another target, and also they do affect
+            --  legality, e.g. failing to provide a stream attribute for a
+            --  type may make a program illegal.
+
+            when Attribute_External_Tag   |
+                 Attribute_Input          |
+                 Attribute_Output         |
+                 Attribute_Read           |
+                 Attribute_Storage_Pool   |
+                 Attribute_Storage_Size   |
+                 Attribute_Write          =>
+               null;
+
+            --  Other cases are errors, which will be caught below
+
+            when others =>
+               null;
+         end case;
       end if;
 
       Analyze (Nam);
@@ -859,11 +879,12 @@ package body Sem_Ch13 is
               Ekind (U_Ent) = E_Constant
             then
                declare
-                  Expr  : constant Node_Id   := Expression (N);
-                  Aent  : constant Entity_Id := Address_Aliased_Entity (Expr);
-                  Ent_Y : constant Entity_Id := Find_Overlaid_Object (N);
+                  Expr  : constant Node_Id := Expression (N);
+                  O_Ent : Entity_Id;
+                  Off   : Boolean;
 
                begin
+
                   --  Exported variables cannot have an address clause,
                   --  because this cancels the effect of the pragma Export
 
@@ -871,12 +892,15 @@ package body Sem_Ch13 is
                      Error_Msg_N
                        ("cannot export object with address clause", Nam);
                      return;
+                  end if;
+
+                  Find_Overlaid_Entity (N, O_Ent, Off);
 
                   --  Overlaying controlled objects is erroneous
 
-                  elsif Present (Aent)
-                    and then (Has_Controlled_Component (Etype (Aent))
-                                or else Is_Controlled (Etype (Aent)))
+                  if Present (O_Ent)
+                    and then (Has_Controlled_Component (Etype (O_Ent))
+                                or else Is_Controlled (Etype (O_Ent)))
                   then
                      Error_Msg_N
                        ("?cannot overlay with controlled object", Expr);
@@ -887,9 +911,9 @@ package body Sem_Ch13 is
                          Reason => PE_Overlaid_Controlled_Object));
                      return;
 
-                  elsif Present (Aent)
+                  elsif Present (O_Ent)
                     and then Ekind (U_Ent) = E_Constant
-                    and then Ekind (Aent) /= E_Constant
+                    and then not Is_Constant_Object (O_Ent)
                   then
                      Error_Msg_N ("constant overlays a variable?", Expr);
 
@@ -917,10 +941,15 @@ package body Sem_Ch13 is
                   --  Here we are checking for explicit overlap of one variable
                   --  by another, and if we find this then mark the overlapped
                   --  variable as also being volatile to prevent unwanted
-                  --  optimizations.
+                  --  optimizations. This is a significant pessimization so
+                  --  avoid it when there is an offset, i.e. when the object
+                  --  is composite; they cannot be optimized easily anyway.
 
-                  if Present (Ent_Y) then
-                     Set_Treat_As_Volatile (Ent_Y);
+                  if Present (O_Ent)
+                    and then Is_Object (O_Ent)
+                    and then not Off
+                  then
+                     Set_Treat_As_Volatile (O_Ent);
                   end if;
 
                   --  Legality checks on the address clause for initialized
@@ -929,6 +958,21 @@ package body Sem_Ch13 is
                   --  imported and thus not initialized.
 
                   Set_Has_Delayed_Freeze (U_Ent);
+
+                  --  If an initialization call has been generated for this
+                  --  object, it needs to be deferred to after the freeze node
+                  --  we have just now added, otherwise GIGI will see a
+                  --  reference to the variable (as actual to the IP call)
+                  --  before its definition.
+
+                  declare
+                     Init_Call : constant Node_Id := Find_Init_Call (U_Ent, N);
+                  begin
+                     if Present (Init_Call) then
+                        Remove (Init_Call);
+                        Append_Freeze_Action (U_Ent, Init_Call);
+                     end if;
+                  end;
 
                   if Is_Exported (U_Ent) then
                      Error_Msg_N
@@ -953,53 +997,42 @@ package body Sem_Ch13 is
                   --  the variable, it is somewhere else.
 
                   Kill_Size_Check_Code (U_Ent);
-               end;
 
-               --  If the address clause is of the form:
+                  --  If the address clause is of the form:
 
-               --    for Y'Address use X'Address
+                  --    for Y'Address use X'Address
 
-               --  or
+                  --  or
 
-               --    Const : constant Address := X'Address;
-               --    ...
-               --    for Y'Address use Const;
+                  --    Const : constant Address := X'Address;
+                  --    ...
+                  --    for Y'Address use Const;
 
-               --  then we make an entry in the table for checking the size and
-               --  alignment of the overlaying variable. We defer this check
-               --  till after code generation to take full advantage of the
-               --  annotation done by the back end. This entry is only made if
-               --  we have not already posted a warning about size/alignment
-               --  (some warnings of this type are posted in Checks), and if
-               --  the address clause comes from source.
+                  --  then we make an entry in the table for checking the size
+                  --  and alignment of the overlaying variable. We defer this
+                  --  check till after code generation to take full advantage
+                  --  of the annotation done by the back end. This entry is
+                  --  only made if the address clause comes from source.
 
-               if Address_Clause_Overlay_Warnings
-                 and then Comes_From_Source (N)
-               then
-                  declare
-                     Ent_X : Entity_Id := Empty;
-                     Ent_Y : Entity_Id := Empty;
+                  if Address_Clause_Overlay_Warnings
+                    and then Comes_From_Source (N)
+                    and then Present (O_Ent)
+                    and then Is_Object (O_Ent)
+                  then
+                     Address_Clause_Checks.Append ((N, U_Ent, O_Ent, Off));
 
-                  begin
-                     Ent_Y := Find_Overlaid_Object (N);
+                     --  If variable overlays a constant view, and we are
+                     --  warning on overlays, then mark the variable as
+                     --  overlaying a constant (we will give warnings later
+                     --  if this variable is assigned).
 
-                     if Present (Ent_Y) and then Is_Entity_Name (Name (N)) then
-                        Ent_X := Entity (Name (N));
-                        Address_Clause_Checks.Append ((N, Ent_X, Ent_Y));
-
-                        --  If variable overlays a constant view, and we are
-                        --  warning on overlays, then mark the variable as
-                        --  overlaying a constant (we will give warnings later
-                        --  if this variable is assigned).
-
-                        if Is_Constant_Object (Ent_Y)
-                          and then Ekind (Ent_X) = E_Variable
-                        then
-                           Set_Overlays_Constant (Ent_X);
-                        end if;
+                     if Is_Constant_Object (O_Ent)
+                       and then Ekind (U_Ent) = E_Variable
+                     then
+                        Set_Overlays_Constant (U_Ent);
                      end if;
-                  end;
-               end if;
+                  end if;
+               end;
 
             --  Not a valid entity for an address clause
 
@@ -1182,7 +1215,7 @@ package body Sem_Ch13 is
 
             if VM_Target = No_VM then
                Set_Has_External_Tag_Rep_Clause (U_Ent);
-            elsif not Inspector_Mode then
+            else
                Error_Msg_Name_1 := Attr;
                Error_Msg_N
                  ("% attribute unsupported in this configuration", Nam);
@@ -2939,11 +2972,10 @@ package body Sem_Ch13 is
                Error_Msg_NE
                  ("invalid address clause for initialized object &!",
                   Nod, U_Ent);
-               Error_Msg_Name_1 := Chars (Entity (Nod));
-               Error_Msg_Name_2 := Chars (U_Ent);
-               Error_Msg_N
-                 ("\% must be defined before % (RM 13.1(22))!",
-                  Nod);
+               Error_Msg_Node_2 := U_Ent;
+               Error_Msg_NE
+                 ("\& must be defined before & (RM 13.1(22))!",
+                  Nod, Entity (Nod));
             end if;
 
          elsif Nkind (Nod) = N_Selected_Component then
@@ -3073,11 +3105,10 @@ package body Sem_Ch13 is
                      Error_Msg_NE
                        ("invalid address clause for initialized object &!",
                         Nod, U_Ent);
-                     Error_Msg_Name_1 := Chars (Ent);
-                     Error_Msg_Name_2 := Chars (U_Ent);
-                     Error_Msg_N
-                       ("\% must be defined before % (RM 13.1(22))!",
-                        Nod);
+                     Error_Msg_Node_2 := U_Ent;
+                     Error_Msg_NE
+                       ("\& must be defined before & (RM 13.1(22))!",
+                        Nod, Ent);
                   end if;
 
                elsif Nkind (Original_Node (Nod)) = N_Function_Call then
@@ -3089,10 +3120,9 @@ package body Sem_Ch13 is
                      Nod, U_Ent);
 
                   if Comes_From_Source (Ent) then
-                     Error_Msg_Name_1 := Chars (Ent);
-                     Error_Msg_N
-                       ("\reference to variable% not allowed"
-                          & " (RM 13.1(22))!", Nod);
+                     Error_Msg_NE
+                       ("\reference to variable& not allowed"
+                          & " (RM 13.1(22))!", Nod, Ent);
                   else
                      Error_Msg_N
                        ("non-static expression not allowed"
@@ -3166,7 +3196,7 @@ package body Sem_Ch13 is
             when N_Null =>
                return;
 
-            when N_Binary_Op | N_And_Then | N_Or_Else | N_Membership_Test =>
+            when N_Binary_Op | N_Short_Circuit | N_Membership_Test =>
                Check_Expr_Constants (Left_Opnd (Nod));
                Check_Expr_Constants (Right_Opnd (Nod));
 
@@ -4050,7 +4080,7 @@ package body Sem_Ch13 is
                   end if;
                end Same_Rep;
 
-            --  Start processing for Record_Case
+            --  Start of processing for Record_Case
 
             begin
                if Has_Discriminants (T1) then
@@ -4196,6 +4226,8 @@ package body Sem_Ch13 is
             ACCR : Address_Clause_Check_Record
                      renames Address_Clause_Checks.Table (J);
 
+            Expr : Node_Id;
+
             X_Alignment : Uint;
             Y_Alignment : Uint;
 
@@ -4207,35 +4239,17 @@ package body Sem_Ch13 is
 
             if not Address_Warning_Posted (ACCR.N) then
 
-               --  Get alignments. Really we should always have the alignment
-               --  of the objects properly back annotated, but right now the
-               --  back end fails to back annotate for address clauses???
+               Expr := Original_Node (Expression (ACCR.N));
 
-               if Known_Alignment (ACCR.X) then
-                  X_Alignment := Alignment (ACCR.X);
-               else
-                  X_Alignment := Alignment (Etype (ACCR.X));
-               end if;
+               --  Get alignments
 
-               if Known_Alignment (ACCR.Y) then
-                  Y_Alignment := Alignment (ACCR.Y);
-               else
-                  Y_Alignment := Alignment (Etype (ACCR.Y));
-               end if;
+               X_Alignment := Alignment (ACCR.X);
+               Y_Alignment := Alignment (ACCR.Y);
 
                --  Similarly obtain sizes
 
-               if Known_Esize (ACCR.X) then
-                  X_Size := Esize (ACCR.X);
-               else
-                  X_Size := Esize (Etype (ACCR.X));
-               end if;
-
-               if Known_Esize (ACCR.Y) then
-                  Y_Size := Esize (ACCR.Y);
-               else
-                  Y_Size := Esize (Etype (ACCR.Y));
-               end if;
+               X_Size := Esize (ACCR.X);
+               Y_Size := Esize (ACCR.Y);
 
                --  Check for large object overlaying smaller one
 
@@ -4243,8 +4257,10 @@ package body Sem_Ch13 is
                  and then X_Size > Uint_0
                  and then X_Size > Y_Size
                then
+                  Error_Msg_NE
+                    ("?& overlays smaller object", ACCR.N, ACCR.X);
                   Error_Msg_N
-                    ("?size for overlaid object is too small", ACCR.N);
+                    ("\?program execution may be erroneous", ACCR.N);
                   Error_Msg_Uint_1 := X_Size;
                   Error_Msg_NE
                     ("\?size of & is ^", ACCR.N, ACCR.X);
@@ -4252,16 +4268,23 @@ package body Sem_Ch13 is
                   Error_Msg_NE
                     ("\?size of & is ^", ACCR.N, ACCR.Y);
 
-                  --  Check for inadequate alignment. Again the defensive check
-                  --  on Y_Alignment should not be needed, but because of the
-                  --  failure in back end annotation, we can have an alignment
-                  --  of 0 here???
+               --  Check for inadequate alignment, both of the base object
+               --  and of the offset, if any.
 
-                  --  Note: we do not check alignments if we gave a size
-                  --  warning, since it would likely be redundant.
+               --  Note: we do not check the alignment if we gave a size
+               --  warning, since it would likely be redundant.
 
                elsif Y_Alignment /= Uint_0
-                 and then Y_Alignment < X_Alignment
+                 and then (Y_Alignment < X_Alignment
+                             or else (ACCR.Off
+                                        and then
+                                          Nkind (Expr) = N_Attribute_Reference
+                                        and then
+                                          Attribute_Name (Expr) = Name_Address
+                                        and then
+                                          Has_Compatible_Alignment
+                                            (ACCR.X, Prefix (Expr))
+                                             /= Known_Compatible))
                then
                   Error_Msg_NE
                     ("?specified address for& may be inconsistent "
@@ -4278,6 +4301,11 @@ package body Sem_Ch13 is
                   Error_Msg_NE
                     ("\?alignment of & is ^",
                      ACCR.N, ACCR.Y);
+                  if Y_Alignment >= X_Alignment then
+                     Error_Msg_N
+                      ("\?but offset is not multiple of alignment",
+                       ACCR.N);
+                  end if;
                end if;
             end if;
          end;
@@ -4397,7 +4425,7 @@ package body Sem_Ch13 is
       if Warn_On_Unchecked_Conversion then
          Unchecked_Conversions.Append
            (New_Val => UC_Entry'
-              (Enode  => N,
+              (Eloc   => Sloc (N),
                Source => Source,
                Target => Target));
 
@@ -4454,9 +4482,9 @@ package body Sem_Ch13 is
          declare
             T : UC_Entry renames Unchecked_Conversions.Table (N);
 
-            Enode  : constant Node_Id   := T.Enode;
-            Source : constant Entity_Id := T.Source;
-            Target : constant Entity_Id := T.Target;
+            Eloc   : constant Source_Ptr := T.Eloc;
+            Source : constant Entity_Id  := T.Source;
+            Target : constant Entity_Id  := T.Target;
 
             Source_Siz    : Uint;
             Target_Siz    : Uint;
@@ -4471,22 +4499,29 @@ package body Sem_Ch13 is
             if Serious_Errors_Detected = 0
               and then Known_Static_RM_Size (Source)
               and then Known_Static_RM_Size (Target)
+
+              --  Don't do the check if warnings off for either type, note the
+              --  deliberate use of OR here instead of OR ELSE to get the flag
+              --  Warnings_Off_Used set for both types if appropriate.
+
+              and then not (Has_Warnings_Off (Source)
+                              or
+                            Has_Warnings_Off (Target))
             then
                Source_Siz := RM_Size (Source);
                Target_Siz := RM_Size (Target);
 
                if Source_Siz /= Target_Siz then
-                  Error_Msg_N
+                  Error_Msg
                     ("?types for unchecked conversion have different sizes!",
-                     Enode);
+                     Eloc);
 
                   if All_Errors_Mode then
                      Error_Msg_Name_1 := Chars (Source);
                      Error_Msg_Uint_1 := Source_Siz;
                      Error_Msg_Name_2 := Chars (Target);
                      Error_Msg_Uint_2 := Target_Siz;
-                     Error_Msg_N
-                       ("\size of % is ^, size of % is ^?", Enode);
+                     Error_Msg ("\size of % is ^, size of % is ^?", Eloc);
 
                      Error_Msg_Uint_1 := UI_Abs (Source_Siz - Target_Siz);
 
@@ -4494,46 +4529,46 @@ package body Sem_Ch13 is
                        and then Is_Discrete_Type (Target)
                      then
                         if Source_Siz > Target_Siz then
-                           Error_Msg_N
+                           Error_Msg
                              ("\?^ high order bits of source will be ignored!",
-                              Enode);
+                              Eloc);
 
                         elsif Is_Unsigned_Type (Source) then
-                           Error_Msg_N
+                           Error_Msg
                              ("\?source will be extended with ^ high order " &
-                              "zero bits?!", Enode);
+                              "zero bits?!", Eloc);
 
                         else
-                           Error_Msg_N
+                           Error_Msg
                              ("\?source will be extended with ^ high order " &
                               "sign bits!",
-                              Enode);
+                              Eloc);
                         end if;
 
                      elsif Source_Siz < Target_Siz then
                         if Is_Discrete_Type (Target) then
                            if Bytes_Big_Endian then
-                              Error_Msg_N
+                              Error_Msg
                                 ("\?target value will include ^ undefined " &
                                  "low order bits!",
-                                 Enode);
+                                 Eloc);
                            else
-                              Error_Msg_N
+                              Error_Msg
                                 ("\?target value will include ^ undefined " &
                                  "high order bits!",
-                                 Enode);
+                                 Eloc);
                            end if;
 
                         else
-                           Error_Msg_N
+                           Error_Msg
                              ("\?^ trailing bits of target value will be " &
-                              "undefined!", Enode);
+                              "undefined!", Eloc);
                         end if;
 
                      else pragma Assert (Source_Siz > Target_Siz);
-                        Error_Msg_N
+                        Error_Msg
                           ("\?^ trailing bits of source will be ignored!",
-                           Enode);
+                           Eloc);
                      end if;
                   end if;
                end if;
@@ -4564,19 +4599,31 @@ package body Sem_Ch13 is
                      begin
                         if Source_Align < Target_Align
                           and then not Is_Tagged_Type (D_Source)
+
+                          --  Suppress warning if warnings suppressed on either
+                          --  type or either designated type. Note the use of
+                          --  OR here instead of OR ELSE. That is intentional,
+                          --  we would like to set flag Warnings_Off_Used in
+                          --  all types for which warnings are suppressed.
+
+                          and then not (Has_Warnings_Off (D_Source)
+                                          or
+                                        Has_Warnings_Off (D_Target)
+                                          or
+                                        Has_Warnings_Off (Source)
+                                          or
+                                        Has_Warnings_Off (Target))
                         then
                            Error_Msg_Uint_1 := Target_Align;
                            Error_Msg_Uint_2 := Source_Align;
+                           Error_Msg_Node_1 := D_Target;
                            Error_Msg_Node_2 := D_Source;
-                           Error_Msg_NE
+                           Error_Msg
                              ("?alignment of & (^) is stricter than " &
-                              "alignment of & (^)!", Enode, D_Target);
-
-                           if All_Errors_Mode then
-                              Error_Msg_N
-                                ("\?resulting access value may have invalid " &
-                                 "alignment!", Enode);
-                           end if;
+                              "alignment of & (^)!", Eloc);
+                           Error_Msg
+                             ("\?resulting access value may have invalid " &
+                              "alignment!", Eloc);
                         end if;
                      end;
                   end if;

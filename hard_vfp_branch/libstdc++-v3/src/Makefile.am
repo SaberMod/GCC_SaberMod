@@ -10,7 +10,7 @@
 ## This file is part of the GNU ISO C++ Library.  This library is free
 ## software; you can redistribute it and/or modify it under the
 ## terms of the GNU General Public License as published by the
-## Free Software Foundation; either version 2, or (at your option)
+## Free Software Foundation; either version 3, or (at your option)
 ## any later version.
 
 ## This library is distributed in the hope that it will be useful,
@@ -19,9 +19,8 @@
 ## GNU General Public License for more details.
 
 ## You should have received a copy of the GNU General Public License along
-## with this library; see the file COPYING.  If not, write to the Free
-## Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-## USA.
+## with this library; see the file COPYING3.  If not see
+## <http://www.gnu.org/licenses/>.
 
 include $(top_srcdir)/fragment.am
 
@@ -190,6 +189,7 @@ sources = \
 	condition_variable.cc \
 	chrono.cc \
 	thread.cc \
+	future.cc \
 	${host_sources} \
 	${host_sources_extra} 
 
@@ -296,6 +296,11 @@ chrono.o: chrono.cc
 thread.lo: thread.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 thread.o: thread.cc
+	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+future.lo: future.cc
+	$(LTCXXCOMPILE) -std=gnu++0x -c $<
+future.o: future.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 if GLIBCXX_LDBL_COMPAT

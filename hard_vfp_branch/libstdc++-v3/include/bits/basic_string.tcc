@@ -7,7 +7,7 @@
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
-// Free Software Foundation; either version 2, or (at your option)
+// Free Software Foundation; either version 3, or (at your option)
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
@@ -15,19 +15,14 @@
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
-// You should have received a copy of the GNU General Public License along
-// with this library; see the file COPYING.  If not, write to the Free
-// Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,
-// USA.
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
 
-// As a special exception, you may use this file as part of a free software
-// library without restriction.  Specifically, if other files instantiate
-// templates or use macros or inline functions from this file, or you compile
-// this file and link it with other files to produce an executable, this
-// file does not by itself cause the resulting executable to be covered by
-// the GNU General Public License.  This exception does not however
-// invalidate any other reasons why the executable file might be covered by
-// the GNU General Public License.
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 /** @file basic_string.tcc
  *  This is an internal header file, included by other library headers.
@@ -134,8 +129,7 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
 	  return _S_empty_rep()._M_refdata();
 #endif
 	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__gnu_cxx::__is_null_pointer(__beg)
-			     && __beg != __end, 0))
+	if (__gnu_cxx::__is_null_pointer(__beg) && __beg != __end)
 	  __throw_logic_error(__N("basic_string::_S_construct NULL not valid"));
 
 	const size_type __dnew = static_cast<size_type>(std::distance(__beg,
@@ -389,6 +383,29 @@ _GLIBCXX_BEGIN_NAMESPACE(std)
              }
            return *this;
          }
+     }
+
+   template<typename _CharT, typename _Traits, typename _Alloc>
+     typename basic_string<_CharT, _Traits, _Alloc>::iterator
+     basic_string<_CharT, _Traits, _Alloc>::
+     erase(iterator __first, iterator __last)
+     {
+       _GLIBCXX_DEBUG_PEDASSERT(__first >= _M_ibegin() && __first <= __last
+				&& __last <= _M_iend());
+
+       // NB: This isn't just an optimization (bail out early when
+       // there is nothing to do, really), it's also a correctness
+       // issue vs MT, see libstdc++/40518.
+       const size_type __size = __last - __first;
+       if (__size)
+	 {
+	   const size_type __pos = __first - _M_ibegin();
+	   _M_mutate(__pos, __size, size_type(0));
+	   _M_rep()->_M_set_leaked();
+	   return iterator(_M_data() + __pos);
+	 }
+       else
+	 return __first;
      }
 
    template<typename _CharT, typename _Traits, typename _Alloc>

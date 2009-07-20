@@ -367,9 +367,7 @@
 ;; Return 1 if the operand is an offsettable memory operand.
 (define_predicate "offsettable_mem_operand"
   (and (match_operand 0 "memory_operand")
-       (match_test "GET_CODE (XEXP (op, 0)) != PRE_INC
-		    && GET_CODE (XEXP (op, 0)) != PRE_DEC
-		    && GET_CODE (XEXP (op, 0)) != PRE_MODIFY")))
+       (match_test "offsettable_nonstrict_memref_p (op)")))
 
 ;; Return 1 if the operand is a memory operand with an address divisible by 4
 (define_predicate "word_offset_memref_operand"
@@ -830,6 +828,11 @@
 						   GET_MODE (XEXP (op, 0))),
 			  1"))))
 
+(define_predicate "rs6000_cbranch_operator"
+  (if_then_else (match_test "TARGET_HARD_FLOAT && !TARGET_FPRS")
+		(match_operand 0 "ordered_comparison_operator")
+		(match_operand 0 "comparison_operator")))
+
 ;; Return 1 if OP is a comparison operation that is valid for an SCC insn --
 ;; it must be a positive comparison.
 (define_predicate "scc_comparison_operator"
@@ -841,11 +844,6 @@
 (define_predicate "branch_positive_comparison_operator"
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "eq,lt,gt,ltu,gtu,unordered")))
-
-;; Return 1 is OP is a comparison operation that is valid for a trap insn.
-(define_predicate "trap_comparison_operator"
-   (and (match_operand 0 "comparison_operator")
-	(match_code "eq,ne,le,lt,ge,gt,leu,ltu,geu,gtu")))
 
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.
 (define_predicate "load_multiple_operation"

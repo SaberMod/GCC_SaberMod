@@ -1,5 +1,5 @@
 /* Specific implementation of the PACK intrinsic
-   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004, 2005, 2006, 2007, 2008, 2009 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
 
 This file is part of the GNU Fortran 95 runtime library (libgfortran).
@@ -7,26 +7,21 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 Libgfortran is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public
 License as published by the Free Software Foundation; either
-version 2 of the License, or (at your option) any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
+version 3 of the License, or (at your option) any later version.
 
 Ligbfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public
-License along with libgfortran; see the file COPYING.  If not,
-write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 #include "libgfortran.h"
 #include <stdlib.h>
@@ -127,11 +122,11 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
   for (n = 0; n < dim; n++)
     {
       count[n] = 0;
-      extent[n] = array->dim[n].ubound + 1 - array->dim[n].lbound;
+      extent[n] = GFC_DESCRIPTOR_EXTENT(array,n);
       if (extent[n] <= 0)
        zero_sized = 1;
-      sstride[n] = array->dim[n].stride;
-      mstride[n] = mask->dim[n].stride * mask_kind;
+      sstride[n] = GFC_DESCRIPTOR_STRIDE(array,n);
+      mstride[n] = GFC_DESCRIPTOR_STRIDE_BYTES(mask,n);
     }
   if (sstride[0] == 0)
     sstride[0] = 1;
@@ -152,7 +147,7 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
 	{
 	  /* The return array will have as many
 	     elements as there are in VECTOR.  */
-	  total = vector->dim[0].ubound + 1 - vector->dim[0].lbound;
+	  total = GFC_DESCRIPTOR_EXTENT(vector,0);
 	  if (total < 0)
 	    {
 	      total = 0;
@@ -220,9 +215,7 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
       if (ret->data == NULL)
 	{
 	  /* Setup the array descriptor.  */
-	  ret->dim[0].lbound = 0;
-	  ret->dim[0].ubound = total - 1;
-	  ret->dim[0].stride = 1;
+	  GFC_DIMENSION_SET(ret->dim[0], 0, total-1, 1);
 
 	  ret->offset = 0;
 	  if (total == 0)
@@ -239,7 +232,7 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
 	  /* We come here because of range checking.  */
 	  index_type ret_extent;
 
-	  ret_extent = ret->dim[0].ubound + 1 - ret->dim[0].lbound;
+	  ret_extent = GFC_DESCRIPTOR_EXTENT(ret,0);
 	  if (total != ret_extent)
 	    runtime_error ("Incorrect extent in return value of PACK intrinsic;"
 			   " is %ld, should be %ld", (long int) total,
@@ -247,7 +240,7 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
 	}
     }
 
-  rstride0 = ret->dim[0].stride;
+  rstride0 = GFC_DESCRIPTOR_STRIDE(ret,0);
   if (rstride0 == 0)
     rstride0 = 1;
   sstride0 = sstride[0];
@@ -296,11 +289,11 @@ pack_c16 (gfc_array_c16 *ret, const gfc_array_c16 *array,
   /* Add any remaining elements from VECTOR.  */
   if (vector)
     {
-      n = vector->dim[0].ubound + 1 - vector->dim[0].lbound;
+      n = GFC_DESCRIPTOR_EXTENT(vector,0);
       nelem = ((rptr - ret->data) / rstride0);
       if (n > nelem)
         {
-          sstride0 = vector->dim[0].stride;
+          sstride0 = GFC_DESCRIPTOR_STRIDE(vector,0);
           if (sstride0 == 0)
             sstride0 = 1;
 

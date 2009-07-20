@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "basic-block.h"
 #include "alloc-pool.h"
+#include "timevar.h"
 
 struct dataflow;
 struct df;
@@ -51,8 +52,9 @@ union df_ref_d;
 #define DF_CHAIN   4      /* Def-Use and/or Use-Def Chains. */
 #define DF_BYTE_LR 5      /* Subreg tracking lr.  */
 #define DF_NOTE    6      /* REG_DEF and REG_UNUSED notes. */
+#define DF_MD      7      /* Multiple Definitions. */
 
-#define DF_LAST_PROBLEM_PLUS1 (DF_NOTE + 1)
+#define DF_LAST_PROBLEM_PLUS1 (DF_MD + 1)
 
 /* Dataflow direction.  */
 enum df_flow_dir
@@ -275,7 +277,7 @@ struct df_problem {
   struct df_problem *dependent_problem;
 
   /* The timevar id associated with this pass.  */
-  unsigned int tv_id;
+  timevar_id_t tv_id;
 
   /* True if the df_set_blocks should null out the basic block info if
      this block drops out of df->blocks_to_analyze.  */
@@ -341,8 +343,7 @@ struct df_mw_hardreg
      accesses to 16-bit fields will usually be quicker.  */
   ENUM_BITFIELD(df_ref_type) type : 16;
 				/* Used to see if the ref is read or write.  */
-  ENUM_BITFIELD(df_ref_flags) flags : 16;
-				/* Various flags.  */
+  int flags : 16;		/* Various df_ref_flags.  */
   unsigned int start_regno;     /* First word of the multi word subreg.  */
   unsigned int end_regno;       /* Last word of the multi word subreg.  */
   unsigned int mw_order;        /* Same as df_ref.ref_order.  */
@@ -360,8 +361,7 @@ struct df_base_ref
 
   ENUM_BITFIELD(df_ref_type) type : 8;
 				/* Type of ref.  */
-  ENUM_BITFIELD(df_ref_flags) flags : 16;
-				/* Various flags.  */
+  int flags : 16;		/* Various df_ref_flags.  */
   rtx reg;			/* The register referenced.  */
   struct df_link *chain;	/* Head of def-use, use-def.  */
   /* Pointer to the insn info of the containing instruction.  FIXME! 
@@ -602,8 +602,9 @@ struct df
      addresses.  It is incremented whenever a ref is created.  */
   unsigned int ref_order;
 
-  /* Problem specific control information.  */
-  ENUM_BITFIELD (df_changeable_flags) changeable_flags : 8;
+  /* Problem specific control information.  This is a combination of
+     enum df_changeable_flags values.  */
+  int changeable_flags : 8;
 
   /* If this is true, then only a subset of the blocks of the program
      is considered to compute the solutions of dataflow problems.  */
@@ -619,6 +620,7 @@ struct df
 #define DF_LR_BB_INFO(BB) (df_lr_get_bb_info((BB)->index))
 #define DF_LIVE_BB_INFO(BB) (df_live_get_bb_info((BB)->index))
 #define DF_BYTE_LR_BB_INFO(BB) (df_byte_lr_get_bb_info((BB)->index))
+#define DF_MD_BB_INFO(BB) (df_md_get_bb_info((BB)->index))
 
 /* Most transformations that wish to use live register analysis will
    use these macros.  This info is the and of the lr and live sets.  */
@@ -802,6 +804,22 @@ struct df_rd_bb_info
 };
 
 
+/* Multiple reaching definitions.  All bitmaps are referenced by the
+   register number.  */
+
+struct df_md_bb_info 
+{
+  /* Local sets to describe the basic blocks.  */
+  bitmap gen;    /* Partial/conditional definitions live at BB out.  */
+  bitmap kill;   /* Other definitions that are live at BB out.  */
+  bitmap init;   /* Definitions coming from dominance frontier edges. */
+
+  /* The results of the dataflow problem.  */
+  bitmap in;    /* Just before the block itself. */
+  bitmap out;   /* At the bottom of the block.  */
+};
+
+
 /* Live registers, a backwards dataflow problem.  All bitmaps are
    referenced by the register number.  */
 
@@ -862,6 +880,7 @@ extern struct df *df;
 #define df_chain   (df->problems_by_index[DF_CHAIN])
 #define df_byte_lr (df->problems_by_index[DF_BYTE_LR])
 #define df_note    (df->problems_by_index[DF_NOTE])
+#define df_md      (df->problems_by_index[DF_MD])
 
 /* This symbol turns on checking that each modification of the cfg has
   been identified to the appropriate df routines.  It is not part of
@@ -878,8 +897,8 @@ extern struct df *df;
 /* Functions defined in df-core.c.  */
 
 extern void df_add_problem (struct df_problem *);
-extern enum df_changeable_flags df_set_flags (enum df_changeable_flags);
-extern enum df_changeable_flags df_clear_flags (enum df_changeable_flags);
+extern int df_set_flags (int);
+extern int df_clear_flags (int);
 extern void df_set_blocks (bitmap);
 extern void df_remove_problem (struct dataflow *);
 extern void df_finish_pass (bool);
@@ -939,12 +958,14 @@ extern void df_grow_bb_info (struct dataflow *);
 extern void df_chain_dump (struct df_link *, FILE *);
 extern void df_print_bb_index (basic_block bb, FILE *file);
 extern void df_rd_add_problem (void);
+extern void df_rd_simulate_artificial_defs_at_top (basic_block, bitmap);
+extern void df_rd_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_lr_add_problem (void);
 extern void df_lr_verify_transfer_functions (void);
 extern void df_live_verify_transfer_functions (void);
 extern void df_live_add_problem (void);
 extern void df_live_set_all_dirty (void);
-extern void df_chain_add_problem (enum df_chain_flags);
+extern void df_chain_add_problem (unsigned int);
 extern void df_byte_lr_add_problem (void);
 extern int df_byte_lr_get_regno_start (unsigned int);
 extern int df_byte_lr_get_regno_len (unsigned int);
@@ -953,6 +974,9 @@ extern void df_byte_lr_simulate_uses (rtx, bitmap);
 extern void df_byte_lr_simulate_artificial_refs_at_top (basic_block, bitmap);
 extern void df_byte_lr_simulate_artificial_refs_at_end (basic_block, bitmap);
 extern void df_note_add_problem (void);
+extern void df_md_add_problem (void);
+extern void df_md_simulate_artificial_defs_at_top (basic_block, bitmap);
+extern void df_md_simulate_one_insn (basic_block, rtx, bitmap);
 extern void df_simulate_find_defs (rtx, bitmap);
 extern void df_simulate_defs (rtx, bitmap);
 extern void df_simulate_uses (rtx, bitmap);
@@ -971,7 +995,7 @@ extern void df_grow_reg_info (void);
 extern void df_grow_insn_info (void);
 extern void df_scan_blocks (void);
 extern df_ref df_ref_create (rtx, rtx *, rtx,basic_block, 
-				     enum df_ref_type, enum df_ref_flags,
+				     enum df_ref_type, int ref_flags,
 				     int, int, enum machine_mode);
 extern void df_ref_remove (df_ref);
 extern struct df_insn_info * df_insn_create_insn_record (rtx);
@@ -1028,6 +1052,15 @@ df_lr_get_bb_info (unsigned int index)
 {
   if (index < df_lr->block_info_size)
     return (struct df_lr_bb_info *) df_lr->block_info[index];
+  else
+    return NULL;
+}
+
+static inline struct df_md_bb_info *
+df_md_get_bb_info (unsigned int index)
+{
+  if (index < df_md->block_info_size)
+    return (struct df_md_bb_info *) df_md->block_info[index];
   else
     return NULL;
 }

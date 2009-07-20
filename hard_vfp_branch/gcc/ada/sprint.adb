@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -86,9 +86,6 @@ package body Sprint is
    Last_Line_Printed : Physical_Line_Number;
    --  This keeps track of the physical line number of the last source line
    --  that has been output. The value is only valid in Dump_Source_Text mode.
-
-   Line_Limit : constant := 72;
-   --  Limit value for chopping long lines
 
    -------------------------------
    -- Operator Precedence Table --
@@ -355,7 +352,7 @@ package body Sprint is
 
    procedure Col_Check (N : Nat) is
    begin
-      if N + Column > Line_Limit then
+      if N + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
       end if;
    end Col_Check;
@@ -964,12 +961,16 @@ package body Sprint is
                if Present (Expressions (Node)) then
                   Sprint_Comma_List (Expressions (Node));
 
-                  if Present (Component_Associations (Node)) then
+                  if Present (Component_Associations (Node))
+                    and then not Is_Empty_List (Component_Associations (Node))
+                  then
                      Write_Str (", ");
                   end if;
                end if;
 
-               if Present (Component_Associations (Node)) then
+               if Present (Component_Associations (Node))
+                 and then not Is_Empty_List (Component_Associations (Node))
+               then
                   Indent_Begin;
 
                   declare
@@ -1119,7 +1120,7 @@ package body Sprint is
             Sprint_Indented_List (Statements (Node));
 
          when N_Character_Literal =>
-            if Column > 70 then
+            if Column > Sprint_Line_Limit - 2 then
                Write_Indent_Str ("  ");
             end if;
 
@@ -1884,7 +1885,12 @@ package body Sprint is
          when N_In =>
             Sprint_Left_Opnd (Node);
             Write_Str_Sloc (" in ");
-            Sprint_Right_Opnd (Node);
+
+            if Present (Right_Opnd (Node)) then
+               Sprint_Right_Opnd (Node);
+            else
+               Sprint_Bar_List (Alternatives (Node));
+            end if;
 
          when N_Incomplete_Type_Declaration =>
             Write_Indent_Str_Sloc ("type ");
@@ -1983,7 +1989,12 @@ package body Sprint is
          when N_Not_In =>
             Sprint_Left_Opnd (Node);
             Write_Str_Sloc (" not in ");
-            Sprint_Right_Opnd (Node);
+
+            if Present (Right_Opnd (Node)) then
+               Sprint_Right_Opnd (Node);
+            else
+               Sprint_Bar_List (Alternatives (Node));
+            end if;
 
          when N_Null =>
             Write_Str_With_Col_Check_Sloc ("null");
@@ -2723,7 +2734,7 @@ package body Sprint is
             Write_Char (')');
 
          when N_String_Literal =>
-            if String_Length (Strval (Node)) + Column > 75 then
+            if String_Length (Strval (Node)) + Column > Sprint_Line_Limit then
                Write_Indent_Str ("  ");
             end if;
 
@@ -3722,7 +3733,7 @@ package body Sprint is
 
                      Write_Id (Directly_Designated_Type (Typ));
 
-                     --  Array types and string types
+                  --  Array types and string types
 
                   when E_Array_Type | E_String_Type =>
                      Write_Header;
@@ -3751,7 +3762,8 @@ package body Sprint is
                      Sprint_Node (X);
                      Set_Sloc (X, Old_Sloc);
 
-                     --  Array subtypes and string subtypes
+                     --  Array subtypes and string subtypes.
+                     --  Preserve Sloc of index subtypes, as above.
 
                   when E_Array_Subtype | E_String_Subtype =>
                      Write_Header (False);
@@ -3760,7 +3772,9 @@ package body Sprint is
 
                      X := First_Index (Typ);
                      loop
+                        Old_Sloc := Sloc (X);
                         Sprint_Node (X);
+                        Set_Sloc (X, Old_Sloc);
                         Next_Index (X);
                         exit when No (X);
                         Write_Str (", ");
@@ -3768,11 +3782,13 @@ package body Sprint is
 
                      Write_Char (')');
 
-                     --  Signed integer types, and modular integer subtypes
+                  --  Signed integer types, and modular integer subtypes,
+                  --  and also enumeration subtypes.
 
                   when E_Signed_Integer_Type     |
                        E_Signed_Integer_Subtype  |
-                       E_Modular_Integer_Subtype =>
+                       E_Modular_Integer_Subtype |
+                       E_Enumeration_Subtype     =>
 
                      Write_Header (Ekind (Typ) = E_Signed_Integer_Type);
 
@@ -3824,14 +3840,14 @@ package body Sprint is
                         end if;
                      end;
 
-                     --  Modular integer types
+                  --  Modular integer types
 
                   when E_Modular_Integer_Type =>
                      Write_Header;
                      Write_Str (" mod ");
                      Write_Uint_With_Col_Check (Modulus (Typ), Auto);
 
-                     --  Floating point types and subtypes
+                  --  Floating point types and subtypes
 
                   when E_Floating_Point_Type    |
                        E_Floating_Point_Subtype =>
@@ -4107,8 +4123,8 @@ package body Sprint is
             exit when Spec = Empty;
 
             --  Add semicolon, unless we are printing original tree and the
-            --  next specification is part of a list (but not the first
-            --  element of that list)
+            --  next specification is part of a list (but not the first element
+            --  of that list).
 
             if not Dump_Original_Only or else not Prev_Ids (Spec) then
                Write_Str ("; ");
@@ -4216,7 +4232,7 @@ package body Sprint is
 
    procedure Write_Str_With_Col_Check (S : String) is
    begin
-      if Int (S'Last) + Column > Line_Limit then
+      if Int (S'Last) + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
 
          if S (S'First) = ' ' then
@@ -4236,7 +4252,7 @@ package body Sprint is
 
    procedure Write_Str_With_Col_Check_Sloc (S : String) is
    begin
-      if Int (S'Last) + Column > Line_Limit then
+      if Int (S'Last) + Column > Sprint_Line_Limit then
          Write_Indent_Str ("  ");
 
          if S (S'First) = ' ' then

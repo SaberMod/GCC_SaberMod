@@ -1,4 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008
+/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009
    Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
@@ -7,27 +7,22 @@ This file is part of the GNU Fortran 95 runtime library (libgfortran).
 
 Libgfortran is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
+the Free Software Foundation; either version 3, or (at your option)
 any later version.
-
-In addition to the permissions in the GNU General Public License, the
-Free Software Foundation gives you unlimited permission to link the
-compiled version of this file into combinations with other programs,
-and to distribute those combinations without any restriction coming
-from the use of this file.  (The General Public License restrictions
-do apply in other respects; for example, they cover modification of
-the file, and distribution when not linked into a combine
-executable.)
 
 Libgfortran is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with Libgfortran; see the file COPYING.  If not, write to
-the Free Software Foundation, 51 Franklin Street, Fifth Floor,
-Boston, MA 02110-1301, USA.  */
+Under Section 7 of GPL version 3, you are granted additional
+permissions described in the GCC Runtime Library Exception, version
+3.1, as published by the Free Software Foundation.
+
+You should have received a copy of the GNU General Public License and
+a copy of the GCC Runtime Library Exception along with this program;
+see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+<http://www.gnu.org/licenses/>.  */
 
 
 /* format.c-- parse a FORMAT string into a binary format suitable for
@@ -36,6 +31,7 @@ Boston, MA 02110-1301, USA.  */
 #include "io.h"
 #include <ctype.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define FARRAY_SIZE 64
 
@@ -63,7 +59,7 @@ format_data;
 static const fnode colon_node = { FMT_COLON, 0, NULL, NULL, {{ 0, 0, 0 }}, 0,
 				  NULL };
 
-/* Error messages */
+/* Error messages. */
 
 static const char posint_required[] = "Positive width required in format",
   period_required[] = "Period required in format",
@@ -74,6 +70,138 @@ static const char posint_required[] = "Positive width required in format",
   bad_hollerith[] = "Hollerith constant extends past the end of the format",
   reversion_error[] = "Exhausted data descriptors in format",
   zero_width[] = "Zero width in format descriptor";
+
+/* The following routines support caching format data from parsed format strings
+   into a hash table.  This avoids repeatedly parsing duplicate format strings
+   or format strings in I/O statements that are repeated in loops.  */
+
+
+/* Traverse the table and free all data.  */
+
+void
+free_format_hash_table (gfc_unit *u)
+{
+  size_t i;
+
+  /* free_format_data handles any NULL pointers.  */
+  for (i = 0; i < FORMAT_HASH_SIZE; i++)
+    {
+      if (u->format_hash_table[i].hashed_fmt != NULL)
+	{
+	  free_format_data (u->format_hash_table[i].hashed_fmt);
+	  free_mem (u->format_hash_table[i].key);
+	}
+      u->format_hash_table[i].key = NULL;
+      u->format_hash_table[i].key_len = 0;      
+      u->format_hash_table[i].hashed_fmt = NULL;
+    }
+}
+
+/* Traverse the format_data structure and reset the fnode counters.  */
+
+static void
+reset_node (fnode *fn)
+{
+  fnode *f;
+
+  fn->count = 0;
+  fn->current = NULL;
+  
+  if (fn->format != FMT_LPAREN)
+    return;
+
+  for (f = fn->u.child; f; f = f->next)
+    {
+      if (f->format == FMT_RPAREN)
+	break;
+      reset_node (f);
+    }
+}
+
+static void
+reset_fnode_counters (st_parameter_dt *dtp)
+{
+  fnode *f;
+  format_data *fmt;
+
+  fmt = dtp->u.p.fmt;
+
+  /* Clear this pointer at the head so things start at the right place.  */
+  fmt->array.array[0].current = NULL;
+
+  for (f = fmt->last->array[0].u.child; f; f = f->next)
+    reset_node (f);
+}
+
+
+/* A simple hashing function to generate an index into the hash table.  */
+
+static inline
+uint32_t format_hash (st_parameter_dt *dtp)
+{
+  char *key;
+  gfc_charlen_type key_len;
+  uint32_t hash = 0;
+  gfc_charlen_type i;
+
+  /* Hash the format string. Super simple, but what the heck!  */
+  key = dtp->format;
+  key_len = dtp->format_len;
+  for (i = 0; i < key_len; i++)
+    hash ^= key[i];
+  hash &= (FORMAT_HASH_SIZE - 1);
+  return hash;
+}
+
+
+static void
+save_parsed_format (st_parameter_dt *dtp)
+{
+  uint32_t hash;
+  gfc_unit *u;
+
+  hash = format_hash (dtp);
+  u = dtp->u.p.current_unit;
+
+  /* Index into the hash table.  We are simply replacing whatever is there
+     relying on probability.  */
+  if (u->format_hash_table[hash].hashed_fmt != NULL)
+    free_format_data (u->format_hash_table[hash].hashed_fmt);
+  u->format_hash_table[hash].hashed_fmt = NULL;
+
+  if (u->format_hash_table[hash].key != NULL)
+    free_mem (u->format_hash_table[hash].key);
+  u->format_hash_table[hash].key = get_mem (dtp->format_len);
+  memcpy (u->format_hash_table[hash].key, dtp->format, dtp->format_len);
+
+  u->format_hash_table[hash].key_len = dtp->format_len;
+  u->format_hash_table[hash].hashed_fmt = dtp->u.p.fmt;
+}
+
+
+static format_data *
+find_parsed_format (st_parameter_dt *dtp)
+{
+  uint32_t hash;
+  gfc_unit *u;
+
+  hash = format_hash (dtp);
+  u = dtp->u.p.current_unit;
+
+  if (u->format_hash_table[hash].key != NULL)
+    {
+      /* See if it matches.  */
+      if (u->format_hash_table[hash].key_len == dtp->format_len)
+	{
+	  /* So far so good.  */
+	  if (strncmp (u->format_hash_table[hash].key,
+	      dtp->format, dtp->format_len) == 0)
+	    return u->format_hash_table[hash].hashed_fmt;
+	}
+    }
+  return NULL;
+}
+
 
 /* next_char()-- Return the next character in the format string.
  * Returns -1 when the string is done.  If the literal flag is set,
@@ -90,7 +218,8 @@ next_char (format_data *fmt, int literal)
 	return -1;
 
       fmt->format_string_len--;
-      fmt->error_element = c = toupper (*fmt->format_string++);
+      c = toupper (*fmt->format_string++);
+      fmt->error_element = c;
     }
   while ((c == ' ' || c == '\t') && !literal);
 
@@ -141,10 +270,10 @@ get_fnode (format_data *fmt, fnode **head, fnode **tail, format_token t)
 /* free_format_data()-- Free all allocated format data.  */
 
 void
-free_format_data (st_parameter_dt *dtp)
+free_format_data (format_data *fmt)
 {
   fnode_array *fa, *fa_next;
-  format_data *fmt = dtp->u.p.fmt;
+
 
   if (fmt == NULL)
     return;
@@ -156,7 +285,7 @@ free_format_data (st_parameter_dt *dtp)
     }
 
   free_mem (fmt);
-  dtp->u.p.fmt = NULL;
+  fmt = NULL;
 }
 
 
@@ -184,6 +313,14 @@ format_lex (format_data *fmt)
 
   switch (c)
     {
+    case '(':
+      token = FMT_LPAREN;
+      break;
+
+    case ')':
+      token = FMT_RPAREN;
+      break;
+
     case '-':
       negative_flag = 1;
       /* Fall Through */
@@ -274,14 +411,6 @@ format_lex (format_data *fmt)
 	  break;
 	}
 
-      break;
-
-    case '(':
-      token = FMT_LPAREN;
-      break;
-
-    case ')':
-      token = FMT_RPAREN;
       break;
 
     case 'X':
@@ -449,14 +578,16 @@ format_lex (format_data *fmt)
  * parenthesis node which contains the rest of the list. */
 
 static fnode *
-parse_format_list (st_parameter_dt *dtp)
+parse_format_list (st_parameter_dt *dtp, bool *save_ok)
 {
   fnode *head, *tail;
   format_token t, u, t2;
   int repeat;
   format_data *fmt = dtp->u.p.fmt;
+  bool saveit;
 
   head = tail = NULL;
+  saveit = *save_ok;
 
   /* Get the next format item */
  format_item:
@@ -473,7 +604,7 @@ parse_format_list (st_parameter_dt *dtp)
 	case FMT_LPAREN:
 	  get_fnode (fmt, &head, &tail, FMT_LPAREN);
 	  tail->repeat = repeat;
-	  tail->u.child = parse_format_list (dtp);
+	  tail->u.child = parse_format_list (dtp, &saveit);
 	  if (fmt->error != NULL)
 	    goto finished;
 
@@ -500,7 +631,7 @@ parse_format_list (st_parameter_dt *dtp)
     case FMT_LPAREN:
       get_fnode (fmt, &head, &tail, FMT_LPAREN);
       tail->repeat = 1;
-      tail->u.child = parse_format_list (dtp);
+      tail->u.child = parse_format_list (dtp, &saveit);
       if (fmt->error != NULL)
 	goto finished;
 
@@ -556,8 +687,9 @@ parse_format_list (st_parameter_dt *dtp)
       goto between_desc;
 
     case FMT_STRING:
+      /* TODO: Find out why is is necessary to turn off format caching.  */
+      saveit = false;
       get_fnode (fmt, &head, &tail, FMT_STRING);
-
       tail->u.string.p = fmt->string;
       tail->u.string.length = fmt->value;
       tail->repeat = 1;
@@ -594,7 +726,6 @@ parse_format_list (st_parameter_dt *dtp)
       notify_std (&dtp->common, GFC_STD_GNU, "Extension: $ descriptor");
       goto between_desc;
 
-
     case FMT_T:
     case FMT_TL:
     case FMT_TR:
@@ -626,7 +757,6 @@ parse_format_list (st_parameter_dt *dtp)
 
     case FMT_H:
       get_fnode (fmt, &head, &tail, FMT_STRING);
-
       if (fmt->format_string_len < 1)
 	{
 	  fmt->error = bad_hollerith;
@@ -825,7 +955,6 @@ parse_format_list (st_parameter_dt *dtp)
 	}
 
       get_fnode (fmt, &head, &tail, FMT_STRING);
-
       tail->u.string.p = fmt->format_string;
       tail->u.string.length = repeat;
       tail->repeat = 1;
@@ -940,6 +1069,9 @@ parse_format_list (st_parameter_dt *dtp)
   goto format_item;
 
  finished:
+
+  *save_ok = saveit;
+  
   return head;
 }
 
@@ -999,48 +1131,6 @@ format_error (st_parameter_dt *dtp, const fnode *f, const char *message)
 }
 
 
-/* parse_format()-- Parse a format string.  */
-
-void
-parse_format (st_parameter_dt *dtp)
-{
-  format_data *fmt;
-
-  dtp->u.p.fmt = fmt = get_mem (sizeof (format_data));
-  fmt->format_string = dtp->format;
-  fmt->format_string_len = dtp->format_len;
-
-  fmt->string = NULL;
-  fmt->saved_token = FMT_NONE;
-  fmt->error = NULL;
-  fmt->value = 0;
-
-  /* Initialize variables used during traversal of the tree */
-
-  fmt->reversion_ok = 0;
-  fmt->saved_format = NULL;
-
-  /* Allocate the first format node as the root of the tree */
-
-  fmt->last = &fmt->array;
-  fmt->last->next = NULL;
-  fmt->avail = &fmt->array.array[0];
-
-  memset (fmt->avail, 0, sizeof (*fmt->avail));
-  fmt->avail->format = FMT_LPAREN;
-  fmt->avail->repeat = 1;
-  fmt->avail++;
-
-  if (format_lex (fmt) == FMT_LPAREN)
-    fmt->array.array[0].u.child = parse_format_list (dtp);
-  else
-    fmt->error = "Missing initial left parenthesis in format";
-
-  if (fmt->error)
-    format_error (dtp, NULL, fmt->error);
-}
-
-
 /* revert()-- Do reversion of the format.  Control reverts to the left
  * parenthesis that matches the rightmost right parenthesis.  From our
  * tree structure, we are looking for the rightmost parenthesis node
@@ -1066,6 +1156,76 @@ revert (st_parameter_dt *dtp)
 
   fmt->array.array[0].current = r;
   fmt->array.array[0].count = 0;
+}
+
+/* parse_format()-- Parse a format string.  */
+
+void
+parse_format (st_parameter_dt *dtp)
+{
+  format_data *fmt;
+  bool format_cache_ok;
+
+  format_cache_ok = !is_internal_unit (dtp);
+
+  /* Lookup format string to see if it has already been parsed.  */
+  if (format_cache_ok)
+    {
+      dtp->u.p.fmt = find_parsed_format (dtp);
+
+      if (dtp->u.p.fmt != NULL)
+	{
+	  dtp->u.p.fmt->reversion_ok = 0;
+	  dtp->u.p.fmt->saved_token = FMT_NONE;
+	  dtp->u.p.fmt->saved_format = NULL;
+	  reset_fnode_counters (dtp);
+	  return;
+	}
+    }
+
+  /* Not found so proceed as follows.  */
+
+  dtp->u.p.fmt = fmt = get_mem (sizeof (format_data));
+  fmt->format_string = dtp->format;
+  fmt->format_string_len = dtp->format_len;
+
+  fmt->string = NULL;
+  fmt->saved_token = FMT_NONE;
+  fmt->error = NULL;
+  fmt->value = 0;
+
+  /* Initialize variables used during traversal of the tree.  */
+
+  fmt->reversion_ok = 0;
+  fmt->saved_format = NULL;
+
+  /* Allocate the first format node as the root of the tree.  */
+
+  fmt->last = &fmt->array;
+  fmt->last->next = NULL;
+  fmt->avail = &fmt->array.array[0];
+
+  memset (fmt->avail, 0, sizeof (*fmt->avail));
+  fmt->avail->format = FMT_LPAREN;
+  fmt->avail->repeat = 1;
+  fmt->avail++;
+
+  if (format_lex (fmt) == FMT_LPAREN)
+    fmt->array.array[0].u.child = parse_format_list (dtp, &format_cache_ok);
+  else
+    fmt->error = "Missing initial left parenthesis in format";
+
+  if (fmt->error)
+    {
+      format_error (dtp, NULL, fmt->error);
+      free_format_hash_table (dtp->u.p.current_unit);
+      return;
+    }
+
+  if (format_cache_ok)
+    save_parsed_format (dtp);
+  else
+    dtp->u.p.format_not_saved = 1;
 }
 
 

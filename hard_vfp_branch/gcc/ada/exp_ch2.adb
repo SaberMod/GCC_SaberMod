@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2008, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2009, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -267,11 +267,9 @@ package body Exp_Ch2 is
          end loop;
 
          --  If the discriminant occurs within the default expression for a
-         --  formal of an entry or protected operation, create a default
-         --  function for it, and replace the discriminant with a reference to
-         --  the discriminant of the formal of the default function. The
-         --  discriminant entity is the one defined in the corresponding
-         --  record.
+         --  formal of an entry or protected operation, replace it with a
+         --  reference to the discriminant of the formal of the enclosing
+         --  operation.
 
          if Present (Parent_P)
            and then Present (Corresponding_Spec (Parent_P))
@@ -284,8 +282,9 @@ package body Exp_Ch2 is
                Disc   : Entity_Id;
 
             begin
-               --  Verify that we are within a default function: the type of
-               --  its formal parameter is the same task or protected type.
+               --  Verify that we are within the body of an entry or protected
+               --  operation. Its first formal parameter is the synchronized
+               --  type itself.
 
                if Present (Formal)
                  and then Etype (Formal) = Scope (Entity (N))
@@ -309,6 +308,17 @@ package body Exp_Ch2 is
            and then In_Entry
          then
             Set_Entity (N, CR_Discriminant (Entity (N)));
+
+            --  Finally, if the entity is the discriminant of the original
+            --  type declaration, and we are within the initialization
+            --  procedure for a task, the designated entity is the
+            --  discriminal of the task body. This can happen when the
+            --  argument of pragma Task_Name mentions a discriminant,
+            --  because the pragma is analyzed in the task declaration
+            --  but is expanded in the call to Create_Task in the init_proc.
+
+         elsif Within_Init_Proc then
+            Set_Entity (N, Discriminal (CR_Discriminant (Entity (N))));
          else
             Set_Entity (N, Discriminal (Entity (N)));
          end if;
