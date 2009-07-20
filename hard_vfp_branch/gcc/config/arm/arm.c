@@ -3156,7 +3156,11 @@ arm_libcall_value (enum machine_mode mode, rtx libcall)
 	  || rtx_equal_p (libcall,
 			  convert_optab_libfunc (sfloat_optab, mode, DImode))
 	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (ufloat_optab, mode, DImode)))
+			  convert_optab_libfunc (ufloat_optab, mode, DImode))
+	  || rtx_equal_p (libcall,
+			  convert_optab_libfunc (trunc_optab, HFmode, SFmode))
+	  || rtx_equal_p (libcall,
+			  convert_optab_libfunc (sext_optab, SFmode, HFmode)))
 	return gen_rtx_REG (mode, ARG_REGISTER(1));
 
       /* XXX There are other libcalls that return in integer registers,
@@ -4062,7 +4066,7 @@ aapcs_layout_arg (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
    For a library call, FNTYPE is NULL.  */
 void
 arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
-			  rtx libname  ATTRIBUTE_UNUSED,
+			  rtx libname,
 			  tree fndecl ATTRIBUTE_UNUSED)
 {
   /* Long call handling.  */
@@ -4084,7 +4088,11 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 	  || rtx_equal_p (libname,
 			  convert_optab_libfunc (sfix_optab, DImode, SFmode))
 	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (ufix_optab, DImode, SFmode)))
+			  convert_optab_libfunc (ufix_optab, DImode, SFmode))
+	  || rtx_equal_p (libname,
+			  convert_optab_libfunc (trunc_optab, HFmode, SFmode))
+	  || rtx_equal_p (libname,
+			  convert_optab_libfunc (sext_optab, SFmode, HFmode)))
 	pcum->pcs_variant = ARM_PCS_AAPCS;
  
       pcum->aapcs_ncrn = pcum->aapcs_next_ncrn = 0;
