@@ -1,3 +1,8 @@
+2009-08-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.target/arm/mmx-1.c: Skip if using -mfloat-abi=hard.
+	* gcc.dg/builtin-apply2.c: Skip for ARM if using -mfloat-abi=hard.
+
 2009-05-12  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.target/arm/eabi1.c: Do not skip for non-base ABI variants.
