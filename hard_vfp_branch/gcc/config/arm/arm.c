@@ -3141,6 +3141,71 @@ arm_function_value(const_tree type, const_tree func,
   return LIBCALL_VALUE (mode);
 }
 
+static int
+libcall_eq (const void *p1, const void *p2)
+{
+  return rtx_equal_p ((const_rtx) p1, (const_rtx) p2);
+}
+
+static hashval_t
+libcall_hash (const void *p1)
+{
+  return hash_rtx ((const_rtx) p1, VOIDmode, NULL, NULL, FALSE);
+}
+
+static void
+add_libcall (htab_t htab, rtx libcall)
+{
+  *htab_find_slot (htab, libcall, INSERT) = libcall;
+}
+
+static bool
+arm_libcall_uses_aapcs_base (rtx libcall)
+{
+  static bool init_done = false;
+  static htab_t libcall_htab;
+
+  if (!init_done)
+    {
+      init_done = true;
+
+      libcall_htab = htab_create (31, libcall_hash, libcall_eq,
+				  NULL);
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfloat_optab, SFmode, SImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfloat_optab, DFmode, SImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfloat_optab, SFmode, DImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfloat_optab, DFmode, DImode));
+      
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufloat_optab, SFmode, SImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufloat_optab, DFmode, SImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufloat_optab, SFmode, DImode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufloat_optab, DFmode, DImode));
+
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sext_optab, SFmode, HFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (trunc_optab, HFmode, SFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfix_optab, DImode, DFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufix_optab, DImode, DFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (sfix_optab, DImode, SFmode));
+      add_libcall (libcall_htab,
+		   convert_optab_libfunc (ufix_optab, DImode, SFmode));
+    }
+
+  return libcall && htab_find (libcall_htab, libcall) != NULL;
+}
+
 rtx
 arm_libcall_value (enum machine_mode mode, rtx libcall)
 {
@@ -3149,22 +3214,9 @@ arm_libcall_value (enum machine_mode mode, rtx libcall)
     {
       /* The following libcalls return their result in integer registers,
 	 even though they return a floating point value.  */
-      if (rtx_equal_p (libcall,
-		       convert_optab_libfunc (sfloat_optab, mode, SImode))
-	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (ufloat_optab, mode, SImode))
-	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (sfloat_optab, mode, DImode))
-	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (ufloat_optab, mode, DImode))
-	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (trunc_optab, HFmode, SFmode))
-	  || rtx_equal_p (libcall,
-			  convert_optab_libfunc (sext_optab, SFmode, HFmode)))
+      if (arm_libcall_uses_aapcs_base (libcall))
 	return gen_rtx_REG (mode, ARG_REGISTER(1));
 
-      /* XXX There are other libcalls that return in integer registers,
-	 but I think they are all handled by hard insns.  */
     }
 
   return LIBCALL_VALUE (mode);
@@ -4077,22 +4129,7 @@ arm_init_cumulative_args (CUMULATIVE_ARGS *pcum, tree fntype,
 
   if (pcum->pcs_variant <= ARM_PCS_AAPCS_LOCAL)
     {
-      /* XXX We should also detect some library calls here and handle
-	 them using the base rules too; for example the floating point
-	 support functions always work this way.  */
-
-       if (rtx_equal_p (libname,
-		       convert_optab_libfunc (sfix_optab, DImode, DFmode))
-	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (ufix_optab, DImode, DFmode))
-	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (sfix_optab, DImode, SFmode))
-	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (ufix_optab, DImode, SFmode))
-	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (trunc_optab, HFmode, SFmode))
-	  || rtx_equal_p (libname,
-			  convert_optab_libfunc (sext_optab, SFmode, HFmode)))
+      if (arm_libcall_uses_aapcs_base (libname))
 	pcum->pcs_variant = ARM_PCS_AAPCS;
  
       pcum->aapcs_ncrn = pcum->aapcs_next_ncrn = 0;

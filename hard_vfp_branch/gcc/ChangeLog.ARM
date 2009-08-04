@@ -1,3 +1,13 @@
+2009-08-04  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.c (libcall_eq): New function.
+	(libcall_hash): New function.
+	(add_libcall): New function.
+	(arm_libcall_uses_aapcs_base): New function.
+	(arm_libcall_value): Use arm_libcall_uses_aapcs_base to check for
+	libcalls using the base PCS.
+	(arm_init_cumulative_args): Likewise.
+
 2009-07-20  Joseph Myers  <joseph@codesourcery.com>
 
 	* config/arm/arm.c (arm_libcall_value, arm_init_cumulative_args):
