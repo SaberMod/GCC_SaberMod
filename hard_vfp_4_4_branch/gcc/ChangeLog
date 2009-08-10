@@ -1,3 +1,47 @@
+2009-08-09  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/41016
+	* tree-ssa-ifcombine.c (get_name_for_bit_test): Fix tuplification
+	bug.
+	(operand_precision): Remove.
+	(integral_operand_p): Likewise.
+	(recognize_single_bit_test): Adjust.
+
+2009-08-05  Uros Bizjak  <ubizjak@gmail.com>
+	    Mikulas Patocka  <mikulas@artax.karlin.mff.cuni.cz>
+
+	PR target/40906
+	* config/i386/i386.c (ix86_split_long_move): Fix push of multi-part
+	source operand.
+
+2009-08-05  Richard Earnshaw  <rearnsha@arm.com>
+
+	* arm.md (movdi2): Copy non-reg values to DImode registers.
+
+2009-08-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/40924
+	* dse.c (canon_address): Before calling cselib_expand_value_rtx
+	make sure canon_rtx (mem_address) isn't simpler than
+	canon_rtx (expanded_mem_address).
+
+2009-08-03  Janis Johnson  <janis187@us.ibm.com>
+
+	PR c/39902
+	* simplify-rtx.c (simplify_binary_operation_1): Disable
+	simplifications for decimal float operations.
+
+2009-08-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/40943
+	* tree-ssa.c (warn_uninitialized_var): Even on LHS warn for
+	operand of INDIRECT_REF.
+
+2009-08-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_legitimate_constant_p): Reject CONST
+	constants referencing TLS symbols.
+
 2009-07-30  Andreas Krebbel  <krebbel1@de.ibm.com>
 	
 	* config/s390/s390.c (override_options): Default
