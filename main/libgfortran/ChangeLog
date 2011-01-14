@@ -1,0 +1,12 @@
+2011-01-04  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/47154
+	* io/list_read.c (namelist_read): Remove calls to hit_eof to avoid the
+	duplicate calls via next_record.
+
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
