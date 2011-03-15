@@ -1,0 +1,27 @@
+2011-03-15  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration rev 170988 (gcc-4_6-branch).
+
+2011-03-14  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration rev 170957.
+
+2011-02-26  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration rev 170499.
+
+2011-02-07  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration.
+
+2011-02-04  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration.
+
+	* BASE-VER: Fix.
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
