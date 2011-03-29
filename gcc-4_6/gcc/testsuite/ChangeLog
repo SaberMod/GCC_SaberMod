@@ -1,3 +1,80 @@
+2011-03-25  Release Manager
+
+	* GCC 4.6.0 released.
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-03-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/vect/slp-multitypes-2.c: Replace dg-do run with
+	dg-xfail-run-if.
+	Only xfail with gas.
+
+2011-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48213
+	* gcc.dg/pr48213.c: New test.
+
+2011-03-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c1x-typedef-1.c: Expect errors for redefinitions of
+	variably modified typedefs.
+	* gcc.dg/c1x-typedef-2.c: Remove.
+
+2011-03-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c1x-anon-struct-1.c: Don't test use of typedefs.
+	* gcc.dg/c1x-anon-struct-3.c: New test.
+	* gcc.dg/anon-struct-11.c: Update.
+
+2011-03-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR middle-end/47405
+	* gcc.dg/torture/20090618-1.c: Skip on mips-sgi-irix*.
+
+2011-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/48161
+	* gcc.c-torture/compile/pr48161.c: New test.
+
+2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48165
+	* g++.dg/torture/pr48165.C: New testcase.
+
+2011-03-16  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/47510
+	* g++.dg/debug/dwarf2/typedef6.C: New test.
+
+2011-03-16  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-array3.C: New.
+
+2011-03-16  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/sfinae6.C: New.
+	* gcc/testsuite/g++.dg/cpp0x/initlist38.C: Adjust expected error.
+	* gcc/testsuite/g++.dg/cpp0x/pr45908.C: Likewise.
+	* gcc/testsuite/g++.dg/cpp0x/sfinae6.C: Likewise.
+	* gcc/testsuite/g++.old-deja/g++.jason/conversion11.C: Likewise.
+	* gcc/testsuite/g++.old-deja/g++.law/arg11.C: Likewise.
+
+2011-03-16  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/incomplete6.C: New.
+
+2011-03-15  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/46788
+	* gcc.target/arm/pr46788.c: New.
+
+2011-03-15  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR rtl-optimization/47166
+	* gcc.c-torture/execute/postmod-1.c: New test.
+
 2011-03-14  Richard Guenther  <rguenther@suse.de>
 
 	PR middle-end/48098

@@ -1,3 +1,17 @@
+2011-03-25  Release Manager
+
+	* GCC 4.6.0 released.
+
+2011-03-21  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config.guess: Detect AIX 7.1.
+
+2011-03-16  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR lto/48086
+	* configure.ac: Re-enable LTO on *-apple-darwin9.
+	* configure: Regenerate.
+
 2011-03-13  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR lto/48086

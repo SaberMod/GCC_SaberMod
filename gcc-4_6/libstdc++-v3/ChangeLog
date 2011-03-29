@@ -1,3 +1,138 @@
+2011-03-25  Release Manager
+
+	* GCC 4.6.0 released.
+
+2011-03-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/abi/post/solaris2.8/baseline_symbols.txt: Regenerate.
+	* config/abi/post/solaris2.8/sparcv9/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt: Likewise.
+
+2011-03-23  Matthias Klose  <doko@ubuntu.com>
+
+	* config/abi/post/sparc-linux-gnu/baseline_symbols.txt: Regenerated.
+
+2011-03-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Regenerated.
+
+2011-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/pre/gnu.ver (GLIBCXX_3.4.15): Export _ZNSsC2EOSs
+	and _ZNSbIwSt11char_traitsIwESaIwEEC2EOS2_.
+	* config/abi/post/solaris2.8/baseline_symbols.txt: Regenerated.
+	* config/abi/post/solaris2.8/sparcv9/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Likewise.
+	* config/abi/post/solaris2.10/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt: Likewise.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Likewise.
+	* testsuite/21_strings/basic_string/cons/char/moveable2.cc: New test.
+	* testsuite/21_strings/basic_string/cons/wchar_t/moveable2.cc: New
+	test.
+
+2011-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Update.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt:
+	Likewise.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.8/sparcv9/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/amd64/baseline_symbols.txt: Likewise.
+	* config/abi/post/solaris2.10/sparcv9/baseline_symbols.txt: Likewise.
+
+	* testsuite/util/testsuite_abi.cc (check_version): Set incompatible
+	even when adding symbols to CXXABI_1.3, GLIBCXX_LDBL_3.4 and
+	CXXABI_LDBL_1.3 versions.
+
+2011-03-21  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* config/abi/pre/gnu.ver: Remove typeinfo name exports for C++0x types.
+
+2011-03-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/pre/gnu.ver (CXXABI_1.3): Don't export _ZT[IS][PK]*[no].
+	(CXXABI_1.3.5): Export _ZTI[PK]*[no].
+
+2011-03-21  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* testsuite/22_locale/num_put/put/char/14220.cc: Don't xfail on
+	sparc*-sun-solaris2.10 && lp64.
+
+2011-03-16  Benjamin Kosnik  <bkoz@redhat.com>
+
+        * src/Makefile.am: Add functional.cc, shared_ptr.cc.
+        * src/Makefile.in: Regenerate.
+        * libsupc++/Makefile.am: Add nested_exception.cc.
+        * libsupc++/Makefile.in: Regenerate.
+        * src/system_error.cc: Add ctor and dtor definitions for error_category.
+        * src/functional.cc: New. Add dtor definition for bad_function_call.
+        * src/stdexcept.cc: Add dtor definitions for domain_error,
+        invalid_argument, length_error, out_of_range, range_error,
+        overflow_error, underflow_error.
+        * src/future.cc: Add dtor definition for __future_base::_Result_base.
+        * src/shared_ptr.cc: New. Add dtor definition for bad_weak_ptr.
+        * include/std/system_error: Adjust.
+        * include/std/stdexcept: Same.
+        * include/std/future: Same.
+        * include/std/functional: Same.
+        * include/bits/shared_ptr_base.h: Same.
+        * libsupc++/nested_exception.cc: New. Add dtor for nested_exception.
+        * libsupc++/nested_exception.h: Adjust.
+        * testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust line numbers.
+        * testsuite/20_util/weak_ptr/comparison/cmp_neg.cc: Same.
+        * config/abi/pre/gnu.ver: Add new exports.
+
+	* src/future.cc: Guard definitions.
+        * libsupc++/nested_exception.cc: Same.
+
+        * config/abi/pre/gnu.ver: Make nested_exception exports super clear.
+        Move bad_function_call exports from CXXABI_1.3.5 to GLIBCXX_3.4.15.
+	Add base destructors for stdexcept classes.
+
+	* testsuite/19_diagnostics/stdexcept.cc: New.
+
+2011-03-15  Doug Kwan  <dougkwan@google.com>
+
+	PR libstdc++/48123
+	* include/Makefile.am (install-freestanding-headers): Install
+	cpu_defines.h
+	* include/Makefile.in: Regenerate.
+
+2011-03-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* doc/xml/manual/abi.xml: Replace docs.sun.com URLs by their OTN
+	equivalents.
+	* doc/html/manual/abi.html: Regenerate.
+
+2011-03-14  Andrey Zholos  <aaz@althenia.net>
+
+	PR libstdc++/48114
+	* include/bits/random.h (geometric_distribution): Correct formula
+	in comment, per C++0x.
+	(geometric_distribution<>::param_type::param_type(double)): Fix check.
+	(geometric_distribution<>::param_type::_M_initialize):
+	Store log(1 - p).
+	* include/bits/random.tcc (geometric_distribution<>::operator()):
+	Fix computation.
+	(binomial_distribution<>::operator()): Likewise.
+
 2011-03-09  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* testsuite/util/testsuite_rvalref.h: Minor tweaks.
