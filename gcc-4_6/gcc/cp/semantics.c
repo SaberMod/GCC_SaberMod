@@ -7108,6 +7108,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 	 used, and they can't do anything with it, so just return it.  */
       return t;
 
+    case FIELD_DECL:
     case LAMBDA_EXPR:
     case DYNAMIC_CAST_EXPR:
     case PSEUDO_DTOR_EXPR:

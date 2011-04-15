@@ -19133,7 +19133,9 @@ cp_parser_attribute_list (cp_parser* parser, bool member_p)
                         push_scope (parser->current_declarator_scope);
                 }
 
-              if (member_p && parsing_lock_attribute)
+              if (member_p && parsing_lock_attribute
+                  && (cp_lexer_peek_nth_token (parser->lexer, 2)->type
+                      != CPP_CLOSE_PAREN))
                 {
                   /* If the attribute is applied to a class member, save the
                      tokens of the argument list and delay the parsing until 

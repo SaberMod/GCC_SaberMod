@@ -1292,6 +1292,13 @@ cp_check_const_attributes (tree attributes)
       for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
 	{
 	  tree expr = TREE_VALUE (arg);
+          /* If this is a lock attribute and purpose field of the arguments
+             is an error_mark_node, the arguments of the attributes have not
+             been parsed yet. (See cp_parser_save_attribute_arg_list in
+             parser.c.)  */
+          if (is_lock_attribute_with_args (TREE_PURPOSE (attr))
+              && TREE_PURPOSE (arg) == error_mark_node)
+            break;
 	  if (EXPR_P (expr))
 	    TREE_VALUE (arg) = maybe_constant_value (expr);
 	}

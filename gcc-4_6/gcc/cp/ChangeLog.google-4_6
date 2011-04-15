@@ -1,0 +1,14 @@
+2011-04-15  Le-Chun Wu  <lcwu@google.com>
+
+	* decl2.c (cp_check_const_attributes): Handle unparsed lock attribute 
+	arguments.
+	* parser.c (cp_parser_attribute_list): Don't save tokens when argument
+	list of a lock attribute is empty.
+	* semantics.c (cxx_eval_constant_expression): Handle unexpected
+	FIELD_DECL gracefully.
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
