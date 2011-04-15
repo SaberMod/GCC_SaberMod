@@ -1,3 +1,110 @@
+2011-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48500
+	* semantics.c (potential_constant_expression_1) [CALL_EXPR]: Check
+	arguments even if we don't know the function.
+
+	PR c++/48468
+	* except.c (build_noexcept_spec): Propagate error_mark_node.
+	(finish_noexcept_expr): Likewise.
+
+	PR c++/48452
+	* typeck.c (build_x_compound_expr_from_list): Return error_mark_node
+	in SFINAE context.
+
+	* semantics.c (finish_decltype_type): Add complain parm.
+	* cp-tree.h: Adjust.
+	* parser.c (cp_parser_decltype): Adjust.
+	* pt.c (tsubst): Adjust.
+
+	PR c++/48450
+	* cvt.c (ocp_convert): Handle converting scoped enum to bool.
+
+2011-03-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48280
+	* method.c (defaultable_fn_check): Templates are not defaultable.
+
+2011-03-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48212
+	* semantics.c (non_const_var_error): Just return if DECL_INITIAL
+	is error_mark_node.
+
+	PR c++/48369
+	* semantics.c (potential_constant_expression_1): Handle
+	UNORDERED_EXPR and ORDERED_EXPR.
+
+	PR c++/48281
+	* semantics.c (finish_compound_literal): Do put static/constant
+	arrays in static variables.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48265
+	* pt.c (value_dependent_expression_p) [VAR_DECL]: Make sure
+	the variable is constant before looking at its initializer.
+
+	PR c++/48319
+	* pt.c (value_dependent_expression_p): Handle TEMPLATE_ID_EXPR.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48166
+	* decl.c (revert_static_member_fn): Strip function-cv-quals.
+
+	PR c++/48296
+	* decl.c (cp_finish_decl): Defer validation of constexpr member
+	functions.
+	* class.c (finalize_literal_type_property): Validate them here.
+	* semantics.c (is_valid_constexpr_fn): Don't check completeness.
+
+	* semantics.c (is_valid_constexpr_fn): Specify input location.
+
+	Core 1232
+	* call.c (build_array_conv): New.
+	(implicit_conversion): Use it.
+
+	* call.c (reference_binding): Allow direct binding to an array
+	rvalue.
+
+	PR c++/48289
+	* pt.c (build_non_dependent_expr): Keep dereferences outside the
+	NON_DEPENDENT_EXPR.
+
+	PR c++/47999
+	* semantics.c (finish_call_expr): Preserve reference semantics
+	in templates.
+
+	PR c++/48313
+	* pt.c (maybe_adjust_types_for_deduction): Handle T&& deduction
+	from overloaded function.
+
+	Core 1148
+	* typeck.c (check_return_expr): Fix conditions for setting
+	LOOKUP_PREFER_RVALUE.
+
+2011-03-29  Rodrigo Rivas Costa  <rodrigorivascosta@gmail.com>
+
+	* decl2.c (cp_check_const_attributes): New.
+	(cplus_decl_attributes): Call cp_check_const_attributes.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* semantics.c (push_cx_call_context): Return bool.
+	(cxx_eval_call_expression): Handle excess depth.
+
+	* except.c (build_noexcept_spec): Call cxx_constant_value after
+	converting to bool.
+
+	PR c++/47504
+	* semantics.c (cxx_eval_constant_expression) [NOP_EXPR]: Don't let
+	the conversion set TREE_OVERFLOW.
+
+	PR c++/47570
+	* semantics.c (cxx_eval_constant_expression) [COMPOUND_EXPR]: Don't
+	use the generic binary expression handling.
+
 2011-03-25  Release Manager
 
 	* GCC 4.6.0 released.

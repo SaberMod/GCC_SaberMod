@@ -9981,7 +9981,7 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
      probe that many bytes past the specified size to maintain a protection
      area at the botton of the stack.  */
   const int dope = 4 * UNITS_PER_WORD;
-  rtx size_rtx = GEN_INT (size);
+  rtx size_rtx = GEN_INT (size), last;
 
   /* See if we have a constant small number of probes to generate.  If so,
      that's the easy case.  The run-time loop is made up of 11 insns in the
@@ -10021,9 +10021,9 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       emit_stack_probe (stack_pointer_rtx);
 
       /* Adjust back to account for the additional first interval.  */
-      emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			      plus_constant (stack_pointer_rtx,
-					     PROBE_INTERVAL + dope)));
+      last = emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+				     plus_constant (stack_pointer_rtx,
+						    PROBE_INTERVAL + dope)));
     }
 
   /* Otherwise, do the same as above, but in a loop.  Note that we must be
@@ -10084,15 +10084,33 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
 	}
 
       /* Adjust back to account for the additional first interval.  */
-      emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			      plus_constant (stack_pointer_rtx,
-					     PROBE_INTERVAL + dope)));
+      last = emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+				     plus_constant (stack_pointer_rtx,
+						    PROBE_INTERVAL + dope)));
 
       release_scratch_register_on_entry (&sr);
     }
 
   gcc_assert (cfun->machine->fs.cfa_reg != stack_pointer_rtx);
-  cfun->machine->fs.sp_offset += size;
+
+  /* Even if the stack pointer isn't the CFA register, we need to correctly
+     describe the adjustments made to it, in particular differentiate the
+     frame-related ones from the frame-unrelated ones.  */
+  if (size > 0)
+    {
+      rtx expr = gen_rtx_SEQUENCE (VOIDmode, rtvec_alloc (2));
+      XVECEXP (expr, 0, 0)
+	= gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		       plus_constant (stack_pointer_rtx, -size));
+      XVECEXP (expr, 0, 1)
+	= gen_rtx_SET (VOIDmode, stack_pointer_rtx,
+		       plus_constant (stack_pointer_rtx,
+				      PROBE_INTERVAL + dope + size));
+      add_reg_note (last, REG_FRAME_RELATED_EXPR, expr);
+      RTX_FRAME_RELATED_P (last) = 1;
+
+      cfun->machine->fs.sp_offset += size;
+    }
 
   /* Make sure nothing is scheduled before we are done.  */
   emit_insn (gen_blockage ());
@@ -14389,17 +14407,21 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	fprintf (file, "0x%08x", (unsigned int) l);
     }
 
-  /* These float cases don't actually occur as immediate operands.  */
   else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == DFmode)
     {
-      char dstr[30];
+      REAL_VALUE_TYPE r;
+      long l[2];
 
-      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (x), sizeof (dstr), 0, 1);
-      fputs (dstr, file);
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+      REAL_VALUE_TO_TARGET_DOUBLE (r, l);
+
+      if (ASSEMBLER_DIALECT == ASM_ATT)
+	putc ('$', file);
+      fprintf (file, "0x%lx%08lx", l[1] & 0xffffffff, l[0] & 0xffffffff);
     }
 
-  else if (GET_CODE (x) == CONST_DOUBLE
-	   && GET_MODE (x) == XFmode)
+  /* These float cases don't actually occur as immediate operands.  */
+  else if (GET_CODE (x) == CONST_DOUBLE && GET_MODE (x) == XFmode)
     {
       char dstr[30];
 

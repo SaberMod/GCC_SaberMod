@@ -1,3 +1,293 @@
+2011-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48377
+	* tree-vect-data-refs.c (vector_alignment_reachable_p): Set
+	is_packed to true even for types with smaller TYPE_ALIGN than
+	TYPE_SIZE.
+
+2011-04-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md: Update copyright year.
+	(avx_cmp<ssescalarmodesuffix><mode>3): Add missing output
+	register constraint.
+	(*vec_concatv2sf_avx): Fix wrong register constraint in
+	alternative 3 of operand 1.
+	(*vec_set<mode>_0_avx): Avoid combining registers from different
+	units in a single alternative.
+	(*vec_set<mode>_0_sse4_1): Ditto.
+	(*vec_set<mode>_0_sse2): Ditto.
+	(vec_set<mode>_0): Ditto.
+	(sse2_storehpd): Ditto.
+	(sse2_loadhpd): Ditto.
+	(sse4_1_insertps): Use nonimmediate_operand for operand 2.
+	* config/i386/predicates.md (sse_comparison_operator): Do not
+	define as special predicate.
+
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48343
+	* combine.c (combine_instructions): Add last_combined_insn,
+	update it if insn is after it, pass it to all try_combine calls.
+	(try_combine): Add last_combined_insn parameter, pass it instead of
+	i3 to propagate_for_debug.
+
+2011-04-07  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-03-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48144
+	* sel-sched-ir.c (merge_history_vect): Factor out from ...
+	(merge_expr_data): ... here.
+	(av_set_intersect): Rename to av_set_code_motion_filter.
+	Update all callers.  Call merge_history_vect when an
+	expression is found in both sets.
+	* sel-sched-ir.h (av_set_code_motion_filter): Add prototype.
+
+2011-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48466
+	* dwarf2out.c (based_loc_descr): If drap_reg is INVALID_REGNUM, use
+	as base_reg whatever register reg has been eliminated to, instead
+	of hardcoding STACK_POINTER_REGNUM.
+
+	Backported from mainline
+	2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48335
+	* expr.c (expand_assignment): Handle all possibilities
+	if TO_RTX is CONCAT.
+	* expmed.c (store_bit_field_1): Avoid trying to create
+	invalid SUBREGs.
+	(store_split_bit_field): If SUBREG_REG (op0) or
+	op0 itself has smaller mode than word, return it
+	for offset 0 and const0_rtx for out-of-bounds stores.
+	If word is const0_rtx, skip it.
+
+2011-04-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcov-io.c: Use GCC Runtime Library Exception.
+
+2011-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* stor-layout.c (self_referential_size): Fix 2010-07-13 commit.
+
+2011-04-01  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/t-spu-elf (dp-bit.c): Use > instead of >>.
+
+2011-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-03-22  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48143
+	* config/i386/sse.md (*sse2_cvtpd2dq): Add athlon_decode attribute.
+	(*sse2_cvttpd2dq, sse2_cvtss2sd, *sse2_cvtpd2ps,
+	sse2_cvtps2pd): Likewise.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/48142
+	* config/i386/i386.c (ix86_adjust_stack_and_probe): Differentiate
+	frame-related from frame-unrelated adjustments to the stack pointer.
+
+2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-03-30  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/48349
+	* config/i386/i386.h (REG_CLASS_CONTENTS): Fix a typo in
+	FLOAT_SSE_REGS.
+
+2011-03-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48253
+	* dwarf2out.c (struct dw_fde_struct): Remove dw_fde_hot_section_label,
+	dw_fde_hot_section_end_label, dw_fde_unlikely_section_label,
+	dw_fde_unlikely_section_end_label, cold_in_std_section,
+	dw_fde_switched_sections and dw_fde_switched_cold_to_hot fields.
+	Add dw_fde_second_begin, dw_fde_second_end and second_in_std_section
+	fields.
+	(output_fde): Use dw_fde_second_{begin,end} if second is
+	true, otherwise dw_fde_{begin,end}.
+	(output_call_frame_info): Test dw_fde_second_begin != NULL
+	instead of dw_fde_switched_sections.
+	(dwarf2out_begin_prologue): Stop initializing removed dw_fde_struct
+	fields, initialize new fields.  Initialize in_std_section
+	unconditionally from the first partition.
+	(dwarf2out_end_epilogue): Don't override dw_fde_end when
+	dw_fde_second_begin is non-NULL.
+	(dwarf2out_switch_text_section): Stop initializing removed
+	dw_fde_struct fields, initialize new fields, initialize
+	also dw_fde_end here.  Set dw_fde_switch_cfi even when
+	dwarf2out_do_cfi_asm ().  Call var_location_switch_text_section.
+	(struct var_loc_list_def): Add last_before_switch field.
+	(arange_table, arange_table_allocated, arange_table_in_use,
+	ARANGE_TABLE_INCREMENT, add_arange): Removed.
+	(size_of_aranges): Count !in_std_section and !second_in_std_section
+	hunks in fdes, instead of looking at arange_table_in_use.
+	(output_aranges): Add aranges_length argument, don't call
+	size_of_aranges here.  Instead of using aranges_table*
+	emit ranges for fdes when !in_std_section resp.
+	!second_in_std_section.
+	(dw_loc_list): Break ranges crossing section switch.
+	(convert_cfa_to_fb_loc_list): Likewise.  If switched sections,
+	use dw_fde_second_end instead of dw_fde_end as end of last
+	range.
+	(gen_subprogram_die): Don't call add_arange.  Use
+	dw_fde_{begin,end} for first partition and if switched
+	section dw_fde_second_{begin,end} for the second.
+	(var_location_switch_text_section_1,
+	var_location_switch_text_section): New functions.
+	(dwarf2out_begin_function): Initialize cold_text_section even
+	when function_section () isn't text_section.
+	(prune_unused_types): Don't walk arange_table.
+	(dwarf2out_finish): Don't needlessly test
+	flag_reorder_blocks_and_partition when testing cold_text_section_used.
+	If info_section_emitted, call size_of_aranges and if it indicates
+	non-empty .debug_aranges, call output_aranges with the computed
+	size.  Stop using removed dw_fde_struct fields, use
+	dw_fde_{begin,end} for first partition and dw_fde_second_{begin,end}
+	for second.
+
+2011-03-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_sr_alias_set): Don't define.
+	(alpha_option_override): Don't set alpha_sr_alias_set.
+	(emit_frame_store_1): Use gen_frame_mem rather than calling
+	set_mem_alias_set.
+	(alpha_expand_epilogue): Ditto.
+	(unicosmk_gen_dsib): Ditto.
+
+2011-03-29  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (LABEL_ALIGN_AFTER_BARRIER): Define.
+	(ASM_OUTPUT_MAX_SKIP): Define.
+	* config/rx/predicates.md (rx_zs_comparison_operator): Do not
+	allow LT aor GE comparisons.
+	* config/rx/rx-protos.h (rx_align_for_label): Prototype.
+	* config/rx/rx.md: Add peepholes and patterns to combine extending
+	loads with simple arithmetic instructions.
+	* config/rx/rx.c (rx_is_legitimate_address): Allow QI and HI modes
+	to use pre-decrement and post-increment addressing.
+	(rx_is_restricted_memory_address): For REG+INT addressing, ensure
+	that the INT is a valid offset.
+	(rx_print_operand): Handle %R.
+	Fix %Q's handling of MEMs.
+	(rx_option_override): Set alignments.
+	(rx_align_for_label): New function.
+	(rx_max_skip_for_label): New function.
+	(TARGET_ASM_JUMP_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LOOP_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LABEL_ALIGN_MAX_SKIP): Define.
+	(TARGET_ASM_LABEL_ALIGN_AFTER_BARRIER_MAX_SKIP): Define.
+
+2011-03-29  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_preferred_reload_class): Return NO_REGS
+	for invalid symbolic addresses.
+	(s390_secondary_reload): Don't use s390_check_symref_alignment for
+	larl operands.
+
+2011-03-28  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR target/47553
+	* config/arm/predicates.md (neon_lane_number): Accept 0..15.
+
+2011-03-28  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48269
+	* tree-object-size.c (addr_object_size): Do not double-account
+	for MEM_REF offsets.
+
+	2011-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48228
+	* tree-vrp.c (vrp_visit_phi_node): Do not stop propagating
+	for single-arg PHIs.
+
+	2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48134
+	* tree-ssa.c (insert_debug_temp_for_var_def): If we propagated
+	a value make sure to fold the statement.
+
+	2011-03-15  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48031
+	* fold-const.c (fold_indirect_ref_1): Do not create new variable-sized
+	or variable-indexed array accesses when in gimple form.
+
+2011-03-27  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR other/48179
+	PR other/48221
+	PR other/48234
+	* doc/extend.texi (Alignment): Move section to match order in TOC.
+	* doc/invoke.texi (i386 and x86-64 Windows Options): Likewise.
+	(Warning Options): Adjust -Wno-cpp summary and remove stray backslash.
+
+2011-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/48237
+	* config/i386/i386.md (*movdf_internal_rex64): Do not split
+	alternatives that can be handled with movq or movabsq insn.
+	(*movdf_internal): Disable for !TARGET_64BIT.
+	(*movdf_internal_nointeger): Ditto.
+	* config/i386/i386.c (ix86_print_operand): Handle DFmode immediates.
+
+2011-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48204
+	* simplify-rtx.c (simplify_const_unary_operation): Call
+	real_convert when changing mode class with FLOAT_EXTEND.
+
+	2011-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/42544
+	PR c/48197
+	* c-common.c (shorten_compare): If primopN is first sign-extended
+	to opN and then zero-extended to result type, set primopN to opN.
+
+	PR rtl-optimization/48156
+	* df-core.c (df_get_bb_dirty): Use df_lr if df_live is NULL,
+	assume df and df_lr are not NULL.
+
+	2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48141
+	* params.def (PARAM_MAX_DSE_ACTIVE_LOCAL_STORES): New.
+	* dse.c: Include params.h.
+	(active_local_stores_len): New variable.
+	(add_wild_read, dse_step1): Clear it when setting active_local_stores
+	to NULL.
+	(record_store, check_mem_read_rtx): Decrease it when removing
+	from the chain.
+	(scan_insn): Likewise.  Increase it when adding to chain, if it
+	reaches PARAM_MAX_DSE_ACTIVE_LOCAL_STORES limit, set to 1 and
+	set active_local_stores to NULL before the addition.
+	* Makefile.in (dse.o): Depend on $(PARAMS_H).
+
+	PR rtl-optimization/48141
+	* dse.c (record_store): If no positions are needed in an insn
+	that cannot be deleted, at least unchain it from active_local_stores.
+
+2011-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.6.1.
+	* DEV-PHASE: Set to prerelease.
+
 2011-03-25  Release Manager
 
 	* GCC 4.6.0 released.

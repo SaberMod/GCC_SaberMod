@@ -3363,6 +3363,20 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
   primop0 = get_narrower (op0, &unsignedp0);
   primop1 = get_narrower (op1, &unsignedp1);
 
+  /* If primopN is first sign-extended from primopN's precision to opN's
+     precision, then zero-extended from opN's precision to
+     *restype_ptr precision, shortenings might be invalid.  */
+  if (TYPE_PRECISION (TREE_TYPE (primop0)) < TYPE_PRECISION (TREE_TYPE (op0))
+      && TYPE_PRECISION (TREE_TYPE (op0)) < TYPE_PRECISION (*restype_ptr)
+      && !unsignedp0
+      && TYPE_UNSIGNED (TREE_TYPE (op0)))
+    primop0 = op0;
+  if (TYPE_PRECISION (TREE_TYPE (primop1)) < TYPE_PRECISION (TREE_TYPE (op1))
+      && TYPE_PRECISION (TREE_TYPE (op1)) < TYPE_PRECISION (*restype_ptr)
+      && !unsignedp1
+      && TYPE_UNSIGNED (TREE_TYPE (op1)))
+    primop1 = op1;
+
   /* Handle the case that OP0 does not *contain* a conversion
      but it *requires* conversion to FINAL_TYPE.  */
 
@@ -3987,16 +4001,25 @@ c_common_truthvalue_conversion (location_t location, tree expr)
 	}
 
     CASE_CONVERT:
-      /* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
-	 since that affects how `default_conversion' will behave.  */
-      if (TREE_CODE (TREE_TYPE (expr)) == REFERENCE_TYPE
-	  || TREE_CODE (TREE_TYPE (TREE_OPERAND (expr, 0))) == REFERENCE_TYPE)
-	break;
-      /* If this is widening the argument, we can ignore it.  */
-      if (TYPE_PRECISION (TREE_TYPE (expr))
-	  >= TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (expr, 0))))
-	return c_common_truthvalue_conversion (location,
-					       TREE_OPERAND (expr, 0));
+      {
+	tree totype = TREE_TYPE (expr);
+	tree fromtype = TREE_TYPE (TREE_OPERAND (expr, 0));
+
+	/* Don't cancel the effect of a CONVERT_EXPR from a REFERENCE_TYPE,
+	   since that affects how `default_conversion' will behave.  */
+	if (TREE_CODE (totype) == REFERENCE_TYPE
+	    || TREE_CODE (fromtype) == REFERENCE_TYPE)
+	  break;
+	/* Don't strip a conversion from C++0x scoped enum, since they
+	   don't implicitly convert to other types.  */
+	if (TREE_CODE (fromtype) == ENUMERAL_TYPE
+	    && ENUM_IS_SCOPED (fromtype))
+	  break;
+	/* If this isn't narrowing the argument, we can ignore it.  */
+	if (TYPE_PRECISION (totype) >= TYPE_PRECISION (fromtype))
+	  return c_common_truthvalue_conversion (location,
+						 TREE_OPERAND (expr, 0));
+      }
       break;
 
     case MODIFY_EXPR:

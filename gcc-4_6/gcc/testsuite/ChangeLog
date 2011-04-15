@@ -1,3 +1,198 @@
+2011-04-07  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/call1.C: New.
+
+	* g++.dg/cpp0x/sfinae11.C: New.
+	* g++.dg/cpp0x/noexcept02.C: Fix.
+
+	* g++.dg/cpp0x/sfinae10.C: New.
+
+	* g++.dg/cpp0x/sfinae7.C: New.
+
+	* g++.dg/cpp0x/enum9.C: New.
+
+2011-04-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48377
+	* gcc.dg/vect/pr48377.c: New test.
+
+2011-04-07  Mike Stump  <mikestump@comcast.net>
+
+	* gcc.dg/torture/stackalign/non-local-goto-5.c: Fix for targets
+	with no trampolines.
+
+2011-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/48117
+	* gfortran.dg/gomp/pr48117.f90: New test.
+
+	PR debug/48343
+	* gcc.dg/torture/pr48343.c: New test.
+
+2011-04-07  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2011-03-26  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/48144
+	* gcc.dg/pr48144.c: New test.
+
+2011-04-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48466
+	* gcc.dg/guality/pr36977.c: New test.
+	* gcc.dg/guality/pr48466.c: New test.
+
+	Backported from mainline
+	2011-04-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48335
+	* gcc.c-torture/compile/pr48335-1.c: New test.
+	* gcc.dg/pr48335-1.c: New test.
+	* gcc.dg/pr48335-2.c: New test.
+	* gcc.dg/pr48335-3.c: New test.
+	* gcc.dg/pr48335-4.c: New test.
+	* gcc.dg/pr48335-5.c: New test.
+	* gcc.dg/pr48335-6.c: New test.
+	* gcc.dg/pr48335-7.c: New test.
+	* gcc.dg/pr48335-8.c: New test.
+	* gcc.target/i386/pr48335-1.c: New test.
+
+2011-04-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48291
+	* gfortran.dg/class_42.f03: New.
+
+2011-04-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gfortran.dg/bessel_6.f90: Use dg-add-options ieee.
+	* gfortran.dg/bessel_7.f90: Likewise.
+
+2011-03-31  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/defaulted24.C: New.
+
+2011-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/16292
+	* gfortran.dg/g77/cabs.f: Only xfail execution on mips-sgi-irix6*
+	with -O0.
+
+2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/other/i386-9.C: New test.
+
+2011-03-30  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/error-recovery1.C: New.
+
+	* g++.dg/cpp0x/regress/isnan.C: New.
+
+	* g++.dg/cpp0x/initlist46.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/value-dep1.C: New.
+
+	* g++.dg/cpp0x/dependent1.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/parse/memfnquals1.C: New.
+
+	* g++.dg/cpp0x/constexpr-memfn1.C: New.
+
+	* g++.dg/cpp0x/constexpr-diag1.C: Adjust error locations.
+
+	* g++.dg/cpp0x/initlist-array2.C: New.
+
+	* g++.dg/cpp0x/initlist-array1.C: New.
+
+	* g++.dg/cpp0x/move1.C: New.
+
+	* g++.dg/cpp0x/auto22.C: New.
+
+	* g++.dg/cpp0x/rv-deduce2.C: New.
+
+	* g++.dg/cpp0x/elision2.C: New.
+
+2011-03-29  Rodrigo Rivas Costa  <rodrigorivascosta@gmail.com>
+
+       * g++.dg/cpp0x/constexpr-attribute.C: New.
+
+2011-03-29  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-recursion.C: New.
+
+	* g++.dg/cpp0x/constexpr-noexcept.C: New.
+
+	* g++.dg/cpp0x/constexpr-overflow2.C: New.
+	* g++.dg/cpp0x/constexpr-data2.C: Remove FIXME.
+
+	* g++.dg/cpp0x/constexpr-47570.C: New.
+
+2011-03-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-03-23  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR testsuite/48251
+	* g++.dg/guality/guality.exp: Disable on alpha*-dec-osf*.
+
+2011-03-28  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR target/47553
+	* gcc.target/arm/neon-vld-1.c: New test.
+
+2011-03-28  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-03-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48269
+	* gcc.dg/builtin-object-size-10.c: New testcase.
+
+	2011-03-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48228
+	* gcc.dg/Wstrict-overflow-23.c: New testcase.
+
+	2011-03-17  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48134
+	* gcc.dg/pr48134.c: New testcase.
+
+2011-03-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-03-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/48237
+	* gcc.target/i386/pr48237.c: New test.
+
+2011-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48204
+	* gcc.dg/dfp/pr48204.c: New test.
+
+	2011-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/42544
+	PR c/48197
+	* gcc.c-torture/execute/pr42544.c: New test.
+	* gcc.c-torture/execute/pr48197.c: New test.
+
+	PR rtl-optimization/48156
+	* gcc.dg/pr48156.c: New test.
+
+	2011-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48141
+	* gcc.dg/pr48141.c: New test.
+
 2011-03-25  Release Manager
 
 	* GCC 4.6.0 released.
