@@ -1,3 +1,31 @@
+2011-04-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48594
+	* decl2.c (build_offset_ref_call_from_tree): Fix calling a functor
+	or pointer to (non-member) function.
+
+2011-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/48570
+	* semantics.c (cxx_eval_array_reference): Handle reading from
+	wchar_t, char16_t and char32_t STRING_CST.
+
+2011-04-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48574
+	* class.c (fixed_type_or_null): We cannot determine the dynamic
+    	type of a reference variable if its initializer is dependent.
+
+2011-04-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48534
+	* cvt.c (ocp_convert): Use build_nop to convert to underlying type
+	of scoped enum.
+
+	PR c++/48523
+	* tree.c (maybe_dummy_object): Use build_x_indirect_ref rather
+	than cp_build_indirect_ref.
+
 2011-04-07  Jason Merrill  <jason@redhat.com>
 
 	PR c++/48500

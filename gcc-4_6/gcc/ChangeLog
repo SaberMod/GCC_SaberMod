@@ -1,3 +1,117 @@
+2011-04-17  Dennis, CHENG Renquan  <crquan@fedoraproject.org>
+
+	* doc/passes.texi: Fill crossref nodes.
+
+2011-04-17  Marius Strobl  <marius@FreeBSD.org>
+
+	* config/sparc/freebsd.h (CPP_CPU64_DEFAULT_SPEC): Replace with...
+	(FBSD_TARGET_CPU_CPP_BUILTINS): ...this.
+	(TARGET_GNU_TLS, TARGET_SUN_TLS): Define.
+
+2011-04-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/48538
+	* lto-cgraph.c (merge_profile_summaries): Check that lto_file_data
+	is non-null before accessing it.
+	(input_cgraph): Remove trailing spaces.
+
+2011-04-15  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (popcountdi2, popcountsi2, popcounthi2):
+	Replace match_operand with match_dup for the third operand in
+	these expanders.
+
+2011-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48605
+	* config/i386/sse.md (avx_insertps, sse4_1_insertps): If operands[2]
+	is a MEM, offset it as needed based on top 2 bits in operands[3],
+	change MEM mode to SFmode and mask those 2 bits away from operands[3].
+
+2011-04-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2011-04-08  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/48366
+	* config/pa/pa.c (hppa_register_move_cost): Increase to 18 cost of
+	move from floating point to shift amount register .
+	(emit_move_sequence): Remove secondary reload support for floating
+	point to shift amount amount register copies.
+	(pa_secondary_reload): Return GENERAL_REGS for floating point/shift
+	amount register copies.
+	* config/pa/pa32-regs.h (HARD_REGNO_MODE_OK): For shift amount
+	register, return false if mode isn't a scalar integer mode.
+	* config/pa/pa64-regs.h (HARD_REGNO_MODE_OK): Likewise.
+
+2011-04-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48591
+	* omp-low.c (expand_omp_atomic_fetch_op): Return false if decl is
+	NULL.
+	(expand_omp_atomic_pipeline): Return false if cmpxchg is NULL.
+
+2011-04-13  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline:
+	2011-04-12  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+	PR target/48090
+	* config/arm/arm.md (*arm_negdi2): Fix early clobber constraints.
+
+2011-04-12  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/48195
+	* ipa-cp.c (ipcp_driver): Call ipa_check_create_node_params and
+	ipa_check_create_edge_args.
+	(ipcp_generate_summary): Do not call ipa_check_create_node_params and
+	ipa_check_create_edge_args.
+	* ipa-inline.c (inline_generate_summary): Do not call
+	ipa_check_create_node_params and ipa_check_create_edge_args.
+	* ipa-prop.c (ipa_analyze_node): Call ipa_check_create_node_params and
+	ipa_check_create_edge_args.
+
+2011-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48549
+	* combine.c (propagate_for_debug): Also stop after BB_END of
+	this_basic_block.  Process LAST and just stop processing after it.
+	(combine_instructions): If last_combined_insn has been deleted,
+	set last_combined_insn to its PREV_INSN.
+
+2011-04-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/v850.c (expand_prologue): Do not use the CALLT
+	instruction for interrupt handlers if the target is the basic V850
+	architecture.
+	(expand_epilogue): Likewise.
+
+2011-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48517
+	* c-typeck.c (store_init_value): Set TREE_TYPE (decl) to
+	qualified type.
+
+2011-04-11  Joseph Myers  <joseph@codesourcery.com>
+
+	* common.opt (Tbss=, Tdata=, Ttext=): New options.
+
+2011-04-11  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-04-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/alpha/osf5.h (MAX_OFILE_ALIGNMENT): Define.
+
+2011-04-09  Duncan Sands  <baldrick@free.fr>
+
+	* tree.c (array_type_nelts): Bail out if TYPE_MAX_VALUE not set.
+
+2011-04-08  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR target/47829
+	gcc/config.gcc: disable unwind table generation for crtbegin/crtend
+	on i386-*-freebsd.
+
 2011-04-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/48377
