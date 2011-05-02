@@ -1,3 +1,9 @@
+2011-05-02  Diego Novillo  <dnovillo@google.com>
+
+	Google ref 4335466.
+
+	* BASE-VER: Change to 4.6.x-google.
+
 2011-04-18  Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 172633.
