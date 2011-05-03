@@ -1,3 +1,21 @@
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-03-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR preprocessor/48192
+	* directives.c (do_ifdef): Do not consider conditional macros as
+	being defined.
+	(do_ifndef): Ditto.
+	* expr.c (parse_defined): Ditto.
+
+2011-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/48740
+	* lex.c (lex_raw_string): When raw string ends with
+	??) followed by raw prefix and ", ensure it is preprocessed
+	with ??) rather than ??].
+
 2011-03-25  Release Manager
 
 	* GCC 4.6.0 released.

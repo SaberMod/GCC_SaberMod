@@ -1,5 +1,9 @@
 2011-05-03  Diego Novillo  <dnovillo@google.com>
 
+	Merge from gcc-4_6-branch rev 173305.
+
+2011-05-03  Diego Novillo  <dnovillo@google.com>
+
 	Merge from google/main rev 173286 (minus rev 173258).
 
 2011-05-02  Diego Novillo  <dnovillo@google.com>

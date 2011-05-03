@@ -2729,6 +2729,7 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
 				      location_t location)
 {
   tree decl, old_scope;
+  cp_parser_commit_to_tentative_parse (parser);
   /* Try to lookup the identifier.  */
   old_scope = parser->scope;
   parser->scope = scope;
@@ -2822,7 +2823,6 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
       else
 	gcc_unreachable ();
     }
-  cp_parser_commit_to_tentative_parse (parser);
 }
 
 /* Check for a common situation where a type-name should be present,
@@ -3729,6 +3729,12 @@ cp_parser_primary_expression (cp_parser *parser,
 	       `&A::B' might be a pointer-to-member, but `&(A::B)' is
 	       not.  */
 	    finish_parenthesized_expr (expr);
+	    /* DR 705: Wrapping an unqualified name in parentheses
+	       suppresses arg-dependent lookup.  We want to pass back
+	       CP_ID_KIND_QUALIFIED for suppressing vtable lookup
+	       (c++/37862), but none of the others.  */
+	    if (*idk != CP_ID_KIND_QUALIFIED)
+	      *idk = CP_ID_KIND_NONE;
 	  }
 	/* The `>' token might be the end of a template-id or
 	   template-parameter-list now.  */
@@ -24963,7 +24969,8 @@ cp_parser_omp_for_loop (cp_parser *parser, tree clauses, tree *par_clauses)
 	  /* If decl is an iterator, preserve the operator on decl
 	     until finish_omp_for.  */
 	  if (decl
-	      && (type_dependent_expression_p (decl)
+	      && ((type_dependent_expression_p (decl)
+		   && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		  || CLASS_TYPE_P (TREE_TYPE (decl))))
 	    incr = cp_parser_omp_for_incr (parser, decl);
 	  else

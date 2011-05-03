@@ -10566,8 +10566,8 @@ ix86_expand_prologue (void)
     }
 
   /* The stack has already been decremented by the instruction calling us
-     so we need to probe unconditionally to preserve the protection area.  */
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+     so probe if the size is non-negative to preserve the protection area.  */
+  if (allocate >= 0 && flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
     {
       /* We expect the registers to be saved when probes are used.  */
       gcc_assert (int_registers_saved);
@@ -17194,11 +17194,15 @@ ix86_match_ccmode (rtx insn, enum machine_mode req_mode)
       if (req_mode == CCZmode)
 	return false;
       /* FALLTHRU */
+    case CCZmode:
+      break;
+
     case CCAmode:
     case CCCmode:
     case CCOmode:
     case CCSmode:
-    case CCZmode:
+      if (set_mode != req_mode)
+	return false;
       break;
 
     default:
@@ -31213,9 +31217,18 @@ ix86_expand_vector_set (bool mmx_ok, rtx target, rtx val, int elt)
       break;
 
     case V2DImode:
-      use_vec_merge = TARGET_SSE4_1;
+      use_vec_merge = TARGET_SSE4_1 && TARGET_64BIT;
       if (use_vec_merge)
 	break;
+
+      tmp = gen_reg_rtx (GET_MODE_INNER (mode));
+      ix86_expand_vector_extract (false, tmp, target, 1 - elt);
+      if (elt == 0)
+	tmp = gen_rtx_VEC_CONCAT (mode, tmp, val);
+      else
+	tmp = gen_rtx_VEC_CONCAT (mode, val, tmp);
+      emit_insn (gen_rtx_SET (VOIDmode, target, tmp));
+      return;
 
     case V2DFmode:
       {

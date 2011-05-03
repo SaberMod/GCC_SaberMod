@@ -2055,7 +2055,8 @@ finish_call_expr (tree fn, VEC(tree,gc) **args, bool disallow_virtual,
 	     is not included in *ARGS even though it is considered to
 	     be part of the list of arguments.  Note that this is
 	     related to CWG issues 515 and 1005.  */
-	  || ((TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE)
+	  || (((TREE_CODE (TREE_TYPE (fn)) == METHOD_TYPE)
+	       || BASELINK_P (fn))
 	      && current_class_ref
 	      && type_dependent_expression_p (current_class_ref)))
 	{
@@ -2347,6 +2348,7 @@ finish_compound_literal (tree type, tree compound_literal)
      represent class temporaries with TARGET_EXPR so we elide copies.  */
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
+      && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);

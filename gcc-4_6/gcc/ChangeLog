@@ -1,3 +1,188 @@
+2011-05-03  Uros Bizjak  <ubizjak@gmail.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48774
+	* config/i386/i386.c (ix86_match_ccmode): For CC{A,C,O,S}mode
+	only succeed if req_mode is the same as set_mode.
+
+2011-05-03  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48846
+	* lto-streamer-in.c (unpack_ts_decl_common_value_fields):
+	Stream decl_common.off_align instead of the derived DECL_OFFSET_ALIGN.
+	* lto-streamer-out.c (pack_ts_decl_common_value_fields): Likewise.
+
+2011-05-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/48723
+	* config/i386/i386.c (ix86_expand_prologue): Do not probe the stack
+	for -fstack-check if the size to allocate is negative.
+
+2011-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48809
+	* tree-switch-conversion.c (build_arrays): Compute tidx in unsigned
+	type.
+	(gen_inbound_check): Don't compute index_expr - range_min in utype
+	again, instead reuse SSA_NAME initialized in build_arrays.
+	Remove two useless gsi_for_stmt calls.
+
+2011-04-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-04-01  Andrew Pinski  <pinskia@gmail.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48262
+	* config/rs6000/vector.md (movmisalign<mode>): Allow for memory
+	operands, as per the specifications.
+
+	* config/rs6000/altivec.md (vec_extract_evenv4si): Correct modes.
+	(vec_extract_evenv4sf): Ditto.
+	(vec_extract_evenv8hi): Ditto.
+	(vec_extract_evenv16qi): Ditto.
+	(vec_extract_oddv4si): Ditto.
+
+2011-04-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48597
+	* final.c (final_scan_insn): Call dwarf2out_frame_debug even for
+	inline asm.
+
+2011-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48742
+	* c-typeck.c (build_binary_op): Don't wrap arguments if
+	int_operands is true.
+
+2011-04-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48768
+	* tree-ssa.c (insert_debug_temp_for_var_def): If degenerate_phi_result
+	is error_mark_node, set value to NULL.
+
+	PR tree-optimization/48734
+	* tree-ssa-reassoc.c (eliminate_redundant_comparison): Give up
+	if return value from maybe_fold_*_comparsions isn't something
+	the code is prepared to handle.
+
+2011-04-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48731
+	* ipa-inline.c (cgraph_flatten): Test if function is inlinable.
+
+2011-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR other/48748
+	* doc/extend.texi (Type Traits): Document __is_standard_layout,
+	__is_literal_type, and __is_trivial; update throughout about
+	possibly cv-qualified void types.
+
+2011-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48685
+	* fold-const.c (fold_convert_loc): Add NOP_EXPR when casting
+	to VOID_TYPE even around MODIFY_EXPR.
+
+2011-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48717
+	* tree-ssa-forwprop.c (associate_plusminus): For A + ~A and
+	~A + A optimizations use build_int_cst_type instead of build_int_cst.
+
+2011-04-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/48716
+	* gimplify.c (gimplify_bind_expr): Mark as GOVD_LOCAL also
+	TREE_STATIC variables declared inside of some OpenMP construct.
+
+2011-04-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/48708
+	* config/i386/i386.c (ix86_expand_vector_set) <V2DImode>: Generate
+	vec_extract and vec_concat for non-SSE4_1 targets.
+
+2011-04-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48695
+	* tree-ssa-alias.c (aliasing_component_refs_p): Compute base
+	objects and types here.  Adjust for their offset before comparing.
+
+2011-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple.c (walk_gimple_op) <GIMPLE_CALL>: Fix couple of oversights.
+
+2011-04-20  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/48288
+	* config/pa/predicates.md (ior_operand): Delete predicate.
+	(cint_ior_operand, reg_or_cint_ior_operand): New predicates.
+	* config/pa/pa.md (iordi3): Use reg_or_cint_ior_operand predicate in
+	expander.  Use cint_ior_operand in unnamed insn.
+	(iorsi3): Likewise.
+	* config/pa/pa-protos.h (ior_operand): Delete declarations.
+
+2011-04-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48611
+	* tree-eh.c (note_eh_region_may_contain_throw): Don't propagate
+	beyond ERT_MUST_NOT_THROW region.
+
+2011-04-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2011-04-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/48148
+	* gimple.c (gimple_types_compatible_p_1) <ENUMERAL_TYPE>: Do not merge
+	the types if they have different enumeration identifiers.
+
+	2011-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/48492
+	* cfgexpand.c (expand_debug_expr) <VAR_DECL>: Return NULL for a
+	DECL_IN_CONSTANT_POOL without RTL.
+
+2011-04-20  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-04-19  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR fortran/47976
+	* reload1.c (inc_for_reload): Return void. All callers changed.
+	(emit_input_reload_insns): Don't try to delete previous output
+	reloads to a register, or record spill_reg_store for autoincs.
+
+2011-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48678
+	* config/i386/i386.md (movstrict<mode>): FAIL if operands[0]
+	is a SUBREG with non-MODE_INT mode inside of it.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48661
+	* gimple-fold.c (gimple_get_virt_method_for_binfo): Return NULL
+	if TREE_TYPE (v) is non-NULL.
+
+	* gimple-fold.c (gimple_get_virt_method_for_binfo): Renamed from
+	gimple_get_virt_mehtod_for_binfo.
+	* gimple.h (gimple_get_virt_method_for_binfo): Likewise.
+	* ipa-cp.c (ipcp_process_devirtualization_opportunities): Adjust
+	callers.
+	* ipa-prop.c (try_make_edge_direct_virtual_call): Likewise.
+
+2011-04-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* dwarf2out.c (is_redundant_typedef): Add 'inline' to prototype.
+
+2011-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48616
+	* tree-vect-stmts.c (vectorizable_shift): If SLP, determine
+	whether the shift is by scalar or vector based on whether all SLP
+	scalar stmts have the same rhs.
+
 2011-04-17  Dennis, CHENG Renquan  <crquan@fedoraproject.org>
 
 	* doc/passes.texi: Fill crossref nodes.
@@ -35,7 +220,7 @@
 
 	PR target/48366
 	* config/pa/pa.c (hppa_register_move_cost): Increase to 18 cost of
-	move from floating point to shift amount register .
+	move from floating point to shift amount register.
 	(emit_move_sequence): Remove secondary reload support for floating
 	point to shift amount amount register copies.
 	(pa_secondary_reload): Return GENERAL_REGS for floating point/shift
@@ -47,8 +232,7 @@
 2011-04-13  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/48591
-	* omp-low.c (expand_omp_atomic_fetch_op): Return false if decl is
-	NULL.
+	* omp-low.c (expand_omp_atomic_fetch_op): Return false if decl is NULL.
 	(expand_omp_atomic_pipeline): Return false if cmpxchg is NULL.
 
 2011-04-13  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
@@ -109,15 +293,14 @@
 2011-04-08  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	PR target/47829
-	gcc/config.gcc: disable unwind table generation for crtbegin/crtend
+	* config.gcc: disable unwind table generation for crtbegin/crtend
 	on i386-*-freebsd.
 
 2011-04-08  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/48377
-	* tree-vect-data-refs.c (vector_alignment_reachable_p): Set
-	is_packed to true even for types with smaller TYPE_ALIGN than
-	TYPE_SIZE.
+	* tree-vect-data-refs.c (vector_alignment_reachable_p): Set is_packed
+	to true even for types with smaller TYPE_ALIGN than TYPE_SIZE.
 
 2011-04-07  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -720,10 +903,10 @@
 
 2011-03-08  Georg-Johann Lay  <avr@gjlay.de>
 
-       * config/avr/avr.h (REGISTER_MOVE_COST, MEMORY_MOVE_COST): Remove.
-       * config/avr/avr.c (TARGET_REGISTER_MOVE_COST,
-       TARGET_MEMORY_MOVE_COST): Define.
-       (avr_register_move_cost, avr_memory_move_cost): New Functions.
+	* config/avr/avr.h (REGISTER_MOVE_COST, MEMORY_MOVE_COST): Remove.
+	* config/avr/avr.c (TARGET_REGISTER_MOVE_COST)
+	(TARGET_MEMORY_MOVE_COST): Define.
+	(avr_register_move_cost, avr_memory_move_cost): New Functions.
 
 2011-03-08  Jakub Jelinek  <jakub@redhat.com>
 
