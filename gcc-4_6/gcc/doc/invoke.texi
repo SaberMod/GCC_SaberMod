@@ -246,19 +246,20 @@ Objective-C and Objective-C++ Dialects}.
 -Wformat-security  -Wformat-y2k @gol
 -Wframe-larger-than=@var{len} -Wjump-misses-init -Wignored-qualifiers @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
--Winit-self  -Winline @gol
+-Winit-self  -Winline -Wmaybe-uninitialized @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlong-long @gol
--Wmain  -Wmissing-braces  -Wmissing-field-initializers @gol
+-Wmain -Wmaybe-uninitialized -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-format-attribute  -Wmissing-include-dirs @gol
 -Wno-mudflap @gol
 -Wno-multichar  -Wnonnull  -Wno-overflow @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
--Wredundant-decls @gol
--Wreturn-type  -Wsequence-point  -Wshadow @gol
+-Wreal-conversion  -Wredundant-decls  -Wreturn-type -Wripa-opt-mismatch @gol
+-Wself-assign  -Wself-assign-non-pod  -Wsequence-point  -Wshadow @gol
+-Wshadow-compatible-local -Wshadow-local @gol
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
 -Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
@@ -324,7 +325,7 @@ Objective-C and Objective-C++ Dialects}.
 -fstack-usage  -ftest-coverage  -ftime-report -fvar-tracking @gol
 -fvar-tracking-assignments  -fvar-tracking-assignments-toggle @gol
 -g  -g@var{level}  -gtoggle  -gcoff  -gdwarf-@var{version} @gol
--ggdb  -gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
+-ggdb  -gmlt  -gstabs  -gstabs+  -gstrict-dwarf  -gno-strict-dwarf @gol
 -gvms  -gxcoff  -gxcoff+ @gol
 -fno-merge-debug-strings -fno-dwarf2-cfi-asm @gol
 -fdebug-prefix-map=@var{old}=@var{new} @gol
@@ -380,7 +381,9 @@ Objective-C and Objective-C++ Dialects}.
 -freciprocal-math -fregmove -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
--frounding-math -fsched2-use-superblocks -fsched-pressure @gol
+-fripa -fripa-disallow-asm-modules -fripa-disallow-opt-mismatch @gol
+-fripa-no-promote-always-inline-func -fripa-verbose -frounding-math @gol
+-fsched2-use-superblocks -fsched-pressure @gol
 -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
 -fsched-group-heuristic -fsched-critical-path-heuristic @gol
@@ -391,8 +394,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fsignaling-nans -fsingle-precision-constant -fsplit-ivs-in-unroller @gol
 -fsplit-wide-types -fstack-protector -fstack-protector-all @gol
--fstrict-aliasing -fstrict-overflow -fthread-jumps -ftracer @gol
--ftree-bit-ccp @gol
+-fstrict-aliasing -fstrict-overflow -fno-strict-enum-precision -fthread-jumps
+-ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
 -ftree-forwprop -ftree-fre -ftree-loop-if-convert @gol
@@ -1364,8 +1367,8 @@ prefix.
 @opindex no-canonical-prefixes
 Never expand any symbolic links, resolve references to @samp{/../}
 or @samp{/./}, or make the path absolute when generating a relative
-prefix.  If neither @option{-canonical-prefixes} nor
-@option{-canonical-prefixes} is given, GCC tries to set an appropriate
+prefix. If neither @option{-canonical-prefixes} nor
+@option{-nocanonical-prefixes} is given, GCC tries to set an appropriate
 default by looking for a target-specific subdirectory alongside the
 directory containing the compiler driver.
 
@@ -2077,6 +2080,11 @@ defined in the C++ standard; basically, a value which can be
 represented in the minimum number of bits needed to represent all the
 enumerators).  This assumption may not be valid if the program uses a
 cast to convert an arbitrary integer value to the enumeration type.
+
+@item -fno-strict-enum-precision
+@opindex fno-strict-enum-precision
+Do not perform optimizations of switch() statements based on the
+precision of enum types.
 
 @item -ftemplate-depth=@var{n}
 @opindex ftemplate-depth
@@ -2970,12 +2978,14 @@ Options} and @ref{Objective-C and Objective-C++ Dialect Options}.
 -Wcomment  @gol
 -Wformat   @gol
 -Wmain @r{(only for C/ObjC and unless} @option{-ffreestanding}@r{)}  @gol
+-Wmaybe-uninitialized @gol
 -Wmissing-braces  @gol
 -Wnonnull  @gol
 -Wparentheses  @gol
 -Wpointer-sign  @gol
 -Wreorder   @gol
 -Wreturn-type  @gol
+-Wripa-opt-mismatch @gol
 -Wsequence-point  @gol
 -Wsign-compare @r{(only in C++)}  @gol
 -Wstrict-aliasing  @gol
@@ -3191,7 +3201,7 @@ Enable @option{-Wformat} plus format checks not included in
 @option{-Wformat}.  Currently equivalent to @samp{-Wformat
 -Wformat-nonliteral -Wformat-security -Wformat-y2k}.
 
-@item -Wnonnull @r{(C and Objective-C only)}
+@item -Wnonnull @r{(C, C++, Objective-C, and Objective-C++ only)}
 @opindex Wnonnull
 @opindex Wno-nonnull
 Warn about passing a null pointer for arguments marked as
@@ -3386,6 +3396,61 @@ definitions, may be found on the GCC readings page, at
 
 This warning is enabled by @option{-Wall} for C and C++.
 
+@item -Wself-assign
+@opindex Wself-assign
+@opindex Wno-self-assign
+Warn about self-assignment and self-initialization. This warning is intended
+for detecting accidental self-assignment due to typos, and therefore does
+not warn on a statement that is semantically a self-assignment after
+constant folding. Here is an example of what will trigger a self-assign
+warning and what will not:
+
+@smallexample
+@group
+void func()
+@{
+   int i = 2;
+   int x = x;   /* warn */
+   float f = 5.0;
+   double a[3];
+
+   i = i + 0;   /* not warn */
+   f = f / 1;   /* not warn */
+   a[1] = a[1]; /* warn */
+   i += 0;      /* not warn */
+@}
+@end group
+@end smallexample
+
+In C++ it will not warn on self-assignment of non-POD variables unless
+@option{-Wself-assign-non-pod} is also enabled.
+
+@item -Wself-assign-non-pod
+@opindex Wself-assign-non-pod
+@opindex Wno-self-assign-non-pod
+Warn about self-assignment of non-POD variables. This is a C++-specific
+warning and only effective when @option{-Wself-assign} is enabled.
+
+There are cases where self-assignment might be intentional. For example,
+a C++ programmer might write code to test whether an overloaded
+@code{operator=} works when the same object is assigned to itself.
+One way to work around the self-assign warning in such cases when this flag
+is enabled is using the functional form @code{object.operator=(object)}
+instead of the assignment form @code{object = object}, as shown in the
+following example.
+
+@smallexample
+@group
+void test_func()
+@{
+   MyType t;
+
+   t.operator=(t);  // not warn
+   t = t;           // warn
+@}
+@end group
+@end smallexample
+
 @item -Wreturn-type
 @opindex Wreturn-type
 @opindex Wno-return-type
@@ -3399,6 +3464,16 @@ expression in a function whose return-type is @code{void}.
 For C++, a function without return type always produces a diagnostic
 message, even when @option{-Wno-return-type} is specified.  The only
 exceptions are @samp{main} and functions defined in system headers.
+
+This warning is enabled by @option{-Wall}.
+
+@item -Wripa-opt-mismatch
+@opindex Wripa-opt-mismatch
+@opindex Wno-ripa-opt-mismatch
+When doing an FDO build with @option{-fprofile-use} and @option{-fripa},
+warn if importing an axuiliary module that was built with a different
+GCC command line during the profile-generate phase than the primary
+module.
 
 This warning is enabled by @option{-Wall}.
 
@@ -3561,6 +3636,10 @@ This warning is enabled by @option{-Wall}.
 To suppress this warning use the @samp{unused} attribute
 (@pxref{Variable Attributes}).
 
+Note that a classic way to avoid @option{-Wunused-variable} warning is
+using @code{x = x}, but that does not work with @option{-Wself-assign}.
+Use @code{(void) x} or @code{static_cast<void>(x)} instead.
+
 @item -Wunused-value
 @opindex Wunused-value
 @opindex Wno-unused-value
@@ -3606,8 +3685,15 @@ to compute a value that itself is never used, because such
 computations may be deleted by data flow analysis before the warnings
 are printed.
 
-These warnings are made optional because GCC is not smart
-enough to see all the reasons why the code might be correct
+@item -Wmaybe-uninitialized
+@opindex Wmaybe-uninitialized
+@opindex Wno-maybe-uninitialized
+For an automatic variable, if there exists a path from the function
+entry to a use of the variable that is initialized, but there exist
+some other paths the variable is not initialized, the compiler will
+emit a warning if it can not prove the uninitialized paths do not
+happen at runtime. These warnings are made optional because GCC is 
+not smart enough to see all the reasons why the code might be correct
 despite appearing to have an error.  Here is one example of how
 this can happen:
 
@@ -3630,20 +3716,9 @@ this can happen:
 
 @noindent
 If the value of @code{y} is always 1, 2 or 3, then @code{x} is
-always initialized, but GCC doesn't know this.  Here is
-another common case:
-
-@smallexample
-@{
-  int save_y;
-  if (change_y) save_y = y, y = new_y;
-  @dots{}
-  if (change_y) y = save_y;
-@}
-@end smallexample
-
-@noindent
-This has no bug because @code{save_y} is used only if it is set.
+always initialized, but GCC doesn't know this. To suppress the
+warning, the user needs to provide a default case with assert(0) or
+similar code.
 
 @cindex @code{longjmp} warnings
 This option also warns when a non-volatile automatic variable might be
@@ -3985,6 +4060,43 @@ parameter, type, or class member (in C++), or whenever a built-in function
 is shadowed. Note that in C++, the compiler will not warn if a local variable
 shadows a struct/class/enum, but will warn if it shadows an explicit typedef.
 
+@item -Wshadow-local
+@opindex Wshadow-local
+@opindex Wno-shadow-local
+Warn when a local variable shadows another local variable or parameter.
+
+@item -Wshadow-compatible-local
+@opindex Wshadow-compatible-local
+@opindex Wno-shadow-compatible-local
+Warn when a local variable shadows another local variable or parameter
+whose type is compatible with that of the shadowing variable. In C++,
+type compatibility here means the type of the shadowing variable can be
+converted to that of the shadowed variable. The creation of this flag
+(in addition to @option{-Wshadow-local}) is based on the idea that when
+a local variable shadows another one of incompatible type, it is most
+likely intentional, not a bug or typo, as shown in the following example:
+
+@smallexample
+@group
+for (SomeIterator i = SomeObj.begin(); i != SomeObj.end(); ++i)
+@{
+  for (int i = 0; i < N; ++i)
+  @{
+    ...
+  @}
+  ...
+@}
+@end group
+@end smallexample
+
+Since the two variable @code{i} in the example above have incompatible types, 
+enabling only @option{-Wshadow-compatible-local} will not emit a warning.
+Because their types are incompatible, if a programmer accidentally uses one
+in place of the other, type checking will catch that and emit an error or
+warning. So not warning (about shadowing) in this case will not lead to
+undetected bugs. Use of this flag instead of @option{-Wshadow-local} can
+possibly reduce the number of warnings triggered by intentional shadowing.
+
 @item -Wlarger-than=@var{len}
 @opindex Wlarger-than=@var{len}
 @opindex Wlarger-than-@var{len}
@@ -4126,6 +4238,12 @@ unsigned integers are disabled by default in C++ unless
 @opindex Wno-conversion-null
 Do not warn for conversions between @code{NULL} and non-pointer
 types. @option{-Wconversion-null} is enabled by default.
+
+@item -Wreal-conversion
+@opindex Wreal-conversion
+@opindex Wno-real-conversion
+Warn for implicit type conversions from real (@code{double} or @code{float})
+to integral values.
 
 @item -Wempty-body
 @opindex Wempty-body
@@ -4500,6 +4618,12 @@ Suppress warnings from casts to pointer type of an integer of a
 different size. In C++, casting to a pointer type of smaller size is
 an error. @option{Wint-to-pointer-cast} is enabled by default.
 
+@item max-lipo-mem
+When importing auxiliary modules during profile-use, check current
+memory consumption after parsing each auxiliary module. If it exceeds
+this limit (specified in kb), don't import any more auxiliary modules.
+Specifying a value of 0 means don't enforce this limit. This parameter
+is only useful when using @option{-fprofile-use} and @option{-fripa}.
 
 @item -Wno-pointer-to-int-cast @r{(C and Objective-C only)}
 @opindex Wno-pointer-to-int-cast
@@ -4745,6 +4869,11 @@ different from version 2), and it would have been too confusing.  That
 debug format is long obsolete, but the option cannot be changed now.
 Instead use an additional @option{-g@var{level}} option to change the
 debug level for DWARF.
+
+@item -gmlt
+@opindex gmlt
+Produce a minimal line table, with level 1 debugging information plus
+information about inlined functions and line numbers.
 
 @item -gtoggle
 @opindex gtoggle
@@ -7862,7 +7991,7 @@ Enable profile feedback directed optimizations, and optimizations
 generally profitable only with profile feedback available.
 
 The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
-@code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}
+@code{-funroll-loops}, @code{-fpeel-loops}.
 
 By default, GCC emits an error message if the feedback profiles do not
 match the source code.  This error can be turned into a warning by using
@@ -7871,6 +8000,40 @@ code.
 
 If @var{path} is specified, GCC will look at the @var{path} to find
 the profile feedback data files. See @option{-fprofile-dir}.
+
+@item -fripa
+@opindex fripa
+Perform dynamic inter-procedural analysis. This is used in conjunction with
+the @option{-fprofile-generate} and @option{-fprofile-use} options.
+During the @option{-fprofile-generate} phase, this flag turns on some additional
+instrumentation code that enables dynamic call-graph analysis.
+During the @option{-fprofile-use} phase, this flag enables cross-module
+optimizations such as inlining.
+
+@item -fripa-disallow-asm-modules
+@opindex fripa-disallow-asm-modules
+During profile-gen, if this flag is enabled, and the module has asm statements,
+arrange so that a bit recording this information will be set in the profile
+feedback data file.
+During profile-use, if this flag is enabled, and the same bit in auxiliary
+module's profile feedback data is set, don't import this auxiliary module.
+If this is the primary module, don't export it.
+
+@item -fripa-disallow-opt-mismatch
+@opindex fripa-disallow-opt-mismatch
+Don't import an auxiliary module, if the GCC command line options used for this
+auxiliary module during the profile-generate stage were different from those used
+for the primary module. Note that any mismatches in warning-related options are
+ignored for this comparison.
+
+@item -fripa-no-promote-always-inline-func
+@opindex fripa-no-promote-always-inline-func
+Do not promote static functions with always inline attribute in LIPO compilation.
+
+@item -fripa-verbose
+@opindex fripa-verbose
+Enable printing of verbose information about dynamic inter-procedural optimizations.
+This is used in conjunction with the @option{-fripa}.
 @end table
 
 The following options control compiler behavior regarding floating
@@ -8532,8 +8695,28 @@ The maximum number of peelings of a single loop.
 @item max-completely-peeled-insns
 The maximum number of insns of a completely peeled loop.
 
+@item max-completely-peeled-insns-feedback
+The maximum number of insns of a completely peeled loop when profile
+feedback is available and the loop is hot. Because of the real
+profiles, this value may set to be larger for hot loops. Its default
+value is 600.
+
+@item max-once-peeled-insns
+The maximum number of insns of a peeled loop that rolls only once.
+
+@item max-once-peeled-insns-feedback
+The maximum number of insns of a peeled loop when profile feedback is
+available and the loop is hot. Because of the real profiles, this
+value may set to be larger for hot loops. The default value is 600.
+
 @item max-completely-peel-times
 The maximum number of iterations of a loop to be suitable for complete peeling.
+
+@item max-completely-peel-times-feedback
+The maximum number of iterations of a loop to be suitable for complete
+peeling when profile feedback is available and the loop is
+hot. Because of the real profiles, this value may set to be larger for
+hot loops. Its default value is 16.
 
 @item max-completely-peel-loop-nest-depth
 The maximum depth of a loop nest suitable for complete peeling.
@@ -9961,6 +10144,12 @@ given to GCC, substitutes @code{Y}; else substitutes @code{D}.  There can
 be as many clauses as you need.  This may be combined with @code{.},
 @code{,}, @code{!}, @code{|}, and @code{*} as needed.
 
+@item max-lipo-mem
+When importing auxiliary modules during profile-use, check current
+memory consumption after parsing each auxiliary module. If it exceeds
+this limit (specified in kb), don't import any more auxiliary modules.
+Specifying a value of 0 means don't enforce this limit. This parameter
+is only useful when using @option{-fprofile-use} and @option{-fripa}.
 
 @end table
 

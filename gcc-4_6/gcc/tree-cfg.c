@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "output.h"
 #include "flags.h"
+#include "input.h"
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
@@ -45,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "pointer-set.h"
 #include "tree-inline.h"
+#include "l-ipo.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -760,22 +762,59 @@ same_line_p (location_t locus1, location_t locus2)
           && strcmp (from.file, to.file) == 0);
 }
 
-/* Assign a unique discriminator value to block BB if it begins at the same
-   LOCUS as its predecessor block.  */
+/* Assign a unique discriminator value to instructions in block BB that
+   have the same LOCUS as its predecessor block.  */
 
 static void
 assign_discriminator (location_t locus, basic_block bb)
 {
   gimple first_in_to_bb, last_in_to_bb;
+  int discriminator = 0;
 
-  if (locus == 0 || bb->discriminator != 0)
+  if (locus == UNKNOWN_LOCATION)
     return;
 
+  if (has_discriminator (locus))
+    locus = map_discriminator_location (locus);
+
+  /* Check the locus of the first (non-label) instruction in the block.  */
   first_in_to_bb = first_non_label_stmt (bb);
-  last_in_to_bb = last_stmt (bb);
-  if ((first_in_to_bb && same_line_p (locus, gimple_location (first_in_to_bb)))
-      || (last_in_to_bb && same_line_p (locus, gimple_location (last_in_to_bb))))
-    bb->discriminator = next_discriminator_for_locus (locus);
+  if (first_in_to_bb)
+    {
+      location_t first_locus = gimple_location (first_in_to_bb);
+      if (! has_discriminator (first_locus)
+	  && same_line_p (locus, first_locus))
+	discriminator = next_discriminator_for_locus (locus);
+    }
+
+  /* If the first instruction doesn't trigger a discriminator, check the
+     last instruction of the block.  This catches the case where the
+     increment portion of a for loop is placed at the end of the loop
+     body.  */
+  if (discriminator == 0)
+    {
+      last_in_to_bb = last_stmt (bb);
+      if (last_in_to_bb)
+	{
+	   location_t last_locus = gimple_location (last_in_to_bb);
+	   if (! has_discriminator (last_locus)
+	       && same_line_p (locus, last_locus))
+	     discriminator = next_discriminator_for_locus (locus);
+	}
+    }
+
+  if (discriminator != 0)
+    {
+      location_t new_locus = location_with_discriminator (locus, discriminator);
+      gimple_stmt_iterator gsi;
+
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  if (same_line_p (locus, gimple_location (stmt)))
+	    gimple_set_location (stmt, new_locus);
+	}
+    }
 }
 
 /* Create the edges for a GIMPLE_COND starting at block BB.  */
@@ -2901,7 +2940,8 @@ verify_types_in_gimple_reference (tree expr, bool require_lvalue)
       /* Verify if the reference array element types are compatible.  */
       if (TREE_CODE (expr) == ARRAY_REF
 	  && !useless_type_conversion_p (TREE_TYPE (expr),
-					 TREE_TYPE (TREE_TYPE (op))))
+					 TREE_TYPE (TREE_TYPE (op)))
+          && !L_IPO_COMP_MODE)
 	{
 	  error ("type mismatch in array reference");
 	  debug_generic_stmt (TREE_TYPE (expr));
@@ -3086,7 +3126,8 @@ verify_gimple_call (gimple stmt)
 	 returning java.lang.Object.
 	 For now simply allow arbitrary pointer type conversions.  */
       && !(POINTER_TYPE_P (TREE_TYPE (gimple_call_lhs (stmt)))
-	   && POINTER_TYPE_P (TREE_TYPE (fntype))))
+	   && POINTER_TYPE_P (TREE_TYPE (fntype)))
+      && !L_IPO_COMP_MODE)
     {
       error ("invalid conversion in gimple call");
       debug_generic_stmt (TREE_TYPE (gimple_call_lhs (stmt)));
@@ -3688,7 +3729,9 @@ verify_gimple_assign_single (gimple stmt)
   tree rhs1_type = TREE_TYPE (rhs1);
   bool res = false;
 
-  if (!useless_type_conversion_p (lhs_type, rhs1_type))
+  if (!useless_type_conversion_p (lhs_type, rhs1_type)
+      /* Relax for LIPO. TODO add structural or name check.  */
+      && !L_IPO_COMP_MODE)
     {
       error ("non-trivial conversion at assignment");
       debug_generic_expr (lhs_type);
@@ -3866,7 +3909,8 @@ verify_gimple_return (gimple stmt)
 	  && DECL_BY_REFERENCE (SSA_NAME_VAR (op))))
     op = TREE_TYPE (op);
 
-  if (!useless_type_conversion_p (restype, TREE_TYPE (op)))
+  if (!useless_type_conversion_p (restype, TREE_TYPE (op))
+      && !L_IPO_COMP_MODE)
     {
       error ("invalid conversion in return statement");
       debug_generic_stmt (restype);
@@ -4536,7 +4580,13 @@ gimple_verify_flow_info (void)
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	continue;
 
-      err |= verify_eh_edges (stmt);
+      /* FIXME: there does seem to be an overassertion in eh
+         edge verification -- triggered by -fdyn-ipa: after eh
+         cleanup, there might not be an direct edge from a BB
+         to the parent try block's catch region, but the catch
+         region is still reachable.  */ 
+      if (!flag_dyn_ipa)
+        err |= verify_eh_edges (stmt);
 
       if (is_ctrl_stmt (stmt))
 	{
@@ -7545,4 +7595,3 @@ struct gimple_opt_pass pass_warn_unused_result =
     0,					/* todo_flags_finish */
   }
 };
-

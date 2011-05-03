@@ -622,6 +622,11 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 {
   enum unwind_info_type ui_except;
 
+  /* If -gmlt was specified, make sure debug level is at least 1.  */
+  if (opts->x_generate_debug_line_table
+      && opts->x_debug_info_level < DINFO_LEVEL_TERSE)
+    opts->x_debug_info_level = DINFO_LEVEL_TERSE;
+
   if (opts->x_dump_base_name && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name))
     {
       /* First try to make OPTS->X_DUMP_BASE_NAME relative to the
@@ -1413,6 +1418,15 @@ common_handle_option (struct gcc_options *opts,
       opts->x_warn_frame_larger_than = value != -1;
       break;
 
+    case OPT_Wshadow:
+      warn_shadow_local = value;
+      warn_shadow_compatible_local = value;
+      break;
+
+    case OPT_Wshadow_local:
+      warn_shadow_compatible_local = value;
+      break;
+
     case OPT_Wstrict_aliasing:
       set_Wstrict_aliasing (opts, value);
       break;
@@ -1531,8 +1545,6 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_unroll_loops = value;
       if (!opts_set->x_flag_peel_loops)
 	opts->x_flag_peel_loops = value;
-      if (!opts_set->x_flag_tracer)
-	opts->x_flag_tracer = value;
       if (!opts_set->x_flag_value_profile_transformations)
 	opts->x_flag_value_profile_transformations = value;
       if (!opts_set->x_flag_inline_functions)
@@ -1665,6 +1677,16 @@ common_handle_option (struct gcc_options *opts,
 		       loc);
       break;
 
+    case OPT_gmlt:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "", opts, opts_set,
+		       loc);
+      /* Clear the debug level to NONE so that a subsequent bare -g will
+	 set it to NORMAL (level 2).  If no subsequent option sets the
+	 level explicitly, we will set it to TERSE in finish_options().  */
+      opts->x_debug_info_level = DINFO_LEVEL_NONE;
+      opts->x_generate_debug_line_table = true;
+      break;
+
     case OPT_gvms:
       set_debug_level (VMS_DEBUG, false, arg, opts, opts_set, loc);
       break;
@@ -1694,6 +1716,11 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fuse_linker_plugin:
       /* No-op. Used by the driver and passed to us because it starts with f.*/
+      break;
+
+    case OPT_Wuninitialized:
+      /* Also turn on maybe uninitialized warning.  */
+      warn_maybe_uninitialized = value;
       break;
 
     default:
@@ -1872,6 +1899,9 @@ set_debug_level (enum debug_info_type type, int extended, const char *arg,
       else
 	opts->x_debug_info_level = (enum debug_info_levels) argval;
     }
+
+  opts->x_generate_debug_line_table = (opts->x_debug_info_level
+				       >= DINFO_LEVEL_NORMAL);
 }
 
 /* Arrange to dump core on error for diagnostic context DC.  (The
@@ -1974,6 +2004,9 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
       control_warning_option (option_index, (int) kind, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set, dc);
+      if (option_index == OPT_Wuninitialized)
+        enable_warning_as_error ("maybe-uninitialized", value, lang_mask,
+	                         handlers, opts, opts_set, loc, dc);
     }
   free (new_option);
 }

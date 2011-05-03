@@ -1,3 +1,407 @@
+2011-05-02  Sriraman Tallam  <tmsriram@google.com>
+
+	Revert :
+
+	2011-05-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* c-family/c-common.c	(revision 173122) (handle_version_selector_attribute): New function.
+	(c_common_attribute_table): New attribute "version_selector".
+	* tree-pass.h	(revision 173122) (pass_tree_convert_builtin_dispatch): New pass.
+	(pass_ipa_multiversion_dispatch): New pass.
+	* testsuite/gcc.dg/mversn7.c	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn4.c	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn4.h	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn4a.c	(revision 0): New test case.
+	* testsuite/gcc.dg/torture/mversn1.c	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn2.c	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn6.c	(revision 0): New test case.
+	* testsuite/gcc.dg/mversn3.c	(revision 0): New test case.
+	* testsuite/g++.dg/mversn8.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn10a.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn14a.C	(revision 0): New test case.
+	* testsuite/g++.dg/tree-prof/mversn13.C	(revision 0): New test case.
+	* testsuite/g++.dg/tree-prof/mversn15.C	(revision 0): New test case.
+	* testsuite/g++.dg/tree-prof/mversn15a.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn9.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn10.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn12.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn14.C	(revision 0): New test case.
+	* testsuite/g++.dg/mversn16.C	(revision 0): New test case.
+	* testsuite/g++.dg/torture/mversn11.C	(revision 0): New test case.
+	* testsuite/g++.dg/torture/mversn5.C	(revision 0): New test case.
+	* testsuite/g++.dg/torture/mversn5.h	(revision 0): New test case.
+	* testsuite/g++.dg/torture/mversn5a.C	(revision 0): New test case.
+	* builtin-types.def	(revision 173122) (BT_PTR_FN_INT): New pointer type.
+	(BT_FN_INT_PTR_FN_INT_PTR_PTR_VAR): New function type for __builtin_dispatch.
+	* builtins.def	(revision 173122) (BUILT_IN_DISPATCH): New builtin to
+	support multi-version calls.
+	* mversn-dispatch.c	(revision 0): New file.
+	* timevar.def	(revision 173122) (TV_MVERSN_DISPATCH): New time var.
+	* common.opt	(revision 173122) (fclone-hot-version-paths): New flag.
+	* Makefile.in	(revision 173122) (mversn-dispatch.o): New rule.
+	* passes.c	(revision 173122) (init_optimization_passes): Add the new
+	multi-version and dispatch passes to the pass list.
+	* params.def	(revision 173122) (PARAM_NUMBER_OF_MVERSN_CLONES): Define.
+	(PARAM_MVERSN_CLONE_CGRAPH_DEPTH): Define.
+	* doc/invoke.texi	(revision 173122) (mversn-clone-depth): Document.
+	(num-mversn-clones): Document.
+	(fclone-hot-version-paths): Document.
+
+2011-05-02  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/integration rev 173255.
+
+2011-05-01  David Li  <davidxl@google.com>
+
+	* l-ipo.c (clear_module_scope_bindings): Clear name binding for
+	assembler name.
+	(pop_module_scope): Clear name bindings for the last module.
+	(lipo_cmp_type): Handle template arg type.
+
+2011-04-30  Guozhi Wei  <carrot@google.com>
+
+	PR target/43129
+	* hooks.c (hook_rtx_void_null): New function.
+	* hooks.h (hook_rtx_void_null): New prototype.
+	* target.def (got_access): New hook vector declaration.
+	* tree-pass.h (pass_simplify_got): New pass.
+	* timevar.def (TV_SIMPLIFY_GOT): New TV id.
+	* simplify-got.c: New source file.
+	* Makefile.in (simplify-got.o): Add a new file.
+	* passes.c (init_optimization_passes): Add a new pass.
+	* config/arm/arm.c (arm_output_addr_const_extra): Output GOT_PREL
+	relocation.
+	(arm_get_pic_reg): New function.
+	(arm_clear_pic_reg): New function.
+	(arm_can_simplify_got_access): New function.
+	(arm_loaded_global_var): New function.
+	(arm_load_global_address): New function.
+	* config/arm/arm.md (UNSPEC_GOT_PREL_SYM): New UNSPEC symbol.
+
+2011-04-29  Cary Coutant  <ccoutant@google.com>
+
+	* common.opt (generate_debug_line_table): New global var.
+	(gmlt): New option
+	* dwarf2out.c (GENERATE_MINIMUM_LINE_TABLE): New macro.
+	(add_pubname_string): Test for -gmlt.
+	(add_pubname): Likewise.
+	(add_src_coords_attributes): Likewise.
+	(decls_for_scope): Likewise.
+	(dwarf2out_source_line): Likewise.
+	(dwarf2out_finish): Likewise.
+	* opts.c (finish_options): Force debug info to at least level 1
+	if -gmlt specified.
+	(common_handle_option): Add OPT_gmlt.
+	(set_debug_level): Set generate_debug_line_table flag.
+	* tree-ssa-live.c (remove_unused_scope_block_p): Test for -gmlt.
+
+	* doc/invoke.texi (-gmlt): New options
+
+2011-04-29  Cary Coutant  <ccoutant@google.com>
+
+	* basic-block.h (struct basic_block_def): Remove discriminator field.
+	* cfghooks.c (split_block): Remove discriminator field.
+	* cfglayout.c (insn_discriminator): New function.
+	* final.c (discriminator): Remove.
+	(override_discriminator): New file-scope variable.
+	(final_start_function): Remove tracking of discriminator by basic
+	block.
+	(final_scan_insn): Track discriminator by instruction.
+	(notice_source_line): Check for discriminator override. Get
+	discriminator from instruction.
+	* gimple-pretty-print.c (dump_gimple_stmt): Print discriminator.
+	(dump_bb_header): Don't print discriminator.
+	* input.c: Include vecprim.h.
+	(discriminator_location_locations): New variable.
+	(discriminator_location_discriminators): New variable.
+	(min_discriminator_location): New variable.
+	(expand_location): Use map_discriminator_location.
+	(location_with_discriminator): New function.
+	(has_discriminator): New function.
+	(map_discriminator_location): New function.
+	(get_discriminator_from_locus): New function.
+	* input.h (location_with_discriminator): New function.
+	(has_discriminator): New function.
+	(map_discriminator_location): New function.
+	(get_discriminator_from_locus): New function.
+	* print-rtl.c (print_rtx): Print discriminator.
+	* rtl.h (insn_discriminator): New function.
+	* tree-cfg.c: Include input.h.
+	(assign_discriminator): Assign discriminators to instructions rather
+	than to the basic block.
+	* tree-pretty-print.c (dump_location): Print discriminator.
+
+2011-04-28  Sharad Singhai  <singhai@google.com>
+
+	* params.def: Add new parameters to control peeling.
+	* tree-ssa-loop-ivcanon.c (try_unroll_loop_completely): Use
+	different peeling parameters when profile feedback is available.
+	* loop-unroll.c (decide_peel_once_rolling): Ditto.
+	(decide_peel_completely): Ditto.
+	* doc/invoke.texi: Document new peeling parameters.
+
+2011-04-28  Sharad Singhai  <singhai@google.com>
+
+	Google Ref 40087
+
+	* opts.c (common_handle_option): Disable -ftracer for profile use.
+	* doc/invoke.texi: Update doc that -ftracer is no longer
+	enabled for FDO.
+
+2011-04-28  Xinliang David Li  <davidxl@google.com>
+
+	* final.c (profile_function): Use FUNC_LABEL_ID.
+	* dwarf2out.c (dwarf2out_vms_end_prologue): Ditto.
+	(dwarf2out_vms_begin_epilogue): Ditto.
+	(dwarf2out_vms_debug_main_pointer): Ditto.
+	* cgraphunit.c (cgraph_finalize_compilation_unit):
+	Remove eq type alias set computation.
+	* tree-profile.c (gimple_gen_ic_func_topn_profiler): Do not skip any functions.
+	(tree_profiling): Add type alias merging.
+	* l-ipo.c (restore_post_parsing_states): Use max funcdef_no.
+	(pop_module_scope): Use max funcdef_no.
+	* gcov-dump.c (tag_function): Fix a bug in function read.
+
+2011-04-27  Xinliang David Li  <davidxl@google.com>
+
+	* value-prof.c (init_node_map): Disable for lipo mode.
+	(del_node_map): Disable for lipo mode.
+
+2011-04-27  Le-Chun Wu  <lcwu@google.com>
+
+	Google ref 42718.
+
+	* doc/extend.texi (Wnonnull): Add documentation for C++.
+	* doc/invoke.texi (Wnonnull): Add documentation for C++.
+
+2011-04-27  Le-Chun Wu  <lcwu@google.com>
+
+	* opts.c (common_handle_option): Do not enable Wshadow-local
+	nor Wshadow-compatible-local if Wshadow is disabled.
+
+2011-04-27  Le-Chun Wu  <lcwu@google.com>
+
+	Google ref 39127.
+
+	* c-decl.c (warn_if_shadowing): Use the warning code corresponding
+	to the given -Wshadow- variant.
+	* common.opt (Wshadow-local): New option.
+	(Wshadow-compatible-local): New option.
+	* invoke.texi: Document Wshadow-local and Wshadow-compatible-local.
+	* opts.c (common_handle_option): Handle OPT_Wshadow and
+	OPT_Wshadow_local.
+
+2011-04-27  Silvius Rus  <silvius.rus@gmail.com>
+
+	Google ref 39984.
+
+	* doc/invoke.texi (fno-strict-enum-precision): Document.
+	* gimplify.c (gimplify_switch_expr): If
+	-fno-strict-enum-precision is given, do not consider enum
+	types.
+	* tree-vrp.c (stmt_interesting_for_vrp): If
+	-fno-strict-enum-precision is given, do not look at enum
+	types.
+
+2011-04-26  Xinliang David Li  <davidxl@google.com>
+
+	* tree-ssa-uninit.c (warn_uninitialized_phi): Pass
+	 warning code.
+	* opts.c (common_handle_option): Ditto.
+	* common.opt:  New option.
+	* tree-ssa.c (warn_uninit): Add one more parameter.
+	(warn_uninitialized_var): Pass warning code.
+	* tree-flow.h: Interface change.
+
+2011-04-26  Xinliang David Li  <davidxl@google.com>
+
+	* toplev.c (process_options): Enable -Werror=coverage-mismatch
+	by default when -Wno-error is not specified.
+	* opts-global.c (decode_options): Remove call to
+	control_warning_options.
+
+2011-04-26  Xinliang David Li  <davidxl@google.com>
+
+	* cgraph.h: Remove pid.
+	* cgraph.c: Remove pid.
+	* value-prof.c (init_node_map): New function.
+	(del_node_map): New function.
+	(find_func_by_funcdef_no): New function.
+	(gimple_ic_transform): Call new function.
+	* cgraphunit.c (cgraph_finalize_function): Remove pid.
+	* function.c (get_last_funcdef_no): New function.
+	* function.h (get_last_funcdef_no): New function.
+	* tree-profile.c (gimple_gen_ic_func_profiler): Pass funcdef_no
+	to libgcov function.
+	(tree-profiling): Call node map init and delete function.
+
+2011-04-26  Le-Chun Wu  <lcwu@google.com>
+
+	* common.opt: New option.
+	* doc/invoke.texi: Documentation for new options.
+	* fold-const.c (operand_equal_p): Allow operands without typres to
+	compare.
+	(fold_unary_loc_1): Renamed from fold_unary_loc.
+	(fold_unary_loc): New wrapper function.
+	(fold_binary_loc_1): Renamed from fold_binary_loc.
+	(fold_binary_loc): New wrapper function.
+	(fold_ternary_loc_1): Renamed from fold_ternary_loc.
+	(fold_ternary_loc): New wrapper function.
+	* tree.h (struct tree_base): New flag for folded expr.
+	(enum operand_equal_flag): New flags.
+
+2011-04-25  David Li  <davidxl@google.com>
+
+	* cgraphbuild.c (rebuild_cgraph_edges): Create edges based
+	using resolved nodes in LIPO mode after ipa_tree_profiling.
+	* dyn-ipa.c:  New file.
+	* dbgcnt.def: New debug counters.
+	* cgraph.c (cgraph_mark_reachable_node): Handle aux module nodes.
+	(cgraph_clone_node): New field initialization.
+	(cgraph_create_virtual_clone): New field initialization.
+	* value-prof.c (dump_histogram_value): New hist kind.
+	(check_counter): New function.
+	(gimple_value_profile_transformations): New ic kind.
+	(gimple_ic_transform): Changed interface.
+	(gimple_indirect_call_to_profile): New vpt kind.
+	(gimple_find_values_to_profile): New vpt kind.
+	* cgraphunit.c (cgraph_finalize_function): Handle LIPO mode.
+	(verify_edge_count_and_frequency): Ditto.
+	(verify_cgraph_node): Ditto.
+	(cgraph_finalize_compilation_unit): Ditto.
+	(cgraph_mark_functions_to_output): Ditto.
+	(cgraph_expand_function): Ditto.
+	(cgraph_output_in_order): Ditto.
+	(cgraph_optimize): Ditto.
+	(cgraph_copy_node_for_versioning): Ditto.
+	(cgraph_materialize_clone): Ditto.
+	(cgraph_redirect_edge_call_stmt_to_callee): Ditto.
+	* gcov-io.c (gcov_read_summary): Ditto.
+	* tree-ssa-alias.c (same_type_for_tbaa): Ditto.
+	(refs_may_alias_p_1): Ditto.
+	(walk_aliased_vdefs): Ditto.
+	* ipa-inline.c (cgraph_mark_inline_edge): Ditto.
+	(cgraph_recursive_inlining_p): Ditto.
+	(cgraph_edge_badness): Ditto.
+	(update_caller_keys): Ditto.
+	(cgraph_decide_recursive_inlining): Ditto.
+	(cgraph_decide_inlining_of_small_function): Ditto.
+	(cgraph_decide_inlining): Ditto.
+	(cgraph_decide_inlining_incrementally): Ditto.
+	(estimate_function_body_sizes): Ditto.
+	* dwarf2out.c (dwarf2out_do_cfi_startproc): Ditto.
+	(dwarf2out_begin_prologue): Ditto.
+	(dwarf2out_end_epilogue): Ditto.
+	(dw_loc_list): Ditto.
+	(gen_subprogram_die): Ditto.
+	(dwarf2out_source_line): Ditto.
+	* c-decl.c (bind): Ditto.
+	(pop_scope): Ditto. Ditto.
+	(push_file_scope): Ditto.
+	(pop_file_scope): Ditto.
+	(finish_decl): Ditto.
+	(c_write_global_declarations): Ditto.
+	* langhooks.c (lhd_do_nothing_f): Ditto.
+	(lhd_do_nothing_t_t_return_null_tree): Ditto.
+	(lhd_return_null_tree_v): Ditto.
+	(lhd_builtin_function): Ditto.
+	* function.c (pop_cfun): Ditto.
+	(allocate_struct_function): Ditto.
+	* profile.c (instrument_values): Ditto.
+	(is_edge_inconsistent): Ditto.
+	* ipa.c (process_references): Ditto.
+	(cgraph_remove_unreachable_nodes): Ditto.
+	(function_and_variable_visibility):
+	* c-typeck.c (tagged_types_tu_compatible_p): Ditto.
+	* gimplify.c (gimplify_addr_expr): Ditto.
+	* except.c (sjlj_emit_function_enter): Ditto.
+	(output_one_function_exception_table): Ditto.
+	* coverage.c (get_gcov_type): Ditto.
+	(htab_counts_entry_del): Ditto.
+	(read_counts_file): Ditto.
+	(get_coverage_counts): Ditto.
+	(coverage_checksum_string): Ditto.
+	(coverage_begin_output): Ditto.
+	(coverage_end_function): Ditto.
+	(build_fn_info_type): Ditto.
+	(build_fn_info_value): Ditto.
+	(build_ctr_info_value): Ditto.
+	(build_gcov_info): Ditto.
+	(create_coverage): Ditto.
+	(coverage_finish): Ditto.
+	* tree-sra.c (convert_callers): Ditto.
+	(modify_function): Ditto.
+	(ipa_early_sra): Ditto.
+	* varasm.c (notice_global_symbol): Ditto.
+	(assemble_external): Ditto.
+	(mark_decl_referenced): Ditto.
+	(find_decl_and_mark_needed): Ditto.
+	(finish_aliases_1): Ditto.
+	(assemble_alias): Ditto.
+	* tree-ssa.c (useless_type_conversion_p): Ditto.
+	* tree-inline.c (copy_bb): Ditto.
+	(copy_edges_for_bb): Ditto.
+	(initialize_cfun): Ditto.
+	(copy_cfg_body): Ditto.
+	(tree_inlinable_function_p): Ditto.
+	(optimize_inline_calls): Ditto.
+	(copy_tree_r): Ditto.
+	* tree-profile.c (init_ic_make_global_vars): Ditto.
+	(gimple_init_edge_profiler): Ditto.
+	(gimple_gen_ic_profiler): Ditto.
+	(gimple_gen_ic_func_profiler): Ditto.
+	(tree_profiling): Ditto.
+	* opts-global.c (lang_handle_option): Ditto.
+	(add_input_filename): Ditto.
+	(read_cmdline_options): Ditto.
+	* l-ipo.c: Ditto.
+	* libgcov.c (gcov_version): Ditto.
+	(gcov_exit): Ditto.
+	(__gcov_init): Ditto.
+	(__gcov_flush): Ditto.
+	(__gcov_merge_ior): Ditto.
+	(__gcov_one_value_profiler_body): Ditto.
+	(__gcov_indirect_call_profiler): Ditto.
+	* l-ipo.h: Ditto.
+	* tree-cfg.c: (verify_types_in_gimple_reference): Ditto.
+	(verify_gimple_call): Ditto.
+	(verify_gimple_assign_single): Ditto.
+	(verify_gimple_return): Ditto.
+	(gimple_verify_flow_info): Ditto.
+	* passes.c: (rest_of_decl_compilation): Ditto.
+	(init_optimization_passes): Ditto.
+	(pass_init_dump_file): Ditto.
+	* varpool.c (varpool_node): Ditto.
+	(debug_varpool): Ditto.
+	(varpool_node_for_asm): Ditto.
+	(varpool_enqueue_needed_node): Ditto.
+	* stmt.c (expand_asm_operands): Ditto.
+	* gcov-dump.c (main): Ditto.
+	(print_usage): Ditto.
+	(print_prefix): Ditto.
+	(dump_file): Ditto.
+	(tag_summary): Ditto.
+
+2011-04-19  Guozhi Wei  <carrot@google.com>
+
+	* config/arm/arm.c (SHORTEST_FAR_JUMP_LENGTH): New constant.
+	(estimate_function_length): New function.
+	(thumb_far_jump_used_p): No far jump is needed in short function.
+
+2011-04-20  Easwaran Raman  <eraman@google.com>
+
+	* gcc.c (asm_options): Pass --save-temps to assembler.
+
+2011-04-19  Martin Thuresson  <martint@google.com>
+
+	* libgcov.c (gcov_version): Do not access filename in struct
+	generated from different version.
+
+2011-04-19  Xinliang David Li  <davidxl@google.com>
+
+	* ipa-inline.c (cgraph_decide_recursive_inlining): Fix
+	div by zero error with insane profile.
+
 2011-04-17  Diego Novillo  <dnovillo@google.com>
 
 	Merge from google/integration rev 172609.

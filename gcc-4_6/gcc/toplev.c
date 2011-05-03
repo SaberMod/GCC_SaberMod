@@ -218,6 +218,15 @@ const char *dump_file_name;
 
 static const char *src_pwd;
 
+/* Primary module's id (non-zero). If no module-info was read in, this will
+   be zero.  */
+
+unsigned primary_module_id = 0;
+
+/* Current module id.  */
+
+unsigned current_module_id = 0;
+
 /* Initialize src_pwd with the given string, and return true.  If it
    was already initialized, return false.  As a special case, it may
    be called with a NULL argument to test whether src_pwd has NOT been
@@ -569,7 +578,7 @@ compile_file (void)
 
   init_cgraph ();
   init_final (main_input_filename);
-  coverage_init (aux_base_name);
+  coverage_init (aux_base_name, main_input_filename);
   statistics_init ();
   invoke_plugin_callbacks (PLUGIN_START_UNIT, NULL);
 
@@ -598,6 +607,9 @@ compile_file (void)
      analysis.  */
   if (warn_thread_safety)
     clean_up_threadsafe_analysis ();
+
+  if (flag_dyn_ipa)
+    coverage_finish ();
 
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();
@@ -1605,6 +1617,15 @@ process_options (void)
 	       "for correctness");
       flag_omit_frame_pointer = 0;
     }
+
+  /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
+     have not been set.  */
+  if (!global_options_set.x_warnings_are_errors
+      && warn_coverage_mismatch
+      && (global_dc->classify_diagnostic[OPT_Wcoverage_mismatch] ==
+          DK_UNSPECIFIED))
+    diagnostic_classify_diagnostic (global_dc, OPT_Wcoverage_mismatch,
+                                    DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
   optimization_default_node = build_optimization_node ();

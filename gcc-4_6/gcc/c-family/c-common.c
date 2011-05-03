@@ -1941,7 +1941,7 @@ conversion_warning (tree type, tree expr)
   tree expr_type = TREE_TYPE (expr);
   location_t loc = EXPR_LOC_OR_HERE (expr);
 
-  if (!warn_conversion && !warn_sign_conversion)
+  if (!warn_conversion && !warn_sign_conversion && !warn_real_conversion)
     return;
 
   /* If any operand is artificial, then this expression was generated
@@ -1984,7 +1984,9 @@ conversion_warning (tree type, tree expr)
           && TREE_CODE (type) == INTEGER_TYPE)
         {
           if (!real_isinteger (TREE_REAL_CST_PTR (expr), TYPE_MODE (expr_type)))
-            give_warning = true;
+            warning (OPT_Wreal_conversion,
+                     "conversion to %qT from %qT may alter its value",
+                     type, expr_type);
         }
       /* Warn for an integer constant that does not fit into integer type.  */
       else if (TREE_CODE (expr_type) == INTEGER_TYPE
@@ -2053,7 +2055,9 @@ conversion_warning (tree type, tree expr)
       /* Warn for real types converted to integer types.  */
       if (TREE_CODE (expr_type) == REAL_TYPE
           && TREE_CODE (type) == INTEGER_TYPE)
-        give_warning = true;
+        warning (OPT_Wreal_conversion,
+                 "conversion to %qT from %qT may alter its value",
+                 type, expr_type);
 
       else if (TREE_CODE (expr_type) == INTEGER_TYPE
                && TREE_CODE (type) == INTEGER_TYPE)
@@ -7453,7 +7457,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* Argument list specified.  Verify that each argument number references
      a pointer argument.  */
-  for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
+  for (attr_arg_num = 1; args; args = TREE_CHAIN (args), attr_arg_num++)
     {
       tree argument;
       unsigned HOST_WIDE_INT arg_num = 0, ck_num;
@@ -7492,6 +7496,11 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 	      *no_add_attrs = true;
 	      return NULL_TREE;
 	    }
+
+          if (TREE_CODE (type) == METHOD_TYPE && arg_num == 1)
+            warning (OPT_Wattributes,
+                     "nonnull argument references 'this' pointer (argument %lu, operand %lu)",
+                     (unsigned long) attr_arg_num, (unsigned long) arg_num);
 	}
     }
 
@@ -10516,6 +10525,23 @@ keyword_is_decl_specifier (enum rid keyword)
     default:
       return false;
     }
+}
+
+/* Check for and warn about self-assignment or self-initialization.
+   LHS and RHS are the tree nodes for the left-hand side and right-hand side
+   of the assignment or initialization we are checking.
+   LOCATION is the source location for RHS.  */
+
+void
+check_for_self_assign (location_t location, tree lhs, tree rhs)
+{
+  /* Only emit a warning if RHS is not a folded expression so that we don't
+     warn on something like x = x / 1.  */
+  if (!EXPR_FOLDED (rhs)
+      && operand_equal_p (lhs, rhs,
+                          OEP_PURE_SAME | OEP_ALLOW_NULL | OEP_ALLOW_NO_TYPE))
+    warning_at (location, OPT_Wself_assign, G_("%qE is assigned to itself"),
+                lhs);
 }
 
 #include "gt-c-family-c-common.h"
