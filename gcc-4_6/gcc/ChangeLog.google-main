@@ -1,3 +1,193 @@
+2011-05-09  Silvius Rus <silvius.rus@gmail.com>
+
+	* value-prof.c (interesting_stringop_to_profile_p): Disbale
+	stringop profiling if reuse distance profiling is turned on.
+	* value-prof.h (gimple_gen_reusedist, optimize_reusedist): Declare.
+	* gcov-io.h: (GCOV_COUNTER_REUSE_DIST): New counter.
+	(GCOV_COUNTERS): Update.
+	(GCOV_COUNTER_NAMES): Add reuse_distance.
+	(GCOV_MERGE_FUNCTIONS): Add __gcov_merge_reusedist.
+	(__gcov_merge_reusedist): New declaration.
+	* profile.c (branch_prob): Enable reuse distance profiling and
+	optimization.
+	* common.opt (fprofile-reusedist, foptimize-locality): New options.
+	* tree-profile.c: Include params.h.
+	(stringop_subst, reusedist_t): New structures.
+	(stringop_subst_t, reusedist_t): New typedefs.
+	(stringop_decl): New global array.
+	(RD_NUM_COUNTERS): New constant.
+	(get_stringop_subst, reusedist_is_interesting_call)
+	(reusedist_instr_func_name, reusedist_get_instr_decl)
+	(reusedist_make_instr_call, reusedist_from_counters)
+	(gimple_gen_reusedist, nt_op_name, reusedist_get_size_threshold)
+	(reusedist_get_distance_large_threshold)
+	(reusedist_get_distance_small_threshold)
+	(reusedist_get_count_threshold, reusedist_nt_is_worth_it)
+	(reusedist_get_nt_decl, maybe_issue_profile_use_note)
+	(reusedist_maybe_replace_with_nt_version, optimize_reusedist): New
+	functions.
+	(gate_tree_profile_ipa): Return true if reuse distance instrumentation
+	or use is turned on.
+	* Makefile.in (LIBGCOV): Add _gcov_merge_reusedist.
+	* libgcov.c (__gcov_weighted_mean2, __gcov_merge_reusedist): New
+	functions.
+	* params.def (PARAM_REUSEDIST_MEAN_DIST_LARGE_THRESH)
+	(PARAM_REUSEDIST_MEAN_DIST_SMALL_THRESH)
+	(PARAM_REUSEDIST_CALL_COUNT_THRESH, PARAM_REUSEDIST_MEMCPY_SIZE_THRESH)
+	(PARAM_REUSEDIST_MEMSET_SIZE_THRESH): New params.
+
+2011-05-06  Lawrence Crowl  <crowl@google.com>
+
+	* timevar.h (timevar_cond_start): Remove unused POP_TIMEVAR_AND_RETURN.
+	(timevar_cond_start): New for starting a timer only when it is not
+	already running.
+	(timevar_cond_stop): New for stopping a timer when it was not already
+	running.
+
+	* timevar.c (timevar_stop): Enable start/stop timers to start again.
+	(timevar_cond_start): New as above.
+	(timevar_cond_stop): New as above.
+
+	* timevar.def: Add start/stop timers for compiler phases,
+	TV_PHASE_SETUP, TV_PHASE_PARSING, TV_PHASE_DEFERRED, TV_PHASE_CGRAPH,
+	TV_PHASE_DBGINFO (C), TV_PHASE_CHECK_DBGINFO (C++), TV_PHASE_GENERATE,
+	and TV_PHASE_FINALIZE.
+	Change push/pop timer TV_PARSE to TV_PARSE_GLOBAL.
+	Add push/pop timers TV_PARSE_STRUCT, TV_PARSE_ENUM, TV_PARSE_FUNC,
+	TV_PARSE_INLINE, TV_PARSE_INMETH, TV_TEMPLATE_INST.
+	Change push/pop timer TV_NAME_LOOKUP into a start/stop timer.
+	Make unused TV_OVERLOAD into a start/stop timer.
+
+	Remove unused timers TV_OVERLOAD, TV_TEMPLATE_INSTANTIATION.
+	Mark the strings for TV_NAME_LOOKUP and TV_OVERLOAD with a "|"
+	to indicate that they are start/stop timers.
+
+	* toplev.c (compile_file): Change TV_PARSE to TV_PARSE_GLOBAL.
+	Add start/stop timers TV_PHASE_PARSING and TV_PHASE_GENERATE.
+	Move initialization to do_compile.
+	(do_compile): Add initialization from above.
+	Add start/stop timers TV_PHASE_SETUP and TV_PHASE_FINALIZE.
+
+	* c-decl.c (c_write_global_declarations): Add start/stop of
+	TV_PHASE_DEFERRED, TV_PHASE_CGRAPH, TV_PHASE_DBGINFO.
+
+	* c-parser.c (c_parser_declaration_or_fndef): Push/pop TV_PARSE_FUNC
+	or TV_PARSE_INLINE, as appropriate.
+	(c_parser_enum_specifier): Push/pop TV_PARSE_ENUM.
+	(c_parser_struct_or_union_specifier): Push/pop TV_PARSE_STRUCT.
+
+2011-05-06  Easwaran Raman  <eraman@google.com>
+
+	Backport r172837:
+
+	* cfgexpand.c (stack_var): Remove OFFSET...
+	(add_stack_var): ...and its reference here...
+	(expand_stack_vars): ...and here.
+	(stack_var_cmp): Sort by descending order of size.
+	(partition_stack_vars): Change heuristic.
+	(union_stack_vars): Fix to reflect changes in
+	partition_stack_vars.
+	(dump_stack_var_partition): Add newline after each partition.
+	
+2011-05-06  Easwaran Raman  <eraman@google.com>
+
+	Backport r172788:
+
+	* cfgexpand.c (add_alias_set_conflicts): Add conflicts with a variable
+	containing union type only with -fstrict-aliasing.
+
+2011-05-04  David Li  <davidxl@google.com>
+
+	* coverage.c (incompatible_cl_args): Better handling
+	of option mismatch.
+
+
+2011-05-04  Sriraman Tallam  <tmsriram@google.com>
+
+	* tree-pass.h (pass_tree_convert_builtin_dispatch): New pass.
+	(pass_ipa_multiversion_dispatch): New pass.
+	* builtin-types.def (BT_PTR_FN_INT): New pointer type.
+	(BT_FN_INT_PTR_FN_INT_PTR_PTR_VAR): New function type for __builtin_dispatch.
+	* builtins.def (BUILT_IN_DISPATCH): New builtin to
+	support multi-version calls.
+	* mversn-dispatch.c: New file.
+	* timevar.def (TV_MVERSN_DISPATCH): New time var.
+	* common.opt (fclone-hot-version-paths): New flag.
+	* Makefile.in (mversn-dispatch.o): New rule.
+	* passes.c (init_optimization_passes): Add the new
+	multi-version and dispatch passes to the pass list.
+	* params.def (PARAM_NUMBER_OF_MVERSN_CLONES): Define.
+	(PARAM_MVERSN_CLONE_CGRAPH_DEPTH): Define.
+	* doc/invoke.texi (mversn-clone-depth): Document.
+	(num-mversn-clones): Document.
+	(fclone-hot-version-paths): Document.
+
+2011-05-04  Silvius Rus  <silvius.rus@gmail.com>
+
+	* doc/invoke.texi: Document -fprofile-generate-sampling option.
+	* gcov-io.h (__gcov_set_sampling_rate): New declaration.
+	* profile.c (branch_prob): Add support for sampled profile
+	collection.
+	* profile.h (add_sampling_to_edge_counters): New declaration.
+	* common.opt (fprofile-generate-sampling): New option.
+	* tree-profile: Include header files; define EDGE_COUNTER_STMT_COUNT.
+	(instrumentation_to_be_sampled, gcov_sample_counter_decl)
+	(gcov_sampling_rate_decl): New globals.
+	(insert_if_then, add_sampling_wrapper, is_instrumentation_to_be_sampled)
+	(add_sampling_to_edge_counters, gimple_init_instrumentation_sampling):
+	New functions.
+	(gimple_init_edge_profiler): Call gimple_init_instrumentation_sampling.
+	(gimple_gen_edge_profiler): Mark start of instrumentation block.
+	* libgcov.c (__gcov_sampling_rate): New extern declaration.
+	(gcov_sampling_rate_initialized, __gcov_sample_counter): New globals.
+	(gcov_exit): Set sampling rate; minor coding style fixes.
+	(__gcov_init): Initialize __gcov_sampling_rate.
+	* params.def (PARAM_PROFILE_GENERATE_SAMPLING_RATE): New parameter.
+
+2011-05-03  David Li  <davidxl@google.com>
+
+	Backport r173177:
+
+	* tree-profile.c (init_ic_make_global_vars): Set
+	tls attribute on ic vars.
+	* coverage.c (coverage_end_function): Initialize
+	function_list with zero.
+
+2011-05-03  David Li  <davidxl@google.com>
+
+	Backport r173147:
+
+	* tree.c (crc32_string): Use crc32_byte.
+	(crc32_byte): New function.
+	* tree.h (crc32_byte): New function.
+	* gcov.c (read_graph_file): Handle new cfg_cksum.
+	(read_count_file): Ditto.
+	* profile.c (instrument_values): Ditto.
+	(get_exec_counts): Ditto.
+	(read_profile_edge_counts): Ditto.
+	(compute_branch_probabilities): Ditto.
+	(compute_value_histograms): Ditto.
+	(branch_prob): Ditto.
+	(end_branch_prob): Ditto.
+	* coverage.c (read_counts_file): Ditto.
+	(get_coverage_counts): Ditto.
+	(tree_coverage_counter_addr): Ditto.
+	(coverage_checksum_string): Ditto.
+	(coverage_begin_output): Ditto.
+	(coverage_end_function): Ditto.
+	(build_fn_info_type): Ditto.
+	(build_fn_info_value): Ditto.
+	* libgcov.c (gcov_exit): Ditto.
+	* gcov-dump.c (tag_function): Ditto.
+	(compute_checksum): Remove.
+
+2011-05-03  David Li  <davidxl@google.com>
+
+	* l-ipo.c (promote_static_var_or_func): Keep initializer
+	for externalized aux module variables.
+	(process_module_scope_static_var): Keep initializer
+	for promoted static vars to allow ccp.
+
 2011-05-02  Sriraman Tallam  <tmsriram@google.com>
 
 	Revert :
@@ -50,6 +240,11 @@
 2011-05-02  Diego Novillo  <dnovillo@google.com>
 
 	Merge from google/integration rev 173255.
+
+2011-05-02  Chris Demetriou  <cgd@google.com>
+
+	* config/i386/i386.c (get_pc_thunk_name): Make 32-bit
+	thunk prefix be __x86.get_pc_thunk.
 
 2011-05-01  David Li  <davidxl@google.com>
 

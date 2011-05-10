@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "timevar.h"
 #include "cpplib.h"
 #include "tree.h"
 #include "cp-tree.h"
@@ -12420,6 +12421,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
   cp_decl_specifier_seq decl_specifiers;
   tree extension_specifier = NULL_TREE;
 
+  timevar_push (TV_TEMPLATE_INST);
+
   /* Look for an (optional) storage-class-specifier or
      function-specifier.  */
   if (cp_parser_allow_gnu_extensions_p (parser))
@@ -12503,6 +12506,8 @@ cp_parser_explicit_instantiation (cp_parser* parser)
   end_explicit_instantiation ();
 
   cp_parser_consume_semicolon_at_end_of_statement (parser);
+
+  timevar_pop (TV_TEMPLATE_INST);
 }
 
 /* Parse an explicit-specialization.
@@ -13703,6 +13708,7 @@ cp_parser_enum_specifier (cp_parser* parser)
      elaborated-type-specifier.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
+      timevar_push (TV_PARSE_ENUM);
       if (nested_name_specifier)
 	{
 	  /* The following catches invalid code such as:
@@ -13764,6 +13770,7 @@ cp_parser_enum_specifier (cp_parser* parser)
 
       if (scoped_enum_p)
 	finish_scope ();
+      timevar_pop (TV_PARSE_ENUM);
     }
   else
     {
@@ -17020,7 +17027,7 @@ cp_parser_class_name (cp_parser *parser,
    Returns the TREE_TYPE representing the class.  */
 
 static tree
-cp_parser_class_specifier (cp_parser* parser)
+cp_parser_class_specifier_1 (cp_parser* parser)
 {
   tree type;
   tree attributes = NULL_TREE;
@@ -17286,6 +17293,16 @@ cp_parser_class_specifier (cp_parser* parser)
     = saved_in_unbraced_linkage_specification_p;
 
   return type;
+}
+
+static tree
+cp_parser_class_specifier (cp_parser* parser)
+{
+  tree ret;
+  timevar_push (TV_PARSE_STRUCT);
+  ret = cp_parser_class_specifier_1 (parser);
+  timevar_pop (TV_PARSE_STRUCT);
+  return ret;
 }
 
 /* Parse a class-head.
@@ -20129,8 +20146,17 @@ cp_parser_function_definition_from_specifiers_and_declarator
 	pop_nested_class ();
     }
   else
-    fn = cp_parser_function_definition_after_declarator (parser,
+    {
+      timevar_id_t tv;
+      if (DECL_DECLARED_INLINE_P (current_function_decl))
+        tv = TV_PARSE_INLINE;
+      else
+        tv = TV_PARSE_FUNC;
+      timevar_push (tv);
+      fn = cp_parser_function_definition_after_declarator (parser,
 							 /*inline_p=*/false);
+      timevar_pop (tv);
+    }
 
   return fn;
 }
@@ -20746,6 +20772,7 @@ cp_parser_enclosed_template_argument_list (cp_parser* parser)
 static void
 cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 {
+  timevar_push (TV_PARSE_INMETH);
   /* If this member is a template, get the underlying
      FUNCTION_DECL.  */
   if (DECL_FUNCTION_TEMPLATE_P (member_function))
@@ -20812,6 +20839,7 @@ cp_parser_late_parsing_for_member (cp_parser* parser, tree member_function)
 
   /* Restore the queue.  */
   pop_unparsed_function_queues (parser);
+  timevar_pop (TV_PARSE_INMETH);
 }
 
 /* If DECL contains any default args, remember it on the unparsed

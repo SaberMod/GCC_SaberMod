@@ -103,7 +103,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    	note: unit function-graph*
 	unit: header int32:checksum string:source
 	function-graph: announce_function basic_blocks {arcs | lines}*
-	announce_function: header int32:ident int32:checksum
+	announce_function: header int32:ident
+		int32:lineno_checksum int32:cfg_checksum
 		string:name string:source int32:lineno
 	basic_block: header int32:flags*
 	arcs: header int32:block_no arc*
@@ -132,7 +133,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
         data: {unit function-data* summary:object summary:program*}*
 	unit: header int32:checksum
         function-data:	announce_function arc_counts
-	announce_function: header int32:ident int32:checksum
+	announce_function: header int32:ident
+		int32:lineno_checksum int32:cfg_checksum
 	arc_counts: header int64:count*
 	summary: int32:checksum {count-summary}GCOV_COUNTERS
 	count-summary:	int32:num int32:runs int64:sum
@@ -330,7 +332,7 @@ typedef HOST_WIDEST_INT gcov_type;
    file marker -- it is not required to be present.  */
 
 #define GCOV_TAG_FUNCTION	 ((gcov_unsigned_t)0x01000000)
-#define GCOV_TAG_FUNCTION_LENGTH (2)
+#define GCOV_TAG_FUNCTION_LENGTH (3)
 #define GCOV_TAG_BLOCKS		 ((gcov_unsigned_t)0x01410000)
 #define GCOV_TAG_BLOCKS_LENGTH(NUM) (NUM)
 #define GCOV_TAG_BLOCKS_NUM(LENGTH) (LENGTH)
@@ -372,7 +374,8 @@ typedef HOST_WIDEST_INT gcov_type;
 #define GCOV_LAST_VALUE_COUNTER 8  /* The last of counters used for value
 				      profiling.  */
 #define GCOV_COUNTER_DIRECT_CALL 9 /* Direct call counts.  */
-#define GCOV_COUNTERS		10
+#define GCOV_COUNTER_REUSE_DIST 10 /* Reuse distance measure.  */
+#define GCOV_COUNTERS		11
 
 /* Number of counters used for value profiling.  */
 #define GCOV_N_VALUE_COUNTERS \
@@ -381,7 +384,8 @@ typedef HOST_WIDEST_INT gcov_type;
   /* A list of human readable names of the counters */
 #define GCOV_COUNTER_NAMES	{"arcs", "interval", "pow2", "single", \
 				 "delta","indirect_call", "average", "ior", \
-				 "indirect_call_topn", "direct_call"}
+				 "indirect_call_topn", "direct_call", \
+                                 "reuse_distance"}
 
 #define GCOV_ICALL_TOPN_VAL  2   /* Track two hottest callees */
 #define GCOV_ICALL_TOPN_NCOUNTS  9 /* The number of counter entries per icall callsite */
@@ -395,7 +399,8 @@ typedef HOST_WIDEST_INT gcov_type;
 				 "__gcov_merge_add",	\
 				 "__gcov_merge_ior",	\
 				 "__gcov_merge_icall_topn",\
-                                 "__gcov_merge_dc" }
+                                 "__gcov_merge_dc",\
+                                 "__gcov_merge_reusedist" }
 
 /* Convert a counter index to a tag.  */
 #define GCOV_TAG_FOR_COUNTER(COUNT)				\
@@ -495,10 +500,12 @@ extern unsigned primary_module_id;
    idiom. The number of counters is determined from the counter_mask
    in gcov_info.  We hold an array of function info, so have to
    explicitly calculate the correct array stride.  */
+
 struct gcov_fn_info
 {
   gcov_unsigned_t ident;	/* unique ident of function */
-  gcov_unsigned_t checksum;	/* function checksum */
+  gcov_unsigned_t lineno_checksum;	/* function lineo_checksum */
+  gcov_unsigned_t cfg_checksum;	/* function cfg checksum */
   gcov_unsigned_t dc_offset;    /* direct call offset */
   unsigned n_ctrs[0];		/* instrumented counters */
 };
@@ -544,6 +551,9 @@ struct dyn_imp_mod
 /* Register a new object file module.  */
 extern void __gcov_init (struct gcov_info *) ATTRIBUTE_HIDDEN;
 
+/* Set sampling rate to RATE.  */
+extern void __gcov_set_sampling_rate (unsigned int rate);
+
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
@@ -562,6 +572,9 @@ extern void __gcov_merge_ior (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
 /* The merge function used for direct call counters.  */
 extern void __gcov_merge_dc (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
+
+/* The merge function used for reuse distance counters.  */
+extern void __gcov_merge_reusedist (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
 /* The merge function used for indirect call counters.  */
 extern void __gcov_merge_icall_topn (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;

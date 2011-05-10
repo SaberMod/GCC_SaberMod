@@ -83,6 +83,20 @@ void __gcov_merge_delta (gcov_type *counters  __attribute__ ((unused)),
 #ifdef L_gcov
 #include "gcov-io.c"
 
+/* Sampling rate.  */
+extern gcov_unsigned_t __gcov_sampling_rate;
+static int gcov_sampling_rate_initialized = 0;
+
+/* Set sampling rate to RATE.  */
+
+void __gcov_set_sampling_rate (unsigned int rate)
+{
+  __gcov_sampling_rate = rate;
+}
+
+/* Per thread sample counter.  */
+THREAD_PREFIX gcov_unsigned_t __gcov_sample_counter = 0;
+
 /* Chain of per-object gcov structures.  */
 extern struct gcov_info *__gcov_list;
 
@@ -365,7 +379,7 @@ gcov_exit (void)
 
   {
     /* Check if the level of dirs to strip off specified. */
-    char *tmp = getenv("GCOV_PREFIX_STRIP");
+    char *tmp = getenv ("GCOV_PREFIX_STRIP");
     if (tmp)
       {
 	gcov_prefix_strip = atoi (tmp);
@@ -375,7 +389,7 @@ gcov_exit (void)
       }
   }
   /* Get file name relocation prefix.  Non-absolute values are ignored. */
-  gcov_prefix = getenv("GCOV_PREFIX");
+  gcov_prefix = getenv ("GCOV_PREFIX");
   if (gcov_prefix)
     {
       prefix_length = strlen(gcov_prefix);
@@ -507,9 +521,10 @@ gcov_exit (void)
 
 	      /* Check function.  */
 	      if (tag != GCOV_TAG_FUNCTION
-		  || length != GCOV_TAG_FUNCTION_LENGTH
+	          || length != GCOV_TAG_FUNCTION_LENGTH
 		  || gcov_read_unsigned () != fi_ptr->ident
-		  || gcov_read_unsigned () != fi_ptr->checksum)
+		  || gcov_read_unsigned () != fi_ptr->lineno_checksum
+		  || gcov_read_unsigned () != fi_ptr->cfg_checksum)
 		{
 		read_mismatch:;
 		  fprintf (stderr, "profiling:%s:Merge mismatch for %s\n",
@@ -652,7 +667,8 @@ gcov_exit (void)
 	  /* Announce function.  */
 	  gcov_write_tag_length (GCOV_TAG_FUNCTION, GCOV_TAG_FUNCTION_LENGTH);
 	  gcov_write_unsigned (fi_ptr->ident);
-	  gcov_write_unsigned (fi_ptr->checksum);
+	  gcov_write_unsigned (fi_ptr->lineno_checksum);
+	  gcov_write_unsigned (fi_ptr->cfg_checksum);
 
 	  c_ix = 0;
 	  for (t_ix = 0; t_ix < GCOV_COUNTERS; t_ix++)
@@ -757,6 +773,17 @@ gcov_exit (void)
 void
 __gcov_init (struct gcov_info *info)
 {
+  if (!gcov_sampling_rate_initialized)
+    {
+      const char* env_value_str = getenv ("GCOV_SAMPLING_RATE");
+      if (env_value_str)
+        {
+          int env_value_int = atoi(env_value_str);
+          if (env_value_int >= 1)
+            __gcov_sampling_rate = env_value_int;
+        }
+      gcov_sampling_rate_initialized = 1;
+    }
   if (!info->version)
     return;
   if (gcov_version (info, info->version, 0))
@@ -850,6 +877,59 @@ __gcov_merge_ior (gcov_type *counters, unsigned n_counters)
   for (; n_counters; counters++, n_counters--)
     *counters |= gcov_read_counter ();
 }
+#endif
+
+#ifdef L_gcov_merge_reusedist
+
+/* Return the weighted arithmetic mean of two values.  */
+
+static gcov_type
+__gcov_weighted_mean2 (gcov_type value1, gcov_type count1,
+                       gcov_type value2, gcov_type count2)
+{
+  if (count1 + count2 == 0)
+    return 0;
+  else
+    return (value1 * count1 + value2 * count2) / (count1 + count2);
+}
+
+void
+__gcov_merge_reusedist (gcov_type *counters, unsigned n_counters)
+{
+  unsigned i;
+
+  gcc_assert(!(n_counters % 4));
+
+  for (i = 0; i < n_counters; i += 4)
+    {
+      /* Decode current values.  */
+      gcov_type c_mean_dist = counters[i];
+      gcov_type c_mean_size = counters[i+1];
+      gcov_type c_count = counters[i+2];
+      gcov_type c_dist_x_size = counters[i+3];
+
+      /* Read and decode values in file.  */
+      gcov_type f_mean_dist = __gcov_read_counter ();
+      gcov_type f_mean_size = __gcov_read_counter ();
+      gcov_type f_count = __gcov_read_counter ();
+      gcov_type f_dist_x_size = __gcov_read_counter ();
+
+      /* Compute aggregates.  */
+      gcov_type a_mean_dist = __gcov_weighted_mean2 (
+          f_mean_dist, f_count, c_mean_dist, c_count);
+      gcov_type a_mean_size = __gcov_weighted_mean2 (
+          f_mean_size, f_count, c_mean_size, c_count);
+      gcov_type a_count = f_count + c_count;
+      gcov_type a_dist_x_size = f_dist_x_size + c_dist_x_size;
+
+      /* Encode back into counters.  */
+      counters[i] = a_mean_dist;
+      counters[i+1] = a_mean_size;
+      counters[i+2] = a_count;
+      counters[i+3] = a_dist_x_size;
+    }
+}
+
 #endif
 
 #ifdef L_gcov_merge_dc
