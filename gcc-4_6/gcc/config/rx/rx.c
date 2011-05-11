@@ -2595,7 +2595,7 @@ rx_trampoline_init (rtx tramp, tree fndecl, rtx chain)
 static int
 rx_memory_move_cost (enum machine_mode mode, reg_class_t regclass, bool in)
 {
-  return 2 + memory_move_secondary_cost (mode, regclass, in);
+  return (in ? 2:0) + memory_move_secondary_cost (mode, regclass, in);
 }
 
 /* Convert a CC_MODE to the set of flags that it represents.  */
@@ -2752,8 +2752,15 @@ rx_match_ccmode (rtx insn, enum machine_mode cc_mode)
 
 
 int
-rx_align_for_label (void)
+rx_align_for_label (rtx lab, int uses_threshold)
 {
+  /* This is a simple heuristic to guess when an alignment would not be useful
+     because the delay due to the inserted NOPs would be greater than the delay
+     due to the misaligned branch.  If uses_threshold is zero then the alignment
+     is always useful.  */
+  if (LABEL_NUSES (lab) < uses_threshold)
+    return 0;
+
   return optimize_size ? 1 : 3;
 }
 

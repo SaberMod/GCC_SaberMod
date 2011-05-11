@@ -1,3 +1,44 @@
+2011-05-09  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48574
+	* class.c (fixed_type_or_null): Use type_dependent_p_push to test
+	if the instance has a dependent initializer.
+
+2011-05-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48909
+	* semantics.c (cxx_eval_conditional_expression): Check
+	integer_zerop instead.
+	(potential_constant_expression_1): Likewise.
+
+	PR c++/48911
+	* semantics.c (cxx_eval_array_reference): Handle implicit
+	initializers.
+
+	PR c++/48446
+	* decl.c (stabilize_save_expr_r, stabilize_vla_size): New.
+	(grokdeclarator): Use stabilize_vla_size.
+	* init.c (get_temp_regvar): No longer static.
+	* cp-tree.h: Declare it.
+
+	PR c++/48089
+	* semantics.c (potential_constant_expression_1): Don't allow *this
+	in a constructor.
+	(register_constexpr_fundef): Use potential_rvalue_constant_expression.
+
+2011-05-06  Dodji Seketeli  <dodji@redhat.com>
+
+    	PR c++/48838
+    	* cp-tree.h (non_static_member_function_p): Declare new function.
+    	* tree.c (non_static_member_function_p): Define it.
+    	* semantics.c (finish_call_expr): Use it.
+
+2011-05-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48749
+	* class.c (resolves_to_fixed_type_p): Don't look closely
+	in templates.
+
 2011-04-28  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/48656
