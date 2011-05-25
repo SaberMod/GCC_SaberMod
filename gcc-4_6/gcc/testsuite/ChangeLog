@@ -1,3 +1,153 @@
+2011-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/49123
+	* gcc.c-torture/execute/pr49123.c: New test.
+
+	PR debug/49032
+	* gcc.dg/debug/pr49032.c: New test.
+
+	PR c/49120
+	* gcc.dg/pr49120.c: New test.
+
+	PR middle-end/48973
+	* gcc.c-torture/execute/pr48973-1.c: New test.
+	* gcc.c-torture/execute/pr48973-2.c: New test.
+
+2011-05-22  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/sfinae23.C: New.
+	* g++.dg/cpp0x/sfinae8.C: Correct.
+
+2011-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49029
+	* gcc.c-torture/compile/pr49029.c: New test.
+
+2011-05-20  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/constexpr-static7.C: New.
+
+	* g++.dg/cpp0x/enum13.C: New.
+
+	* g++.dg/cpp0x/defaulted26.C: New.
+
+	* g++.dg/cpp0x/noexcept02.C: Fix.
+	* g++.dg/cpp0x/noexcept03.C: Fix.
+	* g++.dg/cpp0x/noexcept08.C: Fix.
+	* g++.dg/cpp0x/noexcept10.C: New.
+
+	* g++.dg/cpp0x/constexpr-friend.C: New.
+	* g++.dg/cpp0x/constexpr-incomplete1.C: New.
+	* g++.dg/cpp0x/constexpr-incomplete2.C: New.
+	* g++.dg/cpp0x/constexpr-incomplete3.C: New.
+	* g++.dg/cpp0x/constexpr-memfn1.C: Adjust.
+
+	* g++.dg/cpp0x/sfinae22.C: New.
+
+	* g++.dg/cpp0x/variadic108.C: New.
+
+	* g++.dg/init/new32.C: New.
+
+2011-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49079
+	* gcc.dg/torture/pr49079.c: New testcase.
+
+2011-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49073
+	* gcc.c-torture/execute/pr49073.c: New test.
+
+2011-05-19  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.c-torture/execute/960321-1.x: Remove.
+
+2011-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/49002
+	* gcc.target/i386/pr49002-1.c: New test.
+	* gcc.target/i386/pr49002-2.c: Likewise.
+
+2011-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49039
+	* gcc.c-torture/execute/pr49039.c: New test.
+	* gcc.dg/tree-ssa/pr49039.c: New test.
+	* g++.dg/torture/pr49039.C: New test.
+
+2011-05-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-04-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48207
+	* g++.dg/lto/pr48207_0.C: New testcase.
+
+	2011-04-21  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48703
+	* g++.dg/lto/pr48207-2_0.C: New testcase.
+	* g++.dg/lto/pr48207-3_0.C: Likewise.
+
+2011-05-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48172
+	* gcc.dg/vect/pr48172.c: New testcase.
+
+2011-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49000
+	* gcc.dg/pr49000.c: New test.
+
+2011-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48975
+	* gcc.dg/pr48975.c: New test.
+
+2011-05-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48822
+	* gcc.dg/torture/pr48822.c: New testcase.
+
+2011-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48967
+	* g++.dg/opt/pr48967.C: New test.
+
+2011-05-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/48889
+	* gfortran.dg/generic_24.f90: New.
+
+2011-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48159
+	* gcc.dg/pr48159-1.c: New test.
+	* gcc.dg/pr48159-2.c: New test.
+
+2011-05-11  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/48859
+	* g++.dg/init/pr48859.C: New.
+
+2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48857
+	* gcc.target/powerpc/pr48857.c: New file, make sure V2DI arguments
+	are passed and returned in vector registers.
+
 2011-05-10  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline

@@ -1688,6 +1688,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  error ("deleted definition of %qD", newdecl);
 	  error ("after previous declaration %q+D", olddecl);
 	}
+      DECL_DELETED_FN (newdecl) |= DECL_DELETED_FN (olddecl);
     }
 
   /* Deal with C++: must preserve virtual function table size.  */
@@ -2839,6 +2840,8 @@ check_omp_return (void)
 	error ("invalid exit from OpenMP structured block");
 	return false;
       }
+    else if (b->kind == sk_function_parms)
+      break;
   return true;
 }
 
@@ -5842,13 +5845,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	}
     }
 
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      /* For members, defer until finalize_literal_type_property.  */
-      && (!DECL_CLASS_SCOPE_P (decl)
-	  || !TYPE_BEING_DEFINED (DECL_CONTEXT (decl))))
-    validate_constexpr_fundecl (decl);
-
-  else if (!ensure_literal_type_for_constexpr_object (decl))
+  if (!ensure_literal_type_for_constexpr_object (decl))
     DECL_DECLARED_CONSTEXPR_P (decl) = 0;
 
   if (init && TREE_CODE (decl) == FUNCTION_DECL)
@@ -13456,10 +13453,15 @@ void
 revert_static_member_fn (tree decl)
 {
   tree stype = static_fn_type (decl);
+  cp_cv_quals quals = type_memfn_quals (stype);
 
-  if (type_memfn_quals (stype) != TYPE_UNQUALIFIED)
+  if (quals != TYPE_UNQUALIFIED)
     {
-      error ("static member function %q#D declared with type qualifiers", decl);
+      if (quals == TYPE_QUAL_CONST && DECL_DECLARED_CONSTEXPR_P (decl))
+	/* The const was implicit, don't complain.  */;
+      else
+	error ("static member function %q#D declared with type qualifiers",
+	       decl);
       stype = apply_memfn_quals (stype, TYPE_UNQUALIFIED);
     }
   TREE_TYPE (decl) = stype;

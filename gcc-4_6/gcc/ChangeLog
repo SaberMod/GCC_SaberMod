@@ -1,3 +1,276 @@
+2011-05-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/49123
+	* fold-const.c (constant_boolean_node): If type is non-NULL,
+	use build_int_cst_type instead of build_int_cst.
+
+	PR debug/49032
+	* dbxout.c: Include cgraph.h.
+	(dbxout_expand_expr): If a VAR_DECL is TREE_STATIC, not written
+	and without value expr, return NULL if no varpool node exists for
+	it or if it is not needed.
+	* Makefile.in (dbxout.o): Depend on $(CGRAPH_H).
+
+	PR c/49120
+	* c-decl.c (start_decl): Convert expr to void_type_node.
+
+	PR middle-end/48973
+	* expr.c (expand_expr_real_2) <case LT_EXPR>: If do_store_flag
+	failed and the comparison has a single bit signed type, use
+	constm1_rtx instead of const1_rtx for true value.
+	(do_store_flag): If ops->type is single bit signed type, disable
+	signel bit test optimization and pass -1 instead of 1 as last
+	parameter to emit_store_flag_force.
+
+2011-05-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.gcc (sparc-*-elf*): Add sparc/t-crtin.
+	(sparc-*-rtems*): Likewise.
+	(sparc64-*-elf*): Likewise.
+	(sparc64-*-rtems*): Likewise.
+	(sparc*-*-solaris2*): Likewise.  Remove crti.o crtn.o extra parts.
+	* config/sparc/t-crtin: New file.
+	* config/sparc/t-sol2 (crti.o): Delete rule.
+	(crtn.o): Likewise.
+	* config/sparc/t-linux64 (EXTRA_MULTILIB_PARTS): Delete.
+	* config/sparc/t-sol2-64 (EXTRA_MULTILIB_PARTS): Likewise.
+	* config/sparc/sp64-elf.h (STARTFILE_SPEC): Tidy and add crti.o.
+	(ENDFILE_SPEC): Add crtn.o.
+
+2011-05-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/49104
+	* config/i386/cpuid.h (bit_MMXEXT): New define.
+
+2011-05-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49029
+	* expmed.c (extract_fixed_bit_field): Test whether target can be used
+	only after deciding which mode to use.
+
+2011-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (setjmp): Handle PIC mode and use the hard
+	frame pointer.
+
+2011-05-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (eligible_for_return_delay): Do not return
+	false if there are call-saved registers here...
+	(sparc_can_use_return_insn_p): ...but here instead.
+	(save_or_restore_regs): Fix thinko.
+	(sparc_expand_prologue): Use current_function_is_leaf.
+	(sparc_frame_pointer_required): Likewise.
+
+2011-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/49086
+	* gimple-fold.c (and_comparisons_1, or_comparisons_1): Return NULL
+	for PHI args that are SSA_NAME_IS_DEFAULT_DEF.
+
+2011-05-20  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49079
+	* tree-dfa.c (get_ref_base_and_extent): Handle view-converting
+	MEM_REFs correctly for the trailing array access detection.
+	Special case constants the same way as decls for overall size
+	constraining.
+
+2011-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49073
+	* gimple-fold.c (and_comparisons_1, or_comparisons_1): Return
+	NULL if PHI argument is SSA_NAME, whose def_stmt is dominated
+	by the PHI.
+	* tree-ssa-ifcombine.c (tree_ssa_ifcombine): Calculate dominators.
+
+2011-05-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (option_override_internal): Enable TARGET_CMOVE
+	when TARGET_RDRND is active.
+	(ix86_expand_builtin) <case IX86_BUILTIN_RDRAND{16,32,64}_STEP>:
+	Generate dummy SImode target register when target is NULL.
+
+2011-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-05-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/49002
+	* config/i386/sse.md (avx_<avxmodesuffixp><avxmodesuffix>_<avxmodesuffixp>):
+	Properly handle load cast.
+
+2011-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49039
+	* tree-vrp.c (extract_range_from_binary_expr): For
+	MIN_EXPR <~[a, b], ~[c, d]> and MAX_EXPR <~[a, b], ~[c, d]>
+	return ~[MAX_EXPR <a, c>, MIN_EXPR <b, d>].
+
+2011-05-18  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49018
+	* gimple.c (gimple_has_side_effects): Volatile asms have side-effects.
+	* tree-ssa-ifcombine.c (bb_no_side_effects_p): Use
+	gimple_has_side_effects.
+
+2011-05-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-04-19  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48207
+	* tree.c (free_lang_data): Do not reset the decl-assembler-name
+	langhook.
+
+	2011-04-21  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/48703
+	* tree.c (free_lang_data_in_decl): Do not zero TREE_TYPE of
+	DECL_NAME.
+
+2011-05-18  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48172
+	* tree-vect-loop-manip.c (vect_vfa_segment_size): Do not exclude
+	the number of iterations from the segment size calculation.
+	(vect_create_cond_for_alias_checks): Adjust.
+
+	2011-05-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48172
+	* tree-vect-loop-manip.c (vect_vfa_segment_size): Avoid
+	multiplying by number of iterations for equal step.
+	(vect_create_cond_for_alias_checks): Likewise.
+
+2011-05-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49000
+	* tree-ssa.c (execute_update_addresses_taken): Call
+	maybe_rewrite_mem_ref_base on debug stmt value.  If it couldn't
+	be rewritten and decl has been marked for renaming, reset
+	the debug stmt.
+
+2011-05-17  Nick Clifton  <nickc@redhat.com>
+
+	Import these patches from the mainline:
+
+	2011-05-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.c (rx_memory_move_cost): Include cost of register
+	moves.
+
+	* config/rx/rx.md: Add peephole to remove redundant extensions
+	after loads.
+	(bitset_in_memory): Use rx_restricted_mem_operand.
+	(bitinvert_in_memory): Likewise.
+	(bitclr_in_memory): Likewise.
+
+	2011-05-17  Kazuhio Inaoka  <kazuhiro.inaoka.ud@renesas.com>
+	    Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.md: Add peepholes to match a register move followed
+	by a comparison of the moved register.  Replace these with an
+	addition of zero that does both actions in one instruction.
+
+2011-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/48986
+	* config/i386/sync.md (sync_old_add<mode>): Relax operand 2
+	predicate to allow CONST_INT.
+
+2011-05-16  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/48677
+	* cppspec.c (lang_specific_driver): Set new_decoded_options[0]
+	from decoded_options[0], not from itself.
+
+2011-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movxf_internal): Disable CONST_DOUBLE
+	optimization for CM_MEDIUM and CM_LARGE code models.  Fix usage
+	of standard_80387_constant_p.
+	(*movxf_internal_nointeger): Ditto.
+	(*movdf_internal): Remove dead code-size optimization.
+	(*movdf_internal_rex64): Fix usage of standard_80387_constant_p.
+	(*movdf_internal_nointeger): Ditto.
+	(*movsf_internal): Ditto.
+	(floating point move splitters): Ditto.
+	* config/i386/constraints.md (G): Ditto.
+	* config/i386/i386.c (ix86_preferred_reload_class): Ditto.
+
+2011-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48975
+	* tree-if-conv.c (combine_blocks): Call free_bb_predicate
+	on all bbs here and free and clear ifc_bbs at the end.
+
+2011-05-12  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-02  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48822
+	* tree-ssa-sccvn.c (set_ssa_val_to): Never go up the lattice.
+	(process_scc): Indicate which iteration we start.
+
+2011-05-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48967
+	* var-tracking.c (use_narrower_mode_test) <case REG>: Return 1
+	if validate_subreg fails.
+
+2011-05-12  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (HAVE_PRE_DECREMENT): Fix typo.
+	* config/rx/rx.c (rx_is_legitimate_constant): Use gcc_unreachable
+	instead of abort.
+	(rx_align_for_label): Test label before extracting its number of
+	uses.
+	(rx_max_skip_for_label): Ignore debug insns.
+
+2011-05-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/48159
+	* tree-ssa.c (reset_debug_uses): New function.
+	* tree-flow.h (reset_debug_uses): New prototype.
+	* tree-data-ref.c (stmts_from_loop): Ignore debug stmts.
+	* tree-loop-distribution.c (generate_loops_for_partition): Call
+	reset_debug_uses on the stmts that will be removed.  Keep around
+	all debug stmts, don't count them as bits in partition bitmap.
+	(generate_builtin): Don't count debug stmts or labels as bits in
+	partition bitmap.
+
+2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-05-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/48857, 48495
+	* config/rs6000/rs6000.h (VSX_SCALAR_MODE): Delete.
+	(VSX_MODE): Ditto.
+	(VSX_MOVE_MODE): Ditto.
+	(ALTIVEC_OR_VSX_VECTOR_MODE): New macro, combine all Altivec and
+	VSX vector types.  Add V2DImode.
+	(HARD_REGNO_CALLER_SAVE_MODE): Use it instead of
+	ALTIVEC_VECTOR_MODE and VSX_VECTOR_MODE calls.
+	(MODES_TIEABLE_P): Ditto.
+
+	* config/rs6000/rs6000.c (rs6000_emit_move): Use
+	ALTIVEC_OR_VSX_MODE instead of ALTIVEC_VECTOR_MODE and
+	VSX_VECTOR_MODE.
+	(init_cumulative_args): Ditto.
+	(rs6000_function_arg_boundary): Ditto.
+	(rs6000_function_arg_advance_1): Ditto.
+	(rs6000_function_arg): Ditto.
+	(rs6000_function_ok_for_sibcall): Ditto.
+	(emit_frame_save): Ditto.
+	(rs6000_function_value): Ditto.
+	(rs6000_libcall_value): Ditto.
+
 2011-05-10  Nick Clifton  <nickc@redhat.com>
 
 	* config/rx/rx.c (rx_memory_move_cost): Reduce the cost for

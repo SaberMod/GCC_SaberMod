@@ -13364,7 +13364,8 @@ tsubst_copy_and_build (tree t,
                 ce->value = tsubst_pack_expansion (ce->value, args, complain,
                                                   in_decl);
 
-		if (ce->value == error_mark_node)
+		if (ce->value == error_mark_node
+		    || PACK_EXPANSION_P (ce->value))
 		  ;
 		else if (TREE_VEC_LENGTH (ce->value) == 1)
                   /* Just move the argument into place.  */
@@ -18391,6 +18392,16 @@ value_dependent_expression_p (tree expression)
 	 type-dependent.  */
       return type_dependent_expression_p (expression);
 
+    case CONSTRUCTOR:
+      {
+	unsigned ix;
+	tree val;
+	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (expression), ix, val)
+	  if (value_dependent_expression_p (val))
+	    return true;
+	return false;
+      }
+
     default:
       /* A constant expression is value-dependent if any subexpression is
 	 value-dependent.  */
@@ -18971,10 +18982,6 @@ build_non_dependent_expr (tree expr)
 {
   tree inner_expr;
 
-  /* Preserve null pointer constants so that the type of things like
-     "p == 0" where "p" is a pointer can be determined.  */
-  if (null_ptr_cst_p (expr))
-    return expr;
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */
   inner_expr = expr;

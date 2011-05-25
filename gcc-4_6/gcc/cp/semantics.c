@@ -3692,7 +3692,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
       if (need_default_ctor)
 	t = get_default_ctor (type);
       else
-	t = get_copy_ctor (type);
+	t = get_copy_ctor (type, tf_warning_or_error);
 
       if (t && !trivial_fn_p (t))
 	TREE_VEC_ELT (info, 0) = t;
@@ -3700,7 +3700,7 @@ cxx_omp_create_clause_info (tree c, tree type, bool need_default_ctor,
 
   if ((need_default_ctor || need_copy_ctor)
       && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
-    TREE_VEC_ELT (info, 1) = get_dtor (type);
+    TREE_VEC_ELT (info, 1) = get_dtor (type, tf_warning_or_error);
 
   if (need_copy_assignment)
     {
@@ -5352,7 +5352,7 @@ literal_type_p (tree t)
   if (SCALAR_TYPE_P (t))
     return true;
   if (CLASS_TYPE_P (t))
-    return CLASSTYPE_LITERAL_P (t);
+    return CLASSTYPE_LITERAL_P (complete_type (t));
   if (TREE_CODE (t) == ARRAY_TYPE)
     return literal_type_p (strip_array_types (t));
   return false;
@@ -5464,6 +5464,7 @@ is_valid_constexpr_fn (tree fun, bool complain)
 		   rettype, fun);
 	}
 
+      /* Check this again here for cxx_eval_call_expression.  */
       if (DECL_NONSTATIC_MEMBER_FUNCTION_P (fun)
 	  && !CLASSTYPE_LITERAL_P (DECL_CONTEXT (fun)))
 	{
@@ -5484,36 +5485,18 @@ is_valid_constexpr_fn (tree fun, bool complain)
 tree
 validate_constexpr_fundecl (tree fun)
 {
-  constexpr_fundef entry;
-  constexpr_fundef **slot;
-
   if (processing_template_decl || !DECL_DECLARED_CONSTEXPR_P (fun))
     return NULL;
   else if (DECL_CLONED_FUNCTION_P (fun))
     /* We already checked the original function.  */
     return fun;
 
-  if (!is_valid_constexpr_fn (fun, !DECL_TEMPLATE_INSTANTIATION (fun)))
+  if (!is_valid_constexpr_fn (fun, !DECL_TEMPLATE_INFO (fun)))
     {
       DECL_DECLARED_CONSTEXPR_P (fun) = false;
       return NULL;
     }
 
-  /* Create the constexpr function table if necessary.  */
-  if (constexpr_fundef_table == NULL)
-    constexpr_fundef_table = htab_create_ggc (101,
-                                              constexpr_fundef_hash,
-                                              constexpr_fundef_equal,
-                                              ggc_free);
-  entry.decl = fun;
-  entry.body = NULL;
-  slot = (constexpr_fundef **)
-    htab_find_slot (constexpr_fundef_table, &entry, INSERT);
-  if (*slot == NULL)
-    {
-      *slot = ggc_alloc_constexpr_fundef ();
-      **slot = entry;
-    }
   return fun;
 }
 
@@ -5704,8 +5687,8 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
 tree
 register_constexpr_fundef (tree fun, tree body)
 {
-  constexpr_fundef *fundef = retrieve_constexpr_fundef (fun);
-  gcc_assert (fundef != NULL && fundef->body == NULL);
+  constexpr_fundef entry;
+  constexpr_fundef **slot;
 
   if (DECL_CONSTRUCTOR_P (fun))
     body = build_constexpr_constructor_member_initializers
@@ -5732,11 +5715,26 @@ register_constexpr_fundef (tree fun, tree body)
   if (!potential_rvalue_constant_expression (body))
     {
       DECL_DECLARED_CONSTEXPR_P (fun) = false;
-      if (!DECL_TEMPLATE_INSTANTIATION (fun))
+      if (!DECL_TEMPLATE_INFO (fun))
 	require_potential_rvalue_constant_expression (body);
       return NULL;
     }
-  fundef->body = body;
+
+  /* Create the constexpr function table if necessary.  */
+  if (constexpr_fundef_table == NULL)
+    constexpr_fundef_table = htab_create_ggc (101,
+                                              constexpr_fundef_hash,
+                                              constexpr_fundef_equal,
+                                              ggc_free);
+  entry.decl = fun;
+  entry.body = body;
+  slot = (constexpr_fundef **)
+    htab_find_slot (constexpr_fundef_table, &entry, INSERT);
+
+  gcc_assert (*slot == NULL);
+  *slot = ggc_alloc_constexpr_fundef ();
+  **slot = entry;
+
   return fun;
 }
 
@@ -6061,7 +6059,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
       if (!allow_non_constant)
 	{
 	  error_at (loc, "%qD is not a constexpr function", fun);
-	  if (DECL_TEMPLATE_INSTANTIATION (fun)
+	  if (DECL_TEMPLATE_INFO (fun)
 	      && DECL_DECLARED_CONSTEXPR_P (DECL_TEMPLATE_RESULT
 					    (DECL_TI_TEMPLATE (fun))))
 	    is_valid_constexpr_fn (fun, true);
