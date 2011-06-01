@@ -1,3 +1,129 @@
+2011-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49223
+	* semantics.c (finish_omp_clauses): Call require_complete_type
+	even for copyin/copyprivate clauses.  Only call
+	cxx_omp_create_clause_info if inner_type is COMPLETE_TYPE_P.
+
+2011-05-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/47049
+	* semantics.c (maybe_add_lambda_conv_op): Fix COMDAT sharing.
+	* decl.c (start_preparsed_function): Don't call comdat_linkage for
+	a template.
+
+	PR c++/47277
+	* parser.c (cp_parser_unqualified_id): Don't check
+	constructor_name_p for enums.
+
+	PR c++/48284
+	* error.c (dump_expr) [COMPONENT_REF]: Use pp_cxx_dot
+	with INDIRECT_REF of REFERENCE_TYPE.
+
+	PR c++/48657
+	PR c++/49176
+	* decl.c (cp_finish_decl): Simplify template handling.
+
+2011-05-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48424
+	* decl.c (grokparms): Function parameter packs don't need to
+	go at the end.
+	* pt.c (type_unification_real): But they aren't deduced otherwise.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44994
+	PR c++/49156
+	* error.c (dump_template_bindings): Set processing_template_decl
+	for a partial instantiation.
+
+	PR c++/45401
+	* decl.c (grokdeclarator): Don't change type when adding rvalue ref
+	to another reference type.
+
+2011-05-26  Fabien Chêne  <fabien@gcc.gnu.org>
+	* init.c (diagnose_uninitialized_cst_or_ref_member_1): Use
+	permerror instead of error, adjust the error count.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44311
+	* decl.c (case_conversion): New.
+	(finish_case_label): Use it.
+
+	PR c++/45698
+	* pt.c (dependent_template_arg_p): See through ARGUMENT_PACK_SELECT.
+
+	PR c++/46005
+	* decl.c (grokdeclarator): Complain about auto typedef.
+
+	PR c++/46245
+	* decl.c (grokdeclarator): Complain later for auto parameter.
+	* pt.c (splice_late_return_type): Handle use in a template
+	type-parameter.
+
+	PR c++/46696
+	* typeck.c (cp_build_modify_expr): Check DECL_DEFAULTED_FN.
+
+	PR c++/47184
+	* parser.c (cp_parser_parameter_declaration): Recognize
+	list-initialization.
+	(cp_parser_direct_declarator): Check for the closing
+	paren before parsing definitely.
+
+	PR c++/48935
+	* parser.c (cp_parser_constructor_declarator_p): Don't check
+	constructor_name_p for enums.
+	(cp_parser_diagnose_invalid_type_name): Correct error message.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/45418
+	* init.c (perform_member_init): Handle list-initialization
+	of array of non-trivial class type.
+
+	PR c++/45080
+	* pt.c (instantiate_class_template_1): Call maybe_add_lambda_conv_op.
+	* semantics.c (lambda_function): Check COMPLETE_OR_OPEN_TYPE_P.
+
+	PR c++/48292
+	* pt.c (tsubst_decl) [PARM_DECL]: Handle partial instantiation of
+	function parameter pack.
+	(tsubst_pack_expansion): Likewise.
+
+2011-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49136
+	* semantics.c (cxx_eval_bit_field_ref): Handle the
+	case when BIT_FIELD_REF doesn't cover only a single field.
+
+2011-05-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49042
+	* pt.c (get_mostly_instantiated_function_type): Use
+	push_deferring_access_checks rather than set flag_access_control.
+
+	PR c++/48884
+	* pt.c (fn_type_unification): Disable access control during
+	substitution.
+
+	PR c++/49105
+	* typeck.c (build_const_cast_1): Handle rvalue references.
+
+	PR c++/47263
+	* decl.c (use_eh_spec_block): Do use an EH spec block for a
+	lambda op().
+
+	PR c++/47336
+	* error.c (dump_template_bindings): Suppress access control.
+
+	PR c++/47544
+	* pt.c (instantiate_decl): Handle =default.
+
+	PR c++/48617
+	* pt.c (invalid_nontype_parm_type_p): Allow DECLTYPE_TYPE.
+
 2011-05-22  Jason Merrill  <jason@redhat.com>
 
 	PR c++/48647

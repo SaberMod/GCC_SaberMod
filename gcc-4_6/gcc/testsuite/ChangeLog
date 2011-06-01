@@ -1,3 +1,162 @@
+2011-05-31  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/45786
+	* gfortran.dg/operator_7.f90:  New test case.
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48985
+	* gcc.dg/builtin-object-size-11.c: New testcase.
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48953
+	* gcc.dg/torture/pr48953.c: New testcase.
+
+2011-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49223
+	* g++.dg/gomp/pr49223-1.C: New test.
+	* g++.dg/gomp/pr49223-2.C: New test.
+
+2011-05-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49218
+	* gcc.c-torture/execute/pr49218.c: New testcase.
+
+2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/reg-var-1.c: New test.
+
+2011-05-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49217
+	* gcc.dg/torture/pr49217.c: New testcase.
+
+2011-05-27  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/lambda/lambda-template2.C: New.
+
+	* g++.dg/cpp0x/enum18.C: New.
+
+	* g++.dg/cpp0x/error6.C: New.
+
+2011-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49165
+	* g++.dg/eh/cond6.C: New test.
+
+2011-05-27  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/template/const5.C: New.
+
+2011-05-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/48955
+	* gfortran.dg/dependency_40.f90 : New test.
+
+2011-05-26  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/variadic111.C: New.
+	* g++.dg/cpp0x/variadic41.C: Adjust.
+
+2011-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49165
+	* g++.dg/eh/cond5.C: New test.
+
+	PR tree-optimization/49161
+	* gcc.c-torture/execute/pr49161.c: New test.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/error4.C: New.
+
+	* g++.dg/cpp0x/rv-restrict.C: New.
+
+2011-05-26  Fabien Chêne  <fabien@gcc.gnu.org>
+	* g++.dg/init/pr25811-2.C: New.
+	* g++.dg/init/pr25811-3.C: New.
+	* g++.dg/init/pr25811-4.C: New.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/enum15.C: New.
+	* g++.dg/cpp0x/constexpr-switch2.C: New.
+
+	* g++.dg/cpp0x/variadic110.C: New.
+
+	* g++.dg/cpp0x/auto9.C: Add typedef test.
+
+	* g++.dg/cpp0x/auto23.C: New.
+	* g++.dg/cpp0x/auto9.C: Adjust.
+
+	* g++.dg/cpp0x/defaulted29.C: New.
+
+	* g++.dg/cpp0x/initlist51.C: New.
+
+2011-05-25  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/arm/fp16-compile-none-1.c: Update expected error.
+	* g++.dg/abi/packed1.C: Suppress warning.
+	* g++.dg/warn/Wunused-parm-3.C: Likewise.
+	* g++.dg/template/stdarg1.C: Likewise.
+	* g++.dg/other/packed1.C: Remove arm from xfail list.
+
+2011-05-25  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/enum16.C: New.
+	* g++.dg/parse/error15.C: Adjust.
+
+	* g++.dg/cpp0x/initlist50.C: New.
+
+	* g++.dg/cpp0x/lambda/lambda-conv5.C: New.
+
+	* g++.dg/cpp0x/variadic109.C: New.
+
+2011-05-25  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Backport from mainline
+	2011-05-24  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR libobjc/48177
+	* objc.dg/pr48177.m: New testcase.
+
+2011-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49136
+	* g++.dg/cpp0x/constexpr-bitfield2.C: New test.
+	* g++.dg/cpp0x/constexpr-bitfield3.C: New test.
+
+2011-05-24  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/access01.C: New.
+
+	* g++.dg/template/access21.C: New.
+	* g++.dg/template/access22.C: New.
+
+	* g++.dg/cpp0x/rv-cast2.C: New.
+
+	* g++.dg/cpp0x/lambda/lambda-eh2.C: New.
+
+	* g++.dg/cpp0x/error3.C: New.
+
+	* g++.dg/cpp0x/defaulted27.C: New.
+
+	* g++.dg/cpp0x/decltype27.C: New.
+
+2011-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/49133
+	* g++.dg/other/pr49133.C: New test.
+
 2011-05-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR lto/49123

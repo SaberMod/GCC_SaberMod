@@ -1,3 +1,114 @@
+2011-05-19  Quentin Neill  <quentin.neill@amd.com>
+
+	* config/i386/sse.md (fma4_fmsubadd): Use <ssemodesuffix>.
+	(fma4_fmaddsub): Likewise
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-19  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48985
+	* tree-object-size.c (addr_object_size): If the pointed-to
+	variable is a decl use DECL_SIZE_UNIT instead of TYPE_SIZE_UNIT.
+
+2011-05-31  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-11  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48953
+	* tree-inline.c (remap_gimple_op_r): Also remap types of MEM_REFs.
+
+2011-05-30  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49218
+	* tree-vrp.c (adjust_range_with_scev): Properly check whether
+	overflow occured.
+
+2011-05-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/45263
+	* config/avr/libgcc.S (__do_global_ctors, __do_global_dtors):
+	Don't use r20 around calls of __tablejump_elpm__
+
+2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/43700
+	* config/mips/mips.c (mips_cfun_call_saved_reg_p): Handle global
+	registers.
+
+2011-05-29  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/43995
+	* config/mips/mips.c (mips_pic_call_symbol_from_set): Add a
+	recurse_p argument.  Only follow register copies if it is set,
+	and prevent mips_find_pic_call_symbol from recursing.
+	(mips_find_pic_call_symbol): Add a recurse_p argument.
+	Pass it to mips_pic_call_symbol_from_set.
+	(mips_annotate_pic_calls): Update accordingly.
+
+2011-05-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49217
+	* ipa-pure-const.c (propagate_pure_const): Fix typos.
+
+2011-05-26  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_register_move_cost): Make LR/CTR
+	moves expensive on Power7 also.
+
+2011-05-26  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/44643
+	* config/avr/avr.c (avr_insert_attributes): Leave TREE_READONLY
+	alone. Error if non-const data has attribute progmem.
+
+2011-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49165
+	* gimplify.c (shortcut_cond_r): Don't special case
+	COND_EXPRs if they have void type on one of their arms.
+
+	PR tree-optimization/49161
+	* tree-vrp.c (struct case_info): New type.
+	(compare_case_labels): Sort case_info structs instead of
+	trees, and not primarily by CASE_LABEL uids but by
+	label_for_block indexes.
+	(find_switch_asserts): Put case labels into struct case_info
+	array instead of TREE_VEC, adjust sorting, compare label_for_block
+	values instead of CASE_LABELs.
+
+2011-05-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49128
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix a typo.
+
+2011-05-18  Jan Hubicka  <jh@suse.cz>
+
+	PR tree-optimization/44897 
+	* ipa-inline.c (cgraph_decide_recursive_inlining): Do not divide
+	by zero for insane profiles.
+
+2011-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_option_override): If not set by the user,
+	force flag_ira_share_save_slots to 0.
+
+2011-05-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/49133
+	* config/i386/sse.md (sse2_loadhpd): Remove shufpd alternative.
+
+2011-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2011-05-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/49128
+	* config/i386/driver-i386.c (host_detect_local_cpu): Always
+	add -mno-XXX.  Handle FMA.
+
 2011-05-23  Jakub Jelinek  <jakub@redhat.com>
 
 	PR lto/49123

@@ -528,6 +528,8 @@ perform_member_init (tree member, tree init)
 	    {
 	      gcc_assert (TREE_CHAIN (init) == NULL_TREE);
 	      init = TREE_VALUE (init);
+	      if (BRACE_ENCLOSED_INITIALIZER_P (init))
+		init = digest_init (type, init);
 	    }
 	  if (init == NULL_TREE
 	      || same_type_ignoring_top_level_qualifiers_p (type,
@@ -1897,6 +1899,7 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 {
   tree field;
   int error_count = 0;
+  bool permissive = global_dc->permissive;
 
   if (type_has_user_provided_constructor (type))
     return 0;
@@ -1915,32 +1918,45 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 
       if (TREE_CODE (field_type) == REFERENCE_TYPE)
 	{
-	  ++ error_count;
 	  if (complain)
 	    {
+	      if (!permissive || !using_new)
+		++ error_count;
+
 	      if (using_new)
-		error ("uninitialized reference member in %q#T "
-		       "using %<new%> without new-initializer", origin);
+		  permerror (input_location,
+			     "uninitialized reference member in %q#T "
+			     "using %<new%> without new-initializer", origin);
 	      else
-		error ("uninitialized reference member in %q#T", origin);
+		  error ("uninitialized reference member in %q#T", origin);
+
 	      inform (DECL_SOURCE_LOCATION (field),
 		      "%qD should be initialized", field);
 	    }
+	  else
+	    ++ error_count;
 	}
 
       if (CP_TYPE_CONST_P (field_type))
 	{
-	  ++ error_count;
 	  if (complain)
 	    {
+	      if (!permissive)
+		++ error_count;
+
 	      if (using_new)
-		error ("uninitialized const member in %q#T "
-		       "using %<new%> without new-initializer", origin);
-	      else
-		error ("uninitialized const member in %q#T", origin);
+		permerror (input_location,
+			   "uninitialized const member in %q#T "
+			   "using %<new%> without new-initializer", origin);
+	      else 
+		permerror (input_location,
+			   "uninitialized const member in %q#T", origin);
+
 	      inform (DECL_SOURCE_LOCATION (field),
 		      "%qD should be initialized", field);
 	    }
+	  else
+	    ++ error_count;
 	}
 
       if (CLASS_TYPE_P (field_type))
