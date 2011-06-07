@@ -1,3 +1,126 @@
+2011-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR gcov-profile/49299
+	* value-prof.c (gimple_ic): Don't assume icall has
+	a fallthru edge.
+
+2011-06-06  Pat Haugen <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2011-05-31  Pat Haugen <pthaugen@us.ibm.com>
+
+	* config/rs6000/rs6000.h (REG_CLASS_CONTENTS): Remove vr0..vr2 from
+	NON_FLOAT_REGS.
+
+2011-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49264
+	* gimple-fold.c (fold_stmt_1): Don't try to fold *& on the lhs
+	if stmt folded into nothing.
+	* tree-inline.c (fold_marked_statements): If a builtin at the
+	end of a bb folded into nothing, just update cgraph edges
+	and move to next bb.
+	* cgraph.c (cgraph_update_edges_for_call_stmt_node): Allow new_stmt
+	to be NULL.  Don't compute count and frequency if new_call is NULL.
+
+2011-06-06  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* longlong.h (smul_ppmm): The resulting register pair contains the
+	higher order word first.
+
+2011-06-06  Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR tree-optimization/49243
+	* calls.c (setjmp_call_p): Also check if fndecl has the
+	returns_twice attribute.
+
+2011-06-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48702
+	* tree-ssa-address.c (create_mem_ref_raw): Create MEM_REFs
+	only when we know the base address is within bounds.
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Do not
+	assume the base address of TARGET_MEM_REFs is in bounds.
+	(indirect_refs_may_alias_p): Fix TARGET_MEM_REF without index tests.
+
+	Backport from mainline
+	2011-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49235
+	* tree-ssa-address.c (gen_addr_rtx): Ignore base if it is const0_rtx.
+	(create_mem_ref_raw): Create MEM_REF even if base is INTEGER_CST.
+
+2011-06-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (output_return): Fix thinko in the output of an
+	EH return when delayed branches are disabled.
+
+2011-06-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2011-05-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49186
+	* config/sh/sh.c (expand_cbranchdi4): Set msw_skip when the high
+	part of the second operand is 0.
+
+2011-06-04  Alexandre Oliva  <aoliva@redhat.com>
+
+	PR debug/47590
+	* target.def (delay_sched2, delay_vartrack): New.
+	* doc/tm.texi.in: Update.
+	* doc/tm.texi: Rebuild.
+	* sched-rgn.c (gate_handle_sched2): Fail if delay_sched2.
+	* var-tracking.c (gate_handle_var_tracking): Likewise.
+	* config/bfin/bfin.c (bfin_flag_schedule_insns2): Drop.
+	(bfin_flag_var_tracking): Drop.
+	(output_file_start): Don't save and override flag_var_tracking.
+	(bfin_option_override): Ditto flag_schedule_insns_after_reload.
+	(bfin_reorg): Test original variables.
+	(TARGET_DELAY_SCHED2, TARGET_DELAY_VARTRACK): Define.
+	* config/ia64/ia64.c (ia64_flag_schedule_insns2): Drop.
+	(ia64_flag_var_tracking): Drop.
+	(TARGET_DELAY_SCHED2, TARGET_DELAY_VARTRACK): Define.
+	(ia64_file_start): Don't save and override flag_var_tracking.
+	(ia64_override_options_after_change): Ditto
+	flag_schedule_insns_after_reload.
+	(ia64_reorg): Test original variables.
+	* config/picochip/picochip.c (picochip_flag_schedule_insns2): Drop.
+	(picochip_flag_var_tracking): Drop.
+	(TARGET_DELAY_SCHED2, TARGET_DELAY_VARTRACK): Define.
+	(picochip_option_override): Don't save and override
+	flag_schedule_insns_after_reload.
+	(picochip_asm_file_start): Ditto flag_var_tracking.
+	(picochip_reorg): Test original variables.
+	* config/spu/spu.c (spu_flag_var_tracking): Drop.
+	(TARGET_DELAY_VARTRACK): Define.
+	(spu_var_tracking): New.
+	(spu_machine_dependent_reorg): Call it.
+	(asm_file_start): Don't save and override flag_var_tracking.
+
+2011-06-04  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49038
+	* tree-vect-loop-manip.c (vect_generate_tmps_on_preheader):
+	Ensure at least one epilogue iteration if required by data
+	accesses with gaps.
+	* tree-vectorizer.h (struct _loop_vec_info): Add new field
+	to mark loops that require peeling for gaps.
+	* tree-vect-loop.c (new_loop_vec_info): Initialize new field.
+	(vect_get_known_peeling_cost): Take peeling for gaps into
+	account.
+	(vect_transform_loop): Generate epilogue if required by data
+	access with gaps.
+	* tree-vect-data-refs.c (vect_analyze_group_access): Mark the
+	loop as requiring an epilogue if there are gaps in the end of
+	the strided group.
+
+2011-06-02  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49093
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Fail for volatile
+	data references.
+
 2011-05-19  Quentin Neill  <quentin.neill@amd.com>
 
 	* config/i386/sse.md (fma4_fmsubadd): Use <ssemodesuffix>.

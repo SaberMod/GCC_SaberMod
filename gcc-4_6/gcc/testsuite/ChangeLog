@@ -1,3 +1,74 @@
+2011-06-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR gcov-profile/49299
+	* gcc.dg/tree-prof/pr49299-1.c: New test.
+	* gcc.dg/tree-prof/pr49299-2.c: New test.
+
+2011-06-06  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/regress/ptrmem1.C: New.
+
+2011-06-06  Asher Langton  <langton2@llnl.gov>
+
+	PR fortran/49268
+	* gfortran.dg/PR49268.f90: New test.
+
+2011-06-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49264
+	* g++.dg/opt/pr49264.C: New test.
+
+2011-06-06  Mikael Pettersson  <mikpe@it.uu.se>
+
+	PR tree-optimization/49243
+	* gcc.dg/pr49243.c: New.
+
+2011-06-06  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/48702
+	* gcc.dg/torture/pr48702.c: New testcase.
+
+	Backport from mainline
+	2011-05-31  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/49235
+	* gcc.dg/pr49235.c: New test.
+
+2011-06-05  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2011-05-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49186
+	* gcc.c-torture/execute/pr49186.c: New.
+
+2011-06-04  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+        PR c++/33840
+	* g++.dg/diagnostic/bitfld2.C: New.
+
+2011-06-04  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49038
+	* gcc.dg/vect/vect-strided-u8-i8-gap4-unknown.c: New test.
+	* gcc.dg/vect/pr49038.c: New test.
+
+2011-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49276
+	* g++.dg/cpp0x/lambda/lambda-mangle2.C: New test.
+
+2011-06-02  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/49265
+	* gfortran.dg/module_procedure_double_colon_1.f90: New test.
+	* gfortran.dg/module_procedure_double_colon_2.f90: New test.
+
+2011-06-02  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/49093
+	* gcc.dg/vect/pr49093.c: New test.
+
 2011-05-31  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk

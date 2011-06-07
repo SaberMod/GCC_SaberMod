@@ -1,3 +1,17 @@
+2011-06-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49298
+	* semantics.c (potential_constant_expression_1): Handle FIELD_DECL.
+
+	PR c++/49134
+	* tree.c (build_target_expr): Deal with ARM ABI tweaks.
+
+2011-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/49276
+	* mangle.c (write_nested_name): Use CP_DECL_CONTEXT instead of
+	DECL_CONTEXT.
+
 2011-05-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/49223
