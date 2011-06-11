@@ -1,3 +1,15 @@
+2011-06-09  Chris Demetriou  <cgd@google.com>
+
+	Backport from google/main r174890:
+	2011-06-09  Chris Demetriou  <cgd@google.com>
+	* doc/install.texi (--with-warn-frame-larger-than-extra-text): New.
+	* configure.ac (--with-warn-frame-larger-than-extra-text): New.
+	(WARN_FRAME_LARGER_THAN_EXTRA_TEXT): Define.
+	* final.c (final_start_function): Use
+	WARN_FRAME_LARGER_THAN_EXTRA_TEXT.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
 2011-06-07  Mark Heffernan  <meheff@google.com>
 
 	Merge from google/main cherry pick rev 174789.
