@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "value-prof.h"
 #include "predict.h"
+#include "l-ipo.h"
 
 /* Local functions, macros and variables.  */
 static const char *op_symbol (const_tree);
@@ -3014,4 +3015,46 @@ pp_base_tree_identifier (pretty_printer *pp, tree id)
   else
     pp_append_text (pp, IDENTIFIER_POINTER (id),
 		    IDENTIFIER_POINTER (id) + IDENTIFIER_LENGTH (id));
+}
+
+/* A helper function that is used to dump function information before the
+   function dump.  */
+
+void
+dump_function_header (FILE *dump_file, tree fdecl, int flags)
+{
+  const char *dname, *aname;
+  struct cgraph_node *node = cgraph_get_node (fdecl);
+  struct function *fun = DECL_STRUCT_FUNCTION (fdecl);
+
+  dname = lang_hooks.decl_printable_name (fdecl, 2);
+
+  if (DECL_ASSEMBLER_NAME_SET_P (fdecl))
+    aname = (IDENTIFIER_POINTER
+             (DECL_ASSEMBLER_NAME (fdecl)));
+  else
+    aname = "<unset-asm-name>";
+
+  if (L_IPO_COMP_MODE)
+    fprintf (dump_file, "\n;; Function %s (%s, funcdef_no=%d:%d",
+             dname, aname, FUNC_DECL_MODULE_ID (fun),
+             FUNC_DECL_FUNC_ID (fun));
+  else
+    fprintf (dump_file, "\n;; Function %s (%s, funcdef_no=%d",
+             dname, aname, fun->funcdef_no);
+  if (!(flags & TDF_NOUID))
+    fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
+  if (node)
+    {
+      fprintf (dump_file, ", cgraph_uid=%d)%s\n\n", node->uid,
+               node->frequency == NODE_FREQUENCY_HOT
+               ? " (hot)"
+               : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
+               ? " (unlikely executed)"
+               : node->frequency == NODE_FREQUENCY_EXECUTED_ONCE
+               ? " (executed once)"
+               : "");
+    }
+  else
+    fprintf (dump_file, ")\n\n");
 }

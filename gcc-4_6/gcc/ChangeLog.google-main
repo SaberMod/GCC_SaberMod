@@ -1,3 +1,127 @@
+2011-06-10  Rong Xu  <xur@google.com>
+
+	* gcc/tree-ssa-loop-im.c (maxmimu_lsm): New define.
+	(find_refs_for_sm): Limit excessive lsm.
+	* gcc/gcse.c (cfgloop.h): New include.
+	(maximum_lsm_limit): New define.
+	(struct loop_lsm_limit_map): Ditto.
+	(loop_lsm_limit_map_htab): Ditto.
+	(loops_lsm): Ditto.
+	(dominator_info_avail_before_lsm_limit): Ditto.
+	(compute_ld_motion_mems): Limit execssive lsm.
+	(find_loop_lsm_limit): New functions.
+	(adjust_loop_lsm_limit): Ditto.
+	(init_loop_lsm_limit): Ditto.
+	(fini_loop_lsm_limit): Ditto.
+	(estimate_reg_pressure_before_lsm): Ditto.
+	(loop_lsm_limit_map_hash): Ditto.
+	(loop_lsm_limit_map_eq): Ditto.
+	(free_loop_lsm_limit_map): Ditto.
+
+2011-06-09  Chris Demetriou  <cgd@google.com>
+
+	* doc/install.texi (--with-warn-frame-larger-than-extra-text): New.
+	* configure.ac (--with-warn-frame-larger-than-extra-text): New.
+	(WARN_FRAME_LARGER_THAN_EXTRA_TEXT): Define.
+	* final.c (final_start_function): Use
+	WARN_FRAME_LARGER_THAN_EXTRA_TEXT.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2011-06-09  David Li  <davidxl@google.com>
+
+	Revert temporarily 
+	* gcse.c (gate_rtl_cprop): Gate cleanup
+	(execute_rtl_cprop): Gate cleanup
+
+2011-06-09  David Li  <davidxl@google.com>
+
+	Revert temporarily 
+	Backport trunk 174849
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Pass dump.
+	* passes.c (passr_eq): New function.
+	(create_pass_tab): New function.
+	(pass_traverse): New function.
+	(dump_one_pass): New function.
+	(dump_pass_list): New function.
+	(dump_passes): New function.
+
+2011-06-09  David Li  <davidxl@google.com>
+
+	* gcse.c (gate_rtl_cprop): Gate cleanup
+	(execute_rtl_cprop): Gate cleanup
+
+2011-06-09  David Li  <davidxl@google.com>
+
+	Backport trunk 174849
+	* cgraphunit.c (cgraph_finalize_compilation_unit): Pass dump.
+	* passes.c (passr_eq): New function.
+	(create_pass_tab): New function.
+	(pass_traverse): New function.
+	(dump_one_pass): New function.
+	(dump_pass_list): New function.
+	(dump_passes): New function.
+
+2011-06-09  David Li  <davidxl@google.com>
+
+	Backport trunk 174848
+	* tree-complex.c (tree_lower_complex): Gate cleanup.
+	* tree-stdarg.c (check_all_va_list_escapes): Ditto.
+	(execute_optimize_stdarg): Ditto.
+	* tree-eh.c (execute_lower_eh_dispatch): Ditto.
+	(execute_cleanup_eh_1): Ditto.
+	(execute_cleanup_eh): Ditto.
+	* gcse.c (gate_rtl_pre): Ditto.
+	(execute_rtl_pre): Ditto.
+	* except.c (finish_eh_generation): Ditto.
+	(convert_to_eh_region_ranges): Ditto.
+	* cprop.c (one_cprop_pass): Ditto.
+
+2011-06-08  Sriraman Tallam  <tmsriram@google.com>
+
+	* doc/invoke.texi: document option -fcallgraph-profiles-sections.
+	* final.c  (dump_cgraph_profiles): New function.
+	(rest_of_handle_final): Create new section '.note.callgraph.text'
+	with compiler flag -fcallgraph-profiles-sections
+	* common.opt: New option -fcallgraph-profiles-sections.
+	* params.def (DEFPARAM): New param
+        PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD.
+
+2011-06-07  Mark Heffernan  <meheff@google.com>
+
+	* cgraph.h (cgraph_global_info): Remove field.
+	* ipa-inline.c (cgraph_clone_inlined_nodes): Change
+	stack frame computation.
+	(cgraph_check_inline_limits): Change stack frame computation.
+	(compute_inline_parameters): Remove dead initialization.
+
+2011-06-07  David Li  <davidxl@google.com>
+
+	* tree-pretty-print.c	(revision 174779)
+	(dump_function_header): dump module id.
+
+2011-06-07  David Li  <davidxl@google.com>
+
+	Backport trunk r174536,174537,174762,174698
+
+	* passes.c (enable_disable_pass): Handle assembler name.
+	(is_pass_explicitly_enabled_or_disabled): Ditto.
+	* predict.c : Change pass name
+	* ipa.c: Ditto.
+	* dce.c: Ditto.
+	* tree-profile.c: Ditto.
+	* except.c: Ditto.
+	* tree-pretty-print.c (dump_function_header): New function.
+	* final.c (rest_of_clean_state): Use header dumper.
+	* tree-cfg.c (gimple_dump_cfg): Use header dumper.
+	* passes.c (pass_init_dump_file): Use header dumper.
+	* tree-pretty-print.c (dump_function_header): Add flags.
+	Don't dump decl_uid with nouid.
+	* tree-pretty-print.h (dump_function_header): Adjust.
+	* final.c (rest_of_clean_state): Pass dump_flags on, with nouid.
+	* passes.c (pass_init_dump_file): Pass dump_flags on.
+	* tree-cfg.c (gimple_dump_cfg): Pass flags on.
+
 2011-06-07  Mark Heffernan  <meheff@google.com>
 
 	* cgraph.h (cgraph_global_info): Remove field.
