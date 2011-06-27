@@ -7445,12 +7445,28 @@ extract_true_false_edges_from_block (basic_block b,
     }
 }
 
+static bool
+gate_warn_function_return (void)
+{
+  /* FIXME - Disable this warning if there were errors upstream
+     (Google ref 4487457).  We should not even get this far down in
+     the optimization process after a syntax error in the parser.
+     However, bailing out right after parsing causes many regressions
+     in the testsuite, because tests expect more errors from the
+     compiler.
+
+     To avoid invasive changes in 4.6, the trunk variant of this fix
+     is described in http://gcc.gnu.org/ml/gcc/2011-06/msg00213.html.  */
+  return !seen_error ();
+}
+
+
 struct gimple_opt_pass pass_warn_function_return =
 {
  {
   GIMPLE_PASS,
   "*warn_function_return",		/* name */
-  NULL,					/* gate */
+  gate_warn_function_return,		/* gate */
   execute_warn_function_return,		/* execute */
   NULL,					/* sub */
   NULL,					/* next */

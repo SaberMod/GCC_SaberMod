@@ -1,0 +1,7 @@
+2011-06-27   Diego Novillo  <dnovillo@google.com>
+
+	Google ref 4487457.
+
+	* g++.dg/parse/cascading-errors.C: New.
+	* g++.old-deja/g++.jason/report.C: Remove expected reachability
+	warnings.

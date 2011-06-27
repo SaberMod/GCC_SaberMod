@@ -1,3 +1,10 @@
+2011-06-27  Diego Novillo  <dnovillo@google.com>
+
+	Google ref 4487457.
+
+	* tree-cfg.c (gate_warn_function_return): New.
+	(pass_warn_function_return): Use it.
+
 2011-06-14  Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 175007.
