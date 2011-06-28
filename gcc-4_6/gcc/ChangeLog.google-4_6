@@ -1,5 +1,9 @@
 2011-06-27  Diego Novillo  <dnovillo@google.com>
 
+	Merge from google/main rev 175526.
+
+2011-06-27  Diego Novillo  <dnovillo@google.com>
+
 	Google ref 4487457.
 
 	* tree-cfg.c (gate_warn_function_return): New.

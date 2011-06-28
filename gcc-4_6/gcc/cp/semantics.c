@@ -3448,8 +3448,7 @@ emit_associated_thunks (tree fn)
      enabling you to output all the thunks with the function itself.  */
   if (DECL_VIRTUAL_P (fn)
       /* Do not emit thunks for extern template instantiations.  */
-      && ! DECL_REALLY_EXTERN (fn)
-      && ! cgraph_is_auxiliary (fn))
+      && ! DECL_REALLY_EXTERN (fn))
     {
       tree thunk;
 

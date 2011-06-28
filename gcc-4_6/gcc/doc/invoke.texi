@@ -296,6 +296,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-translation-unit@r{[}-@var{n}@r{]} @gol
 -fdump-class-hierarchy@r{[}-@var{n}@r{]} @gol
 -fdump-ipa-all -fdump-ipa-cgraph -fdump-ipa-inline @gol
+-fdump-passes @gol
 -fdump-statistics @gol
 -fdump-tree-all @gol
 -fdump-tree-original@r{[}-@var{n}@r{]}  @gol
@@ -387,6 +388,8 @@ Objective-C and Objective-C++ Dialects}.
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} -fprofile-generate-sampling @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
+-fpmu-profile-generate=@var{pmuoption} @gol
+-fpmu-profile-use=@var{pmuoption} @gol
 -freciprocal-math -fregmove -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
@@ -5229,7 +5232,8 @@ pair seperated by a colon.  The range is inclusive in both ends.  If the range
 is trivial, the number pair can be simplified as a single number.  If the
 function's cgraph node's @var{uid} is falling within one of the specified ranges,
 the @var{pass} is disabled for that function.  The @var{uid} is shown in the
-function header of a dump file.
+function header of a dump file, and the pass names can be dumped by using
+option @option{-fdump-passes}.
 
 @item -fdisable-tree-@var{pass}
 @item -fdisable-tree-@var{pass}=@var{range-list}
@@ -5652,6 +5656,11 @@ and inlining decisions.
 Dump after function inlining.
 
 @end table
+
+@item -fdump-passes
+@opindex fdump-passes
+Dump the list of optimization passes that are turned on and off by
+the current command line options.
 
 @item -fdump-statistics-@var{option}
 @opindex fdump-statistics
@@ -8087,6 +8096,26 @@ code.
 
 If @var{path} is specified, GCC will look at the @var{path} to find
 the profile feedback data files. See @option{-fprofile-dir}.
+
+@item -fpmu-profile-generate=@var{pmuoption}
+@opindex fpmu-profile-generate
+
+Enable performance monitoring unit (PMU) profiling.  This collects
+hardware counter data corresponding to @var{pmuoption}.  Currently
+only @var{load-latency} and @var{branch-mispredict} are supported
+using pfmon tool.  You must use @option{-fpmu-profile-generate} both
+when compiling and when linking your program.  This PMU profile data
+may later be used by the compiler during optimizations as well can be
+displayed using coverage tool gcov. The params variable
+"pmu_profile_n_addresses" can be used to restrict PMU data collection
+to only this many addresses.
+
+@item -fpmu-profile-use=@var{pmuoption}
+@opindex fpmu-profile-use
+
+Enable performance monitoring unit (PMU) profiling based
+optimizations.  Currently only @var{load-latency} and
+@var{branch-mispredict} are supported.
 
 @item -fripa
 @opindex fripa
