@@ -1,3 +1,11 @@
+2011-07-19  Guozhi Wei  <carrot@google.com>
+
+	Backport r175894 from gcc-4_6-branch
+
+	2011-07-05  Janis Johnson  <janisjo@codesourcery.com>
+
+		* gcc.target/arm/thumb-bitfld1.c: Don't specify -march, require thumb1.
+
 2011-07-15  Guozhi Wei  <carrot@google.com>
 
 	Backport r175881 from gcc-4_6-branch
