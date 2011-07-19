@@ -1,3 +1,175 @@
+2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc: Obsolete i[3456x]86-*-netware*.
+
+2011-07-17  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/49746
+	Revert:
+	2010-12-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Add ",*" condition to 64-bit add/subtract boolean
+	patterns.
+
+2011-07-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/49732
+	* tree.c (walk_tree_1) <DECL_EXPR>: Do not walk a pointed-to type.
+
+2011-07-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/49725
+	Backport from mainline
+	2011-03-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-pre.c (create_component_ref_by_pieces_1) <ARRAY_REF>: Drop
+	a zero minimum index only if it is redundant.
+
+2011-07-15  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/49723
+	* config/pa/pa.md (casesi): Use gen_int_mode instead of GEN_INT.
+
+2011-07-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2011-07-13  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/spu/spu.c (TARGET_ASM_FILE_START): Do not define.
+	(asm_file_start): Remove.
+	(spu_machine_dependent_reorg): Call compute_bb_for_insn and
+	free_bb_for_insn around code that modifies insns before
+	restarting df analysis.
+
+2011-07-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2011-07-13  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR target/49541
+	* config/sol2.h (LIB_SPEC): Simplify.
+	Move LIB_THREAD_LDFLAGS_SPEC ...
+	(LINK_SPEC): ... here.
+
+2011-07-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/arm.h (TARGET_CPU_CPP_BUILTINS): Add __ARM_FEATURE_DSP.
+
+2011-07-14  Andrew Pinski  <pinskia@gmail.com>
+
+	PR tree-opt/49309
+	* tree-mudflap.c (mf_xform_derefs_1 <case MEM_REF>):
+	Use fold_build2_loc instead of build2.
+	Use the correct type for the new tree.
+
+2011-07-14  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/49487
+	Backport from mainline r176276
+	2011-07-14  Georg-Johann Lay
+	* config/avr/avr.md (rotl<mode>3): Generate SCRATCH instead
+	of REG.
+	(*rotw<mode>): Use const_int_operand for operand2.
+	Use match_scatch for operand3.
+	(*rotb<mode>): Ditto
+	* config/avr/avr.c (avr_rotate_bytes): Treat SCRATCH.
+
+2011-07-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49651
+	* tree-ssa-structalias.c (get_constraint_for_1): Properly
+	handle dereferences with subvariables.
+
+2011-07-11  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/49094
+	* tree-sra.c (tree_non_mode_aligned_mem_p): New function.
+	(build_accesses_from_assign): Use it.
+
+2011-07-11  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/39633
+	Backport from mainline r176141
+	2011-07-11  Georg-Johann Lay
+	* config/avr/avr.c (notice_update_cc): For ashiftrt:QI, only
+	offsets 1..5 set cc0 in a usable way.
+
+2011-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49621
+	* config/rs6000/rs6000.c (rs6000_emit_vector_cond_expr): Use
+	CONST0_RTX (dest_mode) instead of const0_rtx as second operand
+	of NE.
+	* config/rs6000/vector.md (vector_select_<mode>,
+	vector_select_<mode>_uns): Change second operand of NE to
+	CONST0_RTX (<MODE>mode) instead of const0_rtx.
+	* config/rs6000/altivec.md (*altivec_vsel<mode>,
+	*altivec_vsel<mode>_uns): Expect second operand of NE to be
+	zero_constant of the corresponding vector mode.
+	* config/rs6000/vsx.md (*vsx_xxsel<mode>, *vsx_xxsel<mode>_uns):
+	Likewise.
+
+2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
+	
+	PR target/46779
+	Backport from mainline SVN 176053.
+	2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
+	* config/avr/avr.c (avr_hard_regno_mode_ok): Rewrite.
+	In particular, allow 8-bit values in r28 and r29.
+	(avr_hard_regno_scratch_ok): Disallow any register that might be
+	part of the frame pointer.
+	(avr_hard_regno_rename_ok): Same.
+	(avr_legitimate_address_p): Don't allow SUBREGs.
+
+2011-07-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/49660
+	* config/sparc/sol2.h [TARGET_64BIT_DEFAULT] (TARGET_DEFAULT): Add
+	MASK_V8PLUS, remove commented out flag and reorder.
+
+	Backport from mainline
+	2011-06-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config/sparc/sol2-64.h (TARGET_DEFAULT): Remove.
+	(TARGET_64BIT_DEFAULT): Define.
+	* config.gcc (sparc*-*-solaris2*): Move sparc/sol2-64.h to front
+	of tm_file.
+	* config/sparc/sol2.h [TARGET_64BIT_DEFAULT] (TARGET_DEFAULT): Define.
+
+2011-07-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/49644
+	* c-typeck.c (build_binary_op): For MULT_EXPR and TRUNC_DIV_EXPR with
+	one non-complex and one complex argument, call c_save_expr on both
+	operands.
+
+	PR debug/49522
+	* df-problems.c (dead_debug_reset): Remove dead_debug_uses
+	referencing debug insns that have been reset.
+	(dead_debug_insert_before): Don't assert reg is non-NULL,
+	instead return immediately if it is NULL.
+
+	PR middle-end/49640
+	* gimplify.c (gimplify_compound_lval): For last 2 ARRAY_*REF
+	operands and last COMPONENT_REF operand call gimplify_expr on it
+	if non-NULL.
+
+2011-07-06  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline.
+	2011-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/49335
+	* config/arm/predicates.md (add_operator): New.
+	* config/arm/arm.md ("*arith_shiftsi"): Fix for SP reg usage
+	in Thumb2.
+
+2011-07-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49618
+	* tree-eh.c (tree_could_trap_p) <case FUNCTION_DECL, case VAR_DECL>:
+	For DECL_WEAK decls return true.
+
 2011-07-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/49619
