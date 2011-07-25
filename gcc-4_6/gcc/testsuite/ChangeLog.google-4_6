@@ -1,3 +1,16 @@
+2011-07-24  Easwaran Raman  <eraman@google.com>
+	Backport r175063 from trunk:
+	2011-06-14  Easwaran Raman  <eraman@google.com>
+	
+		PR rtl-optimization/44194
+		* gcc.dg/pr44194-1.c: New test.
+		* gcc.dg/pr44194-2.c: New test.
+	Backport r175082 from trunk:
+	2011-06-15  Easwaran Raman  <eraman@google.com>
+	
+		PR rtl-optimization/49414
+		* gcc.dg/pr44194-1.c: Restrict test to 64-bit targets.
+
 2011-07-19  Guozhi Wei  <carrot@google.com>
 
 	Backport r175894 from gcc-4_6-branch
