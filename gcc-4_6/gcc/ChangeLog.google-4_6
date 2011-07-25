@@ -1,3 +1,12 @@
+2011-07-25   Rong Xu  <xur@google.com>
+	Merge from google/main cherry pick r176592.
+	2011-07-21   Rong Xu  <xur@google.com>
+		* ipa.c (function_and_variable_visibility): In LIPO mode, call 
+		varpool_externally_visible_p() to set the externally visible 
+		attribute even for varpool nodes that not marked as needed.
+		* l-ipo.c (varpool_do_link): Merge the externally visible 
+		attribute for varpool nodes.
+
 2011-07-24  Easwaran Raman  <eraman@google.com>
 	Backport r175063 from trunk:
 	2011-06-14  Easwaran Raman  <eraman@google.com>
