@@ -1,4 +1,10 @@
 
+2011-7-29  DeLesley Hutchins  <delesley@google.com>
+
+        * gcc/pointer-set.c (pointer_set_delete)  bugfix for case of
+        hash collisions
+
+
 2011-07-19  DeLesley Hutchins <delesley@google.com>
 
         * tree-threadsafe-analyze.c:  Changes lock_expr_tab to be 
