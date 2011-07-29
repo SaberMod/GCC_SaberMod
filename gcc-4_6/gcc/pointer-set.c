@@ -195,7 +195,7 @@ pointer_set_delete (struct pointer_set_t *pset, const void *p)
   size_t n2;
   const void* ptr;
 
-  /* find location of p */
+  /* Find location of p. */
   while (true)
     {
       if (pset->slots[n] == p)
@@ -225,9 +225,11 @@ pointer_set_delete (struct pointer_set_t *pset, const void *p)
 
       if (ptr == 0) break;
 
-      pset->slots[n] = 0;      /* remove ptr from set. */
+      /* Remove ptr from set. */
+      pset->slots[n] = 0;
       n2 = insert_aux(ptr, pset->slots, pset->n_slots, pset->log_slots);
-      pset->slots[n2] = ptr;   /* put ptr back in set. */
+      /* Put ptr back in set. */
+      pset->slots[n2] = ptr;
     }
 
   --pset->n_elements;
