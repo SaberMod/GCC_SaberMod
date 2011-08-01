@@ -1,3 +1,10 @@
+2011-07-31  David Li  <davidxl@google.com>
+
+	* tree-optimize.c (execute_fixup_cfg): Fix up entry outgoing
+	edge profile counts.
+	* profile.c (compute_branch_probabilities): Compute function
+	frequency after profile annotation.
+
 2011-07-28  David Li  <davidxl@google.com>
 
 	* coverage.c (coverage_init): Remove checking of profile-use
