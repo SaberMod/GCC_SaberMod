@@ -1,3 +1,7 @@
+2011-07-27  Jeffrey Yasskin  <jyasskin@google.com>
+
+	* g++.old-deja/g++.pt/crash60.C: Updated.
+
 2011-07-17  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/pointer_controlled.adb: New test.
