@@ -1,3 +1,13 @@
+2011-08-02  Guozhi Wei  <carrot@google.com>
+
+	Backport r175347 from trunk.
+
+	2011-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+		PR testsuite/49512
+		* gcc.dg/tree-ssa/asm-1.c: Use -fdump-tree-optimized-nouid
+		instead of -fdump-tree-optimized.
+
 2011-07-24  Easwaran Raman  <eraman@google.com>
 	Backport r175063 from trunk:
 	2011-06-14  Easwaran Raman  <eraman@google.com>
