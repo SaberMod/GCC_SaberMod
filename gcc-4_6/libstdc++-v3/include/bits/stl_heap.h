@@ -412,7 +412,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   */
   template<typename _RandomAccessIterator, typename _Compare>
     void
-    make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last, _Compare __comp)
+    make_heap(_RandomAccessIterator __first, _RandomAccessIterator __last,
+	      _Compare __comp)
     {
       typedef typename iterator_traits<_RandomAccessIterator>::value_type
 	  _ValueType;

@@ -1,3 +1,7 @@
+2011-08-01   Jeffrey Yasskin  <jyasskin@google.com>
+
+	* include/bits/stl_heap.h(make_heap): Add a newline back.
+
 2011-07-24   Jeffrey Yasskin  <jyasskin@google.com>
 
 	Google ref 5068684.
