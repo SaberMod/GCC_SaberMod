@@ -1,0 +1,14 @@
+AC_PREREQ(2.64)
+AC_INIT([REORDER plugin for ld], 0.1,,[function_reordering_plugin])
+AC_CANONICAL_SYSTEM
+AM_INIT_AUTOMAKE([foreign no-dist])
+AM_MAINTAINER_MODE
+AC_PROG_CXX
+AC_SYS_LARGEFILE
+AC_SUBST(target_noncanonical)
+AC_CHECK_HEADERS(stdint.h inttypes.h)
+AC_HEADER_SYS_WAIT
+AC_PROG_LIBTOOL
+AC_CONFIG_FILES(Makefile)
+AC_CONFIG_HEADERS(config.h)
+AC_OUTPUT

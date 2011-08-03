@@ -1,3 +1,11 @@
+2011-08-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* Makefile.in: Regenerate.
+	* configure.ac: Add build for function_reordering_plugin.
+	* configure: Regenerate.
+	* Makefile.def: Add function_reodering_plugin.
+	* function_reordering_plugin: New directory.
+
 2011-05-20  Simon Baldwin  <simonb@google.com>
 
 	* libstdc++-v3/scripts/extract_symvers.in: Handle processor/OS
