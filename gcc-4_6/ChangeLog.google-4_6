@@ -1,6 +1,13 @@
-2011-08-02  Sriraman Tallam  <tmsriram@google.com>
+2011-08-03  Sriraman Tallam  <tmsriram@google.com>
 
-	* plugin-api.h
+	Revert:
+	
+	* Makefile.in: Regenerate.
+	* configure.ac: Add build for function_reordering_plugin.
+	* configure: Regenerate.
+	* Makefile.def: Add function_reodering_plugin.
+	* function_reordering_plugin: New directory.
+	* include/plugin-api.h
 	(ld_plugin_section): New struct.
 	(ld_plugin_get_section_count): New typedef.
 	(ld_plugin_get_section_type): New typedef.
@@ -23,3 +30,4 @@
 	(tv_update_section_order): New struct member.
 	(tv_allow_section_ordering): New struct member.
 	(tv_get_view): New struct member.
+
