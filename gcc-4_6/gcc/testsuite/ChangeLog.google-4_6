@@ -1,3 +1,19 @@
+2011-08-04  Guozhi Wei  <carrot@google.com>
+
+	Backport r175009 from trunk.
+
+	2011-06-14  Ira Rosen  <ira.rosen@linaro.org>
+
+		* gcc.dg/vect/vect-16.c: Rename to...
+		* gcc.dg/vect/no-fast-math-vect16.c: ...this.
+		* gcc.dg/vect/vect-peel-3.c: Adjust misalignment values
+		for double-word vectors.
+		* gcc.dg/vect/vect-peel-4.c: Likewise.
+		* gcc.dg/vect/bb-slp-10.c: Replace vect_hw_misalign with
+		vect_element_align.
+		* gcc.dg/vect/vect.exp: Run no-fast-math-* tests with
+		-fno-fast-math.
+
 2011-08-02  Guozhi Wei  <carrot@google.com>
 
 	Backport r175347 from trunk.
