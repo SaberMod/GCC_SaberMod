@@ -1850,6 +1850,7 @@ static void
 process_module_scope_static_func (struct cgraph_node *cnode)
 {
   tree decl = cnode->decl;
+  bool addr_taken;
 
   if (TREE_PUBLIC (decl)
       || !TREE_STATIC (decl)
@@ -1863,7 +1864,18 @@ process_module_scope_static_func (struct cgraph_node *cnode)
 
   /* Can be local -- the promotion pass need to be done after
      callgraph build when address taken bit is set.  */
-  if (!cnode->address_taken)
+  addr_taken = cnode->address_taken;
+  if (!addr_taken && cnode->same_body)
+    {
+      struct cgraph_node *alias = cnode->same_body;
+      while (alias)
+        {
+	  if (alias->address_taken)
+	    addr_taken = true;
+          alias = alias->next;
+        }
+    }
+  if (!addr_taken)
     {
       tree assemb_id = create_unique_name (decl, cgraph_get_module_id (decl));
 
@@ -1875,10 +1887,32 @@ process_module_scope_static_func (struct cgraph_node *cnode)
 
   if (cgraph_is_auxiliary (decl))
     {
+      unsigned mod_id;
+
       gcc_assert (cgraph_get_module_id (decl) != primary_module_id);
+      mod_id = cgraph_get_module_id (decl);
       /* Promote static function to global.  */
-      if (cgraph_get_module_id (decl))
-        promote_static_var_func (cgraph_get_module_id (decl), decl, 1);
+      if (mod_id)
+        {
+          promote_static_var_func (mod_id, decl, 1);
+
+          /* Process aliases  */
+          if (cnode->same_body)
+            {
+              struct cgraph_node *alias = cnode->same_body;
+              while (alias)
+                {
+                  if (!alias->thunk.thunk_p)
+                    {
+                      tree alias_decl = alias->decl;
+                      /* Should assert  */
+                      if (cgraph_get_module_id (alias_decl) == mod_id)
+                        promote_static_var_func (mod_id, alias_decl, 1);
+                    }
+                   alias = alias->next;
+                }
+            }
+        }
     }
   else
     {
@@ -1888,6 +1922,23 @@ process_module_scope_static_func (struct cgraph_node *cnode)
         {
           promote_static_var_func (cgraph_get_module_id (decl), decl, 0);
           cgraph_mark_if_needed (decl);
+
+          /* Process aliases  */
+          if (cnode->same_body)
+            {
+              struct cgraph_node *alias = cnode->same_body;
+              while (alias)
+                {
+                  if (!alias->thunk.thunk_p)
+                    {
+                      tree alias_decl = alias->decl;
+                      /* Should assert  */
+                      if (cgraph_get_module_id (alias_decl) == cgraph_get_module_id (decl))
+                        promote_static_var_func (cgraph_get_module_id (decl), alias_decl, 0);
+                    }
+                   alias = alias->next;
+                }
+            }
         }
     }
 }
