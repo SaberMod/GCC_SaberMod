@@ -1,3 +1,7 @@
+2011-08-12  Xinliang David Li  <davidxl@google.com>
+
+	* g++.dg/abi/vbase15.C: New test.
+
 2011-08-04  Guozhi Wei  <carrot@google.com>
 
 	Backport r175009 from trunk.

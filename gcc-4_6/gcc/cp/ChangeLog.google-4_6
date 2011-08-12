@@ -1,4 +1,9 @@
-2011-04-15  Le-Chun Wu  <lcwu@google.com>
+2011-08-12  Xinliang David Li  <davidxl@google.com>
+
+	* class.c (update_vtable_entry_for_fn): Set lost_primary
+	bit properly.
+
+2011-04-15   Le-Chun Wu  <lcwu@google.com>
 
 	* decl2.c (cp_check_const_attributes): Handle unparsed lock attribute 
 	arguments.

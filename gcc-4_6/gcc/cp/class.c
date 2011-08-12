@@ -2297,6 +2297,8 @@ update_vtable_entry_for_fn (tree t, tree binfo, tree fn, tree* virtuals,
 
   if (lost)
     BV_LOST_PRIMARY (*virtuals) = true;
+  else
+    BV_LOST_PRIMARY (*virtuals) = false;
 }
 
 /* Called from modify_all_vtables via dfs_walk.  */
