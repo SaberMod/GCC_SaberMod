@@ -1,3 +1,13 @@
+2011-08-16  Guozhi Wei  <carrot@google.com>
+
+	Backport r174965 from trunk.
+
+	2011-06-12  Ira Rosen  <ira.rosen@linaro.org>
+
+		* tree-vect-data-refs.c (vect_peeling_hash_get_most_frequent):
+		Take number of iterations to peel into account for equally frequent
+		misalignment values.
+
 2011-08-11  David Li  <davidxl@google.com>
 
 	* l-ipo.c (process_module_scope_static_func): Promote
