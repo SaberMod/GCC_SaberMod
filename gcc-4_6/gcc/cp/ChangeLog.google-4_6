@@ -1,3 +1,10 @@
+2011-08-18   Diego Novillo  <dnovillo@google.com>
+
+	* name-lookup.c (lookup_arg_dependent): Use conditional
+	timevars.
+	* decl.c (xref_tag): Likewise.
+	* call.c (build_op_call): Likewise.
+
 2011-08-12  Xinliang David Li  <davidxl@google.com>
 
 	* class.c (update_vtable_entry_for_fn): Set lost_primary

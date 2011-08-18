@@ -3965,9 +3965,10 @@ tree
 build_op_call (tree obj, VEC(tree,gc) **args, tsubst_flags_t complain)
 {
   tree ret;
-  timevar_start (TV_OVERLOAD);
+  bool subtime;
+  subtime = timevar_cond_start (TV_OVERLOAD);
   ret = build_op_call_1 (obj, args, complain);
-  timevar_stop (TV_OVERLOAD);
+  timevar_cond_stop (TV_OVERLOAD, subtime);
   return ret;
 }
 
