@@ -332,6 +332,9 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
       new_size = cgraph_estimate_size_after_inlining (to, what);
       to->global.size = new_size;
       to->global.time = cgraph_estimate_time_after_inlining (freq, to, what);
+
+      if (to->max_bb_count < e->callee->max_bb_count)
+	to->max_bb_count = e->callee->max_bb_count;
     }
   gcc_assert (what->global.inlined_to == to);
   if (new_size > old_size)
@@ -1057,6 +1060,19 @@ add_new_edges_to_heap (fibheap_t heap, VEC (cgraph_edge_p, heap) *new_edges)
     }
 }
 
+/* Returns true if an edge or its caller are hot enough to
+   be considered for inlining.  */
+
+static bool
+edge_hot_enough_p (struct cgraph_edge *edge)
+{
+  if (cgraph_maybe_hot_edge_p (edge))
+    return true;
+  if (flag_inline_hot_caller && maybe_hot_count_p (edge->caller->max_bb_count))
+    return true;
+  return false;
+}
+
 
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap based on estimated
@@ -1201,7 +1217,7 @@ cgraph_decide_inlining_of_small_functions (void)
 
       if (edge->callee->local.disregard_inline_limits)
 	;
-      else if (!cgraph_maybe_hot_edge_p (edge))
+      else if (!edge_hot_enough_p (edge))
  	not_good = CIF_UNLIKELY_CALL;
       else if (!flag_inline_functions
 	  && !DECL_DECLARED_INLINE_P (edge->callee->decl))

@@ -1904,6 +1904,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
+  if (node->max_bb_count)
+    fprintf (f, " hottest bb executed "HOST_WIDEST_INT_PRINT_DEC"x",
+	     (HOST_WIDEST_INT)node->max_bb_count);
   if (node->local.inline_summary.self_time)
     fprintf (f, " %i time, %i benefit", node->local.inline_summary.self_time,
     					node->local.inline_summary.time_inlining_benefit);
@@ -2234,6 +2237,9 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   new_node->global = n->global;
   new_node->rtl = n->rtl;
   new_node->count = count;
+  new_node->max_bb_count = count;
+  if (n->count)
+    new_node->max_bb_count = count * n->max_bb_count / n->count;
   new_node->is_versioned_clone = n->is_versioned_clone;
   new_node->frequency = n->frequency;
   new_node->clone = n->clone;
@@ -2252,6 +2258,9 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
       n->count -= count;
       if (n->count < 0)
 	n->count = 0;
+      n->max_bb_count -= new_node->max_bb_count;
+      if (n->max_bb_count < 0)
+	n->max_bb_count = 0;
     }
 
   FOR_EACH_VEC_ELT (cgraph_edge_p, redirect_callers, i, e)

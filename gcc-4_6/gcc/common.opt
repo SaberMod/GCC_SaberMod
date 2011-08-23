@@ -1327,6 +1327,10 @@ finline-limit=
 Common RejectNegative Joined UInteger
 -finline-limit=<number>	Limit the size of inlined functions to <number>
 
+finline-hot-caller
+Common Report Var(flag_inline_hot_caller) Init(1) Optimization
+Consider inlining cold callsites if the caller includes hot code
+
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
 Instrument function entry and exit with profiling calls

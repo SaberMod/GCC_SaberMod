@@ -1,3 +1,20 @@
+2011-08-23  Mark Heffernan  <meheff@google.com>
+
+	* basic-block.h (maybe_hot_frequency_p): Add prototype.
+	* cgraph.c (dump_cgraph_node): Add field to dump.
+	(cgraph_clone_node) Handle new field.
+	* cgraph.h (cgraph_node): New field max_bb_count.
+	* cgraphbuild.c (rebuild_cgraph_edges): Compute max_bb_count.
+	* cgraphunit.c (cgraph_copy_node_for_versioning) Handle new field.
+	* common.opt (finline-hot-caller): New option.
+	* ipa-inline.c (cgraph_mark_inline_edge) Update max_bb_count.
+	(edge_hot_enough_p) New function.
+	(cgraph_decide_inlining_of_small_functions) Call edge_hot_enough_p.
+	* predict.c (maybe_hot_frequency_p): Remove static keyword and
+	guard with profile_info check.
+	* testsuite/gcc.dg/tree-prof/inliner-1.c: Add flag.
+	* testsuite/gcc.dg/tree-prof/lipo/inliner-1_0.c: Add flag.
+
 2011-08-16  Guozhi Wei  <carrot@google.com>
 
 	Backport r174965 from trunk.
