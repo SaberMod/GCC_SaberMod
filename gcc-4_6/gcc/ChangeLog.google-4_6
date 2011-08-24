@@ -1,3 +1,9 @@
+2011-08-24   David Li  <davidxl@google.com>
+
+	* profile.c (compute_branch_probabilities): Partially revert
+	change in r176997 which led to perf regression of important
+	apps.
+
 2011-08-23  Mark Heffernan  <meheff@google.com>
 
 	* basic-block.h (maybe_hot_frequency_p): Add prototype.

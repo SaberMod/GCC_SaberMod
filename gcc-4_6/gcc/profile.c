@@ -754,7 +754,8 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
     }
   counts_to_freqs ();
   profile_status = PROFILE_READ;
-  compute_function_frequency ();
+  /* TODO: investigate performance regression with this.
+     compute_function_frequency ();  */
 
   if (dump_file)
     {
