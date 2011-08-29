@@ -1,3 +1,40 @@
+2011-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (vec_extract_lo_<mode>): Prevent both
+	operands in memory.
+	(vec_extract_lo_v16hi): Ditto.
+	(*vec_extract_v4sf_mem): Add TARGET_SSE insn constraint.
+	* config/i386/i386.c (legitimize_tls_address): Change REG_EQIV
+	notes to REG_EQUAL.
+
+2011-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50202
+	* config/i386/sse.md (sse4_2_pcmpestr): Emit NOTE_INSN_DELETED note
+	when all outputs are unused.
+	(sse4_2_pcmpistr): Ditto.
+
+2011-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/50179
+	* c-typeck.c (c_process_expr_stmt): Skip over nops and
+	call mark_exp_read even if exprv is ADDR_EXPR.
+
+2011-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48739
+	* tree-ssa.c: Include cfgloop.h.
+	(execute_update_addresses_taken): When updating ssa, if in
+	loop closed SSA form, call rewrite_into_loop_closed_ssa instead of
+	update_ssa.
+	* Makefile.in (tree-ssa.o): Depend on $(CFGLOOP_H).
+
+2011-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50092
+	* config/i386/i386.c (assign_386_stack_local): Call validize_mem
+	on the result before returning it.
+
 2011-08-16  Liang Wang  <lwang1@marvell.com>
 
 	* ggc.h (ggc_alloc_rtvec_sized): Change arguments of
@@ -13,7 +50,7 @@
 	(cmpmem): Note that the comparison does not stop if both of the
 	fetched bytes are zero.
 
-2011-08-11   Kazuhiro Inaoka  <kazuhiro.inaoka.ud@renesas.com>
+2011-08-11  Kazuhiro Inaoka  <kazuhiro.inaoka.ud@renesas.com>
 
 	* config/rx/rx.md (movsicc): Allow register to register
 	transfers.
@@ -153,8 +190,8 @@
 
 	Backport from mainline
 	2011-05-16  Uros Bizjak  <ubizjak@gmail.com>
-        
-        * config/i386/constraints.md (z): New constraint.
+
+	* config/i386/constraints.md (z): New constraint.
 
 2011-07-25  Andrew Pinski  <apinski@cavium.com>
 
@@ -166,7 +203,7 @@
 	arguments are not volatile references.
 
 2011-07-25  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	PR target/39386
 	Backport from mainline r176756
 	2011-07-25  Georg-Johann Lay
@@ -591,7 +628,7 @@
 2011-06-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
 	Backport from mainline.
-        2011-06-13  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+	2011-06-13  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
 	PR target/48454
 	* config/arm/neon.md (vec_pack_trunc): Set the lengths

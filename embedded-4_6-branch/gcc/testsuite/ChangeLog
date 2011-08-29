@@ -1,3 +1,70 @@
+2011-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50202
+	* gcc.target/i386/pr50202.c: New test.
+
+2011-08-26  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.dg/pointer_comp_init_1.f90: New test.
+
+2011-08-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/50179
+	* c-c++-common/Wunused-var-14.c: New test.
+
+2011-08-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50157
+	* g++.dg/cpp0x/sfinae27.C: New.
+
+2011-08-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50163
+	* gfortran.dg/initialization_28.f90: New.
+
+2011-08-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50024
+	* g++.dg/cpp0x/constexpr-initlist5.C: New.
+
+2011-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46862
+	* g++.dg/dfp/nofields.C: New test.
+
+2011-08-22  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.dg/alloc_comp_initializer_3.f90: New test.
+
+2011-08-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/50130
+	* gfortran.dg/zero_stride_1.f90:  New test.
+
+2011-08-20  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50129
+	* gfortran.dg/where_3.f90: New test.
+
+2011-08-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48739
+	* gcc.dg/pr48739-1.c: New test.
+	* gcc.dg/pr48739-2.c: New test.
+
+2011-08-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50109
+	* gfortran.dg/namelist_73.f90: New.
+
+2011-08-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50092
+	* gcc.dg/torture/pr50092.c: New test.
+
 2011-08-16  Jason Merrill  <jason@redhat.com>
 
 	PR c++/50086
