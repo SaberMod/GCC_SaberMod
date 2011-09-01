@@ -2897,6 +2897,9 @@ finish_id_expression (tree id_expression,
 	  tree lambda_expr = NULL_TREE;
 	  tree initializer = convert_from_reference (decl);
 
+	  /* Mark it as used now even if the use is ill-formed.  */
+	  mark_used (decl);
+
 	  /* Core issue 696: "[At the July 2009 meeting] the CWG expressed
 	     support for an approach in which a reference to a local
 	     [constant] automatic variable in a nested class or lambda body
@@ -3203,7 +3206,7 @@ finish_id_expression (tree id_expression,
       if (scope)
 	{
 	  decl = (adjust_result_of_qualified_name_lookup
-		  (decl, scope, current_class_type));
+		  (decl, scope, current_nonlambda_class_type()));
 
 	  if (TREE_CODE (decl) == FUNCTION_DECL)
 	    mark_used (decl);
@@ -6388,7 +6391,8 @@ cxx_eval_component_reference (const constexpr_call *call, tree t,
       if (field == part)
         return value;
     }
-  if (TREE_CODE (TREE_TYPE (whole)) == UNION_TYPE)
+  if (TREE_CODE (TREE_TYPE (whole)) == UNION_TYPE
+      && CONSTRUCTOR_NELTS (whole) > 0)
     {
       /* FIXME Mike Miller wants this to be OK.  */
       if (!allow_non_constant)
@@ -6397,8 +6401,12 @@ cxx_eval_component_reference (const constexpr_call *call, tree t,
       *non_constant_p = true;
       return t;
     }
-  gcc_unreachable();
-  return error_mark_node;
+
+  /* If there's no explicit init for this field, it's value-initialized.  */
+  value = build_value_init (TREE_TYPE (t), tf_warning_or_error);
+  return cxx_eval_constant_expression (call, value,
+				       allow_non_constant, addr,
+				       non_constant_p);
 }
 
 /* Subroutine of cxx_eval_constant_expression.
@@ -8284,6 +8292,9 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
       if (!real_lvalue_p (initializer))
 	error ("cannot capture %qE by reference", initializer);
     }
+  else
+    /* Capture by copy requires a complete type.  */
+    type = complete_type (type);
 
   /* Make member variable.  */
   member = build_lang_decl (FIELD_DECL, id, type);
