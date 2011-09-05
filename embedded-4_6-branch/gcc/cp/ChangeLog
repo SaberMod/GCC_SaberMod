@@ -1,28 +1,3 @@
-2011-08-29  Jakub Jelinek  <jakub@redhat.com>
-	    Jason Merrill  <jason@redhat.com>
-
-	PR c++/50207
-	* class.c (finish_struct_1): Complain if the first field is
-	artificial.
-
-2011-08-30  Jason Merrill  <jason@redhat.com>
-
-	PR c++/50089
-	* semantics.c (finish_id_expression): Use
-	current_nonlambda_class_type for qualified-ids.
-
-	PR c++/50220
-	* semantics.c (add_capture): Call complete_type for copy.
-
-	PR c++/50234
-	* semantics.c (cxx_eval_component_reference): Handle
-	value-initialization for omitted initializers.
-
-2011-08-29  Jason Merrill  <jason@redhat.com>
-
-	PR c++/50224
-	* semantics.c (finish_id_expression): Mark captured variables used.
-
 2011-08-25  Jason Merrill  <jason@redhat.com>
 
 	PR c++/50157
