@@ -1,0 +1,8 @@
+2011-09-06  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r174965.
+	2011-06-12  Ira Rosen  <ira.rosen@linaro.org>
+
+	* tree-vect-data-refs.c (vect_peeling_hash_get_most_frequent):
+	Take number of iterations to peel into account for equally frequent
+	misalignment values.
