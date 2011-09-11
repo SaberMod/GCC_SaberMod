@@ -1,5 +1,24 @@
 2011-09-08  Terry Guo  <terry.guo@arm.com>
 
+	* config.gcc: Support --with-extra-multilibs option for ARM EABI.
+	* configure.ac: Handle --with-extra-multilibs option.
+	* configure: Add help message and support for that option. 
+	* doc/install.texi: Document that option.
+	* config/arm/t-arm-elf (MULTILIB_OSDIRNAMES): Added to support
+	build extra multilibs with user-specified directory name.
+	* config/arm/t-armv6s-m: New fragment for building extra multilib for
+	ARM armv6s-m architecture.
+	* config/arm/t-armv7-m: New fragment for building extra multilib for
+	ARM armv7-m architecture.
+	* config/arm/t-armv7e-m: New fragment for building extra multilib for
+	ARM armv7e-m architecture.
+	* config/arm/t-thumb1: New fragment for building extra multilib for
+	ARM Thumb-1.
+	* config/arm/t-thumb2: New fragment for building extra multilib for
+	ARM Thumb-2.
+
+2011-09-08  Terry Guo  <terry.guo@arm.com>
+
 	* config/arm/arm.c (all_architectures): Simple support for
 	option -march=armv6s-m.
 

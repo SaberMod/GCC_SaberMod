@@ -1068,6 +1068,24 @@ only little endian SH4AL:
 --with-multilib-list=sh4al,!mb/m4al
 @end smallexample
 
+@item --with-extra-multilibs=@var{list}
+@itemx --without-extra-multilibs
+Specify what extra multilibs to build besides the default library set.
+Currently only implemented for arm*-*-eabi.
+
+@var{list} is a comma separated list of ARM architecture names.
+Currently the available names are thumb1, thumb2, armv6s-m, armv7-m
+and armv7e-m.
+
+If @option{--with-extra-multilibs} or @var{list} is not given,
+then no extra multilibs will be built.
+
+Example: to configure a compiler for arm-none-eabi with additional multilib
+support for thumb1, thumb2 and armv6s-m:
+@smallexample
+--target=arm-none-eabi --with-extra-multilibs=thumb1,thumb2,armv6s-m
+@end smallexample
+
 @item --with-endian=@var{endians}
 Specify what endians to use.
 Currently only implemented for sh*-*-*.

@@ -883,6 +883,32 @@ arm*-*-eabi* | arm*-*-symbianelf* )
 	arm*-*-eabi*)
 	  tm_file="$tm_file newlib-stdint.h"
 	  tmake_file="${tmake_file} arm/t-bpabi"
+	  arm_multilibs="${with_extra_multilibs}"
+	  if test $arm_multilibs != "default"; then
+		arm_multilibs=`echo $arm_multilibs | sed -e 's/,/ /g'`
+		for arm_multilib in ${arm_multilibs}; do
+		    case ${arm_multilib} in
+		    thumb1)
+			tmake_file="${tmake_file} arm/t-thumb1"
+			;;
+		    thumb2)
+			tmake_file="${tmake_file} arm/t-thumb2"
+			;;
+		    armv6s-m)
+			tmake_file="${tmake_file} arm/t-armv6s-m"
+			;;
+		    armv7-m)
+			tmake_file="${tmake_file} arm/t-armv7-m"
+			;;
+		    armv7e-m)
+			tmake_file="${tmake_file} arm/t-armv7e-m"
+			;;
+		    *)
+			echo "--with-extra-multilibs=${arm_multilib} not supported."
+			exit 1
+		    esac
+		done
+	  fi
 	  use_gcc_stdint=wrap
 	  ;;
 	arm*-*-symbianelf*)

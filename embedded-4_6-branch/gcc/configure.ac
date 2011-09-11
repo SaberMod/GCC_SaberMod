@@ -790,6 +790,11 @@ AC_ARG_WITH(multilib-list,
 :,
 with_multilib_list=default)
 
+AC_ARG_WITH(extra-multilibs,
+[  --with-extra-multilibs    Select extra multilibs (ARM only)],
+:,
+with_extra_multilibs=default)
+
 # -------------------------
 # Checks for other programs
 # -------------------------

@@ -1650,6 +1650,7 @@ Optional Packages:
   --with-pkgversion=PKG   Use PKG in the version string in place of "GCC"
   --with-bugurl=URL       Direct users to URL to report a bug
   --with-multilib-list    Select multilibs (SH only)
+  --with-extra-multilibs  Select extra multilibs (ARM only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir
@@ -7198,6 +7199,12 @@ else
   with_multilib_list=default
 fi
 
+# Check whether --with-extra-multilibs was given.
+if test "${with_extra_multilibs+set}" = set; then :
+  withval=$with_extra_multilibs; :
+else
+  with_extra_multilibs=default
+fi
 
 # -------------------------
 # Checks for other programs
