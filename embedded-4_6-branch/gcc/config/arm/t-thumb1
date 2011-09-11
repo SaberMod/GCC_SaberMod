@@ -1,0 +1,56 @@
+#Build below library for ARM Thumb-1.
+#  thumb1/      -mthumb -march=armv4t
+
+MULTILIB_OPTIONS      += march=armv4t
+
+MULTILIB_DIRNAMES     += thumb1
+
+MULTILIB_EXCEPTIONS   += march=armv4t*
+MULTILIB_EXCEPTIONS   += marm*/march=armv4t*
+MULTILIB_EXCEPTIONS   += mfloat-abi=hard/march=armv4t*
+MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/march=armv4t*
+MULTILIB_EXCEPTIONS   += m*/march=armv4t/march*
+
+MULTILIB_MATCHES      += march?armv4t=march?armv5
+MULTILIB_MATCHES      += march?armv4t=march?armv5t
+MULTILIB_MATCHES      += march?armv4t=march?armv5e
+MULTILIB_MATCHES      += march?armv4t=march?armv5te
+MULTILIB_MATCHES      += march?armv4t=march?armv6
+MULTILIB_MATCHES      += march?armv4t=march?armv6j
+MULTILIB_MATCHES      += march?armv4t=march?armv6z
+MULTILIB_MATCHES      += march?armv4t=march?armv6zk
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm7tdmi
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm7tdmi-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm710t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm720t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm740t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm9
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm9tdmi
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm920
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm920t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm922t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm940t
+MULTILIB_MATCHES      += march?armv4t=mcpu?ep9312
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm10tdmi
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1020t
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm9e
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm946e-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm966e-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm968e-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm10e
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1020e
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1022e
+MULTILIB_MATCHES      += march?armv4t=mcpu?xscale
+MULTILIB_MATCHES      += march?armv4t=mcpu?iwmmxt
+MULTILIB_MATCHES      += march?armv4t=mcpu?iwmmxt2
+MULTILIB_MATCHES      += march?armv4t=mcpu?fa606te
+MULTILIB_MATCHES      += march?armv4t=mcpu?fa626te
+MULTILIB_MATCHES      += march?armv4t=mcpu?fmp626
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm926ej-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1026ej-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1136j-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1136jf-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1176jz-s
+MULTILIB_MATCHES      += march?armv4t=mcpu?arm1176jzf-s
+
+MULTILIB_OSDIRNAMES   += mthumb/march.armv4t=!thumb1

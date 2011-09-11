@@ -1,0 +1,25 @@
+#Build below library for ARM Thumb-2.
+#  thumb2/      -mthumb -march=armv6t2
+
+MULTILIB_OPTIONS      += march=armv6t2
+
+MULTILIB_DIRNAMES     += thumb2
+
+MULTILIB_EXCEPTIONS   += march=armv6t2*
+MULTILIB_EXCEPTIONS   += marm*/march=armv6t2*
+MULTILIB_EXCEPTIONS   += mfloat-abi=hard/march=armv6t2*
+MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/march=armv6t2*
+MULTILIB_EXCEPTIONS   += m*/march=armv6t2/march*
+
+MULTILIB_MATCHES      += march?armv6t2=march?armv7
+MULTILIB_MATCHES      += march?armv6t2=march?armv7-a
+MULTILIB_MATCHES      += march?armv6t2=march?armv7-r
+MULTILIB_MATCHES      += march?armv6t2=mcpu?arm1156t2-s
+MULTILIB_MATCHES      += march?armv6t2=mcpu?arm1156t2f-s
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-a5
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-a8
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-a9
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4f
+
+MULTILIB_OSDIRNAMES   += mthumb/march.armv6t2=!thumb2

@@ -1,0 +1,18 @@
+#Build below library for ARM armv6s-m architecture.
+#  armv6s-m/    -mthumb -march=armv6s-m
+
+MULTILIB_OPTIONS      += march=armv6s-m
+
+MULTILIB_DIRNAMES     += armv6s-m
+
+MULTILIB_EXCEPTIONS   += march=armv6s-m*
+MULTILIB_EXCEPTIONS   += marm*/march=armv6s-m*
+MULTILIB_EXCEPTIONS   += mfloat-abi=hard/march=armv6s-m*
+MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/march=armv6s-m*
+MULTILIB_EXCEPTIONS   += m*/march=armv6s-m/march*
+
+MULTILIB_MATCHES      += march?armv6s-m=march?armv6-m
+MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m1
+MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m0
+
+MULTILIB_OSDIRNAMES   += mthumb/march.armv6s-m=!armv6s-m

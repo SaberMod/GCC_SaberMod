@@ -1,0 +1,16 @@
+#Build below library for ARM armv7e-m architecture.
+#  armv7e-m/     -mthumb -march=armv7e-m
+
+MULTILIB_OPTIONS      += march=armv7e-m
+
+MULTILIB_DIRNAMES     += armv7e-m
+
+MULTILIB_EXCEPTIONS   += march=armv7e-m*
+MULTILIB_EXCEPTIONS   += marm*/march=armv7e-m*
+MULTILIB_EXCEPTIONS   += mfloat-abi=hard/march=armv7e-m*
+MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/march=armv7e-m*
+MULTILIB_EXCEPTIONS   += m*/march=armv7e-m/march*
+
+MULTILIB_MATCHES      += march?armv7e-m=mcpu?cortex-m4
+
+MULTILIB_OSDIRNAMES   += mthumb/march.armv7e-m=!armv7e-m
