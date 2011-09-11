@@ -933,6 +933,7 @@ static const struct processors all_architectures[] =
   {"armv6zk", arm1176jzs, "6ZK", FL_CO_PROC |             FL_FOR_ARCH6ZK, NULL},
   {"armv6t2", arm1156t2s, "6T2", FL_CO_PROC |             FL_FOR_ARCH6T2, NULL},
   {"armv6-m", cortexm1,	  "6M",				  FL_FOR_ARCH6M, NULL},
+  {"armv6s-m", cortexm1,  "6M",				  FL_FOR_ARCH6M, NULL},
   {"armv7",   cortexa8,	  "7",	 FL_CO_PROC |		  FL_FOR_ARCH7, NULL},
   {"armv7-a", cortexa8,	  "7A",	 FL_CO_PROC |		  FL_FOR_ARCH7A, NULL},
   {"armv7-r", cortexr4,	  "7R",	 FL_CO_PROC |		  FL_FOR_ARCH7R, NULL},
