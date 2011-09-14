@@ -8384,9 +8384,15 @@ cp_get_virtual_function_decl (tree ref, tree known_type)
 {
   HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
   HOST_WIDE_INT i = 0;
-  tree v = BINFO_VIRTUALS (TYPE_BINFO (known_type));
+  tree binfo = TYPE_BINFO (known_type);
+  tree v;
   tree fndecl;
-  
+
+  if (!binfo)
+    return NULL_TREE;
+
+  v = BINFO_VIRTUALS (TYPE_BINFO (known_type));
+
   while (v && i != index)
     {
       i += (TARGET_VTABLE_USES_DESCRIPTORS

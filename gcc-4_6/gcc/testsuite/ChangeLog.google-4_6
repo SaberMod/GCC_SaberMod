@@ -1,3 +1,7 @@
+2011-9-13  DeLesley Hutchins  <delesley@google.com>
+
+      * g++.dg/thread-ann/thread_annot_lock-79.C:  new test cases
+
 2011-09-01  Sriraman Tallam  <tmsriram@google.com>
 
 	* gcc.dg/builtin_target.c: New test.

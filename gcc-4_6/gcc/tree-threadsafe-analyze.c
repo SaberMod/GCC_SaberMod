@@ -884,10 +884,13 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
         {
           tree base = TREE_OPERAND (lock, 0);
           tree canon_base;
-          /* When the expr is a pointer to a lockable type (i.e. mu.Lock()
+          /* For expressions that denote locks,
+             When the expr is a pointer to a lockable type (i.e. mu.Lock()
              or Lock(&mu) internally), we don't need the address-taken
              operator (&).  */
-          if (lookup_attribute("lockable", TYPE_ATTRIBUTES (TREE_TYPE (base))))
+          if (!is_temp_expr
+              && lookup_attribute("lockable",
+                                  TYPE_ATTRIBUTES (TREE_TYPE (base))))
             return get_canonical_lock_expr (base, base_obj,
                                             false /* is_temp_expr */,
                                             new_leftmost_base_var);

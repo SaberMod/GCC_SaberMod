@@ -1,3 +1,8 @@
+2011-9-13  DeLesley Hutchins  <delesley@google.com>
+
+      * class.c (cp_get_virtual_function_decl): bugfix where
+        type is uknown
+
 2011-08-18   Diego Novillo  <dnovillo@google.com>
 
 	* name-lookup.c (lookup_arg_dependent): Use conditional
