@@ -1,3 +1,96 @@
+2011-08-26  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* expr.c (gfc_free_shape): Do nothing if shape is NULL.
+	(free_expr0): Remove redundant NULL shape check.
+	* resolve.c (check_host_association): Ditto.
+	* trans-expr.c (gfc_trans_subarray_assign): Assert that shape is
+	non-NULL.
+	* trans-io.c (transfer_array_component): Ditto.
+
+2011-08-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50163
+	* check_init_expr (check_init_expr): Return when an error occured.
+
+2011-08-22  Mikael Morin  <mikael.morin@gcc.gnu.org>
+
+	PR fortran/50050
+	* gfortran.h (gfc_clear_shape, gfc_free_shape): New prototypes.
+	* expr.c (gfc_clear_shape, gfc_free_shape): New functions.
+	(free_expr0): Re-use gfc_free_shape.
+	* trans-expr.c (gfc_trans_subarray_assign): Ditto.
+	* trans-io.c (transfer_array_component): Ditto.
+	* resolve.c (check_host_association): Ditto.
+	(gfc_expr_to_initialize): Don't force the rank value and free the shape
+	after updating the expression. Recalculate shape and rank.
+	(resolve_where_shape): Re-use gfc_clear_shape.
+	* array.c (gfc_array_ref_shape): Ditto.
+
+2011-08-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/50130
+	* resolve.c (resolve_array_ref):  Don't calculate upper bound
+	if the stride is zero.
+
+2011-08-20  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/50129
+	* parse.c (parse_where): Undo changes after emitting an error.
+
+2011-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/49792
+	* trans-expr.c (gfc_trans_assignment_1): Set OMPWS_SCALARIZER_WS
+	bit in ompws_flags only if loop.temp_ss is NULL, and clear it if
+	lhs needs reallocation.
+	* trans-openmp.c (gfc_trans_omp_workshare): Don't return early if
+	code is NULL, emit a barrier if workshare emitted no code at all
+	and NOWAIT clause isn't present.
+
+2011-08-05  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49112
+	* resolve.c (resolve_structure_cons): Don't do the full dt resolution,
+	only call 'resolve_fl_derived0'.
+	(resolve_typebound_procedures): Resolve typebound procedures of
+	parent type.
+	(resolve_fl_derived0): New function, which does a part of the work
+	for 'resolve_fl_derived'.
+	(resolve_fl_derived): Call 'resolve_fl_derived0' and do some additional
+	things.
+
+2011-08-03  Daniel Kraft  <d@domob.eu>
+
+	PR fortran/49885
+	* trans-array.c (gfc_trans_auto_array_allocation): Change
+	gfc_start_block to gfc_init_block to avoid spurious extra-scope.
+
+2011-07-30  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/48876
+	* expr.c (gfc_simplify_expr):  If end of a string is less
+	than zero, set it to zero.
+
+2011-07-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/45586
+	* trans-types.c (gfc_get_derived_type): Ensure that pointer
+	component types are marked as nonrestricted.
+
+2011-07-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/49708
+	* resolve.c (resolve_allocate_expr): Fix diagnostics for pointers.
+
+2011-07-18  Mikael Morin  <mikael.morin@sfr.fr>
+
+	PR fortran/49648
+	* resolve.c (resolve_symbol): Force resolution of function result's
+	array specification.
+
 2011-07-11  Jakub Jelinek  <jakub@redhat.com>
 
 	PR fortran/49698

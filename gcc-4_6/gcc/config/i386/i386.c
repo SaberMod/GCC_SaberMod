@@ -3414,6 +3414,11 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL},
+      {"core-avx-i", PROCESSOR_COREI7_64, CPU_COREI7,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
+	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
+	| PTA_RDRND | PTA_F16C},
       {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE},
@@ -12699,7 +12704,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, dest));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
       break;
 
@@ -12730,7 +12735,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  rtx x = ix86_tls_module_base ();
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV,
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL,
 			       gen_rtx_MINUS (Pmode, x, tp));
 	}
 
@@ -12743,7 +12748,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
 
       break;
@@ -18681,6 +18686,11 @@ ix86_prepare_sse_fp_compare_args (rtx dest, enum rtx_code code,
 {
   rtx tmp;
 
+  /* AVX supports all the needed comparisons, no need to swap arguments
+     nor help reload.  */
+  if (TARGET_AVX)
+    return code;
+
   switch (code)
     {
     case LTGT:
@@ -18929,7 +18939,32 @@ ix86_expand_fp_vcond (rtx operands[])
   code = ix86_prepare_sse_fp_compare_args (operands[0], code,
 					   &operands[4], &operands[5]);
   if (code == UNKNOWN)
-    return false;
+    {
+      rtx temp;
+      switch (GET_CODE (operands[3]))
+	{
+	case LTGT:
+	  temp = ix86_expand_sse_cmp (operands[0], ORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], NE, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = AND;
+	  break;
+	case UNEQ:
+	  temp = ix86_expand_sse_cmp (operands[0], UNORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], EQ, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = IOR;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      cmp = expand_simple_binop (GET_MODE (cmp), code, temp, cmp, cmp, 1,
+				 OPTAB_DIRECT);
+      ix86_expand_sse_movcc (operands[0], cmp, operands[1], operands[2]);
+      return true;
+    }
 
   if (ix86_expand_sse_fp_minmax (operands[0], code, operands[4],
 				 operands[5], operands[1], operands[2]))
@@ -22149,7 +22184,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
-      return copy_rtx (s->rtl);
+      return validize_mem (copy_rtx (s->rtl));
 
   s = ggc_alloc_stack_local_entry ();
   s->n = n;
@@ -22158,7 +22193,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
-  return s->rtl;
+  return validize_mem (s->rtl);
 }
 
 /* Construct the SYMBOL_REF for the tls_get_addr function.  */

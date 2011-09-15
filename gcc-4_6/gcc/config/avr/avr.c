@@ -535,6 +535,17 @@ sequent_regs_live (void)
 
   for (reg = 0; reg < 18; ++reg)
     {
+      if (fixed_regs[reg])
+        {
+          /* Don't recognize sequences that contain global register
+             variables.  */
+      
+          if (live_seq != 0)
+            return 0;
+          else
+            continue;
+        }
+      
       if (!call_used_regs[reg])
 	{
 	  if (df_regs_ever_live_p (reg))
@@ -3107,8 +3118,11 @@ out_shift_with_cnt (const char *templ, rtx insn, rtx operands[],
     }
   else if (register_operand (operands[2], QImode))
     {
-      if (reg_unused_after (insn, operands[2]))
-	op[3] = op[2];
+      if (reg_unused_after (insn, operands[2])
+          && !reg_overlap_mentioned_p (operands[0], operands[2]))
+        {
+          op[3] = op[2];
+        }
       else
 	{
 	  op[3] = tmp_reg_rtx;

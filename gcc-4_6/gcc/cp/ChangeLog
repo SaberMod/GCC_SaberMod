@@ -1,7 +1,133 @@
+2011-09-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48320
+	* pt.c (template_parameter_pack_p):  Support TEMPLATE_PARM_INDEX
+	nodes.  Add a comment.
+	(arg_from_parm_pack_p): New static function, factorized out from
+	tsubst_pack_expansion and extended to support non-type parameter
+	packs represented with TEMPLATE_PARM_INDEX nodes.
+	(tsubst_pack_expansion): Use arg_from_parm_pack_p.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/50255
+	* method.c (use_thunk): If emitting thunk into the same section
+	as function, use the same DECL_COMDAT_GROUP as well.
+
+2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50309
+	* decl.c (grokdeclarator): Check u.function.exception_specification
+	for error_mark_node.
+
+2011-09-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49267
+	* call.c (compare_ics): rvaluedness_matches_p can differ
+	based on the source type, not just target.
+
+2011-08-29  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/50207
+	* class.c (finish_struct_1): Complain if the first field is
+	artificial.
+
+2011-08-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50089
+	* semantics.c (finish_id_expression): Use
+	current_nonlambda_class_type for qualified-ids.
+
+	PR c++/50220
+	* semantics.c (add_capture): Call complete_type for copy.
+
+	PR c++/50234
+	* semantics.c (cxx_eval_component_reference): Handle
+	value-initialization for omitted initializers.
+
+2011-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50224
+	* semantics.c (finish_id_expression): Mark captured variables used.
+
+2011-08-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50157
+	* call.c (convert_like_real): Exit early if bad and !tf_error.
+
+2011-08-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50024
+	* semantics.c (maybe_constant_value): Don't try to fold { }.
+	* pt.c (build_non_dependent_expr): Don't wrap { }.
+	* init.c (build_value_init): Allow scalar value-init in templates.
+
+2011-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46862
+	* class.c (finish_struct_1): If TYPE_TRANSPARENT_AGGR is set on a type
+	which doesn't have any fields, clear it and diagnose.
+
+2011-08-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50086
+	* pt.c (unify_pack_expansion): Correct overloaded unification
+	logic.
+
+	PR c++/50054
+	* typeck2.c (cxx_incomplete_type_diagnostic): Handle
+	init_list_type_node.
+
+2011-08-12  David Li  <davidxl@google.com>
+
+	* class.c (update_vtable_entry_for_fn): Set
+	LOST_PRIMARY bit properly.
+
+2011-08-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48993
+	* semantics.c (potential_constant_expression_1) [CALL_EXPR]: Sorry
+	on 'this' in a constructor.
+
+	PR c++/49921
+	* semantics.c (finish_decltype_type): Call invalid_nonstatic_memfn_p.
+
+	PR c++/49669
+	* init.c (perform_member_init): Handle invalid array initializer.
+
+	PR c++/49988
+	* semantics.c (cxx_eval_array_reference): Handle failure to
+	reduce the array operand to something we can work with.
+
+2011-08-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43886
+	* parser.c (cp_parser_lambda_body): Clear local_variables_forbidden_p.
+
+	PR c++/49593
+	* pt.c (find_parameter_packs_r): Handle CONSTRUCTOR.
+
+	PR c++/49803
+	* init.c (sort_mem_initializers): Initialize uses_unions_p here.
+	(build_field_list): Not here.
+
+	PR c++/49924
+	* semantics.c (cxx_eval_vec_init_1): Fix logic.
+
+	PR c++/49260
+	* call.c (build_call_a): Set cp_function_chain->can_throw here.
+	(build_cxx_call): Not here.
+
 2011-07-27  Jeffrey Yasskin  <jyasskin@google.com>
 
 	* pt.c (build_template_decl): Copy the function_decl's
 	source location to the new template_decl.
+
+2011-07-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49785
+	* pt.c (coerce_template_parms): Handle non-pack after pack.
 
 2011-07-11  Jason Merrill  <jason@redhat.com>
 

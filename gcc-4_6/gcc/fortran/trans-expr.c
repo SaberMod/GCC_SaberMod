@@ -4309,10 +4309,8 @@ gfc_trans_subarray_assign (tree dest, gfc_component * cm, gfc_expr * expr)
   gfc_add_block_to_block (&block, &loop.pre);
   gfc_add_block_to_block (&block, &loop.post);
 
-  for (n = 0; n < cm->as->rank; n++)
-    mpz_clear (lss->shape[n]);
-  gfc_free (lss->shape);
-
+  gcc_assert (lss->shape != NULL);
+  gfc_free_shape (&lss->shape, cm->as->rank);
   gfc_cleanup_loop (&loop);
 
   return gfc_finish_block (&block);
@@ -6033,10 +6031,6 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   rss = NULL;
   if (lss != gfc_ss_terminator)
     {
-      /* Allow the scalarizer to workshare array assignments.  */
-      if (ompws_flags & OMPWS_WORKSHARE_FLAG)
-	ompws_flags |= OMPWS_SCALARIZER_WS;
-
       /* The assignment needs scalarization.  */
       lss_section = lss;
 
@@ -6091,6 +6085,10 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	  gfc_mark_ss_chain_used (lss, 3);
 	  gfc_mark_ss_chain_used (loop.temp_ss, 3);
 	}
+
+      /* Allow the scalarizer to workshare array assignments.  */
+      if ((ompws_flags & OMPWS_WORKSHARE_FLAG) && loop.temp_ss == NULL)
+	ompws_flags |= OMPWS_SCALARIZER_WS;
 
       /* Start the scalarized loop body.  */
       gfc_start_scalarized_body (&loop, &body);
@@ -6200,6 +6198,7 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
 	    && !gfc_expr_attr (expr1).codimension
 	    && !gfc_is_coindexed (expr1))
 	{
+	  ompws_flags &= ~OMPWS_SCALARIZER_WS;
 	  tmp = gfc_alloc_allocatable_for_assignment (&loop, expr1, expr2);
 	  if (tmp != NULL_TREE)
 	    gfc_add_expr_to_block (&loop.code[expr1->rank - 1], tmp);

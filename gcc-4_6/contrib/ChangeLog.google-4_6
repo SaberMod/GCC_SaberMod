@@ -1,3 +1,14 @@
+2011-09-15   Diego Novillo  <dnovillo@google.com>
+
+	* testsuite-management/x86_64-unknown-linux-gnu.xfail: New.
+
+2011-09-13   Diego Novillo  <dnovillo@google.com>
+
+	Merge rev 178833 from trunk.
+
+	* testsuite-management: New.
+	* testsuite-management/validate_failures.py: New.
+
 2011-06-24  Diego Novillo  <dnovillo@google.com>
 
 	Merge rev 175374 from trunk
