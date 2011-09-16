@@ -1,5 +1,13 @@
 2011-09-15  Easwaran Raman  <eraman@google.com>
 
+	Backport r178898 from google/main.
+
+	2011-09-15  Easwaran Raman  <eraman@google.com>
+
+		* Makefile.in (PLUGIN_HEADERS): Add l-ipo.h.
+
+2011-09-15  Easwaran Raman  <eraman@google.com>
+
 	Backport r176741 from trunk.
 
 	2011-07-22  Romain Geissler  <romain.geissler@gmail.com>
