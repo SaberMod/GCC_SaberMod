@@ -1,4 +1,31 @@
-2011-09-06  chengbin  <bin.cheng@arm.com>
+2011-09-19  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r175427 from mainline
+	2011-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49169
+	* fold-const.c (get_pointer_modulus_and_residue): Don't rely on
+	the alignment of function decls.
+
+2011-09-19  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r175208 from mainline
+	2011-06-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/49385
+	* config/arm/thumb2.md (*thumb2_movhi_insn): Make sure atleast
+	one of the operands is a register.
+
+2011-09-19  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r174803 from mainline
+	2011-06-08  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_libcall_uses_aapcs_base): Use correct ABI
+	for double-precision helper functions in hard-float mode if only
+	single-precision arithmetic is supported in hardware.
+
+2011-09-19  chengbin  <bin.cheng@arm.com>
 
 	Backport cortex-r5 from mainline based on r174526
 
