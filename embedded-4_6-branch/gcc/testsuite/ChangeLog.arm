@@ -1,0 +1,39 @@
+2011-09-19  Joey Ye  <joey.ye@arm.com>
+
+	Backport r177890 from mainline
+	2011-08-19  Joey Ye  <joey.ye@arm.com>
+
+	* gcc.c-torture/execute/20101011-1.c (DO_TEST): Skip on ARM.
+
+2011-09-19  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r175427 from mainline
+	2011-06-27  Michael Hope  <michael.hope@linaro.org>
+	Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR tree-optimization/49169
+	* gcc.dg/torture/pr49169.c: New test.
+
+2011-09-19  chengbin  <bin.cheng@arm.com>
+
+	Backport r172348 from mainline
+	2011-04-12  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/arm/pr43698.c: Remove -march option.
+
+2011-09-19  chengbin  <bin.cheng@arm.com>
+
+	Backport r172347 from mainline
+	2011-04-12  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/arm/sync-1.c: Limit to sync_int_long, do not use
+	-march option.
+
+2011-09-19  chengbin  <bin.cheng@arm.com>
+
+	Backport r171379 from mainline
+	gcc/testsuite/
+	2011-03-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* gcc.target/arm/pr46934.c: New.
+
