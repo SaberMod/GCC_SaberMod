@@ -1,3 +1,67 @@
+2011-09-08  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2011-09-07  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/49911
+	* tree-sra.c (analyze_access_subtree): Change type of to-be-replaced
+	enumerations to the corresponding plain integer type.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49518
+	PR tree-optimization/49628
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Skip
+	irrelevant data-references.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-08-23  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50162
+	* tree-vect-stmts.c (vectorizable_call): Fix argument lookup.
+
+2011-09-08  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-05-05  Michael Matz  <matz@suse.de>
+
+	* config/alpha/elf.h (ENDFILE_SPEC): Add Ofast.
+	* config/alpha/osf5.h (ENDFILE_SPEC): Add Ofast.
+	* config/alpha/netbsd.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/linux.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/sp64-elf.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/sp-elf.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/linux64.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/freebsd.h (ENDFILE_SPEC): Add Ofast.
+	* config/sparc/sol2.h (ENDFILE_SPEC): Add Ofast.
+	* config/i386/cygwin.h (ENDFILE_SPEC): Add Ofast.
+	* config/i386/linux.h (ENDFILE_SPEC): Add Ofast.
+	* config/i386/linux64.h (ENDFILE_SPEC): Add Ofast.
+	* config/i386/darwin.h (ENDFILE_SPEC): Add Ofast.
+	* config/i386/mingw32.h (ENDFILE_SPEC): Add Ofast.
+	* config/ia64/linux.h (ENDFILE_SPEC): Add Ofast.
+	* config/mips/linux.h (ENDFILE_SPEC): Add Ofast.
+
+2011-09-08  Eric Botcazou  <ebotcazou@adacore.com>
+	    Iain Sandoe  <iains@gcc.gnu.org>
+
+	Backport from mainline (restore powerpc-darwin Ada bootstrap).
+	* config/rs6000/rs6000.c (compute_save_world_info): Test
+	cfun->has_nonlocal_label to determine if the out-of-line save
+	world call may be used.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/50310
+	* config/i386/i386.c (ix86_prepare_sse_fp_compare_args): Return
+	code early if TARGET_AVX.
+	(ix86_expand_fp_vcond): Handle LTGT and UNEQ.
+
 2011-09-06  Martin Jambor  <mjambor@suse.cz>
 
 	Revert
