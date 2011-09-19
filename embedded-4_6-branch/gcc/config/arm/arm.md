@@ -6182,7 +6182,7 @@
   [(match_operand:DF 0 "arm_reload_memory_operand" "=o")
    (match_operand:DF 1 "s_register_operand" "r")
    (match_operand:SI 2 "s_register_operand" "=&r")]
-  "TARGET_32BIT"
+  "TARGET_THUMB2"
   "
   {
     enum rtx_code code = GET_CODE (XEXP (operands[0], 0));
@@ -8354,7 +8354,8 @@
 	rtx reg = gen_reg_rtx (SImode);
 
 	emit_insn (gen_addsi3 (reg, operands[0],
-			       GEN_INT (-INTVAL (operands[1]))));
+			       gen_int_mode (-INTVAL (operands[1]),
+			       		     SImode)));
 	operands[0] = reg;
       }
 

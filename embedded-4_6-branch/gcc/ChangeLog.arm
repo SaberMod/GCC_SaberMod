@@ -1,3 +1,56 @@
+2011-09-19  chengbin  <bin.cheng@arm.com>
+
+	Backport r174035 from mainline
+	2011-05-22  Tom de Vries  <tom@codesourcery.com>
+
+	PR middle-end/48689
+	* fold-const.c (fold_checksum_tree): Guard TREE_CHAIN use with
+	CODE_CONTAINS_STRUCT (TS_COMMON).
+
+	Backport r172297 from mainline
+	2011-04-11  Chung-Lin Tang  <cltang@codesourcery.com>
+		Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/48250
+	* config/arm/arm.c (arm_legitimize_reload_address): Update cases
+	to use sign-magnitude offsets. Reject unsupported unaligned
+	cases. Add detailed description in comments.
+	* config/arm/arm.md (reload_outdf): Disable for ARM mode; change
+	condition from TARGET_32BIT to TARGET_ARM.
+
+	Backport r171978 from mainline
+	2011-04-05  Tom de Vries  <tom@codesourcery.com>
+
+	PR target/43920
+	* config/arm/arm.h (BRANCH_COST): Set to 1 for Thumb-2 when optimizing
+	for size.
+
+	Backport r171632 from mainline
+	2011-03-28  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	* builtins.c (expand_builtin_memset_args): Use gen_int_mode
+	instead of GEN_INT.
+
+	Backport r171379 from mainline
+	2011-03-23  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR target/46934
+	* config/arm/arm.md (casesi): Use the gen_int_mode() function
+	to subtract lower bound instead of GEN_INT().
+
+	Backport r171251 from mainline 
+	2011-03-21  Daniel Jacobowitz  <dan@codesourcery.com>
+
+	* config/arm/unwind-arm.c (__gnu_unwind_pr_common): Correct test
+	for barrier handlers.
+
+	Backport r171096 from mainline
+	2011-03-17  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR target/43872
+	* config/arm/arm.c (arm_get_frame_offsets): Adjust early
+	return condition with !cfun->calls_alloca.
+
 2011-09-08  Terry Guo  <terry.guo@arm.com>
 
 	* config.gcc: Support --with-extra-multilibs option for ARM EABI.
