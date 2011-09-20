@@ -6959,6 +6959,10 @@ if test "${enable_fixed_point+set}" = set; then :
 else
 
   case $target in
+    arm*)
+      enable_fixed_point=yes
+      ;;
+
     mips*-*-*)
       case $host in
 	mips*-sgi-irix*)

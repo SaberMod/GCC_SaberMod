@@ -633,6 +633,10 @@ AC_ARG_ENABLE(fixed-point,
 ],
 [
   case $target in
+    arm*)
+      enable_fixed_point=yes
+      ;;
+
     mips*-*-*)
       case $host in
 	mips*-sgi-irix*)

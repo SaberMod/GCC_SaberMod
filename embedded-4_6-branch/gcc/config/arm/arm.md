@@ -10752,3 +10752,5 @@
 (include "neon.md")
 ;; Synchronization Primitives
 (include "sync.md")
+;; Fixed-point patterns
+(include "arm-fixed.md")

@@ -1,0 +1,43 @@
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r177025 from mainline
+	2011-08-01  Julian Brown  <julian@codesourcery.com>
+ 
+	* config.host (arm*-*-linux*, arm*-*-uclinux*, arm*-*-eabi*)
+	(arm*-*-symbianelf*): Add t-fixedpoint-gnu-prefix makefile fragment.
+	* config/arm/bpabi-lib.h (LIBGCC2_FIXEDBIT_GNU_PREFIX): Define.
+
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r177019 from mainline
+	2011-08-01  Julian Brown  <julian@codesourcery.com>
+
+	* Makefile.in (LIBGCC_VER_FIXEDPOINT_GNU_PREFIX): New.
+	(libgcc-std.ver.in): Use above.
+	* fixed-bit.h (LIBGCC2_FIXEDBIT_GNU_PREFIX): Define, if
+	LIBGCC2_GNU_PREFIX is defined.  Use instead of LIBGCC2_GNU_PREFIX
+	throughout file.
+	* config/t-fixedpoint-gnu-prefix: New file.
+	* config/t-gnu-prefix (LIBGCC_VER_FIXEDPOINT_GNU_PREFIX): Set.
+	* libgcc-std.ver.in (fixed-point routines): Use __FIXPTPFX__
+	instead of __PFX__.
+
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r176036 from mainline
+	2011-07-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* fixed-bit.c, fixed-bit.h: New files.
+	* fixed-obj.mk ($o$(objext), $(o)_s$(objext)): Use $(srcdir) to
+	refer to fixed-bit.c.
+
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Partially backport r174187 from mainline
+	2011-05-25  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* libgcc-std.ver.in: New file.
+	* Makefile.in (LIBGCC_VER_GNU_PREFIX, LIBGCC_VER_SYMBOLS_PREFIX): New
+	variables.
+	(libgcc-std.ver): New rule.
+	* config/t-gnu-prefix: New file.
