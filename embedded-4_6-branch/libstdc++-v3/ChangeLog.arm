@@ -1,0 +1,11 @@
+2011-09-20  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport r176339 from mainline
+	2011-07-15  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/locale/newlib/ctype_members.cc: New file.
+	* acinclude.m4 (GLIBCXX_ENABLE_CLOCALE): Add a new C locale
+	kind: newlib.  Configure to use the newlib specific
+	ctype_members.cc when with_newlib is enabled.
+	* configure: Regenerate.
+
