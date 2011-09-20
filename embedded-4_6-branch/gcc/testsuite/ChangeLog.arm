@@ -1,3 +1,28 @@
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r175246 from mainline
+	2011-06-21  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR testsuite/49443
+	* gcc.dg/vect/vect-peel-3.c: Expect to fail on vect_no_align
+	targets.
+	* gcc.dg/vect/vect-peel-4.c: Likewise.
+
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r175009 from mainline
+	2011-06-14  Ira Rosen  <ira.rosen@linaro.org>
+
+	* gcc.dg/vect/vect-16.c: Rename to...
+	* gcc.dg/vect/no-fast-math-vect16.c: ...this.
+	* gcc.dg/vect/vect-peel-3.c: Adjust misalignment values
+	for double-word vectors.
+	* gcc.dg/vect/vect-peel-4.c: Likewise.
+	* gcc.dg/vect/bb-slp-10.c: Replace vect_hw_misalign with
+	vect_element_align.
+	* gcc.dg/vect/vect.exp: Run no-fast-math-* tests with
+	-fno-fast-math.
+
 2011-09-20  Terry Guo  <terry.guo@arm.com>
 
 	Backport r178906 from mainline
