@@ -1,3 +1,17 @@
+2011-09-20  Terry Guo  <terry.guo@arm.com>
+
+	Backport r178906 from mainline
+	2011-09-16  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.dg/tree-ssa/foldconst-3.c: Don't use short enums.
+
+2011-09-20  Terry Guo  <terry.guo@arm.com>
+
+	Backport r174549 from mainline
+	2011-06-01  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* gcc.target/arm/scd42-2.c: Likewise.
+
 2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r177025 from mainline
