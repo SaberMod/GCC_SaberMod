@@ -1,7 +1,3 @@
-# This test only fails when not using gold.
-XPASS: gcc.dg/torture/pr49886.c -O2 -flto  execution test
-XPASS: gcc.dg/torture/pr49886.c -O2 -flto -flto-partition=none  execution test
-
 # This test fails or succeeds depending on machine load.
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test
 flaky | FAIL: libmudflap.cth/pass40-frag.c execution test

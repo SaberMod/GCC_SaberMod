@@ -1,3 +1,21 @@
+2011-09-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49886
+	* gcc.dg/torture/pr49886.c: Remove XFAILs.
+	* gcc.dg/torture/pr50287.c: New test.
+
+2011-09-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50442
+	Revert:
+	PR c++/49267
+	* g++.dg/cpp0x/rv-conv1.C: New.
+
+2011-09-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50424
+	* g++.dg/eh/defarg1.C: New.
+
 2011-09-13  Dodji Seketeli  <dodji@redhat.com>
 
 	PR c++/48320
