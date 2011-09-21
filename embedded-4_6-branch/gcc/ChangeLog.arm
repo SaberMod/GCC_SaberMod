@@ -1,3 +1,21 @@
+2011-09-21  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Tune loop unrolling for cortex-m
+	* config/arm/arm-cores.def (cortex-m0): Change to new tune
+	cortex_v6m.
+	(cortex-m1): Likewise.
+	* config/arm/arm-protos.h (max_unroll_times): New.
+	* config/arm/arm.c (arm_default_unroll_times): New.
+	(arm_cortex_m_unroll_times): New.
+	(arm_cortex_v6m_tune): New.
+	(arm_slowmul_tune): Add max_unroll_times function pointer.
+	(arm_fastmul_tune, arm_xscale_tune, arm_9e_tune, 
+	arm_v6t2_tune, arm_cortex_tune, arm_cortex_a9_tune,
+	arm_cortex_v7m_tune, arm_cortex_v6m_tune,
+	arm_fa726te_tune): Likewise.
+	(arm_option_override): Enable loop unroll for all all M class
+	Cores, if optimization level is >= 1.
+
 2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Tune branch cost for armv7-m
