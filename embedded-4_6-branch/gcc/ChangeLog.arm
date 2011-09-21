@@ -1,5 +1,13 @@
 2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
 
+	Tune branch cost for armv7-m
+	* config/arm/arm-cores.def (cortex-m3): Use cortex-v7m.
+	(cortex-m4) : Likewise.
+	* config/arm/arm.c (arm_cortex_v7m_branch_cost): New.
+	(arm_cortex_v7m_tune): New.
+
+2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
+
 	Backport r174578 from mainline
 	2011-06-02  Julian Brown  <julian@codesourcery.com>
 

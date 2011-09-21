@@ -251,6 +251,7 @@ static bool arm_builtin_support_vector_misalignment (enum machine_mode mode,
 static void arm_conditional_register_usage (void);
 static reg_class_t arm_preferred_rename_class (reg_class_t rclass);
 static int arm_default_branch_cost (bool, bool);
+static int arm_cortex_v7m_branch_cost (bool, bool);
 
 
 /* Table of machine attributes.  */
@@ -919,6 +920,17 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   false,					/* Prefer constant pool.  */
   arm_default_branch_cost
+};
+
+/* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
+const struct tune_params arm_cortex_v7m_tune =
+{
+  arm_9e_rtx_costs,
+  NULL,
+  1,                                           /* Constant limit.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  false,                                       /* Prefer constant pool.  */
+  arm_cortex_v7m_branch_cost
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -8505,6 +8517,14 @@ arm_default_branch_cost (bool speed_p, bool predictable_p ATTRIBUTE_UNUSED)
     return (TARGET_THUMB2 && !speed_p) ? 1 : 4;
   else
     return (optimize > 0) ? 2 : 0;
+}
+
+static int
+arm_cortex_v7m_branch_cost (bool speed_p, bool predictable_p ATTRIBUTE_UNUSED)
+{
+  gcc_assert (TARGET_32BIT && TARGET_THUMB2);
+
+  return 1;
 }
 
 static int fp_consts_inited = 0;
