@@ -657,6 +657,10 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       && GET_MODE (value) != BLKmode
       && bitsize > 0
       && GET_MODE_BITSIZE (op_mode) >= bitsize
+      /* Do not use insv for volatile bitfields when
+         -fstrict-volatile-bitfields is in effect.  */
+      && !(MEM_P (op0) && MEM_VOLATILE_P (op0)
+	   && flag_strict_volatile_bitfields > 0)
       && ! ((REG_P (op0) || GET_CODE (op0) == SUBREG)
 	    && (bitsize + bitpos > GET_MODE_BITSIZE (op_mode)))
       && insn_data[CODE_FOR_insv].operand[1].predicate (GEN_INT (bitsize),
@@ -700,18 +704,18 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  copy_back = true;
 	}
 
+      /* We have been counting XBITPOS within UNIT.
+	 Count instead within the size of the register.  */
+      if (BYTES_BIG_ENDIAN && !MEM_P (xop0))
+	xbitpos += GET_MODE_BITSIZE (op_mode) - unit;
+
+      unit = GET_MODE_BITSIZE (op_mode);
+
       /* On big-endian machines, we count bits from the most significant.
 	 If the bit field insn does not, we must invert.  */
 
       if (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
 	xbitpos = unit - bitsize - xbitpos;
-
-      /* We have been counting XBITPOS within UNIT.
-	 Count instead within the size of the register.  */
-      if (BITS_BIG_ENDIAN && !MEM_P (xop0))
-	xbitpos += GET_MODE_BITSIZE (op_mode) - unit;
-
-      unit = GET_MODE_BITSIZE (op_mode);
 
       /* Convert VALUE to op_mode (which insv insn wants) in VALUE1.  */
       value1 = value;
@@ -1528,6 +1532,10 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (ext_mode != MAX_MACHINE_MODE
       && bitsize > 0
       && GET_MODE_BITSIZE (ext_mode) >= bitsize
+      /* Do not use extv/extzv for volatile bitfields when
+         -fstrict-volatile-bitfields is in effect.  */
+      && !(MEM_P (op0) && MEM_VOLATILE_P (op0)
+	   && flag_strict_volatile_bitfields > 0)
       /* If op0 is a register, we need it in EXT_MODE to make it
 	 acceptable to the format of ext(z)v.  */
       && !(GET_CODE (op0) == SUBREG && GET_MODE (op0) != ext_mode)
@@ -1552,16 +1560,16 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	/* Get ref to first byte containing part of the field.  */
 	xop0 = adjust_address (xop0, byte_mode, xoffset);
 
+      /* Now convert from counting within UNIT to counting in EXT_MODE.  */
+      if (BYTES_BIG_ENDIAN && !MEM_P (xop0))
+	xbitpos += GET_MODE_BITSIZE (ext_mode) - unit;
+
+      unit = GET_MODE_BITSIZE (ext_mode);
+
       /* On big-endian machines, we count bits from the most significant.
 	 If the bit field insn does not, we must invert.  */
       if (BITS_BIG_ENDIAN != BYTES_BIG_ENDIAN)
 	xbitpos = unit - bitsize - xbitpos;
-
-      /* Now convert from counting within UNIT to counting in EXT_MODE.  */
-      if (BITS_BIG_ENDIAN && !MEM_P (xop0))
-	xbitpos += GET_MODE_BITSIZE (ext_mode) - unit;
-
-      unit = GET_MODE_BITSIZE (ext_mode);
 
       if (xtarget == 0)
 	xtarget = xspec_target = gen_reg_rtx (tmode);
