@@ -697,10 +697,18 @@ struct gimple_opt_pass pass_rebuild_cgraph_edges =
  }
 };
 
+/* Defined in tree-optimize.c  */
+extern bool cgraph_callee_edges_final_cleanup; 
 
 static unsigned int
 remove_cgraph_callee_edges (void)
 {
+  /* The -fcallgraph-profiles-sections flag needs the call-graph preserved
+     till pass_final.  */
+  if (cgraph_callee_edges_final_cleanup
+      && flag_callgraph_profiles_sections)
+      return 0;
+
   cgraph_node_remove_callees (cgraph_node (current_function_decl));
   return 0;
 }

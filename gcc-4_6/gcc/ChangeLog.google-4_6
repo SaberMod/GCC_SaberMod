@@ -1,3 +1,14 @@
+2011-09-22  Sriraman Tallam  <tmsriram@google.com>
+
+	* cgraphbuild.c (remove_cgraph_callee_edges): Preserve callee edges if
+	callgraph profiles are needed.
+	* final.c (rest_of_handle_final): Rename .note.callgraph sections as
+	.gnu.callgraph sections.
+	* tree-optimize.c (gate_all_optimizations): Set
+	cgraph_callee_edges_final_cleanup to true.
+	(cgraph_callee_edges_final_cleanup): New global variable.
+	* params.def (PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD): Fix comment.
+
 2011-09-22  Guozhi Wei  <carrot@google.com>
 
 	Backport r178995 from trunk.
