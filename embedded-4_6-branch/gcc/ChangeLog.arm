@@ -1,3 +1,21 @@
+2011-09-27  Jiangning Liu  <jiangning.liu@arm.com>
+
+	No loop unroll for Os and option has higher priority.
+	* config/arm/arm-protos.h (unroll_loops): New. 
+	(max_unroll_times): Removed.
+	* config/arm/arm.c (arm_default_unroll_times): Deleted.
+	(arm_cortex_m_unroll_times): Removed.
+	(arm_cortex_m_unroll_loops): New. Set flag_unroll_loops if
+	not set by users on command line.
+	(arm_slowmul_tune): Change arm_default_unroll_times to 0.
+	(arm_fastmul_tune, arm_xscale_tune, arm_9e_tune, arm_v6t2_tune,
+	arm_cortex_tune, arm_cortex_a9_tune, arm_fa726te_tune): Likewise.
+	(arm_cortex_v7m_tune): Change arm_cortex_m_unroll_times to
+	arm_cortex_m_unroll_loops.
+	(arm_cortex_v6m_tune): Likewise.
+	(arm_option_override): Change to set flag_unroll_loops and
+	max_unroll_times for optimization level >=2 and not for size.
+
 2011-09-22  Joey Ye  <joey.ye@arm.com>
 
 	Backport r178852 from mainline
