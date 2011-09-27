@@ -4428,7 +4428,7 @@ rest_of_handle_final (void)
       && cgraph_node (current_function_decl) != NULL
       && (cgraph_node (current_function_decl))->callees != NULL)
     {
-      flags = SECTION_DEBUG;
+      flags = SECTION_DEBUG | SECTION_EXCLUDE;
       asprintf (&profile_fnname, ".gnu.callgraph.text.%s", fnname);
       switch_to_section (get_section (profile_fnname, flags, NULL));
       fprintf (asm_out_file, "\t.string \"Function %s\"\n", fnname);

@@ -1,3 +1,10 @@
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>
+
+	* output.h (SECTION_EXCLUDE): New flag for exclude sections.
+	* varasm.c (default_elf_asm_named_section): Add "e" to section flags
+	marked as SECTION_EXCLUDE.
+	* final.c (rest_of_handle_final): Exclude .gnu.callgraph sections.
+
 2011-09-22  Sriraman Tallam  <tmsriram@google.com>
 
 	* cgraphbuild.c (remove_cgraph_callee_edges): Preserve callee edges if
