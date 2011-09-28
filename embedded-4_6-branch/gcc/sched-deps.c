@@ -2271,6 +2271,14 @@ sched_analyze_1 (struct deps_desc *deps, rtx x, rtx insn)
 			      FIRST_STACK_REG + nregs);
 	}
 #endif
+      /* If the stack pointer is being modified, flush out all memory
+         references as they may become invalid if moved across the
+         stack adjustment.  */
+      if (!targetm.calls.stack_using_red_zone ()
+          && (dest == stack_pointer_rtx))
+        {
+          flush_pending_lists (deps, insn, true, true);
+        }
     }
   else if (MEM_P (dest))
     {

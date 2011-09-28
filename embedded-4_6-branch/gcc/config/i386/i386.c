@@ -2684,7 +2684,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
 
 /* Return true if a red-zone is in use.  */
 
-static inline bool
+static bool
 ix86_using_red_zone (void)
 {
   return TARGET_RED_ZONE && !TARGET_64BIT_MS_ABI;
@@ -35208,6 +35208,9 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_SUPPORTS_SPLIT_STACK
 #define TARGET_SUPPORTS_SPLIT_STACK ix86_supports_split_stack
+
+#undef TARGET_STACK_USING_RED_ZONE
+#define TARGET_STACK_USING_RED_ZONE ix86_using_red_zone
 
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE ix86_function_value

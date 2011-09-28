@@ -1,3 +1,21 @@
+2011-09-28  Jiangning Liu  <jiangning.liu@arm.com>
+
+	* config/i386/i386.c (ix86_stack_using_red_zone): Change inline
+	to be extern.
+	(TARGET_STACK_USING_RED_ZONE): New.
+	* config/rs6000/rs6000.c (rs6000_stack_using_red_zone): New.
+	(TARGET_STACK_USING_RED_ZONE): New.
+	(offset_below_red_zone_p): Change to use new hook
+	TARGET_STACK_USING_RED_ZONE.
+	* doc/tm.texi (TARGET_STACK_USING_RED_ZONE): New.
+	* doc/tm.texi.in (TARGET_STACK_USING_RED_ZONE): New.
+	* sched-deps.c (sched_analyze_1): If the stack pointer is being
+	modified and stack red zone is not supported for ports, flush out
+	all memory references as they may become invalid if moved across
+	the stack adjustment.
+	* target.def (stack_using_red_zone): New.
+	* testsuite/gcc.target/arm/stack-red-zone.c: New.
+
 2011-09-28  Terry Guo  <terry.guo@arm.com>
 
 	Backport r173371 from mainline

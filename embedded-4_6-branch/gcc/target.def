@@ -2115,6 +2115,13 @@ DEFHOOK
  bool, (void),
  hook_bool_void_true)
 
+/* Return true if target uses stack red zone.  */
+DEFHOOK
+(stack_using_red_zone,
+ "",
+ bool, (void),
+ hook_bool_void_false)
+
 /* Return an rtx for the static chain for FNDECL.  If INCOMING_P is true,
        then it should be for the callee; otherwise for the caller.  */
 DEFHOOK
