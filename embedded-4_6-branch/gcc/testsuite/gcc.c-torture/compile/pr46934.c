@@ -1,7 +1,3 @@
-/* { dg-do compile } */
-/* { dg-options "-march=armv5te -mthumb -Os" }  */
-/* { dg-require-effective-target arm_thumb1_ok } */
-
 int caller (unsigned int reg_type)
 {
   switch (reg_type)

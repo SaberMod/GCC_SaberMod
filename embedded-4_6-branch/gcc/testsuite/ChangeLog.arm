@@ -1,3 +1,10 @@
+2011-09-28  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport r175995 from mainline
+	2011-07-07  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.c-torture/compile/pr46934.c: Move from gcc.target/arm.
+
 2011-09-23  Terry Guo  <terry.guo@arm.com>
 
 	Backport r179043 from mainline
