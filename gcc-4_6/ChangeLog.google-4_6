@@ -1,3 +1,11 @@
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>
+
+	* Makefile.in: Regenerate.
+	* configure.ac: Add build for function_reordering_plugin.
+	* configure: Regenerate.
+	* Makefile.def: Add function_reodering_plugin.
+	* function_reordering_plugin: New directory.
+
 2011-08-03  Sriraman Tallam  <tmsriram@google.com>
 
 	Revert:
