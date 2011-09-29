@@ -19279,6 +19279,7 @@ cp_parser_late_parsing_attribute_arg_lists (cp_parser* parser)
       cp_token_cache *tokens = (cp_token_cache *) TREE_VALUE (artificial_node);
       tree ctype;
       VEC(tree,gc) *vec;
+      tree clone;
 
       gcc_assert (tokens);
       gcc_assert (decl && decl != error_mark_node);
@@ -19322,16 +19323,9 @@ cp_parser_late_parsing_attribute_arg_lists (cp_parser* parser)
 
       /* If decl has clones (when it is a ctor or a dtor), we need to
          modify the clones' attributes as well.  */
-      if (TREE_CODE (decl) == FUNCTION_DECL
-          && (DECL_CONSTRUCTOR_P (decl) || DECL_DESTRUCTOR_P (decl)))
-        {
-          tree clone;
-          for (clone = TREE_CHAIN (decl); clone; clone = TREE_CHAIN (clone))
-            {
-              if (DECL_CLONED_FUNCTION (clone) == decl)
-                DECL_ATTRIBUTES (clone) = DECL_ATTRIBUTES (decl);
-            }
-        }
+      FOR_EACH_CLONE (clone, decl)
+        if (DECL_CLONED_FUNCTION (clone) == decl)
+          DECL_ATTRIBUTES (clone) = DECL_ATTRIBUTES (decl);
 
       pop_nested_class ();
 

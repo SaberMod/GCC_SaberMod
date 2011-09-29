@@ -1,3 +1,9 @@
+cp/Changelog.google-4_6:
+2011-9-29  DeLesley Hutchins  <delesley@google.com>
+
+     * cp/parser.c  (cp_parser_late_parsing_attribute_arg_lists)
+        fixed case where the potential clone is a template.
+
 2011-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	Backport r179110 from gcc-4_6-branch.
