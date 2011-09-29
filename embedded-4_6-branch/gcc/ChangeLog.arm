@@ -5,6 +5,7 @@
 
 2011-09-28  Jiangning Liu  <jiangning.liu@arm.com>
 
+	PR rtl-optimization/38644
 	* config/i386/i386.c (ix86_stack_using_red_zone): Change inline
 	to be extern.
 	(TARGET_STACK_USING_RED_ZONE): New.
