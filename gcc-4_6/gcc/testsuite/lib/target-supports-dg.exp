@@ -100,6 +100,16 @@ proc dg-require-ifunc { args } {
     }
 }
 
+# If this target does not support the section exclude "e" attribute,
+# skip this test.
+
+proc dg-require-section-exclude { args } {
+    if { ![ check_section_exclude_available ] } {
+	upvar dg-do-what dg-do-what
+	set dg-do-what [list [lindex ${dg-do-what} 0] "N" "P"]
+    }
+}
+
 # If this target's linker does not support the --gc-sections flag,
 # skip this test.
 
