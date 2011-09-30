@@ -1,5 +1,10 @@
 2011-09-30  Sriraman Tallam  <tmsriram@google.com>
 
+	* testsuite/gcc.dg/builtin_target.c: Remove.
+	* testsuite/gcc.target/i386/builtin_target.c: New file.
+
+2011-09-30  Sriraman Tallam  <tmsriram@google.com>
+
 	* testsuite/gcc.dg/builtin_target.c: Specify target as ix86 or
 	x86_64. 
 

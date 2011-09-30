@@ -1,6 +1,6 @@
 /* This test checks if the __builtin_cpu_* calls are recognized. */
 
-/* { dg-do run { target i?86-*-* x86_64-*-* } } */
+/* { dg-do run } */
 
 int
 fn1 ()
