@@ -2129,6 +2129,7 @@ process_function_attrs (gimple call, tree fdecl,
   tree base_obj = NULL_TREE;
   bool is_exclusive_lock;
   bool is_trylock;
+  bool optimized_args = false;
 
   gcc_assert (is_gimple_call (call));
 
@@ -2147,16 +2148,28 @@ process_function_attrs (gimple call, tree fdecl,
       != NULL_TREE)
     current_bb_info->writes_ignored = false;
 
+  /* If the given function is a clone, and if some of the parameters of the
+     clone have been optimized away, then the function attribute is no longer
+     correct, and we should suppress certain warnings.  Clones are often created
+     when -fipa-sra is enabled, which happens by default at -O2 starting from
+     GCC-4.5.  The clones could be created as early as when constructing SSA.
+     ipa-sra is particularly fond of optimizing away the "this" pointer,
+     which is a problem because that makes it impossible to determine the
+     base object, which then causes spurious errors. It's better to just
+     remain silent in this case.  */
+  if ((TREE_CODE (TREE_TYPE (fdecl)) == FUNCTION_TYPE
+       || TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)  /* sanity check   */
+      && (fdecl != DECL_ORIGIN (fdecl))                  /* is it a clone? */
+      && (type_num_arguments (TREE_TYPE (fdecl)) !=      /* compare args   */
+          type_num_arguments (TREE_TYPE (DECL_ORIGIN(fdecl)))))
+    optimized_args = true;
+
   /* If the function is a class member, the first argument of the function
      (i.e. "this" pointer) would be the base object. Note that here we call
      DECL_ORIGIN on fdecl first before we check whether it's a METHOD_TYPE
      because if fdecl is a cloned method, the TREE_CODE of its type would be
      FUNCTION_DECL instead of METHOD_DECL, which would lead us to not grab
-     its base object. One possible situation where fdecl could be a clone is
-     when -fipa-sra is enabled. (-fipa-sra is enabled by default at -O2
-     starting from GCC-4.5.). The clones could be created as early as when
-     constructing SSA. Also note that the parameters of a cloned method could
-     be optimized away.  */
+     its base object. */
   if (TREE_CODE (TREE_TYPE (DECL_ORIGIN (fdecl))) == METHOD_TYPE
       && gimple_call_num_args(call) > 0)
     base_obj = gimple_call_arg (call, 0);
@@ -2285,7 +2298,8 @@ process_function_attrs (gimple call, tree fdecl,
                                       current_bb_info, locus);
     }
 
-  if (warn_thread_unguarded_func)
+  /* suppress warnings if the function arguments are no longer accurate. */
+  if (warn_thread_unguarded_func && !optimized_args)
     {
       /* Handle the attributes specifying the lock requirements of
          functions.  */

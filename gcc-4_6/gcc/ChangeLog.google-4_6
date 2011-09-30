@@ -1,3 +1,8 @@
+2011-09-30  DeLesley Hutchins  <delesley@google.com>
+
+    * tree-threadsafe-analyze.c (process_function_attrs)
+        detect clones and suppress warnings
+
 2011-09-27  Sriraman Tallam  <tmsriram@google.com>
 
 	* output.h (SECTION_EXCLUDE): New flag for exclude sections.
