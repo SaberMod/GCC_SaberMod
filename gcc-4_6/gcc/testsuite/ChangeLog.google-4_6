@@ -1,12 +1,12 @@
 2011-9-30  DeLesley Hutchins  <delesley@google.com>
 
-    * testsuite/g++.dg/thread-ann/thread_annot_lock-82.C
-      (new regression test)
+    * testsuite/g++.dg/thread-ann/thread_annot_lock-82.C:
+      New regression test.
 
 2011-09-29  DeLesley Hutchins  <delesley@google.com>
 
      * testsuite/g++.dg/thread-ann/thread_annot_lock-81.C
-       (new regression test)
+       New regression test.
 
 2011-09-28  Guozhi Wei  <carrot@google.com>
 
