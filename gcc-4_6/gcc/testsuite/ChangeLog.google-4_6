@@ -1,3 +1,7 @@
+2011-09-30  Easwaran Raman  <eraman@google.com>
+
+	* gcc.dg/sample-profile-generate-1.c: New test.
+
 2011-09-30  Sriraman Tallam  <tmsriram@google.com>
 
 	* testsuite/gcc.dg/builtin_target.c: Remove.
