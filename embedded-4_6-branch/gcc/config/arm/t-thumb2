@@ -21,5 +21,6 @@ MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-a8
 MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-a9
 MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4
 MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4f
+MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r5
 
 MULTILIB_OSDIRNAMES   += mthumb/march.armv6t2=!thumb2
