@@ -1,25 +1,15 @@
 #Build below library for ARM Thumb-2.
-#  thumb2/      		  -mthumb -march=armv6t2
-#  thumb2/fix-cortex-m3-ldrd      -mthumb -march=armv6t2 -mfix-cortex-m3-ldrd
+#  thumb2/      -mthumb -march=armv6t2
 
-MULTILIB_OPTIONS      += march=armv6t2 mfix-cortex-m3-ldrd
+MULTILIB_OPTIONS      += march=armv6t2
 
-MULTILIB_DIRNAMES     += thumb2 fix-cortex-m3-ldrd
+MULTILIB_DIRNAMES     += thumb2
 
 MULTILIB_EXCEPTIONS   += march=armv6t2*
 MULTILIB_EXCEPTIONS   += marm*/march=armv6t2*
-MULTILIB_EXCEPTIONS   += marm*/mfix*
 MULTILIB_EXCEPTIONS   += mfloat-abi=hard/march=armv6t2*
-MULTILIB_EXCEPTIONS   += mfloat-abi=hard/mfix*
-MULTILIB_EXCEPTIONS   += mfix*
-MULTILIB_EXCEPTIONS   += mthumb/mfix*
 MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/march=armv6t2*
-MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/mfix*
-MULTILIB_EXCEPTIONS   += m*/march=armv4t/mfix*
 MULTILIB_EXCEPTIONS   += m*/march=armv6t2/march*
-MULTILIB_EXCEPTIONS   += m*/march=armv6s*/mfix*
-MULTILIB_EXCEPTIONS   += m*/march=armv7*/mfix*
-MULTILIB_EXCEPTIONS   += m*/mfix*/march*
 
 MULTILIB_MATCHES      += march?armv6t2=march?armv7
 MULTILIB_MATCHES      += march?armv6t2=march?armv7-a
@@ -33,4 +23,3 @@ MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4
 MULTILIB_MATCHES      += march?armv6t2=mcpu?cortex-r4f
 
 MULTILIB_OSDIRNAMES   += mthumb/march.armv6t2=!thumb2
-MULTILIB_OSDIRNAMES   += mthumb/march.armv6t2/mfix-cortex-m3-ldrd=!thumb2/fix-cortex-m3-ldrd
