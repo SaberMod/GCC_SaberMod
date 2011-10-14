@@ -1,5 +1,10 @@
 2011-10-14  DeLesley Hutchins  <delesley@google.com>
 
+   * tree-threadsafe-analyze.c (get_canonical_lock_expr):
+     Bugfix: add lock to hash set, even if it refers to a base class
+
+2011-10-14  DeLesley Hutchins  <delesley@google.com>
+
    * tree-threadsafe-analyze.c (remove_lock_from_lockset):
      Bugfix: shared lock now removed properly when the universal lock 
      is in the exclusive lock set.  

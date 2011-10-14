@@ -1,5 +1,8 @@
-// Regression test for bugfix, where shared locks are not properly 
-// removed from locksets if a "universal lock" is present. 
+// Regression test for two bugfixes.
+// Bugfix 1:  Shared locks are not properly removed from locksets 
+// if a "universal lock" is present. 
+// Bugfix 2:  Canonicalization does not properly store the lock in 
+// the hash table if the lock function is attached to a base class.  
 // { dg-do compile }
 // { dg-options "-Wthread-safety" }
 
@@ -7,6 +10,7 @@
 
 class Foo;
 
+/* Bugfix 1 */
 class Bar {
 public:
   Foo*  foo;
@@ -28,4 +32,24 @@ public:
 void Bar::bar() {
   ReaderMutexLock rlock(&mu_);
 }
+
+
+/* Bugfix 2 */
+class LOCKABLE Base {
+public:
+  Mutex mu_;
+  
+  void Lock()   EXCLUSIVE_LOCK_FUNCTION()   { mu_.Lock();   }
+  void Unlock() UNLOCK_FUNCTION()           { mu_.Unlock(); }
+};
+
+class Derived : public Base {
+public: 
+  int b;
+};
+
+void doSomething(Derived *d) {
+  d->Lock();
+  d->Unlock();
+};
 

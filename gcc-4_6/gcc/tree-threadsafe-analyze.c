@@ -927,7 +927,16 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
                                             NULL_TREE);
 
           if (lang_hooks.decl_is_base_field (component))
-            return canon_base;
+            {
+              if (is_temp_expr)
+                return canon_base;
+              else
+                /* return canon_base, but recalculate it so that it is stored
+                   in the hash table. */
+                return get_canonical_lock_expr (base, base_obj,
+                                                false /* is_temp_expr */,
+                                                new_leftmost_base_var);
+            }
 
           if (base != canon_base)
             lock = build3 (COMPONENT_REF, TREE_TYPE (component),

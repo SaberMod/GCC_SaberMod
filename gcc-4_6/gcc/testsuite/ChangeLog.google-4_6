@@ -1,6 +1,11 @@
 2011-10-14  DeLesley Hutchins  <delesley@google.com>
 
    * g++.dg/thread-ann/thread_annot_lock-83.C:
+     Added a second regression test to the same file.
+
+2011-10-14  DeLesley Hutchins  <delesley@google.com>
+
+   * g++.dg/thread-ann/thread_annot_lock-83.C:
      New regression test
 
 2011-09-30  Easwaran Raman  <eraman@google.com>
