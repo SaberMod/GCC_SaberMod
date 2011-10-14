@@ -1,3 +1,9 @@
+2011-10-14  DeLesley Hutchins  <delesley@google.com>
+
+   * tree-threadsafe-analyze.c (remove_lock_from_lockset):
+     Bugfix: shared lock now removed properly when the universal lock 
+     is in the exclusive lock set.  
+
 2011-09-30  Sharad Singhai  <singhai@google.com>
 
 	* gcc.c (cc1_options): Add -fno-early-inlining for improved coverage.

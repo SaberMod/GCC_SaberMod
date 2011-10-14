@@ -1830,14 +1830,27 @@ remove_lock_from_lockset (tree lockable, struct pointer_set_t *live_excl_locks,
 {
   tree lock_contained;
 
-  if ((lock_contained = lock_set_contains(live_excl_locks, lockable, NULL_TREE,
-                                          false)) != NULL_TREE)
+  /* Try to remove the actual lock. */
+  if ((lock_contained = lock_set_contains(live_excl_locks, lockable,
+                                          NULL_TREE, true)) != NULL_TREE)
     pointer_set_delete (live_excl_locks, lock_contained);
   else if ((lock_contained = lock_set_contains(live_shared_locks, lockable,
-                                               NULL_TREE, false)) != NULL_TREE)
+                                               NULL_TREE, true)) != NULL_TREE)
     pointer_set_delete (live_shared_locks, lock_contained);
 
-  return lock_contained;
+  if (lock_contained)
+    return lock_contained;
+
+  /* If either of lock sets contains the universal lock, then pretend that
+   we've removed it, to avoid a warning about unlocking a lock that was
+   not acquired. */
+  if (pointer_set_contains (live_excl_locks, error_mark_node))
+    return lockable;
+
+  if (pointer_set_contains(live_shared_locks, error_mark_node))
+    return lockable;
+
+  return NULL_TREE;
 }
 
 /* This function handles function calls that release locks (i.e. the
