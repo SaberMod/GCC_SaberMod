@@ -4979,6 +4979,30 @@ AC_DEFINE_UNQUOTED(WARN_FRAME_LARGER_THAN_EXTRA_TEXT,
                    [Define to be extra text for frame size warnings.])
 
 
+# Specify what hash style to use by default.
+AC_ARG_WITH([linker-hash-style],
+[AC_HELP_STRING([--with-linker-hash-style={sysv,gnu,both}],
+                [specify the linker hash style])],
+[case x"$withval" in
+   xsysv)
+     LINKER_HASH_STYLE=sysv
+     ;;
+   xgnu)
+     LINKER_HASH_STYLE=gnu
+     ;;
+   xboth)
+     LINKER_HASH_STYLE=both
+     ;;
+   *)
+     AC_MSG_ERROR([$withval is an invalid option to --with-linker-hash-style])
+     ;;
+ esac],
+[LINKER_HASH_STYLE=''])
+if test x"${LINKER_HASH_STYLE}" != x; then
+  AC_DEFINE_UNQUOTED(LINKER_HASH_STYLE, "$LINKER_HASH_STYLE",
+                                         [The linker hash style])
+fi
+
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)
 
