@@ -1,3 +1,9 @@
+2011-08-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/49923
+	* tree-sra.c (access_precludes_ipa_sra_p): Also check access
+	memory alignment.
+
 2011-05-11  Satoru Takabayashi  <satorux@google.com>
 	    Paul Pluzhnikov  <ppluzhnikov@google.com>
 
