@@ -381,4 +381,5 @@ extern void default_options_optimization (struct gcc_options *opts,
 extern void set_struct_debug_option (struct gcc_options *opts,
 				     location_t loc,
 				     const char *value);
+extern void write_opts_to_asm (void);
 #endif

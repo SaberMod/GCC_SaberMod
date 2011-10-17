@@ -1,3 +1,7 @@
+2011-10-17  Dehao Chen  <dehao@google.com>
+
+	* gcc.dg/record-gcc-switches-in-elf-1.c: New test.
+
 2011-10-14  DeLesley Hutchins  <delesley@google.com>
 
    * g++.dg/thread-ann/thread_annot_lock-83.C:
