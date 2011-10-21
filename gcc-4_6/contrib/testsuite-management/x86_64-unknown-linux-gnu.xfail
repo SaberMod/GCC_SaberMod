@@ -1,3 +1,6 @@
+# Failures inherited from upstream gcc-4_6-branch.
+XPASS: g++.dg/uninit-pred-3_b.C (test for excess errors)
+
 # This test fails or succeeds depending on machine load.
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test
 flaky | FAIL: libmudflap.cth/pass40-frag.c execution test

@@ -1,3 +1,53 @@
+2011-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/50571
+	* gimple-fold.c (fold_stmt_1) <case GIMPLE_ASM>: If
+	input constraints allow mem and not reg, pass true instead of
+	false as second argument to maybe_fold_reference.
+
+2011-09-30  Jakub Jelinek  <jakub@redhat.com>
+	    Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (call_may_clobber_ref_p_1): Fix
+	handling of BUILT_IN_STRNCAT.
+	(ref_maybe_used_by_call_p_1): Fix handling of BUILT_IN_STRCAT,
+	and BUILT_IN_STRNCAT.
+
+2011-09-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* graphite-scop-detection.c (make_close_phi_nodes_unique):  New
+	forward declaration.
+	(remove_duplicate_close_phi): Detect and repair creation of
+	duplicate close-phis for a containing loop.
+
+2011-09-26  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50472
+	* tree-ssa-ccp.c (fold_const_aggregate_ref): Do not fold
+	volatile references.
+
+2011-09-25  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/50413
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Fail to vectorize
+	a basic block if one of its data-refs can't be analyzed.
+
+2011-09-25  Ira Rosen  <ira.rosen@linaro.org>
+
+	PR tree-optimization/50412
+	* tree-vect-data-refs.c (vect_analyze_group_access): Fail for
+	accesses that require epilogue loop if vectorizing outer loop.
+
+2011-09-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/50464
+	* config/i386/sse.md (xop_pcmov_<mode>): Change operand 1 predicate
+	to register_operand and operand 2 predicate to nonimmediate_operand.
+	(xop_pcmov_<mode>256): Ditto.
+	* config/i386/i386.c (ix86_expand_sse_movcc): When generating
+	xop_pcmov, force op_true to register.  Also, force op_false to
+	register if it doesn't satisfy nonimmediate_operand predicate.
+
 2011-09-19  Alan Modra  <amodra@gmail.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
@@ -104,9 +154,9 @@
 
 	Revert
 	2011-09-02  Martin Jambor  <mjambor@suse.cz>
-        PR middle-end/49886
-        * ipa-split.c (split_function): Do not skip any arguments if
-        can_change_signature is set or there are function type attributes.
+	PR middle-end/49886
+	* ipa-split.c (split_function): Do not skip any arguments if
+	can_change_signature is set or there are function type attributes.
 
 2011-09-05  Georg-Johann Lay  <avr@gjlay.de>
 
@@ -450,7 +500,7 @@
 	Use the correct type for the new tree.
 
 2011-07-14  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	PR target/49487
 	Backport from mainline r176276
 	2011-07-14  Georg-Johann Lay
@@ -474,7 +524,7 @@
 	(build_accesses_from_assign): Use it.
 
 2011-07-11  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	PR target/39633
 	Backport from mainline r176141
 	2011-07-11  Georg-Johann Lay
@@ -497,7 +547,7 @@
 	Likewise.
 
 2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	PR target/46779
 	Backport from mainline SVN 176053.
 	2011-07-08  Georg-Johann Lay  <avr@gjlay.de>
@@ -582,7 +632,7 @@
 
 	Backport from mainline
 	2011-07-04  Georg-Johann Lay  <avr@gjlay.de>
-	
+
 	PR target/44643
 	* config/avr/avr.c (avr_insert_attributes): Use TYPE_READONLY
 	instead of TREE_READONLY.

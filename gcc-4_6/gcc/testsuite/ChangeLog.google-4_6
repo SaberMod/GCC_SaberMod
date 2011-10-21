@@ -1,16 +1,28 @@
+2011-10-20   Diego Novillo  <dnovillo@google.com>
+
+        * gcc.dg/inline_1.c: Remove expected extra errors.
+        * gcc.dg/inline_2.c: Likewise.
+        * gcc.dg/inline_3.c: Likewise.
+        * gcc.dg/inline_3.c: Likewise.
+        * gcc.dg/unroll_1.c: Likewise.
+        * gcc.dg/unroll_2.c: Likewise.
+        * gcc.dg/unroll_3.c: Likewise.
+        * gcc.dg/unroll_4.c: Likewise.
+
+
 2011-10-17  Dehao Chen  <dehao@google.com>
 
 	* gcc.dg/record-gcc-switches-in-elf-1.c: New test.
 
 2011-10-14  DeLesley Hutchins  <delesley@google.com>
 
-   * g++.dg/thread-ann/thread_annot_lock-83.C:
-     Added a second regression test to the same file.
+	* g++.dg/thread-ann/thread_annot_lock-83.C:
+	Added a second regression test to the same file.
 
 2011-10-14  DeLesley Hutchins  <delesley@google.com>
 
-   * g++.dg/thread-ann/thread_annot_lock-83.C:
-     New regression test
+	* g++.dg/thread-ann/thread_annot_lock-83.C:
+	New regression test
 
 2011-09-30  Easwaran Raman  <eraman@google.com>
 
