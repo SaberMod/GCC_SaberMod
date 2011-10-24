@@ -1,3 +1,57 @@
+2011-10-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/47023
+	* primary.c (match_kind_param): Detect ISO_C_BINDING kinds.
+	(get_kind): Pass on 'is_iso_c' flag.
+	(match_integer_constant,match_real_constant,match_logical_constant):
+	Set 'ts.is_c_interop'.
+
+2011-10-15  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50570
+	* expr.c (gfc_check_vardef_context): Don't throw an error on
+	non-pointer assignments involving an intent(in) pointer dummy.
+
+2011-10-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50718
+	* gfortran.dg/pointer_check_11.f90: New.
+	* gfortran.dg/pointer_check_12.f90: New.
+
+2011-10-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50659
+	* expr.c (replace_symbol): Only do replacement if the symbol is a dummy.
+
+2011-10-11  Tobias Burnus  <burnus@net-b.de>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	* invoke.texi (-fwhole-file): Update wording since -fwhole-file
+	is now enabled by default.
+
+2011-10-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50273
+	* trans-common.c (translate_common): Fix -Walign-commons check.
+
+2011-10-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50585
+	* interface.c (get_expr_storage_size): Check if 'length' component is
+	associated.
+
+	PR fortran/50625
+	* class.c (gfc_build_class_symbol): Fix whitespace.
+	* module.c (mio_symbol): Set 'class_ok' attribute.
+	* trans-decl.c (gfc_get_symbol_decl): Make sure the backend_decl has
+	been built for class symbols.
+
+2011-10-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48706
+	* module.c (write_dt_extensions): Do not write extended types which
+	are local to a subroutine.
+
 2011-08-26  Mikael Morin  <mikael.morin@gcc.gnu.org>
 
 	PR fortran/50050

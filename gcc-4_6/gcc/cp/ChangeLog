@@ -1,3 +1,63 @@
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50793
+	* tree.c (bot_manip): Propagate AGGR_INIT_ZERO_FIRST.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50787
+	* parser.c (cp_parser_initializer_clause): Don't call
+	maybe_constant_value here.
+
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50531
+	* pt.c (instantiate_decl): Recognize when a function defaulted
+	outside the class is already instantiated.
+
+2011-10-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Backport from mainline
+	2011-06-06  Nicola Pero  <nicola.pero@meta-innovation.com>,
+
+	PR obj-c++/48275
+	* parser.c (cp_parser_objc_at_property_declaration): Allow setter
+	and getter names to use all the allowed method names.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* init.c (expand_aggr_init_1): Don't zero-initialize virtual
+	bases of a base subobject.
+
+2011-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49216
+	* init.c (build_vec_init): Avoid crash on new int[1]{}.
+
+	PR c++/49855
+	PR c++/49896
+	* call.c (perform_implicit_conversion_flags): Do perform
+	scalar conversions in templates.
+	* pt.c (tsubst_copy, tsubst_copy_and_build): Handle CONVERT_EXPR.
+
+2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* mangle.c (write_type): Handle CV qualifiers for decimal classes.
+
+2011-10-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50611
+	* pt.c (tsubst_copy_and_build): If (complain & tf_error) is false
+	do not call unqualified_name_lookup_error.
+
+2011-10-09  Jakub Jelinek  <jakub@redhat.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* pt.c (reregister_specialization): Use htab_find instead of
+	htab_find_slot with INSERT.
+
 2011-09-26  Jason Merrill  <jason@redhat.com>
 
 	PR c++/46105

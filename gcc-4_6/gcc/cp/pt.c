@@ -1661,19 +1661,19 @@ iterative_hash_template_arg (tree arg, hashval_t val)
 bool
 reregister_specialization (tree spec, tree tinfo, tree new_spec)
 {
-  spec_entry **slot;
+  spec_entry *entry;
   spec_entry elt;
 
   elt.tmpl = most_general_template (TI_TEMPLATE (tinfo));
   elt.args = TI_ARGS (tinfo);
   elt.spec = NULL_TREE;
 
-  slot = (spec_entry **) htab_find_slot (decl_specializations, &elt, INSERT);
-  if (*slot)
+  entry = (spec_entry *) htab_find (decl_specializations, &elt);
+  if (entry != NULL)
     {
-      gcc_assert ((*slot)->spec == spec || (*slot)->spec == new_spec);
+      gcc_assert (entry->spec == spec || entry->spec == new_spec);
       gcc_assert (new_spec != NULL_TREE);
-      (*slot)->spec = new_spec;
+      entry->spec = new_spec;
       return 1;
     }
 
@@ -11622,6 +11622,7 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case STATIC_CAST_EXPR:
     case DYNAMIC_CAST_EXPR:
     case NOP_EXPR:
+    case CONVERT_EXPR:
       return build1
 	(code, tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl));
@@ -12728,7 +12729,11 @@ tsubst_copy_and_build (tree t,
             if (parsing_lock_attribute && func_decl_params)
               decl = lookup_name_in_func_params (func_decl_params, decl);
             else
-              decl = unqualified_name_lookup_error (decl);
+	      {
+		if (complain & tf_error)
+		  unqualified_name_lookup_error (decl);
+		decl = error_mark_node;
+	      }
           }
 	return decl;
       }
@@ -12778,6 +12783,12 @@ tsubst_copy_and_build (tree t,
     case NOP_EXPR:
       return build_nop
 	(tsubst (TREE_TYPE (t), args, complain, in_decl),
+	 RECUR (TREE_OPERAND (t, 0)));
+
+    case CONVERT_EXPR:
+      return build1
+	(CONVERT_EXPR,
+	 tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 RECUR (TREE_OPERAND (t, 0)));
 
     case CAST_EXPR:
@@ -17378,6 +17389,8 @@ instantiate_decl (tree d, int defer_ok,
     d = DECL_CLONED_FUNCTION (d);
 
   if (DECL_TEMPLATE_INSTANTIATED (d)
+      || (TREE_CODE (d) == FUNCTION_DECL
+	  && DECL_DEFAULTED_FN (d) && DECL_INITIAL (d))
       || DECL_TEMPLATE_SPECIALIZATION (d))
     /* D has already been instantiated or explicitly specialized, so
        there's nothing for us to do here.

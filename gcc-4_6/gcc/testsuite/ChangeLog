@@ -1,3 +1,139 @@
+2011-10-20  Uros Bizjak  <ubizjak@gmail.com>
+
+       * gcc.dg/ipa/ipa-sra-2.c: Add dg-require-effective-target
+       non_strict_align.
+       * gcc.dg/ipa/ipa-sra-6.c: Ditto.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50793
+	* g++.dg/init/value9.C: New.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50787
+	* g++.dg/init/ref20.C: New.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50787
+	* g++.dg/init/ref20.C: New.
+
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50531
+	* g++.dg/cpp0x/defaulted32.C: New.
+
+2011-10-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/47023
+	* gfortran.dg/c_kind_tests_3.f03: New.
+
+2011-10-15  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50570
+	* gfortran.dg/pointer_intent_5.f90: New.
+
+2011-10-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Backport from mainline
+	2011-06-06  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	PR objc-++/48275
+	* obj-c++.dg/property/cxx-property-1.mm: New.
+	* obj-c++.dg/property/cxx-property-2.mm: New.
+
+2011-10-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50718
+	* trans-expr.c (gfc_conv_procedure_call): Fix -fcheck=pointer
+	for dummy arguments with VALUE attribute.
+
+2011-10-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-10-14  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.dg/torture/pr50723.c: New testcase.
+
+	2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	* gcc.target/i386/pr50712.c: New testcase.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* g++.dg/init/vbase1.C: New.
+
+2011-10-12  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50659
+	* gfortran.dg/proc_decl_27.f90: New.
+
+2011-10-12  Paul Koning  <pkoning@gcc.gnu.org>
+
+	PR tree-optimization/50189
+	* g++.dg/torture/pr50189.C: New testcase.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50700
+	* gcc.dg/builtin-object-size-12.c: New testcase.
+
+2011-10-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/50565
+	* gcc.c-torture/compile/pr50565-1.c,
+	gcc.c-torture/compile/pr50565-2.c: New tests.
+
+2011-10-11  Jason Merrill  <jason@redhat.com>
+
+	* g++.dg/cpp0x/initlist-49216.C: New.
+
+	PR c++/49855
+	PR c++/49896
+	* g++.dg/template/constant1.C: New.
+	* g++.dg/template/constant2.C: New.
+
+2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* g++.dg/dfp/44473-1.C: New test.
+	* g++.dg/dfp/44473-2.C: New test.
+	* g++.dg/dfp/mangle-1.C: New test.
+	* g++.dg/dfp/mangle-2.C: New test.
+	* g++.dg/dfp/mangle-3.C: New test.
+	* g++.dg/dfp/mangle-4.C: New test.
+	* g++.dg/dfp/mangle-5.C: New test.
+
+2011-10-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50273
+	* gfortran.dg/common_16.f90: New.
+
+2011-10-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/50585
+	* gfortran.dg/assumed_charlen_arg_2.f90: New.
+
+	PR fortran/50625
+	* gfortran.dg/class_46.f03: New.
+
+2011-10-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/49049
+	* gcc.c-torture/compile/pr49049.c: New test.
+
+2011-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/49279
+	* gcc.c-torture/execute/pr49279.c: New test.
+
+2011-10-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/48706
+	* gfortran.dg/extends_12.f03: New.
+
 2011-09-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR inline-asm/50571

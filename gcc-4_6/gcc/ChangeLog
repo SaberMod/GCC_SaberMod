@@ -1,3 +1,130 @@
+2011-10-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/50106
+	Backport from mainline.
+	2011-10-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	 * config/arm/arm.c (thumb_unexpanded_epilogue): Handle return
+        reg size from 1-3.
+
+2011-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* dwarf2out.c (loc_descriptor): For SUBREG pass SUBREG_REG's mode as
+	second argument instead of mode.
+
+	PR target/50350
+	Backport from mainline
+	2011-09-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR middle-end/50386
+	PR middle-end/50326
+	* tree-sra.c (build_ref_for_model): Use the type of the field as
+	the type of the COMPONENT_REF.
+
+2011-10-18  Uros Bizjak  <ubizjak@gmail.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/50737
+	* config/alpha/linux-unwind.h (alpha_fallback_frame_state): Set
+	fs->signal_frame to 1.
+
+2011-10-14  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-10-14  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50723
+	* ipa-split.c (split_function): Use GSI_CONTINUE_LINKING.
+
+	2011-10-13  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50712
+	* ipa-split.c (split_function): Always re-gimplify parameters
+	when they are not gimple vals before passing them.  Properly
+	check for type compatibility.
+
+2011-10-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC options): Document -mfix-at697f.
+	* config/sparc/sparc.opt (mfix-at697f): New option.
+	* config/sparc/sparc.c (TARGET_MACHINE_DEPENDENT_REORG): Define.
+	(sparc_reorg): New function.
+
+2011-10-12  Steve Ellcey  <sje@cup.hp.com>
+
+	PR target/49967
+	Backport from Mainline 179472.
+	* configure.ac (gcc_cv_ld_static_dynamic): Define for *-*-hpux*.
+	(gcc_cv_ld_static_option): Ditto.
+	(gcc_cv_ld_dynamic_option): Ditto.
+	* configure: Regenerate.
+
+2011-10-12  Paul Koning  <pkoning@gcc.gnu.org>
+
+	PR tree-optimization/50189
+	* tree-vrp.c (extract_range_from_assert): Use the type of
+	the variable, not the limit.
+
+2011-10-12  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/50700
+	* tree-object-size.c (addr_object_size): Simplify and treat
+	MEM_REF bases consistently.
+
+2011-10-12  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/50565
+	* convert.c (convert_to_integer): Do not narrow operands of
+	pointer subtraction.
+
+2011-10-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/49965
+	* config/sparc/sparc.md (mov<I:mode>cc): Do not save comparison code.
+	(mov<F:mode>cc): Likewise.
+
+2011-10-11  Nick Clifton  <nickc@redhat.com>
+
+	PR middle-end/49801
+	* compare-elim.c (find_comparisons_in_bb): Use df_get_live_in and
+	df_get_live_out instead of accessing the bitmaps directly.
+	(execute_compare_elim_after_reload): Remove calls to df_set_flags,
+	df_live_add_problem and df_analyze.
+
+2011-10-10  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/50652
+	Backport from Mainline r179737.
+	* config/avr/avr-devices.c (avr_mcu_types): Set
+	.data_section_start of atmega164a to 0x100.
+
+2011-10-07  Bernd Schmidt  <bernds@codesourcery.com>
+
+ 	PR target/49049
+ 	* config/arm/arm.md (arm_subsi3_insn): Lose the last alternative.
+
+2011-10-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (avoid_folding_inline_builtin): New prototype.
+	* builtins.c (avoid_folding_inline_builtin): No longer static.
+	* gimple-fold.c (gimple_fold_builtin): Give up if
+	avoid_folding_inline_builtin returns true.
+
+	PR tree-optimization/49279
+	* tree-ssa-structalias.c (find_func_aliases): Don't handle
+	CAST_RESTRICT.
+
+2011-10-04  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* longlong.h (smul_ppmm, sdiv_qrnnd): Add underscores to the local
+	variables.  Fix second operand of DR.  Swap inputs for sdiv_qrnnd.
+
+2011-10-03  Jakub Jelinek  <jakub@redhat.com>
+	    Ian Lance Taylor  <iant@google.com>
+
+	* godump.c (go_output_typedef): Support printing enum values that
+	don't fit in a signed HOST_WIDE_INT.
+
 2011-09-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR inline-asm/50571
