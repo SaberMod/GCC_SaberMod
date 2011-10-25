@@ -1,3 +1,8 @@
+2011-10-25   Xinliang David Li  <davidxl@google.com>
+
+	* profile.c (compute_branch_probablies): recompute
+	function frequency summary after profile annotation.
+
 2011-10-24   Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 180298.
