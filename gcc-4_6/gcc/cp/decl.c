@@ -7508,8 +7508,18 @@ check_static_variable_definition (tree decl, tree type)
   else if (cxx_dialect >= cxx0x && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (literal_type_p (type))
-	error ("%<constexpr%> needed for in-class initialization of static "
-	       "data member %q#D of non-integral type", decl);
+        {
+          /* FIXME google: This local modification allows us to
+             transition from C++98 to C++11 without moving static
+             const floats out of the class during the transition.  It
+             should not be forward-ported to a 4.7 branch, since by
+             then we should be able to just fix the code to use
+             constexpr.  */
+          pedwarn (input_location, OPT_pedantic,
+                   "%<constexpr%> needed for in-class initialization of "
+                   "static data member %q#D of non-integral type", decl);
+          return 0;
+        }
       else
 	error ("in-class initialization of static data member %q#D of "
 	       "non-literal type", decl);
