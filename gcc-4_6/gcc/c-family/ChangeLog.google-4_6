@@ -1,3 +1,12 @@
+2011-11-02  Jeffrey Yasskin  <jyasskin@google.com>
+
+	Backport from rev 176665
+
+	2011-07-22  Jason Merrill  <jason@redhat.com>
+
+		PR c++/49793
+		* c.opt (Wnarrowing): New.
+
 2011-10-17  Dehao Chen  <dehao@google.com>
 	 * c-opts.c (c_common_parse_file): Write the options to
 	.gnu.switches.text sections.

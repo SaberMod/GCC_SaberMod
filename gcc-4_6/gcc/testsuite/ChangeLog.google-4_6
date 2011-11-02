@@ -1,3 +1,12 @@
+2011-11-02  Jeffrey Yasskin  <jyasskin@google.com>
+
+	Backport from rev 176665
+
+	2011-07-22  Jason Merrill  <jason@redhat.com>
+
+		PR c++/49793
+		* g++.dg/cpp0x/initlist55.C: New.
+
 2011-10-28  Jeffrey Yasskin  <jyasskin@google.com>
 
         google ref 5514746; backport of r179121
