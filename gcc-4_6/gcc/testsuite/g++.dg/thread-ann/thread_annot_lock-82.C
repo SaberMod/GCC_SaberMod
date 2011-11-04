@@ -1,5 +1,5 @@
-// Test template methods in the presence of cloned constructors.
-// Regression test for bugfix.  
+// Regression tests: fix ICE issues when IPA-SRA deletes formal 
+// function parameters. 
 // { dg-do compile }
 // { dg-options "-Wthread-safety -O3" }
 
@@ -10,6 +10,7 @@ void do_something(void* a);
 
 class Foo {
   Mutex mu_;
+  int a GUARDED_BY(mu_);
 
   // with optimization turned on, ipa-sra should eliminate the hidden 
   // "this" argument, thus invalidating EXCLUSIVE_LOCKS_REQUIRED.
@@ -18,6 +19,7 @@ class Foo {
   }
   
   void foo(Foo* f);
+  void bar();
 };
 
 void Foo::foo(Foo* f) {
@@ -28,3 +30,17 @@ void Foo::foo(Foo* f) {
   mu_.Unlock();
 }
 
+
+class SCOPED_LOCKABLE DummyMutexLock {
+public:
+  // IPA-SRA should kill the parameters to these functions
+  explicit DummyMutexLock(Mutex* mutex) EXCLUSIVE_LOCK_FUNCTION(mutex) {}
+  ~DummyMutexLock() UNLOCK_FUNCTION() {}
+};
+
+
+void Foo::bar() {
+  // Matches two warnings:
+  DummyMutexLock dlock(&mu_);  // { dg-warning "attribute has been removed by optimization." } 
+  a = 1;  // warning here should be suppressed, due to errors handling dlock
+}

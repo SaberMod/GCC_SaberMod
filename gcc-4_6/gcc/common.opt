@@ -680,6 +680,10 @@ Wthread-attr-bind-param
 Common Var(warn_thread_attr_bind_param) Init(1) Warning
 Make the thread safety analysis try to bind the function parameters used in the attributes
 
+Wthread-warn-optimization
+Common Var(warn_thread_optimization) Init(1) Warning
+Warn when optimizations invalidate the thread safety analysis.
+
 Wtype-limits
 Common Var(warn_type_limits) Init(-1) Warning
 Warn if a comparison is always true or always false due to the limited range of the data type

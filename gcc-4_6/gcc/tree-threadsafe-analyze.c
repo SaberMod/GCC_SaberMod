@@ -1594,7 +1594,15 @@ get_actual_argument_from_position (gimple call, tree pos_arg)
 
   lock_pos = TREE_INT_CST_LOW (pos_arg);
 
-  gcc_assert (lock_pos >= 1 && lock_pos <= num_args);
+  /* The ipa-sra optimization can occasionally delete arguments, thus
+     invalidating the index.  */
+  if (lock_pos < 1 || lock_pos > num_args)
+    {
+      if (flag_ipa_sra)
+        return NULL_TREE;  /* Attempt to recover gracefully.  */
+      else
+        gcc_unreachable ();
+    }
 
   /* The lock position specified in the attributes is 1-based, so we need to
      subtract 1 from it when accessing the call arguments.  */
@@ -1734,7 +1742,27 @@ handle_lock_primitive_attrs (gimple call, tree fdecl, tree arg, tree base_obj,
      a formal parameter, we need to grab the corresponding actual argument
      of the call.  */
   else if (TREE_CODE (arg) == INTEGER_CST)
-    arg = get_actual_argument_from_position (call, arg);
+    {
+      arg = get_actual_argument_from_position (call, arg);
+      /* If ipa-sra has rewritten the call, then recover as gracefully as
+         possible.  */
+      if (!arg)
+        {
+          /* Add the universal lock to the lockset to suppress subsequent
+             errors.  */
+          if (is_exclusive_lock)
+            pointer_set_insert (live_excl_locks, error_mark_node);
+          else
+            pointer_set_insert (live_shared_locks, error_mark_node);
+
+          if (warn_thread_optimization)
+            warning_at (*locus, OPT_Wthread_safety,
+                        G_("lock attribute has been removed by "
+                           "optimization"));
+
+          return;
+        }
+    }
   else if (TREE_CODE (get_leftmost_base_var (arg)) == PARM_DECL)
     {
       tree new_base
@@ -1890,7 +1918,19 @@ handle_unlock_primitive_attr (gimple call, tree fdecl, tree arg, tree base_obj,
          a formal parameter, we need to grab the corresponding actual argument
          of the call.  */
       if (TREE_CODE (arg) == INTEGER_CST)
-        lockable = get_actual_argument_from_position (call, arg);
+        {
+          lockable = get_actual_argument_from_position (call, arg);
+          /* If ipa-sra has rewritten the call, then fail as gracefully as
+             possible -- just leave the lock in the lockset.  */
+          if (!lockable)
+            {
+              if (warn_thread_optimization)
+                warning_at (*locus, OPT_Wthread_safety,
+                            G_("unlock attribute has been removed by "
+                               "optimization"));
+              return;
+            }
+        }
       else if (TREE_CODE (get_leftmost_base_var (arg)) == PARM_DECL)
         {
           tree fdecl = gimple_call_fndecl (call);
@@ -1908,7 +1948,18 @@ handle_unlock_primitive_attr (gimple call, tree fdecl, tree arg, tree base_obj,
     }
   else
     {
-      gcc_assert (base_obj);
+      /* If ipa-sra has killed arguments, then base_obj may be NULL.
+         Attempt to recover gracefully by leaving the lock in the lockset.  */
+      if (!base_obj)
+        {
+          if (!flag_ipa_sra)
+            gcc_unreachable ();
+          else if (warn_thread_optimization)
+            warning_at (*locus, OPT_Wthread_safety,
+                        G_("unlock attribute has been removed by "
+                           "optimization"));
+          return;
+        }
 
       /* Check if the primitive is an unlock routine (e.g. the destructor or
          a release function) of a scoped_lock. If so, get the lock that is 
@@ -2099,6 +2150,9 @@ handle_function_lock_requirement (gimple call, tree fdecl, tree base_obj,
       else if (TREE_CODE (lock) == INTEGER_CST)
         {
           lock = get_actual_argument_from_position (call, lock);
+          /* Ignore attribute if ipa-sra has killed the argument.  */
+          if (!lock)
+            return;
           /* If the lock is a function argument, we don't want to
              prepend the base object to the lock name. Set the
              TMP_BASE_OBJ to NULL.  */
