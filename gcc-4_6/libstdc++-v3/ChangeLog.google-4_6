@@ -1,3 +1,8 @@
+2011-11-06   Xinliang David Li  <davidxl@google.com>
+
+	backport 181071 from trunk
+	* include/backward/hashtable.h:  Make __stl_prime_list comdat.
+
 2011-08-01   Jeffrey Yasskin  <jyasskin@google.com>
 
 	* include/bits/stl_heap.h(make_heap): Add a newline back.
