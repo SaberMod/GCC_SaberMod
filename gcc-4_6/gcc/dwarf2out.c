@@ -21424,6 +21424,8 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
 void
 dwarf2out_decl (tree decl)
 {
+  dw_die_ref context_die;
+
   /* In LIPO mode, we may output some functions whose type is defined
      in another function that will not be output. This can result in
      undefined location list symbols in the debug type info.
@@ -21457,7 +21459,7 @@ dwarf2out_decl (tree decl)
       }
     }
 
-  dw_die_ref context_die = comp_unit_die ();
+  context_die = comp_unit_die ();
 
   switch (TREE_CODE (decl))
     {
