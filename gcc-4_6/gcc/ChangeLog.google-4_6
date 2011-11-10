@@ -1,3 +1,8 @@
+2011-11-08  DeLesley Hutchins  <delesley@google.com>
+
+  * tree-threadsafe-analyze.c (get_canonical_lock_expr):
+    Add support for pointer arithmetic operations
+
 2011-11-04   Rong Xu  <xur@google.com>
 
 	Backport r181129 from google/main.

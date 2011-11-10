@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "gimple.h"
 #include "c-family/c-common.h"
 #include "toplev.h"
 #include "input.h"
@@ -804,12 +805,27 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
               && !gimple_nop_p (SSA_NAME_DEF_STMT (lock)))
             {
               gimple def_stmt = SSA_NAME_DEF_STMT (lock);
-              if (is_gimple_assign (def_stmt)
-                  && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
-                      == GIMPLE_SINGLE_RHS))
-                return get_canonical_lock_expr (gimple_assign_rhs1 (def_stmt),
-                                                base_obj, is_temp_expr,
-                                                NULL_TREE);
+              if (is_gimple_assign (def_stmt))
+                {
+                  enum gimple_rhs_class gcls =
+                    get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt));
+                  tree rhs = NULL_TREE;
+
+                  if (gcls == GIMPLE_SINGLE_RHS)
+                    rhs = gimple_assign_rhs1 (def_stmt);
+                  else if (gcls == GIMPLE_UNARY_RHS)
+                    rhs = build1 (gimple_assign_rhs_code (def_stmt),
+                                  TREE_TYPE (gimple_assign_lhs (def_stmt)),
+                                  gimple_assign_rhs1 (def_stmt));
+                  else if (gcls == GIMPLE_BINARY_RHS)
+                    rhs = build2 (gimple_assign_rhs_code (def_stmt),
+                                  TREE_TYPE (gimple_assign_lhs (def_stmt)),
+                                  gimple_assign_rhs1 (def_stmt),
+                                  gimple_assign_rhs2 (def_stmt));
+                  if (rhs)
+                    return get_canonical_lock_expr (rhs, base_obj,
+                                                    is_temp_expr, NULL_TREE);
+                }
               else if (is_gimple_call (def_stmt))
                 {
                   tree fdecl = gimple_call_fndecl (def_stmt);
@@ -979,6 +995,24 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
           else
             lock = build1 (INDIRECT_REF,
                            TREE_TYPE (TREE_TYPE (canon_base)), canon_base);
+          break;
+        }
+      case PLUS_EXPR:
+      case POINTER_PLUS_EXPR:
+      case MULT_EXPR:
+        {
+          tree left = TREE_OPERAND (lock, 0);
+          tree canon_left = get_canonical_lock_expr (left, base_obj,
+                                                     true /* is_temp_expr */,
+                                                     NULL_TREE);
+
+          tree right = TREE_OPERAND (lock, 1);
+          tree canon_right = get_canonical_lock_expr (right, base_obj,
+                                                      true /* is_temp_expr */,
+                                                      NULL_TREE);
+          if (left != canon_left || right != canon_right)
+            lock = build2 (TREE_CODE (lock), TREE_TYPE (lock),
+                           canon_left, canon_right);
           break;
         }
       default:

@@ -2526,7 +2526,8 @@ tree-threadsafe-analyze.o : tree-threadsafe-analyze.c \
    tree-threadsafe-analyze.h $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(TM_H) coretypes.h $(C_COMMON_H) toplev.h $(INPUT_H) $(DIAGNOSTIC_H) \
    intl.h $(BASIC_BLOCK_H) $(TIMEVAR_H) $(TREE_PASS_H) $(TREE_DUMP_H) \
-   langhooks.h pointer-set.h tree-pretty-print.h tree-ssa-propagate.h
+   $(GIMPLE_H) langhooks.h pointer-set.h tree-pretty-print.h \
+   tree-ssa-propagate.h
 tree-ssa-sink.o : tree-ssa-sink.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(FLAGS_H) alloc-pool.h \
