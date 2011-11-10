@@ -564,6 +564,40 @@ is_base_object_this_pointer (tree base)
     return false;
 }
 
+
+/* Get the function declaration from a gimple call stmt (CALL).  This handles
+   both ordinary function calls and virtual methods. */
+
+static tree
+get_fdecl_from_gimple_stmt (gimple call)
+{
+  tree fdecl = gimple_call_fndecl (call);
+  /* If the callee fndecl is NULL, check if it is a virtual function,
+       and if so, try to get its decl through the reference object.  */
+  if (!fdecl)
+    {
+      tree callee = gimple_call_fn (call);
+      if (TREE_CODE (callee) == OBJ_TYPE_REF)
+        {
+          tree objtype = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
+          /* Check to make sure objtype is a valid type.
+             OBJ_TYPE_REF_OBJECT does not always return the correct static type
+             of the callee.  For example:  Given
+             foo(void* ptr) { ((Foo*) ptr)->doSomething(); }
+             objtype will be void, not Foo.  Whether or not this happens
+             depends on the details of how a particular call is lowered to
+             GIMPLE, and there is no easy fix that works in all cases.  For
+             now, we simply rely on gcc's type information; if that information
+             is not accurate, then the analysis will be less precise.
+           */
+          if (TREE_CODE (objtype) == RECORD_TYPE)
+              fdecl = lang_hooks.get_virtual_function_decl (callee, objtype);
+        }
+    }
+  return fdecl;
+}
+
+
 /* Given a CALL gimple statment, check if its function decl is annotated
    with "lock_returned" attribute. If so, return the lock specified in
    the attribute. Otherise, return NULL_TREE.  */
@@ -571,7 +605,7 @@ is_base_object_this_pointer (tree base)
 static tree
 get_lock_returned_by_call (gimple call)
 {
-  tree fdecl = gimple_call_fndecl (call);
+  tree fdecl = get_fdecl_from_gimple_stmt (call);
   tree attr = (fdecl
                ? lookup_attribute ("lock_returned", DECL_ATTRIBUTES (fdecl))
                : NULL_TREE);
@@ -828,7 +862,7 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
                 }
               else if (is_gimple_call (def_stmt))
                 {
-                  tree fdecl = gimple_call_fndecl (def_stmt);
+                  tree fdecl = get_fdecl_from_gimple_stmt (def_stmt);
                   tree real_lock = get_lock_returned_by_call (def_stmt);
                   if (real_lock)
                     {
@@ -1661,6 +1695,7 @@ get_actual_argument_from_parameter (gimple call, tree fdecl, tree param_decl)
   gcc_unreachable ();
 }
 
+
 /* A helper function that adds the LOCKABLE, acquired by CALL, to the
    corresponding lock sets (LIVE_EXCL_LOCKS or LIVE_SHARED_LOCKS) depending
    on the boolean parameter IS_EXCLUSIVE_LOCK. If the CALL is a trylock call,
@@ -1967,7 +2002,6 @@ handle_unlock_primitive_attr (gimple call, tree fdecl, tree arg, tree base_obj,
         }
       else if (TREE_CODE (get_leftmost_base_var (arg)) == PARM_DECL)
         {
-          tree fdecl = gimple_call_fndecl (call);
           tree new_base = get_actual_argument_from_parameter (
               call, fdecl, get_leftmost_base_var (arg));
           lockable = get_canonical_lock_expr (arg, NULL_TREE, false, new_base);
@@ -2542,12 +2576,17 @@ handle_indirect_ref (tree ptr, struct pointer_set_t *excl_locks,
   return;
 }
 
-/* The main routine that handles gimple call statements.  */
 
+/* The main routine that handles gimple call statements.  This will update
+   the set of held locks.
+   CALL            -- the gimple call statement.
+   CURRENT_BB_INFO -- a pointer to the lockset structures for the current
+                      basic block.
+*/
 static void
 handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
 {
-  tree fdecl = gimple_call_fndecl (call);
+  tree fdecl = get_fdecl_from_gimple_stmt (call);
   int num_args = gimple_call_num_args (call);
   int arg_index = 0;
   tree arg_type = NULL_TREE;
@@ -2559,27 +2598,6 @@ handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
     locus = input_location;
   else
     locus = gimple_location (call);
-
-  /* If the callee fndecl is NULL, check if it is a virtual function,
-     and if so, try to get its decl through the reference object.  */
-  if (!fdecl)
-    {
-      tree callee = gimple_call_fn (call);
-      if (TREE_CODE (callee) == OBJ_TYPE_REF)
-        {
-          tree objtype = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
-          /* Check to make sure objtype is a valid type.
-             OBJ_TYPE_REF_OBJECT does not always return the correct static type of the callee.   
-             For example:  Given  foo(void* ptr) { ((Foo*) ptr)->doSomething(); }
-             objtype will be void, not Foo.  Whether or not this happens depends on the details 
-             of how a particular call is lowered to GIMPLE, and there is no easy fix that works 
-             in all cases.  For now, we simply rely on gcc's type information; if that information 
-             is not accurate, then the analysis will be less precise.
-           */
-          if (TREE_CODE (objtype) == RECORD_TYPE)
-              fdecl = lang_hooks.get_virtual_function_decl (callee, objtype);                    
-        }
-    }
 
   /* The callee fndecl could be NULL, e.g., when the function is passed in
      as an argument.  */
@@ -2873,7 +2891,8 @@ get_trylock_info(gimple gs, bool *lock_on_true_path)
         }
       else if (is_gimple_call (gs))
         {
-          tree fdecl = gimple_call_fndecl (gs);
+          tree fdecl = get_fdecl_from_gimple_stmt (gs);
+
           /* The function decl could be null in some cases, e.g.
              a function pointer passed in as a parameter.  */
           if (fdecl

@@ -1,4 +1,9 @@
-2011-11-08  DeLesley Hutchins <delesley@google.com>
+2011-11-10  DeLesley Hutchins <delesley@google.com>
+
+  * g++.dg/thread-ann/thread_annot_lock-85.C:
+   New regression test
+
+2011-11-10  DeLesley Hutchins <delesley@google.com>
 
   * g++.dg/thread-ann/thread_annot_lock-84.C:
    New regression test.

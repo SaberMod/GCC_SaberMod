@@ -1,4 +1,14 @@
-2011-11-08  DeLesley Hutchins  <delesley@google.com>
+2011-11-10  DeLesley Hutchins  <delesley@google.com>
+
+  * tree-threadsafe-analyze.c:    
+    factors out code to get function decl.
+    (get_fdecl_from_gimple_stmt): new factored-out function
+    (handle_call_gs): original definition of code
+    (get_lock_returned_by_call): call new function
+    (get_trylock_info): call new function
+    (handle_unlock_primitive_attr): use passed fdecl
+
+2011-11-10  DeLesley Hutchins  <delesley@google.com>
 
   * tree-threadsafe-analyze.c (get_canonical_lock_expr):
     Add support for pointer arithmetic operations
