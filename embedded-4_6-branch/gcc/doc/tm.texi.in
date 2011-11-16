@@ -11223,22 +11223,6 @@ to the stack.  Therefore, this hook should return true in general, but
 false for naked functions.  The default implementation always returns true.
 @end deftypefn
 
-@hook TARGET_STACK_USING_RED_ZONE
-This hook returns true if the target has a red zone (an area beyond the
-current extent of the stack that cannot be modified by asynchronous events
-on the processor).
-
-If this hook returns false then the compiler mid-end will not move an access
-to memory in the stack frame past a stack adjustment insn.
-
-If this hook returns true then the compiler mid-end will assume that it is
-safe to move an access to memory in the stack frame past a stack adjustment
-insn.  The target back-end must emit scheduling barrier insns when this is
-unsafe.
-
-The default is to return false which is safe and appropriate for most targets.
-@end deftypefn
-
 @hook TARGET_CONST_ANCHOR
 On some architectures it can take multiple instructions to synthesize
 a constant.  If there is another constant already in a register that

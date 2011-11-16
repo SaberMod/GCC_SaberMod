@@ -1586,9 +1586,6 @@ static const struct default_options rs6000_option_optimization_table[] =
 #undef TARGET_STACK_PROTECT_FAIL
 #define TARGET_STACK_PROTECT_FAIL rs6000_stack_protect_fail
 
-#undef TARGET_STACK_USING_RED_ZONE
-#define TARGET_STACK_USING_RED_ZONE rs6000_stack_using_red_zone
-
 /* MPC604EUM 3.5.2 Weak Consistency between Multiple Processors
    The PowerPC architecture requires only weak consistency among
    processors--that is, memory accesses between processors need not be
@@ -21188,13 +21185,6 @@ rs6000_restore_saved_cr (rtx reg, int using_mfcr_multiple)
 	}
 }
 
-/* Return true if the ABI allows red zone access.  */
-static bool
-rs6000_stack_using_red_zone (void)
-{
-   return (DEFAULT_ABI != ABI_V4);
-}
-
 /* Return true if OFFSET from stack pointer can be clobbered by signals.
    V.4 doesn't have any stack cushion, AIX ABIs have 220 or 288 bytes
    below stack pointer not cloberred by signals.  */
@@ -21202,7 +21192,7 @@ rs6000_stack_using_red_zone (void)
 static inline bool
 offset_below_red_zone_p (HOST_WIDE_INT offset)
 {
-  return offset < (!TARGET_STACK_USING_RED_ZONE
+  return offset < (DEFAULT_ABI == ABI_V4
 		   ? 0
 		   : TARGET_32BIT ? -220 : -288);
 }
