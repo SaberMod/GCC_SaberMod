@@ -1,3 +1,20 @@
+2011-11-17  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r178102 from mainline
+	2011-08-26  Jiangning Liu  <jiangning.liu@arm.com>
+
+	* config/arm/arm.md (*ior_scc_scc): Enable for Thumb2 as well.
+	(*ior_scc_scc_cmp): Likewise
+	(*and_scc_scc): Likewise.
+	(*and_scc_scc_cmp): Likewise.
+	(*and_scc_scc_nodom): Likewise.
+	(*cmp_ite0, *cmp_ite1, *cmp_and, *cmp_ior): Handle Thumb2.
+
+	Partially backport r172017 from mainline
+	2011-04-06  Wei Guozhi  <carrot@google.com>
+
+	* config/arm/constraints.md (Py): New constraint.
+
 2011-11-16  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r180964 from mainline
