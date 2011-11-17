@@ -1,3 +1,7 @@
+2011-11-16   Rong Xu  <xur@google.com>
+
+	Backport r181432 from google/main.
+
 2011-11-10  DeLesley Hutchins  <delesley@google.com>
 
   * tree-threadsafe-analyze.c:    
