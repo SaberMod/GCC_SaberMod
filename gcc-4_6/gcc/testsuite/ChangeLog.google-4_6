@@ -1,3 +1,8 @@
+2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51150
+	* g++.dg/cpp0x/pr51150.C: New.
+
 2011-11-10  DeLesley Hutchins <delesley@google.com>
 
   * g++.dg/thread-ann/thread_annot_lock-85.C:
