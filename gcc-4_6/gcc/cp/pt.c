@@ -11622,7 +11622,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case STATIC_CAST_EXPR:
     case DYNAMIC_CAST_EXPR:
     case NOP_EXPR:
-    case CONVERT_EXPR:
       return build1
 	(code, tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 tsubst_copy (TREE_OPERAND (t, 0), args, complain, in_decl));
@@ -12783,12 +12782,6 @@ tsubst_copy_and_build (tree t,
     case NOP_EXPR:
       return build_nop
 	(tsubst (TREE_TYPE (t), args, complain, in_decl),
-	 RECUR (TREE_OPERAND (t, 0)));
-
-    case CONVERT_EXPR:
-      return build1
-	(CONVERT_EXPR,
-	 tsubst (TREE_TYPE (t), args, complain, in_decl),
 	 RECUR (TREE_OPERAND (t, 0)));
 
     case CAST_EXPR:

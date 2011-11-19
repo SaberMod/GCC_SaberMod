@@ -45,12 +45,6 @@
 	PR c++/49216
 	* init.c (build_vec_init): Avoid crash on new int[1]{}.
 
-	PR c++/49855
-	PR c++/49896
-	* call.c (perform_implicit_conversion_flags): Do perform
-	scalar conversions in templates.
-	* pt.c (tsubst_copy, tsubst_copy_and_build): Handle CONVERT_EXPR.
-
 2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
 
 	PR c++/44473

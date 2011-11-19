@@ -1,3 +1,7 @@
+2011-11-18   Diego Novillo  <dnovillo@google.com>
+
+	* g++.dg/pr51151.C: New.
+
 2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51150

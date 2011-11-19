@@ -1,3 +1,7 @@
+2011-11-18   Diego Novillo  <dnovillo@google.com>
+
+	Rollback revisiong 179815 from gcc-4_6-branch.
+
 2011-11-16   Rong Xu  <xur@google.com>
 
 	Backport r181432 from google/main.

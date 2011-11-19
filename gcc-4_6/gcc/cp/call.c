@@ -8277,8 +8277,7 @@ perform_implicit_conversion_flags (tree type, tree expr, tsubst_flags_t complain
 	}
       expr = error_mark_node;
     }
-  else if (processing_template_decl
-	   && !(SCALAR_TYPE_P (type) && SCALAR_TYPE_P (TREE_TYPE (expr))))
+  else if (processing_template_decl)
     {
       /* In a template, we are only concerned about determining the
 	 type of non-dependent expressions, so we do not have to
