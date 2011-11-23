@@ -1,3 +1,7 @@
+2011-11-23   Teresa Johnson  <tejohnson@google.com>
+
+	Backport r181671 from google/main.
+
 2011-11-18   Diego Novillo  <dnovillo@google.com>
 
 	Rollback revisiong 179815 from gcc-4_6-branch.
