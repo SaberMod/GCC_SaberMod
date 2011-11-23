@@ -1,3 +1,9 @@
+2011-11-23  Joey Ye  <joey.ye@arm.com>
+
+	Apply restrict volatile bitfield test case.
+	2011-11-23  Joey Ye  <joey.ye@arm.com>
+	* g++.dg/abi/bitfield12.C: Add option -fno-strict-volatile-bitfields.
+
 2011-11-17  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r178102 from mainline

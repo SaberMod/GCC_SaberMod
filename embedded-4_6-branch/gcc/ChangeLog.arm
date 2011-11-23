@@ -1,3 +1,13 @@
+2011-11-23  Joey Ye  <joey.ye@arm.com>
+
+	Partly apply restrict volatile bitfield fix from bernd.
+	2010-12-02  Bernd Schmidt  <bernds_cb1@t-online.de>
+
+	* expr.c (store_field): Avoid a direct store if the mode is larger
+	than the size of the bit field.
+	* stor-layout.c (layout_decl): If flag_strict_volatile_bitfields,
+	treat non-volatile bit fields like volatile ones.
+
 2011-11-17  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r178102 from mainline
