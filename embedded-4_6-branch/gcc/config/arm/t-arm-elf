@@ -54,9 +54,10 @@ MULTILIB_OSDIRNAMES  = marm=!arm mthumb=!thumb
 # Not quite true.  We can support hard-vfp calling in Thumb2, but how do we
 # express that here?  Also, we really need architecture v5e or later
 # (mcrr etc).
-MULTILIB_OPTIONS       += mfloat-abi=hard
-MULTILIB_DIRNAMES      += fpu
-MULTILIB_EXCEPTIONS    += *mthumb/*mfloat-abi=hard*
+MULTILIB_OPTIONS       += mfloat-abi=hard/mfloat-abi=softfp
+MULTILIB_DIRNAMES      += fpu softfp
+MULTILIB_EXCEPTIONS    += mthumb/mfloat-abi=hard mthumb/mfloat-abi=softfp
+MULTILIB_EXCEPTIONS    += marm/mfloat-abi=softfp mfloat-abi=softfp
 MULTILIB_OSDIRNAMES    += mfloat-abi.hard=!fpu marm/mfloat-abi.hard=!arm/fpu
 #MULTILIB_EXCEPTIONS    += *mcpu=fa526/*mfloat-abi=hard*
 #MULTILIB_EXCEPTIONS    += *mcpu=fa626/*mfloat-abi=hard*

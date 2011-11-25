@@ -1,3 +1,15 @@
+2011-11-24  Terry Guo  <terry.guo@arm.com>
+
+	* config.gcc (arm*-*-eabi*): Adjust ARM Multilib target names.
+	* config/arm/t-arm-elf: Add softfp.
+	* config/arm/t-armv6s-m: Rename to ...
+	* config/arm/t-armv6-m: ... this.
+	* config/arm/t-armv7-m: Add more exceptions.
+	* config/arm/t-armv7e-m: Build Soft and Hard FP libraries.
+	* config/arm/t-armv7-r: New file to build thumb libraries for V7-R.
+	* config/arm/t-thumb1: Removed.
+	* config/arm/t-thumb2: Ditto.
+
 2011-11-23  Joey Ye  <joey.ye@arm.com>
 
 	Partly apply restrict volatile bitfield fix from bernd.

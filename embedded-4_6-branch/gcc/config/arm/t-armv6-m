@@ -1,14 +1,14 @@
-#Build below library for ARM armv7-m architecture.
-#  armv7-m/     -mthumb -march=armv7-m
+#Build below library for ARM armv6s-m architecture.
+#  armv6s-m/    -mthumb -march=armv6s-m
 
-MULTILIB_OPTIONS      += march=armv7-m
+MULTILIB_OPTIONS      += march=armv6s-m
 
-MULTILIB_DIRNAMES     += armv7-m
+MULTILIB_DIRNAMES     += armv6s-m
 
-MULTILIB_EXCEPTIONS   += march=armv7-m*
-MULTILIB_EXCEPTIONS   += *march=armv7-m*/mfpu*
-MULTILIB_EXCEPTIONS   += marm*/march=armv7-m*
-MULTILIB_EXCEPTIONS   += *mfloat-abi*/march=armv7-m*
+MULTILIB_EXCEPTIONS   += *march=armv6s-m*/mfpu*
+MULTILIB_EXCEPTIONS   += *mfloat-abi*/march=armv6s-m*
+MULTILIB_EXCEPTIONS   += march=armv6s-m*
+MULTILIB_EXCEPTIONS   += marm*/march=armv6s-m*
 
 # Common exceptions.
 MULTILIB_EXCEPTIONS   += *march=armv7e-m*/mfpu=vfpv3-d16*
@@ -25,6 +25,8 @@ MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=hard/mfpu*
 MULTILIB_EXCEPTIONS   += mthumb/mfloat-abi=softfp/mfpu*
 MULTILIB_EXCEPTIONS   += mthumb/mfpu*
 
-MULTILIB_MATCHES      += march?armv7-m=mcpu?cortex-m3
+MULTILIB_MATCHES      += march?armv6s-m=march?armv6-m
+MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m0
+MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m1
 
-MULTILIB_OSDIRNAMES   += mthumb/march.armv7-m=!armv7-m
+MULTILIB_OSDIRNAMES   += mthumb/march.armv6s-m=!armv6-m
