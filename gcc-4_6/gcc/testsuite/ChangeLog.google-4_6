@@ -1,3 +1,10 @@
+2011-11-30   Doug Kwan  <dougkwan@google.com>
+
+	Backport r171347 and r181549 from trunk.
+	2011-11-20  Joey Ye  <joey.ye@arm.com>
+
+        	* gcc.dg/volatile-bitfields-1.c: New.
+
 2011-11-18   Diego Novillo  <dnovillo@google.com>
 
 	* g++.dg/pr51151.C: New.
