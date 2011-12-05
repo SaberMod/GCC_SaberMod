@@ -1,3 +1,8 @@
+2011-12-05  Jing Yu  <jingyu@google.com>
+
+	Backport r171347 and r181549 from trunk.
+	2011-11-20  Joey Ye  <joey.ye@arm.com>
+
 2011-08-17  Guozhi Wei  <carrot@google.com>
 
 	Backport r177357 from trunk.
