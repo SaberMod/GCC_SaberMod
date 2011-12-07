@@ -1,3 +1,15 @@
+2011-12-06  Jeffrey Yasskin  <jyasskin@google.com>
+
+	Backport from rev 180707
+
+	2011-10-31  Jason Merrill  <jason@redhat.com>
+
+		PR c++/50920
+		* class.c (check_field_decl): Change c++0x in diags to c++11.
+		* error.c (maybe_warn_cpp0x): Likewise.
+		* parser.c (cp_parser_diagnose_invalid_type_name): Likewise.
+		* pt.c (check_default_tmpl_args): Likewise.
+
 2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51150

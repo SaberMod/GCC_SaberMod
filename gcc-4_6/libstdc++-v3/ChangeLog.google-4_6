@@ -1,3 +1,12 @@
+2011-12-06  Jeffrey Yasskin  <jyasskin@google.com>
+
+	Backport from rev 180707
+
+	2011-10-31  Jason Merrill  <jason@redhat.com>
+
+		PR c++/50920
+		* include/bits/c++0x_warning.h: Change -std=c++0x to -std=c++11.
+
 2011-11-06   Xinliang David Li  <davidxl@google.com>
 
 	backport 181071 from trunk
