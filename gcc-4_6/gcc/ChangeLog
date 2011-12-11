@@ -1,3 +1,260 @@
+2011-12-08  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from mainline:
+
+	2011-08-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movdi_internal_rex64): Use "!o" constraint
+	instead of "!m" for operand 0, alternative 4.
+	(*movdf_internal_rex64): Ditto for operand 0, alernative 6.
+
+2011-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51410
+	* c-decl.c (pop_scope): Don't add DECL_EXTERNAL decls
+	for debug info if scope is file_scope.
+
+	PR c/51339
+	* c-decl.c (c_finish_incomplete_decl, finish_decl): Call
+	relayout_decl instead of layout_decl.
+
+	2011-12-05  Jakub Jelinek  <jakub@redhat.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/51323
+	PR middle-end/50074
+	* calls.c (internal_arg_pointer_exp_state): New variable.
+	(internal_arg_pointer_based_exp_1,
+	internal_arg_pointer_exp_scan): New functions.
+	(internal_arg_pointer_based_exp): New function.
+	(mem_overlaps_already_clobbered_arg_p): Use it.
+	(expand_call): Free internal_arg_pointer_exp_state.cache vector
+	and clear internal_arg_pointer_exp_state.scan_start.
+
+	2011-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48721
+	* sched-deps.c (sched_analyze_insn): For SIBLING_CALL_P set
+	reg_pending_barrier to TRUE_BARRIER.
+
+	2011-11-26  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	PR middle-end/50074
+	* calls.c (mem_overlaps_already_clobbered_arg_p):
+	Return false if no outgoing arguments have been stored so far.
+
+2011-12-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/51315
+	* tree-sra.c (tree_non_mode_aligned_mem_p): Rename to...
+	(tree_non_aligned_mem_p): ...this.  Add ALIGN parameter.  Look into
+	MEM_REFs and use get_object_or_type_alignment for them.
+	(build_accesses_from_assign): Adjust for above change.
+	(access_precludes_ipa_sra_p): Likewise.
+
+2011-12-06  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline:
+
+	2011-12-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/50622
+	* tree-sra.c (load_assign_lhs_subreplacements): Force gimple operand
+	if both lacc and racc are grp_partial_lhs.
+
+2011-12-06  Iain Sandoe  <iains@gcc.gnu.org>
+
+	* config/rs6000/rs6000.c (darwin_rs6000_override_options): Initialize
+	rs6000_current_abi.
+
+2011-12-06  Alan Modra  <amodra@gmail.com>
+
+	PR target/50906
+	* config/rs6000/rs6000.c (rs6000_emit_prologue <TARGET_SPE_ABI>):
+	Do not mark r11 setup as frame-related.  Pass correct offset to
+	rs6000_emit_savres_rtx.  Correct out-of-line rs6000_frame_related
+	arguments.  Correct sp_offset.  Remove "offset" fudge from
+	in-line rs6000_frame_related call.  Rename misleading variable.
+	Fix comments and whitespace.  Tidy some expressions.
+	(rs6000_emit_epilogue <TARGET_SPE_ABI>): Always set frame_reg_rtx
+	to r11 in out-of-line case.  Correct sp_offset.  Pass correct
+	offset to rs6000_emit_savres_rtx.  Rename misleading variable.
+	Fix comments and whitespace.  Tidy some expressions.
+	(rs6000_emit_epilogue <non-TARGET_SPE_ABI>): Add sp_offset
+	adjustment when !saving_GPRs_inline.  Correct register mode
+	used in address calcs.
+	(rs6000_emit_epilogue <non-TARGET_SPE_ABI>): Similarly when
+	!restoring_GPRs_inline.
+
+2011-12-04  Jérémie Detrey  <Jeremie.Detrey@loria.fr>
+
+	PR target/51393
+	* config/i386/avxintrin.h (_mm256_insert_epi64): Declare second
+	parameter as long long.
+
+2011-12-02  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/51002
+	PR target/51345
+	* config/avr/libgcc.S (__prologue_saves__, __epilogue_restores__):
+	Enclose parts using __SP_H__ in !defined (__AVR_HAVE_8BIT_SP__).
+	Add FIXME comments.
+	* config/avr/avr.md (movhi_sp_r_irq_off, movhi_sp_r_irq_on): Set
+	insn condition to !AVR_HAVE_8BIT_SP.
+	* config/avr/avr.c (output_movhi): "clr%B0" instead of "in
+	%B0,__SP_H__" if AVR_HAVE_8BIT_SP.
+	(avr_file_start): Only print "__SP_H__ = 0x3e" if !AVR_HAVE_8BIT_SP.
+	* config/avr/avr-devices.c (avr_mcu_types): ATtiny4313 and
+	AT86RF401 have a 16-bit SP (their manual is bogus).
+
+2011-11-25  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	Backport from mainline:
+
+	2011-03-29  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR debug/48190
+	* dwarf2out.c (dw_loc_list_node): Add resolved_addr and replaced.
+	(cached_dw_loc_list_def): New structure.
+	(cached_dw_loc_list): New typedef.
+	(cached_dw_loc_list_table): New variable.
+	(cached_dw_loc_list_table_hash): New function.
+	(cached_dw_loc_list_table_eq): Likewise.
+	(add_location_or_const_value_attribute): Take a bool cache_p.
+	Cache the list when the parameter is true.
+	(gen_formal_parameter_die): Update caller.
+	(gen_variable_die): Likewise.
+	(dwarf2out_finish): Likewise.
+	(dwarf2out_abstract_function): Nullify cached_dw_loc_list_table
+	while generating debug info for the decl.
+	(dwarf2out_function_decl): Clear cached_dw_loc_list_table.
+	(dwarf2out_init): Initialize cached_dw_loc_list_table.
+	(resolve_addr): Cache the result of resolving a chain of
+	location lists.
+
+2011-11-24  Enkovich Ilya  <ilya.enkovich@intel.com>
+
+	PR target/51287
+	* i386.c (distance_non_agu_define): Fix insn attr check.
+
+2011-11-20  Andreas Tobler  <andreast@fgznet.ch>
+
+	* configure: Regenerate.
+
+2011-11-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/51187
+	* reorg.c (relax_delay_slots): Do not consider a jump useless if there
+	is a barrier between the jump and its target label.
+
+2011-11-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/50493
+	* config/arm/arm.c (neon_disambiguate_copy): Correctly handle partial
+	overlap of src and dest operands.
+
+2011-11-18  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/49992
+	* configure.ac: Remove ranlib special-casing for Darwin.
+	* configure: Regenerate.
+
+2011-11-16  Richard Earnshaw  <rearnsha@arm.com>
+	    Bernd Schmidt <bernds@coudesourcery.com>
+	    Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	PR target/49641
+	* config/arm/arm.c (store_multiple_sequence): Avoid cases where
+	the base reg is stored iff compiling for Thumb1.
+
+2011-11-13  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/48108
+	Backport from mainline r180523
+	* config/darwin.c (top level): Amend comments concerning LTO output.
+	(lto_section_num): New variable.  (darwin_lto_section_e): New GTY.
+	(LTO_SECTS_SECTION, LTO_INDEX_SECTION): New.
+	(LTO_NAMES_SECTION): Rename.
+	(darwin_asm_named_section): Record LTO section counts and switches
+	in a vec of darwin_lto_section_e.
+	(darwin_file_start): Remove unused code.
+	(darwin_file_end): Put an LTO section termination label.  Handle
+	output of the wrapped LTO sections, index and names table.
+
+2011-11-12  Iain Sandoe  <iains@gcc.gnu.org>
+
+	PR target/45233
+	* config/rs6000/rs6000.c (rs6000_legitimize_reload_address):
+	Only expand a symbol ref. into an access when the entity is defined
+	in the TU.
+
+2011-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51077
+	* tree-object-size.c (addr_object_size): Check TREE_CODE of
+	MEM_REF's operand rather than code of the MEM_REF itself.
+
+2011-11-07  Alan Modra  <amodra@gmail.com>
+
+	PR target/30282
+	* config/rs6000/rs6000.c (rs6000_emit_stack_reset): Always emit
+	blockage for ABI_V4.
+
+2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c++/50608
+	* c-parser.c (c_parser_postfix_expression) <RID_OFFSETOF>: Adjust call
+	to fold_offsetof.
+	* c-typeck.c (build_unary_op) <ADDR_EXPR>: Call fold_offsetof_1.
+
+2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/50979
+	* config/sparc/sparc.h (ASM_CPU_SPEC): Pass -Av8 if -mcpu=v8.
+
+2011-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (lround<X87MODEF:mode><SWI248x:mode>2,
+	rint<mode>2, floor<mode>2, lfloor<MODEF:mode><SWI48:mode>2,
+	btrunc<mode>2, lwp_lwpval<mode>3): Use operands[N] instead of operandN.
+
+2011-11-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/50945
+	* config/sparc/sparc.md (movsf_insn): Reindent constraints.
+	(movsf_insn_no_fpu): Likewise.
+	(movdf_insn_sp32): Likewise.
+	(movdf_insn_sp32_no_fpu): Likewise.
+	(movdf_insn_sp32_v9): Likewise.  Remove redundant GY constraint.
+	(movdf_insn_sp32_v9_no_fpu): Likewise.
+	(movdf_insn_sp64): Likewise.
+	(movdf_insn_sp64_no_fpu): Likewise.
+	(movtf_insn_sp32): Likewise.
+	(movtf_insn_sp32_no_fpu): Likewise.
+	(movtf_insn_sp64): Likewise.
+	(movtf_insn_sp64_hq): Likewise.
+	(movtf_insn_sp64_no_fpu): Likewise.
+
+2011-11-02  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* cfgcleanup.c (try_head_merge_bb): If get_condition returns
+	NULL for a jump that is a cc0 insn, pick the previous insn for
+	move_before.
+
+2011-11-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (splitters for int-float conversion): Use
+	SUBREG_REG on SUBREGs in splitter constraints.
+
+2011-11-01  Julian Brown  <julian@codesourcery.com>
+
+	PR rtl-optimization/47918
+	* reload1.c (set_initial_label_offsets): Use initial offsets
+	for labels on the nonlocal_goto_handler_labels chain.
+
 2011-10-29  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/50691
@@ -162,8 +419,8 @@
 
 2011-10-07  Bernd Schmidt  <bernds@codesourcery.com>
 
- 	PR target/49049
- 	* config/arm/arm.md (arm_subsi3_insn): Lose the last alternative.
+	PR target/49049
+	* config/arm/arm.md (arm_subsi3_insn): Lose the last alternative.
 
 2011-10-06  Jakub Jelinek  <jakub@redhat.com>
 
@@ -270,7 +527,7 @@
 	* config/rs6000/rs6000.md (probe_stack): Use explicit operand.
 	* config/rs6000/rs6000.c (output_probe_stack_range): Likewise.
 
-2011-09-14   Diego Novillo  <dnovillo@google.com>
+2011-09-14  Diego Novillo  <dnovillo@google.com>
 
 	* tree-vect-stmts.c (vect_transform_stmt): Remove unused
 	local variable ORIG_SCALAR_STMT.

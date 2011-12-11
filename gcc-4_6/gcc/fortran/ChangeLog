@@ -1,3 +1,29 @@
+2011-12-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51435
+	* expr.c (gfc_has_default_initializer): Fix handling of
+	DT with initialized pointer components.
+
+2011-12-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50684
+	* check.c (variable_check): Fix intent(in) check.
+
+2011-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50408
+	* trans-decl.c (gfc_get_module_backend_decl): Also copy
+	ts.u.derived from the gsym if the ts.type is BT_CLASS.
+	(gfc_get_extern_function_decl): Copy also the backend_decl
+	for the symbol's ts.u.{derived,cl} from the gsym.
+	* trans-types.c (gfc_copy_dt_decls_ifequal): Directly
+	return if "from" and "to" are the same.
+
+2011-11-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51218
+	* gfortran.dg/implicit_pure_1.f90: New.
+
 2011-10-26  Release Manager
 
 	* GCC 4.6.2 released.

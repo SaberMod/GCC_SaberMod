@@ -1,3 +1,127 @@
+2011-12-08  Teresa Johnson  <tejohnson@google.com>
+
+	* gcc.target/i386/movdi-rex64.c: Remove unnecessary
+	unused label.
+
+2011-12-08  Teresa Johnson  <tejohnson@google.com>
+
+	* gcc.target/i386/movdi-rex64.c: Remove unnecessary
+	-Wwrite-strings option.
+
+2011-12-08  Teresa Johnson  <tejohnson@google.com>
+
+	* gcc.target/i386/movdi-rex64.c: New.
+
+2011-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-12-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51410
+	* gcc.dg/debug/dwarf2/pr51410.c: New test.
+
+	PR c/51339
+	* gcc.dg/gomp/pr51339.c: New test.
+
+	2011-12-05  Jakub Jelinek  <jakub@redhat.com>
+		    Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/51323
+	PR middle-end/50074
+	* gcc.c-torture/execute/pr51323.c: New test.
+
+	2011-11-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/48721
+	* gcc.target/i386/pr48721.c: New test.
+
+2011-12-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20111208-1.c: New test.
+
+	Backport from mainline
+	2011-09-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/frame_overflow.ads: New.
+	* gnat.dg/frame_overflow.adb: Adjust.
+	* gnat.dg/specs/addr1.ads: Likewise.
+
+2011-12-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51435
+	* gfortran.dg/default_initialization_5.f90: New.
+
+2011-12-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/50622
+	* g++.dg/tree-ssa/pr50622.C: New test.
+
+2011-12-04  Uros Bizjak  <ubizjak@gmail.com>
+	    Jérémie Detrey  <Jeremie.Detrey@loria.fr>
+
+	PR target/51393
+	* gcc.target/i386/pr51393.c: New test.
+
+2011-12-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50684
+	* gfortran.dg/move_alloc_8.f90: New.
+
+2011-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50408
+	* gfortran.dg/whole_file_35.f90: New.
+
+2011-11-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51218
+	* resolve.c (pure_subroutine): If called subroutine is
+	impure, unset implicit_pure.
+	(resolve_function): Move impure check to simplify code.
+
+2011-11-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51265
+	* g++.dg/cpp0x/decltype36.C: New.
+
+2011-11-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/delay-slot-2.c: New test.
+
+2011-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/cpp/assert4.c: Test __linux__, not __gnu_linux__.
+
+2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51150
+	* g++.dg/cpp0x/pr51150.C: New.
+
+2011-11-16  Richard Earnshaw  <rearnsha@arm.com>
+	    Bernd Schmidt <bernds@coudesourcery.com>
+	    Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	PR target/49641
+	* gcc.target/arm/pr49641.c: New test.
+
+2011-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51077
+	* gcc.c-torture/compile/pr51077.c: New test.
+
+2011-11-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50870
+	* g++.dg/cpp0x/decltype35.C: New.
+
+2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/other/offsetof7.C: New test.
+
+2011-11-02  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* gcc.c-torture/compile/20110907.c: New file.
+
 2011-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/50901
@@ -20,9 +144,9 @@
 
 2011-10-20  Uros Bizjak  <ubizjak@gmail.com>
 
-       * gcc.dg/ipa/ipa-sra-2.c: Add dg-require-effective-target
-       non_strict_align.
-       * gcc.dg/ipa/ipa-sra-6.c: Ditto.
+	* gcc.dg/ipa/ipa-sra-2.c: Add dg-require-effective-target
+	non_strict_align.
+	* gcc.dg/ipa/ipa-sra-6.c: Ditto.
 
 2011-10-19  Jason Merrill  <jason@redhat.com>
 

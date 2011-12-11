@@ -10,3 +10,4 @@ flaky | FAIL: libmudflap.cth/pass40-frag.c output pattern test
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) execution test
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) output pattern test
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) execution test
+flaky | FAIL: libmudflap.cth/pass39-frag.c (-static -DSTATIC) (test for excess errors)

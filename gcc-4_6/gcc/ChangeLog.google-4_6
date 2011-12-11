@@ -1,3 +1,7 @@
+2011-12-11   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 182135.
+
 2011-11-30   Doug Kwan  <dougkwan@google.com>
 
 	Backport r171347 and r181549 from trunk.
