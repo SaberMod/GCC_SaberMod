@@ -1,3 +1,7 @@
+2011-12-12   Teresa Johnson  <tejohnson@google.com>
+
+	Backport r182254 from google/main.
+
 2011-12-11   Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 182135.
