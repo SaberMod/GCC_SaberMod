@@ -26185,6 +26185,21 @@ ix86_init_platform_type_builtins (void)
 			 IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL, 1);
 }
 
+/* Detect if this unaligned vectorizable load/stores should be
+   considered slow.  This is true for core2 where the movdqu insn
+   is slow, ~5x slower than the movdqa.  */
+
+static bool
+ix86_slow_unaligned_vector_memop (void)
+{
+  /* This is known to be slow on core2.  */
+  if (ix86_tune == PROCESSOR_CORE2_64
+      || ix86_tune == PROCESSOR_CORE2_32)
+    return true;
+
+  return false;
+}
+
 /* Internal method for ix86_init_builtins.  */
 
 static void
@@ -35592,6 +35607,9 @@ ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 
 #undef TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN ix86_fold_builtin
+
+#undef TARGET_SLOW_UNALIGNED_VECTOR_MEMOP
+#define TARGET_SLOW_UNALIGNED_VECTOR_MEMOP ix86_slow_unaligned_vector_memop
 
 #undef TARGET_ENUM_VA_LIST_P
 #define TARGET_ENUM_VA_LIST_P ix86_enum_va_list
