@@ -1,3 +1,7 @@
+2011-12-16  Dehao Chen  <dehao@google.com>
+
+	* gcc.dg/inline-dump.c: New test.
+
 2011-11-30   Doug Kwan  <dougkwan@google.com>
 
 	Backport r171347 and r181549 from trunk.
