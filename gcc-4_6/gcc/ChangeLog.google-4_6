@@ -1,3 +1,10 @@
+2011-12-16   Rong Xu  <xur@google.com>
+	Backport r182416 from google/main.
+
+	2011-12-16   Rong Xu  <xur@google.com>
+
+		* libgcc/libgcov.c (gcov_merge_gcda_file): reset summary_pos.
+
 2011-12-16  Dehao Chen  <dehao@google.com>
 
 	* ipa-inline.c (dump_inline_decision): New function.
