@@ -1375,7 +1375,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public std::unary_function<__shared_ptr<_Tp, _Lp>, size_t>
     {
       size_t
-      operator()(const __shared_ptr<_Tp, _Lp>& __s) const
+      operator()(const __shared_ptr<_Tp, _Lp>& __s) const noexcept
       { return std::hash<_Tp*>()(__s.get()); }
     };
 
