@@ -1,3 +1,14 @@
+2011-12-17  Easwaran Raman  <eraman@google.com>
+	Backport r182443 from google/main.
+
+	2011-12-17   Easwaran Raman  <eraman@google.com>
+	
+		* decl.c (cxx_init_decl_processing): Specify a function that
+		  takes a void* and size_t for DELETE_EXPR.
+		* call.c (build_op_delete_call): If fsized-delete is used, use
+		  the variant that takes size_t as the second parameter except
+		  when deleteting a pointer of type void *.
+
 2011-12-06  Jeffrey Yasskin  <jyasskin@google.com>
 
 	Backport from rev 180707

@@ -1,3 +1,17 @@
+2011-12-17  Easwaran Raman  <eraman@google.com>
+	Backport r182443 from google/main.
+
+	2011-12-17   Easwaran Raman  <eraman@google.com>
+	
+		* libsupc++/del_op.cc (delete): Define a new variant
+		  void operator delete(void*, std::size_t).
+		* libsupc++/new (delete): Declare
+		  void operator delete(void*, std::size_t) throw();
+		* testsuite/util/testsuite_abi.cc (check_version): Add new
+		  known version GLIBCXX_3.4.18.
+		* config/abi/pre/gnu.ver: Add new symbol _ZdlPv[jmy] at version
+		  GLIBCXX_3.4.18.
+
 2011-12-16  Jeffrey Yasskin  <jyasskin@google.com>
 
 	Backport from revs 181473, 182392

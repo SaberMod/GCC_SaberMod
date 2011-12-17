@@ -1,3 +1,10 @@
+2011-12-17  Easwaran Raman  <eraman@google.com>
+	Backport r182443 from google/main.
+
+	2011-12-17   Easwaran Raman  <eraman@google.com>
+
+		* common.opt (fsized-delete): New option.
+
 2011-12-16   Rong Xu  <xur@google.com>
 	Backport r182416 from google/main.
 
