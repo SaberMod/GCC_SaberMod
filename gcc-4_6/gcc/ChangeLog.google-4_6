@@ -1,3 +1,15 @@
+2011-12-17  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc/config/i386/i386.c
+	(IX86_BUILTIN_CPU_IS_INTEL_COREI7): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10): New enum value.
+	(fold_builtin_cpu): Fold the new builtins.
+	(ix86_init_platform_type_builtins): Make new buitins
+	__builtin_cpu_is_intel_corei7 and
+	__builtin_cpu_is_amdfam10.
+	* testsuite/gcc.target/i386/builtin_target.c (fn1):
+	Call the new builtins.
+
 2011-12-17  Easwaran Raman  <eraman@google.com>
 	Backport r182443 from google/main.
 

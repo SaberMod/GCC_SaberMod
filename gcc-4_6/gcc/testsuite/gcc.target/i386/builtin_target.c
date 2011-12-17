@@ -31,11 +31,15 @@ fn1 ()
     return -1;
   if (__builtin_cpu_is_intel_core2 () < 0)
     return -1;
+  if (__builtin_cpu_is_intel_corei7 () < 0)
+    return -1;
   if (__builtin_cpu_is_intel_corei7_nehalem () < 0)
     return -1;
   if (__builtin_cpu_is_intel_corei7_westmere () < 0)
     return -1;
   if (__builtin_cpu_is_intel_corei7_sandybridge () < 0)
+    return -1;
+  if (__builtin_cpu_is_amdfam10 () < 0)
     return -1;
   if (__builtin_cpu_is_amdfam10_barcelona () < 0)
     return -1;

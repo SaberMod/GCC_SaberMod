@@ -55,9 +55,11 @@ struct __processor_model
   /* CPU type. */
   unsigned int __cpu_is_intel_atom : 1;
   unsigned int __cpu_is_intel_core2 : 1;
+  unsigned int __cpu_is_intel_corei7 : 1;
   unsigned int __cpu_is_intel_corei7_nehalem : 1;
   unsigned int __cpu_is_intel_corei7_westmere : 1;
   unsigned int __cpu_is_intel_corei7_sandybridge : 1;
+  unsigned int __cpu_is_amdfam10 : 1;
   unsigned int __cpu_is_amdfam10_barcelona : 1;
   unsigned int __cpu_is_amdfam10_shanghai : 1;
   unsigned int __cpu_is_amdfam10_istanbul : 1;
@@ -74,12 +76,15 @@ get_amd_cpu (unsigned int family, unsigned int model)
       switch (model)
 	{
 	case 0x2:
+	  __cpu_model.__cpu_is_amdfam10 = 1;
 	  __cpu_model.__cpu_is_amdfam10_barcelona = 1;
 	  break;
 	case 0x4:
+	  __cpu_model.__cpu_is_amdfam10 = 1;
 	  __cpu_model.__cpu_is_amdfam10_shanghai = 1;
 	  break;
 	case 0x8:
+	  __cpu_model.__cpu_is_amdfam10 = 1;
 	  __cpu_model.__cpu_is_amdfam10_istanbul = 1;
 	  break;
 	default:
@@ -117,16 +122,19 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	    case 0x1f:
 	    case 0x2e:
 	      /* Nehalem.  */
+	      __cpu_model.__cpu_is_intel_corei7 = 1;
 	      __cpu_model.__cpu_is_intel_corei7_nehalem = 1;
 	      break;
 	    case 0x25:
 	    case 0x2c:
 	    case 0x2f:
 	      /* Westmere.  */
+	      __cpu_model.__cpu_is_intel_corei7 = 1;
 	      __cpu_model.__cpu_is_intel_corei7_westmere = 1;
 	      break;
 	    case 0x2a:
 	      /* Sandy Bridge.  */
+	      __cpu_model.__cpu_is_intel_corei7 = 1;
 	      __cpu_model.__cpu_is_intel_corei7_sandybridge = 1;
 	      break;
 	    case 0x17:

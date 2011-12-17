@@ -24500,9 +24500,11 @@ enum ix86_builtins
   IX86_BUILTIN_CPU_IS_INTEL,
   IX86_BUILTIN_CPU_IS_INTEL_ATOM,
   IX86_BUILTIN_CPU_IS_INTEL_CORE2,
+  IX86_BUILTIN_CPU_IS_INTEL_COREI7,
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM,
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE,
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE,
+  IX86_BUILTIN_CPU_IS_AMDFAM10,
   IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA,
   IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI,
   IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL,
@@ -25981,9 +25983,11 @@ fold_builtin_cpu (enum ix86_builtins fn_code)
     M_INTEL,
     M_INTEL_ATOM,
     M_INTEL_CORE2,
+    M_INTEL_COREI7,
     M_INTEL_COREI7_NEHALEM,
     M_INTEL_COREI7_WESTMERE,
     M_INTEL_COREI7_SANDYBRIDGE,
+    M_AMDFAM10,
     M_AMDFAM10_BARCELONA,
     M_AMDFAM10_SHANGHAI,
     M_AMDFAM10_ISTANBUL,
@@ -26068,6 +26072,11 @@ fold_builtin_cpu (enum ix86_builtins fn_code)
       field = get_field_from_struct (__processor_model_type, M_INTEL_CORE2);
       which_struct = __cpu_model_var;
       break;
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7:
+      field = get_field_from_struct (__processor_model_type,
+				     M_INTEL_COREI7);
+      which_struct = __cpu_model_var;
+      break;
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM:
       field = get_field_from_struct (__processor_model_type,
 				     M_INTEL_COREI7_NEHALEM);
@@ -26081,6 +26090,11 @@ fold_builtin_cpu (enum ix86_builtins fn_code)
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE:
       field = get_field_from_struct (__processor_model_type,
 				     M_INTEL_COREI7_SANDYBRIDGE);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM10:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM10);
       which_struct = __cpu_model_var;
       break;
     case IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA:
@@ -26171,12 +26185,16 @@ ix86_init_platform_type_builtins (void)
 			 IX86_BUILTIN_CPU_IS_INTEL_CORE2, 1);
   make_platform_builtin ("__builtin_cpu_is_intel",
 			 IX86_BUILTIN_CPU_IS_INTEL, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_corei7",
+			 IX86_BUILTIN_CPU_IS_INTEL_COREI7, 1);
   make_platform_builtin ("__builtin_cpu_is_intel_corei7_nehalem",
 			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM, 1);
   make_platform_builtin ("__builtin_cpu_is_intel_corei7_westmere",
 			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE, 1);
   make_platform_builtin ("__builtin_cpu_is_intel_corei7_sandybridge",
 			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam10",
+			 IX86_BUILTIN_CPU_IS_AMDFAM10, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10_barcelona",
 			 IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10_shanghai",
@@ -27761,9 +27779,11 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_CPU_IS_INTEL:
     case IX86_BUILTIN_CPU_IS_INTEL_ATOM:
     case IX86_BUILTIN_CPU_IS_INTEL_CORE2:
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7:
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM:
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE:
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10:
     case IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA:
     case IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI:
     case IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL:
