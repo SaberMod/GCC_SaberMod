@@ -38,4 +38,3 @@
 	(tv_update_section_order): New struct member.
 	(tv_allow_section_ordering): New struct member.
 	(tv_get_view): New struct member.
-
