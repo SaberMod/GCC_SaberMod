@@ -60,7 +60,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "fibheap.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
+#include "tree-dump.h"
+#include "gimple-pretty-print.h"
 #include "cfgloop.h"
+#include "tree-scalar-evolution.h"
+#include "tree-vectorizer.h"
 
 enum upper_128bits_state
 {
@@ -2353,6 +2357,8 @@ enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
+char ix86_varch[PROCESSOR_max];
+
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
 
@@ -2492,6 +2498,7 @@ static enum calling_abi ix86_function_abi (const_tree);
 /* Whether -mtune= or -march= were specified */
 static int ix86_tune_defaulted;
 static int ix86_arch_specified;
+static int ix86_varch_specified;
 
 /* A mask of ix86_isa_flags that includes bit X if X
    was set or cleared on the command line.  */
@@ -4315,6 +4322,36 @@ ix86_option_override_internal (bool main_args_p)
     {
       /* Disable vzeroupper pass if TARGET_AVX is disabled.  */
       target_flags &= ~MASK_VZEROUPPER;
+    }
+
+  /* Handle ix86_mv_arch_string.  The values allowed are the same as
+     -march=<>.  More than one value is allowed and values must be
+     comma separated.  */
+  if (ix86_mv_arch_string)
+    {
+      char *token;
+      char *varch;
+      int i;
+
+      ix86_varch_specified = 1;
+      memset (ix86_varch, 0, sizeof (ix86_varch));
+      token = XNEWVEC (char, strlen (ix86_mv_arch_string) + 1);
+      strcpy (token, ix86_mv_arch_string);
+      varch = strtok ((char *)token, ",");
+      while (varch != NULL)
+        {
+          for (i = 0; i < pta_size; i++)
+            if (!strcmp (varch, processor_alias_table[i].name))
+	      {
+	 	ix86_varch[processor_alias_table[i].processor] = 1;
+	        break;
+	      }
+          if (i == pta_size)
+            error ("bad value (%s) for %sv-arch=%s %s",
+	           varch, prefix, suffix, sw);
+	  varch = strtok (NULL, ",");
+	}
+      free (token);
     }
 }
 
@@ -26134,6 +26171,489 @@ ix86_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
   return NULL_TREE;
 }
 
+/* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
+   to return integer VERSION_NUM if the outcome of the function PREDICATE_DECL
+   is true (or false if INVERT_CHECK is true).  This function will be called
+   during version dispatch to ecide which function version to execute.  */
+
+static basic_block
+add_condition_to_bb (tree function_decl, int version_num,
+		     basic_block new_bb, tree predicate_decl,
+		     bool invert_check)
+{
+  gimple return_stmt;
+  gimple call_cond_stmt;
+  gimple if_else_stmt;
+
+  basic_block bb1, bb2, bb3;
+  edge e12, e23;
+
+  tree cond_var;
+  gimple_seq gseq;
+
+  tree old_current_function_decl;
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (function_decl));
+  current_function_decl = function_decl;
+
+  gcc_assert (new_bb != NULL);
+  gseq = bb_seq (new_bb);
+
+  if (predicate_decl == NULL_TREE)
+    {
+      return_stmt = gimple_build_return (build_int_cst (NULL, version_num));
+      gimple_seq_add_stmt (&gseq, return_stmt);
+      set_bb_seq (new_bb, gseq);
+      gimple_set_bb (return_stmt, new_bb);
+      pop_cfun ();
+      current_function_decl = old_current_function_decl;
+      return new_bb;
+    }
+
+  cond_var = create_tmp_var (integer_type_node, NULL);
+  call_cond_stmt = gimple_build_call (predicate_decl, 0);
+  gimple_call_set_lhs (call_cond_stmt, cond_var);
+  add_referenced_var (cond_var);
+  mark_symbols_for_renaming (call_cond_stmt); 
+
+  gimple_set_block (call_cond_stmt, DECL_INITIAL (function_decl));
+  gimple_set_bb (call_cond_stmt, new_bb);
+  gimple_seq_add_stmt (&gseq, call_cond_stmt);
+
+  if (!invert_check)
+    if_else_stmt = gimple_build_cond (GT_EXPR, cond_var,
+				      integer_zero_node,
+				      NULL_TREE, NULL_TREE);
+  else
+    if_else_stmt = gimple_build_cond (LE_EXPR, cond_var,
+				      integer_zero_node,
+				      NULL_TREE, NULL_TREE);
+
+  mark_symbols_for_renaming (if_else_stmt);
+  gimple_set_block (if_else_stmt, DECL_INITIAL (function_decl));
+  gimple_set_bb (if_else_stmt, new_bb);
+  gimple_seq_add_stmt (&gseq, if_else_stmt);
+
+  return_stmt = gimple_build_return (build_int_cst (NULL, version_num));
+  gimple_seq_add_stmt (&gseq, return_stmt);
+
+ 
+  set_bb_seq (new_bb, gseq);
+
+  bb1 = new_bb;
+  e12 = split_block (bb1, if_else_stmt);
+  bb2 = e12->dest;
+  e12->flags &= ~EDGE_FALLTHRU;
+  e12->flags |= EDGE_TRUE_VALUE;
+
+  e23 = split_block (bb2, return_stmt);
+  gimple_set_bb (return_stmt, bb2);
+  bb3 = e23->dest;
+  make_edge (bb1, bb3, EDGE_FALSE_VALUE); 
+
+  remove_edge (e23);
+  make_edge (bb2, EXIT_BLOCK_PTR, 0);
+
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+  rebuild_cgraph_edges ();
+  update_ssa (TODO_update_ssa);
+  if (dump_file)
+    dump_function_to_file (current_function_decl, dump_file, TDF_BLOCKS);
+
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+
+  return bb3;
+}
+
+/* This makes an empty function with one empty basic block *CREATED_BB
+   apart from the ENTRY and EXIT blocks.  */
+
+static tree
+make_empty_function (basic_block *created_bb)
+{
+  tree decl, type, t;
+  basic_block new_bb;
+  tree old_current_function_decl;
+  tree decl_name;
+  char name[1000];
+  static int num = 0;
+
+  /* The condition function should return an integer. */
+  type = build_function_type_list (integer_type_node, NULL_TREE);
+ 
+  sprintf (name, "cond_%d", num);
+  num++;
+  decl = build_fn_decl (name, type);
+
+  decl_name = get_identifier (name);
+  SET_DECL_ASSEMBLER_NAME (decl, decl_name);
+  DECL_NAME (decl) = decl_name;
+  gcc_assert (cgraph_node (decl) != NULL);
+
+  TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 0;
+  TREE_PUBLIC (decl) = 0;
+  DECL_UNINLINABLE (decl) = 1;
+  DECL_EXTERNAL (decl) = 0;
+  DECL_CONTEXT (decl) = NULL_TREE;
+  DECL_INITIAL (decl) = make_node (BLOCK);
+  DECL_STATIC_CONSTRUCTOR (decl) = 0;
+  TREE_READONLY (decl) = 0;
+  DECL_PURE_P (decl) = 0;
+ 
+  /* Build result decl and add to function_decl. */
+  t = build_decl (UNKNOWN_LOCATION, RESULT_DECL, NULL_TREE, ptr_type_node);
+  DECL_ARTIFICIAL (t) = 1;
+  DECL_IGNORED_P (t) = 1;
+  DECL_RESULT (decl) = t;
+
+  gimplify_function_tree (decl);
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
+  current_function_decl = decl;
+  init_empty_tree_cfg_for_function (DECL_STRUCT_FUNCTION (decl));
+
+  cfun->curr_properties |=
+    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_referenced_vars |
+     PROP_ssa);
+
+  new_bb = create_empty_bb (ENTRY_BLOCK_PTR);
+  make_edge (ENTRY_BLOCK_PTR, new_bb, EDGE_FALLTHRU);
+  make_edge (new_bb, EXIT_BLOCK_PTR, 0);
+
+  /* This call is very important if this pass runs when the IR is in
+     SSA form.  It breaks things in strange ways otherwise. */
+  init_tree_ssa (DECL_STRUCT_FUNCTION (decl));
+  init_ssa_operands ();
+
+  cgraph_add_new_function (decl, true);
+  cgraph_call_function_insertion_hooks (cgraph_node (decl));
+  cgraph_mark_needed_node (cgraph_node (decl));
+
+  if (dump_file)
+    dump_function_to_file (decl, dump_file, TDF_BLOCKS);
+
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+  *created_bb = new_bb;
+  return decl; 
+}
+
+/* This function conservatively checks if loop LOOP is tree vectorizable.
+   The code is adapted from tree-vectorize.cc and tree-vect-stmts.cc  */
+
+static bool
+is_loop_form_vectorizable (struct loop *loop)
+{
+  /* Inner most loops should have 2 basic blocks.  */
+  if (!loop->inner)
+    {
+      /* This is inner most.  */
+      if (loop->num_nodes != 2)
+        return false;
+      /* Empty loop.  */
+      if (empty_block_p (loop->header))
+        return false;
+    }
+  else
+    {
+      /* Bail if there are multiple nested loops.  */ 
+      if ((loop->inner)->inner || (loop->inner)->next)
+	return false;
+      /* Recursive call for the inner loop.  */
+      if (!is_loop_form_vectorizable (loop->inner))
+        return false;
+      if (loop->num_nodes != 5)
+	return false;
+      /* The tree has 0 iterations.  */
+      if (TREE_INT_CST_LOW (number_of_latch_executions (loop)) == 0)
+	return false;
+    }
+
+   return true;	
+}
+
+/* This function checks if there is atleast one vectorizable
+   load/store in loop LOOP.  Code adapted from tree-vect-stmts.cc.  */
+
+static bool
+is_loop_stmts_vectorizable (struct loop *loop)
+{
+  basic_block *body;
+  unsigned int i;
+  bool vect_load_store = false;
+
+  body = get_loop_body (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
+        {
+	  gimple stmt = gsi_stmt (gsi);
+	  enum gimple_code code = gimple_code (stmt);
+
+	  if (gimple_has_volatile_ops (stmt))
+	    return false;
+
+	  /* Does it have a vectorizable store or load in a hot bb? */
+	  if (code == GIMPLE_ASSIGN)
+	    {
+	      enum tree_code lhs_code = TREE_CODE (gimple_assign_lhs (stmt));
+	      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+
+	      /* Only look at hot vectorizable loads/stores.  */
+	      if (profile_status == PROFILE_READ
+		  && !maybe_hot_bb_p (body[i]))
+		continue;
+
+	      if (lhs_code == ARRAY_REF
+		  || lhs_code == INDIRECT_REF
+		  || lhs_code == COMPONENT_REF
+		  || lhs_code == IMAGPART_EXPR
+		  || lhs_code == REALPART_EXPR
+		  || lhs_code == MEM_REF)
+		vect_load_store = true;
+	      else if (rhs_code == ARRAY_REF
+		  || rhs_code == INDIRECT_REF
+		  || rhs_code == COMPONENT_REF
+		  || rhs_code == IMAGPART_EXPR
+		  || rhs_code == REALPART_EXPR
+		  || rhs_code == MEM_REF)
+		vect_load_store = true;
+	    }
+	}
+    }
+
+  return vect_load_store;
+}
+
+/* This function checks if there are any vectorizable loops present
+   in CURRENT_FUNCTION_DECL.  This function is called before the
+   loop optimization passes and is therefore very conservative in
+   checking for vectorizable loops.  Also, all the checks used in the
+   vectorizer pass cannot used here since many loop optimizations
+   have not occurred which could change the loop structure and the
+   stmts.
+
+   The conditions for a loop being vectorizable are adapted from
+   tree-vectorizer.c, tree-vect-stmts.c. */
+
+static bool
+any_loops_vectorizable_with_load_store (void)
+{
+  unsigned int vect_loops_num;
+  loop_iterator li;
+  struct loop *loop;
+  bool vectorizable_loop_found = false;
+
+  loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
+
+  vect_loops_num = number_of_loops ();
+
+  /* Bail out if there are no loops.  */
+  if (vect_loops_num <= 1)
+    {
+      loop_optimizer_finalize ();
+      return false;
+    }
+
+  scev_initialize ();
+
+  /* This is iterating over all loops.  */
+  FOR_EACH_LOOP (li, loop, 0)
+    if (optimize_loop_nest_for_speed_p (loop))
+      {
+	if (!is_loop_form_vectorizable (loop))
+	  continue;
+	if (!is_loop_stmts_vectorizable (loop))
+	  continue;
+        vectorizable_loop_found = true;
+	break;
+      }
+
+
+  loop_optimizer_finalize ();
+  scev_finalize ();
+
+  return vectorizable_loop_found;
+}
+
+/* This makes the function that chooses the version to execute based
+   on the condition.  This condition function will decide which version
+   of the function to execute.  It should look like this:
+
+   int cond_i ()
+   {
+      __builtin_cpu_init (); // Get the cpu type.
+      a =  __builtin_cpu_is_<type1> ();
+      if (a)
+        return 1; // first version created.
+      a =  __builtin_cpu_is_<type2> ();
+      if (a)
+        return 2; // second version created.
+      ...
+      return 0; // the default version.
+   }
+
+   NEW_BB is the new last basic block of this function and to which more
+   conditions can be added.  It is updated by this function.  */
+
+static tree
+make_condition_function (basic_block *new_bb)
+{
+  gimple ifunc_cpu_init_stmt;
+  gimple_seq gseq;
+  tree cond_func_decl;
+  tree old_current_function_decl;
+ 
+
+  cond_func_decl = make_empty_function (new_bb);
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (cond_func_decl));
+  current_function_decl = cond_func_decl;
+
+  gseq = bb_seq (*new_bb);
+
+  /* Since this is possibly dispatched with IFUNC, call builtin_cpu_init
+     explicitly, as the constructor will only fire after IFUNC
+     initializers. */
+  ifunc_cpu_init_stmt = gimple_build_call_vec (
+                     ix86_builtins [(int) IX86_BUILTIN_CPU_INIT], NULL);
+  gimple_seq_add_stmt (&gseq, ifunc_cpu_init_stmt);
+  gimple_set_bb (ifunc_cpu_init_stmt, *new_bb);
+  set_bb_seq (*new_bb, gseq);
+      
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+  return cond_func_decl;
+}
+
+/* Create a new target optimization node with tune set to ARCH_TUNE.  */
+static tree
+create_mtune_target_opt_node (const char *arch_tune)
+{
+  struct cl_target_option target_options;
+  const char *old_tune_string;
+  tree optimization_node;
+  
+  /* Build an optimization node that is the same as the current one except with
+     "tune=arch_tune".  */
+  cl_target_option_save (&target_options, &global_options);
+  old_tune_string = ix86_tune_string;
+
+  ix86_tune_string = arch_tune;
+  ix86_option_override_internal (false);
+
+  optimization_node = build_target_option_node ();
+
+  ix86_tune_string = old_tune_string;
+  cl_target_option_restore (&global_options, &target_options);
+
+  return optimization_node;
+}
+
+/* Should a version of this function be specially optimized for core2?
+
+   This function should have checks to see if there are any opportunities for
+   core2 specific optimizations, otherwise do not create a clone.  The
+   following opportunities are checked.
+   
+   * Check if this function has vectorizable loads/stores as it is known that
+     unaligned 128-bit movs to/from memory (movdqu) are very expensive on
+     core2 whereas the later generations like corei7 have no additional
+     overhead.
+
+     This versioning is triggered only when -ftree-vectorize is turned on
+     and when multi-versioning for core2 is requested using -mvarch=core2.
+
+   Return false if no versioning is required.  Return true if a version must
+   be created.  Generate the *OPTIMIZATION_NODE that must be used to optimize
+   the newly created version, that is tag "tune=core2" on the new version.  */
+
+static bool
+mversionable_for_core2_p (tree *optimization_node,
+			  tree *cond_func_decl, basic_block *new_bb)
+{
+  tree predicate_decl;
+  bool is_mversion_target_core2 = false;
+  bool create_version = false;
+
+  if (ix86_varch_specified
+      && ix86_varch[PROCESSOR_CORE2_64])
+    is_mversion_target_core2 = true;
+
+  /* Check for criteria to create a new version for core2.  */
+
+  /* If -ftree-vectorize is not used of MV is not requested, bail.  */
+  if (flag_tree_vectorize && is_mversion_target_core2)
+    {
+      /* Check if there is atleast one loop that has a vectorizable load/store.
+         These are the ones that can generate the unaligned mov which is known
+         to be very slow on core2.  */
+      if (any_loops_vectorizable_with_load_store ())
+        create_version = true;
+    }
+  /* else if XXX: Add more criteria to version for core2.  */
+
+  if (!create_version)
+    return false;
+
+  /* If the condition function's body has not been created, create it now.  */
+  if (*cond_func_decl == NULL)
+    *cond_func_decl = make_condition_function (new_bb);
+
+  *optimization_node = create_mtune_target_opt_node ("core2");
+
+  predicate_decl = ix86_builtins [(int) IX86_BUILTIN_CPU_IS_INTEL_CORE2];
+  *new_bb = add_condition_to_bb (*cond_func_decl, 0, *new_bb,
+				 predicate_decl, false);
+  return true;
+}
+
+/* Should this function CURRENT_FUNCTION_DECL be multi-versioned, if so 
+   the number of versions to be created (other than the original) is
+   returned.  The outcome of COND_FUNC_DECL will decide the version to be
+   executed.  The OPTIMIZATION_NODE_CHAIN has a unique node for each
+   version to be created.  */
+
+static int
+ix86_mversion_function (tree fndecl ATTRIBUTE_UNUSED,
+			tree *optimization_node_chain,
+			tree *cond_func_decl)
+{
+  basic_block new_bb;
+  tree optimization_node;
+  int num_versions_created = 0;
+
+  if (ix86_mv_arch_string == NULL)
+    return 0;
+
+  if (mversionable_for_core2_p (&optimization_node, cond_func_decl, &new_bb))
+    num_versions_created++;
+
+  if (!num_versions_created)
+    return 0;
+
+  *optimization_node_chain = tree_cons (optimization_node,
+					NULL_TREE, *optimization_node_chain);
+
+  /* Return the default version as the last stmt in cond_func_decl.  */
+  if (*cond_func_decl != NULL)
+    new_bb = add_condition_to_bb (*cond_func_decl, num_versions_created,
+				   new_bb, NULL_TREE, false);
+
+  return num_versions_created;
+}
+
 /* A builtin to init/return the cpu type or feature.  Returns an
    integer and the type is a const if IS_CONST is set. */
 
@@ -35627,6 +36147,9 @@ ix86_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
 
 #undef TARGET_FOLD_BUILTIN
 #define TARGET_FOLD_BUILTIN ix86_fold_builtin
+
+#undef TARGET_MVERSION_FUNCTION
+#define TARGET_MVERSION_FUNCTION ix86_mversion_function
 
 #undef TARGET_SLOW_UNALIGNED_VECTOR_MEMOP
 #define TARGET_SLOW_UNALIGNED_VECTOR_MEMOP ix86_slow_unaligned_vector_memop

@@ -35,5 +35,5 @@ int main ()
   return 0; 
 }
 
-/* { dg-final { scan-tree-dump "dispatchv_clone" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatchv\.clone" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

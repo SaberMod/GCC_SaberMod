@@ -1,5 +1,49 @@
 2011-12-17  Sriraman Tallam  <tmsriram@google.com>
 
+	* mversn-dispatch.c (make_name): Use '.' to concatenate to suffix
+	mangled names.
+	(clone_function): Do not make clones ctors/dtors. Recompute dominance
+	info.
+	(make_bb_flow): New function.
+	(get_selector_gimple_seq): New function.
+	(make_selector_function): New function.
+	(make_attribute): New function.
+	(make_ifunc_function): New function.
+	(copy_decl_attributes): New function.
+	(dispatch_using_ifunc): New function.
+	(purge_function_body): New function.
+	(function_can_make_abnormal_goto): New function.
+	(make_function_not_cloneable): New function.
+	(do_auto_clone): New function.
+	(pass_auto_clone): New gimple pass.
+	(make_specialized_call_to_clone): Fix clone names.
+	* passes.c (init_optimization_passes): Add pass_auto_clone to list.
+	* tree-pass.h (pass_auto_clone): New pass.
+	* params.def (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING): New param.
+	* target.def (mversion_function): New target hook.
+	* config/i386/i386.c (ix86_option_override_internal): Check correctness
+	of ix86_mv_arch_string.
+	(add_condition_to_bb): New function.
+	(make_empty_function): New function.
+	(make_condition_function): New function.
+	(is_loop_form_vectorizable): New function.
+	(is_loop_stmts_vectorizable): New function.
+	(any_loops_vectorizable_with_load_store): New function.
+	(mversionable_for_core2_p): New function.
+	(ix86_mversion_function): New function.
+	* config/i386/i386.opt (mvarch): New option.
+	* doc/tm.texi (TARGET_MVERSION_FUNCTION): Document.
+	* doc/tm.texi.in (TARGET_MVERSION_FUNCTION): Document.
+	* testsuite/gcc.dg/automversn_1.c: New test case.
+	* testsuite/gcc.dg/mversn2.c: Fix cloned names.
+	* testsuite/g++.dg/mversn8.C: Ditto.
+	* testsuite/g++.dg/mversn10a.C: Ditto.
+	* testsuite/g++.dg/mversn15.C: Ditto.
+	* testsuite/g++.dg/mversn10.C: Ditto.
+	* testsuite/g++.dg/mversn16.C: Ditto.
+
+2011-12-17  Sriraman Tallam  <tmsriram@google.com>
+
 	* gcc/config/i386/i386.c
 	(IX86_BUILTIN_CPU_IS_INTEL_COREI7): New enum value.
 	(IX86_BUILTIN_CPU_IS_AMDFAM10): New enum value.

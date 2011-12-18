@@ -38,8 +38,8 @@ main (int argc, char **argv)
   return (*ptr)();
 }
 
-/* { dg-final { scan-tree-dump "dispatchv_clone_0" "optimized" } } */
-/* { dg-final { scan-tree-dump "dispatchv_clone_1" "optimized" } } */
-/* { dg-final { scan-tree-dump "main_clone_0" "optimized" } } */
-/* { dg-final { scan-tree-dump "main_clone_1" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatchv\.clone\.0" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatchv\.clone\.1" "optimized" } } */
+/* { dg-final { scan-tree-dump "main\.clone\.0" "optimized" } } */
+/* { dg-final { scan-tree-dump "main\.clone\.1" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

@@ -1037,6 +1037,11 @@ DEFPARAM (PARAM_PMU_PROFILE_N_ADDRESS,
 	  "While doing PMU profiling symbolize this many top addresses.",
 	  50, 1, 10000)
 
+DEFPARAM (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING,
+	  "autoclone-function-size-limit",
+	  "Do not auto clone functions beyond this size.",
+	  450, 0, 100000)
+
 /*
 Local variables:
 mode:c

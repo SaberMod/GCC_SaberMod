@@ -101,6 +101,10 @@ march=
 Target RejectNegative Joined Var(ix86_arch_string)
 Generate code for given CPU
 
+mvarch=
+Target RejectNegative Joined Var(ix86_mv_arch_string)
+Multiversion for the given CPU(s)
+
 masm=
 Target RejectNegative Joined Var(ix86_asm_string)
 Use given assembler dialect

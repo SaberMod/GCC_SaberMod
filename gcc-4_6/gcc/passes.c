@@ -1278,6 +1278,7 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
+  NEXT_PASS (pass_auto_clone);
   NEXT_PASS (pass_direct_call_profile);
   NEXT_PASS (pass_lower_eh_dispatch);
   NEXT_PASS (pass_all_optimizations);

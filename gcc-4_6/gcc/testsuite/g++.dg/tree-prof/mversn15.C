@@ -18,6 +18,6 @@ main ()
   return ret - 1000;
 }
 
-/* { dg-final-use { scan-tree-dump "main_clone" "optimized" } } */
+/* { dg-final-use { scan-tree-dump "main\.clone" "optimized" } } */
 /* { dg-final-use { scan-tree-dump "return 0" "optimized" } } */
 /* { dg-final-use { cleanup-tree-dump "optimized" } } */

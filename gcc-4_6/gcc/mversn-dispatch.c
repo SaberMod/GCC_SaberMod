@@ -135,6 +135,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "vecprim.h"
 #include "gimple-pretty-print.h"
+#include "target.h"
+#include "cfgloop.h"
 
 typedef struct cgraph_node* NODEPTR;
 DEF_VEC_P (NODEPTR);
@@ -212,8 +214,7 @@ function_args_count (tree fntype)
   return num;
 }
 
-/* Return the variable name (global/constructor) to use for the
-   version_selector function with name of DECL by appending SUFFIX. */
+/* Return a new name by appending SUFFIX to the DECL name. */
 
 static char *
 make_name (tree decl, const char *suffix)
@@ -226,7 +227,8 @@ make_name (tree decl, const char *suffix)
 
   name_len = strlen (name) + strlen (suffix) + 2;
   global_var_name = (char *) xmalloc (name_len);
-  snprintf (global_var_name, name_len, "%s_%s", name, suffix);
+  /* Use '.' to concatenate names as it is demangler friendly.  */
+  snprintf (global_var_name, name_len, "%s.%s", name, suffix);
   return global_var_name;
 }
 
@@ -246,9 +248,9 @@ static char*
 make_feature_test_global_name (tree decl, bool is_constructor)
 {
   if (is_constructor)
-    return make_name (decl, "version_selector_constructor");
+    return make_name (decl, "version.selector.constructor");
 
-  return make_name (decl, "version_selector_global");
+  return make_name (decl, "version.selector.global");
 }
 
 /* This function creates a new VAR_DECL with attributes set
@@ -865,6 +867,9 @@ empty_function_body (tree fndecl)
   e = make_edge (new_bb, EXIT_BLOCK_PTR, 0);
   gcc_assert (e != NULL);
 
+  if (dump_file)
+    dump_function_to_file (current_function_decl, dump_file, TDF_BLOCKS);
+
   current_function_decl = old_current_function_decl;
   pop_cfun ();
   return new_bb;
@@ -954,6 +959,12 @@ clone_function (tree orig_fndecl, const char *name_suffix)
   cgraph_call_function_insertion_hooks (new_version);
   cgraph_mark_needed_node (new_version);
 
+  
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS); 
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+
   pop_cfun ();
   current_function_decl = old_current_function_decl;
 
@@ -1034,9 +1045,9 @@ make_specialized_call_to_clone (gimple generic_stmt, int side)
   gcc_assert (generic_fndecl != NULL);
 
   if (side == 0)
-    new_name = make_name (generic_fndecl, "clone_0");
+    new_name = make_name (generic_fndecl, "clone.0");
   else
-    new_name = make_name (generic_fndecl, "clone_1");
+    new_name = make_name (generic_fndecl, "clone.1");
 
   slot = htab_find_slot_with_hash (name_decl_htab, new_name,
                                    htab_hash_string (new_name), NO_INSERT);
@@ -1232,8 +1243,8 @@ clone_and_dispatch_function (struct cgraph_node *orig_node, tree *clone_0,
   current_function_decl = orig_fndecl;
 
   /* Make 2 clones for true and false function. */
-  clone_0_decl = clone_function (orig_fndecl, "clone_0");
-  clone_1_decl = clone_function (orig_fndecl, "clone_1");
+  clone_0_decl = clone_function (orig_fndecl, "clone.0");
+  clone_1_decl = clone_function (orig_fndecl, "clone.1");
   *clone_0 = clone_0_decl;
   *clone_1 = clone_1_decl;
 
@@ -1751,6 +1762,712 @@ struct gimple_opt_pass pass_tree_convert_builtin_dispatch =
   "convert_builtin_dispatch",	        /* name */
   gate_convert_builtin_dispatch,	/* gate */
   do_convert_builtin_dispatch,		/* execute */
+  NULL,					/* sub */
+  NULL,					/* next */
+  0,					/* static_pass_number */
+  TV_MVERSN_DISPATCH,			/* tv_id */
+  PROP_cfg,				/* properties_required */
+  PROP_cfg,				/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_dump_func |			/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_cgraph |
+  TODO_update_ssa | TODO_verify_ssa
+ }
+};
+
+/* This function generates gimple code in NEW_BB to check if COND_VAR
+   is equal to WHICH_VERSION and return FN_VER pointer if it is equal.
+   The basic block returned is the block where the control flows if
+   the equality is false.  */
+
+static basic_block
+make_bb_flow (basic_block new_bb, tree cond_var, tree fn_ver,
+	      int which_version, tree bindings)
+{
+  tree result_var;
+  tree convert_expr;
+
+  basic_block bb1, bb2, bb3;
+  edge e12, e23;
+
+  gimple if_else_stmt;
+  gimple if_stmt;
+  gimple return_stmt;
+  gimple_seq gseq = bb_seq (new_bb);
+
+  /* Check if the value of cond_var is equal to which_version.  */
+  if_else_stmt = gimple_build_cond (EQ_EXPR, cond_var,
+				    build_int_cst (NULL, which_version),
+				    NULL_TREE, NULL_TREE);
+
+  mark_symbols_for_renaming (if_else_stmt);
+  gimple_seq_add_stmt (&gseq, if_else_stmt);
+  gimple_set_block (if_else_stmt, bindings);
+  gimple_set_bb (if_else_stmt, new_bb);
+
+  result_var = create_tmp_var (ptr_type_node, NULL);
+  add_referenced_var (result_var);
+
+  convert_expr = build1 (CONVERT_EXPR, ptr_type_node, fn_ver);
+  if_stmt = gimple_build_assign (result_var, convert_expr);
+  mark_symbols_for_renaming (if_stmt);
+  gimple_seq_add_stmt (&gseq, if_stmt);
+  gimple_set_block (if_stmt, bindings);
+
+  return_stmt = gimple_build_return (result_var);
+  mark_symbols_for_renaming (return_stmt);
+  gimple_seq_add_stmt (&gseq, return_stmt);
+
+  set_bb_seq (new_bb, gseq);
+
+  bb1 = new_bb;
+  e12 = split_block (bb1, if_else_stmt);
+  bb2 = e12->dest;
+  e12->flags &= ~EDGE_FALLTHRU;
+  e12->flags |= EDGE_TRUE_VALUE;
+
+  e23 = split_block (bb2, return_stmt);
+  gimple_set_bb (if_stmt, bb2);
+  gimple_set_bb (return_stmt, bb2);
+  bb3 = e23->dest;
+  make_edge (bb1, bb3, EDGE_FALSE_VALUE); 
+
+  remove_edge (e23);
+  make_edge (bb2, EXIT_BLOCK_PTR, 0);
+
+  return bb3;
+}
+
+/* Given the pointer to the condition function COND_FUNC_ARG, whose return
+   value decides the version that gets executed, and the pointers to the
+   function versions, FN_VER_LIST, this function generates control-flow to
+   return the appropriate function version pointer based on the return value
+   of the conditional function.   The condition function is assumed to return
+   values 0, 1, 2, ... */
+
+static gimple_seq
+get_selector_gimple_seq (tree cond_func_arg, tree fn_ver_list, tree default_ver,
+			 basic_block new_bb, tree bindings)
+{
+  basic_block final_bb;
+
+  gimple return_stmt, default_stmt;
+  gimple_seq gseq = NULL;
+  gimple_seq gseq_final = NULL;
+  gimple call_cond_stmt;
+
+  tree result_var;
+  tree convert_expr;
+  tree p;
+  tree cond_var;
+
+  int which_version;
+
+  /* Call the condition function once and store the outcome in cond_var.  */
+  cond_var = create_tmp_var (integer_type_node, NULL);
+  call_cond_stmt = gimple_build_call (cond_func_arg, 0);
+  gimple_call_set_lhs (call_cond_stmt, cond_var);
+  add_referenced_var (cond_var);
+  mark_symbols_for_renaming (call_cond_stmt);
+
+  gimple_seq_add_stmt (&gseq, call_cond_stmt);
+  gimple_set_block (call_cond_stmt, bindings);
+  gimple_set_bb (call_cond_stmt, new_bb);
+
+  set_bb_seq (new_bb, gseq);
+
+  final_bb = new_bb;
+
+  which_version = 0; 
+  for (p = fn_ver_list; p != NULL_TREE; p = TREE_CHAIN (p))
+    {
+      tree ver = TREE_PURPOSE (p);
+      /* Return this version's pointer, VER, if the value returned by the
+	 condition funciton is equal to WHICH_VERSION.  */
+      final_bb = make_bb_flow (final_bb, cond_var, ver, which_version,
+			       bindings);
+      which_version++;
+    }
+
+  result_var = create_tmp_var (ptr_type_node, NULL);
+  add_referenced_var (result_var);
+
+  /* Return the default version function pointer as the default.  */
+  convert_expr = build1 (CONVERT_EXPR, ptr_type_node, default_ver);
+  default_stmt = gimple_build_assign (result_var, convert_expr);
+  mark_symbols_for_renaming (default_stmt);
+  gimple_seq_add_stmt (&gseq_final, default_stmt);
+  gimple_set_block (default_stmt, bindings);
+  gimple_set_bb (default_stmt, final_bb);
+
+  return_stmt = gimple_build_return (result_var);
+  mark_symbols_for_renaming (return_stmt);
+  gimple_seq_add_stmt (&gseq_final, return_stmt);
+  gimple_set_bb (return_stmt, final_bb);
+
+  set_bb_seq (final_bb, gseq_final);
+
+  return gseq; 
+}
+
+/* Make the ifunc selector function which calls function pointed to by
+   COND_FUNC_ARG and checks the value to return the appropriate function
+   version pointer.  */
+
+static tree
+make_selector_function (const char *name, tree cond_func_arg,
+			tree fn_ver_list, tree default_ver)
+{
+  tree decl, type, t;
+  basic_block new_bb;
+  tree old_current_function_decl;
+  tree decl_name;
+
+  /* The selector function should return a (void *). */
+  type = build_function_type_list (ptr_type_node, NULL_TREE);
+ 
+  decl = build_fn_decl (name, type);
+
+  decl_name = get_identifier (name);
+  SET_DECL_ASSEMBLER_NAME (decl, decl_name);
+  DECL_NAME (decl) = decl_name;
+  gcc_assert (cgraph_node (decl) != NULL);
+
+  TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 0;
+  TREE_PUBLIC (decl) = 0;
+  DECL_UNINLINABLE (decl) = 1;
+  DECL_EXTERNAL (decl) = 0;
+  DECL_CONTEXT (decl) = NULL_TREE;
+  DECL_INITIAL (decl) = make_node (BLOCK);
+  DECL_STATIC_CONSTRUCTOR (decl) = 0;
+  TREE_READONLY (decl) = 0;
+  DECL_PURE_P (decl) = 0;
+ 
+  /* Build result decl and add to function_decl. */
+  t = build_decl (UNKNOWN_LOCATION, RESULT_DECL, NULL_TREE, ptr_type_node);
+  DECL_ARTIFICIAL (t) = 1;
+  DECL_IGNORED_P (t) = 1;
+  DECL_RESULT (decl) = t;
+
+  gimplify_function_tree (decl);
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
+  current_function_decl = decl;
+  init_empty_tree_cfg_for_function (DECL_STRUCT_FUNCTION (decl));
+
+  cfun->curr_properties |=
+    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_referenced_vars |
+     PROP_ssa);
+
+  new_bb = create_empty_bb (ENTRY_BLOCK_PTR);
+  make_edge (ENTRY_BLOCK_PTR, new_bb, EDGE_FALLTHRU);
+  make_edge (new_bb, EXIT_BLOCK_PTR, 0);
+
+  /* This call is very important if this pass runs when the IR is in
+     SSA form.  It breaks things in strange ways otherwise. */
+  init_tree_ssa (DECL_STRUCT_FUNCTION (decl));
+  init_ssa_operands ();
+
+  /* Make the body of thr selector function.  */
+  get_selector_gimple_seq (cond_func_arg, fn_ver_list, default_ver, new_bb,
+			   DECL_INITIAL (decl));
+
+  cgraph_add_new_function (decl, true);
+  cgraph_call_function_insertion_hooks (cgraph_node (decl));
+  cgraph_mark_needed_node (cgraph_node (decl));
+
+  if (dump_file)
+    dump_function_to_file (decl, dump_file, TDF_BLOCKS);
+
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+  return decl;
+}
+
+/* Makes a function attribute of the form NAME(ARG_NAME) and chains
+   it to CHAIN.  */
+
+static tree
+make_attribute (const char *name, const char *arg_name, tree chain)
+{
+  tree attr_name;
+  tree attr_arg_name;
+  tree attr_args;
+  tree attr;
+
+  attr_name = get_identifier (name);
+  attr_arg_name = build_string (strlen (arg_name), arg_name);
+  attr_args = tree_cons (NULL_TREE, attr_arg_name, NULL_TREE);
+  attr = tree_cons (attr_name, attr_args, chain);
+  return attr;
+}
+
+/* This creates the ifunc function IFUNC_NAME whose selector function is
+   SELECTOR_NAME. */
+
+static tree
+make_ifunc_function (const char* ifunc_name, const char *selector_name,
+		     tree fn_type)
+{
+  tree type;
+  tree decl;
+
+  /* The signature of the ifunc function is set to the
+     type of any version.  */
+  type = build_function_type (TREE_TYPE (fn_type), TYPE_ARG_TYPES (fn_type));
+  decl = build_fn_decl (ifunc_name, type);
+
+  DECL_CONTEXT (decl) = NULL_TREE;
+  DECL_INITIAL (decl) = error_mark_node;
+
+  /* Set ifunc attribute */
+  DECL_ATTRIBUTES (decl)
+    = make_attribute ("ifunc", selector_name, DECL_ATTRIBUTES (decl));
+
+  assemble_alias (decl, get_identifier (selector_name)); 
+
+  return decl;
+}
+
+/* Copy the decl attributes from from_decl to to_decl, except
+   DECL_ARTIFICIAL and TREE_PUBLIC.  */
+
+static void
+copy_decl_attributes (tree to_decl, tree from_decl)
+{
+  TREE_READONLY (to_decl) = TREE_READONLY (from_decl);
+  TREE_USED (to_decl) = TREE_USED (from_decl);
+  DECL_ARTIFICIAL (to_decl) = 1;
+  DECL_IGNORED_P (to_decl) = DECL_IGNORED_P (from_decl);
+  TREE_PUBLIC (to_decl) = 0;
+  DECL_CONTEXT (to_decl) = DECL_CONTEXT (from_decl);
+  DECL_EXTERNAL (to_decl) = DECL_EXTERNAL (from_decl);
+  DECL_COMDAT (to_decl) = DECL_COMDAT (from_decl);
+  DECL_COMDAT_GROUP (to_decl) = DECL_COMDAT_GROUP (from_decl);
+  DECL_VIRTUAL_P (to_decl) = DECL_VIRTUAL_P (from_decl);
+  DECL_WEAK (to_decl) = DECL_WEAK (from_decl);
+}
+
+/* This function does the mult-version run-time dispatch using IFUNC.  Given
+   NUM_VERSIONS versions of a function with the decls in FN_VER_LIST along
+   with a default version in DEFAULT_VER.  Also given is a condition function,
+   COND_FUNC_ADDR, whose return value decides the version that gets executed.
+   This function generates the necessary code to dispatch the right function
+   version and returns this a GIMPLE_SEQ. The decls of the ifunc function and
+   the selector function that are created are stored in IFUNC_DECL and
+   SELECTOR_DECL.  */
+
+static gimple_seq
+dispatch_using_ifunc (int num_versions, tree orig_func_decl,
+		      tree cond_func_addr, tree fn_ver_list,
+		      tree default_ver, tree *selector_decl,
+		      tree *ifunc_decl)
+{
+  char *selector_name;
+  char *ifunc_name;
+  tree ifunc_function;
+  tree selector_function;
+  tree return_type;
+  VEC (tree, heap) *nargs = NULL;
+  tree arg;
+  gimple ifunc_call_stmt;
+  gimple return_stmt;
+  gimple_seq gseq = NULL;
+
+  gcc_assert (cond_func_addr != NULL
+	      && num_versions > 0
+	      && orig_func_decl != NULL
+	      && fn_ver_list != NULL);
+
+  /* The return type of any function version.  */
+  return_type = TREE_TYPE (TREE_TYPE (orig_func_decl));
+
+  nargs = VEC_alloc (tree, heap, 4);
+
+  for (arg = DECL_ARGUMENTS (orig_func_decl);
+       arg; arg = TREE_CHAIN (arg))
+    {
+      VEC_safe_push (tree, heap, nargs, arg);
+      add_referenced_var (arg);
+    }
+
+  /* Assign names to ifunc and ifunc_selector functions. */
+  selector_name = make_name (orig_func_decl, "ifunc.selector");
+  ifunc_name = make_name (orig_func_decl, "ifunc");
+
+  /* Make a selector function which returns the appropriate function
+     version pointer based on the outcome of the condition function
+     execution.  */
+  selector_function = make_selector_function (selector_name, cond_func_addr,
+					      fn_ver_list, default_ver);
+  *selector_decl = selector_function;
+
+  /* Make a new ifunc function.  */
+  ifunc_function = make_ifunc_function  (ifunc_name, selector_name,
+					 TREE_TYPE (orig_func_decl));
+  *ifunc_decl = ifunc_function;
+
+  /* Make selector and ifunc shadow the attributes of the original function.  */
+  copy_decl_attributes (ifunc_function, orig_func_decl);
+  copy_decl_attributes (selector_function, orig_func_decl);
+ 
+  ifunc_call_stmt = gimple_build_call_vec (ifunc_function, nargs);
+  gimple_seq_add_stmt (&gseq, ifunc_call_stmt); 
+
+  /* Make function return the value of it is a non-void type.  */
+  if (TREE_CODE (return_type) != VOID_TYPE)
+    {
+      tree lhs_var;
+      tree lhs_var_ssa_name;
+      tree result_decl;
+
+      result_decl = DECL_RESULT (orig_func_decl);
+
+      if (result_decl
+	  && aggregate_value_p (result_decl, orig_func_decl)
+	  && !TREE_ADDRESSABLE (result_decl))
+ 	{
+	  /* Build a RESULT_DECL rather than a VAR_DECL for this case.
+	     See tree-nrv.c: tree_nrv. It checks if the DECL_RESULT and the
+	     return value are the same.  */
+	  lhs_var = build_decl (UNKNOWN_LOCATION, RESULT_DECL, NULL,
+			        return_type);
+	  DECL_ARTIFICIAL (lhs_var) = 1;
+	  DECL_IGNORED_P (lhs_var) = 1;
+	  TREE_READONLY (lhs_var) = 0;
+	  DECL_EXTERNAL (lhs_var) = 0;
+	  TREE_STATIC (lhs_var) = 0;
+	  TREE_USED (lhs_var) = 1;
+
+          add_referenced_var (lhs_var);
+          DECL_RESULT (orig_func_decl) = lhs_var;
+	}
+     else if (!TREE_ADDRESSABLE (return_type)
+              && COMPLETE_TYPE_P (return_type))
+        {
+          lhs_var = create_tmp_var (return_type, NULL);
+          add_referenced_var (lhs_var);
+        }
+      else
+	{
+          lhs_var = create_tmp_var_raw (return_type, NULL);
+	  TREE_ADDRESSABLE (lhs_var) = 1;
+	  gimple_add_tmp_var (lhs_var);
+          add_referenced_var (lhs_var);
+	}
+
+      if (AGGREGATE_TYPE_P (return_type)
+	  || TREE_CODE (return_type) == COMPLEX_TYPE)
+        {
+          gimple_call_set_lhs (ifunc_call_stmt, lhs_var);
+          return_stmt = gimple_build_return (lhs_var);
+	}
+      else
+	{
+	  lhs_var_ssa_name = make_ssa_name (lhs_var, ifunc_call_stmt);
+	  gimple_call_set_lhs (ifunc_call_stmt, lhs_var_ssa_name);
+	  return_stmt = gimple_build_return (lhs_var_ssa_name);
+	}
+    }
+  else
+    {
+      return_stmt = gimple_build_return (NULL_TREE);
+    }
+
+  mark_symbols_for_renaming (ifunc_call_stmt);
+  mark_symbols_for_renaming (return_stmt);
+  gimple_seq_add_stmt (&gseq, return_stmt); 
+
+  VEC_free (tree, heap, nargs);
+  return gseq;
+}
+
+/* Empty the function body of function fndecl.  Retain just one basic block
+   along with the ENTRY and EXIT block.  Return the retained basic block.  */
+
+static basic_block
+purge_function_body (tree fndecl)
+{
+  basic_block bb, new_bb;
+  edge first_edge, last_edge;
+  tree old_current_function_decl;
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (fndecl));
+  current_function_decl = fndecl;
+
+  /* Set new_bb to be the first block after ENTRY_BLOCK_PTR. */
+
+  first_edge  = VEC_index (edge, ENTRY_BLOCK_PTR->succs, 0);
+  new_bb = first_edge->dest;
+  gcc_assert (new_bb != NULL);
+
+  for (bb = ENTRY_BLOCK_PTR; bb != NULL;)
+    {
+      edge_iterator ei;
+      edge e;
+      basic_block bb_next;
+      bb_next = bb->next_bb;
+      if (bb == EXIT_BLOCK_PTR)
+        VEC_truncate (edge, EXIT_BLOCK_PTR->preds, 0);
+      else if (bb == ENTRY_BLOCK_PTR)
+        VEC_truncate (edge, ENTRY_BLOCK_PTR->succs, 0);
+      else
+        {
+          remove_phi_nodes (bb);
+          if (bb_seq (bb) != NULL)
+            {
+              gimple_stmt_iterator i;
+              for (i = gsi_start_bb (bb); !gsi_end_p (i);)
+	        {
+		  gimple stmt = gsi_stmt (i);
+		  unlink_stmt_vdef (stmt);
+		  reset_debug_uses (stmt);
+                  gsi_remove (&i, true);
+		  release_defs (stmt);
+		}
+            }
+	  FOR_EACH_EDGE (e, ei, bb->succs)
+	    {
+	      n_edges--;
+	      ggc_free (e);
+	    }
+	  VEC_truncate (edge, bb->succs, 0);
+	  VEC_truncate (edge, bb->preds, 0);
+          bb->prev_bb = NULL;
+          bb->next_bb = NULL;
+	  if (bb == new_bb)
+	    {
+	      bb = bb_next;
+	      continue;
+	    }
+          bb->il.gimple = NULL;
+          SET_BASIC_BLOCK (bb->index, NULL);
+          n_basic_blocks--;
+        }
+      bb = bb_next;
+    }
+
+
+  /* This is to allow iterating over the basic blocks. */
+  new_bb->next_bb = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR->prev_bb = new_bb;
+
+  new_bb->prev_bb = ENTRY_BLOCK_PTR;
+  ENTRY_BLOCK_PTR->next_bb = new_bb;
+
+  gcc_assert (find_edge (new_bb, EXIT_BLOCK_PTR) == NULL);
+  last_edge = make_edge (new_bb, EXIT_BLOCK_PTR, 0);
+  gcc_assert (last_edge);
+
+  gcc_assert (find_edge (ENTRY_BLOCK_PTR, new_bb) == NULL);
+  last_edge = make_edge (ENTRY_BLOCK_PTR, new_bb, EDGE_FALLTHRU);
+  gcc_assert (last_edge);
+
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS); 
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  current_function_decl = old_current_function_decl;
+  pop_cfun ();
+
+  return new_bb;
+}
+
+/* Returns true if function FUNC_DECL contains abnormal goto statements.  */
+
+static bool
+function_can_make_abnormal_goto (tree func_decl)
+{
+  basic_block bb;
+  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (func_decl))
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+        {
+	  gimple stmt = gsi_stmt (gsi);
+	  if (stmt_can_make_abnormal_goto (stmt))
+	    return true;
+	}
+    }
+  return false;
+}
+
+/* Has an entry for every cloned function and auxiliaries that have been
+   generated by auto cloning.  These cannot be further cloned.  */
+
+htab_t cloned_function_decls_htab = NULL;
+
+/* Adds function FUNC_DECL to the cloned_function_decls_htab.  */
+
+static void
+mark_function_not_cloneable (tree func_decl)
+{
+  void **slot;
+
+  slot = htab_find_slot_with_hash (cloned_function_decls_htab, func_decl,
+				   htab_hash_pointer (func_decl), INSERT);
+  gcc_assert (*slot == NULL);
+  *slot = func_decl;
+}
+
+/* Entry point for the auto clone pass.  Calls the target hook to determine if
+   this function must be cloned.  */
+
+static unsigned int
+do_auto_clone (void)
+{
+  tree opt_node = NULL_TREE;
+  int num_versions = 0;
+  int i = 0;
+  tree fn_ver_addr_chain = NULL_TREE;
+  tree default_ver = NULL_TREE;
+  tree cond_func_decl = NULL_TREE;
+  tree cond_func_addr;
+  tree default_decl;
+  basic_block empty_bb;
+  gimple_seq gseq = NULL;
+  gimple_stmt_iterator gsi;
+  tree selector_decl;
+  tree ifunc_decl;
+  void **slot;
+  struct cgraph_node *node;
+
+  node = cgraph_node (current_function_decl);
+
+  if (lookup_attribute ("noclone", DECL_ATTRIBUTES (current_function_decl))
+      != NULL)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not cloning, noclone attribute set\n");
+      return 0;
+    }
+
+  if (lookup_attribute ("target", DECL_ATTRIBUTES (current_function_decl))
+      != NULL)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Not cloning, target attribute set\n");
+      return 0;
+    }
+
+  /* No cloning of constructors and destructors.  */
+  if (DECL_STATIC_CONSTRUCTOR (current_function_decl)
+      || DECL_STATIC_DESTRUCTOR (current_function_decl))
+    return 0;
+
+  /* Check if function size is within permissible limits for cloning.  */
+  if (node->global.size
+      > PARAM_VALUE (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING))
+    {
+      if (dump_file)
+        fprintf (dump_file, "Function size exceeds auto cloning threshold.\n");
+      return 0;
+    }
+
+  if (cloned_function_decls_htab == NULL)
+    cloned_function_decls_htab = htab_create (10, htab_hash_pointer,
+					      htab_eq_pointer, NULL);
+
+
+  /* If this function is a clone or other, like the selector function, pass.  */
+  slot = htab_find_slot_with_hash (cloned_function_decls_htab,
+				   current_function_decl,
+  			           htab_hash_pointer (current_function_decl),
+				   INSERT);
+
+  if (*slot != NULL)
+    return 0;
+
+  if (profile_status == PROFILE_READ
+      && !hot_function_p (cgraph_node (current_function_decl)))
+    return 0;
+
+  /* Ignore functions with abnormal gotos, not correct to clone them.  */
+  if (function_can_make_abnormal_goto (current_function_decl))
+    return 0;
+
+  if (!targetm.mversion_function)
+    return 0;
+
+  /* Call the target hook to see if this function needs to be versioned.  */
+  num_versions = targetm.mversion_function (current_function_decl, &opt_node,
+					    &cond_func_decl);
+      
+  /* Nothing more to do if versions are not to be created.  */
+  if (num_versions == 0)
+    return 0;
+
+  mark_function_not_cloneable (cond_func_decl);
+  copy_decl_attributes (cond_func_decl, current_function_decl);
+
+  /* Make as many clones as requested.  */
+  for (i = 0; i < num_versions; ++i)
+    {
+      tree cloned_decl;
+      char clone_name[100];
+
+      sprintf (clone_name, "autoclone.%d", i);
+      cloned_decl = clone_function (current_function_decl, clone_name);
+      fn_ver_addr_chain = tree_cons (build_fold_addr_expr (cloned_decl),
+				     NULL, fn_ver_addr_chain);
+      gcc_assert (cloned_decl != NULL);
+      mark_function_not_cloneable (cloned_decl);
+      DECL_FUNCTION_SPECIFIC_TARGET (cloned_decl)
+        = TREE_PURPOSE (opt_node);
+      opt_node = TREE_CHAIN (opt_node);
+    }
+
+  /* The current function is replaced by an ifunc call to the right version.
+     Make another clone for the default.  */
+  default_decl = clone_function (current_function_decl, "autoclone.original");
+  mark_function_not_cloneable (default_decl);
+  /* Empty the body of the current function.  */
+  empty_bb = purge_function_body (current_function_decl);
+  default_ver = build_fold_addr_expr (default_decl);
+  cond_func_addr = build_fold_addr_expr (cond_func_decl);
+
+  /* Get the gimple sequence to replace the current function's body with a
+     ifunc dispatch call to the right version.  */
+  gseq = dispatch_using_ifunc (num_versions, current_function_decl,
+			       cond_func_addr, fn_ver_addr_chain,
+			       default_ver, &selector_decl, &ifunc_decl);
+
+  mark_function_not_cloneable (selector_decl);
+  mark_function_not_cloneable (ifunc_decl);
+
+  for (gsi = gsi_start (gseq); !gsi_end_p (gsi); gsi_next (&gsi))
+    gimple_set_bb (gsi_stmt (gsi), empty_bb);
+   
+  set_bb_seq (empty_bb, gseq);
+
+  if (dump_file)
+    dump_function_to_file (current_function_decl, dump_file, TDF_BLOCKS);
+
+  update_ssa (TODO_update_ssa_no_phi);
+  
+  return 0;
+}
+
+static bool
+gate_auto_clone (void)
+{
+  /* Turned on at -O2 and above.  */
+  return optimize >= 2;
+}
+
+struct gimple_opt_pass pass_auto_clone =
+{
+ {
+  GIMPLE_PASS,
+  "auto_clone",			        /* name */
+  gate_auto_clone,			/* gate */
+  do_auto_clone,			/* execute */
   NULL,					/* sub */
   NULL,					/* next */
   0,					/* static_pass_number */

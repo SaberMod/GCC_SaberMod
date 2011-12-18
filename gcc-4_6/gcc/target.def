@@ -1277,6 +1277,12 @@ DEFHOOK
  "",
  bool, (void), NULL)
 
+/* Target hook to check if this function should be versioned.  */
+DEFHOOK
+(mversion_function,
+ "",
+ int, (tree fndecl, tree *optimization_node_chain, tree *cond_func_decl), NULL)
+
 /* Returns a code for a target-specific builtin that implements
    reciprocal of the function, or NULL_TREE if not available.  */
 DEFHOOK
