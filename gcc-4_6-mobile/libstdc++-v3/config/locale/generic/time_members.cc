@@ -45,8 +45,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   const tm* __tm) const throw()
     {
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
+      char* __sav = 0;
+      if (__old)
         {
           const size_t __llen = strlen(__old) + 1;
           __sav = new char[__llen];
@@ -134,8 +134,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   const tm* __tm) const throw()
     {
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
+      char* __sav = 0;
+      if (__old)
         {
           const size_t __llen = strlen(__old) + 1;
           __sav = new char[__llen];

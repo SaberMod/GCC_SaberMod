@@ -52,8 +52,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // Assumes __s formatted for "C" locale.
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
+      char* __sav = 0;
+      if (__old)
         {
           const size_t __len = strlen(__old) + 1;
           __sav = new char[__len];
@@ -121,8 +121,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // Assumes __s formatted for "C" locale.
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
+      char* __sav = 0;
+      if (__old)
         {
           const size_t __len = strlen(__old) + 1;
           __sav = new char[__len];
@@ -170,8 +170,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       // Assumes __s formatted for "C" locale.
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
+      char* __sav = 0;
+      if (__old)
         {
           const size_t __len = strlen(__old) + 1;
           __sav = new char[__len];
