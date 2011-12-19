@@ -1,3 +1,11 @@
+2011-12-19  H.J. Lu  <hongjiu.lu@intel.com>
+            Jing Yu  <jingyu@google.com>
+
+	* config/locale/generic/c_locale.h (__convert_from_v): Replace NULL
+	with 0.
+	* config/locale/generic/c_locale.cc (__convert_to_v): Likewise.
+	* config/locale/generic/time_members.cc (_M_put): Likewise.
+
 2011-12-17  Easwaran Raman  <eraman@google.com>
 	Backport r182443 from google/main.
 
