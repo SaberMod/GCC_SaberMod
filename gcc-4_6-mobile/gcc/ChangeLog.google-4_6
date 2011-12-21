@@ -26,6 +26,10 @@
 		* expr.c (expand_expr_real_1): Correctly handle strict volatile
 		bitfield loads smaller than mode size.
 
+2011-11-04   Rong Xu  <xur@google.com>
+
+	Backport r180269 from google/main.
+
 2011-08-16  Guozhi Wei  <carrot@google.com>
 
 	Backport r174965 from trunk.
