@@ -1,3 +1,26 @@
+2011-12-26  Joey Ye  <joey.ye@arm.com>
+
+	Revert original fix and backport r182545, r182649 from mainline
+
+	Revert:
+	2011-11-23  Joey Ye  <joey.ye@arm.com>
+
+	Apply restrict volatile bitfield test case.
+	2011-11-23  Joey Ye  <joey.ye@arm.com>
+	* g++.dg/abi/bitfield12.C: Add option -fno-strict-volatile-bitfields.
+
+	Backport:
+	2011-12-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/51200
+	* gcc.target/arm/volatile-bitfields-4.c: New test.
+	* c-c++-common/abi-bf.c: New test.
+
+	2011-12-26  Joey Ye  <joey.ye@arm.com>
+
+	PR middle-end/51200
+	* gcc.dg/volatile-bitfields-2.c: New test.
+
 2011-11-23  Joey Ye  <joey.ye@arm.com>
 
 	Apply restrict volatile bitfield test case.
