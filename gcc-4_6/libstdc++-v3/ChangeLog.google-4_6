@@ -1,3 +1,22 @@
+2012-01-05  Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	Backport r178624 from google/integration.
+
+	2011-09-06  Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+		* include/bits/stl_vector.h (_M_is_valid): New function.
+		(begin, end, size, capacity, swap, clear): Call it.
+		* include/bits/vector.tcc (operator=): Likewise.
+
+	* libstdc++-v3/testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust line numbers.
+	* libstdc++-v3/testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* libstdc++-v3/testsuite/23_containers/vector/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* libstdc++-v3/testsuite/23_containers/vector/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+
 2011-12-19  H.J. Lu  <hongjiu.lu@intel.com>
             Jing Yu  <jingyu@google.com>
 

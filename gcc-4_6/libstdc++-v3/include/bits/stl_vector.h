@@ -208,6 +208,16 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       using _Base::_M_impl;
       using _Base::_M_get_Tp_allocator;
 
+      bool _M_is_valid() const
+      {
+        return (this->_M_impl._M_end_of_storage == 0
+		&& this->_M_impl._M_start == 0
+		&& this->_M_impl._M_finish == 0)
+	      || (this->_M_impl._M_start <= this->_M_impl._M_finish
+		  && this->_M_impl._M_finish <= this->_M_impl._M_end_of_storage
+		  && this->_M_impl._M_start < this->_M_impl._M_end_of_storage);
+      }
+
     public:
       // [23.2.4.1] construct/copy/destroy
       // (assign() and get_allocator() are also listed in this section)
@@ -461,7 +471,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       iterator
       begin()
-      { return iterator(this->_M_impl._M_start); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("begin() on corrupt (dangling?) vector");
+#endif
+	return iterator(this->_M_impl._M_start);
+      }
 
       /**
        *  Returns a read-only (constant) iterator that points to the
@@ -470,7 +486,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_iterator
       begin() const
-      { return const_iterator(this->_M_impl._M_start); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("begin() on corrupt (dangling?) vector");
+#endif
+	return const_iterator(this->_M_impl._M_start);
+      }
 
       /**
        *  Returns a read/write iterator that points one past the last
@@ -479,7 +501,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       iterator
       end()
-      { return iterator(this->_M_impl._M_finish); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("end() on corrupt (dangling?) vector");
+#endif
+	return iterator(this->_M_impl._M_finish);
+      }
 
       /**
        *  Returns a read-only (constant) iterator that points one past
@@ -488,7 +516,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_iterator
       end() const
-      { return const_iterator(this->_M_impl._M_finish); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("end() on corrupt (dangling?) vector");
+#endif
+	return const_iterator(this->_M_impl._M_finish);
+      }
 
       /**
        *  Returns a read/write reverse iterator that points to the
@@ -568,7 +602,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       /**  Returns the number of elements in the %vector.  */
       size_type
       size() const
-      { return size_type(this->_M_impl._M_finish - this->_M_impl._M_start); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("size() on corrupt (dangling?) vector");
+#endif
+	return size_type(this->_M_impl._M_finish - this->_M_impl._M_start);
+      }
 
       /**  Returns the size() of the largest possible %vector.  */
       size_type
@@ -648,7 +688,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       size_type
       capacity() const
-      { return size_type(this->_M_impl._M_end_of_storage
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("capacity() on corrupt (dangling?) vector");
+#endif
+	return size_type(this->_M_impl._M_end_of_storage
 			 - this->_M_impl._M_start); }
 
       /**
@@ -1034,6 +1079,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       void
       swap(vector& __x)
       {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid() || !__x._M_is_valid())
+          __throw_logic_error("swap() on corrupt (dangling?) vector");
+#endif
 	std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
 	std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
 	std::swap(this->_M_impl._M_end_of_storage,
@@ -1053,7 +1102,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       void
       clear()
-      { _M_erase_at_end(this->_M_impl._M_start); }
+      {
+#if __google_stl_debug_dangling_vector
+        if (!this->_M_is_valid())
+          __throw_logic_error("clear() on corrupt (dangling?) vector");
+#endif
+	_M_erase_at_end(this->_M_impl._M_start);
+      }
 
     protected:
       /**
