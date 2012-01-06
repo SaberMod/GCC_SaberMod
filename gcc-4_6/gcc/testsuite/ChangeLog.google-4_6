@@ -1,3 +1,13 @@
+2012-01-04   Sterling Augustine  <saugustine@google.com>
+
+	Backport r182443 from google/main.
+
+	* g++.dg/ext/pretty3.C: Likewise.
+	* g++.dg/pr44486.C: Likewise.
+	* g++.dg/warn/Wuninitializable-member.C: Likewise.
+	* g++.dg/warn/pr35711.C: Likewise.
+	* g++.old-deja/g++.pt/memtemp77.C: Likewise.
+
 2011-12-17  Easwaran Raman  <eraman@google.com>
 	Backport r182443 from google/main.
 

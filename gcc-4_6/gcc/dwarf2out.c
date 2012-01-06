@@ -6413,6 +6413,7 @@ static void output_comp_unit (dw_die_ref, int);
 static void output_comdat_type_unit (comdat_type_node *);
 static const char *dwarf2_name (tree, int);
 static void add_pubname (tree, dw_die_ref);
+static void add_enumerator_pubname (const char *, const char *, dw_die_ref);
 static void add_pubname_string (const char *, dw_die_ref);
 static void add_pubtype (tree, dw_die_ref);
 static void output_pubnames (VEC (pubname_entry,gc) *);
@@ -6617,6 +6618,12 @@ static void gen_scheduled_generic_parms_dies (void);
 #ifndef COLD_TEXT_SECTION_LABEL
 #define COLD_TEXT_SECTION_LABEL         "Ltext_cold"
 #endif
+#ifndef DEBUG_PUBNAMES_SECTION_LABEL
+#define DEBUG_PUBNAMES_SECTION_LABEL	"Ldebug_pubnames"
+#endif
+#ifndef DEBUG_PUBTYPES_SECTION_LABEL
+#define DEBUG_PUBTYPES_SECTION_LABEL	"Ldebug_pubtypes"
+#endif
 #ifndef DEBUG_LINE_SECTION_LABEL
 #define DEBUG_LINE_SECTION_LABEL	"Ldebug_line"
 #endif
@@ -6650,6 +6657,8 @@ static char cold_end_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char abbrev_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char debug_info_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char debug_line_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char debug_pubnames_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
+static char debug_pubtypes_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char macinfo_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char loc_section_label[MAX_ARTIFICIAL_LABEL_BYTES];
 static char ranges_section_label[2 * MAX_ARTIFICIAL_LABEL_BYTES];
@@ -9763,6 +9772,22 @@ is_cu_die (dw_die_ref c)
   return c && c->die_tag == DW_TAG_compile_unit;
 }
 
+/* Returns true iff C is a namespace DIE.  */
+
+static inline bool
+is_namespace_die (dw_die_ref c)
+{
+  return c && c->die_tag == DW_TAG_namespace;
+}
+
+/* Returns true iff C is a class DIE.  */
+
+static inline bool
+is_class_die (dw_die_ref c)
+{
+  return c && c->die_tag == DW_TAG_class_type;
+}
+
 static char *
 gen_internal_sym (const char *prefix)
 {
@@ -11634,14 +11659,33 @@ add_pubname_string (const char *str, dw_die_ref die)
 static void
 add_pubname (tree decl, dw_die_ref die)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE
-      && targetm.want_debug_pub_sections
-      && TREE_PUBLIC (decl))
+  if (!GENERATE_MINIMUM_LINE_TABLE && targetm.want_debug_pub_sections)
     {
-      const char *name = dwarf2_name (decl, 1);
-      if (name)
-	add_pubname_string (name, die);
+      if ((TREE_PUBLIC (decl) && !is_class_die (die->die_parent))
+          || is_cu_die (die->die_parent) || is_namespace_die (die->die_parent))
+        {
+          const char *name = dwarf2_name (decl, 1);
+          if (name)
+            add_pubname_string (name, die);
+        }
     }
+}
+
+/* Add an enumerator to the pubnames section.  */
+
+static void
+add_enumerator_pubname (const char *scope_name, const char *sep, dw_die_ref die)
+{
+  const char *name;
+  pubname_entry e;
+
+  if (scope_name)
+    name = concat (scope_name, sep, get_AT_string (die, DW_AT_name), NULL);
+  else
+    name = xstrdup (get_AT_string (die, DW_AT_name));
+  e.name = name;
+  e.die = die;
+  VEC_safe_push (pubname_entry, gc, pubtype_table, &e);
 }
 
 /* Add a new entry to .debug_pubtypes if appropriate.  */
@@ -11656,34 +11700,47 @@ add_pubtype (tree decl, dw_die_ref die)
 
   e.name = NULL;
   if ((TREE_PUBLIC (decl)
-       || is_cu_die (die->die_parent))
+       || is_cu_die (die->die_parent) || is_namespace_die (die->die_parent))
       && (die->die_tag == DW_TAG_typedef || COMPLETE_TYPE_P (decl)))
     {
-      e.die = die;
+      tree scope = NULL;
+      const char *scope_name = NULL;
+      const char *sep = is_cxx () ? "::" : ".";
+      const char *name = NULL;
+
       if (TYPE_P (decl))
-	{
-	  if (TYPE_NAME (decl))
-	    {
-	      if (TREE_CODE (TYPE_NAME (decl)) == IDENTIFIER_NODE)
-		e.name = IDENTIFIER_POINTER (TYPE_NAME (decl));
-	      else if (TREE_CODE (TYPE_NAME (decl)) == TYPE_DECL
-		       && DECL_NAME (TYPE_NAME (decl)))
-		e.name = IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (decl)));
-	      else
-	       e.name = xstrdup ((const char *) get_AT_string (die, DW_AT_name));
-	    }
-	}
+        name = type_tag (decl);
       else
-	{
-	  e.name = dwarf2_name (decl, 1);
-	  if (e.name)
-	    e.name = xstrdup (e.name);
-	}
+        name = lang_hooks.dwarf_name (decl, 1);
 
       /* If we don't have a name for the type, there's no point in adding
 	 it to the table.  */
-      if (e.name && e.name[0] != '\0')
-	VEC_safe_push (pubname_entry, gc, pubtype_table, &e);
+      if (name == NULL || name[0] == '\0')
+        return;
+
+      e.die = die;
+      e.name = xstrdup (name);
+
+      scope = TYPE_P (decl) ? TYPE_CONTEXT (decl) : NULL;
+      if (scope && TREE_CODE (scope) == NAMESPACE_DECL)
+        {
+          scope_name = lang_hooks.dwarf_name (scope, 1);
+          if (scope_name != NULL)
+            e.name = concat (scope_name, sep, e.name, NULL);
+        }
+      VEC_safe_push (pubname_entry, gc, pubtype_table, &e);
+
+      /* Although it might be more consistent to add the pubinfo for the
+         enumerators as their dies are created, they should only be added if the
+         enum type meets the criteria above.  So rather than re-check the parent
+         enum type whenever an enumerator die is created, just output them all
+         here.  */
+      if (die->die_tag == DW_TAG_enumeration_type)
+        {
+          dw_die_ref c;
+
+          FOR_EACH_CHILD (die, c, add_enumerator_pubname (scope_name, sep, c));
+        }
     }
 }
 
@@ -11697,6 +11754,18 @@ output_pubnames (VEC (pubname_entry, gc) * names)
   unsigned long pubnames_length = size_of_pubnames (names);
   pubname_ref pub;
 
+  if (!targetm.want_debug_pub_sections || !info_section_emitted)
+    return;
+  if (names == pubname_table)
+    {
+      switch_to_section (debug_pubnames_section);
+      ASM_OUTPUT_LABEL (asm_out_file, debug_pubnames_section_label);
+    }
+  else
+    {
+      switch_to_section (debug_pubtypes_section);
+      ASM_OUTPUT_LABEL (asm_out_file, debug_pubtypes_section_label);
+    }
   if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
     dw2_asm_output_data (4, 0xffffffff,
       "Initial length escape value indicating 64-bit DWARF extension");
@@ -12834,6 +12903,7 @@ base_type_die (tree type)
   add_AT_unsigned (base_type_result, DW_AT_byte_size,
 		   int_size_in_bytes (type));
   add_AT_unsigned (base_type_result, DW_AT_encoding, encoding);
+  add_pubtype (type, base_type_result);
 
   return base_type_result;
 }
@@ -21132,6 +21202,8 @@ gen_namespace_die (tree decl, dw_die_ref context_die)
       add_AT_die_ref (namespace_die, DW_AT_import, origin_die);
       equate_decl_number_to_die (decl, namespace_die);
     }
+  /* Bypass dwarf2_name's check for DECL_NAMELESS.  */
+  add_pubname_string (lang_hooks.dwarf_name (decl, 1), namespace_die);
 }
 
 /* Generate Dwarf debug information for a decl described by DECL.
@@ -22464,6 +22536,10 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   ASM_GENERATE_INTERNAL_LABEL (debug_info_section_label,
 			       DEBUG_INFO_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_pubnames_section_label,
+			       DEBUG_PUBNAMES_SECTION_LABEL, 0);
+  ASM_GENERATE_INTERNAL_LABEL (debug_pubtypes_section_label,
+			       DEBUG_PUBTYPES_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (debug_line_section_label,
 			       DEBUG_LINE_SECTION_LABEL, 0);
   ASM_GENERATE_INTERNAL_LABEL (ranges_section_label,
@@ -23480,6 +23556,7 @@ optimize_location_lists (dw_die_ref die)
   htab_delete (htab);
 }
 
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -23720,6 +23797,17 @@ dwarf2out_finish (const char *filename)
     }
   htab_delete (comdat_type_table);
 
+  /* Add the DW_AT_GNU_pubnames and DW_AT_GNU_pubtypes attributes.  */
+  if (targetm.want_debug_pub_sections)
+    {
+      /* FIXME: Should use add_AT_pubnamesptr.  This works because most targets
+         don't care what the base section is.  */
+      add_AT_lineptr (comp_unit_die (), DW_AT_GNU_pubnames,
+                      debug_pubnames_section_label);
+      add_AT_lineptr (comp_unit_die (), DW_AT_GNU_pubtypes,
+                      debug_pubtypes_section_label);
+    }
+
   /* Output the main compilation unit if non-empty or if .debug_macinfo
      will be emitted.  */
   output_comp_unit (comp_unit_die (), debug_info_level >= DINFO_LEVEL_VERBOSE);
@@ -23740,42 +23828,12 @@ dwarf2out_finish (const char *filename)
       output_location_lists (comp_unit_die ());
     }
 
-  /* Output public names table if necessary.  */
-  if (!VEC_empty (pubname_entry, pubname_table))
-    {
-      gcc_assert (info_section_emitted);
-      switch_to_section (debug_pubnames_section);
-      output_pubnames (pubname_table);
-    }
-
-  /* Output public types table if necessary.  */
+  /* Output public names and types tables if necessary.  */
+  output_pubnames (pubname_table);
   /* ??? Only defined by DWARF3, but emitted by Darwin for DWARF2.
      It shouldn't hurt to emit it always, since pure DWARF2 consumers
      simply won't look for the section.  */
-  if (!VEC_empty (pubname_entry, pubtype_table))
-    {
-      bool empty = false;
-      
-      if (flag_eliminate_unused_debug_types)
-	{
-	  /* The pubtypes table might be emptied by pruning unused items.  */
-	  unsigned i;
-	  pubname_ref p;
-	  empty = true;
-	  FOR_EACH_VEC_ELT (pubname_entry, pubtype_table, i, p)
-	    if (p->die->die_offset != 0)
-	      {
-		empty = false;
-		break;
-	      }
-	}
-      if (!empty)
-	{
-	  gcc_assert (info_section_emitted);
-	  switch_to_section (debug_pubtypes_section);
-	  output_pubnames (pubtype_table);
-	}
-    }
+  output_pubnames (pubtype_table);
 
   /* Output direct and virtual call tables if necessary.  */
   if (!VEC_empty (dcall_entry, dcall_table))

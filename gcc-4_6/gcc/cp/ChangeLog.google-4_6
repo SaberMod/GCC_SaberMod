@@ -1,3 +1,10 @@
+2011-12-19  Sterling Augustine <saugustine@google.com>
+
+	Backport from google/main
+
+	* error.c (dump_decl): Reformat return value to "(anonymous namespace)".
+	(lang_decl_name): Return "(anonymous namespace)" when appropriate.
+
 2011-12-17  Easwaran Raman  <eraman@google.com>
 	Backport r182443 from google/main.
 

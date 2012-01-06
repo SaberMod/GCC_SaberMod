@@ -1,3 +1,10 @@
+2011-12-19  Sterling Augustine <saugustine@google.com>
+
+	Backport from google/main
+
+	* c-pretty-print.c (pp_c_specifier_qualifier_list): Move conditional
+	from beginning to end.
+
 2011-12-06  Jeffrey Yasskin  <jyasskin@google.com>
 
 	Backport from rev 180707
