@@ -1,3 +1,8 @@
+2012-01-09  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (cgraph_node_opt_info): Print profile info if available
+	(dump_inline_decision): Disable einline dump at OPT_INFO_MIN
+
 2012-01-04   Sterling Augustine  <saugustine@google.com>
 
 	Backport from google/main

@@ -308,12 +308,12 @@ cgraph_node_opt_info (struct cgraph_node *node)
     bfd_name = "unknown";
 
   buf_size = strlen (bfd_name) + 1;
-  if (flag_opt_info >= OPT_INFO_MED && profile_info)
+  if (profile_info)
     buf_size += (2 * MAX_INT_LENGTH + 5);
   buf = (char *) xmalloc (buf_size);
 
   strcpy (buf, bfd_name);
-  if (flag_opt_info >= OPT_INFO_MED && profile_info)
+  if (profile_info)
     sprintf (buf,
 	     "%s ("HOST_WIDEST_INT_PRINT_DEC", "HOST_WIDEST_INT_PRINT_DEC")",
 	     buf, node->count, node->max_bb_count);
@@ -354,6 +354,9 @@ cgraph_node_call_chain (struct cgraph_node *caller,
   return buf;
 }
 
+/* File static variable to denote if it is in ipa-inline pass. */
+static bool is_in_ipa_inline = false;
+
 /* Dump the inline decision of EDGE to stderr.  */
 
 static void
@@ -364,6 +367,8 @@ dump_inline_decision (struct cgraph_edge *edge)
   const char *call_count_text;
   struct cgraph_node *final_caller = edge->caller;
 
+  if (flag_opt_info < OPT_INFO_MED && !is_in_ipa_inline)
+    return;
   if (final_caller->global.inlined_to != NULL)
     inline_chain_text = cgraph_node_call_chain (final_caller, &final_caller);
   else
@@ -1192,6 +1197,8 @@ cgraph_decide_inlining_of_small_functions (void)
   bitmap updated_nodes = BITMAP_ALLOC (NULL);
   int min_size, max_size;
   VEC (cgraph_edge_p, heap) *new_indirect_edges = NULL;
+
+  is_in_ipa_inline = true;
 
   if (flag_indirect_inlining)
     new_indirect_edges = VEC_alloc (cgraph_edge_p, heap, 8);
