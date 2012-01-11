@@ -1,3 +1,11 @@
+2012-01-10  Rong Xu  <xur@google.com>
+
+	Backport r183081 from google/main
+
+	* gcc/profile.c (compute_value_histograms): handle the  
+	case when INDIR_CALL counters not available in gcda files.
+
+
 2012-01-09  Dehao Chen  <dehao@google.com>
 
 	* ipa-inline.c (cgraph_node_opt_info): Print profile info if available
