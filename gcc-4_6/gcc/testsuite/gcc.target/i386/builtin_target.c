@@ -47,6 +47,10 @@ fn1 ()
     return -1;
   if (__builtin_cpu_is_amdfam10_istanbul () < 0)
     return -1;
+  if (__builtin_cpu_is_amdfam15_bdver1 () < 0)
+    return -1;
+  if (__builtin_cpu_is_amdfam15_bdver2 () < 0)
+    return -1;
 
   return 0;
 }

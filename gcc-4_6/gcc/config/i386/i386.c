@@ -24541,10 +24541,12 @@ enum ix86_builtins
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM,
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE,
   IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE,
-  IX86_BUILTIN_CPU_IS_AMDFAM10,
-  IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA,
-  IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI,
-  IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL,
+  IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1,
+  IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2,
 
   IX86_BUILTIN_MAX
 };
@@ -26024,10 +26026,12 @@ fold_builtin_cpu (enum ix86_builtins fn_code)
     M_INTEL_COREI7_NEHALEM,
     M_INTEL_COREI7_WESTMERE,
     M_INTEL_COREI7_SANDYBRIDGE,
-    M_AMDFAM10,
-    M_AMDFAM10_BARCELONA,
-    M_AMDFAM10_SHANGHAI,
-    M_AMDFAM10_ISTANBUL,
+    M_AMDFAM10H,
+    M_AMDFAM10H_BARCELONA,
+    M_AMDFAM10H_SHANGHAI,
+    M_AMDFAM10H_ISTANBUL,
+    M_AMDFAM15H_BDVER1,
+    M_AMDFAM15H_BDVER2,
     M_MAX
   };
 
@@ -26129,24 +26133,34 @@ fold_builtin_cpu (enum ix86_builtins fn_code)
 				     M_INTEL_COREI7_SANDYBRIDGE);
       which_struct = __cpu_model_var;
       break;
-    case IX86_BUILTIN_CPU_IS_AMDFAM10:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H:
       field = get_field_from_struct (__processor_model_type,
-				     M_AMDFAM10);
+				     M_AMDFAM10H);
       which_struct = __cpu_model_var;
       break;
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA:
       field = get_field_from_struct (__processor_model_type,
-				     M_AMDFAM10_BARCELONA);
+				     M_AMDFAM10H_BARCELONA);
       which_struct = __cpu_model_var;
       break;
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI:
       field = get_field_from_struct (__processor_model_type,
-				     M_AMDFAM10_SHANGHAI);
+				     M_AMDFAM10H_SHANGHAI);
       which_struct = __cpu_model_var;
       break;
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL:
       field = get_field_from_struct (__processor_model_type,
-				     M_AMDFAM10_ISTANBUL);
+				     M_AMDFAM10H_ISTANBUL);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM15H_BDVER1);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM15H_BDVER2);
       which_struct = __cpu_model_var;
       break;
     default:
@@ -26714,13 +26728,17 @@ ix86_init_platform_type_builtins (void)
   make_platform_builtin ("__builtin_cpu_is_intel_corei7_sandybridge",
 			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10",
-			 IX86_BUILTIN_CPU_IS_AMDFAM10, 1);
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10_barcelona",
-			 IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA, 1);
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10_shanghai",
-			 IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI, 1);
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI, 1);
   make_platform_builtin ("__builtin_cpu_is_amdfam10_istanbul",
-			 IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL, 1);
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam15_bdver1",
+			 IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam15_bdver2",
+			 IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2, 1);
 }
 
 /* Detect if this unaligned vectorizable load/stores should be
@@ -28303,10 +28321,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM:
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE:
     case IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE:
-    case IX86_BUILTIN_CPU_IS_AMDFAM10:
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA:
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI:
-    case IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL:
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1:
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2:
       {
         tree fold_expr = fold_builtin_cpu ((enum ix86_builtins) fcode);
 	gcc_assert (fold_expr != NULL_TREE);

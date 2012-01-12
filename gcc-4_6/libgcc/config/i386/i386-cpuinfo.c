@@ -59,10 +59,12 @@ struct __processor_model
   unsigned int __cpu_is_intel_corei7_nehalem : 1;
   unsigned int __cpu_is_intel_corei7_westmere : 1;
   unsigned int __cpu_is_intel_corei7_sandybridge : 1;
-  unsigned int __cpu_is_amdfam10 : 1;
-  unsigned int __cpu_is_amdfam10_barcelona : 1;
-  unsigned int __cpu_is_amdfam10_shanghai : 1;
-  unsigned int __cpu_is_amdfam10_istanbul : 1;
+  unsigned int __cpu_is_amdfam10h : 1;
+  unsigned int __cpu_is_amdfam10h_barcelona : 1;
+  unsigned int __cpu_is_amdfam10h_shanghai : 1;
+  unsigned int __cpu_is_amdfam10h_istanbul : 1;
+  unsigned int __cpu_is_amdfam15h_bdver1 : 1;
+  unsigned int __cpu_is_amdfam15h_bdver2 : 1;
 } __cpu_model;
 
 /* Get the specific type of AMD CPU.  */
@@ -72,24 +74,37 @@ get_amd_cpu (unsigned int family, unsigned int model)
 {
   switch (family)
     {
+    /* AMD Family 10h.  */
     case 0x10:
       switch (model)
 	{
 	case 0x2:
-	  __cpu_model.__cpu_is_amdfam10 = 1;
-	  __cpu_model.__cpu_is_amdfam10_barcelona = 1;
+	  /* Barcelona.  */
+	  __cpu_model.__cpu_is_amdfam10h = 1;
+	  __cpu_model.__cpu_is_amdfam10h_barcelona = 1;
 	  break;
 	case 0x4:
-	  __cpu_model.__cpu_is_amdfam10 = 1;
-	  __cpu_model.__cpu_is_amdfam10_shanghai = 1;
+	  /* Shanghai.  */
+	  __cpu_model.__cpu_is_amdfam10h = 1;
+	  __cpu_model.__cpu_is_amdfam10h_shanghai = 1;
 	  break;
 	case 0x8:
-	  __cpu_model.__cpu_is_amdfam10 = 1;
-	  __cpu_model.__cpu_is_amdfam10_istanbul = 1;
+	  /* Istanbul.  */
+	  __cpu_model.__cpu_is_amdfam10h = 1;
+	  __cpu_model.__cpu_is_amdfam10h_istanbul = 1;
 	  break;
 	default:
 	  break;
 	}
+      break;
+    /* AMD Family 15h.  */
+    case 0x15:
+      /* Bulldozer version 1.  */
+      if (model >= 0 && model <= 0xf)
+        __cpu_model.__cpu_is_amdfam15h_bdver1 = 1;
+      /* Bulldozer version 2.  */
+      if (model >= 0x10 && model <= 0x1f)
+        __cpu_model.__cpu_is_amdfam15h_bdver2 = 1;
       break;
     default:
       break;
@@ -187,9 +202,11 @@ sanity_check (void)
 	      + __cpu_model.__cpu_is_intel_corei7_nehalem
 	      + __cpu_model.__cpu_is_intel_corei7_westmere
 	      + __cpu_model.__cpu_is_intel_corei7_sandybridge
-	      + __cpu_model.__cpu_is_amdfam10_barcelona
-	      + __cpu_model.__cpu_is_amdfam10_shanghai
-	      + __cpu_model.__cpu_is_amdfam10_istanbul);
+	      + __cpu_model.__cpu_is_amdfam10h_barcelona
+	      + __cpu_model.__cpu_is_amdfam10h_shanghai
+	      + __cpu_model.__cpu_is_amdfam10h_istanbul
+	      + __cpu_model.__cpu_is_amdfam15h_bdver1
+	      + __cpu_model.__cpu_is_amdfam15h_bdver2);
 
   gcc_assert (one_type <= 1);
   return 0;
@@ -223,6 +240,7 @@ __cpu_indicator_init (void)
   int max_level = 5;
   unsigned int vendor;
   unsigned int model, family, brand_id;
+  unsigned int extended_model, extended_family;
   static int called = 0;
 
   /* This function needs to run just once.  */
@@ -247,14 +265,12 @@ __cpu_indicator_init (void)
   model = (eax >> 4) & 0x0f;
   family = (eax >> 8) & 0x0f;
   brand_id = ebx & 0xff;
+  extended_model = (eax >> 12) & 0xf0;
+  extended_family = (eax >> 20) & 0xff;
 
-  /* Adjust model and family for Intel CPUS. */
   if (vendor == SIG_INTEL)
     {
-      unsigned int extended_model, extended_family;
-
-      extended_model = (eax >> 12) & 0xf0;
-      extended_family = (eax >> 20) & 0xff;
+      /* Adjust model and family for Intel CPUS. */
       if (family == 0x0f)
 	{
 	  family += extended_family;
@@ -262,19 +278,24 @@ __cpu_indicator_init (void)
 	}
       else if (family == 0x06)
 	model += extended_model;
-    }
 
-  /* Find CPU model. */
+      /* Get CPU type.  */
+      __cpu_model.__cpu_is_intel = 1;
+      get_intel_cpu (family, model, brand_id);
+    }
 
   if (vendor == SIG_AMD)
     {
+      /* Adjust model and family for AMD CPUS. */
+      if (family == 0x0f)
+	{
+	  family += extended_family;
+	  model += (extended_model << 4);
+	}
+
+      /* Get CPU type.  */
       __cpu_model.__cpu_is_amd = 1;
       get_amd_cpu (family, model);
-    }
-  else if (vendor == SIG_INTEL)
-    {
-      __cpu_model.__cpu_is_intel = 1;
-      get_intel_cpu (family, model, brand_id);
     }
 
   /* Find available features. */

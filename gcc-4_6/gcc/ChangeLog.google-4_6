@@ -1,3 +1,27 @@
+2012-01-11  Sriraman Tallam  <tmsriram@google.com>
+
+	Add new target builtins: __builtin_cpu_is_amdfam15h_bdver1 and
+	__builtin_cpu_is_amdfam15h_bdver2, to check for AMD Family 15h
+	(0x15) processors, version 1 and 2 respectively.
+
+	* i386.c (IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H): Rename IX86_BUILTIN_CPU_IS_AMDFAM10.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL.
+	(fold_builtin_cpu): Process IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1
+	and IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2.
+	(M_AMDFAM10H): Rename M_AMDFAM10.
+	(M_AMDFAM10H_BARCELONA): Rename M_AMDFAM10_BARCELONA.
+	(M_AMDFAM10H_SHANGHAI): Rename M_AMDFAM10_SHANGHAI.
+	(M_AMDFAM10H_ISTANBUL): Rename M_AMDFAM10_ISTANBUL.
+	(ix86_init_platform_type_builtins): Make new builtins __builtin_cpu_is_amdfam15_bdver1
+	and __builtin_cpu_is_amdfam15_bdver2.
+	(ix86_expand_builtin): Expand IX86_BUILTIN_CPU_IS_AMDFAM15_BDVER1 and 
+	IX86_BUILTIN_CPU_IS_AMDFAM15_BDVER2.
+	* testsuite/gcc.target/builtin_target.c (fn1): Call new builtins.
+
 2012-01-10  Rong Xu  <xur@google.com>
 
 	Backport r183081 from google/main
