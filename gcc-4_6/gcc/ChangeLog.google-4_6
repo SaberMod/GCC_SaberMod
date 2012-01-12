@@ -1,3 +1,9 @@
+2012-01-12   Rong Xu  <xur@google.com>
+	Backport r183142 from google/main
+
+	* gcc/profile.c (compute_value_histograms): ignore the
+	histrogram when the counters not found in gcda file.
+
 2012-01-11  Sriraman Tallam  <tmsriram@google.com>
 
 	Add new target builtins: __builtin_cpu_is_amdfam15h_bdver1 and
