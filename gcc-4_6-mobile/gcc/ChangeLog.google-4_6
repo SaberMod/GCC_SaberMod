@@ -1,3 +1,16 @@
+2012-01-12   Rong Xu  <xur@google.com>
+	Backport r183142 from google/main
+
+	* gcc/profile.c (compute_value_histograms): ignore the
+	histrogram when the counters not found in gcda file.
+
+2012-01-10  Rong Xu  <xur@google.com>
+
+	Backport r183081 from google/main
+
+	* gcc/profile.c (compute_value_histograms): handle the  
+	case when INDIR_CALL counters not available in gcda files.
+
 2011-12-19  Han Shen  <shenhan@google.com>
 	Add a new option "-fstack-protector-strong".
 	* cfgexpand.c (expand_used_vars): Add logic handling
