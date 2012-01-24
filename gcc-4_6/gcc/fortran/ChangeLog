@@ -1,3 +1,58 @@
+2012-01-01  Thomas König  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/51502
+	* expr.c (gfc_check_vardef_context):  When determining
+	implicit pure status, also check for variable definition
+	context.  Walk up namespaces until a procedure is
+	found to reset the implict pure attribute.
+	* resolve.c (gfc_implicit_pure):  Walk up namespaces
+	until a procedure is found.
+
+2011-12-22  Toon Moene  <toon@moene.org>
+
+	PR fortran/51310
+	* resolve.c (build_default_init_expr): Allow non-allocatable,
+	non-compile-time-constant-shape arrays to have a default
+	initializer.
+	* invoke.texi: Delete the restriction on automatic arrays not
+	being initialized by -finit-<type>=<constant>.
+
+2011-12-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51550
+	PR fortran/47545
+	PR fortran/49050
+	PR fortran/51075
+	* resolve.c (resolve_fl_derived0): Print not-implemented error
+	for deferred-length character components.
+
+2011-12-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50923
+	* trans-decl.c (generate_local_decl): Set TREE_NO_WARNING only
+	if the front end has printed a warning.
+	(gfc_generate_function_code): Fix unset-result warning.
+
+2011-12-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/51338
+	Backport from trunk
+	* dependency.c (are_identical_variables):  Handle case where
+	end fields of substring references are NULL.
+
+2011-12-08  Toon Moene  <toon@moene.org>
+
+	PR fortran/51310
+	* invoke.texi: Itemize the cases for which
+	-finit-<type>=<constant> doesn't work.
+
+2011-12-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51448
+	* fortran/trans-array.c (get_std_lbound): Fix handling of
+	conversion functions.
+
 2011-12-06  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/51435

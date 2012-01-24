@@ -1,3 +1,9 @@
+2012-01-09   DeLesley Hutchins <delesley@google.com>
+
+	* g++.dg/thread-ann/thread_annot_lock-82.C: Update error
+	message to account for fixed reporting of implicit
+	destructor calls.
+
 2012-01-04   Sterling Augustine  <saugustine@google.com>
 
 	Backport r182443 from google/main.

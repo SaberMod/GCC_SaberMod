@@ -9690,7 +9690,7 @@ build_default_init_expr (gfc_symbol *sym)
   int i;
 
   /* These symbols should never have a default initialization.  */
-  if ((sym->attr.dimension && !gfc_is_compile_time_shape (sym->as))
+  if (sym->attr.allocatable
       || sym->attr.external
       || sym->attr.dummy
       || sym->attr.pointer
@@ -11397,6 +11397,14 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
   for (c = sym->components; c != NULL; c = c->next)
     {
+      /* See PRs 51550, 47545, 48654, 49050, 51075 - and 45170.  */
+      if (c->ts.type == BT_CHARACTER && c->ts.deferred)
+	{
+	  gfc_error ("Deferred-length character component '%s' at %L is not "
+		     "yet supported", c->name, &c->loc);
+	  return FAILURE;
+	}
+
       /* F2008, C442.  */
       if (c->attr.codimension /* FIXME: c->as check due to PR 43412.  */
 	  && (!c->attr.allocatable || (c->as && c->as->type != AS_DEFERRED)))
@@ -12928,24 +12936,25 @@ gfc_pure (gfc_symbol *sym)
 int
 gfc_implicit_pure (gfc_symbol *sym)
 {
-  symbol_attribute attr;
+  gfc_namespace *ns;
 
   if (sym == NULL)
     {
-      /* Check if the current namespace is implicit_pure.  */
-      sym = gfc_current_ns->proc_name;
-      if (sym == NULL)
-	return 0;
-      attr = sym->attr;
-      if (attr.flavor == FL_PROCEDURE
-	    && attr.implicit_pure && !attr.pure)
-	return 1;
-      return 0;
+      /* Check if the current procedure is implicit_pure.  Walk up
+	 the procedure list until we find a procedure.  */
+      for (ns = gfc_current_ns; ns; ns = ns->parent)
+	{
+	  sym = ns->proc_name;
+	  if (sym == NULL)
+	    return 0;
+	  
+	  if (sym->attr.flavor == FL_PROCEDURE)
+	    break;
+	}
     }
-
-  attr = sym->attr;
-
-  return attr.flavor == FL_PROCEDURE && attr.implicit_pure && !attr.pure;
+  
+  return sym->attr.flavor == FL_PROCEDURE && sym->attr.implicit_pure
+    && !sym->attr.pure;
 }
 
 

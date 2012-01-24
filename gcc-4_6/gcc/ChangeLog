@@ -1,3 +1,232 @@
+2012-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2012-01-06  Arnaud Charlet  <charlet@adacore.com>
+
+	* c-decl.c (ext_block): Moved up.
+	(collect_all_refs, for_each_global_decl): Take ext_block into account.
+
+2012-01-06  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR middle-end/48660
+	* expr.h (copy_blkmode_to_reg): Declare.
+	* expr.c (copy_blkmode_to_reg): New function.
+	(expand_assignment): Don't expand register RESULT_DECLs before
+	the lhs.  Use copy_blkmode_to_reg to copy BLKmode values into a
+	RESULT_DECL register.
+	(expand_expr_real_1): Handle BLKmode decls when looking for promotion.
+
+2012-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/51315
+	* tree-sra.c (tree_non_aligned_mem_for_access_p): New predicate.
+	(build_accesses_from_assign): Use it instead of tree_non_aligned_mem_p.
+
+2012-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/51624
+	* tree-sra.c (build_ref_for_model): When replicating a chain of
+	COMPONENT_REFs, stop as soon as the offset would become negative.
+
+2012-01-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49651
+	* tree-ssa-structalias.c (type_can_have_subvars): New function.
+	(var_can_have_subvars): Use it.
+	(get_constraint_for_1): Only consider subfields if there
+	can be any.
+
+2012-01-03  Sandra Loosemore  <sandra@codesourcery.com>
+
+	Backport from mainline:
+	2012-01-02  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/invoke.texi (-flto and related options): Copy-edit.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-11-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51042
+	* tree-ssa-pre.c (phi_translate_1): Avoid recursing on
+	self-referential expressions.  Refactor code to avoid duplication.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51070
+	* tree-loop-distribution.c (generate_builtin): Do not replace
+	the loop with a builtin if the partition contains statements which
+	results are used outside of the loop.
+	(stmt_has_scalar_dependences_outside_loop): Properly handle calls.
+
+2011-12-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2011-12-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_inner_target_options): Fix thinko
+	in setting options via target #pragma or attribute.
+
+2011-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/51623
+	* config/rs6000/rs6000.c (rs6000_assemble_integer): Don't call
+	unlikely_text_section_p.  Instead check for being in a code
+	section.
+
+2011-12-23  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/50396
+	* simplify-rtx.c (simplify_binary_operation_1): Properly
+	guard code that only works for integers.
+
+2011-12-22  Doug Kwan  <dougkwan@google.com>
+
+	Backport from mainline
+	2011-03-23  Julian Brown  <julian@codesourcery.com>
+
+	* expr.c (expand_expr_real_1): Only use BLKmode for volatile
+	accesses which are not naturally aligned.
+
+	2011-11-20  Joey Ye  <joey.ye@arm.com>
+
+	* expr.c (expand_expr_real_1): Correctly handle strict volatile
+	bitfield loads smaller than mode size.
+
+2011-12-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/51643
+	* arm.c (arm_function_ok_for_sibcall): Use DECL_WEAK in previous
+	change.
+
+2011-12-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/51643
+	* arm.c (arm_function_ok_for_sibcall): Don't try to tailcall a
+	weak function on bare-metal EABI targets.
+
+2011-12-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2011-12-21  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/41159
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Use the
+	mode of the pseudo as destination mode.  Only assert that
+	is equal to the promoted mode of the decl if it is a REG.
+
+2011-12-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/linux-unwind.h: Update copyright years.
+	(MD_FROB_UPDATE_CONTEXT): New define.
+	(alpha_frob_update_context): New function.
+
+2011-12-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/51583
+	* tree-sra.c (load_assign_lhs_subreplacements): Call
+	force_gimple_operand_gsi when necessary also in case of no
+	corresponding replacement on the RHS.
+
+2011-12-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (UNSPEC_FRAME_BLOCKAGE): New constant.
+	(frame_blockage): New expander.
+	(frame_blockage<P:mode>): New instruction.
+	* config/sparc/sparc.c (sparc_expand_prologue): When the sequence of
+	instructions establishing the frame isn't atomic, emit frame blockage.
+
+2011-12-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline.
+	2011-10-28  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR rtl-optimization/49720
+	* simplify-rtx.c (simplify_relational_operation_1): Detect
+	infinite recursion condition in "(eq/ne (plus x cst1) cst2)
+	simplifies to (eq/ne x (cst2 - cst1))" case.
+
+2011-12-15  Andreas Tobler  <andreast@fgznet.ch>
+
+	Backport from mainline.
+	2011-12-15  Andreas Tobler  <andreast@fgznet.ch>
+
+	* config/i386/freebsd.h (TARGET_ASM_FILE_END): Define.
+
+2011-12-13  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* lto-streamer-out.c (write_symbol): Use proper 64-bit host type.
+	* lto-cgraph.c (input_cgraph_opt_section): Use 'int' for offsets.
+	* lto-streamer-in.c (lto_read_body): Likewise.
+	(lto_input_toplevel_asms): Likewise.
+	* lto-section-in.c (lto_create_simple_input_block): Likewise.
+	* lto-opts.c (lto_read_file_options): Likewise.
+	* ipa-prop.c (ipa_prop_read_section): Likewise.
+
+	* df.h (DF_NOTE): Fix typo in comment.
+
+2011-12-13  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* regmove.c (fixup_match_2): Only access call_used_regs with hard
+	regs.
+
+2011-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51510
+	* calls.c (internal_arg_pointer_based_exp_scan): Don't use
+	VEC_safe_grow_cleared if idx is smaller than VEC_length.
+
+	Backported from mainline
+	2011-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51485
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Give up on
+	DRs in call stmts.
+
+2011-12-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/50569
+	* tree-sra.c (build_ref_for_model): Replicate a chain of COMPONENT_REFs
+	in the expression of MODEL instead of just the last one.
+
+2011-12-09  Michael Meissner  <meissner@the-meissners.org>
+
+	Backport from mainline
+	2011-12-09  Michael Meissner  <meissner@the-meissners.org>
+
+	PR rtl-optimization/51469
+	* varasm.c (default_binds_local_p_1): If the symbol is a gnu
+	indirect function, mark the symbol as non-local.
+
+2011-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51466
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Also copy
+	TREE_SIDE_EFFECTS.
+
+	2011-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50078
+	* tree-ssa-forwprop.c (forward_propagate_addr_expr_1): Copy over
+	TREE_THIS_VOLATILE also from the old to new lhs resp. rhs.
+
+2011-12-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+
+	2011-12-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/51408
+	* config/arm/arm.md (*minmax_arithsi): Always require the else
+	clause in the MINUS case.
+
 2011-12-08  Teresa Johnson  <tejohnson@google.com>
 
 	Backport from mainline:

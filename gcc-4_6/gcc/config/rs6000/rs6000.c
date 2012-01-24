@@ -16615,7 +16615,7 @@ rs6000_assemble_integer (rtx x, unsigned int size, int aligned_p)
       if (TARGET_RELOCATABLE
 	  && in_section != toc_section
 	  && in_section != text_section
-	  && !unlikely_text_section_p (in_section)
+	  && (in_section && (in_section->common.flags & SECTION_CODE)) == 0
 	  && !recurse
 	  && GET_CODE (x) != CONST_INT
 	  && GET_CODE (x) != CONST_DOUBLE
@@ -27760,7 +27760,7 @@ rs6000_inner_target_options (tree args, bool attr_p)
 		    if (strcmp (r, rs6000_opt_vars[i].name) == 0)
 		      {
 			size_t j = rs6000_opt_vars[i].global_offset;
-			((int *) &global_options)[j] = !invert;
+			*((int *) ((char *)&global_options + j)) = !invert;
 			error_p = false;
 			break;
 		      }

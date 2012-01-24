@@ -11,6 +11,7 @@ void do_something(void* a);
 class Foo {
   Mutex mu_;
   int a GUARDED_BY(mu_);
+  int b;
 
   // with optimization turned on, ipa-sra should eliminate the hidden 
   // "this" argument, thus invalidating EXCLUSIVE_LOCKS_REQUIRED.
@@ -41,6 +42,7 @@ public:
 
 void Foo::bar() {
   // Matches two warnings:
-  DummyMutexLock dlock(&mu_);  // { dg-warning "attribute has been removed by optimization." } 
+  DummyMutexLock dlock(&mu_);  // { dg-warning "lock attribute has been removed by optimization" }
   a = 1;  // warning here should be suppressed, due to errors handling dlock
+  b = 2;  // { dg-warning "unlock attribute has been removed by optimization" }
 }

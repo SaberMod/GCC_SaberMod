@@ -1,3 +1,165 @@
+2012-01-06  Richard Sandiford  <richard.sandiford@linaro.org>
+
+	PR middle-end/48660
+	* g++.dg/pr48660.C: New test.
+
+2012-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/overflow.lst: Add cb20004.
+
+2012-01-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20120104-1.c: New test.
+
+2012-01-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49651
+	* gcc.dg/tree-ssa/pta-ptrarith-1.c: Adjust.
+	* gcc.dg/tree-ssa/pta-ptrarith-2.c: Likewise.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-11-10  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51042
+	* gcc.dg/torture/pr51042.c: New testcase.
+
+2012-01-03  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/51070
+	* gcc.dg/torture/pr51070.c: New testcase.
+	* gcc.dg/torture/pr51070-2.c: Likewise.
+
+2011-12-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/49951
+	* g++.dg/gcov/gcov-2.C: Adjust.
+
+2012-01-01  Thomas König  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/51502
+	* lib/gcc-dg.exp (scan-module-absence):  New function.
+	* gfortran.dg/implicit_pure_2.f90:  New test.
+
+2011-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2011-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/51623
+	* gcc.target/powerpc/pr51623.c: New file.
+
+2011-12-28  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/torture/pr50396.c: Use dg-add-options ieee.
+
+2011-12-23  Richard Guenther  <rguenther@suse.de>
+
+	PR rtl-optimization/50396
+	* gcc.dg/torture/pr50396.c: New testcase.
+
+2011-12-22  Doug Kwan  <dougkwan@google.com>
+
+	Backport from mainline
+	2011-11-20  Joey Ye  <joey.ye@arm.com>
+
+	* gcc.dg/volatile-bitfields-1.c: New.
+
+2011-12-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/51643
+	* gcc.target/arm/sibcall-2.c: New test.
+
+2011-12-19  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/51583
+	* gcc.dg/tree-ssa/pr51583.c: New test.
+
+2011-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51416
+	* g++.dg/cpp0x/auto31.C: New.
+
+2011-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51331
+	* g++.dg/init/value10.C: New.
+
+2011-12-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline.
+	2011-10-28  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR rtl-optimization/49720
+	* g++.dg/torture/pr49720.C: New test.
+
+2011-12-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51248
+	* g++.dg/other/enum2.C: New.
+
+2011-12-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51406
+	PR c++/51161
+	* g++.dg/cpp0x/rv-cast3.C: New.
+	* g++.dg/cpp0x/rv-cast4.C: New.
+
+2011-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/51511
+	* gcc.dg/pr45819.c: Add -w to dg-options.
+
+	Backported from mainline
+	2011-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51485
+	* g++.dg/vect/pr51485.cc: New test.
+
+2011-12-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20111212-1.c: New test.
+
+2011-12-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50923
+	* gfortran.dg/warn_function_without_result_2.f90: New.
+
+2011-12-11  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/51338
+	Backport from trunk
+	* gfortran.dg/assumed_charlen_substring_1.f90:  New test.
+
+2011-12-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2011-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51466
+	* gcc.c-torture/execute/pr51466.c: New test.
+
+	2011-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50078
+	* gcc.dg/pr50078.c: New test.
+
+2011-12-09  Kazu Hirata  <kazu@codesourcery.com>
+
+	Backport from mainline:
+
+	2011-12-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/51408
+	* gcc.dg/pr51408.c: New.
+
+2011-12-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51448
+	* gfortran.dg/realloc_on_assign_8.f90: New.
+
 2011-12-08  Teresa Johnson  <tejohnson@google.com>
 
 	* gcc.target/i386/movdi-rex64.c: Remove unnecessary

@@ -61012,6 +61012,7 @@ install-gcc: maybe-install-fixincludes
 install-gcc: maybe-install-lto-plugin
 install-gcc: maybe-install-function_reordering_plugin
 install-strip-gcc: maybe-install-strip-fixincludes
+install-strip-gcc: maybe-install-strip-lto-plugin
 configure-libcpp: configure-libiberty
 
 configure-stage1-libcpp: configure-stage1-libiberty
