@@ -1,3 +1,11 @@
+2011-01-26  Han Shen  <shenhan@google.com>
+
+	Add a new option "-fstack-protector-strong".
+	* cfgexpand.c (expand_used_vars): Add logic handling
+	stack-protector-strong.
+	(record_or_union_type_has_array): New, tests if a record or union type
+	contains an array.
+	* common.opt (fstack-protector-strong): New option.
 
 2011-07-11   DeLesley Hutchins  <delesley@google.com>
       * cp/gc.class (cp_get_virtual_function_decl.c handle_call_gs): 
@@ -13,7 +21,7 @@
 	Backport upstream patch under review.
 
 	2011-01-19   NNick Clifton  <nickc@redhat.com>
-       		     Matthias Klose <doko@debian.org>
+		     Matthias Klose <doko@debian.org>
 
 		* configure.ac (gcc_cv_gold_srcdir): New cached variable -
 		contains the location of the gold sources.
