@@ -1,0 +1,688 @@
+2012-02-01  Dehao Chen  <dehao@google.com>
+
+	* predict.c (predict_iv_comparison): Add new parameter, ensure that
+	the loop_iv_base and compare_base are identical.
+
+2012-01-31  Dehao Chen  <dehao@google.com>
+
+	* predict.c (strips_small_constant): New
+	(get_base_value): New
+	(find_ssa_name_in_assign_stmt): New
+	(is_comparison_with_loop_invariant_p): New
+	(expr_coherent_p): New
+	(predict_iv_comparison): New
+	(predict_loops): Add heuristic for loop-nested branches that compare an
+	induction variable to a loop bound variable.
+	* predict.def (PRED_LOOP_IV_COMPARE): New macro
+
+2012-01-23   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 182961.
+
+2012-01-20   Sterling Augustine  <saugustine@google.com>
+	Backport from google/main
+
+	* gcc/dwarf2out.c (break_out_comdat_types): Call add_AT_lineptr with
+	DW_AT_GNU_pubnames and DW_AT_GNU_pubtypes.
+
+2012-01-12   Rong Xu  <xur@google.com>
+	Backport r183142 from google/main
+
+	* gcc/profile.c (compute_value_histograms): ignore the
+	histrogram when the counters not found in gcda file.
+
+2012-01-11  Sriraman Tallam  <tmsriram@google.com>
+
+	Add new target builtins: __builtin_cpu_is_amdfam15h_bdver1 and
+	__builtin_cpu_is_amdfam15h_bdver2, to check for AMD Family 15h
+	(0x15) processors, version 1 and 2 respectively.
+
+	* i386.c (IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H): Rename IX86_BUILTIN_CPU_IS_AMDFAM10.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL): Rename IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL.
+	(fold_builtin_cpu): Process IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1
+	and IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2.
+	(M_AMDFAM10H): Rename M_AMDFAM10.
+	(M_AMDFAM10H_BARCELONA): Rename M_AMDFAM10_BARCELONA.
+	(M_AMDFAM10H_SHANGHAI): Rename M_AMDFAM10_SHANGHAI.
+	(M_AMDFAM10H_ISTANBUL): Rename M_AMDFAM10_ISTANBUL.
+	(ix86_init_platform_type_builtins): Make new builtins __builtin_cpu_is_amdfam15_bdver1
+	and __builtin_cpu_is_amdfam15_bdver2.
+	(ix86_expand_builtin): Expand IX86_BUILTIN_CPU_IS_AMDFAM15_BDVER1 and 
+	IX86_BUILTIN_CPU_IS_AMDFAM15_BDVER2.
+	* testsuite/gcc.target/builtin_target.c (fn1): Call new builtins.
+
+2012-01-10  Rong Xu  <xur@google.com>
+
+	Backport r183081 from google/main
+
+	* gcc/profile.c (compute_value_histograms): handle the  
+	case when INDIR_CALL counters not available in gcda files.
+
+
+2012-01-09  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (cgraph_node_opt_info): Print profile info if available
+	(dump_inline_decision): Disable einline dump at OPT_INFO_MIN
+
+2012-01-04   Sterling Augustine  <saugustine@google.com>
+
+	Backport from google/main
+
+       	* dwarf2out.c (add_pubname): Move conditional clause from outer to
+       	inner if-statement.
+       	(dwarf2out_finish): Fix conditions to output DW_AT_GNU_pubnames and
+       	DW_AT_GNU_pubtypes.  Move decision to output pubnames and pubtypes from
+       	here...
+       	(output_pubnames): ...to here.
+       	(pubtypes_section_empty): Delete unused function.
+
+2012-01-02  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (cgraph_node_opt_info): Print more concise info when
+	dumping inline decisions.
+
+2011-12-19  Sterling Augustine <saugustine@google.com>
+
+	Backport from google/main
+
+	* dwarf2out.c (DEBUG_PUBNAMES_SECTION_LABEL,
+	DEBUG_PUBTYPES_SECTION_LABEL): Define.
+	(debug_pubnames_section_label, debug_pubtypes_section_label):
+	Declare.
+	(is_namespace_die, is_class_die): New functions.
+	(add_enumerator_pubname): New function.
+	(add_pubname): Call is_namespace_die, is_cu_die, and is_class_die in
+	conditional.
+	(add_pubtype): Call is_namespace_die. Rework name calculation.  Call
+	type_tag, lang_hooks.dwarf_name and add_enumerator_pubname.
+	(output_pubnames): Output debug_pubnames_section_label or
+	debug_pubtypes_section_label.
+	(base_type_die): Call add_pubtype.
+	(gen_namespace_die): Call add_pubname_string and lang_hooks.dwarf_name.
+	(dwarf2_out_init): Generate debug_pubnames_section_label and
+	debug_pubtypes_section_label.
+	(pubtypes_section_empty): New function.
+	(dwarf2_out_finish): Call add_AT_lineptr if pubnames or pubtypes is
+	non-empty.  When dealing with pubnames, change assertion to conditional.
+	Call pubtypes_section_empty.  Likewise when dealing with pubtypes.
+	Move code checking for empty section to...
+	(pubtypes_section_empty): Here.
+	* target.def: Switch boolean to enable pubnames and pubtypes.
+
+2011-12-17  Sriraman Tallam  <tmsriram@google.com>
+
+	* mversn-dispatch.c (make_name): Use '.' to concatenate to suffix
+	mangled names.
+	(clone_function): Do not make clones ctors/dtors. Recompute dominance
+	info.
+	(make_bb_flow): New function.
+	(get_selector_gimple_seq): New function.
+	(make_selector_function): New function.
+	(make_attribute): New function.
+	(make_ifunc_function): New function.
+	(copy_decl_attributes): New function.
+	(dispatch_using_ifunc): New function.
+	(purge_function_body): New function.
+	(function_can_make_abnormal_goto): New function.
+	(make_function_not_cloneable): New function.
+	(do_auto_clone): New function.
+	(pass_auto_clone): New gimple pass.
+	(make_specialized_call_to_clone): Fix clone names.
+	* passes.c (init_optimization_passes): Add pass_auto_clone to list.
+	* tree-pass.h (pass_auto_clone): New pass.
+	* params.def (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING): New param.
+	* target.def (mversion_function): New target hook.
+	* config/i386/i386.c (ix86_option_override_internal): Check correctness
+	of ix86_mv_arch_string.
+	(add_condition_to_bb): New function.
+	(make_empty_function): New function.
+	(make_condition_function): New function.
+	(is_loop_form_vectorizable): New function.
+	(is_loop_stmts_vectorizable): New function.
+	(any_loops_vectorizable_with_load_store): New function.
+	(mversionable_for_core2_p): New function.
+	(ix86_mversion_function): New function.
+	* config/i386/i386.opt (mvarch): New option.
+	* doc/tm.texi (TARGET_MVERSION_FUNCTION): Document.
+	* doc/tm.texi.in (TARGET_MVERSION_FUNCTION): Document.
+	* testsuite/gcc.dg/automversn_1.c: New test case.
+	* testsuite/gcc.dg/mversn2.c: Fix cloned names.
+	* testsuite/g++.dg/mversn8.C: Ditto.
+	* testsuite/g++.dg/mversn10a.C: Ditto.
+	* testsuite/g++.dg/mversn15.C: Ditto.
+	* testsuite/g++.dg/mversn10.C: Ditto.
+	* testsuite/g++.dg/mversn16.C: Ditto.
+
+2011-12-17  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc/config/i386/i386.c
+	(IX86_BUILTIN_CPU_IS_INTEL_COREI7): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10): New enum value.
+	(fold_builtin_cpu): Fold the new builtins.
+	(ix86_init_platform_type_builtins): Make new buitins
+	__builtin_cpu_is_intel_corei7 and
+	__builtin_cpu_is_amdfam10.
+	* testsuite/gcc.target/i386/builtin_target.c (fn1):
+	Call the new builtins.
+
+2011-12-17  Easwaran Raman  <eraman@google.com>
+	Backport r182443 from google/main.
+
+	2011-12-17   Easwaran Raman  <eraman@google.com>
+
+		* common.opt (fsized-delete): New option.
+
+2011-12-16   Rong Xu  <xur@google.com>
+	Backport r182416 from google/main.
+
+	2011-12-16   Rong Xu  <xur@google.com>
+
+		* libgcc/libgcov.c (gcov_merge_gcda_file): reset summary_pos.
+
+2011-12-16  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (dump_inline_decision): New function.
+	(cgraph_node_call_chain): New function.
+	(cgraph_node_opt_info): New function.
+	(cgraph_mark_inline_edge): Dump inline decisions to stderr.
+
+2011-12-14   Sriraman Tallam  <tmsriram@google.com>
+
+	Backport r182344 from google/main.
+	
+	2011-12-14  Sriraman Tallam  <tmsriram@google.com>
+
+		Do not vectorize loops on Core2 that need to use unaligned
+		vector load/stores.
+		* tree-vect-stmts.c (is_vector_load_store_slow): New function.
+		(vectorizable_load): Return false if the load
+		is unaligned and slow.
+		(vectorizable_store): Ditto.
+		* target.def (TARGET_SLOW_UNALIGNED_VECTOR_MEMOP): New target hook.
+		* doc/m.texi.in: Document new target hook:
+		TARGET_SLOW_UNALIGNED_VECTOR_MEMOP
+		* doc/m.texi: Regenerate.
+		* config/i386/i386.c (ix86_slow_unaligned_vector_memop): New function.
+		(TARGET_SLOW_UNALIGNED_VECTOR_MEMOP): New macro.
+
+2011-12-12   Teresa Johnson  <tejohnson@google.com>
+
+
+2011-12-11   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 182135.
+
+2011-11-30   Doug Kwan  <dougkwan@google.com>
+
+	Backport r171347 and r181549 from trunk.
+	2011-03-23  Julian Brown  <julian@codesourcery.com>
+
+		* expr.c (expand_expr_real_1): Only use BLKmode for volatile
+		accesses which are not naturally aligned.
+	
+	2011-11-20  Joey Ye  <joey.ye@arm.com>
+
+        	* expr.c (expand_expr_real_1): Correctly handle strict volatile
+        	bitfield loads smaller than mode size.
+
+2011-11-23   Teresa Johnson  <tejohnson@google.com>
+
+	Backport r181671 from google/main.
+
+2011-11-18   Diego Novillo  <dnovillo@google.com>
+
+	Rollback revisiong 179815 from gcc-4_6-branch.
+
+2011-11-16   Rong Xu  <xur@google.com>
+
+	Backport r181432 from google/main.
+
+2011-11-10  DeLesley Hutchins  <delesley@google.com>
+
+  * tree-threadsafe-analyze.c:    
+    factors out code to get function decl.
+    (get_fdecl_from_gimple_stmt): new factored-out function
+    (handle_call_gs): original definition of code
+    (get_lock_returned_by_call): call new function
+    (get_trylock_info): call new function
+    (handle_unlock_primitive_attr): use passed fdecl
+
+2011-11-10  DeLesley Hutchins  <delesley@google.com>
+
+  * tree-threadsafe-analyze.c (get_canonical_lock_expr):
+    Add support for pointer arithmetic operations
+
+2011-11-04   Rong Xu  <xur@google.com>
+
+	Backport r181129 from google/main.
+
+2011-11-06   Teresa Johnson  <tejohnson@google.com>
+
+	Backport r180925 from google/main.
+
+2011-11-06   Teresa Johnson  <tejohnson@google.com>
+
+	Backport r180783 from trunk.
+
+2011-11-04  DeLesley Hutchins  <delesley@google.com>
+   * tree-threadsafe-analyze.c:
+     Ignores invalid attributes, issues a warning, recovers gracefully.
+   * common.opt:
+     Adds new thread safety warning.
+
+2011-11-04   Rong Xu  <xur@google.com>
+
+	Backport r180971 from google/main.
+
+2011-11-04   Rong Xu  <xur@google.com>
+
+	Backport r180973 from google/main.
+
+2011-11-04   Rong Xu  <xur@google.com>
+
+	Backport r180269 from google/main.
+
+2011-11-02   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 180729.
+
+2011-10-25   Xinliang David Li  <davidxl@google.com>
+
+	* profile.c (compute_branch_probablies): recompute
+	function frequency summary after profile annotation.
+
+2011-10-24   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 180298.
+
+2011-10-21   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 179421.
+
+2011-10-17  Dehao Chen  <dehao@google.com>
+
+	Add a flag (-frecord-gcc-switches-in-elf) to record compiler
+	command line options to .gnu.switches.text sections of
+	the object file.
+	* coverage.c (write_opts_to_asm): Write the options to
+	.gnu.switches.text sections.
+	* common.opt: Ditto.
+	* opts.h: Ditto.
+
+2011-10-14  DeLesley Hutchins  <delesley@google.com>
+
+   * tree-threadsafe-analyze.c (get_canonical_lock_expr):
+     Bugfix: add lock to hash set, even if it refers to a base class
+
+2011-10-14  DeLesley Hutchins  <delesley@google.com>
+
+   * tree-threadsafe-analyze.c (remove_lock_from_lockset):
+     Bugfix: shared lock now removed properly when the universal lock 
+     is in the exclusive lock set.  
+
+2011-09-30  Sharad Singhai  <singhai@google.com>
+
+	* gcc.c (cc1_options): Add -fno-early-inlining for improved coverage.
+
+2011-09-30  Easwaran Raman  <eraman@google.com>
+
+	* tree-profile.c (gcov_sample_counter_decl): Add GTY marker.
+	(gcov_sampling_rate_decl): Likewise.
+	(add_sampling_to_edge_counters): Do not free
+	instrumentation_to_be_sampled.
+	(cleanup_instrumentation_sampling): New function.
+	(tree_profiling): Call cleanup_instrumentation_sampling at the end.
+
+2011-09-30  DeLesley Hutchins  <delesley@google.com>
+
+    * tree-threadsafe-analyze.c (process_function_attrs):
+      Detect clones and suppress warnings.
+
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>
+
+	* output.h (SECTION_EXCLUDE): New flag for exclude sections.
+	* varasm.c (default_elf_asm_named_section): Add "e" to section flags
+	marked as SECTION_EXCLUDE.
+	* final.c (rest_of_handle_final): Exclude .gnu.callgraph sections.
+
+2011-09-22  Sriraman Tallam  <tmsriram@google.com>
+
+	* cgraphbuild.c (remove_cgraph_callee_edges): Preserve callee edges if
+	callgraph profiles are needed.
+	* final.c (rest_of_handle_final): Rename .note.callgraph sections as
+	.gnu.callgraph sections.
+	* tree-optimize.c (gate_all_optimizations): Set
+	cgraph_callee_edges_final_cleanup to true.
+	(cgraph_callee_edges_final_cleanup): New global variable.
+	* params.def (PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD): Fix comment.
+
+2011-09-22  Guozhi Wei  <carrot@google.com>
+
+	Backport r178995 from trunk.
+
+	2011-09-20  Wei Guozhi  <carrot@google.com>
+
+		PR rtl-optimization/49452
+		* postreload.c (reload_combine): Invalidate use information when
+		across volatile insn.
+
+2011-09-21   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 179031.
+
+2011-09-15  Easwaran Raman  <eraman@google.com>
+
+	Backport r178898 from google/main.
+
+	2011-09-15  Easwaran Raman  <eraman@google.com>
+
+		* Makefile.in (PLUGIN_HEADERS): Add l-ipo.h.
+
+2011-09-15  Easwaran Raman  <eraman@google.com>
+
+	Backport r176741 from trunk.
+
+	2011-07-22  Romain Geissler  <romain.geissler@gmail.com>
+	
+		PR plugins/45348
+		PR plugins/48425
+		PR plugins/46577
+		* Makefile.in: Do not flatten c-family directory when installing
+		plugin headers.
+
+2011-09-15   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 178854.
+
+2011-9-13  DeLesley Hutchins  <delesley@google.com>
+
+      * tree-threadsafe-analyze.c (get_canonical_lock_expr):
+        don't remove & on recursive call
+
+2011-09-01  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/i386.c (build_struct_with_one_bit_fields): New function.
+	(make_var_decl): New function.
+	(get_field_from_struct): New function.
+	(fold_builtin_target): New function.
+	(ix86_fold_builtin): New function.
+	(ix86_expand_builtin): Expand new builtins by folding them.
+	(TARGET_FOLD_BUILTIN): New macro.
+	(IX86_BUILTIN_CPU_SUPPORTS_CMOV): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_MMX): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_POPCOUNT): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSE): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSE2): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSE3): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSSE3): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSE4_1): New enum value.
+	(IX86_BUILTIN_CPU_SUPPORTS_SSE4_2): New enum value.
+	(IX86_BUILTIN_CPU_INIT): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMD): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL_ATOM): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL_CORE2): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE): New enum value.
+	(IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10_BARCELONA): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10_SHANGHAI): New enum value.
+	(IX86_BUILTIN_CPU_IS_AMDFAM10_ISTANBUL): New enum value.
+	* config/i386/libgcc-glibc.ver (__cpu_indicator_init): Export symbol.
+	(__cpu_model): Export symbol.
+	(__cpu_features): Export symbol.
+	* config/i386/i386-builtin-types.def: New function type.
+
+2011-08-24  Mark Heffernan  <meheff@google.com>
+
+	* params.def (hot-bb-count-fraction): Change default value.
+
+2011-08-24   David Li  <davidxl@google.com>
+
+	* profile.c (compute_branch_probabilities): Partially revert
+	change in r176997 which led to perf regression of important
+	apps.
+
+2011-08-23  Mark Heffernan  <meheff@google.com>
+
+	* basic-block.h (maybe_hot_frequency_p): Add prototype.
+	* cgraph.c (dump_cgraph_node): Add field to dump.
+	(cgraph_clone_node) Handle new field.
+	* cgraph.h (cgraph_node): New field max_bb_count.
+	* cgraphbuild.c (rebuild_cgraph_edges): Compute max_bb_count.
+	* cgraphunit.c (cgraph_copy_node_for_versioning) Handle new field.
+	* common.opt (finline-hot-caller): New option.
+	* ipa-inline.c (cgraph_mark_inline_edge) Update max_bb_count.
+	(edge_hot_enough_p) New function.
+	(cgraph_decide_inlining_of_small_functions) Call edge_hot_enough_p.
+	* predict.c (maybe_hot_frequency_p): Remove static keyword and
+	guard with profile_info check.
+	* testsuite/gcc.dg/tree-prof/inliner-1.c: Add flag.
+	* testsuite/gcc.dg/tree-prof/lipo/inliner-1_0.c: Add flag.
+
+2011-08-16  Guozhi Wei  <carrot@google.com>
+
+	Backport r174965 from trunk.
+
+	2011-06-12  Ira Rosen  <ira.rosen@linaro.org>
+
+		* tree-vect-data-refs.c (vect_peeling_hash_get_most_frequent):
+		Take number of iterations to peel into account for equally frequent
+		misalignment values.
+
+2011-08-11  David Li  <davidxl@google.com>
+
+	* l-ipo.c (process_module_scope_static_func): Promote
+	aliases of static symbol in LIPO mode.
+
+2011-08-02   David Li  <davidxl@google.com>
+
+	Port 53689-p2 and 53705-p2 to v15
+	* libgcov.c (__gcov_merge_dc): Relax over assertion in 
+
+	dc merging.
+2011-07-31  David Li  <davidxl@google.com>
+
+	* tree-optimize.c (execute_fixup_cfg): Fix up entry outgoing
+	edge profile counts.
+	* profile.c (compute_branch_probabilities): Compute function
+	frequency after profile annotation.
+
+2011-07-28  David Li  <davidxl@google.com>
+
+	* coverage.c (coverage_init): Remove checking of profile-use
+	flags.
+
+2011-07-25   Rong Xu  <xur@google.com>
+	Merge from google/main cherry pick r176592.
+	2011-07-21   Rong Xu  <xur@google.com>
+		* ipa.c (function_and_variable_visibility): In LIPO mode, call 
+		varpool_externally_visible_p() to set the externally visible 
+		attribute even for varpool nodes that not marked as needed.
+		* l-ipo.c (varpool_do_link): Merge the externally visible 
+		attribute for varpool nodes.
+
+2011-07-24  Easwaran Raman  <eraman@google.com>
+	Backport r175063 from trunk:
+	2011-06-14  Easwaran Raman  <eraman@google.com>
+		PR rtl-optimization/44194
+		* dse.c: Include tree-flow.h
+		(insn_info): Add new field non_frame_wild_read.
+		(group_info): Add new fields escaped_n and escaped_p.
+		(kill_on_calls): New variable.
+		(get_group_info): Initialize gi->escaped_n and gi->escaped_p.
+		(dse_step0): Initialize kill_on_calls.
+		(can_escape): New function.
+		(set_usage_bits): Add additional parameter; record information
+		about escaped locations.
+		(record_store): Pass EXPR corresponding to MEM to set_usage_bits.
+		(dse_step2_nospill): Set kill_on_calls based on
+		group->escaped_n and group->escaped_n.
+		(add_wild_read): Refactor into...
+		(reset_active_stores): ... New function, and
+		(free_read_records): ... New function.
+		(add_non_frame_wild_read): New function.
+		(scan_insn): Call add_non_frame_wild_read on non-const calls.
+		(scan_reads_nospill): Handle instructions with non_frame_wild_read.
+		(dse_step5_nospill): Call scan_reads_nospill for instructions
+		marked as non_frame_wild_read.
+		(dse_step7): Free escaped_n, escaped_p and kill_on_calls bitmaps.
+	Backport r175384 from trunk:
+	2011-06-24  Easwaran Raman  <eraman@google.com>
+		PR rtl-optimization/49429
+		PR target/49454
+		* expr.c (emit_block_move_hints):  Mark MEM_EXPR(x) and
+		MEM_EXPR(y) addressable if emit_block_move_via_libcall is
+		used to copy y into x.
+		* calls.c (initialize_argument_information): Mark
+		an argument addressable if it is passed by invisible reference.
+		(emit_library_call_value_1): Mark  MEM_EXPR (val) addressable
+		if it is passed by reference.
+
+2011-07-19  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 176416.
+
+2011-07-05  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 175849.
+
+2011-07-05  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 175816.
+
+2011-06-29  Diego Novillo  <dnovillo@google.com>
+
+	Backport from gcc-4_6-branch
+
+	2011-06-29  Martin Jambor  <mjambor@suse.cz>
+		Backport from mainline
+		2011-06-24  Martin Jambor  <mjambor@suse.cz>
+
+		PR tree-optimizations/49516
+		* tree-sra.c (sra_modify_assign): Choose the safe path for
+		aggregate copies if we also did scalar replacements.
+
+2011-06-28  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 175583.
+
+2011-06-27  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 175526.
+
+2011-06-27  Diego Novillo  <dnovillo@google.com>
+
+	Google ref 4487457.
+
+	* tree-cfg.c (gate_warn_function_return): New.
+	(pass_warn_function_return): Use it.
+
+2011-06-14  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 175007.
+
+2011-06-13  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 174986.
+
+2011-06-09  Chris Demetriou  <cgd@google.com>
+
+	Backport from google/main r174890:
+	2011-06-09  Chris Demetriou  <cgd@google.com>
+	* doc/install.texi (--with-warn-frame-larger-than-extra-text): New.
+	* configure.ac (--with-warn-frame-larger-than-extra-text): New.
+	(WARN_FRAME_LARGER_THAN_EXTRA_TEXT): Define.
+	* final.c (final_start_function): Use
+	WARN_FRAME_LARGER_THAN_EXTRA_TEXT.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
+2011-06-07  Mark Heffernan  <meheff@google.com>
+
+	Merge from google/main cherry pick rev 174789.
+
+2011-06-07  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 174706.
+
+2011-06-01  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 174522.
+
+2011-06-01  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 174482.
+
+2011-05-25  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 174114.
+
+2011-05-24  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 174086.
+
+2011-05-11  Xinliang David Li <davidxl@google.com>
+	
+	Merge from google/main rev 173636.
+
+2011-05-10  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 173632.
+
+2011-05-10  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 173605.
+
+2011-05-03  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 173305.
+
+2011-05-03  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 173286 (minus rev 173258).
+
+2011-05-02  Diego Novillo  <dnovillo@google.com>
+
+	Google ref 4335466.
+
+	* BASE-VER: Change to 4.6.x-google.
+
+2011-04-18  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 172633.
+
+2011-04-17  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 172617.
+
+2011-04-15  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 172209.
+
+2011-03-31  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 171756.
+
+2011-03-29  Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 171512 (4.6.0 release tag).
+
+2011-03-18  Diego Novillo  <dnovillo@google.com>
+
+	Merge from google/main rev 171163.
+
+2011-03-15  Diego Novillo  <dnovillo@google.com>
+
+	* BASE-VER: Change to 4.6.0-google
+	* DEV-PHASE: Change to prerelease.
+
+Copyright (C) 2011 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

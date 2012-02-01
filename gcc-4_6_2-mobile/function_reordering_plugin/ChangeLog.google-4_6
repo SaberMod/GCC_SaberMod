@@ -1,0 +1,11 @@
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>	
+
+	* config.h.in: New file.
+	* callgraph.c: Ditto.
+	* callgraph.h: Ditto.
+	* configure: Ditto.
+	* Makefile.in: Ditto.
+	* configure.ac: Ditto.
+	* function_reordering_plugin.c: Ditto.
+	* aclocal.m4: Ditto.
+	* Makefile.def: Ditto.
