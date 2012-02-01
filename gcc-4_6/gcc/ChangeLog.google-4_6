@@ -1,3 +1,8 @@
+2012-02-01  Dehao Chen  <dehao@google.com>
+
+	* predict.c (predict_iv_comparison): Add new parameter, ensure that
+	the loop_iv_base and compare_base are identical.
+
 2012-01-31  Dehao Chen  <dehao@google.com>
 
 	* predict.c (strips_small_constant): New

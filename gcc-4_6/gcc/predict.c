@@ -1126,8 +1126,8 @@ expr_coherent_p (tree t1, tree t2)
 }
 
 /* Predict branch probability of BB when BB contains a branch that compares
-   an induction variable in LOOP to LOOP_BOUND_VAR. The loop exit is
-   compared using LOOP_BOUND_CODE, with step of LOOP_BOUND_STEP.
+   an induction variable with LOOP_IV_BASE_VAR in LOOP to LOOP_BOUND_VAR. The
+   loop exit is compared using LOOP_BOUND_CODE, with step of LOOP_BOUND_STEP.
 
    E.g.
      for (int i = 0; i < bound; i++) {
@@ -1142,6 +1142,7 @@ expr_coherent_p (tree t1, tree t2)
 static void
 predict_iv_comparison (struct loop *loop, basic_block bb,
 		       tree loop_bound_var,
+		       tree loop_iv_base_var,
 		       enum tree_code loop_bound_code,
 		       int loop_bound_step)
 {
@@ -1184,7 +1185,8 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
       return;
     }
 
-  if (!expr_coherent_p (loop_bound_var, compare_var))
+  if (!expr_coherent_p (loop_bound_var, compare_var)
+      || loop_iv_base_var != compare_base)
     return;
 
   /* If loop bound, base and compare bound are all constents, we can
@@ -1213,13 +1215,17 @@ predict_iv_comparison (struct loop *loop, basic_block bb,
 	compare_count ++;
       if (loop_bound_code == LE_EXPR || loop_bound_code == GE_EXPR)
 	loop_count ++;
+      if (compare_count < 0)
+	compare_count = 0;
+      if (loop_count < 0)
+	loop_count = 0;
 
       if (loop_count == 0)
 	probability = 0;
       else if (compare_count > loop_count)
-	probability = 1;
+	probability = REG_BR_PROB_BASE;
       else
-	probability = REG_BR_PROB_BASE * compare_count / loop_count;
+	probability = (double) REG_BR_PROB_BASE * compare_count / loop_count;
       predict_edge (then_edge, PRED_LOOP_IV_COMPARE, probability);
       return;
     }
@@ -1405,7 +1411,7 @@ predict_loops (void)
 		  predict_edge (e, PRED_LOOP_EXIT, probability);
 	    }
 	  if (loop_bound_var)
-	    predict_iv_comparison (loop, bb, loop_bound_var,
+	    predict_iv_comparison (loop, bb, loop_bound_var, loop_iv_base,
 				   loop_bound_code,
 				   loop_bound_step);
 	}
