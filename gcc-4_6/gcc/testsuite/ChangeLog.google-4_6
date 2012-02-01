@@ -1,3 +1,11 @@
+2011-01-31  Dehao Chen  <dehao@google.com>
+
+	* gcc.dg/predict-1.c: Check if LOOP_IV_COMPARE static predict
+	heuristic is working properly.
+	* gcc.dg/predict-2.c: Likewise.
+	* gcc/dg/predict-3.c: Likewise.
+	* gcc/dg/predict-4.c: Likewise.
+
 2012-01-09   DeLesley Hutchins <delesley@google.com>
 
 	* g++.dg/thread-ann/thread_annot_lock-82.C: Update error
