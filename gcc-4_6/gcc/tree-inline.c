@@ -2198,8 +2198,49 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   gcov_type incoming_count = 0;
 
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
-    count_scale = (REG_BR_PROB_BASE * (double)count
-		   / ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
+    {
+      struct cgraph_node *node = cgraph_node (callee_fndecl);
+      double f_max;
+      gcov_type max_count_scale;
+      gcov_type callee_max_bb_cnt;
+      gcov_type max_value = ((gcov_type) 1 << ((sizeof(gcov_type) * 8) - 1));
+      max_value = ~max_value;
+      count_scale = (REG_BR_PROB_BASE * (double)count
+          	   / ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
+
+      /* Reducing the scaling factor when it can cause counter overflow.
+         This can happen for comdat functions where the counters are split.
+         It's more likely for recursive inlines.  */
+      gcc_assert (node);
+      callee_max_bb_cnt = node->max_bb_count;
+
+      if (callee_max_bb_cnt == 0)
+        {
+          gcov_type c = ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count;
+
+          FOR_EACH_BB_FN (bb, src_cfun)
+            if (bb->count > node->max_bb_count)
+              callee_max_bb_cnt = node->max_bb_count;
+
+          if (c > callee_max_bb_cnt)
+            callee_max_bb_cnt = c;
+
+          node->max_bb_count = callee_max_bb_cnt;
+        }
+
+      f_max = (double) max_value * REG_BR_PROB_BASE / callee_max_bb_cnt - 1;
+      if (f_max > max_value)
+        max_count_scale = max_value;
+      else
+        max_count_scale = f_max;
+
+      if (count_scale > max_count_scale)
+        {
+          if (flag_opt_info >= OPT_INFO_MED)
+            warning (0, "Reducing scaling factor to avoid counter overflow.");
+          count_scale = max_count_scale;
+        }
+    }
   else
     count_scale = REG_BR_PROB_BASE;
 
@@ -2221,7 +2262,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 	    incoming_frequency += EDGE_FREQUENCY (e);
 	    incoming_count += e->count;
 	  }
-      incoming_count = incoming_count * count_scale / REG_BR_PROB_BASE;
+      incoming_count = ((double) incoming_count) * count_scale / REG_BR_PROB_BASE;
       incoming_frequency
 	= incoming_frequency * frequency_scale / REG_BR_PROB_BASE;
       ENTRY_BLOCK_PTR->count = incoming_count;

@@ -1,3 +1,8 @@
+2012-02-02   Rong Xu  <xur@google.com>
+
+	* tree-inline.c (copy_cfg_body): Curb the scaling factor to
+        avoid counter overflow.
+
 2012-02-02  Dmitry Vyukov  <dvyukov@google.com>
 
 	Backport ThreadSanitizer (tsan) instrumentation pass from google/main.
