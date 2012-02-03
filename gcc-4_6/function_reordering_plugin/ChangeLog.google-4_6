@@ -1,3 +1,9 @@
+2012-02-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* callgraph.c (parse_callgraph_section_contents): Remove increment
+	to num_real_nodes.
+	(set_node_type): Increment num_real_nodes.
+
 2011-09-27  Sriraman Tallam  <tmsriram@google.com>	
 
 	* config.h.in: New file.

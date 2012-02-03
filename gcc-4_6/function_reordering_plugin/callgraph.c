@@ -304,7 +304,6 @@ parse_callgraph_section_contents (unsigned char *section_contents,
   caller = caller + HEADER_LEN;
   curr_length = read_length;
   caller_node = get_function_node (caller);
-  num_real_nodes++;
 
   while (curr_length < length)
     {
@@ -422,7 +421,10 @@ static void set_node_type (Node *n)
   char *name = n->name;
   slot = htab_find_with_hash (section_map, name, htab_hash_string (name));
   if (slot != NULL)
-    set_as_real_node (n);
+    {
+      set_as_real_node (n);
+      num_real_nodes++;
+    }
 }
 
 void
