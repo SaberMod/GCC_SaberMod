@@ -1,3 +1,9 @@
+2012-02-10  Wei Guozhi  <carrot@google.com>
+	Backported r183933 from mainline
+	2012-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/execute/pr52129.c: New test.
+
 2011-12-19  Han Shen  <shenhan@google.com>
 	Add test case for "-fstack-protector-strong".
 	* gcc.dg/fstack-protector-strong.c: Test case for gcc.
