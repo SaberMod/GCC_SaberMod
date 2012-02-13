@@ -1,5 +1,10 @@
 2012-02-13   Xinliang David Li  <davidxl@google.com>
 
+	* Backport r184175 from google/main: Implement
+	new option fripa-inc-path-sub=
+
+2012-02-13   Xinliang David Li  <davidxl@google.com>
+
 	* tree-optimize.c (execute_fixup_cfg): Using double type in
 	scaling to avoid count overflow during out-of-line copy
 	fixup.
