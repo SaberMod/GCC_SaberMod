@@ -2451,9 +2451,9 @@ enum arm_builtins
   ARM_BUILTIN_MAX = ARM_BUILTIN_NEON_BASE  /* FIXME: Wrong!  */
 };
 
-/* Do not emit .note.GNU-stack by default.  */
+/* Do emit .note.GNU-stack by default.  */
 #ifndef NEED_INDICATE_EXEC_STACK
-#define NEED_INDICATE_EXEC_STACK	0
+#define NEED_INDICATE_EXEC_STACK	1
 #endif
 
 /* The maximum number of parallel loads or stores we support in an ldm/stm
