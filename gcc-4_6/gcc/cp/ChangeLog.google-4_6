@@ -1,3 +1,12 @@
+2012-02-19  Jeffrey Yasskin <jyasskin@google.com>
+        Backport r183223 from gcc-4_6-branch to fix a segfault in C++11
+	mode.
+	
+	2012-01-16  Jason Merrill  <jason@redhat.com>
+
+		PR c++/51868
+		* typeck.c (build_static_cast_1): Handle bit-fields properly.
+
 2011-12-19  Sterling Augustine <saugustine@google.com>
 
 	Backport from google/main

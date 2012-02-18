@@ -1,3 +1,13 @@
+2012-02-19  Jeffrey Yasskin <jyasskin@google.com>
+        Backport r183223 from gcc-4_6-branch to fix a segfault in C++11
+	mode.
+	
+        2012-01-16  Jason Merrill  <jason@redhat.com>
+
+                PR c++/51868
+                * g++.dg/cpp0x/rv-bitfield.C: New.
+                * g++.dg/cpp0x/rv-bitfield2.C: New.
+
 2012-02-01  Easwaran Raman  <eraman@google.com>
 
 	* tree-prof/switch-case-1.c: New test.
