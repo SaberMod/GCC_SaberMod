@@ -2197,12 +2197,20 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   int incoming_frequency = 0;
   gcov_type incoming_count = 0;
 
+  /* Must have a CFG here at this point.  */
+  gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION
+	      (DECL_STRUCT_FUNCTION (callee_fndecl)));
+
+  cfun_to_copy = id->src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
+
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     {
+      /* This piece of code is to make sure that count_scale
+         will not make the counters overflow.  */
       struct cgraph_node *node = cgraph_node (callee_fndecl);
       double f_max;
       gcov_type max_count_scale;
-      gcov_type callee_max_bb_cnt;
+      gcov_type max_src_bb_cnt, c;
       gcov_type max_value = ((gcov_type) 1 << ((sizeof(gcov_type) * 8) - 1));
       max_value = ~max_value;
       count_scale = (REG_BR_PROB_BASE * (double)count
@@ -2212,29 +2220,37 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
          This can happen for comdat functions where the counters are split.
          It's more likely for recursive inlines.  */
       gcc_assert (node);
-      callee_max_bb_cnt = node->max_bb_count;
+      max_src_bb_cnt = node->max_bb_count;
 
-      if (callee_max_bb_cnt == 0)
-        {
-          gcov_type c = ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count;
+      c = ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count;
 
-          FOR_EACH_BB_FN (bb, src_cfun)
+      /* Find the maximum count value to that will be copied.  */
+      FOR_EACH_BB_FN (bb, cfun_to_copy)
+        if (!blocks_to_copy || bitmap_bit_p (blocks_to_copy, bb->index))
+          {
             if (bb->count > node->max_bb_count)
-              callee_max_bb_cnt = node->max_bb_count;
+              max_src_bb_cnt = node->max_bb_count;
+          }
 
-          if (c > callee_max_bb_cnt)
-            callee_max_bb_cnt = c;
-
-          node->max_bb_count = callee_max_bb_cnt;
-        }
-
-      f_max = (double) max_value * REG_BR_PROB_BASE / callee_max_bb_cnt - 1;
-      if (f_max > max_value)
+      f_max = (double) max_value * REG_BR_PROB_BASE / max_src_bb_cnt - 1;
+      /* It's important to have ">=" rather ">" here.
+         In the following comparison, f_max and max_value may have the same
+         floating point value and they can be promoted to (rounding up)
+         a double that long long cannot hold (converting it back to long long
+         is undefined per C99 -- for example, the value can become negative).
+         It's important to have this case fall to if branch.
+         For the else branch, f_max's value should always be
+         representable by a positive long long.  */
+      if (f_max >= max_value)
         max_count_scale = max_value;
       else
         max_count_scale = f_max;
 
-      if (count_scale > max_count_scale)
+      /* Just to be safe.  */
+      if (max_count_scale < 0)
+        max_count_scale = max_value;
+
+      if (count_scale < 0 || count_scale > max_count_scale)
         {
           if (flag_opt_info >= OPT_INFO_MED)
             warning (0, "Reducing scaling factor to avoid counter overflow.");
@@ -2268,12 +2284,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
       ENTRY_BLOCK_PTR->count = incoming_count;
       ENTRY_BLOCK_PTR->frequency = incoming_frequency;
     }
-
-  /* Must have a CFG here at this point.  */
-  gcc_assert (ENTRY_BLOCK_PTR_FOR_FUNCTION
-	      (DECL_STRUCT_FUNCTION (callee_fndecl)));
-
-  cfun_to_copy = id->src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
 
   ENTRY_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy)->aux = entry_block_map;
   EXIT_BLOCK_PTR_FOR_FUNCTION (cfun_to_copy)->aux = exit_block_map;

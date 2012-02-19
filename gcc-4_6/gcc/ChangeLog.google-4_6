@@ -1,3 +1,9 @@
+2012-02-18   Rong Xu  <xur@google.com>
+
+	* gcc/tree-inline.c (copy_cfg_body): (1) Avoiding overflow when
+        converting double to long long. (2) only including the count
+        for those basic blocks that will be copied.
+
 2012-02-17   Jing Yu  <jingyu@google.com>
 
 	Google Ref 47894
