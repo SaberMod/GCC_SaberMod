@@ -1,3 +1,8 @@
+2012-02-19  Ollie Wild  <aaw@google.com>
+
+	* initfini-array.h: Moved to config/initfini-array.h.
+	* config/initfini-array.h: New.
+
 2012-02-18   Rong Xu  <xur@google.com>
 
 	* gcc/tree-inline.c (copy_cfg_body): (1) Avoiding overflow when
