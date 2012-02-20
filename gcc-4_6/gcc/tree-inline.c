@@ -2210,7 +2210,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
       struct cgraph_node *node = cgraph_node (callee_fndecl);
       double f_max;
       gcov_type max_count_scale;
-      gcov_type max_src_bb_cnt, c;
+      gcov_type max_src_bb_cnt;
       gcov_type max_value = ((gcov_type) 1 << ((sizeof(gcov_type) * 8) - 1));
       max_value = ~max_value;
       count_scale = (REG_BR_PROB_BASE * (double)count
@@ -2221,8 +2221,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
          It's more likely for recursive inlines.  */
       gcc_assert (node);
       max_src_bb_cnt = node->max_bb_count;
-
-      c = ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count;
 
       /* Find the maximum count value to that will be copied.  */
       FOR_EACH_BB_FN (bb, cfun_to_copy)

@@ -1,3 +1,8 @@
+2012-02-20   Rong Xu  <xur@google.com>
+
+	* tree-inline.c (copy_cfg_body): fix unused variable warning.
+	* testsuite/gcc.dg/tree-prof/scaling_overflow.c: New test.
+
 2012-02-19  Ollie Wild  <aaw@google.com>
 
 	* initfini-array.h: Moved to config/initfini-array.h.
