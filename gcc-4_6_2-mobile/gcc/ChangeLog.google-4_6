@@ -1,3 +1,8 @@
+2012-02-19  Ollie Wild  <aaw@google.com>
+
+	* initfini-array.h: Moved to config/initfini-array.h.
+	* config/initfini-array.h: New.
+
 2012-02-17   Jing Yu  <jingyu@google.com>
 	Google Ref 47894
 
