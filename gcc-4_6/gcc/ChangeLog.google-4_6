@@ -1,3 +1,17 @@
+2012-02-21   Jing Yu  <jingyu@google.com>
+
+	Revert r184369 and r184386
+	* config.gcc (tm_file): Remove initfini-array.h
+	* crtstuff.c: Restore generation of .ctors and .dtors
+	* output.h (default_elf_init_array_asm_out_constructor): Delete
+	(default_elf_fini_array_asm_out_destructor): Likewise.
+	* varasm.c (elf_init_array_section): Likewise.
+	(elf_fini_array_section): Likewise.
+	(get_elf_initfini_array_priority_section): Likewise.
+	(default_elf_init_array_asm_out_constructor): Likewise.
+	(default_elf_fini_array_asm_out_destructor): Likewise.
+	* config/initfini-array.h: Delete
+
 2012-02-20   Rong Xu  <xur@google.com>
 
 	* tree-inline.c (copy_cfg_body): fix unused variable warning.
