@@ -1408,6 +1408,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
     }
+  NEXT_PASS (pass_vtable_verify);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_cleanup_eh);
   NEXT_PASS (pass_lower_resx);

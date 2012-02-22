@@ -8768,6 +8768,96 @@ ix86_setup_frame_addresses (void)
 
 static int pic_labels_used;
 
+/* Emit weak version of __VerifyVtablePointer */
+
+static void
+ix86_vtable_security_code_end (void)
+{
+  rtx xops[2];
+  int regno;
+
+  char name[23] = "__VerifyVtablePointer";
+  tree decl;
+  tree ptr_void = build_pointer_type (void_type_node);
+  tree param_types = build_tree_list (NULL, ptr_void);
+  tree second_arg = build_tree_list (NULL, ptr_void);
+  param_types = chainon (param_types, second_arg);
+
+  decl = build_decl (BUILTINS_LOCATION, FUNCTION_DECL,
+                     get_identifier (name),
+                     build_function_type (ptr_void, param_types));
+  DECL_RESULT (decl) = build_decl (BUILTINS_LOCATION, RESULT_DECL,
+                                   NULL_TREE, ptr_void);
+  TREE_PUBLIC (decl) = 1;
+  TREE_STATIC (decl) = 1;
+
+#if TARGET_MACHO
+  if (TARGET_MACHO)
+  {
+    switch_to_section (darwin_sections[text_coal_section]);
+    fputs ("\t.weak_definition\t", asm_out_file);
+    assemble_name (asm_out_file, name);
+    fputs ("\n\t.private_extern\t", asm_out_file);
+    assemble_name (asm_out_file, name);
+    putc ('\n', asm_out_file);
+    ASM_OUTPUT_LABEL (asm_out_file, name);
+    DECL_WEAK (decl) = 1;
+  }
+  else
+#endif
+    if (USE_HIDDEN_LINKONCE)
+    {
+      DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+
+      targetm.asm_out.unique_section (decl, 0);
+      switch_to_section (get_named_section (decl, NULL, 0));
+
+	  targetm.asm_out.globalize_label (asm_out_file, name);
+	  fputs ("\t.hidden\t", asm_out_file);
+	  assemble_name (asm_out_file, name);
+	  putc ('\n', asm_out_file);
+	  ASM_DECLARE_FUNCTION_NAME (asm_out_file, name, decl);
+	}
+      else
+	{
+	  switch_to_section (text_section);
+	  ASM_OUTPUT_LABEL (asm_out_file, name);
+	}
+
+  DECL_INITIAL (decl) = make_node (BLOCK);
+  current_function_decl = decl;
+  init_function_start (decl);
+  first_function_block_is_cold = false;
+  /* Make sure unwind info is emitted for the thunk if needed.  */
+  final_start_function (emit_barrier (), asm_out_file, 1);
+
+  /* Pad stack IP move with 4 instructions (two NOPs count
+     as one instruction).  */
+  if (TARGET_PAD_SHORT_FUNCTION)
+  {
+    int i = 8;
+
+    while (i--)
+      fputs ("\tnop\n", asm_out_file);
+  }
+
+  xops[0] = gen_rtx_REG (Pmode, regno);
+  xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
+  fputs ("\tpushl\t%ebp\n", asm_out_file);
+  fputs ("\tmovl\t%esp, %ebp\n", asm_out_file);
+  fputs ("\tmovl\t12(%ebp), %eax\n", asm_out_file);
+  fputs ("\tpopl\t%ebp\n", asm_out_file);
+  fputs ("\tret\n", asm_out_file);
+  final_end_function ();
+  init_insn_lengths ();
+  free_after_compilation (cfun);
+  set_cfun (NULL);
+  current_function_decl = NULL;
+
+  if (flag_split_stack)
+    file_end_indicate_split_stack ();
+}
+
 /* Fills in the label name that should be used for a pc thunk for
    the given register.  */
 
@@ -8791,6 +8881,9 @@ ix86_code_end (void)
 {
   rtx xops[2];
   int regno;
+
+  if (flag_vtable_verify)
+    ix86_vtable_security_code_end ();
 
   for (regno = AX_REG; regno <= SP_REG; regno++)
     {

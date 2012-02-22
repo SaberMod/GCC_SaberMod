@@ -2253,6 +2253,10 @@ Enum(symbol_visibility) String(hidden) Value(VISIBILITY_HIDDEN)
 EnumValue
 Enum(symbol_visibility) String(protected) Value(VISIBILITY_PROTECTED)
 
+fvtable-verify
+Common Report Var(flag_vtable_verify)
+Validate vtable pointers before using them.
+
 fvpt
 Common Report Var(flag_value_profile_transformations) Optimization
 Use expression value profiles in optimizations
