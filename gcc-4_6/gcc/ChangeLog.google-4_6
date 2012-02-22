@@ -1,5 +1,53 @@
 2012-02-21   Jing Yu  <jingyu@google.com>
 
+	Google Ref 47894
+	Backport from mainline r177933, r175181, r177963, r178116, r183299.
+
+	2011-08-20  H.J. Lu  <hongjiu.lu@intel.com>
+	PR other/46770
+	* config.gcc (tm_file): Add initfini-array.h if
+	.init_arrary/.fini_array are supported.
+	* crtstuff.c: Don't generate .ctors nor .dtors sections if
+	USE_INITFINI_ARRAY is defined.
+	* output.h (default_elf_init_array_asm_out_constructor): New.
+	(default_elf_fini_array_asm_out_destructor): Likewise.
+	* varasm.c (elf_init_array_section): Likewise.
+	(elf_fini_array_section): Likewise.
+	(get_elf_initfini_array_priority_section): Likewise.
+	(default_elf_init_array_asm_out_constructor): Likewise.
+	(default_elf_fini_array_asm_out_destructor): Likewise.
+	* config/initfini-array.h: New.
+
+	2011-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+	PR other/49325
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): Properly check if
+	.init_array can be used with .ctors on targets.
+	* configure: Regenerated.
+
+	2011-08-22  H.J. Lu  <hongjiu.lu@intel.com>
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): Error if __ELF__ isn't
+	defined.
+	* configure: Regenerated.
+
+	2011-08-26  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+	PR target/50166
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): Check count in main.
+	* configure: Regenerate.
+
+	2012-01-19  Jakub Jelinek  <jakub@redhat.com>
+	PR bootstrap/50237
+	* config/initfini-array.h: Guard content of the header
+	with #ifdef HAVE_INITFINI_ARRAY.
+	* configure.ac: Move gcc_AC_INITFINI_ARRAY much later into the
+	file.
+	Add initfini-array.h to tm_file here.
+	* acinclude.m4 (gcc_AC_INITFINI_ARRAY): For non-ia64 do a
+	linker test.
+	* config.gcc: Don't add initfini-array.h to tm_file here.
+	* configure: Regenerated.
+
+2012-02-21   Jing Yu  <jingyu@google.com>
+
 	Revert r184369 and r184386
 	* config.gcc (tm_file): Remove initfini-array.h
 	* crtstuff.c: Restore generation of .ctors and .dtors
