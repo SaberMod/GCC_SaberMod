@@ -1,0 +1,11 @@
+2012-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gnu/gcj/convert/Convert.java (version): Update copyright notice
+	dates.
+	* gnu/gcj/tools/gcj_dbtool/Main.java (main): Likewise.
+
+Copyright (C) 2012 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
