@@ -43,10 +43,22 @@ along with this program; see the file COPYING3.  If not see
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
-#include <elf.h>
+#if  defined (__ELF__)
+  #include <elf.h>
+#endif
 #include "config.h"
 #include "plugin-api.h"
 #include "callgraph.h"
+
+/* #include <elf.h>   Not available on Darwin. 
+   Rather than dealing with cross-compilation includes, hard code the
+   values we need, as these will not change.  */
+#ifndef SHT_NULL
+ #define SHT_NULL 0
+#endif
+#ifndef SHT_PROGBITS
+ #define SHT_PROGBITS 1
+#endif
 
 enum ld_plugin_status claim_file_hook (const struct ld_plugin_input_file *file,
                                        int *claimed);

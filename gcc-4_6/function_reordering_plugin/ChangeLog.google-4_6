@@ -1,3 +1,8 @@
+2012-02-25  Sriraman Tallam  <tmsriram@google.com>
+
+	* function_reordering_plugin.c: Check for presence of elf.h.
+	Otherwise, redefine the elf macros used.	
+
 2012-02-02  Sriraman Tallam  <tmsriram@google.com>
 
 	* callgraph.c (parse_callgraph_section_contents): Remove increment
