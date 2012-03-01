@@ -1,3 +1,8 @@
+2012-03-01   Jing Yu  <jingyu@google.com>
+
+	Revert r184493 (init/fini backport patch set) because of
+	intermittent unit test failure.
+
 2012-02-21   Jing Yu  <jingyu@google.com>
 
 	Google Ref 47894
