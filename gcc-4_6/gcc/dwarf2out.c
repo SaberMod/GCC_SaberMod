@@ -10449,6 +10449,32 @@ copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
   return copy;
 }
 
+/* Like clone_tree, but additionally enter all the children into
+   the hash table decl_table.  */
+
+static dw_die_ref
+clone_tree_hash (dw_die_ref die, htab_t decl_table)
+{
+  dw_die_ref c;
+  dw_die_ref clone = clone_die (die);
+  struct decl_table_entry *entry;
+  void **slot = htab_find_slot_with_hash (decl_table, die,
+					  htab_hash_pointer (die), INSERT);
+  /* Assert that DIE isn't in the hash table yet.  If it would be there
+     before, the ancestors would be necessarily there as well, therefore
+     clone_tree_hash wouldn't be called.  */
+  gcc_assert (*slot == HTAB_EMPTY_ENTRY);
+  entry = XCNEW (struct decl_table_entry);
+  entry->orig = die;
+  entry->copy = clone;
+  *slot = entry;
+
+  FOR_EACH_CHILD (die, c,
+		  add_child_die (clone, clone_tree_hash (c, decl_table)));
+
+  return clone;
+}
+
 /* Walk the DIE and its children, looking for references to incomplete
    or trivial types that are unmarked (i.e., that are not in the current
    type_unit).  */
@@ -10485,11 +10511,7 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
           else
             {
               dw_die_ref parent = unit;
-              dw_die_ref copy = clone_tree (targ);
-
-              /* Make sure the cloned tree is marked as part of the
-                 type unit.  */
-              mark_dies (copy);
+	      dw_die_ref copy = clone_die (targ);
 
               /* Record in DECL_TABLE that TARG has been copied.
                  Need to do this now, before the recursive call,
@@ -10499,6 +10521,14 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
               entry->orig = targ;
               entry->copy = copy;
               *slot = entry;
+
+	      FOR_EACH_CHILD (targ, c,
+			      add_child_die (copy,
+					     clone_tree_hash (c, decl_table)));
+
+              /* Make sure the cloned tree is marked as part of the
+                 type unit.  */
+              mark_dies (copy);
 
               /* If TARG has surrounding context, copy its ancestor tree
                  into the new type unit.  */
@@ -11203,6 +11233,13 @@ output_loc_list (dw_loc_list_ref list_head)
       /* Don't output an entry that starts and ends at the same address.  */
       if (strcmp (curr->begin, curr->end) == 0)
 	continue;
+      size = size_of_locs (curr->expr);
+      /* If the expression is too large, drop it on the floor.  We could
+	 perhaps put it into DW_TAG_dwarf_procedure and refer to that
+	 in the expression, but >= 64KB expressions for a single value
+	 in a single range are unlikely very useful.  */
+      if (size > 0xffff)
+	continue;
       if (!have_multiple_function_sections)
 	{
 	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, curr->begin, curr->section,
@@ -11221,7 +11258,6 @@ output_loc_list (dw_loc_list_ref list_head)
 			       "Location list end address (%s)",
 			       list_head->ll_symbol);
 	}
-      size = size_of_locs (curr->expr);
 
       /* Output the block length for this list of location operations.  */
       gcc_assert (size <= 0xffff);

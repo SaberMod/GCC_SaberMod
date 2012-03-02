@@ -1,3 +1,17 @@
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-01-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/46192
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <object>: In the case of a
+	renaming, preserve the volatileness through the indirection, if any.
+
+2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (addressable_p) <COMPONENT_REF>: Fix thinko.
+
 2012-01-02  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnatvsn.ads (Current_Year): Bump to 2011.

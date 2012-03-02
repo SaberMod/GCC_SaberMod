@@ -1,3 +1,434 @@
+2012-03-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.6.4.
+	* DEV-PHASE: Set to prerelease.
+
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-02-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Revert:
+	2012-02-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-11-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/51118
+	* fold-const.c (fold_checksum_tree): Check for TS_TYPED structure
+	before using TREE_TYPE accessor on expr.
+
+2012-02-23  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from trunk
+	2012-02-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/52286
+	* fold-const.c (fold_binary_loc): For (X & C1) | C2
+	optimization use double_int_to_tree instead of build_int_cst_wide,
+	rewrite to use double_int vars.
+
+2012-02-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR c/52290
+	* c-decl.c (start_function): Exit early if decl1 is not FUNTION_DECL.
+
+2012-02-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/52330
+	* config/i386/i386.c (ix86_print_operand) <case 'H'>: Error out if x
+	is not offsettable memory reference.
+
+2012-02-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/52294
+	* thumb2.md (thumb2_shiftsi3_short): Split register and
+	immediate shifts.  For register shifts tie operands 0 and 1.
+	(peephole2 for above): Check that register-controlled shifts
+	have suitably tied operands.
+
+2012-02-21  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("fixuns_trunc<mode>si2"): Replace
+	TARGET_HARD_FLOAT with TARGET_HARD_DFP.
+
+2012-02-20  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/52238
+	* stor-layout.c (place_field): Handle desired_align for
+	ms-bitfields, too.
+
+2012-02-20  Kai Tietz  <ktietz@redhat.com>
+
+	PR libstdc++/52300
+	* gthr.h (GTHREAD_USE_WEAK): Define as zero for mingw.
+
+2012-02-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/52260
+	* dwarf2out.c (copy_decls_walk): Fill in *slot before traversing
+	children with clone_tree_hash, not after it.
+
+2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/52199
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Use
+	force_reg instead of copy_to_reg for better optimization.  Force
+	non-register or memory operands into a register.
+
+2012-02-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46886
+	* tree-flow.h (do_while_loop_p): Declare.
+	* tree-ssa-loop-ch.c (do_while_loop_p): Export.
+	* tree-parloops.c (parallelize_loops): Only parallelize do-while
+	loops.
+
+2012-02-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/51921
+	PR target/52205
+	* config/sparc/sol2-unwind.h (sparc64_is_sighandler): Add support for
+	Solaris 11 and slightly reformat.
+	(sparc_is_sighandler): Likewise.
+
+2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51950
+	* dwarf2out.c (clone_tree_hash): New function.
+	(copy_decls_walk): Use it instead of clone_tree.
+
+	PR c/52181
+	* c-decl.c (merge_decls): Copy DECL_USER_ALIGN bit from olddecl to
+	newdecl.
+
+	2012-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* cselib.c (dump_cselib_val): Don't assume l->setting_insn is
+	non-NULL.
+
+	PR middle-end/52230
+	* omp-low.c (expand_omp_for): If a static schedule without
+	chunk size has NULL region->cont, force fd.chunk_size to be
+	integer_zero_node.
+
+	PR bootstrap/51969
+	Backported from mainline
+	2011-11-08  Michael Matz  <matz@suse.de>
+
+	* gengtype.c (write_field_root): Avoid out-of-scope access of newv.
+
+2012-02-14  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from mainline.
+	2011-06-08  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (arm_libcall_uses_aapcs_base): Use correct ABI
+	for double-precision helper functions in hard-float mode if only
+	single-precision arithmetic is supported in hardware.
+
+2012-02-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	* compare-elim.c (find_comparisons_in_bb): Eliminate only compares
+	having the same mode as previous compare.
+
+2012-02-09  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	Backported from mainline
+	2011-06-27  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/49536
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size):
+	For non-scalar inner types use a scalar type according to
+	the scalar inner mode.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52139
+	* cfgrtl.c (cfg_layout_merge_blocks): If BB_END
+	is a BARRIER after emit_insn_after_noloc, move BB_END
+	to the last non-BARRIER insn before it.
+
+	2012-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/52060
+	* combine.c (try_combine): Add i0src_copy and i0src_copy2 variables,
+	copy i1src to i1src_copy whenever added_sets_2 && i1_feeds_i2_n already
+	before i1dest -> i1src substitution in newpat, copy i0src to i0src_copy
+	and/or i0src_copy2 when needed.
+
+	PR middle-end/52074
+	* expr.c (expand_expr_addr_expr_1): For CONSTANT_CLASS_P or CONST_DECL
+	if modifier < EXPAND_SUM call force_operand on the result.
+
+	2012-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52129
+	* calls.c (mem_overlaps_already_clobbered_arg_p): If val is
+	CONST_INT_P, subtract resp. add crtl->args.pretend_args_size to it.
+
+	2012-02-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/48071
+	* diagnostic.c (diagnostic_finish): Remove trailing newlines.
+
+	2012-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/52006
+	* config/arm/arm.md (pic_add_dot_plus_eight peephole2): Use
+	arm_general_register_operand predicate for operand 2 instead of
+	register_operand.
+
+	2012-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libmudflap/40778
+	* tree-mudflap.c (mf_artificial): New function.
+	(execute_mudflap_function_ops, execute_mudflap_function_decls,
+	mx_register_decls, mudflap_enqueue_decl): Use it.
+
+	2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/51767
+	* cfgrtl.c (force_nonfallthru_and_redirect): Force addition
+	of jump_block and add an extra edge for degenerated asm gotos.
+
+	PR middle-end/51768
+	* stmt.c (check_unique_operand_names): Don't ICE during error
+	reporting if i is from labels chain.
+
+	PR middle-end/44777
+	* profile.c (branch_prob): Split bbs that have exit edge
+	and need a fake entry edge too.
+
+	2012-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51695
+	* dwarf2out.c (output_loc_list): For now drop >= 64KB expressions
+	in .debug_loc on the floor.
+
+	2011-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/51360
+	* c-parser.c (c_parser_omp_clause_num_threads,
+	c_parser_omp_clause_schedule): Call mark_exp_read.
+
+	PR debug/51517
+	* tree-ssa-coalesce.c (coalesce_ssa_name): For !optimize, test
+	!DECL_IGNORED_P instead of !DECL_ARTIFICIAL.
+
+2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2012-02-09  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR middle-end/52140
+	* dojump.c (do_compare_rtx_and_jump): Use SCALAR_FLOAT_MODE_P.
+
+2012-02-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-01-20  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR target/51106
+	* function.c (instantiate_virtual_regs_in_insn): Use
+	delete_insn_and_edges when removing a wrong asm insn.
+
+2012-02-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/51994
+	* expr.c (get_inner_reference): If there is an offset, add a negative
+	bit position to it (if any).
+
+2012-02-07  Kai Tietz  <ktietz@redhat.com>
+	    Dave Korn  <dave.korn.cygwin@gmail.com>
+
+	PR target/40068
+	* config/i386/winnt-cxx.c (i386_pe_adjust_class_at_definition):
+	Take care that typinfo gets dllexport-attribute.
+
+2012-02-07  Alan Modra  <amodra@gmail.com>
+
+	PR target/52107
+	* config/rs6000/rs6000.c (rs6000_emit_move): Don't create DImode
+	subregs of TFmode.
+
+2012-02-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2011-11-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR tree-optimization/51118
+	* fold-const.c (fold_checksum_tree): Check for TS_TYPED structure
+	before using TREE_TYPE accessor on expr.
+
+2012-01-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline r183796
+	PR rtl-optimization/51374
+	* combine.c (can_combine_p): Don't allow volatile_refs_p insns
+	to cross other volatile_refs_p insns.
+
+2012-01-31  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	Backport from mainline.
+	2011-01-31  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	config/arm/thumb2.md (thumb2_mov_notscc): Use MVN for true
+	condition.
+
+2012-01-31  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("*ashr<mode>3_and"): Add missing z196 flag
+	to srak instruction.
+
+2012-01-30  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport from mainline.
+	2012-01-30  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/51835
+	* config/arm/arm.c (arm_libcall_uses_aapcs_base): Use correct ABI
+	for __aeabi_d2iz/__aeabi_d2uiz with hard-float.
+
+2012-01-30  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline.
+	2012-01-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	PR target/50313
+	* config/arm/arm.c (arm_load_pic_register): Use
+	gen_pic_load_addr_unified. Delete calls to gen_pic_load_addr_32bit
+	, gen_pic_add_dot_plus_eight and gen_pic_add_dot_plus_four.
+	(arm_pic_static_addr): Likewise.
+	(arm_rtx_costs_1): Adjust cost for UNSPEC_PIC_UNIFIED.
+	(arm_note_pic_base): Handle UNSPEC_PIC_UNIFIED.
+	* config/arm/arm.md (UNSPEC_PIC_UNIFIED): Define.
+	(pic_load_addr_unified): New.
+
+2012-01-25  Richard Guenther  <rguenther@suse.de>
+
+	* tree-ssa-sccvn.c (vn_reference_eq): Also compare if both
+	bases are dereferenced.
+
+2012-01-24  Richard Guenther  <rguenther@suse.de>
+
+	Forward-port to branch
+	2010-09-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/45678
+	* expr.c (expand_expr_real_1) <case VIEW_CONVERT_EXPR>: If
+	op0 isn't sufficiently aligned and there is movmisalignM
+	insn for mode, use it to load op0 into a temporary register.
+
+2012-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgrtl.c (rtl_dump_bb): Do not dump insns for {ENTRY|EXIT}_BLOCK.
+
+2012-01-19  Quentin Neill  <quentin.neill@amd.com>
+
+	PR target/48743
+	* config/i386/driver-i386.c (host_detect_local_cpu): Also check
+	family to distinguish PROCESSOR_ATHLON.
+
+2012-01-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/49642
+	* ipa-split.c (forbidden_dominators): New variable.
+	(check_forbidden_calls): New function.
+	(dominated_by_forbidden): Likewise.
+	(consider_split): Check for forbidden dominators.
+	(execute_split_functions): Initialize and free forbidden
+	dominators info; call check_forbidden_calls.
+
+2012-01-18  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.md (call_value_indirect_aix32): Fix typo
+	in mode of operand[4].
+
+2012-01-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/51821
+	* recog.c (peep2_find_free_register): Determine clobbered registers
+	from insn pattern.
+
+2012-01-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from mainline r183129
+	PR target/51756
+	* config/avr/avr.c (avr_encode_section_info): Test for absence of
+	DECL_EXTERNAL when checking for initializers of progmem variables.
+
+22012-01-12  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	Backport from mainline
+	2012-01-11  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	* config/arm/arm.md (mov_notscc): Use MVN for false condition.
+
+2012-01-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*zero_extendsidi2_rex64): Correct movl template.
+	(x86_shift<mode>_adj_1): Remove operand constraint from operand 3.
+
+2012-01-10  Joseph Myers  <joseph@codesourcery.com>
+
+	Revert:
+
+	2008-09-18  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR rtl-opt/37451
+	* loop-doloop.c (doloop_modify): New argument zero_extend_p and
+	zero extend count after the correction to it is done.
+	(doloop_optimize): Update call to doloop_modify, don't zero extend
+	count before call.
+
+	2008-11-03  Andrew Pinski  <andrew_pinski@playstation.sony.com>
+
+	PR rtl-opt/37782
+	* loop-doloop.c (doloop_modify): Add from_mode argument that says what
+	mode count is in.
+	(doloop_optimize): Update call to doloop_modify.
+
+2012-01-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md (loadgp_newabi_<mode>): Add missing earlyclobber.
+
+2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sol2-unwind.h (sparc64_is_sighandler): Check that the
+	purported sigacthandler address isn't null before dereferencing it.
+	(sparc_is_sighandler): Likewise.
+
+2012-01-09  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline
+	2011-11-04  Jiangning Liu  <jiangning.liu@arm.com>
+
+	PR rtl-optimization/38644
+	* config/arm/arm.c (thumb1_expand_epilogue): Add memory barrier
+	for epilogue having stack adjustment.
+
+2012-01-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/41929
+	* config/sparc/sol2-unwind.h (sparc64_is_sighandler): Remove SAVPC and
+	add CFA.  Revert back to old code for Solaris 8+ multi-threaded.
+	(sparc_is_sighandler): Likewise.
+	(MD_FALLBACK_FRAME_STATE_FOR): Adjust call to IS_SIGHANDLER.
+
 2012-01-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	Backport from mainline
@@ -33,8 +464,7 @@
 	PR tree-optimization/49651
 	* tree-ssa-structalias.c (type_can_have_subvars): New function.
 	(var_can_have_subvars): Use it.
-	(get_constraint_for_1): Only consider subfields if there
-	can be any.
+	(get_constraint_for_1): Only consider subfields if there can be any.
 
 2012-01-03  Sandra Loosemore  <sandra@codesourcery.com>
 
@@ -75,8 +505,7 @@
 
 	PR target/51623
 	* config/rs6000/rs6000.c (rs6000_assemble_integer): Don't call
-	unlikely_text_section_p.  Instead check for being in a code
-	section.
+	unlikely_text_section_p.  Instead check for being in a code section.
 
 2011-12-23  Richard Guenther  <rguenther@suse.de>
 
@@ -3297,7 +3726,8 @@
 	PR lto/47497
 	* lto-symtab.c (lto_cgraph_replace_node): Do not set thunk.alias.
 	(lto_symtab_merge_cgraph_nodes_1): Update thunk.alias pointers here.
-	* cgraph.h (cgraph_same_body_alias, cgraph_add_thunk): Add node pointers.
+	* cgraph.h (cgraph_same_body_alias, cgraph_add_thunk): Add node
+	pointers.
 	* cgraph.c (cgraph_same_body_alias_1, cgraph_same_body_alias,
 	cgraph_add_thunk): Add node pointers.
 	* lto-cgraph.c (lto_output_node): Verify that thunks&aliases are

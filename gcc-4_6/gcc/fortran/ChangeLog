@@ -1,3 +1,82 @@
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-02-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52386
+	* trans-expr.c (fcncall_realloc_result): Dereference the
+	descriptor if needed.
+
+2012-02-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52335
+	* io.c (gfc_match_open): Remove bogus F2003 DELIM= check.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2011-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/51517
+	* trans-decl.c (gfc_get_symbol_decl): Don't set DECL_INITAL on span.
+	(gfc_trans_deferred_vars): Instead add its runtime initialization
+	here.
+
+2012-02-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52151
+	* trans-expr.c (fcncall_realloc_result): Set also the stride.
+
+2012-02-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52093
+	* simplify.c (gfc_simplify_size): Handle INTRINSIC_PARENTHESES.
+
+2012-02-03  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52012
+	* trans-expr.c (fcncall_realloc_result): Correct calculation of
+	result offset. If variable shape is correct, retain the bounds,
+	whatever they are.
+
+2012-01-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/52022
+	* trans-expr.c (gfc_conv_procedure_call): Fix passing
+	of functions, which return allocatables.
+
+2012-01-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51966
+	* resolve.c (resolve_structure_cons): Only create an
+	array constructors for nonscalars.
+
+2012-01-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51948
+	* check.c (variable_check): Fix checking for
+	result variables and deeply nested BLOCKs.
+
+2012-01-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51913
+	* interface.c (compare_parameter): Fix CLASS comparison.
+
+2012-01-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51904
+	*expr.c (gfc_build_intrinsic_call): Also set the symtree.
+
+2012-01-14  Tobias Burnus  <burnus@net-b.de>
+
+	Backported from mainline
+	2012-01-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/51800
+	* resolve.c (build_default_init_expr): Also initialize
+	nonconstant-length strings with -finit-character=<n>.
+
 2012-01-01  Thomas König  <tkoenig@gcc.gnu.org>
 
 	Backport from trunk
