@@ -1,5 +1,14 @@
 2012-03-02   Doug Kwan  <dougkwan@google.com>
 
+	Backport r184357 from trunk
+
+	2012-02-17   Doug Kwan  <dougkwan@google.com>
+
+		* contrib/testsuite-management/validate_failures.py
+		(GetMakefileValue): Check for cross compilers.
+
+2012-03-02   Doug Kwan  <dougkwan@google.com>
+
 	Backport r184370 from integration branch.
 
 	2012-02-17   Doug Kwan  <dougkwan@google.com>
