@@ -1,3 +1,8 @@
+2012-03-08   Rong Xu  <xur@google.com>
+
+	* gcc/tree-inline.c (copy_cfg_body): fix the bug in r184378.
+	  Google ref b/6105259.
+
 2012-03-01   Jing Yu  <jingyu@google.com>
 
 	Revert r184493 (init/fini backport patch set) because of
