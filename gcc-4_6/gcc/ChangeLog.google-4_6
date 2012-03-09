@@ -1,3 +1,12 @@
+2012-03-09   Rong Xu  <xur@google.com>
+
+	Backport from rev 185150.
+
+	2012-03-09   Rong Xu  <xur@google.com>
+
+		* opts-global.c (lipo_save_cl_args): save -std option.
+		Google ref b/6117980.
+
 2012-03-08   Rong Xu  <xur@google.com>
 
 	* gcc/tree-inline.c (copy_cfg_body): fix the bug in r184378.
