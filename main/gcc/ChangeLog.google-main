@@ -1,3 +1,8 @@
+2012-03-09   Rong Xu  <xur@google.com>
+
+	* opts-global.c (lipo_save_cl_args): save -std option.
+	Google ref b/6117980.
+
 2012-03-07  Sriraman Tallam  <tmsriram@google.com>
 
 	* config/i386/i386.c (build_struct_with_one_bit_fields): New function.
