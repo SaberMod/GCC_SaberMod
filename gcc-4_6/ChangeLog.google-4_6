@@ -1,5 +1,10 @@
 2012-03-12   Doug Kwan  <dougkwan@google.com>
 
+	* contrib/testsuite-management/arm-grtev2-linux-gnueabi.xfail:
+	New file.
+
+2012-03-12   Doug Kwan  <dougkwan@google.com>
+
 	* contrib/testsuite-management/powerpc64-grtev2-linux-gnu.xfail:
 	New file.
 
