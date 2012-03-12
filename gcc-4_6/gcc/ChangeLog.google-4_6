@@ -1,3 +1,69 @@
+2012-03-12  Sterling Augustine  <saugustine@google.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	* gcc.c (ASM_FINAL_SPEC): For -gfission, call objcopy.
+	(static_spec_functions): Add replace-extension.
+	(replace_extension_spec_func): New function.
+	* dwarf2out.c (debug_skeleton_info_section)
+	(debug_skeleton_abbrev_section, debug_ref_section, debug_addr_section)
+	(debug_skeleton_line_section, debug_str_offsets_section): New
+	variables.
+	(struct indirect_string_node): Add index field.
+	(DEBUG_DWO_INFO_SECTION, DEBUG_DWO_ABBREV_SECTION, DEBUG_REF_SECTION)
+	(DEBUG_ADDR_SECTION, DEBUG_DWO_LINE_SECTION)
+	(DEBUG_NORM_STR_OFFSETS_SECTION, DEBUG_DWO_STR_OFFSETS_SECTION)
+	(DEBUG_STR_OFFSETS_SECTION, DEBUG_DWO_STR_SECTION)
+	(DEBUG_NORM_STR_SECTION): New debug section macros.
+	(DEBUG_STR_SECTION): Change definition for -gfission.
+	(DEBUG_STR_SECTION_FLAGS): Don't set SECTION_MERGE for -gfission.
+	(DEBUG_SKELETON_LINE_SECTION_LABEL, DEBUG_SKELETON_INFO_SECTION_LABEL)
+	(DEBUG_SKELETON_ABBREV_SECTION_LABEL, DEBUG_REF_SECTION_LABEL)
+	(DEBUG_ADDR_SECTION_LABEL): New section label macros.
+	(SKELETON_COMP_DIE_ABBREV, SKELETON_TYPE_DIE_ABBREV): New macros.
+	(debug_skeleton_info_section_label, debug_skeleton_abbrev_section_label)
+	(debug_ref_section_label, debug_addr_section_label)
+	(debug_skeleton_line_section_label): New section label variables.
+	(dwarf_attr_name): Add new attribute names.
+	(dwarf_form_name): Add new form names.
+	(AT_index): New function.
+	(set_AT_index): New function.
+	(index_string_table): New variable.
+	(AT_string_form): Use DW_FORM_GNU_str_index for -gfission.
+	(add_addr_table_entry): New function.
+	(add_AT_addr): Record index for indirect references with -gfission.
+	(add_AT_lbl_id): Likewise.
+	(add_ref_table_entry): New function.
+	(add_AT_range_list): Use indirect reference for -gfission.
+	(break_out_comdat_types): Don't add DW_AT_GNU_pubnames/pubtypes
+	attributes here.
+	(size_of_die): Account for indirect forms with -gfission.
+	(value_format): Use indirect forms for -gfission.
+	(output_die_abbrevs): New function.
+	(output_abbrev_section): Refactor code into output_die_abbrevs.
+	(output_range_list_offset): New function.
+	(output_loc_list_offset): New function.
+	(output_attr_index_or_value): New function.
+	(output_die): Call output_attr_index_or_value to output possibly
+	indirect forms.  Output indirect strings for -gfission.
+	(add_AT_pubnames): New function.
+	(add_top_level_skeleton_die_attrs): New function.
+	(skeleton_type_unit): New variable.
+	(output_skeleton_debug_sections): New function.
+	(output_comdat_type_unit): Write to .debug_types.dwo for -gfission.
+	(output_pubnames): Add assembly label to beginning of section; use
+	label for skeleton info section with -gfission.
+	(output_aranges): Use label for skeleton info section with -gfission.
+	(output_line_info ): Add prologue_only parameter.
+	(dwarf2out_init): Create new sections for -gfission.
+	(output_index_strings): New function.
+	(output_ref_table): New function.
+	(output_addr_table): New function.
+	(index_location_lists): New function.
+	(dwarf2out_finish): For -gfission, write skeleton debug sections,
+	write pubnames tables unconditionally, and write indirect sections.
+	* opts.c (common_handle_option): Add OPT_gfission.
+	* common.opt: Add -gfission option.
+
 2012-03-09   Rong Xu  <xur@google.com>
 
 	Backport from rev 185150.
