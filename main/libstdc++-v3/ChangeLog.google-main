@@ -1,3 +1,8 @@
+2012-03-13   Easwaran Raman  <eraman@google.com>
+
+	* include/ext/new_allocator.h (deallocate): Call delete with size if
+	__GXX_DELETE_WITH_SIZE__ is defined.
+
 2011-12-17   Easwaran Raman  <eraman@google.com>
 
 	* libsupc++/del_op.cc (delete): Define a new variant

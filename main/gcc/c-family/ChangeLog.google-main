@@ -1,3 +1,8 @@
+2012-03-13   Easwaran Raman  <eraman@google.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __GXX_DELETE_WITH_SIZE__ for
+	C++ files compiled with -fsized-delete.
+
 2011-12-19  Sterling Augustine <saugustine@google.com>
 
 	* c-pretty-print.c (pp_c_specifier_qualifier_list): Move conditional
