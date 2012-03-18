@@ -1086,9 +1086,33 @@ foptimize-locality
 Common Report Var(flag_optimize_locality)
 Optimization based on improving memory reference locality.
 
+fripa-auxiliary_module_id=
+Common RejectNegative Joined UInteger RejectDriver Var(flag_ripa_aux_mod_id)
+-fripa-auxiliary_module_id=<number>  Specify auxiliary module id; used in fripa=streaming.
+
+; Nonzero if in streaming ripa mode
+;int flag_dyn_ipa = 0
+Variable
+int flag_ripa_stream = 0
+
+fripa-mgf-gen=
+Common Joined RejectNegative RejectDriver Var(ripa_mgf_gen_fname)
+Set the module group control file name.
+
+fripa-mgf-use=
+Common Driver Joined RejectNegative Var(ripa_mgf_use_fname)
+Use this file as the module group control file. This silently voids -fripa-mgf-gen.
+
+; Common Report Var(flag_dyn_ipa)
+; Common Report Var(flag_ripa_stream)
 fripa
 Common Report Var(flag_dyn_ipa)
 Perform Dynamic Inter-Procedural Analysis.
+
+; This will overwrite the fripa in the command line.
+fripa=
+Common Joined RejectNegative Var
+-fripa=[FE|streaming]  Set the mode for Dynamic Inter-Procedural Analysis.
 
 fripa-disallow-asm-modules
 Common Report Var(flag_ripa_disallow_asm_modules)
@@ -1214,6 +1238,10 @@ Allow function addresses to be held in registers
 ffunction-sections
 Common Report Var(flag_function_sections)
 Place each function into its own section
+
+fgcda=
+Common Joined RejectNegative Var(gcov_da_name)
+Set the gcov data file name.
 
 fgcse
 Common Report Var(flag_gcse) Optimization
@@ -1689,7 +1717,7 @@ Common Report Var(flag_profile_dump) Init(0) Optimization
 Dump CFG profile for comparison.
 
 fprofile-generate
-Common
+Common Var(flag_profile_generate)
 Enable common options for generating profile info for profile feedback directed optimizations
 
 fprofile-generate=

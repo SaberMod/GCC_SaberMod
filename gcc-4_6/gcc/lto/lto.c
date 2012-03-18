@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 
 static GTY(()) tree first_personality_decl;
 
+extern bool lto_done_symtab_merge;
+
 /* Returns a hash code for P.  */
 
 static hashval_t
@@ -2165,6 +2167,10 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 	  break;
 	}
 
+       /* Reading ripa module infomation.  */
+       if (flag_ripa_stream)
+         input_ripa_info (file_data);
+
       decl_data[last_file_ix++] = file_data;
 
       lto_obj_file_close (current_lto_file);
@@ -2230,7 +2236,9 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
       dump_cgraph (cgraph_dump_file);
       dump_varpool (cgraph_dump_file);
     }
+
   lto_symtab_merge_cgraph_nodes ();
+  lto_done_symtab_merge = true;
   ggc_collect ();
 
   if (flag_ltrans)
@@ -2245,7 +2253,6 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 			 node->ipa_transforms_to_apply,
 			 (ipa_opt_pass)&pass_ipa_inline);
       }
-  lto_symtab_free ();
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
@@ -2259,6 +2266,8 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 	struct lto_file_decl_data *file_data = all_file_decl_data [i];
 	lto_materialize_constructors_and_inits (file_data);
       }
+
+  lto_symtab_free ();
 
   /* Indicate that the cgraph is built and ready.  */
   cgraph_function_flags_ready = true;

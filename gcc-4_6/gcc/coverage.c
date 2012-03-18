@@ -375,9 +375,92 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
           || (with_fexceptions1 != with_fexceptions2));
 }
 
+/* Create a mgf file and write primary module info to it.  */
+
+static FILE *
+create_mgf_file (struct gcov_module_info* mod_info)
+{
+#define MODULE_GROUPING_FILE_SUFFIX ".mgf"
+  char mgf_name_buf[1024];
+  const char *mgf_name = mgf_name_buf;
+  FILE *mgf_fd;
+
+  if (ripa_mgf_gen_fname == NULL)
+    sprintf(mgf_name_buf, "%s%s", main_input_basename,
+            MODULE_GROUPING_FILE_SUFFIX);
+  else
+    mgf_name = (const char *) ripa_mgf_gen_fname;
+
+  if ((mgf_fd = fopen (mgf_name, "w")) == NULL)
+    {
+      warning (UNKNOWN_LOCATION, "error in opening %s, exiting",
+               mgf_name);
+      return NULL;
+    }
+  fprintf(mgf_fd, "P %d %s \n", mod_info->ident,
+          mod_info->source_filename);
+  return mgf_fd;
+}
+
+/* Write module grouping info to mgf file.  */
+
+static void 
+write_mgf_file (FILE *mgf_fd, struct gcov_module_info* mod_info)
+{
+  int i;
+  int i_pos;
+  int ignored_cl_args = 0;
+  
+  fprintf (mgf_fd, "#\nA %d %s\n",
+      mod_info->ident,
+      mod_info->source_filename);
+  
+  fprintf (mgf_fd, "G %s\n", mod_info->da_filename);
+  
+  i_pos = mod_info->num_quote_paths;
+  for(i=0;i < i_pos; i++)
+    fprintf (mgf_fd, "Q %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_bracket_paths;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "B %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cpp_includes;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "I %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cpp_defines;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "D %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cl_args;
+  for(;i < i_pos; i++)
+    {
+      char *str = mod_info->string_array[i];
+      if (!strcmp (str, "-fripa") ||
+          !strncmp (str, "-fprofile-generate", 18) ||
+          !strncmp (str, "-fprofile-arcs", 14))
+        {
+          ignored_cl_args++;
+          continue;
+        }
+      fprintf (mgf_fd, "C %s\n", str);
+    }
+  fprintf (mgf_fd, "Z %d %s, %d %d %d %d %d\n", mod_info->ident,
+        mod_info->source_filename,
+        mod_info->num_quote_paths,
+        mod_info->num_bracket_paths,
+        mod_info->num_cpp_defines,
+        mod_info->num_cpp_includes,
+        mod_info->num_cl_args - ignored_cl_args);
+  
+}
+
 /* Read in the counts file, if available. DA_FILE_NAME is the
    name of the gcda file, and MODULE_ID is the module id of the
-   associated source module.  */
+   associated source module.  
+   For FE based LIPO, MODULE_ID will always be 0 for primary
+   modules.  */
 
 static void
 read_counts_file (const char *da_file_name, unsigned module_id)
@@ -392,6 +475,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   unsigned max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
+  FILE *mgf_fd = NULL;
 
   if (max_group == 0)
     max_group = (unsigned) -1;
@@ -542,7 +626,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	}
       /* Skip the MODULE_INFO records if not in dyn-ipa mode, or when reading
 	 auxiliary modules.  */
-      else if (tag == GCOV_TAG_MODULE_INFO && flag_dyn_ipa && !module_id)
+      else if (tag == GCOV_TAG_MODULE_INFO && (flag_ripa_stream || flag_dyn_ipa)
+               && !module_id)
         {
 	  struct gcov_module_info* mod_info;
           size_t info_sz;
@@ -569,6 +654,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
               module_infos[0] = XCNEWVAR (struct gcov_module_info, info_sz);
               memcpy (module_infos[0], mod_info, info_sz);
+
+              if (L_IPO_STREAM_FE_COMP_MODE_PRIM && ripa_mgf_use_fname == NULL)
+                if (!(mgf_fd = create_mgf_file (mod_info)))
+                  {
+                    gcov_close ();
+                    return;
+                  }
 	    }
 	  else
             {
@@ -618,15 +710,24 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               else
 		{
 		  close (fd);
-		  module_infos_read++;
-		  add_input_filename (mod_info->source_filename);
-		  module_infos = XRESIZEVEC (struct gcov_module_info *,
-					     module_infos, num_in_fnames);
-		  gcc_assert (num_in_fnames == module_infos_read);
-		  module_infos[module_infos_read - 1]
-		    = XCNEWVAR (struct gcov_module_info, info_sz);
-		  memcpy (module_infos[module_infos_read - 1], mod_info,
-			  info_sz);
+                  if (L_IPO_STREAM_FE_COMP_MODE_PRIM && ripa_mgf_use_fname == NULL)
+                    {
+                      gcc_assert (mgf_fd);
+                      write_mgf_file (mgf_fd, mod_info);
+		      module_infos_read++;
+                    }
+                  else if (!L_IPO_STREAM_FE_COMP_MODE_PRIM)
+                    {
+		      module_infos_read++;
+		      add_input_filename (mod_info->source_filename);
+		      module_infos = XRESIZEVEC (struct gcov_module_info *,
+		            		         module_infos, num_in_fnames);
+		      gcc_assert (num_in_fnames == module_infos_read);
+		      module_infos[module_infos_read - 1]
+		        = XCNEWVAR (struct gcov_module_info, info_sz);
+		      memcpy (module_infos[module_infos_read - 1], mod_info,
+                              info_sz);
+                   }
 		}
             }
 
@@ -650,19 +751,32 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	}
     }
 
+  if (flag_ripa_aux_mod_id)
+    current_module_id = flag_ripa_aux_mod_id;
+  else
+    current_module_id = primary_module_id;
+
+  if (primary_module_id)
+    primary_module_exported = PRIMARY_MODULE_EXPORTED;
+
   /* TODO: profile based multiple module compilation does not work
      together with command line (-combine) based ipo -- add a nice
      warning and bail out instead of asserting.  */
 
   if (modset)
     pointer_set_destroy (modset);
-  gcc_assert (module_infos_read == 0
-              || module_infos_read == num_in_fnames);
+
+  if (!L_IPO_STREAM_FE_COMP_MODE)
+    gcc_assert (module_infos_read == 0
+                || module_infos_read == num_in_fnames);
 
   if (flag_dyn_ipa)
     gcc_assert (primary_module_id && num_in_fnames >= 1);
 
   gcov_close ();
+
+  if (mgf_fd)
+    fclose (mgf_fd);
 }
 
 /* Returns the coverage data entry for counter type COUNTER of function
@@ -1774,13 +1888,21 @@ create_coverage (void)
 /* Get the da file name, given base file name.  */
 
 static char *
-get_da_file_name (const char *base_file_name)
+get_da_file_name (const char *orig_base_file_name)
 {
+  const char *base_file_name;
   char *da_file_name;
-  int len = strlen (base_file_name);
+  int len;
   const char *prefix = profile_data_prefix;
   /* + 1 for extra '/', in case prefix doesn't end with /.  */
   int prefix_len;
+
+  if (gcov_da_name)
+    base_file_name = gcov_da_name;
+  else
+    base_file_name = orig_base_file_name;
+
+  len = strlen (base_file_name);
 
   if (prefix == 0 && base_file_name[0] != '/')
     prefix = getpwd ();
@@ -2023,7 +2145,7 @@ coverage_init (const char *filename, const char* source_name)
       src_name_prefix = getpwd ();
       src_name_prefix_len = strlen (src_name_prefix) + 1;
     }
-  main_input_file_name = XNEWVEC (char, strlen (source_name) + 1 
+  main_input_file_name = XNEWVEC (char, strlen (source_name) + 1
                                   + src_name_prefix_len);
   if (!src_name_prefix)
     strcpy (main_input_file_name, source_name);
@@ -2035,13 +2157,18 @@ coverage_init (const char *filename, const char* source_name)
     }
 
   if (flag_profile_use)
-    read_counts_file (da_file_name, 0);
+    {
+      unsigned mod_id = 0;
+      if (L_IPO_STREAM_FE_COMP_MODE_AUX)
+        mod_id = flag_ripa_aux_mod_id;
+      read_counts_file (da_file_name, mod_id);
+    }
 
   /* Rebuild counts_hash and read the auxiliary GCDA files.  */
-  if (flag_profile_use && L_IPO_COMP_MODE)
+  if (flag_profile_use && (L_IPO_COMP_MODE || L_IPO_STREAM_FE_COMP_MODE_PRIM))
     {
       unsigned i;
-      gcc_assert (flag_dyn_ipa);
+      gcc_assert (flag_dyn_ipa || flag_ripa_stream);
       rebuild_counts_hash ();
       for (i = 1; i < num_in_fnames; i++)
 	read_counts_file (get_da_file_name (module_infos[i]->da_filename),

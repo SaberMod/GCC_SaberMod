@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "plugin-api.h"
 #include "lto-streamer.h"
+#include "coverage.h"
 
 /* Vector to keep track of external variables we've seen so far.  */
 VEC(tree,gc) *lto_global_var_decls;
@@ -146,8 +147,13 @@ lto_symtab_register_decl (tree decl,
 	      && (TREE_CODE (decl) == VAR_DECL
 		  || TREE_CODE (decl) == FUNCTION_DECL)
 	      && DECL_ASSEMBLER_NAME_SET_P (decl));
+
+  /* In LIPO mode, we may externalize a decl while keeping it's 
+     initializer (for const propagation). 
+     Disable this check in streaming LIPO.  */
   if (TREE_CODE (decl) == VAR_DECL
-      && DECL_INITIAL (decl))
+      && DECL_INITIAL (decl)
+      && !flag_ripa_stream)
     gcc_assert (!DECL_EXTERNAL (decl)
 		|| (TREE_STATIC (decl) && TREE_READONLY (decl)));
   if (TREE_CODE (decl) == FUNCTION_DECL)
@@ -495,6 +501,23 @@ lto_symtab_resolve_can_prevail_p (lto_symtab_entry_t e)
   gcc_unreachable ();
 }
 
+/* Return the entry BB profile count if the function body for DECL
+   has profile information.  */
+
+static gcov_type
+Entry_BB_profile_count (tree decl)
+{
+  gcov_type *ctrs = NULL;
+  unsigned n;
+  struct function* f = DECL_STRUCT_FUNCTION (decl);
+
+  ctrs = get_coverage_counts_no_warn (f, GCOV_COUNTER_ARCS, &n);
+  if (ctrs) 
+    return ctrs[0];
+
+  return 0;
+}
+
 /* Resolve the symbol with the candidates in the chain *SLOT and store
    their resolutions.  */
 
@@ -503,6 +526,7 @@ lto_symtab_resolve_symbols (void **slot)
 {
   lto_symtab_entry_t e;
   lto_symtab_entry_t prevailing = NULL;
+  gcov_type p_cnt;
 
   /* Always set e->node so that edges are updated to reflect decl merging. */
   for (e = (lto_symtab_entry_t) *slot; e; e = e->next)
@@ -550,16 +574,29 @@ lto_symtab_resolve_symbols (void **slot)
     goto found;
 
   /* Do a second round choosing one from the replaceable prevailing decls.  */
+  p_cnt = 0;
   for (e = (lto_symtab_entry_t) *slot; e; e = e->next)
     {
       if (e->resolution != LDPR_PREEMPTED_IR)
 	continue;
 
       /* Choose the first function that can prevail as prevailing.  */
+      /* for comdat functions, we choose the one with larger profile count.  */
       if (TREE_CODE (e->decl) == FUNCTION_DECL)
 	{
-	  prevailing = e;
-	  break;
+          if (DECL_COMDAT (e->decl))
+            {
+              gcov_type cnt = Entry_BB_profile_count (e->decl);
+              if (!prevailing || cnt > p_cnt)
+                {
+                  p_cnt = cnt;
+                  prevailing = e;
+                }
+              continue;
+            }
+          
+	    prevailing = e;
+            break;
 	}
 
       /* From variables that can prevail choose the largest one.  */
@@ -695,8 +732,14 @@ lto_symtab_merge_decls_1 (void **slot, void *data ATTRIBUTE_UNUSED)
 	    if ((!prevailing->vnode && e->vnode)
 		|| ((prevailing->vnode != NULL) == (e->vnode != NULL)
 		    && !COMPLETE_TYPE_P (TREE_TYPE (prevailing->decl))
-		    && COMPLETE_TYPE_P (TREE_TYPE (e->decl))))
-	      prevailing = e;
+		    && COMPLETE_TYPE_P (TREE_TYPE (e->decl)))
+                /* Choose a node with analyzed bit set. Otherwise
+                   we are going to trigger the assert in line 314.  */
+		|| (prevailing->vnode != NULL && e->vnode != NULL
+                    && !prevailing->vnode->analyzed
+                    && e->vnode->analyzed)
+                )
+	        prevailing = e;
 	}
     }
 

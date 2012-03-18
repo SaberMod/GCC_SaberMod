@@ -35,6 +35,8 @@
 			     " -fsyntax-only};: " CPP_FORWARD_OPTIONS "}"
 #define F951_OPTIONS        "%(cc1_options) %{J*} \
 			     %{!nostdinc:-fintrinsic-modules-path finclude%s}\
+        %{fripa=streaming:%{fprofile-use*:%(ripa_pri_mod_invoke_as)\
+          %:ripa-build-aux-mod(f951 %U.mgf) %:ripa-gen-lto-cmd()}}\
 			     %{!fsyntax-only:%(invoke_as)}"
 #define F951_SOURCE_FORM    "%{!ffree-form:-ffixed-form}"
 

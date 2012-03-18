@@ -1,3 +1,95 @@
+2012-03-18   Rong Xu  <xur@google.com>
+
+        This patch implements LIPO profile-use compilation that
+        leverages LTO's IR streaming support. It supports C/C++
+        and Fortran. It is currently disabled by default and can
+        be turned on by -fripa=streaming option.
+
+	* doc/invoke.texi: Document new flags.
+        * lto-symtab.c (Entry_BB_profile_count): New function.
+        (coverage.h): New include.
+        (lto_symtab_register_decl): Support for streamed lipo.
+        (lto_symtab_resolve_symbols): Ditto.
+        (lto_symtab_merge_decls_1): Ditto.
+        * cgraph.c (cgraph_can_remove_if_no_direct_calls_and_refs_p): Ditto.
+        * gcc.c (RIPA_AUX_MOD_SPEC): New Define for streaming LIPO.
+        (ripa_aux_mod_spec): Ditto.
+        (ripa_lto_spec): Ditto.
+        (ripa_asm_options): Ditto.
+        (ripa_invoke_as): Ditto.
+        (ripa_pri_mod_invoke_as) Ditto.:
+        (processing_spec_function_ripa_aux_mode): Ditto.
+        (ripa_ir_files): Ditto.
+        (primary_module_id): Ditto.
+        (ripa_gen_lto_cmd_func): Ditto.
+        (ripa_build_aux_mod_func): Ditto.
+        (spec_list static_specs): Support for streaming LIPO.
+        (static_spec_functions): Ditto.
+        (execute): Ditto.
+        (create_at_file): Ditto.
+        (give_switch): Ditto.
+        (ripa_dump_cmd_line): New function.
+        * toplev.c (l-ipo.h): New include.
+        (lto_done_symtab_merge): New Define for streaming LIPO.
+        (primary_module_exported): Ditto.
+        (compile_file): Support for streaming LIPO.
+        (do_compile): Ditto.
+        (toplev_main): Ditto.
+        * cgraphunit.c: (cgraph_expand_function): Ditto.
+        (ipa_passes): Ditto.
+        (cgraph_optimize): Ditto.
+        * cp/lang-specs.h: Ditto.
+        * fortran/lang-specs.h: Ditto.
+        * lto-cgraph.c (lto_output_node): Ditto.
+        (lto_output_varpool_node): Ditto.
+        (input_node): Ditto.
+        (input_varpool_node): Ditto.
+        * lto-streamer-out.c (l-ipo.h): New include.
+        (lto_write_ripa_info): New function.
+        (output_function): Support for streaming LIPO.
+        (produce_asm_for_decls): Ditto.
+        * opts.c: (common_handle_option): Ditto.
+        * lto-streamer-in.c (input_function): Ditto.
+        (lto_register_var_decl_in_symtab): Ditto.
+        (lto_read_tree): Ditto.
+        (check_and_set_ripa_module_info): New function.
+        (input_ripa_info): Ditto.
+        * lto-section-in.c (lto_section_name): Support for streaming LIPO.
+        * lto/lto.c (read_cgraph_and_symbols): Ditto.
+        * lto-streamer.c (lto_get_section_name): Ditto.
+        * lto-streamer.h (lto_section_type): Ditto.
+        (lto_file_decl_data): Ditto.
+        (l-ipo.h): New include.
+        * ipa.c (cgraph_can_have_cross_module_ref_in_lipo_p): New function.
+        (varpool_can_have_cross_module_ref_in_lipo_p): Ditto.
+        (cgraph_externally_visible_p): Support for streaming LIPO.
+        (varpool_externally_visible_p): Ditto.
+        * coverage.c (get_da_file_name): Ditto.
+        (read_counts_file): Ditto.
+        (coverage_init): Ditto.
+        (create_mgf_file): New function.
+        (write_mgf_file): Ditto.
+        * tree-sra.c (ipa_early_sra_gate): Support for streaming LIPO.
+        (modify_function): Ditto.
+        * value-prof.c (gimple_value_profile_transformations): Ditto.
+        (init_node_map): Ditto.
+        (del_node_map): Ditto.
+        (cgraph_init_gid_map): Ditto.
+        (gimple_indirect_call_to_profile): Ditto.
+        * l-ipo.c (cgraph_is_aux_decl_external): Ditto.
+        (promote_static_var_func)): Ditto.
+        (process_module_scope_static_var): Ditto.
+        (cgraph_process_module_scope_statics): Ditto.
+        (tree-pretty-print.h): New include.
+        * l-ipo.h (L_IPO_COMP_MODE): Support for streaming LIPO.
+        (primary_module_exported): New Decls.
+        (L_IPO_STREAM_COMP_MODE): New macro.
+        (L_IPO_STREAM_FE_COMP_MODE_AUX): New macro.
+        (L_IPO_STREAM_FE_COMP_MODE_PRIM): New macro.
+        (L_IPO_STREAM_FE_COMP_MODE): New macro.
+        (L_IPO_STREAM_IN_LTO_P): New macro.
+        * common.opt: New flags.
+
 2012-03-12  Sterling Augustine  <saugustine@google.com>
 	    Cary Coutant  <ccoutant@google.com>
 

@@ -2879,9 +2879,14 @@ cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
   /* When function is needed, we can not remove it.  */
   if (node->needed || node->reachable_from_other_partition)
     return false;
-  if (DECL_STATIC_CONSTRUCTOR (node->decl)
-      || DECL_STATIC_DESTRUCTOR (node->decl))
-    return false;
+
+  /* For the constructors/destructors in streamed lipo, we keep it
+     only if it's not from auxiliary module.  */
+  if ((DECL_STATIC_CONSTRUCTOR (node->decl)
+       || DECL_STATIC_DESTRUCTOR (node->decl))
+      && !(L_IPO_STREAM_IN_LTO_P && cgraph_is_auxiliary (node->decl)))
+      return false;
+
   /* Only COMDAT functions can be removed if externally visible.  */
   if (node->local.externally_visible
       && (!DECL_COMDAT (node->decl)

@@ -674,6 +674,41 @@ cgraph_comdat_can_be_unshared_p (struct cgraph_node *node)
   return true;
 }
 
+/* Return true if NODE can have references from other modules.
+   Returning true will make this symbol externally visible. 
+   Refurning false will continue current visibiliity logic.  */
+
+static inline bool
+cgraph_can_have_cross_module_ref_in_lipo_p (struct cgraph_node *node)
+{
+  /* Only do this in streaming ripa.  */
+  if (!L_IPO_STREAM_IN_LTO_P)
+    return false;
+
+  /* Only handle non-COMDAT function and TREE_PUBLIC node.  */
+  if (!TREE_PUBLIC (node->decl) || DECL_COMDAT (node->decl))
+     return false;
+
+  /* We only handle if the symbol's primary module is exported:
+     (1) If the decl is from an auxiliary modules ==> the primary module is
+         exported.
+     (2) If the decl is from primary module and that module is exported.  */
+  if (!(primary_module_exported ||
+        cgraph_get_module_id (node->decl) != primary_module_id))
+    return false;
+
+  /* For vitural function, it may be referenced from vtable from 
+     other modules. */
+  if (DECL_VIRTUAL_P (node->decl))
+    return true;
+
+  /* If the node is address_taken, it may be referenced from other modules.  */
+  if (node->address_taken)
+    return true;
+
+  return false;
+}
+
 /* Return true when function NODE should be considered externally visible.  */
 
 static bool
@@ -685,6 +720,10 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
   if (!DECL_COMDAT (node->decl)
       && (!TREE_PUBLIC (node->decl) || DECL_EXTERNAL (node->decl)))
     return false;
+
+  /* In streaming ripa, we need to make some nodes visible.  */
+  if (cgraph_can_have_cross_module_ref_in_lipo_p (node))
+    return true;
 
   /* Do not even try to be smart about aliased nodes.  Until we properly
      represent everything by same body alias, these are just evil.  */
@@ -721,8 +760,20 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
      This improves code quality and we know we will duplicate them at most twice
      (in the case that we are not using plugin and link with object file
       implementing same COMDAT)  */
+  /* This is problematic: if a virutal function B::vf() is declared in foo.h but
+     has it's body defined in foo.cc with a inline keyword, and it's not address
+     taken (other than vtable). We will privatize it if we return false here.
+     The problem is that there might be vtable references from bar.cc (
+     like, from a class inherittd from B).  We will get undefined
+     symbol B::vf() when compiling bar.cc. We will not run into problems if the
+     comdat virutal functions are always defined in head files. But from user
+     point of view, it's legal to have it in a .cc file as far as it's only
+     referenced (from user code??) in that translation unit.
+     I only disable this in streaming lipo (ripa). But this is a general lto
+     issue.  */
   if ((in_lto_p || whole_program)
       && DECL_COMDAT (node->decl)
+      && !flag_ripa_stream
       && cgraph_comdat_can_be_unshared_p (node))
     return false;
 
@@ -753,6 +804,22 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
     return true;
 
   return false;
+}
+
+/* Return true if VNODE needs to be visible in ripa mode: 
+   (1) the VNODE->decl is TREE_PUBLIC, and
+   (2) the VNODE is needed, and
+   (3) the module this symbol belongs to (i.e. primary module) is
+       exported.  */
+
+static inline bool
+varpool_can_have_cross_module_ref_in_lipo_p (struct varpool_node *vnode)
+{
+  return (L_IPO_STREAM_IN_LTO_P &&
+          !DECL_COMDAT (vnode->decl) &&
+          vnode->needed &&
+          (primary_module_exported ||
+           vnode->module_id != primary_module_id));
 }
 
 /* Return true when variable VNODE should be considered externally visible.  */
@@ -797,13 +864,15 @@ varpool_externally_visible_p (struct varpool_node *vnode, bool aliased)
      Even if the linker clams the symbol is unused, never bring internal
      symbols that are declared by user as used or externally visible.
      This is needed for i.e. references from asm statements.   */
-  if (varpool_used_from_object_file_p (vnode))
-    return true;
   for (alias = vnode->extra_name; alias; alias = alias->next)
     if (alias->resolution != LDPR_PREVAILING_DEF_IRONLY)
       break;
   if (!alias && vnode->resolution == LDPR_PREVAILING_DEF_IRONLY)
     return false;
+
+  /* Special handling for streaming ripa.  */
+  if (varpool_can_have_cross_module_ref_in_lipo_p (vnode))
+    return true;
 
   /* As a special case, the COMDAT virutal tables can be unshared.
      In LTO mode turn vtables into static variables.  The variable is readonly,

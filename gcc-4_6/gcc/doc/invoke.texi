@@ -8145,6 +8145,11 @@ instrumentation code that enables dynamic call-graph analysis.
 During the @option{-fprofile-use} phase, this flag enables cross-module
 optimizations such as inlining.
 
+Currently there are two implementations for ripa. You can additionally specify
+a string parameter: @code{FE} is a Frond-End based implementation;
+@code{streaming} is an implementation that is based on LTO streaming technology.
+The default (without string parameter) is @code{FE} implementation.
+
 @item -fripa-disallow-asm-modules
 @opindex fripa-disallow-asm-modules
 During profile-gen, if this flag is enabled, and the module has asm statements,
@@ -8191,6 +8196,23 @@ Limit loop unrolling of non-const non-FP loops in a LIPO compilation under estim
 of a large code footprint. Enabled by default under @option{-fripa}. Code size
 estimation and thresholds are controlled by the @option{codesize-hotness-threshold}
 and @option{unrollpeel-codesize-threshold} parameters.
+
+@item fripa-auxiliary_module_id
+@opindex fripa-auxiliary_module_id
+Specify the global module id for an auxiliary module. This is only effective in
+-fripa=streaming compilation mode.
+
+@item fripa-mgf-gen
+@opindex fripa-mgf-gen
+Set the module group control file name that will be used in compiling the primary
+module. This option is only effective in -fripa=streaming compilation mode.
+
+@item fripa-mgf-use
+@opindex fripa-mgf-use
+With this option, compiler will not generate a module group control file when
+building the primary module. Compiler will use this specified file to build
+the auxiliary modules. This option is only effective in -fripa=streaming
+compilation mode.
 
 @item -fcallgraph-profiles-sections
 @opindex fcallgraph-profiles-sections

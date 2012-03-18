@@ -1561,6 +1561,7 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fprofile_use_:
       opts->x_profile_data_prefix = xstrdup (arg);
       opts->x_flag_profile_use = true;
+      flag_profile_use = 1;
       value = true;
       /* No break here - do -fprofile-use processing. */
     case OPT_fprofile_use:
@@ -1591,6 +1592,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fprofile_generate_:
       opts->x_profile_data_prefix = xstrdup (arg);
+      flag_profile_generate = 1;
       value = true;
       /* No break here - do -fprofile-generate processing. */
     case OPT_fprofile_generate:
@@ -1767,6 +1769,22 @@ common_handle_option (struct gcc_options *opts,
     case OPT_Wuninitialized:
       /* Also turn on maybe uninitialized warning.  */
       warn_maybe_uninitialized = value;
+      break;
+
+    case OPT_fripa:
+      if (flag_ripa_stream)
+        flag_dyn_ipa = 0;
+      break;
+
+    case OPT_fripa_:
+      flag_ripa_stream = 0;
+      flag_dyn_ipa = 0;
+      if (!strcmp (arg, "FE"))
+        flag_dyn_ipa = 1;
+      else if (!strcmp (arg, "streaming"))
+        flag_ripa_stream = 1;
+      else
+        error ("Unrecognized -fripa= value \"%s\"", arg);
       break;
 
     default:

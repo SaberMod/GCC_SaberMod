@@ -4554,7 +4554,7 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   /* In LIPO mode, it is possible that the function with the same assember name
      from the aux module needs to be emitted as well (e.g. in comdat). To avoid
      conflicts in assembler, change the name.  */
-  if (L_IPO_COMP_MODE)
+  if (L_IPO_COMP_MODE || L_IPO_STREAM_FE_COMP_MODE)
     {
       cgraph_remove_assembler_hash_node (new_node);
       cgraph_add_assembler_hash_node (new_node);
@@ -4711,7 +4711,7 @@ ipa_early_sra (void)
 static bool
 ipa_early_sra_gate (void)
 {
-  return flag_ipa_sra && !flag_dyn_ipa && dbg_cnt (eipa_sra);
+  return flag_ipa_sra && !flag_dyn_ipa && !flag_ripa_stream && dbg_cnt (eipa_sra);
 }
 
 struct gimple_opt_pass pass_early_ipa_sra =
