@@ -64,6 +64,9 @@ enum ld_plugin_status claim_file_hook (const struct ld_plugin_input_file *file,
                                        int *claimed);
 enum ld_plugin_status all_symbols_read_hook ();
 
+static ld_plugin_register_claim_file register_claim_file_hook = NULL;
+static ld_plugin_register_all_symbols_read
+  register_all_symbols_read_hook = NULL;
 static ld_plugin_get_input_section_count get_input_section_count = NULL;
 static ld_plugin_get_input_section_type get_input_section_type = NULL;
 static ld_plugin_get_input_section_name get_input_section_name = NULL;
@@ -72,23 +75,54 @@ static ld_plugin_update_section_order update_section_order = NULL;
 static ld_plugin_allow_section_ordering allow_section_ordering = NULL;
 
 /* The file where the final function order will be stored.
-   It is "./final_layout.txt".  It can be changed by passing
-   new name to --plugin-opt  */
+   It can be set by using the  plugin option  as --plugin-opt
+   "file=<name>".  To dump to stderr, say --plugin-opt "file=stderr".  */
 
-char *out_file = "./final_layout.txt";
+static char *out_file = NULL;
 
-int is_api_exist = 0;
+static int is_api_exist = 0;
+
+/* The plugin does nothing when no-op is 1.  */
+static int no_op = 0;
 
 /* Copies new output file name out_file  */
 void get_filename (const char *name)
 {
-  if (strcmp (name, "stderr") == 0)
-    {
-      out_file = NULL;
-      return;
-    }
   out_file = (char *) malloc (strlen (name) + 1);
   strcpy (out_file, name);
+}
+
+/* Process options to plugin.  Options with prefix "group=" are special.
+   They specify the type of grouping. The option "group=none" makes the
+   plugin do nothing.   Options with prefix "file=" set the output file
+   where the final function order must be stored.  */
+void
+process_option (const char *name)
+{
+  const char *option_group = "group=";
+  const char *option_file = "file=";
+
+  /* Check if option is "group="  */
+  if (strncmp (name, option_group, strlen (option_group)) == 0)
+    {
+      if (strcmp (name + strlen (option_group), "none") == 0)
+	no_op = 1;
+      else
+	no_op = 0;
+      return;
+    }
+
+  /* Check if option is "file=" */
+  if (strncmp (name, option_file, strlen (option_file)) == 0)
+    {
+      get_filename (name + strlen (option_file));
+      return;
+    }
+
+  /* Unknown option, set no_op to 1.  */
+  no_op = 1;
+  fprintf (stderr, "Unknown option to function reordering plugin :%s\n",
+	   name);
 }
 
 /* Plugin entry point.  */
@@ -105,14 +139,16 @@ onload (struct ld_plugin_tv *tv)
         case LDPT_GOLD_VERSION:
           break;
         case LDPT_OPTION:
-	  get_filename (entry->tv_u.tv_string);
+	  process_option (entry->tv_u.tv_string);
+	  /* If no_op is set, do not do anything else.  */
+	  if (no_op) return LDPS_OK;
 	  break;
         case LDPT_REGISTER_CLAIM_FILE_HOOK:
-          assert ((*entry->tv_u.tv_register_claim_file) (claim_file_hook) == LDPS_OK);
+	  register_claim_file_hook = *entry->tv_u.tv_register_claim_file;
           break;
 	case LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK:
-          assert ((*entry->tv_u.tv_register_all_symbols_read) (all_symbols_read_hook)
-		   == LDPS_OK);
+	  register_all_symbols_read_hook
+	    = *entry->tv_u.tv_register_all_symbols_read;
           break;
         case LDPT_GET_INPUT_SECTION_COUNT:
           get_input_section_count = *entry->tv_u.tv_get_input_section_count;
@@ -137,14 +173,25 @@ onload (struct ld_plugin_tv *tv)
         }
     }
 
-  if (get_input_section_count != NULL
+  assert (!no_op);
+
+  if (register_all_symbols_read_hook != NULL
+      && register_claim_file_hook != NULL
+      && get_input_section_count != NULL
       && get_input_section_type != NULL
       && get_input_section_name != NULL
       && get_input_section_contents != NULL
       && update_section_order != NULL
       && allow_section_ordering != NULL)
     is_api_exist = 1;
+  else
+    return LDPS_OK;
 
+  /* Register handlers.  */
+  assert ((*register_all_symbols_read_hook) (all_symbols_read_hook)
+	   == LDPS_OK);
+  assert ((*register_claim_file_hook) (claim_file_hook)
+	  == LDPS_OK);
   return LDPS_OK;
 }
 
@@ -161,9 +208,8 @@ claim_file_hook (const struct ld_plugin_input_file *file, int *claimed)
 
   (void) claimed;
 
-  /* Silently return if the plugin APIs are not supported.  */
-  if (!is_api_exist)
-    return LDPS_OK;
+  /* Plugin APIs are supported if this is called.  */
+  assert (is_api_exist);
 
   if (is_ordering_specified == 0)
     {
@@ -219,24 +265,26 @@ all_symbols_read_hook (void)
   struct ld_plugin_section *section_list;
   void **handles;
   unsigned int *shndx;
-  FILE *fp;
+  FILE *fp = NULL;
 
-  /* Silently return if the plugin APIs are not supported.  */
-  if (!is_api_exist)
-    return LDPS_OK;
+  /* Plugin APIs are supported if this is called.  */
+  assert (is_api_exist);
 
   if (is_callgraph_empty ())
     return LDPS_OK;
 
   /* Open the file to write the final layout  */
-  if (out_file == NULL)
-    fp = stderr;
-  else
-    fp = fopen (out_file, "w");
+  if (out_file != NULL)
+    {
+      if (strcmp (out_file, "stderr") == 0)
+	fp = stderr;
+      else
+	fp = fopen (out_file, "w");
 
-  fprintf (fp, "# Remove lines starting with \'#\' to"
-	       " pass to --section-ordering-file\n");
-  fprintf (fp, "# Lines starting with \'#\' are the edge profiles\n");
+      fprintf (fp, "# Remove lines starting with \'#\' to"
+		   " pass to --section-ordering-file\n");
+      fprintf (fp, "# Lines starting with \'#\' are the edge profiles\n");
+    }
 
   find_pettis_hansen_function_layout (fp);
   num_entries = get_layout (fp, &handles, &shndx);
@@ -248,7 +296,8 @@ all_symbols_read_hook (void)
       section_list[i].shndx = shndx[i];
     }
 
-  if (out_file != NULL)
+  if (out_file != NULL
+      && strcmp (out_file, "stderr") != 0)
     fclose (fp);
   /* Pass the new order of functions to the linker.  */
   update_section_order (section_list, num_entries);

@@ -4421,9 +4421,9 @@ rest_of_handle_final (void)
 				decl_fini_priority_lookup
 				  (current_function_decl));
 
-  /* With -fcallgraph-profiles-sections, add ".gnu.callgraph.text" section
+  /* With -freorder-functions=, add ".gnu.callgraph.text" section
      for storing profiling information. */
-  if (flag_callgraph_profiles_sections
+  if (flag_reorder_functions > 1
       && flag_profile_use
       && cgraph_node (current_function_decl) != NULL
       && (cgraph_node (current_function_decl))->callees != NULL)

@@ -435,9 +435,8 @@ find_pettis_hansen_function_layout (FILE *fp)
 
   assert (node_chain != NULL);
   assert (active_edges != NULL);
-  assert (fp != NULL);
-
-  dump_edges (fp);
+  if (fp != NULL)
+    dump_edges (fp);
 
   /* Go over all the nodes and set it as real node only if a corresponding
      function section exists.  */
@@ -509,7 +508,8 @@ write_out_node (FILE *fp, char *name,
       Section_id *s = (Section_id *)slot;
       handles[position] = s->handle;
       shndx[position] = s->shndx;
-      fprintf (fp, "%s\n", s->full_name);
+      if (fp != NULL)
+	fprintf (fp, "%s\n", s->full_name);
       /* No more use of full_name  */
       free (s->full_name);
     }
@@ -523,8 +523,6 @@ get_layout (FILE *fp, void*** handles,
 {
   Node *it;
   int position = 0;
-
-  assert (fp != NULL);
 
   *handles = XNEWVEC (void *, num_real_nodes);
   *shndx = XNEWVEC (unsigned int, num_real_nodes);

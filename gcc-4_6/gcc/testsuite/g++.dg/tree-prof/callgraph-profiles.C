@@ -1,6 +1,6 @@
 /* Verify if call-graph profile sections are created
-   with -fcallgraph-profiles-sections. */
-/* { dg-options "-O2 -fcallgraph-profiles-sections -ffunction-sections --save-temps" } */
+   with -freorder-functions=. */
+/* { dg-options "-O2 -freorder-functions=callgraph -ffunction-sections --save-temps" } */
 /* { dg-require-section-exclude "" } */
 
 int __attribute__ ((noinline))

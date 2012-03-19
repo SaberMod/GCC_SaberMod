@@ -1583,12 +1583,17 @@
 #endif
 
 
+/* Define to the name of the function reordering plugin DSO that must be
+   passed to the linker's -plugin=LIB option. */
+#ifndef USED_FOR_TARGET
+#undef FRPLUGINSONAME
+#endif
+
 /* Define to the name of the LTO plugin DSO that must be passed to the
    linker's -plugin=LIB option. */
 #ifndef USED_FOR_TARGET
 #undef LTOPLUGINSONAME
 #endif
-
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */

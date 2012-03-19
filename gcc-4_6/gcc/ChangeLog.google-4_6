@@ -1,3 +1,26 @@
+2012-03-18  Sriraman Tallam  <tmsriram@google.com>
+
+	* cgraphbuild.c (remove_cgraph_callee_edges): Replace
+	flag_callgraph_profiles_sections with flag_reorder_functions.
+	* final.c (rest_of_handle_final): Ditto.
+	* configure: Regenerate.
+	* config.in: undef FRPLUGINSONAME.
+	* congifure.ac: Define FRPLUGINSONAME.
+	* config.host: Set host_function_reordering_plugin_soname.
+	* gcc.c: Invoke function_reordering linker plugin with
+	-freorder-functions=* option.
+	(set_func_reorder_linker_plugin_spec): New function.
+	(main): Call set_func_reorder_linker_plugin_spec when
+	-freorder-functions=* option is seen.
+	* common.opt (fcallgraph-profiles-sections):  Remove.
+	(freorder-functions=): New option.
+	* testsuite/g++.dg/tree-prof/callgraph-profiles.C: Replace
+	-fcallgraph-profiles-sections with -freorder-functions=callgraph.
+	* opts.c (finish_options): Turn on -ffunction-sections when
+	-freorder-functions= is used.
+	* doc/invoke.texi (freorder-functions=): Document option
+	-freorder-functions=.
+
 2012-03-18   Rong Xu  <xur@google.com>
 
         This patch implements LIPO profile-use compilation that

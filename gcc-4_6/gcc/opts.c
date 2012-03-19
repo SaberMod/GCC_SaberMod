@@ -846,6 +846,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	(PARAM_MAX_INLINE_INSNS_AUTO, 1000,
 	 opts->x_param_values, opts_set->x_param_values);
     }
+
+  /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
+  if (opts->x_flag_reorder_functions > 1)
+    opts->x_flag_function_sections = 1;
 }
 
 #define LEFT_COLUMN	27
