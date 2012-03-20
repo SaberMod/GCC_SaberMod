@@ -547,6 +547,8 @@ enum dwarf_location_atom
     DW_OP_GNU_uninit     = 0xf0,
     DW_OP_GNU_encoded_addr = 0xf1,
     DW_OP_GNU_implicit_pointer = 0xf2,
+    /* Extension for Fission.  See http://gcc.gnu.org/wiki/DebugFission.  */
+    DW_OP_GNU_addr_index = 0xfb,
     /* HP extensions.  */
     DW_OP_HP_unknown     = 0xe0, /* Ouch, the same as GNU_push_tls_address.  */
     DW_OP_HP_is_value    = 0xe1,

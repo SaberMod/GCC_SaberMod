@@ -1,3 +1,69 @@
+2012-03-19  Sterling Augustine  <saugustine@google.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (dwarf_stack_op_name): Add DW_OP_GNU_addr_index.
+	(new_loc_descr): Initialize val_index.
+	(size_of_loc_descr): Add DW_OP_GNU_addr_index.
+	(output_loc_operands): Likewise.
+	(output_loc_operands_raw): Likewise.
+	(build_cfa_loc): Initialize val_index.
+	(new_addr_loc_descr): New function.
+	(add_AT_flag): Initialize val_index.
+	(add_AT_int): Likewise.
+	(add_AT_unsigned): Likewise.
+	(add_AT_double): Likewise.
+	(add_AT_vec): Likewise.
+	(add_AT_data8): Likewise.
+	(add_AT_string): Likewise.
+	(add_AT_die_ref): Likewise.
+	(add_AT_fde_ref): Likewise.
+	(add_AT_loc): Likewise.
+	(add_AT_loc_list): Likewise.
+	(add_addr_table_entry): Change if to assert.
+	(remove_addr_table_entry): New function.
+	(add_AT_addr): Add force_direct parameter; adjust all callers.
+	Initialize val_index.
+	(add_AT_file): Initialize val_index.
+	(add_AT_vms_delta): Likewise.
+	(add_AT_lbl_id): Add force_direct parameter; adjust all callers.
+	Initialize val_index.
+	(add_AT_lineptr): Initialize val_index.
+	(add_AT_macptr): Likewise.
+	(add_AT_offset): Likewise.
+	(add_AT_range_list): Add force_direct parameter; adjust all callers.
+	Initialize val_index.
+	(size_of_die): Check for AT_index.
+	(value_format): Likewise.
+	(output_attr_index_or_value): Likewise.
+	(output_die): Fix format warning.
+	(add_top_level_skeleton_die_attrs): Don't add DW_AT_stmt_list here.
+	(get_skeleton_type_unit): New function.
+	(output_skeleton_debug_sections): Add comp_unit parameter; adjust
+	caller; don't generate debug_skeleton_info_section_label or
+	debug_skeleton_abbrev_section_label here; call get_skeleton_type_unit.
+	(output_comdat_type_unit): Remove assert; call get_skeleton_type_unit.
+	(add_ranges_by_labels): Add force_direct parameter; adjust callers.
+	(address_of_int_loc_descriptor): Initialize val_index.
+	(mem_loc_descriptor): Initialize val_index; call new_addr_loc_descr.
+	(implicit_ptr_descriptor): Don't generate DW_OP_GNU_implicit_pointer
+	when splitting debug info.  Initialize val_index.
+	(loc_descriptor): Initialize val_index; call new_addr_loc_descr.
+	(loc_list_from_tree): Likewise.
+	(add_const_value_attribute): Likewise.
+	(dwarf2out_init): Generate debug_skeleton_info_section_label and
+	debug_skeleton_abbrev_section_label here.
+	(output_indirect_string): Check for DW_FORM_strp instead of label
+	and refcount.
+	(output_addr_table): Check for removed entries, handle
+	dw_val_class_loc.
+	(resolve_addr_in_expr): Handle DW_OP_GNU_addr_index.
+	(resolve_addr): Remove entry from addr_table if necessary.
+	(hash_loc_operands): Add DW_OP_GNU_addr_index.
+	(compare_loc_operands): Likewise.
+	(dwarf2out_finish): Put DW_AT_low_pc, DW_AT_high_pc, DW_AT_ranges,
+	DW_AT_stmt_list, DW_AT_macptr in skeleton comp_unit DIE; write
+	skeleton debug sections if regular debug section emitted.
+
 2012-03-18  Sriraman Tallam  <tmsriram@google.com>
 
 	* cgraphbuild.c (remove_cgraph_callee_edges): Replace
