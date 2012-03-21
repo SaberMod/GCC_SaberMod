@@ -1,3 +1,9 @@
+2012-03-20   Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (size_of_loc_descr): Use val_index instead of
+	v.val_unsigned.
+	(output_loc_operands): Likewise.
+
 2012-03-19  Sterling Augustine  <saugustine@google.com>
 	    Cary Coutant  <ccoutant@google.com>
 

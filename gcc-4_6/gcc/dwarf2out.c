@@ -4902,7 +4902,7 @@ size_of_loc_descr (dw_loc_descr_ref loc)
       size += DWARF2_ADDR_SIZE;
       break;
     case DW_OP_GNU_addr_index:
-      size += size_of_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned);
+      size += size_of_uleb128 (loc->dw_loc_oprnd1.val_index);
       break;
     case DW_OP_const1u:
     case DW_OP_const1s:
@@ -5283,7 +5283,7 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
       break;
 
     case DW_OP_GNU_addr_index:
-      dw2_asm_output_data_uleb128 (loc->dw_loc_oprnd1.v.val_unsigned,
+      dw2_asm_output_data_uleb128 (loc->dw_loc_oprnd1.val_index,
                                    "(address index)");
       break;
 
