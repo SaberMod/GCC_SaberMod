@@ -1,5 +1,10 @@
 2012-03-21  Sriraman Tallam  <tmsriram@google.com>
 
+	* params.def (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING): Bump
+	default value to 5000.
+
+2012-03-21  Sriraman Tallam  <tmsriram@google.com>
+
 	* gcc/common.opt (fcallgraph-profiles-sections): Restore deleted
 	option fcallgraph-profiles-sections.
 	* gcc/final.c (rest_of_handle_final): Restore

@@ -1040,7 +1040,7 @@ DEFPARAM (PARAM_PMU_PROFILE_N_ADDRESS,
 DEFPARAM (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING,
 	  "autoclone-function-size-limit",
 	  "Do not auto clone functions beyond this size.",
-	  450, 0, 100000)
+	  5000, 0, 100000)
 
 /* Parameters to be used with -mpatch-functions-for-instrumentation.
    See config/i386/i386.opt  */
