@@ -1,3 +1,19 @@
+2012-03-21  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc/common.opt (fcallgraph-profiles-sections): Restore deleted
+	option fcallgraph-profiles-sections.
+	* gcc/final.c (rest_of_handle_final): Restore
+	check for option fcallgraph-profiles-sections.
+	* gcc/cgraphbuild.c (cgraph_callee_edges_final_cleanup): Restore
+	check for option fcallgraph-profiles-sections.
+	* testsuite/lib/target-supports-dg.exp
+	(dg-require-linker-function-reordering-plugin): New proc.
+	* testsuite/lib/target-supports.exp
+	(check_linker_function_reordering_plugin_supported): New proc.
+	* testsuite/g++.dg/tree-prof/callgraph-profiles.C: Check if
+	linker supports plugins. Check if the final binary has the
+	functions ordered as expected.
+
 2012-03-21   Harshit Chopra  <harshit@google.com>
 	Backport from google/main r183548, r183888.
 

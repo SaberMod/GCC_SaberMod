@@ -1,6 +1,7 @@
 /* Callgraph implementation.
    Copyright (C) 2011 Free Software Foundation, Inc.
-   Contributed by Sriraman Tallam (tmsriram@google.com).
+   Contributed by Sriraman Tallam (tmsriram@google.com)
+   and Easwaran Raman (eraman@google.com).
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,6 +27,13 @@ along with this program; see the file COPYING3.  If not see
 #include <string.h>
 #include "libiberty.h"
 
+/* All heap allocations are tracked to be cleaned up later.  */
+#define XNEW_ALLOC(A, T)	A = XNEW (T); push_allocated_ptr (A);
+#define XNEWVEC_ALLOC(A, T, N)	A = XNEWVEC (T,N); push_allocated_ptr (A);
+
+/* Push a pointer that should be freed after the plugin is done.  */
+void push_allocated_ptr (void *ptr);
+
 struct edge_d;
 typedef struct edge_d Edge;
 
@@ -40,7 +48,8 @@ typedef struct edge_list_d
 inline static Edge_list *
 make_edge_list (Edge *e)
 {
-  Edge_list *list = XNEW (Edge_list);
+  Edge_list *list;
+  XNEW_ALLOC (list, Edge_list);
   list->edge = e;
   list->next = NULL;
   list->prev = NULL;
@@ -68,7 +77,8 @@ typedef struct node_d
 inline static Node *
 make_node (unsigned int id, char *name)
 {
-  Node *node = XNEW (Node);
+  Node *node;
+  XNEW_ALLOC (node, Node);
   node->id = id;
   node->name = name;
   node->is_real_node = 0;
@@ -86,9 +96,9 @@ make_node (unsigned int id, char *name)
 inline static void
 merge_node (Node *merger, Node *mergee)
 {
-    merger->last_merge_node->merge_next = mergee;
-    merger->last_merge_node = mergee->last_merge_node;
-    mergee->is_merged = 1;
+  merger->last_merge_node->merge_next = mergee;
+  merger->last_merge_node = mergee->last_merge_node;
+  mergee->is_merged = 1;
 }
 
 inline static void
@@ -135,7 +145,8 @@ struct edge_d
 inline static Edge *
 make_edge (Node *first, Node *second, unsigned int weight)
 {
-  Edge *edge = XNEW (Edge);
+  Edge *edge;
+  XNEW_ALLOC (edge, Edge);
   edge->first_function = first;
   edge->second_function = second;
   edge->weight = weight;
@@ -146,20 +157,6 @@ make_edge (Node *first, Node *second, unsigned int weight)
   add_edge_to_node (first, edge);
   add_edge_to_node (second, edge);
   return edge;
-}
-
-/* Frees the chain of edges.  */
-inline static void
-free_edge_chain (Edge *edge_chain)
-{
-  Edge *edge;
-
-  for (edge = edge_chain; edge != NULL; )
-    {
-      Edge *next_edge = edge->next;
-      free (edge);
-      edge = next_edge;
-    }
 }
 
 inline static void
@@ -200,7 +197,7 @@ reset_functions (Edge *e, Node *n1, Node *n2)
 }
 
 /* A Section is represented by its object handle and the section index. */
-typedef struct
+typedef struct section_id_
 {
   /* Name of the function.  */
   char *name;
@@ -208,16 +205,34 @@ typedef struct
   char *full_name;
   void *handle;
   int shndx;
+  /* Type of prefix in section name.  */
+  int section_type;
+  /* Pointer to the next section in the same comdat_group.  */
+  struct section_id_ *comdat_group;
+  /* Chain all the sections created.  */
+  struct section_id_ *next;
+  /* Used for grouping sections.  */
+  struct section_id_ *group;
+  /* Check if this section has been considered for output.  */
+  char processed;
 } Section_id;
 
 inline static Section_id *
-make_section_id (char *name, char *full_name, void *handle, int shndx)
+make_section_id (char *name, char *full_name,
+		 int section_type,
+		 void *handle, int shndx)
 {
-  Section_id *s = XNEW (Section_id);
+  Section_id *s;
+  XNEW_ALLOC (s, Section_id);
   s->name = name;
   s->full_name = full_name;
+  s->section_type = section_type;
   s->handle = handle;
   s->shndx = shndx;
+  s->comdat_group = NULL;
+  s->next = NULL;
+  s->group = NULL;
+  s->processed = 0;
 
   return s;
 }
@@ -256,8 +271,9 @@ void
 map_section_name_to_index (char *section_name, void *handle, int shndx);
 
 void
-parse_callgraph_section_contents (unsigned char *section_contents,
-                                  unsigned int length);
+parse_callgraph_section_contents (void *handle,
+				  unsigned char *section_contents,
+				  unsigned int length);
 
 void dump_functions ();
 void dump_edges ();

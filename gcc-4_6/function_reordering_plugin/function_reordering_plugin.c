@@ -1,6 +1,7 @@
 /* Function re-ordering plugin for gold.
    Copyright (C) 2011 Free Software Foundation, Inc.
-   Contributed by Sriraman Tallam (tmsriram@google.com).
+   Contributed by Sriraman Tallam (tmsriram@google.com)
+   and Easwaran Raman (eraman@google.com).
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -88,7 +89,7 @@ static int no_op = 0;
 /* Copies new output file name out_file  */
 void get_filename (const char *name)
 {
-  out_file = (char *) malloc (strlen (name) + 1);
+  XNEWVEC_ALLOC (out_file, char, (strlen (name) + 1));
   strcpy (out_file, name);
 }
 
@@ -230,6 +231,7 @@ claim_file_hook (const struct ld_plugin_input_file *file, int *claimed)
       (*get_input_section_type) (section, &type);
 
       (*get_input_section_name) (section, &name);
+      push_allocated_ptr (name);
       if (type == SHT_PROGBITS && is_prefix_of (".text.", name))
         {
           map_section_name_to_index (name, file->handle, shndx);
@@ -243,12 +245,12 @@ claim_file_hook (const struct ld_plugin_input_file *file, int *claimed)
 	    (const unsigned char **)&section_contents_ptr,
 	    &length);
 	  unsigned char *section_contents;
-	  section_contents = (unsigned char *) malloc (length);
+	  XNEWVEC_ALLOC (section_contents, unsigned char, length);
 	  memcpy (section_contents, section_contents_ptr, length);
-          parse_callgraph_section_contents (section_contents, (unsigned int)length);
+          parse_callgraph_section_contents (file->handle,
+					    section_contents,
+					    (unsigned int)length);
         }
-      else if (name != NULL)
-        free (name);
     }
 
   return LDPS_OK;
@@ -288,8 +290,8 @@ all_symbols_read_hook (void)
 
   find_pettis_hansen_function_layout (fp);
   num_entries = get_layout (fp, &handles, &shndx);
-  section_list = (struct ld_plugin_section *)
-		  malloc (num_entries * sizeof (struct ld_plugin_section));
+  XNEWVEC_ALLOC (section_list, struct ld_plugin_section, num_entries);
+
   for (i = 0; i < num_entries; i++)
     {
       section_list[i].handle = handles[i];
@@ -301,9 +303,6 @@ all_symbols_read_hook (void)
     fclose (fp);
   /* Pass the new order of functions to the linker.  */
   update_section_order (section_list, num_entries);
-  free (section_list);
-  free (handles);
-  free (shndx);
   cleanup ();
   return LDPS_OK;
 }

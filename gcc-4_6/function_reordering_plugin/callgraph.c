@@ -1,6 +1,7 @@
 /* Callgraph implementation.
    Copyright (C) 2011 Free Software Foundation, Inc.
-   Contributed by Sriraman Tallam (tmsriram@google.com).
+   Contributed by Sriraman Tallam (tmsriram@google.com)
+   and Easwaran Raman (eraman@google.com).
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -109,6 +110,25 @@ edge_map_htab_eq_descriptor (const void *p1, const void *p2)
 
 
 /*****************************************************************************/
+
+
+/* Keep track of all allocated memory.  */
+typedef struct
+{
+  void *ptr;
+  void *next;
+} mm_node;
+
+mm_node *mm_node_chain = NULL;
+
+void
+push_allocated_ptr (void *ptr)
+{
+  mm_node *node = XNEW (mm_node);
+  node->ptr = ptr;
+  node->next = mm_node_chain;
+  mm_node_chain = node;
+}
 
 /* Chain of all the created nodes.  */
 Node *node_chain = NULL;
@@ -275,8 +295,26 @@ void dump_edges (FILE *fp)
     }
 }
 
-/* HEADER_LEN is the length of string 'Function '.  */
-const int HEADER_LEN = 9;
+/* For file local functions, append a unique identifier corresponding to
+   the file, FILE_HANDLE, to the NAME to keep the name unique.  */
+
+static char *
+canonicalize_function_name (void *file_handle, char *name)
+{
+  /* Number of hexadecimal digits in file_handle, plus length of "0x".  */
+  const int FILE_HANDLE_LEN = sizeof (void *) * 2 + 2;
+  char *canonical_name;
+
+  /* File local functions have _ZL prefix in the mangled name.  */
+  /* XXX: Handle file local functions exhaustively, like functions in
+     anonymous name spaces.  */
+  if (!is_prefix_of ("_ZL", name))
+    return name;
+
+  XNEWVEC_ALLOC (canonical_name, char, (strlen(name) + FILE_HANDLE_LEN + 2));
+  sprintf (canonical_name, "%s.%p", name, file_handle);
+  return canonical_name;
+}
 
 /* Parse the section contents of ".gnu.callgraph.text"  sections and create
    call graph edges with appropriate weights. The section contents have the
@@ -288,7 +326,8 @@ const int HEADER_LEN = 9;
    <edge count between caller and callee_2>
    ....  */
 void
-parse_callgraph_section_contents (unsigned char *section_contents,
+parse_callgraph_section_contents (void *file_handle,
+				  unsigned char *section_contents,
 				  unsigned int length)
 {
   char *contents;
@@ -296,12 +335,15 @@ parse_callgraph_section_contents (unsigned char *section_contents,
   unsigned int read_length = 0, curr_length = 0;
   Node *caller_node;
 
+  /* HEADER_LEN is the length of string 'Function '.  */
+  const int HEADER_LEN = 9;
+
    /* First string in contents is 'Function <function-name>'.  */
   assert (length > 0);
   contents = (char*) (section_contents);
   caller = get_next_string (&contents, &read_length);
   assert (read_length > HEADER_LEN);
-  caller = caller + HEADER_LEN;
+  caller = canonicalize_function_name (file_handle, caller + HEADER_LEN);
   curr_length = read_length;
   caller_node = get_function_node (caller);
 
@@ -314,6 +356,7 @@ parse_callgraph_section_contents (unsigned char *section_contents,
       Node *callee_node;
 
       callee = get_next_string (&contents, &read_length);
+      callee = canonicalize_function_name (file_handle, callee);
       curr_length += read_length;
       callee_node = get_function_node (callee);
 
@@ -456,6 +499,24 @@ find_pettis_hansen_function_layout (FILE *fp)
     }
 }
 
+/* The list of sections created, excluding comdat duplicates.  */
+Section_id *first_section = NULL;
+/* The number of sections.  */
+int num_sections = 0;
+
+const int NUM_SECTION_TYPES = 5;
+const char *section_types[] = {".text.hot.",
+				".text.cold.",
+				".text.unlikely.",
+				".text.startup.",
+				".text." };
+
+/* For sections that are not in the callgraph, the priority gives the
+   order in which the sections should be laid out.  Sections are grouped
+   according to priority, higher priority (lower number), and then laid
+   out in priority order.  */
+const int section_priority[] = {0, 3, 4, 2, 1};
+
 /* Maps the function name corresponding to section SECTION_NAME to the
    object handle and the section index.  */
 
@@ -463,23 +524,22 @@ void
 map_section_name_to_index (char *section_name, void *handle, int shndx)
 {
   void **slot;
-  const char *sections[] = {".text.hot.",
-			    ".text.unlikely.",
-			    ".text.cold.",
-			    ".text.startup.",
-			    ".text." };
   char *function_name = NULL;
-  int i;
+  int i, section_type = -1;
 
-  for (i = 0; i < ARRAY_SIZE (sections); ++i)
+  for (i = 0; i < ARRAY_SIZE (section_types); ++i)
     {
-      if (is_prefix_of (sections[i], section_name))
+      if (is_prefix_of (section_types[i], section_name))
         {
-          function_name = section_name + strlen (sections[i]);
+          function_name = section_name + strlen (section_types[i]);
+  	  section_type = i;
 	  break;
         }
     }
-  assert (function_name != NULL);
+
+  assert (function_name != NULL && section_type >= 0);
+  function_name = canonicalize_function_name (handle, function_name);
+  num_sections++;
 
   /* Allocate section_map.  */
   if (section_map == NULL)
@@ -494,94 +554,183 @@ map_section_name_to_index (char *section_name, void *handle, int shndx)
 				   htab_hash_string (function_name),
 				   INSERT);
   if (*slot == NULL)
-    *slot = make_section_id (function_name, section_name, handle, shndx);
-}
-
-static void
-write_out_node (FILE *fp, char *name,
-		void **handles, unsigned int *shndx, int position)
-{
-  void *slot;
-  slot = htab_find_with_hash (section_map, name, htab_hash_string (name));
-  if (slot != NULL)
     {
-      Section_id *s = (Section_id *)slot;
-      handles[position] = s->handle;
-      shndx[position] = s->shndx;
-      if (fp != NULL)
-	fprintf (fp, "%s\n", s->full_name);
-      /* No more use of full_name  */
-      free (s->full_name);
+      Section_id *section = make_section_id (function_name, section_name,
+					     section_type, handle, shndx);
+      /* Chain it to the list of sections.  */
+      section->next = first_section;
+      first_section = section;
+      *slot = section;
+    }
+  else
+    {
+      /* The function already exists, it must be a COMDAT.  Only one section
+	 in the comdat group will be kept, we don't know which.  Chain all the
+         comdat sections in the same comdat group to be emitted together later.
+         Keep one section as representative (kept) and update its section_type
+         to be equal to the type of the highest priority section in the
+         group.  */
+      Section_id *kept = (Section_id *)(*slot);
+      Section_id *section = make_section_id (function_name, section_name,
+                                             section_type, handle, shndx);
+
+      /* Two comdats in the same group can have different priorities.  This
+	 ensures that the "kept" comdat section has the priority of the higest
+  	 section in that comdat group.   This is necessary because the plugin
+	 does not know which section will be kept.  */
+      if (section_priority[kept->section_type]
+	  > section_priority[section_type])
+        kept->section_type = section_type;
+
+      section->comdat_group = kept->comdat_group;
+      kept->comdat_group = section;
     }
 }
 
-/* Visit each node and print the chain of merged nodes to the file.  */
+/* If SECN is NULL find the section corresponding to function name NAME.
+   If it is a comdat, get all the comdat sections in the group.  Chain these
+   sections to SECTION_END.  Set SECTION_START if it is NULL.  */
+
+static void
+write_out_node (Section_id *s, Section_id **section_start,
+	        Section_id **section_end)
+{
+  assert (s != NULL);
+  s->processed = 1;
+  if (*section_start == NULL)
+    {
+      *section_start = s;
+      *section_end = s;
+    }
+  else
+    {
+      (*section_end)->group = s;
+      *section_end = s;
+    }
+
+  /* Print all other sections in the same comdat group.  */
+  while (s->comdat_group)
+    {
+      s = s->comdat_group;
+      s->processed = 1;
+      (*section_end)->group = s;
+      *section_end = s;
+    }
+}
+
+/* Visit each node and print the chain of merged nodes to the file.  Update
+   HANDLES and SHNDX to contain the ordered list of sections.  */
 
 unsigned int
 get_layout (FILE *fp, void*** handles,
             unsigned int** shndx)
 {
-  Node *it;
-  int position = 0;
+  Node *n_it;
+  int  i = 0;
+  int position;
+  void *slot;
 
-  *handles = XNEWVEC (void *, num_real_nodes);
-  *shndx = XNEWVEC (unsigned int, num_real_nodes);
+  /* Form NUM_SECTION_TYPES + 1 groups of sections.  Index 0 corresponds
+     to the list of sections that correspond to functions in the callgraph.
+     For other sections, they are grouped by section_type and stored in
+     index: (section_type + 1).   SECTION_START points to the first
+     section in each section group and SECTION_END points to the last.  */
+  Section_id *section_start[NUM_SECTION_TYPES + 1];
+  Section_id *section_end[NUM_SECTION_TYPES + 1];
+  Section_id *s_it;
+
+  XNEWVEC_ALLOC (*handles, void *, num_sections);
+  XNEWVEC_ALLOC (*shndx, unsigned int, num_sections);
+
+  for (i = 0; i < NUM_SECTION_TYPES + 1; i++)
+    {
+      section_start[i] = NULL;
+      section_end[i] = NULL;
+    }
 
   /* Dump edges to the final reordering file.  */
-
-  for (it = node_chain; it != NULL; it = it->next)
+  for (n_it = node_chain; n_it != NULL; n_it = n_it->next)
     {
+      Section_id *s;
       Node *node;
-      if (it->is_merged)
+      /* First, only consider nodes that are real and that have other
+	 nodes merged with it. */
+      if (n_it->is_merged || !n_it->is_real_node || !n_it->merge_next)
         continue;
-      if (it->is_real_node)
-        {
-	  write_out_node (fp, it->name, *handles, *shndx, position);
-	  position++;
-        }
-      node = it->merge_next;
+
+      slot = htab_find_with_hash (section_map, n_it->name,
+				  htab_hash_string (n_it->name));
+      assert (slot != NULL);
+      s = (Section_id *)slot;
+      write_out_node (s, &section_start[0], &section_end[0]);
+
+      if (fp)
+	fprintf (fp, "# Callgraph group : %s", n_it->name);
+
+      node = n_it->merge_next;
       while (node != NULL)
         {
           if (node->is_real_node)
 	    {
-	      write_out_node (fp, node->name, *handles, *shndx, position);
-	      position++;
+	      slot = htab_find_with_hash (section_map, node->name,
+					  htab_hash_string (node->name));
+	      assert (slot != NULL);
+	      s = (Section_id *)slot;
+	      write_out_node (s, &section_start[0],
+			      &section_end[0]);
+	      if (fp)
+		fprintf (fp, " %s", node->name);
 	    }
           node = node->merge_next;
 	}
+
+      if (fp)
+	fprintf (fp, "\n");
+    }
+
+  /* Go through all the sections and sort unprocessed sections into different
+     section_type groups.  */
+  s_it = first_section;
+  while (s_it)
+    {
+      if (!s_it->processed)
+	write_out_node (s_it, &section_start[s_it->section_type + 1],
+			&section_end[s_it->section_type + 1]);
+      s_it = s_it->next;
+    } 
+     
+
+  position = 0;
+  for (i = 0; i < NUM_SECTION_TYPES + 1; ++i)
+    {
+      s_it = section_start[i];
+      while (s_it)
+        {
+	  assert (position < num_sections);
+          (*handles)[position] = s_it->handle;
+          (*shndx)[position] = s_it->shndx;
+          position++;
+	  if (fp != NULL)
+            fprintf (fp, "%s\n", s_it->full_name);
+	  s_it = s_it->group;
+        }
     }
   return position;
 }
 
-/* Free all heap objects.  */
-
 void
 cleanup ()
 {
-  Node *node;
-
-  /* Free all nodes and edge_lists.  */
-  for (node = node_chain; node != NULL; )
+  /* Go through heap allocated objects and free them.  */
+  while (mm_node_chain)
     {
-      Node *next_node = node->next;
-      Edge_list *it;
-      for (it = node->edge_list; it != NULL; )
-        {
-          Edge_list *next_it = it->next;
-          free (it);
-          it = next_it;
-        }
+      mm_node *node = mm_node_chain;
+      free (node->ptr);
+      mm_node_chain = node->next;
       free (node);
-      node = next_node;
     }
 
-  /* Free all active_edges.  */
-  free_edge_chain (active_edges);
-
-  /* Free all inactive edges.  */
-  free_edge_chain (inactive_edges);
-
-  /* Delete all htabs.  */
+  /*  Delete all htabs. */
   htab_delete (section_map);
   htab_delete (function_map);
   htab_delete (edge_map);

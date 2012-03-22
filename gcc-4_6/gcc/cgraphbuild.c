@@ -703,10 +703,11 @@ extern bool cgraph_callee_edges_final_cleanup;
 static unsigned int
 remove_cgraph_callee_edges (void)
 {
-  /* The -freorder-functions=* flag needs the call-graph preserved
-     till pass_final.  */
+  /* The -freorder-functions=*  and the fcallgraph-profiles-sections
+     needs the call-graph preserved till pass_final.  */
   if (cgraph_callee_edges_final_cleanup
-      && flag_reorder_functions > 1)
+      && (flag_callgraph_profiles_sections
+	  || (flag_reorder_functions > 1)))
       return 0;
 
   cgraph_node_remove_callees (cgraph_node (current_function_decl));
