@@ -23803,11 +23803,15 @@ resolve_addr (dw_die_ref die)
 		if (!resolve_addr_in_expr ((*curr)->expr))
 		  {
 		    dw_loc_list_ref next = (*curr)->dw_loc_next;
+		    dw_loc_descr_ref l = (*curr)->expr;
+
 		    if (next && (*curr)->ll_symbol)
 		      {
 			gcc_assert (!next->ll_symbol);
 			next->ll_symbol = (*curr)->ll_symbol;
 		      }
+		    if (l->dw_loc_oprnd1.val_index != -1U)
+		      remove_addr_table_entry (l->dw_loc_oprnd1.val_index);
 		    *curr = next;
 		  }
 		else

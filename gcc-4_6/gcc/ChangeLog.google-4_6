@@ -1,3 +1,8 @@
+2012-03-23   Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (resolve_addr): Remove address table entry for symbol
+	when removing location list entry.
+
 2012-03-21  Sriraman Tallam  <tmsriram@google.com>
 
 	* params.def (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING): Bump
