@@ -1,3 +1,8 @@
+2012-03-29  Dehao Chen  <dehao@google.com>
+
+	* predict.c (predict_iv_comparison): Add the comparison of induction
+	variable against its initial value.
+
 2012-03-23   Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2out.c (resolve_addr): Remove address table entry for symbol
