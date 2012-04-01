@@ -5746,4 +5746,7 @@ is_lang_specific (tree t)
 /* In gimple-low.c.  */
 extern bool block_may_fallthru (const_tree);
 
+/* In tree-vtable-security.c */
+extern void save_vtable_map_decl (tree);
+
 #endif  /* GCC_TREE_H  */

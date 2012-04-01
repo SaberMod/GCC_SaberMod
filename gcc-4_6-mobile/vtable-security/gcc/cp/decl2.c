@@ -71,7 +71,7 @@ typedef struct priority_info_s {
 static void mark_vtable_entries (tree);
 static bool maybe_emit_vtables (tree);
 static bool acceptable_java_type (tree);
-static tree start_objects (int, int);
+static tree start_objects (int, int, char *);
 static void finish_objects (int, int, tree);
 static tree start_static_storage_duration_function (unsigned);
 static void finish_static_storage_duration_function (tree);
@@ -2730,7 +2730,7 @@ set_guard (tree guard)
    or destructors.  Subroutine of do_[cd]tors.  */
 
 static tree
-start_objects (int method_type, int initp)
+start_objects (int method_type, int initp, char *extra_name)
 {
   tree body;
   tree fndecl;
@@ -2748,7 +2748,8 @@ start_objects (int method_type, int initp)
       joiner = '_';
 #endif
 
-      sprintf (type, "sub_%c%c%.5u", method_type, joiner, initp);
+      sprintf (type, "sub_%c%c%.5u%s", method_type, joiner, initp,
+               extra_name);
     }
   else
     sprintf (type, "sub_%c", method_type);
@@ -3330,7 +3331,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
   if (c_dialect_objc () && (priority == DEFAULT_INIT_PRIORITY)
       && constructor_p && objc_static_init_needed_p ())
     {
-      body = start_objects (function_key, priority);
+      body = start_objects (function_key, priority, "");
       objc_generate_static_init_call (NULL_TREE);
     }
 
@@ -3344,7 +3345,7 @@ generate_ctor_or_dtor_function (bool constructor_p, int priority,
 	  tree call;
 
 	  if (! body)
-	    body = start_objects (function_key, priority);
+	    body = start_objects (function_key, priority, "");
 
 	  call = cp_build_function_call_nary (fndecl, tf_warning_or_error,
 					      build_int_cst (NULL_TREE,
@@ -3975,6 +3976,17 @@ cp_process_pending_declarations (location_t locus)
 
   /* We give C linkage to static constructors and destructors.  */
   push_lang_context (lang_name_c);
+
+  /* Generate the special constructor function that calls
+     __VLTChangePermission and __VLTRegisterPairs, and give it
+     a very high initialization priority.  */
+  if (flag_vtable_verify)
+    {
+      tree body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
+				 ".vtable");
+      register_class_hierarchy_information (body);
+      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
+    }
 
   /* Generate initialization and destruction functions for all
      priorities for which they are required.  */

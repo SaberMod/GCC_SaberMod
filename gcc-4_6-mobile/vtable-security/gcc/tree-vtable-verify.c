@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "cp/cp-tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "output.h"
@@ -48,7 +49,89 @@ static GTY(()) tree verify_vtbl_ptr_fndecl = NULL_TREE;
 
 unsigned int vtable_verify_main (void);
 static bool gate_tree_vtable_verify (void);
-static void build_vtable_verify_fndecls (void);
+static void build_vtable_verify_fndecl (void);
+static tree my_build1 (enum tree_code, tree, tree);
+
+static tree
+my_build1 (enum tree_code code, tree type, tree node MEM_STAT_DECL)
+{
+  int length = sizeof (struct tree_exp);
+#ifdef GATHER_STATISTICS
+  tree_node_kind kind;
+#endif
+  tree t;
+
+#ifdef GATHER_STATISTICS
+  switch (TREE_CODE_CLASS (code))
+    {
+    case tcc_statement:  /* an expression with side effects */
+      kind = s_kind;
+      break;
+    case tcc_reference:  /* a reference */
+      kind = r_kind;
+      break;
+    default:
+      kind = e_kind;
+      break;
+    }
+
+  tree_node_counts[(int) kind]++;
+  tree_node_sizes[(int) kind] += length;
+#endif
+
+  gcc_assert (TREE_CODE_LENGTH (code) == 1);
+
+  t = ggc_alloc_zone_tree_node_stat (&tree_zone, length PASS_MEM_STAT);
+
+  memset (t, 0, sizeof (struct tree_common));
+
+  TREE_SET_CODE (t, code);
+
+  TREE_TYPE (t) = type;
+  SET_EXPR_LOCATION (t, UNKNOWN_LOCATION);
+  TREE_OPERAND (t, 0) = node;
+  TREE_BLOCK (t) = NULL_TREE;
+  if (node && !TYPE_P (node))
+    {
+      TREE_SIDE_EFFECTS (t) = TREE_SIDE_EFFECTS (node);
+      TREE_READONLY (t) = TREE_READONLY (node);
+    }
+
+  if (TREE_CODE_CLASS (code) == tcc_statement)
+    TREE_SIDE_EFFECTS (t) = 1;
+  else switch (code)
+    {
+    case VA_ARG_EXPR:
+      /* All of these have side-effects, no matter what their
+         operands are.  */
+      TREE_SIDE_EFFECTS (t) = 1;
+      TREE_READONLY (t) = 0;
+      break;
+
+    case INDIRECT_REF:
+      /* Whether a dereference is readonly has nothing to do with whether
+         its operand is readonly.  */
+      TREE_READONLY (t) = 0;
+      break;
+
+    case ADDR_EXPR:
+      if (node)
+        recompute_tree_invariant_for_addr_expr (t);
+      break;
+
+    default:
+      if ((TREE_CODE_CLASS (code) == tcc_unary || code == VIEW_CONVERT_EXPR)
+          && node && !TYPE_P (node)
+          && TREE_CONSTANT (node))
+        TREE_CONSTANT (t) = 1;
+      if (TREE_CODE_CLASS (code) == tcc_reference
+          && node && TREE_THIS_VOLATILE (node))
+        TREE_THIS_VOLATILE (t) = 1;
+      break;
+    }
+
+  return t;
+}
 
 static int
 type_name_is_vtable_pointer (tree node)
@@ -123,7 +206,7 @@ is_vtable_assignment_stmt (gimple stmt)
    need to reproduce the function here in order to be able to call it.  */
 
 static tree
-get_vtbl_decl_for_binfo (tree binfo)
+my_get_vtbl_decl_for_binfo (tree binfo)
 {
   tree decl;
 
@@ -139,6 +222,53 @@ get_vtbl_decl_for_binfo (tree binfo)
   return decl;
 }
 
+
+static tree *vtable_var_decl_array;
+static int vtable_var_decl_array_max = 0;
+static int vtable_var_decl_array_entries = 0;
+
+tree
+find_vtable_map_decl (tree var_id)
+{
+  int idx;
+
+  for (idx = 0; idx < vtable_var_decl_array_entries; idx++)
+    if ((DECL_NAME (vtable_var_decl_array[idx])) == var_id)
+      return vtable_var_decl_array[idx];
+
+  return NULL_TREE;
+}
+
+void
+save_vtable_map_decl (tree var_decl)
+{
+  int idx;
+
+  /* TO DO:  This is not very efficient; consider improving this.  */
+
+  if (vtable_var_decl_array_max == 0)
+    {
+      vtable_var_decl_array = (tree *) xmalloc (100 * sizeof (tree));
+      vtable_var_decl_array_max = 100;
+      memset (vtable_var_decl_array, 0, 100 * sizeof (tree));
+    }
+  else if (vtable_var_decl_array_max <= vtable_var_decl_array_entries)
+    {
+      int new_max = 2 * vtable_var_decl_array_max;
+      vtable_var_decl_array = (tree *) xrealloc (vtable_var_decl_array,
+                                                 new_max * sizeof(tree));
+      for (idx = vtable_var_decl_array_max; idx < new_max; ++idx)
+        vtable_var_decl_array[idx] = NULL_TREE;
+
+      vtable_var_decl_array_max = new_max;
+    }
+
+  for (idx = 0; idx < vtable_var_decl_array_entries; idx++)
+    if (vtable_var_decl_array[idx] == var_decl)
+      return;
+
+  vtable_var_decl_array[vtable_var_decl_array_entries++] = var_decl;
+}
 
 static void
 verify_bb_vtables (basic_block bb)
@@ -188,6 +318,9 @@ verify_bb_vtables (basic_block bb)
               tree vtbl_var_decl = NULL_TREE;
               tree vtbl = NULL_TREE;
               tree vtbl_ptr = NULL_TREE;
+              const char *vtable_name = NULL;
+              char *vtbl_map_name = NULL;
+              tree var_id;
               gimple_seq pre_p = NULL;
 
               /* Now we have found the virtual method dispatch and the
@@ -198,43 +331,103 @@ verify_bb_vtables (basic_block bb)
               found = true;
               if (TREE_CODE (rhs) == COMPONENT_REF)
                 {
-                  while (TREE_CODE (TREE_OPERAND (rhs, 0)) == COMPONENT_REF)
-                    rhs = TREE_OPERAND (rhs, 0);
-                  if (TREE_OPERAND (rhs, 0) != NULL)
-                    rhs = TREE_OPERAND (rhs, 0);
+                  bool vtbl_found = false;
+                  while (!vtbl_found)
+                    {
+                      if (TREE_CODE (rhs) == COMPONENT_REF
+                          && (TREE_CODE (TREE_OPERAND (rhs, 1)) == FIELD_DECL)
+                          && (strncmp (IDENTIFIER_POINTER 
+				           (DECL_NAME (TREE_OPERAND (rhs, 1))),
+                                       "_vptr.", 6) == 0))
+                        {
+                          vtbl_found = true;
+                        }
+                      rhs = TREE_OPERAND (rhs, 0);
+                    }
                   if ((TREE_CODE (TREE_TYPE (rhs)) == RECORD_TYPE)
                       && TYPE_BINFO (TREE_TYPE (rhs)))
                     {
-                      vtbl_var_decl = get_vtbl_decl_for_binfo
+                      vtbl_var_decl = my_get_vtbl_decl_for_binfo
                                                 (TYPE_BINFO (TREE_TYPE (rhs)));
                       vtbl = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (rhs)));
 
                       if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
                         vtbl_ptr = force_gimple_operand (vtbl, &pre_p, 1,
                                                          NULL);
+
+                      vtable_name = IDENTIFIER_POINTER 
+			                          (DECL_NAME (vtbl_var_decl));
+                      vtbl_map_name = (char *) xmalloc 
+			                           (strlen (vtable_name) + 12);
+                      sprintf (vtbl_map_name, "%s.vtable_map", vtable_name);
+                      var_id = get_identifier (vtbl_map_name);
+                      vtbl_var_decl = find_vtable_map_decl (var_id);
                     }
 
                   /* Build  verify_vtbl_ptr_fndecl */
 
-                  build_vtable_verify_fndecls ();
+                  build_vtable_verify_fndecl ();
 
                   /* Given the vtable pointer for the base class of the object,
                      build the call to __VerifyVtablePointer to verify that the
                      object's vtable pointer (contained in lhs) is in the set
                      of valid vtable pointers for the base class.  */
 
-                  if (verify_vtbl_ptr_fndecl && vtbl_ptr)
+                  if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
                     {
                       tree expr_tree = NULL_TREE;
                       tree t = NULL_TREE;
                       struct gimplify_ctx gctx;
+                      tree arg4 = TREE_OPERAND (rhs, 0);
+                      char *vtable_name = "<unknown>";
+                      int len1 = 0;
+                      int len2 = 0;
+		      bool debug =1;
+
+                      while (TREE_CODE (arg4) == COMPONENT_REF)
+                        arg4 = TREE_OPERAND (arg4, 0);
+
+                      if (TREE_CODE (arg4) == MEM_REF)
+                        arg4 = TREE_OPERAND (arg4, 0);
+
+                      if ((TREE_CODE (arg4) == SSA_NAME)
+                          && (DECL_NAME (SSA_NAME_VAR (arg4))))
+                        vtable_name = IDENTIFIER_POINTER 
+			                     (DECL_NAME (SSA_NAME_VAR (arg4)));
 
                       push_gimplify_context (&gctx);
-                      expr_tree = build_call_expr (verify_vtbl_ptr_fndecl, 2,
-                                                   /* vtbl_ptr, */
-                                                   SSA_NAME_VAR (lhs),
-                                                   SSA_NAME_VAR(lhs));
+                      len1 = strlen (IDENTIFIER_POINTER 
+				                  (DECL_NAME (vtbl_var_decl)));
+                      len2 = strlen (vtable_name);
 
+                      expr_tree = build_call_expr 
+			             (verify_vtbl_ptr_fndecl, 6,
+				      my_build1 (ADDR_EXPR,
+						 TYPE_POINTER_TO 
+						   (TREE_TYPE (vtbl_var_decl)),
+						 vtbl_var_decl),
+				      SSA_NAME_VAR (lhs),
+				      build_string_literal 
+				                  (len1,
+						   IDENTIFIER_POINTER 
+						       (DECL_NAME 
+							    (vtbl_var_decl))),
+				      build_int_cst (integer_type_node,
+						     len1),
+				      build_string_literal (len2, vtable_name),
+				      build_int_cst (integer_type_node,
+						     len2));
+		      /*  Eventually we will remove the 4 'debugging' 
+			  parameters from the call above and will use the
+			  call below instead.
+                      expr_tree = build_call_expr 
+		                     (verify_vtbl_ptr_fndecl, 2,
+				      my_build1 (ADDR_EXPR,
+				                 TYPE_POINTER_TO 
+                                                   (TREE_TYPE (vtbl_var_decl)),
+                                                 vtbl_var_decl),
+                                      SSA_NAME_VAR (lhs));
+		      */
                       /* Assign the result of the call to the original
                          variable receiving the assignment of the object's
                          vtable pointer; mark that variable to be updated by
@@ -258,23 +451,13 @@ verify_bb_vtables (basic_block bb)
 }
 
 static void
-build_vtable_verify_fndecls (void)
+build_vtable_verify_fndecl (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
-
-  tree decls = NULL_TREE;
-  tree parms = NULL_TREE;
   tree arg_types = NULL_TREE;
-  tree parm = NULL_TREE;
   tree type = build_pointer_type (void_type_node);
-  tree name = get_identifier ("__VerifyVtablePointer");
 
-  parm = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL_TREE, void_ptr_type);
-  decls = build_tree_list (NULL_TREE, parm);
   arg_types = build_tree_list (NULL_TREE, void_ptr_type);
-
-  parm = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL_TREE, void_ptr_type);
-  decls = chainon (decls, build_tree_list (NULL_TREE, parm));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
 
   type = build_function_type (type, arg_types);
@@ -286,7 +469,6 @@ build_vtable_verify_fndecls (void)
                    DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl));
 
   /* Do this so we don't use the mangled name in function calls.  */
-  DECL_LANG_SPECIFIC (verify_vtbl_ptr_fndecl) = NULL;
   TREE_PUBLIC (verify_vtbl_ptr_fndecl) = 1;
   DECL_PRESERVE_P (verify_vtbl_ptr_fndecl) = 1;
 }

@@ -1,0 +1,63 @@
+2012-04-01  Caroline Tice <cmtice@google.com>
+
+	* gcc/tree.h (save_vtable_map_decl): New extern function decl.
+	* gcc/cp/Make-lang.in (CXX_AND_OBJCXX_OBJS): Add
+	vtable-class-hierarchy.o to list of C++ language-specific object
+	files.
+	(vtable-class-hierarchy.o): Add rule for building
+	vtable-class-hierarchy.o
+	* gcc/cp/decl2.c (start_objects): Add third parameter, for
+	function name extension.
+	(generate_ctor_or_dtor_function): Add empty string as third
+	argument to calls to start_objects.
+	(cp_process_pending_declarations): Add code to generate special
+	constructor function with high initialization priority for special
+	vtable verification calls, if the flag_vtable_verify is set.
+	* gcc/cp/parser.c (cp_parser_class_specifier_1): If
+	flag_vtable_verify is set and the current class has base classes,
+	generate the
+	*.vtable_map variables for any base classes that don't already
+	have it and add the base class/derived class pair to the class
+	hierarchy information.
+	* gcc/cp/vtable-class-hierarchy.c: New file.
+	* gcc/cp/mangle.c (get_mangled_id): New function. Copied from PPH
+	work of Lawrence Crowl and Diego Novillo.
+	(mangle_decl): Call get_mangled_id rather than doing work directly
+	here. Copied from PPH work of Lawrence Crowl ande Diego Novillo.
+	* gcc/cp/cp-tree.h (get_mangled_id): New function decl.
+	(register_class_hierarchy_information): New function decl.
+	(update_class_hierarchy_information): New function decl.
+	(vtable_find_map_decl):  New function decl.
+	* gcc/temp-libgcc.cc: New file.
+	* gcc/tree-vtable-verify.cc: (cp/cp-tree.h): New include statement.
+	(build_vtable_verify_fndecl):  Renamed function (eliminated 's' from
+	the end).
+	(my_build1):  New function.
+	(my_get_vtbl_decl_for_binfo): Renamed function (old name was
+	get_vtbl_decl_for_binfo).
+	(vtable_var_decl_array): New global variable.
+	(vtable_var_decl_array_max): New global variable.
+	(vtable_var_decl_array_entries): New global variable.
+	(find_vtable_map_decl): New function.
+	(save_vtable_map_decl): New function.
+	(verify_bb_vtables): Fix a few bugs, and add some debugging parameters
+	for calls to __VerifyVtablePointer.
+	(build_vtable_verify_fndecl): Remove unnecessary variables.
+	* gcc/config/i386/i386.c (ix86_vtable_security_code_end):  Modify to
+	output dummy versions of __VLTChangePermission and __VLTRegisterPair
+	in addition to __VerifyVtablePointer. Also add code to generate
+	x86_64 assembly, instead of i386, if it's appropriate.
+
+2012-02-16  Caroline Tice <cmtice@google.com>
+
+	* gcc/timevar.def (TV_VTABLE_VERIFICATION): New timevar definition.
+	* gcc/tree-vtable-verify.c: New file defining vtable verification pass.
+	* gcc/common.opt (fvtable-verify): New flag, to control vtable
+	verification pass.
+	* gcc/Makefile.in (OBJS-common): Add tree-vtable-verify.o to list.
+	(tree-vtable-verify.o):  Add rule.
+	* gcc/passes.c (init_optimization_passes):  Add pass_vtable_verify.
+	* gcc/config/i386/i386.c (ix86_vtable_security_code_end):  New
+	function to generate weak version of __VerifyVtablePointer.
+	(ix86_code_end): Add call to ix86_vtable_security_code_end.
+	* tree-pass.h (pass_vtable_verify): New extern declaration for pass.
