@@ -1058,6 +1058,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { ::new((void *)__p) value_type(__data); }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      void
+      construct(pointer __p)
+      { ::new((void *)__p) _Tp(); }
+
       template<typename... _Args>
         void
         construct(pointer __p, _Args&&... __args)
@@ -1109,4 +1115,3 @@ _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace __gnu_cxx
 
 #endif 
-

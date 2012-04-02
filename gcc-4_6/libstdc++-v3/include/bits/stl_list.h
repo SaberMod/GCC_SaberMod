@@ -108,6 +108,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       _Tp _M_data;
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _List_node()
+      : __detail::_List_node_base(), _M_data()
+      { }
+
       template<typename... _Args>
         _List_node(_Args&&... __args)
 	: __detail::_List_node_base(), _M_data(std::forward<_Args>(__args)...) 

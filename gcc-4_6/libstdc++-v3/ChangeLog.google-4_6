@@ -1,3 +1,39 @@
+2012-04-02  Jeffrey Yasskin <jyasskin@google.com>
+
+	Work around PR-52796 by taking each function that passes a
+	parameter pack as the only arguments of an object's constructor,
+	and adding an overload that explicitly takes and passes no
+	arguments in place of the pack.
+
+	* include/ext/pool_allocator.h: Add 1-argument construct() method.
+	* include/ext/bitmap_allocator.h: Likewise.
+	* include/ext/new_allocator.h: Likewise.
+	* include/ext/malloc_allocator.h: Likewise.
+	* include/ext/array_allocator.h: Likewise.
+	* include/ext/mt_allocator.h: Likewise.
+	* include/ext/extptr_allocator.h: Likewise.
+	* include/bits/stl_construct.h:Add 1-argument _Construct function.
+	* include/bits/stl_list.h: Add default _List_node constructor.
+	* include/bits/hashtable_policy.h: Add default _Hash_node constructor.
+	* include/bits/forward_list.h:Add default _Fwd_list_node constructor.
+	* include/bits/stl_tree.h:Add default _Rb_tree_node constructor.
+	* testsuite/23_containers/forward_list/requirements/dr438/assign_neg.cc:
+	Update line numbers.
+	* testsuite/23_containers/forward_list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/forward_list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+
 2012-03-13  Easwaran Raman <eraman@google.com>
 
 	Backport r185349 from google/main

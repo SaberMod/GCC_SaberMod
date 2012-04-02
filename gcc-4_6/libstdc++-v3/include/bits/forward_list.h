@@ -100,6 +100,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     struct _Fwd_list_node
     : public _Fwd_list_node_base
     {
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Fwd_list_node()
+      : _Fwd_list_node_base(),
+        _M_value() { }
+
       template<typename... _Args>
         _Fwd_list_node(_Args&&... __args)
         : _Fwd_list_node_base(), 

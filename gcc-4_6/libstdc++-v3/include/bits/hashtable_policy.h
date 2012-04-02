@@ -76,6 +76,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::size_t  _M_hash_code;
       _Hash_node*  _M_next;
 
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Hash_node()
+      : _M_v(),
+        _M_hash_code(), _M_next() { }
+
       template<typename... _Args>
 	_Hash_node(_Args&&... __args)
 	: _M_v(std::forward<_Args>(__args)...),
@@ -87,6 +93,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       _Value       _M_v;
       _Hash_node*  _M_next;
+
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Hash_node()
+      : _M_v(),
+        _M_next() { }
 
       template<typename... _Args>
 	_Hash_node(_Args&&... __args)

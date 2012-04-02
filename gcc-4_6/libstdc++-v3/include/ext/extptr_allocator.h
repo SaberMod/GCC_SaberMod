@@ -104,6 +104,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { ::new(__p.get()) _Tp(__val); }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      void
+      construct(pointer __p)
+      { ::new(__p.get()) _Tp(); }
+
       template<typename... _Args>
         void
         construct(pointer __p, _Args&&... __args)

@@ -133,6 +133,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Val _M_value_field;
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Rb_tree_node()
+      : _Rb_tree_node_base(),
+        _M_value_field() { }
+
       template<typename... _Args>
         _Rb_tree_node(_Args&&... __args)
 	: _Rb_tree_node_base(),
