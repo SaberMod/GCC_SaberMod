@@ -1,3 +1,18 @@
+2012-04-03  Harshit Chopra  <harshit@google.com>
+
+	Fixed verification in tests. Added a test to verify nop-bytes generated
+	for sibling calls and another test to verify a binary with nop-bytes
+	runs properly.
+
+	* gcc.target/i386/patch-functions-2.c: Fixed verification
+	* gcc.target/i386/patch-functions-3.c: Likewise
+	* gcc.target/i386/patch-functions-4.c: Likewise
+	* gcc.target/i386/patch-functions-5.c: Likewise
+	* gcc.target/i386/patch-functions-6.c: Likewise
+	* gcc.target/i386/patch-functions-7.c: Likewise
+	* gcc.target/i386/patch-functions-8.c: New test
+	* gcc.target/i386/patch-functions-sibling-call.c: New test
+
 2012-03-29  Dehao Chen  <dehao@google.com>
 
 	* gcc.dg/predict-1.c: Check if LOOP_IV_COMPARE static predict

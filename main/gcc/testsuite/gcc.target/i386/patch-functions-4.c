@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do compile } */
 /* { dg-require-effective-target lp64 } */
 /* { dg-options "-mpatch-functions-for-instrumentation -mpatch-functions-ignore-loops -mno-patch-functions-main-always" } */
 
@@ -8,12 +8,15 @@
 /* { dg-final { scan-assembler-not ".byte\t0xeb,0x09(.*).byte\t0x90" } } */
 /* { dg-final { scan-assembler-not "ret(.*).byte\t0x90(.*).byte\t0x90" } } */
 
-void foo() {
+__attribute__ ((noinline))
+void foo()
+{
   int x = 0;
   while (++x);
 }
 
-int main() {
+int main()
+{
   foo();
   return 0;
 }

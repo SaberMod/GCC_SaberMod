@@ -10981,6 +10981,7 @@ check_should_patch_current_function (void)
   const char* func_name = NULL;
   struct loops loops;
   int num_loops = 0;
+  int min_functions_instructions;
 
   /* Patch the function if it has at least a loop.  */
   if (!patch_functions_ignore_loops)
@@ -11007,7 +11008,7 @@ check_should_patch_current_function (void)
       strcmp("main", func_name) == 0)
     return true;
 
-  int min_functions_instructions =
+  min_functions_instructions =
       PARAM_VALUE (PARAM_FUNCTION_PATCH_MIN_INSTRUCTIONS);
   if (min_functions_instructions > 0)
     {
