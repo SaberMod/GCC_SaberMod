@@ -1,3 +1,7 @@
+2012-04-04  Dehao Chen  <dehao@google.com>
+	* predict.c (predict_iv_comparison): Revert r185948, which causes
+	regression to major applications.
+
 2012-03-29  Dehao Chen  <dehao@google.com>
 
 	* predict.c (predict_iv_comparison): Add the comparison of induction
