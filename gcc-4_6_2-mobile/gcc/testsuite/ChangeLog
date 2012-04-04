@@ -412,6 +412,11 @@
 	PR fortran/50273
 	* gfortran.dg/common_16.f90: New.
 
+2011-10-07  Andrew Stubbs  <ams@codesourcery.com>
+
+	* gcc.dg/pr50193-1.c: New file.
+	* gcc.target/arm/shiftable.c: New file.
+
 2011-10-07  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/50585
