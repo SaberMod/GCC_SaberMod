@@ -1,3 +1,16 @@
+2012-04-03   Rong Xu  <xur@google.com>
+
+	Google ref b/6284235.
+	Manually remove upstream patch for PR49642 and it's
+	test case due to performance regression. 
+
+	* gcc/testsuite/gcc.dg/tree-ssa/pr49642.c: Remove.
+	* ipa-split.c (forbidden_dominators): Delete variable.
+	(check_forbidden_calls): Delete function.
+	(dominated_by_forbidden): Likewise.
+	(consider_split): Revert.
+	(execute_split_functions): Likewise.
+
 2012-03-12   Doug Kwan  <dougkwan@google.com>
 
 	* contrib/testsuite-management/arm-grtev2-linux-gnueabi.xfail:
