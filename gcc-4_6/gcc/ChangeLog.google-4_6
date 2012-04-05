@@ -1,3 +1,18 @@
+2012-04-04   Ahmad Sharif  <asharif@google.com>
+
+	Backport from mainline r179661, r179662.
+
+	2011-10-07  Andrew Stubbs  <ams@codesourcery.com>
+
+	gcc/
+	* config/arm/predicates.md (shift_amount_operand): Remove constant
+	range check.
+	(shift_operator): Check range of constants for all shift operators.
+
+	gcc/testsuite/
+	* gcc.dg/pr50193-1.c: New file.
+	* gcc.target/arm/shiftable.c: New file.
+
 2012-04-04  Dehao Chen  <dehao@google.com>
 	* predict.c (predict_iv_comparison): Revert r185948, which causes
 	regression to major applications.
