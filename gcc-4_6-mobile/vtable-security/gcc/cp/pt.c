@@ -8726,6 +8726,10 @@ instantiate_class_template (tree type)
   tree ret;
   timevar_push (TV_TEMPLATE_INST);
   ret = instantiate_class_template_1 (type);
+  if (flag_vtable_verify
+      && CLASSTYPE_VTABLES (ret)
+      && CLASSTYPE_TI_TEMPLATE (type))
+    record_template_vtable_info (ret, TREE_TYPE (CLASSTYPE_TI_TEMPLATE (type)));
   timevar_pop (TV_TEMPLATE_INST);
   return ret;
 }

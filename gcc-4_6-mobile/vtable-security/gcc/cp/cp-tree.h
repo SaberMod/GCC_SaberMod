@@ -5678,10 +5678,14 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 /* in name-lookup.c */
 extern void suggest_alternatives_for (location_t, tree);
 
+/* in init.c */
+extern tree build_vtbl_address                   (tree);
+
 /* in vtable-class-hierarchy.c */
 
 extern bool register_class_hierarchy_information (tree);
 extern void update_class_hierarchy_information   (tree, tree, tree);
+extern void record_template_vtable_info          (tree, tree);
 extern tree vtable_find_map_decl                 (tree);
 
 /* -- end of C++ */

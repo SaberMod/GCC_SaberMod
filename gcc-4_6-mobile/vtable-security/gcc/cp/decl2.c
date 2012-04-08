@@ -71,7 +71,7 @@ typedef struct priority_info_s {
 static void mark_vtable_entries (tree);
 static bool maybe_emit_vtables (tree);
 static bool acceptable_java_type (tree);
-static tree start_objects (int, int, char *);
+static tree start_objects (int, int, const char *);
 static void finish_objects (int, int, tree);
 static tree start_static_storage_duration_function (unsigned);
 static void finish_static_storage_duration_function (tree);
@@ -87,6 +87,8 @@ static void import_export_class (tree);
 static tree get_guard_bits (tree);
 static void determine_visibility_from_class (tree, tree);
 static bool decl_defined_p (tree);
+
+static tree vtable_verify_init_fn = NULL_TREE;
 
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
@@ -2730,11 +2732,11 @@ set_guard (tree guard)
    or destructors.  Subroutine of do_[cd]tors.  */
 
 static tree
-start_objects (int method_type, int initp, char *extra_name)
+start_objects (int method_type, int initp, const char *extra_name)
 {
   tree body;
   tree fndecl;
-  char type[14];
+  char *type = NULL;
 
   /* Make ctor or dtor function.  METHOD_TYPE may be 'I' or 'D'.  */
 
@@ -2748,16 +2750,23 @@ start_objects (int method_type, int initp, char *extra_name)
       joiner = '_';
 #endif
 
+      type = (char *) xmalloc ((4 + 1 + 1 + 10 + 1 + strlen (extra_name)) 
+		       * sizeof (char));
       sprintf (type, "sub_%c%c%.5u%s", method_type, joiner, initp,
                extra_name);
     }
   else
-    sprintf (type, "sub_%c", method_type);
+    {
+      type = (char *) xmalloc ((4 + 1) * sizeof (char));
+      sprintf (type, "sub_%c", method_type);
+    }
 
   fndecl = build_lang_decl (FUNCTION_DECL,
 			    get_file_function_name (type),
 			    build_function_type_list (void_type_node,
 						      NULL_TREE));
+  free (type);
+
   start_preparsed_function (fndecl, /*attrs=*/NULL_TREE, SF_PRE_PARSED);
 
   TREE_PUBLIC (current_function_decl) = 0;
@@ -2796,6 +2805,13 @@ finish_objects (int method_type, int initp, tree body)
     {
       DECL_STATIC_CONSTRUCTOR (fn) = 1;
       decl_init_priority_insert (fn, initp);
+
+      if (flag_vtable_verify
+	  && strstr (IDENTIFIER_POINTER (DECL_NAME (fn)), ".vtable"))
+	{
+	  vtable_verify_init_fn = fn;
+	  return;
+	}
     }
   else
     {
@@ -3977,17 +3993,6 @@ cp_process_pending_declarations (location_t locus)
   /* We give C linkage to static constructors and destructors.  */
   push_lang_context (lang_name_c);
 
-  /* Generate the special constructor function that calls
-     __VLTChangePermission and __VLTRegisterPairs, and give it
-     a very high initialization priority.  */
-  if (flag_vtable_verify)
-    {
-      tree body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
-				 ".vtable");
-      register_class_hierarchy_information (body);
-      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
-    }
-
   /* Generate initialization and destruction functions for all
      priorities for which they are required.  */
   if (priority_info_map)
@@ -4084,6 +4089,50 @@ cp_write_global_declarations (void)
   timevar_start (TV_PHASE_CGRAPH);
 
   cgraph_finalize_compilation_unit ();
+
+  /* Generate the special constructor function that calls
+     __VLTChangePermission and __VLTRegisterPairs, and give it
+     a very high initialization priority.  */
+
+  if (flag_vtable_verify)
+    {
+      const char * cwd = main_input_filename;
+      char temp_name[57];
+      tree body;
+      char *cptr = (char *) cwd;
+      int i;
+
+      /* The last part of the directory tree will be where it
+         differentiates; the first part may be the same. */
+      if (strlen (cwd) > 50)
+	{
+	  int pos = (strlen (cwd) - 50);
+	  cptr = cwd + pos;
+	}
+
+      sprintf (temp_name, "%.50s.vtable", cptr);
+      for (cptr = temp_name, i = 0; 
+	   (cptr[0] != '\0') && (i < 50); 
+	   cptr++, i++)
+	if ((cptr[0] == '/') || (cptr[0] == '-'))
+	  cptr[0] = '_';
+
+      push_lang_context (lang_name_c);
+      body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
+			    (const char *) temp_name);
+      register_class_hierarchy_information (body);
+      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
+      current_function_decl = vtable_verify_init_fn;
+      allocate_struct_function (current_function_decl, false);
+      TREE_STATIC (current_function_decl) = 1;
+      TREE_USED (current_function_decl) = 1;
+      TREE_PUBLIC (current_function_decl) = 1;
+      DECL_PRESERVE_P (current_function_decl) = 1;
+      gimplify_function_tree (current_function_decl);
+      cgraph_add_new_function (current_function_decl, false);
+      cgraph_process_new_functions ();
+      pop_lang_context ();
+    }
 
   timevar_stop (TV_PHASE_CGRAPH);
   timevar_start (TV_PHASE_CHECK_DBGINFO);

@@ -48,7 +48,6 @@ static void expand_cleanup_for_base (tree, tree);
 static tree dfs_initialize_vtbl_ptrs (tree, void *);
 static tree build_dtor_call (tree, special_function_kind, int);
 static tree build_field_list (tree, tree, int *);
-static tree build_vtbl_address (tree);
 static int diagnose_uninitialized_cst_or_ref_member_1 (tree, tree, bool, bool);
 
 /* We are about to generate some complex initialization code.
@@ -988,7 +987,7 @@ emit_mem_initializers (tree mem_inits)
 /* Returns the address of the vtable (i.e., the value that should be
    assigned to the vptr) for BINFO.  */
 
-static tree
+tree
 build_vtbl_address (tree binfo)
 {
   tree binfo_for = binfo;
