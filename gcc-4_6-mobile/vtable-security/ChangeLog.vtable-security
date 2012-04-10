@@ -1,3 +1,45 @@
+2012-04-07  Caroline Tice <cmtice@google.com>
+
+	* gcc/cp/init.c (build_vtbl_address):  Remove static function
+	decl.  Remove 'static' qualifier from function definition.
+	* gcc/cp/pt.c (instantiate_class_template):  Add call to
+	record_template_vtable_info, guarded by flag_vtable_verify.
+	* gcc/cp/decl2.c (start_objects):  Change 'type' from a
+	static array of chars to a char *.  Add call to xmalloc for it.
+	Call 'free' for it when done.
+	(finish_objects):  Check to see if constructor is for vtable
+	map; if so, store the function decl in vtable_verify_init_fn.
+	(cp_process_pending_declarations):  Move code that generates
+	vtable verify constructor function to after call to
+	cgraph_finalize_compilation_unit.  Add calls to gimplify_function_tree,
+	cgraph_add_new_function, and cgraph_process_new_functions.
+	* gcc/cp/vtable-class-hierarchy (struct list_node2): New type decl.
+	(tree-iterator.h) New include statement.
+	(struct node3): New type decl;
+	(get_class_name): New function.
+	(template_list_insert): New function.
+	(template_info_tree_insert): New function.
+	(template_list_search): New function.
+	(template_tree_find): New function.
+	(vlt_template_vptr_info): New data structure.
+	(init_functions):  Removed commented out code.
+	(build_transitive_closure): Free var_id_name when done with it.
+	(register_vptr_fields):  Add new parameter 'body'. Remove calls to
+	build_stmt and add_stmt.  Call append_to_statement_list to append
+	the call_expr directly to body.
+	(register_all_pairs): Add new parameter 'body'.  Remove calls to
+	build_stmt and add_stmt.  Call append_to_statement_list to append
+	the call_expr directly to body.  Check to see if class_type is
+	a template class, and if so, look for the vtable in the template list.
+	Call build_vtbl_address on the vtable var decl to find the vtable
+	pointer, rather than try to reconstruct it ourselves.
+	(register_class_hierarchy_information):  Remove calls to build_stmt
+	and add_stmt.  Use append_to_statement_list to add call_exprs
+	directory to body.
+	(record_template_vtable_info):  New function.
+	* gcc/cp/cp-tree.h (build_vtbl_address): Add extern function decl.
+	(record_template_vtable_info): Add extern function decl.
+
 2012-04-01  Caroline Tice <cmtice@google.com>
 
 	* gcc/tree.h (save_vtable_map_decl): New extern function decl.
