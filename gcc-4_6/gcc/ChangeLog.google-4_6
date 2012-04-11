@@ -1,3 +1,7 @@
+2012-04-11  Teresa Johnson  <tejohnson@google.com>
+
+	Revert r182255 since it is subsumed by r186333.
+
 2012-04-11   Teresa Johnson  <tejohnson@google.com>
 
 	Backport r186176 from trunk.
