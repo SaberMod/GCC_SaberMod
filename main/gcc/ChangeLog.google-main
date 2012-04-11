@@ -1,3 +1,13 @@
+2012-04-11  Teresa Johnson  <tejohnson@google.com>
+
+	Revert r182254 since it is subsumed by r186176 on trunk.
+	Limit unrolling of loops with LCP stalling instructions on Core i7
+	so that they will fit into the LSD.
+	* loop-unroll.c (decide_unroll_constant_iterations): Call loop
+	unroll target hook.
+	* config/i386/i386.c (ix86_loop_unroll_adjust): New function.
+	(TARGET_LOOP_UNROLL_ADJUST): Define hook for x86.
+
 2012-04-10  Xinliang David Li  <davidxl@google.com>
 
 	* mversn-dispatch.c (builtin_dispatch_ipa_clone): returns
