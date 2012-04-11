@@ -589,7 +589,7 @@ register_all_pairs (struct node *root, tree body)
 
                   /* Find and handle any 'extra' vtables associated
 		     with this class. */
-                  /* register_vptr_fields (arg1, current->class_type, body); */
+                  register_vptr_fields (arg1, current->class_type, body);
 
                   if (binfo != NULL_TREE)
                     {
