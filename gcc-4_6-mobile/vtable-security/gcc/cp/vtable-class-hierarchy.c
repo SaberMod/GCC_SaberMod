@@ -470,7 +470,6 @@ static struct list_node2 *
 template_list_search (tree class_type)
 {
   tree type_id = NULL_TREE;
-  
 
   if (TYPE_NAME (class_type))
     {
@@ -483,8 +482,37 @@ template_list_search (tree class_type)
 
   if (type_id != NULL_TREE)
       return template_tree_find (vlt_template_vptr_info, type_id);
-  
+
   return NULL;
+}
+
+static void
+register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1, int len1,
+                              tree str2, int len2)
+{
+  unsigned ix;
+  tree base_binfo;
+
+  if (binfo == NULL_TREE)
+    return;
+
+  for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
+    {
+      if ((!BINFO_PRIMARY_P (base_binfo)
+           || BINFO_VIRTUAL_P (base_binfo))
+          && (get_vtbl_decl_for_binfo (base_binfo)))
+        {
+          tree vtable_address = build_vtbl_address (base_binfo);
+          tree call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
+                                            arg1, vtable_address,
+                                            str1, build_int_cst (integer_type_node,
+                                                                 len1),
+                                            str2, build_int_cst (integer_type_node,
+                                                                 len2));
+          append_to_statement_list (call_expr, &body);
+        }
+      register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2, len2);
+    }
 }
 
 static void
@@ -588,32 +616,13 @@ register_all_pairs (struct node *root, tree body)
 		  append_to_statement_list (call_expr, &body);
 
                   /* Find and handle any 'extra' vtables associated
-		     with this class. */
+		     with this class, via virtual inheritance.   */
                   register_vptr_fields (arg1, current->class_type, body);
 
-                  if (binfo != NULL_TREE)
-                    {
-                      unsigned ix;
-                      tree binfo_base;
-                      for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, binfo_base);
-                           ix++)
-                        {
-                          if ((!BINFO_PRIMARY_P (binfo_base)
-                               || BINFO_VIRTUAL_P (binfo_base))
-                              && (get_vtbl_decl_for_binfo (binfo_base)))
-                            {
-                              vtable_address = build_vtbl_address (binfo_base);
-                              call_expr = build_call_expr
-                                  (vlt_register_pairs_fndecl, 6,
-                                  arg1, vtable_address,
-                                  str1, build_int_cst (integer_type_node,
-                                                       len1),
-                                  str2,  build_int_cst (integer_type_node,
-                                                        len2));
-                              append_to_statement_list (call_expr, &body);
-                            }
-                        }
-                    }
+                  /* Find and handle any 'extra' vtables associated
+		     with this class, via multiple inheritance.   */
+                  register_other_binfo_vtables (binfo, body, arg1, str1, len1,
+                                                str2, len2);
                 }
 
             } /* if vtable can be extracted from current->class_type */

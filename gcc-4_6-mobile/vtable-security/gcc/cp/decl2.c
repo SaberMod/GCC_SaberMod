@@ -4114,7 +4114,7 @@ cp_write_global_declarations (void)
       for (cptr = temp_name, i = 0; 
 	   (cptr[0] != '\0') && (i < 50); 
 	   cptr++, i++)
-	if ((cptr[0] == '/') || (cptr[0] == '-'))
+	if ((cptr[0] == '/') || (cptr[0] == '-') || (cptr[0] == '+'))
 	  cptr[0] = '_';
 
       push_lang_context (lang_name_c);
