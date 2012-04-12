@@ -1,0 +1,71 @@
+2012-03-21  Sriraman Tallam  <tmsriram@google.com>
+	
+	* callgraph.h (XNEW_ALLOC, XNEWVEC_ALLOC): New macros.
+	(push_allocated_ptr): New function.
+	(make_edge_list): Call push_allocated_ptr for heap allocs.
+	(make_mode): Ditto.
+	(make_edge): Ditto.
+	(section_type, comdat_group, next, group): Add new fields
+	to struct Section_id.
+	(make_section_id): Initialize new fields. Add new args.
+	(parse_callgraph_section_contents): Add args.
+	(free_edge_chain): Delete.
+	* function_reordering_plugin.c (claim_file_hook): Call
+	push_allocated_ptr. Fix call to parse_callgraph_section_contents.
+	(all_symbols_read_hook): Call push_allocated_ptr. Remove calls to free.
+	* callgraph.c (mm_node): New struct.
+	(push_allocated_ptr): New function.
+	(canonicalize_function_name): New function.
+	(parse_callgraph_section_contents): Add args. Call
+	canonicalize_function_name.
+	(num_sections): New global.
+	(NUM_SECTION_TYPES): New constant.
+	(section_types): New constant.
+	(section_priority): New constant.
+	(map_section_name_to_index): Remove sections. Replace sections with
+	section_types. Call canonicalize_function_name.	Chain all created
+	sections. Check for comdat sections and group them together.
+	(write_out_node): Output sections into section_start and section_end
+	chain. Handle comdats.
+	(get_layout): Make new chains for each section type. Output each chain
+	one by one into handles and shndx. Output all the sections created.
+	(cleanup): Free all heap allocated objects tracked by mm_node_chain.
+	
+2012-03-18  Sriraman Tallam  <tmsriram@google.com>
+
+	* function_reordering_plugin.c (register_claim_file_hook): New function
+	pointer.
+	(register_all_symbols_read_hook): Ditto.
+	(no_op): New global.
+	(out_file): Make static.
+	(is_api_exist): Make static.
+	(process_option): New function.
+	(onload): Return if no_op is set. Do not register handlers until
+	necessary.
+	(get_load): Check if out_file is NULL before opening & closing the
+	file.
+	* callgraph.c (find_pettis_hansen_function_layout):
+	(get_layout): Dump only when fp is not NULL.
+
+2012-02-25  Sriraman Tallam  <tmsriram@google.com>
+
+	* function_reordering_plugin.c: Check for presence of elf.h.
+	Otherwise, redefine the elf macros used.	
+
+2012-02-02  Sriraman Tallam  <tmsriram@google.com>
+
+	* callgraph.c (parse_callgraph_section_contents): Remove increment
+	to num_real_nodes.
+	(set_node_type): Increment num_real_nodes.
+
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>	
+
+	* config.h.in: New file.
+	* callgraph.c: Ditto.
+	* callgraph.h: Ditto.
+	* configure: Ditto.
+	* Makefile.in: Ditto.
+	* configure.ac: Ditto.
+	* function_reordering_plugin.c: Ditto.
+	* aclocal.m4: Ditto.
+	* Makefile.def: Ditto.
