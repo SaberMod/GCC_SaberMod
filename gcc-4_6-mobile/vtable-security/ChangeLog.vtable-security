@@ -1,3 +1,13 @@
+2012-04-12  Caroline Tice <cmtice@google.com>
+
+	* gcc/gp/decl2.c (cp_write_global_declarations):  Fix conversion
+	from directory name to function name, replacing '/' and '+' with
+	underscores.
+	* gcc/cp/vtable-class-hierarchy (register_other_binfo_vtables):
+	New function (to recursively find offset virtual tables from
+	multiple inheritance).
+	(register_all_pairs): Add call to register_other_binfo_vtables.
+
 2012-04-07  Caroline Tice <cmtice@google.com>
 
 	* gcc/cp/init.c (build_vtbl_address):  Remove static function
@@ -10,9 +20,17 @@
 	(finish_objects):  Check to see if constructor is for vtable
 	map; if so, store the function decl in vtable_verify_init_fn.
 	(cp_process_pending_declarations):  Move code that generates
-	vtable verify constructor function to after call to
-	cgraph_finalize_compilation_unit.  Add calls to gimplify_function_tree,
+	vtable verify constructor function from here to after call to
+	cgraph_finalize_compilation_unit in cp_write_global_declarations.
+	Add calls to gimplify_function_tree,
 	cgraph_add_new_function, and cgraph_process_new_functions.
+	(cp_write_global_declarations):  Insert code, after call to
+	cgraph_finalize_compilation_unit, to generate vtable verify
+	constructor function.  Add calls to gimplify_function_tree,
+	cgraph_add_new_function, and cgraph_process_new_functions.  Also,
+	add the last 50 chars of the source directory tree to the name of
+	the function, to avoid filename conflicts (from files with the
+	same names in different directories).
 	* gcc/cp/vtable-class-hierarchy (struct list_node2): New type decl.
 	(tree-iterator.h) New include statement.
 	(struct node3): New type decl;
