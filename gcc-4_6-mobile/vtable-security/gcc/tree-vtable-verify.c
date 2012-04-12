@@ -351,6 +351,11 @@ verify_bb_vtables (basic_block bb)
                                                 (TYPE_BINFO (TREE_TYPE (rhs)));
                       vtbl = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (rhs)));
 
+                      if (!vtbl_var_decl || !vtbl)
+                        /* Problem:  This does NOT end up checking virtual
+                           functions if there is NO inheritance involved.  */
+                        continue;
+
                       if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
                         vtbl_ptr = force_gimple_operand (vtbl, &pre_p, 1,
                                                          NULL);

@@ -546,86 +546,111 @@ register_all_pairs (struct node *root, tree body)
           bool vtable_should_be_output = false;
 
 	  tree template_type = NULL_TREE;
+          struct list_node2 *template_vtable_list = NULL;
+          bool templates_done = false;
 
 
 	  if (!vtable && binfo)
 	    {
 	      /* Possibly look for vtable in instantiated template types */
-	      struct list_node2 *vtable_list = template_list_search 
-		                                         (current->class_type);
-	      if (vtable_list)
+	      template_vtable_list = template_list_search (current->class_type);
+
+	      if (template_vtable_list)
  		{
-		  vtable_decl = vtable_list->vtable_decl;
-		  template_type = vtable_list->instantiated_type;
+		  vtable_decl = template_vtable_list->vtable_decl;
+		  template_type = template_vtable_list->instantiated_type;
 		}
 	    }
 
-	  /* Handle main vtable for this class. */
-
-          if (vtable_decl)
+          while (! templates_done)
             {
-              struct varpool_node *node = varpool_node (vtable_decl);
-              bool is_external = DECL_EXTERNAL (vtable_decl);
-              vtable_should_be_output = node->needed;
-            }
+              /* Handle main vtable for this class. */
 
-          if (vtable_decl && vtable_should_be_output)
-            {
-	      tree vtable_address;
-              int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));
-              int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
-              tree str1 = build_string_literal (len1,
-                                                IDENTIFIER_POINTER
-						 (DECL_NAME
+              if (vtable_decl)
+              {
+                struct varpool_node *node = varpool_node (vtable_decl);
+                bool is_external = DECL_EXTERNAL (vtable_decl);
+                vtable_should_be_output = node->needed;
+              }
+
+              if (vtable_decl && vtable_should_be_output)
+              {
+                tree vtable_address;
+                int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));
+                int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
+                tree str1 = build_string_literal (len1,
+                                                  IDENTIFIER_POINTER
+                                                  (DECL_NAME
 						   (base_ptr_var_decl)));
-              tree str2 = build_string_literal (len2,
-                                                IDENTIFIER_POINTER
+                tree str2 = build_string_literal (len2,
+                                                  IDENTIFIER_POINTER
 						  (DECL_NAME (vtable_decl)));
 
-	      if (template_type == NULL_TREE)
-		vtable_address = build_vtbl_address (binfo);
-	      else
-		vtable_address = build_vtbl_address (TYPE_BINFO
-                                                     (template_type));
+                if (template_type == NULL_TREE)
+                  {
+                    vtable_address = build_vtbl_address (binfo);
+                    templates_done = true;
+                  }
+                else
+                  vtable_address = build_vtbl_address (TYPE_BINFO
+                                                       (template_type));
 
-              already_registered = record_register_pairs (DECL_NAME
-							   (base_ptr_var_decl),
-                                                          DECL_NAME
-							   (vtable_decl));
+                already_registered = record_register_pairs (DECL_NAME
+                                                            (base_ptr_var_decl),
+                                                            DECL_NAME
+                                                            (vtable_decl));
 
-              if (!already_registered)
+                if (!already_registered)
+                  {
+                    new_type = build_pointer_type (TREE_TYPE (base_ptr_var_decl));
+                    arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
+
+                    /* This call expr has the 2 "real" arguments, plus 4
+                       debugging arguments.  Eventually it will be replaced
+                       with the one just below it, which only has the 2 real
+                       arguments.  */
+                    call_expr = build_call_expr
+                        (vlt_register_pairs_fndecl, 6,
+                         arg1, vtable_address,
+                         str1, build_int_cst (integer_type_node,
+                                              len1),
+                         str2,  build_int_cst (integer_type_node,
+                                               len2));
+                    /* See comments above.  call_expr = build_call_expr
+                       (vlt_register_pairs_fndecl, 2, arg1, vtable);
+                    */
+
+                    append_to_statement_list (call_expr, &body);
+
+                    /* Find and handle any 'extra' vtables associated
+                       with this class, via virtual inheritance.   */
+                    register_vptr_fields (arg1, current->class_type, body);
+
+                    /* Find and handle any 'extra' vtables associated
+                       with this class, via multiple inheritance.   */
+                    register_other_binfo_vtables (binfo, body, arg1, str1, len1,
+                                                  str2, len2);
+                  }
+              } /* if vtable_decl && vtable_should_be_output */
+              else
                 {
-                  new_type = build_pointer_type (TREE_TYPE (base_ptr_var_decl));
-                  arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
-
-                  /* This call expr has the 2 "real" arguments, plus 4
-                     debugging arguments.  Eventually it will be replaced
-                     with the one just below it, which only has the 2 real
-                     arguments.  */
-                  call_expr = build_call_expr
-                                 (vlt_register_pairs_fndecl, 6,
-                                  arg1, vtable_address,
-                                  str1, build_int_cst (integer_type_node,
-                                                       len1),
-                                  str2,  build_int_cst (integer_type_node,
-                                                        len2));
-                  /* See comments above.  call_expr = build_call_expr
-                     (vlt_register_pairs_fndecl, 2, arg1, vtable);
-                  */
-
-		  append_to_statement_list (call_expr, &body);
-
-                  /* Find and handle any 'extra' vtables associated
-		     with this class, via virtual inheritance.   */
-                  register_vptr_fields (arg1, current->class_type, body);
-
-                  /* Find and handle any 'extra' vtables associated
-		     with this class, via multiple inheritance.   */
-                  register_other_binfo_vtables (binfo, body, arg1, str1, len1,
-                                                str2, len2);
+                  templates_done = true;
                 }
 
-            } /* if vtable can be extracted from current->class_type */
+              if (!templates_done)
+                {
+                  if (!template_vtable_list
+                      || !template_vtable_list->next)
+                    templates_done = true;
+                  else
+                    {
+                      template_vtable_list = template_vtable_list->next;
+                      vtable_decl = template_vtable_list->vtable_decl;
+                      template_type = template_vtable_list->instantiated_type;
+                    }
+                }
+
+            } /* while ! templates_done */
         }
       current = current->next;
 

@@ -1,5 +1,13 @@
 2012-04-12  Caroline Tice <cmtice@google.com>
 
+	* gcc/cp/vtable-class-hierarchy (register_all_pairs)  Modify
+	function to traverse entire list of instantiated templates, if
+	one is found.
+	* gcc/tree-vtable-verify.c (verify_bb_vtables) Make sure vtbl
+	is non-NULL before trying to access stuff through it.
+
+2012-04-12  Caroline Tice <cmtice@google.com>
+
 	* gcc/gp/decl2.c (cp_write_global_declarations):  Fix conversion
 	from directory name to function name, replacing '/' and '+' with
 	underscores.
