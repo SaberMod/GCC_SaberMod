@@ -50,14 +50,8 @@ struct list_node {
   struct list_node *next;
 };
 
-struct list_node2 {  /* for linked list of instantiated vtable decls */
-  tree vtable_decl; 
-  tree instantiated_type;
-  struct list_node2 *next; 
-};
-
 struct node {
-  tree ptr_decl;
+  tree ptr_decl_or_template_type_id;
   struct list_node *class_list;
   struct node *left;
   struct node *right;
@@ -70,28 +64,19 @@ struct node2 {
   struct node2 *right;
 };
 
-struct node3 {
-  tree template_type_id;
-  struct list_node2 *instantiated_vtables;
-  struct node3 *left;
-  struct node3 *right;
-};
-
 static void init_functions (void);
 static void linked_list_insert (struct list_node **, tree);
 static void binary_tree_insert (struct node **, tree, tree, tree);
 static void dump_class_hierarchy_information (struct node *root);
 static void register_all_pairs (struct node *root, tree body);
 static void compute_hierarchy_transitive_closure (void);
-static const char *get_class_name (tree);
-static void template_list_insert (struct list_node2 **, tree, tree);
-static void template_info_tree_insert (struct node3 **, tree, tree, tree);
-static struct list_node2 *template_list_search (tree class_type);
-static struct list_node2 *template_tree_find (struct node3 *, tree type_id);
+static void template_info_tree_insert (struct node **, tree, tree);
+static struct list_node *template_list_search (tree class_type);
+static struct list_node *template_tree_find (struct node *, tree type_id);
 
 struct node *vlt_class_hierarchy_info = NULL;
 static struct node2 *registered_pairs = NULL;
-static struct node3 *vlt_template_vptr_info = NULL;
+static struct node *vlt_template_vptr_info = NULL;
 
 static void
 init_functions (void)
@@ -102,7 +87,7 @@ init_functions (void)
   tree change_permission_type = void_ptr_type;
 
   arg_types = build_tree_list (NULL_TREE, void_ptr_type);
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
 						   make_node (INTEGER_TYPE)));
 
   change_permission_type = build_function_type (change_permission_type,
@@ -140,18 +125,18 @@ dump_class_hierarchy_information (struct node *root)
   struct list_node *current;
 
   /* Dump current node */
-  if (!root || ! root->ptr_decl)
+  if (!root || ! root->ptr_decl_or_template_type_id)
     return;
 
   fprintf (stdout, "Base class '%s' is inherited by: ",
-           IDENTIFIER_POINTER (DECL_NAME (root->ptr_decl)));
+           IDENTIFIER_POINTER (DECL_NAME (root->ptr_decl_or_template_type_id)));
 
   current = root->class_list;
   while (current)
     {
       if (current->class_type)
 	fprintf (stdout, " %s ",
-		 IDENTIFIER_POINTER (DECL_NAME 
+		 IDENTIFIER_POINTER (DECL_NAME
 				     (TYPE_NAME (current->class_type))));
       current = current->next;
     }
@@ -186,7 +171,7 @@ list_append (struct list_node *old_list, struct list_node *new_list)
       /* Look for 'new_cur' in the old list.  */
       bool found = false;
       for (old_cur = old_list; old_cur && !found; old_cur = old_cur->next)
-        if (DECL_NAME (TREE_CHAIN (new_cur->class_type)) 
+        if (DECL_NAME (TREE_CHAIN (new_cur->class_type))
 	                 == (DECL_NAME (TREE_CHAIN (old_cur->class_type))))
           found = true;
       /* if not found, copy new node and append to end of old list */
@@ -209,10 +194,10 @@ binary_tree_find (struct node *root, tree var_decl)
   if (!root)
     return NULL;
 
-  if (DECL_NAME (root->ptr_decl) == DECL_NAME (var_decl))
+  if (DECL_NAME (root->ptr_decl_or_template_type_id) == DECL_NAME (var_decl))
     return root;
 
-  else if (var_decl < root->ptr_decl)
+  else if (var_decl < root->ptr_decl_or_template_type_id)
     return binary_tree_find (root->left, var_decl);
   else
     return binary_tree_find (root->right, var_decl);
@@ -231,8 +216,9 @@ build_transitive_closure (struct node *root, struct node *cur_node)
   if (!cur_node)
     return false;
 
-  cur_node_name = xstrdup (IDENTIFIER_POINTER 
-			               (DECL_NAME (cur_node->ptr_decl)));
+  cur_node_name = xstrdup (IDENTIFIER_POINTER
+			         (DECL_NAME
+                                    (cur_node->ptr_decl_or_template_type_id)));
   cptr = strstr (cur_node_name, ".vtable_map");
   if (cptr)
     cptr[0] = '\0';
@@ -254,16 +240,16 @@ build_transitive_closure (struct node *root, struct node *cur_node)
           || (! BINFO_VTABLE (TYPE_BINFO (cur_list->class_type))))
         continue;
 
-      vtbl_var_decl = TREE_OPERAND 
-	               (TREE_OPERAND 
-			    (BINFO_VTABLE 
-			         (TYPE_BINFO 
+      vtbl_var_decl = TREE_OPERAND
+	               (TREE_OPERAND
+			    (BINFO_VTABLE
+			         (TYPE_BINFO
 				      (cur_list->class_type)), 0), 0);
 
       if (!vtbl_var_decl)
         continue;
-      cur_list_name = (const char *) IDENTIFIER_POINTER 
-	                                     (DECL_NAME (vtbl_var_decl));
+      cur_list_name = (const char *) IDENTIFIER_POINTER
+                                                 (DECL_NAME (vtbl_var_decl));
 
       if (!cur_list_name)
         continue;
@@ -302,7 +288,7 @@ build_transitive_closure (struct node *root, struct node *cur_node)
 static void
 compute_hierarchy_transitive_closure (void)
 {
-  build_transitive_closure (vlt_class_hierarchy_info, 
+  build_transitive_closure (vlt_class_hierarchy_info,
 			    vlt_class_hierarchy_info);
 }
 
@@ -372,8 +358,8 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
       bool already_registered = false;
 
       if (ztt_decl && (DECL_NAME (ztt_decl)))
-        already_registered = record_register_pairs (DECL_NAME 
-						    (TREE_OPERAND 
+        already_registered = record_register_pairs (DECL_NAME
+						    (TREE_OPERAND
 						     (base_class_decl_arg, 0)),
                                                     DECL_NAME (ztt_decl));
       if (already_registered)
@@ -390,43 +376,42 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
             {
               tree call_expr = NULL_TREE;
-              tree expr_stmt = NULL_TREE;
               unsigned HOST_WIDE_INT cnt;
               constructor_elt *ce;
 
               for (cnt = 0;
-                   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (values), 
+                   VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (values),
 				cnt, ce);
                    cnt++)
                 {
                   tree value = ce->value;
-                  int len1 = strlen (IDENTIFIER_POINTER 
-				     (DECL_NAME 
-				          (TREE_OPERAND 
+                  int len1 = strlen (IDENTIFIER_POINTER
+				     (DECL_NAME
+				          (TREE_OPERAND
 					     (base_class_decl_arg, 0))));
-                  int len2 = strlen (IDENTIFIER_POINTER 
+                  int len2 = strlen (IDENTIFIER_POINTER
 				     (DECL_NAME (vtbl_var_decl)));
                   arg1 = build_string_literal (len1,
-                                               IDENTIFIER_POINTER 
-					        (DECL_NAME 
-						 (TREE_OPERAND 
+                                               IDENTIFIER_POINTER
+					        (DECL_NAME
+						 (TREE_OPERAND
 						  (base_class_decl_arg, 0))));
                   arg2 = build_string_literal (len2,
-                                               IDENTIFIER_POINTER 
+                                               IDENTIFIER_POINTER
 					        (DECL_NAME (vtbl_var_decl)));
-		  
+
 		  /* This call expr has the 2 "real" arguments, plus 4
 		     debugging arguments.  Eventually it will be
 		     replaced with the one just below it, which only
 		     has the 2 real arguments.  */
-                  call_expr = build_call_expr 
+                  call_expr = build_call_expr
 		                        (vlt_register_pairs_fndecl, 6,
 					 base_class_decl_arg, value,
-					 arg1, 
-					 build_int_cst (integer_type_node, 
+					 arg1,
+					 build_int_cst (integer_type_node,
 							len1),
-					 arg2, 
-					 build_int_cst (integer_type_node, 
+					 arg2,
+					 build_int_cst (integer_type_node,
 							len2));
 		  /* See comments above.
                   call_expr = build_call_expr (vlt_register_pairs_fndecl, 2,
@@ -439,34 +424,20 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
     }
 }
 
-static const char *
-get_class_name (tree class_type)
-{
-  if (TYPE_NAME (class_type))
-    {
-      if (TREE_CODE (TYPE_NAME (class_type)) == IDENTIFIER_NODE)
-	return IDENTIFIER_POINTER (TYPE_NAME (class_type));
-      else if (TREE_CODE (TYPE_NAME (class_type)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (class_type)))
-	return IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (class_type)));
-    }
-  return NULL;
-}
-
-static struct list_node2 *
-template_tree_find (struct node3 *root, tree type_id)
+static struct list_node *
+template_tree_find (struct node *root, tree type_id)
 {
   if (root == NULL)
     return NULL;
-  else if (root->template_type_id == type_id)
-    return root->instantiated_vtables;
-  else if (type_id < root->template_type_id)
+  else if (root->ptr_decl_or_template_type_id == type_id)
+    return root->class_list;
+  else if (type_id < root->ptr_decl_or_template_type_id)
     return template_tree_find (root->left, type_id);
   else
     return template_tree_find (root->right, type_id);
 }
 
-static struct list_node2 *
+static struct list_node *
 template_list_search (tree class_type)
 {
   tree type_id = NULL_TREE;
@@ -487,8 +458,8 @@ template_list_search (tree class_type)
 }
 
 static void
-register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1, int len1,
-                              tree str2, int len2)
+register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
+                              int len1, tree str2, int len2)
 {
   unsigned ix;
   tree base_binfo;
@@ -505,13 +476,17 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1, int l
           tree vtable_address = build_vtbl_address (base_binfo);
           tree call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
                                             arg1, vtable_address,
-                                            str1, build_int_cst (integer_type_node,
-                                                                 len1),
-                                            str2, build_int_cst (integer_type_node,
-                                                                 len2));
+                                            str1,
+                                            build_int_cst (integer_type_node,
+                                                           len1),
+                                            str2,
+                                            build_int_cst (integer_type_node,
+                                                           len2));
           append_to_statement_list (call_expr, &body);
         }
-      register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2, len2);
+
+      register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2,
+                                    len2);
     }
 }
 
@@ -522,10 +497,10 @@ register_all_pairs (struct node *root, tree body)
   tree base_ptr_var_decl;
 
   /* Handle current node */
-  if (!root || ! root->ptr_decl)
+  if (!root || ! root->ptr_decl_or_template_type_id)
     return;
 
-  base_ptr_var_decl = root->ptr_decl;
+  base_ptr_var_decl = root->ptr_decl_or_template_type_id;
 
   current = root->class_list;
   while (current)
@@ -536,121 +511,103 @@ register_all_pairs (struct node *root, tree body)
           tree new_type;
           tree arg1;
           tree call_expr;
-          tree expr_stmt;
           bool already_registered;
 
           tree binfo = TYPE_BINFO (current->class_type);
-	  const char *class_name = get_class_name (current->class_type);
 	  tree vtable = BINFO_VTABLE (binfo);
-          tree vtable_decl = get_vtbl_decl_for_binfo (binfo);
+          tree vtable_decl;
           bool vtable_should_be_output = false;
 
-	  tree template_type = NULL_TREE;
-          struct list_node2 *template_vtable_list = NULL;
-          bool templates_done = false;
+          struct list_node *template_vtable_list = NULL;
 
 
 	  if (!vtable && binfo)
 	    {
 	      /* Possibly look for vtable in instantiated template types */
-	      template_vtable_list = template_list_search (current->class_type);
+	      template_vtable_list = template_list_search
+                                                        (current->class_type);
 
 	      if (template_vtable_list)
  		{
-		  vtable_decl = template_vtable_list->vtable_decl;
-		  template_type = template_vtable_list->instantiated_type;
+                  /* If we found a list of corresponding instantiated
+                     template types, insert them all into the current
+                     types list (just after our current position) so
+                     we will go through them all on the next
+                     iterations of this while loop.  */
+                  struct list_node *cur_list;
+                  for (cur_list = template_vtable_list; cur_list;
+                       cur_list = cur_list->next)
+                    {
+                      struct list_node *new_type_node =
+                          (struct list_node *) xmalloc (sizeof
+                                                        (struct list_node));
+                      new_type_node->class_type = cur_list->class_type;
+                      new_type_node->next = current->next;
+                      current->next = new_type_node;
+                    }
 		}
 	    }
 
-          while (! templates_done)
+          vtable_decl = CLASSTYPE_VTABLES (current->class_type);
+
+          /* Handle main vtable for this class. */
+
+          if (vtable_decl)
             {
-              /* Handle main vtable for this class. */
+              struct varpool_node *node = varpool_node (vtable_decl);
+              vtable_should_be_output = node->needed;
+            }
 
-              if (vtable_decl)
-              {
-                struct varpool_node *node = varpool_node (vtable_decl);
-                bool is_external = DECL_EXTERNAL (vtable_decl);
-                vtable_should_be_output = node->needed;
-              }
-
-              if (vtable_decl && vtable_should_be_output)
-              {
-                tree vtable_address;
-                int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));
-                int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
-                tree str1 = build_string_literal (len1,
-                                                  IDENTIFIER_POINTER
+          if (vtable_decl && vtable_should_be_output)
+            {
+              tree vtable_address = build_vtbl_address (binfo);
+              int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));
+              int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
+              tree str1 = build_string_literal (len1,
+                                                IDENTIFIER_POINTER
                                                   (DECL_NAME
-						   (base_ptr_var_decl)));
-                tree str2 = build_string_literal (len2,
-                                                  IDENTIFIER_POINTER
-						  (DECL_NAME (vtable_decl)));
+                                                     (base_ptr_var_decl)));
+              tree str2 = build_string_literal (len2,
+                                                IDENTIFIER_POINTER
+                                                  (DECL_NAME (vtable_decl)));
 
-                if (template_type == NULL_TREE)
-                  {
-                    vtable_address = build_vtbl_address (binfo);
-                    templates_done = true;
-                  }
-                else
-                  vtable_address = build_vtbl_address (TYPE_BINFO
-                                                       (template_type));
+              already_registered = record_register_pairs (DECL_NAME
+                                                          (base_ptr_var_decl),
+                                                          DECL_NAME
+                                                          (vtable_decl));
 
-                already_registered = record_register_pairs (DECL_NAME
-                                                            (base_ptr_var_decl),
-                                                            DECL_NAME
-                                                            (vtable_decl));
-
-                if (!already_registered)
-                  {
-                    new_type = build_pointer_type (TREE_TYPE (base_ptr_var_decl));
-                    arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
-
-                    /* This call expr has the 2 "real" arguments, plus 4
-                       debugging arguments.  Eventually it will be replaced
-                       with the one just below it, which only has the 2 real
-                       arguments.  */
-                    call_expr = build_call_expr
-                        (vlt_register_pairs_fndecl, 6,
-                         arg1, vtable_address,
-                         str1, build_int_cst (integer_type_node,
-                                              len1),
-                         str2,  build_int_cst (integer_type_node,
-                                               len2));
-                    /* See comments above.  call_expr = build_call_expr
-                       (vlt_register_pairs_fndecl, 2, arg1, vtable);
-                    */
-
-                    append_to_statement_list (call_expr, &body);
-
-                    /* Find and handle any 'extra' vtables associated
-                       with this class, via virtual inheritance.   */
-                    register_vptr_fields (arg1, current->class_type, body);
-
-                    /* Find and handle any 'extra' vtables associated
-                       with this class, via multiple inheritance.   */
-                    register_other_binfo_vtables (binfo, body, arg1, str1, len1,
-                                                  str2, len2);
-                  }
-              } /* if vtable_decl && vtable_should_be_output */
-              else
+              if (!already_registered)
                 {
-                  templates_done = true;
-                }
+                  new_type = build_pointer_type (TREE_TYPE
+                                                   (base_ptr_var_decl));
+                  arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
 
-              if (!templates_done)
-                {
-                  if (!template_vtable_list
-                      || !template_vtable_list->next)
-                    templates_done = true;
-                  else
-                    {
-                      template_vtable_list = template_vtable_list->next;
-                      vtable_decl = template_vtable_list->vtable_decl;
-                      template_type = template_vtable_list->instantiated_type;
-                    }
-                }
+                  /* This call expr has the 2 "real" arguments, plus 4
+                     debugging arguments.  Eventually it will be replaced
+                     with the one just below it, which only has the 2 real
+                     arguments.  */
+                  call_expr = build_call_expr
+                      (vlt_register_pairs_fndecl, 6,
+                       arg1, vtable_address,
+                       str1, build_int_cst (integer_type_node,
+                                            len1),
+                       str2,  build_int_cst (integer_type_node,
+                                             len2));
+                  /* See comments above.  call_expr = build_call_expr
+                     (vlt_register_pairs_fndecl, 2, arg1, vtable);  */
 
-            } /* while ! templates_done */
+                  append_to_statement_list (call_expr, &body);
+
+                  /* Find and handle any 'extra' vtables associated
+                     with this class, via virtual inheritance.   */
+                  register_vptr_fields (arg1, current->class_type, body);
+
+                  /* Find and handle any 'extra' vtables associated
+                     with this class, via multiple inheritance.   */
+                  register_other_binfo_vtables (binfo, body, arg1, str1, len1,
+                                                str2, len2);
+                }
+            } /* if vtable_decl && vtable_should_be_output */
         }
       current = current->next;
 
@@ -674,43 +631,28 @@ linked_list_insert (struct list_node **root, tree new_class)
 }
 
 static void
-template_list_insert (struct list_node2 **root, tree instantiated_type, 
-		      tree vtable_decl)
-{
-  struct list_node2 *new_node = (struct list_node2 *)
-    xmalloc (sizeof (struct list_node2));
-
-  new_node->vtable_decl = vtable_decl;
-  new_node->instantiated_type = instantiated_type;
-  new_node->next = (*root);
-  (*root) = new_node;
-}
-
-static void
-template_info_tree_insert (struct node3 **root, tree template_type_id,
-			   tree instantiated_type, tree vtable_decl)
+template_info_tree_insert (struct node **root, tree template_type_id,
+			   tree instantiated_type)
 {
   if (!(*root))
     {
-      struct node3 *new_node = (struct node3 *) 
-	                                      xmalloc (sizeof (struct node3));
-      new_node->template_type_id = template_type_id;
+      struct node *new_node = (struct node *) xmalloc (sizeof (struct node));
+
+      new_node->ptr_decl_or_template_type_id = template_type_id;
       new_node->left = NULL;
       new_node->right = NULL;
-      new_node->instantiated_vtables = NULL;
-      template_list_insert (&(new_node->instantiated_vtables), instantiated_type,
-			    vtable_decl);
+      new_node->class_list = NULL;
+      linked_list_insert (&(new_node->class_list), instantiated_type);
       (*root) = new_node;
     }
-  else if ((*root)->template_type_id == template_type_id)
-    template_list_insert (&((*root)->instantiated_vtables), instantiated_type,
-			  vtable_decl);
-  else if (template_type_id < (*root)->template_type_id)
-    template_info_tree_insert (&((*root)->left), template_type_id, 
-			       instantiated_type, vtable_decl);
+  else if ((*root)->ptr_decl_or_template_type_id == template_type_id)
+    linked_list_insert (&((*root)->class_list), instantiated_type);
+  else if (template_type_id < (*root)->ptr_decl_or_template_type_id)
+    template_info_tree_insert (&((*root)->left), template_type_id,
+			       instantiated_type);
   else
-    template_info_tree_insert (&((*root)->right), template_type_id, 
-			       instantiated_type, vtable_decl);
+    template_info_tree_insert (&((*root)->right), template_type_id,
+			       instantiated_type);
 }
 
 static void
@@ -720,7 +662,7 @@ binary_tree_insert (struct node **root, tree ptr_decl, tree base_class,
   if (!(*root))
     {
       struct node *new_node = (struct node *) xmalloc (sizeof (struct node));
-      new_node->ptr_decl = ptr_decl;
+      new_node->ptr_decl_or_template_type_id = ptr_decl;
       new_node->left = NULL;
       new_node->right = NULL;
       new_node->class_list = NULL;
@@ -728,9 +670,9 @@ binary_tree_insert (struct node **root, tree ptr_decl, tree base_class,
       linked_list_insert (&(new_node->class_list), new_class);
       (*root) = new_node;
     }
-  else if ((DECL_NAME ((*root)->ptr_decl)) == (DECL_NAME (ptr_decl)))
+  else if ((DECL_NAME ((*root)->ptr_decl_or_template_type_id)) == (DECL_NAME (ptr_decl)))
     linked_list_insert (&((*root)->class_list), new_class);
-  else if (ptr_decl < (*root)->ptr_decl)
+  else if (ptr_decl < (*root)->ptr_decl_or_template_type_id)
     binary_tree_insert (&((*root)->left), ptr_decl, base_class, new_class);
   else
     binary_tree_insert (&((*root)->right), ptr_decl, base_class, new_class);
@@ -741,7 +683,7 @@ update_class_hierarchy_information (tree base_class_ptr_decl,
                                     tree base_class,
                                     tree derived_class)
 {
-  binary_tree_insert (&vlt_class_hierarchy_info, base_class_ptr_decl, 
+  binary_tree_insert (&vlt_class_hierarchy_info, base_class_ptr_decl,
 		      base_class, derived_class);
 }
 
@@ -749,7 +691,6 @@ bool
 register_class_hierarchy_information (tree body)
 {
   tree call_expr;
-  tree expr_stmt;
   tree arg;
   tree arg2;
   bool ret_val = false;
@@ -804,15 +745,9 @@ record_template_vtable_info (tree instantiated_class_type,
 			     tree template_class_type)
 {
   tree type_id = NULL_TREE;
-  tree instantiated_vtable_decl = NULL_TREE;
 
   if (instantiated_class_type == NULL_TREE
       || template_class_type == NULL_TREE)
-    return;
-
-  instantiated_vtable_decl = CLASSTYPE_VTABLES (instantiated_class_type);
-
-  if (instantiated_vtable_decl == NULL_TREE)
     return;
 
   if (TYPE_NAME (template_class_type))
@@ -827,7 +762,6 @@ record_template_vtable_info (tree instantiated_class_type,
   if (type_id == NULL_TREE)
     return;
 
-  template_info_tree_insert (&vlt_template_vptr_info, type_id, 
-			     instantiated_class_type,
-			     instantiated_vtable_decl);
+  template_info_tree_insert (&vlt_template_vptr_info, type_id,
+			     instantiated_class_type);
 }

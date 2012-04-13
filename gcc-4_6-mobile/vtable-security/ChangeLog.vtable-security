@@ -1,6 +1,37 @@
+2012-04-13  Caroline Tice <cmtice@google.com>
+
+	Code cleanup and hack removal.
+	* gcc/cp/vtable-class-hierarchy.c (struct list_node2): Delete struct
+	definition.
+	(struct node): Rename field to ptr_decl_or_template_type_id.
+	(struct node3): Delete struct definition..
+	(get_class_name): Delete function.
+	(template_list_insert): Delete function.
+	(template_info_tree_insert):  Remove vtable_decl parameter.  Modify to
+	use struct node rather than struct node3.
+	(template_list_search): Change return type to list_node* instead of
+	list_node2*.
+	(template_tree_find): Ditto.  Also change type of first parameter to
+	node* instead of node3*.  Replace field ptr_decl with
+	ptr_decl_or_template_type_id.
+	(vlt_template_vptr_info): Replace struct node3 with struct node.
+	(register_vptr_fields):  Remove expr_stmt.
+	(dump_class_hierarchy_information):  Replace references to field
+	'ptr_decl' with 'ptr_decl_or_template_type_id'.
+	(binary_tree_find): Ditto.
+	(build_transitive_closure): Ditto.
+	(binary_tree_insert): Ditto.
+	(register_all_pairs): Ditto. Also, remove dead variables expr_stmt and
+	class_name. Change handling of instantiated template types (add them
+	to current type list rather than dealing with them separately).  Use
+	CLASSTYPE_VTABLES to find vtable var decls.
+	(register_class_hierarchy): Delete dead variable expr_stmt.
+	(record_template_vtable_info): Remove code to find vtable var decl
+	here. Don't pass vtable var decl to template_info_tree_insert.
+
 2012-04-12  Caroline Tice <cmtice@google.com>
 
-	* gcc/cp/vtable-class-hierarchy (register_all_pairs)  Modify
+	* gcc/cp/vtable-class-hierarchy.c (register_all_pairs)  Modify
 	function to traverse entire list of instantiated templates, if
 	one is found.
 	* gcc/tree-vtable-verify.c (verify_bb_vtables) Make sure vtbl
@@ -11,7 +42,7 @@
 	* gcc/gp/decl2.c (cp_write_global_declarations):  Fix conversion
 	from directory name to function name, replacing '/' and '+' with
 	underscores.
-	* gcc/cp/vtable-class-hierarchy (register_other_binfo_vtables):
+	* gcc/cp/vtable-class-hierarchy.c (register_other_binfo_vtables):
 	New function (to recursively find offset virtual tables from
 	multiple inheritance).
 	(register_all_pairs): Add call to register_other_binfo_vtables.
@@ -39,7 +70,7 @@
 	add the last 50 chars of the source directory tree to the name of
 	the function, to avoid filename conflicts (from files with the
 	same names in different directories).
-	* gcc/cp/vtable-class-hierarchy (struct list_node2): New type decl.
+	* gcc/cp/vtable-class-hierarchy.c (struct list_node2): New type decl.
 	(tree-iterator.h) New include statement.
 	(struct node3): New type decl;
 	(get_class_name): New function.
