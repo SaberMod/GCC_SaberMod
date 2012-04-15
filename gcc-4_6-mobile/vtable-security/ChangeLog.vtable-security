@@ -1,4 +1,29 @@
-2012-04-13  Caroline Tice <cmtice@google.com>
+2012-04-14  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/decl2.c (cp_write_global_declarations):  Call
+	compute_class_hierarchy_transitive_closure before calling
+	cgraph_finalize_compilation_unit.
+	* gcc/cp/parser.c (cp_parser_class_specifier_1):  Modify
+	to handle unistantiated templates as base classes (added
+	the base_is_template code and checks).
+	* gcc/cp/vtable-class-hierarchy (compute_hierarchy_transitive_closure,
+	compute_class_hierarchy_transitive_closure): Removed the 'static'
+	function qualifier and re-named compute_hierarchy_transitive_closure
+	to compute_class_hierarchy_transitive_closure.
+	(binary_tree_find_template):  New function, to look up template base
+	class hierarchies in the vlt_class_hierarchy_info data structure.
+	(build_transitive_closure):  Add code to deal with an uninstantiated
+	template class being in the middle of a transitive closure.
+	(template_list_search):  Use the mangled type name when looking up
+	template hierarchy data.
+	(register_all_pairs): Make sure binfo is non-null before calling
+	BINFO_VTABLE on it.
+	(record_template_vtable_info): Use the mangled type name when storing
+	the template hierarchy data.
+	* gcc/cp/cp-tree.h (compute_class_hierarchy_transitive_closure):
+	Add extern function decl.
+
+2012-04-13  Caroline Tice  <cmtice@google.com>
 
 	Code cleanup and hack removal.
 	* gcc/cp/vtable-class-hierarchy.c (struct list_node2): Delete struct

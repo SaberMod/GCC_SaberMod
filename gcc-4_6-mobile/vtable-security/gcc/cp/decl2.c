@@ -4088,6 +4088,9 @@ cp_write_global_declarations (void)
   timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_CGRAPH);
 
+  if (flag_vtable_verify)
+    compute_class_hierarchy_transitive_closure ();
+
   cgraph_finalize_compilation_unit ();
 
   /* Generate the special constructor function that calls

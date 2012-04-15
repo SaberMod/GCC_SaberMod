@@ -17320,19 +17320,30 @@ cp_parser_class_specifier_1 (cp_parser* parser)
                 {
                   tree base_decl;
                   tree base_id;
-                  tree base_vtable;
                   tree var_id;
                   tree var_decl = NULL_TREE;
                   tree var_type = build_pointer_type (void_type_node);
                   char *var_name = NULL;
+		  bool base_is_template = false;
+
+		  /* Check to see if the base class is a template.  */
+		  if (TYPE_TEMPLATE_INFO (tree_val) != NULL_TREE)
+		    {
+		      base_is_template = true;
+		      if ((CLASSTYPE_TI_TEMPLATE (tree_val) == NULL_TREE)
+			  || (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (tree_val)) == NULL_TREE)
+			  || (TYPE_BINFO (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (tree_val))) == NULL_TREE))
+			continue;
+		    }
 
                   /* Verify that the base class contains virtual functions.  */
-                  if (! TYPE_BINFO (tree_val))
+                  if (! base_is_template
+		      && ! TYPE_BINFO (tree_val))
                     continue;
-                  if (! BINFO_VIRTUALS (TYPE_BINFO (tree_val)))
+                  if (!base_is_template
+		      && ! BINFO_VIRTUALS (TYPE_BINFO (tree_val)))
                     continue;
 
-                  base_vtable = BINFO_VTABLE (TYPE_BINFO (tree_val));
                   base_decl = TREE_CHAIN (tree_val);
                   base_id = get_mangled_id (base_decl);
 

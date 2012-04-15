@@ -67,9 +67,11 @@ struct node2 {
 static void init_functions (void);
 static void linked_list_insert (struct list_node **, tree);
 static void binary_tree_insert (struct node **, tree, tree, tree);
+static struct node *binary_tree_find (struct node *, tree);
+static struct node *binary_tree_find_template (struct node *, tree);
 static void dump_class_hierarchy_information (struct node *root);
 static void register_all_pairs (struct node *root, tree body);
-static void compute_hierarchy_transitive_closure (void);
+/* static void compute_hierarchy_transitive_closure (void); */
 static void template_info_tree_insert (struct node **, tree, tree);
 static struct list_node *template_list_search (tree class_type);
 static struct list_node *template_tree_find (struct node *, tree type_id);
@@ -189,6 +191,76 @@ list_append (struct list_node *old_list, struct list_node *new_list)
 }
 
 static struct node *
+binary_tree_find_template (struct node *root, tree class_type)
+{
+  struct node *child_found = NULL;
+  char *cur_node_name;
+  char *cptr;
+  char *mangled_class_name = NULL;
+
+  if (!root)
+    return NULL;
+  
+  cur_node_name = xstrdup (IDENTIFIER_POINTER (DECL_NAME
+					       (root->ptr_decl_or_template_type_id)));
+  cptr = strstr (cur_node_name, ".vtable_map");
+  if (cptr)
+    cptr[0] = '\0';
+
+  if (strncmp (cur_node_name, "_ZTV", 4) == 0)
+    cur_node_name += 4;
+
+  while ((cur_node_name[0] >= '0') && (cur_node_name[0] <= '9'))
+    cur_node_name++;
+
+  if (TREE_CHAIN (class_type)
+      && (TREE_CODE (TREE_CHAIN (class_type)) == TYPE_DECL))
+    mangled_class_name = IDENTIFIER_POINTER (get_mangled_id (TREE_CHAIN (class_type)));
+
+  while ((mangled_class_name[0] >= '0') && (mangled_class_name[0] <= '9'))
+    mangled_class_name++;
+  
+
+  if (strcmp (cur_node_name, mangled_class_name) == 0)
+    return root;
+  else
+    {
+      /*
+	Luis: This is a complete and total hack.  For some reason,
+	when the .vtable_map variable first gets created for the
+	uninstantiated template class (in parser.c), the template
+	class record type isn't a complete type definition.  SO for
+	some bizarre reason, when I get the manged id THEN it is
+	slightly different than the mangled id that I get at this
+	point.  In particular, the original mangled name contains
+	"TX0_" and the new mangled name contains "TX_".  In all other
+	respects the two mangled names are identical.  I'm tired and
+	it's late so I don't have time to chase this down and figure
+	out why this is happening.  I'm inserting this hack here to
+	see if, with it, we can get a proper match for the templates,
+	so that we can build a transitive closure that has an
+	uninstantiated template type in the middle.
+       */
+      char *cptr1 = strstr (cur_node_name, "XT0_");
+      char *cptr2 = strstr (mangled_class_name, "XT_");
+      if (cptr1 && cptr2)
+	{
+	  cptr1 += 3;
+	  cptr2 += 2;
+	  if (strcmp (cptr1, cptr2) == 0)
+	    return root;
+	}
+    }
+
+  child_found = binary_tree_find_template (root->left, class_type);
+
+  if (!child_found)
+    child_found = binary_tree_find_template (root->right, class_type);
+
+  return child_found;
+}
+
+static struct node *
 binary_tree_find (struct node *root, tree var_decl)
 {
   if (!root)
@@ -232,41 +304,58 @@ build_transitive_closure (struct node *root, struct node *cur_node)
       struct node *tmp_node = NULL;
       tree vtbl_var_decl;
 
+      struct list_node *template_list = template_list_search (cur_list->class_type);
+      bool is_template_type = (template_list != NULL);
+
       /* TO DO: Extract the following into a separate function, to add
 	 safety checks! */
 
-      if ((! cur_list->class_type)
-          || (! TYPE_BINFO (cur_list->class_type))
-          || (! BINFO_VTABLE (TYPE_BINFO (cur_list->class_type))))
-        continue;
+      if (is_template_type)
+	{
+	  tree type_decl = TREE_CHAIN (cur_list->class_type);
+	  tree type_id = get_mangled_id (type_decl);
+	  cur_list_name = ACONCAT (("_ZTV", IDENTIFIER_POINTER (type_id), NULL));
+	  if (strcmp (cur_list_name, cur_node_name) == 0)
+	      continue;
 
-      vtbl_var_decl = TREE_OPERAND
-	               (TREE_OPERAND
-			    (BINFO_VTABLE
-			         (TYPE_BINFO
-				      (cur_list->class_type)), 0), 0);
+	  tmp_node = binary_tree_find_template (root, cur_list->class_type);
+	}
+      else
+	{
+	  if ((! cur_list->class_type)
+	      || (! TYPE_BINFO (cur_list->class_type))
+	      || (! BINFO_VTABLE (TYPE_BINFO (cur_list->class_type))))
+	    continue;
+	  
+	  vtbl_var_decl = TREE_OPERAND
+	    (TREE_OPERAND
+	     (BINFO_VTABLE
+	      (TYPE_BINFO
+	       (cur_list->class_type)), 0), 0);
+	  
+	  if (!vtbl_var_decl)
+	    continue;
+	  cur_list_name = (const char *) IDENTIFIER_POINTER
+	    (DECL_NAME (vtbl_var_decl));
+	  
+	  if (!cur_list_name)
+	    continue;
 
-      if (!vtbl_var_decl)
-        continue;
-      cur_list_name = (const char *) IDENTIFIER_POINTER
-                                                 (DECL_NAME (vtbl_var_decl));
+	  if (strcmp (cur_list_name, cur_node_name) == 0)
+	    continue;
 
-      if (!cur_list_name)
-        continue;
+	  var_id_name = (char *) xmalloc (strlen (cur_list_name) + 12);
+	  sprintf (var_id_name, "%s.vtable_map", cur_list_name);
+	  var_id = get_identifier (var_id_name);
+	  free (var_id_name);
 
-      if (strcmp (cur_list_name, cur_node_name) == 0)
-        continue;
+	  var_decl = vtable_find_map_decl (var_id);
+	  if (!var_decl)
+	    continue;
 
-      var_id_name = (char *) xmalloc (strlen (cur_list_name) + 12);
-      sprintf (var_id_name, "%s.vtable_map", cur_list_name);
-      var_id = get_identifier (var_id_name);
-      free (var_id_name);
+	  tmp_node = binary_tree_find (root, var_decl);
+	}
 
-      var_decl = vtable_find_map_decl (var_id);
-      if (!var_decl)
-        continue;
-
-      tmp_node = binary_tree_find (root, var_decl);
       if (!tmp_node)
         continue;
       else
@@ -285,8 +374,10 @@ build_transitive_closure (struct node *root, struct node *cur_node)
   return (current_changed || left_changed || right_changed);
 }
 
-static void
-compute_hierarchy_transitive_closure (void)
+/* static void */
+void
+/* compute_hierarchy_transitive_closure (void) */
+compute_class_hierarchy_transitive_closure (void)
 {
   build_transitive_closure (vlt_class_hierarchy_info,
 			    vlt_class_hierarchy_info);
@@ -446,9 +537,10 @@ template_list_search (tree class_type)
     {
       if (TREE_CODE (TYPE_NAME (class_type)) == IDENTIFIER_NODE)
 	type_id = TYPE_NAME (class_type);
-      else if (TREE_CODE (TYPE_NAME (class_type)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (class_type)))
-	type_id = DECL_NAME (TYPE_NAME (class_type));
+      else if (TREE_CODE (TYPE_NAME (class_type)) == TYPE_DECL)
+	/* && DECL_NAME (TYPE_NAME (class_type))) */
+	/* type_id = DECL_NAME (TYPE_NAME (class_type)); */
+	type_id = get_mangled_id (TYPE_NAME (class_type));
     }
 
   if (type_id != NULL_TREE)
@@ -514,13 +606,15 @@ register_all_pairs (struct node *root, tree body)
           bool already_registered;
 
           tree binfo = TYPE_BINFO (current->class_type);
-	  tree vtable = BINFO_VTABLE (binfo);
+	  tree vtable = NULL_TREE;
           tree vtable_decl;
           bool vtable_should_be_output = false;
 
           struct list_node *template_vtable_list = NULL;
 
-
+	  if (binfo)
+	    vtable = BINFO_VTABLE (binfo);
+	  
 	  if (!vtable && binfo)
 	    {
 	      /* Possibly look for vtable in instantiated template types */
@@ -711,7 +805,7 @@ register_class_hierarchy_information (tree body)
 
       /* Add class hierarchy pairs to the vtable map data structure. */
 
-      compute_hierarchy_transitive_closure ();
+      /* compute_hierarchy_transitive_closure (); */
       register_all_pairs (vlt_class_hierarchy_info, body);
 
       /* Set permission on vtable map data structure to be Read-only.  */
@@ -754,9 +848,10 @@ record_template_vtable_info (tree instantiated_class_type,
     {
       if (TREE_CODE (TYPE_NAME (template_class_type)) == IDENTIFIER_NODE)
 	type_id = TYPE_NAME (template_class_type);
-      else if (TREE_CODE (TYPE_NAME (template_class_type)) == TYPE_DECL
-	       && DECL_NAME (TYPE_NAME (template_class_type)))
-	type_id = DECL_NAME (TYPE_NAME (template_class_type));
+      else if (TREE_CODE (TYPE_NAME (template_class_type)) == TYPE_DECL)
+	/* && DECL_NAME (TYPE_NAME (template_class_type))) */
+	/* type_id = DECL_NAME (TYPE_NAME (template_class_type)); */
+	type_id = get_mangled_id (TYPE_NAME (template_class_type));
     }
 
   if (type_id == NULL_TREE)
