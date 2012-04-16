@@ -5734,6 +5734,31 @@ remove_unreachable_alias_pairs (void)
 }
 
 
+/* Returns true alias alias target node can be found for
+   assembler name TARGET.  */
+
+static bool
+alias_target_node_exist_p (tree target)
+{
+  struct cgraph_node *node;
+  tree real_target_decl = cgraph_find_decl (target);
+
+  if (real_target_decl && !DECL_EXTERNAL (real_target_decl))
+    return true;
+
+  /* Now more expensive walk.  */
+  for (node = cgraph_nodes; node; node = node->next)
+    if (!node->global.inlined_to && HAS_DECL_ASSEMBLER_NAME_P (node->decl))
+      {
+        tree name = DECL_ASSEMBLER_NAME (node->decl);
+        /* assume the assembler names are commonedx  */
+        if (name == target && !DECL_EXTERNAL (node->decl))
+          return true;
+      }
+
+  return false;
+}
+
 /* First pass of completing pending aliases.  Make sure that cgraph knows
    which symbols will be required.  */
 
@@ -5764,6 +5789,10 @@ finish_aliases_1 (void)
 	  if (! (p->emitted_diags & ALIAS_DIAG_TO_UNDEF)
 	      && ! lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)))
 	    {
+
+              if (L_IPO_COMP_MODE && alias_target_node_exist_p (p->target))
+                continue;
+
 	      error ("%q+D aliased to undefined symbol %qE",
 		     p->decl, p->target);
 	      p->emitted_diags |= ALIAS_DIAG_TO_UNDEF;
