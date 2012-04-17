@@ -1,3 +1,13 @@
+2012-04-17  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main rev r186550
+
+	2012-04-17   Teresa Johnson  <tejohnson@google.com>
+
+	Google ref b/5910724.
+	* libgcc/libgcov.c (gcov_cur_module_id): Guard definition under
+	#ifndef __GCOV_KERNEL__.
+
 2012-04-11  Teresa Johnson  <tejohnson@google.com>
 
 	Revert r182255 since it is subsumed by r186333.
