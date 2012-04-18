@@ -739,6 +739,9 @@ Warn in case profiles in -fprofile-use do not match
 Xassembler
 Driver Separate
 
+Xclang-only
+Driver Joined
+
 Xlinker
 Driver Separate
 

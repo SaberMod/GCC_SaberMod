@@ -1,3 +1,10 @@
+2012-04-18   Ollie Wild  <aaw@google.com>
+
+	* common.opt (Xclang-only): New option.
+	* doc/invoke.texi (Xclang-only): Document new option.
+	* gcc.c (display_help): Print new option.
+	(driver_handle_option): Support new option (ignoring args).
+
 2011-06-17  Chris Demetriou  <cgd@google.com>
 
 	* config/arm/linux-grtev2.h: New file.
