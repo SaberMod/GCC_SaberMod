@@ -790,7 +790,9 @@ cgraph_externally_visible_p (struct cgraph_node *node, bool whole_program, bool 
     return false;
 
   /* When doing link time optimizations, hidden symbols become local.  */
-  if (in_lto_p
+  /* Disable this in streaming LIPO, as the defition may not be seen by all
+     the references.  */
+  if (in_lto_p && !flag_ripa_stream
       && (DECL_VISIBILITY (node->decl) == VISIBILITY_HIDDEN
 	  || DECL_VISIBILITY (node->decl) == VISIBILITY_INTERNAL)
       /* Be sure that node is defined in IR file, not in other object
@@ -885,7 +887,9 @@ varpool_externally_visible_p (struct varpool_node *vnode, bool aliased)
     return false;
 
   /* When doing link time optimizations, hidden symbols become local.  */
-  if (in_lto_p
+  /* Disable this in streaming LIPO, as the defition may not be seen by all
+     the references.  */
+  if (in_lto_p && !flag_ripa_stream
       && (DECL_VISIBILITY (vnode->decl) == VISIBILITY_HIDDEN
 	  || DECL_VISIBILITY (vnode->decl) == VISIBILITY_INTERNAL)
       /* Be sure that node is defined in IR file, not in other object

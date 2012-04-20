@@ -1,3 +1,9 @@
+2012-04-20   Rong Xu  <xur@google.com>
+
+	* gcc/ipa.c (cgraph_externally_visible_p): Not localize hidden symbols
+	in streaming LIPO.
+	(varpool_externally_visible_p): Ditto.
+
 2012-04-17  Teresa Johnson  <tejohnson@google.com>
 
 	Backport from google/main rev r186550
