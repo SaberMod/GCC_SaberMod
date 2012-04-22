@@ -1,3 +1,10 @@
+2012-04-22   Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	Google ref b/6368405.
+	Backport r186680 from integration branch.
+
+	* libgomp/configure.tgt: Don't force initial-exec.
+
 2012-04-03   Rong Xu  <xur@google.com>
 
 	Google ref b/6284235.
