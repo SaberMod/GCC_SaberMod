@@ -1,7 +1,11 @@
+2012-04-22   Paul Pluzhnikov  <ppluzhnikov@google.com>
+
+	* libgomp/configure.tgt: Don't force initial-exec.
+
 2012-03-11   Doug Kwan  <dougkwan@google.com>
 
-        * contrib/testsuite-management/arm-grtev2-linux-gnueabi.xfail:
-        New file.
+	* contrib/testsuite-management/arm-grtev2-linux-gnueabi.xfail:
+	New file.
 
 2012-03-08   Doug Kwan  <dougkwan@google.com>
 
