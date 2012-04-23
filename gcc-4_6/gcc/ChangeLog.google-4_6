@@ -1,3 +1,8 @@
+2012-04-20   Sterling Augustine  <saugustine@google.com>
+
+	* gcc/dwarf2out.c (output_skeleton_debug_sections): Fix off-by-one
+	error.
+
 2012-04-20   Rong Xu  <xur@google.com>
 
 	* gcc/ipa.c (cgraph_externally_visible_p): Not localize hidden symbols

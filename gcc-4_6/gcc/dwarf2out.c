@@ -12010,11 +12010,10 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
     dw2_asm_output_data (4, 0xffffffff,
       "Initial length escape value indicating 64-bit DWARF extension");
 
-  /* One for the terminating NULL byte.  */
   dw2_asm_output_data (DWARF_OFFSET_SIZE,
 		       DWARF_COMPILE_UNIT_HEADER_SIZE
                        - DWARF_INITIAL_LENGTH_SIZE
-                       + size_of_die (comp_unit) + 1,
+                       + size_of_die (comp_unit),
 		       "Length of Compilation Unit Info");
   dw2_asm_output_data (2, dwarf_version, "DWARF version number");
   dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_abbrev_section_label,
@@ -12024,8 +12023,6 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
 
   comp_unit->die_abbrev = 1;
   output_die (comp_unit);
-
-  dw2_asm_output_data (1, 0, "end of skeleton .debug_info");
 
   /* Build the skeleton debug_abbrev section.  */
   switch_to_section (debug_skeleton_abbrev_section);
