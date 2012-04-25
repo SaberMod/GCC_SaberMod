@@ -746,7 +746,8 @@ static const char *ripa_aux_mod_spec = RIPA_AUX_MOD_SPEC;
 
 /* specs to call lto1 for streaming lipo.  */
 static const char *ripa_lto_spec =
-"lto1 -flto -flto-partition=none %(cc1_options)";
+"lto1 -flto -flto-partition=none %(cc1_options) "
+"%{S:%W{o*}%{!o*:-o %b.s}}";
 
 /* options to call asm in streaming lipo.  */
 static const char *ripa_asm_options =
@@ -820,7 +821,7 @@ static const char *cc1_options =
  %{-target-help:--target-help}\
  %{-version:--version}\
  %{-help=*:--help=%*}\
- %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
+ %{!fsyntax-only:%{S:%{!fripa=streaming|!fprofile-use*:%W{o*}%{!o*:-o %b.s}}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage -fno-early-inlining}";
