@@ -1,5 +1,7 @@
 # Failures inherited from upstream gcc-4_6-branch.
 XPASS: g++.dg/uninit-pred-3_b.C (test for excess errors)
+ERROR: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "
+UNRESOLVED: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "
 
 # This test fails or succeeds depending on machine load.
 flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test

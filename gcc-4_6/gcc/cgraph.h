@@ -552,7 +552,7 @@ void cgraph_remove_assembler_hash_node (struct cgraph_node *);
 void cgraph_remove_fake_indirect_call_in_edges (struct cgraph_node *);
 extern bool cgraph_pre_profiling_inlining_done;
 extern bool cgraph_is_fake_indirect_call_edge (struct cgraph_edge *e);
-void cgraph_remove_node_and_inline_clones (struct cgraph_node *);
+bool cgraph_remove_node_and_inline_clones (struct cgraph_node *, struct cgraph_node *);
 void cgraph_release_function_body (struct cgraph_node *);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,

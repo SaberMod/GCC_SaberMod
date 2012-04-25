@@ -1,3 +1,7 @@
+2012-04-25   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 186419.
+
 2012-04-20   Sterling Augustine  <saugustine@google.com>
 
 	* gcc/dwarf2out.c (output_skeleton_debug_sections): Fix off-by-one

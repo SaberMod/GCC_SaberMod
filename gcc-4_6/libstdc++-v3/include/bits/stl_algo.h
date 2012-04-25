@@ -1844,7 +1844,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  for (; __first != __last; ++__first)
 	    if (__pred(*__first))
 	      {
-		if (&*__result1 != &*__first)
+		if (__result1 != __first)
 		  *__result1 = _GLIBCXX_MOVE(*__first);
 		++__result1;
 	      }
