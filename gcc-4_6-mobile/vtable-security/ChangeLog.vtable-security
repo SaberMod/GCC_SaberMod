@@ -72,6 +72,13 @@
 	multiple inheritance).
 	(register_all_pairs): Add call to register_other_binfo_vtables.
 
+2012-04-11  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy (register_all_pairs): fixed regression 
+	in handling of virtual bases
+	* gcc/temp-libgcc.cc (__VerifyVtablePointer): Added printing of backtrace 
+	on failure. Also printed vtable pointer in case of failed lookup.
+
 2012-04-07  Caroline Tice <cmtice@google.com>
 
 	* gcc/cp/init.c (build_vtbl_address):  Remove static function

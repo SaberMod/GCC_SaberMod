@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
+#include <execinfo.h>
 
 extern "C" {
 
@@ -220,6 +220,24 @@ __VLTRegisterPair (struct tree_node **base_vtbl_row_ptr, vptr vtbl_ptr,
   root_insert = false;
 }
 
+static void PrintStackTrace()
+{
+  #define STACK_DEPTH 20
+  void * callers[STACK_DEPTH];
+  int actual_depth = backtrace(callers, STACK_DEPTH);
+  char ** symbols = backtrace_symbols(callers, actual_depth);
+  if (symbols == NULL ) 
+    {
+      fprintf(stderr, "Could not get backtrace\n");
+      return;
+    }
+
+  for (int i = 0; i < actual_depth; i++)
+    fprintf(stderr, "%s\n", symbols[i]);
+
+  free(symbols);
+}
+
 void *
 __VerifyVtablePointer (struct tree_node **base_vtbl_ptr, vptr obj_vptr, 
 		       char *base_vtbl_var_name, int len1, char *vtable_name, 
@@ -241,12 +259,13 @@ __VerifyVtablePointer (struct tree_node **base_vtbl_ptr, vptr obj_vptr,
       /* The data structure is not NULL, but we failed to find our
          object's vtpr in it.  Write out information and call abort.*/
       if (base_vtbl_var_name && vtable_name)
-	print_debugging_message ("Looking for %%.%ds in %%.%ds\n", len2, len1, 
+	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1, 
 				 vtable_name, base_vtbl_var_name);
-      fprintf (stderr, "FAILED to verify object vtable pointer!!\n");
+      fprintf (stderr, "FAILED to verify object vtable pointer=0x%x!!!\n", obj_vptr);
       dump_binary_tree_to_file (*base_vtbl_ptr, base_vtbl_var_name, len1);
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
+      PrintStackTrace();
       abort ();
     }
 

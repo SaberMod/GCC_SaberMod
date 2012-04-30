@@ -76,7 +76,7 @@ static void template_info_tree_insert (struct node **, tree, tree);
 static struct list_node *template_list_search (tree class_type);
 static struct list_node *template_tree_find (struct node *, tree type_id);
 
-struct node *vlt_class_hierarchy_info = NULL;
+static struct node *vlt_class_hierarchy_info = NULL;
 static struct node2 *registered_pairs = NULL;
 static struct node *vlt_template_vptr_info = NULL;
 
@@ -137,9 +137,10 @@ dump_class_hierarchy_information (struct node *root)
   while (current)
     {
       if (current->class_type)
-	fprintf (stdout, " %s ",
+	fprintf (stdout, " (%s, %s)",
 		 IDENTIFIER_POINTER (DECL_NAME
-				     (TYPE_NAME (current->class_type))));
+				     (TYPE_NAME (current->class_type))),
+                 IDENTIFIER_POINTER (get_mangled_id(TREE_CHAIN(current->class_type))));
       current = current->next;
     }
   fprintf (stdout, "\n");
@@ -172,10 +173,12 @@ list_append (struct list_node *old_list, struct list_node *new_list)
     {
       /* Look for 'new_cur' in the old list.  */
       bool found = false;
+
       for (old_cur = old_list; old_cur && !found; old_cur = old_cur->next)
-        if (DECL_NAME (TREE_CHAIN (new_cur->class_type))
-	                 == (DECL_NAME (TREE_CHAIN (old_cur->class_type))))
+        if (get_mangled_id (TREE_CHAIN (new_cur->class_type))
+            == get_mangled_id (TREE_CHAIN (old_cur->class_type)))
           found = true;
+
       /* if not found, copy new node and append to end of old list */
       if (!found)
         {
@@ -194,15 +197,15 @@ static struct node *
 binary_tree_find_template (struct node *root, tree class_type)
 {
   struct node *child_found = NULL;
-  char *cur_node_name;
+  char *cur_node_name, *dup_node_name;
   char *cptr;
-  char *mangled_class_name = NULL;
+  char *mangled_class_name = NULL,  *orig_mangled_name = NULL;
 
   if (!root)
     return NULL;
-  
-  cur_node_name = xstrdup (IDENTIFIER_POINTER (DECL_NAME
-					       (root->ptr_decl_or_template_type_id)));
+
+  dup_node_name = cur_node_name = xstrdup (IDENTIFIER_POINTER (DECL_NAME
+                                                               (root->ptr_decl_or_template_type_id)));
   cptr = strstr (cur_node_name, ".vtable_map");
   if (cptr)
     cptr[0] = '\0';
@@ -215,14 +218,21 @@ binary_tree_find_template (struct node *root, tree class_type)
 
   if (TREE_CHAIN (class_type)
       && (TREE_CODE (TREE_CHAIN (class_type)) == TYPE_DECL))
-    mangled_class_name = IDENTIFIER_POINTER (get_mangled_id (TREE_CHAIN (class_type)));
+    orig_mangled_name = mangled_class_name = IDENTIFIER_POINTER (get_mangled_id (TREE_CHAIN (class_type)));
 
   while ((mangled_class_name[0] >= '0') && (mangled_class_name[0] <= '9'))
     mangled_class_name++;
-  
+
+  /* DEBUG
+  fprintf(stdout, "find template comparing class_type=%s with cur_node_name=%s\n", 
+          orig_mangled_name, cur_node_name);
+  */
 
   if (strcmp (cur_node_name, mangled_class_name) == 0)
+  {
+    free (dup_node_name);
     return root;
+  }
   else
     {
       /*
@@ -248,9 +258,14 @@ binary_tree_find_template (struct node *root, tree class_type)
 	  cptr1 += 3;
 	  cptr2 += 2;
 	  if (strcmp (cptr1, cptr2) == 0)
+          {
+            free (dup_node_name);
 	    return root;
+          }
 	}
     }
+
+  free (dup_node_name);
 
   child_found = binary_tree_find_template (root->left, class_type);
 
@@ -282,11 +297,16 @@ build_transitive_closure (struct node *root, struct node *cur_node)
   bool left_changed = false;
   bool right_changed = false;
   struct list_node *cur_list;
-  char *cur_node_name;
+  char * cur_node_name;
   char *cptr;
 
   if (!cur_node)
     return false;
+
+  /* DEBUG
+  fprintf(stderr, "build_transitive_closure: cur_node: ");
+  debug_c_tree(cur_node->ptr_decl_or_template_type_id);
+  */
 
   cur_node_name = xstrdup (IDENTIFIER_POINTER
 			         (DECL_NAME
@@ -303,6 +323,11 @@ build_transitive_closure (struct node *root, struct node *cur_node)
       tree var_decl = NULL_TREE;
       struct node *tmp_node = NULL;
       tree vtbl_var_decl;
+
+      /* DEBUG
+      fprintf(stderr, "build_transitive_closure: cur_list:");
+      debug_c_tree(cur_list->class_type);
+      */
 
       struct list_node *template_list = template_list_search (cur_list->class_type);
       bool is_template_type = (template_list != NULL);
@@ -326,18 +351,18 @@ build_transitive_closure (struct node *root, struct node *cur_node)
 	      || (! TYPE_BINFO (cur_list->class_type))
 	      || (! BINFO_VTABLE (TYPE_BINFO (cur_list->class_type))))
 	    continue;
-	  
+
 	  vtbl_var_decl = TREE_OPERAND
 	    (TREE_OPERAND
 	     (BINFO_VTABLE
 	      (TYPE_BINFO
 	       (cur_list->class_type)), 0), 0);
-	  
+
 	  if (!vtbl_var_decl)
 	    continue;
 	  cur_list_name = (const char *) IDENTIFIER_POINTER
 	    (DECL_NAME (vtbl_var_decl));
-	  
+
 	  if (!cur_list_name)
 	    continue;
 
@@ -364,6 +389,8 @@ build_transitive_closure (struct node *root, struct node *cur_node)
           current_changed = true;
         }
     }
+
+  free(cur_node_name);
 
   /* Handle left child */
   left_changed = build_transitive_closure (root, cur_node->left);
@@ -456,7 +483,8 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
       if (already_registered)
         return;
 
-      if (ztt_decl != NULL_TREE
+      if (false &&
+          ztt_decl != NULL_TREE
           && (DECL_NAME (ztt_decl))
           && (strncmp (IDENTIFIER_POINTER (DECL_NAME (ztt_decl)),
                        "_ZTT", 4) == 0))
@@ -555,6 +583,7 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
 {
   unsigned ix;
   tree base_binfo;
+  tree vtable_decl;
 
   if (binfo == NULL_TREE)
     return;
@@ -563,7 +592,8 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
     {
       if ((!BINFO_PRIMARY_P (base_binfo)
            || BINFO_VIRTUAL_P (base_binfo))
-          && (get_vtbl_decl_for_binfo (base_binfo)))
+          && (vtable_decl=get_vtbl_decl_for_binfo (base_binfo))
+          && !(DECL_VTABLE_OR_VTT_P(vtable_decl) && DECL_CONSTRUCTION_VTABLE_P(vtable_decl)))
         {
           tree vtable_address = build_vtbl_address (base_binfo);
           tree call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
@@ -753,6 +783,13 @@ static void
 binary_tree_insert (struct node **root, tree ptr_decl, tree base_class,
                     tree new_class)
 {
+  /* DEBUG
+  fprintf(stderr, "binary_tree_insert: base_class: \n");
+  debug_tree(base_class);
+  fprintf(stderr, "binary_tree_insert, derived_class: \n");
+  debug_tree(new_class);
+  */
+
   if (!(*root))
     {
       struct node *new_node = (struct node *) xmalloc (sizeof (struct node));
@@ -791,6 +828,7 @@ register_class_hierarchy_information (tree body)
 
   init_functions ();
 
+  /* DEBUG */
   if (false)  /* This is here for debugging purposes. */
     dump_class_hierarchy_information (vlt_class_hierarchy_info);
 
