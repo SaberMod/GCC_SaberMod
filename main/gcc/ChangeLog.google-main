@@ -1,3 +1,8 @@
+2012-05-01   Rong Xu  <xur@google.com>
+
+	* gcc/cp/rtti.c (get_tinfo_decl): generate tinfo for aux 
+	modules in LIPO.
+
 2012-04-15  Xinliang David Li  <davidxl@google.com>
 
 	* varasm.c (alias_target_node_exist_p): New function.
