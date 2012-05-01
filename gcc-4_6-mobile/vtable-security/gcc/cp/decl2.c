@@ -4100,7 +4100,7 @@ cp_write_global_declarations (void)
   if (flag_vtable_verify)
     {
       const char * cwd = main_input_filename;
-      char temp_name[57];
+      char temp_name[58];
       tree body;
       char *cptr = (char *) cwd;
       int i;
