@@ -1,3 +1,22 @@
+2012-02-21   Ahmad Sharif  <asharif@google.com>
+
+	Backport from mainline r185231.
+	2012-03-12  Richard Guenther  <rguenther@suse.de>
+
+	* gthr.h (__GTHREAD_MUTEX_INIT_FUNCTION): Adjust specification.
+	* gthr-posix.h (__GTHREAD_MUTEX_INIT_FUNCTION): Define.
+	(__gthread_mutex_init_function): New function.
+	* gthr-single.h (__GTHREAD_MUTEX_INIT_FUNCTION): Define.
+
+	PR gcov/49484
+	* libgcov.c: Include gthr.h.
+	(__gcov_flush_mx): New global variable.
+	(init_mx, init_mx_once): New functions.
+	(__gcov_flush): Protect self with a mutex.
+	(__gcov_fork): Re-initialize mutex after forking.
+	* unwind-dw2-fde.c: Change condition under which to use
+	__GTHREAD_MUTEX_INIT_FUNCTION.
+
 2012-04-25   Rong Xu  <xur@google.com>
 
 	* gcc/gcc.c (ripa_lto_spec): Support -S in streaming LIPO.
