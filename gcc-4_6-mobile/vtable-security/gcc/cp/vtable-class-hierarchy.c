@@ -483,17 +483,29 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
       if (already_registered)
         return;
 
-      if (false &&
+      /* construction vtable */
+      if (true &&
           ztt_decl != NULL_TREE
           && (DECL_NAME (ztt_decl))
           && (strncmp (IDENTIFIER_POINTER (DECL_NAME (ztt_decl)),
                        "_ZTT", 4) == 0))
         {
           tree values = DECL_INITIAL (ztt_decl);
-          if ((values != NULL_TREE)
+          struct varpool_node * vp_node = varpool_node (ztt_decl);
+          if ( vp_node->needed && vp_node->finalized 
+	       && (values != NULL_TREE)
               && (TREE_CODE (values) == CONSTRUCTOR)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
             {
+	      /*
+	      fprintf(stderr, "---");
+	      debug_tree(ztt_decl);
+	      fprintf(stderr, "---");
+	      dump_varpool_node(stderr, vp_node);
+	      fprintf(stderr, "---");
+	      debug_varpool();
+	      */
+
               tree call_expr = NULL_TREE;
               unsigned HOST_WIDE_INT cnt;
               constructor_elt *ce;
