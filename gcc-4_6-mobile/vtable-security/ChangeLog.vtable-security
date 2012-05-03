@@ -35,7 +35,6 @@
 	the construction vtables.
 	* gcc/temp-libgcc.cc: Added code to print stack traces
 	
->>>>>>> Added code to verify that verification for construction vtables is needed
 2012-04-14  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/decl2.c (cp_write_global_declarations):  Call
