@@ -1,3 +1,8 @@
+2012-05-03  Dehao Chen  <dehao@google.com>
+
+	* predict.c (predict_iv_comparison): Add the comparison of induction
+	variable against its initial value. (Reenable r185948)
+
 2012-05-02   Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 187010.
