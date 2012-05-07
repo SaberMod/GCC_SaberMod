@@ -34,14 +34,19 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
   do								\
     {								\
 	LINUX_TARGET_OS_CPP_BUILTINS();				\
+	ANDROID_TARGET_OS_CPP_BUILTINS();			\
     }								\
   while (0)
 
 #undef CPP_SPEC
 #define CPP_SPEC "%{posix:-D_POSIX_SOURCE} %{pthread:-D_REENTRANT}"
 
+#define LINUX_TARGET_CC1_SPEC "%(cc1_cpu) %{profile:-p}"
+
 #undef CC1_SPEC
-#define CC1_SPEC "%(cc1_cpu) %{profile:-p}"
+#define CC1_SPEC \
+  LINUX_OR_ANDROID_CC (LINUX_TARGET_CC1_SPEC, \
+		       LINUX_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC)
 
 /* The svr4 ABI for the i386 says that records and unions are returned
    in memory.  In the 64bit compilation we will turn this flag off in
@@ -80,8 +85,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define ASM_SPEC "%{" SPEC_32 ":--32} %{" SPEC_64 ":--64} \
  %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
 
-#undef	LINK_SPEC
-#define LINK_SPEC "%{" SPEC_64 ":-m elf_x86_64} %{" SPEC_32 ":-m elf_i386} \
+#define LINUX_TARGET_LINK_SPEC \
+  "%{" SPEC_64 ":-m elf_x86_64} %{" SPEC_32 ":-m elf_i386} \
   %{shared:-shared} \
   %{!shared: \
     %{!static: \
@@ -89,6 +94,21 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
       %{" SPEC_32 ":-dynamic-linker " LINUX_DYNAMIC_LINKER32 "} \
       %{" SPEC_64 ":-dynamic-linker " LINUX_DYNAMIC_LINKER64 "}} \
     %{static:-static}}"
+
+#undef	LINK_SPEC
+#define LINK_SPEC \
+  LINUX_OR_ANDROID_LD (LINUX_TARGET_LINK_SPEC, \
+		       LINUX_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
+
+#undef  LIB_SPEC
+#define LIB_SPEC \
+  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC, \
+		       GNU_USER_TARGET_LIB_SPEC " " ANDROID_LIB_SPEC)
+
+#undef  STARTFILE_SPEC
+#define STARTFILE_SPEC \
+  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_STARTFILE_SPEC, \
+		       ANDROID_STARTFILE_SPEC)
 
 /* These may be provided by config/linux-grtev2.h.  */
 #ifndef LINUX_GRTE_EXTRA_SPECS
@@ -100,13 +120,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
   LINUX_GRTE_EXTRA_SPECS
 
 /* Similar to standard Linux, but adding -ffast-math support.  */
-#undef  ENDFILE_SPEC
-#define ENDFILE_SPEC \
+#define LINUX_TARGET_ENDFILE_SPEC \
   "%{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
    %{mpc32:crtprec32.o%s} \
    %{mpc64:crtprec64.o%s} \
-   %{mpc80:crtprec80.o%s} \
-   %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
+   %{mpc80:crtprec80.o%s}"
+
+#undef  ENDFILE_SPEC
+#define ENDFILE_SPEC \
+  LINUX_OR_ANDROID_LD (LINUX_TARGET_ENDFILE_SPEC " " \
+		       GNU_USER_TARGET_ENDFILE_SPEC, \
+		       LINUX_TARGET_ENDFILE_SPEC " "\
+		       ANDROID_ENDFILE_SPEC)
 
 #if TARGET_64BIT_DEFAULT
 #define MULTILIB_DEFAULTS { "m64" }
