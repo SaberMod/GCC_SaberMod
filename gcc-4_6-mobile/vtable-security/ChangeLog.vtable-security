@@ -1,3 +1,12 @@
+2012-05-07  Luis Lozano  <llozano@google.com>
+
+	* class.c (vtable_find_or_create_map_decl): Added this routine to 
+	find or create the vtable map variable for a record. It checks if 
+	the record contains a vtable (it is interesting from the point of
+	view of vtable verification) before creating the map variable
+	(vtable_save_base_class_info): Modified to call the added routine. 
+	Make sure not to add uninteresting records to the hierarchy information.
+
 2012-05-03  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Check if a 
