@@ -1,3 +1,23 @@
+2012-05-07  Jing Yu  <jingyu@google.com>
+	
+	Backport r186560 and r185958 from gcc trunk
+	2012-05-03  Enkovich Ilya  <ilya.enkovich@intel.com>
+
+	 * config/linux-android.h (ANDROID_STARTFILE_SPEC): Fix
+	shared case.
+	(ANDROID_ENDFILE_SPEC): Likewise.
+	* config/i386/linux.h (TARGET_OS_CPP_BUILTINS): Add Android
+	builtins.
+	(LINUX_TARGET_CC1_SPEC): New.
+	(CC1_SPEC): Support Android.
+	(LINUX_TARGET_LINK_SPEC): New.
+	(LINK_SPEC): Support Android.
+	(LIB_SPEC): New.
+	(STARTFILE_SPEC): New.
+	(LINUX_TARGET_ENDFILE_SPEC): New.
+	(ENDFILE_SPEC): Support Android.
+	* config/i386/linux64.h: Likewise.
+
 2012-05-03  Dehao Chen  <dehao@google.com>
 
 	* predict.c (predict_iv_comparison): Add the comparison of induction
