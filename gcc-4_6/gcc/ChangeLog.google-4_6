@@ -1,3 +1,50 @@
+2012-05-08   Sterling Augustine  <saugustine@google.com>
+	     Cary Coutant  <ccoutant@google.com>
+
+	* gcc/dwarf2out.c (debug_ref_section): Remove.
+	(struct dw_loc_list_struct): Add begin_index, end_index fields.
+	(DEBUG_REF_SECTION): Remove.
+	(DEBUG_NORM_MACINFO_SECTION, DEBUG_DWO_MACINFO_SECTION): New macros.
+	(DEBUG_MACINFO_SECTION): Define condtionally on
+	dwarf_split_debug_info.
+	(DEBUG_DWO_LOC_SECTION): New macro.
+	(DEBUG_REF_SECTION_LABEL): Remove.
+	debug_ref_section_label: Remove.
+	(dwarf_attr_name): Replace DW_AT_GNU_ref_base with
+	DW_AT_GNU_ranges_base.
+	(dwarf_form_name): Remove DW_FORM_GNU_ref_index.
+	(AT_index): Adjust comment.
+	(addr_index_table): Adjust comment.
+	(ref_index_table): Remove.
+	(add_ref_table_entry): Remove.
+	(add_AT_range_list): Save offset for direct references.
+	(size_of_die): Always use offset size for range list references.
+	(value_format): Use section offset for range list and location list
+	references.
+	(new_loc_list): Initialize begin_index and end_index.
+	(output_loc_list): Handle special format for .debug_loc.dwo sections.
+	(output_range_list_offset): Output plain offset for range list
+	reference when splitting dwarf info.
+	(output_loc_list_offset): Output plain offset for location list
+	reference when splitting dwarf info.
+	(output_attr_index_or_value): Remove case dw_val_class_range_list.
+	(output_die): Call output_range_list_offset for range list references.
+	(add_top_level_skeleton_die_attrs): Remove DW_AT_GNU_ref_base.
+	(add_enumerator_pubname): Remove SEP parameter; add correct pubtype
+	entry for anonymous enums.
+	(add_pubtype): Add correct pubtype entry for anonymous enums.
+	(gen_enumeration_type_die): Likewise.
+	(dwarf2out_init): Create .debug_loc.dwo section; remove
+	debug_ref_section.
+	(output_ref_table): Remove.
+	(index_location_lists): Set begin_index and end_index for each item
+	in a location list.
+	(dwarf2out_finish): Add DW_AT_macro_info to the compile_unit DIE
+	instead of the skeleton.  Don't call index_location_lists when not
+	splitting dwarf info.  Add DW_AT_GNU_ranges_base attribute to
+	compile_unit DIE.  Move generation of loc_section_label to
+	dwarf2out_init.  Remove .debug_ref section.
+
 2012-05-08   Rong Xu  <xur@google.com>
 
 	* ipa-inline.c (fixed_arg_function_p):

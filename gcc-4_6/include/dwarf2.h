@@ -185,7 +185,6 @@ enum dwarf_form
     DW_FORM_ref_sig8 = 0x20,
 #define DW_FORM_sig8  DW_FORM_ref_sig8  /* Note: The use of DW_FORM_sig8 is deprecated.  */
     /* Extensions for Fission.  See http://gcc.gnu.org/wiki/DebugFission.  */
-    DW_FORM_GNU_ref_index = 0x1f00,
     DW_FORM_GNU_addr_index = 0x1f01,
     DW_FORM_GNU_str_index = 0x1f02
   };
@@ -358,7 +357,7 @@ enum dwarf_attribute
     /* Extensions for Fission.  See http://gcc.gnu.org/wiki/DebugFission.  */
     DW_AT_GNU_dwo_name = 0x2130,
     DW_AT_GNU_dwo_id = 0x2131,
-    DW_AT_GNU_ref_base = 0x2132,
+    DW_AT_GNU_ranges_base = 0x2132,
     DW_AT_GNU_addr_base = 0x2133,
     DW_AT_GNU_pubnames = 0x2134,
     DW_AT_GNU_pubtypes = 0x2135,
