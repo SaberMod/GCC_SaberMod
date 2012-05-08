@@ -694,7 +694,7 @@ register_all_pairs (struct node *root, tree body)
               vtable_should_be_output = node->needed;
             }
 
-          if (vtable_decl && vtable_should_be_output)
+          if (vtable_decl && vtable_should_be_output && BINFO_VTABLE (binfo))
             {
               tree vtable_address = build_vtbl_address (binfo);
               int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));

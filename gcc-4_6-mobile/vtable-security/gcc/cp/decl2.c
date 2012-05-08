@@ -4104,6 +4104,8 @@ cp_write_global_declarations (void)
       tree body;
       char *cptr = (char *) cwd;
       int i;
+      bool vtable_classes_found = false;
+
 
       /* The last part of the directory tree will be where it
          differentiates; the first part may be the same. */
@@ -4123,17 +4125,20 @@ cp_write_global_declarations (void)
       push_lang_context (lang_name_c);
       body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
 			    (const char *) temp_name);
-      register_class_hierarchy_information (body);
-      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
-      current_function_decl = vtable_verify_init_fn;
-      allocate_struct_function (current_function_decl, false);
-      TREE_STATIC (current_function_decl) = 1;
-      TREE_USED (current_function_decl) = 1;
-      TREE_PUBLIC (current_function_decl) = 1;
-      DECL_PRESERVE_P (current_function_decl) = 1;
-      gimplify_function_tree (current_function_decl);
-      cgraph_add_new_function (current_function_decl, false);
-      cgraph_process_new_functions ();
+      vtable_classes_found = register_class_hierarchy_information (body);
+      if (vtable_classes_found)
+        {
+          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
+          current_function_decl = vtable_verify_init_fn;
+          allocate_struct_function (current_function_decl, false);
+          TREE_STATIC (current_function_decl) = 1;
+          TREE_USED (current_function_decl) = 1;
+          TREE_PUBLIC (current_function_decl) = 1;
+          DECL_PRESERVE_P (current_function_decl) = 1;
+          gimplify_function_tree (current_function_decl);
+          cgraph_add_new_function (current_function_decl, false);
+          cgraph_process_new_functions ();
+        }
       pop_lang_context ();
     }
 

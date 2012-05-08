@@ -1,3 +1,12 @@
+2012-05-08  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/decl2.c (cp_write_global_declarations):  Check return
+	value of register_class_hierarchy_information; only generate
+	init function if return value is true.
+	* gcc/cp/vtable-class-hierarchy.c (register_all_pairs):  Add
+	check to see if binfo has vtable before attempting to call
+	build_vtbl_address on it.
+
 2012-05-07  Luis Lozano  <llozano@google.com>
 
 	* class.c (vtable_find_or_create_map_decl): Added this routine to 
@@ -9,9 +18,9 @@
 
 2012-05-03  Luis Lozano  <llozano@google.com>
 
-	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Check if a 
-	VTT is needed and only generate the verification for the refered 
-	conctruction vtables if needed. There seems to be a bug in GCC where 
+	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Check if a
+	VTT is needed and only generate the verification for the refered
+	conctruction vtables if needed. There seems to be a bug in GCC where
 	some VTTs are being marked as needed so I also had to check for the
 	"finalized" flag. This needs to be reviewed.
 
@@ -21,15 +30,15 @@
 	array.
 
 2012-04-30  Luis Lozano <llozano@google.com>
-	
+
 	* BASE-VER: changed to add "vtable" to version so that we can easily
 	identify we are using the correct compiler.
 	* gcc/cp/class.c (vtable_save_base_class_info): added this routine
 	to walk through BINFO for a record and save into the vtable verification
-	class hierarchy information. This was based on code previously in the 
+	class hierarchy information. This was based on code previously in the
 	parser.
-	* gcc/cp/parser.c (cp_parser_class_specifier_1): removed code to 
-	call update_class_hierarchy_information. This is not a good point to 
+	* gcc/cp/parser.c (cp_parser_class_specifier_1): removed code to
+	call update_class_hierarchy_information. This is not a good point to
 	do this since information about the class (in particular templates)
 	has not been finalized here.
 	* gcc/cp/vtable-class-hierarchy.c (dump_class_hierarchy_information):
@@ -37,13 +46,13 @@
 	(list_append): make sure to compare entries using mangled ids.
 	(binary_tree_find_template): fixed a memory leak
 	(build_transitive_closure): fixed a memory leak
-	(register_vptr_fields): temporarily disable verification of 
+	(register_vptr_fields): temporarily disable verification of
 	construction vtables. This is causing undef symbols in the compilation
 	of omnetpp and soplex.
 	(register_other_binfo_vtables): make sure this code does not go over
 	the construction vtables.
 	* gcc/temp-libgcc.cc: Added code to print stack traces
-	
+
 2012-04-14  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/decl2.c (cp_write_global_declarations):  Call
