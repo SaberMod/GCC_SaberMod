@@ -1,3 +1,8 @@
+2012-05-08   Rong Xu  <xur@google.com>
+
+	* ipa-inline.c (fixed_arg_function_p):
+	(better_inline_comdat_function_p): match lipo_gen in stream LIPO.
+
 2012-05-07  Jing Yu  <jingyu@google.com>
 	
 	Backport r186560 and r185958 from gcc trunk

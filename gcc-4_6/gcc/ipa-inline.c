@@ -658,7 +658,7 @@ fixed_arg_function_p (tree fndecl)
 static bool
 better_inline_comdat_function_p (struct cgraph_node *node)
 {
-  return (profile_arc_flag && flag_dyn_ipa
+  return (profile_arc_flag && (flag_dyn_ipa || flag_ripa_stream)
           && DECL_COMDAT (node->decl)
           && node->global.size <= PARAM_VALUE (PARAM_MAX_INLINE_INSNS_SINGLE)
           && fixed_arg_function_p (node->decl));
