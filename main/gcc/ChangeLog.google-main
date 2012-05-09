@@ -1,3 +1,13 @@
+2012-05-08  Xinliang David Li  <davidxl@google.com>
+
+	Fix issue 6461583 (backport r187310 from google-4_7)
+
+	* profile.c (instrument_values): Skip static ctor/dtors
+	for ic counter allocation to match instrumentation.
+	* tree-profile.c (gimple_gen_ic_profiler): Remove
+	unnecessary guard in FDO mode.
+
+
 2012-05-01   Rong Xu  <xur@google.com>
 
 	* gcc/cp/rtti.c (get_tinfo_decl): generate tinfo for aux 
