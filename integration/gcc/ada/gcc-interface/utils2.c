@@ -789,16 +789,28 @@ build_binary_op (enum tree_code op_code, tree result_type,
       else if (TYPE_IS_PADDING_P (left_type)
 	       && TREE_CONSTANT (TYPE_SIZE (left_type))
 	       && ((TREE_CODE (right_operand) == COMPONENT_REF
-		    && TYPE_IS_PADDING_P
-		       (TREE_TYPE (TREE_OPERAND (right_operand, 0)))
-		    && gnat_types_compatible_p
-		       (left_type,
-			TREE_TYPE (TREE_OPERAND (right_operand, 0))))
+		    && TYPE_MAIN_VARIANT (left_type)
+		       == TYPE_MAIN_VARIANT
+			  (TREE_TYPE (TREE_OPERAND (right_operand, 0))))
 		   || (TREE_CODE (right_operand) == CONSTRUCTOR
 		       && !CONTAINS_PLACEHOLDER_P
 			   (DECL_SIZE (TYPE_FIELDS (left_type)))))
 	       && !integer_zerop (TYPE_SIZE (right_type)))
-	operation_type = left_type;
+	{
+	  /* We make an exception for a BLKmode type padding a non-BLKmode
+	     inner type and do the conversion of the LHS right away, since
+	     unchecked_convert wouldn't do it properly.  */
+	  if (TYPE_MODE (left_type) == BLKmode
+	      && TYPE_MODE (right_type) != BLKmode
+	      && TREE_CODE (right_operand) != CONSTRUCTOR)
+	    {
+	      operation_type = right_type;
+	      left_operand = convert (operation_type, left_operand);
+	      left_type = operation_type;
+	    }
+	  else
+	    operation_type = left_type;
+	}
 
       /* If we have a call to a function that returns an unconstrained type
 	 with default discriminant on the RHS, use the RHS type (which is
@@ -1396,9 +1408,8 @@ build_unary_op (enum tree_code op_code, tree result_type, tree operand)
 	    tree rec_type = TREE_TYPE (type);
 
 	    if (TREE_CODE (operand) == POINTER_PLUS_EXPR
-		&& integer_zerop
-		   (size_binop (PLUS_EXPR, TREE_OPERAND (operand, 1),
-				DECL_FIELD_OFFSET (TYPE_FIELDS (rec_type))))
+		&& TREE_OPERAND (operand, 1)
+		   == byte_position (DECL_CHAIN (TYPE_FIELDS (rec_type)))
 		&& TREE_CODE (TREE_OPERAND (operand, 0)) == NOP_EXPR)
 	      {
 		operand = TREE_OPERAND (TREE_OPERAND (operand, 0), 0);

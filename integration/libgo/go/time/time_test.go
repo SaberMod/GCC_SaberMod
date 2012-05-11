@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -222,11 +223,12 @@ var formatTests = []FormatTest{
 	{"ANSIC", ANSIC, "Wed Feb  4 21:00:57 2009"},
 	{"UnixDate", UnixDate, "Wed Feb  4 21:00:57 PST 2009"},
 	{"RubyDate", RubyDate, "Wed Feb 04 21:00:57 -0800 2009"},
-	{"RFC822", RFC822, "04 Feb 09 2100 PST"},
+	{"RFC822", RFC822, "04 Feb 09 21:00 PST"},
 	{"RFC850", RFC850, "Wednesday, 04-Feb-09 21:00:57 PST"},
 	{"RFC1123", RFC1123, "Wed, 04 Feb 2009 21:00:57 PST"},
 	{"RFC1123Z", RFC1123Z, "Wed, 04 Feb 2009 21:00:57 -0800"},
 	{"RFC3339", RFC3339, "2009-02-04T21:00:57-08:00"},
+	{"RFC3339Nano", RFC3339Nano, "2009-02-04T21:00:57.0123456-08:00"},
 	{"Kitchen", Kitchen, "9:00PM"},
 	{"am/pm", "3pm", "9pm"},
 	{"AM/PM", "3PM", "9PM"},
@@ -235,16 +237,48 @@ var formatTests = []FormatTest{
 	{"Stamp", Stamp, "Feb  4 21:00:57"},
 	{"StampMilli", StampMilli, "Feb  4 21:00:57.012"},
 	{"StampMicro", StampMicro, "Feb  4 21:00:57.012345"},
-	{"StampNano", StampNano, "Feb  4 21:00:57.012345678"},
+	{"StampNano", StampNano, "Feb  4 21:00:57.012345600"},
 }
 
 func TestFormat(t *testing.T) {
-	// The numeric time represents Thu Feb  4 21:00:57.012345678 PST 2010
-	time := Unix(0, 1233810057012345678)
+	// The numeric time represents Thu Feb  4 21:00:57.012345600 PST 2010
+	time := Unix(0, 1233810057012345600)
 	for _, test := range formatTests {
 		result := time.Format(test.format)
 		if result != test.result {
 			t.Errorf("%s expected %q got %q", test.name, test.result, result)
+		}
+	}
+}
+
+func TestFormatShortYear(t *testing.T) {
+	years := []int{
+		-100001, -100000, -99999,
+		-10001, -10000, -9999,
+		-1001, -1000, -999,
+		-101, -100, -99,
+		-11, -10, -9,
+		-1, 0, 1,
+		9, 10, 11,
+		99, 100, 101,
+		999, 1000, 1001,
+		9999, 10000, 10001,
+		99999, 100000, 100001,
+	}
+
+	for _, y := range years {
+		time := Date(y, January, 1, 0, 0, 0, 0, UTC)
+		result := time.Format("2006.01.02")
+		var want string
+		if y < 0 {
+			// The 4 in %04d counts the - sign, so print -y instead
+			// and introduce our own - sign.
+			want = fmt.Sprintf("-%04d.%02d.%02d", -y, 1, 1)
+		} else {
+			want = fmt.Sprintf("%04d.%02d.%02d", y, 1, 1)
+		}
+		if result != want {
+			t.Errorf("(jan 1 %d).Format(\"2006.01.02\") = %q, want %q", y, result, want)
 		}
 	}
 }
@@ -276,6 +310,7 @@ var parseTests = []ParseTest{
 	{"RFC1123", RFC1123, "Thu, 04 Feb 2010 21:00:57.01234 PST", true, true, 1, 5},
 	{"RFC1123Z", RFC1123Z, "Thu, 04 Feb 2010 21:00:57.01234 -0800", true, true, 1, 5},
 	{"RFC3339", RFC3339, "2010-02-04T21:00:57.012345678-08:00", true, false, 1, 9},
+	{"custom: \"2006-01-02 15:04:05\"", "2006-01-02 15:04:05", "2010-02-04 21:00:57.0", false, false, 1, 0},
 	// Amount of white space should not matter.
 	{"ANSIC", ANSIC, "Thu Feb 4 21:00:57 2010", false, true, 1, 0},
 	{"ANSIC", ANSIC, "Thu      Feb     4     21:00:57     2010", false, true, 1, 0},
@@ -770,7 +805,7 @@ var jsonTests = []struct {
 	time Time
 	json string
 }{
-	{Date(9999, 4, 12, 23, 20, 50, .52*1e9, UTC), `"9999-04-12T23:20:50.52Z"`},
+	{Date(9999, 4, 12, 23, 20, 50, 520*1e6, UTC), `"9999-04-12T23:20:50.52Z"`},
 	{Date(1996, 12, 19, 16, 39, 57, 0, Local), `"1996-12-19T16:39:57-08:00"`},
 	{Date(0, 1, 1, 0, 0, 0, 1, FixedZone("", 1*60)), `"0000-01-01T00:00:00.000000001+00:01"`},
 }
@@ -782,7 +817,7 @@ func TestTimeJSON(t *testing.T) {
 		if jsonBytes, err := json.Marshal(tt.time); err != nil {
 			t.Errorf("%v json.Marshal error = %v, want nil", tt.time, err)
 		} else if string(jsonBytes) != tt.json {
-			t.Errorf("%v JSON = %q, want %q", tt.time, string(jsonBytes), tt.json)
+			t.Errorf("%v JSON = %#q, want %#q", tt.time, string(jsonBytes), tt.json)
 		} else if err = json.Unmarshal(jsonBytes, &jsonTime); err != nil {
 			t.Errorf("%v json.Unmarshal error = %v, want nil", tt.time, err)
 		} else if !equalTimeAndZone(jsonTime, tt.time) {

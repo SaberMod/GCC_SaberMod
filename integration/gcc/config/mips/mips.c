@@ -494,9 +494,6 @@ int num_source_filenames;
    written anything yet.  */
 const char *current_function_file = "";
 
-/* A label counter used by PUT_SDB_BLOCK_START and PUT_SDB_BLOCK_END.  */
-int sdb_label_count;
-
 /* Arrays that map GCC register numbers to debugger register numbers.  */
 int mips_dbx_regno[FIRST_PSEUDO_REGISTER];
 int mips_dwarf_regno[FIRST_PSEUDO_REGISTER];
@@ -1087,6 +1084,20 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (8),            /* int_mult_di */
     COSTS_N_INSNS (72),           /* int_div_si */
     COSTS_N_INSNS (72),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* XLP */
+    /* These costs are the same as 5KF above.  */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (4),            /* int_mult_si */
+    COSTS_N_INSNS (11),           /* int_mult_di */
+    COSTS_N_INSNS (36),           /* int_div_si */
+    COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
   }
@@ -2558,7 +2569,7 @@ mips_strip_unspec_address (rtx op)
 
   split_const (op, &base, &offset);
   if (UNSPEC_ADDRESS_P (base))
-    op = plus_constant (UNSPEC_ADDRESS (base), INTVAL (offset));
+    op = plus_constant (Pmode, UNSPEC_ADDRESS (base), INTVAL (offset));
   return op;
 }
 
@@ -2611,7 +2622,8 @@ mips16_gp_pseudo_reg (void)
 	scan = NEXT_INSN (scan);
 
       insn = gen_load_const_gp (cfun->machine->mips16_gp_pseudo_rtx);
-      emit_insn_after (insn, scan);
+      insn = emit_insn_after (insn, scan);
+      INSN_LOCATOR (insn) = 0;
 
       pop_topmost_sequence ();
     }
@@ -2797,7 +2809,7 @@ mips_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
       high = mips_force_temporary (temp, high);
       reg = mips_force_temporary (temp, gen_rtx_PLUS (Pmode, high, reg));
     }
-  return plus_constant (reg, offset);
+  return plus_constant (Pmode, reg, offset);
 }
 
 /* The __tls_get_attr symbol.  */
@@ -3479,6 +3491,37 @@ mips_zero_extend_cost (enum machine_mode mode, rtx op)
   return COSTS_N_INSNS (1);
 }
 
+/* Return the cost of moving between two registers of mode MODE,
+   assuming that the move will be in pieces of at most UNITS bytes.  */
+
+static int
+mips_set_reg_reg_piece_cost (enum machine_mode mode, unsigned int units)
+{
+  return COSTS_N_INSNS ((GET_MODE_SIZE (mode) + units - 1) / units);
+}
+
+/* Return the cost of moving between two registers of mode MODE.  */
+
+static int
+mips_set_reg_reg_cost (enum machine_mode mode)
+{
+  switch (GET_MODE_CLASS (mode))
+    {
+    case MODE_CC:
+      return mips_set_reg_reg_piece_cost (mode, GET_MODE_SIZE (CCmode));
+
+    case MODE_FLOAT:
+    case MODE_COMPLEX_FLOAT:
+    case MODE_VECTOR_FLOAT:
+      if (TARGET_HARD_FLOAT)
+	return mips_set_reg_reg_piece_cost (mode, UNITS_PER_HWFPVALUE);
+      /* Fall through */
+
+    default:
+      return mips_set_reg_reg_piece_cost (mode, UNITS_PER_WORD);
+    }
+}
+
 /* Implement TARGET_RTX_COSTS.  */
 
 static bool
@@ -3864,6 +3907,15 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case FLOAT_EXTEND:
     case FLOAT_TRUNCATE:
       *total = mips_cost->fp_add;
+      return false;
+
+    case SET:
+      if (register_operand (SET_DEST (x), VOIDmode)
+	  && reg_or_0_operand (SET_SRC (x), VOIDmode))
+	{
+	  *total = mips_set_reg_reg_cost (GET_MODE (SET_DEST (x)));
+	  return true;
+	}
       return false;
 
     default:
@@ -5381,7 +5433,7 @@ mips_setup_incoming_varargs (cumulative_args_t cum, enum machine_mode mode,
 	{
 	  rtx ptr, mem;
 
-	  ptr = plus_constant (virtual_incoming_args_rtx,
+	  ptr = plus_constant (Pmode, virtual_incoming_args_rtx,
 			       REG_PARM_STACK_SPACE (cfun->decl)
 			       - gp_saved * UNITS_PER_WORD);
 	  mem = gen_frame_mem (BLKmode, ptr);
@@ -5410,7 +5462,7 @@ mips_setup_incoming_varargs (cumulative_args_t cum, enum machine_mode mode,
 	    {
 	      rtx ptr, mem;
 
-	      ptr = plus_constant (virtual_incoming_args_rtx, off);
+	      ptr = plus_constant (Pmode, virtual_incoming_args_rtx, off);
 	      mem = gen_frame_mem (mode, ptr);
 	      set_mem_alias_set (mem, get_varargs_alias_set ());
 	      mips_emit_move (mem, gen_rtx_REG (mode, FP_ARG_FIRST + i));
@@ -5491,9 +5543,6 @@ mips_build_builtin_va_list (void)
       layout_type (record);
       return record;
     }
-  else if (TARGET_IRIX6)
-    /* On IRIX 6, this type is 'char *'.  */
-    return build_pointer_type (char_type_node);
   else
     /* Otherwise, we use 'void *'.  */
     return ptr_type_node;
@@ -5576,7 +5625,7 @@ mips_va_start (tree valist, rtx nextarg)
     }
   else
     {
-      nextarg = plus_constant (nextarg, -cfun->machine->varargs_size);
+      nextarg = plus_constant (Pmode, nextarg, -cfun->machine->varargs_size);
       std_expand_builtin_va_start (valist, nextarg);
     }
 }
@@ -6943,8 +6992,8 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   mips_block_move_straight (dest, src, bytes_per_iter);
 
   /* Move on to the next block.  */
-  mips_emit_move (src_reg, plus_constant (src_reg, bytes_per_iter));
-  mips_emit_move (dest_reg, plus_constant (dest_reg, bytes_per_iter));
+  mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
+  mips_emit_move (dest_reg, plus_constant (Pmode, dest_reg, bytes_per_iter));
 
   /* Emit the loop condition.  */
   test = gen_rtx_NE (VOIDmode, src_reg, final_src);
@@ -7884,7 +7933,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 
 	case MEM:
 	  if (letter == 'D')
-	    output_address (plus_constant (XEXP (op, 0), 4));
+	    output_address (plus_constant (Pmode, XEXP (op, 0), 4));
 	  else if (letter && letter != 'z')
 	    output_operand_lossage ("invalid use of '%%%c'", letter);
 	  else
@@ -8113,13 +8162,6 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
       if (reg == hard_frame_pointer_rtx)
 	offset += cfun->machine->frame.hard_frame_pointer_offset;
     }
-
-  /* sdbout_parms does not want this to crash for unrecognized cases.  */
-#if 0
-  else if (reg != arg_pointer_rtx)
-    fatal_insn ("mips_debugger_offset called with non stack/frame/arg pointer",
-		addr);
-#endif
 
   return offset;
 }
@@ -8461,50 +8503,47 @@ mips_file_start (void)
   default_file_start ();
 
   /* Generate a special section to describe the ABI switches used to
-     produce the resultant binary.  This is unnecessary on IRIX and
-     causes unwanted warnings from the native linker.  */
-  if (!TARGET_IRIX6)
-    {
-      /* Record the ABI itself.  Modern versions of binutils encode
-	 this information in the ELF header flags, but GDB needs the
-	 information in order to correctly debug binaries produced by
-	 older binutils.  See the function mips_gdbarch_init in
-	 gdb/mips-tdep.c.  */
-      fprintf (asm_out_file, "\t.section .mdebug.%s\n\t.previous\n",
-	       mips_mdebug_abi_name ());
+     produce the resultant binary.  */
 
-      /* There is no ELF header flag to distinguish long32 forms of the
-	 EABI from long64 forms.  Emit a special section to help tools
-	 such as GDB.  Do the same for o64, which is sometimes used with
-	 -mlong64.  */
-      if (mips_abi == ABI_EABI || mips_abi == ABI_O64)
-	fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n"
-		 "\t.previous\n", TARGET_LONG64 ? 64 : 32);
+  /* Record the ABI itself.  Modern versions of binutils encode
+     this information in the ELF header flags, but GDB needs the
+     information in order to correctly debug binaries produced by
+     older binutils.  See the function mips_gdbarch_init in
+     gdb/mips-tdep.c.  */
+  fprintf (asm_out_file, "\t.section .mdebug.%s\n\t.previous\n",
+	   mips_mdebug_abi_name ());
+
+  /* There is no ELF header flag to distinguish long32 forms of the
+     EABI from long64 forms.  Emit a special section to help tools
+     such as GDB.  Do the same for o64, which is sometimes used with
+     -mlong64.  */
+  if (mips_abi == ABI_EABI || mips_abi == ABI_O64)
+    fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n"
+	     "\t.previous\n", TARGET_LONG64 ? 64 : 32);
 
 #ifdef HAVE_AS_GNU_ATTRIBUTE
-      {
-	int attr;
+  {
+    int attr;
 
-	/* No floating-point operations, -mno-float.  */
-	if (TARGET_NO_FLOAT)
-	  attr = 0;
-	/* Soft-float code, -msoft-float.  */
-	else if (!TARGET_HARD_FLOAT_ABI)
-	  attr = 3;
-	/* Single-float code, -msingle-float.  */
-	else if (!TARGET_DOUBLE_FLOAT)
-	  attr = 2;
-	/* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.  */
-	else if (!TARGET_64BIT && TARGET_FLOAT64)
-	  attr = 4;
-	/* Regular FP code, FP regs same size as GP regs, -mdouble-float.  */
-	else
-	  attr = 1;
+    /* No floating-point operations, -mno-float.  */
+    if (TARGET_NO_FLOAT)
+      attr = 0;
+    /* Soft-float code, -msoft-float.  */
+    else if (!TARGET_HARD_FLOAT_ABI)
+      attr = 3;
+    /* Single-float code, -msingle-float.  */
+    else if (!TARGET_DOUBLE_FLOAT)
+      attr = 2;
+    /* 64-bit FP registers on a 32-bit target, -mips32r2 -mfp64.  */
+    else if (!TARGET_64BIT && TARGET_FLOAT64)
+      attr = 4;
+    /* Regular FP code, FP regs same size as GP regs, -mdouble-float.  */
+    else
+      attr = 1;
 
-	fprintf (asm_out_file, "\t.gnu_attribute 4, %d\n", attr);
-      }
+    fprintf (asm_out_file, "\t.gnu_attribute 4, %d\n", attr);
+  }
 #endif
-    }
 
   /* If TARGET_ABICALLS, tell GAS to generate -KPIC code.  */
   if (TARGET_ABICALLS)
@@ -8753,7 +8792,8 @@ mips16e_save_restore_reg (bool restore_p, bool reg_parm_p,
 {
   rtx reg, mem;
 
-  mem = gen_frame_mem (SImode, plus_constant (stack_pointer_rtx, offset));
+  mem = gen_frame_mem (SImode, plus_constant (Pmode, stack_pointer_rtx,
+					      offset));
   reg = gen_rtx_REG (SImode, regno);
   if (restore_p)
     {
@@ -8812,7 +8852,7 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
 
   /* Add the stack pointer adjustment.  */
   set = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-		     plus_constant (stack_pointer_rtx,
+		     plus_constant (Pmode, stack_pointer_rtx,
 				    restore_p ? size : -size));
   RTX_FRAME_RELATED_P (set) = 1;
   XVECEXP (pattern, 0, n++) = set;
@@ -9953,7 +9993,8 @@ mips_save_restore_reg (enum machine_mode mode, int regno,
 {
   rtx mem;
 
-  mem = gen_frame_mem (mode, plus_constant (stack_pointer_rtx, offset));
+  mem = gen_frame_mem (mode, plus_constant (Pmode, stack_pointer_rtx,
+					    offset));
   fn (gen_rtx_REG (mode, regno), mem);
 }
 
@@ -10128,11 +10169,6 @@ static void
 mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   const char *fnname;
-
-#ifdef SDB_DEBUGGING_INFO
-  if (debug_info_level != DINFO_LEVEL_TERSE && write_symbols == SDB_DEBUG)
-    SDB_OUTPUT_SOURCE_LINE (file, DECL_SOURCE_LINE (current_function_decl));
-#endif
 
   /* In MIPS16 mode, we may need to generate a non-MIPS16 stub to handle
      floating-point arguments.  */
@@ -10448,7 +10484,7 @@ mips_expand_prologue (void)
 		{
 		  /* Push EPC into its stack slot.  */
 		  mem = gen_frame_mem (word_mode,
-				       plus_constant (stack_pointer_rtx,
+				       plus_constant (Pmode, stack_pointer_rtx,
 						      offset));
 		  mips_emit_move (mem, gen_rtx_REG (word_mode, K1_REG_NUM));
 		  offset -= UNITS_PER_WORD;
@@ -10467,7 +10503,8 @@ mips_expand_prologue (void)
 
 	      /* Push Status into its stack slot.  */
 	      mem = gen_frame_mem (word_mode,
-				   plus_constant (stack_pointer_rtx, offset));
+				   plus_constant (Pmode, stack_pointer_rtx,
+						  offset));
 	      mips_emit_move (mem, gen_rtx_REG (word_mode, K1_REG_NUM));
 	      offset -= UNITS_PER_WORD;
 
@@ -10539,7 +10576,7 @@ mips_expand_prologue (void)
 	  /* Describe the combined effect of the previous instructions.  */
 	  mips_set_frame_expr
 	    (gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-			  plus_constant (stack_pointer_rtx, -size)));
+			  plus_constant (Pmode, stack_pointer_rtx, -size)));
 	}
       mips_frame_barrier ();
     }
@@ -10570,7 +10607,7 @@ mips_expand_prologue (void)
 				    MIPS_PROLOGUE_TEMP (Pmode)));
 	  mips_set_frame_expr
 	    (gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
-			  plus_constant (stack_pointer_rtx, offset)));
+			  plus_constant (Pmode, stack_pointer_rtx, offset)));
 	}
     }
 
@@ -10583,7 +10620,7 @@ mips_expand_prologue (void)
       HOST_WIDE_INT offset;
 
       mips_get_cprestore_base_and_offset (&base, &offset, false);
-      mem = gen_frame_mem (Pmode, plus_constant (base, offset));
+      mem = gen_frame_mem (Pmode, plus_constant (Pmode, base, offset));
       gp = TARGET_MIPS16 ? MIPS16_PIC_TEMP : pic_offset_table_rtx;
       temp = (SMALL_OPERAND (offset)
 	      ? gen_rtx_SCRATCH (Pmode)
@@ -10592,7 +10629,7 @@ mips_expand_prologue (void)
 			     (mem, GEN_INT (offset), gp, temp)));
 
       mips_get_cprestore_base_and_offset (&base, &offset, true);
-      mem = gen_frame_mem (Pmode, plus_constant (base, offset));
+      mem = gen_frame_mem (Pmode, plus_constant (Pmode, base, offset));
       emit_insn (PMODE_INSN (gen_use_cprestore, (mem)));
     }
 
@@ -10648,7 +10685,7 @@ mips_epilogue_set_cfa (rtx reg, HOST_WIDE_INT offset)
     {
       RTX_FRAME_RELATED_P (insn) = 1;
       REG_NOTES (insn) = alloc_reg_note (REG_CFA_DEF_CFA,
-					 plus_constant (reg, offset),
+					 plus_constant (Pmode, reg, offset),
 					 REG_NOTES (insn));
       mips_epilogue.cfa_reg = reg;
       mips_epilogue.cfa_offset = offset;
@@ -10837,7 +10874,8 @@ mips_expand_epilogue (bool sibcall_p)
 	    {
 	      /* Restore the original EPC.  */
 	      mem = gen_frame_mem (word_mode,
-				   plus_constant (stack_pointer_rtx, offset));
+				   plus_constant (Pmode, stack_pointer_rtx,
+						  offset));
 	      mips_emit_move (gen_rtx_REG (word_mode, K0_REG_NUM), mem);
 	      offset -= UNITS_PER_WORD;
 
@@ -10848,7 +10886,8 @@ mips_expand_epilogue (bool sibcall_p)
 
 	  /* Restore the original Status.  */
 	  mem = gen_frame_mem (word_mode,
-			       plus_constant (stack_pointer_rtx, offset));
+			       plus_constant (Pmode, stack_pointer_rtx,
+					      offset));
 	  mips_emit_move (gen_rtx_REG (word_mode, K0_REG_NUM), mem);
 	  offset -= UNITS_PER_WORD;
 
@@ -15996,10 +16035,6 @@ mips_option_override (void)
 		     "-mabicalls");
 	}
     }
-
-#ifdef MIPS_TFMODE_FORMAT
-  REAL_MODE_FORMAT (TFmode) = &MIPS_TFMODE_FORMAT;
-#endif
 
   /* Make sure that the user didn't turn off paired single support when
      MIPS-3D support is requested.  */

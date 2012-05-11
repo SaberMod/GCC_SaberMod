@@ -32,8 +32,6 @@ headers =
 sources = \
 	chrono.cc \
 	condition_variable.cc \
-	compatibility-c++0x.cc \
-	compatibility-atomic-c++0x.cc \
 	debug.cc \
 	functexcept.cc \
 	functional.cc \
@@ -60,7 +58,6 @@ inst_sources =
 endif
 
 vpath % $(top_srcdir)/src/c++11
-vpath % $(top_srcdir)
 
 libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 
@@ -70,6 +67,7 @@ libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion calls for it.
 AM_CXXFLAGS = \
+	-std=gnu++11 \
 	$(PIC_CXXFLAGS) \
 	$(XTEMPLATE_FLAGS) \
 	$(WARN_CXXFLAGS) \
@@ -100,9 +98,11 @@ AM_MAKEFLAGS = \
 # attempt to infer which configuration to use.
 # We have to put --tag disable-shared after --tag CXX lest things
 # CXX undo the affect of disable-shared.
-LTCXXCOMPILE = $(LIBTOOL) --tag CXX --tag disable-shared $(LIBTOOLFLAGS) \
-	       --mode=compile $(CXX) $(TOPLEVEL_INCLUDES) \
-	       $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
+LTCXXCOMPILE = \
+	$(LIBTOOL) --tag CXX --tag disable-shared \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXX) $(TOPLEVEL_INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 

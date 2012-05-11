@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -516,6 +516,8 @@ package body Sem_Eval is
          Subs : Nat;
 
       begin
+         --  Fixup only required for First/Last attribute reference
+
          if Nkind (N) = N_Attribute_Reference
            and then (Attribute_Name (N) = Name_First
                        or else
@@ -554,7 +556,7 @@ package body Sem_Eval is
                if Attribute_Name (N) = Name_First then
                   return String_Literal_Low_Bound (Xtyp);
 
-               else         -- Attribute_Name (N) = Name_Last
+               else
                   return Make_Integer_Literal (Sloc (N),
                     Intval => Intval (String_Literal_Low_Bound (Xtyp))
                                 + String_Literal_Length (Xtyp));
@@ -577,8 +579,7 @@ package body Sem_Eval is
 
             if Attribute_Name (N) = Name_First then
                return Type_Low_Bound (Xtyp);
-
-            else -- Attribute_Name (N) = Name_Last
+            else
                return Type_High_Bound (Xtyp);
             end if;
          end if;
@@ -4310,8 +4311,8 @@ package body Sem_Eval is
          return
            Ekind (Typ) = E_String_Literal_Subtype
              or else
-           (Is_OK_Static_Subtype (Component_Type (Typ))
-              and then Is_OK_Static_Subtype (Etype (First_Index (Typ))));
+               (Is_OK_Static_Subtype (Component_Type (Typ))
+                 and then Is_OK_Static_Subtype (Etype (First_Index (Typ))));
 
       --  Scalar types
 
@@ -4401,9 +4402,8 @@ package body Sem_Eval is
       elsif Is_String_Type (Typ) then
          return
            Ekind (Typ) = E_String_Literal_Subtype
-             or else
-           (Is_Static_Subtype (Component_Type (Typ))
-              and then Is_Static_Subtype (Etype (First_Index (Typ))));
+             or else (Is_Static_Subtype (Component_Type (Typ))
+                       and then Is_Static_Subtype (Etype (First_Index (Typ))));
 
       --  Scalar types
 

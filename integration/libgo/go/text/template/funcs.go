@@ -24,6 +24,7 @@ type FuncMap map[string]interface{}
 
 var builtins = FuncMap{
 	"and":      and,
+	"call":     call,
 	"html":     HTMLEscaper,
 	"index":    index,
 	"js":       JSEscaper,
@@ -151,6 +152,53 @@ func length(item interface{}) (int, error) {
 	return 0, fmt.Errorf("len of type %s", v.Type())
 }
 
+// Function invocation
+
+// call returns the result of evaluating the the first argument as a function.
+// The function must return 1 result, or 2 results, the second of which is an error.
+func call(fn interface{}, args ...interface{}) (interface{}, error) {
+	v := reflect.ValueOf(fn)
+	typ := v.Type()
+	if typ.Kind() != reflect.Func {
+		return nil, fmt.Errorf("non-function of type %s", typ)
+	}
+	if !goodFunc(typ) {
+		return nil, fmt.Errorf("function called with %d args; should be 1 or 2", typ.NumOut())
+	}
+	numIn := typ.NumIn()
+	var dddType reflect.Type
+	if typ.IsVariadic() {
+		if len(args) < numIn-1 {
+			return nil, fmt.Errorf("wrong number of args: got %d want at least %d", len(args), numIn-1)
+		}
+		dddType = typ.In(numIn - 1).Elem()
+	} else {
+		if len(args) != numIn {
+			return nil, fmt.Errorf("wrong number of args: got %d want %d", len(args), numIn)
+		}
+	}
+	argv := make([]reflect.Value, len(args))
+	for i, arg := range args {
+		value := reflect.ValueOf(arg)
+		// Compute the expected type. Clumsy because of variadics.
+		var argType reflect.Type
+		if !typ.IsVariadic() || i < numIn-1 {
+			argType = typ.In(i)
+		} else {
+			argType = dddType
+		}
+		if !value.Type().AssignableTo(argType) {
+			return nil, fmt.Errorf("arg %d has type %s; should be %s", i, value.Type(), argType)
+		}
+		argv[i] = reflect.ValueOf(arg)
+	}
+	result := v.Call(argv)
+	if len(result) == 2 {
+		return result[0].Interface(), result[1].Interface().(error)
+	}
+	return result[0].Interface(), nil
+}
+
 // Boolean logic.
 
 func truth(a interface{}) bool {
@@ -198,7 +246,7 @@ func not(arg interface{}) (truth bool) {
 
 var (
 	htmlQuot = []byte("&#34;") // shorter than "&quot;"
-	htmlApos = []byte("&#39;") // shorter than "&apos;"
+	htmlApos = []byte("&#39;") // shorter than "&apos;" and apos was not in HTML until HTML5
 	htmlAmp  = []byte("&amp;")
 	htmlLt   = []byte("&lt;")
 	htmlGt   = []byte("&gt;")

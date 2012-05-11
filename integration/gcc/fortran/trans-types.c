@@ -1106,6 +1106,9 @@ gfc_typenode_for_spec (gfc_typespec * spec)
     case BT_CLASS:
       basetype = gfc_get_derived_type (spec->u.derived);
 
+      if (spec->type == BT_CLASS)
+	GFC_CLASS_TYPE_P (basetype) = 1;
+
       /* If we're dealing with either C_PTR or C_FUNPTR, we modified the
          type and kind to fit a (void *) and the basetype returned was a
          ptr_type_node.  We need to pass up this new information to the
@@ -1118,6 +1121,7 @@ gfc_typenode_for_spec (gfc_typespec * spec)
         }
       break;
     case BT_VOID:
+    case BT_ASSUMED:
       /* This is for the second arg to c_f_pointer and c_f_procpointer
          of the iso_c_binding module, to accept any ptr type.  */
       basetype = ptr_type_node;
@@ -1414,6 +1418,10 @@ gfc_get_dtype (tree type)
 
     case ARRAY_TYPE:
       n = BT_CHARACTER;
+      break;
+
+    case POINTER_TYPE:
+      n = BT_ASSUMED;
       break;
 
     default:
@@ -2673,7 +2681,11 @@ gfc_get_function_type (gfc_symbol * sym)
 	      || sym->attr.flavor == FL_PROGRAM);
 
   if (sym->backend_decl)
-    return TREE_TYPE (sym->backend_decl);
+    {
+      if (sym->attr.proc_pointer)
+	return TREE_TYPE (TREE_TYPE (sym->backend_decl));
+      return TREE_TYPE (sym->backend_decl);
+    }
 
   alternate_return = 0;
   typelist = NULL;

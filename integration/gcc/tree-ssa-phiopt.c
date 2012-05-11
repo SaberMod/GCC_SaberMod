@@ -36,13 +36,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
+#include "tree-pretty-print.h"
 
 static unsigned int tree_ssa_phiopt (void);
 static unsigned int tree_ssa_phiopt_worker (bool);
 static bool conditional_replacement (basic_block, basic_block,
 				     edge, edge, gimple, tree, tree);
-static bool value_replacement (basic_block, basic_block,
-			       edge, edge, gimple, tree, tree);
+static int value_replacement (basic_block, basic_block,
+			      edge, edge, gimple, tree, tree);
 static bool minmax_replacement (basic_block, basic_block,
 				edge, edge, gimple, tree, tree);
 static bool abs_replacement (basic_block, basic_block,
@@ -192,6 +193,33 @@ tree_ssa_cs_elim (void)
   return tree_ssa_phiopt_worker (true);
 }
 
+/* Return the singleton PHI in the SEQ of PHIs for edges E0 and E1. */
+
+static gimple
+single_non_singleton_phi_for_edges (gimple_seq seq, edge e0, edge e1)
+{
+  gimple_stmt_iterator i;
+  gimple phi = NULL;
+  if (gimple_seq_singleton_p (seq))
+    return gsi_stmt (gsi_start (seq));
+  for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
+    {
+      gimple p = gsi_stmt (i);
+      /* If the PHI arguments are equal then we can skip this PHI. */
+      if (operand_equal_for_phi_arg_p (gimple_phi_arg_def (p, e0->dest_idx),
+				       gimple_phi_arg_def (p, e1->dest_idx)))
+	continue;
+
+      /* If we already have a PHI that has the two edge arguments are
+	 different, then return it is not a singleton for these PHIs. */
+      if (phi)
+	return NULL;
+
+      phi = p;
+    }
+  return phi;
+}
+
 /* For conditional store replacement we need a temporary to
    put the old contents of the memory in.  */
 static tree condstoretemp;
@@ -314,22 +342,27 @@ tree_ssa_phiopt_worker (bool do_store_elim)
 	{
 	  gimple_seq phis = phi_nodes (bb2);
 	  gimple_stmt_iterator gsi;
+	  bool candorest = true;
 
-	  /* Check to make sure that there is only one non-virtual PHI node.
-	     TODO: we could do it with more than one iff the other PHI nodes
-	     have the same elements for these two edges.  */
-	  phi = NULL;
+	  /* Value replacement can work with more than one PHI
+	     so try that first. */
 	  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      if (!is_gimple_reg (gimple_phi_result (gsi_stmt (gsi))))
-		continue;
-	      if (phi)
+	      phi = gsi_stmt (gsi);
+	      arg0 = gimple_phi_arg_def (phi, e1->dest_idx);
+	      arg1 = gimple_phi_arg_def (phi, e2->dest_idx);
+	      if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1) == 2)
 		{
-		  phi = NULL;
+		  candorest = false;
+	          cfgchanged = true;
 		  break;
 		}
-	      phi = gsi_stmt (gsi);
 	    }
+
+	  if (!candorest)
+	    continue;
+	  
+	  phi = single_non_singleton_phi_for_edges (phis, e1, e2);
 	  if (!phi)
 	    continue;
 
@@ -342,8 +375,6 @@ tree_ssa_phiopt_worker (bool do_store_elim)
 
 	  /* Do the replacement of conditional if it can be done.  */
 	  if (conditional_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
-	    cfgchanged = true;
-	  else if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
 	  else if (abs_replacement (bb, bb1, e1, e2, phi, arg0, arg1))
 	    cfgchanged = true;
@@ -431,6 +462,8 @@ empty_block_p (basic_block bb)
 {
   /* BB must have no executable statements.  */
   gimple_stmt_iterator gsi = gsi_after_labels (bb);
+  if (phi_nodes (bb))
+    return false;
   if (gsi_end_p (gsi))
     return true;
   if (is_gimple_debug (gsi_stmt (gsi)))
@@ -503,17 +536,21 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
   gimple_stmt_iterator gsi;
   edge true_edge, false_edge;
   tree new_var, new_var2;
+  bool neg;
 
   /* FIXME: Gimplification of complex type is too hard for now.  */
   if (TREE_CODE (TREE_TYPE (arg0)) == COMPLEX_TYPE
       || TREE_CODE (TREE_TYPE (arg1)) == COMPLEX_TYPE)
     return false;
 
-  /* The PHI arguments have the constants 0 and 1, then convert
-     it to the conditional.  */
+  /* The PHI arguments have the constants 0 and 1, or 0 and -1, then
+     convert it to the conditional.  */
   if ((integer_zerop (arg0) && integer_onep (arg1))
       || (integer_zerop (arg1) && integer_onep (arg0)))
-    ;
+    neg = false;
+  else if ((integer_zerop (arg0) && integer_all_onesp (arg1))
+	   || (integer_zerop (arg1) && integer_all_onesp (arg0)))
+    neg = true;
   else
     return false;
 
@@ -525,7 +562,7 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
      falls through into BB.
 
      There is a single PHI node at the join point (BB) and its arguments
-     are constants (0, 1).
+     are constants (0, 1) or (0, -1).
 
      So, given the condition COND, and the two PHI arguments, we can
      rewrite this PHI into non-branching code:
@@ -552,11 +589,19 @@ conditional_replacement (basic_block cond_bb, basic_block middle_bb,
      edge so that we know when to invert the condition below.  */
   extract_true_false_edges_from_block (cond_bb, &true_edge, &false_edge);
   if ((e0 == true_edge && integer_zerop (arg0))
-      || (e0 == false_edge && integer_onep (arg0))
+      || (e0 == false_edge && !integer_zerop (arg0))
       || (e1 == true_edge && integer_zerop (arg1))
-      || (e1 == false_edge && integer_onep (arg1)))
+      || (e1 == false_edge && !integer_zerop (arg1)))
     cond = fold_build1_loc (gimple_location (stmt),
-			    TRUTH_NOT_EXPR, TREE_TYPE (cond), cond);
+                            TRUTH_NOT_EXPR, TREE_TYPE (cond), cond);
+
+  if (neg)
+    {
+      cond = fold_convert_loc (gimple_location (stmt),
+                               TREE_TYPE (result), cond);
+      cond = fold_build1_loc (gimple_location (stmt),
+                              NEGATE_EXPR, TREE_TYPE (cond), cond);
+    }
 
   /* Insert our new statements at the end of conditional block before the
      COND_STMT.  */
@@ -624,12 +669,12 @@ jump_function_from_stmt (tree *arg, gimple stmt)
 }
 
 /*  The function value_replacement does the main work of doing the value
-    replacement.  Return true if the replacement is done.  Otherwise return
-    false.
+    replacement.  Return non-zero if the replacement is done.  Otherwise return
+    0.  If we remove the middle basic block, return 2.
     BB is the basic block where the replacement is going to be done on.  ARG0
     is argument 0 from the PHI.  Likewise for ARG1.  */
 
-static bool
+static int
 value_replacement (basic_block cond_bb, basic_block middle_bb,
 		   edge e0, edge e1, gimple phi,
 		   tree arg0, tree arg1)
@@ -638,37 +683,36 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
   gimple cond;
   edge true_edge, false_edge;
   enum tree_code code;
+  bool emtpy_or_with_defined_p = true;
 
   /* If the type says honor signed zeros we cannot do this
      optimization.  */
   if (HONOR_SIGNED_ZEROS (TYPE_MODE (TREE_TYPE (arg1))))
-    return false;
+    return 0;
 
-  /* Allow a single statement in MIDDLE_BB that defines one of the PHI
-     arguments.  */
+  /* If there is a statement in MIDDLE_BB that defines one of the PHI
+     arguments, then adjust arg0 or arg1.  */
   gsi = gsi_after_labels (middle_bb);
-  if (!gsi_end_p (gsi))
+  if (!gsi_end_p (gsi) && is_gimple_debug (gsi_stmt (gsi)))
+    gsi_next_nondebug (&gsi);
+  while (!gsi_end_p (gsi))
     {
-      if (is_gimple_debug (gsi_stmt (gsi)))
-	gsi_next_nondebug (&gsi);
-      if (!gsi_end_p (gsi))
+      gimple stmt = gsi_stmt (gsi);
+      tree lhs;
+      gsi_next_nondebug (&gsi);
+      if (!is_gimple_assign (stmt))
 	{
-	  gimple stmt = gsi_stmt (gsi);
-	  tree lhs;
-	  gsi_next_nondebug (&gsi);
-	  if (!gsi_end_p (gsi))
-	    return false;
-	  if (!is_gimple_assign (stmt))
-	    return false;
-	  /* Now try to adjust arg0 or arg1 according to the computation
-	     in the single statement.  */
-	  lhs = gimple_assign_lhs (stmt);
-	  if (!((lhs == arg0
-		 && jump_function_from_stmt (&arg0, stmt))
-		|| (lhs == arg1
-		    && jump_function_from_stmt (&arg1, stmt))))
-	    return false;
+	  emtpy_or_with_defined_p = false;
+	  continue;
 	}
+      /* Now try to adjust arg0 or arg1 according to the computation
+	 in the statement.  */
+      lhs = gimple_assign_lhs (stmt);
+      if (!(lhs == arg0
+	     && jump_function_from_stmt (&arg0, stmt))
+	    || (lhs == arg1
+		&& jump_function_from_stmt (&arg1, stmt)))
+	emtpy_or_with_defined_p = false;
     }
 
   cond = last_stmt (cond_bb);
@@ -676,7 +720,7 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
 
   /* This transformation is only valid for equality comparisons.  */
   if (code != NE_EXPR && code != EQ_EXPR)
-    return false;
+    return 0;
 
   /* We need to know which is the true edge and which is the false
       edge so that we know if have abs or negative abs.  */
@@ -720,12 +764,36 @@ value_replacement (basic_block cond_bb, basic_block middle_bb,
       else
 	arg = arg1;
 
-      replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
+      /* If the middle basic block was empty or is defining the
+	 PHI arguments and this is a single phi where the args are different
+	 for the edges e0 and e1 then we can remove the middle basic block. */
+      if (emtpy_or_with_defined_p
+	  && single_non_singleton_phi_for_edges (phi_nodes (gimple_bb (phi)),
+							    e0, e1))
+	{
+          replace_phi_edge_with_variable (cond_bb, e1, phi, arg);
+	  /* Note that we optimized this PHI.  */
+	  return 2;
+	}
+      else
+	{
+	  /* Replace the PHI arguments with arg. */
+	  SET_PHI_ARG_DEF (phi, e0->dest_idx, arg);
+	  SET_PHI_ARG_DEF (phi, e1->dest_idx, arg);
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "PHI ");
+	      print_generic_expr (dump_file, gimple_phi_result (phi), 0);
+	      fprintf (dump_file, " reduced for COND_EXPR in block %d to ",
+		       cond_bb->index);
+	      print_generic_expr (dump_file, arg, 0);
+	      fprintf (dump_file, ".\n");
+            }
+          return 1;
+	}
 
-      /* Note that we optimized this PHI.  */
-      return true;
     }
-  return false;
+  return 0;
 }
 
 /*  The function minmax_replacement does the main work of doing the minmax
@@ -1556,8 +1624,17 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
   /* Compute and check data dependencies in both basic blocks.  */
   then_ddrs = VEC_alloc (ddr_p, heap, 1);
   else_ddrs = VEC_alloc (ddr_p, heap, 1);
-  compute_all_dependences (then_datarefs, &then_ddrs, NULL, false);
-  compute_all_dependences (else_datarefs, &else_ddrs, NULL, false);
+  if (!compute_all_dependences (then_datarefs, &then_ddrs, NULL, false)
+      || !compute_all_dependences (else_datarefs, &else_ddrs, NULL, false))
+    {
+      free_dependence_relations (then_ddrs);
+      free_dependence_relations (else_ddrs);
+      free_data_refs (then_datarefs);
+      free_data_refs (else_datarefs);
+      VEC_free (gimple, heap, then_stores);
+      VEC_free (gimple, heap, else_stores);
+      return false;
+    }
   blocks[0] = then_bb;
   blocks[1] = else_bb;
   blocks[2] = join_bb;

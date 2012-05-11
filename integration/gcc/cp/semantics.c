@@ -1382,7 +1382,7 @@ finish_asm_stmt (int volatile_p, tree string, tree output_operands,
       for (i = 0, t = input_operands; t; ++i, t = TREE_CHAIN (t))
 	{
 	  constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (t)));
-	  operand = decay_conversion (TREE_VALUE (t));
+	  operand = decay_conversion (TREE_VALUE (t), tf_warning_or_error);
 
 	  /* If the type of the operand hasn't been determined (e.g.,
 	     because it involves an overloaded function), then issue
@@ -1590,7 +1590,7 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
   else if (processing_template_decl)
     return build_qualified_name (TREE_TYPE (decl),
 				 qualifying_scope,
-				 DECL_NAME (decl),
+				 decl,
 				 /*template_p=*/false);
   else
     {
@@ -2224,7 +2224,7 @@ finish_call_expr (tree fn, VEC(tree,gc) **args, bool disallow_virtual,
 tree
 finish_increment_expr (tree expr, enum tree_code code)
 {
-  return build_x_unary_op (code, expr, tf_warning_or_error);
+  return build_x_unary_op (input_location, code, expr, tf_warning_or_error);
 }
 
 /* Finish a use of `this'.  Returns an expression for `this'.  */
@@ -2318,9 +2318,9 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
 /* Finish an expression of the form CODE EXPR.  */
 
 tree
-finish_unary_op_expr (enum tree_code code, tree expr)
+finish_unary_op_expr (location_t loc, enum tree_code code, tree expr)
 {
-  tree result = build_x_unary_op (code, expr, tf_warning_or_error);
+  tree result = build_x_unary_op (loc, code, expr, tf_warning_or_error);
   if (TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
     overflow_warning (input_location, result);
 
@@ -4456,7 +4456,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	cond = error_mark_node;
       else
 	{
-	  tree tem = build_x_binary_op (TREE_CODE (cond), iter, ERROR_MARK,
+	  tree tem = build_x_binary_op (input_location, TREE_CODE (cond),
+					iter, ERROR_MARK,
 					TREE_OPERAND (cond, 1), ERROR_MARK,
 					NULL, tf_warning_or_error);
 	  if (error_operand_p (tem))
@@ -4472,7 +4473,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       error_at (elocus, "invalid controlling predicate");
       return true;
     }
-  diff = build_x_binary_op (MINUS_EXPR, TREE_OPERAND (cond, 1),
+  diff = build_x_binary_op (input_location, MINUS_EXPR, TREE_OPERAND (cond, 1),
 			    ERROR_MARK, iter, ERROR_MARK, NULL,
 			    tf_warning_or_error);
   if (error_operand_p (diff))
@@ -4495,7 +4496,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 	  incr = error_mark_node;
 	  break;
 	}
-      iter_incr = build_x_unary_op (TREE_CODE (incr), iter,
+      iter_incr = build_x_unary_op (input_location, TREE_CODE (incr), iter,
 				    tf_warning_or_error);
       if (error_operand_p (iter_incr))
 	return true;
@@ -4545,7 +4546,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		incr = error_mark_node;
 	      else
 		{
-		  iter_incr = build_x_binary_op (PLUS_EXPR,
+		  iter_incr = build_x_binary_op (input_location, PLUS_EXPR,
 						 TREE_OPERAND (rhs, 0),
 						 ERROR_MARK, iter,
 						 ERROR_MARK, NULL,
@@ -5921,6 +5922,12 @@ build_constexpr_constructor_member_initializers (tree type, tree body)
 	    break;
 	}
     }
+  else if (TREE_CODE (body) == TRY_BLOCK)
+    {
+      error ("body of %<constexpr%> constructor cannot be "
+	     "a function-try-block");
+      return error_mark_node;
+    }
   else if (EXPR_P (body))
     ok = build_data_member_initialization (body, &vec);
   else
@@ -7202,7 +7209,8 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
   sub = op0;
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
-  gcc_assert (POINTER_TYPE_P (subtype));
+  if (!POINTER_TYPE_P (subtype))
+    return NULL_TREE;
 
   if (TREE_CODE (sub) == ADDR_EXPR)
     {
@@ -7750,18 +7758,16 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
     case NOP_EXPR:
       {
 	tree oldop = TREE_OPERAND (t, 0);
-	tree op = oldop;
-	tree to = TREE_TYPE (t);
-	op = cxx_eval_constant_expression (call, TREE_OPERAND (t, 0),
-					   allow_non_constant, addr,
-					   non_constant_p);
+	tree op = cxx_eval_constant_expression (call, oldop,
+						allow_non_constant, addr,
+						non_constant_p);
 	if (*non_constant_p)
 	  return t;
 	if (op == oldop)
 	  /* We didn't fold at the top so we could check for ptr-int
 	     conversion.  */
 	  return fold (t);
-	r = fold_build1 (TREE_CODE (t), to, op);
+	r = fold_build1 (TREE_CODE (t), TREE_TYPE (t), op);
 	/* Conversion of an out-of-range value has implementation-defined
 	   behavior; the language considers it different from arithmetic
 	   overflow, which is undefined.  */
@@ -8691,18 +8697,16 @@ begin_lambda_type (tree lambda)
 tree
 lambda_return_type (tree expr)
 {
-  tree type;
+  if (expr == NULL_TREE)
+    return void_type_node;
   if (type_unknown_p (expr)
       || BRACE_ENCLOSED_INITIALIZER_P (expr))
     {
       cxx_incomplete_type_error (expr, TREE_TYPE (expr));
       return void_type_node;
     }
-  if (type_dependent_expression_p (expr))
-    type = dependent_lambda_return_type_node;
-  else
-    type = cv_unqualified (type_decays_to (unlowered_expr_type (expr)));
-  return type;
+  gcc_checking_assert (!type_dependent_expression_p (expr));
+  return cv_unqualified (type_decays_to (unlowered_expr_type (expr)));
 }
 
 /* Given a LAMBDA_EXPR or closure type LAMBDA, return the op() of the
@@ -8749,28 +8753,31 @@ lambda_capture_field_type (tree expr)
   return type;
 }
 
-/* Recompute the return type for LAMBDA with body of the form:
-     { return EXPR ; }  */
+/* Insert the deduced return type for an auto function.  */
 
 void
-apply_lambda_return_type (tree lambda, tree return_type)
+apply_deduced_return_type (tree fco, tree return_type)
 {
-  tree fco = lambda_function (lambda);
   tree result;
-
-  LAMBDA_EXPR_RETURN_TYPE (lambda) = return_type;
 
   if (return_type == error_mark_node)
     return;
-  if (TREE_TYPE (TREE_TYPE (fco)) == return_type)
-    return;
 
-  /* TREE_TYPE (FUNCTION_DECL) == METHOD_TYPE
-     TREE_TYPE (METHOD_TYPE)   == return-type  */
+  if (LAMBDA_FUNCTION_P (fco))
+    {
+      tree lambda = CLASSTYPE_LAMBDA_EXPR (current_class_type);
+      LAMBDA_EXPR_RETURN_TYPE (lambda) = return_type;
+    }
+
+  if (DECL_CONV_FN_P (fco))
+    DECL_NAME (fco) = mangle_conv_op_name_for_type (return_type);
+
   TREE_TYPE (fco) = change_return_type (return_type, TREE_TYPE (fco));
 
   result = DECL_RESULT (fco);
   if (result == NULL_TREE)
+    return;
+  if (TREE_TYPE (result) == return_type)
     return;
 
   /* We already have a DECL_RESULT from start_preparsed_function.
@@ -8786,12 +8793,13 @@ apply_lambda_return_type (tree lambda, tree return_type)
 
   DECL_RESULT (fco) = result;
 
-  if (!processing_template_decl && aggregate_value_p (result, fco))
+  if (!processing_template_decl)
     {
+      bool aggr = aggregate_value_p (result, fco);
 #ifdef PCC_STATIC_STRUCT_RETURN
-      cfun->returns_pcc_struct = 1;
+      cfun->returns_pcc_struct = aggr;
 #endif
-      cfun->returns_struct = 1;
+      cfun->returns_struct = aggr;
     }
 
 }
@@ -9321,8 +9329,9 @@ maybe_add_lambda_conv_op (tree type)
   if (DECL_ONE_ONLY (statfn))
     {
       /* Put the thunk in the same comdat group as the call op.  */
-      cgraph_add_to_same_comdat_group (cgraph_get_create_node (statfn),
-				       cgraph_get_create_node (callop));
+      symtab_add_to_same_comdat_group
+	 ((symtab_node) cgraph_get_create_node (statfn),
+          (symtab_node) cgraph_get_create_node (callop));
     }
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
@@ -9356,7 +9365,7 @@ maybe_add_lambda_conv_op (tree type)
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
-  finish_return_stmt (decay_conversion (statfn));
+  finish_return_stmt (decay_conversion (statfn, tf_warning_or_error));
 
   finish_compound_stmt (compound_stmt);
   finish_function_body (body);

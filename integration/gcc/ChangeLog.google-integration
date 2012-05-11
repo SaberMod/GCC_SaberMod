@@ -1,3 +1,7 @@
+2012-05-11   Sharad Singhai  <singhai@google.com>
+
+	Mainline merge rev 187391 for gcc 4.8 branch.
+
 2012-04-23   Ollie Wild  <aaw@google.com>
 
 	* c-family/c-common.c: Add CPP_W_LITERAL_SUFFIX mapping.

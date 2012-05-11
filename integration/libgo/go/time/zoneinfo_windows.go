@@ -6,6 +6,7 @@ package time
 
 import (
 	"errors"
+	"runtime"
 	"syscall"
 )
 
@@ -82,6 +83,9 @@ func initLocalFromTZI(i *syscall.Timezoneinformation) {
 		l.cacheStart = -1 << 63
 		l.cacheEnd = 1<<63 - 1
 		l.cacheZone = std
+		l.tx = make([]zoneTrans, 1)
+		l.tx[0].when = l.cacheStart
+		l.tx[0].index = 0
 		return
 	}
 
@@ -151,7 +155,10 @@ func initLocal() {
 	initLocalFromTZI(&i)
 }
 
-// TODO(rsc): Implement.
 func loadLocation(name string) (*Location, error) {
+	if z, err := loadZoneFile(runtime.GOROOT()+`\lib\time\zoneinfo.zip`, name); err == nil {
+		z.name = name
+		return z, nil
+	}
 	return nil, errors.New("unknown time zone " + name)
 }

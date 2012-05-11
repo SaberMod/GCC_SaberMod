@@ -1,6 +1,6 @@
 ;; Machine description for DEC Alpha for GNU C compiler
 ;; Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-;; 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
+;; 2000, 2001, 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
 ;; Free Software Foundation, Inc.
 ;; Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 ;;
@@ -1666,7 +1666,7 @@
 ;;		   (match_dup 4)))]
 ;;  "
 ;;{
-;;  operands[6] = plus_constant (operands[3],
+;;  operands[6] = plus_constant (DImode, operands[3],
 ;;			       INTVAL (operands[2]) / BITS_PER_UNIT);
 ;;  operands[7] = GEN_INT (- INTVAL (operands[2]) / BITS_PER_UNIT);
 ;;}")
@@ -3971,7 +3971,8 @@
   else
     {
       emit_move_insn (gen_rtx_REG (Pmode, 26),
-		      gen_rtx_MEM (Pmode, plus_constant (operands[0], 8)));
+		      gen_rtx_MEM (Pmode, plus_constant (Pmode,
+							 operands[0], 8)));
       operands[2] = operands[0];
     }
 
@@ -4046,7 +4047,8 @@
   else
     {
       emit_move_insn (gen_rtx_REG (Pmode, 26),
-		      gen_rtx_MEM (Pmode, plus_constant (operands[1], 8)));
+		      gen_rtx_MEM (Pmode, plus_constant (Pmode,
+							 operands[1], 8)));
       operands[3] = operands[1];
     }
 })
@@ -4343,6 +4345,15 @@
   ""
   "call_pal 0x86"
   [(set_attr "type" "callpal")])
+
+(define_expand "clear_cache"
+  [(match_operand:DI 0 "")		; region start
+   (match_operand:DI 1 "")]		; region end
+  ""
+{
+  emit_insn (gen_imb ());
+  DONE;
+})
 
 ;; BUGCHK is documented common to OSF/1 and VMS PALcode.
 (define_insn "trap"
@@ -5572,7 +5583,7 @@
   [(set (match_dup 1) (match_operand:DI 0 "const_int_operand" ""))]
   ""
 {
-  operands[1] = gen_rtx_MEM (DImode, plus_constant (stack_pointer_rtx,
+  operands[1] = gen_rtx_MEM (DImode, plus_constant (Pmode, stack_pointer_rtx,
 						    INTVAL (operands[0])));
   MEM_VOLATILE_P (operands[1]) = 1;
 
@@ -5794,8 +5805,8 @@
 {
   /* The elements of the buffer are, in order:  */
   rtx fp = gen_rtx_MEM (Pmode, operands[0]);
-  rtx lab = gen_rtx_MEM (Pmode, plus_constant (operands[0], 8));
-  rtx stack = gen_rtx_MEM (Pmode, plus_constant (operands[0], 16));
+  rtx lab = gen_rtx_MEM (Pmode, plus_constant (Pmode, operands[0], 8));
+  rtx stack = gen_rtx_MEM (Pmode, plus_constant (Pmode, operands[0], 16));
   rtx pv = gen_rtx_REG (Pmode, 27);
 
   /* This bit is the same as expand_builtin_longjmp.  */
@@ -5855,27 +5866,21 @@
 
 (define_insn "*builtin_setjmp_receiver_er_sl_1"
   [(unspec_volatile [(match_operand 0 "" "")] UNSPECV_SETJMPR_ER)]
-  "TARGET_ABI_OSF && TARGET_EXPLICIT_RELOCS && TARGET_AS_CAN_SUBTRACT_LABELS"
+  "TARGET_ABI_OSF && TARGET_EXPLICIT_RELOCS"
   "lda $27,$LSJ%=-%l0($27)\n$LSJ%=:")
   
-(define_insn "*builtin_setjmp_receiver_er_1"
-  [(unspec_volatile [(match_operand 0 "" "")] UNSPECV_SETJMPR_ER)]
-  "TARGET_ABI_OSF && TARGET_EXPLICIT_RELOCS"
-  "br $27,$LSJ%=\n$LSJ%=:"
-  [(set_attr "type" "ibr")])
-
 ;; When flag_reorder_blocks_and_partition is in effect, compiler puts
 ;; exception landing pads in a cold section.  To prevent inter-section offset
 ;; calculation, a jump to original landing pad is emitted in the place of the
 ;; original landing pad.  Since landing pad is moved, RA-relative GP
 ;; calculation in the prologue of landing pad breaks.  To solve this problem,
-;; we use alternative GP load approach, as in the case of TARGET_LD_BUGGY_LDGP.
+;; we use alternative GP load approach.
 
 (define_expand "exception_receiver"
   [(unspec_volatile [(match_dup 0)] UNSPECV_EHR)]
   "TARGET_ABI_OSF"
 {
-  if (TARGET_LD_BUGGY_LDGP || flag_reorder_blocks_and_partition)
+  if (flag_reorder_blocks_and_partition)
     operands[0] = alpha_gp_save_rtx ();
   else
     operands[0] = const0_rtx;
@@ -5883,8 +5888,7 @@
 
 (define_insn "*exception_receiver_2"
   [(unspec_volatile [(match_operand:DI 0 "memory_operand" "m")] UNSPECV_EHR)]
-  "TARGET_ABI_OSF 
-   && (TARGET_LD_BUGGY_LDGP || flag_reorder_blocks_and_partition)"
+  "TARGET_ABI_OSF && flag_reorder_blocks_and_partition"
   "ldq $29,%0"
   [(set_attr "type" "ild")])
 

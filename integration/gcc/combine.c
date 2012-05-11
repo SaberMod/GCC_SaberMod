@@ -1822,6 +1822,10 @@ can_combine_p (rtx insn, rtx i3, rtx pred ATTRIBUTE_UNUSED,
   if (set == 0)
     return 0;
 
+  /* The simplification in expand_field_assignment may call back to
+     get_last_value, so set safe guard here.  */
+  subst_low_luid = DF_INSN_LUID (insn);
+
   set = expand_field_assignment (set);
   src = SET_SRC (set), dest = SET_DEST (set);
 
@@ -2532,13 +2536,13 @@ update_cfg_for_uncondjump (rtx insn)
       single_succ_edge (bb)->flags |= EDGE_FALLTHRU;
 
       /* Remove barriers from the footer if there are any.  */
-      for (insn = bb->il.rtl->footer; insn; insn = NEXT_INSN (insn))
+      for (insn = BB_FOOTER (bb); insn; insn = NEXT_INSN (insn))
 	if (BARRIER_P (insn))
 	  {
 	    if (PREV_INSN (insn))
 	      NEXT_INSN (PREV_INSN (insn)) = NEXT_INSN (insn);
 	    else
-	      bb->il.rtl->footer = NEXT_INSN (insn);
+	      BB_FOOTER (bb) = NEXT_INSN (insn);
 	    if (NEXT_INSN (insn))
 	      PREV_INSN (NEXT_INSN (insn)) = PREV_INSN (insn);
 	  }
@@ -4607,8 +4611,7 @@ find_split_point (rtx *loc, rtx insn, bool set_src)
       if (GET_CODE (XEXP (x, 0)) == CONST
 	  || GET_CODE (XEXP (x, 0)) == SYMBOL_REF)
 	{
-	  enum machine_mode address_mode
-	    = targetm.addr_space.address_mode (MEM_ADDR_SPACE (x));
+	  enum machine_mode address_mode = get_address_mode (x);
 
 	  SUBST (XEXP (x, 0),
 		 gen_rtx_LO_SUM (address_mode,
@@ -5870,7 +5873,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 		       == GET_MODE_PRECISION (mode)))
 	    {
 	      op0 = expand_compound_operation (op0);
-	      return plus_constant (gen_lowpart (mode, op0), 1);
+	      return plus_constant (mode, gen_lowpart (mode, op0), 1);
 	    }
 
 	  /* If STORE_FLAG_VALUE is -1, we have cases similar to
@@ -5919,7 +5922,7 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 		   && nonzero_bits (op0, mode) == 1)
 	    {
 	      op0 = expand_compound_operation (op0);
-	      return plus_constant (gen_lowpart (mode, op0), -1);
+	      return plus_constant (mode, gen_lowpart (mode, op0), -1);
 	    }
 
 	  /* If STORE_FLAG_VALUE says to just test the sign bit and X has just
@@ -8302,7 +8305,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	    && exact_log2 (- smask) >= 0
 	    && (nonzero_bits (XEXP (x, 0), mode) & ~smask) == 0
 	    && (INTVAL (XEXP (x, 1)) & ~smask) != 0)
-	  return force_to_mode (plus_constant (XEXP (x, 0),
+	  return force_to_mode (plus_constant (GET_MODE (x), XEXP (x, 0),
 					       (INTVAL (XEXP (x, 1)) & smask)),
 				mode, smask, next_select);
       }
@@ -9286,36 +9289,22 @@ apply_distributive_law (rtx x)
       /* This is also a multiply, so it distributes over everything.  */
       break;
 
-    case SUBREG:
-      /* Non-paradoxical SUBREGs distributes over all operations,
-	 provided the inner modes and byte offsets are the same, this
-	 is an extraction of a low-order part, we don't convert an fp
-	 operation to int or vice versa, this is not a vector mode,
-	 and we would not be converting a single-word operation into a
-	 multi-word operation.  The latter test is not required, but
-	 it prevents generating unneeded multi-word operations.  Some
-	 of the previous tests are redundant given the latter test,
-	 but are retained because they are required for correctness.
+    /* This used to handle SUBREG, but this turned out to be counter-
+       productive, since (subreg (op ...)) usually is not handled by
+       insn patterns, and this "optimization" therefore transformed
+       recognizable patterns into unrecognizable ones.  Therefore the
+       SUBREG case was removed from here.
 
-	 We produce the result slightly differently in this case.  */
+       It is possible that distributing SUBREG over arithmetic operations
+       leads to an intermediate result than can then be optimized further,
+       e.g. by moving the outer SUBREG to the other side of a SET as done
+       in simplify_set.  This seems to have been the original intent of
+       handling SUBREGs here.
 
-      if (GET_MODE (SUBREG_REG (lhs)) != GET_MODE (SUBREG_REG (rhs))
-	  || SUBREG_BYTE (lhs) != SUBREG_BYTE (rhs)
-	  || ! subreg_lowpart_p (lhs)
-	  || (GET_MODE_CLASS (GET_MODE (lhs))
-	      != GET_MODE_CLASS (GET_MODE (SUBREG_REG (lhs))))
-	  || paradoxical_subreg_p (lhs)
-	  || VECTOR_MODE_P (GET_MODE (lhs))
-	  || GET_MODE_SIZE (GET_MODE (SUBREG_REG (lhs))) > UNITS_PER_WORD
-	  /* Result might need to be truncated.  Don't change mode if
-	     explicit truncation is needed.  */
-	  || !TRULY_NOOP_TRUNCATION_MODES_P (GET_MODE (x),
-					     GET_MODE (SUBREG_REG (lhs))))
-	return x;
-
-      tem = simplify_gen_binary (code, GET_MODE (SUBREG_REG (lhs)),
-				 SUBREG_REG (lhs), SUBREG_REG (rhs));
-      return gen_lowpart (GET_MODE (x), tem);
+       However, with current GCC this does not appear to actually happen,
+       at least on major platforms.  If some case is found where removing
+       the SUBREG case here prevents follow-on optimizations, distributing
+       SUBREGs ought to be re-added at that place, e.g. in simplify_set.  */
 
     default:
       return x;
@@ -9708,7 +9697,7 @@ extended_count (const_rtx x, enum machine_mode mode, int unsignedp)
 	     : 0)
 	  : num_sign_bit_copies (x, mode) - 1);
 }
-
+
 /* This function is called from `simplify_shift_const' to merge two
    outer operations.  Specifically, we have already found that we need
    to perform operation *POP0 with constant *PCONST0 at the outermost
@@ -13922,7 +13911,7 @@ unmentioned_reg_p (rtx equiv, rtx expr)
   return for_each_rtx (&equiv, unmentioned_reg_p_1, expr);
 }
 
-void
+DEBUG_FUNCTION void
 dump_combine_stats (FILE *file)
 {
   fprintf

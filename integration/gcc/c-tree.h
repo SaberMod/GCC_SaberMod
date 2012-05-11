@@ -621,9 +621,9 @@ extern int current_function_returns_null;
 
 extern int current_function_returns_abnormally;
 
-/* Nonzero means we are reading code that came from a system header file.  */
+/* Mode used to build pointers (VOIDmode means ptr_mode).  */
 
-extern int system_header_p;
+extern enum machine_mode c_default_pointer_mode;
 
 /* In c-decl.c */
 extern void c_finish_incomplete_decl (tree);

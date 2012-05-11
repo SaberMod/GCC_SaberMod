@@ -249,6 +249,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Some instructions are common to more than one ISA.  */
 #define ISA_HAS_MVS_MVZ	(TARGET_ISAB || TARGET_ISAC)
 #define ISA_HAS_FF1	(TARGET_ISAAPLUS || TARGET_ISAC)
+#define ISA_HAS_TAS	(!TARGET_COLDFIRE || TARGET_ISAB || TARGET_ISAC)
 
 #define TUNE_68000	(m68k_tune == u68000)
 #define TUNE_68010	(m68k_tune == u68010)
@@ -781,8 +782,9 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* After the prologue, RA is at 4(AP) in the current frame.  */
 #define RETURN_ADDR_RTX(COUNT, FRAME)					   \
   ((COUNT) == 0								   \
-   ? gen_rtx_MEM (Pmode, plus_constant (arg_pointer_rtx, UNITS_PER_WORD)) \
-   : gen_rtx_MEM (Pmode, plus_constant (FRAME, UNITS_PER_WORD)))
+   ? gen_rtx_MEM (Pmode, plus_constant (Pmode, arg_pointer_rtx,	   \
+					UNITS_PER_WORD))		   \
+   : gen_rtx_MEM (Pmode, plus_constant (Pmode, FRAME, UNITS_PER_WORD)))
 
 /* We must not use the DBX register numbers for the DWARF 2 CFA column
    numbers because that maps to numbers beyond FIRST_PSEUDO_REGISTER.
@@ -813,7 +815,7 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 #define EH_RETURN_HANDLER_RTX					    \
   gen_rtx_MEM (Pmode,						    \
 	       gen_rtx_PLUS (Pmode, arg_pointer_rtx,		    \
-			     plus_constant (EH_RETURN_STACKADJ_RTX, \
+			     plus_constant (Pmode, EH_RETURN_STACKADJ_RTX, \
 					    UNITS_PER_WORD)))
 
 /* Select a format to encode pointers in exception handling data.  CODE

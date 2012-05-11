@@ -2366,7 +2366,7 @@ mep_allocate_initial_value (rtx reg)
     }
 
   rss = cfun->machine->reg_save_slot[REGNO(reg)];
-  return gen_rtx_MEM (SImode, plus_constant (arg_pointer_rtx, -rss));
+  return gen_rtx_MEM (SImode, plus_constant (Pmode, arg_pointer_rtx, -rss));
 }
 
 rtx
@@ -2844,7 +2844,8 @@ mep_expand_prologue (void)
 	   ALLOCATE_INITIAL_VALUE.  The moves emitted here can then be safely
 	   deleted as dead.  */
 	mem = gen_rtx_MEM (rmode,
-			   plus_constant (stack_pointer_rtx, sp_offset - rss));
+			   plus_constant (Pmode, stack_pointer_rtx,
+					  sp_offset - rss));
 	maybe_dead_p = rtx_equal_p (mem, has_hard_reg_initial_val (rmode, i));
 
 	if (GR_REGNO_P (i) || LOADABLE_CR_REGNO_P (i))
@@ -2855,7 +2856,8 @@ mep_expand_prologue (void)
 	    int be = TARGET_BIG_ENDIAN ? 4 : 0;
 
 	    mem = gen_rtx_MEM (SImode,
-			       plus_constant (stack_pointer_rtx, sp_offset - rss + be));
+			       plus_constant (Pmode, stack_pointer_rtx,
+					      sp_offset - rss + be));
 
 	    maybe_dead_move (gen_rtx_REG (SImode, REGSAVE_CONTROL_TEMP),
 			     gen_rtx_REG (SImode, i),
@@ -2876,7 +2878,8 @@ mep_expand_prologue (void)
 				       copy_rtx (mem),
 				       gen_rtx_REG (rmode, i)));
 	    mem = gen_rtx_MEM (SImode,
-			       plus_constant (stack_pointer_rtx, sp_offset - rss + (4-be)));
+			       plus_constant (Pmode, stack_pointer_rtx,
+					      sp_offset - rss + (4-be)));
 	    insn = maybe_dead_move (mem,
 				    gen_rtx_REG (SImode, REGSAVE_CONTROL_TEMP+1),
 				    maybe_dead_p);
@@ -3083,8 +3086,8 @@ mep_expand_epilogue (void)
 	if (GR_REGNO_P (i) || LOADABLE_CR_REGNO_P (i))
 	  emit_move_insn (gen_rtx_REG (rmode, i),
 			  gen_rtx_MEM (rmode,
-				       plus_constant (stack_pointer_rtx,
-						      sp_offset-rss)));
+				       plus_constant (Pmode, stack_pointer_rtx,
+						      sp_offset - rss)));
 	else
 	  {
 	    if (i == LP_REGNO && !mep_sibcall_epilogue && !interrupt_handler)
@@ -3096,7 +3099,8 @@ mep_expand_epilogue (void)
 	      {
 		emit_move_insn (gen_rtx_REG (rmode, REGSAVE_CONTROL_TEMP),
 				gen_rtx_MEM (rmode,
-					     plus_constant (stack_pointer_rtx,
+					     plus_constant (Pmode,
+							    stack_pointer_rtx,
 							    sp_offset-rss)));
 		emit_move_insn (gen_rtx_REG (rmode, i),
 				gen_rtx_REG (rmode, REGSAVE_CONTROL_TEMP));
@@ -3109,7 +3113,7 @@ mep_expand_epilogue (void)
 	 register when we return by jumping indirectly via the temp.  */
       emit_move_insn (gen_rtx_REG (SImode, REGSAVE_CONTROL_TEMP),
 		      gen_rtx_MEM (SImode,
-				   plus_constant (stack_pointer_rtx,
+				   plus_constant (Pmode, stack_pointer_rtx,
 						  lp_slot)));
       lp_temp = REGSAVE_CONTROL_TEMP;
     }
@@ -6059,33 +6063,17 @@ mep_init_builtins (void)
   v4uhi_type_node = build_vector_type (unsigned_intHI_type_node, 4);
   v2usi_type_node = build_vector_type (unsigned_intSI_type_node, 2);
 
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_data_bus_int"),
-		 cp_data_bus_int_type_node));
+  add_builtin_type ("cp_data_bus_int", cp_data_bus_int_type_node);
 
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_vector"),
-		 opaque_vector_type_node));
+  add_builtin_type ("cp_vector", opaque_vector_type_node);
 
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v8qi"),
-		 v8qi_type_node));
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v4hi"),
-		 v4hi_type_node));
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v2si"),
-		 v2si_type_node));
+  add_builtin_type ("cp_v8qi", v8qi_type_node);
+  add_builtin_type ("cp_v4hi", v4hi_type_node);
+  add_builtin_type ("cp_v2si", v2si_type_node);
 
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v8uqi"),
-		 v8uqi_type_node));
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v4uhi"),
-		 v4uhi_type_node));
-  (*lang_hooks.decls.pushdecl)
-    (build_decl (BUILTINS_LOCATION, TYPE_DECL, get_identifier ("cp_v2usi"),
-		 v2usi_type_node));
+  add_builtin_type ("cp_v8uqi", v8uqi_type_node);
+  add_builtin_type ("cp_v4uhi", v4uhi_type_node);
+  add_builtin_type ("cp_v2usi", v2usi_type_node);
 
   /* Intrinsics like mep_cadd3 are implemented with two groups of
      instructions, one which uses UNSPECs and one which uses a specific

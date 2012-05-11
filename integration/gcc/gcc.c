@@ -703,7 +703,7 @@ proper position among the other output files.  */
 # define SYSROOT_HEADERS_SUFFIX_SPEC ""
 #endif
 
-static const char *asm_debug;
+static const char *asm_debug = ASM_DEBUG_SPEC;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC;
 static const char *cc1plus_spec = CC1PLUS_SPEC;
@@ -5320,6 +5320,8 @@ eval_spec_function (const char *func, const char *args)
   int save_this_is_linker_script;
   const char *save_suffix_subst;
 
+  int save_growing_size;
+  void *save_growing_value;
 
   sf = lookup_spec_function (func);
   if (sf == NULL)
@@ -5335,6 +5337,18 @@ eval_spec_function (const char *func, const char *args)
   save_this_is_linker_script = this_is_linker_script;
   save_input_from_pipe = input_from_pipe;
   save_suffix_subst = suffix_subst;
+
+  /* If we have some object growing now, finalize it so the args and function
+     eval proceed from a cleared context.  This is needed to prevent the first
+     constructed arg from mistakenly including the growing value.  We'll push
+     this value back on the obstack once the function evaluation is done, to
+     restore a consistent processing context for our caller.  This is fine as
+     the address of growing objects isn't guaranteed to remain stable until
+     they are finalized, and we expect this situation to be rare enough for
+     the extra copy not to be an issue.  */
+  save_growing_size = obstack_object_size (&obstack);
+  if (save_growing_size > 0)
+    save_growing_value = obstack_finish (&obstack);
 
   /* Create a new spec processing context, and build the function
      arguments.  */
@@ -5360,6 +5374,9 @@ eval_spec_function (const char *func, const char *args)
   this_is_linker_script = save_this_is_linker_script;
   input_from_pipe = save_input_from_pipe;
   suffix_subst = save_suffix_subst;
+
+  if (save_growing_size > 0)
+    obstack_grow (&obstack, save_growing_value, save_growing_size);
 
   return funcval;
 }
@@ -6124,10 +6141,6 @@ main (int argc, char **argv)
   char **old_argv = argv;
   struct cl_decoded_option *decoded_options;
   unsigned int decoded_options_count;
-
-  /* Initialize here, not in definition.  The IRIX 6 O32 cc sometimes chokes
-     on ?: in file-scope variable initializations.  */
-  asm_debug = ASM_DEBUG_SPEC;
 
   p = argv[0] + strlen (argv[0]);
   while (p != argv[0] && !IS_DIR_SEPARATOR (p[-1]))

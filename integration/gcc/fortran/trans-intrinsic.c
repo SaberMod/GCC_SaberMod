@@ -376,28 +376,25 @@ build_round_expr (tree arg, tree restype)
 {
   tree argtype;
   tree fn;
-  bool longlong;
   int argprec, resprec;
 
   argtype = TREE_TYPE (arg);
   argprec = TYPE_PRECISION (argtype);
   resprec = TYPE_PRECISION (restype);
 
-  /* Depending on the type of the result, choose the long int intrinsic
-     (lround family) or long long intrinsic (llround).  We might also
-     need to convert the result afterwards.  */
-  if (resprec <= LONG_TYPE_SIZE)
-    longlong = false;
+  /* Depending on the type of the result, choose the int intrinsic
+     (iround, available only as a builtin, therefore cannot use it for
+     __float128), long int intrinsic (lround family) or long long
+     intrinsic (llround).  We might also need to convert the result
+     afterwards.  */
+  if (resprec <= INT_TYPE_SIZE && argprec <= LONG_DOUBLE_TYPE_SIZE)
+    fn = builtin_decl_for_precision (BUILT_IN_IROUND, argprec);
+  else if (resprec <= LONG_TYPE_SIZE)
+    fn = builtin_decl_for_precision (BUILT_IN_LROUND, argprec);
   else if (resprec <= LONG_LONG_TYPE_SIZE)
-    longlong = true;
-  else
-    gcc_unreachable ();
-
-  /* Now, depending on the argument type, we choose between intrinsics.  */
-  if (longlong)
     fn = builtin_decl_for_precision (BUILT_IN_LLROUND, argprec);
   else
-    fn = builtin_decl_for_precision (BUILT_IN_LROUND, argprec);
+    gcc_unreachable ();
 
   return fold_convert (restype, build_call_expr_loc (input_location,
 						 fn, 1, arg));
@@ -623,7 +620,7 @@ gfc_build_intrinsic_lib_fndecls (void)
        q-suffixed functions.  */
 
     tree type, complex_type, func_1, func_2, func_cabs, func_frexp;
-    tree func_lround, func_llround, func_scalbn, func_cpow;
+    tree func_iround, func_lround, func_llround, func_scalbn, func_cpow;
 
     memset (quad_decls, 0, sizeof(tree) * (END_BUILTINS + 1));
 
@@ -631,6 +628,9 @@ gfc_build_intrinsic_lib_fndecls (void)
     complex_type = complex_float128_type_node;
     /* type (*) (type) */
     func_1 = build_function_type_list (type, type, NULL_TREE);
+    /* int (*) (type) */
+    func_iround = build_function_type_list (integer_type_node,
+					    type, NULL_TREE);
     /* long (*) (type) */
     func_lround = build_function_type_list (long_integer_type_node,
 					    type, NULL_TREE);
@@ -1719,21 +1719,24 @@ gfc_conv_intrinsic_cmplx (gfc_se * se, gfc_expr * expr, int both)
   se->expr = fold_build2_loc (input_location, COMPLEX_EXPR, type, real, imag);
 }
 
+
 /* Remainder function MOD(A, P) = A - INT(A / P) * P
-                      MODULO(A, P) = A - FLOOR (A / P) * P  */
-/* TODO: MOD(x, 0)  */
+                      MODULO(A, P) = A - FLOOR (A / P) * P  
+
+   The obvious algorithms above are numerically instable for large
+   arguments, hence these intrinsics are instead implemented via calls
+   to the fmod family of functions.  It is the responsibility of the
+   user to ensure that the second argument is non-zero.  */
 
 static void
 gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
 {
   tree type;
-  tree itype;
   tree tmp;
   tree test;
   tree test2;
   tree fmod;
-  mpfr_t huge;
-  int n, ikind;
+  tree zero;
   tree args[2];
 
   gfc_conv_intrinsic_function_args (se, expr, args, 2);
@@ -1757,16 +1760,15 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       /* Check if we have a builtin fmod.  */
       fmod = gfc_builtin_decl_for_float_kind (BUILT_IN_FMOD, expr->ts.kind);
 
-      /* Use it if it exists.  */
-      if (fmod != NULL_TREE)
-	{
-  	  tmp = build_addr (fmod, current_function_decl);
-	  se->expr = build_call_array_loc (input_location,
+      /* The builtin should always be available.  */
+      gcc_assert (fmod != NULL_TREE);
+
+      tmp = build_addr (fmod, current_function_decl);
+      se->expr = build_call_array_loc (input_location,
 				       TREE_TYPE (TREE_TYPE (fmod)),
                                        tmp, 2, args);
-	  if (modulo == 0)
-	    return;
-	}
+      if (modulo == 0)
+	return;
 
       type = TREE_TYPE (args[0]);
 
@@ -1774,16 +1776,31 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
       args[1] = gfc_evaluate_now (args[1], &se->pre);
 
       /* Definition:
-	 modulo = arg - floor (arg/arg2) * arg2, so
-		= test ? fmod (arg, arg2) : fmod (arg, arg2) + arg2, 
-	 where
-	  test  = (fmod (arg, arg2) != 0) && ((arg < 0) xor (arg2 < 0))
-	 thereby avoiding another division and retaining the accuracy
-	 of the builtin function.  */
-      if (fmod != NULL_TREE && modulo)
+	 modulo = arg - floor (arg/arg2) * arg2
+
+	 In order to calculate the result accurately, we use the fmod
+	 function as follows.
+	 
+	 res = fmod (arg, arg2);
+	 if (res)
+	   {
+	     if ((arg < 0) xor (arg2 < 0))
+	       res += arg2;
+	   }
+	 else
+	   res = copysign (0., arg2);
+
+	 => As two nested ternary exprs:
+
+	 res = res ? (((arg < 0) xor (arg2 < 0)) ? res + arg2 : res) 
+	       : copysign (0., arg2);
+
+      */
+
+      zero = gfc_build_const (type, integer_zero_node);
+      tmp = gfc_evaluate_now (se->expr, &se->pre);
+      if (!flag_signed_zeros)
 	{
-	  tree zero = gfc_build_const (type, integer_zero_node);
-	  tmp = gfc_evaluate_now (se->expr, &se->pre);
 	  test = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
 				  args[0], zero);
 	  test2 = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
@@ -1796,50 +1813,35 @@ gfc_conv_intrinsic_mod (gfc_se * se, gfc_expr * expr, int modulo)
 				  boolean_type_node, test, test2);
 	  test = gfc_evaluate_now (test, &se->pre);
 	  se->expr = fold_build3_loc (input_location, COND_EXPR, type, test,
-				  fold_build2_loc (input_location, PLUS_EXPR,
-						   type, tmp, args[1]), tmp);
-	  return;
+				      fold_build2_loc (input_location, 
+						       PLUS_EXPR,
+						       type, tmp, args[1]), 
+				      tmp);
 	}
-
-      /* If we do not have a built_in fmod, the calculation is going to
-	 have to be done longhand.  */
-      tmp = fold_build2_loc (input_location, RDIV_EXPR, type, args[0], args[1]);
-
-      /* Test if the value is too large to handle sensibly.  */
-      gfc_set_model_kind (expr->ts.kind);
-      mpfr_init (huge);
-      n = gfc_validate_kind (BT_INTEGER, expr->ts.kind, true);
-      ikind = expr->ts.kind;
-      if (n < 0)
-	{
-	  n = gfc_validate_kind (BT_INTEGER, gfc_max_integer_kind, false);
-	  ikind = gfc_max_integer_kind;
-	}
-      mpfr_set_z (huge, gfc_integer_kinds[n].huge, GFC_RND_MODE);
-      test = gfc_conv_mpfr_to_tree (huge, expr->ts.kind, 0);
-      test2 = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
-			       tmp, test);
-
-      mpfr_neg (huge, huge, GFC_RND_MODE);
-      test = gfc_conv_mpfr_to_tree (huge, expr->ts.kind, 0);
-      test = fold_build2_loc (input_location, GT_EXPR, boolean_type_node, tmp,
-			      test);
-      test2 = fold_build2_loc (input_location, TRUTH_AND_EXPR,
-			       boolean_type_node, test, test2);
-
-      itype = gfc_get_int_type (ikind);
-      if (modulo)
-       tmp = build_fix_expr (&se->pre, tmp, itype, RND_FLOOR);
       else
-       tmp = build_fix_expr (&se->pre, tmp, itype, RND_TRUNC);
-      tmp = convert (type, tmp);
-      tmp = fold_build3_loc (input_location, COND_EXPR, type, test2, tmp,
-			     args[0]);
-      tmp = fold_build2_loc (input_location, MULT_EXPR, type, tmp, args[1]);
-      se->expr = fold_build2_loc (input_location, MINUS_EXPR, type, args[0],
-				  tmp);
-      mpfr_clear (huge);
-      break;
+	{
+	  tree expr1, copysign, cscall;
+	  copysign = gfc_builtin_decl_for_float_kind (BUILT_IN_COPYSIGN, 
+						      expr->ts.kind);
+	  test = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
+				  args[0], zero);
+	  test2 = fold_build2_loc (input_location, LT_EXPR, boolean_type_node,
+				   args[1], zero);
+	  test2 = fold_build2_loc (input_location, TRUTH_XOR_EXPR,
+				   boolean_type_node, test, test2);
+	  expr1 = fold_build3_loc (input_location, COND_EXPR, type, test2,
+				   fold_build2_loc (input_location, 
+						    PLUS_EXPR,
+						    type, tmp, args[1]), 
+				   tmp);
+	  test = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
+				  tmp, zero);
+	  cscall = build_call_expr_loc (input_location, copysign, 2, zero, 
+					args[1]);
+	  se->expr = fold_build3_loc (input_location, COND_EXPR, type, test,
+				      expr1, cscall);
+	}
+      return;
 
     default:
       gcc_unreachable ();
@@ -5761,10 +5763,14 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
       /* No optional target.  */
       if (ss1 == gfc_ss_terminator)
         {
-          /* A pointer to a scalar.  */
-          arg1se.want_pointer = 1;
-          gfc_conv_expr (&arg1se, arg1->expr);
-          tmp2 = arg1se.expr;
+	  /* A pointer to a scalar.  */
+	  arg1se.want_pointer = 1;
+	  gfc_conv_expr (&arg1se, arg1->expr);
+	  if (arg1->expr->symtree->n.sym->attr.proc_pointer
+	      && arg1->expr->symtree->n.sym->attr.dummy)
+	    arg1se.expr = build_fold_indirect_ref_loc (input_location,
+						       arg1se.expr);
+	  tmp2 = arg1se.expr;
         }
       else
         {
@@ -5794,12 +5800,21 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 
       if (ss1 == gfc_ss_terminator)
         {
-          /* A pointer to a scalar.  */
-          gcc_assert (ss2 == gfc_ss_terminator);
-          arg1se.want_pointer = 1;
-          gfc_conv_expr (&arg1se, arg1->expr);
-          arg2se.want_pointer = 1;
-          gfc_conv_expr (&arg2se, arg2->expr);
+	  /* A pointer to a scalar.  */
+	  gcc_assert (ss2 == gfc_ss_terminator);
+	  arg1se.want_pointer = 1;
+	  gfc_conv_expr (&arg1se, arg1->expr);
+	  if (arg1->expr->symtree->n.sym->attr.proc_pointer
+	      && arg1->expr->symtree->n.sym->attr.dummy)
+	    arg1se.expr = build_fold_indirect_ref_loc (input_location,
+						       arg1se.expr);
+
+	  arg2se.want_pointer = 1;
+	  gfc_conv_expr (&arg2se, arg2->expr);
+	  if (arg2->expr->symtree->n.sym->attr.proc_pointer
+	      && arg2->expr->symtree->n.sym->attr.dummy)
+	    arg2se.expr = build_fold_indirect_ref_loc (input_location,
+						       arg2se.expr);
 	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
 	  gfc_add_block_to_block (&se->post, &arg1se.post);
           tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,

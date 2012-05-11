@@ -784,7 +784,7 @@ output_function (struct cgraph_node *node)
   basic_block bb;
   struct output_block *ob;
 
-  function = node->decl;
+  function = node->symbol.decl;
   fn = DECL_STRUCT_FUNCTION (function);
   ob = create_output_block (LTO_section_function_body);
 
@@ -904,11 +904,13 @@ output_alias_pair_p (alias_pair *p, symbol_alias_set_t *defined,
 	{
 	  vnode = varpool_get_node (p->decl);
 	  return (vnode
-		  && referenced_from_this_partition_p (&vnode->ref_list, set, vset));
+		  && referenced_from_this_partition_p (&vnode->symbol.ref_list,
+						      set, vset));
 	}
       node = cgraph_get_node (p->decl);
       return (node
-	      && (referenced_from_this_partition_p (&node->ref_list, set, vset)
+	      && (referenced_from_this_partition_p (&node->symbol.ref_list,
+						    set, vset)
 		  || reachable_from_this_partition_p (node, set)));
     }
   else
@@ -966,12 +968,12 @@ void
 lto_output_toplevel_asms (void)
 {
   struct output_block *ob;
-  struct cgraph_asm_node *can;
+  struct asm_node *can;
   char *section_name;
   struct lto_output_stream *header_stream;
   struct lto_asm_header header;
 
-  if (! cgraph_asm_nodes)
+  if (! asm_nodes)
     return;
 
   ob = create_output_block (LTO_section_asm);
@@ -979,7 +981,7 @@ lto_output_toplevel_asms (void)
   /* Make string 0 be a NULL string.  */
   streamer_write_char_stream (ob->string_stream, 0);
 
-  for (can = cgraph_asm_nodes; can; can = can->next)
+  for (can = asm_nodes; can; can = can->next)
     {
       streamer_write_string_cst (ob, ob->main_stream, can->asm_str);
       streamer_write_hwi (ob, can->order);
@@ -1023,8 +1025,8 @@ lto_output_toplevel_asms (void)
 static void
 copy_function (struct cgraph_node *node)
 {
-  tree function = node->decl;
-  struct lto_file_decl_data *file_data = node->local.lto_file_data;
+  tree function = node->symbol.decl;
+  struct lto_file_decl_data *file_data = node->symbol.lto_file_data;
   struct lto_output_stream *output_stream = XCNEW (struct lto_output_stream);
   const char *data;
   size_t len;
@@ -1051,7 +1053,7 @@ copy_function (struct cgraph_node *node)
 
   /* Copy decls. */
   in_state =
-    lto_get_function_in_decl_state (node->local.lto_file_data, function);
+    lto_get_function_in_decl_state (node->symbol.lto_file_data, function);
   gcc_assert (in_state);
 
   for (i = 0; i < LTO_N_DECL_STREAMS; i++)
@@ -1102,18 +1104,18 @@ lto_output (cgraph_node_set set, varpool_node_set vset)
 	  && !node->thunk.thunk_p)
 	{
 #ifdef ENABLE_CHECKING
-	  gcc_assert (!bitmap_bit_p (output, DECL_UID (node->decl)));
-	  bitmap_set_bit (output, DECL_UID (node->decl));
+	  gcc_assert (!bitmap_bit_p (output, DECL_UID (node->symbol.decl)));
+	  bitmap_set_bit (output, DECL_UID (node->symbol.decl));
 #endif
 	  decl_state = lto_new_out_decl_state ();
 	  lto_push_out_decl_state (decl_state);
-	  if (gimple_has_body_p (node->decl))
+	  if (gimple_has_body_p (node->symbol.decl))
 	    output_function (node);
 	  else
 	    copy_function (node);
 	  gcc_assert (lto_get_out_decl_state () == decl_state);
 	  lto_pop_out_decl_state ();
-	  lto_record_function_out_decl_state (node->decl, decl_state);
+	  lto_record_function_out_decl_state (node->symbol.decl, decl_state);
 	}
     }
 
@@ -1417,64 +1419,64 @@ produce_symtab (struct output_block *ob,
   for (i = 0; i < lto_cgraph_encoder_size (encoder); i++)
     {
       node = lto_cgraph_encoder_deref (encoder, i);
-      if (DECL_EXTERNAL (node->decl))
+      if (DECL_EXTERNAL (node->symbol.decl))
 	continue;
-      if (DECL_COMDAT (node->decl)
+      if (DECL_COMDAT (node->symbol.decl)
 	  && cgraph_comdat_can_be_unshared_p (node))
 	continue;
       if ((node->alias && !node->thunk.alias) || node->global.inlined_to)
 	continue;
-      write_symbol (cache, &stream, node->decl, seen, false);
+      write_symbol (cache, &stream, node->symbol.decl, seen, false);
     }
   for (i = 0; i < lto_cgraph_encoder_size (encoder); i++)
     {
       node = lto_cgraph_encoder_deref (encoder, i);
-      if (!DECL_EXTERNAL (node->decl))
+      if (!DECL_EXTERNAL (node->symbol.decl))
 	continue;
       /* We keep around unused extern inlines in order to be able to inline
 	 them indirectly or via vtables.  Do not output them to symbol
 	 table: they end up being undefined and just consume space.  */
-      if (!node->address_taken && !node->callers)
+      if (!node->symbol.address_taken && !node->callers)
 	continue;
-      if (DECL_COMDAT (node->decl)
+      if (DECL_COMDAT (node->symbol.decl)
 	  && cgraph_comdat_can_be_unshared_p (node))
 	continue;
       if ((node->alias && !node->thunk.alias) || node->global.inlined_to)
 	continue;
-      write_symbol (cache, &stream, node->decl, seen, false);
+      write_symbol (cache, &stream, node->symbol.decl, seen, false);
     }
 
   /* Write all variables.  */
   for (i = 0; i < lto_varpool_encoder_size (varpool_encoder); i++)
     {
       vnode = lto_varpool_encoder_deref (varpool_encoder, i);
-      if (DECL_EXTERNAL (vnode->decl))
+      if (DECL_EXTERNAL (vnode->symbol.decl))
 	continue;
       /* COMDAT virtual tables can be unshared.  Do not declare them
 	 in the LTO symbol table to prevent linker from forcing them
 	 into the output. */
-      if (DECL_COMDAT (vnode->decl)
-	  && !vnode->force_output
+      if (DECL_COMDAT (vnode->symbol.decl)
+	  && !vnode->symbol.force_output
 	  && vnode->finalized 
-	  && DECL_VIRTUAL_P (vnode->decl))
+	  && DECL_VIRTUAL_P (vnode->symbol.decl))
 	continue;
       if (vnode->alias && !vnode->alias_of)
 	continue;
-      write_symbol (cache, &stream, vnode->decl, seen, false);
+      write_symbol (cache, &stream, vnode->symbol.decl, seen, false);
     }
   for (i = 0; i < lto_varpool_encoder_size (varpool_encoder); i++)
     {
       vnode = lto_varpool_encoder_deref (varpool_encoder, i);
-      if (!DECL_EXTERNAL (vnode->decl))
+      if (!DECL_EXTERNAL (vnode->symbol.decl))
 	continue;
-      if (DECL_COMDAT (vnode->decl)
-	  && !vnode->force_output
+      if (DECL_COMDAT (vnode->symbol.decl)
+	  && !vnode->symbol.force_output
 	  && vnode->finalized 
-	  && DECL_VIRTUAL_P (vnode->decl))
+	  && DECL_VIRTUAL_P (vnode->symbol.decl))
 	continue;
       if (vnode->alias && !vnode->alias_of)
 	continue;
-      write_symbol (cache, &stream, vnode->decl, seen, false);
+      write_symbol (cache, &stream, vnode->symbol.decl, seen, false);
     }
 
   /* Write all aliases.  */

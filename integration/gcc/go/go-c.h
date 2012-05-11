@@ -38,11 +38,11 @@ extern "C"
 
 extern int go_enable_dump (const char*);
 extern int go_enable_optimize (const char*);
-extern void go_set_prefix (const char*);
 
 extern void go_add_search_path (const char*);
 
-extern void go_create_gogo (int int_type_size, int pointer_size);
+extern void go_create_gogo (int int_type_size, int pointer_size,
+			    const char* pkgpath, const char *prefix);
 
 extern void go_parse_input_files (const char**, unsigned int,
 				  bool only_check_syntax,
@@ -68,6 +68,8 @@ extern void go_imported_unsafe (void);
 extern void go_write_export_data (const char *, unsigned int);
 
 extern const char *go_read_export_data (int, off_t, char **, size_t *, int *);
+
+extern GTY(()) tree go_non_zero_struct;
 
 #if defined(__cplusplus) && !defined(ENABLE_BUILD_WITH_CXX)
 } /* End extern "C".  */

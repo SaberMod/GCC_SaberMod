@@ -154,6 +154,7 @@ target_libraries="target-libgcc \
 		target-libgloss \
 		target-newlib \
 		target-libgomp \
+		target-libatomic \
 		target-libitm \
 		target-libstdc++-v3 \
 		target-libmudflap \
@@ -483,7 +484,7 @@ if test x$enable_libgomp = x ; then
 	;;
     *-*-netbsd* | *-*-freebsd* | *-*-openbsd* | *-*-dragonfly*)
 	;;
-    *-*-solaris2* | *-*-irix6* | *-*-osf* | *-*-hpux11*)
+    *-*-solaris2* | *-*-hpux11*)
 	;;
     *-*-darwin* | *-*-aix*)
 	;;
@@ -491,6 +492,22 @@ if test x$enable_libgomp = x ; then
 	noconfigdirs="$noconfigdirs target-libgomp"
 	;;
     esac
+fi
+
+# Disable libatomic on unsupported systems.
+if test -d ${srcdir}/libatomic; then
+    if test x$enable_libatomic = x; then
+	AC_MSG_CHECKING([for libatomic support])
+	if (srcdir=${srcdir}/libatomic; \
+		. ${srcdir}/configure.tgt; \
+		test -n "$UNSUPPORTED")
+	then
+	    AC_MSG_RESULT([no])
+	    noconfigdirs="$noconfigdirs target-libatomic"
+	else
+	    AC_MSG_RESULT([yes])
+	fi
+    fi
 fi
 
 # Disable libitm on unsupported systems.
@@ -571,7 +588,7 @@ case "${target}" in
     ;;
   m68k-*-*)
     ;;
-  mips-sgi-irix6.* | mips*-*-rtems*)
+  mips*-*-rtems*)
     ;;
   mips*-*-linux*)
     ;;
@@ -685,13 +702,6 @@ case "${target}" in
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   rs6000-*-aix*)
-    noconfigdirs="$noconfigdirs ${libgcj}"
-    ;;
-  mips*-*-irix6*)
-    # Linking libjava exceeds command-line length limits on at least
-    # IRIX 6.2, but not on IRIX 6.5.
-    # Also, boehm-gc won't build on IRIX 6.5, according to Jeffrey Oldham
-    # <oldham@codesourcery.com>
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
   *-*-lynxos*)
@@ -928,8 +938,8 @@ case "${target}" in
     noconfigdirs="$noconfigdirs libgui itcl ld"
     ;;
   ia64*-*-*vms*)
-    # No gdb or ld support yet.
-    noconfigdirs="$noconfigdirs readline libgui itcl gdb ld"
+    # No ld support yet.
+    noconfigdirs="$noconfigdirs libgui itcl ld"
     ;;
   i[[3456789]]86-w64-mingw*)
     ;;
@@ -1279,9 +1289,16 @@ if test "x$with_mpfr_lib" != x; then
   gmplibs="-L$with_mpfr_lib $gmplibs"
 fi
 if test "x$with_mpfr$with_mpfr_include$with_mpfr_lib" = x && test -d ${srcdir}/mpfr; then
-  gmplibs='-L$$r/$(HOST_SUBDIR)/mpfr/'"$lt_cv_objdir $gmplibs"
-  gmpinc='-I$$r/$(HOST_SUBDIR)/mpfr -I$$s/mpfr '"$gmpinc"
-  extra_mpc_mpfr_configure_flags='--with-mpfr-include=$$s/mpfr --with-mpfr-lib=$$r/$(HOST_SUBDIR)/mpfr/'"$lt_cv_objdir"
+  # MPFR v3.1.0 moved the sources into a src sub-directory.
+  if test -d ${srcdir}/mpfr/src; then
+    gmplibs='-L$$r/$(HOST_SUBDIR)/mpfr/src/'"$lt_cv_objdir $gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/mpfr/src -I$$s/mpfr/src '"$gmpinc"
+    extra_mpc_mpfr_configure_flags='--with-mpfr-include=$$s/mpfr/src --with-mpfr-lib=$$r/$(HOST_SUBDIR)/mpfr/src/'"$lt_cv_objdir"
+  else
+    gmplibs='-L$$r/$(HOST_SUBDIR)/mpfr/'"$lt_cv_objdir $gmplibs"
+    gmpinc='-I$$r/$(HOST_SUBDIR)/mpfr -I$$s/mpfr '"$gmpinc"
+    extra_mpc_mpfr_configure_flags='--with-mpfr-include=$$s/mpfr --with-mpfr-lib=$$r/$(HOST_SUBDIR)/mpfr/'"$lt_cv_objdir"
+  fi
   # Do not test the mpfr version.  Assume that it is sufficient, since
   # it is in the source tree, and the library has not been built yet
   # but it would be included on the link line in the version check below
@@ -1357,7 +1374,7 @@ if test -d ${srcdir}/gcc && test "x$have_gmp" = xno; then
     AC_MSG_CHECKING([for the correct version of mpfr.h])
     AC_TRY_COMPILE([#include <gmp.h>
     #include <mpfr.h>],[
-    #if MPFR_VERSION < MPFR_VERSION_NUM(2,3,1)
+    #if MPFR_VERSION < MPFR_VERSION_NUM(2,4,0)
     choke me
     #endif
     ], [AC_TRY_COMPILE([#include <gmp.h>
@@ -1417,7 +1434,7 @@ if test -d ${srcdir}/gcc && test "x$have_gmp" = xno; then
 # The library versions listed in the error message below should match
 # the HARD-minimums enforced above.
   if test x$have_gmp != xyes; then
-    AC_MSG_ERROR([Building GCC requires GMP 4.2+, MPFR 2.3.1+ and MPC 0.8.0+.
+    AC_MSG_ERROR([Building GCC requires GMP 4.2+, MPFR 2.4.0+ and MPC 0.8.0+.
 Try the --with-gmp, --with-mpfr and/or --with-mpc options to specify
 their locations.  Source code for these libraries can be found at
 their respective hosting sites as well as at
@@ -2330,18 +2347,6 @@ case "${enable_target_optspace}:${target}" in
     echo "*** bad value \"${enable_target_optspace}\" for --enable-target-optspace flag; ignored" 1>&2
     ;;
 esac
-
-# Default to using --with-stabs for certain targets.
-if test x${with_stabs} = x ; then
-  case "${target}" in
-  mips*-*-irix[[56]]*)
-    ;;
-  mips*-*-* | alpha*-*-osf*)
-    with_stabs=yes;
-    extra_host_args="${extra_host_args} --with-stabs"
-    ;;
-  esac
-fi
 
 # Some systems (e.g., one of the i386-aix systems the gas testers are
 # using) don't handle "\$" correctly, so don't use it here.

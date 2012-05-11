@@ -611,9 +611,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	   || code == QUAL_UNION_TYPE)
 	  && TYPE_NO_FORCE_BLK (node))
 	fputs (" no-force-blk", file);
-      else if (code == INTEGER_TYPE
-	       && TYPE_IS_SIZETYPE (node))
-	fputs (" sizetype", file);
 
       if (TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
@@ -821,16 +818,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case VECTOR_CST:
 	  {
-	    tree vals = TREE_VECTOR_CST_ELTS (node);
 	    char buf[10];
-	    tree link;
-	    int i;
+	    unsigned i;
 
-	    i = 0;
-	    for (link = vals; link; link = TREE_CHAIN (link), ++i)
+	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
 	      {
-		sprintf (buf, "elt%d: ", i);
-		print_node (file, buf, TREE_VALUE (link), indent + 4);
+		sprintf (buf, "elt%u: ", i);
+		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
 	      }
 	  }
 	  break;

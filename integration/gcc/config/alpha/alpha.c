@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the DEC Alpha.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -428,9 +428,8 @@ alpha_option_override (void)
     target_flags &= ~MASK_SMALL_DATA;
 
   /* Align labels and loops for optimal branching.  */
-  /* ??? Kludge these by not doing anything if we don't optimize and also if
-     we are writing ECOFF symbols to work around a bug in DEC's assembler.  */
-  if (optimize > 0 && write_symbols != SDB_DEBUG)
+  /* ??? Kludge these by not doing anything if we don't optimize.  */
+  if (optimize > 0)
     {
       if (align_loops <= 0)
 	align_loops = 16;
@@ -989,7 +988,7 @@ alpha_legitimize_address_1 (rtx x, rtx scratch, enum machine_mode mode)
 			       (!can_create_pseudo_p () ? scratch : NULL_RTX),
 			       1, OPTAB_LIB_WIDEN);
 
-    return plus_constant (x, low);
+    return plus_constant (Pmode, x, low);
   }
 }
 
@@ -1389,7 +1388,7 @@ get_unaligned_address (rtx ref)
   if (GET_CODE (base) == PLUS)
     offset += INTVAL (XEXP (base, 1)), base = XEXP (base, 0);
 
-  return plus_constant (base, offset);
+  return plus_constant (Pmode, base, offset);
 }
 
 /* Compute a value X, such that X & 7 == (ADDR + OFS) & 7.
@@ -3234,21 +3233,22 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
 
   tmp = change_address (mem, DImode,
 			gen_rtx_AND (DImode,
-				     plus_constant (mema, ofs),
+				     plus_constant (DImode, mema, ofs),
 				     GEN_INT (-8)));
   set_mem_alias_set (tmp, 0);
   emit_move_insn (meml, tmp);
 
   tmp = change_address (mem, DImode,
 			gen_rtx_AND (DImode,
-				     plus_constant (mema, ofs + size - 1),
+				     plus_constant (DImode, mema,
+						    ofs + size - 1),
 				     GEN_INT (-8)));
   set_mem_alias_set (tmp, 0);
   emit_move_insn (memh, tmp);
 
   if (sign && size == 2)
     {
-      emit_move_insn (addr, plus_constant (mema, ofs+2));
+      emit_move_insn (addr, plus_constant (Pmode, mema, ofs+2));
 
       emit_insn (gen_extql (extl, meml, addr));
       emit_insn (gen_extqh (exth, memh, addr));
@@ -3262,7 +3262,7 @@ alpha_expand_unaligned_load (rtx tgt, rtx mem, HOST_WIDE_INT size,
     }
   else
     {
-      emit_move_insn (addr, plus_constant (mema, ofs));
+      emit_move_insn (addr, plus_constant (Pmode, mema, ofs));
       emit_insn (gen_extxl (extl, meml, GEN_INT (size*8), addr));
       switch ((int) size)
 	{
@@ -3334,20 +3334,21 @@ alpha_expand_unaligned_store (rtx dst, rtx src,
 
   meml = change_address (dst, DImode,
 			 gen_rtx_AND (DImode,
-				      plus_constant (dsta, ofs),
+				      plus_constant (DImode, dsta, ofs),
 				      GEN_INT (-8)));
   set_mem_alias_set (meml, 0);
 
   memh = change_address (dst, DImode,
 			 gen_rtx_AND (DImode,
-				      plus_constant (dsta, ofs + size - 1),
+				      plus_constant (DImode, dsta,
+						     ofs + size - 1),
 				      GEN_INT (-8)));
   set_mem_alias_set (memh, 0);
 
   emit_move_insn (dsth, memh);
   emit_move_insn (dstl, meml);
 
-  addr = copy_addr_to_reg (plus_constant (dsta, ofs));
+  addr = copy_addr_to_reg (plus_constant (Pmode, dsta, ofs));
 
   if (src != CONST0_RTX (GET_MODE (src)))
     {
@@ -3437,7 +3438,7 @@ alpha_expand_unaligned_load_words (rtx *out_regs, rtx smem,
     {
       tmp = change_address (smem, DImode,
 			    gen_rtx_AND (DImode,
-					 plus_constant (smema, 8*i),
+					 plus_constant (DImode, smema, 8*i),
 					 im8));
       set_mem_alias_set (tmp, 0);
       emit_move_insn (data_regs[i], tmp);
@@ -3445,7 +3446,8 @@ alpha_expand_unaligned_load_words (rtx *out_regs, rtx smem,
 
   tmp = change_address (smem, DImode,
 			gen_rtx_AND (DImode,
-				     plus_constant (smema, 8*words - 1),
+				     plus_constant (DImode, smema,
+						    8*words - 1),
 				     im8));
   set_mem_alias_set (tmp, 0);
   emit_move_insn (data_regs[words], tmp);
@@ -3505,8 +3507,9 @@ alpha_expand_unaligned_store_words (rtx *data_regs, rtx dmem,
 
   st_addr_2 = change_address (dmem, DImode,
 			      gen_rtx_AND (DImode,
-					   plus_constant (dmema, words*8 - 1),
-				       im8));
+					   plus_constant (DImode, dmema,
+							  words*8 - 1),
+					   im8));
   set_mem_alias_set (st_addr_2, 0);
 
   st_addr_1 = change_address (dmem, DImode,
@@ -3552,7 +3555,8 @@ alpha_expand_unaligned_store_words (rtx *data_regs, rtx dmem,
     {
       rtx tmp = change_address (dmem, DImode,
 				gen_rtx_AND (DImode,
-					     plus_constant (dmema, i*8),
+					     plus_constant (DImode,
+							    dmema, i*8),
 					     im8));
       set_mem_alias_set (tmp, 0);
       emit_move_insn (tmp, data_regs ? ins_tmps[i-1] : const0_rtx);
@@ -3962,7 +3966,8 @@ alpha_expand_block_clear (rtx operands[])
 	  rtx mem
 	    = change_address (orig_dst, DImode,
 			      gen_rtx_AND (DImode,
-					   plus_constant (orig_dsta, ofs + i*8),
+					   plus_constant (DImode, orig_dsta,
+							  ofs + i*8),
 					   GEN_INT (-8)));
 	  set_mem_alias_set (mem, 0);
 	  emit_move_insn (mem, const0_rtx);
@@ -4673,7 +4678,7 @@ struct GTY(()) machine_function
   /* For OSF.  */
   const char *some_ld_name;
 
-  /* For TARGET_LD_BUGGY_LDGP.  */
+  /* For flag_reorder_blocks_and_partition.  */
   rtx gp_save_rtx;
 
   /* For VMS condition handlers.  */
@@ -4719,8 +4724,8 @@ alpha_init_machine_status (void)
 void
 alpha_expand_builtin_establish_vms_condition_handler (rtx target, rtx handler)
 {
-  rtx handler_slot_address
-    = plus_constant (hard_frame_pointer_rtx, VMS_COND_HANDLER_FP_OFFSET);
+  rtx handler_slot_address = plus_constant (Pmode, hard_frame_pointer_rtx,
+					    VMS_COND_HANDLER_FP_OFFSET);
 
   rtx handler_slot
     = gen_rtx_MEM (DImode, handler_slot_address);
@@ -4988,8 +4993,7 @@ print_operand (FILE *file, rtx x, int code)
 	const char *round = get_round_mode_suffix ();
 
 	if (trap || round)
-	  fprintf (file, (TARGET_AS_SLASH_BEFORE_SUFFIX ? "/%s%s" : "%s%s"),
-		   (trap ? trap : ""), (round ? round : ""));
+	  fprintf (file, "/%s%s", (trap ? trap : ""), (round ? round : ""));
 	break;
       }
 
@@ -6057,7 +6061,7 @@ alpha_setup_incoming_varargs (cumulative_args_t pcum, enum machine_mode mode,
       if (cfun->va_list_fpr_size & 1)
 	{
 	  tmp = gen_rtx_MEM (BLKmode,
-			     plus_constant (virtual_incoming_args_rtx,
+			     plus_constant (Pmode, virtual_incoming_args_rtx,
 					    (cum + 6) * UNITS_PER_WORD));
 	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
@@ -6067,7 +6071,7 @@ alpha_setup_incoming_varargs (cumulative_args_t pcum, enum machine_mode mode,
       if (cfun->va_list_fpr_size & 2)
 	{
 	  tmp = gen_rtx_MEM (BLKmode,
-			     plus_constant (virtual_incoming_args_rtx,
+			     plus_constant (Pmode, virtual_incoming_args_rtx,
 					    cum * UNITS_PER_WORD));
 	  MEM_NOTRAP_P (tmp) = 1;
 	  set_mem_alias_set (tmp, set);
@@ -6228,7 +6232,7 @@ alpha_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
      offset field so that it's the proper width for pointer arithmetic.  */
   base = get_formal_tmp_var (base_field, pre_p);
 
-  t = fold_convert (lang_hooks.types.type_for_size (64, 0), offset_field);
+  t = fold_convert (build_nonstandard_integer_type (64, 0), offset_field);
   offset = get_initialized_tmp_var (t, pre_p, NULL);
 
   indirect = pass_by_reference (NULL, TYPE_MODE (type), type, false);
@@ -7516,7 +7520,7 @@ emit_frame_store_1 (rtx value, rtx base_reg, HOST_WIDE_INT frame_bias,
 {
   rtx addr, mem, insn;
 
-  addr = plus_constant (base_reg, base_ofs);
+  addr = plus_constant (Pmode, base_reg, base_ofs);
   mem = gen_frame_mem (DImode, addr);
 
   insn = emit_move_insn (mem, value);
@@ -7526,7 +7530,8 @@ emit_frame_store_1 (rtx value, rtx base_reg, HOST_WIDE_INT frame_bias,
     {
       if (frame_bias)
 	{
-	  addr = plus_constant (stack_pointer_rtx, frame_bias + base_ofs);
+	  addr = plus_constant (Pmode, stack_pointer_rtx,
+			        frame_bias + base_ofs);
 	  mem = gen_rtx_MEM (DImode, addr);
 	}
 
@@ -7681,7 +7686,8 @@ alpha_expand_prologue (void)
 
       if ((leftover > 4096 && sa_size == 0) || flag_stack_check)
 	{
-	  rtx last = gen_rtx_MEM (DImode, plus_constant (ptr, -leftover));
+	  rtx last = gen_rtx_MEM (DImode,
+				  plus_constant (Pmode, ptr, -leftover));
 	  MEM_VOLATILE_P (last) = 1;
 	  emit_move_insn (last, const0_rtx);
 	}
@@ -7712,7 +7718,7 @@ alpha_expand_prologue (void)
       RTX_FRAME_RELATED_P (seq) = 1;
       add_reg_note (seq, REG_FRAME_RELATED_EXPR,
 		    gen_rtx_SET (VOIDmode, stack_pointer_rtx,
-				 plus_constant (stack_pointer_rtx,
+				 plus_constant (Pmode, stack_pointer_rtx,
 						-frame_size)));
     }
 
@@ -7793,7 +7799,7 @@ alpha_expand_prologue (void)
 	  rtx seq
 	    = emit_move_insn (stack_pointer_rtx,
 			      plus_constant
-			      (hard_frame_pointer_rtx,
+			      (Pmode, hard_frame_pointer_rtx,
 			       - (ALPHA_ROUND
 				  (crtl->outgoing_args_size))));
 
@@ -7859,10 +7865,8 @@ alpha_start_function (FILE *file, const char *fnname,
   HOST_WIDE_INT sa_size;
   /* Complete stack size needed.  */
   unsigned HOST_WIDE_INT frame_size;
-  /* The maximum debuggable frame size (512 Kbytes using Tru64 as).  */
-  unsigned HOST_WIDE_INT max_frame_size = TARGET_ABI_OSF && !TARGET_GAS
-					  ? 524288
-					  : 1UL << 31;
+  /* The maximum debuggable frame size.  */
+  unsigned HOST_WIDE_INT max_frame_size = 1UL << 31;
   /* Offset from base reg to register save area.  */
   HOST_WIDE_INT reg_offset;
   char *entry_label = (char *) alloca (strlen (fnname) + 6);
@@ -7870,14 +7874,7 @@ alpha_start_function (FILE *file, const char *fnname,
   int i;
 
 #if TARGET_ABI_OPEN_VMS
-  if (vms_debug_main
-      && strncmp (vms_debug_main, fnname, strlen (vms_debug_main)) == 0)
-    {
-      targetm.asm_out.globalize_label (asm_out_file, VMS_DEBUG_MAIN_POINTER);
-      ASM_OUTPUT_DEF (asm_out_file, VMS_DEBUG_MAIN_POINTER, fnname);
-      switch_to_section (text_section);
-      vms_debug_main = NULL;
-    }
+  vms_start_function (fnname);
 #endif
 
   alpha_fnname = fnname;
@@ -7890,27 +7887,6 @@ alpha_start_function (FILE *file, const char *fnname,
     reg_offset = ALPHA_ROUND (crtl->outgoing_args_size);
 
   alpha_sa_mask (&imask, &fmask);
-
-  /* Ecoff can handle multiple .file directives, so put out file and lineno.
-     We have to do that before the .ent directive as we cannot switch
-     files within procedures with native ecoff because line numbers are
-     linked to procedure descriptors.
-     Outputting the lineno helps debugging of one line functions as they
-     would otherwise get no line number at all. Please note that we would
-     like to put out last_linenum from final.c, but it is not accessible.  */
-
-  if (write_symbols == SDB_DEBUG)
-    {
-#ifdef ASM_OUTPUT_SOURCE_FILENAME
-      ASM_OUTPUT_SOURCE_FILENAME (file,
-				  DECL_SOURCE_FILE (current_function_decl));
-#endif
-#ifdef SDB_OUTPUT_SOURCE_LINE
-      if (debug_info_level != DINFO_LEVEL_TERSE)
-        SDB_OUTPUT_SOURCE_LINE (file,
-				DECL_SOURCE_LINE (current_function_decl));
-#endif
-    }
 
   /* Issue function start and label.  */
   if (TARGET_ABI_OPEN_VMS || !flag_inhibit_size_directive)
@@ -8119,14 +8095,14 @@ alpha_expand_epilogue (void)
 	    bias = reg_offset, reg_offset = 0;
 
 	  sa_reg = gen_rtx_REG (DImode, 22);
-	  sa_reg_exp = plus_constant (stack_pointer_rtx, bias);
+	  sa_reg_exp = plus_constant (Pmode, stack_pointer_rtx, bias);
 
 	  emit_move_insn (sa_reg, sa_reg_exp);
 	}
 
       /* Restore registers in order, excepting a true frame pointer.  */
 
-      mem = gen_frame_mem (DImode, plus_constant (sa_reg, reg_offset));
+      mem = gen_frame_mem (DImode, plus_constant (Pmode, sa_reg, reg_offset));
       reg = gen_rtx_REG (DImode, REG_RA);
       emit_move_insn (reg, mem);
       cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
@@ -8142,7 +8118,8 @@ alpha_expand_epilogue (void)
 	    else
 	      {
 		mem = gen_frame_mem (DImode,
-				     plus_constant (sa_reg, reg_offset));
+				     plus_constant (Pmode, sa_reg,
+						    reg_offset));
 		reg = gen_rtx_REG (DImode, i);
 		emit_move_insn (reg, mem);
 		cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg,
@@ -8154,7 +8131,8 @@ alpha_expand_epilogue (void)
       for (i = 0; i < 31; ++i)
 	if (fmask & (1UL << i))
 	  {
-	    mem = gen_frame_mem (DFmode, plus_constant (sa_reg, reg_offset));
+	    mem = gen_frame_mem (DFmode, plus_constant (Pmode, sa_reg,
+						        reg_offset));
 	    reg = gen_rtx_REG (DFmode, i+32);
 	    emit_move_insn (reg, mem);
 	    cfa_restores = alloc_reg_note (REG_CFA_RESTORE, reg, cfa_restores);
@@ -8182,7 +8160,7 @@ alpha_expand_epilogue (void)
 	{
 	  int low = ((frame_size & 0xffff) ^ 0x8000) - 0x8000;
 
-	  sp_adj2 = plus_constant (sp_adj1, frame_size - low);
+	  sp_adj2 = plus_constant (Pmode, sp_adj1, frame_size - low);
 	  if (sa_reg_exp && rtx_equal_p (sa_reg_exp, sp_adj2))
 	    sp_adj1 = sa_reg;
 	  else
@@ -8212,7 +8190,8 @@ alpha_expand_epilogue (void)
       if (fp_is_frame_pointer)
 	{
 	  emit_insn (gen_blockage ());
-	  mem = gen_frame_mem (DImode, plus_constant (sa_reg, fp_offset));
+	  mem = gen_frame_mem (DImode, plus_constant (Pmode, sa_reg,
+						      fp_offset));
 	  emit_move_insn (hard_frame_pointer_rtx, mem);
 	  cfa_restores = alloc_reg_note (REG_CFA_RESTORE,
 					 hard_frame_pointer_rtx, cfa_restores);
@@ -8390,11 +8369,6 @@ alpha_output_mi_thunk_osf (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
 #include "gstab.h"
 
-/* Count the number of sdb related labels are generated (to find block
-   start and end boundaries).  */
-
-int sdb_label_count = 0;
-
 /* Name of the file containing the current function.  */
 
 static const char *current_function_file = "";
@@ -8419,25 +8393,14 @@ alpha_output_filename (FILE *stream, const char *name)
       fprintf (stream, "\t.file\t%d ", num_source_filenames);
       output_quoted_string (stream, name);
       fprintf (stream, "\n");
-      if (!TARGET_GAS && write_symbols == DBX_DEBUG)
-	fprintf (stream, "\t#@stabs\n");
     }
-
-  else if (write_symbols == DBX_DEBUG)
-    /* dbxout.c will emit an appropriate .stabs directive.  */
-    return;
 
   else if (name != current_function_file
 	   && strcmp (name, current_function_file) != 0)
     {
-      if (inside_function && ! TARGET_GAS)
-	fprintf (stream, "\t#.file\t%d ", num_source_filenames);
-      else
-	{
-	  ++num_source_filenames;
-	  current_function_file = name;
-	  fprintf (stream, "\t.file\t%d ", num_source_filenames);
-	}
+      ++num_source_filenames;
+      current_function_file = name;
+      fprintf (stream, "\t.file\t%d ", num_source_filenames);
 
       output_quoted_string (stream, name);
       fprintf (stream, "\n");
@@ -9376,24 +9339,10 @@ alpha_reorg (void)
     }
 }
 
-#ifdef HAVE_STAMP_H
-#include <stamp.h>
-#endif
-
 static void
 alpha_file_start (void)
 {
-#ifdef OBJECT_FORMAT_ELF
-  /* If emitting dwarf2 debug information, we cannot generate a .file
-     directive to start the file, as it will conflict with dwarf2out
-     file numbers.  So it's only useful when emitting mdebug output.  */
-  targetm.asm_file_start_file_directive = (write_symbols == DBX_DEBUG);
-#endif
-
   default_file_start ();
-#ifdef MS_STAMP
-  fprintf (asm_out_file, "\t.verstamp %d %d\n", MS_STAMP, LS_STAMP);
-#endif
 
   fputs ("\t.set noreorder\n", asm_out_file);
   fputs ("\t.set volatile\n", asm_out_file);
@@ -9420,7 +9369,6 @@ alpha_file_start (void)
     }
 }
 
-#ifdef OBJECT_FORMAT_ELF
 /* Since we don't have a .dynbss section, we should not allow global
    relocations in the .rodata section.  */
 
@@ -9460,7 +9408,6 @@ alpha_elf_section_type_flags (tree decl, const char *name, int reloc)
   flags |= default_section_type_flags (decl, name, reloc);
   return flags;
 }
-#endif /* OBJECT_FORMAT_ELF */
 
 /* Structure to collect function names for final output in link section.  */
 /* Note that items marked with GTY can't be ifdef'ed out.  */
@@ -9573,7 +9520,7 @@ alpha_use_linkage (rtx func, bool lflag, bool rflag)
   al->rkind = rflag ? KIND_CODEADDR : KIND_LINKAGE;
 
   if (lflag)
-    return gen_rtx_MEM (Pmode, plus_constant (al->linkage, 8));
+    return gen_rtx_MEM (Pmode, plus_constant (Pmode, al->linkage, 8));
   else
     return al->linkage;
 }
@@ -9743,7 +9690,7 @@ alpha_conditional_register_usage (void)
 
 /* Default unaligned ops are provided for ELF systems.  To get unaligned
    data for non-ELF systems, we have to turn off auto alignment.  */
-#if !defined (OBJECT_FORMAT_ELF) || TARGET_ABI_OPEN_VMS
+#if TARGET_ABI_OPEN_VMS
 #undef TARGET_ASM_UNALIGNED_HI_OP
 #define TARGET_ASM_UNALIGNED_HI_OP "\t.align 0\n\t.word\t"
 #undef TARGET_ASM_UNALIGNED_SI_OP
@@ -9752,14 +9699,12 @@ alpha_conditional_register_usage (void)
 #define TARGET_ASM_UNALIGNED_DI_OP "\t.align 0\n\t.quad\t"
 #endif
 
-#ifdef OBJECT_FORMAT_ELF
 #undef  TARGET_ASM_RELOC_RW_MASK
 #define TARGET_ASM_RELOC_RW_MASK  alpha_elf_reloc_rw_mask
 #undef	TARGET_ASM_SELECT_RTX_SECTION
 #define	TARGET_ASM_SELECT_RTX_SECTION  alpha_elf_select_rtx_section
 #undef  TARGET_SECTION_TYPE_FLAGS
 #define TARGET_SECTION_TYPE_FLAGS  alpha_elf_section_type_flags
-#endif
 
 #undef TARGET_ASM_FUNCTION_END_PROLOGUE
 #define TARGET_ASM_FUNCTION_END_PROLOGUE alpha_output_function_end_prologue
@@ -9772,8 +9717,6 @@ alpha_conditional_register_usage (void)
 
 #undef TARGET_ASM_FILE_START
 #define TARGET_ASM_FILE_START alpha_file_start
-#undef TARGET_ASM_FILE_START_FILE_DIRECTIVE
-#define TARGET_ASM_FILE_START_FILE_DIRECTIVE true
 
 #undef TARGET_SCHED_ADJUST_COST
 #define TARGET_SCHED_ADJUST_COST alpha_adjust_cost

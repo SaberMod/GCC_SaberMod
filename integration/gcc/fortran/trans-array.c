@@ -2448,7 +2448,7 @@ gfc_add_loop_ss_code (gfc_loopinfo * loop, gfc_ss * ss, bool subscript,
 	case GFC_SS_REFERENCE:
 	  /* Scalar argument to elemental procedure.  */
 	  gfc_init_se (&se, NULL);
-	  if (ss_info->data.scalar.can_be_null_ref)
+	  if (ss_info->can_be_null_ref)
 	    {
 	      /* If the actual argument can be absent (in other words, it can
 		 be a NULL reference), don't try to evaluate it; pass instead
@@ -3068,6 +3068,36 @@ add_to_offset (tree *cst_offset, tree *offset, tree t)
     }
 }
 
+
+static tree
+build_array_ref (tree desc, tree offset, tree decl)
+{
+  tree tmp;
+
+  /* Class array references need special treatment because the assigned
+     type size needs to be used to point to the element.  */ 
+  if (GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc))
+	&& TREE_CODE (desc) == COMPONENT_REF
+	&& GFC_CLASS_TYPE_P (TREE_TYPE (TREE_OPERAND (desc, 0))))
+    {
+      tree type = gfc_get_element_type (TREE_TYPE (desc));
+      tmp = TREE_OPERAND (desc, 0);
+      tmp = gfc_get_class_array_ref (offset, tmp);
+      tmp = fold_convert (build_pointer_type (type), tmp);
+      tmp = build_fold_indirect_ref_loc (input_location, tmp);
+    }
+  else
+    {
+      tmp = gfc_conv_array_data (desc);
+      tmp = build_fold_indirect_ref_loc (input_location, tmp);
+      tmp = gfc_build_array_ref (tmp, offset, decl);
+    }
+
+  return tmp;
+}
+
+
+
 /* Build an array reference.  se->expr already holds the array descriptor.
    This should be either a variable, indirect variable reference or component
    reference.  For arrays which do not have a descriptor, se->expr will be
@@ -3195,10 +3225,7 @@ gfc_conv_array_ref (gfc_se * se, gfc_array_ref * ar, gfc_symbol * sym,
     offset = fold_build2_loc (input_location, PLUS_EXPR,
 			      gfc_array_index_type, offset, cst_offset);
 
-  /* Access the calculated element.  */
-  tmp = gfc_conv_array_data (se->expr);
-  tmp = build_fold_indirect_ref (tmp);
-  se->expr = gfc_build_array_ref (tmp, offset, sym->backend_decl);
+  se->expr = build_array_ref (se->expr, offset, sym->backend_decl);
 }
 
 
@@ -6010,10 +6037,7 @@ gfc_get_dataptr_offset (stmtblock_t *block, tree parm, tree desc, tree offset,
 	return;
     }
 
-  tmp = gfc_conv_array_data (desc);
-  tmp = build_fold_indirect_ref_loc (input_location,
-				 tmp);
-  tmp = gfc_build_array_ref (tmp, offset, NULL);
+  tmp = build_array_ref (desc, offset, NULL);
 
   /* Offset the data pointer for pointer assignments from arrays with
      subreferences; e.g. my_integer => my_type(:)%integer_component.  */
@@ -8493,16 +8517,17 @@ gfc_walk_elemental_function_args (gfc_ss * ss, gfc_actual_arglist *arg,
 	  newss = gfc_get_scalar_ss (head, arg->expr);
 	  newss->info->type = type;
 
-	  if (dummy_arg != NULL
-	      && dummy_arg->sym->attr.optional
-	      && arg->expr->expr_type == EXPR_VARIABLE
-	      && (gfc_expr_attr (arg->expr).optional
-		  || gfc_expr_attr (arg->expr).allocatable
-		  || gfc_expr_attr (arg->expr).pointer))
-	    newss->info->data.scalar.can_be_null_ref = true;
 	}
       else
 	scalar = 0;
+
+      if (dummy_arg != NULL
+	  && dummy_arg->sym->attr.optional
+	  && arg->expr->expr_type == EXPR_VARIABLE
+	  && (gfc_expr_attr (arg->expr).optional
+	      || gfc_expr_attr (arg->expr).allocatable
+	      || gfc_expr_attr (arg->expr).pointer))
+	newss->info->can_be_null_ref = true;
 
       head = newss;
       if (!tail)

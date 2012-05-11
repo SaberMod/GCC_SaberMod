@@ -2129,6 +2129,24 @@ package body Freeze is
             Next_Entity (Comp);
          end loop;
 
+         --  Check compatibility of Scalar_Storage_Order with Bit_Order, if the
+         --  former is specified.
+
+         ADC := Get_Attribute_Definition_Clause
+                  (Rec, Attribute_Scalar_Storage_Order);
+
+         if Present (ADC)
+           and then Reverse_Bit_Order (Rec) /= Reverse_Storage_Order (Rec)
+         then
+            --  Note: report error on Rec, not on ADC, as ADC may apply to
+            --  an ancestor type.
+
+            Error_Msg_Sloc := Sloc (ADC);
+            Error_Msg_N
+              ("scalar storage order for& specified# inconsistent with "
+               & "bit order", Rec);
+         end if;
+
          --  Deal with Bit_Order aspect specifying a non-default bit order
 
          if Reverse_Bit_Order (Rec) and then Base_Type (Rec) = Rec then
@@ -2141,8 +2159,16 @@ package body Freeze is
 
             --  Here is where we do the processing for reversed bit order
 
-            else
+            elsif not Reverse_Storage_Order (Rec) then
                Adjust_Record_For_Reverse_Bit_Order (Rec);
+
+            --  Case where we have both a reverse Bit_Order and a corresponding
+            --  Scalar_Storage_Order: leave record untouched, the back-end
+            --  will take care of required layout conversions.
+
+            else
+               null;
+
             end if;
          end if;
 

@@ -6,7 +6,7 @@
 // RFC 4627.
 //
 // See "JSON and Go" for an introduction to this package:
-// http://blog.golang.org/2011/01/json-and-go.html
+// http://golang.org/doc/articles/json_and_go.html
 package json
 
 import (
@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"unicode"
 	"unicode/utf8"
@@ -43,7 +44,8 @@ import (
 // to keep some browsers from misinterpreting JSON output as HTML.
 //
 // Array and slice values encode as JSON arrays, except that
-// []byte encodes as a base64-encoded string.
+// []byte encodes as a base64-encoded string, and a nil slice
+// encodes as the null JSON object.
 //
 // Struct values encode as JSON objects. Each exported struct field
 // becomes a member of the object unless
@@ -123,17 +125,6 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// MarshalForHTML is like Marshal but applies HTMLEscape to the output.
-func MarshalForHTML(v interface{}) ([]byte, error) {
-	b, err := Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	HTMLEscape(&buf, b)
-	return buf.Bytes(), nil
-}
-
 // HTMLEscape appends to dst the JSON-encoded src with <, >, and &
 // characters inside string literals changed to \u003c, \u003e, \u0026
 // so that the JSON will be safe to embed inside HTML <script> tags.
@@ -198,11 +189,6 @@ type MarshalerError struct {
 
 func (e *MarshalerError) Error() string {
 	return "json: error calling MarshalJSON for type " + e.Type.String() + ": " + e.Err.Error()
-}
-
-type interfaceOrPtrValue interface {
-	IsNil() bool
-	Elem() reflect.Value
 }
 
 var hex = "0123456789abcdef"
@@ -276,7 +262,7 @@ func (e *encodeState) reflectValueQuoted(v reflect.Value, quoted bool) {
 		b, err := m.MarshalJSON()
 		if err == nil {
 			// copy JSON into buffer, checking validity.
-			err = Compact(&e.Buffer, b)
+			err = compact(&e.Buffer, b, true)
 		}
 		if err != nil {
 			e.error(&MarshalerError{v.Type(), err})
@@ -430,9 +416,11 @@ func isValidTag(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		switch c {
-		case '$', '-', '_', '/', '%':
-			// Acceptable
+		switch {
+		case strings.ContainsRune("!#$%&()*+-./:<=>?@[]^_{|}~", c):
+			// Backslash and quote chars are reserved, but
+			// otherwise any punctuation chars are allowed
+			// in a tag name.
 		default:
 			if !unicode.IsLetter(c) && !unicode.IsDigit(c) {
 				return false
@@ -536,6 +524,11 @@ func encodeFields(t reflect.Type) []encodeField {
 	for i := 0; i < n; i++ {
 		f := t.Field(i)
 		if f.PkgPath != "" {
+			continue
+		}
+		if f.Anonymous {
+			// We want to do a better job with these later,
+			// so for now pretend they don't exist.
 			continue
 		}
 		var ef encodeField

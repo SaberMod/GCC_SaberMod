@@ -499,6 +499,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
 
     /* -Ofast adds optimizations to -O3.  */
     { OPT_LEVELS_FAST, OPT_ffast_math, NULL, 1 },
@@ -666,10 +667,6 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_tm && opts->x_flag_non_call_exceptions)
     sorry ("transactional memory is not supported with non-call exceptions");
 
-  /* -Wmissing-noreturn is alias for -Wsuggest-attribute=noreturn.  */
-  if (opts->x_warn_missing_noreturn)
-    opts->x_warn_suggest_attribute_noreturn = true;
-    
   /* Unless the user has asked for section anchors, we disable toplevel
      reordering at -O0 to disable transformations that might be surprising
      to end users and to get -fno-toplevel-reorder tested.  */
@@ -837,6 +834,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
     opts->x_warn_unused_but_set_variable = opts->x_warn_unused;
   if (opts->x_warn_unused_value == -1)
     opts->x_warn_unused_value = opts->x_warn_unused;
+
+  /* Wunused-local-typedefs is enabled by -Wunused or -Wall.  */
+  if (opts->x_warn_unused_local_typedefs == -1)
+    opts->x_warn_unused_local_typedefs = opts->x_warn_unused;
 
   /* This replaces set_Wextra.  */
   if (opts->x_warn_uninitialized == -1)
@@ -1499,6 +1500,10 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fdiagnostics_show_location_:
       diagnostic_prefixing_rule (dc) = (diagnostic_prefixing_rule_t) value;
       break;
+ 
+    case OPT_fdiagnostics_show_caret:
+      dc->show_caret = value;
+      break;
 
     case OPT_fdiagnostics_show_option:
       dc->show_option_requested = value;
@@ -1539,6 +1544,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fmessage_length_:
       pp_set_line_maximum_length (dc->printer, value);
+      diagnostic_set_caret_max_width (dc, value);
       break;
 
     case OPT_fpack_struct_:

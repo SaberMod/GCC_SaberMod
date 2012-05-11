@@ -30,12 +30,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "coretypes.h"
 #include "tm.h"
 #include "libgcc_tm.h"
+#include "gthr.h"
 
 #if defined(inhibit_libc)
 #define IN_LIBGCOV (-1)
 #else
-#undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
-#include <stdio.h>
 #define IN_LIBGCOV 1
 #if defined(L_gcov)
 #define GCOV_LINKAGE /* nothing */
@@ -49,6 +48,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifdef L_gcov
 void __gcov_init (struct gcov_info *p __attribute__ ((unused))) {}
 void __gcov_flush (void) {}
+#endif
+
+#ifdef L_gcov_reset
+void __gcov_reset (void) {}
+#endif
+
+#ifdef L_gcov_dump
+void __gcov_dump (void) {}
 #endif
 
 #ifdef L_gcov_merge_add
@@ -75,6 +82,10 @@ void __gcov_merge_delta (gcov_type *counters  __attribute__ ((unused)),
 #include <sys/stat.h>
 #endif
 
+extern void gcov_clear (void) ATTRIBUTE_HIDDEN;
+extern void gcov_exit (void) ATTRIBUTE_HIDDEN;
+extern int gcov_dump_complete ATTRIBUTE_HIDDEN;
+
 #ifdef L_gcov
 #include "gcov-io.c"
 
@@ -91,6 +102,9 @@ static struct gcov_info *gcov_list;
 
 /* Size of the longest file name. */
 static size_t gcov_max_filename = 0;
+
+/* Flag when the profile has already been dumped via __gcov_dump().  */
+int gcov_dump_complete = 0;
 
 /* Make sure path component of the given FILENAME exists, create
    missing directories. FILENAME must be writable.
@@ -269,7 +283,7 @@ gcov_version (struct gcov_info *ptr, gcov_unsigned_t version,
    in two separate programs, and we must keep the two program
    summaries separate.  */
 
-static void
+void
 gcov_exit (void)
 {
   struct gcov_info *gi_ptr;
@@ -286,6 +300,11 @@ gcov_exit (void)
   size_t prefix_length;
   char *gi_filename, *gi_filename_up;
   gcov_unsigned_t crc32 = 0;
+
+  /* Prevent the counters from being dumped a second time on exit when the
+     application already wrote out the profile using __gcov_dump().  */
+  if (gcov_dump_complete)
+    return;
 
   memset (&all_prg, 0, sizeof (all_prg));
   /* Find the totals for this execution.  */
@@ -680,6 +699,37 @@ gcov_exit (void)
     }
 }
 
+/* Reset all counters to zero.  */
+
+void
+gcov_clear (void)
+{
+  const struct gcov_info *gi_ptr;
+
+  for (gi_ptr = gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+    {
+      unsigned f_ix;
+
+      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
+	{
+	  unsigned t_ix;
+	  const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
+
+	  if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+	    continue;
+	  const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
+	  for (t_ix = 0; t_ix != GCOV_COUNTERS; t_ix++)
+	    {
+	      if (!gi_ptr->merge[t_ix])
+		continue;
+	      
+	      memset (ci_ptr->values, 0, sizeof (gcov_type) * ci_ptr->num);
+	      ci_ptr++;
+	    }
+	}
+    }
+}
+
 /* Add a new object file onto the bb chain.  Invoked automatically
    when running an object file's global ctors.  */
 
@@ -705,6 +755,25 @@ __gcov_init (struct gcov_info *info)
   info->version = 0;
 }
 
+#ifdef __GTHREAD_MUTEX_INIT
+ATTRIBUTE_HIDDEN __gthread_mutex_t __gcov_flush_mx = __GTHREAD_MUTEX_INIT;
+#define init_mx_once()
+#else
+__gthread_mutex_t __gcov_flush_mx ATTRIBUTE_HIDDEN;
+
+static void
+init_mx (void)
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&__gcov_flush_mx);
+}
+static void
+init_mx_once (void)
+{
+  static __gthread_once_t once = __GTHREAD_ONCE_INIT;
+  __gthread_once (&once, init_mx);
+}
+#endif
+
 /* Called before fork or exec - write out profile information gathered so
    far and reset it to zero.  This avoids duplication or loss of the
    profile information gathered so far.  */
@@ -712,34 +781,47 @@ __gcov_init (struct gcov_info *info)
 void
 __gcov_flush (void)
 {
-  const struct gcov_info *gi_ptr;
+  init_mx_once ();
+  __gthread_mutex_lock (&__gcov_flush_mx);
 
   gcov_exit ();
-  for (gi_ptr = gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
-    {
-      unsigned f_ix;
+  gcov_clear ();
 
-      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
-	{
-	  unsigned t_ix;
-	  const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
-
-	  if (!gfi_ptr || gfi_ptr->key != gi_ptr)
-	    continue;
-	  const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
-	  for (t_ix = 0; t_ix != GCOV_COUNTERS; t_ix++)
-	    {
-	      if (!gi_ptr->merge[t_ix])
-		continue;
-	      
-	      memset (ci_ptr->values, 0, sizeof (gcov_type) * ci_ptr->num);
-	      ci_ptr++;
-	    }
-	}
-    }
+  __gthread_mutex_unlock (&__gcov_flush_mx);
 }
 
 #endif /* L_gcov */
+
+#ifdef L_gcov_reset
+
+/* Function that can be called from application to reset counters to zero,
+   in order to collect profile in region of interest.  */
+
+void
+__gcov_reset (void)
+{
+  gcov_clear ();
+  /* Re-enable dumping to support collecting profile in multiple regions
+     of interest.  */
+  gcov_dump_complete = 0;
+}
+
+#endif /* L_gcov_reset */
+
+#ifdef L_gcov_dump
+
+/* Function that can be called from application to write profile collected
+   so far, in order to collect profile in region of interest.  */
+
+void
+__gcov_dump (void)
+{
+  gcov_exit ();
+  /* Prevent profile from being dumped a second time on application exit.  */
+  gcov_dump_complete = 1;
+}
+
+#endif /* L_gcov_dump */
 
 #ifdef L_gcov_merge_add
 /* The profile merging function that just adds the counters.  It is given
@@ -975,8 +1057,13 @@ __gcov_ior_profiler (gcov_type *counters, gcov_type value)
 pid_t
 __gcov_fork (void)
 {
+  pid_t pid;
+  extern __gthread_mutex_t __gcov_flush_mx;
   __gcov_flush ();
-  return fork ();
+  pid = fork ();
+  if (pid == 0)
+    __GTHREAD_MUTEX_INIT_FUNCTION (&__gcov_flush_mx);
+  return pid;
 }
 #endif
 

@@ -580,7 +580,8 @@ setup_incoming_varargs (cumulative_args_t cum,
   for (i = get_cumulative_args (cum)->words + 1; i < max_arg_registers; i++)
     {
       mem = gen_rtx_MEM (Pmode,
-			 plus_constant (arg_pointer_rtx, (i * UNITS_PER_WORD)));
+			 plus_constant (Pmode, arg_pointer_rtx,
+					(i * UNITS_PER_WORD)));
       emit_move_insn (mem, gen_rtx_REG (Pmode, i));
     }
 
@@ -1050,7 +1051,8 @@ bfin_load_pic_reg (rtx dest)
     return pic_offset_table_rtx;
       
   if (global_options_set.x_bfin_library_id)
-    addr = plus_constant (pic_offset_table_rtx, -4 - bfin_library_id * 4);
+    addr = plus_constant (Pmode, pic_offset_table_rtx,
+			   -4 - bfin_library_id * 4);
   else
     addr = gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
 			 gen_rtx_UNSPEC (Pmode, gen_rtvec (1, const0_rtx),
@@ -1111,7 +1113,7 @@ bfin_expand_prologue (void)
 	    }
 	  else
 	    {
-	      rtx limit = plus_constant (lim, offset);
+	      rtx limit = plus_constant (Pmode, lim, offset);
 	      emit_move_insn (p2reg, limit);
 	      lim = p2reg;
 	    }
@@ -1883,7 +1885,7 @@ bfin_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
   if (TARGET_FDPIC)
     {
-      rtx a = force_reg (Pmode, plus_constant (XEXP (m_tramp, 0), 8));
+      rtx a = force_reg (Pmode, plus_constant (Pmode, XEXP (m_tramp, 0), 8));
       mem = adjust_address (m_tramp, Pmode, 0);
       emit_move_insn (mem, a);
       i = 8;
@@ -2077,7 +2079,7 @@ bfin_expand_call (rtx retval, rtx fnaddr, rtx callarg1, rtx cookie, int sibcall)
 
 	  picreg = gen_reg_rtx (SImode);
 	  emit_insn (gen_load_funcdescsi (picreg,
-					  plus_constant (addr, 4)));
+					  plus_constant (Pmode, addr, 4)));
 	}
 
       nelts++;
@@ -3411,14 +3413,12 @@ static bool
 hwloop_optimize (hwloop_info loop)
 {
   basic_block bb;
-  hwloop_info inner;
   rtx insn, last_insn;
   rtx loop_init, start_label, end_label;
   rtx iter_reg, scratchreg, scratch_init, scratch_init_insn;
   rtx lc_reg, lt_reg, lb_reg;
   rtx seq, seq_end;
   int length;
-  unsigned ix;
   bool clobber0, clobber1;
 
   if (loop->depth > MAX_LOOP_DEPTH)
@@ -3840,12 +3840,11 @@ hwloop_fail (hwloop_info loop)
 static rtx
 hwloop_pattern_reg (rtx insn)
 {
-  rtx pat, reg;
+  rtx reg;
 
   if (!JUMP_P (insn) || recog_memoized (insn) != CODE_FOR_loop_end)
     return NULL_RTX;
 
-  pat = PATTERN (insn);
   reg = SET_DEST (XVECEXP (PATTERN (insn), 0, 1));
   if (!REG_P (reg))
     return NULL_RTX;
@@ -3864,7 +3863,7 @@ static struct hw_doloop_hooks bfin_doloop_hooks =
    hardware loops are generated.  */
 
 static void
-bfin_reorg_loops (FILE *dump_file)
+bfin_reorg_loops (void)
 {
   reorg_loops (true, &bfin_doloop_hooks);
 }
@@ -4601,7 +4600,7 @@ bfin_reorg (void)
 
   /* Doloop optimization */
   if (cfun->machine->has_hardware_loops)
-    bfin_reorg_loops (dump_file);
+    bfin_reorg_loops ();
 
   workaround_speculation ();
 
@@ -4945,7 +4944,8 @@ bfin_output_mi_thunk (FILE *file ATTRIBUTE_UNUSED,
       output_asm_insn ("%2 = r0; %2 = [%2];", xops);
 
       /* Adjust the this parameter.  */
-      xops[0] = gen_rtx_MEM (Pmode, plus_constant (p2tmp, vcall_offset));
+      xops[0] = gen_rtx_MEM (Pmode, plus_constant (Pmode, p2tmp,
+						   vcall_offset));
       if (!memory_operand (xops[0], Pmode))
 	{
 	  rtx tmp2 = gen_rtx_REG (Pmode, REG_P1);
