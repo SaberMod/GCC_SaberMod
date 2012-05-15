@@ -58,8 +58,9 @@ struct node {
 };
 
 struct node2 {
-  tree base_id;
-  tree vptr_id;
+  tree base_map_var_decl;
+  tree vtable_decl;
+  unsigned offset;
   struct node2 *left;
   struct node2 *right;
 };
@@ -420,45 +421,55 @@ compute_class_hierarchy_transitive_closure (void)
 }
 
 static bool
-tree_two_key_insert (struct node2 **root, tree key1, tree key2)
+tree_three_key_insert (struct node2 **root, tree key1, tree key2, unsigned key3)
 {
-  /* In "struct node2", base_id is the primary sort key (the base
-     class .vtable_map variable id), and vptr_id is the secondary sort
-     key (the id for the vtable name). */
+  /* In "struct node2", base_map_var_decl is the primary sort key (the base
+     class .vtable_map variable decl), and vtable_decl is the secondary sort
+     key (the var decl the vtable). The third key is the offset added to the
+     vtable to get the actual recorded vtable pointer address.  */
 
   struct node2 *new_node;
 
   if (!(*root))
     {
       new_node = (struct node2 *) xmalloc (sizeof (struct node2));
-      new_node->base_id = key1;
-      new_node->vptr_id = key2;
+      new_node->base_map_var_decl = key1;
+      new_node->vtable_decl = key2;
+      new_node->offset = key3;
       new_node->left = NULL;
       new_node->right = NULL;
       (*root) = new_node;
       return false;
     }
-  else if ((*root)->base_id == key1)
+  else if ((*root)->base_map_var_decl == key1)
     {
-      if ((*root)->vptr_id == key2)
-        return true;
-      else if (key2 < (*root)->vptr_id)
-        return tree_two_key_insert (&((*root)->left), key1, key2);
-      else if (key2 > (*root)->vptr_id)
-        return tree_two_key_insert (&((*root)->right), key1, key2);
+      if ((*root)->vtable_decl == key2)
+        {
+          if ((*root)->offset == key3)
+            return true;
+          else if (key3 < (*root)->offset)
+            return tree_three_key_insert (&((*root)->left), key1, key2, key3);
+          else if (key3 > (*root)->offset)
+            return tree_three_key_insert (&((*root)->right), key1, key2, key3);
+        }
+      else if (key2 < (*root)->vtable_decl)
+        return tree_three_key_insert (&((*root)->left), key1, key2, key3);
+      else if (key2 > (*root)->vtable_decl)
+        return tree_three_key_insert (&((*root)->right), key1, key2, key3);
     }
-  else if (key1 < (*root)->base_id)
-    return tree_two_key_insert (&((*root)->left), key1, key2);
-  else if (key1 > (*root)->base_id)
-    return tree_two_key_insert (&((*root)->right), key1, key2);
+  else if (key1 < (*root)->base_map_var_decl)
+    return tree_three_key_insert (&((*root)->left), key1, key2, key3);
+  else if (key1 > (*root)->base_map_var_decl)
+    return tree_three_key_insert (&((*root)->right), key1, key2, key3);
 
   return false;
 }
 
 static bool
-record_register_pairs (tree base_id, tree vptr_id)
+record_register_pairs (tree base_ptr_decl, tree vtable_decl, tree vptr_address)
 {
-  return tree_two_key_insert (&registered_pairs, base_id, vptr_id);
+  unsigned offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
+  return tree_three_key_insert (&registered_pairs, base_ptr_decl, vtable_decl, offset);
 }
 
 static void
@@ -484,14 +495,6 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
       tree ztt_decl = DECL_CHAIN (vtbl_var_decl);
       bool already_registered = false;
 
-      if (ztt_decl && (DECL_NAME (ztt_decl)))
-        already_registered = record_register_pairs (DECL_NAME
-						    (TREE_OPERAND
-						     (base_class_decl_arg, 0)),
-                                                    DECL_NAME (ztt_decl));
-      if (already_registered)
-        return;
-
       /* construction vtable */
       if (true &&
           ztt_decl != NULL_TREE
@@ -506,15 +509,6 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
               && (TREE_CODE (values) == CONSTRUCTOR)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
             {
-	      /*
-	      fprintf(stderr, "---");
-	      debug_tree(ztt_decl);
-	      fprintf(stderr, "---");
-	      dump_varpool_node(stderr, vp_node);
-	      fprintf(stderr, "---");
-	      debug_varpool();
-	      */
-
               tree call_expr = NULL_TREE;
               unsigned HOST_WIDE_INT cnt;
               constructor_elt *ce;
@@ -525,12 +519,13 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
                    cnt++)
                 {
                   tree value = ce->value;
+                  tree val_vtbl_decl = TREE_OPERAND (TREE_OPERAND (value, 0), 0);
                   int len1 = strlen (IDENTIFIER_POINTER
 				     (DECL_NAME
 				          (TREE_OPERAND
 					     (base_class_decl_arg, 0))));
                   int len2 = strlen (IDENTIFIER_POINTER
-				     (DECL_NAME (vtbl_var_decl)));
+				     (DECL_NAME (val_vtbl_decl)));
                   arg1 = build_string_literal (len1,
                                                IDENTIFIER_POINTER
 					        (DECL_NAME
@@ -538,7 +533,15 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
 						  (base_class_decl_arg, 0))));
                   arg2 = build_string_literal (len2,
                                                IDENTIFIER_POINTER
-					        (DECL_NAME (vtbl_var_decl)));
+					        (DECL_NAME (val_vtbl_decl)));
+
+                  already_registered = record_register_pairs (TREE_OPERAND
+                                                               (base_class_decl_arg, 0),
+                                                              val_vtbl_decl,
+                                                              value);
+
+                  if (already_registered)
+                    continue;
 
 		  /* This call expr has the 2 "real" arguments, plus 4
 		     debugging arguments.  Eventually it will be
@@ -605,6 +608,7 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
   unsigned ix;
   tree base_binfo;
   tree vtable_decl;
+  bool already_registered;
 
   if (binfo == NULL_TREE)
     return;
@@ -617,7 +621,14 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
           && !(DECL_VTABLE_OR_VTT_P(vtable_decl) && DECL_CONSTRUCTION_VTABLE_P(vtable_decl)))
         {
           tree vtable_address = build_vtbl_address (base_binfo);
-          tree call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
+          tree call_expr;
+
+          already_registered = record_register_pairs (TREE_OPERAND (arg1, 0),
+                                                      vtable_decl,
+                                                      vtable_address);
+          if (!already_registered)
+            {
+              call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
                                             arg1, vtable_address,
                                             str1,
                                             build_int_cst (integer_type_node,
@@ -625,7 +636,8 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                             str2,
                                             build_int_cst (integer_type_node,
                                                            len2));
-          append_to_statement_list (call_expr, &body);
+              append_to_statement_list (call_expr, &body);
+            }
         }
 
       register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2,
@@ -716,10 +728,9 @@ register_all_pairs (struct node *root, tree body)
                                                 IDENTIFIER_POINTER
                                                   (DECL_NAME (vtable_decl)));
 
-              already_registered = record_register_pairs (DECL_NAME
-                                                          (base_ptr_var_decl),
-                                                          DECL_NAME
-                                                          (vtable_decl));
+              already_registered = record_register_pairs (base_ptr_var_decl,
+                                                          vtable_decl,
+                                                          vtable_address);
 
               if (!already_registered)
                 {
@@ -768,11 +779,30 @@ register_all_pairs (struct node *root, tree body)
 static void
 linked_list_insert (struct list_node **root, tree new_class)
 {
-  struct list_node *new_node = (struct list_node *)
+  struct list_node *current;
+  struct list_node *prev;
+  bool found = false;
+
+  for (prev = NULL, current = (*root); 
+       current && !found; 
+       prev = current, current = current->next)
+    if (current 
+	&& current->class_type == new_class)
+      found = true;
+
+  if (!found)
+    {
+      struct list_node *new_node = (struct list_node *)
                                            xmalloc (sizeof (struct list_node));
-  new_node->class_type = new_class;
-  new_node->next = (*root);
-  (*root) = new_node;
+
+      new_node->class_type = new_class;
+      new_node->next = NULL;
+
+      if (!prev)
+	(*root) = new_node;
+      else
+	prev->next = new_node;
+    }
 }
 
 static void
