@@ -3,7 +3,7 @@
 #include <string.h>
 #include <execinfo.h>
 
-extern "C" {
+/* extern "C" { */
 
 int debug_functions = 0;
 int debug_register_pairs = 0;
@@ -197,10 +197,13 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
 }
 
 void *
-__VLTRegisterPair (struct tree_node **base_vtbl_row_ptr, vptr vtbl_ptr, 
+__VLTRegisterPair (void **data_pointer, void *test_value, 
 		   char *base_ptr_var_name, int len1, char *vtable_name, 
 		   int len2)
 {
+  struct tree_node **base_vtbl_row_ptr = (struct tree_node **) data_pointer;
+  vptr vtbl_ptr = (vptr) test_value;
+
   if (base_ptr_var_name && vtable_name && debug_functions)
     print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,
 			     base_ptr_var_name, vtable_name);
@@ -208,7 +211,7 @@ __VLTRegisterPair (struct tree_node **base_vtbl_row_ptr, vptr vtbl_ptr,
     {
       if (!log_file_fp)
 	log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
-      log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%p)\n", 
+      log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%%p)\n", 
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
       if (*base_vtbl_row_ptr == NULL)
@@ -239,10 +242,13 @@ static void PrintStackTrace()
 }
 
 void *
-__VerifyVtablePointer (struct tree_node **base_vtbl_ptr, vptr obj_vptr, 
+__VerifyVtablePointer (void **data_pointer, void *test_value, 
 		       char *base_vtbl_var_name, int len1, char *vtable_name, 
 		       int len2)
 {
+  struct tree_node **base_vtbl_ptr = (struct tree_node **) data_pointer;
+  vptr obj_vptr = (vptr) test_value;
+
   /* The two lines below are not really right; they are there, for
      now, to deal with calls that happen during _init, possibly before
      the correct __VLTRegisterPair call has been made.  */
@@ -272,4 +278,4 @@ __VerifyVtablePointer (struct tree_node **base_vtbl_ptr, vptr obj_vptr,
   return obj_vptr;
 }
 
-}  /* Extern C */
+/* } */  /* Extern C */

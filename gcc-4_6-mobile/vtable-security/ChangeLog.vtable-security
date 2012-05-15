@@ -1,3 +1,22 @@
+2012-05-15  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/class.c (vtable_find_or_create_map_decl): Add comments for
+	eventually making vtable map variable sections read-only.
+	* gcc/cp/vtable-class-hierarchy.c (init_functions):  Fix arg_types for
+	both function decls; also add C++-specific characteristics.
+	(tree_two_key_insert):  Fix cut/paste bug (was only traversing right
+	branches; never left).
+	* gcc/temp-libgcc.cc: Remove 'extern "C"'.
+	(__VLTRegisterPair):  Change parameter types to void** and void *. Add
+	code to cast parameters to desired types inside function.  Fix error
+	in format string passed to log_register_pairs.
+	(__VerifyVtablePointer):  Change parameter types to void** and void*.
+	Add code to case parameters to desired types inside function.
+	* gcc/tree-vtable-verify.c (build_vtable_verify_fndecl):  Fix
+	arg_types and add C++-specific characteristics to the function decl.
+	* config/i386/i386.c (ix86_vtable_security_code_end):  Change names
+	for dummy functions to match mangled C++ function names.
+	
 2012-05-08  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/decl2.c (cp_write_global_declarations):  Check return

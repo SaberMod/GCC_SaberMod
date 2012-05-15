@@ -5585,6 +5585,12 @@ vtable_find_or_create_map_decl(tree base_type)
       TREE_READONLY (var_decl) = 1;
       DECL_IGNORED_P (var_decl) = 1;
 
+      /* Once we figure out how to mprotect/un-mprotect this section, and
+         get the fix for the binutils bug, we need to make it rel.ro, as
+         shown here.
+      sect_name = ACONCAT ((".data.rel.ro.", var_name,
+                            NULL));
+      */
       sect_name = ACONCAT ((".data.", var_name,
                             NULL));
 

@@ -8778,9 +8778,9 @@ ix86_vtable_security_code_end (void)
   int regno;
 
   int i;
-  char name1[23] = "__VerifyVtablePointer";
-  char name2[23] = "__VLTChangePermission";
-  char name3[18] = "__VLTRegisterPair";
+  char name1[38] = "_Z21__VerifyVtablePointerPPvS_PciS1_i";
+  char name2[29] = "_Z21__VLTChangePermissionPci";
+  char name3[34] = "_Z17__VLTRegisterPairPPvS_PciS1_i";
   tree decl1, decl2, decl3;
   tree ptr_void = build_pointer_type (void_type_node);
   tree param_types = build_tree_list (NULL, ptr_void);

@@ -459,11 +459,24 @@ static void
 build_vtable_verify_fndecl (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
+  tree char_ptr_type = build_pointer_type (char_type_node);
   tree arg_types = NULL_TREE;
   tree type = build_pointer_type (void_type_node);
+  struct lang_decl *ld;
 
-  arg_types = build_tree_list (NULL_TREE, void_ptr_type);
+  ld = ggc_alloc_cleared_lang_decl (sizeof (struct lang_decl_fn));
+  ld->u.base.selector = 1;
+
+  arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
+  /* Start: Arg types to be removed when we remove debugging parameters from
+     the library function. */
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  /* End: Arg types to be removed...*/
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   type = build_function_type (type, arg_types);
 
@@ -472,10 +485,10 @@ build_vtable_verify_fndecl (void)
   DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl)
       = tree_cons (get_identifier ("leaf"), NULL,
                    DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl));
-
-  /* Do this so we don't use the mangled name in function calls.  */
   TREE_PUBLIC (verify_vtbl_ptr_fndecl) = 1;
   DECL_PRESERVE_P (verify_vtbl_ptr_fndecl) = 1;
+  DECL_LANG_SPECIFIC (verify_vtbl_ptr_fndecl) = ld;
+  SET_DECL_LANGUAGE (verify_vtbl_ptr_fndecl, lang_cplusplus);
 }
 
 unsigned int

@@ -87,10 +87,11 @@ init_functions (void)
   tree arg_types = NULL_TREE;
   tree register_pairs_type = void_ptr_type;
   tree change_permission_type = void_ptr_type;
+  tree char_ptr_type = build_pointer_type (char_type_node);
 
-  arg_types = build_tree_list (NULL_TREE, void_ptr_type);
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-						   make_node (INTEGER_TYPE)));
+  arg_types = build_tree_list (NULL_TREE, char_ptr_type);
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   change_permission_type = build_function_type (change_permission_type,
                                                 arg_types);
@@ -100,13 +101,21 @@ init_functions (void)
   DECL_ATTRIBUTES (vlt_change_permission_fndecl) =
                     tree_cons (get_identifier ("leaf"), NULL,
                                DECL_ATTRIBUTES (vlt_change_permission_fndecl));
-  /* The following is to ensure we don't use the mangled name in calls. */
-  DECL_LANG_SPECIFIC (vlt_change_permission_fndecl) = NULL;
   TREE_PUBLIC (vlt_change_permission_fndecl) = 1;
   DECL_PRESERVE_P (vlt_change_permission_fndecl) = 1;
+  retrofit_lang_decl (vlt_change_permission_fndecl);
+  SET_DECL_LANGUAGE (vlt_change_permission_fndecl, lang_cplusplus);
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
+  /* Start: Arg types to be removed when we remove debugging parameters from
+     the library function. */
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  /* End: Arg types to be removed...*/
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   register_pairs_type = build_function_type (register_pairs_type, arg_types);
   vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPair",
@@ -115,10 +124,10 @@ init_functions (void)
   DECL_ATTRIBUTES (vlt_register_pairs_fndecl) =
                     tree_cons (get_identifier ("leaf"), NULL,
                                DECL_ATTRIBUTES (vlt_register_pairs_fndecl));
-  /* The following is to ensure we don't use the mangled name in calls. */
-  DECL_LANG_SPECIFIC (vlt_register_pairs_fndecl) = NULL;
   TREE_PUBLIC (vlt_register_pairs_fndecl) = 1;
   DECL_PRESERVE_P (vlt_register_pairs_fndecl) = 1;
+  retrofit_lang_decl (vlt_register_pairs_fndecl);
+  SET_DECL_LANGUAGE (vlt_register_pairs_fndecl, lang_cplusplus);
 }
 
 static void
@@ -416,7 +425,7 @@ tree_two_key_insert (struct node2 **root, tree key1, tree key2)
   /* In "struct node2", base_id is the primary sort key (the base
      class .vtable_map variable id), and vptr_id is the secondary sort
      key (the id for the vtable name). */
- 
+
   struct node2 *new_node;
 
   if (!(*root))
@@ -434,12 +443,12 @@ tree_two_key_insert (struct node2 **root, tree key1, tree key2)
       if ((*root)->vptr_id == key2)
         return true;
       else if (key2 < (*root)->vptr_id)
-        return tree_two_key_insert (&((*root)->right), key1, key2);
+        return tree_two_key_insert (&((*root)->left), key1, key2);
       else if (key2 > (*root)->vptr_id)
         return tree_two_key_insert (&((*root)->right), key1, key2);
     }
   else if (key1 < (*root)->base_id)
-    return tree_two_key_insert (&((*root)->right), key1, key2);
+    return tree_two_key_insert (&((*root)->left), key1, key2);
   else if (key1 > (*root)->base_id)
     return tree_two_key_insert (&((*root)->right), key1, key2);
 
