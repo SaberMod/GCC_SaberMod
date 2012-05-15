@@ -1,3 +1,28 @@
+2012-05-15   Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main r187536:
+	2012-05-15   Teresa Johnson  <tejohnson@google.com>
+
+	* libgcov.c (__gcov_sampling_period): Rename variable from "*rate*"
+	to "*period*".
+	(gcov_sampling_period_initialized): Ditto.
+	(__gcov_set_sampling_period): Rename from __gcov_set_sampling_rate.
+	Check __gcov_has_sampling.
+	(__gcov_has_sampling): New variable.
+	(__gcov_sampling_enabled): New function.
+	(__gcov_init): Rename variables from "*rate*" to "*period*".
+	* doc/invoke.texi (profile-generate-sampling-period): Rename
+	from profile-generate-sampling-rate.
+	* tree-profile.c (gcov_sampling_period_decl): Rename from
+	gcov_sampling_rate_decl.
+	(gcov_has_sampling_decl): New variable.
+	(insert_if_then, add_sampling_wrapper): Rename variables from "*rate*"
+	to "*period*".
+	(gimple_init_instrumentation_sampling): Ditto, and add handling
+	for gcov_has_sampling_decl.
+	* params.def (profile-generate-sampling-period): Rename
+	from profile-generate-sampling-rate.
+
 2012-05-09  Teresa Johnson  <tejohnson@google.com>
 
 	Backport from trunk r187297:
