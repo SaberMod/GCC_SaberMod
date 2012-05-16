@@ -1,3 +1,12 @@
+2012-05-16  Luis Lozano  <llozano@google.com>
+
+	* vtv_memory_pool/vtmalloc.h: New header file for the memory pool for 
+	use by the vtable verification. The pool allocates chunks at page 
+	boundary so that they can easily be mprotected. This pool also provides
+	the functionality to protect/unprotect the entire pool from writing.
+	* vtv_memory_pool/vtmalloc.c: New Implementation file for the memory
+	pool for the vtable verification.
+
 2012-05-15  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (struct node2): Rename tree fields,
