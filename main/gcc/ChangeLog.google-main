@@ -1,3 +1,7 @@
+2012-05-16  Xinliang David Li  <davidxl@google.com>
+
+	Backport r187602 from google/gcc-4_7 branch.
+
 2012-05-15   Teresa Johnson  <tejohnson@google.com>
 
 	* doc/invoke.texi (profile-generate-sampling-period): Rename
