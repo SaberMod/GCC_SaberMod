@@ -1,5 +1,9 @@
 2012-05-16  Xinliang David Li  <davidxl@google.com>
 
+	Backport r187613 from google/gcc-4_7 branch.
+
+2012-05-16  Xinliang David Li  <davidxl@google.com>
+
 	Backport r187610 from google/gcc-4_7 branch.
 
 2012-05-16  Xinliang David Li  <davidxl@google.com>
