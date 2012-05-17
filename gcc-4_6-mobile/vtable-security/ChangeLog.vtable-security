@@ -1,3 +1,10 @@
+2012-05-17  Caroline Tice  <cmtice@google.com>
+
+	* gcc/threaded-hash.c:  New file.
+	* gcc/threaded-hash.h:  New file.
+	* gcc/temp-libgcc.cc:  Modify to include threaded-hash.h; remove all
+	binary tree code; replace binary tree with hash table from threaded-hash.
+	
 2012-05-16  Luis Lozano  <llozano@google.com>
 
 	* vtv_memory_pool/vtmalloc.h: New header file for the memory pool for 
