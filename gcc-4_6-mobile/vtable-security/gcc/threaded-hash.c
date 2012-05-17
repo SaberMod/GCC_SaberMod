@@ -291,7 +291,8 @@ dump_table_to_filename (struct vlt_hashtable *table, uint32_t dump_buckets,
 }
 
 void
-dump_table_to_vtbl_map_file (struct vlt_hashtable *, uint32_t dump_buckets,
+dump_table_to_vtbl_map_file (struct vlt_hashtable *table,
+                             uint32_t dump_buckets,
                              char *var_name, uint32_t name_len)
 {
   char *filename = (char *) malloc ((name_len + 11) * sizeof (char));
