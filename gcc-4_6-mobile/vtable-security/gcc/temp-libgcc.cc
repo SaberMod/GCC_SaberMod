@@ -3,7 +3,10 @@
 #include <string.h>
 #include <execinfo.h>
 
-/* extern "C" { */
+#include "threaded-hash.h"
+/*  Uncomment this when we are ready to use VTV memory stuff.
+#include "vtv_memory_pool/vtvmalloc.h"
+*/
 
 int debug_functions = 0;
 int debug_register_pairs = 0;
@@ -14,7 +17,7 @@ void *
 __VLTChangePermission (char *arg1, int len)
 {
   const char *perm = (const char *) arg1;
-  
+
   if (debug_functions)
     {
       if (strncmp (perm, "rw", 2) == 0)
@@ -25,6 +28,16 @@ __VLTChangePermission (char *arg1, int len)
 	fprintf (stdout, "Unrecognized permission string: %s\n", perm);
     }
 
+  /* Uncomment this when we are ready to use VTV memory stuff.
+  if (strncmp (perm, "rw", 2) == 0)
+    {
+      VTV_malloc_init ();
+      VTV_unprotect ();
+    }
+  else if (strncmp (perm, "ro", 2) == 0)
+    VTV_protect ();
+  */
+
   if (debug_register_pairs)
     {
       if (strncmp (perm, "rw", 2) == 0)
@@ -32,7 +45,7 @@ __VLTChangePermission (char *arg1, int len)
 	  if (!log_file_fp)
 	    log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
 	}
-      /*  -- If we close the log file here, we can't access if in 
+      /*  -- If we close the log file here, we can't access if in
 	  __VerifyVtablePointer. --
       else
 	{
@@ -46,101 +59,6 @@ __VLTChangePermission (char *arg1, int len)
 }
 
 typedef int * vptr;
-
-struct tree_node {
-  vptr value;
-  struct tree_node *left;
-  struct tree_node *right;
-};
-
-void
-dump_binary_tree (FILE *fp, struct tree_node *root)
-{
-  if (!root)
-    return;
-
-  if (root->left)
-    dump_binary_tree (fp, root->left);
-
-  fprintf (fp, "%p\n", root->value);
-
-  if (root->right)
-    dump_binary_tree (fp, root->right);
-}
-
-void
-dump_binary_tree_to_file (struct tree_node *root, char *var_name, int name_len)
-{
-  char *filename = (char *) malloc ((name_len + 11) * sizeof (char));
-  char *real_name = (char *) malloc ((name_len + 1) * sizeof (char));
-  FILE *dump_file_fp = NULL;
-
-  strncpy (real_name, var_name, name_len);
-  real_name[name_len] = '\0';
-
-  sprintf (filename, "/tmp/%s.log", real_name);
-
-  dump_file_fp = fopen (filename, "w");
-  if (dump_file_fp)
-    {
-      dump_binary_tree (dump_file_fp, root);
-      fclose (dump_file_fp);
-    }
-
-  free (real_name);
-  free (filename);
-}
-
-bool
-vlt_binary_tree_search (struct tree_node *root, vptr value)
-{
-  if (!root)
-    return false;
-
-  if (root->value == value)
-    return true;
-  else if (value < root->value)
-    return vlt_binary_tree_search (root->left, value);
-  else
-    return vlt_binary_tree_search (root->right, value);
-
-  return false;
-}
-
-/* Keeps track of whether the current call to binary_tree_insert is for
-   the very tip-top root of the binary tree or not.  */
-
-static bool root_insert = false;  
-
-void
-vlt_binary_tree_insert (struct tree_node **root, vptr value)
-{
-  struct tree_node *new_node;
-
-  if (!(*root))
-    {
-      new_node = (struct tree_node *) malloc (sizeof (struct tree_node));
-      new_node->value = value;
-      new_node->left = NULL;
-      new_node->right = NULL;
-      (*root) = new_node;
-      if (log_file_fp && root_insert)
-	fprintf (log_file_fp, "     Assigning %p to new vtable_map var.\n",
-		 new_node);
-    }
-  else if (value < (*root)->value)
-    {
-      root_insert = false;
-      vlt_binary_tree_insert (&((*root)->left), value);
-    }
-  else if (value > (*root)->value)
-    {
-      root_insert = false;
-      vlt_binary_tree_insert (&((*root)->right), value);
-    }
-
-  return;
-}
 
   /* For some reason, when the char * names get passed into these
      functions, they are missing the '\0' at the end; therefore we
@@ -175,12 +93,12 @@ log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
      out the names, that we only write out the correct number of
      bytes. */
 void
-print_debugging_message (const char *format_string_dummy, int format_arg1, 
+print_debugging_message (const char *format_string_dummy, int format_arg1,
 			 int format_arg2,
 			 char *str_arg1, char *str_arg2)
 {
   char format_string[50];
-  
+
   /* format_string needs to contain something like "%.10s" (for
      example) to write a vtable_name that is of length
      10. Unfortunately the length varies with every name, so we need to
@@ -197,12 +115,15 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
 }
 
 void *
-__VLTRegisterPair (void **data_pointer, void *test_value, 
-		   char *base_ptr_var_name, int len1, char *vtable_name, 
+__VLTRegisterPair (void **data_pointer, void *test_value,
+		   char *base_ptr_var_name, int len1, char *vtable_name,
 		   int len2)
 {
-  struct tree_node **base_vtbl_row_ptr = (struct tree_node **) data_pointer;
+  struct vlt_hashtable **base_vtbl_row_ptr = (struct vlt_hashtable **) data_pointer;
   vptr vtbl_ptr = (vptr) test_value;
+
+  if ((*base_vtbl_row_ptr) == NULL)
+    *base_vtbl_row_ptr = vlt_hash_init_table ();
 
   if (base_ptr_var_name && vtable_name && debug_functions)
     print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,
@@ -211,16 +132,14 @@ __VLTRegisterPair (void **data_pointer, void *test_value,
     {
       if (!log_file_fp)
 	log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
-      log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%%p)\n", 
+      log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%%p)\n",
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
       if (*base_vtbl_row_ptr == NULL)
 	fprintf (log_file_fp, "  vtable map variable is NULL.\n");
     }
 
-  root_insert = true;
-  vlt_binary_tree_insert (base_vtbl_row_ptr, vtbl_ptr);
-  root_insert = false;
+  vlt_hash_insert (*base_vtbl_row_ptr, test_value);
 }
 
 static void PrintStackTrace()
@@ -229,7 +148,7 @@ static void PrintStackTrace()
   void * callers[STACK_DEPTH];
   int actual_depth = backtrace(callers, STACK_DEPTH);
   char ** symbols = backtrace_symbols(callers, actual_depth);
-  if (symbols == NULL ) 
+  if (symbols == NULL )
     {
       fprintf(stderr, "Could not get backtrace\n");
       return;
@@ -242,20 +161,20 @@ static void PrintStackTrace()
 }
 
 void *
-__VerifyVtablePointer (void **data_pointer, void *test_value, 
-		       char *base_vtbl_var_name, int len1, char *vtable_name, 
+__VerifyVtablePointer (void **data_pointer, void *test_value,
+		       char *base_vtbl_var_name, int len1, char *vtable_name,
 		       int len2)
 {
-  struct tree_node **base_vtbl_ptr = (struct tree_node **) data_pointer;
+  struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
   vptr obj_vptr = (vptr) test_value;
 
   /* The two lines below are not really right; they are there, for
      now, to deal with calls that happen during _init, possibly before
      the correct __VLTRegisterPair call has been made.  */
   if (*base_vtbl_ptr == NULL)
-    return obj_vptr;
+    return test_value;
 
-  if (vlt_binary_tree_search ((*base_vtbl_ptr), obj_vptr))
+  if (vlt_hash_find ((*base_vtbl_ptr), test_value))
     {
       if (debug_functions)
 	fprintf (stdout, "Verified object vtable pointer.\n");
@@ -265,10 +184,12 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       /* The data structure is not NULL, but we failed to find our
          object's vtpr in it.  Write out information and call abort.*/
       if (base_vtbl_var_name && vtable_name)
-	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1, 
+	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
 				 vtable_name, base_vtbl_var_name);
-      fprintf (stderr, "FAILED to verify object vtable pointer=0x%x!!!\n", obj_vptr);
-      dump_binary_tree_to_file (*base_vtbl_ptr, base_vtbl_var_name, len1);
+      fprintf (stderr, "FAILED to verify object vtable pointer=0x%x!!!\n",
+               obj_vptr);
+      dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
+                                   len1);
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
       PrintStackTrace();
@@ -277,5 +198,3 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
 
   return obj_vptr;
 }
-
-/* } */  /* Extern C */
