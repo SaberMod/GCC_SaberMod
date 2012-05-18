@@ -1,3 +1,11 @@
+2012-05-18   Jing Yu  <jingyu@google.com>
+
+	Backport from trunk r187586:
+	2012-05-16  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	* configure.ac: Stack protector enabling for Android targets.
+	* configure: Regenerate.
+
 2012-05-18   Teresa Johnson  <tejohnson@google.com>
 
 	Backport from google/main r187660:
