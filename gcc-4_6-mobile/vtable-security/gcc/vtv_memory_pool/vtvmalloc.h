@@ -14,4 +14,7 @@ void VTV_malloc_init();
 void * VTV_malloc(size_t size);
 void VTV_free(void * ptr);
 
+void VTV_protect();
+void VTV_unprotect();
+
 #endif /* vtvmalloc.h */

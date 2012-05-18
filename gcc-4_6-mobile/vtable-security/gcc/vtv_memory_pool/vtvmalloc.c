@@ -48,7 +48,7 @@ void VTV_unprotect()
 
 /* Allocates a chunk of memory that is aligned to a page boundary.
    The amount of memory requested must be a multiple of the page size */
-void * obstack_chunk_alloc(size_t size)
+static void * obstack_chunk_alloc(size_t size)
 {
   /* TODO: Why do we need to support chunk sizes less that page size? */
   /* Get size to next multiple of page_size */
@@ -64,12 +64,12 @@ void * obstack_chunk_alloc(size_t size)
   return allocated;
 }
 
-void obstack_chunk_free(size_t size)
+static void obstack_chunk_free(size_t size)
 {
   /* Do nothing. For our purposes there should be very little de-allocation. */
 }
 
-void VTV_init()
+void VTV_malloc_init()
 {
   page_size = sysconf(_SC_PAGE_SIZE);
 
