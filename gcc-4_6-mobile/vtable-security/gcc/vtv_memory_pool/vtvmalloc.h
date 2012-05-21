@@ -3,18 +3,24 @@
 #ifndef _VTVMALLOC_H
 #define _VTVMALLOC_H 1
 
+extern "C" {
+
 #include <stdlib.h>
 
 /* Alignment mask for any object returned by the VTV memory pool */
 #define VTV_ALIGNMENT_MASK (0x7)
 
-void VTV_malloc_init();
+extern void VTV_malloc_init ();
 /* TODO: Do we need an interface that destroys everything? */
 
-void * VTV_malloc(size_t size);
-void VTV_free(void * ptr);
+extern void * VTV_malloc (size_t size);
+extern void VTV_free (void * ptr);
+extern void VTV_protect (void);
+extern void VTV_unprotect (void);
 
 void VTV_protect();
 void VTV_unprotect();
+
+} /* extern "C" */
 
 #endif /* vtvmalloc.h */

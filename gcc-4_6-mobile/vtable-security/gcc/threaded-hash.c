@@ -6,15 +6,12 @@
 #include <string.h>
 
 #include "threaded-hash.h"
-/* Uncomment this when we are ready to use VTV memory stuff.
 #include "vtv_memory_pool/vtvmalloc.h"
+
+extern "C" {
 
 #define my_malloc VTV_malloc
 #define my_free VTV_free
-*/
-
-#define my_malloc malloc
-#define my_free free
 
 #define INITIAL_SIZE 16
 #define INITIAL_POWER 4
@@ -314,3 +311,5 @@ dump_table_to_vtbl_map_file (struct vlt_hashtable *table,
   free (real_name);
   free (filename);
 }
+
+} /* extern "C" */

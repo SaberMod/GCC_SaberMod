@@ -4,9 +4,7 @@
 #include <execinfo.h>
 
 #include "threaded-hash.h"
-/*  Uncomment this when we are ready to use VTV memory stuff.
 #include "vtv_memory_pool/vtvmalloc.h"
-*/
 
 int debug_functions = 0;
 int debug_register_pairs = 0;
@@ -28,7 +26,6 @@ __VLTChangePermission (char *arg1, int len)
 	fprintf (stdout, "Unrecognized permission string: %s\n", perm);
     }
 
-  /* Uncomment this when we are ready to use VTV memory stuff.
   if (strncmp (perm, "rw", 2) == 0)
     {
       VTV_malloc_init ();
@@ -36,7 +33,6 @@ __VLTChangePermission (char *arg1, int len)
     }
   else if (strncmp (perm, "ro", 2) == 0)
     VTV_protect ();
-  */
 
   if (debug_register_pairs)
     {

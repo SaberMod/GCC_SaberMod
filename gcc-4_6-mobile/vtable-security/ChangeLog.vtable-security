@@ -1,14 +1,30 @@
+2012-05-21  Caroline Tice  <cmtice@google.com.
+
+	* gcc/vtv_memory_pool/vtvmalloc.c: Add 'extern "C"'.
+	Reformat function headers to match GCC coding standards.
+	(VTV_protect): Add cast to assignment to ci (to fix G++ compilation
+	error).
+	(VTV_unprotect): Ditto.
+	* gcc/vtv_memory_pool/vtvmalloc.h:  Add 'extern "C"'. Add 'extern'
+	keyword.  Add missing 'void' parameters.
+	* gcc/temp-libgcc.cc: Remove comments from around vtv stuff. Add
+	'extern "C"'.
+	* gcc/threaded-hash.c: Add 'extern "C"'. Remove comments from around
+	vtv stuff.
+	* gcc/threaded-hash.h: Add 'extern "C"'.
+
 2012-05-17  Caroline Tice  <cmtice@google.com>
 
 	* gcc/threaded-hash.c:  New file.
 	* gcc/threaded-hash.h:  New file.
 	* gcc/temp-libgcc.cc:  Modify to include threaded-hash.h; remove all
-	binary tree code; replace binary tree with hash table from threaded-hash.
-	
+	binary tree code; replace binary tree with hash table from
+	threaded-hash.
+
 2012-05-16  Luis Lozano  <llozano@google.com>
 
-	* vtv_memory_pool/vtmalloc.h: New header file for the memory pool for 
-	use by the vtable verification. The pool allocates chunks at page 
+	* vtv_memory_pool/vtmalloc.h: New header file for the memory pool for
+	use by the vtable verification. The pool allocates chunks at page
 	boundary so that they can easily be mprotected. This pool also provides
 	the functionality to protect/unprotect the entire pool from writing.
 	* vtv_memory_pool/vtmalloc.c: New Implementation file for the memory

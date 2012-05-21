@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <inttypes.h>
 
+extern "C" {
+
 struct vlt_hash_bucket {
   void *data;
   struct vlt_hash_bucket *next;
@@ -39,5 +41,6 @@ extern void dump_table (struct vlt_hashtable *, uint32_t);
 extern void dump_table_to_filename (struct vlt_hashtable *, uint32_t, char *);
 extern void dump_table_to_vtbl_map_file (struct vlt_hashtable *,uint32_t,
                                          char *, uint32_t);
+} /* extern "C" */
 
 #endif /* _THREADED_HASH_H */

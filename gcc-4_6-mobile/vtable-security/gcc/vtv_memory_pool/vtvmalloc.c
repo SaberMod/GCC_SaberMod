@@ -3,6 +3,9 @@
 #include <sys/mman.h>
 
 #include "vtvmalloc.h"
+
+extern "C" {
+
 #include <obstack.h>
 
 /* TODO: Need to protect the following variables */
@@ -13,17 +16,19 @@ static size_t current_chunk_size = 0;
 
 /* TODO: Define what is the expected behavior of assert and error */
 /* Handling of runtime error */
-static void VTV_error()
+static void
+VTV_error (void)
 {
   abort();
 }
 
-#define VTV_assert(EXPR) ((void)(!(EXPR) ? VTV_error() : 0))
+#define VTV_assert(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
 
-void VTV_protect()
+void
+VTV_protect (void)
 {
   struct _obstack_chunk * ci;
-  ci = current_chunk;
+  ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
   {
     VTV_assert(((unsigned long)ci & (page_size - 1)) == 0);
@@ -33,10 +38,11 @@ void VTV_protect()
   }
 }
 
-void VTV_unprotect()
+void
+VTV_unprotect (void)
 {
   struct _obstack_chunk * ci;
-  ci = current_chunk;
+  ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
   {
     VTV_assert(((unsigned long)ci & (page_size - 1)) == 0);
@@ -48,7 +54,8 @@ void VTV_unprotect()
 
 /* Allocates a chunk of memory that is aligned to a page boundary.
    The amount of memory requested must be a multiple of the page size */
-static void * obstack_chunk_alloc(size_t size)
+static void *
+obstack_chunk_alloc (size_t size)
 {
   /* TODO: Why do we need to support chunk sizes less that page size? */
   /* Get size to next multiple of page_size */
@@ -64,12 +71,14 @@ static void * obstack_chunk_alloc(size_t size)
   return allocated;
 }
 
-static void obstack_chunk_free(size_t size)
+static void
+obstack_chunk_free (size_t size)
 {
   /* Do nothing. For our purposes there should be very little de-allocation. */
 }
 
-void VTV_malloc_init()
+void
+VTV_malloc_init (void)
 {
   page_size = sysconf(_SC_PAGE_SIZE);
 
@@ -82,12 +91,16 @@ void VTV_malloc_init()
   obstack_init(&VTV_obstack);
 }
 
-void * VTV_malloc(size_t size)
+void *
+VTV_malloc (size_t size)
 {
   return obstack_alloc (&VTV_obstack, size);
 }
 
-void VTV_free(void * ptr)
+void
+VTV_free (void * ptr)
 {
   /* Do nothing. We dont care about recovering unneded memory */
 }
+
+} /* extern "C" */
