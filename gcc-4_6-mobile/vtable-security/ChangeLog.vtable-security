@@ -1,4 +1,9 @@
-2012-05-21  Caroline Tice  <cmtice@google.com.
+2012-05-21  Caroline Tice  <cmtice@google.com>
+
+	* gcc/vtv_memory_pool/vtmalloc.c (VTV_malloc_init):  Add code
+	to make sure body of function is never executed more than once.
+	
+2012-05-21  Caroline Tice  <cmtice@google.com>
 
 	* gcc/vtv_memory_pool/vtvmalloc.c: Add 'extern "C"'.
 	Reformat function headers to match GCC coding standards.

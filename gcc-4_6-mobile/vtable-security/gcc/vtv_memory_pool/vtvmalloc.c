@@ -80,6 +80,12 @@ obstack_chunk_free (size_t size)
 void
 VTV_malloc_init (void)
 {
+  static int initialized = 0;
+
+  /* Make sure we only execute the main body of this function ONCE.  */
+  if (initialized)
+    return;
+
   page_size = sysconf(_SC_PAGE_SIZE);
 
   obstack_chunk_size (&VTV_obstack) = page_size;
@@ -89,6 +95,7 @@ VTV_malloc_init (void)
   obstack_alloc_failed_handler = NULL;
 
   obstack_init(&VTV_obstack);
+  initialized = 1;
 }
 
 void *
