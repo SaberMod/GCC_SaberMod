@@ -1,18 +1,63 @@
-2012-05-11  Han Shen  <shenhan@google.com>
+2012-05-16  Eric Botcazou  <ebotcazou@adacore.com>
 
-	Backport from mainline.
-	2012-05-01  Richard Earnshaw  <rearnsha@arm.com>
+	* configure: Regenerate.
 
-	* arm/linux-eabi.h (GLIBC_DYNAMIC_LINKER_DEFAULT): Avoid ifdef
-	comparing enumeration values.  Update comments.
+2012-05-14  Uros Bizjak  <ubizjak@gmail.com>
 
-	2012-04-26  Michael Hope  <michael.hope@linaro.org>
-		    Richard Earnshaw  <rearnsha@arm.com>
+	PR target/46098
+	* config/i386/i386.c (ix86_expand_special_args_builtin): Always
+	generate target register for "load" class builtins.
 
-	* config/arm/linux-eabi.h (GLIBC_DYNAMIC_LINKER_SOFT_FLOAT): Define.
-	(GLIBC_DYNAMIC_LINKER_HARD_FLOAT): Define.
-	(GLIBC_DYNAMIC_LINKER_DEFAULT): Define.
-	(GLIBC_DYNAMIC_LINKER):	Redefine to use the hard float path.
+	Revert:
+	2010-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/46098
+	* config/i386/sse.md (*avx_movu<ssemodesuffix><avxmodesuffix>):
+	Rename from avx_movu<ssemodesuffix><avxmodesuffix>.
+	(avx_movu<ssemodesuffix><avxmodesuffix>): New expander.
+	(*<sse>_movu<ssemodesuffix>): Rename from <sse>_movu<ssemodesuffix>.
+	(<sse>_movu<ssemodesuffix>): New expander.
+	(*avx_movdqu<avxmodesuffix>): Rename from avx_movdqu<avxmodesuffix>.
+	(avx_movdqu<avxmodesuffix>): New expander.
+	(*sse2_movdqu): Rename from sse2_movdqu.
+	(sse2_movdqu): New expander.
+
+2012-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-05-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (alpha_emit_conditional_branch): Handle
+	ORDERED and UNORDERED conditions.
+
+2012-05-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/52999
+	* config/pa/pa.h (LEGITIMATE_CONSTANT_P): Don't put function labels
+	in constant pool.
+
+2012-05-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-05-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53228
+	* config/i386/i386.h (X86_ARCH_CMOV): Rename from X86_ARCH_CMOVE.
+	(TARGET_CMOV): Rename from TARGET_CMOVE.
+	(TARGET_CMOVE): New define.
+	* config/i386/i386.c (ix86_option_override_internal): Use TARGET_CMOV.
+	Do not set TARGET_CMOVE here.
+
+2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from the mainline
+	2012-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/53199
+	* config/rs6000/rs6000.md (bswapdi splitters): If
+	-mavoid-indexed-addresses (or -mcpu=power6 which sets it by
+	default) is used, generate an alternate sequence that does not
+	depend on using indexed addressing.
 
 2012-04-30  Uros Bizjak  <ubizjak@gmail.com>
 
