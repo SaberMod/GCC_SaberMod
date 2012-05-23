@@ -1,3 +1,16 @@
+2012-05-23  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c: Removed some unneded code for 
+	handling of template class instances.
+	(vtable_find_or_create_map_decl): Moved routine from class.c file
+	(vtv_save_base_class_info): Moved routine from class.c file and 
+	renamed to be more consistent 
+	* gcc/cp/pt.c: removed unnecessary call to record_template_vtable_info
+	* gcc/cp/cp-tree.h: cleaned up prototypes and renamed to all be
+	prefixed by "vtv_"
+	* gcc/cp/decl2.c: Renamed vtable verification function calls according
+	to the changes to cp-tree.h
+
 2012-05-21  Caroline Tice  <cmtice@google.com>
 
 	* gcc/vtv_memory_pool/vtmalloc.c (VTV_malloc_init):  Add code
