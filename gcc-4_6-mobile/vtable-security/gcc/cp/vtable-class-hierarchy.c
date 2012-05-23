@@ -69,17 +69,23 @@ static void init_functions (void);
 static void linked_list_insert (struct list_node **, tree);
 static void binary_tree_insert (struct node **, tree, tree, tree);
 static struct node *binary_tree_find (struct node *, tree);
+#ifdef OLDTEMPLATE
 static struct node *binary_tree_find_template (struct node *, tree);
+#endif
+
 static void dump_class_hierarchy_information (struct node *root);
 static void register_all_pairs (struct node *root, tree body);
 /* static void compute_hierarchy_transitive_closure (void); */
+#ifdef OLDTEMPLATE
 static void template_info_tree_insert (struct node **, tree, tree);
 static struct list_node *template_list_search (tree class_type);
 static struct list_node *template_tree_find (struct node *, tree type_id);
+static struct node *vlt_template_vptr_info = NULL;
+#endif
 
 static struct node *vlt_class_hierarchy_info = NULL;
 static struct node2 *registered_pairs = NULL;
-static struct node *vlt_template_vptr_info = NULL;
+
 
 static void
 init_functions (void)
@@ -203,6 +209,7 @@ list_append (struct list_node *old_list, struct list_node *new_list)
 
 }
 
+#ifdef OLDTEMPLATE
 static struct node *
 binary_tree_find_template (struct node *root, tree class_type)
 {
@@ -284,6 +291,7 @@ binary_tree_find_template (struct node *root, tree class_type)
 
   return child_found;
 }
+#endif
 
 static struct node *
 binary_tree_find (struct node *root, tree var_decl)
@@ -339,6 +347,7 @@ build_transitive_closure (struct node *root, struct node *cur_node)
       debug_c_tree(cur_list->class_type);
       */
 
+#ifdef OLDTEMPLATE
       struct list_node *template_list = template_list_search (cur_list->class_type);
       bool is_template_type = (template_list != NULL);
 
@@ -356,6 +365,7 @@ build_transitive_closure (struct node *root, struct node *cur_node)
 	  tmp_node = binary_tree_find_template (root, cur_list->class_type);
 	}
       else
+#endif
 	{
 	  if ((! cur_list->class_type)
 	      || (! TYPE_BINFO (cur_list->class_type))
@@ -567,6 +577,7 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
     }
 }
 
+#ifdef OLDTEMPLATE
 static struct list_node *
 template_tree_find (struct node *root, tree type_id)
 {
@@ -600,6 +611,7 @@ template_list_search (tree class_type)
 
   return NULL;
 }
+#endif
 
 static void
 register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
@@ -673,13 +685,13 @@ register_all_pairs (struct node *root, tree body)
           tree vtable_decl;
           bool vtable_should_be_output = false;
 
-          struct list_node *template_vtable_list = NULL;
-
 	  if (binfo)
 	    vtable = BINFO_VTABLE (binfo);
-	  
+
+#ifdef OLDTEMPLATE
 	  if (!vtable && binfo)
 	    {
+              struct list_node *template_vtable_list = NULL;
 	      /* Possibly look for vtable in instantiated template types */
 	      template_vtable_list = template_list_search
                                                         (current->class_type);
@@ -704,6 +716,7 @@ register_all_pairs (struct node *root, tree body)
                     }
 		}
 	    }
+#endif
 
           vtable_decl = CLASSTYPE_VTABLES (current->class_type);
 
@@ -805,6 +818,7 @@ linked_list_insert (struct list_node **root, tree new_class)
     }
 }
 
+#ifdef OLDTEMPLATE
 static void
 template_info_tree_insert (struct node **root, tree template_type_id,
 			   tree instantiated_type)
@@ -829,6 +843,7 @@ template_info_tree_insert (struct node **root, tree template_type_id,
     template_info_tree_insert (&((*root)->right), template_type_id,
 			       instantiated_type);
 }
+#endif
 
 static void
 binary_tree_insert (struct node **root, tree ptr_decl, tree base_class,
@@ -923,6 +938,7 @@ vtable_find_map_decl (tree var_id)
   return NULL_TREE;
 }
 
+#ifdef OLDTEMPLATE
 void
 record_template_vtable_info (tree instantiated_class_type,
 			     tree template_class_type)
@@ -949,3 +965,4 @@ record_template_vtable_info (tree instantiated_class_type,
   template_info_tree_insert (&vlt_template_vptr_info, type_id,
 			     instantiated_class_type);
 }
+#endif
