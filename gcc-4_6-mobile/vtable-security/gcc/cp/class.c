@@ -5520,129 +5520,6 @@ determine_key_method (tree type)
   return;
 }
 
-static tree 
-vtable_find_or_create_map_decl(tree base_type)
-{
-  tree base_decl = TREE_CHAIN (base_type);
-  tree base_id = get_mangled_id (base_decl);
-  tree var_id;
-  tree var_decl = NULL;
-  char *var_name = NULL;
-  /*  bool base_is_template = false; */
-
-  /* Check to see if the base class is a template.  */
-  /*
-  if (TYPE_TEMPLATE_INFO (base_type) != NULL_TREE)
-    {
-      base_is_template = true;
-      if ((CLASSTYPE_TI_TEMPLATE (base_type) == NULL_TREE)
-          || (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (base_type)) == NULL_TREE)
-          || (TYPE_BINFO (TREE_TYPE (CLASSTYPE_TI_TEMPLATE (base_type))) == NULL_TREE))
-        return NULL;
-    }
-  */
-  /* Verify that the base class contains virtual functions.  */
-  /*
-  if (! base_is_template
-      && ! TYPE_BINFO (base_type))
-    return NULL;
-  if (!base_is_template
-      && ! BINFO_VIRTUALS (TYPE_BINFO (base_type)))
-    return NULL;
-  */
-
-  /* Verify the type has an associated vtable */
-  if (!TYPE_BINFO(base_type) || !BINFO_VTABLE (TYPE_BINFO (base_type)))
-    return NULL;
-
-  /* Create map lookup symbol for base class */
-  var_name = ACONCAT (("_ZTV", IDENTIFIER_POINTER (base_id),
-                       ".vtable_map", NULL));
-  var_id = maybe_get_identifier (var_name);
-  if (var_id)
-    /* We've already created the variable; just look it.  */
-    var_decl = vtable_find_map_decl (var_id);
-  else
-    {
-      /* If we haven't already created the *.vtable_map
-         global variable for this class, do so now, and
-         add it to the varpool, to make sure it gets saved
-         and written out.  */
-
-      char *sect_name = NULL;
-      tree var_type = build_pointer_type (void_type_node);
-      tree initial_value = build_int_cst
-          (make_node (INTEGER_TYPE), 0);
-      var_decl  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-                              get_identifier (var_name),
-                              var_type);
-      TREE_PUBLIC (var_decl) = 1;
-      DECL_EXTERNAL (var_decl) = 0;
-      TREE_STATIC (var_decl) = 1;
-      SET_DECL_ASSEMBLER_NAME (var_decl,
-                               get_identifier (var_name));
-      DECL_ARTIFICIAL (var_decl) = 1;
-      TREE_READONLY (var_decl) = 1;
-      DECL_IGNORED_P (var_decl) = 1;
-
-      /* Once we figure out how to mprotect/un-mprotect this section, and
-         get the fix for the binutils bug, we need to make it rel.ro, as
-         shown here.
-      sect_name = ACONCAT ((".data.rel.ro.", var_name,
-                            NULL));
-      */
-      sect_name = ACONCAT ((".data.", var_name,
-                            NULL));
-
-      DECL_SECTION_NAME (var_decl) =
-          build_string (strlen (sect_name), sect_name);
-      DECL_HAS_IMPLICIT_SECTION_NAME_P (var_decl) = true;
-      DECL_COMDAT_GROUP (var_decl) = get_identifier (var_name);
-      DECL_INITIAL (var_decl) = initial_value;
-
-      varpool_finalize_decl (var_decl);
-      save_vtable_map_decl (var_decl);
-
-      update_class_hierarchy_information (var_decl, base_type, base_type);
-    }
-
-  gcc_assert(var_decl);
-  return var_decl;
-}
-
-static void 
-vtable_save_base_class_info(tree type)
-{
-  if (flag_vtable_verify)
-    {
-      tree binfo =  TYPE_BINFO(type);
-      tree base_binfo;
-      tree own_map;
-      int i;
-
-      /* first make sure to create the map for this record type */
-      own_map = vtable_find_or_create_map_decl(type);
-      if (own_map == NULL)
-        return;
-
-      /* Go through the list of all base classes for the current (derived)
-         type, make sure the *.vtable_map global variable for the base class
-	 exists, and add the base class/derived class pair to the class
-	 hierarchy information we are accumulating (for vtable pointer
-	 verification).  */
-      for (i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); i++)
-        {
-          tree tree_val = BINFO_TYPE(base_binfo);
-          tree var_decl = NULL_TREE;
-
-          var_decl = vtable_find_or_create_map_decl(tree_val);
-          if (var_decl != NULL)
-            update_class_hierarchy_information (var_decl, tree_val,
-                                                type);
-        }
-    }
-}
-
 /* Perform processing required when the definition of T (a class type)
    is complete.  */
 
@@ -5825,7 +5702,8 @@ finish_struct_1 (tree t)
 
   maybe_suppress_debug_info (t);
 
-  vtable_save_base_class_info(t);
+  if (flag_vtable_verify)
+    vtv_save_base_class_info(t);
 
   dump_class_hierarchy (t);
 

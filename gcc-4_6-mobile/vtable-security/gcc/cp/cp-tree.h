@@ -5683,11 +5683,9 @@ extern tree build_vtbl_address                   (tree);
 
 /* in vtable-class-hierarchy.c */
 
-extern bool register_class_hierarchy_information (tree);
-extern void compute_class_hierarchy_transitive_closure (void);
-extern void update_class_hierarchy_information   (tree, tree, tree);
-extern void record_template_vtable_info          (tree, tree);
-extern tree vtable_find_map_decl                 (tree);
+extern bool vtv_register_class_hierarchy_information (tree);
+extern void vtv_compute_class_hierarchy_transitive_closure (void);
+extern void vtv_save_base_class_info             (tree type);
 
 /* -- end of C++ */
 

@@ -4089,7 +4089,7 @@ cp_write_global_declarations (void)
   timevar_start (TV_PHASE_CGRAPH);
 
   if (flag_vtable_verify)
-    compute_class_hierarchy_transitive_closure ();
+    vtv_compute_class_hierarchy_transitive_closure ();
 
   cgraph_finalize_compilation_unit ();
 
@@ -4097,6 +4097,7 @@ cp_write_global_declarations (void)
      __VLTChangePermission and __VLTRegisterPairs, and give it
      a very high initialization priority.  */
 
+  /* TODO: Can we put the body of this "if" into a routine in vtable-class-hierarchy.c ? */
   if (flag_vtable_verify)
     {
       const char * cwd = main_input_filename;
@@ -4125,7 +4126,7 @@ cp_write_global_declarations (void)
       push_lang_context (lang_name_c);
       body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
 			    (const char *) temp_name);
-      vtable_classes_found = register_class_hierarchy_information (body);
+      vtable_classes_found = vtv_register_class_hierarchy_information (body);
       if (vtable_classes_found)
         {
           finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
