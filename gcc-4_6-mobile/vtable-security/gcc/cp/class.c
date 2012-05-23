@@ -5528,7 +5528,7 @@ vtable_find_or_create_map_decl(tree base_type)
   tree var_id;
   tree var_decl = NULL;
   char *var_name = NULL;
-  bool base_is_template = false;
+  /*  bool base_is_template = false; */
 
   /* Check to see if the base class is a template.  */
   /*
