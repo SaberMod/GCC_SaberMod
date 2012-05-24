@@ -850,6 +850,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
   if (opts->x_flag_reorder_functions > 1)
     opts->x_flag_function_sections = 1;
+
+  /* The -gfission option requires -gpubnames.  */
+  if (opts->x_dwarf_split_debug_info)
+    opts->x_debug_generate_pub_sections = 1;
 }
 
 #define LEFT_COLUMN	27
@@ -1714,7 +1718,7 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_gfission:
-      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, arg, opts, opts_set,
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "", opts, opts_set,
 		       loc);
       break;
 

@@ -1,3 +1,8 @@
+2012-05-24  Sterling Augustine  <saugustine@google.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2.h: Add DW_OP_GNU_const_index.
+
 2012-05-08   Sterling Augustine  <saugustine@google.com>
 	     Cary Coutant  <ccoutant@google.com>
 

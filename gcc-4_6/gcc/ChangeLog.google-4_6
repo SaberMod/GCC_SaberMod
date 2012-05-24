@@ -1,3 +1,53 @@
+2012-05-24  Sterling Augustine  <saugustine@google.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	Fission bugfixes and improvements.
+
+	* opts.c (finish_options): -gfission implies -gpubnames.
+	(common_handle_option): Pass empty arg string to set_debug_level.
+	* common.opt (gno-fission): New option.
+	(gfission): Remove JoinedOrMissing, add RejectNegative.
+	(gno-pubnames, gpubnames): New options.
+	* target.def (want_debug_pub_sections): Change default to false.
+	* gcc.c (check_live_switch): Check -g options for -gno- options.
+
+	* c-family/c-pretty-print.c (pp_c_specifier_qualifier_list): Add
+	support for gnu_v3 style.
+	* c-family/c-pretty-print.h (pp_c_flag_gnu_v3): New enum constant.
+	* cp/error.c (dump_decl): Add support for gnu_v3 style.
+	(decl_as_string): Likewise.
+	(lang_decl_name): Likewise.
+	* cp/cp-lang.c (cxx_dwarf_name): Likewise.
+	* cp/cp-tree.h (enum overload_flags): Add TFF_MATCH_GNU_V3_DEMANGLER.
+
+	* dwarf2out.c (dwarf_stack_op_name): Add DW_OP_GNU_const_index.
+	(size_of_loc_descr): Likewise.
+	(output_loc_operands): Likewise.
+	(output_loc_operands_raw): Likewise.
+	(dw_addr_op): New function.
+	(new_addr_loc_descr): Call dw_addr_op.
+	(want_pubnames): New function.
+	(add_AT_pubnames): Add DW_AT_GNU_pubnames/pubtypes only if
+	generating .debug_pubnames/pubtypes sections.
+	(add_pubname_string): Check for -gpubnames option.
+	(add_pubname): Likewise.
+	(add_pubtype): Likewise.
+	(output_pubnames): Likewise.
+	(mem_loc_descriptor): Call new_addr_loc_desc for TLS vars.
+	(loc_list_from_tree): Likewise.
+	(gen_subprogram_die): Output pubnames for all inlined functions.
+	(output_addr_table): Handle DW_OP_GNU_const_index.  Add missing
+	newline.
+	(hash_loc_operands): Add DW_OP_GNU_const_index.
+	(compare_loc_operands): Likewise.
+
+	* testsuite/g++.old-deja/g++.pt/memtemp77.C: Revert earlier change
+	to expected results.
+	* testsuite/g++.dg/ext/pretty3.C: Likewise.
+	* testsuite/g++.dg/warn/Wuninitializable-member.C: Likewise.
+	* testsuite/g++.dg/warn/pr35711.C: Likewise.
+	* testsuite/g++.dg/pr44486.C: Likewise.
+
 2012-05-24   Rong Xu  <xur@google.com>
 
 	Backport from google/gcc-4_7 r187856.

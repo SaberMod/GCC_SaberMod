@@ -448,7 +448,7 @@ ignored.  White space may also appear anywhere on the left side of the
 colon in these constructs, except between . or * and the corresponding
 word.
 
-The -O, -f, -m, and -W switches are handled specifically in these
+The -O, -f, -g, -m, and -W switches are handled specifically in these
 constructs.  If another value of -O or the negated form of a -f, -m, or
 -W switch is found later in the command line, the earlier switch
 value is ignored, except with {S*} where S is just one letter; this
@@ -5867,7 +5867,7 @@ process_brace_body (const char *p, const char *atom, const char *end_atom,
    on the command line.  PREFIX_LENGTH is the length of XXX in an {XXX*}
    spec, or -1 if either exact match or %* is used.
 
-   A -O switch is obsoleted by a later -O switch.  A -f, -m, or -W switch
+   A -O switch is obsoleted by a later -O switch.  A -f, -g, -m, or -W switch
    whose value does not begin with "no-" is obsoleted by the same value
    with the "no-", similarly for a switch with the "no-" prefix.  */
 
@@ -5904,7 +5904,7 @@ check_live_switch (int switchnum, int prefix_length)
 	  }
       break;
 
-    case 'W':  case 'f':  case 'm':
+    case 'W':  case 'f':  case 'm': case 'g':
       if (! strncmp (name + 1, "no-", 3))
 	{
 	  /* We have Xno-YYY, search for XYYY.  */

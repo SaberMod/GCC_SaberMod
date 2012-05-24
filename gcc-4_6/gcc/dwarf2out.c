@@ -4782,6 +4782,8 @@ dwarf_stack_op_name (unsigned int op)
       return "DW_OP_GNU_implicit_pointer";
     case DW_OP_GNU_addr_index:
       return "DW_OP_GNU_addr_index";
+    case DW_OP_GNU_const_index:
+      return "DW_OP_GNU_const_index";
 
     default:
       return "OP_<unknown>";
@@ -4903,6 +4905,7 @@ size_of_loc_descr (dw_loc_descr_ref loc)
       size += DWARF2_ADDR_SIZE;
       break;
     case DW_OP_GNU_addr_index:
+    case DW_OP_GNU_const_index:
       size += size_of_uleb128 (loc->dw_loc_oprnd1.val_index);
       break;
     case DW_OP_const1u:
@@ -5284,8 +5287,9 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
       break;
 
     case DW_OP_GNU_addr_index:
+    case DW_OP_GNU_const_index:
       dw2_asm_output_data_uleb128 (loc->dw_loc_oprnd1.val_index,
-                                   "(address index)");
+                                   "(index into .debug_addr)");
       break;
 
     case DW_OP_GNU_implicit_pointer:
@@ -5357,6 +5361,7 @@ output_loc_operands_raw (dw_loc_descr_ref loc)
     {
     case DW_OP_addr:
     case DW_OP_GNU_addr_index:
+    case DW_OP_GNU_const_index:
     case DW_OP_implicit_value:
       /* We cannot output addresses in .cfi_escape, only bytes.  */
       gcc_unreachable ();
@@ -6570,6 +6575,7 @@ static dw_loc_list_ref new_loc_list (dw_loc_descr_ref, const char *,
 				     const char *, const char *);
 static void output_loc_list (dw_loc_list_ref);
 static char *gen_internal_sym (const char *);
+static bool want_pubnames (void);
 
 static void prune_unmark_dies (dw_die_ref);
 static void prune_unused_types_mark_generic_parms_dies (dw_die_ref);
@@ -6589,17 +6595,37 @@ static bool generic_type_p (tree);
 static void schedule_generic_params_dies_gen (tree t);
 static void gen_scheduled_generic_parms_dies (void);
 
+/* Return the operator to use for an address of a variable.
+   DTPREL is true for thread-local variables whose address
+   is really an offset relative to the TLS pointer, which
+   will need link-time relocation, but will not need relocation
+   by the DWARF consumer.  For those, we use DW_OP_const*.
+   For regular variables, which need both link-time relocation
+   and consumer-level relocation (e.g., to account for
+   shared objects loaded at a random address), we use
+   DW_OP_addr*.  */
+
+static inline enum dwarf_location_atom dw_addr_op (bool dtprel)
+{
+  if (dtprel)
+    return (dwarf_split_debug_info ? DW_OP_GNU_const_index
+            : (DWARF2_ADDR_SIZE == 4 ? DW_OP_const4u : DW_OP_const8u));
+  else
+    return (dwarf_split_debug_info ? DW_OP_GNU_addr_index : DW_OP_addr);
+}
+
 /* Return a pointer to a newly allocated address location description.  If
    dwarf_split_debug_info is true, then record the address with the appropriate
    relocation.  */
 static inline dw_loc_descr_ref
 new_addr_loc_descr (rtx addr, int dtprel)
 {
-  dw_loc_descr_ref ref = new_loc_descr (DW_OP_addr, 0, 0);
+  dw_loc_descr_ref ref = new_loc_descr (dw_addr_op (dtprel), 0, 0);
 
   ref->dw_loc_oprnd1.val_class = dw_val_class_addr;
   ref->dw_loc_oprnd1.val_index = -1U;
   ref->dw_loc_oprnd1.v.val_addr = addr;
+  ref->dtprel = dtprel;
   if (dwarf_split_debug_info)
     {
       dw_attr_node attr;
@@ -6610,7 +6636,6 @@ new_addr_loc_descr (rtx addr, int dtprel)
       attr.dw_attr_val.val_index = -1U;
       attr.dw_attr_val.v.val_addr = addr;
 
-      ref->dw_loc_opc = DW_OP_GNU_addr_index;
       ref->dw_loc_oprnd1.val_index = add_addr_table_entry (&attr);
     }
   return ref;
@@ -11926,15 +11951,30 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
     }
 }
 
+/* Whether to generate the DWARF accelerator tables in .debug_pubnames
+   and .debug_pubtypes.  This is configured per-target, but can be
+   overridden by the -gpubnames or -gno-pubnames options.  */
+
+static inline bool
+want_pubnames (void)
+{
+  return (debug_generate_pub_sections != -1
+	  ? debug_generate_pub_sections
+	  : targetm.want_debug_pub_sections);
+}
+
 /* Add the DW_AT_GNU_pubnames and DW_AT_GNU_pubtypes attributes.  */
 
 static void
 add_AT_pubnames (dw_die_ref die)
 {
-  /* FIXME: Should use add_AT_pubnamesptr.  This works because most targets
-     don't care what the base section is.  */
-  add_AT_lineptr (die, DW_AT_GNU_pubnames, debug_pubnames_section_label);
-  add_AT_lineptr (die, DW_AT_GNU_pubtypes, debug_pubtypes_section_label);
+  if (want_pubnames ())
+    {
+      /* FIXME: Should use add_AT_pubnamesptr.  This works because most targets
+         don't care what the base section is.  */
+      add_AT_lineptr (die, DW_AT_GNU_pubnames, debug_pubnames_section_label);
+      add_AT_lineptr (die, DW_AT_GNU_pubtypes, debug_pubtypes_section_label);
+    }
 }
 
 /* Helper function to generate top-level dies for skeleton debug_info and
@@ -12136,7 +12176,7 @@ dwarf2_name (tree decl, int scope)
 static void
 add_pubname_string (const char *str, dw_die_ref die)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE && targetm.want_debug_pub_sections)
+  if (!GENERATE_MINIMUM_LINE_TABLE && want_pubnames ())
     {
       pubname_entry e;
 
@@ -12149,7 +12189,7 @@ add_pubname_string (const char *str, dw_die_ref die)
 static void
 add_pubname (tree decl, dw_die_ref die)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE && targetm.want_debug_pub_sections)
+  if (!GENERATE_MINIMUM_LINE_TABLE && want_pubnames ())
     {
       if ((TREE_PUBLIC (decl) && !is_class_die (die->die_parent))
           || is_cu_die (die->die_parent) || is_namespace_die (die->die_parent))
@@ -12182,7 +12222,7 @@ add_pubtype (tree decl, dw_die_ref die)
 {
   pubname_entry e;
 
-  if (!targetm.want_debug_pub_sections)
+  if (!want_pubnames ())
     return;
 
   if ((TREE_PUBLIC (decl)
@@ -12243,7 +12283,7 @@ output_pubnames (VEC (pubname_entry, gc) * names)
   unsigned long pubnames_length = size_of_pubnames (names);
   pubname_ref pub;
 
-  if (!targetm.want_debug_pub_sections || !info_section_emitted)
+  if (!want_pubnames () || !info_section_emitted)
     return;
   if (names == pubname_table)
     {
@@ -14528,15 +14568,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	  if (!targetm.have_tls || !targetm.asm_out.output_dwarf_dtprel)
 	    break;
 
-	  /* We used to emit DW_OP_addr here, but that's wrong, since
-	     DW_OP_addr should be relocated by the debug info consumer,
-	     while DW_OP_GNU_push_tls_address operand should not.  */
-	  temp = new_loc_descr (DWARF2_ADDR_SIZE == 4
-				? DW_OP_const4u : DW_OP_const8u, 0, 0);
-	  temp->dw_loc_oprnd1.val_class = dw_val_class_addr;
-	  temp->dw_loc_oprnd1.val_index = -1U;
-	  temp->dw_loc_oprnd1.v.val_addr = rtl;
-	  temp->dtprel = true;
+	  temp = new_addr_loc_descr (rtl, true);
 
 	  mem_loc_result = new_loc_descr (DW_OP_GNU_push_tls_address, 0, 0);
 	  add_loc_descr (&mem_loc_result, temp);
@@ -16113,8 +16145,7 @@ loc_list_from_tree (tree loc, int want_address)
       if (DECL_THREAD_LOCAL_P (loc))
 	{
 	  rtx rtl;
-	  enum dwarf_location_atom first_op;
-	  enum dwarf_location_atom second_op;
+	  enum dwarf_location_atom tls_op;
 	  bool dtprel = false;
 
 	  if (targetm.have_tls)
@@ -16132,9 +16163,8 @@ loc_list_from_tree (tree loc, int want_address)
 		  operand shouldn't be.  */
 	      if (DECL_EXTERNAL (loc) && !targetm.binds_local_p (loc))
 		return 0;
-	      first_op = DWARF2_ADDR_SIZE == 4 ? DW_OP_const4u : DW_OP_const8u;
 	      dtprel = true;
-	      second_op = DW_OP_GNU_push_tls_address;
+	      tls_op = DW_OP_GNU_push_tls_address;
 	    }
 	  else
 	    {
@@ -16146,8 +16176,7 @@ loc_list_from_tree (tree loc, int want_address)
 		 no longer appear in gimple code.  We used the control
 		 variable in specific so that we could pick it up here.  */
 	      loc = DECL_VALUE_EXPR (loc);
-	      first_op = DW_OP_addr;
-	      second_op = DW_OP_form_tls_address;
+	      tls_op = DW_OP_form_tls_address;
 	    }
 
 	  rtl = rtl_for_decl_location (loc);
@@ -16160,19 +16189,8 @@ loc_list_from_tree (tree loc, int want_address)
 	  if (! CONSTANT_P (rtl))
 	    return 0;
 
-          if (dwarf_split_debug_info && first_op == DW_OP_addr)
-            ret = new_addr_loc_descr (rtl, dtprel);
-          else
-            {
-              ret = new_loc_descr (first_op, 0, 0);
-              ret->dw_loc_oprnd1.val_class = dw_val_class_addr;
-              ret->dw_loc_oprnd1.val_index = -1U;
-              ret->dw_loc_oprnd1.v.val_addr = rtl;
-            }
-
-	  ret->dtprel = dtprel;
-
-	  ret1 = new_loc_descr (second_op, 0, 0);
+	  ret = new_addr_loc_descr (rtl, dtprel);
+	  ret1 = new_loc_descr (tls_op, 0, 0);
 	  add_loc_descr (&ret, ret1);
 
 	  have_address = 1;
@@ -19793,6 +19811,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	{
 	  subr_die = new_die (DW_TAG_subprogram, context_die, decl);
 	  add_AT_specification (subr_die, old_die);
+          add_pubname (decl, subr_die);
 	  if (get_AT_file (old_die, DW_AT_decl_file) != file_index)
 	    add_AT_file (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
@@ -19807,6 +19826,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	add_AT_flag (subr_die, DW_AT_external, 1);
 
       add_name_and_src_coords_attributes (subr_die, decl);
+      add_pubname (decl, subr_die);
       if (debug_info_level > DINFO_LEVEL_TERSE)
 	{
 	  add_prototyped_attribute (subr_die, TREE_TYPE (decl));
@@ -19918,7 +19938,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       }
 #endif
 
-	  add_pubname (decl, subr_die);
 	}
       else
 	{  /* Generate pubnames entries for the split function code
@@ -19940,7 +19959,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		  add_ranges_by_labels (subr_die, fde->dw_fde_second_begin,
 					fde->dw_fde_second_end,
 					&range_list_added, false);
-		  add_pubname (decl, subr_die);
 		  if (range_list_added)
 		    add_ranges (NULL);
 		}
@@ -19962,8 +19980,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 				 fde->dw_fde_begin, false);
 		  add_AT_lbl_id (subr_die, DW_AT_high_pc,
 				 fde->dw_fde_end, false);
-		  /* Add it.   */
-		  add_pubname (decl, subr_die);
 
 		  /* Build a minimal DIE for the secondary section.  */
 		  seg_die = new_die (DW_TAG_subprogram,
@@ -19999,7 +20015,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    {
 	      add_AT_lbl_id (subr_die, DW_AT_low_pc, fde->dw_fde_begin, false);
 	      add_AT_lbl_id (subr_die, DW_AT_high_pc, fde->dw_fde_end, false);
-	      add_pubname (decl, subr_die);
 	    }
 	}
 
@@ -23195,7 +23210,8 @@ output_addr_table (void)
             gcc_assert (targetm.asm_out.output_dwarf_dtprel);
             targetm.asm_out.output_dwarf_dtprel (asm_out_file,
                                                  DWARF2_ADDR_SIZE,
-                                                 AT_addr (node));
+                                                 node->dw_attr_val.v.val_addr);
+            fputc ('\n', asm_out_file);
             break;
           case dw_val_class_lbl_id:
             dw2_asm_output_addr (DWARF2_ADDR_SIZE, AT_lbl (node), "%s", name);
@@ -23949,6 +23965,7 @@ hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
       hash = iterative_hash_rtx (val1->v.val_addr, hash);
       break;
     case DW_OP_GNU_addr_index:
+    case DW_OP_GNU_const_index:
       {
         dw_attr_ref attr = VEC_index (dw_attr_node, addr_index_table,
                                       val1->val_index);
@@ -24116,6 +24133,7 @@ compare_loc_operands (dw_loc_descr_ref x, dw_loc_descr_ref y)
     hash_addr:
       return rtx_equal_p (valx1->v.val_addr, valy1->v.val_addr);
     case DW_OP_GNU_addr_index:
+    case DW_OP_GNU_const_index:
       {
         dw_attr_node *attrx1 = VEC_index (dw_attr_node,
                                           addr_index_table,

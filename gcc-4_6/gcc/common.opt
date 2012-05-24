@@ -2374,8 +2374,12 @@ gdwarf-
 Common Joined UInteger Var(dwarf_version) Init(2) Negative(gstabs)
 Generate debug information in DWARF v2 (or later) format
 
+gno-fission
+Common Driver RejectNegative Var(dwarf_split_debug_info,0) Init(0)
+Don't generate debug information in separate .dwo files
+
 gfission
-Common Driver JoinedOrMissing Var(dwarf_split_debug_info,1)
+Common Driver RejectNegative Var(dwarf_split_debug_info,1)
 Generate debug information in separate .dwo files
 
 ggdb
@@ -2385,6 +2389,14 @@ Generate debug information in default extended format
 gmlt
 Common RejectNegative
 Generate debug information at level 1 with minimal line table
+
+gno-pubnames
+Common RejectNegative Var(debug_generate_pub_sections, 0) Init(-1)
+Don't generate DWARF pubnames and pubtypes sections.
+
+gpubnames
+Common RejectNegative Var(debug_generate_pub_sections, 1)
+Generate DWARF pubnames and pubtypes sections.
 
 gstabs
 Common JoinedOrMissing Negative(gstabs+)

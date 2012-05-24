@@ -185,8 +185,14 @@ cxx_dwarf_name (tree t, int verbosity)
   if (verbosity >= 2)
     return decl_as_string (t,
 			   TFF_DECL_SPECIFIERS | TFF_UNQUALIFIED_NAME
-			   | TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS);
+			   | TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS
+                           | TFF_MATCH_GNU_V3_DEMANGLER);
 
+  /* decl_as_string handles namespaces--especially anonymous ones--more
+     appropriately for debugging than cxx_printable_name.  But
+     cxx_printable_name handles templates and global ctors and dtors better.  */
+  if (TREE_CODE (t) == NAMESPACE_DECL)
+    return decl_as_string (t, TFF_MATCH_GNU_V3_DEMANGLER);
   return cxx_printable_name (t, verbosity);
 }
 
