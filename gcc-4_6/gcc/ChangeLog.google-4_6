@@ -1,3 +1,12 @@
+2012-05-24   Rong Xu  <xur@google.com>
+
+	Backport from google/gcc-4_7 r187856.
+	Google ref b/5733865.
+
+	2012-05-24   Rong Xu  <xur@google.com>
+
+	  * l-ipo.c (create_unique_name): Make temp names demanglable.
+
 2012-05-18   Jing Yu  <jingyu@google.com>
 
 	Backport from trunk r187586:
