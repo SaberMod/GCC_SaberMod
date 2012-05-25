@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <stdio.h>
 
 #include "vtvmalloc.h"
-
-extern "C" {
-
 #include <obstack.h>
+
+/* Set the following macro to 1 to get internal debugging messages */
+#define VTV_DEBUG 0
 
 /* TODO: Need to protect the following variables */
 static struct obstack VTV_obstack;
@@ -36,6 +37,18 @@ VTV_protect (void)
       VTV_error();
     ci = ci->prev;
   }
+#if (VTV_DEBUG == 1)
+  {
+    int count = 0;
+    ci = (struct _obstack_chunk *) current_chunk;
+    while (ci)
+    {
+      count++;
+      ci = ci->prev;
+    }
+    fprintf(stderr, "VTV_protect(): protected %d pages\n", count);
+  }
+#endif
 }
 
 void
@@ -110,4 +123,15 @@ VTV_free (void * ptr)
   /* Do nothing. We dont care about recovering unneded memory */
 }
 
-} /* extern "C" */
+void
+VTV_malloc_stats (void)
+{
+  int count = 0;
+   struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
+  while (ci)
+  {
+    count++;
+    ci = ci->prev;
+  }
+  fprintf(stderr, "VTV_malloc_stats:\n  Page Size = %d bytes\n  Number of pages = %d\n", page_size, count);
+}

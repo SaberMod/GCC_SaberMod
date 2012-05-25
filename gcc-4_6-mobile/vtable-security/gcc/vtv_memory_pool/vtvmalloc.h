@@ -3,7 +3,9 @@
 #ifndef _VTVMALLOC_H
 #define _VTVMALLOC_H 1
 
+#ifdef __cplusplus
 extern "C" {
+#endif
 
 #include <stdlib.h>
 
@@ -15,12 +17,13 @@ extern void VTV_malloc_init ();
 
 extern void * VTV_malloc (size_t size);
 extern void VTV_free (void * ptr);
+extern void VTV_malloc_stats (void);
+
 extern void VTV_protect (void);
 extern void VTV_unprotect (void);
 
-void VTV_protect();
-void VTV_unprotect();
-
+#ifdef __cplusplus
 } /* extern "C" */
+#endif
 
 #endif /* vtvmalloc.h */

@@ -6,6 +6,10 @@
 #include "threaded-hash.h"
 #include "vtv_memory_pool/vtvmalloc.h"
 
+#ifndef __cplusplus
+#error "This file must be compiled with a C++ compiler"
+#endif
+
 int debug_functions = 0;
 int debug_register_pairs = 0;
 int row_length = 30;

@@ -8,8 +8,6 @@
 #include "threaded-hash.h"
 #include "vtv_memory_pool/vtvmalloc.h"
 
-extern "C" {
-
 #define my_malloc VTV_malloc
 #define my_free VTV_free
 
@@ -311,5 +309,3 @@ dump_table_to_vtbl_map_file (struct vlt_hashtable *table,
   free (real_name);
   free (filename);
 }
-
-} /* extern "C" */
