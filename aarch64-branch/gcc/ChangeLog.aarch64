@@ -1,0 +1,76 @@
+2012-05-25  Ian Bolton  <ian.bolton@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen,thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* common/config/aarch64/aarch64-common.c: New file.
+	* config/aarch64/aarch64-arches.def: New file.
+	* config/aarch64/aarch64-builtins.c: New file.
+	* config/aarch64/aarch64-cores.def: New file.
+	* config/aarch64/aarch64-elf-raw.h: New file.
+	* config/aarch64/aarch64-elf.h: New file.
+	* config/aarch64/aarch64-generic.md: New file.
+	* config/aarch64/aarch64-linux.h: New file.
+	* config/aarch64/aarch64-modes.def: New file.
+	* config/aarch64/aarch64-option-extensions.def: New file.
+	* config/aarch64/aarch64-opts.h: New file.
+	* config/aarch64/aarch64-protos.h: New file.
+	* config/aarch64/aarch64-simd.md: New file.
+	* config/aarch64/aarch64-tune.md: New file.
+	* config/aarch64/aarch64.c: New file.
+	* config/aarch64/aarch64.h: New file.
+	* config/aarch64/aarch64.md: New file.
+	* config/aarch64/aarch64.opt: New file.
+	* config/aarch64/arm_neon.h: New file.
+	* config/aarch64/constraints.md: New file.
+	* config/aarch64/gentune.sh: New file.
+	* config/aarch64/iterators.md: New file.
+	* config/aarch64/large.md: New file.
+	* config/aarch64/predicates.md: New file.
+	* config/aarch64/small.md: New file.
+	* config/aarch64/sync.md: New file.
+	* config/aarch64/t-aarch64-linux: New file.
+	* config/aarch64/t-aarch64: New file.
+	* config.gcc: Add AArch64.
+	* configure.ac: Add AArch64 TLS support detection.
+	* configure: Regenerate.
+	* doc/extend.texi (Complex Numbers): Add AArch64.
+	* doc/invoke.texi (AArch64 Options): New.
+	* doc/md.texi (Machine Constraints): Add AArch64.
+
+	* read-rtl.c (rtx_list): New data structure.
+	(int_iterator_mapping): New data structure.
+	(int_iterator_data): New. List of int iterator details.
+	(num_int_iterator_data): New.
+	(ints): New group list.
+	(find_int): New. Find an int iterator in a list.
+	(dummy_uses_int_iterator): Dummy handle.
+	(dummy_apply_int_iterator): Dummy handle.
+	(uses_int_iterator_p): New.
+	(apply_iterator_to_rtx): Handle case for rtx field specifier 'i'.
+	(initialize_iterators): Initialize int iterators data struts.
+	(find_int_iterator): New. Find an Int iterators from a hash-table.
+	(add_int_iterator: Add int iterator to database.
+	(read_rtx): Parse and read int iterators mapping and attributes.
+	Initialize int iterators group's hash-table. Memory management.
+	(read_rtx_code): Handle case for rtl field specifier 'i'.
+	* config/aarch64/aarch64-simd.md
+	(reduc_smax_v4sf, reduc_smin_v4sf): Factor into...
+	(reduc_s<fmaxminv>_v4sf): ...this.
+	(reduc_smax_<mode>, reduc_smin_<mode>): Factor into...
+	(reduc_s<fmaxminv>_<mode>): ...this.
+	(reduc_smax_<mode>, reduc_smin_<mode>, reduc_umax_<mode>,
+	 reduc_umin_<mode>): Factor into...
+	(reduc_<maxminv>_<mode>): ...this.
+	(reduc_smax_v2si, reduc_smin_v2si, reduc_umax_v2si): Factor into...
+	(reduc_<maxminv>_v2si): ...this.
+	* config/aarch64/iterators.md (MAXMINV): New.
+	(FMAXMINV): New.
+	(maxminv): New.
+	(fmaxminv): New.

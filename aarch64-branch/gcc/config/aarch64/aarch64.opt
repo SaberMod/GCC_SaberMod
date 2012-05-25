@@ -1,0 +1,73 @@
+; Machine description for AArch64 architecture.
+; Copyright (C) 2009, 2010, 2011, 2012 Free Software Foundation, Inc.
+; Contributed by ARM Ltd.
+;
+; This file is part of GCC.
+;
+; GCC is free software; you can redistribute it and/or modify it
+; under the terms of the GNU General Public License as published by
+; the Free Software Foundation; either version 3, or (at your option)
+; any later version.
+;
+; GCC is distributed in the hope that it will be useful, but
+; WITHOUT ANY WARRANTY; without even the implied warranty of
+; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+; General Public License for more details.
+;
+; You should have received a copy of the GNU General Public License
+; along with GCC; see the file COPYING3.  If not see
+; <http://www.gnu.org/licenses/>.
+
+HeaderInclude
+config/aarch64/aarch64-opts.h
+
+; The cpu/arch option names to use in cpu/arch selection.
+
+Variable
+const char *aarch64_arch_string
+
+Variable
+const char *aarch64_cpu_string
+
+Variable
+const char *aarch64_tune_string
+
+mbig-endian
+Target Report RejectNegative Mask(BIG_END)
+Assume target CPU is configured as big endian
+
+mgeneral-regs-only
+Target Report RejectNegative Mask(GENERAL_REGS_ONLY)
+Generate code which uses only the general registers
+
+mlittle-endian
+Target Report RejectNegative InverseMask(BIG_END)
+Assume target CPU is configured as little endian
+
+mcmodel=
+Target RejectNegative Joined Var(aarch64_mem_model_string)
+Specify the PIC memory model - tiny, small, compact, medium, large
+
+mstrict-align
+Target Report RejectNegative Mask(STRICT_ALIGN)
+Don't assume that unaligned accesses are handled by the system
+
+momit-leaf-frame-pointer
+Target Report Save Var(flag_omit_leaf_frame_pointer) Init(1)
+Omit the frame pointer in leaf functions
+
+mtls-dialect=
+Target RejectNegative Joined Var(aarch64_tls_dialect_string)
+Use given thread-local storage dialect
+
+march=
+Target RejectNegative Joined Var(aarch64_arch_string)
+-march=ARCH	Use features of architecture ARCH
+
+mcpu=
+Target RejectNegative Joined Var(aarch64_cpu_string)
+-mcpu=CPU	Use features of and optimize for CPU
+
+mtune=
+Target RejectNegative Joined Var(aarch64_tune_string)
+-mtune=CPU	Optimize for CPU
