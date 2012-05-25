@@ -60,17 +60,3 @@
 	(read_rtx): Parse and read int iterators mapping and attributes.
 	Initialize int iterators group's hash-table. Memory management.
 	(read_rtx_code): Handle case for rtl field specifier 'i'.
-	* config/aarch64/aarch64-simd.md
-	(reduc_smax_v4sf, reduc_smin_v4sf): Factor into...
-	(reduc_s<fmaxminv>_v4sf): ...this.
-	(reduc_smax_<mode>, reduc_smin_<mode>): Factor into...
-	(reduc_s<fmaxminv>_<mode>): ...this.
-	(reduc_smax_<mode>, reduc_smin_<mode>, reduc_umax_<mode>,
-	 reduc_umin_<mode>): Factor into...
-	(reduc_<maxminv>_<mode>): ...this.
-	(reduc_smax_v2si, reduc_smin_v2si, reduc_umax_v2si): Factor into...
-	(reduc_<maxminv>_v2si): ...this.
-	* config/aarch64/iterators.md (MAXMINV): New.
-	(FMAXMINV): New.
-	(maxminv): New.
-	(fmaxminv): New.
