@@ -1,3 +1,11 @@
+2012-05-29   Sterling Augustine  <saugustine@google.com>
+	     Cary Coutant  <ccoutant@google.com>
+
+	* gcc/dwarf2out.c (remove_loc_list_addr_table_entries): New function.
+	(is_class_die): Return TRUE for DW_TAG_structure_type.
+	(resolve_addr): Remove address table entries when replacing a
+	location list.
+
 2012-05-24  Sterling Augustine  <saugustine@google.com>
 	    Cary Coutant  <ccoutant@google.com>
 

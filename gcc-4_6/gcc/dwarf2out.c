@@ -7864,6 +7864,19 @@ remove_addr_table_entry (unsigned int i)
   attr->dw_attr = (enum dwarf_attribute) 0;
 }
 
+/* Given a location list, remove all addresses it refers to from the
+   address_table.  */
+
+static void
+remove_loc_list_addr_table_entries (dw_loc_list_ref loc)
+{
+  dw_loc_descr_ref descr;
+
+  for (descr = loc->expr; descr; descr = descr->dw_loc_next)
+    if (descr->dw_loc_oprnd1.val_index != -1U)
+      remove_addr_table_entry (descr->dw_loc_oprnd1.val_index);
+}
+
 /* Add an address constant attribute value to a DIE.  */
 
 static inline void
@@ -10033,7 +10046,8 @@ is_namespace_die (dw_die_ref c)
 static inline bool
 is_class_die (dw_die_ref c)
 {
-  return c && c->die_tag == DW_TAG_class_type;
+  return c && (c->die_tag == DW_TAG_class_type
+	       || c->die_tag == DW_TAG_structure_type);
 }
 
 static char *
@@ -23788,15 +23802,13 @@ resolve_addr (dw_die_ref die)
 		if (!resolve_addr_in_expr ((*curr)->expr))
 		  {
 		    dw_loc_list_ref next = (*curr)->dw_loc_next;
-		    dw_loc_descr_ref l = (*curr)->expr;
 
 		    if (next && (*curr)->ll_symbol)
 		      {
 			gcc_assert (!next->ll_symbol);
 			next->ll_symbol = (*curr)->ll_symbol;
 		      }
-		    if (l->dw_loc_oprnd1.val_index != -1U)
-		      remove_addr_table_entry (l->dw_loc_oprnd1.val_index);
+		    remove_loc_list_addr_table_entries (*curr);
 		    *curr = next;
 		  }
 		else
