@@ -24269,8 +24269,10 @@ index_location_lists (dw_die_ref die)
           {
             dw_attr_node attr;
 
-            /* Don't index an entry that won't be output.  */
-            if (strcmp (curr->begin, curr->end) == 0)
+            /* Don't index an entry that has already been indexed
+	       or won't be output.  */
+            if (curr->begin_index != -1U
+	        || strcmp (curr->begin, curr->end) == 0)
               continue;
 
             attr.dw_attr = DW_AT_location;

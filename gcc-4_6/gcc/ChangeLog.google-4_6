@@ -1,3 +1,8 @@
+2012-05-30   Cary Coutant  <ccoutant@google.com>
+
+	* gcc/dwarf2out.c (index_location_lists): Don't index location
+	lists that have already been indexed.
+
 2012-05-30  Dehao Chen  <dehao@google.com>
 
 	* predict.c (predict_extra_loop_exit): New function to predict for
