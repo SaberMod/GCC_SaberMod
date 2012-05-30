@@ -10,6 +10,7 @@
 #error "This file must be compiled with a C++ compiler"
 #endif
 
+int debug_hash = 1;
 int debug_functions = 0;
 int debug_register_pairs = 0;
 int row_length = 30;
@@ -167,12 +168,13 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
 {
   struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
   vptr obj_vptr = (vptr) test_value;
+  static bool first_time = true;
 
-  /* The two lines below are not really right; they are there, for
-     now, to deal with calls that happen during _init, possibly before
-     the correct __VLTRegisterPair call has been made.  */
-  if (*base_vtbl_ptr == NULL)
-    return test_value;
+  if (first_time && debug_hash)
+    {
+      dump_hashing_statistics ();
+      first_time = false;
+    }
 
   if (vlt_hash_find ((*base_vtbl_ptr), test_value))
     {

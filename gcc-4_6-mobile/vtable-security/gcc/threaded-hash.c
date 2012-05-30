@@ -15,6 +15,18 @@
 #define INITIAL_POWER 4
 #define REHASH_LIMIT 0.8
 
+
+/* Statistics/Profiling numbers (for debugging) */
+
+static unsigned num_tables_allocated = 0;
+static unsigned num_bucket_pointers_allocated = 0;
+static unsigned num_buckets_created = 0;
+static unsigned num_slots_filled = 0;
+static unsigned num_rehashes = 0;
+static unsigned num_rehashed_elements = 0;
+static unsigned size_of_bucket = sizeof (struct vlt_hash_bucket);
+static unsigned size_of_pointer = sizeof (void *);
+
 static uint32_t
 hash_pointer (void *pointer)
 {
@@ -44,6 +56,9 @@ bucket_insert (struct vlt_hash_bucket **slot, void *value)
 
   new_bucket->data = value;
   new_bucket->next = *slot;
+  num_buckets_created++;  /* Debug */
+  if ((*slot) == NULL)    /* Debug */
+    num_slots_filled++;   /* Debug */
 
   *slot = new_bucket;
 }
@@ -57,6 +72,9 @@ rehash_elements (struct vlt_hash_bucket **old_data,
   uint32_t mask = 0xffffffff >> (32 - num_bits);
   struct vlt_hash_bucket *cur_bucket;
   uint32_t num_elements = 0;
+
+  num_rehashes++; /* Debug */
+  num_rehashed_elements += old_size; /* Debug */
 
   for (i = 0; i < old_size; ++i)
     {
@@ -91,6 +109,8 @@ grow_table (struct vlt_hashtable *table)
       (struct vlt_hash_bucket **)
                       my_malloc (new_size * sizeof (struct vlt_hash_bucket *));
   struct vlt_hash_bucket **old_data = table->data;
+
+  num_bucket_pointers_allocated += new_size;
 
   memset (new_data, 0, (new_size * sizeof (struct vlt_hash_bucket *)));
 
@@ -165,6 +185,9 @@ vlt_hash_init_table (void)
   new_table->hash_mask = 0xffffffff >> (32 - INITIAL_POWER);
   new_table->num_elts = 0;
   pthread_mutex_init (&(new_table->mutex), NULL);
+
+  num_tables_allocated++; /* Debug */
+  num_bucket_pointers_allocated += INITIAL_SIZE; /* Debug */
 
   new_table->data =
       (struct vlt_hash_bucket **)
@@ -309,3 +332,31 @@ dump_table_to_vtbl_map_file (struct vlt_hashtable *table,
   free (real_name);
   free (filename);
 }
+
+void
+dump_hashing_statistics (void)
+{
+  FILE *fp = fopen("/tmp/threaded-hash-statistics.log", "w");
+
+  if (fp)
+    {
+      fprintf (fp, "Threaded Hash Table Statistics\n\n");
+      fprintf (fp, "# Hash Tables Created:  %d\n", num_tables_allocated);
+      fprintf (fp, "# Slots Created:  %d\n", num_bucket_pointers_allocated);
+      fprintf (fp, "# Slots Filled:  %d\n", num_slots_filled);
+      fprintf (fp, "# Unused Slots: %d\n",
+               num_bucket_pointers_allocated - num_slots_filled);
+      fprintf (fp, "Slot Size (in bytes): %d\n\n", size_of_pointer);
+
+      fprintf (fp, "# Buckets Created: %d\n", num_buckets_created);
+      fprintf (fp, "# Non-slot buckets (in collision chains): %d\n",
+               num_buckets_created - num_slots_filled);
+      fprintf (fp, "Bucket Size (in bytes):  %d\n\n", size_of_bucket);
+      fprintf (fp, "# of re-hashes that occurred: %d\n", num_rehashes);
+      fprintf (fp, "# of re-hashed elements: %d\n", num_rehashed_elements);
+
+      fclose (fp);
+    }
+}
+
+} /* extern "C" */

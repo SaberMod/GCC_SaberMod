@@ -37,6 +37,7 @@ extern void *vlt_hash_find (struct vlt_hashtable *, void *);
 
 /* for debugging purposes... */
 
+extern void dump_hashing_statistics (void);
 extern void dump_bucket_info (struct vlt_hash_bucket *, uint32_t, uint32_t *, FILE *);
 extern void dump_table_to_file (struct vlt_hashtable *, uint32_t, FILE *);
 extern void dump_table (struct vlt_hashtable *, uint32_t);

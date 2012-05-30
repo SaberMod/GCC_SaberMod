@@ -1,10 +1,28 @@
+2012-05-30  Caroline Tice  <cmtice@google.com>
+
+	* gcc/temp-libgcc.cc (debug_hash): New global variable.
+	(__VerifyVtablePointer):  Removed hack that assumes pointer is
+	valid if data structure is empty. Added call to dump_hashing_statistics
+	on first time through, if flag is set.
+	* gcc/threaded-hash.c:  (num_tables_allocated, num_buckets_created,
+	num_bucket_pointers_allocated, num_slots_filled, num_rehashes,
+	num_rehased_elements, size_of_bucket, size_of_potiner) Added global
+	variables for collecting statistics and profiling information.
+	(bucket_insert): Update num_buckets_created and num_slots_filled.
+	(rehash_elements): Update num_rehashes and num_rehashed_elements.
+	(grow_table): Update num_bucket_poitners_allocated.
+	(vlt_hash_init_table) Update num_tables_allocated and
+	num_bucket_pointers_allocated.
+	(dump_hashing_statistics): New function.
+	* gcc/threaded-hash.h (dump_hashing_statistics): New function decl.
+
 2012-05-23  Luis Lozano  <llozano@google.com>
 
-	* gcc/cp/vtable-class-hierarchy.c: Removed some unneded code for 
+	* gcc/cp/vtable-class-hierarchy.c: Removed some unneded code for
 	handling of template class instances.
 	(vtable_find_or_create_map_decl): Moved routine from class.c file
-	(vtv_save_base_class_info): Moved routine from class.c file and 
-	renamed to be more consistent 
+	(vtv_save_base_class_info): Moved routine from class.c file and
+	renamed to be more consistent
 	* gcc/cp/pt.c: removed unnecessary call to record_template_vtable_info
 	* gcc/cp/cp-tree.h: cleaned up prototypes and renamed to all be
 	prefixed by "vtv_"
@@ -15,7 +33,7 @@
 
 	* gcc/vtv_memory_pool/vtmalloc.c (VTV_malloc_init):  Add code
 	to make sure body of function is never executed more than once.
-	
+
 2012-05-21  Caroline Tice  <cmtice@google.com>
 
 	* gcc/vtv_memory_pool/vtvmalloc.c: Add 'extern "C"'.
