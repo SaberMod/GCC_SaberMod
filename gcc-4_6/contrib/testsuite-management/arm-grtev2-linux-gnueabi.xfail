@@ -10,14 +10,14 @@ FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O0  execution test
 FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O0  execution test
 FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O1  execution test
 FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -Os  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
 FAIL: gcc.dg/tree-prof/switch-case-1.c scan-rtl-dump-times expand "Succ edge[^\n]*count:2000" 1
 FAIL: gcc.dg/vect/vect-multitypes-11.c scan-tree-dump-times vect "vectorized 1 loops" 1
 FAIL: gcc.dg/vect/vect-multitypes-12.c scan-tree-dump-times vect "vectorized 1 loops" 1
@@ -72,3 +72,5 @@ UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -Os  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -Os  -fprofile-use
 FAIL: g++.dg/vect/pr36648.cc scan-tree-dump-times vect "vectorized 1 loops" 1
 FAIL: g++.dg/vect/pr36648.cc scan-tree-dump-times vect "vectorizing stmts using SLP" 1
+ERROR: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "
+UNRESOLVED: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "

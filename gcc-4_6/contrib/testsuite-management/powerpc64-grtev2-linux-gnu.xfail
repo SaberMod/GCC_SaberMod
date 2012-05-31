@@ -34,14 +34,14 @@ FAIL: gcc.dg/sms-8.c scan-rtl-dump-times sms "SMS succeeded" 1
 FAIL: gcc.dg/stack-usage-1.c scan-file foo\t(256|264)\tstatic
 FAIL: gcc.dg/lto/20110201-1 c_lto_20110201-1_0.o-c_lto_20110201-1_0.o link,  -O0 -flto 
 UNRESOLVED: gcc.dg/lto/20110201-1 c_lto_20110201-1_0.o-c_lto_20110201-1_0.o execute  -O0 -flto 
-FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
 FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c scan-ipa-dump-times profile "Indirect call -> direct call" 2
 FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c scan-ipa-dump profile "Indirect call -> direct call.* a1"
 FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "foo"
@@ -101,3 +101,5 @@ FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
 FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
 FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
 FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+ERROR: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "
+UNRESOLVED: g++.dg/cpp0x/variadic-value1.C: syntax error in target selector "target c++11" for " dg-do 2 run { target c++11 } "
