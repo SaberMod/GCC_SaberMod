@@ -1,3 +1,14 @@
+2012-06-01   Doug Kwan  <dougkwan@google.com>
+
+	Backport r171031 from upstream trunk.
+	2011-03-16  Alan Modra  <amodra@gmail.com>
+
+		PR target/45844
+		* config/rs6000/rs6000.c (rs6000_legitimize_reload_address):
+		Don't create invalid offset address for vsx splat insn.
+		* config/rs6000/predicates.md (splat_input_operand): New.
+		* config/rs6000/vsx.md (vsx_splat_*): Use it.
+
 2012-06-01   Diego Novillo  <dnovillo@google.com>
 
 	Merge from gcc-4_6-branch rev 188095.

@@ -1,3 +1,8 @@
+2012-06-01   Doug Kwan  <dougkwan@google.com>
+
+	* contrib/testsuite-management/powerpc64-grtev2-linux-gnu.xfail:
+	Remove expected failures because now the bug is fixed.
+
 2012-05-31   Doug Kwan  <dougkwan@google.com>
 
 	* contrib/testsuite-management/powerpc64-grtev2-linux-gnu.xfail:
