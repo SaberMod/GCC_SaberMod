@@ -227,7 +227,7 @@ static tree *vtable_var_decl_array;
 static int vtable_var_decl_array_max = 0;
 static int vtable_var_decl_array_entries = 0;
 
-tree
+static tree
 find_vtable_map_decl (tree var_id)
 {
   int idx;
@@ -384,10 +384,9 @@ verify_bb_vtables (basic_block bb)
                       tree t = NULL_TREE;
                       struct gimplify_ctx gctx;
                       tree arg4 = TREE_OPERAND (rhs, 0);
-                      char *vtable_name = "<unknown>";
+                      const char *vtable_name = "<unknown>";
                       int len1 = 0;
                       int len2 = 0;
-		      bool debug =1;
 
                       while (TREE_CODE (arg4) == COMPONENT_REF)
                         arg4 = TREE_OPERAND (arg4, 0);

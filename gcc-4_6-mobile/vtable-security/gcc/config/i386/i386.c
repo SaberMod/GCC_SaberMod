@@ -8962,8 +8962,10 @@ ix86_code_end (void)
   rtx xops[2];
   int regno;
 
+  /* TODO: Do we need this? 
   if (flag_vtable_verify)
     ix86_vtable_security_code_end ();
+  */
 
   for (regno = AX_REG; regno <= SP_REG; regno++)
     {

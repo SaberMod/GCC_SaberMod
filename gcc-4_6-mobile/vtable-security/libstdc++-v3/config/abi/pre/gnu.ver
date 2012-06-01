@@ -1277,6 +1277,9 @@ GLIBCXX_3.4.16 {
     # basic_stringbuf<>::_M_pbump
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE8_M_pbumpE*;
 
+    # virtual table maps for vtable-verification
+    _ZTV*.vtable_map;
+
 } GLIBCXX_3.4.15;
 
 # Symbols in the support library (libsupc++) have their own tag.

@@ -10,11 +10,11 @@
 #error "This file must be compiled with a C++ compiler"
 #endif
 
-int debug_hash = 1;
-int debug_functions = 0;
-int debug_register_pairs = 0;
-int row_length = 30;
-FILE *log_file_fp =NULL;
+static int debug_hash = 1;
+static int debug_functions = 0;
+static int debug_register_pairs = 0;
+static int row_length = 30;
+static FILE *log_file_fp =NULL;
 
 void *
 __VLTChangePermission (char *arg1, int len)
@@ -179,7 +179,7 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
   if (vlt_hash_find ((*base_vtbl_ptr), test_value))
     {
       if (debug_functions)
-	fprintf (stdout, "Verified object vtable pointer.\n");
+	fprintf (stdout, "Verified object vtable pointer = 0x%lx\n", obj_vptr);
     }
   else
     {
@@ -188,7 +188,7 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       if (base_vtbl_var_name && vtable_name)
 	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
 				 vtable_name, base_vtbl_var_name);
-      fprintf (stderr, "FAILED to verify object vtable pointer=0x%x!!!\n",
+      fprintf (stderr, "FAILED to verify object vtable pointer=0x%lx!!!\n",
                obj_vptr);
       dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
                                    len1);

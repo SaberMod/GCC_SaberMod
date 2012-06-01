@@ -532,19 +532,36 @@ register_all_pairs (struct node *root, tree body)
 	  tree vtable = NULL_TREE;
           tree vtable_decl;
           bool vtable_should_be_output = false;
+          bool debug = false;
 
 	  if (binfo)
 	    vtable = BINFO_VTABLE (binfo);
 
+          if (debug)
+          {
+            fprintf(stderr, "register_all_pairs: looking at class:\n");
+            debug_tree(current->class_type);
+          }
+          
           vtable_decl = CLASSTYPE_VTABLES (current->class_type);
 
           /* Handle main vtable for this class. */
-
           if (vtable_decl)
             {
               struct varpool_node *node = varpool_node (vtable_decl);
-              vtable_should_be_output = node->needed;
+              if (debug)
+              {
+                fprintf(stderr,"Varpool node:\n");
+                debug_varpool_node(node);
+              }
+              vtable_should_be_output = node->needed; 
             }
+
+          if (debug)
+          {
+            fprintf(stderr, "register_all_pairs: the vtable is (should be output=%s):\n", vtable_should_be_output ? "yes": "no");
+            debug_tree(vtable_decl);
+          }
 
           if (vtable_decl && vtable_should_be_output && BINFO_VTABLE (binfo))
             {
@@ -565,6 +582,12 @@ register_all_pairs (struct node *root, tree body)
 
               if (!already_registered)
                 {
+                  if (debug)
+                  {
+                    fprintf(stderr, "register_all_pairs: building register pair call for vtable:\n");
+                    debug_tree(vtable_decl);
+                  }
+
                   new_type = build_pointer_type (TREE_TYPE
                                                    (base_ptr_var_decl));
                   arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);

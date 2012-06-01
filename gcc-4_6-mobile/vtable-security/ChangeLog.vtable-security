@@ -1,3 +1,20 @@
+2012-06-01  Luis Lozano  <llozano@google.com>
+
+	* gcc/cgraph.h (debug_varpool_node): add this new routine to be able do
+	dump information about a single node in the varpool.
+	* gcc/varpool.c (debug_varpool_node): add this new routine to be able do
+	dump information about a single node in the varpool.
+	* gcc/config/i386/i386.c (ix86_code_end): disable code to generate
+	fake entry points for the vtable verification runtime library entry points
+	* gcc/cp/vtable-class-hierarchy.c (register_all_pairs): added some debug
+	traces
+	* gcc/temp-libgcc.cc: made some declarations static.
+	(__VerifyVtablePointer): Improved some trace messages
+	* gcc/tree-vtable-verify.c (find_vtable_map_decl): Fixed a couple of
+	compile-time warnings.
+	* libstdc++-v3/config/abi/pre/gnu.ver: added rule so that vtable_map
+	variables are not marked as LOCAL.
+
 2012-05-30  Caroline Tice  <cmtice@google.com>
 
 	* gcc/temp-libgcc.cc (debug_hash): New global variable.
