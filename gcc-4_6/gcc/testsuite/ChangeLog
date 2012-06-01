@@ -1,3 +1,54 @@
+2012-05-23  Michael Hope  <michael.hope@linaro.org>
+
+	PR c++/52796
+	* g++.dg/cpp0x/variadic-value1.C: Change selector for explicit
+	options.
+
+2012-05-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/53389
+	* gfortran.dg/realloc_on_assign_15.f90: New.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-11-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/51071
+	* gcc.dg/torture/pr51071.c: New testcase.
+	* gcc.dg/torture/pr51071-2.c: Likewise.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-02-28  Richard Guenther  <rguenther@suse.de>
+
+	PR target/52407
+	* gcc.dg/torture/pr52407.c: New testcase.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-04-12  Richard Guenther  <rguenther@suse.de>
+
+	PR c/52862
+	* gcc.dg/pr52862.c: New testcase.
+
+2012-05-21  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/53418
+	* gcc.c-torture/compile/pr53418-1.c,
+	gcc.c-torture/compile/pr53418-2.c: New tests.
+
+2012-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-05-21  Uros Bizjak  <ubizjak@gmail.com>
+		    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/53416
+	* gcc.target/i386/pr53416.c: New file.
+
 2012-05-14  Uros Bizjak  <ubizjak@gmail.com>
 
 	* gcc.target/i386/avx256-unaligned-load-[1234].c: Update scan strings.

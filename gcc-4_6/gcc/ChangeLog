@@ -1,3 +1,71 @@
+2012-05-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53541
+	* tree-pretty-print.c (dump_generic_node): Guard against
+	NULL_TREE TREE_TYPE when dumping MEM_REF offset type.
+
+2012-05-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+        2012-05-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/53385
+	* config/rs6000/rs6000.c (print_operand): Revise code that unsafely
+	relied on signed overflow behavior.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2011-11-10  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/51071
+	* gimple.c (gimple_has_side_effects): Remove checking code
+	that doesn't belong here.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-02-28  Richard Guenther  <rguenther@suse.de>
+
+	PR target/52407
+	* config/i386/i386.c (ix86_expand_vector_set): Fix element
+	ordering for the VEC_CONCAT for two element vectors for
+	V2SFmode, V2SImode and V2DImode.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-04-12  Richard Guenther  <rguenther@suse.de>
+
+	PR c/52862
+	* convert.c (convert_to_pointer): Remove special-casing of
+	zero.
+
+2012-05-21  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/53418
+	* c-typeck.c (build_conditional_expr): Remove C_MAYBE_CONST_EXPR
+	from folded operands before wrapping another around the
+	conditional expression.
+
+2012-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/53416
+	* config/i386/i386.md (UNSPEC_RDRAND): Renamed to ...
+	(UNSPECV_RDRAND): This.
+	(rdrand<mode>_1): Updated.
+
+2012-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Support
+	RDRND, F16C and FSGSBASE.
+
 2012-05-16  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* configure: Regenerate.

@@ -1,3 +1,7 @@
+2012-06-01   Diego Novillo  <dnovillo@google.com>
+
+	Merge from gcc-4_6-branch rev 188095.
+
 2012-05-30   Cary Coutant  <ccoutant@google.com>
 
 	* gcc/dwarf2out.c (index_location_lists): Don't index location
