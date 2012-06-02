@@ -1,3 +1,11 @@
+2012-06-01   Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main r188134.
+	2012-06-01   Teresa Johnson  <tejohnson@google.com>
+
+        * libgcov.c: Add references to gcov_reset and gcov_dump
+	        from L_gcov section.
+
 2012-06-01   Doug Kwan  <dougkwan@google.com>
 
 	Backport r171031 from upstream trunk.
