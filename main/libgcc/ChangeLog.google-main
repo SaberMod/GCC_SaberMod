@@ -1,3 +1,8 @@
+2012-06-01   Teresa Johnson  <tejohnson@google.com>
+
+	* libgcov.c: Add references to gcov_reset and gcov_dump
+        from L_gcov section.
+
 2012-05-15   Teresa Johnson  <tejohnson@google.com>
 
 	* libgcov.c (__gcov_sampling_period): Rename variable from "*rate*"
