@@ -1,5 +1,11 @@
 2012-06-03  Caroline Tice  <cmtice@google.com>
 
+	* gcc/config/i386/i386.c (ix86_vtable_security_code_end): Remove
+	function.
+	(ix86_code_end):  Remove call to ix86_vtable_security_code_end.
+	
+2012-06-03  Caroline Tice  <cmtice@google.com>
+
 	* gcc/temp-libgcc.cc (__VerifyVtablePointer):  Put hack back in
 	for the moment, to allow various things to build and run, until
 	the more permanent fix is done.
