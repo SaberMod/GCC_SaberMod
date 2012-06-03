@@ -4117,25 +4117,30 @@ cp_write_global_declarations (void)
 	}
 
       sprintf (temp_name, "%.50s.vtable", cptr);
-      for (cptr = temp_name, i = 0; 
-	   (cptr[0] != '\0') && (i < 50); 
+      for (cptr = temp_name, i = 0;
+	   (cptr[0] != '\0') && (i < 50);
 	   cptr++, i++)
 	if ((cptr[0] == '/') || (cptr[0] == '-') || (cptr[0] == '+'))
 	  cptr[0] = '_';
 
       push_lang_context (lang_name_c);
-      body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, 
+      body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
 			    (const char *) temp_name);
       vtable_classes_found = vtv_register_class_hierarchy_information (body);
       if (vtable_classes_found)
         {
-          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY + 1, body);
+          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, body);
           current_function_decl = vtable_verify_init_fn;
           allocate_struct_function (current_function_decl, false);
           TREE_STATIC (current_function_decl) = 1;
           TREE_USED (current_function_decl) = 1;
           TREE_PUBLIC (current_function_decl) = 1;
           DECL_PRESERVE_P (current_function_decl) = 1;
+          if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+            {
+              DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
+              assemble_vtv_preinit_initializer (current_function_decl);
+            }
           gimplify_function_tree (current_function_decl);
           cgraph_add_new_function (current_function_decl, false);
           cgraph_process_new_functions ();
