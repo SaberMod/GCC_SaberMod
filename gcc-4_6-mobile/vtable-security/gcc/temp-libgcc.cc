@@ -170,6 +170,9 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
   vptr obj_vptr = (vptr) test_value;
   static bool first_time = true;
 
+  if ((*data_pointer) == NULL)
+    return test_value;
+
   if (first_time && debug_hash)
     {
       dump_hashing_statistics ();
@@ -198,5 +201,5 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       abort ();
     }
 
-  return obj_vptr;
+  return test_value;
 }
