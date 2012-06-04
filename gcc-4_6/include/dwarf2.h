@@ -750,6 +750,17 @@ enum dwarf_line_number_x_ops
     DW_LNE_hi_user = 0xff
   };
 
+/* Type codes for location list entries.
+   Extension for Fission.  See http://gcc.gnu.org/wiki/DebugFission.  */
+
+enum dwarf_location_list_entry_type
+  {
+    DW_LLE_end_of_list_entry = 0,
+    DW_LLE_base_address_selection_entry = 1,
+    DW_LLE_start_end_entry = 2,
+    DW_LLE_start_length_entry = 3
+  };
+
 /* Call frame information.  */
 enum dwarf_call_frame_info
   {

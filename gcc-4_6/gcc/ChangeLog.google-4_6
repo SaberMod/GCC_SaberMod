@@ -1,3 +1,26 @@
+2012-06-04  Mark Wielaard  <mjw@redhat.com>
+	    Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (enum dw_val_class): Add dw_val_class_high_pc.
+	(struct dw_loc_list_struct): Remove end_index.
+	(add_AT_low_high_pc): New function.
+	(AT_lbl): Handle dw_val_class_high_pc.
+	(print_die): Likewise.
+	(attr_checksum): Likewise.
+	(attr_checksum_ordered): Likewise.
+	(same_dw_val_p): Likewise.
+	(size_of_die): Likewise.
+	(value_format): Likewise.
+	(new_loc_list): Remove end_index.
+	(output_loc_list): Use new DW_LLE_start_length_entry format.
+	(output_die): Handle dw_val_class_high_pc.
+	(gen_subprogram_die): Use add_AT_low_high_pc.
+	(add_high_low_attributes): Likewise.
+	(compare_loc_operands): Relax irrelevant assertion when splitting
+	DWARF.
+	(index_location_lists): Remove end_index.
+	(dwarf2out_finish): Use add_AT_low_high_pc.
+
 2012-06-01   Teresa Johnson  <tejohnson@google.com>
 
 	Backport from google/main r188134.

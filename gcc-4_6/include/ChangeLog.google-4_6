@@ -1,3 +1,7 @@
+2012-06-04  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2.h (enum dwarf_location_list_entry_type): New enum.
+
 2012-05-24  Sterling Augustine  <saugustine@google.com>
 	    Cary Coutant  <ccoutant@google.com>
 

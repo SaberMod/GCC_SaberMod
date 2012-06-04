@@ -4366,7 +4366,8 @@ enum dw_val_class
   dw_val_class_file,
   dw_val_class_data8,
   dw_val_class_decl_ref,
-  dw_val_class_vms_delta
+  dw_val_class_vms_delta,
+  dw_val_class_high_pc
 };
 
 /* Describe a floating point constant value, or a vector constant value.  */
@@ -4438,8 +4439,7 @@ typedef struct GTY(()) dw_loc_list_struct {
   dw_loc_list_ref dw_loc_next;
   const char *begin; /* Label and index for begin address of range */
   unsigned int begin_index;
-  const char *end;  /* Label and index for end address of range */
-  unsigned int end_index;
+  const char *end;  /* Label for end address of range */
   char *ll_symbol; /* Label for beginning of location list.
 		      Only on head of list */
   const char *section; /* Section this loclist is relative to */
@@ -7566,6 +7566,26 @@ add_AT_data8 (dw_die_ref die, enum dwarf_attribute attr_kind,
   add_dwarf_attr (die, &attr);
 }
 
+/* Add DW_AT_low_pc and DW_AT_high_pc to a DIE.  */
+static inline void
+add_AT_low_high_pc (dw_die_ref die, const char *lbl_low, const char *lbl_high)
+{
+  dw_attr_node attr;
+
+  attr.dw_attr = DW_AT_low_pc;
+  attr.dw_attr_val.val_class = dw_val_class_lbl_id;
+  attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_low);
+  add_dwarf_attr (die, &attr);
+
+  attr.dw_attr = DW_AT_high_pc;
+  if (dwarf_version < 4)
+    attr.dw_attr_val.val_class = dw_val_class_lbl_id;
+  else
+    attr.dw_attr_val.val_class = dw_val_class_high_pc;
+  attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_high);
+  add_dwarf_attr (die, &attr);
+}
+
 /* Hash and equality functions for debug_str_hash.  */
 
 static hashval_t
@@ -8048,7 +8068,8 @@ AT_lbl (dw_attr_ref a)
 {
   gcc_assert (a && (AT_class (a) == dw_val_class_lbl_id
 		    || AT_class (a) == dw_val_class_lineptr
-		    || AT_class (a) == dw_val_class_macptr));
+		    || AT_class (a) == dw_val_class_macptr
+		    || AT_class (a) == dw_val_class_high_pc));
   return a->dw_attr_val.v.val_lbl_id;
 }
 
@@ -8902,6 +8923,7 @@ print_die (dw_die_ref die, FILE *outfile)
 	case dw_val_class_lbl_id:
 	case dw_val_class_lineptr:
 	case dw_val_class_macptr:
+	case dw_val_class_high_pc:
 	  fprintf (outfile, "label: %s", AT_lbl (a));
 	  break;
 	case dw_val_class_str:
@@ -9081,6 +9103,7 @@ attr_checksum (dw_attr_ref at, struct md5_ctx *ctx, int *mark)
     case dw_val_class_lbl_id:
     case dw_val_class_lineptr:
     case dw_val_class_macptr:
+    case dw_val_class_high_pc:
       break;
 
     case dw_val_class_file:
@@ -9353,6 +9376,7 @@ attr_checksum_ordered (enum dwarf_tag tag, dw_attr_ref at,
     case dw_val_class_lbl_id:
     case dw_val_class_lineptr:
     case dw_val_class_macptr:
+    case dw_val_class_high_pc:
       break;
 
     case dw_val_class_file:
@@ -9812,6 +9836,7 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
     case dw_val_class_lbl_id:
     case dw_val_class_lineptr:
     case dw_val_class_macptr:
+    case dw_val_class_high_pc:
       return 1;
 
     case dw_val_class_file:
@@ -11093,6 +11118,9 @@ size_of_die (dw_die_ref die)
 	case dw_val_class_vms_delta:
 	  size += DWARF_OFFSET_SIZE;
 	  break;
+	case dw_val_class_high_pc:
+	  size += DWARF2_ADDR_SIZE;
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -11381,6 +11409,17 @@ value_format (dw_attr_ref a)
     case dw_val_class_data8:
       return DW_FORM_data8;
 
+    case dw_val_class_high_pc:
+      switch (DWARF2_ADDR_SIZE)
+	{
+	  case 4:
+	    return DW_FORM_data4;
+	  case 8:
+	    return DW_FORM_data8;
+	  default:
+	    gcc_unreachable ();
+	}
+
     default:
       gcc_unreachable ();
     }
@@ -11472,7 +11511,6 @@ new_loc_list (dw_loc_descr_ref expr, const char *begin, const char *end,
   retlist->begin = begin;
   retlist->begin_index = -1U;
   retlist->end = end;
-  retlist->end_index = -1U;
   retlist->expr = expr;
   retlist->section = section;
 
@@ -11518,13 +11556,18 @@ output_loc_list (dw_loc_list_ref list_head)
 	continue;
       if (dwarf_split_debug_info)
         {
-          dw2_asm_output_data (1, 2,
-                               "Location list normal entry (%s)",
+          dw2_asm_output_data (1, DW_LLE_start_length_entry,
+                               "Location list start/length entry (%s)",
                                list_head->ll_symbol);
           dw2_asm_output_data_uleb128 (curr->begin_index,
-                                       "Begin addr index to %s", curr->begin);
-          dw2_asm_output_data_uleb128 (curr->end_index,
-                                       "End addr index to %s", curr->end);
+                                       "Location list range start index (%s)",
+                                       curr->begin);
+          /* The length field is 4 bytes.  If we ever need to support
+	     an 8-byte length, we can add a new DW_LLE code or fall back
+	     to DW_LLE_start_end_entry.  */
+          dw2_asm_output_delta (4, curr->end, curr->begin,
+				"Location list range length (%s)",
+				list_head->ll_symbol);
         }
       else if (!have_multiple_function_sections)
 	{
@@ -11552,12 +11595,19 @@ output_loc_list (dw_loc_list_ref list_head)
       output_loc_sequence (curr->expr, -1);
     }
 
-  dw2_asm_output_data (dwarf_split_debug_info ? 1 : DWARF2_ADDR_SIZE, 0,
-		       "Location list terminator begin (%s)",
-		       list_head->ll_symbol);
-  dw2_asm_output_data (dwarf_split_debug_info ? 1 : DWARF2_ADDR_SIZE, 0,
-		       "Location list terminator end (%s)",
-		       list_head->ll_symbol);
+  if (dwarf_split_debug_info)
+    dw2_asm_output_data (1, DW_LLE_end_of_list_entry,
+			 "Location list terminator (%s)",
+			 list_head->ll_symbol);
+  else
+    {
+      dw2_asm_output_data (DWARF2_ADDR_SIZE, 0,
+			   "Location list terminator begin (%s)",
+			   list_head->ll_symbol);
+      dw2_asm_output_data (DWARF2_ADDR_SIZE, 0,
+			   "Location list terminator end (%s)",
+			   list_head->ll_symbol);
+    }
 }
 
 /* Output the offset into the debug_range section.  */
@@ -11875,6 +11925,11 @@ output_die (dw_die_ref die)
 				   i == 0 ? "%s" : NULL, name);
 	    break;
 	  }
+
+	case dw_val_class_high_pc:
+	  dw2_asm_output_delta (DWARF2_ADDR_SIZE, AT_lbl (a),
+				get_AT_low_pc (die), "DW_AT_high_pc");
+	  break;
 
 	default:
 	  gcc_unreachable ();
@@ -19913,19 +19968,18 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (fde->dw_fde_begin)
 	    {
 	      /* We have already generated the labels.  */
-	      add_AT_lbl_id (subr_die, DW_AT_low_pc, fde->dw_fde_begin, false);
-	      add_AT_lbl_id (subr_die, DW_AT_high_pc, fde->dw_fde_end, false);
+	      add_AT_low_high_pc (subr_die, fde->dw_fde_begin, fde->dw_fde_end);
 	    }
 	  else
 	    {
 	      /* Create start/end labels and add the range.  */
-	      char label_id[MAX_ARTIFICIAL_LABEL_BYTES];
-	      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_BEGIN_LABEL,
+	      char label_id_low[MAX_ARTIFICIAL_LABEL_BYTES];
+	      char label_id_high[MAX_ARTIFICIAL_LABEL_BYTES];
+	      ASM_GENERATE_INTERNAL_LABEL (label_id_low, FUNC_BEGIN_LABEL,
 					   FUNC_LABEL_ID (cfun));
-	      add_AT_lbl_id (subr_die, DW_AT_low_pc, label_id, false);
-	      ASM_GENERATE_INTERNAL_LABEL (label_id, FUNC_END_LABEL,
+	      ASM_GENERATE_INTERNAL_LABEL (label_id_high, FUNC_END_LABEL,
 					   FUNC_LABEL_ID (cfun));
-	      add_AT_lbl_id (subr_die, DW_AT_high_pc, label_id, false);
+	      add_AT_low_high_pc (subr_die, label_id_low, label_id_high);
 	    }
 
 #if VMS_DEBUGGING_INFO
@@ -19990,10 +20044,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		  dw_die_ref seg_die;
 
 		  /* Do the 'primary' section.   */
-		  add_AT_lbl_id (subr_die, DW_AT_low_pc,
-				 fde->dw_fde_begin, false);
-		  add_AT_lbl_id (subr_die, DW_AT_high_pc,
-				 fde->dw_fde_end, false);
+		  add_AT_low_high_pc (subr_die, fde->dw_fde_begin,
+				      fde->dw_fde_end);
 
 		  /* Build a minimal DIE for the secondary section.  */
 		  seg_die = new_die (DW_TAG_subprogram,
@@ -20017,19 +20069,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		    add_AT_flag (seg_die, DW_AT_artificial, 1);
 
 		  name = concat ("__second_sect_of_", name, NULL); 
-		  add_AT_lbl_id (seg_die, DW_AT_low_pc,
-				 fde->dw_fde_second_begin, false);
-		  add_AT_lbl_id (seg_die, DW_AT_high_pc,
-				 fde->dw_fde_second_end, false);
+		  add_AT_low_high_pc (seg_die, fde->dw_fde_second_begin,
+				      fde->dw_fde_second_end);
 		  add_name_attribute (seg_die, name);
 		  add_pubname_string (name, seg_die);
 		}
 	    }
 	  else
-	    {
-	      add_AT_lbl_id (subr_die, DW_AT_low_pc, fde->dw_fde_begin, false);
-	      add_AT_lbl_id (subr_die, DW_AT_high_pc, fde->dw_fde_end, false);
-	    }
+	    add_AT_low_high_pc (subr_die, fde->dw_fde_begin, fde->dw_fde_end);
 	}
 
 #ifdef MIPS_DEBUGGING_INFO
@@ -20558,12 +20605,12 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
     }
   else
     {
+      char label_high[MAX_ARTIFICIAL_LABEL_BYTES];
       ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_BEGIN_LABEL,
 				   BLOCK_NUMBER (stmt));
-      add_AT_lbl_id (die, DW_AT_low_pc, label, false);
-      ASM_GENERATE_INTERNAL_LABEL (label, BLOCK_END_LABEL,
+      ASM_GENERATE_INTERNAL_LABEL (label_high, BLOCK_END_LABEL,
 				   BLOCK_NUMBER (stmt));
-      add_AT_lbl_id (die, DW_AT_high_pc, label, false);
+      add_AT_low_high_pc (die, label, label_high);
     }
 }
 
@@ -24111,9 +24158,12 @@ compare_loc_operands (dw_loc_descr_ref x, dw_loc_descr_ref y)
       return valx1->v.val_int == valy1->v.val_int;
     case DW_OP_skip:
     case DW_OP_bra:
+      /* If splitting debug info, the use of DW_OP_GNU_addr_index
+         can cause irrelevant differences in dw_loc_addr.  */
       gcc_assert (valx1->val_class == dw_val_class_loc
 		  && valy1->val_class == dw_val_class_loc
-		  && x->dw_loc_addr == y->dw_loc_addr);
+		  && (dwarf_split_debug_info
+		      || x->dw_loc_addr == y->dw_loc_addr));
       return valx1->v.val_loc->dw_loc_addr == valy1->v.val_loc->dw_loc_addr;
     case DW_OP_implicit_value:
       if (valx1->v.val_unsigned != valy1->v.val_unsigned
@@ -24280,9 +24330,6 @@ index_location_lists (dw_die_ref die)
             attr.dw_attr_val.val_index = -1U;
             attr.dw_attr_val.v.val_lbl_id = xstrdup (curr->begin);
             curr->begin_index = add_addr_table_entry (&attr);
-
-            attr.dw_attr_val.v.val_lbl_id = xstrdup (curr->end);
-            curr->end_index = add_addr_table_entry (&attr);
           }
       }
 
@@ -24462,12 +24509,8 @@ dwarf2out_finish (const char *filename)
      in .text.  */
   if (!have_multiple_function_sections 
       || (dwarf_version < 3 && dwarf_strict))
-    {
-      add_AT_lbl_id (main_comp_unit_die, DW_AT_low_pc, text_section_label,
-		     true);
-      add_AT_lbl_id (main_comp_unit_die, DW_AT_high_pc, text_end_label, true);
-    }
-
+    add_AT_low_high_pc (main_comp_unit_die, text_section_label,
+			text_end_label);
   else
     {
       unsigned fde_idx = 0;
