@@ -214,6 +214,7 @@ enum opt_info_verbosity_levels {
 
 /* flag_vtable_verify initialization levels.  */
 enum vtv_priority {
+  VTV_NO_PRIORITY       = 0,  /* I.e. Do NOT do vtable verification.  */
   VTV_STANDARD_PRIORITY = 1,
   VTV_PREINIT_PRIORITY  = 2
 };

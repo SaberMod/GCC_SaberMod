@@ -2254,7 +2254,7 @@ EnumValue
 Enum(symbol_visibility) String(protected) Value(VISIBILITY_PROTECTED)
 
 fvtable-verify=
-Common Joined RejectNegative Enum(vtv_priority) Var(flag_vtable_verify) Init(VTV_STANDARD_PRIORITY)
+Common Joined RejectNegative Enum(vtv_priority) Var(flag_vtable_verify) Init(VTV_NO_PRIORITY)
 Validate vtable pointers before using them.
 
 Enum

@@ -1,9 +1,28 @@
+2012-06-04  Caroline Tice  <cmtice@google.com>
+
+	* gcc/flag-types.h (enum vtv_priority): Add VTV_NO_PRIORITY,
+	to allow the flag to be turned off.
+	* gcc/common.opt (fvtable-verify):  Set the default
+	initialization to VTV_NO_PRIORITY, so the vtable verification
+	is not turned on by default.
+	
+2012-06-03  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/decl2.c (cp_write_global_declarations):  Change vtable
+	initializaiton priority to MAX_RESERVED_INIT - 1; Add code to
+	put initializer in .preinit_array, if specified by flag.
+	* gcc/flag-tyeps.h (enum vtv_priority):  Add new enum.
+	* gcc/common.opt (fvtable-verify): Modify flag to take an enum
+	argument.  Add the enum information for vtv_priority enums.
+	* gcc/varasm.c (assemble_vtv_preinit_initializer):  New function.
+	* gcc/output.h (assemble_vtv_preinit_initializer): New function decl.
+
 2012-06-03  Caroline Tice  <cmtice@google.com>
 
 	* gcc/config/i386/i386.c (ix86_vtable_security_code_end): Remove
 	function.
 	(ix86_code_end):  Remove call to ix86_vtable_security_code_end.
-	
+
 2012-06-03  Caroline Tice  <cmtice@google.com>
 
 	* gcc/temp-libgcc.cc (__VerifyVtablePointer):  Put hack back in
