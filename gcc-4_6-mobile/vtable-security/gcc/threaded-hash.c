@@ -358,5 +358,3 @@ dump_hashing_statistics (void)
       fclose (fp);
     }
 }
-
-} /* extern "C" */
