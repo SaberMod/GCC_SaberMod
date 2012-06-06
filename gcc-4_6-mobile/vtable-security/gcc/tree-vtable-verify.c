@@ -2,9 +2,6 @@
    Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
-   Contributed by Razya Ladelsky <RAZYA@il.ibm.com> and Martin Jambor
-   <mjambor@suse.cz>
-
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
@@ -45,12 +42,261 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "langhooks.h"
 
+#include "tree-vtable-verify.h"
+
+unsigned num_vtable_map_nodes = 0;
+bool any_verification_calls_generated = false;
+
 static GTY(()) tree verify_vtbl_ptr_fndecl = NULL_TREE;
 
 unsigned int vtable_verify_main (void);
 static bool gate_tree_vtable_verify (void);
 static void build_vtable_verify_fndecl (void);
 static tree my_build1 (enum tree_code, tree, tree);
+
+bool
+vtbl_map_node_registration_find (struct vtbl_map_node *node,
+                                 tree vtable_decl,
+                                 unsigned offset)
+{
+  struct vtable_registration key;
+  struct vtable_registration **slot;
+
+  gcc_assert (node);
+  gcc_assert (node->registered);
+
+  key.vtable_decl = vtable_decl;
+  slot = (struct vtable_registration **) htab_find_slot (node->registered,
+                                                         &key, NO_INSERT);
+
+  if (slot && (*slot) && (*slot)->offsets)
+    {
+      unsigned i;
+      for (i = 0; i < (*slot)->cur_offset; ++i)
+        if ((*slot)->offsets[i] == offset)
+          return true;
+    }
+
+  return false;
+}
+
+void
+vtbl_map_node_registration_insert (struct vtbl_map_node *node,
+                                   tree vtable_decl,
+                                   unsigned offset)
+{
+  struct vtable_registration key;
+  struct vtable_registration **slot;
+
+  if (!node || !(node->registered))
+    return;
+
+  key.vtable_decl = vtable_decl;
+  slot = (struct vtable_registration **) htab_find_slot (node->registered,
+                                                         &key, INSERT);
+
+  if (!(*slot))
+    {
+      unsigned i;
+      struct vtable_registration *node;
+      node = (struct vtable_registration *)
+                                 xmalloc (sizeof (struct vtable_registration));
+      node->vtable_decl = vtable_decl;
+      node->offsets = (unsigned *) xmalloc (10 * sizeof (unsigned));
+      for (i= 0; i < 10; ++i)
+        node->offsets[i] = 0;
+      node->offsets[0] = offset;
+      node->cur_offset = 1;
+      node->max_offsets = 10;
+      *slot = node;
+    }
+  else
+    {
+      /* We found the vtable_decl slot; we need to see if it already
+         contains the offset.  If not, we need to add the offset.  */
+      unsigned i;
+      bool found = false;
+      for (i = 0; (i < (*slot)->cur_offset) && !found; ++i)
+        if ((*slot)->offsets[i] == offset)
+          found = true;
+
+      if (!found)
+        {
+          if ((*slot)->cur_offset == (*slot)->max_offsets)
+            {
+              unsigned new_max = 2 * (*slot)->max_offsets;
+              (*slot)->offsets = (unsigned *)
+                  xrealloc ((*slot)->offsets, new_max * sizeof (unsigned));
+
+              for (i = (*slot)->max_offsets; i < new_max; ++i)
+                (*slot)->offsets[i] = 0;
+              (*slot)->max_offsets = new_max;
+            }
+          (*slot)->offsets[(*slot)->cur_offset] = offset;
+          (*slot)->cur_offset = (*slot)->cur_offset + 1;
+        }
+    }
+}
+
+/* Hashtable functions for vtable_registration hashtables.  */
+
+static hashval_t
+hash_vtable_registration (const void * p)
+{
+  const struct vtable_registration *n = (const struct vtable_registration *) p;
+  return (hashval_t) (DECL_UID (n->vtable_decl));
+}
+
+static int
+eq_vtable_registration (const void *p1, const void *p2)
+{
+  const struct vtable_registration *n1 =
+                                    (const struct vtable_registration *) p1;
+  const struct vtable_registration *n2 =
+                                    (const struct vtable_registration *) p2;
+  return (DECL_UID (n1->vtable_decl) == DECL_UID (n2->vtable_decl));
+}
+
+/* End of hashtable functions for "registered" hashtables*/
+
+/* Hashtable functions for vtable_map variables hashtable.  */
+
+static htab_t vtbl_map_hash = NULL;
+struct vtbl_map_node *vtbl_map_nodes = NULL;
+struct vtbl_map_node **vtbl_map_nodes_array = NULL;
+
+static void
+vtable_map_array_insert (struct vtbl_map_node *node)
+{
+  static unsigned array_size = 0;
+  unsigned i;
+
+  if (vtbl_map_nodes_array == NULL
+      || array_size == 0)
+    {
+      array_size = 16;
+      vtbl_map_nodes_array = (struct vtbl_map_node **)
+                       xmalloc (array_size * sizeof (struct vtbl_map_node *));
+      memset (vtbl_map_nodes_array, 0,
+              array_size * sizeof (struct vtbl_map_node *));
+    }
+  else if (node->uid >= array_size)
+    {
+      unsigned new_size = 2 * array_size;
+      vtbl_map_nodes_array = (struct vtbl_map_node **)
+          xrealloc (vtbl_map_nodes_array,
+                    new_size * sizeof (struct vtbl_map_node *));
+
+      for (i = array_size; i < new_size; ++i)
+        vtbl_map_nodes_array[i] = NULL;
+
+      array_size = new_size;
+    }
+
+  gcc_assert (node->uid < array_size);
+  gcc_assert (vtbl_map_nodes_array[node->uid] == NULL);
+
+  vtbl_map_nodes_array[node->uid] = node;
+}
+
+/* Returns a hash code for P.  */
+static hashval_t
+hash_vtbl_map_node (const void *p)
+{
+  const struct vtbl_map_node *n = (const struct vtbl_map_node *) p;
+  return (hashval_t) IDENTIFIER_HASH_VALUE (n->class_name);
+}
+
+/* Returns nonzero if P1 and P2 are equal.  */
+static int
+eq_vtbl_map_node (const void *p1, const void *p2)
+{
+  const struct vtbl_map_node *n1 = (const struct vtbl_map_node *) p1;
+  const struct vtbl_map_node *n2 = (const struct vtbl_map_node *) p2;
+  return (IDENTIFIER_HASH_VALUE (n1->class_name) ==
+          IDENTIFIER_HASH_VALUE (n2->class_name));
+}
+
+/* Return vtbl_map node assigned to DECL without creating a new one.  */
+struct vtbl_map_node *
+vtbl_map_get_node (const_tree class_name)
+{
+  struct vtbl_map_node key;
+  struct vtbl_map_node **slot;
+
+  if (!vtbl_map_hash)
+    return NULL;
+
+  key.class_name = CONST_CAST2 (tree, const_tree, class_name);
+  slot = (struct vtbl_map_node **) htab_find_slot (vtbl_map_hash, &key,
+                                                   NO_INSERT);
+  if (!slot)
+    return NULL;
+  return *slot;
+}
+
+/* Return vtbl_map node assigned to BASE_CLASS_TYPE.  Create new one
+ * when needed.  */
+struct vtbl_map_node *
+vtbl_map_node (tree base_class_type)
+{
+  struct vtbl_map_node key;
+  struct vtbl_map_node *node;
+  struct vtbl_map_node **slot;
+  unsigned i;
+
+  if (!vtbl_map_hash)
+    vtbl_map_hash = htab_create (10, hash_vtbl_map_node,
+                                 eq_vtbl_map_node, NULL);
+
+  if (TREE_CHAIN (base_class_type))
+    key.class_name = DECL_ASSEMBLER_NAME (TREE_CHAIN (base_class_type));
+  else
+    key.class_name = DECL_ASSEMBLER_NAME (TYPE_NAME (base_class_type));
+  slot = (struct vtbl_map_node **) htab_find_slot (vtbl_map_hash, &key,
+                                                   INSERT);
+  if (*slot)
+    return *slot;
+
+  node = (struct vtbl_map_node *) xmalloc (sizeof (struct vtbl_map_node));
+  node->vtbl_map_decl = NULL_TREE;
+  node->class_name = key.class_name;
+  node->uid = num_vtable_map_nodes++;
+
+  node->class_info = (struct vtv_graph_node *)
+                                      xmalloc (sizeof (struct vtv_graph_node));
+  node->class_info->class_type = base_class_type;
+  node->class_info->class_uid = node->uid;
+  node->class_info->max_parents = 4;
+  node->class_info->max_children = 4;
+  node->class_info->num_parents = 0;
+  node->class_info->num_children = 0;
+  node->class_info->num_processed_children = 0;
+  node->class_info->parents = (struct vtv_graph_node **)
+                                xmalloc (4 * sizeof (struct vtv_graph_node *));
+  node->class_info->children = (struct vtv_graph_node **)
+                                xmalloc (4 * sizeof (struct vtv_graph_node *));
+  for (i = 0; i < 4; ++i)
+    {
+      node->class_info->parents[i] = NULL;
+      node->class_info->children[i] = NULL;
+    }
+
+  node->registered = htab_create (16, hash_vtable_registration,
+                                  eq_vtable_registration, NULL);
+  node->is_used = false;
+  node->next = vtbl_map_nodes;
+  if (vtbl_map_nodes)
+    vtbl_map_nodes->prev = node;
+
+  vtable_map_array_insert (node);
+
+  vtbl_map_nodes = node;
+  *slot = node;
+  return node;
+}
+
+/* End of hashtable functions for vtable_map variables hash table.   */
 
 static tree
 my_build1 (enum tree_code code, tree type, tree node MEM_STAT_DECL)
@@ -222,54 +468,6 @@ my_get_vtbl_decl_for_binfo (tree binfo)
   return decl;
 }
 
-
-static tree *vtable_var_decl_array;
-static int vtable_var_decl_array_max = 0;
-static int vtable_var_decl_array_entries = 0;
-
-static tree
-find_vtable_map_decl (tree var_id)
-{
-  int idx;
-
-  for (idx = 0; idx < vtable_var_decl_array_entries; idx++)
-    if ((DECL_NAME (vtable_var_decl_array[idx])) == var_id)
-      return vtable_var_decl_array[idx];
-
-  return NULL_TREE;
-}
-
-void
-save_vtable_map_decl (tree var_decl)
-{
-  int idx;
-
-  /* TO DO:  This is not very efficient; consider improving this.  */
-
-  if (vtable_var_decl_array_max == 0)
-    {
-      vtable_var_decl_array = (tree *) xmalloc (100 * sizeof (tree));
-      vtable_var_decl_array_max = 100;
-      memset (vtable_var_decl_array, 0, 100 * sizeof (tree));
-    }
-  else if (vtable_var_decl_array_max <= vtable_var_decl_array_entries)
-    {
-      int new_max = 2 * vtable_var_decl_array_max;
-      vtable_var_decl_array = (tree *) xrealloc (vtable_var_decl_array,
-                                                 new_max * sizeof(tree));
-      for (idx = vtable_var_decl_array_max; idx < new_max; ++idx)
-        vtable_var_decl_array[idx] = NULL_TREE;
-
-      vtable_var_decl_array_max = new_max;
-    }
-
-  for (idx = 0; idx < vtable_var_decl_array_entries; idx++)
-    if (vtable_var_decl_array[idx] == var_decl)
-      return;
-
-  vtable_var_decl_array[vtable_var_decl_array_entries++] = var_decl;
-}
-
 static void
 verify_bb_vtables (basic_block bb)
 {
@@ -278,6 +476,14 @@ verify_bb_vtables (basic_block bb)
   bool bb_contains_virtual_call = false;
   gimple_stmt_iterator gsi_vtbl_assign;
   gimple_stmt_iterator gsi_virtual_call;
+
+  /* If we are in the global 'main' function, the very first thing
+     we need to do in the very first BB is to tell the __VerifyVtablePointer
+     function to actually start verification (it does not do verification
+     before 'main', during library and constructor initialization, because
+     the necessary verification data structures may not be complete then).
+     The assumption is that no hacker will be able to attack the program before
+    'main'... */
 
   /* Search the basic block to see if it contains a virtual method
      call, i.e. a call with the tree code OBJ_TYPE_REF  */
@@ -317,7 +523,6 @@ verify_bb_vtables (basic_block bb)
               tree lhs = gimple_assign_lhs (stmt);
               tree vtbl_var_decl = NULL_TREE;
               tree vtbl = NULL_TREE;
-              tree vtbl_ptr = NULL_TREE;
               const char *vtable_name = NULL;
               char *vtbl_map_name = NULL;
               tree var_id;
@@ -332,11 +537,13 @@ verify_bb_vtables (basic_block bb)
               if (TREE_CODE (rhs) == COMPONENT_REF)
                 {
                   bool vtbl_found = false;
+                  struct vtbl_map_node *vtable_map_node = NULL;
+
                   while (!vtbl_found)
                     {
                       if (TREE_CODE (rhs) == COMPONENT_REF
                           && (TREE_CODE (TREE_OPERAND (rhs, 1)) == FIELD_DECL)
-                          && (strncmp (IDENTIFIER_POINTER 
+                          && (strncmp (IDENTIFIER_POINTER
 				           (DECL_NAME (TREE_OPERAND (rhs, 1))),
                                        "_vptr.", 6) == 0))
                         {
@@ -357,16 +564,28 @@ verify_bb_vtables (basic_block bb)
                         continue;
 
                       if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
-                        vtbl_ptr = force_gimple_operand (vtbl, &pre_p, 1,
-                                                         NULL);
+                        force_gimple_operand (vtbl, &pre_p, 1, NULL);
 
-                      vtable_name = IDENTIFIER_POINTER 
+                      vtable_name = IDENTIFIER_POINTER
 			                          (DECL_NAME (vtbl_var_decl));
-                      vtbl_map_name = (char *) xmalloc 
+                      vtbl_map_name = (char *) xmalloc
 			                           (strlen (vtable_name) + 12);
                       sprintf (vtbl_map_name, "%s.vtable_map", vtable_name);
-                      var_id = get_identifier (vtbl_map_name);
-                      vtbl_var_decl = find_vtable_map_decl (var_id);
+
+                      if (TREE_CHAIN (TREE_TYPE (rhs)))
+                        var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN
+                                                      (TREE_TYPE (rhs)));
+                      else
+                        var_id = DECL_ASSEMBLER_NAME (TYPE_NAME
+                                                      (TREE_TYPE (rhs)));
+                      vtable_map_node = vtbl_map_get_node (var_id);
+                      if (vtable_map_node)
+                        {
+                          vtbl_var_decl = vtable_map_node->vtbl_map_decl;
+                          vtable_map_node->is_used = true;
+                        }
+                      else
+                        vtbl_var_decl = NULL;
                     }
 
                   /* Build  verify_vtbl_ptr_fndecl */
@@ -381,10 +600,10 @@ verify_bb_vtables (basic_block bb)
                   if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
                     {
                       tree expr_tree = NULL_TREE;
-                      tree t = NULL_TREE;
                       struct gimplify_ctx gctx;
                       tree arg4 = TREE_OPERAND (rhs, 0);
                       const char *vtable_name = "<unknown>";
+
                       int len1 = 0;
                       int len2 = 0;
 
@@ -396,38 +615,38 @@ verify_bb_vtables (basic_block bb)
 
                       if ((TREE_CODE (arg4) == SSA_NAME)
                           && (DECL_NAME (SSA_NAME_VAR (arg4))))
-                        vtable_name = IDENTIFIER_POINTER 
-			                     (DECL_NAME (SSA_NAME_VAR (arg4)));
+                        vtable_name = IDENTIFIER_POINTER
+                                             (DECL_NAME (SSA_NAME_VAR (arg4)));
 
                       push_gimplify_context (&gctx);
-                      len1 = strlen (IDENTIFIER_POINTER 
+                      len1 = strlen (IDENTIFIER_POINTER
 				                  (DECL_NAME (vtbl_var_decl)));
                       len2 = strlen (vtable_name);
 
-                      expr_tree = build_call_expr 
+                      expr_tree = build_call_expr
 			             (verify_vtbl_ptr_fndecl, 6,
 				      my_build1 (ADDR_EXPR,
-						 TYPE_POINTER_TO 
+						 TYPE_POINTER_TO
 						   (TREE_TYPE (vtbl_var_decl)),
 						 vtbl_var_decl),
 				      SSA_NAME_VAR (lhs),
-				      build_string_literal 
+				      build_string_literal
 				                  (len1,
-						   IDENTIFIER_POINTER 
-						       (DECL_NAME 
+						   IDENTIFIER_POINTER
+						       (DECL_NAME
 							    (vtbl_var_decl))),
 				      build_int_cst (integer_type_node,
 						     len1),
 				      build_string_literal (len2, vtable_name),
 				      build_int_cst (integer_type_node,
 						     len2));
-		      /*  Eventually we will remove the 4 'debugging' 
+		      /*  Eventually we will remove the 4 'debugging'
 			  parameters from the call above and will use the
 			  call below instead.
-                      expr_tree = build_call_expr 
+                      expr_tree = build_call_expr
 		                     (verify_vtbl_ptr_fndecl, 2,
 				      my_build1 (ADDR_EXPR,
-				                 TYPE_POINTER_TO 
+				                 TYPE_POINTER_TO
                                                    (TREE_TYPE (vtbl_var_decl)),
                                                  vtbl_var_decl),
                                       SSA_NAME_VAR (lhs));
@@ -438,8 +657,8 @@ verify_bb_vtables (basic_block bb)
                          update_ssa.  */
 
                       mark_sym_for_renaming (SSA_NAME_VAR (lhs));
-                      t = force_gimple_operand (expr_tree, &pre_p, 1,
-                                                SSA_NAME_VAR (lhs));
+                      force_gimple_operand (expr_tree, &pre_p, 1,
+                                            SSA_NAME_VAR (lhs));
 
                       /* Insert the new call just after the original assignment
                          of the object's vtable pointer.  */
@@ -447,6 +666,7 @@ verify_bb_vtables (basic_block bb)
                       pop_gimplify_context (NULL);
                       gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
                                             GSI_NEW_STMT);
+                      any_verification_calls_generated = true;
                     }
                 }
             }
@@ -471,9 +691,11 @@ build_vtable_verify_fndecl (void)
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   /* End: Arg types to be removed...*/
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 

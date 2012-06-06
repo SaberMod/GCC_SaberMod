@@ -1,3 +1,77 @@
+2012-06--4  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c (struct list_node, struct node,
+	struct node2): Delete struct definitions.
+	(tree-vtable-verify.h): New include statement.
+	(struct work_node): New struct defintion.
+	(num_classes): New global variable.
+	(vlt_class_hierarchy_info, registered_pairs):  Delete global vars.
+	(linked_list_insert):  Delete function.
+	(binary_tree_insert):  Delete function.
+	(binary_tree_find):  Delete function.
+	(build_transitive_closure):  Delete function.
+	(tree_three_key_insert):  Delete function.
+	(vtable_find_map_decl):  Delete function.
+	(dump_class_hierarchy_information): Remove parameter; completely
+	re-write to use new data structures.
+	(register_all_pairs): Remove first parameter; make non-recursive;
+	modify to iterate through new data structure.  (Main body of code
+	remains the same).  Fix arguments for calls to record_register_pairs
+	and register_vptr_fields.
+	(add_hierarchy_pair):  New function.
+	(add_to_worklist):  New function.
+	(find_and_remove_next_leaf_node):  New function.
+	(record_register_pairs):  Completely rewrite to use new data
+	structures; Remove base_ptr_decl parameter and add base_class
+	parameter.
+	(register_vptr_fields):  Add base_class parameter.  Fix arguments for
+	call to record_register_pairs.
+	(find_graph_node):  New function.
+	(add_edge_to_graph):  New function.
+	(update_class_hierarchy_information):  Remove base_class_ptr_decl
+	parameter. Use new data structures; call add_hierarchy_pair instead
+	of binary_tree_insert.
+	(vtv_register_class_hierarchy_information):  Use new global
+	variable, any_verification_calls_generated, to decide whether or not
+	to register pairs; remove argument from call to
+	dump_class_hierarchy_information; remove vlt_class_hierarchy_info
+	from call to register_all_pairs.
+	(vtable_find_or_create_map_decl):  Modify to use new hash table for
+	accessing *.vtable_map variables; return hash table node rather than
+	var decl.
+	(vtv_save_base_class_info): Modify to use new hash table data
+	structure for vtable_map variables.
+	* gcc/tree-vtable-verify.c: Remove comment from top about code
+	being contributed by Razya Ladelsky (it was accidentally copied in
+	along with the copyright info).
+	(tree-vtable-verify.h):  New include statement.
+	(num_vtable_map_nodes): New global variable.
+	(any_verification_calls_generated):  New global variable.
+	(vtbl_map_node_registration_find): New function.
+	(vtbl_map_node_registration_insert):  New function.
+	(hash_vtable_registration): New function.
+	(eq_vtable_registration):  New function.
+	(vtbl_map_hash): New static global variable.
+	(vtbl_map_nodes): New global variable.
+	(vtbl_map_nodes_array):  New global variable.
+	(vtbl_map_array_insert): New function.
+	(hash_vtbl_map_node):  New function.
+	(eq_vtbl_map_node):  New function.
+	(vtbl_map_get_node):  New function.
+	(vtbl_map_node):  New function.
+	(vtable_var_decl_array):  Delete global variable.
+	(vtable_var_decl_array_max):  Delete global variable.
+	(vtable_var_decl_array_entries):  Delete global variable.
+	(find_vtable_map_decl):  Delete function.
+	(save_vtable_map_decl):  Delete function.
+	(verify_bb_vtables):  Delete unused local variables vtbl_ptr & t;
+	modify to use vtbl_map_hash and hash functions to find/store
+	vtable_map variables; update any_verification_calls_generated; fix
+	formatting (no line longer than 80 chars).
+	(build_vtable_verify_fndecl): Fix line formatting so no line is longer
+	than 80 chars.
+	* gcc/tree-vtable-verify.h: New file.
+
 2012-06-04  Caroline Tice  <cmtice@google.com>
 
 	* gcc/flag-types.h (enum vtv_priority): Add VTV_NO_PRIORITY,
@@ -5,7 +79,7 @@
 	* gcc/common.opt (fvtable-verify):  Set the default
 	initialization to VTV_NO_PRIORITY, so the vtable verification
 	is not turned on by default.
-	
+
 2012-06-03  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/decl2.c (cp_write_global_declarations):  Change vtable

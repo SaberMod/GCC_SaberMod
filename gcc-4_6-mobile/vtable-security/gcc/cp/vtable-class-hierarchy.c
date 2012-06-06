@@ -41,41 +41,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "tree-threadsafe-analyze.h"
 #include "tree-iterator.h"
+#include "tree-vtable-verify.h"
 
 static GTY(()) tree vlt_register_pairs_fndecl = NULL_TREE;
 static GTY(()) tree vlt_change_permission_fndecl = NULL_TREE;
 
-struct list_node {
-  tree class_type;
-  struct list_node *next;
+struct work_node {
+  struct vtv_graph_node *node;
+  struct work_node *next;
 };
 
-struct node {
-  tree ptr_decl;
-  struct list_node *class_list;
-  struct node *left;
-  struct node *right;
-};
-
-struct node2 {
-  tree base_map_var_decl;
-  tree vtable_decl;
-  unsigned offset;
-  struct node2 *left;
-  struct node2 *right;
-};
+static int num_classes = 0;
 
 static void init_functions (void);
-static void linked_list_insert (struct list_node **, tree);
-static void binary_tree_insert (struct node **, tree, tree, tree);
-static struct node *binary_tree_find (struct node *, tree);
-static tree vtable_find_map_decl (tree var_id);
-static void dump_class_hierarchy_information (struct node *root);
-static void register_all_pairs (struct node *root, tree body);
+static void dump_class_hierarchy_information (void);
+static void register_all_pairs (tree body);
+static void add_hierarchy_pair (struct vtv_graph_node *,
+                                struct vtv_graph_node *);
+static struct vtv_graph_node *find_graph_node (tree);
+static struct vtv_graph_node *
+                  find_and_remove_next_leaf_node (struct work_node **worklist);
 
-static struct node *vlt_class_hierarchy_info = NULL;
-static struct node2 *registered_pairs = NULL;
-
+void update_class_hierarchy_information (tree, tree);
+struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
 
 static void
 init_functions (void)
@@ -87,7 +75,8 @@ init_functions (void)
   tree char_ptr_type = build_pointer_type (char_type_node);
 
   arg_types = build_tree_list (NULL_TREE, char_ptr_type);
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   change_permission_type = build_function_type (change_permission_type,
@@ -108,9 +97,11 @@ init_functions (void)
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   /* End: Arg types to be removed...*/
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
@@ -128,247 +119,151 @@ init_functions (void)
 }
 
 static void
-dump_class_hierarchy_information (struct node *root)
+dump_class_hierarchy_information (void)
 {
-  struct list_node *current;
+  struct vtbl_map_node *cur;
+  unsigned i;
 
-  /* Dump current node */
-  if (!root || ! root->ptr_decl)
-    return;
-
-  fprintf (stdout, "Base class '%s' is inherited by: ",
-           IDENTIFIER_POINTER (DECL_NAME (root->ptr_decl)));
-
-  current = root->class_list;
-  while (current)
+  for (cur = vtbl_map_nodes; cur; cur = cur->next)
     {
-      if (current->class_type)
-	fprintf (stdout, " (%s, %s)",
-		 IDENTIFIER_POINTER (DECL_NAME
-				     (TYPE_NAME (current->class_type))),
-                 IDENTIFIER_POINTER (get_mangled_id(TREE_CHAIN(current->class_type))));
-      current = current->next;
+      fprintf (stdout, "Base class '%s' is inherited by: ",
+               IDENTIFIER_POINTER
+                   (DECL_NAME
+                        (TREE_CHAIN (cur->class_info->class_type))));
+
+      for (i = 0; i < num_vtable_map_nodes; ++i)
+        if (TEST_BIT (cur->class_info->descendants, i))
+          {
+            struct vtbl_map_node *descendant = vtbl_map_nodes_array[i];
+            tree class_type = descendant->class_info->class_type;
+            fprintf (stdout, " (%s, %s)",
+                     IDENTIFIER_POINTER (DECL_NAME
+                                         TYPE_NAME (class_type)),
+                     IDENTIFIER_POINTER (get_mangled_id
+                                         (TREE_CHAIN (class_type))));
+          }
+      fprintf (stdout, "\n");
     }
-  fprintf (stdout, "\n");
-
-  /* Dump left child */
-  dump_class_hierarchy_information (root->left);
-
-  /* Dump right child */
-  dump_class_hierarchy_information (root->right);
 }
 
 static void
-list_append (struct list_node *old_list, struct list_node *new_list)
+add_to_worklist (struct work_node **worklist, struct vtv_graph_node *node,
+                 sbitmap inserted)
 {
-  struct list_node *old_cur;
-  struct list_node *old_end;
-  struct list_node *new_cur;
-  struct list_node *new_node;
+  struct work_node *new_work_node;
 
-  /* Append to the old list anything in the new list that isn't
-     already there.*/
+  if (TEST_BIT (inserted, node->class_uid))
+    return;
 
-  /* Find the end of the old list */
-  old_end = old_list;
-  while (old_end->next != NULL)
-    old_end = old_end->next;
+  new_work_node = (struct work_node *) xmalloc (sizeof (struct work_node));
+  new_work_node->next = *worklist;
+  new_work_node->node = node;
+  *worklist = new_work_node;
 
-  /* Look at each elemement in new list */
-  for (new_cur = new_list; new_cur; new_cur = new_cur->next)
+  SET_BIT (inserted, node->class_uid);
+}
+
+static struct vtv_graph_node *
+find_and_remove_next_leaf_node (struct work_node **worklist)
+{
+  struct work_node *prev, *cur;
+
+  for (prev = NULL, cur = *worklist; cur; prev = cur, cur = cur->next)
     {
-      /* Look for 'new_cur' in the old list.  */
-      bool found = false;
-
-      for (old_cur = old_list; old_cur && !found; old_cur = old_cur->next)
-        if (get_mangled_id (TREE_CHAIN (new_cur->class_type))
-            == get_mangled_id (TREE_CHAIN (old_cur->class_type)))
-          found = true;
-
-      /* if not found, copy new node and append to end of old list */
-      if (!found)
+      if (cur->node->num_children == cur->node->num_processed_children)
         {
-          new_node = (struct list_node *) xmalloc (sizeof (struct list_node));
-          new_node->class_type = new_cur->class_type;
-          new_node->next = NULL;
+          if (prev == NULL)
+            (*worklist) = cur->next;
+          else
+            prev->next = cur->next;
 
-          old_end->next = new_node;
-          old_end = old_end->next;
+          cur->next = NULL;
+          return cur->node;
         }
     }
 
+  return NULL;
 }
-
-static struct node *
-binary_tree_find (struct node *root, tree var_decl)
-{
-  if (!root)
-    return NULL;
-
-  if (DECL_NAME (root->ptr_decl) == DECL_NAME (var_decl))
-    return root;
-
-  else if (var_decl < root->ptr_decl)
-    return binary_tree_find (root->left, var_decl);
-  else
-    return binary_tree_find (root->right, var_decl);
-}
-
-static bool
-build_transitive_closure (struct node *root, struct node *cur_node)
-{
-  bool current_changed = false;
-  bool left_changed = false;
-  bool right_changed = false;
-  struct list_node *cur_list;
-  char * cur_node_name;
-  char *cptr;
-
-  if (!cur_node)
-    return false;
-
-  /* DEBUG
-  fprintf(stderr, "build_transitive_closure: cur_node: ");
-  debug_c_tree(cur_node->ptr_decl);
-  */
-
-  cur_node_name = xstrdup (IDENTIFIER_POINTER
-			         (DECL_NAME
-                                    (cur_node->ptr_decl)));
-  cptr = strstr (cur_node_name, ".vtable_map");
-  if (cptr)
-    cptr[0] = '\0';
-  /* Handle current tree node */
-  for (cur_list = cur_node->class_list; cur_list; cur_list = cur_list->next)
-    {
-      const char *cur_list_name = NULL;
-      char *var_id_name = NULL;
-      tree var_id = NULL_TREE;
-      tree var_decl = NULL_TREE;
-      struct node *tmp_node = NULL;
-      tree vtbl_var_decl;
-
-      /* DEBUG
-      fprintf(stderr, "build_transitive_closure: cur_list:");
-      debug_c_tree(cur_list->class_type);
-      */
-
-      if ((! cur_list->class_type)
-          || (! TYPE_BINFO (cur_list->class_type))
-          || (! BINFO_VTABLE (TYPE_BINFO (cur_list->class_type))))
-        continue;
-
-      vtbl_var_decl = TREE_OPERAND
-          (TREE_OPERAND
-           (BINFO_VTABLE
-            (TYPE_BINFO
-             (cur_list->class_type)), 0), 0);
-
-      if (!vtbl_var_decl)
-        continue;
-      cur_list_name = (const char *) IDENTIFIER_POINTER
-          (DECL_NAME (vtbl_var_decl));
-
-      if (!cur_list_name)
-        continue;
-
-      /* TODO: avoid comparing by name */
-      if (strcmp (cur_list_name, cur_node_name) == 0)
-        continue;
-
-      var_id_name = (char *) xmalloc (strlen (cur_list_name) + 12);
-      sprintf (var_id_name, "%s.vtable_map", cur_list_name);
-      var_id = get_identifier (var_id_name);
-      free (var_id_name);
-
-      var_decl = vtable_find_map_decl (var_id);
-      if (!var_decl)
-        continue;
-
-      tmp_node = binary_tree_find (root, var_decl);
-
-      if (!tmp_node)
-        continue;
-      else
-        {
-          list_append (cur_node->class_list, tmp_node->class_list);
-          current_changed = true;
-        }
-    }
-
-  free(cur_node_name);
-
-  /* Handle left child */
-  left_changed = build_transitive_closure (root, cur_node->left);
-
-  /* Handle right child */
-  right_changed = build_transitive_closure (root, cur_node->right);
-
-  return (current_changed || left_changed || right_changed);
-}
-
 
 void
 vtv_compute_class_hierarchy_transitive_closure (void)
 {
-  build_transitive_closure (vlt_class_hierarchy_info,
-			    vlt_class_hierarchy_info);
+  struct work_node *worklist = NULL;
+  struct vtbl_map_node *cur;
+  sbitmap inserted = sbitmap_alloc (num_vtable_map_nodes);
+  unsigned i;
+
+  /* Note: Every node in the graph gets added to the worklist exactly
+   once and removed from the worklist exactly once (when all of its
+   children have been processed).  Each node's children edges are
+   followed exactly once, and each node's parent edges are followed
+   exactly once.  So this algorithm is roughly O(V + 2E), i.e.
+   O(E + V). */
+
+  /* Set-up:                                                                */
+  /* Find all the "leaf" nodes in the graph, and add them to the worklist.  */
+  sbitmap_zero (inserted);
+  for (cur = vtbl_map_nodes; cur; cur = cur->next)
+    {
+      if (cur->class_info
+          && (cur->class_info->num_children == 0)
+          && ! (TEST_BIT (inserted, cur->class_info->class_uid)))
+        add_to_worklist (&worklist, cur->class_info, inserted);
+    }
+
+
+  /* Main work: pull next leaf node off work list, process it, add its
+     parents to the worklist, where a 'leaf' node is one that has no
+     children, or all of its children have been processed. */
+  while (worklist)
+    {
+      struct vtv_graph_node *temp_node =
+                                  find_and_remove_next_leaf_node (&worklist);
+
+      gcc_assert (temp_node != NULL);
+      temp_node->descendants = sbitmap_alloc (num_vtable_map_nodes);
+      sbitmap_zero (temp_node->descendants);
+      SET_BIT (temp_node->descendants, temp_node->class_uid);
+      for (i = 0; i < temp_node->num_children; ++i)
+        sbitmap_a_or_b (temp_node->descendants, temp_node->descendants,
+                        temp_node->children[i]->descendants);
+      for (i = 0; i < temp_node->num_parents; ++i)
+        {
+          temp_node->parents[i]->num_processed_children =
+                    temp_node->parents[i]->num_processed_children + 1;
+          if (!TEST_BIT (inserted, temp_node->parents[i]->class_uid))
+            add_to_worklist (&worklist, temp_node->parents[i], inserted);
+        }
+    }
 }
 
 static bool
-tree_three_key_insert (struct node2 **root, tree key1, tree key2, unsigned key3)
+record_register_pairs (tree vtable_decl, tree vptr_address,
+                       tree base_class)
 {
-  /* In "struct node2", base_map_var_decl is the primary sort key (the base
-     class .vtable_map variable decl), and vtable_decl is the secondary sort
-     key (the var decl the vtable). The third key is the offset added to the
-     vtable to get the actual recorded vtable pointer address.  */
+  unsigned offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
+  tree base_id;
+  struct vtbl_map_node *base_vtable_map_node;
 
-  struct node2 *new_node;
+  if (TREE_CHAIN (base_class))
+    base_id = DECL_ASSEMBLER_NAME (TREE_CHAIN (base_class));
+  else
+    base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_class));
 
-  if (!(*root))
-    {
-      new_node = (struct node2 *) xmalloc (sizeof (struct node2));
-      new_node->base_map_var_decl = key1;
-      new_node->vtable_decl = key2;
-      new_node->offset = key3;
-      new_node->left = NULL;
-      new_node->right = NULL;
-      (*root) = new_node;
-      return false;
-    }
-  else if ((*root)->base_map_var_decl == key1)
-    {
-      if ((*root)->vtable_decl == key2)
-        {
-          if ((*root)->offset == key3)
-            return true;
-          else if (key3 < (*root)->offset)
-            return tree_three_key_insert (&((*root)->left), key1, key2, key3);
-          else if (key3 > (*root)->offset)
-            return tree_three_key_insert (&((*root)->right), key1, key2, key3);
-        }
-      else if (key2 < (*root)->vtable_decl)
-        return tree_three_key_insert (&((*root)->left), key1, key2, key3);
-      else if (key2 > (*root)->vtable_decl)
-        return tree_three_key_insert (&((*root)->right), key1, key2, key3);
-    }
-  else if (key1 < (*root)->base_map_var_decl)
-    return tree_three_key_insert (&((*root)->left), key1, key2, key3);
-  else if (key1 > (*root)->base_map_var_decl)
-    return tree_three_key_insert (&((*root)->right), key1, key2, key3);
+  base_vtable_map_node = vtbl_map_get_node (base_id);
 
+  if (vtbl_map_node_registration_find (base_vtable_map_node, vtable_decl,
+                                       offset))
+    return true;
+
+  vtbl_map_node_registration_insert (base_vtable_map_node, vtable_decl,
+                                       offset);
   return false;
 }
 
-static bool
-record_register_pairs (tree base_ptr_decl, tree vtable_decl, tree vptr_address)
-{
-  unsigned offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
-  return tree_three_key_insert (&registered_pairs, base_ptr_decl, vtable_decl, offset);
-}
-
 static void
-register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
+register_vptr_fields (tree base_class_decl_arg, tree base_class,
+                      tree record_type, tree body)
 {
   /* A class may contain secondary vtables in it, for various
      reasons.  This function goes through the decl chain of a class
@@ -398,7 +293,7 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
         {
           tree values = DECL_INITIAL (ztt_decl);
           struct varpool_node * vp_node = varpool_node (ztt_decl);
-          if ( vp_node->needed && vp_node->finalized 
+          if ( vp_node->needed && vp_node->finalized
 	       && (values != NULL_TREE)
               && (TREE_CODE (values) == CONSTRUCTOR)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
@@ -413,7 +308,8 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
                    cnt++)
                 {
                   tree value = ce->value;
-                  tree val_vtbl_decl = TREE_OPERAND (TREE_OPERAND (value, 0), 0);
+                  tree val_vtbl_decl = TREE_OPERAND (TREE_OPERAND (value, 0),
+                                                     0);
                   int len1 = strlen (IDENTIFIER_POINTER
 				     (DECL_NAME
 				          (TREE_OPERAND
@@ -429,10 +325,9 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
                                                IDENTIFIER_POINTER
 					        (DECL_NAME (val_vtbl_decl)));
 
-                  already_registered = record_register_pairs (TREE_OPERAND
-                                                               (base_class_decl_arg, 0),
-                                                              val_vtbl_decl,
-                                                              value);
+                  already_registered = record_register_pairs (val_vtbl_decl,
+                                                              value,
+                                                              base_class);
 
                   if (already_registered)
                     continue;
@@ -463,7 +358,7 @@ register_vptr_fields (tree base_class_decl_arg, tree record_type, tree body)
 
 static void
 register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
-                              int len1, tree str2, int len2)
+                              int len1, tree str2, int len2, tree base_class)
 {
   unsigned ix;
   tree base_binfo;
@@ -478,14 +373,15 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
       if ((!BINFO_PRIMARY_P (base_binfo)
            || BINFO_VIRTUAL_P (base_binfo))
           && (vtable_decl=get_vtbl_decl_for_binfo (base_binfo))
-          && !(DECL_VTABLE_OR_VTT_P(vtable_decl) && DECL_CONSTRUCTION_VTABLE_P(vtable_decl)))
+          && !(DECL_VTABLE_OR_VTT_P(vtable_decl)
+               && DECL_CONSTRUCTION_VTABLE_P(vtable_decl)))
         {
           tree vtable_address = build_vtbl_address (base_binfo);
           tree call_expr;
 
-          already_registered = record_register_pairs (TREE_OPERAND (arg1, 0),
-                                                      vtable_decl,
-                                                      vtable_address);
+          already_registered = record_register_pairs (vtable_decl,
+                                                      vtable_address,
+                                                      base_class);
           if (!already_registered)
             {
               call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
@@ -501,202 +397,172 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
         }
 
       register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2,
-                                    len2);
+                                    len2, base_class);
     }
 }
-
 static void
-register_all_pairs (struct node *root, tree body)
+register_all_pairs (tree body)
 {
-  struct list_node *current;
+  /* struct list_node *current; */
+  struct vtbl_map_node *current;
   tree base_ptr_var_decl;
 
-  /* Handle current node */
-  if (!root || ! root->ptr_decl)
-    return;
 
-  base_ptr_var_decl = root->ptr_decl;
-
-  current = root->class_list;
-  while (current)
+  for (current = vtbl_map_nodes; current; current = current->next)
     {
-      if (current->class_type
-          && (TREE_CODE (current->class_type) == RECORD_TYPE))
-        {
-          tree new_type;
-          tree arg1;
-          tree call_expr;
-          bool already_registered;
+      unsigned i;
+      tree base_class = current->class_info->class_type;
+      base_ptr_var_decl = current->vtbl_map_decl;
 
-          tree binfo = TYPE_BINFO (current->class_type);
-	  tree vtable = NULL_TREE;
-          tree vtable_decl;
-          bool vtable_should_be_output = false;
-          bool debug = false;
+      gcc_assert (current->class_info != NULL);
 
-	  if (binfo)
-	    vtable = BINFO_VTABLE (binfo);
-
-          if (debug)
+      for (i = 0; i < num_vtable_map_nodes; ++i)
+        if (TEST_BIT (current->class_info->descendants, i))
           {
-            fprintf(stderr, "register_all_pairs: looking at class:\n");
-            debug_tree(current->class_type);
-          }
-          
-          vtable_decl = CLASSTYPE_VTABLES (current->class_type);
+            struct vtbl_map_node *vtbl_class_node = vtbl_map_nodes_array[i];
+            tree class_type = vtbl_class_node->class_info->class_type;
 
-          /* Handle main vtable for this class. */
-          if (vtable_decl)
+            if (class_type
+                && (TREE_CODE (class_type) == RECORD_TYPE))
             {
-              struct varpool_node *node = varpool_node (vtable_decl);
-              if (debug)
-              {
-                fprintf(stderr,"Varpool node:\n");
-                debug_varpool_node(node);
-              }
-              vtable_should_be_output = node->needed; 
-            }
+              tree new_type;
+              tree arg1;
+              tree call_expr;
+              bool already_registered;
 
-          if (debug)
-          {
-            fprintf(stderr, "register_all_pairs: the vtable is (should be output=%s):\n", vtable_should_be_output ? "yes": "no");
-            debug_tree(vtable_decl);
-          }
+              tree binfo = TYPE_BINFO (class_type);
+              tree vtable_decl;
+              bool vtable_should_be_output = false;
 
-          if (vtable_decl && vtable_should_be_output && BINFO_VTABLE (binfo))
-            {
-              tree vtable_address = build_vtbl_address (binfo);
-              int len1  = IDENTIFIER_LENGTH (DECL_NAME (base_ptr_var_decl));
-              int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
-              tree str1 = build_string_literal (len1,
-                                                IDENTIFIER_POINTER
-                                                  (DECL_NAME
-                                                     (base_ptr_var_decl)));
-              tree str2 = build_string_literal (len2,
-                                                IDENTIFIER_POINTER
-                                                  (DECL_NAME (vtable_decl)));
+              vtable_decl = CLASSTYPE_VTABLES (class_type);
 
-              already_registered = record_register_pairs (base_ptr_var_decl,
-                                                          vtable_decl,
-                                                          vtable_address);
+              /* Handle main vtable for this class. */
 
-              if (!already_registered)
+              if (vtable_decl)
                 {
-                  if (debug)
-                  {
-                    fprintf(stderr, "register_all_pairs: building register pair call for vtable:\n");
-                    debug_tree(vtable_decl);
-                  }
-
-                  new_type = build_pointer_type (TREE_TYPE
-                                                   (base_ptr_var_decl));
-                  arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
-
-                  /* This call expr has the 2 "real" arguments, plus 4
-                     debugging arguments.  Eventually it will be replaced
-                     with the one just below it, which only has the 2 real
-                     arguments.  */
-                  call_expr = build_call_expr
-                      (vlt_register_pairs_fndecl, 6,
-                       arg1, vtable_address,
-                       str1, build_int_cst (integer_type_node,
-                                            len1),
-                       str2,  build_int_cst (integer_type_node,
-                                             len2));
-                  /* See comments above.  call_expr = build_call_expr
-                     (vlt_register_pairs_fndecl, 2, arg1, vtable);  */
-
-                  append_to_statement_list (call_expr, &body);
-
-                  /* Find and handle any 'extra' vtables associated
-                     with this class, via virtual inheritance.   */
-                  register_vptr_fields (arg1, current->class_type, body);
-
-                  /* Find and handle any 'extra' vtables associated
-                     with this class, via multiple inheritance.   */
-                  register_other_binfo_vtables (binfo, body, arg1, str1, len1,
-                                                str2, len2);
+                  struct varpool_node *node = varpool_node (vtable_decl);
+                  vtable_should_be_output = node->needed;
                 }
-            } /* if vtable_decl && vtable_should_be_output */
-        }
-      current = current->next;
 
-    } /* while there's a node in the linked list */
+              if (vtable_decl && vtable_should_be_output
+                  && BINFO_VTABLE (binfo))
+                {
+                  tree vtable_address = build_vtbl_address (binfo);
+                  int len1  = IDENTIFIER_LENGTH
+                                               (DECL_NAME (base_ptr_var_decl));
+                  int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
+                  tree str1 = build_string_literal (len1,
+                                                    IDENTIFIER_POINTER
+                                                    (DECL_NAME
+                                                     (base_ptr_var_decl)));
+                  tree str2 = build_string_literal (len2,
+                                                    IDENTIFIER_POINTER
+                                                    (DECL_NAME (vtable_decl)));
 
-  /* Handle left child */
-  register_all_pairs (root->left, body);
+                  already_registered = record_register_pairs (vtable_decl,
+                                                              vtable_address,
+                                                              base_class);
 
-  /* Handle right child */
-  register_all_pairs (root->right, body);
+                  if (!already_registered)
+                    {
+                      new_type = build_pointer_type (TREE_TYPE
+                                                     (base_ptr_var_decl));
+                      arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
+
+                      /* This call expr has the 2 "real" arguments, plus 4
+                         debugging arguments.  Eventually it will be replaced
+                         with the one just below it, which only has the 2 real
+                         arguments.  */
+                      call_expr = build_call_expr
+                          (vlt_register_pairs_fndecl, 6,
+                           arg1, vtable_address,
+                           str1, build_int_cst (integer_type_node,
+                                                len1),
+                           str2,  build_int_cst (integer_type_node,
+                                                 len2));
+                      /* See comments above.  call_expr = build_call_expr
+                         (vlt_register_pairs_fndecl, 2, arg1, vtable);  */
+
+                      append_to_statement_list (call_expr, &body);
+
+                      /* Find and handle any 'extra' vtables associated
+                         with this class, via virtual inheritance.   */
+                      register_vptr_fields (arg1, base_class, class_type,
+                                            body);
+
+                      /* Find and handle any 'extra' vtables associated
+                         with this class, via multiple inheritance.   */
+                      register_other_binfo_vtables (binfo, body, arg1, str1,
+                                                    len1, str2, len2,
+                                                    base_class);
+                    }
+                } /* if vtable_decl && vtable_should_be_output */
+            } /* if TREE_TYPE (class_type) == RECORD... */
+          } /* if TEST_BIT (descendants, i) */
+    } /* for cur = vtbl_map_nodes... */
 }
 
-static void
-linked_list_insert (struct list_node **root, tree new_class)
+static struct vtv_graph_node *
+find_graph_node (tree class_type)
 {
-  struct list_node *current;
-  struct list_node *prev;
-  bool found = false;
+  tree class_decl = TREE_CHAIN (class_type);
+  tree class_name_id;
+  struct vtbl_map_node *vtbl_node;
 
-  for (prev = NULL, current = (*root); 
-       current && !found; 
-       prev = current, current = current->next)
-    if (current 
-	&& current->class_type == new_class)
-      found = true;
-
-  if (!found)
-    {
-      struct list_node *new_node = (struct list_node *)
-                                           xmalloc (sizeof (struct list_node));
-
-      new_node->class_type = new_class;
-      new_node->next = NULL;
-
-      if (!prev)
-	(*root) = new_node;
-      else
-	prev->next = new_node;
-    }
-}
-
-static void
-binary_tree_insert (struct node **root, tree ptr_decl, tree base_class,
-                    tree new_class)
-{
-  /* DEBUG
-  fprintf(stderr, "binary_tree_insert: base_class: \n");
-  debug_tree(base_class);
-  fprintf(stderr, "binary_tree_insert, derived_class: \n");
-  debug_tree(new_class);
-  */
-
-  if (!(*root))
-    {
-      struct node *new_node = (struct node *) xmalloc (sizeof (struct node));
-      new_node->ptr_decl = ptr_decl;
-      new_node->left = NULL;
-      new_node->right = NULL;
-      new_node->class_list = NULL;
-      linked_list_insert (&(new_node->class_list), base_class);
-      linked_list_insert (&(new_node->class_list), new_class);
-      (*root) = new_node;
-    }
-  else if ((DECL_NAME ((*root)->ptr_decl)) == (DECL_NAME (ptr_decl)))
-    linked_list_insert (&((*root)->class_list), new_class);
-  else if (ptr_decl < (*root)->ptr_decl)
-    binary_tree_insert (&((*root)->left), ptr_decl, base_class, new_class);
+  if (class_decl)
+    class_name_id = DECL_ASSEMBLER_NAME (class_decl);
   else
-    binary_tree_insert (&((*root)->right), ptr_decl, base_class, new_class);
+    class_name_id = DECL_ASSEMBLER_NAME (TYPE_NAME (class_type));
+
+  vtbl_node = vtbl_map_get_node (class_name_id);
+
+  if (vtbl_node)
+    return vtbl_node->class_info;
+
+  return NULL;
 }
 
 static void
-update_class_hierarchy_information (tree base_class_ptr_decl,
-                                    tree base_class,
+add_edge_to_graph (struct vtv_graph_node ***edge_array, unsigned *num_entries,
+                   unsigned *max_entries, struct vtv_graph_node *new_entry)
+{
+  /* Check array size, and re-size it if necessary.  */
+  if (*num_entries >= ((*max_entries) - 1))
+    {
+      unsigned new_size = 2 * (*max_entries);
+      unsigned i;
+      *edge_array = (struct vtv_graph_node **)
+          xrealloc (*edge_array, new_size * sizeof (struct vtv_graph_node *));
+
+      for (i = *max_entries; i < new_size; ++i)
+        (*edge_array)[i] = NULL;
+      *max_entries = new_size;
+    }
+
+  (*edge_array)[*num_entries] = new_entry;
+  *num_entries = (*num_entries) + 1;
+}
+
+static void
+add_hierarchy_pair (struct vtv_graph_node *base_node,
+                    struct vtv_graph_node *derived_node)
+{
+  add_edge_to_graph (&(base_node->children), &(base_node->num_children),
+                     &(base_node->max_children), derived_node);
+  add_edge_to_graph (&(derived_node->parents), &(derived_node->num_parents),
+                     &(derived_node->max_parents), base_node);
+}
+
+void
+update_class_hierarchy_information (tree base_class,
                                     tree derived_class)
 {
-  binary_tree_insert (&vlt_class_hierarchy_info, base_class_ptr_decl,
-		      base_class, derived_class);
+  struct vtv_graph_node *base_node = find_graph_node (base_class);
+  struct vtv_graph_node *derived_node = find_graph_node (derived_class);
+
+  add_hierarchy_pair (base_node, derived_node);
 }
+
 
 bool
 vtv_register_class_hierarchy_information (tree body)
@@ -710,9 +576,9 @@ vtv_register_class_hierarchy_information (tree body)
 
   /* DEBUG */
   if (false)  /* This is here for debugging purposes. */
-    dump_class_hierarchy_information (vlt_class_hierarchy_info);
+    dump_class_hierarchy_information ();
 
-  if (vlt_class_hierarchy_info != NULL)
+  if (any_verification_calls_generated)
     {
       /* Set permissions on vtable map data structure to be Read/Write. */
 
@@ -723,8 +589,7 @@ vtv_register_class_hierarchy_information (tree body)
 
       /* Add class hierarchy pairs to the vtable map data structure. */
 
-      /* compute_hierarchy_transitive_closure (); */
-      register_all_pairs (vlt_class_hierarchy_info, body);
+      register_all_pairs (body);
 
       /* Set permission on vtable map data structure to be Read-only.  */
 
@@ -738,41 +603,33 @@ vtv_register_class_hierarchy_information (tree body)
   return ret_val;
 }
 
-static tree
-vtable_find_map_decl (tree var_id)
-{
-  struct varpool_node *node;
-
-  for (node = varpool_nodes; node; node = node->next)
-    {
-      tree var_decl = node->decl;
-      if (DECL_NAME (var_decl) == var_id)
-        return var_decl;
-    }
-  return NULL_TREE;
-}
-
-static tree 
+struct vtbl_map_node *
 vtable_find_or_create_map_decl (tree base_type)
 {
   tree base_decl = TREE_CHAIN (base_type);
-  tree base_id = get_mangled_id (base_decl);
-  tree var_id;
+  tree base_id;
   tree var_decl = NULL;
   char *var_name = NULL;
+  struct vtbl_map_node *vtable_map_node = NULL;
+
 
   /* Verify the type has an associated vtable */
-  if (!TYPE_BINFO(base_type) || !BINFO_VTABLE (TYPE_BINFO (base_type)))
+  if (!TYPE_BINFO (base_type) || !BINFO_VTABLE (TYPE_BINFO (base_type)))
     return NULL;
+
+  if (base_decl)
+    base_id = DECL_ASSEMBLER_NAME (base_decl);
+  else
+    base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_type));
 
   /* Create map lookup symbol for base class */
   var_name = ACONCAT (("_ZTV", IDENTIFIER_POINTER (base_id),
                        ".vtable_map", NULL));
-  var_id = maybe_get_identifier (var_name);
-  if (var_id)
-    /* We've already created the variable; just look for it */
-    var_decl = vtable_find_map_decl (var_id);
-  else
+  if (base_id)
+    /* We've already created the variable; just look it.  */
+    vtable_map_node = vtbl_map_get_node (base_id);
+
+  if (!vtable_map_node || (vtable_map_node->vtbl_map_decl == NULL_TREE))
     {
       /* If we haven't already created the *.vtable_map
          global variable for this class, do so now, and
@@ -800,7 +657,7 @@ vtable_find_or_create_map_decl (tree base_type)
          shown here.
       sect_name = ACONCAT ((".data.rel.ro.", var_name,
                             NULL));
-      */
+       */
       sect_name = ACONCAT ((".data.", var_name,
                             NULL));
 
@@ -811,41 +668,45 @@ vtable_find_or_create_map_decl (tree base_type)
       DECL_INITIAL (var_decl) = initial_value;
 
       varpool_finalize_decl (var_decl);
-      save_vtable_map_decl (var_decl);
-
-      update_class_hierarchy_information (var_decl, base_type, base_type);
+      if (!vtable_map_node)
+        vtable_map_node = vtbl_map_node (base_type);
+      if (vtable_map_node->vtbl_map_decl == NULL_TREE)
+        vtable_map_node->vtbl_map_decl = var_decl;
     }
 
-  gcc_assert(var_decl);
-  return var_decl;
+  gcc_assert (vtable_map_node);
+  return vtable_map_node;
 }
 
-void 
+void
 vtv_save_base_class_info (tree type)
 {
-  tree binfo =  TYPE_BINFO(type);
-  tree base_binfo;
-  tree own_map;
-  int i;
-
-  /* first make sure to create the map for this record type */
-  own_map = vtable_find_or_create_map_decl(type);
-  if (own_map == NULL)
-    return;
-
-  /* Go through the list of all base classes for the current (derived)
-     type, make sure the *.vtable_map global variable for the base class
-     exists, and add the base class/derived class pair to the class
-     hierarchy information we are accumulating (for vtable pointer
-     verification).  */
-  for (i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); i++)
+  if (flag_vtable_verify)
     {
-      tree tree_val = BINFO_TYPE(base_binfo);
-      tree var_decl = NULL_TREE;
+      tree binfo =  TYPE_BINFO (type);
+      tree base_binfo;
+      struct vtbl_map_node *own_map;
+      int i;
 
-      var_decl = vtable_find_or_create_map_decl(tree_val);
-      if (var_decl != NULL)
-        update_class_hierarchy_information (var_decl, tree_val,
-                                            type);
+      /* first make sure to create the map for this record type */
+      own_map = vtable_find_or_create_map_decl (type);
+      if (own_map == NULL)
+        return;
+
+      /* Go through the list of all base classes for the current (derived)
+         type, make sure the *.vtable_map global variable for the base class
+	 exists, and add the base class/derived class pair to the class
+	 hierarchy information we are accumulating (for vtable pointer
+	 verification).  */
+      for (i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); i++)
+        {
+          tree tree_val = BINFO_TYPE(base_binfo);
+          struct vtbl_map_node *vtable_map_node = NULL;
+
+          vtable_map_node = vtable_find_or_create_map_decl (tree_val);
+
+          if (vtable_map_node != NULL)
+            update_class_hierarchy_information (tree_val, type);
+        }
     }
 }
