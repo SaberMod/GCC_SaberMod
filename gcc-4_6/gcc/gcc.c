@@ -708,7 +708,7 @@ proper position among the other output files.  */
 #ifndef RIPA_AUX_MOD_SPEC
 # define RIPA_AUX_MOD_SPEC "\
  %{!Q:-quiet} %i -dumpbase %B_aux -auxbase %b\
- %{W*&pedantic*} %{w} %{fdump*} %{fopt-info*}\
+ %{w} %{fdump*} %{fopt-info*}\
  %{Qn:-fno-ident} %{Qy:} %{fripa*} %{fprofile*}\
  %{!fprofile-use*:-fprofile-use} -o %u.irs"
 #endif
@@ -759,7 +759,7 @@ static const char *ripa_asm_options =
 
 /* specs to call asm in streaming lipo.  */
 static const char *ripa_invoke_as =
-"|\n as %(ripa_asm_options) %U.irs %A\n ";
+"\n as %(ripa_asm_options) %U.irs %A\n ";
 
 /* specs to call asm in streaming lipo. This is for the primary ir assembly
    to ir object.  */
@@ -8619,7 +8619,7 @@ ripa_build_aux_mod_func (int argc, const char **argv)
 
         case 'D': /* cpp defines */
           ++num_d;
-          str = strtok (buf+2, STR_DELIMITERS);
+          str = strtok (buf+2, "\n");
           strcpy (str_buf, "-");
           strcat (str_buf, str);
           store_arg (xstrdup (str_buf), 0, 0);
