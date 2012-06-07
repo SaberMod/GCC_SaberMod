@@ -1242,6 +1242,10 @@ ffunction-sections
 Common Report Var(flag_function_sections)
 Place each function into its own section
 
+ffunction-attribute-list=
+Common Joined RejectNegative Var(common_deferred_options) Defer
+-ffunction-attribute-list=attribute:name,...  Add attribute to named functions
+
 fgcda=
 Common Joined RejectNegative Var(gcov_da_name)
 Set the gcov data file name.
