@@ -1,4 +1,4 @@
-2012-06-06  Teresa Johnson  <tejohnson@google.com>
+2012-06-07  Teresa Johnson  <tejohnson@google.com>
 
 	* libgcov.c (sort_by_reverse_gcov_value): New function.
 	(gcov_compute_cutoff_values): Ditto.

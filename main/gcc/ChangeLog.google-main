@@ -1,4 +1,4 @@
-2012-06-06  Teresa Johnson  <tejohnson@google.com>
+2012-06-07  Teresa Johnson  <tejohnson@google.com>
 
 	* doc/invoke.texi: Rename -fripa-peel-size-limit
         and -fripa-unroll-size-limit to -fpeel-codesize-limit and
