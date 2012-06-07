@@ -7568,22 +7568,30 @@ add_AT_data8 (dw_die_ref die, enum dwarf_attribute attr_kind,
 
 /* Add DW_AT_low_pc and DW_AT_high_pc to a DIE.  */
 static inline void
-add_AT_low_high_pc (dw_die_ref die, const char *lbl_low, const char *lbl_high)
+add_AT_low_high_pc (dw_die_ref die, const char *lbl_low, const char *lbl_high,
+		    bool force_direct)
 {
   dw_attr_node attr;
 
   attr.dw_attr = DW_AT_low_pc;
   attr.dw_attr_val.val_class = dw_val_class_lbl_id;
+  attr.dw_attr_val.val_index = -1U;
   attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_low);
   add_dwarf_attr (die, &attr);
+  if (dwarf_split_debug_info && !force_direct)
+    set_AT_index (get_AT (die, DW_AT_low_pc), add_addr_table_entry (&attr));
 
   attr.dw_attr = DW_AT_high_pc;
   if (dwarf_version < 4)
     attr.dw_attr_val.val_class = dw_val_class_lbl_id;
   else
     attr.dw_attr_val.val_class = dw_val_class_high_pc;
+  attr.dw_attr_val.val_index = -1U;
   attr.dw_attr_val.v.val_lbl_id = xstrdup (lbl_high);
   add_dwarf_attr (die, &attr);
+  if (attr.dw_attr_val.val_class == dw_val_class_lbl_id
+      && dwarf_split_debug_info && !force_direct)
+    set_AT_index (get_AT (die, DW_AT_high_pc), add_addr_table_entry (&attr));
 }
 
 /* Hash and equality functions for debug_str_hash.  */
@@ -19968,7 +19976,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	  if (fde->dw_fde_begin)
 	    {
 	      /* We have already generated the labels.  */
-	      add_AT_low_high_pc (subr_die, fde->dw_fde_begin, fde->dw_fde_end);
+	      add_AT_low_high_pc (subr_die, fde->dw_fde_begin,
+				  fde->dw_fde_end, false);
 	    }
 	  else
 	    {
@@ -19979,7 +19988,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 					   FUNC_LABEL_ID (cfun));
 	      ASM_GENERATE_INTERNAL_LABEL (label_id_high, FUNC_END_LABEL,
 					   FUNC_LABEL_ID (cfun));
-	      add_AT_low_high_pc (subr_die, label_id_low, label_id_high);
+	      add_AT_low_high_pc (subr_die, label_id_low, label_id_high,
+				  false);
 	    }
 
 #if VMS_DEBUGGING_INFO
@@ -20045,7 +20055,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 		  /* Do the 'primary' section.   */
 		  add_AT_low_high_pc (subr_die, fde->dw_fde_begin,
-				      fde->dw_fde_end);
+				      fde->dw_fde_end, false);
 
 		  /* Build a minimal DIE for the secondary section.  */
 		  seg_die = new_die (DW_TAG_subprogram,
@@ -20070,13 +20080,14 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
 		  name = concat ("__second_sect_of_", name, NULL); 
 		  add_AT_low_high_pc (seg_die, fde->dw_fde_second_begin,
-				      fde->dw_fde_second_end);
+				      fde->dw_fde_second_end, false);
 		  add_name_attribute (seg_die, name);
 		  add_pubname_string (name, seg_die);
 		}
 	    }
 	  else
-	    add_AT_low_high_pc (subr_die, fde->dw_fde_begin, fde->dw_fde_end);
+	    add_AT_low_high_pc (subr_die, fde->dw_fde_begin, fde->dw_fde_end,
+				false);
 	}
 
 #ifdef MIPS_DEBUGGING_INFO
@@ -20610,7 +20621,7 @@ add_high_low_attributes (tree stmt, dw_die_ref die)
 				   BLOCK_NUMBER (stmt));
       ASM_GENERATE_INTERNAL_LABEL (label_high, BLOCK_END_LABEL,
 				   BLOCK_NUMBER (stmt));
-      add_AT_low_high_pc (die, label, label_high);
+      add_AT_low_high_pc (die, label, label_high, false);
     }
 }
 
@@ -24510,7 +24521,7 @@ dwarf2out_finish (const char *filename)
   if (!have_multiple_function_sections 
       || (dwarf_version < 3 && dwarf_strict))
     add_AT_low_high_pc (main_comp_unit_die, text_section_label,
-			text_end_label);
+			text_end_label, true);
   else
     {
       unsigned fde_idx = 0;
