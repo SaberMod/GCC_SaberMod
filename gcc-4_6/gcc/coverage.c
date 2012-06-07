@@ -558,6 +558,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	    {
 	      struct gcov_ctr_summary *csum = &summary.ctrs[entry->ctr];
 
+	      entry->summary.num_hot_counters += csum->num_hot_counters;
 	      entry->summary.runs += csum->runs;
 	      entry->summary.sum_all += csum->sum_all;
 	      if (entry->summary.run_max < csum->run_max)
