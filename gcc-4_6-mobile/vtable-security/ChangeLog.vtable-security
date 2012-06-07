@@ -1,4 +1,9 @@
-2012-06--4  Caroline Tice  <cmtice@google.com>
+2012-06-07  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/vtv_memory_pool/vtvmalloc.c (obstack_chunk_alloc) Change
+	to use mmap instead of posix_memalign.  Verify page alignment.
+	
+2012-06-04  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (struct list_node, struct node,
 	struct node2): Delete struct definitions.
