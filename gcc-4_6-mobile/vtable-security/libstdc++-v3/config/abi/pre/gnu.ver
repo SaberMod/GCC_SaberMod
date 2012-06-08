@@ -1277,8 +1277,16 @@ GLIBCXX_3.4.16 {
     # basic_stringbuf<>::_M_pbump
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE8_M_pbumpE*;
 
-    # virtual table maps for vtable-verification
+    # Virtual table verification symbols
+    # TODO: Ian said these need to be _ZTL* and added to the demangler
+    #   virtual table maps for vtable-verification
     _ZTV*.vtable_map;
+    #   other runtime symbols
+    _Z12__VLTprotectv;
+    _Z14__VLTunprotectv;
+    _Z17__VLTRegisterPairPPvS_PciS1_i;
+    _Z21__VLTChangePermissionPKci;
+    _Z24__VLTVerifyVtablePointerPPvS_PciS1_i;
 
 } GLIBCXX_3.4.15;
 

@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-threadsafe-analyze.h"
 #include "tree-iterator.h"
 #include "tree-vtable-verify.h"
+#include "gimple.h"
 
 static GTY(()) tree vlt_register_pairs_fndecl = NULL_TREE;
 static GTY(()) tree vlt_change_permission_fndecl = NULL_TREE;
@@ -54,6 +55,7 @@ struct work_node {
 static int num_classes = 0;
 
 static void init_functions (void);
+
 static void dump_class_hierarchy_information (void);
 static void register_all_pairs (tree body);
 static void add_hierarchy_pair (struct vtv_graph_node *,
@@ -61,6 +63,12 @@ static void add_hierarchy_pair (struct vtv_graph_node *,
 static struct vtv_graph_node *find_graph_node (tree);
 static struct vtv_graph_node *
                   find_and_remove_next_leaf_node (struct work_node **worklist);
+
+/* TODO: remove this. */
+#if 0
+static void vtv_create_unprotect_function            (void);
+static void vtv_create_protect_function              (void);
+#endif
 
 void update_class_hierarchy_information (tree, tree);
 struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
@@ -563,13 +571,80 @@ update_class_hierarchy_information (tree base_class,
   add_hierarchy_pair (base_node, derived_node);
 }
 
+/* TODO: remove */
+#if 0 
+/* Create function that sets permissions on vtable map data structure to be Read/Write. */
+void
+vtv_create_unprotect_function(void)
+{
+  tree unprotect_body;
+  tree arg, arg2, call_expr;
+
+  unprotect_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 3,
+                                  "__VTV_unprotect.vtable");
+
+
+  arg = build_string_literal (strlen ("rw"), "rw");
+  arg2 = build_int_cst (integer_type_node, 2);
+  call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
+  append_to_statement_list (call_expr, &unprotect_body);
+
+  /* TODO: why are we using this global current_function_decl here? */
+  current_function_decl =
+      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 3, unprotect_body);
+  allocate_struct_function (current_function_decl, false);
+  TREE_STATIC (current_function_decl) = 1;
+  TREE_USED (current_function_decl) = 1;
+  TREE_PUBLIC (current_function_decl) = 1;
+  DECL_PRESERVE_P (current_function_decl) = 1;
+  DECL_COMDAT(current_function_decl) = 1;
+  if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+    {
+       DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
+       assemble_vtv_preinit_initializer (current_function_decl);
+    }
+
+  gimplify_function_tree (current_function_decl);
+  cgraph_add_new_function (current_function_decl, false);
+}
+
+/* Create function that sets permission on vtable map data structure to be Read-only.  */
+void
+vtv_create_protect_function(void)
+{
+  tree protect_body;
+  tree arg, arg2, call_expr;
+  protect_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
+				    "__VTV_protect.vtable");
+
+  arg = build_string_literal (strlen ("ro"), "ro");
+  arg2 = build_int_cst (integer_type_node, 2);
+  call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
+  append_to_statement_list (call_expr, &protect_body);
+
+  /* TODO: why are we using this global current_function_decl here? */
+  current_function_decl =
+      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, protect_body);
+  allocate_struct_function (current_function_decl, false);
+  TREE_STATIC (current_function_decl) = 1;
+  TREE_USED (current_function_decl) = 1;
+  TREE_PUBLIC (current_function_decl) = 1;
+  DECL_PRESERVE_P (current_function_decl) = 1;
+  DECL_COMDAT(current_function_decl) = 1;
+  if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+    {
+       DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
+       assemble_vtv_preinit_initializer (current_function_decl);
+    }
+
+  gimplify_function_tree (current_function_decl);
+  cgraph_add_new_function (current_function_decl, false);
+}
+#endif
 
 bool
-vtv_register_class_hierarchy_information (tree body)
+vtv_register_class_hierarchy_information (tree register_pairs_body)
 {
-  tree call_expr;
-  tree arg;
-  tree arg2;
   bool ret_val = false;
 
   init_functions ();
@@ -580,27 +655,81 @@ vtv_register_class_hierarchy_information (tree body)
 
   if (num_vtable_map_nodes > 0)
     {
-      /* Set permissions on vtable map data structure to be Read/Write. */
-
-      arg = build_string_literal (strlen ("rw"), "rw");
-      arg2 = build_int_cst (integer_type_node, 2);
-      call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
-      append_to_statement_list (call_expr, &body);
-
       /* Add class hierarchy pairs to the vtable map data structure. */
-
-      register_all_pairs (body);
-
-      /* Set permission on vtable map data structure to be Read-only.  */
-
-      arg = build_string_literal (strlen ("ro"), "ro");
-      call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
-      append_to_statement_list (call_expr, &body);
+      register_all_pairs (register_pairs_body);
 
       ret_val = true;  /* Actually did some work/wrote something out.  */
     }
 
   return ret_val;
+}
+
+/* Generate the special constructor function that calls
+   __VLTChangePermission and __VLTRegisterPairs, and give it a very high initialization 
+   priority.  */
+
+void
+vtv_generate_init_routine(const char * filename)
+{
+  const char * cwd = filename;
+  char temp_name[58];
+  tree register_pairs_body;
+  char * cptr;
+  int i;
+  bool vtable_classes_found = false;
+
+  /* The last part of the directory tree will be where it
+     differentiates; the first part may be the same. */
+  if (strlen (cwd) > 50)
+    {
+      int pos = (strlen (cwd) - 50);
+      cwd = cwd + pos;
+    }
+
+  /* TODO: Are these all the chars we need to map? */
+  sprintf (temp_name, "%.50s.vtable", cwd);
+  for (cptr = temp_name, i = 0;
+       (cptr[0] != '\0') && (i < 50);
+       cptr++, i++)
+    if ((cptr[0] == '/') || (cptr[0] == '-') || (cptr[0] == '+'))
+      cptr[0] = '_';
+
+  push_lang_context (lang_name_c);
+
+  /* The priority for this init function (constructor) is carefully chosen
+     so that it will happen after the calls to unprotect the memory used for 
+     vtable verification and before the memory is protected again */
+  register_pairs_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
+                                       (const char *) temp_name);
+
+  vtable_classes_found =
+      vtv_register_class_hierarchy_information (register_pairs_body);
+
+  if (vtable_classes_found)
+    {
+      current_function_decl =
+          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, register_pairs_body);
+      allocate_struct_function (current_function_decl, false);
+      TREE_STATIC (current_function_decl) = 1;
+      TREE_USED (current_function_decl) = 1;
+      TREE_PUBLIC (current_function_decl) = 1;
+      DECL_PRESERVE_P (current_function_decl) = 1;
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+      {
+        DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
+        assemble_vtv_preinit_initializer (current_function_decl);
+      }
+      gimplify_function_tree (current_function_decl);
+      cgraph_add_new_function (current_function_decl, false);
+
+      /*
+      vtv_create_unprotect_function();
+      vtv_create_protect_function();
+      */
+
+      cgraph_process_new_functions ();
+    }
+  pop_lang_context ();
 }
 
 struct vtbl_map_node *

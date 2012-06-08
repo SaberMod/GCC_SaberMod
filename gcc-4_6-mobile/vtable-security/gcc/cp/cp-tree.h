@@ -4902,6 +4902,8 @@ extern void note_vague_linkage_fn		(tree);
 extern tree build_artificial_parm		(tree, tree);
 extern bool possibly_inlined_p			(tree);
 extern int parm_index                           (tree);
+extern tree start_objects                       (int, int, const char *);
+extern tree finish_objects                      (int, int, tree);
 
 /* in error.c */
 extern void init_error				(void);
@@ -5683,9 +5685,9 @@ extern tree build_vtbl_address                   (tree);
 
 /* in vtable-class-hierarchy.c */
 
-extern bool vtv_register_class_hierarchy_information (tree);
 extern void vtv_compute_class_hierarchy_transitive_closure (void);
-extern void vtv_save_base_class_info             (tree type);
+extern void vtv_generate_init_routine                (const char *);
+extern void vtv_save_base_class_info                 (tree);
 
 /* -- end of C++ */
 

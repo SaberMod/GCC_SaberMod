@@ -1,7 +1,7 @@
 /* TODO: add copyright and comments */
 
-#ifndef _VTVMALLOC_H
-#define _VTVMALLOC_H 1
+#ifndef _VTV_MALLOC_H
+#define _VTV_MALLOC_H 1
 
 #ifdef __cplusplus
 extern "C" {
@@ -30,4 +30,4 @@ extern void VTV_unprotect (void);
 } /* extern "C" */
 #endif
 
-#endif /* vtvmalloc.h */
+#endif /* vtv_malloc.h */

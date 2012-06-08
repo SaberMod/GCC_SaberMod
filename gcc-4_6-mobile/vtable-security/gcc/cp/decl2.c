@@ -71,8 +71,6 @@ typedef struct priority_info_s {
 static void mark_vtable_entries (tree);
 static bool maybe_emit_vtables (tree);
 static bool acceptable_java_type (tree);
-static tree start_objects (int, int, const char *);
-static void finish_objects (int, int, tree);
 static tree start_static_storage_duration_function (unsigned);
 static void finish_static_storage_duration_function (tree);
 static priority_info get_priority_info (int);
@@ -87,8 +85,6 @@ static void import_export_class (tree);
 static tree get_guard_bits (tree);
 static void determine_visibility_from_class (tree, tree);
 static bool decl_defined_p (tree);
-
-static tree vtable_verify_init_fn = NULL_TREE;
 
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
@@ -2731,7 +2727,7 @@ set_guard (tree guard)
 /* Start the process of running a particular set of global constructors
    or destructors.  Subroutine of do_[cd]tors.  */
 
-static tree
+tree
 start_objects (int method_type, int initp, const char *extra_name)
 {
   tree body;
@@ -2792,7 +2788,7 @@ start_objects (int method_type, int initp, const char *extra_name)
 /* Finish the process of running a particular set of global constructors
    or destructors.  Subroutine of do_[cd]tors.  */
 
-static void
+tree
 finish_objects (int method_type, int initp, tree body)
 {
   tree fn;
@@ -2806,11 +2802,12 @@ finish_objects (int method_type, int initp, tree body)
       DECL_STATIC_CONSTRUCTOR (fn) = 1;
       decl_init_priority_insert (fn, initp);
 
+      /* TODO: try not to match based on name */
       if (flag_vtable_verify
 	  && strstr (IDENTIFIER_POINTER (DECL_NAME (fn)), ".vtable"))
 	{
-	  vtable_verify_init_fn = fn;
-	  return;
+	  /* TODO: Is it ok to leave this function without calling expand_or_defer_fn()? */
+	  return fn;
 	}
     }
   else
@@ -2820,6 +2817,7 @@ finish_objects (int method_type, int initp, tree body)
     }
 
   expand_or_defer_fn (fn);
+  return fn;
 }
 
 /* The names of the parameters to the function created to handle
@@ -4100,52 +4098,7 @@ cp_write_global_declarations (void)
   /* TODO: Can we put the body of this "if" into a routine in vtable-class-hierarchy.c ? */
   if (flag_vtable_verify)
     {
-      const char * cwd = main_input_filename;
-      char temp_name[58];
-      tree body;
-      char *cptr = (char *) cwd;
-      int i;
-      bool vtable_classes_found = false;
-
-
-      /* The last part of the directory tree will be where it
-         differentiates; the first part may be the same. */
-      if (strlen (cwd) > 50)
-	{
-	  int pos = (strlen (cwd) - 50);
-	  cptr = cwd + pos;
-	}
-
-      sprintf (temp_name, "%.50s.vtable", cptr);
-      for (cptr = temp_name, i = 0;
-	   (cptr[0] != '\0') && (i < 50);
-	   cptr++, i++)
-	if ((cptr[0] == '/') || (cptr[0] == '-') || (cptr[0] == '+'))
-	  cptr[0] = '_';
-
-      push_lang_context (lang_name_c);
-      body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
-			    (const char *) temp_name);
-      vtable_classes_found = vtv_register_class_hierarchy_information (body);
-      if (vtable_classes_found)
-        {
-          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, body);
-          current_function_decl = vtable_verify_init_fn;
-          allocate_struct_function (current_function_decl, false);
-          TREE_STATIC (current_function_decl) = 1;
-          TREE_USED (current_function_decl) = 1;
-          TREE_PUBLIC (current_function_decl) = 1;
-          DECL_PRESERVE_P (current_function_decl) = 1;
-          if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-            {
-              DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
-              assemble_vtv_preinit_initializer (current_function_decl);
-            }
-          gimplify_function_tree (current_function_decl);
-          cgraph_add_new_function (current_function_decl, false);
-          cgraph_process_new_functions ();
-        }
-      pop_lang_context ();
+      vtv_generate_init_routine(main_input_filename);
     }
 
   timevar_stop (TV_PHASE_CGRAPH);

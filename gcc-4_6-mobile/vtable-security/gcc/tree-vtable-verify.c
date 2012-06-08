@@ -593,7 +593,7 @@ verify_bb_vtables (basic_block bb)
                   build_vtable_verify_fndecl ();
 
                   /* Given the vtable pointer for the base class of the object,
-                     build the call to __VerifyVtablePointer to verify that the
+                     build the call to __VLTVerifyVtablePointer to verify that the
                      object's vtable pointer (contained in lhs) is in the set
                      of valid vtable pointers for the base class.  */
 
@@ -701,7 +701,7 @@ build_vtable_verify_fndecl (void)
 
   type = build_function_type (type, arg_types);
 
-  verify_vtbl_ptr_fndecl = build_fn_decl ("__VerifyVtablePointer", type);
+  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointer", type);
   TREE_NOTHROW (verify_vtbl_ptr_fndecl) = 1;
   DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl)
       = tree_cons (get_identifier ("leaf"), NULL,
