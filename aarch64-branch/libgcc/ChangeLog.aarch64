@@ -1,5 +1,15 @@
 2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
 
+	* config.host
+	(aarch64*-*-elf): Add t-aarch64.
+	(aarch64*-*-linux*): Add t-aarch64, remove t-linux.
+	* config/aarch64/lib1funcs.S: Delete.
+	* config/aarch64/sync-cache.c: New file.
+	* config/aarch64/t-aarch64: New file.
+	* config/aarch64/t-linux: Delete.
+
+2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
+
 	* config/aarch64/t-aarch64: Delete.
 	* config.host (aarch64*-*-elf): Remove reference to t-aarch64.
 

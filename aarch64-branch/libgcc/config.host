@@ -283,14 +283,15 @@ esac
 case ${host} in
 aarch64*-*-elf)
 	extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
 	tmake_file="${tmake_file} t-softfp-sfdf t-softfp-excl"
 	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp"
 	;;
 aarch64*-*-linux*)
 	md_unwind_header=aarch64/linux-unwind.h
+	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
 	tmake_file="${tmake_file} t-softfp-sfdf t-softfp-excl"
 	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp"
-	tmake_file="${tmake_file} ${cpu_type}/t-linux"
 	;;
 alpha*-*-linux*)
 	tmake_file="${tmake_file} alpha/t-alpha alpha/t-ieee t-crtfm alpha/t-linux"
