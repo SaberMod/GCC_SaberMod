@@ -1,8 +1,15 @@
+2012-06-08  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c
+	(vtv_register_class_hierarchy_information): Use num_vtable_map_nodes
+	to decide whether or not to generate vtable verification initialization
+	function.
+
 2012-06-07  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtv_memory_pool/vtvmalloc.c (obstack_chunk_alloc) Change
 	to use mmap instead of posix_memalign.  Verify page alignment.
-	
+
 2012-06-04  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (struct list_node, struct node,

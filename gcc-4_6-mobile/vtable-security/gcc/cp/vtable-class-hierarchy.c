@@ -578,7 +578,7 @@ vtv_register_class_hierarchy_information (tree body)
   if (false)  /* This is here for debugging purposes. */
     dump_class_hierarchy_information ();
 
-  if (any_verification_calls_generated)
+  if (num_vtable_map_nodes > 0)
     {
       /* Set permissions on vtable map data structure to be Read/Write. */
 
