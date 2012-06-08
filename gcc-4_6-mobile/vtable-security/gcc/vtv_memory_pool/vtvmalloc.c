@@ -7,7 +7,7 @@
 #include <obstack.h>
 
 /* Set the following macro to 1 to get internal debugging messages */
-#define VTV_DEBUG 0
+#define VTV_DEBUG 1
 
 /* TODO: Need to protect the following variables */
 static struct obstack VTV_obstack;

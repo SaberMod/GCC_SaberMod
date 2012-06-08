@@ -110,7 +110,7 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
      us to write out the string that is missing the '\0' at it's
      end. */
 
-  sprintf (format_string, format_string_dummy, format_arg1, format_arg2);
+  snprintf (format_string, sizeof(format_string), format_string_dummy, format_arg1, format_arg2);
 
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
@@ -179,10 +179,19 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       first_time = false;
     }
 
+  /* The two lines below are not really right; they are there, for
+     now, to deal with calls that happen during _init, possibly before
+     the correct __VLTRegisterPair call has been made.  */
+  if (*base_vtbl_ptr == NULL)
+  {
+    print_debugging_message("\n!!! vtable_map variable (%%.%ds) is NULL while searching for (%%.%ds)!!!\n\n", len1, len2,base_vtbl_var_name, vtable_name);
+    return test_value;
+  }
+
   if (vlt_hash_find ((*base_vtbl_ptr), test_value))
     {
       if (debug_functions)
-	fprintf (stdout, "Verified object vtable pointer = 0x%lx\n", obj_vptr);
+	fprintf (stdout, "Verified object vtable pointer = %p\n", obj_vptr);
     }
   else
     {
@@ -191,7 +200,7 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       if (base_vtbl_var_name && vtable_name)
 	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
 				 vtable_name, base_vtbl_var_name);
-      fprintf (stderr, "FAILED to verify object vtable pointer=0x%lx!!!\n",
+      fprintf (stderr, "FAILED to verify object vtable pointer=%p!!!\n",
                obj_vptr);
       dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
                                    len1);
