@@ -1,3 +1,29 @@
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r182014 from mainline
+	2011-12-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/51408
+	* gcc.dg/pr51408.c: New.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r181416 from mainline
+	2011-11-16  Richard Earnshaw  <rearnsha@arm.com>
+		Bernd Schmidt <bernds@coudesourcery.com>
+		Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	PR target/49641
+	* gcc.target/arm/pr49641.c: New test.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r179607 from mainline
+	2011-10-06  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/49049
+	* gcc.c-torture/compile/pr49049.c: New test.
+
 2012-02-10  Bin Cheng  <bin.cheng@arm.com>
 
 	Backport from mainline.

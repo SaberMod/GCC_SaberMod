@@ -10250,6 +10250,9 @@ store_multiple_sequence (rtx *operands, int nops, int nops_total,
   rtx base_reg_rtx = NULL;
   int i, stm_case;
 
+  /* Write back of base register is currently only supported for Thumb 1.  */
+  int base_writeback = TARGET_THUMB1;
+
   /* Can only handle up to MAX_LDM_STM_OPS insns at present, though could be
      easily extended if required.  */
   gcc_assert (nops >= 2 && nops <= MAX_LDM_STM_OPS);
@@ -10307,7 +10310,9 @@ store_multiple_sequence (rtx *operands, int nops, int nops_total,
 	  /* If it isn't an integer register, then we can't do this.  */
 	  if (unsorted_regs[i] < 0
 	      || (TARGET_THUMB1 && unsorted_regs[i] > LAST_LO_REGNUM)
-	      || (TARGET_THUMB2 && unsorted_regs[i] == base_reg)
+	      /* The effects are unpredictable if the base register is
+		 both updated and stored.  */
+	      || (base_writeback && unsorted_regs[i] == base_reg)
 	      || (TARGET_THUMB2 && unsorted_regs[i] == SP_REGNUM)
 	      || unsorted_regs[i] > 14)
 	    return 0;
@@ -23981,8 +23986,11 @@ arm_output_sync_loop (emit_f emit,
 	}
     }
 
-  arm_process_output_memory_barrier (emit, NULL);
+  /* Note: label is before barrier so that in cmp failure case we still get
+     a barrier to stop subsequent loads floating upwards past the ldrex
+     PR target/48126.  */
   arm_output_asm_insn (emit, 1, operands, "%sLSYB%%=:", LOCAL_LABEL_PREFIX);
+  arm_process_output_memory_barrier (emit, NULL);
 }
 
 static rtx

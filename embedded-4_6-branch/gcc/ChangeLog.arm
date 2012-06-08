@@ -1,3 +1,46 @@
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r182014 from mainline.
+	2011-12-05  Kazu Hirata  <kazu@codesourcery.com>
+
+	PR target/51408
+	* config/arm/arm.md (*minmax_arithsi): Always require the else
+	clause in the MINUS case.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r181416 from mainline.
+	2011-11-16  Richard Earnshaw  <rearnsha@arm.com>
+		Bernd Schmidt <bernds@coudesourcery.com>
+		Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	PR target/49641
+	* config/arm/arm.c (store_multiple_sequence): Avoid cases where
+	the base reg is stored iff compiling for Thumb1.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r179980 from mainline.
+	2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	PR target/48126
+	* config/arm/arm.c (arm_output_sync_loop): Move label before barrier.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r179979 from mainline.
+	2011-10-14  David Alan Gilbert  <david.gilbert@linaro.org>
+
+	* config/arm/arm.h (TARGET_HAVE_DMB_MCR): MCR Not available in Thumb1.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r179607 from mainline.
+	2011-10-06  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR target/49049
+	* config/arm/arm.md (arm_subsi3_insn): Lose the last alternative.
+
 2012-06-07  Terry Guo  <terry.guo@arm.com>
 
 	Backport r186405 from mainline.
