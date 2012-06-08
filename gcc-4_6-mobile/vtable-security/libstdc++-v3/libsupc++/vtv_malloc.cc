@@ -89,7 +89,7 @@ obstack_chunk_alloc (size_t size)
 }
 
 static void
-obstack_chunk_free (size_t size)
+obstack_chunk_free (size_t )
 {
   /* Do nothing. For our purposes there should be very little de-allocation. */
 }
@@ -122,7 +122,7 @@ VTV_malloc (size_t size)
 }
 
 void
-VTV_free (void * ptr)
+VTV_free (void *)
 {
   /* Do nothing. We dont care about recovering unneded memory */
 }
@@ -137,5 +137,5 @@ VTV_malloc_stats (void)
     count++;
     ci = ci->prev;
   }
-  fprintf(stderr, "VTV_malloc_stats:\n  Page Size = %d bytes\n  Number of pages = %d\n", page_size, count);
+  fprintf(stderr, "VTV_malloc_stats:\n  Page Size = %lu bytes\n  Number of pages = %d\n", page_size, count);
 }
