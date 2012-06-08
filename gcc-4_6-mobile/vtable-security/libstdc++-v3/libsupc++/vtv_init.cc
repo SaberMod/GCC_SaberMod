@@ -6,7 +6,7 @@
 /* Set the following macro to 1 to get internal debugging messages */
 #define VTV_DEBUG 0
 
-
+#if (VTV_DEBUG == 1)
 #include <stdio.h>
 #endif
 
