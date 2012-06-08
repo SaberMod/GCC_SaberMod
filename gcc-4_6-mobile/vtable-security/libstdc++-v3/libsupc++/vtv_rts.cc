@@ -14,10 +14,10 @@
 static int debug_hash = 0;
 static int debug_functions = 0;
 static int debug_register_pairs = 0;
-static int row_length = 30;
 static FILE *log_file_fp =NULL;
 
 /* TODO: why is this returning a value ? */
+/* TODO: remove len parameter */
 void *
 __VLTChangePermission (const char *arg1, int len)
 {
@@ -117,6 +117,7 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
 
+/* TODO: Why is this returning anything */
 void *
 __VLTRegisterPair (void **data_pointer, void *test_value,
 		   char *base_ptr_var_name, int len1, char *vtable_name,
@@ -143,6 +144,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value,
     }
 
   vlt_hash_insert (*base_vtbl_row_ptr, test_value);
+  return NULL;
 }
 
 static void PrintStackTrace()

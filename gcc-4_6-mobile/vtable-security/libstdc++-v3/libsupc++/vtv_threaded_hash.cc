@@ -207,7 +207,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
 void *
 vlt_hash_find (struct vlt_hashtable *table, void *value)
 {
-  access (table, value, TABLE_FIND);
+  return access (table, value, TABLE_FIND);
 }
 
 /* Debugging Functions  */

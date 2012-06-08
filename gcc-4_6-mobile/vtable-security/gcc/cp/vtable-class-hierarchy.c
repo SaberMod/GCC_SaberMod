@@ -52,8 +52,6 @@ struct work_node {
   struct work_node *next;
 };
 
-static int num_classes = 0;
-
 static void init_functions (void);
 
 static void dump_class_hierarchy_information (void);
@@ -63,6 +61,7 @@ static void add_hierarchy_pair (struct vtv_graph_node *,
 static struct vtv_graph_node *find_graph_node (tree);
 static struct vtv_graph_node *
                   find_and_remove_next_leaf_node (struct work_node **worklist);
+static bool vtv_register_class_hierarchy_information (tree register_pairs_body);
 
 /* TODO: remove this. */
 #if 0
