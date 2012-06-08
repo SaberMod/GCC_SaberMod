@@ -1,6 +1,12 @@
 2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
 
 	* config.host
+	(aarch64*-*-elf): Remove t-softfp-sfdf and t-softfp-excl.
+	(aarch64*-*-linux*): Likewise.
+
+2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
+
+	* config.host
 	(aarch64*-*-elf): Add t-aarch64.
 	(aarch64*-*-linux*): Add t-aarch64, remove t-linux.
 	* config/aarch64/lib1funcs.S: Delete.
