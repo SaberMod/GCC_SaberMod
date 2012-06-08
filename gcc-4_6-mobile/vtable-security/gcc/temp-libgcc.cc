@@ -10,7 +10,7 @@
 #error "This file must be compiled with a C++ compiler"
 #endif
 
-static int debug_hash = 1;
+static int debug_hash = 0;
 static int debug_functions = 0;
 static int debug_register_pairs = 0;
 static int row_length = 30;
@@ -178,15 +178,6 @@ __VerifyVtablePointer (void **data_pointer, void *test_value,
       dump_hashing_statistics ();
       first_time = false;
     }
-
-  /* The two lines below are not really right; they are there, for
-     now, to deal with calls that happen during _init, possibly before
-     the correct __VLTRegisterPair call has been made.  */
-  if (*base_vtbl_ptr == NULL)
-  {
-    print_debugging_message("\n!!! vtable_map variable (%%.%ds) is NULL while searching for (%%.%ds)!!!\n\n", len1, len2,base_vtbl_var_name, vtable_name);
-    return test_value;
-  }
 
   if (vlt_hash_find ((*base_vtbl_ptr), test_value))
     {
