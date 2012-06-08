@@ -240,6 +240,8 @@ struct GTY((chain_next ("%h.next"), chain_prev ("%h.previous"))) cgraph_node {
   /* How to scale counts at materialization time; used to merge
      LTO units with different number of profile runs.  */
   int count_materialization_scale;
+  /* gid for the node, only used in streaming LIPO.  */
+  unsigned HOST_WIDEST_INT gid;
   /* Unique id of the node.  */
   int uid;
   /* Ordering of all cgraph nodes.  */
@@ -379,6 +381,32 @@ typedef enum {
 #include "cif-code.def"
   CIF_N_REASONS
 } cgraph_inline_failed_t;
+
+/* We store 5 records for each indirect call in promtion_info.
+    0: hottest target guid,
+    1: counter value for [0],
+    2: second hottest target guid,
+    3: counter value for [2],
+    4: bb counter value for this indirect call.  */
+#define ICALL_PROMOTION_INFO_SIZE 5
+typedef struct
+{
+  tree caller_fn_decl;
+  gimple call_stmt;
+  bool is_lto_uid;
+  gcov_type promotion_info[ICALL_PROMOTION_INFO_SIZE];
+} icall_promotion_info_t;
+
+/* hash_table that stores icall promotion information.  */
+extern htab_t icall_promotion_info_htab;
+extern void init_icall_promotion_info_htab (void);
+extern hashval_t icall_promotion_info_hash (const void *p);
+
+extern void icall_promotion_update_gid
+              (struct cgraph_node*, struct cgraph_node*);
+extern void icall_promotion_insert_gid
+              (struct cgraph_node*, unsigned HOST_WIDEST_INT);
+extern void ipa_icall_promotion_transform (void);
 
 /* Structure containing additional information about an indirect call.  */
 

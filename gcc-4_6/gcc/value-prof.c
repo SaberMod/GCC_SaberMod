@@ -80,7 +80,6 @@ along with GCC; see the file COPYING3.  If not see
    kept as a linked list of struct histogram_value_t's, which contain the
    same information as above.  */
 
-
 static tree gimple_divmod_fixed_value (gimple, tree, int, gcov_type, gcov_type);
 static tree gimple_mod_pow2 (gimple, int, gcov_type, gcov_type);
 static tree gimple_mod_subtract (gimple, int, int, int, gcov_type, gcov_type,
@@ -534,7 +533,7 @@ check_ic_counter (gimple stmt, gcov_type *count1, gcov_type *count2,
         }
       *count2 = all;
     }
-  
+
   if (*count2 > *count1)
     {
       if (flag_opt_info >= OPT_INFO_MAX)
@@ -1226,7 +1225,7 @@ typedef struct func_gid_entry
 
 /* Hash function for function global unique ids.  */
 
-static hashval_t 
+static hashval_t
 htab_gid_hash (const void * ent)
 {
   const func_gid_entry_t *const entry = (const func_gid_entry_t *) ent;
@@ -1250,6 +1249,47 @@ htab_gid_del (void *ent)
   free (entry);
 }
 
+/* When we replace NODE with PREVAILING_NODE, update the
+   gid_map also.  */
+
+void
+icall_promotion_update_gid (struct cgraph_node *node,
+                            struct cgraph_node *prevailing_node)
+{
+  func_gid_entry_t ent;
+  func_gid_entry_t **slot;
+
+  ent.node = node;
+  ent.gid = node->gid;
+  slot = (func_gid_entry_t **) htab_find_slot (gid_map, &ent, NO_INSERT);
+  if (!slot || !*slot)
+    return;
+  gcc_assert ((*slot)->gid == ent.gid && (*slot)->node == node);
+
+  (*slot)->node = prevailing_node;
+}
+
+/* Insert the gid to hashtab to build the gid_map.  */
+
+void
+icall_promotion_insert_gid (struct cgraph_node *n,
+                            unsigned HOST_WIDEST_INT gid)
+{
+  func_gid_entry_t ent, *entp;
+  func_gid_entry_t **slot;
+
+  ent.node = n;
+  ent.gid = gid;
+  slot = (func_gid_entry_t **) htab_find_slot (gid_map, &ent, INSERT);
+  gcc_assert (!*slot || ((*slot)->gid == ent.gid && (*slot)->node == n));
+  if (!*slot)
+    {
+      *slot = entp = XCNEW (func_gid_entry_t);
+      entp->node = n;
+      entp->gid = ent.gid;
+    }
+}
+
 /* Initialize the global unique id map for functions.  */
 
 static void
@@ -1261,6 +1301,12 @@ init_gid_map (void)
 
   gid_map
       = htab_create (10, htab_gid_hash, htab_gid_eq, htab_gid_del);
+
+  /* For streaming LIPO, We cannot build the gid_map here like in FE
+     LIPO because the body may not be available.
+     So we build the gid_map in the streaming-in stage.  */
+  if (flag_ripa_stream)
+    return;
 
   for (n = cgraph_nodes; n; n = n->next)
     {
@@ -1474,6 +1520,16 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 	}
     }
 
+  /* Update the call graph.  */
+  if (flag_ripa_stream)
+    {
+      cgraph_create_edge (cgraph_get_node (current_function_decl),
+                          direct_call, dcall_stmt,
+                          dcall_bb->count, dcall_bb->frequency,
+                          dcall_bb->loop_depth);
+      direct_call->needed = 1;
+    }
+
   return dcall_stmt;
 }
 
@@ -1538,41 +1594,98 @@ gimple_ic_transform_single_targ (gimple stmt, histogram_value histogram)
   return true;
 }
 
+/* hash_table that stores ic promotion information.  */
+
+htab_t icall_promotion_info_htab = NULL;
+
+/* hash function for loop_lsm_limit_map_htab.  */
+
+hashval_t
+icall_promotion_info_hash (const void *p)
+{
+  const icall_promotion_info_t *const x = (const icall_promotion_info_t *) p;
+  return htab_hash_pointer (x->call_stmt);
+}
+
+/* hash equal function for icall_promotion_info_htab.  */
+
+static int
+icall_promotion_info_eq (const void *p1, const void *p2)
+{
+  const icall_promotion_info_t *const ptr1 = (const icall_promotion_info_t *) p1;
+  const icall_promotion_info_t *const ptr2 = (const icall_promotion_info_t *) p2;
+
+  return (htab_eq_pointer (ptr1->caller_fn_decl, ptr2->caller_fn_decl) &&
+          htab_eq_pointer (ptr1->call_stmt, ptr2->call_stmt));
+}
+
+/* free one entry in icall_promotion_info hashtab.  */
+static int
+free_icall_promotion_info_t (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  free (*(icall_promotion_info_t**) slot);
+  return 1;
+}
+
+/* Initalization function for indirect call promotion information.  */
+
+void
+init_icall_promotion_info_htab (void)
+{
+  if (icall_promotion_info_htab)
+    return;
+
+  icall_promotion_info_htab = htab_create (59, icall_promotion_info_hash,
+                                   icall_promotion_info_eq, NULL);
+}
+
+/* Cleanup function: destroy loop structure and free space.  */
+
+static void
+fini_icall_promotion_info_htab (void)
+{
+  if (icall_promotion_info_htab)
+    {
+      htab_traverse (icall_promotion_info_htab,
+          free_icall_promotion_info_t, NULL);
+      htab_delete (icall_promotion_info_htab);
+    }
+}
+
 /* Convert indirect function call STMT into guarded direct function
    calls. Multiple indirect call targets are supported. HISTOGRAM
    is the target distribution for the callsite.  */
 
-static bool
-gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
+static int
+gimple_ic_transform_mult_targ_1 (gimple stmt,
+          gcov_type icall_counters[ICALL_PROMOTION_INFO_SIZE])
 {
-  gcov_type val1, val2, count1, count2, all, bb_all;
+  gcov_type all;
   gcov_type prob1, prob2;
   gimple modify1, modify2;
   struct cgraph_node *direct_call1 = 0, *direct_call2 = 0;
   int perc_threshold, count_threshold, always_inline;
   location_t locus;
+  int performed = 0;
+  gcov_type val1 = icall_counters[0];
+  gcov_type count1 = icall_counters[1];
+  gcov_type val2 = icall_counters[2];
+  gcov_type count2 = icall_counters[3];
+  gcov_type bb_all = icall_counters[4];
 
-  val1 = histogram->hvalue.counters [1];
-  count1 = histogram->hvalue.counters [2];
-  val2 = histogram->hvalue.counters [3];
-  count2 = histogram->hvalue.counters [4];
-  bb_all = gimple_bb (stmt)->count;
   all = bb_all;
-
-  gimple_remove_histogram_value (cfun, stmt, histogram);
-
   if (count1 == 0)
-    return false;
+    return 0;
 
   perc_threshold = PARAM_VALUE (PARAM_ICALL_PROMOTE_PERCENT_THRESHOLD);
   count_threshold = PARAM_VALUE (PARAM_ICALL_PROMOTE_COUNT_THRESHOLD);
   always_inline = PARAM_VALUE (PARAM_ALWAYS_INLINE_ICALL_TARGET);
 
   if (100 * count1 < all * perc_threshold || count1 < count_threshold)
-    return false;
+    return 0;
 
   if (check_ic_counter (stmt, &count1, &count2, all))
-    return false;
+    return 0;
 
   if (all > 0)
     {
@@ -1588,9 +1701,42 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
 
   direct_call1 = find_func_by_global_id (val1);
 
-  if (val2 && (100 * count2 >= all * perc_threshold)
-      && count2 > count_threshold)
-    direct_call2 = find_func_by_global_id (val2);
+  if (!flag_ripa_stream)
+    {
+      if (val2 && (100 * count2 >= all * perc_threshold)
+          && count2 > count_threshold)
+        direct_call2 = find_func_by_global_id (val2);
+    }
+  else /* for streaming lipo.  */
+    {
+      if (val2 && ((count2 * 2) >= (all - count1))
+          && count2 > count_threshold)
+        direct_call2 = find_func_by_global_id (val2);
+    }
+
+  if (direct_call1 && !direct_call1->decl)
+    direct_call1 = 0;
+  if (direct_call2 && !direct_call2->decl)
+    direct_call2 = 0;
+
+  if (!in_lto_p && flag_ripa_stream)
+    {
+      void **slot;
+      icall_promotion_info_t *ret;
+
+      init_icall_promotion_info_htab ();
+      ret = (icall_promotion_info_t *) XCNEW (icall_promotion_info_t);
+      ret->caller_fn_decl = current_function_decl;
+      ret->call_stmt = stmt;
+      ret->promotion_info[0] = val1;
+      ret->promotion_info[1] = count1;
+      ret->promotion_info[2] = val2;
+      ret->promotion_info[3] = count2;
+      ret->promotion_info[4] = bb_all;
+      slot = htab_find_slot (icall_promotion_info_htab, ret, INSERT);
+      (*slot) = (void **)ret;
+      return 0;
+    }
 
   locus = (stmt != NULL) ? gimple_location (stmt)
       : DECL_SOURCE_LOCATION (current_function_decl);
@@ -1611,7 +1757,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
                     EXTRACT_MODULE_ID_FROM_GLOBAL_ID (val1),
                     EXTRACT_FUNC_ID_FROM_GLOBAL_ID (val1), (unsigned) count1);
         }
-      return false;
+      return 0;
     }
 
   /* Don't indirect-call promote if the target is in auxiliary module and
@@ -1622,11 +1768,13 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
       && ! TREE_PUBLIC (direct_call1->decl))
     return false;
 
+  ++performed;
+
   modify1 = gimple_ic (stmt, direct_call1, prob1, count1, all);
   if (flag_opt_info >= OPT_INFO_MIN)
     inform (locus, "Promote indirect call to target (call count:%u) %s",
-	    (unsigned) count1,
-	    lang_hooks.decl_printable_name (direct_call1->decl, 3));
+            (unsigned) count1,
+            lang_hooks.decl_printable_name (direct_call1->decl, 3));
 
   if (always_inline && count1 >= always_inline)
     {
@@ -1648,7 +1796,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
       fprintf (dump_file, "==>\n");
       print_gimple_stmt (dump_file, modify1, 0, TDF_SLIM);
       fprintf (dump_file, "hist->count "HOST_WIDEST_INT_PRINT_DEC
-	       " hist->all "HOST_WIDEST_INT_PRINT_DEC"\n", count1, all);
+               " hist->all "HOST_WIDEST_INT_PRINT_DEC"\n", count1, all);
     }
 
   if (direct_call2 && check_ic_target (stmt, direct_call2)
@@ -1659,6 +1807,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
 	    && DECL_ARTIFICIAL (direct_call2->decl)
 	    && ! TREE_PUBLIC (direct_call2->decl)))
     {
+ ++performed;
       modify2 = gimple_ic (stmt, direct_call2,
                            prob2, count2, all - count1);
 
@@ -1692,8 +1841,54 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
         }
     }
 
-  return true;
+  return performed;
 }
+
+/* This is the entry point for icall-promotion in FE LIPO.  */
+
+static bool
+gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
+{
+  gcov_type icall_counters[ICALL_PROMOTION_INFO_SIZE];
+
+  icall_counters[0] = histogram->hvalue.counters [1];
+  icall_counters[1] = histogram->hvalue.counters [2];
+  icall_counters[2] = histogram->hvalue.counters [3];
+  icall_counters[3] = histogram->hvalue.counters [4];
+  icall_counters[4] = gimple_bb (stmt)->count;
+
+  gimple_remove_histogram_value (cfun, stmt, histogram);
+
+  return (gimple_ic_transform_mult_targ_1 (stmt, icall_counters) != 0);
+}
+
+/* This is the entry point for icall-promotion in streaming LIPO.  */
+
+static int
+cgraph_ic_transform_mult_targ (struct cgraph_edge *call_edge)
+{
+  int num_transformed;
+  void **slot;
+  icall_promotion_info_t val, *ret;
+  gimple stmt = call_edge->call_stmt;
+
+  if (!icall_promotion_info_htab)
+    return 0;
+
+  val.caller_fn_decl = call_edge->caller->decl;
+  val.call_stmt = stmt;
+  slot = htab_find_slot (icall_promotion_info_htab, &val, NO_INSERT);
+  if (!slot)
+    return 0;
+
+  ret = *(icall_promotion_info_t**)slot;
+  gcc_assert (ret->is_lto_uid == false);
+
+  num_transformed = gimple_ic_transform_mult_targ_1 (stmt, ret->promotion_info);
+
+  return num_transformed;
+}
+
 
 /* Perform indirect call (STMT) to guarded direct function call
    transformation using value profile data.  */
@@ -2205,3 +2400,72 @@ gimple_find_values_to_profile (histogram_values *values)
         }
     }
 }
+
+/* Perform icall_promotion as a regular IPA pass.  */
+
+static unsigned int
+ipa_icall_promotion (void)
+{
+  struct cgraph_node *node;
+  struct cgraph_edge *e;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (!(node->indirect_calls))
+        continue;
+
+      {
+        tree save = current_function_decl;
+        tree decl = node->decl;
+
+        current_function_decl = decl;
+        push_cfun (DECL_STRUCT_FUNCTION (decl));
+
+        for (e = node->indirect_calls; e; e = e->next_callee)
+          cgraph_ic_transform_mult_targ (e);
+
+        pop_cfun ();
+        current_function_decl = save;
+      }
+    }
+
+  fini_icall_promotion_info_htab ();
+
+  return 0;
+}
+
+/* Perform the pass in streaming LIPO for profile-use, for now. */
+
+static bool
+gate_ipa_icall_promotion (void)
+{
+  return (optimize && flag_ripa_stream && flag_profile_use);
+}
+
+struct ipa_opt_pass_d pass_ipa_icall_promotion =
+{
+ {
+  IPA_PASS,
+  "icall_promotion",                   /* name */
+  gate_ipa_icall_promotion,             /* gate */
+  ipa_icall_promotion,                  /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_CGRAPHOPT,                         /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  0                                     /* todo_flags_finish */
+ },
+ NULL,                                  /* generate_summary */
+ NULL,                                  /* write_summary */
+ NULL,                                  /* read_summary */
+ NULL,                                  /* write_optimization_summary */
+ NULL,                                  /* read_optimization_summary */
+ NULL,                                  /* stmt_fixup */
+ 0,                                     /* TODOs */
+ 0,                                     /* function_transform */
+ NULL                                   /* variable_transform */
+};

@@ -875,6 +875,30 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
     }
 }
 
+/* Check the point-to type for pointer types to see if two
+   types are compatible.  */
+
+static bool
+input_types_compatible_p (tree type1, tree type2)
+{
+  tree t1, t2;
+  int l1 = 0, l2 = 0;
+
+  t1 = type1;
+  while (POINTER_TYPE_P (t1))
+    {
+      t1 = TREE_TYPE (t1);
+      ++l1;
+    }
+  t2 = type2;
+  while (POINTER_TYPE_P (t2))
+    {
+      t2 = TREE_TYPE (t2);
+      ++l2;
+    }
+  return ((l1 == l2) && types_compatible_p (t1, t2));
+}
+
 /* Read a statement with tag TAG in function FN from block IB using
    descriptors in DATA_IN.  */
 
@@ -969,8 +993,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
 			  == DECL_NONADDRESSABLE_P (field)
 			  && gimple_compare_field_offset (tem, field))
 			{
-			  if (types_compatible_p (TREE_TYPE (tem),
-						  TREE_TYPE (field)))
+			  if (input_types_compatible_p (TREE_TYPE (tem),
+						        TREE_TYPE (field)))
 			    break;
 			  else
 			    closest_match = tem;
@@ -1125,6 +1149,39 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
     }
 }
 
+/* Fix up the icall_promotion_info by replace the lto_uid with the
+   call stmt.  */
+
+static void
+fixup_icall_promotion_info (struct cgraph_edge *edge, gimple *stmts)
+{
+  void **slot;
+  icall_promotion_info_t val, *ret;
+
+  if (icall_promotion_info_htab == 0)
+    return;
+
+  val.caller_fn_decl = edge->caller->decl;
+  val.call_stmt = (gimple) (long long)edge->lto_stmt_uid;
+  slot = htab_find_slot (icall_promotion_info_htab, &val, NO_INSERT);
+  if (!slot)
+    return;
+
+  ret = *(icall_promotion_info_t**)slot;
+  gcc_assert (ret->is_lto_uid);
+  htab_remove_elt_with_hash (icall_promotion_info_htab, &val,
+                             icall_promotion_info_hash (&val));
+
+  ret->is_lto_uid = false;
+  ret->call_stmt = stmts[edge->lto_stmt_uid];
+  gcc_assert (ret->call_stmt);
+  slot = htab_find_slot (icall_promotion_info_htab, ret, INSERT);
+  (*slot) = (void **) ret;
+
+  slot = htab_find_slot (icall_promotion_info_htab, &val, NO_INSERT);
+  gcc_assert (slot == 0);
+}
+
 /* Go through all NODE edges and fixup call_stmt pointers
    so they point to STMTS.  */
 
@@ -1135,7 +1192,10 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts)
   for (cedge = node->callees; cedge; cedge = cedge->next_callee)
     cedge->call_stmt = stmts[cedge->lto_stmt_uid];
   for (cedge = node->indirect_calls; cedge; cedge = cedge->next_callee)
-    cedge->call_stmt = stmts[cedge->lto_stmt_uid];
+    {
+      cedge->call_stmt = stmts[cedge->lto_stmt_uid];
+      fixup_icall_promotion_info (cedge, stmts);
+    }
 }
 
 /* Fixup call_stmt pointers in NODE and all clones.  */

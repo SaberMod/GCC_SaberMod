@@ -148,8 +148,8 @@ lto_symtab_register_decl (tree decl,
 		  || TREE_CODE (decl) == FUNCTION_DECL)
 	      && DECL_ASSEMBLER_NAME_SET_P (decl));
 
-  /* In LIPO mode, we may externalize a decl while keeping it's 
-     initializer (for const propagation). 
+  /* In LIPO mode, we may externalize a decl while keeping it's
+     initializer (for const propagation).
      Disable this check in streaming LIPO.  */
   if (TREE_CODE (decl) == VAR_DECL
       && DECL_INITIAL (decl)
@@ -205,7 +205,6 @@ lto_symtab_get_resolution (tree decl)
 
   return e->resolution;
 }
-
 
 /* Replace the cgraph node NODE with PREVAILING_NODE in the cgraph, merging
    all edges and removing the old node.  */
@@ -289,6 +288,10 @@ lto_cgraph_replace_node (struct cgraph_node *node,
       prevailing_node->same_body = node->same_body;
       node->same_body = NULL;
     }
+
+  /* Update the gid map in streaming LIPO.  */
+  if (flag_ripa_stream)
+    icall_promotion_update_gid (node, prevailing_node);
 
   /* Finally remove the replaced node.  */
   if (node->same_body_alias)
@@ -505,17 +508,129 @@ lto_symtab_resolve_can_prevail_p (lto_symtab_entry_t e)
    has profile information.  */
 
 static gcov_type
-Entry_BB_profile_count (tree decl)
+Entry_BB_profile_count (struct cgraph_node *node)
 {
   gcov_type *ctrs = NULL;
-  unsigned n;
-  struct function* f = DECL_STRUCT_FUNCTION (decl);
+  unsigned int n;
+  tree decl = node->decl;
+  struct function* f;
+
+  if (node->count)
+    return node->count;
+
+  f = DECL_STRUCT_FUNCTION (decl);
+  if (!f)
+    return 0;
 
   ctrs = get_coverage_counts_no_warn (f, GCOV_COUNTER_ARCS, &n);
-  if (ctrs) 
+  if (ctrs)
     return ctrs[0];
 
   return 0;
+}
+
+/* In this function, we handle the prevailing node for
+   COMDAT groups. We pick the group that has the largest
+   profile count as the prevailing one. Note all decls
+   in this group will marked as prevailing.  */
+
+static void
+COMDAT_prevailing_node_p (lto_symtab_entry_t e)
+{
+  gcov_type group_profile_cnt_sum=0;
+  gcov_type group_profile_cnt_max=0;
+  unsigned int group_size = 0;
+  lto_symtab_entry_t e1, prevailing_e = 0;
+  unsigned n_group = 0;
+
+  for (e1 = e; e1; e1= e1->next)
+    {
+      struct cgraph_node *node = e1->node;
+      struct cgraph_node *n = node;
+      gcov_type group_profile_cnt = 0;
+      unsigned int group_size1 = 0;
+ 
+      if (!n)
+        continue;
+      if (!lto_symtab_resolve_can_prevail_p (e1))
+        continue;
+
+      if (prevailing_e == 0)
+        prevailing_e = e1;
+
+      ++n_group;
+      do
+        {    
+          group_profile_cnt += Entry_BB_profile_count (n);
+          n = n->same_comdat_group;
+          ++group_size1;
+          if (!n) 
+            break;
+        }    
+      while (n != node);
+
+      if (!group_size)
+        group_size = group_size1;
+      else
+        gcc_assert (group_size == group_size1);
+
+      group_profile_cnt_sum += group_profile_cnt;
+      if (group_profile_cnt > group_profile_cnt_max)
+        {
+          group_profile_cnt_max = group_profile_cnt;
+          prevailing_e = e1;
+        }
+    }
+
+    if (flag_opt_info >= OPT_INFO_MAX)
+      inform (UNKNOWN_LOCATION,
+          "%s:n_group=%u, group_size=%u, max_count=%lld, sum_count=%lld\n",
+          IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (e->decl)),
+          n_group, group_size, (long long int) group_profile_cnt_max,
+          (long long int) group_profile_cnt_sum);
+
+  /* (1) Set the prevailing nodes are the functions with largest COMDAT
+     profile counts.
+     (2) Set the resolution for other COMDAT groups resolved, so that
+     they will won't process again later.  */
+  for (e1 = e; e1; e1= e1->next)
+    {
+      struct cgraph_node *node = e1->node;
+      struct cgraph_node *n = node;
+      lto_symtab_entry_t e2;
+      enum ld_plugin_symbol_resolution resolution;
+
+      if (!n)
+        continue;
+      if (!lto_symtab_resolve_can_prevail_p (e1))
+        continue;
+      if (prevailing_e != e1)
+          resolution = LDPR_PREEMPTED_IR;
+      else
+          resolution = LDPR_PREVAILING_DEF_IRONLY;
+      
+      e1->resolution = resolution;
+      e1->guessed = true;
+
+      do
+        {    
+          n = n->same_comdat_group;
+          if (!n) 
+            break;
+          e2 = lto_symtab_get ((*targetm.asm_out.mangle_assembler_name)
+			       (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl))));
+         for (; e2; e2 = e2->next)
+           {
+              e2->guessed = true;
+              if (resolution != LDPR_PREVAILING_DEF_IRONLY)
+                e2->resolution = LDPR_PREEMPTED_IR;
+              /* e2->node may not be available yet. so use decl.  */
+              else if (cgraph_get_node_or_alias (e2->decl) == n)
+                 e2->resolution = LDPR_PREVAILING_DEF_IRONLY;
+           }
+        }    
+      while (n != node);
+    }
 }
 
 /* Resolve the symbol with the candidates in the chain *SLOT and store
@@ -526,7 +641,6 @@ lto_symtab_resolve_symbols (void **slot)
 {
   lto_symtab_entry_t e;
   lto_symtab_entry_t prevailing = NULL;
-  gcov_type p_cnt;
 
   /* Always set e->node so that edges are updated to reflect decl merging. */
   for (e = (lto_symtab_entry_t) *slot; e; e = e->next)
@@ -573,37 +687,28 @@ lto_symtab_resolve_symbols (void **slot)
   if (prevailing)
     goto found;
 
-  /* Do a second round choosing one from the replaceable prevailing decls.  */
-  p_cnt = 0;
+  /* Do a second round choosing one from the replaceable prevailing decls.
+     For COMDAT functions choose the one with largest profile count and 
+     make all the functions in this group prevailing.  */
+  e = (lto_symtab_entry_t) *slot;
+  if (flag_ripa_stream &&
+      TREE_CODE (e->decl) == FUNCTION_DECL &&
+      e->node && DECL_COMDAT (e->decl))
+    {
+      COMDAT_prevailing_node_p (e);
+      return;
+    }
+
   for (e = (lto_symtab_entry_t) *slot; e; e = e->next)
     {
       if (e->resolution != LDPR_PREEMPTED_IR)
-	continue;
-
-      /* Choose the first function that can prevail as prevailing.  */
-      /* for comdat functions, we choose the one with larger profile count.  */
-      if (TREE_CODE (e->decl) == FUNCTION_DECL)
-	{
-          if (DECL_COMDAT (e->decl))
-            {
-              gcov_type cnt = Entry_BB_profile_count (e->decl);
-              if (!prevailing || cnt > p_cnt)
-                {
-                  p_cnt = cnt;
-                  prevailing = e;
-                }
-              continue;
-            }
-          
-	    prevailing = e;
-            break;
-	}
+        continue;
 
       /* From variables that can prevail choose the largest one.  */
-      if (!prevailing
-	  || tree_int_cst_lt (DECL_SIZE (prevailing->decl),
-			      DECL_SIZE (e->decl)))
-	prevailing = e;
+      if (!prevailing ||
+          tree_int_cst_lt (DECL_SIZE (prevailing->decl),
+        		      DECL_SIZE (e->decl)))
+        prevailing = e;
     }
 
   if (!prevailing)

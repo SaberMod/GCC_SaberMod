@@ -260,6 +260,7 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   unsigned int uid;
   intptr_t ref;
   struct bitpack_d bp;
+  icall_promotion_info_t *icall_promotion_info = 0;
 
   if (edge->indirect_unknown_callee)
     lto_output_uleb128_stream (ob->main_stream, LTO_cgraph_indirect_edge);
@@ -304,8 +305,31 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
 			     | ECF_SIBCALL
 			     | ECF_LEAF
 			     | ECF_NOVOPS)));
+
+      /* Check if we have icall_promotion_info.  */
+      if (icall_promotion_info_htab)
+        {
+          void **slot;
+          icall_promotion_info_t t;
+          t.caller_fn_decl = edge->caller->decl;
+          t.call_stmt = edge->call_stmt;
+          slot = htab_find_slot (icall_promotion_info_htab, &t, NO_INSERT);
+          if (slot)
+            icall_promotion_info = *(icall_promotion_info_t**) slot;
+        }
+
+      bp_pack_value (&bp, icall_promotion_info != 0 , 1);
     }
   lto_output_bitpack (&bp);
+
+  if (icall_promotion_info)
+    {
+      int i;
+
+      for (i = 0; i < ICALL_PROMOTION_INFO_SIZE; i++)
+        lto_output_sleb128_stream (ob->main_stream,
+                                   icall_promotion_info->promotion_info[i]);
+    }
 }
 
 /* Return if LIST contain references from other partitions.  */
@@ -460,6 +484,16 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
   lto_output_sleb128_stream (ob->main_stream, node->count);
   lto_output_sleb128_stream (ob->main_stream, node->max_bb_count);
+  /* Output the gid of this cgraph node.  */
+  if (flag_ripa_stream)
+    {
+      unsigned HOST_WIDEST_INT gid = 0;
+      struct function *f = DECL_STRUCT_FUNCTION (node->decl);
+
+      if (f && !DECL_ABSTRACT (node->decl))
+        gid = FUNC_DECL_GLOBAL_ID (f);
+      lto_output_sleb128_stream (ob->main_stream, gid);
+    }
   lto_output_sleb128_stream (ob->main_stream, node->count_materialization_scale);
 
   if (tag == LTO_cgraph_analyzed_node)
@@ -1049,6 +1083,15 @@ input_node (struct lto_file_decl_data *file_data,
 
   node->count = lto_input_sleb128 (ib);
   node->max_bb_count = lto_input_sleb128 (ib);
+  /* Input the gid of this cgraph node and build gid_map.  */
+  if (flag_ripa_stream)
+    {
+      unsigned HOST_WIDEST_INT gid = lto_input_sleb128 (ib);
+
+      if (gid)
+        icall_promotion_insert_gid (node, gid);
+      node->gid = gid;
+    }
   node->count_materialization_scale = lto_input_sleb128 (ib);
 
   if (tag == LTO_cgraph_analyzed_node)
@@ -1267,6 +1310,24 @@ input_edge (struct lto_input_block *ib, VEC(cgraph_node_ptr, heap) *nodes,
       if (bp_unpack_value (&bp, 1))
 	ecf_flags |= ECF_RETURNS_TWICE;
       edge->indirect_info->ecf_flags = ecf_flags;
+
+      /* Input icall promotion info.  */
+      if (bp_unpack_value (&bp, 1))
+        {
+          void **slot;
+          icall_promotion_info_t *ret;
+          int i;
+
+          init_icall_promotion_info_htab();
+          ret = (icall_promotion_info_t *) XNEW (icall_promotion_info_t);
+          ret->caller_fn_decl = caller->decl;
+          ret->call_stmt = (gimple) (unsigned long) stmt_id;
+          ret->is_lto_uid = true;
+          for (i = 0; i < ICALL_PROMOTION_INFO_SIZE; i++)
+            ret->promotion_info[i] = (gcov_type) lto_input_sleb128 (ib);
+          slot = htab_find_slot (icall_promotion_info_htab, ret, INSERT);
+          (*slot) = (void**) ret;
+        }
     }
 }
 

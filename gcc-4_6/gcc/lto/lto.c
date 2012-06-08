@@ -2465,6 +2465,9 @@ lto_main (void)
 
   lto_init_reader ();
 
+  if (flag_ripa_stream)
+    cgraph_init_gid_map ();
+
   /* Read all the symbols and call graph from all the files in the
      command line.  */
   read_cgraph_and_symbols (num_in_fnames, in_fnames);

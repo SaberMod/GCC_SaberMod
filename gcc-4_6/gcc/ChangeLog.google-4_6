@@ -1,3 +1,53 @@
+2012-06-07  Rong Xu  <xur@google.com>
+
+	* lto-symtab.c (lto_cgraph_replace_node): indirect-call promotion
+        support in streaming LIPO.
+	(Entry_BB_profile_count): Ditto.
+	(COMDAT_prevailing_node_p): Ditto.
+	(lto_symtab_resolve_symbols): Ditto.
+	* cgraph.h (struct cgraph_node): Add field gid for icall promotion
+        support in streaming LIPO.
+        (icall_promotion_info_t): New type.
+        (icall_promotion_info_htab): New decls.
+        (init_icall_promotion_info_htab): Ditto.
+        (icall_promotion_info_hash): Ditto.
+        (icall_promotion_update_gid): Ditto.
+        (icall_promotion_insert_gid): Ditto.
+        (ipa_icall_promotion_transform): Ditto.
+	* value-prof.c (htab_gid_hash): icall promotion support in
+        streaming LIPO.
+	(htab_gid_del): Ditto.
+	(icall_promotion_update_gid): Ditto.
+	(icall_promotion_insert_gid): Ditto.
+	(init_gid_map): Ditto.
+	(gimple_ic): Ditto.
+	(icall_promotion_info_hash): Ditto.
+	(icall_promotion_info_eq): Ditto.
+	(free_icall_promotion_info_t): Ditto.
+	(init_icall_promotion_info_htab): Ditto.
+	(fini_icall_promotion_info_htab): Ditto.
+	(gimple_ic_transform_mult_targ_1): Ditto.
+	(gimple_ic_transform_mult_targ): Ditto.
+	(cgraph_ic_transform_mult_targ): Ditto.
+	(gimple_find_values_to_profile): Ditto.
+	(ipa_icall_promotion): Ditto.
+	(gate_ipa_icall_promotion): Ditto.
+	(pass_ipa_icall_promotion): Ditto.
+	* tree-pass.h: (pass_ipa_icall_promotion) New decl.
+	* lto-cgraph.c (lto_output_edge): icall promotion support in
+        streaming LIPO.
+	(lto_output_node): Ditto.
+	(input_node): Ditto.
+	(input_edge): Ditto.
+	* lto-streamer-in.c (input_ssa_names): Fix incorrect types in streaming.
+	(input_types_compatible_p): New function.
+	(fixup_icall_promotion_info): New function.
+	(fixup_call_stmt_edges_1): New function.
+	* ipa-split.c (execute_split_functions): Sync the behavior for FE and
+        streaming LIPO.
+	* lto/lto.c (lto_main): icall promotion support in streaming LIPO.
+        * passes.c (init_optimization_passes): New pass.
+
 2012-06-07   Cary Coutant  <ccoutant@google.com>
 
 	* gcc/dwarf2out.c (add_AT_low_high_pc): Add force_direct parameter;

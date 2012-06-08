@@ -1311,7 +1311,8 @@ execute_split_functions (void)
      then inlining would still benefit.  */
   if ((!node->callers || !node->callers->next_caller)
       && !node->address_taken
-      && (!flag_lto || !node->local.externally_visible))
+      /* sync the behavior for FE and stream LIPO for the ease of trage.  */
+      && (!flag_lto || flag_ripa_stream || !node->local.externally_visible))
     {
       if (dump_file)
 	fprintf (dump_file, "Not splitting: not called directly "
