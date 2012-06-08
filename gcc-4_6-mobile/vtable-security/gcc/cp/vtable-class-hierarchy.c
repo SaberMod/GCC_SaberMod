@@ -652,6 +652,8 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
   if (false)  /* This is here for debugging purposes. */
     dump_class_hierarchy_information ();
 
+  /* TODO: Temp fix. Needs to be tighten */
+  /*  if (any_verification_calls_generated) */
   if (num_vtable_map_nodes > 0)
     {
       /* Add class hierarchy pairs to the vtable map data structure. */
