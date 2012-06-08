@@ -1,3 +1,46 @@
+2012-06-08  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/cp-tree.h: added some prototypes so that we can move some 
+	code into vtable-class-hierarchy.c
+	* gcc/cp/decl2.c: made start_objects finish_objects availabe to use
+	outside this file 
+	(cp_write_global_declarations): move the code related to vtable-verify
+	to the vtable-class-hierarchy and did some cleanup
+	* gcc/cp/vtable-class-hierarchy.c: move the code to generate the
+	register_pairs into this file
+	(vtv_register_class_hierarchy_information): modified to stop calling 
+	the routines to protect and unprotect the memory used. These are moved
+	to a special object file that will only be called once per module.
+	(vtv_generate_init_routine): new routine that contains the code moved
+	from decl2.c
+	* gcc/temp-libgcc.cc: cleaned up warnings. Changed some names to make
+	try to have a uniform coding convention and moved this file into 
+	libsupc (see below)
+	* gcc/vtv_memory_pool/vtvmalloc.c: cleaned up and moved to libsupc
+	* gcc/vtv_memory_pool/vtvmalloc.h: fixed LP64 macro name and moved to
+	libsupc
+	* libstdc++-v3/config/abi/pre/gnu.ver: Added vtable map variable pattern
+	to make this symbols extern (available outside the library)
+	Also make the runtime support symbols extern.
+	* libstdc++-v3/libsupc++/Makefile.am: modified to teach the build system
+	about the new files. Special rules to build vtv_init.a library that needs
+	to be linked into each load module.
+	* libstdc++-v3/libsupc++/Makefile.in: this file automatically generated
+	from the Makefile.am by Maketool.
+	* libstdc++-v3/libsupc++/vtv_init.cc: new file. Contains two routines that
+	have init priorities so that they can be executed before and after the
+	init routines that do the calls to RegisterPair.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: relocated here from gcc directory.
+	Slightly changed named and fixed a few warnings.
+	* libstdc++-v3/libsupc++/vtv_malloc.h: relocated here from gcc directory.
+	Slightly changed named and fixed a few warnings.
+	* libstdc++-v3/libsupc++/vtv_rts.cc: relocated here from gcc directory.
+	previous name was temp-libgcc.c. Fixed some warnings.
+	* vtv_threaded_hash.cc: relocated here from gcc directory.
+	Slightly changed named and fixed a few warnings.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h: relocated here from gcc
+	directory. Previous name was temp-libgcc.c. Fixed some warnings.
+
 2012-06-08  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c
