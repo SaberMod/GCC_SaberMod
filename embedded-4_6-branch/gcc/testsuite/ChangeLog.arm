@@ -1,5 +1,28 @@
 2012-06-08  Joey Ye  <joey.ye@arm.com>
 
+	Backport r183349 from mainline
+	2012-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/51915
+	* gcc.target/arm/pr51915.c: New test.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r183095 from mainline
+	2012-01-11  Matthew Gretton-Dann  <matthew.gretton-dann@arm.com>
+
+	* gcc.c-torture/execute/20120110-1.c: New testcase.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport r182621 from mainline
+	2011-12-21  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/51643
+	* gcc.target/arm/sibcall-2.c: New test.
+
+2012-06-08  Joey Ye  <joey.ye@arm.com>
+
 	Backport r182014 from mainline
 	2011-12-05  Kazu Hirata  <kazu@codesourcery.com>
 
