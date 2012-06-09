@@ -1,5 +1,11 @@
 2012-06-09   Xinliang Davidl Li  <davidxl@google.com>
 
+	Backport r188365 from google-4_7
+	l-ipo.c (pop_module_scope): Stop timer after
+	pending decl handling.
+
+2012-06-09   Xinliang Davidl Li  <davidxl@google.com>
+
 	Backport r188363 from google-4_7 branch
 	c-family/c-opts.c (lipo_max_mem_reached):  Scale up
 	memory allocated to acount for optimizer uses.

@@ -1,3 +1,10 @@
+2012-06-09   Xinliang David Li  <davidxl@google.com>
+
+	Backport r188365 from google-4_7
+	* decl.c (poplevel): Start/stop timer conditionally.
+	* decl2.c (cp_write_gloobal_declarations): Stop timer
+	in non-lipo mode.
+
 2011-12-19  Sterling Augustine <saugustine@google.com>
 
 	* error.c (dump_decl): Reformat return value to "(anonymous namespace)".
