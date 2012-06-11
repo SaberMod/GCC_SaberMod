@@ -1,3 +1,16 @@
+2012-06-11  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2011-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/51466
+	* gcc.c-torture/execute/pr51466.c: New test.
+
+	2011-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/50078
+	* gcc.dg/pr50078.c: New test.
+
 2012-06-11  Joey Ye  <joey.ye@arm.com>
 
 	Backport r184089 from mainline
