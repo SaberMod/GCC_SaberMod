@@ -1,3 +1,11 @@
+2012-06-11  Joey Ye  <joey.ye@arm.com>
+
+	Backport r184089 from mainline
+	2012-02-10  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/48600
+	* g++.dg/torture/pr48600.C: New testcase.
+
 2012-06-08  Joey Ye  <joey.ye@arm.com>
 
 	Backport r183349 from mainline

@@ -1,3 +1,25 @@
+2012-06-11  Joey Ye  <joey.ye@arm.com>
+
+	Backport r184089,184180 from mainline
+	2012-02-10  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/48600
+	* predict.c (predict_paths_for_bb): Prevent looping.
+	(predict_paths_leading_to_edge, predict_paths_leading_to): Update.
+
+	2012-02-13  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/52214
+	* predict.c (predict_paths_for_bb): Fix thinko in prevoius patch.
+
+2012-06-11  Joey Ye  <joey.ye@arm.com>
+
+	Backport partly r181172 from mainline
+	2011-11-08  Michael Matz  <matz@suse.de>
+
+	PR bootstrap/51969
+	* gengtype.c (write_field_root): Avoid out-of-scope access of newv.
+
 2012-06-08  Joey Ye  <joey.ye@arm.com>
 
 	Backport r184442 from mainline
