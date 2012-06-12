@@ -1,3 +1,8 @@
+2012-06-12  Sterling Augustine  <saugustine@google.com>
+	Backport from top of trunk.
+
+	* c-pretty-print.h: Adjust pp_c_pretty_print_flags enum.
+
 2012-03-13  Easwaran Raman <eraman@google.com>
 
 	Backport r185349 from google/main

@@ -1,3 +1,11 @@
+2012-06-12  Sterling Augustine  <saugustine@google.com>
+	Backport from top of trunk.
+
+	* error.c (decl_as_dwarf_string, lang_decl_dwarf_name): New
+	functions.
+	* cp-lang.c (cxx_dwarf_name): Call them.
+	* cp-tree.h: Declare them.
+
 2012-02-19  Jeffrey Yasskin <jyasskin@google.com>
         Backport r183223 from gcc-4_6-branch to fix a segfault in C++11
 	mode.

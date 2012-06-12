@@ -2459,6 +2459,21 @@ expr_as_string (tree decl, int flags)
   return pp_formatted_text (cxx_pp);
 }
 
+/* Wrap decl_as_string with options appropriate for dwarf.  */
+
+const char *
+decl_as_dwarf_string (tree decl, int flags)
+{
+  const char *name;
+  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
+     here will be adequate to get the desired behaviour.  */
+  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
+  name = decl_as_string (decl, flags);
+  /* Subsequent calls to the pretty printer shouldn't use this style.  */
+  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
+  return name;
+}
+
 const char *
 decl_as_string (tree decl, int flags)
 {
@@ -2477,6 +2492,21 @@ decl_as_string_translate (tree decl, int flags)
   reinit_cxx_pp ();
   dump_decl (decl, flags);
   return pp_formatted_text (cxx_pp);
+}
+
+/* Wrap lang_decl_name with options appropriate for dwarf.  */
+
+const char *
+lang_decl_dwarf_name (tree decl, int v, bool translate)
+{
+  const char *name;
+  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
+     here will be adequate to get the desired behaviour.  */
+  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
+  name = lang_decl_name (decl, v, translate);
+  /* Subsequent calls to the pretty printer shouldn't use this style.  */
+  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
+  return name;
 }
 
 /* Generate the three forms of printable names for cxx_printable_name.  */
