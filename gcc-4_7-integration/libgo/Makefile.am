@@ -439,6 +439,7 @@ runtime_files = \
 	runtime/go-string-to-int-array.c \
 	runtime/go-strplus.c \
 	runtime/go-strslice.c \
+	runtime/go-traceback.c \
 	runtime/go-trampoline.c \
 	runtime/go-type-complex.c \
 	runtime/go-type-eface.c \
@@ -464,6 +465,7 @@ runtime_files = \
 	runtime/mgc0.c \
 	runtime/mheap.c \
 	runtime/msize.c \
+	runtime/print.c \
 	runtime/proc.c \
 	runtime/runtime.c \
 	runtime/signal_unix.c \

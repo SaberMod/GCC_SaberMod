@@ -1748,7 +1748,7 @@ Type::specific_type_functions(Gogo* gogo, Named_type* name,
       base_name = name->name();
       const Named_object* in_function = name->in_function();
       if (in_function != NULL)
-	base_name += '$' + in_function->name();
+	base_name += '$' + Gogo::unpack_hidden_name(in_function->name());
     }
   std::string hash_name = base_name + "$hash";
   std::string equal_name = base_name + "$equal";
@@ -7863,6 +7863,10 @@ Find_type_use::type(Type* type)
 bool
 Named_type::do_verify()
 {
+  if (this->is_verified_)
+    return true;
+  this->is_verified_ = true;
+
   Find_type_use find(this);
   Type::traverse(this->type_, &find);
   if (find.found())
@@ -7972,6 +7976,11 @@ Named_type::convert(Gogo* gogo)
     return;
 
   this->create_placeholder(gogo);
+
+  // If we are called to turn unsafe.Sizeof into a constant, we may
+  // not have verified the type yet.  We have to make sure it is
+  // verified, since that sets the list of dependencies.
+  this->verify();
 
   // Convert all the dependencies.  If they refer indirectly back to
   // this type, they will pick up the intermediate tree we just

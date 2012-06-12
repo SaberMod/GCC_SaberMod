@@ -1,3 +1,449 @@
+2012-06-08  Richard Henderson  <rth@redhat.com>
+
+	PR c++/53602
+	* combine-stack-adj.c (force_move_args_size_note): Add ARGS_SIZE
+	note to a clobber insn when no other insn is available.
+
+2012-06-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53524
+	* doc/invoke.texi (Wenum-compare): Update documentation.
+
+2012-06-04  Edmar Wienskoski  <edmar@freescale.com>
+
+	PR target/53559
+	* config/rs6000/altivec.md (altivec_stvlx): Change machine mode of
+	operands.
+	(altivec_stvlxl): Ditto.
+	(altivec_stvrx): Ditto.
+	(altivec_stvrxl): Ditto.
+
+2012-06-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/47530
+	* trans-mem.c (expand_block_edges): Do not skip the first
+	statement when resetting the BB.
+
+2012-06-04  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53471
+	* dwarf2out.c (dwarf2out_finish): If generating LTO do not
+	create new assembler names.
+
+2012-06-04  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/52979
+	* stor-layout.c (get_best_mode): Don't return mode with bitsize
+	larger than maxbits.  Don't compute maxbits modulo align.
+	Also check that unit bytes long store at bitpos / unit * unit
+	doesn't affect bits beyond bitregion_end.
+	* expmed.c (store_bit_field_1): Avoid trying insv if OP_MODE MEM
+	would not fit into bitregion_start ... bitregion_end + 1 bit
+	region.
+	(store_split_bit_field): Decrease unit close to end of bitregion_end
+	if access is restricted in order to avoid mutual recursion.
+
+2012-06-04  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-06-04 mainline r188172
+
+	PR target/46261
+	* config/avr/avr-stdint.h: New file.
+	* config.gcc (avr-*-*,tm_file): Use avr/avr-stdint.h instead of
+	newlib-stdint.h
+
+2012-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53550
+	* tree-ssa-loop-niter.c (number_of_iterations_cond): If type
+	is POINTER_TYPE_P, use sizetype as step type instead of type.
+
+2012-06-04  Richard Guenther  <rguenther@suse.de>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2012-04-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+        * expr.c (get_bit_range): Add OFFSET parameter and adjust BITPOS.
+        Change type of BITOFFSET to signed.  Make sure the lower bound of
+        the computed range is non-negative by adjusting OFFSET and BITPOS.
+        (expand_assignment): Adjust call to get_bit_range.
+
+	2012-03-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+        * expr.c (get_bit_range): Return the null range if the enclosing record
+        is part of a larger bit field.
+
+	2012-03-20  Richard Guenther  <rguenther@suse.de>
+
+        * stor-layout.c (finish_bitfield_representative): Fallback
+        to conservative maximum size if the padding up to the next
+        field cannot be computed as a constant.
+        (finish_bitfield_layout): If we cannot compute the distance
+        between the start of the bitfield representative and the
+        bitfield member start a new representative.
+        * expr.c (get_bit_range): The distance between the start of
+        the bitfield representative and the bitfield member is zero
+        if the field offsets are not constants.
+
+	2012-03-16  Richard Guenther  <rguenther@suse.de>
+
+        * stor-layout.c (finish_bitfield_representative): Fall back
+        to the conservative maximum size if we cannot compute the
+        size of the tail padding.
+
+	2012-03-14  Richard Guenther  <rguenther@suse.de>
+
+	* tree.h (DECL_BIT_FIELD_REPRESENTATIVE): New define.
+	* stor-layout.c (start_bitfield_representative): New function.
+	(finish_bitfield_representative): Likewise.
+	(finish_bitfield_layout): Likewise.
+	(finish_record_layout): Call finish_bitfield_layout.
+	* tree.c (free_lang_data_in_decl): Only free DECL_QUALIFIER
+	for QUAL_UNION_TYPE fields.
+	* tree-streamer-in.c (lto_input_ts_field_decl_tree_pointers):
+	Stream DECL_BIT_FIELD_REPRESENTATIVE.
+	* tree-streamer-out.c (write_ts_field_decl_tree_pointers): Likewise.
+
+	PR middle-end/52080
+	PR middle-end/52097
+	PR middle-end/48124
+	* expr.c (get_bit_range): Unconditionally extract bitrange
+	from DECL_BIT_FIELD_REPRESENTATIVE.
+	(expand_assignment): Adjust call to get_bit_range.
+
+2012-06-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/53501
+	* fold-const.c (fold_binary_loc): Refine previous change.
+
+2012-06-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2012-03-27  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR target/52667
+	* config/sh/sh.c (find_barrier): Add equality check of last_got to
+	avoid going above orig insn.  Update comments.
+
+2012-06-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2012-03-21  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/52642
+	* config/sh/sh.c (sh_expand_prologue): Emit blockage at the end of
+	prologue for unwinder and profiler.
+
+2012-06-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2012-03-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.md (abssi2): Add TARGET_SH1 condition.
+
+2012-06-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2012-03-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (sh_dwarf_register_span): Don't apply
+	DBX_REGISTER_NUMBER.
+
+2012-06-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2012-03-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/sh.c (shiftcosts): Return MAX_COST when the first
+	operand is CONST_INT.  Take COSTS_N_INSNS into account.
+	(sh_rtx_costs): Don't apply COSTS_N_INSNS to the return value of
+	shiftcosts.	
+
+2012-05-31  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr.opt (-msp8): Document it.
+	* doc/invoke.texi (AVR Options): Copy from trunk docu.
+
+2012-05-31  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/48493
+	* expr.c (expand_assignment): Do not use movmisalign on
+	non-memory.
+
+2012-05-30  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/52999
+	* config/pa/pa.c (TARGET_SECTION_TYPE_FLAGS): Define.
+	(pa_section_type_flags): New.
+	(pa_legitimate_constant_p): Revert previous change.
+
+2012-05-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	Backport from mainline
+	2012-05-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR middle-end/53008
+	* trans-mem.c (ipa_tm_create_version_alias): Output new_node if
+	accessed indirectly.
+	(ipa_tm_create_version): Same.
+
+2012-05-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53220
+	* c-typeck.c (array_to_pointer_conversion): Give -Wc++-compat warning
+	about array compound literals.
+
+2012-05-30  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53501
+	* fold-const.c (fold_binary_loc): Make sure to call
+	fold_plusminus_mult_expr with the original sign of operands.
+
+2012-05-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* explow.c (probe_stack_range): Restore simple control flow and stop
+	again when the probe cannot be generated if HAVE_check_stack.
+
+2012-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/53519
+	* combine.c (simplify_shift_const_1) <case NOT>: Use constm1_rtx
+	instead of GEN_INT (GET_MODE_MASK (mode)) as second operand of XOR.
+
+2012-05-29  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53516
+	* tree-data-ref.c (stmt_with_adjacent_zero_store_dr_p): Reject
+	bitfield accesses.
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Likewise.
+
+2012-05-28  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	Backport from mainline
+        2012-05-28  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53438
+	* tree-sra.c (analyze_access_subtree): Correct bitfield exclusion.
+
+2012-05-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2012-03-10  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR rtl-optimization/52528
+	* combine.c (can_combine_p): Add setting of subst_low_luid
+	before call to expand_field_assignment().
+
+2012-05-26  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2012-05-23  Martin Jambor  <mjambor@suse.cz>
+
+	* ipa-inline-analysis.c (inline_merge_summary): Free operand_map.
+
+2012-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/52178
+	* tree-inline.c (remap_gimple_op_r): Fix handling of FIELD_DECL.
+	* tree.c (RETURN_TRUE_IF_VAR): Do not return true for PLACEHOLDER_EXPR.
+
+2012-05-25  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	PR target/53435
+	* config/i386/i386.c (ix86_expand_vec_perm): Use correct op.
+	(ix86_expand_vec_perm): Use int mode instead of float.
+
+2012-05-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/52362
+	* config.gcc (i[34567]86-*-mingw* | x86_64-*-mingw*): Set gas and
+	gnu_ld variables to yes.
+	* configure.ac (HAVE_GNU_LD): Move to after config.gcc inclusion.
+	(HAVE_GNU_AS): Likewise.
+	* config.in: Regenerate.
+	* configure: Likewise.
+
+2012-05-25  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	Backport from mainline
+        2012-03-12  Richard Guenther  <rguenther@suse.de>
+	* config/arm/arm.c (neon_dereference_pointer): Do not call
+	covert during RTL expansion.
+
+2012-05-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline
+        2012-05-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/53385
+	* config/rs6000/rs6000.c (print_operand): Revise code that unsafely
+	relied on signed overflow behavior.
+
+2012-05-24  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/53460
+	* tree-profile.c (tree_profiling): Cleanup the CFG if
+	execute_fixup_cfg requests it.
+
+2012-05-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53465
+	* tree-vrp.c (extract_range_from_cond_expr): First copy_value_range
+	vr0 into *vr, then vrp_meet that.
+	(vrp_meet): If one vr type is VR_UNDEFINED, ensure the result doesn't
+	have any equivalences.
+	(vrp_visit_phi_node): Call copy_value_range instead of vrp_meet the
+	first time.
+
+2012-05-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple.c (gimple_types_compatible_p_1) <ARRAY_TYPE>: Remove bogus
+	size handling.
+	(gimple_canonical_types_compatible_p) <ARRAY_TYPE>: Likewise.
+	(iterative_hash_gimple_type): Adjust comment.
+	(iterative_hash_canonical_type): Likewise.  Hash the bounds of the
+	domain for an array type instead of the domain type itself.
+
+2012-05-23  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-05-23 mainline r187803
+
+	PR target/53448
+	* config/avr/avr.h (ASM_OUTPUT_ALIGN): Don't inhibit .p2align 1.
+	* config/avr/elf.h (ASM_OUTPUT_BEFORE_CASE_LABEL): Use
+	ASM_OUTPUT_ALIGN.
+
+2012-05-23  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	Backport from 2012-05-03 mainline r187075
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Reset
+	has_fma4 for AMD processors with both fma3 and fma4 support.
+
+2012-05-22  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53408
+	* tree-vect-loop.c (vectorizable_induction): Properly check
+	the restriction that we cannot handle induction results from
+	the inner loop outside of the outer loop.
+
+2012-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53436
+	* omp-low.c (omp_build_component_ref): New function.
+	(build_receiver_ref, build_sender_ref, create_task_copyfn): Use it.
+
+	PR tree-optimization/53366
+	* tree-vect-slp.c (vect_supported_load_permutation_p): Don't shortcut
+	tests if complex_numbers == 2, but there are non-complex number loads
+	too.
+
+	PR tree-optimization/53409
+	* tree-vect-loop.c (vect_analyze_loop_operations): Don't check
+	vinfo_for_stmt (op_def_stmt) if op_def_stmt isn't inside loop.
+
+	PR tree-optimization/53410
+	* fold-const.c (fold_binary_loc): Use build_zero_cst (type)
+	instead of build_int_cst (type, 0) where vector types might be
+	involved.
+
+2012-05-21  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/53418
+	* c-typeck.c (build_conditional_expr): Remove C_MAYBE_CONST_EXPR
+	from folded operands before wrapping another around the
+	conditional expression.
+
+2012-05-21  Dave Boutcher  <daveboutcher@gmail.com>
+	    Patrick Marlier  <patrick.marlier@gmail.com>
+
+	* trans-mem.c (ipa_tm_transform_clone): Transform functions with
+	indirect calls.
+
+2012-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-05-21  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/53416
+	* config/i386/i386.md (UNSPEC_RDRAND): Renamed to ...
+	(UNSPECV_RDRAND): This.
+	(rdrand<mode>_1): Updated.
+
+2012-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2012-05-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Support
+	RDRND, F16C and FSGSBASE.
+
+2012-05-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2012-05-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-pre.c (can_value_number_call): Delete.
+	(compute_avail): Skip all statements with side effects.
+	<GIMPLE_CALL>: Skip calls to internal functions.
+
+2012-05-18  David S. Miller  <davem@davemloft.net>
+
+	Backport r185385 from mainline
+	2012-03-14  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/52584
+	* tree-vect-generic.c (type_for_widest_vector_mode): Take
+	element type instead of mode, use build_vector_type_for_mode
+	instead of the langhook, build a vector of proper signedness.
+	(expand_vector_operations_1): Adjust.
+
+2012-05-18  Olivier Hainque  <hainque@adacore.com>
+
+	* Makefile.in (FLAGS_TO_PASS): Pass $(libexecsubdir) instead of
+	$(libsubdir) as libexecsubdir.
+
+2012-05-16  Andrew Pinski  <apinski@cavium.com>
+
+	* gimple-fold.c (get_maxval_strlen): Move COND_EXPR handling under
+	GIMPLE_ASSIGN.
+
+2012-05-16  David S. Miller  <davem@davemloft.net>
+
+	* jump.c (delete_related_insns): If we remove a CALL, make sure
+	we delete it's NOTE_INSN_CALL_ARG_LOCATION note too.
+
+2012-05-16  Richard Henderson  <rth@redhat.com>
+
+	PR debug/52727
+	* combine-stack-adj.c (prev_active_insn_bb): New.
+	(next_active_insn_bb): New.
+	(force_move_args_size_note): New.
+	(combine_stack_adjustments_for_block): Use it.
+
+2012-05-16  Olivier Hainque  <hainque@adacore.com>
+
+	* Makefile.in (install-no-fixedincludes): New target, former toplevel
+	gcc-no-fixedincludes. Stash "include-fixed" in addition to "include".
+	Add comments and improve stamp preservation across the whole sequence.
+	(stmp-int-hdrs): Use move-if-change + cp -p to setup fix_dir/limits.h.
+
+2012-05-16  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53364
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Properly
+	detect a view-conversion of the decl.
+
+2012-05-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/53358
+	* config/i386/i386.md (*addqi_2 peephole with QImode addition): Check
+	that operands[2] is either immediate, or q_regs_operand.
+
 2012-05-15  Bin Cheng  <bin.cheng@arm.com>
 
 	Backport r187139 from mainline.
