@@ -1,5 +1,15 @@
 2012-06-12  Bin Cheng  <bin.cheng@arm.com>
 
+	Backport r180986 from mainline
+	2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c++/50608
+	* c-parser.c (c_parser_postfix_expression) <RID_OFFSETOF>: Adjust call
+	to fold_offsetof.
+	* c-typeck.c (build_unary_op) <ADDR_EXPR>: Call fold_offsetof_1.
+
+2012-06-12  Bin Cheng  <bin.cheng@arm.com>
+
 	Backport r180240 from mainline
 	2011-10-20  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
