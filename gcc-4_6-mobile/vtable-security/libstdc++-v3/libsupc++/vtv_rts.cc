@@ -3,7 +3,7 @@
 #include <string.h>
 #include <execinfo.h>
 
-#include "threaded-hash.h"
+#include "vtv_threaded_hash.h"
 #include "vtv_memory_pool/vtvmalloc.h"
 
 /* TODO: review the reason for this */
@@ -119,7 +119,7 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
 
 /* TODO: Why is this returning anything */
 void *
-__VLTRegisterPair (void **data_pointer, void *test_value,
+__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 		   char *base_ptr_var_name, int len1, char *vtable_name,
 		   int len2)
 {
@@ -127,7 +127,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value,
   vptr vtbl_ptr = (vptr) test_value;
 
   if ((*base_vtbl_row_ptr) == NULL)
-    *base_vtbl_row_ptr = vlt_hash_init_table ();
+    *base_vtbl_row_ptr = vlt_hash_init_table (size_hint);
 
   if (base_ptr_var_name && vtable_name && debug_functions)
     print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,

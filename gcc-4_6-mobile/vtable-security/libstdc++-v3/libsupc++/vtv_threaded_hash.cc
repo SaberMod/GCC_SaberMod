@@ -176,13 +176,22 @@ access (struct vlt_hashtable *table, void *value,
 /* Externally Visible Functions */
 
 struct vlt_hashtable*
-vlt_hash_init_table (void)
+vlt_hash_init_table (int initial_size_hint)
 {
   struct vlt_hashtable *new_table =
       (struct vlt_hashtable *) my_malloc (sizeof (struct vlt_hashtable));
-  new_table->data_size = INITIAL_SIZE;
-  new_table->power_of_2 = INITIAL_POWER;
-  new_table->hash_mask = 0xffffffff >> (32 - INITIAL_POWER);
+  int initial_size = INITIAL_SIZE;
+  int initial_power = INITIAL_POWER;
+
+  while (initial_size_hint > initial_size)
+    {
+      initial_size *= 2;
+      initial_power++;
+    }
+
+  new_table->data_size = initial_size;
+  new_table->power_of_2 = initial_power;
+  new_table->hash_mask = 0xffffffff >> (32 - initial_power);
   new_table->num_elts = 0;
   pthread_mutex_init (&(new_table->mutex), NULL);
 
@@ -191,9 +200,9 @@ vlt_hash_init_table (void)
 
   new_table->data =
       (struct vlt_hash_bucket **)
-                  my_malloc (INITIAL_SIZE * sizeof (struct vlt_hash_bucket *));
+                  my_malloc (initial_size * sizeof (struct vlt_hash_bucket *));
   memset (new_table->data, 0,
-          (INITIAL_SIZE * sizeof (struct vlt_hash_bucket *)));
+          (initial_size * sizeof (struct vlt_hash_bucket *)));
 
   return new_table;
 }

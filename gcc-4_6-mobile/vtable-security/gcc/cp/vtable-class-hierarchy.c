@@ -55,6 +55,7 @@ struct work_node {
 static void init_functions (void);
 
 static void dump_class_hierarchy_information (void);
+static int  guess_num_vtable_pointers (struct vtv_graph_node *);
 static void register_all_pairs (tree body);
 static void add_hierarchy_pair (struct vtv_graph_node *,
                                 struct vtv_graph_node *);
@@ -101,6 +102,8 @@ init_functions (void)
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   integer_type_node));
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
@@ -281,6 +284,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
   tree vtbl_var_decl;
   tree arg1;
   tree arg2;
+  int hint = 0;
 
   if (TREE_CODE (record_type) != RECORD_TYPE)
     return;
@@ -339,13 +343,15 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                   if (already_registered)
                     continue;
 
-		  /* This call expr has the 2 "real" arguments, plus 4
+		  /* This call expr has the 3 "real" arguments, plus 4
 		     debugging arguments.  Eventually it will be
 		     replaced with the one just below it, which only
-		     has the 2 real arguments.  */
+		     has the 3 real arguments.  */
                   call_expr = build_call_expr
-		                        (vlt_register_pairs_fndecl, 6,
+		                        (vlt_register_pairs_fndecl, 7,
 					 base_class_decl_arg, value,
+                                         build_int_cst (integer_type_node,
+                                                        hint),
 					 arg1,
 					 build_int_cst (integer_type_node,
 							len1),
@@ -353,8 +359,10 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 					 build_int_cst (integer_type_node,
 							len2));
 		  /* See comments above.
-                  call_expr = build_call_expr (vlt_register_pairs_fndecl, 2,
-                                               base_class_decl_arg, value);
+                  call_expr = build_call_expr (vlt_register_pairs_fndecl, 3,
+                                               base_class_decl_arg, value,
+                                               buid_int_cst (integer_type_node,
+                                                             hint));
 		  */
 		  append_to_statement_list (call_expr, &body);
                 }
@@ -371,6 +379,7 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
   tree base_binfo;
   tree vtable_decl;
   bool already_registered;
+  int hint = 0;
 
   if (binfo == NULL_TREE)
     return;
@@ -391,14 +400,16 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                                       base_class);
           if (!already_registered)
             {
-              call_expr = build_call_expr (vlt_register_pairs_fndecl, 6,
-                                            arg1, vtable_address,
-                                            str1,
-                                            build_int_cst (integer_type_node,
-                                                           len1),
-                                            str2,
-                                            build_int_cst (integer_type_node,
-                                                           len2));
+              call_expr = build_call_expr (vlt_register_pairs_fndecl, 7,
+                                           arg1, vtable_address,
+                                           build_int_cst (integer_type_node,
+                                                          hint),
+                                           str1,
+                                           build_int_cst (integer_type_node,
+                                                          len1),
+                                           str2,
+                                           build_int_cst (integer_type_node,
+                                                          len2));
               append_to_statement_list (call_expr, &body);
             }
         }
@@ -407,6 +418,25 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                     len2, base_class);
     }
 }
+
+static int
+guess_num_vtable_pointers (struct vtv_graph_node *class_node)
+{
+  tree vtbl;
+  int total_num_vtbls = 0;
+  unsigned i;
+
+  for (i = 0; i < num_vtable_map_nodes; ++i)
+    if (TEST_BIT (class_node->descendants, i))
+      {
+        tree class_type = vtbl_map_nodes_array[i]->class_info->class_type;
+        for (vtbl = CLASSTYPE_VTABLES (class_type); vtbl;
+             vtbl = DECL_CHAIN (vtbl))
+          total_num_vtbls ++;
+      }
+  return total_num_vtbls;
+}
+
 static void
 register_all_pairs (tree body)
 {
@@ -419,6 +449,7 @@ register_all_pairs (tree body)
     {
       unsigned i;
       tree base_class = current->class_info->class_type;
+      int size_hint = guess_num_vtable_pointers (current->class_info);
       base_ptr_var_decl = current->vtbl_map_decl;
 
       gcc_assert (current->class_info != NULL);
@@ -476,19 +507,21 @@ register_all_pairs (tree body)
                                                      (base_ptr_var_decl));
                       arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
 
-                      /* This call expr has the 2 "real" arguments, plus 4
+                      /* This call expr has the 3 "real" arguments, plus 4
                          debugging arguments.  Eventually it will be replaced
                          with the one just below it, which only has the 2 real
                          arguments.  */
                       call_expr = build_call_expr
-                          (vlt_register_pairs_fndecl, 6,
+                          (vlt_register_pairs_fndecl, 7,
                            arg1, vtable_address,
+                           build_int_cst (integer_type_node, size_hint),
                            str1, build_int_cst (integer_type_node,
                                                 len1),
                            str2,  build_int_cst (integer_type_node,
                                                  len2));
                       /* See comments above.  call_expr = build_call_expr
-                         (vlt_register_pairs_fndecl, 2, arg1, vtable);  */
+                         (vlt_register_pairs_fndecl, 3, arg1, vtable,
+                         build_int_cst (integer_type_node, size_hint));  */
 
                       append_to_statement_list (call_expr, &body);
 
@@ -784,12 +817,14 @@ vtable_find_or_create_map_decl (tree base_type)
 
       /* Once we figure out how to mprotect/un-mprotect this section, and
          get the fix for the binutils bug, we need to make it rel.ro, as
-         shown here.
-      sect_name = ACONCAT ((".data.rel.ro.", var_name,
+         shown here. */
+      /*
+      sect_name = ACONCAT ((".data.rel.ro.","vtable_map_vars",
                             NULL));
-       */
+      */
       sect_name = ACONCAT ((".data.", var_name,
                             NULL));
+
 
       DECL_SECTION_NAME (var_decl) =
           build_string (strlen (sect_name), sect_name);

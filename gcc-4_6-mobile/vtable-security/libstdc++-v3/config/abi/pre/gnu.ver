@@ -1284,9 +1284,9 @@ GLIBCXX_3.4.16 {
     #   other runtime symbols
     _Z12__VLTprotectv;
     _Z14__VLTunprotectv;
-    _Z17__VLTRegisterPairPPvS_PciS1_i;
-    _Z21__VLTChangePermissionPKci;
-    _Z24__VLTVerifyVtablePointerPPvS_PciS1_i;
+    _Z17__VLTRegisterPair*;
+    _Z21__VLTChangePermission*;
+    _Z24__VLTVerifyVtablePointer*;
 
 } GLIBCXX_3.4.15;
 

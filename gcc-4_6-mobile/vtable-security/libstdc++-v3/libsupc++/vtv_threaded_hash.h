@@ -31,7 +31,7 @@ enum vlt_hash_access_kind {
 
 /* Main hash table interface */
 
-extern struct vlt_hashtable *vlt_hash_init_table (void);
+extern struct vlt_hashtable *vlt_hash_init_table (int);
 extern void vlt_hash_insert (struct vlt_hashtable *, void *);
 extern void *vlt_hash_find (struct vlt_hashtable *, void *);
 
