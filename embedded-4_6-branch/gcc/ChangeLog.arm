@@ -1,3 +1,7 @@
+2012-06-12  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/t-armv6-m (cortex-m0plus): Use armv6-m lib for m0plus.
+
 2012-06-12  Joey Ye  <joey.ye@arm.com>
 
 	Backport r182921 from mainline

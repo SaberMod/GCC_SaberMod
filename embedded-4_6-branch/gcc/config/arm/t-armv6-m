@@ -27,6 +27,7 @@ MULTILIB_EXCEPTIONS   += mthumb/mfpu*
 
 MULTILIB_MATCHES      += march?armv6s-m=march?armv6-m
 MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m0
+MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m0plus
 MULTILIB_MATCHES      += march?armv6s-m=mcpu?cortex-m1
 
 MULTILIB_OSDIRNAMES   += mthumb/march.armv6s-m=!armv6-m
