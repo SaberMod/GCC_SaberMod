@@ -1,3 +1,11 @@
+2012-06-12  Joey Ye  <joey.ye@arm.com>
+
+	Backport r182921 from mainline
+	2012-01-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/51768
+	* c-c++-common/pr51768.c: New test.
+
 2012-06-12  Bin Cheng  <bin.cheng@arm.com>
 
 	Backport r180986 from mainline
