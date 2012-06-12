@@ -1,20 +1,44 @@
+2012-06-11  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc: Modify include to include
+	"vtv_threaded_hash.h" instead of "threaded-hash.h".
+	(__VLTRegisterPair):  Add size_hint parameter.  Pass size_hint to
+	vlt_hash_init_table.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc (vlt_hash_init_table):
+	Modify to take size_hint parameter.  Use size_hint to possibly enlarge
+	initial table size.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h (vlt_hash_init_table):
+	Add int param to function declaration.
+	* libstdc++-v3/config/abi/pre/gnu.ver (GLIBCXX_3.4.16) Change _VLT...
+	functions to use wildcards, to allow parameters to change without
+	affecting the function symbol exports.
+	* gcc/cp/vtable-class-hierarchy.c (init_functions):  Add extra int arg
+	for vlt_register_pair_fndecl, to allow for new size hint.
+	(register_vptr_fields):  Add new hint varable, initialize it to zero, and
+	pass it to calls to __VLTRegisterPair.
+	(register_other_binfo_vtables):  Ditto.
+	(guess_num_vtable_pointers):  New function.
+	(register_all_pairs):  Add size_hint local variabler, and initialize
+	it with call to guess_num_vtable_pointers.  Pass the size_hint to calls
+	to __VLTRegisterPair.
+	
 2012-06-08  Luis Lozano  <llozano@google.com>
 
-	* gcc/cp/cp-tree.h: added some prototypes so that we can move some 
-	code into vtable-class-hierarchy.c
+	* gcc/cp/cp-tree.h: added some prototypes so that we can move some
+	code into vtable-class-hierarchy.
 	* gcc/cp/decl2.c: made start_objects finish_objects availabe to use
-	outside this file 
+	outside this file
 	(cp_write_global_declarations): move the code related to vtable-verify
 	to the vtable-class-hierarchy and did some cleanup
 	* gcc/cp/vtable-class-hierarchy.c: move the code to generate the
 	register_pairs into this file
-	(vtv_register_class_hierarchy_information): modified to stop calling 
+	(vtv_register_class_hierarchy_information): modified to stop calling
 	the routines to protect and unprotect the memory used. These are moved
 	to a special object file that will only be called once per module.
 	(vtv_generate_init_routine): new routine that contains the code moved
 	from decl2.c
 	* gcc/temp-libgcc.cc: cleaned up warnings. Changed some names to make
-	try to have a uniform coding convention and moved this file into 
+	try to have a uniform coding convention and moved this file into
 	libsupc (see below)
 	* gcc/vtv_memory_pool/vtvmalloc.c: cleaned up and moved to libsupc
 	* gcc/vtv_memory_pool/vtvmalloc.h: fixed LP64 macro name and moved to
