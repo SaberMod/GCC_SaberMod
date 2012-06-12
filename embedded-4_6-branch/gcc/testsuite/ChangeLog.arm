@@ -1,3 +1,11 @@
+2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+
+	Backport r182252 from mainline
+	2011-12-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/50569
+	* gcc.c-torture/execute/20111212-1.c: New test.
+
 2012-06-12  Joey Ye  <joey.ye@arm.com>
 
 	Backport r182921 from mainline
