@@ -4,7 +4,7 @@
 #include <execinfo.h>
 
 #include "vtv_threaded_hash.h"
-#include "vtv_memory_pool/vtvmalloc.h"
+#include "vtv_malloc.h"
 
 /* TODO: review the reason for this */
 #ifndef __cplusplus
