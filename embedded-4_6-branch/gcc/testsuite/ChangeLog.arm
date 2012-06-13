@@ -1,4 +1,4 @@
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r181256 from mainline
 	2011-11-10  Richard Guenther  <rguenther@suse.de>
@@ -6,7 +6,7 @@
 	PR tree-optimization/51042
 	* gcc.dg/torture/pr51042.c: New testcase.
 
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r182839 from mainline
 	2012-01-03  Richard Guenther  <rguenther@suse.de>
@@ -15,7 +15,7 @@
 	* gcc.dg/torture/pr51070.c: New testcase.
 	* gcc.dg/torture/pr51070-2.c: Likewise.
 
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r182252 from mainline
 	2011-12-12  Eric Botcazou  <ebotcazou@adacore.com>

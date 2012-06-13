@@ -1,4 +1,4 @@
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r181256 from mainline
 	2011-11-10  Richard Guenther  <rguenther@suse.de>
@@ -7,7 +7,7 @@
 	* tree-ssa-pre.c (phi_translate_1): Avoid recursing on
 	self-referential expressions.  Refactor code to avoid duplication.
 
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r182839 from mainline
 	2012-01-03  Richard Guenther  <rguenther@suse.de>
@@ -18,7 +18,7 @@
 	results are used outside of the loop.
 	(stmt_has_scalar_dependences_outside_loop): Properly handle calls.
 
-2011-06-12  Jiangning Liu  <jiangning.liu@arm.com>
+2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r182252 from mainline
 	2011-12-12  Eric Botcazou  <ebotcazou@adacore.com>
