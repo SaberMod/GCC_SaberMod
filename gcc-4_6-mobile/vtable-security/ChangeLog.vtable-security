@@ -1,3 +1,30 @@
+2012-06-14  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc: Added copyright comments.
+	(__VLTChangePermission):  Changed type of first parameter from
+	"const char *" to "char *".
+	* libstdc++-v3/libsupc++/vtv_malloc.h: Added copyright comments.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc: Added copyright
+	comments.
+	(grow_table):  Added comment warning about mutex lock. Removed
+	calls to pthread_mutex_lock and pthread_mutex_unlock.  Removed call
+	to memset that initialized new_data to zero.
+	(access):  Deleted function.
+	(vlt_hash_init_table):  Compare size hint to REHASH_LIMIT times
+	initial_size rather than just initial size.  Make use of size hint
+	to try to create initial table closer to final size (reducing the
+	number of rehashes).
+	(vlt_hash_insert):  Entirely re-wrote function; removed call to access.
+	Updated pthread locking.
+	(vlt_hash_find): Entirely re-wrote function; removed call to access.
+	Made reads fast and lock-free.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: Added copyright comments.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h: Added copyright comments.
+	* gcc/cp/vtable-class-hierarchy.c
+	(vtv_register_class_hierarchy_information): Insert calls to
+	__VLTChangePermission directly into initialization routine, if the
+	function is going into the preinit array.
+
 2012-06-11  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc: Modify include to include
@@ -21,7 +48,7 @@
 	(register_all_pairs):  Add size_hint local variabler, and initialize
 	it with call to guess_num_vtable_pointers.  Pass the size_hint to calls
 	to __VLTRegisterPair.
-	
+
 2012-06-08  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/cp-tree.h: added some prototypes so that we can move some
