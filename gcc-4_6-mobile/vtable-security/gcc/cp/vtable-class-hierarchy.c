@@ -689,8 +689,32 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
   /*  if (any_verification_calls_generated) */
   if (num_vtable_map_nodes > 0)
     {
+      /* If this function is going into the preinit_array, then we
+         need to manually call __VLTChangePermission, rather than
+         depending on initialization prioritys in vtv_init. */
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+        {
+          tree arg = build_string_literal (strlen ("rw"), "rw");
+          tree arg2 = build_int_cst (integer_type_node, 2);
+          tree call_expr = build_call_expr (vlt_change_permission_fndecl,
+                                            2, arg, arg2);
+          append_to_statement_list (call_expr, &register_pairs_body);
+        }
+
       /* Add class hierarchy pairs to the vtable map data structure. */
       register_all_pairs (register_pairs_body);
+
+      /* If this function is going into the preinit_array, then we
+         need to manually call __VLTChangePermission, rather than
+         depending on initialization prioritys in vtv_init. */
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+        {
+          tree arg = build_string_literal (strlen ("ro"), "ro");
+          tree arg2 = build_int_cst (integer_type_node, 2);
+          tree call_expr = build_call_expr (vlt_change_permission_fndecl,
+                                            2, arg, arg2);
+          append_to_statement_list (call_expr, &register_pairs_body);
+        }
 
       ret_val = true;  /* Actually did some work/wrote something out.  */
     }
@@ -818,13 +842,11 @@ vtable_find_or_create_map_decl (tree base_type)
       /* Once we figure out how to mprotect/un-mprotect this section, and
          get the fix for the binutils bug, we need to make it rel.ro, as
          shown here. */
-      /*
-      sect_name = ACONCAT ((".data.rel.ro.","vtable_map_vars",
+      /* 
                             NULL));
       */
       sect_name = ACONCAT ((".data.", var_name,
                             NULL));
-
 
       DECL_SECTION_NAME (var_decl) =
           build_string (strlen (sect_name), sect_name);

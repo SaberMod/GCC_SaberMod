@@ -11,7 +11,7 @@
 #endif
 
 /* TODO: should we create a header for vtv_rts.c? */
-extern void * __VLTChangePermission (const char *arg1, int len);
+extern void * __VLTChangePermission (char *arg1, int len);
 
 void __VLTunprotect() __attribute__((constructor(98)));
 void __VLTunprotect()

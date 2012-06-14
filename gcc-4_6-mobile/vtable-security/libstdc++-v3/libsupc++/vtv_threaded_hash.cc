@@ -1,4 +1,26 @@
-/* TO DO:  Add copyright notices etc.  */
+// Copyright (C) 2012
+// Free Software Foundation
+//
+// This file is part of GCC.
+//
+// GCC is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 3, or (at your option)
+// any later version.
+
+// GCC is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// Under Section 7 of GPL version 3, you are granted additional
+// permissions described in the GCC Runtime Library Exception, version
+// 3.1, as published by the Free Software Foundation.
+
+// You should have received a copy of the GNU General Public License and
+// a copy of the GCC Runtime Library Exception along with this program;
+// see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
+// <http://www.gnu.org/licenses/>.
 
 #include <stdlib.h>
 #include <math.h>
@@ -101,6 +123,12 @@ rehash_elements (struct vlt_hash_bucket **old_data,
 static void
 grow_table (struct vlt_hashtable *table)
 {
+  /*  IMPORTANT NOTE!! This function assumes that you have already acquired the
+      lock on TABLE's pthread mutex before calling this function.  If you call
+      this function without first acquiring the lock, something bad may happen
+      to you.  YOU HAVE BEEN WARNED!  */
+
+  struct vlt_hash_bucket **old_data = NULL;
   uint32_t old_size = table->data_size;
   uint32_t new_size = 2 * old_size;
   uint32_t new_power_size = table->power_of_2 + 1;
@@ -108,25 +136,20 @@ grow_table (struct vlt_hashtable *table)
   struct vlt_hash_bucket **new_data =
       (struct vlt_hash_bucket **)
                       my_malloc (new_size * sizeof (struct vlt_hash_bucket *));
-  struct vlt_hash_bucket **old_data = table->data;
+  old_data = table->data;
 
   num_bucket_pointers_allocated += new_size;
 
-  memset (new_data, 0, (new_size * sizeof (struct vlt_hash_bucket *)));
+  table->num_elts = rehash_elements (old_data, new_data, old_size,
+				     new_size, new_power_size);
 
-  table->num_elts = rehash_elements (old_data, new_data, old_size, new_size,
-                                     new_power_size);
-
-  pthread_mutex_lock (&(table->mutex));
   table->data = new_data;
   table->data_size = new_size;
   table->power_of_2 = new_power_size;
   table->hash_mask = 0xffffffff >> (32 - new_power_size);
-  pthread_mutex_unlock (&(table->mutex));
 
+  /* TODO:  Need to 'my_free' each allocated bucket in old_data... */
   my_free (old_data);
-
-  /* To do:  need to 'my_free' each allocated bucket in old_data... */
 }
 
 static void *
@@ -144,35 +167,6 @@ bucket_find (struct vlt_hash_bucket *slot, void * value)
   return NULL;
 }
 
-static void *
-access (struct vlt_hashtable *table, void *value,
-        enum vlt_hash_access_kind access)
-{
-  uint32_t hash = hash_pointer (value);
-  uint32_t new_index = hash & table->hash_mask;
-  void *ret_val = NULL;
-
-  /* pthread_mutex_lock (&(table->mutex));*/
-  ret_val = bucket_find (table->data[new_index], value);
-  if (access == TABLE_INSERT)
-    {
-      if (!ret_val)
-        {
-          if (table->num_elts >= (REHASH_LIMIT * table->data_size))
-            {
-              grow_table (table);
-              new_index = hash & table->hash_mask;
-            }
-          bucket_insert ( &(table->data[new_index]), value);
-          table->num_elts++;
-        }
-      ret_val = NULL;
-    }
-  /* pthread_mutex_unlock (&(table.mutex)); */
-
-  return ret_val;
-}
-
 /* Externally Visible Functions */
 
 struct vlt_hashtable*
@@ -183,7 +177,7 @@ vlt_hash_init_table (int initial_size_hint)
   int initial_size = INITIAL_SIZE;
   int initial_power = INITIAL_POWER;
 
-  while (initial_size_hint > initial_size)
+  while (initial_size_hint > (REHASH_LIMIT * initial_size))
     {
       initial_size *= 2;
       initial_power++;
@@ -196,13 +190,11 @@ vlt_hash_init_table (int initial_size_hint)
   pthread_mutex_init (&(new_table->mutex), NULL);
 
   num_tables_allocated++; /* Debug */
-  num_bucket_pointers_allocated += INITIAL_SIZE; /* Debug */
+  num_bucket_pointers_allocated += initial_size; /* Debug */
 
   new_table->data =
       (struct vlt_hash_bucket **)
                   my_malloc (initial_size * sizeof (struct vlt_hash_bucket *));
-  memset (new_table->data, 0,
-          (initial_size * sizeof (struct vlt_hash_bucket *)));
 
   return new_table;
 }
@@ -210,13 +202,41 @@ vlt_hash_init_table (int initial_size_hint)
 void
 vlt_hash_insert (struct vlt_hashtable *table, void *value)
 {
-  access (table, value, TABLE_INSERT);
+  uint32_t hash = hash_pointer (value);
+  uint32_t new_index = hash & table->hash_mask;
+  void *slot = bucket_find (table->data[new_index], value);
+
+  /* Only do the insert if the value is not already in the table.  */
+  if (!slot)
+    {
+      /* Grab the mutex before doing the comparison below to make sure
+         nothing being compared changes in the middle of the comparison.  */
+      pthread_mutex_lock (&(table->mutex));
+      /* See if anybody else inserted the element since the last check and
+	 before we grabbed the lock. */
+      if (!bucket_find (table->data[new_index], value))
+        {
+	  if (table->num_elts >= (REHASH_LIMIT * table->data_size))
+	    grow_table (table);
+
+	  /* Re-calculate the index in case the table grew between the
+	     initial check above and when we grabbed the lock. */
+	  new_index = hash & table->hash_mask;
+          bucket_insert ( &(table->data[new_index]), value);
+          table->num_elts++;
+        }
+      pthread_mutex_unlock (&(table->mutex));
+    }
 }
 
 void *
 vlt_hash_find (struct vlt_hashtable *table, void *value)
 {
-  return access (table, value, TABLE_FIND);
+  uint32_t hash = hash_pointer (value);
+  uint32_t new_index = hash & table->hash_mask;
+  void *ret_val = bucket_find (table->data[new_index], value);
+
+  return ret_val;
 }
 
 /* Debugging Functions  */
@@ -233,7 +253,7 @@ dump_bucket_info (struct vlt_hash_bucket *slot, uint32_t idx,
                   uint32_t *max_size, FILE *dump_file)
 {
   struct vlt_hash_bucket *cur;
-  int num_buckets = 0;
+  unsigned num_buckets = 0;
 
   if (slot == NULL)
     {
