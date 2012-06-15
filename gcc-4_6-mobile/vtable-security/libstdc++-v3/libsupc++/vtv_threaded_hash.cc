@@ -49,26 +49,6 @@ static unsigned num_rehashed_elements = 0;
 static unsigned size_of_bucket = sizeof (struct vlt_hash_bucket);
 static unsigned size_of_pointer = sizeof (void *);
 
-static uint32_t
-hash_pointer (void *pointer)
-{
-  uint32_t result;
-  intptr_t numeric = (intptr_t) pointer;
-
-#if __SIZEOF_POINTER__ == 8
-  numeric += numeric >> 32;
-#elif __SIZEOF_POINTER__ != 4
-#error "Unsupported pointer size."
-#endif
-  result = numeric;
-  result += result >> 15;
-  result += result >> 10;
-  result += result >> 6;
-  result += result >> 3;
-  result *= 0x953653a5u;
-  result += result >> 11;
-  return result;
-}
 
 static void
 bucket_insert (struct vlt_hash_bucket **slot, void *value)
@@ -109,7 +89,7 @@ rehash_elements (struct vlt_hash_bucket **old_data,
               void *value = cur_bucket->data;
               if (value != NULL)
                 {
-                  uint32_t hash = hash_pointer (value);
+                  uint32_t hash = vlt_hash_pointer (value);
                   uint32_t new_index = hash & mask;
                   bucket_insert (&(new_data[new_index]), value);
                   num_elements++;
@@ -152,21 +132,6 @@ grow_table (struct vlt_hashtable *table)
   my_free (old_data);
 }
 
-static void *
-bucket_find (struct vlt_hash_bucket *slot, void * value)
-{
-  struct vlt_hash_bucket *current;
-
-  if (slot == NULL)
-    return NULL;
-
-  for (current = slot; current; current = current->next)
-    if (current->data == value)
-      return current;
-
-  return NULL;
-}
-
 /* Externally Visible Functions */
 
 struct vlt_hashtable*
@@ -202,9 +167,9 @@ vlt_hash_init_table (int initial_size_hint)
 void
 vlt_hash_insert (struct vlt_hashtable *table, void *value)
 {
-  uint32_t hash = hash_pointer (value);
+  uint32_t hash = vlt_hash_pointer (value);
   uint32_t new_index = hash & table->hash_mask;
-  void *slot = bucket_find (table->data[new_index], value);
+  void *slot = vlt_bucket_find (table->data[new_index], value);
 
   /* Only do the insert if the value is not already in the table.  */
   if (!slot)
@@ -214,7 +179,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
       pthread_mutex_lock (&(table->mutex));
       /* See if anybody else inserted the element since the last check and
 	 before we grabbed the lock. */
-      if (!bucket_find (table->data[new_index], value))
+      if (!vlt_bucket_find (table->data[new_index], value))
         {
 	  if (table->num_elts >= (REHASH_LIMIT * table->data_size))
 	    grow_table (table);
@@ -227,16 +192,6 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
         }
       pthread_mutex_unlock (&(table->mutex));
     }
-}
-
-void *
-vlt_hash_find (struct vlt_hashtable *table, void *value)
-{
-  uint32_t hash = hash_pointer (value);
-  uint32_t new_index = hash & table->hash_mask;
-  void *ret_val = bucket_find (table->data[new_index], value);
-
-  return ret_val;
 }
 
 /* Debugging Functions  */
@@ -253,7 +208,7 @@ dump_bucket_info (struct vlt_hash_bucket *slot, uint32_t idx,
                   uint32_t *max_size, FILE *dump_file)
 {
   struct vlt_hash_bucket *cur;
-  unsigned num_buckets = 0;
+  uint32_t num_buckets = 0;
 
   if (slot == NULL)
     {
@@ -267,7 +222,7 @@ dump_bucket_info (struct vlt_hash_bucket *slot, uint32_t idx,
   if (num_buckets > *max_size)
     *max_size = num_buckets;
 
-  fprintf (dump_file, "slot[%2d]: %d elements, ", idx, num_buckets);
+  fprintf (dump_file, "slot[%2d]: %u elements, ", idx, num_buckets);
 
   for (cur = slot; cur; cur = cur->next)
     fprintf (dump_file, " %p ", cur->data);

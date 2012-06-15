@@ -46,16 +46,15 @@ struct vlt_hashtable {
   struct vlt_hash_bucket **data;
 };
 
-enum vlt_hash_access_kind {
-  TABLE_INSERT,
-  TABLE_FIND
-};
-
 /* Main hash table interface */
 
 extern struct vlt_hashtable *vlt_hash_init_table (int);
 extern void vlt_hash_insert (struct vlt_hashtable *, void *);
-extern void *vlt_hash_find (struct vlt_hashtable *, void *);
+static inline uint32_t vlt_hash_pointer (void *pointer);
+static inline void * vlt_bucket_find (struct vlt_hash_bucket *slot, void * value);
+static inline void * vlt_hash_find (struct vlt_hashtable *, void *);
+
+
 
 /* for debugging purposes... */
 
@@ -66,6 +65,49 @@ extern void dump_table (struct vlt_hashtable *, uint32_t);
 extern void dump_table_to_filename (struct vlt_hashtable *, uint32_t, char *);
 extern void dump_table_to_vtbl_map_file (struct vlt_hashtable *,uint32_t,
                                          char *, uint32_t);
+
+
+static inline uint32_t
+vlt_hash_pointer (void *pointer)
+{
+  uint32_t result;
+  intptr_t numeric = (intptr_t) pointer;
+
+#if __SIZEOF_POINTER__ == 8
+  numeric += numeric >> 32;
+#elif __SIZEOF_POINTER__ != 4
+#error "Unsupported pointer size."
+#endif
+  result = numeric;
+  result += result >> 15;
+  result += result >> 10;
+  result += result >> 6;
+  result += result >> 3;
+  result *= 0x953653a5u;
+  result += result >> 11;
+  return result;
+}
+
+static inline void *
+vlt_bucket_find (struct vlt_hash_bucket *slot, void * value)
+{
+  struct vlt_hash_bucket *current;
+
+  for (current = slot; current; current = current->next)
+    if (current->data == value)
+      return current;
+
+  return NULL;
+}
+
+static inline void *
+vlt_hash_find (struct vlt_hashtable *table, void *value)
+{
+  uint32_t hash = vlt_hash_pointer (value);
+  uint32_t new_index = hash & table->hash_mask;
+
+  return vlt_bucket_find (table->data[new_index], value);
+}
 
 #ifdef __cplusplus
 } /* extern "C" */

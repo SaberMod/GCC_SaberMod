@@ -623,6 +623,9 @@ verify_bb_vtables (basic_block bb)
 				                  (DECL_NAME (vtbl_var_decl)));
                       len2 = strlen (vtable_name);
 
+                      /* Call different routines if we are interested in trace information
+                         to triage problems */
+#ifdef VTV_DEBUG
                       expr_tree = build_call_expr
 			             (verify_vtbl_ptr_fndecl, 6,
 				      my_build1 (ADDR_EXPR,
@@ -640,9 +643,7 @@ verify_bb_vtables (basic_block bb)
 				      build_string_literal (len2, vtable_name),
 				      build_int_cst (integer_type_node,
 						     len2));
-		      /*  Eventually we will remove the 4 'debugging'
-			  parameters from the call above and will use the
-			  call below instead.
+#else
                       expr_tree = build_call_expr
 		                     (verify_vtbl_ptr_fndecl, 2,
 				      my_build1 (ADDR_EXPR,
@@ -650,7 +651,8 @@ verify_bb_vtables (basic_block bb)
                                                    (TREE_TYPE (vtbl_var_decl)),
                                                  vtbl_var_decl),
                                       SSA_NAME_VAR (lhs));
-		      */
+#endif
+
                       /* Assign the result of the call to the original
                          variable receiving the assignment of the object's
                          vtable pointer; mark that variable to be updated by
@@ -688,6 +690,8 @@ build_vtable_verify_fndecl (void)
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
+
+#ifdef VTV_DEBUG
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
@@ -697,11 +701,18 @@ build_vtable_verify_fndecl (void)
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
                                                    integer_type_node));
   /* End: Arg types to be removed...*/
+#endif
+
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   type = build_function_type (type, arg_types);
 
+#ifdef VTV_DEBUG
+  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointerDebug", type);
+#else
   verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointer", type);
+#endif
+
   TREE_NOTHROW (verify_vtbl_ptr_fndecl) = 1;
   DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl)
       = tree_cons (get_identifier ("leaf"), NULL,

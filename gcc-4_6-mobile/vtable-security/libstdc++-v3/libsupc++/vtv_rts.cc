@@ -190,9 +190,9 @@ static void PrintStackTrace()
 }
 
 void *
-__VLTVerifyVtablePointer (void **data_pointer, void *test_value,
-			  char *base_vtbl_var_name, int len1, char *vtable_name,
-			  int len2)
+__VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
+                               char *base_vtbl_var_name, int len1, char *vtable_name,
+                               int len2)
 {
   struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
   vptr obj_vptr = (vptr) test_value;
@@ -223,6 +223,25 @@ __VLTVerifyVtablePointer (void **data_pointer, void *test_value,
                obj_vptr);
       dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
                                    len1);
+      /* Eventually we should call __stack_chk_fail (or something similar)
+         rather than just abort.  */
+      PrintStackTrace();
+      abort ();
+    }
+
+  return test_value;
+}
+
+void *
+__VLTVerifyVtablePointer (void **data_pointer, void *test_value)
+{
+  struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
+
+  if ((*data_pointer) == NULL)
+    return test_value;
+
+  if (vlt_hash_find ((*base_vtbl_ptr), test_value) == NULL)
+    {
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
       PrintStackTrace();
