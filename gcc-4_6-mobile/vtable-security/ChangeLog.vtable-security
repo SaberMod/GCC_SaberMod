@@ -1,3 +1,28 @@
+2012-06-15  Luis Lozano  <llozano@google.com>
+
+	* gcc/tree-vtable-verify.c (verify_bb_vtables): Modify to call
+	a different VerifyVtablePointer if compiled with VTV_DEBUG. 
+	If debug version takes more arguments and prints more debug
+	information.
+	* libstdc++-v3/libsupc++/vtv_rts.cc 
+	(__VLTVerifyVtablePointerDebug): New routine. It is actually
+	a rename of the old routine. This version is called when 
+	tree-vtable-verify.c is built with VTV_DEBUG.
+	(__VLTVerifyVtablePointer): cleaned up this routine to improve
+	performance. 
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc
+	(hash_pointer): moved to vtv_threaded_hash.h so that it can be
+	inlined
+	(bucket_find): moved to vtv_threaded_hash.h so that it can be
+	inlined
+	(dump_bucket_info): fixed a warning.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h
+	(vlt_hash_pointer): moved here and marked as static inline.
+	(vlt_bucket_find): moved here and marked as static inline. Removed
+	some unnecessary code.
+	(vlt_hash_find): moved here and marked as static inline. cleaned
+	up for performance
+
 2012-06-14  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc: Added copyright comments.
