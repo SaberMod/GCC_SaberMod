@@ -795,46 +795,16 @@ enum aarch64_builtins
 /* Check TLS Descriptors mechanism is selected.  */
 #define TARGET_TLS_DESC (aarch64_tls_dialect == TLS_DESCRIPTORS)
 
-/* Used for the code generation strategy dependent on the
-   memory model being used.
-
-   There are multiple memory models available.
-   Each one has a PIC and a non-PIC variant.
-
-   Tiny.
-   AARCH64_MEM_MODEL_TINY.
-   Unimplemented as of now.
-
-   Small.
-   AARCH64_MEM_MODEL_SMALL
-   Generate in sequences of adrh , ldrb and or
-   strb.
-
-   Large.
-   AARCH64_MEM_MODEL_LARGE
-   Default model as of now.
-*/
-enum aarch64_memory_model
-{
-  AARCH64_MEM_MODEL_UNIMPLEMENTED,
-  AARCH64_MEM_MODEL_TINY,
-  AARCH64_MEM_MODEL_SMALL,
-  AARCH64_MEM_MODEL_LARGE,
-  AARCH64_MEM_MODEL_TINY_PIC,
-  AARCH64_MEM_MODEL_SMALL_PIC,
-  AARCH64_MEM_MODEL_LARGE_PIC
-};
-
-extern enum aarch64_memory_model aarch64_default_mem_model;
+extern enum aarch64_memory_model aarch64_cmodel;
 
 /* When using the tiny addressing model conditional and unconditional branches
    can span the whole of the available address space (1MB).  */
-#define HAS_LONG_COND_BRANCH					\
-  (aarch64_default_mem_model == AARCH64_MEM_MODEL_TINY		\
-   || aarch64_default_mem_model == AARCH64_MEM_MODEL_TINY_PIC)
-
-#define HAS_LONG_UNCOND_BRANCH					\
-  (aarch64_default_mem_model == AARCH64_MEM_MODEL_TINY		\
-   || aarch64_default_mem_model == AARCH64_MEM_MODEL_TINY_PIC)
+#define HAS_LONG_COND_BRANCH				\
+  (aarch64_cmodel == AARCH64_CMODEL_TINY		\
+   || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
+  
+#define HAS_LONG_UNCOND_BRANCH				\
+  (aarch64_cmodel == AARCH64_CMODEL_TINY		\
+   || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
 
 #endif /* GCC_AARCH64_H */

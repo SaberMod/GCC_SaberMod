@@ -76,7 +76,7 @@ enum aarch64_symbol_context
    or
    str x1, [x0, :lo12:foo]
 
-   This corresponds to the small memory model of the compiler.
+   This corresponds to the small code model of the compiler.
 
    SYMBOL_SMALL_GOT: Similar to the one above but this
    gives us the GOT entry of the symbol being referred to :
@@ -100,7 +100,7 @@ enum aarch64_symbol_context
    SYMBOL_FORCE_TO_MEM : Global variables are addressed using
    constant pool. All variable addresses are spilled into constant
    pools. The constant pools themselves are addressed using PC
-   relative accesses. This only works for the large memory model.
+   relative accesses.  This only works for the large code model.
  */
 enum aarch64_symbol_type
 {

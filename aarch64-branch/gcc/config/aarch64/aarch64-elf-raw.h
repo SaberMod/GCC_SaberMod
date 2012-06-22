@@ -22,8 +22,6 @@
 #ifndef GCC_AARCH64_ELF_RAW_H
 #define GCC_AARCH64_ELF_RAW_H
 
-#define AARCH64_DEFAULT_MEM_MODEL   AARCH64_MEM_MODEL_SMALL
-
 #define STARTFILE_SPEC " crti%O%s crtbegin%O%s crt0%O%s"
 #define ENDFILE_SPEC " crtend%O%s crtn%O%s"
 

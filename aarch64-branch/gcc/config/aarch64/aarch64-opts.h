@@ -41,4 +41,24 @@ enum aarch64_tls_type {
   TLS_DESCRIPTORS
 };
 
+/* The code model defines the address generation strategy.
+   Most have a PIC and non-PIC variant.  */
+enum aarch64_code_model {
+  /* Static code and data fit within a 1MB region.
+     Not fully implemented, mostly treated as SMALL.  */
+  AARCH64_CMODEL_TINY,
+  /* Static code, data and GOT/PLT fit within a 1MB region.
+     Not fully implemented, mostly treated as SMALL_PIC.  */
+  AARCH64_CMODEL_TINY_PIC,
+  /* Static code and data fit within a 4GB region.
+     The default non-PIC code model.  */
+  AARCH64_CMODEL_SMALL,
+  /* Static code, data and GOT/PLT fit within a 4GB region.
+     The default PIC code model.  */
+  AARCH64_CMODEL_SMALL_PIC,
+  /* No assumptions about addresses of code and data.
+     The PIC variant is not yet implemented.  */
+  AARCH64_CMODEL_LARGE
+};
+
 #endif

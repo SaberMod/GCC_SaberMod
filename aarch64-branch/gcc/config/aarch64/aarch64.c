@@ -86,9 +86,8 @@ struct aarch64_address_info {
   enum aarch64_symbol_type symbol_type;
 };
 
-/* Set up default memory model.  */
-enum aarch64_memory_model
-aarch64_default_mem_model = AARCH64_DEFAULT_MEM_MODEL;
+/* The current code model.  */
+enum aarch64_code_model aarch64_cmodel;
 
 #ifdef HAVE_AS_TLS
 #undef TARGET_HAVE_TLS
@@ -630,7 +629,6 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	  return;
 
 	default:
-	  error ("Unimplemented memory model in generating symbolic references.  */");
 	  gcc_unreachable ();
 	}
     }
@@ -3876,14 +3874,11 @@ aarch64_select_rtx_section (enum machine_mode mode ATTRIBUTE_UNUSED,
 			    rtx x ATTRIBUTE_UNUSED,
 			    unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED)
 {
-  /* Force all constant pool entries into the current function
-     section.  XXX Will need fixing for Large PIC not to push relocatable
-     constants into text section.  */
-  gcc_assert (!flag_pic || (flag_pic && (aarch64_default_mem_model != AARCH64_MEM_MODEL_LARGE)));
+  /* Force all constant pool entries into the current function section.  */
   return function_section (current_function_decl);
 }
 
-
+
 /* Costs.  */
 
 /* Helper function for rtx cost calculation.  Strip a shift expression
@@ -4331,7 +4326,7 @@ aarch64_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
   return aarch64_tune_params->memmov_cost;
 }
 
-static void initialize_aarch64_memory_model (void);
+static void initialize_aarch64_code_model (void);
 
 /* Tuning parameters.  */
 
@@ -4612,13 +4607,7 @@ aarch64_override_options (void)
       aarch64_parse_tune ();
     }
 
-  if (flag_pic > 0)
-    {
-      aarch64_default_mem_model = AARCH64_MEM_MODEL_SMALL_PIC;
-    }
-
-  if (aarch64_mem_model_string != NULL)
-    initialize_aarch64_memory_model ();
+  initialize_aarch64_code_model ();
 
   aarch64_build_bitmask_table ();
 
@@ -4680,46 +4669,29 @@ aarch64_init_expanders (void)
   init_machine_status = aarch64_init_machine_status;
 }
 
-/* A checking mechanism for the implementation of the various
-    memory models.  */
-struct aarch64_mem_model
+/* A checking mechanism for the implementation of the various code models.  */
+static void
+initialize_aarch64_code_model (void)
 {
-  const char * mem_model;
-  enum aarch64_memory_model model;
-  enum aarch64_memory_model model_pic;
-};
-
-
-static const struct aarch64_mem_model aarch64_memory_models[] =
-{
-  {"small", AARCH64_MEM_MODEL_SMALL, AARCH64_MEM_MODEL_SMALL_PIC},
-  {"large", AARCH64_MEM_MODEL_LARGE, AARCH64_MEM_MODEL_UNIMPLEMENTED}
-};
-
-void
-initialize_aarch64_memory_model (void)
-{
-  unsigned i;
-  aarch64_default_mem_model = AARCH64_MEM_MODEL_UNIMPLEMENTED;
-  for (i = 0;
-       i < sizeof (aarch64_memory_models) / sizeof (struct aarch64_mem_model);
-       i++)
-    {
-      if (strcmp (aarch64_mem_model_string,
-		  aarch64_memory_models[i].mem_model) == 0)
-	{
-	  if (flag_pic == 0)
-	    aarch64_default_mem_model = aarch64_memory_models[i].model;
-	  else
-	    aarch64_default_mem_model = aarch64_memory_models[i].model_pic;
-	  break;
-	}
-    }
-
-  if (aarch64_default_mem_model == AARCH64_MEM_MODEL_UNIMPLEMENTED)
-    error ("Unimplemented / Illegal memory model `%s'%s",
-	   aarch64_mem_model_string,
-	   flag_pic ? " with -fPIC" : "");
+   if (flag_pic)
+     {
+       switch (aarch64_cmodel_var)
+	 {
+	 case AARCH64_CMODEL_TINY:
+	   aarch64_cmodel = AARCH64_CMODEL_TINY_PIC;
+	   break;
+	 case AARCH64_CMODEL_SMALL:
+	   aarch64_cmodel = AARCH64_CMODEL_SMALL_PIC;
+	   break;
+	 case AARCH64_CMODEL_LARGE:
+	   sorry ("code model %qs with -f%s", "large",
+		  flag_pic > 1 ? "PIC" : "pic");
+	 default:
+	   gcc_unreachable ();
+	 }
+     }
+   else
+     aarch64_cmodel = aarch64_cmodel_var;
 }
 
 /* Return true if SYMBOL_REF X binds locally.  */
@@ -4778,13 +4750,15 @@ aarch64_classify_symbol (rtx x,
 {
   if (GET_CODE (x) == LABEL_REF)
     {
-      switch (aarch64_default_mem_model)
+      switch (aarch64_cmodel)
 	{
-	case AARCH64_MEM_MODEL_LARGE:
+	case AARCH64_CMODEL_LARGE:
 	  return SYMBOL_FORCE_TO_MEM;
 
-	case AARCH64_MEM_MODEL_SMALL_PIC:
-	case AARCH64_MEM_MODEL_SMALL:
+	case AARCH64_CMODEL_TINY_PIC:
+	case AARCH64_CMODEL_TINY:
+	case AARCH64_CMODEL_SMALL_PIC:
+	case AARCH64_CMODEL_SMALL:
 	  return SYMBOL_SMALL_ABSOLUTE;
 
 	default:
@@ -4794,12 +4768,13 @@ aarch64_classify_symbol (rtx x,
 
   gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
-  switch (aarch64_default_mem_model)
+  switch (aarch64_cmodel)
     {
-    case AARCH64_MEM_MODEL_LARGE:
+    case AARCH64_CMODEL_LARGE:
       return SYMBOL_FORCE_TO_MEM;
 
-    case AARCH64_MEM_MODEL_SMALL:
+    case AARCH64_CMODEL_TINY:
+    case AARCH64_CMODEL_SMALL:
 
       /* This is needed to get DFmode, TImode constants
 	 to be loaded off the constant pool. Is
@@ -4819,7 +4794,8 @@ aarch64_classify_symbol (rtx x,
 
       return SYMBOL_SMALL_ABSOLUTE;
 
-    case AARCH64_MEM_MODEL_SMALL_PIC:
+    case AARCH64_CMODEL_TINY_PIC:
+    case AARCH64_CMODEL_SMALL_PIC:
 
       if (CONSTANT_POOL_ADDRESS_P (x))
 	return SYMBOL_FORCE_TO_MEM;

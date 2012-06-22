@@ -50,6 +50,4 @@
     }						\
   while (0)
 
-#define AARCH64_DEFAULT_MEM_MODEL   AARCH64_MEM_MODEL_SMALL
-
 #endif  /* GCC_AARCH64_LINUX_H */

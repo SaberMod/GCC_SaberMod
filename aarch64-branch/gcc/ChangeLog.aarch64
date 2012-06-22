@@ -1,5 +1,33 @@
 2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
 
+	[AArch64] Use Enums for code models option selection.
+
+	* config/aarch64/aarch64-elf-raw.h (AARCH64_DEFAULT_MEM_MODEL): Delete.
+	* config/aarch64/aarch64-linux.h (AARCH64_DEFAULT_MEM_MODEL): Delete.
+	* config/aarch64/aarch64-opts.h (enum aarch64_code_model): New.
+	* config/aarch64/aarch64-protos.h: Update comments.
+	* config/aarch64/aarch64.c: Update comments.
+	(aarch64_default_mem_model): Rename to aarch64_code_model.
+	(aarch64_expand_mov_immediate): Remove error message.
+	(aarch64_select_rtx_section): Remove assertion and update comment.
+	(aarch64_override_options): Move memory model initialization from here.
+	(struct aarch64_mem_model): Delete.
+	(aarch64_memory_models[]): Delete.
+	(initialize_aarch64_memory_model): Rename to
+	initialize_aarch64_code_model and update.
+	(aarch64_classify_symbol): Handle AARCH64_CMODEL_TINY and
+	AARCH64_CMODEL_TINY_PIC
+	* config/aarch64/aarch64.h
+	(enum aarch64_memory_model): Delete.
+	(aarch64_default_mem_model): Rename to aarch64_cmodel.
+	(HAS_LONG_COND_BRANCH): Update.
+	(HAS_LONG_UNCOND_BRANCH): Update.
+	* config/aarch64/aarch64.opt
+	(cmodel): New.
+	(mcmodel): Update.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
 	[AArch64] Use Enums for TLS option selection.
 
 	* config/aarch64/aarch64-opts.h (enum aarch64_tls_type): New.

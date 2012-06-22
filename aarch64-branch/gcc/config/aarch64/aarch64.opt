@@ -33,6 +33,21 @@ Enum(tls_type) String(trad) Value(TLS_TRADITIONAL)
 EnumValue
 Enum(tls_type) String(desc) Value(TLS_DESCRIPTORS)
 
+; The code model option names for -mcmodel.
+
+Enum
+Name(cmodel) Type(enum aarch64_code_model)
+The code model option names for -mcmodel:
+
+EnumValue
+Enum(cmodel) String(tiny) Value(AARCH64_CMODEL_TINY)
+
+EnumValue
+Enum(cmodel) String(small) Value(AARCH64_CMODEL_SMALL)
+
+EnumValue
+Enum(cmodel) String(large) Value(AARCH64_CMODEL_LARGE)
+
 ; The cpu/arch option names to use in cpu/arch selection.
 
 Variable
@@ -57,8 +72,8 @@ Target Report RejectNegative InverseMask(BIG_END)
 Assume target CPU is configured as little endian
 
 mcmodel=
-Target RejectNegative Joined Var(aarch64_mem_model_string)
-Specify the PIC memory model - tiny, small, compact, medium, large
+Target RejectNegative Joined Enum(cmodel) Var(aarch64_cmodel_var) Init(AARCH64_CMODEL_SMALL)
+Specify the code model
 
 mstrict-align
 Target Report RejectNegative Mask(STRICT_ALIGN)
