@@ -1,5 +1,17 @@
 2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
 
+	[AArch64] Fix documentation layout.
+
+	* doc/invoke.texi: Fix white spaces after dots.
+	Change aarch64*be-*-* to aarch64_be-*-*.
+	Add documentation for -mcmodel=tiny.
+	(-march): Fix formatting.
+	(-mcpu): Likewise.
+	(-mtune): Rephrase.
+	(-march and -mcpu feature modifiers): New subsection.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
 	[AArch64] Use Enums for code models option selection.
 
 	* config/aarch64/aarch64-elf-raw.h (AARCH64_DEFAULT_MEM_MODEL): Delete.
