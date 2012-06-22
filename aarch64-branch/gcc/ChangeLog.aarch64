@@ -1,5 +1,19 @@
 2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
 
+	[AArch64] Replace sprintf with snprintf.
+
+	* config/aarch64/aarch64.c
+	(aarch64_elf_asm_constructor): Replace sprintf with snprintf.
+	(aarch64_elf_asm_destructor): Likewise.
+	(aarch64_output_casesi): Likewise.
+	(aarch64_output_asm_insn): Likewise.
+	* config/aarch64/aarch64-builtins.c (init_aarch64_simd_builtins):
+	Likewise.
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>): Replace
+	sprintf with snprintf, and fix code layout.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
 	[AArch64] Fix documentation layout.
 
 	* doc/invoke.texi: Fix white spaces after dots.

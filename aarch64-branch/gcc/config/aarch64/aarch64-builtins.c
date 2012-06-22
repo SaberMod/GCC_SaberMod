@@ -1017,8 +1017,8 @@ init_aarch64_simd_builtins (void)
 
 	  gcc_assert (ftype != NULL);
 
-	  sprintf (namebuf, "__builtin_aarch64_%s%s", d->name,
-		   modenames[j]);
+	  snprintf (namebuf, sizeof (namebuf), "__builtin_aarch64_%s%s",
+		    d->name, modenames[j]);
 
 	  add_builtin_function (namebuf, ftype, fcode++, BUILT_IN_MD, NULL,
 				NULL_TREE);

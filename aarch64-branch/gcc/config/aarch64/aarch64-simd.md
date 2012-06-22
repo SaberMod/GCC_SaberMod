@@ -407,14 +407,14 @@
 	if (mvn == 0)
 	  {
 	    if (widthc != 'd')
-	      sprintf (templ,"movi\t%%0.%d%c, %%1, lsl %d ",(64/width),
-							widthc, shift);
+	      snprintf (templ, sizeof (templ), "movi\t%%0.%d%c, %%1, lsl %d ",
+			64 / width, widthc, shift);
 	    else
-	      sprintf (templ,"movi\t%%d0, %%1");
+	      snprintf (templ, sizeof (templ), "movi\t%%d0, %%1");
 	  }
 	else
-	  sprintf (templ,"mvni\t%%0.%d%c, %%1, lsl %d",(64/width),
-							widthc, shift);
+	  snprintf (templ, sizeof (templ), "mvni\t%%0.%d%c, %%1, lsl %d",
+		    64 / width, widthc, shift);
 	return templ;
        }
      default: gcc_unreachable ();
@@ -455,11 +455,11 @@
 						 &mvn, &shift);
 	gcc_assert (is_valid != 0);
 	if (mvn == 0)
-	  sprintf (templ,"movi\t%%0.%d%c, %%1, lsl %d ", (128/width),
-							 widthc, shift);
+	  snprintf (templ, sizeof (templ), "movi\t%%0.%d%c, %%1, lsl %d ",
+		    128 / width, widthc, shift);
 	else
-	  sprintf (templ,"mvni\t%%0.%d%c, %%1, lsl %d", (128/width),
-							widthc, shift);
+	  snprintf (templ, sizeof (templ), "mvni\t%%0.%d%c, %%1, lsl %d",
+		    128 / width, widthc, shift);
 	return templ;
        }
      default: gcc_unreachable ();

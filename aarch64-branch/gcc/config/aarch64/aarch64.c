@@ -3763,7 +3763,7 @@ aarch64_elf_asm_constructor (rtx symbol, int priority)
     {
       section *s;
       char buf[18];
-      sprintf (buf, ".init_array.%.5u", priority);
+      snprintf (buf, sizeof (buf), ".init_array.%.5u", priority);
       s = get_section (buf, SECTION_WRITE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
@@ -3782,7 +3782,7 @@ aarch64_elf_asm_destructor (rtx symbol, int priority)
     {
       section *s;
       char buf[18];
-      sprintf (buf, ".fini_array.%.5u", priority);
+      snprintf (buf, sizeof (buf), ".fini_array.%.5u", priority);
       s = get_section (buf, SECTION_WRITE, NULL);
       switch_to_section (s);
       assemble_align (POINTER_SIZE);
@@ -3831,7 +3831,8 @@ aarch64_output_casesi (rtx *operands)
   /* Need to implement table size reduction, by chaning the code below.  */
   output_asm_insn (patterns[index][0], operands);
   ASM_GENERATE_INTERNAL_LABEL (label, "Lrtx", CODE_LABEL_NUMBER (operands[2]));
-  sprintf (buf, "adr\t%%4, %s", targetm.strip_name_encoding (label));
+  snprintf (buf, sizeof (buf),
+	    "adr\t%%4, %s", targetm.strip_name_encoding (label));
   output_asm_insn (buf, operands);
   output_asm_insn (patterns[index][1], operands);
   output_asm_insn ("br\t%3", operands);
@@ -5854,7 +5855,7 @@ aarch64_output_asm_insn (emit_f emit, int label, rtx *operands,
   char buffer[256];
 
   va_start (ap, pattern);
-  vsprintf (buffer, pattern, ap);
+  vsnprintf (buffer, sizeof (buffer), pattern, ap);
   va_end (ap);
   emit (label, buffer, operands);
 }
