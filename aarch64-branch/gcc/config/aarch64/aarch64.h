@@ -792,14 +792,8 @@ enum aarch64_builtins
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE) \
 		(FP_REGNUM_P (REGNO) && GET_MODE_SIZE (MODE) > 8)
 
-#define TARGET_TLS_TRADITIONAL	(aarch64_tls_dialect == TLS_DIALECT_TRADITIONAL)
-#define TARGET_TLS_DESC		(aarch64_tls_dialect == TLS_DIALECT_DESC)
-
-enum tls_dialect
-{
-  TLS_DIALECT_TRADITIONAL,
-  TLS_DIALECT_DESC
-};
+/* Check TLS Descriptors mechanism is selected.  */
+#define TARGET_TLS_DESC (aarch64_tls_dialect == TLS_DESCRIPTORS)
 
 /* Used for the code generation strategy dependent on the
    memory model being used.
@@ -830,8 +824,6 @@ enum aarch64_memory_model
   AARCH64_MEM_MODEL_SMALL_PIC,
   AARCH64_MEM_MODEL_LARGE_PIC
 };
-
-extern enum tls_dialect aarch64_tls_dialect;
 
 extern enum aarch64_memory_model aarch64_default_mem_model;
 

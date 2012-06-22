@@ -188,9 +188,6 @@ static const struct aarch64_option_extension all_extensions[] =
    increment address.  */
 static enum machine_mode aarch64_memory_reference_mode;
 
-/* TLS dialects.  */
-enum tls_dialect aarch64_tls_dialect = TLS_DIALECT_DESC;
-
 /* Used to force GTY into this file.  */
 static GTY(()) int gty_dummy;
 
@@ -390,7 +387,7 @@ tls_symbolic_operand_type (rtx addr)
    add  dest, tmp, #:tlsgd_lo12:imm
    bl   __tls_get_addr
 
-   Global Dynamic - TLS Desc:
+   Global Dynamic - TLS Descriptors:
    adrp dest, :tlsdesc:imm
    ldr  tmp, [dest, #:tlsdesc_lo12:imm]
    add  dest, dest, #:tlsdesc_lo12:imm
@@ -4624,16 +4621,6 @@ aarch64_override_options (void)
     initialize_aarch64_memory_model ();
 
   aarch64_build_bitmask_table ();
-
-  if (aarch64_tls_dialect_string)
-    {
-      if (strcmp (aarch64_tls_dialect_string, "traditional") == 0)
-        aarch64_tls_dialect = TLS_DIALECT_TRADITIONAL;
-      else if (strcmp (aarch64_tls_dialect_string, "desc") == 0)
-        aarch64_tls_dialect = TLS_DIALECT_DESC;
-      else
-        error ("bad value (%s) for -mtls-dialect", aarch64_tls_dialect_string);
-    }
 
   /* This target defaults to strict volatile bitfields.  */
   if (flag_strict_volatile_bitfields < 0 && abi_version_at_least (2))

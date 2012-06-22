@@ -1,3 +1,21 @@
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Use Enums for TLS option selection.
+
+	* config/aarch64/aarch64-opts.h (enum aarch64_tls_type): New.
+	* config/aarch64/aarch64.c
+	(aarch64_tls_dialect): Remove.
+	(tls_symbolic_operand_type): Update comment.
+	(aarch64_override_options): Remove TLS option setup code.
+	* config/aarch64/aarch64.h
+	(TARGET_TLS_TRADITIONAL): Remove.
+	(TARGET_TLS_DESC): Update definition.
+	(enum tls_dialect): Remove.
+	(enum tls_dialect aarch64_tls_dialect) Remove.
+	* config/aarch64/aarch64.opt
+	(tls_type): New.
+	(mtls-dialect): Update.
+
 2012-05-25  Ian Bolton  <ian.bolton@arm.com>
 	    Jim MacArthur  <jim.macarthur@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>

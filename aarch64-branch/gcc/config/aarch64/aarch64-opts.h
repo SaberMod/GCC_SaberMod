@@ -35,4 +35,10 @@ enum aarch64_processor
   aarch64_none
 };
 
+/* TLS types.  */
+enum aarch64_tls_type {
+  TLS_TRADITIONAL,
+  TLS_DESCRIPTORS
+};
+
 #endif

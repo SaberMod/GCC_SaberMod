@@ -21,6 +21,18 @@
 HeaderInclude
 config/aarch64/aarch64-opts.h
 
+; The TLS dialect names to use with -mtls-dialect.
+
+Enum
+Name(tls_type) Type(enum aarch64_tls_type)
+The possible TLS dialects:
+
+EnumValue
+Enum(tls_type) String(trad) Value(TLS_TRADITIONAL)
+
+EnumValue
+Enum(tls_type) String(desc) Value(TLS_DESCRIPTORS)
+
 ; The cpu/arch option names to use in cpu/arch selection.
 
 Variable
@@ -57,8 +69,8 @@ Target Report Save Var(flag_omit_leaf_frame_pointer) Init(1)
 Omit the frame pointer in leaf functions
 
 mtls-dialect=
-Target RejectNegative Joined Var(aarch64_tls_dialect_string)
-Use given thread-local storage dialect
+Target RejectNegative Joined Enum(tls_type) Var(aarch64_tls_dialect) Init(TLS_DESCRIPTORS)
+Specify TLS dialect
 
 march=
 Target RejectNegative Joined Var(aarch64_arch_string)
