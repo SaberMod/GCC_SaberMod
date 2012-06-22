@@ -1897,7 +1897,7 @@
         (unspec:VSDQ_HSI
 	  [(match_operand:VSDQ_HSI 1 "register_operand" "w")
            (vec_select:<VEL>
-             (match_operand:<VCON> 2 "register_operand" "w")
+             (match_operand:<VCON> 2 "register_operand" "<vwx>")
              (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
 	 VQDMULH))]
   "TARGET_SIMD"
@@ -1940,7 +1940,7 @@
 	      (sign_extend:<VWIDE>
 		(vec_duplicate:VD_HSI
 		  (vec_select:<VEL>
-		    (match_operand:<VCON> 3 "register_operand" "w")
+		    (match_operand:<VCON> 3 "register_operand" "<vwx>")
 		    (parallel [(match_operand:SI 4 "immediate_operand" "i")])))
               ))
 	    (const_int 1))))]
@@ -1960,7 +1960,7 @@
 		(match_operand:SD_HSI 2 "register_operand" "w"))
 	      (sign_extend:<VWIDE>
 		(vec_select:<VEL>
-		  (match_operand:<VCON> 3 "register_operand" "w")
+		  (match_operand:<VCON> 3 "register_operand" "<vwx>")
 		  (parallel [(match_operand:SI 4 "immediate_operand" "i")])))
               )
 	    (const_int 1))))]
@@ -1974,7 +1974,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "0")
    (match_operand:VSD_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -1989,7 +1989,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "0")
    (match_operand:VSD_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2004,7 +2004,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "0")
    (match_operand:VSD_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2019,7 +2019,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "0")
    (match_operand:VSD_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2114,7 +2114,7 @@
 		(sign_extend:<VWIDE>
                   (vec_duplicate:<VHALF>
 		    (vec_select:<VEL>
-		      (match_operand:<VCON> 3 "register_operand" "w")
+		      (match_operand:<VCON> 3 "register_operand" "<vwx>")
 		      (parallel [(match_operand:SI 4 "immediate_operand" "i")])
 		    ))))
 	      (const_int 1))))]
@@ -2128,7 +2128,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "w")
    (match_operand:VQ_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2144,7 +2144,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "w")
    (match_operand:VQ_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2160,7 +2160,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "w")
    (match_operand:VQ_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2176,7 +2176,7 @@
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:<VWIDE> 1 "register_operand" "w")
    (match_operand:VQ_HSI 2 "register_operand" "w")
-   (match_operand:<VCON> 3 "register_operand" "w")
+   (match_operand:<VCON> 3 "register_operand" "<vwx>")
    (match_operand:SI 4 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2264,7 +2264,7 @@
 	       (sign_extend:<VWIDE>
                  (vec_duplicate:VD_HSI
                    (vec_select:<VEL>
-		     (match_operand:<VCON> 2 "register_operand" "w")
+		     (match_operand:<VCON> 2 "register_operand" "<vwx>")
 		     (parallel [(match_operand:SI 3 "immediate_operand" "i")])))
 	       ))
 	     (const_int 1)))]
@@ -2282,7 +2282,7 @@
 		 (match_operand:SD_HSI 1 "register_operand" "w"))
 	       (sign_extend:<VWIDE>
                  (vec_select:<VEL>
-		   (match_operand:<VCON> 2 "register_operand" "w")
+		   (match_operand:<VCON> 2 "register_operand" "<vwx>")
 		   (parallel [(match_operand:SI 3 "immediate_operand" "i")]))
 	       ))
 	     (const_int 1)))]
@@ -2295,7 +2295,7 @@
 (define_expand "aarch64_sqdmull_lane<mode>"
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:VSD_HSI 1 "register_operand" "w")
-   (match_operand:<VCON> 2 "register_operand" "w")
+   (match_operand:<VCON> 2 "register_operand" "<vwx>")
    (match_operand:SI 3 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2308,7 +2308,7 @@
 (define_expand "aarch64_sqdmull_laneq<mode>"
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:VD_HSI 1 "register_operand" "w")
-   (match_operand:<VCON> 2 "register_operand" "w")
+   (match_operand:<VCON> 2 "register_operand" "<vwx>")
    (match_operand:SI 3 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2386,7 +2386,7 @@
 	       (sign_extend:<VWIDE>
                  (vec_duplicate:<VHALF>
                    (vec_select:<VEL>
-		     (match_operand:<VCON> 2 "register_operand" "w")
+		     (match_operand:<VCON> 2 "register_operand" "<vwx>")
 		     (parallel [(match_operand:SI 3 "immediate_operand" "i")])))
 	       ))
 	     (const_int 1)))]
@@ -2399,7 +2399,7 @@
 (define_expand "aarch64_sqdmull2_lane<mode>"
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:VQ_HSI 1 "register_operand" "w")
-   (match_operand:<VCON> 2 "register_operand" "w")
+   (match_operand:<VCON> 2 "register_operand" "<vwx>")
    (match_operand:SI 3 "immediate_operand" "i")]
   "TARGET_SIMD"
 {
@@ -2414,7 +2414,7 @@
 (define_expand "aarch64_sqdmull2_laneq<mode>"
   [(match_operand:<VWIDE> 0 "register_operand" "=w")
    (match_operand:VQ_HSI 1 "register_operand" "w")
-   (match_operand:<VCON> 2 "register_operand" "w")
+   (match_operand:<VCON> 2 "register_operand" "<vwx>")
    (match_operand:SI 3 "immediate_operand" "i")]
   "TARGET_SIMD"
 {

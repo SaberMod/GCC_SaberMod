@@ -1,5 +1,32 @@
 2012-06-22  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/aarch64-simd.md (aarch64_sq<r>dmulh_lane<mode>,
+	aarch64_sqdml<SBINQOPS:as>l_lane<mode>_internal,
+	aarch64_sqdmlal_lane<mode>, aarch64_sqdmlal_laneq<mode>,
+	aarch64_sqdmlsl_lane<mode>, aarch64_sqdmlsl_laneq<mode>,
+	aarch64_sqdml<SBINQOPS:as>l2_lane<mode>_internal,
+	aarch64_sqdmlal2_lane<mode>, aarch64_sqdmlal2_laneq<mode>,
+	aarch64_sqdmlsl2_lane<mode>, aarch64_sqdmlsl2_laneq<mode>,
+	aarch64_sqdmull_lane<mode>_internal, aarch64_sqdmull_lane<mode>,
+	aarch64_sqdmull_laneq<mode>, aarch64_sqdmull2_lane<mode>_internal,
+	aarch64_sqdmull2_lane<mode>, aarch64_sqdmull2_laneq<mode>): Change the
+	constraint of the indexed operand to use <vwl> instead of w.
+	* config/aarch64/aarch64.c (aarch64_hard_regno_nregs): Add case for
+	FP_LO_REGS class.
+	(aarch64_regno_regclass): Return FP_LO_REGS if register in V0 - V15.
+	(aarch64_secondary_reload): Change condition to check for both FP reg
+	classes.
+	(aarch64_class_max_nregs): Add case for FP_LO_REGS.
+	* config/aarch64/aarch64.h (reg_class): New register class FP_LO_REGS.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	(FP_LO_REGNUM_P): New.
+	* config/aarch64/aarch64.md (V15_REGNUM): New.
+	* config/aarch64/constraints.md (x): New register constraint.
+	* config/aarch64/iterators.md (vwx): New.
+
+2012-06-22  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/arm_neon.h (vpadd_f64): Remove.
 
 2012-06-22  Sofiane Naci <sofiane.naci@arm.com>

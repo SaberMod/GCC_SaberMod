@@ -241,6 +241,7 @@ aarch64_hard_regno_nregs (unsigned regno, enum machine_mode mode)
   switch (aarch64_regno_regclass (regno))
     {
     case FP_REGS:
+    case FP_LO_REGS:
       return (GET_MODE_SIZE (mode) + UNITS_PER_VREG - 1) / UNITS_PER_VREG;
     default:
       return (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
@@ -3446,7 +3447,7 @@ aarch64_regno_regclass (unsigned regno)
     return CORE_REGS;
 
   if (FP_REGNUM_P (regno))
-    return FP_REGS;
+    return FP_LO_REGNUM_P (regno) ?  FP_LO_REGS : FP_REGS;
 
   return NO_REGS;
 }
@@ -3579,10 +3580,9 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
 
   /* Without the TARGET_SIMD instructions we cannot move a Q register
      to a Q register directly.  We need a scratch.  */
-  if (rclass == FP_REGS && REG_P (x)
-      && (mode == TFmode || mode == TImode) && mode == GET_MODE (x)
-      && FP_REGNUM_P (REGNO (x))
-      && !TARGET_SIMD)
+  if (REG_P (x) && (mode == TFmode || mode == TImode) && mode == GET_MODE (x)
+      && FP_REGNUM_P (REGNO (x)) && !TARGET_SIMD
+      && reg_class_subset_p (rclass, FP_REGS))
     {
       if (mode == TFmode)
         sri->icode = CODE_FOR_aarch64_reload_movtf;
@@ -3727,6 +3727,7 @@ aarch64_class_max_nregs (reg_class_t regclass, enum machine_mode mode)
     case GENERAL_REGS:
     case ALL_REGS:
     case FP_REGS:
+    case FP_LO_REGS:
       return (GET_MODE_SIZE (mode) + 7) / 8;
 
     case STACK_REG:

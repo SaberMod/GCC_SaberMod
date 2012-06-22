@@ -361,6 +361,10 @@ extern unsigned long aarch64_tune_flags;
 
 #define FP_REGNUM_P(REGNO)			\
   (((unsigned) (REGNO - V0_REGNUM)) <= (V31_REGNUM - V0_REGNUM))
+
+#define FP_LO_REGNUM_P(REGNO)            \
+  (((unsigned) (REGNO - V0_REGNUM)) <= (V15_REGNUM - V0_REGNUM))
+
 
 /* Register and constant classes.  */
 
@@ -371,6 +375,7 @@ enum reg_class
   GENERAL_REGS,
   STACK_REG,
   POINTER_REGS,
+  FP_LO_REGS,
   FP_REGS,
   ALL_REGS,
   LIM_REG_CLASSES		/* Last */
@@ -385,6 +390,7 @@ enum reg_class
   "GENERAL_REGS",				\
   "STACK_REG",					\
   "POINTER_REGS",				\
+  "FP_LO_REGS",					\
   "FP_REGS",					\
   "ALL_REGS"					\
 }
@@ -396,6 +402,7 @@ enum reg_class
   { 0x7fffffff, 0x00000000, 0x00000003 },	/* GENERAL_REGS */	\
   { 0x80000000, 0x00000000, 0x00000000 },	/* STACK_REG */		\
   { 0xffffffff, 0x00000000, 0x00000003 },	/* POINTER_REGS */	\
+  { 0x00000000, 0x0000ffff, 0x00000000 },       /* FP_LO_REGS  */	\
   { 0x00000000, 0xffffffff, 0x00000000 },       /* FP_REGS  */		\
   { 0xffffffff, 0xffffffff, 0x00000007 }	/* ALL_REGS */		\
 }

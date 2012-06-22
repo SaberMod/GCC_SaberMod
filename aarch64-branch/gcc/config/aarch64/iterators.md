@@ -326,6 +326,10 @@
 				(V2SF "V2SI") (V4SF  "V4SI")
 				(DI   "DI")   (V2DI  "V2DI")])
 
+;; Vm for lane instructions is restricted to FP_LO_REGS.
+(define_mode_attr vwx [(V4HI "x") (V8HI "x") (HI "x")
+		       (V2SI "w") (V4SI "w") (SI "w")])
+
 ;; -------------------------------------------------------------------
 ;; Code Iterators
 ;; -------------------------------------------------------------------
