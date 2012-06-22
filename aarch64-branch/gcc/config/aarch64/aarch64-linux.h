@@ -31,14 +31,13 @@
 
 #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-aarch64.so.1"
 
-#define LINUX_TARGET_LINK_SPEC  "%{h*} %{version:-v}		\
-   %{b}								\
-   %{static:-Bstatic}						\
-   %{shared:-shared}						\
-   %{symbolic:-Bsymbolic}					\
-   %{rdynamic:-export-dynamic}					\
-   %{!dynamic-linker:-dynamic-linker " GNU_USER_DYNAMIC_LINKER "} \
-   -X								\
+#define LINUX_TARGET_LINK_SPEC  "%{h*}		\
+   %{static:-Bstatic}				\
+   %{shared:-shared}				\
+   %{symbolic:-Bsymbolic}			\
+   %{rdynamic:-export-dynamic}			\
+   -dynamic-linker " LINUX_DYNAMIC_LINKER "	\
+   -X						\
    %{mbig-endian:-EB} %{mlittle-endian:-EL}"
 
 #define LINK_SPEC LINUX_TARGET_LINK_SPEC
