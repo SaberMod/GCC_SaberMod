@@ -13175,17 +13175,6 @@ vpadd_f32 (float32x2_t a, float32x2_t b)
   return result;
 }
 
-__extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
-vpadd_f64 (float64x2_t a, float64x2_t b)
-{
-  float64x2_t result;
-  __asm__ ("faddp %0.2d,%1.2d,%2.2d"
-           : "=w"(result)
-           : "w"(a), "w"(b)
-           : /* No clobbers */);
-  return result;
-}
-
 __extension__ static __inline int8x8_t __attribute__ ((__always_inline__))
 vpadd_s8 (int8x8_t __a, int8x8_t __b)
 {
