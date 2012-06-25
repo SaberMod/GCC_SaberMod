@@ -2056,7 +2056,26 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     assemble_noswitch_variable (decl, name, sect);
   else
     {
-      switch_to_section (sect);
+      if (flag_vtable_verify)
+        {
+          /* TODO: do a better matching for these vars */
+          if (strstr (name, "__vtable_map"))
+            {
+#if defined (OBJECT_FORMAT_ELF)
+              targetm.asm_out.named_section (sect->named.name,
+                                             sect->named.common.flags
+                                                 | SECTION_LINKONCE,
+                                             DECL_NAME (decl));
+              in_section = sect;
+#else
+              switch_to_section (sect);
+#endif
+            }
+          else
+            switch_to_section (sect);
+        }
+      else
+        switch_to_section (sect);
       if (DECL_ALIGN (decl) > BITS_PER_UNIT)
 	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
       assemble_variable_contents (decl, name, dont_output_data);

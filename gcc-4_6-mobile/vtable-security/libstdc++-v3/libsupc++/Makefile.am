@@ -151,9 +151,9 @@ nested_exception.o: nested_exception.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
 # TODO: What flags do I need to pass to this compile?
-vtv_init.lo: vtv_init.cc
+vtv_init.lo: vtv_init.cc vtv_rts.h
 	$(LTCXXCOMPILE) -Wno-error -c $<
-vtv_init.o: vtv_init.cc
+vtv_init.o: vtv_init.cc vtv_rts.h
 	$(CXXCOMPILE) -Wno-error -c $<
 
 # Libtool notes

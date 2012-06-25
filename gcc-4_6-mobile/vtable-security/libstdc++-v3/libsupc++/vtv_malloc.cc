@@ -33,15 +33,19 @@
 /* Set the following macro to 1 to get internal debugging messages */
 #define VTV_DEBUG 0
 
-/* TODO: Need to protect the following variables */
-static struct obstack VTV_obstack;
-static unsigned long page_size = 0;
-static void * current_chunk = 0;
-static size_t current_chunk_size = 0;
+/* Put the following variables in a rel.ro section so that the are protected.
+   They are explicitly unprotected and protected again by calls to VTV_unprotect
+   and VTV_protect */
+
+static struct obstack VTV_obstack VTV_PROTECTED_VAR;
+static unsigned long page_size VTV_PROTECTED_VAR = 0;
+static void * current_chunk VTV_PROTECTED_VAR = 0;
+static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
+static int malloc_initialized VTV_PROTECTED_VAR = 0;
 
 /* TODO: Define what is the expected behavior of assert and error */
 /* Handling of runtime error */
-static void
+void
 VTV_error (void)
 {
   abort();
@@ -50,7 +54,7 @@ VTV_error (void)
 #define VTV_assert(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
 
 void
-VTV_protect (void)
+VTV_malloc_protect (void)
 {
   struct _obstack_chunk * ci;
   ci = (struct _obstack_chunk *) current_chunk;
@@ -70,13 +74,13 @@ VTV_protect (void)
       count++;
       ci = ci->prev;
     }
-    fprintf(stderr, "VTV_protect(): protected %d pages\n", count);
+    fprintf(stderr, "VTV_malloc_protect(): protected %d pages\n", count);
   }
 #endif
 }
 
 void
-VTV_unprotect (void)
+VTV_malloc_unprotect (void)
 {
   struct _obstack_chunk * ci;
   ci = (struct _obstack_chunk *) current_chunk;
@@ -121,10 +125,8 @@ obstack_chunk_free (size_t )
 void
 VTV_malloc_init (void)
 {
-  static int initialized = 0;
-
   /* Make sure we only execute the main body of this function ONCE.  */
-  if (initialized)
+  if (malloc_initialized)
     return;
 
   page_size = sysconf(_SC_PAGE_SIZE);
@@ -136,7 +138,7 @@ VTV_malloc_init (void)
   obstack_alloc_failed_handler = NULL;
 
   obstack_init(&VTV_obstack);
-  initialized = 1;
+  malloc_initialized = 1;
 }
 
 void *

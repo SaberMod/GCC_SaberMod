@@ -38,7 +38,8 @@
 #define REHASH_LIMIT 0.8
 
 
-/* Statistics/Profiling numbers (for debugging) */
+/* Statistics/Profiling numbers (for debugging) 
+   No need to protect these since they are only used for debugging */
 
 static unsigned num_tables_allocated = 0;
 static unsigned num_bucket_pointers_allocated = 0;
@@ -46,8 +47,8 @@ static unsigned num_buckets_created = 0;
 static unsigned num_slots_filled = 0;
 static unsigned num_rehashes = 0;
 static unsigned num_rehashed_elements = 0;
-static unsigned size_of_bucket = sizeof (struct vlt_hash_bucket);
-static unsigned size_of_pointer = sizeof (void *);
+static const unsigned size_of_bucket = sizeof (struct vlt_hash_bucket);
+static const unsigned size_of_pointer = sizeof (void *);
 
 
 static void
@@ -87,13 +88,10 @@ rehash_elements (struct vlt_hash_bucket **old_data,
                cur_bucket = cur_bucket->next)
             {
               void *value = cur_bucket->data;
-              if (value != NULL)
-                {
-                  uint32_t hash = vlt_hash_pointer (value);
-                  uint32_t new_index = hash & mask;
-                  bucket_insert (&(new_data[new_index]), value);
-                  num_elements++;
-                }
+	      uint32_t hash = vlt_hash_pointer (value);
+	      uint32_t new_index = hash & mask;
+	      bucket_insert (&(new_data[new_index]), value);
+	      num_elements++;
             }
         }
     }
@@ -168,8 +166,10 @@ void
 vlt_hash_insert (struct vlt_hashtable *table, void *value)
 {
   uint32_t hash = vlt_hash_pointer (value);
-  uint32_t new_index = hash & table->hash_mask;
-  void *slot = vlt_bucket_find (table->data[new_index], value);
+  uint32_t mask = table->hash_mask;
+  uint32_t index = hash & mask;
+  vlt_hash_bucket * first_bucket = table->data[index];
+  void * slot = vlt_bucket_find (first_bucket, value, NULL);
 
   /* Only do the insert if the value is not already in the table.  */
   if (!slot)
@@ -179,15 +179,30 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
       pthread_mutex_lock (&(table->mutex));
       /* See if anybody else inserted the element since the last check and
 	 before we grabbed the lock. */
-      if (!vlt_bucket_find (table->data[new_index], value))
+      /* Re-calculate the index in case the table grew between the
+         initial check above and when we grabbed the lock. */
+      uint32_t new_mask = table->hash_mask;
+      uint32_t new_index;
+      bool should_insert;
+      if (mask == new_mask)
+      {
+        new_index = index;
+        should_insert = !vlt_bucket_find (table->data[new_index], value, first_bucket);
+      }
+      else 
+      {
+        new_index = hash & new_mask;
+        should_insert = !vlt_bucket_find (table->data[new_index], value, NULL);
+      }
+      if (should_insert)
         {
 	  if (table->num_elts >= (REHASH_LIMIT * table->data_size))
+          {
 	    grow_table (table);
+            new_index = hash & table->hash_mask;
+          }
 
-	  /* Re-calculate the index in case the table grew between the
-	     initial check above and when we grabbed the lock. */
-	  new_index = hash & table->hash_mask;
-          bucket_insert ( &(table->data[new_index]), value);
+          bucket_insert (&(table->data[new_index]), value);
           table->num_elts++;
         }
       pthread_mutex_unlock (&(table->mutex));

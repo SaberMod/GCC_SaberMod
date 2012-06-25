@@ -569,8 +569,8 @@ verify_bb_vtables (basic_block bb)
                       vtable_name = IDENTIFIER_POINTER
 			                          (DECL_NAME (vtbl_var_decl));
                       vtbl_map_name = (char *) xmalloc
-			                           (strlen (vtable_name) + 12);
-                      sprintf (vtbl_map_name, "%s.vtable_map", vtable_name);
+			                           (strlen (vtable_name) + 13);
+                      sprintf (vtbl_map_name, "%s__vtable_map", vtable_name);
 
                       if (TREE_CHAIN (TREE_TYPE (rhs)))
                         var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN

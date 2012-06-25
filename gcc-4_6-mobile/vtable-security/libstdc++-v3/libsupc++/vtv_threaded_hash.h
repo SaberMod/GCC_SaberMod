@@ -51,7 +51,8 @@ struct vlt_hashtable {
 extern struct vlt_hashtable *vlt_hash_init_table (int);
 extern void vlt_hash_insert (struct vlt_hashtable *, void *);
 static inline uint32_t vlt_hash_pointer (void *pointer);
-static inline void * vlt_bucket_find (struct vlt_hash_bucket *slot, void * value);
+static inline void * vlt_bucket_find (struct vlt_hash_bucket *slot,
+                                      void * value, struct vlt_hash_bucket * end);
 static inline void * vlt_hash_find (struct vlt_hashtable *, void *);
 
 
@@ -89,11 +90,12 @@ vlt_hash_pointer (void *pointer)
 }
 
 static inline void *
-vlt_bucket_find (struct vlt_hash_bucket *slot, void * value)
+vlt_bucket_find (struct vlt_hash_bucket *slot, void * value,
+                 struct vlt_hash_bucket * end)
 {
   struct vlt_hash_bucket *current;
 
-  for (current = slot; current; current = current->next)
+  for (current = slot; current != end; current = current->next)
     if (current->data == value)
       return current;
 
@@ -106,7 +108,7 @@ vlt_hash_find (struct vlt_hashtable *table, void *value)
   uint32_t hash = vlt_hash_pointer (value);
   uint32_t new_index = hash & table->hash_mask;
 
-  return vlt_bucket_find (table->data[new_index], value);
+  return vlt_bucket_find (table->data[new_index], value, NULL);
 }
 
 #ifdef __cplusplus

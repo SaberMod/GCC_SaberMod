@@ -27,62 +27,149 @@
 #include <string.h>
 #include <execinfo.h>
 
+#include <unistd.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <link.h>
+
 #include "vtv_threaded_hash.h"
 #include "vtv_malloc.h"
+#include "vtv_rts.h"
 
-/* TODO: review the reason for this */
 #ifndef __cplusplus
 #error "This file must be compiled with a C++ compiler"
 #endif
 
-static int debug_hash = 0;
-static int debug_functions = 0;
-static int debug_register_pairs = 0;
-static FILE *log_file_fp =NULL;
+/* Be careful about initialization of statics in this file.  Some of
+   the routines below are called before any runtime initialization for
+   statics in this file will be done. For example, dont try to
+   initialize any of these statics with a runtime call (for ex:
+   sysconf. The initialization will happen after calls to the routines
+   to protect/unprotec the vtabla_map variables */
+
+static const int debug_hash = 0;
+static const int debug_functions = 0;
+static const int debug_register_pairs = 0;
+
+/* Put the following variables in a rel.ro section so that the are protected.
+   They are explicitly unprotected and protected again by calls to VTV_unprotect
+   and VTV_protect */
+
+static FILE *log_file_fp VTV_PROTECTED_VAR = NULL;
+
+struct mprotect_data {
+  int prot_mode;
+  unsigned long page_size;
+};
+
+static int
+dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
+                          void *data)
+{
+  mprotect_data * mdata = (mprotect_data *) data;
+  int j;
+
+  if (debug_functions)
+    fprintf(stderr, "looking at load module %s to change permissions to %s\n", 
+            info->dlpi_name,
+            (mdata->prot_mode & PROT_WRITE) ? "READ/WRITE" : "READ-ONLY");
+  for (j = 0; j < info->dlpi_phnum; j++)
+    {
+      ElfW(Addr) relocated_start_addr = info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
+      ElfW(Addr) unrelocated_start_addr = info->dlpi_phdr[j].p_vaddr;
+      ElfW(Word) size_in_memory = info->dlpi_phdr[j].p_memsz;
+
+      if (debug_functions)
+        fprintf(stderr, "Segment info relocated=%p unrelocated=%p size=%u\n", 
+                (void *)relocated_start_addr, (void *)unrelocated_start_addr, size_in_memory);
+
+      if (info->dlpi_phdr[j].p_type == PT_GNU_RELRO)
+        {
+          if (debug_functions)
+            fprintf(stderr, "Found RELRO segment. relocated=%p unrelocated=%p size=%u\n", 
+                    (void *)relocated_start_addr, (void *)unrelocated_start_addr, size_in_memory);
+
+          ElfW(Addr) mp_low = relocated_start_addr & ~(mdata->page_size - 1);
+          size_t mp_size = relocated_start_addr + size_in_memory - mp_low - 1;
+
+          if (mprotect((void *)mp_low, mp_size, mdata->prot_mode) == -1)
+            {
+              if (debug_functions)
+                {
+                  fprintf(stderr, "Failed called to mprotect for %s error: ", 
+			  (mdata->prot_mode & PROT_WRITE) ? 
+                          "READ/WRITE" : "READ-ONLY");
+                  perror(NULL);
+                }
+              VTV_error();
+            }
+          else if (debug_functions)
+            fprintf(stderr, "mprotect'ed range [%p, %p]\n", 
+		    (void *)mp_low, (char *)mp_low + mp_size);
+
+          break;
+        }
+    }
+  return 0;
+}
+
+/* Unprotect all the vtable map vars and other side data that is used
+   to keep the core hash_map data. All of these data have been put
+   into relro sections */
+static void
+VTV_unprotect_vtable_vars (void)
+{
+  mprotect_data mdata; 
+
+  mdata.prot_mode = PROT_READ | PROT_WRITE;
+  mdata.page_size = sysconf(_SC_PAGE_SIZE);
+  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
+}
+
+/* Protect all the vtable map vars and other side data that is used
+   to keep the core hash_map data. All of these data have been put
+   into relro sections */
+static void
+VTV_protect_vtable_vars (void)
+{
+  mprotect_data mdata; 
+
+  mdata.prot_mode = PROT_READ;
+  mdata.page_size = sysconf(_SC_PAGE_SIZE);
+  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
+}
 
 /* TODO: why is this returning a value ? */
 /* TODO: remove len parameter */
-void *
-__VLTChangePermission (char *arg1, int len)
+void 
+__VLTChangePermission (int perm)
 {
-  const char *perm = arg1;
-
   if (debug_functions)
     {
-      if (strncmp (perm, "rw", 2) == 0)
+      if (perm == __VLTP_READ_WRITE)
 	fprintf (stdout, "Changing VLT permisisons to Read-Write.\n");
-      else if (strncmp (perm, "ro", 2) == 0)
+      else if (perm == __VLTP_READ_ONLY)
 	fprintf (stdout, "Changing VLT permissions to Read-only.\n");
       else
-	fprintf (stdout, "Unrecognized permission string: %s\n", perm);
+	fprintf (stdout, "Unrecognized permissions value: %d\n", perm);
     }
 
-  if (strncmp (perm, "rw", 2) == 0)
+  /* Ordering of these unprotect/protect calls is very important. 
+     You first need to unprotect all the map vars and side
+     structures before you do anything with the core data
+     structures (hash_maps) */
+
+  if (perm == __VLTP_READ_WRITE)
     {
+      VTV_unprotect_vtable_vars ();
       VTV_malloc_init ();
-      VTV_unprotect ();
+      VTV_malloc_unprotect ();
     }
-  else if (strncmp (perm, "ro", 2) == 0)
-    VTV_protect ();
-
-  if (debug_register_pairs)
+  else if (perm == __VLTP_READ_ONLY)
     {
-      if (strncmp (perm, "rw", 2) == 0)
-	{
-	  if (!log_file_fp)
-	    log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
-	}
-      /*  -- If we close the log file here, we can't access if in
-	  __VLTVerifyVtablePointer. --
-      else
-	{
-	  if (log_file_fp)
-	    fclose (log_file_fp);
-	}
-      */
+      VTV_malloc_protect ();
+      VTV_protect_vtable_vars ();
     }
-
-  return NULL;
 }
 
 typedef int * vptr;
@@ -153,7 +240,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
   if ((*base_vtbl_row_ptr) == NULL)
     *base_vtbl_row_ptr = vlt_hash_init_table (size_hint);
 
-  if (base_ptr_var_name && vtable_name && debug_functions)
+  if (debug_functions && base_ptr_var_name && vtable_name)
     print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,
 			     base_ptr_var_name, vtable_name);
   if (debug_register_pairs)
@@ -196,15 +283,16 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
 {
   struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
   vptr obj_vptr = (vptr) test_value;
-  static bool first_time = true;
+  /* No need to protect this static. It is only used for debug purposes */
+  static bool debug_first_time = true;
 
   if ((*data_pointer) == NULL)
     return test_value;
 
-  if (first_time && debug_hash)
+  if (debug_first_time && debug_hash)
     {
       dump_hashing_statistics ();
-      first_time = false;
+      debug_first_time = false;
     }
 
   if (vlt_hash_find ((*base_vtbl_ptr), test_value))

@@ -82,9 +82,7 @@ init_functions (void)
   tree change_permission_type = void_ptr_type;
   tree char_ptr_type = build_pointer_type (char_type_node);
 
-  arg_types = build_tree_list (NULL_TREE, char_ptr_type);
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
+  arg_types = build_tree_list (NULL_TREE, integer_type_node);
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   change_permission_type = build_function_type (change_permission_type,
@@ -603,77 +601,6 @@ update_class_hierarchy_information (tree base_class,
   add_hierarchy_pair (base_node, derived_node);
 }
 
-/* TODO: remove */
-#if 0 
-/* Create function that sets permissions on vtable map data structure to be Read/Write. */
-void
-vtv_create_unprotect_function(void)
-{
-  tree unprotect_body;
-  tree arg, arg2, call_expr;
-
-  unprotect_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 3,
-                                  "__VTV_unprotect.vtable");
-
-
-  arg = build_string_literal (strlen ("rw"), "rw");
-  arg2 = build_int_cst (integer_type_node, 2);
-  call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
-  append_to_statement_list (call_expr, &unprotect_body);
-
-  /* TODO: why are we using this global current_function_decl here? */
-  current_function_decl =
-      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 3, unprotect_body);
-  allocate_struct_function (current_function_decl, false);
-  TREE_STATIC (current_function_decl) = 1;
-  TREE_USED (current_function_decl) = 1;
-  TREE_PUBLIC (current_function_decl) = 1;
-  DECL_PRESERVE_P (current_function_decl) = 1;
-  DECL_COMDAT(current_function_decl) = 1;
-  if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-    {
-       DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
-       assemble_vtv_preinit_initializer (current_function_decl);
-    }
-
-  gimplify_function_tree (current_function_decl);
-  cgraph_add_new_function (current_function_decl, false);
-}
-
-/* Create function that sets permission on vtable map data structure to be Read-only.  */
-void
-vtv_create_protect_function(void)
-{
-  tree protect_body;
-  tree arg, arg2, call_expr;
-  protect_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
-				    "__VTV_protect.vtable");
-
-  arg = build_string_literal (strlen ("ro"), "ro");
-  arg2 = build_int_cst (integer_type_node, 2);
-  call_expr = build_call_expr (vlt_change_permission_fndecl, 2, arg, arg2);
-  append_to_statement_list (call_expr, &protect_body);
-
-  /* TODO: why are we using this global current_function_decl here? */
-  current_function_decl =
-      finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, protect_body);
-  allocate_struct_function (current_function_decl, false);
-  TREE_STATIC (current_function_decl) = 1;
-  TREE_USED (current_function_decl) = 1;
-  TREE_PUBLIC (current_function_decl) = 1;
-  DECL_PRESERVE_P (current_function_decl) = 1;
-  DECL_COMDAT(current_function_decl) = 1;
-  if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-    {
-       DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
-       assemble_vtv_preinit_initializer (current_function_decl);
-    }
-
-  gimplify_function_tree (current_function_decl);
-  cgraph_add_new_function (current_function_decl, false);
-}
-#endif
-
 bool
 vtv_register_class_hierarchy_information (tree register_pairs_body)
 {
@@ -694,10 +621,10 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
          depending on initialization prioritys in vtv_init. */
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
         {
-          tree arg = build_string_literal (strlen ("rw"), "rw");
-          tree arg2 = build_int_cst (integer_type_node, 2);
+          /* Pass __VLTP_READ_WRITE value as defined in vtv_rts.h */
+          tree arg_read_write = build_int_cst (integer_type_node, 1);
           tree call_expr = build_call_expr (vlt_change_permission_fndecl,
-                                            2, arg, arg2);
+                                            1, arg_read_write);
           append_to_statement_list (call_expr, &register_pairs_body);
         }
 
@@ -709,10 +636,9 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
          depending on initialization prioritys in vtv_init. */
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
         {
-          tree arg = build_string_literal (strlen ("ro"), "ro");
-          tree arg2 = build_int_cst (integer_type_node, 2);
+          tree arg_read_only = build_int_cst (integer_type_node, 0);
           tree call_expr = build_call_expr (vlt_change_permission_fndecl,
-                                            2, arg, arg2);
+                                            1, arg_read_only);
           append_to_statement_list (call_expr, &register_pairs_body);
         }
 
@@ -811,14 +737,14 @@ vtable_find_or_create_map_decl (tree base_type)
 
   /* Create map lookup symbol for base class */
   var_name = ACONCAT (("_ZTV", IDENTIFIER_POINTER (base_id),
-                       ".vtable_map", NULL));
+                       "__vtable_map", NULL));
   if (base_id)
     /* We've already created the variable; just look it.  */
     vtable_map_node = vtbl_map_get_node (base_id);
 
   if (!vtable_map_node || (vtable_map_node->vtbl_map_decl == NULL_TREE))
     {
-      /* If we haven't already created the *.vtable_map
+      /* If we haven't already created the *__vtable_map
          global variable for this class, do so now, and
          add it to the varpool, to make sure it gets saved
          and written out.  */
@@ -839,15 +765,14 @@ vtable_find_or_create_map_decl (tree base_type)
       TREE_READONLY (var_decl) = 1;
       DECL_IGNORED_P (var_decl) = 1;
 
-      /* Once we figure out how to mprotect/un-mprotect this section, and
-         get the fix for the binutils bug, we need to make it rel.ro, as
-         shown here. */
-      /* 
-                            NULL));
+      /* Put these mmap variables in to data.rel.ro sections.
+	 It turns out this needs a previous fix in binutils as
+	 explained here:
+         http://sourceware.org/ml/binutils/2011-05/msg00083.html
       */
-      sect_name = ACONCAT ((".data.", var_name,
-                            NULL));
 
+      sect_name = ACONCAT ((".data.rel.ro.", "vtable_map_vars",
+                            NULL));
       DECL_SECTION_NAME (var_decl) =
           build_string (strlen (sect_name), sect_name);
       DECL_HAS_IMPLICIT_SECTION_NAME_P (var_decl) = true;
@@ -881,7 +806,7 @@ vtv_save_base_class_info (tree type)
         return;
 
       /* Go through the list of all base classes for the current (derived)
-         type, make sure the *.vtable_map global variable for the base class
+         type, make sure the *__vtable_map global variable for the base class
 	 exists, and add the base class/derived class pair to the class
 	 hierarchy information we are accumulating (for vtable pointer
 	 verification).  */
