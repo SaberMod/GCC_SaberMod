@@ -103,7 +103,6 @@ obstack_chunk_alloc (size_t size)
   size = (size + (page_size - 1)) & (~(page_size - 1));
   VTV_assert((size & (page_size - 1)) == 0);
   void * allocated;
-  if (posix_memalign(&allocated, page_size, size) != 0)
 
   if ((allocated = mmap (NULL, size, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS,  -1, 0)) == 0)

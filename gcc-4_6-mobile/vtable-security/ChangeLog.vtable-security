@@ -1,3 +1,9 @@
+2012-06-27  Luis Lozano  <llozano@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_malloc.cc (obstack_chunk_alloc):
+	Fixed merge problem. We were still calling posix_memalign instead
+	of calling mmap.
+
 2012-06-25  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (init_functions): Changed
