@@ -1,3 +1,7 @@
+2012-06-29  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64.h (aarch64_cmodel): Fix enum name.
+
 2012-06-22  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64-simd.md (aarch64_sq<r>dmulh_lane<mode>,

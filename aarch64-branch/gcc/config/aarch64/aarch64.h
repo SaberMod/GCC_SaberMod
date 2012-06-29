@@ -802,7 +802,7 @@ enum aarch64_builtins
 /* Check TLS Descriptors mechanism is selected.  */
 #define TARGET_TLS_DESC (aarch64_tls_dialect == TLS_DESCRIPTORS)
 
-extern enum aarch64_memory_model aarch64_cmodel;
+extern enum aarch64_code_model aarch64_cmodel;
 
 /* When using the tiny addressing model conditional and unconditional branches
    can span the whole of the available address space (1MB).  */
