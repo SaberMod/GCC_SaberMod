@@ -1,3 +1,8 @@
+2012-07-04  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-linux.h (LINUX_TARGET_LINK_SPEC): Rename 
+	LINUX_DYNAMIC_LINKER to GLIBC_DYNAMIC_LINKER.
+
 2012-06-29  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64.h (aarch64_cmodel): Fix enum name.
