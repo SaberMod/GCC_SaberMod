@@ -1,0 +1,7 @@
+2012-07-13  Terry Guo  <terry.guo@arm.com>
+
+	Backport r189072 from mainline
+	2012-06-29  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* copying-lib.texi (Library Copying): Don't use @heading inside
+	@enumerate.
