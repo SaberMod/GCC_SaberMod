@@ -903,7 +903,7 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*)
 	case ${target} in
 	arm*-*-eabi*)
 	  tm_file="$tm_file newlib-stdint.h"
-	  tmake_file="${tmake_file} arm/t-bpabi"
+	  tmake_file="${tmake_file} arm/t-bpabi arm/t-mlibs"
 	  use_gcc_stdint=wrap
 	  ;;
 	arm*-*-rtemseabi*)

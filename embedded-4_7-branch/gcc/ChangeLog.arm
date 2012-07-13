@@ -1,6 +1,27 @@
 2012-07-13  Terry Guo  <terry.guo@arm.com>
 
-	Backport r186405 from mainline.
+	Backport r187325 from mainline
+	2012-05-09  Terry Guo  <terry.guo@arm.com>
+
+	* Makefile.in (s-mlib): Add new argument MULTILIB_REQUIRED.
+	* genmultilib (MULTILIB_REQUIRED): New.
+	* doc/fragments.texi: Document the MULTILIB_REQUIRED.
+
+	Adopt the patch from
+	http://gcc.gnu.org/ml/gcc-patches/2012-05/msg00083.html
+	2012-05-02  Terry Guo  <terry.guo@arm.com>
+
+	* config.gcc: Include more MULTILIB implementations for ARM EABI.
+	* config/arm/t-mlibs: New file to define more MULTILIB 
+	implementations for ARM targets.
+	* configure.ac: Enable --with-multilib-list for ARM 
+	and export it for being used in Makefile.in.
+	* configure: Regenerated.	
+	* Makefile.in: Import configure option --with-multilib-list.
+
+2012-07-13  Terry Guo  <terry.guo@arm.com>
+
+	Backport r186405 from mainline
 	2012-04-13  Terry Guo  <terry.guo@arm.com>
 
 	* config/arm/arm-cores.def: Added core cortex-m0plus.
