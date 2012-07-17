@@ -1,5 +1,10 @@
 2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
+	* config/aarch64/aarch64.c (aarch64_rtx_costs):
+	Move misplaced parenthesis.
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
 	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>):
 	Do not emit lsl for a shift of 0.
 	(*aarch64_simd_mov<mode>): Likwise.

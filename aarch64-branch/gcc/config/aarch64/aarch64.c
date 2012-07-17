@@ -4191,7 +4191,7 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
       op1 = XEXP (x, 1);
 
       *cost = COSTS_N_INSNS (1);
-      if (GET_MODE_CLASS (GET_MODE (x) == MODE_INT))
+      if (GET_MODE_CLASS (GET_MODE (x)) == MODE_INT)
 	{
 	  if (CONST_INT_P (op1)
 	      && exact_log2 (INTVAL (op1)) > 0)
