@@ -398,23 +398,26 @@
 	int width;
 	static char templ[40];
 	int shift = 0, mvn = 0;
+	const char *mnemonic;
+	int length = 0;
 
 	is_valid =
 	  aarch64_simd_immediate_valid_for_move (operands[1], <MODE>mode,
 						 &operands[1], &width, &widthc,
 						 &mvn, &shift);
 	gcc_assert (is_valid != 0);
-	if (mvn == 0)
-	  {
-	    if (widthc != 'd')
-	      snprintf (templ, sizeof (templ), "movi\t%%0.%d%c, %%1, lsl %d ",
-			64 / width, widthc, shift);
-	    else
-	      snprintf (templ, sizeof (templ), "movi\t%%d0, %%1");
-	  }
+
+	mnemonic = mvn ? "mvni" : "movi";
+	if (widthc != 'd')
+	  length += snprintf (templ, sizeof (templ),
+			      "%s\t%%0.%d%c, %%1",
+			      mnemonic, 64 / width, widthc);
 	else
-	  snprintf (templ, sizeof (templ), "mvni\t%%0.%d%c, %%1, lsl %d",
-		    64 / width, widthc, shift);
+	  length += snprintf (templ, sizeof (templ), "%s\t%%d0, %%1", mnemonic);
+
+	if (shift != 0)
+	  length += snprintf (templ + length, sizeof (templ) - length,
+			      ", lsl %d", shift);
 	return templ;
        }
      default: gcc_unreachable ();
@@ -454,12 +457,14 @@
 						 &operands[1], &width, &widthc,
 						 &mvn, &shift);
 	gcc_assert (is_valid != 0);
-	if (mvn == 0)
-	  snprintf (templ, sizeof (templ), "movi\t%%0.%d%c, %%1, lsl %d ",
+	if (shift)
+	  snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, %%1, lsl %d",
+		    mvn ? "mvni" : "movi",
 		    128 / width, widthc, shift);
 	else
-	  snprintf (templ, sizeof (templ), "mvni\t%%0.%d%c, %%1, lsl %d",
-		    128 / width, widthc, shift);
+	  snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, %%1",
+		    mvn ? "mvni" : "movi",
+		    128 / width, widthc);
 	return templ;
        }
      default: gcc_unreachable ();
