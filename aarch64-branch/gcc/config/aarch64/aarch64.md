@@ -988,8 +988,10 @@
 )
 
 (define_insn "*movti_aarch64"
-  [(set (match_operand:TI 0 "nonimmediate_operand"  "=r, *w,r,*w,r,m,m,*w, m")
-	(match_operand:TI 1 "aarch64_movti_operand" " rn,r,*w,*w,m,r,Z, m,*w"))]
+  [(set (match_operand:TI 0
+	 "nonimmediate_operand"  "=r, *w,r ,*w,r  ,Ump,Ump,*w,m")
+	(match_operand:TI 1
+	 "aarch64_movti_operand" " rn,r ,*w,*w,Ump,r  ,Z  , m,*w"))]
   "(register_operand (operands[0], TImode)
     || aarch64_reg_or_zero (operands[1], TImode))"
   "@
@@ -1003,7 +1005,7 @@
    ldr\\t%q0, %1
    str\\t%q1, %0"
   [(set_attr "v8type" "move2,fmovi2f,fmovf2i,*, \
-	               load2,store2,store2,fpsimd_load,fpsimd_store")
+		       load2,store2,store2,fpsimd_load,fpsimd_store")
    (set_attr "simd_type" "*,*,*,simd_move,*,*,*,*,*")
    (set_attr "mode" "DI,DI,DI,TI,DI,DI,DI,TI,TI")
    (set_attr "length" "8,8,8,4,4,4,4,4,4")
@@ -1092,8 +1094,10 @@
 )
 
 (define_insn "*movtf_aarch64"
-  [(set (match_operand:TF 0 "nonimmediate_operand" "=w,?&r,w ,?r,w,?w,w,m,?r ,Utf")
-	(match_operand:TF 1 "general_operand"      " w,?r,?r,w ,Y,Y ,m,w,Utf,?rY"))]
+  [(set (match_operand:TF 0
+	 "nonimmediate_operand" "=w,?&r,w ,?r,w,?w,w,m,?r ,Ump")
+	(match_operand:TF 1
+	 "general_operand"      " w,?r, ?r,w ,Y,Y ,m,w,Ump,?rY"))]
   "TARGET_FLOAT && (register_operand (operands[0], TFmode)
     || register_operand (operands[1], TFmode))"
   "@

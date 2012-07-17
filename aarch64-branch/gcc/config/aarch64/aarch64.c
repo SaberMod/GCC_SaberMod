@@ -2437,6 +2437,10 @@ aarch64_regno_ok_for_index_p (int regno, bool strict_p)
     {
       if (!strict_p)
 	return true;
+
+      if (!reg_renumber)
+	return false;
+
       regno = reg_renumber[regno];
     }
   return GP_REGNUM_P (regno);
@@ -2452,6 +2456,10 @@ aarch64_regno_ok_for_base_p (int regno, bool strict_p)
     {
       if (!strict_p)
 	return true;
+
+      if (!reg_renumber)
+	return false;
+
       regno = reg_renumber[regno];
     }
 
@@ -2635,6 +2643,29 @@ aarch64_classify_index (struct aarch64_address_info *info, rtx x,
   return false;
 }
 
+static inline bool
+offset_7bit_signed_scaled_p (enum machine_mode mode, HOST_WIDE_INT offset)
+{
+  return (offset >= -64 * GET_MODE_SIZE (mode)
+	  && offset < 64 * GET_MODE_SIZE (mode)
+	  && offset % GET_MODE_SIZE (mode) == 0);
+}
+
+static inline bool
+offset_9bit_signed_unscaled_p (enum machine_mode mode ATTRIBUTE_UNUSED,
+			       HOST_WIDE_INT offset)
+{
+  return offset >= -256 && offset < 256;
+}
+
+static inline bool
+offset_12bit_unsigned_scaled_p (enum machine_mode mode, HOST_WIDE_INT offset)
+{
+  return (offset >= 0
+	  && offset < 4096 * GET_MODE_SIZE (mode)
+	  && offset % GET_MODE_SIZE (mode) == 0);
+}
+
 /* Return true if X is a valid address for machine mode MODE.  If it is,
    fill in INFO appropriately.  STRICT_P is true if REG_OK_STRICT is in
    effect.  OUTER_CODE is PARALLEL for a load/store pair.  */
@@ -2646,7 +2677,8 @@ aarch64_classify_address (struct aarch64_address_info *info,
 {
   enum rtx_code code = GET_CODE (x);
   rtx op0, op1;
-  bool pair_p = (outer_code == PARALLEL || mode == TImode);
+  bool allow_reg_index_p =
+    outer_code != PARALLEL && GET_MODE_SIZE(mode) != 16;
 
   /* Don't support anything other than POST_INC or REG addressing for
      AdvSIMD.  */
@@ -2675,25 +2707,27 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  info->type = ADDRESS_REG_IMM;
 	  info->base = op0;
 	  info->offset = op1;
+
+	  /* TImode and TFmode values are allowed in both pairs of X
+	     registers and individual Q registers.  The available
+	     address modes are:
+	     X,X: 7-bit signed scaled offset
+	     Q:   9-bit signed offset
+	     We conservatively require an offset representable in either mode.
+	   */
+	  if (mode == TImode || mode == TFmode)
+	    return (offset_7bit_signed_scaled_p (mode, offset)
+		    && offset_9bit_signed_unscaled_p (mode, offset));
+
 	  if (outer_code == PARALLEL)
-	    /* load/store pair: 7-bit signed, scaled offset.  */
 	    return ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
-		    && offset >= -64 * GET_MODE_SIZE (mode)
-		    && offset < 64 * GET_MODE_SIZE (mode)
-		    && offset % GET_MODE_SIZE (mode) == 0);
-	  else if (mode == TImode)
-	    /* load/store pair of dwords: 7-bit signed, scaled offset.  */
-	    return offset >= -512 && offset < 512 && offset % 8 == 0;
+		    && offset_7bit_signed_scaled_p (mode, offset));
 	  else
-	    /* load/store single: 9-bit signed, unscaled offset.  */
-	    /* load/store single: 12-bit unsigned, scaled offset.  */
-	    return ((offset >= -256 && offset < 256)
-		    || (offset >= 0
-			&& offset < 4096 * GET_MODE_SIZE (mode)
-			&& offset % GET_MODE_SIZE (mode) == 0));
+	    return (offset_9bit_signed_unscaled_p (mode, offset)
+		    || offset_12bit_unsigned_scaled_p (mode, offset));
 	}
 
-      if (!pair_p)
+      if (allow_reg_index_p)
 	{
 	  /* Look for base + (scaled/extended) index register.  */
 	  if (aarch64_base_register_rtx_p (op0, strict_p)
@@ -2733,18 +2767,23 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  HOST_WIDE_INT offset;
 	  info->offset = XEXP (XEXP (x, 1), 1);
 	  offset = INTVAL (info->offset);
+
+	  /* TImode and TFmode values are allowed in both pairs of X
+	     registers and individual Q registers.  The available
+	     address modes are:
+	     X,X: 7-bit signed scaled offset
+	     Q:   9-bit signed offset
+	     We conservatively require an offset representable in either mode.
+	   */
+	  if (mode == TImode || mode == TFmode)
+	    return (offset_7bit_signed_scaled_p (mode, offset)
+		    && offset_9bit_signed_unscaled_p (mode, offset));
+
 	  if (outer_code == PARALLEL)
-	    /* load/store pair: 7-bit signed, scaled offset.  */
 	    return ((GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8)
-		    && offset >= -64 * GET_MODE_SIZE (mode)
-		    && offset < 64 * GET_MODE_SIZE (mode)
-		    && offset % GET_MODE_SIZE (mode) == 0);
-	  else if (mode == TImode)
-	    /* load/store pair of dwords: 7-bit signed, scaled offset.  */
-	    return offset >= -512 && offset < 512 && offset % 8 == 0;
+		    && offset_7bit_signed_scaled_p (mode, offset));
 	  else
-	    /* load/store single: 9-bit signed, unscaled offset.  */
-	    return offset >= -256 && offset < 256;
+	    return offset_9bit_signed_unscaled_p (mode, offset);
 	}
       return false;
 
@@ -2755,10 +2794,10 @@ aarch64_classify_address (struct aarch64_address_info *info,
       info->type = ADDRESS_SYMBOLIC;
       if (outer_code != PARALLEL
 	  && (GET_MODE_SIZE (mode) == 4
-	      || GET_MODE_SIZE (mode) == 8
-	      || mode == TFmode))
+	      || GET_MODE_SIZE (mode) == 8))
 	{
 	  rtx sym, addend;
+
 	  split_const (x, &sym, &addend);
 	  return (GET_CODE (sym) == LABEL_REF
 		  || (GET_CODE (sym) == SYMBOL_REF
@@ -2770,7 +2809,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
       info->type = ADDRESS_LO_SUM;
       info->base = XEXP (x, 0);
       info->offset = XEXP (x, 1);
-      if (!pair_p
+      if (allow_reg_index_p
 	  && aarch64_base_register_rtx_p (info->base, strict_p))
 	{
 	  rtx sym, offs;
@@ -3590,6 +3629,16 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
         sri->icode = CODE_FOR_aarch64_reload_movti;
       return NO_REGS;
     }
+
+  /* A TFmode or TImode memory access should be handled via an FP_REGS
+     because AArch64 has richer addressing modes for ldr/str q than
+     ldp/stp x  */
+  if (!TARGET_GENERAL_REGS_ONLY && rclass == CORE_REGS
+      && GET_MODE_SIZE (mode) == 16 && MEM_P (x))
+    return FP_REGS;
+
+  if (rclass == FP_REGS && (mode == TImode || mode == TFmode) && CONSTANT_P(x))
+      return CORE_REGS;
 
   return NO_REGS;
 }

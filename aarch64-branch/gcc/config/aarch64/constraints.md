@@ -124,14 +124,7 @@
   A memory address suitable for a load/store pair operation."
   (and (match_code "mem")
        (match_test "aarch64_legitimate_address_p (GET_MODE (op), XEXP (op, 0),
-						  PARALLEL, 0)")))
-
-(define_memory_constraint "Utf"
-  "@internal
-  A memory address suitable for a load/store pair operation."
-  (and (match_code "mem")
-       (match_test "aarch64_legitimate_address_p (TImode, XEXP (op, 0),
-						  UNKNOWN, 0)")))
+						  PARALLEL, 1)")))
 
 (define_constraint "Dn"
   "@internal

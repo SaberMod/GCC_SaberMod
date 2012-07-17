@@ -1,5 +1,23 @@
 2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
+	* config/aarch64/aarch64.c
+	(aarch64_regno_ok_for_index_p): Handle NULL reg_renumber.
+	(aarch64_regno_ok_for_base_p): Likewise.
+	(offset_7bit_signed_scaled_p): New.
+	(offset_9bit_signed_unscaled_p): New.
+	(offset_12bit_unsigned_scaled_p): New.
+	(aarch64_classify_address): Replace pair_p with allow_reg_index_p.
+	Conservative test for valid TImode and TFmode addresses.  Use
+	offset_7bit_signed_scaled_p offset_9bit_signed_unscaled_p and
+	offset_12bit_unsigned_scaled_p.  Remove explicit TImode and TFmode
+	tests.
+	* config/aarch64/aarch64.md (movti_aarch64): Replace 'm' with 'Ump'.
+	(movtf_aarch64): Replace 'm' with 'Ump', replace 'Utf' with 'm'.
+	* config/aarch64/constraints.md (Utf): Remove.
+	(Ump)
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
 	* config/aarch64/aarch64.c (aarch64_rtx_costs):
 	Move misplaced parenthesis.
 
