@@ -234,11 +234,22 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 		   char *base_ptr_var_name, int len1, char *vtable_name,
 		   int len2)
 {
-  struct vlt_hashtable **base_vtbl_row_ptr = (struct vlt_hashtable **) data_pointer;
+  struct vlt_hashtable **base_vtbl_row_ptr =
+                                       (struct vlt_hashtable **) data_pointer;
   vptr vtbl_ptr = (vptr) test_value;
 
-  if ((*base_vtbl_row_ptr) == NULL)
-    *base_vtbl_row_ptr = vlt_hash_init_table (size_hint);
+  struct vlt_hashtable * volatile *tmp_volatile_ptr = base_vtbl_row_ptr;
+  static pthread_mutex_t map_var_mutex VTV_PROTECTED_VAR
+                                                  = PTHREAD_MUTEX_INITIALIZER;
+
+
+  if ((*tmp_volatile_ptr) == NULL)
+    {
+      pthread_mutex_lock (&map_var_mutex);
+      if ((*tmp_volatile_ptr) == NULL)
+        *tmp_volatile_ptr = vlt_hash_init_table (size_hint);
+      pthread_mutex_unlock (&map_var_mutex);
+    }
 
   if (debug_functions && base_ptr_var_name && vtable_name)
     print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,

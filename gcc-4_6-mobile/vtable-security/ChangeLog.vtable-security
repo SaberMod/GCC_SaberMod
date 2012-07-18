@@ -1,3 +1,29 @@
+2012-07-18  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPair):  Add
+	static mutex variable, protected, and statically initialize it.
+	Add volatile pointer variable to contain address of vtable_map var, to
+	force re-evaluation on second read. Lock mutex before calls
+	vlt_hash_init_table, and unlock it afterwards, to prevent two threads
+	trying to initialize the same vtable map variable at the same time.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc (rehash_elements):
+	Remove unused parameter new_size. Add format to constant when
+	calculating hash mask.
+	(grow_table): Reformat comment.  Increase table size by 1, to allow
+	for hash mask.  Put hash mask in first element of table.  Add hash
+	mask explanatory comments.  Make main table start at second element.
+	Add  format to constant when calculating hash mask.
+	(vlt_hash_init_table):  Ditto.
+	(vlt_hash_insert):  Look for hash mask directly in data table.  Use
+	size rather than hash mask to check if table changed.  Enforce FSF
+	guidelines: indent curly braces and limit lines to 80 chars. Updated
+	some comments.
+	(dump_table_to_file):  Read hash mask from table.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h (struct vlt_hashtable):
+	Remove hash_mask field. Make data_size and data volatile.
+	(vlt_hash_find): Only access table pointer once (read and store it);
+	read hash mask directly from table.
+
 2012-06-27  Luis Lozano  <llozano@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_malloc.cc (obstack_chunk_alloc):
@@ -11,11 +37,11 @@
 	like "rw"/"ro", pass integer constants.
 	Removed some unneded code.
 	(vtv_register_class_hierarchy_information): Changed calls to
-	VLT_ChangePermission. 
-	(vtable_find_or_create_map_decl): Removed the "." from the 
+	VLT_ChangePermission.
+	(vtable_find_or_create_map_decl): Removed the "." from the
 	vtable map variables identifiers. This dot confuses the debugger
 	when trying to examine these variables.
-	Put vtable_map variables into data.rel.ro so that they can be 
+	Put vtable_map variables into data.rel.ro so that they can be
 	protected and unprotected (code written by Caroline)
 	* gcc/tree-vtable-varify.c (verify_bb_vtables): Removed the "."
 	from the vtable_map variable names.
@@ -23,32 +49,32 @@
 	mark the vtable_map variables as LINKONCE.
 	* libstdc++/libsupc++/Makefile.am: Force a dependency between
 	vtv_int.cc and vtv_rts.h
-	* libstdc++/libsupc++/Makefile.in: generated file from 
+	* libstdc++/libsupc++/Makefile.in: generated file from
 	Makefile.am with automake.
 	* libstdc++/libsupc++/vtv_init.cc: Added copyright header.
-	Include new header "vtv_rts.h", to facilitate calls to 
+	Include new header "vtv_rts.h", to facilitate calls to
 	__VLTChangePermission with simplified arguments.
-	* libstdc++/libsupc++/vtv_malloc.cc: Protected static 
+	* libstdc++/libsupc++/vtv_malloc.cc: Protected static
 	variables that are not debug related by putting them into
 	data.rel.ro sections.
 	(vtv_protect): change name to vtv_malloc_protect.
 	(vtv_unprotect): change name to vtv_malloc_unprotect.
-	(vtv_malloc_init): moved static variable to global scope to 
+	(vtv_malloc_init): moved static variable to global scope to
 	put it together with other protect variables.
-	* libstdc++/libsupc++/vtv_malloc.h: 
+	* libstdc++/libsupc++/vtv_malloc.h:
 	changed name of vtv_protect and vtv_unprotect
 	Created macro to put a static variable in .data.rel.ro section
 	with name ".data.rel.ro.vtable_vars". Should probably put this
 	into a separate base header.
 	* libstdc++/libsupc++/vtv_rts.h:
 	Protected non debug variables by using new macro for this purpose.
-	(dl_iterate_phdr_callback): call back routine that is called by 
-	dl_iterate_phdr for each segment found in each load module. This 
+	(dl_iterate_phdr_callback): call back routine that is called by
+	dl_iterate_phdr for each segment found in each load module. This
 	routine finds the rel.ro segment and protects/unprotects it according
 	to the argument passed.
 	(vtv_unprotected_vtable_vars): new routine that unprotecs all
 	static vars used by vtable verification
-	(vtv_protect_vtable_vars): new routine that protects all static 
+	(vtv_protect_vtable_vars): new routine that protects all static
 	vars used by vtable verification.
 	(__VLTChangePermission): Changed arguments from string and length
 	to integer value.
@@ -59,25 +85,25 @@
 	removed unnecessary check for NULL.
 	(vlt_hash_insert): Modified to fix possible problem in multithreaded
 	case.
-	Modified to try to get rid of second call to vlt_bucket_find which 
+	Modified to try to get rid of second call to vlt_bucket_find which
 	can be expensive. Did this to try to recover start up degradation
 	in chrome.
 	* libstdc++/libsupc++/vtv_threaded_hash.h (vlt_bucket_find):
-	added new argument to avoind searching in the whole list. Only search 
+	added new argument to avoind searching in the whole list. Only search
 	until the point specified by argument.
 
 2012-06-15  Luis Lozano  <llozano@google.com>
 
 	* gcc/tree-vtable-verify.c (verify_bb_vtables): Modify to call
-	a different VerifyVtablePointer if compiled with VTV_DEBUG. 
+	a different VerifyVtablePointer if compiled with VTV_DEBUG.
 	If debug version takes more arguments and prints more debug
 	information.
-	* libstdc++-v3/libsupc++/vtv_rts.cc 
+	* libstdc++-v3/libsupc++/vtv_rts.cc
 	(__VLTVerifyVtablePointerDebug): New routine. It is actually
-	a rename of the old routine. This version is called when 
+	a rename of the old routine. This version is called when
 	tree-vtable-verify.c is built with VTV_DEBUG.
 	(__VLTVerifyVtablePointer): cleaned up this routine to improve
-	performance. 
+	performance.
 	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc
 	(hash_pointer): moved to vtv_threaded_hash.h so that it can be
 	inlined

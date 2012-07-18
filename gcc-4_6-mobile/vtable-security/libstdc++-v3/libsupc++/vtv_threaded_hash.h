@@ -38,12 +38,11 @@ struct vlt_hash_bucket {
 };
 
 struct vlt_hashtable {
-  uint32_t data_size;
+  volatile uint32_t data_size;
   uint32_t num_elts;
   uint32_t power_of_2;
-  uint32_t hash_mask;
   pthread_mutex_t mutex;
-  struct vlt_hash_bucket **data;
+  struct vlt_hash_bucket ** volatile data;
 };
 
 /* Main hash table interface */
@@ -105,10 +104,13 @@ vlt_bucket_find (struct vlt_hash_bucket *slot, void * value,
 static inline void *
 vlt_hash_find (struct vlt_hashtable *table, void *value)
 {
+  struct vlt_hash_bucket **data = table->data;
+  /* NOTE:  data[-1] contains hash mask for the table. */
+  uint64_t hash_mask = (uint64_t) (data[-1]);
   uint32_t hash = vlt_hash_pointer (value);
-  uint32_t new_index = hash & table->hash_mask;
+  uint32_t new_index = hash & (uint32_t) hash_mask;
 
-  return vlt_bucket_find (table->data[new_index], value, NULL);
+  return (void *) vlt_bucket_find (data[new_index], value, NULL);
 }
 
 #ifdef __cplusplus

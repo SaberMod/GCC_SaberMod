@@ -38,7 +38,7 @@
 #define REHASH_LIMIT 0.8
 
 
-/* Statistics/Profiling numbers (for debugging) 
+/* Statistics/Profiling numbers (for debugging)
    No need to protect these since they are only used for debugging */
 
 static unsigned num_tables_allocated = 0;
@@ -69,10 +69,10 @@ bucket_insert (struct vlt_hash_bucket **slot, void *value)
 static uint32_t
 rehash_elements (struct vlt_hash_bucket **old_data,
                  struct vlt_hash_bucket **new_data,
-                 uint32_t old_size, uint32_t new_size, uint32_t num_bits)
+                 uint32_t old_size, uint32_t num_bits)
 {
   uint32_t i;
-  uint32_t mask = 0xffffffff >> (32 - num_bits);
+  uint32_t mask = 0xffffffffUL >> (32 - num_bits);
   struct vlt_hash_bucket *cur_bucket;
   uint32_t num_elements = 0;
 
@@ -101,30 +101,57 @@ rehash_elements (struct vlt_hash_bucket **old_data,
 static void
 grow_table (struct vlt_hashtable *table)
 {
-  /*  IMPORTANT NOTE!! This function assumes that you have already acquired the
-      lock on TABLE's pthread mutex before calling this function.  If you call
-      this function without first acquiring the lock, something bad may happen
-      to you.  YOU HAVE BEEN WARNED!  */
+  /*  IMPORTANT NOTE!! This function assumes that you have already
+      acquired the lock on TABLE's pthread mutex before calling this
+      function.  If you call this function without first acquiring the
+      lock, something bad may happen to you.  YOU HAVE BEEN
+      WARNED!  */
 
   struct vlt_hash_bucket **old_data = NULL;
   uint32_t old_size = table->data_size;
   uint32_t new_size = 2 * old_size;
   uint32_t new_power_size = table->power_of_2 + 1;
 
+  /* Allocate one more element than the table size, to allow for the hash
+     mask.  */
+
   struct vlt_hash_bucket **new_data =
       (struct vlt_hash_bucket **)
-                      my_malloc (new_size * sizeof (struct vlt_hash_bucket *));
+              my_malloc ((new_size + 1) * sizeof (struct vlt_hash_bucket *));
+
+  /* The very first element/bucket is reserved for the hash mask, so make
+     the main table start at the second element. */
+  new_data = &(new_data[1]);
+
   old_data = table->data;
-
   num_bucket_pointers_allocated += new_size;
-
   table->num_elts = rehash_elements (old_data, new_data, old_size,
-				     new_size, new_power_size);
+                                     new_power_size);
 
   table->data = new_data;
   table->data_size = new_size;
   table->power_of_2 = new_power_size;
-  table->hash_mask = 0xffffffff >> (32 - new_power_size);
+
+  /* Set up the hash mask for this table.  The hash mask is based on
+     the size of the table, so it changes each time the table is
+     re-sized.  In order to have lock-free reads of the table, and to
+     prevent a second thread from changing the table out from under a
+     read between when the reading thread has read the hash mask, and
+     when it tries to read the table, the hash mask is stored directly
+     with the table.  A reading thread reads the pointer for the table
+     once, and gets both the data buckets (stored at table[0..size])
+     and the hash mask (stored at table[-1]).
+
+     The other fields in the hash table (size, num_elts and
+     power_of_2) don't need this kind of special treatment because the
+     are not accessed during reads (which are lock-free), i.e. they
+     are only updated when locks are held, and if they are read to
+     decide on actions, the locks are taken and then they are re-read
+     before the action is taken.
+  */
+
+  table->data[-1] = (vlt_hash_bucket *)
+                                      (0xffffffffUL >> (32 - new_power_size));
 
   /* TODO:  Need to 'my_free' each allocated bucket in old_data... */
   my_free (old_data);
@@ -140,6 +167,8 @@ vlt_hash_init_table (int initial_size_hint)
   int initial_size = INITIAL_SIZE;
   int initial_power = INITIAL_POWER;
 
+  /* Use the size hint to modify the initial table size, if appropriate. */
+
   while (initial_size_hint > (REHASH_LIMIT * initial_size))
     {
       initial_size *= 2;
@@ -148,16 +177,45 @@ vlt_hash_init_table (int initial_size_hint)
 
   new_table->data_size = initial_size;
   new_table->power_of_2 = initial_power;
-  new_table->hash_mask = 0xffffffff >> (32 - initial_power);
   new_table->num_elts = 0;
   pthread_mutex_init (&(new_table->mutex), NULL);
 
   num_tables_allocated++; /* Debug */
   num_bucket_pointers_allocated += initial_size; /* Debug */
 
+  /* Allocate one more element than the table size, to allow for the hash
+     mask.  */
+
   new_table->data =
       (struct vlt_hash_bucket **)
-                  my_malloc (initial_size * sizeof (struct vlt_hash_bucket *));
+      my_malloc ((initial_size + 1) * sizeof (struct vlt_hash_bucket *));
+
+
+  /* Set up the hash mask for this table.  The hash mask is based on
+     the size of the table, so it changes each time the table is
+     re-sized.  In order to have lock-free reads of the table, and to
+     prevent a second thread from changing the table out from under a
+     read between when the reading thread has read the hash mask, and
+     when it tries to read the table, the hash mask is stored directly
+     with the table.  A reading thread reads the pointer for the table
+     once, and gets both the data buckets (stored at table[0..size])
+     and the hash mask (stored at table[-1]).
+
+     The other fields in the hash table (size, num_elts and
+     power_of_2) don't need this kind of special treatment because the
+     are not accessed during reads (which are lock-free), i.e. they
+     are only updated when locks are held, and if they are read to
+     decide on actions, the locks are taken and then they are re-read
+     before the action is taken.
+  */
+
+  new_table->data[0] = (vlt_hash_bucket *)
+                                      (0xffffffffUL >> (32 - initial_power));
+
+  /* The very first element/bucket is reserved for the hash mask, so make
+     the main table start at the second element. */
+
+  new_table->data = &(new_table->data[1]);
 
   return new_table;
 }
@@ -166,10 +224,14 @@ void
 vlt_hash_insert (struct vlt_hashtable *table, void *value)
 {
   uint32_t hash = vlt_hash_pointer (value);
-  uint32_t mask = table->hash_mask;
-  uint32_t index = hash & mask;
-  vlt_hash_bucket * first_bucket = table->data[index];
-  void * slot = vlt_bucket_find (first_bucket, value, NULL);
+  uint32_t table_size = table->data_size;
+
+  /* Reminder:  table->data[-1] contains the hash mask.   See comments in
+     vlt_hash_init_table for details.  */
+  uint64_t hash_mask = (uint64_t) (table->data[-1]);
+  uint32_t index = hash & (uint32_t) hash_mask;
+  vlt_hash_bucket *first_bucket = table->data[index];
+  void *slot = vlt_bucket_find (first_bucket, value, NULL);
 
   /* Only do the insert if the value is not already in the table.  */
   if (!slot)
@@ -177,30 +239,38 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
       /* Grab the mutex before doing the comparison below to make sure
          nothing being compared changes in the middle of the comparison.  */
       pthread_mutex_lock (&(table->mutex));
-      /* See if anybody else inserted the element since the last check and
-	 before we grabbed the lock. */
+
       /* Re-calculate the index in case the table grew between the
-         initial check above and when we grabbed the lock. */
-      uint32_t new_mask = table->hash_mask;
+	 initial check above and when we grabbed the lock. Before
+	 inserting the element, see if anybody else inserted the
+	 element since the last check (before we grabbed the
+	 lock.)  */
+      uint64_t hash_mask = (uint64_t) table->data[-1];
+      uint32_t new_size = table->data_size;
       uint32_t new_index;
       bool should_insert;
-      if (mask == new_mask)
-      {
-        new_index = index;
-        should_insert = !vlt_bucket_find (table->data[new_index], value, first_bucket);
-      }
-      else 
-      {
-        new_index = hash & new_mask;
-        should_insert = !vlt_bucket_find (table->data[new_index], value, NULL);
-      }
+
+      if (table_size == new_size)
+        {
+          new_index = index;
+          should_insert = !vlt_bucket_find (table->data[new_index], value,
+                                            first_bucket);
+        }
+      else
+        {
+          new_index = hash & (uint32_t) hash_mask;
+          should_insert = !vlt_bucket_find (table->data[new_index], value,
+                                            NULL);
+        }
+
       if (should_insert)
         {
-	  if (table->num_elts >= (REHASH_LIMIT * table->data_size))
-          {
-	    grow_table (table);
-            new_index = hash & table->hash_mask;
-          }
+          if (table->num_elts >= (REHASH_LIMIT * table->data_size))
+            {
+              grow_table (table);
+              hash_mask = (uint64_t) table->data[-1];
+              new_index = hash & (uint32_t) hash_mask;
+            }
 
           bucket_insert (&(table->data[new_index]), value);
           table->num_elts++;
@@ -259,8 +329,10 @@ dump_table_to_file (struct vlt_hashtable *table, uint32_t dump_buckets,
   fprintf (dump_file, "Table Stats:\n");
   fprintf (dump_file, "     Max Array Size: %d (2^%d) \n", table->data_size,
            table->power_of_2);
-  fprintf (dump_file, "     Hash Mask: 0x%x\n", table->hash_mask);
-  fprintf (dump_file, "     Current Number of Elements: %d\n\n", table->num_elts);
+  fprintf (dump_file, "     Hash Mask: 0x%lx\n",
+           (uint64_t) table->data[-1]);
+  fprintf (dump_file, "     Current Number of Elements: %d\n\n",
+           table->num_elts);
 
   if (dump_buckets)
     {
