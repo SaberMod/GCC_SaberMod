@@ -1,3 +1,8 @@
+2012-07-19  Rong Xu  <xur@google.com>
+
+	* gcc/gcov-io.h (GCOV_TAG_MODULE_INFO): tag needs to be
+	an odd number in each active level.
+
 2012-06-29  Xinliang David Li  <davidxl@google.com>
 
 	Port r189088 from google_4-7 branch
