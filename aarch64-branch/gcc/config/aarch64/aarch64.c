@@ -6542,33 +6542,26 @@ aarch64_simd_vect_par_cnst_half (enum machine_mode mode, bool high)
   return t1;
 }
 
-/* Ensure OPERAND lies between LOW (inclusive) and HIGH (exclusive).  Raise
-   ERR if it doesn't.  */
-static void
-bounds_check (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high,
-	      const char *err)
-{
-  HOST_WIDE_INT lane;
-
-  gcc_assert (GET_CODE (operand) == CONST_INT);
-
-  lane = INTVAL (operand);
-
-  if (lane < low || lane >= high)
-    error ("%s", err);
-}
-
-/* Bounds-check lanes.  */
+/* Bounds-check lanes.  Ensure OPERAND lies between LOW (inclusive) and
+   HIGH (exclusive).  */
 void
 aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 {
-  bounds_check (operand, low, high, "lane out of range");
+  gcc_assert (GET_CODE (operand) == CONST_INT);
+  HOST_WIDE_INT lane = INTVAL (operand);
+
+  if (lane < low || lane >= high)
+    error ("lane out of range");
 }
 
 void
 aarch64_simd_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 {
-  bounds_check (operand, low, high, "constant out of range");
+  gcc_assert (GET_CODE (operand) == CONST_INT);
+  HOST_WIDE_INT lane = INTVAL (operand);
+
+  if (lane < low || lane >= high)
+    error ("constant out of range");
 }
 
 /* Emit code to reinterpret one Neon type as another, without altering bits.  */
