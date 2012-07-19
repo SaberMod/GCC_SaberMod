@@ -1358,25 +1358,6 @@ aarch64_libgcc_cmp_return_mode (void)
   return SImode;
 }
 
-static const char *
-aarch64_mangle_type (const_tree type)
-{
-  type = TYPE_MAIN_VARIANT (type);
-
-  if (TREE_CODE (type) != VOID_TYPE && TREE_CODE (type) != BOOLEAN_TYPE
-      && TREE_CODE (type) != INTEGER_TYPE && TREE_CODE (type) != REAL_TYPE)
-    return NULL;
-
-  switch (TYPE_MODE (type))
-    {
-    case TFmode:
-      /* __float128 is "g".  */
-      return "g";
-    default:
-      return NULL;
-    }
-}
-
 static bool
 aarch64_frame_pointer_required (void)
 {
@@ -4907,42 +4888,7 @@ aarch64_legitimate_constant_p (enum machine_mode mode, rtx x)
 static void
 aarch64_init_builtins (void)
 {
-  tree float128_type_node;
   tree ftype, decl = NULL;
-
-  /* The __float128 type.  */
-  float128_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (float128_type_node) = 128;
-  layout_type (float128_type_node);
-  lang_hooks.types.register_builtin_type (float128_type_node, "__float128");
-
-  /* TFmode support builtins.  */
-
-  ftype = build_function_type_list (long_double_type_node,
-				    long_double_type_node,
-				    NULL_TREE);
-  decl = add_builtin_function ("__builtin_fabsq", ftype,
-			       AARCH64_BUILTIN_FABSQ, BUILT_IN_MD,
-			       "_U_Qfabs", NULL_TREE);
-  TREE_READONLY (decl) = 1;
-
-  ftype = build_function_type_list (long_double_type_node,
-				    long_double_type_node,
-				    long_double_type_node,
-				    NULL_TREE);
-  decl = add_builtin_function ("__builtin_copysignq", ftype,
-			       AARCH64_BUILTIN_COPYSIGNQ, BUILT_IN_MD,
-			       "_U_Qfcopysign", NULL_TREE);
-  TREE_READONLY (decl) = 1;
-
-  ftype = build_function_type (long_double_type_node, void_list_node);
-  decl = add_builtin_function ("__builtin_infq", ftype,
-			       AARCH64_BUILTIN_INFQ, BUILT_IN_MD,
-			       NULL, NULL_TREE);
-
-  decl = add_builtin_function ("__builtin_huge_valq", ftype,
-			       AARCH64_BUILTIN_HUGE_VALQ, BUILT_IN_MD,
-			       NULL, NULL_TREE);
 
   ftype = build_function_type (ptr_type_node, void_list_node);
   decl = add_builtin_function ("__builtin_thread_pointer", ftype,
@@ -4980,40 +4926,11 @@ aarch64_expand_builtin (tree exp,
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   int fcode = DECL_FUNCTION_CODE (fndecl);
 
+  if (fcode == AARCH64_BUILTIN_THREAD_POINTER)
+    return aarch64_load_tp (target);
+
   if (fcode >= AARCH64_SIMD_BUILTIN_BASE)
     return aarch64_simd_expand_builtin (fcode, exp, target);
-
-  switch (fcode)
-    {
-    case AARCH64_BUILTIN_THREAD_POINTER:
-      return aarch64_load_tp (target);
-
-    case AARCH64_BUILTIN_FABSQ:
-    case AARCH64_BUILTIN_COPYSIGNQ:
-      return expand_call (exp, target, ignore);
-
-    case AARCH64_BUILTIN_INFQ:
-    case AARCH64_BUILTIN_HUGE_VALQ:
-      {
-	enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
-	REAL_VALUE_TYPE inf;
-	rtx tmp;
-
-	real_inf (&inf);
-	tmp = CONST_DOUBLE_FROM_REAL_VALUE (inf, target_mode);
-
-	tmp = validize_mem (force_const_mem (target_mode, tmp));
-
-	if (target == 0)
-	  target = gen_reg_rtx (target_mode);
-
-	emit_move_insn (target, tmp);
-	return target;
-      }
-
-    default:
-      gcc_unreachable ();
-    }
 
   return NULL_RTX;
 }
@@ -6790,9 +6707,6 @@ aarch64_c_mode_for_suffix (char suffix)
 
 #undef TARGET_LIBGCC_CMP_RETURN_MODE
 #define TARGET_LIBGCC_CMP_RETURN_MODE aarch64_libgcc_cmp_return_mode
-
-#undef TARGET_MANGLE_TYPE
-#define TARGET_MANGLE_TYPE aarch64_mangle_type
 
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST aarch64_memory_move_cost
