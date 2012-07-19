@@ -1122,8 +1122,9 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	    case SIMD_ARG_CONSTANT:
 	      if (!(*insn_data[icode].operand[argc + have_retval].predicate)
 		  (op[argc], mode[argc]))
-		error ("incompatible type for argument %d, "
-		       "expected 'const int'", argc + 1);
+		error_at (DECL_SOURCE_LOCATION (exp),
+		       "incompatible type for argument %d, "
+		       "expected %<const int%>", argc + 1);
 	      break;
 
 	    case SIMD_ARG_STOP:

@@ -4479,7 +4479,7 @@ aarch64_parse_extension (char *str)
 
       if (len == 0)
 	{
-	  error ("missing architectural extension");
+	  error ("missing feature modifier after %qs", "+no");
 	  return;
 	}
 
@@ -4500,7 +4500,7 @@ aarch64_parse_extension (char *str)
       if (opt->name == NULL)
 	{
 	  /* Extension not found in list.  */
-	  error ("unknown architectural extension `%s'", str);
+	  error ("unknown feature modifier %qs", str);
 	  return;
 	}
 
@@ -4531,7 +4531,7 @@ aarch64_parse_arch (void)
 
   if (len == 0)
     {
-      error ("missing arch name `%s'\n", str);
+      error ("missing arch name in -march=%qs", str);
       return;
     }
 
@@ -4555,7 +4555,7 @@ aarch64_parse_arch (void)
     }
 
   /* ARCH name not found in list.  */
-  error ("unknown value (%s) for -march", str);
+  error ("unknown value %qs for -march", str);
   return;
 }
 
@@ -4580,7 +4580,7 @@ aarch64_parse_cpu (void)
 
   if (len == 0)
     {
-      error ("missing cpu name in `%s'", str);
+      error ("missing cpu name in -mcpu=%qs", str);
       return;
     }
 
@@ -4603,7 +4603,7 @@ aarch64_parse_cpu (void)
     }
 
   /* CPU name not found in list.  */
-  error ("unknown value (%s) for -mcpu", str);
+  error ("unknown value %qs for -mcpu", str);
   return;
 }
 
@@ -4627,7 +4627,7 @@ aarch64_parse_tune (void)
     }
 
   /* CPU name not found in list.  */
-  error ("unknown value (%s) for -mtune", str);
+  error ("unknown value %qs for -mtune", str);
   return;
 }
 
