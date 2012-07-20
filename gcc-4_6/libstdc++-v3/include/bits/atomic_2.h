@@ -644,21 +644,21 @@ namespace __atomic2
 
       __pointer_type
       fetch_add(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
-      { return __sync_fetch_and_add(&_M_p, __d); }
+      { return __sync_fetch_and_add(&_M_p, __d * sizeof(_PTp)); }
 
       __pointer_type
       fetch_add(ptrdiff_t __d,
 		memory_order __m = memory_order_seq_cst) volatile
-      { return __sync_fetch_and_add(&_M_p, __d); }
+      { return __sync_fetch_and_add(&_M_p, __d * sizeof(_PTp)); }
 
       __pointer_type
       fetch_sub(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
-      { return __sync_fetch_and_sub(&_M_p, __d); }
+      { return __sync_fetch_and_sub(&_M_p, __d * sizeof(_PTp)); }
 
       __pointer_type
       fetch_sub(ptrdiff_t __d,
 		memory_order __m = memory_order_seq_cst) volatile
-      { return __sync_fetch_and_sub(&_M_p, __d); }
+      { return __sync_fetch_and_sub(&_M_p, __d * sizeof(_PTp)); }
     };
 
 } // namespace __atomic2

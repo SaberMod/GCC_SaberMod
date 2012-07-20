@@ -1,3 +1,12 @@
+2012-07-20  Jing Yu  <jingyu@google.com>
+
+	Backport r183875 to fix wrong atomic<_Tp*> add_fetch.
+	PR libstdc++/51811, Google ref b/6702865
+	* include/bits/atomic_0.h (atomic<_Tp*>): Fix offsets.
+	* include/bits/atomic_2.h: Likewise.
+	* testsuite/29_atomics/atomic/operators/51811.cc: New.
+	* testsuite/29_atomics/atomic/operators/pointer_partial_void.cc: New.
+
 2012-04-02  Jeffrey Yasskin <jyasskin@google.com>
 	Simple fix for PR-52822.
 

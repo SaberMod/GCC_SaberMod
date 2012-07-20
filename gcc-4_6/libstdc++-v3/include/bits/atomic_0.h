@@ -620,7 +620,7 @@ namespace __atomic0
       __return_pointer_type
       fetch_add(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
       {
-	void* __v = _ATOMIC_MODIFY_(this, +=, __d, __m);
+	void* __v = _ATOMIC_MODIFY_(this, +=, __d * sizeof(_PTp), __m);
 	return reinterpret_cast<__return_pointer_type>(__v);
       }
 
@@ -628,14 +628,14 @@ namespace __atomic0
       fetch_add(ptrdiff_t __d,
 		memory_order __m = memory_order_seq_cst) volatile
       {
-	void* __v = _ATOMIC_MODIFY_(this, +=, __d, __m);
+	void* __v = _ATOMIC_MODIFY_(this, +=, __d * sizeof(_PTp), __m);
 	return reinterpret_cast<__return_pointer_type>(__v);
       }
 
       __return_pointer_type
       fetch_sub(ptrdiff_t __d, memory_order __m = memory_order_seq_cst)
       {
-	void* __v = _ATOMIC_MODIFY_(this, -=, __d, __m);
+	void* __v = _ATOMIC_MODIFY_(this, -=, __d * sizeof(_PTp), __m);
 	return reinterpret_cast<__return_pointer_type>(__v);
       }
 
@@ -643,7 +643,7 @@ namespace __atomic0
       fetch_sub(ptrdiff_t __d,
 		memory_order __m = memory_order_seq_cst) volatile
       {
-	void* __v = _ATOMIC_MODIFY_(this, -=, __d, __m);
+	void* __v = _ATOMIC_MODIFY_(this, -=, __d * sizeof(_PTp), __m);
 	return reinterpret_cast<__return_pointer_type>(__v);
       }
     };
