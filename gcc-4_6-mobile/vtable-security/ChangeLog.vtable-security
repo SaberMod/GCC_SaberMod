@@ -1,3 +1,19 @@
+2012-07-19  Luis Lozano  <llozano@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: moved VTV_assert to header
+	file
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: ditto.
+	* libstdc++-v3/libsupc++/vtv_rts.cc (log_register_pairs): Changed to 
+	use snprintf insted of sprintf for better protection.
+	(__VLTRegisterPair): Be consistent about the use of volatile variable
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc: Added some assert around
+	the code to help with multi-threaded triaging.
+	(grow_table): make sure that the update of the "data" field is the last 
+	thing we do. This is important for consistency in the multithreaded case.
+	(vlt_hash_insert): fix the code to depend only on one field that could have
+	a race condition (table->data). The code is supposed to handle the race
+	condition. This fixes the last know issue regarding multi-threading.
+	
 2012-07-18  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPair):  Add

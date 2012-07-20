@@ -55,7 +55,7 @@ static const int debug_register_pairs = 0;
    They are explicitly unprotected and protected again by calls to VTV_unprotect
    and VTV_protect */
 
-static FILE *log_file_fp VTV_PROTECTED_VAR = NULL;
+static FILE * log_file_fp VTV_PROTECTED_VAR = NULL;
 
 struct mprotect_data {
   int prot_mode;
@@ -196,16 +196,16 @@ log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
      us to write out the string that is missing the '\0' at it's
      end. */
 
-  sprintf (format_string, format_string_dummy, format_arg1, format_arg2);
+  snprintf (format_string, sizeof(format_string), format_string_dummy, format_arg1, format_arg2);
 
   fprintf (fp, format_string, base_var_name, vtable_name, vtbl_ptr);
 }
 
-  /* For some reason, when the char * names get passed into these
-     functions, they are missing the '\0' at the end; therefore we
-     also pass in the length of the string and make sure, when writing
-     out the names, that we only write out the correct number of
-     bytes. */
+/* For some reason, when the char * names get passed into these
+   functions, they are missing the '\0' at the end; therefore we
+   also pass in the length of the string and make sure, when writing
+   out the names, that we only write out the correct number of
+   bytes. */
 void
 print_debugging_message (const char *format_string_dummy, int format_arg1,
 			 int format_arg2,
@@ -228,26 +228,26 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
 
-/* TODO: Why is this returning anything */
+/* TODO: Why is this returning anything
+   remove unnecessary arguments */
 void *
 __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 		   char *base_ptr_var_name, int len1, char *vtable_name,
 		   int len2)
 {
-  struct vlt_hashtable **base_vtbl_row_ptr =
-                                       (struct vlt_hashtable **) data_pointer;
   vptr vtbl_ptr = (vptr) test_value;
-
-  struct vlt_hashtable * volatile *tmp_volatile_ptr = base_vtbl_row_ptr;
+  struct vlt_hashtable * volatile *tmp_volatile_ptr = 
+    (struct vlt_hashtable **) data_pointer;
   static pthread_mutex_t map_var_mutex VTV_PROTECTED_VAR
                                                   = PTHREAD_MUTEX_INITIALIZER;
-
 
   if ((*tmp_volatile_ptr) == NULL)
     {
       pthread_mutex_lock (&map_var_mutex);
+
       if ((*tmp_volatile_ptr) == NULL)
         *tmp_volatile_ptr = vlt_hash_init_table (size_hint);
+
       pthread_mutex_unlock (&map_var_mutex);
     }
 
@@ -261,11 +261,11 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
       log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%%p)\n",
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
-      if (*base_vtbl_row_ptr == NULL)
+      if (*tmp_volatile_ptr == NULL)
 	fprintf (log_file_fp, "  vtable map variable is NULL.\n");
     }
 
-  vlt_hash_insert (*base_vtbl_row_ptr, test_value);
+  vlt_hash_insert (*tmp_volatile_ptr, test_value);
   return NULL;
 }
 

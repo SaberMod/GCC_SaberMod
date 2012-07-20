@@ -51,8 +51,6 @@ VTV_error (void)
   abort();
 }
 
-#define VTV_assert(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
-
 void
 VTV_malloc_protect (void)
 {
