@@ -2840,6 +2840,17 @@ aarch64_symbolic_address_p (rtx x)
   return GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF;
 }
 
+/* Classify the base of symbolic expression X, given that X appears in
+   context CONTEXT.  */
+static enum aarch64_symbol_type
+aarch64_classify_symbolic_expression (rtx x, enum aarch64_symbol_context context)
+{
+  rtx offset;
+  split_const (x, &x, &offset);
+  return aarch64_classify_symbol (x, context);
+}
+
+
 /* Return TRUE if X is a legitimate address for accessing memory in
    mode MODE.  */
 static bool
@@ -3247,7 +3258,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       if (GET_CODE (x) == HIGH)
 	x = XEXP (x, 0);
 
-      switch (aarch64_classify_symbol (x, SYMBOL_CONTEXT_ADR))
+      switch (aarch64_classify_symbolic_expression (x, SYMBOL_CONTEXT_ADR))
 	{
 	case SYMBOL_SMALL_GOT:
 	  asm_fprintf (asm_out_file, ":got:");
@@ -3276,7 +3287,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       break;
 
     case 'L':
-      switch (aarch64_classify_symbol (x, SYMBOL_CONTEXT_ADR))
+      switch (aarch64_classify_symbolic_expression (x, SYMBOL_CONTEXT_ADR))
 	{
 	case SYMBOL_SMALL_GOT:
 	  asm_fprintf (asm_out_file, ":lo12:");
@@ -3305,7 +3316,8 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       break;
 
     case 'G':
-      switch (aarch64_classify_symbol (x, SYMBOL_CONTEXT_ADR))
+
+      switch (aarch64_classify_symbolic_expression (x, SYMBOL_CONTEXT_ADR))
 	{
 	case SYMBOL_SMALL_TPREL:
 	  asm_fprintf (asm_out_file, ":tprel_hi12:");
@@ -4776,6 +4788,8 @@ aarch64_classify_tls_symbol (rtx x)
     }
 }
 
+/* Return the method that should be used to access SYMBOL_REF or
+   LABEL_REF X in context CONTEXT.  */
 enum aarch64_symbol_type
 aarch64_classify_symbol (rtx x,
 			 enum aarch64_symbol_context context ATTRIBUTE_UNUSED)
@@ -4847,7 +4861,23 @@ aarch64_classify_symbol (rtx x,
   return SYMBOL_FORCE_TO_MEM;
 }
 
+/* Return true if X is a symbolic constant that can be used in context
+   CONTEXT.  If it is, store the type of the symbol in *SYMBOL_TYPE.  */
 
+bool
+aarch64_symbolic_constant_p (rtx x, enum aarch64_symbol_context context,
+			     enum aarch64_symbol_type *symbol_type)
+{
+  rtx offset;
+  split_const (x, &x, &offset);
+  if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == LABEL_REF)
+    *symbol_type = aarch64_classify_symbol (x, context);
+  else
+    return false;
+
+  /* No checking of offset at this point.  */
+  return true;
+}
 
 bool
 aarch64_constant_address_p (rtx x)

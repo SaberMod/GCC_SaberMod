@@ -114,8 +114,12 @@
        (match_test "mode == DImode && CONSTANT_ADDRESS_P (op)")))
 
 (define_predicate "aarch64_valid_symref"
-  (and (match_code "symbol_ref, label_ref")
-	(match_test "aarch64_classify_symbol (op, SYMBOL_CONTEXT_ADR) != SYMBOL_FORCE_TO_MEM")))
+  (match_code "const, symbol_ref, label_ref")
+{
+  enum aarch64_symbol_type symbol_type;
+  return (aarch64_symbolic_constant_p (op, SYMBOL_CONTEXT_ADR, &symbol_type)
+	 && symbol_type != SYMBOL_FORCE_TO_MEM);
+})
 
 (define_predicate "aarch64_tls_ie_symref"
   (match_code "symbol_ref, label_ref")
