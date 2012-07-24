@@ -5857,13 +5857,6 @@ aarch64_output_asm_insn (emit_f emit, int label, rtx *operands,
   emit (label, buffer, operands);
 }
 
-/* Emit the memory barrier instruction.  */
-static void
-aarch64_process_output_memory_barrier (emit_f emit, rtx *operands)
-{
-  emit (0, "dmb\tish", operands);
-}
-
 /* Helper to figure out the instruction suffix required on ldrex/strex
    for operations on an object of the specified mode.  */
 static const char *
@@ -5992,9 +5985,6 @@ aarch64_output_sync_loop (emit_f emit,
 
   gcc_assert (t1 != t2);
 
-  if (release_barrier)
-    aarch64_process_output_memory_barrier (emit, NULL);
-
   aarch64_output_asm_insn (emit, 1, operands, "%sLSYT%%=:", LOCAL_LABEL_PREFIX);
 
   aarch64_output_sync_load (emit, mode, old_value, memory, acquire_barrier);
@@ -6046,9 +6036,6 @@ aarch64_output_sync_loop (emit_f emit,
   operands[0] = t2;
   aarch64_output_asm_insn (emit, 0, operands, "cbnz\t%%w0, %sLSYT%%=",
 			   LOCAL_LABEL_PREFIX);
-
-  if (release_barrier)
-    aarch64_process_output_memory_barrier (emit, NULL);
 
   aarch64_output_asm_insn (emit, 1, operands, "%sLSYB%%=:", LOCAL_LABEL_PREFIX);
 }
