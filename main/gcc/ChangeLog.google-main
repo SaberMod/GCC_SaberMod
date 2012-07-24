@@ -1,3 +1,15 @@
+2012-07-24  Xinliang David Li  <davidxl@google.com>
+
+	Backport r189827 from google-4_7 branch
+	* diagnostic.c (diagnostic_initialize): Initialize
+	new field.
+	(diagnostic_report_diagnostic): Honor -Wforce-warnings.
+	* diagnostic.h: New field.
+	* opts.c (common_handle_option): Handle new option.
+	* coverage.c (get_da_file_name): Handle new option.
+	* common.opt: New options.
+
+
 2012-07-19  Rong Xu  <xur@google.com>
 
 	* gcc/gcov-io.h (GCOV_TAG_MODULE_INFO): tag needs to be
