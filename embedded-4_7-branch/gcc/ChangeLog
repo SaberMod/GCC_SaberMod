@@ -1,3 +1,101 @@
+2012-07-22  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/33135
+	* config/sh/sh.opt (mieee): Use Var instead of Mask.  Correct
+	description.
+	* config/sh/sh.c (sh_option_override): Do not change 
+	flag_finite_math_only.  Set TARGET_IEEE to complement of
+	flag_finite_math_only.
+	* doc/invoke.texi (SH options): Add mno-ieee.  Correct
+	description of mieee and mno-ieee behavior.
+
+2012-07-20  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	PR target/53877
+	* config/i386/lzcntintrin.h (_lzcnt_u32): New.
+	(_lzcnt_u64): Ditto.
+
+2012-07-20  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-03-06  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/52250
+	* sel-sched-ir.c (maybe_tidy_empty_bb): Try harder to find a bb
+	to put note list into.  Unconditionally call move_bb_info.
+	(move_bb_info): Do not assert the blocks being in the same region,
+	just drop the note list if they are not.
+
+2012-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (adddi3_insn_sp32): Add earlyclobber.
+
+2012-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-forwprop.c (combine_conversions): Punt if the RHS of the
+	defining statement is a SSA name that occurs in abnormal PHIs.
+
+2012-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple-fold.c (canonicalize_constructor_val): Strip only useless type
+	conversions.
+
+2012-07-19  Richard Guenther  <rguenther@suse.de>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-ccp.c (valid_lattice_transition): Clarify comment
+	about transition from invariant to known bits.
+	(likely_value): Addresses with UNDEFINED components are UNDEFINED.
+
+2012-07-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/54017
+	* tree-cfgcleanup.c (cleanup_omp_return): Remove.
+	(cleanup_tree_cfg_bb): Don't call it.
+	* omp-low.c (expand_omp_sections): Fix up the !exit_reachable case
+	handling.
+
+2012-07-19  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/54029
+	* config/sh/sh.c (gen_far_branch): Set JUMP_LABEL for return jumps.
+
+2012-07-18  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config.gcc (v850-*-rtems*): New target.
+	* config/v850/rtems.h: New.
+	* config/v850/t-rtems: New.
+
+2012-07-18  Nick Clifton  <nickc@redhat.com>
+
+	* doc/invoke.texi (ARM Options): Document -munaligned-access.
+
+2012-07-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/53961
+
+	Backport from mainline
+	2012-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/53110
+	* config/i386/i386.md (and<mode>3): For andq $0xffffffff, reg
+	instead expand it as zero extension.
+
+2012-07-14  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (QImode and HImode cmove splitters): Merge
+	QImode and HImode splitters.  Use ix86_comparison_operator.
+	Explicitly match FLAGS_REG.
+	(DFmode cmove splitter): Explicitly match FLAGS_REG.
+
+2012-07-13  Richard Sandiford  <rdsandiford@googlemail.com>
+	    Steven Bosscher  <steven@gcc.gnu.org>
+	    Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR rtl-optimization/53908
+	* df-problems.c (can_move_insns_across): When doing
+	memory-reference book-keeping, handle call insns.
+
 2012-07-10  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
@@ -155,8 +253,10 @@
 2012-06-29  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
 	* configure: Regenerate.
+
 	Backport from mainline.
-        2012-03-15  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+	2012-03-15  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
 	* config.gcc (target_type_format_char): New. Document it. Set it for
 	arm*-*-* .
 	* configure.ac (gnu_unique_option): Use target_type_format_char
@@ -165,7 +265,8 @@
 2012-06-29  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
 	Backport from mainline.
-        2012-05-30  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+	2012-05-30  Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
 	* config/arm/arm.c (arm_evpc_neon_vrev): Adjust off by one error.
 
 2012-06-28  Georg-Johann Lay  <avr@gjlay.de>
