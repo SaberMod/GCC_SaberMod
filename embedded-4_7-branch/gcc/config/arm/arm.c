@@ -267,6 +267,7 @@ static void arm_conditional_register_usage (void);
 static reg_class_t arm_preferred_rename_class (reg_class_t rclass);
 static unsigned int arm_autovectorize_vector_sizes (void);
 static int arm_default_branch_cost (bool, bool);
+static int arm_cortex_v7m_branch_cost (bool, bool);
 static int arm_cortex_a5_branch_cost (bool, bool);
 
 static bool arm_vectorize_vec_perm_const_ok (enum machine_mode vmode,
@@ -966,6 +967,17 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   false,					/* Prefer constant pool.  */
   arm_default_branch_cost
+};
+
+/* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
+const struct tune_params arm_cortex_v7m_tune =
+{
+  arm_9e_rtx_costs,
+  NULL,
+  1,                                           /* Constant limit.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  false,                                       /* Prefer constant pool.  */
+  arm_cortex_v7m_branch_cost
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -8641,6 +8653,14 @@ static int
 arm_cortex_a5_branch_cost (bool speed_p, bool predictable_p)
 {
   return speed_p ? 0 : arm_default_branch_cost (speed_p, predictable_p);
+}
+
+static int
+arm_cortex_v7m_branch_cost (bool speed_p, bool predictable_p ATTRIBUTE_UNUSED)
+{
+  gcc_assert (TARGET_32BIT && TARGET_THUMB2);
+
+  return 1;
 }
 
 static int fp_consts_inited = 0;
