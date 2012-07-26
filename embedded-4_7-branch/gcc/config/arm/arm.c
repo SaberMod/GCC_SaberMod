@@ -924,7 +924,8 @@ const struct tune_params arm_9e_tune =
   5,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
-  arm_default_branch_cost
+  arm_default_branch_cost,
+  arm_default_unroll_times
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -963,7 +964,8 @@ const struct tune_params arm_cortex_a5_tune =
   1,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,					/* Prefer constant pool.  */
-  arm_cortex_a5_branch_cost
+  arm_cortex_a5_branch_cost,
+  arm_default_unroll_times
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -984,6 +986,7 @@ const struct tune_params arm_cortex_v7m_tune =
   arm_9e_rtx_costs,
   NULL,
   1,                                           /* Constant limit.  */
+  5,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,                                       /* Prefer constant pool.  */
   arm_cortex_v7m_branch_cost,
@@ -996,6 +999,7 @@ const struct tune_params arm_cortex_v6m_tune =
   arm_9e_rtx_costs,
   NULL,
   1,                                           /* Constant limit.  */
+  5,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,                                       /* Prefer constant pool.  */
   arm_default_branch_cost,

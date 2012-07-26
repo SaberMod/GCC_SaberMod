@@ -1,3 +1,12 @@
+2012-07-26  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (arm_9e_tune): Add a new field
+	arm_default_unroll_times.
+	(arm_v6t2_tune): Ditto.
+	(arm_cortex_a9_tune): Restore the field for max cond insns.
+	(arm_cortex_v7m_tune): Ditto.
+	* config/arm/arm-tables.opt: Regenerated for cortex-m0plus.
+
 2012-07-25  Terry Guo  <terry.guo@arm.com>
 
 	Merge r179039 from embedded-4_6-branch
