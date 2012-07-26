@@ -438,7 +438,6 @@ guess_num_vtable_pointers (struct vtv_graph_node *class_node)
 static void
 register_all_pairs (tree body)
 {
-  /* struct list_node *current; */
   struct vtbl_map_node *current;
   tree base_ptr_var_decl;
 

@@ -297,9 +297,6 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
   /* No need to protect this static. It is only used for debug purposes */
   static bool debug_first_time = true;
 
-  if ((*data_pointer) == NULL)
-    return test_value;
-
   if (debug_first_time && debug_hash)
     {
       dump_hashing_statistics ();
@@ -335,9 +332,6 @@ void *
 __VLTVerifyVtablePointer (void **data_pointer, void *test_value)
 {
   struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
-
-  if ((*data_pointer) == NULL)
-    return test_value;
 
   if (vlt_hash_find ((*base_vtbl_ptr), test_value) == NULL)
     {

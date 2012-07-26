@@ -1280,7 +1280,7 @@ GLIBCXX_3.4.16 {
     # Virtual table verification symbols
     # TODO: Ian said these need to be _ZTL* and added to the demangler
     #   virtual table maps for vtable-verification
-    _ZTV*.vtable_map;
+    _ZTV*__vtable_map;
     #   other runtime symbols
     _Z12__VLTprotectv;
     _Z14__VLTunprotectv;
