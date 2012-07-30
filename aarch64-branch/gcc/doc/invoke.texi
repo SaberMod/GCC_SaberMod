@@ -10701,7 +10701,7 @@ of TLS variables.
 Specify the name of the target architecture, optionally suffixed by one or
 more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-only value for @var{arch} is @samp{armv8}.  The possible values for
+only value for @var{arch} is @samp{armv8-a}.  The possible values for
 @var{feature} are documented in the sub-section below.
 
 Where conflicting feature modifiers are specified, the right-most feature is
