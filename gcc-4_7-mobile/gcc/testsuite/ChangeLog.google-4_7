@@ -1,0 +1,56 @@
+2012-07-24  Cary Coutant  <ccoutant@google.com>
+    
+    Backport Fission patches from trunk at r188195, r188857, r189084,
+    r189094, and r189392.
+    
+    2012-07-09  Sterling Augustine  <saugustine@google.com>
+    
+    	* g++.dg/debug/dwarf2/pubnames-2.C: New.
+    
+2012-06-15   Cary Coutant  <ccoutant@google.com>
+
+    Revert Fission patches r182490, r182891, r183042, and r183320.
+    This will clear the way to backport the final patches from trunk.
+
+	2012-01-04   Sterling Augustine  <saugustine@google.com>
+
+	    * g++.dg/diagnostic/bindings1.C: Adjust expected output.
+	    * g++.dg/ext/pretty3.C: Likewise.
+	    * g++.dg/pr44486.C: Likewise.
+	    * g++.dg/warn/Wuninitializable-member.C: Likewise.
+	    * g++.dg/warn/pr35711.C: Likewise.
+	    * g++.old-deja/g++.pt/memtemp77.C: Likewise.
+
+2012-06-07   Easwaran Raman  <eraman@google.com>
+  Backport r179412 from google/gcc-4_6 branch.
+	2011-09-30  Easwaran Raman  <eraman@google.com>
+
+		* gcc.dg/sample-profile-generate-1.c: New test.
+
+2012-05-30  Dehao Chen  <dehao@google.com>
+
+	* g++.dg/predict-loop-exit-1.C: New test.
+	* g++.dg/predict-loop-exit-2.C: New test.
+	* g++.dg/predict-loop-exit-3.C: New test.
+
+2012-05-15   Ollie Wild  <aaw@google.com>
+
+	* g++.dg/cpp0x/constexpr-static8.C: Replace -fpermissive with -pedantic.
+	* g++.dg/cpp0x/constexpr-static8_nonpedantic.C: New test.
+	* g++.old-deja/g++.ext/memconst.C: Compile with -pedantic
+	-pedantic-errors to work around test failures with -std=gnu++11.
+
+
+2012-05-03  Dehao Chen  <dehao@google.com>
+
+	Backport r185949 from google-main.
+
+	2012-03-29  Dehao Chen  <dehao@google.com>
+
+		* gcc.dg/predict-1.c: Check if LOOP_IV_COMPARE static predict
+		heuristic is working properly.
+		* gcc.dg/predict-2.c: Likewise
+		* gcc.dg/predict-3.c: Likewise
+		* gcc.dg/predict-4.c: Likewise
+		* gcc.dg/predict-5.c: Likewise
+		* gcc.dg/predict-6.c: Likewise

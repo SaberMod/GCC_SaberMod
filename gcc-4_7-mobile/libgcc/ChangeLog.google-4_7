@@ -1,0 +1,78 @@
+2012-06-29  Xinliang David Li  <davidxl@google.com>
+
+	* dyn-ipa.c (gcov_compute_cutoff_count): Use
+	parameter (compile time) to control cutoff.
+	(__gcov_compute_module_groups): Use parameters
+	to control random grouping.
+
+2012-06-07  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main r188308.
+	2012-06-07  Teresa Johnson  <tejohnson@google.com>
+
+	* libgcov.c (sort_by_reverse_gcov_value): New function.
+	(gcov_compute_cutoff_values): Ditto.
+        (gcov_merge_gcda_file): Merge new summary information.
+	(gcov_exit_init): Call gcov_compute_cutoff_values.
+
+2012-06-01   Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main r188134.
+	2012-06-01   Teresa Johnson  <tejohnson@google.com>
+
+        * libgcov.c: Add references to gcov_reset and gcov_dump
+	        from L_gcov section.
+
+2012-05-15   Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main r187536:
+	2012-05-15   Teresa Johnson  <tejohnson@google.com>
+
+	* libgcov.c (__gcov_sampling_period): Rename variable from "*rate*"
+	to "*period*".
+	(gcov_sampling_period_initialized): Ditto.
+	(__gcov_set_sampling_period): Rename from __gcov_set_sampling_rate.
+	Check __gcov_has_sampling.
+	(__gcov_has_sampling): New variable.
+	(__gcov_sampling_enabled): New function.
+	(__gcov_init): Rename variables from "*rate*" to "*period*".
+
+2012-05-09  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from trunk r187297:
+	2012-05-08   Teresa Johnson  <tejohnson@google.com>
+
+	* libgcov.c (gcov_clear, __gcov_reset): New functions.
+	(__gcov_dump): Ditto.
+	(gcov_dump_complete): New global variable.
+	(gcov_exit): Export hidden to enable use in L_gcov_dump.
+	(__gcov_flush): Outline functionality now in gcov_clear.
+	* Makefile.in (L_gcov_reset, L_gcov_dump): Define.
+
+2012-04-17  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from google/main rev r186550
+
+	2012-04-17   Teresa Johnson  <tejohnson@google.com>
+
+	Google ref b/5910724.
+	* libgcc/libgcov.c (gcov_cur_module_id): Guard definition under
+	#ifndef __GCOV_KERNEL__.
+
+2012-04-09  Xinliang David Li  <davidxl@google.com>
+
+	Fix b/6300866: corrupted LIPO profile data generated for eon, vpr
+	* libgcc/libgcov.c (gcov_merge_gcda_file):  Fix a bug in gcda merge error
+	handling.
+
+2012-03-07  Sriraman Tallam  <tmsriram@google.com>
+
+	Backport from google/main rev 185083
+
+	        * libgcc/config/i386/i386-cpuinfo.c: New file.
+	        * libgcc/config/i386/t-cpuinfo: New file.
+	        * libgcc/config.host: Include t-cpuinfo.
+	        * libgcc/config/i386/libgcc-glibc.ver: Version symbols __cpu_model
+	        and __cpu_features.
+
+

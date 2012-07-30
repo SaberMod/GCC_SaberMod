@@ -1,0 +1,22 @@
+2012-05-29  Simon Baldwin  <simonb@google.com>
+
+	Port r184840 from gcc-4_6.
+
+	2012-03-02   Doug Kwan  <dougkwan@google.com>
+
+	Backport r184357 from trunk
+
+		2012-02-17   Doug Kwan  <dougkwan@google.com>
+
+		* contrib/testsuite-management/validate_failures.py
+		(GetMakefileValue): Check for cross compilers.
+
+2012-05-16  Sriraman Tallam  <tmsriram@google.com>
+
+	Port from google/gcc-4_6 
+	r177289, r177308, r179104, r179289, r179303, r179404, r182447
+	
+	* Makefile.in: Regenerate.
+	* Makefile.def: Build function reordering plugin.
+	* configure.ac: Build function reordering plugin.
+	* configure: Regenerate.
