@@ -157,7 +157,7 @@ static const struct processor all_architectures[] =
   {NULL, aarch64_none, NULL, 0, NULL}
 };
 
-/* Target specification. These are populated as commandline arguments
+/* Target specification.  These are populated as commandline arguments
    are processed, or NULL if not specified.  */
 static const struct processor *selected_arch;
 static const struct processor *selected_cpu;
@@ -190,8 +190,8 @@ static enum machine_mode aarch64_memory_reference_mode;
 /* Used to force GTY into this file.  */
 static GTY(()) int gty_dummy;
 
-/* A table of valid Aarch64 "bitmask immediate" values for
-   logical instructions. */
+/* A table of valid AArch64 "bitmask immediate" values for
+   logical instructions.  */
 
 #define AARCH64_NUM_BITMASKS  5334
 static unsigned HOST_WIDE_INT aarch64_bitmasks[AARCH64_NUM_BITMASKS];
@@ -290,7 +290,7 @@ aarch64_is_long_call_p (rtx sym)
    represent an expression that matches an extend operation.  The
    operands represent the paramters from
 
-   (extract (mult (reg) (mult_imm)) (extract_imm) (const_int 0)). */
+   (extract (mult (reg) (mult_imm)) (extract_imm) (const_int 0)).  */
 bool
 aarch64_is_extend_from_extract (enum machine_mode mode, rtx mult_imm,
 				rtx extract_imm)
@@ -370,15 +370,15 @@ tls_symbolic_operand_type (rtx addr)
    necessary, but for generation purposes, we'll generate the address
    as :
    RTL                               Absolute
-   tmp = hi (symbol_ref);           adrp  x1, foo
-   dest = lo_sum (tmp, symbol_ref); add dest, x1, :lo_12:foo.
-					    nop
+   tmp = hi (symbol_ref);            adrp  x1, foo
+   dest = lo_sum (tmp, symbol_ref);  add dest, x1, :lo_12:foo
+                                     nop
 
-   PIC                         TLS
-   adrp x1, :got:foo          adrh tmp, :tlsgd:foo
-   ldr  x1, [:got_lo12:foo]   add  dest, tmp, :tlsgd_lo12:foo
-                              bl   __tls_get_addr
-			      nop
+   PIC                               TLS
+   adrp x1, :got:foo                 adrp tmp, :tlsgd:foo
+   ldr  x1, [:got_lo12:foo]          add  dest, tmp, :tlsgd_lo12:foo
+                                     bl   __tls_get_addr
+                                     nop
 
    Load TLS symbol, depending on TLS mechanism and TLS access model.
 
@@ -567,10 +567,10 @@ aarch64_force_temporary (rtx x, rtx value)
 static rtx
 aarch64_add_offset (enum machine_mode mode, rtx temp, rtx reg, HOST_WIDE_INT offset)
 {
-  if (!aarch64_plus_immediate (GEN_INT(offset), DImode))
+  if (!aarch64_plus_immediate (GEN_INT (offset), DImode))
     {
       rtx high;
-      /* Load the full offset into a register. This
+      /* Load the full offset into a register.  This
          might be improvable in the future.  */
       high = GEN_INT (offset);
       offset = 0;
@@ -1071,7 +1071,7 @@ aarch64_function_arg_alignment (enum machine_mode mode, const_tree type)
   return alignment;
 }
 
-/* Layout a function argument according to the AAPCS64 rules. The rule
+/* Layout a function argument according to the AAPCS64 rules.  The rule
    numbers refer to the rule numbers in the AAPCS64.  */
 
 static void
@@ -1143,9 +1143,9 @@ aarch64_layout_arg (cumulative_args_t pcum_v, enum machine_mode mode,
 	   + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
 
-  /* C6 - C9. though the sign and zero extension semantics are
-     handled elsewhere. This is the case where the argument fits
-     entirely in the core registers.  */
+  /* C6 - C9.  though the sign and zero extension semantics are
+     handled elsewhere.  This is the case where the argument fits
+     entirely general registers.  */
   if (allocate_ncrn && (ncrn + nregs <= NUM_ARG_REGS))
     {
       unsigned int alignment = aarch64_function_arg_alignment (mode, type);
@@ -1308,7 +1308,7 @@ aarch64_pad_arg_upward (enum machine_mode mode, const_tree type)
       : (SCALAR_INT_MODE_P (mode) || SCALAR_FLOAT_MODE_P (mode)))
     return false;
 
-  /* Everything else padded upward, i.e. data in first byte of stack slot. */
+  /* Everything else padded upward, i.e. data in first byte of stack slot.  */
   return true;
 }
 
@@ -1370,7 +1370,7 @@ aarch64_frame_pointer_required (void)
      function called; if we did, we also set the 'faked_omit_frame_pointer' flag
      and we'll check it here.
      If we really did set flag_omit_frame_pointer normally, then we return false
-     (no frame pointer required) in all cases. */
+     (no frame pointer required) in all cases.  */
 
   if (flag_omit_frame_pointer && !faked_omit_frame_pointer)
     return false;
@@ -1400,7 +1400,7 @@ aarch64_layout_frame (void)
   for (regno = V0_REGNUM; regno <= V31_REGNUM; regno++)
     cfun->machine->frame.reg_offset[regno] = -1;
 
-  /* ... that includes the eh data registers (if needed)... */
+  /* ... that includes the eh data registers (if needed)...  */
   if (crtl->calls_eh_return)
     for (regno = 0; EH_RETURN_DATA_REGNO (regno) != INVALID_REGNUM; regno++)
       cfun->machine->frame.reg_offset[EH_RETURN_DATA_REGNO (regno)] = 0;
@@ -1705,7 +1705,7 @@ aarch64_expand_prologue (void)
   */
   HOST_WIDE_INT original_frame_size;	/* local variables + vararg save */
   HOST_WIDE_INT frame_size, offset;
-  HOST_WIDE_INT fp_offset;		/* fp offset from sp */
+  HOST_WIDE_INT fp_offset;		/* FP offset from SP */
   rtx insn;
 
   aarch64_layout_frame ();
@@ -1777,7 +1777,7 @@ aarch64_expand_prologue (void)
   if (offset > 0)
     {
       /* Save the frame pointer and lr if the frame pointer is needed
-	 first. Make the frame pointer point to the location of the
+	 first.  Make the frame pointer point to the location of the
 	 old frame pointer on the stack.  */
       if (frame_pointer_needed)
 	{
@@ -1991,7 +1991,7 @@ aarch64_expand_epilogue (bool for_sibcall)
   if (crtl->calls_eh_return)
     {
       /* We need to unwind the stack by the offset computed by
-	 EH_RETURN_STACKADJ_RTX. However, at this point the CFA is
+	 EH_RETURN_STACKADJ_RTX.  However, at this point the CFA is
 	 based on SP.  Ideally we would update the SP and define the
 	 CFA along the lines of:
 
@@ -2030,7 +2030,7 @@ aarch64_expand_epilogue (bool for_sibcall)
 						 stack_pointer_rtx,
 						 GEN_INT (frame_size))));
 	}
-      else if(frame_size > 0)
+      else if (frame_size > 0)
 	{
 	  if ((frame_size & 0xfff) != 0)
 	    {
@@ -2081,16 +2081,16 @@ aarch64_final_eh_return_addr (void)
   if (cfun->machine->frame.reg_offset[LR_REGNUM] < 0)
     return gen_rtx_REG (DImode, LR_REGNUM);
 
-  /* DSE and CSELIB do not detect an alias between sp+k1 and fp+k2. This can
-   * result in a store to save LR introduced by builtin_eh_return () being
-   * incorrectly deleted because the alias is not detected.
-   * So in the calculation of the address to copy the exception unwinding
-   * return address to, we note 2 cases.
-   * If FP is needed and the fp_offset is 0, it means that SP = FP and hence
-   * we return a SP-relative location since all the addresses are SP-relative
-   * in this case. This prevents the store from being optimized away.
-   * If the fp_offset is not 0, then the addresses will be FP-relative and
-   * therefore we return a FP-relative location.  */
+  /* DSE and CSELIB do not detect an alias between sp+k1 and fp+k2.  This can
+     result in a store to save LR introduced by builtin_eh_return () being
+     incorrectly deleted because the alias is not detected.
+     So in the calculation of the address to copy the exception unwinding
+     return address to, we note 2 cases.
+     If FP is needed and the fp_offset is 0, it means that SP = FP and hence
+     we return a SP-relative location since all the addresses are SP-relative
+     in this case.  This prevents the store from being optimized away.
+     If the fp_offset is not 0, then the addresses will be FP-relative and
+     therefore we return a FP-relative location.  */
 
   if (frame_pointer_needed)
     {
@@ -2103,7 +2103,7 @@ aarch64_final_eh_return_addr (void)
     }
 
   /* If FP is not needed, we calculate the location of LR, which would be
-   * at the top of the saved regisers block.  */
+     at the top of the saved registers block.  */
 
   return gen_frame_mem (DImode,
 			plus_constant (Pmode,
@@ -2113,7 +2113,7 @@ aarch64_final_eh_return_addr (void)
 				       - 2 * UNITS_PER_WORD));
 }
 
-/* Output code to build up a constant in a register. */
+/* Output code to build up a constant in a register.  */
 static void
 aarch64_build_constant (FILE *file,
 			int regnum,
@@ -2143,11 +2143,11 @@ aarch64_build_constant (FILE *file,
 	  valp >>= 16;
 	}
 
-      /* zcount contains the number of additional movk instructions
-	 required if the constant is built up with an initial movz,
-	 while ncount is the number of movks required if starting
-	 with a movn. Choose the sequence that yields the fewest
-	 number of instructions, prefering movz when they are both
+      /* zcount contains the number of additional MOVK instructions
+	 required if the constant is built up with an initial MOVZ instruction,
+	 while ncount is the number of MOVK instructions required if starting
+	 with a MOVN instruction.  Choose the sequence that yields the fewest
+	 number of instructions, preferring MOVZ instructions when they are both
 	 the same.  */
       if (ncount < zcount)
 	{
@@ -2338,7 +2338,7 @@ aarch64_build_bitmask_table (void)
 
 
 /* Return true if val can be encoded as a 12-bit unsigned immediate with
-   a left shift of 0, 8, 12 (or 24) bits. */
+   a left shift of 0 or 12 bits.  */
 bool
 aarch64_uimm12_shift (HOST_WIDE_INT val)
 {
@@ -2349,7 +2349,7 @@ aarch64_uimm12_shift (HOST_WIDE_INT val)
 
 
 /* Return true if val is an immediate that can be loaded into a
-   register by a MOVZ instruction. */
+   register by a MOVZ instruction.  */
 static bool
 aarch64_movw_imm (HOST_WIDE_INT val, enum machine_mode mode)
 {
@@ -2361,7 +2361,7 @@ aarch64_movw_imm (HOST_WIDE_INT val, enum machine_mode mode)
     }
   else
     {
-      /* Ignore sign extension. */
+      /* Ignore sign extension.  */
       val &= (HOST_WIDE_INT) 0xffffffff;
     }
   return ((val & (((HOST_WIDE_INT) 0xffff) << 0)) == val
@@ -2369,7 +2369,7 @@ aarch64_movw_imm (HOST_WIDE_INT val, enum machine_mode mode)
 }
 
 
-/* Return true if val is a valid bitmask immediate. */
+/* Return true if val is a valid bitmask immediate.  */
 bool
 aarch64_bitmask_imm (HOST_WIDE_INT val, enum machine_mode mode)
 {
@@ -2380,12 +2380,12 @@ aarch64_bitmask_imm (HOST_WIDE_INT val, enum machine_mode mode)
       val |= val << 32;
     }
   return bsearch (&val, aarch64_bitmasks, AARCH64_NUM_BITMASKS,
-		  sizeof(aarch64_bitmasks[0]), aarch64_bitmasks_cmp) != NULL;
+		  sizeof (aarch64_bitmasks[0]), aarch64_bitmasks_cmp) != NULL;
 }
 
 
 /* Return true if val is an immediate that can be loaded into a
-   register in a single instruction. */
+   register in a single instruction.  */
 bool
 aarch64_move_imm (HOST_WIDE_INT val, enum machine_mode mode)
 {
@@ -2466,7 +2466,7 @@ aarch64_base_register_rtx_p (rtx x, bool strict_p)
 }
 
 /* Return true if address offset is a valid index.  If it is, fill in INFO
-   appropriately.  STRICT_P is true if REG_OK_STRICT is in effect. */
+   appropriately.  STRICT_P is true if REG_OK_STRICT is in effect.  */
 
 static bool
 aarch64_classify_index (struct aarch64_address_info *info, rtx x,
@@ -3214,7 +3214,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       /* Fall through */
 
     case 0:
-      /* Print a normal operand, if it's a core register, then we
+      /* Print a normal operand, if it's a general register, then we
 	 assume DImode.  */
       if (x == NULL)
 	{
@@ -3524,7 +3524,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
 
   /* We wish to handle large displacements off a base register by splitting
      the addend across an add and the mem insn.  This can cut the number of
-     extra insns needed from 3 to 1. It is only useful for load/store of a
+     extra insns needed from 3 to 1.  It is only useful for load/store of a
      single register with 12 bit offset field.  */
   if (GET_CODE (x) == PLUS
       && REG_P (XEXP (x, 0))
@@ -3540,7 +3540,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
       HOST_WIDE_INT offs;
       rtx cst;
 
-      /* Reload non-zero BLKmode offsets. This is because we cannot ascertain
+      /* Reload non-zero BLKmode offsets.  This is because we cannot ascertain
 	 BLKmode alignment.  */
       if (GET_MODE_SIZE (mode) == 0)
 	return NULL_RTX;
@@ -3624,8 +3624,8 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
     }
 
   /* A TFmode or TImode memory access should be handled via an FP_REGS
-     because AArch64 has richer addressing modes for ldr/str q than
-     ldp/stp x  */
+     because AArch64 has richer addressing modes for LDR/STR instructions
+     than LDP/STP instructions.  */
   if (!TARGET_GENERAL_REGS_ONLY && rclass == CORE_REGS
       && GET_MODE_SIZE (mode) == 16 && MEM_P (x))
     return FP_REGS;
@@ -3698,7 +3698,7 @@ aarch64_initial_elimination_offset (unsigned from, unsigned to)
            HOST_WIDE_INT elim = crtl->outgoing_args_size
                               + cfun->machine->frame.saved_regs_size
                               - cfun->machine->frame.fp_lr_offset;
-           elim = AARCH64_ROUND_UP(elim, STACK_BOUNDARY / BITS_PER_UNIT);
+           elim = AARCH64_ROUND_UP (elim, STACK_BOUNDARY / BITS_PER_UNIT);
            return elim;
          }
      }
@@ -3752,7 +3752,7 @@ aarch64_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
   emit_move_insn (mem, chain_value);
 
   /* XXX We should really define a "clear_cache" pattern and use
-   * gen_clear_cache(). */
+     gen_clear_cache().  */
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
 		     0, VOIDmode, 2, a_tramp, Pmode,
@@ -3909,7 +3909,7 @@ aarch64_use_blocks_for_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED,
 				   const_rtx x ATTRIBUTE_UNUSED)
 {
   /* We can't use blocks for constants when we're using a per-function
-     constant pool. */
+     constant pool.  */
   return false;
 }
 
@@ -4025,7 +4025,7 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 	  *cost += rtx_cost (op1, SET, 1, true);
 	  return true;
 
-	case ZERO_EXTRACT:  /* Bit-field insertion. */
+	case ZERO_EXTRACT:  /* Bit-field insertion.  */
 	case SIGN_EXTRACT:
 	  /* Strip any redundant widening of the RHS to meet the width of
 	     the target.  */
@@ -4347,14 +4347,11 @@ aarch64_register_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
   else if (to == GENERAL_REGS)
     return regmove_cost->FP2GP;
 
-  /* When ADVSIMD instructions are disabled it is not possible to move
-     a 128bit value directly between Q registers.  This is handled in
-     secondary reload. A core register is used as a scratch to move
-     the upper DI value and the lower DI value is moved directly.
-     Hence the cost is the sum of three moves.  But, this means that
-     our movtf pattern does not support Q->Q directly, this is OK,
-     according to the manual provided the by using a core register as
-     a scratch explain the amdness */
+  /* When AdvSIMD instructions are disabled it is not possible to move
+     a 128-bit value directly between Q registers.  This is handled in
+     secondary reload.  A general register is used as a scratch to move
+     the upper DI value and the lower DI value is moved directly,
+     hence the cost is the sum of three moves. */
 
   if (! TARGET_SIMD && GET_MODE_SIZE (from) == 128 && GET_MODE_SIZE (to) == 128)
     return regmove_cost->GP2FP + regmove_cost->FP2GP + regmove_cost->FP2FP;
@@ -4375,9 +4372,9 @@ static void initialize_aarch64_code_model (void);
 /* Tuning parameters.  */
 
 #if HAVE_DESIGNATED_INITIALIZERS
-#define NAMED_PARAM(NAME,VAL) .NAME = (VAL)
+#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
 #else
-#define NAMED_PARAM(NAME,VAL) (VAL)
+#define NAMED_PARAM(NAME, VAL) (VAL)
 #endif
 
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
@@ -4476,7 +4473,7 @@ aarch64_parse_extension (char *str)
 	  return;
 	}
 
-      /* Scan over the extensions table trying to find an exact match. */
+      /* Scan over the extensions table trying to find an exact match.  */
       for (opt = all_extensions; opt->name != NULL; opt++)
 	{
 	  if (strlen (opt->name) == len && strncmp (opt->name, str, len) == 0)
@@ -4631,7 +4628,7 @@ static void
 aarch64_override_options (void)
 {
   /* march wins over mcpu, so when march is defined, mcpu takes the same value,
-     otherwise march remains undefined. mtune can be used with either march or
+     otherwise march remains undefined.  mtune can be used with either march or
      mcpu.  */
 
   if (aarch64_arch_string)
@@ -4660,7 +4657,7 @@ aarch64_override_options (void)
     flag_strict_volatile_bitfields = 1;
 
   /* If the user did not specify a processor, choose the default
-     one for them. This will be the CPU set during configuration using
+     one for them.  This will be the CPU set during configuration using
      --with-cpu, otherwise it is "generic".  */
   if (!selected_cpu)
     {
@@ -4689,8 +4686,8 @@ aarch64_override_options_after_change (void)
   faked_omit_frame_pointer = false;
 
   /* To omit leaf frame pointers, we need to turn flag_omit_frame_pointer on so
-     that aarch64_frame_pointer_required will be called. We need to remember
-     whether flag_omit_frame_pointer was turned on normally or just faked. */
+     that aarch64_frame_pointer_required will be called.  We need to remember
+     whether flag_omit_frame_pointer was turned on normally or just faked.  */
 
   if (flag_omit_leaf_frame_pointer && !flag_omit_frame_pointer)
     {
@@ -4822,13 +4819,10 @@ aarch64_classify_symbol (rtx x,
     case AARCH64_CMODEL_TINY:
     case AARCH64_CMODEL_SMALL:
 
-      /* This is needed to get DFmode, TImode constants
-	 to be loaded off the constant pool. Is
-	 it necessary to dump TImode values into
-	 the constant pool. We don't handle TImode
-         constant loads properly yet and hence
-         need to use the constant pool, I think.
-      */
+      /* This is needed to get DFmode, TImode constants to be loaded off
+         the constant pool.  Is it necessary to dump TImode values into
+         the constant pool.  We don't handle TImode constant loads properly
+         yet and hence need to use the constant pool.  */
       if (CONSTANT_POOL_ADDRESS_P (x))
 	return SYMBOL_FORCE_TO_MEM;
 
@@ -4980,7 +4974,7 @@ static GTY(()) tree va_list_type;
      void *__vr_top;
      int   __gr_offs;
      int   __vr_offs;
-   }; */
+   };  */
 
 static tree
 aarch64_build_builtin_va_list (void)
@@ -5548,7 +5542,7 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
 	tree index = TYPE_DOMAIN (type);
 
 	/* Can't handle incomplete types.  */
-	if (!COMPLETE_TYPE_P(type))
+	if (!COMPLETE_TYPE_P (type))
 	  return -1;
 
 	count = aapcs_vfp_sub_candidate (TREE_TYPE (type), modep);
@@ -5580,7 +5574,7 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
 	tree field;
 
 	/* Can't handle incomplete types.  */
-	if (!COMPLETE_TYPE_P(type))
+	if (!COMPLETE_TYPE_P (type))
 	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -5612,7 +5606,7 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
 	tree field;
 
 	/* Can't handle incomplete types.  */
-	if (!COMPLETE_TYPE_P(type))
+	if (!COMPLETE_TYPE_P (type))
 	  return -1;
 
 	for (field = TYPE_FIELDS (type); field; field = TREE_CHAIN (field))
@@ -5798,8 +5792,8 @@ aarch64_preferred_simd_mode (enum machine_mode mode)
 }
 
 /* Legitimize a memory reference for sync primitive implemented using
-   ldrex / strex.  We currently force the form of the reference to be
-   indirect without offset.  */
+   LDXR/STXR instructions.  We currently force the form of the reference
+   to be indirect without offset.  */
 static rtx
 aarch64_legitimize_sync_memory (rtx memory)
 {
@@ -5857,8 +5851,8 @@ aarch64_output_asm_insn (emit_f emit, int label, rtx *operands,
   emit (label, buffer, operands);
 }
 
-/* Helper to figure out the instruction suffix required on ldrex/strex
-   for operations on an object of the specified mode.  */
+/* Helper to figure out the instruction suffix required on LDXR/STXR
+   instructions for operations on an object of the specified mode.  */
 static const char *
 aarch64_load_store_suffix (enum machine_mode mode)
 {
@@ -6143,8 +6137,8 @@ aarch64_call_generator (struct aarch64_sync_generator *generator, rtx old_value,
    expanded as an opaque block of instructions in order to ensure that
    we do not subsequently get extraneous memory accesses inserted
    within the critical region.  The exclusive access property of
-   ldrex/strex is only guaranteed in there are no intervening memory
-   accesses.  */
+   LDXR/STXR instructions is only guaranteed if there are no intervening
+   memory accesses.  */
 void
 aarch64_expand_sync (enum machine_mode mode,
 		     struct aarch64_sync_generator *generator,
@@ -6371,10 +6365,10 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, int inverse,
 #undef CHECK
 }
 
-/* Return TRUE if rtx X is legal for use as either a Neon MOVI (or, implicitly,
-   MVNI) immediate. Write back width per element to *ELEMENTWIDTH (or zero for
-   float elements), and a modified constant (whatever should be output for a
-   MOVI) in *MODCONST.  */
+/* Return TRUE if rtx X is legal for use as either a AdvSIMD MOVI instruction
+   (or, implicitly, MVNI) immediate.  Write back width per element
+   to *ELEMENTWIDTH (or zero for float elements), and a modified constant
+   (whatever should be output for a MOVI instruction) in *MODCONST.  */
 int
 aarch64_simd_immediate_valid_for_move (rtx op, enum machine_mode mode,
 				       rtx *modconst, int *elementwidth,
@@ -6498,14 +6492,15 @@ aarch64_simd_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
     error ("constant out of range");
 }
 
-/* Emit code to reinterpret one Neon type as another, without altering bits.  */
+/* Emit code to reinterpret one AdvSIMD type as another,
+   without altering bits.  */
 void
 aarch64_simd_reinterpret (rtx dest, rtx src)
 {
   emit_move_insn (dest, gen_lowpart (GET_MODE (dest), src));
 }
 
-/* Emit code to place a Neon pair result in memory locations (with equal
+/* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */
 void
 aarch64_simd_emit_pair_result_insn (enum machine_mode mode,
@@ -6621,7 +6616,7 @@ aarch64_c_mode_for_suffix (char suffix)
 #define TARGET_ADDRESS_COST aarch64_address_cost
 
 /* This hook will determines whether unnamed bitfields affect the alignment
-   of the containing structure. The hook returns true if the structure
+   of the containing structure.  The hook returns true if the structure
    should inherit the alignment requirements of an unnamed bitfield's
    type.  */
 #undef TARGET_ALIGN_ANON_BITFIELD
@@ -6732,7 +6727,7 @@ aarch64_c_mode_for_suffix (char suffix)
 #define TARGET_MUST_PASS_IN_STACK must_pass_in_stack_var_size
 
 /* This target hook should return true if accesses to volatile bitfields
-   should use the narrowest mode possible. It should return false if these
+   should use the narrowest mode possible.  It should return false if these
    accesses should use the bitfield container type.  */
 #undef TARGET_NARROW_VOLATILE_BITFIELD
 #define TARGET_NARROW_VOLATILE_BITFIELD hook_bool_void_false

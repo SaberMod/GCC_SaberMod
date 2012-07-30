@@ -235,7 +235,7 @@
   (const_string "none"))
 
 
-; The "neon_type" attribute is used by the AArch32 backend. Below is a mapping
+; The "neon_type" attribute is used by the AArch32 backend.  Below is a mapping
 ; from "simd_type" to "neon_type".
 
 (define_attr "neon_type"
@@ -1134,15 +1134,13 @@
 ;; Floating-point operations can raise an exception.  Vectorizing such
 ;; operations are safe because of reasons explained below.
 ;;
-;; AArch-v8 permits an extension to enable trapped floating-point
-;; exception handling, however this is an optional feature. In the
+;; ARMv8 permits an extension to enable trapped floating-point
+;; exception handling, however this is an optional feature.  In the
 ;; event of a floating-point exception being raised by vectorised
 ;; code then:
 ;; 1.  If trapped floating-point exceptions are available, then a trap
-;;     will be taken when any lane raises an enabled exception. A trap
-;;     handler may determine which lane raised the exception by
-;;     performing the operations sequentially or using some other
-;;     implementation-defined mechanism.
+;;     will be taken when any lane raises an enabled exception.  A trap
+;;     handler may determine which lane raised the exception.
 ;; 2.  Alternatively a sticky exception flag is set in the
 ;;     floating-point status register (FPSR).  Software may explicitly
 ;;     test the exception flags, in which case the tests will either
@@ -1233,7 +1231,7 @@
 )
 
 ;; FP Max/Min
-;; Max/Min are introduced by idiom recognition by GCC's mid-end. An
+;; Max/Min are introduced by idiom recognition by GCC's mid-end.  An
 ;; expression like:
 ;;      a = (b < c) ? b : c;
 ;; is idiom-matched as MIN_EXPR<b,c> only if -ffinite-math-only is enabled
@@ -1242,7 +1240,7 @@
 ;; MIN_EXPR and MAX_EXPR eventually map to 'smin' and 'smax' in RTL.
 ;; The 'smax' and 'smin' RTL standard pattern names do not specify which
 ;; operand will be returned when both operands are zero (i.e. they may not
-;; honour signed zeroes), or when either operand is NaN. Therefore GCC
+;; honour signed zeroes), or when either operand is NaN.  Therefore GCC
 ;; only introduces MIN_EXPR/MAX_EXPR in fast math mode or when not honouring
 ;; NaNs.
 

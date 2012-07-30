@@ -242,7 +242,7 @@
   (const_string "unknown"))
 
 ; The "v8type" attribute is used to for fine grained classification of
-; AArch64 instructions. This table briefly explains the meaning of each type.
+; AArch64 instructions.  This table briefly explains the meaning of each type.
 
 ; adc              add/subtract with carry.
 ; adcs             add/subtract with carry (setting condition flags).
@@ -391,7 +391,7 @@
   (const_string "alu"))
 
 
-; The "type" attribute is used by the AArch32 backend. Below is a mapping
+; The "type" attribute is used by the AArch32 backend.  Below is a mapping
 ; from "v8type" to "type".
 
 (define_attr "type"
@@ -1183,7 +1183,7 @@
    (set_attr "mode" "<MODE>")]
 )
 
-;; Load pair with writeback. This is primarily used in function epilogues
+;; Load pair with writeback.  This is primarily used in function epilogues
 ;; when restoring [fp,lr]
 (define_insn "loadwb_pair<GPI:mode>_<PTR:mode>"
   [(parallel
@@ -1202,7 +1202,7 @@
    (set_attr "mode" "<GPI:MODE>")]
 )
 
-;; Store pair with writeback. This is primarily used in function prologues
+;; Store pair with writeback.  This is primarily used in function prologues
 ;; when saving [fp,lr]
 (define_insn "storewb_pair<GPI:mode>_<PTR:mode>"
   [(parallel
@@ -2694,7 +2694,8 @@
 )
 
 ;; Given that smax/smin do not specify the result when either input is NaN,
-;; we could use either fmaxnm or fmax. Same for fmin.
+;; we could use either FMAXNM or FMAX for smax, and either FMINNM or FMIN
+;; for smin.
 
 (define_insn "smax<mode>3"
   [(set (match_operand:GPF 0 "register_operand" "=w")
@@ -2720,10 +2721,10 @@
 ;; Reload support
 ;; -------------------------------------------------------------------
 
-; Reload SP+imm where imm cannot be handled by single add/i.  Must
-; load imm into a scratch register and copy sp to the dest reg before
-; adding, since sp cannot be used as a source register in an add/r
-; instruction.
+;; Reload SP+imm where imm cannot be handled by a single ADD instruction.  
+;; Must load imm into a scratch register and copy SP to the dest reg before
+;; adding, since SP cannot be used as a source register in an ADD
+;; instruction.
 (define_expand "reload_sp_immediate"
   [(parallel [(set (match_operand:DI 0 "register_operand" "=r")
 		   (match_operand:DI 1 "" ""))
@@ -2830,8 +2831,9 @@
   ])
 
 ;; There is a deliberate reason why the parameters of high and lo_sum's
-;; don't have modes for adrp's and adds. This is to allow high and lo_sum's
-;; to be used with the labels defining the jump tables in rodata section.
+;; don't have modes for ADRP and ADD instructions.  This is to allow high
+;; and lo_sum's to be used with the labels defining the jump tables in
+;; rodata section.
 
 (define_insn "add_losym"
   [(set (match_operand:DI 0 "register_operand" "=r")

@@ -20,7 +20,7 @@
 
 ;; In the absence of any ARMv8-A implementations, two examples derived
 ;; from ARM's most recent ARMv7-A cores (Cortex-A7 and Cortex-A15) are
-;; included by way of example. This is a temporary measure.
+;; included by way of example.  This is a temporary measure.
 
 ;; Example pipeline description for an example 'large' core
 ;; implementing AArch64
@@ -173,7 +173,7 @@
 
 
 ;; Calls take up all issue slots, and form a block in the
-;; pipeline. The result however is available the next cycle.
+;; pipeline.  The result however is available the next cycle.
 ;; Addition of new units requires this to be updated.
 (define_insn_reservation "large_cpu_call" 1
   (and (eq_attr "tune" "large") (eq_attr "v8type" "call"))

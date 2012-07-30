@@ -67,7 +67,7 @@ enum aarch64_symbol_context
    high and lo relocs that calculate the base address using a PC
    relative reloc.
    So to get the address of foo, we generate
-   adrh x0, foo
+   adrp x0, foo
    add  x0, x0, :lo12:foo
 
    To load or store something to foo, we could use the corresponding
@@ -81,14 +81,14 @@ enum aarch64_symbol_context
    SYMBOL_SMALL_GOT: Similar to the one above but this
    gives us the GOT entry of the symbol being referred to :
    Thus calculating the GOT entry for foo is done using the
-   following sequence of instructions. The adrh gets us to the
-   page containing the GOT entry of the symbol and the got_lo12 gets
-   us the actual offset in it.
+   following sequence of instructions.  The ADRP instruction
+   gets us to the page containing the GOT entry of the symbol
+   and the got_lo12 gets us the actual offset in it.
 
-    adrh  x0, :got:foo
-    ldr   x0, [x0, :gotoff_lo12:foo]
+   adrp  x0, :got:foo
+   ldr   x0, [x0, :gotoff_lo12:foo]
 
-    This corresponds to the small PIC model of the compiler.
+   This corresponds to the small PIC model of the compiler.
 
    SYMBOL_SMALL_TLSGD
    SYMBOL_SMALL_TLSDESC
@@ -98,8 +98,8 @@ enum aarch64_symbol_context
    thread local storage relocation operator for the symbol being referred to.
 
    SYMBOL_FORCE_TO_MEM : Global variables are addressed using
-   constant pool. All variable addresses are spilled into constant
-   pools. The constant pools themselves are addressed using PC
+   constant pool.  All variable addresses are spilled into constant
+   pools.  The constant pools themselves are addressed using PC
    relative accesses.  This only works for the large code model.
  */
 enum aarch64_symbol_type
@@ -223,7 +223,7 @@ void init_aarch64_simd_builtins (void);
 
 void aarch64_simd_const_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
 
-/* Emit code to place a Neon pair result in memory locations (with equal
+/* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */
 void aarch64_simd_emit_pair_result_insn (enum machine_mode,
 					 rtx (*intfn) (rtx, rtx, rtx), rtx,

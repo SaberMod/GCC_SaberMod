@@ -20,7 +20,7 @@
 
 ;; In the absence of any ARMv8-A implementations, two examples derived
 ;; from ARM's most recent ARMv7-A cores (Cortex-A7 and Cortex-A15) are
-;; included by way of example. This is a temporary measure.
+;; included by way of example.  This is a temporary measure.
 
 ;; Example pipeline description for an example 'small' core
 ;; implementing AArch64
@@ -38,7 +38,7 @@
 ;;
 ;; There are five pipeline stages.
 ;; The decode/issue stages operate the same for all instructions.
-;; Instructions always advance one stage per cycle in order.  
+;; Instructions always advance one stage per cycle in order.
 ;; Only branch instructions may dual-issue with other instructions, except
 ;; when those instructions take multiple cycles to issue.
 
@@ -165,7 +165,7 @@
 ;; Branches
 ;;-------------------------------------------------------
 
-;; Direct branches are the only instructions that can dual-issue. 
+;; Direct branches are the only instructions that can dual-issue.
 ;; The latency here represents when the branch actually takes place.
 
 (define_insn_reservation "small_cpu_unit_br" 3

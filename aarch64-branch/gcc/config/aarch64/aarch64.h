@@ -307,7 +307,7 @@ extern unsigned long aarch64_tune_flags;
 /* The number of V registers.  */
 #define AARCH64_DWARF_NUMBER_V 32
 
-/* For signal frames we need to use an alternative return column. This
+/* For signal frames we need to use an alternative return column.  This
    value must not correspond to a hard register and must be out of the
    range of DWARF_FRAME_REGNUM().  */
 #define DWARF_ALT_FRAME_RETURN_COLUMN   \
@@ -467,7 +467,7 @@ extern enum aarch64_processor aarch64_tune;
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-#define AARCH64_ROUND_UP(X,ALIGNMENT) \
+#define AARCH64_ROUND_UP(X, ALIGNMENT) \
   (((X) + ((ALIGNMENT) - 1)) & ~((ALIGNMENT) - 1))
 
 #define AARCH64_ROUND_DOWN(X, ALIGNMENT) \
@@ -587,7 +587,7 @@ typedef struct
    operand.  If we find one, push the reload and jump to WIN.  This
    macro is used in only one place: `find_reloads_address' in reload.c.  */
 
-#define LEGITIMIZE_RELOAD_ADDRESS(X,MODE,OPNUM,TYPE,IND_L,WIN)		     \
+#define LEGITIMIZE_RELOAD_ADDRESS(X, MODE, OPNUM, TYPE, IND_L, WIN)	     \
 do {									     \
   rtx new_x = aarch64_legitimize_reload_address (&(X), MODE, OPNUM, TYPE,    \
 						 IND_L);		     \
@@ -645,7 +645,7 @@ do {									     \
   ((speed) ? 15 : AARCH64_CALL_RATIO - 2)
 
 /* STORE_BY_PIECES_P can be used when copying a constant string, but
-   in that case each 64-bit chunk takes 5 insns instead of 2 (ldr/str).
+   in that case each 64-bit chunk takes 5 insns instead of 2 (LDR/STR).
    For now we always fail this and let the move_by_pieces code copy
    the string from read-only memory.  */
 #define STORE_BY_PIECES_P(SIZE, ALIGN) 0
@@ -679,7 +679,7 @@ do {									     \
    accesses require more than one instruction or if there is no
    difference in cost.
    Although there's no difference in instruction count or cycles,
-   in Aarch64 we don't want to expand to a sub-word to a 64-bit access
+   in AArch64 we don't want to expand to a sub-word to a 64-bit access
    if we don't have to, for power-saving reasons.  */
 #define SLOW_BYTE_ACCESS		0
 
@@ -743,7 +743,7 @@ do {									     \
   aarch64_function_profiler (STREAM, LABELNO)
 
 /* For some reason, the Linux headers think they know how to define
- * these macros.  They don't!!! */
+   these macros.  They don't!!!  */
 #undef ASM_APP_ON
 #undef ASM_APP_OFF
 #define ASM_APP_ON	"\t" ASM_COMMENT_START " Start of user assembly\n"

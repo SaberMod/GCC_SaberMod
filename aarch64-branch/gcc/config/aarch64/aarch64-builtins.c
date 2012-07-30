@@ -130,7 +130,7 @@ typedef struct
   unsigned int base_fcode;
 } aarch64_simd_builtin_datum;
 
-#define CF(N,X) CODE_FOR_aarch64_##N##X
+#define CF(N, X) CODE_FOR_aarch64_##N##X
 
 #define VAR1(T, N, A) \
   #N, AARCH64_SIMD_##T, UP (A), { CF (N, A) }, 1, 0
@@ -743,7 +743,7 @@ init_aarch64_simd_builtins (void)
 
 		    if (is_struct_load || (is_load && k == 1))
 		      {
-			/* Neon load patterns always have the memory operand
+			/* AdvSIMD load patterns always have the memory operand
 			   (a DImode pointer) in the operand 1 position.  We
 			   want a const pointer to the element type in that
 			   position.  */
@@ -787,7 +787,7 @@ init_aarch64_simd_builtins (void)
 		      }
 		    else if (is_struct_store || (is_store && k == 0))
 		      {
-			/* Similarly, Neon store patterns use operand 0 as
+			/* Similarly, AdvSIMD store patterns use operand 0 as
 			   the memory location to store to (a DImode pointer).
 			   Use a pointer to the element type of the store in
 			   that position.  */
