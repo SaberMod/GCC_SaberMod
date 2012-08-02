@@ -1,3 +1,10 @@
+2012-08-01  Simon Baldwin  <simonb@google.com>
+
+	* gcc.dg/tree-prof/lipo/lipo.exp: Append -fno-section-anchors to
+	profile_option and feedback_option for powerpc targets.  Workround
+	for Google ref b/6663281.
+	* g++.dg/tree-prof/lipo/lipo.exp: Likewise
+
 2012-06-15   Cary Coutant  <ccoutant@google.com>
 
     Revert Fission patches r182490, r182891, r183042, and r183320.
