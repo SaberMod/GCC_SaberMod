@@ -187,6 +187,7 @@ const char *aarch64_output_sync_lock_release (rtx, rtx);
 enum aarch64_symbol_type aarch64_classify_symbol (rtx,
 						  enum aarch64_symbol_context);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);
+int aarch64_asm_preferred_eh_data_format (int, int);
 int aarch64_hard_regno_mode_ok (unsigned, enum machine_mode);
 int aarch64_hard_regno_nregs (unsigned, enum machine_mode);
 int aarch64_simd_immediate_valid_for_move (rtx, enum machine_mode, rtx *,

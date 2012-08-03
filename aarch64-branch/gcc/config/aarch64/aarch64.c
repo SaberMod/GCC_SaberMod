@@ -44,6 +44,7 @@
 #include "diagnostic-core.h"
 #include "gimple.h"
 #include "optabs.h"
+#include "dwarf2.h"
 
 /* Classifies an address.
 
@@ -6590,6 +6591,31 @@ aarch64_elf_asm_named_section (const char *name, unsigned int flags,
     }
 
   putc ('\n', asm_out_file);
+}
+
+/* Select a format to encode pointers in exception handling data.  */
+int
+aarch64_asm_preferred_eh_data_format (int code ATTRIBUTE_UNUSED, int global)
+{
+   int type;
+   switch (aarch64_cmodel)
+     {
+     case AARCH64_CMODEL_TINY:
+     case AARCH64_CMODEL_TINY_PIC:
+     case AARCH64_CMODEL_SMALL:
+     case AARCH64_CMODEL_SMALL_PIC:
+       /* text+got+data < 4Gb.  4-byte signed relocs are sufficient
+	  for everything.  */
+       type = DW_EH_PE_sdata4;
+       break;
+     default:
+       /* No assumptions here.  8-byte relocs required.  */
+       type = DW_EH_PE_sdata8;
+       break;
+     }
+   return ((global && flag_shlib) ? DW_EH_PE_indirect : 0)
+           | DW_EH_PE_pcrel
+           | type;
 }
 
 static void

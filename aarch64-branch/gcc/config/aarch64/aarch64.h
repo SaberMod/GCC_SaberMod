@@ -340,6 +340,10 @@ extern unsigned long aarch64_tune_flags;
 #define EH_RETURN_DATA_REGNO(N) \
   ((N) < 4 ? ((unsigned int) R0_REGNUM + (N)) : INVALID_REGNUM)
 
+/* Select a format to encode pointers in exception handling data.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
+  aarch64_asm_preferred_eh_data_format ((CODE), (GLOBAL))
+
 /* The register that holds the return address in exception handlers.  */
 #define AARCH64_EH_STACKADJ_REGNUM	(R0_REGNUM + 4)
 #define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, AARCH64_EH_STACKADJ_REGNUM)
