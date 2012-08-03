@@ -59,6 +59,14 @@ void
 varpool_remove_node (struct varpool_node *node)
 {
   symtab_unregister_node ((symtab_node)node);
+  if (DECL_INITIAL (node->symbol.decl)
+      && !DECL_IN_CONSTANT_POOL (node->symbol.decl)
+      /* Keep vtables for BINFO folding.  */
+      && !DECL_VIRTUAL_P (node->symbol.decl)
+      /* dbxout output constant initializers for readonly vars.  */
+      && (!host_integerp (DECL_INITIAL (node->symbol.decl), 0)
+	  || !TREE_READONLY (node->symbol.decl)))
+    DECL_INITIAL (node->symbol.decl) = error_mark_node;
   ggc_free (node);
 }
 
@@ -118,17 +126,17 @@ varpool_node_for_asm (tree asmname)
 bool
 decide_is_variable_needed (struct varpool_node *node, tree decl)
 {
+  if (DECL_EXTERNAL (decl))
+    return false;
+
   /* If the user told us it is used, then it must be so.  */
   if (node->symbol.force_output)
     return true;
 
-  gcc_assert (!DECL_EXTERNAL (decl));
-
   /* Externally visible variables must be output.  The exception is
      COMDAT variables that must be output only when they are needed.  */
   if (TREE_PUBLIC (decl)
-      && !DECL_COMDAT (decl)
-      && !DECL_EXTERNAL (decl))
+      && !DECL_COMDAT (decl))
     return true;
 
   return false;
@@ -251,7 +259,7 @@ varpool_analyze_node (struct varpool_node *node)
   node->analyzed = true;
 }
 
-/* Assemble thunks and aliases asociated to NODE.  */
+/* Assemble thunks and aliases associated to NODE.  */
 
 static void
 assemble_aliases (struct varpool_node *node)
@@ -262,7 +270,7 @@ assemble_aliases (struct varpool_node *node)
     if (ref->use == IPA_REF_ALIAS)
       {
 	struct varpool_node *alias = ipa_ref_referring_varpool_node (ref);
-	assemble_alias (alias->symbol.decl,
+	do_assemble_alias (alias->symbol.decl,
 			DECL_ASSEMBLER_NAME (alias->alias_of));
 	assemble_aliases (alias);
       }
@@ -282,7 +290,7 @@ varpool_assemble_decl (struct varpool_node *node)
 
   /* Constant pool is output from RTL land when the reference
      survive till this level.  */
-  if (DECL_IN_CONSTANT_POOL (decl))
+  if (DECL_IN_CONSTANT_POOL (decl) && TREE_ASM_WRITTEN (decl))
     return false;
 
   /* Decls with VALUE_EXPR should not be in the varpool at all.  They
@@ -341,14 +349,14 @@ varpool_remove_unreferenced_decls (void)
 
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Trivially needed variables:");
-  finish_aliases_1 ();
   FOR_EACH_DEFINED_VARIABLE (node)
     {
       if (node->analyzed
 	  && (!varpool_can_remove_if_no_refs (node)
 	      /* We just expanded all function bodies.  See if any of
 		 them needed the variable.  */
-	      || DECL_RTL_SET_P (node->symbol.decl)))
+	      || (!DECL_EXTERNAL (node->symbol.decl)
+		  && DECL_RTL_SET_P (node->symbol.decl))))
 	{
 	  enqueue_node (node, &first);
           if (cgraph_dump_file)
@@ -372,6 +380,8 @@ varpool_remove_unreferenced_decls (void)
 	}
       for (i = 0; ipa_ref_list_reference_iterate (&node->symbol.ref_list, i, ref); i++)
 	if (symtab_variable_p (ref->referred)
+	    && (!DECL_EXTERNAL (ref->referred->symbol.decl)
+		|| varpool (ref->referred)->alias)
 	    && varpool (ref->referred)->analyzed)
 	  enqueue_node (varpool (ref->referred), &first);
     }
@@ -439,7 +449,7 @@ add_new_static_var (tree type)
   tree new_decl;
   struct varpool_node *new_node;
 
-  new_decl = create_tmp_var (type, NULL);
+  new_decl = create_tmp_var_raw (type, NULL);
   DECL_NAME (new_decl) = create_tmp_var_name (NULL);
   TREE_READONLY (new_decl) = 0;
   TREE_STATIC (new_decl) = 1;
@@ -447,9 +457,7 @@ add_new_static_var (tree type)
   DECL_CONTEXT (new_decl) = NULL_TREE;
   DECL_ABSTRACT (new_decl) = 0;
   lang_hooks.dup_lang_specific_decl (new_decl);
-  create_var_ann (new_decl);
   new_node = varpool_node (new_decl);
-  add_referenced_var (new_decl);
   varpool_finalize_decl (new_decl);
 
   return new_node->symbol.decl;
@@ -500,7 +508,7 @@ varpool_extra_name_alias (tree alias, tree decl)
   return alias_node;
 }
 
-/* Call calback on NODE and aliases asociated to NODE. 
+/* Call calback on NODE and aliases associated to NODE. 
    When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
    skipped. */
 

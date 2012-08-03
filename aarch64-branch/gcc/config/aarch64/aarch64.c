@@ -37,7 +37,7 @@
 #include "target-def.h"
 #include "targhooks.h"
 #include "ggc.h"
-#include "integrate.h"
+#include "function.h"
 #include "tm_p.h"
 #include "recog.h"
 #include "langhooks.h"
@@ -1375,7 +1375,7 @@ aarch64_frame_pointer_required (void)
   if (flag_omit_frame_pointer && !faked_omit_frame_pointer)
     return false;
   else if (flag_omit_leaf_frame_pointer)
-    return !current_function_is_leaf;
+    return !crtl->is_leaf;
   return true;
 }
 

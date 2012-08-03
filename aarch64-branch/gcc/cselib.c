@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "rtl.h"
+#include "tree.h"/* FIXME: For hashing DEBUG_EXPR & friends.  */
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -34,11 +35,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
-#include "output.h"
 #include "ggc.h"
 #include "hashtab.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 #include "cselib.h"
+#include "valtrack.h"
 #include "params.h"
 #include "alloc-pool.h"
 #include "target.h"
@@ -323,7 +324,7 @@ new_elt_loc_list (cselib_val *val, rtx loc)
 static inline void
 promote_debug_loc (struct elt_loc_list *l)
 {
-  if (l->setting_insn && DEBUG_INSN_P (l->setting_insn)
+  if (l && l->setting_insn && DEBUG_INSN_P (l->setting_insn)
       && (!cselib_current_insn || !DEBUG_INSN_P (cselib_current_insn)))
     {
       n_debug_values--;
@@ -1008,8 +1009,9 @@ rtx_equal_for_cselib_1 (rtx x, rtx y, enum machine_mode memmode)
 static rtx
 wrap_constant (enum machine_mode mode, rtx x)
 {
-  if (!CONST_INT_P (x) && GET_CODE (x) != CONST_FIXED
-      && (GET_CODE (x) != CONST_DOUBLE || GET_MODE (x) != VOIDmode))
+  if (!CONST_INT_P (x) 
+      && GET_CODE (x) != CONST_FIXED
+      && !CONST_DOUBLE_AS_INT_P (x))
     return x;
   gcc_assert (mode != VOIDmode);
   return gen_rtx_CONST (mode, x);
@@ -1374,7 +1376,7 @@ cselib_lookup_mem (rtx x, int create)
   return mem_elt;
 }
 
-/* Search thru the possible substitutions in P.  We prefer a non reg
+/* Search through the possible substitutions in P.  We prefer a non reg
    substitution because this allows us to expand the tree further.  If
    we find, just a reg, take the lowest regno.  There may be several
    non-reg results, we just take the first one because they will all

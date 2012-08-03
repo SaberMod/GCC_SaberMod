@@ -206,7 +206,7 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
 
-  if (count >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (count >= HOST_BITS_PER_DOUBLE_INT)
     {
       /* Shifting by the host word size is undefined according to the
 	 ANSI standard, so we must handle this as a special case.  */
@@ -233,7 +233,7 @@ rshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
       *hv = signmask;
       *lv = signmask;
     }
-  else if ((prec - count) >= 2 * HOST_BITS_PER_WIDE_INT)
+  else if ((prec - count) >= HOST_BITS_PER_DOUBLE_INT)
     ;
   else if ((prec - count) >= HOST_BITS_PER_WIDE_INT)
     {
@@ -270,7 +270,7 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
   if (SHIFT_COUNT_TRUNCATED)
     count %= prec;
 
-  if (count >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (count >= HOST_BITS_PER_DOUBLE_INT)
     {
       /* Shifting by the host word size is undefined according to the
 	 ANSI standard, so we must handle this as a special case.  */
@@ -296,7 +296,7 @@ lshift_double (unsigned HOST_WIDE_INT l1, HOST_WIDE_INT h1,
 		   >> (prec - HOST_BITS_PER_WIDE_INT - 1))
 		: (*lv >> (prec - 1))) & 1);
 
-  if (prec >= 2 * HOST_BITS_PER_WIDE_INT)
+  if (prec >= HOST_BITS_PER_DOUBLE_INT)
     ;
   else if (prec >= HOST_BITS_PER_WIDE_INT)
     {
@@ -863,6 +863,26 @@ double_int
 double_int_umod (double_int a, double_int b, unsigned code)
 {
   return double_int_mod (a, b, true, code);
+}
+
+/* Return TRUE iff PRODUCT is an integral multiple of FACTOR, and return
+   the multiple in *MULTIPLE.  Otherwise return FALSE and leave *MULTIPLE
+   unchanged.  */
+
+bool
+double_int_multiple_of (double_int product, double_int factor,
+			bool unsigned_p, double_int *multiple)
+{
+  double_int remainder;
+  double_int quotient = double_int_divmod (product, factor, unsigned_p,
+					   TRUNC_DIV_EXPR, &remainder);
+  if (double_int_zero_p (remainder))
+    {
+      *multiple = quotient;
+      return true;
+    }
+
+  return false;
 }
 
 /* Set BITPOS bit in A.  */

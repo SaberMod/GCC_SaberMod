@@ -159,7 +159,7 @@ static outf_p *base_files;
 
 #if ENABLE_CHECKING
 /* Utility debugging function, printing the various type counts within
-   a list of types.  Called thru the DBGPRINT_COUNT_TYPE macro.  */
+   a list of types.  Called through the DBGPRINT_COUNT_TYPE macro.  */
 void
 dbgprint_count_type_at (const char *fil, int lin, const char *msg, type_p t)
 {
@@ -1256,7 +1256,17 @@ adjust_field_type (type_p t, options_p opt)
 
   for (; opt; opt = opt->next)
     if (strcmp (opt->name, "length") == 0)
-      length_p = 1;
+      {
+	if (length_p)
+	  error_at_line (&lexer_line, "duplicate `%s' option", opt->name);
+	if (t->u.p->kind == TYPE_SCALAR || t->u.p->kind == TYPE_STRING)
+	  {
+	    error_at_line (&lexer_line,
+			   "option `%s' may not be applied to "
+			   "arrays of atomic types", opt->name);
+	  }
+	length_p = 1;
+      }
     else if ((strcmp (opt->name, "param_is") == 0
 	      || (strncmp (opt->name, "param", 5) == 0
 		  && ISDIGIT (opt->name[5])
@@ -1563,7 +1573,7 @@ open_base_files (void)
       "hard-reg-set.h", "basic-block.h", "cselib.h", "insn-addr.h",
       "optabs.h", "libfuncs.h", "debug.h", "ggc.h", "cgraph.h",
       "tree-flow.h", "reload.h", "cpp-id-data.h", "tree-chrec.h",
-      "cfglayout.h", "except.h", "output.h", "gimple.h", "cfgloop.h",
+      "except.h", "output.h", "gimple.h", "cfgloop.h",
       "target.h", "ipa-prop.h", "lto-streamer.h", "target-globals.h",
       "ipa-inline.h", "dwarf2out.h", NULL
     };
@@ -1786,12 +1796,12 @@ struct file_rule_st files_rules[] = {
     REG_EXTENDED, NULL_REGEX,
     "gt-c-family-$3.h", "c-family/$3.h", NULL_FRULACT},
 
-  /* Both c-lang.h & c-tree.h gives gt-c-decl.h for c-decl.c !  */
-  { DIR_PREFIX_REGEX "c-lang\\.h$",
-    REG_EXTENDED, NULL_REGEX, "gt-c-decl.h", "c-decl.c", NULL_FRULACT},
+  /* Both c-lang.h & c-tree.h gives gt-c-c-decl.h for c-decl.c !  */
+  { DIR_PREFIX_REGEX "c/c-lang\\.h$",
+    REG_EXTENDED, NULL_REGEX, "gt-c-c-decl.h", "c/c-decl.c", NULL_FRULACT},
 
-  { DIR_PREFIX_REGEX "c-tree\\.h$",
-    REG_EXTENDED, NULL_REGEX, "gt-c-decl.h", "c-decl.c", NULL_FRULACT},
+  { DIR_PREFIX_REGEX "c/c-tree\\.h$",
+    REG_EXTENDED, NULL_REGEX, "gt-c-c-decl.h", "c/c-decl.c", NULL_FRULACT},
 
   /* cp/cp-tree.h gives gt-cp-tree.h for cp/tree.c !  */
   { DIR_PREFIX_REGEX "cp/cp-tree\\.h$",
@@ -1828,7 +1838,7 @@ struct file_rule_st files_rules[] = {
 
   /* Source *.c files are using get_file_gtfilename to compute their
      output_name and get_file_basename to compute their for_name
-     thru the source_dot_c_frul action.  */
+     through the source_dot_c_frul action.  */
   { DIR_PREFIX_REGEX "([[:alnum:]_-]*)\\.c$",
     REG_EXTENDED, NULL_REGEX, "gt-$3.h", "$3.c", source_dot_c_frul},
   /* Common header files get "gtype-desc.c" as their output_name,
@@ -2004,7 +2014,7 @@ get_output_file_with_visibility (input_file *inpf)
   /* Try each rule in sequence in files_rules until one is triggered. */
   {
     int rulix = 0;
-    DBGPRINTF ("passing input file @ %p named %s thru the files_rules",
+    DBGPRINTF ("passing input file @ %p named %s through the files_rules",
 	       (void*) inpf, inpfname);
 
     for (; files_rules[rulix].frul_srcexpr != NULL; rulix++)
@@ -2293,6 +2303,7 @@ struct walk_type_data
   bool fn_wants_lvalue;
   bool in_record_p;
   int loopcounter;
+  bool have_this_obj;
 };
 
 /* Print a mangled name representing T to OF.  */
@@ -2495,7 +2506,7 @@ walk_type (type_p t, struct walk_type_data *d)
       return;
     }
 
-  if (atomic_p && (t->kind != TYPE_POINTER))
+  if (atomic_p && (t->kind != TYPE_POINTER) && (t->kind != TYPE_STRING))
     {
       error_at_line (d->line, "field `%s' has invalid option `atomic'\n", d->val);
       return;
@@ -2608,6 +2619,9 @@ walk_type (type_p t, struct walk_type_data *d)
 	      output_escaped_param (d, length, "length");
 	    else
 	      oprintf (d->of, "l%d", loopcounter);
+	    if (d->have_this_obj)
+	      /* Try to unswitch loops (see PR53880).  */
+	      oprintf (d->of, ") && ((void *)%s == this_obj", oldval);
 	    oprintf (d->of, "); i%d++) {\n", loopcounter);
 	    d->indent += 2;
 	    d->val = newval = xasprintf ("%s[i%d]", oldval, loopcounter);
@@ -3095,6 +3109,7 @@ write_func_for_structure (type_p orig_s, type_p s, type_p *param,
   d.prev_val[1] = "not valid postage";	/* Guarantee an error.  */
   d.prev_val[3] = "x";
   d.val = "(*x)";
+  d.have_this_obj = false;
 
   oprintf (d.of, "\n");
   oprintf (d.of, "void\n");
@@ -3390,6 +3405,7 @@ static const struct write_types_data pch_wtd = {
 static void
 write_types_local_process_field (type_p f, const struct walk_type_data *d)
 {
+  gcc_assert (d->have_this_obj);
   switch (f->kind)
     {
     case TYPE_POINTER:
@@ -3448,6 +3464,7 @@ write_local_func_for_structure (const_type_p orig_s, type_p s, type_p *param)
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag,
 	   s->kind == TYPE_UNION ? "union" : "struct", s->u.s.tag);
   d.indent = 2;
+  d.have_this_obj = true;
   walk_type (s, &d);
   oprintf (d.of, "}\n");
 }
@@ -3957,6 +3974,7 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
       oprintf (d.of, "{\n");
       d.prev_val[0] = d.prev_val[1] = d.prev_val[2] = d.val = v->name;
       d.process_field = write_types_local_process_field;
+      d.have_this_obj = true;
       walk_type (v->type, &d);
       oprintf (f, "}\n\n");
     }
@@ -3968,6 +3986,7 @@ write_array (outf_p f, pair_p v, const struct write_types_data *wtd)
   oprintf (f, "{\n");
   d.prev_val[0] = d.prev_val[1] = d.prev_val[2] = d.val = v->name;
   d.process_field = write_types_process_field;
+  d.have_this_obj = false;
   walk_type (v->type, &d);
   free (prevval3);
   oprintf (f, "}\n\n");

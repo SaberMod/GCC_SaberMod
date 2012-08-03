@@ -62,6 +62,12 @@
 #  define SIZE (256 - __EPIPHANY_STACK_OFFSET__)
 #elif defined (__RL78__)
 #  define SIZE 254
+#elif defined (__sh__)
+#  define SIZE 252
+#elif defined (__frv__)
+#  define SIZE 248
+#elif defined (xstormy16)
+#  define SIZE 254
 #else
 #  define SIZE 256
 #endif

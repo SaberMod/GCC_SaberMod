@@ -213,9 +213,6 @@ if test x"${DEFAULT_LINKER+set}" = x"set"; then
 	[Define to enable the use of a default linker.])
 fi
 
-gnu_ld=`if test x"$gnu_ld_flag" = x"yes"; then echo 1; else echo 0; fi`
-AC_DEFINE_UNQUOTED(HAVE_GNU_LD, $gnu_ld, [Define if using GNU ld.])
-
 AC_MSG_CHECKING([whether a default linker was specified])
 if test x"${DEFAULT_LINKER+set}" = x"set"; then
   if test x"$gnu_ld_flag" = x"no"; then
@@ -255,9 +252,6 @@ if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
   AC_DEFINE_UNQUOTED(DEFAULT_ASSEMBLER,"$DEFAULT_ASSEMBLER",
 	[Define to enable the use of a default assembler.])
 fi
-
-gnu_as=`if test x"$gas_flag" = x"yes"; then echo 1; else echo 0; fi`
-AC_DEFINE_UNQUOTED(HAVE_GNU_AS, $gnu_as, [Define if using GNU as.])
 
 AC_MSG_CHECKING([whether a default assembler was specified])
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
@@ -594,10 +588,9 @@ AC_ARG_ENABLE(gather-detailed-mem-stats,
 [AS_HELP_STRING([--enable-gather-detailed-mem-stats],
 		[enable detailed memory allocation stats gathering])], [],
 [enable_gather_detailed_mem_stats=no])
-if test x$enable_gather_detailed_mem_stats = xyes ; then
-  AC_DEFINE(GATHER_STATISTICS, 1,
-        [Define to enable detailed memory allocation stats gathering.])
-fi
+gather_stats=`if test $enable_gather_detailed_mem_stats != no; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(GATHER_STATISTICS, $gather_stats,
+[Define to enable detailed memory allocation stats gathering.])
 
 # -------------------------------
 # Miscenalleous configure options
@@ -753,6 +746,17 @@ AC_ARG_WITH(build-sysroot,
   [SYSROOT_CFLAGS_FOR_TARGET=])
 AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
 
+if test "x$prefix" = xNONE; then
+ test_prefix=/usr/local
+else
+ test_prefix=$prefix
+fi
+if test "x$exec_prefix" = xNONE; then
+ test_exec_prefix=$test_prefix
+else
+ test_exec_prefix=$exec_prefix
+fi
+
 AC_ARG_WITH(sysroot,
 [AS_HELP_STRING([[--with-sysroot[=DIR]]],
 		[search for usr/lib, usr/include, et al, within DIR])],
@@ -765,16 +769,6 @@ AC_ARG_WITH(sysroot,
  TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
  CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
 	
- if test "x$prefix" = xNONE; then
-  test_prefix=/usr/local
- else
-  test_prefix=$prefix
- fi
- if test "x$exec_prefix" = xNONE; then
-  test_exec_prefix=$test_prefix
- else
-  test_exec_prefix=$exec_prefix
- fi
  case ${TARGET_SYSTEM_ROOT} in
  "${test_prefix}"|"${test_prefix}/"*|\
  "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
@@ -1328,6 +1322,12 @@ if test x$use_long_long_for_widest_fast_int = xyes; then
 efficiently supported by the host hardware.])
 fi
 
+gnu_ld_bool=`if test x"$gnu_ld" = x"yes"; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(HAVE_GNU_LD, $gnu_ld_bool, [Define to 1 if using GNU ld.])
+
+gnu_as_bool=`if test x"$gas" = x"yes"; then echo 1; else echo 0; fi`
+AC_DEFINE_UNQUOTED(HAVE_GNU_AS, $gnu_as_bool, [Define to 1 if using GNU as.])
+
 count=a
 for f in $host_xm_file; do
 	count=${count}x
@@ -1848,7 +1848,9 @@ AC_SUBST(inhibit_libc)
 
 # These are the normal (build=host) settings:
 CC_FOR_BUILD='$(CC)'		AC_SUBST(CC_FOR_BUILD)
+CXX_FOR_BUILD='$(CXX)'		AC_SUBST(CXX_FOR_BUILD)
 BUILD_CFLAGS='$(ALL_CFLAGS)'	AC_SUBST(BUILD_CFLAGS)
+BUILD_CXXFLAGS='$(ALL_CXXFLAGS)' AC_SUBST(BUILD_CXXFLAGS)
 BUILD_LDFLAGS='$(LDFLAGS)'	AC_SUBST(BUILD_LDFLAGS)
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
@@ -3652,6 +3654,10 @@ foo:	nop
     gcc_GAS_CHECK_FEATURE([rep and lock prefix],
         gcc_cv_as_ix86_rep_lock_prefix,,,
 	[rep movsl
+	 rep ret
+	 rep nop
+	 rep bsf %ecx, %eax
+	 rep bsr %ecx, %eax
 	 lock addl %edi, (%eax,%esi)
 	 lock orl $0, (%esp)],,
         [AC_DEFINE(HAVE_AS_IX86_REP_LOCK_PREFIX, 1,
@@ -4541,11 +4547,11 @@ if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
   if test "x$with_headers" != x; then
     target_header_dir=$with_headers
   elif test "x$with_sysroot" = x; then
-    target_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
   elif test "x$with_build_sysroot" != "x"; then
     target_header_dir="${with_build_sysroot}${native_system_header_dir}"
   elif test "x$with_sysroot" = xyes; then
-    target_header_dir="${exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
+    target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
   else
     target_header_dir="${with_sysroot}${native_system_header_dir}"
   fi
@@ -4579,6 +4585,11 @@ AC_CACHE_CHECK(__stack_chk_fail in target C library,
 	     $target_header_dir/bits/uClibc_config.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
 	fi
+      # all versions of Bionic support stack protector
+      elif test -f $target_header_dir/sys/cdefs.h \
+        && $EGREP '^[  ]*#[    ]*define[       ]+__BIONIC__[   ]+1' \
+           $target_header_dir/sys/cdefs.h > /dev/null; then
+         gcc_cv_libc_provides_ssp=yes
       fi]
 	;;
        *-*-gnu*)
@@ -4844,11 +4855,6 @@ changequote([,])dnl
 	esac
 done
 
-# Pick up gtfiles for c
-gtfiles=
-. ${srcdir}/c-config-lang.in
-all_gtfiles="$all_gtfiles [[c]] $gtfiles"
-
 check_languages=
 for language in $all_selected_languages
 do
@@ -4998,8 +5004,8 @@ fi
 AC_ARG_VAR(GMPLIBS,[How to link GMP])
 AC_ARG_VAR(GMPINC,[How to find GMP include files])
 
-AC_ARG_VAR(PPLLIBS,[How to link PPL])
-AC_ARG_VAR(PPLINC,[How to find PPL include files])
+AC_ARG_VAR(ISLLIBS,[How to link ISL])
+AC_ARG_VAR(ISLINC,[How to find ISL include files])
 
 AC_ARG_VAR(CLOOGLIBS,[How to link CLOOG])
 AC_ARG_VAR(CLOOGINC,[How to find CLOOG include files])

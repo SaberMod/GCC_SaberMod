@@ -253,7 +253,7 @@ package body Sem_Ch4 is
    function Try_Container_Indexing
      (N      : Node_Id;
       Prefix : Node_Id;
-      Expr   : Node_Id) return Boolean;
+      Exprs  : List_Id) return Boolean;
    --  AI05-0139: Generalized indexing to support iterators over containers
 
    function Try_Indexed_Call
@@ -2114,7 +2114,7 @@ package body Sem_Ch4 is
             then
                return;
 
-            elsif Try_Container_Indexing (N, P, Exp) then
+            elsif Try_Container_Indexing (N, P, Exprs) then
                return;
 
             elsif Array_Type = Any_Type then
@@ -2276,7 +2276,7 @@ package body Sem_Ch4 is
                   end;
                end if;
 
-            elsif Try_Container_Indexing (N, P, First (Exprs)) then
+            elsif Try_Container_Indexing (N, P, Exprs) then
                return;
 
             end if;
@@ -2299,7 +2299,7 @@ package body Sem_Ch4 is
 
       Analyze (P);
 
-      if Nkind_In (N, N_Function_Call, N_Procedure_Call_Statement) then
+      if Nkind (N) in N_Subprogram_Call then
 
          --  If P is an explicit dereference whose prefix is of a
          --  remote access-to-subprogram type, then N has already
@@ -3891,7 +3891,7 @@ package body Sem_Ch4 is
                if Ekind (Comp) = E_Discriminant then
                   if Is_Unchecked_Union (Base_Type (Prefix_Type)) then
                      Error_Msg_N
-                       ("cannot reference discriminant of Unchecked_Union",
+                       ("cannot reference discriminant of unchecked union",
                         Sel);
                   end if;
 
@@ -4222,13 +4222,22 @@ package body Sem_Ch4 is
 
                --  Duplicate the call. This is required to avoid problems with
                --  the tree transformations performed by Try_Object_Operation.
+               --  Set properly the parent of the copied call, because it is
+               --  about to be reanalyzed.
 
-              and then
-                Try_Object_Operation
-                  (N            => Sinfo.Name (New_Copy_Tree (Parent (N))),
-                   CW_Test_Only => True)
             then
-               return;
+               declare
+                  Par : constant Node_Id := New_Copy_Tree (Parent (N));
+
+               begin
+                  Set_Parent (Par, Parent (Parent (N)));
+
+                  if Try_Object_Operation
+                       (Sinfo.Name (Par), CW_Test_Only => True)
+                  then
+                     return;
+                  end if;
+               end;
             end if;
          end if;
 
@@ -6475,9 +6484,10 @@ package body Sem_Ch4 is
    function Try_Container_Indexing
      (N      : Node_Id;
       Prefix : Node_Id;
-      Expr   : Node_Id) return Boolean
+      Exprs  : List_Id) return Boolean
    is
       Loc       : constant Source_Ptr := Sloc (N);
+      Assoc     : List_Id;
       Disc      : Entity_Id;
       Func      : Entity_Id;
       Func_Name : Node_Id;
@@ -6508,19 +6518,34 @@ package body Sem_Ch4 is
          if Has_Implicit_Dereference (Etype (Prefix)) then
             Build_Explicit_Dereference
               (Prefix, First_Discriminant (Etype (Prefix)));
-            return Try_Container_Indexing (N, Prefix, Expr);
+            return Try_Container_Indexing (N, Prefix, Exprs);
 
          else
             return False;
          end if;
       end if;
 
+      Assoc := New_List (Relocate_Node (Prefix));
+
+      --  A generalized iterator may have nore than one index expression, so
+      --  transfer all of them to the argument list to be used in the call.
+
+      declare
+         Arg : Node_Id;
+      begin
+         Arg := First (Exprs);
+         while Present (Arg) loop
+            Append (Relocate_Node (Arg), Assoc);
+            Next (Arg);
+         end loop;
+      end;
+
       if not Is_Overloaded (Func_Name) then
          Func := Entity (Func_Name);
-         Indexing := Make_Function_Call (Loc,
-           Name => New_Occurrence_Of (Func, Loc),
-           Parameter_Associations =>
-             New_List (Relocate_Node (Prefix), Relocate_Node (Expr)));
+         Indexing :=
+           Make_Function_Call (Loc,
+             Name                   => New_Occurrence_Of (Func, Loc),
+             Parameter_Associations => Assoc);
          Rewrite (N, Indexing);
          Analyze (N);
 
@@ -6544,8 +6569,7 @@ package body Sem_Ch4 is
       else
          Indexing := Make_Function_Call (Loc,
            Name => Make_Identifier (Loc, Chars (Func_Name)),
-           Parameter_Associations =>
-             New_List (Relocate_Node (Prefix), Relocate_Node (Expr)));
+           Parameter_Associations => Assoc);
 
          Rewrite (N, Indexing);
 
@@ -6586,7 +6610,8 @@ package body Sem_Ch4 is
       end if;
 
       if Etype (N) = Any_Type then
-         Error_Msg_NE ("container cannot be indexed with&", N, Etype (Expr));
+         Error_Msg_NE
+           ("container cannot be indexed with&", N, Etype (First (Exprs)));
          Rewrite (N, New_Occurrence_Of (Any_Id, Loc));
       else
          Analyze (N);
@@ -6736,9 +6761,7 @@ package body Sem_Ch4 is
      (N : Node_Id; CW_Test_Only : Boolean := False) return Boolean
    is
       K              : constant Node_Kind  := Nkind (Parent (N));
-      Is_Subprg_Call : constant Boolean    := Nkind_In
-                                               (K, N_Procedure_Call_Statement,
-                                                   N_Function_Call);
+      Is_Subprg_Call : constant Boolean    := K in N_Subprogram_Call;
       Loc            : constant Source_Ptr := Sloc (N);
       Obj            : constant Node_Id    := Prefix (N);
 
@@ -7087,8 +7110,7 @@ package body Sem_Ch4 is
          --  Common case covering 1) Call to a procedure and 2) Call to a
          --  function that has some additional actuals.
 
-         if Nkind_In (Parent_Node, N_Function_Call,
-                                   N_Procedure_Call_Statement)
+         if Nkind (Parent_Node) in N_Subprogram_Call
 
             --  N is a selected component node containing the name of the
             --  subprogram. If N is not the name of the parent node we must

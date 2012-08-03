@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -391,7 +390,6 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   basic_block abb;
   size_t idx;
   tree var;
-  referenced_var_iterator rvi;
 
   if (!single_succ_p (bb))
     return;
@@ -485,7 +483,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 
   /* Make sure the tail invocation of this function does not refer
      to local variables.  */
-  FOR_EACH_REFERENCED_VAR (cfun, var, rvi)
+  FOR_EACH_LOCAL_DECL (cfun, idx, var)
     {
       if (TREE_CODE (var) != PARM_DECL
 	  && auto_var_in_fn_p (var, cfun->decl)
@@ -614,8 +612,6 @@ adjust_return_value_with_ops (enum tree_code code, const char *label,
   tree tmp = create_tmp_reg (ret_type, label);
   gimple stmt;
   tree result;
-
-  add_referenced_var (tmp);
 
   if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1)))
     stmt = gimple_build_assign_with_ops (code, tmp, acc, op1);
@@ -767,11 +763,11 @@ arg_needs_copy_p (tree param)
 {
   tree def;
 
-  if (!is_gimple_reg (param) || !var_ann (param))
+  if (!is_gimple_reg (param))
     return false;
 
   /* Parameters that are only defined but never used need not be copied.  */
-  def = gimple_default_def (cfun, param);
+  def = ssa_default_def (cfun, param);
   if (!def)
     return false;
 
@@ -873,36 +869,6 @@ eliminate_tail_call (struct tailcall *t)
   release_defs (call);
 }
 
-/* Add phi nodes for the virtual operands defined in the function to the
-   header of the loop created by tail recursion elimination.
-
-   Originally, we used to add phi nodes only for call clobbered variables,
-   as the value of the non-call clobbered ones obviously cannot be used
-   or changed within the recursive call.  However, the local variables
-   from multiple calls now share the same location, so the virtual ssa form
-   requires us to say that the location dies on further iterations of the loop,
-   which requires adding phi nodes.
-*/
-static void
-add_virtual_phis (void)
-{
-  referenced_var_iterator rvi;
-  tree var;
-
-  /* The problematic part is that there is no way how to know what
-     to put into phi nodes (there in fact does not have to be such
-     ssa name available).  A solution would be to have an artificial
-     use/kill for all virtual operands in EXIT node.  Unless we have
-     this, we cannot do much better than to rebuild the ssa form for
-     possibly affected virtual ssa names from scratch.  */
-
-  FOR_EACH_REFERENCED_VAR (cfun, var, rvi)
-    {
-      if (!is_gimple_reg (var) && gimple_default_def (cfun, var) != NULL_TREE)
-	mark_sym_for_renaming (var);
-    }
-}
-
 /* Optimizes the tailcall described by T.  If OPT_TAILCALLS is true, also
    mark the tailcalls for the sibcall optimization.  */
 
@@ -944,7 +910,6 @@ create_tailcall_accumulator (const char *label, basic_block bb, tree init)
   tree tmp = create_tmp_reg (ret_type, label);
   gimple phi;
 
-  add_referenced_var (tmp);
   phi = create_phi_node (tmp, bb);
   /* RET_TYPE can be a float when -ffast-maths is enabled.  */
   add_phi_arg (phi, fold_convert (ret_type, init), single_pred_edge (bb),
@@ -1004,11 +969,11 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	       param = DECL_CHAIN (param))
 	    if (arg_needs_copy_p (param))
 	      {
-		tree name = gimple_default_def (cfun, param);
+		tree name = ssa_default_def (cfun, param);
 		tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
 		gimple phi;
 
-		set_default_def (param, new_name);
+		set_ssa_default_def (cfun, param, new_name);
 		phi = create_phi_node (name, first);
 		SSA_NAME_DEF_STMT (name) = phi;
 		add_phi_arg (phi, new_name, single_pred_edge (first),
@@ -1057,8 +1022,12 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (changed)
     free_dominance_info (CDI_DOMINATORS);
 
+  /* Add phi nodes for the virtual operands defined in the function to the
+     header of the loop created by tail recursion elimination.  Do so
+     by triggering the SSA renamer.  */
   if (phis_constructed)
-    add_virtual_phis ();
+    mark_virtual_operands_for_renaming (cfun);
+
   if (changed)
     return TODO_cleanup_cfg | TODO_update_ssa_only_virtuals;
   return 0;

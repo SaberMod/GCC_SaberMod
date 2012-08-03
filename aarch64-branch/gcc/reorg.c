@@ -127,13 +127,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "recog.h"
 #include "flags.h"
-#include "output.h"
 #include "obstack.h"
 #include "insn-attr.h"
 #include "resource.h"
 #include "except.h"
 #include "params.h"
-#include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
 
@@ -2434,7 +2432,7 @@ fill_simple_delay_slots (int non_jumps_p)
       SET_HARD_REG_BIT (needed.regs, HARD_FRAME_POINTER_REGNUM);
 #endif
       if (! EXIT_IGNORE_STACK
-	  || current_function_sp_is_unchanging)
+	  || crtl->sp_is_unchanging)
 	SET_HARD_REG_BIT (needed.regs, STACK_POINTER_REGNUM);
     }
   else
@@ -4056,28 +4054,6 @@ dbr_schedule (rtx first)
       fprintf (dump_file, "\n");
     }
 
-  /* For all JUMP insns, fill in branch prediction notes, so that during
-     assembler output a target can set branch prediction bits in the code.
-     We have to do this now, as up until this point the destinations of
-     JUMPS can be moved around and changed, but past right here that cannot
-     happen.  */
-  for (insn = first; insn; insn = NEXT_INSN (insn))
-    {
-      int pred_flags;
-
-      if (NONJUMP_INSN_P (insn))
-	{
-	  rtx pat = PATTERN (insn);
-
-	  if (GET_CODE (pat) == SEQUENCE)
-	    insn = XVECEXP (pat, 0, 0);
-	}
-      if (!JUMP_P (insn))
-	continue;
-
-      pred_flags = get_jump_flags (insn, JUMP_LABEL (insn));
-      add_reg_note (insn, REG_BR_PRED, GEN_INT (pred_flags));
-    }
   free_resource_info ();
   free (uid_to_ruid);
 #ifdef DELAY_SLOTS_FOR_EPILOGUE

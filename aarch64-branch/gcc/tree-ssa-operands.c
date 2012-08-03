@@ -25,11 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "flags.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
-#include "tree-pass.h"
+#include "timevar.h"
+#include "dumpfile.h"
 #include "ggc.h"
 #include "timevar.h"
 #include "langhooks.h"
@@ -75,34 +75,6 @@ along with GCC; see the file COPYING3.  If not see
    i.e., if a stmt had a VUSE of 'a_5', and 'a' occurs in the new
    operand vector for VUSE, then the new vector will also be modified
    such that it contains 'a_5' rather than 'a'.  */
-
-/* Structure storing statistics on how many call clobbers we have, and
-   how many where avoided.  */
-
-static struct
-{
-  /* Number of call-clobbered ops we attempt to add to calls in
-     add_call_clobbered_mem_symbols.  */
-  unsigned int clobbered_vars;
-
-  /* Number of write-clobbers (VDEFs) avoided by using
-     not_written information.  */
-  unsigned int static_write_clobbers_avoided;
-
-  /* Number of reads (VUSEs) avoided by using not_read information.  */
-  unsigned int static_read_clobbers_avoided;
-
-  /* Number of write-clobbers avoided because the variable can't escape to
-     this call.  */
-  unsigned int unescapable_clobbers_avoided;
-
-  /* Number of read-only uses we attempt to add to calls in
-     add_call_read_mem_symbols.  */
-  unsigned int readonly_clobbers;
-
-  /* Number of read-only uses we avoid using not_read information.  */
-  unsigned int static_readonly_clobbers_avoided;
-} clobber_stats;
 
 
 /* Flags to describe operand properties in helpers.  */
@@ -186,11 +158,11 @@ ssa_operands_active (void)
    representative of all of the virtual operands FUD chain.  */
 
 static void
-create_vop_var (void)
+create_vop_var (struct function *fn)
 {
   tree global_var;
 
-  gcc_assert (cfun->gimple_df->vop == NULL_TREE);
+  gcc_assert (fn->gimple_df->vop == NULL_TREE);
 
   global_var = build_decl (BUILTINS_LOCATION, VAR_DECL,
 			   get_identifier (".MEM"),
@@ -203,10 +175,9 @@ create_vop_var (void)
   DECL_CONTEXT (global_var) = NULL_TREE;
   TREE_THIS_VOLATILE (global_var) = 0;
   TREE_ADDRESSABLE (global_var) = 0;
+  VAR_DECL_IS_VIRTUAL_OPERAND (global_var) = 1;
 
-  create_var_ann (global_var);
-  add_referenced_var (global_var);
-  cfun->gimple_df->vop = global_var;
+  fn->gimple_df->vop = global_var;
 }
 
 /* These are the sizes of the operand memory buffer in bytes which gets
@@ -224,7 +195,7 @@ create_vop_var (void)
 /* Initialize the operand cache routines.  */
 
 void
-init_ssa_operands (void)
+init_ssa_operands (struct function *fn)
 {
   if (!n_initialized++)
     {
@@ -235,13 +206,12 @@ init_ssa_operands (void)
       bitmap_obstack_initialize (&operands_bitmap_obstack);
     }
 
-  gcc_assert (gimple_ssa_operands (cfun)->operand_memory == NULL);
-  gimple_ssa_operands (cfun)->operand_memory_index
-     = gimple_ssa_operands (cfun)->ssa_operand_mem_size;
-  gimple_ssa_operands (cfun)->ops_active = true;
-  memset (&clobber_stats, 0, sizeof (clobber_stats));
-  gimple_ssa_operands (cfun)->ssa_operand_mem_size = OP_SIZE_INIT;
-  create_vop_var ();
+  gcc_assert (gimple_ssa_operands (fn)->operand_memory == NULL);
+  gimple_ssa_operands (fn)->operand_memory_index
+     = gimple_ssa_operands (fn)->ssa_operand_mem_size;
+  gimple_ssa_operands (fn)->ops_active = true;
+  gimple_ssa_operands (fn)->ssa_operand_mem_size = OP_SIZE_INIT;
+  create_vop_var (fn);
 }
 
 
@@ -276,22 +246,6 @@ fini_ssa_operands (void)
     bitmap_obstack_release (&operands_bitmap_obstack);
 
   cfun->gimple_df->vop = NULL_TREE;
-
-  if (dump_file && (dump_flags & TDF_STATS))
-    {
-      fprintf (dump_file, "Original clobbered vars:           %d\n",
-	       clobber_stats.clobbered_vars);
-      fprintf (dump_file, "Static write clobbers avoided:     %d\n",
-	       clobber_stats.static_write_clobbers_avoided);
-      fprintf (dump_file, "Static read clobbers avoided:      %d\n",
-	       clobber_stats.static_read_clobbers_avoided);
-      fprintf (dump_file, "Unescapable clobbers avoided:      %d\n",
-	       clobber_stats.unescapable_clobbers_avoided);
-      fprintf (dump_file, "Original read-only clobbers:       %d\n",
-	       clobber_stats.readonly_clobbers);
-      fprintf (dump_file, "Static read-only clobbers avoided: %d\n",
-	       clobber_stats.static_readonly_clobbers_avoided);
-    }
 }
 
 
@@ -461,7 +415,10 @@ finalize_ssa_defs (gimple stmt)
   /* If we have a non-SSA_NAME VDEF, mark it for renaming.  */
   if (gimple_vdef (stmt)
       && TREE_CODE (gimple_vdef (stmt)) != SSA_NAME)
-    mark_sym_for_renaming (gimple_vdef (stmt));
+    {
+      cfun->gimple_df->rename_vops = 1;
+      cfun->gimple_df->ssa_renaming_needed = 1;
+    }
 
   /* Check for the common case of 1 def that hasn't changed.  */
   if (old_ops && old_ops->next == NULL && num == 1
@@ -477,7 +434,12 @@ finalize_ssa_defs (gimple stmt)
 
   /* If there is anything remaining in the build_defs list, simply emit it.  */
   for ( ; new_i < num; new_i++)
-    last = add_def_op ((tree *) VEC_index (tree, build_defs, new_i), last);
+    {
+      tree *op = (tree *) VEC_index (tree, build_defs, new_i);
+      if (DECL_P (*op))
+	cfun->gimple_df->ssa_renaming_needed = 1;
+      last = add_def_op (op, last);
+    }
 
   /* Now set the stmt's operands.  */
   gimple_set_def_ops (stmt, new_list.next);
@@ -532,14 +494,18 @@ finalize_ssa_uses (gimple stmt)
       && gimple_vuse (stmt) == NULL_TREE)
     {
       gimple_set_vuse (stmt, gimple_vop (cfun));
-      mark_sym_for_renaming (gimple_vop (cfun));
+      cfun->gimple_df->rename_vops = 1;
+      cfun->gimple_df->ssa_renaming_needed = 1;
     }
 
   /* Now create nodes for all the new nodes.  */
   for (new_i = 0; new_i < VEC_length (tree, build_uses); new_i++)
-    last = add_use_op (stmt,
-		       (tree *) VEC_index (tree, build_uses, new_i),
-		       last);
+    {
+      tree *op = (tree *) VEC_index (tree, build_uses, new_i);
+      if (DECL_P (*op))
+	cfun->gimple_df->ssa_renaming_needed = 1;
+      last = add_use_op (stmt, op, last);
+    }
 
   /* Now set the stmt's operands.  */
   gimple_set_use_ops (stmt, new_list.next);

@@ -34,7 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "gimple.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
@@ -138,7 +138,8 @@ build_delete_destructor_body (tree delete_dtor, tree complete_dtor)
                                       virtual_size,
                                       /*global_p=*/false,
                                       /*placement=*/NULL_TREE,
-                                      /*alloc_fn=*/NULL_TREE);
+                                      /*alloc_fn=*/NULL_TREE,
+				      tf_warning_or_error);
   add_stmt (call_delete);
 
   /* Return the address of the object.  */

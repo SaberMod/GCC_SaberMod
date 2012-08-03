@@ -40,10 +40,9 @@
 #include "tm-preds.h"
 #include "tm-constrs.h"
 #include "df.h"
-#include "integrate.h"
+#include "function.h"
 #include "diagnostic-core.h"
 #include "cgraph.h"
-#include "cfglayout.h"
 #include "langhooks.h"
 #include "target.h"
 #include "target-def.h"
@@ -52,6 +51,7 @@
 #include "opts.h"
 #include "hw-doloop.h"
 #include "regrename.h"
+#include "dumpfile.h"
 
 /* Table of supported architecture variants.  */
 typedef struct
@@ -2538,7 +2538,7 @@ must_reload_pic_reg_p (void)
 
   i = cgraph_local_info (current_function_decl);
 
-  if ((crtl->uses_pic_offset_table || !current_function_is_leaf) && !i->local)
+  if ((crtl->uses_pic_offset_table || !crtl->is_leaf) && !i->local)
     return true;
   return false;
 }
@@ -2552,7 +2552,7 @@ c6x_save_reg (unsigned int regno)
 	   && !fixed_regs[regno])
 	  || (regno == RETURN_ADDR_REGNO
 	      && (df_regs_ever_live_p (regno)
-		  || !current_function_is_leaf))
+		  || !crtl->is_leaf))
 	  || (regno == PIC_OFFSET_TABLE_REGNUM && must_reload_pic_reg_p ()));
 }
 
@@ -2643,7 +2643,7 @@ c6x_compute_frame_layout (struct c6x_frame *frame)
     offset += frame->nregs * 4;
 
   if (offset == 0 && size == 0 && crtl->outgoing_args_size == 0
-      && !current_function_is_leaf)
+      && !crtl->is_leaf)
     /* Don't use the bottom of the caller's frame if we have no
        allocation of our own and call other functions.  */
     frame->padding0 = frame->padding1 = 4;
@@ -3630,7 +3630,7 @@ typedef struct c6x_sched_context
 /* The current scheduling state.  */
 static struct c6x_sched_context ss;
 
-/* The following variable value is DFA state before issueing the first insn
+/* The following variable value is DFA state before issuing the first insn
    in the current clock cycle.  This is used in c6x_variable_issue for
    comparison with the state after issuing the last insn in a cycle.  */
 static state_t prev_cycle_state;

@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "splay-tree.h"
@@ -34,9 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-reference.h"
 #include "gimple.h"
 #include "cgraph.h"
-#include "output.h"
 #include "flags.h"
-#include "timevar.h"
 #include "diagnostic.h"
 #include "langhooks.h"
 
@@ -325,7 +323,7 @@ ipa_reverse_postorder (struct cgraph_node **order)
 
 
 /* Given a memory reference T, will return the variable at the bottom
-   of the access.  Unlike get_base_address, this will recurse thru
+   of the access.  Unlike get_base_address, this will recurse through
    INDIRECT_REFS.  */
 
 tree

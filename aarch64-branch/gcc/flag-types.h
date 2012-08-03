@@ -106,12 +106,12 @@ enum symbol_visibility
 };
 #endif
 
-/* The algorithm used to implement -fsched-pressure.  */
-enum sched_pressure_algorithm
+/* The stack reuse level.  */
+enum stack_reuse_level
 {
-  SCHED_PRESSURE_NONE,
-  SCHED_PRESSURE_WEIGHTED,
-  SCHED_PRESSURE_MODEL
+  SR_NONE,
+  SR_NAMED_VARS,
+  SR_ALL
 };
 
 /* The algorithm used for the integrated register allocator (IRA).  */

@@ -142,7 +142,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "output.h"
 #include "params.h"
 #include "vecprim.h"
 #include "dbgcnt.h"
@@ -150,6 +149,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ira.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 #include "hashtab.h"
+#include "dumpfile.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -1085,7 +1085,7 @@ print_curr_reg_pressure (void)
       gcc_assert (curr_reg_pressure[cl] >= 0);
       fprintf (sched_dump, "  %s:%d(%d)", reg_class_names[cl],
 	       curr_reg_pressure[cl],
-	       curr_reg_pressure[cl] - ira_available_class_regs[cl]);
+	       curr_reg_pressure[cl] - ira_class_hard_regs_num[cl]);
     }
   fprintf (sched_dump, "\n");
 }
@@ -1634,9 +1634,9 @@ setup_insn_reg_pressure_info (rtx insn)
       cl = ira_pressure_classes[i];
       gcc_assert (curr_reg_pressure[cl] >= 0);
       change = (int) pressure_info[i].set_increase - death[cl];
-      before = MAX (0, max_reg_pressure[i] - ira_available_class_regs[cl]);
+      before = MAX (0, max_reg_pressure[i] - ira_class_hard_regs_num[cl]);
       after = MAX (0, max_reg_pressure[i] + change
-		   - ira_available_class_regs[cl]);
+		   - ira_class_hard_regs_num[cl]);
       hard_regno = ira_class_hard_regs[cl][0];
       gcc_assert (hard_regno >= 0);
       mode = reg_raw_mode[hard_regno];
@@ -2227,7 +2227,7 @@ model_recompute (rtx insn)
 /* Return the cost of increasing the pressure in class CL from FROM to TO.
 
    Here we use the very simplistic cost model that every register above
-   ira_available_class_regs[CL] has a spill cost of 1.  We could use other
+   ira_class_hard_regs_num[CL] has a spill cost of 1.  We could use other
    measures instead, such as one based on MEMORY_MOVE_COST.  However:
 
       (1) In order for an instruction to be scheduled, the higher cost
@@ -2251,7 +2251,7 @@ model_recompute (rtx insn)
 static int
 model_spill_cost (int cl, int from, int to)
 {
-  from = MAX (from, ira_available_class_regs[cl]);
+  from = MAX (from, ira_class_hard_regs_num[cl]);
   return MAX (to, from) - from;
 }
 
@@ -6230,7 +6230,8 @@ sched_init (void)
   if (flag_sched_pressure
       && !reload_completed
       && common_sched_info->sched_pass_id == SCHED_RGN_PASS)
-    sched_pressure = flag_sched_pressure_algorithm;
+    sched_pressure = ((enum sched_pressure_algorithm)
+		      PARAM_VALUE (PARAM_SCHED_PRESSURE_ALGORITHM));
   else
     sched_pressure = SCHED_PRESSURE_NONE;
 
@@ -7193,8 +7194,7 @@ init_before_recovery (basic_block *before_recovery_ptr)
 
       redirect_edge_succ (e, single);
       make_single_succ_edge (single, empty, 0);
-      make_single_succ_edge (empty, EXIT_BLOCK_PTR,
-			     EDGE_FALLTHRU | EDGE_CAN_FALLTHRU);
+      make_single_succ_edge (empty, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
 
       label = block_label (empty);
       x = emit_jump_insn_after (gen_jump (label), BB_END (single));

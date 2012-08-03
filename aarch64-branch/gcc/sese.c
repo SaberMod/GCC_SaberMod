@@ -133,7 +133,7 @@ eq_ivtype_map_elts (const void *e1, const void *e2)
 
 
 
-/* Record LOOP as occuring in REGION.  */
+/* Record LOOP as occurring in REGION.  */
 
 static void
 sese_record_loop (sese region, loop_p loop)
@@ -304,7 +304,7 @@ sese_build_liveouts (sese region, bitmap liveouts)
 
   FOR_EACH_BB (bb)
     sese_build_liveouts_bb (region, liveouts, bb);
-  if (MAY_HAVE_DEBUG_INSNS)
+  if (MAY_HAVE_DEBUG_STMTS)
     FOR_EACH_BB (bb)
       sese_reset_debug_liveouts_bb (region, liveouts, bb);
 }
@@ -604,7 +604,6 @@ graphite_copy_stmts_from_block (basic_block bb, basic_block new_bb,
 	 operands.  */
       copy = gimple_copy (stmt);
       gsi_insert_after (&gsi_tgt, copy, GSI_NEW_STMT);
-      mark_sym_for_renaming (gimple_vop (cfun));
 
       maybe_duplicate_eh_stmt (copy, stmt);
       gimple_duplicate_stmt_histograms (cfun, copy, cfun, stmt);

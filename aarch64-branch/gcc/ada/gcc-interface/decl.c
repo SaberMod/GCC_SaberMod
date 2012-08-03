@@ -50,19 +50,23 @@
 #include "ada-tree.h"
 #include "gigi.h"
 
-/* Convention_Stdcall should be processed in a specific way on 32 bits
-   Windows targets only.  The macro below is a helper to avoid having to
-   check for a Windows specific attribute throughout this unit.  */
+/* "stdcall" and "thiscall" conventions should be processed in a specific way
+   on 32-bit x86/Windows only.  The macros below are helpers to avoid having
+   to check for a Windows specific attribute throughout this unit.  */
 
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #ifdef TARGET_64BIT
 #define Has_Stdcall_Convention(E) \
   (!TARGET_64BIT && Convention (E) == Convention_Stdcall)
+#define Has_Thiscall_Convention(E) \
+  (!TARGET_64BIT && is_cplusplus_method (E))
 #else
 #define Has_Stdcall_Convention(E) (Convention (E) == Convention_Stdcall)
+#define Has_Thiscall_Convention(E) (is_cplusplus_method (E))
 #endif
 #else
 #define Has_Stdcall_Convention(E) 0
+#define Has_Thiscall_Convention(E) 0
 #endif
 
 /* Stack realignment is necessary for functions with foreign conventions when
@@ -115,8 +119,8 @@ typedef struct variant_desc_d {
   /* The value of the qualifier.  */
   tree qual;
 
-  /* The record associated with this variant.  */
-  tree record;
+  /* The type of the variant after transformation.  */
+  tree new_type;
 } variant_desc;
 
 DEF_VEC_O(variant_desc);
@@ -343,12 +347,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
      another compilation unit) public entities, show we are at global level
      for the purpose of computing scopes.  Don't do this for components or
      discriminants since the relevant test is whether or not the record is
-     being defined.  Don't do this for constants either as we'll look into
-     their defining expression in the local context.  */
+     being defined.  */
   if (!definition
       && kind != E_Component
       && kind != E_Discriminant
-      && kind != E_Constant
       && Is_Public (gnat_entity)
       && !Is_Statically_Allocated (gnat_entity))
     force_global++, this_global = true;
@@ -372,11 +374,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	prepend_attributes (First_Subtype (Base_Type (gnat_entity)),
 			    &attr_list);
 
-      /* Compute a default value for the size of the type.  */
-      if (Known_Esize (gnat_entity)
-	  && UI_Is_In_Int_Range (Esize (gnat_entity)))
+      /* Compute a default value for the size of an elementary type.  */
+      if (Known_Esize (gnat_entity) && Is_Elementary_Type (gnat_entity))
 	{
 	  unsigned int max_esize;
+
+	  gcc_assert (UI_Is_In_Int_Range (Esize (gnat_entity)));
 	  esize = UI_To_Int (Esize (gnat_entity));
 
 	  if (IN (kind, Float_Kind))
@@ -418,6 +421,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	     != N_Allocator)
 	{
 	  bool went_into_elab_proc = false;
+	  int save_force_global = force_global;
 
 	  /* The expression may contain N_Expression_With_Actions nodes and
 	     thus object declarations from other units.  In this case, even
@@ -430,11 +434,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      current_function_decl = get_elaboration_procedure ();
 	      went_into_elab_proc = true;
 	    }
+	  force_global = 0;
 	  gnat_pushlevel ();
 
 	  gnu_expr = gnat_to_gnu (Expression (Declaration_Node (gnat_entity)));
 
 	  gnat_zaplevel ();
+	  force_global = save_force_global;
 	  if (went_into_elab_proc)
 	    current_function_decl = NULL_TREE;
 	}
@@ -760,6 +766,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		gnu_size = max_size (TYPE_SIZE (gnu_type), true);
 		mutable_p = true;
 	      }
+
+	    /* If we are at global level and the size isn't constant, call
+	       elaborate_expression_1 to make a variable for it rather than
+	       calculating it each time.  */
+	    if (global_bindings_p () && !TREE_CONSTANT (gnu_size))
+	      gnu_size = elaborate_expression_1 (gnu_size, gnat_entity,
+						 get_identifier ("SIZE"),
+						 definition, false);
 	  }
 
 	/* If the size is zero byte, make it one byte since some linkers have
@@ -881,6 +895,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 						debug_info_p);
 	  }
 
+	/* ??? If this is an object of CW type initialized to a value, try to
+	   ensure that the object is sufficient aligned for this value, but
+	   without pessimizing the allocation.  This is a kludge necessary
+	   because we don't support dynamic alignment.  */
+	if (align == 0
+	    && Ekind (Etype (gnat_entity)) == E_Class_Wide_Subtype
+	    && No (Renamed_Object (gnat_entity))
+	    && No (Address_Clause (gnat_entity)))
+	  align = get_target_system_allocator_alignment () * BITS_PER_UNIT;
+
 #ifdef MINIMUM_ATOMIC_ALIGNMENT
 	/* If the size is a constant and no alignment is specified, force
 	   the alignment to be the minimum valid atomic alignment.  The
@@ -890,7 +914,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   necessary and can interfere with constant replacement.  Finally,
 	   do not do it for Out parameters since that creates an
 	   size inconsistency with In parameters.  */
-	if (align == 0 && MINIMUM_ATOMIC_ALIGNMENT > TYPE_ALIGN (gnu_type)
+	if (align == 0
+	    && MINIMUM_ATOMIC_ALIGNMENT > TYPE_ALIGN (gnu_type)
 	    && !FLOAT_TYPE_P (gnu_type)
 	    && !const_flag && No (Renamed_Object (gnat_entity))
 	    && !imported_p && No (Address_Clause (gnat_entity))
@@ -1268,10 +1293,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 				 global_bindings_p ()
 				 || !definition
 				 || static_p)
-	    || (gnu_size && !allocatable_size_p (gnu_size,
-						 global_bindings_p ()
-						 || !definition
-						 || static_p)))
+	    || (gnu_size
+		&& !allocatable_size_p (convert (sizetype,
+						 size_binop
+						 (CEIL_DIV_EXPR, gnu_size,
+						  bitsize_unit_node)),
+					global_bindings_p ()
+					|| !definition
+					|| static_p)))
 	  {
 	    gnu_type = build_reference_type (gnu_type);
 	    gnu_size = NULL_TREE;
@@ -2189,8 +2218,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			    debug_info_p);
 	TYPE_READONLY (gnu_template_type) = 1;
 
-	/* Now build the array type.  */
-
 	/* If Component_Size is not already specified, annotate it with the
 	   size of the component.  */
 	if (Unknown_Component_Size (gnat_entity))
@@ -2795,12 +2822,14 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	tree gnu_lower_bound
 	  = convert (gnu_string_index_type,
 		     gnat_to_gnu (String_Literal_Low_Bound (gnat_entity)));
-	int length = UI_To_Int (String_Literal_Length (gnat_entity));
-	tree gnu_length = ssize_int (length - 1);
+	tree gnu_length
+	  = UI_To_gnu (String_Literal_Length (gnat_entity),
+		       gnu_string_index_type);
 	tree gnu_upper_bound
 	  = build_binary_op (PLUS_EXPR, gnu_string_index_type,
 			     gnu_lower_bound,
-			     convert (gnu_string_index_type, gnu_length));
+			     int_const_binop (MINUS_EXPR, gnu_length,
+					      integer_one_node));
 	tree gnu_index_type
 	  = create_index_type (convert (sizetype, gnu_lower_bound),
 			       convert (sizetype, gnu_upper_bound),
@@ -2935,14 +2964,16 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	if (Known_Alignment (gnat_entity))
 	  TYPE_ALIGN (gnu_type)
 	    = validate_alignment (Alignment (gnat_entity), gnat_entity, 0);
-	else if (Is_Atomic (gnat_entity))
-	  TYPE_ALIGN (gnu_type)
-	    = esize >= BITS_PER_WORD ? BITS_PER_WORD : ceil_pow2 (esize);
+	else if (Is_Atomic (gnat_entity) && Known_Esize (gnat_entity))
+	  {
+	    unsigned int size = UI_To_Int (Esize (gnat_entity));
+	    TYPE_ALIGN (gnu_type)
+	      = size >= BITS_PER_WORD ? BITS_PER_WORD : ceil_pow2 (size);
+	  }
 	/* If a type needs strict alignment, the minimum size will be the
 	   type size instead of the RM size (see validate_size).  Cap the
 	   alignment, lest it causes this type size to become too large.  */
-	else if (Strict_Alignment (gnat_entity)
-		 && Known_RM_Size (gnat_entity))
+	else if (Strict_Alignment (gnat_entity) && Known_RM_Size (gnat_entity))
 	  {
 	    unsigned int raw_size = UI_To_Int (RM_Size (gnat_entity));
 	    unsigned int raw_align = raw_size & -raw_size;
@@ -3267,9 +3298,6 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      else
 		gnu_unpad_base_type = gnu_base_type;
 
-	      /* Look for a REP part in the base type.  */
-	      gnu_rep_part = get_rep_part (gnu_unpad_base_type);
-
 	      /* Look for a variant part in the base type.  */
 	      gnu_variant_part = get_variant_part (gnu_unpad_base_type);
 
@@ -3281,7 +3309,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	      if (gnu_variant_part)
 		{
 		  variant_desc *v;
-		  unsigned ix;
+		  unsigned int i;
 
 		  gnu_variant_list
 		    = build_variant_list (TREE_TYPE (gnu_variant_part),
@@ -3290,8 +3318,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		  /* If all the qualifiers are unconditionally true, the
 		     innermost variant is statically selected.  */
 		  selected_variant = true;
-		  FOR_EACH_VEC_ELT_REVERSE (variant_desc, gnu_variant_list,
-					    ix, v)
+		  FOR_EACH_VEC_ELT (variant_desc, gnu_variant_list, i, v)
 		    if (!integer_onep (v->qual))
 		      {
 			selected_variant = false;
@@ -3300,16 +3327,20 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 		  /* Otherwise, create the new variants.  */
 		  if (!selected_variant)
-		    FOR_EACH_VEC_ELT_REVERSE (variant_desc, gnu_variant_list,
-					      ix, v)
+		    FOR_EACH_VEC_ELT (variant_desc, gnu_variant_list, i, v)
 		      {
 			tree old_variant = v->type;
 			tree new_variant = make_node (RECORD_TYPE);
+			tree suffix
+			  = concat_name (DECL_NAME (gnu_variant_part),
+					 IDENTIFIER_POINTER
+					 (DECL_NAME (v->field)));
 			TYPE_NAME (new_variant)
-			  = DECL_NAME (TYPE_NAME (old_variant));
+			  = concat_name (TYPE_NAME (gnu_type),
+					 IDENTIFIER_POINTER (suffix));
 			copy_and_substitute_in_size (new_variant, old_variant,
 						     gnu_subst_list);
-			v->record = new_variant;
+			v->new_type = new_variant;
 		      }
 		}
 	      else
@@ -3392,18 +3423,19 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		       and put the field either in the new type if there is a
 		       selected variant or in one of the new variants.  */
 		    if (gnu_context == gnu_unpad_base_type
-		        || (gnu_rep_part
+		        || ((gnu_rep_part = get_rep_part (gnu_unpad_base_type))
 			    && gnu_context == TREE_TYPE (gnu_rep_part)))
 		      gnu_cont_type = gnu_type;
 		    else
 		      {
 			variant_desc *v;
-			unsigned ix;
+			unsigned int i;
 
 			t = NULL_TREE;
-			FOR_EACH_VEC_ELT_REVERSE (variant_desc,
-						  gnu_variant_list, ix, v)
-			  if (v->type == gnu_context)
+			FOR_EACH_VEC_ELT (variant_desc, gnu_variant_list, i, v)
+			  if (gnu_context == v->type
+			      || ((gnu_rep_part = get_rep_part (v->type))
+				  && gnu_context == TREE_TYPE (gnu_rep_part)))
 			    {
 			      t = v->type;
 			      break;
@@ -3413,7 +3445,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			    if (selected_variant)
 			      gnu_cont_type = gnu_type;
 			    else
-			      gnu_cont_type = v->record;
+			      gnu_cont_type = v->new_type;
 			  }
 			else
 			  /* The front-end may pass us "ghost" components if
@@ -3488,8 +3520,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	      /* Do not emit debug info for the type yet since we're going to
 		 modify it below.  */
-	      gnu_field_list = nreverse (gnu_field_list);
-	      finish_record_type (gnu_type, gnu_field_list, 2, false);
+	      finish_record_type (gnu_type, nreverse (gnu_field_list), 2,
+				  false);
 
 	      /* See the E_Record_Type case for the rationale.  */
 	      if (Is_By_Reference_Type (gnat_entity))
@@ -4395,6 +4427,11 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    (&attr_list, ATTR_MACHINE_ATTRIBUTE,
 	     get_identifier ("stdcall"), NULL_TREE,
 	     gnat_entity);
+	else if (Has_Thiscall_Convention (gnat_entity))
+	  prepend_one_attribute_to
+	    (&attr_list, ATTR_MACHINE_ATTRIBUTE,
+	     get_identifier ("thiscall"), NULL_TREE,
+	     gnat_entity);
 
 	/* If we should request stack realignment for a foreign convention
 	   subprogram, do so.  Note that this applies to task entry points in
@@ -5258,6 +5295,10 @@ get_minimal_subprog_decl (Entity_Id gnat_entity)
     prepend_one_attribute_to (&attr_list, ATTR_MACHINE_ATTRIBUTE,
 			      get_identifier ("stdcall"), NULL_TREE,
 			      gnat_entity);
+  else if (Has_Thiscall_Convention (gnat_entity))
+    prepend_one_attribute_to (&attr_list, ATTR_MACHINE_ATTRIBUTE,
+			      get_identifier ("thiscall"), NULL_TREE,
+			      gnat_entity);
 
   if (No (Interface_Name (gnat_entity)) && gnu_ext_name == gnu_entity_name)
     gnu_ext_name = NULL_TREE;
@@ -5265,6 +5306,39 @@ get_minimal_subprog_decl (Entity_Id gnat_entity)
   return
     create_subprog_decl (gnu_entity_name, gnu_ext_name, void_ftype, NULL_TREE,
 			 false, true, true, true, attr_list, gnat_entity);
+}
+
+/* Return whether the E_Subprogram_Type/E_Function/E_Procedure GNAT_ENTITY is
+   a C++ imported method or equivalent.
+
+   We use the predicate on 32-bit x86/Windows to find out whether we need to
+   use the "thiscall" calling convention for GNAT_ENTITY.  This convention is
+   used for C++ methods (functions with METHOD_TYPE) by the back-end.  */
+
+bool
+is_cplusplus_method (Entity_Id gnat_entity)
+{
+  if (Convention (gnat_entity) != Convention_CPP)
+    return False;
+
+  /* This is the main case: C++ method imported as a primitive operation.  */
+  if (Is_Dispatching_Operation (gnat_entity))
+    return True;
+
+  /* A thunk needs to be handled like its associated primitive operation.  */
+  if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
+    return True;
+
+  /* C++ classes with no virtual functions can be imported as limited
+     record types, but we need to return true for the constructors.  */
+  if (Is_Constructor (gnat_entity))
+    return True;
+
+  /* This is set on the E_Subprogram_Type built for a dispatching call.  */
+  if (Is_Dispatch_Table_Entity (gnat_entity))
+    return True;
+
+  return False;
 }
 
 /* Finalize the processing of From_With_Type incomplete types.  */
@@ -5845,30 +5919,21 @@ elaborate_entity (Entity_Id gnat_entity)
     }
 }
 
-/* Return true if the size represented by GNU_SIZE can be handled by an
-   allocation.  If STATIC_P is true, consider only what can be done with a
+/* Return true if the size in units represented by GNU_SIZE can be handled by
+   an allocation.  If STATIC_P is true, consider only what can be done with a
    static allocation.  */
 
 static bool
 allocatable_size_p (tree gnu_size, bool static_p)
 {
-  HOST_WIDE_INT our_size;
+  /* We can allocate a fixed size if it hasn't overflowed and can be handled
+     (efficiently) on the host.  */
+  if (TREE_CODE (gnu_size) == INTEGER_CST)
+    return !TREE_OVERFLOW (gnu_size) && host_integerp (gnu_size, 1);
 
-  /* If this is not a static allocation, the only case we want to forbid
-     is an overflowing size.  That will be converted into a raise a
-     Storage_Error.  */
-  if (!static_p)
-    return !(TREE_CODE (gnu_size) == INTEGER_CST
-	     && TREE_OVERFLOW (gnu_size));
-
-  /* Otherwise, we need to deal with both variable sizes and constant
-     sizes that won't fit in a host int.  We use int instead of HOST_WIDE_INT
-     since assemblers may not like very large sizes.  */
-  if (!host_integerp (gnu_size, 1))
-    return false;
-
-  our_size = tree_low_cst (gnu_size, 1);
-  return (int) our_size == our_size;
+  /* We can allocate a variable size if this isn't a static allocation.  */
+  else
+    return !static_p;
 }
 
 /* Prepend to ATTR_LIST an entry for an attribute with provided TYPE,
@@ -7414,16 +7479,16 @@ build_position_list (tree gnu_type, bool do_not_flatten_variant, tree gnu_pos,
   return gnu_list;
 }
 
-/* Return a VEC describing the substitutions needed to reflect the
+/* Return a list describing the substitutions needed to reflect the
    discriminant substitutions from GNAT_TYPE to GNAT_SUBTYPE.  They can
-   be in any order.  The values in an element of the VEC are in the form
+   be in any order.  The values in an element of the list are in the form
    of operands to SUBSTITUTE_IN_EXPR.  DEFINITION is true if this is for
    a definition of GNAT_SUBTYPE.  */
 
 static VEC(subst_pair,heap) *
 build_subst_list (Entity_Id gnat_subtype, Entity_Id gnat_type, bool definition)
 {
-  VEC(subst_pair,heap) *gnu_vec = NULL;
+  VEC(subst_pair,heap) *gnu_list = NULL;
   Entity_Id gnat_discrim;
   Node_Id gnat_value;
 
@@ -7441,23 +7506,22 @@ build_subst_list (Entity_Id gnat_subtype, Entity_Id gnat_type, bool definition)
 				    (Node (gnat_value), gnat_subtype,
 				     get_entity_name (gnat_discrim),
 				     definition, true, false));
-	subst_pair *s = VEC_safe_push (subst_pair, heap, gnu_vec, NULL);
+	subst_pair *s = VEC_safe_push (subst_pair, heap, gnu_list, NULL);
 	s->discriminant = gnu_field;
 	s->replacement = replacement;
       }
 
-  return gnu_vec;
+  return gnu_list;
 }
 
-/* Scan all fields in QUAL_UNION_TYPE and return a VEC describing the
+/* Scan all fields in QUAL_UNION_TYPE and return a list describing the
    variants of QUAL_UNION_TYPE that are still relevant after applying
-   the substitutions described in SUBST_LIST.  VARIANT_LIST is a
-   pre-existing VEC onto which newly created entries should be
-   pushed.  */
+   the substitutions described in SUBST_LIST.  GNU_LIST is a pre-existing
+   list to be prepended to the newly created entries.  */
 
 static VEC(variant_desc,heap) *
 build_variant_list (tree qual_union_type, VEC(subst_pair,heap) *subst_list,
-		    VEC(variant_desc,heap) *variant_list)
+		    VEC(variant_desc,heap) *gnu_list)
 {
   tree gnu_field;
 
@@ -7466,10 +7530,10 @@ build_variant_list (tree qual_union_type, VEC(subst_pair,heap) *subst_list,
        gnu_field = DECL_CHAIN (gnu_field))
     {
       tree qual = DECL_QUALIFIER (gnu_field);
-      unsigned ix;
+      unsigned int i;
       subst_pair *s;
 
-      FOR_EACH_VEC_ELT_REVERSE (subst_pair, subst_list, ix, s)
+      FOR_EACH_VEC_ELT (subst_pair, subst_list, i, s)
 	qual = SUBSTITUTE_IN_EXPR (qual, s->discriminant, s->replacement);
 
       /* If the new qualifier is not unconditionally false, its variant may
@@ -7479,17 +7543,17 @@ build_variant_list (tree qual_union_type, VEC(subst_pair,heap) *subst_list,
 	  variant_desc *v;
 	  tree variant_type = TREE_TYPE (gnu_field), variant_subpart;
 
-	  v = VEC_safe_push (variant_desc, heap, variant_list, NULL);
+	  v = VEC_safe_push (variant_desc, heap, gnu_list, NULL);
 	  v->type = variant_type;
 	  v->field = gnu_field;
 	  v->qual = qual;
-	  v->record = NULL_TREE;
+	  v->new_type = NULL_TREE;
 
 	  /* Recurse on the variant subpart of the variant, if any.  */
 	  variant_subpart = get_variant_part (variant_type);
 	  if (variant_subpart)
-	    variant_list = build_variant_list (TREE_TYPE (variant_subpart),
-					       subst_list, variant_list);
+	    gnu_list = build_variant_list (TREE_TYPE (variant_subpart),
+					   subst_list, gnu_list);
 
 	  /* If the new qualifier is unconditionally true, the subsequent
 	     variants cannot be accessed.  */
@@ -7498,7 +7562,7 @@ build_variant_list (tree qual_union_type, VEC(subst_pair,heap) *subst_list,
 	}
     }
 
-  return variant_list;
+  return gnu_list;
 }
 
 /* UINT_SIZE is a Uint giving the specified size for an object of GNU_TYPE
@@ -7992,6 +8056,10 @@ intrin_return_compatible_p (intrin_binding_t * inb)
       && !VOID_TYPE_P (btin_return_type))
     return true;
 
+  /* If return type is Address (integer type), map it to void *.  */
+  if (Is_Descendent_Of_Address (Etype (inb->gnat_entity)))
+    ada_return_type = ptr_void_type_node;
+
   /* Check return types compatibility otherwise.  Note that this
      handles void/void as well.  */
   if (intrin_types_incompatible_p (btin_return_type, ada_return_type))
@@ -8047,11 +8115,11 @@ create_field_decl_from (tree old_field, tree field_type, tree record_type,
   tree pos = TREE_VEC_ELT (t, 0), bitpos = TREE_VEC_ELT (t, 2);
   unsigned int offset_align = tree_low_cst (TREE_VEC_ELT (t, 1), 1);
   tree new_pos, new_field;
-  unsigned ix;
+  unsigned int i;
   subst_pair *s;
 
   if (CONTAINS_PLACEHOLDER_P (pos))
-    FOR_EACH_VEC_ELT_REVERSE (subst_pair, subst_list, ix, s)
+    FOR_EACH_VEC_ELT (subst_pair, subst_list, i, s)
       pos = SUBSTITUTE_IN_EXPR (pos, s->discriminant, s->replacement);
 
   /* If the position is now a constant, we can set it as the position of the
@@ -8114,7 +8182,8 @@ get_rep_part (tree record_type)
 
   /* The REP part is the first field, internal, another record, and its name
      starts with an 'R'.  */
-  if (DECL_INTERNAL_P (field)
+  if (field
+      && DECL_INTERNAL_P (field)
       && TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
       && IDENTIFIER_POINTER (DECL_NAME (field)) [0] == 'R')
     return field;
@@ -8155,11 +8224,13 @@ create_variant_part_from (tree old_variant_part,
   tree new_union_type, new_variant_part;
   tree union_field_list = NULL_TREE;
   variant_desc *v;
-  unsigned ix;
+  unsigned int i;
 
   /* First create the type of the variant part from that of the old one.  */
   new_union_type = make_node (QUAL_UNION_TYPE);
-  TYPE_NAME (new_union_type) = DECL_NAME (TYPE_NAME (old_union_type));
+  TYPE_NAME (new_union_type)
+    = concat_name (TYPE_NAME (record_type),
+		   IDENTIFIER_POINTER (DECL_NAME (old_variant_part)));
 
   /* If the position of the variant part is constant, subtract it from the
      size of the type of the parent to get the new size.  This manual CSE
@@ -8183,7 +8254,7 @@ create_variant_part_from (tree old_variant_part,
     copy_and_substitute_in_size (new_union_type, old_union_type, subst_list);
 
   /* Now finish up the new variants and populate the union type.  */
-  FOR_EACH_VEC_ELT_REVERSE (variant_desc, variant_list, ix, v)
+  FOR_EACH_VEC_ELT_REVERSE (variant_desc, variant_list, i, v)
     {
       tree old_field = v->field, new_field;
       tree old_variant, old_variant_subpart, new_variant, field_list;
@@ -8193,7 +8264,7 @@ create_variant_part_from (tree old_variant_part,
 	continue;
 
       /* Retrieve the list of fields already added to the new variant.  */
-      new_variant = v->record;
+      new_variant = v->new_type;
       field_list = TYPE_FIELDS (new_variant);
 
       /* If the old variant had a variant subpart, we need to create a new
@@ -8227,7 +8298,8 @@ create_variant_part_from (tree old_variant_part,
     }
 
   /* Finish up the union type and create the variant part.  No need for debug
-     info thanks to the XVS type.  */
+     info thanks to the XVS type.  Note that we don't reverse the field list
+     because VARIANT_LIST has been traversed in reverse order.  */
   finish_record_type (new_union_type, union_field_list, 2, false);
   compute_record_mode (new_union_type);
   create_type_decl (TYPE_NAME (new_union_type), new_union_type, NULL,
@@ -8266,7 +8338,7 @@ static void
 copy_and_substitute_in_size (tree new_type, tree old_type,
 			     VEC(subst_pair,heap) *subst_list)
 {
-  unsigned ix;
+  unsigned int i;
   subst_pair *s;
 
   TYPE_SIZE (new_type) = TYPE_SIZE (old_type);
@@ -8276,19 +8348,19 @@ copy_and_substitute_in_size (tree new_type, tree old_type,
   relate_alias_sets (new_type, old_type, ALIAS_SET_COPY);
 
   if (CONTAINS_PLACEHOLDER_P (TYPE_SIZE (new_type)))
-    FOR_EACH_VEC_ELT_REVERSE (subst_pair, subst_list, ix, s)
+    FOR_EACH_VEC_ELT (subst_pair, subst_list, i, s)
       TYPE_SIZE (new_type)
 	= SUBSTITUTE_IN_EXPR (TYPE_SIZE (new_type),
 			      s->discriminant, s->replacement);
 
   if (CONTAINS_PLACEHOLDER_P (TYPE_SIZE_UNIT (new_type)))
-    FOR_EACH_VEC_ELT_REVERSE (subst_pair, subst_list, ix, s)
+    FOR_EACH_VEC_ELT (subst_pair, subst_list, i, s)
       TYPE_SIZE_UNIT (new_type)
 	= SUBSTITUTE_IN_EXPR (TYPE_SIZE_UNIT (new_type),
 			      s->discriminant, s->replacement);
 
   if (CONTAINS_PLACEHOLDER_P (TYPE_ADA_SIZE (new_type)))
-    FOR_EACH_VEC_ELT_REVERSE (subst_pair, subst_list, ix, s)
+    FOR_EACH_VEC_ELT (subst_pair, subst_list, i, s)
       SET_TYPE_ADA_SIZE
 	(new_type, SUBSTITUTE_IN_EXPR (TYPE_ADA_SIZE (new_type),
 				       s->discriminant, s->replacement));

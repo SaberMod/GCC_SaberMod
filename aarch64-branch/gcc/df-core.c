@@ -385,14 +385,12 @@ are write-only operations.
 #include "recog.h"
 #include "function.h"
 #include "regs.h"
-#include "output.h"
 #include "alloc-pool.h"
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "sbitmap.h"
 #include "bitmap.h"
-#include "timevar.h"
 #include "df.h"
 #include "tree-pass.h"
 #include "params.h"
@@ -403,6 +401,9 @@ static void df_clear_bb_info (struct dataflow *, unsigned int);
 #ifdef DF_DEBUG_CFG
 static void df_set_clean_cfg (void);
 #endif
+
+/* The obstack on which regsets are allocated.  */
+struct bitmap_obstack reg_obstack;
 
 /* An obstack for bitmap not related to specific dataflow problems.
    This obstack should e.g. be used for bitmaps with a short life time
@@ -711,7 +712,7 @@ rest_of_handle_df_initialize (void)
 
   /* Set this to a conservative value.  Stack_ptr_mod will compute it
      correctly later.  */
-  current_function_sp_is_unchanging = 0;
+  crtl->sp_is_unchanging = 0;
 
   df_scan_add_problem ();
   df_scan_alloc (NULL);
@@ -1861,6 +1862,40 @@ df_reg_used (rtx insn, rtx reg)
    Debugging and printing functions.
 ----------------------------------------------------------------------------*/
 
+/* Write information about registers and basic blocks into FILE.
+   This is part of making a debugging dump.  */
+
+void
+dump_regset (regset r, FILE *outf)
+{
+  unsigned i;
+  reg_set_iterator rsi;
+
+  if (r == NULL)
+    {
+      fputs (" (nil)", outf);
+      return;
+    }
+
+  EXECUTE_IF_SET_IN_REG_SET (r, 0, i, rsi)
+    {
+      fprintf (outf, " %d", i);
+      if (i < FIRST_PSEUDO_REGISTER)
+	fprintf (outf, " [%s]",
+		 reg_names[i]);
+    }
+}
+
+/* Print a human-readable representation of R on the standard error
+   stream.  This function is designed to be used from within the
+   debugger.  */
+extern void debug_regset (regset);
+DEBUG_FUNCTION void
+debug_regset (regset r)
+{
+  dump_regset (r, stderr);
+  putc ('\n', stderr);
+}
 
 /* Write information about registers and basic blocks into FILE.
    This is part of making a debugging dump.  */

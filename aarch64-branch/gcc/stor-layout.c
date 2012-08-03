@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
-#include "output.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
 #include "target.h"
@@ -786,25 +785,29 @@ start_record_layout (tree t)
 }
 
 /* Return the combined bit position for the byte offset OFFSET and the
-   bit position BITPOS.  */
+   bit position BITPOS.
 
-tree
-bit_from_pos (tree offset, tree bitpos)
-{
-  return size_binop (PLUS_EXPR, bitpos,
-		     size_binop (MULT_EXPR,
-				 fold_convert (bitsizetype, offset),
-				 bitsize_unit_node));
-}
-
-/* Return the combined truncated byte position for the byte offset OFFSET and
-   the bit position BITPOS.
-
-   These functions operate on byte and bit positions as present in FIELD_DECLs
+   These functions operate on byte and bit positions present in FIELD_DECLs
    and assume that these expressions result in no (intermediate) overflow.
    This assumption is necessary to fold the expressions as much as possible,
    so as to avoid creating artificially variable-sized types in languages
    supporting variable-sized types like Ada.  */
+
+tree
+bit_from_pos (tree offset, tree bitpos)
+{
+  if (TREE_CODE (offset) == PLUS_EXPR)
+    offset = size_binop (PLUS_EXPR,
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 0)),
+			 fold_convert (bitsizetype, TREE_OPERAND (offset, 1)));
+  else
+    offset = fold_convert (bitsizetype, offset);
+  return size_binop (PLUS_EXPR, bitpos,
+		     size_binop (MULT_EXPR, offset, bitsize_unit_node));
+}
+
+/* Return the combined truncated byte position for the byte offset OFFSET and
+   the bit position BITPOS.  */
 
 tree
 byte_from_pos (tree offset, tree bitpos)
@@ -1795,7 +1798,7 @@ finish_bitfield_representative (tree repr, tree field)
   if (nextf)
     {
       tree maxsize;
-      /* If there was an error, the field may be not layed out
+      /* If there was an error, the field may be not laid out
          correctly.  Don't bother to do anything.  */
       if (TREE_TYPE (nextf) == error_mark_node)
 	return;
@@ -1876,7 +1879,7 @@ finish_bitfield_representative (tree repr, tree field)
 }
 
 /* Compute and set FIELD_DECLs for the underlying objects we should
-   use for bitfield access for the structure layed out with RLI.  */
+   use for bitfield access for the structure laid out with RLI.  */
 
 static void
 finish_bitfield_layout (record_layout_info rli)
@@ -2128,9 +2131,17 @@ layout_type (tree type)
 	TYPE_SIZE (type) = int_const_binop (MULT_EXPR, TYPE_SIZE (innertype),
 					    bitsize_int (nunits));
 
-	/* Always naturally align vectors.  This prevents ABI changes
-	   depending on whether or not native vector modes are supported.  */
-	TYPE_ALIGN (type) = tree_low_cst (TYPE_SIZE (type), 0);
+	/* For vector types, we do not default to the mode's alignment.
+	   Instead, query a target hook, defaulting to natural alignment.
+	   This prevents ABI changes depending on whether or not native
+	   vector modes are supported.  */
+	TYPE_ALIGN (type) = targetm.vector_alignment (type);
+
+	/* However, if the underlying mode requires a bigger alignment than
+	   what the target hook provides, we cannot use the mode.  For now,
+	   simply reject that case.  */
+	gcc_assert (TYPE_ALIGN (type)
+		    >= GET_MODE_ALIGNMENT (TYPE_MODE (type)));
         break;
       }
 
@@ -2227,7 +2238,7 @@ layout_type (tree type)
 	      }
 
 	    /* If we arrived at a length of zero ignore any overflow
-	       that occured as part of the calculation.  There exists
+	       that occurred as part of the calculation.  There exists
 	       an association of the plus one where that overflow would
 	       not happen.  */
 	    if (integer_zerop (length)
@@ -2477,8 +2488,8 @@ initialize_sizetypes (void)
     = MIN (precision + BITS_PER_UNIT_LOG + 1, MAX_FIXED_MODE_SIZE);
   bprecision
     = GET_MODE_PRECISION (smallest_mode_for_size (bprecision, MODE_INT));
-  if (bprecision > HOST_BITS_PER_WIDE_INT * 2)
-    bprecision = HOST_BITS_PER_WIDE_INT * 2;
+  if (bprecision > HOST_BITS_PER_DOUBLE_INT)
+    bprecision = HOST_BITS_PER_DOUBLE_INT;
 
   /* Create stubs for sizetype and bitsizetype so we can create constants.  */
   sizetype = make_node (INTEGER_TYPE);
@@ -2579,10 +2590,10 @@ fixup_signed_type (tree type)
   int precision = TYPE_PRECISION (type);
 
   /* We can not represent properly constants greater then
-     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     HOST_BITS_PER_DOUBLE_INT, still we need the types
      as they are used by i386 vector extensions and friends.  */
-  if (precision > HOST_BITS_PER_WIDE_INT * 2)
-    precision = HOST_BITS_PER_WIDE_INT * 2;
+  if (precision > HOST_BITS_PER_DOUBLE_INT)
+    precision = HOST_BITS_PER_DOUBLE_INT;
 
   set_min_and_max_values_for_integral_type (type, precision,
 					    /*is_unsigned=*/false);
@@ -2601,10 +2612,10 @@ fixup_unsigned_type (tree type)
   int precision = TYPE_PRECISION (type);
 
   /* We can not represent properly constants greater then
-     2 * HOST_BITS_PER_WIDE_INT, still we need the types
+     HOST_BITS_PER_DOUBLE_INT, still we need the types
      as they are used by i386 vector extensions and friends.  */
-  if (precision > HOST_BITS_PER_WIDE_INT * 2)
-    precision = HOST_BITS_PER_WIDE_INT * 2;
+  if (precision > HOST_BITS_PER_DOUBLE_INT)
+    precision = HOST_BITS_PER_DOUBLE_INT;
 
   TYPE_UNSIGNED (type) = 1;
 

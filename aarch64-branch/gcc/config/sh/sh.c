@@ -39,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "diagnostic-core.h"
 #include "recog.h"
-#include "integrate.h"
 #include "dwarf2.h"
 #include "tm_p.h"
 #include "target.h"
@@ -47,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "basic-block.h"
 #include "df.h"
-#include "cfglayout.h"
 #include "intl.h"
 #include "sched-int.h"
 #include "params.h"
@@ -65,6 +63,9 @@ int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 #define LSW (TARGET_LITTLE_ENDIAN ? 0 : 1)
 
 /* These are some macros to abstract register modes.  */
+#define CONST_OK_FOR_I10(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -512 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 511)
+
 #define CONST_OK_FOR_ADD(size) \
   (TARGET_SHMEDIA ? CONST_OK_FOR_I10 (size) : CONST_OK_FOR_I08 (size))
 #define GEN_MOV (*(TARGET_SHMEDIA64 ? gen_movdi : gen_movsi))
@@ -305,6 +306,7 @@ static int mov_insn_size (enum machine_mode, bool);
 static int max_mov_insn_displacement (enum machine_mode, bool);
 static int mov_insn_alignment_mask (enum machine_mode, bool);
 static HOST_WIDE_INT disp_addr_displacement (rtx);
+static bool sequence_insn_p (rtx);
 
 static void sh_init_sync_libfuncs (void) ATTRIBUTE_UNUSED;
 
@@ -393,7 +395,7 @@ static const struct attribute_spec sh_attribute_table[] =
    The insn that frees registers is most likely to be the insn with lowest
    LUID (original insn order); but such an insn might be there in the stalled
    queue (Q) instead of the ready queue (R).  To solve this, we skip cycles
-   upto a max of 8 cycles so that such insns may move from Q -> R.
+   up to a max of 8 cycles so that such insns may move from Q -> R.
 
    The description of the hooks are as below:
 
@@ -597,11 +599,6 @@ sh_option_override (void)
   SUBTARGET_OVERRIDE_OPTIONS;
   if (optimize > 1 && !optimize_size)
     target_flags |= MASK_SAVE_ALL_TARGET_REGS;
-  if (flag_finite_math_only == 2)
-    flag_finite_math_only
-      = !flag_signaling_nans && TARGET_SH2E && ! TARGET_IEEE;
-  if (TARGET_SH2E && !flag_finite_math_only)
-    target_flags |= MASK_IEEE;
   sh_cpu = PROCESSOR_SH1;
   assembler_dialect = 0;
   if (TARGET_SH2)
@@ -744,6 +741,10 @@ sh_option_override (void)
 	sh_branch_cost = 2;
     }
 
+  /* Set -mzdcbranch for SH4 / SH4A if not otherwise specified by the user.  */
+  if (! global_options_set.x_TARGET_ZDCBRANCH && TARGET_HARD_SH4)
+    TARGET_ZDCBRANCH = 1;
+
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (! VALID_REGISTER_P (regno))
       sh_register_names[regno][0] = '\0';
@@ -751,8 +752,6 @@ sh_option_override (void)
   for (regno = 0; regno < ADDREGNAMES_SIZE; regno++)
     if (! VALID_REGISTER_P (ADDREGNAMES_REGNO (regno)))
       sh_additional_register_names[regno][0] = '\0';
-
-  flag_omit_frame_pointer = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);
 
   if ((flag_pic && ! TARGET_PREFERGOT)
       || (TARGET_SHMEDIA && !TARGET_PT_FIXED))
@@ -785,22 +784,17 @@ sh_option_override (void)
 	flag_schedule_insns = 0;
     }
 
-    if ((target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS) == 0)
-       target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
-
-  /* Unwind info is not correct around the CFG unless either a frame 
-     pointer is present or M_A_O_A is set.  Fixing this requires rewriting 
-     unwind info generation to be aware of the CFG and propagating states 
+  /* Unwind info is not correct around the CFG unless either a frame
+     pointer is present or M_A_O_A is set.  Fixing this requires rewriting
+     unwind info generation to be aware of the CFG and propagating states
      around edges.  */
   if ((flag_unwind_tables || flag_asynchronous_unwind_tables
-       || flag_exceptions || flag_non_call_exceptions)   
-      && flag_omit_frame_pointer
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
+       || flag_exceptions || flag_non_call_exceptions)
+      && flag_omit_frame_pointer && !TARGET_ACCUMULATE_OUTGOING_ARGS)
     {
-      if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "unwind tables currently require either a frame pointer "
-		 "or -maccumulate-outgoing-args for correctness");
-      target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
+      warning (0, "unwind tables currently require either a frame pointer "
+	       "or -maccumulate-outgoing-args for correctness");
+      TARGET_ACCUMULATE_OUTGOING_ARGS = 1;
     }
 
   /* Unwinding with -freorder-blocks-and-partition does not work on this
@@ -877,12 +871,41 @@ sh_option_override (void)
 	align_functions = min_align;
     }
 
+  if (flag_unsafe_math_optimizations)
+    {
+      /* Enable fsca insn for SH4A if not otherwise specified by the user.  */
+      if (global_options_set.x_TARGET_FSCA == 0 && TARGET_SH4A_FP)
+	TARGET_FSCA = 1;
+
+      /* Enable fsrra insn for SH4A if not otherwise specified by the user.  */
+      if (global_options_set.x_TARGET_FSRRA == 0 && TARGET_SH4A_FP)
+	TARGET_FSRRA = 1;
+    }
+
+  /*  Allow fsrra insn only if -funsafe-math-optimizations and
+      -ffinite-math-only is enabled.  */
+  TARGET_FSRRA = TARGET_FSRRA
+		 && flag_unsafe_math_optimizations
+		 && flag_finite_math_only;
+
+  /* If the -mieee option was not explicitly set by the user, turn it on
+     unless -ffinite-math-only was specified.  See also PR 33135.  */
+  if (! global_options_set.x_TARGET_IEEE)
+    TARGET_IEEE = ! flag_finite_math_only;
+
   if (sh_fixed_range_str)
     sh_fix_range (sh_fixed_range_str);
 
   /* This target defaults to strict volatile bitfields.  */
   if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
     flag_strict_volatile_bitfields = 1;
+
+  /* Make sure that only one atomic mode is selected and that the selection
+     is valid for the current target CPU.  */
+  if (TARGET_SOFT_ATOMIC && TARGET_HARD_ATOMIC)
+    error ("-msoft-atomic and -mhard-atomic cannot be used at the same time");
+  if (TARGET_HARD_ATOMIC && ! TARGET_SH4A_ARCH)
+    error ("-mhard-atomic is only available for SH4A targets");
 }
 
 /* Print the operand address in x to the stream.  */
@@ -1859,7 +1882,7 @@ prepare_cbranch_operands (rtx *operands, enum machine_mode mode,
 void
 expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
 {
-  rtx (*branch_expander) (rtx) = gen_branch_true;
+  rtx (*branch_expander) (rtx, rtx) = gen_branch_true;
   rtx jump;
 
   comparison = prepare_cbranch_operands (operands, SImode, comparison);
@@ -1873,7 +1896,7 @@ expand_cbranchsi4 (rtx *operands, enum rtx_code comparison, int probability)
   emit_insn (gen_rtx_SET (VOIDmode, gen_rtx_REG (SImode, T_REG),
                           gen_rtx_fmt_ee (comparison, SImode,
                                           operands[1], operands[2])));
-  jump = emit_jump_insn (branch_expander (operands[3]));
+  jump = emit_jump_insn (branch_expander (operands[3], get_t_reg_rtx ()));
   if (probability >= 0)
     add_reg_note (jump, REG_BR_PROB, GEN_INT (probability));
 
@@ -1926,7 +1949,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       if (TARGET_CMPEQDI_T)
 	{
 	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_true (operands[3]));
+	  emit_jump_insn (gen_branch_true (operands[3], get_t_reg_rtx ()));
 	  return true;
 	}
       msw_skip = NE;
@@ -1954,7 +1977,7 @@ expand_cbranchdi4 (rtx *operands, enum rtx_code comparison)
       if (TARGET_CMPEQDI_T)
 	{
 	  emit_insn (gen_cmpeqdi_t (operands[1], operands[2]));
-	  emit_jump_insn (gen_branch_false (operands[3]));
+	  emit_jump_insn (gen_branch_false (operands[3], get_t_reg_rtx ()));
 	  return true;
 	}
       msw_taken = NE;
@@ -2289,9 +2312,9 @@ sh_emit_compare_and_branch (rtx *operands, enum machine_mode mode)
     sh_emit_set_t_insn (gen_ieee_ccmpeqsf_t (op0, op1), mode);
 
   if (branch_code == code)
-    emit_jump_insn (gen_branch_true (operands[3]));
+    emit_jump_insn (gen_branch_true (operands[3], get_t_reg_rtx ()));
   else
-    emit_jump_insn (gen_branch_false (operands[3]));
+    emit_jump_insn (gen_branch_false (operands[3], get_t_reg_rtx ()));
 }
 
 void
@@ -2325,7 +2348,7 @@ sh_emit_compare_and_set (rtx *operands, enum machine_mode mode)
             {
               lab = gen_label_rtx ();
               sh_emit_scc_to_t (EQ, op0, op1);
-              emit_jump_insn (gen_branch_true (lab));
+              emit_jump_insn (gen_branch_true (lab, get_t_reg_rtx ()));
               code = GT;
            }
           else
@@ -2836,26 +2859,22 @@ shiftcosts (rtx x)
 {
   int value;
 
-  /* There is no pattern for constant first operand.  */
-  if (CONST_INT_P (XEXP (x, 0)))
-    return MAX_COST;
-
   if (TARGET_SHMEDIA)
-    return COSTS_N_INSNS (1);
+    return 1;
 
   if (GET_MODE_SIZE (GET_MODE (x)) > UNITS_PER_WORD)
     {
       if (GET_MODE (x) == DImode
 	  && CONST_INT_P (XEXP (x, 1))
 	  && INTVAL (XEXP (x, 1)) == 1)
-	return COSTS_N_INSNS (2);
+	return 2;
 
       /* Everything else is invalid, because there is no pattern for it.  */
-      return MAX_COST;
+      return -1;
     }
   /* If shift by a non constant, then this will be expensive.  */
   if (!CONST_INT_P (XEXP (x, 1)))
-    return COSTS_N_INSNS (SH_DYNAMIC_SHIFT_COST);
+    return SH_DYNAMIC_SHIFT_COST;
 
   /* Otherwise, return the true cost in instructions.  Cope with out of range
      shift counts more or less arbitrarily.  */
@@ -2864,13 +2883,14 @@ shiftcosts (rtx x)
   if (GET_CODE (x) == ASHIFTRT)
     {
       int cost = ashiftrt_insns[value];
-      /* If SH3, then we put the constant in a reg and use shad.  */
+      /* If dynamic shifts are available and profitable in this case, then we
+	 put the constant in a reg and use shad.  */
       if (cost > 1 + SH_DYNAMIC_SHIFT_COST)
 	cost = 1 + SH_DYNAMIC_SHIFT_COST;
-      return COSTS_N_INSNS (cost);
+      return cost;
     }
   else
-    return COSTS_N_INSNS (shift_insns[value]);
+    return shift_insns[value];
 }
 
 /* Return the cost of an AND/XOR/IOR operation.  */
@@ -3124,8 +3144,13 @@ sh_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
-      *total = shiftcosts (x);
-      return true;
+      {
+	int cost = shiftcosts (x);
+	if (cost < 0)
+	  return false;
+	*total = COSTS_N_INSNS (cost);
+	return true;
+      }
 
     case DIV:
     case UDIV:
@@ -3258,9 +3283,11 @@ sh_address_cost (rtx x, bool speed ATTRIBUTE_UNUSED)
 
 /* Code to expand a shift.  */
 
-void
+static void
 gen_ashift (int type, int n, rtx reg)
 {
+  rtx n_rtx;
+
   /* Negative values here come from the shift_amounts array.  */
   if (n < 0)
     {
@@ -3271,26 +3298,30 @@ gen_ashift (int type, int n, rtx reg)
       n = -n;
     }
 
+  n_rtx = GEN_INT (n);
+  gcc_assert (satisfies_constraint_P27 (n_rtx));
+
   switch (type)
     {
     case ASHIFTRT:
-      emit_insn (gen_ashrsi3_k (reg, reg, GEN_INT (n)));
+      emit_insn (gen_ashrsi3_k (reg, reg, n_rtx));
       break;
     case LSHIFTRT:
       if (n == 1)
-	emit_insn (gen_lshrsi3_m (reg, reg, GEN_INT (n)));
+	emit_insn (gen_lshrsi3_m (reg, reg, n_rtx));
       else
-	emit_insn (gen_lshrsi3_k (reg, reg, GEN_INT (n)));
+	emit_insn (gen_lshrsi3_k (reg, reg, n_rtx));
       break;
     case ASHIFT:
-      emit_insn (gen_ashlsi3_std (reg, reg, GEN_INT (n)));
+      emit_insn (gen_ashlsi3_k (reg, reg, n_rtx));
       break;
+    default:
+      gcc_unreachable ();
     }
 }
 
 /* Same for HImode */
-
-void
+static void
 gen_ashift_hi (int type, int n, rtx reg)
 {
   /* Negative values here come from the shift_amounts array.  */
@@ -3345,7 +3376,7 @@ gen_shifty_op (int code, rtx *operands)
       if (code == LSHIFTRT)
 	{
 	  emit_insn (gen_rotlsi3_1 (operands[0], operands[0]));
-	  emit_insn (gen_movt (operands[0]));
+	  emit_insn (gen_movt (operands[0], get_t_reg_rtx ()));
 	  return;
 	}
       else if (code == ASHIFT)
@@ -3418,7 +3449,7 @@ expand_ashiftrt (rtx *operands)
   char func[18];
   int value;
 
-  if (TARGET_SH3 || TARGET_SH2A)
+  if (TARGET_DYNSHIFT)
     {
       if (!CONST_INT_P (operands[2]))
 	{
@@ -3450,7 +3481,7 @@ expand_ashiftrt (rtx *operands)
 	{
 	  emit_insn (gen_cmpgtsi_t (force_reg (SImode, CONST0_RTX (SImode)),
 				    operands[1]));
-	  emit_insn (gen_mov_neg_si_t (operands[0]));
+	  emit_insn (gen_mov_neg_si_t (operands[0], get_t_reg_rtx ()));
 	  return true;
 	}
       emit_insn (gen_ashrsi2_31 (operands[0], operands[1]));
@@ -3488,10 +3519,16 @@ expand_ashiftrt (rtx *operands)
   return true;
 }
 
+/* Return true if it is potentially beneficial to use a dynamic shift
+   instruction (shad / shar) instead of a combination of 1/2/8/16 
+   shift instructions for the specified shift count.
+   If dynamic shifts are not available, always return false.  */
 bool
 sh_dynamicalize_shift_p (rtx count)
 {
-  return shift_insns[INTVAL (count) & 31] > 1 + SH_DYNAMIC_SHIFT_COST;
+  gcc_assert (CONST_INT_P (count));
+  return TARGET_DYNSHIFT
+	 && (shift_insns[INTVAL (count) & 31] > 1 + SH_DYNAMIC_SHIFT_COST);
 }
 
 /* Try to find a good way to implement the combiner pattern
@@ -3867,7 +3904,7 @@ shl_sext_kind (rtx left_rtx, rtx size_rtx, int *costp)
 	    }
 	}
     }
-  if (TARGET_SH3 || TARGET_SH2A)
+  if (TARGET_DYNSHIFT)
     {
       /* Try to use a dynamic shift.  */
       cost = shift_insns[32 - insize] + 1 + SH_DYNAMIC_SHIFT_COST;
@@ -4779,7 +4816,7 @@ find_barrier (int num_mova, rtx mova, rtx from)
 	 delay slot scheduler.  */
       if (JUMP_P (from) && !JUMP_TABLE_DATA_P (from) 
 	  && get_attr_type (from) == TYPE_CBRANCH
-	  && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (from)))) != SEQUENCE)
+	  && ! sequence_insn_p (from))
 	inc += 2;
 
       if (found_si)
@@ -5285,6 +5322,7 @@ gen_far_branch (struct far_branch *bp)
     }
   else
     jump = emit_jump_insn_after (gen_return (), insn);
+
   /* Emit a barrier so that reorg knows that any following instructions
      are not reachable via a fall-through path.
      But don't do this when not optimizing, since we wouldn't suppress the
@@ -5293,10 +5331,19 @@ gen_far_branch (struct far_branch *bp)
   if (optimize)
     emit_barrier_after (jump);
   emit_label_after (bp->near_label, insn);
-  JUMP_LABEL (jump) = bp->far_label;
+
+  if (bp->far_label)
+    JUMP_LABEL (jump) = bp->far_label;
+  else
+    {
+      rtx pat = PATTERN (jump);
+      gcc_assert (ANY_RETURN_P (pat));
+      JUMP_LABEL (jump) = pat;
+    }
+
   ok = invert_jump (insn, label, 1);
   gcc_assert (ok);
-  
+
   /* If we are branching around a jump (rather than a return), prevent
      reorg from using an insn from the jump target as the delay slot insn -
      when reorg did this, it pessimized code (we rather hide the delay slot)
@@ -6460,11 +6507,10 @@ output_stack_adjust (int size, rtx reg, int epilogue_p,
 	      emit_insn (GEN_MOV (const_reg, GEN_INT (size)));
 	      insn = emit_fn (GEN_ADD3 (reg, reg, const_reg));
 	    }
-	  if (! epilogue_p)
-	    add_reg_note (insn, REG_FRAME_RELATED_EXPR,
-			  gen_rtx_SET (VOIDmode, reg,
-				       gen_rtx_PLUS (SImode, reg,
-						     GEN_INT (size))));
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
+			gen_rtx_SET (VOIDmode, reg,
+				     gen_rtx_PLUS (SImode, reg,
+						   GEN_INT (size))));
 	}
     }
 }
@@ -6509,7 +6555,7 @@ push (int rn)
 static void
 pop (int rn)
 {
-  rtx x;
+  rtx x, sp_reg, reg;
   if (rn == FPUL_REG)
     x = gen_pop_fpul ();
   else if (rn == FPSCR_REG)
@@ -6527,7 +6573,18 @@ pop (int rn)
     x = gen_pop (gen_rtx_REG (SImode, rn));
 
   x = emit_insn (x);
+
+  sp_reg = gen_rtx_REG (SImode, STACK_POINTER_REGNUM);
+  reg = copy_rtx (GET_CODE (PATTERN (x)) == PARALLEL
+		  ? SET_DEST (XVECEXP (PATTERN (x), 0, 0))
+		  : SET_DEST (PATTERN (x)));
+  add_reg_note (x, REG_CFA_RESTORE, reg);
+  add_reg_note (x, REG_CFA_ADJUST_CFA,
+		gen_rtx_SET (SImode, sp_reg,
+			     plus_constant (SImode, sp_reg,
+					    GET_MODE_SIZE (GET_MODE (reg)))));
   add_reg_note (x, REG_INC, gen_rtx_REG (SImode, STACK_POINTER_REGNUM));
+  RTX_FRAME_RELATED_P (x) = 1;
 }
 
 /* Generate code to push the regs specified in the mask.  */
@@ -6858,7 +6915,7 @@ sh_media_register_for_return (void)
   int regno;
   int tr0_used;
 
-  if (! current_function_is_leaf)
+  if (! crtl->is_leaf)
     return -1;
   if (lookup_attribute ("interrupt_handler",
 			DECL_ATTRIBUTES (current_function_decl)))
@@ -7410,14 +7467,14 @@ sh_expand_epilogue (bool sibcall_p)
 	 See PR/18032 and PR/40313.  */
       emit_insn (gen_blockage ());
       output_stack_adjust (frame_size, hard_frame_pointer_rtx, e,
-			   &live_regs_mask, false);
+			   &live_regs_mask, true);
 
       /* We must avoid moving the stack pointer adjustment past code
 	 which reads from the local frame, else an interrupt could
 	 occur after the SP adjustment and clobber data in the local
 	 frame.  */
       emit_insn (gen_blockage ());
-      emit_insn (GEN_MOV (stack_pointer_rtx, hard_frame_pointer_rtx));
+      frame_insn (GEN_MOV (stack_pointer_rtx, hard_frame_pointer_rtx));
     }
   else if (frame_size)
     {
@@ -7427,7 +7484,7 @@ sh_expand_epilogue (bool sibcall_p)
 	 frame.  */
       emit_insn (gen_blockage ());
       output_stack_adjust (frame_size, stack_pointer_rtx, e,
-			   &live_regs_mask, false);
+			   &live_regs_mask, true);
     }
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
@@ -7644,7 +7701,7 @@ sh_expand_epilogue (bool sibcall_p)
   output_stack_adjust (crtl->args.pretend_args_size
 		       + save_size + d_rounding
 		       + crtl->args.info.stack_regs * 8,
-		       stack_pointer_rtx, e, NULL, false);
+		       stack_pointer_rtx, e, NULL, true);
 
   if (crtl->calls_eh_return)
     emit_insn (GEN_ADD3 (stack_pointer_rtx, stack_pointer_rtx,
@@ -9284,6 +9341,15 @@ sh_cfun_resbank_handler_p (void)
               != NULL_TREE) && TARGET_SH2A);
 }
 
+/* Returns true if the current function has a "trap_exit" attribute set.  */
+
+bool
+sh_cfun_trap_exit_p (void)
+{
+  return lookup_attribute ("trap_exit", DECL_ATTRIBUTES (current_function_decl))
+	 != NULL_TREE;
+}
+
 /* Implement TARGET_CHECK_PCH_TARGET_FLAGS.  */
 
 static const char *
@@ -9479,6 +9545,15 @@ reg_unused_after (rtx reg, rtx insn)
 
 #include "ggc.h"
 
+static GTY(()) rtx t_reg_rtx;
+rtx
+get_t_reg_rtx (void)
+{
+  if (! t_reg_rtx)
+    t_reg_rtx = gen_rtx_REG (SImode, T_REG);
+  return t_reg_rtx;
+}
+
 static GTY(()) rtx fpscr_rtx;
 rtx
 get_fpscr_rtx (void)
@@ -9618,6 +9693,26 @@ fpscr_set_from_mem (int mode, HARD_REG_SET regs_live)
 #define IS_ASM_LOGICAL_LINE_SEPARATOR(C, STR) ((C) == ';')
 #endif
 
+static bool
+sequence_insn_p (rtx insn)
+{
+  rtx prev, next, pat;
+
+  prev = PREV_INSN (insn);
+  if (prev == NULL)
+    return false;
+
+  next = NEXT_INSN (prev);
+  if (next == NULL)
+    return false;
+
+  pat = PATTERN (next);
+  if (pat == NULL)
+    return false;
+
+  return GET_CODE (pat) == SEQUENCE;
+}
+
 int
 sh_insn_length_adjustment (rtx insn)
 {
@@ -9628,7 +9723,7 @@ sh_insn_length_adjustment (rtx insn)
 	&& GET_CODE (PATTERN (insn)) != CLOBBER)
        || CALL_P (insn)
        || (JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)))
-      && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE
+      && ! sequence_insn_p (insn)
       && get_attr_needs_delay_slot (insn) == NEEDS_DELAY_SLOT_YES)
     return 2;
 
@@ -9637,7 +9732,7 @@ sh_insn_length_adjustment (rtx insn)
   if (sh_cpu_attr == CPU_SH2E
       && JUMP_P (insn) && !JUMP_TABLE_DATA_P (insn)
       && get_attr_type (insn) == TYPE_CBRANCH
-      && GET_CODE (PATTERN (NEXT_INSN (PREV_INSN (insn)))) != SEQUENCE)
+      && ! sequence_insn_p (insn))
     return 2;
 
   /* sh-dsp parallel processing insn take four bytes instead of two.  */
@@ -9712,7 +9807,7 @@ sh_legitimate_index_p (enum machine_mode mode, rtx op, bool consider_sh2a,
 
       /* Check if this is the address of an unaligned load / store.  */
       if (mode == VOIDmode)
-	return CONST_OK_FOR_I06 (INTVAL (op));
+	return satisfies_constraint_I06 (op);
 
       size = GET_MODE_SIZE (mode);
       return (!(INTVAL (op) & (size - 1))
@@ -10452,7 +10547,7 @@ sh_allocate_initial_value (rtx hard_reg)
 
   if (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG))
     {
-      if (current_function_is_leaf
+      if (crtl->is_leaf
 	  && ! sh_pr_n_sets ()
 	  && ! (TARGET_SHCOMPACT
 		&& ((crtl->args.info.call_cookie
@@ -11201,7 +11296,6 @@ static struct builtin_description bdesc[] =
   { CODE_FOR_fsina_s,	"__builtin_sh_media_FSINA_S", SH_BLTIN_SISF, 0 },
   { CODE_FOR_fipr,	"__builtin_sh_media_FIPR_S", SH_BLTIN_3, 0 },
   { CODE_FOR_ftrv,	"__builtin_sh_media_FTRV_S", SH_BLTIN_3, 0 },
-  { CODE_FOR_mac_media,	"__builtin_sh_media_FMAC_S", SH_BLTIN_3, 0 },
   { CODE_FOR_sqrtdf2,	"__builtin_sh_media_FSQRT_D", SH_BLTIN_2, 0 },
   { CODE_FOR_sqrtsf2,	"__builtin_sh_media_FSQRT_S", SH_BLTIN_2, 0 },
   { CODE_FOR_fsrra_s,	"__builtin_sh_media_FSRRA_S", SH_BLTIN_2, 0 },
@@ -11478,7 +11572,7 @@ sh_expand_binop_v2sf (enum rtx_code code, rtx op0, rtx op1, rtx op2)
    We could hold SFmode / SCmode values in XD registers, but that
    would require a tertiary reload when reloading from / to memory,
    and a secondary reload to reload from / to general regs; that
-   seems to be a loosing proposition.
+   seems to be a losing proposition.
 
    We want to allow TImode FP regs so that when V4SFmode is loaded as TImode,
    it won't be ferried through GP registers first.  */
@@ -11739,7 +11833,7 @@ sh_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 
   reload_completed = 1;
   epilogue_completed = 1;
-  current_function_uses_only_leaf_regs = 1;
+  crtl->uses_only_leaf_regs = 1;
 
   emit_note (NOTE_INSN_PROLOGUE_END);
 
@@ -12025,7 +12119,7 @@ sh_expand_t_scc (rtx operands[])
     result = gen_reg_rtx (SImode);
   val = INTVAL (op1);
   if ((code == EQ && val == 1) || (code == NE && val == 0))
-    emit_insn (gen_movt (result));
+    emit_insn (gen_movt (result, get_t_reg_rtx ()));
   else if ((code == EQ && val == 0) || (code == NE && val == 1))
     emit_insn (gen_movnegt (result));
   else if (code == EQ || code == NE)

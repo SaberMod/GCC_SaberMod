@@ -52,6 +52,7 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "opts.h"
+#include "cgraph.h"
 
 static unsigned int rx_gp_base_regnum_val = INVALID_REGNUM;
 static unsigned int rx_pid_base_regnum_val = INVALID_REGNUM;
@@ -1381,7 +1382,7 @@ rx_get_stack_layout (unsigned int * lowest,
 	      be used in (non-interrupt aware) routines called from this one.  */
 	   || (call_used_regs[reg]
 	       && is_interrupt_func (NULL_TREE)
-	       && ! current_function_is_leaf))
+	       && ! crtl->is_leaf))
 	  && (! call_used_regs[reg]
 	      /* Even call clobbered registered must
 		 be pushed inside interrupt handlers.  */
@@ -2628,6 +2629,14 @@ rx_func_attr_inlinable (const_tree decl)
     &&   ! is_naked_func (decl);  
 }
 
+static bool
+rx_warn_func_return (tree decl)
+{
+  /* Naked functions are implemented entirely in assembly, including the
+     return sequence, so suppress warnings about this.  */
+  return !is_naked_func (decl);
+}
+
 /* Return nonzero if it is ok to make a tail-call to DECL,
    a function_decl or NULL if this is an indirect call, using EXP  */
 
@@ -3280,6 +3289,9 @@ rx_adjust_insn_length (rtx insn, int current_length)
 
 #undef  TARGET_LEGITIMIZE_ADDRESS
 #define TARGET_LEGITIMIZE_ADDRESS		rx_legitimize_address
+
+#undef TARGET_WARN_FUNC_RETURN
+#define TARGET_WARN_FUNC_RETURN rx_warn_func_return
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

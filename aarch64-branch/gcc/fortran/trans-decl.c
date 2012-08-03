@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "diagnostic-core.h"	/* For internal_error.  */
 #include "toplev.h"	/* For announce_function.  */
-#include "output.h"	/* For decl_default_tls_model.  */
 #include "target.h"
 #include "function.h"
 #include "flags.h"
@@ -934,7 +933,8 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
   int n;
   bool known_size;
 
-  if (sym->attr.pointer || sym->attr.allocatable)
+  if (sym->attr.pointer || sym->attr.allocatable
+      || (sym->as && sym->as->type == AS_ASSUMED_RANK))
     return dummy;
 
   /* Add to list of variables if not a fake result variable.  */
@@ -1087,11 +1087,14 @@ gfc_create_string_length (gfc_symbol * sym)
   if (sym->ts.u.cl->backend_decl == NULL_TREE)
     {
       tree length;
-      char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
+      const char *name;
 
       /* Also prefix the mangled name.  */
-      strcpy (&name[1], sym->name);
-      name[0] = '.';
+      if (sym->module)
+	name = gfc_get_string (".__%s_MOD_%s", sym->module, sym->name);
+      else
+	name = gfc_get_string (".%s", sym->name);
+
       length = build_decl (input_location,
 			   VAR_DECL, get_identifier (name),
 			   gfc_charlen_type_node);
@@ -1101,6 +1104,13 @@ gfc_create_string_length (gfc_symbol * sym)
 	gfc_defer_symbol_init (sym);
 
       sym->ts.u.cl->backend_decl = length;
+
+      if (sym->attr.save || sym->ns->proc_name->attr.flavor == FL_MODULE)
+	TREE_STATIC (length) = 1;
+
+      if (sym->ns->proc_name->attr.flavor == FL_MODULE
+	  && (sym->attr.access != ACCESS_PRIVATE || sym->attr.public_used))
+	TREE_PUBLIC (length) = 1;
     }
 
   gcc_assert (sym->ts.u.cl->backend_decl != NULL_TREE);
@@ -1402,17 +1412,6 @@ gfc_get_symbol_decl (gfc_symbol * sym)
 
       if (TREE_CODE (length) != INTEGER_CST)
 	{
-	  char name[GFC_MAX_MANGLED_SYMBOL_LEN + 2];
-
-	  if (sym->module)
-	    {
-	      /* Also prefix the mangled name for symbols from modules.  */
-	      strcpy (&name[1], sym->name);
-	      name[0] = '.';
-	      strcpy (&name[1],
-		      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (length)));
-	      gfc_set_decl_assembler_name (decl, get_identifier (name));
-	    }
 	  gfc_finish_var_decl (length, sym);
 	  gcc_assert (!sym->value);
 	}
@@ -3453,12 +3452,9 @@ init_intent_out_dt (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	     && !CLASS_DATA (f->sym)->attr.class_pointer
 	     && CLASS_DATA (f->sym)->ts.u.derived->attr.alloc_comp)
       {
-	tree decl = build_fold_indirect_ref_loc (input_location,
-						 f->sym->backend_decl);
-	tmp = CLASS_DATA (f->sym)->backend_decl;
-	tmp = fold_build3_loc (input_location, COMPONENT_REF,
-			       TREE_TYPE (tmp), decl, tmp, NULL_TREE);
-	tmp = build_fold_indirect_ref_loc (input_location, tmp);
+	tmp = gfc_class_data_get (f->sym->backend_decl);
+	if (CLASS_DATA (f->sym)->as == NULL)
+	  tmp = build_fold_indirect_ref_loc (input_location, tmp);
 	tmp = gfc_deallocate_alloc_comp (CLASS_DATA (f->sym)->ts.u.derived,
 					 tmp,
 					 CLASS_DATA (f->sym)->as ?
@@ -3674,6 +3670,7 @@ gfc_trans_deferred_vars (gfc_symbol * proc_sym, gfc_wrapped_block * block)
 	      gfc_trans_dummy_array_bias (sym, sym->backend_decl, block);
 	      break;
 
+	    case AS_ASSUMED_RANK:
 	    case AS_DEFERRED:
 	      seen_trans_deferred_array = true;
 	      gfc_trans_deferred_array (sym, block);
@@ -4787,7 +4784,8 @@ add_argument_checking (stmtblock_t *block, gfc_symbol *sym)
 	   dummy argument is an array. (See "Sequence association" in
 	   Section 12.4.1.4 for F95 and 12.4.1.5 for F2003.)  */
 	if (fsym->attr.pointer || fsym->attr.allocatable
-	    || (fsym->as && fsym->as->type == AS_ASSUMED_SHAPE))
+	    || (fsym->as && (fsym->as->type == AS_ASSUMED_SHAPE
+			     || fsym->as->type == AS_ASSUMED_RANK)))
 	  {
 	    comparison = NE_EXPR;
 	    message = _("Actual string length does not match the declared one"
@@ -5040,12 +5038,17 @@ create_main_function (tree fndecl)
                             build_int_cst (integer_type_node,
                                            (gfc_option.rtcheck
                                             & GFC_RTCHECK_BOUNDS)));
+    /* TODO: This is the -frange-check option, which no longer affects
+       library behavior; when bumping the library ABI this slot can be
+       reused for something else. As it is the last element in the
+       array, we can instead leave it out altogether.
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
                             build_int_cst (integer_type_node,
                                            gfc_option.flag_range_check));
+    */
 
     array_type = build_array_type (integer_type_node,
-				   build_index_type (size_int (7)));
+				   build_index_type (size_int (6)));
     array = build_constructor (array_type, v);
     TREE_CONSTANT (array) = 1;
     TREE_STATIC (array) = 1;
@@ -5060,7 +5063,7 @@ create_main_function (tree fndecl)
 
     tmp = build_call_expr_loc (input_location,
 			   gfor_fndecl_set_options, 2,
-			   build_int_cst (integer_type_node, 8), var);
+			   build_int_cst (integer_type_node, 7), var);
     gfc_add_expr_to_block (&body, tmp);
   }
 

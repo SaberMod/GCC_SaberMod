@@ -561,8 +561,6 @@ typedef struct
   if (mep_legitimize_reload_address (&(X), (MODE), (OPNUM), (TYPE), (IND_LEVELS))) \
     goto WIN
 
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
-
 #define SELECT_CC_MODE(OP, X, Y)  CCmode
 
 
@@ -635,9 +633,6 @@ typedef struct
       fprintf (FILE, "\n");			\
     }						\
   while (0)
-
-#define ASM_OUTPUT_BYTE(STREAM, VALUE) \
-  fprintf (STREAM, "\t%s\t0x%x\n", ASM_BYTE_OP, (VALUE))
 
 /* Most of these are here to support based/tiny/far/io attributes.  */
 

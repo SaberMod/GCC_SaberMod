@@ -164,12 +164,9 @@
 #include "hard-reg-set.h"
 #include "flags.h"
 #include "recog.h"
-#include "output.h"
 #include "basic-block.h"
-#include "cfglayout.h"
 #include "reload.h"
 #include "ggc.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "target.h"
 #include "df.h"
@@ -1469,7 +1466,7 @@ subst_stack_regs_pat (rtx insn, stack regstack, rtx pat)
 	if (STACK_REG_P (*src)
 	    || (STACK_REG_P (*dest)
 		&& (REG_P (*src) || MEM_P (*src)
-		    || GET_CODE (*src) == CONST_DOUBLE)))
+		    || CONST_DOUBLE_P (*src))))
 	  {
 	    control_flow_insn_deleted |= move_for_stack_reg (insn, regstack, pat);
 	    break;

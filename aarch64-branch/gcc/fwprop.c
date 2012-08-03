@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 
 #include "sparseset.h"
-#include "timevar.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -34,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "obstack.h"
 #include "basic-block.h"
-#include "output.h"
 #include "df.h"
 #include "target.h"
 #include "cfgloop.h"

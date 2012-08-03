@@ -69,17 +69,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "timevar.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "insn-config.h"
-#include "recog.h"
 #include "pointer-set.h"
 #include "hashtab.h"
 #include "tree-chrec.h"
@@ -91,17 +86,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-inline.h"
 #include "tree-ssa-propagate.h"
-
-/* FIXME: add_cost and zero_cost defined in exprmed.h conflict with local uses.
- */
 #include "expmed.h"
-#undef add_cost
-#undef zero_cost
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
    interface between the GIMPLE and RTL worlds.  */
 #include "expr.h"
+#include "recog.h"
 
 /* The infinite cost.  */
 #define INFTY 10000000
@@ -163,7 +154,7 @@ typedef struct
 			   complex expressions and addressing modes).  */
 } comp_cost;
 
-static const comp_cost zero_cost = {0, 0};
+static const comp_cost no_cost = {0, 0};
 static const comp_cost infinite_cost = {INFTY, INFTY};
 
 /* The candidate - cost pair.  */
@@ -3056,108 +3047,6 @@ adjust_setup_cost (struct ivopts_data *data, unsigned cost)
     return cost;
 }
 
-/* Returns cost of addition in MODE.  */
-
-static unsigned
-add_cost (enum machine_mode mode, bool speed)
-{
-  static unsigned costs[NUM_MACHINE_MODES];
-  rtx seq;
-  unsigned cost;
-
-  if (costs[mode])
-    return costs[mode];
-
-  start_sequence ();
-  force_operand (gen_rtx_fmt_ee (PLUS, mode,
-				 gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1),
-				 gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 2)),
-		 NULL_RTX);
-  seq = get_insns ();
-  end_sequence ();
-
-  cost = seq_cost (seq, speed);
-  if (!cost)
-    cost = 1;
-
-  costs[mode] = cost;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Addition in %s costs %d\n",
-	     GET_MODE_NAME (mode), cost);
-  return cost;
-}
-
-/* Entry in a hashtable of already known costs for multiplication.  */
-struct mbc_entry
-{
-  HOST_WIDE_INT cst;		/* The constant to multiply by.  */
-  enum machine_mode mode;	/* In mode.  */
-  unsigned cost;		/* The cost.  */
-};
-
-/* Counts hash value for the ENTRY.  */
-
-static hashval_t
-mbc_entry_hash (const void *entry)
-{
-  const struct mbc_entry *e = (const struct mbc_entry *) entry;
-
-  return 57 * (hashval_t) e->mode + (hashval_t) (e->cst % 877);
-}
-
-/* Compares the hash table entries ENTRY1 and ENTRY2.  */
-
-static int
-mbc_entry_eq (const void *entry1, const void *entry2)
-{
-  const struct mbc_entry *e1 = (const struct mbc_entry *) entry1;
-  const struct mbc_entry *e2 = (const struct mbc_entry *) entry2;
-
-  return (e1->mode == e2->mode
-	  && e1->cst == e2->cst);
-}
-
-/* Returns cost of multiplication by constant CST in MODE.  */
-
-unsigned
-multiply_by_cost (HOST_WIDE_INT cst, enum machine_mode mode, bool speed)
-{
-  static htab_t costs;
-  struct mbc_entry **cached, act;
-  rtx seq;
-  unsigned cost;
-
-  if (!costs)
-    costs = htab_create (100, mbc_entry_hash, mbc_entry_eq, free);
-
-  act.mode = mode;
-  act.cst = cst;
-  cached = (struct mbc_entry **) htab_find_slot (costs, &act, INSERT);
-  if (*cached)
-    return (*cached)->cost;
-
-  *cached = XNEW (struct mbc_entry);
-  (*cached)->mode = mode;
-  (*cached)->cst = cst;
-
-  start_sequence ();
-  expand_mult (mode, gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1),
-	       gen_int_mode (cst, mode), NULL_RTX, 0);
-  seq = get_insns ();
-  end_sequence ();
-
-  cost = seq_cost (seq, speed);
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Multiplication by %d in %s costs %d\n",
-	     (int) cst, GET_MODE_NAME (mode), cost);
-
-  (*cached)->cost = cost;
-
-  return cost;
-}
-
 /* Returns true if multiplying by RATIO is allowed in an address.  Test the
    validity for a memory reference accessing memory of mode MODE in
    address space AS.  */
@@ -3419,7 +3308,7 @@ get_address_cost (bool symbol_present, bool var_present,
 	 If VAR_PRESENT is true, try whether the mode with
 	 SYMBOL_PRESENT = false is cheaper even with cost of addition, and
 	 if this is the case, use it.  */
-      add_c = add_cost (address_mode, speed);
+      add_c = add_cost (speed, address_mode);
       for (i = 0; i < 8; i++)
 	{
 	  var_p = i & 1;
@@ -3500,10 +3389,10 @@ get_address_cost (bool symbol_present, bool var_present,
 	     && multiplier_allowed_in_address_p (ratio, mem_mode, as));
 
   if (ratio != 1 && !ratio_p)
-    cost += multiply_by_cost (ratio, address_mode, speed);
+    cost += mult_by_coeff_cost (ratio, address_mode, speed);
 
   if (s_offset && !offset_p && !symbol_present)
-    cost += add_cost (address_mode, speed);
+    cost += add_cost (speed, address_mode);
 
   if (may_autoinc)
     *may_autoinc = autoinc;
@@ -3533,10 +3422,10 @@ get_shiftadd_cost (tree expr, enum machine_mode mode, comp_cost cost0,
     return false;
 
   sa_cost = (TREE_CODE (expr) != MINUS_EXPR
-             ? shiftadd_cost[speed][mode][m]
+             ? shiftadd_cost (speed, mode, m)
              : (mult == op1
-                ? shiftsub1_cost[speed][mode][m]
-                : shiftsub0_cost[speed][mode][m]));
+                ? shiftsub1_cost (speed, mode, m)
+                : shiftsub0_cost (speed, mode, m)));
   res = new_cost (sa_cost, 0);
   res = add_costs (res, mult == op1 ? cost0 : cost1);
 
@@ -3602,7 +3491,7 @@ force_expr_to_var_cost (tree expr, bool speed)
   STRIP_NOPS (expr);
 
   if (SSA_VAR_P (expr))
-    return zero_cost;
+    return no_cost;
 
   if (is_gimple_min_invariant (expr))
     {
@@ -3634,12 +3523,12 @@ force_expr_to_var_cost (tree expr, bool speed)
       STRIP_NOPS (op1);
 
       if (is_gimple_val (op0))
-	cost0 = zero_cost;
+	cost0 = no_cost;
       else
 	cost0 = force_expr_to_var_cost (op0, speed);
 
       if (is_gimple_val (op1))
-	cost1 = zero_cost;
+	cost1 = no_cost;
       else
 	cost1 = force_expr_to_var_cost (op1, speed);
 
@@ -3651,11 +3540,11 @@ force_expr_to_var_cost (tree expr, bool speed)
       op1 = NULL_TREE;
 
       if (is_gimple_val (op0))
-	cost0 = zero_cost;
+	cost0 = no_cost;
       else
 	cost0 = force_expr_to_var_cost (op0, speed);
 
-      cost1 = zero_cost;
+      cost1 = no_cost;
       break;
 
     default:
@@ -3670,7 +3559,7 @@ force_expr_to_var_cost (tree expr, bool speed)
     case PLUS_EXPR:
     case MINUS_EXPR:
     case NEGATE_EXPR:
-      cost = new_cost (add_cost (mode, speed), 0);
+      cost = new_cost (add_cost (speed, mode), 0);
       if (TREE_CODE (expr) != NEGATE_EXPR)
         {
           tree mult = NULL_TREE;
@@ -3682,17 +3571,19 @@ force_expr_to_var_cost (tree expr, bool speed)
 
           if (mult != NULL_TREE
               && cst_and_fits_in_hwi (TREE_OPERAND (mult, 1))
-              && get_shiftadd_cost (expr, mode, cost0, cost1, mult, speed,
-                                    &sa_cost))
+              && get_shiftadd_cost (expr, mode, cost0, cost1, mult,
+                                    speed, &sa_cost))
             return sa_cost;
         }
       break;
 
     case MULT_EXPR:
       if (cst_and_fits_in_hwi (op0))
-	cost = new_cost (multiply_by_cost (int_cst_value (op0), mode, speed), 0);
+	cost = new_cost (mult_by_coeff_cost (int_cst_value (op0),
+					     mode, speed), 0);
       else if (cst_and_fits_in_hwi (op1))
-	cost = new_cost (multiply_by_cost (int_cst_value (op1), mode, speed), 0);
+	cost = new_cost (mult_by_coeff_cost (int_cst_value (op1),
+					     mode, speed), 0);
       else
 	return new_cost (target_spill_cost [speed], 0);
       break;
@@ -3767,12 +3658,12 @@ split_address_cost (struct ivopts_data *data,
     {
       *symbol_present = true;
       *var_present = false;
-      return zero_cost;
+      return no_cost;
     }
 
   *symbol_present = false;
   *var_present = true;
-  return zero_cost;
+  return no_cost;
 }
 
 /* Estimates cost of expressing difference of addresses E1 - E2 as
@@ -3797,7 +3688,7 @@ ptr_difference_cost (struct ivopts_data *data,
       *offset += diff;
       *symbol_present = false;
       *var_present = false;
-      return zero_cost;
+      return no_cost;
     }
 
   if (integer_zerop (e2))
@@ -3847,7 +3738,7 @@ difference_cost (struct ivopts_data *data,
   if (operand_equal_p (e1, e2, 0))
     {
       *var_present = false;
-      return zero_cost;
+      return no_cost;
     }
 
   *var_present = true;
@@ -3858,7 +3749,7 @@ difference_cost (struct ivopts_data *data,
   if (integer_zerop (e1))
     {
       comp_cost cost = force_var_cost (data, e2, depends_on);
-      cost.cost += multiply_by_cost (-1, mode, data->speed);
+      cost.cost += mult_by_coeff_cost (-1, mode, data->speed);
       return cost;
     }
 
@@ -4169,7 +4060,7 @@ get_computation_cost_at (struct ivopts_data *data,
 					 &symbol_present, &var_present,
 					 &offset, depends_on));
       cost.cost /= avg_loop_niter (data->current_loop);
-      cost.cost += add_cost (TYPE_MODE (ctype), data->speed);
+      cost.cost += add_cost (data->speed, TYPE_MODE (ctype));
     }
 
   if (inv_expr_id)
@@ -4202,7 +4093,7 @@ get_computation_cost_at (struct ivopts_data *data,
   if (!symbol_present && !var_present && !offset)
     {
       if (ratio != 1)
-	cost.cost += multiply_by_cost (ratio, TYPE_MODE (ctype), speed);
+	cost.cost += mult_by_coeff_cost (ratio, TYPE_MODE (ctype), speed);
       return cost;
     }
 
@@ -4210,18 +4101,18 @@ get_computation_cost_at (struct ivopts_data *data,
       are added once to the variable, if present.  */
   if (var_present && (symbol_present || offset))
     cost.cost += adjust_setup_cost (data,
-				    add_cost (TYPE_MODE (ctype), speed));
+				    add_cost (speed, TYPE_MODE (ctype)));
 
   /* Having offset does not affect runtime cost in case it is added to
      symbol, but it increases complexity.  */
   if (offset)
     cost.complexity++;
 
-  cost.cost += add_cost (TYPE_MODE (ctype), speed);
+  cost.cost += add_cost (speed, TYPE_MODE (ctype));
 
   aratio = ratio > 0 ? ratio : -ratio;
   if (aratio != 1)
-    cost.cost += multiply_by_cost (aratio, TYPE_MODE (ctype), speed);
+    cost.cost += mult_by_coeff_cost (aratio, TYPE_MODE (ctype), speed);
   return cost;
 
 fallback:
@@ -4278,7 +4169,7 @@ determine_use_iv_cost_generic (struct ivopts_data *data,
   if (cand->pos == IP_ORIGINAL
       && cand->incremented_at == use->stmt)
     {
-      set_use_iv_cost (data, use, cand, zero_cost, NULL, NULL_TREE,
+      set_use_iv_cost (data, use, cand, no_cost, NULL, NULL_TREE,
                        ERROR_MARK, -1);
       return true;
     }
@@ -4704,7 +4595,7 @@ may_eliminate_iv (struct ivopts_data *data,
       period_value = tree_to_double_int (period);
       if (double_int_ucmp (max_niter, period_value) > 0)
         {
-          /* See if we can take advantage of infered loop bound information.  */
+          /* See if we can take advantage of inferred loop bound information.  */
           if (data->loop_single_exit_p)
             {
               if (!max_loop_iterations (loop, &max_niter))
@@ -4817,7 +4708,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
   /* When the condition is a comparison of the candidate IV against
      zero, prefer this IV.
 
-     TODO: The constant that we're substracting from the cost should
+     TODO: The constant that we're subtracting from the cost should
      be target-dependent.  This information should be added to the
      target costs for each backend.  */
   if (!infinite_cost_p (elim_cost) /* Do not try to decrease infinite! */
@@ -5067,7 +4958,7 @@ determine_iv_cost (struct ivopts_data *data, struct iv_cand *cand)
      or a const set.  */
   if (cost_base.cost == 0)
     cost_base.cost = COSTS_N_INSNS (1);
-  cost_step = add_cost (TYPE_MODE (TREE_TYPE (base)), data->speed);
+  cost_step = add_cost (data->speed, TYPE_MODE (TREE_TYPE (base)));
 
   cost = cost_step + adjust_setup_cost (data, cost_base.cost);
 
@@ -5562,10 +5453,10 @@ iv_ca_new (struct ivopts_data *data)
   nw->cands = BITMAP_ALLOC (NULL);
   nw->n_cands = 0;
   nw->n_regs = 0;
-  nw->cand_use_cost = zero_cost;
+  nw->cand_use_cost = no_cost;
   nw->cand_cost = 0;
   nw->n_invariant_uses = XCNEWVEC (unsigned, data->max_inv_id + 1);
-  nw->cost = zero_cost;
+  nw->cost = no_cost;
   nw->used_inv_expr = XCNEWVEC (unsigned, data->inv_expr_id + 1);
   nw->num_used_inv_expr = 0;
 
@@ -6126,7 +6017,6 @@ create_new_iv (struct ivopts_data *data, struct iv_cand *cand)
     }
 
   gimple_add_tmp_var (cand->var_before);
-  add_referenced_var (cand->var_before);
 
   base = unshare_expr (cand->iv->base);
 

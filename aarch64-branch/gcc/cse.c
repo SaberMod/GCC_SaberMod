@@ -35,9 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "output.h"
 #include "ggc.h"
-#include "timevar.h"
 #include "except.h"
 #include "target.h"
 #include "params.h"
@@ -45,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "df.h"
 #include "dbgcnt.h"
+#include "pointer-set.h"
 
 /* The basic idea of common subexpression elimination is to go
    through the code, keeping a record of expressions that would
@@ -600,7 +599,6 @@ static void invalidate_from_clobbers (rtx);
 static void invalidate_from_sets_and_clobbers (rtx);
 static rtx cse_process_notes (rtx, rtx, bool *);
 static void cse_extended_basic_block (struct cse_basic_block_data *);
-static void count_reg_usage (rtx, int *, rtx, int);
 static int check_for_label_ref (rtx *, void *);
 extern void dump_class (struct table_elt*);
 static void get_cse_reg_info_1 (unsigned int regno);
@@ -622,9 +620,7 @@ static enum machine_mode cse_cc_succs (basic_block, basic_block, rtx, rtx,
 
 static const struct rtl_hooks cse_rtl_hooks = RTL_HOOKS_INITIALIZER;
 
-/* Nonzero if X has the form (PLUS frame-pointer integer).  We check for
-   virtual regs here because the simplify_*_operation routines are called
-   by integrate.c, which is called before virtual register instantiation.  */
+/* Nonzero if X has the form (PLUS frame-pointer integer).  */
 
 static bool
 fixed_base_plus_p (rtx x)
@@ -635,9 +631,6 @@ fixed_base_plus_p (rtx x)
       if (x == frame_pointer_rtx || x == hard_frame_pointer_rtx)
 	return true;
       if (x == arg_pointer_rtx && fixed_regs[ARG_POINTER_REGNUM])
-	return true;
-      if (REGNO (x) >= FIRST_VIRTUAL_REGISTER
-	  && REGNO (x) <= LAST_VIRTUAL_REGISTER)
 	return true;
       return false;
 
@@ -2905,6 +2898,9 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 		      enum machine_mode *pmode1, enum machine_mode *pmode2)
 {
   rtx arg1, arg2;
+  struct pointer_set_t *visited = NULL;
+  /* Set nonzero when we find something of interest.  */
+  rtx x = NULL;
 
   arg1 = *parg1, arg2 = *parg2;
 
@@ -2912,10 +2908,17 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 
   while (arg2 == CONST0_RTX (GET_MODE (arg1)))
     {
-      /* Set nonzero when we find something of interest.  */
-      rtx x = 0;
       int reverse_code = 0;
       struct table_elt *p = 0;
+
+      /* Remember state from previous iteration.  */
+      if (x)
+	{
+	  if (!visited)
+	    visited = pointer_set_create ();
+	  pointer_set_insert (visited, x);
+	  x = 0;
+	}
 
       /* If arg1 is a COMPARE, extract the comparison arguments from it.
 	 On machines with CC0, this is the only case that can occur, since
@@ -2993,10 +2996,8 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
 	  if (! exp_equiv_p (p->exp, p->exp, 1, false))
 	    continue;
 
-	  /* If it's the same comparison we're already looking at, skip it.  */
-	  if (COMPARISON_P (p->exp)
-	      && XEXP (p->exp, 0) == arg1
-	      && XEXP (p->exp, 1) == arg2)
+	  /* If it's a comparison we've used before, skip it.  */
+	  if (visited && pointer_set_contains (visited, p->exp))
 	    continue;
 
 	  if (GET_CODE (p->exp) == COMPARE
@@ -3077,6 +3078,8 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
   *pmode1 = GET_MODE (arg1), *pmode2 = GET_MODE (arg2);
   *parg1 = fold_rtx (arg1, 0), *parg2 = fold_rtx (arg2, 0);
 
+  if (visited)
+    pointer_set_destroy (visited);
   return code;
 }
 
@@ -3786,8 +3789,12 @@ equiv_constant (rtx x)
 	    }
 	}
 
-      /* Otherwise see if we already have a constant for the inner REG.  */
+      /* Otherwise see if we already have a constant for the inner REG,
+	 and if that is enough to calculate an equivalent constant for
+	 the subreg.  Note that the upper bits of paradoxical subregs
+	 are undefined, so they cannot be said to equal anything.  */
       if (REG_P (SUBREG_REG (x))
+	  && GET_MODE_SIZE (mode) <= GET_MODE_SIZE (imode)
 	  && (new_rtx = equiv_constant (SUBREG_REG (x))) != 0)
         return simplify_subreg (mode, new_rtx, imode, SUBREG_BYTE (x));
 
@@ -4312,7 +4319,8 @@ canonicalize_insn (rtx insn, struct set **psets, int n_sets)
   if (CALL_P (insn))
     {
       for (tem = CALL_INSN_FUNCTION_USAGE (insn); tem; tem = XEXP (tem, 1))
-	XEXP (tem, 0) = canon_reg (XEXP (tem, 0), insn);
+	if (GET_CODE (XEXP (tem, 0)) != SET)
+	  XEXP (tem, 0) = canon_reg (XEXP (tem, 0), insn);
     }
 
   if (GET_CODE (x) == SET && GET_CODE (SET_SRC (x)) == CALL)
@@ -6693,10 +6701,11 @@ count_reg_usage (rtx x, int *counts, rtx dest, int incr)
     case CALL_INSN:
     case INSN:
     case JUMP_INSN:
-      /* We expect dest to be NULL_RTX here.  If the insn may trap,
+      /* We expect dest to be NULL_RTX here.  If the insn may throw,
 	 or if it cannot be deleted due to side-effects, mark this fact
 	 by setting DEST to pc_rtx.  */
-      if (insn_could_throw_p (x) || side_effects_p (PATTERN (x)))
+      if ((!cfun->can_delete_dead_exceptions && !insn_nothrow_p (x))
+	  || side_effects_p (PATTERN (x)))
 	dest = pc_rtx;
       if (code == CALL_INSN)
 	count_reg_usage (CALL_INSN_FUNCTION_USAGE (x), counts, dest, incr);
@@ -6801,7 +6810,7 @@ static bool
 insn_live_p (rtx insn, int *counts)
 {
   int i;
-  if (insn_could_throw_p (insn))
+  if (!cfun->can_delete_dead_exceptions && !insn_nothrow_p (insn))
     return true;
   else if (GET_CODE (PATTERN (insn)) == SET)
     return set_live_p (PATTERN (insn), insn, counts);

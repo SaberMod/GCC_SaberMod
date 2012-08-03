@@ -45,13 +45,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "ggc.h"
 #include "diagnostic-core.h"
-#include "integrate.h"
 #include "target.h"
 #include "target-def.h"
 #include "langhooks.h"
 #include "df.h"
 #include "gimple.h"
 #include "opts.h"
+#include "dumpfile.h"
 
 /* Structure of this file:
 
@@ -2523,16 +2523,16 @@ mep_interrupt_saved_reg (int r)
 	  || (r == RPB_REGNO || r == RPE_REGNO || r == RPC_REGNO || r == LP_REGNO)
 	  || IVC2_ISAVED_REG (r)))
     return true;
-  if (!current_function_is_leaf)
+  if (!crtl->is_leaf)
     /* Function calls mean we need to save $lp.  */
     if (r == LP_REGNO || IVC2_ISAVED_REG (r))
       return true;
-  if (!current_function_is_leaf || cfun->machine->doloop_tags > 0)
+  if (!crtl->is_leaf || cfun->machine->doloop_tags > 0)
     /* The interrupt handler might use these registers for repeat blocks,
        or it might call a function that does so.  */
     if (r == RPB_REGNO || r == RPE_REGNO || r == RPC_REGNO)
       return true;
-  if (current_function_is_leaf && call_used_regs[r] && !df_regs_ever_live_p(r))
+  if (crtl->is_leaf && call_used_regs[r] && !df_regs_ever_live_p(r))
     return false;
   /* Functions we call might clobber these.  */
   if (call_used_regs[r] && !fixed_regs[r])
@@ -2743,7 +2743,7 @@ mep_reload_pointer (int regno, const char *symbol)
 {
   rtx reg, sym;
 
-  if (!df_regs_ever_live_p(regno) && current_function_is_leaf)
+  if (!df_regs_ever_live_p(regno) && crtl->is_leaf)
     return;
 
   reg = gen_rtx_REG (SImode, regno);
@@ -3869,7 +3869,7 @@ static int prev_opcode = 0;
 
 /* This isn't as optimal as it could be, because we don't know what
    control register the STC opcode is storing in.  We only need to add
-   the nop if it's the relevent register, but we add it for irrelevent
+   the nop if it's the relevant register, but we add it for irrelevant
    registers also.  */
 
 void
@@ -5023,7 +5023,7 @@ mep_reorg_regmove (rtx insns)
       done = 1;
       for (insn = insns; insn; insn = next)
 	{
-	  next = NEXT_INSN (insn);
+	  next = next_nonnote_nondebug_insn (insn);
 	  if (GET_CODE (insn) != INSN)
 	    continue;
 	  pat = PATTERN (insn);
@@ -5036,7 +5036,7 @@ mep_reorg_regmove (rtx insns)
 	      && find_regno_note (insn, REG_DEAD, REGNO (SET_SRC (pat)))
 	      && mep_compatible_reg_class (REGNO (SET_SRC (pat)), REGNO (SET_DEST (pat))))
 	    {
-	      follow = next_nonnote_insn (insn);
+	      follow = next_nonnote_nondebug_insn (insn);
 	      if (dump_file)
 		fprintf (dump_file, "superfluous moves: considering %d\n", INSN_UID (insn));
 
@@ -5097,7 +5097,7 @@ mep_reorg_regmove (rtx insns)
 					       follow, where))
 		{
 		  count ++;
-		  next = delete_insn (insn);
+		  delete_insn (insn);
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "\n----- Success!  new insn:\n\n");
@@ -6993,7 +6993,7 @@ core_insn_p (rtx insn)
 }
 
 /* Mark coprocessor instructions that can be bundled together with
-   the immediately preceeding core instruction.  This is later used
+   the immediately preceding core instruction.  This is later used
    to emit the "+" that tells the assembler to create a VLIW insn.
 
    For unbundled insns, the assembler will automatically add coprocessor

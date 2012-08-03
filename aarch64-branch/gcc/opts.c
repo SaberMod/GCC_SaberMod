@@ -1,5 +1,7 @@
 /* Command line option handling.
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
+   2012
+
    Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
@@ -23,11 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "intl.h"
 #include "coretypes.h"
+#include "opts.h"
+#include "options.h"
 #include "tm.h" /* For STACK_CHECK_BUILTIN,
 		   STACK_CHECK_STATIC_BUILTIN, DEFAULT_GDB_EXTENSIONS,
 		   DWARF2_DEBUGGING_INFO and DBX_DEBUGGING_INFO.  */
-#include "opts.h"
-#include "options.h"
 #include "flags.h"
 #include "params.h"
 #include "diagnostic.h"
@@ -450,6 +452,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS, OPT_ftree_ch, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fcombine_stack_adjustments, NULL, 1 },
     { OPT_LEVELS_1_PLUS, OPT_fcompare_elim, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_ftree_slsr, NULL, 1 },
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -487,6 +490,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_falign_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_tail_merge, NULL, 1 },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
 
     /* -O3 optimizations.  */
     { OPT_LEVELS_3_PLUS, OPT_ftree_loop_distribute_patterns, NULL, 1 },
@@ -498,6 +502,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_vectorize, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
 
@@ -712,7 +717,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 
   if (opts->x_flag_exceptions
       && opts->x_flag_reorder_blocks_and_partition
-      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))
+      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not work "
@@ -727,7 +732,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_unwind_tables
       && !targetm_common.unwind_tables_default
       && opts->x_flag_reorder_blocks_and_partition
-      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))
+      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not support "
@@ -744,7 +749,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
       && (!targetm_common.have_named_sections
 	  || (opts->x_flag_unwind_tables
 	      && targetm_common.unwind_tables_default
-	      && (ui_except == UI_SJLJ || ui_except == UI_TARGET))))
+	      && (ui_except == UI_SJLJ || ui_except >= UI_TARGET))))
     {
       inform (loc,
 	      "-freorder-blocks-and-partition does not work "
@@ -815,33 +820,18 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
                            opts->x_param_values, opts_set->x_param_values);
 
   /* This replaces set_Wunused.  */
-  if (opts->x_warn_unused_function == -1)
-    opts->x_warn_unused_function = opts->x_warn_unused;
-  if (opts->x_warn_unused_label == -1)
-    opts->x_warn_unused_label = opts->x_warn_unused;
   /* Wunused-parameter is enabled if both -Wunused -Wextra are enabled.  */
   if (opts->x_warn_unused_parameter == -1)
     opts->x_warn_unused_parameter = (opts->x_warn_unused
 				     && opts->x_extra_warnings);
-  if (opts->x_warn_unused_variable == -1)
-    opts->x_warn_unused_variable = opts->x_warn_unused;
   /* Wunused-but-set-parameter is enabled if both -Wunused -Wextra are
      enabled.  */
   if (opts->x_warn_unused_but_set_parameter == -1)
     opts->x_warn_unused_but_set_parameter = (opts->x_warn_unused
 					     && opts->x_extra_warnings);
-  if (opts->x_warn_unused_but_set_variable == -1)
-    opts->x_warn_unused_but_set_variable = opts->x_warn_unused;
-  if (opts->x_warn_unused_value == -1)
-    opts->x_warn_unused_value = opts->x_warn_unused;
-
   /* Wunused-local-typedefs is enabled by -Wunused or -Wall.  */
   if (opts->x_warn_unused_local_typedefs == -1)
     opts->x_warn_unused_local_typedefs = opts->x_warn_unused;
-
-  /* This replaces set_Wextra.  */
-  if (opts->x_warn_uninitialized == -1)
-    opts->x_warn_uninitialized = opts->x_extra_warnings;
 }
 
 #define LEFT_COLUMN	27
@@ -1603,8 +1593,6 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_profile_arc_flag = value;
       if (!opts_set->x_flag_profile_values)
 	opts->x_flag_profile_values = value;
-      if (!opts_set->x_flag_value_profile_transformations)
-	opts->x_flag_value_profile_transformations = value;
       if (!opts_set->x_flag_inline_functions)
 	opts->x_flag_inline_functions = value;
       /* FIXME: Instrumentation we insert makes ipa-reference bitmaps
@@ -1725,8 +1713,11 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_pedantic_errors:
-      opts->x_pedantic = 1;
       dc->pedantic_errors = 1;
+      control_warning_option (OPT_Wpedantic, DK_ERROR, value,
+			      loc, lang_mask,
+			      handlers, opts, opts_set,
+                              dc);
       break;
 
     case OPT_flto:
@@ -1745,11 +1736,6 @@ common_handle_option (struct gcc_options *opts,
       /* No-op. Used by the driver and passed to us because it starts with f.*/
       break;
 
-    case OPT_Wuninitialized:
-      /* Also turn on maybe uninitialized warning.  */
-      opts->x_warn_maybe_uninitialized = value;
-      break;
-
     default:
       /* If the flag was handled in a standard way, assume the lack of
 	 processing here is intentional.  */
@@ -1757,6 +1743,8 @@ common_handle_option (struct gcc_options *opts,
       break;
     }
 
+  common_handle_option_auto (opts, opts_set, decoded, lang_mask, kind,
+                             loc, handlers, dc);
   return true;
 }
 
@@ -2028,9 +2016,6 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
       control_warning_option (option_index, (int) kind, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set, dc);
-      if (option_index == OPT_Wuninitialized)
-        enable_warning_as_error ("maybe-uninitialized", value, lang_mask,
-	                         handlers, opts, opts_set, loc, dc);
     }
   free (new_option);
 }

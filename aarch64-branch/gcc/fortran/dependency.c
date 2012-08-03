@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
    
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "gfortran.h"
 #include "dependency.h"
 #include "constructor.h"
@@ -259,6 +260,9 @@ gfc_dep_compare_expr (gfc_expr *e1, gfc_expr *e2)
 
   n1 = NULL;
   n2 = NULL;
+
+  if (e1 == NULL && e2 == NULL)
+    return 0;
 
   /* Remove any integer conversion functions to larger types.  */
   if (e1->expr_type == EXPR_FUNCTION && e1->value.function.isym
