@@ -695,7 +695,6 @@ vtv_generate_init_routine(const char * filename)
       allocate_struct_function (current_function_decl, false);
       TREE_STATIC (current_function_decl) = 1;
       TREE_USED (current_function_decl) = 1;
-      TREE_PUBLIC (current_function_decl) = 1;
       DECL_PRESERVE_P (current_function_decl) = 1;
       if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
       {

@@ -1,3 +1,8 @@
+2012-08-06  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c (vtv_generate_init_routine):
+	Make init function local rather than global.
+
 2012-07-26  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTVerifyVtablePointerDebug):
@@ -7,7 +12,7 @@
 	map variables to look for "__" rather than "." in the name.
 	* gcc/cp/vtable-class-hierarchy.c (register_all_pairs): Remove a line
 	of commented out dead code.
-	
+
 2012-07-19  Luis Lozano  <llozano@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_malloc.cc: moved VTV_assert to header
