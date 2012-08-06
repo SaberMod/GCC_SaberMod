@@ -1,3 +1,7 @@
+2012-08-06  Simon Baldwin  <simonb@google.com>
+
+	* testsuite-management/powerpc-grtev3-linux-gnu.xfail: New.
+
 2012-06-04   Diego Novillo  <dnovillo@google.com>
 
         * testsuite-management/validate_failures.py: Merge from
