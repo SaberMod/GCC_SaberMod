@@ -1,3 +1,21 @@
+2012-08-08  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPair): Replace
+	PTHREAD_MUTEX_INITIALIZER with __GTHREAD_MUTEX_INIT or
+	__GTHREAD_MUTEX_INIT_FUNCTION.  Replace pthred_mutex_lock and
+	pthread_mutex_unlock with __thread_mutex_lock and
+	__gthread_mutex_unlock.  Use __gthread_mutex_t for the mutex type.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc (vlt_hash_init_table):
+	Use __gthread_mutex_t for the mutex type.  Replace
+	PTHREAD_MUTEX_INITIALIZER with __GTHREAD_MUTEX_INIT or
+	__GTHREAD_MUTEX_INIT_FUNCTION.
+	(vlt_hash_insert):  Replace pthred_mutex_lock and
+	pthread_mutex_unlock with __thread_mutex_lock and
+	__gthread_mutex_unlock.
+	* libstdc++-v3/libsupc++/vtv_threaded_hash.h:  Remove include for
+	pthread.h. Add includes for <bits/c++config.h> and <ext/concurrence.h>.
+	(struct vlt_hashtable):  Change type of mutex to __gthread_mutex_t.
+
 2012-08-06  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (vtv_generate_init_routine):

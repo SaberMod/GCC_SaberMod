@@ -103,7 +103,7 @@ static void
 grow_table (struct vlt_hashtable *table)
 {
   /*  IMPORTANT NOTE!! This function assumes that you have already
-      acquired the lock on TABLE's pthread mutex before calling this
+      acquired the lock on TABLE's gthread mutex before calling this
       function.  If you call this function without first acquiring the
       lock, something bad may happen to you.  YOU HAVE BEEN
       WARNED!  */
@@ -181,7 +181,12 @@ vlt_hash_init_table (int initial_size_hint)
   new_table->data_size = initial_size;
   new_table->power_of_2 = initial_power;
   new_table->num_elts = 0;
-  pthread_mutex_init (&(new_table->mutex), NULL);
+
+#if defined __GTHREAD_MUTEX_INIT
+  new_table->mutex = __GTHREAD_MUTEX_INIT;
+#else
+  __GTHREAD_MUTEX_INIT_FUNCTION(&(new_table->mutex));
+#endif
 
   num_tables_allocated++; /* Debug */
   num_bucket_pointers_allocated += initial_size; /* Debug */
@@ -244,7 +249,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
     {
       /* Grab the mutex before doing the comparison below to make sure
          nothing being compared changes in the middle of the comparison.  */
-      pthread_mutex_lock (&(table->mutex));
+      __gthread_mutex_lock (&(table->mutex));
 
       /* Re-calculate the index in case the table grew between the
 	 initial check above and when we grabbed the lock. Before
@@ -284,7 +289,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
           table->num_elts++;
         }
 
-      pthread_mutex_unlock (&(table->mutex));
+      __gthread_mutex_unlock (&(table->mutex));
     }
 }
 

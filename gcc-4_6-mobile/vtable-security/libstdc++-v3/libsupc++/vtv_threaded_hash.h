@@ -25,7 +25,8 @@
 #ifndef _VTV_THREADED_HASH_H
 #define _VTV_THREADED_HASH_H 1
 
-#include <pthread.h>
+#include <bits/c++config.h>
+#include <ext/concurrence.h>
 #include <inttypes.h>
 
 #ifdef __cplusplus
@@ -41,7 +42,7 @@ struct vlt_hashtable {
   volatile uint32_t data_size;
   uint32_t num_elts;
   uint32_t power_of_2;
-  pthread_mutex_t mutex;
+  __gthread_mutex_t mutex;
   struct vlt_hash_bucket ** volatile data;
 };
 
