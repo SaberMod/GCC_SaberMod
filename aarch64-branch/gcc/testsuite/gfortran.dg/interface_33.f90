@@ -32,3 +32,5 @@ CONTAINS
    SUBROUTINE subr_name()
    END SUBROUTINE
 END MODULE
+
+! { dg-final { cleanup-modules "m1 m2" } }

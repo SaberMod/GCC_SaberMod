@@ -32,3 +32,5 @@ program main
   use bar
   call xmain()
 end program main
+
+! { dg-final { cleanup-modules "bar" } }

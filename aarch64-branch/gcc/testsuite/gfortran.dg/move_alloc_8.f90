@@ -102,3 +102,5 @@ CONTAINS
     call move_alloc(dt%VALUE, lv) ! { dg-error "cannot be INTENT.IN." }
   END SUBROUTINE
 end subroutine test4
+
+! { dg-final { cleanup-modules "bug" } }

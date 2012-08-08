@@ -21,3 +21,5 @@ program collision
   b = 99.0
   call foo ()
 end program collision
+
+! { dg-final { cleanup-modules "m1 m2" } }

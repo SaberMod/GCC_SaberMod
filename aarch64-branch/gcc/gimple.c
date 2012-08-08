@@ -79,6 +79,7 @@ EXPORTED_CONST enum gimple_statement_structure_enum gss_for_code_[] = {
 };
 #undef DEFGSCODE
 
+#ifdef GATHER_STATISTICS
 /* Gimple stats.  */
 
 int gimple_alloc_counts[(int) gimple_alloc_kind_all];
@@ -91,6 +92,8 @@ static const char * const gimple_alloc_kind_names[] = {
     "conditionals",
     "everything else"
 };
+
+#endif /* GATHER_STATISTICS */
 
 /* Private API manipulation functions shared only with some
    other files.  */
@@ -131,12 +134,13 @@ gimple_alloc_stat (enum gimple_code code, unsigned num_ops MEM_STAT_DECL)
   if (num_ops > 0)
     size += sizeof (tree) * (num_ops - 1);
 
-  if (GATHER_STATISTICS)
-    {
-      enum gimple_alloc_kind kind = gimple_alloc_kind (code);
-      gimple_alloc_counts[(int) kind]++;
-      gimple_alloc_sizes[(int) kind] += size;
-    }
+#ifdef GATHER_STATISTICS
+  {
+    enum gimple_alloc_kind kind = gimple_alloc_kind (code);
+    gimple_alloc_counts[(int) kind]++;
+    gimple_alloc_sizes[(int) kind] += size;
+  }
+#endif
 
   stmt = ggc_alloc_cleared_gimple_statement_d_stat (size PASS_MEM_STAT);
   gimple_set_code (stmt, code);
@@ -641,8 +645,9 @@ gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
   p->gimple_asm.nl = nlabels;
   p->gimple_asm.string = ggc_alloc_string (string, size);
 
-  if (GATHER_STATISTICS)
-    gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
+#ifdef GATHER_STATISTICS
+  gimple_alloc_sizes[(int) gimple_alloc_kind (GIMPLE_ASM)] += size;
+#endif
 
   return p;
 }
@@ -2389,6 +2394,17 @@ gimple_copy (gimple stmt)
 }
 
 
+/* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
+   a MODIFIED field.  */
+
+void
+gimple_set_modified (gimple s, bool modifiedp)
+{
+  if (gimple_has_ops (s))
+    s->gsbase.modified = (unsigned) modifiedp;
+}
+
+
 /* Return true if statement S has side-effects.  We consider a
    statement to have side effects if:
 
@@ -2498,13 +2514,8 @@ gimple_assign_rhs_could_trap_p (gimple s)
 void
 dump_gimple_statistics (void)
 {
+#ifdef GATHER_STATISTICS
   int i, total_tuples = 0, total_bytes = 0;
-
-  if (! GATHER_STATISTICS)
-    {
-      fprintf (stderr, "No gimple statistics\n");
-      return;
-    }
 
   fprintf (stderr, "\nGIMPLE statements\n");
   fprintf (stderr, "Kind                   Stmts      Bytes\n");
@@ -2519,6 +2530,9 @@ dump_gimple_statistics (void)
   fprintf (stderr, "---------------------------------------\n");
   fprintf (stderr, "%-20s %7d %10d\n", "Total", total_tuples, total_bytes);
   fprintf (stderr, "---------------------------------------\n");
+#else
+  fprintf (stderr, "No gimple statistics\n");
+#endif
 }
 
 
@@ -2783,17 +2797,7 @@ bool
 is_gimple_reg (tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
-    {
-      t = SSA_NAME_VAR (t);
-      if (TREE_CODE (t) == VAR_DECL
-	  && VAR_DECL_IS_VIRTUAL_OPERAND (t))
-	return false;
-      return true;
-    }
-
-  if (TREE_CODE (t) == VAR_DECL
-      && VAR_DECL_IS_VIRTUAL_OPERAND (t))
-    return false;
+    t = SSA_NAME_VAR (t);
 
   if (!is_gimple_variable (t))
     return false;
@@ -3330,7 +3334,7 @@ gtc_visit (tree t1, tree t2,
 	  || FIXED_POINT_TYPE_P (t1))
 	return true;
 
-      /* For other types fall through to more complex checks.  */
+      /* For other types fall thru to more complex checks.  */
     }
 
   /* If the types have been previously registered and found equal
@@ -3451,6 +3455,13 @@ gimple_types_compatible_p_1 (tree t1, tree t2, type_pair_t p,
 	  if (i1 == NULL_TREE && i2 == NULL_TREE)
 	    goto same_types;
 	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
+	    goto different_types;
+	  /* If for a complete array type the possibly gimplified sizes
+	     are different the types are different.  */
+	  else if (((TYPE_SIZE (i1) != NULL) ^ (TYPE_SIZE (i2) != NULL))
+		   || (TYPE_SIZE (i1)
+		       && TYPE_SIZE (i2)
+		       && !operand_equal_p (TYPE_SIZE (i1), TYPE_SIZE (i2), 0)))
 	    goto different_types;
 	  else
 	    {
@@ -3752,7 +3763,7 @@ gimple_types_compatible_p (tree t1, tree t2)
 	  || FIXED_POINT_TYPE_P (t1))
 	return true;
 
-      /* For other types fall through to more complex checks.  */
+      /* For other types fall thru to more complex checks.  */
     }
 
   /* If the types have been previously registered and found equal
@@ -3962,8 +3973,9 @@ iterative_hash_gimple_type (tree type, hashval_t val,
       v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
     }
 
-  /* For array types hash the domain and the string flag.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+  /* For array types hash their domain and the string flag.  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_DOMAIN (type))
     {
       v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
       v = visit (TYPE_DOMAIN (type), state, v,
@@ -4190,20 +4202,16 @@ iterative_hash_canonical_type (tree type, hashval_t val)
       v = iterative_hash_hashval_t (TREE_CODE (TREE_TYPE (type)), v);
     }
 
-  /* For integer types hash only the string flag.  */
+  /* For integer types hash the types min/max values and the string flag.  */
   if (TREE_CODE (type) == INTEGER_TYPE)
     v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
 
-  /* For array types hash the domain bounds and the string flag.  */
-  if (TREE_CODE (type) == ARRAY_TYPE && TYPE_DOMAIN (type))
+  /* For array types hash their domain and the string flag.  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TYPE_DOMAIN (type))
     {
       v = iterative_hash_hashval_t (TYPE_STRING_FLAG (type), v);
-      /* OMP lowering can introduce error_mark_node in place of
-	 random local decls in types.  */
-      if (TYPE_MIN_VALUE (TYPE_DOMAIN (type)) != error_mark_node)
-	v = iterative_hash_expr (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), v);
-      if (TYPE_MAX_VALUE (TYPE_DOMAIN (type)) != error_mark_node)
-	v = iterative_hash_expr (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), v);
+      v = iterative_hash_canonical_type (TYPE_DOMAIN (type), v);
     }
 
   /* Recurse for aggregates with a single element type.  */
@@ -4446,6 +4454,10 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
       return true;
     }
 
+  /* If their attributes are not the same they can't be the same type.  */
+  if (!attribute_list_equal (TYPE_ATTRIBUTES (t1), TYPE_ATTRIBUTES (t2)))
+    return false;
+
   /* Do type-specific comparisons.  */
   switch (TREE_CODE (t1))
     {
@@ -4466,6 +4478,13 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	  if (i1 == NULL_TREE && i2 == NULL_TREE)
 	    return true;
 	  else if (i1 == NULL_TREE || i2 == NULL_TREE)
+	    return false;
+	  /* If for a complete array type the possibly gimplified sizes
+	     are different the types are different.  */
+	  else if (((TYPE_SIZE (i1) != NULL) ^ (TYPE_SIZE (i2) != NULL))
+		   || (TYPE_SIZE (i1)
+		       && TYPE_SIZE (i2)
+		       && !operand_equal_p (TYPE_SIZE (i1), TYPE_SIZE (i2), 0)))
 	    return false;
 	  else
 	    {
@@ -4492,6 +4511,13 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	}
 
     case METHOD_TYPE:
+      /* Method types should belong to the same class.  */
+      if (!gimple_canonical_types_compatible_p
+	     (TYPE_METHOD_BASETYPE (t1), TYPE_METHOD_BASETYPE (t2)))
+	return false;
+
+      /* Fallthru  */
+
     case FUNCTION_TYPE:
       /* Function types are the same if the return type and arguments types
 	 are the same.  */

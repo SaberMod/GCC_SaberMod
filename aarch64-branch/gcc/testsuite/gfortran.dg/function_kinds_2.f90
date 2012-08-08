@@ -17,3 +17,5 @@ module x
    end function
  end interface
 end module
+! { dg-final { cleanup-modules "types x" } }
+

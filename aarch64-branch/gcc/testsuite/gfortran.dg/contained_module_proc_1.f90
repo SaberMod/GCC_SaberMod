@@ -36,3 +36,5 @@ program fire
    implicit none
    if(.not. is_gfortran()) call abort()
 end program fire
+! { dg-final { cleanup-modules "chk_gfortran" } }
+

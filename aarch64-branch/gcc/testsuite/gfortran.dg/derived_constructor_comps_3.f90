@@ -19,3 +19,4 @@ program bug4_structure
    t = bug4()
    write(*,*) t
 end program bug4_structure
+! { dg-final { cleanup-modules "bug4_mod" } }

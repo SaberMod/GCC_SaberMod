@@ -432,6 +432,7 @@ static struct globals
   struct free_object *free_object_list;
 #endif
 
+#ifdef GATHER_STATISTICS
   struct
   {
     /* Total GC-allocated memory.  */
@@ -458,6 +459,7 @@ static struct globals
     /* The overhead for each of the allocation orders.  */
     unsigned long long total_overhead_per_order[NUM_ORDERS];
   } stats;
+#endif
 } G;
 
 /* The size in bytes required to maintain a bitmap for the objects
@@ -1322,9 +1324,10 @@ ggc_internal_alloc_stat (size_t size MEM_STAT_DECL)
 
   /* Calculate the object's address.  */
   result = entry->page + object_offset;
-  if (GATHER_STATISTICS)
-    ggc_record_overhead (OBJECT_SIZE (order), OBJECT_SIZE (order) - size,
-			 result FINAL_PASS_MEM_STAT);
+#ifdef GATHER_STATISTICS
+  ggc_record_overhead (OBJECT_SIZE (order), OBJECT_SIZE (order) - size,
+		       result PASS_MEM_STAT);
+#endif
 
 #ifdef ENABLE_GC_CHECKING
   /* Keep poisoning-by-writing-0xaf the object, in an attempt to keep the
@@ -1355,31 +1358,32 @@ ggc_internal_alloc_stat (size_t size MEM_STAT_DECL)
   /* For timevar statistics.  */
   timevar_ggc_mem_total += object_size;
 
-  if (GATHER_STATISTICS)
-    {
-      size_t overhead = object_size - size;
+#ifdef GATHER_STATISTICS
+  {
+    size_t overhead = object_size - size;
 
-      G.stats.total_overhead += overhead;
-      G.stats.total_allocated += object_size;
-      G.stats.total_overhead_per_order[order] += overhead;
-      G.stats.total_allocated_per_order[order] += object_size;
+    G.stats.total_overhead += overhead;
+    G.stats.total_allocated += object_size;
+    G.stats.total_overhead_per_order[order] += overhead;
+    G.stats.total_allocated_per_order[order] += object_size;
 
-      if (size <= 32)
-	{
-	  G.stats.total_overhead_under32 += overhead;
-	  G.stats.total_allocated_under32 += object_size;
-	}
-      if (size <= 64)
-	{
-	  G.stats.total_overhead_under64 += overhead;
-	  G.stats.total_allocated_under64 += object_size;
-	}
-      if (size <= 128)
-	{
-	  G.stats.total_overhead_under128 += overhead;
-	  G.stats.total_allocated_under128 += object_size;
-	}
-    }
+    if (size <= 32)
+      {
+	G.stats.total_overhead_under32 += overhead;
+	G.stats.total_allocated_under32 += object_size;
+      }
+    if (size <= 64)
+      {
+	G.stats.total_overhead_under64 += overhead;
+	G.stats.total_allocated_under64 += object_size;
+      }
+    if (size <= 128)
+      {
+	G.stats.total_overhead_under128 += overhead;
+	G.stats.total_allocated_under128 += object_size;
+      }
+  }
+#endif
 
   if (GGC_DEBUG_LEVEL >= 3)
     fprintf (G.debug_file,
@@ -1520,8 +1524,9 @@ ggc_free (void *p)
   size_t order = pe->order;
   size_t size = OBJECT_SIZE (order);
 
-  if (GATHER_STATISTICS)
-    ggc_free_overhead (p);
+#ifdef GATHER_STATISTICS
+  ggc_free_overhead (p);
+#endif
 
   if (GGC_DEBUG_LEVEL >= 3)
     fprintf (G.debug_file,
@@ -2065,10 +2070,9 @@ ggc_collect (void)
 
   clear_marks ();
   ggc_mark_roots ();
-
-  if (GATHER_STATISTICS)
-    ggc_prune_overhead_list ();
-
+#ifdef GATHER_STATISTICS
+  ggc_prune_overhead_list ();
+#endif
   poison_pages ();
   validate_free_objects ();
   sweep_pages ();
@@ -2156,39 +2160,40 @@ ggc_print_statistics (void)
 	   SCALE (G.allocated), STAT_LABEL(G.allocated),
 	   SCALE (total_overhead), STAT_LABEL (total_overhead));
 
-  if (GATHER_STATISTICS)
-    {
-      fprintf (stderr, "\nTotal allocations and overheads during the compilation process\n");
+#ifdef GATHER_STATISTICS
+  {
+    fprintf (stderr, "\nTotal allocations and overheads during the compilation process\n");
 
-      fprintf (stderr, "Total Overhead:                        %10lld\n",
-	       G.stats.total_overhead);
-      fprintf (stderr, "Total Allocated:                       %10lld\n",
-	       G.stats.total_allocated);
+    fprintf (stderr, "Total Overhead:                        %10lld\n",
+             G.stats.total_overhead);
+    fprintf (stderr, "Total Allocated:                       %10lld\n",
+             G.stats.total_allocated);
 
-      fprintf (stderr, "Total Overhead  under  32B:            %10lld\n",
-	       G.stats.total_overhead_under32);
-      fprintf (stderr, "Total Allocated under  32B:            %10lld\n",
-	       G.stats.total_allocated_under32);
-      fprintf (stderr, "Total Overhead  under  64B:            %10lld\n",
-	       G.stats.total_overhead_under64);
-      fprintf (stderr, "Total Allocated under  64B:            %10lld\n",
-	       G.stats.total_allocated_under64);
-      fprintf (stderr, "Total Overhead  under 128B:            %10lld\n",
-	       G.stats.total_overhead_under128);
-      fprintf (stderr, "Total Allocated under 128B:            %10lld\n",
-	       G.stats.total_allocated_under128);
+    fprintf (stderr, "Total Overhead  under  32B:            %10lld\n",
+             G.stats.total_overhead_under32);
+    fprintf (stderr, "Total Allocated under  32B:            %10lld\n",
+             G.stats.total_allocated_under32);
+    fprintf (stderr, "Total Overhead  under  64B:            %10lld\n",
+             G.stats.total_overhead_under64);
+    fprintf (stderr, "Total Allocated under  64B:            %10lld\n",
+             G.stats.total_allocated_under64);
+    fprintf (stderr, "Total Overhead  under 128B:            %10lld\n",
+             G.stats.total_overhead_under128);
+    fprintf (stderr, "Total Allocated under 128B:            %10lld\n",
+             G.stats.total_allocated_under128);
 
-      for (i = 0; i < NUM_ORDERS; i++)
-	if (G.stats.total_allocated_per_order[i])
-	  {
-	    fprintf (stderr, "Total Overhead  page size %7lu:     %10lld\n",
-		     (unsigned long) OBJECT_SIZE (i),
-		     G.stats.total_overhead_per_order[i]);
-	    fprintf (stderr, "Total Allocated page size %7lu:     %10lld\n",
-		     (unsigned long) OBJECT_SIZE (i),
-		     G.stats.total_allocated_per_order[i]);
-	  }
+    for (i = 0; i < NUM_ORDERS; i++)
+      if (G.stats.total_allocated_per_order[i])
+        {
+          fprintf (stderr, "Total Overhead  page size %7lu:     %10lld\n",
+                   (unsigned long) OBJECT_SIZE (i),
+		   G.stats.total_overhead_per_order[i]);
+          fprintf (stderr, "Total Allocated page size %7lu:     %10lld\n",
+                   (unsigned long) OBJECT_SIZE (i),
+		   G.stats.total_allocated_per_order[i]);
+        }
   }
+#endif
 }
 
 struct ggc_pch_ondisk

@@ -38,6 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "regs.h"
+#include "timevar.h"
+#include "output.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "recog.h"
@@ -46,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tm_p.h"
 #include "target.h"
-#include "function.h" /* For inline functions in emit-rtl.h they need crtl.  */
+#include "cfglayout.h"
 #include "emit-rtl.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
@@ -60,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Set to true when we are running first pass of try_optimize_cfg loop.  */
 static bool first_pass;
 
-/* Set to true if crossjumps occurred in the latest run of try_optimize_cfg.  */
+/* Set to true if crossjumps occured in the latest run of try_optimize_cfg.  */
 static bool crossjumps_occured;
 
 /* Set to true if we couldn't run an optimization due to stale liveness
@@ -2642,7 +2644,7 @@ try_optimize_cfg (int mode)
 		}
 
 	      /* If we fall through an empty block, we can remove it.  */
-	      if (!(mode & (CLEANUP_CFGLAYOUT | CLEANUP_NO_INSN_DEL))
+	      if (!(mode & CLEANUP_CFGLAYOUT)
 		  && single_pred_p (b)
 		  && (single_pred_edge (b)->flags & EDGE_FALLTHRU)
 		  && !LABEL_P (BB_HEAD (b))
@@ -2796,7 +2798,7 @@ delete_unreachable_blocks (void)
      have dominators information, walking blocks backward gets us a
      better chance of retaining most debug information than
      otherwise.  */
-  if (MAY_HAVE_DEBUG_INSNS && current_ir_type () == IR_GIMPLE
+  if (MAY_HAVE_DEBUG_STMTS && current_ir_type () == IR_GIMPLE
       && dom_info_available_p (CDI_DOMINATORS))
     {
       for (b = EXIT_BLOCK_PTR->prev_bb; b != ENTRY_BLOCK_PTR; b = prev_bb)
@@ -2989,7 +2991,7 @@ cleanup_cfg (int mode)
 }
 
 static unsigned int
-execute_jump (void)
+rest_of_handle_jump2 (void)
 {
   delete_trivially_dead_insns (get_insns (), max_reg_num ());
   if (dump_file)
@@ -2999,47 +3001,22 @@ execute_jump (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_jump =
-{
- {
-  RTL_PASS,
-  "jump",				/* name */
-  NULL,					/* gate */
-  execute_jump,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_JUMP,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
-  TODO_verify_rtl_sharing,		/* todo_flags_finish */
- }
-};
-
-static unsigned int
-execute_jump2 (void)
-{
-  cleanup_cfg (flag_crossjumping ? CLEANUP_CROSSJUMP : 0);
-  return 0;
-}
 
 struct rtl_opt_pass pass_jump2 =
 {
  {
   RTL_PASS,
-  "jump2",				/* name */
-  NULL,					/* gate */
-  execute_jump2,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_JUMP,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  TODO_ggc_collect,			/* todo_flags_start */
-  TODO_verify_rtl_sharing,		/* todo_flags_finish */
+  "jump",                               /* name */
+  NULL,                                 /* gate */
+  rest_of_handle_jump2,			/* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_JUMP,                              /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  TODO_ggc_collect,                     /* todo_flags_start */
+  TODO_verify_rtl_sharing,              /* todo_flags_finish */
  }
 };

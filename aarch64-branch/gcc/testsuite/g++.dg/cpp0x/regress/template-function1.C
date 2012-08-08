@@ -23,8 +23,7 @@ char c1[1];
 C<c1, 0> c;
 
 template<const char *, int> struct D {};
-template<int N> struct D<__func__, N> {};	// { dg-error "(cannot appear|is invalid|is not a valid|function scope|constant expression)" }
-						// { dg-warning "function scope" "function scope" { target *-*-* } 26 }
+template<int N> struct D<__func__, N> {};	// { dg-error "cannot appear|is invalid|is not a valid|function scope|constant expression" }
 
 char d1[1];
 D<d1, 0> d;

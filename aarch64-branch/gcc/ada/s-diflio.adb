@@ -38,72 +38,40 @@ package body System.Dim.Float_IO is
    ---------
 
    procedure Put
-     (File   : File_Type;
-      Item   : Num_Dim_Float;
-      Fore   : Field  := Default_Fore;
-      Aft    : Field  := Default_Aft;
-      Exp    : Field  := Default_Exp;
-      Symbol : String := "")
+     (File    : File_Type;
+      Item    : Num_Dim_Float;
+      Fore    : Field  := Default_Fore;
+      Aft     : Field  := Default_Aft;
+      Exp     : Field  := Default_Exp;
+      Symbols : String := "")
    is
    begin
       Num_Dim_Float_IO.Put (File, Item, Fore, Aft, Exp);
-      Ada.Text_IO.Put (File, Symbol);
+      Ada.Text_IO.Put (File, Symbols);
    end Put;
 
    procedure Put
-     (Item   : Num_Dim_Float;
-      Fore   : Field  := Default_Fore;
-      Aft    : Field  := Default_Aft;
-      Exp    : Field  := Default_Exp;
-      Symbol : String := "")
+     (Item    : Num_Dim_Float;
+      Fore    : Field  := Default_Fore;
+      Aft     : Field  := Default_Aft;
+      Exp     : Field  := Default_Exp;
+      Symbols : String := "")
    is
    begin
       Num_Dim_Float_IO.Put (Item, Fore, Aft, Exp);
-      Ada.Text_IO.Put (Symbol);
+      Ada.Text_IO.Put (Symbols);
    end Put;
 
    procedure Put
-     (To     : out String;
-      Item   : Num_Dim_Float;
-      Aft    : Field  := Default_Aft;
-      Exp    : Field  := Default_Exp;
-      Symbol : String := "")
+     (To      : out String;
+      Item    : Num_Dim_Float;
+      Aft     : Field  := Default_Aft;
+      Exp     : Field  := Default_Exp;
+      Symbols : String := "")
    is
    begin
       Num_Dim_Float_IO.Put (To, Item, Aft, Exp);
-      To := To & Symbol;
+      To := To & Symbols;
    end Put;
 
-   ----------------
-   -- Put_Dim_Of --
-   ----------------
-
-   pragma Warnings (Off);
-   --  kill warnings on unreferenced formals
-
-   procedure Put_Dim_Of
-     (File   : File_Type;
-      Item   : Num_Dim_Float;
-      Symbol : String := "")
-   is
-   begin
-      Ada.Text_IO.Put (File, Symbol);
-   end Put_Dim_Of;
-
-   procedure Put_Dim_Of
-     (Item   : Num_Dim_Float;
-      Symbol : String := "")
-   is
-   begin
-      Ada.Text_IO.Put (Symbol);
-   end Put_Dim_Of;
-
-   procedure Put_Dim_Of
-     (To     : out String;
-      Item   : Num_Dim_Float;
-      Symbol : String := "")
-   is
-   begin
-      To := Symbol;
-   end Put_Dim_Of;
 end System.Dim.Float_IO;

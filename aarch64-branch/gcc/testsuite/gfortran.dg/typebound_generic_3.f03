@@ -59,3 +59,4 @@ PROGRAM main
 END PROGRAM main
 
 ! { dg-output "Plain Integer(\n|\r\n|\r).*Plain Real(\n|\r\n|\r).*Passed Integer(\n|\r\n|\r).*Passed Real" }
+! { dg-final { cleanup-modules "m" } }

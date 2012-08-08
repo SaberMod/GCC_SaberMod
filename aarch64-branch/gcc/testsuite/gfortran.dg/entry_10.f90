@@ -33,3 +33,4 @@ end module
   if (e (1.0) .ne. 3.0) call abort ()
   if (f (1  ) .ne. 4.0) call abort ()
 end
+! { dg-final { cleanup-modules "a" } }

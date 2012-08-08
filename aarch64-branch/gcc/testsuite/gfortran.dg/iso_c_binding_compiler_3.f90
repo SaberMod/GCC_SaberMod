@@ -23,3 +23,5 @@ end module test_mod
 subroutine test
 use test_mod
 end subroutine test
+
+! { dg-final { cleanup-modules "test_mod" } }

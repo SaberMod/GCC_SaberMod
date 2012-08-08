@@ -14,3 +14,5 @@ use a ! { dg-error "Symbol 'bar' at \\(1\\) conflicts with symbol from module 'a
 implicit none
 integer :: bar ! { dg-error "Symbol 'bar' at \\(1\\) conflicts with symbol from module 'a'" }
 end
+
+! { dg-final { cleanup-modules "a" } }

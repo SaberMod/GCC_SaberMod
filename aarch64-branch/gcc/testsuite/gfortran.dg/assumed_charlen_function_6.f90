@@ -33,3 +33,5 @@ contains
          integer, intent(in) :: x
       end function assumed_len
 end program main
+
+! { dg-final { cleanup-modules "funcs mod2" } }

@@ -20,3 +20,4 @@ contains
     end if
   end subroutine sparse_alltoall
 end module fft_tools
+! { dg-final { cleanup-modules "fft_tools" } }

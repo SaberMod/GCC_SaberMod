@@ -35,3 +35,4 @@ end module gfcbug70
   call chk (2)
   call chk (1)
 end
+! { dg-final { cleanup-modules "foo gfcbug70" } }

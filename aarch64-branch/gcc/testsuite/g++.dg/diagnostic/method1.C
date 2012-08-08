@@ -10,7 +10,7 @@ template <class T>
 void
 bar ()
 {
-  A::foo ().anything;	// { dg-error "without object" }
+  A::foo ().anything;	// { dg-error "request for member" }
 }
 
 void
@@ -18,3 +18,5 @@ baz ()
 {
   bar <int> ();
 }
+
+// { dg-prune-output "without object" }

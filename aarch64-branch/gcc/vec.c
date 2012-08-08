@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "hashtab.h"
 
+#ifdef GATHER_STATISTICS
+
 /* Store information about each particular vector.  */
 struct vec_descriptor
 {
@@ -156,10 +158,10 @@ free_overhead (struct vec_prefix *ptr)
 void
 vec_heap_free (void *ptr)
 {
-  if (GATHER_STATISTICS)
-    free_overhead ((struct vec_prefix *)ptr);
+  free_overhead ((struct vec_prefix *)ptr);
   free (ptr);
 }
+#endif
 
 /* Calculate the new ALLOC value, making sure that RESERVE slots are
    free.  If EXACT grow exactly, otherwise grow exponentially.  */
@@ -314,16 +316,20 @@ vec_heap_o_reserve_1 (void *vec, int reserve, size_t vec_offset,
       return NULL;
     }
 
-  if (GATHER_STATISTICS && vec)
+#ifdef GATHER_STATISTICS
+  if (vec)
     free_overhead (pfx);
+#endif
 
   vec = xrealloc (vec, vec_offset + alloc * elt_size);
   ((struct vec_prefix *)vec)->alloc = alloc;
   if (!pfx)
     ((struct vec_prefix *)vec)->num = 0;
-  if (GATHER_STATISTICS && vec)
+#ifdef GATHER_STATISTICS
+  if (vec)
     register_overhead ((struct vec_prefix *)vec,
-    		       vec_offset + alloc * elt_size FINAL_PASS_MEM_STAT);
+    		       vec_offset + alloc * elt_size PASS_MEM_STAT);
+#endif
 
   return vec;
 }
@@ -523,6 +529,7 @@ vec_assert_fail (const char *op, const char *struct_name,
 }
 #endif
 
+#ifdef GATHER_STATISTICS
 /* Helper for qsort; sort descriptors by amount of memory consumed.  */
 static int
 cmp_statistic (const void *loc1, const void *loc2)
@@ -551,18 +558,16 @@ add_statistics (void **slot, void *b)
 }
 
 /* Dump per-site memory statistics.  */
-
+#endif
 void
 dump_vec_loc_statistics (void)
 {
+#ifdef GATHER_STATISTICS
   int nentries = 0;
   char s[4096];
   size_t allocated = 0;
   size_t times = 0;
   int i;
-
-  if (! GATHER_STATISTICS)
-    return;
 
   loc_array = XCNEWVEC (struct vec_descriptor *, vec_desc_hash->n_elements);
   fprintf (stderr, "Heap vectors:\n");
@@ -598,4 +603,5 @@ dump_vec_loc_statistics (void)
   fprintf (stderr, "\n%-48s %10s       %10s       %10s\n",
 	   "source location", "Leak", "Peak", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
+#endif
 }

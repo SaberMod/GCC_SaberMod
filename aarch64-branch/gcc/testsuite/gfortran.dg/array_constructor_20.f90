@@ -18,3 +18,5 @@ CONTAINS
     if (present (j1)) stop
   end subroutine
 END MODULE s_TESTS
+
+! { dg-final { cleanup-modules "m s_tests" } }

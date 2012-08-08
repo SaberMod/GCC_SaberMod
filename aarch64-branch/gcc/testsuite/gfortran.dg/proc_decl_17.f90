@@ -64,3 +64,5 @@ my_message = (/'a','b','c','d','e','f'/)
 call check(foo,i)
 
 end program
+
+! { dg-final { cleanup-modules "m" } }

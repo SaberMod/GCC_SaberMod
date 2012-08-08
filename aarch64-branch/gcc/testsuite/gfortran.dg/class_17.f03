@@ -60,3 +60,5 @@ module b_module
   end type b_type
 end module b_module
  
+
+! { dg-final { cleanup-modules "error_stack_module b_module" } }

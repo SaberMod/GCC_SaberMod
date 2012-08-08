@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "output.h"
 #include "rtl.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -82,15 +83,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "diagnostic.h"
+#include "timevar.h"
 #include "params.h"
+#include "fibheap.h"
 #include "intl.h"
 #include "function.h"
 #include "ipa-prop.h"
 #include "gimple.h"
 #include "tree-iterator.h"
+#include "tree-pass.h"
 #include "tree-dump.h"
 #include "gimple-pretty-print.h"
+#include "output.h"
 #include "coverage.h"
+#include "plugin.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
 #include "lto-streamer.h"
@@ -864,7 +870,7 @@ cgraph_materialize_all_clones (void)
 #ifdef ENABLE_CHECKING
   verify_cgraph ();
 #endif
-  symtab_remove_unreachable_nodes (false, cgraph_dump_file);
+  cgraph_remove_unreachable_nodes (false, cgraph_dump_file);
 }
 
 #include "gt-cgraphclones.h"

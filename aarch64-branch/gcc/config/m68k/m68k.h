@@ -1,6 +1,6 @@
 /* Definitions of target machine for GCC for Motorola 680x0/ColdFire.
    Copyright (C) 1987, 1988, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -698,7 +698,7 @@ __transfer_from_trampoline ()					\
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
 
-/* The 68020 BFFFO and ColdFire FF1 instructions return 32 for zero. */
+/* The ColdFire FF1 instruction returns 32 for zero. */
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) ((VALUE) = 32, 1)
 
 #define STORE_FLAG_VALUE (-1)
@@ -802,7 +802,11 @@ do { if (cc_prev_status.flags & CC_IN_68881)			\
 /* Before the prologue, the top of the frame is at 4(%sp).  */
 #define INCOMING_FRAME_SP_OFFSET 4
 
-#define EPILOGUE_USES(REGNO) m68k_epilogue_uses (REGNO)
+/* All registers are live on exit from an interrupt routine.  */
+#define EPILOGUE_USES(REGNO)					\
+  (reload_completed						\
+   && (m68k_get_function_kind (current_function_decl)	\
+       == m68k_fk_interrupt_handler))
 
 /* Describe how we implement __builtin_eh_return.  */
 #define EH_RETURN_DATA_REGNO(N) \

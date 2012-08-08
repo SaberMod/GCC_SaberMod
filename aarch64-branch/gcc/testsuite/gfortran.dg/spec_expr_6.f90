@@ -48,3 +48,5 @@ contains
     p1_type = 42
   end function p1_type
 end module m2
+
+! { dg-final { cleanup-modules "m m2" } }

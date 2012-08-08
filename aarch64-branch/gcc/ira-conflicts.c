@@ -892,12 +892,17 @@ ira_build_conflicts (void)
       for (i = 0; i < n; i++)
 	{
 	  ira_object_t obj = ALLOCNO_OBJECT (a, i);
-	  rtx allocno_reg = regno_reg_rtx [ALLOCNO_REGNO (a)];
+	  reg_attrs *attrs = REG_ATTRS (regno_reg_rtx [ALLOCNO_REGNO (a)]);
+	  tree decl;
 
 	  if ((! flag_caller_saves && ALLOCNO_CALLS_CROSSED_NUM (a) != 0)
 	      /* For debugging purposes don't put user defined variables in
 		 callee-clobbered registers.  */
-	      || (optimize == 0 && REG_USERVAR_P (allocno_reg)))
+	      || (optimize == 0
+		  && attrs != NULL
+		  && (decl = attrs->decl) != NULL
+		  && VAR_OR_FUNCTION_DECL_P (decl)
+		  && ! DECL_ARTIFICIAL (decl)))
 	    {
 	      IOR_HARD_REG_SET (OBJECT_TOTAL_CONFLICT_HARD_REGS (obj),
 				call_used_reg_set);

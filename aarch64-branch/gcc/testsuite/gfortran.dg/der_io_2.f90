@@ -51,3 +51,5 @@ program prog
     write (*, *) z   ! { dg-error "PRIVATE components" }
     write (*, *) zb
 end program prog
+
+! { dg-final { cleanup-modules "gfortran2" } }

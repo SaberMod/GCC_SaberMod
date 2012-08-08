@@ -23,3 +23,5 @@ REAL FUNCTION acos (arg) ! { dg-bogus "of an intrinsic" }
 END FUNCTION acos
 
 ! We do only compile, so no main program needed.
+
+! { dg-final { cleanup-modules "testmod" } }

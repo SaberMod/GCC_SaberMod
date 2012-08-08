@@ -10,3 +10,5 @@ use m
 character(4) :: b
 b = a
 end
+
+! { dg-final { cleanup-modules "m" } }

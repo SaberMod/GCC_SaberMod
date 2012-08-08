@@ -39,3 +39,5 @@ program test
   call c_proc (.true._c_bool, val)
   if (val /= 7) call abort ()
 end program test
+
+! { dg-final { cleanup-modules "m" } }

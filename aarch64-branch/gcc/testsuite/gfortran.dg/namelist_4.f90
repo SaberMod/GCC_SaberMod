@@ -38,3 +38,4 @@ CONTAINS
   END FUNCTION
 END
 
+! { dg-final { cleanup-modules "m1" } }

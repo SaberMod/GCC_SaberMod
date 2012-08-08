@@ -50,3 +50,5 @@ module concrete_inner_product
   use concrete_gradient
   implicit none
 end module concrete_inner_product
+! { dg-final { cleanup-modules "abstract_vector concrete_vector" } }
+! { dg-final { cleanup-modules "concrete_gradient concrete_inner_product" } }

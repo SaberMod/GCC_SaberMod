@@ -81,3 +81,4 @@ program value_4
   v = c_to_c (u, w)
   if (delta ((4.0 * u), v)) call abort ()
 end program value_4
+! { dg-final { cleanup-modules "global" } }

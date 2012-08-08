@@ -15,3 +15,5 @@ program main
   j = 1
   print*,"j=",j
 end program main
+
+! { dg-final { cleanup-modules "util_mod" } }

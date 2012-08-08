@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree.h"
 #include "input.h"
+#include "output.h"
 #include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
@@ -164,16 +165,18 @@ cb_ident (cpp_reader * ARG_UNUSED (pfile),
 	  unsigned int ARG_UNUSED (line),
 	  const cpp_string * ARG_UNUSED (str))
 {
+#ifdef ASM_OUTPUT_IDENT
   if (!flag_no_ident)
     {
       /* Convert escapes in the string.  */
       cpp_string cstr = { 0, 0 };
       if (cpp_interpret_string (pfile, str, 1, &cstr, CPP_STRING))
 	{
-	  targetm.asm_out.output_ident ((const char *) cstr.text);
+	  ASM_OUTPUT_IDENT (asm_out_file, (const char *) cstr.text);
 	  free (CONST_CAST (unsigned char *, cstr.text));
 	}
     }
+#endif
 }
 
 /* Called at the start of every non-empty line.  TOKEN is the first
@@ -312,7 +315,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_NUMBER:
       {
 	const char *suffix = NULL;
-	unsigned int flags = cpp_classify_number (parse_in, tok, &suffix, *loc);
+	unsigned int flags = cpp_classify_number (parse_in, tok, &suffix);
 
 	switch (flags & CPP_N_CATEGORY)
 	  {
@@ -414,7 +417,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 
 	*cpp_spell_token (parse_in, tok, name, true) = 0;
 
-	error_at (*loc, "stray %qs in program", name);
+	error ("stray %qs in program", name);
       }
 
       goto retry;

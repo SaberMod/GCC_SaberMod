@@ -37,3 +37,5 @@ END FUNCTION test4
 ! Test an empty function works, too.
 INTEGER FUNCTION test5 ()
 END FUNCTION test5
+
+! { dg-final { cleanup-modules "testmod" } }

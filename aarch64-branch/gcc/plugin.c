@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "intl.h"
 #include "plugin.h"
+#include "timevar.h"
 #include "ggc.h"
 
 #ifdef ENABLE_PLUGIN
@@ -864,7 +865,7 @@ get_event_last (void)
 
 
 /* Retrieve the default plugin directory.  The gcc driver should have passed
-   it as -iplugindir <dir> to the cc1 program, and it is queriable through the
+   it as -iplugindir <dir> to the cc1 program, and it is queriable thru the
    -print-file-name=plugin option to gcc.  */
 const char*
 default_plugin_dir_name (void)

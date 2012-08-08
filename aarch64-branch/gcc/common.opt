@@ -646,15 +646,15 @@ Common Var(warn_trampolines) Warning
 Warn whenever a trampoline is generated
 
 Wtype-limits
-Common Var(warn_type_limits) Warning EnabledBy(Wextra)
+Common Var(warn_type_limits) Init(-1) Warning
 Warn if a comparison is always true or always false due to the limited range of the data type
 
 Wuninitialized
-Common Var(warn_uninitialized) Warning EnabledBy(Wextra)
+Common Var(warn_uninitialized) Init(-1) Warning
 Warn about uninitialized automatic variables
 
 Wmaybe-uninitialized
-Common Var(warn_maybe_uninitialized) Warning EnabledBy(Wuninitialized)
+Common Var(warn_maybe_uninitialized) Warning
 Warn about maybe uninitialized automatic variables
 
 Wunreachable-code
@@ -670,15 +670,15 @@ Common Var(warn_unused_but_set_parameter) Init(-1) Warning
 Warn when a function parameter is only set, otherwise unused
 
 Wunused-but-set-variable
-Common Var(warn_unused_but_set_variable) Warning EnabledBy(Wunused)
+Common Var(warn_unused_but_set_variable) Init(-1) Warning
 Warn when a variable is only set, otherwise unused
 
 Wunused-function
-Common Var(warn_unused_function) Warning EnabledBy(Wunused)
+Common Var(warn_unused_function) Init(-1) Warning
 Warn when a function is unused
 
 Wunused-label
-Common Var(warn_unused_label) Warning EnabledBy(Wunused)
+Common Var(warn_unused_label) Init(-1) Warning
 Warn when a label is unused
 
 Wunused-parameter
@@ -686,11 +686,11 @@ Common Var(warn_unused_parameter) Init(-1) Warning
 Warn when a function parameter is unused
 
 Wunused-value
-Common Var(warn_unused_value) Warning EnabledBy(Wunused)
+Common Var(warn_unused_value) Init(-1) Warning
 Warn when an expression value is unused
 
 Wunused-variable
-Common Var(warn_unused_variable) Warning EnabledBy(Wunused)
+Common Var(warn_unused_variable) Init(-1) Warning
 Warn when a variable is unused
 
 Wcoverage-mismatch
@@ -979,10 +979,6 @@ fdelayed-branch
 Common Report Var(flag_delayed_branch) Optimization
 Attempt to fill delay slots of branch instructions
 
-fdelete-dead-exceptions
-Common Report Var(flag_delete_dead_exceptions) Init(0)
-Delete dead instructions that may throw exceptions
-
 fdelete-null-pointer-checks
 Common Report Var(flag_delete_null_pointer_checks) Init(1) Optimization
 Delete useless null pointer checks
@@ -1190,11 +1186,6 @@ fgraphite-identity
 Common Report Var(flag_graphite_identity) Optimization
 Enable Graphite Identity transformation
 
-fhoist-adjacent-loads
-Common Report Var(flag_hoist_adjacent_loads) Optimization
-Enable hoisting adjacent loads to encourage generating conditional move
-instructions
-
 floop-parallelize-all
 Common Report Var(flag_loop_parallelize_all) Optimization
 Mark all loops as parallel
@@ -1219,10 +1210,6 @@ floop-flatten
 Common Ignore
 Does nothing. Preserved for backward compatibility.
 
-floop-nest-optimize
-Common Report Var(flag_loop_optimize_isl) Optimization
-Enable the ISL based loop nest optimizer
-
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1)
 Force bitfield accesses to match their type width
@@ -1246,22 +1233,6 @@ Perform conversion of conditional jumps to branchless equivalents
 fif-conversion2
 Common Report Var(flag_if_conversion2) Optimization
 Perform conversion of conditional jumps to conditional execution
-
-fstack-reuse=
-Common Joined RejectNegative Enum(stack_reuse_level) Var(flag_stack_reuse) Init(SR_ALL)
--fstack-reuse=[all|named_vars|none] Set stack reuse level for local variables.
-
-Enum
-Name(stack_reuse_level) Type(enum stack_reuse_level) UnknownError(unknown Stack Reuse Level %qs)
-
-EnumValue
-Enum(stack_reuse_level) String(all) Value(SR_ALL)
-
-EnumValue
-Enum(stack_reuse_level) String(named_vars) Value(SR_NAMED_VARS)
-
-EnumValue
-Enum(stack_reuse_level) String(none) Value(SR_NONE)
 
 ftree-loop-if-convert
 Common Report Var(flag_tree_loop_if_convert) Init(-1) Optimization
@@ -1693,6 +1664,19 @@ fsched-pressure
 Common Report Var(flag_sched_pressure) Init(0) Optimization
 Enable register pressure sensitive insn scheduling
 
+fsched-pressure-algorithm=
+Common Joined RejectNegative Enum(sched_pressure_algorithm) Var(flag_sched_pressure_algorithm) Init(SCHED_PRESSURE_WEIGHTED)
+-fsched-pressure-algorithm=[weighted|model] Set the pressure-scheduling algorithm
+
+Enum
+Name(sched_pressure_algorithm) Type(enum sched_pressure_algorithm) UnknownError(unknown %<fsched-pressure%> algorithm %qs)
+
+EnumValue
+Enum(sched_pressure_algorithm) String(weighted) Value(SCHED_PRESSURE_WEIGHTED)
+
+EnumValue
+Enum(sched_pressure_algorithm) String(model) Value(SCHED_PRESSURE_MODEL)
+
 fsched-spec
 Common Report Var(flag_schedule_speculative) Init(1) Optimization
 Allow speculative motion of non-loads
@@ -1968,14 +1952,6 @@ ftree-ch
 Common Report Var(flag_tree_ch) Optimization
 Enable loop header copying on trees
 
-ftree-coalesce-inlined-vars
-Common Report Var(flag_ssa_coalesce_vars,1) Init(2) RejectNegative Optimization
-Enable coalescing of copy-related user variables that are inlined
-
-ftree-coalesce-vars
-Common Report Var(flag_ssa_coalesce_vars,2) Optimization
-Enable coalescing of all copy-related user variables
-
 ftree-copyrename
 Common Report Var(flag_tree_copyrename) Optimization
 Replace SSA temporaries with better names in copies
@@ -2079,10 +2055,6 @@ Does nothing.  Preserved for backward compatibility.
 ftree-sink
 Common Report Var(flag_tree_sink) Optimization
 Enable SSA code sinking on trees
-
-ftree-slsr
-Common Report Var(flag_tree_slsr) Optimization
-Perform straight-line strength reduction
 
 ftree-sra
 Common Report Var(flag_tree_sra) Optimization
@@ -2266,14 +2238,6 @@ Generate debug information in DWARF v2 (or later) format
 ggdb
 Common JoinedOrMissing
 Generate debug information in default extended format
-
-gno-pubnames
-Common RejectNegative Var(debug_generate_pub_sections, 0) Init(-1)
-Don't generate DWARF pubnames and pubtypes sections.
-
-gpubnames
-Common RejectNegative Var(debug_generate_pub_sections, 1)
-Generate DWARF pubnames and pubtypes sections.
 
 gno-record-gcc-switches
 Common RejectNegative Var(dwarf_record_gcc_switches,0) Init(1)

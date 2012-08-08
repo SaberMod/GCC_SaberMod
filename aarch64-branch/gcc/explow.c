@@ -127,7 +127,7 @@ plus_constant (enum machine_mode mode, rtx x, HOST_WIDE_INT c)
 	if (add_double_with_sign (l1, h1, l2, h2, &lv, &hv, false))
 	  /* Sorry, we have no way to represent overflows this wide.
 	     To fix, add constant support wider than CONST_DOUBLE.  */
-	  gcc_assert (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_DOUBLE_INT);
+	  gcc_assert (GET_MODE_BITSIZE (mode) <= 2 * HOST_BITS_PER_WIDE_INT);
 
 	return immed_double_const (lv, hv, VOIDmode);
       }
@@ -1525,24 +1525,17 @@ set_stack_check_libfunc (const char *libfunc_name)
 void
 emit_stack_probe (rtx address)
 {
-#ifdef HAVE_probe_stack_address
-  if (HAVE_probe_stack_address)
-    emit_insn (gen_probe_stack_address (address));
+  rtx memref = gen_rtx_MEM (word_mode, address);
+
+  MEM_VOLATILE_P (memref) = 1;
+
+  /* See if we have an insn to probe the stack.  */
+#ifdef HAVE_probe_stack
+  if (HAVE_probe_stack)
+    emit_insn (gen_probe_stack (memref));
   else
 #endif
-    {
-      rtx memref = gen_rtx_MEM (word_mode, address);
-
-      MEM_VOLATILE_P (memref) = 1;
-
-      /* See if we have an insn to probe the stack.  */
-#ifdef HAVE_probe_stack
-      if (HAVE_probe_stack)
-        emit_insn (gen_probe_stack (memref));
-      else
-#endif
-        emit_move_insn (memref, const0_rtx);
-    }
+    emit_move_insn (memref, const0_rtx);
 }
 
 /* Probe a range of stack addresses from FIRST to FIRST+SIZE, inclusive.
@@ -1579,11 +1572,12 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 								size, first)));
       emit_library_call (stack_check_libfunc, LCT_NORMAL, VOIDmode, 1, addr,
 			 Pmode);
+      return;
     }
 
   /* Next see if we have an insn to check the stack.  */
 #ifdef HAVE_check_stack
-  else if (HAVE_check_stack)
+  if (HAVE_check_stack)
     {
       struct expand_operand ops[1];
       rtx addr = memory_address (Pmode,
@@ -1591,10 +1585,10 @@ probe_stack_range (HOST_WIDE_INT first, rtx size)
 					         stack_pointer_rtx,
 					         plus_constant (Pmode,
 								size, first)));
-      bool success;
+
       create_input_operand (&ops[0], addr, Pmode);
-      success = maybe_expand_insn (CODE_FOR_check_stack, 1, ops);
-      gcc_assert (success);
+      if (maybe_expand_insn (CODE_FOR_check_stack, 1, ops))
+	return;
     }
 #endif
 

@@ -190,8 +190,8 @@ static void init_spec (void);
 static void store_arg (const char *, int, int);
 static void insert_wrapper (const char *);
 static char *load_specs (const char *);
-static void read_specs (const char *, bool, bool);
-static void set_spec (const char *, const char *, bool);
+static void read_specs (const char *, int);
+static void set_spec (const char *, const char *);
 static struct compiler *lookup_compiler (const char *, size_t, const char *);
 static char *build_search_list (const struct path_prefix *, const char *,
 				bool, bool);
@@ -227,9 +227,9 @@ static void do_option_spec (const char *, const char *);
 static void do_self_spec (const char *);
 static const char *find_file (const char *);
 static int is_directory (const char *, bool);
-static const char *validate_switches (const char *, bool);
+static const char *validate_switches (const char *);
 static void validate_all_switches (void);
-static inline void validate_switches_from_spec (const char *, bool);
+static inline void validate_switches_from_spec (const char *);
 static void give_switch (int, int);
 static int used_arg (const char *, int);
 static int default_arg (const char *, int);
@@ -377,7 +377,6 @@ or with constant text in a single argument.
 	If multilib_dir is set, extra entries are generated with it affixed.
  %l     process LINK_SPEC as a spec.
  %L     process LIB_SPEC as a spec.
- %M     Output multilib_os_dir.
  %G     process LIBGCC_SPEC as a spec.
  %R     Output the concatenation of target_system_root and
         target_sysroot_suffix.
@@ -1171,12 +1170,11 @@ struct spec_list
   const char **ptr_spec;	/* pointer to the spec itself.  */
   struct spec_list *next;	/* Next spec in linked list.  */
   int name_len;			/* length of the name */
-  bool user_p;			/* whether string come from file spec.  */
-  bool alloc_p;			/* whether string was allocated */
+  int alloc_p;			/* whether string was allocated */
 };
 
 #define INIT_STATIC_SPEC(NAME,PTR) \
-  { NAME, NULL, PTR, (struct spec_list *) 0, sizeof (NAME) - 1, false, false }
+{ NAME, NULL, PTR, (struct spec_list *) 0, sizeof (NAME) - 1, 0 }
 
 /* List of statically defined specs.  */
 static struct spec_list static_specs[] =
@@ -1480,7 +1478,7 @@ init_spec (void)
    current spec.  */
 
 static void
-set_spec (const char *name, const char *spec, bool user_p)
+set_spec (const char *name, const char *spec)
 {
   struct spec_list *sl;
   const char *old_spec;
@@ -1532,8 +1530,7 @@ set_spec (const char *name, const char *spec, bool user_p)
   if (old_spec && sl->alloc_p)
     free (CONST_CAST(char *, old_spec));
 
-  sl->user_p = user_p;
-  sl->alloc_p = true;
+  sl->alloc_p = 1;
 }
 
 /* Accumulate a command (program name and args), and run it.  */
@@ -1689,7 +1686,7 @@ load_specs (const char *filename)
    Anything invalid in the file is a fatal error.  */
 
 static void
-read_specs (const char *filename, bool main_p, bool user_p)
+read_specs (const char *filename, int main_p)
 {
   char *buffer;
   char *p;
@@ -1738,7 +1735,7 @@ read_specs (const char *filename, bool main_p, bool user_p)
 
 	      p[-2] = '\0';
 	      new_filename = find_a_file (&startfile_prefixes, p1, R_OK, true);
-	      read_specs (new_filename ? new_filename : p1, false, user_p);
+	      read_specs (new_filename ? new_filename : p1, FALSE);
 	      continue;
 	    }
 	  else if (!strncmp (p1, "%include_noerr", sizeof "%include_noerr" - 1)
@@ -1759,7 +1756,7 @@ read_specs (const char *filename, bool main_p, bool user_p)
 	      p[-2] = '\0';
 	      new_filename = find_a_file (&startfile_prefixes, p1, R_OK, true);
 	      if (new_filename)
-		read_specs (new_filename, false, user_p);
+		read_specs (new_filename, FALSE);
 	      else if (verbose_flag)
 		fnotice (stderr, "could not find specs file %s\n", p1);
 	      continue;
@@ -1836,7 +1833,7 @@ read_specs (const char *filename, bool main_p, bool user_p)
 #endif
 		}
 
-	      set_spec (p2, *(sl->ptr_spec), user_p);
+	      set_spec (p2, *(sl->ptr_spec));
 	      if (sl->alloc_p)
 		free (CONST_CAST (char *, *(sl->ptr_spec)));
 
@@ -1902,7 +1899,7 @@ read_specs (const char *filename, bool main_p, bool user_p)
 	  if (! strcmp (suffix, "*link_command"))
 	    link_command_spec = spec;
 	  else
-	    set_spec (suffix + 1, spec, user_p);
+	    set_spec (suffix + 1, spec);
 	}
       else
 	{
@@ -2822,9 +2819,8 @@ struct switchstr
   const char *part1;
   const char **args;
   unsigned int live_cond;
-  bool known;
-  bool validated;
-  bool ordering;
+  unsigned char validated;
+  unsigned char ordering;
 };
 
 static struct switchstr *switches;
@@ -3090,11 +3086,11 @@ alloc_switch (void)
 }
 
 /* Save an option OPT with N_ARGS arguments in array ARGS, marking it
-   as validated if VALIDATED and KNOWN if it is an internal switch.  */
+   as validated if VALIDATED.  */
 
 static void
 save_switch (const char *opt, size_t n_args, const char *const *args,
-	     bool validated, bool known)
+	     bool validated)
 {
   alloc_switch ();
   switches[n_switches].part1 = opt + 1;
@@ -3109,7 +3105,6 @@ save_switch (const char *opt, size_t n_args, const char *const *args,
 
   switches[n_switches].live_cond = 0;
   switches[n_switches].validated = validated;
-  switches[n_switches].known = known;
   switches[n_switches].ordering = 0;
   n_switches++;
 }
@@ -3128,15 +3123,7 @@ driver_unknown_option_callback (const struct cl_decoded_option *decoded)
 	 diagnosed only if there are warnings.  */
       save_switch (decoded->canonical_option[0],
 		   decoded->canonical_option_num_elements - 1,
-		   &decoded->canonical_option[1], false, true);
-      return false;
-    }
-  if (decoded->opt_index == OPT_SPECIAL_unknown)
-    {
-      /* Give it a chance to define it a a spec file.  */
-      save_switch (decoded->canonical_option[0],
-		   decoded->canonical_option_num_elements - 1,
-		   &decoded->canonical_option[1], false, false);
+		   &decoded->canonical_option[1], false);
       return false;
     }
   else
@@ -3163,7 +3150,7 @@ driver_wrong_lang_callback (const struct cl_decoded_option *decoded,
   else
     save_switch (decoded->canonical_option[0],
 		 decoded->canonical_option_num_elements - 1,
-		 &decoded->canonical_option[1], false, true);
+		 &decoded->canonical_option[1], false);
 }
 
 static const char *spec_lang = 0;
@@ -3306,7 +3293,7 @@ driver_handle_option (struct gcc_options *opts,
 	compare_debug_opt = NULL;
       else
 	compare_debug_opt = arg;
-      save_switch (compare_debug_replacement_opt, 0, NULL, validated, true);
+      save_switch (compare_debug_replacement_opt, 0, NULL, validated);
       return true;
 
     case OPT_Wa_:
@@ -3391,12 +3378,12 @@ driver_handle_option (struct gcc_options *opts,
     case OPT_L:
       /* Similarly, canonicalize -L for linkers that may not accept
 	 separate arguments.  */
-      save_switch (concat ("-L", arg, NULL), 0, NULL, validated, true);
+      save_switch (concat ("-L", arg, NULL), 0, NULL, validated);
       return true;
 
     case OPT_F:
       /* Likewise -F.  */
-      save_switch (concat ("-F", arg, NULL), 0, NULL, validated, true);
+      save_switch (concat ("-F", arg, NULL), 0, NULL, validated);
       return true;
 
     case OPT_save_temps:
@@ -3439,7 +3426,7 @@ driver_handle_option (struct gcc_options *opts,
 	  user_specs_head = user;
 	user_specs_tail = user;
       }
-      validated = true;
+      do_save = false;
       break;
 
     case OPT__sysroot_:
@@ -3518,7 +3505,7 @@ driver_handle_option (struct gcc_options *opts,
       save_temps_prefix = xstrdup (arg);
       /* On some systems, ld cannot handle "-o" without a space.  So
 	 split the option from its argument.  */
-      save_switch ("-o", 1, &arg, validated, true);
+      save_switch ("-o", 1, &arg, validated);
       return true;
 
     case OPT_static_libgcc:
@@ -3541,7 +3528,7 @@ driver_handle_option (struct gcc_options *opts,
   if (do_save)
     save_switch (decoded->canonical_option[0],
 		 decoded->canonical_option_num_elements - 1,
-		 &decoded->canonical_option[1], validated, true);
+		 &decoded->canonical_option[1], validated);
   return true;
 }
 
@@ -3834,7 +3821,7 @@ process_command (unsigned int decoded_options_count,
 	    }
 	  else
 	    fname = xstrdup (arg);
-
+ 
           if (strcmp (fname, "-") != 0 && access (fname, F_OK) < 0)
 	    perror_with_name (fname);
           else
@@ -3968,8 +3955,7 @@ process_command (unsigned int decoded_options_count,
 					   NULL);
       switches[n_switches].args = 0;
       switches[n_switches].live_cond = 0;
-      switches[n_switches].validated = false;
-      switches[n_switches].known = false;
+      switches[n_switches].validated = 0;
       switches[n_switches].ordering = 0;
       n_switches++;
       compare_debug = 1;
@@ -4344,7 +4330,7 @@ do_self_spec (const char *spec)
 	      save_switch (decoded_options[j].canonical_option[0],
 			   (decoded_options[j].canonical_option_num_elements
 			    - 1),
-			   &decoded_options[j].canonical_option[1], false, true);
+			   &decoded_options[j].canonical_option[1], false);
 	      break;
 
 	    default:
@@ -5129,14 +5115,6 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      return value;
 	    break;
 
-	  case 'M':
-	    if (multilib_os_dir == NULL)
-	      obstack_1grow (&obstack, '.');
-	    else
-	      obstack_grow (&obstack, multilib_os_dir,
-			    strlen (multilib_os_dir));
-	    break;
-
 	  case 'G':
 	    value = do_spec_1 (libgcc_spec, 0, NULL);
 	    if (value != 0)
@@ -5217,11 +5195,7 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 		    && (have_wildcard || switches[i].part1[len] == '\0'))
 		  {
 		    switches[i].live_cond |= switch_option;
-		    /* User switch be validated from validate_all_switches.
-		       when the definition is seen from the spec file.
-		       If not defined anywhere, will be rejected.  */
-		    if (switches[i].known)
-		      switches[i].validated = true;
+		    switches[i].validated = 1;
 		  }
 
 	      p += len;
@@ -5834,7 +5808,7 @@ check_live_switch (int switchnum, int prefix_length)
       for (i = switchnum + 1; i < n_switches; i++)
 	if (switches[i].part1[0] == 'O')
 	  {
-	    switches[switchnum].validated = true;
+	    switches[switchnum].validated = 1;
 	    switches[switchnum].live_cond = SWITCH_FALSE;
 	    return 0;
 	  }
@@ -5848,9 +5822,7 @@ check_live_switch (int switchnum, int prefix_length)
 	    if (switches[i].part1[0] == name[0]
 		&& ! strcmp (&switches[i].part1[1], &name[4]))
 	      {
-		/* --specs are validated with the validate_switches mechanism.  */
-		if (switches[switchnum].known)
-		  switches[switchnum].validated = true;
+		switches[switchnum].validated = 1;
 		switches[switchnum].live_cond = SWITCH_FALSE;
 		return 0;
 	      }
@@ -5865,9 +5837,7 @@ check_live_switch (int switchnum, int prefix_length)
 		&& switches[i].part1[3] == '-'
 		&& !strcmp (&switches[i].part1[4], &name[1]))
 	      {
-		/* --specs are validated with the validate_switches mechanism.  */
-		if (switches[switchnum].known)
-		  switches[switchnum].validated = true;
+		switches[switchnum].validated = 1;
 		switches[switchnum].live_cond = SWITCH_FALSE;
 		return 0;
 	      }
@@ -5931,7 +5901,7 @@ give_switch (int switchnum, int omit_first_word)
     }
 
   do_spec_1 (" ", 0, NULL);
-  switches[switchnum].validated = true;
+  switches[switchnum].validated = 1;
 }
 
 /* Search for a file named NAME trying various prefixes including the
@@ -6189,18 +6159,17 @@ main (int argc, char **argv)
 				   CL_DRIVER,
 				   &decoded_options, &decoded_options_count);
 
+#ifdef GCC_DRIVER_HOST_INITIALIZATION
+  /* Perform host dependent initialization when needed.  */
+  GCC_DRIVER_HOST_INITIALIZATION;
+#endif
+
   /* Unlock the stdio streams.  */
   unlock_std_streams ();
 
   gcc_init_libintl ();
 
   diagnostic_initialize (global_dc, 0);
-
-#ifdef GCC_DRIVER_HOST_INITIALIZATION
-  /* Perform host dependent initialization when needed.  */
-  GCC_DRIVER_HOST_INITIALIZATION;
-#endif
-
   if (atexit (delete_temp_files) != 0)
     fatal_error ("atexit failed");
 
@@ -6300,7 +6269,7 @@ main (int argc, char **argv)
   specs_file = find_a_file (&startfile_prefixes, "specs", R_OK, true);
   /* Read the specs file unless it is a default one.  */
   if (specs_file != 0 && strcmp (specs_file, "specs"))
-    read_specs (specs_file, true, false);
+    read_specs (specs_file, TRUE);
   else
     init_spec ();
 
@@ -6313,7 +6282,7 @@ main (int argc, char **argv)
   strcat (specs_file, just_machine_suffix);
   strcat (specs_file, "specs");
   if (access (specs_file, R_OK) == 0)
-    read_specs (specs_file, true, false);
+    read_specs (specs_file, TRUE);
 
   /* Process any configure-time defaults specified for the command line
      options, via OPTION_DEFAULT_SPECS.  */
@@ -6357,7 +6326,7 @@ main (int argc, char **argv)
     {
       obstack_grow (&obstack, "%(sysroot_spec) ", strlen ("%(sysroot_spec) "));
       obstack_grow0 (&obstack, link_spec, strlen (link_spec));
-      set_spec ("link", XOBFINISH (&obstack, const char *), false);
+      set_spec ("link", XOBFINISH (&obstack, const char *));
     }
 #endif
 
@@ -6433,7 +6402,7 @@ main (int argc, char **argv)
     {
       char *filename = find_a_file (&startfile_prefixes, uptr->filename,
 				    R_OK, true);
-      read_specs (filename ? filename : uptr->filename, false, true);
+      read_specs (filename ? filename : uptr->filename, FALSE);
     }
 
   /* Process any user self specs.  */
@@ -6528,11 +6497,11 @@ main (int argc, char **argv)
       xputenv (XOBFINISH (&collect_obstack, char *));
     }
 
-  /* Reject switches that no pass was interested in.  */
+  /* Warn about any switches that no pass was interested in.  */
 
   for (i = 0; (int) i < n_switches; i++)
     if (! switches[i].validated)
-      error ("unrecognized command line option %<-%s%>", switches[i].part1);
+      error ("unrecognized option %<-%s%>", switches[i].part1);
 
   /* Obey some of the options.  */
 
@@ -7072,14 +7041,14 @@ perror_with_name (const char *name)
 }
 
 static inline void
-validate_switches_from_spec (const char *spec, bool user)
+validate_switches_from_spec (const char *spec)
 {
   const char *p = spec;
   char c;
   while ((c = *p++))
     if (c == '%' && (*p == '{' || *p == '<' || (*p == 'W' && *++p == '{')))
       /* We have a switch spec.  */
-      p = validate_switches (p + 1, user);
+      p = validate_switches (p + 1);
 }
 
 static void
@@ -7089,20 +7058,20 @@ validate_all_switches (void)
   struct spec_list *spec;
 
   for (comp = compilers; comp->spec; comp++)
-    validate_switches_from_spec (comp->spec, false);
+    validate_switches_from_spec (comp->spec);
 
   /* Look through the linked list of specs read from the specs file.  */
   for (spec = specs; spec; spec = spec->next)
-    validate_switches_from_spec (*spec->ptr_spec, spec->user_p);
+    validate_switches_from_spec (*spec->ptr_spec);
 
-  validate_switches_from_spec (link_command_spec, false);
+  validate_switches_from_spec (link_command_spec);
 }
 
 /* Look at the switch-name that comes after START
    and mark as valid all supplied switches that match it.  */
 
 static const char *
-validate_switches (const char *start, bool user_spec)
+validate_switches (const char *start)
 {
   const char *p = start;
   const char *atom;
@@ -7139,9 +7108,8 @@ next_member:
       /* Mark all matching switches as valid.  */
       for (i = 0; i < n_switches; i++)
 	if (!strncmp (switches[i].part1, atom, len)
-	    && (starred || switches[i].part1[len] == '\0')
-	    && (switches[i].known || user_spec))
-	      switches[i].validated = true;
+	    && (starred || switches[i].part1[len] == 0))
+	  switches[i].validated = 1;
     }
 
   if (*p) p++;
@@ -7156,9 +7124,9 @@ next_member:
 	    {
 	      p++;
 	      if (*p == '{' || *p == '<')
-		p = validate_switches (p+1, user_spec);
+		p = validate_switches (p+1);
 	      else if (p[0] == 'W' && p[1] == '{')
-		p = validate_switches (p+2, user_spec);
+		p = validate_switches (p+2);
 	    }
 	  else
 	    p++;
@@ -8088,13 +8056,13 @@ include_spec_function (int argc, const char **argv)
     abort ();
 
   file = find_a_file (&startfile_prefixes, argv[0], R_OK, true);
-  read_specs (file ? file : argv[0], false, false);
+  read_specs (file ? file : argv[0], FALSE);
 
   return NULL;
 }
 
 /* %:find-file spec function.  This function replaces its argument by
-    the file found through find_file, that is the -print-file-name gcc
+    the file found thru find_file, that is the -print-file-name gcc
     program option. */
 static const char *
 find_file_spec_function (int argc, const char **argv)
@@ -8110,7 +8078,7 @@ find_file_spec_function (int argc, const char **argv)
 
 
 /* %:find-plugindir spec function.  This function replaces its argument
-    by the -iplugindir=<dir> option.  `dir' is found through find_file, that
+    by the -iplugindir=<dir> option.  `dir' is found thru find_file, that
     is the -print-file-name gcc program option. */
 static const char *
 find_plugindir_spec_function (int argc, const char **argv ATTRIBUTE_UNUSED)

@@ -2,12 +2,12 @@
 //Based on a report by Bill Currie <bcurrie@tssc.co.nz>
 struct foo {
   protected:
-    int x;        // { dg-message "" } candidate
+    int x;        // { dg-error "" } candidate
 };
 
 struct bar {
   public:
-    int x();      // { dg-message "" } candidate
+    int x();      // { dg-error "" } candidate
 };
 
 struct foobar: public foo, public bar {

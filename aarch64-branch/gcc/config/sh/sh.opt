@@ -202,7 +202,7 @@ Target RejectNegative Condition(SUPPORT_SH5_32MEDIA_NOFPU)
 Generate FPU-less SHcompact code
 
 maccumulate-outgoing-args
-Target Report Var(TARGET_ACCUMULATE_OUTGOING_ARGS) Init(1)
+Target Report Mask(ACCUMULATE_OUTGOING_ARGS)
 Reserve space for outgoing arguments in the function prologue
 
 madjust-unroll
@@ -224,10 +224,6 @@ Generate bit instructions
 mbranch-cost=
 Target RejectNegative Joined UInteger Var(sh_branch_cost) Init(-1)
 Cost to assume for a branch insn
-
-mzdcbranch
-Target Var(TARGET_ZDCBRANCH)
-Assume that zero displacement conditional branches are fast
 
 mcbranchdi
 Target Var(TARGET_CBRANCHDI4)
@@ -261,6 +257,10 @@ mfixed-range=
 Target RejectNegative Joined Var(sh_fixed_range_str)
 Specify range of registers to make fixed
 
+mfused-madd
+Target Var(TARGET_FMAC)
+Enable the use of the fused floating point multiply-accumulate operation
+
 mgettrcost=
 Target RejectNegative Joined UInteger Var(sh_gettrcost) Init(-1)
 Cost to assume for gettr insn
@@ -270,8 +270,8 @@ Target Report RejectNegative Mask(HITACHI)
 Follow Renesas (formerly Hitachi) / SuperH calling conventions
 
 mieee
-Target Var(TARGET_IEEE)
-Increase the IEEE compliance for floating-point comparisons
+Target Report Mask(IEEE)
+Increase the IEEE compliance for floating-point code
 
 mindexed-addressing
 Target Report Mask(ALLOW_INDEXED_ADDRESS) Condition(SUPPORT_ANY_SH5_32MEDIA)
@@ -321,11 +321,7 @@ Follow Renesas (formerly Hitachi) / SuperH calling conventions
 
 msoft-atomic
 Target Report Var(TARGET_SOFT_ATOMIC)
-Use gUSA software atomic sequences
-
-mhard-atomic
-Target Report Var(TARGET_HARD_ATOMIC)
-Use hardware atomic sequences
+Use software atomic sequences supported by kernel
 
 menable-tas
 Target Report RejectNegative Var(TARGET_ENABLE_TAS)
@@ -348,12 +344,3 @@ Don't generate privileged-mode only code; implies -mno-inline-ic_invalidate if t
 mpretend-cmove
 Target Var(TARGET_PRETEND_CMOVE)
 Pretend a branch-around-a-move is a conditional move.
-
-mfsca
-Target Var(TARGET_FSCA)
-Enable the use of the fsca instruction
-
-mfsrra
-Target Var(TARGET_FSRRA)
-Enable the use of the fsrra instruction
-

@@ -22,3 +22,5 @@ class(three), allocatable :: a2
 if (same_type_as(a1,a2)) call abort()
 
 end 
+
+! { dg-final { cleanup-modules "one one_two" } }

@@ -95,3 +95,5 @@ contains
 
     end subroutine foo
 end program namelist_14 
+
+! { dg-final { cleanup-modules "global" } }

@@ -10,3 +10,4 @@ SUBROUTINE glutInit_f03()
   argv(1)=C_LOC(empty_string)
 END SUBROUTINE
 end module x
+! { dg-final { cleanup-modules "x" } }  

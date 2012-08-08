@@ -421,19 +421,18 @@ package body Ada.Calendar.Formatting is
 
    begin
       Formatting_Operations.Split
-        (Date        => Date,
-         Year        => Year,
-         Month       => Month,
-         Day         => Day,
-         Day_Secs    => Seconds,
-         Hour        => H,
-         Minute      => M,
-         Second      => Se,
-         Sub_Sec     => Su,
-         Leap_Sec    => Leap_Second,
-         Use_TZ      => True,
-         Is_Historic => True,
-         Time_Zone   => Tz);
+        (Date      => Date,
+         Year      => Year,
+         Month     => Month,
+         Day       => Day,
+         Day_Secs  => Seconds,
+         Hour      => H,
+         Minute    => M,
+         Second    => Se,
+         Sub_Sec   => Su,
+         Leap_Sec  => Leap_Second,
+         Use_TZ    => True,
+         Time_Zone => Tz);
 
       --  Validity checks
 
@@ -467,19 +466,18 @@ package body Ada.Calendar.Formatting is
 
    begin
       Formatting_Operations.Split
-        (Date        => Date,
-         Year        => Year,
-         Month       => Month,
-         Day         => Day,
-         Day_Secs    => Dd,
-         Hour        => Hour,
-         Minute      => Minute,
-         Second      => Second,
-         Sub_Sec     => Sub_Second,
-         Leap_Sec    => Le,
-         Use_TZ      => True,
-         Is_Historic => True,
-         Time_Zone   => Tz);
+        (Date      => Date,
+         Year      => Year,
+         Month     => Month,
+         Day       => Day,
+         Day_Secs  => Dd,
+         Hour      => Hour,
+         Minute    => Minute,
+         Second    => Second,
+         Sub_Sec   => Sub_Second,
+         Leap_Sec  => Le,
+         Use_TZ    => True,
+         Time_Zone => Tz);
 
       --  Validity checks
 
@@ -516,19 +514,18 @@ package body Ada.Calendar.Formatting is
 
    begin
       Formatting_Operations.Split
-       (Date        => Date,
-        Year        => Year,
-        Month       => Month,
-        Day         => Day,
-        Day_Secs    => Dd,
-        Hour        => Hour,
-        Minute      => Minute,
-        Second      => Second,
-        Sub_Sec     => Sub_Second,
-        Leap_Sec    => Leap_Second,
-        Use_TZ      => True,
-        Is_Historic => True,
-        Time_Zone   => Tz);
+       (Date      => Date,
+        Year      => Year,
+        Month     => Month,
+        Day       => Day,
+        Day_Secs  => Dd,
+        Hour      => Hour,
+        Minute    => Minute,
+        Second    => Second,
+        Sub_Sec   => Sub_Second,
+        Leap_Sec  => Leap_Second,
+        Use_TZ    => True,
+        Time_Zone => Tz);
 
       --  Validity checks
 
@@ -633,7 +630,6 @@ package body Ada.Calendar.Formatting is
            Leap_Sec     => Leap_Second,
            Use_Day_Secs => True,
            Use_TZ       => True,
-           Is_Historic  => True,
            Time_Zone    => Tz);
    end Time_Of;
 
@@ -683,7 +679,6 @@ package body Ada.Calendar.Formatting is
            Leap_Sec     => Leap_Second,
            Use_Day_Secs => False,
            Use_TZ       => True,
-           Is_Historic  => True,
            Time_Zone    => Tz);
    end Time_Of;
 

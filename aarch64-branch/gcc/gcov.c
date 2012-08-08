@@ -57,10 +57,10 @@ along with Gcov; see the file COPYING3.  If not see
 
 /* The code validates that the profile information read in corresponds
    to the code currently being compiled.  Rather than checking for
-   identical files, the code below compares a checksum on the CFG
+   identical files, the code below computes a checksum on the CFG
    (based on the order of basic blocks and the arcs in the CFG).  If
-   the CFG checksum in the gcda file match the CFG checksum in the
-   gcno file, the profile data will be used.  */
+   the CFG checksum in the gcda file match the CFG checksum for the
+   code currently being compiled, the profile data will be used.  */
 
 /* This is the size of the buffer used to read in source file lines.  */
 
@@ -177,10 +177,7 @@ typedef struct function_info
   /* The graph contains at least one fake incoming edge.  */
   unsigned has_catch : 1;
 
-  /* Array of basic blocks.  Like in GCC, the entry block is
-     at blocks[0] and the exit block is at blocks[1].  */
-#define ENTRY_BLOCK (0)
-#define EXIT_BLOCK (1)
+  /* Array of basic blocks.  */
   block_t *blocks;
   unsigned num_blocks;
   unsigned blocks_executed;
@@ -286,16 +283,14 @@ static unsigned total_executed;
 
 static time_t bbg_file_time;
 
-/* Name of the notes (gcno) output file.  The "bbg" prefix is for
-   historical reasons, when the notes file contained only the
-   basic block graph notes.  */
+/* Name and file pointer of the input file for the basic block graph.  */
 
 static char *bbg_file_name;
 
 /* Stamp of the bbg file */
 static unsigned bbg_stamp;
 
-/* Name and file pointer of the input file for the count data (gcda).  */
+/* Name and file pointer of the input file for the arc count data.  */
 
 static char *da_file_name;
 
@@ -978,7 +973,7 @@ find_source (const char *file_name)
     {
       static int info_emitted;
 
-      fnotice (stderr, "%s:source file is newer than notes file '%s'\n",
+      fnotice (stderr, "%s:source file is newer than graph file '%s'\n",
 	       file_name, bbg_file_name);
       if (!info_emitted)
 	{
@@ -992,7 +987,7 @@ find_source (const char *file_name)
   return idx;
 }
 
-/* Read the notes file.  Return list of functions read -- in reverse order.  */
+/* Read the graph file.  Return list of functions read -- in reverse order.  */
 
 static function_t *
 read_graph_file (void)
@@ -1008,13 +1003,13 @@ read_graph_file (void)
 
   if (!gcov_open (bbg_file_name, 1))
     {
-      fnotice (stderr, "%s:cannot open notes file\n", bbg_file_name);
+      fnotice (stderr, "%s:cannot open graph file\n", bbg_file_name);
       return fns;
     }
   bbg_file_time = gcov_time ();
   if (!gcov_magic (gcov_read_unsigned (), GCOV_NOTE_MAGIC))
     {
-      fnotice (stderr, "%s:not a gcov notes file\n", bbg_file_name);
+      fnotice (stderr, "%s:not a gcov graph file\n", bbg_file_name);
       gcov_close ();
       return fns;
     }
@@ -1250,7 +1245,7 @@ read_count_file (function_t *fns)
   tag = gcov_read_unsigned ();
   if (tag != bbg_stamp)
     {
-      fnotice (stderr, "%s:stamp mismatch with notes file\n", da_file_name);
+      fnotice (stderr, "%s:stamp mismatch with graph file\n", da_file_name);
       goto cleanup;
     }
 
@@ -1368,21 +1363,21 @@ solve_flow_graph (function_t *fn)
 	     bbg_file_name, fn->name);
   else
     {
-      if (fn->blocks[ENTRY_BLOCK].num_pred)
+      if (fn->blocks[0].num_pred)
 	fnotice (stderr, "%s:'%s' has arcs to entry block\n",
 		 bbg_file_name, fn->name);
       else
 	/* We can't deduce the entry block counts from the lack of
 	   predecessors.  */
-	fn->blocks[ENTRY_BLOCK].num_pred = ~(unsigned)0;
+	fn->blocks[0].num_pred = ~(unsigned)0;
 
-      if (fn->blocks[EXIT_BLOCK].num_succ)
+      if (fn->blocks[fn->num_blocks - 1].num_succ)
 	fnotice (stderr, "%s:'%s' has arcs from exit block\n",
 		 bbg_file_name, fn->name);
       else
 	/* Likewise, we can't deduce exit block counts from the lack
 	   of its successors.  */
-	fn->blocks[EXIT_BLOCK].num_succ = ~(unsigned)0;
+	fn->blocks[fn->num_blocks - 1].num_succ = ~(unsigned)0;
     }
 
   /* Propagate the measured counts, this must be done in the same
@@ -1642,7 +1637,7 @@ add_branch_counts (coverage_t *coverage, const arc_t *arc)
     }
 }
 
-/* Format a GCOV_TYPE integer as either a percent ratio, or absolute
+/* Format a HOST_WIDE_INT as either a percent ratio, or absolute
    count.  If dp >= 0, format TOP/BOTTOM * 100 to DP decimal places.
    If DP is zero, no decimal point is printed. Only print 100% when
    TOP==BOTTOM and only print 0% when TOP=0.  If dp < 0, then simply
@@ -2224,8 +2219,15 @@ read_line (FILE *file)
 	  return string;
 	}
       pos += len;
-      string = XRESIZEVEC (char, string, string_len * 2);
-      string_len *= 2;
+      ptr = XNEWVEC (char, string_len * 2);
+      if (ptr)
+	{
+	  memcpy (ptr, string, pos);
+	  string = ptr;
+	  string_len += 2;
+	}
+      else
+	pos = 0;
     }
       
   return pos ? string : NULL;
@@ -2271,9 +2273,8 @@ output_lines (FILE *gcov_file, const source_t *src)
     {
       for (; fn && fn->line == line_num; fn = fn->line_next)
 	{
-	  arc_t *arc = fn->blocks[EXIT_BLOCK].pred;
-	  gcov_type return_count = fn->blocks[EXIT_BLOCK].count;
-	  gcov_type called_count = fn->blocks[ENTRY_BLOCK].count;
+	  arc_t *arc = fn->blocks[fn->num_blocks - 1].pred;
+	  gcov_type return_count = fn->blocks[fn->num_blocks - 1].count;
 
 	  for (; arc; arc = arc->pred_next)
 	    if (arc->fake)
@@ -2281,9 +2282,9 @@ output_lines (FILE *gcov_file, const source_t *src)
 
 	  fprintf (gcov_file, "function %s", fn->name);
 	  fprintf (gcov_file, " called %s",
-		   format_gcov (called_count, 0, -1));
+		   format_gcov (fn->blocks[0].count, 0, -1));
 	  fprintf (gcov_file, " returned %s",
-		   format_gcov (return_count, called_count, 0));
+		   format_gcov (return_count, fn->blocks[0].count, 0));
 	  fprintf (gcov_file, " blocks executed %s",
 		   format_gcov (fn->blocks_executed, fn->num_blocks - 2, 0));
 	  fprintf (gcov_file, "\n");

@@ -23,3 +23,4 @@ program kmeans_driver
    integer :: nfirst(3)
    nfirst(1:numclusters) = get_nfirst( )
 end program kmeans_driver
+! { dg-final { cleanup-modules "m1 m2" } }

@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
+#include "timevar.h"
 #include "params.h"
 #include "tree-pass.h"
 #include "coverage.h"
@@ -2009,7 +2010,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 		p = true_predicate ();
 
 	      /* We account everything but the calls.  Calls have their own
-		 size/time info attached to cgraph edges.  This is necessary
+		 size/time info attached to cgraph edges.  This is neccesary
 		 in order to make the cost disappear after inlining.  */
 	      if (!is_gimple_call (stmt))
 		{
@@ -2513,16 +2514,16 @@ remap_edge_change_prob (struct cgraph_edge *inlined_edge,
 	{
 	  struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, i);
 	  if (jfunc->type == IPA_JF_PASS_THROUGH
-	      && (ipa_get_jf_pass_through_formal_id (jfunc)
+	      && (jfunc->value.pass_through.formal_id
 		  < (int) VEC_length (inline_param_summary_t,
-						   inlined_es->param)))
+				      inlined_es->param)))
 	    {
-	      int jf_formal_id = ipa_get_jf_pass_through_formal_id (jfunc);
 	      int prob1 = VEC_index (inline_param_summary_t,
 				     es->param, i)->change_prob;
 	      int prob2 = VEC_index
 			     (inline_param_summary_t,
-			     inlined_es->param, jf_formal_id)->change_prob;
+			     inlined_es->param,
+			     jfunc->value.pass_through.formal_id)->change_prob;
 	      int prob = ((prob1 * prob2 + REG_BR_PROB_BASE / 2)
 			  / REG_BR_PROB_BASE);
 
@@ -2648,8 +2649,8 @@ inline_merge_summary (struct cgraph_edge *edge)
 	  int map = -1;
 	  /* TODO: handle non-NOPs when merging.  */
 	  if (jfunc->type == IPA_JF_PASS_THROUGH
-	      && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
-	    map = ipa_get_jf_pass_through_formal_id (jfunc);
+	      && jfunc->value.pass_through.operation == NOP_EXPR)
+	    map = jfunc->value.pass_through.formal_id;
 	  VEC_replace (int, operand_map, i, map);
 	  gcc_assert (map < ipa_get_param_count (IPA_NODE_REF (to)));
 	}
@@ -2695,7 +2696,6 @@ inline_merge_summary (struct cgraph_edge *edge)
   edge_set_predicate (edge, &true_p);
   /* Similarly remove param summaries.  */
   VEC_free (inline_param_summary_t, heap, es->param);
-  VEC_free (int, heap, operand_map);
 
   info->time = (info->time + INLINE_TIME_SCALE / 2) / INLINE_TIME_SCALE;
   info->size = (info->size + INLINE_SIZE_SCALE / 2) / INLINE_SIZE_SCALE;
@@ -3242,8 +3242,6 @@ void
 inline_free_summary (void)
 {
   struct cgraph_node *node;
-  if (inline_edge_summary_vec == NULL)
-    return;
   FOR_EACH_DEFINED_FUNCTION (node)
     reset_inline_summary (node);
   if (function_insertion_hook_holder)

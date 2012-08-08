@@ -7,7 +7,11 @@
 /* { dg-options "-fprofile-arcs" } */
 /* { dg-do run { target native } } */
 
-#include <stdlib.h>
+extern void abort (void);
+extern void exit (int);
+
+int rand (void);
+void srand (unsigned int seed);
 
 int globvar;
 

@@ -23,3 +23,4 @@ program C
   use A
   type(A_type):: A_var
 end program C
+! { dg-final { cleanup-modules "a b" } }

@@ -480,7 +480,7 @@ byte_reg (rtx x, int b)
 	  handlers.  */							\
        || (h8300_current_function_interrupt_function_p ()		\
 	   && call_used_regs[regno]					\
-	   && !crtl->is_leaf)))
+	   && !current_function_is_leaf)))
 
 /* We use this to wrap all emitted insns in the prologue.  */
 static rtx
@@ -1446,12 +1446,6 @@ h8300_print_operand (FILE *file, rtx x, int code)
 
   switch (code)
     {
-    case 'C':
-      if (h8300_constant_length (x) == 2)
-       fprintf (file, ":16");
-      else
-       fprintf (file, ":32");
-      return;
     case 'E':
       switch (GET_CODE (x))
 	{

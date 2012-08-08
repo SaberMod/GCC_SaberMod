@@ -3,53 +3,42 @@
 
 // Test throw and catch
 
-extern "C" void abort (void);
+#include <cstdio>
 
 typedef decltype(nullptr) nullptr_t;
-
-int result[2];
-
-void __attribute__((noinline))
-foo (int i, int j)
-{
-  result[i] = j;
-}
 
 int main()
 {
   try {
     throw nullptr;
   } catch (void*) {
-    foo (0, 1);
+    printf("Test 1 Fail");
   } catch (bool) {
-    foo (0, 2);
+    printf("Test 1 Fail");
   } catch (int) {
-    foo (0, 3);
+    printf("Test 1 Fail");
   } catch (long int) {
-    foo (0, 4);
+    printf("Test 1 Fail");
   } catch (nullptr_t) {
-    foo (0, 5);
+    printf("Test 1 OK");
   } catch (...) {
-    foo (0, 6);
-  }
+    printf("Test 1 Fail");
+  }  // { dg-output "Test 1 OK" }
 
   nullptr_t mynull = 0;
   try {
     throw mynull;
   } catch (void*) {
-    foo (1, 1);
+    printf("Test 2 Fail");
   } catch (bool) {
-    foo (1, 2);
+    printf("Test 2 Fail");
   } catch (int) {
-    foo (1, 3);
+    printf("Test 2 Fail");
   } catch (long int) {
-    foo (1, 4);
+    printf("Test 2 Fail");
   } catch (nullptr_t) {
-    foo (1, 5);
+    printf("Test 2 OK");
   } catch (...) {
-    foo (1, 6);
-  }
-
-  if (result[0] != 5 || result[1] != 5)
-    abort ();
+    printf("Test 2 Fail");
+  }  // { dg-output "Test 2 OK" }
 }

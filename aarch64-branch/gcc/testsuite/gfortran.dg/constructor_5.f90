@@ -30,3 +30,5 @@ contains
     type(t2) :: f2
   end function
 end module
+
+! { dg-final { cleanup-modules "m m2" } }

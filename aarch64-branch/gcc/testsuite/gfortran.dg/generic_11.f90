@@ -26,3 +26,6 @@ use m_bar
 
 call foo ! { dg-error "is an ambiguous reference" } 
 end
+! { dg-final { cleanup-modules "m_foo m_bar" } }
+
+

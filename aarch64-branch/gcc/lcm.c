@@ -60,10 +60,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "basic-block.h"
+#include "output.h"
 #include "tm_p.h"
 #include "function.h"
 #include "sbitmap.h"
-#include "dumpfile.h"
+
+/* We want target macros for the mode switching code to be able to refer
+   to instruction attribute values.  */
+#include "insn-attr.h"
 
 /* Edge based LCM routines.  */
 static void compute_antinout_edge (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
@@ -145,7 +149,7 @@ compute_antinout_edge (sbitmap *antloc, sbitmap *transp, sbitmap *antin,
 	  /* Clear the aux field of this block so that it can be added to
 	     the worklist again if necessary.  */
 	  bb->aux = NULL;
-	  sbitmap_intersection_of_succs (antout[bb->index], antin, bb);
+	  sbitmap_intersection_of_succs (antout[bb->index], antin, bb->index);
 	}
 
       if (sbitmap_a_or_b_and_c_cg (antin[bb->index], antloc[bb->index],
@@ -526,7 +530,7 @@ compute_available (sbitmap *avloc, sbitmap *kill, sbitmap *avout,
 	  /* Clear the aux field of this block so that it can be added to
 	     the worklist again if necessary.  */
 	  bb->aux = NULL;
-	  sbitmap_intersection_of_preds (avin[bb->index], avout, bb);
+	  sbitmap_intersection_of_preds (avin[bb->index], avout, bb->index);
 	}
 
       if (sbitmap_union_of_diff_cg (avout[bb->index], avloc[bb->index],

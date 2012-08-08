@@ -17,3 +17,5 @@ module bad
    end type default_initialization
    type (default_initialization) t ! { dg-error "default initialization" }
 end module bad
+
+! { dg-final { cleanup-modules "bad" } }

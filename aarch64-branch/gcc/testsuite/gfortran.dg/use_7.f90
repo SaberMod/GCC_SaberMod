@@ -45,3 +45,5 @@ use x, only : bar => operator(.addfive.) ! { dg-error "Syntax error in USE state
 use y, operator(.my.) => sub ! { dg-error "Syntax error in USE statement" }
 use y, operator(+) => operator(.addfive.) ! { dg-error "Syntax error in USE statement" }
 end
+
+! { dg-final { cleanup-modules "x y z" } }

@@ -29,6 +29,5 @@ int main()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "y.._. = { i }" "alias" } } */
-/* { dg-final { scan-tree-dump "y.._., points-to vars: { D..... }" "alias" } } */
+/* { dg-final { scan-tree-dump "y.._., points-to vars: { i }" "alias" } } */
 /* { dg-final { cleanup-tree-dump "alias" } } */

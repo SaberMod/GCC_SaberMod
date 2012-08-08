@@ -1650,17 +1650,13 @@ package body Sem_Ch5 is
 
    begin
       Enter_Name (Def_Id);
+      Set_Ekind (Def_Id, E_Variable);
 
       if Present (Subt) then
          Analyze (Subt);
       end if;
 
       Preanalyze_Range (Iter_Name);
-
-      --  Set the kind of the loop variable, which is not visible within
-      --  the iterator name.
-
-      Set_Ekind (Def_Id, E_Variable);
 
       --  If the domain of iteration is an expression, create a declaration for
       --  it, so that finalization actions are introduced outside of the loop.
@@ -1682,13 +1678,6 @@ package body Sem_Ch5 is
 
          begin
             Typ := Etype (Iter_Name);
-
-            --  Protect against malformed iterator
-
-            if Typ = Any_Type then
-               Error_Msg_N ("invalid expression in loop iterator", Iter_Name);
-               return;
-            end if;
 
             --  The name in the renaming declaration may be a function call.
             --  Indicate that it does not come from source, to suppress
@@ -2278,20 +2267,7 @@ package body Sem_Ch5 is
          --  free.
 
          else
-            --  A quantified expression that appears in a pre/post condition
-            --  is pre-analyzed several times.  If the range is given by an
-            --  attribute reference it is rewritten as a range, and this is
-            --  done even with expansion disabled. If the type is already set
-            --  do not reanalyze, because a range with static bounds may be
-            --  typed Integer by default.
-
-            if Nkind (Parent (N)) = N_Quantified_Expression
-              and then Present (Etype (DS))
-            then
-               null;
-            else
-               Analyze (DS);
-            end if;
+            Analyze (DS);
          end if;
       end if;
 
@@ -2633,14 +2609,14 @@ package body Sem_Ch5 is
       --  types the actual subtype of the components will only be determined
       --  when the cursor declaration is analyzed.
 
-      --  If the expander is not active, or in Alfa mode, then we want to
-      --  analyze the loop body now even in the Ada 2012 iterator case, since
-      --  the rewriting will not be done. Insert the loop variable in the
-      --  current scope, if not done when analysing the iteration scheme.
+      --  If the expander is not active, then we want to analyze the loop body
+      --  now even in the Ada 2012 iterator case, since the rewriting will not
+      --  be done. Insert the loop variable in the current scope, if not done
+      --  when analysing the iteration scheme.
 
       if No (Iter)
         or else No (Iterator_Specification (Iter))
-        or else not Full_Expander_Active
+        or else not Expander_Active
       then
          if Present (Iter)
            and then Present (Iterator_Specification (Iter))

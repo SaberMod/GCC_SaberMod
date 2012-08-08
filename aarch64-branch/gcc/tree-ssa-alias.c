@@ -27,16 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "target.h"
 #include "basic-block.h"
-#include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
+#include "timevar.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "flags.h"
 #include "function.h"
 #include "tree-pretty-print.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
 #include "gimple.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
+#include "tree-pass.h"
+#include "convert.h"
 #include "params.h"
 #include "vec.h"
 #include "bitmap.h"
@@ -378,16 +380,17 @@ stmt_may_clobber_global_p (gimple stmt)
 void
 dump_alias_info (FILE *file)
 {
-  unsigned i;
+  size_t i;
   const char *funcname
     = lang_hooks.decl_printable_name (current_function_decl, 2);
+  referenced_var_iterator rvi;
   tree var;
 
   fprintf (file, "\n\nAlias information for %s\n\n", funcname);
 
   fprintf (file, "Aliased symbols\n\n");
 
-  FOR_EACH_LOCAL_DECL (cfun, i, var)
+  FOR_EACH_REFERENCED_VAR (cfun, var, rvi)
     {
       if (may_be_aliased (var))
 	dump_variable (file, var);
@@ -847,7 +850,8 @@ indirect_ref_may_alias_decl_p (tree ref1 ATTRIBUTE_UNUSED, tree base1,
 
   /* If either reference is view-converted, give up now.  */
   if (same_type_for_tbaa (TREE_TYPE (base1), TREE_TYPE (ptrtype1)) != 1
-      || same_type_for_tbaa (TREE_TYPE (dbase2), TREE_TYPE (base2)) != 1)
+      || same_type_for_tbaa (TREE_TYPE (dbase2),
+			     TREE_TYPE (reference_alias_ptr_type (dbase2))) != 1)
     return true;
 
   /* If both references are through the same type, they do not alias

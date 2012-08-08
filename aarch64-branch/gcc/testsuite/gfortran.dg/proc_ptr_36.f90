@@ -44,3 +44,5 @@ end subroutine s
 
 subroutine sub2
 end subroutine sub2
+
+! { dg-final { cleanup-modules "m0" } }

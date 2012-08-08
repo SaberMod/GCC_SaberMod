@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecir.h"
 #include "ggc.h"
 #include "basic-block.h"
-#include "tree.h"
 #include "tree-ssa-operands.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
@@ -180,6 +179,11 @@ struct GTY(()) gimple_statement_base {
   /* Nonzero if this statement contains volatile operands.  */
   unsigned has_volatile_ops 	: 1;
 
+  /* Nonzero if this statement appears inside a transaction.  This bit
+     is calculated on de-mand and has relevant information only after
+     it has been calculated with compute_transaction_bits.  */
+  unsigned in_transaction	: 1;
+
   /* The SUBCODE field can be used for tuple-specific flags for tuples
      that do not require subcodes.  Note that SUBCODE should be at
      least as wide as tree codes, as several tuples store tree codes
@@ -200,7 +204,7 @@ struct GTY(()) gimple_statement_base {
 
   /* [ WORD 3 ]
      Basic block holding this statement.  */
-  basic_block bb;
+  struct basic_block_def *bb;
 
   /* [ WORD 4-5 ]
      Linked lists of gimple statements.  The next pointers form
@@ -818,7 +822,7 @@ void gimple_call_reset_alias_info (gimple);
 bool gimple_assign_copy_p (gimple);
 bool gimple_assign_ssa_name_copy_p (gimple);
 bool gimple_assign_unary_nop_p (gimple);
-void gimple_set_bb (gimple, basic_block);
+void gimple_set_bb (gimple, struct basic_block_def *);
 void gimple_assign_set_rhs_from_tree (gimple_stmt_iterator *, tree);
 void gimple_assign_set_rhs_with_ops_1 (gimple_stmt_iterator *, enum tree_code,
 				       tree, tree, tree);
@@ -826,6 +830,7 @@ tree gimple_get_lhs (const_gimple);
 void gimple_set_lhs (gimple, tree);
 void gimple_replace_lhs (gimple, tree);
 gimple gimple_copy (gimple);
+void gimple_set_modified (gimple, bool);
 void gimple_cond_get_ops_from_tree (tree, enum tree_code *, tree *, tree *);
 gimple gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple, tree);
@@ -1186,7 +1191,7 @@ gimple_has_substatements (gimple g)
 
 /* Return the basic block holding statement G.  */
 
-static inline basic_block
+static inline struct basic_block_def *
 gimple_bb (const_gimple g)
 {
   return g->gsbase.bb;
@@ -1516,17 +1521,6 @@ gimple_modified_p (const_gimple g)
 }
 
 
-/* Set the MODIFIED flag to MODIFIEDP, iff the gimple statement G has
-   a MODIFIED field.  */
-
-static inline void
-gimple_set_modified (gimple s, bool modifiedp)
-{
-  if (gimple_has_ops (s))
-    s->gsbase.modified = (unsigned) modifiedp;
-}
-
-
 /* Return the tree code for the expression computed by STMT.  This is
    only valid for GIMPLE_COND, GIMPLE_CALL and GIMPLE_ASSIGN.  For
    GIMPLE_CALL, return CALL_EXPR as the expression code for
@@ -1589,20 +1583,20 @@ gimple_set_has_volatile_ops (gimple stmt, bool volatilep)
     stmt->gsbase.has_volatile_ops = (unsigned) volatilep;
 }
 
-/* Return true if BB is in a transaction.  */
-
-static inline bool
-block_in_transaction (basic_block bb)
-{
-  return flag_tm && bb->flags & BB_IN_TRANSACTION;
-}
-
 /* Return true if STMT is in a transaction.  */
 
 static inline bool
 gimple_in_transaction (gimple stmt)
 {
-  return block_in_transaction (gimple_bb (stmt));
+  return stmt->gsbase.in_transaction;
+}
+
+/* Set the IN_TRANSACTION flag to TRANSACTIONP.  */
+
+static inline void
+gimple_set_in_transaction (gimple stmt, bool transactionp)
+{
+  stmt->gsbase.in_transaction = (unsigned) transactionp;
 }
 
 /* Return true if statement STMT may access memory.  */
@@ -4809,7 +4803,7 @@ gimple_return_set_retval (gimple gs, tree retval)
 }
 
 
-/* Returns true when the gimple statement STMT is any of the OpenMP types.  */
+/* Returns true when the gimple statment STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\
     case GIMPLE_OMP_PARALLEL:			\
@@ -5190,7 +5184,7 @@ bool gsi_remove (gimple_stmt_iterator *, bool);
 gimple_stmt_iterator gsi_for_stmt (gimple);
 void gsi_move_after (gimple_stmt_iterator *, gimple_stmt_iterator *);
 void gsi_move_before (gimple_stmt_iterator *, gimple_stmt_iterator *);
-void gsi_move_to_bb_end (gimple_stmt_iterator *, basic_block);
+void gsi_move_to_bb_end (gimple_stmt_iterator *, struct basic_block_def *);
 void gsi_insert_on_edge (edge, gimple);
 void gsi_insert_seq_on_edge (edge, gimple_seq);
 basic_block gsi_insert_on_edge_immediate (edge, gimple);
@@ -5270,6 +5264,7 @@ tree walk_gimple_stmt (gimple_stmt_iterator *, walk_stmt_fn, walk_tree_fn,
 		       struct walk_stmt_info *);
 tree walk_gimple_op (gimple, walk_tree_fn, struct walk_stmt_info *);
 
+#ifdef GATHER_STATISTICS
 /* Enum and arrays used for allocation stats.  Keep in sync with
    gimple.c:gimple_alloc_kind_names.  */
 enum gimple_alloc_kind
@@ -5300,6 +5295,7 @@ gimple_alloc_kind (enum gimple_code code)
 	return gimple_alloc_kind_rest;
     }
 }
+#endif /* GATHER_STATISTICS */
 
 extern void dump_gimple_statistics (void);
 
@@ -5309,7 +5305,7 @@ tree gimple_fold_builtin (gimple);
 bool fold_stmt (gimple_stmt_iterator *);
 bool fold_stmt_inplace (gimple_stmt_iterator *);
 tree get_symbol_constant_value (tree);
-tree canonicalize_constructor_val (tree, tree);
+tree canonicalize_constructor_val (tree);
 extern tree maybe_fold_and_comparisons (enum tree_code, tree, tree, 
 					enum tree_code, tree, tree);
 extern tree maybe_fold_or_comparisons (enum tree_code, tree, tree,

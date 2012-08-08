@@ -35,3 +35,4 @@ end module m
   end do
   deallocate(qname)
 end
+! { dg-final { cleanup-modules "m" } }

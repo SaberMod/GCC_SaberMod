@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "expr.h"
 #include "recog.h"
+#include "output.h"
 #include "function.h"
 #include "flags.h"
 #include "df.h"
@@ -55,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "regs.h"
 #include "ira.h"
-#include "dumpfile.h"
 
 /* The data stored for the loop.  */
 
@@ -675,7 +675,7 @@ find_defs (struct loop *loop, basic_block *body)
     {
       df_dump_region (dump_file);
       fprintf (dump_file, "*****starting processing of loop  ******\n");
-      print_rtl_with_bb (dump_file, get_insns (), dump_flags);
+      print_rtl_with_bb (dump_file, get_insns ());
       fprintf (dump_file, "*****ending processing of loop  ******\n");
     }
   check_invariant_table_size ();
@@ -1210,7 +1210,7 @@ gain_for_invariant (struct invariant *inv, unsigned *regs_needed,
 	      + (int) regs_needed[pressure_class]
 	      + LOOP_DATA (curr_loop)->max_reg_pressure[pressure_class]
 	      + IRA_LOOP_RESERVED_REGS
-	      > ira_class_hard_regs_num[pressure_class])
+	      > ira_available_class_regs[pressure_class])
 	    break;
 	}
       if (i < ira_pressure_classes_num)

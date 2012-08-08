@@ -25,3 +25,5 @@ module AtmoIonoSphere
   use EGOPS_Utilities
   use AtmoIono
 end module AtmoIonoSphere
+
+! { dg-final { cleanup-modules "egops_utilities atmoiono atmoionosphere" } }

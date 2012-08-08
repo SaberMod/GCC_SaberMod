@@ -3,11 +3,12 @@
   { dg-do compile }
  */
 
-#define SQUARE(A) A * A	 /* { dg-message "in definition of macro 'SQUARE'" } */
+#define SQUARE(A) A * A		/* { dg-message "expansion" } */
 
 void
 foo()
 {
-  SQUARE (1 << 0.1);  /* { dg-message "13:invalid operands to binary <<" } */
+  SQUARE (1 << 0.1);		/* { dg-message "expanded" } */
 }
 
+/* { dg-error "13:invalid operands to binary <<" "" { target *-*-* } { 11 } } */

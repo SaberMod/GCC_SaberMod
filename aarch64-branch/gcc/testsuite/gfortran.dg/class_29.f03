@@ -30,3 +30,5 @@ allocate (t2 :: y)
 print *, x%a
 print *, y%b
 end
+
+! { dg-final { cleanup-modules "m1 m2" } }

@@ -38,3 +38,5 @@ function f(i,x,c,arr)
 end function f
 
 end
+
+! { dg-final { cleanup-modules "m" } }

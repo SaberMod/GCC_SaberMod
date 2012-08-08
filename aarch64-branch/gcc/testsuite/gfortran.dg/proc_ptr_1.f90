@@ -69,3 +69,5 @@ program procPtrTest
   if (ptr6()/=6.3) call abort()
 
 end program 
+
+! { dg-final { cleanup-modules "m" } }

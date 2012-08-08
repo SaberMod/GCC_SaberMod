@@ -38,3 +38,5 @@ module z
   integer(c_int) :: i
   bind(c, name="mycom2") /com2/
 end module z
+
+! { dg-final { cleanup-modules "x y" } }

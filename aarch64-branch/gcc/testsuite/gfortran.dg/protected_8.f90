@@ -46,3 +46,5 @@ PROGRAM test
    b%j = 5  ! OK 5
 
 END PROGRAM test
+
+! { dg-final { cleanup-modules "amod" } }

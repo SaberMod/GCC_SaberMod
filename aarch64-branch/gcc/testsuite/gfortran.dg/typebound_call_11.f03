@@ -44,3 +44,5 @@ contains
  end function new_field3
 
 end module
+
+! { dg-final { cleanup-modules "grid_module field_module" } }

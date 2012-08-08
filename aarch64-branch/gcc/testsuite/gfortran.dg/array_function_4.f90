@@ -25,3 +25,5 @@ CONTAINS
     lenf = x(1)
   end function lenf
 END MODULE B1
+
+! { dg-final { cleanup-modules "b1" } }

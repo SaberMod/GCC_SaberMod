@@ -11,3 +11,4 @@ program test
   print *, pi
 end program test
 ! { dg-final { scan-module "foo" "MD5:510304affe70481794fecdb22fc9ca0c" } }
+! { dg-final { cleanup-modules "foo" } }

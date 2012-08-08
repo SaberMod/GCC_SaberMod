@@ -8,3 +8,4 @@ module foo
   integer:: a, b
   common a
 end module foo
+! { dg-final { cleanup-modules "foo" } }

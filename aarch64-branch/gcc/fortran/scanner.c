@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
 #include "gfortran.h"
 #include "toplev.h"	/* For set_src_pwd.  */
 #include "debug.h"
@@ -311,28 +310,11 @@ add_path_to_list (gfc_directorylist **list, const char *path,
 {
   gfc_directorylist *dir;
   const char *p;
-  struct stat st;
-  
+
   p = path;
   while (*p == ' ' || *p == '\t')  /* someone might do "-I include" */
     if (*p++ == '\0')
       return;
-
-  if (stat (p, &st))
-    {
-      if (errno != ENOENT)
-	gfc_warning_now ("Include directory \"%s\": %s", path,
-			 xstrerror(errno));
-      else
-	/* FIXME:  Also support -Wmissing-include-dirs.  */
-	gfc_warning_now ("Nonexistent include directory \"%s\"", path);
-      return;
-    }
-  else if (!S_ISDIR (st.st_mode))
-    {
-      gfc_warning_now ("\"%s\" is not a directory", path);
-      return;
-    }
 
   if (head || *list == NULL)
     {

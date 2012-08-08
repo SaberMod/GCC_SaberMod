@@ -75,3 +75,4 @@ program foo
   call test(z)
   if(z%i /= 1) call abort()
 end program foo
+! { dg-final { cleanup-modules "testmod" } }

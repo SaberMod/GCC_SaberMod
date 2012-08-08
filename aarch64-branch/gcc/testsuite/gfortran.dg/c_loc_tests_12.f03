@@ -29,3 +29,4 @@ program test2
   call sub1(c_loc(argv))
 end program test2
 !
+! { dg-final { cleanup-modules "test1" } }

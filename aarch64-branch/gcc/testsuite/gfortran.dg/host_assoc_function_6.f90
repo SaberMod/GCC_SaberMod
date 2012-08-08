@@ -31,3 +31,5 @@ contains
     mu = a_fun(x)
   end function fun
 end module mod_b
+
+! { dg-final { cleanup-modules "mod_a mod_b" } }

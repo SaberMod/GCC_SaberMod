@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -30,10 +30,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "langhooks.h"
 #include "tree-flow.h"
+#include "timevar.h"
+#include "tree-dump.h"
 #include "tree-pass.h"
 #include "except.h"
 #include "flags.h"
 #include "diagnostic.h"
+#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "toplev.h"
 #include "debug.h"
@@ -46,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sbitmap.h"
 #include "cfgloop.h"
 #include "regs.h" /* For reg_renumber.  */
+#include "integrate.h" /* For emit_initial_value_sets.  */
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
 
 /* This variable holds information helping the rewriting of SSA trees
@@ -324,6 +328,70 @@ stack_var_conflict_p (size_t x, size_t y)
   if (!a->conflicts || !b->conflicts)
     return false;
   return bitmap_bit_p (a->conflicts, y);
+}
+
+/* Returns true if TYPE is or contains a union type.  */
+
+static bool
+aggregate_contains_union_type (tree type)
+{
+  tree field;
+
+  if (TREE_CODE (type) == UNION_TYPE
+      || TREE_CODE (type) == QUAL_UNION_TYPE)
+    return true;
+  if (TREE_CODE (type) == ARRAY_TYPE)
+    return aggregate_contains_union_type (TREE_TYPE (type));
+  if (TREE_CODE (type) != RECORD_TYPE)
+    return false;
+
+  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    if (TREE_CODE (field) == FIELD_DECL)
+      if (aggregate_contains_union_type (TREE_TYPE (field)))
+	return true;
+
+  return false;
+}
+
+/* A subroutine of expand_used_vars.  If two variables X and Y have alias
+   sets that do not conflict, then do add a conflict for these variables
+   in the interference graph.  We also need to make sure to add conflicts
+   for union containing structures.  Else RTL alias analysis comes along
+   and due to type based aliasing rules decides that for two overlapping
+   union temporaries { short s; int i; } accesses to the same mem through
+   different types may not alias and happily reorders stores across
+   life-time boundaries of the temporaries (See PR25654).  */
+
+static void
+add_alias_set_conflicts (void)
+{
+  size_t i, j, n = stack_vars_num;
+
+  for (i = 0; i < n; ++i)
+    {
+      tree type_i = TREE_TYPE (stack_vars[i].decl);
+      bool aggr_i = AGGREGATE_TYPE_P (type_i);
+      bool contains_union;
+
+      contains_union = aggregate_contains_union_type (type_i);
+      for (j = 0; j < i; ++j)
+	{
+	  tree type_j = TREE_TYPE (stack_vars[j].decl);
+	  bool aggr_j = AGGREGATE_TYPE_P (type_j);
+	  if (aggr_i != aggr_j
+	      /* Either the objects conflict by means of type based
+		 aliasing rules, or we need to add a conflict.  */
+	      || !objects_must_conflict_p (type_i, type_j)
+	      /* In case the types do not conflict ensure that access
+		 to elements will conflict.  In case of unions we have
+		 to be careful as type based aliasing rules may say
+		 access to the same memory does not conflict.  So play
+		 safe and add a conflict in this case when
+                 -fstrict-aliasing is used.  */
+              || (contains_union && flag_strict_aliasing))
+	    add_stack_var_conflict (i, j);
+	}
+    }
 }
 
 /* Callback for walk_stmt_ops.  If OP is a decl touched by add_stack_var
@@ -620,6 +688,13 @@ update_alias_info_with_stack_vars (void)
 	{
 	  tree decl = stack_vars[j].decl;
 	  unsigned int uid = DECL_PT_UID (decl);
+	  /* We should never end up partitioning SSA names (though they
+	     may end up on the stack).  Neither should we allocate stack
+	     space to something that is unused and thus unreferenced, except
+	     for -O0 where we are preserving even unreferenced variables.  */
+	  gcc_assert (DECL_P (decl)
+		      && (!optimize
+			  || referenced_var_lookup (cfun, DECL_UID (decl))));
 	  bitmap_set_bit (part, uid);
 	  *((bitmap *) pointer_map_insert (decls_to_partitions,
 					   (void *)(size_t) uid)) = part;
@@ -1413,14 +1488,15 @@ estimated_stack_frame_size (struct cgraph_node *node)
   size_t i;
   tree var;
   tree old_cur_fun_decl = current_function_decl;
+  referenced_var_iterator rvi;
   struct function *fn = DECL_STRUCT_FUNCTION (node->symbol.decl);
 
   current_function_decl = node->symbol.decl;
   push_cfun (fn);
 
-  FOR_EACH_LOCAL_DECL (fn, i, var)
-    if (auto_var_in_fn_p (var, fn->decl))
-      size += expand_one_var (var, true, false);
+  gcc_checking_assert (gimple_referenced_vars (fn));
+  FOR_EACH_REFERENCED_VAR (fn, var, rvi)
+    size += expand_one_var (var, true, false);
 
   if (stack_vars_num > 0)
     {
@@ -1550,6 +1626,10 @@ expand_used_vars (void)
   if (stack_vars_num > 0)
     {
       add_scope_conflicts ();
+      /* Due to the way alias sets work, no variables with non-conflicting
+	 alias sets may be assigned the same address.  Add conflicts to
+	 reflect this.  */
+      add_alias_set_conflicts ();
 
       /* If stack protection is enabled, we don't share space between
 	 vulnerable data and non-vulnerable data.  */
@@ -3399,14 +3479,12 @@ expand_debug_expr (tree exp)
     case VEC_UNPACK_LO_EXPR:
     case VEC_WIDEN_MULT_HI_EXPR:
     case VEC_WIDEN_MULT_LO_EXPR:
-    case VEC_WIDEN_MULT_EVEN_EXPR:
-    case VEC_WIDEN_MULT_ODD_EXPR:
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
     case VEC_PERM_EXPR:
       return NULL;
 
-    /* Misc codes.  */
+   /* Misc codes.  */
     case ADDR_SPACE_CONVERT_EXPR:
     case FIXED_CONVERT_EXPR:
     case OBJ_TYPE_REF:
@@ -3455,10 +3533,6 @@ expand_debug_expr (tree exp)
 	  else
 	    return simplify_gen_binary (MINUS, mode, op2, op0);
 	}
-      return NULL;
-
-    case MULT_HIGHPART_EXPR:
-      /* ??? Similar to the above.  */
       return NULL;
 
     case WIDEN_SUM_EXPR:
@@ -3627,7 +3701,7 @@ expand_debug_locations (void)
 			|| (GET_MODE (val) == VOIDmode
 			    && (CONST_INT_P (val)
 				|| GET_CODE (val) == CONST_FIXED
-				|| CONST_DOUBLE_AS_INT_P (val) 
+				|| GET_CODE (val) == CONST_DOUBLE
 				|| GET_CODE (val) == LABEL_REF)));
 	  }
 

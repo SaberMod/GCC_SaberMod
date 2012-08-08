@@ -48,3 +48,5 @@ contains
     w = 1
   end function w
 end
+
+! { dg-final { cleanup-modules "m1" } }

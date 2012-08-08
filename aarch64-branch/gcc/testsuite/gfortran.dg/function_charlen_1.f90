@@ -20,3 +20,4 @@ end function test
   end interface
   print *, test()
 end
+! { dg-final { cleanup-modules "m" } }

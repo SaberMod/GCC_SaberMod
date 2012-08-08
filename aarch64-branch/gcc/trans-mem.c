@@ -32,6 +32,7 @@
 #include "params.h"
 #include "target.h"
 #include "langhooks.h"
+#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 
@@ -1018,6 +1019,7 @@ tm_log_add (basic_block entry_block, tree addr, gimple stmt)
 	  && !TREE_ADDRESSABLE (type))
 	{
 	  lp->save_var = create_tmp_reg (TREE_TYPE (lp->addr), "tm_save");
+	  add_referenced_var (lp->save_var);
 	  lp->stmts = NULL;
 	  lp->entry_block = entry_block;
 	  /* Save addresses separately in dominator order so we don't
@@ -1285,7 +1287,7 @@ tm_log_emit_save_or_restores (basic_block entry_block,
   gsi = gsi_last_bb (cond_bb);
 
   /* t1 = status & A_{property}.  */
-  t1 = create_tmp_reg (TREE_TYPE (status), NULL);
+  t1 = make_rename_temp (TREE_TYPE (status), NULL);
   t2 = build_int_cst (TREE_TYPE (status), trxn_prop);
   stmt = gimple_build_assign_with_ops (BIT_AND_EXPR, t1, status, t2);
   gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
@@ -1776,7 +1778,7 @@ static struct tm_region *all_tm_regions;
 static bitmap_obstack tm_obstack;
 
 
-/* A subroutine of tm_region_init.  Record the existence of the
+/* A subroutine of tm_region_init.  Record the existance of the
    GIMPLE_TRANSACTION statement in a tree of tm_region elements.  */
 
 static struct tm_region *
@@ -2057,7 +2059,7 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
       gimple g;
       tree temp;
 
-      temp = create_tmp_reg (t, NULL);
+      temp = make_rename_temp (t, NULL);
       gimple_call_set_lhs (gcall, temp);
       gsi_insert_before (gsi, gcall, GSI_SAME_STMT);
 
@@ -2135,7 +2137,7 @@ build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
       gimple g;
       tree temp;
 
-      temp = create_tmp_reg (simple_type, NULL);
+      temp = make_rename_temp (simple_type, NULL);
       t = fold_build1 (VIEW_CONVERT_EXPR, simple_type, rhs);
       g = gimple_build_assign (temp, t);
       gimple_set_location (g, loc);
@@ -2302,7 +2304,7 @@ expand_call_tm (struct tm_region *region,
   if (lhs && requires_barrier (region->entry_block, lhs, stmt)
       && !gimple_call_return_slot_opt_p (stmt))
     {
-      tree tmp = create_tmp_reg (TREE_TYPE (lhs), NULL);
+      tree tmp = make_rename_temp (TREE_TYPE (lhs), NULL);
       location_t loc = gimple_location (stmt);
       edge fallthru_edge = NULL;
 
@@ -2449,14 +2451,12 @@ compute_transaction_bits (void)
   struct tm_region *region;
   VEC (basic_block, heap) *queue;
   unsigned int i;
+  gimple_stmt_iterator gsi;
   basic_block bb;
 
   /* ?? Perhaps we need to abstract gate_tm_init further, because we
      certainly don't need it to calculate CDI_DOMINATOR info.  */
   gate_tm_init ();
-
-  FOR_EACH_BB (bb)
-    bb->flags &= ~BB_IN_TRANSACTION;
 
   for (region = all_tm_regions; region; region = region->next)
     {
@@ -2466,7 +2466,11 @@ compute_transaction_bits (void)
 				    NULL,
 				    /*stop_at_irr_p=*/true);
       for (i = 0; VEC_iterate (basic_block, queue, i, bb); ++i)
-	bb->flags |= BB_IN_TRANSACTION;
+	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	  {
+	    gimple stmt = gsi_stmt (gsi);
+	    gimple_set_in_transaction (stmt, true);
+	  }
       VEC_free (basic_block, heap, queue);
     }
 
@@ -2575,7 +2579,7 @@ make_tm_edge (gimple stmt, basic_block bb, struct tm_region *region)
       n->label_or_list = tree_cons (NULL, dummy.label_or_list, old);
     }
 
-  make_edge (bb, region->entry_block, EDGE_ABNORMAL);
+  make_edge (bb, region->entry_block, EDGE_ABNORMAL | EDGE_ABNORMAL_CALL);
 }
 
 
@@ -2589,7 +2593,6 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
-      bool do_next = true;
       gimple stmt = gsi_stmt (gsi);
 
       /* ??? TM_COMMIT (and any other tm builtin function) in a nested
@@ -2611,7 +2614,6 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 	      make_tm_edge (stmt, bb, region);
 	      bb = e->dest;
 	      gsi = gsi_start_bb (bb);
-	      do_next = false;
 	    }
 
 	  /* Delete any tail-call annotation that may have been added.
@@ -2620,8 +2622,7 @@ expand_block_edges (struct tm_region *region, basic_block bb)
 	  gimple_call_set_tail (stmt, false);
 	}
 
-      if (do_next)
-	gsi_next (&gsi);
+      gsi_next (&gsi);
     }
 }
 
@@ -2638,7 +2639,7 @@ expand_transaction (struct tm_region *region)
   int flags, subcode;
 
   tm_start = builtin_decl_explicit (BUILT_IN_TM_START);
-  status = create_tmp_reg (TREE_TYPE (TREE_TYPE (tm_start)), "tm_state");
+  status = make_rename_temp (TREE_TYPE (TREE_TYPE (tm_start)), "tm_state");
 
   /* ??? There are plenty of bits here we're not computing.  */
   subcode = gimple_transaction_subcode (region->transaction_stmt);
@@ -2695,7 +2696,7 @@ expand_transaction (struct tm_region *region)
 	region->entry_block = test_bb;
       gsi = gsi_last_bb (test_bb);
 
-      t1 = create_tmp_reg (TREE_TYPE (status), NULL);
+      t1 = make_rename_temp (TREE_TYPE (status), NULL);
       t2 = build_int_cst (TREE_TYPE (status), A_ABORTTRANSACTION);
       g = gimple_build_assign_with_ops (BIT_AND_EXPR, t1, status, t2);
       gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
@@ -4329,8 +4330,7 @@ ipa_tm_create_version_alias (struct cgraph_node *node, void *data)
 
   record_tm_clone_pair (old_decl, new_decl);
 
-  if (info->old_node->symbol.force_output
-      || ipa_ref_list_first_referring (&info->old_node->symbol.ref_list))
+  if (info->old_node->symbol.force_output)
     ipa_tm_mark_force_output_node (new_node);
   return false;
 }
@@ -4383,8 +4383,7 @@ ipa_tm_create_version (struct cgraph_node *old_node)
   record_tm_clone_pair (old_decl, new_decl);
 
   cgraph_call_function_insertion_hooks (new_node);
-  if (old_node->symbol.force_output
-      || ipa_ref_list_first_referring (&old_node->symbol.ref_list))
+  if (old_node->symbol.force_output)
     ipa_tm_mark_force_output_node (new_node);
 
   /* Do the same thing, but for any aliases of the original node.  */
@@ -4454,6 +4453,7 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
   gettm_fn = builtin_decl_explicit (safe ? BUILT_IN_TM_GETTMCLONE_SAFE
 				    : BUILT_IN_TM_GETTMCLONE_IRR);
   ret = create_tmp_var (ptr_type_node, NULL);
+  add_referenced_var (ret);
 
   if (!safe)
     transaction_subcode_ior (region, GTMA_MAY_ENTER_IRREVOCABLE);
@@ -4475,6 +4475,7 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
   /* Cast return value from tm_gettmclone* into appropriate function
      pointer.  */
   callfn = create_tmp_var (TREE_TYPE (old_fn), NULL);
+  add_referenced_var (callfn);
   g2 = gimple_build_assign (callfn,
 			    fold_build1 (NOP_EXPR, TREE_TYPE (callfn), ret));
   callfn = make_ssa_name (callfn, g2);
@@ -4499,7 +4500,7 @@ ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
     {
       tree temp;
 
-      temp = create_tmp_reg (rettype, 0);
+      temp = make_rename_temp (rettype, 0);
       gimple_call_set_lhs (stmt, temp);
 
       g2 = gimple_build_assign (lhs,
@@ -4731,7 +4732,7 @@ ipa_tm_transform_clone (struct cgraph_node *node)
   /* If this function makes no calls and has no irrevocable blocks,
      then there's nothing to do.  */
   /* ??? Remove non-aborting top-level transactions.  */
-  if (!node->callees && !node->indirect_calls && !d->irrevocable_blocks_clone)
+  if (!node->callees && !d->irrevocable_blocks_clone)
     return;
 
   current_function_decl = d->clone->symbol.decl;

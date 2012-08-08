@@ -17,3 +17,4 @@
       END SUBROUTINE sub2
 
      END MODULE foo
+! { dg-final { cleanup-modules "foo" } }

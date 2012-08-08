@@ -57,3 +57,5 @@ subroutine bar(x)
 end subroutine bar
 ! { dg-final { scan-tree-dump-times "unpack" 4 "original" } }
 ! { dg-final { cleanup-tree-dump "original" } }
+! { dg-final { cleanup-modules "m" } }
+

@@ -26,13 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 
 #ifdef OBJCPLUS
-#include "cp/cp-tree.h"
+#include "cp-tree.h"
 #else
-#include "c/c-tree.h"
-#include "c/c-lang.h"
+#include "c-tree.h"
+#include "c-lang.h"
 #endif
 #include "langhooks.h"
 #include "c-family/c-objc.h"
@@ -48,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "ggc.h"
 #include "target.h"
-#include "c-family/c-target.h"
+#include "output.h"
 #include "tree-iterator.h"
 
 #include "objc-runtime-hooks.h"
@@ -2266,50 +2267,47 @@ generate_objc_symtab_decl (void)
 		   init_objc_symtab (TREE_TYPE (UOBJC_SYMBOLS_decl)));
 }
 
-/* Any target implementing NeXT ObjC m32 ABI has to ensure that objects
-   refer to, and define, symbols that enforce linkage of classes into the
-   executable image, preserving unix archive semantics.
-
-   At present (4.8), the only targets implementing this are Darwin; these
-   use top level asms to implement a scheme (see config/darwin-c.c).  The
-   latter method is a hack, but compatible with LTO see also PR48109 for
-   further discussion and other possible methods.  */
 
 static void
-handle_next_class_ref (tree chain ATTRIBUTE_UNUSED)
+handle_next_class_ref (tree chain)
 {
-  if (targetcm.objc_declare_unresolved_class_reference)
-    {
-      const char *name = IDENTIFIER_POINTER (TREE_VALUE (chain));
-      char *string = (char *) alloca (strlen (name) + 30);
-      sprintf (string, ".objc_class_name_%s", name);
-      targetcm.objc_declare_unresolved_class_reference (string);
-    }
+  const char *name = IDENTIFIER_POINTER (TREE_VALUE (chain));
+  char *string = (char *) alloca (strlen (name) + 30);
+
+  sprintf (string, ".objc_class_name_%s", name);
+
+#ifdef ASM_DECLARE_UNRESOLVED_REFERENCE
+  ASM_DECLARE_UNRESOLVED_REFERENCE (asm_out_file, string);
+#else
+  return ; /* NULL build for targets other than Darwin.  */
+#endif
 }
 
 static void
-handle_next_impent (struct imp_entry *impent ATTRIBUTE_UNUSED)
+handle_next_impent (struct imp_entry *impent)
 {
-  if (targetcm.objc_declare_class_definition)
-    {
-      char buf[BUFSIZE];
+  char buf[BUFSIZE];
 
-      switch (TREE_CODE (impent->imp_context))
-	{
-	  case CLASS_IMPLEMENTATION_TYPE:
-	    snprintf (buf, BUFSIZE, ".objc_class_name_%s",
-		      IDENTIFIER_POINTER (CLASS_NAME (impent->imp_context)));
-	    break;
-	  case CATEGORY_IMPLEMENTATION_TYPE:
-	    snprintf (buf, BUFSIZE, "*.objc_category_name_%s_%s",
-		      IDENTIFIER_POINTER (CLASS_NAME (impent->imp_context)),
-		      IDENTIFIER_POINTER (CLASS_SUPER_NAME (impent->imp_context)));
-	    break;
-	  default:
-	    return;
-	}
-      targetcm.objc_declare_class_definition (buf);
+  switch (TREE_CODE (impent->imp_context))
+    {
+    case CLASS_IMPLEMENTATION_TYPE:
+      snprintf (buf, BUFSIZE, ".objc_class_name_%s",
+		IDENTIFIER_POINTER (CLASS_NAME (impent->imp_context)));
+      break;
+    case CATEGORY_IMPLEMENTATION_TYPE:
+      snprintf (buf, BUFSIZE, "*.objc_category_name_%s_%s",
+		IDENTIFIER_POINTER (CLASS_NAME (impent->imp_context)),
+		IDENTIFIER_POINTER (CLASS_SUPER_NAME (impent->imp_context)));
+      break;
+    default:
+      return;
     }
+
+#ifdef ASM_DECLARE_CLASS_REFERENCE
+  ASM_DECLARE_CLASS_REFERENCE (asm_out_file, buf);
+#else
+  return ; /* NULL build for targets other than Darwin.  */
+#endif
 }
 
 static void
@@ -2416,7 +2414,9 @@ objc_generate_v1_next_metadata (void)
 
   /* Dump the class references.  This forces the appropriate classes
      to be linked into the executable image, preserving unix archive
-     semantics.  */
+     semantics.  This can be removed when we move to a more dynamically
+     linked environment.  */
+
   for (chain = cls_ref_chain; chain; chain = TREE_CHAIN (chain))
     {
       handle_next_class_ref (chain);

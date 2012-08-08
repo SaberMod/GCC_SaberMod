@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2009-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2009-2010, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -59,7 +59,10 @@ package body Sem_SCIL is
 
             --  Parent of SCIL dispatching call nodes MUST be a subprogram call
 
-            if Nkind (N) not in N_Subprogram_Call then
+            if not Nkind_In (N, N_Function_Call,
+                                N_Procedure_Call_Statement)
+            then
+               pragma Assert (False);
                raise Program_Error;
 
             --  In simple cases the controlling tag is the tag of the

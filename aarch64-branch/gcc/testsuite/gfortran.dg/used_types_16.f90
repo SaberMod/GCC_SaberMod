@@ -48,3 +48,4 @@ SUBROUTINE dummy_atom_list_init_copy(this, other)
 
   this%table(1:this%nused) = other%table(1:other%nused)
 END SUBROUTINE
+! { dg-final { cleanup-modules "class_dummy_atom_types class_dummy_atom_list" } }

@@ -48,3 +48,4 @@ PROGRAM main
 END PROGRAM main
 
 ! { dg-excess-errors "Syntex error in IF" }
+! { dg-final { cleanup-modules "m" } }

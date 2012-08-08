@@ -177,13 +177,11 @@ symtab_register_node (symtab_node node)
   if (*slot == NULL)
     *slot = node;
 
-  ipa_empty_ref_list (&node->symbol.ref_list);
+  insert_to_assembler_name_hash (node);
 
   node->symbol.order = symtab_order++;
 
-  /* Be sure to do this last; C++ FE might create new nodes via
-     DECL_ASSEMBLER_NAME langhook!  */
-  insert_to_assembler_name_hash (node);
+  ipa_empty_ref_list (&node->symbol.ref_list);
 }
 
 /* Make NODE to be the one symtab hash is pointing to.  Used when reshaping tree

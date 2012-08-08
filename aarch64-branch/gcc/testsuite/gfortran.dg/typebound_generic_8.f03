@@ -25,3 +25,5 @@ contains
   end subroutine do_something
 
 end module ice6 
+
+! { dg-final { cleanup-modules "ice6" } }

@@ -1748,7 +1748,7 @@ Type::specific_type_functions(Gogo* gogo, Named_type* name,
       base_name = name->name();
       const Named_object* in_function = name->in_function();
       if (in_function != NULL)
-	base_name += '$' + Gogo::unpack_hidden_name(in_function->name());
+	base_name += '$' + in_function->name();
     }
   std::string hash_name = base_name + "$hash";
   std::string equal_name = base_name + "$equal";
@@ -7863,10 +7863,6 @@ Find_type_use::type(Type* type)
 bool
 Named_type::do_verify()
 {
-  if (this->is_verified_)
-    return true;
-  this->is_verified_ = true;
-
   Find_type_use find(this);
   Type::traverse(this->type_, &find);
   if (find.found())
@@ -7976,11 +7972,6 @@ Named_type::convert(Gogo* gogo)
     return;
 
   this->create_placeholder(gogo);
-
-  // If we are called to turn unsafe.Sizeof into a constant, we may
-  // not have verified the type yet.  We have to make sure it is
-  // verified, since that sets the list of dependencies.
-  this->verify();
 
   // Convert all the dependencies.  If they refer indirectly back to
   // this type, they will pick up the intermediate tree we just
@@ -8337,23 +8328,14 @@ Named_type::do_reflection(Gogo* gogo, std::string* ret) const
     {
       // We handle -fgo-prefix and -fgo-pkgpath differently here for
       // compatibility with how the compiler worked before
-      // -fgo-pkgpath was introduced.  When -fgo-pkgpath is specified,
-      // we use it to make a unique reflection string, so that the
-      // type canonicalization in the reflect package will work.  In
-      // order to be compatible with the gc compiler, we put tabs into
-      // the package path, so that the reflect methods can discard it.
+      // -fgo-pkgpath was introduced.
       const Package* package = this->named_object_->package();
       if (gogo->pkgpath_from_option())
-	{
-	  ret->push_back('\t');
-	  ret->append(package != NULL
-		      ? package->pkgpath_symbol()
-		      : gogo->pkgpath_symbol());
-	  ret->push_back('\t');
-	}
-      ret->append(package != NULL
-		  ? package->package_name()
-		  : gogo->package_name());
+	ret->append(package != NULL ? package->pkgpath() : gogo->pkgpath());
+      else
+	ret->append(package != NULL
+		    ? package->package_name()
+		    : gogo->package_name());
       ret->push_back('.');
     }
   if (this->in_function_ != NULL)

@@ -61,3 +61,5 @@ program test
         call sol(cost)
         if (icheck /= 1) call abort ()
 end program test
+
+! { dg-final { cleanup-modules "t tt check" } }

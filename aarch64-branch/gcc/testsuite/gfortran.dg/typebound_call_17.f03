@@ -53,3 +53,5 @@ program test_poly
    call p1%add_poly()
 
 end program test_poly
+
+! { dg-final { cleanup-modules "polynomial" } }

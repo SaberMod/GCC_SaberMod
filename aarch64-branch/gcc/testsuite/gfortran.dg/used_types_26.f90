@@ -18,3 +18,5 @@
   use m2
   type(t) :: x ! { dg-error "Type name 't' at .1. is ambiguous" }
   end
+
+! { dg-final { cleanup-modules "m m2" } }

@@ -9,3 +9,5 @@ module Molecular_Abundances_Structure
   end type
   class(molecularAbundancesStructure), pointer :: molecules
 end module
+
+! { dg-final { cleanup-modules "molecular_abundances_structure" } }

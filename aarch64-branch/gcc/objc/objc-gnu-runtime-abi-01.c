@@ -24,10 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 
 #ifdef OBJCPLUS
-#include "cp/cp-tree.h"
+#include "cp-tree.h"
 #else
-#include "c/c-tree.h"
-#include "c/c-lang.h"
+#include "c-tree.h"
+#include "c-lang.h"
 #endif
 
 #include "langhooks.h"

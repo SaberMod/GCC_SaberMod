@@ -5,11 +5,9 @@
 int foo()
 {
   int i;
-  *(long*)&i = 0;  /* { dg-warning "type-punn" "type-punn" } */
+  *(long*)&i = 0;  /* { dg-warning "type-punn" } */
   return i;
 }
 
-/* These messages are only expected for lp64, but fail there.  When they
-   pass for lp64, replace "xfail *-*-*" with "target lp64".  */
-/* { dg-message "does break strict-aliasing" "break" { xfail *-*-* } 8 } */
-/* { dg-message "initialized" "init" { xfail *-*-* } 8 } */
+/* { dg-message "does break strict-aliasing" "" { target { *-*-* && lp64 } xfail *-*-* } 8 } */
+/* { dg-message "initialized" "" { target { *-*-* && lp64 } xfail *-*-* } 8 } */

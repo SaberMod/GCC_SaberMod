@@ -111,11 +111,10 @@ NO_REORDER_ADAFLAGS = -fno-toplevel-reorder
 GNATLIBFLAGS = -W -Wall -gnatpg -nostdinc
 GNATLIBCFLAGS = -g -O2
 PICFLAG_FOR_TARGET = @PICFLAG_FOR_TARGET@
-
 # Pretend that _Unwind_GetIPInfo is available for the target by default.  This
 # should be autodetected during the configuration of libada and passed down to
 # here, but we need something for --disable-libada and hope for the best.
-GNATLIBCFLAGS_FOR_C = -W -Wall $(GNATLIBCFLAGS) \
+GNATLIBCFLAGS_FOR_C = -W -Wall $(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET) \
 	-fexceptions -DIN_RTS -DHAVE_GETIPINFO
 ALL_ADAFLAGS = $(CFLAGS) $(ADA_CFLAGS) $(ADAFLAGS)
 THREAD_KIND = native
@@ -246,8 +245,8 @@ LIBS = $(LIBINTL) $(LIBICONV) $(LIBIBERTY) $(SYSLIBS)
 LIBDEPS = $(LIBINTL_DEP) $(LIBICONV_DEP) $(LIBIBERTY)
 # Default is no TGT_LIB; one might be passed down or something
 TGT_LIB =
-TOOLS_LIBS = targext.o link.o ../../ggc-none.o ../../libcommon-target.a \
-  ../../libcommon.a ../../../libcpp/libcpp.a $(LIBGNAT) $(LIBINTL) $(LIBICONV) \
+TOOLS_LIBS = targext.o link.o ../../libcommon-target.a ../../libcommon.a \
+  ../../../libcpp/libcpp.a $(LIBGNAT) $(LIBINTL) $(LIBICONV) \
   ../../../libiberty/libiberty.a $(SYSLIBS) $(TGT_LIB)
 
 # Convert the target variable into a space separated list of architecture,
@@ -2014,7 +2013,7 @@ ifeq ($(strip $(filter-out ia64% hp hpux%,$(targ))),)
   s-osinte.ads<s-osinte-hpux.ads \
   s-osprim.adb<s-osprim-posix.adb \
   s-taprop.adb<s-taprop-posix.adb \
-  s-taspri.ads<s-taspri-posix.ads \
+  s-taspri.ads<s-taspri-posix-noaltstack.ads \
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   system.ads<system-hpux-ia64.ads \
   $(ATOMICS_TARGET_PAIRS) \
@@ -2024,11 +2023,10 @@ ifeq ($(strip $(filter-out ia64% hp hpux%,$(targ))),)
   mlib-tgt-specific.adb<mlib-tgt-specific-ia64-hpux.adb
 
   MISCLIB=
-  EH_MECHANISM=-gcc
   THREADSLIB=-lpthread
   GNATLIB_SHARED=gnatlib-shared-dual
   GMEM_LIB = gmemlib
-  soext = .so
+  soext = .sl
   SO_OPTS = -Wl,+h,
   LIBRARY_VERSION := $(LIB_VERSION)
 endif
@@ -2150,7 +2148,7 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
     s-taprop.adb<s-taprop-posix.adb \
     s-taspri.ads<s-taspri-posix.ads \
     s-tpopsp.adb<s-tpopsp-posix-foreign.adb
-
+  
   ifeq ($(strip $(filter-out %86,$(arch))),)
     LIBGNAT_TARGET_PAIRS += \
       s-intman.adb<s-intman-susv3.adb \
@@ -2197,7 +2195,7 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
       s-osprim.adb<s-osprim-posix.adb \
       a-numaux.ads<a-numaux-darwin.ads \
       a-numaux.adb<a-numaux-darwin.adb
-
+    
     ifeq ($(strip $(MULTISUBDIR)),/ppc64)
       LIBGNAT_TARGET_PAIRS += \
         system.ads<system-darwin-ppc64.ads
@@ -2640,7 +2638,7 @@ gnatlib-shared-default:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET)" \
-	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C) $(PICFLAG_FOR_TARGET)" \
+	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
@@ -2686,9 +2684,8 @@ gnatlib-shared-dual:
 gnatlib-shared-dual-win32:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
-	     GNATLIBCFLAGS="$(GNATLIBCFLAGS)" \
+	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET)" \
 	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
-	     PICFLAG_FOR_TARGET="$(PICFLAG_FOR_TARGET)" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib-shared-win32
@@ -2711,7 +2708,7 @@ gnatlib-shared-win32:
 	$(MAKE) $(FLAGS_TO_PASS) \
              GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET)" \
-	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C) $(PICFLAG_FOR_TARGET)" \
+	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C)" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
              gnatlib
@@ -2734,7 +2731,7 @@ gnatlib-shared-darwin:
 	$(MAKE) $(FLAGS_TO_PASS) \
 	     GNATLIBFLAGS="$(GNATLIBFLAGS)" \
 	     GNATLIBCFLAGS="$(GNATLIBCFLAGS) $(PICFLAG_FOR_TARGET)" \
-	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C) $(PICFLAG_FOR_TARGET) -fno-common" \
+	     GNATLIBCFLAGS_FOR_C="$(GNATLIBCFLAGS_FOR_C) -fno-common" \
 	     MULTISUBDIR="$(MULTISUBDIR)" \
 	     THREAD_KIND="$(THREAD_KIND)" \
 	     gnatlib
@@ -2800,18 +2797,15 @@ gnatlib-shared:
              $(GNATLIB_SHARED)
 
 # When building a SJLJ runtime for VxWorks, in addition to forcing
-# ZCX_By_default to False, we need to ensure that extra linker options
-# are not passed to prevent the inclusion of useless objects and
-# potential troubles from the presence of extra symbols and references
-# in some configurations.  The inhibition is performed by commenting
-# the pragma instead of deleting the line, as the latter might result
-# in getting multiple blank lines, hence a style check error, as a
-# result.
+# ZCX_By_default to True, we need to ensure that -crtbe linker options
+# is not passed. Otherwise we will end with weak symbols on 
+# __register_frame_info and __deregister_frame_info. The VxWorks 5.x
+# will issue an error on weak symbols.
 gnatlib-sjlj:
 	$(MAKE) $(FLAGS_TO_PASS) EH_MECHANISM="" \
 	THREAD_KIND="$(THREAD_KIND)" ../stamp-gnatlib1-$(RTSDIR)
 	sed -e 's/ZCX_By_Default.*/ZCX_By_Default            : constant Boolean := False;/' $(RTSDIR)/system.ads > $(RTSDIR)/s.ads
-	sed -e 's/\(pragma Linker.*crtbe.*\)/--  \1/' $(RTSDIR)/s.ads > $(RTSDIR)/s2.ads
+	cat $(RTSDIR)/s.ads | grep -v "Linker_Options.*-crtbe" > $(RTSDIR)/s2.ads
 	$(RM) $(RTSDIR)/s.ads
 	$(MV) $(RTSDIR)/s2.ads $(RTSDIR)/system.ads
 	$(MAKE) $(FLAGS_TO_PASS) \

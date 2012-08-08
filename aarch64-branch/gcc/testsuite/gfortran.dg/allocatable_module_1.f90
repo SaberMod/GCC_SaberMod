@@ -15,3 +15,4 @@ program fred
 use fred1
 use fred2
 end program fred
+! { dg-final { cleanup-modules "fred1 fred2" } }

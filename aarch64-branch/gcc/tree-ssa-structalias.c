@@ -28,6 +28,7 @@
 #include "bitmap.h"
 #include "flags.h"
 #include "basic-block.h"
+#include "output.h"
 #include "tree.h"
 #include "tree-flow.h"
 #include "tree-inline.h"
@@ -37,6 +38,7 @@
 #include "function.h"
 #include "cgraph.h"
 #include "tree-pass.h"
+#include "timevar.h"
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
@@ -2736,14 +2738,14 @@ get_constraint_for_ssa_var (tree t, VEC(ce_s, heap) **results, bool address_p)
   varinfo_t vi;
 
   /* We allow FUNCTION_DECLs here even though it doesn't make much sense.  */
-  gcc_assert (TREE_CODE (t) == SSA_NAME || DECL_P (t));
+  gcc_assert (SSA_VAR_P (t) || DECL_P (t));
 
   /* For parameters, get at the points-to set for the actual parm
      decl.  */
   if (TREE_CODE (t) == SSA_NAME
-      && SSA_NAME_IS_DEFAULT_DEF (t)
       && (TREE_CODE (SSA_NAME_VAR (t)) == PARM_DECL
-	  || TREE_CODE (SSA_NAME_VAR (t)) == RESULT_DECL))
+	  || TREE_CODE (SSA_NAME_VAR (t)) == RESULT_DECL)
+      && SSA_NAME_IS_DEFAULT_DEF (t))
     {
       get_constraint_for_ssa_var (SSA_NAME_VAR (t), results, address_p);
       return;
@@ -5581,8 +5583,7 @@ create_variable_info_for (tree decl, const char *name)
 
 	  /* If this is a global variable with an initializer and we are in
 	     IPA mode generate constraints for it.  */
-	  if (DECL_INITIAL (decl)
-	      && vnode->analyzed)
+	  if (DECL_INITIAL (decl))
 	    {
 	      VEC (ce_s, heap) *rhsc = NULL;
 	      struct constraint_expr lhs, *rhsp;
@@ -6736,6 +6737,9 @@ compute_may_aliases (void)
 
 	  /* But still dump what we have remaining it.  */
 	  dump_alias_info (dump_file);
+
+	  if (dump_flags & TDF_DETAILS)
+	    dump_referenced_vars (dump_file);
 	}
 
       return 0;
@@ -6748,7 +6752,12 @@ compute_may_aliases (void)
 
   /* Debugging dumps.  */
   if (dump_file)
-    dump_alias_info (dump_file);
+    {
+      dump_alias_info (dump_file);
+
+      if (dump_flags & TDF_DETAILS)
+	dump_referenced_vars (dump_file);
+    }
 
   /* Deallocate memory used by aliasing data structures and the internal
      points-to solution.  */

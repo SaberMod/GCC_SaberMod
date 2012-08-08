@@ -28,3 +28,4 @@ end module foo_mod
   print *, two (2.3)
   print *, dbl (2.3)
 end program xfoo
+! { dg-final { cleanup-modules "foo_mod" } }

@@ -25,6 +25,5 @@ func3 (void)
   return 0;
 }
 
-/* The xfail for cris-* and crisv32-* is due to PR53535.  */
-/* { dg-final { scan-tree-dump-not "memset" "optimized" { xfail cris-*-* crisv32-*-* } } } */
+/* { dg-final { scan-tree-dump-not "memset" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

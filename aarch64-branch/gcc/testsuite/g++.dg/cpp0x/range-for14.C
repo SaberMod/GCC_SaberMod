@@ -59,7 +59,7 @@ void test1()
 
 struct base_begin
 {
-    int *begin(); // { dg-message "" }
+    int *begin(); // { dg-error "" }
 };
 
 struct base_end

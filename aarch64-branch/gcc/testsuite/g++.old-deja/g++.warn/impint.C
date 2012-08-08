@@ -16,9 +16,9 @@ struct X
 void foo (int);
 void wibble (int);
 void wibble (int, int);
-void punk (int = 3.5);		// { dg-warning "" } double to int
+void punk (int = 3.5);
 void rock ();
-void rock (int, int = 3.5);	// { dg-warning "" } double to int
+void rock (int, int = 3.5);
 
 void fn ()
 {

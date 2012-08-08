@@ -49,11 +49,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "basic-block.h"
 #include "tree-flow.h"
 #include "gimple.h"
+#include "tree-dump.h"
 #include "tree-pass.h"
+#include "timevar.h"
 #include "flags.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
@@ -269,10 +272,8 @@ static void
 mark_stmt_if_obviously_necessary (gimple stmt, bool aggressive)
 {
   /* With non-call exceptions, we have to assume that all statements could
-     throw.  If a statement could throw, it can be deemed necessary.  */
-  if (cfun->can_throw_non_call_exceptions
-      && !cfun->can_delete_dead_exceptions
-      && stmt_could_throw_p (stmt))
+     throw.  If a statement may throw, it is inherently necessary.  */
+  if (cfun->can_throw_non_call_exceptions && stmt_could_throw_p (stmt))
     {
       mark_stmt_necessary (stmt, true);
       return;
@@ -995,32 +996,31 @@ propagate_necessity (struct edge_list *el)
 }
 
 /* Replace all uses of NAME by underlying variable and mark it
-   for renaming.  This assumes the defining statement of NAME is
-   going to be removed.  */
+   for renaming.  */
 
 void
 mark_virtual_operand_for_renaming (tree name)
 {
-  tree name_var = SSA_NAME_VAR (name);
   bool used = false;
   imm_use_iterator iter;
   use_operand_p use_p;
   gimple stmt;
+  tree name_var;
 
-  gcc_assert (VAR_DECL_IS_VIRTUAL_OPERAND (name_var));
+  name_var = SSA_NAME_VAR (name);
   FOR_EACH_IMM_USE_STMT (stmt, iter, name)
     {
       FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
         SET_USE (use_p, name_var);
+      update_stmt (stmt);
       used = true;
     }
   if (used)
-    mark_virtual_operands_for_renaming (cfun);
+    mark_sym_for_renaming (name_var);
 }
 
-/* Replace all uses of the virtual PHI result by its underlying variable
-   and mark it for renaming.  This assumes the PHI node is going to be
-   removed.  */
+/* Replace all uses of result of PHI by underlying variable and mark it
+   for renaming.  */
 
 void
 mark_virtual_phi_result_for_renaming (gimple phi)

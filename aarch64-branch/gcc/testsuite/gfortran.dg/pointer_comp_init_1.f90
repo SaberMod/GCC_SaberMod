@@ -26,3 +26,5 @@ contains
   end subroutine add_item_to_dict
 
 end module m_common_attrs
+
+! { dg-final { cleanup-modules "m_common_attrs" } }

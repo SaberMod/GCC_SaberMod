@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1998-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1998-2011, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -538,7 +538,6 @@ package body Xref_Lib is
 
          when 'h' => return "interface";
          when 'g' => return "macro";
-         when 'G' => return "function macro";
          when 'J' => return "class";
          when 'K' => return "package";
          when 'k' => return "generic package";
@@ -1104,12 +1103,11 @@ package body Xref_Lib is
                Ptr := Ptr + 1;
             end if;
 
-            --  Imported entities may have an indication specifying information
-            --  about the corresponding external name:
-            --    5U14*Foo2 5>20 6b<c,myfoo2>22   # Imported entity
-            --    5U14*Foo2 5>20 6i<c,myfoo2>22   # Exported entity
+            --  Imported entities might special indication as to their external
+            --  name:
+            --    5U14*Foo2 5>20 6b<c,myfoo2>22
 
-            if (R_Type = 'b' or else R_Type = 'i')
+            if R_Type = 'b'
               and then Ali (Ptr) = '<'
             then
                while Ptr <= Ali'Last

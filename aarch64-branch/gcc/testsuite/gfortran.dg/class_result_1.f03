@@ -58,3 +58,5 @@ program random_walk
   end do
 
 end program random_walk
+
+! { dg-final { cleanup-modules "points2d" } }

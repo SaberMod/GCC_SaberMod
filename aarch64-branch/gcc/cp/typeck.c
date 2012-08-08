@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
+#include "output.h"
 #include "diagnostic.h"
 #include "intl.h"
 #include "target.h"
@@ -52,7 +53,7 @@ static tree rationalize_conditional_expr (enum tree_code, tree,
 static int comp_ptr_ttypes_real (tree, tree, int);
 static bool comp_except_types (tree, tree, bool);
 static bool comp_array_types (const_tree, const_tree, bool);
-static tree pointer_diff (tree, tree, tree, tsubst_flags_t);
+static tree pointer_diff (tree, tree, tree);
 static tree get_delta_difference (tree, tree, bool, bool, tsubst_flags_t);
 static void casts_away_constness_r (tree *, tree *, tsubst_flags_t);
 static bool casts_away_constness (tree, tree, tsubst_flags_t);
@@ -508,7 +509,8 @@ composite_pointer_type_r (tree t1, tree t2,
     result_type = pointee1;
   else if ((TREE_CODE (pointee1) == POINTER_TYPE
 	    && TREE_CODE (pointee2) == POINTER_TYPE)
-	   || (TYPE_PTRMEM_P (pointee1) && TYPE_PTRMEM_P (pointee2)))
+	   || (TYPE_PTR_TO_MEMBER_P (pointee1)
+	       && TYPE_PTR_TO_MEMBER_P (pointee2)))
     {
       result_type = composite_pointer_type_r (pointee1, pointee2, operation,
 					      complain);
@@ -528,7 +530,7 @@ composite_pointer_type_r (tree t1, tree t2,
 					  | cp_type_quals (pointee2)));
   /* If the original types were pointers to members, so is the
      result.  */
-  if (TYPE_PTRMEM_P (t1))
+  if (TYPE_PTR_TO_MEMBER_P (t1))
     {
       if (!same_type_p (TYPE_PTRMEM_CLASS_TYPE (t1),
 			TYPE_PTRMEM_CLASS_TYPE (t2)))
@@ -664,7 +666,7 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
     }
   /* [expr.eq] permits the application of a pointer-to-member
      conversion to change the class type of one of the types.  */
-  else if (TYPE_PTRMEM_P (t1)
+  else if (TYPE_PTR_TO_MEMBER_P (t1)
            && !same_type_p (TYPE_PTRMEM_CLASS_TYPE (t1),
 			    TYPE_PTRMEM_CLASS_TYPE (t2)))
     {
@@ -929,7 +931,7 @@ tree
 common_pointer_type (tree t1, tree t2)
 {
   gcc_assert ((TYPE_PTR_P (t1) && TYPE_PTR_P (t2))
-              || (TYPE_PTRDATAMEM_P (t1) && TYPE_PTRDATAMEM_P (t2))
+              || (TYPE_PTRMEM_P (t1) && TYPE_PTRMEM_P (t2))
               || (TYPE_PTRMEMFUNC_P (t1) && TYPE_PTRMEMFUNC_P (t2)));
 
   return composite_pointer_type (t1, t2, error_mark_node, error_mark_node,
@@ -1139,6 +1141,12 @@ comp_template_parms_position (tree t1, tree t2)
 
   index1 = TEMPLATE_TYPE_PARM_INDEX (TYPE_MAIN_VARIANT (t1));
   index2 = TEMPLATE_TYPE_PARM_INDEX (TYPE_MAIN_VARIANT (t2));
+
+  /* If T1 and T2 belong to template parm lists of different size,
+     let's assume they are different.  */
+  if (TEMPLATE_PARM_NUM_SIBLINGS (index1)
+      != TEMPLATE_PARM_NUM_SIBLINGS (index2))
+    return false;
 
   /* Then compare their relative position.  */
   if (TEMPLATE_PARM_IDX (index1) != TEMPLATE_PARM_IDX (index2)
@@ -1814,7 +1822,6 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 {
   tree type;
   enum tree_code code;
-  location_t loc = EXPR_LOC_OR_HERE (exp);
 
   type = TREE_TYPE (exp);
   if (type == error_mark_node)
@@ -1837,7 +1844,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
   if (error_operand_p (exp))
     return error_mark_node;
 
-  if (NULLPTR_TYPE_P (type) && !TREE_SIDE_EFFECTS (exp))
+  if (NULLPTR_TYPE_P (type))
     return nullptr_node;
 
   /* build_c_cast puts on a NOP_EXPR to make the result not an lvalue.
@@ -1846,7 +1853,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
   if (code == VOID_TYPE)
     {
       if (complain & tf_error)
-	error_at (loc, "void value not ignored as it ought to be");
+	error ("void value not ignored as it ought to be");
       return error_mark_node;
     }
   if (invalid_nonstatic_memfn_p (exp, complain))
@@ -1875,16 +1882,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 	  && ! (TREE_CODE (exp) == CONSTRUCTOR && TREE_STATIC (exp)))
 	{
 	  if (complain & tf_error)
-	    error_at (loc, "invalid use of non-lvalue array");
-	  return error_mark_node;
-	}
-
-      /* Don't let an array compound literal decay to a pointer.  It can
-	 still be used to initialize an array or bind to a reference.  */
-      if (TREE_CODE (exp) == TARGET_EXPR)
-	{
-	  if (complain & tf_error)
-	    error_at (loc, "taking address of temporary array");
+	    error ("invalid use of non-lvalue array");
 	  return error_mark_node;
 	}
 
@@ -1900,7 +1898,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
       /* This way is better for a COMPONENT_REF since it can
 	 simplify the offset for a component.  */
       adr = cp_build_addr_expr (exp, complain);
-      return cp_convert (ptrtype, adr, complain);
+      return cp_convert (ptrtype, adr);
     }
 
   /* If a bitfield is used in a context where integral promotion
@@ -1944,12 +1942,12 @@ cp_default_conversion (tree exp, tsubst_flags_t complain)
   /* Check for target-specific promotions.  */
   tree promoted_type = targetm.promoted_type (TREE_TYPE (exp));
   if (promoted_type)
-    exp = cp_convert (promoted_type, exp, complain);
+    exp = cp_convert (promoted_type, exp);
   /* Perform the integral promotions first so that bitfield
      expressions (which may promote to "int", even if the bitfield is
      declared "unsigned") are promoted correctly.  */
   else if (INTEGRAL_OR_UNSCOPED_ENUMERATION_TYPE_P (TREE_TYPE (exp)))
-    exp = cp_perform_integral_promotions (exp, complain);
+    exp = perform_integral_promotions (exp);
   /* Perform the other conversions.  */
   exp = decay_conversion (exp, complain);
 
@@ -1969,7 +1967,7 @@ default_conversion (tree exp)
    converted value.  */
 
 tree
-cp_perform_integral_promotions (tree expr, tsubst_flags_t complain)
+perform_integral_promotions (tree expr)
 {
   tree type;
   tree promoted_type;
@@ -1989,16 +1987,8 @@ cp_perform_integral_promotions (tree expr, tsubst_flags_t complain)
     return expr;
   promoted_type = type_promotes_to (type);
   if (type != promoted_type)
-    expr = cp_convert (promoted_type, expr, complain);
+    expr = cp_convert (promoted_type, expr);
   return expr;
-}
-
-/* C version.  */
-
-tree
-perform_integral_promotions (tree expr)
-{
-  return cp_perform_integral_promotions (expr, tf_warning_or_error);
 }
 
 /* Returns nonzero iff exp is a STRING_CST or the result of applying
@@ -2193,7 +2183,7 @@ build_class_member_access_expr (tree object, tree member,
   /* If MEMBER is from an anonymous aggregate, MEMBER_SCOPE will
      presently be the anonymous union.  Go outwards until we find a
      type related to OBJECT_TYPE.  */
-  while ((ANON_AGGR_TYPE_P (member_scope) || UNSCOPED_ENUM_P (member_scope))
+  while (ANON_AGGR_TYPE_P (member_scope)
 	 && !same_type_ignoring_top_level_qualifiers_p (member_scope,
 							object_type))
     member_scope = TYPE_CONTEXT (member_scope);
@@ -2546,8 +2536,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 	  || (TREE_CODE (name) == SCOPE_REF
 	      && TYPE_P (TREE_OPERAND (name, 0))
 	      && dependent_type_p (TREE_OPERAND (name, 0))))
-	return build_min_nt_loc (UNKNOWN_LOCATION, COMPONENT_REF,
-				 object, name, NULL_TREE);
+	return build_min_nt (COMPONENT_REF, object, name, NULL_TREE);
       object = build_non_dependent_expr (object);
     }
   else if (c_dialect_objc ()
@@ -2754,7 +2743,7 @@ build_x_indirect_ref (location_t loc, tree expr, ref_operator errorstring,
       if (TREE_TYPE (expr) && POINTER_TYPE_P (TREE_TYPE (expr)))
 	return build_min (INDIRECT_REF, TREE_TYPE (TREE_TYPE (expr)), expr);
       if (type_dependent_expression_p (expr))
-	return build_min_nt_loc (loc, INDIRECT_REF, expr);
+	return build_min_nt (INDIRECT_REF, expr);
       expr = build_non_dependent_expr (expr);
     }
 
@@ -2845,7 +2834,7 @@ cp_build_indirect_ref (tree ptr, ref_operator errorstring,
     ;
   /* `pointer' won't be an error_mark_node if we were given a
      pointer to member, so it's cool to check for this here.  */
-  else if (TYPE_PTRMEM_P (type))
+  else if (TYPE_PTR_TO_MEMBER_P (type))
     switch (errorstring)
       {
          case RO_ARRAY_INDEXING:
@@ -2947,7 +2936,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 	 does not say that we should.  In fact, the natural thing would
 	 seem to be to convert IDX to ptrdiff_t; we're performing
 	 pointer arithmetic.)  */
-      idx = cp_perform_integral_promotions (idx, complain);
+      idx = perform_integral_promotions (idx);
 
       /* An array that is indexed by a non-constant
 	 cannot be stored in a register; we must be able to do
@@ -3608,7 +3597,7 @@ build_x_binary_op (location_t loc, enum tree_code code, tree arg1,
     {
       if (type_dependent_expression_p (arg1)
 	  || type_dependent_expression_p (arg2))
-	return build_min_nt_loc (loc, code, arg1, arg2);
+	return build_min_nt (code, arg1, arg2);
       arg1 = build_non_dependent_expr (arg1);
       arg2 = build_non_dependent_expr (arg2);
     }
@@ -3640,8 +3629,7 @@ build_x_binary_op (location_t loc, enum tree_code code, tree arg1,
 /* Build and return an ARRAY_REF expression.  */
 
 tree
-build_x_array_ref (location_t loc, tree arg1, tree arg2,
-		   tsubst_flags_t complain)
+build_x_array_ref (tree arg1, tree arg2, tsubst_flags_t complain)
 {
   tree orig_arg1 = arg1;
   tree orig_arg2 = arg2;
@@ -3651,14 +3639,14 @@ build_x_array_ref (location_t loc, tree arg1, tree arg2,
     {
       if (type_dependent_expression_p (arg1)
 	  || type_dependent_expression_p (arg2))
-	return build_min_nt_loc (loc, ARRAY_REF, arg1, arg2,
-				 NULL_TREE, NULL_TREE);
+	return build_min_nt (ARRAY_REF, arg1, arg2,
+			     NULL_TREE, NULL_TREE);
       arg1 = build_non_dependent_expr (arg1);
       arg2 = build_non_dependent_expr (arg2);
     }
 
-  expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL, arg1, arg2,
-		       NULL_TREE, /*overload=*/NULL, complain);
+  expr = build_new_op (input_location, ARRAY_REF, LOOKUP_NORMAL, arg1,
+		       arg2, NULL_TREE, /*overload=*/NULL, complain);
 
   if (processing_template_decl && expr != error_mark_node)
     return build_min_non_dep (ARRAY_REF, expr, orig_arg1, orig_arg2,
@@ -3850,9 +3838,9 @@ cp_build_binary_op (location_t location,
 	   && code != EQ_EXPR && code != NE_EXPR && code != MINUS_EXPR) 
 	  /* Or if one of OP0 or OP1 is neither a pointer nor NULL.  */
 	  || (!null_ptr_cst_p (orig_op0)
-	      && !TYPE_PTR_OR_PTRMEM_P (type0))
+	      && !TYPE_PTR_P (type0) && !TYPE_PTR_TO_MEMBER_P (type0))
 	  || (!null_ptr_cst_p (orig_op1) 
-	      && !TYPE_PTR_OR_PTRMEM_P (type1)))
+	      && !TYPE_PTR_P (type1) && !TYPE_PTR_TO_MEMBER_P (type1)))
       && (complain & tf_warning))
     {
       source_location loc =
@@ -3869,8 +3857,7 @@ cp_build_binary_op (location_t location,
       if (code0 == POINTER_TYPE && code1 == POINTER_TYPE
 	  && same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (type0),
 							TREE_TYPE (type1)))
-	return pointer_diff (op0, op1, common_pointer_type (type0, type1),
-			     complain);
+	return pointer_diff (op0, op1, common_pointer_type (type0, type1));
       /* In all other cases except pointer - int, the usual arithmetic
 	 rules apply.  */
       else if (!(code0 == POINTER_TYPE && code1 == INTEGER_TYPE))
@@ -4006,7 +3993,7 @@ cp_build_binary_op (location_t location,
 	  /* Convert the shift-count to an integer, regardless of
 	     size of value being shifted.  */
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-	    op1 = cp_convert (integer_type_node, op1, complain);
+	    op1 = cp_convert (integer_type_node, op1);
 	  /* Avoid converting op1 to result_type later.  */
 	  converted = 1;
 	}
@@ -4034,7 +4021,7 @@ cp_build_binary_op (location_t location,
 	  /* Convert the shift-count to an integer, regardless of
 	     size of value being shifted.  */
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-	    op1 = cp_convert (integer_type_node, op1, complain);
+	    op1 = cp_convert (integer_type_node, op1);
 	  /* Avoid converting op1 to result_type later.  */
 	  converted = 1;
 	}
@@ -4065,7 +4052,7 @@ cp_build_binary_op (location_t location,
 	  /* Convert the shift-count to an integer, regardless of
 	     size of value being shifted.  */
 	  if (TYPE_MAIN_VARIANT (TREE_TYPE (op1)) != integer_type_node)
-	    op1 = cp_convert (integer_type_node, op1, complain);
+	    op1 = cp_convert (integer_type_node, op1);
 	}
       break;
 
@@ -4087,10 +4074,10 @@ cp_build_binary_op (location_t location,
 	      || code1 == COMPLEX_TYPE || code1 == ENUMERAL_TYPE))
 	short_compare = 1;
       else if ((code0 == POINTER_TYPE && code1 == POINTER_TYPE)
-	       || (TYPE_PTRDATAMEM_P (type0) && TYPE_PTRDATAMEM_P (type1)))
+	       || (TYPE_PTRMEM_P (type0) && TYPE_PTRMEM_P (type1)))
 	result_type = composite_pointer_type (type0, type1, op0, op1,
 					      CPO_COMPARISON, complain);
-      else if ((code0 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type0))
+      else if ((code0 == POINTER_TYPE || TYPE_PTRMEM_P (type0))
 	       && null_ptr_cst_p (op1))
 	{
 	  if (TREE_CODE (op0) == ADDR_EXPR
@@ -4103,7 +4090,7 @@ cp_build_binary_op (location_t location,
 	    }
 	  result_type = type0;
 	}
-      else if ((code1 == POINTER_TYPE || TYPE_PTRDATAMEM_P (type1))
+      else if ((code1 == POINTER_TYPE || TYPE_PTRMEM_P (type1))
 	       && null_ptr_cst_p (op0))
 	{
 	  if (TREE_CODE (op1) == ADDR_EXPR 
@@ -4165,12 +4152,12 @@ cp_build_binary_op (location_t location,
 	      op0 = cp_build_binary_op (location,
 					TRUTH_ANDIF_EXPR, e1, e2,
 					complain);
-	      op1 = cp_convert (TREE_TYPE (op0), integer_one_node, complain); 
+	      op1 = cp_convert (TREE_TYPE (op0), integer_one_node); 
 	    }
      	  else 
 	    {
 	      op0 = build_ptrmemfunc_access_expr (op0, pfn_identifier);
-	      op1 = cp_convert (TREE_TYPE (op0), op1, complain);
+	      op1 = cp_convert (TREE_TYPE (op0), op1);
 	    }
 	  result_type = TREE_TYPE (op0);
 	}
@@ -4193,9 +4180,9 @@ cp_build_binary_op (location_t location,
 					 CPO_COMPARISON, complain);
 
 	  if (!same_type_p (TREE_TYPE (op0), type))
-	    op0 = cp_convert_and_check (type, op0, complain);
+	    op0 = cp_convert_and_check (type, op0);
 	  if (!same_type_p (TREE_TYPE (op1), type))
-	    op1 = cp_convert_and_check (type, op1, complain);
+	    op1 = cp_convert_and_check (type, op1);
 
 	  if (op0 == error_mark_node || op1 == error_mark_node)
 	    return error_mark_node;
@@ -4459,16 +4446,16 @@ cp_build_binary_op (location_t location,
 	  if (first_complex)
 	    {
 	      if (TREE_TYPE (op0) != result_type)
-		op0 = cp_convert_and_check (result_type, op0, complain);
+		op0 = cp_convert_and_check (result_type, op0);
 	      if (TREE_TYPE (op1) != real_type)
-		op1 = cp_convert_and_check (real_type, op1, complain);
+		op1 = cp_convert_and_check (real_type, op1);
 	    }
 	  else
 	    {
 	      if (TREE_TYPE (op0) != real_type)
-		op0 = cp_convert_and_check (real_type, op0, complain);
+		op0 = cp_convert_and_check (real_type, op0);
 	      if (TREE_TYPE (op1) != result_type)
-		op1 = cp_convert_and_check (result_type, op1, complain);
+		op1 = cp_convert_and_check (result_type, op1);
 	    }
 	  if (TREE_CODE (op0) == ERROR_MARK || TREE_CODE (op1) == ERROR_MARK)
 	    return error_mark_node;
@@ -4553,7 +4540,7 @@ cp_build_binary_op (location_t location,
 	  tree val
 	    = shorten_compare (&xop0, &xop1, &xresult_type, &xresultcode);
 	  if (val != 0)
-	    return cp_convert (boolean_type_node, val, complain);
+	    return cp_convert (boolean_type_node, val);
 	  op0 = xop0, op1 = xop1;
 	  converted = 1;
 	  resultcode = xresultcode;
@@ -4583,9 +4570,9 @@ cp_build_binary_op (location_t location,
   if (! converted)
     {
       if (TREE_TYPE (op0) != result_type)
-	op0 = cp_convert_and_check (result_type, op0, complain);
+	op0 = cp_convert_and_check (result_type, op0);
       if (TREE_TYPE (op1) != result_type)
-	op1 = cp_convert_and_check (result_type, op1, complain);
+	op1 = cp_convert_and_check (result_type, op1);
 
       if (op0 == error_mark_node || op1 == error_mark_node)
 	return error_mark_node;
@@ -4597,7 +4584,7 @@ cp_build_binary_op (location_t location,
   result = build2 (resultcode, build_type, op0, op1);
   result = fold_if_not_in_template (result);
   if (final_type != 0)
-    result = cp_convert (final_type, result, complain);
+    result = cp_convert (final_type, result);
 
   if (TREE_OVERFLOW_P (result) 
       && !TREE_OVERFLOW_P (op0) 
@@ -4630,7 +4617,7 @@ cp_pointer_int_sum (enum tree_code resultcode, tree ptrop, tree intop)
    The resulting tree has type int.  */
 
 static tree
-pointer_diff (tree op0, tree op1, tree ptrtype, tsubst_flags_t complain)
+pointer_diff (tree op0, tree op1, tree ptrtype)
 {
   tree result;
   tree restype = ptrdiff_type_node;
@@ -4640,48 +4627,24 @@ pointer_diff (tree op0, tree op1, tree ptrtype, tsubst_flags_t complain)
     return error_mark_node;
 
   if (TREE_CODE (target_type) == VOID_TYPE)
-    {
-      if (complain & tf_error)
-	permerror (input_location, "ISO C++ forbids using pointer of "
-		   "type %<void *%> in subtraction");
-      else
-	return error_mark_node;
-    }
+    permerror (input_location, "ISO C++ forbids using pointer of type %<void *%> in subtraction");
   if (TREE_CODE (target_type) == FUNCTION_TYPE)
-    {
-      if (complain & tf_error)
-	permerror (input_location, "ISO C++ forbids using pointer to "
-		   "a function in subtraction");
-      else
-	return error_mark_node;
-    }
+    permerror (input_location, "ISO C++ forbids using pointer to a function in subtraction");
   if (TREE_CODE (target_type) == METHOD_TYPE)
-    {
-      if (complain & tf_error)
-	permerror (input_location, "ISO C++ forbids using pointer to "
-		   "a method in subtraction");
-      else
-	return error_mark_node;
-    }
+    permerror (input_location, "ISO C++ forbids using pointer to a method in subtraction");
 
   /* First do the subtraction as integers;
      then drop through to build the divide operator.  */
 
   op0 = cp_build_binary_op (input_location,
 			    MINUS_EXPR,
-			    cp_convert (restype, op0, complain),
-			    cp_convert (restype, op1, complain),
-			    complain);
+			    cp_convert (restype, op0),
+			    cp_convert (restype, op1),
+			    tf_warning_or_error);
 
   /* This generates an error if op1 is a pointer to an incomplete type.  */
   if (!COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
-    {
-      if (complain & tf_error)
-	error ("invalid use of a pointer to an incomplete type in "
-	       "pointer arithmetic");
-      else
-	return error_mark_node;
-    }
+    error ("invalid use of a pointer to an incomplete type in pointer arithmetic");
 
   op1 = (TYPE_PTROB_P (ptrtype)
 	 ? size_in_bytes (target_type)
@@ -4689,8 +4652,7 @@ pointer_diff (tree op0, tree op1, tree ptrtype, tsubst_flags_t complain)
 
   /* Do the division.  */
 
-  result = build2 (EXACT_DIV_EXPR, restype, op0,
-		   cp_convert (restype, op1, complain));
+  result = build2 (EXACT_DIV_EXPR, restype, op0, cp_convert (restype, op1));
   return fold_if_not_in_template (result);
 }
 
@@ -4709,7 +4671,7 @@ build_x_unary_op (location_t loc, enum tree_code code, tree xarg,
   if (processing_template_decl)
     {
       if (type_dependent_expression_p (xarg))
-	return build_min_nt_loc (loc, code, xarg, NULL_TREE);
+	return build_min_nt (code, xarg, NULL_TREE);
 
       xarg = build_non_dependent_expr (xarg);
     }
@@ -4806,7 +4768,7 @@ tree
 cp_truthvalue_conversion (tree expr)
 {
   tree type = TREE_TYPE (expr);
-  if (TYPE_PTRDATAMEM_P (type))
+  if (TYPE_PTRMEM_P (type))
     return build_binary_op (EXPR_LOCATION (expr),
 			    NE_EXPR, expr, nullptr_node, 1);
   else if (TYPE_PTR_P (type) || TYPE_PTRMEMFUNC_P (type))
@@ -5203,7 +5165,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	else
 	  {
 	    if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
-	      arg = cp_perform_integral_promotions (arg, complain);
+	      arg = perform_integral_promotions (arg);
 
 	    /* Make sure the result is not an lvalue: a unary plus or minus
 	       expression is always a rvalue.  */
@@ -5228,7 +5190,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 						   arg, true)))
 	errstring = _("wrong type argument to bit-complement");
       else if (!noconvert && CP_INTEGRAL_TYPE_P (TREE_TYPE (arg)))
-	arg = cp_perform_integral_promotions (arg, complain);
+	arg = perform_integral_promotions (arg);
       break;
 
     case ABS_EXPR:
@@ -5386,7 +5348,7 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	else
 	  inc = integer_one_node;
 
-	inc = cp_convert (argtype, inc, complain);
+	inc = cp_convert (argtype, inc);
 
 	/* If 'arg' is an Objective-C PROPERTY_REF expression, then we
 	   need to ask Objective-C to build the increment or decrement
@@ -5624,7 +5586,7 @@ cxx_mark_addressable (tree exp)
 /* Build and return a conditional expression IFEXP ? OP1 : OP2.  */
 
 tree
-build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2, 
+build_x_conditional_expr (tree ifexp, tree op1, tree op2, 
                           tsubst_flags_t complain)
 {
   tree orig_ifexp = ifexp;
@@ -5641,7 +5603,7 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
 	  /* As a GNU extension, the middle operand may be omitted.  */
 	  || (op1 && type_dependent_expression_p (op1))
 	  || type_dependent_expression_p (op2))
-	return build_min_nt_loc (loc, COND_EXPR, ifexp, op1, op2);
+	return build_min_nt (COND_EXPR, ifexp, op1, op2);
       ifexp = build_non_dependent_expr (ifexp);
       if (op1)
 	op1 = build_non_dependent_expr (op1);
@@ -5708,8 +5670,8 @@ build_x_compound_expr_from_list (tree list, expr_list_kind exp,
 	return error_mark_node;
 
       for (list = TREE_CHAIN (list); list; list = TREE_CHAIN (list))
-	expr = build_x_compound_expr (EXPR_LOCATION (TREE_VALUE (list)),
-				      expr, TREE_VALUE (list), complain);
+	expr = build_x_compound_expr (expr, TREE_VALUE (list), 
+                                      complain);
     }
 
   return expr;
@@ -5737,8 +5699,7 @@ build_x_compound_expr_from_vec (VEC(tree,gc) *vec, const char *msg)
 
       expr = VEC_index (tree, vec, 0);
       for (ix = 1; VEC_iterate (tree, vec, ix, t); ++ix)
-	expr = build_x_compound_expr (EXPR_LOCATION (t), expr,
-				      t, tf_warning_or_error);
+	expr = build_x_compound_expr (expr, t, tf_warning_or_error);
 
       return expr;
     }
@@ -5747,8 +5708,7 @@ build_x_compound_expr_from_vec (VEC(tree,gc) *vec, const char *msg)
 /* Handle overloading of the ',' operator when needed.  */
 
 tree
-build_x_compound_expr (location_t loc, tree op1, tree op2,
-		       tsubst_flags_t complain)
+build_x_compound_expr (tree op1, tree op2, tsubst_flags_t complain)
 {
   tree result;
   tree orig_op1 = op1;
@@ -5758,13 +5718,13 @@ build_x_compound_expr (location_t loc, tree op1, tree op2,
     {
       if (type_dependent_expression_p (op1)
 	  || type_dependent_expression_p (op2))
-	return build_min_nt_loc (loc, COMPOUND_EXPR, op1, op2);
+	return build_min_nt (COMPOUND_EXPR, op1, op2);
       op1 = build_non_dependent_expr (op1);
       op2 = build_non_dependent_expr (op2);
     }
 
-  result = build_new_op (loc, COMPOUND_EXPR, LOOKUP_NORMAL, op1, op2,
-			 NULL_TREE, /*overload=*/NULL, complain);
+  result = build_new_op (input_location, COMPOUND_EXPR, LOOKUP_NORMAL,
+			 op1, op2, NULL_TREE, /*overload=*/NULL, complain);
   if (!result)
     result = cp_build_compound_expr (op1, op2, complain);
 
@@ -5894,7 +5854,7 @@ tree
 convert_ptrmem (tree type, tree expr, bool allow_inverse_p,
 		bool c_cast_p, tsubst_flags_t complain)
 {
-  if (TYPE_PTRDATAMEM_P (type))
+  if (TYPE_PTRMEM_P (type))
     {
       tree delta;
 
@@ -6102,7 +6062,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
        || SCALAR_FLOAT_TYPE_P (type))
       && (INTEGRAL_OR_ENUMERATION_TYPE_P (intype)
 	  || SCALAR_FLOAT_TYPE_P (intype)))
-    return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL, complain);
+    return ocp_convert (type, expr, CONV_C_CAST, LOOKUP_NORMAL);
 
   if (TYPE_PTR_P (type) && TYPE_PTR_P (intype)
       && CLASS_TYPE_P (TREE_TYPE (type))
@@ -6127,7 +6087,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       return cp_fold_convert(type, expr);
     }
 
-  if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))
+  if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
       || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     {
       tree c1;
@@ -6138,7 +6098,7 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
       c1 = TYPE_PTRMEM_CLASS_TYPE (intype);
       c2 = TYPE_PTRMEM_CLASS_TYPE (type);
 
-      if (TYPE_PTRDATAMEM_P (type))
+      if (TYPE_PTRMEM_P (type))
 	{
 	  t1 = (build_ptrmem_type
 		(c1,
@@ -6384,14 +6344,14 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
     /* OK */
     ;
   else if ((INTEGRAL_OR_ENUMERATION_TYPE_P (type)
-	    || TYPE_PTR_OR_PTRMEM_P (type))
+	    || TYPE_PTR_P (type) || TYPE_PTR_TO_MEMBER_P (type))
 	   && same_type_p (type, intype))
     /* DR 799 */
     return fold_if_not_in_template (build_nop (type, expr));
   else if ((TYPE_PTRFN_P (type) && TYPE_PTRFN_P (intype))
 	   || (TYPE_PTRMEMFUNC_P (type) && TYPE_PTRMEMFUNC_P (intype)))
     return fold_if_not_in_template (build_nop (type, expr));
-  else if ((TYPE_PTRDATAMEM_P (type) && TYPE_PTRDATAMEM_P (intype))
+  else if ((TYPE_PTRMEM_P (type) && TYPE_PTRMEM_P (intype))
 	   || (TYPE_PTROBV_P (type) && TYPE_PTROBV_P (intype)))
     {
       tree sexpr = expr;
@@ -6445,7 +6405,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
       return error_mark_node;
     }
 
-  return cp_convert (type, expr, complain);
+  return cp_convert (type, expr);
 }
 
 tree
@@ -6499,7 +6459,7 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
   if (valid_p)
     *valid_p = false;
 
-  if (!POINTER_TYPE_P (dst_type) && !TYPE_PTRDATAMEM_P (dst_type))
+  if (!POINTER_TYPE_P (dst_type) && !TYPE_PTRMEM_P (dst_type))
     {
       if (complain & tf_error)
 	error ("invalid use of const_cast with type %qT, "
@@ -6569,7 +6529,7 @@ build_const_cast_1 (tree dst_type, tree expr, tsubst_flags_t complain,
 	return error_mark_node;
     }
 
-  if (TYPE_PTR_P (src_type) || TYPE_PTRDATAMEM_P (src_type))
+  if (TYPE_PTR_P (src_type) || TYPE_PTRMEM_P (src_type))
     {
       if (comp_ptr_ttypes_const (dst_type, src_type))
 	{
@@ -7106,7 +7066,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 				     NULL_TREE, 0, complain, LOOKUP_IMPLICIT);
 
   if (!same_type_p (lhstype, olhstype))
-    newrhs = cp_convert_and_check (lhstype, newrhs, complain);
+    newrhs = cp_convert_and_check (lhstype, newrhs);
 
   if (modifycode != INIT_EXPR)
     {
@@ -7145,19 +7105,18 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 }
 
 tree
-build_x_modify_expr (location_t loc, tree lhs, enum tree_code modifycode,
-		     tree rhs, tsubst_flags_t complain)
+build_x_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
+		     tsubst_flags_t complain)
 {
   if (processing_template_decl)
-    return build_min_nt_loc (loc, MODOP_EXPR, lhs,
-			     build_min_nt_loc (loc, modifycode, NULL_TREE,
-					       NULL_TREE), rhs);
+    return build_min_nt (MODOP_EXPR, lhs,
+			 build_min_nt (modifycode, NULL_TREE, NULL_TREE), rhs);
 
   if (modifycode != NOP_EXPR)
     {
-      tree rval = build_new_op (loc, MODIFY_EXPR, LOOKUP_NORMAL, lhs, rhs,
-				make_node (modifycode), /*overload=*/NULL,
-				complain);
+      tree rval = build_new_op (input_location, MODIFY_EXPR, LOOKUP_NORMAL,
+				lhs, rhs, make_node (modifycode),
+				/*overload=*/NULL, complain);
       if (rval)
 	{
 	  TREE_NO_WARNING (rval) = 1;
@@ -7576,6 +7535,10 @@ convert_for_assignment (tree type, tree rhs,
       return error_mark_node;
     }
 
+  /* Simplify the RHS if possible.  */
+  if (TREE_CODE (rhs) == CONST_DECL)
+    rhs = DECL_INITIAL (rhs);
+
   if (c_dialect_objc ())
     {
       int parmno;
@@ -7623,7 +7586,7 @@ convert_for_assignment (tree type, tree rhs,
       if (!warn_pmf2ptr
 	  && TYPE_PTR_P (type)
 	  && TYPE_PTRMEMFUNC_P (rhstype))
-	rhs = cp_convert (strip_top_quals (type), rhs, complain);
+	rhs = cp_convert (strip_top_quals (type), rhs);
       else
 	{
 	  if (complain & tf_error)
@@ -7747,7 +7710,9 @@ convert_for_assignment (tree type, tree rhs,
    latter (X(X&)).
 
    If using constructor make sure no conversion operator exists, if one does
-   exist, an ambiguity exists.  */
+   exist, an ambiguity exists.
+
+   If flags doesn't include LOOKUP_COMPLAIN, don't complain about anything.  */
 
 tree
 convert_for_initialization (tree exp, tree type, tree rhs, int flags,
@@ -8225,7 +8190,7 @@ comp_ptr_ttypes_real (tree to, tree from, int constp)
       if (TREE_CODE (to) == VECTOR_TYPE)
 	is_opaque_pointer = vector_targets_convertible_p (to, from);
 
-      if (TREE_CODE (to) != POINTER_TYPE && !TYPE_PTRDATAMEM_P (to))
+      if (TREE_CODE (to) != POINTER_TYPE && !TYPE_PTRMEM_P (to))
 	return ((constp >= 0 || to_more_cv_qualified)
 		&& (is_opaque_pointer
 		    || same_type_ignoring_top_level_qualifiers_p (to, from)));
@@ -8453,9 +8418,9 @@ cp_apply_type_quals_to_decl (int type_quals, tree decl)
      constructor can produce constant init, so rely on cp_finish_decl to
      clear TREE_READONLY if the variable has non-constant init.  */
 
-  /* If the type has (or might have) a mutable component, that component
-     might be modified.  */
-  if (TYPE_HAS_MUTABLE_P (type) || !COMPLETE_TYPE_P (type))
+  /* If the type has a mutable component, that component might be
+     modified.  */
+  if (TYPE_HAS_MUTABLE_P (type))
     type_quals &= ~TYPE_QUAL_CONST;
 
   c_apply_type_quals_to_decl (type_quals, decl);
@@ -8494,8 +8459,8 @@ casts_away_constness_r (tree *t1, tree *t2, tsubst_flags_t complain)
      to
 
 	    Tcv2,(M-K+1) * cv2,(M-K+2) * ... cv2,M *.  */
-  if ((!TYPE_PTR_P (*t1) && !TYPE_PTRDATAMEM_P (*t1))
-      || (!TYPE_PTR_P (*t2) && !TYPE_PTRDATAMEM_P (*t2)))
+  if ((!TYPE_PTR_P (*t1) && !TYPE_PTRMEM_P (*t1))
+      || (!TYPE_PTR_P (*t2) && !TYPE_PTRMEM_P (*t2)))
     {
       *t1 = cp_build_qualified_type (void_type_node,
 				     cp_type_quals (*t1));
@@ -8507,11 +8472,11 @@ casts_away_constness_r (tree *t1, tree *t2, tsubst_flags_t complain)
   quals1 = cp_type_quals (*t1);
   quals2 = cp_type_quals (*t2);
 
-  if (TYPE_PTRDATAMEM_P (*t1))
+  if (TYPE_PTRMEM_P (*t1))
     *t1 = TYPE_PTRMEM_POINTED_TO_TYPE (*t1);
   else
     *t1 = TREE_TYPE (*t1);
-  if (TYPE_PTRDATAMEM_P (*t2))
+  if (TYPE_PTRMEM_P (*t2))
     *t2 = TYPE_PTRMEM_POINTED_TO_TYPE (*t2);
   else
     *t2 = TREE_TYPE (*t2);
@@ -8548,7 +8513,7 @@ casts_away_constness (tree t1, tree t2, tsubst_flags_t complain)
 				   complain);
     }
 
-  if (TYPE_PTRDATAMEM_P (t1) && TYPE_PTRDATAMEM_P (t2))
+  if (TYPE_PTRMEM_P (t1) && TYPE_PTRMEM_P (t2))
     /* [expr.const.cast]
 
        Casting from an rvalue of type "pointer to data member of X

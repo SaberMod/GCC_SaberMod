@@ -41,7 +41,7 @@ struct map_value {
 };
 
 /* Maps an iterator or attribute name to a list of (integer, string) pairs.
-   The integers are iterator values; the strings are either C conditions
+   The integers are mode or code values; the strings are either C conditions
    or attribute values.  */
 struct mapping {
   /* The name of the iterator or attribute.  */
@@ -50,80 +50,102 @@ struct mapping {
   /* The group (modes or codes) to which the iterator or attribute belongs.  */
   struct iterator_group *group;
 
+  /* Gives a unique number to the attribute or iterator.  Numbers are
+     allocated consecutively, starting at 0.  */
+  int index;
+
   /* The list of (integer, string) pairs.  */
   struct map_value *values;
-
-  /* For iterators, records the current value of the iterator.  */
-  struct map_value *current_value;
 };
 
-/* Vector definitions for the above.  */
-typedef struct mapping *mapping_ptr;
-DEF_VEC_P (mapping_ptr);
-DEF_VEC_ALLOC_P (mapping_ptr, heap);
-
-/* A structure for abstracting the common parts of iterators.  */
+/* A structure for abstracting the common parts of code and mode iterators.  */
 struct iterator_group {
-  /* Tables of "mapping" structures, one for attributes and one for
-     iterators.  */
+  /* Tables of "mapping" structures, one for attributes and one for iterators.  */
   htab_t attrs, iterators;
 
-  /* Treat the given string as the name of a standard mode, etc., and
+  /* The number of "real" modes or codes (and by extension, the first
+     number available for use as an iterator placeholder).  */
+  int num_builtins;
+
+  /* Treat the given string as the name of a standard mode or code and
      return its integer value.  */
   int (*find_builtin) (const char *);
 
-  /* Make the given pointer use the given iterator value.  */
-  void (*apply_iterator) (void *, int);
+  /* Return true if the given rtx uses the given mode or code.  */
+  bool (*uses_iterator_p) (rtx, int);
+
+  /* Make the given rtx use the given mode or code.  */
+  void (*apply_iterator) (rtx, int);
 };
 
-/* Records one use of an iterator.  */
-struct iterator_use {
-  /* The iterator itself.  */
+/* A structure used to pass data from read_rtx to apply_iterator_traverse
+   via htab_traverse.  */
+struct iterator_traverse_data {
+  /* Instruction queue.  */
+  rtx queue;
+  /* Attributes seen for modes.  */
+  struct map_value *mode_maps;
+  /* The last unknown attribute used as a mode.  */
+  const char *unknown_mode_attr;
+};
+
+/* If CODE is the number of a code iterator, return a real rtx code that
+   has the same format.  Return CODE otherwise.  */
+#define BELLWETHER_CODE(CODE) \
+  ((CODE) < NUM_RTX_CODE ? CODE : bellwether_codes[CODE - NUM_RTX_CODE])
+
+/* One element in the (rtx, opno) pair list.  */
+struct rtx_list {
+  /* rtx.  */
+  rtx x;
+  /* Position of the operand to replace.  */
+  int opno;
+};
+
+/* A structure to track which rtx uses which int iterator.  */
+struct int_iterator_mapping {
+  /* Iterator.  */
   struct mapping *iterator;
-
-  /* The location of the use, as passed to the apply_iterator callback.  */
-  void *ptr;
+  /* list of rtx using ITERATOR.  */
+  struct rtx_list *rtxs;
+  int num_rtx;
 };
 
-/* Vector definitions for the above.  */
-typedef struct iterator_use iterator_use;
-DEF_VEC_O (iterator_use);
-DEF_VEC_ALLOC_O (iterator_use, heap);
+static struct int_iterator_mapping *int_iterator_data;
+static int num_int_iterator_data;
 
-/* Records one use of an attribute (the "<[iterator:]attribute>" syntax)
-   in a non-string rtx field.  */
-struct attribute_use {
-  /* The group that describes the use site.  */
-  struct iterator_group *group;
-
-  /* The name of the attribute, possibly with an "iterator:" prefix.  */
-  const char *value;
-
-  /* The location of the use, as passed to GROUP's apply_iterator callback.  */
-  void *ptr;
-};
-
-/* Vector definitions for the above.  */
-typedef struct attribute_use attribute_use;
-DEF_VEC_O (attribute_use);
-DEF_VEC_ALLOC_O (attribute_use, heap);
-
+static int find_mode (const char *);
+static bool uses_mode_iterator_p (rtx, int);
+static void apply_mode_iterator (rtx, int);
+static int find_code (const char *);
+static bool uses_code_iterator_p (rtx, int);
+static void apply_code_iterator (rtx, int);
+static const char *apply_iterator_to_string (const char *, struct mapping *, int);
+static rtx apply_iterator_to_rtx (rtx, struct mapping *, int,
+				  struct map_value *, const char **);
+static bool uses_iterator_p (rtx, struct mapping *);
+static const char *add_condition_to_string (const char *, const char *);
+static void add_condition_to_rtx (rtx, const char *);
+static int apply_iterator_traverse (void **, void *);
+static struct mapping *add_mapping (struct iterator_group *, htab_t t,
+				    const char *);
+static struct map_value **add_map_value (struct map_value **,
+					 int, const char *);
+static void initialize_iterators (void);
+static void read_conditions (void);
 static void validate_const_int (const char *);
-static rtx read_rtx_code (const char *);
-static rtx read_nested_rtx (void);
-static rtx read_rtx_variadic (rtx);
+static int find_iterator (struct iterator_group *, const char *);
+static struct mapping *read_mapping (struct iterator_group *, htab_t);
+static void check_code_iterator (struct mapping *);
+static rtx read_rtx_code (const char *, struct map_value **);
+static rtx read_nested_rtx (struct map_value **);
+static rtx read_rtx_variadic (struct map_value **, rtx);
 
-/* The mode and code iterator structures.  */
+/* The mode, code and int iterator structures.  */
 static struct iterator_group modes, codes, ints;
 
-/* All iterators used in the current rtx.  */
-static VEC (mapping_ptr, heap) *current_iterators;
-
-/* The list of all iterator uses in the current rtx.  */
-static VEC (iterator_use, heap) *iterator_uses;
-
-/* The list of all attribute uses in the current rtx.  */
-static VEC (attribute_use, heap) *attribute_uses;
+/* Index I is the value of BELLWETHER_CODE (I + NUM_RTX_CODE).  */
+static enum rtx_code *bellwether_codes;
 
 /* Implementations of the iterator_group callbacks for modes.  */
 
@@ -139,10 +161,16 @@ find_mode (const char *name)
   fatal_with_file_and_line ("unknown mode `%s'", name);
 }
 
-static void
-apply_mode_iterator (void *loc, int mode)
+static bool
+uses_mode_iterator_p (rtx x, int mode)
 {
-  PUT_MODE ((rtx) loc, (enum machine_mode) mode);
+  return (int) GET_MODE (x) == mode;
+}
+
+static void
+apply_mode_iterator (rtx x, int mode)
+{
+  PUT_MODE (x, (enum machine_mode) mode);
 }
 
 /* Implementations of the iterator_group callbacks for codes.  */
@@ -159,83 +187,175 @@ find_code (const char *name)
   fatal_with_file_and_line ("unknown rtx code `%s'", name);
 }
 
-static void
-apply_code_iterator (void *loc, int code)
+static bool
+uses_code_iterator_p (rtx x, int code)
 {
-  PUT_CODE ((rtx) loc, (enum rtx_code) code);
+  return (int) GET_CODE (x) == code;
 }
 
-/* Implementations of the iterator_group callbacks for ints.  */
+static void
+apply_code_iterator (rtx x, int code)
+{
+  PUT_CODE (x, (enum rtx_code) code);
+}
 
 /* Since GCC does not construct a table of valid constants,
    we have to accept any int as valid.  No cross-checking can
    be done.  */
-
 static int
 find_int (const char *name)
 {
-  validate_const_int (name);
-  return atoi (name);
+  char *endptr;
+  int ret;
+
+  if (ISDIGIT (*name))
+    {
+      ret = strtol (name, &endptr, 0);
+      gcc_assert (*endptr == '\0');
+      return ret;
+    }
+  else
+    fatal_with_file_and_line ("unknown int `%s'", name);
+}
+
+static bool
+dummy_uses_int_iterator (rtx x ATTRIBUTE_UNUSED, int index ATTRIBUTE_UNUSED)
+{
+  return false;
 }
 
 static void
-apply_int_iterator (void *loc, int value)
+dummy_apply_int_iterator (rtx x ATTRIBUTE_UNUSED, int code ATTRIBUTE_UNUSED)
 {
-  *(int *)loc = value;
+  /* Do nothing.  */
 }
 
-/* Map attribute string P to its current value.  Return null if the attribute
-   isn't known.  */
+/* Stand-alone int iterator usage-checking function.  */
+static bool
+uses_int_iterator_p (rtx x, struct mapping *iterator, int opno)
+{
+  int i;
+  for (i=0; i < num_int_iterator_data; i++)
+    if (int_iterator_data[i].iterator->group == iterator->group &&
+	int_iterator_data[i].iterator->index == iterator->index)
+      {
+	/* Found an existing entry. Check if X is in its list.  */
+	struct int_iterator_mapping it = int_iterator_data[i];
+	int j;
+
+	for (j=0; j < it.num_rtx; j++)
+	{
+	  if (it.rtxs[j].x == x && it.rtxs[j].opno == opno)
+	    return true;
+	}
+      }
+  return false;
+}
+
+/* Map a code or mode attribute string P to the underlying string for
+   ITERATOR and VALUE.  */
 
 static struct map_value *
-map_attr_string (const char *p)
+map_attr_string (const char *p, struct mapping *iterator, int value)
 {
   const char *attr;
-  struct mapping *iterator;
-  unsigned int i;
   struct mapping *m;
   struct map_value *v;
-  int iterator_name_len;
 
-  /* Peel off any "iterator:" prefix.  Set ATTR to the start of the
-     attribute name.  */
+  /* If there's a "iterator:" prefix, check whether the iterator name matches.
+     Set ATTR to the start of the attribute name.  */
   attr = strchr (p, ':');
   if (attr == 0)
-    {
-      iterator_name_len = -1;
-      attr = p;
-    }
+    attr = p;
   else
     {
-      iterator_name_len = attr - p;
+      if (strncmp (p, iterator->name, attr - p) != 0
+	  || iterator->name[attr - p] != 0)
+	return 0;
       attr++;
     }
 
-  FOR_EACH_VEC_ELT (mapping_ptr, current_iterators, i, iterator)
-    {
-      /* If an iterator name was specified, check that it matches.  */
-      if (iterator_name_len >= 0
-	  && (strncmp (p, iterator->name, iterator_name_len) != 0
-	      || iterator->name[iterator_name_len] != 0))
-	continue;
+  /* Find the attribute specification.  */
+  m = (struct mapping *) htab_find (iterator->group->attrs, &attr);
+  if (m == 0)
+    return 0;
 
-      /* Find the attribute specification.  */
-      m = (struct mapping *) htab_find (iterator->group->attrs, &attr);
-      if (m)
-	/* Find the attribute value associated with the current
-	   iterator value.  */
-	for (v = m->values; v; v = v->next)
-	  if (v->number == iterator->current_value->number)
-	    return v;
-    }
-  return NULL;
+  /* Find the attribute value for VALUE.  */
+  for (v = m->values; v != 0; v = v->next)
+    if (v->number == value)
+      break;
+
+  return v;
 }
 
-/* Apply the current iterator values to STRING.  Return the new string
-   if any changes were needed, otherwise return STRING itself.  */
+/* Given an attribute string used as a machine mode, return an index
+   to store in the machine mode to be translated by
+   apply_iterator_to_rtx.  */
+
+static unsigned int
+mode_attr_index (struct map_value **mode_maps, const char *string)
+{
+  char *p;
+  struct map_value *mv;
+
+  /* Copy the attribute string into permanent storage, without the
+     angle brackets around it.  */
+  obstack_grow0 (&string_obstack, string + 1, strlen (string) - 2);
+  p = XOBFINISH (&string_obstack, char *);
+
+  mv = XNEW (struct map_value);
+  mv->number = *mode_maps == 0 ? 0 : (*mode_maps)->number + 1;
+  mv->string = p;
+  mv->next = *mode_maps;
+  *mode_maps = mv;
+
+  /* We return a code which we can map back into this string: the
+     number of machine modes + the number of mode iterators + the index
+     we just used.  */
+  return MAX_MACHINE_MODE + htab_elements (modes.iterators) + mv->number;
+}
+
+/* Apply MODE_MAPS to the top level of X, expanding cases where an
+   attribute is used for a mode.  ITERATOR is the current iterator we are
+   expanding, and VALUE is the value to which we are expanding it.
+   This sets *UNKNOWN to true if we find a mode attribute which has not
+   yet been defined, and does not change it otherwise.  */
+
+static void
+apply_mode_maps (rtx x, struct map_value *mode_maps, struct mapping *iterator,
+		 int value, const char **unknown)
+{
+  unsigned int offset;
+  int indx;
+  struct map_value *pm;
+
+  offset = MAX_MACHINE_MODE + htab_elements (modes.iterators);
+  if (GET_MODE (x) < offset)
+    return;
+
+  indx = GET_MODE (x) - offset;
+  for (pm = mode_maps; pm; pm = pm->next)
+    {
+      if (pm->number == indx)
+	{
+	  struct map_value *v;
+
+	  v = map_attr_string (pm->string, iterator, value);
+	  if (v)
+	    PUT_MODE (x, (enum machine_mode) find_mode (v->string));
+	  else
+	    *unknown = pm->string;
+	  return;
+	}
+    }
+}
+
+/* Given that ITERATOR is being expanded as VALUE, apply the appropriate
+   string substitutions to STRING.  Return the new string if any changes
+   were needed, otherwise return STRING itself.  */
 
 static const char *
-apply_iterator_to_string (const char *string)
+apply_iterator_to_string (const char *string, struct mapping *iterator, int value)
 {
   char *base, *copy, *p, *start, *end;
   struct map_value *v;
@@ -249,7 +369,7 @@ apply_iterator_to_string (const char *string)
       p = start + 1;
 
       *end = 0;
-      v = map_attr_string (p);
+      v = map_attr_string (p, iterator, value);
       *end = '>';
       if (v == 0)
 	continue;
@@ -270,39 +390,57 @@ apply_iterator_to_string (const char *string)
   return string;
 }
 
-/* Return a deep copy of X, substituting the current iterator
-   values into any strings.  */
+/* Return a copy of ORIGINAL in which all uses of ITERATOR have been
+   replaced by VALUE.  MODE_MAPS holds information about attribute
+   strings used for modes.  This sets *UNKNOWN_MODE_ATTR to the value of
+   an unknown mode attribute, and does not change it otherwise.  */
 
 static rtx
-copy_rtx_for_iterators (rtx original)
+apply_iterator_to_rtx (rtx original, struct mapping *iterator, int value,
+		       struct map_value *mode_maps,
+		       const char **unknown_mode_attr)
 {
+  struct iterator_group *group;
   const char *format_ptr;
   int i, j;
   rtx x;
+  enum rtx_code bellwether_code;
 
   if (original == 0)
     return original;
 
   /* Create a shallow copy of ORIGINAL.  */
-  x = rtx_alloc (GET_CODE (original));
-  memcpy (x, original, RTX_CODE_SIZE (GET_CODE (original)));
+  bellwether_code = BELLWETHER_CODE (GET_CODE (original));
+  x = rtx_alloc (bellwether_code);
+  memcpy (x, original, RTX_CODE_SIZE (bellwether_code));
+
+  /* Change the mode or code itself.
+     For int iterators, apply_iterator () does nothing. This is
+     because we want to apply int iterators to operands below.  */
+  group = iterator->group;
+  if (group->uses_iterator_p (x, iterator->index + group->num_builtins))
+    group->apply_iterator (x, value);
+
+  if (mode_maps)
+    apply_mode_maps (x, mode_maps, iterator, value, unknown_mode_attr);
 
   /* Change each string and recursively change each rtx.  */
-  format_ptr = GET_RTX_FORMAT (GET_CODE (original));
+  format_ptr = GET_RTX_FORMAT (bellwether_code);
   for (i = 0; format_ptr[i] != 0; i++)
     switch (format_ptr[i])
       {
       case 'T':
-	XTMPL (x, i) = apply_iterator_to_string (XTMPL (x, i));
+	XTMPL (x, i) = apply_iterator_to_string (XTMPL (x, i), iterator, value);
 	break;
 
       case 'S':
       case 's':
-	XSTR (x, i) = apply_iterator_to_string (XSTR (x, i));
+	XSTR (x, i) = apply_iterator_to_string (XSTR (x, i), iterator, value);
 	break;
 
       case 'e':
-	XEXP (x, i) = copy_rtx_for_iterators (XEXP (x, i));
+	XEXP (x, i) = apply_iterator_to_rtx (XEXP (x, i), iterator, value,
+					     mode_maps, unknown_mode_attr);
 	break;
 
       case 'V':
@@ -311,15 +449,63 @@ copy_rtx_for_iterators (rtx original)
 	  {
 	    XVEC (x, i) = rtvec_alloc (XVECLEN (original, i));
 	    for (j = 0; j < XVECLEN (x, i); j++)
-	      XVECEXP (x, i, j)
-		= copy_rtx_for_iterators (XVECEXP (original, i, j));
+	      XVECEXP (x, i, j) = apply_iterator_to_rtx (XVECEXP (original, i, j),
+							 iterator, value, mode_maps,
+							 unknown_mode_attr);
 	  }
+	break;
+      case 'i':
+	if (uses_int_iterator_p (original, iterator, i))
+	  XINT (x, i) = value;
 	break;
 
       default:
 	break;
       }
   return x;
+}
+
+/* Return true if X (or some subexpression of X) uses iterator ITERATOR.  */
+
+static bool
+uses_iterator_p (rtx x, struct mapping *iterator)
+{
+  struct iterator_group *group;
+  const char *format_ptr;
+  int i, j;
+
+  if (x == 0)
+    return false;
+
+  group = iterator->group;
+  if (group->uses_iterator_p (x, iterator->index + group->num_builtins))
+    return true;
+
+  format_ptr = GET_RTX_FORMAT (BELLWETHER_CODE (GET_CODE (x)));
+  for (i = 0; format_ptr[i] != 0; i++)
+    switch (format_ptr[i])
+      {
+      case 'e':
+	if (uses_iterator_p (XEXP (x, i), iterator))
+	  return true;
+	break;
+
+      case 'V':
+      case 'E':
+	if (XVEC (x, i))
+	  for (j = 0; j < XVECLEN (x, i); j++)
+	    if (uses_iterator_p (XVECEXP (x, i, j), iterator))
+	      return true;
+	break;
+
+      case 'i':
+	if (uses_int_iterator_p (x, iterator, i))
+	  return true;
+
+      default:
+	break;
+      }
+  return false;
 }
 
 /* Return a condition that must satisfy both ORIGINAL and EXTRA.  If ORIGINAL
@@ -363,116 +549,52 @@ add_condition_to_rtx (rtx x, const char *extra)
     }
 }
 
-/* Apply the current iterator values to all attribute_uses.  */
-
-static void
-apply_attribute_uses (void)
-{
-  struct map_value *v;
-  attribute_use *ause;
-  unsigned int i;
-
-  FOR_EACH_VEC_ELT (attribute_use, attribute_uses, i, ause)
-    {
-      v = map_attr_string (ause->value);
-      if (!v)
-	fatal_with_file_and_line ("unknown iterator value `%s'", ause->value);
-      ause->group->apply_iterator (ause->ptr,
-				   ause->group->find_builtin (v->string));
-    }
-}
-
-/* A htab_traverse callback for iterators.  Add all used iterators
-   to current_iterators.  */
+/* A htab_traverse callback.  Search the EXPR_LIST given by DATA
+   for rtxes that use the iterator in *SLOT.  Replace each such rtx
+   with a list of expansions.  */
 
 static int
-add_current_iterators (void **slot, void *data ATTRIBUTE_UNUSED)
+apply_iterator_traverse (void **slot, void *data)
 {
-  struct mapping *iterator;
-
-  iterator = (struct mapping *) *slot;
-  if (iterator->current_value)
-    VEC_safe_push (mapping_ptr, heap, current_iterators, iterator);
-  return 1;
-}
-
-/* Expand all iterators in the current rtx, which is given as ORIGINAL.
-   Build a list of expanded rtxes in the EXPR_LIST pointed to by QUEUE.  */
-
-static void
-apply_iterators (rtx original, rtx *queue)
-{
-  unsigned int i;
-  const char *condition;
-  iterator_use *iuse;
+  struct iterator_traverse_data *mtd = (struct iterator_traverse_data *) data;
   struct mapping *iterator;
   struct map_value *v;
-  rtx x;
+  rtx elem, new_elem, original, x;
 
-  if (VEC_empty (iterator_use, iterator_uses))
-    {
-      /* Raise an error if any attributes were used.  */
-      apply_attribute_uses ();
-      XEXP (*queue, 0) = original;
-      XEXP (*queue, 1) = NULL_RTX;
-      return;
+  iterator = (struct mapping *) *slot;
+  for (elem = mtd->queue; elem != 0; elem = XEXP (elem, 1))
+  {
+    if (uses_iterator_p (XEXP (elem, 0), iterator))
+      {
+	/* For each iterator we expand, we set UNKNOWN_MODE_ATTR to NULL.
+	   If apply_iterator_rtx finds an unknown attribute for a mode,
+	   it will set it to the attribute.  We want to know whether
+	   the attribute is unknown after we have expanded all
+	   possible iterators, so setting it to NULL here gives us the
+	   right result when the hash table traversal is complete.  */
+	mtd->unknown_mode_attr = NULL;
+
+	original = XEXP (elem, 0);
+	for (v = iterator->values; v != 0; v = v->next)
+	  {
+	    x = apply_iterator_to_rtx (original, iterator, v->number,
+				       mtd->mode_maps,
+				       &mtd->unknown_mode_attr);
+	    add_condition_to_rtx (x, v->string);
+	    if (v != iterator->values)
+	      {
+		/* Insert a new EXPR_LIST node after ELEM and put the
+		   new expansion there.  */
+		new_elem = rtx_alloc (EXPR_LIST);
+		XEXP (new_elem, 1) = XEXP (elem, 1);
+		XEXP (elem, 1) = new_elem;
+		elem = new_elem;
+	      }
+	    XEXP (elem, 0) = x;
+	  }
     }
-
-  /* Clear out the iterators from the previous run.  */
-  FOR_EACH_VEC_ELT (mapping_ptr, current_iterators, i, iterator)
-    iterator->current_value = NULL;
-  VEC_truncate (mapping_ptr, current_iterators, 0);
-
-  /* Mark the iterators that we need this time.  */
-  FOR_EACH_VEC_ELT (iterator_use, iterator_uses, i, iuse)
-    iuse->iterator->current_value = iuse->iterator->values;
-
-  /* Get the list of iterators that are in use, preserving the
-     definition order within each group.  */
-  htab_traverse (modes.iterators, add_current_iterators, NULL);
-  htab_traverse (codes.iterators, add_current_iterators, NULL);
-  htab_traverse (ints.iterators, add_current_iterators, NULL);
-  gcc_assert (!VEC_empty (mapping_ptr, current_iterators));
-
-  for (;;)
-    {
-      /* Apply the current iterator values.  Accumulate a condition to
-	 say when the resulting rtx can be used.  */
-      condition = NULL;
-      FOR_EACH_VEC_ELT (iterator_use, iterator_uses, i, iuse)
-	{
-	  v = iuse->iterator->current_value;
-	  iuse->iterator->group->apply_iterator (iuse->ptr, v->number);
-	  condition = join_c_conditions (condition, v->string);
-	}
-      apply_attribute_uses ();
-      x = copy_rtx_for_iterators (original);
-      add_condition_to_rtx (x, condition);
-
-      /* Add the new rtx to the end of the queue.  */
-      XEXP (*queue, 0) = x;
-      XEXP (*queue, 1) = NULL_RTX;
-
-      /* Lexicographically increment the iterator value sequence.
-	 That is, cycle through iterator values, starting from the right,
-	 and stopping when one of them doesn't wrap around.  */
-      i = VEC_length (mapping_ptr, current_iterators);
-      for (;;)
-	{
-	  if (i == 0)
-	    return;
-	  i--;
-	  iterator = VEC_index (mapping_ptr, current_iterators, i);
-	  iterator->current_value = iterator->current_value->next;
-	  if (iterator->current_value)
-	    break;
-	  iterator->current_value = iterator->values;
-	}
-
-      /* At least one more rtx to go.  Allocate room for it.  */
-      XEXP (*queue, 1) = rtx_alloc (EXPR_LIST);
-      queue = &XEXP (*queue, 1);
-    }
+  }
+  return 1;
 }
 
 /* Add a new "mapping" structure to hashtable TABLE.  NAME is the name
@@ -487,8 +609,8 @@ add_mapping (struct iterator_group *group, htab_t table, const char *name)
   m = XNEW (struct mapping);
   m->name = xstrdup (name);
   m->group = group;
+  m->index = htab_elements (table);
   m->values = 0;
-  m->current_value = NULL;
 
   slot = htab_find_slot (table, m, INSERT);
   if (*slot != 0)
@@ -516,7 +638,7 @@ add_map_value (struct map_value **end_ptr, int number, const char *string)
   return &value->next;
 }
 
-/* Do one-time initialization of the mode and code attributes.  */
+/* Do one-time initialization of the mode, code and int attributes.  */
 
 static void
 initialize_iterators (void)
@@ -529,20 +651,27 @@ initialize_iterators (void)
   modes.attrs = htab_create (13, leading_string_hash, leading_string_eq_p, 0);
   modes.iterators = htab_create (13, leading_string_hash,
 				 leading_string_eq_p, 0);
+  modes.num_builtins = MAX_MACHINE_MODE;
   modes.find_builtin = find_mode;
+  modes.uses_iterator_p = uses_mode_iterator_p;
   modes.apply_iterator = apply_mode_iterator;
 
   codes.attrs = htab_create (13, leading_string_hash, leading_string_eq_p, 0);
   codes.iterators = htab_create (13, leading_string_hash,
 				 leading_string_eq_p, 0);
+  codes.num_builtins = NUM_RTX_CODE;
   codes.find_builtin = find_code;
+  codes.uses_iterator_p = uses_code_iterator_p;
   codes.apply_iterator = apply_code_iterator;
 
   ints.attrs = htab_create (13, leading_string_hash, leading_string_eq_p, 0);
   ints.iterators = htab_create (13, leading_string_hash,
-				 leading_string_eq_p, 0);
+				leading_string_eq_p, 0);
+  ints.num_builtins = 0;
   ints.find_builtin = find_int;
-  ints.apply_iterator = apply_int_iterator;
+  ints.uses_iterator_p = dummy_uses_int_iterator;
+  ints.apply_iterator = dummy_apply_int_iterator;
+  num_int_iterator_data = 0;
 
   lower = add_mapping (&modes, modes.attrs, "mode");
   upper = add_mapping (&modes, modes.attrs, "MODE");
@@ -679,60 +808,73 @@ validate_const_int (const char *string)
     fatal_with_file_and_line ("invalid decimal constant \"%s\"\n", string);
 }
 
-/* Record that PTR uses iterator ITERATOR.  */
+/* Search GROUP for a mode or code called NAME and return its numerical
+   identifier.  */
 
-static void
-record_iterator_use (struct mapping *iterator, void *ptr)
-{
-  struct iterator_use *iuse;
-
-  iuse = VEC_safe_push (iterator_use, heap, iterator_uses, NULL);
-  iuse->iterator = iterator;
-  iuse->ptr = ptr;
-}
-
-/* Record that PTR uses attribute VALUE, which must match a built-in
-   value from group GROUP.  */
-
-static void
-record_attribute_use (struct iterator_group *group, void *ptr,
-		      const char *value)
-{
-  struct attribute_use *ause;
-
-  ause = VEC_safe_push (attribute_use, heap, attribute_uses, NULL);
-  ause->group = group;
-  ause->value = value;
-  ause->ptr = ptr;
-}
-
-/* Interpret NAME as either a built-in value, iterator or attribute
-   for group GROUP.  PTR is the value to pass to GROUP's apply_iterator
-   callback.  */
-
-static void
-record_potential_iterator_use (struct iterator_group *group, void *ptr,
-			       const char *name)
+static int
+find_iterator (struct iterator_group *group, const char *name)
 {
   struct mapping *m;
-  size_t len;
 
-  len = strlen (name);
-  if (name[0] == '<' && name[len - 1] == '>')
-    {
-      /* Copy the attribute string into permanent storage, without the
-	 angle brackets around it.  */
-      obstack_grow0 (&string_obstack, name + 1, len - 2);
-      record_attribute_use (group, ptr, XOBFINISH (&string_obstack, char *));
-    }
+  m = (struct mapping *) htab_find (group->iterators, &name);
+  if (m != 0)
+    return m->index + group->num_builtins;
+  return group->find_builtin (name);
+}
+
+/* We cannot use the same design as code and mode iterators as ints
+   can be any arbitrary number and there is no way to represent each
+   int iterator's placeholder with a unique numeric identifier. Therefore
+   we create a (rtx *, op, iterator *) triplet database.  */
+
+static struct mapping *
+find_int_iterator (struct iterator_group *group, const char *name)
+{
+  struct mapping *m;
+
+  m = (struct mapping *) htab_find (group->iterators, &name);
+  if (m == 0)
+    fatal_with_file_and_line ("invalid iterator \"%s\"\n", name);
+  return m;
+}
+
+/* Add to triplet-database for int iterators.  */
+static void
+add_int_iterator (struct mapping *iterator, rtx x, int opno)
+{
+
+  /* Find iterator in int_iterator_data. If already present,
+     add this R to its list of rtxs. If not present, create
+     a new entry for INT_ITERATOR_DATA and add the R to its
+     rtx list.  */
+  int i;
+  for (i=0; i < num_int_iterator_data; i++)
+    if (int_iterator_data[i].iterator->index == iterator->index)
+      {
+	/* Found an existing entry. Add rtx to this iterator's list.  */
+	int_iterator_data[i].rtxs =
+			XRESIZEVEC (struct rtx_list,
+				    int_iterator_data[i].rtxs,
+				    int_iterator_data[i].num_rtx + 1);
+	int_iterator_data[i].rtxs[int_iterator_data[i].num_rtx].x = x;
+	int_iterator_data[i].rtxs[int_iterator_data[i].num_rtx].opno = opno;
+	int_iterator_data[i].num_rtx++;
+	return;
+      }
+
+  /* New INT_ITERATOR_DATA entry.  */
+  if (num_int_iterator_data == 0)
+    int_iterator_data = XNEWVEC (struct int_iterator_mapping, 1);
   else
-    {
-      m = (struct mapping *) htab_find (group->iterators, &name);
-      if (m != 0)
-	record_iterator_use (m, ptr);
-      else
-	group->apply_iterator (ptr, group->find_builtin (name));
-    }
+    int_iterator_data = XRESIZEVEC (struct int_iterator_mapping,
+				    int_iterator_data,
+				    num_int_iterator_data + 1);
+  int_iterator_data[num_int_iterator_data].iterator = iterator;
+  int_iterator_data[num_int_iterator_data].rtxs = XNEWVEC (struct rtx_list, 1);
+  int_iterator_data[num_int_iterator_data].rtxs[0].x = x;
+  int_iterator_data[num_int_iterator_data].rtxs[0].opno = opno;
+  int_iterator_data[num_int_iterator_data].num_rtx = 1;
+  num_int_iterator_data++;
 }
 
 /* Finish reading a declaration of the form:
@@ -794,7 +936,7 @@ read_mapping (struct iterator_group *group, htab_t table)
 }
 
 /* Check newly-created code iterator ITERATOR to see whether every code has the
-   same format.  */
+   same format.  Initialize the iterator's entry in bellwether_codes.  */
 
 static void
 check_code_iterator (struct mapping *iterator)
@@ -807,6 +949,10 @@ check_code_iterator (struct mapping *iterator)
     if (strcmp (GET_RTX_FORMAT (bellwether), GET_RTX_FORMAT (v->number)) != 0)
       fatal_with_file_and_line ("code iterator `%s' combines "
 				"different rtx formats", iterator->name);
+
+  bellwether_codes = XRESIZEVEC (enum rtx_code, bellwether_codes,
+				 iterator->index + 1);
+  bellwether_codes[iterator->index] = bellwether;
 }
 
 /* Read an rtx-related declaration from the MD file, given that it
@@ -818,6 +964,9 @@ bool
 read_rtx (const char *rtx_name, rtx *x)
 {
   static rtx queue_head;
+  struct map_value *mode_maps;
+  struct iterator_traverse_data mtd;
+  int i;
 
   /* Do one-time initialization.  */
   if (queue_head == 0)
@@ -864,9 +1013,28 @@ read_rtx (const char *rtx_name, rtx *x)
       return false;
     }
 
-  apply_iterators (read_rtx_code (rtx_name), &queue_head);
-  VEC_truncate (iterator_use, iterator_uses, 0);
-  VEC_truncate (attribute_use, attribute_uses, 0);
+
+  mode_maps = 0;
+  XEXP (queue_head, 0) = read_rtx_code (rtx_name, &mode_maps);
+  XEXP (queue_head, 1) = 0;
+
+  mtd.queue = queue_head;
+  mtd.mode_maps = mode_maps;
+  mtd.unknown_mode_attr = mode_maps ? mode_maps->string : NULL;
+  htab_traverse (ints.iterators, apply_iterator_traverse, &mtd);
+  /* Free used memory from recording int iterator usage.  */
+  for (i=0; i < num_int_iterator_data; i++)
+    if (int_iterator_data[i].num_rtx > 0)
+      XDELETEVEC (int_iterator_data[i].rtxs);
+  if (num_int_iterator_data > 0)
+    XDELETEVEC (int_iterator_data);
+  num_int_iterator_data = 0;
+
+  htab_traverse (modes.iterators, apply_iterator_traverse, &mtd);
+  htab_traverse (codes.iterators, apply_iterator_traverse, &mtd);
+  if (mtd.unknown_mode_attr)
+    fatal_with_file_and_line ("undefined attribute '%s' used for mode",
+			      mtd.unknown_mode_attr);
 
   *x = queue_head;
   return true;
@@ -874,18 +1042,18 @@ read_rtx (const char *rtx_name, rtx *x)
 
 /* Subroutine of read_rtx and read_nested_rtx.  CODE_NAME is the name of
    either an rtx code or a code iterator.  Parse the rest of the rtx and
-   return it.  */
+   return it.  MODE_MAPS is as for iterator_traverse_data.  */
 
 static rtx
-read_rtx_code (const char *code_name)
+read_rtx_code (const char *code_name, struct map_value **mode_maps)
 {
   int i;
-  RTX_CODE code;
-  struct mapping *iterator;
+  RTX_CODE real_code, bellwether_code;
   const char *format_ptr;
   struct md_name name;
   rtx return_rtx;
   int c;
+  int tmp_int;
   HOST_WIDE_INT tmp_wide;
 
   /* Linked list structure for making RTXs: */
@@ -895,21 +1063,13 @@ read_rtx_code (const char *code_name)
       rtx value;		/* Value of this node.  */
     };
 
-  /* If this code is an iterator, build the rtx using the iterator's
-     first value.  */
-  iterator = (struct mapping *) htab_find (codes.iterators, &code_name);
-  if (iterator != 0)
-    code = (enum rtx_code) iterator->values->number;
-  else
-    code = (enum rtx_code) codes.find_builtin (code_name);
+  real_code = (enum rtx_code) find_iterator (&codes, code_name);
+  bellwether_code = BELLWETHER_CODE (real_code);
 
   /* If we end up with an insn expression then we free this space below.  */
-  return_rtx = rtx_alloc (code);
-  format_ptr = GET_RTX_FORMAT (code);
-  PUT_CODE (return_rtx, code);
-
-  if (iterator)
-    record_iterator_use (iterator, return_rtx);
+  return_rtx = rtx_alloc (bellwether_code);
+  format_ptr = GET_RTX_FORMAT (bellwether_code);
+  PUT_CODE (return_rtx, real_code);
 
   /* If what follows is `: mode ', read it and
      store the mode in the rtx.  */
@@ -917,8 +1077,16 @@ read_rtx_code (const char *code_name)
   i = read_skip_spaces ();
   if (i == ':')
     {
+      unsigned int mode;
+
       read_name (&name);
-      record_potential_iterator_use (&modes, return_rtx, name.string);
+      if (name.string[0] != '<' || name.string[strlen (name.string) - 1] != '>')
+	mode = find_iterator (&modes, name.string);
+      else
+	mode = mode_attr_index (mode_maps, name.string);
+      PUT_MODE (return_rtx, (enum machine_mode) mode);
+      if (GET_MODE (return_rtx) != mode)
+	fatal_with_file_and_line ("mode too large");
     }
   else
     unread_char (i);
@@ -933,7 +1101,7 @@ read_rtx_code (const char *code_name)
 
       case 'e':
       case 'u':
-	XEXP (return_rtx, i) = read_nested_rtx ();
+	XEXP (return_rtx, i) = read_nested_rtx (mode_maps);
 	break;
 
       case 'V':
@@ -967,7 +1135,7 @@ read_rtx_code (const char *code_name)
 		fatal_expected_char (']', c);
 	      unread_char (c);
 	      list_counter++;
-	      obstack_ptr_grow (&vector_stack, read_nested_rtx ());
+	      obstack_ptr_grow (&vector_stack, read_nested_rtx (mode_maps));
 	    }
 	  if (list_counter > 0)
 	    {
@@ -1059,14 +1227,30 @@ read_rtx_code (const char *code_name)
 	XWINT (return_rtx, i) = tmp_wide;
 	break;
 
-      case 'i':
       case 'n':
+	validate_const_int (name.string);
+	tmp_int = atoi (name.string);
+	XINT (return_rtx, i) = tmp_int;
+	break;
+      case 'i':
 	/* Can be an iterator or an integer constant.  */
 	read_name (&name);
-	record_potential_iterator_use (&ints, &XINT (return_rtx, i),
-				       name.string);
+	if (!ISDIGIT (name.string[0]))
+	  {
+	    struct mapping *iterator;
+	    /* An iterator.  */
+	    iterator = find_int_iterator (&ints, name.string);
+	    /* Build (iterator, rtx, op) triplet-database.  */
+	    add_int_iterator (iterator, return_rtx, i);
+	  }
+	else
+	  {
+	    /* A numeric constant.  */
+	    validate_const_int (name.string);
+	    tmp_int = atoi (name.string);
+	    XINT (return_rtx, i) = tmp_int;
+	  }
 	break;
-
       default:
 	gcc_unreachable ();
       }
@@ -1077,16 +1261,17 @@ read_rtx_code (const char *code_name)
   if (c == '('
       && (GET_CODE (return_rtx) == AND
 	  || GET_CODE (return_rtx) == IOR))
-    return read_rtx_variadic (return_rtx);
+    return read_rtx_variadic (mode_maps, return_rtx);
 
   unread_char (c);
   return return_rtx;
 }
 
-/* Read a nested rtx construct from the MD file and return it.  */
+/* Read a nested rtx construct from the MD file and return it.
+   MODE_MAPS is as for iterator_traverse_data.  */
 
 static rtx
-read_nested_rtx (void)
+read_nested_rtx (struct map_value **mode_maps)
 {
   struct md_name name;
   int c;
@@ -1100,7 +1285,7 @@ read_nested_rtx (void)
   if (strcmp (name.string, "nil") == 0)
     return_rtx = NULL;
   else
-    return_rtx = read_rtx_code (name.string);
+    return_rtx = read_rtx_code (name.string, mode_maps);
 
   c = read_skip_spaces ();
   if (c != ')')
@@ -1116,7 +1301,7 @@ read_nested_rtx (void)
    is just past the leading parenthesis of x3.  Only works
    for THINGs which are dyadic expressions, e.g. AND, IOR.  */
 static rtx
-read_rtx_variadic (rtx form)
+read_rtx_variadic (struct map_value **mode_maps, rtx form)
 {
   char c = '(';
   rtx p = form, q;
@@ -1129,7 +1314,7 @@ read_rtx_variadic (rtx form)
       PUT_MODE (q, GET_MODE (p));
 
       XEXP (q, 0) = XEXP (p, 1);
-      XEXP (q, 1) = read_nested_rtx ();
+      XEXP (q, 1) = read_nested_rtx (mode_maps);
 
       XEXP (p, 1) = q;
       p = q;

@@ -41,3 +41,5 @@ program p
   allocate(x(1))
 
 end program p
+
+! { dg-final { cleanup-modules "m m2" } }

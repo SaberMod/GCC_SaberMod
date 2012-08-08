@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2001-2012, AdaCore                     --
+--                     Copyright (C) 2001-2011, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1112,7 +1112,6 @@ package body GNAT.Sockets is
       Level  : Level_Type := Socket_Level;
       Name   : Option_Name) return Option_Type
    is
-      use SOSC;
       use type C.unsigned_char;
 
       V8  : aliased Two_Ints;
@@ -1145,22 +1144,8 @@ package body GNAT.Sockets is
 
          when Send_Timeout    |
               Receive_Timeout =>
-
-            --  The standard argument for SO_RCVTIMEO and SO_SNDTIMEO is a
-            --  struct timeval, but on Windows it is a milliseconds count in
-            --  a DWORD.
-
-            pragma Warnings (Off);
-            if Target_OS = Windows then
-               pragma Warnings (On);
-
-               Len := V4'Size / 8;
-               Add := V4'Address;
-
-            else
-               Len := VT'Size / 8;
-               Add := VT'Address;
-            end if;
+            Len := VT'Size / 8;
+            Add := VT'Address;
 
          when Linger          |
               Add_Membership  |
@@ -1216,23 +1201,7 @@ package body GNAT.Sockets is
 
          when Send_Timeout    |
               Receive_Timeout =>
-
-            pragma Warnings (Off);
-            if Target_OS = Windows then
-               pragma Warnings (On);
-
-               --  Timeout is in milliseconds, actual value is 500 ms +
-               --  returned value (unless it is 0).
-
-               if V4 = 0 then
-                  Opt.Timeout := 0.0;
-               else
-                  Opt.Timeout := Natural (V4) * 0.001 + 0.500;
-               end if;
-
-            else
-               Opt.Timeout := To_Duration (VT);
-            end if;
+            Opt.Timeout := To_Duration (VT);
       end case;
 
       return Opt;
@@ -2207,8 +2176,6 @@ package body GNAT.Sockets is
       Level  : Level_Type := Socket_Level;
       Option : Option_Type)
    is
-      use SOSC;
-
       V8  : aliased Two_Ints;
       V4  : aliased C.int;
       V1  : aliased C.unsigned_char;
@@ -2269,32 +2236,9 @@ package body GNAT.Sockets is
 
          when Send_Timeout    |
               Receive_Timeout =>
-
-            pragma Warnings (Off);
-            if Target_OS = Windows then
-               pragma Warnings (On);
-
-               --  On Windows, the timeout is a DWORD in milliseconds, and
-               --  the actual timeout is 500 ms + the given value (unless it
-               --  is 0).
-
-               V4 := C.int (Option.Timeout / 0.001);
-
-               if V4 > 500 then
-                  V4 := V4 - 500;
-
-               elsif V4 > 0 then
-                  V4 := 1;
-               end if;
-
-               Len := V4'Size / 8;
-               Add := V4'Address;
-
-            else
-               VT  := To_Timeval (Option.Timeout);
-               Len := VT'Size / 8;
-               Add := VT'Address;
-            end if;
+            VT  := To_Timeval (Option.Timeout);
+            Len := VT'Size / 8;
+            Add := VT'Address;
 
       end case;
 

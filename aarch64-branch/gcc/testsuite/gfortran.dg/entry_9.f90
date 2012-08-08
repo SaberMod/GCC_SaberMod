@@ -27,3 +27,5 @@ program main
   if (F2(4) /= -4) call abort()
   if (F1(1) /= -1) call abort()
 end program main
+
+! { dg-final { cleanup-modules "m1" } }

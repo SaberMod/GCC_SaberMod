@@ -23,7 +23,9 @@ See dbgcnt.def for usage information.  */
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "dumpfile.h"
+#include "tm.h"
+#include "rtl.h"
+#include "output.h"
 
 #include "dbgcnt.h"
 

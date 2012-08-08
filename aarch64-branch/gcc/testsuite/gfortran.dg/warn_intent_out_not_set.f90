@@ -26,3 +26,5 @@ CONTAINS
     type(t2), intent(out) :: x
   END SUBROUTINE
 END MODULE
+
+! { dg-final { cleanup-modules "m" } }

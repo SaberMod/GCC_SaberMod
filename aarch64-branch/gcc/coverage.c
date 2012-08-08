@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
-#include "dumpfile.h"
+#include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "intl.h"
 #include "filenames.h"
@@ -97,16 +97,11 @@ static GTY(()) tree gcov_info_var;
 static GTY(()) tree gcov_fn_info_type;
 static GTY(()) tree gcov_fn_info_ptr_type;
 
-/* Name of the notes (gcno) output file.  The "bbg" prefix is for
-   historical reasons, when the notes file contained only the
-   basic block graph notes.
-   If this is NULL we're not writing to the notes file.  */
+/* Name of the output file for coverage output file.  If this is NULL
+   we're not writing to the notes file.  */
 static char *bbg_file_name;
 
-/* File stamp for notes file.  */
-static unsigned bbg_file_stamp;
-
-/* Name of the count data (gcda) file.  */
+/* Name of the count data file.  */
 static char *da_file_name;
 
 /* Hash table of count data.  */
@@ -210,9 +205,8 @@ read_counts_file (void)
       return;
     }
 
-  /* Read the stamp, used for creating a generation count.  */
-  tag = gcov_read_unsigned ();
-  bbg_file_stamp = crc32_unsigned (bbg_file_stamp, tag);
+  /* Read and discard the stamp.  */
+  gcov_read_unsigned ();
 
   counts_hash = htab_create (10,
 			     htab_counts_entry_hash, htab_counts_entry_eq,
@@ -568,7 +562,7 @@ coverage_compute_cfg_checksum (void)
   return chksum;
 }
 
-/* Begin output to the notes file for the current function.
+/* Begin output to the graph file for the current function.
    Writes the function header. Returns nonzero if data should be output.  */
 
 int
@@ -911,7 +905,7 @@ build_info (tree info_type, tree fn_ary)
   /* stamp */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
 			  build_int_cstu (TREE_TYPE (info_fields),
-					  bbg_file_stamp));
+					  local_tick));
   info_fields = DECL_CHAIN (info_fields);
 
   /* Filename */
@@ -1081,7 +1075,7 @@ coverage_obj_finish (VEC(constructor_elt,gc) *ctor)
 }
 
 /* Perform file-level initialization. Read in data file, generate name
-   of notes file.  */
+   of graph file.  */
 
 void
 coverage_init (const char *filename)
@@ -1107,11 +1101,6 @@ coverage_init (const char *filename)
   memcpy (da_file_name + prefix_len, filename, len);
   strcpy (da_file_name + prefix_len + len, GCOV_DATA_SUFFIX);
 
-  bbg_file_stamp = local_tick;
-  
-  if (flag_branch_probabilities)
-    read_counts_file ();
-
   /* Name of bbg file.  */
   if (flag_test_coverage && !flag_compare_debug)
     {
@@ -1128,12 +1117,15 @@ coverage_init (const char *filename)
 	{
 	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
 	  gcov_write_unsigned (GCOV_VERSION);
-	  gcov_write_unsigned (bbg_file_stamp);
+	  gcov_write_unsigned (local_tick);
 	}
     }
+
+  if (flag_branch_probabilities)
+    read_counts_file ();
 }
 
-/* Performs file-level cleanup.  Close notes file, generate coverage
+/* Performs file-level cleanup.  Close graph file, generate coverage
    variables and constructor.  */
 
 void
@@ -1141,11 +1133,10 @@ coverage_finish (void)
 {
   if (bbg_file_name && gcov_close ())
     unlink (bbg_file_name);
-
-  if (!flag_branch_probabilities && flag_test_coverage
-      && (!local_tick || local_tick == (unsigned)-1))
-    /* Only remove the da file, if we're emitting coverage code and
-       cannot uniquely stamp it.  If we can stamp it, libgcov will DTRT.  */
+  
+  if (!local_tick || local_tick == (unsigned)-1)
+    /* Only remove the da file, if we cannot stamp it.  If we can
+       stamp it, libgcov will DTRT.  */
     unlink (da_file_name);
 
   if (coverage_obj_init ())

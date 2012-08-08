@@ -89,3 +89,4 @@ contains
     if (yfoobar (77) /= 77_4) call abort ()
   end subroutine
 END PROGRAM test2uses
+! { dg-final { cleanup-modules "xmod ymod" } }

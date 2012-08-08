@@ -27,10 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 
 #ifdef OBJCPLUS
-#include "cp/cp-tree.h"
+#include "cp-tree.h"
 #else
-#include "c/c-tree.h"
-#include "c/c-lang.h"
+#include "c-tree.h"
+#include "c-lang.h"
 #endif
 
 #include "c-family/c-common.h"
@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "objc-map.h"
 #include "input.h"
 #include "function.h"
+#include "output.h"
 #include "toplev.h"
 #include "ggc.h"
 #include "debug.h"
@@ -3292,7 +3293,7 @@ objc_get_class_reference (tree ident)
 #ifdef OBJCPLUS
   if (processing_template_decl)
     /* Must wait until template instantiation time.  */
-    return build_min_nt_loc (UNKNOWN_LOCATION, CLASS_REFERENCE_EXPR, ident);
+    return build_min_nt (CLASS_REFERENCE_EXPR, ident);
 #endif
 
   if (TREE_CODE (ident) == TYPE_DECL)
@@ -5271,8 +5272,8 @@ objc_build_message_expr (tree receiver, tree message_args)
 #ifdef OBJCPLUS
   if (processing_template_decl)
     /* Must wait until template instantiation time.  */
-    return build_min_nt_loc (UNKNOWN_LOCATION, MESSAGE_SEND_EXPR, receiver,
-			     sel_name, method_params);
+    return build_min_nt (MESSAGE_SEND_EXPR, receiver, sel_name,
+			 method_params);
 #endif
 
   return objc_finish_message_expr (receiver, sel_name, method_params, NULL);

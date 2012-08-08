@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
+#include "output.h"
 #include "toplev.h"
 #include "timevar.h"
 #include "cpplib.h"
@@ -45,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
 #include "intl.h"
 #include "gimple.h"
 #include "pointer-set.h"
@@ -349,8 +350,8 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp)
     {
       if (type_dependent_expression_p (array_expr)
 	  || type_dependent_expression_p (index_exp))
-	return build_min_nt_loc (loc, ARRAY_REF, array_expr, index_exp,
-				 NULL_TREE, NULL_TREE);
+	return build_min_nt (ARRAY_REF, array_expr, index_exp,
+			     NULL_TREE, NULL_TREE);
       array_expr = build_non_dependent_expr (array_expr);
       index_exp = build_non_dependent_expr (index_exp);
     }
@@ -361,8 +362,9 @@ grok_array_decl (location_t loc, tree array_expr, tree index_exp)
 
   /* If they have an `operator[]', use that.  */
   if (MAYBE_CLASS_TYPE_P (type) || MAYBE_CLASS_TYPE_P (TREE_TYPE (index_exp)))
-    expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL, array_expr, index_exp,
-			 NULL_TREE, /*overload=*/NULL, tf_warning_or_error);
+    expr = build_new_op (loc, ARRAY_REF, LOOKUP_NORMAL,
+			 array_expr, index_exp, NULL_TREE,
+			 /*overload=*/NULL, tf_warning_or_error);
   else
     {
       tree p1, p2, i1, i2;
@@ -437,8 +439,9 @@ delete_sanity (tree exp, tree size, bool doing_vec, int use_global_delete,
     }
 
   /* An array can't have been allocated by new, so complain.  */
-  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-    warning (0, "deleting array %q#E", exp);
+  if (TREE_CODE (exp) == VAR_DECL
+      && TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+    warning (0, "deleting array %q#D", exp);
 
   t = build_expr_type_conversion (WANT_POINTER, exp, true);
 
@@ -770,9 +773,7 @@ finish_static_data_member_decl (tree decl,
   if (! processing_template_decl)
     VEC_safe_push (tree, gc, pending_statics, decl);
 
-  if (LOCAL_CLASS_P (current_class_type)
-      /* We already complained about the template definition.  */
-      && !DECL_TEMPLATE_INSTANTIATION (decl))
+  if (LOCAL_CLASS_P (current_class_type))
     permerror (input_location, "local class %q#T shall not have static data member %q#D",
 	       current_class_type, decl);
 
@@ -863,7 +864,7 @@ grokfield (const cp_declarator *declarator,
 	  cplus_decl_attributes (&value, attrlist, attrflags);
 	}
 
-      if (decl_spec_seq_has_spec_p (declspecs, ds_typedef)
+      if (declspecs->specs[(int)ds_typedef]
           && TREE_TYPE (value) != error_mark_node
           && TYPE_NAME (TYPE_MAIN_VARIANT (TREE_TYPE (value))) != value)
 	set_underlying_type (value);
@@ -1369,8 +1370,8 @@ build_anon_union_vars (tree type, tree object)
 	permerror (input_location, "protected member %q+#D in anonymous union", field);
 
       if (processing_template_decl)
-	ref = build_min_nt_loc (UNKNOWN_LOCATION, COMPONENT_REF, object,
-				DECL_NAME (field), NULL_TREE);
+	ref = build_min_nt (COMPONENT_REF, object,
+			    DECL_NAME (field), NULL_TREE);
       else
 	ref = build_class_member_access_expr (object, field, NULL_TREE,
 					      false, tf_warning_or_error);
@@ -4019,11 +4020,11 @@ cp_write_global_declarations (void)
   candidates = collect_candidates_for_java_method_aliases ();
 
   timevar_stop (TV_PHASE_DEFERRED);
-  timevar_start (TV_PHASE_OPT_GEN);
+  timevar_start (TV_PHASE_CGRAPH);
 
   finalize_compilation_unit ();
 
-  timevar_stop (TV_PHASE_OPT_GEN);
+  timevar_stop (TV_PHASE_CGRAPH);
   timevar_start (TV_PHASE_CHECK_DBGINFO);
 
   /* Now, issue warnings about static, but not defined, functions,
@@ -4204,10 +4205,6 @@ mark_used (tree decl)
   TREE_USED (decl) = 1;
   if (DECL_CLONED_FUNCTION_P (decl))
     TREE_USED (DECL_CLONED_FUNCTION (decl)) = 1;
-
-  /* Mark enumeration types as used.  */
-  if (TREE_CODE (decl) == CONST_DECL)
-    used_types_insert (DECL_CONTEXT (decl));
 
   if (TREE_CODE (decl) == FUNCTION_DECL
       && DECL_DELETED_FN (decl))

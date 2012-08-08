@@ -2,14 +2,14 @@
 
 namespace A
 {
-  int i;			// { dg-message "i" }
+  int i;			// { dg-error "i" }
 }
 using namespace A;
 namespace B
 {
   namespace B2
   {
-    int i;			// { dg-message "i" }
+    int i;			// { dg-error "i" }
   }
   using namespace B2;
 }

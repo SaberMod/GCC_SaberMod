@@ -9,3 +9,4 @@ contains
   type(non_exist) function func2() ! { dg-error "not accessible" }
   end function func2
 end module bar
+! { dg-final { cleanup-modules "bar" } }

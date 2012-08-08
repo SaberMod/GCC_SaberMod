@@ -26,3 +26,5 @@ contains
    z = t3(x) ! { dg-error "Invalid expression in the structure constructor" }
  end subroutine foo
 end module m
+
+! { dg-final { cleanup-modules "m" } }

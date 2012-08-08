@@ -29,9 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
-#include "gimple-pretty-print.h" /* FIXME */
+#include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "dumpfile.h"
+#include "tree-pass.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */

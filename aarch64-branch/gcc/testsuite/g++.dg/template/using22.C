@@ -6,39 +6,28 @@ template <class T> struct Z {};
 template<typename T>
 struct A
 {
-  struct B;
-  struct C;
-  struct D;
-  struct E;
-  struct F;
-};
+    struct B : A<T>
+    {
+        using A::nonexist; // { dg-error "no members matching" }
+    };
 
-template <class T>
-struct A<T>::B : A<T>
-{
-  using A::nonexist; // { dg-error "no members matching" }
-};
+    struct C : A
+    {
+        using A::nonexist; // { dg-error "no members matching" }
+    };
 
-template <class T>
-struct A<T>::C : A
-{
-  using A::nonexist; // { dg-error "no members matching" }
-};
+    struct D : A<T>
+    {
+    	using A<T>::nonexist; // { dg-error "no members matching" }
+    };
 
-template <class T>
-struct A<T>::D : A<T>
-{
-  using A<T>::nonexist; // { dg-error "no members matching" }
-};
+    struct E : A
+    {
+    	using A<T>::nonexist; // { dg-error "no members matching" }
+    };
 
-template <class T>
-struct A<T>::E : A
-{
-  using A<T>::nonexist; // { dg-error "no members matching" }
-};
-
-template <class T>
-struct A<T>::F : Z<T>
-{
-  using Z<T>::nonexist;
+    struct F : Z<T>
+    {
+	using Z<T>::nonexist;
+    };
 };

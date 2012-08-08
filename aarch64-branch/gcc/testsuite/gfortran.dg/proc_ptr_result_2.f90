@@ -57,3 +57,6 @@ contains
   end function
 
 end
+
+! { dg-final { cleanup-modules "proc_ptr_15" } }
+

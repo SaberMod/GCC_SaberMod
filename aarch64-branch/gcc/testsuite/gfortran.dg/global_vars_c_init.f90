@@ -14,3 +14,5 @@ contains
     endif
   end subroutine test_globals
 end module global_vars_c_init
+
+! { dg-final { cleanup-modules "global_vars_c_init" } }

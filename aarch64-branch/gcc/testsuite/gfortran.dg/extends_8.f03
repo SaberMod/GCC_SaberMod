@@ -14,3 +14,4 @@ end module
 use m, only: A
 end
  
+! { dg-final { cleanup-modules "m" } }

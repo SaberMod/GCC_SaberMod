@@ -8,14 +8,14 @@
 template <class T>
 struct Foo {
   int j; // we never see this one.
-  int k; // { dg-message "Foo" "" }
+  int k; // { dg-error "Foo" "" }
   
 };
 
 struct Baz 
 {
   int j;
-  int k; // { dg-message "candidates" "" }
+  int k; // { dg-error "candidates" "" }
   
 };
 

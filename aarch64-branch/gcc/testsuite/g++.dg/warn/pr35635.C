@@ -62,9 +62,9 @@ void func3()
   /* At least one branch of ? does not fit in the destination, thus
      warn.  */
   uchar_x = bar != 0 ? 2.1 : 10; /* { dg-warning "conversion" } */
-  uchar_x = bar != 0  /* { dg-warning "negative integer implicitly converted to unsigned type" } */
+  uchar_x = bar != 0 
     ? (unsigned char) 1024 
-    : -1; 
+    : -1; /* { dg-warning "negative integer implicitly converted to unsigned type" } */
 }
 
 void func4()

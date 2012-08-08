@@ -56,3 +56,4 @@ use FoX_dom
 implicit none
 print *, vs_str("ABC")
 end
+! { dg-final { cleanup-modules "fox_m_fsys_array_str fox_m_fsys_format m_dom_dom fox_dom" } }

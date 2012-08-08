@@ -33,3 +33,5 @@
     TYPE(data_type) :: x
     CALL TEST(x)         ! { dg-error "Type mismatch in argument" }
   END
+
+! { dg-final { cleanup-modules "t1 t2" } }

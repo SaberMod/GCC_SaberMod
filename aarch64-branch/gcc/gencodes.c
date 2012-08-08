@@ -2,7 +2,7 @@
    - some macros CODE_FOR_... giving the insn_code_number value
    for each of the defined standard insn names.
    Copyright (C) 1987, 1991, 1995, 1998, 1999, 2000, 2001, 2003,
-   2004, 2007, 2010, 2012  Free Software Foundation, Inc.
+   2004, 2007, 2010  Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -68,8 +68,7 @@ main (int argc, char **argv)
 #ifndef GCC_INSN_CODES_H\n\
 #define GCC_INSN_CODES_H\n\
 \n\
-enum insn_code {\n\
-  CODE_FOR_nothing = 0,\n");
+enum insn_code {");
 
   /* Read the machine description.  */
 
@@ -86,7 +85,7 @@ enum insn_code {\n\
 	gen_insn (desc, insn_code_number);
     }
 
-  puts ("  LAST_INSN_CODE\n\
+  puts ("  CODE_FOR_nothing\n\
 };\n\
 \n\
 #endif /* GCC_INSN_CODES_H */");

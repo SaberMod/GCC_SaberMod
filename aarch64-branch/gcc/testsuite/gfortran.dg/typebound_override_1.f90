@@ -121,3 +121,5 @@ contains
  end function
 
 end module w2
+
+! { dg-final { cleanup-modules "m w1 w2" } }

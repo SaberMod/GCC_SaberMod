@@ -7,3 +7,5 @@ use iso_c_binding, only: c_int
     end type
     type(foo), bind(c) :: cp
 end module test
+
+! { dg-final { cleanup-modules "test" } }

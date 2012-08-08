@@ -42,7 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "debug.h"
 #include "diagnostic.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
 #include "cgraph.h"
 #include "gfortran.h"
 #include "cpp.h"
@@ -641,6 +641,7 @@ gfc_init_builtin_functions (void)
 #undef DEF_POINTER_TYPE
     BT_LAST
   };
+  typedef enum builtin_type builtin_type;
 
   tree mfunc_float[6];
   tree mfunc_double[6];

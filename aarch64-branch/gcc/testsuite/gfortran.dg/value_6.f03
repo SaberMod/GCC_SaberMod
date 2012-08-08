@@ -22,3 +22,4 @@ program main
   implicit none
   call test('a')
 end program main
+! { dg-final { cleanup-modules "pr32732" } }

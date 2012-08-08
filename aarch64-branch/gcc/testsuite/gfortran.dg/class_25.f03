@@ -24,3 +24,5 @@ contains
 end module
 
 end 
+
+! { dg-final { cleanup-modules "m" } }

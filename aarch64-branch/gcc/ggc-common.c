@@ -845,6 +845,8 @@ init_ggc_heuristics (void)
 #endif
 }
 
+#ifdef GATHER_STATISTICS
+
 /* Datastructure used to store per-call-site statistics.  */
 struct loc_descriptor
 {
@@ -1038,17 +1040,15 @@ add_statistics (void **slot, void *b)
 }
 
 /* Dump per-site memory statistics.  */
-
+#endif
 void
-dump_ggc_loc_statistics (bool final)
+dump_ggc_loc_statistics (bool final ATTRIBUTE_UNUSED)
 {
+#ifdef GATHER_STATISTICS
   int nentries = 0;
   char s[4096];
   size_t collected = 0, freed = 0, allocated = 0, overhead = 0, times = 0;
   int i;
-
-  if (! GATHER_STATISTICS)
-    return;
 
   ggc_force_collect = true;
   ggc_collect ();
@@ -1102,4 +1102,5 @@ dump_ggc_loc_statistics (bool final)
 	   "source location", "Garbage", "Freed", "Leak", "Overhead", "Times");
   fprintf (stderr, "-------------------------------------------------------\n");
   ggc_force_collect = false;
+#endif
 }

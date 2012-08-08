@@ -2389,7 +2389,7 @@ package body Exp_Ch6 is
         and then Nkind (Call_Node) = N_Procedure_Call_Statement
         and then Present (Parameter_Associations (Call_Node))
       then
-         Expand_Put_Call_With_Symbol (Call_Node);
+         Expand_Put_Call_With_Dimension_Symbol (Call_Node);
       end if;
 
       --  Remove the dimensions of every parameters in call
@@ -2710,14 +2710,6 @@ package body Exp_Ch6 is
                      for J in 2 .. Param_Count loop
                         Next_Entity (Parm_Ent);
                      end loop;
-
-                  --  Handle unchecked conversion of access types generated
-                  --  in thunks (cf. Expand_Interface_Thunk).
-
-                  elsif Is_Access_Type (Etype (Actual))
-                    and then Nkind (Actual) = N_Unchecked_Type_Conversion
-                  then
-                     Parm_Ent := Entity (Expression (Actual));
 
                   else pragma Assert (Is_Entity_Name (Actual));
                      Parm_Ent := Entity (Actual);
@@ -3271,7 +3263,7 @@ package body Exp_Ch6 is
       --  Ada 2005 (AI-251): If some formal is a class-wide interface, expand
       --  it to point to the correct secondary virtual table
 
-      if Nkind (Call_Node) in N_Subprogram_Call
+      if Nkind_In (Call_Node, N_Function_Call, N_Procedure_Call_Statement)
         and then CW_Interface_Formals_Present
       then
          Expand_Interface_Actuals (Call_Node);
@@ -3285,7 +3277,7 @@ package body Exp_Ch6 is
       --  back-ends directly handle the generation of dispatching calls and
       --  would have to undo any expansion to an indirect call.
 
-      if Nkind (Call_Node) in N_Subprogram_Call
+      if Nkind_In (Call_Node, N_Function_Call, N_Procedure_Call_Statement)
         and then Present (Controlling_Argument (Call_Node))
       then
          declare
@@ -3868,14 +3860,13 @@ package body Exp_Ch6 is
          --  intermediate result after its use.
 
          elsif Is_Build_In_Place_Function_Call (Call_Node)
-           and then
-             Nkind_In (Parent (Call_Node), N_Attribute_Reference,
-                                           N_Function_Call,
-                                           N_Indexed_Component,
-                                           N_Object_Renaming_Declaration,
-                                           N_Procedure_Call_Statement,
-                                           N_Selected_Component,
-                                           N_Slice)
+           and then Nkind_In (Parent (Call_Node), N_Attribute_Reference,
+                                          N_Function_Call,
+                                          N_Indexed_Component,
+                                          N_Object_Renaming_Declaration,
+                                          N_Procedure_Call_Statement,
+                                          N_Selected_Component,
+                                          N_Slice)
          then
             Establish_Transient_Scope (Call_Node, Sec_Stack => True);
          end if;
@@ -4031,42 +4022,6 @@ package body Exp_Ch6 is
    -------------------------------
 
    procedure Expand_Ctrl_Function_Call (N : Node_Id) is
-      function Enclosing_Context return Node_Id;
-      --  Find the enclosing context where the function call appears
-
-      -----------------------
-      -- Enclosing_Context --
-      -----------------------
-
-      function Enclosing_Context return Node_Id is
-         Context : Node_Id;
-
-      begin
-         Context := Parent (N);
-         while Present (Context) loop
-
-            if Nkind (Context) = N_Conditional_Expression then
-               exit;
-
-            --  Stop the search when reaching any statement because we have
-            --  gone too far up the tree.
-
-            elsif Nkind (Context) = N_Procedure_Call_Statement
-              or else Nkind (Context) in N_Statement_Other_Than_Procedure_Call
-            then
-               exit;
-            end if;
-
-            Context := Parent (Context);
-         end loop;
-
-         return Context;
-      end Enclosing_Context;
-
-      --  Local variables
-
-      Context : constant Node_Id := Enclosing_Context;
-
    begin
       --  Optimization, if the returned value (which is on the sec-stack) is
       --  returned again, no need to copy/readjust/finalize, we can just pass
@@ -4087,18 +4042,6 @@ package body Exp_Ch6 is
       --  the function using 'reference.
 
       Remove_Side_Effects (N);
-
-      --  The function call is part of a conditional expression alternative.
-      --  The temporary result must live as long as the conditional expression
-      --  itself, otherwise it will be finalized too early. Mark the transient
-      --  as processed to avoid untimely finalization.
-
-      if Present (Context)
-        and then Nkind (Context) = N_Conditional_Expression
-        and then Nkind (N) = N_Explicit_Dereference
-      then
-         Set_Is_Processed_Transient (Entity (Prefix (N)));
-      end if;
    end Expand_Ctrl_Function_Call;
 
    -------------------------
@@ -4835,8 +4778,8 @@ package body Exp_Ch6 is
          Ret_Type := Etype (Subp);
       end if;
 
-      --  Create temporaries for the actuals that are expressions, or that are
-      --  scalars and require copying to preserve semantics.
+      --  Create temporaries for the actuals that are expressions, or that
+      --  are scalars and require copying to preserve semantics.
 
       F := First_Formal (Subp);
       A := First_Actual (N);
@@ -4844,14 +4787,6 @@ package body Exp_Ch6 is
          if Present (Renamed_Object (F)) then
             Error_Msg_N ("cannot inline call to recursive subprogram", N);
             return;
-         end if;
-
-         --  Reset Last_Assignment for any parameters of mode out or in out, to
-         --  prevent spurious warnings about overwriting for assignments to the
-         --  formal in the inlined code.
-
-         if Is_Entity_Name (A) and then Ekind (F) /= E_In_Parameter then
-            Set_Last_Assignment (Entity (A), Empty);
          end if;
 
          --  If the argument may be a controlling argument in a call within
@@ -4886,9 +4821,9 @@ package body Exp_Ch6 is
                (not Is_Scalar_Type (Etype (A))
                  or else Ekind (Entity (A)) = E_Enumeration_Literal))
 
-         --  When the actual is an identifier and the corresponding formal is
-         --  used only once in the original body, the formal can be substituted
-         --  directly with the actual parameter.
+         --  When the actual is an identifier and the corresponding formal
+         --  is used only once in the original body, the formal can be
+         --  substituted directly with the actual parameter.
 
            or else (Nkind (A) = N_Identifier
              and then Formal_Is_Used_Once (F))
@@ -4934,8 +4869,8 @@ package body Exp_Ch6 is
 
             Set_Sloc (New_A, Sloc (N));
 
-            --  If the actual has a by-reference type, it cannot be copied,
-            --  so its value is captured in a renaming declaration. Otherwise
+            --  If the actual has a by-reference type, it cannot be copied, so
+            --  its value is captured in a renaming declaration. Otherwise
             --  declare a local constant initialized with the actual.
 
             --  We also use a renaming declaration for expressions of an array
@@ -5159,8 +5094,8 @@ package body Exp_Ch6 is
          end if;
       end if;
 
-      --  Analyze Blk with In_Inlined_Body set, to avoid spurious errors
-      --  on conflicting private views that Gigi would ignore. If this is a
+      --  Analyze Blk with In_Inlined_Body set, to avoid spurious errors on
+      --  conflicting private views that Gigi would ignore. If this is a
       --  predefined unit, analyze with checks off, as is done in the non-
       --  inlined run-time units.
 
@@ -5559,7 +5494,7 @@ package body Exp_Ch6 is
             --  Create a flag to track the function state
 
             Flag_Id := Make_Temporary (Loc, 'F');
-            Set_Status_Flag_Or_Transient_Decl (Ret_Obj_Id, Flag_Id);
+            Set_Return_Flag_Or_Transient_Decl (Ret_Obj_Id, Flag_Id);
 
             --  Insert the flag at the beginning of the function declarations,
             --  generate:
@@ -5638,7 +5573,7 @@ package body Exp_Ch6 is
          then
             declare
                Flag_Id : constant Entity_Id :=
-                           Status_Flag_Or_Transient_Decl (Ret_Obj_Id);
+                           Return_Flag_Or_Transient_Decl (Ret_Obj_Id);
 
             begin
                --  Generate:

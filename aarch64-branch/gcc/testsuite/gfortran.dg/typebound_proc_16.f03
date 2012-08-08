@@ -54,3 +54,5 @@ MODULE rational_numbers
       r%d = a%d*b%d
     END FUNCTION
 END
+
+! { dg-final { cleanup-modules "rational_numbers" } } 

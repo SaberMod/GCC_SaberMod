@@ -64,7 +64,6 @@ static rtx vax_builtin_setjmp_frame_value (void);
 static void vax_asm_trampoline_template (FILE *);
 static void vax_trampoline_init (rtx, tree, rtx);
 static int vax_return_pops_args (tree, tree, int);
-static bool vax_mode_dependent_address_p (const_rtx);
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -104,8 +103,6 @@ static bool vax_mode_dependent_address_p (const_rtx);
 
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P vax_legitimate_address_p
-#undef TARGET_MODE_DEPENDENT_ADDRESS_P
-#define TARGET_MODE_DEPENDENT_ADDRESS_P vax_mode_dependent_address_p
 
 #undef TARGET_FRAME_POINTER_REQUIRED
 #define TARGET_FRAME_POINTER_REQUIRED hook_bool_void_true
@@ -1836,8 +1833,8 @@ vax_legitimate_address_p (enum machine_mode mode, rtx x, bool strict)
    increment being the length of the operand) and all indexed address depend
    thus (because the index scale factor is the length of the operand).  */
 
-static bool
-vax_mode_dependent_address_p (const_rtx x)
+bool
+vax_mode_dependent_address_p (rtx x)
 {
   rtx xfoo0, xfoo1;
 

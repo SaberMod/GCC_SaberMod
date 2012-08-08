@@ -6,3 +6,5 @@ MODULE test
   CHARACTER(len=1), PARAMETER :: backslash = '\\'
   PUBLIC :: backslash
 END MODULE
+
+! { dg-final { cleanup-modules "test" } }

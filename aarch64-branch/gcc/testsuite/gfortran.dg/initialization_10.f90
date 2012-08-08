@@ -28,3 +28,5 @@ end select
 
 END SUBROUTINE Parser
 END MODULE Readdata_mod
+
+! { dg-final { cleanup-modules "readdata_mod" } }

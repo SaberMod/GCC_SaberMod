@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "match.h"
@@ -598,7 +597,7 @@ gfc_match_name_C (const char **buffer)
   c = gfc_next_char_literal (INSTRING_WARN);
 
   /* If the user put nothing expect spaces between the quotes, it is valid
-     and simply means there is no name= specifier and the name is the Fortran
+     and simply means there is no name= specifier and the name is the fortran
      symbol name, all lowercase.  */
   if (c == '"' || c == '\'')
     {
@@ -1393,7 +1392,7 @@ match_arithmetic_if (void)
       return MATCH_ERROR;
     }
 
-  if (gfc_notify_std (GFC_STD_F95_OBS, "Arithmetic IF "
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Arithmetic IF "
 		      "statement at %C") == FAILURE)
     return MATCH_ERROR;
 
@@ -1474,7 +1473,7 @@ gfc_match_if (gfc_statement *if_type)
 	  return MATCH_ERROR;
 	}
       
-      if (gfc_notify_std (GFC_STD_F95_OBS, "Arithmetic IF "
+      if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Arithmetic IF "
 			  "statement at %C") == FAILURE)
 	return MATCH_ERROR;
 
@@ -1758,7 +1757,7 @@ gfc_match_critical (void)
   if (gfc_implicit_pure (NULL))
     gfc_current_ns->proc_name->attr.implicit_pure = 0;
 
-  if (gfc_notify_std (GFC_STD_F2008, "CRITICAL statement at %C")
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: CRITICAL statement at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -2382,7 +2381,7 @@ gfc_match_do (void)
       gfc_forall_iterator *head;
       gfc_expr *mask;
 
-      if (gfc_notify_std (GFC_STD_F2008, "DO CONCURRENT "
+      if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: DO CONCURRENT "
 			   "construct at %C") == FAILURE)
 	return MATCH_ERROR;
 
@@ -2581,7 +2580,7 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
 	  return MATCH_ERROR;
 	}
       gcc_assert (op == EXEC_EXIT);
-      if (gfc_notify_std (GFC_STD_F2008, "EXIT statement with no"
+      if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: EXIT statement with no"
 			  " do-construct-name at %C") == FAILURE)
 	return MATCH_ERROR;
       break;
@@ -2772,7 +2771,7 @@ gfc_match_pause (void)
   m = gfc_match_stopcode (ST_PAUSE);
   if (m == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "PAUSE statement"
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: PAUSE statement"
 	  " at %C")
 	  == FAILURE)
 	m = MATCH_ERROR;
@@ -2795,7 +2794,7 @@ gfc_match_stop (void)
 match
 gfc_match_error_stop (void)
 {
-  if (gfc_notify_std (GFC_STD_F2008, "ERROR STOP statement at %C")
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: ERROR STOP statement at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -2977,7 +2976,7 @@ cleanup:
 match
 gfc_match_lock (void)
 {
-  if (gfc_notify_std (GFC_STD_F2008, "LOCK statement at %C")
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: LOCK statement at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -2988,7 +2987,7 @@ gfc_match_lock (void)
 match
 gfc_match_unlock (void)
 {
-  if (gfc_notify_std (GFC_STD_F2008, "UNLOCK statement at %C")
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: UNLOCK statement at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -3021,7 +3020,7 @@ sync_statement (gfc_statement st)
   if (gfc_implicit_pure (NULL))
     gfc_current_ns->proc_name->attr.implicit_pure = 0;
 
-  if (gfc_notify_std (GFC_STD_F2008, "SYNC statement at %C")
+  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: SYNC statement at %C")
       == FAILURE)
     return MATCH_ERROR;
 
@@ -3219,7 +3218,7 @@ gfc_match_assign (void)
 	return MATCH_ERROR;
       if (gfc_match (" to %v%t", &expr) == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F95_DEL, "ASSIGN "
+	  if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: ASSIGN "
 			      "statement at %C")
 	      == FAILURE)
 	    return MATCH_ERROR;
@@ -3265,7 +3264,7 @@ gfc_match_goto (void)
 
   if (gfc_match_variable (&expr, 0) == MATCH_YES)
     {
-      if (gfc_notify_std (GFC_STD_F95_DEL, "Assigned GOTO "
+      if (gfc_notify_std (GFC_STD_F95_DEL, "Deleted feature: Assigned GOTO "
 			  "statement at %C")
 	  == FAILURE)
 	return MATCH_ERROR;
@@ -3375,7 +3374,7 @@ gfc_match_goto (void)
   if (gfc_match (" %e%t", &expr) != MATCH_YES)
     goto syntax;
 
-  if (gfc_notify_std (GFC_STD_F95_OBS, "Computed GOTO "
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Computed GOTO "
 		      "at %C") == FAILURE)
     return MATCH_ERROR;
 
@@ -3457,7 +3456,7 @@ gfc_match_allocate (void)
     {
       if (gfc_match (" :: ") == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2003, "typespec in "
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: typespec in "
 			      "ALLOCATE at %L", &old_locus) == FAILURE)
 	    goto cleanup;
 
@@ -3467,9 +3466,6 @@ gfc_match_allocate (void)
 			 "type parameter", &old_locus);
 	      goto cleanup;
 	    }
-
-	  if (ts.type == BT_CHARACTER)
-	    ts.u.cl->length_from_typespec = true;
 	}
       else
 	{
@@ -3534,28 +3530,6 @@ gfc_match_allocate (void)
 	    }
 	}
 
-      /* Check for F08:C628.  */
-      sym = tail->expr->symtree->n.sym;
-      b1 = !(tail->expr->ref
-	     && (tail->expr->ref->type == REF_COMPONENT
-		 || tail->expr->ref->type == REF_ARRAY));
-      if (sym && sym->ts.type == BT_CLASS && sym->attr.class_ok)
-	b2 = !(CLASS_DATA (sym)->attr.allocatable
-	       || CLASS_DATA (sym)->attr.class_pointer);
-      else
-	b2 = sym && !(sym->attr.allocatable || sym->attr.pointer
-		      || sym->attr.proc_pointer);
-      b3 = sym && sym->ns && sym->ns->proc_name
-	   && (sym->ns->proc_name->attr.allocatable
-	       || sym->ns->proc_name->attr.pointer
-	       || sym->ns->proc_name->attr.proc_pointer);
-      if (b1 && b2 && !b3)
-	{
-	  gfc_error ("Allocate-object at %L is neither a data pointer "
-		     "nor an allocatable variable", &tail->expr->where);
-	  goto cleanup;
-	}
-
       /* The ALLOCATE statement had an optional typespec.  Check the
 	 constraints.  */
       if (ts.type != BT_UNKNOWN)
@@ -3580,6 +3554,28 @@ gfc_match_allocate (void)
 
       if (tail->expr->ts.type == BT_DERIVED)
 	tail->expr->ts.u.derived = gfc_use_derived (tail->expr->ts.u.derived);
+
+      /* FIXME: disable the checking on derived types and arrays.  */
+      sym = tail->expr->symtree->n.sym;
+      b1 = !(tail->expr->ref
+	   && (tail->expr->ref->type == REF_COMPONENT
+		|| tail->expr->ref->type == REF_ARRAY));
+      if (sym && sym->ts.type == BT_CLASS && sym->attr.class_ok)
+	b2 = !(CLASS_DATA (sym)->attr.allocatable
+	       || CLASS_DATA (sym)->attr.class_pointer);
+      else
+	b2 = sym && !(sym->attr.allocatable || sym->attr.pointer
+		      || sym->attr.proc_pointer);
+      b3 = sym && sym->ns && sym->ns->proc_name
+	   && (sym->ns->proc_name->attr.allocatable
+		|| sym->ns->proc_name->attr.pointer
+		|| sym->ns->proc_name->attr.proc_pointer);
+      if (b1 && b2 && !b3)
+	{
+	  gfc_error ("Allocate-object at %L is neither a nonprocedure pointer "
+		     "nor an allocatable variable", &tail->expr->where);
+	  goto cleanup;
+	}
 
       if (gfc_peek_ascii_char () == '(' && !sym->attr.dimension)
 	{
@@ -3620,7 +3616,7 @@ alloc_opt_list:
 	goto cleanup;
       if (m == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2003, "ERRMSG tag at %L",
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ERRMSG tag at %L",
 			      &tmp->where) == FAILURE)
 	    goto cleanup;
 
@@ -3644,7 +3640,7 @@ alloc_opt_list:
 	goto cleanup;
       if (m == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2003, "SOURCE tag at %L",
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: SOURCE tag at %L",
 			      &tmp->where) == FAILURE)
 	    goto cleanup;
 
@@ -3664,7 +3660,7 @@ alloc_opt_list:
 	    }
 
 	  if (head->next
-	      && gfc_notify_std (GFC_STD_F2008, "SOURCE tag at %L"
+	      && gfc_notify_std (GFC_STD_F2008, "Fortran 2008: SOURCE tag at %L"
 				 " with more than a single allocate object",
 				 &tmp->where) == FAILURE)
 	    goto cleanup;
@@ -3682,7 +3678,7 @@ alloc_opt_list:
 	goto cleanup;
       if (m == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2008, "MOLD tag at %L",
+	  if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: MOLD tag at %L",
 			      &tmp->where) == FAILURE)
 	    goto cleanup;
 
@@ -3944,7 +3940,7 @@ dealloc_opt_list:
 	goto cleanup;
       if (m == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2003, "ERRMSG at %L",
+	  if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: ERRMSG at %L",
 			      &tmp->where) == FAILURE)
 	    goto cleanup;
 
@@ -4022,7 +4018,7 @@ gfc_match_return (void)
       goto cleanup;
     }
 
-  if (gfc_notify_std (GFC_STD_F95_OBS, "Alternate RETURN "
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: Alternate RETURN "
 		      "at %C") == FAILURE)
     return MATCH_ERROR;
 
@@ -4052,7 +4048,7 @@ cleanup:
 done:
   gfc_enclosing_unit (&s);
   if (s == COMP_PROGRAM
-      && gfc_notify_std (GFC_STD_GNU, "RETURN statement in "
+      && gfc_notify_std (GFC_STD_GNU, "Extension: RETURN statement in "
 			"main program at %C") == FAILURE)
       return MATCH_ERROR;
 
@@ -4966,7 +4962,7 @@ gfc_match_st_function (void)
 
   sym->value = expr;
 
-  if (gfc_notify_std (GFC_STD_F95_OBS,
+  if (gfc_notify_std (GFC_STD_F95_OBS, "Obsolescent feature: "
 		      "Statement function at %C") == FAILURE)
     return MATCH_ERROR;
 
@@ -5367,7 +5363,7 @@ gfc_match_select_type (void)
      array, which can have a reference, from other expressions that
      have references, such as derived type components, and are not
      allowed by the standard.
-     TODO; see is it is sufficient to exclude component and substring
+     TODO; see is it is sufficent to exclude component and substring
      references.  */
   class_array = expr1->expr_type == EXPR_VARIABLE
 		  && expr1->ts.type != BT_UNKNOWN

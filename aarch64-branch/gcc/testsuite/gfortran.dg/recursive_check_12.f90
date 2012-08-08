@@ -26,3 +26,4 @@ program test
  call f(.false.)
  call f(.false.)
 end program test
+! { dg-final { cleanup-modules "m" } }

@@ -45,3 +45,5 @@
       bar = foo%getx()  ! OK
       bar = fooPriv%getxPriv() ! { dg-error " is PRIVATE " }
       end program quicktest
+
+! { dg-final { cleanup-modules "qtest qtestpriv" } }

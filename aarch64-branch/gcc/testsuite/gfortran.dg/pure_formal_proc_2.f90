@@ -45,3 +45,4 @@ program Test
   deallocate(pT1)
 
 end program Test
+! { dg-final { cleanup-modules "testpure" } }

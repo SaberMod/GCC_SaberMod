@@ -69,3 +69,4 @@ contains
 
 
 end subroutine foo_bar
+! { dg-final { cleanup-modules "derived_type_mod tools" } }

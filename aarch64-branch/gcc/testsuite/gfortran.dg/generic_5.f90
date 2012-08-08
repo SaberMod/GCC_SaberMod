@@ -26,3 +26,4 @@ CONTAINS
     CALL ice(23.0)   ! { dg-error "no specific subroutine" }
   END SUBROUTINE
 END MODULE
+! { dg-final { cleanup-modules "ice_gfortran provoke_ice" } }

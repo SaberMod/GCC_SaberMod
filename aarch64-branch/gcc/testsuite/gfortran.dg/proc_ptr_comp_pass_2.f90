@@ -43,3 +43,6 @@ program main
   call x%proc (output_unit)
 
 end program main
+
+! { dg-final { cleanup-modules "passed_object_example" } }
+

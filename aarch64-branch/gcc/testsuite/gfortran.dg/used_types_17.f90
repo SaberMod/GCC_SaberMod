@@ -46,3 +46,5 @@ contains
   end subroutine boxarray_sort
 
 end module boxarray_module
+
+! { dg-final { cleanup-modules "box_module sort_box_module boxarray_module" } }

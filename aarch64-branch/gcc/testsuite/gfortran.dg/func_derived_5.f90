@@ -10,3 +10,5 @@ type(t) function foo()
   use m
   foo = t()
 end function foo
+
+! { dg-final { cleanup-modules "m" } }

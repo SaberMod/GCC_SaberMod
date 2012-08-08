@@ -41,3 +41,4 @@ PROGRAM main
   CALL odfname(base,i,cnames)
   if (trim (cnames(1)) .ne. "odfamilycnames") call abort
 END PROGRAM
+! { dg-final { cleanup-modules "test" } }

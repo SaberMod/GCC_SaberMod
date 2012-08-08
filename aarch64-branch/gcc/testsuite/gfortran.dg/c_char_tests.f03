@@ -25,3 +25,5 @@ contains
     if(my_char_ref /= c_char_'y') call abort()
   end subroutine sub1
 end module c_char_tests
+
+! { dg-final { cleanup-modules "c_char_tests" } }

@@ -18,3 +18,4 @@ CONTAINS
     INTEGER, pointer  :: MM ! { dg-error "conflicts with ELEMENTAL" }
   END FUNCTION MM
 END MODULE Test
+! { dg-final { cleanup-modules "test" } }

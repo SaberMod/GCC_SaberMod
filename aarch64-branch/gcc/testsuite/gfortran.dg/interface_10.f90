@@ -54,3 +54,4 @@ contains
     nsz=size(x)
   end subroutine solve_s_foo
 end module class_s_foo
+! { dg-final { cleanup-modules "class_s_fld class_fld class_s_foo" } }

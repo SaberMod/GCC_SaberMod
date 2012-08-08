@@ -1028,12 +1028,7 @@ dump_decl (tree t, int flags)
 	    dump_scope (CP_DECL_CONTEXT (t), flags);
 	  flags &= ~TFF_UNQUALIFIED_NAME;
 	  if (DECL_NAME (t) == NULL_TREE)
-            {
-              if (!(pp_c_base (cxx_pp)->flags & pp_c_flag_gnu_v3))
-                pp_cxx_ws_string (cxx_pp, M_("{anonymous}"));
-              else
-                pp_cxx_ws_string (cxx_pp, M_("(anonymous namespace)"));
-            }
+	    pp_cxx_ws_string (cxx_pp, M_("{anonymous}"));
 	  else
 	    pp_cxx_tree_identifier (cxx_pp, DECL_NAME (t));
 	}
@@ -2561,21 +2556,6 @@ expr_as_string (tree decl, int flags)
   return pp_formatted_text (cxx_pp);
 }
 
-/* Wrap decl_as_string with options appropriate for dwarf.  */
-
-const char *
-decl_as_dwarf_string (tree decl, int flags)
-{
-  const char *name;
-  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
-     here will be adequate to get the desired behaviour.  */
-  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
-  name = decl_as_string (decl, flags);
-  /* Subsequent calls to the pretty printer shouldn't use this style.  */
-  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
-  return name;
-}
-
 const char *
 decl_as_string (tree decl, int flags)
 {
@@ -2591,21 +2571,6 @@ decl_as_string_translate (tree decl, int flags)
   reinit_cxx_pp ();
   dump_decl (decl, flags);
   return pp_formatted_text (cxx_pp);
-}
-
-/* Wrap lang_decl_name with options appropriate for dwarf.  */
-
-const char *
-lang_decl_dwarf_name (tree decl, int v, bool translate)
-{
-  const char *name;
-  /* Curiously, reinit_cxx_pp doesn't reset the flags field, so setting the flag
-     here will be adequate to get the desired behaviour.  */
-  pp_c_base (cxx_pp)->flags |= pp_c_flag_gnu_v3;
-  name = lang_decl_name (decl, v, translate);
-  /* Subsequent calls to the pretty printer shouldn't use this style.  */
-  pp_c_base (cxx_pp)->flags &= ~pp_c_flag_gnu_v3;
-  return name;
 }
 
 /* Generate the three forms of printable names for cxx_printable_name.  */
@@ -2631,9 +2596,6 @@ lang_decl_name (tree decl, int v, bool translate)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     dump_function_name (decl, TFF_PLAIN_IDENTIFIER);
-  else if ((DECL_NAME (decl) == NULL_TREE)
-           && TREE_CODE (decl) == NAMESPACE_DECL)
-    dump_decl (decl, TFF_PLAIN_IDENTIFIER | TFF_UNQUALIFIED_NAME);
   else
     dump_decl (DECL_NAME (decl), TFF_PLAIN_IDENTIFIER);
 

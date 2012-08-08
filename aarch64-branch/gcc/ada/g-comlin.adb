@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1999-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1999-2011, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -128,8 +128,7 @@ package body GNAT.Command_Line is
       Switch      : String := "";
       Long_Switch : String := "";
       Help        : String := "";
-      Section     : String := "";
-      Argument    : String := "ARG");
+      Section     : String := "");
    --  Initialize [Def] with the contents of the other parameters.
    --  This also checks consistency of the switch parameters, and will raise
    --  Invalid_Switch if they do not match.
@@ -1281,12 +1280,11 @@ package body GNAT.Command_Line is
    ---------------------------
 
    procedure Initialize_Switch_Def
-     (Def         : out Switch_Definition;
+     (Def : out Switch_Definition;
       Switch      : String := "";
       Long_Switch : String := "";
       Help        : String := "";
-      Section     : String := "";
-      Argument    : String := "ARG")
+      Section     : String := "")
    is
       P1, P2       : Switch_Parameter_Type := Parameter_None;
       Last1, Last2 : Integer;
@@ -1318,10 +1316,6 @@ package body GNAT.Command_Line is
          Def.Section := new String'(Section);
       end if;
 
-      if Argument /= "ARG" then
-         Def.Argument := new String'(Argument);
-      end if;
-
       if Help /= "" then
          Def.Help := new String'(Help);
       end if;
@@ -1336,14 +1330,12 @@ package body GNAT.Command_Line is
       Switch      : String := "";
       Long_Switch : String := "";
       Help        : String := "";
-      Section     : String := "";
-      Argument    : String := "ARG")
+      Section     : String := "")
    is
       Def : Switch_Definition;
    begin
       if Switch /= "" or else Long_Switch /= "" then
-         Initialize_Switch_Def
-           (Def, Switch, Long_Switch, Help, Section, Argument);
+         Initialize_Switch_Def (Def, Switch, Long_Switch, Help, Section);
          Add (Config, Def);
       end if;
    end Define_Switch;
@@ -1383,14 +1375,12 @@ package body GNAT.Command_Line is
       Help        : String := "";
       Section     : String := "";
       Initial     : Integer := 0;
-      Default     : Integer := 1;
-      Argument    : String := "ARG")
+      Default     : Integer := 1)
    is
       Def : Switch_Definition (Switch_Integer);
    begin
       if Switch /= "" or else Long_Switch /= "" then
-         Initialize_Switch_Def
-           (Def, Switch, Long_Switch, Help, Section, Argument);
+         Initialize_Switch_Def (Def, Switch, Long_Switch, Help, Section);
          Def.Integer_Output  := Output.all'Unchecked_Access;
          Def.Integer_Default := Default;
          Def.Integer_Initial := Initial;
@@ -1408,14 +1398,12 @@ package body GNAT.Command_Line is
       Switch      : String := "";
       Long_Switch : String := "";
       Help        : String := "";
-      Section     : String := "";
-      Argument    : String := "ARG")
+      Section     : String := "")
    is
       Def : Switch_Definition (Switch_String);
    begin
       if Switch /= "" or else Long_Switch /= "" then
-         Initialize_Switch_Def
-           (Def, Switch, Long_Switch, Help, Section, Argument);
+         Initialize_Switch_Def (Def, Switch, Long_Switch, Help, Section);
          Def.String_Output  := Output.all'Unchecked_Access;
          Add (Config, Def);
       end if;
@@ -3218,33 +3206,17 @@ package body GNAT.Command_Line is
                   Decompose_Switch (Def.Long_Switch.all, P2, Last2);
                   Append (Result, ", "
                           & Def.Long_Switch (Def.Long_Switch'First .. Last2));
-
-                  if Def.Argument = null then
-                     Append (Result, Param_Name (P2, "ARG"));
-                  else
-                     Append (Result, Param_Name (P2, Def.Argument.all));
-                  end if;
+                  Append (Result, Param_Name (P2, "ARG"));
 
                else
-                  if Def.Argument = null then
-                     Append (Result, Param_Name (P1, "ARG"));
-                  else
-                     Append (Result, Param_Name (P1, Def.Argument.all));
-                  end if;
+                  Append (Result, Param_Name (P1, "ARG"));
                end if;
 
-            --  Def.Switch is null (Long_Switch must be non-null)
-
-            else
+            else  --  Long_Switch necessarily not null
                Decompose_Switch (Def.Long_Switch.all, P2, Last2);
                Append (Result,
                        Def.Long_Switch (Def.Long_Switch'First .. Last2));
-
-               if Def.Argument = null then
-                  Append (Result, Param_Name (P2, "ARG"));
-               else
-                  Append (Result, Param_Name (P2, Def.Argument.all));
-               end if;
+               Append (Result, Param_Name (P2, "ARG"));
             end if;
          end if;
 
@@ -3421,9 +3393,7 @@ package body GNAT.Command_Line is
                  Config.Switches (S).Integer_Initial;
 
             when Switch_String =>
-               if Config.Switches (S).String_Output.all = null then
-                  Config.Switches (S).String_Output.all := new String'("");
-               end if;
+               Config.Switches (S).String_Output.all := new String'("");
          end case;
       end loop;
 

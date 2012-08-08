@@ -23,3 +23,5 @@ end module m
   type, extends(dt) :: dt_type ! { dg-error "because it is BIND" }
   end type ! { dg-error "Expecting END PROGRAM" }
 end
+
+! { dg-final { cleanup-modules "m" } }

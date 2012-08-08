@@ -853,11 +853,9 @@ package body Sem_Res is
                      Prev (Nod);
                   end loop;
 
-                  --  If no raise statement, give warning. We look at the
-                  --  original node, because in the case of "raise ... with
-                  --  ...", the node has been transformed into a call.
+                  --  If no raise statement, give warning
 
-                  exit when Nkind (Original_Node (Nod)) /= N_Raise_Statement
+                  exit when Nkind (Nod) /= N_Raise_Statement
                     and then
                       (Nkind (Nod) not in N_Raise_xxx_Error
                         or else Present (Condition (Nod)));
@@ -1969,10 +1967,7 @@ package body Sem_Res is
                --  Prefix (N) must statically denote a remote subprogram
                --  declared in a package specification.
 
-               if Attr = Attribute_Access           or else
-                  Attr = Attribute_Unchecked_Access or else
-                  Attr = Attribute_Unrestricted_Access
-               then
+               if Attr = Attribute_Access then
                   Decl := Unit_Declaration_Node (Entity (Pref));
 
                   if Nkind (Decl) = N_Subprogram_Body then
@@ -1995,22 +1990,26 @@ package body Sem_Res is
                        ("prefix must statically denote a remote subprogram ",
                         N);
                   end if;
+               end if;
 
-                  --  If we are generating code in distributed mode, perform
-                  --  semantic checks against corresponding remote entities.
+               --   If we are generating code for a distributed program.
+               --   perform semantic checks against the corresponding
+               --   remote entities.
 
-                  if Full_Expander_Active
-                    and then Get_PCS_Name /= Name_No_DSA
-                  then
-                     Check_Subtype_Conformant
-                       (New_Id  => Entity (Prefix (N)),
-                        Old_Id  => Designated_Type
-                                     (Corresponding_Remote_Type (Typ)),
-                        Err_Loc => N);
+               if (Attr = Attribute_Access           or else
+                   Attr = Attribute_Unchecked_Access or else
+                   Attr = Attribute_Unrestricted_Access)
+                 and then Full_Expander_Active
+                 and then Get_PCS_Name /= Name_No_DSA
+               then
+                  Check_Subtype_Conformant
+                    (New_Id  => Entity (Prefix (N)),
+                     Old_Id  => Designated_Type
+                                  (Corresponding_Remote_Type (Typ)),
+                     Err_Loc => N);
 
-                     if Is_Remote then
-                        Process_Remote_AST_Attribute (N, Typ);
-                     end if;
+                  if Is_Remote then
+                     Process_Remote_AST_Attribute (N, Typ);
                   end if;
                end if;
             end if;
@@ -2144,7 +2143,9 @@ package body Sem_Res is
                      --  of the arguments is Any_Type, and if so, suppress
                      --  the message, since it is a cascaded error.
 
-                     if Nkind (N) in N_Subprogram_Call then
+                     if Nkind_In (N, N_Function_Call,
+                                     N_Procedure_Call_Statement)
+                     then
                         declare
                            A : Node_Id;
                            E : Node_Id;
@@ -2210,7 +2211,8 @@ package body Sem_Res is
                              ("\\possible interpretation#!", N);
                         end if;
 
-                        if Nkind (N) in N_Subprogram_Call
+                        if Nkind_In
+                             (N, N_Procedure_Call_Statement, N_Function_Call)
                           and then Present (Parameter_Associations (N))
                         then
                            Report_Ambiguous_Argument;
@@ -2357,7 +2359,7 @@ package body Sem_Res is
                --  For procedure or function calls, set the type of the name,
                --  and also the entity pointer for the prefix.
 
-               elsif Nkind (N) in N_Subprogram_Call
+               elsif Nkind_In (N, N_Procedure_Call_Statement, N_Function_Call)
                  and then Is_Entity_Name (Name (N))
                then
                   Set_Etype  (Name (N), Expr_Type);
@@ -2987,7 +2989,8 @@ package body Sem_Res is
 
          if not Warn_On_Parameter_Order
            or else No (Parameter_Associations (N))
-           or else Nkind (Original_Node (N)) not in N_Subprogram_Call
+           or else not Nkind_In (Original_Node (N), N_Procedure_Call_Statement,
+                                                    N_Function_Call)
            or else not Comes_From_Source (N)
          then
             return;
@@ -4219,9 +4222,11 @@ package body Sem_Res is
          Par : constant Node_Id := Parent (N);
 
       begin
-         return Nkind (Par) in N_Subprogram_Call
-           and then Is_Entity_Name (Name (Par))
-           and then Is_Dispatching_Operation (Entity (Name (Par)));
+         return
+           Nkind_In (Par, N_Function_Call,
+                          N_Procedure_Call_Statement)
+             and then Is_Entity_Name (Name (Par))
+             and then Is_Dispatching_Operation (Entity (Name (Par)));
       end In_Dispatching_Context;
 
    --  Start of processing for Resolve_Allocator
@@ -5839,11 +5844,14 @@ package body Sem_Res is
          Check_Restriction (No_Relative_Delay, N);
       end if;
 
-      --  Issue an error for a call to an eliminated subprogram. This routine
-      --  will not perform the check if the call appears within a default
-      --  expression.
+      --  Issue an error for a call to an eliminated subprogram. We skip this
+      --  in a spec expression, e.g. a call in a default parameter value, since
+      --  we are not really doing a call at this time. That's important because
+      --  the spec expression may itself belong to an eliminated subprogram.
 
-      Check_For_Eliminated_Subprogram (Subp, Nam);
+      if not In_Spec_Expression then
+         Check_For_Eliminated_Subprogram (Subp, Nam);
+      end if;
 
       --  In formal mode, the primitive operations of a tagged type or type
       --  extension do not include functions that return the tagged type.
@@ -7057,48 +7065,26 @@ package body Sem_Res is
       Loc   : constant Source_Ptr := Sloc (N);
       New_N : Node_Id;
       P     : constant Node_Id := Prefix (N);
-
-      P_Typ : Entity_Id;
-      --  The candidate prefix type, if overloaded
-
       I     : Interp_Index;
       It    : Interp;
 
    begin
       Check_Fully_Declared_Prefix (Typ, P);
-      P_Typ := Empty;
 
       if Is_Overloaded (P) then
 
          --  Use the context type to select the prefix that has the correct
-         --  designated type. Keep the first match, which will be the inner-
-         --  most.
+         --  designated type.
 
          Get_First_Interp (P, I, It);
-
          while Present (It.Typ) loop
-            if Is_Access_Type (It.Typ)
-              and then Covers (Typ, Designated_Type (It.Typ))
-            then
-               if No (P_Typ) then
-                  P_Typ := It.Typ;
-               end if;
-
-            --  Remove access types that do not match, but preserve access
-            --  to subprogram interpretations, in case a further dereference
-            --  is needed (see below).
-
-            elsif Ekind (It.Typ) /= E_Access_Subprogram_Type then
-               Remove_Interp (I);
-            end if;
-
+            exit when Is_Access_Type (It.Typ)
+              and then Covers (Typ, Designated_Type (It.Typ));
             Get_Next_Interp (I, It);
          end loop;
 
-         if Present (P_Typ) then
-            Resolve (P, P_Typ);
-            Set_Etype (N, Designated_Type (P_Typ));
-
+         if Present (It.Typ) then
+            Resolve (P, It.Typ);
          else
             --  If no interpretation covers the designated type of the prefix,
             --  this is the pathological case where not all implementations of
@@ -7129,7 +7115,7 @@ package body Sem_Res is
             return;
          end if;
 
-      --  If not overloaded, resolve P with its own type
+         Set_Etype (N, Designated_Type (It.Typ));
 
       else
          Resolve (P);
@@ -7762,7 +7748,9 @@ package body Sem_Res is
          --  In the common case of a call which uses an explicitly null value
          --  for an access parameter, give specialized error message.
 
-         if Nkind (Parent (N)) in N_Subprogram_Call then
+         if Nkind_In (Parent (N), N_Procedure_Call_Statement,
+                                  N_Function_Call)
+         then
             Error_Msg_N
               ("null is not allowed as argument for an access parameter", N);
 

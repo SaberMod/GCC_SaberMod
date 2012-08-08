@@ -273,14 +273,11 @@ called_as_built_in (tree node)
    on the address at which an object is actually located.  These two
    addresses are not always the same.  For example, on ARM targets,
    the address &foo of a Thumb function foo() has the lowest bit set,
-   whereas foo() itself starts on an even address.
+   whereas foo() itself starts on an even address.  */
 
-   If ADDR_P is true we are taking the address of the memory reference EXP
-   and thus cannot rely on the access taking place.  */
-
-static bool
-get_object_alignment_2 (tree exp, unsigned int *alignp,
-			unsigned HOST_WIDE_INT *bitposp, bool addr_p)
+bool
+get_object_alignment_1 (tree exp, unsigned int *alignp,
+			unsigned HOST_WIDE_INT *bitposp)
 {
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
@@ -296,40 +293,48 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 
   /* Extract alignment information from the innermost object and
      possibly adjust bitpos and offset.  */
-  if (TREE_CODE (exp) == FUNCTION_DECL)
+  if (TREE_CODE (exp) == CONST_DECL)
+    exp = DECL_INITIAL (exp);
+  if (DECL_P (exp)
+      && TREE_CODE (exp) != LABEL_DECL)
     {
-      /* Function addresses can encode extra information besides their
-	 alignment.  However, if TARGET_PTRMEMFUNC_VBIT_LOCATION
-	 allows the low bit to be used as a virtual bit, we know
-	 that the address itself must be at least 2-byte aligned.  */
-      if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn)
-	align = 2 * BITS_PER_UNIT;
+      if (TREE_CODE (exp) == FUNCTION_DECL)
+	{
+	  /* Function addresses can encode extra information besides their
+	     alignment.  However, if TARGET_PTRMEMFUNC_VBIT_LOCATION
+	     allows the low bit to be used as a virtual bit, we know
+	     that the address itself must be 2-byte aligned.  */
+	  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn)
+	    {
+	      known_alignment = true;
+	      align = 2 * BITS_PER_UNIT;
+	    }
+	}
+      else
+	{
+	  known_alignment = true;
+	  align = DECL_ALIGN (exp);
+	}
     }
-  else if (TREE_CODE (exp) == LABEL_DECL)
-    ;
-  else if (TREE_CODE (exp) == CONST_DECL)
+  else if (CONSTANT_CLASS_P (exp))
     {
-      /* The alignment of a CONST_DECL is determined by its initializer.  */
-      exp = DECL_INITIAL (exp);
+      known_alignment = true;
       align = TYPE_ALIGN (TREE_TYPE (exp));
 #ifdef CONSTANT_ALIGNMENT
-      if (CONSTANT_CLASS_P (exp))
-	align = (unsigned) CONSTANT_ALIGNMENT (exp, align);
+      align = (unsigned)CONSTANT_ALIGNMENT (exp, align);
 #endif
-      known_alignment = true;
-    }
-  else if (DECL_P (exp))
-    {
-      align = DECL_ALIGN (exp);
-      known_alignment = true;
     }
   else if (TREE_CODE (exp) == VIEW_CONVERT_EXPR)
     {
+      known_alignment = true;
       align = TYPE_ALIGN (TREE_TYPE (exp));
     }
-  else if (TREE_CODE (exp) == INDIRECT_REF
-	   || TREE_CODE (exp) == MEM_REF
-	   || TREE_CODE (exp) == TARGET_MEM_REF)
+  else if (TREE_CODE (exp) == INDIRECT_REF)
+    {
+      known_alignment = true;
+      align = TYPE_ALIGN (TREE_TYPE (exp));
+    }
+  else if (TREE_CODE (exp) == MEM_REF)
     {
       tree addr = TREE_OPERAND (exp, 0);
       unsigned ptr_align;
@@ -338,59 +343,58 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
       if (TREE_CODE (addr) == BIT_AND_EXPR
 	  && TREE_CODE (TREE_OPERAND (addr, 1)) == INTEGER_CST)
 	{
+	  known_alignment = true;
 	  align = (TREE_INT_CST_LOW (TREE_OPERAND (addr, 1))
 		    & -TREE_INT_CST_LOW (TREE_OPERAND (addr, 1)));
 	  align *= BITS_PER_UNIT;
 	  addr = TREE_OPERAND (addr, 0);
 	}
 
-      known_alignment
-	= get_pointer_alignment_1 (addr, &ptr_align, &ptr_bitpos);
-      align = MAX (ptr_align, align);
-
-      /* The alignment of the pointer operand in a TARGET_MEM_REF
-	 has to take the variable offset parts into account.  */
-      if (TREE_CODE (exp) == TARGET_MEM_REF)
+      if (get_pointer_alignment_1 (addr, &ptr_align, &ptr_bitpos))
 	{
-	  if (TMR_INDEX (exp))
-	    {
-	      unsigned HOST_WIDE_INT step = 1;
-	      if (TMR_STEP (exp))
-		step = TREE_INT_CST_LOW (TMR_STEP (exp));
-	      align = MIN (align, (step & -step) * BITS_PER_UNIT);
-	    }
-	  if (TMR_INDEX2 (exp))
-	    align = BITS_PER_UNIT;
-	  known_alignment = false;
+	  known_alignment = true;
+	  bitpos += ptr_bitpos & ~(align - 1);
+	  align = MAX (ptr_align, align);
 	}
 
-      /* When EXP is an actual memory reference then we can use
-	 TYPE_ALIGN of a pointer indirection to derive alignment.
-	 Do so only if get_pointer_alignment_1 did not reveal absolute
-	 alignment knowledge and if using that alignment would
-	 improve the situation.  */
-      if (!addr_p && !known_alignment
-	  && TYPE_ALIGN (TREE_TYPE (exp)) > align)
-	align = TYPE_ALIGN (TREE_TYPE (exp));
-      else
-	{
-	  /* Else adjust bitpos accordingly.  */
-	  bitpos += ptr_bitpos;
-	  if (TREE_CODE (exp) == MEM_REF
-	      || TREE_CODE (exp) == TARGET_MEM_REF)
-	    bitpos += mem_ref_offset (exp).low * BITS_PER_UNIT;
-	}
+      bitpos += mem_ref_offset (exp).low * BITS_PER_UNIT;
     }
-  else if (TREE_CODE (exp) == STRING_CST)
+  else if (TREE_CODE (exp) == TARGET_MEM_REF)
     {
-      /* STRING_CST are the only constant objects we allow to be not
-         wrapped inside a CONST_DECL.  */
-      align = TYPE_ALIGN (TREE_TYPE (exp));
-#ifdef CONSTANT_ALIGNMENT
-      if (CONSTANT_CLASS_P (exp))
-	align = (unsigned) CONSTANT_ALIGNMENT (exp, align);
-#endif
-      known_alignment = true;
+      unsigned ptr_align;
+      unsigned HOST_WIDE_INT ptr_bitpos;
+      tree addr = TMR_BASE (exp);
+
+      if (TREE_CODE (addr) == BIT_AND_EXPR
+	  && TREE_CODE (TREE_OPERAND (addr, 1)) == INTEGER_CST)
+	{
+	  known_alignment = true;
+	  align = (TREE_INT_CST_LOW (TREE_OPERAND (addr, 1))
+		   & -TREE_INT_CST_LOW (TREE_OPERAND (addr, 1)));
+	  align *= BITS_PER_UNIT;
+	  addr = TREE_OPERAND (addr, 0);
+	}
+
+      if (get_pointer_alignment_1 (addr, &ptr_align, &ptr_bitpos))
+	{
+	  known_alignment = true;
+	  bitpos += ptr_bitpos & ~(align - 1);
+	  align = MAX (ptr_align, align);
+	}
+
+      if (TMR_OFFSET (exp))
+	bitpos += TREE_INT_CST_LOW (TMR_OFFSET (exp)) * BITS_PER_UNIT;
+      if (TMR_INDEX (exp) && TMR_STEP (exp))
+	{
+	  unsigned HOST_WIDE_INT step = TREE_INT_CST_LOW (TMR_STEP (exp));
+	  align = MIN (align, (step & -step) * BITS_PER_UNIT);
+	  known_alignment = true;
+	}
+      else if (TMR_INDEX (exp))
+	known_alignment = false;
+
+      if (TMR_INDEX2 (exp))
+	known_alignment = false;
     }
 
   /* If there is a non-constant offset part extract the maximum
@@ -431,30 +435,27 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 	}
       else
 	{
-	  inner = MIN (inner, BITS_PER_UNIT);
+	  known_alignment = false;
 	  break;
 	}
       offset = next_offset;
     }
-  /* Alignment is innermost object alignment adjusted by the constant
-     and non-constant offset parts.  */
-  align = MIN (align, inner);
 
-  *alignp = align;
-  *bitposp = bitpos & (*alignp - 1);
+  if (known_alignment)
+    {
+      /* Alignment is innermost object alignment adjusted by the constant
+	 and non-constant offset parts.  */
+      align = MIN (align, inner);
+      bitpos = bitpos & (align - 1);
+      *alignp = align;
+    }
+  else
+    {
+      bitpos = bitpos & (BITS_PER_UNIT - 1);
+      *alignp = BITS_PER_UNIT;
+    }
+  *bitposp = bitpos;
   return known_alignment;
-}
-
-/* For a memory reference expression EXP compute values M and N such that M
-   divides (&EXP - N) and such that N < M.  If these numbers can be determined,
-   store M in alignp and N in *BITPOSP and return true.  Otherwise return false
-   and store BITS_PER_UNIT to *alignp and any bit-offset to *bitposp.  */
-
-bool
-get_object_alignment_1 (tree exp, unsigned int *alignp,
-			unsigned HOST_WIDE_INT *bitposp)
-{
-  return get_object_alignment_2 (exp, alignp, bitposp, false);
 }
 
 /* Return the alignment in bits of EXP, an object.  */
@@ -475,10 +476,36 @@ get_object_alignment (tree exp)
   return align;
 }
 
+/* Return the alignment of object EXP, also considering its type when we do
+   not know of explicit misalignment.  Only handle MEM_REF and TARGET_MEM_REF.
+
+   ??? Note that, in the general case, the type of an expression is not kept
+   consistent with misalignment information by the front-end, for example when
+   taking the address of a member of a packed structure.  However, in most of
+   the cases, expressions have the alignment of their type so we optimistically
+   fall back to this alignment when we cannot compute a misalignment.  */
+
+unsigned int
+get_object_or_type_alignment (tree exp)
+{
+  unsigned HOST_WIDE_INT misalign;
+  unsigned int align;
+  bool known_alignment;
+
+  gcc_assert (TREE_CODE (exp) == MEM_REF || TREE_CODE (exp) == TARGET_MEM_REF);
+  known_alignment = get_object_alignment_1 (exp, &align, &misalign);
+  if (misalign != 0)
+    align = (misalign & -misalign);
+  else if (!known_alignment)
+    align = TYPE_ALIGN (TREE_TYPE (exp));
+
+  return align;
+}
+
 /* For a pointer valued expression EXP compute values M and N such that M
    divides (EXP - N) and such that N < M.  If these numbers can be determined,
-   store M in alignp and N in *BITPOSP and return true.  Return false if
-   the results are just a conservative approximation.
+   store M in alignp and N in *BITPOSP and return true.  Otherwise return false
+   and store BITS_PER_UNIT to *alignp and any bit-offset to *bitposp.
 
    If EXP is not a pointer, false is returned too.  */
 
@@ -489,8 +516,7 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
   STRIP_NOPS (exp);
 
   if (TREE_CODE (exp) == ADDR_EXPR)
-    return get_object_alignment_2 (TREE_OPERAND (exp, 0),
-				   alignp, bitposp, true);
+    return get_object_alignment_1 (TREE_OPERAND (exp, 0), alignp, bitposp);
   else if (TREE_CODE (exp) == SSA_NAME
 	   && POINTER_TYPE_P (TREE_TYPE (exp)))
     {
@@ -501,7 +527,6 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
 	{
 	  *bitposp = ptr_misalign * BITS_PER_UNIT;
 	  *alignp = ptr_align * BITS_PER_UNIT;
-	  /* We cannot really tell whether this result is an approximation.  */
 	  return true;
 	}
       else
@@ -510,13 +535,6 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
 	  *alignp = BITS_PER_UNIT;
 	  return false;
 	}
-    }
-  else if (TREE_CODE (exp) == INTEGER_CST)
-    {
-      *alignp = BIGGEST_ALIGNMENT;
-      *bitposp = ((TREE_INT_CST_LOW (exp) * BITS_PER_UNIT)
-		  & (BIGGEST_ALIGNMENT - 1));
-      return true;
     }
 
   *bitposp = 0;
@@ -695,7 +713,7 @@ c_readstr (const char *str, enum machine_mode mode)
 	  && GET_MODE_SIZE (mode) >= UNITS_PER_WORD)
 	j = j + UNITS_PER_WORD - 2 * (j % UNITS_PER_WORD) - 1;
       j *= BITS_PER_UNIT;
-      gcc_assert (j < HOST_BITS_PER_DOUBLE_INT);
+      gcc_assert (j < 2 * HOST_BITS_PER_WIDE_INT);
 
       if (ch)
 	ch = (unsigned char) str[i];
@@ -1234,6 +1252,7 @@ get_memory_rtx (tree exp, tree len)
 {
   tree orig_exp = exp;
   rtx addr, mem;
+  HOST_WIDE_INT off;
 
   /* When EXP is not resolved SAVE_EXPR, MEM_ATTRS can be still derived
      from its expression, for expr->a.b only <variable>.a.b is recorded.  */
@@ -1244,38 +1263,120 @@ get_memory_rtx (tree exp, tree len)
   mem = gen_rtx_MEM (BLKmode, memory_address (BLKmode, addr));
 
   /* Get an expression we can use to find the attributes to assign to MEM.
-     First remove any nops.  */
+     If it is an ADDR_EXPR, use the operand.  Otherwise, dereference it if
+     we can.  First remove any nops.  */
   while (CONVERT_EXPR_P (exp)
 	 && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (exp, 0))))
     exp = TREE_OPERAND (exp, 0);
 
-  /* Build a MEM_REF representing the whole accessed area as a byte blob,
-     (as builtin stringops may alias with anything).  */
-  exp = fold_build2 (MEM_REF,
-		     build_array_type (char_type_node,
-				       build_range_type (sizetype,
-							 size_one_node, len)),
-		     exp, build_int_cst (ptr_type_node, 0));
+  off = 0;
+  if (TREE_CODE (exp) == POINTER_PLUS_EXPR
+      && TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
+      && host_integerp (TREE_OPERAND (exp, 1), 0)
+      && (off = tree_low_cst (TREE_OPERAND (exp, 1), 0)) > 0)
+    exp = TREE_OPERAND (TREE_OPERAND (exp, 0), 0);
+  else if (TREE_CODE (exp) == ADDR_EXPR)
+    exp = TREE_OPERAND (exp, 0);
+  else if (POINTER_TYPE_P (TREE_TYPE (exp)))
+    exp = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (exp)), exp);
+  else
+    exp = NULL;
 
-  /* If the MEM_REF has no acceptable address, try to get the base object
-     from the original address we got, and build an all-aliasing
-     unknown-sized access to that one.  */
-  if (is_gimple_mem_ref_addr (TREE_OPERAND (exp, 0)))
-    set_mem_attributes (mem, exp, 0);
-  else if (TREE_CODE (TREE_OPERAND (exp, 0)) == ADDR_EXPR
-	   && (exp = get_base_address (TREE_OPERAND (TREE_OPERAND (exp, 0),
-						     0))))
+  /* Honor attributes derived from exp, except for the alias set
+     (as builtin stringops may alias with anything) and the size
+     (as stringops may access multiple array elements).  */
+  if (exp)
     {
-      exp = build_fold_addr_expr (exp);
-      exp = fold_build2 (MEM_REF,
-			 build_array_type (char_type_node,
-					   build_range_type (sizetype,
-							     size_zero_node,
-							     NULL)),
-			 exp, build_int_cst (ptr_type_node, 0));
       set_mem_attributes (mem, exp, 0);
+
+      if (off)
+	mem = adjust_automodify_address_nv (mem, BLKmode, NULL, off);
+
+      /* Allow the string and memory builtins to overflow from one
+	 field into another, see http://gcc.gnu.org/PR23561.
+	 Thus avoid COMPONENT_REFs in MEM_EXPR unless we know the whole
+	 memory accessed by the string or memory builtin will fit
+	 within the field.  */
+      if (MEM_EXPR (mem) && TREE_CODE (MEM_EXPR (mem)) == COMPONENT_REF)
+	{
+	  tree mem_expr = MEM_EXPR (mem);
+	  HOST_WIDE_INT offset = -1, length = -1;
+	  tree inner = exp;
+
+	  while (TREE_CODE (inner) == ARRAY_REF
+		 || CONVERT_EXPR_P (inner)
+		 || TREE_CODE (inner) == VIEW_CONVERT_EXPR
+		 || TREE_CODE (inner) == SAVE_EXPR)
+	    inner = TREE_OPERAND (inner, 0);
+
+	  gcc_assert (TREE_CODE (inner) == COMPONENT_REF);
+
+	  if (MEM_OFFSET_KNOWN_P (mem))
+	    offset = MEM_OFFSET (mem);
+
+	  if (offset >= 0 && len && host_integerp (len, 0))
+	    length = tree_low_cst (len, 0);
+
+	  while (TREE_CODE (inner) == COMPONENT_REF)
+	    {
+	      tree field = TREE_OPERAND (inner, 1);
+	      gcc_assert (TREE_CODE (mem_expr) == COMPONENT_REF);
+	      gcc_assert (field == TREE_OPERAND (mem_expr, 1));
+
+	      /* Bitfields are generally not byte-addressable.  */
+	      gcc_assert (!DECL_BIT_FIELD (field)
+			  || ((tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			       % BITS_PER_UNIT) == 0
+			      && host_integerp (DECL_SIZE (field), 0)
+			      && (TREE_INT_CST_LOW (DECL_SIZE (field))
+				  % BITS_PER_UNIT) == 0));
+
+	      /* If we can prove that the memory starting at XEXP (mem, 0) and
+		 ending at XEXP (mem, 0) + LENGTH will fit into this field, we
+		 can keep the COMPONENT_REF in MEM_EXPR.  But be careful with
+		 fields without DECL_SIZE_UNIT like flexible array members.  */
+	      if (length >= 0
+		  && DECL_SIZE_UNIT (field)
+		  && host_integerp (DECL_SIZE_UNIT (field), 0))
+		{
+		  HOST_WIDE_INT size
+		    = TREE_INT_CST_LOW (DECL_SIZE_UNIT (field));
+		  if (offset <= size
+		      && length <= size
+		      && offset + length <= size)
+		    break;
+		}
+
+	      if (offset >= 0
+		  && host_integerp (DECL_FIELD_OFFSET (field), 0))
+		offset += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field))
+			  + tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+			    / BITS_PER_UNIT;
+	      else
+		{
+		  offset = -1;
+		  length = -1;
+		}
+
+	      mem_expr = TREE_OPERAND (mem_expr, 0);
+	      inner = TREE_OPERAND (inner, 0);
+	    }
+
+	  if (mem_expr == NULL)
+	    offset = -1;
+	  if (mem_expr != MEM_EXPR (mem))
+	    {
+	      set_mem_expr (mem, mem_expr);
+	      if (offset >= 0)
+		set_mem_offset (mem, offset);
+	      else
+		clear_mem_offset (mem);
+	    }
+	}
+      set_mem_alias_set (mem, 0);
+      clear_mem_size (mem);
     }
-  set_mem_alias_set (mem, 0);
+
   return mem;
 }
 
@@ -2360,7 +2461,7 @@ static enum insn_code
 interclass_mathfn_icode (tree arg, tree fndecl)
 {
   bool errno_set = false;
-  optab builtin_optab = unknown_optab;
+  optab builtin_optab = 0;
   enum machine_mode mode;
 
   switch (DECL_FUNCTION_CODE (fndecl))
@@ -2549,8 +2650,8 @@ expand_builtin_cexpi (tree exp, rtx target)
       else
 	gcc_unreachable ();
 
-      op1 = assign_temp (TREE_TYPE (arg), 1, 1);
-      op2 = assign_temp (TREE_TYPE (arg), 1, 1);
+      op1 = assign_temp (TREE_TYPE (arg), 0, 1, 1);
+      op2 = assign_temp (TREE_TYPE (arg), 0, 1, 1);
       op1a = copy_addr_to_reg (XEXP (op1, 0));
       op2a = copy_addr_to_reg (XEXP (op2, 0));
       top1 = make_tree (build_pointer_type (TREE_TYPE (arg)), op1a);
@@ -8042,7 +8143,7 @@ fold_builtin_bitop (tree fndecl, tree arg)
       if (width > HOST_BITS_PER_WIDE_INT)
 	{
 	  hi = TREE_INT_CST_HIGH (arg);
-	  if (width < HOST_BITS_PER_DOUBLE_INT)
+	  if (width < 2 * HOST_BITS_PER_WIDE_INT)
 	    hi &= ~((unsigned HOST_WIDE_INT) (-1)
 		    << (width - HOST_BITS_PER_WIDE_INT));
 	}

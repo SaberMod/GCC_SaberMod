@@ -803,11 +803,6 @@ package body Exp_Disp is
       Subp_Ptr_Typ := Create_Itype (E_Access_Subprogram_Type, Call_Node);
       Set_Etype          (Subp_Typ, Res_Typ);
       Set_Returns_By_Ref (Subp_Typ, Returns_By_Ref (Subp));
-      Set_Convention     (Subp_Typ, Convention (Subp));
-
-      --  Notify gigi that the designated type is a dispatching primitive
-
-      Set_Is_Dispatch_Table_Entity (Subp_Typ);
 
       --  Create a new list of parameters which is a copy of the old formal
       --  list including the creation of a new set of matching entities.
@@ -1834,14 +1829,6 @@ package body Exp_Disp is
                  Make_Explicit_Dereference (Loc,
                    New_Reference_To (Defining_Identifier (Decl_2), Loc))));
 
-         --  Ensure proper matching of access types. Required to avoid
-         --  reporting spurious errors.
-
-         elsif Is_Access_Type (Etype (Target_Formal)) then
-            Append_To (Actuals,
-              Unchecked_Convert_To (Base_Type (Etype (Target_Formal)),
-                New_Reference_To (Defining_Identifier (Formal), Loc)));
-
          --  No special management required for this actual
 
          else
@@ -1855,7 +1842,6 @@ package body Exp_Disp is
 
       Thunk_Id := Make_Temporary (Loc, 'T');
       Set_Is_Thunk (Thunk_Id);
-      Set_Convention (Thunk_Id, Convention (Prim));
 
       --  Procedure case
 
@@ -5777,7 +5763,7 @@ package body Exp_Disp is
              Prefix => New_Reference_To (TSD, Loc),
              Attribute_Name => Name_Address));
 
-         --  Stage 2: Initialize the table of user-defined primitive operations
+         --  Stage 2: Initialize the table of primitive operations
 
          Prim_Ops_Aggr_List := New_List;
 
@@ -6255,6 +6241,12 @@ package body Exp_Disp is
             Elmt : Elmt_Id;
 
          begin
+            --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
+            --  the decoration required by the backend
+
+            Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
+            Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
+
             --  Object declarations
 
             Elmt := First_Elmt (DT_Decl);
@@ -7130,15 +7122,6 @@ package body Exp_Disp is
 
       Set_Ekind        (DT_Ptr, E_Variable);
       Set_Related_Type (DT_Ptr, Typ);
-
-      --  Ensure that entities Prim_Ptr and Predef_Prims_Table_Ptr have
-      --  the decoration required by the backend.
-
-      --  Odd comment, the back end cannot require anything not properly
-      --  documented in einfo! ???
-
-      Set_Is_Dispatch_Table_Entity (RTE (RE_Prim_Ptr));
-      Set_Is_Dispatch_Table_Entity (RTE (RE_Predef_Prims_Table_Ptr));
 
       --  For CPP types there is no need to build the dispatch tables since
       --  they are imported from the C++ side. If the CPP type has an IP then
@@ -8477,9 +8460,8 @@ package body Exp_Disp is
 
                Set_Init_Proc (Typ, Init);
                Set_Is_Imported    (Init);
-               Set_Is_Constructor (Init);
                Set_Interface_Name (Init, Interface_Name (E));
-               Set_Convention     (Init, Convention_CPP);
+               Set_Convention     (Init, Convention_C);
                Set_Is_Public      (Init);
                Set_Has_Completion (Init);
             end if;
@@ -8572,9 +8554,8 @@ package body Exp_Disp is
                   Parameter_Specifications => Parms));
 
             Set_Is_Imported    (Constructor_Id);
-            Set_Is_Constructor (Constructor_Id);
             Set_Interface_Name (Constructor_Id, Interface_Name (E));
-            Set_Convention     (Constructor_Id, Convention_CPP);
+            Set_Convention     (Constructor_Id, Convention_C);
             Set_Is_Public      (Constructor_Id);
             Set_Has_Completion (Constructor_Id);
 
@@ -8860,8 +8841,7 @@ package body Exp_Disp is
             --  If the DTC_Entity attribute is already set we can also output
             --  the name of the interface covered by this primitive (if any).
 
-            if Ekind_In (Alias (Prim), E_Function, E_Procedure)
-              and then Present (DTC_Entity (Alias (Prim)))
+            if Present (DTC_Entity (Alias (Prim)))
               and then Is_Interface (Scope (DTC_Entity (Alias (Prim))))
             then
                Write_Str  (" from interface ");

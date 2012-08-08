@@ -10,3 +10,5 @@ module foo
    integer :: arr(max(len,1))
 
 end
+
+! { dg-final { cleanup-modules "foo" } }

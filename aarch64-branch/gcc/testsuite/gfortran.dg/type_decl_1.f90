@@ -26,3 +26,5 @@ type(integer (kind=k4)) function f()
   use m
   f = 42
 end
+
+! { dg-final { cleanup-modules "m" } }

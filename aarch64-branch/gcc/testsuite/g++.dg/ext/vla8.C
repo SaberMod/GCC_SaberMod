@@ -8,8 +8,8 @@ struct AvlTreeIter
 
   AvlTreeIter()
   {
-    new (void* [Num()]); // { dg-warning "variable-length array" }
+    new (void* [Num()]);
   }
 };
 
-AvlTreeIter<int> a; // { dg-message "from here" }
+AvlTreeIter<int> a;

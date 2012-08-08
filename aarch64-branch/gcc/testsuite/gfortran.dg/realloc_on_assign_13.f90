@@ -16,3 +16,5 @@ contains
       reduced = pack (array, mask)
     end function reduced
 end module cascades
+! { dg-final { cleanup-modules "cascades" } }
+

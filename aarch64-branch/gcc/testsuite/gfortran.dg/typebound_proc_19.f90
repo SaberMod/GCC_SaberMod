@@ -39,3 +39,5 @@ end subroutine test
 
 call test()
 end
+
+! { dg-final { cleanup-modules "mytypes" } }

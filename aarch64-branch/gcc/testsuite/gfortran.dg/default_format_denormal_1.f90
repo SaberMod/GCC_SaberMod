@@ -23,3 +23,4 @@ program main
 
 end program main
 !
+! { dg-final { cleanup-modules "test_default_format" } }

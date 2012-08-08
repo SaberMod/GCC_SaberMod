@@ -1,5 +1,5 @@
 /* PR 17962 */
-/* { dg-do compile { target vect_natural_alignment } } */
+/* { dg-do compile } */
 /* { dg-options "" } */
 
 typedef float v4 __attribute__((vector_size(sizeof(float)*4)));

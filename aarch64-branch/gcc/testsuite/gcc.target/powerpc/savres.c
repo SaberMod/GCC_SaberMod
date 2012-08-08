@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-options "-fno-inline -fomit-frame-pointer" } */
-/* { dg-additional-options "-mdynamic-no-pic" { target *-*-darwin* } } */
 
 /* -fno-inline -maltivec -m32/-m64 -mmultiple/no-multiple -Os/-O2.  */
 #ifndef NO_BODY
@@ -74,7 +73,6 @@ __attribute__ ((vector_size (16))) int val31 = {-311,-312,-313,-314};
 
 #else /* NO_BODY */
 /* For looking at prologue and epilogue code without distractions.  */
-#define abort()
 #define TRASH_ALL_CR
 #define TRASH_ALL_VR
 #define TRASH_ALL_FPR
@@ -460,7 +458,7 @@ void s_0 (void)
 void wb_all (void)
 {
   char b[10];
-  char *nb_all (void)
+  void nb_all (void)
   {
     char a[33000];
     TRASH_ALL_CR;
@@ -472,16 +470,14 @@ void wb_all (void)
     USE_ALL_FPR;
     USE_ALL_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "cr3", "cr4", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "fr14", "fr15", "fr16", "fr17", "fr18", "fr19", "fr20", "fr21", "fr22", "fr23", "fr24", "fr25", "fr26", "fr27", "fr28", "fr29", "fr30", "fr31", "r14", "r15", "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31");
-    return b;
   }
-  if (nb_all() != b)
-    abort ();
+  nb_all();
 }
 
 void wb_cvfr (void)
 {
   char b[10];
-  char *nb_cvfr (void)
+  void nb_cvfr (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -493,16 +489,14 @@ void wb_cvfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (nb_cvfr () != b)
-    abort ();
+  nb_cvfr ();
 }
 
 void wb_vfr (void)
 {
   char b[10];
-  char *nb_vfr (void)
+  void nb_vfr (void)
   {
     char a[33000];
     TRASH_SOME_VR;
@@ -512,16 +506,14 @@ void wb_vfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (nb_vfr () != b)
-    abort ();
+  nb_vfr ();
 }
 
 void wb_cvf (void)
 {
   char b[10];
-  char *nb_cvf (void)
+  void nb_cvf (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -531,16 +523,14 @@ void wb_cvf (void)
     USE_SOME_VR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "fr28", "fr31");
-    return b;
   }
-  if (nb_cvf () != b)
-    abort ();
+  nb_cvf ();
 }
 
 void wb_vf (void)
 {
   char b[10];
-  char *nb_vf (void)
+  void nb_vf (void)
   {
     char a[33000];
     TRASH_SOME_VR;
@@ -548,17 +538,15 @@ void wb_vf (void)
     USE_SOME_VR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "fr28", "fr31");
-    return b;
   }
-  if (nb_vf () != b)
-    abort ();
+  nb_vf ();
 }
 #endif
 
 void wb_cvr (void)
 {
   char b[10];
-  char *nb_cvr (void)
+  void nb_cvr (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -568,16 +556,14 @@ void wb_cvr (void)
     USE_SOME_VR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "r30", "r31");
-    return b;
   }
-  if (nb_cvr () != b)
-    abort ();
+  nb_cvr ();
 }
 
 void wb_vr (void)
 {
   char b[10];
-  char *nb_vr (void)
+  void nb_vr (void)
   {
     char a[33000];
     TRASH_SOME_VR;
@@ -585,16 +571,14 @@ void wb_vr (void)
     USE_SOME_VR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "r30", "r31");
-    return b;
   }
-  if (nb_vr () != b)
-    abort ();
+  nb_vr ();
 }
 
 void wb_cv (void)
 {
   char b[10];
-  char *nb_cv (void)
+  void nb_cv (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -602,25 +586,21 @@ void wb_cv (void)
     USE_SOME_CR;
     USE_SOME_VR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31");
-    return b;
   }
-  if (nb_cv () != b)
-    abort ();
+  nb_cv ();
 }
 
 void wb_v (void)
 {
   char b[10];
-  char *nb_v (void)
+  void nb_v (void)
   {
     char a[33000];
     TRASH_SOME_VR;
     USE_SOME_VR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31");
-    return b;
   }
-  if (nb_v () != b)
-    abort ();
+  nb_v ();
 }
 #endif
 
@@ -628,7 +608,7 @@ void wb_v (void)
 void wb_cfr (void)
 {
   char b[10];
-  char *nb_cfr (void)
+  void nb_cfr (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -638,16 +618,14 @@ void wb_cfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (nb_cfr () != b)
-    abort ();
+  nb_cfr ();
 }
 
 void wb_fr (void)
 {
   char b[10];
-  char *nb_fr (void)
+  void nb_fr (void)
   {
     char a[33000];
     TRASH_SOME_FPR;
@@ -655,16 +633,14 @@ void wb_fr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (nb_fr () != b)
-    abort ();
+  nb_fr ();
 }
 
 void wb_cf (void)
 {
   char b[10];
-  char *nb_cf (void)
+  void nb_cf (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -672,32 +648,28 @@ void wb_cf (void)
     USE_SOME_CR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "fr28", "fr31");
-    return b;
   }
-  if (nb_cf () != b)
-    abort ();
+  nb_cf ();
 }
 
 void wb_f (void)
 {
   char b[10];
-  char *nb_f (void)
+  void nb_f (void)
   {
     char a[33000];
     TRASH_SOME_FPR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "fr28", "fr31");
-    return b;
   }
-  if (nb_f () != b)
-    abort ();
+  nb_f ();
 }
 #endif
 
 void wb_cr (void)
 {
   char b[10];
-  char *nb_cr (void)
+  void nb_cr (void)
   {
     char a[33000];
     TRASH_SOME_CR;
@@ -705,53 +677,45 @@ void wb_cr (void)
     USE_SOME_CR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "r30", "r31");
-    return b;
   }
-  if (nb_cr () != b)
-    abort ();
+  nb_cr ();
 }
 
 void wb_r (void)
 {
   char b[10];
-  char *nb_r (void)
+  void nb_r (void)
   {
     char a[33000];
     TRASH_SOME_GPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "r30", "r31");
-    return b;
   }
-  if (nb_r () != b)
-    abort ();
+  nb_r ();
 }
 
 void wb_c (void)
 {
   char b[10];
-  char *nb_c (void)
+  void nb_c (void)
   {
     char a[33000];
     TRASH_SOME_CR;
     USE_SOME_CR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2");
-    return b;
   }
-  if (nb_c () != b)
-    abort ();
+  nb_c ();
 }
 
 void wb_0 (void)
 {
   char b[10];
-  char *nb_0 (void)
+  void nb_0 (void)
   {
     char a[33000];
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) );
-    return b;
   }
-  if (nb_0 () != b)
-    abort ();
+  nb_0 ();
 }
 
 #ifdef __ALTIVEC__
@@ -759,7 +723,7 @@ void wb_0 (void)
 void ws_all (void)
 {
   char b[10];
-  char *ns_all (void)
+  void ns_all (void)
   {
     char a[33];
     TRASH_ALL_CR;
@@ -771,16 +735,14 @@ void ws_all (void)
     USE_ALL_FPR;
     USE_ALL_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "cr3", "cr4", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31", "fr14", "fr15", "fr16", "fr17", "fr18", "fr19", "fr20", "fr21", "fr22", "fr23", "fr24", "fr25", "fr26", "fr27", "fr28", "fr29", "fr30", "fr31", "r14", "r15", "r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25", "r26", "r27", "r28", "r29", "r30", "r31");
-    return b;
   }
-  if (ns_all() != b)
-    abort ();
+  ns_all();
 }
 
 void ws_cvfr (void)
 {
   char b[10];
-  char *ns_cvfr (void)
+  void ns_cvfr (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -792,16 +754,14 @@ void ws_cvfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (ns_cvfr () != b)
-    abort ();
+  ns_cvfr ();
 }
 
 void ws_vfr (void)
 {
   char b[10];
-  char *ns_vfr (void)
+  void ns_vfr (void)
   {
     char a[33];
     TRASH_SOME_VR;
@@ -811,16 +771,14 @@ void ws_vfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (ns_vfr () != b)
-    abort ();
+  ns_vfr ();
 }
 
 void ws_cvf (void)
 {
   char b[10];
-  char *ns_cvf (void)
+  void ns_cvf (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -830,16 +788,14 @@ void ws_cvf (void)
     USE_SOME_VR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "fr28", "fr31");
-    return b;
   }
-  if (ns_cvf () != b)
-    abort ();
+  ns_cvf ();
 }
 
 void ws_vf (void)
 {
   char b[10];
-  char *ns_vf (void)
+  void ns_vf (void)
   {
     char a[33];
     TRASH_SOME_VR;
@@ -847,17 +803,15 @@ void ws_vf (void)
     USE_SOME_VR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "fr28", "fr31");
-    return b;
   }
-  if (ns_vf () != b)
-    abort ();
+  ns_vf ();
 }
 #endif
 
 void ws_cvr (void)
 {
   char b[10];
-  char *ns_cvr (void)
+  void ns_cvr (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -867,16 +821,14 @@ void ws_cvr (void)
     USE_SOME_VR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31", "r30", "r31");
-    return b;
   }
-  if (ns_cvr () != b)
-    abort ();
+  ns_cvr ();
 }
 
 void ws_vr (void)
 {
   char b[10];
-  char *ns_vr (void)
+  void ns_vr (void)
   {
     char a[33];
     TRASH_SOME_VR;
@@ -884,16 +836,14 @@ void ws_vr (void)
     USE_SOME_VR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31", "r30", "r31");
-    return b;
   }
-  if (ns_vr () != b)
-    abort ();
+  ns_vr ();
 }
 
 void ws_cv (void)
 {
   char b[10];
-  char *ns_cv (void)
+  void ns_cv (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -901,25 +851,21 @@ void ws_cv (void)
     USE_SOME_CR;
     USE_SOME_VR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "v26", "v27", "v31");
-    return b;
   }
-  if (ns_cv () != b)
-    abort ();
+  ns_cv ();
 }
 
 void ws_v (void)
 {
   char b[10];
-  char *ns_v (void)
+  void ns_v (void)
   {
     char a[33];
     TRASH_SOME_VR;
     USE_SOME_VR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "v26", "v27", "v31");
-    return b;
   }
-  if (ns_v () != b)
-    abort ();
+  ns_v ();
 }
 #endif
 
@@ -927,7 +873,7 @@ void ws_v (void)
 void ws_cfr (void)
 {
   char b[10];
-  char *ns_cfr (void)
+  void ns_cfr (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -937,16 +883,14 @@ void ws_cfr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (ns_cfr () != b)
-    abort ();
+  ns_cfr ();
 }
 
 void ws_fr (void)
 {
   char b[10];
-  char *ns_fr (void)
+  void ns_fr (void)
   {
     char a[33];
     TRASH_SOME_FPR;
@@ -954,16 +898,14 @@ void ws_fr (void)
     USE_SOME_FPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "fr28", "fr31", "r30", "r31");
-    return b;
   }
-  if (ns_fr () != b)
-    abort ();
+  ns_fr ();
 }
 
 void ws_cf (void)
 {
   char b[10];
-  char *ns_cf (void)
+  void ns_cf (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -971,32 +913,28 @@ void ws_cf (void)
     USE_SOME_CR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "fr28", "fr31");
-    return b;
   }
-  if (ns_cf () != b)
-    abort ();
+  ns_cf ();
 }
 
 void ws_f (void)
 {
   char b[10];
-  char *ns_f (void)
+  void ns_f (void)
   {
     char a[33];
     TRASH_SOME_FPR;
     USE_SOME_FPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "fr28", "fr31");
-    return b;
   }
-  if (ns_f () != b)
-    abort ();
+  ns_f ();
 }
 #endif
 
 void ws_cr (void)
 {
   char b[10];
-  char *ns_cr (void)
+  void ns_cr (void)
   {
     char a[33];
     TRASH_SOME_CR;
@@ -1004,53 +942,45 @@ void ws_cr (void)
     USE_SOME_CR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2", "r30", "r31");
-    return b;
   }
-  if (ns_cr () != b)
-    abort ();
+  ns_cr ();
 }
 
 void ws_r (void)
 {
   char b[10];
-  char *ns_r (void)
+  void ns_r (void)
   {
     char a[33];
     TRASH_SOME_GPR;
     USE_SOME_GPR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "r30", "r31");
-    return b;
   }
-  if (ns_r () != b)
-    abort ();
+  ns_r ();
 }
 
 void ws_c (void)
 {
   char b[10];
-  char *ns_c (void)
+  void ns_c (void)
   {
     char a[33];
     TRASH_SOME_CR;
     USE_SOME_CR;
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) : : "cr2");
-    return b;
   }
-  if (ns_c () != b)
-    abort ();
+  ns_c ();
 }
 
 void ws_0 (void)
 {
   char b[10];
-  char *ns_0 (void)
+  void ns_0 (void)
   {
     char a[33];
     __asm __volatile ("#%0 %1" : "=m" (a), "=m" (b) );
-    return b;
   }
-  if (ns_0 () != b)
-    abort ();
+  ns_0 ();
 }
 
 int main (void)

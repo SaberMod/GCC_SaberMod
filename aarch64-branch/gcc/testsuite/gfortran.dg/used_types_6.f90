@@ -34,3 +34,4 @@ CONTAINS
     RETURN
   END SUBROUTINE bar
 END MODULE seg_mod
+! { dg-final { cleanup-modules "type_mod seg_mod" } }

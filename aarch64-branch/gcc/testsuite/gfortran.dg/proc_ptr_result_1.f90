@@ -178,3 +178,6 @@ contains
   end function 
 
 end
+
+! { dg-final { cleanup-modules "mo" } }
+

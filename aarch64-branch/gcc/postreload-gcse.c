@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "basic-block.h"
+#include "output.h"
 #include "function.h"
 #include "expr.h"
 #include "except.h"
@@ -41,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "params.h"
 #include "target.h"
+#include "timevar.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
 

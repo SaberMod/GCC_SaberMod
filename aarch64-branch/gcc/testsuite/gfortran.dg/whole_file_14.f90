@@ -25,3 +25,4 @@ contains
     j%this => base                      !to one another
   end subroutine check                  !take j out of scope
 end program test_equi
+! { dg-final { cleanup-modules "global" } }

@@ -36,3 +36,5 @@ PROGRAM main
   
   call test(sparseMatrix)
 END PROGRAM
+
+! { dg-final { cleanup-modules "m_sparsematrix m_subroutine" } }

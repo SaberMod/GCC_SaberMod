@@ -49,12 +49,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "graph.h"
 #include "regs.h"
+#include "timevar.h"
 #include "diagnostic-core.h"
 #include "params.h"
 #include "reload.h"
+#include "dwarf2asm.h"
+#include "integrate.h"
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
+#include "cfglayout.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
 #include "cgraph.h"
@@ -70,7 +74,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
-#include "tree-pretty-print.h" /* for dump_function_header */
+#include "tree-pretty-print.h"
+
+#if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
+#include "dwarf2out.h"
+#endif
+
+#if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
+#include "dbxout.h"
+#endif
+
+#ifdef SDB_DEBUGGING_INFO
+#include "sdbout.h"
+#endif
+
+#ifdef XCOFF_DEBUGGING_INFO
+#include "xcoffout.h"		/* Needed for external data
+				   declarations for e.g. AIX 4.x.  */
+#endif
 
 /* This is used for debugging.  It allows the current pass to printed
    from anywhere in compilation.
@@ -313,7 +334,7 @@ gate_all_early_optimizations (void)
 	  && !seen_error ());
 }
 
-static struct gimple_opt_pass pass_all_early_optimizations =
+struct gimple_opt_pass pass_all_early_optimizations =
 {
  {
   GIMPLE_PASS,
@@ -343,7 +364,7 @@ gate_all_optimizations (void)
 	  && (!seen_error () || gimple_in_ssa_p (cfun)));
 }
 
-static struct gimple_opt_pass pass_all_optimizations =
+struct gimple_opt_pass pass_all_optimizations =
 {
  {
   GIMPLE_PASS,
@@ -370,10 +391,10 @@ gate_rest_of_compilation (void)
   return !(rtl_dump_and_exit || flag_syntax_only || seen_error ());
 }
 
-static struct rtl_opt_pass pass_rest_of_compilation =
+struct gimple_opt_pass pass_rest_of_compilation =
 {
  {
-  RTL_PASS,
+  GIMPLE_PASS,
   "*rest_of_compilation",               /* name */
   gate_rest_of_compilation,             /* gate */
   NULL,                                 /* execute */
@@ -395,7 +416,7 @@ gate_postreload (void)
   return reload_completed;
 }
 
-static struct rtl_opt_pass pass_postreload =
+struct rtl_opt_pass pass_postreload =
 {
  {
   RTL_PASS,
@@ -1285,6 +1306,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_init_datastructures);
       NEXT_PASS (pass_expand_omp);
 
+      NEXT_PASS (pass_referenced_vars);
       NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_lower_vector);
       NEXT_PASS (pass_early_warn_uninitialized);
@@ -1323,7 +1345,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
     }
-  NEXT_PASS (pass_ipa_free_inline_summary);
   NEXT_PASS (pass_ipa_tree_profile);
     {
       struct opt_pass **p = &pass_ipa_tree_profile.pass.sub;
@@ -1356,7 +1377,6 @@ init_optimization_passes (void)
   p = &all_late_ipa_passes;
   NEXT_PASS (pass_ipa_pta);
   *p = NULL;
-
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
@@ -1373,6 +1393,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       NEXT_PASS (pass_forwprop);
+      NEXT_PASS (pass_call_cdce);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  Re-building
 	 alias information also rewrites no longer addressed
@@ -1385,7 +1406,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_dce);
-      NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);
       NEXT_PASS (pass_tree_ifcombine);
       NEXT_PASS (pass_phiopt);
@@ -1462,7 +1482,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_cse_reciprocals);
       NEXT_PASS (pass_reassoc);
       NEXT_PASS (pass_vrp);
-      NEXT_PASS (pass_strength_reduction);
       NEXT_PASS (pass_dominator);
       /* The only const/copy propagation opportunities left after
 	 DOM should be due to degenerate PHI nodes.  So rather than
@@ -1515,7 +1534,7 @@ init_optimization_passes (void)
       struct opt_pass **p = &pass_rest_of_compilation.pass.sub;
       NEXT_PASS (pass_instantiate_virtual_regs);
       NEXT_PASS (pass_into_cfg_layout_mode);
-      NEXT_PASS (pass_jump);
+      NEXT_PASS (pass_jump2);
       NEXT_PASS (pass_lower_subreg);
       NEXT_PASS (pass_df_initialize_opt);
       NEXT_PASS (pass_cse);
@@ -1577,7 +1596,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_thread_prologue_and_epilogue);
 	  NEXT_PASS (pass_rtl_dse2);
 	  NEXT_PASS (pass_stack_adjustments);
-	  NEXT_PASS (pass_jump2);
 	  NEXT_PASS (pass_peephole2);
 	  NEXT_PASS (pass_if_after_reload);
 	  NEXT_PASS (pass_regrename);
@@ -1725,7 +1743,13 @@ execute_function_dump (void *data ATTRIBUTE_UNUSED)
         dump_function_to_file (current_function_decl, dump_file, dump_flags);
       else
 	{
-	  print_rtl_with_bb (dump_file, get_insns (), dump_flags);
+	  if (dump_flags & TDF_SLIM)
+	    print_rtl_slim_with_bb (dump_file, get_insns (), dump_flags);
+	  else if ((cfun->curr_properties & PROP_cfg)
+		   && (dump_flags & TDF_BLOCKS))
+	    print_rtl_with_bb (dump_file, get_insns ());
+          else
+	    print_rtl (dump_file, get_insns ());
 
 	  if ((cfun->curr_properties & PROP_cfg)
 	      && graph_dump_format != no_graph
@@ -1841,7 +1865,7 @@ execute_todo (unsigned int flags)
   if (flags & TODO_remove_functions)
     {
       gcc_assert (!cfun);
-      symtab_remove_unreachable_nodes (true, dump_file);
+      cgraph_remove_unreachable_nodes (true, dump_file);
     }
 
   if ((flags & TODO_dump_symtab) && dump_file && !current_function_decl)
@@ -2126,7 +2150,7 @@ execute_one_pass (struct opt_pass *pass)
       bool applied = false;
       do_per_function (apply_ipa_transforms, (void *)&applied);
       if (applied)
-        symtab_remove_unreachable_nodes (true, dump_file);
+        cgraph_remove_unreachable_nodes (true, dump_file);
       /* Restore current_pass.  */
       current_pass = pass;
     }
@@ -2603,6 +2627,8 @@ dump_properties (FILE *dump, unsigned int props)
     fprintf (dump, "PROP_gimple_leh\n");
   if (props & PROP_cfg)
     fprintf (dump, "PROP_cfg\n");
+  if (props & PROP_referenced_vars)
+    fprintf (dump, "PROP_referenced_vars\n");
   if (props & PROP_ssa)
     fprintf (dump, "PROP_ssa\n");
   if (props & PROP_no_crit_edges)

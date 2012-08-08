@@ -50,3 +50,5 @@ PROGRAM main
   write (*,*) liter_cb(link_info)
 
 END PROGRAM main
+
+! { dg-final { cleanup-modules "liter_cb_mod" } }

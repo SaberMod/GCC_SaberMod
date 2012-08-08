@@ -34,7 +34,7 @@ along with GCC; see the file COPYING3.  If not see
       (There is one exception needed for implementing GCC extern inline
 	function.)
 
-    - varpool_finalize_decl
+    - varpool_finalize_variable
 
       This function has same behavior as the above but is used for static
       variables.
@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
       The symbol table is constructed starting from the trivially needed
       symbols finalized by the frontend.  Functions are lowered into
       GIMPLE representation and callgraph/reference lists are constructed.
-      Those are used to discover other necessary functions and variables.
+      Those are used to discover other neccesary functions and variables.
 
       At the end the bodies of unreachable functions are removed.
 
@@ -176,6 +176,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "diagnostic.h"
+#include "timevar.h"
 #include "params.h"
 #include "fibheap.h"
 #include "intl.h"
@@ -204,7 +205,6 @@ static void expand_all_functions (void);
 static void mark_functions_to_output (void);
 static void expand_function (struct cgraph_node *);
 static void cgraph_analyze_function (struct cgraph_node *);
-static void handle_alias_pairs (void);
 
 FILE *cgraph_dump_file;
 
@@ -219,7 +219,7 @@ static GTY (()) tree vtable_entry_type;
 
 /* Determine if function DECL is trivially needed and should stay in the
    compilation unit.  This is used at the symbol table construction time
-   and differs from later logic removing unnecessary functions that can
+   and differs from later logic removing unnecesary functions that can
    take into account results of analysis, whole program info etc.  */
 
 static bool
@@ -284,7 +284,6 @@ cgraph_process_new_functions (void)
 
   if (!cgraph_new_nodes)
     return false;
-  handle_alias_pairs ();
   /*  Note that this queue may grow as its being processed, as the new
       functions may generate new ones.  */
   for (csi = csi_start (cgraph_new_nodes); !csi_end_p (csi); csi_next (&csi))
@@ -384,7 +383,7 @@ referred_to_p (symtab_node node)
 {
   struct ipa_ref *ref;
 
-  /* See if there are any references at all.  */
+  /* See if there are any refrences at all.  */
   if (ipa_ref_list_referring_iterate (&node->symbol.ref_list, 0, ref))
     return true;
   /* For functions check also calls.  */
@@ -783,10 +782,6 @@ process_function_and_variable_attributes (struct cgraph_node *first,
        vnode = varpool_next_variable (vnode))
     {
       tree decl = vnode->symbol.decl;
-      if (DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl)
-	  && const_value_known_p (decl))
-	varpool_finalize_decl (decl);
       if (DECL_PRESERVE_P (decl))
 	vnode->symbol.force_output = true;
       else if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
@@ -820,7 +815,7 @@ varpool_finalize_decl (tree decl)
 {
   struct varpool_node *node = varpool_node (decl);
 
-  gcc_assert (TREE_STATIC (decl) || DECL_EXTERNAL (decl));
+  gcc_assert (TREE_STATIC (decl));
 
   if (node->finalized)
     return;
@@ -1031,15 +1026,52 @@ handle_alias_pairs (void)
 {
   alias_pair *p;
   unsigned i;
+  struct cgraph_node *target_node;
+  struct cgraph_node *src_node;
+  struct varpool_node *target_vnode;
   
   for (i = 0; VEC_iterate (alias_pair, alias_pairs, i, p);)
     {
-      symtab_node target_node = symtab_node_for_asm (p->target);
-
+      if (TREE_CODE (p->decl) == FUNCTION_DECL
+	  && (target_node = cgraph_node_for_asm (p->target)) != NULL)
+	{
+	  src_node = cgraph_get_node (p->decl);
+	  if (src_node && src_node->local.finalized)
+            cgraph_reset_node (src_node);
+	  /* Normally EXTERNAL flag is used to mark external inlines,
+	     however for aliases it seems to be allowed to use it w/o
+	     any meaning. See gcc.dg/attr-alias-3.c  
+	     However for weakref we insist on EXTERNAL flag being set.
+	     See gcc.dg/attr-alias-5.c  */
+	  if (DECL_EXTERNAL (p->decl))
+	    DECL_EXTERNAL (p->decl)
+	      = lookup_attribute ("weakref",
+				  DECL_ATTRIBUTES (p->decl)) != NULL;
+	  cgraph_create_function_alias (p->decl, target_node->symbol.decl);
+	  VEC_unordered_remove (alias_pair, alias_pairs, i);
+	}
+      else if (TREE_CODE (p->decl) == VAR_DECL
+	       && (target_vnode = varpool_node_for_asm (p->target)) != NULL)
+	{
+	  /* Normally EXTERNAL flag is used to mark external inlines,
+	     however for aliases it seems to be allowed to use it w/o
+	     any meaning. See gcc.dg/attr-alias-3.c  
+	     However for weakref we insist on EXTERNAL flag being set.
+	     See gcc.dg/attr-alias-5.c  */
+	  if (DECL_EXTERNAL (p->decl))
+	    DECL_EXTERNAL (p->decl)
+	      = lookup_attribute ("weakref",
+			          DECL_ATTRIBUTES (p->decl)) != NULL;
+	  varpool_create_variable_alias (p->decl, target_vnode->symbol.decl);
+	  VEC_unordered_remove (alias_pair, alias_pairs, i);
+	}
       /* Weakrefs with target not defined in current unit are easy to handle; they
 	 behave just as external variables except we need to note the alias flag
 	 to later output the weakref pseudo op into asm file.  */
-      if (!target_node && lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)) != NULL)
+      else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)) != NULL
+	       && (TREE_CODE (p->decl) == FUNCTION_DECL
+		   ? (varpool_node_for_asm (p->target) == NULL)
+		   : (cgraph_node_for_asm (p->target) == NULL)))
 	{
 	  if (TREE_CODE (p->decl) == FUNCTION_DECL)
 	    cgraph_get_create_node (p->decl)->alias = true;
@@ -1047,62 +1079,17 @@ handle_alias_pairs (void)
 	    varpool_get_node (p->decl)->alias = true;
 	  DECL_EXTERNAL (p->decl) = 1;
 	  VEC_unordered_remove (alias_pair, alias_pairs, i);
-	  continue;
-	}
-      else if (!target_node)
-	{
-	  error ("%q+D aliased to undefined symbol %qE", p->decl, p->target);
-	  VEC_unordered_remove (alias_pair, alias_pairs, i);
-	  continue;
-	}
-
-      /* Normally EXTERNAL flag is used to mark external inlines,
-	 however for aliases it seems to be allowed to use it w/o
-	 any meaning. See gcc.dg/attr-alias-3.c  
-	 However for weakref we insist on EXTERNAL flag being set.
-	 See gcc.dg/attr-alias-5.c  */
-      if (DECL_EXTERNAL (p->decl))
-	DECL_EXTERNAL (p->decl)
-	  = lookup_attribute ("weakref",
-			      DECL_ATTRIBUTES (p->decl)) != NULL;
-
-      if (DECL_EXTERNAL (target_node->symbol.decl)
-	  /* We use local aliases for C++ thunks to force the tailcall
-	     to bind locally.  This is a hack - to keep it working do
-	     the following (which is not strictly correct).  */
-	  && (! TREE_CODE (target_node->symbol.decl) == FUNCTION_DECL
-	      || ! DECL_VIRTUAL_P (target_node->symbol.decl))
-	  && ! lookup_attribute ("weakref", DECL_ATTRIBUTES (p->decl)))
-	{
-	  error ("%q+D aliased to external symbol %qE",
-		 p->decl, p->target);
-	}
-
-      if (TREE_CODE (p->decl) == FUNCTION_DECL
-          && target_node && symtab_function_p (target_node))
-	{
-	  struct cgraph_node *src_node = cgraph_get_node (p->decl);
-	  if (src_node && src_node->local.finalized)
-            cgraph_reset_node (src_node);
-	  cgraph_create_function_alias (p->decl, target_node->symbol.decl);
-	  VEC_unordered_remove (alias_pair, alias_pairs, i);
-	}
-      else if (TREE_CODE (p->decl) == VAR_DECL
-	       && target_node && symtab_variable_p (target_node))
-	{
-	  varpool_create_variable_alias (p->decl, target_node->symbol.decl);
-	  VEC_unordered_remove (alias_pair, alias_pairs, i);
 	}
       else
 	{
-	  error ("%q+D alias in between function and variable is not supported",
-		 p->decl);
-	  warning (0, "%q+D aliased declaration",
-		   target_node->symbol.decl);
-	  VEC_unordered_remove (alias_pair, alias_pairs, i);
+	  if (dump_file)
+	    fprintf (dump_file, "Unhandled alias %s->%s\n",
+		     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (p->decl)),
+		     IDENTIFIER_POINTER (p->target));
+
+	  i++;
 	}
     }
-  VEC_free (alias_pair, gc, alias_pairs);
 }
 
 
@@ -1165,7 +1152,6 @@ mark_functions_to_output (void)
 		 have analyzed node pointing to it.  */
 	      && !node->symbol.in_other_partition
 	      && !node->alias
-	      && !node->clones
 	      && !DECL_EXTERNAL (decl))
 	    {
 	      dump_cgraph_node (stderr, node);
@@ -1175,8 +1161,6 @@ mark_functions_to_output (void)
 	  gcc_assert (node->global.inlined_to
 		      || !gimple_has_body_p (decl)
 		      || node->symbol.in_other_partition
-		      || node->clones
-		      || DECL_ARTIFICIAL (decl)
 		      || DECL_EXTERNAL (decl));
 
 	}
@@ -1195,7 +1179,6 @@ mark_functions_to_output (void)
 		 end up not removing the body since we no longer have an
 		 analyzed node pointing to it.  */
 	      && !node->symbol.in_other_partition
-	      && !node->clones
 	      && !DECL_EXTERNAL (decl))
 	    {
 	      dump_cgraph_node (stderr, node);
@@ -1222,13 +1205,14 @@ init_lowered_empty_function (tree decl)
   gimple_register_cfg_hooks ();
   init_empty_tree_cfg ();
   init_tree_ssa (cfun);
-  init_ssa_operands (cfun);
+  init_ssa_operands ();
   cfun->gimple_df->in_ssa_p = true;
   DECL_INITIAL (decl) = make_node (BLOCK);
 
   DECL_SAVED_TREE (decl) = error_mark_node;
   cfun->curr_properties |=
-    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_ssa | PROP_gimple_any);
+    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_referenced_vars |
+     PROP_ssa | PROP_gimple_any);
 
   /* Create BB for body of the function and connect it properly.  */
   bb = create_basic_block (NULL, (void *) 0, ENTRY_BLOCK_PTR);
@@ -1280,21 +1264,25 @@ thunk_adjust (gimple_stmt_iterator * bsi,
 	}
 
       vtabletmp =
-	create_tmp_reg (build_pointer_type
-			  (build_pointer_type (vtable_entry_type)), "vptr");
+	create_tmp_var (build_pointer_type
+			(build_pointer_type (vtable_entry_type)), "vptr");
 
       /* The vptr is always at offset zero in the object.  */
       stmt = gimple_build_assign (vtabletmp,
 				  build1 (NOP_EXPR, TREE_TYPE (vtabletmp),
 					  ptr));
       gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
+      mark_symbols_for_renaming (stmt);
+      find_referenced_vars_in (stmt);
 
       /* Form the vtable address.  */
-      vtabletmp2 = create_tmp_reg (TREE_TYPE (TREE_TYPE (vtabletmp)),
-				     "vtableaddr");
+      vtabletmp2 = create_tmp_var (TREE_TYPE (TREE_TYPE (vtabletmp)),
+				   "vtableaddr");
       stmt = gimple_build_assign (vtabletmp2,
 				  build_simple_mem_ref (vtabletmp));
       gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
+      mark_symbols_for_renaming (stmt);
+      find_referenced_vars_in (stmt);
 
       /* Find the entry with the vcall offset.  */
       stmt = gimple_build_assign (vtabletmp2,
@@ -1304,11 +1292,13 @@ thunk_adjust (gimple_stmt_iterator * bsi,
       gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
 
       /* Get the offset itself.  */
-      vtabletmp3 = create_tmp_reg (TREE_TYPE (TREE_TYPE (vtabletmp2)),
-				     "vcalloffset");
+      vtabletmp3 = create_tmp_var (TREE_TYPE (TREE_TYPE (vtabletmp2)),
+				   "vcalloffset");
       stmt = gimple_build_assign (vtabletmp3,
 				  build_simple_mem_ref (vtabletmp2));
       gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
+      mark_symbols_for_renaming (stmt);
+      find_referenced_vars_in (stmt);
 
       /* Adjust the `this' pointer.  */
       ptr = fold_build_pointer_plus_loc (input_location, ptr, vtabletmp3);
@@ -1326,17 +1316,21 @@ thunk_adjust (gimple_stmt_iterator * bsi,
         ptrtmp = ptr;
       else
         {
-          ptrtmp = create_tmp_reg (TREE_TYPE (ptr), "ptr");
+          ptrtmp = create_tmp_var (TREE_TYPE (ptr), "ptr");
           stmt = gimple_build_assign (ptrtmp, ptr);
 	  gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
+	  mark_symbols_for_renaming (stmt);
+	  find_referenced_vars_in (stmt);
 	}
       ptr = fold_build_pointer_plus_hwi_loc (input_location,
 					     ptrtmp, fixed_offset);
     }
 
   /* Emit the statement and gimplify the adjustment expression.  */
-  ret = create_tmp_reg (TREE_TYPE (ptr), "adjusted_this");
+  ret = create_tmp_var (TREE_TYPE (ptr), "adjusted_this");
   stmt = gimple_build_assign (ret, ptr);
+  mark_symbols_for_renaming (stmt);
+  find_referenced_vars_in (stmt);
   gsi_insert_after (bsi, stmt, GSI_NEW_STMT);
 
   return ret;
@@ -1440,7 +1434,7 @@ assemble_thunk (struct cgraph_node *node)
 	      BLOCK_VARS (DECL_INITIAL (current_function_decl)) = restmp;
 	    }
 	  else
-	    restmp = create_tmp_reg (restype, "retval");
+            restmp = create_tmp_var_raw (restype, "retval");
 	}
 
       for (arg = a; arg; arg = DECL_CHAIN (arg))
@@ -1454,13 +1448,16 @@ assemble_thunk (struct cgraph_node *node)
       else
         VEC_quick_push (tree, vargs, a);
       for (i = 1, arg = DECL_CHAIN (a); i < nargs; i++, arg = DECL_CHAIN (arg))
-	VEC_quick_push (tree, vargs, arg);
+        VEC_quick_push (tree, vargs, arg);
       call = gimple_build_call_vec (build_fold_addr_expr_loc (0, alias), vargs);
       VEC_free (tree, heap, vargs);
       gimple_call_set_from_thunk (call, true);
       if (restmp)
         gimple_call_set_lhs (call, restmp);
       gsi_insert_after (&bsi, call, GSI_NEW_STMT);
+      mark_symbols_for_renaming (call);
+      find_referenced_vars_in (call);
+      update_stmt (call);
 
       if (restmp && !this_adjusting)
         {
@@ -1524,7 +1521,7 @@ assemble_thunk (struct cgraph_node *node)
 
 
 
-/* Assemble thunks and aliases associated to NODE.  */
+/* Assemble thunks and aliases asociated to NODE.  */
 
 static void
 assemble_thunks_and_aliases (struct cgraph_node *node)
@@ -1554,8 +1551,8 @@ assemble_thunks_and_aliases (struct cgraph_node *node)
 	/* Force assemble_alias to really output the alias this time instead
 	   of buffering it in same alias pairs.  */
 	TREE_ASM_WRITTEN (alias->thunk.alias) = 1;
-	do_assemble_alias (alias->symbol.decl,
-			   DECL_ASSEMBLER_NAME (alias->thunk.alias));
+	assemble_alias (alias->symbol.decl,
+			DECL_ASSEMBLER_NAME (alias->thunk.alias));
 	assemble_thunks_and_aliases (alias);
 	TREE_ASM_WRITTEN (alias->thunk.alias) = saved_written;
       }
@@ -1768,13 +1765,12 @@ output_in_order (void)
     }
 
   FOR_EACH_DEFINED_VARIABLE (pv)
-    if (!DECL_EXTERNAL (pv->symbol.decl))
-      {
-	i = pv->symbol.order;
-	gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
-	nodes[i].kind = ORDER_VAR;
-	nodes[i].u.v = pv;
-      }
+    {
+      i = pv->symbol.order;
+      gcc_assert (nodes[i].kind == ORDER_UNDEFINED);
+      nodes[i].kind = ORDER_VAR;
+      nodes[i].u.v = pv;
+    }
 
   for (pa = asm_nodes; pa; pa = pa->next)
     {
@@ -1840,7 +1836,7 @@ ipa_passes (void)
      because TODO is run before the subpasses.  It is important to remove
      the unreachable functions to save works at IPA level and to get LTO
      symbol tables right.  */
-  symtab_remove_unreachable_nodes (true, cgraph_dump_file);
+  cgraph_remove_unreachable_nodes (true, cgraph_dump_file);
 
   /* If pass_all_early_optimizations was not scheduled, the state of
      the cgraph will not be properly updated.  Update it now.  */
@@ -1893,7 +1889,7 @@ get_alias_symbol (tree decl)
 
 
 /* Weakrefs may be associated to external decls and thus not output
-   at expansion time.  Emit all necessary aliases.  */
+   at expansion time.  Emit all neccesary aliases.  */
 
 static void
 output_weakrefs (void)
@@ -1904,16 +1900,16 @@ output_weakrefs (void)
     if (node->alias && DECL_EXTERNAL (node->symbol.decl)
         && !TREE_ASM_WRITTEN (node->symbol.decl)
 	&& lookup_attribute ("weakref", DECL_ATTRIBUTES (node->symbol.decl)))
-      do_assemble_alias (node->symbol.decl,
-		         node->thunk.alias ? DECL_ASSEMBLER_NAME (node->thunk.alias)
-		         : get_alias_symbol (node->symbol.decl));
+      assemble_alias (node->symbol.decl,
+		      node->thunk.alias ? DECL_ASSEMBLER_NAME (node->thunk.alias)
+		      : get_alias_symbol (node->symbol.decl));
   FOR_EACH_VARIABLE (vnode)
     if (vnode->alias && DECL_EXTERNAL (vnode->symbol.decl)
         && !TREE_ASM_WRITTEN (vnode->symbol.decl)
 	&& lookup_attribute ("weakref", DECL_ATTRIBUTES (vnode->symbol.decl)))
-      do_assemble_alias (vnode->symbol.decl,
-		         vnode->alias_of ? DECL_ASSEMBLER_NAME (vnode->alias_of)
-		         : get_alias_symbol (vnode->symbol.decl));
+      assemble_alias (vnode->symbol.decl,
+		      vnode->alias_of ? DECL_ASSEMBLER_NAME (vnode->alias_of)
+		      : get_alias_symbol (vnode->symbol.decl));
 }
 
 /* Initialize callgraph dump file.  */
@@ -1966,7 +1962,7 @@ compile (void)
 
   /* This pass remove bodies of extern inline functions we never inlined.
      Do this later so other IPA passes see what is really going on.  */
-  symtab_remove_unreachable_nodes (false, dump_file);
+  cgraph_remove_unreachable_nodes (false, dump_file);
   cgraph_global_info_ready = true;
   if (cgraph_dump_file)
     {
@@ -1991,12 +1987,13 @@ compile (void)
   cgraph_materialize_all_clones ();
   bitmap_obstack_initialize (NULL);
   execute_ipa_pass_list (all_late_ipa_passes);
-  symtab_remove_unreachable_nodes (true, dump_file);
+  cgraph_remove_unreachable_nodes (true, dump_file);
 #ifdef ENABLE_CHECKING
   verify_symtab ();
 #endif
   bitmap_obstack_release (NULL);
   mark_functions_to_output ();
+  output_weakrefs ();
 
   cgraph_state = CGRAPH_STATE_EXPANSION;
   if (!flag_toplevel_reorder)
@@ -2011,7 +2008,6 @@ compile (void)
 
   cgraph_process_new_functions ();
   cgraph_state = CGRAPH_STATE_FINISHED;
-  output_weakrefs ();
 
   if (cgraph_dump_file)
     {
@@ -2060,6 +2056,7 @@ finalize_compilation_unit (void)
   finalize_size_functions ();
 
   /* Mark alias targets necessary and emit diagnostics.  */
+  finish_aliases_1 ();
   handle_alias_pairs ();
 
   if (!quiet_flag)
@@ -2076,6 +2073,7 @@ finalize_compilation_unit (void)
   cgraph_analyze_functions ();
 
   /* Mark alias targets necessary and emit diagnostics.  */
+  finish_aliases_1 ();
   handle_alias_pairs ();
 
   /* Gimplify and lower thunks.  */

@@ -22,3 +22,6 @@ CONTAINS
     bar = "abcd"
   end function
 END MODULE TT
+
+
+! { dg-final { cleanup-modules "tt" } }

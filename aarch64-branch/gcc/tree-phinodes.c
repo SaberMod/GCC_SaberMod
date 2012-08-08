@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "rtl.h"	/* FIXME: Only for ceil_log2, of all things...  */
 #include "ggc.h"
 #include "basic-block.h"
 #include "tree-flow.h"
@@ -42,6 +43,10 @@ along with GCC; see the file COPYING3.  If not see
    little.  This additionally helps reduce the amount of work done by the
    garbage collector.  Similar results have been seen on a wider variety
    of tests (such as the compiler itself).
+
+   Right now we maintain our free list on a per-function basis.  It may
+   or may not make sense to maintain the free list for the duration of
+   a compilation unit.
 
    We could also use a zone allocator for these objects since they have
    a very well defined lifetime.  If someone wants to experiment with that
@@ -77,17 +82,45 @@ static unsigned long free_phinode_count;
 
 static int ideal_phi_node_len (int);
 
+#ifdef GATHER_STATISTICS
 unsigned int phi_nodes_reused;
 unsigned int phi_nodes_created;
+#endif
+
+/* Initialize management of PHIs.  */
+
+void
+init_phinodes (void)
+{
+  int i;
+
+  for (i = 0; i < NUM_BUCKETS - 2; i++)
+    free_phinodes[i] = NULL;
+  free_phinode_count = 0;
+}
+
+/* Finalize management of PHIs.  */
+
+void
+fini_phinodes (void)
+{
+  int i;
+
+  for (i = 0; i < NUM_BUCKETS - 2; i++)
+    free_phinodes[i] = NULL;
+  free_phinode_count = 0;
+}
 
 /* Dump some simple statistics regarding the re-use of PHI nodes.  */
 
+#ifdef GATHER_STATISTICS
 void
 phinodes_print_statistics (void)
 {
   fprintf (stderr, "PHI nodes allocated: %u\n", phi_nodes_created);
   fprintf (stderr, "PHI nodes reused: %u\n", phi_nodes_reused);
 }
+#endif
 
 /* Allocate a PHI node with at least LEN arguments.  If the free list
    happens to contain a PHI node with LEN arguments or more, return
@@ -115,19 +148,21 @@ allocate_phi_node (size_t len)
       phi = VEC_pop (gimple, free_phinodes[bucket]);
       if (VEC_empty (gimple, free_phinodes[bucket]))
 	VEC_free (gimple, gc, free_phinodes[bucket]);
-      if (GATHER_STATISTICS)
-	phi_nodes_reused++;
+#ifdef GATHER_STATISTICS
+      phi_nodes_reused++;
+#endif
     }
   else
     {
       phi = ggc_alloc_gimple_statement_d (size);
-      if (GATHER_STATISTICS)
+#ifdef GATHER_STATISTICS
+      phi_nodes_created++;
 	{
 	  enum gimple_alloc_kind kind = gimple_alloc_kind (GIMPLE_PHI);
-	  phi_nodes_created++;
-	  gimple_alloc_counts[(int) kind]++;
-	  gimple_alloc_sizes[(int) kind] += size;
+          gimple_alloc_counts[(int) kind]++;
+          gimple_alloc_sizes[(int) kind] += size;
 	}
+#endif
     }
 
   return phi;

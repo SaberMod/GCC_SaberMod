@@ -40,6 +40,7 @@
 #include "tm_p.h"
 #include "cfgloop.h"
 #include "target.h"
+#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 #include "vec.h"
@@ -902,7 +903,7 @@ noce_emit_move_insn (rtx x, rtx y)
 	  switch (GET_RTX_CLASS (GET_CODE (y)))
 	    {
 	    case RTX_UNARY:
-	      ot = code_to_optab (GET_CODE (y));
+	      ot = code_to_optab[GET_CODE (y)];
 	      if (ot)
 		{
 		  start_sequence ();
@@ -919,7 +920,7 @@ noce_emit_move_insn (rtx x, rtx y)
 
 	    case RTX_BIN_ARITH:
 	    case RTX_COMM_ARITH:
-	      ot = code_to_optab (GET_CODE (y));
+	      ot = code_to_optab[GET_CODE (y)];
 	      if (ot)
 		{
 		  start_sequence ();
@@ -3254,8 +3255,8 @@ find_if_header (basic_block test_bb, int pass)
   ce_info.else_bb = else_edge->dest;
   ce_info.pass = pass;
 
-#ifdef IFCVT_MACHDEP_INIT
-  IFCVT_MACHDEP_INIT (&ce_info);
+#ifdef IFCVT_INIT_EXTRA_FIELDS
+  IFCVT_INIT_EXTRA_FIELDS (&ce_info);
 #endif
 
   if (!reload_completed
@@ -3876,7 +3877,7 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
 
   /* We can avoid creating a new basic block if then_bb is immediately
      followed by else_bb, i.e. deleting then_bb allows test_bb to fall
-     through to else_bb.  */
+     thru to else_bb.  */
 
   if (then_bb->next_bb == else_bb
       && then_bb->prev_bb == test_bb
@@ -4391,7 +4392,12 @@ if_convert (void)
 
 #ifdef IFCVT_MULTIPLE_DUMPS
       if (dump_file && cond_exec_changed_p)
-	print_rtl_with_bb (dump_file, get_insns (), dump_flags);
+	{
+	  if (dump_flags & TDF_SLIM)
+	    print_rtl_slim_with_bb (dump_file, get_insns (), dump_flags);
+	  else
+	    print_rtl_with_bb (dump_file, get_insns ());
+	}
 #endif
     }
   while (cond_exec_changed_p);
@@ -4448,10 +4454,7 @@ rest_of_handle_if_conversion (void)
   if (flag_if_conversion)
     {
       if (dump_file)
-	{
-	  dump_reg_info (dump_file);
-	  dump_flow_info (dump_file, dump_flags);
-	}
+        dump_flow_info (dump_file, dump_flags);
       cleanup_cfg (CLEANUP_EXPENSIVE);
       if_convert ();
     }

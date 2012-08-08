@@ -64,3 +64,5 @@ use class_t
 type(t) :: x
 call x%calc()
 end
+
+! { dg-final { cleanup-modules "class_t" } }

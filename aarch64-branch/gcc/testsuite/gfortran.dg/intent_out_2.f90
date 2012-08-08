@@ -43,3 +43,5 @@ program test
   implicit none
   call setup ()
 end program test
+! { dg-final { cleanup-modules "gfcbug72" } }
+

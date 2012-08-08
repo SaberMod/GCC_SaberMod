@@ -24,3 +24,5 @@ PROGRAM main
   CALL test ('abcde')  ! String length matches.
   CALL test ('abcdef') ! String too long, is ok.
 END PROGRAM main
+
+! { dg-final { cleanup-modules "m" } }

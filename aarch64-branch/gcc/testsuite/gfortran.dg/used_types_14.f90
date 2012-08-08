@@ -29,3 +29,4 @@ contains
   end subroutine foo_ext
 
 end module foo_mod
+! { dg-final { cleanup-modules "foo_type_mod foo_mod" } }

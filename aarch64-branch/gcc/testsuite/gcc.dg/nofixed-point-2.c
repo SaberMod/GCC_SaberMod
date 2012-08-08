@@ -20,10 +20,10 @@ f3 (void)
   return 0k;			/* { dg-error "not supported" "reject fixed-point" } */
 }
 
-_Sat                            /* { dg-error "not supported" "reject fixed-point" } */
-f4 (void)
+_Sat
+f4 (void)			/* { dg-error "not supported" "reject fixed-point" } */
 {
   return 0k;			/* { dg-error "not supported" "reject fixed-point" } */
 }
 
-/* { dg-error "is used without" "" { target *-*-* } 23 } */
+/* { dg-error "is used without" "" { target *-*-* } 24 } */

@@ -659,7 +659,7 @@ package body Exp_Ch4 is
       --  Ada 2005 (AI-344): For an allocator with a class-wide designated
       --  type, generate an accessibility check to verify that the level of the
       --  type of the created object is not deeper than the level of the access
-      --  type. If the type of the qualified expression is class-wide, then
+      --  type. If the type of the qualified expression is class- wide, then
       --  always generate the check (except in the case where it is known to be
       --  unnecessary, see comment below). Otherwise, only generate the check
       --  if the level of the qualified expression type is statically deeper
@@ -690,11 +690,7 @@ package body Exp_Ch4 is
         (Ref            : Node_Id;
          Built_In_Place : Boolean := False)
       is
-         Pool_Id   : constant Entity_Id := Associated_Storage_Pool (PtrT);
-         Cond      : Node_Id;
-         Free_Stmt : Node_Id;
-         Obj_Ref   : Node_Id;
-         Stmts     : List_Id;
+         New_Node : Node_Id;
 
       begin
          if Ada_Version >= Ada_2005
@@ -705,7 +701,6 @@ package body Exp_Ch4 is
                or else
                  (Is_Class_Wide_Type (Etype (Exp))
                    and then Scope (PtrT) /= Current_Scope))
-           and then (Tagged_Type_Expansion or else VM_Target /= No_VM)
          then
             --  If the allocator was built in place, Ref is already a reference
             --  to the access object initialized to the result of the allocator
@@ -717,109 +712,39 @@ package body Exp_Ch4 is
 
             if Built_In_Place then
                Remove_Side_Effects (Ref);
-               Obj_Ref := New_Copy (Ref);
+               New_Node := New_Copy (Ref);
             else
-               Obj_Ref := New_Reference_To (Ref, Loc);
+               New_Node := New_Reference_To (Ref, Loc);
             end if;
 
-            --  Step 1: Create the object clean up code
-
-            Stmts := New_List;
-
-            --  Create an explicit free statement to clean up the allocated
-            --  object in case the accessibility check fails. Generate:
-
-            --    Free (Obj_Ref);
-
-            Free_Stmt := Make_Free_Statement (Loc, New_Copy (Obj_Ref));
-            Set_Storage_Pool (Free_Stmt, Pool_Id);
-
-            Append_To (Stmts, Free_Stmt);
-
-            --  Finalize the object (if applicable), but wrap the call inside
-            --  a block to ensure that the object would still be deallocated in
-            --  case the finalization fails. Generate:
-
-            --    begin
-            --       [Deep_]Finalize (Obj_Ref.all);
-            --    exception
-            --       when others =>
-            --          Free (Obj_Ref);
-            --          raise;
-            --    end;
-
-            if Needs_Finalization (DesigT) then
-               Prepend_To (Stmts,
-                 Make_Block_Statement (Loc,
-                   Handled_Statement_Sequence =>
-                     Make_Handled_Sequence_Of_Statements (Loc,
-                       Statements => New_List (
-                         Make_Final_Call (
-                           Obj_Ref =>
-                             Make_Explicit_Dereference (Loc,
-                               Prefix => New_Copy (Obj_Ref)),
-                           Typ     => DesigT)),
-
-                     Exception_Handlers => New_List (
-                       Make_Exception_Handler (Loc,
-                         Exception_Choices => New_List (
-                           Make_Others_Choice (Loc)),
-                         Statements        => New_List (
-                           New_Copy_Tree (Free_Stmt),
-                           Make_Raise_Statement (Loc)))))));
-            end if;
-
-            --  Signal the accessibility failure through a Program_Error
-
-            Append_To (Stmts,
-              Make_Raise_Program_Error (Loc,
-                Condition => New_Reference_To (Standard_True, Loc),
-                Reason    => PE_Accessibility_Check_Failed));
-
-            --  Step 2: Create the accessibility comparison
-
-            --  Generate:
-            --    Ref'Tag
-
-            Obj_Ref :=
+            New_Node :=
               Make_Attribute_Reference (Loc,
-                Prefix         => Obj_Ref,
+                Prefix         => New_Node,
                 Attribute_Name => Name_Tag);
 
-            --  For tagged types, determine the accessibility level by looking
-            --  at the type specific data of the dispatch table. Generate:
-
-            --    Type_Specific_Data (Address (Ref'Tag)).Access_Level
-
             if Tagged_Type_Expansion then
-               Cond := Build_Get_Access_Level (Loc, Obj_Ref);
+               New_Node := Build_Get_Access_Level (Loc, New_Node);
 
-            --  Use a runtime call to determine the accessibility level when
-            --  compiling on virtual machine targets. Generate:
+            elsif VM_Target /= No_VM then
+               New_Node :=
+                 Make_Function_Call (Loc,
+                   Name => New_Reference_To (RTE (RE_Get_Access_Level), Loc),
+                   Parameter_Associations => New_List (New_Node));
 
-            --    Get_Access_Level (Ref'Tag)
+            --  Cannot generate the runtime check
 
             else
-               Cond :=
-                 Make_Function_Call (Loc,
-                   Name                   =>
-                     New_Reference_To (RTE (RE_Get_Access_Level), Loc),
-                   Parameter_Associations => New_List (Obj_Ref));
+               return;
             end if;
 
-            Cond :=
-              Make_Op_Gt (Loc,
-                Left_Opnd  => Cond,
-                Right_Opnd =>
-                  Make_Integer_Literal (Loc, Type_Access_Level (PtrT)));
-
-            --  Due to the complexity and side effects of the check, utilize an
-            --  if statement instead of the regular Program_Error circuitry.
-
             Insert_Action (N,
-              Make_If_Statement (Loc,
-                Condition       => Cond,
-                Then_Statements => Stmts));
+              Make_Raise_Program_Error (Loc,
+                Condition =>
+                  Make_Op_Gt (Loc,
+                    Left_Opnd  => New_Node,
+                    Right_Opnd =>
+                      Make_Integer_Literal (Loc, Type_Access_Level (PtrT))),
+                Reason => PE_Accessibility_Check_Failed));
          end if;
       end Apply_Accessibility_Check;
 
@@ -3499,8 +3424,9 @@ package body Exp_Ch4 is
       -------------------------
 
       procedure Rewrite_Coextension (N : Node_Id) is
-         Temp_Id   : constant Node_Id := Make_Temporary (Loc, 'C');
-         Temp_Decl : Node_Id;
+         Temp_Id    : constant Node_Id := Make_Temporary (Loc, 'C');
+         Temp_Decl  : Node_Id;
+         Insert_Nod : Node_Id;
 
       begin
          --  Generate:
@@ -3516,7 +3442,21 @@ package body Exp_Ch4 is
             Set_Expression (Temp_Decl, Expression (Expression (N)));
          end if;
 
-         Insert_Action (N, Temp_Decl);
+         --  Find the proper insertion node for the declaration
+
+         Insert_Nod := Parent (N);
+         while Present (Insert_Nod) loop
+            exit when
+              Nkind (Insert_Nod) in N_Statement_Other_Than_Procedure_Call
+                or else Nkind (Insert_Nod) = N_Procedure_Call_Statement
+                or else Nkind (Insert_Nod) in N_Declaration;
+
+            Insert_Nod := Parent (Insert_Nod);
+         end loop;
+
+         Insert_Before (Insert_Nod, Temp_Decl);
+         Analyze (Temp_Decl);
+
          Rewrite (N,
            Make_Attribute_Reference (Loc,
              Prefix         => New_Occurrence_Of (Temp_Id, Loc),
@@ -4342,82 +4282,19 @@ package body Exp_Ch4 is
    --  Deal with limited types and condition actions
 
    procedure Expand_N_Conditional_Expression (N : Node_Id) is
-      function Create_Alternative
-        (Loc     : Source_Ptr;
-         Temp_Id : Entity_Id;
-         Flag_Id : Entity_Id;
-         Expr    : Node_Id) return List_Id;
-      --  Build the statements of a "then" or "else" conditional expression
-      --  alternative. Temp_Id is the conditional expression result, Flag_Id
-      --  is a finalization flag created to service expression Expr.
-
-      function Is_Controlled_Function_Call (Expr : Node_Id) return Boolean;
-      --  Determine if expression Expr is a rewritten controlled function call
-
-      ------------------------
-      -- Create_Alternative --
-      ------------------------
-
-      function Create_Alternative
-        (Loc     : Source_Ptr;
-         Temp_Id : Entity_Id;
-         Flag_Id : Entity_Id;
-         Expr    : Node_Id) return List_Id
-      is
-         Result : constant List_Id := New_List;
-
-      begin
-         --  Generate:
-         --    Fnn := True;
-
-         if Present (Flag_Id)
-           and then not Is_Controlled_Function_Call (Expr)
-         then
-            Append_To (Result,
-              Make_Assignment_Statement (Loc,
-                Name       => New_Reference_To (Flag_Id, Loc),
-                Expression => New_Reference_To (Standard_True, Loc)));
-         end if;
-
-         --  Generate:
-         --    Cnn := <expr>'Unrestricted_Access;
-
-         Append_To (Result,
-           Make_Assignment_Statement (Loc,
-             Name       => New_Reference_To (Temp_Id, Loc),
-             Expression =>
-               Make_Attribute_Reference (Loc,
-                 Prefix         => Relocate_Node (Expr),
-                 Attribute_Name => Name_Unrestricted_Access)));
-
-         return Result;
-      end Create_Alternative;
-
-      ---------------------------------
-      -- Is_Controlled_Function_Call --
-      ---------------------------------
-
-      function Is_Controlled_Function_Call (Expr : Node_Id) return Boolean is
-      begin
-         return
-           Nkind (Original_Node (Expr)) = N_Function_Call
-             and then Needs_Finalization (Etype (Expr));
-      end Is_Controlled_Function_Call;
-
-      --  Local variables
-
       Loc    : constant Source_Ptr := Sloc (N);
       Cond   : constant Node_Id    := First (Expressions (N));
       Thenx  : constant Node_Id    := Next (Cond);
       Elsex  : constant Node_Id    := Next (Thenx);
       Typ    : constant Entity_Id  := Etype (N);
 
-      Actions : List_Id;
       Cnn     : Entity_Id;
       Decl    : Node_Id;
-      Expr    : Node_Id;
       New_If  : Node_Id;
       New_N   : Node_Id;
+      P_Decl  : Node_Id;
+      Expr    : Node_Id;
+      Actions : List_Id;
 
    begin
       --  Fold at compile time if condition known. We have already folded
@@ -4492,70 +4369,48 @@ package body Exp_Ch4 is
       if Is_By_Reference_Type (Typ)
         and then not Back_End_Handles_Limited_Types
       then
-         declare
-            Flag_Id : Entity_Id;
-            Ptr_Typ : Entity_Id;
+         Cnn := Make_Temporary (Loc, 'C', N);
 
-         begin
-            Flag_Id := Empty;
+         P_Decl :=
+           Make_Full_Type_Declaration (Loc,
+             Defining_Identifier =>
+               Make_Temporary (Loc, 'A'),
+             Type_Definition =>
+               Make_Access_To_Object_Definition (Loc,
+                 All_Present        => True,
+                 Subtype_Indication => New_Reference_To (Typ, Loc)));
 
-            --  At least one of the conditional expression alternatives uses a
-            --  controlled function to provide the result. Create a status flag
-            --  to signal the finalization machinery that Cnn needs special
-            --  handling.
+         Insert_Action (N, P_Decl);
 
-            if Is_Controlled_Function_Call (Thenx)
-                 or else
-               Is_Controlled_Function_Call (Elsex)
-            then
-               Flag_Id := Make_Temporary (Loc, 'F');
+         Decl :=
+            Make_Object_Declaration (Loc,
+              Defining_Identifier => Cnn,
+              Object_Definition   =>
+                   New_Occurrence_Of (Defining_Identifier (P_Decl), Loc));
 
-               Insert_Action (N,
-                 Make_Object_Declaration (Loc,
-                   Defining_Identifier => Flag_Id,
-                   Object_Definition   =>
-                     New_Reference_To (Standard_Boolean, Loc),
-                   Expression          =>
-                     New_Reference_To (Standard_False, Loc)));
-            end if;
+         New_If :=
+           Make_Implicit_If_Statement (N,
+             Condition => Relocate_Node (Cond),
 
-            --  Generate:
-            --    type Ann is access all Typ;
+             Then_Statements => New_List (
+               Make_Assignment_Statement (Sloc (Thenx),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Thenx)),
+                 Expression =>
+                   Make_Attribute_Reference (Loc,
+                     Attribute_Name => Name_Unrestricted_Access,
+                     Prefix         =>  Relocate_Node (Thenx)))),
 
-            Ptr_Typ := Make_Temporary (Loc, 'A');
+             Else_Statements => New_List (
+               Make_Assignment_Statement (Sloc (Elsex),
+                 Name       => New_Occurrence_Of (Cnn, Sloc (Elsex)),
+                 Expression =>
+                   Make_Attribute_Reference (Loc,
+                     Attribute_Name => Name_Unrestricted_Access,
+                     Prefix         => Relocate_Node (Elsex)))));
 
-            Insert_Action (N,
-              Make_Full_Type_Declaration (Loc,
-                Defining_Identifier => Ptr_Typ,
-                Type_Definition     =>
-                  Make_Access_To_Object_Definition (Loc,
-                    All_Present        => True,
-                    Subtype_Indication => New_Reference_To (Typ, Loc))));
-
-            --  Generate:
-            --    Cnn : Ann;
-
-            Cnn := Make_Temporary (Loc, 'C', N);
-            Set_Ekind (Cnn, E_Variable);
-            Set_Status_Flag_Or_Transient_Decl (Cnn, Flag_Id);
-
-            Decl :=
-               Make_Object_Declaration (Loc,
-                 Defining_Identifier => Cnn,
-                 Object_Definition   => New_Occurrence_Of (Ptr_Typ, Loc));
-
-            New_If :=
-              Make_Implicit_If_Statement (N,
-                Condition       => Relocate_Node (Cond),
-                Then_Statements =>
-                  Create_Alternative (Sloc (Thenx), Cnn, Flag_Id, Thenx),
-                Else_Statements =>
-                  Create_Alternative (Sloc (Elsex), Cnn, Flag_Id, Elsex));
-
-            New_N :=
-              Make_Explicit_Dereference (Loc,
-                Prefix => New_Occurrence_Of (Cnn, Loc));
-         end;
+         New_N :=
+           Make_Explicit_Dereference (Loc,
+             Prefix => New_Occurrence_Of (Cnn, Loc));
 
       --  For other types, we only need to expand if there are other actions
       --  associated with either branch.
@@ -4792,7 +4647,7 @@ package body Exp_Ch4 is
          --  transient declaration out of the Actions list. This signals the
          --  machinery in Build_Finalizer to recognize this special case.
 
-         Set_Status_Flag_Or_Transient_Decl (Temp_Id, Decl);
+         Set_Return_Flag_Or_Transient_Decl (Temp_Id, Decl);
 
          --  Step 3: Hook the transient object to the temporary
 
@@ -10208,12 +10063,11 @@ package body Exp_Ch4 is
       --------------------------------
 
       function Prefix_Is_Formal_Parameter (N : Node_Id) return Boolean is
-         Sel_Comp : Node_Id;
+         Sel_Comp : Node_Id := N;
 
       begin
          --  Move to the left-most prefix by climbing up the tree
 
-         Sel_Comp := N;
          while Present (Parent (Sel_Comp))
            and then Nkind (Parent (Sel_Comp)) = N_Selected_Component
          loop
@@ -10226,12 +10080,20 @@ package body Exp_Ch4 is
    --  Start of processing for Has_Inferable_Discriminants
 
    begin
+      --  For identifiers and indexed components, it is sufficient to have a
+      --  constrained Unchecked_Union nominal subtype.
+
+      if Nkind_In (N, N_Identifier, N_Indexed_Component) then
+         return Is_Unchecked_Union (Base_Type (Etype (N)))
+                  and then
+                Is_Constrained (Etype (N));
+
       --  For selected components, the subtype of the selector must be a
       --  constrained Unchecked_Union. If the component is subject to a
       --  per-object constraint, then the enclosing object must have inferable
       --  discriminants.
 
-      if Nkind (N) = N_Selected_Component then
+      elsif Nkind (N) = N_Selected_Component then
          if Has_Per_Object_Constraint (Entity (Selector_Name (N))) then
 
             --  A small hack. If we have a per-object constrained selected
@@ -10240,35 +10102,31 @@ package body Exp_Ch4 is
 
             if Prefix_Is_Formal_Parameter (N) then
                return True;
+            end if;
 
             --  Otherwise, check the enclosing object and the selector
 
-            else
-               return Has_Inferable_Discriminants (Prefix (N))
-                 and then Has_Inferable_Discriminants (Selector_Name (N));
-            end if;
+            return Has_Inferable_Discriminants (Prefix (N))
+                     and then
+                   Has_Inferable_Discriminants (Selector_Name (N));
+         end if;
 
          --  The call to Has_Inferable_Discriminants will determine whether
          --  the selector has a constrained Unchecked_Union nominal type.
 
-         else
-            return Has_Inferable_Discriminants (Selector_Name (N));
-         end if;
+         return Has_Inferable_Discriminants (Selector_Name (N));
 
       --  A qualified expression has inferable discriminants if its subtype
       --  mark is a constrained Unchecked_Union subtype.
 
       elsif Nkind (N) = N_Qualified_Expression then
-         return Is_Unchecked_Union (Etype (Subtype_Mark (N)))
-           and then Is_Constrained (Etype (Subtype_Mark (N)));
+         return Is_Unchecked_Union (Subtype_Mark (N))
+                  and then
+                Is_Constrained (Subtype_Mark (N));
 
-      --  For all other names, it is sufficient to have a constrained
-      --  Unchecked_Union nominal subtype.
-
-      else
-         return Is_Unchecked_Union (Base_Type (Etype (N)))
-           and then Is_Constrained (Etype (N));
       end if;
+
+      return False;
    end Has_Inferable_Discriminants;
 
    -------------------------------
@@ -10276,6 +10134,10 @@ package body Exp_Ch4 is
    -------------------------------
 
    procedure Insert_Dereference_Action (N : Node_Id) is
+      Loc  : constant Source_Ptr := Sloc (N);
+      Typ  : constant Entity_Id  := Etype (N);
+      Pool : constant Entity_Id  := Associated_Storage_Pool (Typ);
+      Pnod : constant Node_Id    := Parent (N);
 
       function Is_Checked_Storage_Pool (P : Entity_Id) return Boolean;
       --  Return true if type of P is derived from Checked_Pool;
@@ -10304,176 +10166,57 @@ package body Exp_Ch4 is
          return False;
       end Is_Checked_Storage_Pool;
 
-      --  Local variables
-
-      Typ   : constant Entity_Id  := Etype (N);
-      Desig : constant Entity_Id  := Available_View (Designated_Type (Typ));
-      Loc   : constant Source_Ptr := Sloc (N);
-      Pool  : constant Entity_Id  := Associated_Storage_Pool (Typ);
-      Pnod  : constant Node_Id    := Parent (N);
-
-      Addr  : Entity_Id;
-      Alig  : Entity_Id;
-      Deref : Node_Id;
-      Size  : Entity_Id;
-      Stmt  : Node_Id;
-
    --  Start of processing for Insert_Dereference_Action
 
    begin
       pragma Assert (Nkind (Pnod) = N_Explicit_Dereference);
 
-      --  Do not re-expand a dereference which has already been processed by
-      --  this routine.
-
-      if Has_Dereference_Action (Pnod) then
-         return;
-
-      --  Do not perform this type of expansion for internally-generated
-      --  dereferences.
-
-      elsif not Comes_From_Source (Original_Node (Pnod)) then
-         return;
-
-      --  A dereference action is only applicable to objects which have been
-      --  allocated on a checked pool.
-
-      elsif not Is_Checked_Storage_Pool (Pool) then
+      if not (Is_Checked_Storage_Pool (Pool)
+              and then Comes_From_Source (Original_Node (Pnod)))
+      then
          return;
       end if;
-
-      --  Extract the address of the dereferenced object. Generate:
-
-      --    Addr : System.Address := <N>'Pool_Address;
-
-      Addr := Make_Temporary (Loc, 'P');
-
-      Insert_Action (N,
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Addr,
-          Object_Definition   =>
-            New_Reference_To (RTE (RE_Address), Loc),
-          Expression          =>
-            Make_Attribute_Reference (Loc,
-              Prefix         => Duplicate_Subexpr_Move_Checks (N),
-              Attribute_Name => Name_Pool_Address)));
-
-      --  Calculate the size of the dereferenced object. Generate:
-
-      --    Size : Storage_Count := <N>.all'Size / Storage_Unit;
-
-      Deref :=
-        Make_Explicit_Dereference (Loc,
-          Prefix => Duplicate_Subexpr_Move_Checks (N));
-      Set_Has_Dereference_Action (Deref);
-
-      Size := Make_Temporary (Loc, 'S');
-
-      Insert_Action (N,
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Size,
-
-          Object_Definition   =>
-            New_Reference_To (RTE (RE_Storage_Count), Loc),
-
-          Expression          =>
-            Make_Op_Divide (Loc,
-              Left_Opnd   =>
-                Make_Attribute_Reference (Loc,
-                  Prefix         => Deref,
-                  Attribute_Name => Name_Size),
-               Right_Opnd =>
-                 Make_Integer_Literal (Loc, System_Storage_Unit))));
-
-      --  Calculate the alignment of the dereferenced object. Generate:
-      --    Alig : constant Storage_Count := <N>.all'Alignment;
-
-      Deref :=
-        Make_Explicit_Dereference (Loc,
-          Prefix => Duplicate_Subexpr_Move_Checks (N));
-      Set_Has_Dereference_Action (Deref);
-
-      Alig := Make_Temporary (Loc, 'A');
-
-      Insert_Action (N,
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Alig,
-          Object_Definition   =>
-            New_Reference_To (RTE (RE_Storage_Count), Loc),
-          Expression          =>
-            Make_Attribute_Reference (Loc,
-              Prefix         => Deref,
-              Attribute_Name => Name_Alignment)));
-
-      --  A dereference of a controlled object requires special processing. The
-      --  finalization machinery requests additional space from the underlying
-      --  pool to allocate and hide two pointers. As a result, a checked pool
-      --  may mark the wrong memory as valid. Since checked pools do not have
-      --  knowledge of hidden pointers, we have to bring the two pointers back
-      --  in view in order to restore the original state of the object.
-
-      if Needs_Finalization (Desig) then
-
-         --  Adjust the address and size of the dereferenced object. Generate:
-         --    Adjust_Controlled_Dereference (Addr, Size, Alig);
-
-         Stmt :=
-           Make_Procedure_Call_Statement (Loc,
-             Name                   =>
-               New_Reference_To (RTE (RE_Adjust_Controlled_Dereference), Loc),
-             Parameter_Associations => New_List (
-               New_Reference_To (Addr, Loc),
-               New_Reference_To (Size, Loc),
-               New_Reference_To (Alig, Loc)));
-
-         --  Class-wide types complicate things because we cannot determine
-         --  statically whether the actual object is truly controlled. We must
-         --  generate a runtime check to detect this property. Generate:
-         --
-         --    if Needs_Finalization (<N>.all'Tag) then
-         --       <Stmt>;
-         --    end if;
-
-         if Is_Class_Wide_Type (Desig) then
-            Deref :=
-              Make_Explicit_Dereference (Loc,
-                Prefix => Duplicate_Subexpr_Move_Checks (N));
-            Set_Has_Dereference_Action (Deref);
-
-            Stmt :=
-              Make_If_Statement (Loc,
-                Condition       =>
-                  Make_Function_Call (Loc,
-                    Name                   =>
-                      New_Reference_To (RTE (RE_Needs_Finalization), Loc),
-                    Parameter_Associations => New_List (
-                      Make_Attribute_Reference (Loc,
-                        Prefix         => Deref,
-                        Attribute_Name => Name_Tag))),
-                Then_Statements => New_List (Stmt));
-         end if;
-
-         Insert_Action (N, Stmt);
-      end if;
-
-      --  Generate:
-      --    Dereference (Pool, Addr, Size, Alig);
 
       Insert_Action (N,
         Make_Procedure_Call_Statement (Loc,
-          Name                   =>
-            New_Reference_To
-              (Find_Prim_Op (Etype (Pool), Name_Dereference), Loc),
+          Name => New_Reference_To (
+            Find_Prim_Op (Etype (Pool), Name_Dereference), Loc),
+
           Parameter_Associations => New_List (
-            New_Reference_To (Pool, Loc),
-            New_Reference_To (Addr, Loc),
-            New_Reference_To (Size, Loc),
-            New_Reference_To (Alig, Loc))));
 
-      --  Mark the explicit dereference as processed to avoid potential
-      --  infinite expansion.
+            --  Pool
 
-      Set_Has_Dereference_Action (Pnod);
+             New_Reference_To (Pool, Loc),
+
+            --  Storage_Address. We use the attribute Pool_Address, which uses
+            --  the pointer itself to find the address of the object, and which
+            --  handles unconstrained arrays properly by computing the address
+            --  of the template. i.e. the correct address of the corresponding
+            --  allocation.
+
+             Make_Attribute_Reference (Loc,
+               Prefix         => Duplicate_Subexpr_Move_Checks (N),
+               Attribute_Name => Name_Pool_Address),
+
+            --  Size_In_Storage_Elements
+
+             Make_Op_Divide (Loc,
+               Left_Opnd  =>
+                Make_Attribute_Reference (Loc,
+                  Prefix         =>
+                    Make_Explicit_Dereference (Loc,
+                      Duplicate_Subexpr_Move_Checks (N)),
+                  Attribute_Name => Name_Size),
+               Right_Opnd =>
+                 Make_Integer_Literal (Loc, System_Storage_Unit)),
+
+            --  Alignment
+
+             Make_Attribute_Reference (Loc,
+               Prefix         =>
+                 Make_Explicit_Dereference (Loc,
+                   Duplicate_Subexpr_Move_Checks (N)),
+               Attribute_Name => Name_Alignment))));
 
    exception
       when RE_Not_Available =>
@@ -11402,7 +11145,12 @@ package body Exp_Ch4 is
 
             if AV = False then
                if True_Result or False_Result then
-                  Result := Boolean_Literals (True_Result);
+                  if True_Result then
+                     Result := Standard_True;
+                  else
+                     Result := Standard_False;
+                  end if;
+
                   Rewrite (N,
                     Convert_To (Typ,
                       New_Occurrence_Of (Result, Sloc (N))));

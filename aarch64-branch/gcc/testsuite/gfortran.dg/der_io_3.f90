@@ -41,3 +41,5 @@ end module m2
 use m2
 call test
 end
+
+! { dg-final { cleanup-modules "m1 m2" } }

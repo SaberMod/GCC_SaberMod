@@ -30,3 +30,4 @@ contains
     type(d_sparse_mat), intent(out) :: a
   end subroutine bug14
 end
+! { dg-final { cleanup-modules "d_mat_mod " } }

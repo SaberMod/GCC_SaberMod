@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tree.h"
 #include "flags.h"
+#include "output.h"
 #include "c-pragma.h"
 #include "ggc.h"
 #include "c-common.h"
@@ -45,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "cgraph.h"
 #include "target-def.h"
+#include "libfuncs.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -429,7 +431,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__bases",          RID_BASES, D_CXXONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
-  { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, 0 },
+  { "__builtin_shuffle", RID_BUILTIN_SHUFFLE, D_CONLY },
   { "__builtin_offsetof", RID_OFFSETOF, 0 },
   { "__builtin_types_compatible_p", RID_TYPES_COMPATIBLE_P, D_CONLY },
   { "__builtin_va_arg",	RID_VA_ARG,	0 },
@@ -1949,101 +1951,6 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   return false;
 }
 
-/* Build a VEC_PERM_EXPR if V0, V1 and MASK are not error_mark_nodes
-   and have vector types, V0 has the same type as V1, and the number of
-   elements of V0, V1, MASK is the same.
-
-   In case V1 is a NULL_TREE it is assumed that __builtin_shuffle was
-   called with two arguments.  In this case implementation passes the
-   first argument twice in order to share the same tree code.  This fact
-   could enable the mask-values being twice the vector length.  This is
-   an implementation accident and this semantics is not guaranteed to
-   the user.  */
-tree
-c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask)
-{
-  tree ret;
-  bool wrap = true;
-  bool maybe_const = false;
-  bool two_arguments = false;
-
-  if (v1 == NULL_TREE)
-    {
-      two_arguments = true;
-      v1 = v0;
-    }
-
-  if (v0 == error_mark_node || v1 == error_mark_node
-      || mask == error_mark_node)
-    return error_mark_node;
-
-  if (TREE_CODE (TREE_TYPE (mask)) != VECTOR_TYPE
-      || TREE_CODE (TREE_TYPE (TREE_TYPE (mask))) != INTEGER_TYPE)
-    {
-      error_at (loc, "__builtin_shuffle last argument must "
-		     "be an integer vector");
-      return error_mark_node;
-    }
-
-  if (TREE_CODE (TREE_TYPE (v0)) != VECTOR_TYPE
-      || TREE_CODE (TREE_TYPE (v1)) != VECTOR_TYPE)
-    {
-      error_at (loc, "__builtin_shuffle arguments must be vectors");
-      return error_mark_node;
-    }
-
-  if (TYPE_MAIN_VARIANT (TREE_TYPE (v0)) != TYPE_MAIN_VARIANT (TREE_TYPE (v1)))
-    {
-      error_at (loc, "__builtin_shuffle argument vectors must be of "
-		     "the same type");
-      return error_mark_node;
-    }
-
-  if (TYPE_VECTOR_SUBPARTS (TREE_TYPE (v0))
-      != TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask))
-      && TYPE_VECTOR_SUBPARTS (TREE_TYPE (v1))
-	 != TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask)))
-    {
-      error_at (loc, "__builtin_shuffle number of elements of the "
-		     "argument vector(s) and the mask vector should "
-		     "be the same");
-      return error_mark_node;
-    }
-
-  if (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (v0))))
-      != GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (mask)))))
-    {
-      error_at (loc, "__builtin_shuffle argument vector(s) inner type "
-		     "must have the same size as inner type of the mask");
-      return error_mark_node;
-    }
-
-  if (!c_dialect_cxx ())
-    {
-      /* Avoid C_MAYBE_CONST_EXPRs inside VEC_PERM_EXPR.  */
-      v0 = c_fully_fold (v0, false, &maybe_const);
-      wrap &= maybe_const;
-
-      if (two_arguments)
-        v1 = v0 = save_expr (v0);
-      else
-        {
-          v1 = c_fully_fold (v1, false, &maybe_const);
-          wrap &= maybe_const;
-        }
-
-      mask = c_fully_fold (mask, false, &maybe_const);
-      wrap &= maybe_const;
-    }
-
-  ret = build3_loc (loc, VEC_PERM_EXPR, TREE_TYPE (v0), v0, v1, mask);
-
-  if (!c_dialect_cxx () && !wrap)
-    ret = c_wrap_maybe_const (ret, true);
-
-  return ret;
-}
-
 /* Like tree.c:get_narrower, but retain conversion from C++0x scoped enum
    to integral type.  */
 
@@ -2422,8 +2329,6 @@ conversion_warning (tree type, tree expr)
 void
 warnings_for_convert_and_check (tree type, tree expr, tree result)
 {
-  location_t loc = EXPR_LOC_OR_HERE (expr);
-
   if (TREE_CODE (expr) == INTEGER_CST
       && (TREE_CODE (type) == INTEGER_TYPE
           || TREE_CODE (type) == ENUMERAL_TYPE)
@@ -2439,8 +2344,8 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
           /* This detects cases like converting -129 or 256 to
              unsigned char.  */
           if (!int_fits_type_p (expr, c_common_signed_type (type)))
-            warning_at (loc, OPT_Woverflow,
-			"large integer implicitly truncated to unsigned type");
+            warning (OPT_Woverflow,
+                     "large integer implicitly truncated to unsigned type");
           else
             conversion_warning (type, expr);
         }
@@ -2452,16 +2357,16 @@ warnings_for_convert_and_check (tree type, tree expr, tree result)
 	       && (TREE_CODE (TREE_TYPE (expr)) != INTEGER_TYPE
 		   || TYPE_PRECISION (TREE_TYPE (expr))
 		   != TYPE_PRECISION (type)))
-	warning_at (loc, OPT_Woverflow,
-		    "overflow in implicit constant conversion");
+	warning (OPT_Woverflow,
+		 "overflow in implicit constant conversion");
 
       else
 	conversion_warning (type, expr);
     }
   else if ((TREE_CODE (result) == INTEGER_CST
 	    || TREE_CODE (result) == FIXED_CST) && TREE_OVERFLOW (result))
-    warning_at (loc, OPT_Woverflow,
-		"overflow in implicit constant conversion");
+    warning (OPT_Woverflow,
+             "overflow in implicit constant conversion");
   else
     conversion_warning (type, expr);
 }
@@ -3847,8 +3752,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST
-	  && c_inhibit_evaluation_warnings == 0)
+      if (TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
@@ -3928,7 +3832,6 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	     warning.  */
 	  bool warn = 
 	    warn_type_limits && !in_system_header
-	    && c_inhibit_evaluation_warnings == 0
 	    && !(TREE_CODE (primop0) == INTEGER_CST
 		 && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 					     primop0)))
@@ -4053,7 +3956,7 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   /* Replace the integer argument with a suitable product by the object size.
      Do this multiplication as signed, then convert to the appropriate type
-     for the pointer operation and disregard an overflow that occurred only
+     for the pointer operation and disregard an overflow that occured only
      because of the sign-extension change in the latter conversion.  */
   {
     tree t = build_binary_op (loc,
@@ -4698,13 +4601,11 @@ enum built_in_attribute
 {
 #define DEF_ATTR_NULL_TREE(ENUM) ENUM,
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
-#define DEF_ATTR_STRING(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
-#undef DEF_ATTR_STRING
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
   ATTR_LAST
@@ -6023,8 +5924,6 @@ c_init_attributes (void)
   built_in_attributes[(int) ENUM] = NULL_TREE;
 #define DEF_ATTR_INT(ENUM, VALUE)				\
   built_in_attributes[(int) ENUM] = build_int_cst (integer_type_node, VALUE);
-#define DEF_ATTR_STRING(ENUM, VALUE)				\
-  built_in_attributes[(int) ENUM] = build_string (strlen (VALUE), VALUE);
 #define DEF_ATTR_IDENT(ENUM, STRING)				\
   built_in_attributes[(int) ENUM] = get_identifier (STRING);
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
@@ -6169,8 +6068,7 @@ static tree
 handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		      int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  if (TREE_CODE (*node) == FUNCTION_DECL
-      || TREE_CODE (*node) == LABEL_DECL)
+  if (TREE_CODE (*node) == FUNCTION_DECL)
     {
       if (lookup_attribute ("cold", DECL_ATTRIBUTES (*node)) != NULL)
 	{
@@ -6189,7 +6087,6 @@ handle_hot_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
   return NULL_TREE;
 }
-
 /* Handle a "cold" and attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -6197,8 +6094,7 @@ static tree
 handle_cold_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  if (TREE_CODE (*node) == FUNCTION_DECL
-      || TREE_CODE (*node) == LABEL_DECL)
+  if (TREE_CODE (*node) == FUNCTION_DECL)
     {
       if (lookup_attribute ("hot", DECL_ATTRIBUTES (*node)) != NULL)
 	{
@@ -6589,12 +6485,11 @@ get_priority (tree args, bool is_destructor)
     }
 
   arg = TREE_VALUE (args);
-  arg = default_conversion (arg);
   if (!host_integerp (arg, /*pos=*/0)
       || !INTEGRAL_TYPE_P (TREE_TYPE (arg)))
     goto invalid;
 
-  pri = tree_low_cst (arg, /*pos=*/0);
+  pri = tree_low_cst (TREE_VALUE (args), /*pos=*/0);
   if (pri < 0 || pri > MAX_INIT_PRIORITY)
     goto invalid;
 
@@ -8054,42 +7949,26 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 static void
 check_function_nonnull (tree attrs, int nargs, tree *argarray)
 {
-  tree a;
+  tree a, args;
   int i;
 
-  attrs = lookup_attribute ("nonnull", attrs);
-  if (attrs == NULL_TREE)
-    return;
-
-  a = attrs;
-  /* See if any of the nonnull attributes has no arguments.  If so,
-     then every pointer argument is checked (in which case the check
-     for pointer type is done in check_nonnull_arg).  */
-  if (TREE_VALUE (a) != NULL_TREE)
-    do
-      a = lookup_attribute ("nonnull", TREE_CHAIN (a));
-    while (a != NULL_TREE && TREE_VALUE (a) != NULL_TREE);
-
-  if (a != NULL_TREE)
-    for (i = 0; i < nargs; i++)
-      check_function_arguments_recurse (check_nonnull_arg, NULL, argarray[i],
-					i + 1);
-  else
+  for (a = attrs; a; a = TREE_CHAIN (a))
     {
-      /* Walk the argument list.  If we encounter an argument number we
-	 should check for non-null, do it.  */
-      for (i = 0; i < nargs; i++)
+      if (is_attribute_p ("nonnull", TREE_PURPOSE (a)))
 	{
-	  for (a = attrs; ; a = TREE_CHAIN (a))
-	    {
-	      a = lookup_attribute ("nonnull", a);
-	      if (a == NULL_TREE || nonnull_check_p (TREE_VALUE (a), i + 1))
-		break;
-	    }
+	  args = TREE_VALUE (a);
 
-	  if (a != NULL_TREE)
-	    check_function_arguments_recurse (check_nonnull_arg, NULL,
-					      argarray[i], i + 1);
+	  /* Walk the argument list.  If we encounter an argument number we
+	     should check for non-null, do it.  If the attribute has no args,
+	     then every pointer argument is checked (in which case the check
+	     for pointer type is done in check_nonnull_arg).  */
+	  for (i = 0; i < nargs; i++)
+	    {
+	      if (!args || nonnull_check_p (args, i + 1))
+		check_function_arguments_recurse (check_nonnull_arg, NULL,
+						  argarray[i],
+						  i + 1);
+	    }
 	}
     }
 }

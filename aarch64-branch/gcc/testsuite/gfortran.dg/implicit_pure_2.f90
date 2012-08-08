@@ -14,3 +14,4 @@ contains
 end module m
 
 ! { dg-final { scan-module-absence "m" "IMPLICIT_PURE" } }
+! { dg-final { cleanup-modules "m" } }

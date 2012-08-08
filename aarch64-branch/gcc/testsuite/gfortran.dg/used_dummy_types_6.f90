@@ -43,3 +43,5 @@ MODULE P_POTENTIAL_ENERGY
 USE ATOMS
 USE CONSTRAINT,         ONLY : ENERGY_CONSTRAINT
 END MODULE P_POTENTIAL_ENERGY
+
+! { dg-final { cleanup-modules "atoms constraint potential_energy p_constraint p_potential_energy" } }

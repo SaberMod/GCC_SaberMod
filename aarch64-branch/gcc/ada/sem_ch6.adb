@@ -1260,7 +1260,9 @@ package body Sem_Ch6 is
       --  rewritten if the original call was in prefix notation) then error
       --  has been emitted already, mark node and return.
 
-      if Error_Posted (N) or else Etype (Name (N)) = Any_Type then
+      if Error_Posted (N)
+        or else Etype (Name (N)) = Any_Type
+      then
          Set_Etype (N, Any_Type);
          return;
       end if;
@@ -1280,9 +1282,9 @@ package body Sem_Ch6 is
       --  Special processing for Elab_Spec, Elab_Body and Elab_Subp_Body calls
 
       if Nkind (P) = N_Attribute_Reference
-        and then (Attribute_Name (P) = Name_Elab_Spec or else
-                  Attribute_Name (P) = Name_Elab_Body or else
-                  Attribute_Name (P) = Name_Elab_Subp_Body)
+        and then (Attribute_Name (P) = Name_Elab_Spec
+                   or else Attribute_Name (P) = Name_Elab_Body
+                   or else Attribute_Name (P) = Name_Elab_Subp_Body)
       then
          if Present (Actuals) then
             Error_Msg_N
@@ -1810,6 +1812,7 @@ package body Sem_Ch6 is
       Prev_Id      : constant Entity_Id  := Current_Entity_In_Scope (Body_Id);
       Conformant   : Boolean;
       HSS          : Node_Id;
+      P_Ent        : Entity_Id;
       Prot_Typ     : Entity_Id := Empty;
       Spec_Id      : Entity_Id;
       Spec_Decl    : Node_Id   := Empty;
@@ -2504,25 +2507,44 @@ package body Sem_Ch6 is
          end if;
       end if;
 
-      --  Ada 2012 aspects may appear in a subprogram body, but only if there
-      --  is no previous spec.
+      --  Do not inline any subprogram that contains nested subprograms, since
+      --  the backend inlining circuit seems to generate uninitialized
+      --  references in this case. We know this happens in the case of front
+      --  end ZCX support, but it also appears it can happen in other cases as
+      --  well. The backend often rejects attempts to inline in the case of
+      --  nested procedures anyway, so little if anything is lost by this.
+      --  Note that this is test is for the benefit of the back-end. There is
+      --  a separate test for front-end inlining that also rejects nested
+      --  subprograms.
 
-      if Has_Aspects (N) then
-         if Present (Corresponding_Spec (N)) then
-            Error_Msg_N
-              ("aspect specifications must appear in subprogram declaration",
-                N);
-         else
-            Analyze_Aspect_Specifications (N, Body_Id);
-         end if;
+      --  Do not do this test if errors have been detected, because in some
+      --  error cases, this code blows up, and we don't need it anyway if
+      --  there have been errors, since we won't get to the linker anyway.
+
+      if Comes_From_Source (Body_Id)
+        and then Serious_Errors_Detected = 0
+        and then not Debug_Flag_Dot_K
+      then
+         P_Ent := Body_Id;
+         loop
+            P_Ent := Scope (P_Ent);
+            exit when No (P_Ent) or else P_Ent = Standard_Standard;
+
+            if Is_Subprogram (P_Ent) then
+               Set_Is_Inlined (P_Ent, False);
+
+               if Comes_From_Source (P_Ent)
+                 and then Has_Pragma_Inline (P_Ent)
+               then
+                  Cannot_Inline
+                    ("cannot inline& (nested subprogram)?",
+                     N, P_Ent);
+               end if;
+            end if;
+         end loop;
       end if;
 
-      --  Previously we scanned the body to look for nested subprograms, and
-      --  rejected an inline directive if nested subprograms were present,
-      --  because the back-end would generate conflicting symbols for the
-      --  nested bodies. This is now unnecessary.
-
-      --  Look ahead to recognize a pragma Inline that appears after the body
+      --  Look ahead to recognize a pragma inline that appears after the body
 
       Check_Inline_Pragma (Spec_Id);
 
@@ -5514,16 +5536,6 @@ package body Sem_Ch6 is
             end if;
          end if;
 
-         --  Ada 2012: Mode conformance also requires that formal parameters
-         --  be both aliased, or neither.
-
-         if Ctype >= Mode_Conformant and then Ada_Version >= Ada_2012 then
-            if Is_Aliased (Old_Formal) /= Is_Aliased (New_Formal) then
-               Conformance_Error
-                 ("\aliased parameter mismatch!", New_Formal);
-            end if;
-         end if;
-
          if Ctype = Fully_Conformant then
 
             --  Names must match. Error message is more accurate if we do
@@ -6093,6 +6105,7 @@ package body Sem_Ch6 is
 
    begin
       while Present (Old_Discr) and then Present (New_Discr) loop
+
          New_Discr_Id := Defining_Identifier (New_Discr);
 
          --  The subtype mark of the discriminant on the full type has not
@@ -6646,11 +6659,6 @@ package body Sem_Ch6 is
                 and then Exception_Junk (Last_Stm))
            or else Nkind (Last_Stm) in N_Push_xxx_Label
            or else Nkind (Last_Stm) in N_Pop_xxx_Label
-
-         --  Inserted code, such as finalization calls, is irrelevant: we only
-         --  need to check original source.
-
-           or else Is_Rewrite_Insertion (Last_Stm)
          loop
             Prev (Last_Stm);
          end loop;
@@ -7256,9 +7264,7 @@ package body Sem_Ch6 is
          N1, N2 : Natural;
 
       begin
-         --  Deal with special case where names are identical except for a
-         --  numerical suffix. These are handled specially, taking the numeric
-         --  ordering from the suffix into account.
+         --  Remove trailing numeric parts
 
          L1 := S1'Last;
          while S1 (L1) in '0' .. '9' loop
@@ -7270,10 +7276,13 @@ package body Sem_Ch6 is
             L2 := L2 - 1;
          end loop;
 
-         --  If non-numeric parts non-equal, do straight compare
+         --  If non-numeric parts non-equal, that's decisive
 
-         if S1 (S1'First .. L1) /= S2 (S2'First .. L2) then
-            return S1 > S2;
+         if S1 (S1'First .. L1) < S2 (S2'First .. L2) then
+            return False;
+
+         elsif S1 (S1'First .. L1) > S2 (S2'First .. L2) then
+            return True;
 
          --  If non-numeric parts equal, compare suffixed numeric parts. Note
          --  that a missing suffix is treated as numeric zero in this test.
@@ -7441,9 +7450,6 @@ package body Sem_Ch6 is
             --  The following is too permissive. A more precise test should
             --  check that the generic actual is an ancestor subtype of the
             --  other ???.
-
-            --  See code in Find_Corresponding_Spec that applies an additional
-            --  filter to handle accidental amiguities in instances.
 
             return not Is_Generic_Actual_Type (T1)
               or else not Is_Generic_Actual_Type (T2)
@@ -8176,44 +8182,6 @@ package body Sem_Ch6 is
 
       E : Entity_Id;
 
-      function Different_Generic_Profile (E : Entity_Id) return Boolean;
-      --  Even if fully conformant, a body may depend on a generic actual when
-      --  the spec does not, or vice versa, in which case they were distinct
-      --  entities in the generic.
-
-      -------------------------------
-      -- Different_Generic_Profile --
-      -------------------------------
-
-      function Different_Generic_Profile (E : Entity_Id) return Boolean is
-         F1, F2 : Entity_Id;
-
-      begin
-         if Ekind (E) = E_Function
-           and then Is_Generic_Actual_Type (Etype (E)) /=
-                    Is_Generic_Actual_Type (Etype (Designator))
-         then
-            return True;
-         end if;
-
-         F1 := First_Formal (Designator);
-         F2 := First_Formal (E);
-         while Present (F1) loop
-            if Is_Generic_Actual_Type (Etype (F1)) /=
-               Is_Generic_Actual_Type (Etype (F2))
-            then
-               return True;
-            end if;
-
-            Next_Formal (F1);
-            Next_Formal (F2);
-         end loop;
-
-         return False;
-      end Different_Generic_Profile;
-
-   --  Start of processing for Find_Corresponding_Spec
-
    begin
       E := Current_Entity (Designator);
       while Present (E) loop
@@ -8226,15 +8194,16 @@ package body Sem_Ch6 is
          if Scope (E) = Current_Scope then
             if Current_Scope = Standard_Standard
               or else (Ekind (E) = Ekind (Designator)
-                        and then Type_Conformant (E, Designator))
+                         and then Type_Conformant (E, Designator))
             then
                --  Within an instantiation, we know that spec and body are
-               --  subtype conformant, because they were subtype conformant in
-               --  the generic. We choose the subtype-conformant entity here as
-               --  well, to resolve spurious ambiguities in the instance that
-               --  were not present in the generic (i.e. when two different
-               --  types are given the same actual). If we are looking for a
-               --  spec to match a body, full conformance is expected.
+               --  subtype conformant, because they were subtype conformant
+               --  in the generic. We choose the subtype-conformant entity
+               --  here as well, to resolve spurious ambiguities in the
+               --  instance that were not present in the generic (i.e. when
+               --  two different types are given the same actual). If we are
+               --  looking for a spec to match a body, full conformance is
+               --  expected.
 
                if In_Instance then
                   Set_Convention (Designator, Convention (E));
@@ -8252,9 +8221,6 @@ package body Sem_Ch6 is
                      goto Next_Entity;
 
                   elsif not Subtype_Conformant (Designator, E) then
-                     goto Next_Entity;
-
-                  elsif Different_Generic_Profile (E) then
                      goto Next_Entity;
                   end if;
                end if;
@@ -8286,12 +8252,12 @@ package body Sem_Ch6 is
 
                   return E;
 
-               --  If E is an internal function with a controlling result that
-               --  was created for an operation inherited by a null extension,
-               --  it may be overridden by a body without a previous spec (one
-               --  more reason why these should be shunned). In that case
-               --  remove the generated body if present, because the current
-               --  one is the explicit overriding.
+               --  If E is an internal function with a controlling result
+               --  that was created for an operation inherited by a null
+               --  extension, it may be overridden by a body without a previous
+               --  spec (one more reason why these should be shunned). In that
+               --  case remove the generated body if present, because the
+               --  current one is the explicit overriding.
 
                elsif Ekind (E) = E_Function
                  and then Ada_Version >= Ada_2005
@@ -8397,9 +8363,9 @@ package body Sem_Ch6 is
         renames Fully_Conformant_Expressions;
 
       function FCL (L1, L2 : List_Id) return Boolean;
-      --  Compare elements of two lists for conformance. Elements have to be
-      --  conformant, and actuals inserted as default parameters do not match
-      --  explicit actuals with the same value.
+      --  Compare elements of two lists for conformance. Elements have to
+      --  be conformant, and actuals inserted as default parameters do not
+      --  match explicit actuals with the same value.
 
       function FCO (Op_Node, Call_Node : Node_Id) return Boolean;
       --  Compare an operator node with a function call
@@ -8424,8 +8390,8 @@ package body Sem_Ch6 is
             N2 := First (L2);
          end if;
 
-         --  Compare two lists, skipping rewrite insertions (we want to compare
-         --  the original trees, not the expanded versions!)
+         --  Compare two lists, skipping rewrite insertions (we want to
+         --  compare the original trees, not the expanded versions!)
 
          loop
             if Is_Rewrite_Insertion (N1) then
@@ -9001,7 +8967,7 @@ package body Sem_Ch6 is
         or else not Is_Dispatching_Operation (Prim)
         or else Scope (Prim) /= Scope (Tagged_Type)
         or else No (Typ)
-        or else Base_Type (Typ) /= Base_Type (Tagged_Type)
+        or else Base_Type (Typ) /= Tagged_Type
         or else not Primitive_Names_Match (Iface_Prim, Prim)
       then
          return False;

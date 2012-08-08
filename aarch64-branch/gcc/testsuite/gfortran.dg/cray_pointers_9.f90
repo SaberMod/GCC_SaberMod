@@ -101,3 +101,4 @@ program fptr
    p = transfer(fp,p)
    write(*,'(a)') fun([1,2,3])
 end program fptr
+! { dg-final { cleanup-modules "funcs other_fun" } }

@@ -16,3 +16,5 @@ FUNCTION F1(I) RESULT(RF1)
 END FUNCTION F1
 END  MODULE M1
 END
+
+! { dg-final { cleanup-modules "m1" } }

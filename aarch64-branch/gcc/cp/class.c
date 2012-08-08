@@ -31,11 +31,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
+#include "output.h"
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
 #include "cgraph.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
 #include "splay-tree.h"
 #include "pointer-set.h"
 
@@ -139,7 +140,6 @@ static void build_vtbl_initializer (tree, tree, tree, tree, int *,
 				    VEC(constructor_elt,gc) **);
 static int count_fields (tree);
 static int add_fields_to_record_type (tree, struct sorted_fields_type*, int);
-static void insert_into_classtype_sorted_fields (tree, tree, int);
 static bool check_bitfield_decl (tree);
 static void check_field_decl (tree, tree, int *, int *, int *);
 static void check_field_decls (tree, tree *, int *, int *);
@@ -212,6 +212,7 @@ static tree get_vcall_index (tree, tree);
 
 /* Variables shared between class.c and call.c.  */
 
+#ifdef GATHER_STATISTICS
 int n_vtables = 0;
 int n_vtable_entries = 0;
 int n_vtable_searches = 0;
@@ -219,6 +220,7 @@ int n_vtable_elems = 0;
 int n_convert_harshness = 0;
 int n_compute_conversion_costs = 0;
 int n_inner_fields_searched = 0;
+#endif
 
 /* Convert to or from a base subobject.  EXPR is an expression of type
    `A' or `A*', an expression of type `B' or `B*' is returned.  To
@@ -323,7 +325,8 @@ build_base_path (enum tree_code code,
      up properly yet, and the value doesn't matter there either; we're just
      interested in the result of overload resolution.  */
   if (cp_unevaluated_operand != 0
-      || in_template_function ())
+      || (current_function_decl
+	  && uses_template_parms (current_function_decl)))
     {
       expr = build_nop (ptr_target_type, expr);
       if (!want_pointer)
@@ -364,7 +367,7 @@ build_base_path (enum tree_code code,
   /* Now that we've saved expr, build the real null test.  */
   if (null_test)
     {
-      tree zero = cp_convert (TREE_TYPE (expr), nullptr_node, complain);
+      tree zero = cp_convert (TREE_TYPE (expr), nullptr_node);
       null_test = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			       expr, zero);
     }
@@ -834,11 +837,10 @@ build_primary_vtable (tree binfo, tree type)
       virtuals = NULL_TREE;
     }
 
-  if (GATHER_STATISTICS)
-    {
-      n_vtables += 1;
-      n_vtable_elems += list_length (virtuals);
-    }
+#ifdef GATHER_STATISTICS
+  n_vtables += 1;
+  n_vtable_elems += list_length (virtuals);
+#endif
 
   /* Initialize the association list for this type, based
      on our first approximation.  */
@@ -1188,8 +1190,7 @@ alter_access (tree t, tree fdecl, tree access)
     }
   else
     {
-      perform_or_defer_access_check (TYPE_BINFO (t), fdecl, fdecl,
-				     tf_warning_or_error);
+      perform_or_defer_access_check (TYPE_BINFO (t), fdecl, fdecl);
       DECL_ACCESS (fdecl) = tree_cons (t, access, DECL_ACCESS (fdecl));
       return 1;
     }
@@ -2832,9 +2833,8 @@ add_implicitly_declared_members (tree t,
   declare_virt_assop_and_dtor (t);
 }
 
-/* Subroutine of insert_into_classtype_sorted_fields.  Recursively
-   count the number of fields in TYPE, including anonymous union
-   members.  */
+/* Subroutine of finish_struct_1.  Recursively count the number of fields
+   in TYPE, including anonymous union members.  */
 
 static int
 count_fields (tree fields)
@@ -2851,9 +2851,8 @@ count_fields (tree fields)
   return n_fields;
 }
 
-/* Subroutine of insert_into_classtype_sorted_fields.  Recursively add
-   all the fields in the TREE_LIST FIELDS to the SORTED_FIELDS_TYPE
-   elts, starting at offset IDX.  */
+/* Subroutine of finish_struct_1.  Recursively add all the fields in the
+   TREE_LIST FIELDS to the SORTED_FIELDS_TYPE elts, starting at offset IDX.  */
 
 static int
 add_fields_to_record_type (tree fields, struct sorted_fields_type *field_vec, int idx)
@@ -2866,20 +2865,6 @@ add_fields_to_record_type (tree fields, struct sorted_fields_type *field_vec, in
       else
 	field_vec->elts[idx++] = x;
     }
-  return idx;
-}
-
-/* Add all of the enum values of ENUMTYPE, to the FIELD_VEC elts,
-   starting at offset IDX.  */
-
-static int
-add_enum_fields_to_record_type (tree enumtype,
-				struct sorted_fields_type *field_vec,
-				int idx)
-{
-  tree values;
-  for (values = TYPE_VALUES (enumtype); values; values = TREE_CHAIN (values))
-      field_vec->elts[idx++] = TREE_VALUE (values);
   return idx;
 }
 
@@ -3113,8 +3098,7 @@ check_field_decls (tree t, tree *access_decls,
 
       /* If we've gotten this far, it's a data member, possibly static,
 	 or an enumerator.  */
-      if (TREE_CODE (x) != CONST_DECL)
-	DECL_CONTEXT (x) = t;
+      DECL_CONTEXT (x) = t;
 
       /* When this goes into scope, it will be a non-local reference.  */
       DECL_NONLOCAL (x) = 1;
@@ -3235,7 +3219,8 @@ check_field_decls (tree t, tree *access_decls,
 	 to members which might hold dynamic memory. So do not warn
 	 for pointers to functions or pointers to members.  */
       if (TYPE_PTR_P (type)
-	  && !TYPE_PTRFN_P (type))
+	  && !TYPE_PTRFN_P (type)
+	  && !TYPE_PTR_TO_MEMBER_P (type))
 	has_pointers = true;
 
       if (CLASS_TYPE_P (type))
@@ -5122,8 +5107,7 @@ check_bases_and_members (tree t)
 	{
 	  tree type;
 
-	  if (TREE_CODE (field) != FIELD_DECL
-	      || DECL_INITIAL (field) != NULL_TREE)
+	  if (TREE_CODE (field) != FIELD_DECL)
 	    continue;
 
 	  type = TREE_TYPE (field);
@@ -6012,6 +5996,7 @@ finish_struct_1 (tree t)
   tree x;
   /* A TREE_LIST.  The TREE_VALUE of each node is a FUNCTION_DECL.  */
   tree virtuals = NULL_TREE;
+  int n_fields = 0;
 
   if (COMPLETE_TYPE_P (t))
     {
@@ -6129,7 +6114,15 @@ finish_struct_1 (tree t)
      ultimately as the search bores through the inheritance
      hierarchy), and we want this failure to occur quickly.  */
 
-  insert_into_classtype_sorted_fields (TYPE_FIELDS (t), t, 8);
+  n_fields = count_fields (TYPE_FIELDS (t));
+  if (n_fields > 7)
+    {
+      struct sorted_fields_type *field_vec = sorted_fields_type_new (n_fields);
+      add_fields_to_record_type (TYPE_FIELDS (t), field_vec, 0);
+      qsort (field_vec->elts, n_fields, sizeof (tree),
+	     field_decl_cmp);
+      CLASSTYPE_SORTED_FIELDS (t) = field_vec;
+    }
 
   /* Complain if one of the field types requires lower visibility.  */
   constrain_class_visibility (t);
@@ -6199,45 +6192,6 @@ finish_struct_1 (tree t)
 	    }
 	  TYPE_TRANSPARENT_AGGR (t) = 0;
 	}
-    }
-}
-
-/* Insert FIELDS into T for the sorted case if the FIELDS count is
-   equal to THRESHOLD or greater than THRESHOLD.  */
-
-static void 
-insert_into_classtype_sorted_fields (tree fields, tree t, int threshold)
-{
-  int n_fields = count_fields (fields);
-  if (n_fields >= threshold)
-    {
-      struct sorted_fields_type *field_vec = sorted_fields_type_new (n_fields);
-      add_fields_to_record_type (fields, field_vec, 0);
-      qsort (field_vec->elts, n_fields, sizeof (tree), field_decl_cmp);
-      CLASSTYPE_SORTED_FIELDS (t) = field_vec;
-    }
-}
-
-/* Insert lately defined enum ENUMTYPE into T for the sorted case.  */
-
-void
-insert_late_enum_def_into_classtype_sorted_fields (tree enumtype, tree t)
-{
-  struct sorted_fields_type *sorted_fields = CLASSTYPE_SORTED_FIELDS (t);
-  if (sorted_fields)
-    {
-      int i;
-      int n_fields
-	= list_length (TYPE_VALUES (enumtype)) + sorted_fields->len;
-      struct sorted_fields_type *field_vec = sorted_fields_type_new (n_fields);
-      
-      for (i = 0; i < sorted_fields->len; ++i)
-	field_vec->elts[i] = sorted_fields->elts[i];
-
-      add_enum_fields_to_record_type (enumtype, field_vec,
-				      sorted_fields->len);
-      qsort (field_vec->elts, n_fields, sizeof (tree), field_decl_cmp);
-      CLASSTYPE_SORTED_FIELDS (t) = field_vec;
     }
 }
 
@@ -6325,15 +6279,6 @@ finish_struct (tree t, tree attributes)
 
       /* Remember current #pragma pack value.  */
       TYPE_PRECISION (t) = maximum_field_alignment;
-
-      /* Fix up any variants we've already built.  */
-      for (x = TYPE_NEXT_VARIANT (t); x; x = TYPE_NEXT_VARIANT (x))
-	{
-	  TYPE_SIZE (x) = TYPE_SIZE (t);
-	  TYPE_SIZE_UNIT (x) = TYPE_SIZE_UNIT (t);
-	  TYPE_FIELDS (x) = TYPE_FIELDS (t);
-	  TYPE_METHODS (x) = TYPE_METHODS (t);
-	}
     }
   else
     finish_struct_1 (t);
@@ -6347,9 +6292,7 @@ finish_struct (tree t, tree attributes)
   else
     error ("trying to finish struct, but kicked out due to previous parse errors");
 
-  if (processing_template_decl && at_function_scope_p ()
-      /* Lambdas are defined by the LAMBDA_EXPR.  */
-      && !LAMBDA_TYPE_P (t))
+  if (processing_template_decl && at_function_scope_p ())
     add_stmt (build_min (TAG_DEFN, t));
 
   return t;
@@ -6529,9 +6472,7 @@ resolves_to_fixed_type_p (tree instance, int* nonnull)
   int cdtorp = 0;
   tree fixed;
 
-  /* processing_template_decl can be false in a template if we're in
-     fold_non_dependent_expr, but we still want to suppress this check.  */
-  if (in_template_function ())
+  if (processing_template_decl)
     {
       /* In a template we only care about the type of the result.  */
       if (nonnull)
@@ -6878,8 +6819,9 @@ pop_lang_context (void)
 
    If OVERLOAD is for one or more member functions, then ACCESS_PATH
    is the base path used to reference those member functions.  If
-   the address is resolved to a member function, access checks will be
-   performed and errors issued if appropriate.  */
+   TF_NO_ACCESS_CONTROL is not set in FLAGS, and the address is
+   resolved to a member function, access checks will be performed and
+   errors issued if appropriate.  */
 
 static tree
 resolve_address_of_overloaded_function (tree target_type,
@@ -7142,10 +7084,11 @@ resolve_address_of_overloaded_function (tree target_type,
   /* We could not check access to member functions when this
      expression was originally created since we did not know at that
      time to which function the expression referred.  */
-  if (DECL_FUNCTION_MEMBER_P (fn))
+  if (!(flags & tf_no_access_control) 
+      && DECL_FUNCTION_MEMBER_P (fn))
     {
       gcc_assert (access_path);
-      perform_or_defer_access_check (access_path, fn, fn, flags);
+      perform_or_defer_access_check (access_path, fn, fn);
     }
 
   if (TYPE_PTRFN_P (target_type) || TYPE_PTRMEMFUNC_P (target_type))
@@ -7328,9 +7271,7 @@ get_vfield_name (tree type)
 void
 print_class_statistics (void)
 {
-  if (! GATHER_STATISTICS)
-    return;
-
+#ifdef GATHER_STATISTICS
   fprintf (stderr, "convert_harshness = %d\n", n_convert_harshness);
   fprintf (stderr, "compute_conversion_costs = %d\n", n_compute_conversion_costs);
   if (n_vtables)
@@ -7340,6 +7281,7 @@ print_class_statistics (void)
       fprintf (stderr, "vtable entries = %d; vtable elems = %d\n",
 	       n_vtable_entries, n_vtable_elems);
     }
+#endif
 }
 
 /* Build a dummy reference to ourselves so Derived::Base (and A::A) works,

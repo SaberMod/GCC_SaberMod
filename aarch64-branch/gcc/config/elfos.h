@@ -83,8 +83,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /* Output #ident as a .ident.  */
 
-#undef TARGET_ASM_OUTPUT_IDENT
-#define TARGET_ASM_OUTPUT_IDENT default_asm_output_ident_directive
+#define ASM_OUTPUT_IDENT(FILE, NAME) \
+  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
+
+#define IDENT_ASM_OP "\t.ident\t"
 
 #undef  SET_ASM_OP
 #define SET_ASM_OP	"\t.set\t"

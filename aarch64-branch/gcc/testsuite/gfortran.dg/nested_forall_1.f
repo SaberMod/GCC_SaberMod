@@ -35,3 +35,4 @@
       END FORALL
       END SUBROUTINE
       END MODULE TESTS
+! { dg-final { cleanup-modules "tests" } }

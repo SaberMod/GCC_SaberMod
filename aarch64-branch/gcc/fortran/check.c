@@ -1,6 +1,5 @@
 /* Check functions
-   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
+   Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
    Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
@@ -29,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "intrinsic.h"
@@ -165,7 +163,7 @@ kind_check (gfc_expr *k, int n, bt type)
   if (scalar_check (k, n) == FAILURE)
     return FAILURE;
 
-  if (gfc_check_init_expr (k) != SUCCESS)
+  if (k->expr_type != EXPR_CONSTANT)
     {
       gfc_error ("'%s' argument of '%s' intrinsic at %L must be a constant",
 		 gfc_current_intrinsic_arg[n]->name, gfc_current_intrinsic,
@@ -620,10 +618,6 @@ dim_rank_check (gfc_expr *dim, gfc_expr *array, int allow_assumed)
   else
     rank = array->rank;
 
-  /* Assumed-rank array.  */
-  if (rank == -1)
-    rank = GFC_MAX_DIMENSIONS;
-
   if (array->expr_type == EXPR_VARIABLE)
     {
       ar = gfc_find_array_ref (array);
@@ -866,7 +860,7 @@ gfc_check_a_p (gfc_expr *a, gfc_expr *p)
 
   if (a->ts.kind != p->ts.kind)
     {
-      if (gfc_notify_std (GFC_STD_GNU, "Different type kinds at %L",
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
 			  &p->where) == FAILURE)
        return FAILURE;
     }
@@ -1085,7 +1079,7 @@ gfc_check_besn (gfc_expr *n, gfc_expr *x)
     {
       int i;
       gfc_extract_int (n, &i);
-      if (i < 0 && gfc_notify_std (GFC_STD_GNU, "Negative argument "
+      if (i < 0 && gfc_notify_std (GFC_STD_GNU, "Extension: Negative argument "
 				   "N at %L", &n->where) == FAILURE)
 	return FAILURE;
     }
@@ -1310,7 +1304,7 @@ gfc_check_count (gfc_expr *mask, gfc_expr *dim, gfc_expr *kind)
     return FAILURE;
   if (kind_check (kind, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -1668,7 +1662,7 @@ gfc_check_float (gfc_expr *a)
     return FAILURE;
 
   if ((a->ts.kind != gfc_default_integer_kind)
-      && gfc_notify_std (GFC_STD_GNU, "non-default INTEGER "
+      && gfc_notify_std (GFC_STD_GNU, "GNU extension: non-default INTEGER "
 			 "kind argument to %s intrinsic at %L",
 			 gfc_current_intrinsic, &a->where) == FAILURE	)
     return FAILURE;
@@ -1728,7 +1722,7 @@ gfc_check_fn_rc2008 (gfc_expr *a)
     return FAILURE;
 
   if (a->ts.type == BT_COMPLEX
-      && gfc_notify_std (GFC_STD_F2008, "COMPLEX argument '%s' "
+      && gfc_notify_std (GFC_STD_F2008, "Fortran 2008: COMPLEX argument '%s' "
 			 "argument of '%s' intrinsic at %L",
 			 gfc_current_intrinsic_arg[0]->name,
 			 gfc_current_intrinsic, &a->where) == FAILURE)
@@ -1796,7 +1790,7 @@ gfc_check_iand (gfc_expr *i, gfc_expr *j)
 
   if (i->ts.kind != j->ts.kind)
     {
-      if (gfc_notify_std (GFC_STD_GNU, "Different type kinds at %L",
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
 			  &i->where) == FAILURE)
 	return FAILURE;
     }
@@ -1841,7 +1835,7 @@ gfc_check_ichar_iachar (gfc_expr *c, gfc_expr *kind)
   if (kind_check (kind, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
 
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -1922,7 +1916,7 @@ gfc_check_ieor (gfc_expr *i, gfc_expr *j)
 
   if (i->ts.kind != j->ts.kind)
     {
-      if (gfc_notify_std (GFC_STD_GNU, "Different type kinds at %L",
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
 			  &i->where) == FAILURE)
 	return FAILURE;
     }
@@ -1944,7 +1938,7 @@ gfc_check_index (gfc_expr *string, gfc_expr *substring, gfc_expr *back,
 
   if (kind_check (kind, 3, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -1996,7 +1990,7 @@ gfc_check_ior (gfc_expr *i, gfc_expr *j)
 
   if (i->ts.kind != j->ts.kind)
     {
-      if (gfc_notify_std (GFC_STD_GNU, "Different type kinds at %L",
+      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type kinds at %L",
 			  &i->where) == FAILURE)
 	return FAILURE;
     }
@@ -2138,7 +2132,7 @@ gfc_check_lbound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 
   if (kind_check (kind, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -2183,7 +2177,7 @@ gfc_check_len_lentrim (gfc_expr *s, gfc_expr *kind)
 
   if (kind_check (kind, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -2348,7 +2342,7 @@ check_rest (bt type, int kind, gfc_actual_arglist *arglist)
 	{
 	  if (x->ts.type == type)
 	    {
-	      if (gfc_notify_std (GFC_STD_GNU, "Different type "
+	      if (gfc_notify_std (GFC_STD_GNU, "Extension: Different type "
 				  "kinds at %L", &x->where) == FAILURE)
 		return FAILURE;
 	    }
@@ -2385,7 +2379,7 @@ gfc_check_min_max (gfc_actual_arglist *arg)
 
   if (x->ts.type == BT_CHARACTER)
     {
-      if (gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+      if (gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			  "with CHARACTER argument at %L",
 			  gfc_current_intrinsic, &x->where) == FAILURE)
 	return FAILURE;
@@ -2734,29 +2728,17 @@ gfc_check_move_alloc (gfc_expr *from, gfc_expr *to)
     return FAILURE;
   if (allocatable_check (from, 0) == FAILURE)
     return FAILURE;
-  if (gfc_is_coindexed (from))
-    {
-      gfc_error ("The FROM argument to MOVE_ALLOC at %L shall not be "
-		 "coindexed", &from->where);
-      return FAILURE;
-    }
 
   if (variable_check (to, 1, false) == FAILURE)
     return FAILURE;
   if (allocatable_check (to, 1) == FAILURE)
     return FAILURE;
-  if (gfc_is_coindexed (to))
-    {
-      gfc_error ("The TO argument to MOVE_ALLOC at %L shall not be "
-		 "coindexed", &to->where);
-      return FAILURE;
-    }
 
   if (from->ts.type == BT_CLASS && to->ts.type == BT_DERIVED)
     {
       gfc_error ("The TO arguments in MOVE_ALLOC at %L must be "
 		 "polymorphic if FROM is polymorphic",
-		 &to->where);
+		 &from->where);
       return FAILURE;
     }
 
@@ -2765,26 +2747,20 @@ gfc_check_move_alloc (gfc_expr *from, gfc_expr *to)
 
   if (to->rank != from->rank)
     {
-      gfc_error ("The FROM and TO arguments of the MOVE_ALLOC intrinsic at %L "
-		 "must have the same rank %d/%d", &to->where,  from->rank,
-		 to->rank);
-      return FAILURE;
-    }
-
-  /* IR F08/0040; cf. 12-006A.  */
-  if (gfc_get_corank (to) != gfc_get_corank (from))
-    {
-      gfc_error ("The FROM and TO arguments of the MOVE_ALLOC intrinsic at %L "
-		 "must have the same corank %d/%d", &to->where,
-		 gfc_get_corank (from), gfc_get_corank (to));
+      gfc_error ("the '%s' and '%s' arguments of '%s' intrinsic at %L must "
+		 "have the same rank %d/%d", gfc_current_intrinsic_arg[0]->name,
+		 gfc_current_intrinsic_arg[1]->name, gfc_current_intrinsic,
+		 &to->where,  from->rank, to->rank);
       return FAILURE;
     }
 
   if (to->ts.kind != from->ts.kind)
     {
-      gfc_error ("The FROM and TO arguments of the MOVE_ALLOC intrinsic at %L"
-		 " must be of the same kind %d/%d", &to->where, from->ts.kind,
-		 to->ts.kind);
+      gfc_error ("the '%s' and '%s' arguments of '%s' intrinsic at %L must "
+		 "be of the same kind %d/%d",
+		 gfc_current_intrinsic_arg[0]->name,
+		 gfc_current_intrinsic_arg[1]->name, gfc_current_intrinsic,
+		 &to->where, from->ts.kind, to->ts.kind);
       return FAILURE;
     }
 
@@ -2867,7 +2843,7 @@ gfc_check_null (gfc_expr *mold)
     }
 
   if (attr.allocatable
-      && gfc_notify_std (GFC_STD_F2003, "NULL intrinsic with "
+      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: NULL intrinsic with "
 			 "allocatable MOLD at %L", &mold->where) == FAILURE)
     return FAILURE;
 
@@ -3403,7 +3379,7 @@ gfc_check_scan (gfc_expr *x, gfc_expr *y, gfc_expr *z, gfc_expr *kind)
 
   if (kind_check (kind, 3, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -3464,7 +3440,7 @@ gfc_try
 gfc_check_selected_real_kind (gfc_expr *p, gfc_expr *r, gfc_expr *radix)
 {
   if (p == NULL && r == NULL
-      && gfc_notify_std (GFC_STD_F2008, "SELECTED_REAL_KIND with"
+      && gfc_notify_std (GFC_STD_F2008, "Fortran 2008: SELECTED_REAL_KIND with"
 			 " neither 'P' nor 'R' argument at %L",
 			 gfc_current_intrinsic_where) == FAILURE)
     return FAILURE;
@@ -3495,7 +3471,7 @@ gfc_check_selected_real_kind (gfc_expr *p, gfc_expr *r, gfc_expr *radix)
       if (scalar_check (radix, 1) == FAILURE)
 	return FAILURE;
 
-      if (gfc_notify_std (GFC_STD_F2008, "'%s' intrinsic with "
+      if (gfc_notify_std (GFC_STD_F2008, "Fortran 2008: '%s' intrinsic with "
 			  "RADIX argument at %L", gfc_current_intrinsic,
 			  &radix->where) == FAILURE)
 	return FAILURE;
@@ -3537,7 +3513,7 @@ gfc_check_shape (gfc_expr *source, gfc_expr *kind)
 
   if (kind_check (kind, 1, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -3592,7 +3568,7 @@ gfc_check_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 
   if (kind_check (kind, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -3650,7 +3626,7 @@ gfc_check_sngl (gfc_expr *a)
     return FAILURE;
 
   if ((a->ts.kind != gfc_default_double_kind)
-      && gfc_notify_std (GFC_STD_GNU, "non double precision "
+      && gfc_notify_std (GFC_STD_GNU, "GNU extension: non double precision "
 			 "REAL argument to %s intrinsic at %L",
 			 gfc_current_intrinsic, &a->where) == FAILURE)
     return FAILURE;
@@ -4010,6 +3986,7 @@ gfc_try
 gfc_calculate_transfer_sizes (gfc_expr *source, gfc_expr *mold, gfc_expr *size,
 			      size_t *source_size, size_t *result_size,
 			      size_t *result_length_p)
+
 {
   size_t result_elt_size;
   mpz_t tmp;
@@ -4018,17 +3995,12 @@ gfc_calculate_transfer_sizes (gfc_expr *source, gfc_expr *mold, gfc_expr *size,
   if (source->expr_type == EXPR_FUNCTION)
     return FAILURE;
 
-  if (size && size->expr_type != EXPR_CONSTANT)
-    return FAILURE;
-
-  /* Calculate the size of the source.  */
+    /* Calculate the size of the source.  */
   if (source->expr_type == EXPR_ARRAY
       && gfc_array_size (source, &tmp) == FAILURE)
     return FAILURE;
 
   *source_size = gfc_target_expr_size (source);
-  if (*source_size == 0)
-    return FAILURE;
 
   mold_element = mold->expr_type == EXPR_ARRAY
 		 ? gfc_constructor_first (mold->value.constructor)->expr
@@ -4131,7 +4103,7 @@ gfc_check_ubound (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
 
   if (kind_check (kind, 2, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;
@@ -4260,7 +4232,7 @@ gfc_check_verify (gfc_expr *x, gfc_expr *y, gfc_expr *z, gfc_expr *kind)
 
   if (kind_check (kind, 3, BT_INTEGER) == FAILURE)
     return FAILURE;
-  if (kind && gfc_notify_std (GFC_STD_F2003, "'%s' intrinsic "
+  if (kind && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: '%s' intrinsic "
 			      "with KIND argument at %L",
 			      gfc_current_intrinsic, &kind->where) == FAILURE)
     return FAILURE;

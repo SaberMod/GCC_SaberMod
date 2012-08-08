@@ -37,3 +37,6 @@ CONTAINS
    PRINT*, 'sub'
  END SUBROUTINE s
 END PROGRAM prog
+
+! { dg-final { cleanup-modules "m" } }
+

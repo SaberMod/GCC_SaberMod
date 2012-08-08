@@ -3,8 +3,7 @@
 
 struct U {
   U();
-private:
-  U(U const&);			// { dg-error "private" }
+  U(U const&);
 };
 
 struct X {
@@ -14,7 +13,7 @@ struct X {
 };
 
 X::X(X&&)=default;		// { dg-message "implicitly deleted" }
-// { dg-prune-output "within this context" }
+// { dg-error "does not have a move constructor" "" { target *-*-* } 15 }
 
 X f() {
   return X();

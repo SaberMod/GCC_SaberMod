@@ -31,3 +31,5 @@ contains
 
   end subroutine foo
 end program snafu
+
+! { dg-final { cleanup-modules "global" } }

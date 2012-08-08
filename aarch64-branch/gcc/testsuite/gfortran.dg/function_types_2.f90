@@ -101,3 +101,4 @@ contains
     d1%m = 55
   end function d1
 end program main
+! { dg-final { cleanup-modules "m1 m2 m3" } }

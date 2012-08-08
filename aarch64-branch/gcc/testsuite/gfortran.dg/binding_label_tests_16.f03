@@ -19,3 +19,4 @@ implicit none
   print *, a, b
   if (a /= 5 .or. b /= -5) call abort()
 end program prog
+! { dg-final { cleanup-modules "m n" } }

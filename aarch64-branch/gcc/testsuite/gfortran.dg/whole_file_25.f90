@@ -17,3 +17,5 @@ end module ints
       USE INTS
       CALL NOZZLE ()
       END program CORTESA
+
+! { dg-final { cleanup-modules "ints" } }

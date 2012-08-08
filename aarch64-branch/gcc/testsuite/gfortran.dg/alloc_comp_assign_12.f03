@@ -40,3 +40,5 @@ program main2
   call o%make(u)
   if (any (int (o%disp()) .ne. [1,2])) call abort
 end program main2
+! { dg-final { cleanup-modules "foo" } }
+

@@ -16,3 +16,5 @@ PROGRAM gafortran
   NAMELIST /ga/ nichflg
   READ (23, nml=ga)
 END PROGRAM gafortran
+
+! { dg-final { cleanup-modules "ga_commons" } }

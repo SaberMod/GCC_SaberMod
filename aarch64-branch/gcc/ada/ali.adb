@@ -135,7 +135,7 @@ package body ALI is
       Ignore_Errors    : Boolean := False;
       Directly_Scanned : Boolean := False) return ALI_Id
    is
-      P         : Text_Ptr            := T'First;
+      P         : Text_Ptr := T'First;
       Line      : Logical_Line_Number := 1;
       Id        : ALI_Id;
       C         : Character;
@@ -1154,7 +1154,7 @@ package body ALI is
       C := Getc;
       Check_Unknown_Line;
 
-      --  Loop to skip to first restrictions line
+      --  Acquire first restrictions line
 
       while C /= 'R' loop
          if Ignore_Errors then
@@ -1169,15 +1169,10 @@ package body ALI is
          end if;
       end loop;
 
-      --  Ignore all 'R' lines if that is required
-
       if Ignore ('R') then
-         while C = 'R' loop
-            Skip_Line;
-            C := Getc;
-         end loop;
+         Skip_Line;
 
-      --  Here we process the restrictions lines (other than unit name cases)
+      --  Process restrictions line
 
       else
          Scan_Restrictions : declare
@@ -1187,191 +1182,16 @@ package body ALI is
             Bad_R_Line : exception;
             --  Signal bad restrictions line (raised on unexpected character)
 
-            Typ : Character;
-            R   : Restriction_Id;
-            N   : Natural;
-
          begin
-            --  Named restriction case
+            Checkc (' ');
+            Skip_Space;
 
-            if Nextc = 'N' then
-               Skip_Line;
+            --  Acquire information for boolean restrictions
+
+            for R in All_Boolean_Restrictions loop
                C := Getc;
 
-               --  Loop through RR and RV lines
-
-               while C = 'R' and then Nextc /= ' ' loop
-                  Typ := Getc;
-                  Checkc (' ');
-
-                  --  Acquire restriction name
-
-                  Name_Len := 0;
-                  while not At_Eol and then Nextc /= '=' loop
-                     Name_Len := Name_Len + 1;
-                     Name_Buffer (Name_Len) := Getc;
-                  end loop;
-
-                  --  Now search list of restrictions to find match
-
-                  declare
-                     RN : String renames Name_Buffer (1 .. Name_Len);
-
-                  begin
-                     R := Restriction_Id'First;
-                     while R < Not_A_Restriction_Id loop
-                        if Restriction_Id'Image (R) = RN then
-                           goto R_Found;
-                        end if;
-
-                        R := Restriction_Id'Succ (R);
-                     end loop;
-
-                     --  We don't recognize the restriction. This might be
-                     --  thought of as an error, and it really is, but we
-                     --  want to allow building with inconsistent versions
-                     --  of the binder and ali files (see comments at the
-                     --  start of package System.Rident), so we just ignore
-                     --  this situation.
-
-                     goto Done_With_Restriction_Line;
-                  end;
-
-                  <<R_Found>>
-
-                  case R is
-
-                     --  Boolean restriction case
-
-                     when All_Boolean_Restrictions =>
-                        case Typ is
-                           when 'V' =>
-                              ALIs.Table (Id).Restrictions.Violated (R) :=
-                                True;
-                              Cumulative_Restrictions.Violated (R) := True;
-
-                           when 'R' =>
-                              ALIs.Table (Id).Restrictions.Set (R) := True;
-                              Cumulative_Restrictions.Set (R) := True;
-
-                           when others =>
-                              raise Bad_R_Line;
-                        end case;
-
-                     --  Parameter restriction case
-
-                     when All_Parameter_Restrictions =>
-                        if At_Eol or else Nextc /= '=' then
-                           raise Bad_R_Line;
-                        else
-                           Skipc;
-                        end if;
-
-                        N := Natural (Get_Nat);
-
-                        case Typ is
-
-                           --  Restriction set
-
-                           when 'R' =>
-                              ALIs.Table (Id).Restrictions.Set (R) := True;
-                              ALIs.Table (Id).Restrictions.Value (R) := N;
-
-                              if Cumulative_Restrictions.Set (R) then
-                                 Cumulative_Restrictions.Value (R) :=
-                                   Integer'Min
-                                     (Cumulative_Restrictions.Value (R), N);
-                              else
-                                 Cumulative_Restrictions.Set (R) := True;
-                                 Cumulative_Restrictions.Value (R) := N;
-                              end if;
-
-                           --  Restriction violated
-
-                           when 'V' =>
-                              ALIs.Table (Id).Restrictions.Violated (R) :=
-                                True;
-                              Cumulative_Restrictions.Violated (R) := True;
-                              ALIs.Table (Id).Restrictions.Count (R) := N;
-
-                              --  Checked Max_Parameter case
-
-                              if R in Checked_Max_Parameter_Restrictions then
-                                 Cumulative_Restrictions.Count (R) :=
-                                   Integer'Max
-                                     (Cumulative_Restrictions.Count (R), N);
-
-                              --  Other checked parameter cases
-
-                              else
-                                 declare
-                                    pragma Unsuppress (Overflow_Check);
-
-                                 begin
-                                    Cumulative_Restrictions.Count (R) :=
-                                      Cumulative_Restrictions.Count (R) + N;
-
-                                 exception
-                                    when Constraint_Error =>
-
-                                       --  A constraint error comes from the
-                                       --  additionh. We reset to the maximum
-                                       --  and indicate that the real value is
-                                       --  now unknown.
-
-                                       Cumulative_Restrictions.Value (R) :=
-                                         Integer'Last;
-                                       Cumulative_Restrictions.Unknown (R) :=
-                                         True;
-                                 end;
-                              end if;
-
-                              --  Deal with + case
-
-                              if Nextc = '+' then
-                                 Skipc;
-                                 ALIs.Table (Id).Restrictions.Unknown (R) :=
-                                   True;
-                                 Cumulative_Restrictions.Unknown (R) := True;
-                              end if;
-
-                           --  Other than 'R' or 'V'
-
-                           when others =>
-                              raise Bad_R_Line;
-                        end case;
-
-                        if not At_Eol then
-                           raise Bad_R_Line;
-                        end if;
-
-                     --  Bizarre error case NOT_A_RESTRICTION
-
-                     when Not_A_Restriction_Id =>
-                        raise Bad_R_Line;
-                  end case;
-
-                  if not At_Eol then
-                     raise Bad_R_Line;
-                  end if;
-
-               <<Done_With_Restriction_Line>>
-                  Skip_Line;
-                  C := Getc;
-               end loop;
-
-            --  Positional restriction case
-
-            else
-               Checkc (' ');
-               Skip_Space;
-
-               --  Acquire information for boolean restrictions
-
-               for R in All_Boolean_Restrictions loop
-                  C := Getc;
-
-                  case C is
+               case C is
                   when 'v' =>
                      ALIs.Table (Id).Restrictions.Violated (R) := True;
                      Cumulative_Restrictions.Violated (R) := True;
@@ -1385,42 +1205,44 @@ package body ALI is
 
                   when others =>
                      raise Bad_R_Line;
-                  end case;
-               end loop;
+               end case;
+            end loop;
 
-               --  Acquire information for parameter restrictions
+            --  Acquire information for parameter restrictions
 
-               for RP in All_Parameter_Restrictions loop
-                  case Getc is
-                     when 'n' =>
-                        null;
+            for RP in All_Parameter_Restrictions loop
 
-                     when 'r' =>
-                        ALIs.Table (Id).Restrictions.Set (RP) := True;
+               --  Acquire restrictions pragma information
 
-                        declare
-                           N : constant Integer := Integer (Get_Nat);
-                        begin
-                           ALIs.Table (Id).Restrictions.Value (RP) := N;
+               case Getc is
+                  when 'n' =>
+                     null;
 
-                           if Cumulative_Restrictions.Set (RP) then
-                              Cumulative_Restrictions.Value (RP) :=
-                                Integer'Min
-                                  (Cumulative_Restrictions.Value (RP), N);
-                           else
-                              Cumulative_Restrictions.Set (RP) := True;
-                              Cumulative_Restrictions.Value (RP) := N;
-                           end if;
-                        end;
+                  when 'r' =>
+                     ALIs.Table (Id).Restrictions.Set (RP) := True;
 
-                     when others =>
-                        raise Bad_R_Line;
-                  end case;
+                     declare
+                        N : constant Integer := Integer (Get_Nat);
+                     begin
+                        ALIs.Table (Id).Restrictions.Value (RP) := N;
 
-                  --  Acquire restrictions violations information
+                        if Cumulative_Restrictions.Set (RP) then
+                           Cumulative_Restrictions.Value (RP) :=
+                             Integer'Min
+                               (Cumulative_Restrictions.Value (RP), N);
+                        else
+                           Cumulative_Restrictions.Set (RP) := True;
+                           Cumulative_Restrictions.Value (RP) := N;
+                        end if;
+                     end;
 
-                  case Getc is
+                  when others =>
+                     raise Bad_R_Line;
+               end case;
 
+               --  Acquire restrictions violations information
+
+               case Getc is
                   when 'n' =>
                      null;
 
@@ -1430,6 +1252,7 @@ package body ALI is
 
                      declare
                         N : constant Integer := Integer (Get_Nat);
+                        pragma Unsuppress (Overflow_Check);
 
                      begin
                         ALIs.Table (Id).Restrictions.Count (RP) := N;
@@ -1438,47 +1261,34 @@ package body ALI is
                            Cumulative_Restrictions.Count (RP) :=
                              Integer'Max
                                (Cumulative_Restrictions.Count (RP), N);
-
                         else
-                           declare
-                              pragma Unsuppress (Overflow_Check);
-
-                           begin
-                              Cumulative_Restrictions.Count (RP) :=
-                                Cumulative_Restrictions.Count (RP) + N;
-
-                           exception
-                              when Constraint_Error =>
-
-                                 --  A constraint error comes from the add. We
-                                 --  reset to the maximum and indicate that the
-                                 --  real value is now unknown.
-
-                                 Cumulative_Restrictions.Value (RP) :=
-                                   Integer'Last;
-                                 Cumulative_Restrictions.Unknown (RP) := True;
-                           end;
+                           Cumulative_Restrictions.Count (RP) :=
+                             Cumulative_Restrictions.Count (RP) + N;
                         end if;
 
-                        if Nextc = '+' then
-                           Skipc;
-                           ALIs.Table (Id).Restrictions.Unknown (RP) := True;
+                     exception
+                        when Constraint_Error =>
+
+                           --  A constraint error comes from the addition in
+                           --  the else branch. We reset to the maximum and
+                           --  indicate that the real value is now unknown.
+
+                           Cumulative_Restrictions.Value (RP) := Integer'Last;
                            Cumulative_Restrictions.Unknown (RP) := True;
-                        end if;
                      end;
+
+                     if Nextc = '+' then
+                        Skipc;
+                        ALIs.Table (Id).Restrictions.Unknown (RP) := True;
+                        Cumulative_Restrictions.Unknown (RP) := True;
+                     end if;
 
                   when others =>
                      raise Bad_R_Line;
-                  end case;
-               end loop;
+               end case;
+            end loop;
 
-               if not At_Eol then
-                  raise Bad_R_Line;
-               else
-                  Skip_Line;
-                  C := Getc;
-               end if;
-            end if;
+            Skip_Eol;
 
          --  Here if error during scanning of restrictions line
 
@@ -1486,29 +1296,25 @@ package body ALI is
             when Bad_R_Line =>
 
                --  In Ignore_Errors mode, undo any changes to restrictions
-               --  from this unit, and continue on, skipping remaining R
-               --  lines for this unit.
+               --  from this unit, and continue on.
 
                if Ignore_Errors then
                   Cumulative_Restrictions := Save_R;
                   ALIs.Table (Id).Restrictions := No_Restrictions;
-
-                  loop
-                     Skip_Eol;
-                     C := Getc;
-                     exit when C /= 'R';
-                  end loop;
+                  Skip_Eol;
 
                --  In normal mode, this is a fatal error
 
                else
                   Fatal_Error;
                end if;
+
          end Scan_Restrictions;
       end if;
 
       --  Acquire additional restrictions (No_Dependence) lines if present
 
+      C := Getc;
       while C = 'R' loop
          if Ignore ('R') then
             Skip_Line;

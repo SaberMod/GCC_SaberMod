@@ -21,3 +21,4 @@ end module gfcbug45
   use gfcbug45
   call foo
 end
+! { dg-final { cleanup-modules "gfcbug45" } }

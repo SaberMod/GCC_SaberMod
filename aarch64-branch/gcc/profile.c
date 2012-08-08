@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "flags.h"
+#include "output.h"
 #include "regs.h"
 #include "expr.h"
 #include "function.h"
@@ -63,9 +64,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree.h"
+#include "cfghooks.h"
 #include "tree-flow.h"
+#include "timevar.h"
 #include "cfgloop.h"
-#include "dumpfile.h"
+#include "tree-pass.h"
 
 #include "profile.h"
 
@@ -143,15 +146,46 @@ instrument_edges (struct edge_list *el)
 static void
 instrument_values (histogram_values values)
 {
-  unsigned i;
+  unsigned i, t;
 
   /* Emit code to generate the histograms before the insns.  */
 
   for (i = 0; i < VEC_length (histogram_value, values); i++)
     {
       histogram_value hist = VEC_index (histogram_value, values, i);
-      unsigned t = COUNTER_FOR_HIST_TYPE (hist->type);
+      switch (hist->type)
+	{
+	case HIST_TYPE_INTERVAL:
+	  t = GCOV_COUNTER_V_INTERVAL;
+	  break;
 
+	case HIST_TYPE_POW2:
+	  t = GCOV_COUNTER_V_POW2;
+	  break;
+
+	case HIST_TYPE_SINGLE_VALUE:
+	  t = GCOV_COUNTER_V_SINGLE;
+	  break;
+
+	case HIST_TYPE_CONST_DELTA:
+	  t = GCOV_COUNTER_V_DELTA;
+	  break;
+
+ 	case HIST_TYPE_INDIR_CALL:
+ 	  t = GCOV_COUNTER_V_INDIR;
+ 	  break;
+
+ 	case HIST_TYPE_AVERAGE:
+ 	  t = GCOV_COUNTER_AVERAGE;
+ 	  break;
+
+ 	case HIST_TYPE_IOR:
+ 	  t = GCOV_COUNTER_IOR;
+ 	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
       if (!coverage_counter_alloc (t, hist->n_counters))
 	continue;
 
@@ -245,8 +279,8 @@ is_edge_inconsistent (VEC(edge,gc) *edges)
 		  fprintf (dump_file,
 		  	   "Edge %i->%i is inconsistent, count"HOST_WIDEST_INT_PRINT_DEC,
 			   e->src->index, e->dest->index, e->count);
-		  dump_bb (dump_file, e->src, 0, TDF_DETAILS);
-		  dump_bb (dump_file, e->dest, 0, TDF_DETAILS);
+		  dump_bb (e->src, dump_file, 0);
+		  dump_bb (e->dest, dump_file, 0);
 		}
               return true;
 	    }
@@ -295,7 +329,7 @@ is_inconsistent (void)
 		       HOST_WIDEST_INT_PRINT_DEC,
 		       bb->index,
 		       bb->count);
-	      dump_bb (dump_file, bb, 0, TDF_DETAILS);
+	      dump_bb (bb, dump_file, 0);
 	    }
 	  inconsistent = true;
 	}
@@ -308,7 +342,7 @@ is_inconsistent (void)
 		       bb->index,
 		       bb->count,
 		       sum_edge_counts (bb->preds));
-	      dump_bb (dump_file, bb, 0, TDF_DETAILS);
+	      dump_bb (bb, dump_file, 0);
 	    }
 	  inconsistent = true;
 	}
@@ -322,7 +356,7 @@ is_inconsistent (void)
 		       bb->index,
 		       bb->count,
 		       sum_edge_counts (bb->succs));
-	      dump_bb (dump_file, bb, 0, TDF_DETAILS);
+	      dump_bb (bb, dump_file, 0);
 	    }
 	  inconsistent = true;
 	}
@@ -608,7 +642,7 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
   if (dump_file)
     {
       int overlap = compute_frequency_overlap ();
-      gimple_dump_cfg (dump_file, dump_flags);
+      dump_flow_info (dump_file, dump_flags);
       fprintf (dump_file, "Static profile overlap: %d.%d%%\n",
 	       overlap / (OVERLAP_BASE / 100),
 	       overlap % (OVERLAP_BASE / 100));
@@ -839,6 +873,9 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
     free (histogram_counts[t]);
 }
 
+/* The entry basic block will be moved around so that it has index=1,
+   there is nothing at index 0 and the exit is at n_basic_block.  */
+#define BB_TO_GCOV_INDEX(bb)  ((bb)->index - 1)
 /* When passed NULL as file_name, initialize.
    When passed something else, output the necessary commands to change
    line to LINE and offset to FILE_NAME.  */
@@ -865,7 +902,7 @@ output_location (char const *file_name, int line,
       if (!*offset)
 	{
 	  *offset = gcov_write_tag (GCOV_TAG_LINES);
-	  gcov_write_unsigned (bb->index);
+	  gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
 	  name_differs = line_differs=true;
 	}
 
@@ -885,22 +922,19 @@ output_location (char const *file_name, int line,
      }
 }
 
-/* Instrument and/or analyze program behavior based on program the CFG.
-
-   This function creates a representation of the control flow graph (of
-   the function being compiled) that is suitable for the instrumentation
-   of edges and/or converting measured edge counts to counts on the
-   complete CFG.
+/* Instrument and/or analyze program behavior based on program flow graph.
+   In either case, this function builds a flow graph for the function being
+   compiled.  The flow graph is stored in BB_GRAPH.
 
    When FLAG_PROFILE_ARCS is nonzero, this function instruments the edges in
    the flow graph that are needed to reconstruct the dynamic behavior of the
-   flow graph.  This data is written to the gcno file for gcov.
+   flow graph.
 
    When FLAG_BRANCH_PROBABILITIES is nonzero, this function reads auxiliary
-   information from the gcda file containing edge count information from
-   previous executions of the function being compiled.  In this case, the
-   control flow graph is annotated with actual execution counts by
-   compute_branch_probabilities().
+   information from a data file containing edge count information from previous
+   executions of the function being compiled.  In this case, the flow graph is
+   annotated with actual execution counts, which are later propagated into the
+   rtl for optimization purposes.
 
    Main entry point of this file.  */
 
@@ -1102,9 +1136,6 @@ branch_prob (void)
   if (dump_file)
     fprintf (dump_file, "%d ignored edges\n", ignored_edges);
 
-  total_num_edges_instrumented += num_instrumented;
-  if (dump_file)
-    fprintf (dump_file, "%d instrumentation edges\n", num_instrumented);
 
   /* Compute two different checksums. Note that we want to compute
      the checksum in only once place, since it depends on the shape
@@ -1114,7 +1145,8 @@ branch_prob (void)
   lineno_checksum = coverage_compute_lineno_checksum ();
 
   /* Write the data from which gcov can reconstruct the basic block
-     graph and function line numbers (the gcno file).  */
+     graph and function line numbers  */
+
   if (coverage_begin_function (lineno_checksum, cfg_checksum))
     {
       gcov_position_t offset;
@@ -1125,6 +1157,12 @@ branch_prob (void)
 	gcov_write_unsigned (0);
       gcov_write_length (offset);
 
+      /* Keep all basic block indexes nonnegative in the gcov output.
+	 Index 0 is used for entry block, last index is for exit
+	 block.    */
+      ENTRY_BLOCK_PTR->index = 1;
+      EXIT_BLOCK_PTR->index = last_basic_block;
+
       /* Arcs */
       FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
 	{
@@ -1132,7 +1170,7 @@ branch_prob (void)
 	  edge_iterator ei;
 
 	  offset = gcov_write_tag (GCOV_TAG_ARCS);
-	  gcov_write_unsigned (bb->index);
+	  gcov_write_unsigned (BB_TO_GCOV_INDEX (bb));
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
@@ -1153,13 +1191,16 @@ branch_prob (void)
 		      && e->src->next_bb == e->dest)
 		    flag_bits |= GCOV_ARC_FALLTHROUGH;
 
-		  gcov_write_unsigned (e->dest->index);
+		  gcov_write_unsigned (BB_TO_GCOV_INDEX (e->dest));
 		  gcov_write_unsigned (flag_bits);
 	        }
 	    }
 
 	  gcov_write_length (offset);
 	}
+
+      ENTRY_BLOCK_PTR->index = ENTRY_BLOCK;
+      EXIT_BLOCK_PTR->index = EXIT_BLOCK;
 
       /* Line numbers.  */
       /* Initialize the output.  */
@@ -1205,6 +1246,8 @@ branch_prob (void)
 	    }
 	}
     }
+
+#undef BB_TO_GCOV_INDEX
 
   if (flag_profile_values)
     gimple_find_values_to_profile (&values);
@@ -1348,7 +1391,8 @@ find_spanning_tree (struct edge_list *el)
 	}
     }
 
-  clear_aux_for_blocks ();
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
+    bb->aux = NULL;
 }
 
 /* Perform file-level initialization for branch-prob processing.  */

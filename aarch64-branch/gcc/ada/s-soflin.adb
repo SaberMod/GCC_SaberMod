@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2011, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -223,14 +223,13 @@ package body System.Soft_Links is
    -- Save_Library_Occurrence --
    -----------------------------
 
-   procedure Save_Library_Occurrence (E : EOA) is
-      use Ada.Exceptions;
+   procedure Save_Library_Occurrence
+     (E : Ada.Exceptions.Exception_Occurrence)
+   is
    begin
       if not Library_Exception_Set then
          Library_Exception_Set := True;
-         if E /= null then
-            Ada.Exceptions.Save_Occurrence (Library_Exception, E.all);
-         end if;
+         Ada.Exceptions.Save_Occurrence (Library_Exception, E);
       end if;
    end Save_Library_Occurrence;
 

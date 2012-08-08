@@ -27,3 +27,5 @@ character(1,kind=char_t) function test4()
   use m
   test4 = 'A'
 end function test4
+
+! { dg-final { cleanup-modules "m" } }

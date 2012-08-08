@@ -54,7 +54,7 @@ with System;
 with System.Strings;
 
 package System.OS_Lib is
-   pragma Preelaborate;
+   pragma Elaborate_Body (OS_Lib);
 
    -----------------------
    -- String Operations --

@@ -6,3 +6,4 @@
       subroutine bar1
       usefoo
       end
+      ! { dg-final { cleanup-modules "foo" } }

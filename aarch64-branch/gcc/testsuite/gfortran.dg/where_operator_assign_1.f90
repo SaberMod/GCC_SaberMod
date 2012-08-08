@@ -104,3 +104,5 @@ CONTAINS
    END FUNCTION iaef
 
 END PROGRAM test_prog
+
+! { dg-final { cleanup-modules "kind_mod pointer_mod" } }

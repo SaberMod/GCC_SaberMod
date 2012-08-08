@@ -45,7 +45,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "ggc.h"
 #include "tm-constrs.h"
-#include "tree-pass.h"	/* for current_pass */
+#include "tree-pass.h"
+#include "integrate.h"
 
 /* Which cpu we're compiling for.  */
 int epiphany_cpu_type;
@@ -932,7 +933,7 @@ epiphany_compute_function_type (tree decl)
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
   ((df_regs_ever_live_p (regno) \
-    || (interrupt_p && !crtl->is_leaf \
+    || (interrupt_p && !current_function_is_leaf \
 	&& call_used_regs[regno] && !fixed_regs[regno])) \
    && (!call_used_regs[regno] || regno == GPR_LR \
        || (interrupt_p && regno != GPR_SP)))
@@ -1035,7 +1036,7 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
     reg_size = EPIPHANY_STACK_ALIGN (reg_size);
   if (total_size + reg_size <= (unsigned) epiphany_stack_offset
       && !interrupt_p
-      && crtl->is_leaf && !frame_pointer_needed)
+      && current_function_is_leaf && !frame_pointer_needed)
     {
       first_slot = -1;
       last_slot = -1;

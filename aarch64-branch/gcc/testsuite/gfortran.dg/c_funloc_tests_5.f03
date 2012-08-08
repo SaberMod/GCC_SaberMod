@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-options "-std=f2003" }
 ! Test that the arg checking for c_funloc verifies the procedures are 
 ! C interoperable.
 module c_funloc_tests_5
@@ -8,9 +7,9 @@ contains
   subroutine sub0() bind(c)
     type(c_funptr) :: my_c_funptr
 
-    my_c_funptr = c_funloc(sub1) ! { dg-error "TS 29113: Noninteroperable argument" }
+    my_c_funptr = c_funloc(sub1) ! { dg-error "must be BIND.C." }
 
-    my_c_funptr = c_funloc(func0) ! { dg-error "TS 29113: Noninteroperable argument" }
+    my_c_funptr = c_funloc(func0) ! { dg-error "must be BIND.C." }
   end subroutine sub0
 
   subroutine sub1() 

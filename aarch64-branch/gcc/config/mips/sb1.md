@@ -108,7 +108,7 @@
 
 (define_insn_reservation "ir_sb1_unknown" 1
   (and (eq_attr "cpu" "sb1,sb1a")
-       (eq_attr "type" "unknown,multi,atomic,syncloop"))
+       (eq_attr "type" "unknown,multi"))
   "sb1_ls0+sb1_ls1+sb1_ex0+sb1_ex1+sb1_fp0+sb1_fp1")
 
 ;; predicted taken branch causes 2 cycle ifetch bubble.  predicted not
@@ -295,19 +295,21 @@
 
 (define_insn_reservation "ir_sb1_mfhi" 1
   (and (eq_attr "cpu" "sb1,sb1a")
-       (eq_attr "type" "mfhi"))
+       (and (eq_attr "type" "mfhilo")
+	    (not (match_operand 1 "lo_operand"))))
   "sb1_ex1")
 
 (define_insn_reservation "ir_sb1_mflo" 1
   (and (eq_attr "cpu" "sb1,sb1a")
-       (eq_attr "type" "mflo"))
+       (and (eq_attr "type" "mfhilo")
+	    (match_operand 1 "lo_operand")))
   "sb1_ex1")
 
 ;; mt{hi,lo} to mul/div is 4 cycles.
 
 (define_insn_reservation "ir_sb1_mthilo" 4
   (and (eq_attr "cpu" "sb1,sb1a")
-       (eq_attr "type" "mthi,mtlo"))
+       (eq_attr "type" "mthilo"))
   "sb1_ex1")
 
 ;; mt{hi,lo} to mf{hi,lo} is 3 cycles.

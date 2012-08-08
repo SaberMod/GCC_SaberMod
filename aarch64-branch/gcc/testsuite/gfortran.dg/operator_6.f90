@@ -9,3 +9,4 @@ end module foo
 program test
   use foo, only : operator(.none.)           ! { dg-error "not found in module" }
   end program test
+! { dg-final { cleanup-modules "foo" } }

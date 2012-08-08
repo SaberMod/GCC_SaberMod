@@ -28,3 +28,5 @@ module xx
     END SUBROUTINE S9C  ! { dg-error "Ambiguous interfaces" }
   END INTERFACE BAD9
 end module xx
+
+! { dg-final { cleanup-modules "xx" } }

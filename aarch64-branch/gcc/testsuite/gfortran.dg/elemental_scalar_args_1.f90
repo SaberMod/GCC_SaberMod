@@ -84,3 +84,4 @@ contains
     if (any (b .ne. real_one)) call abort   
   end subroutine test_real
 end program main
+! { dg-final { cleanup-modules "polar_mod" } }

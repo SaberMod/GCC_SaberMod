@@ -53,7 +53,6 @@ static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 
 static tree handle_format_attribute (tree *, tree, tree, int, bool *);
-static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
 static tree handle_format_arg_attribute (tree *, tree, tree, int, bool *);
 
 /* Table of machine-independent attributes supported in GIMPLE.  */
@@ -84,8 +83,6 @@ const struct attribute_spec lto_attribute_table[] =
 			      handle_sentinel_attribute, false },
   { "type generic",           0, 0, false, true, true,
 			      handle_type_generic_attribute, false },
-  { "fn spec",	 	      1, 1, false, true, true,
-			      handle_fnspec_attribute, false },
   { "transaction_pure",	      0, 0, false, true, true,
 			      handle_transaction_pure_attribute, false },
   /* For internal use only.  The leading '*' both prevents its usage in
@@ -113,13 +110,11 @@ enum built_in_attribute
 {
 #define DEF_ATTR_NULL_TREE(ENUM) ENUM,
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
-#define DEF_ATTR_STRING(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
-#undef DEF_ATTR_STRING
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
   ATTR_LAST
@@ -488,20 +483,6 @@ handle_format_arg_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
 }
 
 
-/* Handle a "fn spec" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
-			 tree args, int ARG_UNUSED (flags),
-			 bool *no_add_attrs ATTRIBUTE_UNUSED)
-{
-  gcc_assert (args
-	      && TREE_CODE (TREE_VALUE (args)) == STRING_CST
-	      && !TREE_CHAIN (args));
-  return NULL_TREE;
-}
-
 /* Cribbed from c-common.c.  */
 
 static void
@@ -587,8 +568,6 @@ lto_init_attributes (void)
   built_in_attributes[(int) ENUM] = NULL_TREE;
 #define DEF_ATTR_INT(ENUM, VALUE)				\
   built_in_attributes[(int) ENUM] = build_int_cst (NULL_TREE, VALUE);
-#define DEF_ATTR_STRING(ENUM, VALUE)				\
-  built_in_attributes[(int) ENUM] = build_string (strlen (VALUE), VALUE);
 #define DEF_ATTR_IDENT(ENUM, STRING)				\
   built_in_attributes[(int) ENUM] = get_identifier (STRING);
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
@@ -599,7 +578,6 @@ lto_init_attributes (void)
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
-#undef DEF_ATTR_STRING
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
 }

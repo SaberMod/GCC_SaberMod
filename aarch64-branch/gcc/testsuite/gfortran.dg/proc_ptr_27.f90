@@ -16,3 +16,5 @@ module m
  end interface
  procedure(i_f), pointer, protected :: p_f => null()
 end module m
+
+! { dg-final { cleanup-modules "m" } }

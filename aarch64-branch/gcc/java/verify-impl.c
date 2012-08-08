@@ -13,8 +13,6 @@ details.  */
 /* #define VERIFY_DEBUG */
 
 #include "config.h"
-#include "system.h"
-#include "coretypes.h"
 
 #include "verify.h"
 

@@ -33,17 +33,13 @@
 
 /* The total execution time.  */
 DEFTIMEVAR (TV_TOTAL                 , "total time")
-/* The compiler phases.  These must be mutually exclusive.
-   Ideally, they would sum to near the total time.  */
 DEFTIMEVAR (TV_PHASE_SETUP           , "phase setup")
 DEFTIMEVAR (TV_PHASE_PARSING         , "phase parsing")
 DEFTIMEVAR (TV_PHASE_DEFERRED        , "phase lang. deferred")
-DEFTIMEVAR (TV_PHASE_OPT_GEN         , "phase opt and generate")
+DEFTIMEVAR (TV_PHASE_CGRAPH          , "phase cgraph")
 DEFTIMEVAR (TV_PHASE_DBGINFO         , "phase debug info")
 DEFTIMEVAR (TV_PHASE_CHECK_DBGINFO   , "phase check & debug info")
-DEFTIMEVAR (TV_PHASE_LATE_ASM        , "phase last asm")
-DEFTIMEVAR (TV_PHASE_STREAM_IN       , "phase stream in")
-DEFTIMEVAR (TV_PHASE_STREAM_OUT      , "phase stream out")
+DEFTIMEVAR (TV_PHASE_GENERATE        , "phase generate")
 DEFTIMEVAR (TV_PHASE_FINALIZE        , "phase finalize")
 
 /* Concurrent timers, indicated by "|".  */
@@ -89,7 +85,6 @@ DEFTIMEVAR (TV_IPA_PURE_CONST        , "ipa pure const")
 DEFTIMEVAR (TV_IPA_PTA               , "ipa points-to")
 DEFTIMEVAR (TV_IPA_SRA               , "ipa SRA")
 DEFTIMEVAR (TV_IPA_FREE_LANG_DATA    , "ipa free lang data")
-DEFTIMEVAR (TV_IPA_FREE_INLINE_SUMMARY, "ipa free inline summary")
 /* Time spent by constructing CFG.  */
 DEFTIMEVAR (TV_CFG                   , "cfg construction")
 /* Time spent by cleaning up CFG.  */
@@ -258,7 +253,6 @@ DEFTIMEVAR (TV_TREE_IFCOMBINE        , "tree if-combine")
 DEFTIMEVAR (TV_TREE_UNINIT           , "uninit var analysis")
 DEFTIMEVAR (TV_PLUGIN_INIT           , "plugin initialization")
 DEFTIMEVAR (TV_PLUGIN_RUN            , "plugin execution")
-DEFTIMEVAR (TV_GIMPLE_SLSR           , "straight-line strength reduction")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_EARLY_LOCAL	     , "early local passes")

@@ -243,13 +243,6 @@ extern rtx emit_store_flag (rtx, enum rtx_code, rtx, rtx, enum machine_mode,
 /* Like emit_store_flag, but always succeeds.  */
 extern rtx emit_store_flag_force (rtx, enum rtx_code, rtx, rtx,
 				  enum machine_mode, int, int);
-
-/* Choose a minimal N + 1 bit approximation to 1/D that can be used to
-   replace division by D, and put the least significant N bits of the result
-   in *MULTIPLIER_PTR and return the most significant bit.  */
-extern unsigned HOST_WIDE_INT choose_multiplier (unsigned HOST_WIDE_INT, int,
-						 int, unsigned HOST_WIDE_INT *,
-						 int *, int *);
 
 /* Functions from builtins.c:  */
 extern rtx expand_builtin (tree, rtx, rtx, enum machine_mode, int);
@@ -368,6 +361,11 @@ rtx set_storage_via_libcall (rtx, rtx, rtx, bool);
 /* Expand a setmem pattern; return true if successful.  */
 extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int,
 				    unsigned int, HOST_WIDE_INT);
+
+/* Determine whether the LEN bytes can be moved by using several move
+   instructions.  Return nonzero if a call to move_by_pieces should
+   succeed.  */
+extern int can_move_by_pieces (unsigned HOST_WIDE_INT, unsigned int);
 
 extern unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
 						     unsigned int,

@@ -42,14 +42,15 @@
 
 --      type Mks_Type is new Long_Long_Float
 --        with
---         Dimension_System => (
---          (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
---          (Unit_Name => Kilogram, Unit_Symbol => "kg",  Dim_Symbol => 'M'),
---          (Unit_Name => Second,   Unit_Symbol => 's',   Dim_Symbol => 'T'),
---          (Unit_Name => Ampere,   Unit_Symbol => 'A',   Dim_Symbol => 'I'),
---          (Unit_Name => Kelvin,   Unit_Symbol => 'K',   Dim_Symbol => "Θ"),
---          (Unit_Name => Mole,     Unit_Symbol => "mol", Dim_Symbol => 'N'),
---          (Unit_Name => Candela,  Unit_Symbol => "cd",  Dim_Symbol => 'J'));
+--         Dimension_System => ((Meter, 'm'),
+--           (Kilogram, "kg"),
+--           (Second,   's'),
+--           (Ampere,   'A'),
+--           (Kelvin,   'K'),
+--           (Mole,     "mol"),
+--           (Candela,  "cd"));
+
+--      'm' is the symbolic name of dimension Meter
 
 --  * Dimensioned subtype
 
@@ -58,9 +59,11 @@
 
 --      subtype Length is Mks_Type
 --        with
---         Dimension => (Symbol => 'm',
+--         Dimension => ('m',
 --           Meter =>  1,
 --           others => 0);
+
+--      'm' is the symbolic name of dimensioned subtype Length
 
 package System.Dim is
    pragma Pure;

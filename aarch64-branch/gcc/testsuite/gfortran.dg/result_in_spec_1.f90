@@ -49,3 +49,4 @@ pure function f(x)
   integer f
   f = 2*x+1
 end function f
+! { dg-final { cleanup-modules "test1" } }

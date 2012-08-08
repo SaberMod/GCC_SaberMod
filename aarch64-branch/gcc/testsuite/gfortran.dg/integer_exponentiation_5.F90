@@ -76,3 +76,5 @@ program test
   TEST(nearest(1.0,-1.0),-huge(0),r4)
 
 end program test
+
+! { dg-final { cleanup-modules "mod_check" } }

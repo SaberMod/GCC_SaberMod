@@ -22,3 +22,5 @@ contains
   end function baz ! { dg-warning "res.yr' may be" }
 
 end module foo
+
+! { dg-final { cleanup-modules "foo" } }

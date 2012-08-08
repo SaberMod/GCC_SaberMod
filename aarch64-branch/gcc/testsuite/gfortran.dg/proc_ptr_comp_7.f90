@@ -35,3 +35,6 @@ type(public_t) :: x
 integer :: j
 j = x%ppc()
 end
+
+! { dg-final { cleanup-modules "m" } }
+

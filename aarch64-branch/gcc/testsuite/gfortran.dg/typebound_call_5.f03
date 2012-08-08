@@ -37,3 +37,5 @@ SUBROUTINE test2 ()
   CALL obj%priv () ! { dg-error "PRIVATE" }
   CALL obj%publ ()
 END SUBROUTINE test2
+
+! { dg-final { cleanup-modules "m" } }

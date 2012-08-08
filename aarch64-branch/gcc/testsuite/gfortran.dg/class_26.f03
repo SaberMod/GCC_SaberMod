@@ -26,3 +26,4 @@ end module
 
 end
  
+! { dg-final { cleanup-modules "s_mat_mod s_tester" } }

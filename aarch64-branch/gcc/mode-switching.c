@@ -30,9 +30,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "basic-block.h"
+#include "output.h"
 #include "tm_p.h"
 #include "function.h"
 #include "tree-pass.h"
+#include "timevar.h"
 #include "df.h"
 #include "emit-rtl.h"
 
@@ -443,7 +445,7 @@ optimize_mode_switching (void)
   int i, j;
   int n_entities;
   int max_num_modes = 0;
-  bool emitted ATTRIBUTE_UNUSED = false;
+  bool emited ATTRIBUTE_UNUSED = false;
   basic_block post_entry ATTRIBUTE_UNUSED, pre_exit ATTRIBUTE_UNUSED;
 
   for (e = N_ENTITIES - 1, n_entities = 0; e >= 0; e--)
@@ -533,7 +535,7 @@ optimize_mode_switching (void)
 		      RESET_BIT (transp[bb->index], j);
 		    }
 #ifdef MODE_AFTER
-		  last_mode = MODE_AFTER (e, last_mode, insn);
+		  last_mode = MODE_AFTER (last_mode, insn);
 #endif
 		  /* Update LIVE_NOW.  */
 		  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
@@ -702,7 +704,7 @@ optimize_mode_switching (void)
 		  /* Insert MODE_SET only if it is nonempty.  */
 		  if (mode_set != NULL_RTX)
 		    {
-		      emitted = true;
+		      emited = true;
 		      if (NOTE_INSN_BASIC_BLOCK_P (ptr->insn_ptr))
 			emit_insn_after (mode_set, ptr->insn_ptr);
 		      else
@@ -729,7 +731,7 @@ optimize_mode_switching (void)
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   cleanup_cfg (CLEANUP_NO_INSN_DEL);
 #else
-  if (!need_commit && !emitted)
+  if (!need_commit && !emited)
     return 0;
 #endif
 

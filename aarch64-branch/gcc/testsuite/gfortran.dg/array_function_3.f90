@@ -44,3 +44,5 @@ ubound(overlap_1(vorticityMag,lbound(vorticityMag),ubound(vorticityMag)),3)))
 
 return 
 end subroutine write_out_particles
+
+! { dg-final { cleanup-modules "communication_tools" } }

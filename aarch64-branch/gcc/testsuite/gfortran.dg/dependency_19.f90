@@ -31,3 +31,4 @@ contains
   end subroutine construct
 
 end module gfcbug49
+! { dg-final { cleanup-modules "gfcbug49" } }

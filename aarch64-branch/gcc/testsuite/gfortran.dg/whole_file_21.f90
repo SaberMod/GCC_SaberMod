@@ -23,3 +23,5 @@ CONTAINS
   END SUBROUTINE four
 END MODULE mod
 END
+
+! { dg-final { cleanup-modules "mod" } }

@@ -187,3 +187,5 @@ subroutine assign42()
   integer, allocatable :: z(:)[:]
   z(:)[1] = z
 end subroutine assign42
+
+! { dg-final { cleanup-modules "mod2 m mmm3 mmm4" } }

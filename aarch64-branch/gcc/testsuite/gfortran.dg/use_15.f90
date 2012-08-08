@@ -35,3 +35,5 @@ subroutine my_sub3 (a)
 end subroutine
 
 END
+
+! { dg-final { cleanup-modules "test_mod test_mod2" } }

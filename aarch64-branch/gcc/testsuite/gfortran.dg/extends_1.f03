@@ -69,3 +69,5 @@ contains
     new_person%supervisor => supervisor
   end function
 end
+
+! { dg-final { cleanup-modules "persons person_education" } }

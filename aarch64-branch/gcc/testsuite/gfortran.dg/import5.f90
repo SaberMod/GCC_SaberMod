@@ -41,3 +41,4 @@ contains
 
   end subroutine sub1
 end module test_import
+! { dg-final { cleanup-modules "test_import" } }

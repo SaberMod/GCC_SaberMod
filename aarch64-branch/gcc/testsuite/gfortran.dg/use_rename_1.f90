@@ -24,3 +24,4 @@ subroutine read_initial_config_nml2()
   integer :: nmoltype_phase
   namelist /confNmoltypePhase/ nmoltype_phase
 end subroutine read_initial_config_nml2
+! { dg-final { cleanup-modules "common_init_conf" } }

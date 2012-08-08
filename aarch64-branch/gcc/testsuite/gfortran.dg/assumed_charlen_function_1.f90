@@ -77,3 +77,4 @@ end function not_OK
 
 END
 
+! { dg-final { cleanup-modules "m1" } }

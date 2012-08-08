@@ -38,3 +38,4 @@ program gfcbug53
   call foo (x0)
   print *, x0
 end program gfcbug53
+! { dg-final { cleanup-modules "mod1 mod2" } }

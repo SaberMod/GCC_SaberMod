@@ -1,5 +1,5 @@
 /* Detection of Static Control Parts (SCoP) for Graphite.
-   Copyright (C) 2009, 2010, 2011 Free Software Foundation, Inc.
+   Copyright (C) 2009, 2010 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -20,15 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 #include "config.h"
-
-#ifdef HAVE_cloog
-#include <isl/set.h>
-#include <isl/map.h>
-#include <isl/union_map.h>
-#include <cloog/cloog.h>
-#include <cloog/isl/domain.h>
-#endif
-
 #include "system.h"
 #include "coretypes.h"
 #include "tree-flow.h"
@@ -40,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "sese.h"
 
 #ifdef HAVE_cloog
+#include "ppl_c.h"
+#include "graphite-ppl.h"
 #include "graphite-poly.h"
 #include "graphite-scop-detection.h"
 

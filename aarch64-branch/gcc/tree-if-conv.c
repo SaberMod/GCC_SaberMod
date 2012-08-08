@@ -87,9 +87,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
+#include "timevar.h"
 #include "basic-block.h"
+#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
+#include "tree-dump.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
@@ -227,6 +230,7 @@ ifc_temp_var (tree type, tree expr, gimple_stmt_iterator *gsi)
 
   /* Create new temporary variable.  */
   var = create_tmp_var (type, name);
+  add_referenced_var (var);
 
   /* Build new statement to assign EXPR to new variable.  */
   stmt = gimple_build_assign (var, expr);
@@ -425,7 +429,7 @@ if_convertible_phi_p (struct loop *loop, basic_block bb, gimple phi)
   /* When the flag_tree_loop_if_convert_stores is not set, check
      that there are no memory writes in the branches of the loop to be
      if-converted.  */
-  if (!is_gimple_reg (gimple_phi_result (phi)))
+  if (!is_gimple_reg (SSA_NAME_VAR (gimple_phi_result (phi))))
     {
       imm_use_iterator imm_iter;
       use_operand_p use_p;
@@ -818,7 +822,8 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
 
   /* Be less adventurous and handle only normal edges.  */
   FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->flags & (EDGE_EH | EDGE_ABNORMAL | EDGE_IRREDUCIBLE_LOOP))
+    if (e->flags &
+	(EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_ABNORMAL | EDGE_IRREDUCIBLE_LOOP))
       {
 	if (dump_file && (dump_flags & TDF_DETAILS))
 	  fprintf (dump_file, "Difficult to handle edges\n");
@@ -1277,7 +1282,7 @@ predicate_scalar_phi (gimple phi, tree cond,
 
   res = gimple_phi_result (phi);
   /* Do not handle virtual phi nodes.  */
-  if (!is_gimple_reg (res))
+  if (!is_gimple_reg (SSA_NAME_VAR (res)))
     return;
 
   bb = gimple_bb (phi);
@@ -1746,7 +1751,7 @@ tree_if_conversion (struct loop *loop)
   combine_blocks (loop);
 
   if (flag_tree_loop_if_convert_stores)
-    mark_virtual_operands_for_renaming (cfun);
+    mark_sym_for_renaming (gimple_vop (cfun));
 
   changed = true;
 

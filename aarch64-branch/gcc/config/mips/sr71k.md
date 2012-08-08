@@ -144,7 +144,7 @@
 
 (define_insn_reservation "ir_sr70_unknown" 1
   (and (eq_attr "cpu" "sr71000")
-       (eq_attr "type" "unknown,atomic,syncloop"))
+       (eq_attr "type" "unknown"))
   "serial_dispatch")
 
 
@@ -201,7 +201,7 @@
 
 (define_insn_reservation "ir_sr70_hilo" 1
   (and (eq_attr "cpu" "sr71000")
-       (eq_attr "type" "mthi,mtlo,mfhi,mflo"))
+       (eq_attr "type" "mthilo,mfhilo"))
   "ri_insns")
 
 (define_insn_reservation "ir_sr70_arith" 1

@@ -28,15 +28,15 @@
 #include "input.h"
 #include "function.h"
 #include "tm_p.h"
-#include "tree-pass.h"	/* for current_pass */
+#include "tree-pass.h"
 
 /* This file supplies some functions for AVR back-end developers
    with a printf-like interface.  The functions are called through
    macros avr_edump or avr_fdump from avr-protos.h:
 
-      avr_edump (const char *fmt, ...);
+      avr_edump (const char * fmt, ...);
 
-      avr_fdump (FILE *stream, const char *fmt, ...);
+      avr_fdump (FILE * stream, const char * fmt, ...);
 
    avr_edump (fmt, ...) is a shortcut for avr_fdump (stderr, fmt, ...)
 

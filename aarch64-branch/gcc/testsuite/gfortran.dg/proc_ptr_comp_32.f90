@@ -33,3 +33,5 @@ use m
 type(rectangle) :: rect
 rect%get_special_area => get_my_area  ! { dg-error "Interface mismatch in procedure pointer assignment" }
 end
+
+! { dg-final { cleanup-modules "m" } }

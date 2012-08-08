@@ -49,3 +49,6 @@ end
  if (o2%gen(3) .ne. 9) call abort
 
 end
+
+! { dg-final { cleanup-modules "m" } }
+

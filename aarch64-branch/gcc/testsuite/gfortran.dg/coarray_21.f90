@@ -22,3 +22,6 @@ program test
   type(pct) :: picture[*]
      allocate(picture%data(size, size))
 end program test
+
+
+! { dg-final { cleanup-modules "mod_reduction" } }

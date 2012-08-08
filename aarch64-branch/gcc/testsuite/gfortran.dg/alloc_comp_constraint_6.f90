@@ -18,3 +18,4 @@ module cell
     return
   end subroutine cell_output
 end module cell
+! { dg-final { cleanup-modules "cell" } }

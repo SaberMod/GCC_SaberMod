@@ -38,3 +38,4 @@ program test
   type(t_set) :: c (1)
   call get_rule (c)
 end program test
+! { dg-final { cleanup-modules "mo_obs_rules" } }

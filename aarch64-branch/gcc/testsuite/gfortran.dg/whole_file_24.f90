@@ -31,3 +31,5 @@ contains
   end subroutine syntax_init_from_ifile
 end module syntax_rules
 end
+
+! { dg-final { cleanup-modules "iso_red ifiles syntax_rules" } }

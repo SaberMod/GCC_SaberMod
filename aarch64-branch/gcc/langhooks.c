@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "rtl.h"
 #include "insn-config.h"
+#include "integrate.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "target.h"
@@ -317,15 +318,15 @@ write_global_declarations (void)
   check_global_declarations (vec, len);
   timevar_stop (TV_PHASE_DEFERRED);
 
-  timevar_start (TV_PHASE_OPT_GEN);
+  timevar_start (TV_PHASE_CGRAPH);
   /* This lang hook is dual-purposed, and also finalizes the
      compilation unit.  */
   finalize_compilation_unit ();
-  timevar_stop (TV_PHASE_OPT_GEN);
+  timevar_stop (TV_PHASE_CGRAPH);
 
-  timevar_start (TV_PHASE_DBGINFO);
+  timevar_start (TV_PHASE_CHECK_DBGINFO);
   emit_debug_global_declarations (vec, len);
-  timevar_stop (TV_PHASE_DBGINFO);
+  timevar_stop (TV_PHASE_CHECK_DBGINFO);
 
   /* Clean up.  */
   free (vec);

@@ -106,3 +106,5 @@ end module
    CALL factory%finalize()        ! Destroy the object
 
   END PROGRAM main
+
+! { dg-final { cleanup-modules "factory_pattern" } }

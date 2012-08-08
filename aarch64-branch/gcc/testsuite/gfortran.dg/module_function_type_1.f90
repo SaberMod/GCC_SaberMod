@@ -28,3 +28,6 @@ program C
   type(A_type):: A_var
   A_var = initA()
 end program C
+
+! { dg-final { cleanup-modules "a b" } }
+

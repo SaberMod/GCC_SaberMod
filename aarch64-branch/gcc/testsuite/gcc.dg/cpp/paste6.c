@@ -2,10 +2,7 @@
    actual arguments.  Original bug exposed by Linux kernel.  Problem
    reported by Jakub Jelinek <jakub@redhat.com>.  */
 
-/*
-  { dg-options "-ftrack-macro-expansion=0" }
-  { dg-do compile }
-*/
+/* { dg-do compile } */
 
 extern int foo(int x);
 

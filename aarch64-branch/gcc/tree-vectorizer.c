@@ -63,9 +63,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-pretty-print.h"
 #include "tree-flow.h"
+#include "tree-dump.h"
 #include "cfgloop.h"
+#include "cfglayout.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
+#include "timevar.h"
 
 /* vect_dump will be set to stderr or dump_file if exist.  */
 FILE *vect_dump;
@@ -223,7 +226,7 @@ vectorize_loops (void)
 
   /*  ----------- Finalize. -----------  */
 
-  mark_virtual_operands_for_renaming (cfun);
+  mark_sym_for_renaming (gimple_vop (cfun));
 
   for (i = 1; i < vect_loops_num; i++)
     {

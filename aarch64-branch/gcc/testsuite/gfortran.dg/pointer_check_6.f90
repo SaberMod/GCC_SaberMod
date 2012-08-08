@@ -113,3 +113,6 @@ contains
     integer :: b
   end subroutine
 end
+
+
+! { dg-final { cleanup-modules "m" } }

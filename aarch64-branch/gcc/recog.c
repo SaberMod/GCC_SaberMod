@@ -36,8 +36,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "flags.h"
 #include "basic-block.h"
+#include "output.h"
 #include "reload.h"
 #include "target.h"
+#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 
@@ -587,7 +589,7 @@ simplify_while_replacing (rtx *loc, rtx to, rtx object,
       break;
     case MINUS:
       if (CONST_INT_P (XEXP (x, 1))
-	  || CONST_DOUBLE_AS_INT_P (XEXP (x, 1)))
+	  || GET_CODE (XEXP (x, 1)) == CONST_DOUBLE)
 	validate_change (object, loc,
 			 simplify_gen_binary
 			 (PLUS, GET_MODE (x), XEXP (x, 0),
@@ -1158,7 +1160,7 @@ const_double_operand (rtx op, enum machine_mode mode)
       && GET_MODE_CLASS (mode) != MODE_PARTIAL_INT)
     return 0;
 
-  return ((CONST_DOUBLE_P (op) || CONST_INT_P (op))
+  return ((GET_CODE (op) == CONST_DOUBLE || CONST_INT_P (op))
 	  && (mode == VOIDmode || GET_MODE (op) == mode
 	      || GET_MODE (op) == VOIDmode));
 }
@@ -1707,25 +1709,27 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 
 	case 'E':
 	case 'F':
-	  if (CONST_DOUBLE_AS_FLOAT_P (op) 
+	  if (GET_CODE (op) == CONST_DOUBLE
 	      || (GET_CODE (op) == CONST_VECTOR
 		  && GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT))
 	    result = 1;
 	  break;
 
 	case 'G':
-	  if (CONST_DOUBLE_AS_FLOAT_P (op)
+	  if (GET_CODE (op) == CONST_DOUBLE
 	      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'G', constraint))
 	    result = 1;
 	  break;
 	case 'H':
-	  if (CONST_DOUBLE_AS_FLOAT_P (op)
+	  if (GET_CODE (op) == CONST_DOUBLE
 	      && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, 'H', constraint))
 	    result = 1;
 	  break;
 
 	case 's':
-	  if (CONST_INT_P (op) || CONST_DOUBLE_AS_INT_P (op))
+	  if (CONST_INT_P (op)
+	      || (GET_CODE (op) == CONST_DOUBLE
+		  && GET_MODE (op) == VOIDmode))
 	    break;
 	  /* Fall through.  */
 
@@ -1735,7 +1739,9 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 	  break;
 
 	case 'n':
-	  if (CONST_INT_P (op) || CONST_DOUBLE_AS_INT_P (op))
+	  if (CONST_INT_P (op)
+	      || (GET_CODE (op) == CONST_DOUBLE
+		  && GET_MODE (op) == VOIDmode))
 	    result = 1;
 	  break;
 
@@ -2574,7 +2580,7 @@ constrain_operands (int strict)
 
 	      case 'E':
 	      case 'F':
-		if (CONST_DOUBLE_AS_FLOAT_P (op)
+		if (GET_CODE (op) == CONST_DOUBLE
 		    || (GET_CODE (op) == CONST_VECTOR
 			&& GET_MODE_CLASS (GET_MODE (op)) == MODE_VECTOR_FLOAT))
 		  win = 1;
@@ -2582,13 +2588,15 @@ constrain_operands (int strict)
 
 	      case 'G':
 	      case 'H':
-		if (CONST_DOUBLE_AS_FLOAT_P (op)
+		if (GET_CODE (op) == CONST_DOUBLE
 		    && CONST_DOUBLE_OK_FOR_CONSTRAINT_P (op, c, p))
 		  win = 1;
 		break;
 
 	      case 's':
-		if (CONST_INT_P (op) || CONST_DOUBLE_AS_INT_P (op))
+		if (CONST_INT_P (op)
+		    || (GET_CODE (op) == CONST_DOUBLE
+			&& GET_MODE (op) == VOIDmode))
 		  break;
 	      case 'i':
 		if (CONSTANT_P (op))
@@ -2596,7 +2604,9 @@ constrain_operands (int strict)
 		break;
 
 	      case 'n':
-		if (CONST_INT_P (op) || CONST_DOUBLE_AS_INT_P (op))
+		if (CONST_INT_P (op)
+		    || (GET_CODE (op) == CONST_DOUBLE
+			&& GET_MODE (op) == VOIDmode))
 		  win = 1;
 		break;
 
@@ -2782,16 +2792,14 @@ bool
 reg_fits_class_p (const_rtx operand, reg_class_t cl, int offset,
 		  enum machine_mode mode)
 {
-  unsigned int regno = REGNO (operand);
+  int regno = REGNO (operand);
 
   if (cl == NO_REGS)
     return false;
 
-  /* Regno must not be a pseudo register.  Offset may be negative.  */
   return (HARD_REGISTER_NUM_P (regno)
-	  && HARD_REGISTER_NUM_P (regno + offset)
-	  && in_hard_reg_set_p (reg_class_contents[(int) cl], mode, 
-				regno + offset));
+	  && in_hard_reg_set_p (reg_class_contents[(int) cl],
+				mode, regno + offset));
 }
 
 /* Split single instruction.  Helper function for split_all_insns and
@@ -2823,8 +2831,7 @@ split_insn (rtx insn)
 	  if (note && CONSTANT_P (XEXP (note, 0)))
 	    set_unique_reg_note (last, REG_EQUAL, XEXP (note, 0));
 	  else if (CONSTANT_P (SET_SRC (insn_set)))
-	    set_unique_reg_note (last, REG_EQUAL,
-				 copy_rtx (SET_SRC (insn_set)));
+	    set_unique_reg_note (last, REG_EQUAL, SET_SRC (insn_set));
 	}
     }
 

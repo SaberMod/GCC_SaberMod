@@ -17,3 +17,5 @@ contains
    real :: local_array(4)
   end subroutine dummysub
 end module modboom
+
+! { dg-final { cleanup-modules "modboom" } }

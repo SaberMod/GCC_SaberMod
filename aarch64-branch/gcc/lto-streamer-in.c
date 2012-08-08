@@ -38,9 +38,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "diagnostic.h"
+#include "libfuncs.h"
 #include "except.h"
 #include "debug.h"
 #include "vec.h"
+#include "timevar.h"
+#include "output.h"
 #include "ipa-utils.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
@@ -613,7 +616,7 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
   int index;
 
   init_empty_tree_cfg_for_function (fn);
-  init_ssa_operands (fn);
+  init_ssa_operands ();
 
   profile_status_for_function (fn) = streamer_read_enum (ib, profile_status_d,
 							 PROFILE_LAST);
@@ -709,7 +712,7 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
       ssa_name = make_ssa_name_fn (fn, name, gimple_build_nop ());
 
       if (is_default_def)
-	set_ssa_default_def (cfun, SSA_NAME_VAR (ssa_name), ssa_name);
+	set_default_def (SSA_NAME_VAR (ssa_name), ssa_name);
 
       i = streamer_read_uhwi (ib);
     }
@@ -797,10 +800,10 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   bp = streamer_read_bitpack (ib);
   fn->is_thunk = bp_unpack_value (&bp, 1);
   fn->has_local_explicit_reg_vars = bp_unpack_value (&bp, 1);
+  fn->after_tree_profile = bp_unpack_value (&bp, 1);
   fn->returns_pcc_struct = bp_unpack_value (&bp, 1);
   fn->returns_struct = bp_unpack_value (&bp, 1);
   fn->can_throw_non_call_exceptions = bp_unpack_value (&bp, 1);
-  fn->can_delete_dead_exceptions = bp_unpack_value (&bp, 1);
   fn->always_inline_functions_inlined = bp_unpack_value (&bp, 1);
   fn->after_inlining = bp_unpack_value (&bp, 1);
   fn->stdarg = bp_unpack_value (&bp, 1);
@@ -928,6 +931,39 @@ input_function (tree fn_decl, struct data_in *data_in,
 }
 
 
+/* Read initializer expressions for public statics.  DATA_IN is the
+   file being read.  IB is the input block used for reading.  */
+
+static void
+input_alias_pairs (struct lto_input_block *ib, struct data_in *data_in)
+{
+  tree var;
+
+  clear_line_info (data_in);
+
+  var = stream_read_tree (ib, data_in);
+  while (var)
+    {
+      const char *orig_name, *new_name;
+      alias_pair *p;
+
+      p = VEC_safe_push (alias_pair, gc, alias_pairs, NULL);
+      p->decl = var;
+      p->target = stream_read_tree (ib, data_in);
+
+      /* If the target is a static object, we may have registered a
+	 new name for it to avoid clashes between statics coming from
+	 different files.  In that case, use the new name.  */
+      orig_name = IDENTIFIER_POINTER (p->target);
+      new_name = lto_get_decl_name_mapping (data_in->file_data, orig_name);
+      if (strcmp (orig_name, new_name) != 0)
+	p->target = get_identifier (new_name);
+
+      var = stream_read_tree (ib, data_in);
+    }
+}
+
+
 /* Read the body from DATA for function FN_DECL and fill it in.
    FILE_DATA are the global decls and types.  SECTION_TYPE is either
    LTO_section_function_body or LTO_section_static_initializer.  If
@@ -979,9 +1015,6 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
       push_cfun (fn);
       init_tree_ssa (fn);
 
-      /* We input IL in SSA form.  */
-      cfun->gimple_df->in_ssa_p = true;
-
       /* Use the function's decl state. */
       decl_state = lto_get_function_in_decl_state (file_data, fn_decl);
       gcc_assert (decl_state);
@@ -1018,10 +1051,17 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
 	    }
 	}
 
+      /* We should now be in SSA.  */
+      cfun->gimple_df->in_ssa_p = true;
+
       /* Restore decl state */
       file_data->current_decl_state = file_data->global_decl_state;
 
       pop_cfun ();
+    }
+  else
+    {
+      input_alias_pairs (&ib_main, data_in);
     }
 
   clear_line_info (data_in);
@@ -1038,6 +1078,17 @@ lto_input_function_body (struct lto_file_decl_data *file_data,
 {
   current_function_decl = fn_decl;
   lto_read_body (file_data, fn_decl, data, LTO_section_function_body);
+}
+
+
+/* Read in VAR_DECL using DATA.  FILE_DATA holds the global decls and
+   types.  */
+
+void
+lto_input_constructors_and_inits (struct lto_file_decl_data *file_data,
+				  const char *data)
+{
+  lto_read_body (file_data, NULL, data, LTO_section_static_initializer);
 }
 
 

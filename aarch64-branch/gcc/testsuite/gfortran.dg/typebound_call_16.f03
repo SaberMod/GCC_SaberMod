@@ -31,3 +31,5 @@ end module  base_mat_mod
   m = a%get_nrows()
 
 end
+
+! { dg-final { cleanup-modules "base_mat_mod" } }

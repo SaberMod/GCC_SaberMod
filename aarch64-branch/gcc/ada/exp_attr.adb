@@ -421,7 +421,7 @@ package body Exp_Attr is
             Par := Parent (Par);
          end if;
 
-         if Nkind (Par) in N_Subprogram_Call
+         if Nkind_In (Par, N_Procedure_Call_Statement, N_Function_Call)
             and then Is_Entity_Name (Name (Par))
          then
             Subp := Entity (Name (Par));
@@ -815,19 +815,11 @@ package body Exp_Attr is
       --  rewrite into reference to current instance.
 
       if Is_Protected_Self_Reference (Pref)
-        and then not
-          (Nkind_In (Parent (N), N_Index_Or_Discriminant_Constraint,
-                                 N_Discriminant_Association)
-            and then Nkind (Parent (Parent (Parent (Parent (N))))) =
+           and then not
+             (Nkind_In (Parent (N), N_Index_Or_Discriminant_Constraint,
+                                    N_Discriminant_Association)
+                and then Nkind (Parent (Parent (Parent (Parent (N))))) =
                                                       N_Component_Definition)
-
-         --  No action needed for these attributes since the current instance
-         --  will be rewritten to be the name of the _object parameter
-         --  associated with the enclosing protected subprogram (see below).
-
-        and then Id /= Attribute_Access
-        and then Id /= Attribute_Unchecked_Access
-        and then Id /= Attribute_Unrestricted_Access
       then
          Rewrite (Pref, Concurrent_Ref (Pref));
          Analyze (Pref);
@@ -839,18 +831,11 @@ package body Exp_Attr is
 
       --  Attributes related to Ada 2012 iterators (placeholder ???)
 
-      when Attribute_Constant_Indexing    |
-           Attribute_Default_Iterator     |
-           Attribute_Implicit_Dereference |
-           Attribute_Iterator_Element     |
-           Attribute_Variable_Indexing    =>
-         null;
-
-      --  Internal attributes used to deal with Ada 2012 delayed aspects. These
-      --  were already rejected by the parser. Thus they shouldn't appear here.
-
-      when Internal_Attribute_Id =>
-         raise Program_Error;
+      when Attribute_Constant_Indexing    => null;
+      when Attribute_Default_Iterator     => null;
+      when Attribute_Implicit_Dereference => null;
+      when Attribute_Iterator_Element     => null;
+      when Attribute_Variable_Indexing    => null;
 
       ------------
       -- Access --
@@ -1036,36 +1021,10 @@ package body Exp_Attr is
                          New_Occurrence_Of (Formal, Loc)));
                      Set_Etype (N, Typ);
 
-                  elsif Is_Protected_Type (Entity (Pref)) then
-
-                     --  No action needed for current instance located in a
-                     --  component definition (expansion will occur in the
-                     --  init proc)
-
-                     if Is_Protected_Type (Current_Scope) then
-                        null;
-
-                     --  If the current instance reference is located in a
-                     --  protected subprogram or entry then rewrite the access
-                     --  attribute to be the name of the "_object" parameter.
-                     --  An unchecked conversion is applied to ensure a type
-                     --  match in cases of expander-generated calls (e.g. init
-                     --  procs).
-
-                     else
-                        Formal :=
-                          First_Entity
-                            (Protected_Body_Subprogram (Current_Scope));
-                        Rewrite (N,
-                          Unchecked_Convert_To (Typ,
-                            New_Occurrence_Of (Formal, Loc)));
-                        Set_Etype (N, Typ);
-                     end if;
-
-                  --  The expression must appear in a default expression,
-                  --  (which in the initialization procedure is the right-hand
-                  --  side of an assignment), and not in a discriminant
-                  --  constraint.
+                     --  The expression must appear in a default expression,
+                     --  (which in the initialization procedure is the
+                     --  right-hand side of an assignment), and not in a
+                     --  discriminant constraint.
 
                   else
                      Par := Parent (N);
@@ -3100,19 +3059,6 @@ package body Exp_Attr is
          end if;
       end;
 
-      ---------------
-      -- Lock_Free --
-      ---------------
-
-      --  Rewrite the attribute reference with the value of Uses_Lock_Free
-
-      when Attribute_Lock_Free => Lock_Free : declare
-         V : constant Entity_Id := Boolean_Literals (Uses_Lock_Free (Ptyp));
-      begin
-         Rewrite (N, New_Occurrence_Of (V, Loc));
-         Analyze_And_Resolve (N, Standard_Boolean);
-      end Lock_Free;
-
       -------------
       -- Machine --
       -------------
@@ -3201,25 +3147,8 @@ package body Exp_Attr is
       -- Max_Size_In_Storage_Elements --
       ----------------------------------
 
-      when Attribute_Max_Size_In_Storage_Elements => declare
-         Typ  : constant Entity_Id := Etype (N);
-         Attr : Node_Id;
-
-         Conversion_Added : Boolean := False;
-         --  A flag which tracks whether the original attribute has been
-         --  wrapped inside a type conversion.
-
-      begin
+      when Attribute_Max_Size_In_Storage_Elements =>
          Apply_Universal_Integer_Attribute_Checks (N);
-
-         --  The universal integer check may sometimes add a type conversion,
-         --  retrieve the original attribute reference from the expression.
-
-         Attr := N;
-         if Nkind (Attr) = N_Type_Conversion then
-            Attr := Expression (Attr);
-            Conversion_Added := True;
-         end if;
 
          --  Heap-allocated controlled objects contain two extra pointers which
          --  are not part of the actual type. Transform the attribute reference
@@ -3229,20 +3158,20 @@ package body Exp_Attr is
          --  two pointers are already present in the type.
 
          if VM_Target = No_VM
-           and then Nkind (Attr) = N_Attribute_Reference
+           and then Nkind (N) = N_Attribute_Reference
            and then Needs_Finalization (Ptyp)
-           and then not Header_Size_Added (Attr)
+           and then not Header_Size_Added (N)
          then
-            Set_Header_Size_Added (Attr);
+            Set_Header_Size_Added (N);
 
             --  Generate:
             --    P'Max_Size_In_Storage_Elements +
             --      Universal_Integer
             --        (Header_Size_With_Padding (Ptyp'Alignment))
 
-            Rewrite (Attr,
+            Rewrite (N,
               Make_Op_Add (Loc,
-                Left_Opnd  => Relocate_Node (Attr),
+                Left_Opnd  => Relocate_Node (N),
                 Right_Opnd =>
                   Convert_To (Universal_Integer,
                     Make_Function_Call (Loc,
@@ -3256,19 +3185,9 @@ package body Exp_Attr is
                             New_Reference_To (Ptyp, Loc),
                           Attribute_Name => Name_Alignment))))));
 
-            --  Add a conversion to the target type
-
-            if not Conversion_Added then
-               Rewrite (Attr,
-                 Make_Type_Conversion (Loc,
-                   Subtype_Mark => New_Reference_To (Typ, Loc),
-                   Expression   => Relocate_Node (Attr)));
-            end if;
-
-            Analyze (Attr);
+            Analyze (N);
             return;
          end if;
-      end;
 
       --------------------
       -- Mechanism_Code --
@@ -5372,13 +5291,6 @@ package body Exp_Attr is
 
          Validity_Checks_On := False;
 
-         --  Retrieve the base type. Handle the case where the base type is a
-         --  private enumeration type.
-
-         if Is_Private_Type (Btyp) and then Present (Full_View (Btyp)) then
-            Btyp := Full_View (Btyp);
-         end if;
-
          --  Floating-point case. This case is handled by the Valid attribute
          --  code in the floating-point attribute run-time library.
 
@@ -5479,14 +5391,15 @@ package body Exp_Attr is
          --       (X >= type(X)'First and then type(X)'Last <= X)
 
          elsif Is_Enumeration_Type (Ptyp)
-           and then Present (Enum_Pos_To_Rep (Btyp))
+           and then Present (Enum_Pos_To_Rep (Base_Type (Ptyp)))
          then
             Tst :=
               Make_Op_Ge (Loc,
                 Left_Opnd =>
                   Make_Function_Call (Loc,
                     Name =>
-                      New_Reference_To (TSS (Btyp, TSS_Rep_To_Pos), Loc),
+                      New_Reference_To
+                        (TSS (Base_Type (Ptyp), TSS_Rep_To_Pos), Loc),
                     Parameter_Associations => New_List (
                       Pref,
                       New_Occurrence_Of (Standard_False, Loc))),

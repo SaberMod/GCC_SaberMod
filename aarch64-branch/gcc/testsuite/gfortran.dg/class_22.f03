@@ -27,3 +27,5 @@ contains
   end subroutine ice_proc
 
 end module ice_module
+
+! { dg-final { cleanup-modules "ice_module" } }

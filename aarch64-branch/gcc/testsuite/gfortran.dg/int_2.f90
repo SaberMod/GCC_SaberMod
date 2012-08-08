@@ -1,5 +1,6 @@
 ! PR fortran/32823
 ! { dg-do compile }
+! { dg-final { cleanup-modules "token_module" } }
 
 module token_module
 

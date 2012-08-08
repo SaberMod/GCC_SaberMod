@@ -37,3 +37,5 @@ program p
   y = this%find_y()
   if (y/=3) call abort()
 end 
+
+! { dg-final { cleanup-modules "class_t" } }

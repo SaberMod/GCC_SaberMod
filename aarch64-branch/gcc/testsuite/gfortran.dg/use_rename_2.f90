@@ -22,3 +22,5 @@ contains
     if (b .ne. 5) call abort ()
   end subroutine test2
 end
+
+! { dg-final { cleanup-modules "reduction5" } }

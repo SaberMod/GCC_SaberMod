@@ -47,7 +47,7 @@
 #include "target-def.h"
 #include "langhooks.h"
 #include "rl78-protos.h"
-#include "dumpfile.h"
+#include "tree-pass.h"
 
 static inline bool is_interrupt_func (const_tree decl);
 static inline bool is_brk_interrupt_func (const_tree decl);
@@ -382,7 +382,7 @@ need_to_save (int regno)
 	return 1; /* don't know what devirt will need */
       if (regno > 23)
 	return 0; /* don't need to save interrupt registers */
-      if (crtl->is_leaf)
+      if (current_function_is_leaf)
 	{
 	  return df_regs_ever_live_p (regno);
 	}
@@ -2663,7 +2663,7 @@ rl78_reorg (void)
   if (dump_file)
     {
       fprintf (dump_file, "\n================DEVIRT:=AFTER=ALLOC=PHYSICAL=REGISTERS================\n");
-      print_rtl_with_bb (dump_file, get_insns (), 0);
+      print_rtl_with_bb (dump_file, get_insns ());
     }
 
   rl78_propogate_register_origins ();
@@ -2672,7 +2672,7 @@ rl78_reorg (void)
   if (dump_file)
     {
       fprintf (dump_file, "\n================DEVIRT:=AFTER=PROPOGATION=============================\n");
-      print_rtl_with_bb (dump_file, get_insns (), 0);
+      print_rtl_with_bb (dump_file, get_insns ());
       fprintf (dump_file, "\n======================================================================\n");
     }
 

@@ -30,6 +30,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "jcf.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
+#include "output.h"
 #include "parse.h"
 #include "function.h"
 #include "ggc.h"

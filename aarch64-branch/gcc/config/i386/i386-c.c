@@ -48,7 +48,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
 			     void (*def_or_undef) (cpp_reader *,
 						   const char *))
 {
-  /* For some of the k6/pentium varients there weren't separate ISA bits to
+  /* For some of the k6/pentium varients there weren't seperate ISA bits to
      identify which tune/arch flag was passed, so figure it out here.  */
   size_t arch_len = strlen (ix86_arch_string);
   size_t tune_len = strlen (ix86_tune_string);
@@ -117,10 +117,6 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__btver1");
       def_or_undef (parse_in, "__btver1__");
-      break;
-    case PROCESSOR_BTVER2:
-      def_or_undef (parse_in, "__btver2");
-      def_or_undef (parse_in, "__btver2__");
       break;
     case PROCESSOR_PENTIUM4:
       def_or_undef (parse_in, "__pentium4");
@@ -212,9 +208,6 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
    case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__tune_btver1__");
       break;
-    case PROCESSOR_BTVER2:
-      def_or_undef (parse_in, "__tune_btver2__");
-       break;
     case PROCESSOR_PENTIUM4:
       def_or_undef (parse_in, "__tune_pentium4__");
       break;
@@ -296,10 +289,6 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__RDRND__");
   if (isa_flag & OPTION_MASK_ISA_F16C)
     def_or_undef (parse_in, "__F16C__");
-  if (isa_flag & OPTION_MASK_ISA_RDSEED)
-    def_or_undef (parse_in, "__RDSEED__");
-  if (isa_flag & OPTION_MASK_ISA_PRFCHW)
-    def_or_undef (parse_in, "__PRFCHW__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE))
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))

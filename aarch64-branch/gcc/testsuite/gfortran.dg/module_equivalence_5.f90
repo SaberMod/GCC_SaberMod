@@ -29,3 +29,6 @@ program try_cf004
   nf2 = 2
   call cf0004
 end
+
+! { dg-final { cleanup-modules "stuff" } }
+

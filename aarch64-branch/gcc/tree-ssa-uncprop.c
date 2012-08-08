@@ -26,11 +26,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
+#include "output.h"
 #include "function.h"
+#include "timevar.h"
+#include "tree-dump.h"
 #include "tree-flow.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "langhooks.h"
 
 /* The basic structure describing an equivalency created by traversing
    an edge.  Traversing the edge effectively means that we can assume

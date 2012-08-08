@@ -161,3 +161,4 @@ contains
     get_d = d
   end function get_d
 end program test
+! { dg-final { cleanup-modules "foo" } }

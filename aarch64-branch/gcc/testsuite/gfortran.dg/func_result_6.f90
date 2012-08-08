@@ -69,3 +69,5 @@ contains
     foo = [33, 77]
   end function foo
 end subroutine test
+
+! { dg-final { cleanup-modules "m" } }

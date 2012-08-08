@@ -85,9 +85,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "flags.h"
+#include "timevar.h"
 #include "diagnostic.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "fibheap.h"
 #include "params.h"
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
@@ -438,17 +440,14 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	      return;
 	    }
 	}
-      else
+      else if (gimple_default_def (cfun, parm)
+	       && bitmap_bit_p (current->ssa_names_to_pass,
+				SSA_NAME_VERSION (gimple_default_def
+						  (cfun, parm))))
 	{
-	  tree ddef = ssa_default_def (cfun, parm);
-	  if (ddef
-	      && bitmap_bit_p (current->ssa_names_to_pass,
-			       SSA_NAME_VERSION (ddef)))
-	    {
-	      if (!VOID_TYPE_P (TREE_TYPE (parm)))
-		call_overhead += estimate_move_cost (TREE_TYPE (parm));
-	      num_args++;
-	    }
+	  if (!VOID_TYPE_P (TREE_TYPE (parm)))
+	    call_overhead += estimate_move_cost (TREE_TYPE (parm));
+	  num_args++;
 	}
     }
   if (!VOID_TYPE_P (TREE_TYPE (current_function_decl)))
@@ -1059,7 +1058,7 @@ split_function (struct split_point *split_point)
   bool split_part_return_p = false;
   gimple last_stmt = NULL;
   unsigned int i;
-  tree arg, ddef;
+  tree arg;
 
   if (dump_file)
     {
@@ -1077,16 +1076,25 @@ split_function (struct split_point *split_point)
        parm; parm = DECL_CHAIN (parm), num++)
     if (args_to_skip
 	&& (!is_gimple_reg (parm)
-	    || (ddef = ssa_default_def (cfun, parm)) == NULL_TREE
+	    || !gimple_default_def (cfun, parm)
 	    || !bitmap_bit_p (split_point->ssa_names_to_pass,
-			      SSA_NAME_VERSION (ddef))))
+			      SSA_NAME_VERSION (gimple_default_def (cfun,
+								    parm)))))
       bitmap_set_bit (args_to_skip, num);
     else
       {
 	/* This parm might not have been used up to now, but is going to be
 	   used, hence register it.  */
+	add_referenced_var (parm);
 	if (is_gimple_reg (parm))
-	  arg = get_or_create_ssa_default_def (cfun, parm);
+	  {
+	    arg = gimple_default_def (cfun, parm);
+	    if (!arg)
+	      {
+		arg = make_ssa_name (parm, gimple_build_nop ());
+		set_default_def (parm, arg);
+	      }
+	  }
 	else
 	  arg = parm;
 
@@ -1351,7 +1359,19 @@ split_function (struct split_point *split_point)
 		     assigned to RESULT_DECL (that is pointer to return value).
 		     Look it up or create new one if it is missing.  */
 		  if (DECL_BY_REFERENCE (retval))
-		    retval = get_or_create_ssa_default_def (cfun, retval);
+		    {
+		      tree retval_name;
+		      if ((retval_name = gimple_default_def (cfun, retval))
+			  != NULL)
+			retval = retval_name;
+		      else
+			{
+		          retval_name = make_ssa_name (retval,
+						       gimple_build_nop ());
+			  set_default_def (retval, retval_name);
+			  retval = retval_name;
+			}
+		    }
 		  /* Otherwise produce new SSA name for return value.  */
 		  else
 		    retval = make_ssa_name (retval, call);
@@ -1397,7 +1417,7 @@ execute_split_functions (void)
     }
   /* This can be relaxed; function might become inlinable after splitting
      away the uninlinable part.  */
-  if (inline_edge_summary_vec && !inline_summary (node)->inlinable)
+  if (!inline_summary (node)->inlinable)
     {
       if (dump_file)
 	fprintf (dump_file, "Not splitting: not inlinable.\n");

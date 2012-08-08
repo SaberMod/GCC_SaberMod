@@ -11,3 +11,5 @@ contains
     integer :: u(n(1))  ! { dg-error "must be PURE" }
   end subroutine
 end module test
+! { dg-final { cleanup-modules "test" } }
+

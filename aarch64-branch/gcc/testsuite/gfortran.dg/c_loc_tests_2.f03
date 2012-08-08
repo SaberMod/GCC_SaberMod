@@ -85,3 +85,4 @@ program driver
   call test1()
   call test2()
 end program driver
+! { dg-final { cleanup-modules "c_loc_tests_2" } }

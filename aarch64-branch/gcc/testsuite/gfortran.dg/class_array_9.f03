@@ -42,3 +42,5 @@ end module
   if (x(4)%disp () .ne. 4) call abort
 
 end
+
+! { dg-final { cleanup-modules "m" } }

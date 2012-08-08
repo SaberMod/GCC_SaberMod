@@ -31,6 +31,7 @@
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
+#include "output.h"
 #include "tree-inline.h"
 
 #include "ada.h"
@@ -1912,12 +1913,10 @@ build_simple_component_ref (tree record_variable, tree component,
 	  break;
 
       /* Next, see if we're looking for an inherited component in an extension.
-	 If so, look thru the extension directly, but not if the type contains
-	 a placeholder, as it might be needed for a later substitution.  */
+	 If so, look thru the extension directly.  */
       if (!new_field
 	  && TREE_CODE (record_variable) == VIEW_CONVERT_EXPR
 	  && TYPE_ALIGN_OK (record_type)
-	  && !type_contains_placeholder_p (record_type)
 	  && TREE_CODE (TREE_TYPE (TREE_OPERAND (record_variable, 0)))
 	     == RECORD_TYPE
 	  && TYPE_ALIGN_OK (TREE_TYPE (TREE_OPERAND (record_variable, 0))))
@@ -2289,7 +2288,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
       /* If the size overflows, pass -1 so Storage_Error will be raised.  */
       if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-	size = size_int (-1);
+	size = ssize_int (-1);
 
       storage = build_call_alloc_dealloc (NULL_TREE, size, storage_type,
 					  gnat_proc, gnat_pool, gnat_node);
@@ -2347,7 +2346,7 @@ build_allocator (tree type, tree init, tree result_type, Entity_Id gnat_proc,
 
   /* If the size overflows, pass -1 so Storage_Error will be raised.  */
   if (TREE_CODE (size) == INTEGER_CST && TREE_OVERFLOW (size))
-    size = size_int (-1);
+    size = ssize_int (-1);
 
   storage = convert (result_type,
 		     build_call_alloc_dealloc (NULL_TREE, size, type,
@@ -2644,7 +2643,10 @@ gnat_stabilize_reference (tree ref, bool force, bool *success)
       result = build3 (BIT_FIELD_REF, type,
 		       gnat_stabilize_reference (TREE_OPERAND (ref, 0), force,
 						 success),
-		       TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
+		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 1),
+						   force),
+		       gnat_stabilize_reference_1 (TREE_OPERAND (ref, 2),
+						   force));
       break;
 
     case ARRAY_REF:

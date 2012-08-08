@@ -202,7 +202,9 @@ read_zip_member (JCF *jcf,  ZipDirectory *zipd, ZipFile *zipf)
     {
       char *buffer;
       z_stream d_stream; /* decompression stream */
-      memset (&d_stream, 0, sizeof (d_stream));
+      d_stream.zalloc = (alloc_func) 0;
+      d_stream.zfree = (free_func) 0;
+      d_stream.opaque = (voidpf) 0;
 
       jcf->buffer = XNEWVEC (unsigned char, zipd->uncompressed_size);
       d_stream.next_out = jcf->buffer;

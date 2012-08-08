@@ -206,3 +206,5 @@ program d_coo_err
 
   stop
 end program d_coo_err
+
+! { dg-final { cleanup-modules "base_mat_mod const_mod d_base_mat_mod" } }

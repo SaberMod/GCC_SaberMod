@@ -96,3 +96,4 @@ contains
     if(r /= -123.0 .or. t%c /= -44) call abort()
   end subroutine test3
 end program all
+! { dg-final { cleanup-modules "modtest general" } }

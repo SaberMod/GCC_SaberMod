@@ -32,3 +32,4 @@ CONTAINS
     atom = dam%atoms%table(1)
   END SUBROUTINE
 END MODULE
+! { dg-final { cleanup-modules "class_dummy_atom_types test_class_intensity_private" } }

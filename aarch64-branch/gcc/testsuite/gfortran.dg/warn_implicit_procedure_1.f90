@@ -39,3 +39,5 @@ PROGRAM main
   ! Can't check undefined function, because it needs to be declared a type
   ! in any case (and the implicit type is enough to not trigger this warning).
 END PROGRAM
+
+! { dg-final { cleanup-modules "m" } }

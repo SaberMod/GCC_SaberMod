@@ -40,3 +40,5 @@ dp3 = 4
 if (u%i/=4) call abort()
 
 end 
+
+! { dg-final { cleanup-modules "m" } }

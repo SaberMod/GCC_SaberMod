@@ -7,3 +7,4 @@ module pr37287_2
 #endif
   implicit none
 end module pr37287_2
+! { dg-final { cleanup-modules "pr37287_2" } }

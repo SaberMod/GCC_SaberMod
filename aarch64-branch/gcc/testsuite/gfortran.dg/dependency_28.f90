@@ -18,3 +18,4 @@ contains
     a(c%k:c%m) = a(c%i:c%j) + b(c%k:c%m) ! { dg-warning "Creating array temporary" }
   end subroutine foo
 end module foobar
+! { dg-final { cleanup-modules "foobar" } }

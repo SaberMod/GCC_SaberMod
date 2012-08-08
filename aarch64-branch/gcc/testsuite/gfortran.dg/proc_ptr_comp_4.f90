@@ -115,3 +115,6 @@ contains
   end function var_list_get_var_ptr
 
 end
+
+! { dg-final { cleanup-modules "expressions process_libraries hard_interactions" } }
+

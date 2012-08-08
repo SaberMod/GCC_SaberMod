@@ -28,3 +28,6 @@ contains
   end subroutine myRoutine      ! this is not ambiguous !
 
 end module
+
+! { dg-final { cleanup-modules "a1 a2 b" } }
+

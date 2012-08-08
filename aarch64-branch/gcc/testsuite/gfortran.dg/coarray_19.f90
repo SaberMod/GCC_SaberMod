@@ -23,3 +23,5 @@ end module m
 ! as->cotype was not AS_DEFERERED.
 use m
 end
+
+! { dg-final { cleanup-modules "m" } }

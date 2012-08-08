@@ -47,3 +47,4 @@ end program test
 function x(z)
    x = z
 end function x
+! { dg-final { cleanup-modules "m1 m2 m3 m4 m5 m6" } }

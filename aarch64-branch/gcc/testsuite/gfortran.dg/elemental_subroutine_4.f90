@@ -34,3 +34,5 @@ CONTAINS
      INTEGER, INTENT(IN) :: I,J
    END SUBROUTINE S
 END
+
+! { dg-final { cleanup-modules "elem_assign" } }

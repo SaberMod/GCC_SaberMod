@@ -29,3 +29,5 @@ contains
     end do
   end function sqrt_vector
 end module gfcbug102
+
+! { dg-final { cleanup-modules "gfcbug102" } }

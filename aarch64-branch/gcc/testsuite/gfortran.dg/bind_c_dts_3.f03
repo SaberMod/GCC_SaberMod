@@ -35,3 +35,5 @@ contains
     end if
   end subroutine sub0
 end module bind_c_dts_3
+
+! { dg-final { cleanup-modules "bind_c_dts_3" } }

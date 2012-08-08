@@ -2,7 +2,7 @@
 
 /* Origin: Joerg Wunsch <j.gnu@uriah.heep.sax.de>.  */
 /* { dg-do compile } */
-/* { dg-options "-std=iso9899:1999 -pedantic-errors -ftrack-macro-expansion=0" } */
+/* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
 
 #define FOO 0b1101
 

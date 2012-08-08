@@ -66,3 +66,5 @@ contains
     namelist /nml2/ t5    ! { dg-error "has use-associated PRIVATE components" }
   end subroutine
 end program
+
+! { dg-final { cleanup-modules "types nml" } }

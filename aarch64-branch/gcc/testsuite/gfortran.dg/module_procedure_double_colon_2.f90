@@ -21,3 +21,4 @@ contains
      real x
    end subroutine
 end module
+! { dg-final { cleanup-modules "m1" } }

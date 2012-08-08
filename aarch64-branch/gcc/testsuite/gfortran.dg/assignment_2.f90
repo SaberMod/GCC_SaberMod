@@ -46,3 +46,5 @@ contains
                  REAL,INTENT(IN) :: b(:,:)
              END SUBROUTINE
 end module m3
+
+! { dg-final { cleanup-modules "m1 m2 m3" } }

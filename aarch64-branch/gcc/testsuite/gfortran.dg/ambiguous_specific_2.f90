@@ -39,3 +39,4 @@ END PROGRAM P
 SUBROUTINE bar (arg)
   EXTERNAL arg
 END SUBROUTINE bar
+! { dg-final { cleanup-modules "m1 m2" } }

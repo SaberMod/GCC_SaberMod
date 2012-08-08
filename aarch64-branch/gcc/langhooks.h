@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_LANG_HOOKS_H
 #define GCC_LANG_HOOKS_H
 
-/* FIXME: This file should be #include-d after tree.h (for enum tree_code).  */
+/* This file should be #include-d after tree.h.  */
 
 struct diagnostic_info;
 

@@ -47,3 +47,5 @@ program test
   this%x = this%find_x()
   if (this%x%i /= 4) call abort()
 end
+
+! { dg-final { cleanup-modules "class_t" } }

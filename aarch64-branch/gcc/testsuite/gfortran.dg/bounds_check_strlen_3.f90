@@ -30,3 +30,4 @@ PROGRAM main
 END PROGRAM main
 
 ! { dg-output "does not match the declared one for dummy argument 'str' \\(7/5\\)" }
+! { dg-final { cleanup-modules "m" } }

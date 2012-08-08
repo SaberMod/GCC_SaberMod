@@ -1,15 +1,15 @@
 // { dg-do assemble  }
 
 struct A {
-  int operator ++(); // { dg-message "" } candidates
-  void operator ()(); // { dg-message "" } candidates
-  void operator delete(void*); // { dg-message "" } candidates
+  int operator ++(); // { dg-error "" } candidates
+  void operator ()(); // { dg-error "" } candidates
+  void operator delete(void*); // { dg-error "" } candidates
 };
 
 struct B {
-  int operator ++(int); // { dg-message "" } candidates
-  void operator ()(); // { dg-message "" } candidates
-  void operator delete(void*); // { dg-message "" } candidates
+  int operator ++(int); // { dg-error "" } candidates
+  void operator ()(); // { dg-error "" } candidates
+  void operator delete(void*); // { dg-error "" } candidates
   void f();
 };
 

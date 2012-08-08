@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -fdump-tree-alias" } */
+/* { dg-options "-O2 -fdump-tree-alias-vops" } */
 
 const static int a;
 
@@ -26,4 +26,5 @@ int main()
 }
 
 /* { dg-final { scan-tree-dump "q_. = { a b }" "alias" } } */
+/* { dg-final { scan-tree-dump "q_., points-to vars: { a b }" "alias" } } */
 /* { dg-final { cleanup-tree-dump "alias" } } */

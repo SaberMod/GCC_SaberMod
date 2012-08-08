@@ -43,3 +43,4 @@ contains
     clock%CurrTime = clock%CurrTime + clock%CurrTime
   end subroutine ESMF_ClockAdvance
 end module foo
+! { dg-final { cleanup-modules "foo bar" } }

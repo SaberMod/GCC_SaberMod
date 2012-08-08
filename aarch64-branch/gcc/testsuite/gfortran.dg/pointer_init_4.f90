@@ -38,3 +38,5 @@ if (pp()/=42) call abort()
 if (u%ppc()/=43) call abort()
 
 end
+
+! { dg-final { cleanup-modules "m" } }

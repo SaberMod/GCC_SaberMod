@@ -28,7 +28,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
 #include "gimple.h"
+#include "tree-dump.h"
 #include "tree-pass.h"
+#include "timevar.h"
 #include "flags.h"
 
 
@@ -894,7 +896,7 @@ tree_call_cdce (void)
       free_dominance_info (CDI_POST_DOMINATORS);
       /* As we introduced new control-flow we need to insert PHI-nodes
          for the call-clobbers of the remaining call.  */
-      mark_virtual_operands_for_renaming (cfun);
+      mark_sym_for_renaming (gimple_vop (cfun));
       return (TODO_update_ssa | TODO_cleanup_cfg | TODO_ggc_collect
               | TODO_remove_unused_locals);
     }

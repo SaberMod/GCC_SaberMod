@@ -42,3 +42,4 @@ contains
   end function fun  ! { dg-error "Expecting END PROGRAM" }
 
 end
+! { dg-final { cleanup-modules "kinds" } }

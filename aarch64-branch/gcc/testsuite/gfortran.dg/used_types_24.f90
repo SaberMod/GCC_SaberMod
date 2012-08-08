@@ -29,3 +29,5 @@ module test_mod
 
   implicit none
 end module test_mod
+
+! { dg-final { cleanup-modules "m1 m2 test_mod" } }

@@ -61,7 +61,7 @@
 #define FUNC_IS_NORETURN_P(decl) (TREE_THIS_VOLATILE (decl))
 
 /* Predicate that holds when we need to save registers even for 'noreturn'
-   functions, to accommodate for unwinding.  */
+   functions, to accomodate for unwinding.  */
 #define MUST_SAVE_REGS_P() \
   (flag_unwind_tables || (flag_exceptions && !UI_SJLJ))
 
@@ -354,7 +354,7 @@ cr16_compute_save_regs (void)
       /* If this reg is used and not call-used (except RA), save it.  */
       if (cr16_interrupt_function_p ())
 	{
-	  if (!crtl->is_leaf && call_used_regs[regno])
+	  if (!current_function_is_leaf && call_used_regs[regno])
 	    /* This is a volatile reg in a non-leaf interrupt routine - save 
 	       it for the sake of its sons.  */
 	    current_frame_info.save_regs[regno] = 1;

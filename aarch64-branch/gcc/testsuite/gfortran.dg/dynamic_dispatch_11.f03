@@ -30,3 +30,6 @@ end module
   allocate(a)
   if (a%get()/=1) call abort()
 end
+
+
+! { dg-final { cleanup-modules "mod1 mod2" } }

@@ -37,6 +37,7 @@
 #include "function.h"
 #include "diagnostic-core.h"
 #include "ggc.h"
+#include "integrate.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -2429,6 +2430,9 @@ construct_save_jarl (rtx op)
 
   return buff;
 }
+
+extern tree last_assemble_variable_decl;
+extern int size_directive_output;
 
 /* A version of asm_output_aligned_bss() that copes with the special
    data areas of the v850.  */

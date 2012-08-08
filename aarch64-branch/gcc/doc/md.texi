@@ -1713,13 +1713,21 @@ A memory address suitable for a load/store pair instruction in TF mode
 @end table
 
 
-@item ARM family---@file{config/arm/constraints.md}
+@item ARM family---@file{config/arm/arm.h}
 @table @code
+@item f
+Floating-point register
+
 @item w
 VFP floating-point register
 
+@item F
+One of the floating-point constants 0.0, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0
+or 10.0
+
 @item G
-The floating-point constant 0.0
+Floating-point constant that would satisfy the constraint @samp{F} if it
+were negated
 
 @item I
 Integer that is valid as an immediate operand in a data processing
@@ -4469,10 +4477,12 @@ Similar, for other arithmetic operations.
 @cindex @code{fma@var{m}4} instruction pattern
 @item @samp{fma@var{m}4}
 Multiply operand 2 and operand 1, then add operand 3, storing the
-result in operand 0 without doing an intermediate rounding step.  All
-operands must have mode @var{m}.  This pattern is used to implement
-the @code{fma}, @code{fmaf}, and @code{fmal} builtin functions from
-the ISO C99 standard.
+result in operand 0.  All operands must have mode @var{m}.  This
+pattern is used to implement the @code{fma}, @code{fmaf}, and
+@code{fmal} builtin functions from the ISO C99 standard.  The
+@code{fma} operation may produce different results than doing the
+multiply followed by the add if the machine does not perform a
+rounding step between the operations.
 
 @cindex @code{fms@var{m}4} instruction pattern
 @item @samp{fms@var{m}4}
@@ -4621,21 +4631,15 @@ floating point conversion and place the resulting N/2 values of size 2*S in
 the output vector (operand 0).
 
 @cindex @code{vec_widen_umult_hi_@var{m}} instruction pattern
-@cindex @code{vec_widen_umult_lo_@var{m}} instruction pattern
+@cindex @code{vec_widen_umult_lo__@var{m}} instruction pattern
 @cindex @code{vec_widen_smult_hi_@var{m}} instruction pattern
 @cindex @code{vec_widen_smult_lo_@var{m}} instruction pattern
-@cindex @code{vec_widen_umult_even_@var{m}} instruction pattern
-@cindex @code{vec_widen_umult_odd_@var{m}} instruction pattern
-@cindex @code{vec_widen_smult_even_@var{m}} instruction pattern
-@cindex @code{vec_widen_smult_odd_@var{m}} instruction pattern
 @item @samp{vec_widen_umult_hi_@var{m}}, @samp{vec_widen_umult_lo_@var{m}}
 @itemx @samp{vec_widen_smult_hi_@var{m}}, @samp{vec_widen_smult_lo_@var{m}}
-@itemx @samp{vec_widen_umult_even_@var{m}}, @samp{vec_widen_umult_odd_@var{m}}
-@itemx @samp{vec_widen_smult_even_@var{m}}, @samp{vec_widen_smult_odd_@var{m}}
 Signed/Unsigned widening multiplication.  The two inputs (operands 1 and 2)
 are vectors with N signed/unsigned elements of size S@.  Multiply the high/low
-or even/odd elements of the two vectors, and put the N/2 products of size 2*S
-in the output vector (operand 0).
+elements of the two vectors, and put the N/2 products of size 2*S in the
+output vector (operand 0).
 
 @cindex @code{vec_widen_ushiftl_hi_@var{m}} instruction pattern
 @cindex @code{vec_widen_ushiftl_lo_@var{m}} instruction pattern
@@ -4852,22 +4856,6 @@ The @code{sin} built-in function of C always uses the mode which
 corresponds to the C data type @code{double} and the @code{sinf}
 built-in function uses the mode which corresponds to the C data
 type @code{float}.
-
-@cindex @code{sincos@var{m}3} instruction pattern
-@item @samp{sincos@var{m}3}
-Store the sine of operand 2 into operand 0 and the cosine of
-operand 2 into operand 1.
-
-The @code{sin} and @code{cos} built-in functions of C always use the
-mode which corresponds to the C data type @code{double} and the
-@code{sinf} and @code{cosf} built-in function use the mode which
-corresponds to the C data type @code{float}.
-Targets that can calculate the sine and cosine simultaneously can
-implement this pattern as opposed to implementing individual
-@code{sin@var{m}2} and @code{cos@var{m}2} patterns.  The @code{sin}
-and @code{cos} built-in functions will then be expanded to the
-@code{sincos@var{m}3} pattern, with one of the output values
-left unused.
 
 @cindex @code{exp@var{m}2} instruction pattern
 @item @samp{exp@var{m}2}
@@ -5686,13 +5674,6 @@ the stack farthest from the current stack pointer that you need to validate.
 Normally, on platforms where this pattern is needed, you would obtain the
 stack limit from a global or thread-specific variable or register.
 
-@cindex @code{probe_stack_address} instruction pattern
-@item @samp{probe_stack_address}
-If stack checking (@pxref{Stack Checking}) can be done on your system by
-probing the stack but without the need to actually access it, define this
-pattern and signal an error if the stack has overflowed.  The single operand
-is the memory address in the stack that needs to be probed.
-
 @cindex @code{probe_stack} instruction pattern
 @item @samp{probe_stack}
 If stack checking (@pxref{Stack Checking}) can be done on your system by
@@ -5757,7 +5738,7 @@ built-in setjmp that isn't needed at the site of a nonlocal goto.  You
 will not normally need to define this pattern.  A typical reason why you
 might need this pattern is if some value, such as a pointer to a global
 table, must be restored.  It takes one argument, which is the label
-to which builtin_longjmp transferred control; this pattern may be emitted
+to which builtin_longjmp transfered control; this pattern may be emitted
 at a small offset from that label.
 
 @cindex @code{builtin_longjmp} instruction pattern
@@ -5959,7 +5940,7 @@ from a compare-and-swap operation, if defined.
 @itemx @samp{sync_old_ior@var{mode}}, @samp{sync_old_and@var{mode}}
 @itemx @samp{sync_old_xor@var{mode}}, @samp{sync_old_nand@var{mode}}
 
-These patterns emit code for an atomic operation on memory,
+These patterns are emit code for an atomic operation on memory,
 and return the value that the memory contained before the operation.
 Operand 0 is the result value, operand 1 is the memory on which the
 atomic operation is performed, and operand 2 is the second operand
@@ -6111,7 +6092,7 @@ performed.  Operand 1 is the second operand to the binary operator.
 Operand 2 is the memory model to be used by the operation.
 
 If these patterns are not defined, attempts will be made to use legacy
-@code{sync} patterns, or equivalent patterns which return a result.  If
+@code{sync} patterns, or equivilent patterns which return a result.  If
 none of these are available a compare-and-swap loop will be used.
 
 @cindex @code{atomic_fetch_add@var{mode}} instruction pattern
@@ -6153,7 +6134,7 @@ performed.  Operand 2 is the second operand to the binary operator.
 Operand 3 is the memory model to be used by the operation.
 
 If these patterns are not defined, attempts will be made to use legacy
-@code{sync} patterns, or equivalent patterns which return the result before
+@code{sync} patterns, or equivilent patterns which return the result before
 the operation followed by the arithmetic operation required to produce the
 result.  If none of these are available a compare-and-swap loop will be
 used.
@@ -6210,7 +6191,7 @@ If this pattern is not defined, then a plain move pattern is generated.
 This pattern, if defined, compares a @code{ptr_mode} value from the
 memory in operand 1 with the memory in operand 0 without leaving the
 value in a register afterward and branches to operand 2 if the values
-were equal.
+weren't equal.
 
 If this pattern is not defined, then a plain compare pattern and
 conditional branch pattern is used.
@@ -8961,7 +8942,6 @@ facilities to make this process easier.
 @menu
 * Mode Iterators::         Generating variations of patterns for different modes.
 * Code Iterators::         Doing the same for codes.
-* Int Iterators::          Doing the same for integers.
 @end menu
 
 @node Mode Iterators
@@ -9231,83 +9211,6 @@ This is equivalent to:
 @})
 
 @dots{}
-@end smallexample
-
-@node Int Iterators
-@subsection Int Iterators
-@cindex int iterators in @file{.md} files
-@findex define_int_iterator
-@findex define_int_attr
-
-Int iterators operate in a similar way to code iterators.  @xref{Code Iterators}.
-
-The construct:
-
-@smallexample
-(define_int_iterator @var{name} [(@var{int1} "@var{cond1}") @dots{} (@var{intn} "@var{condn}")])
-@end smallexample
-
-defines a pseudo integer constant @var{name} that can be instantiated as
-@var{inti} if condition @var{condi} is true.  Each @var{int}
-must have the same rtx format.  @xref{RTL Classes}. Int iterators can appear
-in only those rtx fields that have 'i' as the specifier. This means that
-each @var{int} has to be a constant defined using define_constant or
-define_c_enum.
-
-As with mode and code iterators, each pattern that uses @var{name} will be
-expanded @var{n} times, once with all uses of @var{name} replaced by
-@var{int1}, once with all uses replaced by @var{int2}, and so on.
-@xref{Defining Mode Iterators}.
-
-It is possible to define attributes for ints as well as for codes and modes.
-Attributes are defined using:
-
-@smallexample
-(define_int_attr @var{name} [(@var{int1} "@var{value1}") @dots{} (@var{intn} "@var{valuen}")])
-@end smallexample
-
-Here's an example of int iterators in action, taken from the ARM port:
-
-@smallexample
-(define_int_iterator QABSNEG [UNSPEC_VQABS UNSPEC_VQNEG])
-
-(define_int_attr absneg [(UNSPEC_VQABS "abs") (UNSPEC_VQNEG "neg")])
-
-(define_insn "neon_vq<absneg><mode>"
-  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
-	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
-		       (match_operand:SI 2 "immediate_operand" "i")]
-		      QABSNEG))]
-  "TARGET_NEON"
-  "vq<absneg>.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
-)
-
-@end smallexample
-
-This is equivalent to:
-
-@smallexample
-(define_insn "neon_vqabs<mode>"
-  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
-	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
-		       (match_operand:SI 2 "immediate_operand" "i")]
-		      UNSPEC_VQABS))]
-  "TARGET_NEON"
-  "vqabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
-)
-
-(define_insn "neon_vqneg<mode>"
-  [(set (match_operand:VDQIW 0 "s_register_operand" "=w")
-	(unspec:VDQIW [(match_operand:VDQIW 1 "s_register_operand" "w")
-		       (match_operand:SI 2 "immediate_operand" "i")]
-		      UNSPEC_VQNEG))]
-  "TARGET_NEON"
-  "vqneg.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
-)
-
 @end smallexample
 
 @end ifset

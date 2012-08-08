@@ -67,3 +67,5 @@ contains
                                 SUPERVISOR = supervisor)
   end function
 end
+
+! { dg-final { cleanup-modules "persons person_education" } }

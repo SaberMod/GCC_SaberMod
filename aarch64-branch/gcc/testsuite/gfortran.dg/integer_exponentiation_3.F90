@@ -201,3 +201,5 @@ program test
   ATEST((1.0,0.),-9,c4)
 
 end program test
+
+! { dg-final { cleanup-modules "mod_check" } }

@@ -45,3 +45,5 @@ contains
     foo_dt%dt%day = 1 ! { dg-error "not a member" }
   end subroutine
 end
+
+! { dg-final { cleanup-modules "m" } }

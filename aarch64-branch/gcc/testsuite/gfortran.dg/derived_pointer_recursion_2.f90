@@ -43,3 +43,6 @@ program pr40594
   if (ap%initialized .neqv. .false.) call abort()
 
 END
+
+! { dg-final { cleanup-modules "atom_types" } }
+

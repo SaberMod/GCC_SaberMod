@@ -40,4 +40,6 @@ contains
     end interface
     call f([1,2,3]) ! Works
   end subroutine foo2
+
+! { dg-final { cleanup-modules "m" } }
 end program test

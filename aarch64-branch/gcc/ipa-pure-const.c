@@ -46,7 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "gimple.h"
 #include "cgraph.h"
+#include "output.h"
 #include "flags.h"
+#include "timevar.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "langhooks.h"
@@ -186,8 +188,7 @@ void
 warn_function_noreturn (tree decl)
 {
   static struct pointer_set_t *warned_about;
-  if (!lang_hooks.missing_noreturn_ok_p (decl)
-      && targetm.warn_func_return (decl))
+  if (!lang_hooks.missing_noreturn_ok_p (decl))
     warned_about 
       = suggest_attribute (OPT_Wsuggest_attribute_noreturn, decl,
 			   true, warned_about, "noreturn");
@@ -1108,7 +1109,7 @@ propagate_pure_const (void)
       ipa_print_order(dump_file, "reduced", order, order_pos);
     }
 
-  /* Propagate the local information through the call graph to produce
+  /* Propagate the local information thru the call graph to produce
      the global information.  All the nodes within a cycle will have
      the same info so we collapse cycles first.  Then we can do the
      propagation in one pass from the leaves to the roots.  */
@@ -1380,7 +1381,7 @@ propagate_nothrow (void)
       ipa_print_order (dump_file, "reduced for nothrow", order, order_pos);
     }
 
-  /* Propagate the local information through the call graph to produce
+  /* Propagate the local information thru the call graph to produce
      the global information.  All the nodes within a cycle will have
      the same info so we collapse cycles first.  Then we can do the
      propagation in one pass from the leaves to the roots.  */

@@ -694,16 +694,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
          Position.Node.Key := new Key_Type'(Key);
 
-         declare
-            --  The element allocator may need an accessibility check in the
-            --  case the actual type is class-wide or has access discriminants
-            --  (see RM 4.8(10.1) and AI12-0035).
-
-            pragma Unsuppress (Accessibility_Check);
-
          begin
             Position.Node.Element := new Element_Type'(New_Item);
-
          exception
             when others =>
                Free_Key (K);
@@ -739,16 +731,9 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
          K  : Key_Access := new Key_Type'(Key);
          E  : Element_Access;
 
-         --  The element allocator may need an accessibility check in the case
-         --  the actual type is class-wide or has access discriminants (see
-         --  RM 4.8(10.1) and AI12-0035).
-
-         pragma Unsuppress (Accessibility_Check);
-
       begin
          E := new Element_Type'(New_Item);
          return new Node_Type'(K, E, Next);
-
       exception
          when others =>
             Free_Key (K);
@@ -1181,16 +1166,8 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       Node.Key := new Key_Type'(Key);
 
-      declare
-         --  The element allocator may need an accessibility check in the case
-         --  the actual type is class-wide or has access discriminants (see
-         --  RM 4.8(10.1) and AI12-0035).
-
-         pragma Unsuppress (Accessibility_Check);
-
       begin
          Node.Element := new Element_Type'(New_Item);
-
       exception
          when others =>
             Free_Key (K);
@@ -1237,12 +1214,6 @@ package body Ada.Containers.Indefinite_Hashed_Maps is
 
       declare
          X : Element_Access := Position.Node.Element;
-
-         --  The element allocator may need an accessibility check in the case
-         --  the actual type is class-wide or has access discriminants (see
-         --  RM 4.8(10.1) and AI12-0035).
-
-         pragma Unsuppress (Accessibility_Check);
 
       begin
          Position.Node.Element := new Element_Type'(New_Item);

@@ -61,3 +61,5 @@ program main
   call obj%base_t%write_procptr               ! { dg-error "is of ABSTRACT type" }
 
 end program main
+
+! { dg-final { cleanup-modules "types" } }

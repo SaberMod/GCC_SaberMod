@@ -1,5 +1,5 @@
 ;; Predicate definitions for ARM and Thumb
-;; Copyright (C) 2004, 2007, 2008, 2010, 2012 Free Software Foundation, Inc.
+;; Copyright (C) 2004, 2007, 2008, 2010 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 
 ;; This file is part of GCC.
@@ -58,6 +58,19 @@
   return (GET_CODE (op) == REG
 	  && (REGNO (op) <= LAST_ARM_REGNUM
 	      || REGNO (op) >= FIRST_PSEUDO_REGISTER));
+})
+
+(define_predicate "f_register_operand"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  /* We don't consider registers whose class is NO_REGS
+     to be a register operand.  */
+  return (GET_CODE (op) == REG
+	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
+	      || REGNO_REG_CLASS (REGNO (op)) == FPA_REGS));
 })
 
 (define_predicate "vfp_register_operand"
@@ -141,11 +154,6 @@
   (ior (match_operand 0 "arm_rhs_operand")
        (match_operand 0 "arm_neg_immediate_operand")))
 
-(define_predicate "arm_adddi_operand"
-  (ior (match_operand 0 "s_register_operand")
-       (and (match_code "const_int")
-	    (match_test "const_ok_for_dimode_op (INTVAL (op), PLUS)"))))
-
 (define_predicate "arm_addimm_operand"
   (ior (match_operand 0 "arm_immediate_operand")
        (match_operand 0 "arm_neg_immediate_operand")))
@@ -181,6 +189,18 @@
 			 || (GET_CODE (op) == REG
 			     && REGNO (op) >= FIRST_PSEUDO_REGISTER)))")))
 
+;; True for valid operands for the rhs of an floating point insns.
+;;   Allows regs or certain consts on FPA, just regs for everything else.
+(define_predicate "arm_float_rhs_operand"
+  (ior (match_operand 0 "s_register_operand")
+       (and (match_code "const_double")
+	    (match_test "TARGET_FPA && arm_const_double_rtx (op)"))))
+
+(define_predicate "arm_float_add_operand"
+  (ior (match_operand 0 "arm_float_rhs_operand")
+       (and (match_code "const_double")
+	    (match_test "TARGET_FPA && neg_const_double_rtx_ok_for_fpa (op)"))))
+
 (define_predicate "vfp_compare_operand"
   (ior (match_operand 0 "s_register_operand")
        (and (match_code "const_double")
@@ -189,7 +209,7 @@
 (define_predicate "arm_float_compare_operand"
   (if_then_else (match_test "TARGET_VFP")
 		(match_operand 0 "vfp_compare_operand")
-		(match_operand 0 "s_register_operand")))
+		(match_operand 0 "arm_float_rhs_operand")))
 
 ;; True for valid index operands.
 (define_predicate "index_operand"
@@ -373,22 +393,6 @@
                                  /*return_pc=*/false);
 })
 
-(define_special_predicate "pop_multiple_return"
-  (match_code "parallel")
-{
- return ldm_stm_operation_p (op, /*load=*/true, SImode,
-                                 /*consecutive=*/false,
-                                 /*return_pc=*/true);
-})
-
-(define_special_predicate "pop_multiple_fp"
-  (match_code "parallel")
-{
- return ldm_stm_operation_p (op, /*load=*/true, DFmode,
-                                 /*consecutive=*/true,
-                                 /*return_pc=*/false);
-})
-
 (define_special_predicate "multi_register_push"
   (match_code "parallel")
 {
@@ -460,12 +464,35 @@
 
 ;;-------------------------------------------------------------------------
 ;;
-;; iWMMXt predicates
+;; MAVERICK predicates
 ;;
 
-(define_predicate "imm_or_reg_operand"
-  (ior (match_operand 0 "immediate_operand")
-       (match_operand 0 "register_operand")))
+(define_predicate "cirrus_register_operand"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  return (GET_CODE (op) == REG
+	  && (REGNO_REG_CLASS (REGNO (op)) == CIRRUS_REGS
+	      || REGNO_REG_CLASS (REGNO (op)) == GENERAL_REGS));
+})
+
+(define_predicate "cirrus_fp_register"
+  (match_code "reg,subreg")
+{
+  if (GET_CODE (op) == SUBREG)
+    op = SUBREG_REG (op);
+
+  return (GET_CODE (op) == REG
+	  && (REGNO (op) >= FIRST_PSEUDO_REGISTER
+	      || REGNO_REG_CLASS (REGNO (op)) == CIRRUS_REGS));
+})
+
+(define_predicate "cirrus_shift_const"
+  (and (match_code "const_int")
+       (match_test "((unsigned HOST_WIDE_INT) INTVAL (op)) < 64")))
+
 
 ;; Neon predicates
 
@@ -531,8 +558,11 @@
 ;; Predicates for named expanders that overlap multiple ISAs.
 
 (define_predicate "cmpdi_operand"
-  (and (match_test "TARGET_32BIT")
-       (match_operand 0 "arm_di_operand")))
+  (if_then_else (match_test "TARGET_HARD_FLOAT && TARGET_MAVERICK")
+		(and (match_test "TARGET_ARM")
+		     (match_operand 0 "cirrus_fp_register"))
+		(and (match_test "TARGET_32BIT")
+		     (match_operand 0 "arm_di_operand"))))
 
 ;; True if the operand is memory reference suitable for a ldrex/strex.
 (define_predicate "arm_sync_memory_operand"

@@ -18,3 +18,5 @@ program test_objects
   type(rectangle) :: rect
   write(*,*) rect          ! { dg-error "cannot have procedure pointer components" }
 end program
+
+! { dg-final { cleanup-modules "proc_pointers" } }

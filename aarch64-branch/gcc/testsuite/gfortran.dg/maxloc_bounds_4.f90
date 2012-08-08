@@ -19,3 +19,5 @@ program main
   call foo(res)
 end program main
 ! { dg-output "Fortran runtime error: Incorrect extent in return value of MAXLOC intrinsic: is 3, should be 2" }
+! { dg-final { cleanup-modules "tst" } }
+

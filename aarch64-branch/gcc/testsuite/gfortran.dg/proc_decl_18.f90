@@ -59,3 +59,5 @@ end
       p(l) = y(l)*2
     end do
   end function
+
+! { dg-final { cleanup-modules "m" } }

@@ -21,3 +21,5 @@ MODULE globals_m
   USE types_m
   TYPE(grib_t) g_dest           ! output field
 END MODULE
+! { dg-final { cleanup-modules "types_m globals_m" } }
+

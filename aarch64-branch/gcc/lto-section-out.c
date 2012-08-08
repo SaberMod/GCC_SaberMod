@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "basic-block.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"

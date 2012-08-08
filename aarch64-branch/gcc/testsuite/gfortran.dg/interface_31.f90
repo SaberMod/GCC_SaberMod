@@ -38,3 +38,4 @@ CONTAINS
     r%j = lhs%j + rhs%j
   END FUNCTION add_b  
 END MODULE mod2
+! { dg-final { cleanup-modules "mod1 mod2" } }

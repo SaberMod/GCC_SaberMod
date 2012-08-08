@@ -29,3 +29,5 @@ CONTAINS
   END SUBROUTINE realproc
 
 END MODULE testmod
+
+! { dg-final { cleanup-modules "testmod" } }

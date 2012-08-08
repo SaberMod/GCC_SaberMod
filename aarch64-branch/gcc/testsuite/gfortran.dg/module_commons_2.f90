@@ -17,3 +17,5 @@ end module h5global
 program bug
   use h5global
 end
+
+! { dg-final { cleanup-modules "h5global" } }

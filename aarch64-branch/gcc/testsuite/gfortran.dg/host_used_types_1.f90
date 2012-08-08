@@ -38,3 +38,5 @@ contains
     end subroutine SetTimeSteps
 
 end module ThermoData
+
+! { dg-final { cleanup-modules "modelparams thermodata" } }

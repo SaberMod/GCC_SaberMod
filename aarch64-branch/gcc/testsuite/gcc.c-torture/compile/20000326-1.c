@@ -2,21 +2,22 @@ long sys_reboot(int magic1, int magic2, int cmd, void * arg)
 {
   switch (cmd) {
   case 0x89ABCDEF:
-    return 1;
+    break;
 
   case 0x00000000:
-    return 2;
+    break;
 
   case 0xCDEF0123:
-    return 3;
+    break;
 
   case 0x4321FEDC:
-    return 4;
+    break;
 
   case 0xA1B2C3D4:
-    return 5;
+    break;
 
   default:
-    return 0;
+    break;
   };
+  return 0;
 }

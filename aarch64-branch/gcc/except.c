@@ -123,6 +123,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "insn-config.h"
 #include "except.h"
+#include "integrate.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
 #include "output.h"
@@ -141,6 +142,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-pass.h"
+#include "timevar.h"
 #include "tree-flow.h"
 #include "cfgloop.h"
 

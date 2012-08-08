@@ -113,3 +113,5 @@ contains
     type(lock_type), intent(in) :: x[*]
   end subroutine test
 end subroutine argument_check
+
+! { dg-final { cleanup-modules "m m2 m3" } }

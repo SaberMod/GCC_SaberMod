@@ -25,10 +25,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
+#include "output.h"
 #include "tree-flow.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
+#include "timevar.h"
 #include "cfgloop.h"
-#include "tree-pass.h"	/* ??? for TODO_update_ssa but this isn't a pass.  */
+#include "tree-pass.h"
+#include "cfglayout.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"
 #include "tree-inline.h"
@@ -56,7 +59,10 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   edge pe = loop_preheader_edge (loop);
 
   if (!var)
-    var = create_tmp_var (TREE_TYPE (base), "ivtmp");
+    {
+      var = create_tmp_var (TREE_TYPE (base), "ivtmp");
+      add_referenced_var (var);
+    }
 
   vb = make_ssa_name (var, NULL);
   if (var_before)
@@ -1006,9 +1012,15 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 					     TREE_TYPE (next)))
 	var = SSA_NAME_VAR (init);
       else if (useless_type_conversion_p (TREE_TYPE (next), TREE_TYPE (init)))
-	var = create_tmp_var (TREE_TYPE (next), "unrinittmp");
+	{
+	  var = create_tmp_var (TREE_TYPE (next), "unrinittmp");
+	  add_referenced_var (var);
+	}
       else
-	var = create_tmp_var (TREE_TYPE (init), "unrinittmp");
+	{
+	  var = create_tmp_var (TREE_TYPE (init), "unrinittmp");
+	  add_referenced_var (var);
+	}
 
       new_init = make_ssa_name (var, NULL);
       phi_rest = create_phi_node (new_init, rest);

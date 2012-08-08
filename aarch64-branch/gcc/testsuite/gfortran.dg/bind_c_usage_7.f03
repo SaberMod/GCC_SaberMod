@@ -12,3 +12,5 @@ contains
     my_string_func = 'my_string' // C_NULL_CHAR
   end function my_string_func
 end module x
+
+! { dg-final { cleanup-modules "x" } }

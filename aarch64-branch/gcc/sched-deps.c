@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "diagnostic-core.h"
 #include "rtl.h"
-#include "tree.h"		/* FIXME: Used by call_may_noreturn_p.  */
 #include "tm_p.h"
 #include "hard-reg-set.h"
 #include "regs.h"
@@ -1584,8 +1583,8 @@ add_dependence_list_and_free (struct deps_desc *deps, rtx insn, rtx *listp,
     }
 }
 
-/* Remove all occurrences of INSN from LIST.  Return the number of
-   occurrences removed.  */
+/* Remove all occurences of INSN from LIST.  Return the number of
+   occurences removed.  */
 
 static int
 remove_from_dependence_list (rtx insn, rtx* listp)
@@ -2799,7 +2798,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
 			 && code == SET);
 
   if (may_trap_p (x))
-    /* Avoid moving trapping instructions across function calls that might
+    /* Avoid moving trapping instructions accross function calls that might
        not always return.  */
     add_dependence_list (insn, deps->last_function_call_may_noreturn,
 			 1, REG_DEP_ANTI);
@@ -2871,7 +2870,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
 	{
 	  if (GET_CODE (XEXP (link, 0)) == CLOBBER)
 	    sched_analyze_1 (deps, XEXP (link, 0), insn);
-	  else if (GET_CODE (XEXP (link, 0)) != SET)
+	  else
 	    sched_analyze_2 (deps, XEXP (link, 0), insn);
 	}
       /* Don't schedule anything after a tail call, tail call needs
@@ -3375,8 +3374,6 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
 
 /* Return TRUE if INSN might not always return normally (e.g. call exit,
    longjmp, loop forever, ...).  */
-/* FIXME: Why can't this function just use flags_from_decl_or_type and
-   test for ECF_NORETURN?  */
 static bool
 call_may_noreturn_p (rtx insn)
 {

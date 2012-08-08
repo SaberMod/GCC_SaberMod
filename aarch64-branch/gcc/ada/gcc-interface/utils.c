@@ -40,7 +40,6 @@
 #include "langhooks.h"
 #include "cgraph.h"
 #include "diagnostic.h"
-#include "timevar.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
@@ -573,14 +572,14 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
   if (!(TREE_CODE (decl) == TYPE_DECL
         && TREE_CODE (TREE_TYPE (decl)) == UNCONSTRAINED_ARRAY_TYPE))
     {
-      if (DECL_EXTERNAL (decl))
+      if (global_bindings_p ())
 	{
+	  VEC_safe_push (tree, gc, global_decls, decl);
+
 	  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl))
 	    VEC_safe_push (tree, gc, builtin_decls, decl);
 	}
-      else if (global_bindings_p ())
-	VEC_safe_push (tree, gc, global_decls, decl);
-      else
+      else if (!DECL_EXTERNAL (decl))
 	{
 	  DECL_CHAIN (decl) = BLOCK_VARS (current_binding_level->block);
 	  BLOCK_VARS (current_binding_level->block) = decl;
@@ -613,7 +612,6 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	      if (TREE_CODE (t) == POINTER_TYPE)
 		TYPE_NEXT_PTR_TO (t) = tt;
 	      TYPE_NAME (tt) = DECL_NAME (decl);
-	      TYPE_CONTEXT (tt) = DECL_CONTEXT (decl);
 	      TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (t);
 	      DECL_ORIGINAL_TYPE (decl) = tt;
 	    }
@@ -623,7 +621,6 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	  /* We need a variant for the placeholder machinery to work.  */
 	  tree tt = build_variant_type_copy (t);
 	  TYPE_NAME (tt) = decl;
-	  TYPE_CONTEXT (tt) = DECL_CONTEXT (decl);
 	  TREE_USED (tt) = TREE_USED (t);
 	  TREE_TYPE (decl) = tt;
 	  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
@@ -643,10 +640,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
       if (t)
 	for (t = TYPE_MAIN_VARIANT (t); t; t = TYPE_NEXT_VARIANT (t))
 	  if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
-	    {
-	      TYPE_NAME (t) = decl;
-	      TYPE_CONTEXT (t) = DECL_CONTEXT (decl);
-	    }
+	    TYPE_NAME (t) = decl;
     }
 }
 
@@ -2233,6 +2227,8 @@ create_var_decl_1 (tree var_name, tree asm_name, tree type, tree var_init,
       if (global_bindings_p ())
 	rest_of_decl_compilation (var_decl, true, 0);
     }
+  else
+    expand_decl (var_decl);
 
   return var_decl;
 }
@@ -3607,7 +3603,7 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
 			     record_type, size_int (klass), field_list);
   field_list
     = make_descriptor_field ("MBMO", gnat_type_for_size (32, 1),
-			     record_type, size_int (-1), field_list);
+			     record_type, ssize_int (-1), field_list);
   field_list
     = make_descriptor_field ("LENGTH", gnat_type_for_size (64, 1),
 			     record_type,
@@ -5155,6 +5151,20 @@ maybe_unconstrained_array (tree exp)
 
   return exp;
 }
+
+/* If EXP's type is a VECTOR_TYPE, return EXP converted to the associated
+   TYPE_REPRESENTATIVE_ARRAY.  */
+
+tree
+maybe_vector_array (tree exp)
+{
+  tree etype = TREE_TYPE (exp);
+
+  if (VECTOR_TYPE_P (etype))
+    exp = convert (TYPE_REPRESENTATIVE_ARRAY (etype), exp);
+
+  return exp;
+}
 
 /* Return true if EXPR is an expression that can be folded as an operand
    of a VIEW_CONVERT_EXPR.  See ada-tree.h for a complete rationale.  */
@@ -5576,12 +5586,8 @@ gnat_write_global_declarations (void)
   if (!VEC_empty (tree, types_used_by_cur_var_decl))
     {
       struct varpool_node *node;
-      char *label;
-
-      ASM_FORMAT_PRIVATE_NAME (label, first_global_object_name, 0);
       dummy_global
-	= build_decl (BUILTINS_LOCATION, VAR_DECL, get_identifier (label),
-		      void_type_node);
+	= build_decl (BUILTINS_LOCATION, VAR_DECL, NULL_TREE, void_type_node);
       TREE_STATIC (dummy_global) = 1;
       TREE_ASM_WRITTEN (dummy_global) = 1;
       node = varpool_node (dummy_global);
@@ -5896,13 +5902,11 @@ enum built_in_attribute
 {
 #define DEF_ATTR_NULL_TREE(ENUM) ENUM,
 #define DEF_ATTR_INT(ENUM, VALUE) ENUM,
-#define DEF_ATTR_STRING(ENUM, VALUE) ENUM,
 #define DEF_ATTR_IDENT(ENUM, STRING) ENUM,
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN) ENUM,
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
-#undef DEF_ATTR_STRING
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
   ATTR_LAST
@@ -5918,8 +5922,6 @@ install_builtin_attributes (void)
   built_in_attributes[(int) ENUM] = NULL_TREE;
 #define DEF_ATTR_INT(ENUM, VALUE)				\
   built_in_attributes[(int) ENUM] = build_int_cst (NULL_TREE, VALUE);
-#define DEF_ATTR_STRING(ENUM, VALUE)				\
-  built_in_attributes[(int) ENUM] = build_string (strlen (VALUE), VALUE);
 #define DEF_ATTR_IDENT(ENUM, STRING)				\
   built_in_attributes[(int) ENUM] = get_identifier (STRING);
 #define DEF_ATTR_TREE_LIST(ENUM, PURPOSE, VALUE, CHAIN)	\
@@ -5930,7 +5932,6 @@ install_builtin_attributes (void)
 #include "builtin-attrs.def"
 #undef DEF_ATTR_NULL_TREE
 #undef DEF_ATTR_INT
-#undef DEF_ATTR_STRING
 #undef DEF_ATTR_IDENT
 #undef DEF_ATTR_TREE_LIST
 }

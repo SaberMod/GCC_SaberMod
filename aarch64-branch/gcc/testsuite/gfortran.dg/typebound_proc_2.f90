@@ -29,4 +29,6 @@ CONTAINS
   END FUNCTION proc2
 
 END MODULE testmod
+
+! { dg-final { cleanup-modules "testmod" } }
 ! { dg-excess-errors "no IMPLICIT type" }

@@ -61,8 +61,10 @@ along with GCC; see the file COPYING3.  If not see
    numbers after the special ones.  */
 #define UNUSED_NAME_VERSION 0
 
+#ifdef GATHER_STATISTICS
 unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
+#endif
 
 /* Initialize management of SSA_NAMEs to default SIZE.  If SIZE is
    zero use default.  */
@@ -85,8 +87,7 @@ init_ssanames (struct function *fn, int size)
   VEC_quick_push (tree, SSANAMES (fn), NULL_TREE);
   FREE_SSANAMES (fn) = NULL;
 
-  fn->gimple_df->ssa_renaming_needed = 0;
-  fn->gimple_df->rename_vops = 0;
+  SYMS_TO_RENAME (fn) = BITMAP_GGC_ALLOC ();
 }
 
 /* Finalize management of SSA_NAMEs.  */
@@ -100,12 +101,14 @@ fini_ssanames (void)
 
 /* Dump some simple statistics regarding the re-use of SSA_NAME nodes.  */
 
+#ifdef GATHER_STATISTICS
 void
 ssanames_print_statistics (void)
 {
   fprintf (stderr, "SSA_NAME nodes allocated: %u\n", ssa_name_nodes_created);
   fprintf (stderr, "SSA_NAME nodes reused: %u\n", ssa_name_nodes_reused);
 }
+#endif
 
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
    in function FN.  STMT may be an empty statement for artificial
@@ -124,8 +127,9 @@ make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
   if (!VEC_empty (tree, FREE_SSANAMES (fn)))
     {
       t = VEC_pop (tree, FREE_SSANAMES (fn));
-      if (GATHER_STATISTICS)
-	ssa_name_nodes_reused++;
+#ifdef GATHER_STATISTICS
+      ssa_name_nodes_reused++;
+#endif
 
       /* The node was cleared out when we put it on the free list, so
 	 there is no need to do so again here.  */
@@ -137,8 +141,9 @@ make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
       t = make_node (SSA_NAME);
       SSA_NAME_VERSION (t) = VEC_length (tree, SSANAMES (fn));
       VEC_safe_push (tree, gc, SSANAMES (fn), t);
-      if (GATHER_STATISTICS)
-	ssa_name_nodes_created++;
+#ifdef GATHER_STATISTICS
+      ssa_name_nodes_created++;
+#endif
     }
 
   TREE_TYPE (t) = TREE_TYPE (var);
@@ -276,7 +281,7 @@ set_ptr_info_alignment (struct ptr_info_def *pi, unsigned int align,
   pi->misalign = misalign;
 }
 
-/* If pointer described by PI has known alignment, increase its known
+/* If pointer decribed by PI has known alignment, increase its known
    misalignment by INCREMENT modulo its current alignment.  */
 
 void
@@ -381,8 +386,15 @@ replace_ssa_name_symbol (tree ssa_name, tree sym)
 static unsigned int
 release_dead_ssa_names (void)
 {
+  tree t;
   unsigned i, j;
   int n = VEC_length (tree, FREE_SSANAMES (cfun));
+  referenced_var_iterator rvi;
+
+  /* Current defs point to various dead SSA names that in turn point to
+     eventually dead variables so a bunch of memory is held live.  */
+  FOR_EACH_REFERENCED_VAR (cfun, t, rvi)
+    set_current_def (t, NULL);
 
   /* Now release the freelist.  */
   VEC_free (tree, gc, FREE_SSANAMES (cfun));

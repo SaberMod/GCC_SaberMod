@@ -30,3 +30,4 @@
       call sub(di(i),i)
       if (i.NE.4) call abort()
       end
+! { dg-final { cleanup-modules "mod1" } }

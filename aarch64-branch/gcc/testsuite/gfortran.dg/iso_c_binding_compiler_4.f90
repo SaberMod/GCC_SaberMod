@@ -14,3 +14,5 @@ module mymod
   public :: c_null_ptr
 
 end module mymod
+
+! { dg-final { cleanup-modules "mymod" } }

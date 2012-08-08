@@ -75,3 +75,5 @@ program test_proc_ptr
 
   stop
 end program test_proc_ptr
+
+! { dg-final { cleanup-modules "examplefuncs" } }

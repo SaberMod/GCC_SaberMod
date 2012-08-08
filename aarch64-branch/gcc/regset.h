@@ -121,7 +121,8 @@ extern regset fixed_reg_set_regset;
 /* An obstack for regsets.  */
 extern bitmap_obstack reg_obstack;
 
-/* In df-core.c (which should use regset consistently instead of bitmap...)  */
+/* In cfg.c  */
 extern void dump_regset (regset, FILE *);
+extern void debug_regset (regset);
 
 #endif /* GCC_REGSET_H */

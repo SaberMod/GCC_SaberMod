@@ -48,56 +48,49 @@ package System.Dim.Mks is
 
    type Mks_Type is new Long_Long_Float
      with
-      Dimension_System => (
-        (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
-        (Unit_Name => Kilogram, Unit_Symbol => "kg",  Dim_Symbol => 'M'),
-        (Unit_Name => Second,   Unit_Symbol => 's',   Dim_Symbol => 'T'),
-        (Unit_Name => Ampere,   Unit_Symbol => 'A',   Dim_Symbol => 'I'),
-        (Unit_Name => Kelvin,   Unit_Symbol => 'K',   Dim_Symbol => "Θ"),
-        (Unit_Name => Mole,     Unit_Symbol => "mol", Dim_Symbol => 'N'),
-        (Unit_Name => Candela,  Unit_Symbol => "cd",  Dim_Symbol => 'J'));
+      Dimension_System => ((Meter, 'm'),
+        (Kilogram, "kg"),
+        (Second,   's'),
+        (Ampere,   'A'),
+        (Kelvin,   'K'),
+        (Mole,     "mol"),
+        (Candela,  "cd"));
 
    --  SI Base dimensioned subtype
 
    subtype Length is Mks_Type
      with
-      Dimension => (Symbol => 'm',
-        Meter  => 1,
+      Dimension => ('m',
+        Meter =>  1,
         others => 0);
-
    subtype Mass is Mks_Type
      with
-      Dimension => (Symbol => "kg",
+      Dimension => ("kg",
         Kilogram => 1,
         others =>   0);
-
    subtype Time is Mks_Type
      with
-      Dimension => (Symbol => 's',
+      Dimension => ('s',
         Second => 1,
         others => 0);
-
    subtype Electric_Current is Mks_Type
      with
-      Dimension => (Symbol => 'A',
+      Dimension => ('A',
         Ampere => 1,
         others => 0);
-
    subtype Thermodynamic_Temperature is Mks_Type
      with
-      Dimension => (Symbol => 'K',
+      Dimension => ('K',
         Kelvin => 1,
         others => 0);
-
    subtype Amount_Of_Substance is Mks_Type
      with
-      Dimension => (Symbol => "mol",
+      Dimension => ("mol",
         Mole =>   1,
         others => 0);
-
    subtype Luminous_Intensity is Mks_Type
      with
-      Dimension => (Symbol => "cd",
+      Dimension => ("cd",
         Candela => 1,
         others =>  0);
 
@@ -115,163 +108,144 @@ package System.Dim.Mks is
 
    subtype Angle is Mks_Type
      with
-      Dimension => (Symbol => "rad",
+      Dimension => ("rad",
         others => 0);
 
    subtype Solid_Angle is Mks_Type
      with
-      Dimension => (Symbol => "sr",
+      Dimension => ("sr",
         others => 0);
 
    subtype Frequency is Mks_Type
      with
-      Dimension => (Symbol => "Hz",
+      Dimension => ("Hz",
         Second => -1,
         others => 0);
-
    subtype Force is Mks_Type
      with
-      Dimension => (Symbol => 'N',
+      Dimension => ('N',
         Meter =>    1,
         Kilogram => 1,
         Second =>  -2,
         others =>   0);
-
    subtype Pressure is Mks_Type
      with
-      Dimension => (Symbol => "Pa",
+      Dimension => ("Pa",
         Meter =>    -1,
         Kilogram => 1,
         Second =>   -2,
         others =>   0);
-
    subtype Energy is Mks_Type
      with
-      Dimension => (Symbol => 'J',
+      Dimension => ('J',
         Meter =>    2,
         Kilogram => 1,
         Second =>   -2,
         others =>   0);
-
    subtype Power is Mks_Type
      with
-      Dimension => (Symbol => 'W',
+      Dimension => ('W',
         Meter =>    2,
         Kilogram => 1,
         Second =>   -3,
         others =>   0);
-
    subtype Electric_Charge is Mks_Type
      with
-      Dimension => (Symbol => 'C',
+      Dimension => ('C',
         Second => 1,
         Ampere => 1,
         others => 0);
-
    subtype Electric_Potential_Difference is Mks_Type
      with
-      Dimension => (Symbol => 'V',
+      Dimension => ('V',
         Meter =>    2,
         Kilogram => 1,
         Second =>   -3,
         Ampere =>   -1,
         others =>   0);
-
    subtype Electric_Capacitance is Mks_Type
      with
-      Dimension => (Symbol => 'F',
+      Dimension => ('F',
         Meter =>    -2,
         Kilogram => -1,
         Second =>   4,
         Ampere =>   2,
         others =>   0);
-
    subtype Electric_Resistance is Mks_Type
      with
-      Dimension => (Symbol => "Ω",
+      Dimension => ("Ω",
         Meter =>    2,
         Kilogram => 1,
         Second =>   -3,
         Ampere =>   -2,
         others =>   0);
-
    subtype Electric_Conductance is Mks_Type
      with
-      Dimension => (Symbol => 'S',
+      Dimension => ('S',
         Meter =>    -2,
         Kilogram => -1,
         Second =>   3,
         Ampere =>   2,
         others =>   0);
-
    subtype Magnetic_Flux is Mks_Type
      with
-      Dimension => (Symbol => "Wb",
+      Dimension => ("Wb",
         Meter =>    2,
         Kilogram => 1,
         Second =>   -2,
         Ampere =>   -1,
         others =>   0);
-
    subtype Magnetic_Flux_Density is Mks_Type
      with
-      Dimension => (Symbol => 'T',
+      Dimension => ('T',
         Kilogram => 1,
         Second =>   -2,
         Ampere =>   -1,
         others =>   0);
-
    subtype Inductance is Mks_Type
      with
-      Dimension => (Symbol => 'H',
+      Dimension => ('H',
         Meter =>    2,
         Kilogram => 1,
         Second =>   -2,
         Ampere =>   -2,
         others =>   0);
-
    subtype Celsius_Temperature is Mks_Type
      with
-      Dimension => (Symbol => "°C",
+      Dimension => ("°C",
         Kelvin => 1,
         others => 0);
-
    subtype Luminous_Flux is Mks_Type
      with
-      Dimension => (Symbol => "lm",
+      Dimension => ("lm",
         Candela => 1,
         others =>  0);
-
    subtype Illuminance is Mks_Type
      with
-      Dimension => (Symbol => "lx",
+      Dimension => ("lx",
         Meter =>   -2,
         Candela => 1,
         others =>  0);
-
    subtype Radioactivity is Mks_Type
      with
-      Dimension => (Symbol => "Bq",
+      Dimension => ("Bq",
         Second => -1,
         others => 0);
-
    subtype Absorbed_Dose is Mks_Type
      with
-      Dimension => (Symbol => "Gy",
+      Dimension => ("Gy",
         Meter =>  2,
         Second => -2,
         others => 0);
-
    subtype Equivalent_Dose is Mks_Type
      with
-      Dimension => (Symbol => "Sv",
+      Dimension => ("Sv",
         Meter =>  2,
         Second => -2,
         others => 0);
-
    subtype Catalytic_Activity is Mks_Type
      with
-      Dimension => (Symbol => "kat",
+      Dimension => ("kat",
         Second => -1,
         Mole =>   1,
         others => 0);

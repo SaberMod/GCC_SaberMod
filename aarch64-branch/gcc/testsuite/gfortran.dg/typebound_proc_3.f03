@@ -13,3 +13,5 @@ MODULE testmod
   END TYPE t ! { dg-error "Fortran 2008" }
 
 END MODULE testmod
+
+! { dg-final { cleanup-modules "testmod" } }

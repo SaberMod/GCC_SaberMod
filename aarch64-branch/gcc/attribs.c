@@ -312,9 +312,8 @@ decl_attributes (tree *node, tree attributes, int flags)
 
       if (spec == NULL)
 	{
-	  if (!(flags & (int) ATTR_FLAG_BUILT_IN))
-	    warning (OPT_Wattributes, "%qE attribute directive ignored",
-		     name);
+	  warning (OPT_Wattributes, "%qE attribute directive ignored",
+		   name);
 	  continue;
 	}
       else if (list_length (args) < spec->min_length

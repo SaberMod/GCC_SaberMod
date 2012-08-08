@@ -22,3 +22,5 @@ contains
     end subroutine subsub
   end subroutine sub
 end module mo
+
+! { dg-final { cleanup-modules "mo" } }

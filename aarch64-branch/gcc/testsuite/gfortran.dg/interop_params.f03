@@ -1,5 +1,4 @@
 ! { dg-do compile }
-! { dg-options "-Wc-binding-type" }
 module interop_params
 use, intrinsic :: iso_c_binding
 

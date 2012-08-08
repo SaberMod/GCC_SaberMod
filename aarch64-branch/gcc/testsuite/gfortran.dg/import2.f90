@@ -77,3 +77,4 @@ program foo
   call test(z) ! { dg-error "Type mismatch in argument" }
   if(z%i /= 1) call abort()
 end program foo
+! { dg-final { cleanup-modules "testmod" } }

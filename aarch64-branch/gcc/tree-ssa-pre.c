@@ -26,10 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "basic-block.h"
+#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
 #include "tree-flow.h"
 #include "gimple.h"
+#include "tree-dump.h"
+#include "timevar.h"
+#include "fibheap.h"
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
@@ -1411,7 +1415,10 @@ get_representative_for (const pre_expr e)
   /* Build and insert the assignment of the end result to the temporary
      that we will return.  */
   if (!pretemp || exprtype != TREE_TYPE (pretemp))
-    pretemp = create_tmp_reg (exprtype, "pretmp");
+    {
+      pretemp = create_tmp_reg (exprtype, "pretmp");
+      add_referenced_var (pretemp);
+    }
 
   name = make_ssa_name (pretemp, gimple_build_nop ());
   VN_INFO_GET (name)->value_id = value_id;
@@ -2000,8 +2007,8 @@ op_valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, tree op)
   if (op && TREE_CODE (op) == SSA_NAME)
     {
       unsigned int value_id = VN_INFO (op)->value_id;
-      if (!(bitmap_set_contains_value (set1, value_id)
-	    || (set2 && bitmap_set_contains_value  (set2, value_id))))
+      if (!bitmap_set_contains_value (set1, value_id)
+	  || (set2 && !bitmap_set_contains_value  (set2, value_id)))
 	return false;
     }
   return true;
@@ -2579,6 +2586,19 @@ compute_antic (void)
   sbitmap_free (changed_blocks);
 }
 
+/* Return true if we can value number the call in STMT.  This is true
+   if we have a pure or constant call to a real function.  */
+
+static bool
+can_value_number_call (gimple stmt)
+{
+  if (gimple_call_internal_p (stmt))
+    return false;
+  if (gimple_call_flags (stmt) & (ECF_PURE | ECF_CONST))
+    return true;
+  return false;
+}
+
 /* Return true if OP is a tree which we can perform PRE on.
    This may not match the operations we can value number, but in
    a perfect world would.  */
@@ -2664,7 +2684,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	  CALL_EXPR_STATIC_CHAIN (folded) = sc;
 	return folded;
       }
-
+      break;
     case MEM_REF:
       {
 	tree baseop = create_component_ref_by_pieces_1 (block, ref, operand,
@@ -2687,7 +2707,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	  }
 	return fold_build2 (MEM_REF, currop->type, baseop, offset);
       }
-
+      break;
     case TARGET_MEM_REF:
       {
 	pre_expr op0expr, op1expr;
@@ -2717,7 +2737,7 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	return build5 (TARGET_MEM_REF, currop->type,
 		       baseop, currop->op2, genop0, currop->op1, genop1);
       }
-
+      break;
     case ADDR_EXPR:
       if (currop->op0)
 	{
@@ -2729,15 +2749,17 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
     case IMAGPART_EXPR:
     case VIEW_CONVERT_EXPR:
       {
+	tree folded;
 	tree genop0 = create_component_ref_by_pieces_1 (block, ref,
 							operand,
 							stmts, domstmt);
 	if (!genop0)
 	  return NULL_TREE;
-
-	return fold_build1 (currop->opcode, currop->type, genop0);
+	folded = fold_build1 (currop->opcode, currop->type,
+			      genop0);
+	return folded;
       }
-
+      break;
     case WITH_SIZE_EXPR:
       {
 	tree genop0 = create_component_ref_by_pieces_1 (block, ref, operand,
@@ -2754,18 +2776,28 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 
 	return fold_build2 (currop->opcode, currop->type, genop0, genop1);
       }
-
+      break;
     case BIT_FIELD_REF:
       {
+	tree folded;
 	tree genop0 = create_component_ref_by_pieces_1 (block, ref, operand,
 							stmts, domstmt);
-	tree op1 = currop->op0;
-	tree op2 = currop->op1;
+	pre_expr op1expr = get_or_alloc_expr_for (currop->op0);
+	pre_expr op2expr = get_or_alloc_expr_for (currop->op1);
+	tree genop1;
+	tree genop2;
 
 	if (!genop0)
 	  return NULL_TREE;
-
-	return fold_build3 (BIT_FIELD_REF, currop->type, genop0, op1, op2);
+	genop1 = find_or_generate_expression (block, op1expr, stmts, domstmt);
+	if (!genop1)
+	  return NULL_TREE;
+	genop2 = find_or_generate_expression (block, op2expr, stmts, domstmt);
+	if (!genop2)
+	  return NULL_TREE;
+	folded = fold_build3 (BIT_FIELD_REF, currop->type, genop0, genop1,
+			      genop2);
+	return folded;
       }
 
       /* For array ref vn_reference_op's, operand 1 of the array ref
@@ -2851,9 +2883,10 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	      return NULL_TREE;
 	  }
 
-	return fold_build3 (COMPONENT_REF, TREE_TYPE (op1), op0, op1, genop2);
+	return fold_build3 (COMPONENT_REF, TREE_TYPE (op1), op0, op1,
+			    genop2);
       }
-
+      break;
     case SSA_NAME:
       {
 	pre_expr op0expr = get_or_alloc_expr_for (currop->op0);
@@ -3097,6 +3130,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 		bitmap_value_replace_in_set (NEW_SETS (block), nameexpr);
 	      bitmap_value_replace_in_set (AVAIL_OUT (block), nameexpr);
 	    }
+	  mark_symbols_for_renaming (stmt);
 	}
       gimple_seq_add_seq (stmts, forced_stmts);
     }
@@ -3107,6 +3141,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
     pretemp = create_tmp_reg (exprtype, "pretmp");
 
   temp = pretemp;
+  add_referenced_var (temp);
 
   newstmt = gimple_build_assign (temp, folded);
   name = make_ssa_name (temp, newstmt);
@@ -3115,6 +3150,9 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 
   gimple_seq_add_stmt (stmts, newstmt);
   bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (name));
+
+  /* All the symbols in NEWEXPR should be put into SSA form.  */
+  mark_symbols_for_renaming (newstmt);
 
   /* Fold the last statement.  */
   gsi = gsi_last (*stmts);
@@ -3365,6 +3403,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
     prephitemp = create_tmp_var (type, "prephitmp");
 
   temp = prephitemp;
+  add_referenced_var (temp);
 
   if (TREE_CODE (type) == COMPLEX_TYPE
       || TREE_CODE (type) == VECTOR_TYPE)
@@ -3936,7 +3975,8 @@ compute_avail (void)
 	     or control flow.
 	     If this isn't a call or it is the last stmt in the
 	     basic-block then the CFG represents things correctly.  */
-	  if (is_gimple_call (stmt) && !stmt_ends_bb_p (stmt))
+	  if (is_gimple_call (stmt)
+	      && !stmt_ends_bb_p (stmt))
 	    {
 	      /* Non-looping const functions always return normally.
 		 Otherwise the call might not return or have side-effects
@@ -3958,7 +3998,8 @@ compute_avail (void)
 	      bitmap_value_insert_into_set (AVAIL_OUT (block), e);
 	    }
 
-	  if (gimple_has_side_effects (stmt) || stmt_could_throw_p (stmt))
+	  if (gimple_has_volatile_ops (stmt)
+	      || stmt_could_throw_p (stmt))
 	    continue;
 
 	  switch (gimple_code (stmt))
@@ -3976,8 +4017,7 @@ compute_avail (void)
 		pre_expr result = NULL;
 		VEC(vn_reference_op_s, heap) *ops = NULL;
 
-		/* We can value number only calls to real functions.  */
-		if (gimple_call_internal_p (stmt))
+		if (!can_value_number_call (stmt))
 		  continue;
 
 		copy_reference_ops_from_call (stmt, &ops);
@@ -4047,7 +4087,7 @@ compute_avail (void)
 			if (TREE_CODE (nary->op[i]) == SSA_NAME)
 			  add_to_exp_gen (block, nary->op[i]);
 
-		      /* If the NARY traps and there was a preceding
+		      /* If the NARY traps and there was a preceeding
 		         point in the block that might not return avoid
 			 adding the nary to EXP_GEN.  */
 		      if (BB_MAY_NOTRETURN (block)

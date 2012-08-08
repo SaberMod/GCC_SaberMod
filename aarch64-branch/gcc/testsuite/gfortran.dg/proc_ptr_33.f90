@@ -28,3 +28,5 @@ program start
    f => my_dcos     ! { dg-error "Mismatch in PURE attribute" }
    write(*,*) f(x)
 end program start 
+
+! { dg-final { cleanup-modules "funcs" } }

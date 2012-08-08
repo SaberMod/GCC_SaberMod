@@ -15,3 +15,4 @@ module mod
     integer, private :: z  ! Fortran 2003
   end type
 end module
+! { dg-final { cleanup-modules "mod" } }

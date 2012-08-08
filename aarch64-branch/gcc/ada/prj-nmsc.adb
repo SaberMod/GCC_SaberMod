@@ -165,7 +165,6 @@ package body Prj.Nmsc is
    type Lib_Data is record
       Name : Name_Id;
       Proj : Project_Id;
-      Tree : Project_Tree_Ref;
    end record;
 
    package Lib_Data_Table is new GNAT.Table
@@ -665,141 +664,116 @@ package body Prj.Nmsc is
          end if;
       end if;
 
-      --  Always add the source if it is locally removed, to avoid incorrect
-      --  duplicate checks.
+      --  Duplication of file/unit in same project is allowed if order of
+      --  source directories is known, or if there is no compiler for the
+      --  language.
 
-      if Locally_Removed then
+      if Add_Src = False then
          Add_Src := True;
 
-         --  A locally removed source may first replace a source in a project
-         --  being extended.
+         if Project = Source.Project then
+            if Prev_Unit = No_Unit_Index then
+               if Data.Flags.Allow_Duplicate_Basenames then
+                  Add_Src := True;
 
-         if Source /= No_Source
-           and then Is_Extending (Project, Source.Project)
-           and then Naming_Exception /= Inherited
-         then
-            Source_To_Replace := Source;
-         end if;
+               elsif Lang_Id.Config.Compiler_Driver = Empty_File then
+                  Add_Src := True;
 
-      else
-         --  Duplication of file/unit in same project is allowed if order of
-         --  source directories is known, or if there is no compiler for the
-         --  language.
+               elsif Source_Dir_Rank /= Source.Source_Dir_Rank then
+                  Add_Src := False;
 
-         if Add_Src = False then
-            Add_Src := True;
+               else
+                  Error_Msg_File_1 := File_Name;
+                  Error_Msg
+                    (Data.Flags, "duplicate source file name {",
+                     Location, Project);
+                  Add_Src := False;
+               end if;
 
-            if Project = Source.Project then
-               if Prev_Unit = No_Unit_Index then
-                  if Data.Flags.Allow_Duplicate_Basenames then
-                     Add_Src := True;
+            else
+               if Source_Dir_Rank /= Source.Source_Dir_Rank then
+                  Add_Src := False;
 
-                  elsif Lang_Id.Config.Compiler_Driver = Empty_File then
-                     Add_Src := True;
+               --  We might be seeing the same file through a different path
+               --  (for instance because of symbolic links).
 
-                  elsif Source_Dir_Rank /= Source.Source_Dir_Rank then
-                     Add_Src := False;
-
-                  else
-                     Error_Msg_File_1 := File_Name;
+               elsif Source.Path.Name /= Path.Name then
+                  if not Source.Duplicate_Unit then
+                     Error_Msg_Name_1 := Unit;
                      Error_Msg
-                       (Data.Flags, "duplicate source file name {",
-                        Location, Project);
-                     Add_Src := False;
+                       (Data.Flags, "\duplicate unit %%", Location, Project);
+                     Source.Duplicate_Unit := True;
                   end if;
 
-               else
-                  if Source_Dir_Rank /= Source.Source_Dir_Rank then
-                     Add_Src := False;
-
-                     --  We might be seeing the same file through a different
-                     --  path (for instance because of symbolic links).
-
-                  elsif Source.Path.Name /= Path.Name then
-                     if not Source.Duplicate_Unit then
-                        Error_Msg_Name_1 := Unit;
-                        Error_Msg
-                          (Data.Flags,
-                           "\duplicate unit %%",
-                           Location,
-                           Project);
-                        Source.Duplicate_Unit := True;
-                     end if;
-
-                     Add_Src := False;
-                  end if;
+                  Add_Src := False;
                end if;
+            end if;
 
-               --  Do not allow the same unit name in different projects,
-               --  except if one is extending the other.
+            --  Do not allow the same unit name in different projects, except
+            --  if one is extending the other.
 
-               --  For a file based language, the same file name replaces a
-               --  file in a project being extended, but it is allowed to have
-               --  the same file name in unrelated projects.
+            --  For a file based language, the same file name replaces a file
+            --  in a project being extended, but it is allowed to have the same
+            --  file name in unrelated projects.
 
-            elsif Is_Extending (Project, Source.Project) then
-               if not Locally_Removed
-                 and then Naming_Exception /= Inherited
-               then
-                  Source_To_Replace := Source;
-               end if;
+         elsif Is_Extending (Project, Source.Project) then
+            if not Locally_Removed and then Naming_Exception /= Inherited then
+               Source_To_Replace := Source;
+            end if;
 
-            elsif Prev_Unit /= No_Unit_Index
-              and then Prev_Unit.File_Names (Kind) /= null
-              and then not Source.Locally_Removed
-              and then Source.Replaced_By = No_Source
-              and then not Data.In_Aggregate_Lib
-            then
-               --  Path is set if this is a source we found on the disk, in
-               --  which case we can provide more explicit error message. Path
-               --  is unset when the source is added from one of the naming
-               --  exceptions in the project.
+         elsif Prev_Unit /= No_Unit_Index
+           and then Prev_Unit.File_Names (Kind) /= null
+           and then not Source.Locally_Removed
+           and then not Data.In_Aggregate_Lib
+         then
+            --  Path is set if this is a source we found on the disk, in which
+            --  case we can provide more explicit error message. Path is unset
+            --  when the source is added from one of the naming exceptions in
+            --  the project.
 
-               if Path /= No_Path_Information then
-                  Error_Msg_Name_1 := Unit;
-                  Error_Msg
-                    (Data.Flags,
-                     "unit %% cannot belong to several projects",
-                     Location, Project);
-
-                  Error_Msg_Name_1 := Project.Name;
-                  Error_Msg_Name_2 := Name_Id (Path.Display_Name);
-                  Error_Msg
-                    (Data.Flags, "\  project %%, %%", Location, Project);
-
-                  Error_Msg_Name_1 := Source.Project.Name;
-                  Error_Msg_Name_2 := Name_Id (Source.Path.Display_Name);
-                  Error_Msg
-                    (Data.Flags, "\  project %%, %%", Location, Project);
-
-               else
-                  Error_Msg_Name_1 := Unit;
-                  Error_Msg_Name_2 := Source.Project.Name;
-                  Error_Msg
-                    (Data.Flags, "unit %% already belongs to project %%",
-                     Location, Project);
-               end if;
-
-               Add_Src := False;
-
-            elsif not Source.Locally_Removed
-              and then Source.Replaced_By /= No_Source
-              and then not Data.Flags.Allow_Duplicate_Basenames
-              and then Lang_Id.Config.Kind = Unit_Based
-              and then Source.Language.Config.Kind = Unit_Based
-              and then not Data.In_Aggregate_Lib
-            then
-               Error_Msg_File_1 := File_Name;
-               Error_Msg_File_2 := File_Name_Type (Source.Project.Name);
+            if Path /= No_Path_Information then
+               Error_Msg_Name_1 := Unit;
                Error_Msg
                  (Data.Flags,
-                  "{ is already a source of project {", Location, Project);
+                  "unit %% cannot belong to several projects",
+                  Location, Project);
 
-               --  Add the file anyway, to avoid further warnings like
-               --  "language unknown".
+               Error_Msg_Name_1 := Project.Name;
+               Error_Msg_Name_2 := Name_Id (Path.Display_Name);
+               Error_Msg
+                 (Data.Flags, "\  project %%, %%", Location, Project);
 
-               Add_Src := True;
+               Error_Msg_Name_1 := Source.Project.Name;
+               Error_Msg_Name_2 := Name_Id (Source.Path.Display_Name);
+               Error_Msg
+                 (Data.Flags, "\  project %%, %%", Location, Project);
+
+            else
+               Error_Msg_Name_1 := Unit;
+               Error_Msg_Name_2 := Source.Project.Name;
+               Error_Msg
+                 (Data.Flags, "unit %% already belongs to project %%",
+                  Location, Project);
             end if;
+
+            Add_Src := False;
+
+         elsif not Source.Locally_Removed
+           and then not Data.Flags.Allow_Duplicate_Basenames
+           and then Lang_Id.Config.Kind = Unit_Based
+           and then Source.Language.Config.Kind = Unit_Based
+           and then not Data.In_Aggregate_Lib
+         then
+            Error_Msg_File_1 := File_Name;
+            Error_Msg_File_2 := File_Name_Type (Source.Project.Name);
+            Error_Msg
+              (Data.Flags,
+               "{ is already a source of project {", Location, Project);
+
+            --  Add the file anyway, to avoid further warnings like "language
+            --  unknown".
+
+            Add_Src := True;
          end if;
       end if;
 
@@ -884,7 +858,7 @@ package body Prj.Nmsc is
 
          --  Note that this updates Unit information as well
 
-         if Naming_Exception /= Inherited and then not Locally_Removed then
+         if Naming_Exception /= Inherited then
             Override_Kind (Id, Kind);
          end if;
       end if;
@@ -3640,9 +3614,7 @@ package body Prj.Nmsc is
          --  Check if the same library name is used in an other library project
 
          for J in 1 .. Lib_Data_Table.Last loop
-            if Lib_Data_Table.Table (J).Name = Project.Library_Name
-              and then Lib_Data_Table.Table (J).Tree = Data.Tree
-            then
+            if Lib_Data_Table.Table (J).Name = Project.Library_Name then
                Error_Msg_Name_1 := Lib_Data_Table.Table (J).Proj.Name;
                Error_Msg
                  (Data.Flags,
@@ -3659,9 +3631,7 @@ package body Prj.Nmsc is
          --  Record the library name
 
          Lib_Data_Table.Append
-           ((Name => Project.Library_Name,
-             Proj => Project,
-             Tree => Data.Tree));
+           ((Name => Project.Library_Name, Proj => Project));
       end if;
    end Check_Library_Attributes;
 
@@ -4209,25 +4179,22 @@ package body Prj.Nmsc is
             Lang_Id := Lang_Id.Next;
          end loop;
 
-         --  Get the naming exceptions for all languages, but not for virtual
-         --  projects.
+         --  Get the naming exceptions for all languages
 
-         if not Project.Virtual then
-            for Kind in Spec_Or_Body loop
-               Lang_Id := Project.Languages;
-               while Lang_Id /= No_Language_Index loop
-                  case Lang_Id.Config.Kind is
+         for Kind in Spec_Or_Body loop
+            Lang_Id := Project.Languages;
+            while Lang_Id /= No_Language_Index loop
+               case Lang_Id.Config.Kind is
                   when File_Based =>
                      Process_Exceptions_File_Based (Lang_Id, Kind);
 
                   when Unit_Based =>
                      Process_Exceptions_Unit_Based (Lang_Id, Kind);
-                  end case;
+               end case;
 
-                  Lang_Id := Lang_Id.Next;
-               end loop;
+               Lang_Id := Lang_Id.Next;
             end loop;
-         end if;
+         end loop;
       end Check_Naming;
 
       ----------------------------
@@ -7822,12 +7789,8 @@ package body Prj.Nmsc is
                     (Project.Excluded, Source.File);
 
                   if Excluded /= No_File_Found then
-                     Source.In_Interfaces   := False;
                      Source.Locally_Removed := True;
-
-                     if Proj = Project.Project then
-                        Source.Suppressed := True;
-                     end if;
+                     Source.In_Interfaces   := False;
 
                      if Current_Verbosity = High then
                         Debug_Indent;

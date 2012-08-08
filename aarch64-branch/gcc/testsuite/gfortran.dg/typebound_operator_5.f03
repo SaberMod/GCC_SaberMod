@@ -26,3 +26,5 @@ PROGRAM P
   CLASS (NODE),POINTER :: A, B
   PRINT *, A%PT .LT. B%PT
 END
+
+! { dg-final { cleanup-modules "def1" } }

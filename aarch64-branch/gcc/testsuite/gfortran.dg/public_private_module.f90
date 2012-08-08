@@ -16,3 +16,4 @@ module d
   implicit none
   private a  ! { dg-error "attribute applied to" }
 end module d
+! { dg-final { cleanup-modules "a" } }

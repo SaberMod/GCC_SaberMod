@@ -1104,12 +1104,15 @@ extern char leaf_reg_remap[];
   {{ FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}, \
    { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM} }
 
-#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 		\
-  do								\
-    {								\
-      (OFFSET) = sparc_initial_elimination_offset ((TO));	\
-    }								\
-  while (0)
+#define INITIAL_ELIMINATION_OFFSET(FROM, TO, OFFSET) 			\
+  do {									\
+    if ((TO) == STACK_POINTER_REGNUM)					\
+      (OFFSET) = sparc_compute_frame_size (get_frame_size (),		\
+					   current_function_is_leaf);	\
+    else								\
+      (OFFSET) = 0;							\
+    (OFFSET) += SPARC_STACK_BIAS;					\
+  } while (0)
 
 /* Keep the stack pointer constant throughout the function.
    This is both an optimization and a necessity: longjmp
@@ -1709,10 +1712,12 @@ do {									\
     ASM_OUTPUT_ALIGNED_LOCAL (FILE, NAME, SIZE, ALIGN);		\
   } while (0)
 
+#define IDENT_ASM_OP "\t.ident\t"
+
 /* Output #ident as a .ident.  */
 
-#undef TARGET_ASM_OUTPUT_IDENT
-#define TARGET_ASM_OUTPUT_IDENT default_asm_output_ident_directive
+#define ASM_OUTPUT_IDENT(FILE, NAME) \
+  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME);
 
 /* Prettify the assembly.  */
 
@@ -1743,6 +1748,9 @@ extern int sparc_indent_opcode;
 #else
 #define AS_NIAGARA3_FLAG "d"
 #endif
+
+/* The number of Pmode words for the setjmp buffer.  */
+#define JMP_BUF_SIZE 12
 
 /* We use gcc _mcount for profiling.  */
 #define NO_PROFILE_COUNTERS 0

@@ -56,4 +56,6 @@ end module
   z%a => y
   if ((z%sizeof() .ne. 2) .or. (z%a%sizeof() .ne. 2)) call abort
 end
+
+! { dg-final { cleanup-modules "m1 m2 m3" } }
  	

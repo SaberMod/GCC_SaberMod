@@ -28,3 +28,5 @@ contains
     integer, intent(inout) :: j
   end subroutine ext_bar
 end module extfoo_mod 
+
+! { dg-final { cleanup-modules "foo_mod extfoo_mod" } }

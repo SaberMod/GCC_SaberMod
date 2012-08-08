@@ -6,7 +6,7 @@
 
   implicit none
   procedure(my_dcos), pointer :: f
-  f => my_dcos           ! { dg-error "invalid in procedure pointer assignment" }
+  f => my_dcos           ! { dg-error "invalid in procedure pointer assigment" }
 contains
   real elemental function my_dcos(x)
     real, intent(in) :: x

@@ -28,3 +28,4 @@ PROGRAM main
   arr%myproc => myproc  ! { dg-error "must not have the POINTER attribute" }
 END PROGRAM main
  
+! { dg-final { cleanup-modules "m" } }

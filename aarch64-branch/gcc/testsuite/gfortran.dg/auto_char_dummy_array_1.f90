@@ -53,3 +53,5 @@ contains
   end subroutine a
 
 end program oh_no_not_pr15908_again
+
+! { dg-final { cleanup-modules "global" } }

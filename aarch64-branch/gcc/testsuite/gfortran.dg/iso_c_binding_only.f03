@@ -7,3 +7,5 @@ module iso_c_binding_only
   ! a mangled name to prevent collisions.
   integer :: c_ptr
 end module iso_c_binding_only
+! { dg-final { cleanup-modules "iso_c_binding_only" } }  
+

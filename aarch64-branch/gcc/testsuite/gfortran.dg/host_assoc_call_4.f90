@@ -45,3 +45,4 @@ contains
     call GetBasicElementData (TargetElement, ProcedureName, ErrorNumber, ErrorLevel, ErrorMessage, CallingStat)
   end subroutine WH_ERR
 end module ErrorMod
+! { dg-final { cleanup-modules "errelmnt errormod" } }

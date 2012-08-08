@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "cselib.h"
 #include "dce.h"
-#include "valtrack.h"
+#include "timevar.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
 #include "tm_p.h"
@@ -46,9 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 /* True if we are invoked while the df engine is running; in this case,
    we don't want to reenter it.  */
 static bool df_in_progress = false;
-
-/* True if we are allowed to alter the CFG in this pass.  */
-static bool can_alter_cfg = false;
 
 /* Instructions that have been marked but whose dependencies have not
    yet been processed.  */
@@ -116,9 +113,8 @@ deletable_insn_p (rtx insn, bool fast, bitmap arg_stores)
   if (!NONJUMP_INSN_P (insn))
     return false;
 
-  /* Don't delete insns that may throw if we cannot do so.  */
-  if (!(cfun->can_delete_dead_exceptions && can_alter_cfg)
-      && !insn_nothrow_p (insn))
+  /* Don't delete insns that can throw.  */
+  if (!insn_nothrow_p (insn))
     return false;
 
   body = PATTERN (insn);
@@ -715,10 +711,7 @@ init_dce (bool fast)
     {
       bitmap_obstack_initialize (&dce_blocks_bitmap_obstack);
       bitmap_obstack_initialize (&dce_tmp_bitmap_obstack);
-      can_alter_cfg = false;
     }
-  else
-    can_alter_cfg = true;
 
   marked = sbitmap_alloc (get_max_uid () + 1);
   sbitmap_zero (marked);
@@ -865,10 +858,6 @@ word_dce_process_block (basic_block bb, bool redo_out)
 	if (marked_insn_p (insn))
 	  df_word_lr_simulate_uses (insn, local_live);
 
-	/* Insert debug temps for dead REGs used in subsequent debug
-	   insns.  We may have to emit a debug temp even if the insn
-	   was marked, in case the debug use was after the point of
-	   death.  */
 	if (debug.used && !bitmap_empty_p (debug.used))
 	  {
 	    df_ref *def_rec;
@@ -950,13 +939,18 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au)
 	/* The insn is needed if there is someone who uses the output.  */
 	if (!needed)
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec))
-		|| bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
-	      {
-		needed = true;
-		mark_insn (insn, true);
-		break;
-	      }
+	    {
+	      dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
+				      DEBUG_TEMP_BEFORE_WITH_VALUE);
+
+	      if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec))
+		  || bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
+		{
+		  needed = true;
+		  mark_insn (insn, true);
+		  break;
+		}
+	    }
 
 	/* No matter if the instruction is needed or not, we remove
 	   any regno in the defs from the live set.  */
@@ -966,15 +960,6 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au)
 	   anything in local_live.  */
 	if (needed)
 	  df_simulate_uses (insn, local_live);
-
-	/* Insert debug temps for dead REGs used in subsequent debug
-	   insns.  We may have to emit a debug temp even if the insn
-	   was marked, in case the debug use was after the point of
-	   death.  */
-	if (debug.used && !bitmap_empty_p (debug.used))
-	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
-				    DEBUG_TEMP_BEFORE_WITH_VALUE);
       }
 
   dead_debug_finish (&debug, NULL);

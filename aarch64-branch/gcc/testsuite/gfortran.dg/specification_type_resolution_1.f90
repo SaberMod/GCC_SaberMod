@@ -28,3 +28,4 @@ end module test
    print *, elements_uncommon_with (z)
    print *, n_elements_uncommon_with_ (z)
 end
+! { dg-final { cleanup-modules "test" } }

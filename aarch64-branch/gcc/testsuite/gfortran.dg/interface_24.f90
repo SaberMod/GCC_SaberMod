@@ -62,3 +62,5 @@ module m6
     end function
   end interface
 end module
+
+! { dg-final { cleanup-modules "m1 m2 m3 m4 m5 m6" } }

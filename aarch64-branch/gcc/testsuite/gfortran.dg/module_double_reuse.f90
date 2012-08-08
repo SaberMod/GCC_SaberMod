@@ -16,3 +16,5 @@ program d
   if (kind(x).ne.kind(y)) call abort ()
   if (v.ne.u) call abort ()
 end program d
+
+! { dg-final { cleanup-modules "a" } }

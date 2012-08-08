@@ -35,3 +35,5 @@ CONTAINS
  END SUBROUTINE use_sub
 
 END MODULE m 
+
+! { dg-final { cleanup-modules "m" } }

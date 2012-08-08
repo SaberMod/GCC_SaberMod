@@ -1013,16 +1013,6 @@ package body Sem_Util is
    is
       Loc : constant Source_Ptr := Sloc (Expr);
    begin
-
-      --  An entity of a type with implicit dereference is overloaded with
-      --  both interpretations: with and without the dereference. Now that
-      --  the dereference is made explicit, set the type of the node properly,
-      --  to prevent anomalies in the backend.
-
-      if Is_Entity_Name (Expr) then
-         Set_Etype (Expr, Etype (Entity (Expr)));
-      end if;
-
       Set_Is_Overloaded (Expr, False);
       Rewrite (Expr,
         Make_Explicit_Dereference (Loc,
@@ -2259,36 +2249,10 @@ package body Sem_Util is
             end if;
 
             if Wmsg then
-
-               --  Check whether the context is an Init_Proc
-
                if Inside_Init_Proc then
-                  declare
-                     Conc_Typ : constant Entity_Id :=
-                                  Corresponding_Concurrent_Type
-                                    (Entity (Parameter_Type (First
-                                      (Parameter_Specifications
-                                        (Parent (Current_Scope))))));
-
-                  begin
-                     --  Don't complain if the corresponding concurrent type
-                     --  doesn't come from source (i.e. a single task/protected
-                     --  object).
-
-                     if Present (Conc_Typ)
-                       and then not Comes_From_Source (Conc_Typ)
-                     then
-                        Error_Msg_NEL
-                          ("\?& will be raised at run time",
-                           N, Standard_Constraint_Error, Eloc);
-
-                     else
-                        Error_Msg_NEL
-                          ("\?& will be raised for objects of this type",
-                           N, Standard_Constraint_Error, Eloc);
-                     end if;
-                  end;
-
+                  Error_Msg_NEL
+                    ("\?& will be raised for objects of this type",
+                     N, Standard_Constraint_Error, Eloc);
                else
                   Error_Msg_NEL
                     ("\?& will be raised at run time",
@@ -3075,32 +3039,10 @@ package body Sem_Util is
         and then Is_Entity_Name (Renamed_Object (Id))
       then
          return Effective_Extra_Accessibility (Entity (Renamed_Object (Id)));
-      else
-         return Extra_Accessibility (Id);
       end if;
+
+      return Extra_Accessibility (Id);
    end Effective_Extra_Accessibility;
-
-   ------------------------------
-   -- Enclosing_Comp_Unit_Node --
-   ------------------------------
-
-   function Enclosing_Comp_Unit_Node (N : Node_Id) return Node_Id is
-      Current_Node : Node_Id;
-
-   begin
-      Current_Node := N;
-      while Present (Current_Node)
-        and then Nkind (Current_Node) /= N_Compilation_Unit
-      loop
-         Current_Node := Parent (Current_Node);
-      end loop;
-
-      if Nkind (Current_Node) /= N_Compilation_Unit then
-         return Empty;
-      else
-         return Current_Node;
-      end if;
-   end Enclosing_Comp_Unit_Node;
 
    --------------------------
    -- Enclosing_CPP_Parent --
@@ -3205,16 +3147,14 @@ package body Sem_Util is
    -- Enclosing_Lib_Unit_Entity --
    -------------------------------
 
-   function Enclosing_Lib_Unit_Entity
-      (E : Entity_Id := Current_Scope) return Entity_Id
-   is
+   function Enclosing_Lib_Unit_Entity return Entity_Id is
       Unit_Entity : Entity_Id;
 
    begin
       --  Look for enclosing library unit entity by following scope links.
       --  Equivalent to, but faster than indexing through the scope stack.
 
-      Unit_Entity := E;
+      Unit_Entity := Current_Scope;
       while (Present (Scope (Unit_Entity))
         and then Scope (Unit_Entity) /= Standard_Standard)
         and not Is_Child_Unit (Unit_Entity)
@@ -3224,6 +3164,28 @@ package body Sem_Util is
 
       return Unit_Entity;
    end Enclosing_Lib_Unit_Entity;
+
+   -----------------------------
+   -- Enclosing_Lib_Unit_Node --
+   -----------------------------
+
+   function Enclosing_Lib_Unit_Node (N : Node_Id) return Node_Id is
+      Current_Node : Node_Id;
+
+   begin
+      Current_Node := N;
+      while Present (Current_Node)
+        and then Nkind (Current_Node) /= N_Compilation_Unit
+      loop
+         Current_Node := Parent (Current_Node);
+      end loop;
+
+      if Nkind (Current_Node) /= N_Compilation_Unit then
+         return Empty;
+      end if;
+
+      return Current_Node;
+   end Enclosing_Lib_Unit_Node;
 
    -----------------------
    -- Enclosing_Package --
@@ -3773,7 +3735,7 @@ package body Sem_Util is
       then
          Call := Parent (Parnt);
 
-      elsif Nkind (Parnt) in N_Subprogram_Call then
+      elsif Nkind_In (Parnt, N_Procedure_Call_Statement, N_Function_Call) then
          Call := Parnt;
 
       else
@@ -4500,8 +4462,7 @@ package body Sem_Util is
       Pos : Uint;
       Loc : Source_Ptr) return Node_Id
    is
-      Btyp : Entity_Id := Base_Type (T);
-      Lit  : Node_Id;
+      Lit : Node_Id;
 
    begin
       --  In the case where the literal is of type Character, Wide_Character
@@ -4523,11 +4484,7 @@ package body Sem_Util is
       --
 
       else
-         if Is_Private_Type (Btyp) and then Present (Full_View (Btyp)) then
-            Btyp := Full_View (Btyp);
-         end if;
-
-         Lit := First_Literal (Btyp);
+         Lit := First_Literal (Base_Type (T));
          for J in 1 .. UI_To_Int (Pos) loop
             Next_Literal (Lit);
          end loop;
@@ -6310,43 +6267,6 @@ package body Sem_Util is
       return False;
    end In_Parameter_Specification;
 
-   -------------------------------------
-   -- In_Reverse_Storage_Order_Object --
-   -------------------------------------
-
-   function In_Reverse_Storage_Order_Object (N : Node_Id) return Boolean is
-      Pref : Node_Id;
-      Btyp : Entity_Id := Empty;
-
-   begin
-      --  Climb up indexed components
-
-      Pref := N;
-      loop
-         case Nkind (Pref) is
-            when N_Selected_Component =>
-               Pref := Prefix (Pref);
-               exit;
-
-            when N_Indexed_Component =>
-               Pref := Prefix (Pref);
-
-            when others =>
-               Pref := Empty;
-               exit;
-         end case;
-      end loop;
-
-      if Present (Pref) then
-         Btyp := Base_Type (Etype (Pref));
-      end if;
-
-      return
-        Present (Btyp)
-          and then (Is_Record_Type (Btyp) or else Is_Array_Type (Btyp))
-          and then Reverse_Storage_Order (Btyp);
-   end In_Reverse_Storage_Order_Object;
-
    --------------------------------------
    -- In_Subprogram_Or_Concurrent_Unit --
    --------------------------------------
@@ -6641,7 +6561,7 @@ package body Sem_Util is
          when N_Parameter_Association =>
             return N = Explicit_Actual_Parameter (Parent (N));
 
-         when N_Subprogram_Call =>
+         when N_Function_Call | N_Procedure_Call_Statement =>
             return Is_List_Member (N)
               and then
                 List_Containing (N) = Parameter_Associations (Parent (N));
@@ -6796,11 +6716,6 @@ package body Sem_Util is
          then
             return True;
 
-         elsif Nkind (N) = N_Selected_Component
-           and then Is_Atomic (Entity (Selector_Name (N)))
-         then
-            return True;
-
          elsif Nkind (N) = N_Indexed_Component
            or else Nkind (N) = N_Selected_Component
          then
@@ -6821,11 +6736,6 @@ package body Sem_Util is
 
       elsif Is_Atomic (Etype (N))
         or else (Is_Entity_Name (N) and then Is_Atomic (Entity (N)))
-      then
-         return True;
-
-      elsif Nkind (N) = N_Selected_Component
-        and then Is_Atomic (Entity (Selector_Name (N)))
       then
          return True;
 
@@ -7756,18 +7666,6 @@ package body Sem_Util is
             when N_String_Literal =>
                return Is_Internally_Generated_Renaming (Parent (N));
 
-            --  AI05-0003: In Ada 2012 a qualified expression is a name.
-            --  This allows disambiguation of function calls and the use
-            --  of aggregates in more contexts.
-
-            when N_Qualified_Expression =>
-               if Ada_Version <  Ada_2012 then
-                  return False;
-               else
-                  return Is_Object_Reference (Expression (N))
-                    or else Nkind (Expression (N)) = N_Aggregate;
-               end if;
-
             when others =>
                return False;
          end case;
@@ -8176,8 +8074,9 @@ package body Sem_Util is
 
    function Is_Remote_Call (N : Node_Id) return Boolean is
    begin
-      if Nkind (N) not in N_Subprogram_Call then
-
+      if Nkind (N) /= N_Procedure_Call_Statement
+        and then Nkind (N) /= N_Function_Call
+      then
          --  An entry call cannot be remote
 
          return False;
@@ -8741,16 +8640,6 @@ package body Sem_Util is
              and then not Is_Access_Constant (Etype (Prefix (N))))
            or else
              Is_Variable_Prefix (Original_Node (Prefix (N)));
-
-      --  in Ada 2012, the dereference may have been added for a type with
-      --  a declared implicit dereference aspect.
-
-      elsif Nkind (N) = N_Explicit_Dereference
-        and then Present (Etype (Orig_Node))
-        and then  Ada_Version >= Ada_2012
-        and then Has_Implicit_Dereference (Etype (Orig_Node))
-      then
-         return True;
 
       --  A function call is never a variable
 
@@ -9376,8 +9265,9 @@ package body Sem_Util is
          --  In older versions of Ada function call arguments are never
          --  lvalues. In Ada 2012 functions can have in-out parameters.
 
-         when N_Subprogram_Call      |
-              N_Entry_Call_Statement |
+         when N_Function_Call            |
+              N_Procedure_Call_Statement |
+              N_Entry_Call_Statement     |
               N_Accept_Statement
          =>
             if Nkind (P) = N_Function_Call and then Ada_Version < Ada_2012 then

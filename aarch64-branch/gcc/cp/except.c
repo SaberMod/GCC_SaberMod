@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
+#include "output.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "target.h"
@@ -45,7 +46,7 @@ static void initialize_handler_parm (tree, tree);
 static tree do_allocate_exception (tree);
 static tree wrap_cleanups_r (tree *, int *, void *);
 static int complete_ptr_ref_or_void_ptr_p (tree, tree);
-static bool is_admissible_throw_operand_or_catch_parameter (tree, bool);
+static bool is_admissible_throw_operand (tree);
 static int can_convert_eh (tree, tree);
 
 /* Sets up all the global eh stuff that needs to be initialized at the
@@ -424,8 +425,7 @@ initialize_handler_parm (tree decl, tree exp)
       && TYPE_PTR_P (TREE_TYPE (init_type)))
     exp = cp_build_addr_expr (exp, tf_warning_or_error);
 
-  exp = ocp_convert (init_type, exp, CONV_IMPLICIT|CONV_FORCE_TEMP, 0,
-		     tf_warning_or_error);
+  exp = ocp_convert (init_type, exp, CONV_IMPLICIT|CONV_FORCE_TEMP, 0);
 
   init = convert_from_reference (exp);
 
@@ -436,8 +436,7 @@ initialize_handler_parm (tree decl, tree exp)
       /* Generate the copy constructor call directly so we can wrap it.
 	 See also expand_default_init.  */
       init = ocp_convert (TREE_TYPE (decl), init,
-			  CONV_IMPLICIT|CONV_FORCE_TEMP, 0,
-			  tf_warning_or_error);
+			  CONV_IMPLICIT|CONV_FORCE_TEMP, 0);
       /* Force cleanups now to avoid nesting problems with the
 	 MUST_NOT_THROW_EXPR.  */
       init = fold_build_cleanup_point_expr (TREE_TYPE (init), init);
@@ -486,13 +485,12 @@ expand_start_catch_block (tree decl)
   if (! doing_eh ())
     return NULL_TREE;
 
-  if (decl)
-    {
-      if (!is_admissible_throw_operand_or_catch_parameter (decl, false))
-	decl = error_mark_node;
+  /* Make sure this declaration is reasonable.  */
+  if (decl && !complete_ptr_ref_or_void_ptr_p (TREE_TYPE (decl), NULL_TREE))
+    decl = error_mark_node;
 
-      type = prepare_eh_type (TREE_TYPE (decl));
-    }
+  if (decl)
+    type = prepare_eh_type (TREE_TYPE (decl));
   else
     type = NULL_TREE;
 
@@ -722,7 +720,7 @@ build_throw (tree exp)
 
   if (exp != NULL_TREE)
     {
-      if (!is_admissible_throw_operand_or_catch_parameter (exp, true))
+      if (!is_admissible_throw_operand (exp))
 	return error_mark_node;
     }
 
@@ -946,21 +944,14 @@ complete_ptr_ref_or_void_ptr_p (tree type, tree from)
   return 1;
 }
 
-/* If IS_THROW is true return truth-value if T is an expression admissible
-   in throw-expression, i.e. if it is not of incomplete type or a pointer/
-   reference to such a type or of an abstract class type.
-   If IS_THROW is false, likewise for a catch parameter, same requirements
-   for its type plus rvalue reference type is also not admissible.  */
+/* Return truth-value if EXPRESSION is admissible in throw-expression,
+   i.e. if it is not of incomplete type or a pointer/reference to such
+   a type or of an abstract class type.  */
 
 static bool
-is_admissible_throw_operand_or_catch_parameter (tree t, bool is_throw)
+is_admissible_throw_operand (tree expr)
 {
-  tree expr = is_throw ? t : NULL_TREE;
-  tree type = TREE_TYPE (t);
-
-  /* C++11 [except.handle] The exception-declaration shall not denote
-     an incomplete type, an abstract class type, or an rvalue reference 
-     type.  */
+  tree type = TREE_TYPE (expr);
 
   /* 15.1/4 [...] The type of the throw-expression shall not be an
 	    incomplete type, or a pointer or a reference to an incomplete
@@ -975,22 +966,10 @@ is_admissible_throw_operand_or_catch_parameter (tree t, bool is_throw)
   /* 10.4/3 An abstract class shall not be used as a parameter type,
 	    as a function return type or as type of an explicit
 	    conversion.  */
-  else if (ABSTRACT_CLASS_TYPE_P (type))
+  else if (CLASS_TYPE_P (type) && CLASSTYPE_PURE_VIRTUALS (type))
     {
-      if (is_throw)
-	error ("expression %qE of abstract class type %qT cannot "
-	       "be used in throw-expression", expr, type);
-      else
-	error ("cannot declare catch parameter to be of abstract "
-	       "class type %qT", type);
-      return false;
-    }
-  else if (!is_throw
-	   && TREE_CODE (type) == REFERENCE_TYPE
-	   && TYPE_REF_IS_RVALUE (type))
-    {
-      error ("cannot declare catch parameter to be of rvalue "
-	     "reference type %qT", type);
+      error ("expression %qE of abstract class type %qT cannot "
+	     "be used in throw-expression", expr, type);
       return false;
     }
 

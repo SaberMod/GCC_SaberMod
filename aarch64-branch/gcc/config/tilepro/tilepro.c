@@ -38,7 +38,7 @@
 #include "tm-constrs.h"
 #include "target.h"
 #include "target-def.h"
-#include "function.h"
+#include "integrate.h"
 #include "dwarf2.h"
 #include "timevar.h"
 #include "gimple.h"
@@ -3377,7 +3377,7 @@ emit_sp_adjust (int offset, int *next_scratch_regno, bool frame_related,
 static bool
 tilepro_current_function_is_leaf (void)
 {
-  return crtl->is_leaf && !cfun->machine->calls_tls_get_addr;
+  return current_function_is_leaf && !cfun->machine->calls_tls_get_addr;
 }
 
 

@@ -23,3 +23,5 @@ CONTAINS
   END SUBROUTINE purified
 
 END MODULE m
+
+! { dg-final { cleanup-modules "m" } }

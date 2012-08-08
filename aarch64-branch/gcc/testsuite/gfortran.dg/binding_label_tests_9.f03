@@ -19,3 +19,5 @@ contains
   subroutine my_public_sub() bind(c, name="my_sub")
   end subroutine my_public_sub
 end module x
+
+! { dg-final { cleanup-modules "x" } }

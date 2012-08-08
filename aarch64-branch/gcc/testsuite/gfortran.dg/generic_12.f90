@@ -29,3 +29,4 @@ PROGRAM main
   IMPLICIT NONE
   CALL hello(10)
 END PROGRAM main
+! { dg-final { cleanup-modules "interfaces global_module" } }

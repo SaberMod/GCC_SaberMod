@@ -39,10 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "basic-block.h"
 #include "cgraph.h"
+#include "output.h"
 #include "intl.h"
 #include "gimple.h"
-#include "timevar.h"
-#include "dumpfile.h"
+#include "tree-dump.h"
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "except.h"
@@ -53,9 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-
-/* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
-#include "tree-pass.h"
 
 static void cgraph_node_remove_callers (struct cgraph_node *node);
 static inline void cgraph_edge_remove_caller (struct cgraph_edge *e);
@@ -416,7 +413,7 @@ cgraph_get_create_node (tree decl)
 }
 
 /* Mark ALIAS as an alias to DECL.  DECL_NODE is cgraph node representing
-   the function body is associated with (not necessarily cgraph_node (DECL).  */
+   the function body is associated with (not neccesarily cgraph_node (DECL).  */
 
 struct cgraph_node *
 cgraph_create_function_alias (tree alias, tree decl)
@@ -513,7 +510,7 @@ cgraph_node_for_asm (tree asmname)
   return NULL;
 }
 
-/* Returns a hash value for X (which really is a cgraph_edge).  */
+/* Returns a hash value for X (which really is a die_struct).  */
 
 static hashval_t
 edge_hash (const void *x)
@@ -521,7 +518,7 @@ edge_hash (const void *x)
   return htab_hash_pointer (((const struct cgraph_edge *) x)->call_stmt);
 }
 
-/* Return nonzero if the call_stmt of of cgraph_edge X is stmt *Y.  */
+/* Return nonzero if decl_id of die_struct X is the same as UID of decl *Y.  */
 
 static int
 edge_eq (const void *x, const void *y)
@@ -1165,7 +1162,7 @@ cgraph_release_function_body (struct cgraph_node *node)
   /* If the node is abstract and needed, then do not clear DECL_INITIAL
      of its associated function function declaration because it's
      needed to emit debug info later.  */
-  if (!node->abstract_and_needed && DECL_INITIAL (node->symbol.decl))
+  if (!node->abstract_and_needed)
     DECL_INITIAL (node->symbol.decl) = error_mark_node;
 }
 
@@ -1245,7 +1242,6 @@ cgraph_remove_node (struct cgraph_node *node)
 	  && (cgraph_global_info_ready
 	      && (TREE_ASM_WRITTEN (n->symbol.decl)
 		  || DECL_EXTERNAL (n->symbol.decl)
-		  || !n->analyzed
 		  || n->symbol.in_other_partition))))
     cgraph_release_function_body (node);
 
@@ -1584,7 +1580,7 @@ cgraph_node_can_be_local_p (struct cgraph_node *node)
 					   NULL, true));
 }
 
-/* Call calback on NODE, thunks and aliases associated to NODE. 
+/* Call calback on NODE, thunks and aliases asociated to NODE. 
    When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
    skipped. */
 
@@ -1620,7 +1616,7 @@ cgraph_for_node_thunks_and_aliases (struct cgraph_node *node,
   return false;
 }
 
-/* Call calback on NODE and aliases associated to NODE. 
+/* Call calback on NODE and aliases asociated to NODE. 
    When INCLUDE_OVERWRITABLE is false, overwritable aliases and thunks are
    skipped. */
 
@@ -2090,7 +2086,7 @@ verify_edge_count_and_frequency (struct cgraph_edge *e)
   if (gimple_has_body_p (e->caller->symbol.decl)
       && !e->caller->global.inlined_to
       /* FIXME: Inline-analysis sets frequency to 0 when edge is optimized out.
-	 Remove this once edges are actually removed from the function at that time.  */
+	 Remove this once edges are actualy removed from the function at that time.  */
       && (e->frequency
 	  || (inline_edge_summary_vec
 	      && ((VEC_length(inline_edge_summary_t, inline_edge_summary_vec)

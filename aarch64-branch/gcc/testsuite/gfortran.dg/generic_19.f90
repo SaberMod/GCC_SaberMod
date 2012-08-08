@@ -34,3 +34,4 @@ program prog
   call sub(1, "integer ")
   call sub(1.0, "real    ")
 end program prog
+! { dg-final { cleanup-modules "mod1 mod2" } }

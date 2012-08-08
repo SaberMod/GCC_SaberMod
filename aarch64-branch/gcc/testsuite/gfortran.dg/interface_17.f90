@@ -21,3 +21,4 @@ END MODULE util
 MODULE graphcon
   USE util,                            ONLY: sort
 END MODULE graphcon
+! { dg-final { cleanup-modules "kinds util graphcon" } }

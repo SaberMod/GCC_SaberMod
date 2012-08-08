@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
+#include "output.h"
 #include "convert.h"
 #include "target.h"
 #include "c-family/c-pragma.h"
@@ -99,7 +100,7 @@ VEC(tree,gc) *unemitted_tinfo_decls;
    and are generated as needed. */
 static GTY (()) VEC(tinfo_s,gc) *tinfo_descs;
 
-static tree ifnonnull (tree, tree, tsubst_flags_t);
+static tree ifnonnull (tree, tree);
 static tree tinfo_name (tree, bool);
 static tree build_dynamic_cast_1 (tree, tree, tsubst_flags_t);
 static tree throw_bad_cast (void);
@@ -336,8 +337,7 @@ build_typeid (tree exp)
          This is an lvalue use of expr then.  */
       exp = mark_lvalue_use (exp);
       exp = stabilize_reference (exp);
-      cond = cp_convert (boolean_type_node, TREE_OPERAND (exp, 0),
-			 tf_warning_or_error);
+      cond = cp_convert (boolean_type_node, TREE_OPERAND (exp, 0));
     }
 
   exp = get_tinfo_decl_dynamic (exp);
@@ -499,13 +499,12 @@ get_typeid (tree type)
    RESULT, it must have previously had a save_expr applied to it.  */
 
 static tree
-ifnonnull (tree test, tree result, tsubst_flags_t complain)
+ifnonnull (tree test, tree result)
 {
   return build3 (COND_EXPR, TREE_TYPE (result),
 		 build2 (EQ_EXPR, boolean_type_node, test,
-			 cp_convert (TREE_TYPE (test), nullptr_node,
-				     complain)),
-		 cp_convert (TREE_TYPE (result), nullptr_node, complain),
+			 cp_convert (TREE_TYPE (test), nullptr_node)),
+		 cp_convert (TREE_TYPE (result), nullptr_node),
 		 result);
 }
 
@@ -598,7 +597,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 
       /* Apply trivial conversion T -> T& for dereferenced ptrs.  */
       expr = convert_to_reference (exprtype, expr, CONV_IMPLICIT,
-				   LOOKUP_NORMAL, NULL_TREE, complain);
+				   LOOKUP_NORMAL, NULL_TREE);
     }
 
   /* The dynamic_cast operator shall not cast away constness.  */
@@ -646,7 +645,7 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  expr1 = build_headof (expr);
 	  if (TREE_TYPE (expr1) != type)
 	    expr1 = build1 (NOP_EXPR, type, expr1);
-	  return ifnonnull (expr, expr1, complain);
+	  return ifnonnull (expr, expr1);
 	}
       else
 	{
@@ -754,12 +753,12 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	      neq = cp_truthvalue_conversion (result);
 	      return cp_convert (type,
 				 build3 (COND_EXPR, TREE_TYPE (result),
-					 neq, result, bad), complain);
+					 neq, result, bad));
 	    }
 
 	  /* Now back to the type we want from a void*.  */
-	  result = cp_convert (type, result, complain);
-	  return ifnonnull (expr, result, complain);
+	  result = cp_convert (type, result);
+	  return ifnonnull (expr, result);
 	}
     }
   else
@@ -817,7 +816,7 @@ static bool
 target_incomplete_p (tree type)
 {
   while (true)
-    if (TYPE_PTRDATAMEM_P (type))
+    if (TYPE_PTRMEM_P (type))
       {
 	if (!COMPLETE_TYPE_P (TYPE_PTRMEM_CLASS_TYPE (type)))
 	  return true;

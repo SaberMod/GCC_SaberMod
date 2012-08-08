@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
-#include "coretypes.h"
 #include "gfortran.h"
 #include "data.h"
 #include "constructor.h"
@@ -315,7 +314,7 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index,
 		  exprd = (LOCATION_LINE (con->expr->where.lb->location)
 			   > LOCATION_LINE (rvalue->where.lb->location))
 			  ? con->expr : rvalue;
-		  if (gfc_notify_std (GFC_STD_GNU,
+		  if (gfc_notify_std (GFC_STD_GNU,"Extension: "
 				      "re-initialization of '%s' at %L",
 				      symbol->name, &exprd->where) == FAILURE)
 		    return FAILURE;
@@ -481,7 +480,7 @@ gfc_assign_data_value (gfc_expr *lvalue, gfc_expr *rvalue, mpz_t index,
 	  expr = (LOCATION_LINE (init->where.lb->location)
 		  > LOCATION_LINE (rvalue->where.lb->location))
 	       ? init : rvalue;
-	  if (gfc_notify_std (GFC_STD_GNU,
+	  if (gfc_notify_std (GFC_STD_GNU,"Extension: "
 			      "re-initialization of '%s' at %L",
 			      symbol->name, &expr->where) == FAILURE)
 	    return FAILURE;

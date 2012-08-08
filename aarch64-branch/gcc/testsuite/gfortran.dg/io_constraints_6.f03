@@ -36,3 +36,5 @@ program main
   read (*, nml=definable)
   write (*, nml=definable)
 end program main
+
+! { dg-final { cleanup-modules "m" } }
