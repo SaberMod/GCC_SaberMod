@@ -118,12 +118,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "timevar.h"
-#include "tree-dump.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -409,7 +405,8 @@ valid_lattice_transition (prop_value_t old_val, prop_value_t new_val)
 
   /* Now both lattice values are CONSTANT.  */
 
-  /* Allow transitioning from &x to &x & ~3.  */
+  /* Allow transitioning from PHI <&x, not executable> == &x
+     to PHI <&x, &y> == common alignment.  */
   if (TREE_CODE (old_val.value) != INTEGER_CST
       && TREE_CODE (new_val.value) == INTEGER_CST)
     return true;
@@ -513,7 +510,7 @@ get_value_from_alignment (tree expr)
 
   gcc_assert (TREE_CODE (expr) == ADDR_EXPR);
 
-  get_object_alignment_1 (TREE_OPERAND (expr, 0), &align, &bitpos);
+  get_pointer_alignment_1 (expr, &align, &bitpos);
   val.mask
     = double_int_and_not (POINTER_TYPE_P (type) || TYPE_UNSIGNED (type)
 			  ? double_int_mask (TYPE_PRECISION (type))
@@ -650,6 +647,11 @@ likely_value (gimple stmt)
 	     Not COMPLEX_EXPR as one VARYING operand makes the result partly
 	     not UNDEFINED.  Not *DIV_EXPR, comparisons and shifts because
 	     the undefined operand may be promoted.  */
+	  return UNDEFINED;
+
+	case ADDR_EXPR:
+	  /* If any part of an address is UNDEFINED, like the index
+	     of an ARRAY_EXPR, then treat the result as UNDEFINED.  */
 	  return UNDEFINED;
 
 	default:
@@ -2319,6 +2321,71 @@ optimize_stdarg_builtin (gimple call)
     }
 }
 
+/* Attemp to make the block of __builtin_unreachable I unreachable by changing
+   the incoming jumps.  Return true if at least one jump was changed.  */
+
+static bool
+optimize_unreachable (gimple_stmt_iterator i)
+{
+  basic_block bb = gsi_bb (i);
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  edge_iterator ei;
+  edge e;
+  bool ret;
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      stmt = gsi_stmt (gsi);
+
+      if (is_gimple_debug (stmt))
+       continue;
+
+      if (gimple_code (stmt) == GIMPLE_LABEL)
+	{
+	  /* Verify we do not need to preserve the label.  */
+	  if (FORCED_LABEL (gimple_label_label (stmt)))
+	    return false;
+
+	  continue;
+	}
+
+      /* Only handle the case that __builtin_unreachable is the first statement
+	 in the block.  We rely on DCE to remove stmts without side-effects
+	 before __builtin_unreachable.  */
+      if (gsi_stmt (gsi) != gsi_stmt (i))
+        return false;
+    }
+
+  ret = false;
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      gsi = gsi_last_bb (e->src);
+      if (gsi_end_p (gsi))
+	continue;
+
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) == GIMPLE_COND)
+	{
+	  if (e->flags & EDGE_TRUE_VALUE)
+	    gimple_cond_make_false (stmt);
+	  else if (e->flags & EDGE_FALSE_VALUE)
+	    gimple_cond_make_true (stmt);
+	  else
+	    gcc_unreachable ();
+	}
+      else
+	{
+	  /* Todo: handle other cases, f.i. switch statement.  */
+	  continue;
+	}
+
+      ret = true;
+    }
+
+  return ret;
+}
+
 /* A simple pass that attempts to fold all builtin functions.  This pass
    is run after we've propagated as many constants as we can.  */
 
@@ -2380,6 +2447,11 @@ execute_fold_all_builtins (void)
 		gsi_next (&i);
 		continue;
 
+	      case BUILT_IN_UNREACHABLE:
+		if (optimize_unreachable (i))
+		  cfg_changed = true;
+		break;
+
 	      case BUILT_IN_VA_START:
 	      case BUILT_IN_VA_END:
 	      case BUILT_IN_VA_COPY:
@@ -2393,6 +2465,9 @@ execute_fold_all_builtins (void)
 		gsi_next (&i);
 		continue;
 	      }
+
+	  if (result == NULL_TREE)
+	    break;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {

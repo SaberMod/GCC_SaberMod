@@ -3007,6 +3007,18 @@ darwin_override_options (void)
       flag_reorder_blocks = 1;
     }
 
+    /* FIXME: flag_objc_sjlj_exceptions is no longer needed since there is only
+       one valid choice of exception scheme for each runtime.  */
+    if (!global_options_set.x_flag_objc_sjlj_exceptions)
+      global_options.x_flag_objc_sjlj_exceptions = 
+				flag_next_runtime && !TARGET_64BIT;
+
+    /* FIXME: and this could be eliminated then too.  */
+    if (!global_options_set.x_flag_exceptions
+	&& flag_objc_exceptions
+	&& TARGET_64BIT)
+      flag_exceptions = 1;
+
   if (flag_mkernel || flag_apple_kext)
     {
       /* -mkernel implies -fapple-kext for C++ */
@@ -3461,7 +3473,7 @@ darwin_function_section (tree decl, enum node_frequency freq,
 
   /* Startup code should go to startup subsection unless it is
      unlikely executed (this happens especially with function splitting
-     where we can split away unnecesary parts of static constructors).  */
+     where we can split away unnecessary parts of static constructors).  */
   if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
     return (weak)
 	    ? darwin_sections[text_startup_coal_section]

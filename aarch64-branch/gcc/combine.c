@@ -97,10 +97,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "insn-codes.h"
 #include "rtlhooks-def.h"
-/* Include output.h for dump_file.  */
-#include "output.h"
 #include "params.h"
-#include "timevar.h"
 #include "tree-pass.h"
 #include "df.h"
 #include "cgraph.h"
@@ -8435,6 +8432,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 	 in OP_MODE.  */
 
       if (CONST_INT_P (XEXP (x, 1))
+	  && INTVAL (XEXP (x, 1)) >= 0
 	  && INTVAL (XEXP (x, 1)) < HOST_BITS_PER_WIDE_INT
 	  && HWI_COMPUTABLE_MODE_P (op_mode))
 	{
@@ -10284,8 +10282,7 @@ simplify_shift_const_1 (enum rtx_code code, enum machine_mode result_mode,
 	    break;
 
 	  /* Make this fit the case below.  */
-	  varop = gen_rtx_XOR (mode, XEXP (varop, 0),
-			       GEN_INT (GET_MODE_MASK (mode)));
+	  varop = gen_rtx_XOR (mode, XEXP (varop, 0), constm1_rtx);
 	  continue;
 
 	case IOR:

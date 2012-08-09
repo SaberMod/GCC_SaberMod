@@ -26,11 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 #include "cfgloop.h"
 
 /* Given a block B, update the CFG and SSA graph to reflect redirecting

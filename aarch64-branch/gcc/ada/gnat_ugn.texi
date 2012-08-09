@@ -487,7 +487,9 @@ Creating Unit Tests Using gnattest
 * Tagged Types Substitutability Testing::
 * Testing with Contracts::
 * Additional Tests::
+@ifclear vms
 * Support for other platforms/run-times::
+@end ifclear
 * Current Limitations::
 
 Other Utility Programs
@@ -4045,6 +4047,13 @@ Makes the compiler output callgraph information for the program, on a
 per-file basis.  The information is generated in the VCG format.  It can
 be decorated with stack-usage per-node information.
 
+@item -fdump-scos
+@cindex @option{-fdump-scos} (@command{gcc})
+Generate SCO (Source Coverage Obligation) information in the ALI file.
+This information is used by advanced coverage tools. See unit @file{SCOs}
+in the compiler sources for details in files @file{scos.ads} and
+@file{scos.adb}.
+
 @item ^-g^/DEBUG^
 @cindex @option{^-g^/DEBUG^} (@command{gcc})
 Generate debugging information. This information is stored in the object
@@ -4201,12 +4210,10 @@ example a Pure unit cannot WITH a Preelaborate unit. If this switch is used,
 these errors become warnings (which can be ignored, or suppressed in the usual
 manner). This can be useful in some specialized circumstances such as the
 temporary use of special test software.
+
 @item -gnateS
 @cindex @option{-gnateS} (@command{gcc})
-Generate SCO (Source Coverage Obligation) information in the ALI
-file. This information is used by advanced coverage tools. See
-unit @file{SCOs} in the compiler sources for details in files
-@file{scos.ads} and @file{scos.adb}.
+Synonym of @option{-fdump-scos}, kept for backards compatibility.
 
 @item -gnatE
 @cindex @option{-gnatE} (@command{gcc})
@@ -4297,11 +4304,13 @@ reaches this limit, then a message is output and the compilation
 is abandoned. The equal sign here is optional. A value of zero
 means that no limit applies.
 
-@item -gnatn
+@item -gnatn[12]
 @cindex @option{-gnatn} (@command{gcc})
-Activate inlining for subprograms for which
-pragma @code{Inline} is specified. This inlining is performed
-by the GCC back-end.
+Activate inlining for subprograms for which pragma @code{Inline} is
+specified. This inlining is performed by the GCC back-end. An optional
+digit sets the inlining level: 1 for moderate inlining across modules
+or 2 for full inlining across modules. If no inlining level is specified,
+the compiler will pick it based on the optimization level.
 
 @item -gnatN
 @cindex @option{-gnatN} (@command{gcc})
@@ -5800,6 +5809,24 @@ then the following code:
 
 will suppress warnings on subsequent statements that access components
 of variable Tab.
+
+@item -gnatw.v
+@emph{Activate info messages for non-default bit order.}
+@cindex @option{-gnatw.v} (@command{gcc})
+@cindex bit order warnings
+This switch activates messages (labeled "info", they are not warnings,
+just informational messages) about the effects of non-default bit-order
+on records to which a component clause is applied. The effect of specifying
+non-default bit ordering is a bit subtle (and changed with Ada 2005), so
+these messages, which are given by default, are useful in understanding the
+exact consequences of using this feature. These messages
+can also be turned on using @option{-gnatwa}
+
+@item -gnatw.V
+@emph{Suppress info messages for non-default bit order.}
+@cindex @option{-gnatw.V} (@command{gcc})
+This switch suppresses information messages for the effects of specifying
+non-default bit order on record components with component clauses.
 
 @item -gnatww
 @emph{Activate warnings on wrong low bound assumption.}
@@ -7308,20 +7335,27 @@ For the source file naming rules, @xref{File Naming Rules}.
 
 @table @option
 @c !sort!
-@item -gnatn
+@item -gnatn[12]
 @cindex @option{-gnatn} (@command{gcc})
 @ifclear vms
 The @code{n} here is intended to suggest the first syllable of the
 word ``inline''.
 @end ifclear
 GNAT recognizes and processes @code{Inline} pragmas. However, for the
-inlining to actually occur, optimization must be enabled. To enable
-inlining of subprograms specified by pragma @code{Inline},
+inlining to actually occur, optimization must be enabled and, in order
+to enable inlining of subprograms specified by pragma @code{Inline},
 you must also specify this switch.
 In the absence of this switch, GNAT does not attempt
 inlining and does not need to access the bodies of
 subprograms for which @code{pragma Inline} is specified if they are not
 in the current unit.
+
+You can optionally specify the inlining level: 1 for moderate inlining across
+modules, which is a good compromise between compilation times and performances
+at run time, or 2 for full inlining across modules, which may bring about
+longer compilation times. If no inlining level is specified, the compiler will
+pick it based on the optimization level: 1 for @option{-O1}, @option{-O2} or
+@option{-Os} and 2 for @option{-O3}.
 
 If you specify this switch the compiler will access these bodies,
 creating an extra source dependency for the resulting object file, and
@@ -10613,13 +10647,13 @@ Any one of the following applies: @code{pragma Inline} is applied to the
 subprogram and the @option{^-gnatn^/INLINE^} switch is specified; the
 subprogram is local to the unit and called once from within it; the
 subprogram is small and optimization level @option{-O2} is specified;
-optimization level @option{-O3}) is specified.
+optimization level @option{-O3} is specified.
 @end itemize
 
 @noindent
 Calls to subprograms in @code{with}'ed units are normally not inlined.
 To achieve actual inlining (that is, replacement of the call by the code
-in the body of the subprogram), the following conditions must all be true.
+in the body of the subprogram), the following conditions must all be true:
 
 @itemize @bullet
 @item
@@ -10706,19 +10740,22 @@ Note: The @option{-fno-inline-functions-called-once} switch
 can be used to prevent inlining of subprograms local to the unit
 and called once from within it if @option{-O1} is used.
 
-Note regarding the use of @option{-O3}: There is no difference in inlining
-behavior between @option{-O2} and @option{-O3} for subprograms with an explicit
-pragma @code{Inline} assuming the use of @option{-gnatn}
-or @option{-gnatN} (the switches that activate inlining). If you have used
-pragma @code{Inline} in appropriate cases, then it is usually much better
-to use @option{-O2} and @option{-gnatn} and avoid the use of @option{-O3} which
-in this case only has the effect of inlining subprograms you did not
-think should be inlined. We often find that the use of @option{-O3} slows
-down code by performing excessive inlining, leading to increased instruction
-cache pressure from the increased code size. So the bottom line here is
-that you should not automatically assume that @option{-O3} is better than
-@option{-O2}, and indeed you should use @option{-O3} only if tests show that
-it actually improves performance.
+Note regarding the use of @option{-O3}: @option{-gnatn} is made up of two
+sub-switches @option{-gnatn1} and @option{-gnatn2} that can be directly
+specified in lieu of it, @option{-gnatn} being translated into one of them
+based on the optimization level. With @option{-O2} or below, @option{-gnatn}
+is equivalent to @option{-gnatn1} which activates pragma @code{Inline} with
+moderate inlining across modules. With @option{-O3}, @option{-gnatn} is
+equivalent to @option{-gnatn2} which activates pragma @code{Inline} with
+full inlining across modules. If you have used pragma @code{Inline} in appropriate cases, then it is usually much better to use @option{-O2} and @option{-gnatn} and avoid the use of @option{-O3} which has the additional
+effect of inlining subprograms you did not think should be inlined. We have
+found that the use of @option{-O3} may slow down the compilation and increase
+the code size by performing excessive inlining, leading to increased
+instruction cache pressure from the increased code size and thus minor
+performance improvements. So the bottom line here is that you should not
+automatically assume that @option{-O3} is better than @option{-O2}, and
+indeed you should use @option{-O3} only if tests show that it actually
+improves performance for your program.
 
 @node Vectorization of loops
 @subsection Vectorization of loops
@@ -14779,7 +14816,7 @@ statements unless @option{^-ne^NO_EXITS_AS_GOTOS^} option is specified.
 The Ada essential complexity metric defined here is intended to quantify
 the extent to which the software is unstructured. It is adapted from
 the McCabe essential complexity metric defined in
-http://www.mccabe.com/pdf/nist235r.pdf but is modified to be more
+@url{http://www.mccabe.com/pdf/mccabe-nist235r.pdf} but is modified to be more
 suitable for typical Ada usage. For example, short circuit forms
 are not penalized as unstructured in the Ada essential complexity metric.
 
@@ -14954,14 +14991,88 @@ upon units that define subprograms are counted, so control fan-out coupling
 is reported for all units, but control fan-in coupling - only for the units
 that define subprograms.
 
+The following simple example illustrates the difference between unit coupling
+and control coupling metrics:
 
+@smallexample @c ada
+package Lib_1 is
+    function F_1 (I : Integer) return Integer;
+end Lib_1;
 
+package Lib_2 is
+    type T_2 is new Integer;
+end Lib_2;
 
+package body Lib_1 is
+    function F_1 (I : Integer) return Integer is
+    begin
+       return I + 1;
+    end F_1;
+end Lib_1;
 
+with Lib_2; use Lib_2;
+package Pack is
+    Var : T_2;
+    function Fun (I : Integer) return Integer;
+end Pack;
+
+with Lib_1; use Lib_1;
+package body Pack is
+    function Fun (I : Integer) return Integer is
+    begin
+       return F_1 (I);
+    end Fun;
+end Pack;
+@end smallexample
+
+@noindent
+if we apply @command{gnatmetric} with @code{--coupling-all} option to these
+units, the result will be:
+
+@smallexample
+Coupling metrics:
+=================
+    Unit Lib_1 (C:\customers\662\L406-007\lib_1.ads)
+       control fan-out coupling  : 0
+       control fan-in coupling   : 1
+       unit fan-out coupling     : 0
+       unit fan-in coupling      : 1
+
+    Unit Pack (C:\customers\662\L406-007\pack.ads)
+       control fan-out coupling  : 1
+       control fan-in coupling   : 0
+       unit fan-out coupling     : 2
+       unit fan-in coupling      : 0
+
+    Unit Lib_2 (C:\customers\662\L406-007\lib_2.ads)
+       control fan-out coupling  : 0
+       unit fan-out coupling     : 0
+       unit fan-in coupling      : 1
+@end smallexample
+
+@noindent
+The result does not contain values for object-oriented
+coupling because none of the argument unit contains a tagged type and
+therefore none of these units can be treated as a class.
+
+@code{Pack} (considered as a program unit, that is spec+body) depends on two
+units - @code{Lib_1} @code{and Lib_2}, therefore it has unit fan-out coupling
+equals to 2. And nothing depend on it, so its unit fan-in coupling is 0 as
+well as control fan-in coupling. Only one of the units @code{Pack} depends
+upon defines a subprogram, so its control fan-out coupling is 1.
+
+@code{Lib_2} depends on nothing, so fan-out metrics for it are 0. It does
+not define a subprogram, so control fan-in metric cannot be applied to it,
+and there is one unit that depends on it (@code{Pack}), so it has
+unit fan-in coupling equals to 1.
+
+@code{Lib_1} is similar to @code{Lib_2}, but it does define a subprogram.
+So it has control fan-in coupling equals to 1 (because there is a unit
+depending on it).
 
 When computing coupling metrics, @command{gnatmetric} counts only
-dependencies between units that are arguments of the gnatmetric call.
-Coupling metrics are program-wide (or project-wide) metrics, so to
+dependencies between units that are arguments of the @command{gnatmetric}
+call. Coupling metrics are program-wide (or project-wide) metrics, so to
 get a valid result, you should call @command{gnatmetric} for
 the whole set of sources that make up your program. It can be done
 by calling @command{gnatmetric} from the GNAT driver with @option{-U}
@@ -17967,24 +18078,24 @@ Verbose mode: generate version information.
 @findex gnattest
 
 @noindent
-@command{gnattest} is an ASIS-based utility that creates unit-test stubs
+@command{gnattest} is an ASIS-based utility that creates unit-test skeletons
 as well as a test driver infrastructure (harness). @command{gnattest} creates
-a stub for each visible subprogram in the packages under consideration when
+a skeleton for each visible subprogram in the packages under consideration when
 they do not exist already.
 
 In order to process source files from a project, @command{gnattest} has to
-semantically analyze the sources. Therefore, test stubs can only be
+semantically analyze the sources. Therefore, test skeletons can only be
 generated for legal Ada units. If a unit is dependent on other units,
 those units should be among the source files of the project or of other projects
 imported by this one.
 
-Generated stubs and harnesses are based on the AUnit testing framework. AUnit is
-an Ada adaptation of the xxxUnit testing frameworks, similar to JUnit for Java
-or CppUnit for C++. While it is advised that gnattest users read the AUnit
-manual, deep knowledge of AUnit is not necessary for using gnattest. For correct
-operation of @command{gnattest}, AUnit should be installed and aunit.gpr must be
-on the project path. This happens automatically when Aunit is installed at its
-default location.
+Generated skeletons and harnesses are based on the AUnit testing framework.
+AUnit is an Ada adaptation of the xxxUnit testing frameworks, similar to JUnit
+for Java or CppUnit for C++. While it is advised that gnattest users read
+the AUnit manual, deep knowledge of AUnit is not necessary for using gnattest.
+For correct operation of @command{gnattest}, AUnit should be installed and
+aunit.gpr must be on the project path. This happens automatically when Aunit
+is installed at its default location.
 @menu
 * Running gnattest::
 * Switches for gnattest::
@@ -17998,7 +18109,9 @@ default location.
 * Tagged Types Substitutability Testing::
 * Testing with Contracts::
 * Additional Tests::
+@ifclear vms
 * Support for other platforms/run-times::
+@end ifclear
 * Current Limitations::
 @end menu
 
@@ -18023,11 +18136,6 @@ specifies the project defining the location of source files. When no
 file names are provided on the command line, all sources in the project
 are used as input. This switch is required.
 
-@item --harness-dir=dirname
-specifies the directory that will hold the harness packages and project file
-for the test driver. The harness directory should be specified either by that
-switch or by the corresponding attribute in the project file.
-
 @item filename
 is the name of the source file containing the library unit package declaration
 for which a test package will be created. The file name may be given with a
@@ -18036,7 +18144,7 @@ path.
 @item @samp{@var{gcc_switches}}
 is a list of switches for
 @command{gcc}. These switches will be passed on to all compiler invocations
-made by @command{gnatstub} to generate a set of ASIS trees. Here you can provide
+made by @command{gnattest} to generate a set of ASIS trees. Here you can provide
 @option{^-I^/INCLUDE_DIRS=^} switches to form the source search path,
 use the @option{-gnatec} switch to set the configuration file,
 use the @option{-gnat05} switch if sources should be compiled in
@@ -18051,13 +18159,13 @@ is an optional sequence of switches as described in the next section.
 
 @itemize @bullet
 @item automatic harness:
-the harness code, which is located either in the harness-dir as specified on
-the command line or in the project file. All of this code is generated
-completely automatically and can be destroyed and regenerated at will. It is not
-recommended to modify this code manually, since it could easily be overridden
-by mistake. The entry point in the harness code is the project file named
-@command{test_driver.gpr}. Tests can be compiled and run using a command
-such as:
+the harness code, which is located by default in "gnattest/harness" directory
+that is created in the object directory of corresponding project file. All of
+this code is generated completely automatically and can be destroyed and
+regenerated at will. It is not recommended to modify this code manually, since
+it could easily be overridden by mistake. The entry point in the harness code is
+the project file named @command{test_driver.gpr}. Tests can be compiled and run
+using a command such as:
 
 @smallexample
 gnatmake -P<harness-dir>/test_driver
@@ -18067,18 +18175,17 @@ test_runner
 Note that you might need to specify the necessary values of scenario variables
 when you are not using the AUnit defaults.
 
-@item actual unit test stubs:
-a test stub for each visible subprogram is created in a separate file, if it
+@item actual unit test skeletons:
+a test skeleton for each visible subprogram is created in a separate file, if it
 doesn't exist already. By default, those separate test files are located in a
-"tests" directory that is created in the directory containing the source file
-itself. If it is not appropriate to create the tests in subdirectories of the
-source, option @option{--separate-root} can be used. For example, if a source
-file my_unit.ads in directory src contains a visible subprogram Proc, then
-the corresponding unit test will be found in file
-src/tests/my_unit-tests-proc_<code>.adb. <code> is a signature encoding used to
-differentiate test names in case of overloading.
+"gnattest/tests" directory that is created in the object directory of
+corresponding project file. For example, if a source file my_unit.ads in
+directory src contains a visible subprogram Proc, then the corresponding unit
+test will be found in file src/tests/my_unit-test_data-tests-proc_<code>.adb.
+<code> is a signature encoding used to differentiate test names in case of
+overloading.
 
-Note that if the project already has both my_unit.ads and my_unit-tests.ads,
+Note that if the project already has both my_unit.ads and my_unit-test_data.ads,
 this will cause a name conflict with the generated test package.
 @end itemize
 
@@ -18114,30 +18221,48 @@ Suppresses noncritical output messages.
 @cindex @option{-v} (@command{gnattest})
 Verbose mode: generates version information.
 
-@item --liskov
-@cindex @option{--liskov} (@command{gnattest})
-Enables Liskov verification: run all tests from all parents in order
+@item --validate-type-extensions
+@cindex @option{--validate-type-extensions} (@command{gnattest})
+Enables substitution check: run all tests from all parents in order
 to check substitutability.
 
-@item --stub-default=@var{val}
-@cindex @option{--stub-default} (@command{gnattest})
-Specifies the default behavior of generated stubs. @var{val} can be either
+@item --skeleton-default=@var{val}
+@cindex @option{--skeleton-default} (@command{gnattest})
+Specifies the default behavior of generated skeletons. @var{val} can be either
 "fail" or "pass", "fail" being the default.
 
-@item --separate-root=@var{dirname}
-@cindex @option{--separate-root} (@command{gnattest})
+@item --tests-root=@var{dirname}
+@cindex @option{--tests-root} (@command{gnattest})
 The directory hierarchy of tested sources is recreated in the @var{dirname}
 directory, and test packages are placed in corresponding directories.
+If the @var{dirname} is a relative path, it is considered relative to the object
+directory of the project file. When all sources from all projects are taken
+recursively from all projects, directory hierarchies of tested sources are
+recreated for each project in their object directories and test packages are
+placed accordingly.
 
 @item --subdir=@var{dirname}
 @cindex @option{--subdir} (@command{gnattest})
-Test packages are placed in subdirectories. This is the default output mode
-since it does not require any additional input from the user. Subdirectories
-named "tests" will be created by default.
+Test packages are placed in subdirectories.
+
+@item --tests-dir=@var{dirname}
+@cindex @option{--tests-dir} (@command{gnattest})
+All test packages are placed in the @var{dirname} directory.
+If the @var{dirname} is a relative path, it is considered relative to the object
+directory of the project file. When all sources from all projects are taken
+recursively from all projects, @var{dirname} directories are created for each
+project in their object directories and test packages are placed accordingly.
+
+@item --harness-dir=@var{dirname}
+@cindex @option{--harness-dir} (@command{gnattest})
+specifies the directory that will hold the harness packages and project file
+for the test driver. If the @var{dirname} is a relative path, it is considered
+relative to the object directory of the project file.
 
 @end table
 
-@option{--separate_root} and @option{--subdir} switches are mutually exclusive.
+@option{--tests_root}, @option{--subdir} and @option{--tests-dir} switches are
+mutually exclusive.
 
 @node Project Attributes for gnattest
 @section Project Attributes for @command{gnattest}
@@ -18150,13 +18275,17 @@ package gnattest. Here is the list of attributes:
 
 @itemize @bullet
 
-@item Separate_Stub_Root
-is used to select the same output mode as with the --separate-root option.
-This attribute cannot be used together with Stub_Subdir.
+@item Tests_Root
+is used to select the same output mode as with the --tests-root option.
+This attribute cannot be used together with Subdir or Tests_Dir.
 
-@item Stub_Subdir
+@item Subdir
 is used to select the same output mode as with the --subdir option.
-This attribute cannot be used together with Separate_Stub_Root.
+This attribute cannot be used together with Tests_Root or Tests_Dir.
+
+@item Tests_Dir
+is used to select the same output mode as with the --tests-dir option.
+This attribute cannot be used together with Subdir or Tests_Root.
 
 @item Harness_Dir
 is used to specify the directory in which to place harness packages and project
@@ -18166,9 +18295,9 @@ file for the test driver, otherwise specified by --harness-dir.
 is used to specify the project file, otherwise given by
 --additional-tests switch.
 
-@item Stubs_Default
-is used to specify the default behaviour of test stubs, otherwise
-specified by --stub-default option. The value of this attribute
+@item Skeletons_Default
+is used to specify the default behaviour of test skeletons, otherwise
+specified by --skeleton-default option. The value of this attribute
 should be either "pass" or "fail".
 
 @end itemize
@@ -18208,16 +18337,16 @@ Since no special output option was specified, the test package Simple.Tests
 is located in:
 
 @smallexample
-<install_prefix>/share/examples/gnattest/simple/src/tests
+<install_prefix>/share/examples/gnattest/simple/obj/gnattest/tests
 @end smallexample
 
 For each package containing visible subprograms, a child test package is
 generated. It contains one test routine per tested subprogram. Each
 declaration of a test subprogram has a comment specifying which tested
 subprogram it corresponds to. All of the test routines have separate bodies.
-The test routine located at simple-tests-test_inc_5eaee3.adb contains a single
-statement: a call to procedure Assert. It has two arguments: the Boolean
-expression we want to check and the diagnosis message to display if
+The test routine located at simple-test_data-tests-test_inc_5eaee3.adb contains
+a single statement: a call to procedure Assert. It has two arguments:
+the Boolean expression we want to check and the diagnosis message to display if
 the condition is false.
 
 That is where actual testing code should be written after a proper setup.
@@ -18235,22 +18364,24 @@ is reported.
 
 @noindent
 
-Besides test routines themselves, each test package has an inner package
-Env_Mgmt that has two procedures: User_Set_Up and User_Tear_Down.
-User_Set_Up is called before each test routine of the package and
-User_Tear_Down is called after each test routine. Those two procedures can
-be used to perform necessary initialization and finalization,
-memory allocation, etc.
+Besides test routines themselves, each test package has a parent package
+Test_Data that has two procedures: Set_Up and Tear_Down. This package is never
+overwritten by the tool. Set_Up is called before each test routine of the
+package and Tear_Down is called after each test routine. Those two procedures
+can be used to perform necessary initialization and finalization,
+memory allocation, etc. Test type declared in Test_Data package is parent type
+for the test type of test package and can have user-defined components whose
+values can be set by Set_Up routine and used in test routines afterwards.
 
 @node Regenerating Tests
 @section Regenerating Tests
 
 @noindent
 
-Bodies of test routines and env_mgmt packages are never overridden after they
+Bodies of test routines and test_data packages are never overridden after they
 have been created once. As long as the name of the subprogram, full expanded Ada
 names, and the order of its parameters is the same, the old test routine will
-fit in its place and no test stub will be generated for the subprogram.
+fit in its place and no test skeleton will be generated for the subprogram.
 
 This can be demonstrated with the previous example. By uncommenting declaration
 and body of function Dec in simple.ads and simple.adb, running
@@ -18263,10 +18394,10 @@ gprbuild -Ptest_driver
 test_runner
 @end smallexample
 
-the old test is not replaced with a stub, nor is it lost, but a new test stub is
-created for function Dec.
+the old test is not replaced with a stub, nor is it lost, but a new test
+skeleton is created for function Dec.
 
-The only way of regenerating tests stubs is to remove the previously created
+The only way of regenerating tests skeletons is to remove the previously created
 tests.
 
 @node Default Test Behavior
@@ -18279,8 +18410,9 @@ either count them all as failed (this is useful to see which tests are still
 left to implement) or as passed (to sort out unimplemented ones from those
 actually failing).
 
-The test driver accepts a switch to specify this behavior: --stub-default=val,
-where val is either "pass" or "fail" (exactly as for @command{gnattest}).
+The test driver accepts a switch to specify this behavior:
+--skeleton-default=val, where val is either "pass" or "fail" (exactly as for
+@command{gnattest}).
 
 The default behavior of the test driver is set with the same switch
 as passed to gnattest when generating the test driver.
@@ -18288,7 +18420,7 @@ as passed to gnattest when generating the test driver.
 Passing it to the driver generated on the first example:
 
 @smallexample
-test_runner --stub-default=pass
+test_runner --skeleton-default=pass
 @end smallexample
 
 makes both tests pass, even the unimplemented one.
@@ -18298,11 +18430,11 @@ makes both tests pass, even the unimplemented one.
 
 @noindent
 
-Creation of test stubs for primitive operations of tagged types entails a number
-of features. Test routines for all primitives of a given tagged type are
-placed in a separate child package named according to the tagged type. For
+Creation of test skeletons for primitive operations of tagged types entails
+a number of features. Test routines for all primitives of a given tagged type
+are placed in a separate child package named according to the tagged type. For
 example, if you have tagged type T in package P, all tests for primitives
-of T will be in P.T_Tests.
+of T will be in P.T_Test_Data.T_Tests.
 
 Consider running gnattest on the second example (note: actual tests for this
 example already exist, so there's no need to worry if the tool reports that
@@ -18314,10 +18446,10 @@ gnattest --harness-dir=driver -Ptagged_rec.gpr
 @end smallexample
 
 Taking a closer look at the test type declared in the test package
-Speed1.Controller_Tests is necessary. It is declared in:
+Speed1.Controller_Test_Data is necessary. It is declared in:
 
 @smallexample
-<install_prefix>/share/examples/gnattest/tagged_rec/src/tests
+<install_prefix>/share/examples/gnattest/tagged_rec/obj/gnattest/tests
 @end smallexample
 
 Test types are direct or indirect descendants of
@@ -18332,10 +18464,10 @@ package Speed2.Auto_Controller, you will see that Test_Auto_Controller
 actually derives from Test_Controller rather than AUnit type Test_Fixture.
 Thus, test types mirror the hierarchy of tested types.
 
-The User_Set_Up procedure of Env_Mgmt package corresponding to a test package
+The Set_Up procedure of Test_Data package corresponding to a test package
 of primitive operations of type T assigns to Fixture a reference to an
 object of that exact type T. Notice, however, that if the tagged type has
-discriminants, the User_Set_Up only has a commented template for setting
+discriminants, the Set_Up only has a commented template for setting
 up the fixture, since filling the discriminant with actual value is up
 to the user.
 
@@ -18367,26 +18499,29 @@ derived type.
 
 @noindent
 
-Tagged Types Substitutability Testing is a way of verifying the Liskov
-substitution principle (LSP) by testing. LSP is a principle stating that if
+Tagged Types Substitutability Testing is a way of verifying the global type
+consistency by testing. Global type consistency is a principle stating that if
 S is a subtype of T (in Ada, S is a derived type of tagged type T),
 then objects of type T may be replaced with objects of type S (that is,
 objects of type S may be substituted for objects of type T), without
 altering any of the desirable properties of the program. When the properties
 of the program are expressed in the form of subprogram preconditions and
-postconditions (let's call them pre and post), LSP is formulated as relations
-between the pre and post of primitive operations and the pre and post of their
-derived operations. The pre of a derived operation should not be stronger than
-the original pre, and the post of the derived operation should not be weaker
-than the original post. Those relations ensure that verifying if a dispatching
-call is safe can be done just by using the pre and post of the root operation.
+postconditions (let's call them pre and post), the principle is formulated as
+relations between the pre and post of primitive operations and the pre and post
+of their derived operations. The pre of a derived operation should not be
+stronger than the original pre, and the post of the derived operation should
+not be weaker than the original post. Those relations ensure that verifying if
+a dispatching call is safe can be done just by using the pre and post of the
+root operation.
 
-Verifying LSP by testing consists of running all the unit tests associated with
-the primitives of a given tagged type with objects of its derived types.
+Verifying global type consistency by testing consists of running all the unit
+tests associated with the primitives of a given tagged type with objects of its
+derived types.
 
 In the example used in the previous section, there was clearly a violation of
-LSP. The overriding primitive Adjust_Speed in package Speed2 removes the
-functionality of the overridden primitive and thus doesn't respect LSP.
+type consistency. The overriding primitive Adjust_Speed in package Speed2
+removes the functionality of the overridden primitive and thus doesn't respect
+the consistency principle.
 Gnattest has a special option to run overridden parent tests against objects
 of the type which have overriding primitives:
 
@@ -18400,12 +18535,17 @@ test_runner
 While all the tests pass by themselves, the parent test for Adjust_Speed fails
 against objects of the derived type.
 
+Non-overridden tests are already inherited for derived test types, so the
+--validate-type-extensions enables the application of overriden tests to objects
+of derived types.
+
 @node Testing with Contracts
 @section Testing with Contracts
 
 @noindent
 
-@command{gnattest} supports pragmas Precondition, Postcondition, and Test_Case.
+@command{gnattest} supports pragmas Precondition, Postcondition, and Test_Case,
+as well as corresponding aspects.
 Test routines are generated, one per each Test_Case associated with a tested
 subprogram. Those test routines have special wrappers for tested functions
 that have composition of pre- and postcondition of the subprogram with
@@ -18485,6 +18625,7 @@ gnatmake -Pmixing/test_driver.gpr
 mixing/test_runner
 @end smallexample
 
+@ifclear vms
 @node Support for other platforms/run-times
 @section Support for other platforms/run-times
 
@@ -18497,12 +18638,15 @@ such as Zero FootPrint (ZFP), a simplified harness is generated.
 Two variables are used to tell the underlying AUnit framework how to generate
 the test harness: @code{PLATFORM}, which identifies the target, and
 @code{RUNTIME}, used to determine the run-time library for which the harness
-is generated. For example, the following options are used to generate the
-AUnit test harness for a PowerPC ELF target using the ZFP run-time library:
+is generated. Corresponding prefix should also be used when calling
+@command{gnattest} for non-native targets. For example, the following options
+are used to generate the AUnit test harness for a PowerPC ELF target using
+the ZFP run-time library:
 
 @smallexample
-gnattest -Psimple.gpr -XPLATFORM=powerpc-elf -XRUNTIME=zfp
+powerpc-elf-gnattest -Psimple.gpr -XPLATFORM=powerpc-elf -XRUNTIME=zfp
 @end smallexample
+@end ifclear
 
 @node Current Limitations
 @section Current Limitations
@@ -18514,8 +18658,6 @@ The tool currently does not support following features:
 @itemize @bullet
 @item generic tests for generic packages and package instantiations
 @item tests for protected subprograms and entries
-@item aspects Precondition, Postcondition, and Test_Case
-@item generating test packages for code that is not conformant with ada 2005
 
 @end itemize
 
@@ -18549,13 +18691,13 @@ package, in file s-dimmks.ads.
    type Mks_Type is new Long_Long_Float
      with
       Dimension_System => (
-        (Meter,    'm'),
-        (Kilogram, "kg"),
-        (Second,   's'),
-        (Ampere,   'A'),
-        (Kelvin,   'K'),
-        (Mole,     "mol"),
-        (Candela,  "cd"));
+        (Unit_Name => Meter,    Unit_Symbol => 'm',   Dim_Symbol => 'L'),
+        (Unit_Name => Kilogram, Unit_Symbol => "kg",  Dim_Symbol => 'M'),
+        (Unit_Name => Second,   Unit_Symbol => 's',   Dim_Symbol => 'T'),
+        (Unit_Name => Ampere,   Unit_Symbol => 'A',   Dim_Symbol => 'I'),
+        (Unit_Name => Kelvin,   Unit_Symbol => 'K',   Dim_Symbol => "Theta"),
+        (Unit_Name => Mole,     Unit_Symbol => "mol", Dim_Symbol => 'N'),
+        (Unit_Name => Candela,  Unit_Symbol => "cd",  Dim_Symbol => 'J'));
 @end smallexample
 
 @noindent
@@ -18564,8 +18706,8 @@ conventional units. For example:
 @smallexample @c ada
    subtype Length is Mks_Type
      with
-      Dimension => ('m',
-        Meter =>  1,
+      Dimension => (Symbol => 'm',
+        Meter  => 1,
         others => 0);
 @end smallexample
 @noindent
@@ -18577,10 +18719,10 @@ The package also defines conventional names for values of each unit, for
 example:
 
 @smallexample @c ada
-   m   : constant Length                    := 1.0;
-   kg  : constant Mass                      := 1.0;
-   s   : constant Time                      := 1.0;
-   A   : constant Electric_Current          := 1.0;
+   m   : constant Length           := 1.0;
+   kg  : constant Mass             := 1.0;
+   s   : constant Time             := 1.0;
+   A   : constant Electric_Current := 1.0;
 @end smallexample
 
 @noindent
@@ -18648,13 +18790,13 @@ are rejected with the following diagnoses:
 @smallexample
    Distance := 5.0;
       >>> dimensions mismatch in assignment
-      >>> left-hand side has dimensions (1, 0, 0, 0, 0, 0, 0)
+      >>> left-hand side has dimension [L]
       >>> right-hand side is dimensionless
 
    Distance := 5.0 * kg:
       >>> dimensions mismatch in assignment
-      >>> left-hand side has dimensions  (1, 0, 0, 0, 0, 0, 0)
-      >>> right-hand side has dimensions (0, 1, 0, 0, 0, 0, 0)
+      >>> left-hand side has dimension [L]
+      >>> right-hand side has dimension [M]
 @end smallexample
 
 @noindent

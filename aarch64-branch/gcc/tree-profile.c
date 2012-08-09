@@ -31,21 +31,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "flags.h"
-#include "regs.h"
 #include "function.h"
 #include "basic-block.h"
 #include "diagnostic-core.h"
 #include "coverage.h"
 #include "tree.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
 #include "tree-pass.h"
-#include "timevar.h"
 #include "value-prof.h"
 #include "cgraph.h"
 #include "profile.h"
 #include "target.h"
-#include "output.h"
 
 static GTY(()) tree gcov_type_node;
 static GTY(()) tree gcov_type_tmp_var;
@@ -103,6 +99,8 @@ init_ic_make_global_vars (void)
 
   varpool_finalize_decl (ic_gcov_type_ptr_var);
 }
+
+/* Create the type and function decls for the interface with gcov.  */
 
 void
 gimple_init_edge_profiler (void)
@@ -336,8 +334,9 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
 
   /* Insert code:
 
-    __gcov_indirect_call_counters = get_relevant_counter_ptr ();
-    __gcov_indirect_call_callee = (void *) indirect call argument;
+    stmt1: __gcov_indirect_call_counters = get_relevant_counter_ptr ();
+    stmt2: tmp1 = (void *) (indirect call argument value)
+    stmt3: __gcov_indirect_call_callee = tmp1;
    */
 
   tmp1 = create_tmp_reg (ptr_void, "PROF");
@@ -347,7 +346,6 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple_assign_set_lhs (stmt2, make_ssa_name (tmp1, stmt2));
   find_referenced_vars_in (stmt2);
   stmt3 = gimple_build_assign (ic_void_ptr_var, gimple_assign_lhs (stmt2));
-  add_referenced_var (ic_void_ptr_var);
 
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
   gsi_insert_before (&gsi, stmt2, GSI_SAME_STMT);
@@ -373,6 +371,13 @@ gimple_gen_ic_func_profiler (void)
 
   gimple_init_edge_profiler ();
 
+  /* Insert code:
+
+    stmt1: __gcov_indirect_call_profiler (__gcov_indirect_call_counters,
+					  current_function_funcdef_no,
+					  &current_function_decl,
+					  __gcov_indirect_call_callee);
+   */
   gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
 
   cur_func = force_gimple_operand_gsi (&gsi,
@@ -383,11 +388,9 @@ gimple_gen_ic_func_profiler (void)
   counter_ptr = force_gimple_operand_gsi (&gsi, ic_gcov_type_ptr_var,
 					  true, NULL_TREE, true,
 					  GSI_SAME_STMT);
-  add_referenced_var (ic_gcov_type_ptr_var);
   ptr_var = force_gimple_operand_gsi (&gsi, ic_void_ptr_var,
 				      true, NULL_TREE, true,
 				      GSI_SAME_STMT);
-  add_referenced_var (ic_void_ptr_var);
   tree_uid = build_int_cst (gcov_type_node, current_function_funcdef_no);
   stmt1 = gimple_build_call (tree_indirect_call_profiler_fn, 4,
 			     counter_ptr, tree_uid, cur_func, ptr_var);
@@ -468,12 +471,9 @@ tree_profiling (void)
 {
   struct cgraph_node *node;
 
-  /* Don't profile functions produced at destruction time, particularly
-     the gcov datastructure initializer.  Don't profile if it has been
-     already instrumented either (when OpenMP expansion creates
-     child function from already instrumented body).  */
-  if (cgraph_state == CGRAPH_STATE_FINISHED)
-    return 0;
+  /* This is a small-ipa pass that gets called only once, from
+     cgraphunit.c:ipa_passes().  */
+  gcc_assert (cgraph_state == CGRAPH_STATE_IPA_SSA);
 
   init_node_map();
 
@@ -483,8 +483,7 @@ tree_profiling (void)
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->symbol.decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
@@ -494,7 +493,9 @@ tree_profiling (void)
       gcov_type_tmp_var = NULL_TREE;
 
       /* Local pure-const may imply need to fixup the cfg.  */
-      execute_fixup_cfg ();
+      if (execute_fixup_cfg () & TODO_cleanup_cfg)
+	cleanup_tree_cfg ();
+
       branch_prob ();
 
       if (! flag_branch_probabilities
@@ -525,8 +526,7 @@ tree_profiling (void)
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->symbol.decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
       cgraph_set_const_flag (node, false, false);
@@ -544,8 +544,7 @@ tree_profiling (void)
 	continue;
 
       /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION
-	  || DECL_STRUCT_FUNCTION (node->symbol.decl)->after_tree_profile)
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
@@ -562,7 +561,6 @@ tree_profiling (void)
 	    }
 	}
 
-      cfun->after_tree_profile = 1;
       update_ssa (TODO_update_ssa);
 
       rebuild_cgraph_edges ();

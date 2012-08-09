@@ -332,12 +332,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # endif
 #endif
 
-/* Determines whether we may use common symbols to represent one-only
-   semantics (a.k.a. "vague linkage").  */
-#ifndef USE_COMMON_FOR_ONE_ONLY
-# define USE_COMMON_FOR_ONE_ONLY 1
-#endif
-
 /* By default we can assume that all global symbols are in one namespace,
    across all shared libraries.  */
 #ifndef MULTIPLE_SYMBOL_SPACES
@@ -1058,6 +1052,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    a sincos implementation following the GNU extension.  */
 #ifndef TARGET_HAS_SINCOS
 #define TARGET_HAS_SINCOS 0
+#endif
+
+/* Determin whether the target runtime library is Bionic */
+#ifndef TARGET_HAS_BIONIC
+#define TARGET_HAS_BIONIC 0
 #endif
 
 /* Indicate that CLZ and CTZ are undefined at zero.  */

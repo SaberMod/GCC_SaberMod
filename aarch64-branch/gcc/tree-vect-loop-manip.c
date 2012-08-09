@@ -27,12 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
+#include "tree-pass.h"
 #include "cfgloop.h"
-#include "cfglayout.h"
 #include "diagnostic-core.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
@@ -489,8 +487,7 @@ LOOP->  loop1
 
 static void
 slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
-                                    bool is_new_loop, basic_block *new_exit_bb,
-                                    bitmap *defs)
+                                    bool is_new_loop, basic_block *new_exit_bb)
 {
   gimple orig_phi, new_phi;
   gimple update_phi, update_phi2;
@@ -586,7 +583,6 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
       gcc_assert (get_current_def (current_new_name) == NULL_TREE);
 
       set_current_def (current_new_name, PHI_RESULT (new_phi));
-      bitmap_set_bit (*defs, SSA_NAME_VERSION (current_new_name));
     }
 }
 
@@ -1159,7 +1155,6 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
   struct loop *new_loop = NULL, *first_loop, *second_loop;
   edge skip_e;
   tree pre_condition = NULL_TREE;
-  bitmap definitions;
   basic_block bb_before_second_loop, bb_after_second_loop;
   basic_block bb_before_first_loop;
   basic_block bb_between_loops;
@@ -1171,12 +1166,6 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
 
   if (!slpeel_can_duplicate_loop_p (loop, e))
     return NULL;
-
-  /* We have to initialize cfg_hooks. Then, when calling
-   cfg_hooks->split_edge, the function tree_split_edge
-   is actually called and, when calling cfg_hooks->duplicate_block,
-   the function tree_duplicate_bb is called.  */
-  gimple_register_cfg_hooks ();
 
   /* If the loop has a virtual PHI, but exit bb doesn't, create a virtual PHI
      in the exit bb and rename all the uses after the loop.  This simplifies
@@ -1259,7 +1248,6 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
       second_loop = loop;
     }
 
-  definitions = ssa_names_to_replace ();
   slpeel_update_phis_for_duplicate_loop (loop, new_loop, e == exit_e);
   rename_variables_in_loop (new_loop);
 
@@ -1397,7 +1385,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
                                   bb_before_second_loop, bb_before_first_loop);
   slpeel_update_phi_nodes_for_guard1 (skip_e, first_loop,
 				      first_loop == new_loop,
-				      &new_exit_bb, &definitions);
+				      &new_exit_bb);
 
 
   /* 3. Add the guard that controls whether the second loop is executed.
@@ -1441,7 +1429,6 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
   if (update_first_loop_count)
     slpeel_make_loop_iterate_ntimes (first_loop, *first_niters);
 
-  BITMAP_FREE (definitions);
   delete_update_ssa ();
 
   adjust_vec_debug_stmts ();
@@ -2262,7 +2249,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 	gimple_seq_add_seq (cond_expr_stmt_list, new_stmt_list);
 
       sprintf (tmp_name, "%s%d", "addr2int", i);
-      addr_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+      addr_tmp = create_tmp_reg (int_ptrsize_type, tmp_name);
       add_referenced_var (addr_tmp);
       addr_tmp_name = make_ssa_name (addr_tmp, NULL);
       addr_stmt = gimple_build_assign_with_ops (NOP_EXPR, addr_tmp_name,
@@ -2276,7 +2263,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
         {
           /* create: or_tmp = or_tmp | addr_tmp */
           sprintf (tmp_name, "%s%d", "orptrs", i);
-          or_tmp = create_tmp_var (int_ptrsize_type, tmp_name);
+          or_tmp = create_tmp_reg (int_ptrsize_type, tmp_name);
           add_referenced_var (or_tmp);
 	  new_or_tmp_name = make_ssa_name (or_tmp, NULL);
 	  or_stmt = gimple_build_assign_with_ops (BIT_IOR_EXPR,
@@ -2294,7 +2281,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   mask_cst = build_int_cst (int_ptrsize_type, mask);
 
   /* create: and_tmp = or_tmp & mask  */
-  and_tmp = create_tmp_var (int_ptrsize_type, "andmask" );
+  and_tmp = create_tmp_reg (int_ptrsize_type, "andmask" );
   add_referenced_var (and_tmp);
   and_tmp_name = make_ssa_name (and_tmp, NULL);
 
@@ -2334,7 +2321,7 @@ vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 {
   tree segment_length;
 
-  if (!compare_tree_int (DR_STEP (dr), 0))
+  if (integer_zerop (DR_STEP (dr)))
     segment_length = TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr)));
   else
     segment_length = size_binop (MULT_EXPR,

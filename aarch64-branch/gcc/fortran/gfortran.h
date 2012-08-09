@@ -29,13 +29,16 @@ along with GCC; see the file COPYING3.  If not see
    multiple header files.  Besides, Microsoft's winnt.h was 250k last
    time I looked, so by comparison this is perfectly reasonable.  */
 
+#ifndef GCC_CORETYPES_H
+#error "gfortran.h must be included after coretypes.h"
+#endif
+
 /* Declarations common to the front-end and library are put in
    libgfortran/libgfortran_frontend.h  */
 #include "libgfortran.h"
 
 
 #include "intl.h"
-#include "coretypes.h"
 #include "input.h"
 #include "splay-tree.h"
 
@@ -132,7 +135,8 @@ expr_t;
 /* Array types.  */
 typedef enum
 { AS_EXPLICIT = 1, AS_ASSUMED_SHAPE, AS_DEFERRED,
-  AS_ASSUMED_SIZE, AS_IMPLIED_SHAPE, AS_UNKNOWN
+  AS_ASSUMED_SIZE, AS_IMPLIED_SHAPE, AS_ASSUMED_RANK,
+  AS_UNKNOWN
 }
 array_type;
 
@@ -914,7 +918,7 @@ gfc_typespec;
 /* Array specification.  */
 typedef struct
 {
-  int rank;	/* A rank of zero means that a variable is a scalar.  */
+  int rank;	/* A scalar has a rank of 0, an assumed-rank array has -1.  */
   int corank;
   array_type type, cotype;
   struct gfc_expr *lower[GFC_MAX_DIMENSIONS], *upper[GFC_MAX_DIMENSIONS];
@@ -1691,7 +1695,7 @@ typedef struct gfc_expr
 
   gfc_typespec ts;	/* These two refer to the overall expression */
 
-  int rank;
+  int rank;		/* 0 indicates a scalar, -1 an assumed-rank array.  */
   mpz_t *shape;		/* Can be NULL if shape is unknown at compile time */
 
   /* Nonnull for functions and structure constructors, may also used to hold the
@@ -1706,7 +1710,7 @@ typedef struct gfc_expr
      is not a variable.  */
   struct gfc_expr *base_expr;
 
-  /* is_boz is true if the integer is regarded as BOZ bitpatten and is_snan
+  /* is_boz is true if the integer is regarded as BOZ bit pattern and is_snan
      denotes a signalling not-a-number.  */
   unsigned int is_boz : 1, is_snan : 1;
 
@@ -2635,9 +2639,9 @@ gfc_symbol* gfc_get_ultimate_derived_super_type (gfc_symbol*);
 bool gfc_type_is_extension_of (gfc_symbol *, gfc_symbol *);
 bool gfc_type_compatible (gfc_typespec *, gfc_typespec *);
 
-void gfc_copy_formal_args (gfc_symbol *, gfc_symbol *);
+void gfc_copy_formal_args (gfc_symbol *, gfc_symbol *, ifsrc);
 void gfc_copy_formal_args_intr (gfc_symbol *, gfc_intrinsic_sym *);
-void gfc_copy_formal_args_ppc (gfc_component *, gfc_symbol *);
+void gfc_copy_formal_args_ppc (gfc_component *, gfc_symbol *, ifsrc);
 
 void gfc_free_finalizer (gfc_finalizer *el); /* Needed in resolve.c, too  */
 
@@ -2708,6 +2712,7 @@ gfc_actual_arglist *gfc_copy_actual_arglist (gfc_actual_arglist *);
 const char *gfc_extract_int (gfc_expr *, int *);
 bool is_subref_array (gfc_expr *);
 bool gfc_is_simply_contiguous (gfc_expr *, bool);
+gfc_try gfc_check_init_expr (gfc_expr *);
 
 gfc_expr *gfc_build_conversion (gfc_expr *);
 void gfc_free_ref_list (gfc_ref *);
@@ -2841,7 +2846,7 @@ void gfc_free_interface (gfc_interface *);
 int gfc_compare_derived_types (gfc_symbol *, gfc_symbol *);
 int gfc_compare_types (gfc_typespec *, gfc_typespec *);
 int gfc_compare_interfaces (gfc_symbol*, gfc_symbol*, const char *, int, int,
-			    char *, int);
+			    char *, int, const char *, const char *);
 void gfc_check_interfaces (gfc_namespace *);
 void gfc_procedure_use (gfc_symbol *, gfc_actual_arglist **, locus *);
 void gfc_ppc_use (gfc_component *, gfc_actual_arglist **, locus *);
@@ -2850,6 +2855,7 @@ gfc_symbol *gfc_search_interface (gfc_interface *, int,
 match gfc_extend_expr (gfc_expr *);
 void gfc_free_formal_arglist (gfc_formal_arglist *);
 gfc_try gfc_extend_assign (gfc_code *, gfc_namespace *);
+gfc_try gfc_check_new_interface (gfc_interface *, gfc_symbol *, locus);
 gfc_try gfc_add_interface (gfc_symbol *);
 gfc_interface *gfc_current_interface_head (void);
 void gfc_set_current_interface_head (gfc_interface *);

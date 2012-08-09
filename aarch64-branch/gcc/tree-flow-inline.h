@@ -39,7 +39,7 @@ gimple_in_ssa_p (const struct function *fun)
 static inline htab_t
 gimple_referenced_vars (const struct function *fun)
 {
-  if (!fun->gimple_df)
+  if (!fun || !fun->gimple_df)
     return NULL;
   return fun->gimple_df->referenced_vars;
 }
@@ -1233,6 +1233,9 @@ make_ssa_name (tree var, gimple stmt)
    is not BITS_PER_UNIT-aligned.
    VALUEIZE if non-NULL is used to valueize SSA names.  It should return
    its argument or a constant if the argument is known to be constant.  */
+/* ??? This is a static inline here to avoid the overhead of the indirect calls
+   to VALUEIZE.  But is this overhead really that significant?  And should we
+   perhaps just rely on WHOPR to specialize the function?  */
 
 static inline tree
 get_addr_base_and_unit_offset_1 (tree exp, HOST_WIDE_INT *poffset,

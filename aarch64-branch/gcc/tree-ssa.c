@@ -29,18 +29,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
-#include "output.h"
 #include "function.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "pointer-set.h"
 #include "tree-flow.h"
 #include "gimple.h"
 #include "tree-inline.h"
-#include "timevar.h"
 #include "hashtab.h"
-#include "tree-dump.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
@@ -1117,7 +1113,6 @@ init_tree_ssa (struct function *fn)
 				                 uid_ssaname_map_eq, NULL);
   pt_solution_reset (&fn->gimple_df->escaped);
   init_ssanames (fn, 0);
-  init_phinodes ();
 }
 
 /* Do the actions required to initialize internal data structures used
@@ -1161,19 +1156,13 @@ delete_tree_ssa (void)
   /* Remove annotations from every referenced local variable.  */
   FOR_EACH_REFERENCED_VAR (cfun, var, rvi)
     {
-      if (is_global_var (var))
-	continue;
-      if (var_ann (var))
-	{
-	  ggc_free (var_ann (var));
-	  *DECL_VAR_ANN_PTR (var) = NULL;
-	}
+      ggc_free (var_ann (var));
+      *DECL_VAR_ANN_PTR (var) = NULL;
     }
   htab_delete (gimple_referenced_vars (cfun));
   cfun->gimple_df->referenced_vars = NULL;
 
   fini_ssanames ();
-  fini_phinodes ();
 
   /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active ())

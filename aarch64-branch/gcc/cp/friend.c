@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "cp-tree.h"
 #include "flags.h"
-#include "output.h"
 
 /* Friend data structures are described in cp-tree.h.  */
 
@@ -167,7 +166,8 @@ add_friend (tree type, tree decl, bool complain)
 
   ctx = DECL_CONTEXT (decl);
   if (ctx && CLASS_TYPE_P (ctx) && !uses_template_parms (ctx))
-    perform_or_defer_access_check (TYPE_BINFO (ctx), decl, decl);
+    perform_or_defer_access_check (TYPE_BINFO (ctx), decl, decl,
+				   tf_warning_or_error);
 
   maybe_add_class_template_decl_list (type, decl, /*friend_p=*/1);
 

@@ -223,6 +223,7 @@ struct mips_cpu_info {
 #define TARGET_SB1                  (mips_arch == PROCESSOR_SB1		\
 				     || mips_arch == PROCESSOR_SB1A)
 #define TARGET_SR71K                (mips_arch == PROCESSOR_SR71000)
+#define TARGET_XLP                  (mips_arch == PROCESSOR_XLP)
 
 /* Scheduling target defines.  */
 #define TUNE_20KC		    (mips_tune == PROCESSOR_20KC)
@@ -311,7 +312,7 @@ struct mips_cpu_info {
    stores.  It does not tell anything about ordering of loads and
    stores prior to and following the SC, only about the SC itself and
    those loads and stores follow it.  */
-#define TARGET_SYNC_AFTER_SC (!TARGET_OCTEON)
+#define TARGET_SYNC_AFTER_SC (!TARGET_OCTEON && !TARGET_XLP)
 
 /* Define preprocessor macros for the -march and -mtune options.
    PREFIX is either _MIPS_ARCH or _MIPS_TUNE, INFO is the selected
@@ -384,6 +385,9 @@ struct mips_cpu_info {
 									\
       if (TARGET_SMARTMIPS)						\
 	builtin_define ("__mips_smartmips");				\
+									\
+      if (TARGET_MCU)							\
+	builtin_define ("__mips_mcu");					\
 									\
       if (TARGET_DSP)							\
 	{								\
@@ -1054,6 +1058,9 @@ struct mips_cpu_info {
    ? TARGET_LLSC && !TARGET_MIPS16	\
    : ISA_HAS_LL_SC)
 
+#define ISA_HAS_SWAP (TARGET_XLP)
+#define ISA_HAS_LDADD (TARGET_XLP)
+
 /* ISA includes the baddu instruction.  */
 #define ISA_HAS_BADDU		(TARGET_OCTEON && !TARGET_MIPS16)
 
@@ -1116,6 +1123,7 @@ struct mips_cpu_info {
 %{mdmx} %{mno-mdmx:-no-mdmx} \
 %{mdsp} %{mno-dsp} \
 %{mdspr2} %{mno-dspr2} \
+%{mmcu} %{mno-mcu} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
 %{mfix-vr4120} %{mfix-vr4130} \
@@ -2517,14 +2525,8 @@ typedef struct mips_args {
   { "gp",	28 + GP_REG_FIRST },					\
   { "sp",	29 + GP_REG_FIRST },					\
   { "fp",	30 + GP_REG_FIRST },					\
-  { "ra",	31 + GP_REG_FIRST },					\
-  ALL_COP_ADDITIONAL_REGISTER_NAMES					\
+  { "ra",	31 + GP_REG_FIRST }					\
 }
-
-/* This is meant to be redefined in the host dependent files.  It is a
-   set of alternative names and regnums for mips coprocessors.  */
-
-#define ALL_COP_ADDITIONAL_REGISTER_NAMES
 
 #define DBR_OUTPUT_SEQEND(STREAM)					\
 do									\
@@ -2674,15 +2676,6 @@ do {									\
 #undef ASM_OUTPUT_ASCII
 #define ASM_OUTPUT_ASCII mips_output_ascii
 
-/* Output #ident as a in the read-only data section.  */
-#undef  ASM_OUTPUT_IDENT
-#define ASM_OUTPUT_IDENT(FILE, STRING)					\
-{									\
-  const char *p = STRING;						\
-  int size = strlen (p) + 1;						\
-  switch_to_section (readonly_data_section);				\
-  assemble_string (p, size);						\
-}
 
 /* Default to -G 8 */
 #ifndef MIPS_DEFAULT_GVALUE

@@ -35,8 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "params.h"
 #include "target.h"
-#include "timevar.h"
-#include "tree-pass.h"
 #include "sched-int.h"
 #include "ggc.h"
 #include "tree.h"
@@ -956,7 +954,13 @@ return_regset_to_pool (regset rs)
 static int
 cmp_v_in_regset_pool (const void *x, const void *xx)
 {
-  return *((const regset *) x) - *((const regset *) xx);
+  uintptr_t r1 = (uintptr_t) *((const regset *) x);
+  uintptr_t r2 = (uintptr_t) *((const regset *) xx);
+  if (r1 > r2)
+    return 1;
+  else if (r1 < r2)
+    return -1;
+  gcc_unreachable ();
 }
 #endif
 
@@ -5044,7 +5048,7 @@ find_place_to_insert_bb (basic_block bb, int rgn)
             break;
         }
 
-      /* We skipped the right block, so we increase i.  We accomodate
+      /* We skipped the right block, so we increase i.  We accommodate
          it for increasing by step later, so we decrease i.  */
       return (i + 1) - 1;
     }

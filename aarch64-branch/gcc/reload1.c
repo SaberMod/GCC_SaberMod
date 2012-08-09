@@ -41,12 +41,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "reload.h"
 #include "recog.h"
-#include "output.h"
 #include "except.h"
 #include "tree.h"
 #include "ira.h"
 #include "target.h"
 #include "emit-rtl.h"
+#include "dumpfile.h"
 
 /* This file contains the reload pass of the compiler, which is
    run after register allocation has been done.  It checks that

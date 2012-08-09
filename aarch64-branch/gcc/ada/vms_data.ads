@@ -1780,10 +1780,19 @@ package VMS_Data is
    --   than after compilation is terminated. If GNAT terminates prematurely
    --   or goes into an infinite loop, the last error message displayed may
    --   help to pinpoint the culprit.
+   --
+   --   Note that this qualifier is intended only for helping to diagnose
+   --   illegal programs when the compiler fails. It disconnects many of the
+   --   normal handling procedures for error messages, and may for example
+   --   cause malfunction of pragma Warnings.
 
    S_GCC_Inline  : aliased constant S := "/INLINE="                        &
                                             "PRAGMA "                      &
                                               "-gnatn "                    &
+                                            "PRAGMA_LEVEL_1 "              &
+                                              "-gnatn1 "                   &
+                                            "PRAGMA_LEVEL_2 "              &
+                                              "-gnatn2 "                   &
                                             "FULL "                        &
                                               "-gnatN "                    &
                                             "SUPPRESS "                    &
@@ -1816,6 +1825,14 @@ package VMS_Data is
    --                    optimization options, to get either lower
    --                    (/OPTIMIZE=SOME) or higher (/OPTIMIZE=UNROLL_LOOPS)
    --                    levels of optimization.
+   --
+   --        PRAGMA_LEVEL_1
+   --                    Direct control of the level of "Inline" pragmas
+   --                    optimization with moderate inlining across modules.
+   --
+   --        PRAGMA_LEVEL_2
+   --                    Direct control of the level of "Inline" pragmas
+   --                    optimization with full inlining across modules.
    --
    --        FULL        Front end inlining. The front end inlining activated
    --                    by this switch is generally more extensive, and quite
@@ -7160,6 +7177,13 @@ package VMS_Data is
                        S_Sync_Details  'Access,
                        S_Sync_Warnoff  'Access,
                        S_Sync_Output   'Access);
+
+   ----------------------------
+   -- Switches for GNAT TEST --
+   ----------------------------
+
+   Test_Switches : aliased constant Switches :=
+     (1 .. 0 => null);
 
    ----------------------------
    -- Switches for GNAT XREF --

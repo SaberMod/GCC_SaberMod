@@ -33,9 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "gimple.h"
 #include "tree-inline.h"
-#include "timevar.h"
 #include "hashtab.h"
-#include "tree-dump.h"
 #include "tree-ssa-live.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -194,20 +192,21 @@ copy_rename_partition_coalesce (var_map map, tree var1, tree var2, FILE *debug)
   ign1 = TREE_CODE (root1) == VAR_DECL && DECL_IGNORED_P (root1);
   ign2 = TREE_CODE (root2) == VAR_DECL && DECL_IGNORED_P (root2);
 
-  /* Never attempt to coalesce 2 user variables unless one is an inline
-     variable.  */
+  /* Refrain from coalescing user variables, if requested.  */
   if (!ign1 && !ign2)
     {
-      if (DECL_FROM_INLINE (root2))
-        ign2 = true;
-      else if (DECL_FROM_INLINE (root1))
+      if (flag_ssa_coalesce_vars && DECL_FROM_INLINE (root2))
+	ign2 = true;
+      else if (flag_ssa_coalesce_vars && DECL_FROM_INLINE (root1))
 	ign1 = true;
-      else
+      else if (flag_ssa_coalesce_vars != 2)
 	{
 	  if (debug)
 	    fprintf (debug, " : 2 different USER vars. No coalesce.\n");
 	  return false;
 	}
+      else
+	ign2 = true;
     }
 
   /* If both values have default defs, we can't coalesce.  If only one has a

@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "intrinsic.h"
@@ -2434,7 +2435,7 @@ add_functions (void)
   make_generic ("range", GFC_ISYM_RANGE, GFC_STD_F95);
 
   add_sym_1 ("rank", GFC_ISYM_RANK, CLASS_INQUIRY, ACTUAL_NO, BT_INTEGER, di,
-	     GFC_STD_F2008_TS, gfc_check_rank, gfc_simplify_rank, NULL,
+	     GFC_STD_F2008_TS, gfc_check_rank, gfc_simplify_rank, gfc_resolve_rank,
 	     a, BT_REAL, dr, REQUIRED);
   make_generic ("rank", GFC_ISYM_RANK, GFC_STD_F2008_TS);
 
@@ -4082,7 +4083,7 @@ gfc_intrinsic_func_interface (gfc_expr *expr, int error_flag)
   if ((isym->id == GFC_ISYM_REAL || isym->id == GFC_ISYM_DBLE
        || isym->id == GFC_ISYM_CMPLX)
       && gfc_init_expr_flag
-      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Function '%s' "
+      && gfc_notify_std (GFC_STD_F2003, "Function '%s' "
 			 "as initialization expression at %L", name,
 			 &expr->where) == FAILURE)
     {
@@ -4158,7 +4159,7 @@ got_specific:
            where each argument is an initialization expression  */
 
   if (gfc_init_expr_flag && isym->elemental && flag
-      && gfc_notify_std (GFC_STD_F2003, "Fortran 2003: Elemental function "
+      && gfc_notify_std (GFC_STD_F2003, "Elemental function "
 			"as initialization expression with non-integer/non-"
 		        "character arguments at %L", &expr->where) == FAILURE)
     return MATCH_ERROR;

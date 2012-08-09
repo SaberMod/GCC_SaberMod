@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-flow.h"
 #include "tree-mudflap.h"
-#include "tree-dump.h"
 #include "tree-pass.h"
 #include "hashtab.h"
 #include "diagnostic.h"
@@ -426,10 +425,6 @@ execute_mudflap_function_ops (void)
     return 0;
 
   push_gimplify_context (&gctx);
-
-  add_referenced_var (mf_cache_array_decl);
-  add_referenced_var (mf_cache_shift_decl);
-  add_referenced_var (mf_cache_mask_decl);
 
   /* In multithreaded mode, don't cache the lookup cache parameters.  */
   if (! flag_mudflap_threads)

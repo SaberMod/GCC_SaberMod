@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GENERATOR_FILE
 #include <gmp.h>
 #endif
-#include "coretypes.h"
 
 /* A large integer is currently represented as a pair of HOST_WIDE_INTs.
    It therefore represents a number with precision of
@@ -129,7 +128,7 @@ double_int_fits_in_uhwi_p (double_int cst)
 /* The following operations perform arithmetics modulo 2^precision,
    so you do not need to call double_int_ext between them, even if
    you are representing numbers with precision less than
-   2 * HOST_BITS_PER_WIDE_INT bits.  */
+   HOST_BITS_PER_DOUBLE_INT bits.  */
 
 double_int double_int_mul (double_int, double_int);
 double_int double_int_mul_with_sign (double_int, double_int, bool, int *);
@@ -139,7 +138,7 @@ double_int double_int_neg (double_int);
 
 /* You must ensure that double_int_ext is called on the operands
    of the following operations, if the precision of the numbers
-   is less than 2 * HOST_BITS_PER_WIDE_INT bits.  */
+   is less than HOST_BITS_PER_DOUBLE_INT bits.  */
 double_int double_int_div (double_int, double_int, bool, unsigned);
 double_int double_int_sdiv (double_int, double_int, unsigned);
 double_int double_int_udiv (double_int, double_int, unsigned);
@@ -149,6 +148,8 @@ double_int double_int_umod (double_int, double_int, unsigned);
 double_int double_int_divmod (double_int, double_int, bool, unsigned, double_int *);
 double_int double_int_sdivmod (double_int, double_int, unsigned, double_int *);
 double_int double_int_udivmod (double_int, double_int, unsigned, double_int *);
+
+bool double_int_multiple_of (double_int, double_int, bool, double_int *);
 
 double_int double_int_setbit (double_int, unsigned);
 int double_int_ctz (double_int);
@@ -249,7 +250,7 @@ double_int double_int_min_value (unsigned int, bool);
 
 /* The operands of the following comparison functions must be processed
    with double_int_ext, if their precision is less than
-   2 * HOST_BITS_PER_WIDE_INT bits.  */
+   HOST_BITS_PER_DOUBLE_INT bits.  */
 
 /* Returns true if CST is zero.  */
 
@@ -281,6 +282,14 @@ static inline bool
 double_int_equal_p (double_int cst1, double_int cst2)
 {
   return cst1.low == cst2.low && cst1.high == cst2.high;
+}
+
+/* Return number of set bits of CST.  */
+
+static inline int
+double_int_popcount (double_int cst)
+{
+  return popcount_hwi (cst.high) + popcount_hwi (cst.low);
 }
 
 

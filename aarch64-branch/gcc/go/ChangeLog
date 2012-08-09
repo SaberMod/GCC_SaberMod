@@ -1,3 +1,7 @@
+2012-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* go-lang.c (lang_decl): Add variable_size GTY option.
+
 2012-05-09  Ian Lance Taylor  <iant@google.com>
 
 	* lang.opt: Add -fgo-pkgpath.
@@ -13,10 +17,6 @@
 	to pkgpath.  Don't include the package name in the asm name.
 	* gccgo.texi (Invoking gccgo): Document -fgo-pkgpath.  Update the
 	docs for -fgo-prefix.
-
-2012-04-30  Jan Hubicka  <jh@suse.cz>
-
-	* gogo-tree.cc (Gogo::write_globals): Use finalize_compilation_unit.
 
 2012-04-23  Ian Lance Taylor  <iant@google.com>
 

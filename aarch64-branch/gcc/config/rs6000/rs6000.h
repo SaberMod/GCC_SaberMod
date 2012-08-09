@@ -168,6 +168,8 @@
 %{mcpu=e300c3: -me300} \
 %{mcpu=e500mc: -me500mc} \
 %{mcpu=e500mc64: -me500mc64} \
+%{mcpu=e5500: -me5500} \
+%{mcpu=e6500: -me6500} \
 %{maltivec: -maltivec} \
 %{mvsx: -mvsx %{!maltivec: -maltivec} %{!mcpu*: %(asm_cpu_power7)}} \
 -many"
@@ -457,7 +459,6 @@ extern int rs6000_vector_align[];
 
 #define TARGET_SPE_ABI 0
 #define TARGET_SPE 0
-#define TARGET_E500 0
 #define TARGET_ISEL64 (TARGET_ISEL && TARGET_POWERPC64)
 #define TARGET_FPRS 1
 #define TARGET_E500_SINGLE 0
@@ -500,10 +501,10 @@ extern int rs6000_vector_align[];
 				      || TARGET_ALTIVEC			 \
 				      || TARGET_VSX)))
 
+/* E500 cores only support plain "sync", not lwsync.  */
+#define TARGET_NO_LWSYNC (rs6000_cpu == PROCESSOR_PPC8540 \
+			  || rs6000_cpu == PROCESSOR_PPC8548)
 
-
-/* E500 processors only support plain "sync", not lwsync.  */
-#define TARGET_NO_LWSYNC TARGET_E500
 
 /* Which machine supports the various reciprocal estimate instructions.  */
 #define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
@@ -1819,11 +1820,6 @@ do {									     \
 
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
-
-/* This flag, if defined, says the same insns that convert to a signed fixnum
-   also convert validly to an unsigned one.  */
-
-/* #define FIXUNS_TRUNC_LIKE_FIX_TRUNC */
 
 /* An integer expression for the size in bits of the largest integer machine
    mode that should actually be used.  */

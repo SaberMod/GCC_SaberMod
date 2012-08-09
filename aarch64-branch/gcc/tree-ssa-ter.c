@@ -25,11 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "tree-ssa-live.h"
 #include "flags.h"
 
@@ -473,7 +472,7 @@ finished_with_expr (temp_expr_table_p tab, int version, bool free_expr)
   bitmap_iterator bi;
 
   /* Remove this expression from its dependent lists.  The partition dependence
-     list is retained and transfered later to whomever uses this version.  */
+     list is retained and transferred later to whomever uses this version.  */
   if (tab->partition_dependencies[version])
     {
       EXECUTE_IF_SET_IN_BITMAP (tab->partition_dependencies[version], 0, i, bi)

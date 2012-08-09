@@ -222,8 +222,7 @@ HOST_EXPORTS = \
 	HOST_LIBS="$(STAGE1_LIBS)"; export HOST_LIBS; \
 	GMPLIBS="$(HOST_GMPLIBS)"; export GMPLIBS; \
 	GMPINC="$(HOST_GMPINC)"; export GMPINC; \
-	PPLLIBS="$(HOST_PPLLIBS)"; export PPLLIBS; \
-	PPLINC="$(HOST_PPLINC)"; export PPLINC; \
+	ISLINC="$(HOST_ISLINC)"; export ISLINC; \
 	CLOOGLIBS="$(HOST_CLOOGLIBS)"; export CLOOGLIBS; \
 	CLOOGINC="$(HOST_CLOOGINC)"; export CLOOGINC; \
 	LIBELFLIBS="$(HOST_LIBELFLIBS)" ; export LIBELFLIBS; \
@@ -313,9 +312,8 @@ NORMAL_TARGET_EXPORTS = \
 HOST_GMPLIBS = @gmplibs@
 HOST_GMPINC = @gmpinc@
 
-# Where to find PPL
-HOST_PPLLIBS = @ppllibs@
-HOST_PPLINC = @pplinc@
+# Where to find ISL
+HOST_ISLINC = @islinc@
 
 # Where to find CLOOG
 HOST_CLOOGLIBS = @clooglibs@
@@ -906,11 +904,12 @@ install.all: install-no-fixedincludes
 		true ; \
 	fi
 
-# install-no-fixedincludes is used because Cygnus can not distribute
-# the fixed header files.
+# install-no-fixedincludes is used to allow the elaboration of binary packages
+# suitable for distribution, where we cannot include the fixed system header
+# files.
 .PHONY: install-no-fixedincludes
 install-no-fixedincludes: installdirs install-host-nogcc \
-	install-target gcc-no-fixedincludes
+	install-target gcc-install-no-fixedincludes
 
 .PHONY: install-strip
 install-strip:
@@ -1414,6 +1413,20 @@ check-target-libmudflap-c++:
 
 @endif target-libmudflap
 
+@if target-libgomp
+.PHONY: check-target-libgomp-c++
+check-target-libgomp-c++:
+	$(MAKE) RUNTESTFLAGS="$(RUNTESTFLAGS) c++.exp" check-target-libgomp
+
+@endif target-libgomp
+
+@if target-libitm
+.PHONY: check-target-libitm-c++
+check-target-libitm-c++:
+	$(MAKE) RUNTESTFLAGS="$(RUNTESTFLAGS) c++.exp" check-target-libitm
+
+@endif target-libitm
+
 # ----------
 # GCC module
 # ----------
@@ -1443,25 +1456,16 @@ check-gcc-[+language+]:
 check-[+language+]: check-gcc-[+language+][+ FOR lib-check-target +] [+ lib-check-target +][+ ENDFOR lib-check-target +]
 [+ ENDFOR languages +]
 
-# Install the gcc headers files, but not the fixed include files,
-# which Cygnus is not allowed to distribute.  This rule is very
-# dependent on the workings of the gcc Makefile.in.
-.PHONY: gcc-no-fixedincludes
-gcc-no-fixedincludes:
+# The gcc part of install-no-fixedincludes, which relies on an intimate
+# knowledge of how a number of gcc internal targets (inter)operate.  Delegate.
+.PHONY: gcc-install-no-fixedincludes
+gcc-install-no-fixedincludes:
 	@if [ -f ./gcc/Makefile ]; then \
-	  rm -rf gcc/tmp-include; \
-	  mv gcc/include gcc/tmp-include 2>/dev/null; \
-	  mkdir gcc/include; \
-	  cp $(srcdir)/gcc/gsyslimits.h gcc/include/syslimits.h; \
-	  touch gcc/stmp-fixinc gcc/include/fixed; \
-	  rm -f gcc/stmp-headers gcc/stmp-int-hdrs; \
 	  r=`${PWD_COMMAND}`; export r; \
-	  s=`cd $(srcdir); ${PWD_COMMAND}` ; export s; \
+	  s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	  $(HOST_EXPORTS) \
-	  (cd ./gcc && \
-	   $(MAKE) $(GCC_FLAGS_TO_PASS) install); \
-	  rm -rf gcc/include; \
-	  mv gcc/tmp-include gcc/include 2>/dev/null; \
+	  (cd ./gcc \
+	   && $(MAKE) $(GCC_FLAGS_TO_PASS) install-no-fixedincludes); \
 	else true; fi
 @endif gcc
 

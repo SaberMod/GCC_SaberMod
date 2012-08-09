@@ -86,6 +86,23 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	noexcept(declval<const _Hash&>()(declval<const _Key&>()))>
     { };
 
+  struct _Identity
+  {
+    template<typename _Tp>
+      _Tp&&
+      operator()(_Tp&& __x) const
+      { return std::forward<_Tp>(__x); }
+  };
+
+  struct _Select1st
+  {
+    template<typename _Tp>
+      auto
+      operator()(_Tp&& __x) const
+      -> decltype(std::get<0>(std::forward<_Tp>(__x)))
+      { return std::get<0>(std::forward<_Tp>(__x)); }
+  };
+
   // Auxiliary types used for all instantiations of _Hashtable nodes
   // and iterators.
 
@@ -497,27 +514,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    struct _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    struct _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 		     _H1, _H2, _Hash, _RehashPolicy, _Traits, false>
     {
-      using mapped_type = typename _Pair::second_type;
+      using mapped_type = typename std::tuple_element<1, _Pair>::type;
     };
 
   /// Partial specialization, __unique_keys set to true.
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    struct _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    struct _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 		     _H1, _H2, _Hash, _RehashPolicy, _Traits, true>
     {
     private:
       using __hashtable_base = __detail::_Hashtable_base<_Key, _Pair,
-							 std::_Select1st<_Pair>,
+							 _Select1st,
 							_Equal, _H1, _H2, _Hash,
 							  _Traits>;
 
       using __hashtable = _Hashtable<_Key, _Pair, _Alloc,
-				     std::_Select1st<_Pair>, _Equal,
+				     _Select1st, _Equal,
 				     _H1, _H2, _Hash, _RehashPolicy, _Traits>;
 
       using __hash_code = typename __hashtable_base::__hash_code;
@@ -526,7 +543,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     public:
       using key_type = typename __hashtable_base::key_type;
       using iterator = typename __hashtable_base::iterator;
-      using mapped_type = typename _Pair::second_type;
+      using mapped_type = typename std::tuple_element<1, _Pair>::type;
 
       mapped_type&
       operator[](const key_type& __k);
@@ -546,10 +563,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    typename _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    typename _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 		       _H1, _H2, _Hash, _RehashPolicy, _Traits, true>
 		       ::mapped_type&
-    _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 	      _H1, _H2, _Hash, _RehashPolicy, _Traits, true>::
     operator[](const key_type& __k)
     {
@@ -567,10 +584,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    typename _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    typename _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 		       _H1, _H2, _Hash, _RehashPolicy, _Traits, true>
 		       ::mapped_type&
-    _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 	      _H1, _H2, _Hash, _RehashPolicy, _Traits, true>::
     operator[](key_type&& __k)
     {
@@ -589,10 +606,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    typename _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    typename _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 		       _H1, _H2, _Hash, _RehashPolicy, _Traits, true>
 		       ::mapped_type&
-    _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 	      _H1, _H2, _Hash, _RehashPolicy, _Traits, true>::
     at(const key_type& __k)
     {
@@ -609,11 +626,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Key, typename _Pair, typename _Alloc, typename _Equal,
 	   typename _H1, typename _H2, typename _Hash,
 	   typename _RehashPolicy, typename _Traits>
-    const typename _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>,
-			     _Equal,
-		       _H1, _H2, _Hash, _RehashPolicy, _Traits, true>
-		       ::mapped_type&
-    _Map_base<_Key, _Pair, _Alloc, std::_Select1st<_Pair>, _Equal,
+    const typename _Map_base<_Key, _Pair, _Alloc, _Select1st,
+			     _Equal, _H1, _H2, _Hash, _RehashPolicy,
+			     _Traits, true>::mapped_type&
+    _Map_base<_Key, _Pair, _Alloc, _Select1st, _Equal,
 	      _H1, _H2, _Hash, _RehashPolicy, _Traits, true>::
     at(const key_type& __k) const
     {
@@ -815,15 +831,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using __base_type::insert;
 
       template<typename _Pair>
-	using __is_convertible = std::is_convertible<_Pair, value_type>;
+	using __is_cons = std::is_constructible<value_type, _Pair&&>;
 
       template<typename _Pair>
-	using _IFconv = std::enable_if<__is_convertible<_Pair>::value>;
+	using _IFcons = std::enable_if<__is_cons<_Pair>::value>;
 
       template<typename _Pair>
-	using _IFconvp = typename _IFconv<_Pair>::type;
+	using _IFconsp = typename _IFcons<_Pair>::type;
 
-      template<typename _Pair, typename = _IFconvp<_Pair>>
+      template<typename _Pair, typename = _IFconsp<_Pair>>
 	__ireturn_type
 	insert(_Pair&& __v)
 	{
@@ -831,7 +847,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  return __h._M_insert(std::forward<_Pair>(__v), __unique_keys());
 	}
 
-      template<typename _Pair, typename = _IFconvp<_Pair>>
+      template<typename _Pair, typename = _IFconsp<_Pair>>
 	iterator
 	insert(const_iterator, _Pair&& __v)
 	{ return __iconv_type()(insert(std::forward<_Pair>(__v))); }
@@ -1492,8 +1508,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 						     iterator>::type;
 
     using __iconv_type = typename  std::conditional<__unique_keys::value,
-					       std::_Select1st<__ireturn_type>,
-					       std::_Identity<__ireturn_type>
+						    _Select1st, _Identity
 						    >::type;
   private:
     using _EqualEBO = _Hashtable_ebo_helper<0, _Equal>;

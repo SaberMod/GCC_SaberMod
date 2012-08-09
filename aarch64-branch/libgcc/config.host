@@ -631,7 +631,7 @@ x86_64-*-mingw*)
 	if test x$enable_sjlj_exceptions = xyes; then
 		tmake_eh_file="i386/t-sjlj-eh"
 	else
-		tmake_eh_file="i386/t-dw2-eh"
+		tmake_eh_file="i386/t-seh-eh"
 	fi
 	# Shared libgcc DLL install dir depends on cross/native build.
 	if test x${build} = x${host} ; then
@@ -1166,7 +1166,7 @@ i[34567]86-*-darwin* | x86_64-*-darwin* | \
 	if test "${host_address}" = 32; then
 		tmake_file="${tmake_file} i386/${host_address}/t-softfp"
 	fi
-	tmake_file="${tmake_file} t-softfp"
+	tmake_file="${tmake_file} i386/t-softfp t-softfp"
 	;;
 esac
 

@@ -127,13 +127,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "recog.h"
 #include "flags.h"
-#include "output.h"
 #include "obstack.h"
 #include "insn-attr.h"
 #include "resource.h"
 #include "except.h"
 #include "params.h"
-#include "timevar.h"
 #include "target.h"
 #include "tree-pass.h"
 
@@ -2434,7 +2432,7 @@ fill_simple_delay_slots (int non_jumps_p)
       SET_HARD_REG_BIT (needed.regs, HARD_FRAME_POINTER_REGNUM);
 #endif
       if (! EXIT_IGNORE_STACK
-	  || current_function_sp_is_unchanging)
+	  || crtl->sp_is_unchanging)
 	SET_HARD_REG_BIT (needed.regs, STACK_POINTER_REGNUM);
     }
   else
