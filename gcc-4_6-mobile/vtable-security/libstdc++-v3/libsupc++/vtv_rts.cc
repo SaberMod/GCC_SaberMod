@@ -228,6 +228,21 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
 
+#ifdef __GTHREAD_MUTEX_INIT
+
+static __gthread_mutex_t map_var_mutex VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
+
+#else
+
+static __gthread_mutex_t map_var_mutex VTV_PROTECTED_VAR;
+
+static void
+initialize_mutex_once ()
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&map_var_mutex);
+}
+#endif
+
 /* TODO: Why is this returning anything
    remove unnecessary arguments */
 void *
@@ -238,12 +253,11 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
   vptr vtbl_ptr = (vptr) test_value;
   struct vlt_hashtable * volatile *tmp_volatile_ptr =
     (struct vlt_hashtable **) data_pointer;
-  static __gthread_mutex_t map_var_mutex VTV_PROTECTED_VAR;
 
-#if defined __GTHREAD_MUTEX_INIT
-  map_var_mutex = __GTHREAD_MUTEX_INIT;
-#else
-  __GTHREAD_MUTEX_INIT_FUNCTION(&map_var_mutex);
+#ifndef __GTHREAD_MUTEX_INIT
+  static __gthread_once_t mutex_once VTV_PROTECTED_VAR = __GTHREAD_ONCE_INIT;
+
+  __gthread_once (&mutex_once, initialize_mutex_once);
 #endif
 
   if ((*tmp_volatile_ptr) == NULL)

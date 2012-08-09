@@ -1,3 +1,12 @@
+2010-08-09  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (map_var_mutex):  Move out of
+	__VLTRegisterPair and make this a global static variable. 
+	(initialize_mutex_once): New function.
+	(__VLTRegisterPair):  Make map_var_mutex a global static variable;
+	add mutex_once, and use to properly initialize map_var_mutex, if
+	needed.
+
 2012-08-08  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPair): Replace
