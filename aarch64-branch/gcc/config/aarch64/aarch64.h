@@ -611,11 +611,6 @@ do {									     \
 #define LEGITIMATE_PIC_OPERAND_P(X) \
   aarch64_legitimate_pic_operand_p (X)
 
-/* Go to LABEL if ADDR (a legitimate address expression)
-   has an effect that depends on the machine mode it is used for.
-   Post-inc/dec are now explicitly handled by recog.c.  */
-#define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL)
-
 #define CASE_VECTOR_MODE Pmode
 
 #define DEFAULT_SIGNED_CHAR 0
