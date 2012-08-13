@@ -96,8 +96,7 @@ sources = \
 	vterminate.cc \
 	vtv_rts.cc \
 	vtv_threaded_hash.cc \
-	vtv_malloc.cc \
-	vtv_set.cc
+	vtv_malloc.cc 
 
 vtv_init_sources = \
 	vtv_init.cc

@@ -25,10 +25,6 @@
 #ifndef _VTV_MALLOC_H
 #define _VTV_MALLOC_H 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdlib.h>
 
 /* Alignment mask for any object returned by the VTV memory pool */
@@ -46,9 +42,5 @@ extern void VTV_malloc_stats (void);
 
 extern void VTV_malloc_protect (void);
 extern void VTV_malloc_unprotect (void);
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif /* vtv_malloc.h */

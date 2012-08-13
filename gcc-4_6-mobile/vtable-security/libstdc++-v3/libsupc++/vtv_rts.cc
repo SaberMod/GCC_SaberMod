@@ -32,15 +32,14 @@
 #include <errno.h>
 #include <link.h>
 
+/* For gthreads suppport */
+#include <bits/c++config.h>
+#include <ext/concurrence.h>
+
 #include "vtv_utils.h"
 #include "vtv_malloc.h"
-//#include "vtv_set.h"
-#include "hashtable.h"
+#include "vtv_set.h"
 #include "vtv_rts.h"
-
-#ifndef __cplusplus
-#error "This file must be compiled with a C++ compiler"
-#endif
 
 /* Be careful about initialization of statics in this file.  Some of
    the routines below are called before any runtime initialization for
@@ -58,6 +57,30 @@ static const int debug_register_pairs = 0;
    and VTV_protect */
 
 static FILE * log_file_fp VTV_PROTECTED_VAR = NULL;
+
+/* types needed by insert_only_hash_sets */
+typedef uintptr_t int_vptr;
+
+struct vptr_hash {
+  size_t operator()(int_vptr v) const
+  {
+    const uint32_t x = 0x7a35e4d9;
+    const int shift = (sizeof(v) == 8) ? 23 : 21;
+    v = x * v;
+    return v ^ (v >> shift);
+  }
+};
+
+struct vptr_set_alloc {
+  void* operator()(size_t n) const
+  {
+    return VTV_malloc(n);
+  }
+};
+
+typedef insert_only_hash_sets<int_vptr, vptr_hash, vptr_set_alloc> vtv_sets;
+typedef vtv_sets::insert_only_hash_set vtv_set;
+typedef vtv_set * vtv_set_handle;
 
 struct mprotect_data {
   int prot_mode;
@@ -141,13 +164,24 @@ VTV_protect_vtable_vars (void)
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
+// TODO: NEED TO PROTECT THIS VAR
+static int change_permissions_count = 0;
+
 #if defined __GTHREAD_MUTEX_INIT
 static __gthread_mutex_t register_pairs_lock VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
-// TODO: NEED TO PROTECT THESE TWO VARS !!!!
+// TODO: NEED TO PROTECT THIS VAR
 static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
-static int change_permissions_count = 0;
 #else
-/* TODO */
+static __gthread_mutex_t register_pairs_lock VTV_PROTECTED_VAR;
+// TODO: NEED TO PROTECT THIS VAR
+static __gthread_mutex_t change_permissions_lock;
+
+static void
+initialize_change_permissions_mutexes ()
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&register_pair_lock);
+  __GTHREAD_MUTEX_INIT_FUNCTION (&change_permissions_lock);
+}
 #endif
 
 void 
@@ -163,6 +197,12 @@ __VLTChangePermission (int perm)
 	fprintf (stdout, "Unrecognized permissions value: %d\n", perm);
     }
 
+#ifndef __GTHREAD_MUTEX_INIT
+  static __gthread_once_t mutex_once VTV_PROTECTED_VAR = __GTHREAD_ONCE_INIT;
+
+  __gthread_once (&mutex_once, initialize_change_permissions_mutexes);
+#endif
+
   /* Ordering of these unprotect/protect calls is very important. 
      You first need to unprotect all the map vars and side
      structures before you do anything with the core data
@@ -170,6 +210,9 @@ __VLTChangePermission (int perm)
 
   if (perm == __VLTP_READ_WRITE)
     {
+      // TODO: need to revisit this code for dlopen. It most probably is
+      // not unlocking the protected vtable vars after for a load module
+      // that is not the first load module
       __gthread_mutex_lock(&change_permissions_lock);
       VTV_ASSERT(change_permissions_count >= 0);
       change_permissions_count++;
@@ -181,7 +224,7 @@ __VLTChangePermission (int perm)
         }
       __gthread_mutex_unlock(&change_permissions_lock);
 
-      /* Now grab the regist pairs lock so that only one thread is 
+      /* Now grab the register pairs lock so that only one thread is
          modifying the register pair sets */
       __gthread_mutex_lock(&register_pairs_lock);
     }
@@ -202,30 +245,9 @@ __VLTChangePermission (int perm)
       __gthread_mutex_unlock(&change_permissions_lock);
 
       if (debug_hash)
-          vtv_set_dump_statistics();
+        vtv_sets::dump_statistics();
     }
 }
-
-typedef uintptr_t int_vptr;
-
-struct vptr_hash {
-  size_t operator()(int_vptr v) const
-  {
-    v = 123498765 * v;
-    return v ^ (v >> 23);
-  }
-};
-
-struct vptr_set_alloc {
-  void* operator()(size_t n) const
-  {
-    return vtv_malloc(n);
-  }
-};
-
-typedef insert_only_hash_sets<vptr, vptr_hash, vptr_set_alloc> vtv_sets;
-typedef vtv_sets::insert_only_hash_set vtv_set;
-typedef vtv_set * vtv_set_handle;
 
 /* For some reason, when the char * names get passed into these
    functions, they are missing the '\0' at the end; therefore we
@@ -235,7 +257,7 @@ typedef vtv_set * vtv_set_handle;
 void
 log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
 		    int format_arg2, char *base_var_name, char *vtable_name,
-		    vptr vtbl_ptr)
+		    int_vptr vtbl_ptr)
 {
   char format_string[50];
 
@@ -281,20 +303,15 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
 
-#ifdef __GTHREAD_MUTEX_INIT
-
-static __gthread_mutex_t map_var_mutex VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
-
-#else
-
-static __gthread_mutex_t map_var_mutex VTV_PROTECTED_VAR;
-
-static void
-initialize_mutex_once ()
+// TODO: move the calculation of power of two to the code that calculates the hint
+static unsigned 
+next_power_of_two(unsigned int num)
 {
-  __GTHREAD_MUTEX_INIT_FUNCTION (&map_var_mutex);
+  unsigned result = 1;
+  while (result < num)
+    result = result << 1;
+  return result;
 }
-#endif
 
 /* TODO: Why is this returning anything
    remove unnecessary arguments */
@@ -314,8 +331,6 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 
   if (*handle_ptr == NULL)
     {
-      //      __gthread_mutex_lock (&map_var_mutex);
-
       if (*handle_ptr == NULL)
         {
           // use a temporary handle to create the set and insert the vtbl ptr
@@ -323,12 +338,11 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
           // condition with reader.
           vtv_set_handle tmp_handle;
           // TODO: verify return value
-          vtv_sets::create(size_hint, &tmp_handle);
+          // TODO: pass power of 2 hint.
+          vtv_sets::create(next_power_of_two(size_hint), &tmp_handle);
           vtv_sets::insert(vtbl_ptr, &tmp_handle);
           *handle_ptr = tmp_handle;
         }
-
-      //      __gthread_mutex_unlock (&map_var_mutex);
     }
   else
     // TODO: handle size hint in this case
@@ -346,7 +360,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
       log_register_pairs (log_file_fp, "Registered %%.%ds : %%.%ds (%%p)\n",
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
-      if (handle_ptr->is_null())
+      if (*handle_ptr == NULL)
 	fprintf (log_file_fp, "  vtable map variable is NULL.\n");
     }
 
@@ -379,20 +393,21 @@ __VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
   vtv_set_handle * handle_ptr = (vtv_set_handle *)data_pointer;
   int_vptr vtbl_ptr = (int_vptr) test_value;
 
-  if (vtv_sets::contains(vtbl_ptr, *handle_ptr))
+  if (vtv_sets::contains(vtbl_ptr, handle_ptr))
     {
       if (debug_functions)
-	fprintf (stdout, "Verified object vtable pointer = %p\n", obj_vptr);
+	fprintf (stdout, "Verified object vtable pointer = %lx\n", 
+                 (unsigned long)vtbl_ptr);
     }
   else
     {
       /* The data structure is not NULL, but we failed to find our
          object's vtpr in it.  Write out information and call abort.*/
-      if (handle_ptr && vtable_name)
+      if (base_vtbl_var_name && vtable_name)
 	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
-				 vtable_name, handle_ptr);
-      fprintf (stderr, "FAILED to verify object vtable pointer=%p!!!\n",
-               obj_vptr);
+				 vtable_name, base_vtbl_var_name);
+      fprintf (stderr, "FAILED to verify object vtable pointer=%lx!!!\n",
+               (unsigned long)vtbl_ptr);
       //      dump_table_to_vtbl_map_file (*handle_ptr, 1, base_vtbl_var_name,
       //len1);
       /* Eventually we should call __stack_chk_fail (or something similar)
@@ -410,7 +425,7 @@ __VLTVerifyVtablePointer (void ** data_pointer, void * test_value)
   vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
   int_vptr vtbl_ptr = (int_vptr) test_value;
 
-  if (!vtv_sets::contains((*handle_ptr), vtbl_ptr, NULL))
+  if (!vtv_sets::contains(vtbl_ptr, handle_ptr))
     {
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
