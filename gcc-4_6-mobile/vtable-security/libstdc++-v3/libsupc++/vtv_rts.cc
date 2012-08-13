@@ -22,9 +22,6 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-// TODO: remove
-#include <pthread.h>
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>

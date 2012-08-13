@@ -25,13 +25,8 @@
 #ifndef _VTV_SET_H
 #define _VTV_SET_H 1
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "vtv_utils.h"
 #include "vtv_threaded_hash.h"
-
 
 class vtv_set_handle {
 
@@ -161,9 +156,5 @@ vtv_set_find(vtv_set_handle handle, void * value)
 }
 
 void vtv_set_dump_statistics();
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
 
 #endif /* _VTV_SET_H */

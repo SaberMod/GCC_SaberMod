@@ -22,7 +22,6 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-
 #ifndef _VTV_RTS_H
 #define _VTV_RTS_H 1
 

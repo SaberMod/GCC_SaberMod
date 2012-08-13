@@ -37,10 +37,14 @@ vtv_set_insert(vtv_set_handle * handle_ptr, void * value, int size_hint)
       // check if we need to transform the singleton into a hash table.
       if (singleton != value)
         {
-          static pthread_mutex_t set_var_mutex VTV_PROTECTED_VAR
-              = PTHREAD_MUTEX_INITIALIZER;
-
-          pthread_mutex_lock (&set_var_mutex);
+#if defined __GTHREAD_MUTEX_INIT
+          static __gthread_mutex_t set_var_mutex VTV_PROTECTED_VAR
+              = __GTHREAD_MUTEX_INIT;
+#else
+          abort();
+          __GTHREAD_MUTEX_INIT_FUNCTION(&set_var_mutex);
+#endif
+          __gthread_mutex_lock (&set_var_mutex);
 
           // only do something if the handle was not changed by another thread.
           if (handle_ptr->get_kind_v() == vtv_set_handle::singleton_set)
@@ -59,7 +63,7 @@ vtv_set_insert(vtv_set_handle * handle_ptr, void * value, int size_hint)
               num_singleton_hash_transitions++;
             }
 
-          pthread_mutex_unlock (&set_var_mutex);
+          __gthread_mutex_unlock (&set_var_mutex);
         }
 
       return;
