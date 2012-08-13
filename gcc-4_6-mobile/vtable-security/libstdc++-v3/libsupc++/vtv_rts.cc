@@ -22,6 +22,9 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
+// TODO: remove
+#include <pthread.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -32,8 +35,9 @@
 #include <errno.h>
 #include <link.h>
 
-#include "vtv_threaded_hash.h"
+#include "vtv_utils.h"
 #include "vtv_malloc.h"
+#include "vtv_set.h"
 #include "vtv_rts.h"
 
 #ifndef __cplusplus
@@ -139,7 +143,6 @@ VTV_protect_vtable_vars (void)
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
-/* TODO: why is this returning a value ? */
 /* TODO: remove len parameter */
 void 
 __VLTChangePermission (int perm)
@@ -169,6 +172,9 @@ __VLTChangePermission (int perm)
     {
       VTV_malloc_protect ();
       VTV_protect_vtable_vars ();
+
+      if (debug_hash)
+          vtv_set_dump_statistics();
     }
 }
 
@@ -251,8 +257,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 		   int len2)
 {
   vptr vtbl_ptr = (vptr) test_value;
-  struct vlt_hashtable * volatile *tmp_volatile_ptr =
-    (struct vlt_hashtable **) data_pointer;
+  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
 
 #ifndef __GTHREAD_MUTEX_INIT
   static __gthread_once_t mutex_once VTV_PROTECTED_VAR = __GTHREAD_ONCE_INIT;
@@ -260,31 +265,32 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
   __gthread_once (&mutex_once, initialize_mutex_once);
 #endif
 
-  if ((*tmp_volatile_ptr) == NULL)
+  if (handle_ptr->is_null_v())
     {
       __gthread_mutex_lock (&map_var_mutex);
 
-      if ((*tmp_volatile_ptr) == NULL)
-        *tmp_volatile_ptr = vlt_hash_init_table (size_hint);
+      if (handle_ptr->is_null_v())
+        *handle_ptr = vtv_set_init (test_value, size_hint);
 
       __gthread_mutex_unlock (&map_var_mutex);
     }
+  else
+    vtv_set_insert(handle_ptr, test_value, size_hint);
 
   if (debug_functions && base_ptr_var_name && vtable_name)
-    print_debugging_message ("Registering %%.%ds : %%.%ds\n", len1, len2,
+    print_debugging_message ("Registered %%.%ds : %%.%ds\n", len1, len2,
 			     base_ptr_var_name, vtable_name);
   if (debug_register_pairs)
     {
       if (!log_file_fp)
 	log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
-      log_register_pairs (log_file_fp, "Registering %%.%ds : %%.%ds (%%p)\n",
+      log_register_pairs (log_file_fp, "Registered %%.%ds : %%.%ds (%%p)\n",
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
-      if (*tmp_volatile_ptr == NULL)
+      if (handle_ptr->is_null())
 	fprintf (log_file_fp, "  vtable map variable is NULL.\n");
     }
 
-  vlt_hash_insert (*tmp_volatile_ptr, test_value);
   return NULL;
 }
 
@@ -311,18 +317,18 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
                                char *base_vtbl_var_name, int len1, char *vtable_name,
                                int len2)
 {
-  struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
+  vtv_set_handle * base_vtbl_ptr = (vtv_set_handle *)data_pointer;
   vptr obj_vptr = (vptr) test_value;
   /* No need to protect this static. It is only used for debug purposes */
   static bool debug_first_time = true;
 
   if (debug_first_time && debug_hash)
     {
-      dump_hashing_statistics ();
+      vtv_set_dump_statistics();
       debug_first_time = false;
     }
 
-  if (vlt_hash_find ((*base_vtbl_ptr), test_value))
+  if (vtv_set_find((*base_vtbl_ptr), test_value))
     {
       if (debug_functions)
 	fprintf (stdout, "Verified object vtable pointer = %p\n", obj_vptr);
@@ -336,8 +342,8 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
 				 vtable_name, base_vtbl_var_name);
       fprintf (stderr, "FAILED to verify object vtable pointer=%p!!!\n",
                obj_vptr);
-      dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
-                                   len1);
+      //      dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
+      //len1);
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
       PrintStackTrace();
@@ -350,9 +356,9 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
 void *
 __VLTVerifyVtablePointer (void **data_pointer, void *test_value)
 {
-  struct vlt_hashtable **base_vtbl_ptr = (vlt_hashtable **) data_pointer;
+  vtv_set_handle * base_vtbl_ptr = (vtv_set_handle *) data_pointer;
 
-  if (vlt_hash_find ((*base_vtbl_ptr), test_value) == NULL)
+  if (!vtv_set_find((*base_vtbl_ptr), test_value))
     {
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */

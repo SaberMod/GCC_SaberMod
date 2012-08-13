@@ -48,13 +48,6 @@ extern void VTV_malloc_stats (void);
 extern void VTV_malloc_protect (void);
 extern void VTV_malloc_unprotect (void);
 
-extern void VTV_error (void);
-#define VTV_assert(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
-
-/* Name of the section where we put general VTV variables for protection */
-#define VTV_PROTECTED_VARS_SECTION ".data.rel.ro.vtable_vars"
-#define VTV_PROTECTED_VAR __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
-
 #ifdef __cplusplus
 } /* extern "C" */
 #endif

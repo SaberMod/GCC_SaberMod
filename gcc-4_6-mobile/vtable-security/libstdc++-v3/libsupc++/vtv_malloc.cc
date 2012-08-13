@@ -27,8 +27,9 @@
 #include <sys/mman.h>
 #include <stdio.h>
 
+#include "vtv_utils.h"
 #include "vtv_malloc.h"
-#include <obstack.h>
+#include "obstack.h"
 
 /* Set the following macro to 1 to get internal debugging messages */
 #define VTV_DEBUG 0
@@ -43,13 +44,6 @@ static void * current_chunk VTV_PROTECTED_VAR = 0;
 static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
 static int malloc_initialized VTV_PROTECTED_VAR = 0;
 
-/* TODO: Define what is the expected behavior of assert and error */
-/* Handling of runtime error */
-void
-VTV_error (void)
-{
-  abort();
-}
 
 void
 VTV_malloc_protect (void)
@@ -58,7 +52,7 @@ VTV_malloc_protect (void)
   ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
   {
-    VTV_assert(((unsigned long)ci & (page_size - 1)) == 0);
+    VTV_DEBUG_ASSERT(((unsigned long)ci & (page_size - 1)) == 0);
     if (mprotect(ci, (ci->limit - (char *)ci), PROT_READ) == -1)
       VTV_error();
     ci = ci->prev;
@@ -84,7 +78,7 @@ VTV_malloc_unprotect (void)
   ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
   {
-    VTV_assert(((unsigned long)ci & (page_size - 1)) == 0);
+    VTV_DEBUG_ASSERT(((unsigned long)ci & (page_size - 1)) == 0);
     if (mprotect(ci, (ci->limit - (char *)ci), PROT_READ | PROT_WRITE) == -1)
       VTV_error();
     ci = ci->prev;
@@ -99,14 +93,14 @@ obstack_chunk_alloc (size_t size)
   /* TODO: Why do we need to support chunk sizes less that page size? */
   /* Get size to next multiple of page_size */
   size = (size + (page_size - 1)) & (~(page_size - 1));
-  VTV_assert((size & (page_size - 1)) == 0);
+  VTV_DEBUG_ASSERT((size & (page_size - 1)) == 0);
   void * allocated;
 
   if ((allocated = mmap (NULL, size, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS,  -1, 0)) == 0)
     VTV_error();
 
-  VTV_assert(((unsigned long) allocated & (page_size - 1)) == 0);
+  VTV_DEBUG_ASSERT(((unsigned long) allocated & (page_size - 1)) == 0);
 
   current_chunk = allocated;
   current_chunk_size = size;

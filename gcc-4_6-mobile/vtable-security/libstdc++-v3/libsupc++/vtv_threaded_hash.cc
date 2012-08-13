@@ -26,8 +26,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
+#include "vtv_utils.h"
 #include "vtv_threaded_hash.h"
 #include "vtv_malloc.h"
 
@@ -152,7 +152,7 @@ grow_table (struct vlt_hashtable *table)
 
   new_data[-1] = (vlt_hash_bucket *)
                                       (0xffffffffUL >> (32 - new_power_size));
-  assert(new_data[-1] != 0);
+  VTV_DEBUG_ASSERT(new_data[-1] != 0);
 
   table->data = new_data;
 
@@ -219,7 +219,7 @@ vlt_hash_init_table (int initial_size_hint)
 
   new_table->data[0] = (vlt_hash_bucket *)
                                       (0xffffffffUL >> (32 - initial_power));
-  assert(new_table->data[0] != 0);
+  VTV_DEBUG_ASSERT(new_table->data[0] != 0);
 
   /* The very first element/bucket is reserved for the hash mask, so make
      the main table start at the second element. */
@@ -238,7 +238,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
   /* Reminder:  table->data[-1] contains the hash mask.   See comments in
      vlt_hash_init_table for details.  */
   uint64_t hash_mask = (uint64_t) data[-1];
-  assert(hash_mask != 0);
+  VTV_DEBUG_ASSERT(hash_mask != 0);
 
   uint32_t index = hash & (uint32_t) hash_mask;
   vlt_hash_bucket *first_bucket = data[index];
@@ -262,14 +262,14 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
 
       if (data == table->data) // hash table was not resized
         {
-	  assert(new_hash_mask == hash_mask);
+	  VTV_DEBUG_ASSERT(new_hash_mask == hash_mask);
           new_index = index;
           should_insert = !vlt_bucket_find (table->data[new_index], value,
                                             first_bucket);
         }
       else
         {
-	  assert(new_hash_mask != hash_mask);
+	  VTV_DEBUG_ASSERT(new_hash_mask != hash_mask);
           new_index = hash & (uint32_t) new_hash_mask;
           should_insert = !vlt_bucket_find (table->data[new_index], value,
                                             NULL);
@@ -281,7 +281,7 @@ vlt_hash_insert (struct vlt_hashtable *table, void *value)
             {
               grow_table (table);
               new_hash_mask = (uint64_t) table->data[-1];
-	      assert(new_hash_mask != 0);
+	      VTV_DEBUG_ASSERT(new_hash_mask != 0);
               new_index = hash & (uint32_t) new_hash_mask;
             }
 
@@ -419,27 +419,19 @@ dump_table_to_vtbl_map_file (struct vlt_hashtable *table,
 }
 
 void
-dump_hashing_statistics (void)
+dump_hashing_statistics (FILE * fp)
 {
-  FILE *fp = fopen("/tmp/threaded-hash-statistics.log", "w");
-
-  if (fp)
-    {
-      fprintf (fp, "Threaded Hash Table Statistics\n\n");
-      fprintf (fp, "# Hash Tables Created:  %d\n", num_tables_allocated);
-      fprintf (fp, "# Slots Created:  %d\n", num_bucket_pointers_allocated);
-      fprintf (fp, "# Slots Filled:  %d\n", num_slots_filled);
-      fprintf (fp, "# Unused Slots: %d\n",
-               num_bucket_pointers_allocated - num_slots_filled);
-      fprintf (fp, "Slot Size (in bytes): %d\n\n", size_of_pointer);
-
-      fprintf (fp, "# Buckets Created: %d\n", num_buckets_created);
-      fprintf (fp, "# Non-slot buckets (in collision chains): %d\n",
-               num_buckets_created - num_slots_filled);
-      fprintf (fp, "Bucket Size (in bytes):  %d\n\n", size_of_bucket);
-      fprintf (fp, "# of re-hashes that occurred: %d\n", num_rehashes);
-      fprintf (fp, "# of re-hashed elements: %d\n", num_rehashed_elements);
-
-      fclose (fp);
-    }
+  fprintf (fp, "Threaded Hash Table Statistics\n\n");
+  fprintf (fp, "  # Hash Tables Created:  %d\n", num_tables_allocated);
+  fprintf (fp, "  # Slots Created:  %d\n", num_bucket_pointers_allocated);
+  fprintf (fp, "  # Slots Filled:  %d\n", num_slots_filled);
+  fprintf (fp, "  # Unused Slots: %d\n",
+           num_bucket_pointers_allocated - num_slots_filled);
+  fprintf (fp, "  Slot Size (in bytes): %d\n\n", size_of_pointer);
+  fprintf (fp, "  # Buckets Created: %d\n", num_buckets_created);
+  fprintf (fp, "  # Non-slot buckets (in collision chains): %d\n",
+           num_buckets_created - num_slots_filled);
+  fprintf (fp, "  Bucket Size (in bytes):  %d\n\n", size_of_bucket);
+  fprintf (fp, "  # of re-hashes that occurred: %d\n", num_rehashes);
+  fprintf (fp, "  # of re-hashed elements: %d\n", num_rehashed_elements);
 }
