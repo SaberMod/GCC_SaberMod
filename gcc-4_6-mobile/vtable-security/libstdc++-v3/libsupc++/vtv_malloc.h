@@ -39,7 +39,6 @@ extern "C" {
 #endif
 
 extern void VTV_malloc_init ();
-/* TODO: Do we need an interface that destroys everything? */
 
 extern void * VTV_malloc (size_t size);
 extern void VTV_free (void * ptr);

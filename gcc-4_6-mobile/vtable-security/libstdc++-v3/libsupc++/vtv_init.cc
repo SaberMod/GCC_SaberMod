@@ -43,7 +43,7 @@ void __VLTunprotect()
 #if (VTV_DEBUG == 1)
   fprintf(stderr, "in __VLTunprotect\n");
 #endif
-  /* TODO: Change interface so you dont have to pass length */
+
   __VLTChangePermission(__VLTP_READ_WRITE);
 }
 
@@ -53,6 +53,6 @@ void __VLTprotect()
 #if (VTV_DEBUG == 1)
   fprintf(stderr, "in __VLTprotect\n");
 #endif
-  /* TODO: Change interface so you dont have to pass length */
+
   __VLTChangePermission(__VLTP_READ_ONLY);
 }

@@ -34,7 +34,8 @@
 
 #include "vtv_utils.h"
 #include "vtv_malloc.h"
-#include "vtv_set.h"
+//#include "vtv_set.h"
+#include "hashtable.h"
 #include "vtv_rts.h"
 
 #ifndef __cplusplus
@@ -140,7 +141,15 @@ VTV_protect_vtable_vars (void)
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
-/* TODO: remove len parameter */
+#if defined __GTHREAD_MUTEX_INIT
+static __gthread_mutex_t register_pairs_lock VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
+// TODO: NEED TO PROTECT THESE TWO VARS !!!!
+static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
+static int change_permissions_count = 0;
+#else
+/* TODO */
+#endif
+
 void 
 __VLTChangePermission (int perm)
 {
@@ -161,27 +170,68 @@ __VLTChangePermission (int perm)
 
   if (perm == __VLTP_READ_WRITE)
     {
-      VTV_unprotect_vtable_vars ();
-      VTV_malloc_init ();
-      VTV_malloc_unprotect ();
+      __gthread_mutex_lock(&change_permissions_lock);
+      VTV_ASSERT(change_permissions_count >= 0);
+      change_permissions_count++;
+      if (change_permissions_count == 1)
+        {
+          VTV_unprotect_vtable_vars ();
+          VTV_malloc_init ();
+          VTV_malloc_unprotect ();
+        }
+      __gthread_mutex_unlock(&change_permissions_lock);
+
+      /* Now grab the regist pairs lock so that only one thread is 
+         modifying the register pair sets */
+      __gthread_mutex_lock(&register_pairs_lock);
     }
   else if (perm == __VLTP_READ_ONLY)
     {
-      VTV_malloc_protect ();
-      VTV_protect_vtable_vars ();
+      /* At this point we must be done with all register pair calls
+         for this load module. */
+      __gthread_mutex_unlock(&register_pairs_lock);
+
+      __gthread_mutex_lock(&change_permissions_lock);
+      if (change_permissions_count == 1)
+        {
+          VTV_malloc_protect ();
+          VTV_protect_vtable_vars ();
+        }
+      change_permissions_count--;
+      VTV_ASSERT(change_permissions_count >= 0);
+      __gthread_mutex_unlock(&change_permissions_lock);
 
       if (debug_hash)
           vtv_set_dump_statistics();
     }
 }
 
-typedef int * vptr;
+typedef uintptr_t int_vptr;
 
-  /* For some reason, when the char * names get passed into these
-     functions, they are missing the '\0' at the end; therefore we
-     also pass in the length of the string and make sure, when writing
-     out the names, that we only write out the correct number of
-     bytes. */
+struct vptr_hash {
+  size_t operator()(int_vptr v) const
+  {
+    v = 123498765 * v;
+    return v ^ (v >> 23);
+  }
+};
+
+struct vptr_set_alloc {
+  void* operator()(size_t n) const
+  {
+    return vtv_malloc(n);
+  }
+};
+
+typedef insert_only_hash_sets<vptr, vptr_hash, vptr_set_alloc> vtv_sets;
+typedef vtv_sets::insert_only_hash_set vtv_set;
+typedef vtv_set * vtv_set_handle;
+
+/* For some reason, when the char * names get passed into these
+   functions, they are missing the '\0' at the end; therefore we
+   also pass in the length of the string and make sure, when writing
+   out the names, that we only write out the correct number of
+   bytes. */
 void
 log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
 		    int format_arg2, char *base_var_name, char *vtable_name,
@@ -253,7 +303,7 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 		   char *base_ptr_var_name, int len1, char *vtable_name,
 		   int len2)
 {
-  vptr vtbl_ptr = (vptr) test_value;
+  int_vptr vtbl_ptr = (int_vptr) test_value;
   vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
 
 #ifndef __GTHREAD_MUTEX_INIT
@@ -262,17 +312,29 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
   __gthread_once (&mutex_once, initialize_mutex_once);
 #endif
 
-  if (handle_ptr->is_null_v())
+  if (*handle_ptr == NULL)
     {
-      __gthread_mutex_lock (&map_var_mutex);
+      //      __gthread_mutex_lock (&map_var_mutex);
 
-      if (handle_ptr->is_null_v())
-        *handle_ptr = vtv_set_init (test_value, size_hint);
+      if (*handle_ptr == NULL)
+        {
+          // use a temporary handle to create the set and insert the vtbl ptr
+          // before modifying the original handle to avoid possible race
+          // condition with reader.
+          vtv_set_handle tmp_handle;
+          // TODO: verify return value
+          vtv_sets::create(size_hint, &tmp_handle);
+          vtv_sets::insert(vtbl_ptr, &tmp_handle);
+          *handle_ptr = tmp_handle;
+        }
 
-      __gthread_mutex_unlock (&map_var_mutex);
+      //      __gthread_mutex_unlock (&map_var_mutex);
     }
   else
-    vtv_set_insert(handle_ptr, test_value, size_hint);
+    // TODO: handle size hint in this case
+    // TODO: verify return value?
+    vtv_sets::insert(vtbl_ptr, handle_ptr);
+
 
   if (debug_functions && base_ptr_var_name && vtable_name)
     print_debugging_message ("Registered %%.%ds : %%.%ds\n", len1, len2,
@@ -310,22 +372,14 @@ static void PrintStackTrace()
 }
 
 void *
-__VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
-                               char *base_vtbl_var_name, int len1, char *vtable_name,
+__VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
+                               char * base_vtbl_var_name, int len1, char * vtable_name,
                                int len2)
 {
-  vtv_set_handle * base_vtbl_ptr = (vtv_set_handle *)data_pointer;
-  vptr obj_vptr = (vptr) test_value;
-  /* No need to protect this static. It is only used for debug purposes */
-  static bool debug_first_time = true;
+  vtv_set_handle * handle_ptr = (vtv_set_handle *)data_pointer;
+  int_vptr vtbl_ptr = (int_vptr) test_value;
 
-  if (debug_first_time && debug_hash)
-    {
-      vtv_set_dump_statistics();
-      debug_first_time = false;
-    }
-
-  if (vtv_set_find((*base_vtbl_ptr), test_value))
+  if (vtv_sets::contains(vtbl_ptr, *handle_ptr))
     {
       if (debug_functions)
 	fprintf (stdout, "Verified object vtable pointer = %p\n", obj_vptr);
@@ -334,12 +388,12 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
     {
       /* The data structure is not NULL, but we failed to find our
          object's vtpr in it.  Write out information and call abort.*/
-      if (base_vtbl_var_name && vtable_name)
+      if (handle_ptr && vtable_name)
 	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
-				 vtable_name, base_vtbl_var_name);
+				 vtable_name, handle_ptr);
       fprintf (stderr, "FAILED to verify object vtable pointer=%p!!!\n",
                obj_vptr);
-      //      dump_table_to_vtbl_map_file (*base_vtbl_ptr, 1, base_vtbl_var_name,
+      //      dump_table_to_vtbl_map_file (*handle_ptr, 1, base_vtbl_var_name,
       //len1);
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
@@ -351,11 +405,12 @@ __VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
 }
 
 void *
-__VLTVerifyVtablePointer (void **data_pointer, void *test_value)
+__VLTVerifyVtablePointer (void ** data_pointer, void * test_value)
 {
-  vtv_set_handle * base_vtbl_ptr = (vtv_set_handle *) data_pointer;
+  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
+  int_vptr vtbl_ptr = (int_vptr) test_value;
 
-  if (!vtv_set_find((*base_vtbl_ptr), test_value))
+  if (!vtv_sets::contains((*handle_ptr), vtbl_ptr, NULL))
     {
       /* Eventually we should call __stack_chk_fail (or something similar)
          rather than just abort.  */
