@@ -1,3 +1,11 @@
+2012-08-13  Xinliang David Li  <davidxl@google.com>
+
+	Port r190373 from google-4_7 branch
+	Google ref/6911651
+	* tree-ssa.c (warn_uninitialized_vars): Guard
+	possibly uninitialized warning under
+	-Wmaybe-uninitialized
+
 2012-07-24  Xinliang David Li  <davidxl@google.com>
 
 	Backport r189827 from google-4_7 branch
