@@ -6476,8 +6476,9 @@ aarch64_simd_vect_par_cnst_half (enum machine_mode mode, bool high)
 void
 aarch64_simd_lane_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 {
+  HOST_WIDE_INT lane;
   gcc_assert (GET_CODE (operand) == CONST_INT);
-  HOST_WIDE_INT lane = INTVAL (operand);
+  lane = INTVAL (operand);
 
   if (lane < low || lane >= high)
     error ("lane out of range");
