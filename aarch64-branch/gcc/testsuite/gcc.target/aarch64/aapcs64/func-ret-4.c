@@ -6,6 +6,7 @@
 
 /* { dg-do run { target aarch64*-*-* } } */
 /* { dg-additional-sources "abitest.S" } */
+/* { dg-require-effective-target aarch64_big_endian } */
 
 #ifndef IN_FRAMEWORK
 #define TESTFILE "func-ret-4.c"
