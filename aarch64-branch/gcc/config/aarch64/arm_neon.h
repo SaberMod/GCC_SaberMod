@@ -16289,39 +16289,6 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        result;                                                          \
      })
 
-__extension__ static __inline float32x2_t __attribute__ ((__always_inline__))
-vsqrt_f32 (float32x2_t a)
-{
-  float32x2_t result;
-  __asm__ ("fsqrt %0.2s,%1.2s"
-           : "=w"(result)
-           : "w"(a)
-           : /* No clobbers */);
-  return result;
-}
-
-__extension__ static __inline float32x4_t __attribute__ ((__always_inline__))
-vsqrtq_f32 (float32x4_t a)
-{
-  float32x4_t result;
-  __asm__ ("fsqrt %0.4s,%1.4s"
-           : "=w"(result)
-           : "w"(a)
-           : /* No clobbers */);
-  return result;
-}
-
-__extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
-vsqrtq_f64 (float64x2_t a)
-{
-  float64x2_t result;
-  __asm__ ("fsqrt %0.2d,%1.2d"
-           : "=w"(result)
-           : "w"(a)
-           : /* No clobbers */);
-  return result;
-}
-
 #define vsri_n_p8(a, b, c)                                              \
   __extension__                                                         \
     ({                                                                  \
@@ -23570,6 +23537,25 @@ __extension__ static __inline uint64x1_t __attribute__ ((__always_inline__))
 vsqaddd_u64 (uint64x1_t __a, int64x1_t __b)
 {
   return (uint64x1_t) __builtin_aarch64_usqadddi ((int64x1_t) __a, __b);
+}
+
+/* vsqrt */
+__extension__ static __inline float32x2_t __attribute__ ((__always_inline__))
+vsqrt_f32 (float32x2_t a)
+{
+  return __builtin_aarch64_sqrtv2sf (a);
+}
+
+__extension__ static __inline float32x4_t __attribute__ ((__always_inline__))
+vsqrtq_f32 (float32x4_t a)
+{
+  return __builtin_aarch64_sqrtv4sf (a);
+}
+
+__extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
+vsqrtq_f64 (float64x2_t a)
+{
+  return __builtin_aarch64_sqrtv2df (a);
 }
 
 /* vsra */

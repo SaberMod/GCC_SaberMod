@@ -340,6 +340,7 @@ static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
   { VAR6 (BINOP, smin, v8qi, v4hi, v2si, v16qi, v8hi, v4si) },
   { VAR6 (BINOP, umax, v8qi, v4hi, v2si, v16qi, v8hi, v4si) },
   { VAR6 (BINOP, umin, v8qi, v4hi, v2si, v16qi, v8hi, v4si) },
+  { VAR3 (UNOP, sqrt, v2sf, v4sf, v2df) },
 };
 
 #undef CF

@@ -2742,3 +2742,23 @@
   [(set_attr "simd_type" "simd_fminmax")
    (set_attr "simd_mode" "<MODE>")]
 )
+
+;; sqrt
+
+(define_insn "sqrt<mode>2"
+  [(set (match_operand:VDQF 0 "register_operand" "=w")
+        (sqrt:VDQF (match_operand:VDQF 1 "register_operand" "w")))]
+  "TARGET_SIMD"
+  "fsqrt\\t%0.<Vtype>, %1.<Vtype>"
+  [(set_attr "simd_type" "simd_fsqrt")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_expand "aarch64_sqrt<mode>"
+  [(match_operand:VDQF 0 "register_operand" "=w")
+   (match_operand:VDQF 1 "register_operand" "w")]
+  "TARGET_SIMD"
+{
+  emit_insn (gen_sqrt<mode>2 (operands[0], operands[1]));
+  DONE;
+})
