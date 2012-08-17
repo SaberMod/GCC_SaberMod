@@ -11151,6 +11151,77 @@ vmlsl_u32 (uint64x2_t a, uint32x2_t b, uint32x2_t c)
        result;                                                          \
      })
 
+#define vmlsq_laneq_f32(__a, __b, __c, __d)				\
+  __extension__								\
+    ({									\
+       float32x4_t __c_ = (__c);					\
+       float32x4_t __b_ = (__b);					\
+       float32x4_t __a_ = (__a);					\
+       float32x4_t __result;						\
+       float32x4_t __t1;						\
+       __asm__ ("fmul %1.4s, %3.4s, %4.s[%5]; fsub %0.4s, %0.4s, %1.4s"	\
+                : "=w"(__result), "=w"(__t1)				\
+                : "0"(__a_), "w"(__b_), "w"(__c_), "i"(__d)		\
+                : /* No clobbers */);					\
+       __result;							\
+     })
+
+#define vmlsq_laneq_s16(__a, __b, __c, __d)				\
+  __extension__								\
+    ({									\
+       int16x8_t __c_ = (__c);						\
+       int16x8_t __b_ = (__b);						\
+       int16x8_t __a_ = (__a);						\
+       int16x8_t __result;						\
+       __asm__ ("mls %0.8h, %2.8h, %3.h[%4]"				\
+                : "=w"(__result)					\
+                : "0"(__a_), "w"(__b_), "w"(__c_), "i"(__d)		\
+                : /* No clobbers */);					\
+       __result;							\
+     })
+
+#define vmlsq_laneq_s32(__a, __b, __c, __d)				\
+  __extension__								\
+    ({									\
+       int32x4_t __c_ = (__c);						\
+       int32x4_t __b_ = (__b);						\
+       int32x4_t __a_ = (__a);						\
+       int32x4_t __result;						\
+       __asm__ ("mls %0.4s, %2.4s, %3.s[%4]"				\
+                : "=w"(__result)					\
+                : "0"(__a_), "w"(__b_), "w"(__c_), "i"(__d)		\
+                : /* No clobbers */);					\
+       __result;							\
+     })
+
+#define vmlsq_laneq_u16(__a, __b, __c, __d)				\
+  __extension__								\
+    ({									\
+       uint16x8_t __c_ = (__c);						\
+       uint16x8_t __b_ = (__b);						\
+       uint16x8_t __a_ = (__a);						\
+       uint16x8_t __result;						\
+       __asm__ ("mls %0.8h, %2.8h, %3.h[%4]"				\
+                : "=w"(__result)					\
+                : "0"(__a_), "w"(__b_), "w"(__c_), "i"(__d)		\
+                : /* No clobbers */);					\
+       __result;							\
+     })
+
+#define vmlsq_laneq_u32(__a, __b, __c, __d)				\
+  __extension__								\
+    ({									\
+       uint32x4_t __c_ = (__c);						\
+       uint32x4_t __b_ = (__b);						\
+       uint32x4_t __a_ = (__a);						\
+       uint32x4_t __result;						\
+       __asm__ ("mls %0.4s, %2.4s, %3.s[%4]"				\
+                : "=w"(__result)					\
+                : "0"(__a_), "w"(__b_), "w"(__c_), "i"(__d)		\
+                : /* No clobbers */);					\
+       __result;							\
+     })
+
 __extension__ static __inline float32x4_t __attribute__ ((__always_inline__))
 vmlsq_n_f32 (float32x4_t a, float32x4_t b, float32_t c)
 {
