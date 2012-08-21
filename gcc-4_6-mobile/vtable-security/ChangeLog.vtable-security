@@ -1,3 +1,21 @@
+2012-08-21  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc:  (fcntl.h, vtv_fail.h):  Two
+	new include statements.
+	(__fortify_fail): New extern "C" extern function declaration.
+	(__VLTVerifyVtablePointerDebug):  Replace calls to PrintStackTrace and
+	abort with call to __vtv_verify_fail. Print message if
+	__vtv_verify_fail returns, i.e. secondary verification succeeded.
+	(__VLTVerifyVtablePointer):  Replace calls to PrintStackTrace and
+	abort with call to __vtv_verify_fail.
+	(__vtv_really_fail):  New function.
+	(__vtv_fail):  New function.
+	(__vtv_verify_fail):  New function.
+	* libstdc++-v3/libsupc++/vtv_fail.h:  New header file.
+	* libstdc++-v3/config/abi/pre/gnu.ver (GLIBCXX_3.4.16):  Add
+	__vtv_verify_fail and __vtv_really_fail to the exported function
+	list.
+
 2012-08-20  Luis Lozano  <llozano@google.com>
 
 	* libstdc++-v3/libsupc++/Makefile.am: Added new file vtv_utils.cc
@@ -15,9 +33,10 @@
 	* libstdc++-v3/libsupc++/vtv_utils.h: add prototypes for new logging
 	routines. The new logging routines use low level file access routines
 	and avoid calling malloc to avoid changing the order of dlopen calls.
-	We dont want to disturb the behavior of the initailization of the program
-	being logged.
-	* libstdc++-v3/libsupc++/vtv_utils.CC: new file with new logging routines.
+	We dont want to disturb the behavior of the initailization of the
+	program being logged.
+	* libstdc++-v3/libsupc++/vtv_utils.CC: new file with new logging
+	routines.
 
 2012-08-13  Luis Lozano  <llozano@google.com>
 

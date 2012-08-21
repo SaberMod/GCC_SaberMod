@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 #include <errno.h>
 #include <link.h>
+#include <fcntl.h>
 
 /* For gthreads suppport */
 #include <bits/c++config.h>
@@ -40,6 +41,25 @@
 #include "vtv_malloc.h"
 #include "vtv_set.h"
 #include "vtv_rts.h"
+#include "vtv_fail.h"
+
+extern "C" {
+
+  /* __fortify_fail is a function in glibc that calls __libc_message,
+     causing it to print out a program termination error message
+     (including the name of the binary being terminated), a stack
+     trace where the error occurred, and a memory map dump.  Ideally
+     we would have called __libc_message directly, but that function
+     does not appear to be accessible to functions outside glibc,
+     whereas __fortify_fail is.  We call __fortify_fail from
+     __vtv_really_fail.  We looked at calling __libc_fatal, which is
+     externally accessible, but it does not do the back trace and
+     memory dump.  */
+
+  extern void __fortify_fail (const char *) __attribute__((noreturn));
+
+} /* extern "C" */
+
 
 /* Be careful about initialization of statics in this file.  Some of
    the routines below are called before any runtime initialization for
@@ -407,12 +427,15 @@ __VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
 				 vtable_name, base_vtbl_var_name);
       fprintf (stderr, "FAILED to verify object vtable pointer=%lx!!!\n",
                (unsigned long)vtbl_ptr);
-      //      dump_table_to_vtbl_map_file (*handle_ptr, 1, base_vtbl_var_name,
-      //len1);
-      /* Eventually we should call __stack_chk_fail (or something similar)
-         rather than just abort.  */
-      PrintStackTrace();
-      abort ();
+
+      __vtv_verify_fail (data_pointer, test_value);
+      /* Normally __vtv_verify_fail will call abort, so we won't
+         execute the return below.  If we get this far, the assumption
+         is that the programmer has replace __vtv_verify_fail with
+         some kind of secondary verification AND this secondary
+         verification succeeded, so the vtable pointer is valid.  */
+      fprintf (stderr, "Returned from __vtv_verify_fail."
+               "  Secondary verification succeeded.\n");
     }
 
   return test_value;
@@ -426,11 +449,54 @@ __VLTVerifyVtablePointer (void ** data_pointer, void * test_value)
 
   if (!vtv_sets::contains(vtbl_ptr, handle_ptr))
     {
-      /* Eventually we should call __stack_chk_fail (or something similar)
-         rather than just abort.  */
-      PrintStackTrace();
-      abort ();
+      __vtv_verify_fail (data_pointer, test_value);
+      /* Normally __vtv_verify_fail will call abort, so we won't
+         execute the return below.  If we get this far, the assumption
+         is that the programmer has replace __vtv_verify_fail with
+         some kind of secondary verification AND this secondary
+         verification succeeded, so the vtable pointer is valid.  */
     }
 
   return test_value;
+}
+
+void
+__vtv_really_fail (const char *failure_msg)
+{
+  __fortify_fail (failure_msg);
+
+  /* We should never get this far; __fortify_fail calls __libc_message
+     which prints out a back trace and a memory dump and then is
+     supposed to call abort, but let's play it safe anyway and call abort
+     ourselves.  */
+  abort ();
+}
+
+static void
+vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
+{
+  int fd;
+
+  fd = open ("/dev/tty", O_WRONLY);
+  if (fd != -1)
+    {
+      char buffer[120];
+      int buf_len;
+      const char *format_str =
+            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
+
+      snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
+      buf_len = strlen (buffer);
+      write (fd, buffer, buf_len);
+      close (fd);
+    }
+
+  __vtv_really_fail (msg);
+}
+
+void
+__vtv_verify_fail (void **data_set_ptr, void *vtbl_ptr)
+{
+  const char *msg = "Potential vtable pointer corruption detected!!";
+  vtv_fail (msg, data_set_ptr, vtbl_ptr);
 }
