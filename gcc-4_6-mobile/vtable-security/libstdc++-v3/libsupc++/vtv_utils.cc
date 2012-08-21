@@ -38,7 +38,7 @@ vtv_open_log(const char * name)
 {
   int fd = open(name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
-    vtv_add_to_log(2, "Cannot open log file %s %s\n", name, sys_errlist[errno]);
+    vtv_add_to_log(2, "Cannot open log file %s %s\n", name, strerror(errno));
   return fd;
 }
 
@@ -49,7 +49,7 @@ vtv_log_write(int fd, const char * str)
     return 0;
 
   if (fd != 2) // make sure we dont get in a loop
-    vtv_add_to_log(2, "Error writing to log: %s\n", sys_errlist[errno]);
+    vtv_add_to_log(2, "Error writing to log: %s\n", strerror(errno));
   return -1;
 }
 

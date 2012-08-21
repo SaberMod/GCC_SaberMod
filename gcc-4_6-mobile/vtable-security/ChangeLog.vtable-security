@@ -1,3 +1,8 @@
+2012-08-21  Luis Lozano  <llozano@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_utils.CC: stop using deprecated 
+	sys_errlist. Replaced it with strerror.
+
 2012-08-21  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc:  (fcntl.h, vtv_fail.h):  Two
