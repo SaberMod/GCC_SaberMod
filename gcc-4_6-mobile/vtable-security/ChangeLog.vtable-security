@@ -1,20 +1,41 @@
+2012-08-20  Luis Lozano  <llozano@google.com>
+
+	* libstdc++-v3/libsupc++/Makefile.am: Added new file vtv_utils.cc
+	* libstdc++-v3/libsupc++/vtv_malloc.cc (VTV_malloc_protect): use new
+	log routines.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc (VTV_malloc_dump_stats): new
+	routine to dump stats to log file using new log routines.
+	* libstdc++-v3/libsupc++/vtv_malloc.h: Added prototypes for new
+	dumping routine
+	* libstdc++-v3/libsupc++/vtv_rts.cc (log_register_pairs): change to use
+	new logging routines
+	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPair): clean up
+	redundant contidion.
+	Change to use new logging routines.
+	* libstdc++-v3/libsupc++/vtv_utils.h: add prototypes for new logging
+	routines. The new logging routines use low level file access routines
+	and avoid calling malloc to avoid changing the order of dlopen calls.
+	We dont want to disturb the behavior of the initailization of the program
+	being logged.
+	* libstdc++-v3/libsupc++/vtv_utils.CC: new file with new logging routines.
+
 2012-08-13  Luis Lozano  <llozano@google.com>
 
-	* libstdc++-v3/libsupc++/vtv_utils.h: added new header for common 
+	* libstdc++-v3/libsupc++/vtv_utils.h: added new header for common
 	utilities. It includes now the macross for assert and runtime error.
 	Also the macros to protect static variables.
 	* libstdc++-v3/libsupc++/vtv_set.h: implementation of new hash set.
-	Main differences are this hash set uses "open addressing" and 
+	Main differences are this hash set uses "open addressing" and
 	provides implementation of a singleton set. Should definetly consume
 	less memory and should also be faster (written by Geoff Pike)
-	* libstdc++-v3/libsupc++/vtv_init.cc (__VLTunprotect): cleaned 
+	* libstdc++-v3/libsupc++/vtv_init.cc (__VLTunprotect): cleaned
 	up some sporious comments
-	* libstdc++-v3/libsupc++/vtv_init.cc (__VLTprotect): cleaned 
+	* libstdc++-v3/libsupc++/vtv_init.cc (__VLTprotect): cleaned
 	up some sporious comments
-	* libstdc++-v3/libsupc++/vtv_malloc.cc: since code moved from 
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: since code moved from
 	vtv_malloc.h to vtv_utils.h, include vtv_utils.h.
 	Start using new assert macros.
-	* libstdc++-v3/libsupc++/vtv_malloc.h: removed unncessary 
+	* libstdc++-v3/libsupc++/vtv_malloc.h: removed unncessary
 	"extern C".
 	Moved some common macros that are being used by all the vtv
 	code to vtv_utils.h.
@@ -24,13 +45,13 @@
 	Define basic types to be used by new hash set implementation.
 	Use gthreads instead of pthreads for portability with libstdc++.
 	(__VLTChangePermission): change code to handle concurrent dlopens. This
-	code still needs work. 
+	code still needs work.
 	Added lock to serialize the calls to RegisterPair according to the
 	restrictions of new hash set implementation.
 	(__VLTRegisterPair): modify to use new hash set implementation.
 	Remove unnecessary locking code. RegisterPair calls are now serilized.
-	(__VLTVerifyVtablePointerDebug): Modify to use new hash set 
-	(__VLTVerifyVtablePointer): Modify to use new hash set 
+	(__VLTVerifyVtablePointerDebug): Modify to use new hash set
+	(__VLTVerifyVtablePointer): Modify to use new hash set
 	* libstdc++-v3/libsupc++/vtv_threaded_hash.cc: this is now an obsolete
 	file. Used new macros for assert.
 	* libstdc++-v3/libsupc++/vtv_threaded_hash.h: This is now an obsolete
@@ -39,7 +60,7 @@
 2010-08-09  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (map_var_mutex):  Move out of
-	__VLTRegisterPair and make this a global static variable. 
+	__VLTRegisterPair and make this a global static variable.
 	(initialize_mutex_once): New function.
 	(__VLTRegisterPair):  Make map_var_mutex a global static variable;
 	add mutex_once, and use to properly initialize map_var_mutex, if

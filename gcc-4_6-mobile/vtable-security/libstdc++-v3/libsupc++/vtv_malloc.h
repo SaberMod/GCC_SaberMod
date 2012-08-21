@@ -38,9 +38,12 @@ extern void VTV_malloc_init ();
 
 extern void * VTV_malloc (size_t size);
 extern void VTV_free (void * ptr);
-extern void VTV_malloc_stats (void);
+
 
 extern void VTV_malloc_protect (void);
 extern void VTV_malloc_unprotect (void);
+
+extern void VTV_malloc_stats (void);
+extern void VTV_malloc_dump_stats (void);
 
 #endif /* vtv_malloc.h */

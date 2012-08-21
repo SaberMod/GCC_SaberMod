@@ -41,4 +41,10 @@
 #define VTV_PROTECTED_VARS_SECTION ".data.rel.ro.vtable_vars"
 #define VTV_PROTECTED_VAR __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
 
+/* The following logging routines try to use low level file access routines and avoid
+   calling malloc. We need this so that we dont disturb the order of calls to dlopen.
+   Changing order of dlopen calls may lead to deadlocks */
+int vtv_open_log(const char * name);
+int vtv_add_to_log(int log, const char * format, ...);
+
 #endif /* VTV_UTILS_H */

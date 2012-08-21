@@ -56,7 +56,7 @@ static const int debug_register_pairs = 0;
    They are explicitly unprotected and protected again by calls to VTV_unprotect
    and VTV_protect */
 
-static FILE * log_file_fp VTV_PROTECTED_VAR = NULL;
+static int log_file_fd VTV_PROTECTED_VAR = -1;
 
 /* types needed by insert_only_hash_sets */
 typedef uintptr_t int_vptr;
@@ -255,11 +255,14 @@ __VLTChangePermission (int perm)
    out the names, that we only write out the correct number of
    bytes. */
 void
-log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
+log_register_pairs (int fd, const char *format_string_dummy, int format_arg1,
 		    int format_arg2, char *base_var_name, char *vtable_name,
 		    int_vptr vtbl_ptr)
 {
-  char format_string[50];
+  if (fd == -1)
+    return;
+
+  char format_string[60];
 
   /* format_string needs to contain something like "%.10s" (for
      example) to write a vtable_name that is of length
@@ -271,9 +274,9 @@ log_register_pairs (FILE *fp, const char *format_string_dummy, int format_arg1,
      us to write out the string that is missing the '\0' at it's
      end. */
 
-  snprintf (format_string, sizeof(format_string), format_string_dummy, format_arg1, format_arg2);
-
-  fprintf (fp, format_string, base_var_name, vtable_name, vtbl_ptr);
+  snprintf (format_string, sizeof(format_string), format_string_dummy, 
+            format_arg1, format_arg2);
+  vtv_add_to_log(fd, format_string, base_var_name, vtable_name, vtbl_ptr);
 }
 
 /* For some reason, when the char * names get passed into these
@@ -331,18 +334,15 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 
   if (*handle_ptr == NULL)
     {
-      if (*handle_ptr == NULL)
-        {
-          // use a temporary handle to create the set and insert the vtbl ptr
-          // before modifying the original handle to avoid possible race
-          // condition with reader.
-          vtv_set_handle tmp_handle;
-          // TODO: verify return value
-          // TODO: pass power of 2 hint.
-          vtv_sets::create(next_power_of_two(size_hint), &tmp_handle);
-          vtv_sets::insert(vtbl_ptr, &tmp_handle);
-          *handle_ptr = tmp_handle;
-        }
+      // use a temporary handle to create the set and insert the vtbl ptr
+      // before modifying the original handle to avoid possible race
+      // condition with reader.
+      vtv_set_handle tmp_handle;
+      // TODO: verify return value
+      // TODO: pass power of 2 hint.
+      vtv_sets::create(next_power_of_two(size_hint), &tmp_handle);
+      vtv_sets::insert(vtbl_ptr, &tmp_handle);
+      *handle_ptr = tmp_handle;
     }
   else
     // TODO: handle size hint in this case
@@ -355,13 +355,12 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 			     base_ptr_var_name, vtable_name);
   if (debug_register_pairs)
     {
-      if (!log_file_fp)
-	log_file_fp = fopen ("/tmp/vlt_register_pairs.log", "a");
-      log_register_pairs (log_file_fp, "Registered %%.%ds : %%.%ds (%%p)\n",
+      if (log_file_fd == -1)
+	log_file_fd = vtv_open_log("/tmp/vtv_register_pairs.log");
+
+      log_register_pairs (log_file_fd, "Registered %%.%ds : %%.%ds (%%p)\n",
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
-      if (*handle_ptr == NULL)
-	fprintf (log_file_fp, "  vtable map variable is NULL.\n");
     }
 
   return NULL;

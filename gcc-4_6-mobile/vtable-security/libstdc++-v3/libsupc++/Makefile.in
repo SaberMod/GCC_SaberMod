@@ -102,7 +102,7 @@ am__objects_1 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
 	new_opv.lo new_opvnt.lo pbase_type_info.lo pmem_type_info.lo \
 	pointer_type_info.lo pure.lo si_class_type_info.lo tinfo.lo \
 	tinfo2.lo vec.lo vmi_class_type_info.lo vterminate.lo \
-	vtv_rts.lo vtv_threaded_hash.lo vtv_malloc.lo
+	vtv_rts.lo vtv_threaded_hash.lo vtv_malloc.lo vtv_utils.lo
 @GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
 am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
@@ -407,7 +407,8 @@ sources = \
 	vterminate.cc \
 	vtv_rts.cc \
 	vtv_threaded_hash.cc \
-	vtv_malloc.cc 
+	vtv_malloc.cc \
+	vtv_utils.cc
 
 vtv_init_sources = \
 	vtv_init.cc

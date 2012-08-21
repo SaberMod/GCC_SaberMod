@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <stdio.h>
 
 #include "vtv_utils.h"
@@ -58,16 +61,7 @@ VTV_malloc_protect (void)
     ci = ci->prev;
   }
 #if (VTV_DEBUG == 1)
-  {
-    int count = 0;
-    ci = (struct _obstack_chunk *) current_chunk;
-    while (ci)
-    {
-      count++;
-      ci = ci->prev;
-    }
-    fprintf(stderr, "VTV_malloc_protect(): protected %d pages\n", count);
-  }
+  VTV_malloc_dump_stats();
 #endif
 }
 
@@ -148,11 +142,31 @@ void
 VTV_malloc_stats (void)
 {
   int count = 0;
-   struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
+  struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
   {
     count++;
     ci = ci->prev;
   }
   fprintf(stderr, "VTV_malloc_stats:\n  Page Size = %lu bytes\n  Number of pages = %d\n", page_size, count);
+}
+
+void VTV_malloc_dump_stats(void)
+{
+  static int fd = -1;
+
+  if (fd == -1)
+    fd = vtv_open_log("/tmp/vtv_mem_protection.log");
+  if (fd == -1)
+    return;
+
+  int count = 0;
+  struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
+  while (ci)
+  {
+    count++;
+    ci = ci->prev;
+  }
+
+  vtv_add_to_log(fd, "VTV_malloc_protect protected=%d pages\n", count);
 }
