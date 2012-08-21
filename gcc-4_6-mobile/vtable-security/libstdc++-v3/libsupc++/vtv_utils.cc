@@ -49,14 +49,14 @@ vtv_log_write(int fd, const char * str)
     return 0;
 
   if (fd != 2) // make sure we dont get in a loop
-    vtv_add_to_log(2, "Error writting to log: %s\n", sys_errlist[errno]);
+    vtv_add_to_log(2, "Error writing to log: %s\n", sys_errlist[errno]);
   return -1;
 }
 
 int
 vtv_add_to_log(int log_file, const char * format, ...)
 {
-  // We dont want to dinamically allocate this buffer. This should be more than enough in most
+  // We dont want to dynamically allocate this buffer. This should be more than enough in most
   // cases. It if isn't we are careful not to do a buffer overflow.
   char output[1024];
 
