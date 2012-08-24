@@ -6610,9 +6610,7 @@ aarch64_asm_preferred_eh_data_format (int code ATTRIBUTE_UNUSED, int global)
        type = DW_EH_PE_sdata8;
        break;
      }
-   return ((global && flag_shlib) ? DW_EH_PE_indirect : 0)
-           | DW_EH_PE_pcrel
-           | type;
+   return (global ? DW_EH_PE_indirect : 0) | DW_EH_PE_pcrel | type;
 }
 
 static void
