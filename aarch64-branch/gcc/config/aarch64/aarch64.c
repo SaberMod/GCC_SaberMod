@@ -123,8 +123,69 @@ unsigned long aarch64_isa_flags = 0;
 /* Mask to specify which instruction scheduling options should be used.  */
 unsigned long aarch64_tune_flags = 0;
 
-/* Tuning models.  */
-static const struct tune_params generic_tunings;
+/* Tuning parameters.  */
+
+#if HAVE_DESIGNATED_INITIALIZERS
+#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
+#else
+#define NAMED_PARAM(NAME, VAL) (VAL)
+#endif
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_rtx_cost_table generic_rtx_cost_table =
+{
+  NAMED_PARAM (memory_load, COSTS_N_INSNS (1)),
+  NAMED_PARAM (memory_store, COSTS_N_INSNS (0)),
+  NAMED_PARAM (register_shift, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_divide, COSTS_N_INSNS (6)),
+  NAMED_PARAM (float_divide, COSTS_N_INSNS (2)),
+  NAMED_PARAM (double_divide, COSTS_N_INSNS (6)),
+  NAMED_PARAM (int_multiply, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_extend, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_add, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_extend_add, COSTS_N_INSNS (1)),
+  NAMED_PARAM (float_multiply, COSTS_N_INSNS (0)),
+  NAMED_PARAM (double_multiply, COSTS_N_INSNS (1))
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_addrcost_table generic_addrcost_table =
+{
+  NAMED_PARAM (pre_modify, 0),
+  NAMED_PARAM (post_modify, 0),
+  NAMED_PARAM (register_offset, 0),
+  NAMED_PARAM (register_extend, 0),
+  NAMED_PARAM (imm_offset, 0)
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_regmove_cost generic_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 1),
+  NAMED_PARAM (GP2FP, 2),
+  NAMED_PARAM (FP2GP, 2),
+  /* We currently do not provide direct support for TFmode Q->Q move.
+     Therefore we need to raise the cost above 2 in order to have
+     reload handle the situation.  */
+  NAMED_PARAM (FP2FP, 4)
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct tune_params generic_tunings =
+{
+  &generic_rtx_cost_table,
+  &generic_addrcost_table,
+  &generic_regmove_cost,
+  NAMED_PARAM (memmov_cost, 4)
+};
 
 /* A processor implementing AArch64.  */
 struct processor
@@ -3466,7 +3527,7 @@ aarch64_label_mentioned_p (rtx x)
 
 /* Implement REGNO_REG_CLASS.  */
 
-unsigned
+enum reg_class
 aarch64_regno_regclass (unsigned regno)
 {
   if (GP_REGNUM_P (regno))
@@ -3506,7 +3567,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
       x = copy_rtx (x);
       push_reload (orig_rtx, NULL_RTX, x_p, NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -3519,7 +3580,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
     {
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -3583,7 +3644,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -3756,7 +3817,7 @@ aarch64_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
      gen_clear_cache().  */
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
-		     0, VOIDmode, 2, a_tramp, Pmode,
+		     LCT_NORMAL, VOIDmode, 2, a_tramp, Pmode,
 		     plus_constant (Pmode, a_tramp, TRAMPOLINE_SIZE), Pmode);
 }
 
@@ -4369,71 +4430,6 @@ aarch64_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 static void initialize_aarch64_code_model (void);
-
-/* Tuning parameters.  */
-
-#if HAVE_DESIGNATED_INITIALIZERS
-#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
-#else
-#define NAMED_PARAM(NAME, VAL) (VAL)
-#endif
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_rtx_cost_table generic_rtx_cost_table =
-{
-  NAMED_PARAM (memory_load, COSTS_N_INSNS (1)),
-  NAMED_PARAM (memory_store, COSTS_N_INSNS (0)),
-  NAMED_PARAM (register_shift, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_divide, COSTS_N_INSNS (6)),
-  NAMED_PARAM (float_divide, COSTS_N_INSNS (2)),
-  NAMED_PARAM (double_divide, COSTS_N_INSNS (6)),
-  NAMED_PARAM (int_multiply, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_extend, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_add, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_extend_add, COSTS_N_INSNS (1)),
-  NAMED_PARAM (float_multiply, COSTS_N_INSNS (0)),
-  NAMED_PARAM (double_multiply, COSTS_N_INSNS (1))
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_addrcost_table generic_addrcost_table =
-{
-  NAMED_PARAM (pre_modify, 0),
-  NAMED_PARAM (post_modify, 0),
-  NAMED_PARAM (register_offset, 0),
-  NAMED_PARAM (register_extend, 0),
-  NAMED_PARAM (imm_offset, 0)
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_regmove_cost generic_regmove_cost =
-{
-  NAMED_PARAM (GP2GP, 1),
-  NAMED_PARAM (GP2FP, 2),
-  NAMED_PARAM (FP2GP, 2),
-  /* We currently do not provide direct support for TFmode Q->Q move.
-     Therefore we need to raise the cost above 2 in order to have
-     reload handle the situation.  */
-  NAMED_PARAM (FP2FP, 4)
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct tune_params generic_tunings =
-{
-  &generic_rtx_cost_table,
-  &generic_addrcost_table,
-  &generic_regmove_cost,
-  NAMED_PARAM (memmov_cost, 4)
-};
-
 
 /* Parse the architecture extension string.  */
 

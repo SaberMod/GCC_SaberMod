@@ -613,7 +613,7 @@ output_ssa_names (struct output_block *ob, struct function *fn)
 
       if (ptr == NULL_TREE
 	  || SSA_NAME_IN_FREE_LIST (ptr)
-	  || !is_gimple_reg (ptr))
+	  || virtual_operand_p (ptr))
 	continue;
 
       streamer_write_uhwi (ob, i);
@@ -973,7 +973,7 @@ copy_function (struct cgraph_node *node)
 /* Main entry point from the pass manager.  */
 
 static void
-lto_output (cgraph_node_set set, varpool_node_set vset)
+lto_output (void)
 {
   struct cgraph_node *node;
   struct lto_out_decl_state *decl_state;
@@ -1018,7 +1018,7 @@ lto_output (cgraph_node_set set, varpool_node_set vset)
      be done now to make sure that all the statements in every function
      have been renumbered so that edges can be associated with call
      statements using the statement UIDs.  */
-  output_symtab (set, vset);
+  output_symtab ();
 
 #ifdef ENABLE_CHECKING
   lto_bitmap_free (output);
@@ -1388,8 +1388,7 @@ produce_symtab (struct output_block *ob)
    recover these on other side.  */
 
 static void
-produce_asm_for_decls (cgraph_node_set set ATTRIBUTE_UNUSED,
-		       varpool_node_set vset ATTRIBUTE_UNUSED)
+produce_asm_for_decls (void)
 {
   struct lto_out_decl_state *out_state;
   struct lto_out_decl_state *fn_out_state;

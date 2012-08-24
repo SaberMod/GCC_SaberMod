@@ -180,6 +180,8 @@ bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
 bool aarch64_simd_shift_imm_p (rtx, enum machine_mode, bool);
 bool aarch64_symbolic_address_p (rtx);
+bool aarch64_symbolic_constant_p (rtx, enum aarch64_symbol_context,
+				  enum aarch64_symbol_type *);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 const char *aarch64_output_casesi (rtx *);
 const char *aarch64_output_sync_insn (rtx, rtx *);
@@ -187,6 +189,7 @@ const char *aarch64_output_sync_lock_release (rtx, rtx);
 enum aarch64_symbol_type aarch64_classify_symbol (rtx,
 						  enum aarch64_symbol_context);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);
+enum reg_class aarch64_regno_regclass (unsigned);
 int aarch64_asm_preferred_eh_data_format (int, int);
 int aarch64_hard_regno_mode_ok (unsigned, enum machine_mode);
 int aarch64_hard_regno_nregs (unsigned, enum machine_mode);
@@ -202,7 +205,6 @@ rtx aarch64_simd_gen_const_vector_dup (enum machine_mode, int);
 rtx aarch64_simd_vect_par_cnst_half (enum machine_mode, bool);
 rtx aarch64_tls_get_addr (void);
 unsigned aarch64_dbx_register_number (unsigned);
-unsigned aarch64_regno_regclass (unsigned);
 unsigned aarch64_trampoline_size (void);
 unsigned aarch64_sync_loop_insns (rtx, rtx *);
 void aarch64_asm_output_labelref (FILE *, const char *);
