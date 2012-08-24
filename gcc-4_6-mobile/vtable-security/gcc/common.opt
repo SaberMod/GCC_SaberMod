@@ -2261,6 +2261,9 @@ Enum
 Name(vtv_priority) Type(enum vtv_priority) UnknownError(unknown vtable verify initialization priority %qs)
 
 EnumValue
+Enum(vtv_priority) String(none) Value(VTV_NO_PRIORITY)
+
+EnumValue
 Enum(vtv_priority) String(std) Value(VTV_STANDARD_PRIORITY)
 
 EnumValue
