@@ -760,7 +760,11 @@ vtable_find_or_create_map_decl (tree base_type)
       SET_DECL_ASSEMBLER_NAME (var_decl,
                                get_identifier (var_name));
       DECL_ARTIFICIAL (var_decl) = 1;
-      TREE_READONLY (var_decl) = 1;
+      /* We cannot mark this variable as read-only otherwise the gold
+         linker will not put it in the relro section. It seems if it
+         is marked as read-only, gold will put it in the .text
+         segment */
+      TREE_READONLY (var_decl) = 0;
       DECL_IGNORED_P (var_decl) = 1;
 
       /* Put these mmap variables in to data.rel.ro sections.

@@ -1,3 +1,10 @@
+2012-08-24  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c (vtable_find_or_create_map_decl):
+	When creating the vtv_map variables dont mark them as read-only.
+	This confuses the gold linker and they dont get put into the relro
+	segment.
+
 2012-08-24  Caroline Tice <cmtice@google.com>
 
 	* gcc/common.opt (VTV_NO_PRIORITY): Add string "none" for users
@@ -5,7 +12,7 @@
 
 2012-08-21  Luis Lozano  <llozano@google.com>
 
-	* libstdc++-v3/libsupc++/vtv_utils.CC: stop using deprecated
+	* libstdc++-v3/libsupc++/vtv_utils.cc: stop using deprecated 
 	sys_errlist. Replaced it with strerror.
 
 2012-08-21  Caroline Tice  <cmtice@google.com>
