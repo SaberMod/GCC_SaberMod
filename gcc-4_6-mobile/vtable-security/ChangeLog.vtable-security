@@ -1,3 +1,20 @@
+2012-08-24  Caroline Tice  <cmtice@google.com>
+
+
+	* libstdc++-v3/libsupc++/Makefile.in: Re-generated file from
+	new Makefile.am (for libvtv_stubs library).
+	* libstdc++-v3/libsupc++/vtv_rts.h (__VLTRegisterPair):  Added
+	function declaration.
+	(__VLTVerifyVtablePointer):  Added function declaration.
+	* libstdc++-v3/libsupc++/vtv_stubs.cc:  New file. Implements
+	stub versions of __VLTChangePermission, __VLTRegisterPair,
+	and __VLTVerifyVtablePointer.
+	* libstdc++-v3/libsupc++/Makefile.am (toolexeclib_LTLIBRARIES):
+	Added libvtv_stubs.la to library list.
+	(vtv_stubs_sources): New definition.
+	(libvtv_stubs_la_sources):  New definition.
+	(vtv_stubs.lo, vtv_stubs.o): New build rules.
+
 2012-08-24  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (vtable_find_or_create_map_decl):
@@ -5,7 +22,7 @@
 	This confuses the gold linker and they dont get put into the relro
 	segment.
 
-2012-08-24  Caroline Tice <cmtice@google.com>
+2012-08-24  Caroline Tice  <cmtice@google.com>
 
 	* gcc/common.opt (VTV_NO_PRIORITY): Add string "none" for users
 	to specify this priority (i.e. turn of vtable verification).

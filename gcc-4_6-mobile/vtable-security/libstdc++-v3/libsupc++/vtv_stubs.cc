@@ -22,24 +22,29 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-#ifndef _VTV_RTS_H
-#define _VTV_RTS_H 1
+void *
+__VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
+                               char *base_vtbl_var_name, int len1, char *vtable_name,
+                               int len2)
+{
+  return test_value;
+}
 
-/* This prototype needs to be kept in synch with the compiler generated
-   declaration in vtable-class-hierarchy.c */
+void *
+__VLTVerifyVtablePointer (void **data_pointer, void *test_value)
+{
+  return test_value;
+}
 
-/* could have used an enumeration here but it just makes it more difficult
-   for the compiler to generated a call to this */
-#define __VLTP_READ_ONLY  0
-#define __VLTP_READ_WRITE 1
+void *
+__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
+                   char *base_ptr_var_name, int len1, char *vtable_name,
+                   int len2)
+{
+  return test_value;
+}
 
 void
-__VLTChangePermission (int);
-
-void *
-__VLTRegisterPair (void **, void *, int, char *, int, char *, int);
-
-void *
-__VLTVerifyVtablePointer (void **, void *);
-
-#endif /* _VTV_RTS_H */
+__VLTChangePermission (int perm)
+{
+}
