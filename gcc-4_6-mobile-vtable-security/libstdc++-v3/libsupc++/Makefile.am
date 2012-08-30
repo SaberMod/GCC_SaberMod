@@ -95,7 +95,6 @@ sources = \
 	vmi_class_type_info.cc \
 	vterminate.cc \
 	vtv_rts.cc \
-	vtv_threaded_hash.cc \
 	vtv_malloc.cc \
 	vtv_utils.cc
 

@@ -184,22 +184,17 @@ VTV_protect_vtable_vars (void)
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
-// TODO: NEED TO PROTECT THIS VAR
-static int change_permissions_count = 0;
 
 #if defined __GTHREAD_MUTEX_INIT
-static __gthread_mutex_t register_pairs_lock VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
 // TODO: NEED TO PROTECT THIS VAR
 static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
 #else
-static __gthread_mutex_t register_pairs_lock VTV_PROTECTED_VAR;
 // TODO: NEED TO PROTECT THIS VAR
 static __gthread_mutex_t change_permissions_lock;
 
 static void
 initialize_change_permissions_mutexes ()
 {
-  __GTHREAD_MUTEX_INIT_FUNCTION (&register_pair_lock);
   __GTHREAD_MUTEX_INIT_FUNCTION (&change_permissions_lock);
 }
 #endif
@@ -234,34 +229,17 @@ __VLTChangePermission (int perm)
       // not unlocking the protected vtable vars after for a load module
       // that is not the first load module
       __gthread_mutex_lock(&change_permissions_lock);
-      VTV_ASSERT(change_permissions_count >= 0);
-      change_permissions_count++;
-      if (change_permissions_count == 1)
-        {
-          VTV_unprotect_vtable_vars ();
-          VTV_malloc_init ();
-          VTV_malloc_unprotect ();
-        }
-      __gthread_mutex_unlock(&change_permissions_lock);
 
-      /* Now grab the register pairs lock so that only one thread is
-         modifying the register pair sets */
-      __gthread_mutex_lock(&register_pairs_lock);
+      VTV_unprotect_vtable_vars ();
+      VTV_malloc_init ();
+      VTV_malloc_unprotect ();
+
     }
   else if (perm == __VLTP_READ_ONLY)
     {
-      /* At this point we must be done with all register pair calls
-         for this load module. */
-      __gthread_mutex_unlock(&register_pairs_lock);
+      VTV_malloc_protect ();
+      VTV_protect_vtable_vars ();
 
-      __gthread_mutex_lock(&change_permissions_lock);
-      if (change_permissions_count == 1)
-        {
-          VTV_malloc_protect ();
-          VTV_protect_vtable_vars ();
-        }
-      change_permissions_count--;
-      VTV_ASSERT(change_permissions_count >= 0);
       __gthread_mutex_unlock(&change_permissions_lock);
 
       if (debug_hash)
@@ -382,24 +360,6 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint)
     }
 }
 
-static void PrintStackTrace()
-{
-  #define STACK_DEPTH 20
-  void * callers[STACK_DEPTH];
-  int actual_depth = backtrace(callers, STACK_DEPTH);
-  char ** symbols = backtrace_symbols(callers, actual_depth);
-  if (symbols == NULL )
-    {
-      fprintf(stderr, "Could not get backtrace\n");
-      return;
-    }
-
-  for (int i = 0; i < actual_depth; i++)
-    fprintf(stderr, "%s\n", symbols[i]);
-
-  free(symbols);
-}
-
 void *
 __VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
                                char * base_vtbl_var_name, int len1, char * vtable_name,
@@ -448,7 +408,7 @@ __VLTVerifyVtablePointer (void ** data_pointer, void * test_value)
       __vtv_verify_fail (data_pointer, test_value);
       /* Normally __vtv_verify_fail will call abort, so we won't
          execute the return below.  If we get this far, the assumption
-         is that the programmer has replace __vtv_verify_fail with
+         is that the programmer has replaced __vtv_verify_fail with
          some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }

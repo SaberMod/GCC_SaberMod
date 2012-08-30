@@ -22,29 +22,39 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
-void *
-__VLTVerifyVtablePointerDebug (void **data_pointer, void *test_value,
-                               char *base_vtbl_var_name, int len1, char *vtable_name,
-                               int len2)
-{
-  return test_value;
-}
-
-void *
-__VLTVerifyVtablePointer (void **data_pointer, void *test_value)
-{
-  return test_value;
-}
-
-void *
-__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
-                   char *base_ptr_var_name, int len1, char *vtable_name,
-                   int len2)
-{
-  return test_value;
-}
+#include "vtv_rts.h"
 
 void
-__VLTChangePermission (int perm)
+__VLTChangePermission (int)
 {
 }
+
+#ifdef VTV_DEBUG
+
+void
+__VLTRegisterPairDebug (void **, void *, int,
+                        char *, int, char *, int)
+{
+}
+
+void *
+__VLTVerifyVtablePointerDebug (void **, void * test_value,
+                               char *, int, char *, int)
+{
+  return test_value;
+}
+
+#else
+
+void
+__VLTRegisterPair (void **, void *, int)
+{
+}
+
+void *
+__VLTVerifyVtablePointer (void **, void * test_value)
+{
+  return test_value;
+}
+
+#endif
