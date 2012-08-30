@@ -1,3 +1,15 @@
+2012-08-28  Chris Manghane  <cmang@google.com>
+
+	* libgcc/pmu-profile.c
+	(gcov_write_load_latency_infos): Removed unused function.
+	(gcov_write_branch_mispredict_infos): Ditto.
+	(destroy_load_latency_infos): Removed static keyword.
+	(init_pmu_branch_mispredict): Ditto.
+	(gcov_write_ll_line): Ditto, plus replaced filename field with filetag.
+	(gcov_write_branch_mispredict_line): Ditto.
+	(gcov_write_string_table_entry): New function.
+	(gcov_write_tool_header): Removed static keyword.
+
 2012-08-08  Chris Manghane  <cmang@google.com>
 
         * libgcc/pmu-profile.c
