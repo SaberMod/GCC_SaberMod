@@ -78,8 +78,8 @@ init_functions (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
   tree arg_types = NULL_TREE;
-  tree register_pairs_type = void_ptr_type;
-  tree change_permission_type = void_ptr_type;
+  tree register_pairs_type = void_type_node;
+  tree change_permission_type = void_type_node;
   tree char_ptr_type = build_pointer_type (char_type_node);
 
   arg_types = build_tree_list (NULL_TREE, integer_type_node);
@@ -102,6 +102,7 @@ init_functions (void)
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
                                                    integer_type_node));
+#ifdef VTV_DEBUG
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
@@ -111,11 +112,19 @@ init_functions (void)
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
                                                    integer_type_node));
   /* End: Arg types to be removed...*/
+#endif
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   register_pairs_type = build_function_type (register_pairs_type, arg_types);
+
+#ifdef VTV_DEBUG
+  vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPairDebug",
+                                             register_pairs_type);
+#else
   vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPair",
                                              register_pairs_type);
+#endif
+
   TREE_NOTHROW (vlt_register_pairs_fndecl) = 1;
   DECL_ATTRIBUTES (vlt_register_pairs_fndecl) =
                     tree_cons (get_identifier ("leaf"), NULL,
@@ -341,6 +350,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                   if (already_registered)
                     continue;
 
+#ifdef VTV_DEBUG
 		  /* This call expr has the 3 "real" arguments, plus 4
 		     debugging arguments.  Eventually it will be
 		     replaced with the one just below it, which only
@@ -356,12 +366,13 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 					 arg2,
 					 build_int_cst (integer_type_node,
 							len2));
-		  /* See comments above.
+#else
                   call_expr = build_call_expr (vlt_register_pairs_fndecl, 3,
                                                base_class_decl_arg, value,
-                                               buid_int_cst (integer_type_node,
+                                               build_int_cst (integer_type_node,
                                                              hint));
-		  */
+#endif
+
 		  append_to_statement_list (call_expr, &body);
                 }
             }
@@ -398,6 +409,7 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                                       base_class);
           if (!already_registered)
             {
+#ifdef VTV_DEBUG
               call_expr = build_call_expr (vlt_register_pairs_fndecl, 7,
                                            arg1, vtable_address,
                                            build_int_cst (integer_type_node,
@@ -408,6 +420,13 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                            str2,
                                            build_int_cst (integer_type_node,
                                                           len2));
+#else
+              call_expr = build_call_expr (vlt_register_pairs_fndecl, 3,
+                                           arg1, vtable_address,
+                                           build_int_cst (integer_type_node,
+                                                         hint));
+#endif
+
               append_to_statement_list (call_expr, &body);
             }
         }
@@ -422,6 +441,7 @@ guess_num_vtable_pointers (struct vtv_graph_node *class_node)
 {
   tree vtbl;
   int total_num_vtbls = 0;
+  int num_vtbls_power_of_two = 1;
   unsigned i;
 
   for (i = 0; i < num_vtable_map_nodes; ++i)
@@ -430,9 +450,13 @@ guess_num_vtable_pointers (struct vtv_graph_node *class_node)
         tree class_type = vtbl_map_nodes_array[i]->class_info->class_type;
         for (vtbl = CLASSTYPE_VTABLES (class_type); vtbl;
              vtbl = DECL_CHAIN (vtbl))
-          total_num_vtbls ++;
+          {
+            total_num_vtbls ++;
+            if (total_num_vtbls > num_vtbls_power_of_two)
+              num_vtbls_power_of_two <<= 1;
+          }
       }
-  return total_num_vtbls;
+  return num_vtbls_power_of_two;
 }
 
 static void
@@ -504,6 +528,7 @@ register_all_pairs (tree body)
                                                      (base_ptr_var_decl));
                       arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
 
+#ifdef VTV_DEBUG
                       /* This call expr has the 3 "real" arguments, plus 4
                          debugging arguments.  Eventually it will be replaced
                          with the one just below it, which only has the 2 real
@@ -516,10 +541,12 @@ register_all_pairs (tree body)
                                                 len1),
                            str2,  build_int_cst (integer_type_node,
                                                  len2));
-                      /* See comments above.  call_expr = build_call_expr
-                         (vlt_register_pairs_fndecl, 3, arg1, vtable,
-                         build_int_cst (integer_type_node, size_hint));  */
-
+#else
+                      call_expr = build_call_expr
+                          (vlt_register_pairs_fndecl, 3, 
+                           arg1, vtable_address,
+                           build_int_cst (integer_type_node, size_hint)); 
+#endif
                       append_to_statement_list (call_expr, &body);
 
                       /* Find and handle any 'extra' vtables associated

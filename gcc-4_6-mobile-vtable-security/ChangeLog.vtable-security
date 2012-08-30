@@ -1,5 +1,24 @@
-2012-08-24  Caroline Tice  <cmtice@google.com>
+2012-08-28  Luis Lozano  <llozano@google.com>
 
+	* gcc/cp/vtable-class-hierarchy.c (init_functions): cleaned up extra
+	arguments to VerifyRegisterPair.
+	Also, fixed issue in signature for VLTRegisterPair.
+	(guess_num_vtable_pointers): modified to always return a power of 2
+	number. This is required by the new set implementation
+	(register_all_pairs): code to call one of two versions of 
+	VerifyRegisterPairs (debug and non-debug)
+	* libstdc++-v3/libsupc++/vtv_rts.cc (__VLTRegisterPairDebug): created
+	this new routine to keep the debug/tracing functionality
+	(__VLTRegisterPair):Cleaned up version of RegisterPair
+	* libstdc++-v3/libsupc++/vtv_rts.h: added declararions for the debug
+	and non-debug versions of RegisterPair and VerifyVtablePointer
+	* ibstdc++-v3/libsupc++/vtv_set.h: incorported new version of vtv_set.h
+	Replaced assert by VTV_DEBUG_ASSERT so that we can turn off asserts in 
+	the libstdc++ library build.
+	* libsupc++/vtv_utils.h: Map DEBUG_ASSERT to (void) so that we can
+	see the best performance numbers from the new set.
+
+2012-08-24  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/Makefile.in: Re-generated file from
 	new Makefile.am (for libvtv_stubs library).

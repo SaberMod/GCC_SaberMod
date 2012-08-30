@@ -36,10 +36,23 @@
 void
 __VLTChangePermission (int);
 
-void *
-__VLTRegisterPair (void **, void *, int, char *, int, char *, int);
+#ifdef VTV_DEBUG
 
+void
+__VLTRegisterPairDebug (void **, void *, int,
+                        char *, int, char *, int);
+void *
+__VLTVerifyVtablePointerDebug (void **, void *
+			       char *, int, char *, int);
+
+#else
+
+void
+__VLTRegisterPair (void **, void *, int);
 void *
 __VLTVerifyVtablePointer (void **, void *);
+
+#endif
+
 
 #endif /* _VTV_RTS_H */

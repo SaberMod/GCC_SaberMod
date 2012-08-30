@@ -34,7 +34,7 @@
 #define VTV_error abort
 
 #define VTV_ASSERT(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
-#define VTV_DEBUG_ASSERT(EXPR) VTV_ASSERT(EXPR)
+#define VTV_DEBUG_ASSERT(EXPR) ((void)0)
 //#define VTV_DEBUG_ASSERT(EXPR) (void)0
 
 /* Name of the section where we put general VTV variables for protection */

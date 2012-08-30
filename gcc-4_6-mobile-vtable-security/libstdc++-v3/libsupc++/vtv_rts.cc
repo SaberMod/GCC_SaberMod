@@ -326,48 +326,26 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
 
-// TODO: move the calculation of power of two to the code that calculates the hint
-static unsigned 
-next_power_of_two(unsigned int num)
-{
-  unsigned result = 1;
-  while (result < num)
-    result = result << 1;
-  return result;
-}
-
-/* TODO: Why is this returning anything
-   remove unnecessary arguments */
-void *
-__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
-		   char *base_ptr_var_name, int len1, char *vtable_name,
-		   int len2)
+void 
+__VLTRegisterPairDebug (void **data_pointer, void *test_value, int size_hint,
+                        char *base_ptr_var_name, int len1, char *vtable_name,
+                        int len2)
 {
   int_vptr vtbl_ptr = (int_vptr) test_value;
   vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
 
-#ifndef __GTHREAD_MUTEX_INIT
-  static __gthread_once_t mutex_once VTV_PROTECTED_VAR = __GTHREAD_ONCE_INIT;
-
-  __gthread_once (&mutex_once, initialize_mutex_once);
-#endif
-
   if (*handle_ptr == NULL)
     {
-      // use a temporary handle to create the set and insert the vtbl ptr
-      // before modifying the original handle to avoid possible race
-      // condition with reader.
-      vtv_set_handle tmp_handle;
       // TODO: verify return value
-      // TODO: pass power of 2 hint.
-      vtv_sets::create(next_power_of_two(size_hint), &tmp_handle);
-      vtv_sets::insert(vtbl_ptr, &tmp_handle);
-      *handle_ptr = tmp_handle;
+      vtv_sets::create(size_hint, handle_ptr);
+      vtv_sets::insert(vtbl_ptr, handle_ptr);
     }
   else
-    // TODO: handle size hint in this case
-    // TODO: verify return value?
-    vtv_sets::insert(vtbl_ptr, handle_ptr);
+    {
+      // TODO: verify return value?
+      vtv_sets::resize(size_hint, handle_ptr);
+      vtv_sets::insert(vtbl_ptr, handle_ptr);
+    }
 
 
   if (debug_functions && base_ptr_var_name && vtable_name)
@@ -382,8 +360,26 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint,
 			  len1, len2,
 			  base_ptr_var_name, vtable_name, vtbl_ptr);
     }
+}
 
-  return NULL;
+void 
+__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint)
+{
+  int_vptr vtbl_ptr = (int_vptr) test_value;
+  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
+
+  if (*handle_ptr == NULL)
+    {
+      // TODO: verify return value
+      vtv_sets::create(size_hint, handle_ptr);
+      vtv_sets::insert(vtbl_ptr, handle_ptr);
+    }
+  else
+    {
+      // TODO: verify return value?
+      vtv_sets::resize(size_hint, handle_ptr);
+      vtv_sets::insert(vtbl_ptr, handle_ptr);
+    }
 }
 
 static void PrintStackTrace()

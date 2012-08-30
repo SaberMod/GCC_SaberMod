@@ -81,8 +81,8 @@
 //
 // However, we expect most or all uses of this code to call contains() much more
 // frequently than anything else, so lock contention is likely to be low.
-#include <assert.h>
 #include <algorithm>
+#include "vtv_utils.h"
 
 template<typename Key, class HashFcn, class Alloc>
 class insert_only_hash_sets {
@@ -129,6 +129,9 @@ class insert_only_hash_sets {
     size (const insert_only_hash_set* s)
     { return (s == NULL) ? 0 : (singleton(s) ? 1 : s->num_entries); }
 
+    static inline insert_only_hash_set*
+    resize (size_type target_num_buckets, insert_only_hash_set* s);
+
    private:
     // Return whether a set has size 1.
     static bool singleton(const insert_only_hash_set* s)
@@ -141,7 +144,7 @@ class insert_only_hash_sets {
     // Given a singleton set, what key does it contain?
     static key_type extract_singleton_key(const insert_only_hash_set* s)
     {
-      assert(singleton(s));
+      VTV_DEBUG_ASSERT(singleton(s));
       return (key_type)((uintptr_t)s - 1);
     }
 
@@ -178,6 +181,12 @@ class insert_only_hash_sets {
   static inline bool
   create (size_type n, insert_only_hash_set** handle);
 
+  // Force the capacity of a set to be n, unless it was more than n already.
+  // Requires that n be 0 or a power of 2.  Sets *handle unless the
+  // current capacity is n or more.  Returns true unless the allocator fails.
+  static inline bool
+  resize (size_type n, insert_only_hash_set** handle);
+
   // Insert a key.  *handle is unmodified unless (1) a resize occurs, or
   // (2) the set was initially empty. Returns true unless the allocator fails
   // during a resize.  If the allocator fails during a resize then the set is
@@ -185,15 +194,12 @@ class insert_only_hash_sets {
   static inline bool
   insert (key_type key, insert_only_hash_set** handle);
 
-  // Check for the presence of a key.  If the last arg is
-  // NULL then no locking is done here.  Otherwise, an "optimistic"
-  // lookup is done without the given lock, and if that doesn't
-  // find the key then the lookup is repeated while holding the given lock.
-  // If key is illegal_key then either true or false may be returned, but
-  // for all other reserved keys false will be returned.
+  // Check for the presence of a key.  If key is illegal_key then either true
+  // or false may be returned, but for all other reserved keys false will be
+  // returned.
   static inline bool
-  contains (key_type key,
-            insert_only_hash_set** handle);
+  contains (key_type key, /* const */ insert_only_hash_set** handle)
+  { return insert_only_hash_set::contains(key, *handle); }
 
   // Return the size of the given set.
   static size_type
@@ -213,10 +219,36 @@ class insert_only_hash_sets {
 
 template<typename Key, class HashFcn, class Alloc>
 typename insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set*
+insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::resize (
+    size_type n, insert_only_hash_set* s)
+{
+  if (s == NULL) return create(n);
+  size_type capacity = singleton(s) ? 1 : s->num_buckets;
+  if (n <= capacity) return s;
+  insert_only_hash_set* result = create(std::max<size_type>(n, min_capacity));
+  if (result != NULL)
+    {
+      if (singleton(s))
+        {
+          result->insert_no_resize(extract_singleton_key(s));
+        }
+      else
+        {
+          for (size_type i = 0; i < s->num_buckets; i++)
+            if (s->buckets[i] != (key_type)illegal_key)
+              result->insert_no_resize(s->buckets[i]);
+        }
+      VTV_DEBUG_ASSERT(size(result) == size(s));
+    }
+  return result;
+}
+
+template<typename Key, class HashFcn, class Alloc>
+typename insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set*
 insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert (
     key_type key, insert_only_hash_set* s)
 {
-  assert(!is_reserved_key(key));
+  VTV_DEBUG_ASSERT(!is_reserved_key(key));
   if (s == NULL) return singleton_key(key);
   if (singleton(s))
     {
@@ -227,7 +259,7 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert (
       if (s == NULL) return NULL;
       s->insert_no_resize(old_key);
       s->insert_no_resize(key);
-      assert(size(s) == 2);
+      VTV_DEBUG_ASSERT(size(s) == 2);
       return s;
     }
   s = s->resize_if_necessary();
@@ -240,8 +272,9 @@ typename insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set*
 insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::create (
     size_type capacity)
 {
-  assert(capacity > 1 && (capacity & (capacity - 1)) == 0);
-  assert(sizeof(insert_only_hash_set) == 2 * sizeof(size_type));// remove?
+  if (capacity <= 1) return NULL;
+  VTV_DEBUG_ASSERT(capacity > 1 && (capacity & (capacity - 1)) == 0);
+  VTV_DEBUG_ASSERT(sizeof(insert_only_hash_set) == 2 * sizeof(size_type));// remove?
   capacity = std::max<size_type>(capacity, min_capacity);
   const size_t num_bytes = sizeof(insert_only_hash_set) +
       sizeof(key_type) * capacity;
@@ -260,8 +293,8 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert_no_resi
 {
   HashFcn hasher;
   const size_type capacity = num_buckets;
-  assert(capacity >= min_capacity);
-  assert(!is_reserved_key(key));
+  VTV_DEBUG_ASSERT(capacity >= min_capacity);
+  VTV_DEBUG_ASSERT(!is_reserved_key(key));
   size_type index = hasher(key) & (capacity - 1);
   key_type k = key_at_index(index);
   size_type indices_examined = 0;
@@ -274,7 +307,7 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert_no_resi
           ++num_entries;
           return;
         }
-      assert(indices_examined < capacity);
+      VTV_DEBUG_ASSERT(indices_examined < capacity);
       index = next_index(index, indices_examined);
       k = key_at_index(index);
     }
@@ -302,9 +335,9 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::contains (key_
 
 template<typename Key, class HashFcn, class Alloc>
 typename insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set*
-insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::resize_if_necessary ()
+    insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::resize_if_necessary ()
 {
-  assert(num_buckets >= min_capacity);
+  VTV_DEBUG_ASSERT(num_buckets >= min_capacity);
   size_type unused = num_buckets - num_entries;
   if (unused < (num_buckets >> 2))
     {
@@ -313,7 +346,7 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::resize_if_nece
       for (size_type i = 0; i < num_buckets; i++)
         if (buckets[i] != (key_type)illegal_key)
           s->insert_no_resize(buckets[i]);
-      assert(size(this) == size(s));
+      VTV_DEBUG_ASSERT(size(this) == size(s));
       return s;
     }
   else
@@ -324,13 +357,16 @@ template<typename Key, class HashFcn, class Alloc>
 bool
 insert_only_hash_sets<Key, HashFcn, Alloc>::create (size_type n, insert_only_hash_set** handle)
 {
-  if (n <= 1)
-    {
-      *handle = NULL;
-      return true;
-    }
   *handle = insert_only_hash_set::create(n);
-  return *handle != NULL;
+  return (n <= 1) || (*handle != NULL);
+}
+
+template<typename Key, class HashFcn, class Alloc>
+bool
+insert_only_hash_sets<Key, HashFcn, Alloc>::resize (size_type n, insert_only_hash_set** handle)
+{
+  *handle = insert_only_hash_set::resize(n, *handle);
+  return (n <= 1) || (*handle != NULL);
 }
 
 template<typename Key, class HashFcn, class Alloc>
@@ -339,12 +375,4 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert (key_type key, insert_only_ha
 {
   *handle = insert_only_hash_set::insert(key, *handle);
   return *handle != NULL;
-}
-
-template<typename Key, class HashFcn, class Alloc>
-bool
-insert_only_hash_sets<Key, HashFcn, Alloc>::contains (key_type key,
-                                                      insert_only_hash_set** handle)
-{
-  return insert_only_hash_set::contains(key, *handle);
 }
