@@ -308,6 +308,7 @@ static varinfo_t first_vi_for_offset (varinfo_t, unsigned HOST_WIDE_INT);
 static varinfo_t first_or_preceding_vi_for_offset (varinfo_t,
 						   unsigned HOST_WIDE_INT);
 static varinfo_t lookup_vi_for_tree (tree);
+static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
 static alloc_pool variable_info_pool;
@@ -3353,7 +3354,8 @@ get_constraint_for_1 (tree t, VEC (ce_s, heap) **results, bool address_p,
 		return;
 
 	      cs = *VEC_last (ce_s, *results);
-	      if (cs.type == DEREF)
+	      if (cs.type == DEREF
+		  && type_can_have_subvars (TREE_TYPE (t)))
 		{
 		  /* For dereferences this means we have to defer it
 		     to solving time.  */
@@ -4492,15 +4494,6 @@ find_func_aliases (gimple origt)
 	  && (!in_ipa_mode
 	      || DECL_EXTERNAL (lhsop) || TREE_PUBLIC (lhsop)))
 	make_escape_constraint (rhsop);
-      /* If this is a conversion of a non-restrict pointer to a
-	 restrict pointer track it with a new heapvar.  */
-      else if (gimple_assign_cast_p (t)
-	       && POINTER_TYPE_P (TREE_TYPE (rhsop))
-	       && POINTER_TYPE_P (TREE_TYPE (lhsop))
-	       && !TYPE_RESTRICT (TREE_TYPE (rhsop))
-	       && TYPE_RESTRICT (TREE_TYPE (lhsop)))
-	make_constraint_from_restrict (get_vi_for_tree (lhsop),
-				       "CAST_RESTRICT");
     }
   /* Handle escapes through return.  */
   else if (gimple_code (t) == GIMPLE_RETURN
@@ -4990,6 +4983,15 @@ sort_fieldstack (VEC(fieldoff_s,heap) *fieldstack)
   VEC_qsort (fieldoff_s, fieldstack, fieldoff_compare);
 }
 
+/* Return true if T is a type that can have subvars.  */
+
+static inline bool
+type_can_have_subvars (const_tree t)
+{
+  /* Aggregates without overlapping fields can have subvars.  */
+  return TREE_CODE (t) == RECORD_TYPE;
+}
+
 /* Return true if V is a tree that we can have subvars for.
    Normally, this is any aggregate type.  Also complex
    types which are not gimple registers can have subvars.  */
@@ -5005,11 +5007,7 @@ var_can_have_subvars (const_tree v)
   if (!DECL_P (v))
     return false;
 
-  /* Aggregates without overlapping fields can have subvars.  */
-  if (TREE_CODE (TREE_TYPE (v)) == RECORD_TYPE)
-    return true;
-
-  return false;
+  return type_can_have_subvars (TREE_TYPE (v));
 }
 
 /* Return true if T is a type that does contain pointers.  */

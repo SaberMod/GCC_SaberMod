@@ -58,6 +58,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "sbitmap.h"
 #include "fibheap.h"
+#include "tree-flow.h"
+#include "tree-pass.h"
+#include "tree-dump.h"
+#include "gimple-pretty-print.h"
+#include "cfgloop.h"
+#include "tree-scalar-evolution.h"
+#include "tree-vectorizer.h"
 
 enum upper_128bits_state
 {
@@ -1879,6 +1886,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
   m_CORE2I7 | m_GENERIC,
 
+  /* X86_TUNE_LCP_STALL: Avoid an expensive length-changing prefix stall
+     on 16-bit immediate moves into memory on Core2 and Corei7.  */
+  m_CORE2I7 | m_GENERIC,
+
   /* X86_TUNE_USE_HIMODE_FIOP */
   m_386 | m_486 | m_K6_GEODE,
 
@@ -2350,6 +2361,8 @@ enum processor_type ix86_tune;
 /* Which instruction set architecture to use.  */
 enum processor_type ix86_arch;
 
+char ix86_varch[PROCESSOR_max];
+
 /* true if sse prefetch instruction is not NOOP.  */
 int x86_prefetch_sse;
 
@@ -2489,6 +2502,7 @@ static enum calling_abi ix86_function_abi (const_tree);
 /* Whether -mtune= or -march= were specified */
 static int ix86_tune_defaulted;
 static int ix86_arch_specified;
+static int ix86_varch_specified;
 
 /* A mask of ix86_isa_flags that includes bit X if X
    was set or cleared on the command line.  */
@@ -3412,6 +3426,11 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL},
+      {"core-avx-i", PROCESSOR_COREI7_64, CPU_COREI7,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
+	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
+	| PTA_RDRND | PTA_F16C},
       {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE},
@@ -4307,6 +4326,36 @@ ix86_option_override_internal (bool main_args_p)
     {
       /* Disable vzeroupper pass if TARGET_AVX is disabled.  */
       target_flags &= ~MASK_VZEROUPPER;
+    }
+
+  /* Handle ix86_mv_arch_string.  The values allowed are the same as
+     -march=<>.  More than one value is allowed and values must be
+     comma separated.  */
+  if (ix86_mv_arch_string)
+    {
+      char *token;
+      char *varch;
+      int i;
+
+      ix86_varch_specified = 1;
+      memset (ix86_varch, 0, sizeof (ix86_varch));
+      token = XNEWVEC (char, strlen (ix86_mv_arch_string) + 1);
+      strcpy (token, ix86_mv_arch_string);
+      varch = strtok ((char *)token, ",");
+      while (varch != NULL)
+        {
+          for (i = 0; i < pta_size; i++)
+            if (!strcmp (varch, processor_alias_table[i].name))
+	      {
+	 	ix86_varch[processor_alias_table[i].processor] = 1;
+	        break;
+	      }
+          if (i == pta_size)
+            error ("bad value (%s) for %sv-arch=%s %s",
+	           varch, prefix, suffix, sw);
+	  varch = strtok (NULL, ",");
+	}
+      free (token);
     }
 }
 
@@ -11287,6 +11336,214 @@ ix86_expand_epilogue (int style)
   m->fs = frame_state_save;
 }
 
+
+/* True if the current function should be patched with nops at prologue and
+   returns.  */
+static bool patch_current_function_p = false;
+
+/* Return true if we patch the current function. By default a function
+   is patched if it has loops or if the number of insns is greater than
+   patch_functions_min_instructions (number of insns roughly translates
+   to number of instructions).  */
+
+static bool
+check_should_patch_current_function (void)
+{
+  int num_insns = 0;
+  rtx insn;
+  const char* func_name = NULL;
+  struct loops loops;
+  int num_loops = 0;
+  int min_functions_instructions;
+
+  /* Patch the function if it has at least a loop.  */
+  if (!patch_functions_ignore_loops)
+    {
+      if (DECL_STRUCT_FUNCTION (current_function_decl)->cfg)
+        {
+          num_loops = flow_loops_find (&loops);
+          /* FIXME - Deallocating the loop causes a seg-fault.  */
+#if 0
+          flow_loops_free (&loops);
+#endif
+          /* We are not concerned with the function body as a loop.  */
+          if (num_loops > 1)
+            return true;
+        }
+    }
+
+  /* Else, check if function has more than patch_functions_min_instrctions.  */
+
+  /* Borrowed this code from rest_of_handle_final() in final.c.  */
+  func_name = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+  if (!patch_functions_dont_always_patch_main &&
+      func_name &&
+      strcmp("main", func_name) == 0)
+    return true;
+
+  min_functions_instructions =
+      PARAM_VALUE (PARAM_FUNCTION_PATCH_MIN_INSTRUCTIONS);
+  if (min_functions_instructions > 0)
+    {
+      /* Calculate the number of instructions in this function and only emit
+         function patch for instrumentation if it is greater than
+         patch_functions_min_instructions.  */
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+        {
+          if (NONDEBUG_INSN_P (insn))
+            ++num_insns;
+        }
+      if (num_insns < min_functions_instructions)
+        return false;
+    }
+
+  return true;
+}
+
+/* Emit the 11-byte patch space for the function prologue for functions that
+   qualify.  */
+
+static void
+ix86_output_function_prologue (FILE *file,
+                               HOST_WIDE_INT size ATTRIBUTE_UNUSED)
+{
+  /* Only for 64-bit target.  */
+  if (TARGET_64BIT && patch_functions_for_instrumentation)
+    {
+      patch_current_function_p = check_should_patch_current_function();
+      /* Emit the instruction 'jmp 09' followed by 9 bytes to make it 11-bytes
+         of nop.  */
+      ix86_output_function_nops_prologue_epilogue (
+          file,
+          FUNCTION_PATCH_PROLOGUE_SECTION,
+          ASM_BYTE"0xeb,0x09",
+          9);
+    }
+}
+
+/* Emit the nop bytes at function prologue or return (including tail call
+   jumps). The number of nop bytes generated is at least 8.
+   Also emits a section named SECTION_NAME, which is a backpointer section
+   holding the addresses of the nop bytes in the text section.
+   SECTION_NAME is either '_function_patch_prologue' or
+   '_function_patch_epilogue'. The backpointer section can be used to navigate
+   through all the function entry and exit points which are patched with nops.
+   PRE_INSTRUCTIONS are the instructions, if any, at the start of the nop byte
+   sequence. NUM_REMAINING_NOPS are the number of nop bytes to fill,
+   excluding the number of bytes in PRE_INSTRUCTIONS.
+   Returns true if the function was patched, false otherwise.  */
+
+bool
+ix86_output_function_nops_prologue_epilogue (FILE *file,
+                                             const char *section_name,
+                                             const char *pre_instructions,
+                                             int num_remaining_nops)
+{
+  static int labelno = 0;
+  char label[32], section_label[32];
+  section *section = NULL;
+  int num_actual_nops = num_remaining_nops - sizeof(void *);
+  unsigned int section_flags = SECTION_RELRO;
+  char *section_name_comdat = NULL;
+  const char *decl_section_name = NULL;
+  size_t len;
+
+  gcc_assert (num_remaining_nops >= 0);
+
+  if (!patch_current_function_p)
+    return false;
+
+  ASM_GENERATE_INTERNAL_LABEL (label, "LFPEL", labelno);
+  ASM_GENERATE_INTERNAL_LABEL (section_label, "LFPESL", labelno++);
+
+  /* Align the start of nops to 2-byte boundary so that the 2-byte jump
+     instruction can be patched atomically at run time.  */
+  ASM_OUTPUT_ALIGN (file, 1);
+
+  /* Emit nop bytes. They look like the following:
+       $LFPEL0:
+         <pre_instruction>
+         0x90 (repeated num_actual_nops times)
+         .quad $LFPESL0
+     followed by section 'section_name' which contains the address
+     of instruction at 'label'.
+   */
+  ASM_OUTPUT_INTERNAL_LABEL (file, label);
+  if (pre_instructions)
+    fprintf (file, "%s\n", pre_instructions);
+
+  while (num_actual_nops-- > 0)
+    asm_fprintf (file, ASM_BYTE"0x90\n");
+
+  fprintf (file, ASM_QUAD);
+  assemble_name_raw (file, section_label);
+  fprintf (file, "\n");
+
+  /* Emit the backpointer section. For functions belonging to comdat group,
+     we emit a different section named '<section_name>.foo' where 'foo' is
+     the name of the comdat section. This section is later renamed to
+     '<section_name>' by ix86_elf_asm_named_section().
+     We emit a unique section name for the back pointer section for comdat
+     functions because otherwise the 'get_section' call may return an existing
+     non-comdat section with the same name, leading to references from
+     non-comdat section to comdat functions.
+  */
+  if (current_function_decl != NULL_TREE &&
+      DECL_ONE_ONLY (current_function_decl) &&
+      HAVE_COMDAT_GROUP)
+    {
+      decl_section_name =
+          TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
+      len = strlen (decl_section_name) + strlen (section_name) + 1;
+      section_name_comdat = (char *) alloca (len);
+      sprintf (section_name_comdat, "%s.%s", section_name, decl_section_name);
+      section_name = section_name_comdat;
+      section_flags |= SECTION_LINKONCE;
+    }
+  section = get_section (section_name, section_flags, current_function_decl);
+  switch_to_section (section);
+  /* Align the section to 8-byte boundary.  */
+  ASM_OUTPUT_ALIGN (file, 3);
+
+  /* Emit address of the start of nop bytes in the section:
+       $LFPESP0:
+         .quad $LFPEL0
+   */
+  ASM_OUTPUT_INTERNAL_LABEL (file, section_label);
+  fprintf(file, ASM_QUAD"\t");
+  assemble_name_raw (file, label);
+  fprintf (file, "\n");
+
+  /* Switching back to text section.  */
+  switch_to_section (function_section (current_function_decl));
+  return true;
+}
+
+/* Strips the characters after '_function_patch_prologue' or
+   '_function_patch_epilogue' and emits the section.  */
+
+static void
+ix86_elf_asm_named_section (const char *name, unsigned int flags,
+                            tree decl)
+{
+  const char *section_name = name;
+  if (HAVE_COMDAT_GROUP && flags & SECTION_LINKONCE)
+    {
+      const int prologue_section_name_length =
+          sizeof(FUNCTION_PATCH_PROLOGUE_SECTION) - 1;
+      const int epilogue_section_name_length =
+          sizeof(FUNCTION_PATCH_EPILOGUE_SECTION) - 1;
+
+      if (strncmp (name, FUNCTION_PATCH_PROLOGUE_SECTION,
+                   prologue_section_name_length) == 0)
+        section_name = FUNCTION_PATCH_PROLOGUE_SECTION;
+      else if (strncmp (name, FUNCTION_PATCH_EPILOGUE_SECTION,
+                        epilogue_section_name_length) == 0)
+        section_name = FUNCTION_PATCH_EPILOGUE_SECTION;
+    }
+  default_elf_asm_named_section (section_name, flags, decl);
+}
+
 /* Reset from the function's potential modifications.  */
 
 static void
@@ -12697,7 +12954,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, dest));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
       break;
 
@@ -12728,7 +12985,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  rtx x = ix86_tls_module_base ();
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV,
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL,
 			       gen_rtx_MINUS (Pmode, x, tp));
 	}
 
@@ -12741,7 +12998,7 @@ legitimize_tls_address (rtx x, enum tls_model model, int for_mov)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
 
-	  set_unique_reg_note (get_last_insn (), REG_EQUIV, x);
+	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
 
       break;
@@ -14245,6 +14502,13 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case 'H':
+	  if (!offsettable_memref_p (x))
+	    {
+	      output_operand_lossage ("operand is not an offsettable memory "
+				      "reference, invalid operand "
+				      "code 'H'");
+	      return;
+	    }
 	  /* It doesn't actually matter what mode we use here, as we're
 	     only going to use this for printing.  */
 	  x = adjust_address_nv (x, DImode, 8);
@@ -16324,7 +16588,6 @@ distance_non_agu_define (unsigned int regno1, unsigned int regno2,
   basic_block bb = BLOCK_FOR_INSN (insn);
   int distance = 0;
   df_ref *def_rec;
-  enum attr_type insn_type;
 
   if (insn != BB_HEAD (bb))
     {
@@ -16340,8 +16603,8 @@ distance_non_agu_define (unsigned int regno1, unsigned int regno2,
                     && (regno1 == DF_REF_REGNO (*def_rec)
 			|| regno2 == DF_REF_REGNO (*def_rec)))
 		  {
-		    insn_type = get_attr_type (prev);
-		    if (insn_type != TYPE_LEA)
+		    if (recog_memoized (prev) < 0
+			|| get_attr_type (prev) != TYPE_LEA)
 		      goto done;
 		  }
 	    }
@@ -16380,8 +16643,8 @@ distance_non_agu_define (unsigned int regno1, unsigned int regno2,
 			&& (regno1 == DF_REF_REGNO (*def_rec)
 			    || regno2 == DF_REF_REGNO (*def_rec)))
 		      {
-			insn_type = get_attr_type (prev);
-			if (insn_type != TYPE_LEA)
+			if (recog_memoized (prev) < 0
+			    || get_attr_type (prev) != TYPE_LEA)
 			  goto done;
 		      }
 		}
@@ -18679,6 +18942,11 @@ ix86_prepare_sse_fp_compare_args (rtx dest, enum rtx_code code,
 {
   rtx tmp;
 
+  /* AVX supports all the needed comparisons, no need to swap arguments
+     nor help reload.  */
+  if (TARGET_AVX)
+    return code;
+
   switch (code)
     {
     case LTGT:
@@ -18829,11 +19097,15 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
     }
   else if (TARGET_XOP)
     {
-      rtx pcmov = gen_rtx_SET (mode, dest,
-			       gen_rtx_IF_THEN_ELSE (mode, cmp,
-						     op_true,
-						     op_false));
-      emit_insn (pcmov);
+      op_true = force_reg (mode, op_true);
+
+      if (!nonimmediate_operand (op_false, mode))
+	op_false = force_reg (mode, op_false);
+
+      emit_insn (gen_rtx_SET (mode, dest,
+			      gen_rtx_IF_THEN_ELSE (mode, cmp,
+						    op_true,
+						    op_false)));
     }
   else
     {
@@ -18927,7 +19199,32 @@ ix86_expand_fp_vcond (rtx operands[])
   code = ix86_prepare_sse_fp_compare_args (operands[0], code,
 					   &operands[4], &operands[5]);
   if (code == UNKNOWN)
-    return false;
+    {
+      rtx temp;
+      switch (GET_CODE (operands[3]))
+	{
+	case LTGT:
+	  temp = ix86_expand_sse_cmp (operands[0], ORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], NE, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = AND;
+	  break;
+	case UNEQ:
+	  temp = ix86_expand_sse_cmp (operands[0], UNORDERED, operands[4],
+				      operands[5], operands[0], operands[0]);
+	  cmp = ix86_expand_sse_cmp (operands[0], EQ, operands[4],
+				     operands[5], operands[1], operands[2]);
+	  code = IOR;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      cmp = expand_simple_binop (GET_MODE (cmp), code, temp, cmp, cmp, 1,
+				 OPTAB_DIRECT);
+      ix86_expand_sse_movcc (operands[0], cmp, operands[1], operands[2]);
+      return true;
+    }
 
   if (ix86_expand_sse_fp_minmax (operands[0], code, operands[4],
 				 operands[5], operands[1], operands[2]))
@@ -22056,6 +22353,15 @@ ix86_output_call_insn (rtx insn, rtx call_op, int addr_op)
 
   if (SIBLING_CALL_P (insn))
     {
+      /* Just before the sibling call, add 11-bytes of nops to patch function
+         exit: 2 bytes for 'jmp 09' and remaining 9 bytes.  */
+      if (TARGET_64BIT && patch_functions_for_instrumentation)
+        ix86_output_function_nops_prologue_epilogue (
+            asm_out_file,
+            FUNCTION_PATCH_EPILOGUE_SECTION,
+            ASM_BYTE"0xeb, 0x09",
+            9);
+
       if (direct_p)
 	return addr_op ? "jmp\t%P1" : "jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
@@ -22147,7 +22453,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
-      return copy_rtx (s->rtl);
+      return validize_mem (copy_rtx (s->rtl));
 
   s = ggc_alloc_stack_local_entry ();
   s->n = n;
@@ -22156,7 +22462,7 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
-  return s->rtl;
+  return validize_mem (s->rtl);
 }
 
 /* Construct the SYMBOL_REF for the tls_get_addr function.  */
@@ -24443,6 +24749,33 @@ enum ix86_builtins
   /* CFString built-in for darwin */
   IX86_BUILTIN_CFSTRING,
 
+  /* Builtins to get CPU features. */
+  IX86_BUILTIN_CPU_SUPPORTS_CMOV,
+  IX86_BUILTIN_CPU_SUPPORTS_MMX,
+  IX86_BUILTIN_CPU_SUPPORTS_POPCOUNT,
+  IX86_BUILTIN_CPU_SUPPORTS_SSE,
+  IX86_BUILTIN_CPU_SUPPORTS_SSE2,
+  IX86_BUILTIN_CPU_SUPPORTS_SSE3,
+  IX86_BUILTIN_CPU_SUPPORTS_SSSE3,
+  IX86_BUILTIN_CPU_SUPPORTS_SSE4_1,
+  IX86_BUILTIN_CPU_SUPPORTS_SSE4_2,
+  /* Builtins to get CPU type. */
+  IX86_BUILTIN_CPU_INIT,
+  IX86_BUILTIN_CPU_IS_AMD,
+  IX86_BUILTIN_CPU_IS_INTEL,
+  IX86_BUILTIN_CPU_IS_INTEL_ATOM,
+  IX86_BUILTIN_CPU_IS_INTEL_CORE2,
+  IX86_BUILTIN_CPU_IS_INTEL_COREI7,
+  IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM,
+  IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE,
+  IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI,
+  IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL,
+  IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1,
+  IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2,
+
   IX86_BUILTIN_MAX
 };
 
@@ -25809,6 +26142,848 @@ ix86_init_mmx_sse_builtins (void)
     }
 }
 
+/* Returns a struct type with name NAME and number of fields equal to
+   NUM_FIELDS.  Each field is a unsigned int bit field of length 1 bit. */
+
+static tree
+build_struct_with_one_bit_fields (int num_fields, const char *name)
+{
+  int i;
+  char field_name [10];
+  tree field = NULL_TREE, field_chain = NULL_TREE;
+  tree type = make_node (RECORD_TYPE);
+
+  strcpy (field_name, "k_field");
+
+  for (i = 0; i < num_fields; i++)
+    {
+      /* Name the fields, 0_field, 1_field, ... */
+      field_name [0] = '0' + i;
+      field = build_decl (UNKNOWN_LOCATION, FIELD_DECL,
+			  get_identifier (field_name), unsigned_type_node);
+      DECL_BIT_FIELD (field) = 1;
+      DECL_SIZE (field) = bitsize_one_node;
+      if (field_chain != NULL_TREE)
+	DECL_CHAIN (field) = field_chain;
+      field_chain = field;
+    }
+  finish_builtin_struct (type, name, field_chain, NULL_TREE);
+  return type;
+}
+
+/* Returns a extern, comdat VAR_DECL of type TYPE and name NAME. */
+
+static tree
+make_var_decl (tree type, const char *name)
+{
+  tree new_decl;
+  struct varpool_node *vnode;
+
+  new_decl = build_decl (UNKNOWN_LOCATION,
+	                 VAR_DECL,
+	  	         get_identifier(name),
+		         type);
+
+  DECL_EXTERNAL (new_decl) = 1;
+  TREE_STATIC (new_decl) = 1;
+  TREE_PUBLIC (new_decl) = 1;
+  DECL_INITIAL (new_decl) = 0;
+  DECL_ARTIFICIAL (new_decl) = 0;
+  DECL_PRESERVE_P (new_decl) = 1;
+
+  make_decl_one_only (new_decl, DECL_ASSEMBLER_NAME (new_decl));
+  assemble_variable (new_decl, 0, 0, 0);
+
+  vnode = varpool_node (new_decl);
+  gcc_assert (vnode != NULL);
+  /* Set finalized to 1, otherwise it asserts in function "write_symbol" in
+     lto-streamer-out.c. */
+  vnode->finalized = 1;
+
+  return new_decl;
+}
+
+/* Traverses the chain of fields in STRUCT_TYPE and returns the FIELD_NUM
+   numbered field. */
+
+static tree
+get_field_from_struct (tree struct_type, int field_num)
+{
+  int i;
+  tree field = TYPE_FIELDS (struct_type);
+
+  for (i = 0; i < field_num; i++, field = DECL_CHAIN(field))
+    {
+      gcc_assert (field != NULL_TREE);
+    }
+
+  return field;
+}
+
+/* FNDECL is a __builtin_cpu_* call that is folded into an integer defined
+   in libgcc/config/i386/i386-cpuinfo.c */
+
+static tree 
+fold_builtin_cpu (enum ix86_builtins fn_code)
+{
+  /* This is the order of bit-fields in __processor_features in
+     i386-cpuinfo.c */
+  enum processor_features
+  {
+    F_CMOV = 0,
+    F_MMX,
+    F_POPCNT,
+    F_SSE,
+    F_SSE2,
+    F_SSE3,
+    F_SSSE3,
+    F_SSE4_1,
+    F_SSE4_2,
+    F_MAX
+  };
+
+  /* This is the order of bit-fields in __processor_model in
+     i386-cpuinfo.c */
+  enum processor_model
+  {
+    M_AMD = 0,
+    M_INTEL,
+    M_INTEL_ATOM,
+    M_INTEL_CORE2,
+    M_INTEL_COREI7,
+    M_INTEL_COREI7_NEHALEM,
+    M_INTEL_COREI7_WESTMERE,
+    M_INTEL_COREI7_SANDYBRIDGE,
+    M_AMDFAM10H,
+    M_AMDFAM10H_BARCELONA,
+    M_AMDFAM10H_SHANGHAI,
+    M_AMDFAM10H_ISTANBUL,
+    M_AMDFAM15H_BDVER1,
+    M_AMDFAM15H_BDVER2,
+    M_MAX
+  };
+
+  static tree __processor_features_type = NULL_TREE;
+  static tree __cpu_features_var = NULL_TREE;
+  static tree __processor_model_type = NULL_TREE;
+  static tree __cpu_model_var = NULL_TREE;
+  static tree field;
+  static tree which_struct;
+
+  if (__processor_features_type == NULL_TREE)
+    __processor_features_type = build_struct_with_one_bit_fields (F_MAX,
+ 			          "__processor_features");
+
+  if (__processor_model_type == NULL_TREE)
+    __processor_model_type = build_struct_with_one_bit_fields (M_MAX,
+ 			          "__processor_model");
+
+  if (__cpu_features_var == NULL_TREE)
+    __cpu_features_var = make_var_decl (__processor_features_type,
+					"__cpu_features");
+
+  if (__cpu_model_var == NULL_TREE)
+    __cpu_model_var = make_var_decl (__processor_model_type,
+				     "__cpu_model");
+
+  /* Look at the code to identify the field requested. */ 
+  switch (fn_code)
+    {
+    case IX86_BUILTIN_CPU_SUPPORTS_CMOV:
+      field = get_field_from_struct (__processor_features_type, F_CMOV);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_MMX:
+      field = get_field_from_struct (__processor_features_type, F_MMX);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_POPCOUNT:
+      field = get_field_from_struct (__processor_features_type, F_POPCNT);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE:
+      field = get_field_from_struct (__processor_features_type, F_SSE);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE2:
+      field = get_field_from_struct (__processor_features_type, F_SSE2);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE3:
+      field = get_field_from_struct (__processor_features_type, F_SSE3);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSSE3:
+      field = get_field_from_struct (__processor_features_type, F_SSSE3);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE4_1:
+      field = get_field_from_struct (__processor_features_type, F_SSE4_1);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE4_2:
+      field = get_field_from_struct (__processor_features_type, F_SSE4_2);
+      which_struct = __cpu_features_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMD:
+      field = get_field_from_struct (__processor_model_type, M_AMD);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL:
+      field = get_field_from_struct (__processor_model_type, M_INTEL);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_ATOM:
+      field = get_field_from_struct (__processor_model_type, M_INTEL_ATOM);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_CORE2:
+      field = get_field_from_struct (__processor_model_type, M_INTEL_CORE2);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7:
+      field = get_field_from_struct (__processor_model_type,
+				     M_INTEL_COREI7);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM:
+      field = get_field_from_struct (__processor_model_type,
+				     M_INTEL_COREI7_NEHALEM);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE:
+      field = get_field_from_struct (__processor_model_type,
+				     M_INTEL_COREI7_WESTMERE);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE:
+      field = get_field_from_struct (__processor_model_type,
+				     M_INTEL_COREI7_SANDYBRIDGE);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM10H);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM10H_BARCELONA);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM10H_SHANGHAI);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM10H_ISTANBUL);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM15H_BDVER1);
+      which_struct = __cpu_model_var;
+      break;
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2:
+      field = get_field_from_struct (__processor_model_type,
+				     M_AMDFAM15H_BDVER2);
+      which_struct = __cpu_model_var;
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  return build3 (COMPONENT_REF, TREE_TYPE (field), which_struct, field, NULL_TREE);
+}
+
+static tree
+ix86_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
+		   tree *args ATTRIBUTE_UNUSED, bool ignore ATTRIBUTE_UNUSED)
+{
+  const char* decl_name = IDENTIFIER_POINTER (DECL_NAME (fndecl));
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD
+      && strstr(decl_name, "__builtin_cpu") != NULL)
+    {
+      enum ix86_builtins code = (enum ix86_builtins)
+				DECL_FUNCTION_CODE (fndecl);
+      return fold_builtin_cpu (code);
+    }
+  return NULL_TREE;
+}
+
+/* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
+   to return integer VERSION_NUM if the outcome of the function PREDICATE_DECL
+   is true (or false if INVERT_CHECK is true).  This function will be called
+   during version dispatch to ecide which function version to execute.  */
+
+static basic_block
+add_condition_to_bb (tree function_decl, int version_num,
+		     basic_block new_bb, tree predicate_decl,
+		     bool invert_check)
+{
+  gimple return_stmt;
+  gimple call_cond_stmt;
+  gimple if_else_stmt;
+
+  basic_block bb1, bb2, bb3;
+  edge e12, e23;
+
+  tree cond_var;
+  gimple_seq gseq;
+
+  tree old_current_function_decl;
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (function_decl));
+  current_function_decl = function_decl;
+
+  gcc_assert (new_bb != NULL);
+  gseq = bb_seq (new_bb);
+
+  if (predicate_decl == NULL_TREE)
+    {
+      return_stmt = gimple_build_return (build_int_cst (NULL, version_num));
+      gimple_seq_add_stmt (&gseq, return_stmt);
+      set_bb_seq (new_bb, gseq);
+      gimple_set_bb (return_stmt, new_bb);
+      pop_cfun ();
+      current_function_decl = old_current_function_decl;
+      return new_bb;
+    }
+
+  cond_var = create_tmp_var (integer_type_node, NULL);
+  call_cond_stmt = gimple_build_call (predicate_decl, 0);
+  gimple_call_set_lhs (call_cond_stmt, cond_var);
+  add_referenced_var (cond_var);
+  mark_symbols_for_renaming (call_cond_stmt); 
+
+  gimple_set_block (call_cond_stmt, DECL_INITIAL (function_decl));
+  gimple_set_bb (call_cond_stmt, new_bb);
+  gimple_seq_add_stmt (&gseq, call_cond_stmt);
+
+  if (!invert_check)
+    if_else_stmt = gimple_build_cond (GT_EXPR, cond_var,
+				      integer_zero_node,
+				      NULL_TREE, NULL_TREE);
+  else
+    if_else_stmt = gimple_build_cond (LE_EXPR, cond_var,
+				      integer_zero_node,
+				      NULL_TREE, NULL_TREE);
+
+  mark_symbols_for_renaming (if_else_stmt);
+  gimple_set_block (if_else_stmt, DECL_INITIAL (function_decl));
+  gimple_set_bb (if_else_stmt, new_bb);
+  gimple_seq_add_stmt (&gseq, if_else_stmt);
+
+  return_stmt = gimple_build_return (build_int_cst (NULL, version_num));
+  gimple_seq_add_stmt (&gseq, return_stmt);
+
+ 
+  set_bb_seq (new_bb, gseq);
+
+  bb1 = new_bb;
+  e12 = split_block (bb1, if_else_stmt);
+  bb2 = e12->dest;
+  e12->flags &= ~EDGE_FALLTHRU;
+  e12->flags |= EDGE_TRUE_VALUE;
+
+  e23 = split_block (bb2, return_stmt);
+  gimple_set_bb (return_stmt, bb2);
+  bb3 = e23->dest;
+  make_edge (bb1, bb3, EDGE_FALSE_VALUE); 
+
+  remove_edge (e23);
+  make_edge (bb2, EXIT_BLOCK_PTR, 0);
+
+  free_dominance_info (CDI_DOMINATORS);
+  free_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
+  rebuild_cgraph_edges ();
+  update_ssa (TODO_update_ssa);
+  if (dump_file)
+    dump_function_to_file (current_function_decl, dump_file, TDF_BLOCKS);
+
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+
+  return bb3;
+}
+
+/* This makes an empty function with one empty basic block *CREATED_BB
+   apart from the ENTRY and EXIT blocks.  */
+
+static tree
+make_empty_function (basic_block *created_bb)
+{
+  tree decl, type, t;
+  basic_block new_bb;
+  tree old_current_function_decl;
+  tree decl_name;
+  char name[1000];
+  static int num = 0;
+
+  /* The condition function should return an integer. */
+  type = build_function_type_list (integer_type_node, NULL_TREE);
+ 
+  sprintf (name, "cond_%d", num);
+  num++;
+  decl = build_fn_decl (name, type);
+
+  decl_name = get_identifier (name);
+  SET_DECL_ASSEMBLER_NAME (decl, decl_name);
+  DECL_NAME (decl) = decl_name;
+  gcc_assert (cgraph_node (decl) != NULL);
+
+  TREE_USED (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 0;
+  TREE_PUBLIC (decl) = 0;
+  DECL_UNINLINABLE (decl) = 1;
+  DECL_EXTERNAL (decl) = 0;
+  DECL_CONTEXT (decl) = NULL_TREE;
+  DECL_INITIAL (decl) = make_node (BLOCK);
+  DECL_STATIC_CONSTRUCTOR (decl) = 0;
+  TREE_READONLY (decl) = 0;
+  DECL_PURE_P (decl) = 0;
+ 
+  /* Build result decl and add to function_decl. */
+  t = build_decl (UNKNOWN_LOCATION, RESULT_DECL, NULL_TREE, ptr_type_node);
+  DECL_ARTIFICIAL (t) = 1;
+  DECL_IGNORED_P (t) = 1;
+  DECL_RESULT (decl) = t;
+
+  gimplify_function_tree (decl);
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
+  current_function_decl = decl;
+  init_empty_tree_cfg_for_function (DECL_STRUCT_FUNCTION (decl));
+
+  cfun->curr_properties |=
+    (PROP_gimple_lcf | PROP_gimple_leh | PROP_cfg | PROP_referenced_vars |
+     PROP_ssa);
+
+  new_bb = create_empty_bb (ENTRY_BLOCK_PTR);
+  make_edge (ENTRY_BLOCK_PTR, new_bb, EDGE_FALLTHRU);
+  make_edge (new_bb, EXIT_BLOCK_PTR, 0);
+
+  /* This call is very important if this pass runs when the IR is in
+     SSA form.  It breaks things in strange ways otherwise. */
+  init_tree_ssa (DECL_STRUCT_FUNCTION (decl));
+  init_ssa_operands ();
+
+  cgraph_add_new_function (decl, true);
+  cgraph_call_function_insertion_hooks (cgraph_node (decl));
+  cgraph_mark_needed_node (cgraph_node (decl));
+
+  if (dump_file)
+    dump_function_to_file (decl, dump_file, TDF_BLOCKS);
+
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+  *created_bb = new_bb;
+  return decl; 
+}
+
+/* This function conservatively checks if loop LOOP is tree vectorizable.
+   The code is adapted from tree-vectorize.cc and tree-vect-stmts.cc  */
+
+static bool
+is_loop_form_vectorizable (struct loop *loop)
+{
+  /* Inner most loops should have 2 basic blocks.  */
+  if (!loop->inner)
+    {
+      /* This is inner most.  */
+      if (loop->num_nodes != 2)
+        return false;
+      /* Empty loop.  */
+      if (empty_block_p (loop->header))
+        return false;
+    }
+  else
+    {
+      /* Bail if there are multiple nested loops.  */ 
+      if ((loop->inner)->inner || (loop->inner)->next)
+	return false;
+      /* Recursive call for the inner loop.  */
+      if (!is_loop_form_vectorizable (loop->inner))
+        return false;
+      if (loop->num_nodes != 5)
+	return false;
+      /* The tree has 0 iterations.  */
+      if (TREE_INT_CST_LOW (number_of_latch_executions (loop)) == 0)
+	return false;
+    }
+
+   return true;	
+}
+
+/* This function checks if there is atleast one vectorizable
+   load/store in loop LOOP.  Code adapted from tree-vect-stmts.cc.  */
+
+static bool
+is_loop_stmts_vectorizable (struct loop *loop)
+{
+  basic_block *body;
+  unsigned int i;
+  bool vect_load_store = false;
+
+  body = get_loop_body (loop);
+
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
+        {
+	  gimple stmt = gsi_stmt (gsi);
+	  enum gimple_code code = gimple_code (stmt);
+
+	  if (gimple_has_volatile_ops (stmt))
+	    return false;
+
+	  /* Does it have a vectorizable store or load in a hot bb? */
+	  if (code == GIMPLE_ASSIGN)
+	    {
+	      enum tree_code lhs_code = TREE_CODE (gimple_assign_lhs (stmt));
+	      enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
+
+	      /* Only look at hot vectorizable loads/stores.  */
+	      if (profile_status == PROFILE_READ
+		  && !maybe_hot_bb_p (body[i]))
+		continue;
+
+	      if (lhs_code == ARRAY_REF
+		  || lhs_code == INDIRECT_REF
+		  || lhs_code == COMPONENT_REF
+		  || lhs_code == IMAGPART_EXPR
+		  || lhs_code == REALPART_EXPR
+		  || lhs_code == MEM_REF)
+		vect_load_store = true;
+	      else if (rhs_code == ARRAY_REF
+		  || rhs_code == INDIRECT_REF
+		  || rhs_code == COMPONENT_REF
+		  || rhs_code == IMAGPART_EXPR
+		  || rhs_code == REALPART_EXPR
+		  || rhs_code == MEM_REF)
+		vect_load_store = true;
+	    }
+	}
+    }
+
+  return vect_load_store;
+}
+
+/* This function checks if there are any vectorizable loops present
+   in CURRENT_FUNCTION_DECL.  This function is called before the
+   loop optimization passes and is therefore very conservative in
+   checking for vectorizable loops.  Also, all the checks used in the
+   vectorizer pass cannot used here since many loop optimizations
+   have not occurred which could change the loop structure and the
+   stmts.
+
+   The conditions for a loop being vectorizable are adapted from
+   tree-vectorizer.c, tree-vect-stmts.c. */
+
+static bool
+any_loops_vectorizable_with_load_store (void)
+{
+  unsigned int vect_loops_num;
+  loop_iterator li;
+  struct loop *loop;
+  bool vectorizable_loop_found = false;
+
+  loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
+
+  vect_loops_num = number_of_loops ();
+
+  /* Bail out if there are no loops.  */
+  if (vect_loops_num <= 1)
+    {
+      loop_optimizer_finalize ();
+      return false;
+    }
+
+  scev_initialize ();
+
+  /* This is iterating over all loops.  */
+  FOR_EACH_LOOP (li, loop, 0)
+    if (optimize_loop_nest_for_speed_p (loop))
+      {
+	if (!is_loop_form_vectorizable (loop))
+	  continue;
+	if (!is_loop_stmts_vectorizable (loop))
+	  continue;
+        vectorizable_loop_found = true;
+	break;
+      }
+
+
+  loop_optimizer_finalize ();
+  scev_finalize ();
+
+  return vectorizable_loop_found;
+}
+
+/* This makes the function that chooses the version to execute based
+   on the condition.  This condition function will decide which version
+   of the function to execute.  It should look like this:
+
+   int cond_i ()
+   {
+      __builtin_cpu_init (); // Get the cpu type.
+      a =  __builtin_cpu_is_<type1> ();
+      if (a)
+        return 1; // first version created.
+      a =  __builtin_cpu_is_<type2> ();
+      if (a)
+        return 2; // second version created.
+      ...
+      return 0; // the default version.
+   }
+
+   NEW_BB is the new last basic block of this function and to which more
+   conditions can be added.  It is updated by this function.  */
+
+static tree
+make_condition_function (basic_block *new_bb)
+{
+  gimple ifunc_cpu_init_stmt;
+  gimple_seq gseq;
+  tree cond_func_decl;
+  tree old_current_function_decl;
+ 
+
+  cond_func_decl = make_empty_function (new_bb);
+
+  old_current_function_decl = current_function_decl;
+  push_cfun (DECL_STRUCT_FUNCTION (cond_func_decl));
+  current_function_decl = cond_func_decl;
+
+  gseq = bb_seq (*new_bb);
+
+  /* Since this is possibly dispatched with IFUNC, call builtin_cpu_init
+     explicitly, as the constructor will only fire after IFUNC
+     initializers. */
+  ifunc_cpu_init_stmt = gimple_build_call_vec (
+                     ix86_builtins [(int) IX86_BUILTIN_CPU_INIT], NULL);
+  gimple_seq_add_stmt (&gseq, ifunc_cpu_init_stmt);
+  gimple_set_bb (ifunc_cpu_init_stmt, *new_bb);
+  set_bb_seq (*new_bb, gseq);
+      
+  pop_cfun ();
+  current_function_decl = old_current_function_decl;
+  return cond_func_decl;
+}
+
+/* Create a new target optimization node with tune set to ARCH_TUNE.  */
+static tree
+create_mtune_target_opt_node (const char *arch_tune)
+{
+  struct cl_target_option target_options;
+  const char *old_tune_string;
+  tree optimization_node;
+  
+  /* Build an optimization node that is the same as the current one except with
+     "tune=arch_tune".  */
+  cl_target_option_save (&target_options, &global_options);
+  old_tune_string = ix86_tune_string;
+
+  ix86_tune_string = arch_tune;
+  ix86_option_override_internal (false);
+
+  optimization_node = build_target_option_node ();
+
+  ix86_tune_string = old_tune_string;
+  cl_target_option_restore (&global_options, &target_options);
+
+  return optimization_node;
+}
+
+/* Should a version of this function be specially optimized for core2?
+
+   This function should have checks to see if there are any opportunities for
+   core2 specific optimizations, otherwise do not create a clone.  The
+   following opportunities are checked.
+   
+   * Check if this function has vectorizable loads/stores as it is known that
+     unaligned 128-bit movs to/from memory (movdqu) are very expensive on
+     core2 whereas the later generations like corei7 have no additional
+     overhead.
+
+     This versioning is triggered only when -ftree-vectorize is turned on
+     and when multi-versioning for core2 is requested using -mvarch=core2.
+
+   Return false if no versioning is required.  Return true if a version must
+   be created.  Generate the *OPTIMIZATION_NODE that must be used to optimize
+   the newly created version, that is tag "tune=core2" on the new version.  */
+
+static bool
+mversionable_for_core2_p (tree *optimization_node,
+			  tree *cond_func_decl, basic_block *new_bb)
+{
+  tree predicate_decl;
+  bool is_mversion_target_core2 = false;
+  bool create_version = false;
+
+  if (ix86_varch_specified
+      && ix86_varch[PROCESSOR_CORE2_64])
+    is_mversion_target_core2 = true;
+
+  /* Check for criteria to create a new version for core2.  */
+
+  /* If -ftree-vectorize is not used of MV is not requested, bail.  */
+  if (flag_tree_vectorize && is_mversion_target_core2)
+    {
+      /* Check if there is atleast one loop that has a vectorizable load/store.
+         These are the ones that can generate the unaligned mov which is known
+         to be very slow on core2.  */
+      if (any_loops_vectorizable_with_load_store ())
+        create_version = true;
+    }
+  /* else if XXX: Add more criteria to version for core2.  */
+
+  if (!create_version)
+    return false;
+
+  /* If the condition function's body has not been created, create it now.  */
+  if (*cond_func_decl == NULL)
+    *cond_func_decl = make_condition_function (new_bb);
+
+  *optimization_node = create_mtune_target_opt_node ("core2");
+
+  predicate_decl = ix86_builtins [(int) IX86_BUILTIN_CPU_IS_INTEL_CORE2];
+  *new_bb = add_condition_to_bb (*cond_func_decl, 0, *new_bb,
+				 predicate_decl, false);
+  return true;
+}
+
+/* Should this function CURRENT_FUNCTION_DECL be multi-versioned, if so 
+   the number of versions to be created (other than the original) is
+   returned.  The outcome of COND_FUNC_DECL will decide the version to be
+   executed.  The OPTIMIZATION_NODE_CHAIN has a unique node for each
+   version to be created.  */
+
+static int
+ix86_mversion_function (tree fndecl ATTRIBUTE_UNUSED,
+			tree *optimization_node_chain,
+			tree *cond_func_decl)
+{
+  basic_block new_bb;
+  tree optimization_node;
+  int num_versions_created = 0;
+
+  if (ix86_mv_arch_string == NULL)
+    return 0;
+
+  if (mversionable_for_core2_p (&optimization_node, cond_func_decl, &new_bb))
+    num_versions_created++;
+
+  if (!num_versions_created)
+    return 0;
+
+  *optimization_node_chain = tree_cons (optimization_node,
+					NULL_TREE, *optimization_node_chain);
+
+  /* Return the default version as the last stmt in cond_func_decl.  */
+  if (*cond_func_decl != NULL)
+    new_bb = add_condition_to_bb (*cond_func_decl, num_versions_created,
+				   new_bb, NULL_TREE, false);
+
+  return num_versions_created;
+}
+
+/* A builtin to init/return the cpu type or feature.  Returns an
+   integer and the type is a const if IS_CONST is set. */
+
+static void
+make_platform_builtin (const char* name, int code, int is_const)
+{
+  tree decl;
+  tree type;
+
+  type = ix86_get_builtin_func_type (INT_FTYPE_VOID);
+  decl = add_builtin_function (name, type, code, BUILT_IN_MD,
+			       NULL, NULL_TREE);
+  gcc_assert (decl != NULL_TREE);
+  ix86_builtins[(int) code] = decl;
+  if (is_const)
+    TREE_READONLY (decl) = 1;
+} 
+
+/* Builtins to get CPU type and features supported. */
+
+static void
+ix86_init_platform_type_builtins (void)
+{
+  make_platform_builtin ("__builtin_cpu_init",
+			 IX86_BUILTIN_CPU_INIT, 0);
+  make_platform_builtin ("__builtin_cpu_supports_cmov",
+			 IX86_BUILTIN_CPU_SUPPORTS_CMOV, 1);
+  make_platform_builtin ("__builtin_cpu_supports_mmx",
+			 IX86_BUILTIN_CPU_SUPPORTS_MMX, 1);
+  make_platform_builtin ("__builtin_cpu_supports_popcount",
+			 IX86_BUILTIN_CPU_SUPPORTS_POPCOUNT, 1);
+  make_platform_builtin ("__builtin_cpu_supports_sse",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSE, 1);
+  make_platform_builtin ("__builtin_cpu_supports_sse2",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSE2, 1);
+  make_platform_builtin ("__builtin_cpu_supports_sse3",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSE3, 1);
+  make_platform_builtin ("__builtin_cpu_supports_ssse3",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSSE3, 1);
+  make_platform_builtin ("__builtin_cpu_supports_sse4_1",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSE4_1, 1);
+  make_platform_builtin ("__builtin_cpu_supports_sse4_2",
+			 IX86_BUILTIN_CPU_SUPPORTS_SSE4_2, 1);
+  make_platform_builtin ("__builtin_cpu_is_amd",
+			 IX86_BUILTIN_CPU_IS_AMD, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_atom",
+			 IX86_BUILTIN_CPU_IS_INTEL_ATOM, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_core2",
+			 IX86_BUILTIN_CPU_IS_INTEL_CORE2, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel",
+			 IX86_BUILTIN_CPU_IS_INTEL, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_corei7",
+			 IX86_BUILTIN_CPU_IS_INTEL_COREI7, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_corei7_nehalem",
+			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_corei7_westmere",
+			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE, 1);
+  make_platform_builtin ("__builtin_cpu_is_intel_corei7_sandybridge",
+			 IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam10",
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam10_barcelona",
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam10_shanghai",
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam10_istanbul",
+			 IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam15_bdver1",
+			 IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1, 1);
+  make_platform_builtin ("__builtin_cpu_is_amdfam15_bdver2",
+			 IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2, 1);
+}
+
+/* Detect if this unaligned vectorizable load/stores should be
+   considered slow.  This is true for core2 where the movdqu insn
+   is slow, ~5x slower than the movdqa.  */
+
+static bool
+ix86_slow_unaligned_vector_memop (void)
+{
+  /* This is known to be slow on core2.  */
+  if (ix86_tune == PROCESSOR_CORE2_64
+      || ix86_tune == PROCESSOR_CORE2_32)
+    return true;
+
+  return false;
+}
+
 /* Internal method for ix86_init_builtins.  */
 
 static void
@@ -25891,6 +27066,9 @@ ix86_init_builtins (void)
   tree t;
 
   ix86_init_builtin_types ();
+
+  /* Builtins to get CPU type and features. */
+  ix86_init_platform_type_builtins ();
 
   /* TFmode support builtins.  */
   def_builtin_const (0, "__builtin_infq",
@@ -27350,6 +28528,48 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   rtx op0, op1, op2, pat;
   enum machine_mode mode0, mode1, mode2;
   unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+
+  /* For CPU builtins that can be folded, fold first and expand the fold.  */
+  switch (fcode)
+    {
+    case IX86_BUILTIN_CPU_SUPPORTS_CMOV:
+    case IX86_BUILTIN_CPU_SUPPORTS_MMX:
+    case IX86_BUILTIN_CPU_SUPPORTS_POPCOUNT:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE2:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE3:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSSE3:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE4_1:
+    case IX86_BUILTIN_CPU_SUPPORTS_SSE4_2:
+    case IX86_BUILTIN_CPU_IS_AMD:
+    case IX86_BUILTIN_CPU_IS_INTEL:
+    case IX86_BUILTIN_CPU_IS_INTEL_ATOM:
+    case IX86_BUILTIN_CPU_IS_INTEL_CORE2:
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7:
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_NEHALEM:
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_WESTMERE:
+    case IX86_BUILTIN_CPU_IS_INTEL_COREI7_SANDYBRIDGE:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_BARCELONA:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_SHANGHAI:
+    case IX86_BUILTIN_CPU_IS_AMDFAM10H_ISTANBUL:
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER1:
+    case IX86_BUILTIN_CPU_IS_AMDFAM15H_BDVER2:
+      {
+        tree fold_expr = fold_builtin_cpu ((enum ix86_builtins) fcode);
+	gcc_assert (fold_expr != NULL_TREE);
+        return expand_expr (fold_expr, target, mode, EXPAND_NORMAL);
+      }
+    case IX86_BUILTIN_CPU_INIT:
+      {
+	/* Make it call __cpu_indicator_init in libgcc. */
+	tree call_expr, fndecl, type;
+        type = build_function_type_list (integer_type_node, NULL_TREE); 
+	fndecl = build_fn_decl ("__cpu_indicator_init", type);
+	call_expr = build_call_expr (fndecl, 0); 
+	return expand_expr (call_expr, target, mode, EXPAND_NORMAL);
+      }
+    }
 
   /* Determine whether the builtin function is available under the current ISA.
      Originally the builtin was not created if it wasn't applicable to the
@@ -34967,8 +36187,14 @@ ix86_autovectorize_vector_sizes (void)
 #undef TARGET_BUILTIN_RECIPROCAL
 #define TARGET_BUILTIN_RECIPROCAL ix86_builtin_reciprocal
 
+#undef TARGET_ASM_FUNCTION_PROLOGUE
+#define TARGET_ASM_FUNCTION_PROLOGUE ix86_output_function_prologue
+
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue
+
+#undef TARGET_ASM_NAMED_SECTION
+#define TARGET_ASM_NAMED_SECTION ix86_elf_asm_named_section
 
 #undef TARGET_ENCODE_SECTION_INFO
 #ifndef SUBTARGET_ENCODE_SECTION_INFO
@@ -35096,6 +36322,15 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_BUILD_BUILTIN_VA_LIST
 #define TARGET_BUILD_BUILTIN_VA_LIST ix86_build_builtin_va_list
+
+#undef TARGET_FOLD_BUILTIN
+#define TARGET_FOLD_BUILTIN ix86_fold_builtin
+
+#undef TARGET_MVERSION_FUNCTION
+#define TARGET_MVERSION_FUNCTION ix86_mversion_function
+
+#undef TARGET_SLOW_UNALIGNED_VECTOR_MEMOP
+#define TARGET_SLOW_UNALIGNED_VECTOR_MEMOP ix86_slow_unaligned_vector_memop
 
 #undef TARGET_ENUM_VA_LIST_P
 #define TARGET_ENUM_VA_LIST_P ix86_enum_va_list

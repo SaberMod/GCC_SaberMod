@@ -4864,7 +4864,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_cc_gcc_supports_ada" >&5
 $as_echo "$acx_cv_cc_gcc_supports_ada" >&6; }
 
-if test x$GNATBIND != xno && test x$GNATMAKE != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
+if test "x$GNATBIND" != xno && test "x$GNATMAKE" != xno && test x$acx_cv_cc_gcc_supports_ada != xno; then
   have_gnat=yes
 else
   have_gnat=no
@@ -7507,17 +7507,7 @@ else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
 
-case "${host}" in
-*-*-darwin*)
-  # By default, the Darwin ranlib will not treat common symbols as
-  # definitions when  building the archive table of contents.  Other
-  # ranlibs do that; pass an option to the Darwin ranlib that makes
-  # it behave similarly.
-  ranlib_flags="-c"
-  ;;
-*)
-  ranlib_flags=""
-esac
+ranlib_flags=""
 
 
 # Find a good install program.  We prefer a C program (faster),
@@ -11490,6 +11480,12 @@ case $use_collect2 in
     esac
     ;;
 esac
+
+
+cat >>confdefs.h <<_ACEOF
+#define FRPLUGINSONAME "${host_function_reordering_plugin_soname}"
+_ACEOF
+
 
 
 cat >>confdefs.h <<_ACEOF
@@ -15820,7 +15816,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
       ;;
 
     # Unfortunately, older versions of FreeBSD 2 do not have this feature.
-    freebsd2*)
+    freebsd2.*)
       archive_cmds='$LD -Bshareable -o $lib $libobjs $deplibs $linker_flags'
       hardcode_direct=yes
       hardcode_minus_L=yes
@@ -16733,7 +16729,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[23].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -16751,7 +16747,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -17585,7 +17581,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17588 "configure"
+#line 17581 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -17691,7 +17687,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17694 "configure"
+#line 17687 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18617,7 +18613,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
         esac
         ;;
 
-      freebsd[12]*)
+      freebsd2.*)
         # C++ shared libraries reported to be fairly broken before
 	# switch to ELF
         ld_shlibs_CXX=no
@@ -20392,7 +20388,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[23].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -20410,7 +20406,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -23159,6 +23155,14 @@ elif test x$gcc_cv_ld != x; then
 	gcc_cv_ld_static_option="-noso"
 	gcc_cv_ld_dynamic_option="-so_archive"
         ;;
+      # HP-UX ld uses -a flags to select between shared and archive.
+      *-*-hpux*)
+	if test x"$gnu_ld" = xno; then
+	  gcc_cv_ld_static_dynamic=yes
+	  gcc_cv_ld_static_option="-aarchive_shared"
+	  gcc_cv_ld_dynamic_option="-adefault"
+	fi
+	;;
       # IRIX 6 ld supports -Bstatic/-Bdynamic.
       mips-sgi-irix6*)
         gcc_cv_ld_static_dynamic=yes

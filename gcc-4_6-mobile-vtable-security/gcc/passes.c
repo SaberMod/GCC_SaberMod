@@ -1278,6 +1278,7 @@ init_optimization_passes (void)
   /* These passes are run after IPA passes on every function that is being
      output to the assembler file.  */
   p = &all_passes;
+  NEXT_PASS (pass_auto_clone);
   NEXT_PASS (pass_direct_call_profile);
   NEXT_PASS (pass_lower_eh_dispatch);
   NEXT_PASS (pass_all_optimizations);
@@ -1338,6 +1339,7 @@ init_optimization_passes (void)
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
+      NEXT_PASS (pass_tsan);
       NEXT_PASS (pass_tree_loop);
 	{
 	  struct opt_pass **p = &pass_tree_loop.pass.sub;

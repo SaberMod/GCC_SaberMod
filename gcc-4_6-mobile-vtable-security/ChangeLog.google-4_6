@@ -1,3 +1,60 @@
+2012-04-03   Rong Xu  <xur@google.com>
+
+	Google ref b/6284235.
+	Manually remove upstream patch for PR49642 and it's
+	test case due to performance regression. 
+
+	* gcc/testsuite/gcc.dg/tree-ssa/pr49642.c: Remove.
+	* ipa-split.c (forbidden_dominators): Delete variable.
+	(check_forbidden_calls): Delete function.
+	(dominated_by_forbidden): Likewise.
+	(consider_split): Revert.
+	(execute_split_functions): Likewise.
+
+2012-03-12   Doug Kwan  <dougkwan@google.com>
+
+	* contrib/testsuite-management/arm-grtev2-linux-gnueabi.xfail:
+	New file.
+
+2012-03-12   Doug Kwan  <dougkwan@google.com>
+
+	* contrib/testsuite-management/powerpc64-grtev2-linux-gnu.xfail:
+	New file.
+
+2012-03-02   Doug Kwan  <dougkwan@google.com>
+
+	Backport r184357 from trunk
+
+	2012-02-17   Doug Kwan  <dougkwan@google.com>
+
+		* contrib/testsuite-management/validate_failures.py
+		(GetMakefileValue): Check for cross compilers.
+
+2012-03-02   Doug Kwan  <dougkwan@google.com>
+
+	Backport r184370 from integration branch.
+
+	2012-02-17   Doug Kwan  <dougkwan@google.com>
+
+		* gcc/config.gcc (powerpc*-*-linux): Pull in GRTEv2 spec
+		changes if target matches *-grtev2-*.
+		* gcc/config/rs6000/linux64.h (GLIB_DYNAMIC_LINKER{32,64}): Add
+		runtime root prefix to glibc's dynamic linker.
+		* gcc/config/rs6000/linux-grtev2.h: New file.
+		* gcc/config/rs6000/sysv4.h (GLIB_DYNAMIC_LINKER): Add
+		runtime root prefix to glibc's dynamic linker.
+		(LINUX_GRTE_EXTRA_SPECS): Define to be empty if no definition
+		found.
+		(SUBTARGET_EXTRA_SPECS): Include LINUX_GRTE_EXTRA_SPECS.
+
+2011-09-27  Sriraman Tallam  <tmsriram@google.com>
+
+	* Makefile.in: Regenerate.
+	* configure.ac: Add build for function_reordering_plugin.
+	* configure: Regenerate.
+	* Makefile.def: Add function_reodering_plugin.
+	* function_reordering_plugin: New directory.
+
 2011-08-03  Sriraman Tallam  <tmsriram@google.com>
 
 	Revert:
@@ -30,4 +87,3 @@
 	(tv_update_section_order): New struct member.
 	(tv_allow_section_ordering): New struct member.
 	(tv_get_view): New struct member.
-

@@ -39,9 +39,9 @@ main ()
   return fn1 ();
 }
 
-/* { dg-final { scan-tree-dump "fn1_clone_1" "optimized" } } */
-/* { dg-final { scan-tree-dump "dispatch_clone_0" "optimized" } } */
-/* { dg-final { scan-tree-dump "dispatch_clone_1" "optimized" } } */
-/* { dg-final { scan-tree-dump-not "main_clone_0" "optimized" } } */
-/* { dg-final { scan-tree-dump-not "main_clone_1" "optimized" } } */
+/* { dg-final { scan-tree-dump "fn1\.clone\.1" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatch\.clone\.0" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatch\.clone\.1" "optimized" } } */
+/* { dg-final { scan-tree-dump-not "main\.clone\.0" "optimized" } } */
+/* { dg-final { scan-tree-dump-not "main\.clone\.1" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

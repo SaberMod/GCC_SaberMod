@@ -108,7 +108,7 @@ static size_t include_cursor;
 
 static void handle_OPT_d (const char *);
 static void set_std_cxx98 (int);
-static void set_std_cxx0x (int);
+static void set_std_cxx11 (int);
 static void set_std_c89 (int, int);
 static void set_std_c99 (int);
 static void set_std_c1x (int);
@@ -757,10 +757,10 @@ c_common_handle_option (size_t scode, const char *arg, int value,
 	set_std_cxx98 (code == OPT_std_c__98 /* ISO */);
       break;
 
-    case OPT_std_c__0x:
-    case OPT_std_gnu__0x:
+    case OPT_std_c__11:
+    case OPT_std_gnu__11:
       if (!preprocessing_asm_p)
-	set_std_cxx0x (code == OPT_std_c__0x /* ISO */);
+	set_std_cxx11 (code == OPT_std_c__11 /* ISO */);
       break;
 
     case OPT_std_c90:
@@ -1088,8 +1088,9 @@ lipo_max_mem_reached (unsigned int i)
           > (size_t) PARAM_VALUE (PARAM_MAX_LIPO_MEMORY))) {
     i++;
     do {
-      inform (input_location, "Not importing %s: maximum memory "
-	      "consumption reached", in_fnames[i]);
+      if (flag_opt_info >= OPT_INFO_MED)
+        inform (input_location, "Not importing %s: maximum memory "
+                "consumption reached", in_fnames[i]);
       i++;
     } while (i < num_in_fnames);
     return true;
@@ -1109,6 +1110,8 @@ c_common_parse_file (void)
   for (;;)
     {
       c_finish_options ();
+      if (flag_record_gcc_switches_in_elf && i == 0)
+	write_opts_to_asm ();
       pch_init ();
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
@@ -1522,15 +1525,15 @@ set_std_cxx98 (int iso)
   cxx_dialect = cxx98;
 }
 
-/* Set the C++ 0x working draft "standard" (without GNU extensions if ISO).  */
+/* Set the C++ 2011 standard (without GNU extensions if ISO).  */
 static void
-set_std_cxx0x (int iso)
+set_std_cxx11 (int iso)
 {
-  cpp_set_lang (parse_in, iso ? CLK_CXX0X: CLK_GNUCXX0X);
+  cpp_set_lang (parse_in, iso ? CLK_CXX11: CLK_GNUCXX11);
   flag_no_gnu_keywords = iso;
   flag_no_nonansi_builtin = iso;
   flag_iso = iso;
-  cxx_dialect = cxx0x;
+  cxx_dialect = cxx11;
 }
 
 /* Args to -d specify what to dump.  Silently ignore

@@ -1738,6 +1738,8 @@ enable_lto=yes; default_enable_lto=yes)
 
 ACX_ELF_TARGET_IFELSE([# ELF platforms build the lto-plugin always.
   build_lto_plugin=yes
+  # Allow ELF platforms to build the function_reordering_plugin always.
+  build_function_reordering_plugin=yes
 ],[if test x"$default_enable_lto" = x"yes" ; then
     case $target in
       *-apple-darwin9 | *-cygwin* | *-mingw*) ;;
@@ -1865,6 +1867,11 @@ if test -d ${srcdir}/gcc; then
       extra_host_libiberty_configure_flags=--enable-shared
     fi
   fi
+  if test "${build_function_reordering_plugin}" = "yes" ; then
+    configdirs="$configdirs function_reordering_plugin"
+    extra_host_libiberty_configure_flags=--enable-shared
+  fi
+
   AC_SUBST(extra_host_libiberty_configure_flags)
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
@@ -2430,10 +2437,6 @@ case "${target}" in
     # harmless if we're using GNU nm or ar.
     extra_arflags_for_target=" -X32_64"
     extra_nmflags_for_target=" -B -X32_64"
-    ;;
-  *-*-darwin[[3-9]]*)
-    # ranlib before Darwin10 requires the -c flag to look at common symbols.
-    extra_ranlibflags_for_target=" -c"
     ;;
   mips*-*-pe | sh*-*-pe | *arm-wince-pe)
     target_makefile_frag="config/mt-wince"

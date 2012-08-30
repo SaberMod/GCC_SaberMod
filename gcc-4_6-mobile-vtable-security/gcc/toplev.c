@@ -73,11 +73,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
+#include "tree-tsan.h"
 #include "tree-pass.h"
 #include "gimple.h"
 #include "tree-ssa-alias.h"
 #include "plugin.h"
 #include "tree-threadsafe-analyze.h"
+#include "l-ipo.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -218,10 +220,16 @@ const char *dump_file_name;
 
 static const char *src_pwd;
 
+/* If lto symtab merge has been performed.  */
+bool lto_done_symtab_merge = false;
+
 /* Primary module's id (non-zero). If no module-info was read in, this will
    be zero.  */
 
 unsigned primary_module_id = 0;
+
+/* If primary module is exported.  */
+int primary_module_exported = 0;
 
 /* Current module id.  */
 
@@ -609,12 +617,21 @@ compile_file (void)
   if (flag_dyn_ipa)
     coverage_finish ();
 
+  /* Don't need to output the rest if this is streaming ripa
+     front-end.  */
+  if (L_IPO_STREAM_FE_COMP_MODE) 
+    return;
+  
   varpool_assemble_pending_decls ();
   finish_aliases_2 ();
 
   /* Likewise for mudflap static object registrations.  */
   if (flag_mudflap)
     mudflap_finish_file ();
+
+  /* File-scope initialization for ThreadSanitizer.  */
+  if (flag_tsan)
+    tsan_finish_file ();
 
   output_shared_constant_pool ();
   output_object_blocks ();
@@ -1933,7 +1950,11 @@ do_compile (void)
 
           init_cgraph ();
           init_final (main_input_filename);
-          coverage_init (aux_base_name, main_input_filename);
+
+          /* We don't want to read profiles again in lto mode.  */
+          if (!in_lto_p)
+            coverage_init (aux_base_name, main_input_filename);
+
           statistics_init ();
           invoke_plugin_callbacks (PLUGIN_START_UNIT, NULL);
 
@@ -1996,6 +2017,26 @@ toplev_main (int argc, char **argv)
   decode_options (&global_options, &global_options_set,
 		  save_decoded_options, save_decoded_options_count,
 		  UNKNOWN_LOCATION, global_dc);
+
+
+  /* A hack to the options for streaming ripa:
+     (1) for -fprofile-use compiation, set -flto automaically;
+     (2) for -fprofile-generate compilation, reuse -fdyn_ipa in the original
+         LIPO compilation mode.  */
+  if (flag_ripa_stream && !in_lto_p)
+    {
+      if (flag_profile_use)
+        {
+          global_options.x_flag_lto = "";
+          global_options.x_flag_generate_lto = 1;
+          flag_lto = "";
+        }
+      else if (flag_profile_generate)
+        {
+          flag_ripa_stream = 0;
+          flag_dyn_ipa = 1;
+        }
+    }
 
   handle_common_deferred_options ();
 

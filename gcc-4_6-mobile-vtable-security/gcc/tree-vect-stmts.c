@@ -1533,7 +1533,7 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
 		}
 	      else
 		{
-		  vec_oprnd1 = gimple_call_arg (new_stmt, 2*i);
+		  vec_oprnd1 = gimple_call_arg (new_stmt, 2*i + 1);
 		  vec_oprnd0
 		    = vect_get_vec_def_for_stmt_copy (dt[i], vec_oprnd1);
 		  vec_oprnd1
@@ -1583,6 +1583,14 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt)
   new_stmt = gimple_build_assign (gimple_call_lhs (stmt),
 				  build_zero_cst (type));
   set_vinfo_for_stmt (new_stmt, stmt_info);
+  /* For pattern statements make the related statement to point to
+     NEW_STMT in order to be able to retrieve the original statement
+     information later.  */
+  if (is_pattern_stmt_p (stmt_info))
+    {
+      gimple related = STMT_VINFO_RELATED_STMT (stmt_info);
+      STMT_VINFO_RELATED_STMT (vinfo_for_stmt (related)) = new_stmt;
+    }
   set_vinfo_for_stmt (stmt, NULL);
   STMT_VINFO_STMT (stmt_info) = new_stmt;
   gsi_replace (gsi, new_stmt, false);
@@ -3309,6 +3317,38 @@ vectorizable_type_promotion (gimple stmt, gimple_stmt_iterator *gsi,
   return true;
 }
 
+/* Return true if vector load/store with vinfo in STMT_VINFO
+   is slow.  If it is a strided access, STRIDED is true.  */
+
+static bool
+is_vector_load_store_slow (stmt_vec_info stmt_info, bool strided)
+{
+  struct data_reference *dr;
+
+  if (!targetm.slow_unaligned_vector_memop
+      || !targetm.slow_unaligned_vector_memop ())
+    return false;
+ 
+  if (strided)
+    dr = STMT_VINFO_DATA_REF (
+	   vinfo_for_stmt (DR_GROUP_FIRST_DR (stmt_info)));
+  else
+    dr = STMT_VINFO_DATA_REF (stmt_info);
+
+  if (!aligned_access_p (dr))
+    {
+      if (vect_print_dump_info (REPORT_DETAILS))
+	{
+          fprintf (vect_dump, "Unaligned vectorizable load/store: "
+  			      " slow & not allowed.  ");
+	  print_gimple_stmt (vect_dump, STMT_VINFO_STMT (stmt_info),
+			     0, TDF_SLIM);
+	}
+      return true;
+    }
+
+  return false; 
+}
 
 /* Function vectorizable_store.
 
@@ -3455,6 +3495,10 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
             }
         }
     }
+
+  /* Return false if unaligned vector stores are expensive.  */
+  if (is_vector_load_store_slow (stmt_info, strided_store))
+    return false;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -3947,6 +3991,10 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	  return false;
 	}
     }
+
+  /* Return false if unaligned vector loads are expensive.  */
+  if (is_vector_load_store_slow (stmt_info, strided_load))
+    return false;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -4806,7 +4854,7 @@ vect_transform_stmt (gimple stmt, gimple_stmt_iterator *gsi,
   bool is_store = false;
   gimple vec_stmt = NULL;
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-  gimple orig_stmt_in_pattern, orig_scalar_stmt = stmt;
+  gimple orig_stmt_in_pattern;
   bool done;
 
   switch (STMT_VINFO_TYPE (stmt_info))
@@ -4957,11 +5005,7 @@ vect_transform_stmt (gimple stmt, gimple_stmt_iterator *gsi,
 	     the stmt_info of ORIG_STMT_IN_PATTERN.  See more details in the
 	     documentation of vect_pattern_recog.  */
 	  if (STMT_VINFO_IN_PATTERN_P (stmt_vinfo))
-	    {
-	      gcc_assert (STMT_VINFO_RELATED_STMT (stmt_vinfo)
-                           == orig_scalar_stmt);
-	      STMT_VINFO_VEC_STMT (stmt_vinfo) = vec_stmt;
-	    }
+	    STMT_VINFO_VEC_STMT (stmt_vinfo) = vec_stmt;
 	}
     }
 
@@ -5112,6 +5156,15 @@ get_vectype_for_scalar_type_and_size (tree scalar_type, unsigned size)
   if (GET_MODE_CLASS (inner_mode) != MODE_INT
       && GET_MODE_CLASS (inner_mode) != MODE_FLOAT)
     return NULL_TREE;
+
+  /* We shouldn't end up building VECTOR_TYPEs of non-scalar components.
+     When the component mode passes the above test simply use a type
+     corresponding to that mode.  The theory is that any use that
+     would cause problems with this will disable vectorization anyway.  */
+  if (!SCALAR_FLOAT_TYPE_P (scalar_type)
+      && !INTEGRAL_TYPE_P (scalar_type)
+      && !POINTER_TYPE_P (scalar_type))
+    scalar_type = lang_hooks.types.type_for_mode (inner_mode, 1);
 
   /* If no size was supplied use the mode the target prefers.   Otherwise
      lookup a vector mode of the specified size.  */

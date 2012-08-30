@@ -292,6 +292,109 @@ cgraph_clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       cgraph_clone_inlined_nodes (e, duplicate, update_original);
 }
 
+#define MAX_INT_LENGTH 16
+
+/* Return NODE's name and aux info. The output is controled by OPT_INFO
+   level.  */
+
+static const char *
+cgraph_node_opt_info (struct cgraph_node *node)
+{
+  char *buf;
+  size_t buf_size;
+  const char *bfd_name = lang_hooks.dwarf_name (node->decl, 0);
+
+  if (!bfd_name)
+    bfd_name = "unknown";
+
+  buf_size = strlen (bfd_name) + 1;
+  if (profile_info)
+    buf_size += (2 * MAX_INT_LENGTH + 5);
+  buf = (char *) xmalloc (buf_size);
+
+  strcpy (buf, bfd_name);
+  if (profile_info)
+    sprintf (buf,
+	     "%s ("HOST_WIDEST_INT_PRINT_DEC", "HOST_WIDEST_INT_PRINT_DEC")",
+	     buf, node->count, node->max_bb_count);
+  return buf;
+}
+
+/* Return CALLER's inlined call chain. Save the cgraph_node of the ultimate
+   function that the caller is inlined to in FINAL_CALLER.  */
+
+static const char *
+cgraph_node_call_chain (struct cgraph_node *caller,
+		        struct cgraph_node **final_caller)
+{
+  struct cgraph_node *node;
+  const char *via_str = " (via inline instance";
+  size_t current_string_len = strlen (via_str) + 1;
+  size_t buf_size = current_string_len;
+  char *buf = (char *) xmalloc (buf_size);
+
+  buf[0] = 0;
+  gcc_assert (caller->global.inlined_to != NULL);
+  strcat (buf, via_str);
+  for (node = caller; node->global.inlined_to != NULL;
+       node = node->callers->caller)
+    {
+      const char *name = cgraph_node_opt_info (node);
+      current_string_len += (strlen (name) + 1);
+      if (current_string_len >= buf_size)
+	{
+	  buf_size = current_string_len * 2;
+	  buf = (char *) xrealloc (buf, buf_size);
+	}
+      strcat (buf, " ");
+      strcat (buf, name);
+    }
+  strcat (buf, ")");
+  *final_caller = node;
+  return buf;
+}
+
+/* File static variable to denote if it is in ipa-inline pass. */
+static bool is_in_ipa_inline = false;
+
+/* Dump the inline decision of EDGE to stderr.  */
+
+static void
+dump_inline_decision (struct cgraph_edge *edge)
+{
+  location_t locus;
+  const char *inline_chain_text;
+  const char *call_count_text;
+  struct cgraph_node *final_caller = edge->caller;
+
+  if (flag_opt_info < OPT_INFO_MED && !is_in_ipa_inline)
+    return;
+  if (final_caller->global.inlined_to != NULL)
+    inline_chain_text = cgraph_node_call_chain (final_caller, &final_caller);
+  else
+    inline_chain_text = "";
+
+  if (edge->count > 0)
+    {
+      const char *call_count_str = " with call count ";
+      char *buf = (char *) xmalloc (strlen (call_count_str) + MAX_INT_LENGTH);
+      sprintf (buf, "%s"HOST_WIDEST_INT_PRINT_DEC, call_count_str,
+	       edge->count);
+      call_count_text = buf;
+    }
+  else
+    {
+      call_count_text = "";
+    }
+ 
+  locus = gimple_location (edge->call_stmt);
+  inform (locus, "%s inlined into %s%s%s",
+	  cgraph_node_opt_info (edge->callee),
+	  cgraph_node_opt_info (final_caller),
+	  call_count_text,
+	  inline_chain_text);
+}
+
 /* Mark edge E as inlined and update callgraph accordingly.  UPDATE_ORIGINAL
    specify whether profile of original function should be updated.  If any new
    indirect edges are discovered in the process, add them to NEW_EDGES, unless
@@ -310,6 +413,9 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
   /* Skip fake edge.  */
   if (L_IPO_COMP_MODE && !e->call_stmt)
     return false;
+
+  if (flag_opt_info >= OPT_INFO_MIN)
+    dump_inline_decision (e);
 
   /* Don't inline inlined edges.  */
   gcc_assert (e->inline_failed);
@@ -332,6 +438,9 @@ cgraph_mark_inline_edge (struct cgraph_edge *e, bool update_original,
       new_size = cgraph_estimate_size_after_inlining (to, what);
       to->global.size = new_size;
       to->global.time = cgraph_estimate_time_after_inlining (freq, to, what);
+
+      if (to->max_bb_count < e->callee->max_bb_count)
+	to->max_bb_count = e->callee->max_bb_count;
     }
   gcc_assert (what->global.inlined_to == to);
   if (new_size > old_size)
@@ -1057,6 +1166,19 @@ add_new_edges_to_heap (fibheap_t heap, VEC (cgraph_edge_p, heap) *new_edges)
     }
 }
 
+/* Returns true if an edge or its caller are hot enough to
+   be considered for inlining.  */
+
+static bool
+edge_hot_enough_p (struct cgraph_edge *edge)
+{
+  if (cgraph_maybe_hot_edge_p (edge))
+    return true;
+  if (flag_inline_hot_caller && maybe_hot_count_p (edge->caller->max_bb_count))
+    return true;
+  return false;
+}
+
 
 /* We use greedy algorithm for inlining of small functions:
    All inline candidates are put into prioritized heap based on estimated
@@ -1075,6 +1197,8 @@ cgraph_decide_inlining_of_small_functions (void)
   bitmap updated_nodes = BITMAP_ALLOC (NULL);
   int min_size, max_size;
   VEC (cgraph_edge_p, heap) *new_indirect_edges = NULL;
+
+  is_in_ipa_inline = true;
 
   if (flag_indirect_inlining)
     new_indirect_edges = VEC_alloc (cgraph_edge_p, heap, 8);
@@ -1201,7 +1325,7 @@ cgraph_decide_inlining_of_small_functions (void)
 
       if (edge->callee->local.disregard_inline_limits)
 	;
-      else if (!cgraph_maybe_hot_edge_p (edge))
+      else if (!edge_hot_enough_p (edge))
  	not_good = CIF_UNLIKELY_CALL;
       else if (!flag_inline_functions
 	  && !DECL_DECLARED_INLINE_P (edge->callee->decl))

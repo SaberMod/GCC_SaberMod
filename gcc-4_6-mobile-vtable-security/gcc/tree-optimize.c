@@ -47,12 +47,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "plugin.h"
 #include "regset.h"	/* FIXME: For reg_obstack.  */
+#include "params.h"
+
+/* Decides if the cgraph callee edges are being cleaned up for the
+   last time.  */
+bool cgraph_callee_edges_final_cleanup = false;
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */
 
 static bool
 gate_all_optimizations (void)
 {
+  /* The cgraph callee edges can be cleaned up for the last time.  */
+  cgraph_callee_edges_final_cleanup = true;
   return (optimize >= 1
 	  /* Don't bother doing anything if the program has errors.
 	     We have to pass down the queue if we already went into SSA */
@@ -149,6 +156,48 @@ struct gimple_opt_pass pass_all_early_optimizations =
  }
 };
 
+int cgraph_codesize_estimate = -1;
+
+/* Estimate the code size from the dynamic IPA call graph. */
+static void
+compute_codesize_estimate(void)
+{
+  struct cgraph_node *node;
+  basic_block bb;
+  gimple_stmt_iterator bsi;
+  struct function *my_function;
+
+  if (!flag_dyn_ipa)
+    return;
+
+  if (cgraph_codesize_estimate >= 0)
+    return;
+  cgraph_codesize_estimate = 0;
+
+  for (node = cgraph_nodes; node; node = node->next)
+    {
+      if (node->count == 0)
+        continue;
+
+      if (!gimple_has_body_p(node->decl))
+        continue;
+
+      my_function = DECL_STRUCT_FUNCTION (node->decl);
+
+      FOR_EACH_BB_FN (bb, my_function)
+        {
+          if (bb->count < PARAM_VALUE (PARAM_CODESIZE_HOTNESS_THRESHOLD))
+            continue;
+          for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+            {
+              gimple stmt = gsi_stmt (bsi);
+              cgraph_codesize_estimate += estimate_num_insns (stmt, &eni_size_weights);
+            }
+        }
+    }
+  if (dump_file)
+    fprintf (dump_file, "Code size estimate from cgraph: %d\n", cgraph_codesize_estimate);
+}
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
    This is just a round of label cleanups and case node grouping
@@ -158,6 +207,8 @@ struct gimple_opt_pass pass_all_early_optimizations =
 static unsigned int
 execute_cleanup_cfg_post_optimizing (void)
 {
+  /* Estimate the code footprint for hot BBs before we enter RTL */
+  compute_codesize_estimate();
   cleanup_tree_cfg ();
   cleanup_dead_labels ();
   group_case_labels ();
@@ -247,22 +298,22 @@ execute_fixup_cfg (void)
   edge_iterator ei;
 
   if (ENTRY_BLOCK_PTR->count)
-    count_scale = (cgraph_node (current_function_decl)->count * REG_BR_PROB_BASE
+    count_scale = (cgraph_node (current_function_decl)->count * (double) REG_BR_PROB_BASE
     		   + ENTRY_BLOCK_PTR->count / 2) / ENTRY_BLOCK_PTR->count;
   else
     count_scale = REG_BR_PROB_BASE;
 
   ENTRY_BLOCK_PTR->count = cgraph_node (current_function_decl)->count;
-  EXIT_BLOCK_PTR->count = (EXIT_BLOCK_PTR->count * count_scale
+  EXIT_BLOCK_PTR->count = (EXIT_BLOCK_PTR->count * (double) count_scale
   			   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    e->count = (e->count * count_scale
+      e->count = (e->count * (double) count_scale
        + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
 
   FOR_EACH_BB (bb)
     {
-      bb->count = (bb->count * count_scale
+      bb->count = (bb->count * (double) count_scale
 		   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -296,7 +347,7 @@ execute_fixup_cfg (void)
 	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-        e->count = (e->count * count_scale
+          e->count = (e->count * (double) count_scale
 		    + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
     }
   if (count_scale != REG_BR_PROB_BASE)

@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "lto-symtab.h"
 #include "lto-streamer.h"
+#include "l-ipo.h"
 
 
 struct string_slot
@@ -1954,6 +1955,13 @@ output_function (struct cgraph_node *node)
   bp_pack_value (&bp, fn->va_list_gpr_size, 8);
   lto_output_bitpack (&bp);
 
+  /* Output the module id.  */
+  if (flag_ripa_stream)
+    {
+      output_uleb128 (ob, fn->module_id);
+      output_uleb128 (ob, fn->funcdef_no);
+    }
+
   /* Output the function start and end loci.  */
   lto_output_location (ob, fn->function_start_locus);
   lto_output_location (ob, fn->function_end_locus);
@@ -2408,7 +2416,7 @@ write_symbol (struct lto_streamer_cache_d *cache,
   enum gcc_plugin_symbol_kind kind;
   enum gcc_plugin_symbol_visibility visibility;
   int slot_num;
-  uint64_t size;
+  unsigned HOST_WIDEST_INT size;
   const char *comdat;
   unsigned char c;
 
@@ -2466,7 +2474,7 @@ write_symbol (struct lto_streamer_cache_d *cache,
      when symbol has attribute (visibility("hidden")) specified.
      targetm.binds_local_p check DECL_VISIBILITY_SPECIFIED and gets this
      right. */
-     
+
   if (DECL_EXTERNAL (t)
       && !targetm.binds_local_p (t))
     visibility = GCCPV_DEFAULT;
@@ -2488,14 +2496,9 @@ write_symbol (struct lto_streamer_cache_d *cache,
       }
 
   if (kind == GCCPK_COMMON
-      && DECL_SIZE (t)
-      && TREE_CODE (DECL_SIZE (t)) == INTEGER_CST)
-    {
-      size = (HOST_BITS_PER_WIDE_INT >= 64)
-	? (uint64_t) int_size_in_bytes (TREE_TYPE (t))
-	: (((uint64_t) TREE_INT_CST_HIGH (DECL_SIZE_UNIT (t))) << 32)
-		| TREE_INT_CST_LOW (DECL_SIZE_UNIT (t));
-    }
+      && DECL_SIZE_UNIT (t)
+      && TREE_CODE (DECL_SIZE_UNIT (t)) == INTEGER_CST)
+    size = TREE_INT_CST_LOW (DECL_SIZE_UNIT (t));
   else
     size = 0;
 
@@ -2626,6 +2629,63 @@ produce_symtab (struct output_block *ob,
   lto_end_section ();
 }
 
+/* Get ripa module type.  */
+
+static unsigned char
+ripa_get_module_type (void)
+{
+  unsigned char module_type;
+
+  if (!primary_module_id)
+    {
+      gcc_assert (primary_module_exported == 0);
+      return 0;
+    }
+
+  module_type = 1;
+  if (primary_module_exported)
+    module_type |= (1<<1);
+
+  return module_type;
+}
+
+/* Write out ripa module information.  */
+
+static void
+lto_write_ripa_info (void)
+{
+  char *const section_name = lto_get_section_name
+                              (LTO_section_ripa_info, NULL, NULL);
+  struct lto_output_stream stream;
+  struct lto_simple_header header;
+  struct lto_output_stream *header_stream;
+  unsigned char module_type;
+
+  lto_begin_section (section_name, !flag_wpa);
+  free (section_name);
+  memset (&stream, 0, sizeof (stream));
+
+  module_type = ripa_get_module_type ();
+  lto_output_1_stream (&stream, module_type);
+  lto_output_uleb128_stream (&stream, current_module_id);
+
+  memset (&header, 0, sizeof (header));
+  header.lto_header.major_version = LTO_major_version;
+  header.lto_header.minor_version = LTO_minor_version;
+  header.lto_header.section_type = LTO_section_ripa_info;
+
+  header.compressed_size = 0;
+  header.main_size = stream.total_size;
+
+  header_stream = ((struct lto_output_stream *)
+		   xcalloc (1, sizeof (*header_stream)));
+  lto_output_data_stream (header_stream, &header, sizeof (header));
+  lto_write_stream (header_stream);
+  free (header_stream);
+
+  lto_write_stream (&stream);
+  lto_end_section ();
+}
 
 /* This pass is run after all of the functions are serialized and all
    of the IPA passes have written their serialized forms.  This pass
@@ -2727,6 +2787,10 @@ produce_asm_for_decls (cgraph_node_set set, varpool_node_set vset)
      and thus we can skip it for WPA.  */
   if (!flag_wpa)
     produce_symtab (ob, set, vset);
+
+  /* Write out ripa module info.  */
+  if (flag_ripa_stream)
+    lto_write_ripa_info ();
 
   /* Write command line opts.  */
   lto_write_options ();

@@ -1844,7 +1844,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  for (; __first != __last; ++__first)
 	    if (__pred(*__first))
 	      {
-		*__result1 = _GLIBCXX_MOVE(*__first);
+		if (&*__result1 != &*__first)
+		  *__result1 = _GLIBCXX_MOVE(*__first);
 		++__result1;
 	      }
 	    else
@@ -2751,84 +2752,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // merge
 
-  /// This is a helper function for the merge routines.
-  template<typename _BidirectionalIterator1, typename _BidirectionalIterator2,
-	   typename _BidirectionalIterator3>
-    _BidirectionalIterator3
-    __move_merge_backward(_BidirectionalIterator1 __first1,
-			  _BidirectionalIterator1 __last1,
-			  _BidirectionalIterator2 __first2,
-			  _BidirectionalIterator2 __last2,
-			  _BidirectionalIterator3 __result)
-    {
-      if (__first1 == __last1)
-	return _GLIBCXX_MOVE_BACKWARD3(__first2, __last2, __result);
-      if (__first2 == __last2)
-	return _GLIBCXX_MOVE_BACKWARD3(__first1, __last1, __result);
-      --__last1;
-      --__last2;
-      while (true)
-	{
-	  if (*__last2 < *__last1)
-	    {
-	      *--__result = _GLIBCXX_MOVE(*__last1);
-	      if (__first1 == __last1)
-		return _GLIBCXX_MOVE_BACKWARD3(__first2, ++__last2, __result);
-	      --__last1;
-	    }
-	  else
-	    {
-	      *--__result = _GLIBCXX_MOVE(*__last2);
-	      if (__first2 == __last2)
-		return _GLIBCXX_MOVE_BACKWARD3(__first1, ++__last1, __result);
-	      --__last2;
-	    }
-	}
-    }
-
-  /// This is a helper function for the merge routines.
-  template<typename _BidirectionalIterator1, typename _BidirectionalIterator2,
-	   typename _BidirectionalIterator3, typename _Compare>
-    _BidirectionalIterator3
-    __move_merge_backward(_BidirectionalIterator1 __first1,
-			  _BidirectionalIterator1 __last1,
-			  _BidirectionalIterator2 __first2,
-			  _BidirectionalIterator2 __last2,
-			  _BidirectionalIterator3 __result,
-			  _Compare __comp)
-    {
-      if (__first1 == __last1)
-	return _GLIBCXX_MOVE_BACKWARD3(__first2, __last2, __result);
-      if (__first2 == __last2)
-	return _GLIBCXX_MOVE_BACKWARD3(__first1, __last1, __result);
-      --__last1;
-      --__last2;
-      while (true)
-	{
-	  if (__comp(*__last2, *__last1))
-	    {
-	      *--__result = _GLIBCXX_MOVE(*__last1);
-	      if (__first1 == __last1)
-		return _GLIBCXX_MOVE_BACKWARD3(__first2, ++__last2, __result);
-	      --__last1;
-	    }
-	  else
-	    {
-	      *--__result = _GLIBCXX_MOVE(*__last2);
-	      if (__first2 == __last2)
-		return _GLIBCXX_MOVE_BACKWARD3(__first1, ++__last1, __result);
-	      --__last2;
-	    }
-	}
-    }
-
-  /// This is a helper function for the merge routines.
+  /// This is a helper function for the __merge_adaptive routines.
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator>
-    _OutputIterator
-    __move_merge(_InputIterator1 __first1, _InputIterator1 __last1,
-		 _InputIterator2 __first2, _InputIterator2 __last2,
-		 _OutputIterator __result)
+    void
+    __move_merge_adaptive(_InputIterator1 __first1, _InputIterator1 __last1,
+			  _InputIterator2 __first2, _InputIterator2 __last2,
+			  _OutputIterator __result)
     {
       while (__first1 != __last1 && __first2 != __last2)
 	{
@@ -2844,18 +2774,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	  ++__result;
 	}
-      return _GLIBCXX_MOVE3(__first2, __last2,
-			    _GLIBCXX_MOVE3(__first1, __last1,
-					   __result));
+      if (__first1 != __last1)
+	_GLIBCXX_MOVE3(__first1, __last1, __result);
     }
 
-  /// This is a helper function for the merge routines.
+  /// This is a helper function for the __merge_adaptive routines.
   template<typename _InputIterator1, typename _InputIterator2,
 	   typename _OutputIterator, typename _Compare>
-    _OutputIterator
-    __move_merge(_InputIterator1 __first1, _InputIterator1 __last1,
-		 _InputIterator2 __first2, _InputIterator2 __last2,
-		 _OutputIterator __result, _Compare __comp)
+    void
+    __move_merge_adaptive(_InputIterator1 __first1, _InputIterator1 __last1,
+			  _InputIterator2 __first2, _InputIterator2 __last2,
+			  _OutputIterator __result, _Compare __comp)
     {
       while (__first1 != __last1 && __first2 != __last2)
 	{
@@ -2871,11 +2800,94 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    }
 	  ++__result;
 	}
-      return _GLIBCXX_MOVE3(__first2, __last2,
-			    _GLIBCXX_MOVE3(__first1, __last1,
-					   __result));
+      if (__first1 != __last1)
+	_GLIBCXX_MOVE3(__first1, __last1, __result);
     }
 
+  /// This is a helper function for the __merge_adaptive routines.
+  template<typename _BidirectionalIterator1, typename _BidirectionalIterator2,
+	   typename _BidirectionalIterator3>
+    void
+    __move_merge_adaptive_backward(_BidirectionalIterator1 __first1,
+				   _BidirectionalIterator1 __last1,
+				   _BidirectionalIterator2 __first2,
+				   _BidirectionalIterator2 __last2,
+				   _BidirectionalIterator3 __result)
+    {
+      if (__first1 == __last1)
+	{
+	  _GLIBCXX_MOVE_BACKWARD3(__first2, __last2, __result);
+	  return;
+	}
+      else if (__first2 == __last2)
+	return;
+
+      --__last1;
+      --__last2;
+      while (true)
+	{
+	  if (*__last2 < *__last1)
+	    {
+	      *--__result = _GLIBCXX_MOVE(*__last1);
+	      if (__first1 == __last1)
+		{
+		  _GLIBCXX_MOVE_BACKWARD3(__first2, ++__last2, __result);
+		  return;
+		}
+	      --__last1;
+	    }
+	  else
+	    {
+	      *--__result = _GLIBCXX_MOVE(*__last2);
+	      if (__first2 == __last2)
+		return;
+	      --__last2;
+	    }
+	}
+    }
+
+  /// This is a helper function for the __merge_adaptive routines.
+  template<typename _BidirectionalIterator1, typename _BidirectionalIterator2,
+	   typename _BidirectionalIterator3, typename _Compare>
+    void
+    __move_merge_adaptive_backward(_BidirectionalIterator1 __first1,
+				   _BidirectionalIterator1 __last1,
+				   _BidirectionalIterator2 __first2,
+				   _BidirectionalIterator2 __last2,
+				   _BidirectionalIterator3 __result,
+				   _Compare __comp)
+    {
+      if (__first1 == __last1)
+	{
+	  _GLIBCXX_MOVE_BACKWARD3(__first2, __last2, __result);
+	  return;
+	}
+      else if (__first2 == __last2)
+	return;
+
+      --__last1;
+      --__last2;
+      while (true)
+	{
+	  if (__comp(*__last2, *__last1))
+	    {
+	      *--__result = _GLIBCXX_MOVE(*__last1);
+	      if (__first1 == __last1)
+		{
+		  _GLIBCXX_MOVE_BACKWARD3(__first2, ++__last2, __result);
+		  return;
+		}
+	      --__last1;
+	    }
+	  else
+	    {
+	      *--__result = _GLIBCXX_MOVE(*__last2);
+	      if (__first2 == __last2)
+		return;
+	      --__last2;
+	    }
+	}
+    }
 
   /// This is a helper function for the merge routines.
   template<typename _BidirectionalIterator1, typename _BidirectionalIterator2,
@@ -2891,15 +2903,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _BidirectionalIterator2 __buffer_end;
       if (__len1 > __len2 && __len2 <= __buffer_size)
 	{
-	  __buffer_end = _GLIBCXX_MOVE3(__middle, __last, __buffer);
-	  _GLIBCXX_MOVE_BACKWARD3(__first, __middle, __last);
-	  return _GLIBCXX_MOVE3(__buffer, __buffer_end, __first);
+	  if (__len2)
+	    {
+	      __buffer_end = _GLIBCXX_MOVE3(__middle, __last, __buffer);
+	      _GLIBCXX_MOVE_BACKWARD3(__first, __middle, __last);
+	      return _GLIBCXX_MOVE3(__buffer, __buffer_end, __first);
+	    }
+	  else
+	    return __first;
 	}
       else if (__len1 <= __buffer_size)
 	{
-	  __buffer_end = _GLIBCXX_MOVE3(__first, __middle, __buffer);
-	  _GLIBCXX_MOVE3(__middle, __last, __first);
-	  return _GLIBCXX_MOVE_BACKWARD3(__buffer, __buffer_end, __last);
+	  if (__len1)
+	    {
+	      __buffer_end = _GLIBCXX_MOVE3(__first, __middle, __buffer);
+	      _GLIBCXX_MOVE3(__middle, __last, __first);
+	      return _GLIBCXX_MOVE_BACKWARD3(__buffer, __buffer_end, __last);
+	    }
+	  else
+	    return __last;
 	}
       else
 	{
@@ -2922,13 +2944,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__len1 <= __len2 && __len1 <= __buffer_size)
 	{
 	  _Pointer __buffer_end = _GLIBCXX_MOVE3(__first, __middle, __buffer);
-	  std::__move_merge(__buffer, __buffer_end, __middle, __last, __first);
+	  std::__move_merge_adaptive(__buffer, __buffer_end, __middle, __last,
+				     __first);
 	}
       else if (__len2 <= __buffer_size)
 	{
 	  _Pointer __buffer_end = _GLIBCXX_MOVE3(__middle, __last, __buffer);
-	  std::__move_merge_backward(__first, __middle, __buffer,
-				    __buffer_end, __last);
+	  std::__move_merge_adaptive_backward(__first, __middle, __buffer,
+					      __buffer_end, __last);
 	}
       else
 	{
@@ -2978,14 +3001,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__len1 <= __len2 && __len1 <= __buffer_size)
 	{
 	  _Pointer __buffer_end = _GLIBCXX_MOVE3(__first, __middle, __buffer);
-	  std::__move_merge(__buffer, __buffer_end, __middle, __last,
-			    __first, __comp);
+	  std::__move_merge_adaptive(__buffer, __buffer_end, __middle, __last,
+				     __first, __comp);
 	}
       else if (__len2 <= __buffer_size)
 	{
 	  _Pointer __buffer_end = _GLIBCXX_MOVE3(__middle, __last, __buffer);
-	  std::__move_merge_backward(__first, __middle, __buffer, __buffer_end,
-				     __last, __comp);
+	  std::__move_merge_adaptive_backward(__first, __middle, __buffer,
+					      __buffer_end, __last, __comp);
 	}
       else
 	{
@@ -3220,6 +3243,61 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	std::__merge_adaptive(__first, __middle, __last, __len1, __len2,
 			      __buf.begin(), _DistanceType(__buf.size()),
 			      __CheckedCompare(__comp));
+    }
+
+
+  /// This is a helper function for the __merge_sort_loop routines.
+  template<typename _InputIterator1, typename _InputIterator2,
+	   typename _OutputIterator>
+    _OutputIterator
+    __move_merge(_InputIterator1 __first1, _InputIterator1 __last1,
+		 _InputIterator2 __first2, _InputIterator2 __last2,
+		 _OutputIterator __result)
+    {
+      while (__first1 != __last1 && __first2 != __last2)
+	{
+	  if (*__first2 < *__first1)
+	    {
+	      *__result = _GLIBCXX_MOVE(*__first2);
+	      ++__first2;
+	    }
+	  else
+	    {
+	      *__result = _GLIBCXX_MOVE(*__first1);
+	      ++__first1;
+	    }
+	  ++__result;
+	}
+      return _GLIBCXX_MOVE3(__first2, __last2,
+			    _GLIBCXX_MOVE3(__first1, __last1,
+					   __result));
+    }
+
+  /// This is a helper function for the __merge_sort_loop routines.
+  template<typename _InputIterator1, typename _InputIterator2,
+	   typename _OutputIterator, typename _Compare>
+    _OutputIterator
+    __move_merge(_InputIterator1 __first1, _InputIterator1 __last1,
+		 _InputIterator2 __first2, _InputIterator2 __last2,
+		 _OutputIterator __result, _Compare __comp)
+    {
+      while (__first1 != __last1 && __first2 != __last2)
+	{
+	  if (__comp(*__first2, *__first1))
+	    {
+	      *__result = _GLIBCXX_MOVE(*__first2);
+	      ++__first2;
+	    }
+	  else
+	    {
+	      *__result = _GLIBCXX_MOVE(*__first1);
+	      ++__first1;
+	    }
+	  ++__result;
+	}
+      return _GLIBCXX_MOVE3(__first2, __last2,
+			    _GLIBCXX_MOVE3(__first1, __last1,
+					   __result));
     }
 
   template<typename _RandomAccessIterator1, typename _RandomAccessIterator2,

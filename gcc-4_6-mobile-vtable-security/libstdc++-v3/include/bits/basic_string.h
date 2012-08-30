@@ -2986,7 +2986,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __hash_base<size_t, string>
     {
       size_t
-      operator()(const string& __s) const
+      operator()(const string& __s) const noexcept
       { return std::_Hash_impl::hash(__s.data(), __s.length()); }
     };
 
@@ -2997,7 +2997,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __hash_base<size_t, wstring>
     {
       size_t
-      operator()(const wstring& __s) const
+      operator()(const wstring& __s) const noexcept
       { return std::_Hash_impl::hash(__s.data(),
                                      __s.length() * sizeof(wchar_t)); }
     };
@@ -3011,7 +3011,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __hash_base<size_t, u16string>
     {
       size_t
-      operator()(const u16string& __s) const
+      operator()(const u16string& __s) const noexcept
       { return std::_Hash_impl::hash(__s.data(),
                                      __s.length() * sizeof(char16_t)); }
     };
@@ -3022,7 +3022,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public __hash_base<size_t, u32string>
     {
       size_t
-      operator()(const u32string& __s) const
+      operator()(const u32string& __s) const noexcept
       { return std::_Hash_impl::hash(__s.data(),
                                      __s.length() * sizeof(char32_t)); }
     };

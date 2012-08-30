@@ -522,6 +522,21 @@ find_bb_boundaries (basic_block bb)
     purge_dead_tablejump_edges (bb, table);
 }
 
+/* Check if there is at least one edge in EDGES with a non-zero count
+   field.  */
+
+static bool
+non_zero_profile_counts ( VEC(edge,gc) *edges) {
+  edge e;
+  edge_iterator ei;
+  FOR_EACH_EDGE(e, ei, edges)
+    {
+      if (e->count > 0)
+        return true;
+    }
+  return false;
+}
+
 /*  Assume that frequency of basic block B is known.  Compute frequencies
     and probabilities of outgoing edges.  */
 
@@ -549,7 +564,6 @@ compute_outgoing_frequencies (basic_block b)
 	  return;
 	}
     }
-
   if (single_succ_p (b))
     {
       e = single_succ_edge (b);
@@ -557,6 +571,10 @@ compute_outgoing_frequencies (basic_block b)
       e->count = b->count;
       return;
     }
+  else if (non_zero_profile_counts (b->succs)){
+    /*Profile counts already set, but REG_NOTE missing. Retain the counts.  */
+    return;
+  }
   guess_outgoing_edge_probabilities (b);
   if (b->count)
     FOR_EACH_EDGE (e, ei, b->succs)

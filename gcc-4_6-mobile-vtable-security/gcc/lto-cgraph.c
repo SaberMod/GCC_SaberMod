@@ -459,6 +459,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->decl);
   lto_output_sleb128_stream (ob->main_stream, node->count);
+  lto_output_sleb128_stream (ob->main_stream, node->max_bb_count);
   lto_output_sleb128_stream (ob->main_stream, node->count_materialization_scale);
 
   if (tag == LTO_cgraph_analyzed_node)
@@ -614,6 +615,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
     ref = LCC_NOT_FOUND;
   lto_output_sleb128_stream (ob->main_stream, ref);
   lto_output_uleb128_stream (ob->main_stream, node->resolution);
+  lto_output_uleb128_stream (ob->main_stream, node->module_id);
 
   if (count)
     {
@@ -1046,6 +1048,7 @@ input_node (struct lto_file_decl_data *file_data,
     node = cgraph_node (fn_decl);
 
   node->count = lto_input_sleb128 (ib);
+  node->max_bb_count = lto_input_sleb128 (ib);
   node->count_materialization_scale = lto_input_sleb128 (ib);
 
   if (tag == LTO_cgraph_analyzed_node)
@@ -1155,6 +1158,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   /* Store a reference for now, and fix up later to be a pointer.  */
   node->same_comdat_group = (struct varpool_node *) (intptr_t) ref;
   node->resolution = (enum ld_plugin_symbol_resolution)lto_input_uleb128 (ib);
+  node->module_id = lto_input_uleb128(ib);
   if (aliases_p)
     {
       count = lto_input_uleb128 (ib);
@@ -1792,9 +1796,9 @@ input_cgraph_opt_section (struct lto_file_decl_data *file_data,
 {
   const struct lto_function_header *header =
     (const struct lto_function_header *) data;
-  const int32_t cfg_offset = sizeof (struct lto_function_header);
-  const int32_t main_offset = cfg_offset + header->cfg_size;
-  const int32_t string_offset = main_offset + header->main_size;
+  const int cfg_offset = sizeof (struct lto_function_header);
+  const int main_offset = cfg_offset + header->cfg_size;
+  const int string_offset = main_offset + header->main_size;
   struct data_in *data_in;
   struct lto_input_block ib_main;
   unsigned int i;

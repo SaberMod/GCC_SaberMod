@@ -92,10 +92,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return static_cast<_Tp*>(::operator new(__n * sizeof(_Tp)));
       }
 
+#ifdef __GXX_DELETE_WITH_SIZE__
+      // __p is not permitted to be a null pointer.
+      void
+      deallocate(pointer __p, size_type __t)
+      { ::operator delete(__p, __t * sizeof(_Tp)); }
+#else
       // __p is not permitted to be a null pointer.
       void
       deallocate(pointer __p, size_type)
       { ::operator delete(__p); }
+#endif
 
       size_type
       max_size() const throw() 
@@ -108,6 +115,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       { ::new((void *)__p) _Tp(__val); }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      void
+      construct(pointer __p)
+      { ::new((void *)__p) _Tp(); }
+
       template<typename... _Args>
         void
         construct(pointer __p, _Args&&... __args)

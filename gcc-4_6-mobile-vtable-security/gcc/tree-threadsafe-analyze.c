@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "gimple.h"
 #include "c-family/c-common.h"
 #include "toplev.h"
 #include "input.h"
@@ -563,6 +564,40 @@ is_base_object_this_pointer (tree base)
     return false;
 }
 
+
+/* Get the function declaration from a gimple call stmt (CALL).  This handles
+   both ordinary function calls and virtual methods. */
+
+static tree
+get_fdecl_from_gimple_stmt (gimple call)
+{
+  tree fdecl = gimple_call_fndecl (call);
+  /* If the callee fndecl is NULL, check if it is a virtual function,
+       and if so, try to get its decl through the reference object.  */
+  if (!fdecl)
+    {
+      tree callee = gimple_call_fn (call);
+      if (TREE_CODE (callee) == OBJ_TYPE_REF)
+        {
+          tree objtype = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
+          /* Check to make sure objtype is a valid type.
+             OBJ_TYPE_REF_OBJECT does not always return the correct static type
+             of the callee.  For example:  Given
+             foo(void* ptr) { ((Foo*) ptr)->doSomething(); }
+             objtype will be void, not Foo.  Whether or not this happens
+             depends on the details of how a particular call is lowered to
+             GIMPLE, and there is no easy fix that works in all cases.  For
+             now, we simply rely on gcc's type information; if that information
+             is not accurate, then the analysis will be less precise.
+           */
+          if (TREE_CODE (objtype) == RECORD_TYPE)
+              fdecl = lang_hooks.get_virtual_function_decl (callee, objtype);
+        }
+    }
+  return fdecl;
+}
+
+
 /* Given a CALL gimple statment, check if its function decl is annotated
    with "lock_returned" attribute. If so, return the lock specified in
    the attribute. Otherise, return NULL_TREE.  */
@@ -570,7 +605,7 @@ is_base_object_this_pointer (tree base)
 static tree
 get_lock_returned_by_call (gimple call)
 {
-  tree fdecl = gimple_call_fndecl (call);
+  tree fdecl = get_fdecl_from_gimple_stmt (call);
   tree attr = (fdecl
                ? lookup_attribute ("lock_returned", DECL_ATTRIBUTES (fdecl))
                : NULL_TREE);
@@ -804,15 +839,30 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
               && !gimple_nop_p (SSA_NAME_DEF_STMT (lock)))
             {
               gimple def_stmt = SSA_NAME_DEF_STMT (lock);
-              if (is_gimple_assign (def_stmt)
-                  && (get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt))
-                      == GIMPLE_SINGLE_RHS))
-                return get_canonical_lock_expr (gimple_assign_rhs1 (def_stmt),
-                                                base_obj, is_temp_expr,
-                                                NULL_TREE);
+              if (is_gimple_assign (def_stmt))
+                {
+                  enum gimple_rhs_class gcls =
+                    get_gimple_rhs_class (gimple_assign_rhs_code (def_stmt));
+                  tree rhs = NULL_TREE;
+
+                  if (gcls == GIMPLE_SINGLE_RHS)
+                    rhs = gimple_assign_rhs1 (def_stmt);
+                  else if (gcls == GIMPLE_UNARY_RHS)
+                    rhs = build1 (gimple_assign_rhs_code (def_stmt),
+                                  TREE_TYPE (gimple_assign_lhs (def_stmt)),
+                                  gimple_assign_rhs1 (def_stmt));
+                  else if (gcls == GIMPLE_BINARY_RHS)
+                    rhs = build2 (gimple_assign_rhs_code (def_stmt),
+                                  TREE_TYPE (gimple_assign_lhs (def_stmt)),
+                                  gimple_assign_rhs1 (def_stmt),
+                                  gimple_assign_rhs2 (def_stmt));
+                  if (rhs)
+                    return get_canonical_lock_expr (rhs, base_obj,
+                                                    is_temp_expr, NULL_TREE);
+                }
               else if (is_gimple_call (def_stmt))
                 {
-                  tree fdecl = gimple_call_fndecl (def_stmt);
+                  tree fdecl = get_fdecl_from_gimple_stmt (def_stmt);
                   tree real_lock = get_lock_returned_by_call (def_stmt);
                   if (real_lock)
                     {
@@ -884,10 +934,13 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
         {
           tree base = TREE_OPERAND (lock, 0);
           tree canon_base;
-          /* When the expr is a pointer to a lockable type (i.e. mu.Lock()
+          /* For expressions that denote locks,
+             When the expr is a pointer to a lockable type (i.e. mu.Lock()
              or Lock(&mu) internally), we don't need the address-taken
              operator (&).  */
-          if (lookup_attribute("lockable", TYPE_ATTRIBUTES (TREE_TYPE (base))))
+          if (!is_temp_expr
+              && lookup_attribute("lockable",
+                                  TYPE_ATTRIBUTES (TREE_TYPE (base))))
             return get_canonical_lock_expr (base, base_obj,
                                             false /* is_temp_expr */,
                                             new_leftmost_base_var);
@@ -924,7 +977,16 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
                                             NULL_TREE);
 
           if (lang_hooks.decl_is_base_field (component))
-            return canon_base;
+            {
+              if (is_temp_expr)
+                return canon_base;
+              else
+                /* return canon_base, but recalculate it so that it is stored
+                   in the hash table. */
+                return get_canonical_lock_expr (base, base_obj,
+                                                false /* is_temp_expr */,
+                                                new_leftmost_base_var);
+            }
 
           if (base != canon_base)
             lock = build3 (COMPONENT_REF, TREE_TYPE (component),
@@ -967,6 +1029,24 @@ get_canonical_lock_expr (tree lock, tree base_obj, bool is_temp_expr,
           else
             lock = build1 (INDIRECT_REF,
                            TREE_TYPE (TREE_TYPE (canon_base)), canon_base);
+          break;
+        }
+      case PLUS_EXPR:
+      case POINTER_PLUS_EXPR:
+      case MULT_EXPR:
+        {
+          tree left = TREE_OPERAND (lock, 0);
+          tree canon_left = get_canonical_lock_expr (left, base_obj,
+                                                     true /* is_temp_expr */,
+                                                     NULL_TREE);
+
+          tree right = TREE_OPERAND (lock, 1);
+          tree canon_right = get_canonical_lock_expr (right, base_obj,
+                                                      true /* is_temp_expr */,
+                                                      NULL_TREE);
+          if (left != canon_left || right != canon_right)
+            lock = build2 (TREE_CODE (lock), TREE_TYPE (lock),
+                           canon_left, canon_right);
           break;
         }
       default:
@@ -1582,7 +1662,15 @@ get_actual_argument_from_position (gimple call, tree pos_arg)
 
   lock_pos = TREE_INT_CST_LOW (pos_arg);
 
-  gcc_assert (lock_pos >= 1 && lock_pos <= num_args);
+  /* The ipa-sra optimization can occasionally delete arguments, thus
+     invalidating the index.  */
+  if (lock_pos < 1 || lock_pos > num_args)
+    {
+      if (flag_ipa_sra)
+        return NULL_TREE;  /* Attempt to recover gracefully.  */
+      else
+        gcc_unreachable ();
+    }
 
   /* The lock position specified in the attributes is 1-based, so we need to
      subtract 1 from it when accessing the call arguments.  */
@@ -1606,6 +1694,7 @@ get_actual_argument_from_parameter (gimple call, tree fdecl, tree param_decl)
 
   gcc_unreachable ();
 }
+
 
 /* A helper function that adds the LOCKABLE, acquired by CALL, to the
    corresponding lock sets (LIVE_EXCL_LOCKS or LIVE_SHARED_LOCKS) depending
@@ -1722,7 +1811,27 @@ handle_lock_primitive_attrs (gimple call, tree fdecl, tree arg, tree base_obj,
      a formal parameter, we need to grab the corresponding actual argument
      of the call.  */
   else if (TREE_CODE (arg) == INTEGER_CST)
-    arg = get_actual_argument_from_position (call, arg);
+    {
+      arg = get_actual_argument_from_position (call, arg);
+      /* If ipa-sra has rewritten the call, then recover as gracefully as
+         possible.  */
+      if (!arg)
+        {
+          /* Add the universal lock to the lockset to suppress subsequent
+             errors.  */
+          if (is_exclusive_lock)
+            pointer_set_insert (live_excl_locks, error_mark_node);
+          else
+            pointer_set_insert (live_shared_locks, error_mark_node);
+
+          if (warn_thread_optimization)
+            warning_at (*locus, OPT_Wthread_safety,
+                        G_("lock attribute has been removed by "
+                           "optimization"));
+
+          return;
+        }
+    }
   else if (TREE_CODE (get_leftmost_base_var (arg)) == PARM_DECL)
     {
       tree new_base
@@ -1827,14 +1936,27 @@ remove_lock_from_lockset (tree lockable, struct pointer_set_t *live_excl_locks,
 {
   tree lock_contained;
 
-  if ((lock_contained = lock_set_contains(live_excl_locks, lockable, NULL_TREE,
-                                          false)) != NULL_TREE)
+  /* Try to remove the actual lock. */
+  if ((lock_contained = lock_set_contains(live_excl_locks, lockable,
+                                          NULL_TREE, true)) != NULL_TREE)
     pointer_set_delete (live_excl_locks, lock_contained);
   else if ((lock_contained = lock_set_contains(live_shared_locks, lockable,
-                                               NULL_TREE, false)) != NULL_TREE)
+                                               NULL_TREE, true)) != NULL_TREE)
     pointer_set_delete (live_shared_locks, lock_contained);
 
-  return lock_contained;
+  if (lock_contained)
+    return lock_contained;
+
+  /* If either of lock sets contains the universal lock, then pretend that
+   we've removed it, to avoid a warning about unlocking a lock that was
+   not acquired. */
+  if (pointer_set_contains (live_excl_locks, error_mark_node))
+    return lockable;
+
+  if (pointer_set_contains(live_shared_locks, error_mark_node))
+    return lockable;
+
+  return NULL_TREE;
 }
 
 /* This function handles function calls that release locks (i.e. the
@@ -1865,10 +1987,21 @@ handle_unlock_primitive_attr (gimple call, tree fdecl, tree arg, tree base_obj,
          a formal parameter, we need to grab the corresponding actual argument
          of the call.  */
       if (TREE_CODE (arg) == INTEGER_CST)
-        lockable = get_actual_argument_from_position (call, arg);
+        {
+          lockable = get_actual_argument_from_position (call, arg);
+          /* If ipa-sra has rewritten the call, then fail as gracefully as
+             possible -- just leave the lock in the lockset.  */
+          if (!lockable)
+            {
+              if (warn_thread_optimization)
+                warning_at (*locus, OPT_Wthread_safety,
+                            G_("unlock attribute has been removed by "
+                               "optimization"));
+              return;
+            }
+        }
       else if (TREE_CODE (get_leftmost_base_var (arg)) == PARM_DECL)
         {
-          tree fdecl = gimple_call_fndecl (call);
           tree new_base = get_actual_argument_from_parameter (
               call, fdecl, get_leftmost_base_var (arg));
           lockable = get_canonical_lock_expr (arg, NULL_TREE, false, new_base);
@@ -1883,7 +2016,18 @@ handle_unlock_primitive_attr (gimple call, tree fdecl, tree arg, tree base_obj,
     }
   else
     {
-      gcc_assert (base_obj);
+      /* If ipa-sra has killed arguments, then base_obj may be NULL.
+         Attempt to recover gracefully by leaving the lock in the lockset.  */
+      if (!base_obj)
+        {
+          if (!flag_ipa_sra)
+            gcc_unreachable ();
+          else if (warn_thread_optimization)
+            warning_at (*locus, OPT_Wthread_safety,
+                        G_("unlock attribute has been removed by "
+                           "optimization"));
+          return;
+        }
 
       /* Check if the primitive is an unlock routine (e.g. the destructor or
          a release function) of a scoped_lock. If so, get the lock that is 
@@ -2074,6 +2218,9 @@ handle_function_lock_requirement (gimple call, tree fdecl, tree base_obj,
       else if (TREE_CODE (lock) == INTEGER_CST)
         {
           lock = get_actual_argument_from_position (call, lock);
+          /* Ignore attribute if ipa-sra has killed the argument.  */
+          if (!lock)
+            return;
           /* If the lock is a function argument, we don't want to
              prepend the base object to the lock name. Set the
              TMP_BASE_OBJ to NULL.  */
@@ -2126,6 +2273,7 @@ process_function_attrs (gimple call, tree fdecl,
   tree base_obj = NULL_TREE;
   bool is_exclusive_lock;
   bool is_trylock;
+  bool optimized_args = false;
 
   gcc_assert (is_gimple_call (call));
 
@@ -2144,16 +2292,28 @@ process_function_attrs (gimple call, tree fdecl,
       != NULL_TREE)
     current_bb_info->writes_ignored = false;
 
+  /* If the given function is a clone, and if some of the parameters of the
+     clone have been optimized away, then the function attribute is no longer
+     correct, and we should suppress certain warnings.  Clones are often created
+     when -fipa-sra is enabled, which happens by default at -O2 starting from
+     GCC-4.5.  The clones could be created as early as when constructing SSA.
+     ipa-sra is particularly fond of optimizing away the "this" pointer,
+     which is a problem because that makes it impossible to determine the
+     base object, which then causes spurious errors. It's better to just
+     remain silent in this case.  */
+  if ((TREE_CODE (TREE_TYPE (fdecl)) == FUNCTION_TYPE
+       || TREE_CODE (TREE_TYPE (fdecl)) == METHOD_TYPE)  /* sanity check   */
+      && (fdecl != DECL_ORIGIN (fdecl))                  /* is it a clone? */
+      && (type_num_arguments (TREE_TYPE (fdecl)) !=      /* compare args   */
+          type_num_arguments (TREE_TYPE (DECL_ORIGIN(fdecl)))))
+    optimized_args = true;
+
   /* If the function is a class member, the first argument of the function
      (i.e. "this" pointer) would be the base object. Note that here we call
      DECL_ORIGIN on fdecl first before we check whether it's a METHOD_TYPE
      because if fdecl is a cloned method, the TREE_CODE of its type would be
      FUNCTION_DECL instead of METHOD_DECL, which would lead us to not grab
-     its base object. One possible situation where fdecl could be a clone is
-     when -fipa-sra is enabled. (-fipa-sra is enabled by default at -O2
-     starting from GCC-4.5.). The clones could be created as early as when
-     constructing SSA. Also note that the parameters of a cloned method could
-     be optimized away.  */
+     its base object. */
   if (TREE_CODE (TREE_TYPE (DECL_ORIGIN (fdecl))) == METHOD_TYPE
       && gimple_call_num_args(call) > 0)
     base_obj = gimple_call_arg (call, 0);
@@ -2282,7 +2442,8 @@ process_function_attrs (gimple call, tree fdecl,
                                       current_bb_info, locus);
     }
 
-  if (warn_thread_unguarded_func)
+  /* suppress warnings if the function arguments are no longer accurate. */
+  if (warn_thread_unguarded_func && !optimized_args)
     {
       /* Handle the attributes specifying the lock requirements of
          functions.  */
@@ -2415,12 +2576,17 @@ handle_indirect_ref (tree ptr, struct pointer_set_t *excl_locks,
   return;
 }
 
-/* The main routine that handles gimple call statements.  */
 
+/* The main routine that handles gimple call statements.  This will update
+   the set of held locks.
+   CALL            -- the gimple call statement.
+   CURRENT_BB_INFO -- a pointer to the lockset structures for the current
+                      basic block.
+*/
 static void
 handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
 {
-  tree fdecl = gimple_call_fndecl (call);
+  tree fdecl = get_fdecl_from_gimple_stmt (call);
   int num_args = gimple_call_num_args (call);
   int arg_index = 0;
   tree arg_type = NULL_TREE;
@@ -2432,27 +2598,6 @@ handle_call_gs (gimple call, struct bb_threadsafe_info *current_bb_info)
     locus = input_location;
   else
     locus = gimple_location (call);
-
-  /* If the callee fndecl is NULL, check if it is a virtual function,
-     and if so, try to get its decl through the reference object.  */
-  if (!fdecl)
-    {
-      tree callee = gimple_call_fn (call);
-      if (TREE_CODE (callee) == OBJ_TYPE_REF)
-        {
-          tree objtype = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (callee)));
-          /* Check to make sure objtype is a valid type.
-             OBJ_TYPE_REF_OBJECT does not always return the correct static type of the callee.   
-             For example:  Given  foo(void* ptr) { ((Foo*) ptr)->doSomething(); }
-             objtype will be void, not Foo.  Whether or not this happens depends on the details 
-             of how a particular call is lowered to GIMPLE, and there is no easy fix that works 
-             in all cases.  For now, we simply rely on gcc's type information; if that information 
-             is not accurate, then the analysis will be less precise.
-           */
-          if (TREE_CODE (objtype) == RECORD_TYPE)
-              fdecl = lang_hooks.get_virtual_function_decl (callee, objtype);                    
-        }
-    }
 
   /* The callee fndecl could be NULL, e.g., when the function is passed in
      as an argument.  */
@@ -2746,7 +2891,8 @@ get_trylock_info(gimple gs, bool *lock_on_true_path)
         }
       else if (is_gimple_call (gs))
         {
-          tree fdecl = gimple_call_fndecl (gs);
+          tree fdecl = get_fdecl_from_gimple_stmt (gs);
+
           /* The function decl could be null in some cases, e.g.
              a function pointer passed in as a parameter.  */
           if (fdecl

@@ -2092,6 +2092,9 @@ gfc_copy_dt_decls_ifequal (gfc_symbol *from, gfc_symbol *to,
   gfc_component *to_cm;
   gfc_component *from_cm;
 
+  if (from == to)
+    return 1;
+
   if (from->backend_decl == NULL
 	|| !gfc_compare_derived_types (from, to))
     return 0;
@@ -2328,6 +2331,9 @@ gfc_get_derived_type (gfc_symbol * derived)
       else if ((c->attr.pointer || c->attr.allocatable)
 	       && !c->attr.proc_pointer)
 	field_type = build_pointer_type (field_type);
+
+      if (c->attr.pointer)
+	field_type = gfc_nonrestricted_type (field_type);
 
       /* vtype fields can point to different types to the base type.  */
       if (c->ts.type == BT_DERIVED && c->ts.u.derived->attr.vtype)

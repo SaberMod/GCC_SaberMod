@@ -11575,7 +11575,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
       ;;
 
     # Unfortunately, older versions of FreeBSD 2 do not have this feature.
-    freebsd2*)
+    freebsd2.*)
       archive_cmds='$LD -Bshareable -o $lib $libobjs $deplibs $linker_flags'
       hardcode_direct=yes
       hardcode_minus_L=yes
@@ -12491,7 +12491,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[23].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -12509,7 +12509,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -14399,7 +14399,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
         esac
         ;;
 
-      freebsd[12]*)
+      freebsd2.*)
         # C++ shared libraries reported to be fairly broken before
 	# switch to ELF
         ld_shlibs_CXX=no
@@ -16174,7 +16174,7 @@ freebsd* | dragonfly*)
     objformat=`/usr/bin/objformat`
   else
     case $host_os in
-    freebsd[123]*) objformat=aout ;;
+    freebsd[23].*) objformat=aout ;;
     *) objformat=elf ;;
     esac
   fi
@@ -16192,7 +16192,7 @@ freebsd* | dragonfly*)
   esac
   shlibpath_var=LD_LIBRARY_PATH
   case $host_os in
-  freebsd2*)
+  freebsd2.*)
     shlibpath_overrides_runpath=yes
     ;;
   freebsd3.[01]* | freebsdelf3.[01]*)
@@ -18535,7 +18535,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
       ;;
 
     # Unfortunately, older versions of FreeBSD 2 do not have this feature.
-    freebsd2*)
+    freebsd2.*)
       archive_cmds_GCJ='$LD -Bshareable -o $lib $libobjs $deplibs $linker_flags'
       hardcode_direct_GCJ=yes
       hardcode_minus_L_GCJ=yes
@@ -20730,7 +20730,7 @@ case "$THREADS" in
      *-*-cygwin*)
 	# Don't set THREADLIBS here.  Cygwin doesn't have -lpthread.
 	;;
-     *-*-freebsd[1234]*)
+     *-*-freebsd[34].*)
 	# Before FreeBSD 5, it didn't have -lpthread (or any library which
 	# merely adds pthread_* functions) but it does have a -pthread switch
 	# which is required at link-time to select -lc_r *instead* of -lc.
@@ -20811,9 +20811,14 @@ $as_echo "#define _POSIX_PTHREAD_SEMANTICS 1" >>confdefs.h
     # FIXME: In Java we are able to detect thread death at the end of
     # Thread.run() so we should be able to clean up the exception handling
     # contexts ourselves.
-    THREADSTARTFILESPEC='crtmt%O%s'
+    case "$host" in
+    *-w64-mingw*)
+      ;;
+    *)
+      THREADSTARTFILESPEC='crtmt%O%s'
+      ;;
+    esac
     ;;
-
  none)
     THREADH=no-threads.h
     ;;

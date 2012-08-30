@@ -1271,6 +1271,18 @@ DEFHOOK
  tree, (tree fndecl, int n_args, tree *argp, bool ignore),
  hook_tree_tree_int_treep_bool_null)
 
+/* Returns true if unaligned vector loads/stores are slow.  */
+DEFHOOK
+(slow_unaligned_vector_memop,
+ "",
+ bool, (void), NULL)
+
+/* Target hook to check if this function should be versioned.  */
+DEFHOOK
+(mversion_function,
+ "",
+ int, (tree fndecl, tree *optimization_node_chain, tree *cond_func_decl), NULL)
+
 /* Returns a code for a target-specific builtin that implements
    reciprocal of the function, or NULL_TREE if not available.  */
 DEFHOOK
@@ -2783,7 +2795,7 @@ DEFHOOKPOD
  "True if the @code{.debug_pubtypes} and @code{.debug_pubnames} sections\
  should be emitted.  These sections are not used on most platforms, and\
  in particular GDB does not use them.",
- bool, false)
+ bool, true)
 
 DEFHOOKPOD
 (delay_sched2, "True if sched2 is not to be run at its normal place.  \

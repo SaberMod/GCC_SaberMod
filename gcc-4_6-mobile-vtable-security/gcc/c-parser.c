@@ -6306,7 +6306,7 @@ c_parser_postfix_expression (c_parser *parser)
 	      c_parser_error (parser, "expected identifier");
 	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				       "expected %<)%>");
-	    expr.value = fold_offsetof (offsetof_ref, NULL_TREE);
+	    expr.value = fold_offsetof (offsetof_ref);
 	  }
 	  break;
 	case RID_CHOOSE_EXPR:
@@ -8704,6 +8704,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
     {
       location_t expr_loc = c_parser_peek_token (parser)->location;
       tree c, t = c_parser_expression (parser).value;
+      mark_exp_read (t);
       t = c_fully_fold (t, false, NULL);
 
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
@@ -8890,6 +8891,7 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
 
       here = c_parser_peek_token (parser)->location;
       t = c_parser_expr_no_commas (parser, NULL).value;
+      mark_exp_read (t);
       t = c_fully_fold (t, false, NULL);
 
       if (OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_RUNTIME)

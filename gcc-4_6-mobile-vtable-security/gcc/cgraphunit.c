@@ -1716,7 +1716,7 @@ cgraph_expand_function (struct cgraph_node *node)
       struct cgraph_node *alias, *next;
       bool saved_alias = node->alias;
 
-      if (L_IPO_COMP_MODE)
+      if (L_IPO_COMP_MODE || L_IPO_STREAM_FE_COMP_MODE)
         {
           struct cgraph_node *node_for_asm
               = cgraph_node_for_asm (DECL_ASSEMBLER_NAME (node->decl));
@@ -1995,6 +1995,12 @@ ipa_passes (void)
   if (flag_generate_lto)
     targetm.asm_out.lto_end ();
 
+  if (L_IPO_STREAM_FE_COMP_MODE)
+    {
+      bitmap_obstack_release (NULL);
+      return;
+    }
+
   if (!flag_ltrans)
     execute_ipa_pass_list (all_regular_ipa_passes);
   invoke_plugin_callbacks (PLUGIN_ALL_IPA_PASSES_END, NULL);
@@ -2029,7 +2035,7 @@ cgraph_optimize (void)
     fprintf (stderr, "Performing interprocedural optimizations\n");
   cgraph_state = CGRAPH_STATE_IPA;
 
-  if (L_IPO_COMP_MODE)
+  if (L_IPO_COMP_MODE || L_IPO_STREAM_FE_COMP_MODE)
     {
       cgraph_init_gid_map ();
       cgraph_add_fake_indirect_call_edges ();
@@ -2041,6 +2047,13 @@ cgraph_optimize (void)
 
   /* Do nothing else if any IPA pass found errors.  */
   if (seen_error ())
+    {
+      timevar_pop (TV_CGRAPHOPT);
+      return;
+    }
+
+  /* Only generate IR in ripa FE.  */
+  if (L_IPO_STREAM_FE_COMP_MODE)
     {
       timevar_pop (TV_CGRAPHOPT);
       return;
@@ -2187,6 +2200,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
    new_version->rtl = old_version->rtl;
    new_version->reachable = true;
    new_version->count = old_version->count;
+   new_version->max_bb_count = old_version->max_bb_count;
    new_version->is_versioned_clone = true;
 
    for (e = old_version->callees; e; e=e->next_callee)

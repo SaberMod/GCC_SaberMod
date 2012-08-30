@@ -680,6 +680,10 @@ Wthread-attr-bind-param
 Common Var(warn_thread_attr_bind_param) Init(1) Warning
 Make the thread safety analysis try to bind the function parameters used in the attributes
 
+Wthread-warn-optimization
+Common Var(warn_thread_optimization) Init(1) Warning
+Warn when optimizations invalidate the thread safety analysis.
+
 Wtype-limits
 Common Var(warn_type_limits) Init(-1) Warning
 Warn if a comparison is always true or always false due to the limited range of the data type
@@ -1082,9 +1086,33 @@ foptimize-locality
 Common Report Var(flag_optimize_locality)
 Optimization based on improving memory reference locality.
 
+fripa-auxiliary_module_id=
+Common RejectNegative Joined UInteger RejectDriver Var(flag_ripa_aux_mod_id)
+-fripa-auxiliary_module_id=<number>  Specify auxiliary module id; used in fripa=streaming.
+
+; Nonzero if in streaming ripa mode
+;int flag_dyn_ipa = 0
+Variable
+int flag_ripa_stream = 0
+
+fripa-mgf-gen=
+Common Joined RejectNegative RejectDriver Var(ripa_mgf_gen_fname)
+Set the module group control file name.
+
+fripa-mgf-use=
+Common Driver Joined RejectNegative Var(ripa_mgf_use_fname)
+Use this file as the module group control file. This silently voids -fripa-mgf-gen.
+
+; Common Report Var(flag_dyn_ipa)
+; Common Report Var(flag_ripa_stream)
 fripa
 Common Report Var(flag_dyn_ipa)
 Perform Dynamic Inter-Procedural Analysis.
+
+; This will overwrite the fripa in the command line.
+fripa=
+Common Joined RejectNegative Var
+-fripa=[FE|streaming]  Set the mode for Dynamic Inter-Procedural Analysis.
 
 fripa-disallow-asm-modules
 Common Report Var(flag_ripa_disallow_asm_modules)
@@ -1098,6 +1126,18 @@ fripa-no-promote-always-inline-func
 Common Report Var(flag_ripa_no_promote_always_inline) Init(0)
 Don't promote always inline static functions assuming they
 will be inlined and no copy is needed.
+
+fripa-peel-size-limit
+Common Report Var(flag_ripa_peel_size_limit) Init(1) Optimization
+Limit non-const non-FP loop peeling under dynamic IPA estimates of large code footprint
+
+fripa-unroll-size-limit
+Common Report Var(flag_ripa_unroll_size_limit) Init(1) Optimization
+Limit non-const non-FP loop unrolling under dynamic IPA estimates of large code footprint
+
+fripa-inc-path-sub=
+Common Joined RejectNegative Var(lipo_inc_path_pattern)
+Substitute substring in include paths with a new string to allow reuse profile data
 
 fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
@@ -1198,6 +1238,10 @@ Allow function addresses to be held in registers
 ffunction-sections
 Common Report Var(flag_function_sections)
 Place each function into its own section
+
+fgcda=
+Common Joined RejectNegative Var(gcov_da_name)
+Set the gcov data file name.
 
 fgcse
 Common Report Var(flag_gcse) Optimization
@@ -1321,6 +1365,10 @@ Common RejectNegative Joined Alias(finline-limit=)
 finline-limit=
 Common RejectNegative Joined UInteger
 -finline-limit=<number>	Limit the size of inlined functions to <number>
+
+finline-hot-caller
+Common Report Var(flag_inline_hot_caller) Init(1) Optimization
+Consider inlining cold callsites if the caller includes hot code
 
 finstrument-functions
 Common Report Var(flag_instrument_function_entry_exit)
@@ -1522,6 +1570,14 @@ fmudflapir
 Common RejectNegative Report Var(flag_mudflap_ignore_reads)
 Ignore read operations when inserting mudflap instrumentation
 
+ftsan
+Common RejectNegative Report Var(flag_tsan)
+Add ThreadSanitizer instrumentation
+
+ftsan-ignore=
+Common RejectNegative Joined Var(flag_tsan_ignore)
+-ftsan-ignore=filename	ThreadSanitizer ignore file
+
 fdce
 Common Var(flag_dce) Init(1) Optimization
 Use the RTL dead code elimination pass
@@ -1543,7 +1599,7 @@ Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
 
 fopt-info
-Common Report Var(flag_opt_info) Optimization Init(1)
+Common Report Var(flag_opt_info) Optimization Init(0)
 Enable verbose informational messages for optimizations (same as -fopt-info=1)
 
 ; fopt-info=0: no message will be emitted.
@@ -1661,7 +1717,7 @@ Common Report Var(flag_profile_dump) Init(0) Optimization
 Dump CFG profile for comparison.
 
 fprofile-generate
-Common
+Common Var(flag_profile_generate)
 Enable common options for generating profile info for profile feedback directed optimizations
 
 fprofile-generate=
@@ -1701,6 +1757,14 @@ frecord-gcc-switches
 Common Report Var(flag_record_gcc_switches)
 Record gcc command line switches in the object file.
 
+; This option differs from frecord-gcc-switches in the way that it
+; divide the command line options into several categories. And the
+; section is not mergable so that linker can save gcc switches for
+; each module.
+frecord-gcc-switches-in-elf
+Common Report Var(flag_record_gcc_switches_in_elf)
+Record the compiler optimizations in a .gnu.switches.text section.
+
 freg-struct-return
 Common Report Var(flag_pcc_struct_return,0) Optimization
 Return small aggregates in registers
@@ -1722,8 +1786,18 @@ Common Report Var(flag_reorder_blocks_and_partition) Optimization
 Reorder basic blocks and partition into hot and cold sections
 
 freorder-functions
-Common Report Var(flag_reorder_functions) Optimization
+Common Report Var(flag_reorder_functions,1) Init(0) Optimization
 Reorder functions to improve code placement
+
+freorder-functions=
+Common Joined RejectNegative Enum(function_reorder) Var(flag_reorder_functions) Init(0) Optimization
+-freorder-functions=[callgraph]	Select the scheme for function reordering. This invokes a linker plugin.  Generate .note.callgraph.text sections listing callees and edge counts.
+
+Enum
+Name(function_reorder) Type(int) UnknownError(unrecognized function reorder value %qs)
+ 
+EnumValue
+Enum(function_reorder) String(callgraph) Value(2)
 
 frerun-cse-after-loop
 Common Report Var(flag_rerun_cse_after_loop) Optimization
@@ -1874,6 +1948,10 @@ fsingle-precision-constant
 Common Report Var(flag_single_precision_constant) Optimization
 Convert floating point constants to single precision constants
 
+fsized-delete
+Common Report Var(flag_sized_delete) Optimization
+Support delete operator with objetc's size as the second parameter.
+
 fsplit-ivs-in-unroller
 Common Report Var(flag_split_ivs_in_unroller) Init(1) Optimization
 Split lifetimes of induction variables when loops are unrolled
@@ -1913,8 +1991,12 @@ fstack-protector
 Common Report Var(flag_stack_protect, 1)
 Use propolice as a stack protection method
 
-fstack-protector-all
+fstack-protector-strong
 Common Report RejectNegative Var(flag_stack_protect, 2)
+Use a smart stack protection method for certain functions
+
+fstack-protector-all
+Common Report RejectNegative Var(flag_stack_protect, 3)
 Use a stack protection method for every function
 
 fstack-protector-strong
@@ -2308,6 +2390,10 @@ Generate debug information in COFF format
 gdwarf-
 Common Joined UInteger Var(dwarf_version) Init(2) Negative(gstabs)
 Generate debug information in DWARF v2 (or later) format
+
+gfission
+Common Driver JoinedOrMissing Var(dwarf_split_debug_info,1)
+Generate debug information in separate .dwo files
 
 ggdb
 Common JoinedOrMissing

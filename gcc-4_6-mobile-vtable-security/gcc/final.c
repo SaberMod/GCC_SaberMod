@@ -4333,7 +4333,7 @@ debug_free_queue (void)
 
 /* List the call graph profiled edges whise value is greater than
    PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD in the
-   ".note.callgraph.text" section. */
+   "gnu.callgraph.text" section. */
 static void
 dump_cgraph_profiles (void)
 {
@@ -4421,14 +4421,16 @@ rest_of_handle_final (void)
 				decl_fini_priority_lookup
 				  (current_function_decl));
 
-  /* With -fcgraph-section, add ".note.callgraph.text" section for storing
-     profiling information. */
-  if (flag_callgraph_profiles_sections
+  /* With -fcallgraph-profiles-sections and -freorder-functions=,
+     add ".gnu.callgraph.text" section for storing profiling information. */
+  if ((flag_callgraph_profiles_sections
+       || (flag_reorder_functions > 1))
       && flag_profile_use
-      && cgraph_node (current_function_decl) != NULL)
+      && cgraph_node (current_function_decl) != NULL
+      && (cgraph_node (current_function_decl))->callees != NULL)
     {
-      flags = SECTION_DEBUG;
-      asprintf (&profile_fnname, ".note.callgraph.text.%s", fnname);
+      flags = SECTION_DEBUG | SECTION_EXCLUDE;
+      asprintf (&profile_fnname, ".gnu.callgraph.text.%s", fnname);
       switch_to_section (get_section (profile_fnname, flags, NULL));
       fprintf (asm_out_file, "\t.string \"Function %s\"\n", fnname);
       dump_cgraph_profiles ();

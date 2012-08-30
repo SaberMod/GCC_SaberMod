@@ -634,7 +634,7 @@ gimple_value_profile_transformations (void)
          target icall promotion happens, the caller's size may become
          negative when the promoted direct calls get promoted.  */
       /* Guard this for LIPO for now.  */
-      if (L_IPO_COMP_MODE)
+      if (L_IPO_COMP_MODE || flag_ripa_stream)
         compute_inline_parameters (cgraph_node (current_function_decl));
     }
 
@@ -1162,7 +1162,7 @@ init_node_map (void)
 {
   struct cgraph_node *n;
 
-  if (L_IPO_COMP_MODE)
+  if (L_IPO_COMP_MODE || flag_ripa_stream)
     return;
 
   if (get_last_funcdef_no ())
@@ -1182,7 +1182,7 @@ init_node_map (void)
 void
 del_node_map (void)
 {
-  if (L_IPO_COMP_MODE)
+  if (L_IPO_COMP_MODE || flag_ripa_stream)
     return;
 
    VEC_free (cgraph_node_ptr, heap, cgraph_node_map);
@@ -1296,7 +1296,7 @@ init_gid_map (void)
 void
 cgraph_init_gid_map (void)
 {
-  if (!L_IPO_COMP_MODE)
+  if (!(L_IPO_COMP_MODE || flag_ripa_stream))
     return;
 
   init_gid_map ();
@@ -2082,7 +2082,7 @@ gimple_indirect_call_to_profile (gimple stmt, histogram_values *values)
 
   VEC_reserve (histogram_value, heap, *values, 3);
 
-  if (flag_dyn_ipa)
+  if (flag_dyn_ipa || flag_ripa_stream)
     VEC_quick_push (histogram_value, *values,
 		    gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL_TOPN,
 						  stmt, callee));

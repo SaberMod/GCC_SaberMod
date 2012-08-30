@@ -147,9 +147,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     vector<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
-      if (__last != end())
-	_GLIBCXX_MOVE3(__last, end(), __first);
-      _M_erase_at_end(__first.base() + (end() - __last));
+      if (__first != __last)
+	{
+	  if (__last != end())
+	    _GLIBCXX_MOVE3(__last, end(), __first);
+	  _M_erase_at_end(__first.base() + (end() - __last));
+	}
       return __first;
     }
 
@@ -158,6 +161,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     vector<_Tp, _Alloc>::
     operator=(const vector<_Tp, _Alloc>& __x)
     {
+#if __google_stl_debug_dangling_vector
+      if (!this->_M_is_valid() || !__x._M_is_valid())
+	__throw_logic_error("operator=() on corrupt (dangling?) vector");
+#endif
       if (&__x != this)
 	{
 	  const size_type __xlen = __x.size();
@@ -743,7 +750,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   template<typename _Alloc>
     size_t
     hash<_GLIBCXX_STD_C::vector<bool, _Alloc>>::
-    operator()(const _GLIBCXX_STD_C::vector<bool, _Alloc>& __b) const
+    operator()(const _GLIBCXX_STD_C::vector<bool, _Alloc>& __b) const noexcept
     {
       size_t __hash = 0;
       using _GLIBCXX_STD_C::_S_word_bit;

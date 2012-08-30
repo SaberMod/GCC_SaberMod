@@ -1351,17 +1351,18 @@ estimated_stack_frame_size (struct cgraph_node *node)
 /* Helper routine to check if a record or union contains an array field. */
 
 static int
-record_or_union_type_has_array (const_tree tree_type)
+record_or_union_type_has_array_p (const_tree tree_type)
 {
   tree fields = TYPE_FIELDS (tree_type);
   tree f;
+
   for (f = fields; f; f = DECL_CHAIN (f))
     {
       if (TREE_CODE (f) == FIELD_DECL)
 	{
 	  tree field_type = TREE_TYPE (f);
 	  if (RECORD_OR_UNION_TYPE_P (field_type))
-	    return record_or_union_type_has_array (field_type);
+	    return record_or_union_type_has_array_p (field_type);
 	  if (TREE_CODE (field_type) == ARRAY_TYPE)
 	    return 1;
 	}
@@ -1416,18 +1417,13 @@ expand_used_vars (void)
     if (!is_global_var (var))
       {
 	tree var_type = TREE_TYPE (var);
-	/* Examine local variables that have been address taken. */
-	if (TREE_CODE (var) == VAR_DECL && TREE_ADDRESSABLE (var))
-	  {
-	    ++gen_stack_protect_signal;
-	    break;
-	  }
-	/* Examine local referenced variables that contain an array or are
-	   arrays. */
+	/* Examine local referenced variables that have their addresses taken,
+	   contain an array, or are arrays.  */
 	if (TREE_CODE (var) == VAR_DECL
 	    && (TREE_CODE (var_type) == ARRAY_TYPE
+		|| TREE_ADDRESSABLE (var)
 		|| (RECORD_OR_UNION_TYPE_P (var_type)
-		    && record_or_union_type_has_array (var_type))))
+		    && record_or_union_type_has_array_p (var_type))))
 	  {
 	    ++gen_stack_protect_signal;
 	    break;
@@ -1523,12 +1519,18 @@ expand_used_vars (void)
 	dump_stack_var_partition ();
     }
 
-  /* There are several conditions under which we should create a stack guard:
-     protect-all, alloca used, protected decls present or a positive
-     gen_stack_protect_signal. */
-  if (flag_stack_protect == 2
-      || (flag_stack_protect == 1
-	  && (cfun->calls_alloca || has_protected_decls)))
+  /* Create stack guard, if
+     a) "-fstack-protector-all" - always;
+     b) "-fstack-protector-strong" - if there are arrays, memory
+     references to local variables, alloca used, or protected decls present;
+     c) "-fstack-protector" - if alloca used, or protected decls present  */
+  if (flag_stack_protect == 3  /* -fstack-protector-all  */
+      || (flag_stack_protect == 2  /* -fstack-protector-strong  */
+	  && (gen_stack_protect_signal || cfun->calls_alloca
+	      || has_protected_decls))
+      || (flag_stack_protect == 1  /* -fstack-protector  */
+	  && (cfun->calls_alloca
+	      || has_protected_decls)))
     create_stack_guard ();
   else if (flag_stack_protect == 3
 	   && (gen_stack_protect_signal

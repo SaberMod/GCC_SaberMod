@@ -1435,6 +1435,7 @@ OBJS-common = \
 	tree-stdarg.o \
 	tree-tailcall.o \
 	tree-threadsafe-analyze.o \
+	tree-tsan.o \
 	tree-vect-generic.o \
 	tree-vect-patterns.o \
         tree-vect-data-refs.o \
@@ -2395,7 +2396,7 @@ tree-ssa.o : tree-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_DUMP_H) langhooks.h $(TREE_PASS_H) $(BASIC_BLOCK_H) $(BITMAP_H) \
    $(FLAGS_H) $(GGC_H) $(HASHTAB_H) pointer-set.h \
    $(GIMPLE_H) $(TREE_INLINE_H) $(TARGET_H) tree-pretty-print.h \
-   gimple-pretty-print.h l-ipo.h
+   gimple-pretty-print.h $(CFGLOOP_H) l-ipo.h
 tree-into-ssa.o : tree-into-ssa.c $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(TM_P_H) $(EXPR_H) output.h $(DIAGNOSTIC_H) \
    $(FUNCTION_H) $(TIMEVAR_H) $(TM_H) coretypes.h $(TREE_DUMP_H) \
@@ -2534,7 +2535,8 @@ tree-threadsafe-analyze.o : tree-threadsafe-analyze.c \
    tree-threadsafe-analyze.h $(TREE_FLOW_H) $(CONFIG_H) $(SYSTEM_H) $(TREE_H) \
    $(TM_H) coretypes.h $(C_COMMON_H) toplev.h $(INPUT_H) $(DIAGNOSTIC_H) \
    intl.h $(BASIC_BLOCK_H) $(TIMEVAR_H) $(TREE_PASS_H) $(TREE_DUMP_H) \
-   langhooks.h pointer-set.h tree-pretty-print.h tree-ssa-propagate.h
+   $(GIMPLE_H) langhooks.h pointer-set.h tree-pretty-print.h \
+   tree-ssa-propagate.h
 tree-ssa-sink.o : tree-ssa-sink.c $(TREE_FLOW_H) $(CONFIG_H) \
    $(SYSTEM_H) $(TREE_H) $(DIAGNOSTIC_H) $(TIMEVAR_H) \
    $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(FLAGS_H) alloc-pool.h \
@@ -2792,6 +2794,12 @@ tree-nomudflap.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
    $(C_TREE_H) $(C_COMMON_H) $(GIMPLE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) \
    output.h langhooks.h tree-mudflap.h $(TM_H) coretypes.h \
    $(GGC_H) gt-tree-mudflap.h $(TREE_PASS_H) $(DIAGNOSTIC_CORE_H)
+tree-tsan.o : $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TREE_INLINE_H) \
+   $(GIMPLE_H) $(DIAGNOSTIC_H) langhooks.h \
+   $(TM_H) coretypes.h $(TREE_DUMP_H) $(TREE_PASS_H) $(CGRAPH_H) $(GGC_H) \
+   $(BASIC_BLOCK_H) $(FLAGS_H) $(FUNCTION_H) \
+   $(TM_P_H) $(TREE_FLOW_H) $(DIAGNOSTIC_CORE_H) $(GIMPLE_H) tree-iterator.h \
+   intl.h cfghooks.h output.h options.h c-family/c-common.h tree-tsan.h
 tree-pretty-print.o : tree-pretty-print.c $(CONFIG_H) $(SYSTEM_H) \
    $(TREE_H) $(DIAGNOSTIC_H) $(HASHTAB_H) $(TREE_FLOW_H) \
    $(TM_H) coretypes.h tree-iterator.h $(SCEV_H) langhooks.h \
@@ -2840,7 +2848,7 @@ toplev.o : toplev.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(TREE_H) \
    $(CGRAPH_H) $(COVERAGE_H) alloc-pool.h $(GGC_H) $(INTEGRATE_H) \
    $(OPTS_H) params.def tree-mudflap.h $(TREE_PASS_H) $(GIMPLE_H) \
    tree-ssa-alias.h $(PLUGIN_H) realmpfr.h tree-diagnostic.h \
-   tree-pretty-print.h opts-diagnostic.h tree-threadsafe-analyze.h
+   tree-pretty-print.h opts-diagnostic.h tree-threadsafe-analyze.h tree-tsan.h
 	$(COMPILER) $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
 	  -DTARGET_NAME=\"$(target_noncanonical)\" \
 	  -c $(srcdir)/toplev.c $(OUTPUT_OPTION)
@@ -3079,7 +3087,7 @@ coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TM_H) $(RTL_H) $(TREE_H) $(FLAGS_H) output.h $(REGS_H) $(EXPR_H) \
    $(FUNCTION_H) $(BASIC_BLOCK_H) toplev.h $(DIAGNOSTIC_CORE_H) $(GGC_H) langhooks.h $(COVERAGE_H) \
    $(HASHTAB_H) tree-iterator.h $(CGRAPH_H) $(TREE_PASS_H) gcov-io.c $(TM_P_H) \
-   opts.h $(TREE_FLOW_H) $(DIAGNOSTIC_CORE_H) intl.h gt-coverage.h l-ipo.h
+   opts.h $(TREE_FLOW_H) $(DIAGNOSTIC_CORE_H) intl.h gt-coverage.h l-ipo.h dwarf2asm.h
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h $(RECOG_H) \
    $(EMIT_RTL_H) $(DIAGNOSTIC_CORE_H) output.h $(FUNCTION_H) $(TREE_PASS_H) \
@@ -4556,7 +4564,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   $(EXCEPT_H) tree-ssa-sccvn.h real.h output.h $(IPA_UTILS_H) \
   $(C_PRAGMA_H)  $(CPPLIB_H)  $(FUNCTION_H) \
   cppdefault.h flags.h $(MD5_H) params.def params.h prefix.h tree-inline.h \
-  $(IPA_PROP_H) $(RTL_H) $(TM_P_H) $(CFGLOOP_H) $(EMIT_RTL_H) version.h
+  $(IPA_PROP_H) $(RTL_H) $(TM_P_H) $(CFGLOOP_H) $(EMIT_RTL_H) version.h l-ipo.h
 
 # generate the 'build fragment' b-header-vars
 s-header-vars: Makefile
@@ -4567,8 +4575,8 @@ s-header-vars: Makefile
 
 # Install the headers needed to build a plugin.
 install-plugin: installdirs lang.install-plugin s-header-vars
-# We keep the directory structure for files in config and .def files. All
-# other files are flattened to a single directory.
+# We keep the directory structure for files in config or c-family and .def
+# files. All other files are flattened to a single directory.
 	$(mkinstalldirs) $(DESTDIR)$(plugin_includedir)
 	headers=`echo $(PLUGIN_HEADERS) | tr ' ' '\012' | sort -u`; \
 	srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`; \
@@ -4580,7 +4588,7 @@ install-plugin: installdirs lang.install-plugin s-header-vars
 	  else continue; \
 	  fi; \
 	  case $$path in \
-	  "$(srcdir)"/config/* | "$(srcdir)"/*.def ) \
+	  "$(srcdir)"/config/* | "$(srcdir)"/c-family/* | "$(srcdir)"/*.def ) \
 	    base=`echo "$$path" | sed -e "s|$$srcdirstrip/||"`;; \
 	  *) base=`basename $$path` ;; \
 	  esac; \

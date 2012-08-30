@@ -1792,7 +1792,6 @@ ifeq ($(strip $(filter-out powerpc% linux%,$(arch) $(osys))),)
   s-osinte.adb<s-osinte-posix.adb \
   s-tpopsp.adb<s-tpopsp-posix-foreign.adb \
   g-sercom.adb<g-sercom-linux.adb \
-  g-trasym.adb<g-trasym-dwarf.adb \
   $(ATOMICS_TARGET_PAIRS)
 
   ifeq ($(strip $(filter-out xenomai,$(THREAD_KIND))),)
@@ -2105,6 +2104,7 @@ ifeq ($(strip $(filter-out %x86_64 linux%,$(arch) $(osys))),)
 endif
 
 ifeq ($(strip $(filter-out darwin%,$(osys))),)
+  SO_OPTS = -Wl,-flat_namespace -shared-libgcc
   ifeq ($(strip $(filter-out %86,$(arch))),)
     LIBGNAT_TARGET_PAIRS = \
     a-intnam.ads<a-intnam-darwin.ads \
@@ -2124,6 +2124,7 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
     ifeq ($(strip $(MULTISUBDIR)),/x86_64)
       LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-x86_64.ads
+      SO_OPTS += -m64
     else
       LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-x86.ads
@@ -2150,6 +2151,7 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
     ifeq ($(strip $(MULTISUBDIR)),/i386)
       LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-x86.ads
+      SO_OPTS += -m32
     else
       LIBGNAT_TARGET_PAIRS += \
       system.ads<system-darwin-x86_64.ads
@@ -2171,8 +2173,15 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
     a-numaux.ads<a-numaux-darwin.ads \
     a-numaux.adb<a-numaux-darwin.adb \
     g-trasym.ads<g-trasym-unimplemented.ads \
-    g-trasym.adb<g-trasym-unimplemented.adb \
-    system.ads<system-darwin-ppc.ads
+    g-trasym.adb<g-trasym-unimplemented.adb
+    ifeq ($(strip $(MULTISUBDIR)),/ppc64)
+      LIBGNAT_TARGET_PAIRS += \
+        system.ads<system-darwin-ppc64.ads
+      SO_OPTS += -m64
+    else
+      LIBGNAT_TARGET_PAIRS += \
+        system.ads<system-darwin-ppc.ads
+    endif
   endif
 
   TOOLS_TARGET_PAIRS =  \
@@ -2180,8 +2189,6 @@ ifeq ($(strip $(filter-out darwin%,$(osys))),)
 
   EH_MECHANISM=-gcc
   GNATLIB_SHARED = gnatlib-shared-darwin
-  SO_OPTS = -Wl,-flat_namespace -shared-libgcc
-  RANLIB = ranlib -c
   GMEM_LIB = gmemlib
   LIBRARY_VERSION := $(LIB_VERSION)
   soext = .dylib
@@ -2439,13 +2446,44 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 	$(foreach PAIR,$(LIBGNAT_TARGET_PAIRS), \
 	          $(LN_S) $(fsrcpfx)ada/$(word 2,$(subst <, ,$(PAIR))) \
 	                $(RTSDIR)/$(word 1,$(subst <, ,$(PAIR)));)
-# Copy generated target dependent sources
-	$(RM) $(RTSDIR)/s-oscons.ads
-	(cd $(RTSDIR); $(LN_S) ../s-oscons.ads s-oscons.ads)
+# Copy tsystem.h
+	$(CP) $(srcdir)/tsystem.h $(RTSDIR)
 	$(RM) ../stamp-gnatlib-$(RTSDIR)
 	touch ../stamp-gnatlib1-$(RTSDIR)
 
 # GNULLI End #############################################################
+
+ifeq ($(strip $(filter-out alpha64 ia64 dec hp vms% openvms% alphavms%,$(subst -, ,$(host)))),)
+OSCONS_CPP=../../$(DECC) -E /comment=as_is -DNATIVE \
+             -DTARGET='""$(target)""' $(fsrcpfx)ada/s-oscons-tmplt.c
+
+OSCONS_EXTRACT=../../$(DECC) -DNATIVE \
+                 -DTARGET='""$(target)""' $(fsrcpfx)ada/s-oscons-tmplt.c ; \
+  ld -o s-oscons-tmplt.exe s-oscons-tmplt.obj; \
+  ./s-oscons-tmplt.exe > s-oscons-tmplt.s
+
+else
+# GCC_FOR_TARGET has paths relative to the gcc directory, so we need to adjust
+# for running it from $(RTSDIR)
+OSCONS_CC=`echo "$(GCC_FOR_TARGET)" \
+  | sed -e 's^\./xgcc^../../xgcc^' -e 's^-B./^-B../../^'`
+OSCONS_CPP=$(OSCONS_CC) $(GNATLIBCFLAGS) -E -C \
+  -DTARGET=\"$(target)\" $(fsrcpfx)ada/s-oscons-tmplt.c > s-oscons-tmplt.i
+OSCONS_EXTRACT=$(OSCONS_CC) -S s-oscons-tmplt.i
+endif
+
+./bldtools/oscons/xoscons: xoscons.adb xutil.ads xutil.adb
+	-$(MKDIR) ./bldtools/oscons
+	$(RM) $(addprefix ./bldtools/oscons/,$(notdir $^))
+	$(CP) $^ ./bldtools/oscons
+	(cd ./bldtools/oscons ; gnatmake -q xoscons)
+
+$(RTSDIR)/s-oscons.ads: ../stamp-gnatlib1-$(RTSDIR) s-oscons-tmplt.c gsocket.h ./bldtools/oscons/xoscons
+	$(RM) $(RTSDIR)/s-oscons-tmplt.i $(RTSDIR)/s-oscons-tmplt.s
+	(cd $(RTSDIR) ; \
+	    $(OSCONS_CPP) ; \
+	    $(OSCONS_EXTRACT) ; \
+	    ../bldtools/oscons/xoscons)
 
 # Don't use semicolon separated shell commands that involve list expansions.
 # The semicolon triggers a call to DCL on VMS and DCL can't handle command
@@ -2453,7 +2491,7 @@ install-gnatlib: ../stamp-gnatlib-$(RTSDIR)
 # Example: cd $(RTSDIR); ar rc libfoo.a $(LONG_LIST_OF_OBJS)
 # is guaranteed to overflow the buffer.
 
-gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR)
+gnatlib: ../stamp-gnatlib1-$(RTSDIR) ../stamp-gnatlib2-$(RTSDIR) $(RTSDIR)/s-oscons.ads
 	$(MAKE) -C $(RTSDIR) \
 		CC="`echo \"$(GCC_FOR_TARGET)\" \
 		| sed -e 's,\./xgcc,../../xgcc,' -e 's,-B\./,-B../../,'`" \

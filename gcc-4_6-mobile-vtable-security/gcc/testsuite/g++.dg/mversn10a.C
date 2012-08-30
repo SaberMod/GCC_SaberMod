@@ -32,6 +32,6 @@ fn2 ()
   return 0;
 }
 
-/* { dg-final { scan-tree-dump "dispatchv_clone_0" "optimized" } } */
-/* { dg-final { scan-tree-dump "dispatchv_clone_1" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatchv\.clone\.0" "optimized" } } */
+/* { dg-final { scan-tree-dump "dispatchv\.clone\.1" "optimized" } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

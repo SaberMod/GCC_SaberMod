@@ -25,10 +25,34 @@ along with GCC; see the file COPYING3.  If not see
    be zero.  */
 extern unsigned primary_module_id;
 
+extern int primary_module_exported;
+
 /* The macro to test if the compilation is in light weight IPO mode.
    In this mode, the source module being compiled will be compiled
    together with 0 or more auxiliary modules.  */
-#define L_IPO_COMP_MODE (primary_module_id != 0)
+#define L_IPO_COMP_MODE (((primary_module_id != 0) && !flag_ripa_stream))
+
+#define L_IPO_STREAM_COMP_MODE (((current_module_id != 0 \
+                                 || primary_module_id !=0) \
+                                 && flag_ripa_stream))
+
+/* To test if the compilation is in building the auxiliary
+   module and is before LTO.  */
+#define L_IPO_STREAM_FE_COMP_MODE_AUX (((flag_ripa_aux_mod_id != 0) \
+                                        && flag_ripa_stream))
+
+/* To test if the compilation is in building the auxiliary
+   module and is before LTO.  */
+#define L_IPO_STREAM_FE_COMP_MODE_PRIM (((primary_module_id != 0) \
+                                         && flag_ripa_stream && !in_lto_p))
+/* To test if the compilation is in building the primary/auxiliary
+   module and is before LTO.  */
+#define L_IPO_STREAM_FE_COMP_MODE ((!in_lto_p && (current_module_id != 0) \
+                                    && flag_ripa_stream))
+
+/* To test if the compilation is in and after lto in ripa mode.  */
+#define L_IPO_STREAM_IN_LTO_P ((in_lto_p && (primary_module_id != 0)\
+                                && flag_ripa_stream))
 
 /* The macro to test if the current module being parsed is the
    primary source module.  */

@@ -1207,6 +1207,17 @@ input_function (tree fn_decl, struct data_in *data_in,
   fn->va_list_fpr_size = bp_unpack_value (&bp, 8);
   fn->va_list_gpr_size = bp_unpack_value (&bp, 8);
 
+  /* Input the module id.  */
+  if (flag_ripa_stream)
+    {
+      int f_no;
+
+      fn->module_id = lto_input_uleb128 (ib);
+      f_no = fn->funcdef_no = lto_input_uleb128 (ib);
+      if (f_no >= get_last_funcdef_no ())
+        set_funcdef_no (f_no + 1);
+    }
+
   /* Input the function start and end loci.  */
   fn->function_start_locus = lto_input_location (ib, data_in);
   fn->function_end_locus = lto_input_location (ib, data_in);
@@ -1366,9 +1377,9 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
 {
   const struct lto_function_header *header;
   struct data_in *data_in;
-  int32_t cfg_offset;
-  int32_t main_offset;
-  int32_t string_offset;
+  int cfg_offset;
+  int main_offset;
+  int string_offset;
   struct lto_input_block ib_cfg;
   struct lto_input_block ib_main;
 
@@ -1430,6 +1441,64 @@ lto_read_body (struct lto_file_decl_data *file_data, tree fn_decl,
   lto_data_in_delete (data_in);
 }
 
+/* Read ripa module info.  */
+
+static void
+check_and_set_ripa_module_info (struct lto_input_block *ib)
+{
+  unsigned char module_type;
+  unsigned module_id;
+
+  module_type = lto_input_1_unsigned (ib);
+  module_id = lto_input_uleb128 (ib);
+
+  switch (module_type)
+    {
+      case 3:
+        primary_module_exported = 1;
+        /* fall through */
+      case 1:
+        primary_module_id = module_id;
+        /* fall through */
+      case 0:
+        break;
+      default:
+        gcc_assert (0);
+    }
+}
+
+void
+input_ripa_info (struct lto_file_decl_data *file_data)
+{
+  size_t len;
+  const char *data;
+  const struct lto_simple_header *header;
+  int offset;
+  struct lto_input_block ib; 
+
+  gcc_assert (file_data);
+  data = lto_get_section_data (file_data, LTO_section_ripa_info, NULL, &len);
+  if (!data)
+    {
+      inform (UNKNOWN_LOCATION,
+              "In file %s: NO ripa_info section while in ripa mode",
+              file_data->file_name);
+      return;
+    }
+
+  header = (const struct lto_simple_header *) data;
+  offset = sizeof (*header);
+
+  lto_check_version (header->lto_header.major_version,
+                     header->lto_header.minor_version);
+
+  LTO_INIT_INPUT_BLOCK (ib, data + offset, 0, header->main_size);
+  check_and_set_ripa_module_info (&ib);
+
+  gcc_assert ((header->main_size + offset) == (int) len);
+
+  lto_free_section_data (file_data, LTO_section_ripa_info, 0, data, len);
+}
 
 /* Read the body of FN_DECL using DATA.  FILE_DATA holds the global
    decls and types.  */
@@ -2415,17 +2484,24 @@ lto_register_var_decl_in_symtab (struct data_in *data_in, tree decl)
       && !((context = decl_function_context (decl))
 	   && auto_var_in_fn_p (decl, context)))
     {
-      /* ??? We normally pre-mangle names before we serialize them
-	 out.  Here, in lto1, we do not know the language, and
-	 thus cannot do the mangling again. Instead, we just
-	 append a suffix to the mangled name.  The resulting name,
-	 however, is not a properly-formed mangled name, and will
-	 confuse any attempt to unmangle it.  */
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-      char *label;
+      /* This scheme does not work well with inlined assembly.
+         Disable it in streaming lipo.  */
+      if (!(in_lto_p && flag_ripa_stream))
+        {
+          /* ??? We normally pre-mangle names before we serialize them
+             out.  Here, in lto1, we do not know the language, and
+             thus cannot do the mangling again. Instead, we just
+             append a suffix to the mangled name.  The resulting name,
+             however, is not a properly-formed mangled name, and will
+             confuse any attempt to unmangle it.  */
 
-      ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
-      SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+          const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+          char *label;
+
+          ASM_FORMAT_PRIVATE_NAME (label, name, DECL_UID (decl));
+          SET_DECL_ASSEMBLER_NAME (decl, get_identifier (label));
+        }
+
       rest_of_decl_compilation (decl, 1, 0);
 
       VEC_safe_push (tree, gc, lto_global_var_decls, decl);
@@ -2597,6 +2673,7 @@ lto_get_builtin_tree (struct lto_input_block *ib, struct data_in *data_in)
   return result;
 }
 
+extern bool lto_done_symtab_merge;
 
 /* Read the physical representation of a tree node with tag TAG from
    input block IB using the per-file context in DATA_IN.  */
@@ -2606,6 +2683,7 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
 	       enum LTO_tags tag)
 {
   tree result;
+  tree prevailing_result = 0;
   int ix;
 
   result = lto_materialize_tree (ib, data_in, tag, &ix);
@@ -2618,7 +2696,22 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
     gcc_assert (!lto_stream_as_builtin_p (result));
 
   if (TREE_CODE (result) == VAR_DECL)
-    lto_register_var_decl_in_symtab (data_in, result);
+    {
+      /* This can be called in two places: (1) reading decls, (2)
+         reading initialization sections.
+         We regiter the symbol:
+         (1) before type merge.
+         (2) after type merge, but no prevailing decl.
+         Otherwise, we return the prevailing decl.  */
+      if (!lto_done_symtab_merge)
+        lto_register_var_decl_in_symtab (data_in, result);
+      else
+        {
+          prevailing_result = lto_symtab_prevailing_decl (result);
+          if (!prevailing_result)
+            lto_register_var_decl_in_symtab (data_in, result);
+        }
+    }
   else if (TREE_CODE (result) == FUNCTION_DECL && !DECL_BUILT_IN (result))
     lto_register_function_decl_in_symtab (data_in, result);
 
@@ -2629,6 +2722,9 @@ lto_read_tree (struct lto_input_block *ib, struct data_in *data_in,
      lto_materialize_tree.  */
   lto_orig_address_remove (result);
 #endif
+
+  if (prevailing_result)
+    return prevailing_result;
 
   return result;
 }

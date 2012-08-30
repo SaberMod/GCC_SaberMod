@@ -370,45 +370,40 @@ proc check_alias_available { } {
     return $alias_available_saved
 }
 
-###############################
-# proc check_ifunc_available { }
-###############################
-
-# Determine if the target toolchain supports the ifunc attribute.
-
-# Returns 1 if the target supports ifunc.  Returns 0 if the target
-# does not support ifunc.
+# Returns 1 if the target toolchain supports ifunc, 0 otherwise.
 
 proc check_ifunc_available { } {
-    global ifunc_available_saved
-    global tool
+    return [check_no_compiler_messages ifunc_available object {
+	#ifdef __cplusplus
+	extern "C"
+	#endif
+	void g() {}
+	void f() __attribute__((ifunc("g")));
+    }]
+}
 
-    if [info exists ifunc_available_saved] {
-        verbose "check_ifunc_available  returning saved $ifunc_available_saved" 2
-    } else {
-	set src ifunc[pid].c
-	set obj ifunc[pid].o
-        verbose "check_ifunc_available  compiling testfile $src" 2
-	set f [open $src "w"]
-	puts $f "#endif"
-	puts $f "#ifdef __cplusplus\nextern \"C\"\n#endif"
-	puts $f "void g() {}"
-	puts $f "void f() __attribute__((ifunc(\"g\")));"
-	close $f
-	set lines [${tool}_target_compile $src $obj object ""]
-	file delete $src
-	remote_file build delete $obj
+# Returns true if tool chain supports "e" section attribute.
 
-	if [string match "" $lines] then {
-	    set ifunc_available_saved 1
-	} else {
-	    set ifunc_available_saved 0
-	}
+proc check_section_exclude_available { } {
+    return [check_runtime_nocache section_exclude_available {
+		asm(".section \".gnu.callgraph.text.main\", \"e\"");
+		int main()
+		{
+		  return 0;
+		}
+  }]
+}
 
-	verbose "check_ifunc_available  returning $ifunc_available_saved" 2
-    }
+# If this target uses a linker that supports plugins and can load
+# the function reordering linker plugin.
 
-    return $ifunc_available_saved
+proc check_linker_function_reordering_plugin_supported {} {
+    return [check_runtime_nocache function_reordering_plugin_supported {
+		int main()
+		{
+		  return 0;
+		}    
+  } "-freorder-functions=callgraph"]
 }
 
 # Returns true if --gc-sections is supported on the target.
@@ -465,7 +460,7 @@ proc check_effective_target_trampolines { } {
     }
     if { [istarget avr-*-*]
 	 || [istarget hppa2.0w-hp-hpux11.23]
-	|| [istarget hppa64-hp-hpux11.23] } {
+	 || [istarget hppa64-hp-hpux11.23] } {
 	return 0;   
     }
     return 1
@@ -1054,12 +1049,35 @@ proc check_sse_os_support_available { } {
 	    check_runtime_nocache sse_os_support_available {
 		int main ()
 		{
-		    __asm__ volatile ("movss %xmm2,%xmm1");
-		    return 0;
+		  asm volatile ("movss %xmm2,%xmm1");
+		  return 0;
 		}
 	    } "-msse"
 	} else {
 	    expr 1
+	}
+    }]
+}
+
+# Return 1 if the target OS supports running AVX executables, 0
+# otherwise.  Cache the result.
+
+proc check_avx_os_support_available { } {
+    return [check_cached_effective_target avx_os_support_available {
+	# If this is not the right target then we can skip the test.
+	if { !([istarget x86_64-*-*] || [istarget i?86-*-*]) } {
+	    expr 0
+	} else {
+	    # Check that OS has AVX and SSE saving enabled.
+	    check_runtime_nocache avx_os_support_available {
+		int main ()
+		{
+		  unsigned int eax, edx;
+
+		  asm ("xgetbv" : "=a" (eax), "=d" (edx) : "c" (0));
+		  return (eax & 6) != 6;
+		}
+	    } ""
 	}
     }]
 }
@@ -1160,7 +1178,8 @@ proc check_effective_target_sse2_runtime { } {
 
 proc check_effective_target_avx_runtime { } {
     if { [check_effective_target_avx]
-	 && [check_avx_hw_available] } {
+	 && [check_avx_hw_available]
+	 && [check_avx_os_support_available] } {
 	return 1
     }
     return 0
@@ -3055,7 +3074,8 @@ proc check_effective_target_vect_condition { } {
 	     || [istarget ia64-*-*]
 	     || [istarget i?86-*-*]
 	     || [istarget spu-*-*]
-	     || [istarget x86_64-*-*] } {
+	     || [istarget x86_64-*-*]
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon_ok]) } {
 	   set et_vect_cond_saved 1
 	}
     }

@@ -133,6 +133,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Val _M_value_field;
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Rb_tree_node()
+      : _Rb_tree_node_base(),
+        _M_value_field() { }
+
       template<typename... _Args>
         _Rb_tree_node(_Args&&... __args)
 	: _Rb_tree_node_base(),
@@ -799,6 +805,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	++__result;
 	_M_erase_aux(__position);
 	return __result._M_const_cast();
+      }
+
+      // LWG 2059.
+      iterator
+      erase(iterator __position)
+      {
+	iterator __result = __position;
+	++__result;
+	_M_erase_aux(__position);
+	return __result;
       }
 #else
       void

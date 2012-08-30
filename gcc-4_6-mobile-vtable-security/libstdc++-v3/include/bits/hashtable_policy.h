@@ -76,6 +76,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::size_t  _M_hash_code;
       _Hash_node*  _M_next;
 
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Hash_node()
+      : _M_v(),
+        _M_hash_code(), _M_next() { }
+
       template<typename... _Args>
 	_Hash_node(_Args&&... __args)
 	: _M_v(std::forward<_Args>(__args)...),
@@ -87,6 +93,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       _Value       _M_v;
       _Hash_node*  _M_next;
+
+      // Work around PR52796 by avoiding 0-length parameter packs
+      // passed to constructors.
+      _Hash_node()
+      : _M_v(),
+        _M_next() { }
 
       template<typename... _Args>
 	_Hash_node(_Args&&... __args)
@@ -887,7 +899,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (auto __itx = __this->begin(); __itx != __this->end(); ++__itx)
 	{
 	  const auto __ity = __other.find(_ExtractKey()(*__itx));
-	  if (__ity == __other.end() || *__ity != *__itx)
+	  if (__ity == __other.end() || !bool(*__ity == *__itx))
 	    return false;
 	}
       return true;
@@ -925,7 +937,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	for (_Uiterator __it1 = __first1; __it1 != __last1; ++__it1)
 	  {
 	    _Uiterator __tmp =  __first1;
-	    while (__tmp != __it1 && !(*__tmp == *__it1))
+	    while (__tmp != __it1 && !bool(*__tmp == *__it1))
 	      ++__tmp;
 
 	    // We've seen this one before.

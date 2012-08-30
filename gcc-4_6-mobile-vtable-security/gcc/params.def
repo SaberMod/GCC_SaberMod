@@ -340,6 +340,21 @@ DEFPARAM(PARAM_MAX_UNROLL_ITERATIONS,
 	 "max-completely-peel-loop-nest-depth",
 	 "The maximum depth of a loop nest we completely peel",
 	 8, 0, 0)
+/* The minimum profile count of basic blocks to look at when estimating
+ * the code size footprint of the call graph in a dynamic IPA compile. */
+DEFPARAM(PARAM_CODESIZE_HOTNESS_THRESHOLD,
+	"codesize-hotness-threshold",
+	"Minimum profile count of basic blocks counted towards dynamic IPA "
+	"code size footprint estimate",
+	10000, 0, 0)
+/* The maximum code size estimate under which loop unrolling and peeling
+ * is allowed in a dynamic IPA compile. This currently applies to loops with
+ * non-constant iteration counts and no floating point computations. */
+DEFPARAM(PARAM_UNROLLPEEL_CODESIZE_THRESHOLD,
+	"unrollpeel-codesize-threshold",
+	"Maximum dynamic IPA code size footprint estimate for loop unrolling "
+	"and peeling",
+	10000, 0, 0)
 
 /* The maximum number of insns of an unswitched loop.  */
 DEFPARAM(PARAM_MAX_UNSWITCH_INSNS,
@@ -382,7 +397,7 @@ DEFPARAM(PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD,
 DEFPARAM(HOT_BB_COUNT_FRACTION,
 	 "hot-bb-count-fraction",
 	 "Select fraction of the maximal count of repetitions of basic block in program given basic block needs to have to be considered hot",
-	 10000, 0, 0)
+	 40000, 0, 0)
 DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
 	 "hot-bb-frequency-fraction",
 	 "Select fraction of the maximal frequency of executions of basic block in function given basic block needs to have to be considered hot",
@@ -1009,18 +1024,32 @@ DEFPARAM (PARAM_MVERSN_CLONE_CGRAPH_DEPTH,
           "while doing multiversioning",
 	  2, 0, 5)
 
-/* Only output those call graph edges in .note.callgraph.text sections
+/* Only output those call graph edges in .gnu.callgraph.text sections
    whose count is greater than this value. */
 DEFPARAM (PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD,
 	  "note-cgraph-section-edge-threshold",
 	  "minimum call graph edge count for inclusion in "
-          ".note.callgraph.text section",
+          ".gnu.callgraph.text section",
 	  0, 0, 0)
 
 DEFPARAM (PARAM_PMU_PROFILE_N_ADDRESS,
 	  "pmu_profile_n_addresses",
 	  "While doing PMU profiling symbolize this many top addresses.",
 	  50, 1, 10000)
+
+DEFPARAM (PARAM_MAX_FUNCTION_SIZE_FOR_AUTO_CLONING,
+	  "autoclone-function-size-limit",
+	  "Do not auto clone functions beyond this size.",
+	  5000, 0, 100000)
+
+/* Parameters to be used with -mpatch-functions-for-instrumentation.
+   See config/i386/i386.opt  */
+DEFPARAM (PARAM_FUNCTION_PATCH_MIN_INSTRUCTIONS,
+          "function-patch-min-instructions",
+          "Minimum number of instructions in the function without loop before "
+          "the function is qualified for patching for instrumentation (for use "
+          "with -mpatch-functions-for-instrumentation)",
+          200, 0, 0)
 
 /*
 Local variables:

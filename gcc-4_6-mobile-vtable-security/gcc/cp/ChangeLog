@@ -1,7 +1,340 @@
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/52247
+	* pt.c (tsubst_copy_asm_operands): For LABEL_DECL values call
+	lookup_label on label's name and set TREE_USED.
+
+	PR c/52181
+	* decl.c (duplicate_decls): If olddecl has bigger DECL_ALIGN than
+	newdecl, copy DECL_ALIGN to newdecl and or DECL_USER_ALIGN bits.
+
+2012-02-09  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/51669
+	* semantics.c (finish_omp_clauses): Call fold_build_cleanup_point_expr
+	on OMP_CLAUSE_{IF,NUM_THREADS,SCHEDULE_CHUNK}_EXPR.
+
+	2011-12-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/51360
+	* semantics.c (finish_omp_clauses): For OMP_CLAUSE_NUM_THREADS_EXPR
+	and OMP_CLAUSE_SCHEDULE_CHUNK_EXPR call mark_rvalue_use.
+
+2012-01-19  Kai Tietz  <ktietz@redhat.com>
+
+	PR c++/51344
+	* decl2.c (save_template_attributes): Use merge_attributes
+	instead of chaining up via TREE_CHAIN.
+
+2012-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/51854
+	* mangle.c (write_template_arg_literal): Sorry instead of aborting.
+
+2012-01-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51868
+	* typeck.c (build_static_cast_1): Handle bit-fields properly.
+
+2011-12-20  Dodji Seketeli  <dodji@redhat.com>
+
+	PR debug/49951
+	* decl.c (cxx_maybe_build_cleanup): Don't set location of the call
+	to the destructor.
+
+2011-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51416
+	* init.c (build_value_init_noctor): Check for incomplete type.
+
+2011-12-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51331
+	* class.c (convert_to_base_statically): Just call
+	build_simple_base_path.
+	(build_simple_base_path): Check field offset.
+
+2011-12-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51248
+	* decl.c (copy_type_enum): Also update variants.
+	(finish_enum): Allow variants of complete enums.
+
+2011-12-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/51406
+	PR c++/51161
+	* typeck.c (build_static_cast_1): Fix cast of lvalue to
+	base rvalue reference.
+
+2011-11-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51265
+	* semantics.c (finish_decltype_type): Handle PTRMEM_CST.
+
+2011-11-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51150
+	* pt.c (tsubst_copy_and_build): Handle FIX_TRUNC_EXPR.
+
+2011-11-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50870
+	* pt.c (tsubst_copy): Handle NAMESPACE_DECL.
+	(tsubst_copy_and_build) [COMPONENT_REF]: Handle a still-dependent
+	object.
+
+2011-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c++/50608
+	* semantics.c (finish_offsetof): Adjust call to fold_offsetof.
+	* typeck.c (cp_build_addr_expr_1): Call fold_offsetof_1.
+
+2011-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50901
+	* call.c (build_new_op_1): Handle ABS_EXPR together with the
+	other unary EXPR.
+
+2011-10-26  Release Manager
+
+	* GCC 4.6.2 released.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50793
+	* tree.c (bot_manip): Propagate AGGR_INIT_ZERO_FIRST.
+
+2011-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50787
+	* parser.c (cp_parser_initializer_clause): Don't call
+	maybe_constant_value here.
+
+2011-10-18  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50531
+	* pt.c (instantiate_decl): Recognize when a function defaulted
+	outside the class is already instantiated.
+
+2011-10-15  Nicola Pero  <nicola.pero@meta-innovation.com>
+
+	Backport from mainline
+	2011-06-06  Nicola Pero  <nicola.pero@meta-innovation.com>,
+
+	PR obj-c++/48275
+	* parser.c (cp_parser_objc_at_property_declaration): Allow setter
+	and getter names to use all the allowed method names.
+
+2011-10-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50618
+	* init.c (expand_aggr_init_1): Don't zero-initialize virtual
+	bases of a base subobject.
+
+2011-10-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49216
+	* init.c (build_vec_init): Avoid crash on new int[1]{}.
+
+2011-10-11  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR c++/44473
+	* mangle.c (write_type): Handle CV qualifiers for decimal classes.
+
+2011-10-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50611
+	* pt.c (tsubst_copy_and_build): If (complain & tf_error) is false
+	do not call unqualified_name_lookup_error.
+
+2011-10-09  Jakub Jelinek  <jakub@redhat.com>
+	    Diego Novillo  <dnovillo@google.com>
+
+	* pt.c (reregister_specialization): Use htab_find instead of
+	htab_find_slot with INSERT.
+
+2011-09-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/46105
+	* typeck.c (structural_comptypes): Ignore cv-quals on typename scope.
+
+	PR c++/50508
+	* semantics.c (cxx_eval_logical_expression): Use tree_int_cst_equal
+	rather than ==.
+
+2011-09-23  Jason Merrill  <jason@redhat.com>
+
+	Core 253 - allow const objects with no initializer or
+	user-provided default constructor if the defaulted constructor
+	initializes all the subobjects.
+	PR c++/20039
+	PR c++/42844
+	* class.c (default_init_uninitialized_part): New.
+	* cp-tree.h: Declare it.
+	* decl.c (check_for_uninitialized_const_var): Use it.
+	* init.c (perform_member_init): Likewise.
+	(build_new_1): Likewise.
+	* method.c (walk_field_subobs): Likewise.
+
+2011-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50491
+	* semantics.c (potential_constant_expression_1): Handle USING_DECL.
+
+2011-09-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50442
+	Revert:
+	PR c++/49267
+	* call.c (compare_ics): rvaluedness_matches_p can differ
+	based on the source type, not just target.
+
+2011-09-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50424
+	* tree.c (bot_manip): Set cp_function_chain->can_throw.
+
+2011-09-13  Dodji Seketeli  <dodji@redhat.com>
+
+	PR c++/48320
+	* pt.c (template_parameter_pack_p):  Support TEMPLATE_PARM_INDEX
+	nodes.  Add a comment.
+	(arg_from_parm_pack_p): New static function, factorized out from
+	tsubst_pack_expansion and extended to support non-type parameter
+	packs represented with TEMPLATE_PARM_INDEX nodes.
+	(tsubst_pack_expansion): Use arg_from_parm_pack_p.
+
+2011-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/50255
+	* method.c (use_thunk): If emitting thunk into the same section
+	as function, use the same DECL_COMDAT_GROUP as well.
+
+2011-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/50309
+	* decl.c (grokdeclarator): Check u.function.exception_specification
+	for error_mark_node.
+
+2011-09-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49267
+	* call.c (compare_ics): rvaluedness_matches_p can differ
+	based on the source type, not just target.
+
+2011-08-29  Jakub Jelinek  <jakub@redhat.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/50207
+	* class.c (finish_struct_1): Complain if the first field is
+	artificial.
+
+2011-08-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50089
+	* semantics.c (finish_id_expression): Use
+	current_nonlambda_class_type for qualified-ids.
+
+	PR c++/50220
+	* semantics.c (add_capture): Call complete_type for copy.
+
+	PR c++/50234
+	* semantics.c (cxx_eval_component_reference): Handle
+	value-initialization for omitted initializers.
+
+2011-08-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50224
+	* semantics.c (finish_id_expression): Mark captured variables used.
+
+2011-08-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50157
+	* call.c (convert_like_real): Exit early if bad and !tf_error.
+
+2011-08-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50024
+	* semantics.c (maybe_constant_value): Don't try to fold { }.
+	* pt.c (build_non_dependent_expr): Don't wrap { }.
+	* init.c (build_value_init): Allow scalar value-init in templates.
+
+2011-08-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/46862
+	* class.c (finish_struct_1): If TYPE_TRANSPARENT_AGGR is set on a type
+	which doesn't have any fields, clear it and diagnose.
+
+2011-08-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/50086
+	* pt.c (unify_pack_expansion): Correct overloaded unification
+	logic.
+
+	PR c++/50054
+	* typeck2.c (cxx_incomplete_type_diagnostic): Handle
+	init_list_type_node.
+
+2011-08-12  David Li  <davidxl@google.com>
+
+	* class.c (update_vtable_entry_for_fn): Set
+	LOST_PRIMARY bit properly.
+
+2011-08-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/48993
+	* semantics.c (potential_constant_expression_1) [CALL_EXPR]: Sorry
+	on 'this' in a constructor.
+
+	PR c++/49921
+	* semantics.c (finish_decltype_type): Call invalid_nonstatic_memfn_p.
+
+	PR c++/49669
+	* init.c (perform_member_init): Handle invalid array initializer.
+
+	PR c++/49988
+	* semantics.c (cxx_eval_array_reference): Handle failure to
+	reduce the array operand to something we can work with.
+
+2011-08-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/43886
+	* parser.c (cp_parser_lambda_body): Clear local_variables_forbidden_p.
+
+	PR c++/49593
+	* pt.c (find_parameter_packs_r): Handle CONSTRUCTOR.
+
+	PR c++/49803
+	* init.c (sort_mem_initializers): Initialize uses_unions_p here.
+	(build_field_list): Not here.
+
+	PR c++/49924
+	* semantics.c (cxx_eval_vec_init_1): Fix logic.
+
+	PR c++/49260
+	* call.c (build_call_a): Set cp_function_chain->can_throw here.
+	(build_cxx_call): Not here.
+
 2011-07-27  Jeffrey Yasskin  <jyasskin@google.com>
 
 	* pt.c (build_template_decl): Copy the function_decl's
 	source location to the new template_decl.
+
+2011-07-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/49785
+	* pt.c (coerce_template_parms): Handle non-pack after pack.
 
 2011-07-11  Jason Merrill  <jason@redhat.com>
 

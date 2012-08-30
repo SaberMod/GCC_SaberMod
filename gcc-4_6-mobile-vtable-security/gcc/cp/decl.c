@@ -2156,7 +2156,12 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       SET_DECL_INIT_PRIORITY (olddecl, DECL_INIT_PRIORITY (newdecl));
       DECL_HAS_INIT_PRIORITY_P (olddecl) = 1;
     }
-  /* Likewise for DECL_USER_ALIGN and DECL_PACKED.  */
+  /* Likewise for DECL_ALIGN, DECL_USER_ALIGN and DECL_PACKED.  */
+  if (DECL_ALIGN (olddecl) > DECL_ALIGN (newdecl))
+    {
+      DECL_ALIGN (newdecl) = DECL_ALIGN (olddecl);
+      DECL_USER_ALIGN (newdecl) |= DECL_USER_ALIGN (olddecl);
+    }
   DECL_USER_ALIGN (olddecl) = DECL_USER_ALIGN (newdecl);
   if (TREE_CODE (newdecl) == FIELD_DECL)
     DECL_PACKED (olddecl) = DECL_PACKED (newdecl);
@@ -3519,6 +3524,7 @@ cxx_init_decl_processing (void)
 {
   tree void_ftype;
   tree void_ftype_ptr;
+  tree void_ftype_ptr_sizetype;
 
   build_common_tree_nodes (flag_signed_char);
 
@@ -3584,8 +3590,14 @@ cxx_init_decl_processing (void)
   void_ftype = build_function_type_list (void_type_node, NULL_TREE);
   void_ftype_ptr = build_function_type_list (void_type_node,
 					     ptr_type_node, NULL_TREE);
+  void_ftype_ptr_sizetype = build_function_type_list (void_type_node,
+                                                      ptr_type_node,
+                                                      size_type_node,
+                                                      NULL_TREE);
   void_ftype_ptr
     = build_exception_variant (void_ftype_ptr, empty_except_spec);
+  void_ftype_ptr_sizetype
+    = build_exception_variant (void_ftype_ptr_sizetype, empty_except_spec);
 
   /* C++ extensions */
 
@@ -3635,7 +3647,7 @@ cxx_init_decl_processing (void)
   current_lang_name = lang_name_cplusplus;
 
   {
-    tree newtype, deltype;
+    tree newtype, deltype, deltype2;
     tree ptr_ftype_sizetype;
     tree new_eh_spec;
 
@@ -3664,8 +3676,10 @@ cxx_init_decl_processing (void)
 
     newtype = build_exception_variant (ptr_ftype_sizetype, new_eh_spec);
     deltype = build_exception_variant (void_ftype_ptr, empty_except_spec);
+    deltype2 = build_exception_variant (void_ftype_ptr_sizetype, empty_except_spec);
     push_cp_library_fn (NEW_EXPR, newtype);
     push_cp_library_fn (VEC_NEW_EXPR, newtype);
+    push_cp_library_fn (DELETE_EXPR, deltype2);
     global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype);
     push_cp_library_fn (VEC_DELETE_EXPR, deltype);
 
@@ -4877,15 +4891,16 @@ check_for_uninitialized_const_var (tree decl)
   if (TREE_CODE (decl) == VAR_DECL
       && TREE_CODE (type) != REFERENCE_TYPE
       && CP_TYPE_CONST_P (type)
-      && (!TYPE_NEEDS_CONSTRUCTING (type)
-	  || !type_has_user_provided_default_constructor (type))
       && !DECL_INITIAL (decl))
     {
+      tree field = default_init_uninitialized_part (type);
+      if (!field)
+	return;
+
       permerror (DECL_SOURCE_LOCATION (decl),
 		 "uninitialized const %qD", decl);
 
-      if (CLASS_TYPE_P (type)
-	  && !type_has_user_provided_default_constructor (type))
+      if (CLASS_TYPE_P (type))
 	{
 	  tree defaulted_ctor;
 
@@ -4896,6 +4911,8 @@ check_for_uninitialized_const_var (tree decl)
 	    inform (DECL_SOURCE_LOCATION (defaulted_ctor),
 		    "constructor is not user-provided because it is "
 		    "explicitly defaulted in the class body");
+	  inform (0, "and the implicitly-defined constructor does not "
+		  "initialize %q+#D", field);
 	}
     }
 }
@@ -7505,8 +7522,18 @@ check_static_variable_definition (tree decl, tree type)
   else if (cxx_dialect >= cxx0x && !INTEGRAL_OR_ENUMERATION_TYPE_P (type))
     {
       if (literal_type_p (type))
-	error ("%<constexpr%> needed for in-class initialization of static "
-	       "data member %q#D of non-integral type", decl);
+        {
+          /* FIXME google: This local modification allows us to
+             transition from C++98 to C++11 without moving static
+             const floats out of the class during the transition.  It
+             should not be forward-ported to a 4.7 branch, since by
+             then we should be able to just fix the code to use
+             constexpr.  */
+          pedwarn (input_location, OPT_pedantic,
+                   "%<constexpr%> needed for in-class initialization of "
+                   "static data member %q#D of non-integral type", decl);
+          return 0;
+        }
       else
 	error ("in-class initialization of static data member %q#D of "
 	       "non-literal type", decl);
@@ -8796,6 +8823,10 @@ grokdeclarator (const cp_declarator *declarator,
 
 	    /* Pick up the exception specifications.  */
 	    raises = declarator->u.function.exception_specification;
+	    /* If the exception-specification is ill-formed, let's pretend
+	       there wasn't one.  */
+	    if (raises == error_mark_node)
+	      raises = NULL_TREE;
 
 	    /* Say it's a definition only for the CALL_EXPR
 	       closest to the identifier.  */
@@ -11354,9 +11385,10 @@ xref_tag (enum tag_types tag_code, tree name,
           tag_scope scope, bool template_header_p)
 {
   tree ret;
-  timevar_start (TV_NAME_LOOKUP);
+  bool subtime;
+  subtime = timevar_cond_start (TV_NAME_LOOKUP);
   ret = xref_tag_1 (tag_code, name, scope, template_header_p);
-  timevar_stop (TV_NAME_LOOKUP);
+  timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return ret;
 }
 
@@ -11592,15 +11624,19 @@ xref_basetypes (tree ref, tree base_list)
 static void
 copy_type_enum (tree dst, tree src)
 {
-  TYPE_MIN_VALUE (dst) = TYPE_MIN_VALUE (src);
-  TYPE_MAX_VALUE (dst) = TYPE_MAX_VALUE (src);
-  TYPE_SIZE (dst) = TYPE_SIZE (src);
-  TYPE_SIZE_UNIT (dst) = TYPE_SIZE_UNIT (src);
-  SET_TYPE_MODE (dst, TYPE_MODE (src));
-  TYPE_PRECISION (dst) = TYPE_PRECISION (src);
-  TYPE_ALIGN (dst) = TYPE_ALIGN (src);
-  TYPE_USER_ALIGN (dst) = TYPE_USER_ALIGN (src);
-  TYPE_UNSIGNED (dst) = TYPE_UNSIGNED (src);
+  tree t;
+  for (t = dst; t; t = TYPE_NEXT_VARIANT (t))
+    {
+      TYPE_MIN_VALUE (t) = TYPE_MIN_VALUE (src);
+      TYPE_MAX_VALUE (t) = TYPE_MAX_VALUE (src);
+      TYPE_SIZE (t) = TYPE_SIZE (src);
+      TYPE_SIZE_UNIT (t) = TYPE_SIZE_UNIT (src);
+      SET_TYPE_MODE (dst, TYPE_MODE (src));
+      TYPE_PRECISION (t) = TYPE_PRECISION (src);
+      TYPE_ALIGN (t) = TYPE_ALIGN (src);
+      TYPE_USER_ALIGN (t) = TYPE_USER_ALIGN (src);
+      TYPE_UNSIGNED (t) = TYPE_UNSIGNED (src);
+    }
 }
 
 /* Begin compiling the definition of an enumeration type.
@@ -11955,9 +11991,12 @@ finish_enum (tree enumtype)
       return;
     }
 
-  /* Here there should not be any variants of this type.  */
+  /* If this is a forward declaration, there should not be any variants,
+     though we can get a variant in the middle of an enum-specifier with
+     wacky code like 'enum E { e = sizeof(const E*) };'  */
   gcc_assert (enumtype == TYPE_MAIN_VARIANT (enumtype)
-	      && !TYPE_NEXT_VARIANT (enumtype));
+	      && (TYPE_VALUES (enumtype)
+		  || !TYPE_NEXT_VARIANT (enumtype)));
 }
 
 /* Build and install a CONST_DECL for an enumeration constant of the
@@ -13408,8 +13447,17 @@ cxx_maybe_build_cleanup (tree decl)
 	cleanup = call;
     }
 
+  /* build_delete sets the location of the destructor call to the
+     current location, even though the destructor is going to be
+     called later, at the end of the current scope.  This can lead to
+     a "jumpy" behaviour for users of debuggers when they step around
+     the end of the block.  So let's unset the location of the
+     destructor call instead.  */
+  if (cleanup != NULL && EXPR_P (cleanup))
+    SET_EXPR_LOCATION (cleanup, UNKNOWN_LOCATION);
   return cleanup;
 }
+
 
 /* When a stmt has been parsed, this function is called.  */
 

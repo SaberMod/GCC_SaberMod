@@ -75,3 +75,27 @@ void foo3()
   (new FooDerived)->doSomething();
 }
 
+class FooNodef;
+
+// test case for cast from undefined type
+void foo4(FooNodef *f) {
+  ((Foo*) f)->doSomething();
+}
+
+
+// Regression test for canonicalization of subexpressions that refer to
+// lockable objects.
+class LOCKABLE Base {
+public:
+  Mutex mu_;
+  virtual void baseMethod() SHARED_LOCKS_REQUIRED(mu_) = 0;
+};
+
+class Derived : public Base {
+public:
+  void foo() SHARED_LOCKS_REQUIRED(mu_);
+};
+
+void Derived::foo() {
+  baseMethod();
+}

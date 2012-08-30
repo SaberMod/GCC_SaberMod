@@ -140,7 +140,9 @@ initialize_vtbl_ptrs (tree addr)
    zero-initialization does not simply mean filling the storage with
    zero bytes.  FIELD_SIZE, if non-NULL, is the bit size of the field,
    subfields with bit positions at or above that bit size shouldn't
-   be added.  */
+   be added.  Note that this only works when the result is assigned
+   to a base COMPONENT_REF; if we only have a pointer to the base subobject,
+   expand_assignment will end up clearing the full size of TYPE.  */
 
 static tree
 build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
@@ -331,7 +333,7 @@ build_value_init (tree type, tsubst_flags_t complain)
      constructor.  */
 
   /* The AGGR_INIT_EXPR tweaking below breaks in templates.  */
-  gcc_assert (!processing_template_decl);
+  gcc_assert (!processing_template_decl || SCALAR_TYPE_P (type));
 
   if (CLASS_TYPE_P (type))
     {
@@ -367,6 +369,12 @@ build_value_init (tree type, tsubst_flags_t complain)
 tree
 build_value_init_noctor (tree type, tsubst_flags_t complain)
 {
+  if (!COMPLETE_TYPE_P (type))
+    {
+      if (complain & tf_error)
+	error ("value-initialization of incomplete type %qT", type);
+      return error_mark_node;
+    }
   if (CLASS_TYPE_P (type))
     {
       gcc_assert (!TYPE_NEEDS_CONSTRUCTING (type));
@@ -525,8 +533,10 @@ perform_member_init (tree member, tree init)
 	{
 	  if (init)
 	    {
-	      gcc_assert (TREE_CHAIN (init) == NULL_TREE);
-	      init = TREE_VALUE (init);
+	      if (TREE_CHAIN (init))
+		init = error_mark_node;
+	      else
+		init = TREE_VALUE (init);
 	      if (BRACE_ENCLOSED_INITIALIZER_P (init))
 		init = digest_init (type, init);
 	    }
@@ -548,7 +558,7 @@ perform_member_init (tree member, tree init)
 	    flags |= LOOKUP_DEFAULTED;
 	  if (CP_TYPE_CONST_P (type)
 	      && init == NULL_TREE
-	      && !type_has_user_provided_default_constructor (type))
+	      && default_init_uninitialized_part (type))
 	    /* TYPE_NEEDS_CONSTRUCTING can be set just because we have a
 	       vtable; still give this diagnostic.  */
 	    permerror (DECL_SOURCE_LOCATION (current_function_decl),
@@ -632,8 +642,6 @@ build_field_list (tree t, tree list, int *uses_unions_p)
 {
   tree fields;
 
-  *uses_unions_p = 0;
-
   /* Note whether or not T is a union.  */
   if (TREE_CODE (t) == UNION_TYPE)
     *uses_unions_p = 1;
@@ -687,7 +695,7 @@ sort_mem_initializers (tree t, tree mem_inits)
   tree next_subobject;
   VEC(tree,gc) *vbases;
   int i;
-  int uses_unions_p;
+  int uses_unions_p = 0;
 
   /* Build up a list of initializations.  The TREE_PURPOSE of entry
      will be the subobject (a FIELD_DECL or BINFO) to initialize.  The
@@ -1566,7 +1574,12 @@ expand_aggr_init_1 (tree binfo, tree true_exp, tree exp, tree init, int flags,
 	 zero out the object first.  */
       else if (TYPE_NEEDS_CONSTRUCTING (type))
 	{
-	  init = build_zero_init (type, NULL_TREE, /*static_storage_p=*/false);
+	  tree field_size = NULL_TREE;
+	  if (exp != true_exp && CLASSTYPE_AS_BASE (type) != type)
+	    /* Don't clobber already initialized virtual bases.  */
+	    field_size = TYPE_SIZE (CLASSTYPE_AS_BASE (type));
+	  init = build_zero_init_1 (type, NULL_TREE, /*static_storage_p=*/false,
+				    field_size);
 	  init = build2 (INIT_EXPR, type, exp, init);
 	  finish_expr_stmt (init);
 	  /* And then call the constructor.  */
@@ -2089,7 +2102,7 @@ build_new_1 (VEC(tree,gc) **placement, tree type, tree nelts,
     }
 
   if (CP_TYPE_CONST_P (elt_type) && *init == NULL
-      && !type_has_user_provided_default_constructor (elt_type))
+      && default_init_uninitialized_part (elt_type))
     {
       if (complain & tf_error)
         error ("uninitialized const in %<new%> of %q#T", elt_type);
@@ -3072,8 +3085,9 @@ build_vec_init (tree base, tree maxindex, tree init,
       unsigned HOST_WIDE_INT idx;
       tree field, elt;
       /* Should we try to create a constant initializer?  */
-      bool try_const = (literal_type_p (inner_elt_type)
-			|| TYPE_HAS_CONSTEXPR_CTOR (inner_elt_type));
+      bool try_const = (TREE_CODE (atype) == ARRAY_TYPE
+			&& (literal_type_p (inner_elt_type)
+			    || TYPE_HAS_CONSTEXPR_CTOR (inner_elt_type)));
       bool saw_non_const = false;
       bool saw_const = false;
       /* If we're initializing a static array, we want to do static

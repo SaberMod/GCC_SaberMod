@@ -974,7 +974,7 @@ dump_decl (tree t, int flags)
 	    dump_scope (CP_DECL_CONTEXT (t), flags);
 	  flags &= ~TFF_UNQUALIFIED_NAME;
 	  if (DECL_NAME (t) == NULL_TREE)
-	    pp_cxx_ws_string (cxx_pp, M_("{anonymous}"));
+	    pp_cxx_ws_string (cxx_pp, M_("(anonymous namespace)"));
 	  else
 	    pp_cxx_tree_identifier (cxx_pp, DECL_NAME (t));
 	}
@@ -2494,6 +2494,8 @@ lang_decl_name (tree decl, int v, bool translate)
 
   if (TREE_CODE (decl) == FUNCTION_DECL)
     dump_function_name (decl, TFF_PLAIN_IDENTIFIER);
+  else if (DECL_NAME (decl) == NULL && TREE_CODE (decl) == NAMESPACE_DECL)
+    pp_string (cxx_pp, M_("(anonymous namespace)"));
   else
     dump_decl (DECL_NAME (decl), TFF_PLAIN_IDENTIFIER);
 
@@ -3144,40 +3146,40 @@ maybe_warn_cpp0x (cpp0x_warn_str str)
       case CPP0X_INITIALIZER_LISTS:
 	pedwarn (input_location, 0, 
 		 "extended initializer lists "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_EXPLICIT_CONVERSION:
 	pedwarn (input_location, 0,
 		 "explicit conversion operators "
-		 "only available with -std=c++0x or -std=gnu++0x"); 
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_VARIADIC_TEMPLATES:
 	pedwarn (input_location, 0,
 		 "variadic templates "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_LAMBDA_EXPR:
 	pedwarn (input_location, 0,
 		 "lambda expressions "
-		  "only available with -std=c++0x or -std=gnu++0x");
+		  "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_AUTO:
 	pedwarn (input_location, 0,
-		 "C++0x auto only available with -std=c++0x or -std=gnu++0x");
+		 "C++0x auto only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_SCOPED_ENUMS:
 	pedwarn (input_location, 0,
-		 "scoped enums only available with -std=c++0x or -std=gnu++0x");
+		 "scoped enums only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_DEFAULTED_DELETED:
 	pedwarn (input_location, 0,
 		 "defaulted and deleted functions "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;
       case CPP0X_INLINE_NAMESPACES:
 	pedwarn (input_location, OPT_pedantic,
 		 "inline namespaces "
-		 "only available with -std=c++0x or -std=gnu++0x");
+		 "only available with -std=c++11 or -std=gnu++11");
 	break;	
       default:
 	gcc_unreachable();

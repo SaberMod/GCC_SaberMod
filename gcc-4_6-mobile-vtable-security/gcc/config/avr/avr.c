@@ -535,6 +535,17 @@ sequent_regs_live (void)
 
   for (reg = 0; reg < 18; ++reg)
     {
+      if (fixed_regs[reg])
+        {
+          /* Don't recognize sequences that contain global register
+             variables.  */
+      
+          if (live_seq != 0)
+            return 0;
+          else
+            continue;
+        }
+      
       if (!call_used_regs[reg])
 	{
 	  if (df_regs_ever_live_p (reg))
@@ -1868,9 +1879,12 @@ output_movhi (rtx insn, rtx operands[], int *l)
 	    }
 	  else if (test_hard_reg_class (STACK_REG, src))
 	    {
-	      *l = 2;	
-	      return (AS2 (in,%A0,__SP_L__) CR_TAB
-		      AS2 (in,%B0,__SP_H__));
+              *l = 2;
+              return AVR_HAVE_8BIT_SP
+                ? (AS2 (in,%A0,__SP_L__) CR_TAB
+                   AS1 (clr,%B0))
+                : (AS2 (in,%A0,__SP_L__) CR_TAB
+                   AS2 (in,%B0,__SP_H__));
 	    }
 
 	  if (AVR_HAVE_MOVW)
@@ -3107,8 +3121,11 @@ out_shift_with_cnt (const char *templ, rtx insn, rtx operands[],
     }
   else if (register_operand (operands[2], QImode))
     {
-      if (reg_unused_after (insn, operands[2]))
-	op[3] = op[2];
+      if (reg_unused_after (insn, operands[2])
+          && !reg_overlap_mentioned_p (operands[0], operands[2]))
+        {
+          op[3] = op[2];
+        }
       else
 	{
 	  op[3] = tmp_reg_rtx;
@@ -5137,6 +5154,7 @@ avr_encode_section_info (tree decl, rtx rtl, int new_decl_p)
   if (new_decl_p
       && decl && DECL_P (decl)
       && NULL_TREE == DECL_INITIAL (decl)
+      && !DECL_EXTERNAL (decl)
       && avr_progmem_p (decl, DECL_ATTRIBUTES (decl)))
     {
       warning (OPT_Wuninitialized,
@@ -5159,10 +5177,10 @@ avr_file_start (void)
 
   default_file_start ();
 
-/*  fprintf (asm_out_file, "\t.arch %s\n", avr_mcu_name);*/
-  fputs ("__SREG__ = 0x3f\n"
-	 "__SP_H__ = 0x3e\n"
-	 "__SP_L__ = 0x3d\n", asm_out_file);
+  fputs ("__SREG__ = 0x3f\n", asm_out_file);
+  if (!AVR_HAVE_8BIT_SP)
+    fputs ("__SP_H__ = 0x3e\n", asm_out_file);
+  fputs ("__SP_L__ = 0x3d\n", asm_out_file);
   
   fputs ("__tmp_reg__ = 0\n" 
          "__zero_reg__ = 1\n", asm_out_file);

@@ -440,6 +440,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       iterator
       erase(const_iterator);
 
+      // LWG 2059.
+      iterator
+      erase(iterator __it)
+      { return erase(const_iterator(__it)); }
+
       size_type
       erase(const key_type&);
 
@@ -683,12 +688,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_element_count(__ht._M_element_count),
       _M_rehash_policy(__ht._M_rehash_policy)
     {
-      size_type __n_bkt = __ht._M_rehash_policy._M_next_bkt(0);
-      __ht._M_buckets = __ht._M_allocate_buckets(__n_bkt);
-      __ht._M_bucket_count = __n_bkt;
+      __ht._M_rehash_policy = _RehashPolicy();
+      __ht._M_bucket_count = __ht._M_rehash_policy._M_next_bkt(0);
+      __ht._M_buckets = __ht._M_allocate_buckets(__ht._M_bucket_count);
       __ht._M_begin_bucket_index = __ht._M_bucket_count;
       __ht._M_element_count = 0;
-      __ht._M_rehash_policy = _RehashPolicy();
     }
 
   template<typename _Key, typename _Value,

@@ -1,3 +1,38 @@
+2012-03-01  Release Manager
+
+	* GCC 4.6.3 released.
+
+2012-02-15  Richard Guenther  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-02-08  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/46886
+	* testsuite/libgomp.c/pr46886.c: New testcase.
+
+2011-11-20  Andreas Tobler  <andreast@fgznet.ch>
+
+	* configure: Regenerate.
+
+2011-10-26  Release Manager
+
+	* GCC 4.6.2 released.
+
+2011-08-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/49792
+	* testsuite/libgomp.fortran/pr49792-1.f90: New test.
+	* testsuite/libgomp.fortran/pr49792-2.f90: New test.
+
+2011-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/49897
+	PR middle-end/49898
+	* testsuite/libgomp.c/pr49897-1.c: New test.
+	* testsuite/libgomp.c/pr49897-2.c: New test.
+	* testsuite/libgomp.c/pr49898-1.c: New test.
+	* testsuite/libgomp.c/pr49898-2.c: New test.
+
 2011-07-18  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR target/49541

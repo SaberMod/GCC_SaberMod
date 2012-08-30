@@ -846,6 +846,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	(PARAM_MAX_INLINE_INSNS_AUTO, 1000,
 	 opts->x_param_values, opts_set->x_param_values);
     }
+
+  /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
+  if (opts->x_flag_reorder_functions > 1)
+    opts->x_flag_function_sections = 1;
 }
 
 #define LEFT_COLUMN	27
@@ -1561,6 +1565,7 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fprofile_use_:
       opts->x_profile_data_prefix = xstrdup (arg);
       opts->x_flag_profile_use = true;
+      flag_profile_use = 1;
       value = true;
       /* No break here - do -fprofile-use processing. */
     case OPT_fprofile_use:
@@ -1591,6 +1596,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_fprofile_generate_:
       opts->x_profile_data_prefix = xstrdup (arg);
+      flag_profile_generate = 1;
       value = true;
       /* No break here - do -fprofile-generate processing. */
     case OPT_fprofile_generate:
@@ -1616,6 +1622,10 @@ common_handle_option (struct gcc_options *opts,
       if (check_pmu_profile_options (arg))
         error ("Unrecognized pmu_profile_generate value \"%s\"", arg);
       flag_pmu_profile_generate = xstrdup (arg);
+      break;
+
+    case OPT_fripa_inc_path_sub_:
+      lipo_inc_path_pattern = xstrdup (arg);
       break;
 
     case OPT_fshow_column:
@@ -1703,6 +1713,11 @@ common_handle_option (struct gcc_options *opts,
       set_debug_level (DWARF2_DEBUG, false, "", opts, opts_set, loc);
       break;
 
+    case OPT_gfission:
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, arg, opts, opts_set,
+		       loc);
+      break;
+
     case OPT_ggdb:
       set_debug_level (NO_DEBUG, 2, arg, opts, opts_set, loc);
       break;
@@ -1758,6 +1773,22 @@ common_handle_option (struct gcc_options *opts,
     case OPT_Wuninitialized:
       /* Also turn on maybe uninitialized warning.  */
       warn_maybe_uninitialized = value;
+      break;
+
+    case OPT_fripa:
+      if (flag_ripa_stream)
+        flag_dyn_ipa = 0;
+      break;
+
+    case OPT_fripa_:
+      flag_ripa_stream = 0;
+      flag_dyn_ipa = 0;
+      if (!strcmp (arg, "FE"))
+        flag_dyn_ipa = 1;
+      else if (!strcmp (arg, "streaming"))
+        flag_ripa_stream = 1;
+      else
+        error ("Unrecognized -fripa= value \"%s\"", arg);
       break;
 
     default:

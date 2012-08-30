@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "coverage.h"
 #include "gcov-io.h"
+#include "tree-pretty-print.h"
 
 struct GTY(()) saved_module_scope
 {
@@ -1096,7 +1097,7 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
 {
   tree decl = node->decl;
 
-  if (!L_IPO_COMP_MODE)
+  if (!(L_IPO_COMP_MODE || L_IPO_STREAM_COMP_MODE))
     return false;
 
   if (!cgraph_is_auxiliary (decl))
@@ -1107,15 +1108,26 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
   if (node->is_versioned_clone)
     return false;
 
-  /* virtual functions won't be deleted in the primary module.  */
-  if (DECL_VIRTUAL_P (decl))
-    return true;
+  /* Reverse the process order for virtual and comdat functions
+     in streaming lipo.  */
+  if (!flag_ripa_stream)
+    {
+      /* virtual functions won't be deleted in the primary module.  */
+      if (DECL_VIRTUAL_P (decl))
+        return true;
+    }
 
   /* Comdat or weak functions in aux modules are not external --
      there is no guarantee that the definitition will be emitted
      in the primary compilation of this auxiliary module.  */
   if (DECL_COMDAT (decl) || DECL_WEAK (decl))
     return false;
+
+  if (flag_ripa_stream)
+    {
+      if (DECL_VIRTUAL_P (decl))
+        return true;
+    }
 
   if (!TREE_PUBLIC (decl))
     return false;
@@ -1774,12 +1786,20 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
 
       node->resolution = LDPR_UNKNOWN;
       cgraph_add_assembler_hash_node (node);
+      if (flag_opt_info >= OPT_INFO_MAX) 
+        inform (UNKNOWN_LOCATION, "Promote function %s to global (%d): %s",
+                get_name (decl),is_extern,
+                IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME(decl)));
     }
   else
     {
       struct varpool_node *node = varpool_node (decl);
       node->resolution = LDPR_UNKNOWN;
       varpool_link_node (node);
+      if (flag_opt_info >= OPT_INFO_MAX) 
+        inform (UNKNOWN_LOCATION, "Promote variable %s to global (%d): %s",
+                get_name (decl),is_extern,
+                IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME(decl)));
     }
 
   if (is_extern)
@@ -1838,7 +1858,7 @@ process_module_scope_static_var (struct varpool_node *vnode)
     }
   else
     {
-      if (PRIMARY_MODULE_EXPORTED && !TREE_PUBLIC (decl))
+      if (primary_module_id && primary_module_exported && !TREE_PUBLIC (decl))
         promote_static_var_func (vnode->module_id, decl,
                                  varpool_is_auxiliary (vnode));
     }
@@ -1916,7 +1936,7 @@ process_module_scope_static_func (struct cgraph_node *cnode)
     }
   else
     {
-      if (PRIMARY_MODULE_EXPORTED
+      if (primary_module_exported
           /* skip static_init routines.  */
           && !DECL_ARTIFICIAL (decl))
         {
@@ -1951,7 +1971,7 @@ cgraph_process_module_scope_statics (void)
   struct cgraph_node *pf;
   struct varpool_node *pv;
 
-  if (!L_IPO_COMP_MODE)
+  if (!(L_IPO_COMP_MODE || L_IPO_STREAM_COMP_MODE))
     return;
 
   promo_ent_hash_tab = htab_create (10, promo_ent_hash,

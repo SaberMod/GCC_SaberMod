@@ -591,9 +591,12 @@ rebuild_cgraph_edges (void)
   ipa_remove_all_references (&node->ref_list);
 
   node->count = ENTRY_BLOCK_PTR->count;
+  node->max_bb_count = 0;
 
   FOR_EACH_BB (bb)
     {
+      if (bb->count > node->max_bb_count)
+	node->max_bb_count = bb->count;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
@@ -694,10 +697,19 @@ struct gimple_opt_pass pass_rebuild_cgraph_edges =
  }
 };
 
+/* Defined in tree-optimize.c  */
+extern bool cgraph_callee_edges_final_cleanup; 
 
 static unsigned int
 remove_cgraph_callee_edges (void)
 {
+  /* The -freorder-functions=*  and the fcallgraph-profiles-sections
+     needs the call-graph preserved till pass_final.  */
+  if (cgraph_callee_edges_final_cleanup
+      && (flag_callgraph_profiles_sections
+	  || (flag_reorder_functions > 1)))
+      return 0;
+
   cgraph_node_remove_callees (cgraph_node (current_function_decl));
   return 0;
 }

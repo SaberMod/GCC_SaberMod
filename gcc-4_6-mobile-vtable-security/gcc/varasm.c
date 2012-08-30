@@ -2645,6 +2645,12 @@ decode_addr_const (tree exp, struct addr_const *value)
 		     * tree_low_cst (TREE_OPERAND (target, 1), 0));
 	  target = TREE_OPERAND (target, 0);
 	}
+      else if (TREE_CODE (target) == MEM_REF
+	       && TREE_CODE (TREE_OPERAND (target, 0)) == ADDR_EXPR)
+	{
+	  offset += mem_ref_offset (target).low;
+	  target = TREE_OPERAND (TREE_OPERAND (target, 0), 0);
+	}
       else if (TREE_CODE (target) == INDIRECT_REF
 	       && TREE_CODE (TREE_OPERAND (target, 0)) == NOP_EXPR
 	       && TREE_CODE (TREE_OPERAND (TREE_OPERAND (target, 0), 0))
@@ -6217,6 +6223,8 @@ default_elf_asm_named_section (const char *name, unsigned int flags,
 
   if (!(flags & SECTION_DEBUG))
     *f++ = 'a';
+  if (flags & SECTION_EXCLUDE)
+    *f++ = 'e';
   if (flags & SECTION_WRITE)
     *f++ = 'w';
   if (flags & SECTION_CODE)
@@ -6802,11 +6810,14 @@ default_binds_local_p_1 (const_tree exp, int shlib)
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
     local_p = true;
-  /* Weakrefs may not bind locally, even though the weakref itself is
-     always static and therefore local.
-     FIXME: We can resolve this more curefuly by looking at the weakref
-     alias.  */
-  else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp)))
+  /* Weakrefs may not bind locally, even though the weakref itself is always
+     static and therefore local.  Similarly, the resolver for ifunc functions
+     might resolve to a non-local function.
+     FIXME: We can resolve the weakref case more curefuly by looking at the
+     weakref alias.  */
+  else if (lookup_attribute ("weakref", DECL_ATTRIBUTES (exp))
+	   || (TREE_CODE (exp) == FUNCTION_DECL
+	       && lookup_attribute ("ifunc", DECL_ATTRIBUTES (exp))))
     local_p = false;
   /* Static variables are always local.  */
   else if (! TREE_PUBLIC (exp))

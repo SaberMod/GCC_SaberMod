@@ -70,6 +70,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * object's constructor with an initializer.
    */
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
+  // Work around PR52796 by avoiding 0-length parameter packs
+  // passed to constructors.
+  template<typename _T1>
+    inline void
+    _Construct(_T1* __p)
+    { ::new(static_cast<void*>(__p)) _T1(); }
+
   template<typename _T1, typename... _Args>
     inline void
     _Construct(_T1* __p, _Args&&... __args)
@@ -157,4 +164,3 @@ _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
 #endif /* _STL_CONSTRUCT_H */
-

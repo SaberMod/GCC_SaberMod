@@ -799,7 +799,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	: _M_ptr(__p), _M_refcount(__r._M_refcount) // never throws
 	{ }
 
-      //  generated copy constructor, assignment, destructor are fine.
+      __shared_ptr(const __shared_ptr&) = default; // never throws
+      __shared_ptr& operator=(const __shared_ptr&) = default; // never throws
 
       template<typename _Tp1, typename = typename
 	       std::enable_if<std::is_convertible<_Tp1*, _Tp*>::value>::type>
@@ -1365,8 +1366,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __make_shared(_Args&&... __args)
     {
       typedef typename std::remove_const<_Tp>::type _Tp_nc;
-      return __allocate_shared<_Tp, _Lp>(std::allocator<_Tp_nc>(),
-					 std::forward<_Args>(__args)...);
+      return std::__allocate_shared<_Tp, _Lp>(std::allocator<_Tp_nc>(),
+					      std::forward<_Args>(__args)...);
     }
 
   /// std::hash specialization for __shared_ptr.
@@ -1375,7 +1376,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     : public std::unary_function<__shared_ptr<_Tp, _Lp>, size_t>
     {
       size_t
-      operator()(const __shared_ptr<_Tp, _Lp>& __s) const
+      operator()(const __shared_ptr<_Tp, _Lp>& __s) const noexcept
       { return std::hash<_Tp*>()(__s.get()); }
     };
 

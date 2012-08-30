@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "intl.h"
 #include "l-ipo.h"
+#include "dwarf2asm.h"
 
 #include "gcov-io.h"
 #include "gcov-io.c"
@@ -374,9 +375,92 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
           || (with_fexceptions1 != with_fexceptions2));
 }
 
+/* Create a mgf file and write primary module info to it.  */
+
+static FILE *
+create_mgf_file (struct gcov_module_info* mod_info)
+{
+#define MODULE_GROUPING_FILE_SUFFIX ".mgf"
+  char mgf_name_buf[1024];
+  const char *mgf_name = mgf_name_buf;
+  FILE *mgf_fd;
+
+  if (ripa_mgf_gen_fname == NULL)
+    sprintf(mgf_name_buf, "%s%s", main_input_basename,
+            MODULE_GROUPING_FILE_SUFFIX);
+  else
+    mgf_name = (const char *) ripa_mgf_gen_fname;
+
+  if ((mgf_fd = fopen (mgf_name, "w")) == NULL)
+    {
+      warning (UNKNOWN_LOCATION, "error in opening %s, exiting",
+               mgf_name);
+      return NULL;
+    }
+  fprintf(mgf_fd, "P %d %s \n", mod_info->ident,
+          mod_info->source_filename);
+  return mgf_fd;
+}
+
+/* Write module grouping info to mgf file.  */
+
+static void 
+write_mgf_file (FILE *mgf_fd, struct gcov_module_info* mod_info)
+{
+  int i;
+  int i_pos;
+  int ignored_cl_args = 0;
+  
+  fprintf (mgf_fd, "#\nA %d %s\n",
+      mod_info->ident,
+      mod_info->source_filename);
+  
+  fprintf (mgf_fd, "G %s\n", mod_info->da_filename);
+  
+  i_pos = mod_info->num_quote_paths;
+  for(i=0;i < i_pos; i++)
+    fprintf (mgf_fd, "Q %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_bracket_paths;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "B %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cpp_includes;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "I %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cpp_defines;
+  for(;i < i_pos; i++)
+    fprintf (mgf_fd, "D %s\n", mod_info->string_array[i]);
+  
+  i_pos += mod_info->num_cl_args;
+  for(;i < i_pos; i++)
+    {
+      char *str = mod_info->string_array[i];
+      if (!strcmp (str, "-fripa") ||
+          !strncmp (str, "-fprofile-generate", 18) ||
+          !strncmp (str, "-fprofile-arcs", 14))
+        {
+          ignored_cl_args++;
+          continue;
+        }
+      fprintf (mgf_fd, "C %s\n", str);
+    }
+  fprintf (mgf_fd, "Z %d %s, %d %d %d %d %d\n", mod_info->ident,
+        mod_info->source_filename,
+        mod_info->num_quote_paths,
+        mod_info->num_bracket_paths,
+        mod_info->num_cpp_defines,
+        mod_info->num_cpp_includes,
+        mod_info->num_cl_args - ignored_cl_args);
+  
+}
+
 /* Read in the counts file, if available. DA_FILE_NAME is the
    name of the gcda file, and MODULE_ID is the module id of the
-   associated source module.  */
+   associated source module.  
+   For FE based LIPO, MODULE_ID will always be 0 for primary
+   modules.  */
 
 static void
 read_counts_file (const char *da_file_name, unsigned module_id)
@@ -391,6 +475,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   unsigned max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
+  FILE *mgf_fd = NULL;
 
   if (max_group == 0)
     max_group = (unsigned) -1;
@@ -541,7 +626,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	}
       /* Skip the MODULE_INFO records if not in dyn-ipa mode, or when reading
 	 auxiliary modules.  */
-      else if (tag == GCOV_TAG_MODULE_INFO && flag_dyn_ipa && !module_id)
+      else if (tag == GCOV_TAG_MODULE_INFO && (flag_ripa_stream || flag_dyn_ipa)
+               && !module_id)
         {
 	  struct gcov_module_info* mod_info;
           size_t info_sz;
@@ -568,6 +654,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
               module_infos[0] = XCNEWVAR (struct gcov_module_info, info_sz);
               memcpy (module_infos[0], mod_info, info_sz);
+
+              if (L_IPO_STREAM_FE_COMP_MODE_PRIM && ripa_mgf_use_fname == NULL)
+                if (!(mgf_fd = create_mgf_file (mod_info)))
+                  {
+                    gcov_close ();
+                    return;
+                  }
 	    }
 	  else
             {
@@ -617,15 +710,24 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               else
 		{
 		  close (fd);
-		  module_infos_read++;
-		  add_input_filename (mod_info->source_filename);
-		  module_infos = XRESIZEVEC (struct gcov_module_info *,
-					     module_infos, num_in_fnames);
-		  gcc_assert (num_in_fnames == module_infos_read);
-		  module_infos[module_infos_read - 1]
-		    = XCNEWVAR (struct gcov_module_info, info_sz);
-		  memcpy (module_infos[module_infos_read - 1], mod_info,
-			  info_sz);
+                  if (L_IPO_STREAM_FE_COMP_MODE_PRIM && ripa_mgf_use_fname == NULL)
+                    {
+                      gcc_assert (mgf_fd);
+                      write_mgf_file (mgf_fd, mod_info);
+		      module_infos_read++;
+                    }
+                  else if (!L_IPO_STREAM_FE_COMP_MODE_PRIM)
+                    {
+		      module_infos_read++;
+		      add_input_filename (mod_info->source_filename);
+		      module_infos = XRESIZEVEC (struct gcov_module_info *,
+		            		         module_infos, num_in_fnames);
+		      gcc_assert (num_in_fnames == module_infos_read);
+		      module_infos[module_infos_read - 1]
+		        = XCNEWVAR (struct gcov_module_info, info_sz);
+		      memcpy (module_infos[module_infos_read - 1], mod_info,
+                              info_sz);
+                   }
 		}
             }
 
@@ -649,19 +751,32 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	}
     }
 
+  if (flag_ripa_aux_mod_id)
+    current_module_id = flag_ripa_aux_mod_id;
+  else
+    current_module_id = primary_module_id;
+
+  if (primary_module_id)
+    primary_module_exported = PRIMARY_MODULE_EXPORTED;
+
   /* TODO: profile based multiple module compilation does not work
      together with command line (-combine) based ipo -- add a nice
      warning and bail out instead of asserting.  */
 
   if (modset)
     pointer_set_destroy (modset);
-  gcc_assert (module_infos_read == 0
-              || module_infos_read == num_in_fnames);
+
+  if (!L_IPO_STREAM_FE_COMP_MODE)
+    gcc_assert (module_infos_read == 0
+                || module_infos_read == num_in_fnames);
 
   if (flag_dyn_ipa)
     gcc_assert (primary_module_id && num_in_fnames >= 1);
 
   gcov_close ();
+
+  if (mgf_fd)
+    fclose (mgf_fd);
 }
 
 /* Returns the coverage data entry for counter type COUNTER of function
@@ -1773,13 +1888,21 @@ create_coverage (void)
 /* Get the da file name, given base file name.  */
 
 static char *
-get_da_file_name (const char *base_file_name)
+get_da_file_name (const char *orig_base_file_name)
 {
+  const char *base_file_name;
   char *da_file_name;
-  int len = strlen (base_file_name);
+  int len;
   const char *prefix = profile_data_prefix;
   /* + 1 for extra '/', in case prefix doesn't end with /.  */
   int prefix_len;
+
+  if (gcov_da_name)
+    base_file_name = gcov_da_name;
+  else
+    base_file_name = orig_base_file_name;
+
+  len = strlen (base_file_name);
 
   if (prefix == 0 && base_file_name[0] != '/')
     prefix = getpwd ();
@@ -1859,6 +1982,94 @@ add_module_info (unsigned module_id, bool is_primary, int index)
     primary_module_id = module_id;
 }
 
+/* Process the include paths needed for parsing the aux modules.
+   The sub_pattern is in the form SUB_PATH:NEW_SUB_PATH. If it is
+   defined, the SUB_PATH in ORIG_INC_PATH will be replaced with
+   NEW_SUB_PATH.  */
+
+static void
+process_include (char **orig_inc_path, char* old_sub, char *new_sub)
+{
+  char *inc_path, *orig_sub;
+
+  if (strlen (*orig_inc_path) < strlen (old_sub))
+    return;
+
+  inc_path = (char*) xmalloc (strlen (*orig_inc_path) + strlen (new_sub)
+                              - strlen (old_sub) + 1);
+  orig_sub = strstr (*orig_inc_path, old_sub);
+  if (!orig_sub)
+    {
+      inform (UNKNOWN_LOCATION, "subpath %s not found in path %s",
+              old_sub, *orig_inc_path);
+      free (inc_path);
+      return;
+    }
+
+  strncpy (inc_path, *orig_inc_path, orig_sub - *orig_inc_path);
+  inc_path[orig_sub - *orig_inc_path] = '\0';
+  strcat (inc_path, new_sub);
+  strcat (inc_path, orig_sub + strlen (old_sub));
+
+  free (*orig_inc_path);
+  *orig_inc_path = inc_path;
+}
+
+/* Process include paths for MOD_INFO according to option
+   -fripa-inc-path-sub=OLD_SUB:NEW_SUB   */
+
+static void
+process_include_paths_1 (struct gcov_module_info *mod_info,
+                         char* old_sub, char *new_sub)
+{
+  unsigned i, j;
+
+  for (i = 0; i < mod_info->num_quote_paths; i++)
+    process_include (&mod_info->string_array[i], old_sub, new_sub);
+
+  for (i = 0, j = mod_info->num_quote_paths;
+       i < mod_info->num_bracket_paths; i++, j++)
+    process_include (&mod_info->string_array[j], old_sub, new_sub);
+
+  for (i = 0, j = mod_info->num_quote_paths + mod_info->num_bracket_paths +
+       mod_info->num_cpp_defines; i < mod_info->num_cpp_includes; i++, j++)
+    process_include (&mod_info->string_array[j], old_sub, new_sub);
+
+}
+
+/* Process include paths for MOD_INFO according to option
+   -fripa-inc-path-sub=old_sub1:new_sub1[,old_sub2:new_sub2]  */
+
+static void
+process_include_paths (struct gcov_module_info *mod_info)
+{
+  char *sub_pattern, *cur, *next,  *new_sub;
+
+  if (!lipo_inc_path_pattern)
+    return;
+
+  sub_pattern = xstrdup (lipo_inc_path_pattern);
+  cur = sub_pattern;
+
+  do
+    {
+      next = strchr (cur, ',');
+      if (next)
+        *next++ = '\0';
+      new_sub = strchr (cur, ':');
+      if (!new_sub)
+        {
+          error ("Invalid path substibution pattern %s", sub_pattern);
+          free (sub_pattern);
+          return;
+        }
+      *new_sub++ = '\0';
+      process_include_paths_1 (mod_info, cur, new_sub);
+      cur = next;
+    } while (cur);
+  free (sub_pattern);
+}
+
 /* Set the prepreprocessing context (include search paths, -D/-U).
    PARSE_IN is the preprocessor reader, I is the index of the module,
    and VERBOSE is the verbose flag.  */
@@ -1880,6 +2091,7 @@ set_lipo_c_parsing_context (struct cpp_reader *parse_in, int i, bool verbose)
     {
       unsigned i, j;
 
+      process_include_paths (mod_info);
       /* Setup include paths.  */
       clear_include_chains ();
       for (i = 0; i < mod_info->num_quote_paths; i++)
@@ -1933,7 +2145,7 @@ coverage_init (const char *filename, const char* source_name)
       src_name_prefix = getpwd ();
       src_name_prefix_len = strlen (src_name_prefix) + 1;
     }
-  main_input_file_name = XNEWVEC (char, strlen (source_name) + 1 
+  main_input_file_name = XNEWVEC (char, strlen (source_name) + 1
                                   + src_name_prefix_len);
   if (!src_name_prefix)
     strcpy (main_input_file_name, source_name);
@@ -1945,13 +2157,18 @@ coverage_init (const char *filename, const char* source_name)
     }
 
   if (flag_profile_use)
-    read_counts_file (da_file_name, 0);
+    {
+      unsigned mod_id = 0;
+      if (L_IPO_STREAM_FE_COMP_MODE_AUX)
+        mod_id = flag_ripa_aux_mod_id;
+      read_counts_file (da_file_name, mod_id);
+    }
 
   /* Rebuild counts_hash and read the auxiliary GCDA files.  */
-  if (flag_profile_use && L_IPO_COMP_MODE)
+  if (flag_profile_use && (L_IPO_COMP_MODE || L_IPO_STREAM_FE_COMP_MODE_PRIM))
     {
       unsigned i;
-      gcc_assert (flag_dyn_ipa);
+      gcc_assert (flag_dyn_ipa || flag_ripa_stream);
       rebuild_counts_hash ();
       for (i = 1; i < num_in_fnames; i++)
 	read_counts_file (get_da_file_name (module_infos[i]->da_filename),
@@ -2166,4 +2383,69 @@ check_pmu_profile_options (const char *options)
   return 0;
 }
 
+/* Write command line options to the .note section.  */
+
+void
+write_opts_to_asm (void)
+{
+  size_t i;
+  cpp_dir *quote_paths, *bracket_paths, *pdir;
+  struct str_list *pdef, *pinc;
+  int num_quote_paths = 0;
+  int num_bracket_paths = 0;
+
+  get_include_chains (&quote_paths, &bracket_paths);
+
+  /* Write quote_paths to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.quote_paths",
+				  SECTION_DEBUG, NULL));
+  for (pdir = quote_paths; pdir; pdir = pdir->next)
+    {
+      if (pdir == bracket_paths)
+	break;
+      num_quote_paths++;
+    }
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_quote_paths, NULL);
+  for (pdir = quote_paths; pdir; pdir = pdir->next)
+    {
+      if (pdir == bracket_paths)
+	break;
+      dw2_asm_output_nstring (pdir->name, (size_t)-1, NULL);
+    }
+
+  /* Write bracket_paths to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.bracket_paths",
+				  SECTION_DEBUG, NULL));
+  for (pdir = bracket_paths; pdir; pdir = pdir->next)
+    num_bracket_paths++;
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_bracket_paths, NULL);
+  for (pdir = bracket_paths; pdir; pdir = pdir->next)
+    dw2_asm_output_nstring (pdir->name, (size_t)-1, NULL);
+
+  /* Write cpp_defines to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.cpp_defines",
+				  SECTION_DEBUG, NULL));
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_cpp_defines, NULL);
+  for (pdef = cpp_defines_head; pdef; pdef = pdef->next)
+    dw2_asm_output_nstring (pdef->str, (size_t)-1, NULL);
+
+  /* Write cpp_includes to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.cpp_includes",
+				  SECTION_DEBUG, NULL));
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_cpp_includes, NULL);
+  for (pinc = cpp_includes_head; pinc; pinc = pinc->next)
+    dw2_asm_output_nstring (pinc->str, (size_t)-1, NULL);
+
+  /* Write cl_args to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.cl_args",
+				  SECTION_DEBUG, NULL));
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_lipo_cl_args, NULL);
+  for (i = 0; i < num_lipo_cl_args; i++)
+    dw2_asm_output_nstring (lipo_cl_args[i], (size_t)-1, NULL);
+}
 #include "gt-coverage.h"

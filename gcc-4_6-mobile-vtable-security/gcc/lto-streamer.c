@@ -170,7 +170,18 @@ lto_get_section_name (int section_type, const char *name, struct lto_file_decl_d
   if (section_type == LTO_section_opts)
     strcpy (post, "");
   else
-    sprintf (post, ".%x", f ? f->id : crc32_string(0, get_random_seed (false)));
+    {
+      unsigned file_id;
+      extern unsigned current_module_id;
+
+      /* In streaming ripa mode, use module id as the file id.  */
+      if (L_IPO_STREAM_FE_COMP_MODE)
+        file_id = current_module_id;
+      else
+        file_id = f ? f->id : crc32_string(0, get_random_seed (false));
+      sprintf (post, ".%x", file_id);
+    }
+
   return concat (LTO_SECTION_NAME_PREFIX, sep, add, post, NULL);
 }
 

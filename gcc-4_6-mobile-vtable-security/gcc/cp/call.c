@@ -355,6 +355,9 @@ build_call_a (tree function, int n, tree *argarray)
   nothrow = ((decl && TREE_NOTHROW (decl))
 	     || TYPE_NOTHROW_P (TREE_TYPE (TREE_TYPE (function))));
 
+  if (!nothrow && at_function_scope_p () && cfun && cp_function_chain)
+    cp_function_chain->can_throw = 1;
+
   if (decl && TREE_THIS_VOLATILE (decl) && cfun && cp_function_chain)
     current_function_returns_abnormally = 1;
 
@@ -3965,9 +3968,10 @@ tree
 build_op_call (tree obj, VEC(tree,gc) **args, tsubst_flags_t complain)
 {
   tree ret;
-  timevar_start (TV_OVERLOAD);
+  bool subtime;
+  subtime = timevar_cond_start (TV_OVERLOAD);
   ret = build_op_call_1 (obj, args, complain);
-  timevar_stop (TV_OVERLOAD);
+  timevar_cond_stop (TV_OVERLOAD, subtime);
   return ret;
 }
 
@@ -5075,6 +5079,7 @@ build_new_op_1 (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
     case POSTDECREMENT_EXPR:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
+    case ABS_EXPR:
       return cp_build_unary_op (code, arg1, candidates != 0, complain);
 
     case ARRAY_REF:
@@ -5259,8 +5264,22 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	       usual deallocation function."
 
 	       So (void*) beats (void*, size_t).  */
-	    if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
-	      break;
+            /* If type is not void, pick (void*, size_t) version (which comes
+               first).  */
+	    if (!flag_sized_delete || TREE_CODE (type) == VOID_TYPE )
+              {
+                /* If -fsized-delete is not passed or if a void * is deleted,
+                   prefer delete (void *) version.  */
+                if (FUNCTION_ARG_CHAIN (fn) == void_list_node)
+                  break;
+              }
+            else
+              {
+                /* If -fsized-delete is passed and it is not a void *,
+                   prefer delete (void *, size_t) version.  */
+                if (FUNCTION_ARG_CHAIN (fn) != void_list_node)
+                  break;
+              }
 	  }
       }
 
@@ -5427,6 +5446,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   diagnostic_t diag_kind;
   int flags;
 
+  if (convs->bad_p && !(complain & tf_error))
+    return error_mark_node;
+
   if (convs->bad_p
       && convs->kind != ck_user
       && convs->kind != ck_list
@@ -5462,15 +5484,12 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-      if (complain & tf_error)
-	{
-	  permerror (input_location, "invalid conversion from %qT to %qT", TREE_TYPE (expr), totype);
-	  if (fn)
-	    permerror (DECL_SOURCE_LOCATION (fn),
-		       "  initializing argument %P of %qD", argnum, fn);
-	}
-      else
-	return error_mark_node;
+
+      permerror (input_location, "invalid conversion from %qT to %qT",
+		 TREE_TYPE (expr), totype);
+      if (fn)
+	permerror (DECL_SOURCE_LOCATION (fn),
+		   "  initializing argument %P of %qD", argnum, fn);
 
       return cp_convert (totype, expr);
     }
@@ -6588,11 +6607,6 @@ build_cxx_call (tree fn, int nargs, tree *argarray)
 
   /* If this call might throw an exception, note that fact.  */
   fndecl = get_callee_fndecl (fn);
-  if ((!fndecl || !TREE_NOTHROW (fndecl))
-      && at_function_scope_p ()
-      && cfun
-      && cp_function_chain)
-    cp_function_chain->can_throw = 1;
 
   /* Check that arguments to builtin functions match the expectations.  */
   if (fndecl

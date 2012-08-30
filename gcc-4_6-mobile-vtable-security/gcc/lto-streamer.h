@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vecprim.h"
 #include "alloc-pool.h"
 #include "gcov-io.h"
+#include "l-ipo.h"
 
 /* Define when debugging the LTO streamer.  This causes the writer
    to output the numeric value for the memory address of the tree node
@@ -264,6 +265,7 @@ enum lto_section_type
   LTO_section_symtab,
   LTO_section_opts,
   LTO_section_cgraph_opt_sum,
+  LTO_section_ripa_info,
   LTO_N_SECTION_TYPES		/* Must be last.  */
 };
 
@@ -609,6 +611,13 @@ struct GTY(()) lto_file_decl_data
   /* Sub ID for merged objects. */
   unsigned id;
 
+  /* ripa module type info:
+       0: aux module
+       1: primary_not_exported
+       3: primary_exported
+   */
+  int ripa_module_type;
+
   /* Symbol resolutions for this file */
   VEC(ld_plugin_symbol_resolution_t,heap) * GTY((skip)) resolutions;
 
@@ -862,6 +871,7 @@ extern struct data_in *lto_data_in_create (struct lto_file_decl_data *,
 				    const char *, unsigned,
 				    VEC(ld_plugin_symbol_resolution_t,heap) *);
 extern void lto_data_in_delete (struct data_in *);
+extern void input_ripa_info (struct lto_file_decl_data *);
 
 
 /* In lto-streamer-out.c  */

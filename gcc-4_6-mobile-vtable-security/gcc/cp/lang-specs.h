@@ -59,6 +59,8 @@ along with GCC; see the file COPYING3.  If not see
       cc1plus %{save-temps*|no-integrated-cpp:-fpreprocessed %{save-temps*:%b.ii} %{!save-temps*:%g.ii}}\
 	      %{!save-temps*:%{!no-integrated-cpp:%(cpp_unique_options)}}\
 	%(cc1_options) %2\
+        %{fripa=streaming:%{fprofile-use*:%(ripa_pri_mod_invoke_as)\
+          %:ripa-build-aux-mod(cc1plus %U.mgf) %:ripa-gen-lto-cmd()}}\
        %{!fsyntax-only:%(invoke_as)}}}}",
      CPLUSPLUS_CPP_SPEC, 0, 0},
   {".ii", "@c++-cpp-output", 0, 0, 0},

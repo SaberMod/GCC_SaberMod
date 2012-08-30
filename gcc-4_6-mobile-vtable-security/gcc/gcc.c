@@ -265,6 +265,9 @@ static const char *compare_debug_dump_opt_spec_function (int, const char **);
 static const char *compare_debug_self_opt_spec_function (int, const char **);
 static const char *compare_debug_auxbase_opt_spec_function (int, const char **);
 static const char *pass_through_libs_spec_func (int, const char **);
+static const char *replace_extension_spec_func (int, const char **);
+static const char *ripa_build_aux_mod_func (int, const char **);
+static const char *ripa_gen_lto_cmd_func (int, const char **);
 
 /* The Specs Language
 
@@ -478,7 +481,14 @@ proper position among the other output files.  */
 /* config.h can define ASM_FINAL_SPEC to run a post processor after
    the assembler has run.  */
 #ifndef ASM_FINAL_SPEC
-#define ASM_FINAL_SPEC ""
+#define ASM_FINAL_SPEC \
+  "%{gfission: \n\
+       objcopy --extract-dwo \
+	 %{c:%{o*:%*}%{!o*:%b%O}}%{!c:%U%O} \
+	 %{c:%{o*:%:replace-extension(%{o*:%*} .dwo)}%{!o*:%b.dwo}}%{!c:%b.dwo} \n\
+       objcopy --strip-dwo \
+	 %{c:%{o*:%*}%{!o*:%b%O}}%{!c:%U%O} \
+    }"
 #endif
 
 /* config.h can define CPP_SPEC to provide extra args to the C preprocessor
@@ -655,6 +665,9 @@ proper position among the other output files.  */
     -plugin-opt=-fresolution=%u.res \
     %{!nostdlib:%{!nodefaultlibs:%:pass-through-libs(%(link_gcc_c_sequence))}} \
     }"PLUGIN_COND_CLOSE" \
+    %{freorder-functions=*: \
+    -plugin %(func_reorder_linker_plugin_file) \
+    -plugin-opt=%(func_reorder_linker_plugin_opt)} \
     %{flto|flto=*:%<fcompare-debug*} \
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
    "%{fuse-ld=gold:%{fuse-ld=bfd:%e-fuse-ld=gold and -fuse-ld=bfd may not be used together}} \
@@ -691,6 +704,15 @@ proper position among the other output files.  */
 # define SYSROOT_HEADERS_SUFFIX_SPEC ""
 #endif
 
+/* Default specs for building the auxmiliary modules in streaming lipo.  */
+#ifndef RIPA_AUX_MOD_SPEC
+# define RIPA_AUX_MOD_SPEC "\
+ %{!Q:-quiet} %i -dumpbase %B_aux -auxbase %b\
+ %{W*&pedantic*} %{w} %{fdump*} %{fopt-info*}\
+ %{Qn:-fno-ident} %{Qy:} %{fripa*} %{fprofile*}\
+ %{!fprofile-use*:-fprofile-use} -o %u.irs"
+#endif
+
 static const char *asm_debug;
 static const char *cpp_spec = CPP_SPEC;
 static const char *cc1_spec = CC1_SPEC;
@@ -709,6 +731,8 @@ static const char *endfile_spec = ENDFILE_SPEC;
 static const char *startfile_spec = STARTFILE_SPEC;
 static const char *linker_name_spec = LINKER_NAME;
 static const char *linker_plugin_file_spec = "";
+static const char *func_reorder_linker_plugin_file_spec = "";
+static const char *func_reorder_linker_plugin_opt = "";
 static const char *lto_wrapper_spec = "";
 static const char *lto_gcc_spec = "";
 static const char *link_command_spec = LINK_COMMAND_SPEC;
@@ -717,6 +741,29 @@ static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
 static const char *sysroot_spec = SYSROOT_SPEC;
 static const char *sysroot_suffix_spec = SYSROOT_SUFFIX_SPEC;
 static const char *sysroot_hdrs_suffix_spec = SYSROOT_HEADERS_SUFFIX_SPEC;
+
+static const char *ripa_aux_mod_spec = RIPA_AUX_MOD_SPEC;
+
+/* specs to call lto1 for streaming lipo.  */
+static const char *ripa_lto_spec =
+"lto1 -flto -flto-partition=none %(cc1_options)";
+
+/* options to call asm in streaming lipo.  */
+static const char *ripa_asm_options =
+"%{-target-help:%:print-asm-header()} "
+#if HAVE_GNU_AS
+"%{v} %{w:-W} %{I*} %{save-temps*:--save-temps} "
+#endif
+"%a %Y -o %w%u.iro";
+
+/* specs to call asm in streaming lipo.  */
+static const char *ripa_invoke_as =
+"|\n as %(ripa_asm_options) %U.irs %A\n ";
+
+/* specs to call asm in streaming lipo. This is for the primary ir assembly
+   to ir object.  */
+static const char *ripa_pri_mod_invoke_as =
+"-o %u.irs -fripa-mgf-gen=%U.mgf %(ripa_invoke_as) ";
 
 /* Standard options to cpp, cc1, and as, to reduce duplication in specs.
    There should be no need to override these in target dependent files,
@@ -776,7 +823,7 @@ static const char *cc1_options =
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
- %{coverage:-fprofile-arcs -ftest-coverage}";
+ %{coverage:-fprofile-arcs -ftest-coverage -fno-early-inlining}";
 
 /* If an assembler wrapper is used to invoke post-assembly tools
    like MAO, --save-temps need to be passed to save the output of
@@ -935,6 +982,8 @@ static const struct compiler default_compilers[] =
 	  %(cc1_options)}\
       %{!save-temps*:%{!traditional-cpp:%{!no-integrated-cpp:\
 	  cc1 %(cpp_unique_options) %(cc1_options)}}}\
+      %{fripa=streaming:%{fprofile-use*:%(ripa_pri_mod_invoke_as)\
+        %:ripa-build-aux-mod(cc1 %U.mgf) %:ripa-gen-lto-cmd()}}\
       %{!fsyntax-only:%(invoke_as)}}}}", 0, 0, 1},
   {"-",
    "%{!E:%e-E or -x required when input is from standard input}\
@@ -1198,6 +1247,10 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("multilib_options",		&multilib_options),
   INIT_STATIC_SPEC ("linker",			&linker_name_spec),
   INIT_STATIC_SPEC ("linker_plugin_file",	&linker_plugin_file_spec),
+  INIT_STATIC_SPEC ("func_reorder_linker_plugin_file",
+		    &func_reorder_linker_plugin_file_spec),
+  INIT_STATIC_SPEC ("func_reorder_linker_plugin_opt",
+	  	    &func_reorder_linker_plugin_opt),
   INIT_STATIC_SPEC ("lto_wrapper",		&lto_wrapper_spec),
   INIT_STATIC_SPEC ("lto_gcc",			&lto_gcc_spec),
   INIT_STATIC_SPEC ("link_libgcc",		&link_libgcc_spec),
@@ -1208,6 +1261,11 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("sysroot_spec",             &sysroot_spec),
   INIT_STATIC_SPEC ("sysroot_suffix_spec",	&sysroot_suffix_spec),
   INIT_STATIC_SPEC ("sysroot_hdrs_suffix_spec",	&sysroot_hdrs_suffix_spec),
+  INIT_STATIC_SPEC ("ripa_aux_mod_spec",        &ripa_aux_mod_spec),
+  INIT_STATIC_SPEC ("ripa_lto_spec",            &ripa_lto_spec),
+  INIT_STATIC_SPEC ("ripa_asm_options",         &ripa_asm_options),
+  INIT_STATIC_SPEC ("ripa_invoke_as",           &ripa_invoke_as),
+  INIT_STATIC_SPEC ("ripa_pri_mod_invoke_as",   &ripa_pri_mod_invoke_as),
 };
 
 #ifdef EXTRA_SPECS		/* additional specs needed */
@@ -1245,6 +1303,9 @@ static const struct spec_function static_spec_functions[] =
   { "compare-debug-self-opt",	compare_debug_self_opt_spec_function },
   { "compare-debug-auxbase-opt", compare_debug_auxbase_opt_spec_function },
   { "pass-through-libs",	pass_through_libs_spec_func },
+  { "replace-extension",	replace_extension_spec_func },
+  { "ripa-build-aux-mod",	ripa_build_aux_mod_func },
+  { "ripa-gen-lto-cmd",	        ripa_gen_lto_cmd_func },
 #ifdef EXTRA_SPEC_FUNCTIONS
   EXTRA_SPEC_FUNCTIONS
 #endif
@@ -1252,6 +1313,7 @@ static const struct spec_function static_spec_functions[] =
 };
 
 static int processing_spec_function;
+static int processing_spec_function_ripa_aux_mode;
 
 /* Add appropriate libgcc specs to OBSTACK, taking into account
    various permutations of -shared-libgcc, -shared, and such.  */
@@ -2449,6 +2511,49 @@ add_sysrooted_prefix (struct path_prefix *pprefix, const char *prefix,
 	      require_machine_suffix, os_multilib);
 }
 
+
+struct command
+{
+  const char *prog;		/* program name.  */
+  const char **argv;		/* vector of args.  */
+};
+
+/* Dump the commands to a file for debugging purpose.  */
+
+static void
+ripa_dump_cmd_line (struct command *commands, int n_commands)
+{
+  static const char *str;
+  static bool first_time = true;
+  const char *mode = "a";
+  FILE *ripa_dump_fd;
+  int i;
+
+  if (first_time)
+  {
+    str = getenv ("RIPA_CMD_DUMP");
+    if (str && !strcmp (str, ""))
+      str = "ripa_cmd_dump";
+    mode = "w";
+    first_time = false;
+  }
+
+  if (str && (ripa_dump_fd = fopen (str, mode)))
+    {
+      for (i = 0; i < n_commands; i++)
+        {
+          const char *const *j;
+          for (j = commands[i].argv; *j; j++)
+               fprintf (ripa_dump_fd, "%s ", *j);
+          if (i + 1 != n_commands)
+            fprintf (ripa_dump_fd, " |");
+          else
+            fprintf (ripa_dump_fd, "\n");
+        }
+      fclose (ripa_dump_fd);
+    }
+}
+
 /* Execute the command specified by the arguments on the current line of spec.
    When using pipes, this includes several piped-together commands
    with `|' between them.
@@ -2462,16 +2567,12 @@ execute (void)
   int n_commands;		/* # of command.  */
   char *string;
   struct pex_obj *pex;
-  struct command
-  {
-    const char *prog;		/* program name.  */
-    const char **argv;		/* vector of args.  */
-  };
   const char *arg;
-
   struct command *commands;	/* each command buffer with above info.  */
 
-  gcc_assert (!processing_spec_function);
+  /* Allow calling in spec_function when building auxiliary modules.  */
+  gcc_assert (!processing_spec_function
+              || processing_spec_function_ripa_aux_mode);
 
   if (wrapper_string)
     {
@@ -2522,6 +2623,8 @@ execute (void)
 	  commands[n_commands].argv[0] = string;
 	n_commands++;
       }
+
+  ripa_dump_cmd_line (commands, n_commands);
 
   /* If -v, print what we are about to do, and maybe query.  */
 
@@ -4378,7 +4481,7 @@ spec_path (char *path, void *data)
 /* Create a temporary FILE with the contents of ARGV. Add @FILE to the
    argument list. */
 
-static void
+static const char *
 create_at_file (char **argv)
 {
   char *temp_file = make_temp_file ("");
@@ -4405,6 +4508,8 @@ create_at_file (char **argv)
   store_arg (at_argument, 0, 0);
 
   record_temp_file (temp_file, !save_temps_flag, !save_temps_flag);
+
+  return at_argument;
 }
 
 /* True if we should compile INFILE. */
@@ -5860,7 +5965,9 @@ give_switch (int switchnum, int omit_first_word)
 
   if (!omit_first_word)
     {
-      do_spec_1 ("-", 0, NULL);
+      /* When building for auxiliary modeules, we don't want "-" to
+         become a separated argument. So avoid calling do_spec_1.  */
+      obstack_1grow (&obstack, '-');
       do_spec_1 (switches[switchnum].part1, 1, NULL);
     }
 
@@ -6108,6 +6215,51 @@ compare_files (char *cmpfile[])
     }
 
   return ret;
+}
+
+/* Set func_reorder_linker_plugin_file_spec and func_reorder_linker_plugin_opt
+   here.  This is the linker plugin to do global function reordering and is
+   enabled with -freorder-functions=*. */
+
+static void
+set_func_reorder_linker_plugin_spec (void)
+{
+  int i;
+  const char *plugin_opt_none = "group=none";
+  const char *plugin_opt_callgraph = "group=callgraph";
+  
+  /* Find the linker plugin that does function ordering.  */
+  func_reorder_linker_plugin_file_spec = find_a_file (&exec_prefixes,
+					    FRPLUGINSONAME, R_OK, false);
+
+  if (!func_reorder_linker_plugin_file_spec)
+      fatal_error ("-freorder-functions=*, but "
+		   FRPLUGINSONAME " file not found");
+
+  func_reorder_linker_plugin_opt = plugin_opt_none;
+
+  /* Set linker plugin options here.  Option ordering is also checked here.
+     -fno-reorder-functions or -freorder-functions should disable any
+     previous -freorder-functions=*. */
+  for (i = 0; (int) i < n_switches; i++)
+    {
+      /* Check for match with "-freorder-functions=callgraph".  */
+      if (func_reorder_linker_plugin_opt != plugin_opt_callgraph
+	  && !strcmp (switches[i].part1, "freorder-functions=callgraph"))
+	{
+	  func_reorder_linker_plugin_opt = plugin_opt_callgraph;
+	  continue;
+	}
+      /* Set option to none if it matches -fno-reorder-functions
+	 or -freorder-functions  */
+      if (func_reorder_linker_plugin_opt != plugin_opt_none
+	  && (!strcmp (switches[i].part1, "fno-reorder-functions")
+	      || !strcmp (switches[i].part1, "freorder-functions")))
+	{
+	  func_reorder_linker_plugin_opt = plugin_opt_none;
+	  continue;
+	}
+    }
 }
 
 extern int main (int, char **);
@@ -6845,6 +6997,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
       const char *fuse_linker_plugin = "fuse-linker-plugin";
 #endif
 
+      const char *freorder_functions_ = "freorder-functions=";
+
       /* We'll use ld if we can't find collect2.  */
       if (! strcmp (linker_name_spec, "collect2"))
 	{
@@ -6868,6 +7022,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"
 	    fatal_error ("-fuse-linker-plugin, but " LTOPLUGINSONAME " not found");
 	}
       lto_gcc_spec = argv[0];
+  
+      /* The function reordering linker plugin will be loaded if the option
+	 -freorder-functions= is present in the command-line.  */ 
+      if (switch_matches (freorder_functions_,
+			  freorder_functions_ + strlen (freorder_functions_), 1))
+	set_func_reorder_linker_plugin_spec ();
 
       /* Rebuild the COMPILER_PATH and LIBRARY_PATH environment variables
 	 for collect.  */
@@ -8289,4 +8449,229 @@ pass_through_libs_spec_func (int argc, const char **argv)
 	free (old);
     }
   return prepended;
+}
+
+/* %:replace-extension spec function.  Replaces the extension of the
+   first argument with the second argument.  */
+
+const char *
+replace_extension_spec_func (int argc, const char **argv)
+{
+  char *name;
+  char *p;
+  char *result;
+
+  if (argc != 2)
+    fatal_error ("too few arguments to %%:replace-extension");
+
+  name = xstrdup (argv[0]);
+  p = strrchr (name, '.');
+  if (p != NULL)
+      *p = '\0';
+
+  result = concat (name, argv[1], NULL);
+
+  free (name);
+  return result;
+}
+#define MODULE_GROUPING_FILE_SUFFIX ".mgf"
+#define MGF_BUF_SIZE 512
+#define STR_DELIMITERS " ,\n"
+
+static struct obstack ripa_ir_files;
+static unsigned int primary_module_id;
+
+/* generate the ir file list to be feeded to lto1.  */
+static const char *
+ripa_gen_lto_cmd_func (int argc ATTRIBUTE_UNUSED,
+                        const char **argv ATTRIBUTE_UNUSED)
+{
+  char **files;
+
+  clear_failure_queue ();
+  obstack_ptr_grow (&ripa_ir_files, NULL);
+  files = (char **) XOBFINISH (&ripa_ir_files, char **);
+  return concat (ripa_lto_spec, create_at_file (files), NULL);
+}
+
+static const char *
+ripa_build_aux_mod_func (int argc, const char **argv)
+{
+  const char *mgf_name = 0;
+  FILE *mgf_fd;
+  char buf[MGF_BUF_SIZE];
+  char str_buf[MGF_BUF_SIZE];
+  const char *src_name, *str;
+  unsigned int mod_id;
+  int num_q, num_b, num_d, num_i, num_c;
+
+  gcc_assert (argc == 2);
+
+  if (ripa_mgf_use_fname != NULL)
+    mgf_name = ripa_mgf_use_fname;
+  else
+    mgf_name = argv[1];
+
+  gcc_assert (!strcmp (argv[0], "cc1") ||
+              !strcmp (argv[0], "cc1plus") ||
+              !strcmp (argv[0], "f951"));
+
+  obstack_init (&ripa_ir_files);
+
+  str = xstrdup (outfiles[input_file_number]);
+  obstack_ptr_grow (&ripa_ir_files, str);
+
+  gcc_assert (mgf_name);
+  if ((mgf_fd = fopen (mgf_name, "r")) == NULL)
+    return NULL;
+
+  /* fprintf(stderr, "##### building aux module for %s #####\n",
+             input_basename); */
+
+  processing_spec_function_ripa_aux_mode = 1;
+
+  record_temp_file (mgf_name, !save_temps_flag && !ripa_mgf_use_fname,
+                    !save_temps_flag && !ripa_mgf_use_fname);
+
+  /* Initialize them just to suppress the warnings.  */
+  num_q = num_b = num_d = num_i = num_c = 0;
+
+  while (fgets(buf, MGF_BUF_SIZE-1, mgf_fd))
+    {
+      /* Assert if the buffer is not large enough.  */
+      gcc_assert ((buf[strlen(buf)-1] == '\n'));
+      buf[strlen(buf)-1] = 0;
+
+      switch (*buf) {
+        case 'P': /* primary module */
+          str = strtok (buf+2, STR_DELIMITERS);
+          gcc_assert (str);
+          primary_module_id = atoi (str);
+          src_name = strtok (NULL, STR_DELIMITERS);
+          gcc_assert (src_name);
+          break;
+
+        case 'Z': /* end of one auxiliary module */
+
+          str = strtok (buf+2, STR_DELIMITERS);
+          gcc_assert (str);
+          mod_id = atoi(str);
+          src_name = strtok (NULL, STR_DELIMITERS);
+          gcc_assert (src_name);
+
+          {
+            int t_q = atoi (strtok (NULL, STR_DELIMITERS));
+            int t_b = atoi (strtok (NULL, STR_DELIMITERS));
+            int t_d = atoi (strtok (NULL, STR_DELIMITERS));
+            int t_i = atoi (strtok (NULL, STR_DELIMITERS));
+            int t_c = atoi (strtok (NULL, STR_DELIMITERS));
+            gcc_assert ( num_q == t_q && num_b == t_b &&
+                         num_d == t_d && num_i == t_i &&
+                         num_c == t_c);
+          }
+
+          /* fprintf(stderr, "      aux: %s.\n", src_name); */
+
+          clear_failure_queue ();
+
+          if (do_spec_1 ("%(ripa_invoke_as)", 0, NULL) < 0)
+            fatal_error ("error in compiling auxiliary module.");
+
+          str = xstrdup (outfiles[input_file_number]);
+          obstack_ptr_grow (&ripa_ir_files, str);
+
+          VEC_free (const_char_p, heap, argbuf);
+          break;
+
+        case 'A': /* beginning of an auxiliary module */
+          str = strtok (buf+2, STR_DELIMITERS);
+          gcc_assert (str);
+          mod_id = atoi(str);
+          src_name = strtok (NULL, STR_DELIMITERS);
+          gcc_assert (src_name);
+
+          set_input (src_name);
+
+          /* Create a new spec processing context, and build the function
+             arguments.  */
+          alloc_args ();
+
+          str = concat (xstrdup(argv[0]), ripa_aux_mod_spec, NULL);
+          if (do_spec_1 (str, 0, NULL) < 0)
+            fatal_error ("error in builing specs for auxiliary module: %qs", str);
+
+          sprintf(str_buf, "-fripa-auxiliary_module_id=%d", mod_id);
+          store_arg (xstrdup (str_buf), 0, 0);
+          num_q = num_b = num_d = num_i = num_c = 0;
+          break;
+
+        case 'G': /* gcda file path */
+          str = strtok (buf+2, STR_DELIMITERS);
+          gcc_assert (str);
+          store_arg (concat ("-fgcda=", str, NULL), 0, 0);
+          break;
+
+        case 'Q': /* quote pathes */
+          ++num_q;
+          str = strtok (buf+2, STR_DELIMITERS);
+          store_arg ("-iquote", 0, 0);
+          store_arg (xstrdup (str), 0, 0);
+          break;
+
+        case 'B': /* bracket paths */
+          ++num_b;
+          str = strtok (buf+2, STR_DELIMITERS);
+          strcpy (str_buf, "-I");
+          strcat (str_buf, str);
+          store_arg (xstrdup (str_buf), 0, 0);
+          break;
+
+        case 'D': /* cpp defines */
+          ++num_d;
+          str = strtok (buf+2, STR_DELIMITERS);
+          strcpy (str_buf, "-");
+          strcat (str_buf, str);
+          store_arg (xstrdup (str_buf), 0, 0);
+          break;
+
+        case 'I': /* cpp includes */
+          ++num_i;
+          str = strtok (buf+2, STR_DELIMITERS);
+          str = strtok (buf+2, STR_DELIMITERS);
+          strcpy (str_buf, "-");
+          strcat (str_buf, str);
+          store_arg (xstrdup (str_buf), 0, 0);
+          break;
+
+        case 'C': /* command line args */
+          ++num_c;
+          str = strtok (buf+2, " \n");
+
+          /* The cmd-line may contain white spaces, like
+             "--param large-stack-frame=16000". We need
+             to separate them.  */
+          do {
+            store_arg (xstrdup (str), 0, 0);
+            str = strtok (NULL, " \n");
+          } while (str);
+
+          break;
+
+        case '#':
+          break;
+
+        default:
+          gcc_assert (0);
+          break;
+      }
+    }
+
+  fclose (mgf_fd);
+
+  /* Restore the primary module source file.  */
+  set_input (infiles[input_file_number].name);
+
+  processing_spec_function_ripa_aux_mode = 0;
+
+  return NULL;
 }
