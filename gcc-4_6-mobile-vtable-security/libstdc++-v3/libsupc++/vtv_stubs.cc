@@ -25,21 +25,31 @@
 #include "vtv_rts.h"
 
 void
-__VLTChangePermission (int)
+__VLTChangePermission (int perm __attribute__((__unused__)))
 {
 }
 
 #ifdef VTV_DEBUG
 
 void
-__VLTRegisterPairDebug (void **, void *, int,
-                        char *, int, char *, int)
+__VLTRegisterPairDebug (void ** data_pointer __attribute__((__unused__)),
+                        void * test_value __attribute__((__unused__)),
+                        int size_hint __attribute__((__unused__)),
+                        char * base_ptr_var_name __attribute__((__unused__)),
+                        int len1 __attribute__((__unused__)),
+                        char * vtable_name __attribute__((__unused__)),
+                        int len2 __attribute__((__unused__)))
 {
 }
 
 void *
-__VLTVerifyVtablePointerDebug (void **, void * test_value,
-                               char *, int, char *, int)
+__VLTVerifyVtablePointerDebug (void ** data_pointer __attribute__((__unused__)),
+                               void * test_value,
+                               char * base_vtbl_var_name __attribute__((__unused__)),
+                               int len1 __attribute__((__unused__)),
+                               char * vtable_name __attribute__((__unused__)),
+                               int len2 __attribute__((__unused__)))
+
 {
   return test_value;
 }
@@ -47,12 +57,16 @@ __VLTVerifyVtablePointerDebug (void **, void * test_value,
 #else
 
 void
-__VLTRegisterPair (void **, void *, int)
+__VLTRegisterPair (void ** data_pointer __attribute__((__unused__)),
+                   void * test_value __attribute__((__unused__)),
+                   int size_hint __attribute__((__unused__)))
+
 {
 }
 
 void *
-__VLTVerifyVtablePointer (void **, void * test_value)
+__VLTVerifyVtablePointer (void ** data_pointer __attribute__((__unused__)),
+                          void * test_value)
 {
   return test_value;
 }
