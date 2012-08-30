@@ -1,0 +1,103 @@
+# *** gcc:
+FAIL: gcc.c-torture/execute/builtins/memset-chk.c compilation,  -O2 -flto 
+UNRESOLVED: gcc.c-torture/execute/builtins/memset-chk.c execution,  -O2 -flto 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O0 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O1 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O2 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O3 -fomit-frame-pointer 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O3 -g 
+FAIL: gcc.c-torture/execute/20020226-1.c execution,  -Os 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O0 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O1 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O2 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O3 -fomit-frame-pointer 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O3 -g 
+FAIL: gcc.c-torture/execute/20020508-1.c execution,  -Os 
+FAIL: gcc.c-torture/execute/pr52129.c compilation,  -O2 -flto 
+UNRESOLVED: gcc.c-torture/execute/pr52129.c execution,  -O2 -flto 
+FAIL: gcc.dg/and-1.c scan-assembler-not nand
+FAIL: gcc.dg/automversn_1.c (test for excess errors)
+UNRESOLVED: gcc.dg/automversn_1.c compilation failed to produce executable
+UNRESOLVED: gcc.dg/automversn_1.c scan-tree-dump auto_clone "foo.autoclone.original"
+UNRESOLVED: gcc.dg/automversn_1.c scan-tree-dump auto_clone "foo.autoclone.0"
+FAIL: gcc.dg/cleanup-10.c execution test
+FAIL: gcc.dg/cleanup-11.c execution test
+FAIL: gcc.dg/cleanup-8.c execution test
+FAIL: gcc.dg/cleanup-9.c execution test
+FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = 2"
+FAIL: gcc.dg/sms-2.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/sms-4.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/sms-5.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/sms-6.c scan-rtl-dump-times sms "SMS succeeded" 3
+FAIL: gcc.dg/sms-7.c scan-rtl-dump-times sms "SMS succeeded" 3
+FAIL: gcc.dg/sms-8.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.dg/stack-usage-1.c scan-file foo\t(256|264)\tstatic
+FAIL: gcc.dg/lto/20110201-1 c_lto_20110201-1_0.o-c_lto_20110201-1_0.o link,  -O0 -flto 
+UNRESOLVED: gcc.dg/lto/20110201-1 c_lto_20110201-1_0.o-c_lto_20110201-1_0.o execute  -O0 -flto 
+FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c scan-ipa-dump profile "Indirect call -> direct call.* a1"
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "foo"
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "goo"
+FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
+FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times dom1 "x[^ ]* & y" 1
+FAIL: gcc.dg/vmx/3a-03.c  -O0  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O1  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O2  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O3 -g  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -Os  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O2 -flto -flto-partition=none  execution test
+FAIL: gcc.dg/vmx/3a-03.c  -O2 -flto  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O0  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O1  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O2  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O3 -g  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -Os  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O2 -flto -flto-partition=none  execution test
+FAIL: gcc.dg/vmx/3a-03m.c  -O2 -flto  execution test
+FAIL: gcc.target/powerpc/ppc-vector-memcpy.c scan-assembler lvx
+FAIL: gcc.target/powerpc/pr47755-2.c execution test
+
+# *** gfortran:
+XPASS: gfortran.dg/nint_2.f90  -O0  execution test
+FAIL: gfortran.dg/vect/pr45714-b.f  -O  (internal compiler error)
+FAIL: gfortran.dg/vect/pr45714-b.f  -O  (test for excess errors)
+FAIL: gfortran.dg/vect/fast-math-pr38968.f90 execution test
+
+# *** g++:
+FAIL: g++.dg/abi/forced.C execution test
+FAIL: g++.dg/ext/cleanup-10.C execution test
+FAIL: g++.dg/ext/cleanup-11.C execution test
+FAIL: g++.dg/ext/cleanup-8.C execution test
+FAIL: g++.dg/ext/cleanup-9.C execution test
+XPASS: g++.dg/uninit-pred-3_b.C (test for excess errors)
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main.clone"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"

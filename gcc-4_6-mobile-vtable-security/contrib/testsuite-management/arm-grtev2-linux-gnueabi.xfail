@@ -1,0 +1,74 @@
+# Failures in ./gcc/testsuite/gcc/gcc.sum:
+# *** gcc:
+FAIL: gcc.dg/automversn_1.c (test for excess errors)
+UNRESOLVED: gcc.dg/automversn_1.c compilation failed to produce executable
+UNRESOLVED: gcc.dg/automversn_1.c scan-tree-dump auto_clone "foo.autoclone.original"
+UNRESOLVED: gcc.dg/automversn_1.c scan-tree-dump auto_clone "foo.autoclone.0"
+FAIL: gcc.dg/builtin-apply2.c execution test
+FAIL: gcc.dg/tls/pr42894.c (test for excess errors)
+FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O0  execution test
+FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O0  execution test
+FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -O1  execution test
+FAIL: gcc.dg/torture/stackalign/builtin-apply-2.c  -Os  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -flto-partition=none  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto  execution test
+FAIL: gcc.dg/tree-prof/switch-case-1.c scan-rtl-dump-times expand "Succ edge[^\n]*count:2000" 1
+FAIL: gcc.dg/vect/vect-multitypes-11.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/vect/vect-multitypes-12.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/vect/vect-reduc-dot-s16b.c scan-tree-dump-times vect "vectorized 1 loops" 0
+FAIL: gcc.dg/vect/vect-reduc-pattern-1a.c scan-tree-dump-times vect "vectorized 1 loops" 0
+FAIL: gcc.dg/vect/vect-reduc-pattern-1b.c scan-tree-dump-times vect "vectorized 1 loops" 0
+FAIL: gcc.dg/vect/vect-reduc-pattern-1c.c scan-tree-dump-times vect "vectorized 1 loops" 0
+FAIL: gcc.dg/vect/vect-reduc-pattern-2a.c scan-tree-dump-times vect "vectorized 1 loops" 0
+FAIL: gcc.dg/vect/vect-reduc-pattern-2b.c scan-tree-dump-times vect "vectorized 1 loops" 0
+XPASS: gcc.dg/vect/slp-reduc-3.c scan-tree-dump-times vect "vectorizing stmts using SLP" 1
+FAIL: gcc.dg/vect/wrapv-vect-reduc-pattern-2c.c scan-tree-dump-times vect "vectorized 1 loops" 0
+XPASS: gcc.dg/vect/no-scevccp-outer-16.c scan-tree-dump-times vect "OUTER LOOP VECTORIZED." 1
+XPASS: gcc.dg/vect/no-scevccp-outer-17.c scan-tree-dump-times vect "OUTER LOOP VECTORIZED." 1
+XPASS: gcc.dg/vect/no-scevccp-outer-19.c scan-tree-dump-times vect "OUTER LOOP VECTORIZED." 1
+XPASS: gcc.dg/vect/no-scevccp-outer-21.c scan-tree-dump-times vect "OUTER LOOP VECTORIZED." 1
+FAIL: gcc.target/arm/pr42575.c scan-assembler-not mov
+FAIL: gcc.target/arm/thumb-ltu.c (test for excess errors)
+UNRESOLVED: gcc.target/arm/thumb-ltu.c scan-assembler-not uxtb
+
+# Failures in ./gcc/testsuite/gfortran/gfortran.sum:
+# *** gfortran:
+FAIL: gfortran.dg/pr45636.f90  -O  scan-tree-dump-times forwprop2 "memset" 0
+FAIL: gfortran.dg/vect/fast-math-pr38968.f90 execution test
+FAIL: gfortran.dg/vect/fast-math-pr38968.f90 scan-tree-dump vect "vectorized 1 loops"
+
+# Failures in ./gcc/testsuite/g++/g++.sum:
+# *** g++:
+FAIL: g++.dg/abi/forced.C execution test
+FAIL: g++.dg/abi/local1.C execution test
+FAIL: g++.dg/thread-ann/thread_annot_lock-82.C  (test for warnings, line 47)
+XPASS: g++.dg/uninit-pred-3_b.C (test for excess errors)
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -g  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -g  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -g  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -O0  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -O0  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -O0  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -O1  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -O1  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -O1  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -O2  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -O2  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -O2  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -O3  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -O3  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -O3  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -O3 -g  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -O3 -g  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -O3 -g  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn13.C execution,    -Os  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn13.C compilation,  -Os  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/mversn13.C execution,    -Os  -fprofile-use
+FAIL: g++.dg/vect/pr36648.cc scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: g++.dg/vect/pr36648.cc scan-tree-dump-times vect "vectorizing stmts using SLP" 1
