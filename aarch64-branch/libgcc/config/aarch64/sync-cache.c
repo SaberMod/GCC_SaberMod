@@ -22,20 +22,22 @@ void
 __aarch64_sync_cache_range (const void *base, const void *end)
 {
   unsigned int cache_info = 0;
+  unsigned int icache_lsize;
+  unsigned int dcache_lsize;
+  const char *address;
 
-  /* CTR_EL0 is the same as AArch32's CTR which contains log2 of the
-     icache size in [3:0], and log2 of the dcache line in [19:16].  */
+  /* CTR_EL0 [3:0] contains log2 of icache line size in words.
+     CTR_EL0 [19:16] contains log2 of dcache line size in words.  */
   asm volatile ("mrs\t%0, ctr_el0":"=r" (cache_info));
 
-  unsigned int icache_lsize = 1 << (cache_info & 0xF);
-  unsigned int dcache_lsize = 1 << ((cache_info >> 16) & 0xF);
+  icache_lsize = 4 << (cache_info & 0xF);
+  dcache_lsize = 4 << ((cache_info >> 16) & 0xF);
 
   /* Loop over the address range, clearing one cache line at once.
      Data cache must be flushed to unification first to make sure the
      instruction cache fetches the updated data.  'end' is exclusive,
      as per the GNU definition of __clear_cache.  */
 
-  const char *address;
   for (address = base; address < (const char *) end; address += dcache_lsize)
     asm volatile ("dc\tcvau, %0"
 		  :
