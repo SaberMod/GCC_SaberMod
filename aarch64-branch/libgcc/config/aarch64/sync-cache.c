@@ -21,14 +21,15 @@
 void
 __aarch64_sync_cache_range (const void *base, const void *end)
 {
-  unsigned int cache_info = 0;
-  unsigned int icache_lsize;
-  unsigned int dcache_lsize;
+  unsigned icache_lsize;
+  unsigned dcache_lsize;
+  static unsigned int cache_info = 0;
   const char *address;
 
-  /* CTR_EL0 [3:0] contains log2 of icache line size in words.
-     CTR_EL0 [19:16] contains log2 of dcache line size in words.  */
-  asm volatile ("mrs\t%0, ctr_el0":"=r" (cache_info));
+  if (! cache_info)
+    /* CTR_EL0 [3:0] contains log2 of icache line size in words.
+       CTR_EL0 [19:16] contains log2 of dcache line size in words.  */
+    asm volatile ("mrs\t%0, ctr_el0":"=r" (cache_info));
 
   icache_lsize = 4 << (cache_info & 0xF);
   dcache_lsize = 4 << ((cache_info >> 16) & 0xF);

@@ -1,5 +1,10 @@
 2012-09-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Cache
+	the ctr_el0 register.
+
+2012-09-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
 	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Lift
 	declarations to top of function.  Update comment.  Correct
 	icache_linesize and dcache_linesize calculation.
