@@ -1,5 +1,10 @@
 2012-09-06  Caroline Tice  <cmtice@google.com>
 
+	* libstdc++-v3/config/abi/pre/gnu.ver:  Add __VLTRegisterPairDebug
+	and __VLTVerifyVtablePointerDebug to the list of exported functions.
+
+2012-09-06  Caroline Tice  <cmtice@google.com>
+
 	* libstdc++-v3/libsupc++/vtv_rts.h:  Add missing comma in function
 	declaration.
 
@@ -18,13 +23,13 @@
 	Reduced number of locks used from 2 to 1.
 	(initialize_change_permissions_mutexes): Get rid of unnecessary code
 	(__VLTChangePermission): ditto. We are simplifying the code to avoid
-	having another unprotected variable. In the new code the only unprotected
-	variable is the "change_permissions_lock". It is not clear how this could
-	be attacked but at least in this code once the code is grabbed the code will
-	always lock the memory again.
+	having another unprotected variable. In the new code the only
+	unprotected variable is the "change_permissions_lock". It is not clear
+	how this could be attacked but at least in this code once the code is
+	grabbed the code will always lock the memory again.
 	(PrintStackTrace): removed this unneded routine.
-	* libstdc++-v3/libsupc++/vtv_stubs.cc: cleaned up to avoid some warnings
-	and reorganized a bit.
+	* libstdc++-v3/libsupc++/vtv_stubs.cc: cleaned up to avoid some
+	warnings and reorganized a bit.
 
 2012-08-28  Luis Lozano  <llozano@google.com>
 
