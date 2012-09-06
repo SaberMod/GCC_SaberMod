@@ -1,3 +1,14 @@
+2012-09-06  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.h:  Add missing comma in function
+	declaration.
+
+2012-08-30  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/Makefile.in:  Re-generated Makefile.in
+	from the new Makefile.am (see commit below); committing the changed
+	file.
+
 2012-08-30  Luis Lozano  <llozano@google.com>
 
 	* libstdc++-v3/libsupc++/Makefile.am: removed vtv_threaded_hash.cc

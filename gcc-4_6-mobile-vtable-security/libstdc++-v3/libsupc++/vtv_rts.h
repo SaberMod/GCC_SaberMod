@@ -42,7 +42,7 @@ void
 __VLTRegisterPairDebug (void **, void *, int,
                         char *, int, char *, int);
 void *
-__VLTVerifyVtablePointerDebug (void **, void *
+__VLTVerifyVtablePointerDebug (void **, void *,
 			       char *, int, char *, int);
 
 #else
