@@ -2277,6 +2277,9 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
      pointer will be in x8.  */
   int this_regno = R0_REGNUM;
 
+  /* Make sure unwind info is emitted for the thunk if needed.  */
+  final_start_function (emit_barrier (), file, 1);
+
   if (vcall_offset == 0)
     aarch64_add_constant (file, this_regno, IP1_REGNUM, delta);
   else
@@ -2310,6 +2313,7 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
     }
 
   output_asm_insn ("b\t%a0", &XEXP (DECL_RTL (function), 0));
+  final_end_function ();
 }
 
 
