@@ -459,4 +459,7 @@ combined option.  For example, some front ends use this to prevent
 value of @option{-fmath-errno} for languages that do not use
 @code{errno}.
 
+@item NoDWARFRecord
+The option is omitted from the producer string written by
+@option{-grecord-gcc-switches}.
 @end table

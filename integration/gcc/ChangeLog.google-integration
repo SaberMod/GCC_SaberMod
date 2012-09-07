@@ -1,3 +1,13 @@
+2012-09-07  Simon Baldwin  <simonb@google.com>
+
+	Backport rev 190648 from trunk.
+
+	* dwarf2out.c (gen_producer_string): Omit command line switch if
+	CL_NO_DWARF_RECORD flag set.
+	* opts.h (CL_NO_DWARF_RECORD): New.
+	* opt-functions.awk (switch_flags): Add NoDWARFRecord.
+	* doc/options.texi: Document NoDWARFRecord option flag.
+
 2012-05-11   Sharad Singhai  <singhai@google.com>
 
 	Mainline merge rev 187391 for gcc 4.8 branch.
