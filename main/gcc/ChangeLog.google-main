@@ -1,3 +1,8 @@
+2012-09-10  Teresa Johnson  <tejohnson@google.com>
+
+	* loop-unroll.c (code_size_limit_factor): Guard against divide
+	by zero exception.
+
 2012-08-28  Chris Manghane  <cmang@google.com>
 
 	* gcc/gcov.c
