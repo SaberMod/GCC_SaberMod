@@ -1,3 +1,14 @@
+2012-09-10  James Greenhalgh  <james.greenhalgh@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(aarch_option_optimization_table): New.
+	(TARGET_OPTION_OPTIMIZATION_TABLE): Define.
+	* gcc/config.gcc ([aarch64] target_has_targetm_common): Set to yes.
+	* gcc/config/aarch64/aarch64-elf.h (ASM_OUTPUT_DEF): New definition.
+	* gcc/config/aarch64/aarch64.c (TARGET_MIN_ANCHOR_OFFSET): Define.
+	(TARGET_MAX_ANCHOR_OFFSET): Likewise.
+
 2012-09-10  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64.c (aarch64_classify_address):

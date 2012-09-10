@@ -6801,6 +6801,17 @@ aarch64_c_mode_for_suffix (char suffix)
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE aarch64_preferred_simd_mode
 
+/* Section anchor support.  */
+
+#undef TARGET_MIN_ANCHOR_OFFSET
+#define TARGET_MIN_ANCHOR_OFFSET -256
+
+/* Limit the maximum anchor offset to 4k-1, since that's the limit for a
+   byte offset; we can do much more for larger data types, but have no way
+   to determine the size of the access.  We assume accesses are aligned.  */
+#undef TARGET_MAX_ANCHOR_OFFSET
+#define TARGET_MAX_ANCHOR_OFFSET 4095
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-aarch64.h"
