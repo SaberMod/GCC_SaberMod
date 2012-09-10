@@ -1,3 +1,10 @@
+2012-09-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/sfp-machine.h (FP_EX_INVALID, FP_EX_DIVZERO)
+	(FP_EX_OVERFLOW, FP_EX_UNDERFLOW, FP_EX_INEXACT)
+	(FP_HANDLE_EXCEPTIONS, FP_RND_NEAREST, FP_RND_ZERO, FP_RND_PINF)
+	(FP_RND_MINF, _FP_DECL_EX, FP_INIT_FOUNDMODE, FP_ROUNDMODE): New.
+
 2012-09-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Cache
