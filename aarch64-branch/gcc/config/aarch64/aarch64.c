@@ -2839,9 +2839,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
     case LABEL_REF:
       /* load literal: pc-relative constant pool entry.  */
       info->type = ADDRESS_SYMBOLIC;
-      if (outer_code != PARALLEL
-	  && (GET_MODE_SIZE (mode) == 4
-	      || GET_MODE_SIZE (mode) == 8))
+      if (outer_code != PARALLEL)
 	{
 	  rtx sym, addend;
 

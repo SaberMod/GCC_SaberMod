@@ -1,3 +1,8 @@
+2012-09-10  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_address):
+	Allow 16 byte modes in constant pool.
+
 2012-07-23  Ian Bolton  <ian.bolton@arm.com>
 
 	* gcc/config/aarch64/aarch64.c (aarch64_print_operand): Use
