@@ -36,7 +36,7 @@
    %{shared:-shared}				\
    %{symbolic:-Bsymbolic}			\
    %{rdynamic:-export-dynamic}			\
-   -dynamic-linker " GLIBC_DYNAMIC_LINKER "	\
+   -dynamic-linker " GNU_USER_DYNAMIC_LINKER "	\
    -X						\
    %{mbig-endian:-EB} %{mlittle-endian:-EL}"
 
