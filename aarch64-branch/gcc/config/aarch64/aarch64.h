@@ -804,7 +804,7 @@ extern enum aarch64_code_model aarch64_cmodel;
 #define HAS_LONG_COND_BRANCH				\
   (aarch64_cmodel == AARCH64_CMODEL_TINY		\
    || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
-  
+
 #define HAS_LONG_UNCOND_BRANCH				\
   (aarch64_cmodel == AARCH64_CMODEL_TINY		\
    || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
