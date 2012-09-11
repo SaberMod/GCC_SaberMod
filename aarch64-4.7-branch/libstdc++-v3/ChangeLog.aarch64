@@ -1,0 +1,4 @@
+2012-05-25  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/cpu/aarch64/cxxabi_tweaks.h: New file.
+	* configure.host: Enable aarch64.

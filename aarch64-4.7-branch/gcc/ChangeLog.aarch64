@@ -1,0 +1,241 @@
+2012-09-10  James Greenhalgh  <james.greenhalgh@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(aarch_option_optimization_table): New.
+	(TARGET_OPTION_OPTIMIZATION_TABLE): Define.
+	* gcc/config.gcc ([aarch64] target_has_targetm_common): Set to yes.
+	* gcc/config/aarch64/aarch64-elf.h (ASM_OUTPUT_DEF): New definition.
+	* gcc/config/aarch64/aarch64.c (TARGET_MIN_ANCHOR_OFFSET): Define.
+	(TARGET_MAX_ANCHOR_OFFSET): Likewise.
+
+2012-09-10  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_address):
+	Allow 16 byte modes in constant pool.
+
+2012-07-23  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc/config/aarch64/aarch64.c (aarch64_print_operand): Use
+	aarch64_classify_symbolic_expression for classifying operands.
+
+	* gcc/config/aarch64/aarch64.c
+	(aarch64_classify_symbolic_expression): New function.
+
+	* gcc/config/aarch64/aarch64.c (aarch64_symbolic_constant_p):
+	New function.
+
+	* gcc/config/aarch64/predicates.md (aarch64_valid_symref):
+	Symbol with constant offset is a valid symbol reference.
+
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c
+	(aarch64_regno_ok_for_index_p): Handle NULL reg_renumber.
+	(aarch64_regno_ok_for_base_p): Likewise.
+	(offset_7bit_signed_scaled_p): New.
+	(offset_9bit_signed_unscaled_p): New.
+	(offset_12bit_unsigned_scaled_p): New.
+	(aarch64_classify_address): Replace pair_p with allow_reg_index_p.
+	Conservative test for valid TImode and TFmode addresses.  Use
+	offset_7bit_signed_scaled_p offset_9bit_signed_unscaled_p and
+	offset_12bit_unsigned_scaled_p.  Remove explicit TImode and TFmode
+	tests.
+	* config/aarch64/aarch64.md (movti_aarch64): Replace 'm' with 'Ump'.
+	(movtf_aarch64): Replace 'm' with 'Ump', replace 'Utf' with 'm'.
+	* config/aarch64/constraints.md (Utf): Remove.
+	(Ump)
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_costs):
+	Move misplaced parenthesis.
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>):
+	Do not emit lsl for a shift of 0.
+	(*aarch64_simd_mov<mode>): Likwise.
+
+2012-07-04  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-linux.h (LINUX_TARGET_LINK_SPEC): Rename 
+	LINUX_DYNAMIC_LINKER to GLIBC_DYNAMIC_LINKER.
+
+2012-06-29  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64.h (aarch64_cmodel): Fix enum name.
+
+2012-06-22  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_sq<r>dmulh_lane<mode>,
+	aarch64_sqdml<SBINQOPS:as>l_lane<mode>_internal,
+	aarch64_sqdmlal_lane<mode>, aarch64_sqdmlal_laneq<mode>,
+	aarch64_sqdmlsl_lane<mode>, aarch64_sqdmlsl_laneq<mode>,
+	aarch64_sqdml<SBINQOPS:as>l2_lane<mode>_internal,
+	aarch64_sqdmlal2_lane<mode>, aarch64_sqdmlal2_laneq<mode>,
+	aarch64_sqdmlsl2_lane<mode>, aarch64_sqdmlsl2_laneq<mode>,
+	aarch64_sqdmull_lane<mode>_internal, aarch64_sqdmull_lane<mode>,
+	aarch64_sqdmull_laneq<mode>, aarch64_sqdmull2_lane<mode>_internal,
+	aarch64_sqdmull2_lane<mode>, aarch64_sqdmull2_laneq<mode>): Change the
+	constraint of the indexed operand to use <vwl> instead of w.
+	* config/aarch64/aarch64.c (aarch64_hard_regno_nregs): Add case for
+	FP_LO_REGS class.
+	(aarch64_regno_regclass): Return FP_LO_REGS if register in V0 - V15.
+	(aarch64_secondary_reload): Change condition to check for both FP reg
+	classes.
+	(aarch64_class_max_nregs): Add case for FP_LO_REGS.
+	* config/aarch64/aarch64.h (reg_class): New register class FP_LO_REGS.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	(FP_LO_REGNUM_P): New.
+	* config/aarch64/aarch64.md (V15_REGNUM): New.
+	* config/aarch64/constraints.md (x): New register constraint.
+	* config/aarch64/iterators.md (vwx): New.
+
+2012-06-22  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/arm_neon.h (vpadd_f64): Remove.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Update LINK_SPEC.
+
+	* config/aarch64/aarch64-linux.h (LINUX_TARGET_LINK_SPEC): Remove
+	%{version:-v}, %{b} and %{!dynamic-linker}.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Replace sprintf with snprintf.
+
+	* config/aarch64/aarch64.c
+	(aarch64_elf_asm_constructor): Replace sprintf with snprintf.
+	(aarch64_elf_asm_destructor): Likewise.
+	(aarch64_output_casesi): Likewise.
+	(aarch64_output_asm_insn): Likewise.
+	* config/aarch64/aarch64-builtins.c (init_aarch64_simd_builtins):
+	Likewise.
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>): Replace
+	sprintf with snprintf, and fix code layout.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Fix documentation layout.
+
+	* doc/invoke.texi: Fix white spaces after dots.
+	Change aarch64*be-*-* to aarch64_be-*-*.
+	Add documentation for -mcmodel=tiny.
+	(-march): Fix formatting.
+	(-mcpu): Likewise.
+	(-mtune): Rephrase.
+	(-march and -mcpu feature modifiers): New subsection.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Use Enums for code models option selection.
+
+	* config/aarch64/aarch64-elf-raw.h (AARCH64_DEFAULT_MEM_MODEL): Delete.
+	* config/aarch64/aarch64-linux.h (AARCH64_DEFAULT_MEM_MODEL): Delete.
+	* config/aarch64/aarch64-opts.h (enum aarch64_code_model): New.
+	* config/aarch64/aarch64-protos.h: Update comments.
+	* config/aarch64/aarch64.c: Update comments.
+	(aarch64_default_mem_model): Rename to aarch64_code_model.
+	(aarch64_expand_mov_immediate): Remove error message.
+	(aarch64_select_rtx_section): Remove assertion and update comment.
+	(aarch64_override_options): Move memory model initialization from here.
+	(struct aarch64_mem_model): Delete.
+	(aarch64_memory_models[]): Delete.
+	(initialize_aarch64_memory_model): Rename to
+	initialize_aarch64_code_model and update.
+	(aarch64_classify_symbol): Handle AARCH64_CMODEL_TINY and
+	AARCH64_CMODEL_TINY_PIC
+	* config/aarch64/aarch64.h
+	(enum aarch64_memory_model): Delete.
+	(aarch64_default_mem_model): Rename to aarch64_cmodel.
+	(HAS_LONG_COND_BRANCH): Update.
+	(HAS_LONG_UNCOND_BRANCH): Update.
+	* config/aarch64/aarch64.opt
+	(cmodel): New.
+	(mcmodel): Update.
+
+2012-06-22  Sofiane Naci <sofiane.naci@arm.com>
+
+	[AArch64] Use Enums for TLS option selection.
+
+	* config/aarch64/aarch64-opts.h (enum aarch64_tls_type): New.
+	* config/aarch64/aarch64.c
+	(aarch64_tls_dialect): Remove.
+	(tls_symbolic_operand_type): Update comment.
+	(aarch64_override_options): Remove TLS option setup code.
+	* config/aarch64/aarch64.h
+	(TARGET_TLS_TRADITIONAL): Remove.
+	(TARGET_TLS_DESC): Update definition.
+	(enum tls_dialect): Remove.
+	(enum tls_dialect aarch64_tls_dialect) Remove.
+	* config/aarch64/aarch64.opt
+	(tls_type): New.
+	(mtls-dialect): Update.
+
+2012-05-25  Ian Bolton  <ian.bolton@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen,thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* common/config/aarch64/aarch64-common.c: New file.
+	* config/aarch64/aarch64-arches.def: New file.
+	* config/aarch64/aarch64-builtins.c: New file.
+	* config/aarch64/aarch64-cores.def: New file.
+	* config/aarch64/aarch64-elf-raw.h: New file.
+	* config/aarch64/aarch64-elf.h: New file.
+	* config/aarch64/aarch64-generic.md: New file.
+	* config/aarch64/aarch64-linux.h: New file.
+	* config/aarch64/aarch64-modes.def: New file.
+	* config/aarch64/aarch64-option-extensions.def: New file.
+	* config/aarch64/aarch64-opts.h: New file.
+	* config/aarch64/aarch64-protos.h: New file.
+	* config/aarch64/aarch64-simd.md: New file.
+	* config/aarch64/aarch64-tune.md: New file.
+	* config/aarch64/aarch64.c: New file.
+	* config/aarch64/aarch64.h: New file.
+	* config/aarch64/aarch64.md: New file.
+	* config/aarch64/aarch64.opt: New file.
+	* config/aarch64/arm_neon.h: New file.
+	* config/aarch64/constraints.md: New file.
+	* config/aarch64/gentune.sh: New file.
+	* config/aarch64/iterators.md: New file.
+	* config/aarch64/large.md: New file.
+	* config/aarch64/predicates.md: New file.
+	* config/aarch64/small.md: New file.
+	* config/aarch64/sync.md: New file.
+	* config/aarch64/t-aarch64-linux: New file.
+	* config/aarch64/t-aarch64: New file.
+	* config.gcc: Add AArch64.
+	* configure.ac: Add AArch64 TLS support detection.
+	* configure: Regenerate.
+	* doc/extend.texi (Complex Numbers): Add AArch64.
+	* doc/invoke.texi (AArch64 Options): New.
+	* doc/md.texi (Machine Constraints): Add AArch64.
+
+	* read-rtl.c (rtx_list): New data structure.
+	(int_iterator_mapping): New data structure.
+	(int_iterator_data): New. List of int iterator details.
+	(num_int_iterator_data): New.
+	(ints): New group list.
+	(find_int): New. Find an int iterator in a list.
+	(dummy_uses_int_iterator): Dummy handle.
+	(dummy_apply_int_iterator): Dummy handle.
+	(uses_int_iterator_p): New.
+	(apply_iterator_to_rtx): Handle case for rtx field specifier 'i'.
+	(initialize_iterators): Initialize int iterators data struts.
+	(find_int_iterator): New. Find an Int iterators from a hash-table.
+	(add_int_iterator: Add int iterator to database.
+	(read_rtx): Parse and read int iterators mapping and attributes.
+	Initialize int iterators group's hash-table. Memory management.
+	(read_rtx_code): Handle case for rtl field specifier 'i'.

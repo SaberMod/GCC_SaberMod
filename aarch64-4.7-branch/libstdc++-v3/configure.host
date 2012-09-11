@@ -94,6 +94,9 @@ error_constants_dir="os/generic"
 # variants into the established source config/cpu/* sub-directories.
 # THIS TABLE IS SORTED.  KEEP IT THAT WAY.
 case "${host_cpu}" in
+  aarch64*)
+    try_cpu=aarch64
+    ;;
   alpha*)
     try_cpu=alpha
     ;;

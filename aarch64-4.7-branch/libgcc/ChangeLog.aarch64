@@ -1,0 +1,56 @@
+2012-09-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/sfp-machine.h (FP_EX_INVALID, FP_EX_DIVZERO)
+	(FP_EX_OVERFLOW, FP_EX_UNDERFLOW, FP_EX_INEXACT)
+	(FP_HANDLE_EXCEPTIONS, FP_RND_NEAREST, FP_RND_ZERO, FP_RND_PINF)
+	(FP_RND_MINF, _FP_DECL_EX, FP_INIT_FOUNDMODE, FP_ROUNDMODE): New.
+
+2012-09-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Cache
+	the ctr_el0 register.
+
+2012-09-03  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Lift
+	declarations to top of function.  Update comment.  Correct
+	icache_linesize and dcache_linesize calculation.
+
+2012-07-17  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/sfp-machine.h (__ARM_EABI__): Remove.
+
+2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
+
+	* config.host
+	(aarch64*-*-elf): Remove t-softfp-sfdf and t-softfp-excl.
+	(aarch64*-*-linux*): Likewise.
+
+2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
+
+	* config.host
+	(aarch64*-*-elf): Add t-aarch64.
+	(aarch64*-*-linux*): Add t-aarch64, remove t-linux.
+	* config/aarch64/lib1funcs.S: Delete.
+	* config/aarch64/sync-cache.c: New file.
+	* config/aarch64/t-aarch64: New file.
+	* config/aarch64/t-linux: Delete.
+
+2012-06-08  Jim MacArthur  <jim.macarthur@arm.com>
+
+	* config/aarch64/t-aarch64: Delete.
+	* config.host (aarch64*-*-elf): Remove reference to t-aarch64.
+
+2012-05-25  Ian Bolton  <ian.bolton@arm.com>
+	    Jim MacArthur  <jim.macarthur@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Nigel Stephens  <nigel.stephens@arm.com>
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Richard Earnshaw  <rearnsha@arm.com>
+	    Sofiane Naci  <sofiane.naci@arm.com>
+	    Stephen Thomas  <stephen,thomas@arm.com>
+	    Tejas Belagod  <tejas.belagod@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* configure.ac: Enable AArch64.
+	* configure: Regenerate.

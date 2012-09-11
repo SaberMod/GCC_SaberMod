@@ -7368,6 +7368,7 @@ fi
 
 
 case $target in
+	aarch64*-*-* | \
 	alpha*-*-* | \
 	arm*-*-*eabi* | \
 	arm*-*-symbianelf* | \
