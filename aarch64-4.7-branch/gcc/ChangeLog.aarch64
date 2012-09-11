@@ -1,3 +1,8 @@
+2012-09-11  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config.sub: Update to version 2010-08-18.
+	* config.guess: Update to version 2010-08-14.
+
 2012-09-10  James Greenhalgh  <james.greenhalgh@arm.com>
 	    Richard Earnshaw  <rearnsha@arm.com>
 
