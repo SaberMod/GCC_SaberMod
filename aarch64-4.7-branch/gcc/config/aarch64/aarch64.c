@@ -37,7 +37,7 @@
 #include "target-def.h"
 #include "targhooks.h"
 #include "ggc.h"
-#include "function.h"
+#include "integrate.h"
 #include "tm_p.h"
 #include "recog.h"
 #include "langhooks.h"
@@ -123,69 +123,8 @@ unsigned long aarch64_isa_flags = 0;
 /* Mask to specify which instruction scheduling options should be used.  */
 unsigned long aarch64_tune_flags = 0;
 
-/* Tuning parameters.  */
-
-#if HAVE_DESIGNATED_INITIALIZERS
-#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
-#else
-#define NAMED_PARAM(NAME, VAL) (VAL)
-#endif
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_rtx_cost_table generic_rtx_cost_table =
-{
-  NAMED_PARAM (memory_load, COSTS_N_INSNS (1)),
-  NAMED_PARAM (memory_store, COSTS_N_INSNS (0)),
-  NAMED_PARAM (register_shift, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_divide, COSTS_N_INSNS (6)),
-  NAMED_PARAM (float_divide, COSTS_N_INSNS (2)),
-  NAMED_PARAM (double_divide, COSTS_N_INSNS (6)),
-  NAMED_PARAM (int_multiply, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_extend, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_add, COSTS_N_INSNS (1)),
-  NAMED_PARAM (int_multiply_extend_add, COSTS_N_INSNS (1)),
-  NAMED_PARAM (float_multiply, COSTS_N_INSNS (0)),
-  NAMED_PARAM (double_multiply, COSTS_N_INSNS (1))
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_addrcost_table generic_addrcost_table =
-{
-  NAMED_PARAM (pre_modify, 0),
-  NAMED_PARAM (post_modify, 0),
-  NAMED_PARAM (register_offset, 0),
-  NAMED_PARAM (register_extend, 0),
-  NAMED_PARAM (imm_offset, 0)
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct cpu_regmove_cost generic_regmove_cost =
-{
-  NAMED_PARAM (GP2GP, 1),
-  NAMED_PARAM (GP2FP, 2),
-  NAMED_PARAM (FP2GP, 2),
-  /* We currently do not provide direct support for TFmode Q->Q move.
-     Therefore we need to raise the cost above 2 in order to have
-     reload handle the situation.  */
-  NAMED_PARAM (FP2FP, 4)
-};
-
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
-static const struct tune_params generic_tunings =
-{
-  &generic_rtx_cost_table,
-  &generic_addrcost_table,
-  &generic_regmove_cost,
-  NAMED_PARAM (memmov_cost, 4)
-};
+/* Tuning models.  */
+static const struct tune_params generic_tunings;
 
 /* A processor implementing AArch64.  */
 struct processor
@@ -627,7 +566,7 @@ aarch64_force_temporary (rtx x, rtx value)
 
 
 static rtx
-aarch64_add_offset (enum machine_mode mode, rtx temp, rtx reg, HOST_WIDE_INT offset)
+aarch64_add_offset (rtx temp, rtx reg, HOST_WIDE_INT offset)
 {
   if (!aarch64_plus_immediate (GEN_INT (offset), DImode))
     {
@@ -639,7 +578,7 @@ aarch64_add_offset (enum machine_mode mode, rtx temp, rtx reg, HOST_WIDE_INT off
       high = aarch64_force_temporary (temp, high);
       reg = aarch64_force_temporary (temp, gen_rtx_PLUS (Pmode, high, reg));
     }
-  return plus_constant (mode, reg, offset);
+  return plus_constant (reg, offset);
 }
 
 void
@@ -665,7 +604,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	  || (can_create_pseudo_p ())))
     {
       base = aarch64_force_temporary (dest, base);
-      aarch64_emit_move (dest, aarch64_add_offset (mode, NULL, base, INTVAL (offset)));
+      aarch64_emit_move (dest, aarch64_add_offset (NULL, base, INTVAL (offset)));
       return;
     }
 
@@ -1437,7 +1376,7 @@ aarch64_frame_pointer_required (void)
   if (flag_omit_frame_pointer && !faked_omit_frame_pointer)
     return false;
   else if (flag_omit_leaf_frame_pointer)
-    return !crtl->is_leaf;
+    return !current_function_is_leaf;
   return true;
 }
 
@@ -1562,8 +1501,7 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
 	{
 	  rtx mem;
 	  mem = gen_mem_ref (DFmode,
-			     plus_constant (Pmode,
-					    base_rtx,
+			     plus_constant (base_rtx,
 					    start_offset));
 
 	  for (regno2 = regno + 1;
@@ -1580,8 +1518,7 @@ aarch64_save_or_restore_fprs (int start_offset, int increment,
 	      /* Next highest register to be saved.  */
 	      mem2 = gen_mem_ref (DFmode,
 				  plus_constant
-				  (Pmode,
-				   base_rtx,
+				  (base_rtx,
 				   start_offset + increment));
 	      if (restore == false)
 		{
@@ -1648,8 +1585,7 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
 	{
 	  rtx mem;
 	  mem = gen_mem_ref (Pmode,
-			     plus_constant (Pmode,
-					    base_rtx,
+			     plus_constant (base_rtx,
 					    start_offset));
 
 	  for (regno2 = regno + 1;
@@ -1666,8 +1602,7 @@ aarch64_save_or_restore_callee_save_registers (HOST_WIDE_INT offset,
 	      /* Next highest register to be saved.  */
 	      mem2 = gen_mem_ref (Pmode,
 				  plus_constant
-				  (Pmode,
-				   base_rtx,
+				  (base_rtx,
 				   start_offset + increment));
 	      if (restore == false)
 		{
@@ -1856,12 +1791,10 @@ aarch64_expand_prologue (void)
 						      stack_pointer_rtx,
 						      GEN_INT (offset))));
 	      mem_fp = gen_frame_mem (DImode,
-				      plus_constant (Pmode,
-						     stack_pointer_rtx,
+				      plus_constant (stack_pointer_rtx,
 						     fp_offset));
 	      mem_lr = gen_frame_mem (DImode,
-				      plus_constant (Pmode,
-						     stack_pointer_rtx,
+				      plus_constant (stack_pointer_rtx,
 						     fp_offset
 						     + UNITS_PER_WORD));
 	      insn = emit_insn (gen_store_pairdi (mem_fp,
@@ -1992,12 +1925,10 @@ aarch64_expand_epilogue (bool for_sibcall)
 	  if (fp_offset)
 	    {
 	      mem_fp = gen_frame_mem (DImode,
-				      plus_constant (Pmode,
-						     stack_pointer_rtx,
+				      plus_constant (stack_pointer_rtx,
 						     fp_offset));
 	      mem_lr = gen_frame_mem (DImode,
-				      plus_constant (Pmode,
-						     stack_pointer_rtx,
+				      plus_constant (stack_pointer_rtx,
 						     fp_offset
 						     + UNITS_PER_WORD));
 	      insn = emit_insn (gen_load_pairdi (hard_frame_pointer_rtx,
@@ -2158,18 +2089,17 @@ aarch64_final_eh_return_addr (void)
     {
       if (fp_offset)
         return gen_frame_mem (DImode,
-			      plus_constant (Pmode, hard_frame_pointer_rtx, UNITS_PER_WORD));
+			      plus_constant (hard_frame_pointer_rtx, UNITS_PER_WORD));
       else
         return gen_frame_mem (DImode,
-			      plus_constant (Pmode, stack_pointer_rtx, UNITS_PER_WORD));
+			      plus_constant (stack_pointer_rtx, UNITS_PER_WORD));
     }
 
   /* If FP is not needed, we calculate the location of LR, which would be
      at the top of the saved registers block.  */
 
   return gen_frame_mem (DImode,
-			plus_constant (Pmode,
-				       stack_pointer_rtx,
+			plus_constant (stack_pointer_rtx,
 				       fp_offset
 				       + cfun->machine->frame.saved_regs_size
 				       - 2 * UNITS_PER_WORD));
@@ -2839,7 +2769,9 @@ aarch64_classify_address (struct aarch64_address_info *info,
     case LABEL_REF:
       /* load literal: pc-relative constant pool entry.  */
       info->type = ADDRESS_SYMBOLIC;
-      if (outer_code != PARALLEL)
+      if (outer_code != PARALLEL
+	  && (GET_MODE_SIZE (mode) == 4
+	      || GET_MODE_SIZE (mode) == 8))
 	{
 	  rtx sym, addend;
 
@@ -3529,7 +3461,7 @@ aarch64_label_mentioned_p (rtx x)
 
 /* Implement REGNO_REG_CLASS.  */
 
-enum reg_class
+unsigned
 aarch64_regno_regclass (unsigned regno)
 {
   if (GP_REGNUM_P (regno))
@@ -3569,7 +3501,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
       x = copy_rtx (x);
       push_reload (orig_rtx, NULL_RTX, x_p, NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, (enum reload_type) type);
+		   opnum, type);
       return x;
     }
 
@@ -3582,7 +3514,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
     {
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, (enum reload_type) type);
+		   opnum, type);
       return x;
     }
 
@@ -3646,7 +3578,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-		   opnum, (enum reload_type) type);
+		   opnum, type);
       return x;
     }
 
@@ -3694,7 +3626,8 @@ aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
       && GET_MODE_SIZE (mode) == 16 && MEM_P (x))
     return FP_REGS;
 
-  if (rclass == FP_REGS && (mode == TImode || mode == TFmode) && CONSTANT_P(x))
+  if ((mode == TImode || mode == TFmode) && CONSTANT_P(x)
+      && reg_class_subset_p (rclass, FP_REGS))
       return CORE_REGS;
 
   return NO_REGS;
@@ -3819,8 +3752,8 @@ aarch64_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
      gen_clear_cache().  */
   a_tramp = XEXP (m_tramp, 0);
   emit_library_call (gen_rtx_SYMBOL_REF (Pmode, "__clear_cache"),
-		     LCT_NORMAL, VOIDmode, 2, a_tramp, Pmode,
-		     plus_constant (Pmode, a_tramp, TRAMPOLINE_SIZE), Pmode);
+		     0, VOIDmode, 2, a_tramp, Pmode,
+		     plus_constant (a_tramp, TRAMPOLINE_SIZE), Pmode);
 }
 
 static unsigned char
@@ -4432,6 +4365,71 @@ aarch64_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 }
 
 static void initialize_aarch64_code_model (void);
+
+/* Tuning parameters.  */
+
+#if HAVE_DESIGNATED_INITIALIZERS
+#define NAMED_PARAM(NAME, VAL) .NAME = (VAL)
+#else
+#define NAMED_PARAM(NAME, VAL) (VAL)
+#endif
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_rtx_cost_table generic_rtx_cost_table =
+{
+  NAMED_PARAM (memory_load, COSTS_N_INSNS (1)),
+  NAMED_PARAM (memory_store, COSTS_N_INSNS (0)),
+  NAMED_PARAM (register_shift, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_divide, COSTS_N_INSNS (6)),
+  NAMED_PARAM (float_divide, COSTS_N_INSNS (2)),
+  NAMED_PARAM (double_divide, COSTS_N_INSNS (6)),
+  NAMED_PARAM (int_multiply, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_extend, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_add, COSTS_N_INSNS (1)),
+  NAMED_PARAM (int_multiply_extend_add, COSTS_N_INSNS (1)),
+  NAMED_PARAM (float_multiply, COSTS_N_INSNS (0)),
+  NAMED_PARAM (double_multiply, COSTS_N_INSNS (1))
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_addrcost_table generic_addrcost_table =
+{
+  NAMED_PARAM (pre_modify, 0),
+  NAMED_PARAM (post_modify, 0),
+  NAMED_PARAM (register_offset, 0),
+  NAMED_PARAM (register_extend, 0),
+  NAMED_PARAM (imm_offset, 0)
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_regmove_cost generic_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 1),
+  NAMED_PARAM (GP2FP, 2),
+  NAMED_PARAM (FP2GP, 2),
+  /* We currently do not provide direct support for TFmode Q->Q move.
+     Therefore we need to raise the cost above 2 in order to have
+     reload handle the situation.  */
+  NAMED_PARAM (FP2FP, 4)
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct tune_params generic_tunings =
+{
+  &generic_rtx_cost_table,
+  &generic_addrcost_table,
+  &generic_regmove_cost,
+  NAMED_PARAM (memmov_cost, 4)
+};
+
 
 /* Parse the architecture extension string.  */
 
@@ -5412,7 +5410,7 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, enum machine_mode mode,
 	  rtx ptr, mem;
 
 	  /* virtual_incoming_args_rtx should have been 16-byte aligned.  */
-	  ptr = plus_constant (Pmode, virtual_incoming_args_rtx,
+	  ptr = plus_constant (virtual_incoming_args_rtx,
 			       - gr_saved * UNITS_PER_WORD);
 	  mem = gen_frame_mem (BLKmode, ptr);
 	  set_mem_alias_set (mem, get_varargs_alias_set ());
@@ -5438,7 +5436,7 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, enum machine_mode mode,
 	    {
 	      rtx ptr, mem;
 
-	      ptr = plus_constant (Pmode, virtual_incoming_args_rtx, off);
+	      ptr = plus_constant (virtual_incoming_args_rtx, off);
 	      mem = gen_frame_mem (mode, ptr);
 	      set_mem_alias_set (mem, get_varargs_alias_set ());
 	      aarch64_emit_move (mem, gen_rtx_REG (mode, V0_REGNUM + i));
@@ -6800,17 +6798,6 @@ aarch64_c_mode_for_suffix (char suffix)
 
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE aarch64_preferred_simd_mode
-
-/* Section anchor support.  */
-
-#undef TARGET_MIN_ANCHOR_OFFSET
-#define TARGET_MIN_ANCHOR_OFFSET -256
-
-/* Limit the maximum anchor offset to 4k-1, since that's the limit for a
-   byte offset; we can do much more for larger data types, but have no way
-   to determine the size of the access.  We assume accesses are aligned.  */
-#undef TARGET_MAX_ANCHOR_OFFSET
-#define TARGET_MAX_ANCHOR_OFFSET 4095
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

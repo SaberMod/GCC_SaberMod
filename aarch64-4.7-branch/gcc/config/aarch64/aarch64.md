@@ -1127,8 +1127,7 @@
    (set (match_operand:GPI 2 "register_operand" "=r")
         (match_operand:GPI 3 "memory_operand" "m"))]
   "rtx_equal_p (XEXP (operands[3], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[1], 0),
+		plus_constant (XEXP (operands[1], 0),
 			       GET_MODE_SIZE (<MODE>mode)))"
   "ldp\\t%<w>0, %<w>2, %1"
   [(set_attr "v8type" "load2")
@@ -1143,8 +1142,7 @@
    (set (match_operand:GPI 2 "memory_operand" "=m")
         (match_operand:GPI 3 "register_operand" "r"))]
   "rtx_equal_p (XEXP (operands[2], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[0], 0),
+		plus_constant (XEXP (operands[0], 0),
 			       GET_MODE_SIZE (<MODE>mode)))"
   "stp\\t%<w>1, %<w>3, %0"
   [(set_attr "v8type" "store2")
@@ -1159,8 +1157,7 @@
    (set (match_operand:GPF 2 "register_operand" "=w")
         (match_operand:GPF 3 "memory_operand" "m"))]
   "rtx_equal_p (XEXP (operands[3], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[1], 0),
+		plus_constant (XEXP (operands[1], 0),
 			       GET_MODE_SIZE (<MODE>mode)))"
   "ldp\\t%<w>0, %<w>2, %1"
   [(set_attr "v8type" "fpsimd_load2")
@@ -1175,8 +1172,7 @@
    (set (match_operand:GPF 2 "memory_operand" "=m")
         (match_operand:GPF 3 "register_operand" "w"))]
   "rtx_equal_p (XEXP (operands[2], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[0], 0),
+		plus_constant (XEXP (operands[0], 0),
 			       GET_MODE_SIZE (<MODE>mode)))"
   "stp\\t%<w>1, %<w>3, %0"
   [(set_attr "v8type" "fpsimd_load2")
