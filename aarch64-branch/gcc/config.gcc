@@ -2999,24 +2999,6 @@ fi
 
 supported_defaults=
 case "${target}" in
-	alpha*-*-*)
-		supported_defaults="cpu tune"
-		for which in cpu tune; do
-			eval "val=\$with_$which"
-			case "$val" in
-			"" \
-			| ev4 | ev45 | 21064 | ev5 | 21164 | ev56 | 21164a \
-			| pca56 | 21164PC | 21164pc | ev6 | 21264 | ev67 \
-			| 21264a)
-				;;
-			*)
-				echo "Unknown CPU used in --with-$which=$val" 1>&2
-				exit 1
-				;;
-			esac
-		done
-		;;
-
 	aarch64*-*-*)
 		supported_defaults="cpu arch"
 		for which in cpu arch; do
@@ -3100,6 +3082,24 @@ case "${target}" in
 			  echo "Unknown $which used in --with-$which=$val" 1>&2
 			  exit 1
 			fi
+		done
+		;;
+
+	alpha*-*-*)
+		supported_defaults="cpu tune"
+		for which in cpu tune; do
+			eval "val=\$with_$which"
+			case "$val" in
+			"" \
+			| ev4 | ev45 | 21064 | ev5 | 21164 | ev56 | 21164a \
+			| pca56 | 21164PC | 21164pc | ev6 | 21264 | ev67 \
+			| 21264a)
+				;;
+			*)
+				echo "Unknown CPU used in --with-$which=$val" 1>&2
+				exit 1
+				;;
+			esac
 		done
 		;;
 
