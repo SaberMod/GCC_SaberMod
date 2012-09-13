@@ -4369,7 +4369,9 @@ aarch64_rtx_costs (rtx x, int code, int outer ATTRIBUTE_UNUSED,
 }
 
 static int
-aarch64_address_cost (rtx x ATTRIBUTE_UNUSED, bool speed ATTRIBUTE_UNUSED)
+aarch64_address_cost (rtx x ATTRIBUTE_UNUSED,
+		  enum machine_mode mode ATTRIBUTE_UNUSED,
+		  addr_space_t as ATTRIBUTE_UNUSED, bool speed ATTRIBUTE_UNUSED)
 {
   enum rtx_code c  = GET_CODE (x);
   const struct cpu_addrcost_table *addr_cost = aarch64_tune_params->addr_cost;
