@@ -2019,7 +2019,7 @@
   [(set_attr "v8type" "csel")
    (set_attr "mode" "<MODE>")])
 
-(define_insn "*csinc3<mode>_insn"
+(define_insn "csinc3<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (if_then_else:GPI
 	  (match_operator:GPI 1 "aarch64_comparison_operator"
@@ -2127,6 +2127,21 @@
   "clz\\t%<w>0, %<w>1"
   [(set_attr "v8type" "clz")
    (set_attr "mode" "<MODE>")])
+
+(define_expand "ffs<mode>2"
+  [(match_operand:GPI 0 "register_operand")
+   (match_operand:GPI 1 "register_operand")]
+  ""
+  {
+    rtx ccreg = aarch64_gen_compare_reg (EQ, operands[1], const0_rtx);
+    rtx x = gen_rtx_NE (VOIDmode, ccreg, const0_rtx);
+
+    emit_insn (gen_rbit<mode>2 (operands[0], operands[1]));
+    emit_insn (gen_clz<mode>2 (operands[0], operands[0]));
+    emit_insn (gen_csinc3<mode>_insn (operands[0], x, ccreg, operands[0], const0_rtx));
+    DONE;
+  }
+)
 
 (define_insn "*and<mode>3nr_compare0"
   [(set (reg:CC CC_REGNUM)

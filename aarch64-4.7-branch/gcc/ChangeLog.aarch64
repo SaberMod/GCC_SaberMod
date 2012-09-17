@@ -1,5 +1,11 @@
 2012-09-17  Ian Bolton  <ian.bolton@arm.com>
 
+	* config/aarch64/aarch64.md (csinc3<mode>): Turn into named
+	pattern.
+	* config/aarch64/aarch64.md (ffs<mode>2): New pattern.
+
+2012-09-17  Ian Bolton  <ian.bolton@arm.com>
+
 	* config/aarch64/aarch64.md (fmsub<mode>4): Rename fnma<mode>4.
 	* config/aarch64/aarch64.md (fnmsub<mode>4): Rename fms<mode>4.
 	* config/aarch64/aarch64.md (fnmadd<mode>4): Rename fnms<mode>4.
