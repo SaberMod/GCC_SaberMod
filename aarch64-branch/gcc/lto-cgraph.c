@@ -114,7 +114,7 @@ lto_symtab_encoder_encode (lto_symtab_encoder_t encoder,
       if (!slot)
         slot = pointer_map_insert (encoder->map, node);
       *slot = (void *) (intptr_t) (ref + 1);
-      VEC_safe_push (lto_encoder_entry, heap, encoder->nodes, &entry);
+      VEC_safe_push (lto_encoder_entry, heap, encoder->nodes, entry);
     }
   else
     ref = (size_t) *slot - 1;
@@ -730,8 +730,6 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 	      lto_set_symtab_encoder_encode_initializer (encoder, vnode);
 	      add_references (encoder, &vnode->symbol.ref_list);
 	    }
-	  else if (vnode->alias || vnode->alias_of)
-	    add_references (encoder, &vnode->symbol.ref_list);
        }
     }
 
