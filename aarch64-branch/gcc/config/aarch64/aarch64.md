@@ -2510,7 +2510,7 @@
    (set_attr "mode" "<MODE>")]
 )
 
-(define_insn "*fmsub<mode>4"
+(define_insn "fnma<mode>4"
   [(set (match_operand:GPF 0 "register_operand" "=w")
 	(fma:GPF (neg:GPF (match_operand:GPF 1 "register_operand" "w"))
 		 (match_operand:GPF 2 "register_operand" "w")
@@ -2521,7 +2521,7 @@
    (set_attr "mode" "<MODE>")]
 )
 
-(define_insn "*fnmsub<mode>4"
+(define_insn "fms<mode>4"
   [(set (match_operand:GPF 0 "register_operand" "=w")
         (fma:GPF (match_operand:GPF 1 "register_operand" "w")
 		 (match_operand:GPF 2 "register_operand" "w")
@@ -2532,12 +2532,24 @@
    (set_attr "mode" "<MODE>")]
 )
 
-(define_insn "*fnmadd<mode>4"
+(define_insn "fnms<mode>4"
   [(set (match_operand:GPF 0 "register_operand" "=w")
 	(fma:GPF (neg:GPF (match_operand:GPF 1 "register_operand" "w"))
 		 (match_operand:GPF 2 "register_operand" "w")
 		 (neg:GPF (match_operand:GPF 3 "register_operand" "w"))))]
   "TARGET_FLOAT"
+  "fnmadd\\t%<s>0, %<s>1, %<s>2, %<s>3"
+  [(set_attr "v8type" "fmadd")
+   (set_attr "mode" "<MODE>")]
+)
+
+;; If signed zeros are ignored, -(a * b + c) = -a * b - c.
+(define_insn "*fnmadd<mode>4"
+  [(set (match_operand:GPF 0 "register_operand")
+	(neg:GPF (fma:GPF (match_operand:GPF 1 "register_operand")
+			  (match_operand:GPF 2 "register_operand")
+			  (match_operand:GPF 3 "register_operand"))))]
+  "!HONOR_SIGNED_ZEROS (<MODE>mode) && TARGET_FLOAT"
   "fnmadd\\t%<s>0, %<s>1, %<s>2, %<s>3"
   [(set_attr "v8type" "fmadd")
    (set_attr "mode" "<MODE>")]
