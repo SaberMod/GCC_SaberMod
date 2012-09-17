@@ -1,3 +1,10 @@
+2012-09-17  Terry Guo  <terry.guo@arm.com>
+
+	Backport r191291 from mainline
+	2012-09-14  Ulrich Weigand  <ulrich.weigand@linaro.org>
+
+	* gcc.target/arm/combine-movs.c: Add missing space.
+
 2012-09-12  Terry Guo  <terry.guo@arm.com>
 
 	Backport r191239 from mainline
