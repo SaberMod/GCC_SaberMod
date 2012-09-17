@@ -1,5 +1,9 @@
 2012-09-17  Ian Bolton  <ian.bolton@arm.com>
 
+	* gcc.target/aarch64/ffs.c: New test.
+
+2012-09-17  Ian Bolton  <ian.bolton@arm.com>
+
 	* gcc.target/aarch64/fmadd.c: Added extra tests.
 	* gcc.target/aarch64/fnmadd-fastmath.c: New test.
 
