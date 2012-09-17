@@ -1,3 +1,12 @@
+2012-09-17  Wei Guozhi  <carrot@google.com>
+
+	Backport from trunk
+
+	2012-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* cselib.c (expand_loc): Return sp, fp, hfp or cfa base reg right
+	away if seen.
+
 2012-09-10  Teresa Johnson  <tejohnson@google.com>
 
 	* loop-unroll.c (code_size_limit_factor): Guard against divide
