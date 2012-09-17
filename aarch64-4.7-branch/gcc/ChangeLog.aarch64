@@ -1,3 +1,10 @@
+2012-09-17  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (fmsub<mode>4): Rename fnma<mode>4.
+	* config/aarch64/aarch64.md (fnmsub<mode>4): Rename fms<mode>4.
+	* config/aarch64/aarch64.md (fnmadd<mode>4): Rename fnms<mode>4.
+	* config/aarch64/aarch64.md (*fnmadd<mode>4): New pattern.
+
 2012-09-11  Sofiane Naci  <sofiane.naci@arm.com>
 
 	* config.sub: Update to version 2010-08-18.

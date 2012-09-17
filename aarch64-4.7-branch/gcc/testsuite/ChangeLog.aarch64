@@ -1,3 +1,8 @@
+2012-09-17  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/fmadd.c: Added extra tests.
+	* gcc.target/aarch64/fnmadd-fastmath.c: New test.
+
 2012-05-25  Ian Bolton  <ian.bolton@arm.com>
 	    Jim MacArthur  <jim.macarthur@arm.com>
 	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
