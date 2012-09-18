@@ -21,14 +21,6 @@
 #ifndef GCC_AARCH64_LINUX_H
 #define GCC_AARCH64_LINUX_H
 
-#define MULTIARCH_TUPLE "aarch64-linux-gnu"
-
-#undef STANDARD_STARTFILE_PREFIX_1
-#define STANDARD_STARTFILE_PREFIX_1 "/lib/" MULTIARCH_TUPLE "/"
-
-#undef STANDARD_STARTFILE_PREFIX_2
-#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/" MULTIARCH_TUPLE "/"
-
 #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-aarch64.so.1"
 
 #define LINUX_TARGET_LINK_SPEC  "%{h*}		\

@@ -1,3 +1,9 @@
+2012-09-18  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-linux.h (MULTIARCH_TUPLE): Remove.
+	(STANDARD_STARTFILE_PREFIX_1): Likewise.
+	(STANDARD_STARTFILE_PREFIX_2): Likewise.
+
 2012-09-17  Ian Bolton  <ian.bolton@arm.com>
 
 	* config/aarch64/aarch64.md (csinc3<mode>): Turn into named
