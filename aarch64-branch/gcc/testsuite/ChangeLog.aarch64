@@ -1,3 +1,9 @@
+2012-09-18  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/clrsb.c: New test.
+	* gcc.target/aarch64/clz.c: New test.
+	* gcc.target/aarch64/ctz.c: New test.
+
 2012-09-17  Ian Bolton  <ian.bolton@arm.com>
 
 	* gcc.target/aarch64/ffs.c: New test.

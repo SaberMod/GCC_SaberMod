@@ -153,6 +153,8 @@
     (UNSPEC_CMTST	 83) ; Used in aarch64-simd.md.
     (UNSPEC_FMAX	 83) ; Used in aarch64-simd.md.
     (UNSPEC_FMIN	 84) ; Used in aarch64-simd.md.
+    (UNSPEC_CLS 	 85) ; Used in aarch64.md.
+    (UNSPEC_RBIT	 86) ; Used in aarch64.md.
   ]
 )
 
@@ -2143,6 +2145,33 @@
     emit_insn (gen_rbit<mode>2 (operands[0], operands[1]));
     emit_insn (gen_clz<mode>2 (operands[0], operands[0]));
     emit_insn (gen_csinc3<mode>_insn (operands[0], x, ccreg, operands[0], const0_rtx));
+    DONE;
+  }
+)
+
+(define_insn "clrsb<mode>2"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(unspec:GPI [(match_operand:GPI 1 "register_operand" "r")] UNSPEC_CLS))]
+  ""
+  "cls\\t%<w>0, %<w>1"
+  [(set_attr "v8type" "clz")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "rbit<mode>2"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(unspec:GPI [(match_operand:GPI 1 "register_operand" "r")] UNSPEC_RBIT))]
+  ""
+  "rbit\\t%<w>0, %<w>1"
+  [(set_attr "v8type" "rbit")
+   (set_attr "mode" "<MODE>")])
+
+(define_expand "ctz<mode>2"
+  [(match_operand:GPI 0 "register_operand")
+   (match_operand:GPI 1 "register_operand")]
+  ""
+  {
+    emit_insn (gen_rbit<mode>2 (operands[0], operands[1]));
+    emit_insn (gen_clz<mode>2 (operands[0], operands[0]));
     DONE;
   }
 )
