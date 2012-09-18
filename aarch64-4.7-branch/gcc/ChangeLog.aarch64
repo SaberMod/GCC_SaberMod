@@ -1,3 +1,10 @@
+2012-09-18  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.h: Define CTZ_DEFINED_VALUE_AT_ZERO.
+	* config/aarch64/aarch64.md (clrsb<mode>2): New pattern.
+	* config/aarch64/aarch64.md (rbit<mode>2): New pattern.
+	* config/aarch64/aarch64.md (ctz<mode>2): New pattern.
+
 2012-09-18  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64-linux.h (MULTIARCH_TUPLE): Remove.
