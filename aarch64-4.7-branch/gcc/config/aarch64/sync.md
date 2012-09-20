@@ -18,10 +18,20 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
+(define_c_enum "unspecv"
+ [
+    UNSPECV_SYNC_COMPARE_AND_SWAP       ; Represent a sync_compare_and_swap.
+    UNSPECV_SYNC_LOCK			; Represent a sync_lock_test_and_set.
+    UNSPECV_SYNC_LOCK_RELEASE		; Represent a sync_lock_release.
+    UNSPECV_SYNC_OP			; Represent a sync_<op>
+    UNSPECV_SYNC_NEW_OP			; Represent a sync_new_<op>
+    UNSPECV_SYNC_OLD_OP			; Represent a sync_old_<op>
+])
+
 (define_expand "sync_compare_and_swap<mode>"
   [(set (match_operand:ALLI 0 "register_operand")
         (unspec_volatile:ALLI [(match_operand:ALLI 1 "memory_operand")
-  			       (match_operand:ALLI 2 "register_operand")
+			       (match_operand:ALLI 2 "register_operand")
 			       (match_operand:ALLI 3 "register_operand")]
 			       UNSPECV_SYNC_COMPARE_AND_SWAP))]
   ""

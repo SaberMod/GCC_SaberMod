@@ -139,6 +139,87 @@
 
 (define_mode_iterator TX [TI TF])
 
+;; ------------------------------------------------------------------
+;; Unspec enumerations for Advance SIMD. These could well go into
+;; aarch64.md but for their use in int_iterators here.
+;; ------------------------------------------------------------------
+
+(define_c_enum "unspec"
+ [
+    UNSPEC_ASHIFT_SIGNED	; Used in aarch-simd.md.
+    UNSPEC_ASHIFT_UNSIGNED	; Used in aarch64-simd.md.
+    UNSPEC_FMAXV	; Used in aarch64-simd.md.
+    UNSPEC_FMINV	; Used in aarch64-simd.md.
+    UNSPEC_FADDV	; Used in aarch64-simd.md.
+    UNSPEC_ADDV		; Used in aarch64-simd.md.
+    UNSPEC_SMAXV	; Used in aarch64-simd.md.
+    UNSPEC_SMINV	; Used in aarch64-simd.md.
+    UNSPEC_UMAXV	; Used in aarch64-simd.md.
+    UNSPEC_UMINV	; Used in aarch64-simd.md.
+    UNSPEC_SHADD	; Used in aarch64-simd.md.
+    UNSPEC_UHADD	; Used in aarch64-simd.md.
+    UNSPEC_SRHADD	; Used in aarch64-simd.md.
+    UNSPEC_URHADD	; Used in aarch64-simd.md.
+    UNSPEC_SHSUB	; Used in aarch64-simd.md.
+    UNSPEC_UHSUB	; Used in aarch64-simd.md.
+    UNSPEC_SRHSUB	; Used in aarch64-simd.md.
+    UNSPEC_URHSUB	; Used in aarch64-simd.md.
+    UNSPEC_ADDHN	; Used in aarch64-simd.md.
+    UNSPEC_RADDHN	; Used in aarch64-simd.md.
+    UNSPEC_SUBHN	; Used in aarch64-simd.md.
+    UNSPEC_RSUBHN	; Used in aarch64-simd.md.
+    UNSPEC_ADDHN2	; Used in aarch64-simd.md.
+    UNSPEC_RADDHN2	; Used in aarch64-simd.md.
+    UNSPEC_SUBHN2	; Used in aarch64-simd.md.
+    UNSPEC_RSUBHN2	; Used in aarch64-simd.md.
+    UNSPEC_SQDMULH	; Used in aarch64-simd.md.
+    UNSPEC_SQRDMULH	; Used in aarch64-simd.md.
+    UNSPEC_PMUL		; Used in aarch64-simd.md.
+    UNSPEC_USQADD	; Used in aarch64-simd.md.
+    UNSPEC_SUQADD	; Used in aarch64-simd.md.
+    UNSPEC_SQXTUN	; Used in aarch64-simd.md.
+    UNSPEC_SQXTN	; Used in aarch64-simd.md.
+    UNSPEC_UQXTN	; Used in aarch64-simd.md.
+    UNSPEC_SSRA		; Used in aarch64-simd.md.
+    UNSPEC_USRA		; Used in aarch64-simd.md.
+    UNSPEC_SRSRA	; Used in aarch64-simd.md.
+    UNSPEC_URSRA	; Used in aarch64-simd.md.
+    UNSPEC_SRSHR	; Used in aarch64-simd.md.
+    UNSPEC_URSHR	; Used in aarch64-simd.md.
+    UNSPEC_SQSHLU	; Used in aarch64-simd.md.
+    UNSPEC_SQSHL	; Used in aarch64-simd.md.
+    UNSPEC_UQSHL	; Used in aarch64-simd.md.
+    UNSPEC_SQSHRUN	; Used in aarch64-simd.md.
+    UNSPEC_SQRSHRUN	; Used in aarch64-simd.md.
+    UNSPEC_SQSHRN	; Used in aarch64-simd.md.
+    UNSPEC_UQSHRN	; Used in aarch64-simd.md.
+    UNSPEC_SQRSHRN	; Used in aarch64-simd.md.
+    UNSPEC_UQRSHRN	; Used in aarch64-simd.md.
+    UNSPEC_SSHL		; Used in aarch64-simd.md.
+    UNSPEC_USHL		; Used in aarch64-simd.md.
+    UNSPEC_SRSHL	; Used in aarch64-simd.md.
+    UNSPEC_URSHL	; Used in aarch64-simd.md.
+    UNSPEC_SQRSHL	; Used in aarch64-simd.md.
+    UNSPEC_UQRSHL	; Used in aarch64-simd.md.
+    UNSPEC_CMEQ		; Used in aarch64-simd.md.
+    UNSPEC_CMLE		; Used in aarch64-simd.md.
+    UNSPEC_CMLT		; Used in aarch64-simd.md.
+    UNSPEC_CMGE		; Used in aarch64-simd.md.
+    UNSPEC_CMGT		; Used in aarch64-simd.md.
+    UNSPEC_CMHS		; Used in aarch64-simd.md.
+    UNSPEC_CMHI		; Used in aarch64-simd.md.
+    UNSPEC_SSLI		; Used in aarch64-simd.md.
+    UNSPEC_USLI		; Used in aarch64-simd.md.
+    UNSPEC_SSRI		; Used in aarch64-simd.md.
+    UNSPEC_USRI		; Used in aarch64-simd.md.
+    UNSPEC_SSHLL	; Used in aarch64-simd.md.
+    UNSPEC_USHLL	; Used in aarch64-simd.md.
+    UNSPEC_ADDP		; Used in aarch64-simd.md.
+    UNSPEC_CMTST	; Used in aarch64-simd.md.
+    UNSPEC_FMAX		; Used in aarch64-simd.md.
+    UNSPEC_FMIN		; Used in aarch64-simd.md.
+])
+
 ;; -------------------------------------------------------------------
 ;; Mode attributes
 ;; -------------------------------------------------------------------

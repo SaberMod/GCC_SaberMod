@@ -65,108 +65,27 @@
   ]
 )
 
-(define_constants
-  [
-    (UNSPEC_NOP		0)
-    (UNSPEC_TLS		1)
-    (UNSPEC_CASESI	2)
-    (UNSPEC_GOTSMALLPIC    3)
-    (UNSPEC_GOTSMALLTLS    4)
-    (UNSPEC_PRLG_STK    5)
-    (UNSPEC_MB          6)
-    (UNSPEC_ASHIFT_SIGNED	7) ; Used in aarch64-simd.md.
-    (UNSPEC_ASHIFT_UNSIGNED	8) ; Used in aarch64-simd.md.
-    (UNSPEC_FRINTZ        9)
-    (UNSPEC_FRINTP       10)
-    (UNSPEC_FRINTM       11)
-    (UNSPEC_FRINTA       12)
-    (UNSPEC_FRINTI       13)
-    (UNSPEC_TLSDESC      14)
-    (UNSPEC_FRINTX       15)
-    (UNSPEC_FMAXV	 16) ; Used in aarch64-simd.md.
-    (UNSPEC_FMINV	 17) ; Used in aarch64-simd.md.
-    (UNSPEC_FADDV	 18) ; Used in aarch64-simd.md.
-    (UNSPEC_ADDV	 19) ; Used in aarch64-simd.md.
-    (UNSPEC_SMAXV	 20) ; Used in aarch64-simd.md.
-    (UNSPEC_SMINV	 21) ; Used in aarch64-simd.md.
-    (UNSPEC_UMAXV        22) ; Used in aarch64-simd.md.
-    (UNSPEC_UMINV	 23) ; Used in aarch64-simd.md.
-    (UNSPEC_SHADD	 24) ; Used in aarch64-simd.md.
-    (UNSPEC_UHADD	 25) ; Used in aarch64-simd.md.
-    (UNSPEC_SRHADD	 26) ; Used in aarch64-simd.md.
-    (UNSPEC_URHADD	 27) ; Used in aarch64-simd.md.
-    (UNSPEC_SHSUB	 28) ; Used in aarch64-simd.md.
-    (UNSPEC_UHSUB	 29) ; Used in aarch64-simd.md.
-    (UNSPEC_SRHSUB	 30) ; Used in aarch64-simd.md.
-    (UNSPEC_URHSUB	 31) ; Used in aarch64-simd.md.
-    (UNSPEC_ADDHN	 32) ; Used in aarch64-simd.md.
-    (UNSPEC_RADDHN	 33) ; Used in aarch64-simd.md.
-    (UNSPEC_SUBHN	 34) ; Used in aarch64-simd.md.
-    (UNSPEC_RSUBHN	 35) ; Used in aarch64-simd.md.
-    (UNSPEC_ADDHN2	 36) ; Used in aarch64-simd.md.
-    (UNSPEC_RADDHN2	 37) ; Used in aarch64-simd.md.
-    (UNSPEC_SUBHN2	 38) ; Used in aarch64-simd.md.
-    (UNSPEC_RSUBHN2	 39) ; Used in aarch64-simd.md.
-    (UNSPEC_SQDMULH	 40) ; Used in aarch64-simd.md.
-    (UNSPEC_SQRDMULH	 41) ; Used in aarch64-simd.md.
-    (UNSPEC_PMUL	 42) ; Used in aarch64-simd.md.
-    (UNSPEC_USQADD	 43) ; Used in aarch64-simd.md.
-    (UNSPEC_SUQADD	 44) ; Used in aarch64-simd.md.
-    (UNSPEC_SQXTUN	 45) ; Used in aarch64-simd.md.
-    (UNSPEC_SQXTN	 46) ; Used in aarch64-simd.md.
-    (UNSPEC_UQXTN	 47) ; Used in aarch64-simd.md.
-    (UNSPEC_SSRA	 48) ; Used in aarch64-simd.md.
-    (UNSPEC_USRA	 49) ; Used in aarch64-simd.md.
-    (UNSPEC_SRSRA	 50) ; Used in aarch64-simd.md.
-    (UNSPEC_URSRA	 51) ; Used in aarch64-simd.md.
-    (UNSPEC_SRSHR	 52) ; Used in aarch64-simd.md.
-    (UNSPEC_URSHR	 53) ; Used in aarch64-simd.md.
-    (UNSPEC_SQSHLU	 54) ; Used in aarch64-simd.md.
-    (UNSPEC_SQSHL	 55) ; Used in aarch64-simd.md.
-    (UNSPEC_UQSHL	 56) ; Used in aarch64-simd.md.
-    (UNSPEC_SQSHRUN	 57) ; Used in aarch64-simd.md.
-    (UNSPEC_SQRSHRUN	 58) ; Used in aarch64-simd.md.
-    (UNSPEC_SQSHRN	 59) ; Used in aarch64-simd.md.
-    (UNSPEC_UQSHRN	 60) ; Used in aarch64-simd.md.
-    (UNSPEC_SQRSHRN	 61) ; Used in aarch64-simd.md.
-    (UNSPEC_UQRSHRN	 62) ; Used in aarch64-simd.md.
-    (UNSPEC_SSHL	 63) ; Used in aarch64-simd.md.
-    (UNSPEC_USHL	 64) ; Used in aarch64-simd.md.
-    (UNSPEC_SRSHL	 65) ; Used in aarch64-simd.md.
-    (UNSPEC_URSHL	 66) ; Used in aarch64-simd.md.
-    (UNSPEC_SQRSHL	 67) ; Used in aarch64-simd.md.
-    (UNSPEC_UQRSHL	 68) ; Used in aarch64-simd.md.
-    (UNSPEC_CMEQ	 69) ; Used in aarch64-simd.md.
-    (UNSPEC_CMLE	 70) ; Used in aarch64-simd.md.
-    (UNSPEC_CMLT	 71) ; Used in aarch64-simd.md.
-    (UNSPEC_CMGE	 72) ; Used in aarch64-simd.md.
-    (UNSPEC_CMGT	 73) ; Used in aarch64-simd.md.
-    (UNSPEC_CMHS	 74) ; Used in aarch64-simd.md.
-    (UNSPEC_CMHI	 75) ; Used in aarch64-simd.md.
-    (UNSPEC_SSLI	 76) ; Used in aarch64-simd.md.
-    (UNSPEC_USLI	 77) ; Used in aarch64-simd.md.
-    (UNSPEC_SSRI	 78) ; Used in aarch64-simd.md.
-    (UNSPEC_USRI	 79) ; Used in aarch64-simd.md.
-    (UNSPEC_SSHLL	 80) ; Used in aarch64-simd.md.
-    (UNSPEC_USHLL	 81) ; Used in aarch64-simd.md.
-    (UNSPEC_ADDP	 82) ; Used in aarch64-simd.md.
-    (UNSPEC_CMTST	 83) ; Used in aarch64-simd.md.
-    (UNSPEC_FMAX	 83) ; Used in aarch64-simd.md.
-    (UNSPEC_FMIN	 84) ; Used in aarch64-simd.md.
-    (UNSPEC_CLS 	 85) ; Used in aarch64.md.
-    (UNSPEC_RBIT	 86) ; Used in aarch64.md.
-  ]
-)
+(define_c_enum "unspec" [
+    UNSPEC_CASESI
+    UNSPEC_CLS
+    UNSPEC_FRINTA
+    UNSPEC_FRINTI
+    UNSPEC_FRINTM
+    UNSPEC_FRINTP
+    UNSPEC_FRINTX
+    UNSPEC_FRINTZ
+    UNSPEC_GOTSMALLPIC
+    UNSPEC_GOTSMALLTLS
+    UNSPEC_MB
+    UNSPEC_NOP
+    UNSPEC_PRLG_STK
+    UNSPEC_RBIT
+    UNSPEC_TLS
+    UNSPEC_TLSDESC
+])
 
-(define_constants
-  [
-    (UNSPECV_EH_RETURN  0)
-    (UNSPECV_SYNC_COMPARE_AND_SWAP 1)   ; Represent a sync_compare_and_swap.
-    (UNSPECV_SYNC_LOCK             2)	; Represent a sync_lock_test_and_set.
-    (UNSPECV_SYNC_LOCK_RELEASE     3)	; Represent a sync_lock_release.
-    (UNSPECV_SYNC_OP               4)	; Represent a sync_<op>
-    (UNSPECV_SYNC_NEW_OP           5)	; Represent a sync_new_<op>
-    (UNSPECV_SYNC_OLD_OP           6)	; Represent a sync_old_<op>
+(define_c_enum "unspecv" [
+    UNSPECV_EH_RETURN		; Represent EH_RETURN
   ]
 )
 
