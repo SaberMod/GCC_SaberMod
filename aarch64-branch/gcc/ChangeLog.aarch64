@@ -1,3 +1,10 @@
+2012-09-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/aarch64/aarch64.md: Make unspec and unspecv constants
+	c_enums and split out to iterators.md and sync.md.
+	* config/aarch64/iterators.md: Add SIMD unspec c_enums.
+	* config/aarch64/sync.md: Add sync unspecv c_enums.
+
 2012-09-18  Ian Bolton  <ian.bolton@arm.com>
 
 	* config/aarch64/aarch64.h: Define CTZ_DEFINED_VALUE_AT_ZERO.
