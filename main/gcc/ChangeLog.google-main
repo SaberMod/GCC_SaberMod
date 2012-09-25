@@ -1,5 +1,12 @@
 2012-09-25  Rong Xu  <xur@google.com>
 
+	Port r191682 from google-4_7 branch
+
+	Google Ref: b/7210837 and b/7210303. 
+	* gcc/coverage.c (force_matching_cg_opts): add new entries.
+
+2012-09-25  Rong Xu  <xur@google.com>
+
 	Port r191681 from google-4_7 branch
 
 	Google ref b/7078882.
