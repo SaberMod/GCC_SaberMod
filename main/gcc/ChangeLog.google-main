@@ -1,3 +1,12 @@
+2012-09-24  Xinliang David Li  <davidxl@google.com>
+
+	Port r191689 from google-4_7 branch
+
+        * df-problems.c (df_check_ud_du_memory_usage): New function.
+        * ree.c (rest_of_handle_ree): Suppress ree if it requires
+          too much memory.
+        * dce.c (rest_of_handle_ud_dce): Ditto.
+
 2012-09-13  Han Shen  <shenhan@google.com>
 
 	* backport r190600 from google/gcc-4_7 branch
@@ -223,6 +232,7 @@
         (PARAM_UNROLLPEEL_HOTNESS_THRESHOLD): Add.
 	* gcov-dump.c (tag_summary): Dump new summary info.
 
+>>>>>>> .r191689
 2012-06-06   Xinliang David Li  <davidxl@google.com>
 
 	Backport r188271 from google-4_7
