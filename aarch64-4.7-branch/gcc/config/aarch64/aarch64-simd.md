@@ -443,7 +443,7 @@
      case 2: return "orr\t%0.<Vbtype>, %1.<Vbtype>, %1.<Vbtype>";
      case 3: return "umov\t%0, %1.d[0]\;umov\t%H0, %1.d[1]";
      case 4: return "ins\t%0.d[0], %1\;ins\t%0.d[1], %H1";
-     case 5: return "mov\t%0, %1;mov\t%H0, %H1";
+     case 5: return "#";
      case 6:
        {
 	int is_valid;
@@ -474,6 +474,27 @@
    (set_attr "simd_mode" "<MODE>")
    (set_attr "length" "4,4,4,8,8,8,4")]
 )
+
+(define_split
+  [(set (match_operand:VQ 0 "register_operand" "")
+      (match_operand:VQ 1 "register_operand" ""))]
+  "TARGET_SIMD && reload_completed
+   && GP_REGNUM_P (REGNO (operands[0]))
+   && GP_REGNUM_P (REGNO (operands[1]))"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))]
+{
+  int rdest = REGNO (operands[0]);
+  int rsrc = REGNO (operands[1]);
+  rtx dest[2], src[2];
+
+  dest[0] = gen_rtx_REG (DImode, rdest);
+  src[0] = gen_rtx_REG (DImode, rsrc);
+  dest[1] = gen_rtx_REG (DImode, rdest + 1);
+  src[1] = gen_rtx_REG (DImode, rsrc + 1);
+
+  aarch64_simd_disambiguate_copy (operands, dest, src, 2);
+})
 
 (define_insn "orn<mode>3"
  [(set (match_operand:VDQ 0 "register_operand" "=w")
