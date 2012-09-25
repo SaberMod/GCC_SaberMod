@@ -2702,7 +2702,7 @@
   [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w,w")
         (unspec:<V_cmp_result>
 	  [(match_operand:VSDQ_I_DI 1 "register_operand" "w,w")
-	   (match_operand:VSDQ_I_DI 2 "nonmemory_operand" "w,Z")]
+	   (match_operand:VSDQ_I_DI 2 "aarch64_simd_reg_or_zero" "w,Z")]
           VCMP_S))]
   "TARGET_SIMD"
   "@
