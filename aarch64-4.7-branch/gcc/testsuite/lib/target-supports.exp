@@ -3657,7 +3657,8 @@ foreach N {2 3 4 8} {
 		     && [check_effective_target_vect_extract_even_odd] } {
 		    set et_vect_stridedN_saved 1
 		}
-		if { [istarget arm*-*-*] && N >= 2 && N <= 4 } {
+		if { ([istarget arm*-*-*]
+		      || [istarget aarch64*-*-*]) && N >= 2 && N <= 4 } {
 		    set et_vect_stridedN_saved 1
 		}
 	    }

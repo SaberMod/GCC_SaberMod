@@ -110,6 +110,9 @@
 ;; Double vector modes for combines.
 (define_mode_iterator VDC [V8QI V4HI V2SI V2SF DI DF])
 
+;; Double vector modes for combines.
+(define_mode_iterator VDIC [V8QI V4HI V2SI])
+
 ;; Double vector modes.
 (define_mode_iterator VD_RE [V8QI V4HI V2SI DI DF V2SF])
 
@@ -138,6 +141,12 @@
 (define_mode_iterator VB [V8QI V16QI])
 
 (define_mode_iterator TX [TI TF])
+
+;; Opaque structure modes.
+(define_mode_iterator VSTRUCT [OI CI XI])
+
+;; Double scalar modes
+(define_mode_iterator DX [DI DF])
 
 ;; ------------------------------------------------------------------
 ;; Unspec enumerations for Advance SIMD. These could well go into
@@ -273,6 +282,7 @@
 (define_mode_attr Vtype [(V8QI "8b") (V16QI "16b")
 			 (V4HI "4h") (V8HI  "8h")
                          (V2SI "2s") (V4SI  "4s")
+                         (DI   "1d") (DF    "1d")
                          (V2DI "2d") (V2SF "2s")
 			 (V4SF "4s") (V2DF "2d")])
 
@@ -410,6 +420,33 @@
 ;; Vm for lane instructions is restricted to FP_LO_REGS.
 (define_mode_attr vwx [(V4HI "x") (V8HI "x") (HI "x")
 		       (V2SI "w") (V4SI "w") (SI "w")])
+
+(define_mode_attr Vendreg [(OI "T") (CI "U") (XI "V")])
+
+(define_mode_attr nregs [(OI "2") (CI "3") (XI "4")])
+
+(define_mode_attr VRL2 [(V8QI "V32QI") (V4HI "V16HI")
+			(V2SI "V8SI")  (V2SF "V8SF")
+			(DI   "V4DI")  (DF   "V4DF")
+			(V16QI "V32QI") (V8HI "V16HI")
+			(V4SI "V8SI")  (V4SF "V8SF")
+			(V2DI "V4DI")  (V2DF "V4DF")])
+
+(define_mode_attr VRL3 [(V8QI "V48QI") (V4HI "V24HI")
+			(V2SI "V12SI")  (V2SF "V12SF")
+			(DI   "V6DI")  (DF   "V6DF")
+			(V16QI "V48QI") (V8HI "V24HI")
+			(V4SI "V12SI")  (V4SF "V12SF")
+			(V2DI "V6DI")  (V2DF "V6DF")])
+
+(define_mode_attr VRL4 [(V8QI "V64QI") (V4HI "V32HI")
+			(V2SI "V16SI")  (V2SF "V16SF")
+			(DI   "V8DI")  (DF   "V8DF")
+			(V16QI "V64QI") (V8HI "V32HI")
+			(V4SI "V16SI")  (V4SF "V16SF")
+			(V2DI "V8DI")  (V2DF "V8DF")])
+
+(define_mode_attr VSTRUCT_DREG [(OI "TI") (CI "EI") (XI "OI")])
 
 ;; -------------------------------------------------------------------
 ;; Code Iterators

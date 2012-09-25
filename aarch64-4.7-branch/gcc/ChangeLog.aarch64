@@ -1,3 +1,74 @@
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_simd_builtin_data):
+	Populate intrinsic table with struct loads and store descriptors.
+	(init_aarch64_simd_builtins): Remove cruft.
+	(aarch64_simd_expand_builtin): Expand the builtins.
+	* config/aarch64/aarch64-modes.def: Define new vector modes for register
+	lists.
+	* config/aarch64/aarch64-protos.h (aarch64_simd_attr_length_move): New.
+	(aarch64_simd_mem_operand_p): New.
+	(aarch64_simd_imm_zero_p): New.
+	(aarch64_output_move_struct): New.
+	(aarch64_simd_disambiguate_copy): New.
+	* config/aarch64/aarch64-simd.md (simd_mode): Add OI, CI and XI to the
+	list.
+	(mov<mode>): Tighten predicates for simd operand.
+	(movmisalign<mode>): Likewise.
+	(*aarch64_simd_mov<mode>): Tighten predicates and constraints for simd
+	operands.
+	(*aarch64_combinez<mode>): New.
+	(vec_load_lanesoi<mode>, vec_store_lanesoi<mode>)
+	(vec_load_lanesci<mode>, vec_store_lanesci<mode>)
+	(vec_load_lanesxi<mode>)
+	(vec_store_lanesxi<mode>, mov<mode>, *aarch64_mov<mode>)
+	(aarch64_ld2<mode>_dreg, aarch64_ld3<mode>_dreg)
+	(aarch64_ld4<mode>_dreg, aarch64_ld<VSTRUCT:nregs><VDC:mode>)
+	(aarch64_ld<VSTRUCT:nregs><VQ:mode>)
+	(aarch64_get_dreg<VSTRUCT:mode><VDC:mode>)
+	(aarch64_get_qreg<VSTRUCT:mode><VQ:mode>, aarch64_st2<mode>_dreg)
+	(aarch64_st3<mode>_dreg, aarch64_st4<mode>_dreg)
+	(aarch64_st<VSTRUCT:nregs><VDC:mode>)
+	(aarch64_st<VSTRUCT:nregs><VQ:mode>)
+	(aarch64_set_qreg<VSTRUCT:mode><VQ:mode>): New expanders and patterns
+	for vector struct loads and stores.
+	* config/aarch64/aarch64.c (aarch64_vect_struct_mode_p): New.
+	(aarch64_vector_mode_p): New.
+	(aarch64_array_mode_supported_p): New.
+	(aarch64_hard_regno_mode_ok): Check that reglists don't go out of
+	range and don't allocate general regs to large int modes.
+	(aarch64_classify_address): Restrict addressing modes of large int
+	modes to same as SIMD addressing modes.
+	(aarch64_print_operand): Print specifiers for register lists.
+	(aarch64_legitimize_reload_address): Treat large int modes simliar to
+	SIMD modes.
+	(aarch64_class_max_nregs): Return the correct max number of register
+	for a particular mode.
+	(aarch64_legitimate_constant_p): Do not allow large int modes
+	immediate values.
+	(aarch64_simd_imm_zero_p): New.
+	(aarch64_simd_mem_operand_p): Check if mem operand has a valid SIMD
+	addressing mode.
+	(aarch64_simd_disambiguate_copy): Copy values that span multiple
+	register with and without overlapping.
+	(aarch64_simd_attr_length_move): Length of instruction sequence
+	depending on the mode.
+	* config/aarch64/aarch64.h (AARCH64_VALID_SIMD_QREG_MODE): New.
+	* config/aarch64/aarch64.md (UNSPEC_VSTRUCTDUMMY, UNSPEC_LD2)
+	(UNSPEC_LD3, UNSPEC_LD4, UNSPEC_ST2, UNSPEC_ST3, UNSPEC_ST4): New.
+	* config/aarch64/arm_neon.h: Remove assembler implementation of vector
+	struct loads and stores and add new C implementations.
+	* config/aarch64/constraints.md (Utv): New memory constraint for SIMD
+	memory operands.
+	(Dz): New.
+	* config/aarch64/iterators.md (VDIC, VSTRUCT, DX): New mode iterators.
+	(Vendreg, nregs, VRL2, VRL3, VRL4, VSTRUCT_DREG): New mode attributes.
+	* config/aarch64/predicates.md (aarch64_simd_struct_operand): New.
+	(aarch64_simd_general_operand): New.
+	(aarch64_simd_nonimmediate_operand): New.
+	(aarch64_simd_reg_or_zero): New.
+	(aarch64_simd_imm_zero): New.
+
 2012-09-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	* config/aarch64/aarch64.md: Make unspec and unspecv constants

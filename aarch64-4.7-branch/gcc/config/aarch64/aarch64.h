@@ -816,4 +816,9 @@ extern enum aarch64_code_model aarch64_cmodel;
   (aarch64_cmodel == AARCH64_CMODEL_TINY		\
    || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC)
 
+/* Modes valid for AdvSIMD Q registers.  */
+#define AARCH64_VALID_SIMD_QREG_MODE(MODE) \
+  ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
+   || (MODE) == V4SFmode || (MODE) == V2DImode || mode == V2DFmode)
+
 #endif /* GCC_AARCH64_H */

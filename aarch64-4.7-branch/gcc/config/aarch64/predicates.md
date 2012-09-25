@@ -265,3 +265,33 @@
 {
   return aarch64_simd_shift_imm_p (op, mode, false);
 })
+
+(define_predicate "aarch64_simd_struct_operand"
+  (and (match_code "mem")
+       (match_test "TARGET_SIMD && aarch64_simd_mem_operand_p (op)")))
+
+;; Like general_operand but allow only valid SIMD addressing modes.
+(define_predicate "aarch64_simd_general_operand"
+  (and (match_operand 0 "general_operand")
+       (match_test "!MEM_P (op)
+		    || GET_CODE (XEXP (op, 0)) == POST_INC
+		    || GET_CODE (XEXP (op, 0)) == REG")))
+
+;; Like nonimmediate_operand but allow only valid SIMD addressing modes.
+(define_predicate "aarch64_simd_nonimmediate_operand"
+  (and (match_operand 0 "nonimmediate_operand")
+       (match_test "!MEM_P (op)
+		    || GET_CODE (XEXP (op, 0)) == POST_INC
+		    || GET_CODE (XEXP (op, 0)) == REG")))
+
+(define_special_predicate "aarch64_simd_imm_zero"
+  (match_code "const_vector")
+{
+  return aarch64_simd_imm_zero_p (op, mode);
+})
+
+(define_predicate "aarch64_simd_reg_or_zero"
+  (and (match_code "reg,subreg,const_int,const_vector")
+       (ior (match_operand 0 "register_operand")
+	    (ior (match_test "op == const0_rtx")
+		 (match_test "aarch64_simd_imm_zero_p (op, mode)")))))

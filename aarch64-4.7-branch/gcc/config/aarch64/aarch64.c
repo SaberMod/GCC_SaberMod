@@ -234,6 +234,34 @@ aarch64_dbx_register_number (unsigned regno)
    return DWARF_FRAME_REGISTERS;
 }
 
+/* Return TRUE if MODE is any of the large INT modes.  */
+static bool
+aarch64_vect_struct_mode_p (enum machine_mode mode)
+{
+  return mode == OImode || mode == CImode || mode == XImode;
+}
+
+/* Return TRUE if MODE is any of the vector modes.  */
+static bool
+aarch64_vector_mode_p (enum machine_mode mode)
+{
+  return aarch64_vector_mode_supported_p (mode)
+	 || aarch64_vect_struct_mode_p (mode);
+}
+
+/* Implement target hook TARGET_ARRAY_MODE_SUPPORTED_P.  */
+static bool
+aarch64_array_mode_supported_p (enum machine_mode mode,
+				unsigned HOST_WIDE_INT nelems)
+{
+  if (TARGET_SIMD
+      && AARCH64_VALID_SIMD_QREG_MODE (mode)
+      && (nelems >= 2 && nelems <= 4))
+    return true;
+
+  return false;
+}
+
 /* Implement HARD_REGNO_NREGS.  */
 
 int
@@ -262,11 +290,17 @@ aarch64_hard_regno_mode_ok (unsigned regno, enum machine_mode mode)
       || regno == ARG_POINTER_REGNUM)
     return mode == Pmode;
 
-  if (GP_REGNUM_P (regno))
+  if (GP_REGNUM_P (regno) && ! aarch64_vect_struct_mode_p (mode))
     return 1;
 
   if (FP_REGNUM_P (regno))
-    return 1;
+    {
+      if (aarch64_vect_struct_mode_p (mode))
+	return
+	  (regno + aarch64_hard_regno_nregs (regno, mode) - 1) <= V31_REGNUM;
+      else
+	return 1;
+    }
 
   return 0;
 }
@@ -2659,7 +2693,7 @@ aarch64_classify_address (struct aarch64_address_info *info,
 
   /* Don't support anything other than POST_INC or REG addressing for
      AdvSIMD.  */
-  if (aarch64_vector_mode_supported_p (mode)
+  if (aarch64_vector_mode_p (mode)
       && (code != POST_INC && code != REG))
     return false;
 
@@ -3182,6 +3216,20 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       asm_fprintf (f, "%s%c%d", REGISTER_PREFIX, code, REGNO (x) - V0_REGNUM);
       break;
 
+    case 'S':
+    case 'T':
+    case 'U':
+    case 'V':
+      /* Print the first FP/SIMD register name in a list.  */
+      if (!REG_P (x) || !FP_REGNUM_P (REGNO (x)))
+	{
+	  output_operand_lossage ("incompatible floating point / vector register operand for '%%%c'", code);
+	  return;
+	}
+      asm_fprintf (f, "%sv%d", REGISTER_PREFIX,
+			       REGNO (x) - V0_REGNUM + (code - 'S'));
+      break;
+
     case 'w':
     case 'x':
       /* Print a general register name or the zero register (32-bit or
@@ -3490,7 +3538,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
   rtx x = *x_p;
 
   /* Do not allow mem (plus (reg, const)) if vector mode.  */
-  if (aarch64_vector_mode_supported_p (mode)
+  if (aarch64_vector_mode_p (mode)
       && GET_CODE (x) == PLUS
       && REG_P (XEXP (x, 0))
       && CONST_INT_P (XEXP (x, 1)))
@@ -3765,8 +3813,9 @@ aarch64_class_max_nregs (reg_class_t regclass, enum machine_mode mode)
     case ALL_REGS:
     case FP_REGS:
     case FP_LO_REGS:
-      return (GET_MODE_SIZE (mode) + 7) / 8;
-
+      return
+	aarch64_vector_mode_p (mode) ? (GET_MODE_SIZE (mode) + 15) / 16 :
+ 				       (GET_MODE_SIZE (mode) + 7) / 8;
     case STACK_REG:
       return 1;
 
@@ -4889,6 +4938,11 @@ aarch64_legitimate_pic_operand_p (rtx x)
 static bool
 aarch64_legitimate_constant_p (enum machine_mode mode, rtx x)
 {
+  /* Do not allow vector struct mode constants.  We could support
+     0 and -1 easily, but they need support in aarch64-simd.md.  */
+  if (TARGET_SIMD && aarch64_vect_struct_mode_p (mode))
+    return false;
+
   /* This could probably go away because
      we now decompose CONST_INTs according to expand_mov_immediate.  */
   if ((GET_CODE (x) == CONST_VECTOR
@@ -6434,6 +6488,24 @@ aarch64_simd_shift_imm_p (rtx x, enum machine_mode mode, bool left)
     return aarch64_const_vec_all_same_int_p (x, 1, bit_width);
 }
 
+bool
+aarch64_simd_imm_zero_p (rtx x, enum machine_mode mode)
+{
+  int nunits;
+  int i;
+
+ if (GET_CODE (x) != CONST_VECTOR)
+   return false;
+
+  nunits = GET_MODE_NUNITS (mode);
+
+  for (i = 0; i < nunits; i++)
+    if (INTVAL (CONST_VECTOR_ELT (x, i)) != 0)
+      return false;
+
+  return true;
+}
+
 /* Return a const_int vector of VAL.  */
 rtx
 aarch64_simd_gen_const_vector_dup (enum machine_mode mode, int val)
@@ -6512,6 +6584,74 @@ aarch64_simd_emit_pair_result_insn (enum machine_mode mode,
   emit_move_insn (mem, tmp1);
   mem = adjust_address (mem, mode, GET_MODE_SIZE (mode));
   emit_move_insn (mem, tmp2);
+}
+
+/* Return TRUE if OP is a valid vector addressing mode.  */
+bool
+aarch64_simd_mem_operand_p (rtx op)
+{
+  return MEM_P (op) && (GET_CODE (XEXP (op, 0)) == POST_INC
+			|| GET_CODE (XEXP (op, 0)) == REG);
+}
+
+/* Set up OPERANDS for a register copy from SRC to DEST, taking care
+   not to early-clobber SRC registers in the process.
+
+   We assume that the operands described by SRC and DEST represent a
+   decomposed copy of OPERANDS[1] into OPERANDS[0].  COUNT is the
+   number of components into which the copy has been decomposed.  */
+void
+aarch64_simd_disambiguate_copy (rtx *operands, rtx *dest,
+				rtx *src, unsigned int count)
+{
+  unsigned int i;
+
+  if (!reg_overlap_mentioned_p (operands[0], operands[1])
+      || REGNO (operands[0]) < REGNO (operands[1]))
+    {
+      for (i = 0; i < count; i++)
+	{
+	  operands[2 * i] = dest[i];
+	  operands[2 * i + 1] = src[i];
+	}
+    }
+  else
+    {
+      for (i = 0; i < count; i++)
+	{
+	  operands[2 * i] = dest[count - i - 1];
+	  operands[2 * i + 1] = src[count - i - 1];
+	}
+    }
+}
+
+/* Compute and return the length of aarch64_simd_mov<mode>, where <mode> is
+   one of VSTRUCT modes: OI, CI or XI.  */
+int
+aarch64_simd_attr_length_move (rtx insn)
+{
+  rtx reg, mem, addr;
+  int load;
+  enum machine_mode mode;
+
+  extract_insn_cached (insn);
+
+  if (REG_P (recog_data.operand[0]) && REG_P (recog_data.operand[1]))
+    {
+      mode = GET_MODE (recog_data.operand[0]);
+      switch (mode)
+	{
+	case OImode:
+	  return 8;
+	case CImode:
+	  return 12;
+	case XImode:
+	  return 16;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  return 4;
 }
 
 #ifndef TLS_SECTION_ASM_FLAG
@@ -6793,6 +6933,9 @@ aarch64_c_mode_for_suffix (char suffix)
 
 #undef TARGET_VECTOR_MODE_SUPPORTED_P
 #define TARGET_VECTOR_MODE_SUPPORTED_P aarch64_vector_mode_supported_p
+
+#undef TARGET_ARRAY_MODE_SUPPORTED_P
+#define TARGET_ARRAY_MODE_SUPPORTED_P aarch64_array_mode_supported_p
 
 #undef TARGET_VECTORIZE_PREFERRED_SIMD_MODE
 #define TARGET_VECTORIZE_PREFERRED_SIMD_MODE aarch64_preferred_simd_mode

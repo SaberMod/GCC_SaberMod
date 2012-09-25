@@ -1,3 +1,9 @@
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* testsuite/lib/target-supports.exp
+	(check_effective_target_vect_stridedN): Enable support for strided
+	load and stores for aarch64.
+
 2012-09-18  Ian Bolton  <ian.bolton@arm.com>
 
 	* gcc.target/aarch64/clrsb.c: New test.
