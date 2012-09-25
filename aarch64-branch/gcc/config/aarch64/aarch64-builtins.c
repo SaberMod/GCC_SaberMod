@@ -1237,13 +1237,17 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 
     case AARCH64_SIMD_BINOP:
       {
-	bool op1_const_int_p
-	  = CONST_INT_P (expand_normal (CALL_EXPR_ARG (exp, 1)));
-	return aarch64_simd_expand_args (target, icode, 1, exp,
-					 SIMD_ARG_COPY_TO_REG,
-					 op1_const_int_p ? SIMD_ARG_CONSTANT
-							 : SIMD_ARG_COPY_TO_REG,
-					 SIMD_ARG_STOP);
+        rtx arg2 = expand_normal (CALL_EXPR_ARG (exp, 1));
+        /* Handle constants only if the predicate allows it.  */
+	bool op1_const_int_p =
+	  (CONST_INT_P (arg2)
+	   && (*insn_data[icode].operand[2].predicate)
+		(arg2, insn_data[icode].operand[2].mode));
+	return aarch64_simd_expand_args
+	  (target, icode, 1, exp,
+	   SIMD_ARG_COPY_TO_REG,
+	   op1_const_int_p ? SIMD_ARG_CONSTANT : SIMD_ARG_COPY_TO_REG,
+	   SIMD_ARG_STOP);
       }
 
     case AARCH64_SIMD_TERNOP:
