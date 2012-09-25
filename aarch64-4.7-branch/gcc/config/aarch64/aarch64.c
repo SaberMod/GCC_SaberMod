@@ -6671,6 +6671,14 @@ aarch64_simd_attr_length_move (rtx insn)
   return 4;
 }
 
+static unsigned HOST_WIDE_INT
+aarch64_shift_truncation_mask (enum machine_mode mode)
+{
+  return
+    (aarch64_vector_mode_supported_p (mode)
+     || aarch64_vect_struct_mode_p (mode)) ? 0 : (GET_MODE_BITSIZE (mode) - 1);
+}
+
 #ifndef TLS_SECTION_ASM_FLAG
 #define TLS_SECTION_ASM_FLAG 'T'
 #endif
@@ -6923,6 +6931,9 @@ aarch64_c_mode_for_suffix (char suffix)
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD aarch64_secondary_reload
+
+#undef TARGET_SHIFT_TRUNCATION_MASK
+#define TARGET_SHIFT_TRUNCATION_MASK aarch64_shift_truncation_mask
 
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS aarch64_setup_incoming_varargs

@@ -1,5 +1,12 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/aarch64.c (aarch64_shift_truncation_mask): Define.
+	(TARGET_SHIFT_TRUNCATION_MASK): Define.
+	* config/aarch64/aarch64.h (SHIFT_COUNT_TRUNCATED): Conditionalize on
+	TARGET_SIMD.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/arm_neon.h (vrshrn_high_n_s16, vrshrn_high_n_s32)
 	(vrshrn_high_n_s64, vrshrn_high_n_u16, vrshrn_high_n_u32)
 	(vrshrn_high_n_u64, vshrn_high_n_s16, vshrn_high_n_s32)

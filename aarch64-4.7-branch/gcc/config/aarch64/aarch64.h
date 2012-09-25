@@ -793,7 +793,7 @@ enum aarch64_builtins
    : 0)
 
 
-#define SHIFT_COUNT_TRUNCATED 1
+#define SHIFT_COUNT_TRUNCATED !TARGET_SIMD
 
 /* Callee only saves lower 64-bits of a 128-bit register.  Tell the
    compiler the callee clobbers the top 64-bits when restoring the
