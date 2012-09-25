@@ -1,5 +1,13 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/aarch64-protos.h (aarch64_simd_imm_scalar_p): Declare.
+	* config/aarch64/aarch64.c (aarch64_simd_imm_scalar_p): New.
+	* config/aarch64/aarch64.md (*movdi_aarch64): Add alternative for moving
+	valid scalar immediate into a Advanved SIMD D-register.
+	* config/aarch64/constraints.md (Dd): New.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/aarch64-simd.md (aarch64_cm<cmp><mode>): Tighten
 	predicate for operand 2 of the compare pattern to accept register
 	or zero.

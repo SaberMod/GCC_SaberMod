@@ -159,3 +159,9 @@
  A constraint that matches vector of immediate zero."
  (and (match_code "const_vector")
       (match_test "aarch64_simd_imm_zero_p (op, GET_MODE (op))")))
+
+(define_constraint "Dd"
+  "@internal
+ A constraint that matches an immediate operand valid for AdvSIMD scalar."
+ (and (match_code "const_int")
+      (match_test "aarch64_simd_imm_scalar_p (op, GET_MODE (op))")))
