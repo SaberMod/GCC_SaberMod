@@ -1,3 +1,12 @@
+2012-09-25  Rong Xu  <xur@google.com>
+
+	Port r191681 from google-4_7 branch
+
+	Google ref b/7078882.
+	* gcc/l-ipo.c (cgraph_is_aux_decl_external): output comdat virtual
+	functions when they are auxiliary modules; otherwise we may get
+	undefined symbol in linking.
+
 2012-09-24  Xinliang David Li  <davidxl@google.com>
 
 	Port r191689 from google-4_7 branch
