@@ -1,5 +1,10 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/arm_neon.h (vfmaq_lane_f64): Fix prototype and
+	assembler template accordingly.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/aarch64-protos.h (aarch64_simd_imm_scalar_p): Declare.
 	* config/aarch64/aarch64.c (aarch64_simd_imm_scalar_p): New.
 	* config/aarch64/aarch64.md (*movdi_aarch64): Add alternative for moving
