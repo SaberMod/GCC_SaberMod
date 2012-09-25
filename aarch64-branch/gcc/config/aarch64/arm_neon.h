@@ -7859,15 +7859,16 @@ vfmaq_f64 (float64x2_t a, float64x2_t b, float64x2_t c)
        result;                                                          \
      })
 
-#define vfmaq_lane_f64(a, b, c)                                         \
+#define vfmaq_lane_f64(a, b, c, d)                                      \
   __extension__                                                         \
     ({                                                                  \
+       float64x2_t c_ = (c);                                            \
        float64x2_t b_ = (b);                                            \
        float64x2_t a_ = (a);                                            \
        float64x2_t result;                                              \
-       __asm__ ("fmla %0.2d,%1.2d,%2.d[%3]"                             \
+       __asm__ ("fmla %0.2d,%2.2d,%3.d[%4]"                             \
                 : "=w"(result)                                          \
-                : "w"(a_), "w"(b_), "i"(c)                              \
+                : "0"(a_), "w"(b_), "w"(c_), "i"(d)                     \
                 : /* No clobbers */);                                   \
        result;                                                          \
      })
