@@ -1,5 +1,9 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/arm_neon.h (vmovq_n_f64): Add.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/arm_neon.h (vfmaq_lane_f64): Fix prototype and
 	assembler template accordingly.
 

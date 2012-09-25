@@ -11753,6 +11753,12 @@ vmovq_n_f32 (float32_t a)
   return result;
 }
 
+__extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
+vmovq_n_f64 (float64_t a)
+{
+  return (float64x2_t) {a, a};
+}
+
 __extension__ static __inline poly8x16_t __attribute__ ((__always_inline__))
 vmovq_n_p8 (uint32_t a)
 {
