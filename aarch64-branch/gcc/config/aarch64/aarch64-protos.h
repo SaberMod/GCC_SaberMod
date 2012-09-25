@@ -178,6 +178,7 @@ bool aarch64_pad_arg_upward (enum machine_mode, const_tree);
 bool aarch64_pad_reg_upward (enum machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
+bool aarch64_simd_imm_zero_p (rtx, enum machine_mode);
 bool aarch64_simd_shift_imm_p (rtx, enum machine_mode, bool);
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_symbolic_constant_p (rtx, enum aarch64_symbol_context,
@@ -193,15 +194,17 @@ enum reg_class aarch64_regno_regclass (unsigned);
 int aarch64_asm_preferred_eh_data_format (int, int);
 int aarch64_hard_regno_mode_ok (unsigned, enum machine_mode);
 int aarch64_hard_regno_nregs (unsigned, enum machine_mode);
+int aarch64_simd_attr_length_move (rtx);
 int aarch64_simd_immediate_valid_for_move (rtx, enum machine_mode, rtx *,
 					   int *, unsigned char *, int *,
 					   int *);
 int aarch64_uxt_size (int, HOST_WIDE_INT);
 rtx aarch64_final_eh_return_addr (void);
-rtx aarch64_legitimize_reload_address (rtx *, enum machine_mode, int, int,
-				       int);
+rtx aarch64_legitimize_reload_address (rtx *, enum machine_mode, int, int, int);
+const char *aarch64_output_move_struct (rtx *operands);
 rtx aarch64_return_addr (int, rtx);
 rtx aarch64_simd_gen_const_vector_dup (enum machine_mode, int);
+bool aarch64_simd_mem_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (enum machine_mode, bool);
 rtx aarch64_tls_get_addr (void);
 unsigned aarch64_dbx_register_number (unsigned);
@@ -225,6 +228,7 @@ void aarch64_print_operand_address (FILE *, rtx);
 void init_aarch64_simd_builtins (void);
 
 void aarch64_simd_const_bounds (rtx, HOST_WIDE_INT, HOST_WIDE_INT);
+void aarch64_simd_disambiguate_copy (rtx *, rtx *, rtx *, unsigned int);
 
 /* Emit code to place a AdvSIMD pair result in memory locations (with equal
    registers).  */

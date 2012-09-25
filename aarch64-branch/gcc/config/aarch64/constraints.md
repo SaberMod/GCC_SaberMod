@@ -126,6 +126,13 @@
        (match_test "aarch64_legitimate_address_p (GET_MODE (op), XEXP (op, 0),
 						  PARALLEL, 1)")))
 
+(define_memory_constraint "Utv"
+  "@internal
+   An address valid for loading/storing opaque structure
+   types wider than TImode."
+  (and (match_code "mem")
+       (match_test "aarch64_simd_mem_operand_p (op)")))
+
 (define_constraint "Dn"
   "@internal
  A constraint that matches vector of immediates."
@@ -147,3 +154,8 @@
  (and (match_code "const_vector")
       (match_test "aarch64_simd_shift_imm_p (op, GET_MODE (op),
 						 false)")))
+(define_constraint "Dz"
+  "@internal
+ A constraint that matches vector of immediate zero."
+ (and (match_code "const_vector")
+      (match_test "aarch64_simd_imm_zero_p (op, GET_MODE (op))")))

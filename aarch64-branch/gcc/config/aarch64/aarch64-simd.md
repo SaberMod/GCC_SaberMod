@@ -21,7 +21,7 @@
 
 ; Main data types used by the insntructions
 
-(define_attr "simd_mode" "unknown,none,V8QI,V16QI,V4HI,V8HI,V2SI,V4SI,V2DI,V2SF,V4SF,V2DF,DI,DF,SI,HI,QI"
+(define_attr "simd_mode" "unknown,none,V8QI,V16QI,V4HI,V8HI,V2SI,V4SI,V2DI,V2SF,V4SF,V2DF,OI,CI,XI,DI,DF,SI,HI,QI"
   (const_string "unknown"))
 
 
@@ -309,8 +309,8 @@
 
 
 (define_expand "mov<mode>"
-  [(set (match_operand:VALL 0 "nonimmediate_operand" "")
-	(match_operand:VALL 1 "general_operand" ""))]
+  [(set (match_operand:VALL 0 "aarch64_simd_nonimmediate_operand" "")
+	(match_operand:VALL 1 "aarch64_simd_general_operand" ""))]
   "TARGET_SIMD"
   "
     if (GET_CODE (operands[0]) == MEM)
@@ -319,8 +319,8 @@
 )
 
 (define_expand "movmisalign<mode>"
-  [(set (match_operand:VALL 0 "nonimmediate_operand" "")
-        (match_operand:VALL 1 "general_operand" ""))]
+  [(set (match_operand:VALL 0 "aarch64_simd_nonimmediate_operand" "")
+        (match_operand:VALL 1 "aarch64_simd_general_operand" ""))]
   "TARGET_SIMD"
 {
   /* This pattern is not permitted to fail during expansion: if both arguments
@@ -375,10 +375,10 @@
 )
 
 (define_insn "*aarch64_simd_mov<mode>"
-  [(set (match_operand:VD 0 "nonimmediate_operand"
-		"=w, m,  w, ?r, ?w, ?r, w")
-	(match_operand:VD 1 "general_operand"
-		"m,  w,  w,  w,  r,  r, Dn"))]
+  [(set (match_operand:VD 0 "aarch64_simd_nonimmediate_operand"
+		"=w, Utv,  w, ?r, ?w, ?r, w")
+	(match_operand:VD 1 "aarch64_simd_general_operand"
+		"Utv,  w,  w,  w,  r,  r, Dn"))]
   "TARGET_SIMD
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
@@ -428,10 +428,10 @@
 )
 
 (define_insn "*aarch64_simd_mov<mode>"
-  [(set (match_operand:VQ 0 "nonimmediate_operand"
-		"=w, m,  w, ?r, ?w, ?r, w")
-	(match_operand:VQ 1 "general_operand"
-		"m,  w,  w,  w,  r,  r, Dn"))]
+  [(set (match_operand:VQ 0 "aarch64_simd_nonimmediate_operand"
+		"=w, Utv,  w, ?r, ?w, ?r, w")
+	(match_operand:VQ 1 "aarch64_simd_general_operand"
+		"Utv,  w,  w,  w,  r,  r, Dn"))]
   "TARGET_SIMD
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
@@ -1606,6 +1606,17 @@
 ;; In this insn, operand 1 should be low, and operand 2 the high part of the
 ;; dest vector.
 
+(define_insn "*aarch64_combinez<mode>"
+  [(set (match_operand:<VDBL> 0 "register_operand" "=&w")
+        (vec_concat:<VDBL>
+	   (match_operand:VDIC 1 "register_operand" "w")
+	   (match_operand:VDIC 2 "aarch64_simd_imm_zero" "Dz")))]
+  "TARGET_SIMD"
+  "mov\\t%0.8b, %1.8b"
+  [(set_attr "simd_type" "simd_move")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
 (define_insn "aarch64_combine<mode>"
   [(set (match_operand:<VDBL> 0 "register_operand" "=&w")
         (vec_concat:<VDBL> (match_operand:VDC 1 "register_operand" "w")
@@ -2762,3 +2773,471 @@
   emit_insn (gen_sqrt<mode>2 (operands[0], operands[1]));
   DONE;
 })
+
+
+;; Patterns for vector struct loads and stores.
+
+(define_insn "vec_load_lanesoi<mode>"
+  [(set (match_operand:OI 0 "register_operand" "=w")
+	(unspec:OI [(match_operand:OI 1 "aarch64_simd_struct_operand" "Utv")
+		    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+		   UNSPEC_LD2))]
+  "TARGET_SIMD"
+  "ld2\\t{%S0.<Vtype> - %T0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "vec_store_lanesoi<mode>"
+  [(set (match_operand:OI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:OI [(match_operand:OI 1 "register_operand" "w")
+                    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST2))]
+  "TARGET_SIMD"
+  "st2\\t{%S1.<Vtype> - %T1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "vec_load_lanesci<mode>"
+  [(set (match_operand:CI 0 "register_operand" "=w")
+	(unspec:CI [(match_operand:CI 1 "aarch64_simd_struct_operand" "Utv")
+		    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+		   UNSPEC_LD3))]
+  "TARGET_SIMD"
+  "ld3\\t{%S0.<Vtype> - %U0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "vec_store_lanesci<mode>"
+  [(set (match_operand:CI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:CI [(match_operand:CI 1 "register_operand" "w")
+                    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST3))]
+  "TARGET_SIMD"
+  "st3\\t{%S1.<Vtype> - %U1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "vec_load_lanesxi<mode>"
+  [(set (match_operand:XI 0 "register_operand" "=w")
+	(unspec:XI [(match_operand:XI 1 "aarch64_simd_struct_operand" "Utv")
+		    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+		   UNSPEC_LD4))]
+  "TARGET_SIMD"
+  "ld4\\t{%S0.<Vtype> - %V0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load4")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "vec_store_lanesxi<mode>"
+  [(set (match_operand:XI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:XI [(match_operand:XI 1 "register_operand" "w")
+                    (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST4))]
+  "TARGET_SIMD"
+  "st4\\t{%S1.<Vtype> - %V1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store4")
+   (set_attr "simd_mode" "<MODE>")])
+
+;; Reload patterns for AdvSIMD register list operands.
+
+(define_expand "mov<mode>"
+  [(set (match_operand:VSTRUCT 0 "aarch64_simd_nonimmediate_operand" "")
+	(match_operand:VSTRUCT 1 "aarch64_simd_general_operand" ""))]
+  "TARGET_SIMD"
+{
+  if (can_create_pseudo_p ())
+    {
+      if (GET_CODE (operands[0]) != REG)
+	operands[1] = force_reg (<MODE>mode, operands[1]);
+    }
+})
+
+(define_insn "*aarch64_mov<mode>"
+  [(set (match_operand:VSTRUCT 0 "aarch64_simd_nonimmediate_operand" "=w,Utv,w")
+	(match_operand:VSTRUCT 1 "aarch64_simd_general_operand"	" w,w,Utv"))]
+  "TARGET_SIMD
+   && (register_operand (operands[0], <MODE>mode)
+       || register_operand (operands[1], <MODE>mode))"
+
+{
+  switch (which_alternative)
+    {
+    case 0: return "#";
+    case 1: return "st1\\t{%S1.16b - %<Vendreg>1.16b}, %0";
+    case 2: return "ld1\\t{%S0.16b - %<Vendreg>0.16b}, %1";
+    default: gcc_unreachable ();
+    }
+}
+  [(set_attr "simd_type" "simd_move,simd_store<nregs>,simd_load<nregs>")
+   (set (attr "length") (symbol_ref "aarch64_simd_attr_length_move (insn)"))
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_split
+  [(set (match_operand:OI 0 "register_operand" "")
+	(match_operand:OI 1 "register_operand" ""))]
+  "TARGET_SIMD && reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))]
+{
+  int rdest = REGNO (operands[0]);
+  int rsrc = REGNO (operands[1]);
+  rtx dest[2], src[2];
+
+  dest[0] = gen_rtx_REG (TFmode, rdest);
+  src[0] = gen_rtx_REG (TFmode, rsrc);
+  dest[1] = gen_rtx_REG (TFmode, rdest + 1);
+  src[1] = gen_rtx_REG (TFmode, rsrc + 1);
+
+  aarch64_simd_disambiguate_copy (operands, dest, src, 2);
+})
+
+(define_split
+  [(set (match_operand:CI 0 "register_operand" "")
+	(match_operand:CI 1 "register_operand" ""))]
+  "TARGET_SIMD && reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))
+   (set (match_dup 4) (match_dup 5))]
+{
+  int rdest = REGNO (operands[0]);
+  int rsrc = REGNO (operands[1]);
+  rtx dest[3], src[3];
+
+  dest[0] = gen_rtx_REG (TFmode, rdest);
+  src[0] = gen_rtx_REG (TFmode, rsrc);
+  dest[1] = gen_rtx_REG (TFmode, rdest + 1);
+  src[1] = gen_rtx_REG (TFmode, rsrc + 1);
+  dest[2] = gen_rtx_REG (TFmode, rdest + 2);
+  src[2] = gen_rtx_REG (TFmode, rsrc + 2);
+
+  aarch64_simd_disambiguate_copy (operands, dest, src, 3);
+})
+
+(define_split
+  [(set (match_operand:XI 0 "register_operand" "")
+	(match_operand:XI 1 "register_operand" ""))]
+  "TARGET_SIMD && reload_completed"
+  [(set (match_dup 0) (match_dup 1))
+   (set (match_dup 2) (match_dup 3))
+   (set (match_dup 4) (match_dup 5))
+   (set (match_dup 6) (match_dup 7))]
+{
+  int rdest = REGNO (operands[0]);
+  int rsrc = REGNO (operands[1]);
+  rtx dest[4], src[4];
+
+  dest[0] = gen_rtx_REG (TFmode, rdest);
+  src[0] = gen_rtx_REG (TFmode, rsrc);
+  dest[1] = gen_rtx_REG (TFmode, rdest + 1);
+  src[1] = gen_rtx_REG (TFmode, rsrc + 1);
+  dest[2] = gen_rtx_REG (TFmode, rdest + 2);
+  src[2] = gen_rtx_REG (TFmode, rsrc + 2);
+  dest[3] = gen_rtx_REG (TFmode, rdest + 3);
+  src[3] = gen_rtx_REG (TFmode, rsrc + 3);
+
+  aarch64_simd_disambiguate_copy (operands, dest, src, 4);
+})
+
+(define_insn "aarch64_ld2<mode>_dreg"
+  [(set (match_operand:OI 0 "register_operand" "=w")
+	(subreg:OI
+	  (vec_concat:<VRL2>
+	    (vec_concat:<VDBL>
+	     (unspec:VD [(match_operand:TI 1 "aarch64_simd_struct_operand" "Utv")]
+			UNSPEC_LD2)
+	     (vec_duplicate:VD (const_int 0)))
+	    (vec_concat:<VDBL>
+	     (unspec:VD [(match_dup 1)]
+			UNSPEC_LD2)
+	     (vec_duplicate:VD (const_int 0)))) 0))]
+  "TARGET_SIMD"
+  "ld2\\t{%S0.<Vtype> - %T0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_ld2<mode>_dreg"
+  [(set (match_operand:OI 0 "register_operand" "=w")
+	(subreg:OI
+	  (vec_concat:<VRL2>
+	    (vec_concat:<VDBL>
+	     (unspec:DX [(match_operand:TI 1 "aarch64_simd_struct_operand" "Utv")]
+			UNSPEC_LD2)
+	     (const_int 0))
+	    (vec_concat:<VDBL>
+	     (unspec:DX [(match_dup 1)]
+			UNSPEC_LD2)
+	     (const_int 0))) 0))]
+  "TARGET_SIMD"
+  "ld1\\t{%S0.1d - %T0.1d}, %1"
+  [(set_attr "simd_type" "simd_load2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_ld3<mode>_dreg"
+  [(set (match_operand:CI 0 "register_operand" "=w")
+	(subreg:CI
+	 (vec_concat:<VRL3>
+	  (vec_concat:<VRL2>
+	    (vec_concat:<VDBL>
+	     (unspec:VD [(match_operand:EI 1 "aarch64_simd_struct_operand" "Utv")]
+			UNSPEC_LD3)
+	     (vec_duplicate:VD (const_int 0)))
+	    (vec_concat:<VDBL>
+	     (unspec:VD [(match_dup 1)]
+			UNSPEC_LD3)
+	     (vec_duplicate:VD (const_int 0))))
+	  (vec_concat:<VDBL>
+	     (unspec:VD [(match_dup 1)]
+			UNSPEC_LD3)
+	     (vec_duplicate:VD (const_int 0)))) 0))]
+  "TARGET_SIMD"
+  "ld3\\t{%S0.<Vtype> - %U0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_ld3<mode>_dreg"
+  [(set (match_operand:CI 0 "register_operand" "=w")
+	(subreg:CI
+	 (vec_concat:<VRL3>
+	  (vec_concat:<VRL2>
+	    (vec_concat:<VDBL>
+	     (unspec:DX [(match_operand:EI 1 "aarch64_simd_struct_operand" "Utv")]
+			UNSPEC_LD3)
+	     (const_int 0))
+	    (vec_concat:<VDBL>
+	     (unspec:DX [(match_dup 1)]
+			UNSPEC_LD3)
+	     (const_int 0)))
+	  (vec_concat:<VDBL>
+	     (unspec:DX [(match_dup 1)]
+			UNSPEC_LD3)
+	     (const_int 0))) 0))]
+  "TARGET_SIMD"
+  "ld1\\t{%S0.1d - %U0.1d}, %1"
+  [(set_attr "simd_type" "simd_load3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_ld4<mode>_dreg"
+  [(set (match_operand:XI 0 "register_operand" "=w")
+	(subreg:XI
+	 (vec_concat:<VRL4>
+	   (vec_concat:<VRL2>
+	     (vec_concat:<VDBL>
+	       (unspec:VD [(match_operand:OI 1 "aarch64_simd_struct_operand" "Utv")]
+			  UNSPEC_LD4)
+	       (vec_duplicate:VD (const_int 0)))
+	      (vec_concat:<VDBL>
+	        (unspec:VD [(match_dup 1)]
+			UNSPEC_LD4)
+	        (vec_duplicate:VD (const_int 0))))
+	   (vec_concat:<VRL2>
+	     (vec_concat:<VDBL>
+	       (unspec:VD [(match_dup 1)]
+			UNSPEC_LD4)
+	       (vec_duplicate:VD (const_int 0)))
+	     (vec_concat:<VDBL>
+	       (unspec:VD [(match_dup 1)]
+			UNSPEC_LD4)
+	       (vec_duplicate:VD (const_int 0))))) 0))]
+  "TARGET_SIMD"
+  "ld4\\t{%S0.<Vtype> - %V0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load4")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_ld4<mode>_dreg"
+  [(set (match_operand:XI 0 "register_operand" "=w")
+	(subreg:XI
+	 (vec_concat:<VRL4>
+	   (vec_concat:<VRL2>
+	     (vec_concat:<VDBL>
+	       (unspec:DX [(match_operand:OI 1 "aarch64_simd_struct_operand" "Utv")]
+			  UNSPEC_LD4)
+	       (const_int 0))
+	      (vec_concat:<VDBL>
+	        (unspec:DX [(match_dup 1)]
+			UNSPEC_LD4)
+	        (const_int 0)))
+	   (vec_concat:<VRL2>
+	     (vec_concat:<VDBL>
+	       (unspec:DX [(match_dup 1)]
+			UNSPEC_LD4)
+	       (const_int 0))
+	     (vec_concat:<VDBL>
+	       (unspec:DX [(match_dup 1)]
+			UNSPEC_LD4)
+	       (const_int 0)))) 0))]
+  "TARGET_SIMD"
+  "ld1\\t{%S0.1d - %V0.1d}, %1"
+  [(set_attr "simd_type" "simd_load4")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_expand "aarch64_ld<VSTRUCT:nregs><VDC:mode>"
+ [(match_operand:VSTRUCT 0 "register_operand" "=w")
+  (match_operand:DI 1 "register_operand" "r")
+  (unspec:VDC [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  enum machine_mode mode = <VSTRUCT:VSTRUCT_DREG>mode;
+  rtx mem = gen_rtx_MEM (mode, operands[1]);
+
+  emit_insn (gen_aarch64_ld<VSTRUCT:nregs><VDC:mode>_dreg (operands[0], mem));
+  DONE;
+})
+
+(define_expand "aarch64_ld<VSTRUCT:nregs><VQ:mode>"
+ [(match_operand:VSTRUCT 0 "register_operand" "=w")
+  (match_operand:DI 1 "register_operand" "r")
+  (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  enum machine_mode mode = <VSTRUCT:MODE>mode;
+  rtx mem = gen_rtx_MEM (mode, operands[1]);
+
+  emit_insn (gen_vec_load_lanes<VSTRUCT:mode><VQ:mode> (operands[0], mem));
+  DONE;
+})
+
+;; Expanders for builtins to extract vector registers from large
+;; opaque integer modes.
+
+;; D-register list.
+
+(define_expand "aarch64_get_dreg<VSTRUCT:mode><VDC:mode>"
+ [(match_operand:VDC 0 "register_operand" "=w")
+  (match_operand:VSTRUCT 1 "register_operand" "w")
+  (match_operand:SI 2 "immediate_operand" "i")]
+  "TARGET_SIMD"
+{
+  int part = INTVAL (operands[2]);
+  rtx temp = gen_reg_rtx (<VDC:VDBL>mode);
+  int offset = part * 16;
+
+  emit_move_insn (temp, gen_rtx_SUBREG (<VDC:VDBL>mode, operands[1], offset));
+  emit_move_insn (operands[0], gen_lowpart (<VDC:MODE>mode, temp));
+  DONE;
+})
+
+;; Q-register list.
+
+(define_expand "aarch64_get_qreg<VSTRUCT:mode><VQ:mode>"
+ [(match_operand:VQ 0 "register_operand" "=w")
+  (match_operand:VSTRUCT 1 "register_operand" "w")
+  (match_operand:SI 2 "immediate_operand" "i")]
+  "TARGET_SIMD"
+{
+  int part = INTVAL (operands[2]);
+  int offset = part * 16;
+
+  emit_move_insn (operands[0],
+		  gen_rtx_SUBREG (<VQ:MODE>mode, operands[1], offset));
+  DONE;
+})
+
+;; Permuted-store expanders for neon intrinsics.
+
+(define_insn "aarch64_st2<mode>_dreg"
+  [(set (match_operand:TI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:TI [(match_operand:OI 1 "register_operand" "w")
+                    (unspec:VD [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST2))]
+  "TARGET_SIMD"
+  "st2\\t{%S1.<Vtype> - %T1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_st2<mode>_dreg"
+  [(set (match_operand:TI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:TI [(match_operand:OI 1 "register_operand" "w")
+                    (unspec:DX [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST2))]
+  "TARGET_SIMD"
+  "st1\\t{%S1.1d - %T1.1d}, %0"
+  [(set_attr "simd_type" "simd_store2")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_st3<mode>_dreg"
+  [(set (match_operand:EI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:EI [(match_operand:CI 1 "register_operand" "w")
+                    (unspec:VD [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST3))]
+  "TARGET_SIMD"
+  "st3\\t{%S1.<Vtype> - %U1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_st3<mode>_dreg"
+  [(set (match_operand:EI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:EI [(match_operand:CI 1 "register_operand" "w")
+                    (unspec:DX [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST3))]
+  "TARGET_SIMD"
+  "st1\\t{%S1.1d - %U1.1d}, %0"
+  [(set_attr "simd_type" "simd_store3")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_st4<mode>_dreg"
+  [(set (match_operand:OI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:OI [(match_operand:XI 1 "register_operand" "w")
+                    (unspec:VD [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST4))]
+  "TARGET_SIMD"
+  "st4\\t{%S1.<Vtype> - %V1.<Vtype>}, %0"
+  [(set_attr "simd_type" "simd_store4")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_insn "aarch64_st4<mode>_dreg"
+  [(set (match_operand:OI 0 "aarch64_simd_struct_operand" "=Utv")
+	(unspec:OI [(match_operand:XI 1 "register_operand" "w")
+                    (unspec:DX [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+                   UNSPEC_ST4))]
+  "TARGET_SIMD"
+  "st1\\t{%S1.1d - %V1.1d}, %0"
+  [(set_attr "simd_type" "simd_store4")
+   (set_attr "simd_mode" "<MODE>")])
+
+(define_expand "aarch64_st<VSTRUCT:nregs><VDC:mode>"
+ [(match_operand:DI 0 "register_operand" "r")
+  (match_operand:VSTRUCT 1 "register_operand" "w")
+  (unspec:VDC [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  enum machine_mode mode = <VSTRUCT:VSTRUCT_DREG>mode;
+  rtx mem = gen_rtx_MEM (mode, operands[0]);
+
+  emit_insn (gen_aarch64_st<VSTRUCT:nregs><VDC:mode>_dreg (mem, operands[1]));
+  DONE;
+})
+
+(define_expand "aarch64_st<VSTRUCT:nregs><VQ:mode>"
+ [(match_operand:DI 0 "register_operand" "r")
+  (match_operand:VSTRUCT 1 "register_operand" "w")
+  (unspec:VQ [(const_int 0)] UNSPEC_VSTRUCTDUMMY)]
+  "TARGET_SIMD"
+{
+  enum machine_mode mode = <VSTRUCT:MODE>mode;
+  rtx mem = gen_rtx_MEM (mode, operands[0]);
+
+  emit_insn (gen_vec_store_lanes<VSTRUCT:mode><VQ:mode> (mem, operands[1]));
+  DONE;
+})
+
+;; Expander for builtins to insert vector registers into large
+;; opaque integer modes.
+
+;; Q-register list.  We don't need a D-reg inserter as we zero
+;; extend them in arm_neon.h and insert the resulting Q-regs.
+
+(define_expand "aarch64_set_qreg<VSTRUCT:mode><VQ:mode>"
+ [(match_operand:VSTRUCT 0 "register_operand" "+w")
+  (match_operand:VSTRUCT 1 "register_operand" "0")
+  (match_operand:VQ 2 "register_operand" "w")
+  (match_operand:SI 3 "immediate_operand" "i")]
+  "TARGET_SIMD"
+{
+  int part = INTVAL (operands[3]);
+  int offset = part * 16;
+
+  emit_move_insn (operands[0], operands[1]);
+  emit_move_insn (gen_rtx_SUBREG (<VQ:MODE>mode, operands[0], offset),
+		  operands[2]);
+  DONE;
+})
+

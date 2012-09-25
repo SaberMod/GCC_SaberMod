@@ -179,6 +179,13 @@ typedef struct
   { CF (N, A), CF (N, B), CF (N, C), CF (N, D), CF (N, E), CF (N, F), \
     CF (N, G), CF (N, H), CF (N, I), CF (N, J), CF (N, K) }, 11, 0
 
+#define VAR12(T, N, A, B, C, D, E, F, G, H, I, J, K, L) \
+  #N, AARCH64_SIMD_##T, UP (A) | UP (B) | UP (C) | UP (D) \
+		| UP (E) | UP (F) | UP (G) \
+		| UP (H) | UP (I) | UP (J) | UP (K) | UP (L), \
+  { CF (N, A), CF (N, B), CF (N, C), CF (N, D), CF (N, E), CF (N, F), \
+    CF (N, G), CF (N, H), CF (N, I), CF (N, J), CF (N, K), CF (N, L) }, 12, 0
+
 
 /* The mode entries in the following table correspond to the "key" type of the
    instruction variant, i.e. equivalent to that which would be specified after
@@ -197,6 +204,15 @@ static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
   {VAR7 (GETLANE, get_lane_unsigned,
 	  v8qi, v4hi, v2si, v16qi, v8hi, v4si, v2di)},
   {VAR4 (GETLANE, get_lane, v2sf, di, v4sf, v2df)},
+  {VAR6 (GETLANE, get_dregoi, v8qi, v4hi, v2si, v2sf, di, df)},
+  {VAR6 (GETLANE, get_qregoi, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR6 (GETLANE, get_dregci, v8qi, v4hi, v2si, v2sf, di, df)},
+  {VAR6 (GETLANE, get_qregci, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR6 (GETLANE, get_dregxi, v8qi, v4hi, v2si, v2sf, di, df)},
+  {VAR6 (GETLANE, get_qregxi, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR6 (SETLANE, set_qregoi, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR6 (SETLANE, set_qregci, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR6 (SETLANE, set_qregxi, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
 
   {VAR5 (REINTERP, reinterpretv8qi, v8qi, v4hi, v2si, v2sf, di)},
   {VAR5 (REINTERP, reinterpretv4hi, v8qi, v4hi, v2si, v2sf, di)},
@@ -341,6 +357,18 @@ static aarch64_simd_builtin_datum aarch64_simd_builtin_data[] = {
   { VAR6 (BINOP, umax, v8qi, v4hi, v2si, v16qi, v8hi, v4si) },
   { VAR6 (BINOP, umin, v8qi, v4hi, v2si, v16qi, v8hi, v4si) },
   { VAR3 (UNOP, sqrt, v2sf, v4sf, v2df) },
+  {VAR12 (LOADSTRUCT, ld2,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR12 (LOADSTRUCT, ld3,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR12 (LOADSTRUCT, ld4,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR12 (STORESTRUCT, st2,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR12 (STORESTRUCT, st3,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
+  {VAR12 (STORESTRUCT, st4,
+	 v8qi, v4hi, v2si, v2sf, di, df, v16qi, v8hi, v4si, v4sf, v2di, v2df)},
 };
 
 #undef CF
@@ -669,8 +697,8 @@ init_aarch64_simd_builtins (void)
 	  char namebuf[60];
 	  tree ftype = NULL;
 	  enum insn_code icode;
-	  int is_load = 0, is_struct_load = 0;
-	  int is_store = 0, is_struct_store = 0;
+	  int is_load = 0;
+	  int is_store = 0;
 
 	  /* Skip if particular mode not supported.  */
 	  if ((d->bits & (1 << j)) == 0)
@@ -683,21 +711,15 @@ init_aarch64_simd_builtins (void)
 	    case AARCH64_SIMD_LOAD1:
 	    case AARCH64_SIMD_LOAD1LANE:
 	    case AARCH64_SIMD_LOADSTRUCTLANE:
-	      is_load = 1;
-	      /* Fall through.  */
 	    case AARCH64_SIMD_LOADSTRUCT:
-	      if (!is_load)
-		is_struct_load = 1;
+	      is_load = 1;
 	      /* Fall through.  */
 	    case AARCH64_SIMD_STORE1:
 	    case AARCH64_SIMD_STORE1LANE:
 	    case AARCH64_SIMD_STORESTRUCTLANE:
-	      if (!is_load && !is_struct_load)
-		is_store = 1;
-	      /* Fall through.  */
 	    case AARCH64_SIMD_STORESTRUCT:
-	      if (!is_load && !is_struct_load && !is_store)
-		is_struct_store = 1;
+	      if (!is_load)
+		is_store = 1;
 	      /* Fall through.  */
 	    case AARCH64_SIMD_UNOP:
 	    case AARCH64_SIMD_BINOP:
@@ -742,7 +764,7 @@ init_aarch64_simd_builtins (void)
 		    if (k == 2 && d->itype == AARCH64_SIMD_SPLIT)
 		      continue;
 
-		    if (is_struct_load || (is_load && k == 1))
+		    if (is_load && k == 1)
 		      {
 			/* AdvSIMD load patterns always have the memory operand
 			   (a DImode pointer) in the operand 1 position.  We
@@ -778,6 +800,7 @@ init_aarch64_simd_builtins (void)
 			    eltype = const_intDI_pointer_node;
 			    break;
 
+			  case T_DF:
 			  case T_V2DF:
 			    eltype = const_double_pointer_node;
 			    break;
@@ -786,7 +809,7 @@ init_aarch64_simd_builtins (void)
 			    gcc_unreachable ();
 			  }
 		      }
-		    else if (is_struct_store || (is_store && k == 0))
+		    else if (is_store && k == 0)
 		      {
 			/* Similarly, AdvSIMD store patterns use operand 0 as
 			   the memory location to store to (a DImode pointer).
@@ -822,6 +845,7 @@ init_aarch64_simd_builtins (void)
 			    eltype = intDI_pointer_node;
 			    break;
 
+			  case T_DF:
 			  case T_V2DF:
 			    eltype = double_pointer_node;
 			    break;
@@ -908,8 +932,7 @@ init_aarch64_simd_builtins (void)
 			  }
 		      }
 
-		    if (k == 0 && !is_store && !is_struct_load
-			&& !is_struct_store)
+		    if (k == 0 && !is_store)
 		      return_type = eltype;
 		    else
 		      args = tree_cons (NULL_TREE, eltype, args);
@@ -1238,7 +1261,13 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 				       SIMD_ARG_COPY_TO_REG,
 				       SIMD_ARG_STOP);
     case AARCH64_SIMD_LOAD1:
+    case AARCH64_SIMD_LOADSTRUCT:
       return aarch64_simd_expand_args (target, icode, 1, exp,
+				       SIMD_ARG_COPY_TO_REG, SIMD_ARG_STOP);
+
+    case AARCH64_SIMD_STORESTRUCT:
+      return aarch64_simd_expand_args (target, icode, 0, exp,
+				       SIMD_ARG_COPY_TO_REG,
 				       SIMD_ARG_COPY_TO_REG, SIMD_ARG_STOP);
 
     case AARCH64_SIMD_REINTERP:
@@ -1259,6 +1288,14 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 				       SIMD_ARG_COPY_TO_REG,
 				       SIMD_ARG_CONSTANT,
 				       SIMD_ARG_STOP);
+
+    case AARCH64_SIMD_SETLANE:
+      return aarch64_simd_expand_args (target, icode, 1, exp,
+				       SIMD_ARG_COPY_TO_REG,
+				       SIMD_ARG_COPY_TO_REG,
+				       SIMD_ARG_CONSTANT,
+				       SIMD_ARG_STOP);
+
     case AARCH64_SIMD_SHIFTIMM:
       return aarch64_simd_expand_args (target, icode, 1, exp,
 				       SIMD_ARG_COPY_TO_REG,
