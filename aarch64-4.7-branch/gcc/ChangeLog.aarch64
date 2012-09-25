@@ -1,5 +1,12 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/aarch64-simd.md (aarch64_cm<cmp><mode>): Tighten
+	predicate for operand 2 of the compare pattern to accept register
+	or zero.
+	* config/aarch64/predicates.md (aarch64_simd_reg_or_zero): New.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>): Split Q-reg
 	vector value move contained in general registers.
 
