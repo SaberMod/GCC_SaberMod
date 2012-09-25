@@ -178,6 +178,7 @@ bool aarch64_pad_arg_upward (enum machine_mode, const_tree);
 bool aarch64_pad_reg_upward (enum machine_mode, const_tree, bool);
 bool aarch64_regno_ok_for_base_p (int, bool);
 bool aarch64_regno_ok_for_index_p (int, bool);
+bool aarch64_simd_imm_scalar_p (rtx x, enum machine_mode mode);
 bool aarch64_simd_imm_zero_p (rtx, enum machine_mode);
 bool aarch64_simd_shift_imm_p (rtx, enum machine_mode, bool);
 bool aarch64_symbolic_address_p (rtx);

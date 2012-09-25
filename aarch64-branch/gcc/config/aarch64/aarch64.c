@@ -6512,6 +6512,23 @@ aarch64_simd_imm_zero_p (rtx x, enum machine_mode mode)
   return true;
 }
 
+bool
+aarch64_simd_imm_scalar_p (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED)
+{
+  HOST_WIDE_INT imm = INTVAL (x);
+  int i;
+
+  for (i = 0; i < 8; i++)
+    {
+      unsigned int byte = imm & 0xff;
+      if (byte != 0xff && byte != 0)
+       return false;
+      imm >>= 8;
+    }
+
+  return true;
+}
+
 /* Return a const_int vector of VAL.  */
 rtx
 aarch64_simd_gen_const_vector_dup (enum machine_mode mode, int val)
