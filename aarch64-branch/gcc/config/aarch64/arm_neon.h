@@ -15341,7 +15341,7 @@ vrndqp_f64 (float64x2_t a)
        int8x8_t a_ = (a);                                               \
        int8x16_t result = vcombine_s8                                   \
                             (a_, vcreate_s8 (UINT64_C (0x0)));          \
-       __asm__ ("rshrn2 %0.16b,%2.8h,#%3"                               \
+       __asm__ ("rshrn2 %0.16b,%1.8h,#%2"                               \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -15355,7 +15355,7 @@ vrndqp_f64 (float64x2_t a)
        int16x4_t a_ = (a);                                              \
        int16x8_t result = vcombine_s16                                  \
                             (a_, vcreate_s16 (UINT64_C (0x0)));         \
-       __asm__ ("rshrn2 %0.8h,%2.4s,#%3"                                \
+       __asm__ ("rshrn2 %0.8h,%1.4s,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -15369,7 +15369,7 @@ vrndqp_f64 (float64x2_t a)
        int32x2_t a_ = (a);                                              \
        int32x4_t result = vcombine_s32                                  \
                             (a_, vcreate_s32 (UINT64_C (0x0)));         \
-       __asm__ ("rshrn2 %0.4s,%2.2d,#%3"                                \
+       __asm__ ("rshrn2 %0.4s,%1.2d,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -15383,7 +15383,7 @@ vrndqp_f64 (float64x2_t a)
        uint8x8_t a_ = (a);                                              \
        uint8x16_t result = vcombine_u8                                  \
                             (a_, vcreate_u8 (UINT64_C (0x0)));          \
-       __asm__ ("rshrn2 %0.16b,%2.8h,#%3"                               \
+       __asm__ ("rshrn2 %0.16b,%1.8h,#%2"                               \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -15397,7 +15397,7 @@ vrndqp_f64 (float64x2_t a)
        uint16x4_t a_ = (a);                                             \
        uint16x8_t result = vcombine_u16                                 \
                             (a_, vcreate_u16 (UINT64_C (0x0)));         \
-       __asm__ ("rshrn2 %0.8h,%2.4s,#%3"                                \
+       __asm__ ("rshrn2 %0.8h,%1.4s,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -15411,7 +15411,7 @@ vrndqp_f64 (float64x2_t a)
        uint32x2_t a_ = (a);                                             \
        uint32x4_t result = vcombine_u32                                 \
                             (a_, vcreate_u32 (UINT64_C (0x0)));         \
-       __asm__ ("rshrn2 %0.4s,%2.2d,#%3"                                \
+       __asm__ ("rshrn2 %0.4s,%1.2d,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16095,7 +16095,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        int8x8_t a_ = (a);                                               \
        int8x16_t result = vcombine_s8                                   \
                             (a_, vcreate_s8 (UINT64_C (0x0)));          \
-       __asm__ ("shrn2 %0.16b,%2.8h,#%3"                                \
+       __asm__ ("shrn2 %0.16b,%1.8h,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16109,7 +16109,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        int16x4_t a_ = (a);                                              \
        int16x8_t result = vcombine_s16                                  \
                             (a_, vcreate_s16 (UINT64_C (0x0)));         \
-       __asm__ ("shrn2 %0.8h,%2.4s,#%3"                                 \
+       __asm__ ("shrn2 %0.8h,%1.4s,#%2"                                 \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16123,7 +16123,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        int32x2_t a_ = (a);                                              \
        int32x4_t result = vcombine_s32                                  \
                             (a_, vcreate_s32 (UINT64_C (0x0)));         \
-       __asm__ ("shrn2 %0.4s,%2.2d,#%3"                                 \
+       __asm__ ("shrn2 %0.4s,%1.2d,#%2"                                 \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16137,7 +16137,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        uint8x8_t a_ = (a);                                              \
        uint8x16_t result = vcombine_u8                                  \
                             (a_, vcreate_u8 (UINT64_C (0x0)));          \
-       __asm__ ("shrn2 %0.16b,%2.8h,#%3"                                \
+       __asm__ ("shrn2 %0.16b,%1.8h,#%2"                                \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16151,7 +16151,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        uint16x4_t a_ = (a);                                             \
        uint16x8_t result = vcombine_u16                                 \
                             (a_, vcreate_u16 (UINT64_C (0x0)));         \
-       __asm__ ("shrn2 %0.8h,%2.4s,#%3"                                 \
+       __asm__ ("shrn2 %0.8h,%1.4s,#%2"                                 \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
@@ -16165,7 +16165,7 @@ vrsubhn_u64 (uint64x2_t a, uint64x2_t b)
        uint32x2_t a_ = (a);                                             \
        uint32x4_t result = vcombine_u32                                 \
                             (a_, vcreate_u32 (UINT64_C (0x0)));         \
-       __asm__ ("shrn2 %0.4s,%2.2d,#%3"                                 \
+       __asm__ ("shrn2 %0.4s,%1.2d,#%2"                                 \
                 : "+w"(result)                                          \
                 : "w"(b_), "i"(c)                                       \
                 : /* No clobbers */);                                   \
