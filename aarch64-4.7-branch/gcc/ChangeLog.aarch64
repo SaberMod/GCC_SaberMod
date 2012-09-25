@@ -1,5 +1,10 @@
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/aarch64.c (aarch64_simd_expand_builtin): Expand binary
+	operations' constant operand only if the predicate allows it.
+
+2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/aarch64-builtins.c (aarch64_simd_builtin_data):
 	Populate intrinsic table with struct loads and store descriptors.
 	(init_aarch64_simd_builtins): Remove cruft.
