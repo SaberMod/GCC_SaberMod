@@ -1,3 +1,8 @@
+2012-09-26  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+	* config/aarch64/predicates.md (aarch64_simd_reg_or_zero): Remove
+	duplicate.
+
 2012-09-25  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64.c (aarch64_shift_truncation_mask): Define.
