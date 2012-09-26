@@ -1,3 +1,10 @@
+2012-09-25  Xinliang David Li  <davidxl@google.com>
+
+        Port r191763 from google-4_7 branch
+
+	* varasm.c (finish_alias_1):  Fix mis-fired error
+	for extern alias (same-body) in LIPO mode.
+
 2012-09-25  Rong Xu  <xur@google.com>
 
 	Port r191682 from google-4_7 branch
