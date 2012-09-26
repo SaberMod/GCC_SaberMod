@@ -295,9 +295,3 @@
 {
   return aarch64_simd_imm_zero_p (op, mode);
 })
-
-(define_predicate "aarch64_simd_reg_or_zero"
-  (and (match_code "reg,subreg,const_int,const_vector")
-       (ior (match_operand 0 "register_operand")
-	    (ior (match_test "op == const0_rtx")
-		 (match_test "aarch64_simd_imm_zero_p (op, mode)")))))
