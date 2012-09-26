@@ -1,6 +1,13 @@
 2012-09-25  Joey Ye  <joey.ye@arm.com>
 
 	Backported from trunk
+	2012-08-17  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.target/arm/div64-unwinding.c: New test.
+
+2012-09-25  Joey Ye  <joey.ye@arm.com>
+
+	Backported from trunk
 	2012-08-28  Joey Ye  <joey.ye@arm.com>
 
 	* gcc.dg/tree-ssa/ssa-dom-thread-3.c: Add -fno-short-enums.
