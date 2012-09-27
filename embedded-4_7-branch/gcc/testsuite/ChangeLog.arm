@@ -1,3 +1,10 @@
+2012-09-25  Terry Guo  <terry.guo@arm.com>
+
+	Backport r191783 from mainline
+	2012-09-26  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/arm/combine-movs.c: Use effective target arm_thumb2.
+
 2012-09-25  Joey Ye  <joey.ye@arm.com>
 
 	Backported from trunk
