@@ -1,3 +1,155 @@
+2012-09-21  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/54638
+	Backport from mainline
+	2012-04-19  Richard Guenther  <rguenther@suse.de>
+
+	* ira-int.h (ira_allocno_object_iter_cond): Avoid out-of-bound
+	array access.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54552
+	* c-typeck.c (c_cast_expr): When casting to a type requiring
+	C_MAYBE_CONST_EXPR to be created, pass the inner expression to
+	c_fully_fold first.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54103
+	* c-typeck.c (build_unary_op): Pass original argument of
+	TRUTH_NOT_EXPR to c_objc_common_truthvalue_conversion, then remove
+	any C_MAYBE_CONST_EXPR, if it has integer operands.
+	(build_binary_op): Pass original arguments of TRUTH_ANDIF_EXPR,
+	TRUTH_ORIF_EXPR, TRUTH_AND_EXPR, TRUTH_OR_EXPR and TRUTH_XOR_EXPR
+	to c_objc_common_truthvalue_conversion, then remove any
+	C_MAYBE_CONST_EXPR, if they have integer operands.  Use
+	c_objc_common_truthvalue_conversion not
+	c_common_truthvalue_conversion.
+	(c_objc_common_truthvalue_conversion): Build NE_EXPR directly and
+	call note_integer_operands for arguments with integer operands
+	that are not integer constants.
+
+2012-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/54563
+	* tree-ssa-math-opts.c (execute_cse_sincos): Call
+	gimple_purge_dead_eh_edges if last call has been changed.
+
+	2012-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/54564
+	* config/i386/sse.md (fmai_vmfmadd_<mode>): Use (match_dup 1)
+	instead of (match_dup 0) as second argument to vec_merge.
+	(*fmai_fmadd_<mode>, *fmai_fmsub_<mode>): Likewise.
+	Remove third alternative.
+	(*fmai_fnmadd_<mode>, *fmai_fnmsub_<mode>): Likewise.  Negate
+	operand 2 instead of operand 1, but put it as first argument
+	of fma.
+	* config/i386/fmaintrin.h (_mm_fnmadd_sd, _mm_fnmadd_ss,
+	_mm_fnmsub_sd, _mm_fnmsub_ss): Negate the second argument instead
+	of the first.
+
+2012-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.7.3.
+	* DEV-PHASE: Set to prerelease.
+
+2012-09-20  Release Manager
+
+	* GCC 4.7.2 released.
+
+2012-09-15  Andi Kleen  <ak@linux.intel.com>
+
+	Backport from mainline
+	2012-09-07  Andi Kleen  <ak@linux.intel.com>
+
+  	* gcc/lto-streamer.h (res_pair): Add.
+    	(lto_file_decl_data): Replace resolutions with respairs.
+    	Add max_index.
+    	* gcc/lto/lto.c (lto_resolution_read): Remove max_index.  Add rp.
+    	Initialize respairs.
+    	(lto_file_finalize): Set up resolutions vector lazily from respairs.
+
+2012-09-14  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline.
+	2012-09-14  Walter Lee  <walt@tilera.com>
+
+	* doc/invoke.texi (Option Summary): fix typesetting for -mcpu
+	option for TILEPro and TILE-Gx.
+
+2012-09-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.h (x86_prefetchw): New global variable.
+	(TARGET_PREFETCHW): New macro.
+	* config/i386/i386.c (PTA_PREFETCHW): Ditto.
+	(processor_alias_table): Add PTA_PREFETCHW to
+	bdver1, bdver2 and btver1.
+	(ix86_option_override_internal): Set x86_prefetchw for
+	PTA_PREFETCHW targets.
+	* config/i386/i386.md (prefetch): Expand to prefetchw
+	for TARGET_PREFETCHW.
+	(*prefetch_3dnow_<mode>): Also enable for TARGET_PREFETCHW.
+
+	Backport from mainline
+	2012-08-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (prefetch): Do not assert mode of operand 0.
+	(*prefetch_sse_<mode>): Do not set mode of address_operand predicate.
+	Rename to ...
+	(*prefetch_sse): ... this.
+	(*prefetch_3dnow_<mode>): Do not set mode of address_operand predicate.
+	Rename to ...
+	(*prefetch_3dnow): ... this.
+
+2012-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/54559
+	* c-typeck.c (c_finish_return): Do convert to BOOLEAN_TYPE or
+	COMPLEX_TYPE with in_late_binary_op set temporarily to true.
+
+2012-09-12  Teresa Johnson  <tejohnson@google.com>
+
+	Backport from mainline.
+	2012-09-12  Teresa Johnson  <tejohnson@google.com>
+
+	PR gcov-profile/54487
+	* configure.ac (HOST_HAS_F_SETLKW): Set based on compile
+	test using F_SETLKW with fcntl.
+	* configure, config.in: Regenerate.
+
+2012-09-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-09-12  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.md : Comments on fma4 instruction selection
+	reflect requirement on register pressure based cost model.
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): fma4
+	flag is set-reset as informed by the cpuid flag.
+
+	* config/i386/i386.c (processor_alias_table): fma4
+	flag is enabled for bdver2.
+
+2012-09-12  Christian Bruel  <christian.bruel@st.com>
+
+       * config/sh/newlib.h (NO_IMPLICIT_EXTERN_C): Define.
+
+2012-09-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* config.gcc: Obsolete picochip-*.
+
+2012-09-11  Richard Guenther  <rguenther@suse.de>
+
+	PR debug/54534
+	* cgraph.h (varpool_can_remove_if_no_refs): Restore dependence
+	on flag_toplevel_reorder.
+
 2012-09-10  Richard Henderson  <rth@redhat.com>
 
 	* config/alpha/predicates.md (small_symbolic_operand): Disallow
@@ -6,7 +158,7 @@
 2012-09-10  Georg-Johann Lay  <avr@gjlay.de>
 
 	Backport from 2012-09-10 mainline r191132.
-	
+
 	PR target/54536
 	* config/avr/avr-mcus.def (at90usb1287): Set LIBRARY_NAME to "usb1287".
 
@@ -61,7 +213,7 @@
 
 	Backport from mainline.
 	2012-08-29  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-                   Richard Earnshaw  <richard.earnshaw@arm.com>
+		    Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	PR target/54252
 	* config/arm/arm.c (neon_dereference_pointer): Adjust nelems by

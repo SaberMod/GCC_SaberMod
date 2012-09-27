@@ -1,3 +1,30 @@
+2012-09-20  Release Manager
+
+	* GCC 4.7.2 released.
+
+2012-09-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53661
+	* typeck2.c (check_narrowing): Avoid false positives on conversion
+	from enumeral type.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53839
+	* semantics.c (cxx_eval_indirect_ref): If we aren't looking for an
+	address, make sure the value is constant.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54511
+	* pt.c (tsubst_decl) [VAR_DECL]: Handle DECL_ANON_UNION_VAR_P.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53836
+	* pt.c (value_dependent_expression_p): A TREE_LIST initializer must
+	be dependent.
+
 2012-09-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/54506

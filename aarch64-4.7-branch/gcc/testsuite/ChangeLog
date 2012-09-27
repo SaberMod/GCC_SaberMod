@@ -1,3 +1,93 @@
+2012-09-22  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2012-09-16  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR testsuite/54007
+	* gnat.dg/lto15.adb: Require lto.
+
+2012-09-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt20.ads: Move dg directive to...
+	* gnat.dg/opt20.adb: ...here.
+	* gnat.dg/addr1.ad[sb]: Likewise.
+	* gnat.dg/concat2.ad[sb]: Likewise.
+	* gnat.dg/array16.ad[sb]: Likewise.
+	* gnat.dg/atomic5.ad[sb]: Likewise.
+	* gnat.dg/discr29.ad[sb]: Likewise.
+	* gnat.dg/noreturn5.ad[sb]: Likewise.
+	* gnat.dg/vect8.ad[sb]: Likewise.  Add dg-options.
+	* gnat.dg/discr23.ads: Remove dg directive.
+	* gnat.dg/nested_float_packed.ads: Likewise.
+	* gnat.dg/oconst6.ads: Move to...
+	* gnat.dg/specs/oconst6.ads: ...here.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54552
+	* gcc.c-torture/compile/pr54552-1.c: New test.
+
+2012-09-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/54103
+	* gcc.c-torture/compile/pr54103-1.c,
+	gcc.c-torture/compile/pr54103-2.c,
+	gcc.c-torture/compile/pr54103-3.c,
+	gcc.c-torture/compile/pr54103-4.c,
+	gcc.c-torture/compile/pr54103-5.c,
+	gcc.c-torture/compile/pr54103-6.c: New tests.
+	* gcc.dg/c90-const-expr-8.c: Update expected column number.
+
+2012-09-20  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/54563
+	* g++.dg/torture/pr54563.C: New test.
+
+2012-09-20  Release Manager
+
+	* GCC 4.7.2 released.
+
+2012-09-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53661
+	* g++.dg/init/aggr9.C: New.
+
+2012-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/54556
+	* gfortran.dg/implicit_pure_3.f90: New.
+
+2012-09-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/54559
+	* gcc.c-torture/compile/pr54559.c: New test.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53839
+	* g++.dg/cpp0x/constexpr-temp1.C: New.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54511
+	* g++.dg/template/anonunion2.C: New.
+
+2012-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53836
+	* g++.dg/template/init10.C: New.
+
+2012-09-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/54225
+	PR fortran/53306
+	* gfortran.dg/coarray_10.f90: Update dg-error.
+	* gfortran.dg/coarray_28.f90: New.
+	* gfortran.dg/array_section_3.f90: New.
+
 2012-09-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/54506
