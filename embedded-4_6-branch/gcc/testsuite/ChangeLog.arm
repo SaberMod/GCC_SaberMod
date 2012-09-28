@@ -1,3 +1,10 @@
+2012-06-12  Joey Ye  <joey.ye@arm.com>
+
+	Backport from mainline
+	2012-08-17  Julian Brown  <julian@codesourcery.com>
+
+	* gcc.target/arm/div64-unwinding.c: New test.
+
 2012-06-12  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r181256 from mainline

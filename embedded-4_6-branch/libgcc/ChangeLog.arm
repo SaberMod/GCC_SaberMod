@@ -1,8 +1,23 @@
+2012-09-27  Joey Ye  <joey.ye@arm.com>
+
+	Backport from mainline
+	2012-08-17  Julian Brown  <julian@codesourcery.com>
+
+	* Makefile.in (LIB2_DIVMOD_EXCEPTION_FLAGS): Default to
+	-fexceptions -fnon-call-exceptions if not defined.
+	($(lib2-divmod-o), $(lib2-divmod-s-o)): Use above.
+	* config/arm/t-bpabi (LIB2_DIVMOD_EXCEPTION_FLAGS): New.
+	* config.host (t-bpabi): Include it.
+
+	2011-11-18  Steve Ellcey  <sje@cup.hp.com>
+
+	* Makefile.in (c_flags): Set to -fno-exceptions to build libunwind.
+
 2011-09-20  Jiangning Liu  <jiangning.liu@arm.com>
 
 	Backport r177025 from mainline
 	2011-08-01  Julian Brown  <julian@codesourcery.com>
- 
+
 	* config.host (arm*-*-linux*, arm*-*-uclinux*, arm*-*-eabi*)
 	(arm*-*-symbianelf*): Add t-fixedpoint-gnu-prefix makefile fragment.
 	* config/arm/bpabi-lib.h (LIBGCC2_FIXEDBIT_GNU_PREFIX): Define.

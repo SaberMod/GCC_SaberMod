@@ -211,19 +211,21 @@ arm*-*-netbsdelf*)
 arm*-*-netbsd*)
 	;;
 arm*-*-linux*)			# ARM GNU/Linux with ELF
-	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix"
+	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix arm/t-bpabi"
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
-	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix"
+	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix arm/t-bpabi"
 	;;
 arm*-*-ecos-elf)
+	tmake_file="${tmake_file} arm/t-bpabi"
 	;;
 arm*-*-eabi* | arm*-*-symbianelf* )
-	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix"
+	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix arm/t-bpabi"
 	;;
 arm*-*-rtems*)
 	;;
 arm*-*-elf)
+	tmake_file="${tmake_file} arm/t-bpabi"
 	;;
 arm*-wince-pe*)
 	;;
