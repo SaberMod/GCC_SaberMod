@@ -1,3 +1,12 @@
+2012-10-01  Ian Bolton  <ian.bolton@arm.com>
+	    Richard Henderson  <rth@redhat.com>
+
+	* config/aarch64/aarch64.c (aarch64_expand_mov_immediate): Fix a
+	functional typo and refactor code in switch statement.
+	* config/aarch64/aarch64.md (add_losym): Handle symbol + offset.
+	* config/aarch64/predicates.md (aarch64_tls_ie_symref): Match const.
+	(aarch64_tls_le_symref): Likewise.
+
 2012-09-26  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
 	* config/aarch64/predicates.md (aarch64_simd_reg_or_zero): Remove

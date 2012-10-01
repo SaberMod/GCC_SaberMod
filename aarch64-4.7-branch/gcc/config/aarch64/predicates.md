@@ -122,7 +122,7 @@
 })
 
 (define_predicate "aarch64_tls_ie_symref"
-  (match_code "symbol_ref, label_ref")
+  (match_code "const, symbol_ref, label_ref")
 {
   switch (GET_CODE (op))
     {
@@ -143,7 +143,7 @@
 })
 
 (define_predicate "aarch64_tls_le_symref"
-  (match_code "symbol_ref, label_ref")
+  (match_code "const, symbol_ref, label_ref")
 {
   switch (GET_CODE (op))
     {

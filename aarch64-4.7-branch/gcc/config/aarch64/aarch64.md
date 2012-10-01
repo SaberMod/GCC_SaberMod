@@ -2819,7 +2819,7 @@
 	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
 		   (match_operand 2 "aarch64_valid_symref" "S")))]
   ""
-  "add\\t%0, %1, :lo12:%2"
+  "add\\t%0, %1, :lo12:%a2"
   [(set_attr "v8type" "alu")
    (set_attr "mode" "DI")]
 
