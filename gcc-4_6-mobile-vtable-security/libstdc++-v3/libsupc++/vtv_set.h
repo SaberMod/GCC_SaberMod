@@ -31,6 +31,8 @@
 // but regardless of the set size, insert() and contains() have close to O(1)
 // speed in practice.
 //
+// TODO(gpike): fix this comment.
+//
 // Recommended multithreaded use of a set:
 //
 // For speed, we want to use a lock-free test for set membership.  The code
@@ -82,7 +84,126 @@
 // However, we expect most or all uses of this code to call contains() much more
 // frequently than anything else, so lock contention is likely to be low.
 #include <algorithm>
-#include "vtv_utils.h"
+
+#ifndef HASHTABLE_STATS
+#define HASHTABLE_STATS 0
+#endif
+
+#ifndef HASHTABLE_STATS_ATOMIC
+#define HASHTABLE_STATS_ATOMIC 0
+#endif
+
+#if HASHTABLE_STATS
+#if HASHTABLE_STATS_ATOMIC
+// Stat counters, with atomics.
+#include <bits/atomic_word.h>
+
+typedef _Atomic_word _AtomicStatCounter;
+
+void
+inc_by(_AtomicStatCounter& stat, int amount)
+{ __atomic_add_fetch (&stat, amount,  __ATOMIC_ACQ_REL); }
+
+#else
+
+// Stat counters, but without atomics.
+typedef int _AtomicStatCounter;
+
+void
+inc_by(_AtomicStatCounter& stat, int amount)
+{ stat += amount; }
+
+#endif
+
+
+// number of calls to contains(), insert(), etc.
+extern _AtomicStatCounter stat_insert;
+extern _AtomicStatCounter stat_contains;
+extern _AtomicStatCounter stat_resize;
+extern _AtomicStatCounter stat_create;
+
+// sum of set size over all calls to contains()
+extern _AtomicStatCounter stat_contains_sizes;
+
+// contains() calls in a set whose capacity is more than 1.
+extern _AtomicStatCounter stat_contains_in_non_trivial_set;
+
+// Probes in a set whose capacity is more than 1.  Ideally, this will be
+// pretty close to stat_contains_in_non_trivial_set.  That will happen if our
+// hash function is good and/or important keys were inserted before
+// unimportant keys.
+extern _AtomicStatCounter stat_probes_in_non_trivial_set;
+
+// number of calls to contains() with size=0, 1, etc.
+extern _AtomicStatCounter stat_contains_size0;
+extern _AtomicStatCounter stat_contains_size1;
+extern _AtomicStatCounter stat_contains_size2;
+extern _AtomicStatCounter stat_contains_size3;
+extern _AtomicStatCounter stat_contains_size4;
+extern _AtomicStatCounter stat_contains_size5;
+extern _AtomicStatCounter stat_contains_size6;
+extern _AtomicStatCounter stat_contains_size7;
+extern _AtomicStatCounter stat_contains_size8;
+extern _AtomicStatCounter stat_contains_size9;
+extern _AtomicStatCounter stat_contains_size10;
+extern _AtomicStatCounter stat_contains_size11;
+extern _AtomicStatCounter stat_contains_size12;
+extern _AtomicStatCounter stat_contains_size13_or_more;
+extern _AtomicStatCounter stat_grow_from_size0_to_1;
+extern _AtomicStatCounter stat_grow_from_size1_to_2;
+extern _AtomicStatCounter stat_double_the_number_of_buckets;
+extern _AtomicStatCounter stat_insert_key_that_was_already_present;
+
+// Hash collisions detected during insert_no_resize().  Only counts
+// hasher(k) == hasher(k'); hasher(k) % tablesize == hasher(k') % tablesize is
+// not sufficient.  Will count collisions that are detected during table
+// resizes etc., so the same two keys may add to this stat multiple times.
+extern _AtomicStatCounter stat_insert_found_hash_collision;
+
+#include <string>
+#include <sstream>
+
+std::string
+insert_only_hash_tables_stats()
+{
+  std::stringstream s;
+  s << "insert: " << stat_insert << '\n'
+    << "contains: " << stat_contains << '\n'
+    << "resize: " << stat_resize << '\n'
+    << "create: " << stat_create << '\n'
+    << "insert_key_that_was_already_present: " << stat_insert_key_that_was_already_present << '\n'
+    << "contains_sizes: " << stat_contains_sizes << '\n'
+    << "contains_in_non_trivial_set: " << stat_contains_in_non_trivial_set << '\n'
+    << "probes_in_non_trivial_set: " << stat_probes_in_non_trivial_set << '\n'
+    << "contains_size0: " << stat_contains_size0 << '\n'
+    << "contains_size1: " << stat_contains_size1 << '\n'
+    << "contains_size2: " << stat_contains_size2 << '\n'
+    << "contains_size3: " << stat_contains_size3 << '\n'
+    << "contains_size4: " << stat_contains_size4 << '\n'
+    << "contains_size5: " << stat_contains_size5 << '\n'
+    << "contains_size6: " << stat_contains_size6 << '\n'
+    << "contains_size7: " << stat_contains_size7 << '\n'
+    << "contains_size8: " << stat_contains_size8 << '\n'
+    << "contains_size9: " << stat_contains_size9 << '\n'
+    << "contains_size10: " << stat_contains_size10 << '\n'
+    << "contains_size11: " << stat_contains_size11 << '\n'
+    << "contains_size12: " << stat_contains_size12 << '\n'
+    << "contains_size13_or_more: " << stat_contains_size13_or_more << '\n'
+    << "grow_from_size0_to_1: " << stat_grow_from_size0_to_1 << '\n'
+    << "grow_from_size1_to_2: " << stat_grow_from_size1_to_2 << '\n'
+    << "insert_found_hash_collision: " << stat_insert_found_hash_collision << '\n'
+    << "double_the_number_of_buckets: " << stat_double_the_number_of_buckets << '\n';
+  return s.str();
+}
+
+#else
+
+// No stats.
+#define inc_by(statname, amount) do { } while (false && (amount))
+
+#endif
+
+#define inc(statname) inc_by(statname, 1)
 
 template<typename Key, class HashFcn, class Alloc>
 class insert_only_hash_sets {
@@ -92,6 +213,11 @@ class insert_only_hash_sets {
   typedef Alloc alloc_type;
   enum { illegal_key = 1 };
   enum { min_capacity = 4 };
+#if HASHTABLE_STATS
+  enum { stats = true };
+#else
+  enum { stats = false };
+#endif
 
   // Do not directly use insert_only_hash_set.  Instead, use the static methods
   // below to create and manipulate objects of the following class.
@@ -120,8 +246,31 @@ class insert_only_hash_sets {
     static bool
     contains (key_type key, const insert_only_hash_set* s)
     {
-      return s != NULL &&
-          (singleton(s) ? (singleton_key(key) == s) : s->contains(key));
+      if (stats) {
+        inc(stat_contains);
+        switch (size(s))
+        {
+          case 0: inc(stat_contains_size0); break;
+          case 1: inc(stat_contains_size1); break;
+          case 2: inc(stat_contains_size2); break;
+          case 3: inc(stat_contains_size3); break;
+          case 4: inc(stat_contains_size4); break;
+          case 5: inc(stat_contains_size5); break;
+          case 6: inc(stat_contains_size6); break;
+          case 7: inc(stat_contains_size7); break;
+          case 8: inc(stat_contains_size8); break;
+          case 9: inc(stat_contains_size9); break;
+          case 10: inc(stat_contains_size10); break;
+          case 11: inc(stat_contains_size11); break;
+          case 12: inc(stat_contains_size12); break;
+          default: inc(stat_contains_size13_or_more); break;
+        }
+        inc_by(stat_contains_sizes, size(s));
+      }
+
+      return (singleton(s) ?
+              singleton_key(key) == s :
+              ((s != NULL) && s->contains(key)));
     }
 
     // Return a set's size.
@@ -209,12 +358,6 @@ class insert_only_hash_sets {
   static bool
   is_reserved_key (key_type key)
   { return ((uintptr_t)key % 2) == 1; }
-
-  static void
-  dump_statistics()
-  {
-    // TODO
-  }
 };
 
 template<typename Key, class HashFcn, class Alloc>
@@ -249,12 +392,14 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert (
     key_type key, insert_only_hash_set* s)
 {
   VTV_DEBUG_ASSERT(!is_reserved_key(key));
+  inc_by(stat_grow_from_size0_to_1, s == NULL);
   if (s == NULL) return singleton_key(key);
   if (singleton(s))
     {
       const key_type old_key = extract_singleton_key(s);
       if (old_key == key) return s;
       // Grow from size 1 to size 2.
+      inc(stat_grow_from_size1_to_2);
       s = create(2);
       if (s == NULL) return NULL;
       s->insert_no_resize(old_key);
@@ -317,11 +462,13 @@ template<typename Key, class HashFcn, class Alloc>
 bool
 insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::contains (key_type key) const
 {
+  inc(stat_contains_in_non_trivial_set);
   HashFcn hasher;
   const size_type capacity = num_buckets;
   size_type index = hasher(key) & (capacity - 1);
   key_type k = key_at_index(index);
   size_type indices_examined = 0;
+  inc(stat_probes_in_non_trivial_set);
   while (k != key)
     {
       ++indices_examined;
@@ -329,6 +476,7 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::contains (key_
                        indices_examined == capacity)) return false;
       index = next_index(index, indices_examined);
       k = key_at_index(index);
+      inc(stat_probes_in_non_trivial_set);
     }
   return true;
 }
@@ -341,6 +489,7 @@ typename insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set*
   size_type unused = num_buckets - num_entries;
   if (unused < (num_buckets >> 2))
     {
+      inc(stat_double_the_number_of_buckets);
       size_type new_num_buckets = num_buckets * 2;
       insert_only_hash_set *s = create(new_num_buckets);
       for (size_type i = 0; i < num_buckets; i++)
@@ -357,6 +506,7 @@ template<typename Key, class HashFcn, class Alloc>
 bool
 insert_only_hash_sets<Key, HashFcn, Alloc>::create (size_type n, insert_only_hash_set** handle)
 {
+  inc(stat_create);
   *handle = insert_only_hash_set::create(n);
   return (n <= 1) || (*handle != NULL);
 }
@@ -365,6 +515,7 @@ template<typename Key, class HashFcn, class Alloc>
 bool
 insert_only_hash_sets<Key, HashFcn, Alloc>::resize (size_type n, insert_only_hash_set** handle)
 {
+  inc(stat_resize);
   *handle = insert_only_hash_set::resize(n, *handle);
   return (n <= 1) || (*handle != NULL);
 }
@@ -373,6 +524,13 @@ template<typename Key, class HashFcn, class Alloc>
 bool
 insert_only_hash_sets<Key, HashFcn, Alloc>::insert (key_type key, insert_only_hash_set** handle)
 {
+  inc(stat_insert);
+  const size_type old_size = insert_only_hash_set::size(*handle);
   *handle = insert_only_hash_set::insert(key, *handle);
+  if (*handle != NULL)
+    {
+      const size_type delta = insert_only_hash_set::size(*handle) - old_size;
+      inc_by(stat_insert_key_that_was_already_present, delta == 0);
+    }
   return *handle != NULL;
 }

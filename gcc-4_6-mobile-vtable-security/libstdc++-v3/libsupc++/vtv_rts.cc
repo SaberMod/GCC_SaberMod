@@ -68,7 +68,7 @@ extern "C" {
    sysconf. The initialization will happen after calls to the routines
    to protect/unprotec the vtabla_map variables */
 
-static const int debug_hash = 0;
+static const int debug_hash = HASHTABLE_STATS;
 static const int debug_functions = 0;
 static const int debug_register_pairs = 0;
 
@@ -77,6 +77,7 @@ static const int debug_register_pairs = 0;
    and VTV_protect */
 
 static int log_file_fd VTV_PROTECTED_VAR = -1;
+static int set_log_fd VTV_PROTECTED_VAR = -1;
 
 /* types needed by insert_only_hash_sets */
 typedef uintptr_t int_vptr;
@@ -164,7 +165,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
 static void
 VTV_unprotect_vtable_vars (void)
 {
-  mprotect_data mdata; 
+  mprotect_data mdata;
 
   mdata.prot_mode = PROT_READ | PROT_WRITE;
   mdata.page_size = sysconf(_SC_PAGE_SIZE);
@@ -177,7 +178,7 @@ VTV_unprotect_vtable_vars (void)
 static void
 VTV_protect_vtable_vars (void)
 {
-  mprotect_data mdata; 
+  mprotect_data mdata;
 
   mdata.prot_mode = PROT_READ;
   mdata.page_size = sysconf(_SC_PAGE_SIZE);
@@ -199,7 +200,49 @@ initialize_change_permissions_mutexes ()
 }
 #endif
 
-void 
+// Variables needed for getting the statistics about the hashtable set
+#if HASHTABLE_STATS
+_AtomicStatCounter stat_contains = 0;
+_AtomicStatCounter stat_insert = 0;
+_AtomicStatCounter stat_resize = 0;
+_AtomicStatCounter stat_create = 0;
+_AtomicStatCounter stat_probes_in_non_trivial_set = 0;
+_AtomicStatCounter stat_contains_size0 = 0;
+_AtomicStatCounter stat_contains_size1 = 0;
+_AtomicStatCounter stat_contains_size2 = 0;
+_AtomicStatCounter stat_contains_size3 = 0;
+_AtomicStatCounter stat_contains_size4 = 0;
+_AtomicStatCounter stat_contains_size5 = 0;
+_AtomicStatCounter stat_contains_size6 = 0;
+_AtomicStatCounter stat_contains_size7 = 0;
+_AtomicStatCounter stat_contains_size8 = 0;
+_AtomicStatCounter stat_contains_size9 = 0;
+_AtomicStatCounter stat_contains_size10 = 0;
+_AtomicStatCounter stat_contains_size11 = 0;
+_AtomicStatCounter stat_contains_size12 = 0;
+_AtomicStatCounter stat_contains_size13_or_more = 0;
+_AtomicStatCounter stat_contains_sizes = 0;
+_AtomicStatCounter stat_grow_from_size0_to_1 = 0;
+_AtomicStatCounter stat_grow_from_size1_to_2 = 0;
+_AtomicStatCounter stat_double_the_number_of_buckets = 0;
+_AtomicStatCounter stat_insert_found_hash_collision = 0;
+_AtomicStatCounter stat_contains_in_non_trivial_set = 0;
+_AtomicStatCounter stat_insert_key_that_was_already_present = 0;
+#endif
+
+static void
+log_set_stats()
+{
+#if HASHTABLE_STATS
+  if (set_log_fd == -1)
+    set_log_fd = vtv_open_log("/tmp/vtv_set_stats.log");
+
+  vtv_add_to_log(set_log_fd, "---\n%s\n",
+                 insert_only_hash_tables_stats().c_str());
+#endif
+}
+
+void
 __VLTChangePermission (int perm)
 {
   if (debug_functions)
@@ -218,7 +261,7 @@ __VLTChangePermission (int perm)
   __gthread_once (&mutex_once, initialize_change_permissions_mutexes);
 #endif
 
-  /* Ordering of these unprotect/protect calls is very important. 
+  /* Ordering of these unprotect/protect calls is very important.
      You first need to unprotect all the map vars and side
      structures before you do anything with the core data
      structures (hash_maps) */
@@ -237,13 +280,14 @@ __VLTChangePermission (int perm)
     }
   else if (perm == __VLTP_READ_ONLY)
     {
+      if (debug_hash)
+        log_set_stats();
+
       VTV_malloc_protect ();
       VTV_protect_vtable_vars ();
 
       __gthread_mutex_unlock(&change_permissions_lock);
 
-      if (debug_hash)
-        vtv_sets::dump_statistics();
     }
 }
 
