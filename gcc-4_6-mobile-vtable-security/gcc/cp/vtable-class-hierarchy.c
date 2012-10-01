@@ -44,8 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vtable-verify.h"
 #include "gimple.h"
 
-static GTY(()) tree vlt_register_pairs_fndecl = NULL_TREE;
-static GTY(()) tree vlt_change_permission_fndecl = NULL_TREE;
+/* Need to mark this one specially since it needs to be stored in
+ * precompiled header IR */
+static GTY(()) tree vlt_saved_class_info = NULL_TREE;
+
+static tree vlt_register_pairs_fndecl = NULL_TREE;
+static tree vlt_change_permission_fndecl = NULL_TREE;
 
 struct work_node {
   struct vtv_graph_node *node;
@@ -70,7 +74,7 @@ static void vtv_create_unprotect_function            (void);
 static void vtv_create_protect_function              (void);
 #endif
 
-void update_class_hierarchy_information (tree, tree);
+static void update_class_hierarchy_information (tree, tree);
 struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
 
 static void
@@ -80,7 +84,14 @@ init_functions (void)
   tree arg_types = NULL_TREE;
   tree register_pairs_type = void_type_node;
   tree change_permission_type = void_type_node;
+#ifdef VTV_DEBUG
   tree char_ptr_type = build_pointer_type (char_type_node);
+#endif
+
+  if (vlt_change_permission_fndecl != NULL_TREE)
+    return;
+
+  gcc_assert(vlt_register_pairs_fndecl == NULL_TREE);
 
   arg_types = build_tree_list (NULL_TREE, integer_type_node);
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
@@ -617,7 +628,7 @@ add_hierarchy_pair (struct vtv_graph_node *base_node,
                      &(derived_node->max_parents), base_node);
 }
 
-void
+static void
 update_class_hierarchy_information (tree base_class,
                                     tree derived_class)
 {
@@ -810,7 +821,7 @@ vtable_find_or_create_map_decl (tree base_type)
 
       varpool_finalize_decl (var_decl);
       if (!vtable_map_node)
-        vtable_map_node = vtbl_map_node (base_type);
+        vtable_map_node = find_or_create_vtbl_map_node (base_type);
       if (vtable_map_node->vtbl_map_decl == NULL_TREE)
         vtable_map_node->vtbl_map_decl = var_decl;
     }
@@ -819,7 +830,7 @@ vtable_find_or_create_map_decl (tree base_type)
   return vtable_map_node;
 }
 
-void
+static void
 vtv_save_base_class_info (tree type)
 {
   if (flag_vtable_verify)
@@ -850,4 +861,36 @@ vtv_save_base_class_info (tree type)
             update_class_hierarchy_information (tree_val, type);
         }
     }
+}
+
+void
+vtv_save_class_info(tree record)
+{
+  if (!flag_vtable_verify || TREE_CODE(record) == UNION_TYPE)
+    return; 
+
+  gcc_assert(TREE_CODE(record) == RECORD_TYPE);
+
+  vlt_saved_class_info = tree_cons(NULL_TREE, record, vlt_saved_class_info);
+  //  fprintf(stderr, "Saving info for type %p\n", (void *)record);
+}
+
+
+void
+vtv_recover_class_info(void)
+{
+  tree current_class;
+  tree class_chain = vlt_saved_class_info;
+  while (class_chain != NULL_TREE)
+  {
+    current_class = TREE_VALUE(class_chain);
+    gcc_assert(TREE_CODE(current_class) == RECORD_TYPE);
+    //    fprintf(stderr, "Recovering info for type %p\n", (void *)current_class);
+
+    vtv_save_base_class_info(current_class);
+    class_chain = TREE_CHAIN(class_chain);
+  }
+
+  /* Let GC collect the memory associated to the chain */
+  vlt_saved_class_info = NULL_TREE; 
 }

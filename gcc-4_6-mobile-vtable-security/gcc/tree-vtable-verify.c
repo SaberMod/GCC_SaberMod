@@ -47,9 +47,10 @@ along with GCC; see the file COPYING3.  If not see
 unsigned num_vtable_map_nodes = 0;
 bool any_verification_calls_generated = false;
 
-static GTY(()) tree verify_vtbl_ptr_fndecl = NULL_TREE;
+static tree verify_vtbl_ptr_fndecl = NULL_TREE;
 
 unsigned int vtable_verify_main (void);
+unsigned int vtable_verify_prepare (void);
 static bool gate_tree_vtable_verify (void);
 static void build_vtable_verify_fndecl (void);
 static tree my_build1 (enum tree_code, tree, tree);
@@ -238,7 +239,7 @@ vtbl_map_get_node (const_tree class_name)
 /* Return vtbl_map node assigned to BASE_CLASS_TYPE.  Create new one
  * when needed.  */
 struct vtbl_map_node *
-vtbl_map_node (tree base_class_type)
+find_or_create_vtbl_map_node (tree base_class_type)
 {
   struct vtbl_map_node key;
   struct vtbl_map_node *node;
@@ -597,7 +598,8 @@ verify_bb_vtables (basic_block bb)
                      object's vtable pointer (contained in lhs) is in the set
                      of valid vtable pointers for the base class.  */
 
-                  if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
+                  gcc_assert(verify_vtbl_ptr_fndecl != NULL_TREE);
+                  if (vtbl_var_decl)
                     {
                       tree expr_tree = NULL_TREE;
                       struct gimplify_ctx gctx;
@@ -680,10 +682,15 @@ static void
 build_vtable_verify_fndecl (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
-  tree char_ptr_type = build_pointer_type (char_type_node);
   tree arg_types = NULL_TREE;
   tree type = build_pointer_type (void_type_node);
   struct lang_decl *ld;
+#ifdef VTV_DEBUG
+  tree char_ptr_type = build_pointer_type (char_type_node);
+#endif
+
+  if (verify_vtbl_ptr_fndecl != NULL_TREE)
+    return;
 
   ld = ggc_alloc_cleared_lang_decl (sizeof (struct lang_decl_fn));
   ld->u.base.selector = 1;
@@ -759,5 +766,32 @@ struct gimple_opt_pass pass_vtable_verify =
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect                  /* todo_flags_finish */
+ }
+};
+
+unsigned int
+vtable_verify_prepare (void)
+{
+  unsigned int ret = 1;
+  /*  vtv_recover_class_info(); */
+  return ret;
+}
+
+struct gimple_opt_pass pass_vtable_verify_prepare =
+{
+ {
+  GIMPLE_PASS,
+  "vtable-verify-prepare",              /* name */
+  gate_tree_vtable_verify,              /* gate */
+  vtable_verify_prepare,                /* execute */
+  NULL,                                 /* sub */
+  NULL,                                 /* next */
+  0,                                    /* static_pass_number */
+  TV_VTABLE_VERIFICATION,               /* tv_id */
+  0,                                    /* properties_required */
+  0,                                    /* properties_provided */
+  0,                                    /* properties_destroyed */
+  0,                                    /* todo_flags_start */
+  TODO_dump_func | TODO_ggc_collect     /* todo_flags_finish */
  }
 };

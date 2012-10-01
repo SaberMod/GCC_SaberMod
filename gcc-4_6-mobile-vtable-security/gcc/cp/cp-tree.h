@@ -5688,7 +5688,8 @@ extern tree build_vtbl_address                   (tree);
 
 extern void vtv_compute_class_hierarchy_transitive_closure (void);
 extern void vtv_generate_init_routine                (const char *);
-extern void vtv_save_base_class_info                 (tree);
+extern void vtv_save_class_info                      (tree);
+extern void vtv_recover_class_info                   (void);
 
 /* -- end of C++ */
 

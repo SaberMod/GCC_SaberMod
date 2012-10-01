@@ -5745,7 +5745,7 @@ finish_struct_1 (tree t)
   maybe_suppress_debug_info (t);
 
   if (flag_vtable_verify)
-    vtv_save_base_class_info(t);
+    vtv_save_class_info(t);
 
   dump_class_hierarchy (t);
 

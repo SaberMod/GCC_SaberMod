@@ -4087,17 +4087,18 @@ cp_write_global_declarations (void)
   timevar_start (TV_PHASE_CGRAPH);
 
   if (flag_vtable_verify)
-    vtv_compute_class_hierarchy_transitive_closure ();
+    {
+      vtv_recover_class_info();
+      vtv_compute_class_hierarchy_transitive_closure ();
+    }
 
   cgraph_finalize_compilation_unit ();
 
-  /* Generate the special constructor function that calls
-     __VLTChangePermission and __VLTRegisterPairs, and give it
-     a very high initialization priority.  */
-
-  /* TODO: Can we put the body of this "if" into a routine in vtable-class-hierarchy.c ? */
   if (flag_vtable_verify)
     {
+      /* Generate the special constructor function that calls
+         __VLTChangePermission and __VLTRegisterPairs, and give it
+         a very high initialization priority.  */
       vtv_generate_init_routine(main_input_filename);
     }
 

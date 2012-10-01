@@ -71,7 +71,7 @@ extern struct vtbl_map_node *vtbl_map_nodes;
 extern struct vtbl_map_node **vtbl_map_nodes_array;
 
 extern struct vtbl_map_node *vtbl_map_get_node (const_tree);
-extern struct vtbl_map_node *vtbl_map_node (tree);
+extern struct vtbl_map_node *find_or_create_vtbl_map_node (tree);
 extern void vtbl_map_node_class_insert (struct vtbl_map_node *, unsigned);
 extern bool vtbl_map_node_registration_find (struct vtbl_map_node *,
                                              tree, unsigned);

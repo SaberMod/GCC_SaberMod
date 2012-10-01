@@ -1179,6 +1179,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_warn_unused_result);
   NEXT_PASS (pass_diagnose_omp_blocks);
   NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_vtable_verify_prepare);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_refactor_eh);
