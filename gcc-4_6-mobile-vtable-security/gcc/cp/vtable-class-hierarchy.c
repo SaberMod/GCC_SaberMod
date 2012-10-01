@@ -894,3 +894,5 @@ vtv_recover_class_info(void)
   /* Let GC collect the memory associated to the chain */
   vlt_saved_class_info = NULL_TREE; 
 }
+
+#include "gt-cp-vtable-class-hierarchy.h"
