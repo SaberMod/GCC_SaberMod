@@ -1,3 +1,48 @@
+2012-09-24  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/class.c: Change to only save a reference to the class type 
+	instead of creating all the hierarchy information at this point. This
+	change is necessary to support pre-compiled headers.
+	* gcc/cp/config-lang.in: Added list of vtv files with GC types.
+	* gcc/cp/cp-tree.h: remove vtv_save_base_clas_info from list of extern
+	symbols and replace with vtv_save_class_info (save only minimal info)
+	* gcc/cp/decl2.c (cp_write_global_declarations): Before computing the
+	transitive closure, calculate the hierarchy information from the 
+	information saved during parsing. Also removed some stale comments.
+	* gcc/cp/g++spec.c (lang_specific_driver): modified driver to add 
+	the vtv_init library whenever the invocation is doing a link and 
+	-fvtable-verify=std is being done. Dont add it in the case where 
+	-fvtalbe-verify=preinit is used since the initialization mechanism in 
+	there should not use vtv_init.
+	* gcc/cp/pt.c (mark_class_instantiated): Save info about class in 
+	the case of explicitly instantiated template. This will later be used
+	in "cp_write_global_declarations".
+	* gcc/cp/vtable-class-hierarchy.c: clean up the GTY markers. Only set
+	it to the minimal set of vars.
+	Also do some code cleanup, add a few asserts.
+	(vtv_save_class_information): new routine. Save minimal information
+	about a class (a pointer to it) into a TREE_CHAIN to be recovered
+	later in the compilation. This is needed to support pre-compiled 
+	headers. In this way only minimal information about VTV is stored
+	in the precompiled headers and we only need to mark very few 
+	things with the GC annotations "GTY".
+	(vtv_recover_class_info): Recover VTV interesting classes from 
+	the tree chain and construct the class hierarchy from them.
+	* gcc/tree-vtable-verify.c: cleaned up type GTY annotations. Some 
+	code cleanup and adding of assertions.
+	(find_or_create_vtbl_map_node): routine renamed from "vtbl_map_node 
+	because of name conflict with another type.
+	* gcc/tree-vtable-verify.h: renamed vtbl_map_node to 
+	find_or_create_vtbl_map_node.
+	* libstdc++/libsupc++/vtv_rts.cc some code cleanup to integrate 
+	new implementation of set.
+	Also added the declarations of stats vars required for the set.
+	(log_set_stats): new routine to add to a lot the stats from sets.
+	* libstdc++/libsupc++/vtv_set.h incorporated recent version of 
+	vtable sets that includes changes for generation of statistics.
+	There is one more recent with a fix for the generation of logs 
+	but I have not incorporated that one yet.
+ 
 2012-09-06  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/config/abi/pre/gnu.ver:  Add __VLTRegisterPairDebug
