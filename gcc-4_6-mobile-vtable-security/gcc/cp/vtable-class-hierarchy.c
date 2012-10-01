@@ -872,7 +872,6 @@ vtv_save_class_info(tree record)
   gcc_assert(TREE_CODE(record) == RECORD_TYPE);
 
   vlt_saved_class_info = tree_cons(NULL_TREE, record, vlt_saved_class_info);
-  //  fprintf(stderr, "Saving info for type %p\n", (void *)record);
 }
 
 
@@ -885,7 +884,6 @@ vtv_recover_class_info(void)
   {
     current_class = TREE_VALUE(class_chain);
     gcc_assert(TREE_CODE(current_class) == RECORD_TYPE);
-    //    fprintf(stderr, "Recovering info for type %p\n", (void *)current_class);
 
     vtv_save_base_class_info(current_class);
     class_chain = TREE_CHAIN(class_chain);

@@ -451,7 +451,6 @@ extern struct gimple_opt_pass pass_feedback_split_functions;
 extern struct gimple_opt_pass pass_threadsafe_analyze;
 extern struct gimple_opt_pass pass_tree_convert_builtin_dispatch;
 extern struct gimple_opt_pass pass_vtable_verify;
-extern struct gimple_opt_pass pass_vtable_verify_prepare;
 extern struct gimple_opt_pass pass_auto_clone;
 
 /* IPA Passes */

@@ -50,7 +50,6 @@ bool any_verification_calls_generated = false;
 static tree verify_vtbl_ptr_fndecl = NULL_TREE;
 
 unsigned int vtable_verify_main (void);
-unsigned int vtable_verify_prepare (void);
 static bool gate_tree_vtable_verify (void);
 static void build_vtable_verify_fndecl (void);
 static tree my_build1 (enum tree_code, tree, tree);
@@ -766,32 +765,5 @@ struct gimple_opt_pass pass_vtable_verify =
   0,                                    /* todo_flags_start */
   TODO_dump_func | TODO_update_ssa
     | TODO_ggc_collect                  /* todo_flags_finish */
- }
-};
-
-unsigned int
-vtable_verify_prepare (void)
-{
-  unsigned int ret = 1;
-  /*  vtv_recover_class_info(); */
-  return ret;
-}
-
-struct gimple_opt_pass pass_vtable_verify_prepare =
-{
- {
-  GIMPLE_PASS,
-  "vtable-verify-prepare",              /* name */
-  gate_tree_vtable_verify,              /* gate */
-  vtable_verify_prepare,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_VTABLE_VERIFICATION,               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_dump_func | TODO_ggc_collect     /* todo_flags_finish */
  }
 };
