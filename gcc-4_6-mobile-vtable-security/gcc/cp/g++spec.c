@@ -245,7 +245,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  break;
 
         case OPT_fvtable_verify_:
-          saw_vtable_verify = 1;
+          if (strcmp(arg, "std") == 0)
+            saw_vtable_verify = 1;
           break;
 
 	}
