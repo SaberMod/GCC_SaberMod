@@ -51,6 +51,8 @@ along with GCC; see the file COPYING3.  If not see
 #define LIBSTDCXX_STATIC NULL
 #endif
 
+#define VTABLE_LOAD_MODULE_INIT "--whole-archive,-lvtv_init,--no-whole-archive"
+
 void
 lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 		      unsigned int *in_decoded_options_count,
@@ -111,6 +113,10 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 
   /* The total number of arguments with the new stuff.  */
   unsigned int num_args = 1;
+
+  /* The command line contains a -fvtable_verify. We need to add the init library 
+     if we are linking and if we are adding the stdc++ library */
+  int saw_vtable_verify = 0;
 
   argc = *in_decoded_options_count;
   decoded_options = *in_decoded_options;
@@ -237,6 +243,11 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	      }
 	  }
 	  break;
+
+        case OPT_fvtable_verify_:
+          saw_vtable_verify = 1;
+          break;
+
 	}
     }
 
@@ -310,6 +321,13 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
       j++;
     }
 
+  if (saw_vtable_verify && library > 0)
+    {
+      generate_option(OPT_Wl_, VTABLE_LOAD_MODULE_INIT, 1, 
+                      CL_DRIVER, &new_decoded_options[j]);
+      added_libraries++;
+      j++;
+    }
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library > 0)
     {
