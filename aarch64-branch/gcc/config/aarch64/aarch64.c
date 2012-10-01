@@ -686,43 +686,57 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
   unsigned HOST_WIDE_INT val;
   bool subtargets;
   rtx subtarget;
-  rtx base, offset;
   int one_match, zero_match;
 
   gcc_assert (mode == SImode || mode == DImode);
 
-  /* If we have (const (plus symbol offset)), and that expression cannot
-     be forced into memory, load the symbol first and add in the offset.  */
-  split_const (imm, &base, &offset);
-  if (offset != const0_rtx
-      && (targetm.cannot_force_const_mem (mode, imm)
-	  || (can_create_pseudo_p ())))
-    {
-      base = aarch64_force_temporary (dest, base);
-      aarch64_emit_move (dest, aarch64_add_offset (mode, NULL, base, INTVAL (offset)));
-      return;
-    }
-
   /* Check on what type of symbol it is.  */
-  if (GET_CODE (base) == SYMBOL_REF || GET_CODE (base) == LABEL_REF)
+  if (GET_CODE (imm) == SYMBOL_REF
+      || GET_CODE (imm) == LABEL_REF
+      || GET_CODE (imm) == CONST)
     {
-      rtx mem;
-      switch (aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR))
+      rtx mem, base, offset;
+      enum aarch64_symbol_type sty;
+
+      /* If we have (const (plus symbol offset)), separate out the offset
+	 before we start classifying the symbol.  */
+      split_const (imm, &base, &offset);
+
+      sty = aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR);
+      switch (sty)
 	{
 	case SYMBOL_FORCE_TO_MEM:
-	  mem  = force_const_mem (mode, imm);
+	  if (offset != const0_rtx
+	      && targetm.cannot_force_const_mem (mode, imm))
+	    {
+	      gcc_assert(can_create_pseudo_p ());
+	      base = aarch64_force_temporary (dest, base);
+	      base = aarch64_add_offset (mode, NULL, base, INTVAL (offset));
+	      aarch64_emit_move (dest, base);
+	      return;
+	    }
+	  mem = force_const_mem (mode, imm);
 	  gcc_assert (mem);
 	  emit_insn (gen_rtx_SET (VOIDmode, dest, mem));
 	  return;
 
-    case SYMBOL_SMALL_TLSGD:
-    case SYMBOL_SMALL_TLSDESC:
-    case SYMBOL_SMALL_GOTTPREL:
-    case SYMBOL_SMALL_TPREL:
+        case SYMBOL_SMALL_TLSGD:
+        case SYMBOL_SMALL_TLSDESC:
+        case SYMBOL_SMALL_GOTTPREL:
 	case SYMBOL_SMALL_GOT:
+	  if (offset != const0_rtx)
+	    {
+	      gcc_assert(can_create_pseudo_p ());
+	      base = aarch64_force_temporary (dest, base);
+	      base = aarch64_add_offset (mode, NULL, base, INTVAL (offset));
+	      aarch64_emit_move (dest, base);
+	      return;
+	    }
+	  /* FALLTHRU */
+
+        case SYMBOL_SMALL_TPREL:
 	case SYMBOL_SMALL_ABSOLUTE:
-	  aarch64_load_symref_appropriately
-	    (dest, imm, aarch64_classify_symbol (base, SYMBOL_CONTEXT_ADR));
+	  aarch64_load_symref_appropriately (dest, imm, sty);
 	  return;
 
 	default:
@@ -730,7 +744,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	}
     }
 
-  if ((CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode)))
+  if (CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode))
     {
       emit_insn (gen_rtx_SET (VOIDmode, dest, imm));
       return;
