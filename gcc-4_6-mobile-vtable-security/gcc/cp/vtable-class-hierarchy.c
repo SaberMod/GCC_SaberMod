@@ -772,8 +772,8 @@ vtable_find_or_create_map_decl (tree base_type)
     base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_type));
 
   /* Create map lookup symbol for base class */
-  var_name = ACONCAT (("_ZTV", IDENTIFIER_POINTER (base_id),
-                       "__vtable_map", NULL));
+  var_name = ACONCAT (("_ZN4_VTVI", IDENTIFIER_POINTER (base_id),
+                       "E12__vtable_mapE", NULL));
   if (base_id)
     /* We've already created the variable; just look it.  */
     vtable_map_node = vtbl_map_get_node (base_id);

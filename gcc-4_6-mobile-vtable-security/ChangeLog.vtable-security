@@ -1,3 +1,11 @@
+2012-10-02  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/config/abi/pre/gnu.ver (GLIBCXX_3.4.16): Modify name
+	format of vtable map variables, in the global symbol export list.
+	* gcc/cp/vtable-class-hierarchy.c (vtable_find_or_create_map_decl):
+	Modify format of vtable map variable names, to demangle nicely.
+	* gcc/tree-vtable-verify.c (verify_bb_vtables):  Remove some dead code.
+
 2012-09-24  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/class.c: Change to only save a reference to the class type 

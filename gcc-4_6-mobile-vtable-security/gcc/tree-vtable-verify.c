@@ -523,8 +523,6 @@ verify_bb_vtables (basic_block bb)
               tree lhs = gimple_assign_lhs (stmt);
               tree vtbl_var_decl = NULL_TREE;
               tree vtbl = NULL_TREE;
-              const char *vtable_name = NULL;
-              char *vtbl_map_name = NULL;
               tree var_id;
               gimple_seq pre_p = NULL;
 
@@ -565,12 +563,6 @@ verify_bb_vtables (basic_block bb)
 
                       if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
                         force_gimple_operand (vtbl, &pre_p, 1, NULL);
-
-                      vtable_name = IDENTIFIER_POINTER
-			                          (DECL_NAME (vtbl_var_decl));
-                      vtbl_map_name = (char *) xmalloc
-			                           (strlen (vtable_name) + 13);
-                      sprintf (vtbl_map_name, "%s__vtable_map", vtable_name);
 
                       if (TREE_CHAIN (TREE_TYPE (rhs)))
                         var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN
