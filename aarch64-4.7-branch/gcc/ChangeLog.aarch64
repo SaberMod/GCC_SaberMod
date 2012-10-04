@@ -1,5 +1,10 @@
 2012-10-04  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/arm_neon.h: Rename vqml<as>l<sh>_* to
+	vqdml<as>l<sh>_*.
+
+2012-10-04  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/arm_neon.h (vfma_n_f32, vfmaq_n_f32, vfmaq_n_f64): New.
 
 2012-10-04  Tejas Belagod  <tejas.belagod@arm.com>

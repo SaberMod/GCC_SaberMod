@@ -14117,7 +14117,7 @@ vqdmulhq_n_s32 (int32x4_t a, int32_t b)
   return result;
 }
 
-#define vqmlalh_lane_s16(a, b, c)                                       \
+#define vqdmlalh_lane_s16(a, b, c)                                       \
   __extension__                                                         \
     ({                                                                  \
        int16x8_t b_ = (b);                                              \
@@ -14131,7 +14131,7 @@ vqdmulhq_n_s32 (int32x4_t a, int32_t b)
      })
 
 __extension__ static __inline int32_t __attribute__ ((__always_inline__))
-vqmlalh_s16 (int16_t a, int16_t b)
+vqdmlalh_s16 (int16_t a, int16_t b)
 {
   int32_t result;
   __asm__ ("sqdmlal %s0,%h1,%h2"
@@ -14141,7 +14141,7 @@ vqmlalh_s16 (int16_t a, int16_t b)
   return result;
 }
 
-#define vqmlals_lane_s32(a, b, c)                                       \
+#define vqdmlals_lane_s32(a, b, c)                                       \
   __extension__                                                         \
     ({                                                                  \
        int32x4_t b_ = (b);                                              \
@@ -14155,7 +14155,7 @@ vqmlalh_s16 (int16_t a, int16_t b)
      })
 
 __extension__ static __inline int64_t __attribute__ ((__always_inline__))
-vqmlals_s32 (int32_t a, int32_t b)
+vqdmlals_s32 (int32_t a, int32_t b)
 {
   int64_t result;
   __asm__ ("sqdmlal %d0,%s1,%s2"
@@ -14165,7 +14165,7 @@ vqmlals_s32 (int32_t a, int32_t b)
   return result;
 }
 
-#define vqmlslh_lane_s16(a, b, c)                                       \
+#define vqdmlslh_lane_s16(a, b, c)                                       \
   __extension__                                                         \
     ({                                                                  \
        int16x8_t b_ = (b);                                              \
@@ -14179,7 +14179,7 @@ vqmlals_s32 (int32_t a, int32_t b)
      })
 
 __extension__ static __inline int32_t __attribute__ ((__always_inline__))
-vqmlslh_s16 (int16_t a, int16_t b)
+vqdmlslh_s16 (int16_t a, int16_t b)
 {
   int32_t result;
   __asm__ ("sqdmlsl %s0,%h1,%h2"
@@ -14189,7 +14189,7 @@ vqmlslh_s16 (int16_t a, int16_t b)
   return result;
 }
 
-#define vqmlsls_lane_s32(a, b, c)                                       \
+#define vqdmlsls_lane_s32(a, b, c)                                       \
   __extension__                                                         \
     ({                                                                  \
        int32x4_t b_ = (b);                                              \
@@ -14203,7 +14203,7 @@ vqmlslh_s16 (int16_t a, int16_t b)
      })
 
 __extension__ static __inline int64_t __attribute__ ((__always_inline__))
-vqmlsls_s32 (int32_t a, int32_t b)
+vqdmlsls_s32 (int32_t a, int32_t b)
 {
   int64_t result;
   __asm__ ("sqdmlsl %d0,%s1,%s2"
