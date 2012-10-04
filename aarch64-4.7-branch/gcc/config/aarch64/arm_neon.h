@@ -7887,6 +7887,39 @@ vfmaq_f64 (float64x2_t a, float64x2_t b, float64x2_t c)
      })
 
 __extension__ static __inline float32x2_t __attribute__ ((__always_inline__))
+vfma_n_f32 (float32x2_t a, float32x2_t b, float32_t c)
+{
+  float32x2_t result;
+  __asm__ ("fmla %0.2s, %2.2s, %3.s[0]"
+           : "=w"(result)
+           : "0"(a), "w"(b), "w"(c)
+           : /* No clobbers */);
+  return result;
+}
+
+__extension__ static __inline float32x4_t __attribute__ ((__always_inline__))
+vfmaq_n_f32 (float32x4_t a, float32x4_t b, float32_t c)
+{
+  float32x4_t result;
+  __asm__ ("fmla %0.4s, %2.4s, %3.s[0]"
+           : "=w"(result)
+           : "0"(a), "w"(b), "w"(c)
+           : /* No clobbers */);
+  return result;
+}
+
+__extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
+vfmaq_n_f64 (float64x2_t a, float64x2_t b, float64_t c)
+{
+  float64x2_t result;
+  __asm__ ("fmla %0.2d, %2.2d, %3.d[0]"
+           : "=w"(result)
+           : "0"(a), "w"(b), "w"(c)
+           : /* No clobbers */);
+  return result;
+}
+
+__extension__ static __inline float32x2_t __attribute__ ((__always_inline__))
 vfms_f32 (float32x2_t a, float32x2_t b, float32x2_t c)
 {
   float32x2_t result;
