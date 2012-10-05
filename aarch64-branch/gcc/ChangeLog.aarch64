@@ -1,5 +1,12 @@
 2012-10-05  Tejas Belagod  <tejas.belagod@arm.com>
 
+	* config/aarch64/arm_neon.h (vqmlalh_lane_s16, vqmlalh_s16,
+	vqmlals_lane_s32, vqmlals_s32, vqmlslh_lane_s16, vqmlslh_s16,
+	vqmlsls_lane_s32, vqmlsls_s32): Remove old temporary inline asm 
+	implementations.
+
+2012-10-05  Tejas Belagod  <tejas.belagod@arm.com>
+
 	* config/aarch64/arm_neon.h (vbslq_f64): Fix parameter type.
 
 2012-10-05  Sofiane Naci  <sofiane.naci@arm.com>
