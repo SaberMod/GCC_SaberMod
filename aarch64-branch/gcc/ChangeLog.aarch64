@@ -1,3 +1,7 @@
+2012-10-05  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/arm_neon.h (vbslq_f64): Fix parameter type.
+
 2012-10-05  Sofiane Naci  <sofiane.naci@arm.com>
 
 	* config/aarch64/aarch64.md (*fnmadd<mode>4): Add missing

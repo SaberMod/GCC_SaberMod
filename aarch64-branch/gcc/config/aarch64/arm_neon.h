@@ -4975,7 +4975,7 @@ vbslq_f32 (uint32x4_t a, float32x4_t b, float32x4_t c)
 }
 
 __extension__ static __inline float64x2_t __attribute__ ((__always_inline__))
-vbslq_f64 (float64x2_t a, float64x2_t b, float64x2_t c)
+vbslq_f64 (uint64x2_t a, float64x2_t b, float64x2_t c)
 {
   float64x2_t result;
   __asm__ ("bsl %0.16b, %2.16b, %3.16b"
