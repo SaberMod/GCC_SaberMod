@@ -2516,10 +2516,10 @@
 
 ;; If signed zeros are ignored, -(a * b + c) = -a * b - c.
 (define_insn "*fnmadd<mode>4"
-  [(set (match_operand:GPF 0 "register_operand")
-	(neg:GPF (fma:GPF (match_operand:GPF 1 "register_operand")
-			  (match_operand:GPF 2 "register_operand")
-			  (match_operand:GPF 3 "register_operand"))))]
+  [(set (match_operand:GPF 0 "register_operand" "=w")
+	(neg:GPF (fma:GPF (match_operand:GPF 1 "register_operand" "w")
+			  (match_operand:GPF 2 "register_operand" "w")
+			  (match_operand:GPF 3 "register_operand" "w"))))]
   "!HONOR_SIGNED_ZEROS (<MODE>mode) && TARGET_FLOAT"
   "fnmadd\\t%<s>0, %<s>1, %<s>2, %<s>3"
   [(set_attr "v8type" "fmadd")
