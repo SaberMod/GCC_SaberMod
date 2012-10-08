@@ -1,3 +1,8 @@
+2012-09-28  Harshit Chopra  <harshit@google.com>
+
+        * gcc/config/i386/i386.c (ix86_output_function_nops_prologue_epilogue):
+	Emit relative address to function patch sections.
+
 2012-10-01  Teresa Johnson  <tejohnson@google.com>
             Chris Manghane  <cmang@google.com>
 
