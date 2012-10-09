@@ -1,3 +1,64 @@
+2012-10-05  Mark Kettenis  <kettenis@openbsd.org>
+
+	* config.gcc (*-*-openbsd4.[3-9]|*-*-openbsd[5-9]*): Set
+	default_use_cxa_atexit to yes.
+		
+2012-10-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/pa.md: Adjust unamed HImode add insn pattern.
+
+2012-10-05  Jan Hubicka  <jh@suse.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/33763
+	* tree-inline.c (expand_call_inline): Silently ignore always_inline
+	attribute for redefined extern inline functions.
+
+2012-10-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-03  Andrew W. Nosenko <andrew.w.nosenko@gmail.com>
+
+	*  config/i386/driver-i386.c (host_detect_local_cpu): Fix logic
+	in SSE and YMM state support check for -march=native.
+
+2012-10-03  Alexandre Oliva <aoliva@redhat.com>
+
+	PR debug/53135
+	* dwarf2out.c (value_format): Use block4 for dw_val_class_loc
+	when needed.
+
+2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/54785
+	* doc/invoke.texi: Document -mprefer-avx128.
+
+2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-10-02  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/54741
+	*  config/i386/driver-i386.c (XCR_XFEATURE_ENABLED_MASK): New.
+	(XSTATE_FP): Likewise.
+	(XSTATE_SSE): Likewise.
+	(XSTATE_YMM): Likewise.
+	(host_detect_local_cpu): Disable AVX, AVX2, FMA, FMA4 and XOP if
+	SSE and YMM states aren't supported.
+
+2012-10-01  Tom de Vries  <tom@codesourcery.com>
+
+	* var-tracking.c (set_dv_changed): Add an 'inline' function specifier to
+	the prototype.
+
+2012-10-01  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR target/54746
+	* config/s390/s390.c (s390_option_override): Add missing break.
+
 2012-09-29  Andreas Tobler  <andreast@fgznet.ch>
 
 	Backport from mainline
