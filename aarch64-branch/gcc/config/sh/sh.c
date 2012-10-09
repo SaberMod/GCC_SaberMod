@@ -62,6 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm-constrs.h"
 #include "opts.h"
 
+#include <sstream>
+#include <vector>
 #include <algorithm>
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
@@ -241,8 +243,6 @@ static bool sh_ms_bitfield_layout_p (const_tree);
 
 static void sh_init_builtins (void);
 static tree sh_builtin_decl (unsigned, bool);
-static void sh_media_init_builtins (void);
-static tree sh_media_builtin_decl (unsigned, bool);
 static rtx sh_expand_builtin (tree, rtx, rtx, enum machine_mode, int);
 static void sh_output_mi_thunk (FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree);
 static void sh_file_start (void);
@@ -596,6 +596,119 @@ static const struct attribute_spec sh_attribute_table[] =
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+
+/* Information on the currently selected atomic model.
+   This is initialized in sh_option_override.  */
+static sh_atomic_model selected_atomic_model_;
+
+const sh_atomic_model&
+selected_atomic_model (void)
+{
+  return selected_atomic_model_;
+}
+
+static sh_atomic_model
+parse_validate_atomic_model_option (const char* str)
+{
+  const char* model_names[sh_atomic_model::num_models];
+  model_names[sh_atomic_model::none] = "none";
+  model_names[sh_atomic_model::soft_gusa] = "soft-gusa";
+  model_names[sh_atomic_model::hard_llcs] = "hard-llcs";
+  model_names[sh_atomic_model::soft_tcb] = "soft-tcb";
+  model_names[sh_atomic_model::soft_imask] = "soft-imask";
+
+  const char* model_cdef_names[sh_atomic_model::num_models];
+  model_cdef_names[sh_atomic_model::none] = "NONE";
+  model_cdef_names[sh_atomic_model::soft_gusa] = "SOFT_GUSA";
+  model_cdef_names[sh_atomic_model::hard_llcs] = "HARD_LLCS";
+  model_cdef_names[sh_atomic_model::soft_tcb] = "SOFT_TCB";
+  model_cdef_names[sh_atomic_model::soft_imask] = "SOFT_IMASK";
+
+  sh_atomic_model ret;
+  ret.type = sh_atomic_model::none;
+  ret.name = model_names[sh_atomic_model::none];
+  ret.cdef_name = model_cdef_names[sh_atomic_model::none];
+  ret.strict = false;
+  ret.tcb_gbr_offset = -1;
+
+  /* Handle empty string as 'none'.  */
+  if (str == NULL || *str == '\0')
+    return ret;
+
+#define err_ret(...) do { error (__VA_ARGS__); return ret; } while (0)
+
+  std::vector<std::string> tokens;
+  for (std::stringstream ss (str); ss.good (); )
+  {
+    tokens.push_back (std::string ());
+    std::getline (ss, tokens.back (), ',');
+  }
+
+  if (tokens.empty ())
+    err_ret ("invalid atomic model option");
+
+  /* The first token must be the atomic model name.  */
+  {
+    for (size_t i = 0; i < sh_atomic_model::num_models; ++i)
+      if (tokens.front () == model_names[i])
+	{
+	  ret.type = (sh_atomic_model::enum_type)i;
+	  ret.name = model_names[i];
+	  ret.cdef_name = model_cdef_names[i];
+	  goto got_mode_name;
+	}
+
+    err_ret ("invalid atomic model name \"%s\"", tokens.front ().c_str ());
+got_mode_name:;
+  }
+
+  /* Go through the remaining tokens.  */
+  for (size_t i = 1; i < tokens.size (); ++i)
+    {
+      if (tokens[i] == "strict")
+	ret.strict = true;
+      else if (tokens[i].find ("gbr-offset=") == 0)
+	{
+	  std::string offset_str = tokens[i].substr (strlen ("gbr-offset="));
+	  ret.tcb_gbr_offset = integral_argument (offset_str.c_str ());
+	  if (offset_str.empty () || ret.tcb_gbr_offset == -1)
+	    err_ret ("could not parse gbr-offset value \"%s\" in atomic model "
+		     "option", offset_str.c_str ());
+	}
+      else
+	err_ret ("unknown parameter \"%s\" in atomic model option",
+	         tokens[i].c_str ());
+    }
+
+  /* Check that the selection makes sense.  */
+  if (TARGET_SHMEDIA && ret.type != sh_atomic_model::none)
+    err_ret ("atomic operations are not supported on SHmedia");
+
+  if (ret.type == sh_atomic_model::soft_gusa && !TARGET_SH3)
+    err_ret ("atomic model %s is only available on SH3 and SH4 targets",
+	     ret.name);
+
+  if (ret.type == sh_atomic_model::hard_llcs && !TARGET_SH4A)
+    err_ret ("atomic model %s is only available on SH4A targets", ret.name);
+
+  if (ret.type == sh_atomic_model::soft_tcb && ret.tcb_gbr_offset == -1)
+    err_ret ("atomic model %s requires gbr-offset parameter", ret.name);
+
+  if (ret.type == sh_atomic_model::soft_tcb
+      && (ret.tcb_gbr_offset < 0 || ret.tcb_gbr_offset > 1020
+          || (ret.tcb_gbr_offset & 3) != 0))
+    err_ret ("invalid gbr-offset value \"%d\" for atomic model %s; it must be "
+	     "a multiple of 4 in the range 0-1020", ret.tcb_gbr_offset,
+	     ret.name);
+
+  if (ret.type == sh_atomic_model::soft_imask && TARGET_USERMODE)
+    err_ret ("cannot use atomic model %s in user mode", ret.name);
+
+  return ret;
+
+#undef err_ret
+}
+
 /* Implement TARGET_OPTION_OVERRIDE macro.  Validate and override 
    various options, and do some machine dependent initialization.  */
 static void
@@ -907,12 +1020,10 @@ sh_option_override (void)
   if (flag_strict_volatile_bitfields < 0 && abi_version_at_least(2))
     flag_strict_volatile_bitfields = 1;
 
-  /* Make sure that only one atomic mode is selected and that the selection
-     is valid for the current target CPU.  */
-  if (TARGET_SOFT_ATOMIC && TARGET_HARD_ATOMIC)
-    error ("-msoft-atomic and -mhard-atomic cannot be used at the same time");
-  if (TARGET_HARD_ATOMIC && ! TARGET_SH4A_ARCH)
-    error ("-mhard-atomic is only available for SH4A targets");
+  /* Parse atomic model option and make sure it is valid for the current
+     target CPU.  */
+  selected_atomic_model_
+    = parse_validate_atomic_model_option (sh_atomic_model_str);
 }
 
 /* Print the operand address in x to the stream.  */
@@ -1776,7 +1887,7 @@ prepare_move_operands (rtx operands[], enum machine_mode mode)
 
 	    case TLS_MODEL_LOCAL_EXEC:
 	      tmp2 = gen_reg_rtx (Pmode);
-	      emit_insn (gen_load_gbr (tmp2));
+	      emit_insn (gen_store_gbr (tmp2));
 	      tmp = gen_reg_rtx (Pmode);
 	      emit_insn (gen_symTPOFF2reg (tmp, op1));
 
@@ -11397,11 +11508,24 @@ sh_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 
 struct builtin_description
 {
+  bool (* const is_enabled) (void);
   const enum insn_code icode;
   const char *const name;
   int signature;
   tree fndecl;
 };
+
+static bool
+shmedia_builtin_p (void)
+{
+  return TARGET_SHMEDIA;
+}
+
+static bool
+sh1_builtin_p (void)
+{
+  return TARGET_SH1;
+}
 
 /* describe number and signedness of arguments; arg[0] == result
    (1: unsigned, 2: signed, 4: don't care, 8: pointer 0: no argument */
@@ -11460,6 +11584,8 @@ static const char signature_args[][4] =
   { 1, 1, 1, 1 },
 #define SH_BLTIN_PV 23
   { 0, 8 },
+#define SH_BLTIN_VP 24
+  { 8, 0 },
 };
 /* mcmv: operands considered unsigned.  */
 /* mmulsum_wq, msad_ubq: result considered unsigned long long.  */
@@ -11469,103 +11595,195 @@ static const char signature_args[][4] =
 /* nsb: takes long long arg, returns unsigned char.  */
 static struct builtin_description bdesc[] =
 {
-  { CODE_FOR_absv2si2,	"__builtin_absv2si2", SH_BLTIN_V2SI2, 0 },
-  { CODE_FOR_absv4hi2,	"__builtin_absv4hi2", SH_BLTIN_V4HI2, 0 },
-  { CODE_FOR_addv2si3,	"__builtin_addv2si3", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_addv4hi3,	"__builtin_addv4hi3", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_ssaddv2si3,"__builtin_ssaddv2si3", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_usaddv8qi3,"__builtin_usaddv8qi3", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_ssaddv4hi3,"__builtin_ssaddv4hi3", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_alloco_i,	"__builtin_sh_media_ALLOCO", SH_BLTIN_PV, 0 },
-  { CODE_FOR_negcmpeqv8qi,"__builtin_sh_media_MCMPEQ_B", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_negcmpeqv2si,"__builtin_sh_media_MCMPEQ_L", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_negcmpeqv4hi,"__builtin_sh_media_MCMPEQ_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_negcmpgtuv8qi,"__builtin_sh_media_MCMPGT_UB", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_negcmpgtv2si,"__builtin_sh_media_MCMPGT_L", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_negcmpgtv4hi,"__builtin_sh_media_MCMPGT_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_mcmv,	"__builtin_sh_media_MCMV", SH_BLTIN_UUUU, 0 },
-  { CODE_FOR_mcnvs_lw,	"__builtin_sh_media_MCNVS_LW", SH_BLTIN_3, 0 },
-  { CODE_FOR_mcnvs_wb,	"__builtin_sh_media_MCNVS_WB", SH_BLTIN_V4HI2V8QI, 0 },
-  { CODE_FOR_mcnvs_wub,	"__builtin_sh_media_MCNVS_WUB", SH_BLTIN_V4HI2V8QI, 0 },
-  { CODE_FOR_mextr1,	"__builtin_sh_media_MEXTR1", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr2,	"__builtin_sh_media_MEXTR2", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr3,	"__builtin_sh_media_MEXTR3", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr4,	"__builtin_sh_media_MEXTR4", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr5,	"__builtin_sh_media_MEXTR5", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr6,	"__builtin_sh_media_MEXTR6", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mextr7,	"__builtin_sh_media_MEXTR7", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mmacfx_wl,	"__builtin_sh_media_MMACFX_WL", SH_BLTIN_MAC_HISI, 0 },
-  { CODE_FOR_mmacnfx_wl,"__builtin_sh_media_MMACNFX_WL", SH_BLTIN_MAC_HISI, 0 },
-  { CODE_FOR_mulv2si3,	"__builtin_mulv2si3", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_mulv4hi3,	"__builtin_mulv4hi3", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_mmulfx_l,	"__builtin_sh_media_MMULFX_L", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_mmulfx_w,	"__builtin_sh_media_MMULFX_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_mmulfxrp_w,"__builtin_sh_media_MMULFXRP_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_mmulhi_wl,	"__builtin_sh_media_MMULHI_WL", SH_BLTIN_V4HI2V2SI, 0 },
-  { CODE_FOR_mmullo_wl,	"__builtin_sh_media_MMULLO_WL", SH_BLTIN_V4HI2V2SI, 0 },
-  { CODE_FOR_mmulsum_wq,"__builtin_sh_media_MMULSUM_WQ", SH_BLTIN_XXUU, 0 },
-  { CODE_FOR_mperm_w,	"__builtin_sh_media_MPERM_W", SH_BLTIN_SH_HI, 0 },
-  { CODE_FOR_msad_ubq,	"__builtin_sh_media_MSAD_UBQ", SH_BLTIN_XXUU, 0 },
-  { CODE_FOR_mshalds_l,	"__builtin_sh_media_MSHALDS_L", SH_BLTIN_SH_SI, 0 },
-  { CODE_FOR_mshalds_w,	"__builtin_sh_media_MSHALDS_W", SH_BLTIN_SH_HI, 0 },
-  { CODE_FOR_ashrv2si3,	"__builtin_ashrv2si3", SH_BLTIN_SH_SI, 0 },
-  { CODE_FOR_ashrv4hi3,	"__builtin_ashrv4hi3", SH_BLTIN_SH_HI, 0 },
-  { CODE_FOR_mshards_q,	"__builtin_sh_media_MSHARDS_Q", SH_BLTIN_SUS, 0 },
-  { CODE_FOR_mshfhi_b,	"__builtin_sh_media_MSHFHI_B", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mshfhi_l,	"__builtin_sh_media_MSHFHI_L", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_mshfhi_w,	"__builtin_sh_media_MSHFHI_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_mshflo_b,	"__builtin_sh_media_MSHFLO_B", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_mshflo_l,	"__builtin_sh_media_MSHFLO_L", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_mshflo_w,	"__builtin_sh_media_MSHFLO_W", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_ashlv2si3,	"__builtin_ashlv2si3", SH_BLTIN_SH_SI, 0 },
-  { CODE_FOR_ashlv4hi3,	"__builtin_ashlv4hi3", SH_BLTIN_SH_HI, 0 },
-  { CODE_FOR_lshrv2si3,	"__builtin_lshrv2si3", SH_BLTIN_SH_SI, 0 },
-  { CODE_FOR_lshrv4hi3,	"__builtin_lshrv4hi3", SH_BLTIN_SH_HI, 0 },
-  { CODE_FOR_subv2si3,	"__builtin_subv2si3", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_subv4hi3,	"__builtin_subv4hi3", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_sssubv2si3,"__builtin_sssubv2si3", SH_BLTIN_V2SI3, 0 },
-  { CODE_FOR_ussubv8qi3,"__builtin_ussubv8qi3", SH_BLTIN_V8QI3, 0 },
-  { CODE_FOR_sssubv4hi3,"__builtin_sssubv4hi3", SH_BLTIN_V4HI3, 0 },
-  { CODE_FOR_fcosa_s,	"__builtin_sh_media_FCOSA_S", SH_BLTIN_SISF, 0 },
-  { CODE_FOR_fsina_s,	"__builtin_sh_media_FSINA_S", SH_BLTIN_SISF, 0 },
-  { CODE_FOR_fipr,	"__builtin_sh_media_FIPR_S", SH_BLTIN_3, 0 },
-  { CODE_FOR_ftrv,	"__builtin_sh_media_FTRV_S", SH_BLTIN_3, 0 },
-  { CODE_FOR_sqrtdf2,	"__builtin_sh_media_FSQRT_D", SH_BLTIN_2, 0 },
-  { CODE_FOR_sqrtsf2,	"__builtin_sh_media_FSQRT_S", SH_BLTIN_2, 0 },
-  { CODE_FOR_fsrra_s,	"__builtin_sh_media_FSRRA_S", SH_BLTIN_2, 0 },
-  { CODE_FOR_ldhi_l,	"__builtin_sh_media_LDHI_L", SH_BLTIN_LDUA_L, 0 },
-  { CODE_FOR_ldhi_q,	"__builtin_sh_media_LDHI_Q", SH_BLTIN_LDUA_Q, 0 },
-  { CODE_FOR_ldlo_l,	"__builtin_sh_media_LDLO_L", SH_BLTIN_LDUA_L, 0 },
-  { CODE_FOR_ldlo_q,	"__builtin_sh_media_LDLO_Q", SH_BLTIN_LDUA_Q, 0 },
-  { CODE_FOR_sthi_l,	"__builtin_sh_media_STHI_L", SH_BLTIN_STUA_L, 0 },
-  { CODE_FOR_sthi_q,	"__builtin_sh_media_STHI_Q", SH_BLTIN_STUA_Q, 0 },
-  { CODE_FOR_stlo_l,	"__builtin_sh_media_STLO_L", SH_BLTIN_STUA_L, 0 },
-  { CODE_FOR_stlo_q,	"__builtin_sh_media_STLO_Q", SH_BLTIN_STUA_Q, 0 },
-  { CODE_FOR_ldhi_l64,	"__builtin_sh_media_LDHI_L", SH_BLTIN_LDUA_L64, 0 },
-  { CODE_FOR_ldhi_q64,	"__builtin_sh_media_LDHI_Q", SH_BLTIN_LDUA_Q64, 0 },
-  { CODE_FOR_ldlo_l64,	"__builtin_sh_media_LDLO_L", SH_BLTIN_LDUA_L64, 0 },
-  { CODE_FOR_ldlo_q64,	"__builtin_sh_media_LDLO_Q", SH_BLTIN_LDUA_Q64, 0 },
-  { CODE_FOR_sthi_l64,	"__builtin_sh_media_STHI_L", SH_BLTIN_STUA_L64, 0 },
-  { CODE_FOR_sthi_q64,	"__builtin_sh_media_STHI_Q", SH_BLTIN_STUA_Q64, 0 },
-  { CODE_FOR_stlo_l64,	"__builtin_sh_media_STLO_L", SH_BLTIN_STUA_L64, 0 },
-  { CODE_FOR_stlo_q64,	"__builtin_sh_media_STLO_Q", SH_BLTIN_STUA_Q64, 0 },
-  { CODE_FOR_nsb,	"__builtin_sh_media_NSB", SH_BLTIN_SU, 0 },
-  { CODE_FOR_byterev,	"__builtin_sh_media_BYTEREV", SH_BLTIN_2, 0 },
-  { CODE_FOR_prefetch,	"__builtin_sh_media_PREFO", SH_BLTIN_PSSV, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_absv2si2,	"__builtin_absv2si2", SH_BLTIN_V2SI2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_absv4hi2,	"__builtin_absv4hi2", SH_BLTIN_V4HI2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_addv2si3,	"__builtin_addv2si3", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_addv4hi3,	"__builtin_addv4hi3", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ssaddv2si3,"__builtin_ssaddv2si3", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_usaddv8qi3,"__builtin_usaddv8qi3", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ssaddv4hi3,"__builtin_ssaddv4hi3", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_alloco_i,	"__builtin_sh_media_ALLOCO", SH_BLTIN_PV, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpeqv8qi,"__builtin_sh_media_MCMPEQ_B", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpeqv2si,"__builtin_sh_media_MCMPEQ_L", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpeqv4hi,"__builtin_sh_media_MCMPEQ_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpgtuv8qi,"__builtin_sh_media_MCMPGT_UB", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpgtv2si,"__builtin_sh_media_MCMPGT_L", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_negcmpgtv4hi,"__builtin_sh_media_MCMPGT_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mcmv,	"__builtin_sh_media_MCMV", SH_BLTIN_UUUU, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mcnvs_lw,	"__builtin_sh_media_MCNVS_LW", SH_BLTIN_3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mcnvs_wb,	"__builtin_sh_media_MCNVS_WB", SH_BLTIN_V4HI2V8QI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mcnvs_wub,	"__builtin_sh_media_MCNVS_WUB", SH_BLTIN_V4HI2V8QI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr1,	"__builtin_sh_media_MEXTR1", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr2,	"__builtin_sh_media_MEXTR2", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr3,	"__builtin_sh_media_MEXTR3", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr4,	"__builtin_sh_media_MEXTR4", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr5,	"__builtin_sh_media_MEXTR5", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr6,	"__builtin_sh_media_MEXTR6", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mextr7,	"__builtin_sh_media_MEXTR7", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmacfx_wl,	"__builtin_sh_media_MMACFX_WL", SH_BLTIN_MAC_HISI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmacnfx_wl,"__builtin_sh_media_MMACNFX_WL", SH_BLTIN_MAC_HISI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mulv2si3,	"__builtin_mulv2si3", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mulv4hi3,	"__builtin_mulv4hi3", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmulfx_l,	"__builtin_sh_media_MMULFX_L", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmulfx_w,	"__builtin_sh_media_MMULFX_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmulfxrp_w,"__builtin_sh_media_MMULFXRP_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmulhi_wl,	"__builtin_sh_media_MMULHI_WL", SH_BLTIN_V4HI2V2SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmullo_wl,	"__builtin_sh_media_MMULLO_WL", SH_BLTIN_V4HI2V2SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mmulsum_wq,"__builtin_sh_media_MMULSUM_WQ", SH_BLTIN_XXUU, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mperm_w,	"__builtin_sh_media_MPERM_W", SH_BLTIN_SH_HI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_msad_ubq,	"__builtin_sh_media_MSAD_UBQ", SH_BLTIN_XXUU, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshalds_l,	"__builtin_sh_media_MSHALDS_L", SH_BLTIN_SH_SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshalds_w,	"__builtin_sh_media_MSHALDS_W", SH_BLTIN_SH_HI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ashrv2si3,	"__builtin_ashrv2si3", SH_BLTIN_SH_SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ashrv4hi3,	"__builtin_ashrv4hi3", SH_BLTIN_SH_HI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshards_q,	"__builtin_sh_media_MSHARDS_Q", SH_BLTIN_SUS, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshfhi_b,	"__builtin_sh_media_MSHFHI_B", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshfhi_l,	"__builtin_sh_media_MSHFHI_L", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshfhi_w,	"__builtin_sh_media_MSHFHI_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshflo_b,	"__builtin_sh_media_MSHFLO_B", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshflo_l,	"__builtin_sh_media_MSHFLO_L", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_mshflo_w,	"__builtin_sh_media_MSHFLO_W", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ashlv2si3,	"__builtin_ashlv2si3", SH_BLTIN_SH_SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ashlv4hi3,	"__builtin_ashlv4hi3", SH_BLTIN_SH_HI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_lshrv2si3,	"__builtin_lshrv2si3", SH_BLTIN_SH_SI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_lshrv4hi3,	"__builtin_lshrv4hi3", SH_BLTIN_SH_HI, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_subv2si3,	"__builtin_subv2si3", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_subv4hi3,	"__builtin_subv4hi3", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sssubv2si3,"__builtin_sssubv2si3", SH_BLTIN_V2SI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ussubv8qi3,"__builtin_ussubv8qi3", SH_BLTIN_V8QI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sssubv4hi3,"__builtin_sssubv4hi3", SH_BLTIN_V4HI3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_fcosa_s,	"__builtin_sh_media_FCOSA_S", SH_BLTIN_SISF, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_fsina_s,	"__builtin_sh_media_FSINA_S", SH_BLTIN_SISF, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_fipr,	"__builtin_sh_media_FIPR_S", SH_BLTIN_3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ftrv,	"__builtin_sh_media_FTRV_S", SH_BLTIN_3, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sqrtdf2,	"__builtin_sh_media_FSQRT_D", SH_BLTIN_2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sqrtsf2,	"__builtin_sh_media_FSQRT_S", SH_BLTIN_2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_fsrra_s,	"__builtin_sh_media_FSRRA_S", SH_BLTIN_2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldhi_l,	"__builtin_sh_media_LDHI_L", SH_BLTIN_LDUA_L, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldhi_q,	"__builtin_sh_media_LDHI_Q", SH_BLTIN_LDUA_Q, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldlo_l,	"__builtin_sh_media_LDLO_L", SH_BLTIN_LDUA_L, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldlo_q,	"__builtin_sh_media_LDLO_Q", SH_BLTIN_LDUA_Q, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sthi_l,	"__builtin_sh_media_STHI_L", SH_BLTIN_STUA_L, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sthi_q,	"__builtin_sh_media_STHI_Q", SH_BLTIN_STUA_Q, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_stlo_l,	"__builtin_sh_media_STLO_L", SH_BLTIN_STUA_L, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_stlo_q,	"__builtin_sh_media_STLO_Q", SH_BLTIN_STUA_Q, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldhi_l64,	"__builtin_sh_media_LDHI_L", SH_BLTIN_LDUA_L64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldhi_q64,	"__builtin_sh_media_LDHI_Q", SH_BLTIN_LDUA_Q64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldlo_l64,	"__builtin_sh_media_LDLO_L", SH_BLTIN_LDUA_L64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_ldlo_q64,	"__builtin_sh_media_LDLO_Q", SH_BLTIN_LDUA_Q64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sthi_l64,	"__builtin_sh_media_STHI_L", SH_BLTIN_STUA_L64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_sthi_q64,	"__builtin_sh_media_STHI_Q", SH_BLTIN_STUA_Q64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_stlo_l64,	"__builtin_sh_media_STLO_L", SH_BLTIN_STUA_L64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_stlo_q64,	"__builtin_sh_media_STLO_Q", SH_BLTIN_STUA_Q64, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_nsb,	"__builtin_sh_media_NSB", SH_BLTIN_SU, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_byterev,	"__builtin_sh_media_BYTEREV", SH_BLTIN_2, 0 },
+  { shmedia_builtin_p,
+    CODE_FOR_prefetch,	"__builtin_sh_media_PREFO", SH_BLTIN_PSSV, 0 },
+
+  { sh1_builtin_p,
+    CODE_FOR_get_thread_pointer, "__builtin_thread_pointer", SH_BLTIN_VP, 0 },
+  { sh1_builtin_p,
+    CODE_FOR_set_thread_pointer, "__builtin_set_thread_pointer",
+    SH_BLTIN_PV, 0 },
 };
 
 static void
-sh_media_init_builtins (void)
+sh_init_builtins (void)
 {
   tree shared[SH_BLTIN_NUM_SHARED_SIGNATURES];
-  struct builtin_description *d;
-
   memset (shared, 0, sizeof shared);
-  for (d = bdesc; d - bdesc < (int) ARRAY_SIZE (bdesc); d++)
+
+  for (unsigned int di = 0; di < ARRAY_SIZE (bdesc); ++di)
     {
-      tree type, arg_type = 0;
+      builtin_description* d = &bdesc[di];
+
+      if (!d->is_enabled ())
+	continue;
+
+      tree type, arg_type = NULL_TREE;
       int signature = d->signature;
-      int i;
 
       if (signature < SH_BLTIN_NUM_SHARED_SIGNATURES && shared[signature])
 	type = shared[signature];
@@ -11581,9 +11799,9 @@ sh_media_init_builtins (void)
 	  if (! TARGET_FPU_ANY
 	      && FLOAT_MODE_P (insn_data[d->icode].operand[0].mode))
 	    continue;
-	  for (i = 0; i < (int) ARRAY_SIZE (args); i++)
+	  for (unsigned int i = 0; i < ARRAY_SIZE (args); i++)
 	    args[i] = NULL_TREE;
-	  for (i = 3; ; i--)
+	  for (int i = 3; ; i--)
 	    {
 	      int arg = signature_args[signature][i];
 	      int opno = i - 1 + has_result;
@@ -11592,8 +11810,7 @@ sh_media_init_builtins (void)
 		arg_type = ptr_type_node;
 	      else if (arg)
 		arg_type = (*lang_hooks.types.type_for_mode)
-		  (insn_data[d->icode].operand[opno].mode,
-		   (arg & 1));
+		  (insn_data[d->icode].operand[opno].mode, (arg & 1));
 	      else if (i)
 		continue;
 	      else
@@ -11611,17 +11828,6 @@ sh_media_init_builtins (void)
 	add_builtin_function (d->name, type, d - bdesc, BUILT_IN_MD,
 			      NULL, NULL_TREE);
     }
-}
-
-/* Returns the shmedia builtin decl for CODE.  */
-
-static tree
-sh_media_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
-{        
-  if (code >= ARRAY_SIZE (bdesc))
-    return error_mark_node;
-          
-  return bdesc[code].fndecl;
 }
 
 /* Implements target hook vector_mode_supported_p.  */
@@ -11669,22 +11875,18 @@ sh_dwarf_calling_convention (const_tree func)
   return DW_CC_normal;
 }
 
-static void
-sh_init_builtins (void)
-{
-  if (TARGET_SHMEDIA)
-    sh_media_init_builtins ();
-}
-
 /* Returns the sh builtin decl for CODE.  */
 
 static tree
 sh_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
-{        
-  if (TARGET_SHMEDIA)
-    return sh_media_builtin_decl (code, initialize_p);
-          
-  return error_mark_node;
+{
+  if (code >= ARRAY_SIZE (bdesc))
+    return error_mark_node;
+
+  if (!bdesc[code].is_enabled ())
+    return error_mark_node;
+
+  return bdesc[code].fndecl;
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -11702,27 +11904,24 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   const struct builtin_description *d = &bdesc[fcode];
   enum insn_code icode = d->icode;
   int signature = d->signature;
-  enum machine_mode tmode = VOIDmode;
-  int nop = 0, i;
+  int nop = 0;
   rtx op[4];
-  rtx pat = NULL_RTX;
 
   if (signature_args[signature][0])
     {
       if (ignore)
 	return NULL_RTX;
 
-      tmode = insn_data[icode].operand[0].mode;
-      if (! target
-	  || GET_MODE (target) != tmode
+      enum machine_mode tmode = insn_data[icode].operand[0].mode;
+      if (! target || GET_MODE (target) != tmode
 	  || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
 	target = gen_reg_rtx (tmode);
       op[nop++] = target;
     }
   else
-    target = 0;
+    target = NULL_RTX;
 
-  for (i = 1; i <= 3; i++, nop++)
+  for (int i = 1; i <= 3; i++, nop++)
     {
       tree arg;
       enum machine_mode opmode, argmode;
@@ -11750,6 +11949,8 @@ sh_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       if (! (*insn_data[icode].operand[nop].predicate) (op[nop], opmode))
 	op[nop] = copy_to_mode_reg (opmode, op[nop]);
     }
+
+  rtx pat = NULL_RTX;
 
   switch (nop)
     {
@@ -13021,6 +13222,12 @@ sh_can_use_simple_return_p (void)
   HARD_REG_SET live_regs_mask;
   int d;
 
+  /* Some targets require special return insns.  */
+  if (TARGET_SHMEDIA
+      || (TARGET_SHCOMPACT
+	  && (crtl->args.info.call_cookie & CALL_COOKIE_RET_TRAMP (1))))
+    return false;
+
   if (! reload_completed || frame_pointer_needed)
     return false;
 
@@ -13039,7 +13246,6 @@ sh_can_use_simple_return_p (void)
    return false;
 
   return true;
-
 }
 
 #include "gt-sh.h"

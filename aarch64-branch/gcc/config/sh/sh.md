@@ -175,6 +175,7 @@
   (UNSPECV_WINDOW_END	10)
   (UNSPECV_CONST_END	11)
   (UNSPECV_EH_RETURN	12)
+  (UNSPECV_GBR		13)
 ])
 
 ;; -------------------------------------------------------------------------
@@ -10029,13 +10030,37 @@ label:
   DONE;
 })
 
-(define_insn "load_gbr"
-  [(set (match_operand:SI 0 "register_operand" "=r") (reg:SI GBR_REG))
-   (use (reg:SI GBR_REG))]
+;;------------------------------------------------------------------------------
+;; Thread pointer getter and setter.
+;;
+;; On SH the thread pointer is kept in the GBR.
+;; These patterns are usually expanded from the respective built-in functions.
+(define_expand "get_thread_pointer"
+  [(set (match_operand:SI 0 "register_operand") (reg:SI GBR_REG))]
+  "TARGET_SH1")
+
+;; The store_gbr insn can also be used on !TARGET_SH1 for doing TLS accesses.
+(define_insn "store_gbr"
+  [(set (match_operand:SI 0 "register_operand" "=r") (reg:SI GBR_REG))]
   ""
   "stc	gbr,%0"
   [(set_attr "type" "tls_load")])
 
+(define_expand "set_thread_pointer"
+  [(set (reg:SI GBR_REG)
+	(unspec_volatile:SI [(match_operand:SI 0 "register_operand")]
+	 UNSPECV_GBR))]
+  "TARGET_SH1")
+
+(define_insn "load_gbr"
+  [(set (reg:SI GBR_REG)
+	(unspec_volatile:SI [(match_operand:SI 0 "register_operand" "r")]
+	 UNSPECV_GBR))]
+  "TARGET_SH1"
+  "ldc	%0,gbr"
+  [(set_attr "type" "move")])
+
+;;------------------------------------------------------------------------------
 ;; case instruction for switch statements.
 
 ;; Operand 0 is index
@@ -10460,6 +10485,13 @@ label:
   ""
 {
   sh_expand_epilogue (false);
+  if (TARGET_SHMEDIA
+      || (TARGET_SHCOMPACT
+	  && (crtl->args.info.call_cookie & CALL_COOKIE_RET_TRAMP (1))))
+    {
+      emit_jump_insn (gen_return ());
+      DONE;
+    }
 })
 
 (define_expand "eh_return"
@@ -10768,6 +10800,51 @@ label:
        [(set (match_dup 0) (xor:SI (match_dup 1) (const_int 1)))
 	(set (reg:SI T_REG) (const_int 1))
 	(use (match_dup 2))])])
+
+;; Use negc to store the T bit in a MSB of a reg in the following way:
+;;	T = 1: 0x80000000 -> reg
+;;	T = 0: 0x7FFFFFFF -> reg
+;; This works because 0 - 0x80000000 = 0x80000000.
+(define_insn_and_split "*mov_t_msb_neg"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(minus:SI (const_int -2147483648)  ;; 0x80000000
+		  (match_operand 1 "t_reg_operand")))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(set (match_dup 2) (const_int -2147483648))
+   (parallel [(set (match_dup 0) (minus:SI (neg:SI (match_dup 2))
+				 (reg:SI T_REG)))
+	      (clobber (reg:SI T_REG))])]
+{
+  operands[2] = gen_reg_rtx (SImode);
+})
+
+;; These are essentially the same as above, but with the inverted T bit.
+;; Combine recognizes the split patterns, but does not take them sometimes
+;; if the T_REG clobber is specified.  Instead it tries to split out the
+;; T bit negation.  Since these splits are supposed to be taken only by
+;; combine, it will see the T_REG clobber of the *mov_t_msb_neg insn, so this
+;; should be fine.
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (match_operand 1 "negt_reg_operand")
+		 (const_int 2147483647)))]  ;; 0x7fffffff
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (minus:SI (const_int -2147483648) (reg:SI T_REG)))
+	      (clobber (reg:SI T_REG))])])
+
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(if_then_else:SI (match_operand 1 "t_reg_operand")
+			 (const_int 2147483647)  ;; 0x7fffffff
+			 (const_int -2147483648)))]  ;; 0x80000000
+  "TARGET_SH1 && can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (minus:SI (const_int -2147483648) (reg:SI T_REG)))
+	      (clobber (reg:SI T_REG))])])
 
 ;; The *negnegt pattern helps the combine pass to figure out how to fold 
 ;; an explicit double T bit negation.

@@ -31,69 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 /* ??? No longer true.  */
 extern int code_for_indirect_jump_scratch;
 
-#define TARGET_CPU_CPP_BUILTINS() \
-do { \
-  builtin_define ("__sh__"); \
-  builtin_assert ("cpu=sh"); \
-  builtin_assert ("machine=sh"); \
-  switch ((int) sh_cpu) \
-    { \
-    case PROCESSOR_SH1: \
-      builtin_define ("__sh1__"); \
-      break; \
-    case PROCESSOR_SH2: \
-      builtin_define ("__sh2__"); \
-      break; \
-    case PROCESSOR_SH2E: \
-      builtin_define ("__SH2E__"); \
-      break; \
-    case PROCESSOR_SH2A: \
-      builtin_define ("__SH2A__"); \
-      builtin_define (TARGET_SH2A_DOUBLE \
-		      ? (TARGET_FPU_SINGLE ? "__SH2A_SINGLE__" : "__SH2A_DOUBLE__") \
-		      : TARGET_FPU_ANY ? "__SH2A_SINGLE_ONLY__" \
-		      : "__SH2A_NOFPU__"); \
-      break; \
-    case PROCESSOR_SH3: \
-      builtin_define ("__sh3__"); \
-      builtin_define ("__SH3__"); \
-      if (TARGET_HARD_SH4) \
-	builtin_define ("__SH4_NOFPU__"); \
-      break; \
-    case PROCESSOR_SH3E: \
-      builtin_define (TARGET_HARD_SH4 ? "__SH4_SINGLE_ONLY__" : "__SH3E__"); \
-      break; \
-    case PROCESSOR_SH4: \
-      builtin_define (TARGET_FPU_SINGLE ? "__SH4_SINGLE__" : "__SH4__"); \
-      break; \
-    case PROCESSOR_SH4A: \
-      builtin_define ("__SH4A__"); \
-      builtin_define (TARGET_SH4 \
-		      ? (TARGET_FPU_SINGLE ? "__SH4_SINGLE__" : "__SH4__") \
-		      : TARGET_FPU_ANY ? "__SH4_SINGLE_ONLY__" \
-		      : "__SH4_NOFPU__"); \
-      break; \
-    case PROCESSOR_SH5: \
-      { \
-	builtin_define_with_value ("__SH5__", \
-				   TARGET_SHMEDIA64 ? "64" : "32", 0); \
-	builtin_define_with_value ("__SHMEDIA__", \
-				   TARGET_SHMEDIA ? "1" : "0", 0); \
-	if (! TARGET_FPU_DOUBLE) \
-	  builtin_define ("__SH4_NOFPU__"); \
-      } \
-    } \
-  if (TARGET_FPU_ANY) \
-    builtin_define ("__SH_FPU_ANY__"); \
-  if (TARGET_FPU_DOUBLE) \
-    builtin_define ("__SH_FPU_DOUBLE__"); \
-  if (TARGET_HITACHI) \
-    builtin_define ("__HITACHI__"); \
-  if (TARGET_FMOVD) \
-    builtin_define ("__FMOVD_ENABLED__"); \
-  builtin_define (TARGET_LITTLE_ENDIAN \
-		  ? "__LITTLE_ENDIAN__" : "__BIG_ENDIAN__"); \
-} while (0)
+#define TARGET_CPU_CPP_BUILTINS() sh_cpu_cpp_builtins (pfile)
 
 /* Value should be nonzero if functions must have frame pointers.
    Zero means the frame pointer need not be set up (and parms may be accessed
@@ -171,9 +109,6 @@ do { \
 #define TARGET_VARARGS_PRETEND_ARGS(FUN_DECL) \
   (TARGET_SH1 && ! TARGET_SH2E && ! TARGET_SH5 \
    && ! (TARGET_HITACHI || sh_attr_renesas_p (FUN_DECL)))
-
-/* Nonzero if either soft or hard atomics are enabled.  */
-#define TARGET_ANY_ATOMIC (TARGET_SOFT_ATOMIC | TARGET_HARD_ATOMIC)
 
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT SELECT_SH1
@@ -436,20 +371,8 @@ do { \
 "%{m2a*:%eSH2a does not support little-endian}}"
 #endif
 
-#define UNSUPPORTED_ATOMIC_OPTIONS \
-"%{msoft-atomic:%{mhard-atomic:%e-msoft-atomic and -mhard-atomic cannot be \
-used at the same time}}"
-
-#if TARGET_CPU_DEFAULT & MASK_SH4A
-#define UNSUPPORTED_HARD_ATOMIC_CPU ""
-#else
-#define UNSUPPORTED_HARD_ATOMIC_CPU \
-"%{!m4a*:%{mhard-atomic:%e-mhard-atomic is only available for SH4A targets}}"
-#endif
-
 #undef DRIVER_SELF_SPECS
-#define DRIVER_SELF_SPECS UNSUPPORTED_SH2A, UNSUPPORTED_ATOMIC_OPTIONS,\
-			  UNSUPPORTED_HARD_ATOMIC_CPU
+#define DRIVER_SELF_SPECS UNSUPPORTED_SH2A
 
 #define ASSEMBLER_DIALECT assembler_dialect
 
