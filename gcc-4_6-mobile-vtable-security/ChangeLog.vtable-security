@@ -1,3 +1,21 @@
+2012-10-09  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (__vtv_verify_fail_debug):  New
+	function, for putting out extra debug information when a fail occurs.
+	(debug_log_message):  New global variable, for debug messages.
+	(load_debug_log_message):  New function.
+	(__VLTVerifyVtablePointerDebug):  Add call to load_debug_log_message;
+	call __vtv_verify_fail_debug instead of __vtv_verify_fail.
+	(log_error_message):  New function; write error/debug info to log file.
+	(log_backtrace):  Generate backtrace info and write to log file.
+	(__vtv_verify_fail):  Write failure information to log file, before
+	calling vtv_fail.
+	* gcc/tree-vtable-verify.c (verify_bb_vtables):  Loop through entire
+	basic block looking for virtual calls, instead of stopping after first
+	virtual call.  Also search through def_stmt chain to find vptr field
+	assignment statement; use type from 'this' object, or from rhs of
+	vptr field assignment statement to find type for vtable map variable.
+	
 2012-10-02  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/config/abi/pre/gnu.ver (GLIBCXX_3.4.16): Modify name

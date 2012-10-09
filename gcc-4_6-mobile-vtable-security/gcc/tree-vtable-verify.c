@@ -473,9 +473,9 @@ verify_bb_vtables (basic_block bb)
 {
   gimple_seq stmts;
   gimple stmt = NULL;
-  bool bb_contains_virtual_call = false;
   gimple_stmt_iterator gsi_vtbl_assign;
   gimple_stmt_iterator gsi_virtual_call;
+  tree this_object;
 
   /* If we are in the global 'main' function, the very first thing
      we need to do in the very first BB is to tell the __VerifyVtablePointer
@@ -490,6 +490,7 @@ verify_bb_vtables (basic_block bb)
 
   stmts = bb_seq (bb);
   gsi_virtual_call = gsi_start (stmts);
+  this_object = NULL_TREE;
   for (; !gsi_end_p (gsi_virtual_call); gsi_next (&gsi_virtual_call))
     {
       stmt = gsi_stmt (gsi_virtual_call);
@@ -498,128 +499,214 @@ verify_bb_vtables (basic_block bb)
           tree fncall = gimple_call_fn (stmt);
           if (TREE_CODE (fncall) == OBJ_TYPE_REF)
             {
-              bb_contains_virtual_call = true;
-              break;
-            }
-        }
-    }
+              bool found = false;
+              tree vtable_offset_var = NULL_TREE;
+              gimple def_stmt;
 
-  if (bb_contains_virtual_call)
-    {
-      /* If we found a virtual method call, it must be preceded by assigning
-         the vtable pointer in the object to something.  Search backwards
-         from the virtual method call to the assignment statement whose
-         right hand side is a vtable pointer.  */
+              /* The first argument to the function must be "this", a pointer
+                 to the object itself.  */
 
-      bool found = false;
-      gsi_vtbl_assign = gsi_virtual_call;
-      for (; !gsi_end_p (gsi_vtbl_assign) && !found;
-           gsi_prev (&gsi_vtbl_assign))
-        {
-          stmt = gsi_stmt (gsi_vtbl_assign);
-          if (is_vtable_assignment_stmt (stmt))
-            {
-              tree rhs = gimple_assign_rhs1 (stmt);
-              tree lhs = gimple_assign_lhs (stmt);
-              tree vtbl_var_decl = NULL_TREE;
-              tree vtbl = NULL_TREE;
-              tree var_id;
-              gimple_seq pre_p = NULL;
+              this_object = gimple_call_arg (stmt, 0);
 
-              /* Now we have found the virtual method dispatch and the
-                 preceding access of the _vptr.* field... Now we need to
-                 find the vtable for the base class (statically declared type)
-                 of the object.  */
+              /* Get the SSA variable that contains the dereferenced _vptr
+                 field + table start offset.  */
 
-              found = true;
-              if (TREE_CODE (rhs) == COMPONENT_REF)
+              if (TREE_OPERAND (fncall, 0)
+                  && TREE_CODE (TREE_OPERAND (fncall, 0)) == SSA_NAME)
                 {
-                  bool vtbl_found = false;
-                  struct vtbl_map_node *vtable_map_node = NULL;
+                  tree rhs = NULL_TREE;
+                  vtable_offset_var = TREE_OPERAND (fncall, 0);
 
-                  while (!vtbl_found)
+                  def_stmt = SSA_NAME_DEF_STMT (vtable_offset_var);
+
+		  /* Search backwards through the def_stmt chain, to try
+		     to find the assignment statement where the rhs of 
+		     the assignment contains the "._vptr" field (the vtable
+		     pointer). */
+                  if (gimple_assign_lhs (def_stmt)
+                      && TREE_CODE (gimple_assign_lhs (def_stmt)) == SSA_NAME
+                      && get_gimple_rhs_class (gimple_expr_code (def_stmt))
+                                                          == GIMPLE_SINGLE_RHS)
+                    rhs = gimple_assign_rhs1 (def_stmt);
+
+                  if (rhs
+                      && TREE_CODE (rhs) == MEM_REF
+                      && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
+                    def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
+
+                  while (def_stmt
+                         && !is_vtable_assignment_stmt (def_stmt))
                     {
-                      if (TREE_CODE (rhs) == COMPONENT_REF
-                          && (TREE_CODE (TREE_OPERAND (rhs, 1)) == FIELD_DECL)
-                          && (strncmp (IDENTIFIER_POINTER
-				           (DECL_NAME (TREE_OPERAND (rhs, 1))),
-                                       "_vptr.", 6) == 0))
+                      tree lhs = gimple_assign_lhs (def_stmt);
+                      if (!lhs
+                          || !TREE_CODE (lhs) == SSA_NAME)
                         {
-                          vtbl_found = true;
+                          def_stmt = NULL;
+                          break;
                         }
-                      rhs = TREE_OPERAND (rhs, 0);
-                    }
-                  if ((TREE_CODE (TREE_TYPE (rhs)) == RECORD_TYPE)
-                      && TYPE_BINFO (TREE_TYPE (rhs)))
-                    {
-                      vtbl_var_decl = my_get_vtbl_decl_for_binfo
-                                                (TYPE_BINFO (TREE_TYPE (rhs)));
-                      vtbl = BINFO_VTABLE (TYPE_BINFO (TREE_TYPE (rhs)));
-
-                      if (!vtbl_var_decl || !vtbl)
-                        /* Problem:  This does NOT end up checking virtual
-                           functions if there is NO inheritance involved.  */
-                        continue;
-
-                      if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
-                        force_gimple_operand (vtbl, &pre_p, 1, NULL);
-
-                      if (TREE_CHAIN (TREE_TYPE (rhs)))
-                        var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN
-                                                      (TREE_TYPE (rhs)));
-                      else
-                        var_id = DECL_ASSEMBLER_NAME (TYPE_NAME
-                                                      (TREE_TYPE (rhs)));
-                      vtable_map_node = vtbl_map_get_node (var_id);
-                      if (vtable_map_node)
+                      if (! def_stmt
+                          || get_gimple_rhs_class (gimple_expr_code (def_stmt)
+                                                         != GIMPLE_SINGLE_RHS))
                         {
-                          vtbl_var_decl = vtable_map_node->vtbl_map_decl;
-                          vtable_map_node->is_used = true;
+                          def_stmt = NULL;
+                          break;
                         }
-                      else
-                        vtbl_var_decl = NULL;
+                      rhs = gimple_assign_rhs1 (def_stmt);
+                      def_stmt = SSA_NAME_DEF_STMT (rhs);
+                      if (!def_stmt)
+                        break;
                     }
 
-                  /* Build  verify_vtbl_ptr_fndecl */
+		  /* If we found the vtable pointer assignment statement by
+		     itself, we also need to find it within the basic block
+		     statement sequence, so that we can insert our statements
+		     into the sequence.
 
-                  build_vtable_verify_fndecl ();
+		     The following loop looks for the assignment statement
+		     within the basic block's sequence of statements.
+		  */
 
-                  /* Given the vtable pointer for the base class of the object,
-                     build the call to __VLTVerifyVtablePointer to verify that the
-                     object's vtable pointer (contained in lhs) is in the set
-                     of valid vtable pointers for the base class.  */
-
-                  gcc_assert(verify_vtbl_ptr_fndecl != NULL_TREE);
-                  if (vtbl_var_decl)
+                  if (def_stmt
+                      && is_vtable_assignment_stmt (def_stmt))
                     {
-                      tree expr_tree = NULL_TREE;
-                      struct gimplify_ctx gctx;
-                      tree arg4 = TREE_OPERAND (rhs, 0);
-                      const char *vtable_name = "<unknown>";
+                      gsi_vtbl_assign = gsi_virtual_call;
+                      for (; !gsi_end_p (gsi_vtbl_assign) && !found;
+                           gsi_prev (&gsi_vtbl_assign))
+                        {
+                          stmt = gsi_stmt (gsi_vtbl_assign);
+                          if (stmt == def_stmt)
+                            {
+                              found = true;
+                              break;
+                            }
+                        }
 
-                      int len1 = 0;
-                      int len2 = 0;
+                      if (found)
+                        {
+                          tree object_rhs = TREE_TYPE (this_object);
+                          tree lhs = gimple_assign_lhs (stmt);
+                          tree vtbl_var_decl = NULL_TREE;
+                          tree vtbl = NULL_TREE;
+                          tree var_id;
+                          gimple_seq pre_p = NULL;
+                          struct vtbl_map_node *vtable_map_node = NULL;
+                          tree vtbl_decl = NULL_TREE;
 
-                      while (TREE_CODE (arg4) == COMPONENT_REF)
-                        arg4 = TREE_OPERAND (arg4, 0);
+                          /* Now we have found the virtual method dispatch
+                             and the preceding access of the _vptr.*
+                             field... Now we need to find the vtable for
+                             the base class (statically declared type) of
+                             the object, so we can use the right vtable
+			     map variable.  */
 
-                      if (TREE_CODE (arg4) == MEM_REF)
-                        arg4 = TREE_OPERAND (arg4, 0);
+                          found = true;
+                          rhs = gimple_assign_rhs1 (def_stmt);
 
-                      if ((TREE_CODE (arg4) == SSA_NAME)
-                          && (DECL_NAME (SSA_NAME_VAR (arg4))))
-                        vtable_name = IDENTIFIER_POINTER
-                                             (DECL_NAME (SSA_NAME_VAR (arg4)));
+			  /* First try to get the type out of the 'this'
+			     object. */
+                          if (TREE_CODE (object_rhs) == POINTER_TYPE
+                              && TREE_CODE (TREE_TYPE (object_rhs))
+                                                                == RECORD_TYPE)
+                            rhs = TREE_TYPE (object_rhs);
+                          else if (TREE_CODE (object_rhs) == REFERENCE_TYPE
+                                   && TREE_CODE (TREE_TYPE (object_rhs))
+                                                                == RECORD_TYPE)
+                            rhs = TREE_TYPE (object_rhs);
+			  /* The type of the 'this' object is not usable
+			     (usually due to optimizations); try to get the
+			     type out of the rhs of the vtable pointer
+			     assignment statement.  */
+                          else if (TREE_CODE (rhs) == COMPONENT_REF)
+                            {
+                              while (TREE_CODE (TREE_OPERAND (rhs, 0))
+                                                              == COMPONENT_REF)
+                                rhs = TREE_OPERAND (rhs, 0);
+                              if (TREE_CODE (rhs) == COMPONENT_REF
+                                  && (TREE_CODE (TREE_OPERAND (rhs, 0))
+                                                                    == MEM_REF)
+                                  && (TREE_CODE (TREE_TYPE
+                                       (TREE_OPERAND (rhs, 0))) == RECORD_TYPE))
+                                rhs = TREE_TYPE (TREE_OPERAND (rhs, 0));
+                              else
+                                rhs = NULL_TREE;
+                            }
+                          else
+                            rhs = NULL_TREE;
 
-                      push_gimplify_context (&gctx);
-                      len1 = strlen (IDENTIFIER_POINTER
+			  
+			  /* Make sure we found a valid type...*/
+                          if (rhs
+                              && TREE_CODE (rhs) == RECORD_TYPE
+                              && TYPE_BINFO (rhs))
+                            {
+			      /* Get the vtable for the type.  */
+                              vtbl_var_decl = my_get_vtbl_decl_for_binfo
+                                                            (TYPE_BINFO (rhs));
+                              vtbl = BINFO_VTABLE (TYPE_BINFO (rhs));
+
+                              if (!vtbl_var_decl || !vtbl)
+                                /* Problem:  This does NOT end up checking
+                                   virtual functions if there is NO
+                                   inheritance involved.  */
+                                continue;
+
+                              vtbl_decl = vtbl_var_decl;
+
+                              if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
+                                force_gimple_operand (vtbl, &pre_p, 1, NULL);
+
+                             if (TREE_CHAIN (rhs))
+                                var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN
+                                                                        (rhs));
+                              else
+                                var_id = DECL_ASSEMBLER_NAME (TYPE_NAME (rhs));
+
+                              vtable_map_node = vtbl_map_get_node (var_id);
+                              if (vtable_map_node)
+                                {
+                                  vtbl_var_decl =
+                                                vtable_map_node->vtbl_map_decl;
+                                  vtable_map_node->is_used = true;
+                                }
+                              else
+                                vtbl_var_decl = NULL;
+                            }
+
+                          /* Build  verify_vtbl_ptr_fndecl */
+
+                          build_vtable_verify_fndecl ();
+
+                          /* Given the vtable pointer for the base
+                             class of the object, build the call to
+                             __VLTVerifyVtablePointer to verify that
+                             the object's vtable pointer (contained in
+                             lhs) is in the set of valid vtable
+                             pointers for the base class.  */
+
+                          if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
+                            {
+                              tree expr_tree = NULL_TREE;
+                              struct gimplify_ctx gctx;
+                              tree arg4 = TREE_OPERAND (rhs, 0);
+                              const char *vtable_name = "<unknown>";
+
+                              int len1 = 0;
+                              int len2 = 0;
+
+                              if (TREE_CODE (vtbl_decl) == VAR_DECL)
+                                vtable_name = IDENTIFIER_POINTER
+                                                       (DECL_NAME (vtbl_decl));
+
+                              push_gimplify_context (&gctx);
+                              len1 = strlen (IDENTIFIER_POINTER
 				                  (DECL_NAME (vtbl_var_decl)));
-                      len2 = strlen (vtable_name);
+                              len2 = strlen (vtable_name);
 
-                      /* Call different routines if we are interested in trace information
-                         to triage problems */
+                              /* Call different routines if we are
+                                 interested in trace information to
+                                 triage problems */
 #ifdef VTV_DEBUG
-                      expr_tree = build_call_expr
+                              expr_tree = build_call_expr
 			             (verify_vtbl_ptr_fndecl, 6,
 				      my_build1 (ADDR_EXPR,
 						 TYPE_POINTER_TO
@@ -637,7 +724,7 @@ verify_bb_vtables (basic_block bb)
 				      build_int_cst (integer_type_node,
 						     len2));
 #else
-                      expr_tree = build_call_expr
+                              expr_tree = build_call_expr
 		                     (verify_vtbl_ptr_fndecl, 2,
 				      my_build1 (ADDR_EXPR,
 				                 TYPE_POINTER_TO
@@ -646,22 +733,26 @@ verify_bb_vtables (basic_block bb)
                                       SSA_NAME_VAR (lhs));
 #endif
 
-                      /* Assign the result of the call to the original
-                         variable receiving the assignment of the object's
-                         vtable pointer; mark that variable to be updated by
-                         update_ssa.  */
+                              /* Assign the result of the call to the
+                                 original variable receiving the
+                                 assignment of the object's vtable
+                                 pointer; mark that variable to be
+                                 updated by update_ssa.  */
 
-                      mark_sym_for_renaming (SSA_NAME_VAR (lhs));
-                      force_gimple_operand (expr_tree, &pre_p, 1,
-                                            SSA_NAME_VAR (lhs));
+                              mark_sym_for_renaming (SSA_NAME_VAR (lhs));
+                              force_gimple_operand (expr_tree, &pre_p, 1,
+                                                    SSA_NAME_VAR (lhs));
 
-                      /* Insert the new call just after the original assignment
-                         of the object's vtable pointer.  */
+                              /* Insert the new call just after the
+                                 original assignment of the object's
+                                 vtable pointer.  */
 
-                      pop_gimplify_context (NULL);
-                      gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
-                                            GSI_NEW_STMT);
-                      any_verification_calls_generated = true;
+                              pop_gimplify_context (NULL);
+                              gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
+                                                    GSI_NEW_STMT);
+                              any_verification_calls_generated = true;
+                            }
+                        }
                     }
                 }
             }

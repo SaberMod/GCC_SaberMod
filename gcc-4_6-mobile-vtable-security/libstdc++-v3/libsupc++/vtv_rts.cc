@@ -108,6 +108,8 @@ struct mprotect_data {
   unsigned long page_size;
 };
 
+static void __vtv_verify_fail_debug (void **, void *, char *);
+
 static int
 dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
                           void *data)
@@ -321,12 +323,39 @@ log_register_pairs (int fd, const char *format_string_dummy, int format_arg1,
   vtv_add_to_log(fd, format_string, base_var_name, vtable_name, vtbl_ptr);
 }
 
-/* For some reason, when the char * names get passed into these
-   functions, they are missing the '\0' at the end; therefore we
-   also pass in the length of the string and make sure, when writing
-   out the names, that we only write out the correct number of
-   bytes. */
-void
+
+/* This holds a formatted error logging message, to be written to the
+   vtable verify failures log.  */
+char debug_log_message[1024];
+
+
+/*  Generate a formatted debug message and load it into the global variable
+    'debug_log_message'.  */
+static void
+load_debug_log_message (const char *format_string_dummy, int format_arg1,
+                        int format_arg2,
+                        char *str_arg1, char *str_arg2)
+{
+  char format_string[50];
+
+  /* format_string needs to contain something like "%.10s" (for
+     example) to write a vtable_name that is of length
+     10. Unfortunately the length varies with every name, so we need to
+     generate a new format string, with the correct length, EACH TIME.
+     That is what the 'format_string_dummy' parameter is for.  It
+     contains something like '%%.%ds', and we then use that plus the
+     length argument to generate the correct format_string, to allow
+     us to write out the string that is missing the '\0' at it's
+     end. */
+
+  snprintf (format_string, sizeof(format_string), format_string_dummy,
+            format_arg1, format_arg2);
+
+  snprintf (debug_log_message, sizeof (debug_log_message),
+            format_string, str_arg1, str_arg2);
+}
+
+static void
 print_debugging_message (const char *format_string_dummy, int format_arg1,
 			 int format_arg2,
 			 char *str_arg1, char *str_arg2)
@@ -347,6 +376,7 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
 
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
+
 
 void 
 __VLTRegisterPairDebug (void **data_pointer, void *test_value, int size_hint,
@@ -428,7 +458,11 @@ __VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
       fprintf (stderr, "FAILED to verify object vtable pointer=%lx!!!\n",
                (unsigned long)vtbl_ptr);
 
-      __vtv_verify_fail (data_pointer, test_value);
+
+      load_debug_log_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
+                              vtable_name, base_vtbl_var_name);
+      __vtv_verify_fail_debug (data_pointer, test_value, debug_log_message);
+
       /* Normally __vtv_verify_fail will call abort, so we won't
          execute the return below.  If we get this far, the assumption
          is that the programmer has replace __vtv_verify_fail with
@@ -494,9 +528,89 @@ vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
   __vtv_really_fail (msg);
 }
 
+
+/* Open error logging file, if not already open, and write vtable verification
+   failure messages to the log file.  */
+static void
+log_error_message (char *log_msg)
+{
+  static int fd = -1;
+
+  if (fd == -1)
+    fd = vtv_open_log ("/tmp/vtable-verification-failures.log");
+
+  if (fd == -1)
+    return;
+
+  vtv_add_to_log (fd, "%s", log_msg);
+}
+
+
+/* Generate a backtrace of the current location, to be written to the vtable
+   verification failure log.  Send the backtrace to the log file.  */
+static void
+log_backtrace (void)
+{
+#define STACK_DEPTH 20
+  void *callers[STACK_DEPTH];
+  int actual_depth = backtrace (callers, STACK_DEPTH);
+  char **symbols = backtrace_symbols (callers, actual_depth);
+  char bt_line[1024];
+
+  if (symbols != NULL)
+    {
+      log_error_message (" Backtrace: \n");
+      for (int i = 0; i < actual_depth; ++i)
+        {
+          snprintf (bt_line, sizeof (bt_line), "     %s\n", symbols[i]);
+          log_error_message (bt_line);
+        }
+    }
+
+  free (symbols);
+}
+
+
+/* This function is called from __VLTVerifyVtablePointerDebug; it sends 
+   as much debugging information as it can to the error log file, then calls
+   vtv_fail.  */
+static void
+__vtv_verify_fail_debug (void **data_set_ptr, void *vtbl_ptr, char *debug_msg)
+{
+  const char *fail_msg = "Potential vtable pointer corruption detected!!";
+  char buffer[120];
+  int buf_len;
+  const char *format_str =
+            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
+
+  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
+  log_error_message (debug_msg);
+  log_error_message (buffer);
+  log_backtrace ();
+
+  vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
+}
+
+/* Send information about what we were trying to do when verificataion failed to
+   the error log, then call vtv_fail.  This function can be overwritten/replaced
+   by the user, to implement a secondary verification function instead.*/
 void
 __vtv_verify_fail (void **data_set_ptr, void *vtbl_ptr)
 {
-  const char *msg = "Potential vtable pointer corruption detected!!";
-  vtv_fail (msg, data_set_ptr, vtbl_ptr);
+  const char *fail_msg = "Potential vtable pointer corruption detected!!";
+  char log_msg[1024];
+
+  char buffer[120];
+  int buf_len;
+  const char *format_str =
+            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
+
+  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
+  snprintf (log_msg, sizeof (log_msg), "Looking for vtable  %p in set %p.\n",
+            vtbl_ptr, *data_set_ptr);
+  log_error_message (log_msg);
+  log_error_message (buffer);
+  log_backtrace ();
+
+  vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }
