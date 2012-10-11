@@ -1,3 +1,13 @@
+2012-10-11   Easwaran Raman  <eraman@google.com>
+
+	Google ref b/6982747
+
+	* libsupc++/Makefile.am: Add del_opsz.cc to sources.
+	* libsupc++/Makefile.in: Regenerated.
+	* libsupc++/del_opsz.cc: New file.
+	* libsupc++/del_op.cc(operator delete(void*,std::size_t)):
+	  Remove.
+
 2012-03-13   Easwaran Raman  <eraman@google.com>
 
 	* include/ext/new_allocator.h (deallocate): Call delete with size if
