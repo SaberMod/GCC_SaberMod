@@ -23,14 +23,32 @@
 #define GCC_AARCH64_H
 
 /* Target CPU builtins.  */
-#define TARGET_CPU_CPP_BUILTINS()		\
-  do						\
-    {						\
-      builtin_define ("__aarch64__");		\
-      if (TARGET_BIG_END)			\
-	builtin_define ("__AARCH64EB__");	\
-      else					\
-	builtin_define ("__AARCH64EL__");	\
+#define TARGET_CPU_CPP_BUILTINS()			\
+  do							\
+    {							\
+      builtin_define ("__aarch64__");			\
+      if (TARGET_BIG_END)				\
+	builtin_define ("__AARCH64EB__");		\
+      else						\
+	builtin_define ("__AARCH64EL__");		\
+							\
+      switch (aarch64_cmodel)				\
+	{						\
+	  case AARCH64_CMODEL_TINY:			\
+	  case AARCH64_CMODEL_TINY_PIC:			\
+	    builtin_define ("__AARCH64_CMODEL_TINY__");	\
+	    break;					\
+	  case AARCH64_CMODEL_SMALL:			\
+	  case AARCH64_CMODEL_SMALL_PIC:		\
+	    builtin_define ("__AARCH64_CMODEL_SMALL__");\
+	    break;					\
+	  case AARCH64_CMODEL_LARGE:			\
+	    builtin_define ("__AARCH64_CMODEL_LARGE__");	\
+	    break;					\
+	  default:					\
+	    break;					\
+	}						\
+							\
     } while (0)
 
 
