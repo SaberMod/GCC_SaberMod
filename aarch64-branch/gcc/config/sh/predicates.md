@@ -345,8 +345,10 @@
 	  && GET_MODE (op) == PSImode);
 })
 
-;; TODO: Add a comment here.
-
+;; Returns true if OP is an operand that is either the fpul hard reg or
+;; a pseudo.  This prevents combine from propagating function arguments
+;; in hard regs into insns that need the operand in fpul.  If it's a pseudo
+;; reload can fix it up.
 (define_predicate "fpul_operand"
   (match_code "reg")
 {
@@ -357,6 +359,29 @@
 	  && (REGNO (op) == FPUL_REG || REGNO (op) >= FIRST_PSEUDO_REGISTER)
 	  && GET_MODE (op) == mode);
 })
+
+;; Returns true if OP is a valid fpul input operand for the fsca insn.
+;; The value in fpul is a fixed-point value and its scaling is described
+;; in the fsca insn by a mult:SF.  To allow pre-scaled fixed-point inputs
+;; in fpul we have to permit things like
+;;   (reg:SI)
+;;   (fix:SF (float:SF (reg:SI)))
+(define_predicate "fpul_fsca_operand"
+  (match_code "fix,reg")
+{
+  if (fpul_operand (op, SImode))
+    return true;
+  if (GET_CODE (op) == FIX && GET_MODE (op) == SImode
+      && GET_CODE (XEXP (op, 0)) == FLOAT && GET_MODE (XEXP (op, 0)) == SFmode)
+    return fpul_fsca_operand (XEXP (XEXP (op, 0), 0),
+			      GET_MODE (XEXP (XEXP (op, 0), 0)));
+  return false;
+})
+
+;; Returns true if OP is a valid constant scale factor for the fsca insn.
+(define_predicate "fsca_scale_factor"
+  (and (match_code "const_double")
+       (match_test "op == sh_fsca_int2sf ()")))
 
 ;; TODO: Add a comment here.
 
@@ -409,6 +434,14 @@
   if (MEM_P (op))
     {
       rtx inside = XEXP (op, 0);
+
+      /* Disallow mems with GBR address here.  They have to go through
+	 separate special patterns.  */
+      if ((REG_P (inside) && REGNO (inside) == GBR_REG)
+	  || (GET_CODE (inside) == PLUS && REG_P (XEXP (inside, 0))
+	      && REGNO (XEXP (inside, 0)) == GBR_REG))
+	return 0;
+
       if (GET_CODE (inside) == CONST)
 	inside = XEXP (inside, 0);
 
@@ -465,6 +498,17 @@
 {
   if (t_reg_operand (op, mode))
     return 0;
+
+  if (MEM_P (op))
+    {
+      rtx inside = XEXP (op, 0);
+      /* Disallow mems with GBR address here.  They have to go through
+	 separate special patterns.  */
+      if ((REG_P (inside) && REGNO (inside) == GBR_REG)
+	  || (GET_CODE (inside) == PLUS && REG_P (XEXP (inside, 0))
+	      && REGNO (XEXP (inside, 0)) == GBR_REG))
+	return 0;
+    }
 
   /* Only pre dec allowed.  */
   if (MEM_P (op) && GET_CODE (XEXP (op, 0)) == POST_INC)
@@ -1027,6 +1071,14 @@
       default:
 	return 0;
     }
+})
+
+;; A predicate that returns true if OP is a valid construct around the T bit
+;; that can be used as an operand for conditional branches.
+(define_predicate "cbranch_treg_value"
+  (match_code "eq,ne,reg,subreg,xor,sign_extend,zero_extend")
+{
+  return sh_eval_treg_value (op) >= 0;
 })
 
 ;; Returns true of OP is arith_reg_operand or t_reg_operand.
