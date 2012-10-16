@@ -1,3 +1,8 @@
+2012-10-16  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc/config/aarch64/aarch64.md
+	(<optab><ALLX:mode>_shft_<GPI:mode>): Restrict operands.
+
 2012-10-16  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_split_doubleword_move):
