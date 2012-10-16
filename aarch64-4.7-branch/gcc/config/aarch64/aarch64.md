@@ -947,10 +947,10 @@
 (define_split
    [(set (match_operand:TI 0 "register_operand" "")
 	 (match_operand:TI 1 "aarch64_reg_or_imm" ""))]
-  "reload_completed"
+  "reload_completed && aarch64_split_128bit_move_p (operands[0], operands[1])"
   [(const_int 0)]
 {
-  aarch64_split_doubleword_move (operands[0], operands[1]);
+  aarch64_split_128bit_move (operands[0], operands[1]);
   DONE;
 })
 
