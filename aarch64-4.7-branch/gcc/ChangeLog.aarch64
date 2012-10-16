@@ -1,3 +1,8 @@
+2012-10-15  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+
+        * config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Add predefine for
+	AArch64 code models.
+
 2012-10-05  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/arm_neon.h (vqdmlalh_lane_s16, vqdmlalh_s16,

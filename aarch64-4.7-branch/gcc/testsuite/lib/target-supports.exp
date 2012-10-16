@@ -4662,3 +4662,45 @@ proc check_effective_target_ucontext_h { } {
 	#include <ucontext.h>
     }]
 }
+
+proc check_effective_target_aarch64_tiny { } {
+    if { [istarget aarch64*-*-*] } {
+	return [check_no_compiler_messages aarch64_tiny object {
+	    #ifdef __AARCH64_CMODEL_TINY__
+	    int dummy;
+	    #else
+	    #error target not AArch64 tiny code model
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
+
+proc check_effective_target_aarch64_small { } {
+    if { [istarget aarch64*-*-*] } {
+	return [check_no_compiler_messages aarch64_small object {
+	    #ifdef __AARCH64_CMODEL_SMALL__
+	    int dummy;
+	    #else
+	    #error target not AArch64 small code model
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
+
+proc check_effective_target_aarch64_large { } {
+    if { [istarget aarch64*-*-*] } {
+	return [check_no_compiler_messages aarch64_large object {
+	    #ifdef __AARCH64_CMODEL_LARGE__
+	    int dummy;
+	    #else
+	    #error target not AArch64 large code model
+	    #endif
+	}]
+    } else {
+	return 0
+    }
+}
