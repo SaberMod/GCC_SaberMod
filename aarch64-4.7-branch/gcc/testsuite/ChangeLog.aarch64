@@ -1,3 +1,8 @@
+2011-10-16  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* gcc.target/aarch64/vector_intrinsics.c: Update tests to reflect
+	changes and introduce new tests for the new intrinsics.
+
 2012-10-15  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
 
         * gcc.target/aarch64/predefine_large.c: New test.

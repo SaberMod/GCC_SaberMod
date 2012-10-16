@@ -1,3 +1,21 @@
+2012-10-16  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/arm_neon.h (vmla_lane_f32, vmla_lane_s16,
+	vmla_lane_s32, vmla_lane_u16, vmla_lane_u32, vmlal_lane_s16, 
+	vmlal_lane_s32, vmlal_lane_u16, vmlal_lane_u32,
+	vmls_lane_s16, vmls_lane_s32, vmls_lane_u16, vmls_lane_u32,
+	vmlsl_lane_s16, vmlsl_lane_s32, vmlsl_lane_u16,
+	vmlsl_lane_u32, vmul_lane_f32, vmul_lane_s16, vmul_lane_s32,
+	vmul_lane_u16, vmul_lane_u32, vmull_lane_s16, vmull_lane_s32,
+	vmull_lane_u16, vmull_lane_u32, vmulq_lane_f32, vmulq_lane_f64,
+	vmulq_lane_s16, vmulq_lane_s32, vmulq_lane_u16, vmulq_lane_u32,
+	vqdmlal_lane_s16, vqdmlal_lane_s32, vqdmlalh_lane_s16,
+	vqdmlsl_lane_s16, vqdmlsl_lane_s32, vqdmulh_lane_s16, vqdmulh_lane_s32,
+	vqdmulhq_lane_s16, vqdmulhq_lane_s32, vqdmull_lane_s16,
+	vqdmull_lane_s32, vqrdmulh_lane_s16, vqrdmulh_lane_s32,
+	vqrdmulhq_lane_s16, vqrdmulhq_lane_s32): Update prototype and 
+	implementation.
+
 2012-10-16  Ian Bolton  <ian.bolton@arm.com>
 
 	* gcc/config/aarch64/aarch64.md
