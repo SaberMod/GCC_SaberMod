@@ -2315,8 +2315,13 @@
 	(ashift:GPI (ANY_EXTEND:GPI
 		     (match_operand:ALLX 1 "register_operand" "r"))
 		    (match_operand 2 "const_int_operand" "n")))]
-  ""
-  "<su>bfiz\\t%<GPI:w>0, %<GPI:w>1, %2, #<ALLX:sizen>"
+  "UINTVAL (operands[2]) < <GPI:sizen>"
+{
+  operands[3] = (<ALLX:sizen> <= (<GPI:sizen> - UINTVAL (operands[2])))
+	      ? GEN_INT (<ALLX:sizen>)
+	      : GEN_INT (<GPI:sizen> - UINTVAL (operands[2]));
+  return "<su>bfiz\t%<GPI:w>0, %<GPI:w>1, %2, %3";
+}
   [(set_attr "v8type" "bfm")
    (set_attr "mode" "<GPI:MODE>")]
 )
