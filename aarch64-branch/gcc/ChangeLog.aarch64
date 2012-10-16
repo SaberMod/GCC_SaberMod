@@ -1,3 +1,13 @@
+2012-10-16  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_split_doubleword_move):
+	Rename to aarch64_split_128bit_move.
+	(aarch64_split_128bit_move_p): New.
+	* config/aarch64/aarch64.c (aarch64_split_doubleword_move):
+	Rename to aarch64_split_128bit_move.
+	(aarch64_split_128bit_move_p): New.
+	* config/aarch64/aarch64.md: Adjust TImode move split.
+
 2012-10-15  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
 
         * config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Add predefine for

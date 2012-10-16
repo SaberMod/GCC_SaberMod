@@ -598,7 +598,7 @@ aarch64_emit_move (rtx dest, rtx src)
 }
 
 void
-aarch64_split_doubleword_move (rtx dst, rtx src)
+aarch64_split_128bit_move (rtx dst, rtx src)
 {
   rtx low_dst;
 
@@ -630,7 +630,7 @@ aarch64_split_doubleword_move (rtx dst, rtx src)
 	}
       /* Fall through to r -> r cases.  */
     }
-    
+
   low_dst = gen_lowpart (word_mode, dst);
   if (REG_P (low_dst)
       && reg_overlap_mentioned_p (low_dst, src))
@@ -645,6 +645,13 @@ aarch64_split_doubleword_move (rtx dst, rtx src)
       aarch64_emit_move (gen_highpart (word_mode, dst),
 			 gen_highpart_mode (word_mode, TImode, src));
     }
+}
+
+bool
+aarch64_split_128bit_move_p (rtx dst, rtx src)
+{
+  return (! REG_P (src)
+	  || ! (FP_REGNUM_P (REGNO (dst)) && FP_REGNUM_P (REGNO (src))));
 }
 
 static rtx
