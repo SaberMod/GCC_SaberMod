@@ -532,7 +532,7 @@ vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
 /* Open error logging file, if not already open, and write vtable verification
    failure messages to the log file.  */
 static void
-log_error_message (char *log_msg)
+log_error_message (char *log_msg, bool generate_backtrace)
 {
   static int fd = -1;
 
@@ -543,31 +543,14 @@ log_error_message (char *log_msg)
     return;
 
   vtv_add_to_log (fd, "%s", log_msg);
-}
 
-
-/* Generate a backtrace of the current location, to be written to the vtable
-   verification failure log.  Send the backtrace to the log file.  */
-static void
-log_backtrace (void)
-{
-#define STACK_DEPTH 20
-  void *callers[STACK_DEPTH];
-  int actual_depth = backtrace (callers, STACK_DEPTH);
-  char **symbols = backtrace_symbols (callers, actual_depth);
-  char bt_line[1024];
-
-  if (symbols != NULL)
+  if (generate_backtrace)
     {
-      log_error_message (" Backtrace: \n");
-      for (int i = 0; i < actual_depth; ++i)
-        {
-          snprintf (bt_line, sizeof (bt_line), "     %s\n", symbols[i]);
-          log_error_message (bt_line);
-        }
+#define STACK_DEPTH 20
+      void *callers[STACK_DEPTH];
+      int actual_depth = backtrace (callers, STACK_DEPTH);
+      backtrace_symbols_fd (callers, actual_depth, fd);
     }
-
-  free (symbols);
 }
 
 
@@ -584,9 +567,9 @@ __vtv_verify_fail_debug (void **data_set_ptr, void *vtbl_ptr, char *debug_msg)
             "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
 
   snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
-  log_error_message (debug_msg);
-  log_error_message (buffer);
-  log_backtrace ();
+  log_error_message (debug_msg, false);
+  log_error_message (buffer, false);
+  log_error_message ("  Backtrace: \n", true);
 
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }
@@ -608,9 +591,9 @@ __vtv_verify_fail (void **data_set_ptr, void *vtbl_ptr)
   snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
   snprintf (log_msg, sizeof (log_msg), "Looking for vtable  %p in set %p.\n",
             vtbl_ptr, *data_set_ptr);
-  log_error_message (log_msg);
-  log_error_message (buffer);
-  log_backtrace ();
+  log_error_message (log_msg, false);
+  log_error_message (buffer, false);
+  log_error_message ("  Backtrace: \n", true);
 
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }

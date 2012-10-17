@@ -1,3 +1,15 @@
+2012-10-17  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (log_error_message):  Add ability
+	to output backtrace, based on a new boolean parameter.  Use
+	backtrace_symbols_fd rather than backtrace_symbols, to remove any
+	memory allocation.
+	(log_backtrace): Deleted function.
+	(__vtv_verify_fail_debug):  Added boolean parameter to calls  to
+	log_error_message; changed call to log_backtract into call to
+	log_error_message with true.
+	(__vtv_verify_fail): Ditto.
+
 2012-10-09  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (__vtv_verify_fail_debug):  New
@@ -15,7 +27,7 @@
 	virtual call.  Also search through def_stmt chain to find vptr field
 	assignment statement; use type from 'this' object, or from rhs of
 	vptr field assignment statement to find type for vtable map variable.
-	
+
 2012-10-02  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/config/abi/pre/gnu.ver (GLIBCXX_3.4.16): Modify name
