@@ -1,3 +1,9 @@
+2012-10-17  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64.md (<optab><mode>3): Update constraint
+	for operand 0.
+	Update scheduling attribute for the second alternative.
+
 2012-10-16  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/arm_neon.h (vmla_lane_f32, vmla_lane_s16,

@@ -1991,12 +1991,12 @@
 ;; -------------------------------------------------------------------
 
 (define_insn "<optab><mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=r,r")
+  [(set (match_operand:GPI 0 "register_operand" "=r,rk")
 	(LOGICAL:GPI (match_operand:GPI 1 "register_operand" "%r,r")
 		     (match_operand:GPI 2 "aarch64_logical_operand" "r,<lconst>")))]
   ""
   "<logical>\\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "v8type" "logic")
+  [(set_attr "v8type" "logic,logic_imm")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*<LOGICAL:optab>_<SHIFT:optab><mode>3"
