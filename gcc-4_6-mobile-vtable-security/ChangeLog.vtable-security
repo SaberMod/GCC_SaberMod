@@ -9,6 +9,22 @@
 	log_error_message; changed call to log_backtract into call to
 	log_error_message with true.
 	(__vtv_verify_fail): Ditto.
+	
+2012-10-09  Luis Lozano  <llozano@google.com>
+
+	* vtable-class-hierarchy.c (create_undef_reference_to_vtv_init):
+	Added this routine to generate a reference to a symbol defined in
+	vtv_init.a so that if the link is done without vtv_init.a the linker
+	will complain.
+	(vtv_generate_init_routine): Add call to generate the undef symbol
+	only when using -fvtable-verify=std.
+	* gcc/tree-vtable-verify.c (verify_bb_vtables): removed stale comment
+	and minor clean up.
+	* libstdc++-v3/libsupc++/vtv_init.cc: Added definition of symbol so
+	that references from object files built with -fvtable-verify=std can
+	be resolved. Symbol must be "hidden" to make sure it is not resolving
+	a reference from other load module.
+	* libstdc++-v3/libsupc++/vtv_rts.cc: fixed couple of warnings.
 
 2012-10-09  Caroline Tice  <cmtice@google.com>
 
