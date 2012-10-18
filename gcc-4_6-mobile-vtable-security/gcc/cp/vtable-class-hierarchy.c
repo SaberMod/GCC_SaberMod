@@ -60,12 +60,13 @@ static void init_functions (void);
 
 static void dump_class_hierarchy_information (void);
 static int  guess_num_vtable_pointers (struct vtv_graph_node *);
-static void register_all_pairs (tree body);
+static bool register_all_pairs (tree body);
 static void add_hierarchy_pair (struct vtv_graph_node *,
                                 struct vtv_graph_node *);
 static struct vtv_graph_node *find_graph_node (tree);
 static struct vtv_graph_node *
                   find_and_remove_next_leaf_node (struct work_node **worklist);
+static void create_undef_reference_to_vtv_init(tree register_pairs_body);
 static bool vtv_register_class_hierarchy_information (tree register_pairs_body);
 
 static void update_class_hierarchy_information (tree, tree);
@@ -464,12 +465,13 @@ guess_num_vtable_pointers (struct vtv_graph_node *class_node)
   return num_vtbls_power_of_two;
 }
 
-static void
+static bool
 register_all_pairs (tree body)
 {
   struct vtbl_map_node *current;
   tree base_ptr_var_decl;
 
+  bool registered_at_least_one = false;
 
   for (current = vtbl_map_nodes; current; current = current->next)
     {
@@ -554,6 +556,8 @@ register_all_pairs (tree body)
 #endif
                       append_to_statement_list (call_expr, &body);
 
+                      registered_at_least_one = true;
+
                       /* Find and handle any 'extra' vtables associated
                          with this class, via virtual inheritance.   */
                       register_vptr_fields (arg1, base_class, class_type,
@@ -569,6 +573,8 @@ register_all_pairs (tree body)
             } /* if TREE_TYPE (class_type) == RECORD... */
           } /* if TEST_BIT (descendants, i) */
     } /* for cur = vtbl_map_nodes... */
+
+  return registered_at_least_one;
 }
 
 static struct vtv_graph_node *
@@ -632,53 +638,6 @@ update_class_hierarchy_information (tree base_class,
   add_hierarchy_pair (base_node, derived_node);
 }
 
-bool
-vtv_register_class_hierarchy_information (tree register_pairs_body)
-{
-  bool ret_val = false;
-
-  init_functions ();
-
-  /* DEBUG */
-  if (false)  /* This is here for debugging purposes. */
-    dump_class_hierarchy_information ();
-
-  /* TODO: Temp fix. Needs to be tighten */
-  /*  if (any_verification_calls_generated) */
-  if (num_vtable_map_nodes > 0)
-    {
-      /* If this function is going into the preinit_array, then we
-         need to manually call __VLTChangePermission, rather than
-         depending on initialization prioritys in vtv_init. */
-      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-        {
-          /* Pass __VLTP_READ_WRITE value as defined in vtv_rts.h */
-          tree arg_read_write = build_int_cst (integer_type_node, 1);
-          tree call_expr = build_call_expr (vlt_change_permission_fndecl,
-                                            1, arg_read_write);
-          append_to_statement_list (call_expr, &register_pairs_body);
-        }
-
-      /* Add class hierarchy pairs to the vtable map data structure. */
-      register_all_pairs (register_pairs_body);
-
-      /* If this function is going into the preinit_array, then we
-         need to manually call __VLTChangePermission, rather than
-         depending on initialization prioritys in vtv_init. */
-      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-        {
-          tree arg_read_only = build_int_cst (integer_type_node, 0);
-          tree call_expr = build_call_expr (vlt_change_permission_fndecl,
-                                            1, arg_read_only);
-          append_to_statement_list (call_expr, &register_pairs_body);
-        }
-
-      ret_val = true;  /* Actually did some work/wrote something out.  */
-    }
-
-  return ret_val;
-}
-
 /* Generate an undefined variable (a reference) to a varible defined in the
    vtv_init libraty. In that way, if the a module is not linked with the
    vtv_init library, the linker will generate an undefined symbol error.
@@ -710,6 +669,55 @@ create_undef_reference_to_vtv_init(tree register_pairs_body)
   append_to_statement_list (init_zero, &register_pairs_body);
 
 }
+
+bool
+vtv_register_class_hierarchy_information (tree register_pairs_body)
+{
+  bool registered_something = false;
+
+  init_functions ();
+
+  /* DEBUG */
+  if (false)  /* This is here for debugging purposes. */
+    dump_class_hierarchy_information ();
+
+  /* TODO: Temp fix. Needs to be tighten */
+  /*  if (any_verification_calls_generated) */
+  if (num_vtable_map_nodes == 0)
+    return registered_something;
+
+  /* Add class hierarchy pairs to the vtable map data structure. */
+  registered_something = register_all_pairs (register_pairs_body);
+
+  if (registered_something)
+  {
+      /* If this function is going into the preinit_array, then we
+         need to manually call __VLTChangePermission, rather than
+         depending on initialization prioritys in vtv_init. */
+      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
+        {
+          /* Pass __VLTP_READ_WRITE value as defined in vtv_rts.h */
+          tree arg_read_write = build_int_cst (integer_type_node, 1);
+          tree arg_read_only = build_int_cst (integer_type_node, 0);
+
+          tree call_rw_expr = build_call_expr (vlt_change_permission_fndecl,
+                                            1, arg_read_write);
+          tree_stmt_iterator i = tsi_start(register_pairs_body);
+          /* Insert at the beginning of the register pairs routine */
+          tsi_link_before(&i, call_rw_expr, TSI_SAME_STMT);
+
+          tree call_r_expr = build_call_expr (vlt_change_permission_fndecl,
+                                            1, arg_read_only);
+          append_to_statement_list (call_r_expr, &register_pairs_body);
+        }
+
+      if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
+        create_undef_reference_to_vtv_init(register_pairs_body);
+  }
+
+  return registered_something;
+}
+
 
 /* Generate the special constructor function that calls
    __VLTChangePermission and __VLTRegisterPairs, and give it a very high
@@ -754,8 +762,6 @@ vtv_generate_init_routine(const char * filename)
 
   if (vtable_classes_found)
     {
-      if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
-        create_undef_reference_to_vtv_init(register_pairs_body);
 
       current_function_decl =
           finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, 

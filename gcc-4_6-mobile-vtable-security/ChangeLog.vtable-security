@@ -12,9 +12,13 @@
 	(__vtv_verify_fail): Ditto.
 
 2012-10-16  Luis Lozano  <llozano@google.com>
-
 	* gcc/cp/vtable-class-hierarchy.c:
 	Fixed lines longer than 80 chars.
+	(register_all_pairs): keep track of when RegisterPair calls where
+	added.
+	(vtv_register_class_hierarchy_information): modified so that
+	we dont generate the calls to change permission or the undefined
+	symbol to vtv_init unless we made some calls to RegisterPair
 	* libstdc++-v3/libsupc++/vtv_init.cc:
 	Fixed lines longer than 80 chars
 	* libstdc++-v3/libsupc++/vtv_rts.cc:
