@@ -23,7 +23,8 @@
 // <http://www.gnu.org/licenses/>.
 
 
-/* Needs to build with C++ because the definition of __VLTChangePermission is in C++ */
+/* Needs to build with C++ because the definition of
+ * __VLTChangePermission is in C++ */
 #ifndef __cplusplus
 #error "This file must be compiled with a C++ compiler"
 #endif
@@ -37,11 +38,13 @@
 #include <stdio.h>
 #endif
 
-/* Define this dummy symbol to detect at link time the cases where user is compiling with
-   -fvtable-verify=std and not linking with the vtv_init library. Note that the visibility
-   needs to be hidden. Each object module is supposed to link with the vtv_init library and we
+/* Define this dummy symbol to detect at link time the cases where
+   user is compiling with -fvtable-verify=std and not linking with the
+   vtv_init library. Note that the visibility needs to be hidden. Each
+   object module is supposed to link with the vtv_init library and we
    don't want this definition to come from a different library */
-unsigned int __vtv_defined_in_vtv_init_lib __attribute__ ((visibility ("hidden"))) = 0;
+unsigned int
+__vtv_defined_in_vtv_init_lib __attribute__ ((visibility ("hidden"))) = 0;
 
 void __VLTunprotect() __attribute__((constructor(98)));
 void __VLTunprotect()

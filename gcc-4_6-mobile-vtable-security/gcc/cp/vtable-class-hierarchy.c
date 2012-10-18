@@ -712,8 +712,8 @@ create_undef_reference_to_vtv_init(tree register_pairs_body)
 }
 
 /* Generate the special constructor function that calls
-   __VLTChangePermission and __VLTRegisterPairs, and give it a very high initialization
-   priority.  */
+   __VLTChangePermission and __VLTRegisterPairs, and give it a very high
+   initialization priority.  */
 
 void
 vtv_generate_init_routine(const char * filename)
@@ -758,7 +758,8 @@ vtv_generate_init_routine(const char * filename)
         create_undef_reference_to_vtv_init(register_pairs_body);
 
       current_function_decl =
-          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, register_pairs_body);
+          finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, 
+                          register_pairs_body);
       allocate_struct_function (current_function_decl, false);
       TREE_STATIC (current_function_decl) = 1;
       TREE_USED (current_function_decl) = 1;

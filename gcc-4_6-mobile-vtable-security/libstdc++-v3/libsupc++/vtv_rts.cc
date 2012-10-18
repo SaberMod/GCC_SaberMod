@@ -72,9 +72,9 @@ static const int debug_hash = HASHTABLE_STATS;
 static const int debug_functions = 0;
 static const int debug_register_pairs = 0;
 
-/* Put the following variables in a rel.ro section so that the are protected.
-   They are explicitly unprotected and protected again by calls to VTV_unprotect
-   and VTV_protect */
+/* Put the following variables in a rel.ro section so that the are
+   protected.  They are explicitly unprotected and protected again by
+   calls to VTV_unprotect and VTV_protect */
 
 static int log_file_fd VTV_PROTECTED_VAR = -1;
 #if HASHTABLE_STATS
@@ -120,24 +120,28 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
   int j;
 
   if (debug_functions)
-    fprintf(stderr, "looking at load module %s to change permissions to %s\n", 
+    fprintf(stderr, "looking at load module %s to change permissions to %s\n",
             info->dlpi_name,
             (mdata->prot_mode & PROT_WRITE) ? "READ/WRITE" : "READ-ONLY");
   for (j = 0; j < info->dlpi_phnum; j++)
     {
-      ElfW(Addr) relocated_start_addr = info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
+      ElfW(Addr) relocated_start_addr =
+          info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
       ElfW(Addr) unrelocated_start_addr = info->dlpi_phdr[j].p_vaddr;
       ElfW(Word) size_in_memory = info->dlpi_phdr[j].p_memsz;
 
       if (debug_functions)
-        fprintf(stderr, "Segment info relocated=%p unrelocated=%p size=%u\n", 
-                (void *)relocated_start_addr, (void *)unrelocated_start_addr, size_in_memory);
+        fprintf(stderr, "Segment info relocated=%p unrelocated=%p size=%u\n",
+                (void *)relocated_start_addr, (void *)unrelocated_start_addr,
+                size_in_memory);
 
       if (info->dlpi_phdr[j].p_type == PT_GNU_RELRO)
         {
           if (debug_functions)
-            fprintf(stderr, "Found RELRO segment. relocated=%p unrelocated=%p size=%u\n", 
-                    (void *)relocated_start_addr, (void *)unrelocated_start_addr, size_in_memory);
+            fprintf(stderr,
+                    "Found RELRO segment. relocated=%p unrelocated=%p size=%u\n",
+                    (void *)relocated_start_addr, (void *)unrelocated_start_addr,
+                    size_in_memory);
 
           ElfW(Addr) mp_low = relocated_start_addr & ~(mdata->page_size - 1);
           size_t mp_size = relocated_start_addr + size_in_memory - mp_low - 1;
@@ -146,15 +150,15 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
             {
               if (debug_functions)
                 {
-                  fprintf(stderr, "Failed called to mprotect for %s error: ", 
-			  (mdata->prot_mode & PROT_WRITE) ? 
+                  fprintf(stderr, "Failed called to mprotect for %s error: ",
+			  (mdata->prot_mode & PROT_WRITE) ?
                           "READ/WRITE" : "READ-ONLY");
                   perror(NULL);
                 }
               VTV_error();
             }
           else if (debug_functions)
-            fprintf(stderr, "mprotect'ed range [%p, %p]\n", 
+            fprintf(stderr, "mprotect'ed range [%p, %p]\n",
 		    (void *)mp_low, (char *)mp_low + mp_size);
 
           break;
@@ -374,7 +378,8 @@ print_debugging_message (const char *format_string_dummy, int format_arg1,
      us to write out the string that is missing the '\0' at it's
      end. */
 
-  snprintf (format_string, sizeof(format_string), format_string_dummy, format_arg1, format_arg2);
+  snprintf (format_string, sizeof(format_string), format_string_dummy, 
+            format_arg1, format_arg2);
 
   fprintf (stdout, format_string, str_arg1, str_arg2);
 }
@@ -438,8 +443,8 @@ __VLTRegisterPair (void **data_pointer, void *test_value, int size_hint)
 
 void *
 __VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
-                               char * base_vtbl_var_name, int len1, char * vtable_name,
-                               int len2)
+                               char * base_vtbl_var_name, int len1,
+                               char * vtable_name, int len2)
 {
   vtv_set_handle * handle_ptr = (vtv_set_handle *)data_pointer;
   int_vptr vtbl_ptr = (int_vptr) test_value;
