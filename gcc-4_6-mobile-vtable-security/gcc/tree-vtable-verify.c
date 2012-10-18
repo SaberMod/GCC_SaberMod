@@ -473,6 +473,7 @@ verify_bb_vtables (basic_block bb)
 {
   gimple_seq stmts;
   gimple stmt = NULL;
+  /* bool bb_contains_virtual_call = false; */
   gimple_stmt_iterator gsi_vtbl_assign;
   gimple_stmt_iterator gsi_virtual_call;
   tree this_object;
@@ -569,7 +570,6 @@ verify_bb_vtables (basic_block bb)
                   if (def_stmt
                       && is_vtable_assignment_stmt (def_stmt))
                     {
-
                       gsi_vtbl_assign = gsi_virtual_call;
                       for (; !gsi_end_p (gsi_vtbl_assign) && !found;
                            gsi_prev (&gsi_vtbl_assign))
