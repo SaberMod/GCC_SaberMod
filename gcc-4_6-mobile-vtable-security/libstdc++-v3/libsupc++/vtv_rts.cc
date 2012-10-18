@@ -77,7 +77,9 @@ static const int debug_register_pairs = 0;
    and VTV_protect */
 
 static int log_file_fd VTV_PROTECTED_VAR = -1;
+#if HASHTABLE_STATS
 static int set_log_fd VTV_PROTECTED_VAR = -1;
+#endif
 
 /* types needed by insert_only_hash_sets */
 typedef uintptr_t int_vptr;
@@ -532,7 +534,7 @@ vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
 /* Open error logging file, if not already open, and write vtable verification
    failure messages to the log file.  */
 static void
-log_error_message (char *log_msg, bool generate_backtrace)
+log_error_message (const char *log_msg, bool generate_backtrace)
 {
   static int fd = -1;
 
