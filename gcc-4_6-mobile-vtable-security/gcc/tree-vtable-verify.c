@@ -478,14 +478,6 @@ verify_bb_vtables (basic_block bb)
   gimple_stmt_iterator gsi_virtual_call;
   tree this_object;
 
-  /* If we are in the global 'main' function, the very first thing
-     we need to do in the very first BB is to tell the __VerifyVtablePointer
-     function to actually start verification (it does not do verification
-     before 'main', during library and constructor initialization, because
-     the necessary verification data structures may not be complete then).
-     The assumption is that no hacker will be able to attack the program before
-    'main'... */
-
   /* Search the basic block to see if it contains a virtual method
      call, i.e. a call with the tree code OBJ_TYPE_REF  */
 

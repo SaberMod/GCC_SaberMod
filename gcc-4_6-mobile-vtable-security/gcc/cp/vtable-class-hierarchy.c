@@ -68,12 +68,6 @@ static struct vtv_graph_node *
                   find_and_remove_next_leaf_node (struct work_node **worklist);
 static bool vtv_register_class_hierarchy_information (tree register_pairs_body);
 
-/* TODO: remove this. */
-#if 0
-static void vtv_create_unprotect_function            (void);
-static void vtv_create_protect_function              (void);
-#endif
-
 static void update_class_hierarchy_information (tree, tree);
 struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
 
@@ -685,8 +679,39 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
   return ret_val;
 }
 
+/* Generate an undefined variable (a reference) to a varible defined in the
+   vtv_init libraty. In that way, if the a module is not linked with the
+   vtv_init library, the linker will generate an undefined symbol error.
+   Which is much better that getting a segmentation violation at runtime */
+static void
+create_undef_reference_to_vtv_init(tree register_pairs_body)
+{
+  const char * vtv_init_undef_var = "__vtv_defined_in_vtv_init_lib";
+  tree var_decl;
+
+  var_decl  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+                          get_identifier(vtv_init_undef_var), 
+                          uint32_type_node);
+  TREE_PUBLIC (var_decl) = 1;
+  DECL_EXTERNAL (var_decl) = 1;
+  TREE_STATIC (var_decl) = 1;
+  SET_DECL_ASSEMBLER_NAME (var_decl, get_identifier(vtv_init_undef_var));
+  DECL_ARTIFICIAL (var_decl) = 1;
+  TREE_READONLY (var_decl) = 0;
+  DECL_IGNORED_P (var_decl) = 1;
+  DECL_PRESERVE_P(var_decl) = 1;
+  varpool_finalize_decl (var_decl);
+
+  /* Store a value in the undefined variable to force the creation of a 
+     a reference */
+  tree init_zero = build2(MODIFY_EXPR, TREE_TYPE(var_decl), var_decl, 
+                          integer_zero_node);
+  append_to_statement_list (init_zero, &register_pairs_body);
+
+}
+
 /* Generate the special constructor function that calls
-   __VLTChangePermission and __VLTRegisterPairs, and give it a very high initialization 
+   __VLTChangePermission and __VLTRegisterPairs, and give it a very high initialization
    priority.  */
 
 void
@@ -728,6 +753,9 @@ vtv_generate_init_routine(const char * filename)
 
   if (vtable_classes_found)
     {
+      if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
+        create_undef_reference_to_vtv_init(register_pairs_body);
+
       current_function_decl =
           finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, register_pairs_body);
       allocate_struct_function (current_function_decl, false);
@@ -739,13 +767,9 @@ vtv_generate_init_routine(const char * filename)
         DECL_STATIC_CONSTRUCTOR (current_function_decl) = 0;
         assemble_vtv_preinit_initializer (current_function_decl);
       }
+
       gimplify_function_tree (current_function_decl);
       cgraph_add_new_function (current_function_decl, false);
-
-      /*
-      vtv_create_unprotect_function();
-      vtv_create_protect_function();
-      */
 
       cgraph_process_new_functions ();
     }
