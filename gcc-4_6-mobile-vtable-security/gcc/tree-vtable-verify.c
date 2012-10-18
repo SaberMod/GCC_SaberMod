@@ -569,6 +569,7 @@ verify_bb_vtables (basic_block bb)
                   if (def_stmt
                       && is_vtable_assignment_stmt (def_stmt))
                     {
+
                       gsi_vtbl_assign = gsi_virtual_call;
                       for (; !gsi_end_p (gsi_vtbl_assign) && !found;
                            gsi_prev (&gsi_vtbl_assign))
@@ -633,7 +634,6 @@ verify_bb_vtables (basic_block bb)
                           else
                             rhs = NULL_TREE;
 
-			  
 			  /* Make sure we found a valid type...*/
                           if (rhs
                               && TREE_CODE (rhs) == RECORD_TYPE
