@@ -1,3 +1,4 @@
+
 2012-10-17  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (log_error_message):  Add ability
@@ -9,7 +10,16 @@
 	log_error_message; changed call to log_backtract into call to
 	log_error_message with true.
 	(__vtv_verify_fail): Ditto.
-	
+
+2012-10-16  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c:
+	Fixed lines longer than 80 chars.
+	* libstdc++-v3/libsupc++/vtv_init.cc:
+	Fixed lines longer than 80 chars
+	* libstdc++-v3/libsupc++/vtv_rts.cc:
+	Fixed lines longer than 80 chars
+
 2012-10-09  Luis Lozano  <llozano@google.com>
 
 	* vtable-class-hierarchy.c (create_undef_reference_to_vtv_init):
