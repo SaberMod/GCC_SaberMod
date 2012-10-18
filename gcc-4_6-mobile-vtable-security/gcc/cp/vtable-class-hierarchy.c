@@ -688,6 +688,7 @@ create_undef_reference_to_vtv_init(tree register_pairs_body)
 {
   const char * vtv_init_undef_var = "__vtv_defined_in_vtv_init_lib";
   tree var_decl;
+  tree init_zero;
 
   var_decl  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
                           get_identifier(vtv_init_undef_var), 
@@ -704,7 +705,7 @@ create_undef_reference_to_vtv_init(tree register_pairs_body)
 
   /* Store a value in the undefined variable to force the creation of a 
      a reference */
-  tree init_zero = build2(MODIFY_EXPR, TREE_TYPE(var_decl), var_decl, 
+  init_zero = build2(MODIFY_EXPR, TREE_TYPE(var_decl), var_decl, 
                           integer_zero_node);
   append_to_statement_list (init_zero, &register_pairs_body);
 
