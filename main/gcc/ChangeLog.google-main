@@ -1,3 +1,10 @@
+2012-10-19  Teresa Johnson  <tejohnson@google.com>
+
+	* ree.c (add_removable_extension): Remove unnecessary
+        mode check with other extension.
+	* testsuite/gcc.c-torture/execute/20111227-2.c: New test.
+	* testsuite/gcc.c-torture/execute/20111227-3.c: Ditto.
+
 2012-10-16   DeLesley Hutchins  <delesley@google.com>
 
 	common.opt:
