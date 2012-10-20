@@ -1,3 +1,10 @@
+2012-10-20   Xinliang David Li  <davidxl@google.com>
+
+	Port r192639 from google-4_7 branch
+
+	* dwarf2out.c: change functdef etc to be long time.
+	* function.h: Make FUNC_LABEL_ID 64 bit if possible.
+
 2012-10-19  Teresa Johnson  <tejohnson@google.com>
 
 	* ree.c (add_removable_extension): Remove unnecessary
