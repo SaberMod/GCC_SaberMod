@@ -1,3 +1,30 @@
+2012-10-16  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-08-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/53701
+	* gcc.dg/pr53701.c: New test.
+
+2012-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/avx256-unaligned-load-1.c: Update asm scan patterns.
+	* gcc.target/i386/avx256-unaligned-load-2.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-load-3.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-load-4.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-1.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-2.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-3.c: Ditto.
+	* gcc.target/i386/avx256-unaligned-store-4.c: Ditto.
+
+2012-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/54920
+	* gcc.dg/torture/pr54920.c: New testcase.
+
 2012-10-14  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/54784

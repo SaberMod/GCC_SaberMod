@@ -1,3 +1,112 @@
+2012-10-19  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac (HAVE_LD_NO_DOT_SYMS): Set if using gold.
+	(HAVE_LD_LARGE_TOC): Likewise.
+	* configure: Regenerate.
+
+2012-10-19  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/predicates.md (splat_input_operand): Don't call
+	input_operand for MEMs.  Instead check for volatile and call
+	memory_address_addr_space_p with modified mode.
+
+2012-10-17  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	Backported from mainline
+	2012-07-23  Ulrich Weigand  <ulrich.weigand@linaro.org>
+
+	* config/arm/arm.c (arm_reorg): Ensure all insns are split.
+
+2012-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/54870
+	* tree.h (TREE_ADDRESSABLE): Document special usage on SSA_NAME.
+	* cfgexpand.c (update_alias_info_with_stack_vars ): Set it on the
+	SSA_NAME pointer that points to a partition if there is at least
+	one variable with it set in the partition.
+	* dse.c (local_variable_can_escape): New predicate.
+	(can_escape): Call it.
+	* gimplify.c (mark_addressable): If this is a partitioned decl, also
+	mark the SSA_NAME pointer that points to a partition.
+
+2012-10-16  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-08-09  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/53701
+	* sel-sched.c (vinsn_vec_has_expr_p): Clarify function comment.
+	rocess not only expr's vinsns but all old vinsns from expr's
+	istory of changes.
+
+2012-10-16  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-07-31  Andrey Belevantsev  <abel@ispras.ru>
+	PR target/53975
+
+	* sel-sched-ir.c (has_dependence_note_reg_use): Clarify comment.
+	Revert
+	2011-08-04  Sergey Grechanik  <mouseentity@ispras.ru>
+	* sel-sched-ir.c (has_dependence_note_reg_use): Call ds_full_merge
+	only if producer writes to the register given by regno. 
+
+2012-09-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-10-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (UNSPEC_MOVU): Remove.
+	(UNSPEC_LOADU): New.
+	(UNSPEC_STOREU): Ditto.
+	(<sse>_movu<ssemodesuffix><avxsizesuffix>): Split to ...
+	(<sse>_loadu<ssemodesuffix><avxsizesuffix>): ... this and ...
+	(<sse>_storeu<ssemodesuffix><avxsizesuffix>) ... this.
+	(<sse2>_movdqu<avxsizesuffix>): Split to ...
+	(<sse2>_loaddqu<avxsizesuffix>): ... this and ...
+	(<sse2>_storedqu<avxsizesuffix>): ... this.
+	(*sse4_2_pcmpestr_unaligned): Update.
+	(*sse4_2_pcmpistr_unaligned): Ditto.
+
+	* config/i386/i386.c (ix86_avx256_split_vector_move_misalign): Use
+	gen_avx_load{dqu,ups,upd}256 to load from unaligned memory and
+	gen_avx_store{dqu,ups,upd}256 to store to unaligned memory.
+	(ix86_expand_vector_move_misalign): Use gen_sse_loadups or
+	gen_sse2_load{dqu,upd} to load from unaligned memory and
+	gen_sse_loadups or gen_sse2_store{dqu,upd}256 to store to
+	unaligned memory.
+	(struct builtin_description bdesc_spec) <IX86_BUILTIN_LOADUPS>:
+	Use CODE_FOR_sse_loadups.
+	<IX86_BUILTIN_LOADUPD>: Use CODE_FOR_sse2_loadupd.
+	<IX86_BUILTIN_LOADDQU>: Use CODE_FOR_sse2_loaddqu.
+	<IX86_BUILTIN_STOREUPS>: Use CODE_FOR_sse_storeups.
+	<IX86_BUILTIN_STOREUPD>: Use CODE_FOR_sse2_storeupd.
+	<IX86_BUILTIN_STOREDQU>: Use CODE_FOR_sse2_storedqu.
+	<IX86_BUILTIN_LOADUPS256>: Use CODE_FOR_avx_loadups256.
+	<IX86_BUILTIN_LOADUPD256>: Use CODE_FOR_avx_loadupd256.
+	<IX86_BUILTIN_LOADDQU256>: Use CODE_FOR_avx_loaddqu256.
+	<IX86_BUILTIN_STOREUPS256>: Use CODE_FOR_avx_storeups256.
+	<IX86_BUILTIN_STOREUPD256>: Use CODE_FOR_avx_storeupd256.
+	<IX86_BUILTIN_STOREDQU256>: Use CODE_FOR_avx_storedqu256.
+
+2012-10-15  Steven Bosscher  <steven@gcc.gnu.org>
+
+	Backport from trunk (r190222):
+
+	PR tree-optimization/54146
+	* ifcvt.c: Include pointer-set.h.
+	(cond_move_process_if_block): Change type of then_regs and
+	else_regs from alloca'd array to pointer_sets.
+	(check_cond_move_block): Update for this change.
+	(cond_move_convert_if_block): Likewise.
+	* Makefile.in: Fix dependencies for ifcvt.o.
+
+2012-10-15  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/54920
+	* tree-ssa-pre.c (create_expression_by_pieces): Properly
+	allocate temporary storage for all NARY elements.
+
 2012-10-08  Georg-Johann Lay  <avr@gjlay.de>
 
 	PR target/54854
@@ -7,7 +116,7 @@
 
 	* config.gcc (*-*-openbsd4.[3-9]|*-*-openbsd[5-9]*): Set
 	default_use_cxa_atexit to yes.
-		
+
 2012-10-05  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	* config/pa/pa.md: Adjust unamed HImode add insn pattern.
@@ -24,7 +133,7 @@
 	Backported from mainline
 	2012-10-03  Andrew W. Nosenko <andrew.w.nosenko@gmail.com>
 
-	*  config/i386/driver-i386.c (host_detect_local_cpu): Fix logic
+	* config/i386/driver-i386.c (host_detect_local_cpu): Fix logic
 	in SSE and YMM state support check for -march=native.
 
 2012-10-03  Alexandre Oliva <aoliva@redhat.com>
@@ -89,8 +198,7 @@
 
 	PR target/54703
 	* simplify-rtx.c (simplify_binary_operation_1): Perform
-	(x - (x & y)) -> (x & ~y) optimization only for integral
-	modes.
+	(x - (x & y)) -> (x & ~y) optimization only for integral modes.
 
 2012-09-24  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -168,12 +276,12 @@
 	Backport from mainline
 	2012-09-07  Andi Kleen  <ak@linux.intel.com>
 
-  	* gcc/lto-streamer.h (res_pair): Add.
-    	(lto_file_decl_data): Replace resolutions with respairs.
-    	Add max_index.
-    	* gcc/lto/lto.c (lto_resolution_read): Remove max_index.  Add rp.
-    	Initialize respairs.
-    	(lto_file_finalize): Set up resolutions vector lazily from respairs.
+	* gcc/lto-streamer.h (res_pair): Add.
+	(lto_file_decl_data): Replace resolutions with respairs.
+	Add max_index.
+	* gcc/lto/lto.c (lto_resolution_read): Remove max_index.  Add rp.
+	Initialize respairs.
+	(lto_file_finalize): Set up resolutions vector lazily from respairs.
 
 2012-09-14  Walter Lee  <walt@tilera.com>
 
@@ -239,7 +347,7 @@
 
 2012-09-12  Christian Bruel  <christian.bruel@st.com>
 
-       * config/sh/newlib.h (NO_IMPLICIT_EXTERN_C): Define.
+	* config/sh/newlib.h (NO_IMPLICIT_EXTERN_C): Define.
 
 2012-09-12  Jakub Jelinek  <jakub@redhat.com>
 
