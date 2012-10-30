@@ -1,3 +1,5 @@
+#define VTV_DEBUG 1
+
 /* Interprocedural constant propagation
    Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
    Free Software Foundation, Inc.
@@ -705,13 +707,13 @@ verify_bb_vtables (basic_block bb)
 						 vtbl_var_decl),
 				      SSA_NAME_VAR (lhs),
 				      build_string_literal
-				                  (len1,
+				                  (len1 + 1,
 						   IDENTIFIER_POINTER
 						       (DECL_NAME
 							    (vtbl_var_decl))),
 				      build_int_cst (integer_type_node,
 						     len1),
-				      build_string_literal (len2, vtable_name),
+				      build_string_literal (len2 + 1, vtable_name),
 				      build_int_cst (integer_type_node,
 						     len2));
 #else

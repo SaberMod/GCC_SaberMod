@@ -1,3 +1,6 @@
+
+#define VTV_DEBUG 1
+
 /* Copyright (C) 2012  Free Software Foundation, Inc.
 
    This file is part of GCC.
@@ -340,12 +343,12 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 					     (base_class_decl_arg, 0))));
                   int len2 = strlen (IDENTIFIER_POINTER
 				     (DECL_NAME (val_vtbl_decl)));
-                  arg1 = build_string_literal (len1,
+                  arg1 = build_string_literal (len1 + 1,
                                                IDENTIFIER_POINTER
 					        (DECL_NAME
 						 (TREE_OPERAND
 						  (base_class_decl_arg, 0))));
-                  arg2 = build_string_literal (len2,
+                  arg2 = build_string_literal (len2 + 1,
                                                IDENTIFIER_POINTER
 					        (DECL_NAME (val_vtbl_decl)));
 
@@ -517,11 +520,11 @@ register_all_pairs (tree body)
                   int len1  = IDENTIFIER_LENGTH
                                                (DECL_NAME (base_ptr_var_decl));
                   int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
-                  tree str1 = build_string_literal (len1,
+                  tree str1 = build_string_literal (len1 + 1, 
                                                     IDENTIFIER_POINTER
                                                     (DECL_NAME
                                                      (base_ptr_var_decl)));
-                  tree str2 = build_string_literal (len2,
+                  tree str2 = build_string_literal (len2 + 1,
                                                     IDENTIFIER_POINTER
                                                     (DECL_NAME (vtable_decl)));
 
