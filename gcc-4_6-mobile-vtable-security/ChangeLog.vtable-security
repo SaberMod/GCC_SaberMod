@@ -1,3 +1,8 @@
+2012-10-29  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Fixed issue with
+	string constants passed to runtime rutines
+	* gcc/tree-vtable-verify.c (verify_bb_vtables): ditto
 
 2012-10-17  Caroline Tice  <cmtice@google.com>
 
