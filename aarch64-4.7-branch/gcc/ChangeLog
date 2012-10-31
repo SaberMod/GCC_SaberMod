@@ -1,3 +1,91 @@
+2012-10-26  Gunther Nikl  <gnikl@users.sourceforge.net>
+
+	* common/config/m68k/m68k-common.c (m68k_handle_option): Set
+	gcc_options fields of opts_set for -m68020-40 and -m68020-60.
+
+2012-10-26  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/avr/t-rtems: Revert previous commit.
+
+2012-10-26  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2012-10-23  Terry Guo  <terry.guo@arm.com>
+
+	PR target/55019
+	* config/arm/arm.c (thumb1_expand_prologue): Don't push high regs with
+	live argument regs.
+
+2012-10-26  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/avr/rtems.h (TARGET_OS_CPP_BUILTINS): Remove
+	__USE_INIT_FINI__.
+	* config/avr/t-rtems (LIB1ASMFUNCS): Filter out _exit.
+
+2012-10-25  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config.gcc (microblaze*-*-rtems*): New target.
+	* config/microblaze/rtems.h: New.
+	* config/microblaze/t-rtems: New.
+
+2012-10-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54902
+	* tree-ssa-pre.c (fini_pre): Return TODO.
+	(execute_pre): Adjust.
+	* tree-ssa-tailmerge.c (tail_merge_optimize): Delete unreachable
+	blocks before computing dominators.
+
+2012-10-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (memory_address_length): Assert that non-null
+	base or index RTXes are registers.  Do not check for REG RTXes.
+	Determine addr32 prefix using SImode_address_operand or
+	from original base and index RTXes.  Simplify code.
+
+	2012-10-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386-protos.h (memory_address_length): Add new bool
+	argument.  Update all uses.
+	* config/i386/i386.c (memory_address_length): If not LEA insn, then
+	add length of addr32 prefix based on mode of base or index register.
+	(ix86_attr_length_address_default) <TYPE_LEA>: Do not handle SImode
+	addresses here.  Update call to memory_address_length.
+	(ix86_print_address_operand): Use SImode_address_operand predicate.
+	* config/i386/predicates.md (SImode_address_operand): New.
+	* config/i386/i386.md (lea<mode>): Use SImode_address_operand
+	to calculate "mode" attribute.  Use SImode_address_operand predicate
+	instead of open-coding accepted RTX codes.
+
+2012-10-22  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2012-10-22 trunk r192685.
+	* doc/invoke.texi (AVR Options): Document __AVR_ARCH__.
+	Note __AVR_<device>__ is not defined for cores.
+	Don't point to --help=target.
+	Order --mcu= documentation according to trunk:/gcc/doc/avr-mmcu.texi.
+
+2012-10-19  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2012-10-19  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/54945
+	* fold-const.c (fold_sign_changed_comparison):  Punt if folding
+	pointer/non-pointer comparison.
+
+2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	Backported from mainline
+	2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	PR target/54892
+	* config/arm/arm.c (arm_expand_compare_and_swap): Use SImode to make
+	sure the mode is correct when falling through from above cases.
+
 2012-10-19  Alan Modra  <amodra@gmail.com>
 
 	* configure.ac (HAVE_LD_NO_DOT_SYMS): Set if using gold.
@@ -49,7 +137,7 @@
 	Revert
 	2011-08-04  Sergey Grechanik  <mouseentity@ispras.ru>
 	* sel-sched-ir.c (has_dependence_note_reg_use): Call ds_full_merge
-	only if producer writes to the register given by regno. 
+	only if producer writes to the register given by regno.
 
 2012-09-15  Uros Bizjak  <ubizjak@gmail.com>
 

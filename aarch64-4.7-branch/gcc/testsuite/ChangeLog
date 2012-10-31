@@ -1,3 +1,39 @@
+2012-10-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54984
+	* g++.dg/template/new11.C: New.
+
+2012-10-26  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline
+	2012-10-23  Terry Guo  <terry.guo@arm.com>
+
+	PR target/55019
+	* gcc.dg/pr55019.c: New.
+
+2012-10-25  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54902
+	* g++.dg/torture/pr54902.C: New testcase.
+
+2012-10-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/modular4.adb: New test.
+	* gnat.dg/modular4_pkg.ads: New helper.
+
+2012-10-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/atomic1.ads: XFAIL on MIPS.
+	* gnat.dg/specs/addr1.ads: Likewise.
+
+2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	Backport from mainline
+	2012-10-19  Zhenqiang Chen <zhenqiang.chen@linaro.org>
+
+	PR target/54892
+	* gcc.target/arm/pr54892.c: New.
+
 2012-10-16  Andrey Belevantsev  <abel@ispras.ru>
 
 	Backport from mainline
