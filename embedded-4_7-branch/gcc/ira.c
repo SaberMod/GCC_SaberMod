@@ -3578,7 +3578,7 @@ ira (FILE *f)
   current_function_is_leaf = leaf_function_p ();
 
   if (resize_reg_info () && flag_ira_loop_pressure)
-    ira_set_pseudo_classes (ira_dump_file);
+    ira_set_pseudo_classes (true, ira_dump_file);
 
   rebuild_p = update_equiv_regs ();
 

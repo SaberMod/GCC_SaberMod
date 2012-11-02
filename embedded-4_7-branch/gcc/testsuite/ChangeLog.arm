@@ -1,3 +1,10 @@
+2012-11-02  Bin Cheng  <bin.cheng@arm.com>
+
+	Backport r192604 from mainline
+	2012-10-19  Bin Cheng  <bin.cheng@arm.com>
+
+	* testsuite/gcc.dg/hoist-register-pressure.c: New test.
+
 2012-09-25  Terry Guo  <terry.guo@arm.com>
 
 	Backport r191783 from mainline
