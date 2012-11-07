@@ -1,5 +1,10 @@
 2012-11-07  Yufeng Zhang  <yufeng.zhang@arm.com>
 
+	* config/aarch64/aarch64.c (aarch64_expand_prologue): add the missing
+	argument 'Pmode' to the 'plus_constant' call.
+
+2012-11-07  Yufeng Zhang  <yufeng.zhang@arm.com>
+
 	* config/aarch64/aarch64.c (aarch64_expand_prologue): For the
 	load-pair with writeback instruction, replace
 	aarch64_set_frame_expr with add_reg_note (REG_CFA_ADJUST_CFA);
