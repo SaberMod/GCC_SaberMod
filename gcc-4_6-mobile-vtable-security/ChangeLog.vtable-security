@@ -1,7 +1,17 @@
+2012-11-13  Caroline Tice  <cmtice@google.com>
+
+	* gcc/tree-vtable-verify.c (is_vtable_assignment_stmt):  Remove
+	unnecessary loop and test from end of function.
+	(verify_bb_vtables):  Add prev_use; improve comments; clean up code
+	in loop that searches back through def chain.  Add code to look for
+	insertion point the the same basic block as the def stmt.  Clean up the
+	code that looks for the statically declared type of the object.  Change
+	some conditionals to assert statements.  Replace tabs with spaces.
+
 2012-10-29  Luis Lozano  <llozano@google.com>
 
-	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Fixed issue with
-	string constants passed to runtime rutines
+	* gcc/cp/vtable-class-hierarchy.c (register_vptr_fields): Fixed issue
+	with string constants passed to runtime rutines
 	* gcc/tree-vtable-verify.c (verify_bb_vtables): ditto
 
 2012-10-17  Caroline Tice  <cmtice@google.com>
