@@ -1,3 +1,23 @@
+2012-11-13  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2012-11-12  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/csinc-2.c: New test.
+
+2012-11-13  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2012-11-12  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/cmn.c: New test.
+	* gcc.target/aarch64/adds.c: New test.
+	* gcc.target/aarch64/subs.c: New test.
+
+2012-11-07  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/aarch64/dwarf-cfa-reg.c: New test.
+
 2011-10-16  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* gcc.target/aarch64/vector_intrinsics.c: Update tests to reflect
