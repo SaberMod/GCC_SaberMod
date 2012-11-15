@@ -1,3 +1,7 @@
+2012-11-15  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+	* soft-fp: Updated from glibc upstream.
+
 2012-09-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/sfp-machine.h (FP_EX_INVALID, FP_EX_DIVZERO)

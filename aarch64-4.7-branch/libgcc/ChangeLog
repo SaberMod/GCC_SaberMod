@@ -1,7 +1,3 @@
-2012-11-15  Marcus Shawcroft <marcus.shawcroft@arm.com>
-
-	* soft-fp: Updated from glibc upstream.
-
 2012-11-04  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/55175
