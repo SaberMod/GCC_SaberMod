@@ -1,3 +1,7 @@
+2012-11-21  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* Makefile.in (gengtype-lex.o): Add dependency on $(BCONFIG_H).
+
 2012-11-13  Ian Bolton  <ian.bolton@arm.com>
 
 	Backport from mainline
