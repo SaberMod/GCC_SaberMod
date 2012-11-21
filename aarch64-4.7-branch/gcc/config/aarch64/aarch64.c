@@ -2286,7 +2286,7 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
 	{
 	  if (delta >= -256 && delta < 256)
 	    addr = gen_rtx_PRE_MODIFY (Pmode, this_rtx,
-				       plus_constant (Pmode, this_rtx, delta));
+				       plus_constant (this_rtx, delta));
 	  else
 	    aarch64_add_constant (file, this_regno, IP1_REGNUM, delta);
 	}
@@ -2294,7 +2294,7 @@ aarch64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
       aarch64_emit_move (temp0, gen_rtx_MEM (Pmode, addr));
 
       if (vcall_offset >= -256 && vcall_offset < 32768)
-	  addr = plus_constant (Pmode, temp0, vcall_offset);
+	  addr = plus_constant (temp0, vcall_offset);
       else
 	{
 	  aarch64_build_constant (file, IP1_REGNUM, vcall_offset);
