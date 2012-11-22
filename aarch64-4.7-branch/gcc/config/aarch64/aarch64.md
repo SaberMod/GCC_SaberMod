@@ -2308,6 +2308,15 @@
    (set_attr "mode" "<MODE>")]
 )
 
+(define_insn "bswaphi2"
+  [(set (match_operand:HI 0 "register_operand" "=r")
+        (bswap:HI (match_operand:HI 1 "register_operand" "r")))]
+  ""
+  "rev16\\t%w0, %w1"
+  [(set_attr "v8type" "rev")
+   (set_attr "mode" "HI")]
+)
+
 ;; -------------------------------------------------------------------
 ;; Floating-point intrinsics
 ;; -------------------------------------------------------------------
