@@ -1,3 +1,7 @@
+2012-11-22  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* doc/md.texi (AArch64 family): Remove Utf.
+
 2012-11-22  Ian Bolton  <ian.bolton@arm.com>
 
 	Backport from mainline
