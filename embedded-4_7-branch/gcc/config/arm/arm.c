@@ -881,7 +881,8 @@ const struct tune_params arm_slowmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -893,7 +894,8 @@ const struct tune_params arm_fastmul_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -908,7 +910,8 @@ const struct tune_params arm_strongarm_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -920,7 +923,8 @@ const struct tune_params arm_xscale_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -932,7 +936,8 @@ const struct tune_params arm_9e_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -944,7 +949,8 @@ const struct tune_params arm_v6t2_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,					/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -957,7 +963,8 @@ const struct tune_params arm_cortex_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,					/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -972,7 +979,8 @@ const struct tune_params arm_cortex_a5_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   false,					/* Prefer constant pool.  */
   arm_cortex_a5_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {false, false},				/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -984,7 +992,8 @@ const struct tune_params arm_cortex_a9_tune =
   ARM_PREFETCH_BENEFICIAL(4,32,32),
   false,					/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -992,12 +1001,13 @@ const struct tune_params arm_cortex_v7m_tune =
 {
   arm_9e_rtx_costs,
   NULL,
-  1,                                           /* Constant limit.  */
+  1,						/* Constant limit.  */
   5,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
-  false,                                       /* Prefer constant pool.  */
+  false,					/* Prefer constant pool.  */
   arm_cortex_v7m_branch_cost,
-  arm_cortex_m_unroll_times
+  arm_cortex_m_unroll_times,
+  {false, false},				/* Prefer non short circuit.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1005,12 +1015,13 @@ const struct tune_params arm_cortex_v6m_tune =
 {
   arm_9e_rtx_costs,
   NULL,
-  1,                                           /* Constant limit.  */
+  1,						/* Constant limit.  */
   5,						/* Max cond insns.  */
   ARM_PREFETCH_NOT_BENEFICIAL,
-  false,                                       /* Prefer constant pool.  */
+  false,					/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_cortex_m_unroll_times
+  arm_cortex_m_unroll_times,
+  {false, false},				/* Prefer non short circuit.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -1022,7 +1033,8 @@ const struct tune_params arm_fa726te_tune =
   ARM_PREFETCH_NOT_BENEFICIAL,
   true,						/* Prefer constant pool.  */
   arm_default_branch_cost,
-  arm_default_unroll_times
+  arm_default_unroll_times,
+  {true, true},					/* Prefer non short circuit.  */
 };
 
 
