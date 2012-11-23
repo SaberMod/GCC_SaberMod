@@ -1,5 +1,13 @@
 2012-11-23  Bin Cheng  <bin.cheng@arm.com>
 
+	Backport from mainline r191457
+	2012-09-19  Bin Cheng  <bin.cheng@arm.com>
+
+	* fold-const.c (fold_truth_andor): Remove duplicated check on
+	BRANCH_COST.
+
+2012-11-23  Bin Cheng  <bin.cheng@arm.com>
+
 	Backport from mainline r193687
 	2012-11-21  Bin Cheng  <bin.cheng@arm.com>
 
