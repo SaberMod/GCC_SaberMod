@@ -1,3 +1,63 @@
+2012-11-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/55446
+	* g++.dg/init/new41.C: New.
+
+2012-11-24  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/55314
+	Backport from trunk
+	* gfortran.dg/allocate_error_4.f90:  New test.
+
+2012-11-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55352
+	* gfortran.dg/namelist_76.f90: New.
+
+2012-11-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backported from mainline
+	2012-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/55142
+	* gcc.target/i386/pr55142-1.c: New file.
+	* gcc.target/i386/pr55142-2.c: Likewise.
+
+2012-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/stack_check3.ad[sb]: New test.
+
+2012-11-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/compile/20121107-1.c: New test.
+
+2012-11-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54917
+	* gfortran.dg/transfer_class_1.f90: New.
+
+2012-11-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* g++.dg/torture/20121105-1.C: New test.
+
+2012-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2012-10-24  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54828
+	* g++.dg/debug/pr54828.C: New test.
+
+	2012-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54988
+	* c-c++-common/pr54988.c: New test.
+
+	2012-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/54877
+	* gcc.dg/torture/pr54877.c: New test.
+
 2012-11-02  Jeff Law  <law@redhat.com>
 
 	* gcc.c-torture/execute/pr54985.c: New test.
