@@ -177,29 +177,29 @@ package body Ada.Calendar is
    --  UTC, it must be increased to include all leap seconds.
 
    Ada_High_And_Leaps : constant Time_Rep :=
-                          Ada_High + Time_Rep (Leap_Seconds_Count) * Nano;
+     Ada_High + Time_Rep (Leap_Seconds_Count) * Nano;
 
    --  Two constants used in the calculations of elapsed leap seconds.
    --  End_Of_Time is later than Ada_High in time zone -28. Start_Of_Time
    --  is earlier than Ada_Low in time zone +28.
 
    End_Of_Time   : constant Time_Rep :=
-                     Ada_High + Time_Rep (3) * Nanos_In_Day;
+     Ada_High + Time_Rep (3) * Nanos_In_Day;
    Start_Of_Time : constant Time_Rep :=
-                     Ada_Low - Time_Rep (3) * Nanos_In_Day;
+     Ada_Low - Time_Rep (3) * Nanos_In_Day;
 
    --  The Unix lower time bound expressed as nanoseconds since the start of
    --  Ada time in UTC.
 
    Unix_Min : constant Time_Rep :=
-                Ada_Low + Time_Rep (17 * 366 + 52 * 365) * Nanos_In_Day;
+     Ada_Low + Time_Rep (17 * 366 + 52 * 365) * Nanos_In_Day;
 
    --  The Unix upper time bound expressed as nanoseconds since the start of
    --  Ada time in UTC.
 
    Unix_Max : constant Time_Rep :=
-                Ada_Low + Time_Rep (34 * 366 + 102 * 365) * Nanos_In_Day +
-                          Time_Rep (Leap_Seconds_Count) * Nano;
+     Ada_Low + Time_Rep (34 * 366 + 102 * 365) * Nanos_In_Day +
+     Time_Rep (Leap_Seconds_Count) * Nano;
 
    Epoch_Offset : constant Time_Rep := (136 * 365 + 44 * 366) * Nanos_In_Day;
    --  The difference between 2150-1-1 UTC and 1970-1-1 UTC expressed in
@@ -367,7 +367,7 @@ package body Ada.Calendar is
       --  by adding the number of nanoseconds between the two origins.
 
       Res_N : Time_Rep :=
-                Duration_To_Time_Rep (System.OS_Primitives.Clock) + Unix_Min;
+        Duration_To_Time_Rep (System.OS_Primitives.Clock) + Unix_Min;
 
    begin
       --  If the target supports leap seconds, determine the number of leap
@@ -579,18 +579,19 @@ package body Ada.Calendar is
       --  ensure that Split picks up the local time zone.
 
       Formatting_Operations.Split
-        (Date      => Date,
-         Year      => Year,
-         Month     => Month,
-         Day       => Day,
-         Day_Secs  => Seconds,
-         Hour      => H,
-         Minute    => M,
-         Second    => Se,
-         Sub_Sec   => Ss,
-         Leap_Sec  => Le,
-         Use_TZ    => False,
-         Time_Zone => 0);
+        (Date        => Date,
+         Year        => Year,
+         Month       => Month,
+         Day         => Day,
+         Day_Secs    => Seconds,
+         Hour        => H,
+         Minute      => M,
+         Second      => Se,
+         Sub_Sec     => Ss,
+         Leap_Sec    => Le,
+         Use_TZ      => False,
+         Is_Historic => True,
+         Time_Zone   => 0);
 
       --  Validity checks
 
@@ -649,6 +650,7 @@ package body Ada.Calendar is
            Leap_Sec     => False,
            Use_Day_Secs => True,
            Use_TZ       => False,
+           Is_Historic  => True,
            Time_Zone    => 0);
    end Time_Of;
 
@@ -977,6 +979,7 @@ package body Ada.Calendar is
                 Leap_Sec     => Leap,
                 Use_Day_Secs => False,    --  Time is given in h:m:s
                 Use_TZ       => True,     --  Force usage of explicit time zone
+                Is_Historic  => True,
                 Time_Zone    => 0));      --  Place the value in UTC
 
          --  Step 4: Daylight Savings Time
@@ -1055,8 +1058,19 @@ package body Ada.Calendar is
          --  Step 1: Split the input time
 
          Formatting_Operations.Split
-           (T, Year, Month, tm_day, Day_Secs,
-            tm_hour, tm_min, Second, Sub_Sec, Leap_Sec, True, 0);
+           (Date        => T,
+            Year        => Year,
+            Month       => Month,
+            Day         => tm_day,
+            Day_Secs    => Day_Secs,
+            Hour        => tm_hour,
+            Minute      => tm_min,
+            Second      => Second,
+            Sub_Sec     => Sub_Sec,
+            Leap_Sec    => Leap_Sec,
+            Use_TZ      => True,
+            Is_Historic => False,
+            Time_Zone   => 0);
 
          --  Step 2: Correct the year and month
 
@@ -1154,12 +1168,8 @@ package body Ada.Calendar is
       -----------------
 
       function Day_Of_Week (Date : Time) return Integer is
-         Date_N : constant Time_Rep := Time_Rep (Date);
-
-         Time_Zone : constant Long_Integer := UTC_Time_Offset (Date, False);
-         --  Keep the internal usage of UTC_Time_Offset consistent with Time_Of
-         --  and Split.
-
+         Date_N    : constant Time_Rep := Time_Rep (Date);
+         Time_Zone : constant Long_Integer := UTC_Time_Offset (Date, True);
          Ada_Low_N : Time_Rep;
          Day_Count : Long_Integer;
          Day_Dur   : Time_Dur;
@@ -1199,18 +1209,19 @@ package body Ada.Calendar is
       -----------
 
       procedure Split
-        (Date      : Time;
-         Year      : out Year_Number;
-         Month     : out Month_Number;
-         Day       : out Day_Number;
-         Day_Secs  : out Day_Duration;
-         Hour      : out Integer;
-         Minute    : out Integer;
-         Second    : out Integer;
-         Sub_Sec   : out Duration;
-         Leap_Sec  : out Boolean;
-         Use_TZ    : Boolean;
-         Time_Zone : Long_Integer)
+        (Date        : Time;
+         Year        : out Year_Number;
+         Month       : out Month_Number;
+         Day         : out Day_Number;
+         Day_Secs    : out Day_Duration;
+         Hour        : out Integer;
+         Minute      : out Integer;
+         Second      : out Integer;
+         Sub_Sec     : out Duration;
+         Leap_Sec    : out Boolean;
+         Use_TZ      : Boolean;
+         Is_Historic : Boolean;
+         Time_Zone   : Long_Integer)
       is
          --  The following constants represent the number of nanoseconds
          --  elapsed since the start of Ada time to and including the non
@@ -1272,7 +1283,7 @@ package body Ada.Calendar is
          else
             declare
                Off : constant Long_Integer :=
-                       UTC_Time_Offset (Time (Date_N), False);
+                 UTC_Time_Offset (Time (Date_N), Is_Historic);
 
             begin
                Date_N := Date_N + Time_Rep (Off) * Nano;
@@ -1388,10 +1399,11 @@ package body Ada.Calendar is
          Minute       : Integer;
          Second       : Integer;
          Sub_Sec      : Duration;
-         Leap_Sec     : Boolean := False;
-         Use_Day_Secs : Boolean := False;
-         Use_TZ       : Boolean := False;
-         Time_Zone    : Long_Integer := 0) return Time
+         Leap_Sec     : Boolean;
+         Use_Day_Secs : Boolean;
+         Use_TZ       : Boolean;
+         Is_Historic  : Boolean;
+         Time_Zone    : Long_Integer) return Time
       is
          Count         : Integer;
          Elapsed_Leaps : Natural;
@@ -1493,12 +1505,12 @@ package body Ada.Calendar is
 
          else
             declare
-               Current_Off   : constant Long_Integer :=
-                                 UTC_Time_Offset (Time (Res_N), False);
-               Current_Res_N : constant Time_Rep :=
-                                 Res_N - Time_Rep (Current_Off) * Nano;
-               Off           : constant Long_Integer :=
-                                 UTC_Time_Offset (Time (Current_Res_N), False);
+               Cur_Off   : constant Long_Integer :=
+                 UTC_Time_Offset (Time (Res_N), Is_Historic);
+               Cur_Res_N : constant Time_Rep :=
+                 Res_N - Time_Rep (Cur_Off) * Nano;
+               Off       : constant Long_Integer :=
+                 UTC_Time_Offset (Time (Cur_Res_N), Is_Historic);
 
             begin
                Res_N := Res_N - Time_Rep (Off) * Nano;

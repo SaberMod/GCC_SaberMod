@@ -74,7 +74,7 @@ namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus < 201103L
   // See http://gcc.gnu.org/ml/libstdc++/2004-08/msg00167.html: in a
   // nutshell, we are partially implementing the resolution of DR 187,
   // when it's safe, i.e., the value_types are equal.
@@ -125,7 +125,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_function_requires(_Mutable_ForwardIteratorConcept<
 				  _ForwardIterator2>)
 
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus < 201103L
       typedef typename iterator_traits<_ForwardIterator1>::value_type
 	_ValueType1;
       typedef typename iterator_traits<_ForwardIterator2>::value_type
@@ -308,7 +308,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Category>
     struct __copy_move<true, false, _Category>
     {
@@ -341,7 +341,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<>
     struct __copy_move<true, false, random_access_iterator_tag>
     {
@@ -461,7 +461,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       __result));
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief Moves the range [first,last) into result.
    *  @ingroup mutating_algorithms
@@ -511,7 +511,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Category>
     struct __copy_move_backward<true, false, _Category>
     {
@@ -540,7 +540,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<>
     struct __copy_move_backward<true, false, random_access_iterator_tag>
     {
@@ -632,7 +632,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	       __result));
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief Moves the range [first,last) into result.
    *  @ingroup mutating_algorithms
@@ -944,8 +944,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     lower_bound(_ForwardIterator __first, _ForwardIterator __last,
 		const _Tp& __val)
     {
+#ifdef _GLIBCXX_CONCEPT_CHECKS
       typedef typename iterator_traits<_ForwardIterator>::value_type
 	_ValueType;
+#endif
       typedef typename iterator_traits<_ForwardIterator>::difference_type
 	_DistanceType;
 
@@ -1083,9 +1085,11 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
     lexicographical_compare(_II1 __first1, _II1 __last1,
 			    _II2 __first2, _II2 __last2)
     {
+#ifdef _GLIBCXX_CONCEPT_CHECKS
       // concept requirements
       typedef typename iterator_traits<_II1>::value_type _ValueType1;
       typedef typename iterator_traits<_II2>::value_type _ValueType2;
+#endif
       __glibcxx_function_requires(_InputIteratorConcept<_II1>)
       __glibcxx_function_requires(_InputIteratorConcept<_II2>)
       __glibcxx_function_requires(_LessThanOpConcept<_ValueType1, _ValueType2>)

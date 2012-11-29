@@ -44,6 +44,7 @@ with Restrict; use Restrict;
 with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
+with Sem_Aux;  use Sem_Aux;
 with Sem_Eval; use Sem_Eval;
 with Sem_Res;  use Sem_Res;
 with Sem_Type; use Sem_Type;
@@ -564,16 +565,15 @@ package body Exp_Intr is
          --  conventions and this has already been checked.
 
       elsif Present (Alias (E)) then
-         Expand_Intrinsic_Call (N,  Alias (E));
+         Expand_Intrinsic_Call (N, Alias (E));
 
       elsif Nkind (N) in N_Binary_Op then
          Expand_Binary_Operator_Call (N);
 
-         --  The only other case is where an external name was specified,
-         --  since this is the only way that an otherwise unrecognized
-         --  name could escape the checking in Sem_Prag. Nothing needs
-         --  to be done in such a case, since we pass such a call to the
-         --  back end unchanged.
+         --  The only other case is where an external name was specified, since
+         --  this is the only way that an otherwise unrecognized name could
+         --  escape the checking in Sem_Prag. Nothing needs to be done in such
+         --  a case, since we pass such a call to the back end unchanged.
 
       else
          null;
@@ -603,7 +603,7 @@ package body Exp_Intr is
       --    end if;
 
       Rewrite (N,
-        Make_Conditional_Expression (Loc,
+        Make_If_Expression (Loc,
           Expressions => New_List (
             Make_Op_Lt (Loc,
               Left_Opnd  => Duplicate_Subexpr (Opnd),
@@ -611,7 +611,7 @@ package body Exp_Intr is
 
             New_Occurrence_Of (Standard_True, Loc),
 
-            Make_Conditional_Expression (Loc,
+            Make_If_Expression (Loc,
              Expressions => New_List (
                Make_Op_Gt (Loc,
                  Left_Opnd  => Duplicate_Subexpr_No_Checks (Opnd),
@@ -1311,7 +1311,7 @@ package body Exp_Intr is
       Obj := Make_Explicit_Dereference (Loc, Relocate_Node (Arg));
 
       Rewrite (N,
-        Make_Conditional_Expression (Loc,
+        Make_If_Expression (Loc,
           Expressions => New_List (
             Make_Op_Eq (Loc,
               Left_Opnd => New_Copy_Tree (Arg),

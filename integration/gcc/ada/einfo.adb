@@ -32,11 +32,12 @@
 pragma Style_Checks (All_Checks);
 --  Turn off subprogram ordering, not used for this unit
 
-with Atree;    use Atree;
-with Nlists;   use Nlists;
-with Output;   use Output;
-with Sinfo;    use Sinfo;
-with Stand;    use Stand;
+with Atree;  use Atree;
+with Namet;  use Namet;
+with Nlists; use Nlists;
+with Output; use Output;
+with Sinfo;  use Sinfo;
+with Stand;  use Stand;
 
 package body Einfo is
 
@@ -89,6 +90,7 @@ package body Einfo is
    --    Discriminal_Link                Node10
    --    Float_Rep                       Uint10 (but returns Float_Rep_Kind)
    --    Handler_Records                 List10
+   --    Loop_Entry_Attributes           Elist10
    --    Normalized_Position_Max         Uint10
 
    --    Component_Bit_Offset            Uint11
@@ -123,7 +125,7 @@ package body Einfo is
    --    Extra_Formal                    Node15
    --    Lit_Indexes                     Node15
    --    Related_Instance                Node15
-   --    Return_Flag_Or_Transient_Decl   Node15
+   --    Status_Flag_Or_Transient_Decl   Node15
    --    Scale_Value                     Uint15
    --    Storage_Size_Variable           Node15
    --    String_Literal_Low_Bound        Node15
@@ -283,7 +285,6 @@ package body Einfo is
    --    Checks_May_Be_Suppressed        Flag31
    --    Kill_Elaboration_Checks         Flag32
    --    Kill_Range_Checks               Flag33
-   --    Kill_Tag_Checks                 Flag34
    --    Is_Class_Wide_Equivalent_Type   Flag35
    --    Referenced_As_LHS               Flag36
    --    Is_Known_Non_Null               Flag37
@@ -452,6 +453,7 @@ package body Einfo is
    --    Is_Ada_2005_Only                Flag185
    --    Is_Interface                    Flag186
    --    Has_Constrained_Partial_View    Flag187
+   --    Uses_Lock_Free                  Flag188
    --    Is_Pure_Unit_Access_Type        Flag189
    --    Has_Specified_Stream_Input      Flag190
 
@@ -525,7 +527,7 @@ package body Einfo is
    --    Has_Anonymous_Master            Flag253
    --    Is_Implementation_Defined       Flag254
 
-   --    (unused)                        Flag188
+   --    (unused)                        Flag34
    --    (unused)                        Flag201
 
    -----------------------
@@ -2210,11 +2212,6 @@ package body Einfo is
       return Flag33 (Id);
    end Kill_Range_Checks;
 
-   function Kill_Tag_Checks (Id : E) return B is
-   begin
-      return Flag34 (Id);
-   end Kill_Tag_Checks;
-
    function Known_To_Have_Preelab_Init (Id : E) return B is
    begin
       pragma Assert (Is_Type (Id));
@@ -2249,6 +2246,12 @@ package body Einfo is
       pragma Assert (Is_Enumeration_Type (Id));
       return Node16 (Id);
    end Lit_Strings;
+
+   function Loop_Entry_Attributes (Id : E) return L is
+   begin
+      pragma Assert (Ekind (Id) = E_Loop);
+      return Elist10 (Id);
+   end Loop_Entry_Attributes;
 
    function Low_Bound_Tested (Id : E) return B is
    begin
@@ -2583,12 +2586,6 @@ package body Einfo is
       return Flag213 (Id);
    end Requires_Overriding;
 
-   function Return_Flag_Or_Transient_Decl (Id : E) return N is
-   begin
-      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
-      return Node15 (Id);
-   end Return_Flag_Or_Transient_Decl;
-
    function Return_Present (Id : E) return B is
    begin
       return Flag54 (Id);
@@ -2612,7 +2609,7 @@ package body Einfo is
 
    function Reverse_Storage_Order (Id : E) return B is
    begin
-      pragma Assert (Is_Record_Type (Id));
+      pragma Assert (Is_Record_Type (Id) or else Is_Array_Type (Id));
       return Flag93 (Base_Type (Id));
    end Reverse_Storage_Order;
 
@@ -2687,6 +2684,12 @@ package body Einfo is
       pragma Assert (Is_Discrete_Type (Id));
       return List25 (Id);
    end Static_Predicate;
+
+   function Status_Flag_Or_Transient_Decl (Id : E) return N is
+   begin
+      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
+      return Node15 (Id);
+   end Status_Flag_Or_Transient_Decl;
 
    function Storage_Size_Variable (Id : E) return E is
    begin
@@ -2781,7 +2784,7 @@ package body Einfo is
    function Universal_Aliasing (Id : E) return B is
    begin
       pragma Assert (Is_Type (Id));
-      return Flag216 (Base_Type (Id));
+      return Flag216 (Implementation_Base_Type (Id));
    end Universal_Aliasing;
 
    function Unset_Reference (Id : E) return N is
@@ -2793,6 +2796,12 @@ package body Einfo is
    begin
       return Flag222 (Id);
    end Used_As_Generic_Actual;
+
+   function Uses_Lock_Free (Id : E) return B is
+   begin
+      pragma Assert (Is_Protected_Type (Id));
+      return Flag188 (Id);
+   end Uses_Lock_Free;
 
    function Uses_Sec_Stack (Id : E) return B is
    begin
@@ -4754,11 +4763,6 @@ package body Einfo is
       Set_Flag33 (Id, V);
    end Set_Kill_Range_Checks;
 
-   procedure Set_Kill_Tag_Checks (Id : E; V : B := True) is
-   begin
-      Set_Flag34 (Id, V);
-   end Set_Kill_Tag_Checks;
-
    procedure Set_Known_To_Have_Preelab_Init (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Type (Id));
@@ -4793,6 +4797,12 @@ package body Einfo is
       pragma Assert (Is_Enumeration_Type (Id) and then Root_Type (Id) = Id);
       Set_Node16 (Id, V);
    end Set_Lit_Strings;
+
+   procedure Set_Loop_Entry_Attributes (Id : E; V : L) is
+   begin
+      pragma Assert (Ekind (Id) = E_Loop);
+      Set_Elist10 (Id, V);
+   end Set_Loop_Entry_Attributes;
 
    procedure Set_Low_Bound_Tested (Id : E; V : B := True) is
    begin
@@ -5141,12 +5151,6 @@ package body Einfo is
       Set_Flag213 (Id, V);
    end Set_Requires_Overriding;
 
-   procedure Set_Return_Flag_Or_Transient_Decl (Id : E; V : E) is
-   begin
-      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
-      Set_Node15 (Id, V);
-   end Set_Return_Flag_Or_Transient_Decl;
-
    procedure Set_Return_Present (Id : E; V : B := True) is
    begin
       Set_Flag54 (Id, V);
@@ -5172,7 +5176,8 @@ package body Einfo is
    procedure Set_Reverse_Storage_Order (Id : E; V : B := True) is
    begin
       pragma Assert
-        (Is_Record_Type (Id) and then Is_Base_Type (Id));
+        (Is_Base_Type (Id)
+           and then (Is_Record_Type (Id) or else Is_Array_Type (Id)));
       Set_Flag93 (Id, V);
    end Set_Reverse_Storage_Order;
 
@@ -5252,6 +5257,12 @@ package body Einfo is
           and then Has_Predicates (Id));
       Set_List25 (Id, V);
    end Set_Static_Predicate;
+
+   procedure Set_Status_Flag_Or_Transient_Decl (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind_In (Id, E_Constant, E_Variable));
+      Set_Node15 (Id, V);
+   end Set_Status_Flag_Or_Transient_Decl;
 
    procedure Set_Storage_Size_Variable (Id : E; V : E) is
    begin
@@ -5358,15 +5369,21 @@ package body Einfo is
       Set_Node16 (Id, V);
    end Set_Unset_Reference;
 
-   procedure Set_Uses_Sec_Stack (Id : E; V : B := True) is
-   begin
-      Set_Flag95 (Id, V);
-   end Set_Uses_Sec_Stack;
-
    procedure Set_Used_As_Generic_Actual (Id : E; V : B := True) is
    begin
       Set_Flag222 (Id, V);
    end Set_Used_As_Generic_Actual;
+
+   procedure Set_Uses_Lock_Free (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Protected_Type);
+      Set_Flag188 (Id, V);
+   end Set_Uses_Lock_Free;
+
+   procedure Set_Uses_Sec_Stack (Id : E; V : B := True) is
+   begin
+      Set_Flag95 (Id, V);
+   end Set_Uses_Sec_Stack;
 
    procedure Set_Warnings_Off (Id : E; V : B := True) is
    begin
@@ -6016,66 +6033,6 @@ package body Einfo is
       return Empty;
    end Get_Record_Representation_Clause;
 
-   -----------------------------
-   -- Get_Rep_Item_For_Entity --
-   -----------------------------
-
-   function Get_Rep_Item_For_Entity
-     (E   : Entity_Id;
-      Nam : Name_Id) return Node_Id
-   is
-      N   : Node_Id;
-      Arg : Node_Id;
-
-   begin
-      N := First_Rep_Item (E);
-      while Present (N) loop
-         if Nkind (N) = N_Pragma and then Pragma_Name (N) = Nam then
-            Arg := Get_Pragma_Arg (First (Pragma_Argument_Associations (N)));
-
-            if Is_Entity_Name (Arg) and then Entity (Arg) = E then
-               return N;
-            end if;
-
-         elsif Nkind (N) = N_Attribute_Definition_Clause
-           and then Chars (N) = Nam
-           and then Entity (N) = E
-         then
-            return N;
-
-         elsif Nkind (N) = N_Aspect_Specification
-           and then Chars (Identifier (N)) = Nam
-           and then Entity (N) = E
-         then
-            return N;
-         end if;
-
-         Next_Rep_Item (N);
-      end loop;
-
-      return Empty;
-   end Get_Rep_Item_For_Entity;
-
-   --------------------
-   -- Get_Rep_Pragma --
-   --------------------
-
-   function Get_Rep_Pragma (E : Entity_Id; Nam : Name_Id) return Node_Id is
-      N : Node_Id;
-
-   begin
-      N := First_Rep_Item (E);
-      while Present (N) loop
-         if Nkind (N) = N_Pragma and then Pragma_Name (N) = Nam then
-            return N;
-         end if;
-
-         Next_Rep_Item (N);
-      end loop;
-
-      return Empty;
-   end Get_Rep_Pragma;
-
    ------------------------
    -- Has_Attach_Handler --
    ------------------------
@@ -6099,18 +6056,6 @@ package body Einfo is
 
       return False;
    end Has_Attach_Handler;
-
-   -------------------------------------
-   -- Has_Attribute_Definition_Clause --
-   -------------------------------------
-
-   function Has_Attribute_Definition_Clause
-     (E  : Entity_Id;
-      Id : Attribute_Id) return Boolean
-   is
-   begin
-      return Present (Get_Attribute_Definition_Clause (E, Id));
-   end Has_Attribute_Definition_Clause;
 
    -----------------
    -- Has_Entries --
@@ -6172,15 +6117,6 @@ package body Einfo is
 
       return False;
    end Has_Interrupt_Handler;
-
-   --------------------
-   -- Has_Rep_Pragma --
-   --------------------
-
-   function Has_Rep_Pragma (E : Entity_Id; Nam : Name_Id) return Boolean is
-   begin
-      return Present (Get_Rep_Pragma (E, Nam));
-   end Has_Rep_Pragma;
 
    --------------------
    -- Has_Unmodified --
@@ -6291,25 +6227,25 @@ package body Einfo is
    --  Global flag table allowing rapid computation of this function
 
    Entity_Is_Base_Type : constant array (Entity_Kind) of Boolean :=
-                           (E_Enumeration_Subtype          |
-                            E_Incomplete_Type              |
-                            E_Signed_Integer_Subtype       |
-                            E_Modular_Integer_Subtype      |
-                            E_Floating_Point_Subtype       |
-                            E_Ordinary_Fixed_Point_Subtype |
-                            E_Decimal_Fixed_Point_Subtype  |
-                            E_Array_Subtype                |
-                            E_String_Subtype               |
-                            E_Record_Subtype               |
-                            E_Private_Subtype              |
-                            E_Record_Subtype_With_Private  |
-                            E_Limited_Private_Subtype      |
-                            E_Access_Subtype               |
-                            E_Protected_Subtype            |
-                            E_Task_Subtype                 |
-                            E_String_Literal_Subtype       |
-                            E_Class_Wide_Subtype           => False,
-                            others                         => True);
+     (E_Enumeration_Subtype          |
+      E_Incomplete_Type              |
+      E_Signed_Integer_Subtype       |
+      E_Modular_Integer_Subtype      |
+      E_Floating_Point_Subtype       |
+      E_Ordinary_Fixed_Point_Subtype |
+      E_Decimal_Fixed_Point_Subtype  |
+      E_Array_Subtype                |
+      E_String_Subtype               |
+      E_Record_Subtype               |
+      E_Private_Subtype              |
+      E_Record_Subtype_With_Private  |
+      E_Limited_Private_Subtype      |
+      E_Access_Subtype               |
+      E_Protected_Subtype            |
+      E_Task_Subtype                 |
+      E_String_Literal_Subtype       |
+      E_Class_Wide_Subtype           => False,
+      others                         => True);
 
    function Is_Base_Type (Id : E) return Boolean is
    begin
@@ -6960,6 +6896,27 @@ package body Einfo is
       return Ekind (Id);
    end Parameter_Mode;
 
+   -------------------------
+   -- Present_In_Rep_Item --
+   -------------------------
+
+   function Present_In_Rep_Item (E : Entity_Id; N : Node_Id) return Boolean is
+      Ritem : Node_Id;
+
+   begin
+      Ritem := First_Rep_Item (E);
+
+      while Present (Ritem) loop
+         if Ritem = N then
+            return True;
+         end if;
+
+         Next_Rep_Item (Ritem);
+      end loop;
+
+      return False;
+   end Present_In_Rep_Item;
+
    --------------------------
    -- Primitive_Operations --
    --------------------------
@@ -7023,6 +6980,7 @@ package body Einfo is
             --  previous errors.
 
             elsif No (Etyp) then
+               Check_Error_Detected;
                return T;
 
             elsif Is_Private_Type (T) and then Etyp = Full_View (T) then
@@ -7169,6 +7127,7 @@ package body Einfo is
 
       S := Subprograms_For_Type (Id);
       Set_Subprograms_For_Type (Id, V);
+      Set_Subprograms_For_Type (V, S);
 
       while Present (S) loop
          if Has_Invariants (S) then
@@ -7177,8 +7136,6 @@ package body Einfo is
             S := Subprograms_For_Type (S);
          end if;
       end loop;
-
-      Set_Subprograms_For_Type (Id, V);
    end Set_Invariant_Procedure;
 
    ----------------------------
@@ -7193,6 +7150,7 @@ package body Einfo is
 
       S := Subprograms_For_Type (Id);
       Set_Subprograms_For_Type (Id, V);
+      Set_Subprograms_For_Type (V, S);
 
       while Present (S) loop
          if Has_Predicates (S) then
@@ -7201,8 +7159,6 @@ package body Einfo is
             S := Subprograms_For_Type (S);
          end if;
       end loop;
-
-      Set_Subprograms_For_Type (Id, V);
    end Set_Predicate_Function;
 
    -----------------
@@ -7642,7 +7598,6 @@ package body Einfo is
       W ("Itype_Printed",                   Flag202 (Id));
       W ("Kill_Elaboration_Checks",         Flag32  (Id));
       W ("Kill_Range_Checks",               Flag33  (Id));
-      W ("Kill_Tag_Checks",                 Flag34  (Id));
       W ("Known_To_Have_Preelab_Init",      Flag207 (Id));
       W ("Low_Bound_Tested",                Flag205 (Id));
       W ("Machine_Radix_10",                Flag84  (Id));
@@ -7933,6 +7888,9 @@ package body Einfo is
               E_Procedure                                  =>
             Write_Str ("Handler_Records");
 
+         when E_Loop                                       =>
+            Write_Str ("Loop_Entry_Attributes");
+
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Normalized_Position_Max");
@@ -8124,12 +8082,12 @@ package body Einfo is
               E_Package_Body                               =>
             Write_Str ("Related_Instance");
 
-         when E_Constant                                   |
-              E_Variable                                   =>
-            Write_Str ("Return_Flag_Or_Transient_Decl");
-
          when Decimal_Fixed_Point_Kind                     =>
             Write_Str ("Scale_Value");
+
+         when E_Constant                                   |
+              E_Variable                                   =>
+            Write_Str ("Status_Flag_Or_Transient_Decl");
 
          when Access_Kind                                  |
               Task_Kind                                    =>

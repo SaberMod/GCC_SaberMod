@@ -86,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
    Each segment is described by a chain of segment_info structures.  Each
    segment_info structure describes the extents of a single variable within
    the segment.  This list is maintained in the order the elements are
-   positioned withing the segment.  If two elements have the same starting
+   positioned within the segment.  If two elements have the same starting
    offset the smaller will come first.  If they also have the same size their
    ordering is undefined. 
    
@@ -99,7 +99,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "output.h"	/* For decl_default_tls_model.  */
 #include "gfortran.h"
 #include "trans.h"
 #include "trans-types.h"
@@ -488,7 +487,7 @@ get_init_field (segment_info *head, tree union_type, tree *field_init,
   tree tmp, field;
   tree init;
   unsigned char *data, *chk;
-  VEC(constructor_elt,gc) *v = NULL;
+  vec<constructor_elt, va_gc> *v = NULL;
 
   tree type = unsigned_char_type_node;
   int i;
@@ -645,7 +644,7 @@ create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
   if (is_init)
     {
       tree ctor, tmp;
-      VEC(constructor_elt,gc) *v = NULL;
+      vec<constructor_elt, va_gc> *v = NULL;
 
       if (field != NULL_TREE && field_init != NULL_TREE)
 	CONSTRUCTOR_APPEND_ELT (v, field, field_init);
@@ -665,7 +664,7 @@ create_common (gfc_common_head *com, segment_info *head, bool saw_equiv)
 	      }
 	  }
 
-      gcc_assert (!VEC_empty (constructor_elt, v));
+      gcc_assert (!v->is_empty ());
       ctor = build_constructor (union_type, v);
       TREE_CONSTANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;

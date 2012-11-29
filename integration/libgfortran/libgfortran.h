@@ -535,7 +535,6 @@ typedef struct
   size_t record_marker;
   int max_subrecord_length;
   int bounds_check;
-  int range_check;
 }
 compile_options_t;
 
@@ -773,6 +772,7 @@ unit_convert get_unformatted_convert (int);
 internal_proto(get_unformatted_convert);
 
 /* Secure getenv() which returns NULL if running as SUID/SGID.  */
+#ifndef HAVE_SECURE_GETENV
 #ifdef HAVE___SECURE_GETENV
 #define secure_getenv __secure_getenv
 #elif defined(HAVE_GETUID) && defined(HAVE_GETEUID) \
@@ -782,6 +782,7 @@ extern char *secure_getenv (const char *);
 internal_proto(secure_getenv);
 #else
 #define secure_getenv getenv
+#endif
 #endif
 
 /* string.c */

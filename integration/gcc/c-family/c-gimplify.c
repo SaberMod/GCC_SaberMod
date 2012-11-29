@@ -31,13 +31,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-common.h"
 #include "gimple.h"
-#include "basic-block.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 #include "flags.h"
-#include "tree-dump.h"
+#include "dumpfile.h"
 #include "c-pretty-print.h"
 #include "cgraph.h"
 
@@ -109,9 +108,9 @@ add_block_to_enclosing (tree block)
   unsigned i;
   tree enclosing;
   gimple bind;
-  VEC(gimple, heap) *stack = gimple_bind_expr_stack ();
+  vec<gimple> stack = gimple_bind_expr_stack ();
 
-  FOR_EACH_VEC_ELT (gimple, stack, i, bind)
+  FOR_EACH_VEC_ELT (stack, i, bind)
     if (gimple_bind_block (bind))
       break;
 

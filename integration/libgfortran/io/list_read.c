@@ -199,9 +199,16 @@ next_char (st_parameter_dt *dtp)
 
   if (is_internal_unit (dtp))
     {
-      char cc;
-      length = sread (dtp->u.p.current_unit->s, &cc, 1);
-      c = cc;
+      /* Check for kind=4 internal unit.  */
+      if (dtp->common.unit)
+       length = sread (dtp->u.p.current_unit->s, &c, sizeof (gfc_char4_t));
+      else
+       {
+         char cc;
+         length = sread (dtp->u.p.current_unit->s, &cc, 1);
+         c = cc;
+       }
+
       if (length < 0)
 	{
 	  generate_error (&dtp->common, LIBERROR_OS, NULL);
@@ -461,12 +468,20 @@ convert_integer (st_parameter_dt *dtp, int length, int negative)
 {
   char c, *buffer, message[MSGLEN];
   int m;
-  GFC_INTEGER_LARGEST v, max, max10;
+  GFC_UINTEGER_LARGEST v, max, max10;
+  GFC_INTEGER_LARGEST value;
 
   buffer = dtp->u.p.saved_string;
   v = 0;
 
-  max = (length == -1) ? MAX_REPEAT : max_value (length, 1);
+  if (length == -1)
+    max = MAX_REPEAT;
+  else
+    {
+      max = si_max (length);
+      if (negative)
+	max++;
+    }
   max10 = max / 10;
 
   for (;;)
@@ -490,8 +505,10 @@ convert_integer (st_parameter_dt *dtp, int length, int negative)
   if (length != -1)
     {
       if (negative)
-	v = -v;
-      set_integer (dtp->u.p.value, v, length);
+	value = -v;
+      else
+	value = v;
+      set_integer (dtp->u.p.value, value, length);
     }
   else
     {
@@ -1878,7 +1895,7 @@ list_formatted_read_scalar (st_parameter_dt *dtp, bt type, void *p,
       read_real (dtp, p, kind);
       /* Copy value back to temporary if needed.  */
       if (dtp->u.p.repeat_count > 0)
-	memcpy (dtp->u.p.value, p, kind);
+	memcpy (dtp->u.p.value, p, size);
       break;
     case BT_COMPLEX:
       read_complex (dtp, p, kind, size);
@@ -3064,7 +3081,7 @@ find_nml_name:
   if (dtp->u.p.nml_read_error)
     goto find_nml_name;
 
-  /* A trailing space is required, we give a little lattitude here, 10.9.1.  */ 
+  /* A trailing space is required, we give a little latitude here, 10.9.1.  */ 
   c = next_char (dtp);
   if (!is_separator(c) && c != '!')
     {

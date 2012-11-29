@@ -63,7 +63,7 @@
 #include <bits/stl_heap.h>
 #include <bits/stl_tempbuf.h>  // for _Temporary_buffer
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <random>     // for std::uniform_int_distribution
 #include <functional> // for std::bind
 #endif
@@ -770,7 +770,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			     __comp);
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief  Checks that a predicate is true for all the elements
    *          of a sequence.
@@ -987,7 +987,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __result;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief Copy the elements of a sequence for which a predicate is true.
    *  @ingroup mutating_algorithms
@@ -1519,7 +1519,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  range @p [__result,__result+(__last-__first)) such that the
    *  order of the elements is reversed.  For every @c i such that @p
    *  0<=i<=(__last-__first), @p reverse_copy() performs the
-   *  assignment @p *(__result+(__last-__first)-i) = *(__first+i).
+   *  assignment @p *(__result+(__last-__first)-1-i) = *(__first+i).
    *  The ranges @p [__first,__last) and @p
    *  [__result,__result+(__last-__first)) must not overlap.
   */
@@ -3999,7 +3999,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __result;
     }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   /**
    *  @brief  Determines whether the elements of a sequence are sorted.
    *  @ingroup sorting_algorithms
@@ -4449,7 +4449,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     }
 #endif
 
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
 _GLIBCXX_END_NAMESPACE_VERSION
 
@@ -5274,7 +5274,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
   template<typename _RandomAccessIterator, typename _RandomNumberGenerator>
     void
     random_shuffle(_RandomAccessIterator __first, _RandomAccessIterator __last,
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 		   _RandomNumberGenerator&& __rand)
 #else
 		   _RandomNumberGenerator& __rand)

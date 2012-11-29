@@ -473,11 +473,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Tp>
     struct _Identity
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
-    // unary_function itself is deprecated in C++11 and deriving from
-    // it can even be a nuisance (see PR 52942).
     : public unary_function<_Tp,_Tp>
-#endif
     {
       _Tp&
       operator()(_Tp& __x) const
@@ -490,9 +486,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Pair>
     struct _Select1st
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
     : public unary_function<_Pair, typename _Pair::first_type>
-#endif
     {
       typename _Pair::first_type&
       operator()(_Pair& __x) const
@@ -502,7 +496,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       operator()(const _Pair& __x) const
       { return __x.first; }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       template<typename _Pair2>
         typename _Pair2::first_type&
         operator()(_Pair2& __x) const
@@ -517,9 +511,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Pair>
     struct _Select2nd
-#ifndef __GXX_EXPERIMENTAL_CXX0X__
     : public unary_function<_Pair, typename _Pair::second_type>
-#endif
     {
       typename _Pair::second_type&
       operator()(_Pair& __x) const
@@ -737,7 +729,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
-#if !defined(__GXX_EXPERIMENTAL_CXX0X__) || _GLIBCXX_USE_DEPRECATED
+#if (__cplusplus < 201103L) || _GLIBCXX_USE_DEPRECATED
 # include <backward/binders.h>
 #endif
 

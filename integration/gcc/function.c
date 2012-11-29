@@ -54,17 +54,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "ggc.h"
 #include "tm_p.h"
-#include "integrate.h"
 #include "langhooks.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "cfglayout.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "predict.h"
 #include "df.h"
-#include "timevar.h"
-#include "vecprim.h"
 #include "params.h"
 #include "bb-reorder.h"
 
@@ -94,22 +90,6 @@ along with GCC; see the file COPYING3.  If not see
    alignment.  */
 #define CEIL_ROUND(VALUE,ALIGN)	(((VALUE) + (ALIGN) - 1) & ~((ALIGN)- 1))
 
-/* Nonzero if function being compiled doesn't contain any calls
-   (ignoring the prologue and epilogue).  This is set prior to
-   local register allocation and is valid for the remaining
-   compiler passes.  */
-int current_function_is_leaf;
-
-/* Nonzero if function being compiled doesn't modify the stack pointer
-   (ignoring the prologue and epilogue).  This is only valid after
-   pass_stack_ptr_mod has run.  */
-int current_function_sp_is_unchanging;
-
-/* Nonzero if the function being compiled is a leaf function which only
-   uses leaf registers.  This is valid after reload (specifically after
-   sched2) and is useful only if the port defines LEAF_REGISTERS.  */
-int current_function_uses_only_leaf_regs;
-
 /* Nonzero once virtual register instantiation has been done.
    assign_stack_local uses frame_pointer_rtx when this is nonzero.
    calls.c:emit_library_call_value_1 uses it to set up
@@ -134,14 +114,14 @@ static GTY((if_marked ("ggc_marked_p"), param_is (struct rtx_def)))
 
 
 htab_t types_used_by_vars_hash = NULL;
-VEC(tree,gc) *types_used_by_cur_var_decl;
+vec<tree, va_gc> *types_used_by_cur_var_decl;
 
 /* Forward declarations.  */
 
 static struct temp_slot *find_temp_slot_from_address (rtx);
 static void pad_to_arg_alignment (struct args_size *, int, struct args_size *);
 static void pad_below (struct args_size *, enum machine_mode, tree);
-static void reorder_blocks_1 (rtx, tree, VEC(tree,heap) **);
+static void reorder_blocks_1 (rtx, tree, vec<tree> *);
 static int all_blocks (tree, tree *);
 static tree *get_block_vector (tree, int *);
 extern tree debug_find_var_in_block_tree (tree, tree);
@@ -152,16 +132,14 @@ static bool contains (const_rtx, htab_t);
 static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
-static void set_insn_locators (rtx, int) ATTRIBUTE_UNUSED;
+static void set_insn_locations (rtx, int) ATTRIBUTE_UNUSED;
 
 /* Stack of nested functions.  */
 /* Keep track of the cfun stack.  */
 
 typedef struct function *function_p;
 
-DEF_VEC_P(function_p);
-DEF_VEC_ALLOC_P(function_p,heap);
-static VEC(function_p,heap) *function_context_stack;
+static vec<function_p> function_context_stack;
 
 /* Save the current context for compilation of a nested function.
    This is called from language-specific code.  */
@@ -172,7 +150,7 @@ push_function_context (void)
   if (cfun == 0)
     allocate_struct_function (NULL, false);
 
-  VEC_safe_push (function_p, heap, function_context_stack, cfun);
+  function_context_stack.safe_push (cfun);
   set_cfun (NULL);
 }
 
@@ -182,7 +160,7 @@ push_function_context (void)
 void
 pop_function_context (void)
 {
-  struct function *p = VEC_pop (function_p, function_context_stack);
+  struct function *p = function_context_stack.pop ();
   set_cfun (p);
   current_function_decl = p->decl;
 
@@ -219,7 +197,6 @@ free_after_compilation (struct function *f)
   f->cfg = NULL;
 
   regno_reg_rtx = NULL;
-  insn_locators_free ();
 }
 
 /* Return size needed for stack frame based on slots so far allocated.
@@ -527,7 +504,6 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
   return assign_stack_local_1 (mode, size, align, ASLK_RECORD_PAD);
 }
 
-
 /* In order to evaluate some expressions, such as function calls returning
    structures in memory, we need to temporarily allocate stack locations.
    We record each allocated temporary in the following structure.
@@ -540,11 +516,7 @@ assign_stack_local (enum machine_mode mode, HOST_WIDE_INT size, int align)
    result could be in a temporary, we preserve it if we can determine which
    one it is in.  If we cannot determine which temporary may contain the
    result, all temporaries are preserved.  A temporary is preserved by
-   pretending it was allocated at the previous nesting level.
-
-   Automatic variables are also assigned temporary slots, at the nesting
-   level where they are defined.  They are marked a "kept" so that
-   free_temp_slots will not free them.  */
+   pretending it was allocated at the previous nesting level.  */
 
 struct GTY(()) temp_slot {
   /* Points to next temporary slot.  */
@@ -564,12 +536,8 @@ struct GTY(()) temp_slot {
   unsigned int align;
   /* Nonzero if this temporary is currently in use.  */
   char in_use;
-  /* Nonzero if this temporary has its address taken.  */
-  char addr_taken;
   /* Nesting level at which this slot is being used.  */
   int level;
-  /* Nonzero if this should survive a call to free_temp_slots.  */
-  int keep;
   /* The offset of the slot from the frame_pointer, including extra space
      for alignment.  This info is for combine_temp_slots.  */
   HOST_WIDE_INT base_offset;
@@ -581,6 +549,7 @@ struct GTY(()) temp_slot {
 /* A table of addresses that represent a stack slot.  The table is a mapping
    from address RTXen to a temp slot.  */
 static GTY((param_is(struct temp_slot_address_entry))) htab_t temp_slot_address_table;
+static size_t n_temp_slots_in_use;
 
 /* Entry for the above hash table.  */
 struct GTY(()) temp_slot_address_entry {
@@ -621,10 +590,10 @@ insert_slot_to_list (struct temp_slot *temp, struct temp_slot **list)
 static struct temp_slot **
 temp_slots_at_level (int level)
 {
-  if (level >= (int) VEC_length (temp_slot_p, used_temp_slots))
-    VEC_safe_grow_cleared (temp_slot_p, gc, used_temp_slots, level + 1);
+  if (level >= (int) vec_safe_length (used_temp_slots))
+    vec_safe_grow_cleared (used_temp_slots, level + 1);
 
-  return &(VEC_address (temp_slot_p, used_temp_slots)[level]);
+  return &(*used_temp_slots)[level];
 }
 
 /* Returns the maximal temporary slot level.  */
@@ -635,7 +604,7 @@ max_slot_level (void)
   if (!used_temp_slots)
     return -1;
 
-  return VEC_length (temp_slot_p, used_temp_slots) - 1;
+  return used_temp_slots->length () - 1;
 }
 
 /* Moves temporary slot TEMP to LEVEL.  */
@@ -657,6 +626,7 @@ make_slot_available (struct temp_slot *temp)
   insert_slot_to_list (temp, &avail_temp_slots);
   temp->in_use = 0;
   temp->level = -1;
+  n_temp_slots_in_use--;
 }
 
 /* Compute the hash value for an address -> temp slot mapping.
@@ -709,7 +679,7 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
   const struct temp_slot_address_entry *t;
   t = (const struct temp_slot_address_entry *) *slot;
   if (! t->temp_slot->in_use)
-    *slot = NULL;
+    htab_clear_slot (temp_slot_address_table, slot);
   return 1;
 }
 
@@ -717,9 +687,13 @@ remove_unused_temp_slot_addresses_1 (void **slot, void *data ATTRIBUTE_UNUSED)
 static void
 remove_unused_temp_slot_addresses (void)
 {
-  htab_traverse (temp_slot_address_table,
-		 remove_unused_temp_slot_addresses_1,
-		 NULL);
+  /* Use quicker clearing if there aren't any active temp slots.  */
+  if (n_temp_slots_in_use)
+    htab_traverse (temp_slot_address_table,
+		   remove_unused_temp_slot_addresses_1,
+		   NULL);
+  else
+    htab_empty (temp_slot_address_table);
 }
 
 /* Find the temp slot corresponding to the object at address X.  */
@@ -775,17 +749,11 @@ find_temp_slot_from_address (rtx x)
    SIZE is the size in units of the space required.  We do no rounding here
    since assign_stack_local will do any required rounding.
 
-   KEEP is 1 if this slot is to be retained after a call to
-   free_temp_slots.  Automatic variables for a block are allocated
-   with this flag.  KEEP values of 2 or 3 were needed respectively
-   for variables whose lifetime is controlled by CLEANUP_POINT_EXPRs
-   or for SAVE_EXPRs, but they are now unused.
-
    TYPE is the type that will be used for the stack slot.  */
 
 rtx
 assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
-			    int keep, tree type)
+			    tree type)
 {
   unsigned int align;
   struct temp_slot *p, *best_p = 0, *selected = NULL, **pp;
@@ -794,9 +762,6 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
   /* If SIZE is -1 it means that somebody tried to allocate a temporary
      of a variable size.  */
   gcc_assert (size != -1);
-
-  /* These are now unused.  */
-  gcc_assert (keep <= 1);
 
   align = get_stack_local_alignment (type, mode);
 
@@ -846,7 +811,7 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 	  if (best_p->size - rounded_size >= alignment)
 	    {
 	      p = ggc_alloc_temp_slot ();
-	      p->in_use = p->addr_taken = 0;
+	      p->in_use = 0;
 	      p->size = best_p->size - rounded_size;
 	      p->base_offset = best_p->base_offset + rounded_size;
 	      p->full_size = best_p->full_size - rounded_size;
@@ -918,10 +883,9 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 
   p = selected;
   p->in_use = 1;
-  p->addr_taken = 0;
   p->type = type;
   p->level = temp_slot_level;
-  p->keep = keep;
+  n_temp_slots_in_use++;
 
   pp = temp_slots_at_level (p->level);
   insert_slot_to_list (p, pp);
@@ -946,26 +910,25 @@ assign_stack_temp_for_type (enum machine_mode mode, HOST_WIDE_INT size,
 }
 
 /* Allocate a temporary stack slot and record it for possible later
-   reuse.  First three arguments are same as in preceding function.  */
+   reuse.  First two arguments are same as in preceding function.  */
 
 rtx
-assign_stack_temp (enum machine_mode mode, HOST_WIDE_INT size, int keep)
+assign_stack_temp (enum machine_mode mode, HOST_WIDE_INT size)
 {
-  return assign_stack_temp_for_type (mode, size, keep, NULL_TREE);
+  return assign_stack_temp_for_type (mode, size, NULL_TREE);
 }
 
 /* Assign a temporary.
    If TYPE_OR_DECL is a decl, then we are doing it on behalf of the decl
    and so that should be used in error messages.  In either case, we
    allocate of the given type.
-   KEEP is as for assign_stack_temp.
    MEMORY_REQUIRED is 1 if the result must be addressable stack memory;
    it is 0 if a register is OK.
    DONT_PROMOTE is 1 if we should not promote values in register
    to wider modes.  */
 
 rtx
-assign_temp (tree type_or_decl, int keep, int memory_required,
+assign_temp (tree type_or_decl, int memory_required,
 	     int dont_promote ATTRIBUTE_UNUSED)
 {
   tree type, decl;
@@ -1011,7 +974,7 @@ assign_temp (tree type_or_decl, int keep, int memory_required,
 	  size = 1;
 	}
 
-      tmp = assign_stack_temp_for_type (mode, size, keep, type);
+      tmp = assign_stack_temp_for_type (mode, size, type);
       return tmp;
     }
 
@@ -1139,32 +1102,10 @@ update_temp_slot_address (rtx old_rtx, rtx new_rtx)
   insert_temp_slot_address (new_rtx, p);
 }
 
-/* If X could be a reference to a temporary slot, mark the fact that its
-   address was taken.  */
-
-void
-mark_temp_addr_taken (rtx x)
-{
-  struct temp_slot *p;
-
-  if (x == 0)
-    return;
-
-  /* If X is not in memory or is at a constant address, it cannot be in
-     a temporary slot.  */
-  if (!MEM_P (x) || CONSTANT_P (XEXP (x, 0)))
-    return;
-
-  p = find_temp_slot_from_address (XEXP (x, 0));
-  if (p != 0)
-    p->addr_taken = 1;
-}
-
 /* If X could be a reference to a temporary slot, mark that slot as
    belonging to the to one level higher than the current level.  If X
    matched one of our slots, just mark that one.  Otherwise, we can't
-   easily predict which it is, so upgrade all of them.  Kept slots
-   need not be touched.
+   easily predict which it is, so upgrade all of them.
 
    This is called when an ({...}) construct occurs and a statement
    returns a value in memory.  */
@@ -1174,43 +1115,18 @@ preserve_temp_slots (rtx x)
 {
   struct temp_slot *p = 0, *next;
 
-  /* If there is no result, we still might have some objects whose address
-     were taken, so we need to make sure they stay around.  */
   if (x == 0)
-    {
-      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-	{
-	  next = p->next;
-
-	  if (p->addr_taken)
-	    move_slot_to_level (p, temp_slot_level - 1);
-	}
-
-      return;
-    }
+    return;
 
   /* If X is a register that is being used as a pointer, see if we have
-     a temporary slot we know it points to.  To be consistent with
-     the code below, we really should preserve all non-kept slots
-     if we can't find a match, but that seems to be much too costly.  */
+     a temporary slot we know it points to.  */
   if (REG_P (x) && REG_POINTER (x))
     p = find_temp_slot_from_address (x);
 
   /* If X is not in memory or is at a constant address, it cannot be in
-     a temporary slot, but it can contain something whose address was
-     taken.  */
+     a temporary slot.  */
   if (p == 0 && (!MEM_P (x) || CONSTANT_P (XEXP (x, 0))))
-    {
-      for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-	{
-	  next = p->next;
-
-	  if (p->addr_taken)
-	    move_slot_to_level (p, temp_slot_level - 1);
-	}
-
-      return;
-    }
+    return;
 
   /* First see if we can find a match.  */
   if (p == 0)
@@ -1218,23 +1134,8 @@ preserve_temp_slots (rtx x)
 
   if (p != 0)
     {
-      /* Move everything at our level whose address was taken to our new
-	 level in case we used its address.  */
-      struct temp_slot *q;
-
       if (p->level == temp_slot_level)
-	{
-	  for (q = *temp_slots_at_level (temp_slot_level); q; q = next)
-	    {
-	      next = q->next;
-
-	      if (p != q && q->addr_taken)
-		move_slot_to_level (q, temp_slot_level - 1);
-	    }
-
-	  move_slot_to_level (p, temp_slot_level - 1);
-	  p->addr_taken = 0;
-	}
+	move_slot_to_level (p, temp_slot_level - 1);
       return;
     }
 
@@ -1242,9 +1143,7 @@ preserve_temp_slots (rtx x)
   for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
     {
       next = p->next;
-
-      if (!p->keep)
-	move_slot_to_level (p, temp_slot_level - 1);
+      move_slot_to_level (p, temp_slot_level - 1);
     }
 }
 
@@ -1260,12 +1159,8 @@ free_temp_slots (void)
   for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
     {
       next = p->next;
-
-      if (!p->keep)
-	{
-	  make_slot_available (p);
-	  some_available = true;
-	}
+      make_slot_available (p);
+      some_available = true;
     }
 
   if (some_available)
@@ -1289,22 +1184,7 @@ push_temp_slots (void)
 void
 pop_temp_slots (void)
 {
-  struct temp_slot *p, *next;
-  bool some_available = false;
-
-  for (p = *temp_slots_at_level (temp_slot_level); p; p = next)
-    {
-      next = p->next;
-      make_slot_available (p);
-      some_available = true;
-    }
-
-  if (some_available)
-    {
-      remove_unused_temp_slot_addresses ();
-      combine_temp_slots ();
-    }
-
+  free_temp_slots ();
   temp_slot_level--;
 }
 
@@ -1315,8 +1195,9 @@ init_temp_slots (void)
 {
   /* We have not allocated any temporaries yet.  */
   avail_temp_slots = 0;
-  used_temp_slots = 0;
+  vec_alloc (used_temp_slots, 0);
   temp_slot_level = 0;
+  n_temp_slots_in_use = 0;
 
   /* Set up the table to map addresses to temp slots.  */
   if (! temp_slot_address_table)
@@ -1326,6 +1207,133 @@ init_temp_slots (void)
 					       NULL);
   else
     htab_empty (temp_slot_address_table);
+}
+
+/* Functions and data structures to keep track of the values hard regs
+   had at the start of the function.  */
+
+/* Private type used by get_hard_reg_initial_reg, get_hard_reg_initial_val,
+   and has_hard_reg_initial_val..  */
+typedef struct GTY(()) initial_value_pair {
+  rtx hard_reg;
+  rtx pseudo;
+} initial_value_pair;
+/* ???  This could be a VEC but there is currently no way to define an
+   opaque VEC type.  This could be worked around by defining struct
+   initial_value_pair in function.h.  */
+typedef struct GTY(()) initial_value_struct {
+  int num_entries;
+  int max_entries;
+  initial_value_pair * GTY ((length ("%h.num_entries"))) entries;
+} initial_value_struct;
+
+/* If a pseudo represents an initial hard reg (or expression), return
+   it, else return NULL_RTX.  */
+
+rtx
+get_hard_reg_initial_reg (rtx reg)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  int i;
+
+  if (ivs == 0)
+    return NULL_RTX;
+
+  for (i = 0; i < ivs->num_entries; i++)
+    if (rtx_equal_p (ivs->entries[i].pseudo, reg))
+      return ivs->entries[i].hard_reg;
+
+  return NULL_RTX;
+}
+
+/* Make sure that there's a pseudo register of mode MODE that stores the
+   initial value of hard register REGNO.  Return an rtx for such a pseudo.  */
+
+rtx
+get_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+{
+  struct initial_value_struct *ivs;
+  rtx rv;
+
+  rv = has_hard_reg_initial_val (mode, regno);
+  if (rv)
+    return rv;
+
+  ivs = crtl->hard_reg_initial_vals;
+  if (ivs == 0)
+    {
+      ivs = ggc_alloc_initial_value_struct ();
+      ivs->num_entries = 0;
+      ivs->max_entries = 5;
+      ivs->entries = ggc_alloc_vec_initial_value_pair (5);
+      crtl->hard_reg_initial_vals = ivs;
+    }
+
+  if (ivs->num_entries >= ivs->max_entries)
+    {
+      ivs->max_entries += 5;
+      ivs->entries = GGC_RESIZEVEC (initial_value_pair, ivs->entries,
+				    ivs->max_entries);
+    }
+
+  ivs->entries[ivs->num_entries].hard_reg = gen_rtx_REG (mode, regno);
+  ivs->entries[ivs->num_entries].pseudo = gen_reg_rtx (mode);
+
+  return ivs->entries[ivs->num_entries++].pseudo;
+}
+
+/* See if get_hard_reg_initial_val has been used to create a pseudo
+   for the initial value of hard register REGNO in mode MODE.  Return
+   the associated pseudo if so, otherwise return NULL.  */
+
+rtx
+has_hard_reg_initial_val (enum machine_mode mode, unsigned int regno)
+{
+  struct initial_value_struct *ivs;
+  int i;
+
+  ivs = crtl->hard_reg_initial_vals;
+  if (ivs != 0)
+    for (i = 0; i < ivs->num_entries; i++)
+      if (GET_MODE (ivs->entries[i].hard_reg) == mode
+	  && REGNO (ivs->entries[i].hard_reg) == regno)
+	return ivs->entries[i].pseudo;
+
+  return NULL_RTX;
+}
+
+unsigned int
+emit_initial_value_sets (void)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  int i;
+  rtx seq;
+
+  if (ivs == 0)
+    return 0;
+
+  start_sequence ();
+  for (i = 0; i < ivs->num_entries; i++)
+    emit_move_insn (ivs->entries[i].pseudo, ivs->entries[i].hard_reg);
+  seq = get_insns ();
+  end_sequence ();
+
+  emit_insn_at_entry (seq);
+  return 0;
+}
+
+/* Return the hardreg-pseudoreg initial values pair entry I and
+   TRUE if I is a valid entry, or FALSE if I is not a valid entry.  */
+bool
+initial_value_entry (int i, rtx *hreg, rtx *preg)
+{
+  struct initial_value_struct *ivs = crtl->hard_reg_initial_vals;
+  if (!ivs || i >= ivs->num_entries)
+    return false;
+
+  *hreg = ivs->entries[i].hard_reg;
+  *preg = ivs->entries[i].pseudo;
+  return true;
 }
 
 /* These routines are responsible for converting virtual register references
@@ -1866,7 +1874,7 @@ instantiate_decls (tree fndecl)
   FOR_EACH_LOCAL_DECL (cfun, ix, decl)
     if (DECL_RTL_SET_P (decl))
       instantiate_decl_rtl (DECL_RTL (decl));
-  VEC_free (tree, gc, cfun->local_decls);
+  vec_free (cfun->local_decls);
 }
 
 /* Pass through the INSNS of function FNDECL and convert virtual register
@@ -1938,6 +1946,7 @@ struct rtl_opt_pass pass_instantiate_virtual_regs =
  {
   RTL_PASS,
   "vregs",                              /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   instantiate_virtual_regs,             /* execute */
   NULL,                                 /* sub */
@@ -2203,12 +2212,12 @@ assign_parms_initialize_all (struct assign_parm_data_all *all)
    needed, else the old list.  */
 
 static void
-split_complex_args (VEC(tree, heap) **args)
+split_complex_args (vec<tree> *args)
 {
   unsigned i;
   tree p;
 
-  FOR_EACH_VEC_ELT (tree, *args, i, p)
+  FOR_EACH_VEC_ELT (*args, i, p)
     {
       tree type = TREE_TYPE (p);
       if (TREE_CODE (type) == COMPLEX_TYPE
@@ -2233,7 +2242,7 @@ split_complex_args (VEC(tree, heap) **args)
 	  DECL_IGNORED_P (p) = addressable;
 	  TREE_ADDRESSABLE (p) = 0;
 	  layout_decl (p, 0);
-	  VEC_replace (tree, *args, i, p);
+	  (*args)[i] = p;
 
 	  /* Build a second synthetic decl.  */
 	  decl = build_decl (EXPR_LOCATION (p),
@@ -2242,7 +2251,7 @@ split_complex_args (VEC(tree, heap) **args)
 	  DECL_ARTIFICIAL (decl) = addressable;
 	  DECL_IGNORED_P (decl) = addressable;
 	  layout_decl (decl, 0);
-	  VEC_safe_insert (tree, heap, *args, ++i, decl);
+	  args->safe_insert (++i, decl);
 	}
     }
 }
@@ -2251,16 +2260,16 @@ split_complex_args (VEC(tree, heap) **args)
    the hidden struct return argument, and (abi willing) complex args.
    Return the new parameter list.  */
 
-static VEC(tree, heap) *
+static vec<tree> 
 assign_parms_augmented_arg_list (struct assign_parm_data_all *all)
 {
   tree fndecl = current_function_decl;
   tree fntype = TREE_TYPE (fndecl);
-  VEC(tree, heap) *fnargs = NULL;
+  vec<tree> fnargs = vNULL;
   tree arg;
 
   for (arg = DECL_ARGUMENTS (fndecl); arg; arg = DECL_CHAIN (arg))
-    VEC_safe_push (tree, heap, fnargs, arg);
+    fnargs.safe_push (arg);
 
   all->orig_fnargs = DECL_ARGUMENTS (fndecl);
 
@@ -2281,7 +2290,7 @@ assign_parms_augmented_arg_list (struct assign_parm_data_all *all)
 
       DECL_CHAIN (decl) = all->orig_fnargs;
       all->orig_fnargs = decl;
-      VEC_safe_insert (tree, heap, fnargs, 0, decl);
+      fnargs.safe_insert (0, decl);
 
       all->function_result_decl = decl;
     }
@@ -2975,11 +2984,26 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  && insn_operand_matches (icode, 1, op1))
 	{
 	  enum rtx_code code = unsignedp ? ZERO_EXTEND : SIGN_EXTEND;
-	  rtx insn, insns;
+	  rtx insn, insns, t = op1;
 	  HARD_REG_SET hardregs;
 
 	  start_sequence ();
-	  insn = gen_extend_insn (op0, op1, promoted_nominal_mode,
+	  /* If op1 is a hard register that is likely spilled, first
+	     force it into a pseudo, otherwise combiner might extend
+	     its lifetime too much.  */
+	  if (GET_CODE (t) == SUBREG)
+	    t = SUBREG_REG (t);
+	  if (REG_P (t)
+	      && HARD_REGISTER_P (t)
+	      && ! TEST_HARD_REG_BIT (fixed_reg_set, REGNO (t))
+	      && targetm.class_likely_spilled_p (REGNO_REG_CLASS (REGNO (t))))
+	    {
+	      t = gen_reg_rtx (GET_MODE (op1));
+	      emit_move_insn (t, op1);
+	    }
+	  else
+	    t = op1;
+	  insn = gen_extend_insn (op0, t, promoted_nominal_mode,
 				  data->passed_mode, unsignedp);
 	  emit_insn (insn);
 	  insns = get_insns ();
@@ -3232,7 +3256,7 @@ assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 
 static void
 assign_parms_unsplit_complex (struct assign_parm_data_all *all,
-			      VEC(tree, heap) *fnargs)
+			      vec<tree> fnargs)
 {
   tree parm;
   tree orig_fnargs = all->orig_fnargs;
@@ -3246,8 +3270,8 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	  rtx tmp, real, imag;
 	  enum machine_mode inner = GET_MODE_INNER (DECL_MODE (parm));
 
-	  real = DECL_RTL (VEC_index (tree, fnargs, i));
-	  imag = DECL_RTL (VEC_index (tree, fnargs, i + 1));
+	  real = DECL_RTL (fnargs[i]);
+	  imag = DECL_RTL (fnargs[i + 1]);
 	  if (inner != GET_MODE (real))
 	    {
 	      real = gen_lowpart_SUBREG (inner, real);
@@ -3280,8 +3304,8 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	    tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
 	  SET_DECL_RTL (parm, tmp);
 
-	  real = DECL_INCOMING_RTL (VEC_index (tree, fnargs, i));
-	  imag = DECL_INCOMING_RTL (VEC_index (tree, fnargs, i + 1));
+	  real = DECL_INCOMING_RTL (fnargs[i]);
+	  imag = DECL_INCOMING_RTL (fnargs[i + 1]);
 	  if (inner != GET_MODE (real))
 	    {
 	      real = gen_lowpart_SUBREG (inner, real);
@@ -3302,7 +3326,7 @@ assign_parms (tree fndecl)
 {
   struct assign_parm_data_all all;
   tree parm;
-  VEC(tree, heap) *fnargs;
+  vec<tree> fnargs;
   unsigned i;
 
   crtl->args.internal_arg_pointer
@@ -3311,7 +3335,7 @@ assign_parms (tree fndecl)
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
 
-  FOR_EACH_VEC_ELT (tree, fnargs, i, parm)
+  FOR_EACH_VEC_ELT (fnargs, i, parm)
     {
       struct assign_parm_data_one data;
 
@@ -3386,7 +3410,7 @@ assign_parms (tree fndecl)
   if (targetm.calls.split_complex_arg)
     assign_parms_unsplit_complex (&all, fnargs);
 
-  VEC_free (tree, heap, fnargs);
+  fnargs.release ();
 
   /* Output all parameter conversion instructions (possibly including calls)
      now that all parameters have been copied out of hard registers.  */
@@ -3551,13 +3575,13 @@ gimplify_parameters (void)
   struct assign_parm_data_all all;
   tree parm;
   gimple_seq stmts = NULL;
-  VEC(tree, heap) *fnargs;
+  vec<tree> fnargs;
   unsigned i;
 
   assign_parms_initialize_all (&all);
   fnargs = assign_parms_augmented_arg_list (&all);
 
-  FOR_EACH_VEC_ELT (tree, fnargs, i, parm)
+  FOR_EACH_VEC_ELT (fnargs, i, parm)
     {
       struct assign_parm_data_one data;
 
@@ -3640,7 +3664,7 @@ gimplify_parameters (void)
 	}
     }
 
-  VEC_free (tree, heap, fnargs);
+  fnargs.release ();
 
   return stmts;
 }
@@ -4068,12 +4092,12 @@ void
 reorder_blocks (void)
 {
   tree block = DECL_INITIAL (current_function_decl);
-  VEC(tree,heap) *block_stack;
+  vec<tree> block_stack;
 
   if (block == NULL_TREE)
     return;
 
-  block_stack = VEC_alloc (tree, heap, 10);
+  block_stack.create (10);
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
   clear_block_marks (block);
@@ -4086,7 +4110,7 @@ reorder_blocks (void)
   reorder_blocks_1 (get_insns (), block, &block_stack);
   BLOCK_SUBBLOCKS (block) = blocks_nreverse_all (BLOCK_SUBBLOCKS (block));
 
-  VEC_free (tree, heap, block_stack);
+  block_stack.release ();
 }
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
@@ -4103,7 +4127,7 @@ clear_block_marks (tree block)
 }
 
 static void
-reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
+reorder_blocks_1 (rtx insns, tree current_block, vec<tree> *p_block_stack)
 {
   rtx insn;
   tree prev_beg = NULL_TREE, prev_end = NULL_TREE;
@@ -4158,11 +4182,11 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 				|| BLOCK_FRAGMENT_ORIGIN (BLOCK_SUPERCONTEXT
 								      (origin))
 				   == current_block);
-		  if (VEC_empty (tree, *p_block_stack))
+		  if (p_block_stack->is_empty ())
 		    super = current_block;
 		  else
 		    {
-		      super = VEC_last (tree, *p_block_stack);
+		      super = p_block_stack->last ();
 		      gcc_assert (super == current_block
 				  || BLOCK_FRAGMENT_ORIGIN (super)
 				     == current_block);
@@ -4172,11 +4196,11 @@ reorder_blocks_1 (rtx insns, tree current_block, VEC(tree,heap) **p_block_stack)
 		  BLOCK_SUBBLOCKS (current_block) = block;
 		  current_block = origin;
 		}
-	      VEC_safe_push (tree, heap, *p_block_stack, block);
+	      p_block_stack->safe_push (block);
 	    }
 	  else if (NOTE_KIND (insn) == NOTE_INSN_BLOCK_END)
 	    {
-	      NOTE_BLOCK (insn) = VEC_pop (tree, *p_block_stack);
+	      NOTE_BLOCK (insn) = p_block_stack->pop ();
 	      current_block = BLOCK_SUPERCONTEXT (current_block);
 	      if (BLOCK_FRAGMENT_ORIGIN (current_block))
 		current_block = BLOCK_FRAGMENT_ORIGIN (current_block);
@@ -4384,24 +4408,36 @@ set_cfun (struct function *new_cfun)
 
 /* Initialized with NOGC, making this poisonous to the garbage collector.  */
 
-static VEC(function_p,heap) *cfun_stack;
+static vec<function_p> cfun_stack;
 
-/* Push the current cfun onto the stack, and set cfun to new_cfun.  */
+/* Push the current cfun onto the stack, and set cfun to new_cfun.  Also set
+   current_function_decl accordingly.  */
 
 void
 push_cfun (struct function *new_cfun)
 {
-  VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  gcc_assert ((!cfun && !current_function_decl)
+	      || (cfun && current_function_decl == cfun->decl));
+  cfun_stack.safe_push (cfun);
+  current_function_decl = new_cfun ? new_cfun->decl : NULL_TREE;
   set_cfun (new_cfun);
 }
 
-/* Pop cfun from the stack.  */
+/* Pop cfun from the stack.  Also set current_function_decl accordingly.  */
 
 void
 pop_cfun (void)
 {
-  struct function *new_cfun = VEC_pop (function_p, cfun_stack);
+  struct function *new_cfun = cfun_stack.pop ();
+  /* When in_dummy_function, we do have a cfun but current_function_decl is
+     NULL.  We also allow pushing NULL cfun and subsequently changing
+     current_function_decl to something else and have both restored by
+     pop_cfun.  */
+  gcc_checking_assert (in_dummy_function
+		       || !cfun
+		       || current_function_decl == cfun->decl);
   set_cfun (new_cfun);
+  current_function_decl = new_cfun ? new_cfun->decl : NULL_TREE;
 }
 
 /* Return value of funcdef and increase it.  */
@@ -4448,8 +4484,6 @@ allocate_struct_function (tree fndecl, bool abstract_p)
   OVERRIDE_ABI_FORMAT (fndecl);
 #endif
 
-  invoke_set_current_function_hook (fndecl);
-
   if (fndecl != NULL_TREE)
     {
       DECL_STRUCT_FUNCTION (fndecl) = cfun;
@@ -4475,6 +4509,8 @@ allocate_struct_function (tree fndecl, bool abstract_p)
          but is this worth the hassle?  */
       cfun->can_throw_non_call_exceptions = flag_non_call_exceptions;
     }
+
+  invoke_set_current_function_hook (fndecl);
 }
 
 /* This is like allocate_struct_function, but pushes a new cfun for FNDECL
@@ -4483,7 +4519,13 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 void
 push_struct_function (tree fndecl)
 {
-  VEC_safe_push (function_p, heap, cfun_stack, cfun);
+  /* When in_dummy_function we might be in the middle of a pop_cfun and
+     current_function_decl and cfun may not match.  */
+  gcc_assert (in_dummy_function
+	      || (!cfun && !current_function_decl)
+	      || (cfun && current_function_decl == cfun->decl));
+  cfun_stack.safe_push (cfun);
+  current_function_decl = fndecl;
   allocate_struct_function (fndecl, false);
 }
 
@@ -4648,7 +4690,8 @@ stack_protect_epilogue (void)
   if (JUMP_P (tmp))
     predict_insn_def (tmp, PRED_NORETURN, TAKEN);
 
-  expand_expr_stmt (targetm.stack_protect_fail ());
+  expand_call (targetm.stack_protect_fail (), NULL_RTX, /*ignore=*/true);
+  free_temp_slots ();
   emit_label (label);
 }
 
@@ -4788,11 +4831,8 @@ expand_function_start (tree subr)
       tree t_save;
       rtx r_save;
 
-      /* ??? We need to do this save early.  Unfortunately here is
-	 before the frame variable gets declared.  Help out...  */
       tree var = TREE_OPERAND (cfun->nonlocal_goto_save_area, 0);
-      if (!DECL_RTL_SET_P (var))
-	expand_decl (var);
+      gcc_assert (DECL_RTL_SET_P (var));
 
       t_save = build4 (ARRAY_REF,
 		       TREE_TYPE (TREE_TYPE (cfun->nonlocal_goto_save_area)),
@@ -4825,9 +4865,6 @@ expand_function_start (tree subr)
   /* If we are doing generic stack checking, the probe should go here.  */
   if (flag_stack_check == GENERIC_STACK_CHECK)
     stack_check_probe_note = emit_note (NOTE_INSN_DELETED);
-
-  /* Make sure there is a line number after the function entry setup code.  */
-  force_next_line_note ();
 }
 
 /* Undo the effects of init_dummy_function_start.  */
@@ -4957,7 +4994,7 @@ expand_function_end (void)
 	      probe_stack_range (STACK_OLD_CHECK_PROTECT, max_frame_size);
 	    seq = get_insns ();
 	    end_sequence ();
-	    set_insn_locators (seq, prologue_locator);
+	    set_insn_locations (seq, prologue_location);
 	    emit_insn_before (seq, stack_check_probe_note);
 	    break;
 	  }
@@ -4972,8 +5009,7 @@ expand_function_end (void)
 
   /* Output a linenumber for the end of the function.
      SDB depends on this.  */
-  force_next_line_note ();
-  set_curr_insn_source_location (input_location);
+  set_curr_insn_location (input_location);
 
   /* Before the return label (if any), clobber the return
      registers so that they are not propagated live to the rest of
@@ -5256,14 +5292,14 @@ maybe_copy_prologue_epilogue_insn (rtx insn, rtx copy)
   *slot = copy;
 }
 
-/* Set the locator of the insn chain starting at INSN to LOC.  */
+/* Set the location of the insn chain starting at INSN to LOC.  */
 static void
-set_insn_locators (rtx insn, int loc)
+set_insn_locations (rtx insn, int loc)
 {
   while (insn != NULL_RTX)
     {
       if (INSN_P (insn))
-	INSN_LOCATOR (insn) = loc;
+	INSN_LOCATION (insn) = loc;
       insn = NEXT_INSN (insn);
     }
 }
@@ -5315,6 +5351,10 @@ requires_stack_frame_p (rtx insn, HARD_REG_SET prologue_used,
 
   if (CALL_P (insn))
     return !SIBLING_CALL_P (insn);
+
+  /* We need a frame to get the unique CFA expected by the unwinder.  */
+  if (cfun->can_throw_non_call_exceptions && can_throw_internal (insn))
+    return true;
 
   CLEAR_HARD_REG_SET (hardregs);
   for (df_rec = DF_INSN_DEFS (insn); *df_rec; df_rec++)
@@ -5626,6 +5666,15 @@ dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx before,
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     if (!bitmap_bit_p (need_prologue, e->src->index))
       {
+	int freq = EDGE_FREQUENCY (e);
+	copy_bb->count += e->count;
+	copy_bb->frequency += EDGE_FREQUENCY (e);
+	e->dest->count -= e->count;
+	if (e->dest->count < 0)
+	  e->dest->count = 0;
+	e->dest->frequency -= freq;
+	if (e->dest->frequency < 0)
+	  e->dest->frequency = 0;
 	redirect_edge_and_branch_force (e, copy_bb);
 	continue;
       }
@@ -5653,25 +5702,25 @@ active_insn_between (rtx head, rtx tail)
 /* LAST_BB is a block that exits, and empty of active instructions.
    Examine its predecessors for jumps that can be converted to
    (conditional) returns.  */
-static VEC (edge, heap) *
+static vec<edge> 
 convert_jumps_to_returns (basic_block last_bb, bool simple_p,
-			  VEC (edge, heap) *unconverted ATTRIBUTE_UNUSED)
+			  vec<edge> unconverted ATTRIBUTE_UNUSED)
 {
   int i;
   basic_block bb;
   rtx label;
   edge_iterator ei;
   edge e;
-  VEC(basic_block,heap) *src_bbs;
+  vec<basic_block> src_bbs;
 
-  src_bbs = VEC_alloc (basic_block, heap, EDGE_COUNT (last_bb->preds));
+  src_bbs.create (EDGE_COUNT (last_bb->preds));
   FOR_EACH_EDGE (e, ei, last_bb->preds)
     if (e->src != ENTRY_BLOCK_PTR)
-      VEC_quick_push (basic_block, src_bbs, e->src);
+      src_bbs.quick_push (e->src);
 
   label = BB_HEAD (last_bb);
 
-  FOR_EACH_VEC_ELT (basic_block, src_bbs, i, bb)
+  FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
       rtx jump = BB_END (bb);
 
@@ -5716,7 +5765,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 		  if (dump_file)
 		    fprintf (dump_file,
 			     "Failed to redirect bb %d branch.\n", bb->index);
-		  VEC_safe_push (edge, heap, unconverted, e);
+		  unconverted.safe_push (e);
 		}
 #endif
 	      continue;
@@ -5739,7 +5788,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 	      if (dump_file)
 		fprintf (dump_file,
 			 "Failed to redirect bb %d branch.\n", bb->index);
-	      VEC_safe_push (edge, heap, unconverted, e);
+	      unconverted.safe_push (e);
 	    }
 #endif
 	  continue;
@@ -5749,7 +5798,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
       redirect_edge_succ (e, EXIT_BLOCK_PTR);
       e->flags &= ~EDGE_CROSSING;
     }
-  VEC_free (basic_block, heap, src_bbs);
+  src_bbs.release ();
   return unconverted;
 }
 
@@ -5825,7 +5874,7 @@ thread_prologue_and_epilogue_insns (void)
 {
   bool inserted;
 #ifdef HAVE_simple_return
-  VEC (edge, heap) *unconverted_simple_returns = NULL;
+  vec<edge> unconverted_simple_returns = vNULL;
   bool nonempty_prologue;
   bitmap_head bb_flags;
   unsigned max_grow_size;
@@ -5868,7 +5917,7 @@ thread_prologue_and_epilogue_insns (void)
       end_sequence ();
 
       record_insns (split_prologue_seq, NULL, &prologue_insn_hash);
-      set_insn_locators (split_prologue_seq, prologue_locator);
+      set_insn_locations (split_prologue_seq, prologue_location);
 #endif
     }
 
@@ -5897,7 +5946,7 @@ thread_prologue_and_epilogue_insns (void)
 
       prologue_seq = get_insns ();
       end_sequence ();
-      set_insn_locators (prologue_seq, prologue_locator);
+      set_insn_locations (prologue_seq, prologue_location);
     }
 #endif
 
@@ -5923,7 +5972,7 @@ thread_prologue_and_epilogue_insns (void)
       HARD_REG_SET prologue_clobbered, prologue_used, live_on_edge;
       struct hard_reg_set_container set_up_by_prologue;
       rtx p_insn;
-      VEC(basic_block, heap) *vec;
+      vec<basic_block> vec;
       basic_block bb;
       bitmap_head bb_antic_flags;
       bitmap_head bb_on_list;
@@ -5959,7 +6008,7 @@ thread_prologue_and_epilogue_insns (void)
       /* Find the set of basic blocks that require a stack frame,
 	 and blocks that are too big to be duplicated.  */
 
-      vec = VEC_alloc (basic_block, heap, n_basic_blocks);
+      vec.create (n_basic_blocks);
 
       CLEAR_HARD_REG_SET (set_up_by_prologue.set);
       add_to_hard_reg_set (&set_up_by_prologue.set, Pmode,
@@ -5999,7 +6048,7 @@ thread_prologue_and_epilogue_insns (void)
 		    if (bb == entry_edge->dest)
 		      goto fail_shrinkwrap;
 		    bitmap_set_bit (&bb_flags, bb->index);
-		    VEC_quick_push (basic_block, vec, bb);
+		    vec.quick_push (bb);
 		    break;
 		  }
 		else if (size <= max_grow_size)
@@ -6017,23 +6066,23 @@ thread_prologue_and_epilogue_insns (void)
       /* For every basic block that needs a prologue, mark all blocks
 	 reachable from it, so as to ensure they are also seen as
 	 requiring a prologue.  */
-      while (!VEC_empty (basic_block, vec))
+      while (!vec.is_empty ())
 	{
-	  basic_block tmp_bb = VEC_pop (basic_block, vec);
+	  basic_block tmp_bb = vec.pop ();
 
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
 	    if (e->dest != EXIT_BLOCK_PTR
 		&& bitmap_set_bit (&bb_flags, e->dest->index))
-	      VEC_quick_push (basic_block, vec, e->dest);
+	      vec.quick_push (e->dest);
 	}
 
       /* Find the set of basic blocks that need no prologue, have a
 	 single successor, can be duplicated, meet a max size
 	 requirement, and go to the exit via like blocks.  */
-      VEC_quick_push (basic_block, vec, EXIT_BLOCK_PTR);
-      while (!VEC_empty (basic_block, vec))
+      vec.quick_push (EXIT_BLOCK_PTR);
+      while (!vec.is_empty ())
 	{
-	  basic_block tmp_bb = VEC_pop (basic_block, vec);
+	  basic_block tmp_bb = vec.pop ();
 
 	  FOR_EACH_EDGE (e, ei, tmp_bb->preds)
 	    if (single_succ_p (e->src)
@@ -6052,7 +6101,7 @@ thread_prologue_and_epilogue_insns (void)
 		      && !bitmap_bit_p (&bb_flags, pe->src->index))
 		    break;
 		if (pe == NULL && bitmap_set_bit (&bb_tail, e->src->index))
-		  VEC_quick_push (basic_block, vec, e->src);
+		  vec.quick_push (e->src);
 	      }
 	}
 
@@ -6069,11 +6118,11 @@ thread_prologue_and_epilogue_insns (void)
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
 		&& bitmap_set_bit (&bb_on_list, e->src->index))
-	      VEC_quick_push (basic_block, vec, e->src);
+	      vec.quick_push (e->src);
 	}
-      while (!VEC_empty (basic_block, vec))
+      while (!vec.is_empty ())
 	{
-	  basic_block tmp_bb = VEC_pop (basic_block, vec);
+	  basic_block tmp_bb = vec.pop ();
 	  bool all_set = true;
 
 	  bitmap_clear_bit (&bb_on_list, tmp_bb->index);
@@ -6090,7 +6139,7 @@ thread_prologue_and_epilogue_insns (void)
 	      FOR_EACH_EDGE (e, ei, tmp_bb->preds)
 		if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
 		    && bitmap_set_bit (&bb_on_list, e->src->index))
-		  VEC_quick_push (basic_block, vec, e->src);
+		  vec.quick_push (e->src);
 	    }
 	}
       /* Find exactly one edge that leads to a block in ANTIC from
@@ -6125,8 +6174,7 @@ thread_prologue_and_epilogue_insns (void)
 	  CLEAR_HARD_REG_BIT (prologue_clobbered, STACK_POINTER_REGNUM);
 	  if (frame_pointer_needed)
 	    CLEAR_HARD_REG_BIT (prologue_clobbered, HARD_FRAME_POINTER_REGNUM);
-	  CLEAR_HARD_REG_SET (live_on_edge);
-	  reg_set_to_hard_reg_set (&live_on_edge,
+	  REG_SET_TO_HARD_REG_SET (live_on_edge,
 				   df_get_live_in (entry_edge->dest));
 	  if (hard_reg_set_intersect_p (live_on_edge, prologue_clobbered))
 	    {
@@ -6159,14 +6207,14 @@ thread_prologue_and_epilogue_insns (void)
 		      some_no_pro = true;
 		  }
 		if (some_pro && some_no_pro)
-		  VEC_quick_push (basic_block, vec, bb);
+		  vec.quick_push (bb);
 		else
 		  bitmap_clear_bit (&bb_tail, bb->index);
 	      }
 	  /* Find the head of each tail.  */
-	  while (!VEC_empty (basic_block, vec))
+	  while (!vec.is_empty ())
 	    {
-	      basic_block tbb = VEC_pop (basic_block, vec);
+	      basic_block tbb = vec.pop ();
 
 	      if (!bitmap_bit_p (&bb_tail, tbb->index))
 		continue;
@@ -6248,7 +6296,7 @@ thread_prologue_and_epilogue_insns (void)
       bitmap_clear (&bb_tail);
       bitmap_clear (&bb_antic_flags);
       bitmap_clear (&bb_on_list);
-      VEC_free (basic_block, heap, vec);
+      vec.release ();
     }
 #endif
 
@@ -6326,7 +6374,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  if (LABEL_P (BB_HEAD (last_bb))
 	      && !active_insn_between (BB_HEAD (last_bb), BB_END (last_bb)))
-	    convert_jumps_to_returns (last_bb, false, NULL);
+	    convert_jumps_to_returns (last_bb, false, vNULL);
 
 	  if (EDGE_COUNT (last_bb->preds) != 0
 	      && single_succ_p (last_bb))
@@ -6393,7 +6441,7 @@ thread_prologue_and_epilogue_insns (void)
 
       /* Retain a map of the epilogue insns.  */
       record_insns (seq, NULL, &epilogue_insn_hash);
-      set_insn_locators (seq, epilogue_locator);
+      set_insn_locations (seq, epilogue_location);
 
       seq = get_insns ();
       returnjump = get_last_insn ();
@@ -6439,9 +6487,9 @@ epilogue_done:
 
       /* Look for basic blocks within the prologue insns.  */
       blocks = sbitmap_alloc (last_basic_block);
-      sbitmap_zero (blocks);
-      SET_BIT (blocks, entry_edge->dest->index);
-      SET_BIT (blocks, orig_entry_edge->dest->index);
+      bitmap_clear (blocks);
+      bitmap_set_bit (blocks, entry_edge->dest->index);
+      bitmap_set_bit (blocks, orig_entry_edge->dest->index);
       find_many_sub_basic_blocks (blocks);
       sbitmap_free (blocks);
 
@@ -6460,7 +6508,7 @@ epilogue_done:
      convert to conditional simple_returns, but couldn't for some
      reason, create a block to hold a simple_return insn and redirect
      those remaining edges.  */
-  if (!VEC_empty (edge, unconverted_simple_returns))
+  if (!unconverted_simple_returns.is_empty ())
     {
       basic_block simple_return_block_hot = NULL;
       basic_block simple_return_block_cold = NULL;
@@ -6495,7 +6543,7 @@ epilogue_done:
 	      pending_edge_cold = e;
 	  }
 
-      FOR_EACH_VEC_ELT (edge, unconverted_simple_returns, i, e)
+      FOR_EACH_VEC_ELT (unconverted_simple_returns, i, e)
 	{
 	  basic_block *pdest_bb;
 	  edge pending;
@@ -6534,7 +6582,7 @@ epilogue_done:
 	    }
 	  redirect_edge_and_branch_force (e, *pdest_bb);
 	}
-      VEC_free (edge, heap, unconverted_simple_returns);
+      unconverted_simple_returns.release ();
     }
 
   if (entry_edge != orig_entry_edge)
@@ -6583,7 +6631,7 @@ epilogue_done:
 	     avoid getting rid of sibcall epilogue insns.  Do this before we
 	     actually emit the sequence.  */
 	  record_insns (seq, NULL, &epilogue_insn_hash);
-	  set_insn_locators (seq, epilogue_locator);
+	  set_insn_locations (seq, epilogue_location);
 
 	  emit_insn_before (seq, insn);
 	}
@@ -6728,13 +6776,28 @@ reposition_prologue_and_epilogue_notes (void)
 #endif /* HAVE_prologue or HAVE_epilogue */
 }
 
+/* Returns the name of function declared by FNDECL.  */
+const char *
+fndecl_name (tree fndecl)
+{
+  if (fndecl == NULL)
+    return "(nofn)";
+  return lang_hooks.decl_printable_name (fndecl, 2);
+}
+
+/* Returns the name of function FN.  */
+const char *
+function_name (struct function *fn)
+{
+  tree fndecl = (fn == NULL) ? NULL : fn->decl;
+  return fndecl_name (fndecl);
+}
+
 /* Returns the name of the current function.  */
 const char *
 current_function_name (void)
 {
-  if (cfun == NULL)
-    return "<none>";
-  return lang_hooks.decl_printable_name (cfun->decl, 2);
+  return function_name (cfun);
 }
 
 
@@ -6742,7 +6805,7 @@ static unsigned int
 rest_of_handle_check_leaf_regs (void)
 {
 #ifdef LEAF_REGISTERS
-  current_function_uses_only_leaf_regs
+  crtl->uses_only_leaf_regs
     = optimize > 0 && only_leaf_regs_used () && leaf_function_p ();
 #endif
   return 0;
@@ -6785,10 +6848,12 @@ used_types_insert (tree t)
       if (cfun)
 	used_types_insert_helper (t, cfun);
       else
-	/* So this might be a type referenced by a global variable.
-	   Record that type so that we can later decide to emit its debug
-	   information.  */
-        VEC_safe_push (tree, gc, types_used_by_cur_var_decl, t);
+	{
+	  /* So this might be a type referenced by a global variable.
+	     Record that type so that we can later decide to emit its
+	     debug information.  */
+	  vec_safe_push (types_used_by_cur_var_decl, t);
+	}
     }
 }
 
@@ -6860,6 +6925,7 @@ struct rtl_opt_pass pass_leaf_regs =
  {
   RTL_PASS,
   "*leaf_regs",                         /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   rest_of_handle_check_leaf_regs,       /* execute */
   NULL,                                 /* sub */
@@ -6898,6 +6964,7 @@ struct rtl_opt_pass pass_thread_prologue_and_epilogue =
  {
   RTL_PASS,
   "pro_and_epilogue",                   /* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,                                 /* gate */
   rest_of_handle_thread_prologue_and_epilogue, /* execute */
   NULL,                                 /* sub */
@@ -7099,6 +7166,7 @@ struct rtl_opt_pass pass_match_asm_constraints =
  {
   RTL_PASS,
   "asmcons",				/* name */
+  OPTGROUP_NONE,                        /* optinfo_flags */
   NULL,					/* gate */
   rest_of_match_asm_constraints,	/* execute */
   NULL,                                 /* sub */

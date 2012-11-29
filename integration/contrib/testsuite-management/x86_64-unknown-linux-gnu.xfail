@@ -1,70 +1,50 @@
-#*** libstdc++ for unix/-m32:
-#*** libstdc++ for unix/-m64:
-# Both of these fail because of the stl debug patch which changes line numbers.
-FAIL: 23_containers/vector/requirements/dr438/assign_neg.cc  (test for errors, line 1236)
-FAIL: 23_containers/vector/requirements/dr438/assign_neg.cc (test for excess errors)
-FAIL: 23_containers/vector/requirements/dr438/constructor_1_neg.cc  (test for errors, line 1166)
-FAIL: 23_containers/vector/requirements/dr438/constructor_1_neg.cc (test for excess errors)
-FAIL: 23_containers/vector/requirements/dr438/constructor_2_neg.cc  (test for errors, line 1166)
-FAIL: 23_containers/vector/requirements/dr438/constructor_2_neg.cc (test for excess errors)
-FAIL: 23_containers/vector/requirements/dr438/insert_neg.cc  (test for errors, line 1277)
-FAIL: 23_containers/vector/requirements/dr438/insert_neg.cc (test for excess errors)
-
-# These tests fail in trunk in all configurations.
-FAIL: gcc.dg/cproj-fails-with-broken-glibc.c execution test
+UNRESOLVED: gcc.dg/attr-weakref-1.c compilation failed to produce executable
+FAIL: gcc.dg/attr-weakref-1.c (test for excess errors)
+FAIL: gcc.dg/builtin-object-size-8.c execution test
 XPASS: gcc.dg/inline_3.c (test for excess errors)
 XPASS: gcc.dg/inline_4.c (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O1  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O0  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O2  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O2  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -Os  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O1  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O0  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -Os  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (internal compiler error)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
 XPASS: gcc.dg/unroll_3.c (test for excess errors)
 XPASS: gcc.dg/unroll_4.c (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -flto-partition=none  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O0  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O1  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O1  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O0  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -flto-partition=none  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O2  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -Os  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -Os  (test for excess errors)
-
-# LTO errors
-
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=none  (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=1to1
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=none
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto  (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=1to1  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto
-
-# These fail because system linker doesn't understand dwarf-4 format.
-FAIL: g++.dg/other/anon5.C -std=gnu++98 (test for excess errors)
-FAIL: g++.dg/other/anon5.C -std=gnu++11 (test for excess errors)
-XPASS: gcc.dg/Wstrict-overflow-18.c (test for bogus messages, line 20)
-
-# These are flaky when tested in loaded machines (they exceed the timeout)
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
-flaky | FAIL: boehm-gc.c/gctest.c -O2 execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+XPASS: gfortran.dg/do_1.f90 -O0  execution test
+XPASS: gfortran.dg/do_1.f90 -O1  execution test
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
+FAIL: gfortran.dg/reassoc_4.f -O   scan-tree-dump-times reassoc1 "[0-9] \\* " 22
+FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
+FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
+FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
+FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
+FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
+FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
+FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
+FAIL: sourcelocation output - source compiled test
+FAIL: sourcelocation -findirect-dispatch output - source compiled test
+FAIL: sourcelocation -O3 output - source compiled test

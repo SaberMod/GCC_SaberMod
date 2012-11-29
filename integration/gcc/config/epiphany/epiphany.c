@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on the EPIPHANY cpu.
    Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003,
-   2004, 2005, 2006, 2007, 2009, 2010, 2011 Free Software Foundation, Inc.
+   2004, 2005, 2006, 2007, 2009-2012 Free Software Foundation, Inc.
    Contributed by Embecosm on behalf of Adapteva, Inc.
 
 This file is part of GCC.
@@ -45,8 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "ggc.h"
 #include "tm-constrs.h"
-#include "tree-pass.h"
-#include "integrate.h"
+#include "tree-pass.h"	/* for current_pass */
 
 /* Which cpu we're compiling for.  */
 int epiphany_cpu_type;
@@ -730,7 +729,8 @@ epiphany_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
    If ADDR is not a valid address, its cost is irrelevant.  */
 
 static int
-epiphany_address_cost (rtx addr, bool speed)
+epiphany_address_cost (rtx addr, enum machine_mode mode,
+		       addr_space_t as ATTRIBUTE_UNUSED, bool speed)
 {
   rtx reg;
   rtx off = const0_rtx;
@@ -761,19 +761,28 @@ epiphany_address_cost (rtx addr, bool speed)
     }
   if (!satisfies_constraint_Rgs (reg))
     return 1;
-  /* ??? We don't know the mode of the memory access.  We are going to assume
-     SImode, unless lack of offset alignment indicates a smaller access.  */
+  /* The offset range available for short instructions depends on the mode
+     of the memory access.  */
   /* First, make sure we have a valid integer.  */
   if (!satisfies_constraint_L (off))
     return 1;
   i = INTVAL (off);
-  if ((i & 1) == 0)
-    i >>= 1;
-  if ((i & 1) == 0)
-    i >>= 1;
-  if (i < -7 || i > 7)
-    return 1;
-  return 0;
+  switch (GET_MODE_SIZE (mode))
+    {
+      default:
+      case 4:
+	if (i & 1)
+	  return 1;
+	i >>= 1;
+	/* Fall through.  */
+      case 2:
+	if (i & 1)
+	  return 1;
+	i >>= 1;
+	/* Fall through.  */
+      case 1:
+	return i < -7 || i > 7;
+    }
 }
 
 /* Compute the cost of moving data between registers and memory.
@@ -933,7 +942,7 @@ epiphany_compute_function_type (tree decl)
    Don't consider them here.  */
 #define MUST_SAVE_REGISTER(regno, interrupt_p) \
   ((df_regs_ever_live_p (regno) \
-    || (interrupt_p && !current_function_is_leaf \
+    || (interrupt_p && !crtl->is_leaf \
 	&& call_used_regs[regno] && !fixed_regs[regno])) \
    && (!call_used_regs[regno] || regno == GPR_LR \
        || (interrupt_p && regno != GPR_SP)))
@@ -1036,7 +1045,7 @@ epiphany_compute_frame_size (int size /* # of var. bytes allocated.  */)
     reg_size = EPIPHANY_STACK_ALIGN (reg_size);
   if (total_size + reg_size <= (unsigned) epiphany_stack_offset
       && !interrupt_p
-      && current_function_is_leaf && !frame_pointer_needed)
+      && crtl->is_leaf && !frame_pointer_needed)
     {
       first_slot = -1;
       last_slot = -1;

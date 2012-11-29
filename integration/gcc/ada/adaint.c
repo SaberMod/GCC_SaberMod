@@ -80,7 +80,6 @@ extern "C" {
 #ifdef IN_RTS
 #include "tconfig.h"
 #include "tsystem.h"
-
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -88,8 +87,8 @@ extern "C" {
 #include <unixio.h>
 #endif
 
-#ifdef __vxworks
-/* S_IREAD and S_IWRITE are not defined in VxWorks */
+#if defined (__vxworks) || defined (__ANDROID__)
+/* S_IREAD and S_IWRITE are not defined in VxWorks or Android */
 #ifndef S_IREAD
 #define S_IREAD  (S_IRUSR | S_IRGRP | S_IROTH)
 #endif
@@ -350,7 +349,6 @@ int __gnat_vmsp = 0;
 /* Used for Ada bindings */
 int __gnat_size_of_file_attributes = sizeof (struct file_attributes);
 
-/* Reset the file attributes as if no system call had been performed */
 void __gnat_stat_to_attr (int fd, char* name, struct file_attributes* attr);
 
 /* The __gnat_max_path_len variable is used to export the maximum
@@ -401,6 +399,8 @@ to_ptr32 (char **ptr64)
 #endif
 
 static const char ATTR_UNSET = 127;
+
+/* Reset the file attributes as if no system call had been performed */
 
 void
 __gnat_reset_attributes
@@ -3763,7 +3763,16 @@ void __main (void) {}
 #endif
 #endif
 
-#if defined (linux)
+#if defined (__ANDROID__)
+
+#include <pthread.h>
+
+void *__gnat_lwp_self (void)
+{
+   return (void *) pthread_self ();
+}
+
+#elif defined (linux)
 /* There is no function in the glibc to retrieve the LWP of the current
    thread. We need to do a system call in order to retrieve this
    information. */

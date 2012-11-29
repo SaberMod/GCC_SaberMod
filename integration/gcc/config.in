@@ -45,12 +45,6 @@
 #endif
 
 
-/* Define if building with C++. */
-#ifndef USED_FOR_TARGET
-#undef ENABLE_BUILD_WITH_CXX
-#endif
-
-
 /* Define to enable prefix canonicalization. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_CANONICAL_PREFIXES
@@ -339,6 +333,12 @@
 #endif
 
 
+/* Define if your assembler supports HLE prefixes. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_IX86_HLE
+#endif
+
+
 /* Define if your assembler supports the .quad directive. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_QUAD
@@ -354,11 +354,6 @@
 /* Define if your assembler supports the sahf mnemonic in 64bit mode. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_IX86_SAHF
-#endif
-
-/* Define if your assembler supports HLE prefixes. */
-#ifndef USED_FOR_TARGET
-#undef HAVE_AS_IX86_HLE
 #endif
 
 
@@ -452,6 +447,12 @@
 #endif
 
 
+/* Define if your assembler supports POWER8 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_POWER8
+#endif
+
+
 /* Define if your assembler supports .ref */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_REF
@@ -473,6 +474,12 @@
 /* Define if your assembler supports -relax option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_RELAX_OPTION
+#endif
+
+
+/* Define if your assembler supports SPARC4 instructions. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SPARC4
 #endif
 
 
@@ -629,6 +636,12 @@
    define to 0. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_FFLUSH_UNLOCKED
+#endif
+
+
+/* Define to 1 if we found a declaration for 'ffs', otherwise define to 0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_FFS
 #endif
 
 
@@ -1102,7 +1115,7 @@
 #endif
 
 
-/* Define if using GNU as. */
+/* Define to 1 if using GNU as. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GNU_AS
 #endif
@@ -1114,7 +1127,7 @@
 #endif
 
 
-/* Define if using GNU ld. */
+/* Define to 1 if using GNU ld. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_GNU_LD
 #endif
@@ -1221,7 +1234,7 @@
 #endif
 
 
-/* Define if your PowerPC64 linker supports a large TOC. */
+/* Define if your AIX linker supports a large TOC. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_LARGE_TOC
 #endif
@@ -1268,6 +1281,12 @@
 /* Define if your linker supports --sysroot. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SYSROOT
+#endif
+
+
+/* Define to 1 if you have the <libintl.h> header file. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LIBINTL_H
 #endif
 
 
@@ -1596,6 +1615,12 @@
 /* Define if cloog is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_cloog
+#endif
+
+
+/* Define if F_SETLKW supported by fcntl. */
+#ifndef USED_FOR_TARGET
+#undef HOST_HAS_F_SETLKW
 #endif
 
 
