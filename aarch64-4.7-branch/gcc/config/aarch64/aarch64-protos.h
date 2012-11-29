@@ -227,4 +227,12 @@ void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 
 #endif /* RTX_CODE */
 
+rtx aarch64_load_tp (rtx target);
+void aarch64_init_builtins (void);
+rtx aarch64_expand_builtin (tree exp,
+			    rtx target,
+			    rtx subtarget ATTRIBUTE_UNUSED,
+			    enum machine_mode mode ATTRIBUTE_UNUSED,
+			    int ignore ATTRIBUTE_UNUSED);
+
 #endif /* GCC_AARCH64_PROTOS_H */

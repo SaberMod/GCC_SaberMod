@@ -102,7 +102,6 @@ static bool aarch64_vfp_is_call_or_return_candidate (enum machine_mode,
 						     bool *);
 static void aarch64_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
-static rtx aarch64_load_tp (rtx);
 static void aarch64_override_options_after_change (void);
 static int aarch64_simd_valid_immediate (rtx, enum machine_mode, int, rtx *,
 					 int *, unsigned char *, int *, int *);
@@ -5003,23 +5002,7 @@ aarch64_legitimate_constant_p (enum machine_mode mode, rtx x)
   return aarch64_constant_address_p (x);
 }
 
-static void
-aarch64_init_builtins (void)
-{
-  tree ftype, decl = NULL;
-
-  ftype = build_function_type (ptr_type_node, void_list_node);
-  decl = add_builtin_function ("__builtin_thread_pointer", ftype,
-			       AARCH64_BUILTIN_THREAD_POINTER, BUILT_IN_MD,
-			       NULL, NULL_TREE);
-  TREE_NOTHROW (decl) = 1;
-  TREE_READONLY (decl) = 1;
-
-  if (TARGET_SIMD)
-    init_aarch64_simd_builtins ();
-}
-
-static rtx
+rtx
 aarch64_load_tp (rtx target)
 {
   if (!target
@@ -5030,27 +5013,6 @@ aarch64_load_tp (rtx target)
   /* Can return in any reg.  */
   emit_insn (gen_aarch64_load_tp_hard (target));
   return target;
-}
-
-/* Expand an expression EXP that calls a built-in function,
-   with result going to TARGET if that's convenient.  */
-static rtx
-aarch64_expand_builtin (tree exp,
-		     rtx target,
-		     rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
-{
-  tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  int fcode = DECL_FUNCTION_CODE (fndecl);
-
-  if (fcode == AARCH64_BUILTIN_THREAD_POINTER)
-    return aarch64_load_tp (target);
-
-  if (fcode >= AARCH64_SIMD_BUILTIN_BASE)
-    return aarch64_simd_expand_builtin (fcode, exp, target);
-
-  return NULL_RTX;
 }
 
 /* On AAPCS systems, this is the "struct __va_list".  */
