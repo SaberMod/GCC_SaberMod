@@ -305,6 +305,8 @@ enum aarch64_builtins
 #undef VAR10
 #undef VAR11
 
+static GTY(()) tree aarch64_builtin_decls[AARCH64_BUILTIN_MAX];
+
 #define NUM_DREG_TYPES 6
 #define NUM_QREG_TYPES 6
 
@@ -612,6 +614,7 @@ aarch64_init_simd_builtins (void)
       };
       char namebuf[60];
       tree ftype = NULL;
+      tree fndecl = NULL;
       int is_load = 0;
       int is_store = 0;
 
@@ -952,8 +955,9 @@ aarch64_init_simd_builtins (void)
       snprintf (namebuf, sizeof (namebuf), "__builtin_aarch64_%s%s",
 		d->name, modenames[d->mode]);
 
-      add_builtin_function (namebuf, ftype, fcode, BUILT_IN_MD, NULL,
-			    NULL_TREE);
+      fndecl = add_builtin_function (namebuf, ftype, fcode, BUILT_IN_MD,
+				     NULL, NULL_TREE);
+      aarch64_builtin_decls[fcode] = fndecl;
     }
 }
 
@@ -968,9 +972,19 @@ aarch64_init_builtins (void)
 			       NULL, NULL_TREE);
   TREE_NOTHROW (decl) = 1;
   TREE_READONLY (decl) = 1;
+  aarch64_builtin_decls[AARCH64_BUILTIN_THREAD_POINTER] = decl;
 
   if (TARGET_SIMD)
     aarch64_init_simd_builtins ();
+}
+
+tree
+aarch64_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
+{
+  if (code >= AARCH64_BUILTIN_MAX)
+    return error_mark_node;
+
+  return aarch64_builtin_decls[code];
 }
 
 typedef enum

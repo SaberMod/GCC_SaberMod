@@ -1,6 +1,19 @@
 2012-11-29  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	Backport from mainline.
+	2012-11-26  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_builtin_decls): New.
+	(aarch64_init_simd_builtins): Store declaration after builtin
+	initialisation.
+	(aarch64_init_builtins): Likewise.
+	(aarch64_builtin_decl): New.
+	* config/aarch64/aarch64-protos.h (aarch64_builtin_decl): New.
+	* config/aarch64/aarch64.c (TARGET_BUILTIN_DECL): Define.
+
+2012-11-29  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
 	2012-11-20  James Greenhalgh  <james.greenhalgh@arm.com>
 		    Tejas Belagod  <tejas.belagod@arm.com>
 
