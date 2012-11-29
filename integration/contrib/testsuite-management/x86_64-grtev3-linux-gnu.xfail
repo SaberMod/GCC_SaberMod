@@ -1,61 +1,94 @@
-#*** libstdc++ for unix/-m32:
-#*** libstdc++ for unix/-m64:
-
-# These tests fail in trunk in all configurations.
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O1  (test for excess errors)
+FAIL: c-c++-common/asan/memcmp-1.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O0  compilation failed to produce executable
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -g  compilation failed to produce executable
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2  compilation failed to produce executable
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+FAIL: c-c++-common/asan/memcmp-1.c -O2  (test for excess errors)
+FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+FAIL: c-c++-common/asan/memcmp-1.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+UNRESOLVED: gcc.dg/attr-weakref-1.c compilation failed to produce executable
+FAIL: gcc.dg/attr-weakref-1.c (test for excess errors)
+FAIL: gcc.dg/builtin-object-size-8.c execution test
 XPASS: gcc.dg/inline_3.c (test for excess errors)
 XPASS: gcc.dg/inline_4.c (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O2  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O1  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -Os  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -Os  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O0  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O0  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O2  (test for excess errors)
+FAIL: gcc.dg/torture/pr51106-2.c -O1  (internal compiler error)
+FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (test for excess errors)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
 XPASS: gcc.dg/unroll_3.c (test for excess errors)
 XPASS: gcc.dg/unroll_4.c (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O1  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O1  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O0  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -Os  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O3 -g  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O2  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: gcc.dg/torture/pr51106-2.c -Os  (test for excess errors)
-FAIL: gcc.dg/torture/pr51106-2.c -O0  (internal compiler error)
-FAIL: gcc.c-torture/execute/vshuf-v16qi.c execution,  -Os
-FAIL: gcc.c-torture/execute/vshuf-v2di.c execution,  -Os
-FAIL: gcc.c-torture/execute/vshuf-v8hi.c execution,  -Os
-FAIL: gcc.dg/pch/save-temps-1.c -O0 -g assembly comparison
-FAIL: gcc.dg/pch/save-temps-1.c -O3 -g  assembly comparison
-FAIL: gcc.target/i386/pr53249.c (test for excess errors)
-
-# LTO errors
+XPASS: gfortran.dg/do_1.f90 -O0  execution test
+XPASS: gfortran.dg/do_1.f90 -O1  execution test
 FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
 UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
 UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
 UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
 FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
-
-
-XPASS: gcc.dg/Wstrict-overflow-18.c (test for bogus messages, line 20)
-
-# These are flaky when tested in loaded machines (they exceed the timeout)
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c execution test
-flaky | FAIL: libmudflap.cth/pass40-frag.c output pattern test
-flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
-flaky | FAIL: boehm-gc.c/gctest.c -O2 execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
-flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+FAIL: gfortran.dg/reassoc_4.f -O   scan-tree-dump-times reassoc1 "[0-9] \\* " 22
+UNRESOLVED: libatomic.c/atomic-generic.c compilation failed to produce executable
+FAIL: libatomic.c/atomic-generic.c (test for excess errors)
+FAIL: libatomic.c/generic-2.c (test for excess errors)
+UNRESOLVED: libatomic.c/generic-2.c compilation failed to produce executable
+UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
+FAIL: libitm.c++/dropref.C (test for excess errors)
+FAIL: libitm.c++/throwdown.C (test for excess errors)
+FAIL: libitm.c/cancel.c (test for excess errors)
+UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
+FAIL: libitm.c/clone-1.c (test for excess errors)
+UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
+UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
+FAIL: libitm.c/dropref-2.c (test for excess errors)
+FAIL: libitm.c/dropref.c (test for excess errors)
+UNRESOLVED: libitm.c/dropref.c compilation failed to produce executable
+FAIL: libitm.c/memcpy-1.c (test for excess errors)
+UNRESOLVED: libitm.c/memcpy-1.c compilation failed to produce executable
+UNRESOLVED: libitm.c/memset-1.c compilation failed to produce executable
+FAIL: libitm.c/memset-1.c (test for excess errors)
+UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
+FAIL: libitm.c/notx.c (test for excess errors)
+UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
+FAIL: libitm.c/reentrant.c (test for excess errors)
+FAIL: libitm.c/simple-1.c (test for excess errors)
+UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
+UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
+FAIL: libitm.c/simple-2.c (test for excess errors)
+FAIL: libitm.c/txrelease.c (test for excess errors)
+UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
+FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
+FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
+FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
+FAIL: libmudflap.c++/pass41-frag.cxx (-static) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx (-static) execution test
+FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
+FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
+FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
+FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
+FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
