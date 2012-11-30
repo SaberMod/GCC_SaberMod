@@ -1,6 +1,13 @@
 2012-11-30  Ian Bolton  <ian.bolton@arm.com>
 
 	Backport from mainline
+	2012-09-26  Christophe Lyon <christophe.lyon@linaro.org>
+
+	* gcc.target/arm/builtin-bswap16-1.c: New testcase.
+
+2012-11-30  Ian Bolton  <ian.bolton@arm.com>
+	
+	Backport from mainline
 	2012-04-11  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc.dg/builtin-bswap-1.c: Test __builtin_bswap16 & __builtin_bswap64.

@@ -1,6 +1,14 @@
 2012-11-30  Ian Bolton  <ian.bolton@arm.com>
 
 	Backport from mainline
+	2012-09-26  Christophe Lyon <christophe.lyon@linaro.org>
+
+	* tree-ssa-math-opts.c (bswap_stats): Add found_16bit field.
+	(execute_optimize_bswap): Add support for builtin_bswap16.
+
+2012-11-30  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
 	2012-04-11  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR target/52624
