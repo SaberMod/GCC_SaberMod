@@ -1,0 +1,10 @@
+2012-11-30  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2012-04-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/52624
+	* c-common.h (uint16_type_node): Rename into...
+	(c_uint16_type_node): ...this.
+	* c-common.c (c_common_nodes_and_builtins): Adjust for above renaming.
+	* c-cppbuiltin.c (builtin_define_stdint_macros): Likewise.
