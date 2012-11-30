@@ -2035,6 +2035,12 @@ arm_option_override (void)
   else
     max_insns_skipped = current_tune->max_insns_skipped;
 
+  if (TARGET_THUMB2 && flag_ira_hoist_pressure)
+    {
+      /* Don't do register pressure directed hoist on Thumb2.  */
+      flag_ira_hoist_pressure = 0;
+    }
+
   /* Hot/Cold partitioning is not currently supported, since we can't
      handle literal pool placement in that case.  */
   if (flag_reorder_blocks_and_partition)

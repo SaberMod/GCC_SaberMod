@@ -1,3 +1,8 @@
+2012-11-30  Bin Cheng  <bin.cheng@arm.com>
+
+	* config/arm/arm.c (arm_option_override): Disable option
+	-fira-hoist-pressure on Thumb2.
+
 2012-11-28  Bin Cheng  <bin.cheng@arm.com>
 
 	Backport from mainline r193841
