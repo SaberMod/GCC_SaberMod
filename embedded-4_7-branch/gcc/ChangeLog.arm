@@ -1,5 +1,22 @@
 2012-11-30  Bin Cheng  <bin.cheng@arm.com>
 
+	* config/arm/arm-protos.h (tune_params): Add
+	preferred_renaming_class.
+	* config/arm/arm.c (arm_slowmul_tune, arm_fastmul_tune)
+	(arm_strongarm_tune, arm_xscale_tune, arm_9e_tune, arm_v6t2_tune)
+	(arm_cortex_tune, arm_cortex_a5_tune, arm_cortex_a9_tune)
+	(arm_cortex_v7m_tune, arm_cortex_v6m_tune, arm_fa726te_tune): Set
+	preferred_renaming_class field.
+	(arm_preferred_rename_class): Return preferred renaming register
+	class.
+	* config/arm/arm.md (*arm_addsi3, *arm_subsi3_insn, *arm_mulsi3_v6)
+	(*arm_andsi3_insn, andsi_notsi_si, *iorsi3_insn, *arm_xorsi3)
+	(*arm_shiftsi3): Add alternatives for Thumb2 set.
+	* regrename.c (find_best_rename_reg): Don't rename preferred
+	register to non-preferred register.
+
+2012-11-30  Bin Cheng  <bin.cheng@arm.com>
+
 	* config/arm/arm.c (arm_option_override): Disable option
 	-fira-hoist-pressure on Thumb2.
 

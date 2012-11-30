@@ -243,6 +243,8 @@ struct tune_params
      performance. The first element covers Thumb state and the second one
      is for ARM state.  */
   bool logical_op_non_short_circuit[2];
+  /* Preferred reg class for register renaming.  */
+  enum reg_class preferred_renaming_class;
 };
 
 extern const struct tune_params *current_tune;

@@ -718,16 +718,18 @@
 ;;  (plus (reg rN) (reg sp)) into (reg rN).  In this case reload will
 ;; put the duplicated register first, and not try the commutative version.
 (define_insn_and_split "*arm_addsi3"
-  [(set (match_operand:SI          0 "s_register_operand" "=r, k,r,r, k, r, k,r, k, r")
-	(plus:SI (match_operand:SI 1 "s_register_operand" "%rk,k,r,rk,k, rk,k,rk,k, rk")
-		 (match_operand:SI 2 "reg_or_int_operand" "rI,rI,k,Pj,Pj,L, L,PJ,PJ,?n")))]
+  [(set (match_operand:SI          0 "s_register_operand" "=l, r, k,r,r, k, l, r, k,r, k, r")
+	(plus:SI (match_operand:SI 1 "s_register_operand" "%0, rk,k,r,rk,k, 0, rk,k,rk,k, rk")
+		 (match_operand:SI 2 "reg_or_int_operand" "Py,rI,rI,k,Pj,Pj,Pv,L, L,PJ,PJ,?n")))]
   "TARGET_32BIT"
   "@
+   add%?\\t%0, %1, %2
    add%?\\t%0, %1, %2
    add%?\\t%0, %1, %2
    add%?\\t%0, %2, %1
    addw%?\\t%0, %1, %2
    addw%?\\t%0, %1, %2
+   sub%?\\t%0, %1, #%n2
    sub%?\\t%0, %1, #%n2
    sub%?\\t%0, %1, #%n2
    subw%?\\t%0, %1, #%n2
@@ -744,9 +746,9 @@
 		      operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,4,4,4,4,4,4,4,16")
+  [(set_attr "length" "2,4,4,4,4,4,2,4,4,4,4,16")
    (set_attr "predicable" "yes")
-   (set_attr "arch" "*,*,*,t2,t2,*,*,t2,t2,*")]
+   (set_attr "arch" "t2,*,*,*,t2,t2,t2,*,*,t2,t2,*")]
 )
 
 (define_insn_and_split "*thumb1_addsi3"
@@ -1214,12 +1216,13 @@
 
 ; ??? Check Thumb-2 split length
 (define_insn_and_split "*arm_subsi3_insn"
-  [(set (match_operand:SI           0 "s_register_operand" "=r,r,rk,r")
-	(minus:SI (match_operand:SI 1 "reg_or_int_operand" "rI,r,k,?n")
-		  (match_operand:SI 2 "reg_or_int_operand" "r,rI,r, r")))]
+  [(set (match_operand:SI           0 "s_register_operand" "=r,l, r,rk,r")
+	(minus:SI (match_operand:SI 1 "reg_or_int_operand" "rI,0, r,k,?n")
+		  (match_operand:SI 2 "reg_or_int_operand" "r,Py,rI,r, r")))]
   "TARGET_32BIT"
   "@
    rsb%?\\t%0, %2, %1
+   sub%?\\t%0, %1, %2
    sub%?\\t%0, %1, %2
    sub%?\\t%0, %1, %2
    #"
@@ -1231,8 +1234,9 @@
                       INTVAL (operands[1]), operands[0], operands[2], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,4,16")
-   (set_attr "predicable" "yes")]
+  [(set_attr "length" "4,2,4,4,16")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "*,t2,*,*,*")]
 )
 
 (define_peephole2
@@ -1351,13 +1355,15 @@
 )
 
 (define_insn "*arm_mulsi3_v6"
-  [(set (match_operand:SI          0 "s_register_operand" "=r")
-	(mult:SI (match_operand:SI 1 "s_register_operand" "r")
-		 (match_operand:SI 2 "s_register_operand" "r")))]
+  [(set (match_operand:SI          0 "s_register_operand" "=l,r")
+	(mult:SI (match_operand:SI 1 "s_register_operand" "%l,r")
+		 (match_operand:SI 2 "s_register_operand" "0,r")))]
   "TARGET_32BIT && arm_arch6"
   "mul%?\\t%0, %1, %2"
-  [(set_attr "insn" "mul")
-   (set_attr "predicable" "yes")]
+  [(set_attr "length" "2,4")
+   (set_attr "insn" "mul")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "t2,*")]
 )
 
 ; Unfortunately with the Thumb the '&'/'0' trick can fails when operands 
@@ -2187,11 +2193,13 @@
 
 ; ??? Check split length for Thumb-2
 (define_insn_and_split "*arm_andsi3_insn"
-  [(set (match_operand:SI         0 "s_register_operand" "=r,r,r")
-	(and:SI (match_operand:SI 1 "s_register_operand" "r,r,r")
-		(match_operand:SI 2 "reg_or_int_operand" "rI,K,?n")))]
+  [(set (match_operand:SI         0 "s_register_operand" "=l,l,r,r,r")
+	(and:SI (match_operand:SI 1 "s_register_operand" "0, l,r,r,r")
+		(match_operand:SI 2 "reg_or_int_operand" "l, 0,rI,K,?n")))]
   "TARGET_32BIT"
   "@
+   and%?\\t%0, %1, %2
+   and%?\\t%0, %2, %1
    and%?\\t%0, %1, %2
    bic%?\\t%0, %1, #%B2
    #"
@@ -2205,8 +2213,9 @@
 	               INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "4,4,16")
-   (set_attr "predicable" "yes")]
+  [(set_attr "length" "2,2,4,4,16")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "t2,t2,*,*,*")]
 )
 
 (define_insn "*thumb1_andsi3_insn"
@@ -2783,12 +2792,14 @@
 )
   
 (define_insn "andsi_notsi_si"
-  [(set (match_operand:SI 0 "s_register_operand" "=r")
-	(and:SI (not:SI (match_operand:SI 2 "s_register_operand" "r"))
-		(match_operand:SI 1 "s_register_operand" "r")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=l,r")
+	(and:SI (not:SI (match_operand:SI 2 "s_register_operand" "l,r"))
+		(match_operand:SI 1 "s_register_operand" "0,r")))]
   "TARGET_32BIT"
   "bic%?\\t%0, %1, %2"
-  [(set_attr "predicable" "yes")]
+  [(set_attr "length" "2,4")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "t2,*")]
 )
 
 (define_insn "thumb1_bicsi3"
@@ -2913,11 +2924,12 @@
 )
 
 (define_insn_and_split "*iorsi3_insn"
-  [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
-	(ior:SI (match_operand:SI 1 "s_register_operand" "%r,r,r")
-		(match_operand:SI 2 "reg_or_int_operand" "rI,K,?n")))]
+  [(set (match_operand:SI 0 "s_register_operand" "=l,r,r,r")
+	(ior:SI (match_operand:SI 1 "s_register_operand" "%0,r,r,r")
+		(match_operand:SI 2 "reg_or_int_operand" "l,rI,K,?n")))]
   "TARGET_32BIT"
   "@
+   orr%?\\t%0, %1, %2
    orr%?\\t%0, %1, %2
    orn%?\\t%0, %1, #%B2
    #"
@@ -2931,8 +2943,8 @@
                       INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
 }
-  [(set_attr "length" "4,4,16")
-   (set_attr "arch" "32,t2,32")
+  [(set_attr "length" "2,4,4,16")
+   (set_attr "arch" "t2,32,t2,32")
    (set_attr "predicable" "yes")])
 
 (define_insn "*thumb1_iorsi3_insn"
@@ -3051,11 +3063,12 @@
 )
 
 (define_insn_and_split "*arm_xorsi3"
-  [(set (match_operand:SI         0 "s_register_operand" "=r,r")
-	(xor:SI (match_operand:SI 1 "s_register_operand" "%r,r")
-		(match_operand:SI 2 "reg_or_int_operand" "rI,?n")))]
+  [(set (match_operand:SI         0 "s_register_operand" "=l,r,r")
+	(xor:SI (match_operand:SI 1 "s_register_operand" "%0,r,r")
+		(match_operand:SI 2 "reg_or_int_operand" "l,rI,?n")))]
   "TARGET_32BIT"
   "@
+   eor%?\\t%0, %1, %2
    eor%?\\t%0, %1, %2
    #"
   "TARGET_32BIT
@@ -3067,8 +3080,9 @@
                       INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
 }
-  [(set_attr "length" "4,16")
-   (set_attr "predicable" "yes")]
+  [(set_attr "length" "2,4,16")
+   (set_attr "predicable" "yes")
+   (set_attr "arch" "t2,*,*")]
 )
 
 (define_insn "*thumb1_xorsi3_insn"
@@ -3672,17 +3686,19 @@
 )
 
 (define_insn "*arm_shiftsi3"
-  [(set (match_operand:SI   0 "s_register_operand" "=r")
+  [(set (match_operand:SI   0 "s_register_operand" "=l,r")
 	(match_operator:SI  3 "shift_operator"
-	 [(match_operand:SI 1 "s_register_operand"  "r")
-	  (match_operand:SI 2 "reg_or_int_operand" "rM")]))]
+	 [(match_operand:SI 1 "s_register_operand"  "0,r")
+	  (match_operand:SI 2 "reg_or_int_operand" "l,rM")]))]
   "TARGET_32BIT"
   "* return arm_output_shift(operands, 0);"
-  [(set_attr "predicable" "yes")
+  [(set_attr "length" "2,4")
+   (set_attr "predicable" "yes")
    (set_attr "shift" "1")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
 		      (const_string "alu_shift")
-		      (const_string "alu_shift_reg")))]
+		      (const_string "alu_shift_reg")))
+   (set_attr "arch" "t2,*")]
 )
 
 (define_insn "*shiftsi3_compare0"

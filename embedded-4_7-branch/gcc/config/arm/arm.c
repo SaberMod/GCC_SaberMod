@@ -883,6 +883,7 @@ const struct tune_params arm_slowmul_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -896,6 +897,7 @@ const struct tune_params arm_fastmul_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -912,6 +914,7 @@ const struct tune_params arm_strongarm_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -925,6 +928,7 @@ const struct tune_params arm_xscale_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -938,6 +942,7 @@ const struct tune_params arm_9e_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -951,6 +956,7 @@ const struct tune_params arm_v6t2_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -965,6 +971,7 @@ const struct tune_params arm_cortex_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -981,6 +988,7 @@ const struct tune_params arm_cortex_a5_tune =
   arm_cortex_a5_branch_cost,
   arm_default_unroll_times,
   {false, false},				/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -994,6 +1002,7 @@ const struct tune_params arm_cortex_a9_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1008,6 +1017,7 @@ const struct tune_params arm_cortex_v7m_tune =
   arm_cortex_v7m_branch_cost,
   arm_cortex_m_unroll_times,
   {false, false},				/* Prefer non short circuit.  */
+  LO_REGS,					/* Preferred rename class.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1022,6 +1032,7 @@ const struct tune_params arm_cortex_v6m_tune =
   arm_default_branch_cost,
   arm_cortex_m_unroll_times,
   {false, false},				/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -1035,6 +1046,7 @@ const struct tune_params arm_fa726te_tune =
   arm_default_branch_cost,
   arm_default_unroll_times,
   {true, true},					/* Prefer non short circuit.  */
+  NO_REGS,					/* Preferred rename class.  */
 };
 
 
@@ -24834,10 +24846,11 @@ arm_preferred_rename_class (reg_class_t rclass)
   /* Thumb-2 instructions using LO_REGS may be smaller than instructions
      using GENERIC_REGS.  During register rename pass, we prefer LO_REGS,
      and code size can be reduced.  */
-  if (TARGET_THUMB2 && rclass == GENERAL_REGS)
-    return LO_REGS;
+  if (optimize_size)
+    return (TARGET_THUMB2 && reg_class_subset_p (rclass, CORE_REGS))
+	    ? LO_REGS : NO_REGS;
   else
-    return NO_REGS;
+    return TARGET_THUMB2 ? current_tune->preferred_renaming_class : NO_REGS;
 }
 
 /* Compute the atrribute "length" of insn "*push_multi".

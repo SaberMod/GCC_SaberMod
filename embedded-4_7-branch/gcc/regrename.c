@@ -358,8 +358,9 @@ find_best_rename_reg (du_head_p this_head, enum reg_class super_class,
 {
   bool has_preferred_class;
   enum reg_class preferred_class;
-  int pass;
-  int best_new_reg = old_reg;
+  int new_reg;
+  int best_reg = old_reg;
+  int best_preferred_reg = old_reg;
 
   /* Further narrow the set of registers we can use for renaming.
      If the chain needs a call-saved register, mark the call-used
@@ -375,39 +376,36 @@ find_best_rename_reg (du_head_p this_head, enum reg_class super_class,
   preferred_class
     = (enum reg_class) targetm.preferred_rename_class (super_class);
 
-  /* If PREFERRED_CLASS is not NO_REGS, we iterate in the first pass
-     over registers that belong to PREFERRED_CLASS and try to find the
-     best register within the class.  If that failed, we iterate in
-     the second pass over registers that don't belong to the class.
-     If PREFERRED_CLASS is NO_REGS, we iterate over all registers in
-     ascending order without any preference.  */
+  /* If PREFERRED_CLASS is defined as register class other than NO_REGS:
+     we don't rename old_reg into non-preferred register if old_reg is in
+     PREFERRED_CLASS; otherwise we rename old_reg into preferred register
+     whenever possible, and only after that we try to rename it into other
+     registers.  */
   has_preferred_class = (preferred_class != NO_REGS);
-  for (pass = (has_preferred_class ? 0 : 1); pass < 2; pass++)
+  for (new_reg = 0; new_reg < FIRST_PSEUDO_REGISTER; new_reg++)
     {
-      int new_reg;
-      for (new_reg = 0; new_reg < FIRST_PSEUDO_REGISTER; new_reg++)
-	{
-	  if (has_preferred_class
-	      && (pass == 0)
-	      != TEST_HARD_REG_BIT (reg_class_contents[preferred_class],
-				    new_reg))
-	    continue;
+      /* Don't rename to non-preferred register if old_reg is in
+	 PREFERRED_CLASS.  */
+      if (has_preferred_class
+	  && TEST_HARD_REG_BIT (reg_class_contents[preferred_class], old_reg)
+	  && !TEST_HARD_REG_BIT (reg_class_contents[preferred_class], new_reg))
+	continue;
 
-	  /* In the first pass, we force the renaming of registers that
-	     don't belong to PREFERRED_CLASS to registers that do, even
-	     though the latters were used not very long ago.  */
-	  if (check_new_reg_p (old_reg, new_reg, this_head,
-			       *unavailable)
-	      && ((pass == 0
-		   && !TEST_HARD_REG_BIT (reg_class_contents[preferred_class],
-					  best_new_reg))
-		  || tick[best_new_reg] > tick[new_reg]))
-	    best_new_reg = new_reg;
+      if (check_new_reg_p (old_reg, new_reg, this_head, *unavailable))
+	{
+	  /* Record new_reg in best_preferred_reg if it's in PREFERRED_CLASS,
+	     otherwise record it in best_reg.  */
+	  if (has_preferred_class
+	      && TEST_HARD_REG_BIT (reg_class_contents[preferred_class],
+				    new_reg)
+	      && tick[best_preferred_reg] > tick[new_reg])
+	    best_preferred_reg = new_reg;
+	  else if (tick[best_reg] > tick[new_reg])
+	    best_reg = new_reg;
 	}
-      if (pass == 0 && best_new_reg != old_reg)
-	break;
     }
-  return best_new_reg;
+
+  return (best_preferred_reg != old_reg) ? best_preferred_reg : best_reg;
 }
 
 /* Perform register renaming on the current function.  */
