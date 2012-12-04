@@ -1,3 +1,40 @@
+2012-12-01  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* gcc.dg/torture/pr54920.c: Add "-fno-common" option on hppa*-*-hpux*.
+
+2012-11-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/53862
+	* g++.dg/cpp0x/variadic134.C: New.
+
+	PR c++/53858
+	* g++.dg/cpp0x/alias-decl-20.C: New.
+
+	PR c++/50852
+	* g++.dg/template/typedef39.C: New.
+
+	PR c++/53039
+	* g++.dg/cpp0x/variadic133.C: New.
+	* g++.dg/template/param1.C: Adjust.
+
+2012-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55331
+	* g++.dg/opt/pr55331.C: New testcase.
+
+2012-11-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-10-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54894
+	* gcc.dg/torture/pr54894.c: New testcase.
+
+	2012-10-02  Richard Guenther  <rguenther@suse.de>
+
+	PR middle-end/54735
+	* g++.dg/torture/pr54735.C: New testcase.
+
 2012-11-24  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/55446
