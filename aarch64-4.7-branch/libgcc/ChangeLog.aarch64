@@ -1,3 +1,9 @@
+2012-12-04  Marcus Shawcroft <marcus.shawcroft@arm.com>
+
+        * config/aarch64/sfp-machine.h (FP_EX_ALL): Define.
+	(FP_EX_SHIFT): Define.
+	(FP_TRAPPING_EXCEPTIONS): Define.
+
 2012-11-15  Marcus Shawcroft <marcus.shawcroft@arm.com>
 
 	* soft-fp: Updated from glibc upstream.
