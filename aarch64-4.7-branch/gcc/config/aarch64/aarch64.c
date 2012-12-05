@@ -6897,6 +6897,13 @@ aarch64_c_mode_for_suffix (char suffix)
 #define TARGET_VECTORIZE_VECTOR_ALIGNMENT_REACHABLE \
   aarch64_simd_vector_alignment_reachable
 
+#undef TARGET_VECTORIZE_BUILTINS
+#define TARGET_VECTORIZE_BUILTINS
+
+#undef TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION
+#define TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION \
+  aarch64_builtin_vectorized_function
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-aarch64.h"
