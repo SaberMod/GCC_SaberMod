@@ -1932,8 +1932,7 @@ move_loop_invariants (void)
       curr_loop = loop;
       /* move_single_loop_invariants for very large loops
 	 is time consuming and might need a lot of memory.  */
-      if (loop->num_nodes <= (unsigned) LOOP_INVARIANT_MAX_BBS_IN_LOOP
-	  && ! optimize_loop_nest_for_size_p (loop))
+      if (loop->num_nodes <= (unsigned) LOOP_INVARIANT_MAX_BBS_IN_LOOP)
 	move_single_loop_invariants (loop);
     }
 
