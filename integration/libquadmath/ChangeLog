@@ -1,3 +1,28 @@
+2012-11-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR libquadmath/55462
+	* strtod/strtod_l.c (round_and_return): Use HAVE_FENV_H
+	instead of nonexisting HAVE_GET_ROUNDING_MODE.
+
+2012-11-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/55455
+	* quadmath-rounding-mode.h (get_rounding_mode): Don't pass
+	void to fegetround.
+
+2012-11-23  Tobias Burnus  <burnus@net-b.de>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* quadmath-rounding-mode.h: New.
+	* printf/fpioconst.c: Update from GLIBC. Fix strtod rounding.
+	* printf/fpioconst.h: Ditto.
+	* printf/printf_fp.c (__quadmath_printf_fp): Update from GLIBC.
+	Make printf respect the rounding mode for decimal output.
+	* printf/printf_fphex.c (__quadmath_printf_fphex): Update from
+	GLIBC.  Make printf respect the rounding mode for hex output.
+	* strtod/strtod_l.c: Update from GLIBC. Make strtod respect the
+	rounding mode. Fix strtod handling of underflow.
+
 2012-11-22  David S. Miller  <davem@davemloft.net>
 	    Tobias Burnus  <burnus@net-b.de>
 	    Joseph Myers  <joseph@codesourcery.com>
