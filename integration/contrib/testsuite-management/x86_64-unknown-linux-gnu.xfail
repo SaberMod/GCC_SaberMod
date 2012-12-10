@@ -1,3 +1,21 @@
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf2 = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_SignalTest *c = 0 output pattern test, should match AddressSanitizer: SEGV on unknown address
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalStringConstTest Ident(p[15]) execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_FileNameInGlobalReportTest Ident(p[15]) execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_ThreadStackReuseTest execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf4 = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_LongJmpTest execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest func_static15[Ident(15)] = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf1 = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_SigLongJmpTest execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest static110[Ident(110+7)] = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest func_static15[Ident(15 + 9)] = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_CxxExceptionTest execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BuiltinLongJmpTest execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest static110[Ident(110)] = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_ThreadedTest ThreadedTestSpawn() output pattern test, should match Thread T.*created.*Thread T.*created.*Thread T.*created
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf3 = 0 execution test
+FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest fs2[Ident(-1)] = 0 execution test
 UNRESOLVED: gcc.dg/attr-weakref-1.c compilation failed to produce executable
 FAIL: gcc.dg/attr-weakref-1.c (test for excess errors)
 FAIL: gcc.dg/builtin-object-size-8.c execution test
@@ -6,7 +24,6 @@ XPASS: gcc.dg/inline_4.c (test for excess errors)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
 XPASS: gcc.dg/unroll_3.c (test for excess errors)
 XPASS: gcc.dg/unroll_4.c (test for excess errors)
-FAIL: gfortran.dg/allocate_error_4.f90 -O  (test for excess errors)
 XPASS: gfortran.dg/do_1.f90 -O0  execution test
 XPASS: gfortran.dg/do_1.f90 -O1  execution test
 FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
@@ -21,8 +38,6 @@ UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o ex
 FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
-FAIL: gfortran.dg/reassoc_4.f -O   scan-tree-dump-times reassoc1 "[0-9] \\* " 22
-FAIL: gfortran.dg/typebound_operator_18.f90 -O  (test for excess errors)
 FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
 FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
 FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test

@@ -341,10 +341,6 @@ struct GTY(()) rtl_data {
 
   /* For reorg.  */
 
-  /* If some insns can be deferred to the delay slots of the epilogue, the
-     delay list for them is recorded here.  */
-  rtx epilogue_delay_list;
-
   /* Nonzero if function being compiled called builtin_return_addr or
      builtin_frame_address with nonzero count.  */
   bool accesses_prior_frames;
@@ -393,7 +389,8 @@ struct GTY(()) rtl_data {
   bool arg_pointer_save_area_init;
 
   /* Nonzero if current function must be given a frame pointer.
-     Set in global.c if anything is allocated on the stack there.  */
+     Set in reload1.c or lra-eliminations.c if anything is allocated
+     on the stack there.  */
   bool frame_pointer_needed;
 
   /* When set, expand should optimize for speed.  */
