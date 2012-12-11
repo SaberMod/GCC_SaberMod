@@ -1,9 +1,0 @@
-2012-09-07  Simon Baldwin  <simonb@google.com>
-
-	Backport rev 190648 from trunk.
-
-	* lang.opt (-cpp=): Mark flag NoDWARFRecord.
-
-2011-01-28  Simon Baldwin  <simonb@google.com>
-
-	* module.c (gfc_dump_module): Omit timestamp from output.
