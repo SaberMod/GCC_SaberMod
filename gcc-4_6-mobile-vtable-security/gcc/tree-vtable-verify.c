@@ -1,5 +1,5 @@
-/* Interprocedural constant propagation
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
+/* Virtual Table Pointer Verification
+   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 unsigned num_vtable_map_nodes = 0;
 bool any_verification_calls_generated = false;
 
-static tree verify_vtbl_ptr_fndecl = NULL_TREE;
+static GTY(()) tree verify_vtbl_ptr_fndecl = NULL_TREE;
 
 unsigned int vtable_verify_main (void);
 static bool gate_tree_vtable_verify (void);
@@ -611,6 +611,11 @@ verify_bb_vtables (basic_block bb)
                           gimple_seq pre_p = NULL;
                           struct vtbl_map_node *vtable_map_node = NULL;
                           tree vtbl_decl = NULL_TREE;
+                          tree expr_tree = NULL_TREE;
+                          struct gimplify_ctx gctx;
+                          const char *vtable_name = "<unknown>";
+                          int len1 = 0;
+                          int len2 = 0;
 
                           lhs = gimple_assign_lhs (stmt);
 
@@ -723,19 +728,13 @@ verify_bb_vtables (basic_block bb)
                              lhs) is in the set of valid vtable
                              pointers for the base class.  */
 
+                          /* Have problems with following assert. It shows we are not protecting everything */
+                          /* gcc_assert(verify_vtbl_ptr_fndecl && vtbl_var_decl); */
                           if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
                             {
-                              tree expr_tree = NULL_TREE;
-                              struct gimplify_ctx gctx;
-                              tree arg4 = TREE_OPERAND (rhs, 0);
-                              const char *vtable_name = "<unknown>";
-
-                              int len1 = 0;
-                              int len2 = 0;
-
                               if (TREE_CODE (vtbl_decl) == VAR_DECL)
                                 vtable_name = IDENTIFIER_POINTER
-                                                       (DECL_NAME (vtbl_decl));
+                                    (DECL_NAME (vtbl_decl));
 
                               push_gimplify_context (&gctx);
                               len1 = strlen (IDENTIFIER_POINTER
@@ -747,32 +746,28 @@ verify_bb_vtables (basic_block bb)
                                  triage problems */
 #ifdef VTV_DEBUG
                               expr_tree = build_call_expr
-                                     (verify_vtbl_ptr_fndecl, 6,
-                                      my_build1 (ADDR_EXPR,
-                                                 TYPE_POINTER_TO
-                                                   (TREE_TYPE (vtbl_var_decl)),
-                                                 vtbl_var_decl),
-                                      SSA_NAME_VAR (lhs),
-                                      build_string_literal
-                                                  (len1 + 1,
-                                                   IDENTIFIER_POINTER
-                                                       (DECL_NAME
-                                                            (vtbl_var_decl))),
-                                      build_int_cst (integer_type_node,
-                                                     len1),
-                                      build_string_literal (len2 + 1, vtable_name),
-                                      build_int_cst (integer_type_node,
-                                                     len2));
+                                  (verify_vtbl_ptr_fndecl, 4,
+                                   my_build1 (ADDR_EXPR,
+                                              TYPE_POINTER_TO
+                                              (TREE_TYPE (vtbl_var_decl)),
+                                              vtbl_var_decl),
+                                   SSA_NAME_VAR (lhs),
+                                   build_string_literal
+                                   (len1 + 1,
+                                    IDENTIFIER_POINTER
+                                    (DECL_NAME
+                                     (vtbl_var_decl))),
+                                   build_string_literal(
+                                       len2 + 1, vtable_name));
 #else
                               expr_tree = build_call_expr
-                                     (verify_vtbl_ptr_fndecl, 2,
-                                      my_build1 (ADDR_EXPR,
-                                                 TYPE_POINTER_TO
-                                                   (TREE_TYPE (vtbl_var_decl)),
-                                                 vtbl_var_decl),
-                                      SSA_NAME_VAR (lhs));
+                                  (verify_vtbl_ptr_fndecl, 2,
+                                   my_build1 (ADDR_EXPR,
+                                              TYPE_POINTER_TO
+                                              (TREE_TYPE (vtbl_var_decl)),
+                                              vtbl_var_decl),
+                                   SSA_NAME_VAR (lhs));
 #endif
-
                               /* Assign the result of the call to the
                                  original variable receiving the
                                  assignment of the object's vtable
@@ -805,10 +800,11 @@ build_vtable_verify_fndecl (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
   tree arg_types = NULL_TREE;
-  tree type = build_pointer_type (void_type_node);
+  tree func_type = NULL_TREE;
   struct lang_decl *ld;
 #ifdef VTV_DEBUG
-  tree char_ptr_type = build_pointer_type (char_type_node);
+  tree const_char_ptr_type = build_pointer_type (
+      build_qualified_type(char_type_node, TYPE_QUAL_CONST));
 #endif
 
   if (verify_vtbl_ptr_fndecl != NULL_TREE)
@@ -818,35 +814,50 @@ build_vtable_verify_fndecl (void)
   ld->u.base.selector = 1;
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_ptr_type_node));
 
 #ifdef VTV_DEBUG
   /* Start: Arg types to be removed when we remove debugging parameters from
      the library function. */
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_char_ptr_type));
   /* End: Arg types to be removed...*/
 #endif
 
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
-
-  type = build_function_type (type, arg_types);
+  func_type = build_function_type (const_ptr_type_node, arg_types);
 
 #ifdef VTV_DEBUG
-  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointerDebug", type);
+  /* const void *
+     __VLTVerifyVtablePointerDebug (void ** set_handle_ptr, 
+                                    const void * vtable_ptr,
+                                    const char * set_symbol_name, 
+                                    const char * vtable_name)      */
+
+
+  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointerDebug", 
+                                          func_type);
 #else
-  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointer", type);
+  /* const void *
+     __VLTVerifyVtablePointerDebug (void ** set_handle_ptr, 
+                                    const void * vtable_ptr)            */
+
+  verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointer", 
+                                          func_type);
 #endif
 
   TREE_NOTHROW (verify_vtbl_ptr_fndecl) = 1;
   DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl)
       = tree_cons (get_identifier ("leaf"), NULL,
                    DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl));
+  DECL_PURE_P(verify_vtbl_ptr_fndecl) = 1;
   TREE_PUBLIC (verify_vtbl_ptr_fndecl) = 1;
+#ifdef VTV_STATIC_VERIFY
+  DECL_VISIBILITY(verify_vtbl_ptr_fndecl) = VISIBILITY_HIDDEN;
+#endif
   DECL_PRESERVE_P (verify_vtbl_ptr_fndecl) = 1;
   DECL_LANG_SPECIFIC (verify_vtbl_ptr_fndecl) = ld;
   SET_DECL_LANGUAGE (verify_vtbl_ptr_fndecl, lang_cplusplus);

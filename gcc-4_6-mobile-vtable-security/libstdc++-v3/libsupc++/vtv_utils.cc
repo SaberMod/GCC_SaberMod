@@ -33,10 +33,15 @@
 
 #include "vtv_utils.h"
 
+static const char * const logs_dir = "/tmp/vtv_logs";
+
 int
 vtv_open_log(const char * name)
 {
-  int fd = open(name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+  char log_name[256];
+  snprintf(log_name, sizeof(log_name), "%s/%s", logs_dir, name);
+  mkdir(logs_dir, S_IRWXU);
+  int fd = open(log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
     vtv_add_to_log(2, "Cannot open log file %s %s\n", name, strerror(errno));
   return fd;

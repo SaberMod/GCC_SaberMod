@@ -48,8 +48,9 @@ along with GCC; see the file COPYING3.  If not see
  * precompiled header IR */
 static GTY(()) tree vlt_saved_class_info = NULL_TREE;
 
-static tree vlt_register_pairs_fndecl = NULL_TREE;
-static tree vlt_change_permission_fndecl = NULL_TREE;
+static GTY(()) tree vlt_register_pairs_fndecl = NULL_TREE;
+static GTY(()) tree vlt_init_set_symbol_fndecl = NULL_TREE;
+static GTY(()) tree vlt_change_permission_fndecl = NULL_TREE;
 
 struct work_node {
   struct vtv_graph_node *node;
@@ -59,15 +60,15 @@ struct work_node {
 static void init_functions (void);
 
 static void dump_class_hierarchy_information (void);
-static int  guess_num_vtable_pointers (struct vtv_graph_node *);
+static size_t guess_num_vtable_pointers (struct vtv_graph_node *);
 static bool register_all_pairs (tree body);
 static void add_hierarchy_pair (struct vtv_graph_node *,
                                 struct vtv_graph_node *);
 static struct vtv_graph_node *find_graph_node (tree);
 static struct vtv_graph_node *
                   find_and_remove_next_leaf_node (struct work_node **worklist);
-static void create_undef_reference_to_vtv_init(tree register_pairs_body);
-static bool vtv_register_class_hierarchy_information (tree register_pairs_body);
+static void create_undef_reference_to_vtv_init(tree init_routine_body);
+static bool vtv_register_class_hierarchy_information (tree init_routine_body);
 
 static void update_class_hierarchy_information (tree, tree);
 struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
@@ -77,10 +78,12 @@ init_functions (void)
 {
   tree void_ptr_type = build_pointer_type (void_type_node);
   tree arg_types = NULL_TREE;
-  tree register_pairs_type = void_type_node;
   tree change_permission_type = void_type_node;
+  tree register_pairs_type = void_type_node;
+  tree init_set_symbol_type = void_type_node;
 #ifdef VTV_DEBUG
-  tree char_ptr_type = build_pointer_type (char_type_node);
+  tree const_char_ptr_type = build_pointer_type (
+      build_qualified_type(char_type_node, TYPE_QUAL_CONST));
 #endif
 
   if (vlt_change_permission_fndecl != NULL_TREE)
@@ -105,28 +108,31 @@ init_functions (void)
   SET_DECL_LANGUAGE (vlt_change_permission_fndecl, lang_cplusplus);
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_ptr_type_node));
+
 #ifdef VTV_DEBUG
-  /* Start: Arg types to be removed when we remove debugging parameters from
-     the library function. */
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, char_ptr_type));
-  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
-                                                   integer_type_node));
-  /* End: Arg types to be removed...*/
+  /* These arguments are only used by the debug version of RegisterPair */
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_char_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_char_ptr_type));
 #endif
+
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
 
   register_pairs_type = build_function_type (register_pairs_type, arg_types);
 
 #ifdef VTV_DEBUG
+  /* void
+     __VLTRegisterPairDebug (void ** set_handle_ptr, const void * vtable_ptr,
+                        const char * set_symbol_name, const char * vtable_name)
+  */
+
   vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPairDebug",
                                              register_pairs_type);
 #else
+  /* void __VLTRegisterPair (void **set_handle_ptr, const void *vtable_ptr) */
   vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPair",
                                              register_pairs_type);
 #endif
@@ -139,6 +145,40 @@ init_functions (void)
   DECL_PRESERVE_P (vlt_register_pairs_fndecl) = 1;
   retrofit_lang_decl (vlt_register_pairs_fndecl);
   SET_DECL_LANGUAGE (vlt_register_pairs_fndecl, lang_cplusplus);
+
+  arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, 
+                                                   const_ptr_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
+                                                   size_type_node));
+  arg_types = chainon (arg_types, build_tree_list (NULL_TREE, void_type_node));
+
+  init_set_symbol_type = build_function_type (init_set_symbol_type, arg_types);
+
+#ifdef VTV_DEBUG
+  /* void __VLTInitSetSymbolDebug(void ** set_handle_ptr, 
+                                 const void * set_symbol_key,
+                                 size_t size_hint)
+  */
+  vlt_init_set_symbol_fndecl = build_fn_decl ("__VLTInitSetSymbolDebug",
+                                             init_set_symbol_type);
+#else
+  /* void __VLTInitSetSymbol(void ** set_handle_ptr, 
+                             const void * set_symbol_key,
+                             size_t size_hint)
+  */
+  vlt_init_set_symbol_fndecl = build_fn_decl ("__VLTInitSetSymbol",
+                                             init_set_symbol_type);
+#endif
+
+  TREE_NOTHROW (vlt_init_set_symbol_fndecl) = 1;
+  DECL_ATTRIBUTES (vlt_init_set_symbol_fndecl) =
+                    tree_cons (get_identifier ("leaf"), NULL,
+                               DECL_ATTRIBUTES (vlt_init_set_symbol_fndecl));
+  TREE_PUBLIC (vlt_init_set_symbol_fndecl) = 1;
+  DECL_PRESERVE_P (vlt_init_set_symbol_fndecl) = 1;
+  retrofit_lang_decl (vlt_init_set_symbol_fndecl);
+  SET_DECL_LANGUAGE (vlt_init_set_symbol_fndecl, lang_cplusplus);
 }
 
 static void
@@ -293,11 +333,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
      record looking for any fields that point to secondary vtables,
      and adding calls to __VLTRegisterPair for the secondary vtable
      pointers.  */
-
   tree vtbl_var_decl;
-  tree arg1;
-  tree arg2;
-  int hint = 0;
 
   if (TREE_CODE (record_type) != RECORD_TYPE)
     return;
@@ -325,6 +361,16 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
               tree call_expr = NULL_TREE;
               unsigned HOST_WIDE_INT cnt;
               constructor_elt *ce;
+#ifdef VTV_DEBUG
+              int len1 = strlen (IDENTIFIER_POINTER
+                                 (DECL_NAME
+                                  (TREE_OPERAND
+                                   (base_class_decl_arg, 0))));
+              tree arg1 = build_string_literal (
+                  len1 + 1,
+                  IDENTIFIER_POINTER(DECL_NAME(
+                      TREE_OPERAND(base_class_decl_arg, 0))));
+#endif
 
               for (cnt = 0;
                    VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (values),
@@ -334,21 +380,6 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                   tree value = ce->value;
                   tree val_vtbl_decl = TREE_OPERAND (TREE_OPERAND (value, 0),
                                                      0);
-                  int len1 = strlen (IDENTIFIER_POINTER
-				     (DECL_NAME
-				          (TREE_OPERAND
-					     (base_class_decl_arg, 0))));
-                  int len2 = strlen (IDENTIFIER_POINTER
-				     (DECL_NAME (val_vtbl_decl)));
-                  arg1 = build_string_literal (len1 + 1,
-                                               IDENTIFIER_POINTER
-					        (DECL_NAME
-						 (TREE_OPERAND
-						  (base_class_decl_arg, 0))));
-                  arg2 = build_string_literal (len2 + 1,
-                                               IDENTIFIER_POINTER
-					        (DECL_NAME (val_vtbl_decl)));
-
                   already_registered = record_register_pairs (val_vtbl_decl,
                                                               value,
                                                               base_class);
@@ -357,26 +388,24 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                     continue;
 
 #ifdef VTV_DEBUG
-		  /* This call expr has the 3 "real" arguments, plus 4
-		     debugging arguments.  Eventually it will be
-		     replaced with the one just below it, which only
-		     has the 3 real arguments.  */
-                  call_expr = build_call_expr
-		                        (vlt_register_pairs_fndecl, 7,
-					 base_class_decl_arg, value,
-                                         build_int_cst (integer_type_node,
-                                                        hint),
-					 arg1,
-					 build_int_cst (integer_type_node,
-							len1),
-					 arg2,
-					 build_int_cst (integer_type_node,
-							len2));
+                  { 
+                    int len2 = strlen (IDENTIFIER_POINTER
+                                       (DECL_NAME (val_vtbl_decl)));
+                    tree arg2 = build_string_literal (
+                        len2 + 1,
+                        IDENTIFIER_POINTER(DECL_NAME (val_vtbl_decl)));
+
+                    /* This call expr has the 2 "real" arguments, plus 2
+                       debugging arguments.  Eventually it will be
+                       replaced with the one just below it, which only
+                       has the 2 real arguments.  */
+                    call_expr = build_call_expr (vlt_register_pairs_fndecl, 4,
+                                                 base_class_decl_arg, value,
+                                                 arg1, arg2);
+                  }
 #else
-                  call_expr = build_call_expr (vlt_register_pairs_fndecl, 3,
-                                               base_class_decl_arg, value,
-                                               build_int_cst (integer_type_node,
-                                                             hint));
+                  call_expr = build_call_expr (vlt_register_pairs_fndecl, 2,
+                                               base_class_decl_arg, value);
 #endif
 
 		  append_to_statement_list (call_expr, &body);
@@ -388,13 +417,12 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 
 static void
 register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
-                              int len1, tree str2, int len2, tree base_class)
+                              tree str2, tree base_class)
 {
   unsigned ix;
   tree base_binfo;
   tree vtable_decl;
   bool already_registered;
-  int hint = 0;
 
   if (binfo == NULL_TREE)
     return;
@@ -416,41 +444,32 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
           if (!already_registered)
             {
 #ifdef VTV_DEBUG
-              call_expr = build_call_expr (vlt_register_pairs_fndecl, 7,
+              call_expr = build_call_expr (vlt_register_pairs_fndecl, 4,
                                            arg1, vtable_address,
-                                           build_int_cst (integer_type_node,
-                                                          hint),
-                                           str1,
-                                           build_int_cst (integer_type_node,
-                                                          len1),
-                                           str2,
-                                           build_int_cst (integer_type_node,
-                                                          len2));
+                                           str1, str2);
 #else
-              call_expr = build_call_expr (vlt_register_pairs_fndecl, 3,
-                                           arg1, vtable_address,
-                                           build_int_cst (integer_type_node,
-                                                         hint));
+              call_expr = build_call_expr (vlt_register_pairs_fndecl, 2,
+                                           arg1, vtable_address);
 #endif
 
               append_to_statement_list (call_expr, &body);
             }
         }
 
-      register_other_binfo_vtables (base_binfo, body, arg1, str1, len1, str2,
-                                    len2, base_class);
+      register_other_binfo_vtables (base_binfo, body, arg1, str1, str2,
+                                     base_class);
     }
 }
 
-static int
+static size_t
 guess_num_vtable_pointers (struct vtv_graph_node *class_node)
 {
   tree vtbl;
-  int total_num_vtbls = 0;
-  int num_vtbls_power_of_two = 1;
+  size_t total_num_vtbls = 0;
+  size_t num_vtbls_power_of_two = 1;
   unsigned i;
 
-  for (i = 0; i < num_vtable_map_nodes; ++i)
+  for (i = 0; i < num_vtable_map_nodes; i++)
     if (TEST_BIT (class_node->descendants, i))
       {
         tree class_type = vtbl_map_nodes_array[i]->class_info->class_type;
@@ -469,18 +488,23 @@ static bool
 register_all_pairs (tree body)
 {
   struct vtbl_map_node *current;
-  tree base_ptr_var_decl;
-
   bool registered_at_least_one = false;
 
   for (current = vtbl_map_nodes; current; current = current->next)
     {
       unsigned i;
       tree base_class = current->class_info->class_type;
-      int size_hint = guess_num_vtable_pointers (current->class_info);
-      base_ptr_var_decl = current->vtbl_map_decl;
+      tree base_ptr_var_decl = current->vtbl_map_decl;
 
-      gcc_assert (current->class_info != NULL);
+      /* TODO: It may not be necessary to build this string again. It was already
+         built in init_all_sets */
+      tree str1 = NULL_TREE;
+
+#ifdef VTV_DEBUG
+      str1 = build_string_literal (
+          IDENTIFIER_LENGTH(DECL_NAME (base_ptr_var_decl)) + 1,
+          IDENTIFIER_POINTER(DECL_NAME(base_ptr_var_decl)));
+#endif
 
       for (i = 0; i < num_vtable_map_nodes; ++i)
         if (TEST_BIT (current->class_info->descendants, i))
@@ -514,16 +538,6 @@ register_all_pairs (tree body)
                   && BINFO_VTABLE (binfo))
                 {
                   tree vtable_address = build_vtbl_address (binfo);
-                  int len1  = IDENTIFIER_LENGTH
-                                               (DECL_NAME (base_ptr_var_decl));
-                  int len2  = IDENTIFIER_LENGTH (DECL_NAME (vtable_decl));
-                  tree str1 = build_string_literal (len1 + 1, 
-                                                    IDENTIFIER_POINTER
-                                                    (DECL_NAME
-                                                     (base_ptr_var_decl)));
-                  tree str2 = build_string_literal (len2 + 1,
-                                                    IDENTIFIER_POINTER
-                                                    (DECL_NAME (vtable_decl)));
 
                   already_registered = record_register_pairs (vtable_decl,
                                                               vtable_address,
@@ -531,28 +545,28 @@ register_all_pairs (tree body)
 
                   if (!already_registered)
                     {
+                      tree str2 = NULL_TREE;
                       new_type = build_pointer_type (TREE_TYPE
                                                      (base_ptr_var_decl));
                       arg1 = build1 (ADDR_EXPR, new_type, base_ptr_var_decl);
 
 #ifdef VTV_DEBUG
-                      /* This call expr has the 3 "real" arguments, plus 4
+                      str2 = build_string_literal (
+                          IDENTIFIER_LENGTH (DECL_NAME (vtable_decl)) + 1,
+                          IDENTIFIER_POINTER (DECL_NAME (vtable_decl)));
+
+                      /* This call expr has the 2 "real" arguments, plus 2
                          debugging arguments.  Eventually it will be replaced
                          with the one just below it, which only has the 2 real
                          arguments.  */
-                      call_expr = build_call_expr
-                          (vlt_register_pairs_fndecl, 7,
-                           arg1, vtable_address,
-                           build_int_cst (integer_type_node, size_hint),
-                           str1, build_int_cst (integer_type_node,
-                                                len1),
-                           str2,  build_int_cst (integer_type_node,
-                                                 len2));
+                      call_expr = build_call_expr(
+                          vlt_register_pairs_fndecl, 4,
+                          arg1, vtable_address,
+                          str1, str2);
 #else
-                      call_expr = build_call_expr
-                          (vlt_register_pairs_fndecl, 3, 
-                           arg1, vtable_address,
-                           build_int_cst (integer_type_node, size_hint)); 
+                      call_expr = build_call_expr(
+                          vlt_register_pairs_fndecl, 2, 
+                          arg1, vtable_address);
 #endif
                       append_to_statement_list (call_expr, &body);
 
@@ -566,8 +580,7 @@ register_all_pairs (tree body)
                       /* Find and handle any 'extra' vtables associated
                          with this class, via multiple inheritance.   */
                       register_other_binfo_vtables (binfo, body, arg1, str1,
-                                                    len1, str2, len2,
-                                                    base_class);
+                                                    str2, base_class);
                     }
                 } /* if vtable_decl && vtable_should_be_output */
             } /* if TREE_TYPE (class_type) == RECORD... */
@@ -643,7 +656,7 @@ update_class_hierarchy_information (tree base_class,
    vtv_init library, the linker will generate an undefined symbol error.
    Which is much better that getting a segmentation violation at runtime */
 static void
-create_undef_reference_to_vtv_init(tree register_pairs_body)
+create_undef_reference_to_vtv_init(tree init_routine_body)
 {
   const char * vtv_init_undef_var = "__vtv_defined_in_vtv_init_lib";
   tree var_decl;
@@ -666,14 +679,88 @@ create_undef_reference_to_vtv_init(tree register_pairs_body)
      a reference */
   init_zero = build2(MODIFY_EXPR, TREE_TYPE(var_decl), var_decl, 
                           integer_zero_node);
-  append_to_statement_list (init_zero, &register_pairs_body);
+  append_to_statement_list (init_zero, &init_routine_body);
 
 }
 
+/* A simple hash function on strings */
+/* Be careful about changing this routine. The values generated will be stored
+   in the calls to InitSet. So, changing this routine may cause a binary 
+   incompatibility */
+static uint32_t
+vtv_string_hash(const char * in)
+{
+  const char * s = in;
+  uint32_t h = 0;
+  gcc_assert(in != NULL);
+  for ( ; *s; ++s)
+    h = 5 * h + *s;
+  return h;
+}
+
+static bool 
+init_all_sets(tree init_routine_body)
+{
+  struct vtbl_map_node *current;
+  bool inited_at_least_one = false;
+  tree_stmt_iterator i = tsi_start(init_routine_body);
+
+  for (current = vtbl_map_nodes; current; current = current->next)
+    {
+      if (!(current->is_used || (htab_elements(current->registered) > 0)))
+        continue;
+
+      size_t size_hint = guess_num_vtable_pointers (current->class_info);
+      tree set_handle_var_decl = current->vtbl_map_decl;
+
+      tree void_ptr_type = build_pointer_type (TREE_TYPE(set_handle_var_decl));
+      tree arg1 = build1 (ADDR_EXPR, void_ptr_type, set_handle_var_decl);
+
+      uint32_t len1 = IDENTIFIER_LENGTH(DECL_NAME (set_handle_var_decl));
+      uint32_t hash_value = vtv_string_hash(IDENTIFIER_POINTER(
+                                            DECL_NAME(set_handle_var_decl)));
+      tree arg2, arg3, init_set_call;
+
+      /* Build a buffer with the memory representation of
+       * insert_only_hash_map::key_value as defined in vtv_map.h. This
+       * will be passed as the second argument to InitSet */
+      #define KEY_TYPE_FIXED_SIZE 8
+      void * key_buffer = xmalloc(len1 + KEY_TYPE_FIXED_SIZE);
+      uint32_t * value_ptr = (uint32_t *)key_buffer;
+      /* Set the len and hash for the string */
+      *value_ptr = len1;
+      value_ptr++;
+      *value_ptr = hash_value;
+      /* Now copy the string representation of the vtbl map name */
+      memcpy((char *)key_buffer + KEY_TYPE_FIXED_SIZE,
+             IDENTIFIER_POINTER(DECL_NAME(set_handle_var_decl)),
+             len1);
+
+      /* and build a string literal from it. This will make a copy
+         so the key_bufffer is not needed anymore after this */
+      arg2 = build_string_literal (len1 + KEY_TYPE_FIXED_SIZE, 
+                                   (char *)key_buffer);
+      free(key_buffer);
+
+      /* size_t maybe different at compile time vs at runtime but there
+         should not be a problem in here. We dont expect such large number
+         of elements in the set */
+      arg3 = build_int_cst(size_type_node, size_hint);
+      init_set_call = build_call_expr (vlt_init_set_symbol_fndecl,
+                                       3, arg1, arg2, arg3);
+      gcc_assert(size_hint != 0);
+      tsi_link_before(&i, init_set_call, TSI_SAME_STMT);
+
+      inited_at_least_one = true;
+    }
+  return inited_at_least_one;
+}
+
 bool
-vtv_register_class_hierarchy_information (tree register_pairs_body)
+vtv_register_class_hierarchy_information (tree init_routine_body)
 {
   bool registered_something = false;
+  bool inited_some_sets = true;
 
   init_functions ();
 
@@ -684,12 +771,14 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
   /* TODO: Temp fix. Needs to be tighten */
   /*  if (any_verification_calls_generated) */
   if (num_vtable_map_nodes == 0)
-    return registered_something;
+    return false;
 
   /* Add class hierarchy pairs to the vtable map data structure. */
-  registered_something = register_all_pairs (register_pairs_body);
+  registered_something = register_all_pairs (init_routine_body);
+  /* Initialialize all pointer to sets variables */
+  inited_some_sets = init_all_sets(init_routine_body);
 
-  if (registered_something)
+  if (registered_something || inited_some_sets)
   {
       /* If this function is going into the preinit_array, then we
          need to manually call __VLTChangePermission, rather than
@@ -702,20 +791,20 @@ vtv_register_class_hierarchy_information (tree register_pairs_body)
 
           tree call_rw_expr = build_call_expr (vlt_change_permission_fndecl,
                                             1, arg_read_write);
-          tree_stmt_iterator i = tsi_start(register_pairs_body);
-          /* Insert at the beginning of the register pairs routine */
-          tsi_link_before(&i, call_rw_expr, TSI_SAME_STMT);
-
           tree call_r_expr = build_call_expr (vlt_change_permission_fndecl,
                                             1, arg_read_only);
-          append_to_statement_list (call_r_expr, &register_pairs_body);
+          /* Insert change_permission rw at the beginning of the init routine */
+          tree_stmt_iterator i = tsi_start(init_routine_body);
+          tsi_link_before(&i, call_rw_expr, TSI_SAME_STMT);
+          /* append change_permission r at the end of the init routine */
+          append_to_statement_list (call_r_expr, &init_routine_body);
         }
 
       if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
-        create_undef_reference_to_vtv_init(register_pairs_body);
+        create_undef_reference_to_vtv_init(init_routine_body);
   }
 
-  return registered_something;
+  return registered_something || inited_some_sets;
 }
 
 
@@ -728,7 +817,7 @@ vtv_generate_init_routine(const char * filename)
 {
   const char * cwd = filename;
   char temp_name[58];
-  tree register_pairs_body;
+  tree init_routine_body;
   char * cptr;
   int i;
   bool vtable_classes_found = false;
@@ -754,18 +843,17 @@ vtv_generate_init_routine(const char * filename)
   /* The priority for this init function (constructor) is carefully chosen
      so that it will happen after the calls to unprotect the memory used for 
      vtable verification and before the memory is protected again */
-  register_pairs_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
+  init_routine_body = start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1,
                                        (const char *) temp_name);
 
   vtable_classes_found =
-      vtv_register_class_hierarchy_information (register_pairs_body);
+      vtv_register_class_hierarchy_information (init_routine_body);
 
   if (vtable_classes_found)
     {
-
       current_function_decl =
           finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, 
-                          register_pairs_body);
+                          init_routine_body);
       allocate_struct_function (current_function_decl, false);
       TREE_STATIC (current_function_decl) = 1;
       TREE_USED (current_function_decl) = 1;
@@ -789,11 +877,8 @@ vtable_find_or_create_map_decl (tree base_type)
 {
   tree base_decl = TREE_CHAIN (base_type);
   tree base_id;
-  tree var_decl = NULL;
-  char *var_name = NULL;
+
   struct vtbl_map_node *vtable_map_node = NULL;
-
-
   /* Verify the type has an associated vtable */
   if (!TYPE_BINFO (base_type) || !BINFO_VTABLE (TYPE_BINFO (base_type)))
     return NULL;
@@ -803,9 +888,6 @@ vtable_find_or_create_map_decl (tree base_type)
   else
     base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_type));
 
-  /* Create map lookup symbol for base class */
-  var_name = ACONCAT (("_ZN4_VTVI", IDENTIFIER_POINTER (base_id),
-                       "E12__vtable_mapE", NULL));
   if (base_id)
     /* We've already created the variable; just look it.  */
     vtable_map_node = vtbl_map_get_node (base_id);
@@ -816,17 +898,22 @@ vtable_find_or_create_map_decl (tree base_type)
          global variable for this class, do so now, and
          add it to the varpool, to make sure it gets saved
          and written out.  */
-
       char *sect_name = NULL;
+      char *var_name = NULL;
+      tree var_decl = NULL;
       tree var_type = build_pointer_type (void_type_node);
       tree initial_value = build_int_cst
           (make_node (INTEGER_TYPE), 0);
+      /* Create map lookup symbol for base class */
+      var_name = ACONCAT (("_ZN4_VTVI", IDENTIFIER_POINTER (base_id),
+                           "E12__vtable_mapE", NULL));
       var_decl  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
                               get_identifier (var_name),
                               var_type);
       TREE_PUBLIC (var_decl) = 1;
       DECL_EXTERNAL (var_decl) = 0;
       TREE_STATIC (var_decl) = 1;
+      DECL_VISIBILITY(var_decl) = VISIBILITY_HIDDEN;
       SET_DECL_ASSEMBLER_NAME (var_decl,
                                get_identifier (var_name));
       DECL_ARTIFICIAL (var_decl) = 1;

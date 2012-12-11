@@ -25,6 +25,8 @@
 #ifndef _VTV_RTS_H
 #define _VTV_RTS_H 1
 
+#include <cstdlib>
+
 /* This prototype needs to be kept in synch with the compiler generated
    declaration in vtable-class-hierarchy.c */
 
@@ -36,21 +38,23 @@
 void
 __VLTChangePermission (int);
 
-#ifdef VTV_DEBUG
 
+#ifdef VTV_DEBUG
+void __VLTInitSetSymbolDebug(void **, const void *, std::size_t );
 void
-__VLTRegisterPairDebug (void **, void *, int,
-                        char *, int, char *, int);
-void *
-__VLTVerifyVtablePointerDebug (void **, void *,
-			       char *, int, char *, int);
+__VLTRegisterPairDebug (void **, const void *,
+                        const char *, const char *);
+const void *
+__VLTVerifyVtablePointerDebug (void **, const void *,
+			       const char *, const char *);
 
 #else
 
+void __VLTInitSetSymbol(void **, const void *, std::size_t );
 void
-__VLTRegisterPair (void **, void *, int);
-void *
-__VLTVerifyVtablePointer (void **, void *);
+__VLTRegisterPair (void **, const void *);
+const void *
+__VLTVerifyVtablePointer (void **, const void *);
 
 #endif
 

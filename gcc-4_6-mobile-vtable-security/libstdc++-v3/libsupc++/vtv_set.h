@@ -22,6 +22,9 @@
 // see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 // <http://www.gnu.org/licenses/>.
 
+#ifndef _VTV_SET_H
+#define _VTV_SET_H 1
+
 //
 // Code in this file manages a collection of insert-only sets.  We have only
 // tested the case where Key is uintptr_t, though it theoretically should work
@@ -83,6 +86,9 @@
 //
 // However, we expect most or all uses of this code to call contains() much more
 // frequently than anything else, so lock contention is likely to be low.
+
+#define VOLATILE
+
 #include <algorithm>
 
 #ifndef HASHTABLE_STATS
@@ -160,40 +166,68 @@ extern _AtomicStatCounter stat_insert_key_that_was_already_present;
 // resizes etc., so the same two keys may add to this stat multiple times.
 extern _AtomicStatCounter stat_insert_found_hash_collision;
 
-#include <string>
-#include <sstream>
+#include <string.h>
 
-std::string
-insert_only_hash_tables_stats()
+struct insert_only_hash_sets_logger {
+  static char*
+  log(char c, char* buf)
+  {
+    *buf++ = c;
+    return buf;
+  }
+
+  static char*
+  log(const char *s, char* buf)
+  { return strcpy(buf, s) + strlen(s); }
+
+  static char*
+  log(_AtomicStatCounter i, char* buf)
+  {
+    if (i < 10) return log((char)('0' + i), buf);
+    else return log((char)('0' + i % 10), log(i / 10, buf));
+  }
+
+  static char*
+  log(const char* label, _AtomicStatCounter i, char* buf)
+  {
+    buf = log(label, buf);
+    buf = log(": ", buf);
+    buf = log(i, buf);
+    return log('\n', buf);
+  }
+};
+
+// Write stats to the given buffer, which should be at least 4000 bytes.
+static inline void
+insert_only_hash_tables_stats(char* buf)
 {
-  std::stringstream s;
-  s << "insert: " << stat_insert << '\n'
-    << "contains: " << stat_contains << '\n'
-    << "resize: " << stat_resize << '\n'
-    << "create: " << stat_create << '\n'
-    << "insert_key_that_was_already_present: " << stat_insert_key_that_was_already_present << '\n'
-    << "contains_sizes: " << stat_contains_sizes << '\n'
-    << "contains_in_non_trivial_set: " << stat_contains_in_non_trivial_set << '\n'
-    << "probes_in_non_trivial_set: " << stat_probes_in_non_trivial_set << '\n'
-    << "contains_size0: " << stat_contains_size0 << '\n'
-    << "contains_size1: " << stat_contains_size1 << '\n'
-    << "contains_size2: " << stat_contains_size2 << '\n'
-    << "contains_size3: " << stat_contains_size3 << '\n'
-    << "contains_size4: " << stat_contains_size4 << '\n'
-    << "contains_size5: " << stat_contains_size5 << '\n'
-    << "contains_size6: " << stat_contains_size6 << '\n'
-    << "contains_size7: " << stat_contains_size7 << '\n'
-    << "contains_size8: " << stat_contains_size8 << '\n'
-    << "contains_size9: " << stat_contains_size9 << '\n'
-    << "contains_size10: " << stat_contains_size10 << '\n'
-    << "contains_size11: " << stat_contains_size11 << '\n'
-    << "contains_size12: " << stat_contains_size12 << '\n'
-    << "contains_size13_or_more: " << stat_contains_size13_or_more << '\n'
-    << "grow_from_size0_to_1: " << stat_grow_from_size0_to_1 << '\n'
-    << "grow_from_size1_to_2: " << stat_grow_from_size1_to_2 << '\n'
-    << "insert_found_hash_collision: " << stat_insert_found_hash_collision << '\n'
-    << "double_the_number_of_buckets: " << stat_double_the_number_of_buckets << '\n';
-  return s.str();
+  buf = insert_only_hash_sets_logger::log("insert", stat_insert, buf);
+  buf = insert_only_hash_sets_logger::log("contains", stat_contains, buf);
+  buf = insert_only_hash_sets_logger::log("resize", stat_resize, buf);
+  buf = insert_only_hash_sets_logger::log("create", stat_create, buf);
+  buf = insert_only_hash_sets_logger::log("insert_key_that_was_already_present", stat_insert_key_that_was_already_present, buf);
+  buf = insert_only_hash_sets_logger::log("contains_sizes", stat_contains_sizes, buf);
+  buf = insert_only_hash_sets_logger::log("contains_in_non_trivial_set", stat_contains_in_non_trivial_set, buf);
+  buf = insert_only_hash_sets_logger::log("probes_in_non_trivial_set", stat_probes_in_non_trivial_set, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size0", stat_contains_size0, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size1", stat_contains_size1, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size2", stat_contains_size2, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size3", stat_contains_size3, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size4", stat_contains_size4, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size5", stat_contains_size5, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size6", stat_contains_size6, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size7", stat_contains_size7, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size8", stat_contains_size8, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size9", stat_contains_size9, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size10", stat_contains_size10, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size11", stat_contains_size11, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size12", stat_contains_size12, buf);
+  buf = insert_only_hash_sets_logger::log("contains_size13_or_more", stat_contains_size13_or_more, buf);
+  buf = insert_only_hash_sets_logger::log("grow_from_size0_to_1", stat_grow_from_size0_to_1, buf);
+  buf = insert_only_hash_sets_logger::log("grow_from_size1_to_2", stat_grow_from_size1_to_2, buf);
+  buf = insert_only_hash_sets_logger::log("insert_found_hash_collision", stat_insert_found_hash_collision, buf);
+  buf = insert_only_hash_sets_logger::log("double_the_number_of_buckets", stat_double_the_number_of_buckets, buf);
+  *buf = '\0';
 }
 
 #else
@@ -271,6 +305,7 @@ class insert_only_hash_sets {
       return (singleton(s) ?
               singleton_key(key) == s :
               ((s != NULL) && s->contains(key)));
+      //	      (VTV_DEBUG_ASSERT(s != NULL),  s->contains(key)));
     }
 
     // Return a set's size.
@@ -297,7 +332,7 @@ class insert_only_hash_sets {
       return (key_type)((uintptr_t)s - 1);
     }
 
-    volatile key_type&
+    VOLATILE key_type&
     key_at_index (size_type index)
     { return buckets[index]; }
 
@@ -319,8 +354,8 @@ class insert_only_hash_sets {
     resize_if_necessary ();
 
     size_type num_buckets;  // Must be a power of 2 not less than min_capacity.
-    volatile size_type num_entries;
-    volatile key_type buckets[0];  // Actual array size is num_buckets.
+    VOLATILE size_type num_entries;
+    VOLATILE key_type buckets[0];  // Actual array size is num_buckets.
   };
 
   // Create an empty set with the given capacity.  Requires that n be 0 or a
@@ -452,6 +487,10 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::insert_no_resi
           ++num_entries;
           return;
         }
+      else
+        {
+          inc_by(stat_insert_found_hash_collision, hasher(k) == hasher(key));
+        }
       VTV_DEBUG_ASSERT(indices_examined < capacity);
       index = next_index(index, indices_examined);
       k = key_at_index(index);
@@ -534,3 +573,5 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert (key_type key, insert_only_ha
     }
   return *handle != NULL;
 }
+
+#endif // VTV_SET_H

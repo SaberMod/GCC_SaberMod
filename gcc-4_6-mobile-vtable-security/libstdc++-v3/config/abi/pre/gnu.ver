@@ -1278,11 +1278,10 @@ GLIBCXX_3.4.16 {
     _ZNSt15basic_stringbufI[cw]St11char_traitsI[cw]ESaI[cw]EE8_M_pbumpE*;
 
     # Virtual table verification symbols
-    #   virtual table maps for vtable-verification
-    _ZN4_VTV*__vtable_mapE;
-    #   other runtime symbols
     _Z12__VLTprotectv;
     _Z14__VLTunprotectv;
+    _Z18__VLTInitSetSymbol*;
+    _Z23__VLTInitSetSymbolDebug*;
     _Z17__VLTRegisterPair*;
     _Z22__VLTRegisterPairDebug*;
     _Z21__VLTChangePermission*;

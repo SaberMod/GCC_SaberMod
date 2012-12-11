@@ -40,6 +40,7 @@
 #include "vtv_utils.h"
 #include "vtv_malloc.h"
 #include "vtv_set.h"
+#include "vtv_map.h"
 #include "vtv_rts.h"
 #include "vtv_fail.h"
 
@@ -68,18 +69,40 @@ extern "C" {
    sysconf. The initialization will happen after calls to the routines
    to protect/unprotec the vtabla_map variables */
 
+/* No need to mark the following variables with VTV_PROTECTED_VAR.
+   These are either const or are only used for debugging/tracing.
+   debugging/tracing will not be ON on production environments */
 static const int debug_hash = HASHTABLE_STATS;
+// TODO: Make sure debugging messages under this guard dont use malloc!
 static const int debug_functions = 0;
-static const int debug_register_pairs = 0;
+static const int debug_init = 0;
+static const int debug_verify_vtable = 0;
+
+#ifdef VTV_DEBUG
+static int init_log_fd = -1;
+static int verify_vtable_log_fd = -1;
+static void __vtv_verify_fail_debug (void **, const void *, const char *);
+static char debug_log_message[1024];
+#endif
+
+// TODO: should this be under VTV_DEBUG?
+static int vtv_failures_log_fd = -1;
+#if HASHTABLE_STATS
+static int set_log_fd = -1;
+#endif
 
 /* Put the following variables in a rel.ro section so that the are
    protected.  They are explicitly unprotected and protected again by
    calls to VTV_unprotect and VTV_protect */
 
-static int log_file_fd VTV_PROTECTED_VAR = -1;
-#if HASHTABLE_STATS
-static int set_log_fd VTV_PROTECTED_VAR = -1;
+#ifdef __GTHREAD_MUTEX_INIT
+// TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!
+static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
+#else
+// TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!
+static __gthread_mutex_t change_permissions_lock;
 #endif
+
 
 /* types needed by insert_only_hash_sets */
 typedef uintptr_t int_vptr;
@@ -104,13 +127,15 @@ struct vptr_set_alloc {
 typedef insert_only_hash_sets<int_vptr, vptr_hash, vptr_set_alloc> vtv_sets;
 typedef vtv_sets::insert_only_hash_set vtv_set;
 typedef vtv_set * vtv_set_handle;
+typedef vtv_set_handle * vtv_set_handle_handle; 
 
 struct mprotect_data {
   int prot_mode;
   unsigned long page_size;
 };
 
-static void __vtv_verify_fail_debug (void **, void *, char *);
+static void
+log_error_message (const char *log_msg, bool generate_backtrace);
 
 static int
 dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
@@ -193,14 +218,7 @@ VTV_protect_vtable_vars (void)
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
-
-#if defined __GTHREAD_MUTEX_INIT
-// TODO: NEED TO PROTECT THIS VAR
-static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
-#else
-// TODO: NEED TO PROTECT THIS VAR
-static __gthread_mutex_t change_permissions_lock;
-
+#ifndef __GTHREAD_MUTEX_INIT
 static void
 initialize_change_permissions_mutexes ()
 {
@@ -243,7 +261,7 @@ log_set_stats()
 {
 #if HASHTABLE_STATS
   if (set_log_fd == -1)
-    set_log_fd = vtv_open_log("/tmp/vtv_set_stats.log");
+    set_log_fd = vtv_open_log("vtv_set_stats.log");
 
   vtv_add_to_log(set_log_fd, "---\n%s\n",
                  insert_only_hash_tables_stats().c_str());
@@ -299,211 +317,396 @@ __VLTChangePermission (int perm)
     }
 }
 
-/* For some reason, when the char * names get passed into these
-   functions, they are missing the '\0' at the end; therefore we
-   also pass in the length of the string and make sure, when writing
-   out the names, that we only write out the correct number of
-   bytes. */
+struct insert_only_hash_map_allocator {
+  void*
+  alloc(size_t n) const
+  {
+    return VTV_malloc(n);
+  }
+
+  void
+  dealloc(void* p, size_t ) const
+  {
+    VTV_free(p);
+  }
+};
+
+// Explicitly instantiate this class since this file is compiled with
+// -fno-implicit-templates
+template class insert_only_hash_map <vtv_set_handle *, 
+				     insert_only_hash_map_allocator >;
+typedef insert_only_hash_map <vtv_set_handle *, insert_only_hash_map_allocator > s2s;
+typedef const s2s::key_type  vtv_symbol_key;
+
+static s2s * vtv_symbol_unification_map VTV_PROTECTED_VAR = NULL;
+
+const unsigned long SET_HANDLE_HANDLE_BIT = 0x2;
+static inline bool
+is_set_handle_handle(void * ptr)
+{
+  return ((unsigned long)ptr & SET_HANDLE_HANDLE_BIT) == SET_HANDLE_HANDLE_BIT;
+}
+
+static inline vtv_set_handle * 
+ptr_from_set_handle_handle(void * ptr)
+{
+  return (vtv_set_handle *)((unsigned long)ptr & ~SET_HANDLE_HANDLE_BIT);
+}
+
+static inline vtv_set_handle_handle
+set_handle_handle(vtv_set_handle * ptr)
+{
+  return (vtv_set_handle_handle)((unsigned long)ptr | SET_HANDLE_HANDLE_BIT);
+}
+
+// Ideally it would be nice if the library always provided the 2
+// versions of the runtime libraries. However, when we use VTV_DEBUG
+// we want to make sure that only the debug versions are being
+// used. We could change this once the code is more stable
+#ifdef VTV_DEBUG
+
+/* This routine initializes a set handle to a vtable set. It makes
+sure that there is only one set handle for a particular set by using a
+map from set name to pointer to set handle. Since there will be
+multiple copies of the pointer to the set handle (one per compilation
+unit that uses it), it makes sure to initialize all the pointers to
+the set handle so that the set handle is unique. To make this a little
+more efficient and avoid a level of indirection in some cases, the
+first pointer to handle for a particular handle becomes the handle
+itself and the other pointers will point to the set handle.
+
+TODO: Draw a picture here
+*/
+
+void __VLTInitSetSymbolDebug(void ** set_handle_ptr, 
+                             const void * set_symbol_key, 
+                             size_t size_hint)
+{
+  VTV_DEBUG_ASSERT(set_handle_ptr);
+
+  if (vtv_symbol_unification_map == NULL)
+  {
+    // TODO: what is the best initial size for this?
+    vtv_symbol_unification_map = s2s::create(1024);
+    VTV_DEBUG_ASSERT(vtv_symbol_unification_map);
+  }
+
+  vtv_set_handle * handle_ptr = (vtv_set_handle *)set_handle_ptr;
+  vtv_symbol_key * symbol_key_ptr = (vtv_symbol_key *)set_symbol_key;
+
+  const s2s::value_type * map_value_ptr = 
+      vtv_symbol_unification_map->get(symbol_key_ptr);
+  char buffer [200];
+  if (map_value_ptr == NULL)
+  {
+    if (*handle_ptr != NULL)
+    {
+      snprintf(buffer, sizeof(buffer), 
+	       "*** Found non-NULL local set ptr %p missing for symbol %.*s",
+               *handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes);
+      log_error_message(buffer, true);
+      VTV_DEBUG_ASSERT(0);
+    }
+  }
+  else if (*handle_ptr != NULL && 
+           (handle_ptr != *map_value_ptr && 
+            ptr_from_set_handle_handle(*handle_ptr) != *map_value_ptr))
+  {
+    VTV_DEBUG_ASSERT(*map_value_ptr != NULL);
+    snprintf(buffer, sizeof(buffer), 
+             "*** Found diffence between local set ptr %p and set ptr %p"
+	     "for symbol %.*s", 
+             *handle_ptr, *map_value_ptr, 
+	     symbol_key_ptr->n, symbol_key_ptr->bytes);
+    log_error_message(buffer, true);
+    VTV_DEBUG_ASSERT(0);
+  }
+  else if (*handle_ptr == NULL)
+  {
+    // This case is possible.  The local vtable map variable has not
+    // been initialized
+  }
+
+  if (*handle_ptr != NULL)
+    {
+      if (!is_set_handle_handle(*set_handle_ptr))
+        handle_ptr = (vtv_set_handle *) set_handle_ptr;
+      else
+        handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
+      vtv_sets::resize(size_hint, handle_ptr);
+      return;
+    }
+
+  VTV_DEBUG_ASSERT(*handle_ptr == NULL);
+  if (map_value_ptr != NULL)
+    {
+      if (*map_value_ptr == handle_ptr)
+        vtv_sets::resize(size_hint, *map_value_ptr);
+      else
+        {
+          // The one level handle to the set already exists. So, we
+          // are adding one level of indirection here and we will
+          // store a pointer to the one level handle here.
+          vtv_set_handle_handle * handle_handle_ptr = 
+              (vtv_set_handle_handle *)handle_ptr;
+          *handle_handle_ptr = set_handle_handle(*map_value_ptr);
+          VTV_DEBUG_ASSERT(*handle_handle_ptr != NULL);
+          // The handle can itself be NULL if the set has only
+          // been initiazlied with size hint == 1
+          // VTV_DEBUG_ASSERT(
+          //     *ptr_from_set_handle_handle(*handle_handle_ptr)
+          //     != NULL);
+          vtv_sets::resize(size_hint, *map_value_ptr);
+        }
+    }
+  else
+    {
+      // We will create a new set. So, in this case handle_ptr is
+      // the one level pointer to the set handle.
+
+      // Create copy of map name in case the memory where this
+      // comes from gets unmapped by dlclose
+      size_t map_key_len = symbol_key_ptr->n + sizeof(vtv_symbol_key);
+      void * map_key = VTV_malloc(map_key_len);
+      memcpy(map_key, symbol_key_ptr, map_key_len);
+
+      s2s::value_type * value_ptr;
+      vtv_symbol_unification_map = 
+          vtv_symbol_unification_map->find_or_add_key(
+              (vtv_symbol_key *)map_key,
+              &value_ptr);
+      *value_ptr = handle_ptr;
+
+      // TODO: verify return value
+      vtv_sets::create(size_hint, handle_ptr);
+      VTV_DEBUG_ASSERT(size_hint <= 1 || *handle_ptr != NULL);
+    }
+
+  if (debug_init)
+  {
+    if (init_log_fd == -1)
+      init_log_fd = vtv_open_log("vtv_init.log");
+
+    vtv_add_to_log(init_log_fd, 
+                   "Init handle:%p for symbol:%.*s hash:%u size_hint:%lu"
+		   "number of symbols:%lu \n",
+                   set_handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes, 
+                   symbol_key_ptr->hash, size_hint, 
+		   vtv_symbol_unification_map->size());
+  }
+}
+
+
 void
-log_register_pairs (int fd, const char *format_string_dummy, int format_arg1,
-		    int format_arg2, char *base_var_name, char *vtable_name,
-		    int_vptr vtbl_ptr)
+__VLTRegisterPairDebug (void ** set_handle_ptr, 
+			const void * vtable_ptr,
+                        const char * set_symbol_name, 
+			const char * vtable_name)
 {
-  if (fd == -1)
-    return;
+  VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
+  // *set_handle_ptr can be NULL if the call to InitSetSymbol had a
+  // *size hint of 1
 
-  char format_string[60];
+  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+  VTV_DEBUG_ASSERT(vtv_symbol_unification_map != NULL);
 
-  /* format_string needs to contain something like "%.10s" (for
-     example) to write a vtable_name that is of length
-     10. Unfortunately the length varies with every name, so we need to
-     generate a new format string, with the correct length, EACH TIME.
-     That is what the 'format_string_dummy' parameter is for.  It
-     contains something like '%%.%ds', and we then use that plus the
-     length argument to generate the correct format_string, to allow
-     us to write out the string that is missing the '\0' at it's
-     end. */
-
-  snprintf (format_string, sizeof(format_string), format_string_dummy, 
-            format_arg1, format_arg2);
-  vtv_add_to_log(fd, format_string, base_var_name, vtable_name, vtbl_ptr);
-}
-
-
-/* This holds a formatted error logging message, to be written to the
-   vtable verify failures log.  */
-char debug_log_message[1024];
-
-
-/*  Generate a formatted debug message and load it into the global variable
-    'debug_log_message'.  */
-static void
-load_debug_log_message (const char *format_string_dummy, int format_arg1,
-                        int format_arg2,
-                        char *str_arg1, char *str_arg2)
-{
-  char format_string[50];
-
-  /* format_string needs to contain something like "%.10s" (for
-     example) to write a vtable_name that is of length
-     10. Unfortunately the length varies with every name, so we need to
-     generate a new format string, with the correct length, EACH TIME.
-     That is what the 'format_string_dummy' parameter is for.  It
-     contains something like '%%.%ds', and we then use that plus the
-     length argument to generate the correct format_string, to allow
-     us to write out the string that is missing the '\0' at it's
-     end. */
-
-  snprintf (format_string, sizeof(format_string), format_string_dummy,
-            format_arg1, format_arg2);
-
-  snprintf (debug_log_message, sizeof (debug_log_message),
-            format_string, str_arg1, str_arg2);
-}
-
-static void
-print_debugging_message (const char *format_string_dummy, int format_arg1,
-			 int format_arg2,
-			 char *str_arg1, char *str_arg2)
-{
-  char format_string[50];
-
-  /* format_string needs to contain something like "%.10s" (for
-     example) to write a vtable_name that is of length
-     10. Unfortunately the length varies with every name, so we need to
-     generate a new format string, with the correct length, EACH TIME.
-     That is what the 'format_string_dummy' parameter is for.  It
-     contains something like '%%.%ds', and we then use that plus the
-     length argument to generate the correct format_string, to allow
-     us to write out the string that is missing the '\0' at it's
-     end. */
-
-  snprintf (format_string, sizeof(format_string), format_string_dummy, 
-            format_arg1, format_arg2);
-
-  fprintf (stdout, format_string, str_arg1, str_arg2);
-}
-
-
-void 
-__VLTRegisterPairDebug (void **data_pointer, void *test_value, int size_hint,
-                        char *base_ptr_var_name, int len1, char *vtable_name,
-                        int len2)
-{
-  int_vptr vtbl_ptr = (int_vptr) test_value;
-  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
-
-  if (*handle_ptr == NULL)
-    {
-      // TODO: verify return value
-      vtv_sets::create(size_hint, handle_ptr);
-      vtv_sets::insert(vtbl_ptr, handle_ptr);
-    }
+  vtv_set_handle * handle_ptr;
+  if (!is_set_handle_handle(*set_handle_ptr))
+    handle_ptr = (vtv_set_handle *) set_handle_ptr;
   else
+    handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
+
+  // TODO: verify return value?
+  vtv_sets::insert(vtbl_ptr, handle_ptr);
+
+  if (debug_init)
     {
-      // TODO: verify return value?
-      vtv_sets::resize(size_hint, handle_ptr);
-      vtv_sets::insert(vtbl_ptr, handle_ptr);
-    }
+      if (init_log_fd == -1)
+	init_log_fd = vtv_open_log("vtv_init.log");
 
-
-  if (debug_functions && base_ptr_var_name && vtable_name)
-    print_debugging_message ("Registered %%.%ds : %%.%ds\n", len1, len2,
-			     base_ptr_var_name, vtable_name);
-  if (debug_register_pairs)
-    {
-      if (log_file_fd == -1)
-	log_file_fd = vtv_open_log("/tmp/vtv_register_pairs.log");
-
-      log_register_pairs (log_file_fd, "Registered %%.%ds : %%.%ds (%%p)\n",
-			  len1, len2,
-			  base_ptr_var_name, vtable_name, vtbl_ptr);
+      vtv_add_to_log(init_log_fd, 
+                     "Registered %s : %s (%p) 2 level deref = %s\n",
+		     set_symbol_name, vtable_name, vtbl_ptr, 
+                     is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
     }
 }
 
-void 
-__VLTRegisterPair (void **data_pointer, void *test_value, int size_hint)
-{
-  int_vptr vtbl_ptr = (int_vptr) test_value;
-  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
+#ifndef VTV_STATIC_VERIFY
 
-  if (*handle_ptr == NULL)
-    {
-      // TODO: verify return value
-      vtv_sets::create(size_hint, handle_ptr);
-      vtv_sets::insert(vtbl_ptr, handle_ptr);
-    }
+const void *
+__VLTVerifyVtablePointerDebug (void ** set_handle_ptr, 
+                               const void * vtable_ptr,
+                               const char * set_symbol_name, 
+                               const char * vtable_name)
+{
+#ifndef VTV_EMPTY_VERIFY
+  VTV_DEBUG_ASSERT(set_handle_ptr != NULL && *set_handle_ptr != NULL);
+  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+
+  vtv_set_handle * handle_ptr;
+  if (!is_set_handle_handle(*set_handle_ptr))
+    handle_ptr = (vtv_set_handle *)set_handle_ptr;
   else
-    {
-      // TODO: verify return value?
-      vtv_sets::resize(size_hint, handle_ptr);
-      vtv_sets::insert(vtbl_ptr, handle_ptr);
-    }
-}
-
-void *
-__VLTVerifyVtablePointerDebug (void ** data_pointer, void * test_value,
-                               char * base_vtbl_var_name, int len1,
-                               char * vtable_name, int len2)
-{
-  vtv_set_handle * handle_ptr = (vtv_set_handle *)data_pointer;
-  int_vptr vtbl_ptr = (int_vptr) test_value;
+    handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
 
   if (vtv_sets::contains(vtbl_ptr, handle_ptr))
     {
-      if (debug_functions)
-	fprintf (stdout, "Verified object vtable pointer = %lx\n", 
-                 (unsigned long)vtbl_ptr);
+      if (debug_verify_vtable)
+        {
+          if (verify_vtable_log_fd == -1)
+            vtv_open_log("vtv_verify_vtable.log");
+          vtv_add_to_log(verify_vtable_log_fd, 
+                         "Verified %s %s value = %p\n",
+                         set_symbol_name, vtable_name, vtable_ptr);
+        }
     }
   else
     {
-      /* The data structure is not NULL, but we failed to find our
-         object's vtpr in it.  Write out information and call abort.*/
-      if (base_vtbl_var_name && vtable_name)
-	print_debugging_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
-				 vtable_name, base_vtbl_var_name);
-      fprintf (stderr, "FAILED to verify object vtable pointer=%lx!!!\n",
-               (unsigned long)vtbl_ptr);
-
-
-      load_debug_log_message ("Looking for %%.%ds in %%.%ds \n", len2, len1,
-                              vtable_name, base_vtbl_var_name);
-      __vtv_verify_fail_debug (data_pointer, test_value, debug_log_message);
+      snprintf(debug_log_message, sizeof(debug_log_message), 
+               "Looking for %s in %s\n", vtable_name, set_symbol_name);
+      __vtv_verify_fail_debug (set_handle_ptr, vtable_ptr, debug_log_message);
 
       /* Normally __vtv_verify_fail will call abort, so we won't
          execute the return below.  If we get this far, the assumption
          is that the programmer has replace __vtv_verify_fail with
          some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
-      fprintf (stderr, "Returned from __vtv_verify_fail."
-               "  Secondary verification succeeded.\n");
     }
+#endif
 
-  return test_value;
+  return vtable_ptr;
 }
 
-void *
-__VLTVerifyVtablePointer (void ** data_pointer, void * test_value)
+#endif // VTV_STATIC_VERIFY
+
+/* This function is called from __VLTVerifyVtablePointerDebug; it sends 
+   as much debugging information as it can to the error log file, then calls
+   vtv_fail.  */
+static void
+__vtv_verify_fail_debug (void **set_handle_ptr, const void *vtbl_ptr, 
+                         const char *debug_msg)
 {
-  vtv_set_handle * handle_ptr = (vtv_set_handle *) data_pointer;
-  int_vptr vtbl_ptr = (int_vptr) test_value;
+  log_error_message (debug_msg, false);
+
+  // Call the public interface in case it has been overwritten by user.
+  __vtv_verify_fail(set_handle_ptr, vtbl_ptr);
+
+  log_error_message ("Returned from __vtv_verify_fail."
+                     " Secondary verification succeeded.\n", false);
+}
+
+#else 
+
+void __VLTInitSetSymbol(void ** set_handle_ptr, 
+                        const void * set_symbol_key,
+                        size_t size_hint)
+{
+  vtv_set_handle * handle_ptr = (vtv_set_handle *)set_handle_ptr;
+  if (*handle_ptr != NULL)
+    {
+      if (!is_set_handle_handle(*set_handle_ptr))
+        handle_ptr = (vtv_set_handle *) set_handle_ptr;
+      else
+        handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
+      vtv_sets::resize(size_hint, handle_ptr);
+      return;
+    }
+
+  if (vtv_symbol_unification_map == NULL)
+    vtv_symbol_unification_map = s2s::create(1024);
+
+  vtv_symbol_key * symbol_key_ptr = (vtv_symbol_key *)set_symbol_key;
+  const s2s::value_type * map_value_ptr = 
+      vtv_symbol_unification_map->get(symbol_key_ptr);
+
+  if (map_value_ptr != NULL)
+    {
+      if (*map_value_ptr == handle_ptr)
+	vtv_sets::resize(size_hint, *map_value_ptr);
+      else
+	{
+	  // The one level handle to the set already exists. So, we
+	  // are adding one level of indirection here and we will
+	  // store a pointer to the one level pointer here.
+	  vtv_set_handle_handle * handle_handle_ptr = 
+	    (vtv_set_handle_handle *)handle_ptr;
+	  *handle_handle_ptr = set_handle_handle(*map_value_ptr);
+	  vtv_sets::resize(size_hint, *map_value_ptr);
+	}
+    }
+  else
+    {
+      // We will create a new set. So, in this case handle_ptr is
+      // the one level pointer to the set handle.
+
+      // Create copy of map name in case the memory where this
+      // comes from gets unmapped by dlclose
+      size_t map_key_len = symbol_key_ptr->n + sizeof(vtv_symbol_key);
+      void * map_key = VTV_malloc(map_key_len);
+      memcpy(map_key, symbol_key_ptr, map_key_len);
+
+      s2s::value_type * value_ptr;
+      vtv_symbol_unification_map = 
+	vtv_symbol_unification_map->find_or_add_key(
+            (vtv_symbol_key *)map_key, &value_ptr);
+      *value_ptr = handle_ptr;
+
+      // TODO: verify return value
+      vtv_sets::create(size_hint, handle_ptr);
+    }
+}
+
+void 
+__VLTRegisterPair (void **set_handle_ptr, const void *vtable_ptr)
+{
+  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+
+  vtv_set_handle * handle_ptr;
+  if (!is_set_handle_handle(*set_handle_ptr))
+    handle_ptr = (vtv_set_handle *) set_handle_ptr;
+  else
+    handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
+
+  // TODO: verify return value?
+  vtv_sets::insert(vtbl_ptr, handle_ptr);
+}
+
+#ifndef VTV_STATIC_VERIFY
+
+const void *
+__VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
+{
+#ifndef VTV_EMPTY_VERIFY
+  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+
+  vtv_set_handle * handle_ptr;
+  if (!is_set_handle_handle(*set_handle_ptr))
+    handle_ptr = (vtv_set_handle *)set_handle_ptr;
+  else
+    handle_ptr = ptr_from_set_handle_handle(*set_handle_ptr);
 
   if (!vtv_sets::contains(vtbl_ptr, handle_ptr))
     {
-      __vtv_verify_fail (data_pointer, test_value);
+      __vtv_verify_fail ((void **)handle_ptr, vtable_ptr);
       /* Normally __vtv_verify_fail will call abort, so we won't
          execute the return below.  If we get this far, the assumption
          is that the programmer has replaced __vtv_verify_fail with
          some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }
+#endif // VTV_EMPTY_VERIFY
 
-  return test_value;
+  return vtable_ptr;
 }
+
+#endif // VTV_STATIC_VERIFY
+
+#endif // VTV_DEBUG
 
 void
 __vtv_really_fail (const char *failure_msg)
 {
+#ifndef VTV_NO_ABORT
   __fortify_fail (failure_msg);
 
   /* We should never get this far; __fortify_fail calls __libc_message
@@ -511,10 +714,11 @@ __vtv_really_fail (const char *failure_msg)
      supposed to call abort, but let's play it safe anyway and call abort
      ourselves.  */
   abort ();
+#endif
 }
 
 static void
-vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
+vtv_fail (const char *msg, void **data_set_ptr, const void *vtbl_ptr)
 {
   int fd;
 
@@ -524,7 +728,7 @@ vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
       char buffer[120];
       int buf_len;
       const char *format_str =
-            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
+            "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
 
       snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
       buf_len = strlen (buffer);
@@ -541,66 +745,41 @@ vtv_fail (const char *msg, void **data_set_ptr, void *vtbl_ptr)
 static void
 log_error_message (const char *log_msg, bool generate_backtrace)
 {
-  static int fd = -1;
+  if (vtv_failures_log_fd == -1)
+    vtv_failures_log_fd = vtv_open_log ("vtable_verification_failures.log");
 
-  if (fd == -1)
-    fd = vtv_open_log ("/tmp/vtable-verification-failures.log");
-
-  if (fd == -1)
+  if (vtv_failures_log_fd == -1)
     return;
 
-  vtv_add_to_log (fd, "%s", log_msg);
+  vtv_add_to_log (vtv_failures_log_fd, "%s", log_msg);
 
   if (generate_backtrace)
     {
 #define STACK_DEPTH 20
       void *callers[STACK_DEPTH];
       int actual_depth = backtrace (callers, STACK_DEPTH);
-      backtrace_symbols_fd (callers, actual_depth, fd);
+      backtrace_symbols_fd (callers, actual_depth, vtv_failures_log_fd);
     }
 }
 
 
-/* This function is called from __VLTVerifyVtablePointerDebug; it sends 
-   as much debugging information as it can to the error log file, then calls
-   vtv_fail.  */
-static void
-__vtv_verify_fail_debug (void **data_set_ptr, void *vtbl_ptr, char *debug_msg)
-{
-  const char *fail_msg = "Potential vtable pointer corruption detected!!";
-  char buffer[120];
-  int buf_len;
-  const char *format_str =
-            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
-
-  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
-  log_error_message (debug_msg, false);
-  log_error_message (buffer, false);
-  log_error_message ("  Backtrace: \n", true);
-
-  vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
-}
-
-/* Send information about what we were trying to do when verificataion failed to
+/* Send information about what we were trying to do when verification failed to
    the error log, then call vtv_fail.  This function can be overwritten/replaced
    by the user, to implement a secondary verification function instead.*/
 void
-__vtv_verify_fail (void **data_set_ptr, void *vtbl_ptr)
+__vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
 {
-  const char *fail_msg = "Potential vtable pointer corruption detected!!";
-  char log_msg[1024];
-
-  char buffer[120];
-  int buf_len;
-  const char *format_str =
-            "*** Unable to verify vtable pointer (0x%p) in set (0x%p) *** \n";
-
-  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
+  char log_msg[256];
   snprintf (log_msg, sizeof (log_msg), "Looking for vtable  %p in set %p.\n",
             vtbl_ptr, *data_set_ptr);
   log_error_message (log_msg, false);
-  log_error_message (buffer, false);
+
+  const char *format_str =
+            "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
+  snprintf (log_msg, sizeof (log_msg), format_str, vtbl_ptr, *data_set_ptr);
+  log_error_message (log_msg, false);
   log_error_message ("  Backtrace: \n", true);
 
+  const char *fail_msg = "Potential vtable pointer corruption detected!!";
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }

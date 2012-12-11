@@ -34,8 +34,12 @@
 #define VTV_error abort
 
 #define VTV_ASSERT(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
+
+#ifdef VTV_DEBUG
+#define VTV_DEBUG_ASSERT(EXPR) ((void)(!(EXPR) ? VTV_error() : (void) 0))
+#else
 #define VTV_DEBUG_ASSERT(EXPR) ((void)0)
-//#define VTV_DEBUG_ASSERT(EXPR) (void)0
+#endif
 
 /* Name of the section where we put general VTV variables for protection */
 #define VTV_PROTECTED_VARS_SECTION ".data.rel.ro.vtable_vars"

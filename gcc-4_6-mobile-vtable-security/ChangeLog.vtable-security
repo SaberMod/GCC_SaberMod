@@ -1,3 +1,88 @@
+2012-11-30  Luis Lozano  <llozano@google.com>
+
+	* gcc/BASE-VER: changed 4.6.x to 4.6.3. Not having this confuses 
+	some packages.
+	* gcc/cp/vtable-class-hierarchy.c: Mark global static function pointer 
+	tress with GTY.
+	(init_functions): clean up types of runtime functions, remove
+	unnecessary arguments and add new function for initializations of sets
+	(register_vptr_fields): clean up some warnings for unused variables.
+	Put creation of string constants under VTV_DEBUG for contants that are
+	only used under that mode.
+	Reduce number of calls to build_string by factoring call out of the loop.
+	This could be reduced further by keeping track of what strings have 
+	already been built.
+	(register_other_binfo_vtables): clean up calls to RegisterPair.
+	(guess_num_vtable_pointers): modify to use size_t instead of int.
+	(register_all_pairs): create runtime debug strings only under 
+	VTV_DEBUG. 
+	Factor creation of invariant string out of the loop.
+	(create_undef_reference_to_vtv_init): change name of argument to 
+	reflect the fact that init routine is not doing only registration of 
+	pairs anymore.
+	(vtv_string_hash): new routine to calculate a string hash to use as 
+	argument to InitSet.
+	(init_all_sets): new routine to create calls to initialize of 
+	pointers to vtable sets.
+	(vtv_register_class_hierarchy_information): add call to init_all_sets.
+	Changed name of initialization routine body. 
+	(vtv_generate_init_routine): changed name of init routine body 
+	variable.
+	(vtable_find_or_create_map_decl): create string name for symbol only 
+	when needed. 
+	Change visibility of vtable map symbol to HIDDEN to improve performance.
+	* gcc/tree-vtable-verify.c: mark static tree's as GC roots
+	(verify_bb_vtables): remove unnecessary conditional. 
+	Clean upcall to verifyvtable.
+	(build_vtable_verify_fndecl): clean up number of arguments and 
+	argument types to verify vtable call
+	Mark the vtableverify function as pure
+	Add define for linking and calling this statically (VTV_STATIC_VERIFY,
+	which is experimental for now)
+	* libstdc++-v3/config/abi/pre/gnu.ver: removed the vtable_map variables
+	from the version file. These dont need to be GLOBAL anymore since we
+	doing our own symbol unification.
+	* libstdc++-v3/libsupc++/vtv_init.cc: removed unneded trace message 
+	guarded under wrong macro. If we want this back it should go into a file
+	and guarded by its own guard variable.
+	Added experimental code or VTV_STATIC_VERIFY. This should not be commited
+	to upstream. For now, just allows us to play experiments. If we are going
+	to do this we need to re-architect.
+	* libstdc++-v3/libsupc++/vtv_fail.h: clean up prototype. 
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: change calls to vtv_open_log to
+	stop passing the dir where the log should be created.
+	* libstdc++-v3/libsupc++/vtv_rts.cc: 
+	Cleanup of what static variables need to be protected and which ones need 
+	to be under VTV_DEBUG.
+	Added utility classes and template definitions to create an 
+	insert_only_hash_map map to keep track of the unified symbols for sets.
+	Reorganize routines so that the VTV_DEBUG versions go together.
+	Added VTV_NO_ABORT macro to control abort() behavior.
+	(log_set_stats): stop specifying directory for log
+	(__VLTInitSetSymbol): new routine to initialize symbol map (from symbol to 
+	pointer-to-vtable-set-handle) and the set handle itself. There are 2 
+	versions of this routine, one with debug information and and verification 
+	enable and the other for faster execution with no support for debugging.
+	(__VLTRegisterPairDebug): removed unnecessary arguments, cleaned up argument
+	list. 
+	Modified to consider the case where the handle is not a pointer to the 
+	vtable set but a pointer to the handle.
+	* libstdc++-v3/libsupc++/vtv_rts.h: added prototype for __VLTInitSetSymbol*
+	cleaned up arguments.
+	* libstdc++-v3/libsupc++/vtv_set.h: incorporated latest version.
+	Added macro for VOLATILE markers and removed current volatiles. This are not
+	need now but can easily be added back with the MACRO
+	Added header guards.
+	* libstdc++-v3/libsupc++/vtv_map.h:
+	New file. Implementation of an insert only hashmap that uses pre-computed
+	hash values. Implemented by Geoff Pike.
+	* libstdc++-v3/libsupc++/vtv_stubs.cc: Cleaned up arguments and added 
+	prototype for __VLTInitSetSymbol.
+	* libstdc++-v3/libsupc++/vtv_utils.cc: Changed logs creation so that we 
+	always put logs in the same directory
+	* libstdc++-v3/libsupc++/vtv_utils.h: Changed VTV_DEBUG_ASSERT so that 
+	it will only assert under VTV_DEBUG
+
 2012-11-13  Caroline Tice  <cmtice@google.com>
 
 	* gcc/tree-vtable-verify.c (is_vtable_assignment_stmt):  Remove

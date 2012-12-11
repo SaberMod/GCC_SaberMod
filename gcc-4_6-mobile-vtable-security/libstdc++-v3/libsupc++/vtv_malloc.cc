@@ -156,7 +156,7 @@ void VTV_malloc_dump_stats(void)
   static int fd = -1;
 
   if (fd == -1)
-    fd = vtv_open_log("/tmp/vtv_mem_protection.log");
+    fd = vtv_open_log("vtv_mem_protection.log");
   if (fd == -1)
     return;
 
@@ -168,5 +168,5 @@ void VTV_malloc_dump_stats(void)
     ci = ci->prev;
   }
 
-  vtv_add_to_log(fd, "VTV_malloc_protect protected=%d pages\n", count);
+  vtv_add_to_log(fd, "protected=%d pages\n", count);
 }

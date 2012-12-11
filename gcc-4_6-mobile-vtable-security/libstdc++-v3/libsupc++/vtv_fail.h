@@ -47,7 +47,7 @@ __vtv_really_fail (const char *fail_msg) __attribute__ ((noreturn));
   return.  */
 
 extern void
-__vtv_verify_fail (void **data_set_ptr, void *vtbl_pointer)
+__vtv_verify_fail (void **data_set_ptr, const void *vtbl_pointer)
                                  __attribute__((visibility ("default")));
 
 #endif /* _VTV_FAIL_H */

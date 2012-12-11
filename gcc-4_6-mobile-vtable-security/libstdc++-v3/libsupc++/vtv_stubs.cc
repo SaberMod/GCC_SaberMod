@@ -29,46 +29,56 @@ __VLTChangePermission (int perm __attribute__((__unused__)))
 {
 }
 
+
 #ifdef VTV_DEBUG
 
-void
-__VLTRegisterPairDebug (void ** data_pointer __attribute__((__unused__)),
-                        void * test_value __attribute__((__unused__)),
-                        int size_hint __attribute__((__unused__)),
-                        char * base_ptr_var_name __attribute__((__unused__)),
-                        int len1 __attribute__((__unused__)),
-                        char * vtable_name __attribute__((__unused__)),
-                        int len2 __attribute__((__unused__)))
+void __VLTInitSetSymbolDebug(void ** set_handle_ptr __attribute__((__unused__)),
+                             const void * set_symbol_key
+                                 __attribute__((__unused__)),
+                             std::size_t size_hint __attribute__((__unused__)))
 {
 }
 
-void *
-__VLTVerifyVtablePointerDebug (void ** data_pointer __attribute__((__unused__)),
-                               void * test_value,
-                               char * base_vtbl_var_name __attribute__((__unused__)),
-                               int len1 __attribute__((__unused__)),
-                               char * vtable_name __attribute__((__unused__)),
-                               int len2 __attribute__((__unused__)))
-
+void
+__VLTRegisterPairDebug (void ** set_handle_ptr __attribute__((__unused__)),
+                        const void * vtable_ptr __attribute__((__unused__)),
+                        const char * set_symbol_name
+                            __attribute__((__unused__)),
+                        const char * vtable_name __attribute__((__unused__)))
 {
-  return test_value;
+}
+
+const void *
+__VLTVerifyVtablePointerDebug (void ** set_handle_ptr
+                                   __attribute__((__unused__)),
+                               const void * vtable_ptr,
+                               const char * set_symbol_name
+                                   __attribute__((__unused__)),
+                               const char * vtable_name
+                                   __attribute__((__unused__)))
+{
+  return vtable_ptr;
 }
 
 #else
 
-void
-__VLTRegisterPair (void ** data_pointer __attribute__((__unused__)),
-                   void * test_value __attribute__((__unused__)),
-                   int size_hint __attribute__((__unused__)))
-
+void __VLTInitSetSymbol(void ** set_handle_ptr __attribute__((__unused__)),
+                        const void * set_symbol_key __attribute__((__unused__)),
+                        std::size_t size_hint __attribute__((__unused__)))
 {
 }
 
-void *
-__VLTVerifyVtablePointer (void ** data_pointer __attribute__((__unused__)),
-                          void * test_value)
+void
+__VLTRegisterPair (void ** set_handle_ptr __attribute__((__unused__)),
+                   const void * vtable_ptr __attribute__((__unused__)))
 {
-  return test_value;
+}
+
+const void *
+__VLTVerifyVtablePointer (void ** set_handle_ptr __attribute__((__unused__)),
+                          const void * vtable_ptr)
+{
+  return vtable_ptr;
 }
 
 #endif
