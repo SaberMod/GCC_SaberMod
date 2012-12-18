@@ -1,6 +1,3 @@
-UNRESOLVED: gcc.dg/attr-weakref-1.c compilation failed to produce executable
-FAIL: gcc.dg/attr-weakref-1.c (test for excess errors)
-FAIL: gcc.dg/builtin-object-size-8.c execution test
 XPASS: gcc.dg/inline_3.c (test for excess errors)
 XPASS: gcc.dg/inline_4.c (test for excess errors)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
@@ -22,18 +19,18 @@ UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o ex
 FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 
 # Mudflap is completely unreliable.  It should be disabled.
-FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
-FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
-FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
-FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
-FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
-FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
-FAIL: libmudflap.c++/pass41-frag.cxx (-static) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx (-static) execution test
-FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
+flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
+flaky|FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
+flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
+flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
+flaky|FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
+flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
+flaky|FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
+flaky|FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
+flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-static) execution test
+flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-static) execution test
+flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
 
 # These failures are likely due to misconfiguration during the
 # build.  Leaving as expected for now.
@@ -82,3 +79,257 @@ expire=20130115 | UNRESOLVED: libitm.c/simple-2.c compilation failed to produce 
 expire=20130115 | FAIL: libitm.c/simple-2.c (test for excess errors)
 expire=20130115 | FAIL: libitm.c/txrelease.c (test for excess errors)
 expire=20130115 | UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O1  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O3 -g  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/global-overflow-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O0  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/heap-overflow-1.c -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -Os  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O0  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/null-deref-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O0  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O1  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -Os  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -Os  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O0  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O0  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -Os  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/stack-overflow-1.c -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O1  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O1  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O2  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O0  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -Os  compilation failed to produce executable
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -Os  (test for excess errors)
+expire=20130115 |FAIL: c-c++-common/asan/use-after-free-1.c -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O1  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O0  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -Os  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O2  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O2  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -Os  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O0  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O1  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -Os  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O0  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -g  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O0  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O0  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O1  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -Os  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/deep-thread-stack-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O1  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O2  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O0  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O0  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O3 -g  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/default-options-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O0  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -Os  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O0  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O1  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O0  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O0  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -Os  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O1  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-malloc-test-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O2  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O0  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -Os  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O1  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/interception-test-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O1  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -Os  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -g  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O2  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O0  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -Os  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O1  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O0  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+expire=20130115 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/large-func-test-1.C -O3 -g  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+expire=20130115 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2  compilation failed to produce executable
+expire=20130115 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2  (test for excess errors)
+expire=20130115 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable

@@ -1,24 +1,4 @@
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf2 = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_SignalTest *c = 0 output pattern test, should match AddressSanitizer: SEGV on unknown address
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalStringConstTest Ident(p[15]) execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_FileNameInGlobalReportTest Ident(p[15]) execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_ThreadStackReuseTest execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf4 = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_LongJmpTest execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest func_static15[Ident(15)] = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf1 = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_SigLongJmpTest execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest static110[Ident(110+7)] = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest func_static15[Ident(15 + 9)] = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_CxxExceptionTest execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BuiltinLongJmpTest execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest static110[Ident(110)] = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_ThreadedTest ThreadedTestSpawn() output pattern test, should match Thread T.*created.*Thread T.*created.*Thread T.*created
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_BitFieldPositiveTest x->bf3 = 0 execution test
-FAIL: g++.dg/asan/asan_test.C -O2  AddressSanitizer_GlobalTest fs2[Ident(-1)] = 0 execution test
-UNRESOLVED: gcc.dg/attr-weakref-1.c compilation failed to produce executable
-FAIL: gcc.dg/attr-weakref-1.c (test for excess errors)
-FAIL: gcc.dg/builtin-object-size-8.c execution test
+FAIL: c-c++-common/asan/null-deref-1.c -Os  output pattern test, is ASAN:SIGSEGV
 XPASS: gcc.dg/inline_3.c (test for excess errors)
 XPASS: gcc.dg/inline_4.c (test for excess errors)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
@@ -38,16 +18,16 @@ UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o ex
 FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
 UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
-FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
-FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
-FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
-FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
-FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
-FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
-FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
-FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
+flaky | FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
+flaky | FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
+flaky | FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
+flaky | FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
+flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
+flaky | FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
+flaky | FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
+flaky | FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
+flaky | FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
+flaky | FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
 FAIL: sourcelocation -findirect-dispatch output - source compiled test
 FAIL: sourcelocation output - source compiled test
 FAIL: sourcelocation -O3 output - source compiled test
