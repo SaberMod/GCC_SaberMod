@@ -872,17 +872,6 @@ c_cpp_builtins (cpp_reader *pfile)
   if (c_dialect_cxx () && TYPE_UNSIGNED (wchar_type_node))
     cpp_define (pfile, "__WCHAR_UNSIGNED__");
 
-  /* Define a macro indicating whether the thread safety attributes/analysis
-     is supported.  FIXME google/main, annotalysis is currently broken
-     (specifically, the caching of tokens done in
-     cp_parser_save_attribute_arg_list is confusing the parser because it
-     is force-casting a token cache as if it was a tree node).  */
-  if (0 && warn_thread_safety)
-    {
-      cpp_define (pfile, "__SUPPORT_TS_ANNOTATION__");
-      cpp_define (pfile, "__SUPPORT_DYN_ANNOTATION__");
-    }
-
   /* Tell source code if the compiler makes sync_compare_and_swap
      builtins available.  */
 #ifdef HAVE_sync_compare_and_swapqi

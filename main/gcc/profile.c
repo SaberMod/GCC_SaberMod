@@ -422,7 +422,7 @@ read_profile_edge_counts (gcov_type *exec_counts)
 		    if (flag_profile_correction)
 		      {
 			static bool informed = 0;
-			if ((flag_opt_info >= OPT_INFO_MAX) && !informed)
+			if (!informed)
 		          inform (input_location,
 			          "corrupted profile info: edge count exceeds maximal count");
 			informed = 1;
@@ -682,7 +682,7 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
        {
          /* Inconsistency detected. Make it flow-consistent. */
          static int informed = 0;
-         if ((flag_opt_info >= OPT_INFO_MAX) && informed == 0)
+         if (informed == 0)
            {
              informed = 1;
              inform (input_location, "correcting inconsistent profile data");
@@ -884,7 +884,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
          histogram and give a warning.  */
       if (aact_count == 0)
         {
-          if (!warned[t] && flag_opt_info >= OPT_INFO_MIN)
+          if (!warned[t])
             warning (0, "cannot find %s counters in function %s.",
                      ctr_names[COUNTER_FOR_HIST_TYPE(t)],
                      IDENTIFIER_POINTER (
@@ -1280,12 +1280,6 @@ branch_prob (void)
     }
 
 #undef BB_TO_GCOV_INDEX
-
-  if (flag_profile_reusedist)
-    gimple_gen_reusedist ();
-
-  if (flag_optimize_locality)
-    optimize_reusedist ();
 
   if (flag_profile_values)
     gimple_find_values_to_profile (&values);

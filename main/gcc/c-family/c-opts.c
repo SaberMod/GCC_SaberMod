@@ -970,12 +970,6 @@ c_common_post_options (const char **pfilename)
   if (warn_enum_compare == -1)
     warn_enum_compare = c_dialect_cxx () ? 1 : 0;
 
-  /* Enable warning for converting real values to integral values
-     when -Wconversion is specified (unless disabled through
-     -Wno-real-conversion).  */
-  if (warn_real_conversion == -1)
-    warn_real_conversion = warn_conversion;
-
   /* -Wpacked-bitfield-compat is on by default for the C languages.  The
      warning is issued in stor-layout.c which is not part of the front-end so
      we need to selectively turn it on here.  */
@@ -1135,9 +1129,8 @@ lipo_max_mem_reached (unsigned int i)
           > (size_t) PARAM_VALUE (PARAM_MAX_LIPO_MEMORY))) {
     i++;
     do {
-      if (flag_opt_info >= OPT_INFO_MED)
-        inform (input_location, "Not importing %s: maximum memory "
-                "consumption reached", in_fnames[i]);
+      inform (input_location, "Not importing %s: maximum memory "
+	      "consumption reached", in_fnames[i]);
       i++;
     } while (i < num_in_fnames);
     return true;

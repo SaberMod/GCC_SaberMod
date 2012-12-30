@@ -152,7 +152,6 @@ diagnostic_set_info_translated (diagnostic_info *diagnostic, const char *msg,
 				va_list *args, location_t location,
 				diagnostic_t kind)
 {
-  location = map_discriminator_location (location);
   diagnostic->message.err_no = errno;
   diagnostic->message.args_ptr = args;
   diagnostic->message.format_spec = msg;

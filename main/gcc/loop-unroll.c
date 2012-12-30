@@ -34,8 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "recog.h"
 #include "target.h"
-#include "diagnostic.h"
-#include "gcov-io.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -153,104 +151,6 @@ static void insert_var_expansion_initialization (struct var_to_expand *,
 static void combine_var_copies_in_loop_exit (struct var_to_expand *,
 					     basic_block);
 static rtx get_expansion (struct var_to_expand *);
-
-static void
-report_unroll_peel(struct loop *loop, location_t locus)
-{
-  struct niter_desc *desc;
-  int niters = 0;
-  char iter_str[50];
-
-  desc = get_simple_loop_desc (loop);
-
-  if (desc->const_iter)
-    niters = desc->niter;
-  else if (loop->header->count)
-    niters = expected_loop_iterations (loop);
-
-  sprintf(iter_str,", %s iterations %d",
-          desc->const_iter?"const":"average",
-          niters);
-  inform (locus, "%s%s loop by %d (header execution count %d%s)",
-          loop->lpt_decision.decision == LPT_PEEL_COMPLETELY ?
-            "Completely " : "",
-          loop->lpt_decision.decision == LPT_PEEL_SIMPLE ?
-            "Peel" : "Unroll",
-          loop->lpt_decision.times,
-          (int)loop->header->count,
-          loop->lpt_decision.decision == LPT_PEEL_COMPLETELY ?
-            "" : iter_str);
-}
-
-/* Determine whether and how much LOOP unrolling/peeling should be constrained
-   based on code footprint estimates. Returns the codesize-based factor to be
-   divided into the max instructions in an unrolled or peeled loop:
-   1) For size <= threshold, do not limit (by returning 1).
-   2) For threshold < size < 2*threshold, reduce maximum allowed peeled or
-      unrolled instructions according to loop hotness.
-   3) For threshold >= 2*threshold, disable unrolling/peeling (by returning
-      INT_MAX).  */
-
-static int
-code_size_limit_factor(struct loop *loop)
-{
-  unsigned size_threshold;
-  struct niter_desc *desc = get_simple_loop_desc (loop);
-  gcov_type sum_to_header_ratio;
-  int hotness_ratio_threshold;
-  int limit_factor;
-
-  /* First check if the application has a large codesize footprint.
-     This is estimated from FDO profile summary information for the
-     program, where the num_hot_counters indicates the number of hottest
-     counters (blocks) that compose most of the execution time of
-     the program. A large value would indicate a large flat execution
-     profile where icache misses may be a concern.  */
-  size_threshold = PARAM_VALUE (PARAM_UNROLLPEEL_CODESIZE_THRESHOLD);
-  if (!profile_info
-      || profile_info->num_hot_counters <= size_threshold
-      || !profile_info->sum_all)
-    return 1;
-
-  /* Next, exclude some loops where unrolling/peeling may be more
-     important to overall performance.  */
-
-  /* Ignore FP loops, which are more likely to benefit heavily from
-     unrolling. */
-  if (desc->has_fp)
-    return 1;
-
-  /* Next, set the value of the codesize-based unroll factor divisor which in
-     most loops will need to be set to a value that will reduce or eliminate
-     unrolling/peeling.  */
-  if (profile_info->num_hot_counters < size_threshold * 2
-      && loop->header->count > 0)
-    {
-      /* For applications that are less than twice the codesize limit, allow
-         limited unrolling for very hot loops.  */
-      sum_to_header_ratio = profile_info->sum_all / loop->header->count;
-      hotness_ratio_threshold = PARAM_VALUE (PARAM_UNROLLPEEL_HOTNESS_THRESHOLD);
-      /* When the profile count sum to loop entry header ratio is smaller than
-         the threshold (i.e. the loop entry is hot enough, the divisor is set
-         to 1 so the unroll/peel factor is not reduced. When it is bigger
-         than the ratio, increase the divisor by the amount this ratio
-         is over the threshold, which will quickly reduce the unroll/peel
-         factor to zero as the loop's hotness reduces.  */
-      if (sum_to_header_ratio > hotness_ratio_threshold)
-        {
-          limit_factor = sum_to_header_ratio / hotness_ratio_threshold;
-          gcc_assert (limit_factor >= 1);
-        }
-      else
-        limit_factor = 1;
-    }
-  else
-    /* For appliations that are at least twice the codesize limit, set
-       the divisor to a large value that will force the unroll factor to 0.  */
-    limit_factor = INT_MAX;
-
-  return limit_factor;
-}
 
 /* Compute the maximum number of times LOOP can be unrolled without exceeding
    a branch budget, which can increase branch mispredictions. The number of
@@ -427,18 +327,16 @@ peel_loops_completely (int flags)
 {
   struct loop *loop;
   loop_iterator li;
-  location_t locus;
 
   /* Scan the loops, the inner ones first.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
-      locus = get_loop_location(loop);
 
       if (dump_file)
-	fprintf (dump_file, "\n;; *** Considering loop %d for complete peeling at BB %d from %s:%d ***\n",
-                 loop->num, loop->header->index, LOCATION_FILE(locus),
-                 LOCATION_LINE(locus));
+	fprintf (dump_file,
+		 "\n;; *** Considering loop %d for complete peeling ***\n",
+		 loop->num);
 
       loop->ninsns = num_loop_insns (loop);
 
@@ -448,11 +346,6 @@ peel_loops_completely (int flags)
 
       if (loop->lpt_decision.decision == LPT_PEEL_COMPLETELY)
 	{
-          if (flag_opt_info >= OPT_INFO_MIN)
-            {
-              report_unroll_peel(loop, locus);
-            }
-
 	  peel_loop_completely (loop);
 #ifdef ENABLE_CHECKING
 	  verify_dominators (CDI_DOMINATORS);
@@ -468,18 +361,14 @@ decide_unrolling_and_peeling (int flags)
 {
   struct loop *loop;
   loop_iterator li;
-  location_t locus;
 
   /* Scan the loops, inner ones first.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
-      locus = get_loop_location(loop);
 
       if (dump_file)
-	fprintf (dump_file, "\n;; *** Considering loop %d at BB %d from %s:%d ***\n",
-                 loop->num, loop->header->index, LOCATION_FILE(locus),
-                 LOCATION_LINE(locus));
+	fprintf (dump_file, "\n;; *** Considering loop %d ***\n", loop->num);
 
       /* Do not peel cold areas.  */
       if (optimize_loop_for_size_p (loop))
@@ -519,12 +408,6 @@ decide_unrolling_and_peeling (int flags)
 	decide_unroll_stupid (loop, flags);
       if (loop->lpt_decision.decision == LPT_NONE)
 	decide_peel_simple (loop, flags);
-
-      if (flag_opt_info >= OPT_INFO_MIN
-          && loop->lpt_decision.decision != LPT_NONE)
-        {
-          report_unroll_peel(loop, locus);
-        }
     }
 }
 
@@ -534,23 +417,15 @@ static void
 decide_peel_once_rolling (struct loop *loop, int flags ATTRIBUTE_UNUSED)
 {
   struct niter_desc *desc;
-  unsigned max_peeled_insns;
-
-  if (profile_status == PROFILE_READ)
-    max_peeled_insns =
-      (unsigned) PARAM_VALUE (PARAM_MAX_ONCE_PEELED_INSNS_FEEDBACK);
-  else
-    max_peeled_insns = (unsigned) PARAM_VALUE (PARAM_MAX_ONCE_PEELED_INSNS);
 
   if (dump_file)
     fprintf (dump_file, "\n;; Considering peeling once rolling loop\n");
 
   /* Is the loop small enough?  */
-  if (max_peeled_insns < loop->ninsns)
+  if ((unsigned) PARAM_VALUE (PARAM_MAX_ONCE_PEELED_INSNS) < loop->ninsns)
     {
       if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is too big (%d > %u)\n",
-                 loop->ninsns, max_peeled_insns);
+	fprintf (dump_file, ";; Not considering loop, is too big\n");
       return;
     }
 
@@ -574,14 +449,13 @@ decide_peel_once_rolling (struct loop *loop, int flags ATTRIBUTE_UNUSED)
   if (dump_file)
     fprintf (dump_file, ";; Decided to peel exactly once rolling loop\n");
   loop->lpt_decision.decision = LPT_PEEL_COMPLETELY;
-  loop->lpt_decision.times = 0;
 }
 
 /* Decide whether the LOOP is suitable for complete peeling.  */
 static void
 decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
 {
-  unsigned npeel, max_insns, max_peel;
+  unsigned npeel;
   struct niter_desc *desc;
 
   if (dump_file)
@@ -612,30 +486,16 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
       return;
     }
 
-  if (profile_status == PROFILE_READ)
-    {
-      max_insns =
-        (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS_FEEDBACK);
-      max_peel =
-        (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES_FEEDBACK);
-    }
-  else
-    {
-      max_insns = (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS);
-      max_peel = (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
-    }
-
   /* npeel = number of iterations to peel.  */
-  npeel = max_insns / loop->ninsns;
-  if (npeel > max_peel)
-    npeel = max_peel;
+  npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS) / loop->ninsns;
+  if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES))
+    npeel = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
 
   /* Is the loop small enough?  */
   if (!npeel)
     {
       if (dump_file)
-	fprintf (dump_file, ";; Not considering loop, is too big, npeel=%u.\n",
-                 npeel);
+	fprintf (dump_file, ";; Not considering loop, is too big\n");
       return;
     }
 
@@ -668,9 +528,8 @@ decide_peel_completely (struct loop *loop, int flags ATTRIBUTE_UNUSED)
 
   /* Success.  */
   if (dump_file)
-    fprintf (dump_file, ";; Decided to peel loop completely npeel %u\n", npeel);
+    fprintf (dump_file, ";; Decided to peel loop completely\n");
   loop->lpt_decision.decision = LPT_PEEL_COMPLETELY;
-  loop->lpt_decision.times = desc->niter;
 }
 
 /* Peel all iterations of LOOP, remove exit edges and cancel the loop
@@ -1056,7 +915,6 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, nunroll_branches, i;
   struct niter_desc *desc;
-  int limit_factor = 1;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -1069,26 +927,10 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     "\n;; Considering unrolling loop with runtime "
 	     "computable number of iterations\n");
 
-  if (flag_unroll_codesize_limit)
-    {
-      /* Determine whether to limit code size growth from unrolling,
-         using FDO profile summary information that gives an
-         estimated number of executed blocks.  */
-      limit_factor = code_size_limit_factor (loop);
-      if (dump_file && limit_factor > 1)
-	{
-          fprintf (dump_file,
-                   ";; Due to large code size footprint estimate, limit "
-                   "max unrolled insns by divisor %d\n", limit_factor);
-	}
-    }
-
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / limit_factor
-            / loop->ninsns;
-  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS)
-                  / limit_factor / loop->av_ninsns;
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
     nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
@@ -1479,7 +1321,6 @@ decide_peel_simple (struct loop *loop, int flags)
 {
   unsigned npeel;
   struct niter_desc *desc;
-  int limit_factor = 1;
 
   if (!(flags & UAP_PEEL))
     {
@@ -1490,23 +1331,8 @@ decide_peel_simple (struct loop *loop, int flags)
   if (dump_file)
     fprintf (dump_file, "\n;; Considering simply peeling loop\n");
 
-  if (flag_peel_codesize_limit)
-    {
-      /* Determine whether to limit code size growth from peeling,
-         using FDO profile summary information that gives an
-         estimated number of executed blocks.  */
-      limit_factor = code_size_limit_factor (loop);
-      if (dump_file && limit_factor > 1)
-	{
-          fprintf (dump_file,
-                   ";; Due to large code size footprint estimate, limit "
-                   "max peeled insns by divisor %d\n", limit_factor);
-	}
-    }
-
   /* npeel = number of iterations to peel.  */
-  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / limit_factor
-          / loop->ninsns;
+  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / loop->ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
 
@@ -1648,7 +1474,6 @@ decide_unroll_stupid (struct loop *loop, int flags)
 {
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
-  int limit_factor = 1;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1659,26 +1484,11 @@ decide_unroll_stupid (struct loop *loop, int flags)
   if (dump_file)
     fprintf (dump_file, "\n;; Considering unrolling loop stupidly\n");
 
-  if (flag_unroll_codesize_limit)
-    {
-      /* Determine whether to limit code size growth from unrolling,
-         using FDO profile summary information that gives an
-         estimated number of executed blocks.  */
-      limit_factor = code_size_limit_factor (loop);
-      if (dump_file && limit_factor > 1)
-	{
-          fprintf (dump_file,
-                   ";; Due to large code size footprint estimate, limit "
-                   "max unrolled insns by divisor %d\n", limit_factor);
-	}
-    }
-
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / limit_factor
-            / loop->ninsns;
-  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS)
-                  / limit_factor / loop->av_ninsns;
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
+  nunroll_by_av
+    = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
     nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))

@@ -60,7 +60,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
-#include "tree-threadsafe-analyze.h"
 
 /* In grokdeclarator, distinguish syntactic contexts of declarators.  */
 enum decl_context
@@ -2575,9 +2574,7 @@ warn_if_shadowing (tree new_decl)
   struct c_binding *b;
 
   /* Shadow warnings wanted?  */
-  if (!(warn_shadow
-        || warn_shadow_local
-        || warn_shadow_compatible_local)
+  if (!warn_shadow
       /* No shadow warnings for internally generated vars.  */
       || DECL_IS_BUILTIN (new_decl)
       /* No shadow warnings for vars made for inlining.  */
@@ -2594,55 +2591,30 @@ warn_if_shadowing (tree new_decl)
 	tree old_decl = b->decl;
 
 	if (old_decl == error_mark_node)
-	  warning (OPT_Wshadow, "declaration of %q+D shadows previous "
-		   "non-variable", new_decl);
+	  {
+	    warning (OPT_Wshadow, "declaration of %q+D shadows previous "
+		     "non-variable", new_decl);
+	    break;
+	  }
 	else if (TREE_CODE (old_decl) == PARM_DECL)
-          {
-            enum opt_code warning_code;
-
-            /* If '-Wshadow-compatible-local' is specified without other
-               -Wshadow flags, we will warn only when the types of the
-               shadowing variable (i.e. new_decl) and the shadowed variable
-               (old_decl) are compatible.  */
-            if (comptypes (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
-              warning_code = OPT_Wshadow_compatible_local;
-            else
-              warning_code = OPT_Wshadow_local;
-            warning (warning_code,
-                     "declaration of %q+D shadows a parameter", new_decl);
-            warning_at (DECL_SOURCE_LOCATION (old_decl), warning_code,
-			"shadowed declaration is here");
-          }
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a parameter",
+		   new_decl);
 	else if (DECL_FILE_SCOPE_P (old_decl))
-          {
-            warning (OPT_Wshadow, "declaration of %q+D shadows a global "
-                     "declaration", new_decl);
-            warning_at (DECL_SOURCE_LOCATION (old_decl), OPT_Wshadow,
-		        "shadowed declaration is here");
-          }
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a global "
+		   "declaration", new_decl);
 	else if (TREE_CODE (old_decl) == FUNCTION_DECL
 		 && DECL_BUILT_IN (old_decl))
-	  warning (OPT_Wshadow, "declaration of %q+D shadows "
-		   "a built-in function", new_decl);
+	  {
+	    warning (OPT_Wshadow, "declaration of %q+D shadows "
+		     "a built-in function", new_decl);
+	    break;
+	  }
 	else
-          {
-            enum opt_code warning_code;
+	  warning (OPT_Wshadow, "declaration of %q+D shadows a previous local",
+		   new_decl);
 
-            /* If '-Wshadow-compatible-local' is specified without other
-               -Wshadow flags, we will warn only when the types of the
-               shadowing variable (i.e. new_decl) and the shadowed variable
-               (old_decl) are compatible.  */
-            if (comptypes (TREE_TYPE (old_decl), TREE_TYPE (new_decl)))
-              warning_code = OPT_Wshadow_compatible_local;
-            else
-              warning_code = OPT_Wshadow_local;
-            warning (warning_code,
-                     "declaration of %q+D shadows a previous local",
-                     new_decl);
-
-            warning_at (DECL_SOURCE_LOCATION (old_decl), warning_code,
-			"shadowed declaration is here");
-          }
+	warning_at (DECL_SOURCE_LOCATION (old_decl), OPT_Wshadow,
+		    "shadowed declaration is here");
 
 	break;
       }
@@ -3073,27 +3045,19 @@ undeclared_variable (location_t loc, tree id)
 
   if (current_function_decl == 0)
     {
-      /* Suppress the error message and return an error_mark_node if we are
-         parsing a lock attribute. We would like the lock attributes to
-         reference (and tolerate) names not in scope so that they provide
-         better code documentation capability.  */
-      if (!parsing_lock_attribute)
-        error_at (loc, "%qE undeclared here (not in a function)", id);
+      error_at (loc, "%qE undeclared here (not in a function)", id);
       scope = current_scope;
     }
   else
     {
-      if (!parsing_lock_attribute)
-        {
-          if (!objc_diagnose_private_ivar (id))
-            error_at (loc, "%qE undeclared (first use in this function)", id);
-          if (!already)
-            {
-              inform (loc, "each undeclared identifier is reported only"
-                      " once for each function it appears in");
-              already = true;
-            }
-        }
+      if (!objc_diagnose_private_ivar (id))
+        error_at (loc, "%qE undeclared (first use in this function)", id);
+      if (!already)
+	{
+          inform (loc, "each undeclared identifier is reported only"
+                  " once for each function it appears in");
+	  already = true;
+	}
 
       /* If we are parsing old-style parameter decls, current_function_decl
 	 will be nonnull but current_function_scope will be null.  */

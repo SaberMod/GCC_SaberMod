@@ -1216,7 +1216,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_lower_vector);
       NEXT_PASS (pass_early_warn_uninitialized);
       NEXT_PASS (pass_rebuild_cgraph_edges);
-      NEXT_PASS (pass_threadsafe_analyze);
       NEXT_PASS (pass_inline_parameters);
       NEXT_PASS (pass_early_inline);
       NEXT_PASS (pass_all_early_optimizations);
@@ -1258,11 +1257,6 @@ init_optimization_passes (void)
     }
   NEXT_PASS (pass_ipa_increase_alignment);
   NEXT_PASS (pass_ipa_matrix_reorg);
-  NEXT_PASS (pass_ipa_multiversion_dispatch);
-    {
-      struct opt_pass **p = &pass_ipa_multiversion_dispatch.pass.sub;
-      NEXT_PASS (pass_tree_convert_builtin_dispatch);
-    }
   NEXT_PASS (pass_ipa_tm);
   NEXT_PASS (pass_ipa_lower_emutls);
   *p = NULL;
@@ -1353,8 +1347,6 @@ init_optimization_passes (void)
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
-      NEXT_PASS (pass_asan);
-      NEXT_PASS (pass_tsan);
       NEXT_PASS (pass_tree_loop);
 	{
 	  struct opt_pass **p = &pass_tree_loop.pass.sub;
@@ -1480,7 +1472,6 @@ init_optimization_passes (void)
 	  NEXT_PASS (pass_rtl_loop_done);
 	  *p = NULL;
 	}
-      NEXT_PASS (pass_simplify_got);
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_rtl_cprop);
       NEXT_PASS (pass_cse2);

@@ -260,19 +260,14 @@ Objective-C and Objective-C++ Dialects}.
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
--Wreal-conversion  -Wredundant-decls  -Wreturn-type -Wripa-opt-mismatch @gol
+-Wredundant-decls  -Wreturn-type -Wripa-opt-mismatch @gol
 -Wself-assign  -Wself-assign-non-pod  -Wsequence-point  -Wshadow @gol
--Wshadow-compatible-local -Wshadow-local @gol
 -Wsign-compare  -Wsign-conversion  -Wstack-protector @gol
 -Wstack-usage=@var{len} -Wstrict-aliasing -Wstrict-aliasing=n @gol
 -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{]} @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wsync-nand @gol
--Wsystem-headers -Wthread-safety -Wthread-unguarded-var @gol
--Wthread-unguarded-func -Wthread-mismatched-lock-order @gol
--Wthread-mismatched-lock-acq-rel -Wthread-reentrant-lock @gol
--Wthread-unsupported-lock-name -Wthread-attr-bind-param @gol
--Wtrampolines  -Wtrigraphs  -Wtype-limits  -Wundef @gol
+-Wsystem-headers  -Wtrampolines  -Wtrigraphs  -Wtype-limits  -Wundef @gol
 -Wuninitialized  -Wunknown-pragmas  -Wno-pragmas @gol
 -Wunsuffixed-float-constants  -Wunused  -Wunused-function @gol
 -Wunused-label  -Wunused-local-typedefs -Wunused-parameter @gol
@@ -311,7 +306,6 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
 -fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
--fdump-tree-tsan@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiprop@r{[}-@var{n}@r{]} @gol
@@ -358,7 +352,7 @@ Objective-C and Objective-C++ Dialects}.
 @item Optimization Options
 @xref{Optimize Options,,Options that Control Optimization}.
 @gccoptlist{-falign-functions[=@var{n}] -falign-jumps[=@var{n}] @gol
--falign-labels[=@var{n}] -falign-loops[=@var{n}] -fasan -fassociative-math @gol
+-falign-labels[=@var{n}] -falign-loops[=@var{n}] -fassociative-math @gol
 -fauto-inc-dec -fbranch-probabilities -fbranch-target-load-optimize @gol
 -fbranch-target-load-optimize2 -fbtr-bb-exclusive -fcaller-saves @gol
 -fcallgraph-profiles-sections -fcheck-data-deps -fclone-hot-version-paths @gol
@@ -370,8 +364,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdelete-null-pointer-checks -fdevirtualize -fdse @gol
 -fearly-inlining -fipa-sra -fexpensive-optimizations -ffat-lto-objects @gol
 -ffast-math -ffinite-math-only -ffloat-store -fexcess-precision=@var{style} @gol
--fforward-propagate -ffp-contract=@var{style} @gol
--ffunction-attribute-list -ffunction-sections @gol
+-fforward-propagate -ffp-contract=@var{style} -ffunction-sections @gol
 -fgcse -fgcse-after-reload -fgcse-las -fgcse-lm -fgraphite-identity @gol
 -fgcse-sm -fif-conversion -fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
@@ -386,27 +379,25 @@ Objective-C and Objective-C++ Dialects}.
 -floop-parallelize-all -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
--fmove-loop-invariants -fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
--ftsan -ftsan-ignore -fno-default-inline @gol
+-fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
+-fno-default-inline @gol
 -fno-defer-pop -fno-function-cse -fno-guess-branch-probability @gol
 -fno-inline -fno-math-errno -fno-peephole -fno-peephole2 @gol
 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-register-move -foptimize-sibling-calls @gol
--fpartial-inlining -fpeel-codesize-limit -fpeel-loops -fpredictive-commoning @gol
+-fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
 -fprefetch-loop-arrays @gol
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} -fprofile-generate-sampling @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
--fpmu-profile-generate=@var{pmuoption} @gol
--fpmu-profile-use=@var{pmudata} @gol
 -freciprocal-math -free -fregmove -frename-registers -freorder-blocks @gol
 -frecord-gcc-switches-in-elf@gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -fripa -fripa-disallow-asm-modules -fripa-disallow-opt-mismatch @gol
--fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func @gol
--fripa-verbose -frounding-math @gol
+-fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func -fripa-verbose @gol
+-fripa-peel-size-limit -fripa-unroll-size-limit -frounding-math @gol
 -fsched2-use-superblocks -fsched-pressure @gol
 -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
@@ -429,10 +420,10 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-pta -ftree-reassoc @gol
 -ftree-sink -ftree-sra -ftree-switch-conversion -ftree-tail-merge @gol
 -ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp @gol
--funit-at-a-time -funroll-all-loops -funroll-loops -funroll-codesize-limit @gol
+-funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
--fwhole-program -fwpa -fuse-ld -fuse-linker-plugin @gol
+-fwhole-program -fwpa -fuse-linker-plugin @gol
 --param @var{name}=@var{value}
 -O  -O0  -O1  -O2  -O3  -Os -Ofast}
 
@@ -3332,7 +3323,7 @@ Enable @option{-Wformat} plus format checks not included in
 @option{-Wformat}.  Currently equivalent to @samp{-Wformat
 -Wformat-nonliteral -Wformat-security -Wformat-y2k}.
 
-@item -Wnonnull @r{(C, C++, Objective-C, and Objective-C++ only)}
+@item -Wnonnull @r{(C and Objective-C only)}
 @opindex Wnonnull
 @opindex Wno-nonnull
 Warn about passing a null pointer for arguments marked as
@@ -3641,58 +3632,6 @@ warning about an omitted enumeration code even if there is a
 @opindex Wno-sync-nand
 Warn when @code{__sync_fetch_and_nand} and @code{__sync_nand_and_fetch}
 built-in functions are used.  These functions changed semantics in GCC 4.4.
-
-@item -Wthread-safety
-@opindex Wthread-safety
-@opindex Wno-thread-safety
-Warn about potential thread safety issues when the code is annotated with
-thread safety attributes.
-
-@item Wthread-unguarded-var
-@opindex -Wthread-unguarded-var
-@opindex -Wno-thread-unguarded-var
-Warn about shared variables not properly protected by locks specified in the
-attributes. This flag is effective only with @option{-Wthread-safety} and
-enabled by default.
-
-@item Wthread-unguarded-func
-@opindex -Wthread-unguarded-func
-@opindex -Wno-thread-unguarded-func
-Warn about function calls not properly protected by locks specified in the
-attributes. This flag is effective only with @option{-Wthread-safety} and
-enabled by default.
-
-@item Wthread-mismatched-lock-order
-@opindex -Wthread-mismatched-lock-order
-@opindex -Wno-thread-mismatched-lock-order
-Warn about lock acquisition order inconsistent with what specified in the
-attributes. This flag is effective only with @option{-Wthread-safety} and
-enabled by default.
-
-@item Wthread-mismatched-lock-acq-rel
-@opindex -Wthread-mismatched-lock-acq-rel
-@opindex -Wno-thread-mismatched-lock-acq-rel
-Warn about mismatched lock acquisition and release. This flag is effective only
-with @option{-Wthread-safety} and enabled by default.
-
-@item Wthread-reentrant-lock
-@opindex -Wthread-reentrant-lock
-@opindex -Wno-thread-reentrant-lock
-Warn about a lock being acquired recursively. This flag is effective only
-with @option{-Wthread-safety} and enabled by default.
-
-@item Wthread-unsupported-lock-name
-@opindex -Wthread-unsupported-lock-name
-@opindex -Wno-thread-unsupported-lock-name
-Warn about uses of unsupported lock names in attributes. This flag is effective
-only with @option{-Wthread-safety} and disabled by default.
-
-@item Wthread-attr-bind-param
-@opindex -Wthread-attr-bind-param
-@opindex -Wno-thread-attr-bind-param
-Make the thread safety analysis try to bind the function parameters used in
-the attributes. This flag is effective only with @option{-Wthread-safety}
-and enabled by default.
 
 @item -Wtrigraphs
 @opindex Wtrigraphs
@@ -4195,43 +4134,6 @@ parameter, type, or class member (in C++), or whenever a built-in function
 is shadowed. Note that in C++, the compiler will not warn if a local variable
 shadows a struct/class/enum, but will warn if it shadows an explicit typedef.
 
-@item -Wshadow-local
-@opindex Wshadow-local
-@opindex Wno-shadow-local
-Warn when a local variable shadows another local variable or parameter.
-
-@item -Wshadow-compatible-local
-@opindex Wshadow-compatible-local
-@opindex Wno-shadow-compatible-local
-Warn when a local variable shadows another local variable or parameter
-whose type is compatible with that of the shadowing variable. In C++,
-type compatibility here means the type of the shadowing variable can be
-converted to that of the shadowed variable. The creation of this flag
-(in addition to @option{-Wshadow-local}) is based on the idea that when
-a local variable shadows another one of incompatible type, it is most
-likely intentional, not a bug or typo, as shown in the following example:
-
-@smallexample
-@group
-for (SomeIterator i = SomeObj.begin(); i != SomeObj.end(); ++i)
-@{
-  for (int i = 0; i < N; ++i)
-  @{
-    ...
-  @}
-  ...
-@}
-@end group
-@end smallexample
-
-Since the two variable @code{i} in the example above have incompatible types, 
-enabling only @option{-Wshadow-compatible-local} will not emit a warning.
-Because their types are incompatible, if a programmer accidentally uses one
-in place of the other, type checking will catch that and emit an error or
-warning. So not warning (about shadowing) in this case will not lead to
-undetected bugs. Use of this flag instead of @option{-Wshadow-local} can
-possibly reduce the number of warnings triggered by intentional shadowing.
-
 @item -Wlarger-than=@var{len}
 @opindex Wlarger-than=@var{len}
 @opindex Wlarger-than-@var{len}
@@ -4411,12 +4313,6 @@ unsigned integers are disabled by default in C++ unless
 @opindex Wno-conversion-null
 Do not warn for conversions between @code{NULL} and non-pointer
 types. @option{-Wconversion-null} is enabled by default.
-
-@item -Wreal-conversion
-@opindex Wreal-conversion
-@opindex Wno-real-conversion
-Warn for implicit type conversions from real (@code{double} or @code{float})
-to integral values.
 
 @item -Wzero-as-null-pointer-constant @r{(C++ and Objective-C++ only)}
 @opindex Wzero-as-null-pointer-constant
@@ -5083,11 +4979,6 @@ different from version 2), and it would have been too confusing.  That
 debug format is long obsolete, but the option cannot be changed now.
 Instead use an additional @option{-g@var{level}} option to change the
 debug level for DWARF.
-
-@item -gmlt
-@opindex gmlt
-Produce a minimal line table, with level 1 debugging information plus
-information about inlined functions and line numbers.
 
 @item -gtoggle
 @opindex gtoggle
@@ -6012,11 +5903,6 @@ appending @file{.dce} to the source file name.
 Dump each function after adding mudflap instrumentation.  The file name is
 made by appending @file{.mudflap} to the source file name.
 
-@item tsan
-@opindex fdump-tree-tsan
-Dump each function after adding ThreadSanitizer instrumentation.  The file name is
-made by appending @file{.tsan} to the source file name.
-
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -6773,12 +6659,6 @@ assumptions based on that.
 
 The default is @option{-fzero-initialized-in-bss}.
 
-@item -fasan
-Enable AddressSanitizer, a fast memory error detector.
-Memory access instructions will be instrumented to detect
-out-of-bounds and use-after-free bugs. So far only heap bugs will be detected.
-See @uref{http://code.google.com/p/address-sanitizer/} for more details.
-
 @item -fmudflap -fmudflapth -fmudflapir
 @opindex fmudflap
 @opindex fmudflapth
@@ -6804,12 +6684,6 @@ instrumentation should ignore pointer reads.  This produces less
 instrumentation (and therefore faster execution) and still provides
 some protection against outright memory corrupting writes, but allows
 erroneously read data to propagate within a program.
-
-@item -ftsan -ftsan-ignore
-@opindex ftsan
-@opindex ftsan-ignore
-Add ThreadSanitizer instrumentation. Use @option{-ftsan-ignore} to specify
-an ignore file. Refer to http://go/tsan for details.
 
 @item -fthread-jumps
 @opindex fthread-jumps
@@ -8287,16 +8161,6 @@ the comparison operation before register allocation is complete.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
 
-@item -fuse-ld=gold
-Use the @command{gold} linker instead of the default linker.
-This option is only necessary if GCC has been configured with
-@option{--enable-gold} and @option{--enable-ld=default}.
-
-@item -fuse-ld=bfd
-Use the @command{ld.bfd} linker instead of the default linker.
-This option is only necessary if GCC has been configured with
-@option{--enable-gold} and @option{--enable-ld}.
-
 @item -fcprop-registers
 @opindex fcprop-registers
 After register allocation and post-register allocation instruction splitting,
@@ -8358,7 +8222,7 @@ Enable profile feedback directed optimizations, and optimizations
 generally profitable only with profile feedback available.
 
 The following options are enabled: @code{-fbranch-probabilities}, @code{-fvpt},
-@code{-funroll-loops}, @code{-fpeel-loops}.
+@code{-funroll-loops}, @code{-fpeel-loops}, @code{-ftracer}
 
 By default, GCC emits an error message if the feedback profiles do not
 match the source code.  This error can be turned into a warning by using
@@ -8367,25 +8231,6 @@ code.
 
 If @var{path} is specified, GCC will look at the @var{path} to find
 the profile feedback data files. See @option{-fprofile-dir}.
-
-@item -fpmu-profile-generate=@var{pmuoption}
-@opindex fpmu-profile-generate
-
-Enable performance monitoring unit (PMU) profiling.  This collects
-hardware counter data corresponding to @var{pmuoption}.  Currently
-only @var{load-latency} and @var{branch-mispredict} are supported
-using pfmon tool.  You must use @option{-fpmu-profile-generate} both
-when compiling and when linking your program.  This PMU profile data
-may later be used by the compiler during optimizations as well can be
-displayed using coverage tool gcov. The params variable
-"pmu_profile_n_addresses" can be used to restrict PMU data collection
-to only this many addresses.
-
-@item -fpmu-profile-use=@var{pmudata}
-@opindex fpmu-profile-use
-
-If @var{pmudata} is specified, GCC will read PMU data from @var{pmudata}. If
-unspecified, PMU data will be read from 'pmuprofile.gcda'.
 
 @item -fprofile-strip=@var{base_suffix}
 @opindex fprofile-strip
@@ -8710,10 +8555,6 @@ used in one place: in @file{reorg.c}, instead of guessing which path a
 branch is most likely to take, the @samp{REG_BR_PROB} values are used to
 exactly determine which path is taken more often.
 
-@item -fclone-hot-version-paths
-When multi-version calls are made using @samp{__builtin_dispatch}, this flag
-enables cloning and hoisting of hot multiversioned paths.
-
 @item -fprofile-values
 @opindex fprofile-values
 If combined with @option{-fprofile-arcs}, it adds code so that some
@@ -8771,14 +8612,6 @@ the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
 @option{-funroll-loops}.
 
-@item -funroll-codesize-limit
-@opindex funroll-codesize-limit
-Limit loop unrolling of non-const non-FP loops in a profile feedback compilation
-under estimates of a large code footprint. Enabled by default with
-@option{-fprofile-use}. Code size and execution weight thresholds are controlled
-by the @option{unrollpeel-codesize-threshold} and
-@option{unrollpeel-hotness-threshold} parameters.
-
 @item -fpeel-loops
 @opindex fpeel-loops
 Peels loops for which there is enough information that they do not
@@ -8786,14 +8619,6 @@ roll much (from profile feedback).  It also turns on complete loop peeling
 (i.e.@: complete removal of loops with small constant number of iterations).
 
 Enabled with @option{-fprofile-use}.
-
-@item -fpeel-codesize-limit
-@opindex fpeel-codesize-limit
-Limit loop peeling of non-const non-FP loops in a profile feedback compilation
-under estimates of a large code footprint. Enabled by default with
-@option{-fprofile-use}. Code size and execution weight thresholds are controlled
-by the @option{unrollpeel-codesize-threshold} and
-@option{unrollpeel-hotness-threshold} parameters.
 
 @item -fmove-loop-invariants
 @opindex fmove-loop-invariants
@@ -8826,15 +8651,6 @@ create larger object and executable files and will also be slower.
 You will not be able to use @code{gprof} on all systems if you
 specify this option and you may have problems with debugging if
 you specify both this option and @option{-g}.
-
-@item -ffunction-attribute-list
-@opindex ffunction-attribute-list
-List of function name patterns that will be applied specified attribute.
-For example, the following command line will add "cold" attribute to
-functions that has "ErrorMessage" in its name.
-@smallexample
-gcc -ffunction-atribute-list=cold:ErrorMessage -c foo.c
-@end smallexample
 
 @item -fbranch-target-load-optimize
 @opindex fbranch-target-load-optimize
@@ -9002,16 +8818,6 @@ by the compiler will be investigated.  To those functions, a different
 be applied.
 The default value is 40.
 
-@item mversn-clone-depth
-When using @option{-fclone-hot-version-paths}, hot function paths are multi-
-versioned via cloning.  This parameter specifies the maximum length of the
-call graph path that can be cloned. The default value is 2.
-
-@item num-mversn-clones
-When using @option{-fclone-hot-version-paths}, hot function paths are multi-
-versioned via cloning.  This parameter specifies the maximum number of
-functions that can be cloned. The default value is 10.
-
 @item large-function-insns
 The limit specifying really large functions.  For functions larger than this
 limit after inlining, inlining is constrained by
@@ -9164,40 +8970,11 @@ The maximum number of peelings of a single loop.
 @item max-completely-peeled-insns
 The maximum number of insns of a completely peeled loop.
 
-@item max-completely-peeled-insns-feedback
-The maximum number of insns of a completely peeled loop when profile
-feedback is available and the loop is hot. Because of the real
-profiles, this value may set to be larger for hot loops. Its default
-value is 600.
-
-@item max-once-peeled-insns
-The maximum number of insns of a peeled loop that rolls only once.
-
-@item max-once-peeled-insns-feedback
-The maximum number of insns of a peeled loop when profile feedback is
-available and the loop is hot. Because of the real profiles, this
-value may set to be larger for hot loops. The default value is 600.
-
 @item max-completely-peel-times
 The maximum number of iterations of a loop to be suitable for complete peeling.
 
-@item max-completely-peel-times-feedback
-The maximum number of iterations of a loop to be suitable for complete
-peeling when profile feedback is available and the loop is
-hot. Because of the real profiles, this value may set to be larger for
-hot loops. Its default value is 16.
-
 @item max-completely-peel-loop-nest-depth
 The maximum depth of a loop nest suitable for complete peeling.
-
-@item unrollpeel-codesize-threshold
-Maximum profile-based code size footprint estimate for loop unrolling and
-peeling.
-
-@item unrollpeel-hotness-threshold
-Maximum ratio of total execution count to loop entry block count under which
-most profile-based code size estimates will be ignored for loop unrolling and
-peeling.
 
 @item max-unswitch-insns
 The maximum number of insns of an unswitched loop.

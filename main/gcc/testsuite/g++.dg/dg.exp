@@ -49,7 +49,6 @@ set tests [prune $tests $srcdir/$subdir/torture/*]
 set tests [prune $tests $srcdir/$subdir/graphite/*]
 set tests [prune $tests $srcdir/$subdir/tm/*]
 set tests [prune $tests $srcdir/$subdir/guality/*]
-set tests [prune $tests $srcdir/$subdir/thread-ann/*]
 set tests [prune $tests $srcdir/$subdir/simulate-thread/*]
 
 # Main loop.

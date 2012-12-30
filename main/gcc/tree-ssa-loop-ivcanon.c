@@ -52,7 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree-inline.h"
 #include "target.h"
-#include "diagnostic.h"
 
 /* Specifies types of loops that may be unrolled.  */
 
@@ -327,7 +326,6 @@ try_unroll_loop_completely (struct loop *loop,
 			    enum unroll_level ul)
 {
   unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll, unr_insns;
-  unsigned HOST_WIDE_INT max_peeled_insns;
   gimple cond;
   struct loop_size size;
 
@@ -338,22 +336,9 @@ try_unroll_loop_completely (struct loop *loop,
     return false;
   n_unroll = tree_low_cst (niter, 1);
 
-  if (profile_status == PROFILE_READ
-      && optimize_loop_for_speed_p (loop))
-    max_unroll = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES_FEEDBACK);
-  else
-    max_unroll = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
-
+  max_unroll = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEEL_TIMES);
   if (n_unroll > max_unroll)
-    {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	{
-	  fprintf (dump_file, "  Not unrolling loop %d limited by max unroll"
-                   " (%d > %d)\n",
-                   loop->num, (int) n_unroll, (int) max_unroll);
-        }
     return false;
-  }
 
   if (n_unroll)
     {
@@ -371,20 +356,14 @@ try_unroll_loop_completely (struct loop *loop,
 		   (int) unr_insns);
 	}
 
-      if (profile_status == PROFILE_READ
-          && optimize_loop_for_speed_p (loop))
-        max_peeled_insns =
-          PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS_FEEDBACK);
-      else
-        max_peeled_insns = PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS);
-
-      if (unr_insns > max_peeled_insns)
+      if (unr_insns > ninsns
+	  && (unr_insns
+	      > (unsigned) PARAM_VALUE (PARAM_MAX_COMPLETELY_PEELED_INSNS)))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "Not unrolling loop %d "
-		     "(--param max-completely-peeled-insns(-feedback) limit. "
-                     "(%u > %u)).\n",
-                     loop->num, (unsigned) unr_insns, (unsigned) max_peeled_insns);
+		     "(--param max-completely-peeled-insns limit reached).\n",
+		     loop->num);
 	  return false;
 	}
 
@@ -392,8 +371,7 @@ try_unroll_loop_completely (struct loop *loop,
 	  && unr_insns > ninsns)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file, "Not unrolling loop %d (NO_GROWTH %d > %d).\n",
-                     loop->num, (int) unr_insns, (int) ninsns);
+	    fprintf (dump_file, "Not unrolling loop %d.\n", loop->num);
 	  return false;
 	}
     }
@@ -440,19 +418,8 @@ try_unroll_loop_completely (struct loop *loop,
   update_stmt (cond);
   update_ssa (TODO_update_ssa);
 
-  if (dump_file)
-    fprintf (dump_file, "Unrolled loop %d completely by factor %d.\n",
-             loop->num, (int) n_unroll);
-
-  if (flag_opt_info >= OPT_INFO_MIN)
-    {
-      location_t locus;
-      locus = gimple_location (cond);
-
-      inform (locus, "Completely Unroll loop by %d (header execution count %d)",
-              (int) n_unroll,
-              (int) loop->header->count);
-    }
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Unrolled loop %d completely.\n", loop->num);
 
   return true;
 }

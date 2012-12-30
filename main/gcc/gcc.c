@@ -671,16 +671,13 @@ proper position among the other output files.  */
     LINK_PLUGIN_SPEC \
     "%{flto|flto=*:%<fcompare-debug*} \
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
-   "%{fuse-ld=gold:%{fuse-ld=bfd:%e-fuse-ld=gold and -fuse-ld=bfd may not be used together}} \
-    %{fuse-ld=gold:-use-gold} \
-    %{fuse-ld=bfd:-use-ld}" \
    "%X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}}\
     %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
-    %{fprofile-arcs|fprofile-generate*|fpmu-profile-generate*|coverage:-lgcov}\
+    %{fprofile-arcs|fprofile-generate*|coverage:-lgcov}\
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
     %{!nostdlib:%{!nostartfiles:%E}} %{T*} }}}}}}"
 #endif
@@ -794,16 +791,12 @@ static const char *cc1_options =
  %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage -fno-early-inlining}";
 
-/* If an assembler wrapper is used to invoke post-assembly tools
-   like MAO, --save-temps need to be passed to save the output of
-   such post-processing tools. This is not compatible with vanilla
-   binutils gas which does not recognize --save-temps.  */
 static const char *asm_options =
 "%{-target-help:%:print-asm-header()} "
 #if HAVE_GNU_AS
 /* If GNU AS is used, then convert -w (no warnings), -I, and -v
    to the assembler equivalents.  */
-"%{v} %{w:-W} %{I*} %{save-temps*:--save-temps} "
+"%{v} %{w:-W} %{I*} "
 #endif
 "%a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}%{!c:-o %d%w%u%O}";
 

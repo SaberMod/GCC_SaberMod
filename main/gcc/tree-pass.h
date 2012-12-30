@@ -84,7 +84,6 @@ enum tree_dump_index
 #define TDF_ENUMERATE_LOCALS (1 << 22)	/* Enumerate locals by uid.  */
 #define TDF_CSELIB	(1 << 23)	/* Dump cselib details.  */
 #define TDF_SCEV	(1 << 24)	/* Dump SCEV details.  */
-#define TDF_PMU         (1 << 25)       /* Dump PMU Profiling details  */
 
 
 /* In tree-dump.c */
@@ -353,8 +352,6 @@ extern void tree_lowering_passes (tree decl);
 
 extern struct gimple_opt_pass pass_mudflap_1;
 extern struct gimple_opt_pass pass_mudflap_2;
-extern struct gimple_opt_pass pass_asan;
-extern struct gimple_opt_pass pass_tsan;
 extern struct gimple_opt_pass pass_lower_cf;
 extern struct gimple_opt_pass pass_refactor_eh;
 extern struct gimple_opt_pass pass_lower_eh;
@@ -459,8 +456,6 @@ extern struct gimple_opt_pass pass_tm_memopt;
 extern struct gimple_opt_pass pass_tm_edges;
 extern struct gimple_opt_pass pass_split_functions;
 extern struct gimple_opt_pass pass_feedback_split_functions;
-extern struct gimple_opt_pass pass_threadsafe_analyze;
-extern struct gimple_opt_pass pass_tree_convert_builtin_dispatch;
 
 /* IPA Passes */
 extern struct simple_ipa_opt_pass pass_ipa_lower_emutls;
@@ -484,7 +479,6 @@ extern struct ipa_opt_pass_d pass_ipa_lto_finish_out;
 extern struct simple_ipa_opt_pass pass_ipa_tm;
 extern struct ipa_opt_pass_d pass_ipa_profile;
 extern struct ipa_opt_pass_d pass_ipa_cdtor_merge;
-extern struct simple_ipa_opt_pass pass_ipa_multiversion_dispatch;
 
 extern struct gimple_opt_pass pass_all_optimizations;
 extern struct gimple_opt_pass pass_cleanup_cfg_post_optimizing;
@@ -515,7 +509,6 @@ extern struct rtl_opt_pass pass_rtl_hoist;
 extern struct rtl_opt_pass pass_rtl_store_motion;
 extern struct rtl_opt_pass pass_cse_after_global_opts;
 extern struct rtl_opt_pass pass_rtl_ifcvt;
-extern struct rtl_opt_pass pass_simplify_got;
 
 extern struct rtl_opt_pass pass_into_cfg_layout_mode;
 extern struct rtl_opt_pass pass_outof_cfg_layout_mode;

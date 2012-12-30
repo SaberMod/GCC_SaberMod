@@ -850,7 +850,7 @@ include $(iterator)
 # Defined in libgcov.c, included only in gcov library
 LIBGCOV = _gcov _gcov_merge_add _gcov_merge_single _gcov_merge_delta \
     _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
-    _gcov_execv _gcov_execvp _gcov_execve _gcov_reset _gcov_dump \
+    _gcov_execv _gcov_execvp _gcov_execve \
     _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
     _gcov_indirect_call_profiler _gcov_average_profiler _gcov_ior_profiler \
     _gcov_indirect_call_profiler _gcov_direct_call_profiler \
@@ -866,13 +866,9 @@ dyn-ipa.o: %$(objext): $(srcdir)/libgcov.c
 $(libgcov-objects): %$(objext): $(srcdir)/libgcov.c
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov.c
 
-pmu-profile.o: %$(objext): $(srcdir)/libgcov.c
-	$(gcc_compile)  -c $(srcdir)/pmu-profile.c
-
-
 # Static libraries.
 libgcc.a: $(libgcc-objects)
-libgcov.a: $(libgcov-objects) dyn-ipa$(objext) pmu-profile$(objext)
+libgcov.a: $(libgcov-objects) dyn-ipa$(objext)
 libunwind.a: $(libunwind-objects)
 libgcc_eh.a: $(libgcc-eh-objects)
 
@@ -1076,18 +1072,6 @@ install-leaf: $(install-shared) $(install-libunwind)
 	      $(RANLIB) $(gcc_objdir)$(MULTISUBDIR)/$$file ;;	\
 	  esac;							\
 	done
-
-	if [ "$(MULTIDIR)" == "." ]; then                       \
-	  gcov_src_dest="$(DESTDIR)$(inst_libdir)/gcov-src";    \
-	  $(mkinstalldirs) $$gcov_src_dest;                     \
-	  cp ../../gcc/gcov-iov.h $$gcov_src_dest;              \
-	  cp $(srcdir)/../gcc/gcov-io.h $$gcov_src_dest;        \
-	  cp $(srcdir)/../gcc/gcov-io.c $$gcov_src_dest;        \
-	  cp $(srcdir)/libgcov.c $$gcov_src_dest;        	\
-	  chmod 644 $$gcov_src_dest/gcov-iov.h                  \
-	    $$gcov_src_dest/gcov-io.h $$gcov_src_dest/gcov-io.c \
-	    $$gcov_src_dest/libgcov.c;                          \
-	fi
 
 install: install-leaf
 	@: $(MAKE) ; $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install

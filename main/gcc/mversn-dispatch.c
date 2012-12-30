@@ -1167,10 +1167,6 @@ specialize_call (tree clone_decl, int side)
           gsi = gsi_for_stmt (specialized_call_stmt);
 	}
     }
-
-  /* Rebuild cgraph edges for the clone. */
-  rebuild_cgraph_edges ();
-
   current_function_decl = old_current_function_decl;
   pop_cfun ();
 }
@@ -1287,8 +1283,6 @@ clone_and_dispatch_function (struct cgraph_node *orig_node, tree *clone_0,
      global. */
   update_ssa (TODO_update_ssa);
 
-  /* cgraph edges need to be updated before computing inline parameters. */
-  rebuild_cgraph_edges ();
   compute_inline_parameters (cgraph_get_create_node (orig_fndecl), false);
   DECL_DECLARED_INLINE_P (orig_fndecl) = 1;
   DECL_UNINLINABLE (orig_fndecl) = 0;
@@ -1377,8 +1371,6 @@ cleanup_aux_field (void)
 static unsigned int
 builtin_dispatch_ipa_clone (void)
 {
-  bool clone_done = false;
-
   cleanup_aux_field ();
 
   /* Allocate hashtab mapping name to decl. */
@@ -1407,15 +1399,12 @@ builtin_dispatch_ipa_clone (void)
       return 0;
     }
 
-  if ((clone_done = decide_cloning_phase ()))
+  if (decide_cloning_phase ())
     perform_cloning_phase ();
 
   cleanup_aux_field ();
 
-  if (!clone_done)
-    return 0;
-  else
-    return TODO_update_ssa;
+  return 0;
 }
 
 static bool
@@ -1439,7 +1428,8 @@ struct simple_ipa_opt_pass pass_ipa_multiversion_dispatch =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0                    			/* todo_flags_finish */
+  TODO_dump_func |			/* todo_flags_finish */
+  TODO_update_ssa
  }
 };
 
@@ -1634,6 +1624,7 @@ convert_builtin_dispatch (gimple stmt)
       phinode = create_phi_node (tmp_var, bb4);
       add_phi_arg (phinode, ssa_if_name, e24, UNKNOWN_LOCATION);
       add_phi_arg (phinode, ssa_else_name, e34, UNKNOWN_LOCATION);
+      mark_symbols_for_renaming (phinode);
       gcc_assert (lhs_result);
       assign_stmt
         = gimple_build_assign (lhs_result, gimple_phi_result (phinode));
@@ -1737,21 +1728,17 @@ do_convert_builtin_dispatch (void)
 
   if (!builtin_stmt_list)
     return 0;
-
+ 
   for (ix = 0; VEC_iterate (gimple, builtin_stmt_list, ix, builtin_stmt);
        ++ix)
     convert_builtin_dispatch (builtin_stmt);
 
-  /* cgraph edges need to be updated before computing inline parameters.  */
-  rebuild_cgraph_edges ();
   compute_inline_parameters (cgraph_get_create_node (current_function_decl),
 			     false);
-
-  VEC_free (gimple, heap, builtin_stmt_list);
-
-  return (TODO_cleanup_cfg | TODO_dump_cgraph |
-          TODO_update_ssa | TODO_verify_ssa |
-          TODO_rebuild_cgraph_edges);
+ 
+  VEC_free (gimple, heap, builtin_stmt_list); 
+  
+  return 0;
 }
 
 static bool
@@ -1775,6 +1762,8 @@ struct gimple_opt_pass pass_tree_convert_builtin_dispatch =
   PROP_cfg,				/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
-  0,            			/* todo_flags_finish */
+  TODO_dump_func |			/* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_dump_cgraph |
+  TODO_update_ssa | TODO_verify_ssa
  }
 };

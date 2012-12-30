@@ -117,10 +117,6 @@ int vms_file_stats_name (const char *, long long *, long *, char *, int *);
 #define DWARF2_INDIRECT_STRING_SUPPORT_MISSING_ON_TARGET 0
 #endif
 
-/* True if generating only the minimum line table (-gmlt).  */
-#define GENERATE_MINIMUM_LINE_TABLE (debug_info_level == DINFO_LEVEL_TERSE \
-				     && generate_debug_line_table)
-
 /* ??? Poison these here until it can be done generically.  They've been
    totally replaced in this file; make sure it stays that way.  */
 #undef DWARF2_UNWIND_INFO
@@ -8685,7 +8681,7 @@ dwarf2_name (tree decl, int scope)
 static void
 add_pubname_string (const char *str, dw_die_ref die)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE && targetm.want_debug_pub_sections)
+  if (targetm.want_debug_pub_sections)
     {
       pubname_entry e;
 
@@ -8698,9 +8694,7 @@ add_pubname_string (const char *str, dw_die_ref die)
 static void
 add_pubname (tree decl, dw_die_ref die)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE
-      && targetm.want_debug_pub_sections
-      && TREE_PUBLIC (decl))
+  if (targetm.want_debug_pub_sections && TREE_PUBLIC (decl))
     {
       const char *name = dwarf2_name (decl, 1);
       if (name)
@@ -15978,12 +15972,11 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
-  if (!GENERATE_MINIMUM_LINE_TABLE
-      && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
-      && TREE_PUBLIC (decl)
-      && !DECL_ABSTRACT (decl)
-      && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-      && die->die_tag != DW_TAG_member)
+  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+       && TREE_PUBLIC (decl)
+       && !DECL_ABSTRACT (decl)
+       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+       && die->die_tag != DW_TAG_member)
     {
       /* Defer until we have an assembler name set.  */
       if (!DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -19209,18 +19202,14 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
      declared directly within this block but not within any nested
      sub-blocks.  Also, nested function and tag DIEs have been
      generated with a parent of NULL; fix that up now.  */
-  if (debug_info_level > DINFO_LEVEL_TERSE)
-    {
-      for (decl = BLOCK_VARS (stmt); decl != NULL; decl = DECL_CHAIN (decl))
-	process_scope_var (stmt, decl, NULL_TREE, context_die);
-      for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
-	process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
-			   context_die);
-    }
+  for (decl = BLOCK_VARS (stmt); decl != NULL; decl = DECL_CHAIN (decl))
+    process_scope_var (stmt, decl, NULL_TREE, context_die);
+  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
+    process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
+    		       context_die);
 
-  /* If we're at -g1 and not generating minimal line tables,
-     we're not interested in subblocks.  */
-  if (!generate_debug_line_table && debug_info_level <= DINFO_LEVEL_TERSE)
+  /* If we're at -g1, we're not interested in subblocks.  */
+  if (debug_info_level <= DINFO_LEVEL_TERSE)
     return;
 
   /* Output the DIEs to represent all sub-blocks (and the items declared
@@ -20565,7 +20554,7 @@ dwarf2out_source_line (unsigned int line, const char *filename,
   unsigned int file_num;
   dw_line_info_table *table;
 
-  if (!generate_debug_line_table || line == 0)
+  if (debug_info_level < DINFO_LEVEL_NORMAL || line == 0)
     return;
 
   /* The discriminator column was added in dwarf4.  Simplify the below
@@ -22738,7 +22727,7 @@ dwarf2out_finish (const char *filename)
 	}
     }
 
-  if (generate_debug_line_table)
+  if (debug_info_level >= DINFO_LEVEL_NORMAL)
     add_AT_lineptr (comp_unit_die (), DW_AT_stmt_list,
 		    debug_line_section_label);
 
@@ -22767,7 +22756,7 @@ dwarf2out_finish (const char *filename)
       /* Add a pointer to the line table for the main compilation unit
          so that the debugger can make sense of DW_AT_decl_file
          attributes.  */
-      if (generate_debug_line_table)
+      if (debug_info_level >= DINFO_LEVEL_NORMAL)
         add_AT_lineptr (ctnode->root_die, DW_AT_stmt_list,
 		        debug_line_section_label);
 

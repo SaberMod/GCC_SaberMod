@@ -74,13 +74,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-mudflap.h"
-#include "tree-asan.h"
-#include "tree-tsan.h"
 #include "tree-pass.h"
 #include "gimple.h"
 #include "tree-ssa-alias.h"
 #include "plugin.h"
-#include "tree-threadsafe-analyze.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -590,11 +587,6 @@ compile_file (void)
       return;
     }
 
-  /* Clean up the global data structures used by the thread safety
-     analysis.  */
-  if (warn_thread_safety)
-    clean_up_threadsafe_analysis ();
-
   if (flag_dyn_ipa)
     coverage_finish ();
 
@@ -608,14 +600,6 @@ compile_file (void)
       /* Likewise for mudflap static object registrations.  */
       if (flag_mudflap)
 	mudflap_finish_file ();
-
-      /* File-scope initialization for AddressSanitizer.  */
-      if (flag_asan)
-        asan_finish_file ();
-
-      /* File-scope initialization for ThreadSanitizer.  */
-      if (flag_tsan)
-        tsan_finish_file ();
 
       output_shared_constant_pool ();
       output_object_blocks ();

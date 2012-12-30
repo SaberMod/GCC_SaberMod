@@ -42,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "params.h"
-#include "tree-threadsafe-analyze.h"
 
 static tree pfn_from_ptrmemfunc (tree);
 static tree delta_from_ptrmemfunc (tree);
@@ -2530,11 +2529,7 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
     return error_mark_node;
   if (!CLASS_TYPE_P (object_type))
     {
-      /* Suppress the error message and return an error_mark_node if we are
-         parsing a lock attribute. We would like the lock attributes to
-         reference (and tolerate) unkown names so that they provide better
-         code documentation capability.  */
-      if (complain & tf_error && !parsing_lock_attribute)
+      if (complain & tf_error)
 	{
 	  if (POINTER_TYPE_P (object_type)
 	      && CLASS_TYPE_P (TREE_TYPE (object_type)))

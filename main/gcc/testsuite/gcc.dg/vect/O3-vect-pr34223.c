@@ -1,5 +1,4 @@
 /* { dg-require-effective-target vect_int } */
-/* { dg-options "[vect_cflags] --param max-completely-peel-times=16" } */
 
 #include "tree-vect.h"
 

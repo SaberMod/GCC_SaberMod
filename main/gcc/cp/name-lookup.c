@@ -1137,48 +1137,26 @@ pushdecl_maybe_friend_1 (tree x, bool is_friend)
 		  error ("%q+#D previously declared here", oldlocal);
 		}
 
-	      if ((warn_shadow
-		   || warn_shadow_local
-		   || warn_shadow_compatible_local)
-		  && !nowarn)
+	      if (warn_shadow && !nowarn)
 		{
-                  enum opt_code warning_code;
-                  /* If '-Wshadow-compatible-local' is specified without other
-                     -Wshadow flags, we will warn only when the type of the
-                     shadowing variable (i.e. x) can be converted to that of
-                     the shadowed parameter (oldlocal). The reason why we only
-                     check if x's type can be converted to oldlocal's type
-                     (but not the other way around) is because when users
-                     accidentally shadow a parameter, more than often they
-                     would use the variable thinking (mistakenly) it's still
-                     the parameter. It would be rare that users would use the
-                     variable in the place that expects the parameter but
-                     thinking it's a new decl.  */
-                  if (can_convert (TREE_TYPE (oldlocal), TREE_TYPE (x)))
-                    warning_code = OPT_Wshadow_compatible_local;
-                  else
-                    warning_code = OPT_Wshadow_local;
 		  if (TREE_CODE (oldlocal) == PARM_DECL)
-		    warning_at (input_location, warning_code,
+		    warning_at (input_location, OPT_Wshadow,
 				"declaration of %q#D shadows a parameter", x);
 		  else if (is_capture_proxy (oldlocal))
 		    warning_at (input_location, OPT_Wshadow,
 				"declaration of %qD shadows a lambda capture",
 				x);
 		  else
-		    warning_at (input_location, warning_code,
+		    warning_at (input_location, OPT_Wshadow,
 				"declaration of %qD shadows a previous local",
 				x);
-		   warning_at (DECL_SOURCE_LOCATION (oldlocal), warning_code,
+		   warning_at (DECL_SOURCE_LOCATION (oldlocal), OPT_Wshadow,
 			       "shadowed declaration is here");
 		}
 	    }
 
 	  /* Maybe warn if shadowing something else.  */
-	  else if ((warn_shadow
-		    || warn_shadow_local
-		    || warn_shadow_compatible_local)
-	           && !DECL_EXTERNAL (x)
+	  else if (warn_shadow && !DECL_EXTERNAL (x)
                    /* No shadow warnings for internally generated vars unless
                       it's an implicit typedef (see create_implicit_typedef
                       in decl.c).  */
@@ -4930,55 +4908,6 @@ lookup_name_innermost_nonclass_level (tree name)
   tree ret;
   bool subtime = timevar_cond_start (TV_NAME_LOOKUP);
   ret = lookup_name_innermost_nonclass_level_1 (name);
-  timevar_cond_stop (TV_NAME_LOOKUP, subtime);
-  return ret;
-}
-
-/* Given an identifier node (NAME), look up the name in the parameter list
-   (PARAM) of the function declaration that is being parsed, and return the
-   parm_decl if found. The parameter list can be either a tree list when
-   obtained from a cp_declarator object (e.g. when invoked from
-   cp_parser_init_declarator) or simply a chain of parameters when we have
-   the function decl (e.g. when invoked from
-   cp_parser_late_parsing_attribute_arg_lists).  */
-
-static tree
-lookup_name_in_func_params_1 (tree param, tree name)
-{
-  /* If the compiler is instructed not to bind the names (in lock attributes)
-     to function parameters, just treat it as if the name lookup fails.  */
-  if (!warn_thread_attr_bind_param)
-    return unqualified_name_lookup_error (name);
-
-  gcc_assert (TREE_CODE (name) == IDENTIFIER_NODE && param);
-
-  for ( ; param; param = TREE_CHAIN (param))
-    {
-      tree param_decl;
-      if (TREE_CODE (param) == TREE_LIST)
-        param_decl = TREE_VALUE (param);
-      else
-        {
-          gcc_assert (DECL_P (param));
-          param_decl = param;
-        }
-      /* If param_decl is indeed a decl (it could be a VOID_TYPE if the
-         function has no parameter) and matches NAME, return it.  */
-      if (DECL_P (param_decl) && DECL_NAME (param_decl) == name)
-        return param_decl;
-    }
-
-  return unqualified_name_lookup_error (name);
-}
-
-/* Wrapper for lookup_name_in_func_params_1.  */
-
-tree
-lookup_name_in_func_params (tree param, tree name)
-{
-  tree ret;
-  bool subtime = timevar_cond_start (TV_NAME_LOOKUP);
-  ret = lookup_name_in_func_params_1 (param, name);
   timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return ret;
 }

@@ -124,9 +124,6 @@ along with GCC; see the file COPYING3.  If not see
 static int overall_size;
 static gcov_type max_count;
 
-/* Global variable to denote if it is in ipa-inline pass. */
-bool is_in_ipa_inline = false;
-
 /* Return false when inlining edge E would lead to violating
    limits on function unit growth or stack usage growth.  
 
@@ -1410,8 +1407,6 @@ inline_small_functions (void)
   VEC (cgraph_edge_p, heap) *new_indirect_edges = NULL;
   int initial_size = 0;
 
-  is_in_ipa_inline = true;
-
   if (flag_indirect_inlining)
     new_indirect_edges = VEC_alloc (cgraph_edge_p, heap, 8);
 
@@ -2095,7 +2090,6 @@ struct gimple_opt_pass pass_early_inline =
   0                 			/* todo_flags_finish */
  }
 };
-
 
 /* When to run IPA inlining.  Inlining of always-inline functions
    happens during early inlining.

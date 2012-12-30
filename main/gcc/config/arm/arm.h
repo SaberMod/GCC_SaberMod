@@ -2157,9 +2157,9 @@ extern int making_const_table;
    : arm_gen_return_addr_mask ())
 
 
-/* Do emit .note.GNU-stack by default.  */
+/* Do not emit .note.GNU-stack by default.  */
 #ifndef NEED_INDICATE_EXEC_STACK
-#define NEED_INDICATE_EXEC_STACK	1
+#define NEED_INDICATE_EXEC_STACK	0
 #endif
 
 /* The maximum number of parallel loads or stores we support in an ldm/stm

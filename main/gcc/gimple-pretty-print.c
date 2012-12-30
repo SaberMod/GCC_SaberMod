@@ -26,10 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "diagnostic.h"
-#include "basic-block.h"
 #include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
-#include "coverage.h"
 #include "hashtab.h"
 #include "tree-flow.h"
 #include "tree-pass.h"
@@ -1631,10 +1629,6 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
 	  pp_decimal_int (buffer, xloc.column);
 	  pp_string (buffer, "] ");
 	}
-      if ((flags & TDF_PMU) && pmu_data_present ()
-          && (gimple_phi_arg_location (phi, i)))
-        dump_pmu (buffer, gimple_phi_arg_location (phi, i));
-
       dump_generic_node (buffer, gimple_phi_arg_def (phi, i), spc, flags,
 			 false);
       pp_character (buffer, '(');
@@ -1861,9 +1855,7 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
 
   if ((flags & TDF_LINENO) && gimple_has_location (gs))
     {
-      location_t loc = gimple_location (gs);
-      expanded_location xloc = expand_location (loc);
-      int discriminator = get_discriminator_from_locus (loc);
+      expanded_location xloc = expand_location (gimple_location (gs));
       pp_character (buffer, '[');
       if (xloc.file)
 	{
@@ -1873,16 +1865,8 @@ dump_gimple_stmt (pretty_printer *buffer, gimple gs, int spc, int flags)
       pp_decimal_int (buffer, xloc.line);
       pp_string (buffer, ":");
       pp_decimal_int (buffer, xloc.column);
-      if (discriminator)
-	{
-	  pp_string (buffer, " discrim ");
-	  pp_decimal_int (buffer, discriminator);
-	}
       pp_string (buffer, "] ");
     }
-
-  if ((flags & TDF_PMU) && pmu_data_present () && gimple_has_location (gs))
-    dump_pmu (buffer, gimple_location (gs));
 
   if (flags & TDF_EH)
     {
@@ -2111,6 +2095,12 @@ dump_bb_header (pretty_printer *buffer, basic_block bb, int indent, int flags)
 		pp_decimal_int (buffer, get_lineno (gsi_stmt (gsi)));
 		break;
 	      }
+
+          if (bb->discriminator)
+            {
+              pp_string (buffer, ", discriminator ");
+	      pp_decimal_int (buffer, bb->discriminator);
+            }
 	}
       newline_and_indent (buffer, indent);
 

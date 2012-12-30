@@ -472,10 +472,9 @@ check_counter (gimple stmt, const char * name,
               : DECL_SOURCE_LOCATION (current_function_decl);
       if (flag_profile_correction)
         {
-          if (flag_opt_info >= OPT_INFO_MAX)
-            inform (locus, "correcting inconsistent value profile: %s "
-		    "profiler overall count (%d) does not match BB count "
-                    "(%d)", name, (int)*all, (int)bb_count);
+	  inform (locus, "correcting inconsistent value profile: "
+		  "%s profiler overall count (%d) does not match BB count "
+                  "(%d)", name, (int)*all, (int)bb_count);
 	  *all = bb_count;
 	  if (*count > *all)
             *count = *all;
@@ -511,42 +510,33 @@ check_ic_counter (gimple stmt, gcov_type *count1, gcov_type *count2,
   location_t locus;
   if (*count1 > all && flag_profile_correction)
     {
-      if (flag_opt_info >= OPT_INFO_MAX)
-        {
-          locus = (stmt != NULL)
-                  ? gimple_location (stmt)
-                  : DECL_SOURCE_LOCATION (current_function_decl);
-          inform (locus, "Correcting inconsistent value profile: "
-                  "ic (topn) profiler top target count (%ld) exceeds "
-                  "BB count (%ld)", (long)*count1, (long)all);
-        }
+      locus = (stmt != NULL)
+              ? gimple_location (stmt)
+              : DECL_SOURCE_LOCATION (current_function_decl);
+      inform (locus, "Correcting inconsistent value profile: "
+              "ic (topn) profiler top target count (%ld) exceeds "
+	      "BB count (%ld)", (long)*count1, (long)all);
       *count1 = all;
     }
   if (*count2 > all && flag_profile_correction)
     {
-      if (flag_opt_info >= OPT_INFO_MAX)
-        {
-          locus = (stmt != NULL)
-                  ? gimple_location (stmt)
-                  : DECL_SOURCE_LOCATION (current_function_decl);
-          inform (locus, "Correcting inconsistent value profile: "
-                  "ic (topn) profiler second target count (%ld) exceeds "
-    	          "BB count (%ld)", (long)*count2, (long)all);
-        }
+      locus = (stmt != NULL)
+              ? gimple_location (stmt)
+              : DECL_SOURCE_LOCATION (current_function_decl);
+      inform (locus, "Correcting inconsistent value profile: "
+              "ic (topn) profiler second target count (%ld) exceeds "
+	      "BB count (%ld)", (long)*count2, (long)all);
       *count2 = all;
     }
   
   if (*count2 > *count1)
     {
-      if (flag_opt_info >= OPT_INFO_MAX)
-        {
-          locus = (stmt != NULL)
-                  ? gimple_location (stmt)
-                  : DECL_SOURCE_LOCATION (current_function_decl);
-          inform (locus, "Corrupted topn ic value profile: "
-    	          "first target count (%ld) is less than the second "
-    	          "target count (%ld)", (long)*count1, (long)*count2);
-        }
+      locus = (stmt != NULL)
+              ? gimple_location (stmt)
+              : DECL_SOURCE_LOCATION (current_function_decl);
+      inform (locus, "Corrupted topn ic value profile: "
+	      "first target count (%ld) is less than the second "
+	      "target count (%ld)", (long)*count1, (long)*count2);
       return true;
     }
 
@@ -558,16 +548,12 @@ check_ic_counter (gimple stmt, gcov_type *count1, gcov_type *count2,
 	*count2 = all - *count1;
       else
 	{
-          if (flag_opt_info >= OPT_INFO_MAX)
-            {
-	      locus = (stmt != NULL)
-	        ? gimple_location (stmt)
-	        : DECL_SOURCE_LOCATION (current_function_decl);
-	      inform (locus,
-                      "Corrupted topn ic value profile: top two targets's"
-                      " total count (%ld) exceeds bb count (%ld)",
-                      (long)(*count1 + *count2), (long)all);
-            }
+	  locus = (stmt != NULL)
+	    ? gimple_location (stmt)
+	    : DECL_SOURCE_LOCATION (current_function_decl);
+	  inform (locus, "Corrupted topn ic value profile: top two targets's"
+		  " total count (%ld) exceeds bb count (%ld)",
+		  (long)(*count1 + *count2), (long)all);
 	  return true;
 	}
     }
@@ -1191,11 +1177,8 @@ find_func_by_funcdef_no (int func_id)
                                       func_id) == NULL)
     {
       if (flag_profile_correction)
-        {
-          if (flag_opt_info >= OPT_INFO_MED)
-            inform (DECL_SOURCE_LOCATION (current_function_decl),
+        inform (DECL_SOURCE_LOCATION (current_function_decl),
                 "Inconsistent profile: indirect call target (%d) does not exist", func_id);
-        }
       else
         error ("Inconsistent profile: indirect call target (%d) does not exist", func_id);
 
@@ -1325,9 +1308,8 @@ check_ic_target (gimple call_stmt, struct cgraph_node *target)
      return true;
 
    locus =  gimple_location (call_stmt);
-   if (flag_opt_info >= OPT_INFO_MAX)
-     inform (locus, "Skipping target %s with mismatching types for icall ",
-             cgraph_node_name (target));
+   inform (locus, "Skipping target %s with mismatching types for icall ",
+           cgraph_node_name (target));
    return false;
 }
 
@@ -1598,7 +1580,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
   if (direct_call1 == NULL
       || !check_ic_target (stmt, direct_call1))
     {
-      if (flag_opt_info >= OPT_INFO_MAX)
+      if (flag_ripa_verbose)
         {
           if (!direct_call1)
             inform (locus, "Can not find indirect call target decl "
@@ -1624,7 +1606,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
     return false;
 
   modify1 = gimple_ic (stmt, direct_call1, prob1, count1, all);
-  if (flag_opt_info >= OPT_INFO_MIN)
+  if (flag_ripa_verbose)
     inform (locus, "Promote indirect call to target (call count:%u) %s",
 	    (unsigned) count1,
 	    lang_hooks.decl_printable_name (direct_call1->decl, 3));
@@ -1662,7 +1644,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
       modify2 = gimple_ic (stmt, direct_call2,
                            prob2, count2, all - count1);
 
-      if (flag_opt_info >= OPT_INFO_MIN)
+      if (flag_ripa_verbose)
 	inform (locus, "Promote indirect call to target (call count:%u) %s",
 		(unsigned) count2,
 		lang_hooks.decl_printable_name (direct_call2->decl, 3));
@@ -1734,14 +1716,6 @@ static bool
 interesting_stringop_to_profile_p (tree fndecl, gimple call, int *size_arg)
 {
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
-
-  /* Disable stringop collection with reuse distance instrumentation
-     or optimization.  Otherwise we end up with hard to correct profile
-     mismatches for functions where reuse distance-based transformation are
-     made.  We see a number of "memcpy" at instrumentation time and a different
-     number of "memcpy" at profile use time.  */
-  if (flag_profile_reusedist || flag_optimize_locality)
-    return false;
 
   if (fcode != BUILT_IN_MEMCPY && fcode != BUILT_IN_MEMPCPY
       && fcode != BUILT_IN_MEMSET && fcode != BUILT_IN_BZERO)

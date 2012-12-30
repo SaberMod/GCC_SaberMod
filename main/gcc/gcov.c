@@ -39,7 +39,6 @@ along with Gcov; see the file COPYING3.  If not see
 #include "intl.h"
 #include "diagnostic.h"
 #include "version.h"
-#include "demangle.h"
 
 #include <getopt.h>
 
@@ -215,16 +214,6 @@ typedef struct coverage_info
   char *name;
 } coverage_t;
 
-/* Describes PMU profile data for either one source file or for the
-   entire program.  */
-
-typedef struct pmu_data
-{
-  ll_infos_t ll_infos;
-  brm_infos_t brm_infos;
-  string_table_t string_table;
-} pmu_data_t;
-
 /* Describes a single line of source. Contains a chain of basic blocks
    with code on it.  */
 
@@ -250,7 +239,6 @@ typedef struct source_info
 {
   /* Canonical name of source file.  */
   char *name;
-  unsigned index;
   time_t file_time;
 
   /* Array of line information.  */
@@ -258,8 +246,6 @@ typedef struct source_info
   unsigned num_lines;
 
   coverage_t coverage;
-
-  pmu_data_t *pmu_data;    /* PMU profile information for this file.  */
 
   /* Functions in this source file.  These are in ascending line
      number order.  */
@@ -280,9 +266,6 @@ static function_t **fn_end = &functions;
 static source_t *sources;   /* Array of source files  */
 static unsigned n_sources;  /* Number of sources */
 static unsigned a_sources;  /* Allocated sources */
-
-/* Next index for a source file.  */
-static unsigned source_index;
 
 static name_map_t *names;   /* Mapping of file names to sources */
 static unsigned n_names;    /* Number of names */
@@ -329,10 +312,6 @@ static int flag_branches = 0;
 /* Show unconditional branches too.  */
 static int flag_unconditional = 0;
 
-/* Output performance monitoring unit (PMU) data, if available.  */
-
-static int flag_pmu_profile = 0;
-
 /* Output a gcov file if this is true.  This is on by default, and can
    be turned off by the -n option.  */
 
@@ -342,9 +321,6 @@ static int flag_gcov_file = 1;
    and can be turned on by the -d option.  */
 
 static int flag_display_progress = 0;
-
-/* Output *.gcov file in intermediate format used by 'lcov'.  */
-static int flag_intermediate_format = 0;
 
 /* For included files, make the gcov output file name include the name
    of the input source file.  For example, if x.h is included in a.c,
@@ -388,18 +364,6 @@ static int flag_preserve_paths = 0;
 
 static int flag_counts = 0;
 
-/* PMU profile default filename.  */
-
-static char pmu_profile_default_filename[] = "pmuprofile.gcda";
-
-/* PMU profile filename where the PMU profile data is read from.  */
-
-static char *pmu_profile_filename = 0;
-
-/* PMU data for the entire program.  */
-
-static pmu_data_t pmu_global_info;
-
 /* Forward declarations.  */
 static int process_args (int, char **);
 static void print_usage (int) ATTRIBUTE_NORETURN;
@@ -426,17 +390,6 @@ static void output_lines (FILE *, const source_t *);
 static char *make_gcov_file_name (const char *, const char *);
 static char *mangle_name (const char *, char *);
 static void release_structures (void);
-static void process_pmu_profile (void);
-static void filter_pmu_data_lines (source_t *src);
-static void output_pmu_data_header (FILE *gcov_file, pmu_data_t *pmu_data);
-static void output_pmu_data (FILE *gcov_file, const source_t *src,
-                             const unsigned line_num);
-static void output_load_latency_line (FILE *fp,
-                                      const gcov_pmu_ll_info_t *ll_info,
-                                      gcov_pmu_tool_header_t *tool_header);
-static void output_branch_mispredict_line (FILE *fp,
-                                           const gcov_pmu_brm_info_t *brm_info);
-
 static void release_function (function_t *);
 extern int main (int, char **);
 
@@ -476,15 +429,6 @@ main (int argc, char **argv)
   if (argc - argno > 1)
     multiple_files = 1;
 
-  /*  We read pmu profile first because we later filter
-      src:line_numbers for each source.  */
-  if (flag_pmu_profile)
-    {
-      if (!pmu_profile_filename)
-        pmu_profile_filename = pmu_profile_default_filename;
-      process_pmu_profile ();
-    }
-
   first_arg = argno;
   
   for (; argno != argc; argno++)
@@ -519,7 +463,6 @@ print_usage (int error_p)
   fnotice (file, "  -b, --branch-probabilities      Include branch probabilities in output\n");
   fnotice (file, "  -c, --branch-counts             Given counts of branches taken\n\
                                     rather than percentages\n");
-  fnotice (file, "  -m, --pmu-profile               Output PMU profile data if available\n");
   fnotice (file, "  -n, --no-output                 Do not create an output file\n");
   fnotice (file, "  -l, --long-file-names           Use long output file names for included\n\
                                     source files\n");
@@ -528,13 +471,7 @@ print_usage (int error_p)
   fnotice (file, "  -s, --source-prefix DIR         Source prefix to elide\n");
   fnotice (file, "  -r, --relative-only             Only show data for relative sources\n");
   fnotice (file, "  -p, --preserve-paths            Preserve all pathname components\n");
-  fnotice (file, "  -q, --pmu_profile-path          Path for PMU profile (default pmuprofile.gcda)\n");
   fnotice (file, "  -u, --unconditional-branches    Show unconditional branch counts too\n");
-  fnotice (file, "  -i, --intermediate-format       Output .gcov file in an intermediate text\n\
-                                    format that can be used by 'lcov' or other\n\
-                                    applications.  It will output a single\n\
-                                    .gcov file per .gcda file.  No source file\n\
-                                    is required.\n");
   fnotice (file, "  -d, --display-progress          Display progress information\n");
   fnotice (file, "\nFor bug reporting instructions, please see:\n%s.\n",
 	   bug_report_url);
@@ -563,7 +500,6 @@ static const struct option options[] =
   { "all-blocks",           no_argument,       NULL, 'a' },
   { "branch-probabilities", no_argument,       NULL, 'b' },
   { "branch-counts",        no_argument,       NULL, 'c' },
-  { "pmu-profile",          no_argument,       NULL, 'm' },
   { "no-output",            no_argument,       NULL, 'n' },
   { "long-file-names",      no_argument,       NULL, 'l' },
   { "function-summaries",   no_argument,       NULL, 'f' },
@@ -573,9 +509,7 @@ static const struct option options[] =
   { "object-file",          required_argument, NULL, 'o' },
   { "source-prefix",        required_argument, NULL, 's' },
   { "unconditional-branches", no_argument,     NULL, 'u' },
-  { "pmu_profile-path",     required_argument, NULL, 'q' },
   { "display-progress",     no_argument,       NULL, 'd' },
-  { "intermediate-format",  no_argument,       NULL, 'i' },
   { 0, 0, 0, 0 }
 };
 
@@ -586,8 +520,8 @@ process_args (int argc, char **argv)
 {
   int opt;
 
-  while ((opt = getopt_long (argc, argv, "abcdfhilno:s:pq:ruv", options, NULL))
-          != -1)
+  while ((opt = getopt_long (argc, argv, "abcdfhlno:s:pruv", options, NULL)) !=
+         -1)
     {
       switch (opt)
 	{
@@ -609,9 +543,6 @@ process_args (int argc, char **argv)
 	case 'l':
 	  flag_long_names = 1;
 	  break;
-	case 'm':
-	  flag_pmu_profile = 1;
-	  break;
 	case 'n':
 	  flag_gcov_file = 0;
 	  break;
@@ -628,16 +559,9 @@ process_args (int argc, char **argv)
 	case 'p':
 	  flag_preserve_paths = 1;
 	  break;
-	case 'q':
-	  pmu_profile_filename = optarg;
-	  break;
 	case 'u':
 	  flag_unconditional = 1;
 	  break;
-	case 'i':
-          flag_intermediate_format = 1;
-          flag_gcov_file = 1;
-          break;
         case 'd':
           flag_display_progress = 1;
           break;
@@ -653,109 +577,6 @@ process_args (int argc, char **argv)
   return optind;
 }
 
-/* Get the name of the gcov file.  The return value must be free'd.
-
-   It appends the '.gcov' extension to the *basename* of the file.
-   The resulting file name will be in PWD.
-
-   e.g.,
-   input: foo.da,       output: foo.da.gcov
-   input: a/b/foo.cc,   output: foo.cc.gcov  */
-
-static char *
-get_gcov_file_intermediate_name (const char *file_name)
-{
-  const char *gcov = ".gcov";
-  char *result;
-  const char *cptr;
-
-  /* Find the 'basename'.  */
-  cptr = lbasename (file_name);
-
-  result = XNEWVEC(char, strlen (cptr) + strlen (gcov) + 1);
-  sprintf (result, "%s%s", cptr, gcov);
-
-  return result;
-}
-
-/* Output the result in intermediate format used by 'lcov'.
-
-This format contains a single file named 'foo.cc.gcov', with no source
-code included.
-
-SF:/home/.../foo.h
-DA:10,1
-DA:30,0
-DA:35,1
-SF:/home/.../bar.h
-DA:12,0
-DA:33,0
-DA:55,1
-SF:/home/.../foo.cc
-FN:30,<function_name>
-FNDA:2,<function_name>
-DA:42,0
-DA:53,1
-BA:55,1
-BA:55,2
-DA:95,1
-...
-
-The default format contains 3 separate files: 'foo.h.gcov', 'foo.cc.gcov',
-'bar.h.gcov', each with source code included.  */
-
-static void
-output_intermediate_file (FILE *gcov_file, source_t *src)
-{
-  unsigned line_num;    /* current line number.  */
-  const line_t *line;   /* current line info ptr.  */
-  function_t *fn;       /* current function info ptr. */
-
-  fprintf (gcov_file, "SF:%s\n", src->name);    /* source file name */
-
-  /* NOTE: 'gcov' sometimes output 2 extra lines (including 1 EOF line)
-     in the end, search for string *EOF* in this file.
-
-     Likely related:
-     http://gcc.gnu.org/bugzilla/show_bug.cgi?id=30257
-     http://gcc.gnu.org/bugzilla/show_bug.cgi?id=24550  */
-
-  for (fn = src->functions; fn; fn = fn->line_next)
-    {
-      char *demangled_name;
-      demangled_name = cplus_demangle (fn->name, DMGL_PARAMS);
-      /* FN:<line_number>,<function_name> */
-      fprintf (gcov_file, "FN:%d,%s\n", fn->line,
-               demangled_name ? demangled_name : fn->name);
-      /* FNDA:<execution_count>,<function_name> */
-      fprintf (gcov_file, "FNDA:%s,%s\n",
-               format_gcov (fn->blocks[0].count, 0, -1),
-               demangled_name ? demangled_name : fn->name);
-    }
-
-  for (line_num = 1, line = &src->lines[line_num];
-       line_num < src->num_lines;
-       line_num++, line++)
-    {
-      arc_t *arc;
-      if (line->exists)
-        fprintf (gcov_file, "DA:%u,%d\n", line_num,
-                 line->count != 0 ? 1 : 0);
-      if (flag_branches)
-        for (arc = line->u.branches; arc; arc = arc->line_next)
-          {
-            /* BA:<line_num>,<branch_coverage_type>
-                  branch_coverage_type: 0 (Branch not executed)
-                                      : 1 (Branch executed, but not taken)
-                                      : 2 (Branch executed and taken)
-            */
-            if (!arc->is_unconditional && !arc->is_call_non_return)
-              fprintf(gcov_file, "BA:%d,%d\n", line_num,
-                      arc->src->count ? (arc->count > 0) + 1 : 0);
-          }
-    }
-}
-
 /* Process a single input file.  */
 
 static void
@@ -766,7 +587,7 @@ process_file (const char *file_name)
   create_file_names (file_name);
   fns = read_graph_file ();
   if (!fns)
-    exit (FATAL_EXIT_CODE);
+    return;
   
   read_count_file (fns);
   while (fns)
@@ -837,8 +658,6 @@ generate_results (const char *file_name)
   unsigned ix;
   source_t *src;
   function_t *fn;
-  FILE *gcov_file_intermediate = NULL;
-  char *gcov_file_intermediate_name = NULL;
 
   for (ix = n_sources, src = sources; ix--; src++)
     if (src->num_lines)
@@ -866,13 +685,6 @@ generate_results (const char *file_name)
 	file_name = sources[name_map->src].coverage.name;
       else
 	file_name = canonicalize_name (file_name);
-      if (flag_gcov_file && flag_intermediate_format)
-        {
-           /* We open the file now.  */
-           gcov_file_intermediate_name =
-           get_gcov_file_intermediate_name (file_name);
-           gcov_file_intermediate = fopen (gcov_file_intermediate_name, "w");
-        }
     }
   
   for (ix = n_sources, src = sources; ix--; src++)
@@ -897,48 +709,34 @@ generate_results (const char *file_name)
       total_executed += src->coverage.lines_executed;
       if (flag_gcov_file)
 	{
-          if (flag_intermediate_format)
-             /* Now output in the intermediate format without requiring
-                source files.  This outputs a section to a *single* file.  */
-             output_intermediate_file (gcov_file_intermediate, src);
-          else
-            {
-              char *gcov_file_name
-                = make_gcov_file_name (file_name, src->coverage.name);
+	  char *gcov_file_name
+	    = make_gcov_file_name (file_name, src->coverage.name);
 
-              if (src->coverage.lines)
-                {
-                  FILE *gcov_file = fopen (gcov_file_name, "w");
+	  if (src->coverage.lines)
+	    {
+	      FILE *gcov_file = fopen (gcov_file_name, "w");
 
-                  if (gcov_file)
-                    {
-                      fnotice (stdout, "Creating '%s'\n", gcov_file_name);
-                      output_lines (gcov_file, src);
-                      if (ferror (gcov_file))
-                        fnotice (stderr, "Error writing output file '%s'\n",
-                                 gcov_file_name);
-                      fclose (gcov_file);
-                    }
-                  else
-                    fnotice (stderr, "Could not open output file '%s'\n",
-                             gcov_file_name);
-                }
-              else
-                {
-                  unlink (gcov_file_name);
-                  fnotice (stdout, "Removing '%s'\n", gcov_file_name);
-                }
-	      free (gcov_file_name);
-            }
+	      if (gcov_file)
+		{
+		  fnotice (stdout, "Creating '%s'\n", gcov_file_name);
+		  output_lines (gcov_file, src);
+		  if (ferror (gcov_file))
+		    fnotice (stderr, "Error writing output file '%s'\n",
+			     gcov_file_name);
+		  fclose (gcov_file);
+		}
+	      else
+		fnotice (stderr, "Could not open output file '%s'\n",
+			 gcov_file_name);
+	    }
+	  else
+	    {
+	      unlink (gcov_file_name);
+	      fnotice (stdout, "Removing '%s'\n", gcov_file_name);
+	    }
+	  free (gcov_file_name);
 	}
       fnotice (stdout, "\n");
-    }
-
-  if (flag_gcov_file && flag_intermediate_format)
-    {
-      /* Now we've finished writing the intermediate file.  */
-      fclose (gcov_file_intermediate);
-      XDELETEVEC (gcov_file_intermediate_name);
     }
 
   if (!file_name)
@@ -974,22 +772,9 @@ release_structures (void)
 {
   unsigned ix;
   function_t *fn;
-  ll_infos_t *ll_infos = &pmu_global_info.ll_infos;
-  brm_infos_t *brm_infos = &pmu_global_info.brm_infos;
-  string_table_t *string_table = &pmu_global_info.string_table;
 
   for (ix = n_sources; ix--;)
-    {
-      free (sources[ix].lines);
-      if (sources[ix].pmu_data)
-        {
-          if (sources[ix].pmu_data->ll_infos.ll_array)
-            free (sources[ix].pmu_data->ll_infos.ll_array);
-          if (sources[ix].pmu_data->brm_infos.brm_array)
-            free (sources[ix].pmu_data->brm_infos.brm_array);
-          free (sources[ix].pmu_data);
-        }
-     }
+    free (sources[ix].lines);
   free (sources);
   
   for (ix = n_names; ix--;)
@@ -1000,54 +785,6 @@ release_structures (void)
     {
       functions = fn->next;
       release_function (fn);
-    }
-
-  /* Cleanup PMU load latency info.  */
-  if (ll_infos->ll_count)
-    {
-      unsigned i;
-
-      /* delete each element */
-      for (i = 0; i < ll_infos->ll_count; ++i)
-        {
-          XDELETE (ll_infos->ll_array[i]);
-        }
-      /* delete the array itself */
-      XDELETE (ll_infos->ll_array);
-      ll_infos->ll_array = NULL;
-      ll_infos->ll_count = 0;
-    }
-
-  /* Cleanup PMU branch mispredict info.  */
-  if (brm_infos->brm_count)
-    {
-      unsigned i;
-
-      /* delete each element */
-      for (i = 0; i < brm_infos->brm_count; ++i)
-        {
-          XDELETE (brm_infos->brm_array[i]);
-        }
-      /* delete the array itself */
-      XDELETE (brm_infos->brm_array);
-      brm_infos->brm_array = NULL;
-      brm_infos->brm_count = 0;
-    }
-
-  /* Cleanup PMU string table entries. */
-  if (string_table->st_count)
-    {
-      unsigned i;
-
-      /* delete each element */
-      for (i = 0; i < string_table->st_count; ++i)
-        {
-          XDELETE (string_table->st_array[i]);
-        }
-      /* delete the array itself */
-      XDELETE (string_table->st_array);
-      string_table->st_array = NULL;
-      string_table->st_count = 0;
     }
 }
 
@@ -1205,9 +942,6 @@ find_source (const char *file_name)
       memset (src, 0, sizeof (*src));
       src->name = canon;
       src->coverage.name = src->name;
-      src->index = source_index++;
-      src->pmu_data = 0;
-
       if (source_length
 #if HAVE_DOS_BASED_FILE_SYSTEM
 	  /* You lose if separators don't match exactly in the
@@ -1326,24 +1060,6 @@ read_graph_file (void)
 	  fns_end = &fn->next;
 	  current_tag = tag;
 
-#if 0
-TODO: this local change is broken
-          /* NOTE: Here is how *EOF* comes to effect.  */
-	  if (lineno >= sources[src_idx].num_lines)
-	    sources[src_idx].num_lines = lineno + 1;
-	  /* Now insert it into the source file's list of
-	     functions. Normally functions will be encountered in
-	     ascending order, so a simple scan is quick.  */
-	  for (probe = sources[src_idx].functions, prev = NULL;
-	       probe && probe->line > lineno;
-	       prev = probe, probe = probe->line_next)
-	    continue;
-	  fn->line_next = probe;
-	  if (prev)
-	    prev->line_next = fn;
-	  else
-	    sources[src_idx].functions = fn;
-#endif
 	}
       else if (fn && tag == GCOV_TAG_BLOCKS)
 	{
@@ -1455,12 +1171,6 @@ TODO: this local change is broken
 		    }
 		  line_nos[ix++] = lineno;
 
-#if 0
-TODO: Fix broken code
-                  /* NOTE: Here is how *EOF* comes to effect.  */
-		  if (lineno >= sources[src_idx].num_lines)
-		    sources[src_idx].num_lines = lineno + 1;
-#endif
 		}
 	      else
 		{
@@ -2266,147 +1976,6 @@ add_line_counts (coverage_t *coverage, function_t *fn)
     fnotice (stderr, "%s:no lines for '%s'\n", bbg_file_name, fn->name);
 }
 
-/* Filter PMU profile global data for lines for SRC.  Save PMU info
-   matching the source file and sort them by line number for later
-   line by line processing.  */
-
-static void
-filter_pmu_data_lines (source_t *src)
-{
-  unsigned i;
-  int changed;
-  ll_infos_t *ll_infos;         /* load latency information for this source */
-  brm_infos_t *brm_infos;  /* branch mispredict information for this source */
-  string_table_t *string_table; /* string table information for this source */
-
-  if (pmu_global_info.ll_infos.ll_count == 0 &&
-      pmu_global_info.brm_infos.brm_count == 0 &&
-      pmu_global_info.string_table.st_count == 0)
-    /* If there are no global entries, there is nothing to filter.  */
-    return;
-
-  src->pmu_data = XCNEW (pmu_data_t);
-  ll_infos = &src->pmu_data->ll_infos;
-  brm_infos = &src->pmu_data->brm_infos;
-  string_table = &src->pmu_data->string_table;
-  ll_infos->pmu_tool_header = pmu_global_info.ll_infos.pmu_tool_header;
-  brm_infos->pmu_tool_header = pmu_global_info.brm_infos.pmu_tool_header;
-  string_table->pmu_tool_header = pmu_global_info.string_table.pmu_tool_header;
-  ll_infos->ll_array = 0;
-  brm_infos->brm_array = 0;
-
-  /* Go over all the load latency entries and save the ones
-     corresponding to this source file.  */
-  for (i = 0; i < pmu_global_info.ll_infos.ll_count; ++i)
-    {
-      gcov_pmu_ll_info_t *ll_info = pmu_global_info.ll_infos.ll_array[i];
-      if (0 == strcmp (src->name,
-                       string_table->st_array[ll_info->filetag - 1]->str))
-        {
-          if (!ll_infos->ll_array)
-            {
-              ll_infos->ll_count = 0;
-              ll_infos->alloc_ll_count = 64;
-              ll_infos->ll_array = XCNEWVEC (gcov_pmu_ll_info_t *,
-                                             ll_infos->alloc_ll_count);
-            }
-          /* Found a matching entry, save it.  */
-          ll_infos->ll_count++;
-          if (ll_infos->ll_count >= ll_infos->alloc_ll_count)
-            {
-            /* need to realloc */
-              ll_infos->ll_array = (gcov_pmu_ll_info_t **)
-                  xrealloc (ll_infos->ll_array, 2 * ll_infos->alloc_ll_count);
-            }
-          ll_infos->ll_array[ll_infos->ll_count - 1] = ll_info;
-        }
-    }
-
-  /* Go over all the branch mispredict entries and save the ones
-     corresponding to this source file.  */
-  for (i = 0; i < pmu_global_info.brm_infos.brm_count; ++i)
-    {
-      gcov_pmu_brm_info_t *brm_info = pmu_global_info.brm_infos.brm_array[i];
-      if (0 == strcmp (src->name,
-                       string_table->st_array[brm_info->filetag - 1]->str))
-        {
-          if (!brm_infos->brm_array)
-            {
-              brm_infos->brm_count = 0;
-              brm_infos->alloc_brm_count = 64;
-              brm_infos->brm_array = XCNEWVEC (gcov_pmu_brm_info_t *,
-                                               brm_infos->alloc_brm_count);
-            }
-          /* Found a matching entry, save it.  */
-          brm_infos->brm_count++;
-          if (brm_infos->brm_count >= brm_infos->alloc_brm_count)
-            {
-              /* need to realloc */
-              brm_infos->brm_array = (gcov_pmu_brm_info_t **)
-                  xrealloc (brm_infos->brm_array,
-                            2 * brm_infos->alloc_brm_count);
-            }
-          brm_infos->brm_array[brm_infos->brm_count - 1] = brm_info;
-        }
-    }
-
-  /* Sort the load latency data according to the line numbers because
-     we later iterate over sources in line number order. Normally we
-     expect the PMU tool to provide sorted data, but a few entries can
-     be out of order. Thus we use a very simple bubble sort here.  */
-  if (ll_infos->ll_count > 1)
-    {
-      changed = 1;
-      while (changed)
-        {
-          changed = 0;
-          for (i = 0; i < ll_infos->ll_count - 1; ++i)
-            {
-              gcov_pmu_ll_info_t *item1 = ll_infos->ll_array[i];
-              gcov_pmu_ll_info_t *item2 = ll_infos->ll_array[i+1];
-              if (item1->line > item2->line)
-                {
-                  /* swap */
-                  gcov_pmu_ll_info_t *tmp = ll_infos->ll_array[i];
-                  ll_infos->ll_array[i] = ll_infos->ll_array[i+1];
-                  ll_infos->ll_array[i+1] = tmp;
-                  changed = 1;
-                }
-            }
-        }
-    }
-
-  /* Similarly, sort branch mispredict info as well.  */
-  if (brm_infos->brm_count > 1)
-    {
-      changed = 1;
-      while (changed)
-        {
-          changed = 0;
-          for (i = 0; i < brm_infos->brm_count - 1; ++i)
-            {
-              gcov_pmu_brm_info_t *item1 = brm_infos->brm_array[i];
-              gcov_pmu_brm_info_t *item2 = brm_infos->brm_array[i+1];
-              if (item1->line > item2->line)
-                {
-                  /* swap */
-                  gcov_pmu_brm_info_t *tmp = brm_infos->brm_array[i];
-                  brm_infos->brm_array[i] = brm_infos->brm_array[i+1];
-                  brm_infos->brm_array[i+1] = tmp;
-                  changed = 1;
-                }
-            }
-        }
-    }
-
-  /* If no matching PMU info was found, relase the structures.  */
-  if (!brm_infos->brm_array && !ll_infos->ll_array)
-  {
-    free (src->pmu_data);
-    src->pmu_data = 0;
-  }
-}
-
 /* Accumulate the line counts of a file.  */
 
 static void
@@ -2415,10 +1984,6 @@ accumulate_line_counts (source_t *src)
   line_t *line;
   function_t *fn, *fn_p, *fn_n;
   unsigned ix;
-
-  if (flag_pmu_profile)
-    /* Filter PMU profile by source files and save into matching line(s).  */
-    filter_pmu_data_lines (src);
 
   /* Reverse the function order.  */
   for (fn = src->functions, fn_p = NULL; fn;
@@ -2703,9 +2268,6 @@ output_lines (FILE *gcov_file, const source_t *src)
   else if (src->file_time == 0)
     fprintf (gcov_file, "%9s:%5d:Source is newer than graph\n", "-", 0);
 
-  if (src->pmu_data)
-    output_pmu_data_header (gcov_file, src->pmu_data);
-
   if (flag_branches)
     fn = src->functions;
 
@@ -2774,10 +2336,6 @@ output_lines (FILE *gcov_file, const source_t *src)
 	  for (ix = 0, arc = line->u.branches; arc; arc = arc->line_next)
 	    ix += output_branch_count (gcov_file, ix, arc);
 	}
-
-      /* Output PMU profile info if available.  */
-      if (flag_pmu_profile)
-        output_pmu_data (gcov_file, src, line_num);
     }
 
   /* Handle all remaining source lines.  There may be lines after the
@@ -2790,259 +2348,4 @@ output_lines (FILE *gcov_file, const source_t *src)
 
   if (source_file)
     fclose (source_file);
-}
-
-/* Print an explanatory header for PMU_DATA into GCOV_FILE.  */
-
-static void
-output_pmu_data_header (FILE *gcov_file, pmu_data_t *pmu_data)
-{
-  /* Print header for the applicable PMU events.  */
-  fprintf (gcov_file, "%9s:%5d\n", "-", 0);
-  if (pmu_data->ll_infos.ll_count)
-    {
-      char *text = pmu_data->ll_infos.pmu_tool_header->column_description;
-      char c;
-      fprintf (gcov_file, "%9s:%5u: %s", "PMU_LL", 0,
-               pmu_data->ll_infos.pmu_tool_header->column_header);
-      /* The column description is multiline text and we want to print
-         each line separately after formatting it.  */
-      fprintf (gcov_file, "%9s:%5u: ", "PMU_LL", 0);
-      while ((c = *text++))
-        {
-          fprintf (gcov_file, "%c", c);
-          /* Do not print a new header on trailing newline.   */
-          if (c == '\n' && text[1])
-            fprintf (gcov_file, "%9s:%5u: ", "PMU_LL", 0);
-        }
-      fprintf (gcov_file, "%9s:%5d\n", "-", 0);
-    }
-
-  if (pmu_data->brm_infos.brm_count)
-    {
-
-      fprintf (gcov_file, "%9s:%5d:PMU BRM: line: %s %s %s\n",
-               "-", 0, "count", "self", "address");
-      fprintf (gcov_file, "%9s:%5d:         "
-               "count: number of branch mispredicts sampled at this address\n",
-               "-", 0);
-      fprintf (gcov_file, "%9s:%5d:         "
-               "self: branch mispredicts as percentage of the entire program\n",
-               "-", 0);
-      fprintf (gcov_file, "%9s:%5d\n", "-", 0);
-    }
-}
-
-/* Output pmu data corresponding to SRC and LINE_NUM into GCOV_FILE.  */
-
-static void
-output_pmu_data (FILE *gcov_file, const source_t *src, const unsigned line_num)
-{
-  unsigned i;
-  ll_infos_t *ll_infos;
-  brm_infos_t *brm_infos;
-  gcov_pmu_tool_header_t *tool_header;
-
-  if (!src->pmu_data)
-    return;
-
-  ll_infos = &src->pmu_data->ll_infos;
-  brm_infos = &src->pmu_data->brm_infos;
-
-  if (ll_infos->ll_array)
-    {
-      tool_header = src->pmu_data->ll_infos.pmu_tool_header;
-
-      /* Search PMU load latency data for the matching line
-         numbers. There could be multiple entries with the same line
-         number. We use the fact that line numbers are sorted in
-         ll_array.  */
-      for (i = 0; i < ll_infos->ll_count &&
-             ll_infos->ll_array[i]->line <= line_num; ++i)
-        {
-          gcov_pmu_ll_info_t *ll_info = ll_infos->ll_array[i];
-          if (ll_info->line == line_num)
-            output_load_latency_line (gcov_file, ll_info, tool_header);
-        }
-    }
-
-  if (brm_infos->brm_array)
-    {
-      tool_header = src->pmu_data->brm_infos.pmu_tool_header;
-
-      /* Search PMU branch mispredict data for the matching line
-         numbers. There could be multiple entries with the same line
-         number. We use the fact that line numbers are sorted in
-         brm_array.  */
-      for (i = 0; i < brm_infos->brm_count &&
-             brm_infos->brm_array[i]->line <= line_num; ++i)
-        {
-          gcov_pmu_brm_info_t *brm_info = brm_infos->brm_array[i];
-          if (brm_info->line == line_num)
-            output_branch_mispredict_line (gcov_file, brm_info);
-        }
-    }
-}
-
-
-/* Output formatted load latency info pointed to by LL_INFO into the
-   open file FP.  TOOL_HEADER contains additional explanation of
-   fields.  */
-
-static void
-output_load_latency_line (FILE *fp, const gcov_pmu_ll_info_t *ll_info,
-                          gcov_pmu_tool_header_t *tool_header ATTRIBUTE_UNUSED)
-{
-  fprintf (fp, "%9s:%5u:      ", "PMU_LL", ll_info->line);
-  fprintf (fp, " %u %.2f%% %.2f%% %.2f%% %.2f%% %.2f%% %.2f%% %.2f%% "
-           "%.2f%% %.2f%% " HOST_WIDEST_INT_PRINT_HEX "\n",
-           ll_info->counts,
-           convert_unsigned_to_pct (ll_info->self),
-           convert_unsigned_to_pct (ll_info->cum),
-           convert_unsigned_to_pct (ll_info->lt_10),
-           convert_unsigned_to_pct (ll_info->lt_32),
-           convert_unsigned_to_pct (ll_info->lt_64),
-           convert_unsigned_to_pct (ll_info->lt_256),
-           convert_unsigned_to_pct (ll_info->lt_1024),
-           convert_unsigned_to_pct (ll_info->gt_1024),
-           convert_unsigned_to_pct (ll_info->wself),
-           ll_info->code_addr);
-}
-
-
-/* Output formatted branch mispredict info pointed to by BRM_INFO into
-   the open file FP.  */
-
-static void
-output_branch_mispredict_line (FILE *fp,
-                               const gcov_pmu_brm_info_t *ll_info)
-{
-  fprintf (fp, "%9s:%5u: count: %u self: %.2f%% addr: "
-           HOST_WIDEST_INT_PRINT_HEX "\n",
-           "PMU BRM",
-           ll_info->line,
-           ll_info->counts,
-           convert_unsigned_to_pct (ll_info->self),
-           ll_info->code_addr);
-}
-
-/* Read in the PMU profile information from the global PMU profile file.  */
-
-static void process_pmu_profile (void)
-{
-  unsigned tag;
-  unsigned version;
-  int error = 0;
-  ll_infos_t *ll_infos = &pmu_global_info.ll_infos;
-  brm_infos_t *brm_infos = &pmu_global_info.brm_infos;
-  string_table_t *string_table = &pmu_global_info.string_table;
-
-  /* Construct path for pmuprofile.gcda filename. */
-  create_file_names (pmu_profile_filename);
-  if (!gcov_open (da_file_name, 1))
-    {
-      fnotice (stderr, "%s:cannot open pmu profile file\n",
-               pmu_profile_filename);
-      return;
-    }
-  if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
-    {
-      fnotice (stderr, "%s:not a gcov data file\n", da_file_name);
-    cleanup:;
-      gcov_close ();
-      return;
-    }
-  version = gcov_read_unsigned ();
-  if (version != GCOV_VERSION)
-    {
-      char v[4], e[4];
-
-      GCOV_UNSIGNED2STRING (v, version);
-      GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
-      fnotice (stderr, "%s:version '%.4s', prefer version '%.4s'\n",
-	       da_file_name, v, e);
-    }
-  /* read stamp */
-  tag = gcov_read_unsigned ();
-
-  /* Initialize PMU data fields. */
-  ll_infos->ll_count = 0;
-  ll_infos->alloc_ll_count = 64;
-  ll_infos->ll_array = XCNEWVEC (gcov_pmu_ll_info_t *, ll_infos->alloc_ll_count);
-
-  brm_infos->brm_count = 0;
-  brm_infos->alloc_brm_count = 64;
-  brm_infos->brm_array = XCNEWVEC (gcov_pmu_brm_info_t *,
-                                   brm_infos->alloc_brm_count);
-
-  string_table->st_count = 0;
-  string_table->alloc_st_count = 64;
-  string_table->st_array = XCNEWVEC (gcov_pmu_st_entry_t *,
-                                     string_table->alloc_st_count);
-
-  while ((tag = gcov_read_unsigned ()))
-    {
-      unsigned length = gcov_read_unsigned ();
-      unsigned long base = gcov_position ();
-
-      if (tag == GCOV_TAG_PMU_LOAD_LATENCY_INFO)
-        {
-          gcov_pmu_ll_info_t *ll_info = XCNEW (gcov_pmu_ll_info_t);
-          gcov_read_pmu_load_latency_info (ll_info, length);
-          ll_infos->ll_count++;
-          if (ll_infos->ll_count >= ll_infos->alloc_ll_count)
-            {
-              /* need to realloc */
-              ll_infos->ll_array = (gcov_pmu_ll_info_t **)
-                xrealloc (ll_infos->ll_array, 2 * ll_infos->alloc_ll_count);
-            }
-          ll_infos->ll_array[ll_infos->ll_count - 1] = ll_info;
-        }
-      else if (tag == GCOV_TAG_PMU_BRANCH_MISPREDICT_INFO)
-        {
-          gcov_pmu_brm_info_t *brm_info = XCNEW (gcov_pmu_brm_info_t);
-          gcov_read_pmu_branch_mispredict_info (brm_info, length);
-          brm_infos->brm_count++;
-          if (brm_infos->brm_count >= brm_infos->alloc_brm_count)
-            {
-              /* need to realloc */
-              brm_infos->brm_array = (gcov_pmu_brm_info_t **)
-                xrealloc (brm_infos->brm_array, 2 * brm_infos->alloc_brm_count);
-            }
-          brm_infos->brm_array[brm_infos->brm_count - 1] = brm_info;
-        }
-      else if (tag == GCOV_TAG_PMU_TOOL_HEADER)
-        {
-          gcov_pmu_tool_header_t *tool_header = XCNEW (gcov_pmu_tool_header_t);
-          gcov_read_pmu_tool_header (tool_header, length);
-          ll_infos->pmu_tool_header = tool_header;
-          brm_infos->pmu_tool_header = tool_header;
-        }
-      else if (tag == GCOV_TAG_PMU_STRING_TABLE_ENTRY)
-        {
-          gcov_pmu_st_entry_t *st_entry = XCNEW (gcov_pmu_st_entry_t);
-          gcov_read_pmu_string_table_entry (st_entry, length);
-          string_table->st_count++;
-          /* Verify that we read string table entries in the right order */
-          gcc_assert (st_entry->index == string_table->st_count);
-          if (string_table->st_count >= string_table->alloc_st_count)
-            {
-              string_table->alloc_st_count *= 2;
-              string_table->st_array = (gcov_pmu_st_entry_t **)
-                  xrealloc (string_table->st_array,
-                            string_table->alloc_st_count);
-            }
-          string_table->st_array[string_table->st_count - 1] = st_entry;
-        }
-
-      gcov_sync (base, length);
-      if ((error = gcov_is_error ()))
-	{
-	  fnotice (stderr, error < 0 ? "%s:overflowed\n" : "%s:corrupted\n",
-		   da_file_name);
-	  goto cleanup;
-	}
-    }
-
-  gcov_close ();
 }

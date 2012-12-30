@@ -45,14 +45,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   const tm* __tm) const throw()
     {
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
-        {
-          const size_t __llen = strlen(__old) + 1;
-          __sav = new char[__llen];
-          memcpy(__sav, __old, __llen);
-          setlocale(LC_ALL, _M_name_timepunct);
-        }
+      const size_t __llen = strlen(__old) + 1;
+      char* __sav = new char[__llen];
+      memcpy(__sav, __old, __llen);
+      setlocale(LC_ALL, _M_name_timepunct);
       const size_t __len = strftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __sav);
       delete [] __sav;
@@ -134,14 +130,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	   const tm* __tm) const throw()
     {
       char* __old = setlocale(LC_ALL, 0);
-      char* __sav = NULL;
-      if (__old != NULL)
-        {
-          const size_t __llen = strlen(__old) + 1;
-          __sav = new char[__llen];
-          memcpy(__sav, __old, __llen);
-          setlocale(LC_ALL, _M_name_timepunct);
-        }
+      const size_t __llen = strlen(__old) + 1;
+      char* __sav = new char[__llen];
+      memcpy(__sav, __old, __llen);
+      setlocale(LC_ALL, _M_name_timepunct);
       const size_t __len = wcsftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __sav);
       delete [] __sav;

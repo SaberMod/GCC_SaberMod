@@ -3642,38 +3642,6 @@ vectorizable_operation (gimple stmt, gimple_stmt_iterator *gsi,
   return true;
 }
 
-/* Return true if vector load/store with vinfo in STMT_VINFO
-   is slow.  If it is a strided access, STRIDED is true.  */
-
-static bool
-is_vector_load_store_slow (stmt_vec_info stmt_info, bool strided)
-{
-  struct data_reference *dr;
-
-  if (!targetm.slow_unaligned_vector_memop
-      || !targetm.slow_unaligned_vector_memop ())
-    return false;
- 
-  if (strided)
-    dr = STMT_VINFO_DATA_REF (
-	   vinfo_for_stmt (GROUP_FIRST_ELEMENT (stmt_info)));
-  else
-    dr = STMT_VINFO_DATA_REF (stmt_info);
-
-  if (!aligned_access_p (dr))
-    {
-      if (vect_print_dump_info (REPORT_DETAILS))
-	{
-          fprintf (vect_dump, "Unaligned vectorizable load/store: "
-  			      " slow & not allowed.  ");
-	  print_gimple_stmt (vect_dump, STMT_VINFO_STMT (stmt_info),
-			     0, TDF_SLIM);
-	}
-      return true;
-    }
-
-  return false; 
-}
 
 /* Function vectorizable_store.
 
@@ -3827,10 +3795,6 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
             }
         }
     }
-
-  /* Return false if unaligned vector stores are expensive.  */
-  if (is_vector_load_store_slow (stmt_info, strided_store))
-    return false;
 
   if (!vec_stmt) /* transformation not required.  */
     {
@@ -4363,10 +4327,6 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	  return false;
 	}
     }
-
-  /* Return false if unaligned vector loads are expensive.  */
-  if (is_vector_load_store_slow (stmt_info, strided_load))
-    return false;
 
   if (STMT_VINFO_GATHER_P (stmt_info))
     {

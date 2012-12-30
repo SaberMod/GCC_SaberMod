@@ -127,11 +127,6 @@ enum debug_info_type write_symbols = NO_DEBUG
 Variable
 enum debug_info_levels debug_info_level = DINFO_LEVEL_NONE
 
-; Whether to generate line number table.  Normally set at DINFO_LEVEL_NORMAL
-; or above; can also be set for DINFO_LEVEL_TERSE with -gmlt.
-Variable
-bool generate_debug_line_table = false
-
 ; Nonzero means use GNU-only extensions in the generated symbolic
 ; debugging information.  Currently, this only has an effect when
 ; write_symbols is set to DBX_DEBUG, XCOFF_DEBUG, or DWARF_DEBUG.
@@ -606,15 +601,6 @@ Wshadow
 Common Var(warn_shadow) Warning
 Warn when one local variable shadows another
 
-Wshadow-local
-Common Var(warn_shadow_local) Warning
-Warn when one local variable shadows another local variable or parameter
-
-Wshadow-compatible-local
-Common Var(warn_shadow_compatible_local) Warning
-Warn when one local variable shadows another local variable or parameter
-of compatible type
-
 Wstack-protector
 Common Var(warn_stack_protect) Warning
 Warn when not issuing stack smashing protection for some reason
@@ -671,21 +657,13 @@ Wtrampolines
 Common Var(warn_trampolines) Warning
 Warn whenever a trampoline is generated
 
+; FIXME.  The following -Wthread-* flags are placeholders to prevent
+; confusing the compiler when applications are built with these flags.
+; Actual support for these flags is being implemented in the
+; thread-annotations branch.
 Wthread-safety
 Common Var(warn_thread_safety) Warning
 Warn about potential thread safety issues when the code is annotated with thread safety attributes
-
-Wthread-safety-analysis
-Common Ignore
-Does nothing.  For compatibility with clang thread safety analysis.
-
-Wthread-safety-attributes
-Common Ignore
-Does nothing.  For compatibility with clang thread safety analysis.
-
-Wthread-safety-precise
-Common Ignore
-Does nothing.  For compatibility with clang thread safety analysis.
 
 Wthread-unguarded-var
 Common Var(warn_thread_unguarded_var) Init(1) Warning
@@ -710,10 +688,6 @@ Warn about a lock being acquired recursively
 Wthread-unsupported-lock-name
 Common Var(warn_unsupported_lock_name) Init(0) Warning
 Warn about uses of unsupported lock names in attributes
-
-Wthread-attr-bind-param
-Common Var(warn_thread_attr_bind_param) Init(1) Warning
-Make the thread safety analysis try to bind the function parameters used in the attributes
 
 Wtype-limits
 Common Var(warn_type_limits) Init(-1) Warning
@@ -912,10 +886,6 @@ Does nothing. Preserved for backward compatibility.
 fargument-noalias-anything
 Common Ignore
 Does nothing. Preserved for backward compatibility.
-
-fasan
-Common RejectNegative Report Var(flag_asan)
-Enable AddressSanitizer, a memory error detector
 
 fasynchronous-unwind-tables
 Common Report Var(flag_asynchronous_unwind_tables) Optimization
@@ -1130,14 +1100,6 @@ fdwarf2-cfi-asm
 Common Report Var(flag_dwarf2_cfi_asm) Init(HAVE_GAS_CFI_DIRECTIVE)
 Enable CFI tables via GAS assembler directives.
 
-fprofile-reusedist
-Common Report Var(flag_profile_reusedist)
-Profile generation for memory reuse distance.
-
-foptimize-locality
-Common Report Var(flag_optimize_locality)
-Optimization based on improving memory reference locality.
-
 fripa
 Common Report Var(flag_dyn_ipa)
 Perform Dynamic Inter-Procedural Analysis.
@@ -1155,9 +1117,21 @@ Common Report Var(flag_ripa_no_promote_always_inline) Init(0)
 Don't promote always inline static functions assuming they
 will be inlined and no copy is needed.
 
+fripa-peel-size-limit
+Common Report Var(flag_ripa_peel_size_limit) Init(1) Optimization
+Limit non-const non-FP loop peeling under dynamic IPA estimates of large code footprint
+
+fripa-unroll-size-limit
+Common Report Var(flag_ripa_unroll_size_limit) Init(1) Optimization
+Limit non-const non-FP loop unrolling under dynamic IPA estimates of large code footprint
+
 fripa-inc-path-sub=
 Common Joined RejectNegative Var(lipo_inc_path_pattern)
 Substitute substring in include paths with a new string to allow reuse profile data
+
+fripa-verbose
+Common Report Var(flag_ripa_verbose)
+Enable verbose informational messages for LIPO compilation
 
 fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
@@ -1247,10 +1221,6 @@ Enum(fp_contract_mode) String(on) Value(FP_CONTRACT_OFF)
 
 EnumValue
 Enum(fp_contract_mode) String(fast) Value(FP_CONTRACT_FAST)
-
-ffunction-attribute-list=
-Common Joined RejectNegative Var(common_deferred_options) Defer
--ffunction-attribute-list=attribute:name,...  Add attribute to named functions
 
 ; Nonzero means don't put addresses of constant functions in registers.
 ; Used for compiling the Unix kernel, where strange substitutions are
@@ -1578,14 +1548,6 @@ fmove-loop-invariants
 Common Report Var(flag_move_loop_invariants) Init(1) Optimization
 Move loop invariant computations out of loops
 
-ftsan
-Common RejectNegative Report Var(flag_tsan)
-Add ThreadSanitizer instrumentation
-
-ftsan-ignore=
-Common RejectNegative Joined Var(flag_tsan_ignore)
--ftsan-ignore=filename	ThreadSanitizer ignore file
-
 fdce
 Common Var(flag_dce) Init(1) Optimization
 Use the RTL dead code elimination pass
@@ -1605,19 +1567,6 @@ Support synchronous non-call exceptions
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
-
-fopt-info
-Common Report Var(flag_opt_info) Optimization Init(0)
-Enable verbose informational messages for optimizations (same as -fopt-info=1)
-
-; fopt-info=0: no message will be emitted.
-; fopt-info or fopt-info=1: emit important warnings and optimization messages with
-;   large performance impact.
-; fopt-info=2: warnings and optimization messages targeting power users.
-; fopt-info=3: informational messages for compiler developers.
-fopt-info=
-Common RejectNegative Joined UInteger Optimization
--fopt-info=[0|1|2|3] Set the verbose level of informational messages for optimizations
 
 foptimize-register-move
 Common Report Var(flag_regmove) Optimization
@@ -1650,10 +1599,6 @@ Common RejectNegative Joined UInteger Optimization
 fpcc-struct-return
 Common Report Var(flag_pcc_struct_return,1) Init(DEFAULT_PCC_STRUCT_RETURN)
 Return small aggregates in memory, not registers
-
-fpeel-codesize-limit
-Common Report Var(flag_peel_codesize_limit) Init(1) Optimization
-Limit non-const non-FP loop peeling under profile estimates of large code footprint
 
 fpeel-loops
 Common Report Var(flag_peel_loops) Optimization
@@ -1690,18 +1635,6 @@ Specify a plugin to load
 fplugin-arg-
 Common Joined RejectNegative Var(common_deferred_options) Defer
 -fplugin-arg-<name>-<key>[=<value>]	Specify argument <key>=<value> for plugin <name>
-
-fpmu-profile-generate=
-Common Joined RejectNegative Var(flag_pmu_profile_generate)
--fpmu-profile-generate=[load-latency]  Generate pmu profile for cache misses. Currently only pfmon based load latency profiling is supported on Intel/PEBS and AMD/IBS platforms.
-
-fpmu-profile-use
-Common Var(flag_pmu_profile_use)
--fpmu-profile-use=[pmuprofile.gcda]  The pmu profile data file to use for pmu feedback.
-
-fpmu-profile-use=
-Common Joined RejectNegative Var(pmu_profile_data)
--fpmu-profile-use=[pmuprofile.gcda]  The pmu profile data file to use for pmu feedback.
 
 fpredictive-commoning
 Common Report Var(flag_predictive_commoning) Optimization
@@ -2240,10 +2173,6 @@ funroll-all-loops
 Common Report Var(flag_unroll_all_loops) Optimization
 Perform loop unrolling for all loops
 
-funroll-codesize-limit
-Common Report Var(flag_unroll_codesize_limit) Init(1) Optimization
-Limit non-const non-FP loop unrolling under profile estimates of large code footprint
-
 ; Nonzero means that loop optimizer may assume that the induction variables
 ; that control loops do not overflow and that the loops with nontrivial
 ; exit condition are not infinite
@@ -2275,9 +2204,6 @@ Perform loop unswitching
 funwind-tables
 Common Report Var(flag_unwind_tables) Optimization
 Just generate unwind tables for exception handling
-
-fuse-ld=
-Common Joined Undocumented
 
 fuse-linker-plugin
 Common Undocumented
@@ -2374,10 +2300,6 @@ ftree-builtin-call-dce
 Common Report Var(flag_tree_builtin_call_dce) Init(0) Optimization
 Enable conditional dead code elimination for builtin calls
 
-fclone-hot-version-paths
-Common Report Var(flag_clone_hot_version_paths) Init(0)
-Enable cloning and hoisting of hot multiversioned paths
-
 fwhole-program
 Common Report Var(flag_whole_program) Init(0) Optimization
 Perform whole program optimizations
@@ -2405,10 +2327,6 @@ Generate debug information in DWARF v2 (or later) format
 ggdb
 Common JoinedOrMissing
 Generate debug information in default extended format
-
-gmlt
-Common RejectNegative
-Generate debug information at level 1 with minimal line table
 
 gno-record-gcc-switches
 Common RejectNegative Var(dwarf_record_gcc_switches,0) Init(0)
