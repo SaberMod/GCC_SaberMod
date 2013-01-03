@@ -1,3 +1,24 @@
+2012-12-18  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	Backport from mainline
+	2012-10-15  Matthias Klose  <doko@ubuntu.com>
+
+	* configure.host: Match arm*-*-linux-* for ARM Linux/GNU.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc: Likewise.
+
+2012-12-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/abi.xml: Update URLs for C++ ABI.
+	* doc/xml/manual/policy_data_structures_biblio.xml: Add xmlns
+	* doc/xml/manual/policy_data_structures.xml: Set filename for chunk.
+	* doc/xml/manual/spine.xml: Update copyright years.
+	* doc/html/*: Regenerate.
+
+2012-12-17  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* src/c++11/thread.cc: Update copyright years.
+
 2012-12-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* src/c++11/thread.cc (execute_native_thread_routine): Do not swallow
