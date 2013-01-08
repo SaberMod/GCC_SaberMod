@@ -1006,16 +1006,9 @@ gcov_merge_gcda_file (struct gcov_info *gi_ptr)
        next_summary:;
        }
 
-     if (!summary_pos)
-       {
-         memset (&program, 0, sizeof (program));
-         summary_pos = eof_pos;
-       }
-
      /* Merge execution counts for each function.  */
      for (f_ix = 0; f_ix != gi_ptr->n_functions;
-          f_ix++, eof_pos = gcov_position (),
-          tag = gcov_read_unsigned ())
+          f_ix++, tag = gcov_read_unsigned ())
        {
          const struct gcov_ctr_info *ci_ptr;
 
@@ -1085,6 +1078,11 @@ read_fatal:;
 
 rewrite:;
     gcov_rewrite ();
+    if (!summary_pos)
+      {
+         memset (&program, 0, sizeof (program));
+         summary_pos = eof_pos;
+      }
 
     /* Merge the summaries.  */
     for (t_ix = 0; t_ix < GCOV_COUNTERS_SUMMABLE; t_ix++)
