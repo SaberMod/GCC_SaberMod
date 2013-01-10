@@ -1,3 +1,11 @@
+2013-01-09   Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.c (aarch64_print_operand): Replace %r
+	in asm_fprintf with reg_names.
+	(aarch64_print_operand_address): Likewise.
+	(aarch64_return_addr): Likewise.
+	* config/aarch64/aarch64.h (ASM_FPRINTF_EXTENSIONS): Remove.
+
 2013-01-08  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64-simd.md (vec_init<mode>): New. 
