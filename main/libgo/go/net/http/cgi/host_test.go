@@ -19,6 +19,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -40,6 +41,7 @@ func runCgiTest(t *testing.T, h *Handler, httpreq string, expectedMap map[string
 
 	// Make a map to hold the test map that the CGI returns.
 	m := make(map[string]string)
+	m["_body"] = rw.Body.String()
 	linesRead := 0
 readlines:
 	for {
@@ -355,7 +357,7 @@ func TestCopyError(t *testing.T) {
 		if err != nil {
 			return false
 		}
-		return p.Signal(os.UnixSignal(0)) == nil
+		return p.Signal(syscall.Signal(0)) == nil
 	}
 
 	if !childRunning() {
@@ -403,7 +405,8 @@ func TestDirUnix(t *testing.T) {
 }
 
 func TestDirWindows(t *testing.T) {
-	if skipTest(t) || runtime.GOOS != "windows" {
+	if runtime.GOOS != "windows" {
+		t.Logf("Skipping windows specific test.")
 		return
 	}
 
@@ -413,6 +416,7 @@ func TestDirWindows(t *testing.T) {
 	var err error
 	perl, err = exec.LookPath("perl")
 	if err != nil {
+		t.Logf("Skipping test: perl not found.")
 		return
 	}
 	perl, _ = filepath.Abs(perl)
@@ -455,6 +459,7 @@ func TestEnvOverride(t *testing.T) {
 	var err error
 	perl, err = exec.LookPath("perl")
 	if err != nil {
+		t.Logf("Skipping test: perl not found.")
 		return
 	}
 	perl, _ = filepath.Abs(perl)

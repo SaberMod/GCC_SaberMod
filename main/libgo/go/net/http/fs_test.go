@@ -5,33 +5,52 @@
 package http_test
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"mime"
+	"mime/multipart"
+	"net"
 	. "net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
+	"regexp"
+	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
-	testFile       = "testdata/file"
-	testFileLength = 11
+	testFile    = "testdata/file"
+	testFileLen = 11
 )
 
+type wantRange struct {
+	start, end int64 // range [start,end)
+}
+
 var ServeFileRangeTests = []struct {
-	start, end int
-	r          string
-	code       int
+	r      string
+	code   int
+	ranges []wantRange
 }{
-	{0, testFileLength, "", StatusOK},
-	{0, 5, "0-4", StatusPartialContent},
-	{2, testFileLength, "2-", StatusPartialContent},
-	{testFileLength - 5, testFileLength, "-5", StatusPartialContent},
-	{3, 8, "3-7", StatusPartialContent},
-	{0, 0, "20-", StatusRequestedRangeNotSatisfiable},
+	{r: "", code: StatusOK},
+	{r: "bytes=0-4", code: StatusPartialContent, ranges: []wantRange{{0, 5}}},
+	{r: "bytes=2-", code: StatusPartialContent, ranges: []wantRange{{2, testFileLen}}},
+	{r: "bytes=-5", code: StatusPartialContent, ranges: []wantRange{{testFileLen - 5, testFileLen}}},
+	{r: "bytes=3-7", code: StatusPartialContent, ranges: []wantRange{{3, 8}}},
+	{r: "bytes=20-", code: StatusRequestedRangeNotSatisfiable},
+	{r: "bytes=0-0,-2", code: StatusPartialContent, ranges: []wantRange{{0, 1}, {testFileLen - 2, testFileLen}}},
+	{r: "bytes=0-1,5-8", code: StatusPartialContent, ranges: []wantRange{{0, 2}, {5, 9}}},
+	{r: "bytes=0-1,5-", code: StatusPartialContent, ranges: []wantRange{{0, 2}, {5, testFileLen}}},
+	{r: "bytes=0-,1-,2-,3-,4-", code: StatusOK}, // ignore wasteful range request
 }
 
 func TestServeFile(t *testing.T) {
@@ -56,34 +75,87 @@ func TestServeFile(t *testing.T) {
 	req.Method = "GET"
 
 	// straight GET
-	_, body := getBody(t, req)
-	if !equal(body, file) {
+	_, body := getBody(t, "straight get", req)
+	if !bytes.Equal(body, file) {
 		t.Fatalf("body mismatch: got %q, want %q", body, file)
 	}
 
 	// Range tests
+Cases:
 	for _, rt := range ServeFileRangeTests {
-		req.Header.Set("Range", "bytes="+rt.r)
-		if rt.r == "" {
-			req.Header["Range"] = nil
+		if rt.r != "" {
+			req.Header.Set("Range", rt.r)
 		}
-		r, body := getBody(t, req)
-		if r.StatusCode != rt.code {
-			t.Errorf("range=%q: StatusCode=%d, want %d", rt.r, r.StatusCode, rt.code)
+		resp, body := getBody(t, fmt.Sprintf("range test %q", rt.r), req)
+		if resp.StatusCode != rt.code {
+			t.Errorf("range=%q: StatusCode=%d, want %d", rt.r, resp.StatusCode, rt.code)
 		}
 		if rt.code == StatusRequestedRangeNotSatisfiable {
 			continue
 		}
-		h := fmt.Sprintf("bytes %d-%d/%d", rt.start, rt.end-1, testFileLength)
-		if rt.r == "" {
-			h = ""
+		wantContentRange := ""
+		if len(rt.ranges) == 1 {
+			rng := rt.ranges[0]
+			wantContentRange = fmt.Sprintf("bytes %d-%d/%d", rng.start, rng.end-1, testFileLen)
 		}
-		cr := r.Header.Get("Content-Range")
-		if cr != h {
-			t.Errorf("header mismatch: range=%q: got %q, want %q", rt.r, cr, h)
+		cr := resp.Header.Get("Content-Range")
+		if cr != wantContentRange {
+			t.Errorf("range=%q: Content-Range = %q, want %q", rt.r, cr, wantContentRange)
 		}
-		if !equal(body, file[rt.start:rt.end]) {
-			t.Errorf("body mismatch: range=%q: got %q, want %q", rt.r, body, file[rt.start:rt.end])
+		ct := resp.Header.Get("Content-Type")
+		if len(rt.ranges) == 1 {
+			rng := rt.ranges[0]
+			wantBody := file[rng.start:rng.end]
+			if !bytes.Equal(body, wantBody) {
+				t.Errorf("range=%q: body = %q, want %q", rt.r, body, wantBody)
+			}
+			if strings.HasPrefix(ct, "multipart/byteranges") {
+				t.Errorf("range=%q content-type = %q; unexpected multipart/byteranges", rt.r, ct)
+			}
+		}
+		if len(rt.ranges) > 1 {
+			typ, params, err := mime.ParseMediaType(ct)
+			if err != nil {
+				t.Errorf("range=%q content-type = %q; %v", rt.r, ct, err)
+				continue
+			}
+			if typ != "multipart/byteranges" {
+				t.Errorf("range=%q content-type = %q; want multipart/byteranges", rt.r, typ)
+				continue
+			}
+			if params["boundary"] == "" {
+				t.Errorf("range=%q content-type = %q; lacks boundary", rt.r, ct)
+				continue
+			}
+			if g, w := resp.ContentLength, int64(len(body)); g != w {
+				t.Errorf("range=%q Content-Length = %d; want %d", rt.r, g, w)
+				continue
+			}
+			mr := multipart.NewReader(bytes.NewReader(body), params["boundary"])
+			for ri, rng := range rt.ranges {
+				part, err := mr.NextPart()
+				if err != nil {
+					t.Errorf("range=%q, reading part index %d: %v", rt.r, ri, err)
+					continue Cases
+				}
+				wantContentRange = fmt.Sprintf("bytes %d-%d/%d", rng.start, rng.end-1, testFileLen)
+				if g, w := part.Header.Get("Content-Range"), wantContentRange; g != w {
+					t.Errorf("range=%q: part Content-Range = %q; want %q", rt.r, g, w)
+				}
+				body, err := ioutil.ReadAll(part)
+				if err != nil {
+					t.Errorf("range=%q, reading part index %d body: %v", rt.r, ri, err)
+					continue Cases
+				}
+				wantBody := file[rng.start:rng.end]
+				if !bytes.Equal(body, wantBody) {
+					t.Errorf("range=%q: body = %q, want %q", rt.r, body, wantBody)
+				}
+			}
+			_, err = mr.NextPart()
+			if err != io.EOF {
+				t.Errorf("range=%q; expected final error io.EOF; got %v", rt.r, err)
+			}
 		}
 	}
 }
@@ -124,7 +196,7 @@ func TestFileServerCleans(t *testing.T) {
 	ch := make(chan string, 1)
 	fs := FileServer(&testFileSystem{func(name string) (File, error) {
 		ch <- name
-		return nil, os.ENOENT
+		return nil, errors.New("file does not exist")
 	}})
 	tests := []struct {
 		reqPath, openArg string
@@ -144,12 +216,19 @@ func TestFileServerCleans(t *testing.T) {
 	}
 }
 
+func mustRemoveAll(dir string) {
+	err := os.RemoveAll(dir)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TestFileServerImplicitLeadingSlash(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("TempDir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer mustRemoveAll(tempDir)
 	if err := ioutil.WriteFile(filepath.Join(tempDir, "foo.txt"), []byte("Hello world"), 0644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
@@ -164,6 +243,7 @@ func TestFileServerImplicitLeadingSlash(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadAll %s: %v", suffix, err)
 		}
+		res.Body.Close()
 		return string(b)
 	}
 	if s := get("/bar/"); !strings.Contains(s, ">foo.txt<") {
@@ -268,6 +348,7 @@ func TestServeFileFromCWD(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	r.Body.Close()
 	if r.StatusCode != 200 {
 		t.Fatalf("expected 200 OK, got %s", r.Status)
 	}
@@ -298,7 +379,6 @@ func TestServeIndexHtml(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer res.Body.Close()
 		b, err := ioutil.ReadAll(res.Body)
 		if err != nil {
 			t.Fatal("reading Body:", err)
@@ -306,29 +386,370 @@ func TestServeIndexHtml(t *testing.T) {
 		if s := string(b); s != want {
 			t.Errorf("for path %q got %q, want %q", path, s, want)
 		}
+		res.Body.Close()
 	}
 }
 
-func getBody(t *testing.T, req Request) (*Response, []byte) {
+func TestFileServerZeroByte(t *testing.T) {
+	ts := httptest.NewServer(FileServer(Dir(".")))
+	defer ts.Close()
+
+	res, err := Get(ts.URL + "/..\x00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal("reading Body:", err)
+	}
+	if res.StatusCode == 200 {
+		t.Errorf("got status 200; want an error. Body is:\n%s", string(b))
+	}
+}
+
+type fakeFileInfo struct {
+	dir      bool
+	basename string
+	modtime  time.Time
+	ents     []*fakeFileInfo
+	contents string
+}
+
+func (f *fakeFileInfo) Name() string       { return f.basename }
+func (f *fakeFileInfo) Sys() interface{}   { return nil }
+func (f *fakeFileInfo) ModTime() time.Time { return f.modtime }
+func (f *fakeFileInfo) IsDir() bool        { return f.dir }
+func (f *fakeFileInfo) Size() int64        { return int64(len(f.contents)) }
+func (f *fakeFileInfo) Mode() os.FileMode {
+	if f.dir {
+		return 0755 | os.ModeDir
+	}
+	return 0644
+}
+
+type fakeFile struct {
+	io.ReadSeeker
+	fi   *fakeFileInfo
+	path string // as opened
+}
+
+func (f *fakeFile) Close() error               { return nil }
+func (f *fakeFile) Stat() (os.FileInfo, error) { return f.fi, nil }
+func (f *fakeFile) Readdir(count int) ([]os.FileInfo, error) {
+	if !f.fi.dir {
+		return nil, os.ErrInvalid
+	}
+	var fis []os.FileInfo
+	for _, fi := range f.fi.ents {
+		fis = append(fis, fi)
+	}
+	return fis, nil
+}
+
+type fakeFS map[string]*fakeFileInfo
+
+func (fs fakeFS) Open(name string) (File, error) {
+	name = path.Clean(name)
+	f, ok := fs[name]
+	if !ok {
+		println("fake filesystem didn't find file", name)
+		return nil, os.ErrNotExist
+	}
+	return &fakeFile{ReadSeeker: strings.NewReader(f.contents), fi: f, path: name}, nil
+}
+
+func TestDirectoryIfNotModified(t *testing.T) {
+	const indexContents = "I am a fake index.html file"
+	fileMod := time.Unix(1000000000, 0).UTC()
+	fileModStr := fileMod.Format(TimeFormat)
+	dirMod := time.Unix(123, 0).UTC()
+	indexFile := &fakeFileInfo{
+		basename: "index.html",
+		modtime:  fileMod,
+		contents: indexContents,
+	}
+	fs := fakeFS{
+		"/": &fakeFileInfo{
+			dir:     true,
+			modtime: dirMod,
+			ents:    []*fakeFileInfo{indexFile},
+		},
+		"/index.html": indexFile,
+	}
+
+	ts := httptest.NewServer(FileServer(fs))
+	defer ts.Close()
+
+	res, err := Get(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(b) != indexContents {
+		t.Fatalf("Got body %q; want %q", b, indexContents)
+	}
+	res.Body.Close()
+
+	lastMod := res.Header.Get("Last-Modified")
+	if lastMod != fileModStr {
+		t.Fatalf("initial Last-Modified = %q; want %q", lastMod, fileModStr)
+	}
+
+	req, _ := NewRequest("GET", ts.URL, nil)
+	req.Header.Set("If-Modified-Since", lastMod)
+
+	res, err = DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 304 {
+		t.Fatalf("Code after If-Modified-Since request = %v; want 304", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// Advance the index.html file's modtime, but not the directory's.
+	indexFile.modtime = indexFile.modtime.Add(1 * time.Hour)
+
+	res, err = DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.StatusCode != 200 {
+		t.Fatalf("Code after second If-Modified-Since request = %v; want 200; res is %#v", res.StatusCode, res)
+	}
+	res.Body.Close()
+}
+
+func mustStat(t *testing.T, fileName string) os.FileInfo {
+	fi, err := os.Stat(fileName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return fi
+}
+
+func TestServeContent(t *testing.T) {
+	type serveParam struct {
+		name        string
+		modtime     time.Time
+		content     io.ReadSeeker
+		contentType string
+		etag        string
+	}
+	servec := make(chan serveParam, 1)
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
+		p := <-servec
+		if p.etag != "" {
+			w.Header().Set("ETag", p.etag)
+		}
+		if p.contentType != "" {
+			w.Header().Set("Content-Type", p.contentType)
+		}
+		ServeContent(w, r, p.name, p.modtime, p.content)
+	}))
+	defer ts.Close()
+
+	type testCase struct {
+		file             string
+		modtime          time.Time
+		serveETag        string // optional
+		serveContentType string // optional
+		reqHeader        map[string]string
+		wantLastMod      string
+		wantContentType  string
+		wantStatus       int
+	}
+	htmlModTime := mustStat(t, "testdata/index.html").ModTime()
+	tests := map[string]testCase{
+		"no_last_modified": {
+			file:            "testdata/style.css",
+			wantContentType: "text/css; charset=utf-8",
+			wantStatus:      200,
+		},
+		"with_last_modified": {
+			file:            "testdata/index.html",
+			wantContentType: "text/html; charset=utf-8",
+			modtime:         htmlModTime,
+			wantLastMod:     htmlModTime.UTC().Format(TimeFormat),
+			wantStatus:      200,
+		},
+		"not_modified_modtime": {
+			file:    "testdata/style.css",
+			modtime: htmlModTime,
+			reqHeader: map[string]string{
+				"If-Modified-Since": htmlModTime.UTC().Format(TimeFormat),
+			},
+			wantStatus: 304,
+		},
+		"not_modified_modtime_with_contenttype": {
+			file:             "testdata/style.css",
+			serveContentType: "text/css", // explicit content type
+			modtime:          htmlModTime,
+			reqHeader: map[string]string{
+				"If-Modified-Since": htmlModTime.UTC().Format(TimeFormat),
+			},
+			wantStatus: 304,
+		},
+		"not_modified_etag": {
+			file:      "testdata/style.css",
+			serveETag: `"foo"`,
+			reqHeader: map[string]string{
+				"If-None-Match": `"foo"`,
+			},
+			wantStatus: 304,
+		},
+		"range_good": {
+			file:      "testdata/style.css",
+			serveETag: `"A"`,
+			reqHeader: map[string]string{
+				"Range": "bytes=0-4",
+			},
+			wantStatus:      StatusPartialContent,
+			wantContentType: "text/css; charset=utf-8",
+		},
+		// An If-Range resource for entity "A", but entity "B" is now current.
+		// The Range request should be ignored.
+		"range_no_match": {
+			file:      "testdata/style.css",
+			serveETag: `"A"`,
+			reqHeader: map[string]string{
+				"Range":    "bytes=0-4",
+				"If-Range": `"B"`,
+			},
+			wantStatus:      200,
+			wantContentType: "text/css; charset=utf-8",
+		},
+	}
+	for testName, tt := range tests {
+		f, err := os.Open(tt.file)
+		if err != nil {
+			t.Fatalf("test %q: %v", testName, err)
+		}
+		defer f.Close()
+
+		servec <- serveParam{
+			name:        filepath.Base(tt.file),
+			content:     f,
+			modtime:     tt.modtime,
+			etag:        tt.serveETag,
+			contentType: tt.serveContentType,
+		}
+		req, err := NewRequest("GET", ts.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for k, v := range tt.reqHeader {
+			req.Header.Set(k, v)
+		}
+		res, err := DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		io.Copy(ioutil.Discard, res.Body)
+		res.Body.Close()
+		if res.StatusCode != tt.wantStatus {
+			t.Errorf("test %q: status = %d; want %d", testName, res.StatusCode, tt.wantStatus)
+		}
+		if g, e := res.Header.Get("Content-Type"), tt.wantContentType; g != e {
+			t.Errorf("test %q: content-type = %q, want %q", testName, g, e)
+		}
+		if g, e := res.Header.Get("Last-Modified"), tt.wantLastMod; g != e {
+			t.Errorf("test %q: last-modified = %q, want %q", testName, g, e)
+		}
+	}
+}
+
+// verifies that sendfile is being used on Linux
+func TestLinuxSendfile(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Logf("skipping; linux-only test")
+		return
+	}
+	_, err := exec.LookPath("strace")
+	if err != nil {
+		t.Logf("skipping; strace not found in path")
+		return
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lnf, err := ln.(*net.TCPListener).File()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	var buf bytes.Buffer
+	child := exec.Command("strace", "-f", "-e!sigaltstack", os.Args[0], "-test.run=TestLinuxSendfileChild")
+	child.ExtraFiles = append(child.ExtraFiles, lnf)
+	child.Env = append([]string{"GO_WANT_HELPER_PROCESS=1"}, os.Environ()...)
+	child.Stdout = &buf
+	child.Stderr = &buf
+	err = child.Start()
+	if err != nil {
+		t.Logf("skipping; failed to start straced child: %v", err)
+		return
+	}
+
+	res, err := Get(fmt.Sprintf("http://%s/", ln.Addr()))
+	if err != nil {
+		t.Fatalf("http client error: %v", err)
+	}
+	_, err = io.Copy(ioutil.Discard, res.Body)
+	if err != nil {
+		t.Fatalf("client body read error: %v", err)
+	}
+	res.Body.Close()
+
+	// Force child to exit cleanly.
+	Get(fmt.Sprintf("http://%s/quit", ln.Addr()))
+	child.Wait()
+
+	rx := regexp.MustCompile(`sendfile(64)?\(\d+,\s*\d+,\s*NULL,\s*\d+\)\s*=\s*\d+\s*\n`)
+	rxResume := regexp.MustCompile(`<\.\.\. sendfile(64)? resumed> \)\s*=\s*\d+\s*\n`)
+	out := buf.String()
+	if !rx.MatchString(out) && !rxResume.MatchString(out) {
+		t.Errorf("no sendfile system call found in:\n%s", out)
+	}
+}
+
+func getBody(t *testing.T, testName string, req Request) (*Response, []byte) {
 	r, err := DefaultClient.Do(&req)
 	if err != nil {
-		t.Fatal(req.URL.String(), "send:", err)
+		t.Fatalf("%s: for URL %q, send error: %v", testName, req.URL.String(), err)
 	}
 	b, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		t.Fatal("reading Body:", err)
+		t.Fatalf("%s: for URL %q, reading body: %v", testName, req.URL.String(), err)
 	}
 	return r, b
 }
 
-func equal(a, b []byte) bool {
-	if len(a) != len(b) {
-		return false
+// TestLinuxSendfileChild isn't a real test. It's used as a helper process
+// for TestLinuxSendfile.
+func TestLinuxSendfileChild(*testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
 	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
+	defer os.Exit(0)
+	fd3 := os.NewFile(3, "ephemeral-port-listener")
+	ln, err := net.FileListener(fd3)
+	if err != nil {
+		panic(err)
 	}
-	return true
+	mux := NewServeMux()
+	mux.Handle("/", FileServer(Dir("testdata")))
+	mux.HandleFunc("/quit", func(ResponseWriter, *Request) {
+		os.Exit(0)
+	})
+	s := &Server{Handler: mux}
+	err = s.Serve(ln)
+	if err != nil {
+		panic(err)
+	}
 }

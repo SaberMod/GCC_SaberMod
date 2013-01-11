@@ -2006,6 +2006,8 @@ Thunk_statement::do_determine_types()
 void
 Thunk_statement::do_check_types(Gogo*)
 {
+  if (!this->call_->discarding_value())
+    return;
   Call_expression* ce = this->call_->call_expression();
   if (ce == NULL)
     {
@@ -2471,11 +2473,15 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
       Expression_statement* es =
 	static_cast<Expression_statement*>(call_statement);
       Call_expression* ce = es->expr()->call_expression();
-      go_assert(ce != NULL);
-      if (may_call_recover)
-	ce->set_is_deferred();
-      if (recover_arg != NULL)
-	ce->set_recover_arg(recover_arg);
+      if (ce == NULL)
+	go_assert(saw_errors());
+      else
+	{
+	  if (may_call_recover)
+	    ce->set_is_deferred();
+	  if (recover_arg != NULL)
+	    ce->set_recover_arg(recover_arg);
+	}
     }
 
   // That is all the thunk has to do.
@@ -3214,10 +3220,9 @@ class Case_clauses::Hash_integer_value
 size_t
 Case_clauses::Hash_integer_value::operator()(Expression* pe) const
 {
-  Type* itype;
+  Numeric_constant nc;
   mpz_t ival;
-  mpz_init(ival);
-  if (!pe->integer_constant_value(true, ival, &itype))
+  if (!pe->numeric_constant_value(&nc) || !nc.to_int(&ival))
     go_unreachable();
   size_t ret = mpz_get_ui(ival);
   mpz_clear(ival);
@@ -3236,14 +3241,14 @@ class Case_clauses::Eq_integer_value
 bool
 Case_clauses::Eq_integer_value::operator()(Expression* a, Expression* b) const
 {
-  Type* atype;
-  Type* btype;
+  Numeric_constant anc;
   mpz_t aval;
+  Numeric_constant bnc;
   mpz_t bval;
-  mpz_init(aval);
-  mpz_init(bval);
-  if (!a->integer_constant_value(true, aval, &atype)
-      || !b->integer_constant_value(true, bval, &btype))
+  if (!a->numeric_constant_value(&anc)
+      || !anc.to_int(&aval)
+      || !b->numeric_constant_value(&bnc)
+      || !bnc.to_int(&bval))
     go_unreachable();
   bool ret = mpz_cmp(aval, bval) == 0;
   mpz_clear(aval);
@@ -3314,16 +3319,10 @@ Case_clauses::Case_clause::lower(Block* b, Temporary_statement* val_temp,
 	   p != this->cases_->end();
 	   ++p)
 	{
-	  Expression* this_cond;
-	  if (val_temp == NULL)
-	    this_cond = *p;
-	  else
-	    {
-	      Expression* ref = Expression::make_temporary_reference(val_temp,
-								     loc);
-	      this_cond = Expression::make_binary(OPERATOR_EQEQ, ref, *p, loc);
-	    }
-
+	  Expression* ref = Expression::make_temporary_reference(val_temp,
+								 loc);
+	  Expression* this_cond = Expression::make_binary(OPERATOR_EQEQ, ref,
+							  *p, loc);
 	  if (cond == NULL)
 	    cond = this_cond;
 	  else
@@ -3431,18 +3430,17 @@ Case_clauses::Case_clause::get_backend(Translate_context* context,
 	  Expression* e = *p;
 	  if (e->classification() != Expression::EXPRESSION_INTEGER)
 	    {
-	      Type* itype;
+	      Numeric_constant nc;
 	      mpz_t ival;
-	      mpz_init(ival);
-	      if (!(*p)->integer_constant_value(true, ival, &itype))
+	      if (!(*p)->numeric_constant_value(&nc) || !nc.to_int(&ival))
 		{
 		  // Something went wrong.  This can happen with a
 		  // negative constant and an unsigned switch value.
 		  go_assert(saw_errors());
 		  continue;
 		}
-	      go_assert(itype != NULL);
-	      e = Expression::make_integer(&ival, itype, e->location());
+	      go_assert(nc.type() != NULL);
+	      e = Expression::make_integer(&ival, nc.type(), e->location());
 	      mpz_clear(ival);
 	    }
 
@@ -3848,6 +3846,16 @@ Switch_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
     return new Constant_switch_statement(this->val_, this->clauses_,
 					 this->break_label_, loc);
 
+  if (this->val_ != NULL
+      && !this->val_->type()->is_comparable()
+      && !Type::are_compatible_for_comparison(true, this->val_->type(),
+					      Type::make_nil_type(), NULL))
+    {
+      error_at(this->val_->location(),
+	       "cannot switch on value whose type that may not be compared");
+      return Statement::make_error_statement(loc);
+    }
+
   Block* b = new Block(enclosing, loc);
 
   if (this->clauses_->empty())
@@ -3858,15 +3866,12 @@ Switch_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
       return Statement::make_statement(val, true);
     }
 
-  Temporary_statement* val_temp;
-  if (this->val_ == NULL)
-    val_temp = NULL;
-  else
-    {
-      // var val_temp VAL_TYPE = VAL
-      val_temp = Statement::make_temporary(NULL, this->val_, loc);
-      b->add_statement(val_temp);
-    }
+  // var val_temp VAL_TYPE = VAL
+  Expression* val = this->val_;
+  if (val == NULL)
+    val = Expression::make_boolean(true, loc);
+  Temporary_statement* val_temp = Statement::make_temporary(NULL, val, loc);
+  b->add_statement(val_temp);
 
   this->clauses_->lower(b, val_temp, this->break_label());
 
@@ -4194,55 +4199,41 @@ Type_switch_statement::do_lower(Gogo*, Named_object*, Block* enclosing,
 		    ? this->var_->var_value()->type()
 		    : this->expr_->type());
 
+  if (val_type->interface_type() == NULL)
+    {
+      if (!val_type->is_error())
+	this->report_error(_("cannot type switch on non-interface value"));
+      return Statement::make_error_statement(loc);
+    }
+
   // var descriptor_temp DESCRIPTOR_TYPE
   Type* descriptor_type = Type::make_type_descriptor_ptr_type();
   Temporary_statement* descriptor_temp =
     Statement::make_temporary(descriptor_type, NULL, loc);
   b->add_statement(descriptor_temp);
 
-  if (val_type->interface_type() == NULL)
-    {
-      // Doing a type switch on a non-interface type.  Should we issue
-      // a warning for this case?
-      Expression* lhs = Expression::make_temporary_reference(descriptor_temp,
-							     loc);
-      Expression* rhs;
-      if (val_type->is_nil_type())
-	rhs = Expression::make_nil(loc);
-      else
-	{
-	  if (val_type->is_abstract())
-	    val_type = val_type->make_non_abstract_type();
-	  rhs = Expression::make_type_descriptor(val_type, loc);
-	}
-      Statement* s = Statement::make_assignment(lhs, rhs, loc);
-      b->add_statement(s);
-    }
+  // descriptor_temp = ifacetype(val_temp) FIXME: This should be
+  // inlined.
+  bool is_empty = val_type->interface_type()->is_empty();
+  Expression* ref;
+  if (this->var_ == NULL)
+    ref = this->expr_;
   else
-    {
-      // descriptor_temp = ifacetype(val_temp)
-      // FIXME: This should be inlined.
-      bool is_empty = val_type->interface_type()->is_empty();
-      Expression* ref;
-      if (this->var_ == NULL)
-	ref = this->expr_;
-      else
-	ref = Expression::make_var_reference(this->var_, loc);
-      Expression* call = Runtime::make_call((is_empty
-					     ? Runtime::EFACETYPE
-					     : Runtime::IFACETYPE),
-					    loc, 1, ref);
-      Temporary_reference_expression* lhs =
-	Expression::make_temporary_reference(descriptor_temp, loc);
-      lhs->set_is_lvalue();
-      Statement* s = Statement::make_assignment(lhs, call, loc);
-      b->add_statement(s);
-    }
+    ref = Expression::make_var_reference(this->var_, loc);
+  Expression* call = Runtime::make_call((is_empty
+					 ? Runtime::EFACETYPE
+					 : Runtime::IFACETYPE),
+					loc, 1, ref);
+  Temporary_reference_expression* lhs =
+    Expression::make_temporary_reference(descriptor_temp, loc);
+  lhs->set_is_lvalue();
+  Statement* s = Statement::make_assignment(lhs, call, loc);
+  b->add_statement(s);
 
   if (this->clauses_ != NULL)
     this->clauses_->lower(val_type, b, descriptor_temp, this->break_label());
 
-  Statement* s = Statement::make_unnamed_label_statement(this->break_label_);
+  s = Statement::make_unnamed_label_statement(this->break_label_);
   b->add_statement(s);
 
   return Statement::make_block_statement(b, loc);
@@ -4856,6 +4847,8 @@ Select_clauses::get_backend(Translate_context* context,
   std::vector<std::vector<Bexpression*> > cases(count);
   std::vector<Bstatement*> clauses(count);
 
+  Type* int32_type = Type::lookup_integer_type("int32");
+
   int i = 0;
   for (Clauses::iterator p = this->clauses_.begin();
        p != this->clauses_.end();
@@ -4864,7 +4857,8 @@ Select_clauses::get_backend(Translate_context* context,
       int index = p->index();
       mpz_t ival;
       mpz_init_set_ui(ival, index);
-      Expression* index_expr = Expression::make_integer(&ival, NULL, location);
+      Expression* index_expr = Expression::make_integer(&ival, int32_type,
+							location);
       mpz_clear(ival);
       cases[i].push_back(tree_to_expr(index_expr->get_tree(context)));
 

@@ -11,8 +11,8 @@
 package sync
 
 import (
-	"runtime"
 	"sync/atomic"
+	"unsafe"
 )
 
 // A Mutex is a mutual exclusion lock.
@@ -41,6 +41,9 @@ const (
 func (m *Mutex) Lock() {
 	// Fast path: grab unlocked mutex.
 	if atomic.CompareAndSwapInt32(&m.state, 0, mutexLocked) {
+		if raceenabled {
+			raceAcquire(unsafe.Pointer(m))
+		}
 		return
 	}
 
@@ -60,9 +63,13 @@ func (m *Mutex) Lock() {
 			if old&mutexLocked == 0 {
 				break
 			}
-			runtime.Semacquire(&m.sema)
+			runtime_Semacquire(&m.sema)
 			awoke = true
 		}
+	}
+
+	if raceenabled {
+		raceAcquire(unsafe.Pointer(m))
 	}
 }
 
@@ -73,6 +80,10 @@ func (m *Mutex) Lock() {
 // It is allowed for one goroutine to lock a Mutex and then
 // arrange for another goroutine to unlock it.
 func (m *Mutex) Unlock() {
+	if raceenabled {
+		raceRelease(unsafe.Pointer(m))
+	}
+
 	// Fast path: drop lock bit.
 	new := atomic.AddInt32(&m.state, -mutexLocked)
 	if (new+mutexLocked)&mutexLocked == 0 {
@@ -89,7 +100,7 @@ func (m *Mutex) Unlock() {
 		// Grab the right to wake someone.
 		new = (old - 1<<mutexWaiterShift) | mutexWoken
 		if atomic.CompareAndSwapInt32(&m.state, old, new) {
-			runtime.Semrelease(&m.sema)
+			runtime_Semrelease(&m.sema)
 			return
 		}
 		old = m.state

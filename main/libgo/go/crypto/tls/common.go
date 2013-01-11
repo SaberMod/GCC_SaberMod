@@ -41,6 +41,7 @@ const (
 const (
 	typeClientHello        uint8 = 1
 	typeServerHello        uint8 = 2
+	typeNewSessionTicket   uint8 = 4
 	typeCertificate        uint8 = 11
 	typeServerKeyExchange  uint8 = 12
 	typeCertificateRequest uint8 = 13
@@ -63,6 +64,7 @@ var (
 	extensionStatusRequest   uint16 = 5
 	extensionSupportedCurves uint16 = 10
 	extensionSupportedPoints uint16 = 11
+	extensionSessionTicket   uint16 = 35
 	extensionNextProtoNeg    uint16 = 13172 // not IANA assigned
 )
 
@@ -97,6 +99,7 @@ const (
 // ConnectionState records basic TLS details about the connection.
 type ConnectionState struct {
 	HandshakeComplete          bool
+	DidResume                  bool
 	CipherSuite                uint16
 	NegotiatedProtocol         string
 	NegotiatedProtocolIsMutual bool
@@ -180,6 +183,22 @@ type Config struct {
 	// CipherSuites is a list of supported cipher suites. If CipherSuites
 	// is nil, TLS uses a list of suites supported by the implementation.
 	CipherSuites []uint16
+
+	// SessionTicketsDisabled may be set to true to disable session ticket
+	// (resumption) support.
+	SessionTicketsDisabled bool
+
+	// SessionTicketKey is used by TLS servers to provide session
+	// resumption. See RFC 5077. If zero, it will be filled with
+	// random data before the first server handshake.
+	//
+	// If multiple servers are terminating connections for the same host
+	// they should all have the same SessionTicketKey. If the
+	// SessionTicketKey leaks, previously recorded and future TLS
+	// connections using that key are compromised.
+	SessionTicketKey [32]byte
+
+	serverInitOnce sync.Once
 }
 
 func (c *Config) rand() io.Reader {
@@ -196,14 +215,6 @@ func (c *Config) time() time.Time {
 		t = time.Now
 	}
 	return t()
-}
-
-func (c *Config) rootCAs() *x509.CertPool {
-	s := c.RootCAs
-	if s == nil {
-		s = defaultRoots()
-	}
-	return s
 }
 
 func (c *Config) cipherSuites() []uint16 {
@@ -311,27 +322,15 @@ func defaultConfig() *Config {
 	return &emptyConfig
 }
 
-var once sync.Once
-
-func defaultRoots() *x509.CertPool {
-	once.Do(initDefaults)
-	return varDefaultRoots
-}
-
-func defaultCipherSuites() []uint16 {
-	once.Do(initDefaults)
-	return varDefaultCipherSuites
-}
-
-func initDefaults() {
-	initDefaultRoots()
-	initDefaultCipherSuites()
-}
-
 var (
-	varDefaultRoots        *x509.CertPool
+	once                   sync.Once
 	varDefaultCipherSuites []uint16
 )
+
+func defaultCipherSuites() []uint16 {
+	once.Do(initDefaultCipherSuites)
+	return varDefaultCipherSuites
+}
 
 func initDefaultCipherSuites() {
 	varDefaultCipherSuites = make([]uint16, len(cipherSuites))

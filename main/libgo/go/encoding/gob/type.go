@@ -152,6 +152,10 @@ var idToType = make(map[typeId]gobType)
 var builtinIdToType map[typeId]gobType // set in init() after builtins are established
 
 func setTypeId(typ gobType) {
+	// When building recursive types, someone may get there before us.
+	if typ.id() != 0 {
+		return
+	}
 	nextId++
 	typ.setId(nextId)
 	idToType[nextId] = typ
@@ -346,6 +350,11 @@ func newSliceType(name string) *sliceType {
 func (s *sliceType) init(elem gobType) {
 	// Set our type id before evaluating the element's, in case it's our own.
 	setTypeId(s)
+	// See the comments about ids in newTypeObject. Only slices and
+	// structs have mutual recursion.
+	if elem.id() == 0 {
+		setTypeId(elem)
+	}
 	s.Elem = elem.id()
 }
 
@@ -502,6 +511,13 @@ func newTypeObject(name string, ut *userTypeInfo, rt reflect.Type) (gobType, err
 			gt, err := getBaseType(tname, f.Type)
 			if err != nil {
 				return nil, err
+			}
+			// Some mutually recursive types can cause us to be here while
+			// still defining the element. Fix the element type id here.
+			// We could do this more neatly by setting the id at the start of
+			// building every type, but that would break binary compatibility.
+			if gt.id() == 0 {
+				setTypeId(gt)
 			}
 			st.Field = append(st.Field, &fieldType{f.Name, gt.id()})
 		}
@@ -696,6 +712,7 @@ type GobDecoder interface {
 }
 
 var (
+	registerLock       sync.RWMutex
 	nameToConcreteType = make(map[string]reflect.Type)
 	concreteTypeToName = make(map[reflect.Type]string)
 )
@@ -707,6 +724,8 @@ func RegisterName(name string, value interface{}) {
 		// reserved for nil
 		panic("attempt to register empty name")
 	}
+	registerLock.Lock()
+	defer registerLock.Unlock()
 	ut := userType(reflect.TypeOf(value))
 	// Check for incompatible duplicates. The name must refer to the
 	// same user type, and vice versa.
@@ -733,12 +752,28 @@ func Register(value interface{}) {
 	rt := reflect.TypeOf(value)
 	name := rt.String()
 
-	// But for named types (or pointers to them), qualify with import path.
+	// But for named types (or pointers to them), qualify with import path (but see inner comment).
 	// Dereference one pointer looking for a named type.
 	star := ""
 	if rt.Name() == "" {
 		if pt := rt; pt.Kind() == reflect.Ptr {
 			star = "*"
+			// NOTE: The following line should be rt = pt.Elem() to implement
+			// what the comment above claims, but fixing it would break compatibility
+			// with existing gobs.
+			//
+			// Given package p imported as "full/p" with these definitions:
+			//     package p
+			//     type T1 struct { ... }
+			// this table shows the intended and actual strings used by gob to
+			// name the types:
+			//
+			// Type      Correct string     Actual string
+			//
+			// T1        full/p.T1          full/p.T1
+			// *T1       *full/p.T1         *p.T1
+			//
+			// The missing full path cannot be fixed without breaking existing gob decoders.
 			rt = pt
 		}
 	}

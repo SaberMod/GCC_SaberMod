@@ -17,7 +17,7 @@ import (
 //
 // Internally, we treat functions like methods and collect them in method sets.
 
-// methodSet describes a set of methods. Entries where Decl == nil are conflict
+// A methodSet describes a set of methods. Entries where Decl == nil are conflict
 // entries (more then one method with the same name at the same embedding level).
 //
 type methodSet map[string]*Func
@@ -46,7 +46,7 @@ func (mset methodSet) set(f *ast.FuncDecl) {
 		// since it has documentation, assume f is simply another
 		// implementation and ignore it. This does not happen if the
 		// caller is using go/build.ScanDir to determine the list of
-		// files implementing a package. 
+		// files implementing a package.
 		return
 	}
 	// function doesn't exist or has no documentation; use f
@@ -110,6 +110,9 @@ func baseTypeName(x ast.Expr) (name string, imported bool) {
 	return
 }
 
+// An embeddedSet describes a set of embedded types.
+type embeddedSet map[*namedType]bool
+
 // A namedType represents a named unqualified (package local, or possibly
 // predeclared) type. The namedType for a type name is always found via
 // reader.lookupType.
@@ -119,9 +122,9 @@ type namedType struct {
 	name string       // type name
 	decl *ast.GenDecl // nil if declaration hasn't been seen yet
 
-	isEmbedded bool                // true if this type is embedded
-	isStruct   bool                // true if this type is a struct
-	embedded   map[*namedType]bool // true if the embedded type is a pointer
+	isEmbedded bool        // true if this type is embedded
+	isStruct   bool        // true if this type is a struct
+	embedded   embeddedSet // true if the embedded type is a pointer
 
 	// associated declarations
 	values  []*Value // consts and vars
@@ -152,6 +155,10 @@ type reader struct {
 	values  []*Value // consts and vars
 	types   map[string]*namedType
 	funcs   methodSet
+
+	// support for package-local error type declarations
+	errorDecl bool                 // if set, type "error" was declared locally
+	fixlist   []*ast.InterfaceType // list of interfaces containing anonymous field "error"
 }
 
 func (r *reader) isVisible(name string) bool {
@@ -173,7 +180,7 @@ func (r *reader) lookupType(name string) *namedType {
 	// type not found - add one without declaration
 	typ := &namedType{
 		name:     name,
-		embedded: make(map[*namedType]bool),
+		embedded: make(embeddedSet),
 		funcs:    make(methodSet),
 		methods:  make(methodSet),
 	}
@@ -208,6 +215,10 @@ func (r *reader) readDoc(comment *ast.CommentGroup) {
 		return
 	}
 	r.doc += "\n" + text
+}
+
+func (r *reader) remember(typ *ast.InterfaceType) {
+	r.fixlist = append(r.fixlist, typ)
 }
 
 func specNames(specs []ast.Spec) []string {
@@ -274,7 +285,7 @@ func (r *reader) readValue(decl *ast.GenDecl) {
 	// determine values list with which to associate the Value for this decl
 	values := &r.values
 	const threshold = 0.75
-	if domName != "" && domFreq >= int(float64(len(decl.Specs))*threshold) {
+	if domName != "" && r.isVisible(domName) && domFreq >= int(float64(len(decl.Specs))*threshold) {
 		// typed entries are sufficiently frequent
 		if typ := r.lookupType(domName); typ != nil {
 			values = &typ.values // associate with that type
@@ -315,7 +326,7 @@ func (r *reader) readType(decl *ast.GenDecl, spec *ast.TypeSpec) {
 		return // no name or blank name - ignore the type
 	}
 
-	// A type should be added at most once, so info.decl
+	// A type should be added at most once, so typ.decl
 	// should be nil - if it is not, simply overwrite it.
 	typ.decl = decl
 
@@ -421,6 +432,17 @@ func (r *reader) readFile(src *ast.File) {
 				r.readValue(d)
 			case token.TYPE:
 				// types are handled individually
+				if len(d.Specs) == 1 && !d.Lparen.IsValid() {
+					// common case: single declaration w/o parentheses
+					// (if a single declaration is parenthesized,
+					// create a new fake declaration below, so that
+					// go/doc type declarations always appear w/o
+					// parentheses)
+					if s, ok := d.Specs[0].(*ast.TypeSpec); ok {
+						r.readType(d, s)
+					}
+					break
+				}
 				for _, spec := range d.Specs {
 					if s, ok := spec.(*ast.TypeSpec); ok {
 						// use an individual (possibly fake) declaration
@@ -428,8 +450,15 @@ func (r *reader) readFile(src *ast.File) {
 						// gets to (re-)use the declaration documentation
 						// if there's none associated with the spec itself
 						fake := &ast.GenDecl{
-							d.Doc, d.Pos(), token.TYPE, token.NoPos,
-							[]ast.Spec{s}, token.NoPos,
+							Doc: d.Doc,
+							// don't use the existing TokPos because it
+							// will lead to the wrong selection range for
+							// the fake declaration if there are more
+							// than one type in the group (this affects
+							// src/cmd/godoc/godoc.go's posLink_urlFunc)
+							TokPos: s.Pos(),
+							Tok:    token.TYPE,
+							Specs:  []ast.Spec{s},
 						}
 						r.readType(fake, s)
 					}
@@ -449,7 +478,7 @@ func (r *reader) readFile(src *ast.File) {
 				// non-empty BUG comment; collect comment without BUG prefix
 				list := append([]*ast.Comment(nil), c.List...) // make a copy
 				list[0].Text = text[m[1]:]
-				r.bugs = append(r.bugs, (&ast.CommentGroup{list}).Text())
+				r.bugs = append(r.bugs, (&ast.CommentGroup{List: list}).Text())
 			}
 		}
 	}
@@ -465,7 +494,7 @@ func (r *reader) readPackage(pkg *ast.Package, mode Mode) {
 	r.funcs = make(methodSet)
 
 	// sort package files before reading them so that the
-	// result result does not depend on map iteration order
+	// result does not depend on map iteration order
 	i := 0
 	for filename := range pkg.Files {
 		r.filenames[i] = filename
@@ -486,29 +515,6 @@ func (r *reader) readPackage(pkg *ast.Package, mode Mode) {
 // ----------------------------------------------------------------------------
 // Types
 
-var predeclaredTypes = map[string]bool{
-	"bool":       true,
-	"byte":       true,
-	"complex64":  true,
-	"complex128": true,
-	"error":      true,
-	"float32":    true,
-	"float64":    true,
-	"int":        true,
-	"int8":       true,
-	"int16":      true,
-	"int32":      true,
-	"int64":      true,
-	"rune":       true,
-	"string":     true,
-	"uint":       true,
-	"uint8":      true,
-	"uint16":     true,
-	"uint32":     true,
-	"uint64":     true,
-	"uintptr":    true,
-}
-
 func customizeRecv(f *Func, recvTypeName string, embeddedIsPtr bool, level int) *Func {
 	if f == nil || f.Decl == nil || f.Decl.Recv == nil || len(f.Decl.Recv.List) != 1 {
 		return f // shouldn't happen, but be safe
@@ -519,7 +525,7 @@ func customizeRecv(f *Func, recvTypeName string, embeddedIsPtr bool, level int) 
 	_, origRecvIsPtr := newField.Type.(*ast.StarExpr)
 	var typ ast.Expr = ast.NewIdent(recvTypeName)
 	if !embeddedIsPtr && origRecvIsPtr {
-		typ = &ast.StarExpr{token.NoPos, typ}
+		typ = &ast.StarExpr{X: typ}
 	}
 	newField.Type = typ
 
@@ -543,7 +549,8 @@ func customizeRecv(f *Func, recvTypeName string, embeddedIsPtr bool, level int) 
 
 // collectEmbeddedMethods collects the embedded methods of typ in mset.
 //
-func (r *reader) collectEmbeddedMethods(mset methodSet, typ *namedType, recvTypeName string, embeddedIsPtr bool, level int) {
+func (r *reader) collectEmbeddedMethods(mset methodSet, typ *namedType, recvTypeName string, embeddedIsPtr bool, level int, visited embeddedSet) {
+	visited[typ] = true
 	for embedded, isPtr := range typ.embedded {
 		// Once an embedded type is embedded as a pointer type
 		// all embedded types in those types are treated like
@@ -557,8 +564,11 @@ func (r *reader) collectEmbeddedMethods(mset methodSet, typ *namedType, recvType
 				mset.add(customizeRecv(m, recvTypeName, thisEmbeddedIsPtr, level))
 			}
 		}
-		r.collectEmbeddedMethods(mset, embedded, recvTypeName, thisEmbeddedIsPtr, level+1)
+		if !visited[embedded] {
+			r.collectEmbeddedMethods(mset, embedded, recvTypeName, thisEmbeddedIsPtr, level+1, visited)
+		}
 	}
+	delete(visited, typ)
 }
 
 // computeMethodSets determines the actual method sets for each type encountered.
@@ -568,10 +578,17 @@ func (r *reader) computeMethodSets() {
 		// collect embedded methods for t
 		if t.isStruct {
 			// struct
-			r.collectEmbeddedMethods(t.methods, t, t.name, false, 1)
+			r.collectEmbeddedMethods(t.methods, t, t.name, false, 1, make(embeddedSet))
 		} else {
 			// interface
 			// TODO(gri) fix this
+		}
+	}
+
+	// if error was declared locally, don't treat it as exported field anymore
+	if r.errorDecl {
+		for _, ityp := range r.fixlist {
+			removeErrorField(ityp)
 		}
 	}
 }
@@ -580,7 +597,7 @@ func (r *reader) computeMethodSets() {
 // types that have no declaration. Instead, these functions and methods
 // are shown at the package level. It also removes types with missing
 // declarations or which are not visible.
-// 
+//
 func (r *reader) cleanupTypes() {
 	for _, t := range r.types {
 		visible := r.isVisible(t.name)
@@ -731,4 +748,55 @@ func sortedFuncs(m methodSet, allMethods bool) []*Func {
 		len(list),
 	)
 	return list
+}
+
+// ----------------------------------------------------------------------------
+// Predeclared identifiers
+
+var predeclaredTypes = map[string]bool{
+	"bool":       true,
+	"byte":       true,
+	"complex64":  true,
+	"complex128": true,
+	"error":      true,
+	"float32":    true,
+	"float64":    true,
+	"int":        true,
+	"int8":       true,
+	"int16":      true,
+	"int32":      true,
+	"int64":      true,
+	"rune":       true,
+	"string":     true,
+	"uint":       true,
+	"uint8":      true,
+	"uint16":     true,
+	"uint32":     true,
+	"uint64":     true,
+	"uintptr":    true,
+}
+
+var predeclaredFuncs = map[string]bool{
+	"append":  true,
+	"cap":     true,
+	"close":   true,
+	"complex": true,
+	"copy":    true,
+	"delete":  true,
+	"imag":    true,
+	"len":     true,
+	"make":    true,
+	"new":     true,
+	"panic":   true,
+	"print":   true,
+	"println": true,
+	"real":    true,
+	"recover": true,
+}
+
+var predeclaredConstants = map[string]bool{
+	"false": true,
+	"iota":  true,
+	"nil":   true,
+	"true":  true,
 }

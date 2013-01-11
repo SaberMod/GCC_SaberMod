@@ -11,7 +11,7 @@ import (
 )
 
 //sysnb	raw_prctl(option int, arg2 int, arg3 int, arg4 int, arg5 int) (ret int, err Errno)
-//prctl(option int, arg2 _C_long, arg3 _C_long, arg4 _C_long, arg5 _C_long) int
+//prctl(option _C_int, arg2 _C_long, arg3 _C_long, arg4 _C_long, arg5 _C_long) _C_int
 
 type SysProcAttr struct {
 	Chroot     string      // Chroot.
@@ -19,9 +19,10 @@ type SysProcAttr struct {
 	Ptrace     bool        // Enable tracing.
 	Setsid     bool        // Create session.
 	Setpgid    bool        // Set process group ID to new pid (SYSV setpgrp)
-	Setctty    bool        // Set controlling terminal to fd 0
+	Setctty    bool        // Set controlling terminal to fd Ctty (only meaningful if Setsid is set)
 	Noctty     bool        // Detach fd 0 from controlling terminal
-	Pdeathsig  int         // Signal that the process will get when its parent dies (Linux only)
+	Ctty       int         // Controlling TTY fd (Linux only)
+	Pdeathsig  Signal      // Signal that the process will get when its parent dies (Linux only)
 }
 
 // Fork, dup fd onto 0..len(fd), and exec(argv0, argvv, envv) in child.
@@ -43,7 +44,10 @@ func forkAndExecInChild(argv0 *byte, argv, envv []*byte, chroot, dir *byte, attr
 	)
 
 	// guard against side effects of shuffling fds below.
-	fd := append([]int(nil), attr.Files...)
+	fd := make([]int, len(attr.Files))
+	for i, ufd := range attr.Files {
+		fd[i] = int(ufd)
+	}
 
 	// About to call fork.
 	// No more allocation or calls of non-assembly functions.
@@ -61,7 +65,7 @@ func forkAndExecInChild(argv0 *byte, argv, envv []*byte, chroot, dir *byte, attr
 
 	// Parent death signal
 	if sys.Pdeathsig != 0 {
-		_, err1 = raw_prctl(PR_SET_PDEATHSIG, sys.Pdeathsig, 0, 0, 0)
+		_, err1 = raw_prctl(PR_SET_PDEATHSIG, int(sys.Pdeathsig), 0, 0, 0)
 		if err1 != 0 {
 			goto childerror
 		}
@@ -224,8 +228,8 @@ func forkAndExecInChild(argv0 *byte, argv, envv []*byte, chroot, dir *byte, attr
 	}
 
 	// Make fd 0 the tty
-	if sys.Setctty {
-		_, err1 = raw_ioctl(0, TIOCSCTTY, 0)
+	if sys.Setctty && sys.Ctty >= 0 {
+		_, err1 = raw_ioctl(0, TIOCSCTTY, sys.Ctty)
 		if err1 != 0 {
 			goto childerror
 		}

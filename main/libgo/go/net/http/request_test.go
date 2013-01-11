@@ -5,6 +5,7 @@
 package http_test
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -29,8 +30,8 @@ func TestQuery(t *testing.T) {
 }
 
 func TestPostQuery(t *testing.T) {
-	req, _ := NewRequest("POST", "http://www.google.com/search?q=foo&q=bar&both=x",
-		strings.NewReader("z=post&both=y"))
+	req, _ := NewRequest("POST", "http://www.google.com/search?q=foo&q=bar&both=x&prio=1&empty=not",
+		strings.NewReader("z=post&both=y&prio=2&empty="))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 
 	if q := req.FormValue("q"); q != "foo" {
@@ -39,8 +40,23 @@ func TestPostQuery(t *testing.T) {
 	if z := req.FormValue("z"); z != "post" {
 		t.Errorf(`req.FormValue("z") = %q, want "post"`, z)
 	}
-	if both := req.Form["both"]; !reflect.DeepEqual(both, []string{"x", "y"}) {
-		t.Errorf(`req.FormValue("both") = %q, want ["x", "y"]`, both)
+	if bq, found := req.PostForm["q"]; found {
+		t.Errorf(`req.PostForm["q"] = %q, want no entry in map`, bq)
+	}
+	if bz := req.PostFormValue("z"); bz != "post" {
+		t.Errorf(`req.PostFormValue("z") = %q, want "post"`, bz)
+	}
+	if qs := req.Form["q"]; !reflect.DeepEqual(qs, []string{"foo", "bar"}) {
+		t.Errorf(`req.Form["q"] = %q, want ["foo", "bar"]`, qs)
+	}
+	if both := req.Form["both"]; !reflect.DeepEqual(both, []string{"y", "x"}) {
+		t.Errorf(`req.Form["both"] = %q, want ["y", "x"]`, both)
+	}
+	if prio := req.FormValue("prio"); prio != "2" {
+		t.Errorf(`req.FormValue("prio") = %q, want "2" (from body)`, prio)
+	}
+	if empty := req.FormValue("empty"); empty != "" {
+		t.Errorf(`req.FormValue("empty") = %q, want "" (from body)`, empty)
 	}
 }
 
@@ -71,6 +87,23 @@ func TestParseFormUnknownContentType(t *testing.T) {
 			t.Errorf("test %d should have returned error", i)
 		case err != nil && !test.shouldError:
 			t.Errorf("test %d should not have returned error, got %v", i, err)
+		}
+	}
+}
+
+func TestParseFormInitializeOnError(t *testing.T) {
+	nilBody, _ := NewRequest("POST", "http://www.google.com/search?q=foo", nil)
+	tests := []*Request{
+		nilBody,
+		{Method: "GET", URL: nil},
+	}
+	for i, req := range tests {
+		err := req.ParseForm()
+		if req.Form == nil {
+			t.Errorf("%d. Form not initialized, error %v", i, err)
+		}
+		if req.PostForm == nil {
+			t.Errorf("%d. PostForm not initialized, error %v", i, err)
 		}
 	}
 }
@@ -128,7 +161,7 @@ func TestSetBasicAuth(t *testing.T) {
 }
 
 func TestMultipartRequest(t *testing.T) {
-	// Test that we can read the values and files of a 
+	// Test that we can read the values and files of a
 	// multipart request with FormValue and FormFile,
 	// and that ParseMultipartForm can be called multiple times.
 	req := newTestMultipartRequest(t)
@@ -174,6 +207,34 @@ func TestRequestMultipartCallOrder(t *testing.T) {
 	err = req.ParseMultipartForm(1024)
 	if err == nil {
 		t.Errorf("expected an error from ParseMultipartForm after call to MultipartReader")
+	}
+}
+
+var readRequestErrorTests = []struct {
+	in  string
+	err error
+}{
+	{"GET / HTTP/1.1\r\nheader:foo\r\n\r\n", nil},
+	{"GET / HTTP/1.1\r\nheader:foo\r\n", io.ErrUnexpectedEOF},
+	{"", io.EOF},
+}
+
+func TestReadRequestErrors(t *testing.T) {
+	for i, tt := range readRequestErrorTests {
+		_, err := ReadRequest(bufio.NewReader(strings.NewReader(tt.in)))
+		if err != tt.err {
+			t.Errorf("%d. got error = %v; want %v", i, err, tt.err)
+		}
+	}
+}
+
+func TestNewRequestHost(t *testing.T) {
+	req, err := NewRequest("GET", "http://localhost:1234/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Host != "localhost:1234" {
+		t.Errorf("Host = %q; want localhost:1234", req.Host)
 	}
 }
 

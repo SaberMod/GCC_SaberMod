@@ -1,5 +1,5 @@
 /* Some code common to C++ and ObjC++ front ends.
-   Copyright (C) 2004, 2007, 2008, 2009, 2010, 2011
+   Copyright (C) 2004, 2007, 2008, 2009, 2010, 2011, 2012
    Free Software Foundation, Inc.
    Contributed by Ziemowit Laski  <zlaski@apple.com>
 
@@ -120,7 +120,7 @@ cp_var_mod_type_p (tree type, tree fn)
 {
   /* If TYPE is a pointer-to-member, it is variably modified if either
      the class or the member are variably modified.  */
-  if (TYPE_PTR_TO_MEMBER_P (type))
+  if (TYPE_PTRMEM_P (type))
     return (variably_modified_type_p (TYPE_PTRMEM_CLASS_TYPE (type), fn)
 	    || variably_modified_type_p (TYPE_PTRMEM_POINTED_TO_TYPE (type),
 					 fn));
@@ -188,10 +188,7 @@ typedef struct GTY (()) sb
   tree real_type_value;
 } saved_builtin;
 
-DEF_VEC_O(saved_builtin);
-DEF_VEC_ALLOC_O(saved_builtin,gc);
-
-static GTY (()) VEC(saved_builtin, gc) *saved_builtins = NULL;
+static GTY (()) vec<saved_builtin, va_gc> *saved_builtins = NULL;
 
 /* Return true if the type is not user defined.  */
 
@@ -479,7 +476,7 @@ cp_add_built_in_decl (tree decl)
   if (parser_parsing_start)
     return;
 
-  sb = VEC_safe_push (saved_builtin, gc, saved_builtins, NULL);
+  sb = vec_safe_push (saved_builtins, saved_builtin ());
   sb->decl = decl;
   sb->decl_init_copy = NULL;
   sb->decl_fini_copy = NULL;
@@ -558,8 +555,7 @@ cp_save_built_in_decl_pre_parsing (void)
 
   add_built_in_type_node ();
 
-  for (i = 0; VEC_iterate (saved_builtin,
-                           saved_builtins, i, bi); ++i)
+  for (i = 0; saved_builtins->iterate (i, &bi); ++i)
     save_built_in_decl_pre_parsing_1 (bi);
 }
 
@@ -572,8 +568,7 @@ cp_restore_built_in_decl_pre_parsing (void)
   size_t i;
   saved_builtin *bi;
 
-  for (i = 0; VEC_iterate (saved_builtin,
-                           saved_builtins, i, bi); ++i)
+  for (i = 0; saved_builtins->iterate (i, &bi); ++i)
     {
       tree decl = bi->decl;
 
@@ -603,8 +598,7 @@ cp_save_built_in_decl_post_parsing (void)
   size_t i;
   saved_builtin *bi;
 
-  for (i = 0; VEC_iterate (saved_builtin,
-                           saved_builtins, i, bi); ++i)
+  for (i = 0; saved_builtins->iterate (i, &bi); ++i)
     {
       if (!TREE_STATIC (bi->decl) || DECL_ARTIFICIAL (bi->decl))
        	continue;
@@ -625,8 +619,7 @@ cp_restore_built_in_decl_post_parsing (void)
   unsigned i;
   saved_builtin *bi;
 
-  for (i = 0; VEC_iterate (saved_builtin,
-                           saved_builtins, i, bi); ++i)
+  for (i = 0; saved_builtins->iterate (i, &bi); ++i)
     {
       tree decl = bi->decl;
       /* Now restore the decl's state  */
@@ -693,6 +686,25 @@ init_shadowed_var_for_decl (void)
 {
   shadowed_var_for_decl = htab_create_ggc (512, tree_decl_map_hash,
 					   tree_decl_map_eq, 0);
+}
+
+/* Return true if stmt can fall thru.  Used by block_may_fallthru
+   default case.  */
+
+bool
+cxx_block_may_fallthru (const_tree stmt)
+{
+  switch (TREE_CODE (stmt))
+    {
+    case EXPR_STMT:
+      return block_may_fallthru (EXPR_STMT_EXPR (stmt));
+
+    case THROW_EXPR:
+      return false;
+
+    default:
+      return true;
+    }
 }
 
 void

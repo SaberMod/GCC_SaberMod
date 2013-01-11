@@ -42,7 +42,7 @@ struct edge_info
    a minimum cost flow algorithm. */
 extern void mcf_smooth_cfg (void);
 
-extern gcov_type sum_edge_counts (VEC (edge, gc) *edges);
+extern gcov_type sum_edge_counts (vec<edge, va_gc> *edges);
 
 extern void init_node_map (void);
 extern void del_node_map (void);
@@ -52,5 +52,7 @@ extern void del_node_map (void);
    the same cache line leads to up to 30x slowdown on an application running
    on 8 CPUs.  With sampling, the slowdown reduced to 2x.  */
 extern void add_sampling_to_edge_counters (void);
+
+extern void compute_working_sets (void);
 
 #endif /* PROFILE_H */

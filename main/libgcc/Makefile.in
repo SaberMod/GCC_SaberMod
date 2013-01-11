@@ -121,7 +121,8 @@ installcheck:
 .PHONY: all clean
 
 clean:
-	-rm -f config.h libgcc_tm.h stamp-h stmp-ldirs libgcc.map
+	-rm -f auto-target.h libgcc_tm.h libgcc.map
+	-rm -f libgcc_tm.stamp stamp-h stmp-ldirs
 	-rm -f *$(objext)
 	-rm -f *.dep
 	-rm -f *.a
@@ -139,9 +140,9 @@ Makefile: $(srcdir)/Makefile.in config.status
 
 # Depending on Makefile makes sure that config.status has been re-run
 # if needed.  This prevents problems with parallel builds.
-config.h: stamp-h ; @true
+auto-target.h: stamp-h ; @true
 stamp-h: $(srcdir)/config.in config.status Makefile
-	CONFIG_FILES= CONFIG_HEADERS=config.h:$(srcdir)/config.in $(SHELL) ./config.status
+	CONFIG_FILES= CONFIG_HEADERS=auto-target.h:$(srcdir)/config.in $(SHELL) ./config.status
 
 config.status: $(srcdir)/configure $(srcdir)/config.host
 	$(SHELL) ./config.status --recheck
@@ -206,7 +207,7 @@ export slibdir
 export toolexecdir
 export toolexeclibdir
 
-version := $(shell $(CC) -dumpversion)
+version := $(shell cat $(srcdir)/../gcc/BASE-VER)
 
 ifeq ($(decimal_float),yes)
 ifeq ($(enable_decimal_float),bid)
@@ -368,6 +369,7 @@ ifeq ($(enable_shared),yes)
   ifneq ($(LIBUNWIND),)
     install-libunwind = install-libunwind
   endif
+endif
 
 ifneq (,$(vis_hide))
 
@@ -386,11 +388,8 @@ else
 gen-hide-list = echo > $@
 endif
 
-else
-# Not enable_shared.
+ifneq ($(enable_shared),yes)
 iterator = $(srcdir)/empty.mk $(patsubst %,$(srcdir)/static-object.mk,$(iter-items))
-vis_hide =
-gen-hide-list = echo > \$@
 endif
 
 LIB2ADD += enable-execute-stack.c
@@ -439,7 +438,6 @@ LIB2_DIVMOD_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE) $(LIB1ASMFUNCS), \
 		       $(LIB2_DIVMOD_FUNCS))
 
 # Build "libgcc1" (assembly) components.
-ifeq ($(enable_shared),yes)
 
 lib1asmfuncs-o = $(patsubst %,%$(objext),$(LIB1ASMFUNCS))
 $(lib1asmfuncs-o): %$(objext): $(srcdir)/config/$(LIB1ASMSRC) %.vis
@@ -451,14 +449,9 @@ libgcc-objects += $(lib1asmfuncs-o)
 lib1asmfuncs-s-o = $(patsubst %,%_s$(objext),$(LIB1ASMFUNCS))
 $(lib1asmfuncs-s-o): %_s$(objext): $(srcdir)/config/$(LIB1ASMSRC)
 	$(gcc_s_compile) -DL$* -xassembler-with-cpp -c $<
+ifeq ($(enable_shared),yes)
+
 libgcc-s-objects += $(lib1asmfuncs-s-o)
-
-else
-
-lib1asmfuncs-o = $(patsubst %,%$(objext),$(LIB1ASMFUNCS))
-$(lib1asmfuncs-o): %$(objext): $(srcdir)/config/$(LIB1ASMSRC)
-	$(gcc_compile) -DL$* -xassembler-with-cpp -c $<
-libgcc-objects += $(lib1asmfuncs-o)
 
 endif
 
@@ -497,18 +490,24 @@ libgcc-s-objects += $(patsubst %,%_s$(objext),$(sifuncs) $(difuncs) $(tifuncs))
 endif
 endif
 
+ifeq ($(LIB2_DIVMOD_EXCEPTION_FLAGS),)
+# Provide default flags for compiling divmod functions, if they haven't been
+# set already by a target-specific Makefile fragment.
+LIB2_DIVMOD_EXCEPTION_FLAGS := -fexceptions -fnon-call-exceptions
+endif
+
 # Build LIB2_DIVMOD_FUNCS.
 lib2-divmod-o = $(patsubst %,%$(objext),$(LIB2_DIVMOD_FUNCS))
 $(lib2-divmod-o): %$(objext): $(srcdir)/libgcc2.c
 	$(gcc_compile) -DL$* -c $< \
-	  -fexceptions -fnon-call-exceptions $(vis_hide)
+	  $(LIB2_DIVMOD_EXCEPTION_FLAGS) $(vis_hide)
 libgcc-objects += $(lib2-divmod-o)
 
 ifeq ($(enable_shared),yes)
 lib2-divmod-s-o = $(patsubst %,%_s$(objext),$(LIB2_DIVMOD_FUNCS))
 $(lib2-divmod-s-o): %_s$(objext): $(srcdir)/libgcc2.c
 	$(gcc_s_compile) -DL$* -c $< \
-	  -fexceptions -fnon-call-exceptions
+	  $(LIB2_DIVMOD_EXCEPTION_FLAGS)
 libgcc-s-objects += $(lib2-divmod-s-o)
 endif
 
@@ -517,6 +516,10 @@ ifeq ($(TPBIT),)
 FPBIT_FUNCS := $(filter-out _sf_to_tf,$(FPBIT_FUNCS))
 DPBIT_FUNCS := $(filter-out _df_to_tf,$(DPBIT_FUNCS))
 endif
+
+FPBIT_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE),$(FPBIT_FUNCS))
+DPBIT_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE),$(DPBIT_FUNCS))
+TPBIT_FUNCS := $(filter-out $(LIB2FUNCS_EXCLUDE),$(TPBIT_FUNCS))
 
 fpbit-src := $(srcdir)/fp-bit.c
 
@@ -765,9 +768,9 @@ iter-to := $(fixed-modes)
 include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
 
 # Add arithmetic functions to list of objects to be built
-libgcc-objects += $(patsubst %,%$(objext),$(fixed-funcs))
+libgcc-objects += $(patsubst %,%$(objext),$(filter-out $(LIB2FUNCS_EXCLUDE),$(fixed-funcs)))
 ifeq ($(enable_shared),yes)
-libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-funcs))
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(filter-out $(LIB2FUNCS_EXCLUDE),$(fixed-funcs)))
 endif
 
 # Convert from or to fractional
@@ -784,9 +787,9 @@ iter-to := $(fixed-conv-to)
 include $(srcdir)/empty.mk $(patsubst %,$(srcdir)/fixed-obj.mk,$(iter-items))
 
 # Add conversion functions to list of objects to be built
-libgcc-objects += $(patsubst %,%$(objext),$(fixed-conv-funcs))
+libgcc-objects += $(patsubst %,%$(objext),$(filter-out $(LIB2FUNCS_EXCLUDE),$(fixed-conv-funcs)))
 ifeq ($(enable_shared),yes)
-libgcc-s-objects += $(patsubst %,%_s$(objext),$(fixed-conv-funcs))
+libgcc-s-objects += $(patsubst %,%_s$(objext),$(filter-out $(LIB2FUNCS_EXCLUDE),$(fixed-conv-funcs)))
 endif
 
 endif
@@ -850,7 +853,7 @@ include $(iterator)
 # Defined in libgcov.c, included only in gcov library
 LIBGCOV = _gcov _gcov_merge_add _gcov_merge_single _gcov_merge_delta \
     _gcov_fork _gcov_execl _gcov_execlp _gcov_execle \
-    _gcov_execv _gcov_execvp _gcov_execve \
+    _gcov_execv _gcov_execvp _gcov_execve _gcov_reset _gcov_dump \
     _gcov_interval_profiler _gcov_pow2_profiler _gcov_one_value_profiler \
     _gcov_indirect_call_profiler _gcov_average_profiler _gcov_ior_profiler \
     _gcov_indirect_call_profiler _gcov_direct_call_profiler \
@@ -920,7 +923,7 @@ libgcc-std.ver: $(srcdir)/libgcc-std.ver.in
 	sed -e 's/__PFX__/$(LIBGCC_VER_GNU_PREFIX)/g' \
 	    -e 's/__FIXPTPFX__/$(LIBGCC_VER_FIXEDPOINT_GNU_PREFIX)/g' < $< > $@
 
-libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts)
+libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts) libgcc.a
 	# @multilib_flags@ is still needed because this may use
 	# $(GCC_FOR_TARGET) and $(LIBGCC2_CFLAGS) directly.
 	# @multilib_dir@ is not really necessary, but sometimes it has
@@ -928,7 +931,7 @@ libgcc_s$(SHLIB_EXT): $(libgcc-s-objects) $(extra-parts)
 	$(mkinstalldirs) $(MULTIDIR)
 	$(subst @multilib_flags@,$(CFLAGS) -B./,$(subst \
 		@multilib_dir@,$(MULTIDIR),$(subst \
-		@shlib_objs@,$(objects),$(subst \
+		@shlib_objs@,$(objects) libgcc.a,$(subst \
 		@shlib_base_name@,libgcc_s,$(subst \
 		@shlib_map_file@,$(mapfile),$(subst \
 		@shlib_slibdir_qual@,$(MULTIOSSUBDIR),$(subst \
@@ -1008,13 +1011,25 @@ $(libgcc-objects) $(libgcc-s-objects) $(libgcc-eh-objects) \
 	$(libunwind-objects) $(libunwind-s-objects) \
 	$(EXTRA_PARTS): libgcc_tm.h
 
-install-unwind_h:
+# Copy unwind.h to the place where gcc will look for it at build-time
+install-unwind_h-forbuild:
 	dest=$(gcc_objdir)/include/tmp$$$$-unwind.h; \
 	cp unwind.h $$dest; \
 	chmod a+r $$dest; \
 	sh $(srcdir)/../move-if-change $$dest $(gcc_objdir)/include/unwind.h
 
-all: install-unwind_h
+# Copy unwind.h to the place where gcc will look at run-time, once installed
+#
+# This is redundant with the internal copy above when using a regular toplevel
+# "install" target, because gcc's install will copy to the destination as well.
+#
+# This is however useful for "install-no-fixincludes" case, when only the gcc
+# internal headers are copied by gcc's install.
+install-unwind_h:
+	$(mkinstalldirs) $(DESTDIR)$(libsubdir)/include
+	$(INSTALL_DATA) unwind.h $(DESTDIR)$(libsubdir)/include
+
+all: install-unwind_h-forbuild
 
 # Documentation targets (empty).
 .PHONY: info html dvi pdf install-info install-html install-pdf
@@ -1073,12 +1088,13 @@ install-leaf: $(install-shared) $(install-libunwind)
 	  esac;							\
 	done
 
-install: install-leaf
+install: install-leaf install-unwind_h
 	@: $(MAKE) ; $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
 
 install-strip: install
 
 .PHONY: install install-shared install-libunwind install-strip
+.PHONY: install-unwind_h install-unwind_h-forbuild
 
 # Don't export variables to the environment, in order to not confuse
 # configure.

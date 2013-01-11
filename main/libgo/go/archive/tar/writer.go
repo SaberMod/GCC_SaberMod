@@ -5,18 +5,20 @@
 package tar
 
 // TODO(dsymonds):
-// - catch more errors (no first header, write after close, etc.)
+// - catch more errors (no first header, etc.)
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 var (
-	ErrWriteTooLong    = errors.New("write too long")
-	ErrFieldTooLong    = errors.New("header field too long")
-	ErrWriteAfterClose = errors.New("write after close")
+	ErrWriteTooLong    = errors.New("archive/tar: write too long")
+	ErrFieldTooLong    = errors.New("archive/tar: header field too long")
+	ErrWriteAfterClose = errors.New("archive/tar: write after close")
 )
 
 // A Writer provides sequential writing of a tar archive in POSIX.1 format.
@@ -26,7 +28,7 @@ var (
 //
 // Example:
 //	tw := tar.NewWriter(w)
-//	hdr := new(Header)
+//	hdr := new(tar.Header)
 //	hdr.Size = length of data in bytes
 //	// populate other hdr fields as desired
 //	if err := tw.WriteHeader(hdr); err != nil {
@@ -48,6 +50,11 @@ func NewWriter(w io.Writer) *Writer { return &Writer{w: w} }
 
 // Flush finishes writing the current file (optional).
 func (tw *Writer) Flush() error {
+	if tw.nb > 0 {
+		tw.err = fmt.Errorf("archive/tar: missed writing %d bytes", tw.nb)
+		return tw.err
+	}
+
 	n := tw.nb + tw.pad
 	for n > 0 && tw.err == nil {
 		nr := n
@@ -104,6 +111,12 @@ func (tw *Writer) numeric(b []byte, x int64) {
 	b[0] |= 0x80 // highest bit indicates binary format
 }
 
+var (
+	minTime = time.Unix(0, 0)
+	// There is room for 11 octal digits (33 bits) of mtime.
+	maxTime = minTime.Add((1<<33 - 1) * time.Second)
+)
+
 // WriteHeader writes hdr and prepares to accept the file's contents.
 // WriteHeader calls Flush if it is not the first header.
 // Calling after a Close will return ErrWriteAfterClose.
@@ -127,19 +140,25 @@ func (tw *Writer) WriteHeader(hdr *Header) error {
 	// TODO(dsymonds): handle names longer than 100 chars
 	copy(s.next(100), []byte(hdr.Name))
 
-	tw.octal(s.next(8), hdr.Mode)              // 100:108
-	tw.numeric(s.next(8), int64(hdr.Uid))      // 108:116
-	tw.numeric(s.next(8), int64(hdr.Gid))      // 116:124
-	tw.numeric(s.next(12), hdr.Size)           // 124:136
-	tw.numeric(s.next(12), hdr.ModTime.Unix()) // 136:148
-	s.next(8)                                  // chksum (148:156)
-	s.next(1)[0] = hdr.Typeflag                // 156:157
-	tw.cString(s.next(100), hdr.Linkname)      // linkname (157:257)
-	copy(s.next(8), []byte("ustar\x0000"))     // 257:265
-	tw.cString(s.next(32), hdr.Uname)          // 265:297
-	tw.cString(s.next(32), hdr.Gname)          // 297:329
-	tw.numeric(s.next(8), hdr.Devmajor)        // 329:337
-	tw.numeric(s.next(8), hdr.Devminor)        // 337:345
+	// Handle out of range ModTime carefully.
+	var modTime int64
+	if !hdr.ModTime.Before(minTime) && !hdr.ModTime.After(maxTime) {
+		modTime = hdr.ModTime.Unix()
+	}
+
+	tw.octal(s.next(8), hdr.Mode)          // 100:108
+	tw.numeric(s.next(8), int64(hdr.Uid))  // 108:116
+	tw.numeric(s.next(8), int64(hdr.Gid))  // 116:124
+	tw.numeric(s.next(12), hdr.Size)       // 124:136
+	tw.numeric(s.next(12), modTime)        // 136:148
+	s.next(8)                              // chksum (148:156)
+	s.next(1)[0] = hdr.Typeflag            // 156:157
+	tw.cString(s.next(100), hdr.Linkname)  // linkname (157:257)
+	copy(s.next(8), []byte("ustar\x0000")) // 257:265
+	tw.cString(s.next(32), hdr.Uname)      // 265:297
+	tw.cString(s.next(32), hdr.Gname)      // 297:329
+	tw.numeric(s.next(8), hdr.Devmajor)    // 329:337
+	tw.numeric(s.next(8), hdr.Devminor)    // 337:345
 
 	// Use the GNU magic instead of POSIX magic if we used any GNU extensions.
 	if tw.usedBinary {
@@ -193,6 +212,9 @@ func (tw *Writer) Close() error {
 	}
 	tw.Flush()
 	tw.closed = true
+	if tw.err != nil {
+		return tw.err
+	}
 
 	// trailer: two zero blocks
 	for i := 0; i < 2; i++ {

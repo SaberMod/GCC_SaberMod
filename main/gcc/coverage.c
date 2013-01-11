@@ -43,10 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "coverage.h"
 #include "langhooks.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 #include "opts.h"
 #include "gcov-io.h"
 #include "tree-flow.h"
@@ -96,6 +96,13 @@ typedef struct counts_entry
   unsigned cfg_checksum;
   gcov_type *counts;
   struct gcov_ctr_summary summary;
+
+  /* hash_table support.  */
+  typedef counts_entry value_type;
+  typedef counts_entry compare_type;
+  static inline hashval_t hash (const value_type *);
+  static int equal (const value_type *, const compare_type *);
+  static void remove (value_type *);
 } counts_entry_t;
 
 static GTY(()) struct coverage_data *functions_head = 0;
@@ -116,17 +123,19 @@ static GTY(()) tree gcov_info_var;
 static GTY(()) tree gcov_fn_info_type;
 static GTY(()) tree gcov_fn_info_ptr_type;
 
-/* Name of the output file for coverage output file.  If this is NULL
-   we're not writing to the notes file.  */
+/* Name of the notes (gcno) output file.  The "bbg" prefix is for
+   historical reasons, when the notes file contained only the
+   basic block graph notes.
+   If this is NULL we're not writing to the notes file.  */
 static char *bbg_file_name;
 
-/* Name of the count data file.  */
+/* File stamp for notes file.  */
+static unsigned bbg_file_stamp;
+
+/* Name of the count data (gcda) file.  */
 static char *da_file_name;
 static char *da_base_file_name;
 static char *main_input_file_name;
-
-/* Hash table of count data.  */
-static htab_t counts_hash = NULL;
 
 /* The names of merge functions for counters.  */
 static const char *const ctr_merge_functions[GCOV_COUNTERS] = GCOV_MERGE_FUNCTIONS;
@@ -149,9 +158,6 @@ static unsigned num_cpp_includes = 0;
 static bool has_asm_statement;
 
 /* Forward declarations.  */
-static hashval_t htab_counts_entry_hash (const void *);
-static int htab_counts_entry_eq (const void *, const void *);
-static void htab_counts_entry_del (void *);
 static void read_counts_file (const char *, unsigned);
 static tree build_var (tree, tree, int);
 static void build_fn_info_type (tree, unsigned, tree);
@@ -159,9 +165,9 @@ static void build_info_type (tree, tree);
 static tree build_fn_info (const struct coverage_data *, tree, tree);
 static tree build_info (tree, tree);
 static bool coverage_obj_init (void);
-static VEC(constructor_elt,gc) *coverage_obj_fn
-(VEC(constructor_elt,gc) *, tree, struct coverage_data const *);
-static void coverage_obj_finish (VEC(constructor_elt,gc) *);
+static vec<constructor_elt, va_gc> *coverage_obj_fn
+(vec<constructor_elt, va_gc> *, tree, struct coverage_data const *);
+static void coverage_obj_finish (vec<constructor_elt, va_gc> *);
 static char * get_da_file_name (const char *);
 static tree build_gcov_module_info_type (void);
 
@@ -170,7 +176,8 @@ static tree build_gcov_module_info_type (void);
 tree
 get_gcov_type (void)
 {
-  return lang_hooks.types.type_for_size (GCOV_TYPE_SIZE, false);
+  enum machine_mode mode = smallest_mode_for_size (GCOV_TYPE_SIZE, MODE_INT);
+  return lang_hooks.types.type_for_mode (mode, false);
 }
 
 /* Return the type node for gcov_unsigned_t.  */
@@ -178,31 +185,26 @@ get_gcov_type (void)
 tree
 get_gcov_unsigned_t (void)
 {
-  return lang_hooks.types.type_for_size (32, true);
+  enum machine_mode mode = smallest_mode_for_size (32, MODE_INT);
+  return lang_hooks.types.type_for_mode (mode, true);
 }
 
-static hashval_t
-htab_counts_entry_hash (const void *of)
+inline hashval_t
+counts_entry::hash (const value_type *entry)
 {
-  const counts_entry_t *const entry = (const counts_entry_t *) of;
-
   return entry->ident * GCOV_COUNTERS + entry->ctr;
 }
 
-static int
-htab_counts_entry_eq (const void *of1, const void *of2)
+inline int
+counts_entry::equal (const value_type *entry1,
+		     const compare_type *entry2)
 {
-  const counts_entry_t *const entry1 = (const counts_entry_t *) of1;
-  const counts_entry_t *const entry2 = (const counts_entry_t *) of2;
-
   return entry1->ident == entry2->ident && entry1->ctr == entry2->ctr;
 }
 
-static void
-htab_counts_entry_del (void *of)
+inline void
+counts_entry::remove (value_type *entry)
 {
-  counts_entry_t *const entry = (counts_entry_t *) of;
-
   /* When rebuilding counts_hash, we will reuse the entry.  */
   if (!rebuilding_counts_hash)
     {
@@ -211,8 +213,10 @@ htab_counts_entry_del (void *of)
     }
 }
 
-/* Returns true if MOD_ID is the id of the last source module.  */
+/* Hash table of count data.  */
+static hash_table <counts_entry> counts_hash;
 
+/* Returns true if MOD_ID is the id of the last source module.  */
 int
 is_last_module (unsigned mod_id)
 {
@@ -221,21 +225,27 @@ is_last_module (unsigned mod_id)
 
 /* String hash function  */
 
-static hashval_t
-str_hash (const void *p)
+struct string_hasher
 {
-  const char *s = (const char *)p;
+  /* hash_table support.  */
+  typedef  char value_type;
+  typedef  char compare_type;
+  static inline hashval_t hash (const value_type *);
+  static int equal (const value_type *, const compare_type *);
+  static void remove (value_type *) {};
+};
+
+hashval_t
+string_hasher::hash (const char* s)
+{
   return htab_hash_string (s);
 }
 
 /* String equal function  */
 
-static int
-str_eq (const void *p1, const void *p2)
+int
+string_hasher::equal (const char *s1, const char *s2)
 {
-  const char *s1 = (const char *)p1;
-  const char *s2 = (const char *)p2;
-
   return !strcmp (s1, s2);
 }
 
@@ -305,7 +315,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
-  htab_t option_tab1, option_tab2;
+  hash_table <string_hasher> option_tab1, option_tab2;
   unsigned int start_index1 = mod_info1->num_quote_paths +
     mod_info1->num_bracket_paths + mod_info1->num_cpp_defines +
     mod_info1->num_cpp_includes;
@@ -329,8 +339,8 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
       cg_opts2[i] = force_matching_cg_opts[i].default_val;
     }
 
-  option_tab1 = htab_create (10, str_hash, str_eq, NULL);
-  option_tab2 = htab_create (10, str_hash, str_eq, NULL);
+  option_tab1.create (10);
+  option_tab2.create (10);
 
   /* First, separate the warning and non-warning options.  */
   for (i = 0; i < mod_info1->num_cl_args; i++)
@@ -339,12 +349,12 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
 	mod_info1->string_array[start_index1 + i];
     else
       {
-        void **slot;
+        char **slot;
         char *option_string = mod_info1->string_array[start_index1 + i];
 
         check_cg_opts (cg_opts1, option_string);
 
-        slot = htab_find_slot (option_tab1, option_string, INSERT);
+        slot = option_tab1.find_slot (option_string, INSERT);
         if (!*slot)
           {
             *slot = option_string;
@@ -358,12 +368,12 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
 	mod_info2->string_array[start_index2 + i];
     else
       {
-        void **slot;
+        char **slot;
         char *option_string = mod_info2->string_array[start_index2 + i];
 
         check_cg_opts (cg_opts2, option_string);
 
-        slot = htab_find_slot (option_tab2, option_string, INSERT);
+        slot = option_tab2.find_slot (option_string, INSERT);
         if (!*slot)
           {
             *slot = option_string;
@@ -411,8 +421,8 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
    XDELETEVEC (non_warning_opts2);
    XDELETEVEC (cg_opts1);
    XDELETEVEC (cg_opts2);
-   htab_delete (option_tab1);
-   htab_delete (option_tab2);
+   option_tab1.dispose ();
+   option_tab2.dispose ();
    return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
            || has_any_incompatible_cg_opts);
 }
@@ -470,13 +480,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
       return;
     }
 
-  /* Read and discard the stamp.  */
-  gcov_read_unsigned ();
+  /* Read the stamp, used for creating a generation count.  */
+  tag = gcov_read_unsigned ();
+  bbg_file_stamp = crc32_unsigned (bbg_file_stamp, tag);
 
-  if (!counts_hash)
-    counts_hash = htab_create (10,
-			       htab_counts_entry_hash, htab_counts_entry_eq,
-			       htab_counts_entry_del);
+  if (!counts_hash.is_created ())
+    counts_hash.create (10);
+
   while ((tag = gcov_read_unsigned ()))
     {
       gcov_unsigned_t length;
@@ -513,6 +523,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		summary.ctrs[ix].run_max = sum.ctrs[ix].run_max;
 	      summary.ctrs[ix].sum_max += sum.ctrs[ix].sum_max;
 	    }
+          if (new_summary)
+            memcpy (summary.ctrs[GCOV_COUNTER_ARCS].histogram,
+                    sum.ctrs[GCOV_COUNTER_ARCS].histogram,
+                    sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
+          else
+            gcov_histogram_merge (summary.ctrs[GCOV_COUNTER_ARCS].histogram,
+                                  sum.ctrs[GCOV_COUNTER_ARCS].histogram);
 	  new_summary = 0;
 	}
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
@@ -524,8 +541,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  elt.ident = GEN_FUNC_GLOBAL_ID (module_id, fn_ident);
 	  elt.ctr = GCOV_COUNTER_FOR_TAG (tag);
 
-	  slot = (counts_entry_t **) htab_find_slot
-	    (counts_hash, &elt, INSERT);
+	  slot = counts_hash.find_slot (&elt, INSERT);
 	  entry = *slot;
 	  if (!entry)
 	    {
@@ -534,8 +550,9 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      entry->ctr = elt.ctr;
 	      entry->lineno_checksum = lineno_checksum;
 	      entry->cfg_checksum = cfg_checksum;
-	      entry->summary = summary.ctrs[elt.ctr];
-	      entry->summary.num = n_counts;
+              if (elt.ctr < GCOV_COUNTERS_SUMMABLE)
+                entry->summary = summary.ctrs[elt.ctr];
+              entry->summary.num = n_counts;
 	      entry->counts = XCNEWVEC (gcov_type, n_counts);
 	    }
 	  else if (entry->lineno_checksum != lineno_checksum
@@ -545,14 +562,14 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      error ("checksum is (%x,%x) instead of (%x,%x)",
 		     entry->lineno_checksum, entry->cfg_checksum,
 		     lineno_checksum, cfg_checksum);
-	      htab_delete (counts_hash);
+	      counts_hash.dispose ();
 	      break;
 	    }
 	  else if (entry->summary.num != n_counts)
 	    {
 	      error ("Profile data for function %u is corrupted", fn_ident);
 	      error ("number of counters is %d instead of %d", entry->summary.num, n_counts);
-	      htab_delete (counts_hash);
+	      counts_hash.dispose ();
 	      break;
 	    }
 	  else if (elt.ctr >= GCOV_COUNTERS_SUMMABLE)
@@ -660,7 +677,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	{
 	  error (is_error < 0 ? "%qs has overflowed" : "%qs is corrupted",
 		 da_file_name);
-	  htab_delete (counts_hash);
+	  counts_hash.dispose ();
 	  break;
 	}
     }
@@ -690,7 +707,7 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
 
   elt.ident = FUNC_DECL_GLOBAL_ID (func);
   elt.ctr = counter;
-  entry = (counts_entry_t *) htab_find (counts_hash, &elt);
+  entry = counts_hash.find (&elt);
 
   return entry;
 }
@@ -705,7 +722,7 @@ get_coverage_counts (unsigned counter, unsigned expected,
   counts_entry_t *entry;
 
   /* No hash table, no counts.  */
-  if (!counts_hash)
+  if (!counts_hash.is_created ())
     {
       static int warned = 0;
 
@@ -780,12 +797,12 @@ get_coverage_counts_no_warn (struct function *f, unsigned counter, unsigned *n_c
   counts_entry_t *entry, elt;
 
   /* No hash table, no counts.  */
-  if (!counts_hash || !f)
+  if (!counts_hash.is_created () || !f)
     return NULL;
 
   elt.ident = FUNC_DECL_GLOBAL_ID (f);
   elt.ctr = counter;
-  entry = (counts_entry_t *) htab_find (counts_hash, &elt);
+  entry = counts_hash.find (&elt);
   if (!entry)
     return NULL;
 
@@ -1019,7 +1036,7 @@ coverage_compute_cfg_checksum (void)
   return chksum;
 }
 
-/* Begin output to the graph file for the current function.
+/* Begin output to the notes file for the current function.
    Writes the function header. Returns nonzero if data should be output.  */
 
 int
@@ -1276,8 +1293,8 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
   tree fields = TYPE_FIELDS (type);
   tree ctr_type;
   unsigned ix;
-  VEC(constructor_elt,gc) *v1 = NULL;
-  VEC(constructor_elt,gc) *v2 = NULL;
+  vec<constructor_elt, va_gc> *v1 = NULL;
+  vec<constructor_elt, va_gc> *v2 = NULL;
 
   /* key */
   CONSTRUCTOR_APPEND_ELT (v1, fields,
@@ -1307,7 +1324,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
   for (ix = 0; ix != GCOV_COUNTERS; ix++)
     if (prg_ctr_mask & (1 << ix))
       {
-	VEC(constructor_elt,gc) *ctr = NULL;
+	vec<constructor_elt, va_gc> *ctr = NULL;
 	tree var = data->ctr_vars[ix];
 	unsigned count = 0;
 
@@ -1326,14 +1343,11 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
 	
 	CONSTRUCTOR_APPEND_ELT (v2, NULL, build_constructor (ctr_type, ctr));
 
-        /* In LIPO mode, coverage_finish is called late when pruning can not be done,
-           so we need to force emitting counter variables even for eliminated functions
-           to avoid unsat.  */
+        /* In LIPO mode, coverage_finish is called late when pruning can not be
+         * done, so we need to force emitting counter variables even for
+         * eliminated functions to avoid unsat.  */
         if (flag_dyn_ipa && var)
-          {
-            varpool_mark_needed_node (varpool_node (var));
-            varpool_finalize_decl (var);
-          }
+          varpool_finalize_decl (var);
       }
   
   CONSTRUCTOR_APPEND_ELT (v1, fields,
@@ -1426,7 +1440,7 @@ build_info_type (tree type, tree fn_info_ptr_type)
    number of paths.  */
 
 static void
-build_inc_path_array_value (tree string_type, VEC(constructor_elt, gc) **v,
+build_inc_path_array_value (tree string_type, vec<constructor_elt, va_gc> **v,
                             cpp_dir *paths, int num)
 {
   int i;
@@ -1453,7 +1467,7 @@ build_inc_path_array_value (tree string_type, VEC(constructor_elt, gc) **v,
    the list of raw strings.  */
 
 static void
-build_str_array_value (tree str_type, VEC(constructor_elt, gc) **v,
+build_str_array_value (tree str_type, vec<constructor_elt, va_gc> **v,
                        struct str_list *head)
 {
   const char *raw_str;
@@ -1480,7 +1494,7 @@ build_str_array_value (tree str_type, VEC(constructor_elt, gc) **v,
    args array. */
 
 static void
-build_cl_args_array_value (tree string_type, VEC(constructor_elt, gc) **v)
+build_cl_args_array_value (tree string_type, vec<constructor_elt, va_gc> **v)
 {
   unsigned int i;
 
@@ -1628,7 +1642,7 @@ build_gcov_module_info_value (tree mod_type)
   int num_quote_paths = 0, num_bracket_paths = 0;
   unsigned lang;
   char name_buf[50];
-  VEC(constructor_elt,gc) *v = NULL, *path_v = NULL;
+  vec<constructor_elt,va_gc> *v = NULL, *path_v = NULL;
 
   info_fields = TYPE_FIELDS (mod_type);
 
@@ -1775,8 +1789,8 @@ build_info (tree info_type, tree fn_ary)
   tree mod_value = NULL_TREE;
   tree filename_string;
   int da_file_name_len;
-  VEC(constructor_elt,gc) *v1 = NULL;
-  VEC(constructor_elt,gc) *v2 = NULL;
+  vec<constructor_elt, va_gc> *v1 = NULL;
+  vec<constructor_elt, va_gc> *v2 = NULL;
 
   /* Version ident */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
@@ -1786,7 +1800,9 @@ build_info (tree info_type, tree fn_ary)
 
   /* mod_info */
   mod_value = build_gcov_module_info_value (TREE_TYPE (TREE_TYPE (info_fields)));
-  mod_value = build1 (ADDR_EXPR, TREE_TYPE (mod_value), mod_value);
+  mod_value = build1 (ADDR_EXPR,
+          build_pointer_type (TREE_TYPE (mod_value)),
+          mod_value);
   CONSTRUCTOR_APPEND_ELT (v1, info_fields, mod_value);
   info_fields = DECL_CHAIN (info_fields);
 
@@ -1797,7 +1813,7 @@ build_info (tree info_type, tree fn_ary)
   /* stamp */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
 			  build_int_cstu (TREE_TYPE (info_fields),
-					  local_tick));
+					  bbg_file_stamp));
   info_fields = DECL_CHAIN (info_fields);
 
   /* Filename */
@@ -1890,6 +1906,9 @@ coverage_obj_init (void)
         /* The function is not being emitted, remove from list.  */
         *fn_prev = fn->next;
 
+  if (functions_head == NULL)
+    return false;
+
   for (ix = 0; ix != GCOV_COUNTERS; ix++)
     if ((1u << ix) & prg_ctr_mask)
       n_counters++;
@@ -1934,8 +1953,8 @@ coverage_obj_init (void)
 /* Generate the coverage function info for FN and DATA.  Append a
    pointer to that object to CTOR and return the appended CTOR.  */
 
-static VEC(constructor_elt,gc) *
-coverage_obj_fn (VEC(constructor_elt,gc) *ctor, tree fn,
+static vec<constructor_elt, va_gc> *
+coverage_obj_fn (vec<constructor_elt, va_gc> *ctor, tree fn,
 		 struct coverage_data const *data)
 {
   tree init = build_fn_info (data, gcov_fn_info_type, gcov_info_var);
@@ -1953,9 +1972,9 @@ coverage_obj_fn (VEC(constructor_elt,gc) *ctor, tree fn,
    function objects from CTOR.  Generate the gcov_info initializer.  */
 
 static void
-coverage_obj_finish (VEC(constructor_elt,gc) *ctor)
+coverage_obj_finish (vec<constructor_elt, va_gc> *ctor)
 {
-  unsigned n_functions = VEC_length(constructor_elt, ctor);
+  unsigned n_functions = vec_safe_length (ctor);
   tree fn_info_ary_type = build_array_type
     (build_qualified_type (gcov_fn_info_ptr_type, TYPE_QUAL_CONST),
      build_index_type (size_int (n_functions - 1)));
@@ -2020,18 +2039,33 @@ get_da_file_name (const char *base_file_name)
   return da_file_name;
 }
 
+/* Callback to move counts_entry from one hash table to
+   the target hashtable  */
+
+int
+move_hash_entry_callback (counts_entry **x, 
+                          hash_table <counts_entry> *target_counts_hash)
+{
+  counts_entry *entry = *x;
+  counts_entry **slot;
+  slot = target_counts_hash->find_slot (entry, INSERT);
+  *slot = entry;
+  return 1;
+}
+
 /* Rebuild counts_hash already built the primary module. This hashtable
    was built with a module-id of zero. It needs to be rebuilt taking the
    correct primary module-id into account.  */
 
-static int
-rebuild_counts_hash_entry (void **x, void *y)
+int
+rehash_callback (counts_entry **x,
+                 hash_table <counts_entry> *target_counts_hash)
 {
-  counts_entry_t *entry = (counts_entry_t *) *x;
-  htab_t *new_counts_hash = (htab_t *) y;
-  counts_entry_t **slot;
+  counts_entry *entry = *x;
+  counts_entry **slot;
+
   entry->ident = GEN_FUNC_GLOBAL_ID (primary_module_id, entry->ident);
-  slot = (counts_entry_t **) htab_find_slot (*new_counts_hash, entry, INSERT);
+  slot = target_counts_hash->find_slot (entry, INSERT);
   *slot = entry;
   return 1;
 }
@@ -2043,15 +2077,25 @@ rebuild_counts_hash_entry (void **x, void *y)
 static void
 rebuild_counts_hash (void)
 {
-  htab_t new_counts_hash =
-    htab_create (10, htab_counts_entry_hash, htab_counts_entry_eq,
-		 htab_counts_entry_del);
+  hash_table <counts_entry> tmp_counts_hash;
+  tmp_counts_hash.create (10);
   gcc_assert (primary_module_id);
+
   rebuilding_counts_hash = true;
-  htab_traverse_noresize (counts_hash, rebuild_counts_hash_entry, &new_counts_hash);
-  htab_delete (counts_hash);
+
+  /* Move the counts entries to the temporary hashtable. */
+  counts_hash.traverse_noresize <
+    hash_table <counts_entry> *,
+    move_hash_entry_callback> (&tmp_counts_hash);
+  counts_hash.empty ();
+
+  /* Now rehash and copy back.  */
+  tmp_counts_hash.traverse_noresize <
+    hash_table <counts_entry> *,
+    rehash_callback> (&counts_hash);
+  tmp_counts_hash.dispose();
+
   rebuilding_counts_hash = false;
-  counts_hash = new_counts_hash;
 }
 
 /* Add the module information record for the module with id
@@ -2244,7 +2288,7 @@ coverage_init (const char *filename, const char* source_name)
 	{
 	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
 	  gcov_write_unsigned (GCOV_VERSION);
-	  gcov_write_unsigned (local_tick);
+	  gcov_write_unsigned (bbg_file_stamp);
 	}
     }
 
@@ -2304,15 +2348,16 @@ coverage_finish (void)
 {
   if (bbg_file_name && gcov_close ())
     unlink (bbg_file_name);
-  
-  if (!local_tick || local_tick == (unsigned)-1)
-    /* Only remove the da file, if we cannot stamp it.  If we can
-       stamp it, libgcov will DTRT.  */
+
+  if (!flag_branch_probabilities && flag_test_coverage
+      && (!local_tick || local_tick == (unsigned)-1))
+    /* Only remove the da file, if we're emitting coverage code and
+       cannot uniquely stamp it.  If we can stamp it, libgcov will DTRT.  */
     unlink (da_file_name);
 
   if (coverage_obj_init ())
     {
-      VEC(constructor_elt,gc) *fn_ctor = NULL;
+      vec<constructor_elt, va_gc> *fn_ctor = NULL;
       struct coverage_data *fn;
       
       for (fn = functions_head; fn; fn = fn->next)

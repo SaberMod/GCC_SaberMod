@@ -5,10 +5,14 @@
 package xml
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 type DriveType int
@@ -38,14 +42,14 @@ type NamedType string
 
 type Port struct {
 	XMLName struct{} `xml:"port"`
-	Type    string   `xml:"type,attr"`
+	Type    string   `xml:"type,attr,omitempty"`
 	Comment string   `xml:",comment"`
 	Number  string   `xml:",chardata"`
 }
 
 type Domain struct {
 	XMLName struct{} `xml:"domain"`
-	Country string   `xml:",attr"`
+	Country string   `xml:",attr,omitempty"`
 	Name    []byte   `xml:",chardata"`
 	Comment []byte   `xml:",comment"`
 }
@@ -107,7 +111,7 @@ type EmbedA struct {
 
 type EmbedB struct {
 	FieldB string
-	EmbedC
+	*EmbedC
 }
 
 type EmbedC struct {
@@ -135,12 +139,12 @@ type NamePrecedence struct {
 
 type XMLNameWithTag struct {
 	XMLName Name   `xml:"InXMLNameTag"`
-	Value   string ",chardata"
+	Value   string `xml:",chardata"`
 }
 
 type XMLNameWithoutTag struct {
 	XMLName Name
-	Value   string ",chardata"
+	Value   string `xml:",chardata"`
 }
 
 type NameInField struct {
@@ -149,11 +153,33 @@ type NameInField struct {
 
 type AttrTest struct {
 	Int   int     `xml:",attr"`
-	Lower int     `xml:"int,attr"`
+	Named int     `xml:"int,attr"`
 	Float float64 `xml:",attr"`
 	Uint8 uint8   `xml:",attr"`
 	Bool  bool    `xml:",attr"`
 	Str   string  `xml:",attr"`
+	Bytes []byte  `xml:",attr"`
+}
+
+type OmitAttrTest struct {
+	Int   int     `xml:",attr,omitempty"`
+	Named int     `xml:"int,attr,omitempty"`
+	Float float64 `xml:",attr,omitempty"`
+	Uint8 uint8   `xml:",attr,omitempty"`
+	Bool  bool    `xml:",attr,omitempty"`
+	Str   string  `xml:",attr,omitempty"`
+	Bytes []byte  `xml:",attr,omitempty"`
+}
+
+type OmitFieldTest struct {
+	Int   int           `xml:",omitempty"`
+	Named int           `xml:"int,omitempty"`
+	Float float64       `xml:",omitempty"`
+	Uint8 uint8         `xml:",omitempty"`
+	Bool  bool          `xml:",omitempty"`
+	Str   string        `xml:",omitempty"`
+	Bytes []byte        `xml:",omitempty"`
+	Ptr   *PresenceTest `xml:",omitempty"`
 }
 
 type AnyTest struct {
@@ -233,6 +259,12 @@ var marshalTests = []struct {
 	{Value: &Plain{NamedType("potato")}, ExpectXML: `<Plain><V>potato</V></Plain>`},
 	{Value: &Plain{[]int{1, 2, 3}}, ExpectXML: `<Plain><V>1</V><V>2</V><V>3</V></Plain>`},
 	{Value: &Plain{[3]int{1, 2, 3}}, ExpectXML: `<Plain><V>1</V><V>2</V><V>3</V></Plain>`},
+
+	// Test time.
+	{
+		Value:     &Plain{time.Unix(1e9, 123456789).UTC()},
+		ExpectXML: `<Plain><V>2001-09-09T01:46:40.123456789Z</V></Plain>`,
+	},
 
 	// A pointer to struct{} may be used to test for an element's presence.
 	{
@@ -464,7 +496,7 @@ var marshalTests = []struct {
 			},
 			EmbedB: EmbedB{
 				FieldB: "A.B.B",
-				EmbedC: EmbedC{
+				EmbedC: &EmbedC{
 					FieldA1: "A.B.C.A1",
 					FieldA2: "A.B.C.A2",
 					FieldB:  "", // Shadowed by A.B.B
@@ -503,9 +535,9 @@ var marshalTests = []struct {
 			InFieldName: "D",
 		},
 		ExpectXML: `<Parent>` +
-			`<InTag><Value>A</Value></InTag>` +
-			`<InXMLName><Value>B</Value></InXMLName>` +
-			`<InXMLNameTag><Value>C</Value></InXMLNameTag>` +
+			`<InTag>A</InTag>` +
+			`<InXMLName>B</InXMLName>` +
+			`<InXMLNameTag>C</InXMLNameTag>` +
 			`<InFieldName>D</InFieldName>` +
 			`</Parent>`,
 		MarshalOnly: true,
@@ -519,9 +551,9 @@ var marshalTests = []struct {
 			InFieldName: "D",
 		},
 		ExpectXML: `<Parent>` +
-			`<InTag><Value>A</Value></InTag>` +
-			`<FromNameVal><Value>B</Value></FromNameVal>` +
-			`<InXMLNameTag><Value>C</Value></InXMLNameTag>` +
+			`<InTag>A</InTag>` +
+			`<FromNameVal>B</FromNameVal>` +
+			`<InXMLNameTag>C</InXMLNameTag>` +
 			`<InFieldName>D</InFieldName>` +
 			`</Parent>`,
 		UnmarshalOnly: true,
@@ -549,13 +581,65 @@ var marshalTests = []struct {
 	{
 		Value: &AttrTest{
 			Int:   8,
-			Lower: 9,
+			Named: 9,
 			Float: 23.5,
 			Uint8: 255,
 			Bool:  true,
-			Str:   "s",
+			Str:   "str",
+			Bytes: []byte("byt"),
 		},
-		ExpectXML: `<AttrTest Int="8" int="9" Float="23.5" Uint8="255" Bool="true" Str="s"></AttrTest>`,
+		ExpectXML: `<AttrTest Int="8" int="9" Float="23.5" Uint8="255"` +
+			` Bool="true" Str="str" Bytes="byt"></AttrTest>`,
+	},
+	{
+		Value: &AttrTest{Bytes: []byte{}},
+		ExpectXML: `<AttrTest Int="0" int="0" Float="0" Uint8="0"` +
+			` Bool="false" Str="" Bytes=""></AttrTest>`,
+	},
+	{
+		Value: &OmitAttrTest{
+			Int:   8,
+			Named: 9,
+			Float: 23.5,
+			Uint8: 255,
+			Bool:  true,
+			Str:   "str",
+			Bytes: []byte("byt"),
+		},
+		ExpectXML: `<OmitAttrTest Int="8" int="9" Float="23.5" Uint8="255"` +
+			` Bool="true" Str="str" Bytes="byt"></OmitAttrTest>`,
+	},
+	{
+		Value:     &OmitAttrTest{},
+		ExpectXML: `<OmitAttrTest></OmitAttrTest>`,
+	},
+
+	// omitempty on fields
+	{
+		Value: &OmitFieldTest{
+			Int:   8,
+			Named: 9,
+			Float: 23.5,
+			Uint8: 255,
+			Bool:  true,
+			Str:   "str",
+			Bytes: []byte("byt"),
+			Ptr:   &PresenceTest{},
+		},
+		ExpectXML: `<OmitFieldTest>` +
+			`<Int>8</Int>` +
+			`<int>9</int>` +
+			`<Float>23.5</Float>` +
+			`<Uint8>255</Uint8>` +
+			`<Bool>true</Bool>` +
+			`<Str>str</Str>` +
+			`<Bytes>byt</Bytes>` +
+			`<Ptr></Ptr>` +
+			`</OmitFieldTest>`,
+	},
+	{
+		Value:     &OmitFieldTest{},
+		ExpectXML: `<OmitFieldTest></OmitFieldTest>`,
 	},
 
 	// Test ",any"
@@ -601,6 +685,27 @@ var marshalTests = []struct {
 	{
 		ExpectXML:     `<IgnoreTest><PublicSecret>ignore me</PublicSecret></IgnoreTest>`,
 		Value:         &IgnoreTest{},
+		UnmarshalOnly: true,
+	},
+
+	// Test escaping.
+	{
+		ExpectXML: `<a><nested><value>dquote: &#34;; squote: &#39;; ampersand: &amp;; less: &lt;; greater: &gt;;</value></nested></a>`,
+		Value: &AnyTest{
+			Nested: `dquote: "; squote: '; ampersand: &; less: <; greater: >;`,
+		},
+	},
+	{
+		ExpectXML: `<a><nested><value>newline: &#xA;; cr: &#xD;; tab: &#x9;;</value></nested></a>`,
+		Value: &AnyTest{
+			Nested: "newline: \n; cr: \r; tab: \t;",
+		},
+	},
+	{
+		ExpectXML: "<a><nested><value>1\r2\r\n3\n\r4\n5</value></nested></a>",
+		Value: &AnyTest{
+			Nested: "1\n2\n3\n\n4\n5",
+		},
 		UnmarshalOnly: true,
 	},
 }
@@ -695,6 +800,55 @@ func TestUnmarshal(t *testing.T) {
 		} else if got, want := dest, test.Value; !reflect.DeepEqual(got, want) {
 			t.Errorf("#%d: unmarshal(%q):\nhave %#v\nwant %#v", i, test.ExpectXML, got, want)
 		}
+	}
+}
+
+type limitedBytesWriter struct {
+	w      io.Writer
+	remain int // until writes fail
+}
+
+func (lw *limitedBytesWriter) Write(p []byte) (n int, err error) {
+	if lw.remain <= 0 {
+		println("error")
+		return 0, errors.New("write limit hit")
+	}
+	if len(p) > lw.remain {
+		p = p[:lw.remain]
+		n, _ = lw.w.Write(p)
+		lw.remain = 0
+		return n, errors.New("write limit hit")
+	}
+	n, err = lw.w.Write(p)
+	lw.remain -= n
+	return n, err
+}
+
+func TestMarshalWriteErrors(t *testing.T) {
+	var buf bytes.Buffer
+	const writeCap = 1024
+	w := &limitedBytesWriter{&buf, writeCap}
+	enc := NewEncoder(w)
+	var err error
+	var i int
+	const n = 4000
+	for i = 1; i <= n; i++ {
+		err = enc.Encode(&Passenger{
+			Name:   []string{"Alice", "Bob"},
+			Weight: 5,
+		})
+		if err != nil {
+			break
+		}
+	}
+	if err == nil {
+		t.Error("expected an error")
+	}
+	if i == n {
+		t.Errorf("expected to fail before the end")
+	}
+	if buf.Len() != writeCap {
+		t.Errorf("buf.Len() = %d; want %d", buf.Len(), writeCap)
 	}
 }
 

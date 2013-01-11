@@ -25,12 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "output.h"
-#include "tree-pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-flow.h"
-#include "tree-dump.h"
-#include "timevar.h"
 #include "cfgloop.h"
 #include "domwalk.h"
 #include "params.h"
@@ -52,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 	 }
      }
 
-   Where COND and INV are is invariants, but evaluating INV may trap or be
+   Where COND and INV are invariants, but evaluating INV may trap or be
    invalid from some other reason if !COND.  This may be transformed to
 
    if (cond)
@@ -109,18 +105,14 @@ typedef struct mem_ref_loc
   gimple stmt;			/* The statement in that it occurs.  */
 } *mem_ref_loc_p;
 
-DEF_VEC_P(mem_ref_loc_p);
-DEF_VEC_ALLOC_P(mem_ref_loc_p, heap);
 
 /* The list of memory reference locations in a loop.  */
 
 typedef struct mem_ref_locs
 {
-  VEC (mem_ref_loc_p, heap) *locs;
+  vec<mem_ref_loc_p> locs;
 } *mem_ref_locs_p;
 
-DEF_VEC_P(mem_ref_locs_p);
-DEF_VEC_ALLOC_P(mem_ref_locs_p, heap);
 
 /* Description of a memory reference.  */
 
@@ -132,7 +124,7 @@ typedef struct mem_ref
   hashval_t hash;		/* Its hash value.  */
   bitmap stored;		/* The set of loops in that this memory location
 				   is stored to.  */
-  VEC (mem_ref_locs_p, heap) *accesses_in_loop;
+  vec<mem_ref_locs_p> accesses_in_loop;
 				/* The locations of the accesses.  Vector
 				   indexed by the loop number.  */
 
@@ -153,14 +145,8 @@ typedef struct mem_ref
   bitmap dep_ref;		/* The complement of INDEP_REF.  */
 } *mem_ref_p;
 
-DEF_VEC_P(mem_ref_p);
-DEF_VEC_ALLOC_P(mem_ref_p, heap);
 
-DEF_VEC_P(bitmap);
-DEF_VEC_ALLOC_P(bitmap, heap);
 
-DEF_VEC_P(htab_t);
-DEF_VEC_ALLOC_P(htab_t, heap);
 
 /* Description of memory accesses in loops.  */
 
@@ -170,22 +156,25 @@ static struct
   htab_t refs;
 
   /* The list of memory references.  */
-  VEC (mem_ref_p, heap) *refs_list;
+  vec<mem_ref_p> refs_list;
 
   /* The set of memory references accessed in each loop.  */
-  VEC (bitmap, heap) *refs_in_loop;
+  vec<bitmap> refs_in_loop;
 
   /* The set of memory references accessed in each loop, including
      subloops.  */
-  VEC (bitmap, heap) *all_refs_in_loop;
+  vec<bitmap> all_refs_in_loop;
 
   /* The set of memory references stored in each loop, including
      subloops.  */
-  VEC (bitmap, heap) *all_refs_stored_in_loop;
+  vec<bitmap> all_refs_stored_in_loop;
 
   /* Cache for expanding memory addresses.  */
   struct pointer_map_t *ttae_cache;
 } memory_accesses;
+
+/* Obstack for the bitmaps in the above data structures.  */
+static bitmap_obstack lim_bitmap_obstack;
 
 static bool ref_indep_loop_p (struct loop *, mem_ref_p);
 
@@ -302,6 +291,7 @@ for_each_index (tree *addr_p, bool (*cbck) (tree, tree *, void *), void *data)
 
 	case VAR_DECL:
 	case PARM_DECL:
+	case CONST_DECL:
 	case STRING_CST:
 	case RESULT_DECL:
 	case VECTOR_CST:
@@ -360,7 +350,7 @@ movement_possibility (gimple stmt)
 
   if (gimple_code (stmt) == GIMPLE_PHI
       && gimple_phi_num_args (stmt) <= 2
-      && is_gimple_reg (gimple_phi_result (stmt))
+      && !virtual_operand_p (gimple_phi_result (stmt))
       && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_phi_result (stmt)))
     return MOVE_POSSIBLE;
 
@@ -639,29 +629,22 @@ outermost_indep_loop (struct loop *outer, struct loop *loop, mem_ref_p ref)
 static tree *
 simple_mem_ref_in_stmt (gimple stmt, bool *is_store)
 {
-  tree *lhs;
-  enum tree_code code;
+  tree *lhs, *rhs;
 
-  /* Recognize MEM = (SSA_NAME | invariant) and SSA_NAME = MEM patterns.  */
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  /* Recognize SSA_NAME = MEM and MEM = (SSA_NAME | invariant) patterns.  */
+  if (!gimple_assign_single_p (stmt))
     return NULL;
 
-  code = gimple_assign_rhs_code (stmt);
-
   lhs = gimple_assign_lhs_ptr (stmt);
+  rhs = gimple_assign_rhs1_ptr (stmt);
 
-  if (TREE_CODE (*lhs) == SSA_NAME)
+  if (TREE_CODE (*lhs) == SSA_NAME && gimple_vuse (stmt))
     {
-      if (get_gimple_rhs_class (code) != GIMPLE_SINGLE_RHS
-	  || !is_gimple_addressable (gimple_assign_rhs1 (stmt)))
-	return NULL;
-
       *is_store = false;
-      return gimple_assign_rhs1_ptr (stmt);
+      return rhs;
     }
-  else if (code == SSA_NAME
-	   || (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS
-	       && is_gimple_min_invariant (gimple_assign_rhs1 (stmt))))
+  else if (gimple_vdef (stmt)
+	   && (TREE_CODE (*rhs) == SSA_NAME || is_gimple_min_invariant (*rhs)))
     {
       *is_store = true;
       return lhs;
@@ -938,7 +921,7 @@ static gimple
 rewrite_reciprocal (gimple_stmt_iterator *bsi)
 {
   gimple stmt, stmt1, stmt2;
-  tree var, name, lhs, type;
+  tree name, lhs, type;
   tree real_one;
   gimple_stmt_iterator gsi;
 
@@ -946,16 +929,11 @@ rewrite_reciprocal (gimple_stmt_iterator *bsi)
   lhs = gimple_assign_lhs (stmt);
   type = TREE_TYPE (lhs);
 
-  var = create_tmp_var (type, "reciptmp");
-  add_referenced_var (var);
-  DECL_GIMPLE_REG_P (var) = 1;
-
   real_one = build_one_cst (type);
 
-  stmt1 = gimple_build_assign_with_ops (RDIV_EXPR,
-		var, real_one, gimple_assign_rhs2 (stmt));
-  name = make_ssa_name (var, stmt1);
-  gimple_assign_set_lhs (stmt1, name);
+  name = make_temp_ssa_name (type, NULL, "reciptmp");
+  stmt1 = gimple_build_assign_with_ops (RDIV_EXPR, name, real_one,
+					gimple_assign_rhs2 (stmt));
 
   stmt2 = gimple_build_assign_with_ops (MULT_EXPR, lhs, name,
 					gimple_assign_rhs1 (stmt));
@@ -978,7 +956,7 @@ static gimple
 rewrite_bittest (gimple_stmt_iterator *bsi)
 {
   gimple stmt, use_stmt, stmt1, stmt2;
-  tree lhs, var, name, t, a, b;
+  tree lhs, name, t, a, b;
   use_operand_p use;
 
   stmt = gsi_stmt (*bsi);
@@ -1027,19 +1005,15 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       gimple_stmt_iterator rsi;
 
       /* 1 << B */
-      var = create_tmp_var (TREE_TYPE (a), "shifttmp");
-      add_referenced_var (var);
       t = fold_build2 (LSHIFT_EXPR, TREE_TYPE (a),
 		       build_int_cst (TREE_TYPE (a), 1), b);
-      stmt1 = gimple_build_assign (var, t);
-      name = make_ssa_name (var, stmt1);
-      gimple_assign_set_lhs (stmt1, name);
+      name = make_temp_ssa_name (TREE_TYPE (a), NULL, "shifttmp");
+      stmt1 = gimple_build_assign (name, t);
 
       /* A & (1 << B) */
       t = fold_build2 (BIT_AND_EXPR, TREE_TYPE (a), a, name);
-      stmt2 = gimple_build_assign (var, t);
-      name = make_ssa_name (var, stmt2);
-      gimple_assign_set_lhs (stmt2, name);
+      name = make_temp_ssa_name (TREE_TYPE (a), NULL, "shifttmp");
+      stmt2 = gimple_build_assign (name, t);
 
       /* Replace the SSA_NAME we compare against zero.  Adjust
 	 the type of zero accordingly.  */
@@ -1283,9 +1257,9 @@ move_computations_stmt (struct dom_walk_data *dw_data,
 	  gcc_assert (arg0 && arg1);
 	  t = build2 (gimple_cond_code (cond), boolean_type_node,
 		      gimple_cond_lhs (cond), gimple_cond_rhs (cond));
-	  new_stmt = gimple_build_assign_with_ops3 (COND_EXPR,
-						    gimple_phi_result (stmt),
-						    t, arg0, arg1);
+	  new_stmt = gimple_build_assign_with_ops (COND_EXPR,
+						   gimple_phi_result (stmt),
+						   t, arg0, arg1);
 	  SSA_NAME_DEF_STMT (gimple_phi_result (stmt)) = new_stmt;
 	  *((unsigned int *)(dw_data->global_data)) |= TODO_cleanup_cfg;
 	}
@@ -1295,6 +1269,8 @@ move_computations_stmt (struct dom_walk_data *dw_data,
 
   for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); )
     {
+      edge e;
+
       stmt = gsi_stmt (bsi);
 
       lim_data = get_lim_data (stmt);
@@ -1327,9 +1303,26 @@ move_computations_stmt (struct dom_walk_data *dw_data,
 		   cost, level->num);
 	}
 
-      mark_virtual_ops_for_renaming (stmt);
-      gsi_insert_on_edge (loop_preheader_edge (level), stmt);
+      e = loop_preheader_edge (level);
+      gcc_assert (!gimple_vdef (stmt));
+      if (gimple_vuse (stmt))
+	{
+	  /* The new VUSE is the one from the virtual PHI in the loop
+	     header or the one already present.  */
+	  gimple_stmt_iterator gsi2;
+	  for (gsi2 = gsi_start_phis (e->dest);
+	       !gsi_end_p (gsi2); gsi_next (&gsi2))
+	    {
+	      gimple phi = gsi_stmt (gsi2);
+	      if (virtual_operand_p (gimple_phi_result (phi)))
+		{
+		  gimple_set_vuse (stmt, PHI_ARG_DEF_FROM_EDGE (phi, e));
+		  break;
+		}
+	    }
+	}
       gsi_remove (&bsi, false);
+      gsi_insert_on_edge (e, stmt);
     }
 }
 
@@ -1471,30 +1464,23 @@ free_mem_ref_locs (mem_ref_locs_p accs)
   if (!accs)
     return;
 
-  FOR_EACH_VEC_ELT (mem_ref_loc_p, accs->locs, i, loc)
+  FOR_EACH_VEC_ELT (accs->locs, i, loc)
     free (loc);
-  VEC_free (mem_ref_loc_p, heap, accs->locs);
+  accs->locs.release ();
   free (accs);
 }
 
 /* A function to free the mem_ref object OBJ.  */
 
 static void
-memref_free (void *obj)
+memref_free (struct mem_ref *mem)
 {
-  struct mem_ref *const mem = (struct mem_ref *) obj;
   unsigned i;
   mem_ref_locs_p accs;
 
-  BITMAP_FREE (mem->stored);
-  BITMAP_FREE (mem->indep_loop);
-  BITMAP_FREE (mem->dep_loop);
-  BITMAP_FREE (mem->indep_ref);
-  BITMAP_FREE (mem->dep_ref);
-
-  FOR_EACH_VEC_ELT (mem_ref_locs_p, mem->accesses_in_loop, i, accs)
+  FOR_EACH_VEC_ELT (mem->accesses_in_loop, i, accs)
     free_mem_ref_locs (accs);
-  VEC_free (mem_ref_locs_p, heap, mem->accesses_in_loop);
+  mem->accesses_in_loop.release ();
 
   free (mem);
 }
@@ -1509,12 +1495,12 @@ mem_ref_alloc (tree mem, unsigned hash, unsigned id)
   ref->mem = mem;
   ref->id = id;
   ref->hash = hash;
-  ref->stored = BITMAP_ALLOC (NULL);
-  ref->indep_loop = BITMAP_ALLOC (NULL);
-  ref->dep_loop = BITMAP_ALLOC (NULL);
-  ref->indep_ref = BITMAP_ALLOC (NULL);
-  ref->dep_ref = BITMAP_ALLOC (NULL);
-  ref->accesses_in_loop = NULL;
+  ref->stored = BITMAP_ALLOC (&lim_bitmap_obstack);
+  ref->indep_loop = BITMAP_ALLOC (&lim_bitmap_obstack);
+  ref->dep_loop = BITMAP_ALLOC (&lim_bitmap_obstack);
+  ref->indep_ref = BITMAP_ALLOC (&lim_bitmap_obstack);
+  ref->dep_ref = BITMAP_ALLOC (&lim_bitmap_obstack);
+  ref->accesses_in_loop.create (0);
 
   return ref;
 }
@@ -1525,7 +1511,7 @@ static mem_ref_locs_p
 mem_ref_locs_alloc (void)
 {
   mem_ref_locs_p accs = XNEW (struct mem_ref_locs);
-  accs->locs = NULL;
+  accs->locs.create (0);
   return accs;
 }
 
@@ -1537,23 +1523,22 @@ record_mem_ref_loc (mem_ref_p ref, struct loop *loop, gimple stmt, tree *loc)
 {
   mem_ref_loc_p aref = XNEW (struct mem_ref_loc);
   mem_ref_locs_p accs;
-  bitmap ril = VEC_index (bitmap, memory_accesses.refs_in_loop, loop->num);
+  bitmap ril = memory_accesses.refs_in_loop[loop->num];
 
-  if (VEC_length (mem_ref_locs_p, ref->accesses_in_loop)
+  if (ref->accesses_in_loop.length ()
       <= (unsigned) loop->num)
-    VEC_safe_grow_cleared (mem_ref_locs_p, heap, ref->accesses_in_loop,
-			   loop->num + 1);
-  accs = VEC_index (mem_ref_locs_p, ref->accesses_in_loop, loop->num);
+    ref->accesses_in_loop.safe_grow_cleared (loop->num + 1);
+  accs = ref->accesses_in_loop[loop->num];
   if (!accs)
     {
       accs = mem_ref_locs_alloc ();
-      VEC_replace (mem_ref_locs_p, ref->accesses_in_loop, loop->num, accs);
+      ref->accesses_in_loop[loop->num] = accs;
     }
 
   aref->stmt = stmt;
   aref->ref = loc;
 
-  VEC_safe_push (mem_ref_loc_p, heap, accs->locs, aref);
+  accs->locs.safe_push (aref);
   bitmap_set_bit (ril, ref->id);
 }
 
@@ -1590,9 +1575,9 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
   mem = simple_mem_ref_in_stmt (stmt, &is_stored);
   if (!mem)
     {
-      id = VEC_length (mem_ref_p, memory_accesses.refs_list);
+      id = memory_accesses.refs_list.length ();
       ref = mem_ref_alloc (error_mark_node, 0, id);
-      VEC_safe_push (mem_ref_p, heap, memory_accesses.refs_list, ref);
+      memory_accesses.refs_list.safe_push (ref);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Unanalyzed memory reference %u: ", id);
@@ -1614,9 +1599,9 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
     }
   else
     {
-      id = VEC_length (mem_ref_p, memory_accesses.refs_list);
+      id = memory_accesses.refs_list.length ();
       ref = mem_ref_alloc (*mem, hash, id);
-      VEC_safe_push (mem_ref_p, heap, memory_accesses.refs_list, ref);
+      memory_accesses.refs_list.safe_push (ref);
       *slot = ref;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1626,6 +1611,7 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
 	  fprintf (dump_file, "\n");
 	}
     }
+
   if (is_stored)
     mark_ref_stored (ref, loop);
 
@@ -1658,15 +1644,14 @@ gather_mem_refs_in_loops (void)
      the loop hierarchy.  */
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
-      lrefs = VEC_index (bitmap, memory_accesses.refs_in_loop, loop->num);
-      alrefs = VEC_index (bitmap, memory_accesses.all_refs_in_loop, loop->num);
+      lrefs = memory_accesses.refs_in_loop[loop->num];
+      alrefs = memory_accesses.all_refs_in_loop[loop->num];
       bitmap_ior_into (alrefs, lrefs);
 
       if (loop_outer (loop) == current_loops->tree_root)
 	continue;
 
-      alrefso = VEC_index (bitmap, memory_accesses.all_refs_in_loop,
-			   loop_outer (loop)->num);
+      alrefso = memory_accesses.all_refs_in_loop[loop_outer (loop)->num];
       bitmap_ior_into (alrefso, alrefs);
     }
 }
@@ -1677,7 +1662,7 @@ gather_mem_refs_in_loops (void)
 static void
 create_vop_ref_mapping_loop (struct loop *loop)
 {
-  bitmap refs = VEC_index (bitmap, memory_accesses.refs_in_loop, loop->num);
+  bitmap refs = memory_accesses.refs_in_loop[loop->num];
   struct loop *sloop;
   bitmap_iterator bi;
   unsigned i;
@@ -1685,14 +1670,13 @@ create_vop_ref_mapping_loop (struct loop *loop)
 
   EXECUTE_IF_SET_IN_BITMAP (refs, 0, i, bi)
     {
-      ref = VEC_index (mem_ref_p, memory_accesses.refs_list, i);
+      ref = memory_accesses.refs_list[i];
       for (sloop = loop; sloop != current_loops->tree_root;
 	   sloop = loop_outer (sloop))
 	if (bitmap_bit_p (ref->stored, loop->num))
 	  {
 	    bitmap refs_stored
-	      = VEC_index (bitmap, memory_accesses.all_refs_stored_in_loop,
-			   sloop->num);
+	      = memory_accesses.all_refs_stored_in_loop[sloop->num];
 	    bitmap_set_bit (refs_stored, ref->id);
 	  }
     }
@@ -1721,24 +1705,20 @@ analyze_memory_references (void)
   unsigned i;
   bitmap empty;
 
-  memory_accesses.refs
-	  = htab_create (100, memref_hash, memref_eq, memref_free);
-  memory_accesses.refs_list = NULL;
-  memory_accesses.refs_in_loop = VEC_alloc (bitmap, heap,
-					    number_of_loops ());
-  memory_accesses.all_refs_in_loop = VEC_alloc (bitmap, heap,
-						number_of_loops ());
-  memory_accesses.all_refs_stored_in_loop = VEC_alloc (bitmap, heap,
-						       number_of_loops ());
+  memory_accesses.refs = htab_create (100, memref_hash, memref_eq, NULL);
+  memory_accesses.refs_list.create (0);
+  memory_accesses.refs_in_loop.create (number_of_loops ());
+  memory_accesses.all_refs_in_loop.create (number_of_loops ());
+  memory_accesses.all_refs_stored_in_loop.create (number_of_loops ());
 
   for (i = 0; i < number_of_loops (); i++)
     {
-      empty = BITMAP_ALLOC (NULL);
-      VEC_quick_push (bitmap, memory_accesses.refs_in_loop, empty);
-      empty = BITMAP_ALLOC (NULL);
-      VEC_quick_push (bitmap, memory_accesses.all_refs_in_loop, empty);
-      empty = BITMAP_ALLOC (NULL);
-      VEC_quick_push (bitmap, memory_accesses.all_refs_stored_in_loop, empty);
+      empty = BITMAP_ALLOC (&lim_bitmap_obstack);
+      memory_accesses.refs_in_loop.quick_push (empty);
+      empty = BITMAP_ALLOC (&lim_bitmap_obstack);
+      memory_accesses.all_refs_in_loop.quick_push (empty);
+      empty = BITMAP_ALLOC (&lim_bitmap_obstack);
+      memory_accesses.all_refs_stored_in_loop.quick_push (empty);
     }
 
   memory_accesses.ttae_cache = NULL;
@@ -1786,7 +1766,6 @@ mem_refs_may_alias_p (tree mem1, tree mem2, struct pointer_map_t **ttae_cache)
 static void
 rewrite_mem_ref_loc (mem_ref_loc_p loc, tree tmp_var)
 {
-  mark_virtual_ops_for_renaming (loc->stmt);
   *loc->ref = tmp_var;
   update_stmt (loc->stmt);
 }
@@ -1795,26 +1774,25 @@ rewrite_mem_ref_loc (mem_ref_loc_p loc, tree tmp_var)
 
 static void
 get_all_locs_in_loop (struct loop *loop, mem_ref_p ref,
-		      VEC (mem_ref_loc_p, heap) **locs)
+		      vec<mem_ref_loc_p> *locs)
 {
   mem_ref_locs_p accs;
   unsigned i;
   mem_ref_loc_p loc;
-  bitmap refs = VEC_index (bitmap, memory_accesses.all_refs_in_loop,
-			   loop->num);
+  bitmap refs = memory_accesses.all_refs_in_loop[loop->num];
   struct loop *subloop;
 
   if (!bitmap_bit_p (refs, ref->id))
     return;
 
-  if (VEC_length (mem_ref_locs_p, ref->accesses_in_loop)
+  if (ref->accesses_in_loop.length ()
       > (unsigned) loop->num)
     {
-      accs = VEC_index (mem_ref_locs_p, ref->accesses_in_loop, loop->num);
+      accs = ref->accesses_in_loop[loop->num];
       if (accs)
 	{
-	  FOR_EACH_VEC_ELT (mem_ref_loc_p, accs->locs, i, loc)
-	    VEC_safe_push (mem_ref_loc_p, heap, *locs, loc);
+	  FOR_EACH_VEC_ELT (accs->locs, i, loc)
+	    locs->safe_push (loc);
 	}
     }
 
@@ -1829,12 +1807,12 @@ rewrite_mem_refs (struct loop *loop, mem_ref_p ref, tree tmp_var)
 {
   unsigned i;
   mem_ref_loc_p loc;
-  VEC (mem_ref_loc_p, heap) *locs = NULL;
+  vec<mem_ref_loc_p> locs = vNULL;
 
   get_all_locs_in_loop (loop, ref, &locs);
-  FOR_EACH_VEC_ELT (mem_ref_loc_p, locs, i, loc)
+  FOR_EACH_VEC_ELT (locs, i, loc)
     rewrite_mem_ref_loc (loc, tmp_var);
-  VEC_free (mem_ref_loc_p, heap, locs);
+  locs.release ();
 }
 
 /* The name and the length of the currently generated variable
@@ -1907,9 +1885,6 @@ gen_lsm_tmp_name (tree ref)
       break;
 
     case SSA_NAME:
-      ref = SSA_NAME_VAR (ref);
-      /* Fallthru.  */
-
     case VAR_DECL:
     case PARM_DECL:
       name = get_name (ref);
@@ -1956,20 +1931,193 @@ get_lsm_tmp_name (tree ref, unsigned n)
   return lsm_tmp_name;
 }
 
+struct prev_flag_edges {
+  /* Edge to insert new flag comparison code.  */
+  edge append_cond_position;
+
+  /* Edge for fall through from previous flag comparison.  */
+  edge last_cond_fallthru;
+};
+
+/* Helper function for execute_sm.  Emit code to store TMP_VAR into
+   MEM along edge EX.
+
+   The store is only done if MEM has changed.  We do this so no
+   changes to MEM occur on code paths that did not originally store
+   into it.
+
+   The common case for execute_sm will transform:
+
+     for (...) {
+       if (foo)
+         stuff;
+       else
+         MEM = TMP_VAR;
+     }
+
+   into:
+
+     lsm = MEM;
+     for (...) {
+       if (foo)
+         stuff;
+       else
+         lsm = TMP_VAR;
+     }
+     MEM = lsm;
+
+  This function will generate:
+
+     lsm = MEM;
+
+     lsm_flag = false;
+     ...
+     for (...) {
+       if (foo)
+         stuff;
+       else {
+         lsm = TMP_VAR;
+         lsm_flag = true;
+       }
+     }
+     if (lsm_flag)	<--
+       MEM = lsm;	<--
+*/
+
+static void
+execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag)
+{
+  basic_block new_bb, then_bb, old_dest;
+  bool loop_has_only_one_exit;
+  edge then_old_edge, orig_ex = ex;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+  struct prev_flag_edges *prev_edges = (struct prev_flag_edges *) ex->aux;
+
+  /* ?? Insert store after previous store if applicable.  See note
+     below.  */
+  if (prev_edges)
+    ex = prev_edges->append_cond_position;
+
+  loop_has_only_one_exit = single_pred_p (ex->dest);
+
+  if (loop_has_only_one_exit)
+    ex = split_block_after_labels (ex->dest);
+
+  old_dest = ex->dest;
+  new_bb = split_edge (ex);
+  then_bb = create_empty_bb (new_bb);
+  if (current_loops && new_bb->loop_father)
+    add_bb_to_loop (then_bb, new_bb->loop_father);
+
+  gsi = gsi_start_bb (new_bb);
+  stmt = gimple_build_cond (NE_EXPR, flag, boolean_false_node,
+			    NULL_TREE, NULL_TREE);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  gsi = gsi_start_bb (then_bb);
+  /* Insert actual store.  */
+  stmt = gimple_build_assign (unshare_expr (mem), tmp_var);
+  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+
+  make_edge (new_bb, then_bb, EDGE_TRUE_VALUE);
+  make_edge (new_bb, old_dest, EDGE_FALSE_VALUE);
+  then_old_edge = make_edge (then_bb, old_dest, EDGE_FALLTHRU);
+
+  set_immediate_dominator (CDI_DOMINATORS, then_bb, new_bb);
+
+  if (prev_edges)
+    {
+      basic_block prevbb = prev_edges->last_cond_fallthru->src;
+      redirect_edge_succ (prev_edges->last_cond_fallthru, new_bb);
+      set_immediate_dominator (CDI_DOMINATORS, new_bb, prevbb);
+      set_immediate_dominator (CDI_DOMINATORS, old_dest,
+			       recompute_dominator (CDI_DOMINATORS, old_dest));
+    }
+
+  /* ?? Because stores may alias, they must happen in the exact
+     sequence they originally happened.  Save the position right after
+     the (_lsm) store we just created so we can continue appending after
+     it and maintain the original order.  */
+  {
+    struct prev_flag_edges *p;
+
+    if (orig_ex->aux)
+      orig_ex->aux = NULL;
+    alloc_aux_for_edge (orig_ex, sizeof (struct prev_flag_edges));
+    p = (struct prev_flag_edges *) orig_ex->aux;
+    p->append_cond_position = then_old_edge;
+    p->last_cond_fallthru = find_edge (new_bb, old_dest);
+    orig_ex->aux = (void *) p;
+  }
+
+  if (!loop_has_only_one_exit)
+    for (gsi = gsi_start_phis (old_dest); !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gimple phi = gsi_stmt (gsi);
+	unsigned i;
+
+	for (i = 0; i < gimple_phi_num_args (phi); i++)
+	  if (gimple_phi_arg_edge (phi, i)->src == new_bb)
+	    {
+	      tree arg = gimple_phi_arg_def (phi, i);
+	      add_phi_arg (phi, arg, then_old_edge, UNKNOWN_LOCATION);
+	      update_stmt (phi);
+	    }
+      }
+  /* Remove the original fall through edge.  This was the
+     single_succ_edge (new_bb).  */
+  EDGE_SUCC (new_bb, 0)->flags &= ~EDGE_FALLTHRU;
+}
+
+/* Helper function for execute_sm.  On every location where REF is
+   set, set an appropriate flag indicating the store.  */
+
+static tree
+execute_sm_if_changed_flag_set (struct loop *loop, mem_ref_p ref)
+{
+  unsigned i;
+  mem_ref_loc_p loc;
+  tree flag;
+  vec<mem_ref_loc_p> locs = vNULL;
+  char *str = get_lsm_tmp_name (ref->mem, ~0);
+
+  lsm_tmp_name_add ("_flag");
+  flag = create_tmp_reg (boolean_type_node, str);
+  get_all_locs_in_loop (loop, ref, &locs);
+  FOR_EACH_VEC_ELT (locs, i, loc)
+    {
+      gimple_stmt_iterator gsi;
+      gimple stmt;
+
+      /* Only set the flag for writes.  */
+      if (is_gimple_assign (loc->stmt)
+	  && gimple_assign_lhs_ptr (loc->stmt) == loc->ref)
+	{
+	  gsi = gsi_for_stmt (loc->stmt);
+	  stmt = gimple_build_assign (flag, boolean_true_node);
+	  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
+	}
+    }
+  locs.release ();
+  return flag;
+}
+
 /* Executes store motion of memory reference REF from LOOP.
    Exits from the LOOP are stored in EXITS.  The initialization of the
    temporary variable is put to the preheader of the loop, and assignments
    to the reference from the temporary variable are emitted to exits.  */
 
 static void
-execute_sm (struct loop *loop, VEC (edge, heap) *exits, mem_ref_p ref)
+execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
 {
-  tree tmp_var;
+  tree tmp_var, store_flag;
   unsigned i;
-  gimple load, store;
+  gimple load;
   struct fmt_data fmt_data;
-  edge ex;
+  edge ex, latch_edge;
   struct lim_aux_data *lim_data;
+  bool multi_threaded_model_p = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1978,30 +2126,54 @@ execute_sm (struct loop *loop, VEC (edge, heap) *exits, mem_ref_p ref)
       fprintf (dump_file, " from loop %d\n", loop->num);
     }
 
-  tmp_var = make_rename_temp (TREE_TYPE (ref->mem),
+  tmp_var = create_tmp_reg (TREE_TYPE (ref->mem),
 			      get_lsm_tmp_name (ref->mem, ~0));
 
   fmt_data.loop = loop;
   fmt_data.orig_loop = loop;
   for_each_index (&ref->mem, force_move_till, &fmt_data);
 
+  if (block_in_transaction (loop_preheader_edge (loop)->src)
+      || !PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES))
+    multi_threaded_model_p = true;
+
+  if (multi_threaded_model_p)
+    store_flag = execute_sm_if_changed_flag_set (loop, ref);
+
   rewrite_mem_refs (loop, ref, tmp_var);
 
-  /* Emit the load & stores.  */
+  /* Emit the load code into the latch, so that we are sure it will
+     be processed after all dependencies.  */
+  latch_edge = loop_latch_edge (loop);
+
+  /* FIXME/TODO: For the multi-threaded variant, we could avoid this
+     load altogether, since the store is predicated by a flag.  We
+     could, do the load only if it was originally in the loop.  */
   load = gimple_build_assign (tmp_var, unshare_expr (ref->mem));
   lim_data = init_lim_data (load);
   lim_data->max_loop = loop;
   lim_data->tgt_loop = loop;
+  gsi_insert_on_edge (latch_edge, load);
 
-  /* Put this into the latch, so that we are sure it will be processed after
-     all dependencies.  */
-  gsi_insert_on_edge (loop_latch_edge (loop), load);
-
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  if (multi_threaded_model_p)
     {
-      store = gimple_build_assign (unshare_expr (ref->mem), tmp_var);
-      gsi_insert_on_edge (ex, store);
+      load = gimple_build_assign (store_flag, boolean_false_node);
+      lim_data = init_lim_data (load);
+      lim_data->max_loop = loop;
+      lim_data->tgt_loop = loop;
+      gsi_insert_on_edge (latch_edge, load);
     }
+
+  /* Sink the store to every exit from the loop.  */
+  FOR_EACH_VEC_ELT (exits, i, ex)
+    if (!multi_threaded_model_p)
+      {
+	gimple store;
+	store = gimple_build_assign (unshare_expr (ref->mem), tmp_var);
+	gsi_insert_on_edge (ex, store);
+      }
+    else
+      execute_sm_if_changed (ex, ref->mem, tmp_var, store_flag);
 }
 
 /* Hoists memory references MEM_REFS out of LOOP.  EXITS is the list of exit
@@ -2009,7 +2181,7 @@ execute_sm (struct loop *loop, VEC (edge, heap) *exits, mem_ref_p ref)
 
 static void
 hoist_memory_references (struct loop *loop, bitmap mem_refs,
-			 VEC (edge, heap) *exits)
+			 vec<edge> exits)
 {
   mem_ref_p ref;
   unsigned  i;
@@ -2017,7 +2189,7 @@ hoist_memory_references (struct loop *loop, bitmap mem_refs,
 
   EXECUTE_IF_SET_IN_BITMAP (mem_refs, 0, i, bi)
     {
-      ref = VEC_index (mem_ref_p, memory_accesses.refs_list, i);
+      ref = memory_accesses.refs_list[i];
       execute_sm (loop, exits, ref);
     }
 }
@@ -2028,7 +2200,7 @@ hoist_memory_references (struct loop *loop, bitmap mem_refs,
 static bool
 ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
 {
-  VEC (mem_ref_loc_p, heap) *locs = NULL;
+  vec<mem_ref_loc_p> locs = vNULL;
   unsigned i;
   mem_ref_loc_p loc;
   bool ret = false;
@@ -2041,7 +2213,7 @@ ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
     base = TREE_OPERAND (base, 0);
 
   get_all_locs_in_loop (loop, ref, &locs);
-  FOR_EACH_VEC_ELT (mem_ref_loc_p, locs, i, loc)
+  FOR_EACH_VEC_ELT (locs, i, loc)
     {
       if (!get_lim_data (loc->stmt))
 	continue;
@@ -2074,7 +2246,7 @@ ref_always_accessed_p (struct loop *loop, mem_ref_p ref, bool stored_p)
 	  break;
 	}
     }
-  VEC_free (mem_ref_loc_p, heap, locs);
+  locs.release ();
 
   return ret;
 }
@@ -2141,16 +2313,13 @@ ref_indep_loop_p_1 (struct loop *loop, mem_ref_p ref)
   mem_ref_p aref;
 
   if (stored)
-    refs_to_check = VEC_index (bitmap,
-			       memory_accesses.all_refs_in_loop, loop->num);
+    refs_to_check = memory_accesses.all_refs_in_loop[loop->num];
   else
-    refs_to_check = VEC_index (bitmap,
-			       memory_accesses.all_refs_stored_in_loop,
-			       loop->num);
+    refs_to_check = memory_accesses.all_refs_stored_in_loop[loop->num];
 
   EXECUTE_IF_SET_IN_BITMAP (refs_to_check, 0, i, bi)
     {
-      aref = VEC_index (mem_ref_p, memory_accesses.refs_list, i);
+      aref = memory_accesses.refs_list[i];
       if (!MEM_ANALYZABLE (aref)
 	  || !refs_independent_p (ref, aref))
 	{
@@ -2237,15 +2406,14 @@ can_sm_ref_p (struct loop *loop, mem_ref_p ref)
 static void
 find_refs_for_sm (struct loop *loop, bitmap sm_executed, bitmap refs_to_sm)
 {
-  bitmap refs = VEC_index (bitmap, memory_accesses.all_refs_in_loop,
-			   loop->num);
+  bitmap refs = memory_accesses.all_refs_in_loop[loop->num];
   unsigned i;
   bitmap_iterator bi;
   mem_ref_p ref;
 
   EXECUTE_IF_AND_COMPL_IN_BITMAP (refs, sm_executed, 0, i, bi)
     {
-      ref = VEC_index (mem_ref_p, memory_accesses.refs_list, i);
+      ref = memory_accesses.refs_list[i];
       if (can_sm_ref_p (loop, ref))
 	bitmap_set_bit (refs_to_sm, i);
     }
@@ -2257,12 +2425,12 @@ find_refs_for_sm (struct loop *loop, bitmap sm_executed, bitmap refs_to_sm)
 
 static bool
 loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED,
-		      VEC (edge, heap) *exits)
+		      vec<edge> exits)
 {
   unsigned i;
   edge ex;
 
-  FOR_EACH_VEC_ELT (edge, exits, i, ex)
+  FOR_EACH_VEC_ELT (exits, i, ex)
     if (ex->flags & (EDGE_ABNORMAL | EDGE_EH))
       return false;
 
@@ -2276,7 +2444,7 @@ loop_suitable_for_sm (struct loop *loop ATTRIBUTE_UNUSED,
 static void
 store_motion_loop (struct loop *loop, bitmap sm_executed)
 {
-  VEC (edge, heap) *exits = get_loop_exit_edges (loop);
+  vec<edge> exits = get_loop_exit_edges (loop);
   struct loop *subloop;
   bitmap sm_in_loop = BITMAP_ALLOC (NULL);
 
@@ -2285,7 +2453,7 @@ store_motion_loop (struct loop *loop, bitmap sm_executed)
       find_refs_for_sm (loop, sm_executed, sm_in_loop);
       hoist_memory_references (loop, sm_in_loop, exits);
     }
-  VEC_free (edge, heap, exits);
+  exits.release ();
 
   bitmap_ior_into (sm_executed, sm_in_loop);
   for (subloop = loop->inner; subloop != NULL; subloop = subloop->next)
@@ -2335,7 +2503,7 @@ fill_always_executed_in (struct loop *loop, sbitmap contains_call)
 	  if (dominated_by_p (CDI_DOMINATORS, loop->latch, bb))
 	    last = bb;
 
-	  if (TEST_BIT (contains_call, bb->index))
+	  if (bitmap_bit_p (contains_call, bb->index))
 	    break;
 
 	  FOR_EACH_EDGE (e, ei, bb->succs)
@@ -2388,7 +2556,9 @@ tree_ssa_lim_initialize (void)
   struct loop *loop;
   basic_block bb;
 
-  sbitmap_zero (contains_call);
+  bitmap_obstack_initialize (&lim_bitmap_obstack);
+
+  bitmap_clear (contains_call);
   FOR_EACH_BB (bb)
     {
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
@@ -2398,7 +2568,7 @@ tree_ssa_lim_initialize (void)
 	}
 
       if (!gsi_end_p (bsi))
-	SET_BIT (contains_call, bb->index);
+	bitmap_set_bit (contains_call, bb->index);
     }
 
   for (loop = current_loops->tree_root->inner; loop; loop = loop->next)
@@ -2410,6 +2580,8 @@ tree_ssa_lim_initialize (void)
 
   if (flag_tm)
     compute_transaction_bits ();
+
+  alloc_aux_for_edges (0);
 }
 
 /* Cleans up after the invariant motion pass.  */
@@ -2419,30 +2591,28 @@ tree_ssa_lim_finalize (void)
 {
   basic_block bb;
   unsigned i;
-  bitmap b;
+  mem_ref_p ref;
+
+  free_aux_for_edges ();
 
   FOR_EACH_BB (bb)
     SET_ALWAYS_EXECUTED_IN (bb, NULL);
 
+  bitmap_obstack_release (&lim_bitmap_obstack);
   pointer_map_destroy (lim_aux_data_map);
 
-  VEC_free (mem_ref_p, heap, memory_accesses.refs_list);
   htab_delete (memory_accesses.refs);
 
-  FOR_EACH_VEC_ELT (bitmap, memory_accesses.refs_in_loop, i, b)
-    BITMAP_FREE (b);
-  VEC_free (bitmap, heap, memory_accesses.refs_in_loop);
+  FOR_EACH_VEC_ELT (memory_accesses.refs_list, i, ref)
+    memref_free (ref);
+  memory_accesses.refs_list.release ();
 
-  FOR_EACH_VEC_ELT (bitmap, memory_accesses.all_refs_in_loop, i, b)
-    BITMAP_FREE (b);
-  VEC_free (bitmap, heap, memory_accesses.all_refs_in_loop);
-
-  FOR_EACH_VEC_ELT (bitmap, memory_accesses.all_refs_stored_in_loop, i, b)
-    BITMAP_FREE (b);
-  VEC_free (bitmap, heap, memory_accesses.all_refs_stored_in_loop);
+  memory_accesses.refs_in_loop.release ();
+  memory_accesses.all_refs_in_loop.release ();
+  memory_accesses.all_refs_stored_in_loop.release ();
 
   if (memory_accesses.ttae_cache)
-    pointer_map_destroy (memory_accesses.ttae_cache);
+    free_affine_expand_cache (&memory_accesses.ttae_cache);
 }
 
 /* Moves invariants from loops.  Only "expensive" invariants are moved out --

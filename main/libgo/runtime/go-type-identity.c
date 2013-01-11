@@ -6,11 +6,8 @@
 
 #include <stddef.h>
 
+#include "runtime.h"
 #include "go-type.h"
-
-/* The 64-bit type.  */
-
-typedef unsigned int DItype __attribute__ ((mode (DI)));
 
 /* An identity hash function for a type.  This is used for types where
    we can simply use the type value itself as a hash code.  This is
@@ -27,11 +24,15 @@ __go_type_hash_identity (const void *key, uintptr_t key_size)
     {
       union
       {
-	DItype v;
+	uint64 v;
 	unsigned char a[8];
       } u;
       u.v = 0;
-      __builtin_memcpy (&u.a, key, key_size);
+#ifdef WORDS_BIGENDIAN
+      __builtin_memcpy (&u.a[8 - key_size], key, key_size);
+#else
+      __builtin_memcpy (&u.a[0], key, key_size);
+#endif
       if (sizeof (uintptr_t) >= 8)
 	return (uintptr_t) u.v;
       else

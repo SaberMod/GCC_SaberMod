@@ -1,6 +1,6 @@
 // Versatile string -*- C++ -*-
 
-// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011
+// Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -32,7 +32,7 @@
 
 #pragma GCC system_header
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <initializer_list>
 #endif
 
@@ -165,7 +165,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __versa_string(const __versa_string& __str)
       : __vstring_base(__str) { }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  String move constructor.
        *  @param  __str  Source string.
@@ -253,7 +253,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  @param  __end  End of range.
        *  @param  __a  Allocator to use (default is default allocator).
        */
+#if __cplusplus >= 201103L
+      template<class _InputIterator,
+	       typename = std::_RequireInputIter<_InputIterator>>
+#else
       template<class _InputIterator>
+#endif
         __versa_string(_InputIterator __beg, _InputIterator __end,
 		       const _Alloc& __a = _Alloc())
 	: __vstring_base(__beg, __end, __a) { }
@@ -271,7 +276,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       operator=(const __versa_string& __str) 
       { return this->assign(__str); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  String move assignment operator.
        *  @param  __str  Source string.
@@ -396,7 +401,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       rend() const _GLIBCXX_NOEXCEPT
       { return const_reverse_iterator(this->begin()); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  Returns a read-only (constant) iterator that points to the first
        *  character in the %string.
@@ -478,7 +483,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       resize(size_type __n)
       { this->resize(__n, _CharT()); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /// A non-binding request to reduce capacity() to size().
       void
       shrink_to_fit()
@@ -614,7 +619,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return this->_M_data()[__n];
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  Returns a read/write reference to the data at the first
        *  element of the %string.
@@ -679,7 +684,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Append an initializer_list of characters.
        *  @param __l  The initializer_list of characters to be appended.
@@ -688,7 +693,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __versa_string&
       operator+=(std::initializer_list<_CharT> __l)
       { return this->append(__l.begin(), __l.end()); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Append a string to this string.
@@ -758,7 +763,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       append(size_type __n, _CharT __c)
       { return _M_replace_aux(this->size(), size_type(0), __n, __c); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Append an initializer_list of characters.
        *  @param __l  The initializer_list of characters to append.
@@ -767,7 +772,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __versa_string&
       append(std::initializer_list<_CharT> __l)
       { return this->append(__l.begin(), __l.end()); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Append a range of characters.
@@ -777,7 +782,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *
        *  Appends characters in the range [first,last) to this string.
        */
+#if __cplusplus >= 201103L
+      template<class _InputIterator,
+	       typename = std::_RequireInputIter<_InputIterator>>
+#else
       template<class _InputIterator>
+#endif
         __versa_string&
         append(_InputIterator __first, _InputIterator __last)
         { return this->replace(_M_iend(), _M_iend(), __first, __last); }
@@ -808,7 +818,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return *this;
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Set value to contents of another string.
        *  @param  __str  Source string to use.
@@ -823,7 +833,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	this->swap(__str);
 	return *this;
       }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Set value to a substring of a string.
@@ -901,12 +911,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  Sets value of string to characters in the range
        *  [first,last).
       */
+#if __cplusplus >= 201103L
+      template<class _InputIterator,
+	       typename = std::_RequireInputIter<_InputIterator>>
+#else
       template<class _InputIterator>
+#endif
         __versa_string&
         assign(_InputIterator __first, _InputIterator __last)
         { return this->replace(_M_ibegin(), _M_iend(), __first, __last); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Set value to an initializer_list of characters.
        *  @param __l  The initializer_list of characters to assign.
@@ -915,7 +930,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __versa_string&
       assign(std::initializer_list<_CharT> __l)
       { return this->assign(__l.begin(), __l.end()); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Insert multiple characters.
@@ -946,12 +961,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  thrown.  The value of the string doesn't change if an error
        *  is thrown.
       */
+#if __cplusplus >= 201103L
+      template<class _InputIterator,
+	       typename = std::_RequireInputIter<_InputIterator>>
+#else
       template<class _InputIterator>
+#endif
         void
         insert(iterator __p, _InputIterator __beg, _InputIterator __end)
         { this->replace(__p, __p, __beg, __end); }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Insert an initializer_list of characters.
        *  @param __p  Iterator referencing location in string to insert at.
@@ -961,7 +981,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       insert(iterator __p, std::initializer_list<_CharT> __l)
       { this->insert(__p, __l.begin(), __l.end()); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Insert value of a string.
@@ -1155,7 +1175,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	return iterator(this->_M_data() + __pos);
       }
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Remove the last character.
        *
@@ -1164,7 +1184,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       pop_back()
       { this->_M_erase(size()-1, 1); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
       /**
        *  @brief  Replace characters with value from another string.
@@ -1382,6 +1402,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  of result exceeds max_size(), length_error is thrown.  The
        *  value of the string doesn't change if an error is thrown.
       */
+#if __cplusplus >= 201103L
+      template<class _InputIterator,
+	       typename = std::_RequireInputIter<_InputIterator>>
+        __versa_string&
+        replace(iterator __i1, iterator __i2,
+		_InputIterator __k1, _InputIterator __k2)
+        {
+	  _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+				   && __i2 <= _M_iend());
+	  __glibcxx_requires_valid_range(__k1, __k2);
+	  return this->_M_replace_dispatch(__i1, __i2, __k1, __k2,
+					   std::__false_type());
+	}
+#else
       template<class _InputIterator>
         __versa_string&
         replace(iterator __i1, iterator __i2,
@@ -1393,6 +1427,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	  return this->_M_replace_dispatch(__i1, __i2, __k1, __k2, _Integral());
 	}
+#endif
 
       // Specializations for the common case of pointer and iterator:
       // useful to avoid the overhead of temporary buffering in _M_replace.
@@ -1438,7 +1473,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			     __k1.base(), __k2 - __k1);
       }
       
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
       /**
        *  @brief  Replace range of characters with initializer_list.
        *  @param __i1  Iterator referencing start of range to replace.
@@ -1455,7 +1490,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __versa_string& replace(iterator __i1, iterator __i2,
 			      std::initializer_list<_CharT> __l)
       { return this->replace(__i1, __i2, __l.begin(), __l.end()); }
-#endif // __GXX_EXPERIMENTAL_CXX0X__
+#endif // C++11
 
     private:
       template<class _Integer>
@@ -2139,7 +2174,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     operator+(const __versa_string<_CharT, _Traits, _Alloc, _Base>& __lhs,
 	      _CharT __rhs);
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _CharT, typename _Traits, typename _Alloc,
 	   template <typename, typename, typename> class _Base>
     inline __versa_string<_CharT, _Traits, _Alloc, _Base>
@@ -2552,7 +2587,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
-#if (defined(__GXX_EXPERIMENTAL_CXX0X__) && defined(_GLIBCXX_USE_C99))
+#if ((__cplusplus >= 201103L) && defined(_GLIBCXX_USE_C99))
 
 #include <ext/string_conversions.h>
 
@@ -2770,7 +2805,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
 
 #endif
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
 #include <bits/functional_hash.h>
 
@@ -2828,7 +2863,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 _GLIBCXX_END_NAMESPACE_VERSION
 } // namespace
 
-#endif /* __GXX_EXPERIMENTAL_CXX0X__ */
+#endif // C++11
 
 #include "vstring.tcc" 
 

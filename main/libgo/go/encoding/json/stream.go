@@ -19,9 +19,16 @@ type Decoder struct {
 }
 
 // NewDecoder returns a new decoder that reads from r.
+//
+// The decoder introduces its own buffering and may
+// read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
 	return &Decoder{r: r}
 }
+
+// UseNumber causes the Decoder to unmarshal a number into an interface{} as a
+// Number instead of as a float64.
+func (dec *Decoder) UseNumber() { dec.d.useNumber = true }
 
 // Decode reads the next JSON-encoded value from its
 // input and stores it in the value pointed to by v.
@@ -71,7 +78,7 @@ Input:
 			// scanEnd is delayed one byte.
 			// We might block trying to get that byte from src,
 			// so instead invent a space byte.
-			if v == scanEndObject && dec.scan.step(&dec.scan, ' ') == scanEnd {
+			if (v == scanEndObject || v == scanEndArray) && dec.scan.step(&dec.scan, ' ') == scanEnd {
 				scanp += i + 1
 				break Input
 			}

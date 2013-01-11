@@ -88,8 +88,8 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
 
   if (avr_current_arch->macro)
     cpp_define_formatted (pfile, "__AVR_ARCH__=%s", avr_current_arch->macro);
-  if (avr_extra_arch_macro)
-    cpp_define (pfile, avr_extra_arch_macro);
+  if (avr_current_device->macro)
+    cpp_define (pfile, avr_current_device->macro);
   if (AVR_HAVE_RAMPD)    cpp_define (pfile, "__AVR_HAVE_RAMPD__");
   if (AVR_HAVE_RAMPX)    cpp_define (pfile, "__AVR_HAVE_RAMPX__");
   if (AVR_HAVE_RAMPY)    cpp_define (pfile, "__AVR_HAVE_RAMPY__");
@@ -128,6 +128,12 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
   else
     cpp_define (pfile, "__AVR_HAVE_16BIT_SP__");
 
+  if (avr_sp8)
+    cpp_define (pfile, "__AVR_SP8__");
+
+  if (AVR_HAVE_SPH)
+    cpp_define (pfile, "__AVR_HAVE_SPH__");
+
   if (TARGET_NO_INTERRUPTS)
     cpp_define (pfile, "__NO_INTERRUPTS__");
 
@@ -142,6 +148,10 @@ avr_cpu_cpp_builtins (struct cpp_reader *pfile)
   cpp_define_formatted (pfile, "__AVR_SFR_OFFSET__=0x%x",
                         avr_current_arch->sfr_offset);
     
+#ifdef WITH_AVRLIBC
+  cpp_define (pfile, "__WITH_AVRLIBC__");
+#endif /* WITH_AVRLIBC */
+      
   /* Define builtin macros so that the user can easily query if or if not
      non-generic address spaces (and which) are supported.
      This is only supported for C.  For C++, a language extension is needed

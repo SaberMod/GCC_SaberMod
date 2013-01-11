@@ -64,7 +64,7 @@ extern tree chrec_convert_aggressive (tree, tree);
 
 /* Operations.  */
 extern tree chrec_apply (unsigned, tree, tree);
-extern tree chrec_apply_map (tree, VEC (tree, heap) *);
+extern tree chrec_apply_map (tree, vec<tree> );
 extern tree chrec_replace_initial_condition (tree, tree);
 extern tree initial_condition (tree);
 extern tree initial_condition_in_loop_num (tree, unsigned);
@@ -77,7 +77,6 @@ extern void for_each_scev_op (tree *, bool (*) (tree *, void *), void *);
 /* Observers.  */
 extern bool eq_evolutions_p (const_tree, const_tree);
 extern bool is_multivariate_chrec (const_tree);
-extern bool chrec_is_positive (tree, bool *);
 extern bool chrec_contains_symbols (const_tree);
 extern bool chrec_contains_symbols_defined_in_loop (const_tree, unsigned);
 extern bool chrec_contains_undetermined (const_tree);
@@ -118,7 +117,7 @@ no_evolution_in_loop_p (tree chrec, unsigned loop_num, bool *res)
 
   STRIP_NOPS (chrec);
   scev = hide_evolution_in_other_loops_than_loop (chrec, loop_num);
-  *res = !tree_is_chrec (scev);
+  *res = !tree_contains_chrecs (scev, NULL);
   return true;
 }
 

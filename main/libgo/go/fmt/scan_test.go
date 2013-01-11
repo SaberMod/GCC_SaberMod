@@ -317,6 +317,7 @@ var overflowTests = []ScanTest{
 	{"(1-1e500i)", &complex128Val, 0},
 }
 
+var truth bool
 var i, j, k int
 var f float64
 var s, t string
@@ -350,6 +351,9 @@ var multiTests = []ScanfMultiTest{
 
 	// Bad UTF-8: should see every byte.
 	{"%c%c%c", "\xc2X\xc2", args(&r1, &r2, &r3), args(utf8.RuneError, 'X', utf8.RuneError), ""},
+
+	// Fixed bugs
+	{"%v%v", "FALSE23", args(&truth, &i), args(false, 23), ""},
 }
 
 func testScan(name string, t *testing.T, scan func(r io.Reader, a ...interface{}) (int, error)) {
@@ -806,7 +810,34 @@ func TestMultiLine(t *testing.T) {
 	}
 }
 
-// RecursiveInt accepts an string matching %d.%d.%d....
+// simpleReader is a strings.Reader that implements only Read, not ReadRune.
+// Good for testing readahead.
+type simpleReader struct {
+	sr *strings.Reader
+}
+
+func (s *simpleReader) Read(b []byte) (n int, err error) {
+	return s.sr.Read(b)
+}
+
+// Test that Fscanf does not read past newline. Issue 3481.
+func TestLineByLineFscanf(t *testing.T) {
+	r := &simpleReader{strings.NewReader("1\n2\n")}
+	var i, j int
+	n, err := Fscanf(r, "%v\n", &i)
+	if n != 1 || err != nil {
+		t.Fatalf("first read: %d %q", n, err)
+	}
+	n, err = Fscanf(r, "%v\n", &j)
+	if n != 1 || err != nil {
+		t.Fatalf("second read: %d %q", n, err)
+	}
+	if i != 1 || j != 2 {
+		t.Errorf("wrong values; wanted 1 2 got %d %d", i, j)
+	}
+}
+
+// RecursiveInt accepts a string matching %d.%d.%d....
 // and parses it into a linked list.
 // It allows us to benchmark recursive descent style scanners.
 type RecursiveInt struct {
@@ -822,7 +853,7 @@ func (r *RecursiveInt) Scan(state ScanState, verb rune) (err error) {
 	next := new(RecursiveInt)
 	_, err = Fscanf(state, ".%v", next)
 	if err != nil {
-		if err == errors.New("input does not match format") || err == io.ErrUnexpectedEOF {
+		if err == io.ErrUnexpectedEOF {
 			err = nil
 		}
 		return

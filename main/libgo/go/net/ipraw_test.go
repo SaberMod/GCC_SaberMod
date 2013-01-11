@@ -2,28 +2,66 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// +build !plan9
+
 package net
 
 import (
 	"bytes"
 	"os"
+	"reflect"
+	"syscall"
 	"testing"
 	"time"
 )
+
+var resolveIPAddrTests = []struct {
+	net     string
+	litAddr string
+	addr    *IPAddr
+	err     error
+}{
+	{"ip", "127.0.0.1", &IPAddr{IP: IPv4(127, 0, 0, 1)}, nil},
+	{"ip4", "127.0.0.1", &IPAddr{IP: IPv4(127, 0, 0, 1)}, nil},
+	{"ip4:icmp", "127.0.0.1", &IPAddr{IP: IPv4(127, 0, 0, 1)}, nil},
+
+	{"ip", "::1", &IPAddr{IP: ParseIP("::1")}, nil},
+	{"ip6", "::1", &IPAddr{IP: ParseIP("::1")}, nil},
+	{"ip6:icmp", "::1", &IPAddr{IP: ParseIP("::1")}, nil},
+
+	{"", "127.0.0.1", &IPAddr{IP: IPv4(127, 0, 0, 1)}, nil}, // Go 1.0 behavior
+	{"", "::1", &IPAddr{IP: ParseIP("::1")}, nil},           // Go 1.0 behavior
+
+	{"l2tp", "127.0.0.1", nil, UnknownNetworkError("l2tp")},
+	{"l2tp:gre", "127.0.0.1", nil, UnknownNetworkError("l2tp:gre")},
+	{"tcp", "1.2.3.4:123", nil, UnknownNetworkError("tcp")},
+}
+
+func TestResolveIPAddr(t *testing.T) {
+	for _, tt := range resolveIPAddrTests {
+		addr, err := ResolveIPAddr(tt.net, tt.litAddr)
+		if err != tt.err {
+			t.Fatalf("ResolveIPAddr(%v, %v) failed: %v", tt.net, tt.litAddr, err)
+		}
+		if !reflect.DeepEqual(addr, tt.addr) {
+			t.Fatalf("got %#v; expected %#v", addr, tt.addr)
+		}
+	}
+}
 
 var icmpTests = []struct {
 	net   string
 	laddr string
 	raddr string
-	ipv6  bool
+	ipv6  bool // test with underlying AF_INET6 socket
 }{
 	{"ip4:icmp", "", "127.0.0.1", false},
-	{"ip6:icmp", "", "::1", true},
+	{"ip6:ipv6-icmp", "", "::1", true},
 }
 
 func TestICMP(t *testing.T) {
 	if os.Getuid() != 0 {
-		t.Logf("test disabled; must be root")
+		t.Logf("skipping test; must be root")
 		return
 	}
 
@@ -34,15 +72,15 @@ func TestICMP(t *testing.T) {
 		}
 		id := os.Getpid() & 0xffff
 		seqnum++
-		echo := newICMPEchoRequest(tt.ipv6, id, seqnum, 128, []byte("Go Go Gadget Ping!!!"))
-		exchangeICMPEcho(t, tt.net, tt.laddr, tt.raddr, tt.ipv6, echo)
+		echo := newICMPEchoRequest(tt.net, id, seqnum, 128, []byte("Go Go Gadget Ping!!!"))
+		exchangeICMPEcho(t, tt.net, tt.laddr, tt.raddr, echo)
 	}
 }
 
-func exchangeICMPEcho(t *testing.T, net, laddr, raddr string, ipv6 bool, echo []byte) {
+func exchangeICMPEcho(t *testing.T, net, laddr, raddr string, echo []byte) {
 	c, err := ListenPacket(net, laddr)
 	if err != nil {
-		t.Errorf("ListenPacket(%#q, %#q) failed: %v", net, laddr, err)
+		t.Errorf("ListenPacket(%q, %q) failed: %v", net, laddr, err)
 		return
 	}
 	c.SetDeadline(time.Now().Add(100 * time.Millisecond))
@@ -50,12 +88,12 @@ func exchangeICMPEcho(t *testing.T, net, laddr, raddr string, ipv6 bool, echo []
 
 	ra, err := ResolveIPAddr(net, raddr)
 	if err != nil {
-		t.Errorf("ResolveIPAddr(%#q, %#q) failed: %v", net, raddr, err)
+		t.Errorf("ResolveIPAddr(%q, %q) failed: %v", net, raddr, err)
 		return
 	}
 
 	waitForReady := make(chan bool)
-	go icmpEchoTransponder(t, net, raddr, ipv6, waitForReady)
+	go icmpEchoTransponder(t, net, raddr, waitForReady)
 	<-waitForReady
 
 	_, err = c.WriteTo(echo, ra)
@@ -71,11 +109,15 @@ func exchangeICMPEcho(t *testing.T, net, laddr, raddr string, ipv6 bool, echo []
 			t.Errorf("ReadFrom failed: %v", err)
 			return
 		}
-		if !ipv6 && reply[0] != ICMP4_ECHO_REPLY {
-			continue
-		}
-		if ipv6 && reply[0] != ICMP6_ECHO_REPLY {
-			continue
+		switch c.(*IPConn).fd.family {
+		case syscall.AF_INET:
+			if reply[0] != ICMP4_ECHO_REPLY {
+				continue
+			}
+		case syscall.AF_INET6:
+			if reply[0] != ICMP6_ECHO_REPLY {
+				continue
+			}
 		}
 		xid, xseqnum := parseICMPEchoReply(echo)
 		rid, rseqnum := parseICMPEchoReply(reply)
@@ -87,11 +129,11 @@ func exchangeICMPEcho(t *testing.T, net, laddr, raddr string, ipv6 bool, echo []
 	}
 }
 
-func icmpEchoTransponder(t *testing.T, net, raddr string, ipv6 bool, waitForReady chan bool) {
+func icmpEchoTransponder(t *testing.T, net, raddr string, waitForReady chan bool) {
 	c, err := Dial(net, raddr)
 	if err != nil {
 		waitForReady <- true
-		t.Errorf("Dial(%#q, %#q) failed: %v", net, raddr, err)
+		t.Errorf("Dial(%q, %q) failed: %v", net, raddr, err)
 		return
 	}
 	c.SetDeadline(time.Now().Add(100 * time.Millisecond))
@@ -106,18 +148,23 @@ func icmpEchoTransponder(t *testing.T, net, raddr string, ipv6 bool, waitForRead
 			t.Errorf("Read failed: %v", err)
 			return
 		}
-		if !ipv6 && echo[0] != ICMP4_ECHO_REQUEST {
-			continue
-		}
-		if ipv6 && echo[0] != ICMP6_ECHO_REQUEST {
-			continue
+		switch c.(*IPConn).fd.family {
+		case syscall.AF_INET:
+			if echo[0] != ICMP4_ECHO_REQUEST {
+				continue
+			}
+		case syscall.AF_INET6:
+			if echo[0] != ICMP6_ECHO_REQUEST {
+				continue
+			}
 		}
 		break
 	}
 
-	if !ipv6 {
+	switch c.(*IPConn).fd.family {
+	case syscall.AF_INET:
 		echo[0] = ICMP4_ECHO_REPLY
-	} else {
+	case syscall.AF_INET6:
 		echo[0] = ICMP6_ECHO_REPLY
 	}
 
@@ -135,11 +182,15 @@ const (
 	ICMP6_ECHO_REPLY   = 129
 )
 
-func newICMPEchoRequest(ipv6 bool, id, seqnum, msglen int, filler []byte) []byte {
-	if !ipv6 {
+func newICMPEchoRequest(net string, id, seqnum, msglen int, filler []byte) []byte {
+	afnet, _, _ := parseDialNetwork(net)
+	switch afnet {
+	case "ip4":
 		return newICMPv4EchoRequest(id, seqnum, msglen, filler)
+	case "ip6":
+		return newICMPv6EchoRequest(id, seqnum, msglen, filler)
 	}
-	return newICMPv6EchoRequest(id, seqnum, msglen, filler)
+	return nil
 }
 
 func newICMPv4EchoRequest(id, seqnum, msglen int, filler []byte) []byte {
@@ -189,4 +240,34 @@ func parseICMPEchoReply(b []byte) (id, seqnum int) {
 	id = int(b[4])<<8 | int(b[5])
 	seqnum = int(b[6])<<8 | int(b[7])
 	return
+}
+
+var ipConnLocalNameTests = []struct {
+	net   string
+	laddr *IPAddr
+}{
+	{"ip4:icmp", &IPAddr{IP: IPv4(127, 0, 0, 1)}},
+	{"ip4:icmp", &IPAddr{}},
+	{"ip4:icmp", nil},
+}
+
+func TestIPConnLocalName(t *testing.T) {
+	if os.Getuid() != 0 {
+		t.Logf("skipping test; must be root")
+		return
+	}
+
+	for _, tt := range ipConnLocalNameTests {
+		c, err := ListenIP(tt.net, tt.laddr)
+		if err != nil {
+			t.Errorf("ListenIP failed: %v", err)
+			return
+		}
+		defer c.Close()
+		la := c.LocalAddr()
+		if la == nil {
+			t.Error("IPConn.LocalAddr failed")
+			return
+		}
+	}
 }

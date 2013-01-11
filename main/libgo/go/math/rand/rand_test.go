@@ -57,16 +57,13 @@ func (this *statsResults) checkSimilarDistribution(expected *statsResults) error
 
 func getStatsResults(samples []float64) *statsResults {
 	res := new(statsResults)
-	var sum float64
-	for i := range samples {
-		sum += samples[i]
+	var sum, squaresum float64
+	for _, s := range samples {
+		sum += s
+		squaresum += s * s
 	}
 	res.mean = sum / float64(len(samples))
-	var devsum float64
-	for i := range samples {
-		devsum += math.Pow(samples[i]-res.mean, 2)
-	}
-	res.stddev = math.Sqrt(devsum / float64(len(samples)))
+	res.stddev = math.Sqrt(squaresum/float64(len(samples)) - res.mean*res.mean)
 	return res
 }
 
@@ -141,6 +138,9 @@ func TestNonStandardNormalValues(t *testing.T) {
 		for m := 0.5; m < mmax; m *= 2 {
 			for _, seed := range testSeeds {
 				testNormalDistribution(t, numTestSamples, m, sd, seed)
+				if testing.Short() {
+					break
+				}
 			}
 		}
 	}
@@ -191,6 +191,9 @@ func TestNonStandardExponentialValues(t *testing.T) {
 	for rate := 0.05; rate < 10; rate *= 2 {
 		for _, seed := range testSeeds {
 			testExponentialDistribution(t, numTestSamples, rate, seed)
+			if testing.Short() {
+				break
+			}
 		}
 	}
 }

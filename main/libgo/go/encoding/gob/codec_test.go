@@ -7,6 +7,7 @@ package gob
 import (
 	"bytes"
 	"errors"
+	"flag"
 	"math"
 	"math/rand"
 	"reflect"
@@ -15,6 +16,8 @@ import (
 	"time"
 	"unsafe"
 )
+
+var doFuzzTests = flag.Bool("gob.fuzz", false, "run the fuzz tests, which are large and very slow")
 
 // Guarantee encoding format by comparing some encodings to hand-written values
 type EncodeT struct {
@@ -1434,7 +1437,8 @@ func encFuzzDec(rng *rand.Rand, in interface{}) error {
 
 // This does some "fuzz testing" by attempting to decode a sequence of random bytes.
 func TestFuzz(t *testing.T) {
-	if testing.Short() {
+	if !*doFuzzTests {
+		t.Logf("disabled; run with -gob.fuzz to enable")
 		return
 	}
 
@@ -1453,13 +1457,21 @@ func TestFuzz(t *testing.T) {
 }
 
 func TestFuzzRegressions(t *testing.T) {
+	if !*doFuzzTests {
+		t.Logf("disabled; run with -gob.fuzz to enable")
+		return
+	}
+
 	// An instance triggering a type name of length ~102 GB.
 	testFuzz(t, 1328492090837718000, 100, new(float32))
+	// An instance triggering a type name of 1.6 GB.
+	// Note: can take several minutes to run.
+	testFuzz(t, 1330522872628565000, 100, new(int))
 }
 
 func testFuzz(t *testing.T, seed int64, n int, input ...interface{}) {
-	t.Logf("seed=%d n=%d\n", seed, n)
 	for _, e := range input {
+		t.Logf("seed=%d n=%d e=%T", seed, n, e)
 		rng := rand.New(rand.NewSource(seed))
 		for i := 0; i < n; i++ {
 			encFuzzDec(rng, e)

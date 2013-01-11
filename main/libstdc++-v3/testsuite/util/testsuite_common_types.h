@@ -45,7 +45,7 @@
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 #include <atomic>
 #include <type_traits>
 #endif
@@ -273,7 +273,7 @@ namespace __gnu_test
     typedef long long 		a11;
     typedef unsigned long long 	a12;
     typedef wchar_t 		a13;
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     typedef char16_t 		a14;
     typedef char32_t 		a15;
 
@@ -301,7 +301,7 @@ namespace __gnu_test
     typedef long long 		a11;
     typedef unsigned long long 	a12;
     typedef wchar_t 		a13;
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
     typedef char16_t 		a14;
     typedef char32_t 		a15;
 # if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_INT128)
@@ -329,7 +329,7 @@ namespace __gnu_test
 #endif
   };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   struct atomic_integrals_no_bool
   {
     typedef std::atomic_char        	a2;
@@ -437,7 +437,7 @@ namespace __gnu_test
       }
   };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   template<typename _Tp>
     void
     constexpr_bitwise_operators()
@@ -507,7 +507,7 @@ namespace __gnu_test
       }
   };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
   struct constexpr_comparison_eq_ne
   {
@@ -549,7 +549,7 @@ namespace __gnu_test
 	    typedef std::has_trivial_default_constructor<_Tp> ctor_p;
 	    static_assert(ctor_p::value, "default constructor not trivial");
 
-	    typedef std::has_trivial_destructor<_Tp> dtor_p;
+	    typedef std::is_trivially_destructible<_Tp> dtor_p;
 	    static_assert(dtor_p::value, "destructor not trivial");
 	  }
 	};
@@ -682,7 +682,7 @@ namespace __gnu_test
       }
   };
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   // Generator to test default constructor.
   struct constexpr_default_constructible
   {
@@ -777,7 +777,7 @@ namespace __gnu_test
 #endif
 
   // Generator to test direct list initialization
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
   struct direct_list_initializable
   {
     template<typename _Ttype, typename _Tvalue>

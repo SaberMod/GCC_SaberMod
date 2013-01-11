@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1996-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 1996-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -1347,12 +1347,13 @@ package VMS_Data is
    --                      if the /CHECKS qualifier is not present on the
    --                      command line. Same as /NOCHECKS.
    --
-   --     OVERFLOW        Enables overflow checking for integer operations and
-   --                     checks for access before elaboration on subprogram
-   --                     calls. This causes GNAT to generate slower and larger
-   --                     executable programs by adding code to check for both
-   --                     overflow and division by zero (resulting in raising
-   --                     "Constraint_Error" as required by Ada semantics).
+   --     OVERFLOW        Enables overflow checking in CHECKED mode for integer
+   --                     operations and checks for access before elaboration
+   --                     on subprogram calls. This causes GNAT to generate
+   --                     slower and larger executable programs by adding code
+   --                     to check for both overflow and division by zero
+   --                     (resulting in raising "Constraint_Error" as required
+   --                     by Ada semantics).
    --                     Similarly, GNAT does not generate elaboration check
    --                     by default, and you must specify this keyword to
    --                     enable them.
@@ -1780,10 +1781,19 @@ package VMS_Data is
    --   than after compilation is terminated. If GNAT terminates prematurely
    --   or goes into an infinite loop, the last error message displayed may
    --   help to pinpoint the culprit.
+   --
+   --   Note that this qualifier is intended only for helping to diagnose
+   --   illegal programs when the compiler fails. It disconnects many of the
+   --   normal handling procedures for error messages, and may for example
+   --   cause malfunction of pragma Warnings.
 
    S_GCC_Inline  : aliased constant S := "/INLINE="                        &
                                             "PRAGMA "                      &
                                               "-gnatn "                    &
+                                            "PRAGMA_LEVEL_1 "              &
+                                              "-gnatn1 "                   &
+                                            "PRAGMA_LEVEL_2 "              &
+                                              "-gnatn2 "                   &
                                             "FULL "                        &
                                               "-gnatN "                    &
                                             "SUPPRESS "                    &
@@ -1816,6 +1826,14 @@ package VMS_Data is
    --                    optimization options, to get either lower
    --                    (/OPTIMIZE=SOME) or higher (/OPTIMIZE=UNROLL_LOOPS)
    --                    levels of optimization.
+   --
+   --        PRAGMA_LEVEL_1
+   --                    Direct control of the level of "Inline" pragmas
+   --                    optimization with moderate inlining across modules.
+   --
+   --        PRAGMA_LEVEL_2
+   --                    Direct control of the level of "Inline" pragmas
+   --                    optimization with full inlining across modules.
    --
    --        FULL        Front end inlining. The front end inlining activated
    --                    by this switch is generally more extensive, and quite
@@ -1926,11 +1944,14 @@ package VMS_Data is
    --   When using a project file, GNAT MAKE creates a temporary mapping file
    --   and communicates it to the compiler using this switch.
 
-   S_GCC_Multi   : aliased constant S := "/MULTI_UNIT_INDEX=#"             &
-                                            "-gnateI#";
-   --        /MULTI_UNIT_INDEX=nnn
+   S_GCC_MaxI    : aliased constant S := "/MAX_INSTANTIATIONS=#"           &
+                                            "-gnatei#";
+
+   --        /MAX_INSTANTIATIONS=nnn
    --
-   --   Specify the index of the unit to compile in a multi-unit source file.
+   --   Specify the maximum number of instantiations permitted. The default
+   --   value is 8000, which is probably enough for all programs except those
+   --   containing some kind of runaway unintended instantiation loop.
 
    S_GCC_Mess    : aliased constant S := "/MESSAGES_PROJECT_FILE="         &
                                             "DEFAULT "                     &
@@ -1950,6 +1971,12 @@ package VMS_Data is
    --
    --      HIGH        A great number of messages are output, most of them not
    --                  being useful for the user.
+
+   S_GCC_Multi   : aliased constant S := "/MULTI_UNIT_INDEX=#"             &
+                                            "-gnateI#";
+   --        /MULTI_UNIT_INDEX=nnn
+   --
+   --   Specify the index of the unit to compile in a multi-unit source file.
 
    S_GCC_Nesting  : aliased constant S := "/MAX_NESTING=#"                 &
                                              "-gnatyL#";
@@ -2081,6 +2108,23 @@ package VMS_Data is
    --   fname where the period is replace by an underline. For example, if
    --   file xyz.adb is compiled with -gnatl=.lst, then the output is written
    --   to file xyz.adb_lst.
+
+   S_GCC_Overflo : aliased constant S := "/OVERFLOW_CHECKS=#"              &
+                                             "-gnato#";
+   --        /OVERFLOW_CHECKS=nn
+   --
+   --   Set default overflow cheecking mode. If nn is a single digit, in the
+   --   range 0-3, it sets the overflow checking mode for all expressions,
+   --   including those outside and within assertions. The meaning of nnn is:
+   --
+   --     1   all intermediate computations done using base type (STRICT)
+   --     2   minimize intermediate overflows (MINIMIZED)
+   --     3   eliminate intermediate overflows (ELIMINATED)
+   --
+   --   Otherwise nn can be two digits, both 1-3, and in this case the first
+   --   digit sets the mode (using the above code) for expressions outside an
+   --   assertion, and the second digit sets the mode for expressions within
+   --   an assertion.
 
    S_GCC_Pointer : aliased constant S := "/POINTER_SIZE="                  &
                                             "64 "                          &
@@ -3025,6 +3069,10 @@ package VMS_Data is
                                                "-gnatwk "                  &
                                             "NOCONSTANT_VARIABLES "        &
                                                "-gnatwK "                  &
+                                            "STANDARD_REDEFINITION "       &
+                                               "-gnatw.k "                 &
+                                            "NOSTANDARD_REDEFINITION "     &
+                                               "-gnatw.K "                 &
                                             "ELABORATION "                 &
                                                "-gnatwl "                  &
                                             "NOELABORATION "               &
@@ -3585,6 +3633,7 @@ package VMS_Data is
                      S_GCC_Output  'Access,
                      S_GCC_Machine 'Access,
                      S_GCC_Mapping 'Access,
+                     S_GCC_MaxI    'Access,
                      S_GCC_Multi   'Access,
                      S_GCC_Mess    'Access,
                      S_GCC_Nesting 'Access,
@@ -3595,6 +3644,7 @@ package VMS_Data is
                      S_GCC_NoWarnP 'Access,
                      S_GCC_Opt     'Access,
                      S_GCC_OptX    'Access,
+                     S_GCC_Overflo 'Access,
                      S_GCC_Pointer 'Access,
                      S_GCC_Polling 'Access,
                      S_GCC_Project 'Access,
@@ -5986,7 +6036,7 @@ package VMS_Data is
    --        /CONTINUATION_INDENT=nnn
    --
    --   Indentation level for continuation lines, nnn from 1 .. 9.
-   --   The default value is one less then the (normal) indentation level,
+   --   The default value is one less than the (normal) indentation level,
    --   unless the indentation is set to 1: in that case the default value for
    --   continuation line indentation is also 1.
 
@@ -5995,7 +6045,7 @@ package VMS_Data is
    --        /NO_SEPARATE_IS
    --
    --   Do not place the IS keyword on a separate line in a subprogram body in
-   --   case if the specification occupies more then one line.
+   --   case if the specification occupies more than one line.
 
    S_Pretty_Sep_Label : aliased constant S := "/SEPARATE_LABEL "           &
                                                     "--separate-label";
@@ -6293,6 +6343,30 @@ package VMS_Data is
    --
    --   Replace all tabulations in comments with spaces.
 
+   S_Pretty_Numbers     : aliased constant S := "/NUMBER_CASING="          &
+                                              "AS_DECLARED "               &
+                                                 "-ntD "                   &
+                                              "LOWER_CASE "                &
+                                                 "-ntL "                   &
+                                              "UPPER_CASE "                &
+                                                 "-ntU "                   &
+                                              "MIXED_CASE "                &
+                                                 "-ntM";
+   --        /NUMBER_CASING=name-option
+   --
+   --   Specify the casing of named number names. If not specified, the casing
+   --   of these names is defined by the NAME_CASING option. 'name-option'
+   --   is one of:
+   --
+   --      AS_DECLARED       Names are cased as they appear in the declaration
+   --                        in the source file.
+   --
+   --      LOWER_CASE        Names are in lower case.
+   --
+   --      UPPER_CASE        Names are in upper case.
+   --
+   --      MIXED_CASE        Names are in mixed case.
+
    S_Pretty_Output    : aliased constant S := "/OUTPUT=@"                  &
                                               "-o@";
    --        /OUTPUT=file
@@ -6448,6 +6522,7 @@ package VMS_Data is
                         S_Pretty_Names            'Access,
                         S_Pretty_No_Labels        'Access,
                         S_Pretty_Notabs           'Access,
+                        S_Pretty_Numbers          'Access,
                         S_Pretty_Output           'Access,
                         S_Pretty_Override         'Access,
                         S_Pretty_Pragma           'Access,
@@ -7150,6 +7225,13 @@ package VMS_Data is
                        S_Sync_Details  'Access,
                        S_Sync_Warnoff  'Access,
                        S_Sync_Output   'Access);
+
+   ----------------------------
+   -- Switches for GNAT TEST --
+   ----------------------------
+
+   Test_Switches : aliased constant Switches :=
+     (1 .. 0 => null);
 
    ----------------------------
    -- Switches for GNAT XREF --

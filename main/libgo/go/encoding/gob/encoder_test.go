@@ -685,3 +685,160 @@ func TestSliceIncompatibility(t *testing.T) {
 		t.Error("expected compatibility error")
 	}
 }
+
+// Mutually recursive slices of structs caused problems.
+type Bug3 struct {
+	Num      int
+	Children []*Bug3
+}
+
+func TestGobPtrSlices(t *testing.T) {
+	in := []*Bug3{
+		{1, nil},
+		{2, nil},
+	}
+	b := new(bytes.Buffer)
+	err := NewEncoder(b).Encode(&in)
+	if err != nil {
+		t.Fatal("encode:", err)
+	}
+
+	var out []*Bug3
+	err = NewDecoder(b).Decode(&out)
+	if err != nil {
+		t.Fatal("decode:", err)
+	}
+	if !reflect.DeepEqual(in, out) {
+		t.Fatalf("got %v; wanted %v", out, in)
+	}
+}
+
+// getDecEnginePtr cached engine for ut.base instead of ut.user so we passed
+// a *map and then tried to reuse its engine to decode the inner map.
+func TestPtrToMapOfMap(t *testing.T) {
+	Register(make(map[string]interface{}))
+	subdata := make(map[string]interface{})
+	subdata["bar"] = "baz"
+	data := make(map[string]interface{})
+	data["foo"] = subdata
+
+	b := new(bytes.Buffer)
+	err := NewEncoder(b).Encode(data)
+	if err != nil {
+		t.Fatal("encode:", err)
+	}
+	var newData map[string]interface{}
+	err = NewDecoder(b).Decode(&newData)
+	if err != nil {
+		t.Fatal("decode:", err)
+	}
+	if !reflect.DeepEqual(data, newData) {
+		t.Fatalf("expected %v got %v", data, newData)
+	}
+}
+
+// A top-level nil pointer generates a panic with a helpful string-valued message.
+func TestTopLevelNilPointer(t *testing.T) {
+	errMsg := topLevelNilPanic(t)
+	if errMsg == "" {
+		t.Fatal("top-level nil pointer did not panic")
+	}
+	if !strings.Contains(errMsg, "nil pointer") {
+		t.Fatal("expected nil pointer error, got:", errMsg)
+	}
+}
+
+func topLevelNilPanic(t *testing.T) (panicErr string) {
+	defer func() {
+		e := recover()
+		if err, ok := e.(string); ok {
+			panicErr = err
+		}
+	}()
+	var ip *int
+	buf := new(bytes.Buffer)
+	if err := NewEncoder(buf).Encode(ip); err != nil {
+		t.Fatal("error in encode:", err)
+	}
+	return
+}
+
+func TestNilPointerInsideInterface(t *testing.T) {
+	var ip *int
+	si := struct {
+		I interface{}
+	}{
+		I: ip,
+	}
+	buf := new(bytes.Buffer)
+	err := NewEncoder(buf).Encode(si)
+	if err == nil {
+		t.Fatal("expected error, got none")
+	}
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "nil pointer") || !strings.Contains(errMsg, "interface") {
+		t.Fatal("expected error about nil pointer and interface, got:", errMsg)
+	}
+}
+
+type Bug4Public struct {
+	Name   string
+	Secret Bug4Secret
+}
+
+type Bug4Secret struct {
+	a int // error: no exported fields.
+}
+
+// Test that a failed compilation doesn't leave around an executable encoder.
+// Issue 3273.
+func TestMutipleEncodingsOfBadType(t *testing.T) {
+	x := Bug4Public{
+		Name:   "name",
+		Secret: Bug4Secret{1},
+	}
+	buf := new(bytes.Buffer)
+	enc := NewEncoder(buf)
+	err := enc.Encode(x)
+	if err == nil {
+		t.Fatal("first encoding: expected error")
+	}
+	buf.Reset()
+	enc = NewEncoder(buf)
+	err = enc.Encode(x)
+	if err == nil {
+		t.Fatal("second encoding: expected error")
+	}
+	if !strings.Contains(err.Error(), "no exported fields") {
+		t.Errorf("expected error about no exported fields; got %v", err)
+	}
+}
+
+// There was an error check comparing the length of the input with the
+// length of the slice being decoded. It was wrong because the next
+// thing in the input might be a type definition, which would lead to
+// an incorrect length check.  This test reproduces the corner case.
+
+type Z struct {
+}
+
+func Test29ElementSlice(t *testing.T) {
+	Register(Z{})
+	src := make([]interface{}, 100) // Size needs to be bigger than size of type definition.
+	for i := range src {
+		src[i] = Z{}
+	}
+	buf := new(bytes.Buffer)
+	err := NewEncoder(buf).Encode(src)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+		return
+	}
+
+	var dst []interface{}
+	err = NewDecoder(buf).Decode(&dst)
+	if err != nil {
+		t.Errorf("decode: %v", err)
+		return
+	}
+}

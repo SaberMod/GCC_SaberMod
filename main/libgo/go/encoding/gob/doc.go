@@ -116,9 +116,9 @@ uninterpreted bytes of the value.
 All other slices and arrays are sent as an unsigned count followed by that many
 elements using the standard gob encoding for their type, recursively.
 
-Maps are sent as an unsigned count followed by that man key, element
+Maps are sent as an unsigned count followed by that many key, element
 pairs. Empty but non-nil maps are sent, so if the sender has allocated
-a map, the receiver will allocate a map even no elements are
+a map, the receiver will allocate a map even if no elements are
 transmitted.
 
 Structs are sent as a sequence of (field number, field value) pairs.  The field
@@ -226,7 +226,7 @@ where * signifies zero or more repetitions and the type id of a value must
 be predefined or be defined before the value in the stream.
 
 See "Gobs of data" for a design discussion of the gob wire format:
-http://blog.golang.org/2011/03/gobs-of-data.html
+http://golang.org/doc/articles/gobs_of_data.html
 */
 package gob
 
@@ -328,7 +328,7 @@ reserved).
 	01	// Add 1 to get field number 0: field[1].name
 	01	// 1 byte
 	59	// structType.field[1].name = "Y"
-	01	// Add 1 to get field number 1: field[0].id
+	01	// Add 1 to get field number 1: field[1].id
 	04	// struct.Type.field[1].typeId is 2 (signed int).
 	00	// End of structType.field[1]; end of structType.field.
 	00	// end of wireType.structType structure

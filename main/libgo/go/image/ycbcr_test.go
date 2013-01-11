@@ -37,6 +37,7 @@ func TestYCbCr(t *testing.T) {
 		YCbCrSubsampleRatio444,
 		YCbCrSubsampleRatio422,
 		YCbCrSubsampleRatio420,
+		YCbCrSubsampleRatio440,
 	}
 	deltas := []Point{
 		Pt(0, 0),
@@ -49,6 +50,9 @@ func TestYCbCr(t *testing.T) {
 			for _, delta := range deltas {
 				testYCbCr(t, r, subsampleRatio, delta)
 			}
+		}
+		if testing.Short() {
+			break
 		}
 	}
 }

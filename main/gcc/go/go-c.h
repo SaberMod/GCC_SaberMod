@@ -20,16 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GO_GO_C_H
 #define GO_GO_C_H
 
-#ifdef ENABLE_BUILD_WITH_CXX
 #define GO_EXTERN_C
-#else
-#define GO_EXTERN_C extern "C"
-#endif
-
-#if defined(__cplusplus) && !defined(ENABLE_BUILD_WITH_CXX)
-extern "C"
-{
-#endif
 
 #include "machmode.h"
 
@@ -38,11 +29,12 @@ extern "C"
 
 extern int go_enable_dump (const char*);
 extern int go_enable_optimize (const char*);
-extern void go_set_prefix (const char*);
 
 extern void go_add_search_path (const char*);
 
-extern void go_create_gogo (int int_type_size, int pointer_size);
+extern void go_create_gogo (int int_type_size, int pointer_size,
+			    const char* pkgpath, const char *prefix,
+			    const char *relative_import_path);
 
 extern void go_parse_input_files (const char**, unsigned int,
 				  bool only_check_syntax,
@@ -69,8 +61,6 @@ extern void go_write_export_data (const char *, unsigned int);
 
 extern const char *go_read_export_data (int, off_t, char **, size_t *, int *);
 
-#if defined(__cplusplus) && !defined(ENABLE_BUILD_WITH_CXX)
-} /* End extern "C".  */
-#endif
+extern GTY(()) tree go_non_zero_struct;
 
 #endif /* !defined(GO_GO_C_H) */

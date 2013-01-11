@@ -6,7 +6,7 @@
 // RFC 4627.
 //
 // See "JSON and Go" for an introduction to this package:
-// http://blog.golang.org/2011/01/json-and-go.html
+// http://golang.org/doc/articles/json_and_go.html
 package json
 
 import (
@@ -17,6 +17,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"unicode"
 	"unicode/utf8"
@@ -35,7 +36,7 @@ import (
 //
 // Boolean values encode as JSON booleans.
 //
-// Floating point and integer values encode as JSON numbers.
+// Floating point, integer, and Number values encode as JSON numbers.
 //
 // String values encode as JSON strings, with each invalid UTF-8 sequence
 // replaced by the encoding of the Unicode replacement character U+FFFD.
@@ -43,7 +44,8 @@ import (
 // to keep some browsers from misinterpreting JSON output as HTML.
 //
 // Array and slice values encode as JSON arrays, except that
-// []byte encodes as a base64-encoded string.
+// []byte encodes as a base64-encoded string, and a nil slice
+// encodes as the null JSON object.
 //
 // Struct values encode as JSON objects. Each exported struct field
 // becomes a member of the object unless
@@ -53,7 +55,7 @@ import (
 // nil pointer or interface value, and any array, slice, map, or string of
 // length zero. The object's default key string is the struct field name
 // but can be specified in the struct field's tag value. The "json" key in
-// struct field's tag value is the key name, followed by an optional comma
+// the struct field's tag value is the key name, followed by an optional comma
 // and options. Examples:
 //
 //   // Field is ignored by this package.
@@ -82,6 +84,16 @@ import (
 // only Unicode letters, digits, dollar signs, percent signs, hyphens,
 // underscores and slashes.
 //
+// Anonymous struct fields are usually marshaled as if their inner exported fields
+// were fields in the outer struct, subject to the usual Go visibility rules.
+// An anonymous struct field with a name given in its JSON tag is treated as
+// having that name instead of as anonymous.
+//
+// Handling of anonymous struct fields is new in Go 1.1.
+// Prior to Go 1.1, anonymous struct fields were ignored. To force ignoring of
+// an anonymous struct field in both current and earlier versions, give the field
+// a JSON tag of "-".
+//
 // Map values encode as JSON objects.
 // The map's key type must be string; the object keys are used directly
 // as map keys.
@@ -94,7 +106,7 @@ import (
 //
 // Channel, complex, and function values cannot be encoded in JSON.
 // Attempting to encode such a value causes Marshal to return
-// an InvalidTypeError.
+// an UnsupportedTypeError.
 //
 // JSON cannot represent cyclic data structures and Marshal does not
 // handle them.  Passing cyclic structures to Marshal will result in
@@ -120,17 +132,6 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return buf.Bytes(), nil
-}
-
-// MarshalForHTML is like Marshal but applies HTMLEscape to the output.
-func MarshalForHTML(v interface{}) ([]byte, error) {
-	b, err := Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	HTMLEscape(&buf, b)
 	return buf.Bytes(), nil
 }
 
@@ -166,6 +167,8 @@ type Marshaler interface {
 	MarshalJSON() ([]byte, error)
 }
 
+// An UnsupportedTypeError is returned by Marshal when attempting
+// to encode an unsupported value type.
 type UnsupportedTypeError struct {
 	Type reflect.Type
 }
@@ -198,11 +201,6 @@ type MarshalerError struct {
 
 func (e *MarshalerError) Error() string {
 	return "json: error calling MarshalJSON for type " + e.Type.String() + ": " + e.Err.Error()
-}
-
-type interfaceOrPtrValue interface {
-	IsNil() bool
-	Elem() reflect.Value
 }
 
 var hex = "0123456789abcdef"
@@ -276,7 +274,7 @@ func (e *encodeState) reflectValueQuoted(v reflect.Value, quoted bool) {
 		b, err := m.MarshalJSON()
 		if err == nil {
 			// copy JSON into buffer, checking validity.
-			err = Compact(&e.Buffer, b)
+			err = compact(&e.Buffer, b, true)
 		}
 		if err != nil {
 			e.error(&MarshalerError{v.Type(), err})
@@ -324,6 +322,14 @@ func (e *encodeState) reflectValueQuoted(v reflect.Value, quoted bool) {
 			e.Write(b)
 		}
 	case reflect.String:
+		if v.Type() == numberType {
+			numStr := v.String()
+			if numStr == "" {
+				numStr = "0" // Number's zero-val
+			}
+			e.WriteString(numStr)
+			break
+		}
 		if quoted {
 			sb, err := Marshal(v.String())
 			if err != nil {
@@ -337,9 +343,9 @@ func (e *encodeState) reflectValueQuoted(v reflect.Value, quoted bool) {
 	case reflect.Struct:
 		e.WriteByte('{')
 		first := true
-		for _, ef := range encodeFields(v.Type()) {
-			fieldValue := v.Field(ef.i)
-			if ef.omitEmpty && isEmptyValue(fieldValue) {
+		for _, f := range cachedTypeFields(v.Type()) {
+			fv := fieldByIndex(v, f.index)
+			if !fv.IsValid() || f.omitEmpty && isEmptyValue(fv) {
 				continue
 			}
 			if first {
@@ -347,9 +353,9 @@ func (e *encodeState) reflectValueQuoted(v reflect.Value, quoted bool) {
 			} else {
 				e.WriteByte(',')
 			}
-			e.string(ef.tag)
+			e.string(f.name)
 			e.WriteByte(':')
-			e.reflectValueQuoted(fieldValue, ef.quoted)
+			e.reflectValueQuoted(fv, f.quoted)
 		}
 		e.WriteByte('}')
 
@@ -430,9 +436,11 @@ func isValidTag(s string) bool {
 		return false
 	}
 	for _, c := range s {
-		switch c {
-		case '$', '-', '_', '/', '%':
-			// Acceptable
+		switch {
+		case strings.ContainsRune("!#$%&()*+-./:<=>?@[]^_{|}~", c):
+			// Backslash and quote chars are reserved, but
+			// otherwise any punctuation chars are allowed
+			// in a tag name.
 		default:
 			if !unicode.IsLetter(c) && !unicode.IsDigit(c) {
 				return false
@@ -440,6 +448,19 @@ func isValidTag(s string) bool {
 		}
 	}
 	return true
+}
+
+func fieldByIndex(v reflect.Value, index []int) reflect.Value {
+	for _, i := range index {
+		if v.Kind() == reflect.Ptr {
+			if v.IsNil() {
+				return reflect.Value{}
+			}
+			v = v.Elem()
+		}
+		v = v.Field(i)
+	}
+	return v
 }
 
 // stringValues is a slice of reflect.Value holding *reflect.StringValue.
@@ -500,62 +521,183 @@ func (e *encodeState) string(s string) (int, error) {
 	return e.Len() - len0, nil
 }
 
-// encodeField contains information about how to encode a field of a
-// struct.
-type encodeField struct {
-	i         int // field index in struct
-	tag       string
-	quoted    bool
+// A field represents a single field found in a struct.
+type field struct {
+	name      string
+	tag       bool
+	index     []int
+	typ       reflect.Type
 	omitEmpty bool
+	quoted    bool
 }
 
-var (
-	typeCacheLock     sync.RWMutex
-	encodeFieldsCache = make(map[reflect.Type][]encodeField)
-)
+// byName sorts field by name, breaking ties with depth,
+// then breaking ties with "name came from json tag", then
+// breaking ties with index sequence.
+type byName []field
 
-// encodeFields returns a slice of encodeField for a given
-// struct type.
-func encodeFields(t reflect.Type) []encodeField {
-	typeCacheLock.RLock()
-	fs, ok := encodeFieldsCache[t]
-	typeCacheLock.RUnlock()
-	if ok {
-		return fs
+func (x byName) Len() int { return len(x) }
+
+func (x byName) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+func (x byName) Less(i, j int) bool {
+	if x[i].name != x[j].name {
+		return x[i].name < x[j].name
 	}
-
-	typeCacheLock.Lock()
-	defer typeCacheLock.Unlock()
-	fs, ok = encodeFieldsCache[t]
-	if ok {
-		return fs
+	if len(x[i].index) != len(x[j].index) {
+		return len(x[i].index) < len(x[j].index)
 	}
+	if x[i].tag != x[j].tag {
+		return x[i].tag
+	}
+	return byIndex(x).Less(i, j)
+}
 
-	v := reflect.Zero(t)
-	n := v.NumField()
-	for i := 0; i < n; i++ {
-		f := t.Field(i)
-		if f.PkgPath != "" {
-			continue
+// byIndex sorts field by index sequence.
+type byIndex []field
+
+func (x byIndex) Len() int { return len(x) }
+
+func (x byIndex) Swap(i, j int) { x[i], x[j] = x[j], x[i] }
+
+func (x byIndex) Less(i, j int) bool {
+	for k, xik := range x[i].index {
+		if k >= len(x[j].index) {
+			return false
 		}
-		var ef encodeField
-		ef.i = i
-		ef.tag = f.Name
+		if xik != x[j].index[k] {
+			return xik < x[j].index[k]
+		}
+	}
+	return len(x[i].index) < len(x[j].index)
+}
 
-		tv := f.Tag.Get("json")
-		if tv != "" {
-			if tv == "-" {
+// typeFields returns a list of fields that JSON should recognize for the given type.
+// The algorithm is breadth-first search over the set of structs to include - the top struct
+// and then any reachable anonymous structs.
+func typeFields(t reflect.Type) []field {
+	// Anonymous fields to explore at the current level and the next.
+	current := []field{}
+	next := []field{{typ: t}}
+
+	// Count of queued names for current level and the next.
+	count := map[reflect.Type]int{}
+	nextCount := map[reflect.Type]int{}
+
+	// Types already visited at an earlier level.
+	visited := map[reflect.Type]bool{}
+
+	// Fields found.
+	var fields []field
+
+	for len(next) > 0 {
+		current, next = next, current[:0]
+		count, nextCount = nextCount, map[reflect.Type]int{}
+
+		for _, f := range current {
+			if visited[f.typ] {
 				continue
 			}
-			name, opts := parseTag(tv)
-			if isValidTag(name) {
-				ef.tag = name
+			visited[f.typ] = true
+
+			// Scan f.typ for fields to include.
+			for i := 0; i < f.typ.NumField(); i++ {
+				sf := f.typ.Field(i)
+				if sf.PkgPath != "" { // unexported
+					continue
+				}
+				tag := sf.Tag.Get("json")
+				if tag == "-" {
+					continue
+				}
+				name, opts := parseTag(tag)
+				if !isValidTag(name) {
+					name = ""
+				}
+				index := make([]int, len(f.index)+1)
+				copy(index, f.index)
+				index[len(f.index)] = i
+				// Record found field and index sequence.
+				if name != "" || !sf.Anonymous {
+					tagged := name != ""
+					if name == "" {
+						name = sf.Name
+					}
+					fields = append(fields, field{name, tagged, index, sf.Type,
+						opts.Contains("omitempty"), opts.Contains("string")})
+					if count[f.typ] > 1 {
+						// If there were multiple instances, add a second,
+						// so that the annihilation code will see a duplicate.
+						// It only cares about the distinction between 1 or 2,
+						// so don't bother generating any more copies.
+						fields = append(fields, fields[len(fields)-1])
+					}
+					continue
+				}
+
+				// Record new anonymous struct to explore in next round.
+				ft := sf.Type
+				if ft.Name() == "" {
+					// Must be pointer.
+					ft = ft.Elem()
+				}
+				nextCount[ft]++
+				if nextCount[ft] == 1 {
+					next = append(next, field{name: ft.Name(), index: index, typ: ft})
+				}
 			}
-			ef.omitEmpty = opts.Contains("omitempty")
-			ef.quoted = opts.Contains("string")
 		}
-		fs = append(fs, ef)
 	}
-	encodeFieldsCache[t] = fs
-	return fs
+
+	sort.Sort(byName(fields))
+
+	// Remove fields with annihilating name collisions
+	// and also fields shadowed by fields with explicit JSON tags.
+	name := ""
+	out := fields[:0]
+	for _, f := range fields {
+		if f.name != name {
+			name = f.name
+			out = append(out, f)
+			continue
+		}
+		if n := len(out); n > 0 && out[n-1].name == name && (!out[n-1].tag || f.tag) {
+			out = out[:n-1]
+		}
+	}
+	fields = out
+
+	sort.Sort(byIndex(fields))
+
+	return fields
+}
+
+var fieldCache struct {
+	sync.RWMutex
+	m map[reflect.Type][]field
+}
+
+// cachedTypeFields is like typeFields but uses a cache to avoid repeated work.
+func cachedTypeFields(t reflect.Type) []field {
+	fieldCache.RLock()
+	f := fieldCache.m[t]
+	fieldCache.RUnlock()
+	if f != nil {
+		return f
+	}
+
+	// Compute fields without lock.
+	// Might duplicate effort but won't hold other computations back.
+	f = typeFields(t)
+	if f == nil {
+		f = []field{}
+	}
+
+	fieldCache.Lock()
+	if fieldCache.m == nil {
+		fieldCache.m = map[reflect.Type][]field{}
+	}
+	fieldCache.m[t] = f
+	fieldCache.Unlock()
+	return f
 }

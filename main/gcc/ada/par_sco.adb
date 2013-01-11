@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 2009-2011, Free Software Foundation, Inc.         --
+--          Copyright (C) 2009-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -23,8 +23,10 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Debug;    use Debug;
+with Errout;   use Errout;
 with Lib;      use Lib;
 with Lib.Util; use Lib.Util;
 with Namet;    use Namet;
@@ -33,6 +35,8 @@ with Opt;      use Opt;
 with Output;   use Output;
 with Put_SCOs;
 with SCOs;     use SCOs;
+with Sem;      use Sem;
+with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Sinput;   use Sinput;
 with Snames;   use Snames;
@@ -69,9 +73,9 @@ package body Par_SCO is
 
    --  We need to be able to get to conditions quickly for handling the calls
    --  to Set_SCO_Condition efficiently, and similarly to get to pragmas to
-   --  handle calls to Set_SCO_Pragma_Enabled. For this purpose we identify
-   --  the conditions and pragmas in the table by their starting sloc, and use
-   --  this hash table to map from these sloc values to SCO_Table indexes.
+   --  handle calls to Set_SCO_Pragma_Enabled. For this purpose we identify the
+   --  conditions and pragmas in the table by their starting sloc, and use this
+   --  hash table to map from these sloc values to SCO_Table indexes.
 
    type Header_Num is new Integer range 0 .. 996;
    --  Type for hash table headers
@@ -101,6 +105,9 @@ package body Par_SCO is
    --  excluding OR and AND) and returns True if so, False otherwise, it does
    --  no other processing.
 
+   function To_Source_Location (S : Source_Ptr) return Source_Location;
+   --  Converts Source_Ptr value to Source_Location (line/col) format
+
    procedure Process_Decisions
      (N           : Node_Id;
       T           : Character;
@@ -108,9 +115,9 @@ package body Par_SCO is
    --  If N is Empty, has no effect. Otherwise scans the tree for the node N,
    --  to output any decisions it contains. T is one of IEGPWX (for context of
    --  expression: if/exit when/entry guard/pragma/while/expression). If T is
-   --  other than X, the node N is the conditional expression involved, and a
-   --  decision is always present (at the very least a simple decision is
-   --  present at the top level).
+   --  other than X, the node N is the if expression involved, and a decision
+   --  is always present (at the very least a simple decision is present at the
+   --  top level).
 
    procedure Process_Decisions
      (L           : List_Id;
@@ -119,13 +126,13 @@ package body Par_SCO is
    --  Calls above procedure for each element of the list L
 
    procedure Set_Table_Entry
-     (C1          : Character;
-      C2          : Character;
-      From        : Source_Ptr;
-      To          : Source_Ptr;
-      Last        : Boolean;
-      Pragma_Sloc : Source_Ptr := No_Location;
-      Pragma_Name : Pragma_Id  := Unknown_Pragma);
+     (C1                 : Character;
+      C2                 : Character;
+      From               : Source_Ptr;
+      To                 : Source_Ptr;
+      Last               : Boolean;
+      Pragma_Sloc        : Source_Ptr := No_Location;
+      Pragma_Aspect_Name : Name_Id    := No_Name);
    --  Append an entry to SCO_Table with fields set as per arguments
 
    type Dominant_Info is record
@@ -133,13 +140,19 @@ package body Par_SCO is
       --  F/T/S/E for a valid dominance marker, or ' ' for no dominant
 
       N : Node_Id;
-      --  Node providing the sloc(s) for the dominance marker
+      --  Node providing the Sloc(s) for the dominance marker
    end record;
    No_Dominant : constant Dominant_Info := (' ', Empty);
 
+   procedure Record_Instance (Id : Instance_Id; Inst_Sloc : Source_Ptr);
+   --  Add one entry from the instance table to the corresponding SCO table
+
    procedure Traverse_Declarations_Or_Statements
      (L : List_Id;
-      D : Dominant_Info := No_Dominant);
+      D : Dominant_Info := No_Dominant;
+      P : Node_Id       := Empty);
+   --  Process L, a list of statements or declarations dominated by D.
+   --  If P is present, it is processed as though it had been prepended to L.
 
    procedure Traverse_Generic_Instantiation       (N : Node_Id);
    procedure Traverse_Generic_Package_Declaration (N : Node_Id);
@@ -328,9 +341,7 @@ package body Par_SCO is
 
    function Is_Logical_Operator (N : Node_Id) return Boolean is
    begin
-      return Nkind_In (N, N_Op_Not,
-                          N_And_Then,
-                          N_Or_Else);
+      return Nkind_In (N, N_Op_Not, N_And_Then, N_Or_Else);
    end Is_Logical_Operator;
 
    -----------------------
@@ -475,26 +486,47 @@ package body Par_SCO is
 
       procedure Output_Header (T : Character) is
          Loc : Source_Ptr := No_Location;
-         --  Node whose sloc is used for the decision
+         --  Node whose Sloc is used for the decision
+
+         Nam : Name_Id := No_Name;
+         --  For the case of an aspect, aspect name
 
       begin
          case T is
-            when 'I' | 'E' | 'W' =>
+            when 'I' | 'E' | 'W' | 'a' | 'A' =>
 
-               --  For IF, EXIT, WHILE, the token SLOC can be found from
-               --  the SLOC of the parent of the expression.
+               --  For IF, EXIT, WHILE, or aspects, the token SLOC is that of
+               --  the parent of the expression.
 
                Loc := Sloc (Parent (N));
 
+               if T = 'a' or else T = 'A' then
+                  Nam := Chars (Identifier (Parent (N)));
+               end if;
+
             when 'G' | 'P' =>
 
-               --  For entry, the token sloc is from the N_Entry_Body. For
-               --  PRAGMA, we must get the location from the pragma node.
-               --  Argument N is the pragma argument, and we have to go up two
-               --  levels (through the pragma argument association) to get to
-               --  the pragma node itself.
+               --  For entry guard, the token sloc is from the N_Entry_Body.
+               --  For PRAGMA, we must get the location from the pragma node.
+               --  Argument N is the pragma argument, and we have to go up
+               --  two levels (through the pragma argument association) to
+               --  get to the pragma node itself. For the guard on a select
+               --  alternative, we do not have access to the token location for
+               --  the WHEN, so we use the first sloc of the condition itself
+               --  (note: we use First_Sloc, not Sloc, because this is what is
+               --  referenced by dominance markers).
 
-               Loc := Sloc (Parent (Parent (N)));
+               --  Doesn't this requirement of using First_Sloc need to be
+               --  documented in the spec ???
+
+               if Nkind_In (Parent (N), N_Accept_Alternative,
+                                        N_Delay_Alternative,
+                                        N_Terminate_Alternative)
+               then
+                  Loc := First_Sloc (N);
+               else
+                  Loc := Sloc (Parent (Parent (N)));
+               end if;
 
             when 'X' =>
 
@@ -509,12 +541,20 @@ package body Par_SCO is
          end case;
 
          Set_Table_Entry
-           (C1          => T,
-            C2          => ' ',
-            From        => Loc,
-            To          => No_Location,
-            Last        => False,
-            Pragma_Sloc => Pragma_Sloc);
+           (C1                 => T,
+            C2                 => ' ',
+            From               => Loc,
+            To                 => No_Location,
+            Last               => False,
+            Pragma_Sloc        => Pragma_Sloc,
+            Pragma_Aspect_Name => Nam);
+
+         --  For an aspect specification, which will be rewritten into a
+         --  pragma, enter a hash table entry now.
+
+         if T = 'a' then
+            Condition_Pragma_Hash_Table.Set (Loc, SCO_Table.Last);
+         end if;
       end Output_Header;
 
       ------------------------------
@@ -547,10 +587,7 @@ package body Par_SCO is
             --  Logical operators, output table entries and then process
             --  operands recursively to deal with nested conditions.
 
-            when N_And_Then |
-                 N_Or_Else  |
-                 N_Op_Not   =>
-
+            when N_And_Then | N_Or_Else  | N_Op_Not =>
                declare
                   T : Character;
 
@@ -595,12 +632,15 @@ package body Par_SCO is
 
             --  Case expression
 
+            --  Really hard to believe this is correct given the special
+            --  handling for if expressions below ???
+
             when N_Case_Expression =>
                return OK; -- ???
 
-            --  Conditional expression, processed like an if statement
+            --  If expression, processed like an if statement
 
-            when N_Conditional_Expression =>
+            when N_If_Expression =>
                declare
                   Cond : constant Node_Id := First (Expressions (N));
                   Thnx : constant Node_Id := Next (Cond);
@@ -683,15 +723,38 @@ package body Par_SCO is
       Debug_Put_SCOs;
    end pscos;
 
+   ---------------------
+   -- Record_Instance --
+   ---------------------
+
+   procedure Record_Instance (Id : Instance_Id; Inst_Sloc : Source_Ptr) is
+      Inst_Src  : constant Source_File_Index :=
+                    Get_Source_File_Index (Inst_Sloc);
+   begin
+      SCO_Instance_Table.Append
+        ((Inst_Dep_Num       => Dependency_Num (Unit (Inst_Src)),
+          Inst_Loc           => To_Source_Location (Inst_Sloc),
+          Enclosing_Instance => SCO_Instance_Index (Instance (Inst_Src))));
+      pragma Assert
+        (SCO_Instance_Table.Last = SCO_Instance_Index (Id));
+   end Record_Instance;
+
    ----------------
    -- SCO_Output --
    ----------------
 
    procedure SCO_Output is
+      procedure Populate_SCO_Instance_Table is
+        new Sinput.Iterate_On_Instances (Record_Instance);
+
+      SCO_Index : Nat;
+
    begin
       if Debug_Flag_Dot_OO then
          dsco;
       end if;
+
+      Populate_SCO_Instance_Table;
 
       --  Sort the unit tables based on dependency numbers
 
@@ -751,6 +814,25 @@ package body Par_SCO is
          end;
       end loop;
 
+      --  Stamp out SCO entries for decisions in disabled constructs (pragmas
+      --  or aspects).
+
+      SCO_Index := 1;
+      while SCO_Index <= SCO_Table.Last loop
+         if Is_Decision (SCO_Table.Table (SCO_Index).C1)
+           and then SCO_Pragma_Disabled
+                      (SCO_Table.Table (SCO_Index).Pragma_Sloc)
+         then
+            loop
+               SCO_Table.Table (SCO_Index).C1 := ASCII.NUL;
+               exit when SCO_Table.Table (SCO_Index).Last;
+               SCO_Index := SCO_Index + 1;
+            end loop;
+         end if;
+
+         SCO_Index := SCO_Index + 1;
+      end loop;
+
       --  Now the tables are all setup for output to the ALI file
 
       Write_SCOs_To_ALI_File;
@@ -779,8 +861,30 @@ package body Par_SCO is
          declare
             T : SCO_Table_Entry renames SCO_Table.Table (Index);
          begin
-            pragma Assert (T.C1 = 'S');
-            return T.C2 = 'p';
+            case T.C1 is
+               when 'S' =>
+                  --  Pragma statement
+
+                  return T.C2 = 'p';
+
+               when 'A' =>
+                  --  Aspect decision (enabled)
+
+                  return False;
+
+               when 'a' =>
+                  --  Aspect decision (not enabled)
+
+                  return True;
+
+               when ASCII.NUL =>
+                  --  Nullified disabled SCO
+
+                  return True;
+
+               when others =>
+                  raise Program_Error;
+            end case;
          end;
 
       else
@@ -883,9 +987,14 @@ package body Par_SCO is
       Sloc_Range (Orig, Start, Dummy);
       Index := Condition_Pragma_Hash_Table.Get (Start);
 
-      --  The test here for zero is to deal with possible previous errors
+      --  Index can be zero for boolean expressions that do not have SCOs
+      --  (simple decisions outside of a control flow structure), or in case
+      --  of a previous error.
 
-      if Index /= 0 then
+      if Index = 0 then
+         return;
+
+      else
          pragma Assert (SCO_Table.Table (Index).C1 = ' ');
          SCO_Table.Table (Index).C2 := Constant_Condition_Code (Val);
       end if;
@@ -899,6 +1008,17 @@ package body Par_SCO is
       Index : Nat;
 
    begin
+      --  Nothing to do if not generating SCO, or if we're not processing the
+      --  original source occurrence of the pragma.
+
+      if not (Generate_SCO
+               and then
+                 In_Extended_Main_Source_Unit (Cunit_Entity (Current_Sem_Unit))
+               and then not (In_Instance or In_Inlined_Body))
+      then
+         return;
+      end if;
+
       --  Note: the reason we use the Sloc value as the key is that in the
       --  generic case, the call to this procedure is made on a copy of the
       --  original node, so we can't use the Node_Id value.
@@ -907,18 +1027,36 @@ package body Par_SCO is
 
       --  The test here for zero is to deal with possible previous errors
 
-      if Index /= 0 then
+      if Index = 0 then
+         Check_Error_Detected;
+
+      else
          declare
             T : SCO_Table_Entry renames SCO_Table.Table (Index);
 
          begin
-            --  Called multiple times for the same sloc (need to allow for
-            --  C2 = 'P') ???
+            --  Note: may be called multiple times for the same sloc, so
+            --  account for the fact that the entry may already have been
+            --  marked enabled.
 
-            pragma Assert (T.C1 = 'S'
-                             and then
-                           (T.C2 = 'p' or else T.C2 = 'P'));
-            T.C2 := 'P';
+            case T.C1 is
+               --  Aspect (decision SCO)
+
+               when 'a' =>
+                  T.C1 := 'A';
+
+               when 'A' =>
+                  null;
+
+               --  Pragma (statement SCO)
+
+               when 'S' =>
+                  pragma Assert (T.C2 = 'p' or else T.C2 = 'P');
+                  T.C2 := 'P';
+
+               when others =>
+                  raise Program_Error;
+            end case;
          end;
       end if;
    end Set_SCO_Pragma_Enabled;
@@ -928,44 +1066,39 @@ package body Par_SCO is
    ---------------------
 
    procedure Set_Table_Entry
-     (C1          : Character;
-      C2          : Character;
-      From        : Source_Ptr;
-      To          : Source_Ptr;
-      Last        : Boolean;
-      Pragma_Sloc : Source_Ptr := No_Location;
-      Pragma_Name : Pragma_Id  := Unknown_Pragma)
+     (C1                 : Character;
+      C2                 : Character;
+      From               : Source_Ptr;
+      To                 : Source_Ptr;
+      Last               : Boolean;
+      Pragma_Sloc        : Source_Ptr := No_Location;
+      Pragma_Aspect_Name : Name_Id    := No_Name)
    is
-      function To_Source_Location (S : Source_Ptr) return Source_Location;
-      --  Converts Source_Ptr value to Source_Location (line/col) format
-
-      ------------------------
-      -- To_Source_Location --
-      ------------------------
-
-      function To_Source_Location (S : Source_Ptr) return Source_Location is
-      begin
-         if S = No_Location then
-            return No_Source_Location;
-         else
-            return
-              (Line => Get_Logical_Line_Number (S),
-               Col  => Get_Column_Number (S));
-         end if;
-      end To_Source_Location;
-
-   --  Start of processing for Set_Table_Entry
-
    begin
       SCO_Table.Append
-        ((C1          => C1,
-          C2          => C2,
-          From        => To_Source_Location (From),
-          To          => To_Source_Location (To),
-          Last        => Last,
-          Pragma_Sloc => Pragma_Sloc,
-          Pragma_Name => Pragma_Name));
+        ((C1                 => C1,
+          C2                 => C2,
+          From               => To_Source_Location (From),
+          To                 => To_Source_Location (To),
+          Last               => Last,
+          Pragma_Sloc        => Pragma_Sloc,
+          Pragma_Aspect_Name => Pragma_Aspect_Name));
    end Set_Table_Entry;
+
+   ------------------------
+   -- To_Source_Location --
+   ------------------------
+
+   function To_Source_Location (S : Source_Ptr) return Source_Location is
+   begin
+      if S = No_Location then
+         return No_Source_Location;
+      else
+         return
+           (Line => Get_Logical_Line_Number (S),
+            Col  => Get_Column_Number (S));
+      end if;
+   end To_Source_Location;
 
    -----------------------------------------
    -- Traverse_Declarations_Or_Statements --
@@ -1036,7 +1169,8 @@ package body Par_SCO is
 
    procedure Traverse_Declarations_Or_Statements
      (L : List_Id;
-      D : Dominant_Info := No_Dominant)
+      D : Dominant_Info := No_Dominant;
+      P : Node_Id       := Empty)
    is
       Current_Dominant : Dominant_Info := D;
       --  Dominance information for the current basic block
@@ -1044,8 +1178,7 @@ package body Par_SCO is
       Current_Test : Node_Id;
       --  Conditional node (N_If_Statement or N_Elsiif being processed
 
-      N     : Node_Id;
-      Dummy : Source_Ptr;
+      N : Node_Id;
 
       SC_First : constant Nat := SC.Last + 1;
       SD_First : constant Nat := SD.Last + 1;
@@ -1055,15 +1188,6 @@ package body Par_SCO is
       --  Extend the current statement sequence to encompass the node N. Typ
       --  is the letter that identifies the type of statement/declaration that
       --  is being added to the sequence.
-
-      procedure Extend_Statement_Sequence
-        (From : Node_Id;
-         To   : Node_Id;
-         Typ  : Character);
-      --  This version extends the current statement sequence with an entry
-      --  that starts with the first token of From, and ends with the last
-      --  token of To. It is used for example in a CASE statement to cover
-      --  the range from the CASE token to the last token of the expression.
 
       procedure Set_Statement_Entry;
       --  Output CS entries for all statements saved in table SC, and end the
@@ -1079,6 +1203,12 @@ package body Par_SCO is
       procedure Process_Decisions_Defer (L : List_Id; T : Character);
       pragma Inline (Process_Decisions_Defer);
       --  Same case for list arguments, deferred call to Process_Decisions
+
+      procedure Traverse_One (N : Node_Id);
+      --  Traverse one declaration or statement
+
+      procedure Traverse_Aspects (N : Node_Id);
+      --  Helper for Traverse_One: traverse N's aspect specifications
 
       -------------------------
       -- Set_Statement_Entry --
@@ -1103,21 +1233,21 @@ package body Par_SCO is
                         To := No_Location;
                      end if;
                      Set_Table_Entry
-                       (C1          => '>',
-                        C2          => Current_Dominant.K,
-                        From        => From,
-                        To          => To,
-                        Last        => False,
-                        Pragma_Sloc => No_Location,
-                        Pragma_Name => Unknown_Pragma);
+                       (C1                 => '>',
+                        C2                 => Current_Dominant.K,
+                        From               => From,
+                        To                 => To,
+                        Last               => False,
+                        Pragma_Sloc        => No_Location,
+                        Pragma_Aspect_Name => No_Name);
                   end;
                end if;
             end if;
 
             declare
-               SCE         : SC_Entry renames SC.Table (J);
-               Pragma_Sloc : Source_Ptr := No_Location;
-               Pragma_Name : Pragma_Id  := Unknown_Pragma;
+               SCE                : SC_Entry renames SC.Table (J);
+               Pragma_Sloc        : Source_Ptr := No_Location;
+               Pragma_Aspect_Name : Name_Id    := No_Name;
             begin
                --  For the case of a statement SCO for a pragma controlled by
                --  Set_SCO_Pragma_Enabled, set Pragma_Sloc so that the SCO (and
@@ -1128,20 +1258,22 @@ package body Par_SCO is
                   Pragma_Sloc := SCE.From;
                   Condition_Pragma_Hash_Table.Set
                     (Pragma_Sloc, SCO_Table.Last + 1);
-                  Pragma_Name := Get_Pragma_Id (Sinfo.Pragma_Name (SCE.N));
+                  Pragma_Aspect_Name := Pragma_Name (SCE.N);
+                  pragma Assert (Pragma_Aspect_Name /= No_Name);
 
                elsif SCE.Typ = 'P' then
-                  Pragma_Name := Get_Pragma_Id (Sinfo.Pragma_Name (SCE.N));
+                  Pragma_Aspect_Name := Pragma_Name (SCE.N);
+                  pragma Assert (Pragma_Aspect_Name /= No_Name);
                end if;
 
                Set_Table_Entry
-                 (C1          => 'S',
-                  C2          => SCE.Typ,
-                  From        => SCE.From,
-                  To          => SCE.To,
-                  Last        => (J = SC_Last),
-                  Pragma_Sloc => Pragma_Sloc,
-                  Pragma_Name => Pragma_Name);
+                 (C1                 => 'S',
+                  C2                 => SCE.Typ,
+                  From               => SCE.From,
+                  To                 => SCE.To,
+                  Last               => (J = SC_Last),
+                  Pragma_Sloc        => Pragma_Sloc,
+                  Pragma_Aspect_Name => Pragma_Aspect_Name);
             end;
          end loop;
 
@@ -1180,24 +1312,50 @@ package body Par_SCO is
       -------------------------------
 
       procedure Extend_Statement_Sequence (N : Node_Id; Typ : Character) is
-         F : Source_Ptr;
-         T : Source_Ptr;
+         F       : Source_Ptr;
+         T       : Source_Ptr;
+         Dummy   : Source_Ptr;
+         To_Node : Node_Id := Empty;
+
       begin
          Sloc_Range (N, F, T);
-         SC.Append ((N, F, T, Typ));
-      end Extend_Statement_Sequence;
 
-      procedure Extend_Statement_Sequence
-        (From : Node_Id;
-         To   : Node_Id;
-         Typ  : Character)
-      is
-         F : Source_Ptr;
-         T : Source_Ptr;
-      begin
-         Sloc_Range (From, F, Dummy);
-         Sloc_Range (To, Dummy, T);
-         SC.Append ((From, F, T, Typ));
+         case Nkind (N) is
+            when N_Accept_Statement =>
+               if Present (Parameter_Specifications (N)) then
+                  To_Node := Last (Parameter_Specifications (N));
+               elsif Present (Entry_Index (N)) then
+                  To_Node := Entry_Index (N);
+               end if;
+
+            when N_Case_Statement =>
+               To_Node := Expression (N);
+
+            when N_If_Statement | N_Elsif_Part =>
+               To_Node := Condition (N);
+
+            when N_Extended_Return_Statement =>
+               To_Node := Last (Return_Object_Declarations (N));
+
+            when N_Loop_Statement =>
+               To_Node := Iteration_Scheme (N);
+
+            when N_Selective_Accept       |
+                 N_Timed_Entry_Call       |
+                 N_Conditional_Entry_Call |
+                 N_Asynchronous_Select    =>
+               T := F;
+
+            when others =>
+               null;
+
+         end case;
+
+         if Present (To_Node) then
+            Sloc_Range (To_Node, Dummy, T);
+         end if;
+
+         SC.Append ((N, F, T, Typ));
       end Extend_Statement_Sequence;
 
       -----------------------------
@@ -1214,430 +1372,634 @@ package body Par_SCO is
          SD.Append ((Empty, L, T, Current_Pragma_Sloc));
       end Process_Decisions_Defer;
 
+      ----------------------
+      -- Traverse_Aspects --
+      ----------------------
+
+      procedure Traverse_Aspects (N : Node_Id) is
+         AN : Node_Id;
+         AE : Node_Id;
+         C1 : Character;
+
+      begin
+         AN := First (Aspect_Specifications (N));
+         while Present (AN) loop
+            AE := Expression (AN);
+
+            --  SCOs are generated before semantic analysis/expansion:
+            --  PPCs are not split yet.
+
+            pragma Assert (not Split_PPC (AN));
+
+            C1 := ASCII.NUL;
+
+            case Get_Aspect_Id (Chars (Identifier (AN))) is
+
+               --  Aspects rewritten into pragmas controlled by a Check_Policy:
+               --  Current_Pragma_Sloc must be set to the sloc of the aspect
+               --  specification. The corresponding pragma will have the same
+               --  sloc.
+
+               when Aspect_Pre               |
+                    Aspect_Precondition      |
+                    Aspect_Post              |
+                    Aspect_Postcondition     |
+                    Aspect_Invariant         =>
+
+                  C1 := 'a';
+
+               --  Aspects whose checks are generated in client units,
+               --  regardless of whether or not the check is activated in the
+               --  unit which contains the declaration: create decision as
+               --  unconditionally enabled aspect (but still make a pragma
+               --  entry since Set_SCO_Pragma_Enabled will be called when
+               --  analyzing actual checks, possibly in other units).
+
+               when Aspect_Predicate         |
+                    Aspect_Static_Predicate  |
+                    Aspect_Dynamic_Predicate |
+                    Aspect_Type_Invariant    =>
+
+                  C1 := 'A';
+
+               --  Other aspects: just process any decision nested in the
+               --  aspect expression.
+
+               when others =>
+
+                  if Has_Decision (AE) then
+                     C1 := 'X';
+                  end if;
+
+            end case;
+
+            if C1 /= ASCII.NUL then
+               pragma Assert (Current_Pragma_Sloc = No_Location);
+
+               if C1 = 'a' or else C1 = 'A' then
+                  Current_Pragma_Sloc := Sloc (AN);
+               end if;
+
+               Process_Decisions_Defer (AE, C1);
+
+               Current_Pragma_Sloc := No_Location;
+            end if;
+
+            Next (AN);
+         end loop;
+      end Traverse_Aspects;
+
+      ------------------
+      -- Traverse_One --
+      ------------------
+
+      procedure Traverse_One (N : Node_Id) is
+      begin
+         --  Initialize or extend current statement sequence. Note that for
+         --  special cases such as IF and Case statements we will modify
+         --  the range to exclude internal statements that should not be
+         --  counted as part of the current statement sequence.
+
+         case Nkind (N) is
+
+            --  Package declaration
+
+            when N_Package_Declaration =>
+               Set_Statement_Entry;
+               Traverse_Package_Declaration (N);
+
+            --  Generic package declaration
+
+            when N_Generic_Package_Declaration =>
+               Set_Statement_Entry;
+               Traverse_Generic_Package_Declaration (N);
+
+            --  Package body
+
+            when N_Package_Body =>
+               Set_Statement_Entry;
+               Traverse_Package_Body (N);
+
+            --  Subprogram declaration
+
+            when N_Subprogram_Declaration =>
+               Process_Decisions_Defer
+                 (Parameter_Specifications (Specification (N)), 'X');
+
+            --  Generic subprogram declaration
+
+            when N_Generic_Subprogram_Declaration =>
+               Process_Decisions_Defer
+                 (Generic_Formal_Declarations (N), 'X');
+               Process_Decisions_Defer
+                 (Parameter_Specifications (Specification (N)), 'X');
+
+            --  Task or subprogram body
+
+            when N_Task_Body | N_Subprogram_Body =>
+               Set_Statement_Entry;
+               Traverse_Subprogram_Or_Task_Body (N);
+
+            --  Entry body
+
+            when N_Entry_Body =>
+               declare
+                  Cond : constant Node_Id :=
+                           Condition (Entry_Body_Formal_Part (N));
+
+                  Inner_Dominant : Dominant_Info := No_Dominant;
+
+               begin
+                  Set_Statement_Entry;
+
+                  if Present (Cond) then
+                     Process_Decisions_Defer (Cond, 'G');
+
+                     --  For an entry body with a barrier, the entry body
+                     --  is dominanted by a True evaluation of the barrier.
+
+                     Inner_Dominant := ('T', N);
+                  end if;
+
+                  Traverse_Subprogram_Or_Task_Body (N, Inner_Dominant);
+               end;
+
+            --  Protected body
+
+            when N_Protected_Body =>
+               Set_Statement_Entry;
+               Traverse_Protected_Body (N);
+
+            --  Exit statement, which is an exit statement in the SCO sense,
+            --  so it is included in the current statement sequence, but
+            --  then it terminates this sequence. We also have to process
+            --  any decisions in the exit statement expression.
+
+            when N_Exit_Statement =>
+               Extend_Statement_Sequence (N, ' ');
+               Process_Decisions_Defer (Condition (N), 'E');
+               Set_Statement_Entry;
+
+               --  If condition is present, then following statement is
+               --  only executed if the condition evaluates to False.
+
+               if Present (Condition (N)) then
+                  Current_Dominant := ('F', N);
+               else
+                  Current_Dominant := No_Dominant;
+               end if;
+
+            --  Label, which breaks the current statement sequence, but the
+            --  label itself is not included in the next statement sequence,
+            --  since it generates no code.
+
+            when N_Label =>
+               Set_Statement_Entry;
+               Current_Dominant := No_Dominant;
+
+            --  Block statement, which breaks the current statement sequence
+
+            when N_Block_Statement =>
+               Set_Statement_Entry;
+               Traverse_Declarations_Or_Statements
+                 (L => Declarations (N),
+                  D => Current_Dominant);
+               Traverse_Handled_Statement_Sequence
+                 (N => Handled_Statement_Sequence (N),
+                  D => Current_Dominant);
+
+            --  If statement, which breaks the current statement sequence,
+            --  but we include the condition in the current sequence.
+
+            when N_If_Statement =>
+               Current_Test := N;
+               Extend_Statement_Sequence (N, 'I');
+               Process_Decisions_Defer (Condition (N), 'I');
+               Set_Statement_Entry;
+
+               --  Now we traverse the statements in the THEN part
+
+               Traverse_Declarations_Or_Statements
+                 (L => Then_Statements (N),
+                  D => ('T', N));
+
+               --  Loop through ELSIF parts if present
+
+               if Present (Elsif_Parts (N)) then
+                  declare
+                     Saved_Dominant : constant Dominant_Info :=
+                                        Current_Dominant;
+
+                     Elif : Node_Id := First (Elsif_Parts (N));
+
+                  begin
+                     while Present (Elif) loop
+
+                        --  An Elsif is executed only if the previous test
+                        --  got a FALSE outcome.
+
+                        Current_Dominant := ('F', Current_Test);
+
+                        --  Now update current test information
+
+                        Current_Test := Elif;
+
+                        --  We generate a statement sequence for the
+                        --  construct "ELSIF condition", so that we have
+                        --  a statement for the resulting decisions.
+
+                        Extend_Statement_Sequence (Elif, 'I');
+                        Process_Decisions_Defer (Condition (Elif), 'I');
+                        Set_Statement_Entry;
+
+                        --  An ELSIF part is never guaranteed to have
+                        --  been executed, following statements are only
+                        --  dominated by the initial IF statement.
+
+                        Current_Dominant := Saved_Dominant;
+
+                        --  Traverse the statements in the ELSIF
+
+                        Traverse_Declarations_Or_Statements
+                          (L => Then_Statements (Elif),
+                           D => ('T', Elif));
+                        Next (Elif);
+                     end loop;
+                  end;
+               end if;
+
+               --  Finally traverse the ELSE statements if present
+
+               Traverse_Declarations_Or_Statements
+                 (L => Else_Statements (N),
+                  D => ('F', Current_Test));
+
+            --  CASE statement, which breaks the current statement sequence,
+            --  but we include the expression in the current sequence.
+
+            when N_Case_Statement =>
+               Extend_Statement_Sequence (N, 'C');
+               Process_Decisions_Defer (Expression (N), 'X');
+               Set_Statement_Entry;
+
+               --  Process case branches, all of which are dominated by the
+               --  CASE statement.
+
+               declare
+                  Alt : Node_Id;
+               begin
+                  Alt := First (Alternatives (N));
+                  while Present (Alt) loop
+                     Traverse_Declarations_Or_Statements
+                       (L => Statements (Alt),
+                        D => Current_Dominant);
+                     Next (Alt);
+                  end loop;
+               end;
+
+            --  ACCEPT statement
+
+            when N_Accept_Statement =>
+               Extend_Statement_Sequence (N, 'A');
+               Set_Statement_Entry;
+
+               --  Process sequence of statements, dominant is the ACCEPT
+               --  statement.
+
+               Traverse_Handled_Statement_Sequence
+                 (N => Handled_Statement_Sequence (N),
+                  D => Current_Dominant);
+
+            --  SELECT
+
+            when N_Selective_Accept =>
+               Extend_Statement_Sequence (N, 'S');
+               Set_Statement_Entry;
+
+               --  Process alternatives
+
+               declare
+                  Alt   : Node_Id;
+                  Guard : Node_Id;
+                  S_Dom : Dominant_Info;
+
+               begin
+                  Alt := First (Select_Alternatives (N));
+                  while Present (Alt) loop
+                     S_Dom := Current_Dominant;
+                     Guard := Condition (Alt);
+
+                     if Present (Guard) then
+                        Process_Decisions
+                          (Guard,
+                           'G',
+                           Pragma_Sloc => No_Location);
+                        Current_Dominant := ('T', Guard);
+                     end if;
+
+                     Traverse_One (Alt);
+
+                     Current_Dominant := S_Dom;
+                     Next (Alt);
+                  end loop;
+               end;
+
+               Traverse_Declarations_Or_Statements
+                 (L => Else_Statements (N),
+                  D => Current_Dominant);
+
+            when N_Timed_Entry_Call | N_Conditional_Entry_Call =>
+               Extend_Statement_Sequence (N, 'S');
+               Set_Statement_Entry;
+
+               --  Process alternatives
+
+               Traverse_One (Entry_Call_Alternative (N));
+
+               if Nkind (N) = N_Timed_Entry_Call then
+                  Traverse_One (Delay_Alternative (N));
+               else
+                  Traverse_Declarations_Or_Statements
+                    (L => Else_Statements (N),
+                     D => Current_Dominant);
+               end if;
+
+            when N_Asynchronous_Select =>
+               Extend_Statement_Sequence (N, 'S');
+               Set_Statement_Entry;
+
+               Traverse_One (Triggering_Alternative (N));
+               Traverse_Declarations_Or_Statements
+                 (L => Statements (Abortable_Part (N)),
+                  D => Current_Dominant);
+
+            when N_Accept_Alternative =>
+               Traverse_Declarations_Or_Statements
+                 (L => Statements (N),
+                  D => Current_Dominant,
+                  P => Accept_Statement (N));
+
+            when N_Entry_Call_Alternative =>
+               Traverse_Declarations_Or_Statements
+                 (L => Statements (N),
+                  D => Current_Dominant,
+                  P => Entry_Call_Statement (N));
+
+            when N_Delay_Alternative =>
+               Traverse_Declarations_Or_Statements
+                 (L => Statements (N),
+                  D => Current_Dominant,
+                  P => Delay_Statement (N));
+
+            when N_Triggering_Alternative =>
+               Traverse_Declarations_Or_Statements
+                 (L => Statements (N),
+                  D => Current_Dominant,
+                  P => Triggering_Statement (N));
+
+            when N_Terminate_Alternative =>
+
+               --  It is dubious to emit a statement SCO for a TERMINATE
+               --  alternative, since no code is actually executed if the
+               --  alternative is selected -- the tasking runtime call just
+               --  never returns???
+
+               Extend_Statement_Sequence (N, ' ');
+               Set_Statement_Entry;
+
+            --  Unconditional exit points, which are included in the current
+            --  statement sequence, but then terminate it
+
+            when N_Requeue_Statement |
+                 N_Goto_Statement    |
+                 N_Raise_Statement   =>
+               Extend_Statement_Sequence (N, ' ');
+               Set_Statement_Entry;
+               Current_Dominant := No_Dominant;
+
+            --  Simple return statement. which is an exit point, but we
+            --  have to process the return expression for decisions.
+
+            when N_Simple_Return_Statement =>
+               Extend_Statement_Sequence (N, ' ');
+               Process_Decisions_Defer (Expression (N), 'X');
+               Set_Statement_Entry;
+               Current_Dominant := No_Dominant;
+
+            --  Extended return statement
+
+            when N_Extended_Return_Statement =>
+               Extend_Statement_Sequence (N, 'R');
+               Process_Decisions_Defer
+                 (Return_Object_Declarations (N), 'X');
+               Set_Statement_Entry;
+
+               Traverse_Handled_Statement_Sequence
+                 (N => Handled_Statement_Sequence (N),
+                  D => Current_Dominant);
+
+               Current_Dominant := No_Dominant;
+
+            --  Loop ends the current statement sequence, but we include
+            --  the iteration scheme if present in the current sequence.
+            --  But the body of the loop starts a new sequence, since it
+            --  may not be executed as part of the current sequence.
+
+            when N_Loop_Statement =>
+               declare
+                  ISC            : constant Node_Id := Iteration_Scheme (N);
+                  Inner_Dominant : Dominant_Info    := No_Dominant;
+
+               begin
+                  if Present (ISC) then
+
+                     --  If iteration scheme present, extend the current
+                     --  statement sequence to include the iteration scheme
+                     --  and process any decisions it contains.
+
+                     --  While loop
+
+                     if Present (Condition (ISC)) then
+                        Extend_Statement_Sequence (N, 'W');
+                        Process_Decisions_Defer (Condition (ISC), 'W');
+
+                        --  Set more specific dominant for inner statements
+                        --  (the control sloc for the decision is that of
+                        --  the WHILE token).
+
+                        Inner_Dominant := ('T', ISC);
+
+                     --  For loop
+
+                     else
+                        Extend_Statement_Sequence (N, 'F');
+                        Process_Decisions_Defer
+                          (Loop_Parameter_Specification (ISC), 'X');
+                     end if;
+                  end if;
+
+                  Set_Statement_Entry;
+
+                  if Inner_Dominant = No_Dominant then
+                     Inner_Dominant := Current_Dominant;
+                  end if;
+
+                  Traverse_Declarations_Or_Statements
+                    (L => Statements (N),
+                     D => Inner_Dominant);
+               end;
+
+            --  Pragma
+
+            when N_Pragma =>
+
+               --  Record sloc of pragma (pragmas don't nest)
+
+               pragma Assert (Current_Pragma_Sloc = No_Location);
+               Current_Pragma_Sloc := Sloc (N);
+
+               --  Processing depends on the kind of pragma
+
+               declare
+                  Nam : constant Name_Id := Pragma_Name (N);
+                  Arg : Node_Id          :=
+                          First (Pragma_Argument_Associations (N));
+                  Typ : Character;
+
+               begin
+                  case Nam is
+                     when Name_Assert        |
+                          Name_Check         |
+                          Name_Precondition  |
+                          Name_Postcondition =>
+
+                        --  For Assert/Check/Precondition/Postcondition, we
+                        --  must generate a P entry for the decision. Note
+                        --  that this is done unconditionally at this stage.
+                        --  Output for disabled pragmas is suppressed later
+                        --  on when we output the decision line in Put_SCOs,
+                        --  depending on setting by Set_SCO_Pragma_Enabled.
+
+                        if Nam = Name_Check then
+                           Next (Arg);
+                        end if;
+
+                        Process_Decisions_Defer (Expression (Arg), 'P');
+                        Typ := 'p';
+
+                     when Name_Debug =>
+                        if Present (Arg) and then Present (Next (Arg)) then
+
+                           --  Case of a dyadic pragma Debug: first argument
+                           --  is a P decision, any nested decision in the
+                           --  second argument is an X decision.
+
+                           Process_Decisions_Defer (Expression (Arg), 'P');
+                           Next (Arg);
+                        end if;
+
+                        Process_Decisions_Defer (Expression (Arg), 'X');
+                        Typ := 'p';
+
+                     --  For all other pragmas, we generate decision entries
+                     --  for any embedded expressions, and the pragma is
+                     --  never disabled.
+
+                     when others =>
+                        Process_Decisions_Defer (N, 'X');
+                        Typ := 'P';
+                  end case;
+
+                  --  Add statement SCO
+
+                  Extend_Statement_Sequence (N, Typ);
+
+                  Current_Pragma_Sloc := No_Location;
+               end;
+
+            --  Object declaration. Ignored if Prev_Ids is set, since the
+            --  parser generates multiple instances of the whole declaration
+            --  if there is more than one identifier declared, and we only
+            --  want one entry in the SCO's, so we take the first, for which
+            --  Prev_Ids is False.
+
+            when N_Object_Declaration =>
+               if not Prev_Ids (N) then
+                  Extend_Statement_Sequence (N, 'o');
+
+                  if Has_Decision (N) then
+                     Process_Decisions_Defer (N, 'X');
+                  end if;
+               end if;
+
+            --  All other cases, which extend the current statement sequence
+            --  but do not terminate it, even if they have nested decisions.
+
+            when others =>
+
+               --  Determine required type character code, or ASCII.NUL if
+               --  no SCO should be generated for this node.
+
+               declare
+                  Typ : Character;
+
+               begin
+                  case Nkind (N) is
+                     when N_Full_Type_Declaration         |
+                          N_Incomplete_Type_Declaration   |
+                          N_Private_Type_Declaration      |
+                          N_Private_Extension_Declaration =>
+                        Typ := 't';
+
+                     when N_Subtype_Declaration           =>
+                        Typ := 's';
+
+                     when N_Renaming_Declaration          =>
+                        Typ := 'r';
+
+                     when N_Generic_Instantiation         =>
+                        Typ := 'i';
+
+                     when N_Representation_Clause         |
+                          N_Use_Package_Clause            |
+                          N_Use_Type_Clause               =>
+                        Typ := ASCII.NUL;
+
+                     when others                          =>
+                        Typ := ' ';
+                  end case;
+
+                  if Typ /= ASCII.NUL then
+                     Extend_Statement_Sequence (N, Typ);
+                  end if;
+               end;
+
+               --  Process any embedded decisions
+
+               if Has_Decision (N) then
+                  Process_Decisions_Defer (N, 'X');
+               end if;
+         end case;
+
+         --  Process aspects if present
+
+         Traverse_Aspects (N);
+      end Traverse_One;
+
    --  Start of processing for Traverse_Declarations_Or_Statements
 
    begin
+      if Present (P) then
+         Traverse_One (P);
+      end if;
+
       if Is_Non_Empty_List (L) then
 
          --  Loop through statements or declarations
 
          N := First (L);
          while Present (N) loop
-
-            --  Initialize or extend current statement sequence. Note that for
-            --  special cases such as IF and Case statements we will modify
-            --  the range to exclude internal statements that should not be
-            --  counted as part of the current statement sequence.
-
-            case Nkind (N) is
-
-               --  Package declaration
-
-               when N_Package_Declaration =>
-                  Set_Statement_Entry;
-                  Traverse_Package_Declaration (N);
-
-               --  Generic package declaration
-
-               when N_Generic_Package_Declaration =>
-                  Set_Statement_Entry;
-                  Traverse_Generic_Package_Declaration (N);
-
-               --  Package body
-
-               when N_Package_Body =>
-                  Set_Statement_Entry;
-                  Traverse_Package_Body (N);
-
-               --  Subprogram declaration
-
-               when N_Subprogram_Declaration =>
-                  Process_Decisions_Defer
-                    (Parameter_Specifications (Specification (N)), 'X');
-
-               --  Generic subprogram declaration
-
-               when N_Generic_Subprogram_Declaration =>
-                  Process_Decisions_Defer
-                    (Generic_Formal_Declarations (N), 'X');
-                  Process_Decisions_Defer
-                    (Parameter_Specifications (Specification (N)), 'X');
-
-               --  Task or subprogram body
-
-               when N_Task_Body | N_Subprogram_Body =>
-                  Set_Statement_Entry;
-                  Traverse_Subprogram_Or_Task_Body (N);
-
-               --  Entry body
-
-               when N_Entry_Body =>
-                  declare
-                     Cond : constant Node_Id :=
-                              Condition (Entry_Body_Formal_Part (N));
-                     Inner_Dominant : Dominant_Info := No_Dominant;
-                  begin
-                     Set_Statement_Entry;
-
-                     if Present (Cond) then
-                        Process_Decisions_Defer (Cond, 'G');
-
-                        --  For an entry body with a barrier, the entry body
-                        --  is dominanted by a True evaluation of the barrier.
-
-                        Inner_Dominant := ('T', N);
-                     end if;
-
-                     Traverse_Subprogram_Or_Task_Body (N, Inner_Dominant);
-                  end;
-
-               --  Protected body
-
-               when N_Protected_Body =>
-                  Set_Statement_Entry;
-                  Traverse_Protected_Body (N);
-
-               --  Exit statement, which is an exit statement in the SCO sense,
-               --  so it is included in the current statement sequence, but
-               --  then it terminates this sequence. We also have to process
-               --  any decisions in the exit statement expression.
-
-               when N_Exit_Statement =>
-                  Extend_Statement_Sequence (N, ' ');
-                  Process_Decisions_Defer (Condition (N), 'E');
-                  Set_Statement_Entry;
-
-                  --  If condition is present, then following statement is
-                  --  only executed if the condition evaluates to False.
-
-                  if Present (Condition (N)) then
-                     Current_Dominant := ('F', N);
-                  else
-                     Current_Dominant := No_Dominant;
-                  end if;
-
-               --  Label, which breaks the current statement sequence, but the
-               --  label itself is not included in the next statement sequence,
-               --  since it generates no code.
-
-               when N_Label =>
-                  Set_Statement_Entry;
-                  Current_Dominant := No_Dominant;
-
-               --  Block statement, which breaks the current statement sequence
-
-               when N_Block_Statement =>
-                  Set_Statement_Entry;
-                  Traverse_Declarations_Or_Statements
-                    (L => Declarations (N),
-                     D => Current_Dominant);
-                  Traverse_Handled_Statement_Sequence
-                    (N => Handled_Statement_Sequence (N),
-                     D => Current_Dominant);
-
-               --  If statement, which breaks the current statement sequence,
-               --  but we include the condition in the current sequence.
-
-               when N_If_Statement =>
-                  Current_Test := N;
-                  Extend_Statement_Sequence (N, Condition (N), 'I');
-                  Process_Decisions_Defer (Condition (N), 'I');
-                  Set_Statement_Entry;
-
-                  --  Now we traverse the statements in the THEN part
-
-                  Traverse_Declarations_Or_Statements
-                    (L => Then_Statements (N),
-                     D => ('T', N));
-
-                  --  Loop through ELSIF parts if present
-
-                  if Present (Elsif_Parts (N)) then
-                     declare
-                        Saved_Dominant : constant Dominant_Info :=
-                                           Current_Dominant;
-                        Elif : Node_Id := First (Elsif_Parts (N));
-
-                     begin
-                        while Present (Elif) loop
-
-                           --  An Elsif is executed only if the previous test
-                           --  got a FALSE outcome.
-
-                           Current_Dominant := ('F', Current_Test);
-
-                           --  Now update current test information
-
-                           Current_Test := Elif;
-
-                           --  We generate a statement sequence for the
-                           --  construct "ELSIF condition", so that we have
-                           --  a statement for the resulting decisions.
-
-                           Extend_Statement_Sequence
-                             (Elif, Condition (Elif), 'I');
-                           Process_Decisions_Defer (Condition (Elif), 'I');
-                           Set_Statement_Entry;
-
-                           --  An ELSIF part is never guaranteed to have
-                           --  been executed, following statements are only
-                           --  dominated by the initial IF statement.
-
-                           Current_Dominant := Saved_Dominant;
-
-                           --  Traverse the statements in the ELSIF
-
-                           Traverse_Declarations_Or_Statements
-                             (L => Then_Statements (Elif),
-                              D => ('T', Elif));
-                           Next (Elif);
-                        end loop;
-                     end;
-                  end if;
-
-                  --  Finally traverse the ELSE statements if present
-
-                  Traverse_Declarations_Or_Statements
-                    (L => Else_Statements (N),
-                     D => ('F', Current_Test));
-
-               --  Case statement, which breaks the current statement sequence,
-               --  but we include the expression in the current sequence.
-
-               when N_Case_Statement =>
-                  Extend_Statement_Sequence (N, Expression (N), 'C');
-                  Process_Decisions_Defer (Expression (N), 'X');
-                  Set_Statement_Entry;
-
-                  --  Process case branches, all of which are dominated by the
-                  --  CASE statement.
-
-                  declare
-                     Alt : Node_Id;
-                  begin
-                     Alt := First (Alternatives (N));
-                     while Present (Alt) loop
-                        Traverse_Declarations_Or_Statements
-                          (L => Statements (Alt),
-                           D => Current_Dominant);
-                        Next (Alt);
-                     end loop;
-                  end;
-
-               --  Unconditional exit points, which are included in the current
-               --  statement sequence, but then terminate it
-
-               when N_Requeue_Statement |
-                    N_Goto_Statement    |
-                    N_Raise_Statement   =>
-                  Extend_Statement_Sequence (N, ' ');
-                  Set_Statement_Entry;
-                  Current_Dominant := No_Dominant;
-
-               --  Simple return statement. which is an exit point, but we
-               --  have to process the return expression for decisions.
-
-               when N_Simple_Return_Statement =>
-                  Extend_Statement_Sequence (N, ' ');
-                  Process_Decisions_Defer (Expression (N), 'X');
-                  Set_Statement_Entry;
-                  Current_Dominant := No_Dominant;
-
-               --  Extended return statement
-
-               when N_Extended_Return_Statement =>
-                  Extend_Statement_Sequence
-                    (N, Last (Return_Object_Declarations (N)), 'R');
-                  Process_Decisions_Defer
-                    (Return_Object_Declarations (N), 'X');
-                  Set_Statement_Entry;
-
-                  Traverse_Handled_Statement_Sequence
-                    (N => Handled_Statement_Sequence (N),
-                     D => Current_Dominant);
-
-                  Current_Dominant := No_Dominant;
-
-               --  Loop ends the current statement sequence, but we include
-               --  the iteration scheme if present in the current sequence.
-               --  But the body of the loop starts a new sequence, since it
-               --  may not be executed as part of the current sequence.
-
-               when N_Loop_Statement =>
-                  declare
-                     ISC            : constant Node_Id := Iteration_Scheme (N);
-                     Inner_Dominant : Dominant_Info    := No_Dominant;
-
-                  begin
-                     if Present (ISC) then
-
-                        --  If iteration scheme present, extend the current
-                        --  statement sequence to include the iteration scheme
-                        --  and process any decisions it contains.
-
-                        --  While loop
-
-                        if Present (Condition (ISC)) then
-                           Extend_Statement_Sequence (N, ISC, 'W');
-                           Process_Decisions_Defer (Condition (ISC), 'W');
-
-                           --  Set more specific dominant for inner statements
-                           --  (the control sloc for the decision is that of
-                           --  the WHILE token).
-
-                           Inner_Dominant := ('T', ISC);
-
-                        --  For loop
-
-                        else
-                           Extend_Statement_Sequence (N, ISC, 'F');
-                           Process_Decisions_Defer
-                             (Loop_Parameter_Specification (ISC), 'X');
-                        end if;
-                     end if;
-
-                     Set_Statement_Entry;
-
-                     if Inner_Dominant = No_Dominant then
-                        Inner_Dominant := Current_Dominant;
-                     end if;
-
-                     Traverse_Declarations_Or_Statements
-                       (L => Statements (N),
-                        D => Inner_Dominant);
-                  end;
-
-               --  Pragma
-
-               when N_Pragma =>
-
-                  --  Record sloc of pragma (pragmas don't nest)
-
-                  pragma Assert (Current_Pragma_Sloc = No_Location);
-                  Current_Pragma_Sloc := Sloc (N);
-
-                  --  Processing depends on the kind of pragma
-
-                  declare
-                     Nam : constant Name_Id := Pragma_Name (N);
-                     Arg : Node_Id := First (Pragma_Argument_Associations (N));
-                     Typ : Character;
-
-                  begin
-                     case Nam is
-                        when Name_Assert        |
-                             Name_Check         |
-                             Name_Precondition  |
-                             Name_Postcondition =>
-
-                           --  For Assert/Check/Precondition/Postcondition, we
-                           --  must generate a P entry for the decision. Note
-                           --  that this is done unconditionally at this stage.
-                           --  Output for disabled pragmas is suppressed later
-                           --  on when we output the decision line in Put_SCOs,
-                           --  depending on setting by Set_SCO_Pragma_Enabled.
-
-                           if Nam = Name_Check then
-                              Next (Arg);
-                           end if;
-
-                           Process_Decisions_Defer (Expression (Arg), 'P');
-                           Typ := 'p';
-
-                        when Name_Debug =>
-                           if Present (Arg) and then Present (Next (Arg)) then
-
-                              --  Case of a dyadic pragma Debug: first argument
-                              --  is a P decision, any nested decision in the
-                              --  second argument is an X decision.
-
-                              Process_Decisions_Defer (Expression (Arg), 'P');
-                              Next (Arg);
-                           end if;
-
-                           Process_Decisions_Defer (Expression (Arg), 'X');
-                           Typ := 'p';
-
-                        --  For all other pragmas, we generate decision entries
-                        --  for any embedded expressions, and the pragma is
-                        --  never disabled.
-
-                        when others =>
-                           Process_Decisions_Defer (N, 'X');
-                           Typ := 'P';
-                     end case;
-
-                     --  Add statement SCO
-
-                     Extend_Statement_Sequence (N, Typ);
-
-                     Current_Pragma_Sloc := No_Location;
-                  end;
-
-               --  Object declaration. Ignored if Prev_Ids is set, since the
-               --  parser generates multiple instances of the whole declaration
-               --  if there is more than one identifier declared, and we only
-               --  want one entry in the SCO's, so we take the first, for which
-               --  Prev_Ids is False.
-
-               when N_Object_Declaration =>
-                  if not Prev_Ids (N) then
-                     Extend_Statement_Sequence (N, 'o');
-
-                     if Has_Decision (N) then
-                        Process_Decisions_Defer (N, 'X');
-                     end if;
-                  end if;
-
-               --  All other cases, which extend the current statement sequence
-               --  but do not terminate it, even if they have nested decisions.
-
-               when others =>
-
-                  --  Determine required type character code, or ASCII.NUL if
-                  --  no SCO should be generated for this node.
-
-                  declare
-                     Typ : Character;
-
-                  begin
-                     case Nkind (N) is
-                        when N_Full_Type_Declaration         |
-                             N_Incomplete_Type_Declaration   |
-                             N_Private_Type_Declaration      |
-                             N_Private_Extension_Declaration =>
-                           Typ := 't';
-
-                        when N_Subtype_Declaration           =>
-                           Typ := 's';
-
-                        when N_Renaming_Declaration          =>
-                           Typ := 'r';
-
-                        when N_Generic_Instantiation         =>
-                           Typ := 'i';
-
-                        when N_Representation_Clause         |
-                             N_Use_Package_Clause            |
-                             N_Use_Type_Clause               =>
-                           Typ := ASCII.NUL;
-
-                        when others                          =>
-                           Typ := ' ';
-                     end case;
-
-                     if Typ /= ASCII.NUL then
-                        Extend_Statement_Sequence (N, Typ);
-                     end if;
-                  end;
-
-                  --  Process any embedded decisions
-
-                  if Has_Decision (N) then
-                     Process_Decisions_Defer (N, 'X');
-                  end if;
-            end case;
-
+            Traverse_One (N);
             Next (N);
          end loop;
 

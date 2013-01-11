@@ -5,142 +5,28 @@
 package net
 
 import (
-	"flag"
 	"io"
-	"regexp"
+	"io/ioutil"
+	"os"
 	"runtime"
 	"testing"
+	"time"
 )
-
-var runErrorTest = flag.Bool("run_error_test", false, "let TestDialError check for dns errors")
-
-type DialErrorTest struct {
-	Net     string
-	Raddr   string
-	Pattern string
-}
-
-var dialErrorTests = []DialErrorTest{
-	{
-		"datakit", "mh/astro/r70",
-		"dial datakit mh/astro/r70: unknown network datakit",
-	},
-	{
-		"tcp", "127.0.0.1:☺",
-		"dial tcp 127.0.0.1:☺: unknown port tcp/☺",
-	},
-	{
-		"tcp", "no-such-name.google.com.:80",
-		"dial tcp no-such-name.google.com.:80: lookup no-such-name.google.com.( on .*)?: no (.*)",
-	},
-	{
-		"tcp", "no-such-name.no-such-top-level-domain.:80",
-		"dial tcp no-such-name.no-such-top-level-domain.:80: lookup no-such-name.no-such-top-level-domain.( on .*)?: no (.*)",
-	},
-	{
-		"tcp", "no-such-name:80",
-		`dial tcp no-such-name:80: lookup no-such-name\.(.*\.)?( on .*)?: no (.*)`,
-	},
-	{
-		"tcp", "mh/astro/r70:http",
-		"dial tcp mh/astro/r70:http: lookup mh/astro/r70: invalid domain name",
-	},
-	{
-		"unix", "/etc/file-not-found",
-		"dial unix /etc/file-not-found: [nN]o such file or directory",
-	},
-	{
-		"unix", "/etc/",
-		"dial unix /etc/: ([pP]ermission denied|socket operation on non-socket|connection refused)",
-	},
-	{
-		"unixpacket", "/etc/file-not-found",
-		"dial unixpacket /etc/file-not-found: no such file or directory",
-	},
-	{
-		"unixpacket", "/etc/",
-		"dial unixpacket /etc/: (permission denied|socket operation on non-socket|connection refused)",
-	},
-}
-
-var duplicateErrorPattern = `dial (.*) dial (.*)`
-
-func TestDialError(t *testing.T) {
-	if !*runErrorTest {
-		t.Logf("test disabled; use --run_error_test to enable")
-		return
-	}
-	for i, tt := range dialErrorTests {
-		c, err := Dial(tt.Net, tt.Raddr)
-		if c != nil {
-			c.Close()
-		}
-		if err == nil {
-			t.Errorf("#%d: nil error, want match for %#q", i, tt.Pattern)
-			continue
-		}
-		s := err.Error()
-		match, _ := regexp.MatchString(tt.Pattern, s)
-		if !match {
-			t.Errorf("#%d: %q, want match for %#q", i, s, tt.Pattern)
-		}
-		match, _ = regexp.MatchString(duplicateErrorPattern, s)
-		if match {
-			t.Errorf("#%d: %q, duplicate error return from Dial", i, s)
-		}
-	}
-}
-
-var revAddrTests = []struct {
-	Addr      string
-	Reverse   string
-	ErrPrefix string
-}{
-	{"1.2.3.4", "4.3.2.1.in-addr.arpa.", ""},
-	{"245.110.36.114", "114.36.110.245.in-addr.arpa.", ""},
-	{"::ffff:12.34.56.78", "78.56.34.12.in-addr.arpa.", ""},
-	{"::1", "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa.", ""},
-	{"1::", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.0.ip6.arpa.", ""},
-	{"1234:567::89a:bcde", "e.d.c.b.a.9.8.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.7.6.5.0.4.3.2.1.ip6.arpa.", ""},
-	{"1234:567:fefe:bcbc:adad:9e4a:89a:bcde", "e.d.c.b.a.9.8.0.a.4.e.9.d.a.d.a.c.b.c.b.e.f.e.f.7.6.5.0.4.3.2.1.ip6.arpa.", ""},
-	{"1.2.3", "", "unrecognized address"},
-	{"1.2.3.4.5", "", "unrecognized address"},
-	{"1234:567:bcbca::89a:bcde", "", "unrecognized address"},
-	{"1234:567::bcbc:adad::89a:bcde", "", "unrecognized address"},
-}
-
-func TestReverseAddress(t *testing.T) {
-	for i, tt := range revAddrTests {
-		a, err := reverseaddr(tt.Addr)
-		if len(tt.ErrPrefix) > 0 && err == nil {
-			t.Errorf("#%d: expected %q, got <nil> (error)", i, tt.ErrPrefix)
-			continue
-		}
-		if len(tt.ErrPrefix) == 0 && err != nil {
-			t.Errorf("#%d: expected <nil>, got %q (error)", i, err)
-		}
-		if err != nil && err.(*DNSError).Err != tt.ErrPrefix {
-			t.Errorf("#%d: expected %q, got %q (mismatched error)", i, tt.ErrPrefix, err.(*DNSError).Err)
-		}
-		if a != tt.Reverse {
-			t.Errorf("#%d: expected %q, got %q (reverse address)", i, tt.Reverse, a)
-		}
-	}
-}
 
 func TestShutdown(t *testing.T) {
 	if runtime.GOOS == "plan9" {
+		t.Logf("skipping test on %q", runtime.GOOS)
 		return
 	}
-	l, err := Listen("tcp", "127.0.0.1:0")
+	ln, err := Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		if l, err = Listen("tcp6", "[::1]:0"); err != nil {
+		if ln, err = Listen("tcp6", "[::1]:0"); err != nil {
 			t.Fatalf("ListenTCP on :0: %v", err)
 		}
 	}
 
 	go func() {
-		c, err := l.Accept()
+		c, err := ln.Accept()
 		if err != nil {
 			t.Fatalf("Accept: %v", err)
 		}
@@ -153,7 +39,7 @@ func TestShutdown(t *testing.T) {
 		c.Close()
 	}()
 
-	c, err := Dial("tcp", l.Addr().String())
+	c, err := Dial("tcp", ln.Addr().String())
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
@@ -171,5 +57,159 @@ func TestShutdown(t *testing.T) {
 	got := string(buf[:n])
 	if got != "response" {
 		t.Errorf("read = %q, want \"response\"", got)
+	}
+}
+
+func TestShutdownUnix(t *testing.T) {
+	switch runtime.GOOS {
+	case "windows", "plan9":
+		t.Logf("skipping test on %q", runtime.GOOS)
+		return
+	}
+	f, err := ioutil.TempFile("", "go_net_unixtest")
+	if err != nil {
+		t.Fatalf("TempFile: %s", err)
+	}
+	f.Close()
+	tmpname := f.Name()
+	os.Remove(tmpname)
+	ln, err := Listen("unix", tmpname)
+	if err != nil {
+		t.Fatalf("ListenUnix on %s: %s", tmpname, err)
+	}
+	defer os.Remove(tmpname)
+
+	go func() {
+		c, err := ln.Accept()
+		if err != nil {
+			t.Fatalf("Accept: %v", err)
+		}
+		var buf [10]byte
+		n, err := c.Read(buf[:])
+		if n != 0 || err != io.EOF {
+			t.Fatalf("server Read = %d, %v; want 0, io.EOF", n, err)
+		}
+		c.Write([]byte("response"))
+		c.Close()
+	}()
+
+	c, err := Dial("unix", tmpname)
+	if err != nil {
+		t.Fatalf("Dial: %v", err)
+	}
+	defer c.Close()
+
+	err = c.(*UnixConn).CloseWrite()
+	if err != nil {
+		t.Fatalf("CloseWrite: %v", err)
+	}
+	var buf [10]byte
+	n, err := c.Read(buf[:])
+	if err != nil {
+		t.Fatalf("client Read: %d, %v", n, err)
+	}
+	got := string(buf[:n])
+	if got != "response" {
+		t.Errorf("read = %q, want \"response\"", got)
+	}
+}
+
+func TestTCPListenClose(t *testing.T) {
+	ln, err := Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen failed: %v", err)
+	}
+
+	done := make(chan bool, 1)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ln.Close()
+	}()
+	go func() {
+		c, err := ln.Accept()
+		if err == nil {
+			c.Close()
+			t.Error("Accept succeeded")
+		} else {
+			t.Logf("Accept timeout error: %s (any error is fine)", err)
+		}
+		done <- true
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for TCP close")
+	}
+}
+
+func TestUDPListenClose(t *testing.T) {
+	switch runtime.GOOS {
+	case "plan9":
+		t.Logf("skipping test on %q", runtime.GOOS)
+		return
+	}
+	ln, err := ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen failed: %v", err)
+	}
+
+	buf := make([]byte, 1000)
+	done := make(chan bool, 1)
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		ln.Close()
+	}()
+	go func() {
+		_, _, err = ln.ReadFrom(buf)
+		if err == nil {
+			t.Error("ReadFrom succeeded")
+		} else {
+			t.Logf("ReadFrom timeout error: %s (any error is fine)", err)
+		}
+		done <- true
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for UDP close")
+	}
+}
+
+func TestTCPClose(t *testing.T) {
+	l, err := Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close()
+
+	read := func(r io.Reader) error {
+		var m [1]byte
+		_, err := r.Read(m[:])
+		return err
+	}
+
+	go func() {
+		c, err := Dial("tcp", l.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		go read(c)
+
+		time.Sleep(10 * time.Millisecond)
+		c.Close()
+	}()
+
+	c, err := l.Accept()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	for err == nil {
+		err = read(c)
+	}
+	if err != nil && err != io.EOF {
+		t.Fatal(err)
 	}
 }

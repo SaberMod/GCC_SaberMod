@@ -1485,6 +1485,10 @@ FUNC:_ZNSt13basic_ostreamIwSt11char_traitsIwEElsEs@@GLIBCXX_3.4
 FUNC:_ZNSt13basic_ostreamIwSt11char_traitsIwEElsEt@@GLIBCXX_3.4
 FUNC:_ZNSt13basic_ostreamIwSt11char_traitsIwEElsEx@@GLIBCXX_3.4
 FUNC:_ZNSt13basic_ostreamIwSt11char_traitsIwEElsEy@@GLIBCXX_3.4
+FUNC:_ZNSt13random_device14_M_init_pretr1ERKSs@@GLIBCXX_3.4.18
+FUNC:_ZNSt13random_device16_M_getval_pretr1Ev@@GLIBCXX_3.4.18
+FUNC:_ZNSt13random_device7_M_initERKSs@@GLIBCXX_3.4.18
+FUNC:_ZNSt13random_device9_M_getvalEv@@GLIBCXX_3.4.18
 FUNC:_ZNSt13runtime_errorC1ERKSs@@GLIBCXX_3.4
 FUNC:_ZNSt13runtime_errorC2ERKSs@@GLIBCXX_3.4
 FUNC:_ZNSt13runtime_errorD0Ev@@GLIBCXX_3.4

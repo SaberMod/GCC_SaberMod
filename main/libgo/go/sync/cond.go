@@ -4,8 +4,6 @@
 
 package sync
 
-import "runtime"
-
 // Cond implements a condition variable, a rendezvous point
 // for goroutines waiting for or announcing the occurrence
 // of an event.
@@ -43,9 +41,10 @@ func NewCond(l Locker) *Cond {
 
 // Wait atomically unlocks c.L and suspends execution
 // of the calling goroutine.  After later resuming execution,
-// Wait locks c.L before returning.
+// Wait locks c.L before returning.  Unlike in other systems,
+// Wait cannot return unless awoken by Broadcast or Signal.
 //
-// Because L is not locked when Wait first resumes, the caller
+// Because c.L is not locked when Wait first resumes, the caller
 // typically cannot assume that the condition is true when
 // Wait returns.  Instead, the caller should Wait in a loop:
 //
@@ -57,6 +56,9 @@ func NewCond(l Locker) *Cond {
 //    c.L.Unlock()
 //
 func (c *Cond) Wait() {
+	if raceenabled {
+		raceDisable()
+	}
 	c.m.Lock()
 	if c.newSema == nil {
 		c.newSema = new(uint32)
@@ -64,8 +66,11 @@ func (c *Cond) Wait() {
 	s := c.newSema
 	c.newWaiters++
 	c.m.Unlock()
+	if raceenabled {
+		raceEnable()
+	}
 	c.L.Unlock()
-	runtime.Semacquire(s)
+	runtime_Semacquire(s)
 	c.L.Lock()
 }
 
@@ -74,6 +79,9 @@ func (c *Cond) Wait() {
 // It is allowed but not required for the caller to hold c.L
 // during the call.
 func (c *Cond) Signal() {
+	if raceenabled {
+		raceDisable()
+	}
 	c.m.Lock()
 	if c.oldWaiters == 0 && c.newWaiters > 0 {
 		// Retire old generation; rename new to old.
@@ -84,9 +92,12 @@ func (c *Cond) Signal() {
 	}
 	if c.oldWaiters > 0 {
 		c.oldWaiters--
-		runtime.Semrelease(c.oldSema)
+		runtime_Semrelease(c.oldSema)
 	}
 	c.m.Unlock()
+	if raceenabled {
+		raceEnable()
+	}
 }
 
 // Broadcast wakes all goroutines waiting on c.
@@ -94,20 +105,26 @@ func (c *Cond) Signal() {
 // It is allowed but not required for the caller to hold c.L
 // during the call.
 func (c *Cond) Broadcast() {
+	if raceenabled {
+		raceDisable()
+	}
 	c.m.Lock()
 	// Wake both generations.
 	if c.oldWaiters > 0 {
 		for i := 0; i < c.oldWaiters; i++ {
-			runtime.Semrelease(c.oldSema)
+			runtime_Semrelease(c.oldSema)
 		}
 		c.oldWaiters = 0
 	}
 	if c.newWaiters > 0 {
 		for i := 0; i < c.newWaiters; i++ {
-			runtime.Semrelease(c.newSema)
+			runtime_Semrelease(c.newSema)
 		}
 		c.newWaiters = 0
 		c.newSema = nil
 	}
 	c.m.Unlock()
+	if raceenabled {
+		raceEnable()
+	}
 }

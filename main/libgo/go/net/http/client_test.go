@@ -8,6 +8,7 @@ package http_test
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -218,6 +219,9 @@ func TestRedirects(t *testing.T) {
 		return checkErr
 	}}
 	res, err := c.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("Get error: %v", err)
+	}
 	finalUrl := res.Request.URL.String()
 	if e, g := "<nil>", fmt.Sprintf("%v", err); e != g {
 		t.Errorf("with custom client, expected error %q, got %q", e, g)
@@ -231,16 +235,21 @@ func TestRedirects(t *testing.T) {
 
 	checkErr = errors.New("no redirects allowed")
 	res, err = c.Get(ts.URL)
-	finalUrl = res.Request.URL.String()
-	if e, g := "Get /?n=1: no redirects allowed", fmt.Sprintf("%v", err); e != g {
-		t.Errorf("with redirects forbidden, expected error %q, got %q", e, g)
+	if urlError, ok := err.(*url.Error); !ok || urlError.Err != checkErr {
+		t.Errorf("with redirects forbidden, expected a *url.Error with our 'no redirects allowed' error inside; got %#v (%q)", err, err)
+	}
+	if res == nil {
+		t.Fatalf("Expected a non-nil Response on CheckRedirect failure (http://golang.org/issue/3795)")
+	}
+	if res.Header.Get("Location") == "" {
+		t.Errorf("no Location header in Response")
 	}
 }
 
 var expectedCookies = []*Cookie{
-	&Cookie{Name: "ChocolateChip", Value: "tasty"},
-	&Cookie{Name: "First", Value: "Hit"},
-	&Cookie{Name: "Second", Value: "Hit"},
+	{Name: "ChocolateChip", Value: "tasty"},
+	{Name: "First", Value: "Hit"},
+	{Name: "Second", Value: "Hit"},
 }
 
 var echoCookiesRedirectHandler = HandlerFunc(func(w ResponseWriter, r *Request) {
@@ -255,6 +264,35 @@ var echoCookiesRedirectHandler = HandlerFunc(func(w ResponseWriter, r *Request) 
 		w.Write([]byte("hello"))
 	}
 })
+
+func TestClientSendsCookieFromJar(t *testing.T) {
+	tr := &recordingTransport{}
+	client := &Client{Transport: tr}
+	client.Jar = &TestJar{perURL: make(map[string][]*Cookie)}
+	us := "http://dummy.faketld/"
+	u, _ := url.Parse(us)
+	client.Jar.SetCookies(u, expectedCookies)
+
+	client.Get(us) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+
+	client.Head(us) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+
+	client.Post(us, "text/plain", strings.NewReader("body")) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+
+	client.PostForm(us, url.Values{}) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+
+	req, _ := NewRequest("GET", us, nil)
+	client.Do(req) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+
+	req, _ = NewRequest("POST", us, nil)
+	client.Do(req) // Note: doesn't hit network
+	matchReturnedCookies(t, expectedCookies, tr.req.Cookies())
+}
 
 // Just enough correctness for our redirect tests. Uses the URL.Host as the
 // scope of all cookies.
@@ -300,7 +338,10 @@ func TestRedirectCookiesJar(t *testing.T) {
 	c.Jar = &TestJar{perURL: make(map[string][]*Cookie)}
 	u, _ := url.Parse(ts.URL)
 	c.Jar.SetCookies(u, []*Cookie{expectedCookies[0]})
-	resp, _ := c.Get(ts.URL)
+	resp, err := c.Get(ts.URL)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
 	matchReturnedCookies(t, expectedCookies, resp.Cookies())
 }
 
@@ -438,5 +479,86 @@ func TestClientErrorWithRequestURI(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "RequestURI") {
 		t.Errorf("wanted error mentioning RequestURI; got error: %v", err)
+	}
+}
+
+func newTLSTransport(t *testing.T, ts *httptest.Server) *Transport {
+	certs := x509.NewCertPool()
+	for _, c := range ts.TLS.Certificates {
+		roots, err := x509.ParseCertificates(c.Certificate[len(c.Certificate)-1])
+		if err != nil {
+			t.Fatalf("error parsing server's root cert: %v", err)
+		}
+		for _, root := range roots {
+			certs.AddCert(root)
+		}
+	}
+	return &Transport{
+		TLSClientConfig: &tls.Config{RootCAs: certs},
+	}
+}
+
+func TestClientWithCorrectTLSServerName(t *testing.T) {
+	ts := httptest.NewTLSServer(HandlerFunc(func(w ResponseWriter, r *Request) {
+		if r.TLS.ServerName != "127.0.0.1" {
+			t.Errorf("expected client to set ServerName 127.0.0.1, got: %q", r.TLS.ServerName)
+		}
+	}))
+	defer ts.Close()
+
+	c := &Client{Transport: newTLSTransport(t, ts)}
+	if _, err := c.Get(ts.URL); err != nil {
+		t.Fatalf("expected successful TLS connection, got error: %v", err)
+	}
+}
+
+func TestClientWithIncorrectTLSServerName(t *testing.T) {
+	ts := httptest.NewTLSServer(HandlerFunc(func(w ResponseWriter, r *Request) {}))
+	defer ts.Close()
+
+	trans := newTLSTransport(t, ts)
+	trans.TLSClientConfig.ServerName = "badserver"
+	c := &Client{Transport: trans}
+	_, err := c.Get(ts.URL)
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+	if !strings.Contains(err.Error(), "127.0.0.1") || !strings.Contains(err.Error(), "badserver") {
+		t.Errorf("wanted error mentioning 127.0.0.1 and badserver; got error: %v", err)
+	}
+}
+
+// Verify Response.ContentLength is populated. http://golang.org/issue/4126
+func TestClientHeadContentLength(t *testing.T) {
+	ts := httptest.NewServer(HandlerFunc(func(w ResponseWriter, r *Request) {
+		if v := r.FormValue("cl"); v != "" {
+			w.Header().Set("Content-Length", v)
+		}
+	}))
+	defer ts.Close()
+	tests := []struct {
+		suffix string
+		want   int64
+	}{
+		{"/?cl=1234", 1234},
+		{"/?cl=0", 0},
+		{"", -1},
+	}
+	for _, tt := range tests {
+		req, _ := NewRequest("HEAD", ts.URL+tt.suffix, nil)
+		res, err := DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.ContentLength != tt.want {
+			t.Errorf("Content-Length = %d; want %d", res.ContentLength, tt.want)
+		}
+		bs, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(bs) != 0 {
+			t.Errorf("Unexpected content: %q", bs)
+		}
 	}
 }

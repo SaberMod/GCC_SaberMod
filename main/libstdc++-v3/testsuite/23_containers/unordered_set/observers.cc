@@ -10,7 +10,7 @@
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without Pred the implied warranty of
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
@@ -25,6 +25,6 @@ test01()
 {
   std::unordered_set<int> us;
 
-  auto ke = us.key_eq();
-  auto h = us.hash_function();
+  auto ke __attribute__((unused)) = us.key_eq();
+  auto h __attribute__((unused)) = us.hash_function();
 }

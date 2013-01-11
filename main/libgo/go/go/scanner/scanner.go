@@ -2,21 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package scanner implements a scanner for Go source text. Takes a []byte as
-// source which can then be tokenized through repeated calls to the Scan
-// function. Typical use:
-//
-//	var s scanner.Scanner
-//	fset := token.NewFileSet()  // position information is relative to fset
-//	file := fset.AddFile(filename, fset.Base(), len(src))  // register file
-//	s.Init(file, src, nil /* no error handler */, 0)
-//	for {
-//		pos, tok, lit := s.Scan()
-//		if tok == token.EOF {
-//			break
-//		}
-//		// do something here with pos, tok, and lit
-//	}
+// Package scanner implements a scanner for Go source text.
+// It takes a []byte as source which can then be tokenized
+// through repeated calls to the Scan method.
 //
 package scanner
 
@@ -29,6 +17,13 @@ import (
 	"unicode"
 	"unicode/utf8"
 )
+
+// An ErrorHandler may be provided to Scanner.Init. If a syntax error is
+// encountered and a handler was installed, the handler is called with a
+// position and an error message. The position points to the beginning of
+// the offending token.
+//
+type ErrorHandler func(pos token.Position, msg string)
 
 // A Scanner holds the scanner's internal state while processing
 // a given text.  It can be allocated as part of another data
@@ -86,7 +81,7 @@ func (s *Scanner) next() {
 	}
 }
 
-// A mode value is set of flags (or 0).
+// A mode value is a set of flags (or 0).
 // They control scanner behavior.
 //
 type Mode uint
@@ -103,7 +98,7 @@ const (
 // line information which is already present is ignored. Init causes a
 // panic if the file size does not match the src size.
 //
-// Calls to Scan will use the error handler err if they encounter a
+// Calls to Scan will invoke the error handler err if they encounter a
 // syntax error and err is not nil. Also, for each error encountered,
 // the Scanner field ErrorCount is incremented by one. The mode parameter
 // determines how comments are handled.
@@ -114,7 +109,7 @@ const (
 func (s *Scanner) Init(file *token.File, src []byte, err ErrorHandler, mode Mode) {
 	// Explicitly initialize all fields since a scanner may be reused.
 	if file.Size() != len(src) {
-		panic("file size does not match src len")
+		panic(fmt.Sprintf("file size (%d) does not match src len (%d)", file.Size(), len(src)))
 	}
 	s.file = file
 	s.dir, _ = filepath.Split(file.Name())
@@ -130,11 +125,14 @@ func (s *Scanner) Init(file *token.File, src []byte, err ErrorHandler, mode Mode
 	s.ErrorCount = 0
 
 	s.next()
+	if s.ch == '\uFEFF' {
+		s.next() // ignore BOM
+	}
 }
 
 func (s *Scanner) error(offs int, msg string) {
 	if s.err != nil {
-		s.err.Error(s.file.Position(s.file.Pos(offs)), msg)
+		s.err(s.file.Position(s.file.Pos(offs)), msg)
 	}
 	s.ErrorCount++
 }
@@ -162,11 +160,15 @@ func (s *Scanner) interpretLineComment(text []byte) {
 func (s *Scanner) scanComment() string {
 	// initial '/' already consumed; s.ch == '/' || s.ch == '*'
 	offs := s.offset - 1 // position of initial '/'
+	hasCR := false
 
 	if s.ch == '/' {
 		//-style comment
 		s.next()
 		for s.ch != '\n' && s.ch >= 0 {
+			if s.ch == '\r' {
+				hasCR = true
+			}
 			s.next()
 		}
 		if offs == s.lineOffset {
@@ -180,6 +182,9 @@ func (s *Scanner) scanComment() string {
 	s.next()
 	for s.ch >= 0 {
 		ch := s.ch
+		if ch == '\r' {
+			hasCR = true
+		}
 		s.next()
 		if ch == '*' && s.ch == '/' {
 			s.next()
@@ -190,7 +195,12 @@ func (s *Scanner) scanComment() string {
 	s.error(offs, "comment not terminated")
 
 exit:
-	return string(s.src[offs:s.offset])
+	lit := s.src[offs:s.offset]
+	if hasCR {
+		lit = stripCR(lit)
+	}
+
+	return string(lit)
 }
 
 func (s *Scanner) findLineEnd() bool {
@@ -383,7 +393,7 @@ func (s *Scanner) scanEscape(quote rune) {
 	for ; i > 0 && s.ch != quote && s.ch >= 0; i-- {
 		s.next()
 	}
-	if x > max || 0xd800 <= x && x < 0xe000 {
+	if x > max || 0xD800 <= x && x < 0xE000 {
 		s.error(offs, "escape sequence is invalid Unicode code point")
 	}
 }
@@ -532,6 +542,8 @@ func (s *Scanner) switch4(tok0, tok1 token.Token, ch2 rune, tok2, tok3 token.Tok
 // token.IMAG, token.CHAR, token.STRING) or token.COMMENT, the literal string
 // has the corresponding value.
 //
+// If the returned token is a keyword, the literal string is the keyword.
+//
 // If the returned token is token.SEMICOLON, the corresponding
 // literal string is ";" if the semicolon was present in the source,
 // and "\n" if the semicolon was inserted because of a newline or
@@ -565,12 +577,18 @@ scanAgain:
 	switch ch := s.ch; {
 	case isLetter(ch):
 		lit = s.scanIdentifier()
-		tok = token.Lookup(lit)
-		switch tok {
-		case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:
+		if len(lit) > 1 {
+			// keywords are longer than one letter - avoid lookup otherwise
+			tok = token.Lookup(lit)
+			switch tok {
+			case token.IDENT, token.BREAK, token.CONTINUE, token.FALLTHROUGH, token.RETURN:
+				insertSemi = true
+			}
+		} else {
 			insertSemi = true
+			tok = token.IDENT
 		}
-	case digitVal(ch) < 10:
+	case '0' <= ch && ch <= '9':
 		insertSemi = true
 		tok, lit = s.scanNumber(false)
 	default:
@@ -603,7 +621,7 @@ scanAgain:
 		case ':':
 			tok = s.switch2(token.COLON, token.DEFINE)
 		case '.':
-			if digitVal(s.ch) < 10 {
+			if '0' <= s.ch && s.ch <= '9' {
 				insertSemi = true
 				tok, lit = s.scanNumber(true)
 			} else if s.ch == '.' {

@@ -2,8 +2,41 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package net provides a portable interface to Unix networks sockets,
-// including TCP/IP, UDP, domain name resolution, and Unix domain sockets.
+/*
+Package net provides a portable interface for network I/O, including
+TCP/IP, UDP, domain name resolution, and Unix domain sockets.
+
+Although the package provides access to low-level networking
+primitives, most clients will need only the basic interface provided
+by the Dial, Listen, and Accept functions and the associated
+Conn and Listener interfaces. The crypto/tls package uses
+the same interfaces and similar Dial and Listen functions.
+
+The Dial function connects to a server:
+
+	conn, err := net.Dial("tcp", "google.com:80")
+	if err != nil {
+		// handle error
+	}
+	fmt.Fprintf(conn, "GET / HTTP/1.0\r\n\r\n")
+	status, err := bufio.NewReader(conn).ReadString('\n')
+	// ...
+
+The Listen function creates servers:
+
+	ln, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		// handle error
+	}
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			// handle error
+			continue
+		}
+		go handleConnection(conn)
+	}
+*/
 package net
 
 // TODO(rsc):
@@ -11,6 +44,10 @@ package net
 
 import (
 	"errors"
+	"io"
+	"os"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -21,6 +58,8 @@ type Addr interface {
 }
 
 // Conn is a generic stream-oriented network connection.
+//
+// Multiple goroutines may invoke methods on a Conn simultaneously.
 type Conn interface {
 	// Read reads data from the connection.
 	// Read can be made to time out and return a Error with Timeout() == true
@@ -33,6 +72,7 @@ type Conn interface {
 	Write(b []byte) (n int, err error)
 
 	// Close closes the connection.
+	// Any blocked Read or Write operations will be unblocked and return errors.
 	Close() error
 
 	// LocalAddr returns the local network address.
@@ -42,23 +82,129 @@ type Conn interface {
 	RemoteAddr() Addr
 
 	// SetDeadline sets the read and write deadlines associated
-	// with the connection.
+	// with the connection. It is equivalent to calling both
+	// SetReadDeadline and SetWriteDeadline.
+	//
+	// A deadline is an absolute time after which I/O operations
+	// fail with a timeout (see type Error) instead of
+	// blocking. The deadline applies to all future I/O, not just
+	// the immediately following call to Read or Write.
+	//
+	// An idle timeout can be implemented by repeatedly extending
+	// the deadline after successful Read or Write calls.
+	//
+	// A zero value for t means I/O operations will not time out.
 	SetDeadline(t time.Time) error
 
-	// SetReadDeadline sets the deadline for all Read calls to return.
-	// If the deadline is reached, Read will fail with a timeout
-	// (see type Error) instead of blocking.
+	// SetReadDeadline sets the deadline for future Read calls.
 	// A zero value for t means Read will not time out.
 	SetReadDeadline(t time.Time) error
 
-	// SetWriteDeadline sets the deadline for all Write calls to return.
-	// If the deadline is reached, Write will fail with a timeout
-	// (see type Error) instead of blocking.
-	// A zero value for t means Write will not time out.
+	// SetWriteDeadline sets the deadline for future Write calls.
 	// Even if write times out, it may return n > 0, indicating that
 	// some of the data was successfully written.
+	// A zero value for t means Write will not time out.
 	SetWriteDeadline(t time.Time) error
 }
+
+type conn struct {
+	fd *netFD
+}
+
+func (c *conn) ok() bool { return c != nil && c.fd != nil }
+
+// Implementation of the Conn interface.
+
+// Read implements the Conn Read method.
+func (c *conn) Read(b []byte) (int, error) {
+	if !c.ok() {
+		return 0, syscall.EINVAL
+	}
+	return c.fd.Read(b)
+}
+
+// Write implements the Conn Write method.
+func (c *conn) Write(b []byte) (int, error) {
+	if !c.ok() {
+		return 0, syscall.EINVAL
+	}
+	return c.fd.Write(b)
+}
+
+// Close closes the connection.
+func (c *conn) Close() error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return c.fd.Close()
+}
+
+// LocalAddr returns the local network address.
+func (c *conn) LocalAddr() Addr {
+	if !c.ok() {
+		return nil
+	}
+	return c.fd.laddr
+}
+
+// RemoteAddr returns the remote network address.
+func (c *conn) RemoteAddr() Addr {
+	if !c.ok() {
+		return nil
+	}
+	return c.fd.raddr
+}
+
+// SetDeadline implements the Conn SetDeadline method.
+func (c *conn) SetDeadline(t time.Time) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setDeadline(c.fd, t)
+}
+
+// SetReadDeadline implements the Conn SetReadDeadline method.
+func (c *conn) SetReadDeadline(t time.Time) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setReadDeadline(c.fd, t)
+}
+
+// SetWriteDeadline implements the Conn SetWriteDeadline method.
+func (c *conn) SetWriteDeadline(t time.Time) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setWriteDeadline(c.fd, t)
+}
+
+// SetReadBuffer sets the size of the operating system's
+// receive buffer associated with the connection.
+func (c *conn) SetReadBuffer(bytes int) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setReadBuffer(c.fd, bytes)
+}
+
+// SetWriteBuffer sets the size of the operating system's
+// transmit buffer associated with the connection.
+func (c *conn) SetWriteBuffer(bytes int) error {
+	if !c.ok() {
+		return syscall.EINVAL
+	}
+	return setWriteBuffer(c.fd, bytes)
+}
+
+// File sets the underlying os.File to blocking mode and returns a copy.
+// It is the caller's responsibility to close f when finished.
+// Closing c does not affect f, and closing f does not affect c.
+//
+// The returned os.File's file descriptor is different from the connection's.
+// Attempting to change properties of the original using this duplicate
+// may or may not have the desired effect.
+func (c *conn) File() (f *os.File, err error) { return c.fd.dup() }
 
 // An Error represents a network error.
 type Error interface {
@@ -68,6 +214,8 @@ type Error interface {
 }
 
 // PacketConn is a generic packet-oriented network connection.
+//
+// Multiple goroutines may invoke methods on a PacketConn simultaneously.
 type PacketConn interface {
 	// ReadFrom reads a packet from the connection,
 	// copying the payload into b.  It returns the number of
@@ -86,6 +234,7 @@ type PacketConn interface {
 	WriteTo(b []byte, addr Addr) (n int, err error)
 
 	// Close closes the connection.
+	// Any blocked ReadFrom or WriteTo operations will be unblocked and return errors.
 	Close() error
 
 	// LocalAddr returns the local network address.
@@ -95,13 +244,13 @@ type PacketConn interface {
 	// with the connection.
 	SetDeadline(t time.Time) error
 
-	// SetReadDeadline sets the deadline for all Read calls to return.
+	// SetReadDeadline sets the deadline for future Read calls.
 	// If the deadline is reached, Read will fail with a timeout
 	// (see type Error) instead of blocking.
 	// A zero value for t means Read will not time out.
 	SetReadDeadline(t time.Time) error
 
-	// SetWriteDeadline sets the deadline for all Write calls to return.
+	// SetWriteDeadline sets the deadline for future Write calls.
 	// If the deadline is reached, Write will fail with a timeout
 	// (see type Error) instead of blocking.
 	// A zero value for t means Write will not time out.
@@ -111,11 +260,14 @@ type PacketConn interface {
 }
 
 // A Listener is a generic network listener for stream-oriented protocols.
+//
+// Multiple goroutines may invoke methods on a Listener simultaneously.
 type Listener interface {
 	// Accept waits for and returns the next connection to the listener.
 	Accept() (c Conn, err error)
 
 	// Close closes the listener.
+	// Any blocked Accept operations will be unblocked and return errors.
 	Close() error
 
 	// Addr returns the listener's network address.
@@ -155,6 +307,8 @@ func (e *OpError) Temporary() bool {
 	return ok && t.Temporary()
 }
 
+var noDeadline = time.Time{}
+
 type timeout interface {
 	Timeout() bool
 }
@@ -171,6 +325,8 @@ func (e *timeoutError) Timeout() bool   { return true }
 func (e *timeoutError) Temporary() bool { return true }
 
 var errTimeout error = &timeoutError{}
+
+var errClosing = errors.New("use of closed network connection")
 
 type AddrError struct {
 	Err  string
@@ -213,3 +369,47 @@ func (e *DNSConfigError) Error() string {
 
 func (e *DNSConfigError) Timeout() bool   { return false }
 func (e *DNSConfigError) Temporary() bool { return false }
+
+type writerOnly struct {
+	io.Writer
+}
+
+// Fallback implementation of io.ReaderFrom's ReadFrom, when sendfile isn't
+// applicable.
+func genericReadFrom(w io.Writer, r io.Reader) (n int64, err error) {
+	// Use wrapper to hide existing r.ReadFrom from io.Copy.
+	return io.Copy(writerOnly{w}, r)
+}
+
+// deadline is an atomically-accessed number of nanoseconds since 1970
+// or 0, if no deadline is set.
+type deadline struct {
+	sync.Mutex
+	val int64
+}
+
+func (d *deadline) expired() bool {
+	t := d.value()
+	return t > 0 && time.Now().UnixNano() >= t
+}
+
+func (d *deadline) value() (v int64) {
+	d.Lock()
+	v = d.val
+	d.Unlock()
+	return
+}
+
+func (d *deadline) set(v int64) {
+	d.Lock()
+	d.val = v
+	d.Unlock()
+}
+
+func (d *deadline) setTime(t time.Time) {
+	if t.IsZero() {
+		d.set(0)
+	} else {
+		d.set(t.UnixNano())
+	}
+}

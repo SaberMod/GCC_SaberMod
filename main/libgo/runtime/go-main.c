@@ -14,11 +14,9 @@
 #include <fpu_control.h>
 #endif
 
+#include "runtime.h"
 #include "go-alloc.h"
 #include "array.h"
-#include "go-string.h"
-
-#include "runtime.h"
 #include "arch.h"
 #include "malloc.h"
 
@@ -40,7 +38,7 @@ static void mainstart (void *);
 int
 main (int argc, char **argv)
 {
-  runtime_initsig (0);
+  runtime_check ();
   runtime_args (argc, (byte **) argv);
   runtime_osinit ();
   runtime_schedinit ();

@@ -26,11 +26,11 @@ type (
 	HTML string
 
 	// HTMLAttr encapsulates an HTML attribute from a trusted source,
-	// for example: ` dir="ltr"`.
+	// for example, ` dir="ltr"`.
 	HTMLAttr string
 
-	// JS encapsulates a known safe EcmaScript5 Expression, or example,
-	// `(x + y * z())`. 
+	// JS encapsulates a known safe EcmaScript5 Expression, for example,
+	// `(x + y * z())`.
 	// Template authors are responsible for ensuring that typed expressions
 	// do not break the intended precedence and that there is no
 	// statement/expression ambiguity as when passing an expression like
@@ -47,7 +47,7 @@ type (
 	// JSStr("foo\\nbar") is fine, but JSStr("foo\\\nbar") is not.
 	JSStr string
 
-	// URL encapsulates a known safe URL as defined in RFC 3896.
+	// URL encapsulates a known safe URL or URL substring (see RFC 3986).
 	// A URL like `javascript:checkThatFormNotEditedBeforeLeavingPage()`
 	// from a trusted source should go in the page, but by default dynamic
 	// `javascript:` URLs are filtered out since they are a frequently
@@ -85,6 +85,22 @@ func indirect(a interface{}) interface{} {
 	return v.Interface()
 }
 
+var (
+	errorType       = reflect.TypeOf((*error)(nil)).Elem()
+	fmtStringerType = reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+)
+
+// indirectToStringerOrError returns the value, after dereferencing as many times
+// as necessary to reach the base type (or nil) or an implementation of fmt.Stringer
+// or error,
+func indirectToStringerOrError(a interface{}) interface{} {
+	v := reflect.ValueOf(a)
+	for !v.Type().Implements(fmtStringerType) && !v.Type().Implements(errorType) && v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+	}
+	return v.Interface()
+}
+
 // stringify converts its arguments to a string and the type of the content.
 // All pointers are dereferenced, as in the text/template package.
 func stringify(args ...interface{}) (string, contentType) {
@@ -107,7 +123,7 @@ func stringify(args ...interface{}) (string, contentType) {
 		}
 	}
 	for i, arg := range args {
-		args[i] = indirect(arg)
+		args[i] = indirectToStringerOrError(arg)
 	}
 	return fmt.Sprint(args...), contentTypePlain
 }

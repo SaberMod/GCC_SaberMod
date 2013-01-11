@@ -121,15 +121,24 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Include in the mingw32 libraries with libgcc */
 #ifdef ENABLE_SHARED_LIBGCC
-#define SHARED_LIBGCC_SPEC "%{shared-libgcc:-lgcc_s} %{!shared-libgcc:-lgcc_eh}"
+#define SHARED_LIBGCC_SPEC " \
+ %{static|static-libgcc:-lgcc -lgcc_eh} \
+ %{!static: \
+   %{!static-libgcc: \
+     %{!shared: \
+       %{!shared-libgcc:-lgcc -lgcc_eh} \
+       %{shared-libgcc:-lgcc_s -lgcc} \
+      } \
+     %{shared:-lgcc_s -lgcc} \
+    } \
+  } "
 #else
-#define SHARED_LIBGCC_SPEC /*empty*/
+#define SHARED_LIBGCC_SPEC " -lgcc "
 #endif
 #undef REAL_LIBGCC_SPEC
 #define REAL_LIBGCC_SPEC \
   "%{mthreads:-lmingwthrd} -lmingw32 \
    "SHARED_LIBGCC_SPEC" \
-   -lgcc \
    -lmoldname -lmingwex -lmsvcrt"
 
 #undef STARTFILE_SPEC
@@ -149,6 +158,11 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef STANDARD_STARTFILE_PREFIX_2
 #define STANDARD_STARTFILE_PREFIX_2 ""
 #endif
+
+/* For native mingw-version we need to take care that NATIVE_SYSTEM_HEADER_DIR
+   macro contains POSIX-style path.  See bug 52947.  */
+#undef NATIVE_SYSTEM_HEADER_DIR
+#define NATIVE_SYSTEM_HEADER_DIR "/mingw/include"
 
 /* Output STRING, a string representing a filename, to FILE.
    We canonicalize it to be in Unix format (backslashes are replaced

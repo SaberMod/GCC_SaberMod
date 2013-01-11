@@ -25,11 +25,11 @@ extern void __splitstack_setcontext(void *context[10]);
 
 #endif
 
-#define C SigCatch
-#define I SigIgnore
-#define R SigRestart
-#define Q SigQueue
+#define N SigNotify
+#define K SigKill
+#define T SigThrow
 #define P SigPanic
+#define D SigDefault
 
 /* Signal actions.  This collects the sigtab tables for several
    different targets from the master library.  SIGKILL, SIGCONT, and
@@ -38,105 +38,121 @@ extern void __splitstack_setcontext(void *context[10]);
 
 SigTab runtime_sigtab[] = {
 #ifdef SIGHUP
-  { SIGHUP,	Q + R },
+  { SIGHUP,	N + K },
 #endif
 #ifdef SIGINT
-  { SIGINT, 	Q + R },
+  { SIGINT, 	N + K },
 #endif
 #ifdef SIGQUIT
-  { SIGQUIT, 	C },
+  { SIGQUIT, 	N + T },
 #endif
 #ifdef SIGILL
-  { SIGILL, 	C },
+  { SIGILL, 	T },
 #endif
 #ifdef SIGTRAP
-  { SIGTRAP, 	C },
+  { SIGTRAP, 	T },
 #endif
 #ifdef SIGABRT
-  { SIGABRT, 	C },
+  { SIGABRT, 	N + T },
 #endif
 #ifdef SIGBUS
-  { SIGBUS, 	C + P },
+  { SIGBUS, 	P },
 #endif
 #ifdef SIGFPE
-  { SIGFPE, 	C + P },
+  { SIGFPE, 	P },
 #endif
 #ifdef SIGUSR1
-  { SIGUSR1, 	Q + I + R },
+  { SIGUSR1, 	N },
 #endif
 #ifdef SIGSEGV
-  { SIGSEGV, 	C + P },
+  { SIGSEGV, 	P },
 #endif
 #ifdef SIGUSR2
-  { SIGUSR2, 	Q + I + R },
+  { SIGUSR2, 	N },
 #endif
 #ifdef SIGPIPE
-  { SIGPIPE, 	I },
+  { SIGPIPE, 	N },
 #endif
 #ifdef SIGALRM
-  { SIGALRM, 	Q + I + R },
+  { SIGALRM, 	N },
 #endif
 #ifdef SIGTERM
-  { SIGTERM, 	Q + R },
+  { SIGTERM, 	N + K },
 #endif
 #ifdef SIGSTKFLT
-  { SIGSTKFLT, 	C },
+  { SIGSTKFLT, 	T },
 #endif
 #ifdef SIGCHLD
-  { SIGCHLD, 	Q + I + R },
+  { SIGCHLD, 	N },
 #endif
 #ifdef SIGTSTP
-  { SIGTSTP, 	Q + I + R },
+  { SIGTSTP, 	N + D },
 #endif
 #ifdef SIGTTIN
-  { SIGTTIN, 	Q + I + R },
+  { SIGTTIN, 	N + D },
 #endif
 #ifdef SIGTTOU
-  { SIGTTOU, 	Q + I + R },
+  { SIGTTOU, 	N + D },
 #endif
 #ifdef SIGURG
-  { SIGURG, 	Q + I + R },
+  { SIGURG, 	N },
 #endif
 #ifdef SIGXCPU
-  { SIGXCPU, 	Q + I + R },
+  { SIGXCPU, 	N },
 #endif
 #ifdef SIGXFSZ
-  { SIGXFSZ, 	Q + I + R },
+  { SIGXFSZ, 	N },
 #endif
 #ifdef SIGVTALRM
-  { SIGVTALRM, 	Q + I + R },
+  { SIGVTALRM, 	N },
 #endif
 #ifdef SIGPROF
-  { SIGPROF, 	Q + I + R },
+  { SIGPROF, 	N },
 #endif
 #ifdef SIGWINCH
-  { SIGWINCH, 	Q + I + R },
+  { SIGWINCH, 	N },
 #endif
 #ifdef SIGIO
-  { SIGIO, 	Q + I + R },
+  { SIGIO, 	N },
 #endif
 #ifdef SIGPWR
-  { SIGPWR, 	Q + I + R },
+  { SIGPWR, 	N },
 #endif
 #ifdef SIGSYS
-  { SIGSYS, 	C },
+  { SIGSYS, 	N },
 #endif
 #ifdef SIGEMT
-  { SIGEMT,	C },
+  { SIGEMT,	T },
 #endif
 #ifdef SIGINFO
-  { SIGINFO,	Q + I + R },
+  { SIGINFO,	N },
 #endif
 #ifdef SIGTHR
-  { SIGTHR,	Q + I + R },
+  { SIGTHR,	N },
 #endif
   { -1,		0 }
 };
-#undef C
-#undef I
-#undef R
-#undef Q
+#undef N
+#undef K
+#undef T
 #undef P
+#undef D
+
+
+static int8 badsignal[] = "runtime: signal received on thread not created by Go.\n";
+
+static void
+runtime_badsignal(int32 sig)
+{
+	// Avoid -D_FORTIFY_SOURCE problems.
+	int rv __attribute__((unused));
+
+	if (sig == SIGPROF) {
+		return;  // Ignore SIGPROFs intended for a non-Go thread.
+	}
+	rv = runtime_write(2, badsignal, sizeof badsignal - 1);
+	runtime_exit(1);
+}
 
 /* Handle a signal, for cases where we don't panic.  We can split the
    stack here.  */
@@ -146,49 +162,68 @@ sig_handler (int sig)
 {
   int i;
 
+  if (runtime_m () == NULL)
+    {
+      runtime_badsignal (sig);
+      return;
+    }
+
 #ifdef SIGPROF
   if (sig == SIGPROF)
     {
-      /* FIXME.  */
-      runtime_sigprof (0, 0, nil, nil);
+      runtime_sigprof ();
       return;
     }
 #endif
 
   for (i = 0; runtime_sigtab[i].sig != -1; ++i)
     {
-      struct sigaction sa;
+      SigTab *t;
 
-      if (runtime_sigtab[i].sig != sig)
+      t = &runtime_sigtab[i];
+
+      if (t->sig != sig)
 	continue;
 
-      if ((runtime_sigtab[i].flags & SigQueue) != 0)
+      if ((t->flags & SigNotify) != 0)
 	{
-	  if (__go_sigsend (sig)
-	      || (runtime_sigtab[sig].flags & SigIgnore) != 0)
+	  if (__go_sigsend (sig))
 	    return;
-	  runtime_exit (2);		// SIGINT, SIGTERM, etc
 	}
-
-      if (runtime_panicking)
+      if ((t->flags & SigKill) != 0)
 	runtime_exit (2);
-      runtime_panicking = 1;
+      if ((t->flags & SigThrow) == 0)
+	return;
 
-      /* We should do a stack backtrace here.  Until we can do that,
-	 we reraise the signal in order to get a slightly better
-	 report from the shell.  */
+      runtime_startpanic ();
 
-      memset (&sa, 0, sizeof sa);
+      {
+	const char *name = NULL;
 
-      sa.sa_handler = SIG_DFL;
+#ifdef HAVE_STRSIGNAL
+	name = strsignal (sig);
+#endif
 
-      i = sigemptyset (&sa.sa_mask);
-      __go_assert (i == 0);
+	if (name == NULL)
+	  runtime_printf ("Signal %d\n", sig);
+	else
+	  runtime_printf ("%s\n", name);
+      }
 
-      if (sigaction (sig, &sa, NULL) != 0)
-	abort ();
+      runtime_printf ("\n");
 
-      raise (sig);
+      if (runtime_gotraceback ())
+	{
+	  G *g;
+
+	  g = runtime_g ();
+	  runtime_traceback (g);
+	  runtime_tracebackothers (g);
+
+	  /* The gc library calls runtime_dumpregs here, and provides
+	     a function that prints the registers saved in context in
+	     a readable form.  */
+	}
 
       runtime_exit (2);
     }
@@ -227,11 +262,21 @@ static void
 sig_panic_info_handler (int sig, siginfo_t *info,
 			void *context __attribute__ ((unused)))
 {
-  if (runtime_g () == NULL)
+  G *g;
+
+  g = runtime_g ();
+  if (g == NULL || info->si_code == SI_USER)
     {
       sig_handler (sig);
       return;
     }
+
+  g->sig = sig;
+  g->sigcode0 = info->si_code;
+  g->sigcode1 = (uintptr_t) info->si_addr;
+
+  /* It would be nice to set g->sigpc here as the gc library does, but
+     I don't know how to get it portably.  */
 
   sig_panic_leadin (sig);
 
@@ -281,11 +326,18 @@ sig_panic_info_handler (int sig, siginfo_t *info,
 static void
 sig_panic_handler (int sig)
 {
-  if (runtime_g () == NULL)
+  G *g;
+
+  g = runtime_g ();
+  if (g == NULL)
     {
       sig_handler (sig);
       return;
     }
+
+  g->sig = sig;
+  g->sigcode0 = 0;
+  g->sigcode1 = 0;
 
   sig_panic_leadin (sig);
 
@@ -315,16 +367,6 @@ sig_panic_handler (int sig)
 }
 
 #endif /* !defined (SA_SIGINFO) */
-
-/* Ignore a signal.  This is called on the alternate signal stack so
-   it may not split the stack.  */
-
-static void sig_ignore (int) __attribute__ ((no_split_stack));
-
-static void
-sig_ignore (int sig __attribute__ ((unused)))
-{
-}
 
 /* A signal handler used for signals which are not going to panic.
    This is called on the alternate signal stack so it may not split
@@ -376,105 +418,46 @@ sig_tramp (int sig)
     }
 }
 
-/* Initialize signal handling for Go.  This is called when the program
-   starts.  */
-
 void
-runtime_initsig (int32 queue)
+runtime_setsig (int32 i, bool def __attribute__ ((unused)), bool restart)
 {
   struct sigaction sa;
-  int i;
-
-  siginit ();
+  int r;
+  SigTab *t;
 
   memset (&sa, 0, sizeof sa);
 
-  i = sigfillset (&sa.sa_mask);
-  __go_assert (i == 0);
+  r = sigfillset (&sa.sa_mask);
+  __go_assert (r == 0);
 
-  for (i = 0; runtime_sigtab[i].sig != -1; ++i)
+  t = &runtime_sigtab[i];
+
+  if ((t->flags & SigPanic) == 0)
     {
-      if (runtime_sigtab[i].flags == 0)
-	continue;
-      if ((runtime_sigtab[i].flags & SigQueue) != queue)
-	continue;
-
-      if ((runtime_sigtab[i].flags & (SigCatch | SigQueue)) != 0)
-	{
-	  if ((runtime_sigtab[i].flags & SigPanic) == 0)
-	    {
-	      sa.sa_flags = SA_ONSTACK;
-	      sa.sa_handler = sig_tramp;
-	    }
-	  else
-	    {
-#ifdef SA_SIGINFO
-	      sa.sa_flags = SA_SIGINFO;
-	      sa.sa_sigaction = sig_panic_info_handler;
-#else
-	      sa.sa_flags = 0;
-	      sa.sa_handler = sig_panic_handler;
-#endif
-	    }
-	}
-      else
-	{
-	  sa.sa_flags = SA_ONSTACK;
-	  sa.sa_handler = sig_ignore;
-	}
-
-      if ((runtime_sigtab[i].flags & SigRestart) != 0)
-	sa.sa_flags |= SA_RESTART;
-
-      if (sigaction (runtime_sigtab[i].sig, &sa, NULL) != 0)
-	__go_assert (0);
-    }
-}
-
-void
-runtime_resetcpuprofiler(int32 hz)
-{
-#ifdef SIGPROF
-  struct itimerval it;
-  struct sigaction sa;
-  int i;
-
-  memset (&it, 0, sizeof it);
-
-  memset (&sa, 0, sizeof sa);
-  i = sigfillset (&sa.sa_mask);
-  __go_assert (i == 0);
-
-  if (hz == 0)
-    {
-      i = setitimer (ITIMER_PROF, &it, NULL);
-      __go_assert (i == 0);
-
-      sa.sa_handler = SIG_IGN;
-      i = sigaction (SIGPROF, &sa, NULL);
-      __go_assert (i == 0);
+      sa.sa_flags = SA_ONSTACK;
+      sa.sa_handler = sig_tramp;
     }
   else
     {
-      sa.sa_handler = sig_handler;
-      sa.sa_flags = SA_RESTART;
-      i = sigaction (SIGPROF, &sa, NULL);
-      __go_assert (i == 0);
-
-      it.it_interval.tv_sec = 0;
-      it.it_interval.tv_usec = 1000000 / hz;
-      it.it_value = it.it_interval;
-      i = setitimer (ITIMER_PROF, &it, NULL);
-      __go_assert (i == 0);
-    }
+#ifdef SA_SIGINFO
+      sa.sa_flags = SA_SIGINFO;
+      sa.sa_sigaction = sig_panic_info_handler;
+#else
+      sa.sa_flags = 0;
+      sa.sa_handler = sig_panic_handler;
 #endif
+    }
 
-  runtime_m()->profilehz = hz;
+  if (restart)
+    sa.sa_flags |= SA_RESTART;
+
+  if (sigaction (t->sig, &sa, NULL) != 0)
+    __go_assert (0);
 }
 
 /* Used by the os package to raise SIGPIPE.  */
 
-void os_sigpipe (void) __asm__ ("libgo_os.os.sigpipe");
+void os_sigpipe (void) __asm__ ("os.sigpipe");
 
 void
 os_sigpipe (void)
@@ -493,4 +476,10 @@ os_sigpipe (void)
     abort ();
 
   raise (SIGPIPE);
+}
+
+void
+runtime_setprof(bool on)
+{
+	USED(on);
 }

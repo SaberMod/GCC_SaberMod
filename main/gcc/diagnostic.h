@@ -102,6 +102,13 @@ struct diagnostic_context
   int *push_list;
   int n_push;
 
+  /* True if we should print the source line with a caret indicating
+     the location.  */
+  bool show_caret;
+
+  /* Maximum width of the source line printed.  */
+  int caret_max_width;
+
   /* True if we should print the command line option which controls
      each diagnostic, if known.  */
   bool show_option_requested;
@@ -167,6 +174,9 @@ struct diagnostic_context
 
   /* Auxiliary data for client.  */
   void *x_data;
+
+  /* Used to detect that the last caret was printed at the same location.  */
+  location_t last_location;
 
   /* Used to detect when the input file stack has changed since last
      described.  */
@@ -257,6 +267,7 @@ extern diagnostic_context *global_dc;
 extern void diagnostic_initialize (diagnostic_context *, int);
 extern void diagnostic_finish (diagnostic_context *);
 extern void diagnostic_report_current_module (diagnostic_context *, location_t);
+extern void diagnostic_show_locus (diagnostic_context *, const diagnostic_info *);
 
 /* Force diagnostics controlled by OPTIDX to be kind KIND.  */
 extern diagnostic_t diagnostic_classify_diagnostic (diagnostic_context *,
@@ -274,10 +285,14 @@ extern void diagnostic_set_info_translated (diagnostic_info *, const char *,
 					    va_list *, location_t,
 					    diagnostic_t)
      ATTRIBUTE_GCC_DIAG(2,0);
+extern void diagnostic_append_note (diagnostic_context *, location_t,
+                                    const char *, ...) ATTRIBUTE_GCC_DIAG(3,4);
 #endif
-extern char *diagnostic_build_prefix (diagnostic_context *, diagnostic_info *);
+extern char *diagnostic_build_prefix (diagnostic_context *, const diagnostic_info *);
 void default_diagnostic_starter (diagnostic_context *, diagnostic_info *);
 void default_diagnostic_finalizer (diagnostic_context *, diagnostic_info *);
+void diagnostic_set_caret_max_width (diagnostic_context *context, int value);
+
 
 /* Pure text formatting support functions.  */
 extern char *file_name_as_prefix (const char *);

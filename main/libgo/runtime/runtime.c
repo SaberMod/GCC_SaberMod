@@ -4,96 +4,44 @@
 
 #include <unistd.h>
 
+#include "config.h"
+
 #include "runtime.h"
 #include "array.h"
 #include "go-panic.h"
-#include "go-string.h"
 
-uint32	runtime_panicking;
-
-static Lock paniclk;
-
-void
-runtime_startpanic(void)
+int32
+runtime_gotraceback(void)
 {
-	M *m;
+	const byte *p;
 
-	m = runtime_m();
-	if(m->dying) {
-		runtime_printf("panic during panic\n");
-		runtime_exit(3);
-	}
-	m->dying = 1;
-	runtime_xadd(&runtime_panicking, 1);
-	runtime_lock(&paniclk);
-}
-
-void
-runtime_dopanic(int32 unused __attribute__ ((unused)))
-{
-	/*
-	static bool didothers;
-
-	if(g->sig != 0)
-		runtime_printf("[signal %x code=%p addr=%p pc=%p]\n",
-			g->sig, g->sigcode0, g->sigcode1, g->sigpc);
-
-	if(runtime_gotraceback()){
-		if(!didothers) {
-			didothers = true;
-			runtime_tracebackothers(g);
-		}
-	}
-	*/
-
-	runtime_unlock(&paniclk);
-	if(runtime_xadd(&runtime_panicking, -1) != 0) {
-		// Some other m is panicking too.
-		// Let it print what it needs to print.
-		// Wait forever without chewing up cpu.
-		// It will exit when it's done.
-		static Lock deadlock;
-		runtime_lock(&deadlock);
-		runtime_lock(&deadlock);
-	}
-
-	runtime_exit(2);
-}
-
-void
-runtime_throw(const char *s)
-{
-	runtime_startpanic();
-	runtime_printf("throw: %s\n", s);
-	runtime_dopanic(0);
-	*(int32*)0 = 0;	// not reached
-	runtime_exit(1);	// even more not reached
-}
-
-void
-runtime_panicstring(const char *s)
-{
-	Eface err;
-	
-	if(runtime_m()->gcing) {
-		runtime_printf("panic: %s\n", s);
-		runtime_throw("panic during gc");
-	}
-	runtime_newErrorString(runtime_gostringnocopy((const byte*)s), &err);
-	runtime_panic(err);
+	p = runtime_getenv("GOTRACEBACK");
+	if(p == nil || p[0] == '\0')
+		return 1;	// default is on
+	return runtime_atoi(p);
 }
 
 static int32	argc;
 static byte**	argv;
 
-extern Slice os_Args asm ("libgo_os.os.Args");
-extern Slice syscall_Envs asm ("libgo_syscall.syscall.Envs");
+extern Slice os_Args asm ("os.Args");
+extern Slice syscall_Envs asm ("syscall.Envs");
+
+void (*runtime_sysargs)(int32, uint8**);
 
 void
 runtime_args(int32 c, byte **v)
 {
 	argc = c;
 	argv = v;
+	if(runtime_sysargs != nil)
+		runtime_sysargs(c, v);
+}
+
+byte*
+runtime_progname()
+{
+  return argc == 0 ? nil : argv[0];
 }
 
 void
@@ -101,7 +49,7 @@ runtime_goargs(void)
 {
 	String *s;
 	int32 i;
-	
+
 	// for windows implementation see "os" package
 	if(Windows)
 		return;
@@ -119,7 +67,7 @@ runtime_goenvs_unix(void)
 {
 	String *s;
 	int32 i, n;
-	
+
 	for(n=0; argv[argc+1+n] != 0; n++)
 		;
 
@@ -144,9 +92,9 @@ runtime_getenv(const char *s)
 	envv = (String*)syscall_Envs.__values;
 	envc = syscall_Envs.__count;
 	for(i=0; i<envc; i++){
-		if(envv[i].__length <= len)
+		if(envv[i].len <= len)
 			continue;
-		v = (const byte*)envv[i].__data;
+		v = (const byte*)envv[i].str;
 		for(j=0; j<len; j++)
 			if(bs[j] != v[j])
 				goto nomatch;
@@ -184,6 +132,19 @@ runtime_fastrand1(void)
 	return x;
 }
 
+static struct root_list runtime_roots =
+{ nil,
+  { { &syscall_Envs, sizeof syscall_Envs },
+    { &os_Args, sizeof os_Args },
+    { nil, 0 } },
+};
+
+void
+runtime_check(void)
+{
+	__go_register_gc_roots(&runtime_roots);
+}
+
 int64
 runtime_cputicks(void)
 {
@@ -197,21 +158,51 @@ runtime_cputicks(void)
 #endif
 }
 
-struct funcline_go_return
+bool
+runtime_showframe(String s)
 {
-  String retfile;
-  int32 retline;
-};
+	static int32 traceback = -1;
+	
+	if(traceback < 0)
+		traceback = runtime_gotraceback();
+	return traceback > 1 || (__builtin_memchr(s.str, '.', s.len) != nil && __builtin_memcmp(s.str, "runtime.", 7) != 0);
+}
 
-struct funcline_go_return
-runtime_funcline_go(void *f, uintptr targetpc)
-  __asm__("libgo_runtime.runtime.funcline_go");
+static Lock ticksLock;
+static int64 ticks;
 
-struct funcline_go_return
-runtime_funcline_go(void *f __attribute__((unused)),
-		    uintptr targetpc __attribute__((unused)))
+int64
+runtime_tickspersecond(void)
 {
-  struct funcline_go_return ret;
-  runtime_memclr(&ret, sizeof ret);
-  return ret;
+	int64 res, t0, t1, c0, c1;
+
+	res = (int64)runtime_atomicload64((uint64*)&ticks);
+	if(res != 0)
+		return ticks;
+	runtime_lock(&ticksLock);
+	res = ticks;
+	if(res == 0) {
+		t0 = runtime_nanotime();
+		c0 = runtime_cputicks();
+		runtime_usleep(100*1000);
+		t1 = runtime_nanotime();
+		c1 = runtime_cputicks();
+		if(t1 == t0)
+			t1++;
+		res = (c1-c0)*1000*1000*1000/(t1-t0);
+		if(res == 0)
+			res++;
+		runtime_atomicstore64((uint64*)&ticks, res);
+	}
+	runtime_unlock(&ticksLock);
+	return res;
+}
+
+int64 runtime_pprof_runtime_cyclesPerSecond(void)
+     asm("runtime_pprof.runtime_cyclesPerSecond");
+
+int64
+runtime_pprof_runtime_cyclesPerSecond(void)
+{
+	return runtime_tickspersecond();
 }

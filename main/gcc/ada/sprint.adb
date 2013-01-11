@@ -1162,6 +1162,10 @@ package body Sprint is
                Alt : Node_Id;
 
             begin
+               --  The syntax for case_expression does not include parentheses,
+               --  but sometimes parentheses are required, so unconditionally
+               --  generate them here.
+
                Write_Str_With_Col_Check_Sloc ("(case ");
                Sprint_Node (Expression (Node));
                Write_Str_With_Col_Check (" is");
@@ -1319,27 +1323,6 @@ package body Sprint is
             Write_Indent_Str ("else");
             Sprint_Indented_List (Else_Statements (Node));
             Write_Indent_Str ("end select;");
-
-         when N_Conditional_Expression =>
-            declare
-               Condition : constant Node_Id := First (Expressions (Node));
-               Then_Expr : constant Node_Id := Next (Condition);
-
-            begin
-               Write_Str_With_Col_Check_Sloc ("(if ");
-               Sprint_Node (Condition);
-               Write_Str_With_Col_Check (" then ");
-
-               --  Defense against junk here!
-
-               if Present (Then_Expr) then
-                  Sprint_Node (Then_Expr);
-                  Write_Str_With_Col_Check (" else ");
-                  Sprint_Node (Next (Then_Expr));
-               end if;
-
-               Write_Char (')');
-            end;
 
          when N_Constrained_Array_Definition =>
             Write_Str_With_Col_Check_Sloc ("array ");
@@ -1977,6 +1960,31 @@ package body Sprint is
          when N_Identifier =>
             Set_Debug_Sloc;
             Write_Id (Node);
+
+         when N_If_Expression =>
+            declare
+               Condition : constant Node_Id := First (Expressions (Node));
+               Then_Expr : constant Node_Id := Next (Condition);
+
+            begin
+               --  The syntax for if_expression does not include parentheses,
+               --  but sometimes parentheses are required, so unconditionally
+               --  generate them here.
+
+               Write_Str_With_Col_Check_Sloc ("(if ");
+               Sprint_Node (Condition);
+               Write_Str_With_Col_Check (" then ");
+
+               --  Defense against junk here!
+
+               if Present (Then_Expr) then
+                  Sprint_Node (Then_Expr);
+                  Write_Str_With_Col_Check (" else ");
+                  Sprint_Node (Next (Then_Expr));
+               end if;
+
+               Write_Char (')');
+            end;
 
          when N_If_Statement =>
             Write_Indent_Str_Sloc ("if ");

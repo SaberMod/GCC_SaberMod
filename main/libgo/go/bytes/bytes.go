@@ -13,6 +13,7 @@ import (
 
 // Compare returns an integer comparing the two byte arrays lexicographically.
 // The result will be 0 if a==b, -1 if a < b, and +1 if a > b
+// A nil argument is equivalent to an empty slice.
 func Compare(a, b []byte) int {
 	m := len(a)
 	if m > len(b) {
@@ -37,6 +38,7 @@ func Compare(a, b []byte) int {
 }
 
 // Equal returns a boolean reporting whether a == b.
+// A nil argument is equivalent to an empty slice.
 func Equal(a, b []byte) bool
 
 func equalPortable(a, b []byte) bool {
@@ -331,14 +333,15 @@ func FieldsFunc(s []byte, f func(rune) bool) [][]byte {
 	return a[0:na]
 }
 
-// Join concatenates the elements of a to create a single byte array.   The separator
+// Join concatenates the elements of a to create a new byte array. The separator
 // sep is placed between elements in the resulting array.
 func Join(a [][]byte, sep []byte) []byte {
 	if len(a) == 0 {
 		return []byte{}
 	}
 	if len(a) == 1 {
-		return a[0]
+		// Just return a copy.
+		return append([]byte(nil), a[0]...)
 	}
 	n := len(sep) * (len(a) - 1)
 	for i := 0; i < len(a); i++ {
@@ -413,7 +416,7 @@ func Repeat(b []byte, count int) []byte {
 // ToUpper returns a copy of the byte array s with all Unicode letters mapped to their upper case.
 func ToUpper(s []byte) []byte { return Map(unicode.ToUpper, s) }
 
-// ToUpper returns a copy of the byte array s with all Unicode letters mapped to their lower case.
+// ToLower returns a copy of the byte array s with all Unicode letters mapped to their lower case.
 func ToLower(s []byte) []byte { return Map(unicode.ToLower, s) }
 
 // ToTitle returns a copy of the byte array s with all Unicode letters mapped to their title case.
@@ -617,10 +620,8 @@ func Replace(s, old, new []byte, n int) []byte {
 		m = Count(s, old)
 	}
 	if m == 0 {
-		// Nothing to do. Just copy.
-		t := make([]byte, len(s))
-		copy(t, s)
-		return t
+		// Just return a copy.
+		return append([]byte(nil), s...)
 	}
 	if n < 0 || m < n {
 		n = m

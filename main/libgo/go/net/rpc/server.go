@@ -13,17 +13,24 @@
 	Only methods that satisfy these criteria will be made available for remote access;
 	other methods will be ignored:
 
-		- the method name is exported, that is, begins with an upper case letter.
-		- the method receiver is exported or local (defined in the package
-		  registering the service).
-		- the method has two arguments, both exported or local types.
+		- the method is exported.
+		- the method has two arguments, both exported (or builtin) types.
 		- the method's second argument is a pointer.
 		- the method has return type error.
+
+	In effect, the method must look schematically like
+
+		func (t *T) MethodName(argType T1, replyType *T2) error
+
+	where T, T1 and T2 can be marshaled by encoding/gob.
+	These requirements apply even if a different codec is used.
+	(In the future, these requirements may soften for custom codecs.)
 
 	The method's first argument represents the arguments provided by the caller; the
 	second argument represents the result parameters to be returned to the caller.
 	The method's return value, if non-nil, is passed back as a string that the client
-	sees as if created by errors.New.
+	sees as if created by errors.New.  If an error is returned, the reply parameter
+	will not be sent back to the client.
 
 	The server may handle requests on a single connection by calling ServeConn.  More
 	typically it will create a network listener and call Accept or, for an HTTP
@@ -36,10 +43,12 @@
 	call, a pointer containing the arguments, and a pointer to receive the result
 	parameters.
 
-	Call waits for the remote call to complete; Go launches the call asynchronously
-	and returns a channel that will signal completion.
+	The Call method waits for the remote call to complete while the Go method
+	launches the call asynchronously and signals completion using the Call
+	structure's Done channel.
 
-	Package "gob" is used to transport the data.
+	Unless an explicit codec is set up, package encoding/gob is used to
+	transport the data.
 
 	Here is a simple example.  A server wishes to export an object of type Arith:
 
@@ -103,7 +112,7 @@
 
 		// Asynchronous call
 		quotient := new(Quotient)
-		divCall := client.Go("Arith.Divide", args, &quotient, nil)
+		divCall := client.Go("Arith.Divide", args, quotient, nil)
 		replyCall := <-divCall.Done	// will be equal to divCall
 		// check errors, print, etc.
 
@@ -173,7 +182,7 @@ type Response struct {
 
 // Server represents an RPC Server.
 type Server struct {
-	mu         sync.Mutex // protects the serviceMap
+	mu         sync.RWMutex // protects the serviceMap
 	serviceMap map[string]*service
 	reqLock    sync.Mutex // protects freeReq
 	freeReq    *Request
@@ -210,15 +219,15 @@ func isExportedOrBuiltinType(t reflect.Type) bool {
 //	- exported method
 //	- two arguments, both pointers to exported structs
 //	- one return value, of type error
-// It returns an error if the receiver is not an exported type or has no
-// suitable methods.
+// It returns an error if the receiver is not an exported type or has
+// no methods or unsuitable methods. It also logs the error using package log.
 // The client accesses each method using a string of the form "Type.Method",
 // where Type is the receiver's concrete type.
 func (server *Server) Register(rcvr interface{}) error {
 	return server.register(rcvr, "", false)
 }
 
-// RegisterName is like Register but uses the provided name for the type 
+// RegisterName is like Register but uses the provided name for the type
 // instead of the receiver's concrete type.
 func (server *Server) RegisterName(name string, rcvr interface{}) error {
 	return server.register(rcvr, name, true)
@@ -252,59 +261,89 @@ func (server *Server) register(rcvr interface{}, name string, useName bool) erro
 	s.method = make(map[string]*methodType)
 
 	// Install the methods
-	for m := 0; m < s.typ.NumMethod(); m++ {
-		method := s.typ.Method(m)
-		mtype := method.Type
-		mname := method.Name
-		if method.PkgPath != "" {
-			continue
-		}
-		// Method needs three ins: receiver, *args, *reply.
-		if mtype.NumIn() != 3 {
-			log.Println("method", mname, "has wrong number of ins:", mtype.NumIn())
-			continue
-		}
-		// First arg need not be a pointer.
-		argType := mtype.In(1)
-		if !isExportedOrBuiltinType(argType) {
-			log.Println(mname, "argument type not exported or local:", argType)
-			continue
-		}
-		// Second arg must be a pointer.
-		replyType := mtype.In(2)
-		if replyType.Kind() != reflect.Ptr {
-			log.Println("method", mname, "reply type not a pointer:", replyType)
-			continue
-		}
-		if !isExportedOrBuiltinType(replyType) {
-			log.Println("method", mname, "reply type not exported or local:", replyType)
-			continue
-		}
-		// Method needs one out: error.
-		if mtype.NumOut() != 1 {
-			log.Println("method", mname, "has wrong number of outs:", mtype.NumOut())
-			continue
-		}
-		if returnType := mtype.Out(0); returnType != typeOfError {
-			log.Println("method", mname, "returns", returnType.String(), "not error")
-			continue
-		}
-		s.method[mname] = &methodType{method: method, ArgType: argType, ReplyType: replyType}
-	}
+	s.method = suitableMethods(s.typ, true)
 
 	if len(s.method) == 0 {
-		s := "rpc Register: type " + sname + " has no exported methods of suitable type"
-		log.Print(s)
-		return errors.New(s)
+		str := ""
+		// To help the user, see if a pointer receiver would work.
+		method := suitableMethods(reflect.PtrTo(s.typ), false)
+		if len(method) != 0 {
+			str = "rpc.Register: type " + sname + " has no exported methods of suitable type (hint: pass a pointer to value of that type)"
+		} else {
+			str = "rpc.Register: type " + sname + " has no exported methods of suitable type"
+		}
+		log.Print(str)
+		return errors.New(str)
 	}
 	server.serviceMap[s.name] = s
 	return nil
 }
 
-// A value sent as a placeholder for the response when the server receives an invalid request.
-type InvalidRequest struct{}
+// suitableMethods returns suitable Rpc methods of typ, it will report
+// error using log if reportErr is true.
+func suitableMethods(typ reflect.Type, reportErr bool) map[string]*methodType {
+	methods := make(map[string]*methodType)
+	for m := 0; m < typ.NumMethod(); m++ {
+		method := typ.Method(m)
+		mtype := method.Type
+		mname := method.Name
+		// Method must be exported.
+		if method.PkgPath != "" {
+			continue
+		}
+		// Method needs three ins: receiver, *args, *reply.
+		if mtype.NumIn() != 3 {
+			if reportErr {
+				log.Println("method", mname, "has wrong number of ins:", mtype.NumIn())
+			}
+			continue
+		}
+		// First arg need not be a pointer.
+		argType := mtype.In(1)
+		if !isExportedOrBuiltinType(argType) {
+			if reportErr {
+				log.Println(mname, "argument type not exported:", argType)
+			}
+			continue
+		}
+		// Second arg must be a pointer.
+		replyType := mtype.In(2)
+		if replyType.Kind() != reflect.Ptr {
+			if reportErr {
+				log.Println("method", mname, "reply type not a pointer:", replyType)
+			}
+			continue
+		}
+		// Reply type must be exported.
+		if !isExportedOrBuiltinType(replyType) {
+			if reportErr {
+				log.Println("method", mname, "reply type not exported:", replyType)
+			}
+			continue
+		}
+		// Method needs one out.
+		if mtype.NumOut() != 1 {
+			if reportErr {
+				log.Println("method", mname, "has wrong number of outs:", mtype.NumOut())
+			}
+			continue
+		}
+		// The return type of the method must be error.
+		if returnType := mtype.Out(0); returnType != typeOfError {
+			if reportErr {
+				log.Println("method", mname, "returns", returnType.String(), "not error")
+			}
+			continue
+		}
+		methods[mname] = &methodType{method: method, ArgType: argType, ReplyType: replyType}
+	}
+	return methods
+}
 
-var invalidRequest = InvalidRequest{}
+// A value sent as a placeholder for the server's response value when the server
+// receives an invalid request. It is never decoded by the client since the Response
+// contains an error when it is used.
+var invalidRequest = struct{}{}
 
 func (server *Server) sendResponse(sending *sync.Mutex, req *Request, reply interface{}, codec ServerCodec, errmsg string) {
 	resp := server.getResponse()
@@ -527,9 +566,9 @@ func (server *Server) readRequestHeader(codec ServerCodec) (service *service, mt
 		return
 	}
 	// Look up the request.
-	server.mu.Lock()
+	server.mu.RLock()
 	service = server.serviceMap[serviceMethod[0]]
-	server.mu.Unlock()
+	server.mu.RUnlock()
 	if service == nil {
 		err = errors.New("rpc: can't find service " + req.ServiceMethod)
 		return
@@ -557,7 +596,7 @@ func (server *Server) Accept(lis net.Listener) {
 // Register publishes the receiver's methods in the DefaultServer.
 func Register(rcvr interface{}) error { return DefaultServer.Register(rcvr) }
 
-// RegisterName is like Register but uses the provided name for the type 
+// RegisterName is like Register but uses the provided name for the type
 // instead of the receiver's concrete type.
 func RegisterName(name string, rcvr interface{}) error {
 	return DefaultServer.RegisterName(name, rcvr)
@@ -600,7 +639,7 @@ func ServeRequest(codec ServerCodec) error {
 }
 
 // Accept accepts connections on the listener and serves requests
-// to DefaultServer for each incoming connection.  
+// to DefaultServer for each incoming connection.
 // Accept blocks; the caller typically invokes it in a go statement.
 func Accept(lis net.Listener) { DefaultServer.Accept(lis) }
 

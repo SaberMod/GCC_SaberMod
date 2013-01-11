@@ -36,8 +36,7 @@ const (
 	fComment
 	fAny
 
-	// TODO:
-	//fOmitEmpty
+	fOmitEmpty
 
 	fMode = fElement | fAttr | fCharData | fInnerXml | fComment | fAny
 )
@@ -67,10 +66,14 @@ func getTypeInfo(typ reflect.Type) (*typeInfo, error) {
 
 			// For embedded structs, embed its fields.
 			if f.Anonymous {
-				if f.Type.Kind() != reflect.Struct {
+				t := f.Type
+				if t.Kind() == reflect.Ptr {
+					t = t.Elem()
+				}
+				if t.Kind() != reflect.Struct {
 					continue
 				}
-				inner, err := getTypeInfo(f.Type)
+				inner, err := getTypeInfo(t)
 				if err != nil {
 					return nil, err
 				}
@@ -133,20 +136,28 @@ func structFieldInfo(typ reflect.Type, f *reflect.StructField) (*fieldInfo, erro
 				finfo.flags |= fComment
 			case "any":
 				finfo.flags |= fAny
+			case "omitempty":
+				finfo.flags |= fOmitEmpty
 			}
 		}
 
 		// Validate the flags used.
+		valid := true
 		switch mode := finfo.flags & fMode; mode {
 		case 0:
 			finfo.flags |= fElement
 		case fAttr, fCharData, fInnerXml, fComment, fAny:
-			if f.Name != "XMLName" && (tag == "" || mode == fAttr) {
-				break
+			if f.Name == "XMLName" || tag != "" && mode != fAttr {
+				valid = false
 			}
-			fallthrough
 		default:
 			// This will also catch multiple modes in a single field.
+			valid = false
+		}
+		if finfo.flags&fOmitEmpty != 0 && finfo.flags&(fElement|fAttr) == 0 {
+			valid = false
+		}
+		if !valid {
 			return nil, fmt.Errorf("xml: invalid tag in field %s of type %s: %q",
 				f.Name, typ, f.Tag.Get("xml"))
 		}
@@ -319,4 +330,23 @@ type TagPathError struct {
 
 func (e *TagPathError) Error() string {
 	return fmt.Sprintf("%s field %q with tag %q conflicts with field %q with tag %q", e.Struct, e.Field1, e.Tag1, e.Field2, e.Tag2)
+}
+
+// value returns v's field value corresponding to finfo.
+// It's equivalent to v.FieldByIndex(finfo.idx), but initializes
+// and dereferences pointers as necessary.
+func (finfo *fieldInfo) value(v reflect.Value) reflect.Value {
+	for i, x := range finfo.idx {
+		if i > 0 {
+			t := v.Type()
+			if t.Kind() == reflect.Ptr && t.Elem().Kind() == reflect.Struct {
+				if v.IsNil() {
+					v.Set(reflect.New(v.Type().Elem()))
+				}
+				v = v.Elem()
+			}
+		}
+		v = v.Field(x)
+	}
+	return v
 }

@@ -12,8 +12,11 @@
 //
 // Functions of the form
 //     func BenchmarkXxx(*testing.B)
-// are considered benchmarks, and are executed by gotest when the -test.bench
-// flag is provided.
+// are considered benchmarks, and are executed by the "go test" command when
+// the -test.bench flag is provided. Benchmarks are run sequentially.
+//
+// For a description of the testing flags, see
+// http://golang.org/cmd/go/#Description_of_testing_flags.
 //
 // A sample benchmark function looks like this:
 //     func BenchmarkHello(b *testing.B) {
@@ -24,30 +27,38 @@
 //
 // The benchmark package will vary b.N until the benchmark function lasts
 // long enough to be timed reliably.  The output
-//     testing.BenchmarkHello    10000000    282 ns/op
+//     BenchmarkHello    10000000    282 ns/op
 // means that the loop ran 10000000 times at a speed of 282 ns per loop.
 //
 // If a benchmark needs some expensive setup before running, the timer
-// may be stopped:
+// may be reset:
 //     func BenchmarkBigLen(b *testing.B) {
-//         b.StopTimer()
 //         big := NewBig()
-//         b.StartTimer()
+//         b.ResetTimer()
 //         for i := 0; i < b.N; i++ {
 //             big.Len()
 //         }
 //     }
 //
-// The package also runs and verifies example code. Example functions
-// include an introductory comment that is compared with the standard output
-// of the function when the tests are run, as in this example of an example:
+// The package also runs and verifies example code. Example functions may
+// include a concluding comment that begins with "Output:" and is compared with
+// the standard output of the function when the tests are run, as in these
+// examples of an example:
 //
-//     // hello
 //     func ExampleHello() {
 //             fmt.Println("hello")
+//             // Output: hello
 //     }
 //
-// Example functions without comments are compiled but not executed.
+//     func ExampleSalutations() {
+//             fmt.Println("hello, and")
+//             fmt.Println("goodbye")
+//             // Output:
+//             // hello, and
+//             // goodbye
+//     }
+//
+// Example functions without output comments are compiled but not executed.
 //
 // The naming convention to declare examples for a function F, a type T and
 // method M on type T are:
@@ -64,9 +75,13 @@
 //     func ExampleT_suffix() { ... }
 //     func ExampleT_M_suffix() { ... }
 //
+// The entire test file is presented as the example when it contains a single
+// example function, at least one other function, type, variable, or constant
+// declaration, and no test or benchmark functions.
 package testing
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"os"
@@ -74,6 +89,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -81,19 +97,23 @@ var (
 	// The short flag requests that tests run more quickly, but its functionality
 	// is provided by test writers themselves.  The testing package is just its
 	// home.  The all.bash installation script sets it to make installation more
-	// efficient, but by default the flag is off so a plain "gotest" will do a
+	// efficient, but by default the flag is off so a plain "go test" will do a
 	// full test of the package.
 	short = flag.Bool("test.short", false, "run smaller test suite to save time")
 
 	// Report as tests are run; default is silent for success.
-	chatty         = flag.Bool("test.v", false, "verbose: print additional output")
-	match          = flag.String("test.run", "", "regular expression to select tests to run")
-	memProfile     = flag.String("test.memprofile", "", "write a memory profile to the named file after execution")
-	memProfileRate = flag.Int("test.memprofilerate", 0, "if >=0, sets runtime.MemProfileRate")
-	cpuProfile     = flag.String("test.cpuprofile", "", "write a cpu profile to the named file during execution")
-	timeout        = flag.Duration("test.timeout", 0, "if positive, sets an aggregate time limit for all tests")
-	cpuListStr     = flag.String("test.cpu", "", "comma-separated list of number of CPUs to use for each test")
-	parallel       = flag.Int("test.parallel", runtime.GOMAXPROCS(0), "maximum test parallelism")
+	chatty           = flag.Bool("test.v", false, "verbose: print additional output")
+	match            = flag.String("test.run", "", "regular expression to select tests and examples to run")
+	memProfile       = flag.String("test.memprofile", "", "write a memory profile to the named file after execution")
+	memProfileRate   = flag.Int("test.memprofilerate", 0, "if >=0, sets runtime.MemProfileRate")
+	cpuProfile       = flag.String("test.cpuprofile", "", "write a cpu profile to the named file during execution")
+	blockProfile     = flag.String("test.blockprofile", "", "write a goroutine blocking profile to the named file after execution")
+	blockProfileRate = flag.Int("test.blockprofilerate", 1, "if >= 0, calls runtime.SetBlockProfileRate()")
+	timeout          = flag.Duration("test.timeout", 0, "if positive, sets an aggregate time limit for all tests")
+	cpuListStr       = flag.String("test.cpu", "", "comma-separated list of number of CPUs to use for each test")
+	parallel         = flag.Int("test.parallel", runtime.GOMAXPROCS(0), "maximum test parallelism")
+
+	haveExamples bool // are there examples?
 
 	cpuList []int
 )
@@ -101,8 +121,10 @@ var (
 // common holds the elements common between T and B and
 // captures common methods such as Errorf.
 type common struct {
-	output   []byte    // Output generated by test or benchmark.
-	failed   bool      // Test or benchmark has failed.
+	mu     sync.RWMutex // guards output and failed
+	output []byte       // Output generated by test or benchmark.
+	failed bool         // Test or benchmark has failed.
+
 	start    time.Time // Time test or benchmark started
 	duration time.Duration
 	self     interface{}      // To be sent on signal channel when done.
@@ -114,37 +136,47 @@ func Short() bool {
 	return *short
 }
 
-// decorate inserts the final newline if needed and indentation tabs for formatting.
-// If addFileLine is true, it also prefixes the string with the file and line of the call site.
-func decorate(s string, addFileLine bool) string {
-	if addFileLine {
-		_, file, line, ok := runtime.Caller(3) // decorate + log + public function.
-		if ok {
-			// Truncate file name at last file name separator.
-			if index := strings.LastIndex(file, "/"); index >= 0 {
-				file = file[index+1:]
-			} else if index = strings.LastIndex(file, "\\"); index >= 0 {
-				file = file[index+1:]
-			}
-		} else {
-			file = "???"
-			line = 1
+// Verbose reports whether the -test.v flag is set.
+func Verbose() bool {
+	return *chatty
+}
+
+// decorate prefixes the string with the file and line of the call site
+// and inserts the final newline if needed and indentation tabs for formatting.
+func decorate(s string) string {
+	_, file, line, ok := runtime.Caller(3) // decorate + log + public function.
+	if ok {
+		// Truncate file name at last file name separator.
+		if index := strings.LastIndex(file, "/"); index >= 0 {
+			file = file[index+1:]
+		} else if index = strings.LastIndex(file, "\\"); index >= 0 {
+			file = file[index+1:]
 		}
-		s = fmt.Sprintf("%s:%d: %s", file, line, s)
+	} else {
+		file = "???"
+		line = 1
 	}
-	s = "\t" + s // Every line is indented at least one tab.
-	n := len(s)
-	if n > 0 && s[n-1] != '\n' {
-		s += "\n"
-		n++
+	buf := new(bytes.Buffer)
+	fmt.Fprintf(buf, "%s:%d: ", file, line)
+
+	lines := strings.Split(s, "\n")
+	if l := len(lines); l > 1 && lines[l-1] == "" {
+		lines = lines[:l-1]
 	}
-	for i := 0; i < n-1; i++ { // -1 to avoid final newline
-		if s[i] == '\n' {
+	for i, line := range lines {
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		// Every line is indented at least one tab.
+		buf.WriteByte('\t')
+		if i > 0 {
 			// Second and subsequent lines are indented an extra tab.
-			return s[0:i+1] + "\t" + decorate(s[i+1:n], false)
+			buf.WriteByte('\t')
 		}
+		buf.WriteString(line)
 	}
-	return s
+	buf.WriteByte('\n')
+	return buf.String()
 }
 
 // T is a type passed to Test functions to manage test state and support formatted test logs.
@@ -156,13 +188,21 @@ type T struct {
 }
 
 // Fail marks the function as having failed but continues execution.
-func (c *common) Fail() { c.failed = true }
+func (c *common) Fail() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.failed = true
+}
 
 // Failed returns whether the function has failed.
-func (c *common) Failed() bool { return c.failed }
+func (c *common) Failed() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.failed
+}
 
 // FailNow marks the function as having failed and stops its execution.
-// Execution will continue at the next Test.
+// Execution will continue at the next test or benchmark.
 func (c *common) FailNow() {
 	c.Fail()
 
@@ -190,7 +230,9 @@ func (c *common) FailNow() {
 
 // log generates the output. It's always at the same stack depth.
 func (c *common) log(s string) {
-	c.output = append(c.output, decorate(s, true)...)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.output = append(c.output, decorate(s)...)
 }
 
 // Log formats its arguments using default formatting, analogous to Println(),
@@ -225,20 +267,7 @@ func (c *common) Fatalf(format string, args ...interface{}) {
 	c.FailNow()
 }
 
-// TODO(dsymonds): Consider hooking into runtime·traceback instead.
-func (c *common) stack() {
-	for i := 2; ; i++ { // Caller we care about is the user, 2 frames up
-		pc, file, line, ok := runtime.Caller(i)
-		f := runtime.FuncForPC(pc)
-		if !ok || f == nil {
-			break
-		}
-		c.Logf("%s:%d (0x%x)", file, line, pc)
-		c.Logf("\t%s", f.Name())
-	}
-}
-
-// Parallel signals that this test is to be run in parallel with (and only with) 
+// Parallel signals that this test is to be run in parallel with (and only with)
 // other parallel tests in this CPU group.
 func (t *T) Parallel() {
 	t.signal <- (*T)(nil) // Release main testing loop
@@ -246,7 +275,7 @@ func (t *T) Parallel() {
 }
 
 // An internal type but exported because it is cross-package; part of the implementation
-// of gotest.
+// of the "go test" command.
 type InternalTest struct {
 	Name string
 	F    func(*T)
@@ -256,18 +285,16 @@ func tRunner(t *T, test *InternalTest) {
 	t.start = time.Now()
 
 	// When this goroutine is done, either because test.F(t)
-	// returned normally or because a test failure triggered 
+	// returned normally or because a test failure triggered
 	// a call to runtime.Goexit, record the duration and send
 	// a signal saying that the test is done.
 	defer func() {
-		// Consider any uncaught panic a failure.
-		if err := recover(); err != nil {
-			t.failed = true
-			t.Log(err)
-			t.stack()
-		}
-
 		t.duration = time.Now().Sub(t.start)
+		// If the test panicked, print any test output before dying.
+		if err := recover(); err != nil {
+			t.report()
+			panic(err)
+		}
 		t.signal <- t
 	}()
 
@@ -275,15 +302,16 @@ func tRunner(t *T, test *InternalTest) {
 }
 
 // An internal function but exported because it is cross-package; part of the implementation
-// of gotest.
+// of the "go test" command.
 func Main(matchString func(pat, str string) (bool, error), tests []InternalTest, benchmarks []InternalBenchmark, examples []InternalExample) {
 	flag.Parse()
 	parseCpuList()
 
 	before()
 	startAlarm()
+	haveExamples = len(examples) > 0
 	testOk := RunTests(matchString, tests)
-	exampleOk := RunExamples(examples)
+	exampleOk := RunExamples(matchString, examples)
 	if !testOk || !exampleOk {
 		fmt.Println("FAIL")
 		os.Exit(1)
@@ -297,7 +325,7 @@ func Main(matchString func(pat, str string) (bool, error), tests []InternalTest,
 func (t *T) report() {
 	tstr := fmt.Sprintf("(%.2f seconds)", t.duration.Seconds())
 	format := "--- %s: %s %s\n%s"
-	if t.failed {
+	if t.Failed() {
 		fmt.Printf(format, "FAIL", t.name, tstr, t.output)
 	} else if *chatty {
 		fmt.Printf(format, "PASS", t.name, tstr, t.output)
@@ -306,7 +334,7 @@ func (t *T) report() {
 
 func RunTests(matchString func(pat, str string) (bool, error), tests []InternalTest) (ok bool) {
 	ok = true
-	if len(tests) == 0 {
+	if len(tests) == 0 && !haveExamples {
 		fmt.Fprintln(os.Stderr, "testing: warning: no tests to run")
 		return
 	}
@@ -356,7 +384,7 @@ func RunTests(matchString func(pat, str string) (bool, error), tests []InternalT
 				continue
 			}
 			t.report()
-			ok = ok && !out.failed
+			ok = ok && !out.Failed()
 		}
 
 		running := 0
@@ -369,7 +397,7 @@ func RunTests(matchString func(pat, str string) (bool, error), tests []InternalT
 			}
 			t := (<-collector).(*T)
 			t.report()
-			ok = ok && !t.failed
+			ok = ok && !t.Failed()
 			running--
 		}
 	}
@@ -394,7 +422,9 @@ func before() {
 		}
 		// Could save f so after can call f.Close; not worth the effort.
 	}
-
+	if *blockProfile != "" && *blockProfileRate >= 0 {
+		runtime.SetBlockProfileRate(*blockProfileRate)
+	}
 }
 
 // after runs after all testing.
@@ -410,6 +440,17 @@ func after() {
 		}
 		if err = pprof.WriteHeapProfile(f); err != nil {
 			fmt.Fprintf(os.Stderr, "testing: can't write %s: %s", *memProfile, err)
+		}
+		f.Close()
+	}
+	if *blockProfile != "" && *blockProfileRate >= 0 {
+		f, err := os.Create(*blockProfile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "testing: %s", err)
+			return
+		}
+		if err = pprof.Lookup("block").WriteTo(f, 0); err != nil {
+			fmt.Fprintf(os.Stderr, "testing: can't write %s: %s", *blockProfile, err)
 		}
 		f.Close()
 	}

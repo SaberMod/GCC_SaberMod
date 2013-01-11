@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 )
 
 // A Server is an HTTP server listening on a system-chosen port on the
@@ -20,24 +21,31 @@ import (
 type Server struct {
 	URL      string // base URL of form http://ipaddr:port with no trailing slash
 	Listener net.Listener
-	TLS      *tls.Config // nil if not using using TLS
+	TLS      *tls.Config // nil if not using TLS
 
 	// Config may be changed after calling NewUnstartedServer and
 	// before Start or StartTLS.
 	Config *http.Server
+
+	// wg counts the number of outstanding HTTP requests on this server.
+	// Close blocks until all requests are finished.
+	wg sync.WaitGroup
 }
 
 // historyListener keeps track of all connections that it's ever
 // accepted.
 type historyListener struct {
 	net.Listener
-	history []net.Conn
+	sync.Mutex // protects history
+	history    []net.Conn
 }
 
 func (hs *historyListener) Accept() (c net.Conn, err error) {
 	c, err = hs.Listener.Accept()
 	if err == nil {
+		hs.Lock()
 		hs.history = append(hs.history, c)
+		hs.Unlock()
 	}
 	return
 }
@@ -61,7 +69,7 @@ func newLocalListener() net.Listener {
 
 // When debugging a particular http server-based test,
 // this flag lets you run
-//	gotest -run=BrokenTest -httptest.serve=127.0.0.1:8000
+//	go test -run=BrokenTest -httptest.serve=127.0.0.1:8000
 // to start the broken server so you can interact with it manually.
 var serve = flag.String("httptest.serve", "", "if non-empty, httptest.NewServer serves on this address and blocks")
 
@@ -91,11 +99,12 @@ func (s *Server) Start() {
 	if s.URL != "" {
 		panic("Server already started")
 	}
-	s.Listener = &historyListener{s.Listener, make([]net.Conn, 0)}
+	s.Listener = &historyListener{Listener: s.Listener}
 	s.URL = "http://" + s.Listener.Addr().String()
+	s.wrapHandler()
 	go s.Config.Serve(s.Listener)
 	if *serve != "" {
-		fmt.Println(os.Stderr, "httptest: serving on", s.URL)
+		fmt.Fprintln(os.Stderr, "httptest: serving on", s.URL)
 		select {}
 	}
 }
@@ -116,9 +125,21 @@ func (s *Server) StartTLS() {
 	}
 	tlsListener := tls.NewListener(s.Listener, s.TLS)
 
-	s.Listener = &historyListener{tlsListener, make([]net.Conn, 0)}
+	s.Listener = &historyListener{Listener: tlsListener}
 	s.URL = "https://" + s.Listener.Addr().String()
+	s.wrapHandler()
 	go s.Config.Serve(s.Listener)
+}
+
+func (s *Server) wrapHandler() {
+	h := s.Config.Handler
+	if h == nil {
+		h = http.DefaultServeMux
+	}
+	s.Config.Handler = &waitGroupHandler{
+		s: s,
+		h: h,
+	}
 }
 
 // NewTLSServer starts and returns a new Server using TLS.
@@ -129,9 +150,15 @@ func NewTLSServer(handler http.Handler) *Server {
 	return ts
 }
 
-// Close shuts down the server.
+// Close shuts down the server and blocks until all outstanding
+// requests on this server have completed.
 func (s *Server) Close() {
 	s.Listener.Close()
+	s.wg.Wait()
+	s.CloseClientConnections()
+	if t, ok := http.DefaultTransport.(*http.Transport); ok {
+		t.CloseIdleConnections()
+	}
 }
 
 // CloseClientConnections closes any currently open HTTP connections
@@ -141,24 +168,40 @@ func (s *Server) CloseClientConnections() {
 	if !ok {
 		return
 	}
+	hl.Lock()
 	for _, conn := range hl.history {
 		conn.Close()
 	}
+	hl.Unlock()
+}
+
+// waitGroupHandler wraps a handler, incrementing and decrementing a
+// sync.WaitGroup on each request, to enable Server.Close to block
+// until outstanding requests are finished.
+type waitGroupHandler struct {
+	s *Server
+	h http.Handler // non-nil
+}
+
+func (h *waitGroupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.s.wg.Add(1)
+	defer h.s.wg.Done() // a defer, in case ServeHTTP below panics
+	h.h.ServeHTTP(w, r)
 }
 
 // localhostCert is a PEM-encoded TLS cert with SAN DNS names
 // "127.0.0.1" and "[::1]", expiring at the last second of 2049 (the end
 // of ASN.1 time).
 var localhostCert = []byte(`-----BEGIN CERTIFICATE-----
-MIIBOTCB5qADAgECAgEAMAsGCSqGSIb3DQEBBTAAMB4XDTcwMDEwMTAwMDAwMFoX
+MIIBTTCB+qADAgECAgEAMAsGCSqGSIb3DQEBBTAAMB4XDTcwMDEwMTAwMDAwMFoX
 DTQ5MTIzMTIzNTk1OVowADBaMAsGCSqGSIb3DQEBAQNLADBIAkEAsuA5mAFMj6Q7
 qoBzcvKzIq4kzuT5epSp2AkcQfyBHm7K13Ws7u+0b5Vb9gqTf5cAiIKcrtrXVqkL
-8i1UQF6AzwIDAQABo08wTTAOBgNVHQ8BAf8EBAMCACQwDQYDVR0OBAYEBAECAwQw
-DwYDVR0jBAgwBoAEAQIDBDAbBgNVHREEFDASggkxMjcuMC4wLjGCBVs6OjFdMAsG
-CSqGSIb3DQEBBQNBAJH30zjLWRztrWpOCgJL8RQWLaKzhK79pVhAx6q/3NrF16C7
-+l1BRZstTwIGdoGId8BRpErK1TXkniFb95ZMynM=
------END CERTIFICATE-----
-`)
+8i1UQF6AzwIDAQABo2MwYTAOBgNVHQ8BAf8EBAMCACQwEgYDVR0TAQH/BAgwBgEB
+/wIBATANBgNVHQ4EBgQEAQIDBDAPBgNVHSMECDAGgAQBAgMEMBsGA1UdEQQUMBKC
+CTEyNy4wLjAuMYIFWzo6MV0wCwYJKoZIhvcNAQEFA0EAj1Jsn/h2KHy7dgqutZNB
+nCGlNN+8vw263Bax9MklR85Ti6a0VWSvp/fDQZUADvmFTDkcXeA24pqmdUxeQDWw
+Pg==
+-----END CERTIFICATE-----`)
 
 // localhostKey is the private key for localhostCert.
 var localhostKey = []byte(`-----BEGIN RSA PRIVATE KEY-----

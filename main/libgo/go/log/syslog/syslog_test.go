@@ -1,12 +1,17 @@
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
+
+// +build !windows,!plan9
+
 package syslog
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
 	"testing"
 	"time"
 )
@@ -46,10 +51,14 @@ func skipNetTest(t *testing.T) bool {
 }
 
 func TestNew(t *testing.T) {
+	if LOG_LOCAL7 != 23<<3 {
+		t.Fatalf("LOG_LOCAL7 has wrong value")
+	}
 	if skipNetTest(t) {
 		return
 	}
-	s, err := New(LOG_INFO, "")
+
+	s, err := New(LOG_INFO|LOG_USER, "")
 	if err != nil {
 		t.Fatalf("New() failed: %s", err)
 	}
@@ -61,9 +70,9 @@ func TestNewLogger(t *testing.T) {
 	if skipNetTest(t) {
 		return
 	}
-	f := NewLogger(LOG_INFO, 0)
+	f, err := NewLogger(LOG_USER|LOG_INFO, 0)
 	if f == nil {
-		t.Error("NewLogger() failed")
+		t.Error(err)
 	}
 }
 
@@ -71,7 +80,15 @@ func TestDial(t *testing.T) {
 	if skipNetTest(t) {
 		return
 	}
-	l, err := Dial("", "", LOG_ERR, "syslog_test")
+	f, err := Dial("", "", (LOG_LOCAL7|LOG_DEBUG)+1, "syslog_test")
+	if f != nil {
+		t.Fatalf("Should have trapped bad priority")
+	}
+	f, err = Dial("", "", -1, "syslog_test")
+	if f != nil {
+		t.Fatalf("Should have trapped bad priority")
+	}
+	l, err := Dial("", "", LOG_USER|LOG_ERR, "syslog_test")
 	if err != nil {
 		t.Fatalf("Dial() failed: %s", err)
 	}
@@ -81,34 +98,61 @@ func TestDial(t *testing.T) {
 func TestUDPDial(t *testing.T) {
 	done := make(chan string)
 	startServer(done)
-	l, err := Dial("udp", serverAddr, LOG_INFO, "syslog_test")
+	l, err := Dial("udp", serverAddr, LOG_USER|LOG_INFO, "syslog_test")
 	if err != nil {
 		t.Fatalf("syslog.Dial() failed: %s", err)
 	}
 	msg := "udp test"
 	l.Info(msg)
-	expected := "<6>syslog_test: udp test\n"
+	expected := fmt.Sprintf("<%d>1 ", LOG_USER+LOG_INFO) + "%s %s syslog_test[%d]: udp test\n"
 	rcvd := <-done
-	if rcvd != expected {
-		t.Fatalf("s.Info() = '%q', but wanted '%q'", rcvd, expected)
+	var parsedHostname, timestamp string
+	var pid int
+	if hostname, err := os.Hostname(); err != nil {
+		t.Fatalf("Error retrieving hostname")
+	} else {
+		if n, err := fmt.Sscanf(rcvd, expected, &timestamp, &parsedHostname, &pid); n != 3 ||
+			err != nil || hostname != parsedHostname {
+			t.Fatalf("s.Info() = '%q', didn't match '%q'", rcvd, expected)
+		}
 	}
 }
 
 func TestWrite(t *testing.T) {
-	done := make(chan string)
-	startServer(done)
-	l, err := Dial("udp", serverAddr, LOG_ERR, "syslog_test")
-	if err != nil {
-		t.Fatalf("syslog.Dial() failed: %s", err)
+	tests := []struct {
+		pri Priority
+		pre string
+		msg string
+		exp string
+	}{
+		{LOG_USER | LOG_ERR, "syslog_test", "", "%s %s syslog_test[%d]: \n"},
+		{LOG_USER | LOG_ERR, "syslog_test", "write test", "%s %s syslog_test[%d]: write test\n"},
+		// Write should not add \n if there already is one
+		{LOG_USER | LOG_ERR, "syslog_test", "write test 2\n", "%s %s syslog_test[%d]: write test 2\n"},
 	}
-	msg := "write test"
-	_, err = io.WriteString(l, msg)
-	if err != nil {
-		t.Fatalf("WriteString() failed: %s", err)
-	}
-	expected := "<3>syslog_test: write test\n"
-	rcvd := <-done
-	if rcvd != expected {
-		t.Fatalf("s.Info() = '%q', but wanted '%q'", rcvd, expected)
+
+	if hostname, err := os.Hostname(); err != nil {
+		t.Fatalf("Error retrieving hostname")
+	} else {
+		for _, test := range tests {
+			done := make(chan string)
+			startServer(done)
+			l, err := Dial("udp", serverAddr, test.pri, test.pre)
+			if err != nil {
+				t.Fatalf("syslog.Dial() failed: %s", err)
+			}
+			_, err = io.WriteString(l, test.msg)
+			if err != nil {
+				t.Fatalf("WriteString() failed: %s", err)
+			}
+			rcvd := <-done
+			test.exp = fmt.Sprintf("<%d>1 ", test.pri) + test.exp
+			var parsedHostname, timestamp string
+			var pid int
+			if n, err := fmt.Sscanf(rcvd, test.exp, &timestamp, &parsedHostname, &pid); n != 3 ||
+				err != nil || hostname != parsedHostname {
+				t.Fatalf("s.Info() = '%q', didn't match '%q'", rcvd, test.exp)
+			}
+		}
 	}
 }

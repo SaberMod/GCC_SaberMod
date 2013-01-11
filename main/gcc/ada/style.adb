@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2010, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,8 +41,8 @@ package body Style is
    -----------------------
 
    --  If the check specs mode (-gnatys) is set, then all subprograms must
-   --  have specs unless they are parameterless procedures that are not child
-   --  units at the library level (i.e. they are possible main programs).
+   --  have specs unless they are parameterless procedures at the library
+   --  level (i.e. they are possible main programs).
 
    procedure Body_With_No_Spec (N : Node_Id) is
    begin
@@ -236,7 +236,13 @@ package body Style is
 
    procedure Missing_Overriding (N : Node_Id; E : Entity_Id) is
    begin
-      if Style_Check_Missing_Overriding and then Comes_From_Source (N) then
+
+      --  Perform the check on source subprograms and on subprogram instances,
+      --  because these can be primitives of untagged types.
+
+      if Style_Check_Missing_Overriding
+        and then (Comes_From_Source (N) or else Is_Generic_Instance (E))
+      then
          if Nkind (N) = N_Subprogram_Body then
             Error_Msg_NE -- CODEFIX
               ("(style) missing OVERRIDING indicator in body of&", N, E);

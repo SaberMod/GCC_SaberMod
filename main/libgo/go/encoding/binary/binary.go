@@ -2,9 +2,17 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// Package binary implements translation between
-// unsigned integer values and byte sequences
-// and the reading and writing of fixed-size values.
+// Package binary implements translation between numbers and byte sequences
+// and encoding and decoding of varints.
+//
+// Numbers are translated by reading and writing fixed-size values.
+// A fixed-size value is either a fixed-size arithmetic
+// type (int8, uint8, int16, float32, complex64, ...)
+// or an array or struct containing only fixed-size values.
+//
+// Varints are a method of encoding integers using one or more bytes;
+// numbers with smaller absolute value take a smaller number of bytes.
+// For a specification, see http://code.google.com/apis/protocolbuffers/docs/encoding.html.
 package binary
 
 import (
@@ -26,17 +34,13 @@ type ByteOrder interface {
 	String() string
 }
 
-// This is byte instead of struct{} so that it can be compared,
-// allowing, e.g., order == binary.LittleEndian.
-type unused byte
-
 // LittleEndian is the little-endian implementation of ByteOrder.
 var LittleEndian littleEndian
 
 // BigEndian is the big-endian implementation of ByteOrder.
 var BigEndian bigEndian
 
-type littleEndian unused
+type littleEndian struct{}
 
 func (littleEndian) Uint16(b []byte) uint16 { return uint16(b[0]) | uint16(b[1])<<8 }
 
@@ -76,7 +80,7 @@ func (littleEndian) String() string { return "LittleEndian" }
 
 func (littleEndian) GoString() string { return "binary.LittleEndian" }
 
-type bigEndian unused
+type bigEndian struct{}
 
 func (bigEndian) Uint16(b []byte) uint16 { return uint16(b[1]) | uint16(b[0])<<8 }
 
@@ -119,11 +123,11 @@ func (bigEndian) GoString() string { return "binary.BigEndian" }
 // Read reads structured binary data from r into data.
 // Data must be a pointer to a fixed-size value or a slice
 // of fixed-size values.
-// A fixed-size value is either a fixed-size arithmetic
-// type (int8, uint8, int16, float32, complex64, ...)
-// or an array or struct containing only fixed-size values.
 // Bytes read from r are decoded using the specified byte order
 // and written to successive fields of the data.
+// When reading into structs, the field data for fields with
+// blank (_) field names is skipped; i.e., blank field names
+// may be used for padding.
 func Read(r io.Reader, order ByteOrder, data interface{}) error {
 	// Fast path for basic types.
 	if n := intDestSize(data); n != 0 {
@@ -153,7 +157,7 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 		return nil
 	}
 
-	// Fallback to reflect-based.
+	// Fallback to reflect-based decoding.
 	var v reflect.Value
 	switch d := reflect.ValueOf(data); d.Kind() {
 	case reflect.Ptr:
@@ -176,13 +180,12 @@ func Read(r io.Reader, order ByteOrder, data interface{}) error {
 }
 
 // Write writes the binary representation of data into w.
-// Data must be a fixed-size value or a pointer to
-// a fixed-size value.
-// A fixed-size value is either a fixed-size arithmetic
-// type (int8, uint8, int16, float32, complex64, ...)
-// or an array or struct containing only fixed-size values.
+// Data must be a fixed-size value or a slice of fixed-size
+// values, or a pointer to such data.
 // Bytes written to w are encoded using the specified byte order
 // and read from successive fields of the data.
+// When writing structs, zero values are written for fields
+// with blank (_) field names.
 func Write(w io.Writer, order ByteOrder, data interface{}) error {
 	// Fast path for basic types.
 	var b [8]byte
@@ -241,6 +244,8 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 		_, err := w.Write(bs)
 		return err
 	}
+
+	// Fallback to reflect-based encoding.
 	v := reflect.Indirect(reflect.ValueOf(data))
 	size := dataSize(v)
 	if size < 0 {
@@ -251,6 +256,12 @@ func Write(w io.Writer, order ByteOrder, data interface{}) error {
 	e.value(v)
 	_, err := w.Write(buf)
 	return err
+}
+
+// Size returns how many bytes Write would generate to encode the value v, which
+// must be a fixed-size value or a slice of fixed-size values, or a pointer to such data.
+func Size(v interface{}) int {
+	return dataSize(reflect.Indirect(reflect.ValueOf(v)))
 }
 
 // dataSize returns the number of bytes the actual data represented by v occupies in memory.
@@ -296,15 +307,13 @@ func sizeof(t reflect.Type) int {
 	return -1
 }
 
-type decoder struct {
+type coder struct {
 	order ByteOrder
 	buf   []byte
 }
 
-type encoder struct {
-	order ByteOrder
-	buf   []byte
-}
+type decoder coder
+type encoder coder
 
 func (d *decoder) uint8() uint8 {
 	x := d.buf[0]
@@ -373,10 +382,21 @@ func (d *decoder) value(v reflect.Value) {
 		for i := 0; i < l; i++ {
 			d.value(v.Index(i))
 		}
+
 	case reflect.Struct:
+		t := v.Type()
 		l := v.NumField()
 		for i := 0; i < l; i++ {
-			d.value(v.Field(i))
+			// Note: Calling v.CanSet() below is an optimization.
+			// It would be sufficient to check the field name,
+			// but creating the StructField info for each field is
+			// costly (run "go test -bench=ReadStruct" and compare
+			// results when making changes to this code).
+			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+				d.value(v)
+			} else {
+				d.skip(v)
+			}
 		}
 
 	case reflect.Slice:
@@ -428,11 +448,19 @@ func (e *encoder) value(v reflect.Value) {
 		for i := 0; i < l; i++ {
 			e.value(v.Index(i))
 		}
+
 	case reflect.Struct:
+		t := v.Type()
 		l := v.NumField()
 		for i := 0; i < l; i++ {
-			e.value(v.Field(i))
+			// see comment for corresponding code in decoder.value()
+			if v := v.Field(i); v.CanSet() || t.Field(i).Name != "_" {
+				e.value(v)
+			} else {
+				e.skip(v)
+			}
 		}
+
 	case reflect.Slice:
 		l := v.Len()
 		for i := 0; i < l; i++ {
@@ -483,6 +511,18 @@ func (e *encoder) value(v reflect.Value) {
 			e.uint64(math.Float64bits(imag(x)))
 		}
 	}
+}
+
+func (d *decoder) skip(v reflect.Value) {
+	d.buf = d.buf[dataSize(v):]
+}
+
+func (e *encoder) skip(v reflect.Value) {
+	n := dataSize(v)
+	for i := range e.buf[0:n] {
+		e.buf[i] = 0
+	}
+	e.buf = e.buf[n:]
 }
 
 // intDestSize returns the size of the integer that ptrType points to,

@@ -85,6 +85,7 @@ typedef struct MHeap	MHeap;
 typedef struct MSpan	MSpan;
 typedef struct MStats	MStats;
 typedef struct MLink	MLink;
+typedef struct MTypes	MTypes;
 
 enum
 {
@@ -113,20 +114,29 @@ enum
 	HeapAllocChunk = 1<<20,		// Chunk size for heap growth
 
 	// Number of bits in page to span calculations (4k pages).
-	// On 64-bit, we limit the arena to 16G, so 22 bits suffices.
-	// On 32-bit, we don't bother limiting anything: 20 bits for 4G.
+	// On 64-bit, we limit the arena to 128GB, or 37 bits.
+	// On 32-bit, we don't bother limiting anything, so we use the full 32-bit address.
 #if __SIZEOF_POINTER__ == 8
-	MHeapMap_Bits = 22,
+	MHeapMap_Bits = 37 - PageShift,
 #else
-	MHeapMap_Bits = 20,
+	MHeapMap_Bits = 32 - PageShift,
 #endif
 
 	// Max number of threads to run garbage collection.
 	// 2, 3, and 4 are all plausible maximums depending
 	// on the hardware details of the machine.  The garbage
-	// collector scales well to 4 cpus.
-	MaxGcproc = 4,
+	// collector scales well to 8 cpus.
+	MaxGcproc = 8,
 };
+
+// Maximum memory allocation size, a hint for callers.
+// This must be a #define instead of an enum because it
+// is so large.
+#if __SIZEOF_POINTER__ == 8
+#define	MaxMem	(1ULL<<(MHeapMap_Bits+PageShift))	/* 128 GB */
+#else
+#define	MaxMem	((uintptr)-1)
+#endif
 
 // A generic linked list of blocks.  (Typically the block is bigger than sizeof(MLink).)
 struct MLink
@@ -188,7 +198,7 @@ void	runtime_FixAlloc_Free(FixAlloc *f, void *p);
 
 
 // Statistics.
-// Shared with Go: if you edit this structure, also edit extern.go.
+// Shared with Go: if you edit this structure, also edit type MemStats in mem.go.
 struct MStats
 {
 	// General statistics.
@@ -205,6 +215,7 @@ struct MStats
 	uint64	heap_sys;	// bytes obtained from system
 	uint64	heap_idle;	// bytes in idle spans
 	uint64	heap_inuse;	// bytes in non-idle spans
+	uint64	heap_released;	// bytes released to the OS
 	uint64	heap_objects;	// total number of allocated objects
 
 	// Statistics about allocation of low-level fixed-size structures.
@@ -220,6 +231,7 @@ struct MStats
 	// Statistics about garbage collector.
 	// Protected by stopping the world during GC.
 	uint64	next_gc;	// next GC (in heap_alloc time)
+	uint64  last_gc;	// last GC (in absolute time)
 	uint64	pause_total_ns;
 	uint64	pause_ns[256];
 	uint32	numgc;
@@ -235,7 +247,7 @@ struct MStats
 };
 
 extern MStats mstats
-  __asm__ ("libgo_runtime.runtime.VmemStats");
+  __asm__ ("runtime.VmemStats");
 
 
 // Size classes.  Computed and initialized by InitSizes.
@@ -271,19 +283,19 @@ struct MCacheList
 struct MCache
 {
 	MCacheList list[NumSizeClasses];
-	uint64 size;
-	int64 local_cachealloc;	// bytes allocated (or freed) from cache since last lock of heap
-	int64 local_objects;	// objects allocated (or freed) from cache since last lock of heap
-	int64 local_alloc;	// bytes allocated (or freed) since last lock of heap
-	int64 local_total_alloc;	// bytes allocated (even if freed) since last lock of heap
-	int64 local_nmalloc;	// number of mallocs since last lock of heap
-	int64 local_nfree;	// number of frees since last lock of heap
-	int64 local_nlookup;	// number of pointer lookups since last lock of heap
+	uintptr size;
+	intptr local_cachealloc;	// bytes allocated (or freed) from cache since last lock of heap
+	intptr local_objects;	// objects allocated (or freed) from cache since last lock of heap
+	intptr local_alloc;	// bytes allocated (or freed) since last lock of heap
+	uintptr local_total_alloc;	// bytes allocated (even if freed) since last lock of heap
+	uintptr local_nmalloc;	// number of mallocs since last lock of heap
+	uintptr local_nfree;	// number of frees since last lock of heap
+	uintptr local_nlookup;	// number of pointer lookups since last lock of heap
 	int32 next_sample;	// trigger heap sample after allocating this many bytes
 	// Statistics about allocation size classes since last lock of heap
 	struct {
-		int64 nmalloc;
-		int64 nfree;
+		uintptr nmalloc;
+		uintptr nfree;
 	} local_by_size[NumSizeClasses];
 
 };
@@ -291,6 +303,44 @@ struct MCache
 void*	runtime_MCache_Alloc(MCache *c, int32 sizeclass, uintptr size, int32 zeroed);
 void	runtime_MCache_Free(MCache *c, void *p, int32 sizeclass, uintptr size);
 void	runtime_MCache_ReleaseAll(MCache *c);
+
+// MTypes describes the types of blocks allocated within a span.
+// The compression field describes the layout of the data.
+//
+// MTypes_Empty:
+//     All blocks are free, or no type information is available for
+//     allocated blocks.
+//     The data field has no meaning.
+// MTypes_Single:
+//     The span contains just one block.
+//     The data field holds the type information.
+//     The sysalloc field has no meaning.
+// MTypes_Words:
+//     The span contains multiple blocks.
+//     The data field points to an array of type [NumBlocks]uintptr,
+//     and each element of the array holds the type of the corresponding
+//     block.
+// MTypes_Bytes:
+//     The span contains at most seven different types of blocks.
+//     The data field points to the following structure:
+//         struct {
+//             type  [8]uintptr       // type[0] is always 0
+//             index [NumBlocks]byte
+//         }
+//     The type of the i-th block is: data.type[data.index[i]]
+enum
+{
+	MTypes_Empty = 0,
+	MTypes_Single = 1,
+	MTypes_Words = 2,
+	MTypes_Bytes = 3,
+};
+struct MTypes
+{
+	byte	compression;	// one of MTypes_*
+	bool	sysalloc;	// whether (void*)data is from runtime_SysAlloc
+	uintptr	data;
+};
 
 // An MSpan is a run of pages.
 enum
@@ -304,14 +354,17 @@ struct MSpan
 {
 	MSpan	*next;		// in a span linked list
 	MSpan	*prev;		// in a span linked list
-	MSpan	*allnext;		// in the list of all spans
 	PageID	start;		// starting page number
 	uintptr	npages;		// number of pages in span
 	MLink	*freelist;	// list of free objects
 	uint32	ref;		// number of allocated objects in this span
-	uint32	sizeclass;	// size class
+	int32	sizeclass;	// size class
+	uintptr	elemsize;	// computed from sizeclass or from npages
 	uint32	state;		// MSpanInUse etc
-	byte	*limit;	// end of data in span
+	int64   unusedsince;	// First time spotted by GC in MSpanFree state
+	uintptr npreleased;	// number of pages released to the OS
+	byte	*limit;		// end of data in span
+	MTypes	types;		// types of allocated objects in this span
 };
 
 void	runtime_MSpan_Init(MSpan *span, PageID start, uintptr npages);
@@ -338,6 +391,7 @@ struct MCentral
 void	runtime_MCentral_Init(MCentral *c, int32 sizeclass);
 int32	runtime_MCentral_AllocList(MCentral *c, int32 n, MLink **first);
 void	runtime_MCentral_FreeList(MCentral *c, int32 n, MLink *first);
+void	runtime_MCentral_FreeSpan(MCentral *c, MSpan *s, int32 n, MLink *start, MLink *end);
 
 // Main malloc heap.
 // The heap itself is the "free[]" and "large" arrays,
@@ -347,7 +401,9 @@ struct MHeap
 	Lock;
 	MSpan free[MaxMHeapList];	// free lists of given length
 	MSpan large;			// free lists length >= MaxMHeapList
-	MSpan *allspans;
+	MSpan **allspans;
+	uint32	nspan;
+	uint32	nspancap;
 
 	// span lookup
 	MSpan *map[1<<MHeapMap_Bits];
@@ -374,13 +430,14 @@ struct MHeap
 extern MHeap runtime_mheap;
 
 void	runtime_MHeap_Init(MHeap *h, void *(*allocator)(uintptr));
-MSpan*	runtime_MHeap_Alloc(MHeap *h, uintptr npage, int32 sizeclass, int32 acct);
+MSpan*	runtime_MHeap_Alloc(MHeap *h, uintptr npage, int32 sizeclass, int32 acct, int32 zeroed);
 void	runtime_MHeap_Free(MHeap *h, MSpan *s, int32 acct);
 MSpan*	runtime_MHeap_Lookup(MHeap *h, void *v);
 MSpan*	runtime_MHeap_LookupMaybe(MHeap *h, void *v);
 void	runtime_MGetSizeClassInfo(int32 sizeclass, uintptr *size, int32 *npages, int32 *nobj);
 void*	runtime_MHeap_SysAlloc(MHeap *h, uintptr n);
 void	runtime_MHeap_MapBits(MHeap *h);
+void	runtime_MHeap_Scavenger(void*);
 
 void*	runtime_mallocgc(uintptr size, uint32 flag, int32 dogc, int32 zeroed);
 int32	runtime_mlookup(void *v, byte **base, uintptr *size, MSpan **s);
@@ -394,7 +451,14 @@ void	runtime_markspan(void *v, uintptr size, uintptr n, bool leftover);
 void	runtime_unmarkspan(void *v, uintptr size);
 bool	runtime_blockspecial(void*);
 void	runtime_setblockspecial(void*, bool);
-void	runtime_purgecachedstats(M*);
+void	runtime_purgecachedstats(MCache*);
+void*	runtime_new(const Type *);
+#define runtime_cnew(T) runtime_new(T)
+
+void	runtime_settype(void*, uintptr);
+void	runtime_settype_flush(M*, bool);
+void	runtime_settype_sysfree(MSpan*);
+uintptr	runtime_gettype(void*);
 
 enum
 {
@@ -406,19 +470,27 @@ enum
 
 void	runtime_MProf_Malloc(void*, uintptr);
 void	runtime_MProf_Free(void*, uintptr);
-void	runtime_MProf_Mark(void (*scan)(byte *, int64));
-int32	runtime_helpgc(bool*);
+void	runtime_MProf_GC(void);
+void	runtime_MProf_Mark(void (*addroot)(byte *, uintptr));
+int32	runtime_gcprocs(void);
+void	runtime_helpgc(int32 nproc);
 void	runtime_gchelper(void);
-
-// Malloc profiling settings.
-// Must match definition in extern.go.
-enum {
-	MProf_None = 0,
-	MProf_Sample = 1,
-	MProf_All = 2,
-};
-extern int32 runtime_malloc_profile;
 
 struct __go_func_type;
 bool	runtime_getfinalizer(void *p, bool del, void (**fn)(void*), const struct __go_func_type **ft);
-void	runtime_walkfintab(void (*fn)(void*), void (*scan)(byte *, int64));
+void	runtime_walkfintab(void (*fn)(void*), void (*scan)(byte *, uintptr));
+
+enum
+{
+	TypeInfo_SingleObject = 0,
+	TypeInfo_Array = 1,
+	TypeInfo_Map = 2,
+
+	// Enables type information at the end of blocks allocated from heap	
+	DebugTypeAtBlockEnd = 0,
+};
+
+// defined in mgc0.go
+void	runtime_gc_m_ptr(Eface*);
+
+void	runtime_memorydump(void);

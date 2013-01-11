@@ -5,14 +5,12 @@
 package fmt
 
 import (
-	"bytes"
 	"strconv"
-	"unicode"
 	"unicode/utf8"
 )
 
 const (
-	nByte = 64
+	nByte = 65 // %b of an int64, plus a sign.
 
 	ldigits = "0123456789abcdef"
 	udigits = "0123456789ABCDEF"
@@ -36,10 +34,10 @@ func init() {
 }
 
 // A fmt is the raw formatter used by Printf etc.
-// It prints into a bytes.Buffer that must be set up externally.
+// It prints into a buffer that must be set up separately.
 type fmt struct {
 	intbuf [nByte]byte
-	buf    *bytes.Buffer
+	buf    *buffer
 	// width, precision
 	wid  int
 	prec int
@@ -69,7 +67,7 @@ func (f *fmt) clearflags() {
 	f.zero = false
 }
 
-func (f *fmt) init(buf *bytes.Buffer) {
+func (f *fmt) init(buf *buffer) {
 	f.buf = buf
 	f.clearflags()
 }
@@ -112,11 +110,11 @@ func (f *fmt) writePadding(n int, padding []byte) {
 // Append b to f.buf, padded on left (w > 0) or right (w < 0 or f.minus)
 // clear flags afterwards.
 func (f *fmt) pad(b []byte) {
-	var padding []byte
-	var left, right int
-	if f.widPresent && f.wid != 0 {
-		padding, left, right = f.computePadding(len(b))
+	if !f.widPresent || f.wid == 0 {
+		f.buf.Write(b)
+		return
 	}
+	padding, left, right := f.computePadding(len(b))
 	if left > 0 {
 		f.writePadding(left, padding)
 	}
@@ -129,11 +127,11 @@ func (f *fmt) pad(b []byte) {
 // append s to buf, padded on left (w > 0) or right (w < 0 or f.minus).
 // clear flags afterwards.
 func (f *fmt) padString(s string) {
-	var padding []byte
-	var left, right int
-	if f.widPresent && f.wid != 0 {
-		padding, left, right = f.computePadding(utf8.RuneCountInString(s))
+	if !f.widPresent || f.wid == 0 {
+		f.buf.WriteString(s)
+		return
 	}
+	padding, left, right := f.computePadding(utf8.RuneCountInString(s))
 	if left > 0 {
 		f.writePadding(left, padding)
 	}
@@ -247,7 +245,7 @@ func (f *fmt) integer(a int64, base uint64, signedness bool, digits string) {
 	}
 
 	// If we want a quoted char for %#U, move the data up to make room.
-	if f.unicode && f.uniQuote && a >= 0 && a <= unicode.MaxRune && unicode.IsPrint(rune(a)) {
+	if f.unicode && f.uniQuote && a >= 0 && a <= utf8.MaxRune && strconv.IsPrint(rune(a)) {
 		runeWidth := utf8.RuneLen(rune(a))
 		width := 1 + 1 + runeWidth + 1 // space, quote, rune, quote
 		copy(buf[i-width:], buf[i:])   // guaranteed to have enough room.
@@ -287,19 +285,41 @@ func (f *fmt) fmt_s(s string) {
 	f.padString(s)
 }
 
+// fmt_sbx formats a string or byte slice as a hexadecimal encoding of its bytes.
+func (f *fmt) fmt_sbx(s string, b []byte, digits string) {
+	n := len(b)
+	if b == nil {
+		n = len(s)
+	}
+	x := digits[10] - 'a' + 'x'
+	// TODO: Avoid buffer by pre-padding.
+	var buf []byte
+	for i := 0; i < n; i++ {
+		if i > 0 && f.space {
+			buf = append(buf, ' ')
+		}
+		if f.sharp {
+			buf = append(buf, '0', x)
+		}
+		var c byte
+		if b == nil {
+			c = s[i]
+		} else {
+			c = b[i]
+		}
+		buf = append(buf, digits[c>>4], digits[c&0xF])
+	}
+	f.pad(buf)
+}
+
 // fmt_sx formats a string as a hexadecimal encoding of its bytes.
 func (f *fmt) fmt_sx(s, digits string) {
-	// TODO: Avoid buffer by pre-padding.
-	var b bytes.Buffer
-	for i := 0; i < len(s); i++ {
-		if i > 0 && f.space {
-			b.WriteByte(' ')
-		}
-		v := s[i]
-		b.WriteByte(digits[v>>4])
-		b.WriteByte(digits[v&0xF])
-	}
-	f.pad(b.Bytes())
+	f.fmt_sbx(s, nil, digits)
+}
+
+// fmt_bx formats a byte slice as a hexadecimal encoding of its bytes.
+func (f *fmt) fmt_bx(b []byte, digits string) {
+	f.fmt_sbx("", b, digits)
 }
 
 // fmt_q formats a string as a double-quoted, escaped Go string constant.

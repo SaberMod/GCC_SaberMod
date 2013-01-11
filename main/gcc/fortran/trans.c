@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"	/* For create_tmp_var_raw.  */
 #include "tree-iterator.h"
 #include "diagnostic-core.h"  /* For internal_error.  */
-#include "defaults.h"
 #include "flags.h"
 #include "gfortran.h"
 #include "trans.h"
@@ -182,7 +181,7 @@ void
 gfc_start_block (stmtblock_t * block)
 {
   /* Start a new binding level.  */
-  pushlevel (0);
+  pushlevel ();
   block->has_scope = 1;
 
   /* The block is empty.  */
@@ -215,7 +214,7 @@ gfc_merge_block_scope (stmtblock_t * block)
 
   /* Remember the decls in this scope.  */
   decl = getdecls ();
-  poplevel (0, 0, 0);
+  poplevel (0, 0);
 
   /* Add them to the parent scope.  */
   while (decl != NULL_TREE)
@@ -250,11 +249,11 @@ gfc_finish_block (stmtblock_t * stmtblock)
 
       if (decl)
 	{
-	  block = poplevel (1, 0, 0);
+	  block = poplevel (1, 0);
 	  expr = build3_v (BIND_EXPR, decl, expr, block);
 	}
       else
-	poplevel (0, 0, 0);
+	poplevel (0, 0);
     }
 
   return expr;
@@ -507,6 +506,7 @@ gfc_trans_runtime_check (bool error, bool once, tree cond, stmtblock_t * pblock,
   gfc_add_expr_to_block (&block,
 			 trans_runtime_error_vararg (error, where,
 						     msgid, ap));
+  va_end (ap);
 
   if (once)
     gfc_add_modify (&block, tmpvar, boolean_false_node);
@@ -1130,15 +1130,12 @@ internal_realloc (void *mem, size_t size)
   if (!res && size != 0)
     _gfortran_os_error ("Allocation would exceed memory limit");
 
-  if (size == 0)
-    return NULL;
-
   return res;
 }  */
 tree
 gfc_call_realloc (stmtblock_t * block, tree mem, tree size)
 {
-  tree msg, res, nonzero, zero, null_result, tmp;
+  tree msg, res, nonzero, null_result, tmp;
   tree type = TREE_TYPE (mem);
 
   size = gfc_evaluate_now (size, block);
@@ -1166,15 +1163,6 @@ gfc_call_realloc (stmtblock_t * block, tree mem, tree size)
 			 null_result,
 			 build_call_expr_loc (input_location,
 					      gfor_fndecl_os_error, 1, msg),
-			 build_empty_stmt (input_location));
-  gfc_add_expr_to_block (block, tmp);
-
-  /* if (size == 0) then the result is NULL.  */
-  tmp = fold_build2_loc (input_location, MODIFY_EXPR, type, res,
-			 build_int_cst (type, 0));
-  zero = fold_build1_loc (input_location, TRUTH_NOT_EXPR, boolean_type_node,
-			  nonzero);
-  tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node, zero, tmp,
 			 build_empty_stmt (input_location));
   gfc_add_expr_to_block (block, tmp);
 

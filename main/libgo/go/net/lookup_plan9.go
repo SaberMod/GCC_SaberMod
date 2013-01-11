@@ -7,6 +7,7 @@ package net
 import (
 	"errors"
 	"os"
+	"syscall"
 )
 
 func query(filename, query string, bufSize int) (res []string, err error) {
@@ -71,11 +72,11 @@ func queryDNS(addr string, typ string) (res []string, err error) {
 
 func lookupProtocol(name string) (proto int, err error) {
 	// TODO: Implement this
-	return 0, os.EPLAN9
+	return 0, syscall.EPLAN9
 }
 
 func lookupHost(host string) (addrs []string, err error) {
-	// Use /net/cs insead of /net/dns because cs knows about
+	// Use /net/cs instead of /net/dns because cs knows about
 	// host names in local network (e.g. from /lib/ndb/local)
 	lines, err := queryCS("tcp", host, "1")
 	if err != nil {
@@ -197,6 +198,21 @@ func lookupMX(name string) (mx []*MX, err error) {
 		}
 	}
 	byPref(mx).sort()
+	return
+}
+
+func lookupNS(name string) (ns []*NS, err error) {
+	lines, err := queryDNS(name, "ns")
+	if err != nil {
+		return
+	}
+	for _, line := range lines {
+		f := getFields(line)
+		if len(f) < 4 {
+			continue
+		}
+		ns = append(ns, &NS{f[3]})
+	}
 	return
 }
 

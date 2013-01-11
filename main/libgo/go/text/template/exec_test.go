@@ -9,7 +9,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -60,8 +59,15 @@ type T struct {
 	PI  *int
 	PSI *[]int
 	NIL *int
+	// Function (not method)
+	BinaryFunc      func(string, string) string
+	VariadicFunc    func(...string) string
+	VariadicFuncInt func(int, ...string) string
+	NilOKFunc       func(*int) bool
 	// Template to test evaluation of templates.
 	Tmpl *Template
+	// Unexported field; cannot be accessed by template.
+	unexported int
 }
 
 type U struct {
@@ -119,6 +125,10 @@ var tVal = &T{
 	Err:               errors.New("erroozle"),
 	PI:                newInt(23),
 	PSI:               newIntSlice(21, 22, 23),
+	BinaryFunc:        func(a, b string) string { return fmt.Sprintf("[%s=%s]", a, b) },
+	VariadicFunc:      func(s ...string) string { return fmt.Sprint("<", strings.Join(s, "+"), ">") },
+	VariadicFuncInt:   func(a int, s ...string) string { return fmt.Sprint(a, "=<", strings.Join(s, "+"), ">") },
+	NilOKFunc:         func(s *int) bool { return s == nil },
 	Tmpl:              Must(New("x").Parse("test template")), // "x" is the value of .X
 }
 
@@ -168,10 +178,12 @@ func (t *T) MAdd(a int, b []int) []int {
 	return v
 }
 
-// EPERM returns a value and an error according to its argument.
-func (t *T) EPERM(error bool) (bool, error) {
+var myError = errors.New("my error")
+
+// MyError returns a value and an error according to its argument.
+func (t *T) MyError(error bool) (bool, error) {
 	if error {
-		return true, os.EPERM
+		return true, myError
 	}
 	return false, nil
 }
@@ -212,6 +224,7 @@ var execTests = []execTest{
 	// Trivial cases.
 	{"empty", "", "", nil, true},
 	{"text", "some text", "some text", nil, true},
+	{"nil action", "{{nil}}", "", nil, false},
 
 	// Ideal constants.
 	{"ideal int", "{{typeOf 3}}", "int", 0, true},
@@ -220,10 +233,12 @@ var execTests = []execTest{
 	{"ideal complex", "{{typeOf 1i}}", "complex128", 0, true},
 	{"ideal int", "{{typeOf " + bigInt + "}}", "int", 0, true},
 	{"ideal too big", "{{typeOf " + bigUint + "}}", "", 0, false},
+	{"ideal nil without type", "{{nil}}", "", 0, false},
 
 	// Fields of structs.
 	{".X", "-{{.X}}-", "-x-", tVal, true},
 	{".U.V", "-{{.U.V}}-", "-v-", tVal, true},
+	{".unexported", "{{.unexported}}", "", tVal, false},
 
 	// Fields on maps.
 	{"map .one", "{{.MSI.one}}", "1", tVal, true},
@@ -284,7 +299,8 @@ var execTests = []execTest{
 	{".Method2(3, .X)", "-{{.Method2 3 .X}}-", "-Method2: 3 x-", tVal, true},
 	{".Method2(.U16, `str`)", "-{{.Method2 .U16 `str`}}-", "-Method2: 16 str-", tVal, true},
 	{".Method2(.U16, $x)", "{{if $x := .X}}-{{.Method2 .U16 $x}}{{end}}-", "-Method2: 16 x-", tVal, true},
-	{".Method3(nil)", "-{{.Method3 .MXI.unset}}-", "-Method3: <nil>-", tVal, true},
+	{".Method3(nil constant)", "-{{.Method3 nil}}-", "-Method3: <nil>-", tVal, true},
+	{".Method3(nil value)", "-{{.Method3 .MXI.unset}}-", "-Method3: <nil>-", tVal, true},
 	{"method on var", "{{if $x := .}}-{{$x.Method2 .U16 $x.X}}{{end}}-", "-Method2: 16 x-", tVal, true},
 	{"method on chained var",
 		"{{range .MSIone}}{{if $.U.TrueFalse $.True}}{{$.U.TrueFalse $.True}}{{else}}WRONG{{end}}{{end}}",
@@ -295,13 +311,45 @@ var execTests = []execTest{
 	{"chained method on variable",
 		"{{with $x := .}}{{with .SI}}{{$.GetU.TrueFalse $.True}}{{end}}{{end}}",
 		"true", tVal, true},
+	{".NilOKFunc not nil", "{{call .NilOKFunc .PI}}", "false", tVal, true},
+	{".NilOKFunc nil", "{{call .NilOKFunc nil}}", "true", tVal, true},
+
+	// Function call builtin.
+	{".BinaryFunc", "{{call .BinaryFunc `1` `2`}}", "[1=2]", tVal, true},
+	{".VariadicFunc0", "{{call .VariadicFunc}}", "<>", tVal, true},
+	{".VariadicFunc2", "{{call .VariadicFunc `he` `llo`}}", "<he+llo>", tVal, true},
+	{".VariadicFuncInt", "{{call .VariadicFuncInt 33 `he` `llo`}}", "33=<he+llo>", tVal, true},
+	{"if .BinaryFunc call", "{{ if .BinaryFunc}}{{call .BinaryFunc `1` `2`}}{{end}}", "[1=2]", tVal, true},
+	{"if not .BinaryFunc call", "{{ if not .BinaryFunc}}{{call .BinaryFunc `1` `2`}}{{else}}No{{end}}", "No", tVal, true},
+	{"Interface Call", `{{stringer .S}}`, "foozle", map[string]interface{}{"S": bytes.NewBufferString("foozle")}, true},
+
+	// Erroneous function calls (check args).
+	{".BinaryFuncTooFew", "{{call .BinaryFunc `1`}}", "", tVal, false},
+	{".BinaryFuncTooMany", "{{call .BinaryFunc `1` `2` `3`}}", "", tVal, false},
+	{".BinaryFuncBad0", "{{call .BinaryFunc 1 3}}", "", tVal, false},
+	{".BinaryFuncBad1", "{{call .BinaryFunc `1` 3}}", "", tVal, false},
+	{".VariadicFuncBad0", "{{call .VariadicFunc 3}}", "", tVal, false},
+	{".VariadicFuncIntBad0", "{{call .VariadicFuncInt}}", "", tVal, false},
+	{".VariadicFuncIntBad`", "{{call .VariadicFuncInt `x`}}", "", tVal, false},
+	{".VariadicFuncNilBad", "{{call .VariadicFunc nil}}", "", tVal, false},
 
 	// Pipelines.
 	{"pipeline", "-{{.Method0 | .Method2 .U16}}-", "-Method2: 16 M0-", tVal, true},
+	{"pipeline func", "-{{call .VariadicFunc `llo` | call .VariadicFunc `he` }}-", "-<he+<llo>>-", tVal, true},
+
+	// Parenthesized expressions
+	{"parens in pipeline", "{{printf `%d %d %d` (1) (2 | add 3) (add 4 (add 5 6))}}", "1 5 15", tVal, true},
+
+	// Parenthesized expressions with field accesses
+	{"parens: $ in paren", "{{($).X}}", "x", tVal, true},
+	{"parens: $.GetU in paren", "{{($.GetU).V}}", "v", tVal, true},
+	{"parens: $ in paren in pipe", "{{($ | echo).X}}", "x", tVal, true},
+	{"parens: spaces and args", `{{(makemap "up" "down" "left" "right").left}}`, "right", tVal, true},
 
 	// If.
 	{"if true", "{{if true}}TRUE{{end}}", "TRUE", tVal, true},
 	{"if false", "{{if false}}TRUE{{else}}FALSE{{end}}", "FALSE", tVal, true},
+	{"if nil", "{{if nil}}TRUE{{end}}", "", tVal, false},
 	{"if 1", "{{if 1}}NON-ZERO{{else}}ZERO{{end}}", "NON-ZERO", tVal, true},
 	{"if 0", "{{if 0}}NON-ZERO{{else}}ZERO{{end}}", "ZERO", tVal, true},
 	{"if 1.5", "{{if 1.5}}NON-ZERO{{else}}ZERO{{end}}", "NON-ZERO", tVal, true},
@@ -321,7 +369,8 @@ var execTests = []execTest{
 
 	// Print etc.
 	{"print", `{{print "hello, print"}}`, "hello, print", tVal, true},
-	{"print", `{{print 1 2 3}}`, "1 2 3", tVal, true},
+	{"print 123", `{{print 1 2 3}}`, "1 2 3", tVal, true},
+	{"print nil", `{{print nil}}`, "<nil>", tVal, true},
 	{"println", `{{println 1 2 3}}`, "1 2 3\n", tVal, true},
 	{"printf int", `{{printf "%04x" 127}}`, "007f", tVal, true},
 	{"printf float", `{{printf "%g" 3.5}}`, "3.5", tVal, true},
@@ -360,7 +409,8 @@ var execTests = []execTest{
 	{"slice[WRONG]", "{{index .SI `hello`}}", "", tVal, false},
 	{"map[one]", "{{index .MSI `one`}}", "1", tVal, true},
 	{"map[two]", "{{index .MSI `two`}}", "2", tVal, true},
-	{"map[NO]", "{{index .MSI `XXX`}}", "", tVal, true},
+	{"map[NO]", "{{index .MSI `XXX`}}", "0", tVal, true},
+	{"map[nil]", "{{index .MSI nil}}", "0", tVal, true},
 	{"map[WRONG]", "{{index .MSI 10}}", "", tVal, false},
 	{"double index", "{{index .SMSI 1 `eleven`}}", "11", tVal, true},
 
@@ -417,8 +467,8 @@ var execTests = []execTest{
 	{"or as if false", `{{or .SIEmpty "slice is empty"}}`, "slice is empty", tVal, true},
 
 	// Error handling.
-	{"error method, error", "{{.EPERM true}}", "", tVal, false},
-	{"error method, no error", "{{.EPERM false}}", "false", tVal, true},
+	{"error method, error", "{{.MyError true}}", "", tVal, false},
+	{"error method, no error", "{{.MyError false}}", "false", tVal, true},
 
 	// Fixed bugs.
 	// Must separate dot and receiver; otherwise args are evaluated with dot set to variable.
@@ -440,6 +490,15 @@ var execTests = []execTest{
 	{"bug6b", "{{vfunc .V0 .V0}}", "vfunc", tVal, true},
 	{"bug6c", "{{vfunc .V1 .V0}}", "vfunc", tVal, true},
 	{"bug6d", "{{vfunc .V1 .V1}}", "vfunc", tVal, true},
+	// Legal parse but illegal execution: non-function should have no arguments.
+	{"bug7a", "{{3 2}}", "", tVal, false},
+	{"bug7b", "{{$x := 1}}{{$x 2}}", "", tVal, false},
+	{"bug7c", "{{$x := 1}}{{3 | $x}}", "", tVal, false},
+	// Pipelined arg was not being type-checked.
+	{"bug8a", "{{3|oneArg}}", "", tVal, false},
+	{"bug8b", "{{4|dddArg 3}}", "", tVal, false},
+	// A bug was introduced that broke map lookups for lower-case names.
+	{"bug9", "{{.cause}}", "neglect", map[string]string{"cause": "neglect"}, true},
 }
 
 func zeroArgs() string {
@@ -448,6 +507,10 @@ func zeroArgs() string {
 
 func oneArg(a string) string {
 	return "oneArg=" + a
+}
+
+func dddArg(a int, b ...string) string {
+	return fmt.Sprintln(a, b)
 }
 
 // count returns a channel that will deliver n sequential 1-letter strings starting at "a"
@@ -470,14 +533,46 @@ func vfunc(V, *V) string {
 	return "vfunc"
 }
 
+func add(args ...int) int {
+	sum := 0
+	for _, x := range args {
+		sum += x
+	}
+	return sum
+}
+
+func echo(arg interface{}) interface{} {
+	return arg
+}
+
+func makemap(arg ...string) map[string]string {
+	if len(arg)%2 != 0 {
+		panic("bad makemap")
+	}
+	m := make(map[string]string)
+	for i := 0; i < len(arg); i += 2 {
+		m[arg[i]] = arg[i+1]
+	}
+	return m
+}
+
+func stringer(s fmt.Stringer) string {
+	return s.String()
+}
+
 func testExecute(execTests []execTest, template *Template, t *testing.T) {
 	b := new(bytes.Buffer)
 	funcs := FuncMap{
+		"add":      add,
 		"count":    count,
+		"dddArg":   dddArg,
+		"echo":     echo,
+		"makemap":  makemap,
 		"oneArg":   oneArg,
 		"typeOf":   typeOf,
 		"vfunc":    vfunc,
 		"zeroArgs": zeroArgs,
+		"stringer": stringer,
 	}
 	for _, test := range execTests {
 		var tmpl *Template
@@ -565,18 +660,44 @@ func TestDelims(t *testing.T) {
 func TestExecuteError(t *testing.T) {
 	b := new(bytes.Buffer)
 	tmpl := New("error")
-	_, err := tmpl.Parse("{{.EPERM true}}")
+	_, err := tmpl.Parse("{{.MyError true}}")
 	if err != nil {
 		t.Fatalf("parse error: %s", err)
 	}
 	err = tmpl.Execute(b, tVal)
 	if err == nil {
 		t.Errorf("expected error; got none")
-	} else if !strings.Contains(err.Error(), os.EPERM.Error()) {
+	} else if !strings.Contains(err.Error(), myError.Error()) {
 		if *debug {
 			fmt.Printf("test execute error: %s\n", err)
 		}
-		t.Errorf("expected os.EPERM; got %s", err)
+		t.Errorf("expected myError; got %s", err)
+	}
+}
+
+const execErrorText = `line 1
+line 2
+line 3
+{{template "one" .}}
+{{define "one"}}{{template "two" .}}{{end}}
+{{define "two"}}{{template "three" .}}{{end}}
+{{define "three"}}{{index "hi" $}}{{end}}`
+
+// Check that an error from a nested template contains all the relevant information.
+func TestExecError(t *testing.T) {
+	tmpl, err := New("top").Parse(execErrorText)
+	if err != nil {
+		t.Fatal("parse error:", err)
+	}
+	var b bytes.Buffer
+	err = tmpl.Execute(&b, 5) // 5 is out of range indexing "hi"
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	const want = `template: top:7:20: executing "three" at <index "hi" $>: error calling index: index out of range: 5`
+	got := err.Error()
+	if got != want {
+		t.Errorf("expected\n%q\ngot\n%q", want, got)
 	}
 }
 
@@ -689,4 +810,9 @@ func TestTree(t *testing.T) {
 	if result != expect {
 		t.Errorf("expected %q got %q", expect, result)
 	}
+}
+
+func TestExecuteOnNewTemplate(t *testing.T) {
+	// This is issue 3872.
+	_ = New("Name").Templates()
 }

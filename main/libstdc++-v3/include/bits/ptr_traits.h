@@ -1,6 +1,6 @@
 // Pointer Traits -*- C++ -*-
 
-// Copyright (C) 2011 Free Software Foundation, Inc.
+// Copyright (C) 2011-2012 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,7 @@
 #ifndef _PTR_TRAITS_H
 #define _PTR_TRAITS_H 1
 
-#ifdef __GXX_EXPERIMENTAL_CXX0X__
+#if __cplusplus >= 201103L
 
 #include <type_traits> // For _GLIBCXX_HAS_NESTED_TYPE
 
@@ -86,6 +86,9 @@ _GLIBCXX_HAS_NESTED_TYPE(difference_type)
       static const bool __value = _S_chk<_Ptr, _Up>(nullptr);
     };
 
+  template<typename _Ptr, typename _Up>
+    const bool __ptrtr_rebind_helper<_Ptr, _Up>::__value;
+
   template<typename _Tp, typename _Up,
            bool = __ptrtr_rebind_helper<_Tp, _Up>::__value>
     struct __ptrtr_rebind;
@@ -140,14 +143,8 @@ _GLIBCXX_HAS_NESTED_TYPE(difference_type)
       /// Type used to represent the difference between two pointers
       typedef typename __ptrtr_diff_type<_Ptr>::__type  difference_type;
 
-    private:
       template<typename _Up>
         using rebind = typename __ptrtr_rebind<_Ptr, _Up>::__type;
-
-      // allocator_traits needs to use __rebind
-      template<typename> friend struct allocator_traits;
-      template<typename> friend struct pointer_traits;
-      template<typename, typename> friend class __ptrtr_rebind_helper2;
     };
 
   /**

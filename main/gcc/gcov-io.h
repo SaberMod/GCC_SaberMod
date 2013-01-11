@@ -99,7 +99,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    tags, values [41..9f] for the notes file and [a1..ff] for the data
    file.
 
-   The basic block graph file contains the following records
+   The notes file contains the following records
    	note: unit function-graph*
 	unit: header int32:checksum string:source
 	function-graph: announce_function basic_blocks {arcs | lines}*
@@ -139,7 +139,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 	counts: header int64:count*
 	summary: int32:checksum {count-summary}GCOV_COUNTERS_SUMMABLE
 	count-summary:	int32:num int32:runs int64:sum
-			int64:max int64:sum_max
+			int64:max int64:sum_max histogram
+        histogram: {int32:bitvector}8 histogram-buckets*
+        histogram-buckets: int32:num int64:min int64:sum
 
    The ANNOUNCE_FUNCTION record is the same as that in the note file,
    but without the source location.  The COUNTS gives the
@@ -176,10 +178,12 @@ typedef unsigned gcov_position_t __attribute__ ((mode (SI)));
 typedef signed gcov_type __attribute__ ((mode (DI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (DI)));
 #else
 typedef signed gcov_type __attribute__ ((mode (SI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (SI)));
 #endif
 #else   /* BITS_PER_UNIT != 8  */
 #if BITS_PER_UNIT == 16
@@ -189,10 +193,12 @@ typedef unsigned gcov_position_t __attribute__ ((mode (HI)));
 typedef signed gcov_type __attribute__ ((mode (SI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (SI)));
 #else
 typedef signed gcov_type __attribute__ ((mode (HI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (HI)));
 #endif
 #else  /* BITS_PER_UNIT != 16  */
 typedef unsigned gcov_unsigned_t __attribute__ ((mode (QI)));
@@ -201,10 +207,12 @@ typedef unsigned gcov_position_t __attribute__ ((mode (QI)));
 typedef signed gcov_type __attribute__ ((mode (HI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (HI)));
 #else
 typedef signed gcov_type __attribute__ ((mode (QI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #endif
 #endif /* BITS_PER_UNIT == 16  */ 
 
@@ -235,6 +243,7 @@ typedef unsigned gcov_position_t;
 #if IN_GCOV
 #define GCOV_LINKAGE static
 typedef HOST_WIDEST_INT gcov_type;
+typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #if IN_GCOV > 0
 #include <sys/types.h>
 #endif
@@ -345,9 +354,10 @@ typedef HOST_WIDEST_INT gcov_type;
 #define GCOV_TAG_COUNTER_NUM(LENGTH) ((LENGTH) / 2)
 #define GCOV_TAG_OBJECT_SUMMARY  ((gcov_unsigned_t)0xa1000000) /* Obsolete */
 #define GCOV_TAG_PROGRAM_SUMMARY ((gcov_unsigned_t)0xa3000000)
-#define GCOV_TAG_SUMMARY_LENGTH  \
-	(1 + GCOV_COUNTERS_SUMMABLE * (2 + 3 * 2))
+#define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
+        (1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
 #define GCOV_TAG_MODULE_INFO ((gcov_unsigned_t)0xab000000)
+
 
 /* Counters that are collected.  */
 #define GCOV_COUNTER_ARCS 	0  /* Arc transitions.  */
@@ -433,6 +443,29 @@ typedef HOST_WIDEST_INT gcov_type;
 
 /* Structured records.  */
 
+/* Structure used for each bucket of the log2 histogram of counter values.  */
+typedef struct
+{
+  /* Number of counters whose profile count falls within the bucket.  */
+  gcov_unsigned_t num_counters;
+  /* Smallest profile count included in this bucket.  */
+  gcov_type min_value;
+  /* Cumulative value of the profile counts in this bucket.  */
+  gcov_type cum_value;
+} gcov_bucket_type;
+
+/* For a log2 scale histogram with each range split into 4
+   linear sub-ranges, there will be at most 64 (max gcov_type bit size) - 1 log2
+   ranges since the lowest 2 log2 values share the lowest 4 linear
+   sub-range (values 0 - 3).  This is 252 total entries (63*4).  */
+
+#define GCOV_HISTOGRAM_SIZE 252
+
+/* How many unsigned ints are required to hold a bit vector of non-zero
+   histogram entries when the histogram is written to the gcov file.
+   This is essentially a ceiling divide by 32 bits.  */
+#define GCOV_HISTOGRAM_BITVECTOR_SIZE (GCOV_HISTOGRAM_SIZE + 31) / 32
+
 /* Cumulative counter data.  */
 struct gcov_ctr_summary
 {
@@ -441,6 +474,8 @@ struct gcov_ctr_summary
   gcov_type sum_all;		/* sum of all counters accumulated.  */
   gcov_type run_max;		/* maximum value on a single run.  */
   gcov_type sum_max;    	/* sum of individual run max values.  */
+  gcov_bucket_type histogram[GCOV_HISTOGRAM_SIZE]; /* histogram of
+                                                      counter values.  */
 };
 
 /* Object & program summary record.  */
@@ -551,6 +586,12 @@ extern void __gcov_set_sampling_rate (unsigned int rate);
 
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
+
+/* Function to reset all counters to 0.  */
+extern void __gcov_reset (void);
+
+/* Function to enable early write of profile information so far.  */
+extern void __gcov_dump (void);
 
 /* The merge function that just sums the counters.  */
 extern void __gcov_merge_add (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
@@ -685,6 +726,7 @@ GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 
 #if !IN_GCOV && !IN_LIBGCOV
 /* Available only in compiler */
+GCOV_LINKAGE unsigned gcov_histo_index (gcov_type value);
 GCOV_LINKAGE void gcov_write_string (const char *);
 GCOV_LINKAGE gcov_position_t gcov_write_tag (gcov_unsigned_t);
 GCOV_LINKAGE void gcov_write_length (gcov_position_t /*position*/);

@@ -6,6 +6,7 @@ package os_test
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -23,7 +25,6 @@ var dot = []string{
 	"error.go",
 	"file.go",
 	"os_test.go",
-	"time.go",
 	"types.go",
 }
 
@@ -67,10 +68,10 @@ var sysdir = func() (sd *sysDir) {
 
 func size(name string, t *testing.T) int64 {
 	file, err := Open(name)
-	defer file.Close()
 	if err != nil {
 		t.Fatal("open failed:", err)
 	}
+	defer file.Close()
 	var buf [100]byte
 	len := 0
 	for {
@@ -132,10 +133,10 @@ func TestStat(t *testing.T) {
 func TestFstat(t *testing.T) {
 	path := sfdir + "/" + sfname
 	file, err1 := Open(path)
-	defer file.Close()
 	if err1 != nil {
 		t.Fatal("open failed:", err1)
 	}
+	defer file.Close()
 	dir, err2 := file.Stat()
 	if err2 != nil {
 		t.Fatal("fstat failed:", err2)
@@ -187,10 +188,10 @@ func TestRead0(t *testing.T) {
 
 func testReaddirnames(dir string, contents []string, t *testing.T) {
 	file, err := Open(dir)
-	defer file.Close()
 	if err != nil {
 		t.Fatalf("open %q failed: %v", dir, err)
 	}
+	defer file.Close()
 	s, err2 := file.Readdirnames(-1)
 	if err2 != nil {
 		t.Fatalf("readdirnames %q failed: %v", dir, err2)
@@ -216,10 +217,10 @@ func testReaddirnames(dir string, contents []string, t *testing.T) {
 
 func testReaddir(dir string, contents []string, t *testing.T) {
 	file, err := Open(dir)
-	defer file.Close()
 	if err != nil {
 		t.Fatalf("open %q failed: %v", dir, err)
 	}
+	defer file.Close()
 	s, err2 := file.Readdir(-1)
 	if err2 != nil {
 		t.Fatalf("readdir %q failed: %v", dir, err2)
@@ -283,10 +284,10 @@ func TestReaddirnamesOneAtATime(t *testing.T) {
 		dir = "/bin"
 	}
 	file, err := Open(dir)
-	defer file.Close()
 	if err != nil {
 		t.Fatalf("open %q failed: %v", dir, err)
 	}
+	defer file.Close()
 	all, err1 := file.Readdirnames(-1)
 	if err1 != nil {
 		t.Fatalf("readdirnames %q failed: %v", dir, err1)
@@ -528,7 +529,6 @@ func exec(t *testing.T, dir, cmd string, args []string, expect string) {
 	if err != nil {
 		t.Fatalf("StartProcess: %v", err)
 	}
-	defer p.Release()
 	w.Close()
 
 	var b bytes.Buffer
@@ -539,7 +539,7 @@ func exec(t *testing.T, dir, cmd string, args []string, expect string) {
 		t.Errorf("exec %q returned %q wanted %q",
 			strings.Join(append([]string{cmd}, args...), " "), output, expect)
 	}
-	p.Wait(0)
+	p.Wait()
 }
 
 func TestStartProcess(t *testing.T) {
@@ -742,19 +742,6 @@ func TestChdirAndGetwd(t *testing.T) {
 	fd.Close()
 }
 
-func TestTime(t *testing.T) {
-	// Just want to check that Time() is getting something.
-	// A common failure mode on Darwin is to get 0, 0,
-	// because it returns the time in registers instead of
-	// filling in the structure passed to the system call.
-	// Too bad the compiler doesn't know that
-	// 365.24*86400 is an integer.
-	sec, nsec, err := Time()
-	if sec < (2009-1970)*36524*864 {
-		t.Errorf("Time() = %d, %d, %s; not plausible", sec, nsec, err)
-	}
-}
-
 func TestSeek(t *testing.T) {
 	f := newFile("TestSeek", t)
 	defer Remove(f.Name())
@@ -781,7 +768,7 @@ func TestSeek(t *testing.T) {
 	for i, tt := range tests {
 		off, err := f.Seek(tt.in, tt.whence)
 		if off != tt.out || err != nil {
-			if e, ok := err.(*PathError); ok && e.Err == EINVAL && tt.out > 1<<32 {
+			if e, ok := err.(*PathError); ok && e.Err == syscall.EINVAL && tt.out > 1<<32 {
 				// Reiserfs rejects the big seeks.
 				// http://code.google.com/p/go/issues/detail?id=91
 				break
@@ -801,17 +788,17 @@ var openErrorTests = []openErrorTest{
 	{
 		sfdir + "/no-such-file",
 		O_RDONLY,
-		ENOENT,
+		syscall.ENOENT,
 	},
 	{
 		sfdir,
 		O_WRONLY,
-		EISDIR,
+		syscall.EISDIR,
 	},
 	{
 		sfdir + "/" + sfname + "/no-such-file",
 		O_WRONLY,
-		ENOTDIR,
+		syscall.ENOTDIR,
 	},
 }
 
@@ -859,12 +846,11 @@ func run(t *testing.T, cmd []string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer p.Release()
 	w.Close()
 
 	var b bytes.Buffer
 	io.Copy(&b, r)
-	_, err = p.Wait(0)
+	_, err = p.Wait()
 	if err != nil {
 		t.Fatalf("run hostname Wait: %v", err)
 	}
@@ -997,32 +983,135 @@ func TestAppend(t *testing.T) {
 }
 
 func TestStatDirWithTrailingSlash(t *testing.T) {
-	// Create new dir, in _test so it will get
-	// cleaned up by make if not by us.
-	path := "_test/_TestStatDirWithSlash_"
-	err := MkdirAll(path, 0777)
+	// Create new temporary directory and arrange to clean it up.
+	path, err := ioutil.TempDir("", "/_TestStatDirWithSlash_")
 	if err != nil {
-		t.Fatalf("MkdirAll %q: %s", path, err)
+		t.Fatalf("TempDir: %s", err)
 	}
 	defer RemoveAll(path)
 
 	// Stat of path should succeed.
 	_, err = Stat(path)
 	if err != nil {
-		t.Fatal("stat failed:", err)
+		t.Fatalf("stat %s failed: %s", path, err)
 	}
 
 	// Stat of path+"/" should succeed too.
-	_, err = Stat(path + "/")
+	path += "/"
+	_, err = Stat(path)
 	if err != nil {
-		t.Fatal("stat failed:", err)
+		t.Fatalf("stat %s failed: %s", path, err)
 	}
 }
 
-func TestNilWaitmsgString(t *testing.T) {
-	var w *Waitmsg
-	s := w.String()
+func TestNilProcessStateString(t *testing.T) {
+	var ps *ProcessState
+	s := ps.String()
 	if s != "<nil>" {
-		t.Errorf("(*Waitmsg)(nil).String() = %q, want %q", s, "<nil>")
+		t.Errorf("(*ProcessState)(nil).String() = %q, want %q", s, "<nil>")
+	}
+}
+
+func TestSameFile(t *testing.T) {
+	fa, err := Create("a")
+	if err != nil {
+		t.Fatalf("Create(a): %v", err)
+	}
+	defer Remove(fa.Name())
+	fa.Close()
+	fb, err := Create("b")
+	if err != nil {
+		t.Fatalf("Create(b): %v", err)
+	}
+	defer Remove(fb.Name())
+	fb.Close()
+
+	ia1, err := Stat("a")
+	if err != nil {
+		t.Fatalf("Stat(a): %v", err)
+	}
+	ia2, err := Stat("a")
+	if err != nil {
+		t.Fatalf("Stat(a): %v", err)
+	}
+	if !SameFile(ia1, ia2) {
+		t.Errorf("files should be same")
+	}
+
+	ib, err := Stat("b")
+	if err != nil {
+		t.Fatalf("Stat(b): %v", err)
+	}
+	if SameFile(ia1, ib) {
+		t.Errorf("files should be different")
+	}
+}
+
+func TestDevNullFile(t *testing.T) {
+	f, err := Open(DevNull)
+	if err != nil {
+		t.Fatalf("Open(%s): %v", DevNull, err)
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		t.Fatalf("Stat(%s): %v", DevNull, err)
+	}
+	name := filepath.Base(DevNull)
+	if fi.Name() != name {
+		t.Fatalf("wrong file name have %v want %v", fi.Name(), name)
+	}
+	if fi.Size() != 0 {
+		t.Fatalf("wrong file size have %d want 0", fi.Size())
+	}
+}
+
+var testLargeWrite = flag.Bool("large_write", false, "run TestLargeWriteToConsole test that floods console with output")
+
+func TestLargeWriteToConsole(t *testing.T) {
+	if !*testLargeWrite {
+		t.Logf("skipping console-flooding test; enable with -large_write")
+		return
+	}
+	b := make([]byte, 32000)
+	for i := range b {
+		b[i] = '.'
+	}
+	b[len(b)-1] = '\n'
+	n, err := Stdout.Write(b)
+	if err != nil {
+		t.Fatalf("Write to os.Stdout failed: %v", err)
+	}
+	if n != len(b) {
+		t.Errorf("Write to os.Stdout should return %d; got %d", len(b), n)
+	}
+	n, err = Stderr.Write(b)
+	if err != nil {
+		t.Fatalf("Write to os.Stderr failed: %v", err)
+	}
+	if n != len(b) {
+		t.Errorf("Write to os.Stderr should return %d; got %d", len(b), n)
+	}
+}
+
+func TestStatDirModeExec(t *testing.T) {
+	const mode = 0111
+
+	path, err := ioutil.TempDir("", "go-build")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	defer RemoveAll(path)
+
+	if err := Chmod(path, 0777); err != nil {
+		t.Fatalf("Chmod %q 0777: %v", path, err)
+	}
+
+	dir, err := Stat(path)
+	if err != nil {
+		t.Fatalf("Stat %q (looking for mode %#o): %s", path, mode, err)
+	}
+	if dir.Mode()&mode != mode {
+		t.Errorf("Stat %q: mode %#o want %#o", path, dir.Mode()&mode, mode)
 	}
 }

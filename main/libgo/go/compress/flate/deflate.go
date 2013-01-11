@@ -5,6 +5,7 @@
 package flate
 
 import (
+	"fmt"
 	"io"
 	"math"
 )
@@ -31,6 +32,7 @@ const (
 	hashSize            = 1 << hashBits
 	hashMask            = (1 << hashBits) - 1
 	hashShift           = (hashBits + minMatchLength - 1) / minMatchLength
+	maxHashOffset       = 1 << 24
 
 	skipNever = math.MaxInt32
 )
@@ -105,6 +107,25 @@ func (d *compressor) fillDeflate(b []byte) int {
 			d.blockStart = math.MaxInt32
 		}
 		d.hashOffset += windowSize
+		if d.hashOffset > maxHashOffset {
+			delta := d.hashOffset - 1
+			d.hashOffset -= delta
+			d.chainHead -= delta
+			for i, v := range d.hashPrev {
+				if v > delta {
+					d.hashPrev[i] -= delta
+				} else {
+					d.hashPrev[i] = 0
+				}
+			}
+			for i, v := range d.hashHead {
+				if v > delta {
+					d.hashHead[i] -= delta
+				} else {
+					d.hashHead[i] = 0
+				}
+			}
+		}
 	}
 	n := copy(d.window[d.windowEnd:], b)
 	d.windowEnd += n
@@ -390,7 +411,7 @@ func (d *compressor) init(w io.Writer, level int) (err error) {
 		d.fill = (*compressor).fillDeflate
 		d.step = (*compressor).deflate
 	default:
-		return WrongValueError{"level", 0, 9, int32(level)}
+		return fmt.Errorf("flate: invalid compression level %d: want value in range [-1, 9]", level)
 	}
 	return nil
 }
@@ -408,17 +429,22 @@ func (d *compressor) close() error {
 	return d.w.err
 }
 
-// NewWriter returns a new Writer compressing
-// data at the given level.  Following zlib, levels
-// range from 1 (BestSpeed) to 9 (BestCompression);
-// higher levels typically run slower but compress more.
-// Level 0 (NoCompression) does not attempt any
-// compression; it only adds the necessary DEFLATE framing.
-func NewWriter(w io.Writer, level int) *Writer {
+// NewWriter returns a new Writer compressing data at the given level.
+// Following zlib, levels range from 1 (BestSpeed) to 9 (BestCompression);
+// higher levels typically run slower but compress more. Level 0
+// (NoCompression) does not attempt any compression; it only adds the
+// necessary DEFLATE framing. Level -1 (DefaultCompression) uses the default
+// compression level.
+//
+// If level is in the range [-1, 9] then the error returned will be nil.
+// Otherwise the error returned will be non-nil.
+func NewWriter(w io.Writer, level int) (*Writer, error) {
 	const logWindowSize = logMaxOffsetSize
 	var dw Writer
-	dw.d.init(w, level)
-	return &dw
+	if err := dw.d.init(w, level); err != nil {
+		return nil, err
+	}
+	return &dw, nil
 }
 
 // NewWriterDict is like NewWriter but initializes the new
@@ -427,13 +453,16 @@ func NewWriter(w io.Writer, level int) *Writer {
 // any compressed output.  The compressed data written to w
 // can only be decompressed by a Reader initialized with the
 // same dictionary.
-func NewWriterDict(w io.Writer, level int, dict []byte) *Writer {
+func NewWriterDict(w io.Writer, level int, dict []byte) (*Writer, error) {
 	dw := &dictWriter{w, false}
-	zw := NewWriter(dw, level)
+	zw, err := NewWriter(dw, level)
+	if err != nil {
+		return nil, err
+	}
 	zw.Write(dict)
 	zw.Flush()
 	dw.enabled = true
-	return zw
+	return zw, err
 }
 
 type dictWriter struct {

@@ -31,6 +31,7 @@ type Conn struct {
 	haveVers          bool       // version has been negotiated
 	config            *Config    // configuration passed to constructor
 	handshakeComplete bool
+	didResume         bool // whether this connection was a session resumption
 	cipherSuite       uint16
 	ocspResponse      []byte // stapled OCSP response
 	peerCertificates  []*x509.Certificate
@@ -44,8 +45,7 @@ type Conn struct {
 	clientProtocolFallback bool
 
 	// first permanent error
-	errMutex sync.Mutex
-	err      error
+	connErr
 
 	// input/output
 	in, out  halfConn     // in.Mutex < out.Mutex
@@ -56,21 +56,25 @@ type Conn struct {
 	tmp [16]byte
 }
 
-func (c *Conn) setError(err error) error {
-	c.errMutex.Lock()
-	defer c.errMutex.Unlock()
+type connErr struct {
+	mu    sync.Mutex
+	value error
+}
 
-	if c.err == nil {
-		c.err = err
+func (e *connErr) setError(err error) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if e.value == nil {
+		e.value = err
 	}
 	return err
 }
 
-func (c *Conn) error() error {
-	c.errMutex.Lock()
-	defer c.errMutex.Unlock()
-
-	return c.err
+func (e *connErr) error() error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.value
 }
 
 // Access to net.Conn methods.
@@ -87,9 +91,9 @@ func (c *Conn) RemoteAddr() net.Addr {
 	return c.conn.RemoteAddr()
 }
 
-// SetDeadline sets the read deadline associated with the connection.
-// There is no write deadline.
-// A zero value for t means Read will not time out.
+// SetDeadline sets the read and write deadlines associated with the connection.
+// A zero value for t means Read and Write will not time out.
+// After a Write has timed out, the TLS state is corrupt and all future writes will return the same error.
 func (c *Conn) SetDeadline(t time.Time) error {
 	return c.conn.SetDeadline(t)
 }
@@ -100,10 +104,11 @@ func (c *Conn) SetReadDeadline(t time.Time) error {
 	return c.conn.SetReadDeadline(t)
 }
 
-// SetWriteDeadline exists to satisfy the net.Conn interface
-// but is not implemented by TLS.  It always returns an error.
+// SetWriteDeadline sets the write deadline on the underlying conneciton.
+// A zero value for t means Write will not time out.
+// After a Write has timed out, the TLS state is corrupt and all future writes will return the same error.
 func (c *Conn) SetWriteDeadline(t time.Time) error {
-	return errors.New("TLS does not support SetWriteDeadline")
+	return c.conn.SetWriteDeadline(t)
 }
 
 // A halfConn represents one direction of the record layer
@@ -486,6 +491,16 @@ Again:
 		return err
 	}
 	typ := recordType(b.data[0])
+
+	// No valid TLS record has a type of 0x80, however SSLv2 handshakes
+	// start with a uint16 length where the MSB is set and the first record
+	// is always < 256 bytes long. Therefore typ == 0x80 strongly suggests
+	// an SSLv2 client.
+	if want == recordTypeHandshake && typ == 0x80 {
+		c.sendAlert(alertProtocolVersion)
+		return errors.New("tls: unsupported SSLv2 handshake received")
+	}
+
 	vers := uint16(b.data[1])<<8 | uint16(b.data[2])
 	n := int(b.data[3])<<8 | int(b.data[4])
 	if c.haveVers && vers != c.vers {
@@ -498,7 +513,7 @@ Again:
 		// First message, be extra suspicious:
 		// this might not be a TLS client.
 		// Bail out before reading a full 'body', if possible.
-		// The current max version is 3.1. 
+		// The current max version is 3.1.
 		// If the version is >= 16.0, it's probably not real.
 		// Similarly, a clientHello message encodes in
 		// well under a kilobyte.  If the length is >= 12 kB,
@@ -589,9 +604,11 @@ Again:
 // sendAlert sends a TLS alert message.
 // c.out.Mutex <= L.
 func (c *Conn) sendAlertLocked(err alert) error {
-	c.tmp[0] = alertLevelError
-	if err == alertNoRenegotiation {
+	switch err {
+	case alertNoRenegotiation, alertCloseNotify:
 		c.tmp[0] = alertLevelWarning
+	default:
+		c.tmp[0] = alertLevelError
 	}
 	c.tmp[1] = byte(err)
 	c.writeRecord(recordTypeAlert, c.tmp[0:2])
@@ -649,8 +666,7 @@ func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 			c.tmp[0] = alertLevelError
 			c.tmp[1] = byte(err.(alert))
 			c.writeRecord(recordTypeAlert, c.tmp[0:2])
-			c.err = &net.OpError{Op: "local error", Err: err}
-			return n, c.err
+			return n, c.setError(&net.OpError{Op: "local error", Err: err})
 		}
 	}
 	return
@@ -661,8 +677,8 @@ func (c *Conn) writeRecord(typ recordType, data []byte) (n int, err error) {
 // c.in.Mutex < L; c.out.Mutex < L.
 func (c *Conn) readHandshake() (interface{}, error) {
 	for c.hand.Len() < 4 {
-		if c.err != nil {
-			return nil, c.err
+		if err := c.error(); err != nil {
+			return nil, err
 		}
 		if err := c.readRecord(recordTypeHandshake); err != nil {
 			return nil, err
@@ -673,11 +689,11 @@ func (c *Conn) readHandshake() (interface{}, error) {
 	n := int(data[1])<<16 | int(data[2])<<8 | int(data[3])
 	if n > maxHandshake {
 		c.sendAlert(alertInternalError)
-		return nil, c.err
+		return nil, c.error()
 	}
 	for c.hand.Len() < 4+n {
-		if c.err != nil {
-			return nil, c.err
+		if err := c.error(); err != nil {
+			return nil, err
 		}
 		if err := c.readRecord(recordTypeHandshake); err != nil {
 			return nil, err
@@ -726,9 +742,13 @@ func (c *Conn) readHandshake() (interface{}, error) {
 }
 
 // Write writes data to the connection.
-func (c *Conn) Write(b []byte) (n int, err error) {
-	if err = c.Handshake(); err != nil {
-		return
+func (c *Conn) Write(b []byte) (int, error) {
+	if err := c.error(); err != nil {
+		return 0, err
+	}
+
+	if err := c.Handshake(); err != nil {
+		return 0, c.setError(err)
 	}
 
 	c.out.Lock()
@@ -737,10 +757,29 @@ func (c *Conn) Write(b []byte) (n int, err error) {
 	if !c.handshakeComplete {
 		return 0, alertInternalError
 	}
-	if c.err != nil {
-		return 0, c.err
+
+	// SSL 3.0 and TLS 1.0 are susceptible to a chosen-plaintext
+	// attack when using block mode ciphers due to predictable IVs.
+	// This can be prevented by splitting each Application Data
+	// record into two records, effectively randomizing the IV.
+	//
+	// http://www.openssl.org/~bodo/tls-cbc.txt
+	// https://bugzilla.mozilla.org/show_bug.cgi?id=665814
+	// http://www.imperialviolet.org/2012/01/15/beastfollowup.html
+
+	var m int
+	if len(b) > 1 && c.vers <= versionTLS10 {
+		if _, ok := c.out.cipher.(cipher.BlockMode); ok {
+			n, err := c.writeRecord(recordTypeApplicationData, b[:1])
+			if err != nil {
+				return n, c.setError(err)
+			}
+			m, b = 1, b[1:]
+		}
 	}
-	return c.writeRecord(recordTypeApplicationData, b)
+
+	n, err := c.writeRecord(recordTypeApplicationData, b)
+	return n + m, c.setError(err)
 }
 
 // Read can be made to time out and return a net.Error with Timeout() == true
@@ -753,14 +792,14 @@ func (c *Conn) Read(b []byte) (n int, err error) {
 	c.in.Lock()
 	defer c.in.Unlock()
 
-	for c.input == nil && c.err == nil {
+	for c.input == nil && c.error() == nil {
 		if err := c.readRecord(recordTypeApplicationData); err != nil {
 			// Soft error, like EAGAIN
 			return 0, err
 		}
 	}
-	if c.err != nil {
-		return 0, c.err
+	if err := c.error(); err != nil {
+		return 0, err
 	}
 	n, err = c.input.Read(b)
 	if c.input.off >= len(c.input.data) {
@@ -814,6 +853,7 @@ func (c *Conn) ConnectionState() ConnectionState {
 	state.HandshakeComplete = c.handshakeComplete
 	if c.handshakeComplete {
 		state.NegotiatedProtocol = c.clientProtocol
+		state.DidResume = c.didResume
 		state.NegotiatedProtocolIsMutual = !c.clientProtocolFallback
 		state.CipherSuite = c.cipherSuite
 		state.PeerCertificates = c.peerCertificates

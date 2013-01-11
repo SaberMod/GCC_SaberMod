@@ -1,3 +1,99 @@
+2012-11-29  Ian Lance Taylor  <iant@google.com>
+
+	* go-gcc.cc: Include "output.h".
+	(global_variable): Add is_unique_section parameter.
+	(global_variable_set_init): Adjust unique section if necessary.
+	* Make-lang.in (go/go-gcc.o): Add dependency on output.h.
+
+2012-11-17  Diego Novillo  <dnovillo@google.com>
+
+	Adjust for new vec API (http://gcc.gnu.org/wiki/cxx-conversion/cxx-vec)
+
+	* go-lang.c: Use new vec API in vec.h.
+
+2012-11-16  Ian Lance Taylor  <iant@google.com>
+
+	* Make-lang.in (gccgo$(exeext)): Add + at start of command.
+	(go1$(exeext)): Likewise.
+
+2012-10-30  Ian Lance Taylor  <iant@google.com>
+
+	* lang.opt (-fgo-relative-import-path): New option.
+	* go-lang.c (go_relative_import_path): New static variable.
+	(go_langhook_init): Pass go_relative_import_path to
+	go_create_gogo.
+	(go_langhook_handle_option): Handle -fgo-relative-import-path.
+	* go-c.h (go_create_gogo): Update declaration.
+	* gccgo.texi (Invoking gccgo): Document
+	-fgo-relative-import-path.
+
+2012-09-17  Ian Lance Taylor  <iant@google.com>
+
+	* config-lang.in (target_libs): Add target-libbacktrace.
+
+2012-09-16  Ian Lance Taylor  <iant@google.com>
+
+	* Make-lang.in (go/gogo.o): Depend on filenames.h.
+
+2012-08-14   Diego Novillo  <dnovillo@google.com>
+
+	Merge from cxx-conversion branch.  Configury.
+
+	* go-c.h: Remove all handlers of ENABLE_BUILD_WITH_CXX.
+	* go-gcc.cc: Likewise.
+	* go-system.h: Likewise.
+
+2012-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* go-lang.c (lang_decl): Add variable_size GTY option.
+
+2012-05-09  Ian Lance Taylor  <iant@google.com>
+
+	* lang.opt: Add -fgo-pkgpath.
+	* go-lang.c (go_pkgpath): New static variable.
+	(go_prefix): New static variable.
+	(go_langhook_init): Pass go_pkgpath and go_prefix to
+	go_create_gogo.
+	(go_langhook_handle_option): Handle -fgo-pkgpath.  Change
+	-fgo-prefix handling to just set go_prefix.
+	* go-c.h (go_set_prefix): Don't declare.
+	(go_create_gogo): Add pkgpath and prefix to declaration.
+	* go-gcc.cc (Gcc_backend::global_variable): Change unique_prefix
+	to pkgpath.  Don't include the package name in the asm name.
+	* gccgo.texi (Invoking gccgo): Document -fgo-pkgpath.  Update the
+	docs for -fgo-prefix.
+
+2012-04-23  Ian Lance Taylor  <iant@google.com>
+
+	* go-lang.c (go_langhook_init): Set MPFR precision to 256.
+
+2012-04-20  Ian Lance Taylor  <iant@google.com>
+
+	* lang.opt: Add -fgo-check-divide-zero and
+	-fgo-check-divide-overflow.
+	* gccgo.texi (Invoking gccgo): Document new options.
+
+2012-04-18  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* go-gcc.cc (Gcc_backend::switch_statement): Build SWITCH_EXPR
+	with NULL_TREE type instead of void_type_node.
+
+2012-03-09  Ian Lance Taylor  <iant@google.com>
+
+	* go-gcc.cc (Gcc_backend::assignment_statement): Convert the rhs
+	to the lhs type if necessary.
+
+2012-03-08  Ian Lance Taylor  <iant@google.com>
+
+	* go-gcc.cc (Gcc_backend::init_statement): Don't initialize a
+	zero-sized variable.
+	(go_non_zero_struct): New global variable.
+	(Gcc_backend::non_zero_size_type): New function.
+	(Gcc_backend::global_variable): Don't build an assignment for a
+	zero-sized value.
+	* go-c.h (go_non_zero_struct): Declare.
+	* config-lang.in (gtfiles): Add go-c.h.
+
 2012-02-29  Ian Lance Taylor  <iant@google.com>
 
 	* go-gcc.cc (class Gcc_tree): Add set_tree method.

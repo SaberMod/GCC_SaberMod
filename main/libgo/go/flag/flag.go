@@ -7,9 +7,11 @@
 
 	Usage:
 
-	Define flags using flag.String(), Bool(), Int(), etc. Example:
+	Define flags using flag.String(), Bool(), Int(), etc.
+
+	This declares an integer flag, -flagname, stored in the pointer ip, with type *int.
 		import "flag"
-		var ip *int = flag.Int("flagname", 1234, "help message for flagname")
+		var ip = flag.Int("flagname", 1234, "help message for flagname")
 	If you like, you can bind the flag to a variable using the Var() functions.
 		var flagvar int
 		func init() {
@@ -26,12 +28,12 @@
 
 	Flags may then be used directly. If you're using the flags themselves,
 	they are all pointers; if you bind to variables, they're values.
-		fmt.Println("ip has value ", *ip);
-		fmt.Println("flagvar has value ", flagvar);
+		fmt.Println("ip has value ", *ip)
+		fmt.Println("flagvar has value ", flagvar)
 
 	After parsing, the arguments after the flag are available as the
 	slice flag.Args() or individually as flag.Arg(i).
-	The arguments are indexed from 0 up to flag.NArg().
+	The arguments are indexed from 0 through flag.NArg()-1.
 
 	Command line flag syntax:
 		-flag
@@ -618,8 +620,9 @@ func (f *FlagSet) Var(value Value, name string, usage string) {
 	flag := &Flag{name, usage, value, value.String()}
 	_, alreadythere := f.formal[name]
 	if alreadythere {
-		fmt.Fprintf(f.out(), "%s flag redefined: %s\n", f.name, name)
-		panic("flag redefinition") // Happens only if flags are declared with identical names
+		msg := fmt.Sprintf("%s flag redefined: %s", f.name, name)
+		fmt.Fprintln(f.out(), msg)
+		panic(msg) // Happens only if flags are declared with identical names
 	}
 	if f.formal == nil {
 		f.formal = make(map[string]*Flag)
@@ -704,7 +707,7 @@ func (f *FlagSet) parseOne() (bool, error) {
 	if fv, ok := flag.Value.(*boolValue); ok { // special case: doesn't need an arg
 		if has_value {
 			if err := fv.Set(value); err != nil {
-				f.failf("invalid boolean value %q for  -%s: %v", value, name, err)
+				return false, f.failf("invalid boolean value %q for  -%s: %v", value, name, err)
 			}
 		} else {
 			fv.Set("true")

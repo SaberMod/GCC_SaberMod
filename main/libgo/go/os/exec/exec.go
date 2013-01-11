@@ -16,7 +16,7 @@ import (
 	"syscall"
 )
 
-// Error records the name of a binary that failed to be be executed
+// Error records the name of a binary that failed to be executed
 // and the reason it failed.
 type Error struct {
 	Name string
@@ -37,7 +37,7 @@ type Cmd struct {
 
 	// Args holds command line arguments, including the command as Args[0].
 	// If the Args field is empty or nil, Run uses {Path}.
-	// 
+	//
 	// In typical use, both Path and Args are set by calling Command.
 	Args []string
 
@@ -59,7 +59,7 @@ type Cmd struct {
 	// If either is nil, Run connects the corresponding file descriptor
 	// to the null device (os.DevNull).
 	//
-	// If Stdout and Stderr are are the same writer, at most one
+	// If Stdout and Stderr are the same writer, at most one
 	// goroutine at a time will call Write.
 	Stdout io.Writer
 	Stderr io.Writer
@@ -68,7 +68,7 @@ type Cmd struct {
 	// new process. It does not include standard input, standard output, or
 	// standard error. If non-nil, entry i becomes file descriptor 3+i.
 	//
-	// BUG: on OS X 10.6, child processes may sometimes inherit extra fds.
+	// BUG: on OS X 10.6, child processes may sometimes inherit unwanted fds.
 	// http://golang.org/issue/2603
 	ExtraFiles []*os.File
 
@@ -78,6 +78,10 @@ type Cmd struct {
 
 	// Process is the underlying process, once started.
 	Process *os.Process
+
+	// ProcessState contains information about an exited process,
+	// available after a call to Wait or Run.
+	ProcessState *os.ProcessState
 
 	err             error // last error (from LookPath, stdin, stdout, stderr)
 	finished        bool  // when Wait was called
@@ -139,6 +143,9 @@ func (c *Cmd) argv() []string {
 func (c *Cmd) stdin() (f *os.File, err error) {
 	if c.Stdin == nil {
 		f, err = os.Open(os.DevNull)
+		if err != nil {
+			return
+		}
 		c.closeAfterStart = append(c.closeAfterStart, f)
 		return
 	}
@@ -178,6 +185,9 @@ func (c *Cmd) stderr() (f *os.File, err error) {
 func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 	if w == nil {
 		f, err = os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			return
+		}
 		c.closeAfterStart = append(c.closeAfterStart, f)
 		return
 	}
@@ -198,6 +208,12 @@ func (c *Cmd) writerDescriptor(w io.Writer) (f *os.File, err error) {
 		return err
 	})
 	return pw, nil
+}
+
+func (c *Cmd) closeDescriptors(closers []io.Closer) {
+	for _, fd := range closers {
+		fd.Close()
+	}
 }
 
 // Run starts the specified command and waits for it to complete.
@@ -229,6 +245,8 @@ func (c *Cmd) Start() error {
 	for _, setupFd := range []F{(*Cmd).stdin, (*Cmd).stdout, (*Cmd).stderr} {
 		fd, err := setupFd(c)
 		if err != nil {
+			c.closeDescriptors(c.closeAfterStart)
+			c.closeDescriptors(c.closeAfterWait)
 			return err
 		}
 		c.childFiles = append(c.childFiles, fd)
@@ -243,12 +261,12 @@ func (c *Cmd) Start() error {
 		Sys:   c.SysProcAttr,
 	})
 	if err != nil {
+		c.closeDescriptors(c.closeAfterStart)
+		c.closeDescriptors(c.closeAfterWait)
 		return err
 	}
 
-	for _, fd := range c.closeAfterStart {
-		fd.Close()
-	}
+	c.closeDescriptors(c.closeAfterStart)
 
 	c.errch = make(chan error, len(c.goroutine))
 	for _, fn := range c.goroutine {
@@ -262,11 +280,11 @@ func (c *Cmd) Start() error {
 
 // An ExitError reports an unsuccessful exit by a command.
 type ExitError struct {
-	*os.Waitmsg
+	*os.ProcessState
 }
 
 func (e *ExitError) Error() string {
-	return e.Waitmsg.String()
+	return e.ProcessState.String()
 }
 
 // Wait waits for the command to exit.
@@ -287,7 +305,8 @@ func (c *Cmd) Wait() error {
 		return errors.New("exec: Wait was already called")
 	}
 	c.finished = true
-	msg, err := c.Process.Wait(0)
+	state, err := c.Process.Wait()
+	c.ProcessState = state
 
 	var copyError error
 	for _ = range c.goroutine {
@@ -296,14 +315,12 @@ func (c *Cmd) Wait() error {
 		}
 	}
 
-	for _, fd := range c.closeAfterWait {
-		fd.Close()
-	}
+	c.closeDescriptors(c.closeAfterWait)
 
 	if err != nil {
 		return err
-	} else if !msg.Exited() || msg.ExitStatus() != 0 {
-		return &ExitError{msg}
+	} else if !state.Success() {
+		return &ExitError{state}
 	}
 
 	return copyError

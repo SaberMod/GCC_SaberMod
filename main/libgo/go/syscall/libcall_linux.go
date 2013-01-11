@@ -202,13 +202,17 @@ func Getdents(fd int, buf []byte) (n int, err error) {
 	} else {
 		p = (*byte)(unsafe.Pointer(&_zero))
 	}
-	entersyscall()
-	r1, _, errno := Syscall(SYS_GETDENTS64, uintptr(fd), uintptr(unsafe.Pointer(p)), uintptr(len(buf)))
+	Entersyscall()
+	s := SYS_GETDENTS64
+	if s == 0 {
+		s = SYS_GETDENTS
+	}
+	r1, _, errno := Syscall(uintptr(s), uintptr(fd), uintptr(unsafe.Pointer(p)), uintptr(len(buf)))
 	n = int(r1)
 	if n < 0 {
 		err = errno
 	}
-	exitsyscall()
+	Exitsyscall()
 	return
 }
 
@@ -276,6 +280,9 @@ func ParseDirent(buf []byte, max int, names []string) (consumed int, count int, 
 //sys	sendfile(outfd int, infd int, offset *Offset_t, count int) (written int, err error)
 //sendfile64(outfd int, infd int, offset *Offset_t, count Size_t) Ssize_t
 func Sendfile(outfd int, infd int, offset *int64, count int) (written int, err error) {
+	if raceenabled {
+		raceReleaseMerge(unsafe.Pointer(&ioSync))
+	}
 	var soff Offset_t
 	var psoff *Offset_t
 	if offset != nil {
@@ -306,11 +313,13 @@ func Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n i
 	var lroff _loff_t
 	var plroff *_loff_t
 	if roff != nil {
+		lroff = _loff_t(*roff)
 		plroff = &lroff
 	}
 	var lwoff _loff_t
 	var plwoff *_loff_t
 	if woff != nil {
+		lwoff = _loff_t(*woff)
 		plwoff = &lwoff
 	}
 	n, err = splice(rfd, plroff, wfd, plwoff, len, flags)
@@ -335,7 +344,7 @@ func Splice(rfd int, roff *int64, wfd int, woff *int64, len int, flags int) (n i
 //sys	Tee(rfd int, wfd int, len int, flags int) (n int64, err error)
 //tee(rfd int, wfd int, len Size_t, flags uint) Ssize_t
 
-func Tgkill(tgid, tid, sig int) error {
+func Tgkill(tgid int, tid int, sig Signal) error {
 	r1, _, errno := Syscall(SYS_TGKILL, uintptr(tgid), uintptr(tid), uintptr(sig))
 	if r1 < 0 {
 		return errno

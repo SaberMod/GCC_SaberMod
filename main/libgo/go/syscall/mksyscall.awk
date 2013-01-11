@@ -104,6 +104,19 @@ BEGIN {
 
     loc = gofnname "/" cfnname ":"
 
+    haserr = 0
+    if (gofnresults != "") {
+	fields = split(gofnresults, goresults, ", *")
+	for (goresult = 1; goresults[goresult] != ""; goresult++) {
+	    if (split(goresults[goresult], goparam) == 2) {
+		if (goparam[1] == "err") {
+		    haserr = 1
+		    break
+		}
+	    }
+	}
+    }
+
     split(gofnparams, goargs, ", *")
     split(cfnparams, cargs, ", *")
     args = ""
@@ -147,7 +160,14 @@ BEGIN {
 		status = 1
 		next
 	    }
-	    printf("\t_p%d := StringBytePtr(%s)\n", goarg, goname)
+	    printf("\tvar _p%d *byte\n", goarg)
+	    if (haserr) {
+		printf("\t_p%d, err = BytePtrFromString(%s)\n", goarg, goname)
+		printf("\tif err != nil {\n\t\treturn\n\t}\n")
+	    } else {
+		print loc, "uses string arguments but has no error return" | "cat 1>&2"
+		printf("\t_p%d, _ = BytePtrFromString(%s)\n", goarg, goname)
+	    }
 	    args = sprintf("%s_p%d", args, goarg)
 	} else if (gotype ~ /^\[\](.*)/) {
 	    if (ctype !~ /^\*/ || cargs[carg + 1] == "") {
@@ -190,7 +210,7 @@ BEGIN {
     }
 
     if (blocking) {
-	print "\tentersyscall()"
+	print "\tEntersyscall()"
     }
 
     printf("\t")
@@ -199,6 +219,7 @@ BEGIN {
     }
     printf("c_%s(%s)\n", cfnname, args)
 
+    seterr = 0
     if (gofnresults != "") {
 	fields = split(gofnresults, goresults, ", *")
 	if (fields > 2) {
@@ -218,13 +239,17 @@ BEGIN {
 	    gotype = goparam[2]
 
 	    if (goname == "err") {
+		print "\tvar errno Errno"
+		print "\tsetErrno := false"
 		if (cfnresult ~ /^\*/) {
 		    print "\tif _r == nil {"
 		} else {
 		    print "\tif _r < 0 {"
 		}
-		print "\t\terr = GetErrno()"
+		print "\t\terrno = GetErrno()"
+		print "\t\tsetErrno = true"
 		print "\t}"
+		seterr = 1
 	    } else if (gotype == "uintptr" && cfnresult ~ /^\*/) {
 		printf("\t%s = (%s)(unsafe.Pointer(_r))\n", goname, gotype)
 	    } else {
@@ -240,7 +265,13 @@ BEGIN {
     }
 
     if (blocking) {
-	print "\texitsyscall()"
+	print "\tExitsyscall()"
+    }
+
+    if (seterr) {
+	print "\tif setErrno {"
+	print "\t\terr = errno"
+	print "\t}"
     }
 
     if (gofnresults != "") {

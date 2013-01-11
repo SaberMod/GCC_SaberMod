@@ -1,4 +1,4 @@
-// $G $D/$F.go && $L $F.$A && ./$A.out
+// run
 
 // Copyright 2010 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
@@ -7,7 +7,7 @@
 package main
 
 import (
-	"os"
+	"errors"
 	"strconv"
 )
 
@@ -44,7 +44,7 @@ func main() {
 	}
 	mm := make(map[string]error)
 	trace = ""
-	mm["abc"] = os.EINVAL
+	mm["abc"] = errors.New("invalid")
 	*i(), mm[f()] = strconv.Atoi(h())
 	if mm["abc"] != nil || trace != "ifh" {
 		println("BUG1", mm["abc"], trace)

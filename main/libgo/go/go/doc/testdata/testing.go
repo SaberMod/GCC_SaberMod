@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // Package testing provides support for automated testing of Go packages.
-// It is intended to be used in concert with the ``gotest'' utility, which automates
+// It is intended to be used in concert with the ``go test'' utility, which automates
 // execution of any function of the form
 //     func TestXxx(*testing.T)
 // where Xxx can be any alphanumeric string (but the first letter must not be in
@@ -12,7 +12,7 @@
 //
 // Functions of the form
 //     func BenchmarkXxx(*testing.B)
-// are considered benchmarks, and are executed by gotest when the -test.bench
+// are considered benchmarks, and are executed by go test when the -test.bench
 // flag is provided.
 //
 // A sample benchmark function looks like this:
@@ -53,7 +53,7 @@ var (
 	// The short flag requests that tests run more quickly, but its functionality
 	// is provided by test writers themselves.  The testing package is just its
 	// home.  The all.bash installation script sets it to make installation more
-	// efficient, but by default the flag is off so a plain "gotest" will do a
+	// efficient, but by default the flag is off so a plain "go test" will do a
 	// full test of the package.
 	short = flag.Bool("test.short", false, "run smaller test suite to save time")
 
@@ -197,7 +197,7 @@ func (c *common) Fatalf(format string, args ...interface{}) {
 	c.FailNow()
 }
 
-// Parallel signals that this test is to be run in parallel with (and only with) 
+// Parallel signals that this test is to be run in parallel with (and only with)
 // other parallel tests in this CPU group.
 func (t *T) Parallel() {
 	t.signal <- (*T)(nil) // Release main testing loop
@@ -205,7 +205,7 @@ func (t *T) Parallel() {
 }
 
 // An internal type but exported because it is cross-package; part of the implementation
-// of gotest.
+// of go test.
 type InternalTest struct {
 	Name string
 	F    func(*T)
@@ -215,7 +215,7 @@ func tRunner(t *T, test *InternalTest) {
 	t.start = time.Now()
 
 	// When this goroutine is done, either because test.F(t)
-	// returned normally or because a test failure triggered 
+	// returned normally or because a test failure triggered
 	// a call to runtime.Goexit, record the duration and send
 	// a signal saying that the test is done.
 	defer func() {
@@ -227,7 +227,7 @@ func tRunner(t *T, test *InternalTest) {
 }
 
 // An internal function but exported because it is cross-package; part of the implementation
-// of gotest.
+// of go test.
 func Main(matchString func(pat, str string) (bool, error), tests []InternalTest, benchmarks []InternalBenchmark, examples []InternalExample) {
 	flag.Parse()
 	parseCpuList()

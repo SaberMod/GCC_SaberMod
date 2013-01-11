@@ -4,9 +4,11 @@
    Use of this source code is governed by a BSD-style
    license that can be found in the LICENSE file.  */
 
+#include "runtime.h"
 #include "go-alloc.h"
 #include "go-assert.h"
 #include "go-panic.h"
+#include "go-type.h"
 #include "interface.h"
 
 /* This is called by the compiler to implement a type assertion from
@@ -26,14 +28,8 @@ __go_assert_interface (const struct __go_type_descriptor *lhs_descriptor,
 
       /* A type assertion is not permitted with a nil interface.  */
 
-      newTypeAssertionError (NULL,
-			     NULL,
-			     lhs_descriptor,
-			     NULL,
-			     NULL,
-			     lhs_descriptor->__reflection,
-			     NULL,
-			     &panic_arg);
+      runtime_newTypeAssertionError (NULL, NULL, lhs_descriptor->__reflection,
+				     NULL, &panic_arg);
       __go_panic (panic_arg);
     }
 

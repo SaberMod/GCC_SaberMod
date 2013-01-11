@@ -8,11 +8,6 @@
 
 #include <gmp.h>
 
-#ifndef ENABLE_BUILD_WITH_CXX
-extern "C"
-{
-#endif
-
 #include "toplev.h"
 #include "tree.h"
 #include "gimple.h"
@@ -22,12 +17,8 @@ extern "C"
 #include "convert.h"
 #include "output.h"
 #include "diagnostic.h"
-
-#ifndef ENABLE_BUILD_WITH_CXX
-}
-#endif
-
 #include "go-c.h"
+
 #include "types.h"
 #include "expressions.h"
 #include "statements.h"
@@ -260,9 +251,7 @@ Gogo::get_init_fn_name()
 	}
       else
 	{
-	  std::string s = this->unique_prefix();
-	  s.append(1, '.');
-	  s.append(this->package_name());
+	  std::string s = this->pkgpath_symbol();
 	  s.append("..import");
 	  this->init_fn_name_ = s;
 	}
@@ -355,17 +344,19 @@ Gogo::register_gc_vars(const std::vector<Named_object*>& var_gc,
 
   // Build an initialier for the __roots array.
 
-  VEC(constructor_elt,gc)* roots_init = VEC_alloc(constructor_elt, gc,
-						  count + 1);
+  vec<constructor_elt, va_gc> *roots_init;
+  vec_alloc(roots_init, count + 1);
 
   size_t i = 0;
   for (std::vector<Named_object*>::const_iterator p = var_gc.begin();
        p != var_gc.end();
        ++p, ++i)
     {
-      VEC(constructor_elt,gc)* init = VEC_alloc(constructor_elt, gc, 2);
+      vec<constructor_elt, va_gc> *init;
+      vec_alloc(init, 2);
 
-      constructor_elt* elt = VEC_quick_push(constructor_elt, init, NULL);
+      constructor_elt empty = {NULL, NULL};
+      constructor_elt* elt = init->quick_push(empty);
       tree field = TYPE_FIELDS(root_type);
       elt->index = field;
       Bvariable* bvar = (*p)->get_backend_variable(this, NULL);
@@ -373,44 +364,47 @@ Gogo::register_gc_vars(const std::vector<Named_object*>& var_gc,
       go_assert(TREE_CODE(decl) == VAR_DECL);
       elt->value = build_fold_addr_expr(decl);
 
-      elt = VEC_quick_push(constructor_elt, init, NULL);
+      elt = init->quick_push(empty);
       field = DECL_CHAIN(field);
       elt->index = field;
       elt->value = DECL_SIZE_UNIT(decl);
 
-      elt = VEC_quick_push(constructor_elt, roots_init, NULL);
+      elt = roots_init->quick_push(empty);
       elt->index = size_int(i);
       elt->value = build_constructor(root_type, init);
     }
 
   // The list ends with a NULL entry.
 
-  VEC(constructor_elt,gc)* init = VEC_alloc(constructor_elt, gc, 2);
+  vec<constructor_elt, va_gc> *init;
+  vec_alloc(init, 2);
 
-  constructor_elt* elt = VEC_quick_push(constructor_elt, init, NULL);
+  constructor_elt empty = {NULL, NULL};
+  constructor_elt* elt = init->quick_push(empty);
   tree field = TYPE_FIELDS(root_type);
   elt->index = field;
   elt->value = fold_convert(TREE_TYPE(field), null_pointer_node);
 
-  elt = VEC_quick_push(constructor_elt, init, NULL);
+  elt = init->quick_push(empty);
   field = DECL_CHAIN(field);
   elt->index = field;
   elt->value = size_zero_node;
 
-  elt = VEC_quick_push(constructor_elt, roots_init, NULL);
+  elt = roots_init->quick_push(empty);
   elt->index = size_int(i);
   elt->value = build_constructor(root_type, init);
 
   // Build a constructor for the struct.
 
-  VEC(constructor_elt,gc*) root_list_init = VEC_alloc(constructor_elt, gc, 2);
+  vec<constructor_elt, va_gc> *root_list_init;
+  vec_alloc(root_list_init, 2);
 
-  elt = VEC_quick_push(constructor_elt, root_list_init, NULL);
+  elt = root_list_init->quick_push(empty);
   field = TYPE_FIELDS(root_list_type);
   elt->index = field;
   elt->value = fold_convert(TREE_TYPE(field), null_pointer_node);
 
-  elt = VEC_quick_push(constructor_elt, root_list_init, NULL);
+  elt = root_list_init->quick_push(empty);
   field = DECL_CHAIN(field);
   elt->index = field;
   elt->value = build_constructor(array_type, roots_init);
@@ -485,7 +479,6 @@ Gogo::write_initialization_function(tree fndecl, tree init_stmt_list)
 
   DECL_SAVED_TREE(fndecl) = init_stmt_list;
 
-  current_function_decl = fndecl;
   if (DECL_STRUCT_FUNCTION(fndecl) == NULL)
     push_struct_function(fndecl);
   else
@@ -495,9 +488,7 @@ Gogo::write_initialization_function(tree fndecl, tree init_stmt_list)
   gimplify_function_tree(fndecl);
 
   cgraph_add_new_function(fndecl, false);
-  cgraph_mark_needed_node(cgraph_get_node(fndecl));
 
-  current_function_decl = NULL_TREE;
   pop_cfun();
 }
 
@@ -591,10 +582,11 @@ Find_var::expression(Expression** pexpr)
   return TRAVERSE_CONTINUE;
 }
 
-// Return true if EXPR refers to VAR.
+// Return true if EXPR, PREINIT, or DEP refers to VAR.
 
 static bool
-expression_requires(Expression* expr, Block* preinit, Named_object* var)
+expression_requires(Expression* expr, Block* preinit, Named_object* dep,
+		    Named_object* var)
 {
   Find_var::Seen_objects seen_objects;
   Find_var find_var(var, &seen_objects);
@@ -602,7 +594,15 @@ expression_requires(Expression* expr, Block* preinit, Named_object* var)
     Expression::traverse(&expr, &find_var);
   if (preinit != NULL)
     preinit->traverse(&find_var);
-  
+  if (dep != NULL)
+    {
+      Expression* init = dep->var_value()->init();
+      if (init != NULL)
+	Expression::traverse(&init, &find_var);
+      if (dep->var_value()->has_pre_init())
+	dep->var_value()->preinit()->traverse(&find_var);
+    }
+
   return find_var.found();
 }
 
@@ -659,7 +659,7 @@ typedef std::list<Var_init> Var_inits;
 // variable V2 then we initialize V1 after V2.
 
 static void
-sort_var_inits(Var_inits* var_inits)
+sort_var_inits(Gogo* gogo, Var_inits* var_inits)
 {
   Var_inits ready;
   while (!var_inits->empty())
@@ -668,6 +668,7 @@ sort_var_inits(Var_inits* var_inits)
       Named_object* var = p1->var();
       Expression* init = var->var_value()->init();
       Block* preinit = var->var_value()->preinit();
+      Named_object* dep = gogo->var_depends_on(var->var_value());
 
       // Start walking through the list to see which variables VAR
       // needs to wait for.  We can skip P1->WAITING variables--that
@@ -679,20 +680,22 @@ sort_var_inits(Var_inits* var_inits)
 
       for (; p2 != var_inits->end(); ++p2)
 	{
-	  if (expression_requires(init, preinit, p2->var()))
+	  Named_object* p2var = p2->var();
+	  if (expression_requires(init, preinit, dep, p2var))
 	    {
 	      // Check for cycles.
-	      if (expression_requires(p2->var()->var_value()->init(),
-				      p2->var()->var_value()->preinit(),
+	      if (expression_requires(p2var->var_value()->init(),
+				      p2var->var_value()->preinit(),
+				      gogo->var_depends_on(p2var->var_value()),
 				      var))
 		{
 		  error_at(var->location(),
 			   ("initialization expressions for %qs and "
 			    "%qs depend upon each other"),
 			   var->message_name().c_str(),
-			   p2->var()->message_name().c_str());
+			   p2var->message_name().c_str());
 		  inform(p2->var()->location(), "%qs defined here",
-			 p2->var()->message_name().c_str());
+			 p2var->message_name().c_str());
 		  p2 = var_inits->end();
 		}
 	      else
@@ -715,9 +718,11 @@ sort_var_inits(Var_inits* var_inits)
 	  // VAR does not depends upon any other initialization expressions.
 
 	  // Check for a loop of VAR on itself.  We only do this if
-	  // INIT is not NULL; when INIT is NULL, it means that
-	  // PREINIT sets VAR, which we will interpret as a loop.
-	  if (init != NULL && expression_requires(init, preinit, var))
+	  // INIT is not NULL and there is no dependency; when INIT is
+	  // NULL, it means that PREINIT sets VAR, which we will
+	  // interpret as a loop.
+	  if (init != NULL && dep == NULL
+	      && expression_requires(init, preinit, NULL, var))
 	    error_at(var->location(),
 		     "initialization expression for %qs depends upon itself",
 		     var->message_name().c_str());
@@ -784,7 +789,7 @@ Gogo::write_globals()
 	}
 
       // There is nothing useful we can output for constants which
-      // have ideal or non-integeral type.
+      // have ideal or non-integral type.
       if (no->is_const())
 	{
 	  Type* type = no->const_value()->type();
@@ -835,7 +840,9 @@ Gogo::write_globals()
 		;
 	      else if (TREE_CONSTANT(init))
 		{
-		  if (expression_requires(no->var_value()->init(), NULL, no))
+		  if (expression_requires(no->var_value()->init(), NULL,
+					  this->var_depends_on(no->var_value()),
+					  no))
 		    error_at(no->location(),
 			     "initialization expression for %qs depends "
 			     "upon itself",
@@ -843,7 +850,9 @@ Gogo::write_globals()
 		  this->backend()->global_variable_set_init(var,
 							    tree_to_expr(init));
 		}
-	      else if (is_sink)
+	      else if (is_sink
+		       || int_size_in_bytes(TREE_TYPE(init)) == 0
+		       || int_size_in_bytes(TREE_TYPE(vec[i])) == 0)
 		var_init_tree = init;
 	      else
 		var_init_tree = fold_build2_loc(no->location().gcc_location(),
@@ -856,17 +865,13 @@ Gogo::write_globals()
 	      // means that we need an fndecl.
 	      if (init_fndecl == NULL_TREE)
 		init_fndecl = this->initialization_function_decl();
-	      current_function_decl = init_fndecl;
 	      if (DECL_STRUCT_FUNCTION(init_fndecl) == NULL)
 		push_struct_function(init_fndecl);
 	      else
 		push_cfun(DECL_STRUCT_FUNCTION(init_fndecl));
-
 	      tree var_decl = is_sink ? NULL_TREE : vec[i];
 	      var_init_tree = no->var_value()->get_init_block(this, NULL,
 							      var_decl);
-
-	      current_function_decl = NULL_TREE;
 	      pop_cfun();
 	    }
 
@@ -877,6 +882,14 @@ Gogo::write_globals()
 		append_to_statement_list(var_init_tree, &var_init_stmt_list);
 	      else
 		var_inits.push_back(Var_init(no, var_init_tree));
+	    }
+	  else if (this->var_depends_on(no->var_value()) != NULL)
+	    {
+	      // This variable is initialized from something that is
+	      // not in its init or preinit.  This variable needs to
+	      // participate in dependency analysis sorting, in case
+	      // some other variable depends on this one.
+	      var_inits.push_back(Var_init(no, integer_zero_node));
 	    }
 
 	  if (!is_sink && no->var_value()->type()->has_pointer())
@@ -895,7 +908,7 @@ Gogo::write_globals()
   // workable order.
   if (!var_inits.empty())
     {
-      sort_var_inits(&var_inits);
+      sort_var_inits(this, &var_inits);
       for (Var_inits::const_iterator p = var_inits.begin();
 	   p != var_inits.end();
 	   ++p)
@@ -929,7 +942,7 @@ Gogo::write_globals()
 
   wrapup_global_declarations(vec, count);
 
-  cgraph_finalize_compilation_unit();
+  finalize_compilation_unit();
 
   check_global_declarations(vec, count);
   emit_debug_global_declarations(vec, count);
@@ -959,7 +972,7 @@ Named_object::get_id(Gogo* gogo)
       if (this->package_ == NULL)
 	package_name = gogo->package_name();
       else
-	package_name = this->package_->name();
+	package_name = this->package_->package_name();
 
       decl_name = package_name + '.' + Gogo::unpack_hidden_name(this->name_);
 
@@ -978,9 +991,19 @@ Named_object::get_id(Gogo* gogo)
     }
   if (this->is_type())
     {
-      const Named_object* in_function = this->type_value()->in_function();
+      unsigned int index;
+      const Named_object* in_function = this->type_value()->in_function(&index);
       if (in_function != NULL)
-	decl_name += '$' + in_function->name();
+	{
+	  decl_name += '$' + Gogo::unpack_hidden_name(in_function->name());
+	  if (index > 0)
+	    {
+	      char buf[30];
+	      snprintf(buf, sizeof buf, "%u", index);
+	      decl_name += '$';
+	      decl_name += buf;
+	    }
+	}
     }
   return get_identifier_from_string(decl_name);
 }
@@ -1100,15 +1123,12 @@ Named_object::get_tree(Gogo* gogo, Named_object* function)
 		cfun->function_end_locus =
                   func->block()->end_location().gcc_location();
 
-		current_function_decl = decl;
-
 		func->build_tree(gogo, this);
 
 		gimplify_function_tree(decl);
 
 		cgraph_finalize_function(decl, true);
 
-		current_function_decl = NULL_TREE;
 		pop_cfun();
 	      }
 	  }
@@ -1252,9 +1272,15 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no, tree id)
 		   || this->type_->is_method())
 	    {
 	      TREE_PUBLIC(decl) = 1;
-	      std::string asm_name = gogo->unique_prefix();
+	      std::string asm_name = gogo->pkgpath_symbol();
 	      asm_name.append(1, '.');
-	      asm_name.append(IDENTIFIER_POINTER(id), IDENTIFIER_LENGTH(id));
+	      asm_name.append(Gogo::unpack_hidden_name(no->name()));
+	      if (this->type_->is_method())
+		{
+		  asm_name.append(1, '.');
+		  Type* rtype = this->type_->receiver()->type();
+		  asm_name.append(rtype->mangled_name(gogo));
+		}
 	      SET_DECL_ASSEMBLER_NAME(decl,
 				      get_identifier_from_string(asm_name));
 	    }
@@ -1289,6 +1315,9 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no, tree id)
 	      tree attr = get_identifier("__no_split_stack__");
 	      DECL_ATTRIBUTES(decl) = tree_cons(attr, NULL_TREE, NULL_TREE);
 	    }
+
+	  if (this->in_unique_section_)
+	    resolve_unique_section (decl, 0, 1);
 
 	  go_preserve_from_gc(decl);
 
@@ -1357,10 +1386,16 @@ Function_declaration::get_or_make_decl(Gogo* gogo, Named_object* no, tree id)
 	  if (this->asm_name_.empty())
 	    {
 	      std::string asm_name = (no->package() == NULL
-				      ? gogo->unique_prefix()
-				      : no->package()->unique_prefix());
+				      ? gogo->pkgpath_symbol()
+				      : no->package()->pkgpath_symbol());
 	      asm_name.append(1, '.');
-	      asm_name.append(IDENTIFIER_POINTER(id), IDENTIFIER_LENGTH(id));
+	      asm_name.append(Gogo::unpack_hidden_name(no->name()));
+	      if (this->fntype_->is_method())
+		{
+		  asm_name.append(1, '.');
+		  Type* rtype = this->fntype_->receiver()->type();
+		  asm_name.append(rtype->mangled_name(gogo));
+		}
 	      SET_DECL_ASSEMBLER_NAME(decl,
 				      get_identifier_from_string(asm_name));
 	    }
@@ -2001,9 +2036,11 @@ Gogo::go_string_constant_tree(const std::string& val)
 {
   tree string_type = type_to_tree(Type::make_string_type()->get_backend(this));
 
-  VEC(constructor_elt, gc)* init = VEC_alloc(constructor_elt, gc, 2);
+  vec<constructor_elt, va_gc> *init;
+  vec_alloc(init, 2);
 
-  constructor_elt* elt = VEC_quick_push(constructor_elt, init, NULL);
+  constructor_elt empty = {NULL, NULL};
+  constructor_elt* elt = init->quick_push(empty);
   tree field = TYPE_FIELDS(string_type);
   go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)), "__data") == 0);
   elt->index = field;
@@ -2011,7 +2048,7 @@ Gogo::go_string_constant_tree(const std::string& val)
   elt->value = fold_convert(TREE_TYPE(field),
 			    build_fold_addr_expr(str));
 
-  elt = VEC_quick_push(constructor_elt, init, NULL);
+  elt = init->quick_push(empty);
   field = DECL_CHAIN(field);
   go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)), "__length") == 0);
   elt->index = field;
@@ -2059,11 +2096,13 @@ Gogo::slice_constructor(tree slice_type_tree, tree values, tree count,
 {
   go_assert(TREE_CODE(slice_type_tree) == RECORD_TYPE);
 
-  VEC(constructor_elt,gc)* init = VEC_alloc(constructor_elt, gc, 3);
+  vec<constructor_elt, va_gc> *init;
+  vec_alloc(init, 3);
 
   tree field = TYPE_FIELDS(slice_type_tree);
   go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)), "__values") == 0);
-  constructor_elt* elt = VEC_quick_push(constructor_elt, init, NULL);
+  constructor_elt empty = {NULL, NULL};
+  constructor_elt* elt = init->quick_push(empty);
   elt->index = field;
   go_assert(TYPE_MAIN_VARIANT(TREE_TYPE(field))
 	     == TYPE_MAIN_VARIANT(TREE_TYPE(values)));
@@ -2078,13 +2117,13 @@ Gogo::slice_constructor(tree slice_type_tree, tree values, tree count,
 
   field = DECL_CHAIN(field);
   go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)), "__count") == 0);
-  elt = VEC_quick_push(constructor_elt, init, NULL);
+  elt = init->quick_push(empty);
   elt->index = field;
   elt->value = fold_convert(TREE_TYPE(field), count);
 
   field = DECL_CHAIN(field);
   go_assert(strcmp(IDENTIFIER_POINTER(DECL_NAME(field)), "__capacity") == 0);
-  elt = VEC_quick_push(constructor_elt, init, NULL);
+  elt = init->quick_push(empty);
   elt->index = field;
   elt->value = fold_convert(TREE_TYPE(field), capacity);
 
@@ -2097,8 +2136,7 @@ Gogo::slice_constructor(tree slice_type_tree, tree values, tree count,
 
 tree
 Gogo::interface_method_table_for_type(const Interface_type* interface,
-				      Named_type* type,
-				      bool is_pointer)
+				      Type* type, bool is_pointer)
 {
   const Typed_identifier_list* interface_methods = interface->methods();
   go_assert(!interface_methods->empty());
@@ -2127,7 +2165,9 @@ Gogo::interface_method_table_for_type(const Interface_type* interface,
   // interface.  If the interface has hidden methods, and the named
   // type is defined in a different package, then the interface
   // conversion table will be defined by that other package.
-  if (has_hidden_methods && type->named_object()->package() != NULL)
+  if (has_hidden_methods
+      && type->named_type() != NULL
+      && type->named_type()->named_object()->package() != NULL)
     {
       tree array_type = build_array_type(const_ptr_type_node, NULL);
       tree decl = build_decl(BUILTINS_LOCATION, VAR_DECL, id, array_type);
@@ -2140,11 +2180,12 @@ Gogo::interface_method_table_for_type(const Interface_type* interface,
     }
 
   size_t count = interface_methods->size();
-  VEC(constructor_elt, gc)* pointers = VEC_alloc(constructor_elt, gc,
-						 count + 1);
+  vec<constructor_elt, va_gc> *pointers;
+  vec_alloc(pointers, count + 1);
 
   // The first element is the type descriptor.
-  constructor_elt* elt = VEC_quick_push(constructor_elt, pointers, NULL);
+  constructor_elt empty = {NULL, NULL};
+  constructor_elt* elt = pointers->quick_push(empty);
   elt->index = size_zero_node;
   Type* td_type;
   if (!is_pointer)
@@ -2155,13 +2196,20 @@ Gogo::interface_method_table_for_type(const Interface_type* interface,
                                               Linemap::predeclared_location());
   elt->value = fold_convert(const_ptr_type_node, tdp);
 
+  Named_type* nt = type->named_type();
+  Struct_type* st = type->struct_type();
+  go_assert(nt != NULL || st != NULL);
   size_t i = 1;
   for (Typed_identifier_list::const_iterator p = interface_methods->begin();
        p != interface_methods->end();
        ++p, ++i)
     {
       bool is_ambiguous;
-      Method* m = type->method_function(p->name(), &is_ambiguous);
+      Method* m;
+      if (nt != NULL)
+	m = nt->method_function(p->name(), &is_ambiguous);
+      else
+	m = st->method_function(p->name(), &is_ambiguous);
       go_assert(m != NULL);
 
       Named_object* no = m->named_object();
@@ -2178,7 +2226,7 @@ Gogo::interface_method_table_for_type(const Interface_type* interface,
 	go_unreachable();
       fndecl = build_fold_addr_expr(fndecl);
 
-      elt = VEC_quick_push(constructor_elt, pointers, NULL);
+      elt = pointers->quick_push(empty);
       elt->index = size_int(i);
       elt->value = fold_convert(const_ptr_type_node, fndecl);
     }
@@ -2291,14 +2339,17 @@ Gogo::call_builtin(tree* pdecl, Location location, const char* name,
 tree
 Gogo::runtime_error(int code, Location location)
 {
+  Type* int32_type = Type::lookup_integer_type("int32");
+  tree int32_type_tree = type_to_tree(int32_type->get_backend(this));
+
   static tree runtime_error_fndecl;
   tree ret = Gogo::call_builtin(&runtime_error_fndecl,
 				location,
 				"__go_runtime_error",
 				1,
 				void_type_node,
-				integer_type_node,
-				build_int_cst(integer_type_node, code));
+				int32_type_tree,
+				build_int_cst(int32_type_tree, code));
   if (ret == error_mark_node)
     return error_mark_node;
   // The runtime error function panics and does not return.

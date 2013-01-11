@@ -5,8 +5,8 @@
 package sync
 
 import (
-	"runtime"
 	"sync/atomic"
+	"unsafe"
 )
 
 // A WaitGroup waits for a collection of goroutines to finish.
@@ -14,21 +14,6 @@ import (
 // goroutines to wait for.  Then each of the goroutines
 // runs and calls Done when finished.  At the same time,
 // Wait can be used to block until all goroutines have finished.
-//
-// For example:
-//
-//   for i := 0; i < n; i++ {
-//       if !condition(i) {
-//           continue
-//       }
-//       wg.Add(1)
-//       go func() {
-//           // Do something.
-//           wg.Done()
-//       }()
-//   }
-//   wg.Wait()
-// 
 type WaitGroup struct {
 	m       Mutex
 	counter int32
@@ -50,17 +35,23 @@ type WaitGroup struct {
 
 // Add adds delta, which may be negative, to the WaitGroup counter.
 // If the counter becomes zero, all goroutines blocked on Wait() are released.
+// If the counter goes negative, Add panics.
 func (wg *WaitGroup) Add(delta int) {
+	if raceenabled {
+		raceReleaseMerge(unsafe.Pointer(wg))
+		raceDisable()
+		defer raceEnable()
+	}
 	v := atomic.AddInt32(&wg.counter, int32(delta))
 	if v < 0 {
-		panic("sync: negative WaitGroup count")
+		panic("sync: negative WaitGroup counter")
 	}
 	if v > 0 || atomic.LoadInt32(&wg.waiters) == 0 {
 		return
 	}
 	wg.m.Lock()
 	for i := int32(0); i < wg.waiters; i++ {
-		runtime.Semrelease(wg.sema)
+		runtime_Semrelease(wg.sema)
 	}
 	wg.waiters = 0
 	wg.sema = nil
@@ -74,7 +65,14 @@ func (wg *WaitGroup) Done() {
 
 // Wait blocks until the WaitGroup counter is zero.
 func (wg *WaitGroup) Wait() {
+	if raceenabled {
+		raceDisable()
+	}
 	if atomic.LoadInt32(&wg.counter) == 0 {
+		if raceenabled {
+			raceEnable()
+			raceAcquire(unsafe.Pointer(wg))
+		}
 		return
 	}
 	wg.m.Lock()
@@ -85,7 +83,15 @@ func (wg *WaitGroup) Wait() {
 	// to avoid missing an Add.
 	if atomic.LoadInt32(&wg.counter) == 0 {
 		atomic.AddInt32(&wg.waiters, -1)
+		if raceenabled {
+			raceEnable()
+			raceAcquire(unsafe.Pointer(wg))
+			raceDisable()
+		}
 		wg.m.Unlock()
+		if raceenabled {
+			raceEnable()
+		}
 		return
 	}
 	if wg.sema == nil {
@@ -93,5 +99,9 @@ func (wg *WaitGroup) Wait() {
 	}
 	s := wg.sema
 	wg.m.Unlock()
-	runtime.Semacquire(s)
+	runtime_Semacquire(s)
+	if raceenabled {
+		raceEnable()
+		raceAcquire(unsafe.Pointer(wg))
+	}
 }

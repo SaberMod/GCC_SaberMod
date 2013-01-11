@@ -4,25 +4,21 @@
 
 // +build darwin freebsd linux netbsd openbsd windows
 
-// UDP sockets
+// UDP sockets for POSIX
 
 package net
 
 import (
-	"errors"
-	"os"
 	"syscall"
 	"time"
 )
 
-var ErrWriteToConnected = errors.New("use of WriteTo with pre-connected UDP")
-
 func sockaddrToUDP(sa syscall.Sockaddr) Addr {
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		return &UDPAddr{sa.Addr[0:], sa.Port}
+		return &UDPAddr{IP: sa.Addr[0:], Port: sa.Port}
 	case *syscall.SockaddrInet6:
-		return &UDPAddr{sa.Addr[0:], sa.Port}
+		return &UDPAddr{IP: sa.Addr[0:], Port: sa.Port, Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return nil
 }
@@ -37,8 +33,15 @@ func (a *UDPAddr) family() int {
 	return syscall.AF_INET6
 }
 
+func (a *UDPAddr) isWildcard() bool {
+	if a == nil || a.IP == nil {
+		return true
+	}
+	return a.IP.IsUnspecified()
+}
+
 func (a *UDPAddr) sockaddr(family int) (syscall.Sockaddr, error) {
-	return ipToSockaddr(family, a.IP, a.Port)
+	return ipToSockaddr(family, a.IP, a.Port, a.Zone)
 }
 
 func (a *UDPAddr) toAddr() sockaddr {
@@ -51,100 +54,10 @@ func (a *UDPAddr) toAddr() sockaddr {
 // UDPConn is the implementation of the Conn and PacketConn
 // interfaces for UDP network connections.
 type UDPConn struct {
-	fd *netFD
+	conn
 }
 
-func newUDPConn(fd *netFD) *UDPConn { return &UDPConn{fd} }
-
-func (c *UDPConn) ok() bool { return c != nil && c.fd != nil }
-
-// Implementation of the Conn interface - see Conn for documentation.
-
-// Read implements the Conn Read method.
-func (c *UDPConn) Read(b []byte) (int, error) {
-	if !c.ok() {
-		return 0, os.EINVAL
-	}
-	return c.fd.Read(b)
-}
-
-// Write implements the Conn Write method.
-func (c *UDPConn) Write(b []byte) (int, error) {
-	if !c.ok() {
-		return 0, os.EINVAL
-	}
-	return c.fd.Write(b)
-}
-
-// Close closes the UDP connection.
-func (c *UDPConn) Close() error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	err := c.fd.Close()
-	c.fd = nil
-	return err
-}
-
-// LocalAddr returns the local network address.
-func (c *UDPConn) LocalAddr() Addr {
-	if !c.ok() {
-		return nil
-	}
-	return c.fd.laddr
-}
-
-// RemoteAddr returns the remote network address, a *UDPAddr.
-func (c *UDPConn) RemoteAddr() Addr {
-	if !c.ok() {
-		return nil
-	}
-	return c.fd.raddr
-}
-
-// SetDeadline implements the Conn SetDeadline method.
-func (c *UDPConn) SetDeadline(t time.Time) error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	return setDeadline(c.fd, t)
-}
-
-// SetReadDeadline implements the Conn SetReadDeadline method.
-func (c *UDPConn) SetReadDeadline(t time.Time) error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	return setReadDeadline(c.fd, t)
-}
-
-// SetWriteDeadline implements the Conn SetWriteDeadline method.
-func (c *UDPConn) SetWriteDeadline(t time.Time) error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	return setWriteDeadline(c.fd, t)
-}
-
-// SetReadBuffer sets the size of the operating system's
-// receive buffer associated with the connection.
-func (c *UDPConn) SetReadBuffer(bytes int) error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	return setReadBuffer(c.fd, bytes)
-}
-
-// SetWriteBuffer sets the size of the operating system's
-// transmit buffer associated with the connection.
-func (c *UDPConn) SetWriteBuffer(bytes int) error {
-	if !c.ok() {
-		return os.EINVAL
-	}
-	return setWriteBuffer(c.fd, bytes)
-}
-
-// UDP-specific methods.
+func newUDPConn(fd *netFD) *UDPConn { return &UDPConn{conn{fd}} }
 
 // ReadFromUDP reads a UDP packet from c, copying the payload into b.
 // It returns the number of bytes copied into b and the return address
@@ -154,14 +67,14 @@ func (c *UDPConn) SetWriteBuffer(bytes int) error {
 // after a fixed time limit; see SetDeadline and SetReadDeadline.
 func (c *UDPConn) ReadFromUDP(b []byte) (n int, addr *UDPAddr, err error) {
 	if !c.ok() {
-		return 0, nil, os.EINVAL
+		return 0, nil, syscall.EINVAL
 	}
 	n, sa, err := c.fd.ReadFrom(b)
 	switch sa := sa.(type) {
 	case *syscall.SockaddrInet4:
-		addr = &UDPAddr{sa.Addr[0:], sa.Port}
+		addr = &UDPAddr{IP: sa.Addr[0:], Port: sa.Port}
 	case *syscall.SockaddrInet6:
-		addr = &UDPAddr{sa.Addr[0:], sa.Port}
+		addr = &UDPAddr{IP: sa.Addr[0:], Port: sa.Port, Zone: zoneToString(int(sa.ZoneId))}
 	}
 	return
 }
@@ -169,10 +82,30 @@ func (c *UDPConn) ReadFromUDP(b []byte) (n int, addr *UDPAddr, err error) {
 // ReadFrom implements the PacketConn ReadFrom method.
 func (c *UDPConn) ReadFrom(b []byte) (int, Addr, error) {
 	if !c.ok() {
-		return 0, nil, os.EINVAL
+		return 0, nil, syscall.EINVAL
 	}
-	n, uaddr, err := c.ReadFromUDP(b)
-	return n, uaddr.toAddr(), err
+	n, addr, err := c.ReadFromUDP(b)
+	return n, addr.toAddr(), err
+}
+
+// ReadMsgUDP reads a packet from c, copying the payload into b and
+// the associdated out-of-band data into oob.  It returns the number
+// of bytes copied into b, the number of bytes copied into oob, the
+// flags that were set on the packet and the source address of the
+// packet.
+func (c *UDPConn) ReadMsgUDP(b, oob []byte) (n, oobn, flags int, addr *UDPAddr, err error) {
+	if !c.ok() {
+		return 0, 0, 0, nil, syscall.EINVAL
+	}
+	var sa syscall.Sockaddr
+	n, oobn, flags, sa, err = c.fd.ReadMsg(b, oob)
+	switch sa := sa.(type) {
+	case *syscall.SockaddrInet4:
+		addr = &UDPAddr{IP: sa.Addr[0:], Port: sa.Port}
+	case *syscall.SockaddrInet6:
+		addr = &UDPAddr{IP: sa.Addr[0:], Port: sa.Port, Zone: zoneToString(int(sa.ZoneId))}
+	}
+	return
 }
 
 // WriteToUDP writes a UDP packet to addr via c, copying the payload from b.
@@ -183,7 +116,7 @@ func (c *UDPConn) ReadFrom(b []byte) (int, Addr, error) {
 // On packet-oriented connections, write timeouts are rare.
 func (c *UDPConn) WriteToUDP(b []byte, addr *UDPAddr) (int, error) {
 	if !c.ok() {
-		return 0, os.EINVAL
+		return 0, syscall.EINVAL
 	}
 	if c.fd.isConnected {
 		return 0, &OpError{"write", c.fd.net, addr, ErrWriteToConnected}
@@ -198,24 +131,40 @@ func (c *UDPConn) WriteToUDP(b []byte, addr *UDPAddr) (int, error) {
 // WriteTo implements the PacketConn WriteTo method.
 func (c *UDPConn) WriteTo(b []byte, addr Addr) (int, error) {
 	if !c.ok() {
-		return 0, os.EINVAL
+		return 0, syscall.EINVAL
 	}
 	a, ok := addr.(*UDPAddr)
 	if !ok {
-		return 0, &OpError{"write", c.fd.net, addr, os.EINVAL}
+		return 0, &OpError{"write", c.fd.net, addr, syscall.EINVAL}
 	}
 	return c.WriteToUDP(b, a)
 }
 
-// File returns a copy of the underlying os.File, set to blocking mode.
-// It is the caller's responsibility to close f when finished.
-// Closing c does not affect f, and closing f does not affect c.
-func (c *UDPConn) File() (f *os.File, err error) { return c.fd.dup() }
+// WriteMsgUDP writes a packet to addr via c, copying the payload from
+// b and the associated out-of-band data from oob.  It returns the
+// number of payload and out-of-band bytes written.
+func (c *UDPConn) WriteMsgUDP(b, oob []byte, addr *UDPAddr) (n, oobn int, err error) {
+	if !c.ok() {
+		return 0, 0, syscall.EINVAL
+	}
+	if c.fd.isConnected {
+		return 0, 0, &OpError{"write", c.fd.net, addr, ErrWriteToConnected}
+	}
+	sa, err := addr.sockaddr(c.fd.family)
+	if err != nil {
+		return 0, 0, &OpError{"write", c.fd.net, addr, err}
+	}
+	return c.fd.WriteMsg(b, oob, sa)
+}
 
 // DialUDP connects to the remote address raddr on the network net,
 // which must be "udp", "udp4", or "udp6".  If laddr is not nil, it is used
 // as the local address for the connection.
 func DialUDP(net string, laddr, raddr *UDPAddr) (*UDPConn, error) {
+	return dialUDP(net, laddr, raddr, noDeadline)
+}
+
+func dialUDP(net string, laddr, raddr *UDPAddr, deadline time.Time) (*UDPConn, error) {
 	switch net {
 	case "udp", "udp4", "udp6":
 	default:
@@ -224,7 +173,7 @@ func DialUDP(net string, laddr, raddr *UDPAddr) (*UDPConn, error) {
 	if raddr == nil {
 		return nil, &OpError{"dial", net, nil, errMissingAddress}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), syscall.SOCK_DGRAM, 0, "dial", sockaddrToUDP)
+	fd, err := internetSocket(net, laddr.toAddr(), raddr.toAddr(), deadline, syscall.SOCK_DGRAM, 0, "dial", sockaddrToUDP)
 	if err != nil {
 		return nil, err
 	}
@@ -242,9 +191,9 @@ func ListenUDP(net string, laddr *UDPAddr) (*UDPConn, error) {
 		return nil, UnknownNetworkError(net)
 	}
 	if laddr == nil {
-		return nil, &OpError{"listen", net, nil, errMissingAddress}
+		laddr = &UDPAddr{}
 	}
-	fd, err := internetSocket(net, laddr.toAddr(), nil, syscall.SOCK_DGRAM, 0, "listen", sockaddrToUDP)
+	fd, err := internetSocket(net, laddr.toAddr(), nil, noDeadline, syscall.SOCK_DGRAM, 0, "listen", sockaddrToUDP)
 	if err != nil {
 		return nil, err
 	}
@@ -262,9 +211,9 @@ func ListenMulticastUDP(net string, ifi *Interface, gaddr *UDPAddr) (*UDPConn, e
 		return nil, UnknownNetworkError(net)
 	}
 	if gaddr == nil || gaddr.IP == nil {
-		return nil, &OpError{"listenmulticastudp", "udp", nil, errMissingAddress}
+		return nil, &OpError{"listenmulticast", net, nil, errMissingAddress}
 	}
-	fd, err := internetSocket(net, gaddr.toAddr(), nil, syscall.SOCK_DGRAM, 0, "listen", sockaddrToUDP)
+	fd, err := internetSocket(net, gaddr.toAddr(), nil, noDeadline, syscall.SOCK_DGRAM, 0, "listen", sockaddrToUDP)
 	if err != nil {
 		return nil, err
 	}
@@ -325,15 +274,7 @@ func listenIPv6MulticastUDP(c *UDPConn, ifi *Interface, ip IP) error {
 func joinIPv4GroupUDP(c *UDPConn, ifi *Interface, ip IP) error {
 	err := joinIPv4Group(c.fd, ifi, ip)
 	if err != nil {
-		return &OpError{"joinipv4group", c.fd.net, &IPAddr{ip}, err}
-	}
-	return nil
-}
-
-func leaveIPv4GroupUDP(c *UDPConn, ifi *Interface, ip IP) error {
-	err := leaveIPv4Group(c.fd, ifi, ip)
-	if err != nil {
-		return &OpError{"leaveipv4group", c.fd.net, &IPAddr{ip}, err}
+		return &OpError{"joinipv4group", c.fd.net, &IPAddr{IP: ip}, err}
 	}
 	return nil
 }
@@ -341,15 +282,7 @@ func leaveIPv4GroupUDP(c *UDPConn, ifi *Interface, ip IP) error {
 func joinIPv6GroupUDP(c *UDPConn, ifi *Interface, ip IP) error {
 	err := joinIPv6Group(c.fd, ifi, ip)
 	if err != nil {
-		return &OpError{"joinipv6group", c.fd.net, &IPAddr{ip}, err}
-	}
-	return nil
-}
-
-func leaveIPv6GroupUDP(c *UDPConn, ifi *Interface, ip IP) error {
-	err := leaveIPv6Group(c.fd, ifi, ip)
-	if err != nil {
-		return &OpError{"leaveipv6group", c.fd.net, &IPAddr{ip}, err}
+		return &OpError{"joinipv6group", c.fd.net, &IPAddr{IP: ip}, err}
 	}
 	return nil
 }

@@ -44,6 +44,9 @@ const (
 	ErrTrailingBackslash     ErrorCode = "trailing backslash at end of expression"
 )
 
+// TODO: Export for Go 1.1.
+const errUnexpectedParen ErrorCode = "unexpected )"
+
 func (e ErrorCode) String() string {
 	return string(e)
 }
@@ -463,7 +466,7 @@ func (p *parser) factor(sub []*Regexp, flags Flags) []*Regexp {
 			// Construct factored form: prefix(suffix1|suffix2|...)
 			prefix := first
 			for j := start; j < i; j++ {
-				reuse := j != start // prefix came from sub[start] 
+				reuse := j != start // prefix came from sub[start]
 				sub[j] = p.removeLeadingRegexp(sub[j], reuse)
 			}
 			suffix := p.collapse(sub[start:i], OpAlternate) // recurse
@@ -648,6 +651,9 @@ func literalRegexp(s string, flags Flags) *Regexp {
 
 // Parsing.
 
+// Parse parses a regular expression string s, controlled by the specified
+// Flags, and returns a regular expression parse tree. The syntax is
+// described in the top-level comment for package regexp.
 func Parse(s string, flags Flags) (*Regexp, error) {
 	if flags&Literal != 0 {
 		// Trivial parser for literal string.
@@ -1161,13 +1167,13 @@ func (p *parser) parseRightParen() error {
 
 	n := len(p.stack)
 	if n < 2 {
-		return &Error{ErrInternalError, ""}
+		return &Error{errUnexpectedParen, p.wholeRegexp}
 	}
 	re1 := p.stack[n-1]
 	re2 := p.stack[n-2]
 	p.stack = p.stack[:n-2]
 	if re2.Op != opLeftParen {
-		return &Error{ErrMissingParen, p.wholeRegexp}
+		return &Error{errUnexpectedParen, p.wholeRegexp}
 	}
 	// Restore flags at time of paren.
 	p.flags = re2.Flags

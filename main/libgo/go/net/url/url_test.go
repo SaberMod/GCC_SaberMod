@@ -7,6 +7,7 @@ package url
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -188,22 +189,37 @@ var urltests = []URLTest{
 		},
 		"http://user:password@google.com",
 	},
-}
-
-var urlnofragtests = []URLTest{
+	// unescaped @ in username should not confuse host
 	{
-		"http://www.google.com/?q=go+language#foo",
+		"http://j@ne:password@google.com",
+		&URL{
+			Scheme: "http",
+			User:   UserPassword("j@ne", "password"),
+			Host:   "google.com",
+		},
+		"http://j%40ne:password@google.com",
+	},
+	// unescaped @ in password should not confuse host
+	{
+		"http://jane:p@ssword@google.com",
+		&URL{
+			Scheme: "http",
+			User:   UserPassword("jane", "p@ssword"),
+			Host:   "google.com",
+		},
+		"http://jane:p%40ssword@google.com",
+	},
+	{
+		"http://j@ne:password@google.com/p@th?q=@go",
 		&URL{
 			Scheme:   "http",
-			Host:     "www.google.com",
-			Path:     "/",
-			RawQuery: "q=go+language#foo",
+			User:     UserPassword("j@ne", "password"),
+			Host:     "google.com",
+			Path:     "/p@th",
+			RawQuery: "q=@go",
 		},
-		"",
+		"http://j%40ne:password@google.com/p@th?q=@go",
 	},
-}
-
-var urlfragtests = []URLTest{
 	{
 		"http://www.google.com/?q=go+language#foo",
 		&URL{
@@ -257,12 +273,6 @@ func DoTest(t *testing.T, parse func(string) (*URL, error), name string, tests [
 
 func TestParse(t *testing.T) {
 	DoTest(t, Parse, "Parse", urltests)
-	DoTest(t, Parse, "Parse", urlnofragtests)
-}
-
-func TestParseWithReference(t *testing.T) {
-	DoTest(t, ParseWithReference, "ParseWithReference", urltests)
-	DoTest(t, ParseWithReference, "ParseWithReference", urlfragtests)
 }
 
 const pathThatLooksSchemeRelative = "//not.a.user@not.a.host/just/a/path"
@@ -281,16 +291,16 @@ var parseRequestUrlTests = []struct {
 	{"../dir/", false},
 }
 
-func TestParseRequest(t *testing.T) {
+func TestParseRequestURI(t *testing.T) {
 	for _, test := range parseRequestUrlTests {
-		_, err := ParseRequest(test.url)
+		_, err := ParseRequestURI(test.url)
 		valid := err == nil
 		if valid != test.expectedValid {
 			t.Errorf("Expected valid=%v for %q; got %v", test.expectedValid, test.url, valid)
 		}
 	}
 
-	url, err := ParseRequest(pathThatLooksSchemeRelative)
+	url, err := ParseRequestURI(pathThatLooksSchemeRelative)
 	if err != nil {
 		t.Fatalf("Unexpected error %v", err)
 	}
@@ -319,9 +329,6 @@ func DoTestString(t *testing.T, parse func(string) (*URL, error), name string, t
 
 func TestURLString(t *testing.T) {
 	DoTestString(t, Parse, "Parse", urltests)
-	DoTestString(t, Parse, "Parse", urlnofragtests)
-	DoTestString(t, ParseWithReference, "ParseWithReference", urltests)
-	DoTestString(t, ParseWithReference, "ParseWithReference", urlfragtests)
 }
 
 type EscapeTest struct {
@@ -419,8 +426,8 @@ var escapeTests = []EscapeTest{
 		nil,
 	},
 	{
-		" ?&=#+%!<>#\"{}|\\^[]`☺\t",
-		"+%3F%26%3D%23%2B%25!%3C%3E%23%22%7B%7D%7C%5C%5E%5B%5D%60%E2%98%BA%09",
+		" ?&=#+%!<>#\"{}|\\^[]`☺\t:/@$'()*,;",
+		"+%3F%26%3D%23%2B%25%21%3C%3E%23%22%7B%7D%7C%5C%5E%5B%5D%60%E2%98%BA%09%3A%2F%40%24%27%28%29%2A%2C%3B",
 		nil,
 	},
 }
@@ -447,20 +454,24 @@ func TestEscape(t *testing.T) {
 //}
 
 type EncodeQueryTest struct {
-	m         Values
-	expected  string
-	expected1 string
+	m        Values
+	expected string
 }
 
 var encodeQueryTests = []EncodeQueryTest{
-	{nil, "", ""},
-	{Values{"q": {"puppies"}, "oe": {"utf8"}}, "q=puppies&oe=utf8", "oe=utf8&q=puppies"},
-	{Values{"q": {"dogs", "&", "7"}}, "q=dogs&q=%26&q=7", "q=dogs&q=%26&q=7"},
+	{nil, ""},
+	{Values{"q": {"puppies"}, "oe": {"utf8"}}, "oe=utf8&q=puppies"},
+	{Values{"q": {"dogs", "&", "7"}}, "q=dogs&q=%26&q=7"},
+	{Values{
+		"a": {"a1", "a2", "a3"},
+		"b": {"b1", "b2", "b3"},
+		"c": {"c1", "c2", "c3"},
+	}, "a=a1&a=a2&a=a3&b=b1&b=b2&b=b3&c=c1&c=c2&c=c3"},
 }
 
 func TestEncodeQuery(t *testing.T) {
 	for _, tt := range encodeQueryTests {
-		if q := tt.m.Encode(); q != tt.expected && q != tt.expected1 {
+		if q := tt.m.Encode(); q != tt.expected {
 			t.Errorf(`EncodeQuery(%+v) = %q, want %q`, tt.m, q, tt.expected)
 		}
 	}
@@ -538,7 +549,7 @@ var resolveReferenceTests = []struct {
 
 func TestResolveReference(t *testing.T) {
 	mustParse := func(url string) *URL {
-		u, err := ParseWithReference(url)
+		u, err := Parse(url)
 		if err != nil {
 			t.Fatalf("Expected URL to parse: %q, got error: %v", url, err)
 		}
@@ -589,7 +600,7 @@ func TestResolveReference(t *testing.T) {
 
 func TestResolveReferenceOpaque(t *testing.T) {
 	mustParse := func(url string) *URL {
-		u, err := ParseWithReference(url)
+		u, err := Parse(url)
 		if err != nil {
 			t.Fatalf("Expected URL to parse: %q, got error: %v", url, err)
 		}
@@ -767,5 +778,15 @@ func TestRequestURI(t *testing.T) {
 		if s != tt.out {
 			t.Errorf("%#v.RequestURI() == %q (expected %q)", tt.url, s, tt.out)
 		}
+	}
+}
+
+func TestParseFailure(t *testing.T) {
+	// Test that the first parse error is returned.
+	const url = "%gh&%ij"
+	_, err := ParseQuery(url)
+	errStr := fmt.Sprint(err)
+	if !strings.Contains(errStr, "%gh") {
+		t.Errorf(`ParseQuery(%q) returned error %q, want something containing %q"`, url, errStr, "%gh")
 	}
 }

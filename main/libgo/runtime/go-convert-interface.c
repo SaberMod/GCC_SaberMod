@@ -4,9 +4,12 @@
    Use of this source code is governed by a BSD-style
    license that can be found in the LICENSE file.  */
 
+#include "runtime.h"
 #include "go-alloc.h"
 #include "go-assert.h"
 #include "go-panic.h"
+#include "go-string.h"
+#include "go-type.h"
 #include "interface.h"
 
 /* This is called when converting one interface type into another
@@ -55,14 +58,10 @@ __go_convert_interface_2 (const struct __go_type_descriptor *lhs_descriptor,
       if (may_fail)
 	return NULL;
 
-      newTypeAssertionError (NULL,
-			     rhs_descriptor,
-			     lhs_descriptor,
-			     NULL,
-			     rhs_descriptor->__reflection,
-			     lhs_descriptor->__reflection,
-			     lhs_methods[0].__name,
-			     &panic_arg);
+      runtime_newTypeAssertionError (NULL, rhs_descriptor->__reflection,
+				     lhs_descriptor->__reflection,
+				     lhs_methods[0].__name,
+				     &panic_arg);
       __go_panic (panic_arg);
     }
 
@@ -100,14 +99,9 @@ __go_convert_interface_2 (const struct __go_type_descriptor *lhs_descriptor,
 	  if (may_fail)
 	    return NULL;
 
-	  newTypeAssertionError (NULL,
-				 rhs_descriptor,
-				 lhs_descriptor,
-				 NULL,
-				 rhs_descriptor->__reflection,
-				 lhs_descriptor->__reflection,
-				 p_lhs_method->__name,
-				 &panic_arg);
+	  runtime_newTypeAssertionError (NULL, rhs_descriptor->__reflection,
+					 lhs_descriptor->__reflection,
+					 p_lhs_method->__name, &panic_arg);
 	  __go_panic (panic_arg);
 	}
 

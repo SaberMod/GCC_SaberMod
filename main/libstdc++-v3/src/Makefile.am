@@ -29,10 +29,32 @@ SUBDIRS = c++98 c++11
 # Cross compiler support.
 toolexeclib_LTLIBRARIES = libstdc++.la
 
-vpath % $(top_srcdir)/src
-vpath % $(top_srcdir)
+vpath % $(top_srcdir)/src/c++98
+vpath % $(top_srcdir)/src/c++11
 
-libstdc___la_SOURCES =
+if GLIBCXX_LDBL_COMPAT
+ldbl_compat_sources = compatibility-ldbl.cc
+else
+ldbl_compat_sources =
+endif
+
+
+parallel_compat_sources = \
+	compatibility-parallel_list.cc  compatibility-parallel_list-2.cc
+
+
+cxx98_sources = \
+	compatibility.cc \
+	compatibility-debug_list.cc \
+	compatibility-debug_list-2.cc \
+	${ldbl_compat_sources} 
+
+cxx11_sources = \
+	compatibility-c++0x.cc \
+	compatibility-atomic-c++0x.cc \
+	compatibility-thread-c++0x.cc
+
+libstdc___la_SOURCES = $(cxx98_sources) $(cxx11_sources)
 
 libstdc___la_LIBADD = \
 	$(GLIBCXX_LIBS) \
@@ -52,25 +74,66 @@ libstdc___la_LDFLAGS = \
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 
 
-# AM_CXXFLAGS needs to be in each subdirectory so that it can be
+# Use special rules for compatibility-ldbl.cc compilation, as we need to
+# pass -mlong-double-64.
+if GLIBCXX_LDBL_COMPAT
+compatibility-ldbl.lo: compatibility-ldbl.cc
+	$(LTCXXCOMPILE) -mlong-double-64 -c $<
+compatibility-ldbl.o: compatibility-ldbl.cc
+	$(CXXCOMPILE) -mlong-double-64 -c $<
+endif
+
+# Use special rules for C++11 files/objects.
+compatibility-c++0x.lo: compatibility-c++0x.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+compatibility-c++0x.o: compatibility-c++0x.cc
+	$(CXXCOMPILE) -std=gnu++11 -c $<
+
+compatibility-atomic-c++0x.lo: compatibility-atomic-c++0x.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+compatibility-atomic-c++0x.o: compatibility-atomic-c++0x.cc
+	$(CXXCOMPILE) -std=gnu++11 -c $<
+
+compatibility-thread-c++0x.lo: compatibility-thread-c++0x.cc
+	$(LTCXXCOMPILE) -std=gnu++11 -c $<
+compatibility-thread-c++0x.o: compatibility-thread-c++0x.cc
+	$(CXXCOMPILE) -std=gnu++11 -c $<
+
+# A note on compatibility and static libraries.
+# 
+# static lib == linked against only this version, should not need compat
+# shared lib == linked against potentially all compat versions
+#
+# Thus, the shared libs have more compat symbols, which can be found
+# segregated in the sources with -D_GLIBCXX_SHARED.
+#
+# In the sub-directories of libsupc++, src/c++98, src/c++11, only
+# -prefer-pic objects are generated for the convenience libraries.
+# 
+# In the main src directory, make shared and static objects just for
+# the compat libraries. Shared objects are compiled with -prefer-pic
+# -D_GLIBCXX_SHARED and in the .libs sub-directory, static objects are
+# compiled with -prefer-pic (ie, -fPIC but not -D_GLIBCXX_SHARED) and
+# the main src directory.
+#
+# Why are objects destined for libstdc++.a compiled with -fPIC? First,
+# because -fPIC is not harmful to use for objects destined for static
+# libraries. In addition, using -fPIC will allow the use of static
+# libstdc++.a in the creation of other C++ shared libraries.
+
+# AM_CXXFLAGS needs to be in each sub-directory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
 # set this option because CONFIG_CXXFLAGS has to be after
 # OPTIMIZE_CXXFLAGS on the compile line so that -O2 can be overridden
 # as the occasion calls for it.
 AM_CXXFLAGS = \
+	$(glibcxx_compiler_pic_flag) \
 	$(XTEMPLATE_FLAGS) \
-	$(WARN_CXXFLAGS) \
-	$(OPTIMIZE_CXXFLAGS) \
-	$(CONFIG_CXXFLAGS)
+	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)
 
+# Libtool notes
 
-# libstdc++ libtool notes
-
-# 1) Need to explicitly set LTCXXCOMPILE so that AM_CXXFLAGS is
-# last. (That way, things like -O2 passed down from the toplevel can
-# be overridden by --enable-debug.)
-
-# 2) In general, libtool expects an argument such as `--tag=CXX' when
+# 1) In general, libtool expects an argument such as `--tag=CXX' when
 # using the C++ compiler, because that will enable the settings
 # detected when C++ support was being configured.  However, when no
 # such flag is given in the command line, libtool attempts to figure
@@ -81,11 +144,25 @@ AM_CXXFLAGS = \
 # can't decide which configuration to use, and it gives up.  The
 # correct solution is to add `--tag CXX' to LTCXXCOMPILE and maybe
 # CXXLINK, just after $(LIBTOOL), so that libtool doesn't have to
-# attempt to infer which configuration to use
-LTCXXCOMPILE = $(LIBTOOL) --tag CXX \
-	       $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile \
-	       $(CXX) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
-	       $(AM_CXXFLAGS) $(CXXFLAGS)
+# attempt to infer which configuration to use.
+# 
+# The second tag argument, `--tag disable-shared` means that libtool
+# only compiles each source once, for static objects. In actuality,
+# glibcxx_lt_pic_flag and glibcxx_compiler_shared_flag are added to
+# the libtool command that is used create the object, which is
+# suitable for shared libraries.  The `--tag disable-shared` must be
+# placed after --tag CXX lest things CXX undo the affect of
+# disable-shared.
+
+# 2) Need to explicitly set LTCXXCOMPILE so that EXTRA_CXX_FLAGS is
+# last. (That way, things like -O2 passed down from the toplevel can
+# be overridden by --enable-debug and --enable-cxx-flags.)
+LTCXXCOMPILE = \
+	$(LIBTOOL) --tag CXX \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=compile $(CXX) $(INCLUDES) \
+	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS) \
+	$(EXTRA_CXX_FLAGS) -Xcompiler-static -UPIC
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 
@@ -95,8 +172,12 @@ LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 # course is problematic at this point.  So, we get the top-level
 # directory to configure libstdc++-v3 to use gcc as the C++
 # compilation driver.
-CXXLINK = $(LIBTOOL) --tag CXX $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
-	  $(CXX) $(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
+CXXLINK = \
+	$(LIBTOOL) --tag CXX \
+	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CXX) \
+	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
+
 
 # Symbol versioning for shared libraries.
 if ENABLE_SYMVERS
@@ -116,7 +197,7 @@ libstdc++-symbols.ver:  ${glibcxx_srcdir}/$(SYMVER_FILE) \
 	  fi; \
 	fi
 	$(EGREP) -v '^[ 	]*#(#| |$$)' $@.tmp | \
-	  $(COMPILE) -E -P -include config.h - > $@ || (rm -f $@ ; exit 1)
+	  $(CC) -E -P -include $(CONFIG_HEADER) - > $@ || (rm -f $@ ; exit 1)
 	rm -f $@.tmp
 
 CLEANFILES = libstdc++-symbols.ver
@@ -165,7 +246,6 @@ endif
 
 
 # Control additional build primary rules.
-# EXTRA_LTLIBRARIES =
 all-once: libstdc++convenience.la $(STAMP_DEBUG)
 install-data-once: $(STAMP_INSTALL_DEBUG)
 
@@ -228,8 +308,9 @@ build-debug: stamp-debug
 	  mv Makefile Makefile.tmp; \
 	  sed -e 's,all-local: all-once,all-local:,' \
 	      -e 's,install-data-local: install-data-once,install-data-local:,' \
-	      -e 's,src/c,src/debug/c,' \
+	      -e '/vpath/!s,src/c,src/debug/c,' \
 	  < Makefile.tmp > Makefile ; \
+	  rm -f Makefile.tmp ; \
 	  $(MAKE) CXXFLAGS='$(DEBUG_FLAGS)' \
 	  toolexeclibdir=$(glibcxx_toolexeclibdir)/debug all) ;
 

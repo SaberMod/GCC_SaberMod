@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode"
 )
 
 type (
@@ -126,6 +127,10 @@ var fmttests = []struct {
 	{"%s", []byte("abc"), "abc"},
 	{"%x", []byte("abc"), "616263"},
 	{"% x", []byte("abc\xff"), "61 62 63 ff"},
+	{"%#x", []byte("abc\xff"), "0x610x620x630xff"},
+	{"%#X", []byte("abc\xff"), "0X610X620X630XFF"},
+	{"%# x", []byte("abc\xff"), "0x61 0x62 0x63 0xff"},
+	{"%# X", []byte("abc\xff"), "0X61 0X62 0X63 0XFF"},
 	{"% X", []byte("abc\xff"), "61 62 63 FF"},
 	{"%x", []byte("xyz"), "78797a"},
 	{"%X", []byte("xyz"), "78797A"},
@@ -349,10 +354,12 @@ var fmttests = []struct {
 	{"%+v", B{1, 2}, `{I:<1> j:2}`},
 	{"%+v", C{1, B{2, 3}}, `{i:1 B:{I:<2> j:3}}`},
 
-	// q on Stringable items
+	// other formats on Stringable items
 	{"%s", I(23), `<23>`},
 	{"%q", I(23), `"<23>"`},
 	{"%x", I(23), `3c32333e`},
+	{"%#x", I(23), `0x3c0x320x330x3e`},
+	{"%# x", I(23), `0x3c 0x32 0x33 0x3e`},
 	{"%d", I(23), `23`}, // Stringer applies only to string formats.
 
 	// go syntax
@@ -374,6 +381,7 @@ var fmttests = []struct {
 	{"%#v", &iarray, `&[4]interface {}{1, "hello", 2.5, interface {}(nil)}`},
 	{"%#v", map[int]byte(nil), `map[int]uint8(nil)`},
 	{"%#v", map[int]byte{}, `map[int]uint8{}`},
+	{"%#v", "foo", `"foo"`},
 
 	// slices with other formats
 	{"%#x", []int{1, 2, 15}, `[0x1 0x2 0xf]`},
@@ -423,6 +431,7 @@ var fmttests = []struct {
 	{"p0=%p", new(int), "p0=0xPTR"},
 	{"p1=%s", &pValue, "p1=String(p)"}, // String method...
 	{"p2=%p", &pValue, "p2=0xPTR"},     // ... not called with %p
+	{"p3=%p", (*int)(nil), "p3=0x0"},
 	{"p4=%#p", new(int), "p4=PTR"},
 
 	// %p on non-pointers
@@ -430,6 +439,19 @@ var fmttests = []struct {
 	{"%p", make(map[int]int), "0xPTR"},
 	{"%p", make([]int, 1), "0xPTR"},
 	{"%p", 27, "%!p(int=27)"}, // not a pointer at all
+
+	// %q on pointers
+	{"%q", (*int)(nil), "%!q(*int=<nil>)"},
+	{"%q", new(int), "%!q(*int=0xPTR)"},
+
+	// %v on pointers formats 0 as <nil>
+	{"%v", (*int)(nil), "<nil>"},
+	{"%v", new(int), "0xPTR"},
+
+	// %d etc. pointers use specified base.
+	{"%d", new(int), "PTR_d"},
+	{"%o", new(int), "PTR_o"},
+	{"%x", new(int), "PTR_x"},
 
 	// %d on Stringer should give integer if possible
 	{"%s", time.Time{}.Month(), "January"},
@@ -451,20 +473,35 @@ var fmttests = []struct {
 	// zero reflect.Value, which formats as <nil>.
 	// This test is just to check that it shows the two NaNs at all.
 	{"%v", map[float64]int{math.NaN(): 1, math.NaN(): 2}, "map[NaN:<nil> NaN:<nil>]"},
+
+	// Used to crash because nByte didn't allow for a sign.
+	{"%b", int64(-1 << 63), "-1000000000000000000000000000000000000000000000000000000000000000"},
 }
 
 func TestSprintf(t *testing.T) {
 	for _, tt := range fmttests {
 		s := Sprintf(tt.fmt, tt.val)
 		if i := strings.Index(tt.out, "PTR"); i >= 0 {
+			pattern := "PTR"
+			chars := "0123456789abcdefABCDEF"
+			switch {
+			case strings.HasPrefix(tt.out[i:], "PTR_d"):
+				pattern = "PTR_d"
+				chars = chars[:10]
+			case strings.HasPrefix(tt.out[i:], "PTR_o"):
+				pattern = "PTR_o"
+				chars = chars[:8]
+			case strings.HasPrefix(tt.out[i:], "PTR_x"):
+				pattern = "PTR_x"
+			}
 			j := i
 			for ; j < len(s); j++ {
 				c := s[j]
-				if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+				if !strings.ContainsRune(chars, rune(c)) {
 					break
 				}
 			}
-			s = s[0:i] + "PTR" + s[j:]
+			s = s[0:i] + pattern + s[j:]
 		}
 		if s != tt.out {
 			if _, ok := tt.val.(string); ok {
@@ -514,6 +551,14 @@ func BenchmarkSprintfFloat(b *testing.B) {
 	}
 }
 
+func BenchmarkManyArgs(b *testing.B) {
+	var buf bytes.Buffer
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		Fprintf(&buf, "%2d/%2d/%2d %d:%d:%d %s %s\n", 3, 4, 5, 11, 12, 13, "hello", "world")
+	}
+}
+
 var mallocBuf bytes.Buffer
 
 // gccgo numbers are different because gccgo does not have escape
@@ -538,6 +583,7 @@ var mallocTest = []struct {
 var _ bytes.Buffer
 
 func TestCountMallocs(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(1))
 	for _, mt := range mallocTest {
 		const N = 100
 		memstats := new(runtime.MemStats)
@@ -819,5 +865,27 @@ func TestBadVerbRecursion(t *testing.T) {
 	Sprintf("recur@%p, value: %d\n", r, r.i)
 	if failed {
 		t.Error("fail with value")
+	}
+}
+
+func TestIsSpace(t *testing.T) {
+	// This tests the internal isSpace function.
+	// IsSpace = isSpace is defined in export_test.go.
+	for i := rune(0); i <= unicode.MaxRune; i++ {
+		if IsSpace(i) != unicode.IsSpace(i) {
+			t.Errorf("isSpace(%U) = %v, want %v", i, IsSpace(i), unicode.IsSpace(i))
+		}
+	}
+}
+
+func TestNilDoesNotBecomeTyped(t *testing.T) {
+	type A struct{}
+	type B struct{}
+	var a *A = nil
+	var b B = B{}
+	got := Sprintf("%s %s %s %s %s", nil, a, nil, b, nil)
+	const expect = "%!s(<nil>) %!s(*fmt_test.A=<nil>) %!s(<nil>) {} %!s(<nil>)"
+	if got != expect {
+		t.Errorf("expected:\n\t%q\ngot:\n\t%q", expect, got)
 	}
 }

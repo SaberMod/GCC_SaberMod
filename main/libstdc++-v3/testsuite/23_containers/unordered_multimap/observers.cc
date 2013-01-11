@@ -10,7 +10,7 @@
 // any later version.
 
 // This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without Pred the implied warranty of
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 
@@ -25,6 +25,6 @@ test01()
 {
   std::unordered_multimap<int, int> um;
 
-  auto ke = um.key_eq();
-  auto h = um.hash_function();
+  auto ke __attribute__((unused)) = um.key_eq();
+  auto h __attribute__((unused)) = um.hash_function();
 }

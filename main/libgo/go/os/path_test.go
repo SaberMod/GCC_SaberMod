@@ -5,21 +5,22 @@
 package os_test
 
 import (
+	"io/ioutil"
 	. "os"
 	"path/filepath"
 	"runtime"
+	"syscall"
 	"testing"
 )
 
 func TestMkdirAll(t *testing.T) {
-	// Create new dir, in _test so it will get
-	// cleaned up by make if not by us.
-	path := "_test/_TestMkdirAll_/dir/./dir2"
+	tmpDir := TempDir()
+	path := tmpDir + "/_TestMkdirAll_/dir/./dir2"
 	err := MkdirAll(path, 0777)
 	if err != nil {
 		t.Fatalf("MkdirAll %q: %s", path, err)
 	}
-	defer RemoveAll("_test/_TestMkdirAll_")
+	defer RemoveAll(tmpDir + "/_TestMkdirAll_")
 
 	// Already exists, should succeed.
 	err = MkdirAll(path, 0777)
@@ -63,7 +64,7 @@ func TestMkdirAll(t *testing.T) {
 	}
 
 	if runtime.GOOS == "windows" {
-		path := `_test\_TestMkdirAll_\dir\.\dir2\`
+		path := tmpDir + `\_TestMkdirAll_\dir\.\dir2\`
 		err := MkdirAll(path, 0777)
 		if err != nil {
 			t.Fatalf("MkdirAll %q: %s", path, err)
@@ -72,8 +73,9 @@ func TestMkdirAll(t *testing.T) {
 }
 
 func TestRemoveAll(t *testing.T) {
+	tmpDir := TempDir()
 	// Work directory.
-	path := "_test/_TestRemoveAll_"
+	path := tmpDir + "/_TestRemoveAll_"
 	fpath := path + "/file"
 	dpath := path + "/dir"
 
@@ -170,19 +172,25 @@ func TestMkdirAllWithSymlink(t *testing.T) {
 		return
 	}
 
-	err := Mkdir("_test/dir", 0755)
+	tmpDir, err := ioutil.TempDir("", "TestMkdirAllWithSymlink-")
 	if err != nil {
-		t.Fatal(`Mkdir "_test/dir":`, err)
+		t.Fatal(err)
 	}
-	defer RemoveAll("_test/dir")
+	defer RemoveAll(tmpDir)
 
-	err = Symlink("dir", "_test/link")
+	dir := tmpDir + "/dir"
+	err = Mkdir(dir, 0755)
 	if err != nil {
-		t.Fatal(`Symlink "dir", "_test/link":`, err)
+		t.Fatalf("Mkdir %s: %s", dir, err)
 	}
-	defer RemoveAll("_test/link")
 
-	path := "_test/link/foo"
+	link := tmpDir + "/link"
+	err = Symlink("dir", link)
+	if err != nil {
+		t.Fatalf("Symlink %s: %s", link, err)
+	}
+
+	path := link + "/foo"
 	err = MkdirAll(path, 0755)
 	if err != nil {
 		t.Errorf("MkdirAll %q: %s", path, err)
@@ -198,7 +206,7 @@ func TestMkdirAllAtSlash(t *testing.T) {
 	if err != nil {
 		pathErr, ok := err.(*PathError)
 		// common for users not to be able to write to /
-		if ok && pathErr.Err == EACCES {
+		if ok && pathErr.Err == syscall.EACCES {
 			return
 		}
 		t.Fatalf(`MkdirAll "/_go_os_test/dir": %v`, err)

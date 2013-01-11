@@ -29,9 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
-#include "gimple-pretty-print.h"
+#include "gimple-pretty-print.h" /* FIXME */
 #include "tree-flow.h"
-#include "tree-pass.h"
+#include "dumpfile.h"
 
 /* Define the hash table of nodes already seen.
    Such nodes are not repeated; brief cross-references are used.  */
@@ -65,7 +65,7 @@ debug_tree (tree node)
    down to a depth of six.  */
 
 DEBUG_FUNCTION void
-debug_vec_tree (VEC(tree,gc) *vec)
+debug_vec_tree (vec<tree, va_gc> *vec)
 {
   table = XCNEWVEC (struct bucket *, HASH_SIZE);
   print_vec_tree (stderr, "", vec, 0);
@@ -255,7 +255,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   /* Allow this function to be called if the table is not there.  */
   if (table)
     {
-      hash = ((unsigned long) node) % HASH_SIZE;
+      hash = ((uintptr_t) node) % HASH_SIZE;
 
       /* If node is in the table, just mention its address.  */
       for (b = table[hash]; b; b = b->next)
@@ -363,20 +363,24 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" deprecated", file);
   if (TREE_VISITED (node))
     fputs (" visited", file);
-  if (TREE_LANG_FLAG_0 (node))
-    fputs (" tree_0", file);
-  if (TREE_LANG_FLAG_1 (node))
-    fputs (" tree_1", file);
-  if (TREE_LANG_FLAG_2 (node))
-    fputs (" tree_2", file);
-  if (TREE_LANG_FLAG_3 (node))
-    fputs (" tree_3", file);
-  if (TREE_LANG_FLAG_4 (node))
-    fputs (" tree_4", file);
-  if (TREE_LANG_FLAG_5 (node))
-    fputs (" tree_5", file);
-  if (TREE_LANG_FLAG_6 (node))
-    fputs (" tree_6", file);
+
+  if (code != TREE_VEC && code != SSA_NAME)
+    {
+      if (TREE_LANG_FLAG_0 (node))
+	fputs (" tree_0", file);
+      if (TREE_LANG_FLAG_1 (node))
+	fputs (" tree_1", file);
+      if (TREE_LANG_FLAG_2 (node))
+	fputs (" tree_2", file);
+      if (TREE_LANG_FLAG_3 (node))
+	fputs (" tree_3", file);
+      if (TREE_LANG_FLAG_4 (node))
+	fputs (" tree_4", file);
+      if (TREE_LANG_FLAG_5 (node))
+	fputs (" tree_5", file);
+      if (TREE_LANG_FLAG_6 (node))
+	fputs (" tree_6", file);
+    }
 
   /* DECL_ nodes have additional attributes.  */
 
@@ -611,9 +615,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	   || code == QUAL_UNION_TYPE)
 	  && TYPE_NO_FORCE_BLK (node))
 	fputs (" no-force-blk", file);
-      else if (code == INTEGER_TYPE
-	       && TYPE_IS_SIZETYPE (node))
-	fputs (" sizetype", file);
 
       if (TYPE_STRING_FLAG (node))
 	fputs (" string-flag", file);
@@ -821,16 +822,13 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
 	case VECTOR_CST:
 	  {
-	    tree vals = TREE_VECTOR_CST_ELTS (node);
 	    char buf[10];
-	    tree link;
-	    int i;
+	    unsigned i;
 
-	    i = 0;
-	    for (link = vals; link; link = TREE_CHAIN (link), ++i)
+	    for (i = 0; i < VECTOR_CST_NELTS (node); ++i)
 	      {
-		sprintf (buf, "elt%d: ", i);
-		print_node (file, buf, TREE_VALUE (link), indent + 4);
+		sprintf (buf, "elt%u: ", i);
+		print_node (file, buf, VECTOR_CST_ELT (node, i), indent + 4);
 	      }
 	  }
 	  break;
@@ -882,7 +880,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	  {
 	    unsigned HOST_WIDE_INT cnt;
 	    tree index, value;
-	    len = VEC_length (constructor_elt, CONSTRUCTOR_ELTS (node));
+	    len = vec_safe_length (CONSTRUCTOR_ELTS (node));
 	    fprintf (file, " lngt %d", len);
 	    FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (node),
 				      cnt, index, value)
@@ -996,7 +994,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
    starting in column INDENT.  */
 
 void
-print_vec_tree (FILE *file, const char *prefix, VEC(tree,gc) *vec, int indent)
+print_vec_tree (FILE *file, const char *prefix, vec<tree, va_gc> *vec, int indent)
 {
   tree elt;
   unsigned ix;
@@ -1006,9 +1004,9 @@ print_vec_tree (FILE *file, const char *prefix, VEC(tree,gc) *vec, int indent)
 
   /* Print the slot this node is in, and its code, and address.  */
   fprintf (file, "%s <VEC", prefix);
-  dump_addr (file, " ", vec);
+  dump_addr (file, " ", vec->address ());
 
-  FOR_EACH_VEC_ELT (tree, vec, ix, elt)
+  FOR_EACH_VEC_ELT (*vec, ix, elt)
     {
       char temp[10];
       sprintf (temp, "elt %d", ix);

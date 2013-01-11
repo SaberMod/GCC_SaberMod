@@ -108,10 +108,11 @@ func TestAfter(t *testing.T) {
 }
 
 func TestAfterTick(t *testing.T) {
-	const (
-		Delta = 100 * Millisecond
-		Count = 10
-	)
+	const Count = 10
+	Delta := 100 * Millisecond
+	if testing.Short() {
+		Delta = 10 * Millisecond
+	}
 	t0 := Now()
 	for i := 0; i < Count; i++ {
 		<-After(Delta)
@@ -119,8 +120,11 @@ func TestAfterTick(t *testing.T) {
 	t1 := Now()
 	d := t1.Sub(t0)
 	target := Delta * Count
-	if d < target*9/10 || d > target*30/10 {
-		t.Fatalf("%d ticks of %s took %s, expected %s", Count, Delta, d, target)
+	if d < target*9/10 {
+		t.Fatalf("%d ticks of %s too fast: took %s, expected %s", Count, Delta, d, target)
+	}
+	if !testing.Short() && d > target*30/10 {
+		t.Fatalf("%d ticks of %s too slow: took %s, expected %s", Count, Delta, d, target)
 	}
 }
 
@@ -165,7 +169,7 @@ func TestAfterQueuing(t *testing.T) {
 }
 
 // For gccgo omit 0 for now because it can take too long to start the
-var slots = []int{5, 3, 6, 6, 6, 1, 1, 2, 7, 9, 4, 8 /*0*/ }
+var slots = []int{5, 3, 6, 6, 6, 1, 1, 2, 7, 9, 4, 8 /*0*/}
 
 type afterResult struct {
 	slot int
@@ -177,9 +181,10 @@ func await(slot int, result chan<- afterResult, ac <-chan Time) {
 }
 
 func testAfterQueuing(t *testing.T) error {
-	const (
-		Delta = 100 * Millisecond
-	)
+	Delta := 100 * Millisecond
+	if testing.Short() {
+		Delta = 20 * Millisecond
+	}
 	// make the result channel buffered because we don't want
 	// to depend on channel queueing semantics that might
 	// possibly change in the future.
@@ -218,4 +223,26 @@ func TestTimerStopStress(t *testing.T) {
 		}(i)
 	}
 	Sleep(3 * Second)
+}
+
+func TestSleepZeroDeadlock(t *testing.T) {
+	// Sleep(0) used to hang, the sequence of events was as follows.
+	// Sleep(0) sets G's status to Gwaiting, but then immediately returns leaving the status.
+	// Then the goroutine calls e.g. new and falls down into the scheduler due to pending GC.
+	// After the GC nobody wakes up the goroutine from Gwaiting status.
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
+	c := make(chan bool)
+	go func() {
+		for i := 0; i < 100; i++ {
+			runtime.GC()
+		}
+		c <- true
+	}()
+	for i := 0; i < 100; i++ {
+		Sleep(0)
+		tmp := make(chan bool, 1)
+		tmp <- true
+		<-tmp
+	}
+	<-c
 }

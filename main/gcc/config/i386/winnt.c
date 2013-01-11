@@ -395,6 +395,10 @@ i386_pe_unique_section (tree decl, int reloc)
   const char *name, *prefix;
   char *string;
 
+  /* Ignore RELOC, if we are allowed to put relocated
+     const data into read-only section.  */
+  if (!flag_writable_rel_rdata)
+    reloc = 0;
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   name = i386_pe_strip_name_encoding_full (name);
 
@@ -415,6 +419,14 @@ i386_pe_unique_section (tree decl, int reloc)
   sprintf (string, "%s%s", prefix, name);
 
   DECL_SECTION_NAME (decl) = build_string (len, string);
+}
+
+/* Local and global relocs can be placed always into readonly memory for
+   memory for PE-COFF targets.  */
+int
+i386_pe_reloc_rw_mask (void)
+{
+  return 0;
 }
 
 /* Select a set of attributes for section NAME based on the properties
@@ -441,6 +453,10 @@ i386_pe_section_type_flags (tree decl, const char *name, int reloc)
   unsigned int flags;
   unsigned int **slot;
 
+  /* Ignore RELOC, if we are allowed to put relocated
+     const data into read-only section.  */
+  if (!flag_writable_rel_rdata)
+    reloc = 0;
   /* The names we put in the hashtable will always be the unique
      versions given to us by the stringtable, so we can just use
      their addresses as the keys.  */
@@ -821,22 +837,6 @@ i386_pe_seh_end_prologue (FILE *f)
     return;
   seh = cfun->machine->seh;
 
-  /* Emit an assembler directive to set up the frame pointer.  Always do
-     this last.  The documentation talks about doing this "before" any
-     other code that uses offsets, but (experimentally) that's after we
-     emit the codes in reverse order (handled by the assembler).  */
-  if (seh->cfa_reg != stack_pointer_rtx)
-    {
-      HOST_WIDE_INT offset = seh->sp_offset - seh->cfa_offset;
-
-      gcc_assert ((offset & 15) == 0);
-      gcc_assert (IN_RANGE (offset, 0, 240));
-
-      fputs ("\t.seh_setframe\t", f);
-      print_reg (seh->cfa_reg, 0, f);
-      fprintf (f, ", " HOST_WIDE_INT_PRINT_DEC "\n", offset);
-    }
-
   XDELETE (seh);
   cfun->machine->seh = NULL;
 
@@ -907,7 +907,10 @@ seh_emit_stackalloc (FILE *f, struct seh_frame_state *seh,
     seh->cfa_offset += offset;
   seh->sp_offset += offset;
 
-  fprintf (f, "\t.seh_stackalloc\t" HOST_WIDE_INT_PRINT_DEC "\n", offset);
+  /* Do not output the stackalloc in that case (it won't work as there is no
+     encoding for very large frame size).  */
+  if (offset < SEH_MAX_FRAME_SIZE)
+    fprintf (f, "\t.seh_stackalloc\t" HOST_WIDE_INT_PRINT_DEC "\n", offset);
 }
 
 /* Process REG_CFA_ADJUST_CFA for SEH.  */
@@ -940,8 +943,19 @@ seh_cfa_adjust_cfa (FILE *f, struct seh_frame_state *seh, rtx pat)
     seh_emit_stackalloc (f, seh, reg_offset);
   else if (dest_regno == HARD_FRAME_POINTER_REGNUM)
     {
+      HOST_WIDE_INT offset;
+
       seh->cfa_reg = dest;
       seh->cfa_offset -= reg_offset;
+
+      offset = seh->sp_offset - seh->cfa_offset;
+
+      gcc_assert ((offset & 15) == 0);
+      gcc_assert (IN_RANGE (offset, 0, 240));
+
+      fputs ("\t.seh_setframe\t", f);
+      print_reg (seh->cfa_reg, 0, f);
+      fprintf (f, ", " HOST_WIDE_INT_PRINT_DEC "\n", offset);
     }
   else
     gcc_unreachable ();
@@ -1128,6 +1142,48 @@ i386_pe_seh_unwind_emit (FILE *asm_out_file, rtx insn)
   pat = PATTERN (insn);
  found:
   seh_frame_related_expr (asm_out_file, seh, pat);
+}
+
+void
+i386_pe_seh_emit_except_personality (rtx personality)
+{
+  int flags = 0;
+
+  if (!TARGET_SEH)
+    return;
+
+  fputs ("\t.seh_handler\t", asm_out_file);
+  output_addr_const (asm_out_file, personality);
+
+#if 0
+  /* ??? The current implementation of _GCC_specific_handler requires
+     both except and unwind handling, regardless of which sorts the
+     user-level function requires.  */
+  eh_region r;
+  FOR_ALL_EH_REGION(r)
+    {
+      if (r->type == ERT_CLEANUP)
+	flags |= 1;
+      else
+	flags |= 2;
+    }
+#else
+  flags = 3;
+#endif
+
+  if (flags & 1)
+    fputs (", @unwind", asm_out_file);
+  if (flags & 2)
+    fputs (", @except", asm_out_file);
+  fputc ('\n', asm_out_file);
+}
+
+void
+i386_pe_seh_init_sections (void)
+{
+  if (TARGET_SEH)
+    exception_section = get_unnamed_section (0, output_section_asm_op,
+					     "\t.seh_handlerdata");
 }
 
 void

@@ -6,6 +6,7 @@ package os
 
 import (
 	"runtime"
+	"sync/atomic"
 	"syscall"
 )
 
@@ -13,13 +14,21 @@ import (
 type Process struct {
 	Pid    int
 	handle uintptr
-	done   bool // process has been successfuly waited on
+	isdone uint32 // process has been successfully waited on, non zero if true
 }
 
 func newProcess(pid int, handle uintptr) *Process {
 	p := &Process{Pid: pid, handle: handle}
 	runtime.SetFinalizer(p, (*Process).Release)
 	return p
+}
+
+func (p *Process) setDone() {
+	atomic.StoreUint32(&p.isdone, 1)
+}
+
+func (p *Process) done() bool {
+	return atomic.LoadUint32(&p.isdone) > 0
 }
 
 // ProcAttr holds the attributes that will be applied to a new process
@@ -46,9 +55,12 @@ type ProcAttr struct {
 	Sys *syscall.SysProcAttr
 }
 
-// A Signal can represent any operating system signal.
+// A Signal represents an operating system signal.
+// The usual underlying implementation is operating system-dependent:
+// on Unix it is syscall.Signal.
 type Signal interface {
 	String() string
+	Signal() // to distinguish from other Stringers
 }
 
 // Getpid returns the process id of the caller.

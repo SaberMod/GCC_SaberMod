@@ -6,7 +6,13 @@
 
 package syscall
 
-func entersyscall()
-func exitsyscall()
+func Entersyscall()
+func Exitsyscall()
 func GetErrno() Errno
 func SetErrno(Errno)
+
+// These functions are used by CGO and SWIG.
+func Cgocall()
+func CgocallDone()
+func CgocallBack()
+func CgocallBackDone()

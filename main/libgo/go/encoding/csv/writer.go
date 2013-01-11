@@ -22,7 +22,7 @@ import (
 //
 // If UseCRLF is true, the Writer ends each record with \r\n instead of \n.
 type Writer struct {
-	Comma   rune // Field delimiter (set to to ',' by NewWriter)
+	Comma   rune // Field delimiter (set to ',' by NewWriter)
 	UseCRLF bool // True to use \r\n as the line terminator
 	w       *bufio.Writer
 }
@@ -101,11 +101,10 @@ func (w *Writer) WriteAll(records [][]string) (err error) {
 	for _, record := range records {
 		err = w.Write(record)
 		if err != nil {
-			break
+			return err
 		}
 	}
-	w.Flush()
-	return nil
+	return w.w.Flush()
 }
 
 // fieldNeedsQuotes returns true if our field must be enclosed in quotes.

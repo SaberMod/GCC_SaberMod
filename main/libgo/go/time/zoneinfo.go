@@ -4,7 +4,10 @@
 
 package time
 
-import "sync"
+import (
+	"sync"
+	"syscall"
+)
 
 // A Location maps time instants to the zone in use at that time.
 // Typically, the Location represents the collection of time offsets
@@ -120,21 +123,23 @@ func (l *Location) lookup(sec int64) (name string, offset int, isDST bool, start
 	// Not using sort.Search to avoid dependencies.
 	tx := l.tx
 	end = 1<<63 - 1
-	for len(tx) > 1 {
-		m := len(tx) / 2
+	lo := 0
+	hi := len(tx)
+	for hi-lo > 1 {
+		m := lo + (hi-lo)/2
 		lim := tx[m].when
 		if sec < lim {
 			end = lim
-			tx = tx[0:m]
+			hi = m
 		} else {
-			tx = tx[m:]
+			lo = m
 		}
 	}
-	zone := &l.zone[tx[0].index]
+	zone := &l.zone[tx[lo].index]
 	name = zone.name
 	offset = zone.offset
 	isDST = zone.isDST
-	start = tx[0].when
+	start = tx[lo].when
 	// end = maintained during the search
 	return
 }
@@ -168,10 +173,7 @@ func (l *Location) lookupOffset(offset int) (name string, isDST bool, ok bool) {
 // NOTE(rsc): Eventually we will need to accept the POSIX TZ environment
 // syntax too, but I don't feel like implementing it today.
 
-// NOTE(rsc): Using the IANA names below means ensuring we have access
-// to the database.  Probably we will ship the files in $GOROOT/lib/zoneinfo/
-// and only look there if there are no system files available (such as on Windows).
-// The files total 200 kB.
+var zoneinfo, _ = syscall.Getenv("ZONEINFO")
 
 // LoadLocation returns the Location with the given name.
 //
@@ -180,12 +182,25 @@ func (l *Location) lookupOffset(offset int) (name string, isDST bool, ok bool) {
 //
 // Otherwise, the name is taken to be a location name corresponding to a file
 // in the IANA Time Zone database, such as "America/New_York".
+//
+// The time zone database needed by LoadLocation may not be
+// present on all systems, especially non-Unix systems.
+// LoadLocation looks in the directory or uncompressed zip file
+// named by the ZONEINFO environment variable, if any, then looks in
+// known installation locations on Unix systems,
+// and finally looks in $GOROOT/lib/time/zoneinfo.zip.
 func LoadLocation(name string) (*Location, error) {
 	if name == "" || name == "UTC" {
 		return UTC, nil
 	}
 	if name == "Local" {
 		return Local, nil
+	}
+	if zoneinfo != "" {
+		if z, err := loadZoneFile(zoneinfo, name); err == nil {
+			z.name = name
+			return z, nil
+		}
 	}
 	return loadLocation(name)
 }
