@@ -712,15 +712,10 @@ verify_bb_vtables (basic_block bb)
 
                           vtable_map_node = vtbl_map_get_node (var_id);
 
-                          gcc_assert (vtable_map_node);
-
-                          vtbl_var_decl = vtable_map_node->vtbl_map_decl;
-                          vtable_map_node->is_used = true;
-
                           /* Build  verify_vtbl_ptr_fndecl */
 
                           build_vtable_verify_fndecl ();
-
+                          gcc_assert(verify_vtbl_ptr_fndecl);
                           /* Given the vtable pointer for the base
                              class of the object, build the call to
                              __VLTVerifyVtablePointer to verify that
@@ -730,8 +725,11 @@ verify_bb_vtables (basic_block bb)
 
                           /* Have problems with following assert. It shows we are not protecting everything */
                           /* gcc_assert(verify_vtbl_ptr_fndecl && vtbl_var_decl); */
-                          if (verify_vtbl_ptr_fndecl && vtbl_var_decl)
+                          if (vtable_map_node &&
+                              (vtbl_var_decl = vtable_map_node->vtbl_map_decl))
                             {
+                              vtable_map_node->is_used = true;
+
                               if (TREE_CODE (vtbl_decl) == VAR_DECL)
                                 vtable_name = IDENTIFIER_POINTER
                                     (DECL_NAME (vtbl_decl));
