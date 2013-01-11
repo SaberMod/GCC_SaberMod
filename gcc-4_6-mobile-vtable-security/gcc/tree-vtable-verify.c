@@ -723,12 +723,13 @@ verify_bb_vtables (basic_block bb)
                              lhs) is in the set of valid vtable
                              pointers for the base class.  */
 
-                          /* Have problems with following assert. It shows we are not protecting everything */
+                          /* Have problems with following assert. It shows we 
+                             are not protecting everything */
                           /* gcc_assert(verify_vtbl_ptr_fndecl && vtbl_var_decl); */
-                          if (vtable_map_node &&
-                              (vtbl_var_decl = vtable_map_node->vtbl_map_decl))
+                          if (vtable_map_node && vtable_map_node->vtbl_map_decl)
                             {
                               vtable_map_node->is_used = true;
+                              vtbl_var_decl = vtable_map_node->vtbl_map_decl;
 
                               if (TREE_CODE (vtbl_decl) == VAR_DECL)
                                 vtable_name = IDENTIFIER_POINTER

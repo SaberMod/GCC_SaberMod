@@ -1,3 +1,18 @@
+2012-12-18  Luis Lozano  <llozano@google.com>
+
+	* gcc/tree-vtable-verify.c: temporary workaround for missed
+	verification assert.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc: cleaned up warning
+	related to VTV_DEBUG macro
+	* libstdc++-v3/libsupc++/vtv_rts.cc:
+	Fixed use of VTV_NO_ABORT macro. The way it was used before the
+	compiler still saw a call to __vtv_really_fail which had the
+	"noreturn" attribute which can cause problems during optimization.
+	(vtv_fail): Dont open/close stty. Just send message to fd 2 (stderr).
+	Fix issue in printing the value of the set handle.
+	(__vtv_verify_fail): Fixed issue with printing value of set handle.
+	Added \n to the message passed to vtv_fail.
+
 2012-11-30  Luis Lozano  <llozano@google.com>
 
 	* gcc/BASE-VER: changed 4.6.x to 4.6.3. Not having this confuses 
