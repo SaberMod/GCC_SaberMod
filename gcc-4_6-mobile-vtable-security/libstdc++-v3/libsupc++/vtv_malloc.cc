@@ -34,9 +34,6 @@
 #include "vtv_malloc.h"
 #include "obstack.h"
 
-/* Set the following macro to 1 to get internal debugging messages */
-#define VTV_DEBUG 0
-
 /* Put the following variables in a rel.ro section so that the are protected.
    They are explicitly unprotected and protected again by calls to VTV_unprotect
    and VTV_protect */
@@ -60,7 +57,7 @@ VTV_malloc_protect (void)
       VTV_error();
     ci = ci->prev;
   }
-#if (VTV_DEBUG == 1)
+#if (VTV_DEBUG_MALLOC == 1)
   VTV_malloc_dump_stats();
 #endif
 }

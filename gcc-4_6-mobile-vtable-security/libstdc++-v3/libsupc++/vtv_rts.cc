@@ -706,7 +706,6 @@ __VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
 void
 __vtv_really_fail (const char *failure_msg)
 {
-#ifndef VTV_NO_ABORT
   __fortify_fail (failure_msg);
 
   /* We should never get this far; __fortify_fail calls __libc_message
@@ -714,29 +713,27 @@ __vtv_really_fail (const char *failure_msg)
      supposed to call abort, but let's play it safe anyway and call abort
      ourselves.  */
   abort ();
-#endif
 }
 
 static void
 vtv_fail (const char *msg, void **data_set_ptr, const void *vtbl_ptr)
 {
-  int fd;
+  char buffer[128];
+  int buf_len;
+  const char *format_str =
+      "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
 
-  fd = open ("/dev/tty", O_WRONLY);
-  if (fd != -1)
-    {
-      char buffer[120];
-      int buf_len;
-      const char *format_str =
-            "*** Unable to verify vtable pointer (%p) in set (%p) *** \n";
+  snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr,
+            is_set_handle_handle(*data_set_ptr) ?
+              ptr_from_set_handle_handle(*data_set_ptr) :
+              *data_set_ptr);
+  buf_len = strlen (buffer);
+  // Send to stderr
+  write (2, buffer, buf_len);
 
-      snprintf (buffer, sizeof (buffer), format_str, vtbl_ptr, *data_set_ptr);
-      buf_len = strlen (buffer);
-      write (fd, buffer, buf_len);
-      close (fd);
-    }
-
+#ifndef VTV_NO_ABORT
   __vtv_really_fail (msg);
+#endif
 }
 
 
@@ -770,8 +767,11 @@ void
 __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
 {
   char log_msg[256];
-  snprintf (log_msg, sizeof (log_msg), "Looking for vtable  %p in set %p.\n",
-            vtbl_ptr, *data_set_ptr);
+  snprintf (log_msg, sizeof (log_msg), "Looking for vtable %p in set %p.\n",
+            vtbl_ptr,
+            is_set_handle_handle(*data_set_ptr) ?
+              ptr_from_set_handle_handle(*data_set_ptr) :
+              *data_set_ptr);
   log_error_message (log_msg, false);
 
   const char *format_str =
@@ -780,6 +780,6 @@ __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
   log_error_message (log_msg, false);
   log_error_message ("  Backtrace: \n", true);
 
-  const char *fail_msg = "Potential vtable pointer corruption detected!!";
+  const char *fail_msg = "Potential vtable pointer corruption detected!!\n";
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }
