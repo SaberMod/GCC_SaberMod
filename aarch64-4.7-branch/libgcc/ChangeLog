@@ -1,3 +1,8 @@
+2013-01-15  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Update
+	loop start address for cache clearing.
+
 2012-12-18  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org
 
 	Backport from mainline.
