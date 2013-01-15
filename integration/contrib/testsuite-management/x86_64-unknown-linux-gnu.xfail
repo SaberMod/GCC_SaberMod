@@ -3,7 +3,6 @@ XPASS: libffi.call/va_1.c -O2 output pattern test, 5 6 10 11 12 13 14 7 8 uc=9 s
 XPASS: libffi.call/va_1.c -O3 output pattern test, 5 6 10 11 12 13 14 7 8 uc=9 sc=10 11 12 13 14 15 16 2.120000 3.130000?
 XPASS: libffi.call/va_1.c -Os output pattern test, 5 6 10 11 12 13 14 7 8 uc=9 sc=10 11 12 13 14 15 16 2.120000 3.130000?
 XPASS: libffi.call/va_1.c -O2 -fomit-frame-pointer output pattern test, 5 6 10 11 12 13 14 7 8 uc=9 sc=10 11 12 13 14 15 16 2.120000 3.130000?
-FAIL: c-c++-common/asan/null-deref-1.c -Os  output pattern test, is ASAN:SIGSEGV
 XPASS: gcc.dg/inline_3.c (test for excess errors)
 XPASS: gcc.dg/inline_4.c (test for excess errors)
 XPASS: gcc.dg/unroll_2.c (test for excess errors)
@@ -36,3 +35,4 @@ flaky | FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
 FAIL: sourcelocation -findirect-dispatch output - source compiled test
 FAIL: sourcelocation output - source compiled test
 FAIL: sourcelocation -O3 output - source compiled test
+FAIL: gfortran.dg/class_optional_2.f90 -Os  execution test
