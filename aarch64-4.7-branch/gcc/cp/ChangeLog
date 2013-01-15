@@ -1,3 +1,46 @@
+2013-01-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55893
+	* decl.c (cp_finish_decl): Clear TREE_READONLY if the variable
+	needs destruction.
+
+2013-01-08  Joel Brobecker  <brobecker@adacore.com>
+
+	* parser.c (cp_parser_initializer_list): Move declaration
+	of variable non_const to start of lexical block.
+
+2013-01-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55877
+	* decl.c (reset_type_linkage, bt_reset_linkage): New.
+	(grokdeclarator): Use reset_type_linkage.
+	* name-lookup.c (binding_table_foreach): Handle null table.
+	* tree.c (decl_anon_ns_mem_p): Check TYPE_MAIN_DECL, not TYPE_NAME.
+
+2013-01-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55419
+	PR c++/55753
+	* pt.c (tsubst_copy_and_build) [TARGET_EXPR]: Don't touch
+	TREE_CONSTANT.
+
+	PR c++/55842
+	* semantics.c (trait_expr_value): Call maybe_instantiate_noexcept.
+
+	PR c++/55856
+	* semantics.c (build_data_member_initialization): Handle DECL_EXPR.
+
+2013-01-02  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54325
+	* call.c (build_new_method_call_1): Don't use build_value_init for
+	user-provided default constructors.
+
+	PR c++/55032
+	PR c++/55245
+	* tree.c (build_cplus_array_type): Copy layout information
+	to main variant if necessary.
+
 2012-12-19  Jason Merrill  <jason@redhat.com>
 
 	PR c++/55724
