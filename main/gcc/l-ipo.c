@@ -873,6 +873,7 @@ cgraph_build_type_equivalent_classes (void)
         {
           *slot = XCNEW (struct type_ec);
           (*slot)->rep_type = te.rep_type;
+          vec_alloc ((*slot)->eq_types, 10);
         }
       (*slot)->eq_types->safe_push (te.rep_type);
     }
@@ -1052,6 +1053,8 @@ cgraph_unify_type_alias_sets (void)
 
   if (!L_IPO_COMP_MODE)
     return;
+
+  vec_alloc (pending_types, 100);
   type_set = pointer_set_create ();
   type_hash_tab = htab_create (10, type_hash_hash,
                                type_hash_eq, type_hash_del);
@@ -1067,6 +1070,7 @@ cgraph_unify_type_alias_sets (void)
       if (gimple_has_body_p (current_function_decl))
         cgraph_collect_type_referenced ();
       current_function_decl = NULL;
+      set_cfun (NULL);
       pop_cfun ();
     }
 
@@ -1981,19 +1985,13 @@ varpool_remove_duplicate_weak_decls (void)
   if (!L_IPO_COMP_MODE)
     return;
 
-#ifdef FIXME_LIPO
-  varpool_reset_queue ();
-#endif
-
   promo_ent_hash_tab = htab_create (10, promo_ent_hash,
                                     promo_ent_eq, promo_ent_del);
 
   FOR_EACH_VARIABLE (node)
     {
       tree decl = node->symbol.decl;
-#ifdef FIXME_LIPO
-      node->needed = 0;
-#endif
+
       if (TREE_PUBLIC (decl) && DECL_WEAK (decl) && !DECL_EXTERNAL (decl)
 	  && get_name_seq_num (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))))
         {
@@ -2002,13 +2000,6 @@ varpool_remove_duplicate_weak_decls (void)
 	  DECL_INITIAL (decl) = NULL;
 	  DECL_CONTEXT (decl) = NULL;
 	}
-      else
-        {
-        ;
-        }
-#ifdef FIXME_LIPO
-	varpool_mark_needed_node (node);
-#endif
     }
 
   htab_delete (promo_ent_hash_tab);
@@ -2195,7 +2186,7 @@ fixup_reference_list (struct varpool_node *node)
           use_type = ref->use;
         }
     }
-  for (i = 0; new_refered->iterate (i, &c); ++i)
+  for (i = 0; new_refered && new_refered->iterate (i, &c); ++i)
     {
       ipa_record_reference ((symtab_node)node, (symtab_node)c, use_type, NULL);
     }

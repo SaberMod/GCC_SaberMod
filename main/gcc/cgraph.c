@@ -2256,6 +2256,7 @@ verify_edge_count_and_frequency (struct cgraph_edge *e)
       error_found = true;
     }
   if (gimple_has_body_p (e->caller->symbol.decl)
+      && e->call_stmt
       && !e->caller->global.inlined_to
       /* FIXME: Inline-analysis sets frequency to 0 when edge is optimized out.
 	 Remove this once edges are actually removed from the function at that time.  */
@@ -2591,7 +2592,7 @@ verify_cgraph_node (struct cgraph_node *node)
 
       for (e = node->callees; e; e = e->next_callee)
 	{
-	  if (!e->aux)
+	  if (!e->aux && e->call_stmt)
 	    {
 	      error ("edge %s->%s has no corresponding call_stmt",
 		     identifier_to_locale (cgraph_node_name (e->caller)),

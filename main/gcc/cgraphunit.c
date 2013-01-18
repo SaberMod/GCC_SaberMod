@@ -403,9 +403,6 @@ void
 cgraph_finalize_function (tree decl, bool nested)
 {
   struct cgraph_node *node = cgraph_get_create_node (decl);
-#ifdef FIXME_LIPO
-  bool reset_needed = node->local.finalized;
-#endif
 
   if (node->local.finalized)
     {
@@ -438,21 +435,6 @@ cgraph_finalize_function (tree decl, bool nested)
 	    && TREE_CODE (DECL_CONTEXT (decl)) == FUNCTION_DECL))
       && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     node->symbol.force_output = 1;
-
-#ifdef FIXME_LIPO
-  /* For multi-module compilation,  an inline function may be multiply
-     defined if it is a built-in. In one file, The decl may be marked
-     as needed (e.g., referenced), and analyzed (including inline parameter
-     computation) during function lowering invoked at the end of the file scope.
-     In the following scope, it may not be needed, thus won't be put into
-     the cgraph nodes queue for further analysis. Do it here.
-
-  if (reset_needed
-      && L_IPO_IS_AUXILIARY_MODULE
-      && DECL_DECLARED_INLINE_P (node->decl))
-    cgraph_mark_reachable_node (node);
-   */
-#endif
 
   /* If we've not yet emitted decl, tell the debug info about it.  */
   if (!TREE_ASM_WRITTEN (decl))

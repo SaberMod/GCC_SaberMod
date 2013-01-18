@@ -426,35 +426,33 @@ error " Check the following code "
 
   /* In LIPO mode, otherwise unneeded variables might be referenced in the
      hastable used to resolve cross-module linking of variables.  */
-  if (!L_IPO_COMP_MODE)
+  if (file)
+    fprintf (file, "Reclaiming variables:");
+  for (vnode = varpool_first_variable (); vnode; vnode = vnext)
     {
-      if (file)
-        fprintf (file, "Reclaiming variables:");
-      for (vnode = varpool_first_variable (); vnode; vnode = vnext)
+      vnext = varpool_next_variable (vnode);
+      if (!vnode->symbol.aux)
         {
-          vnext = varpool_next_variable (vnode);
-          if (!vnode->symbol.aux)
+          if (file)
+            fprintf (file, " %s", varpool_node_name (vnode));
+          varpool_remove_node (vnode);
+          changed = true;
+        }
+      else if (!pointer_set_contains (reachable, vnode))
+        {
+          if (vnode->analyzed)
             {
               if (file)
                 fprintf (file, " %s", varpool_node_name (vnode));
-              varpool_remove_node (vnode);
               changed = true;
-	    }
-          else if (!pointer_set_contains (reachable, vnode))
-            {
-              if (vnode->analyzed)
-	        {
-	          if (file)
-	            fprintf (file, " %s", varpool_node_name (vnode));
-	          changed = true;
-	        }
-	      vnode->analyzed = false;
-              vnode->symbol.aux = NULL;
-	    }
-          else
-            vnode->symbol.aux = NULL;
+            }
+          vnode->analyzed = false;
+          vnode->symbol.aux = NULL;
         }
+      else
+        vnode->symbol.aux = NULL;
     }
+
   pointer_set_destroy (reachable);
   pointer_set_destroy (body_needed_for_clonning);
 
