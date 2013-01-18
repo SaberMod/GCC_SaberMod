@@ -9407,9 +9407,6 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
   remove_AT (comp_unit, DW_AT_producer);
   remove_AT (comp_unit, DW_AT_language);
 
-  /* Add attributes common to skeleton compile_units and type_units.  */
-  add_top_level_skeleton_die_attrs (comp_unit);
-
   switch_to_section (debug_skeleton_info_section);
   ASM_OUTPUT_LABEL (asm_out_file, debug_skeleton_info_section_label);
 
@@ -24087,6 +24084,10 @@ dwarf2out_finish (const char *filename)
   if (dwarf_split_debug_info)
     {
       unsigned int index = 0;
+      /* Before we assign string indexes, we need to add the string
+	 attributes to the skeleton compile unit and type units.  */
+      add_top_level_skeleton_die_attrs (main_comp_unit_die);
+      (void) get_skeleton_type_unit ();
       htab_traverse_noresize (debug_str_hash, index_string, &index);
     }
 
