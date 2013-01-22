@@ -33,17 +33,30 @@
 
 #include "vtv_utils.h"
 
-static const char * const logs_dir = "/tmp/vtv_logs";
+static const char * const logs_dir = "/var/log/chrome/vtv_logs";
+static const char * const alt_logs_dir = "/tmp/vtv_logs";
 
 int
 vtv_open_log(const char * name)
 {
+  // try to create the logs under /var/log/chrome first, which
+  // is persistent across reboots.
+  // This location only exist on ChromeOS. This code should not
+  // be commited upstream GCC
   char log_name[256];
   snprintf(log_name, sizeof(log_name), "%s/%s", logs_dir, name);
   mkdir(logs_dir, S_IRWXU);
   int fd = open(log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+  if (fd != -1)
+    return fd;
+
+  // otherwise try in /tmp/
+  snprintf(log_name, sizeof(log_name), "%s/%s", alt_logs_dir, name);
+  mkdir(alt_logs_dir, S_IRWXU);
+  fd = open(log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
-    vtv_add_to_log(2, "Cannot open log file %s %s\n", name, strerror(errno));
+    vtv_add_to_log(2, "Cannot open log file %s %s\n", log_name,
+                   strerror(errno));
   return fd;
 }
 

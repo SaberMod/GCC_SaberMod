@@ -1,3 +1,9 @@
+2013-01-22  Luis Lozano  <llozano@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_utils.cc: create the logs under
+	/var/log/chrome if it exists. This location does not dissapear
+	after a reboot.
+
 2012-12-18  Luis Lozano  <llozano@google.com>
 
 	* gcc/tree-vtable-verify.c: temporary workaround for missed
