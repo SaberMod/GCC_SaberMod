@@ -159,7 +159,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       ~_Vector_base()
       { _M_deallocate(this->_M_impl._M_start, this->_M_impl._M_end_of_storage
-		      - this->_M_impl._M_start); }
+		      - this->_M_impl._M_start);
+#if __google_stl_debug_dangling_vector
+        this->_M_impl._M_start = 0;
+        this->_M_impl._M_finish = reinterpret_cast<_Tp*>(~0UL);
+#endif
+      }
 
     public:
       _Vector_impl _M_impl;
