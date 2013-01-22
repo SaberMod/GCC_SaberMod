@@ -318,7 +318,6 @@ proc profopt-execute { src } {
 	set options "$extra_options"
 	lappend options "additional_flags=$option $extra_flags $profile_option"
 	set optstr "$option $profile_option"
-	verbose "Hey $src_list $execname1 executable $options"
 	set comp_output [${tool}_target_compile "$src_list" "$execname1" executable $options]
 	if ![${tool}_check_compile "$testcase compilation" $optstr $execname1 $comp_output] {
  	    unresolved "$testcase execution,   $optstr"
@@ -407,8 +406,18 @@ proc profopt-execute { src } {
 	}
 
 	# Remove the profiling data files.
-	foreach ext $prof_ext {
-	    remote_file target delete $tmpdir/$base.$ext
+	if { $num_srcs > 1 } {
+	   set i 0
+	    foreach s $src_list {
+		foreach ext $prof_ext {
+		    remote_file target delete $tmpdir/${mbase}_${i}.$ext
+		}
+		incr i
+	    }
+	} else {
+	    foreach ext $prof_ext {
+		remote_file target delete $tmpdir/$base.$ext
+	    }
 	}
 
 	if { $status != "pass" } {

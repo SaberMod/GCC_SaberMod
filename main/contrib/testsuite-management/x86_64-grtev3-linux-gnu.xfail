@@ -562,64 +562,6 @@ FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-ipa-dump-times cp "Clone of foo" 1
 FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-tree-dump-not optimized "->c;"
 
 
-# LIPO specific
-FAIL: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-FAIL: g++.dg/tree-prof/lipo/indir-call-prof_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-FAIL: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-FAIL: g++.dg/tree-prof/lipo/partition1_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-FAIL: g++.dg/tree-prof/lipo/partition2_0.C compilation,  -fprofile-generate -fripa
-FAIL: g++.dg/tree-prof/lipo/partition3_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-FAIL: g++.dg/tree-prof/lipo/vcall1_0.C compilation,  -fprofile-use -fripa (internal compiler error)
-UNRESOLVED: gcc.dg/torture/vshuf-v8hi.c -O2  compilation failed to produce executable
-UNRESOLVED: gcc.dg/tree-prof/lipo/bb-reorg_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/inliner-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/pr34999_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/pr45354_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/pr47187_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/tracer-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/update-loopch_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/update-tailcall_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-3_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-4_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-5_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-6_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-7_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
-FAIL: gcc.dg/tree-prof/lipo/bb-reorg_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/inliner-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/pr34999_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/pr45354_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/pr47187_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/stringop-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/stringop-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/tracer-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/update-loopch_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/update-tailcall_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-3_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-4_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-5_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-6_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/val-prof-7_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-FAIL: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
-
-
-
 
 # 32 bit only -- also failed in trunk
 FAIL: c-c++-common/torture/vector-compare-1.c -O2  (internal compiler error)
@@ -710,16 +652,6 @@ FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-obj
 FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
 
-# LIPO specific
-UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/partition1_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/partition2_0.C execution,    -fprofile-generate -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/partition2_0.C compilation,  -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/partition2_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/partition3_0.C execution,    -fprofile-use -fripa
-UNRESOLVED: g++.dg/tree-prof/lipo/vcall1_0.C execution,    -fprofile-use -fripa
 
 # also failed in trunk
 

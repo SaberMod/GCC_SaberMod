@@ -27,7 +27,7 @@ if { ![check_profiling_available ""] } {
 
 # The procedures in profopt.exp need these parameters.
 set tool gcc
-set prof_ext "gcda"
+set prof_ext [list {gcda} {gcda.imports} ]
 
 # Override the list defined in profopt.exp.
 set PROFOPT_OPTIONS [list {}]

@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-ipa-profile-blocks -fdump-tree-optimized-blocks" } */
+/* { dg-options "-O2 -fdump-ipa-profile-blocks -fdump-tree-optimized-blocks-details" } */
 int max = 33333;
 int a[8];
 int

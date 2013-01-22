@@ -281,7 +281,7 @@ clear_module_scope_bindings (struct saved_module_scope *module_scope)
   tree decl;
 
   for (i = 0;
-       module_scope->module_decls->iterate (i, &decl);
+       vec_safe_iterate (module_scope->module_decls, i, &decl);
        ++i)
     {
       lang_hooks.l_ipo.clear_global_name_bindings (
@@ -324,7 +324,7 @@ restore_assembler_name_reference_bit (void)
   size_t i;
   tree nm;
   for (i = 0;
-       referenced_asm_ids->iterate (i, &nm);
+       vec_safe_iterate (referenced_asm_ids, i, &nm);
        ++i)
     TREE_SYMBOL_REFERENCED (nm) = 1;
 }

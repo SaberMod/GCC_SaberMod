@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -fdump-tree-optimized" } */
+/* { dg-options "-O2 -fdump-tree-optimized-details-blocks -fdump-ipa-inline-details -fripa-verbose" } */
 
 extern int foo (void);
 extern int goo (void);

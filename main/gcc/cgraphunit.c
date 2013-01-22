@@ -850,7 +850,9 @@ varpool_finalize_decl (tree decl)
     varpool_analyze_node (node);
   /* Some frontends produce various interface variables after compilation
      finished.  */
-  if (cgraph_state == CGRAPH_STATE_FINISHED)
+  if (cgraph_state == CGRAPH_STATE_FINISHED
+      || (cgraph_state == CGRAPH_STATE_EXPANSION
+          && flag_dyn_ipa && !flag_toplevel_reorder))
     varpool_assemble_decl (node);
 }
 
