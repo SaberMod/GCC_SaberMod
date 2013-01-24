@@ -1,0 +1,101 @@
+# Not important to triage if clang based solution is ready
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 13)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 15)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 18)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 19)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 8)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 9)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 8)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 9)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 22)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 30)
+FAIL: gcc.dg/thread_annot_lock-42.c  (test for warnings, line 9)
+
+# New regression -- only fail with -std=gnu+11 option
+FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
+
+# New xray failures
+UNRESOLVED: gcc.target/i386/patch-functions-1.c scan-assembler ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-1.c scan-assembler .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-2.c scan-assembler-not ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-2.c scan-assembler-not .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-3.c scan-assembler ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-3.c scan-assembler .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-4.c scan-assembler-not ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-4.c scan-assembler-not .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-5.c scan-assembler .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-5.c scan-assembler ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-6.c scan-assembler .byte\t0xeb,0x09(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-6.c scan-assembler ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-7.c scan-assembler-not ret(.*).byte\t0x90(.*).byte\t0x90
+UNRESOLVED: gcc.target/i386/patch-functions-7.c scan-assembler-not .byte\t0xeb,0x09(.*).byte\t0x90
+
+
+# These tests fail in trunk in all configurations.
+XPASS: gcc.dg/unroll_2.c (test for excess errors)
+XPASS: gcc.dg/unroll_3.c (test for excess errors)
+XPASS: gcc.dg/unroll_4.c (test for excess errors)
+FAIL: gcc.c-torture/execute/vshuf-v2di.c execution,  -Os 
+FAIL: gcc.c-torture/execute/vshuf-v8hi.c execution,  -Os 
+FAIL: gcc.c-torture/execute/vshuf-v2di.c execution,  -Os
+FAIL: gcc.c-torture/execute/vshuf-v8hi.c execution,  -Os
+FAIL: gcc.c-torture/execute/vshuf-v16qi.c execution,  -Os
+FAIL: 23_containers/vector/requirements/dr438/assign_neg.cc  (test for errors, line 1207)
+FAIL: 23_containers/vector/requirements/dr438/assign_neg.cc (test for excess errors)
+FAIL: 23_containers/vector/requirements/dr438/constructor_1_neg.cc  (test for errors, line 1137)
+FAIL: 23_containers/vector/requirements/dr438/constructor_1_neg.cc (test for excess errors)
+FAIL: 23_containers/vector/requirements/dr438/constructor_2_neg.cc  (test for errors, line 1137)
+FAIL: 23_containers/vector/requirements/dr438/constructor_2_neg.cc (test for excess errors)
+FAIL: 23_containers/vector/requirements/dr438/insert_neg.cc  (test for errors, line 1248)
+FAIL: 23_containers/vector/requirements/dr438/insert_neg.cc (test for excess errors)
+
+# These are flaky when tested in loaded machines (they exceed the timeout)
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) output pattern test
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) execution test
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) execution test
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-static -DSTATIC) output pattern test
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-O3) output pattern test
+flaky | FAIL: libmudflap.cth/pass40-frag.c execution test
+flaky | FAIL: libmudflap.cth/pass40-frag.c output pattern test
+flaky | FAIL: libmudflap.cth/pass40-frag.c (-O2) execution test
+flaky | FAIL: libmudflap.cth/pass39-frag.c (-O3) (rerun 10) execution test
+flaky | FAIL: libgomp.graphite/force-parallel-6.c execution test
+
+# See http://gcc.gnu.org/ml/gcc-patches/2012-08/msg00141.html.  Revert once
+# that is resolved.
+UNRESOLVED: 23_containers/map/element_access/2.cc compilation failed to produce executable
+FAIL: 23_containers/map/element_access/2.cc (test for excess errors)
+
+# libitm failures caused by missing --sysroot.
+UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
+FAIL: libitm.c++/dropref.C (test for excess errors)
+UNRESOLVED: libitm.c++/eh-1.C compilation failed to produce executable
+FAIL: libitm.c++/eh-1.C (test for excess errors)
+FAIL: libitm.c++/throwdown.C (test for excess errors)
+FAIL: libitm.c/cancel.c (test for excess errors)
+UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
+FAIL: libitm.c/clone-1.c (test for excess errors)
+UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
+FAIL: libitm.c/dropref-2.c (test for excess errors)
+UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
+UNRESOLVED: libitm.c/dropref.c compilation failed to produce executable
+FAIL: libitm.c/dropref.c (test for excess errors)
+FAIL: libitm.c/memcpy-1.c (test for excess errors)
+UNRESOLVED: libitm.c/memcpy-1.c compilation failed to produce executable
+FAIL: libitm.c/memset-1.c (test for excess errors)
+UNRESOLVED: libitm.c/memset-1.c compilation failed to produce executable
+UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
+FAIL: libitm.c/notx.c (test for excess errors)
+UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
+FAIL: libitm.c/reentrant.c (test for excess errors)
+FAIL: libitm.c/simple-1.c (test for excess errors)
+UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
+UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
+FAIL: libitm.c/simple-2.c (test for excess errors)
+FAIL: libitm.c/stackundo.c (test for excess errors)
+UNRESOLVED: libitm.c/stackundo.c compilation failed to produce executable
+UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
+FAIL: libitm.c/txrelease.c (test for excess errors)
