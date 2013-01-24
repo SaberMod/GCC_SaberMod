@@ -215,7 +215,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			  const _Alloc& __a);
 
       ~__sso_string_base()
-      { _M_dispose(); }
+      {
+          _M_dispose();
+#ifdef __google_stl_debug_dangling_string
+          __builtin_memset(this, 0xcd, sizeof(*this));
+#endif
+      }
 
       _CharT_alloc_type&
       _M_get_allocator()
