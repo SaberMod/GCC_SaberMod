@@ -119,6 +119,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "l-ipo.h"
 
 struct ipcp_value;
 
@@ -1521,6 +1522,8 @@ ipa_get_indirect_edge_target (struct cgraph_edge *ie,
 	  TREE_CODE (t) == ADDR_EXPR
 	  && TREE_CODE (TREE_OPERAND (t, 0)) == FUNCTION_DECL)
 	return TREE_OPERAND (t, 0);
+      else if (L_IPO_COMP_MODE && t && TREE_CODE (t) == FUNCTION_DECL)
+        return t;
       else
 	return NULL_TREE;
     }

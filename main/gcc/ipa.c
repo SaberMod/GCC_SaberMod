@@ -424,8 +424,6 @@ error " Check the following code "
   if (file)
     fprintf (file, "\n");
 
-  /* In LIPO mode, otherwise unneeded variables might be referenced in the
-     hastable used to resolve cross-module linking of variables.  */
   if (file)
     fprintf (file, "Reclaiming variables:");
   for (vnode = varpool_first_variable (); vnode; vnode = vnext)

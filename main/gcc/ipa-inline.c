@@ -1357,6 +1357,9 @@ recursive_inlining (struct cgraph_edge *edge,
 	    {
 	      if (dump_file)
 		fprintf (dump_file, "   Not inlining cold call\n");
+
+              cgraph_redirect_edge_callee (curr, dest);
+              reset_edge_growth_cache (curr);
 	      continue;
 	    }
           if (node->count == 0 || curr->count * 100 / node->count < probability)
@@ -1364,6 +1367,9 @@ recursive_inlining (struct cgraph_edge *edge,
 	      if (dump_file)
 		fprintf (dump_file,
 			 "   Probability of edge is too small\n");
+
+              cgraph_redirect_edge_callee (curr, dest);
+              reset_edge_growth_cache (curr);
 	      continue;
 	    }
 	}

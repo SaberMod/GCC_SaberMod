@@ -402,6 +402,14 @@ mark_address (gimple stmt, tree addr, void *data)
       ipa_record_reference ((symtab_node)data,
 			    (symtab_node)vnode,
 			    IPA_REF_ADDR, stmt);
+      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+        {
+          struct varpool_node *rvnode = real_varpool_node (addr);
+          if (rvnode != vnode)
+            ipa_record_reference ((symtab_node)data,
+                                  (symtab_node)rvnode,
+                                  IPA_REF_ADDR, stmt);
+        }
     }
 
   return false;
@@ -431,6 +439,15 @@ mark_load (gimple stmt, tree t, void *data)
       ipa_record_reference ((symtab_node)data,
 			    (symtab_node)vnode,
 			    IPA_REF_LOAD, stmt);
+
+      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+        {
+          struct varpool_node *rvnode = real_varpool_node (t);
+          if (rvnode != vnode)
+            ipa_record_reference ((symtab_node)data,
+                                  (symtab_node)rvnode,
+                                  IPA_REF_ADDR, stmt);
+        }
     }
   return false;
 }
@@ -449,6 +466,14 @@ mark_store (gimple stmt, tree t, void *data)
       ipa_record_reference ((symtab_node)data,
 			    (symtab_node)vnode,
 			    IPA_REF_STORE, stmt);
+      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+        {
+          struct varpool_node *rvnode = real_varpool_node (t);
+          if (rvnode != vnode)
+            ipa_record_reference ((symtab_node)data,
+                                  (symtab_node)rvnode,
+                                  IPA_REF_ADDR, stmt);
+        }
      }
   return false;
 }
@@ -598,6 +623,7 @@ rebuild_cgraph_edges (void)
 	      if (decl)
 	        {
 		  struct cgraph_node *callee;
+                  struct cgraph_edge *edge;
 		  /* In LIPO mode, before tree_profiling, the call graph edge
 		     needs to be built with the original target node to make
 		     sure consistent early inline decisions between profile
@@ -611,11 +637,13 @@ rebuild_cgraph_edges (void)
                     }
                   else
 		    callee = cgraph_get_create_node (decl);
-                  cgraph_create_edge (node, callee, stmt,
-                                      bb->count, freq);
+
+                  edge = cgraph_create_edge (node, callee, stmt,
+                                             bb->count, freq);
+
                   if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done
 		      && decl != callee->symbol.decl)
-		    gimple_call_set_fndecl (stmt, callee->symbol.decl);
+                    cgraph_redirect_edge_call_stmt_to_callee (edge);
                 }
 	      else
 		cgraph_create_indirect_edge (node, stmt,

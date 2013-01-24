@@ -61,6 +61,7 @@ varpool_node_for_decl (tree decl)
 void
 varpool_remove_node (struct varpool_node *node)
 {
+  varpool_remove_link_node (node);
   symtab_unregister_node ((symtab_node)node);
   if (DECL_INITIAL (node->symbol.decl)
       && !DECL_IN_CONSTANT_POOL (node->symbol.decl)

@@ -700,6 +700,8 @@ bind (tree name, tree decl, struct c_scope *scope, bool invisible,
 
   b->shadowed = *here;
   *here = b;
+
+  add_decl_to_current_module_scope (decl, scope);
 }
 
 /* Clear the binding structure B, stick it on the binding_freelist,
@@ -1377,7 +1379,9 @@ pop_file_scope (void)
 
   /* Pop off the file scope and close this translation unit.  */
   pop_scope ();
-  file_scope = 0;  if (!L_IPO_COMP_MODE)
+  file_scope = 0;
+
+  if (!L_IPO_COMP_MODE)
     maybe_apply_pending_pragma_weaks ();
   else
     {

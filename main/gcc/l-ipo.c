@@ -291,8 +291,12 @@ clear_module_scope_bindings (struct saved_module_scope *module_scope)
         {
           tree assembler_name;
 
-          assembler_name = DECL_ASSEMBLER_NAME (decl);
-          lang_hooks.l_ipo.clear_global_name_bindings (assembler_name);
+          if (HAS_DECL_ASSEMBLER_NAME_P (decl)
+              && DECL_ASSEMBLER_NAME_SET_P (decl))
+            {
+              assembler_name = DECL_ASSEMBLER_NAME (decl);
+              lang_hooks.l_ipo.clear_global_name_bindings (assembler_name);
+            }
         }
     }
 }
@@ -2168,10 +2172,13 @@ fixup_reference_list (struct varpool_node *node)
   int i;
   struct ipa_ref *ref;
   struct ipa_ref_list *list = &node->symbol.ref_list;
-  vec<cgraph_node_ptr> *new_refered = NULL;
+  vec<cgraph_node_ptr> new_refered;
+  vec<int> new_refered_type;
   struct cgraph_node *c;
   enum ipa_ref_use use_type = IPA_REF_LOAD;
 
+  new_refered.create (10);
+  new_refered_type.create (10);
   for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
     {
       if (!is_a <cgraph_node> (ref->referred))
@@ -2182,13 +2189,15 @@ fixup_reference_list (struct varpool_node *node)
         = cgraph_lipo_get_resolved_node (cnode->symbol.decl);
       if (r_cnode != cnode)
         {
-          new_refered->safe_push (r_cnode);
+          new_refered.safe_push (r_cnode);
           use_type = ref->use;
+          new_refered_type.safe_push ((int) use_type);
         }
     }
-  for (i = 0; new_refered && new_refered->iterate (i, &c); ++i)
+  for (i = 0; new_refered.iterate (i, &c); ++i)
     {
-      ipa_record_reference ((symtab_node)node, (symtab_node)c, use_type, NULL);
+      ipa_record_reference ((symtab_node)node, (symtab_node)c,
+                            (enum ipa_ref_use) new_refered_type[i], NULL);
     }
 }
 

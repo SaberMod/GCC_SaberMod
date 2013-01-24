@@ -1001,6 +1001,14 @@ tree_profiling (void)
 
       rebuild_cgraph_edges ();
 
+      /* Call graph build may change call statements which impacts
+         CFG (e.g. eh) and SSA (e.g. NORETURN and virtual operands)  */
+      if (L_IPO_COMP_MODE)
+        {
+          update_ssa (TODO_update_ssa);
+          if (execute_fixup_cfg () & TODO_cleanup_cfg)
+             cleanup_tree_cfg ();
+        }
       pop_cfun ();
     }
 

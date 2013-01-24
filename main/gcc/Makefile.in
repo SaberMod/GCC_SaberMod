@@ -2909,7 +2909,7 @@ ipa-ref.o : ipa-ref.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
 ipa-cp.o : ipa-cp.c $(CONFIG_H) $(SYSTEM_H) coretypes.h  \
    $(TREE_H) $(TARGET_H) $(GIMPLE_H) $(CGRAPH_H) $(IPA_PROP_H) $(TREE_FLOW_H) \
    $(TREE_PASS_H) $(FLAGS_H) $(DIAGNOSTIC_H) \
-   $(TREE_INLINE_H) $(PARAMS_H) $(TREE_PRETTY_PRINT_H) $(IPA_INLINE_H)
+   $(TREE_INLINE_H) $(PARAMS_H) $(TREE_PRETTY_PRINT_H) $(IPA_INLINE_H) l-ipo.h
 ipa-split.o : ipa-split.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
    $(TREE_H) $(TARGET_H) $(CGRAPH_H) $(IPA_PROP_H) $(TREE_FLOW_H) \
    $(TREE_PASS_H) $(FLAGS_H) $(DIAGNOSTIC_H) $(TREE_DUMP_H) \

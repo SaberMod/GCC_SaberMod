@@ -1117,6 +1117,12 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
       new_stmt = e->call_stmt;
       gimple_call_set_fndecl (new_stmt, e->callee->symbol.decl);
       update_stmt (new_stmt);
+      if (L_IPO_COMP_MODE)
+        {
+          int lp_nr = lookup_stmt_eh_lp (e->call_stmt);
+          if (lp_nr != 0 && !stmt_could_throw_p (e->call_stmt))
+            remove_stmt_from_eh_lp (e->call_stmt);
+        }
     }
 
   cgraph_set_call_stmt_including_clones (e->caller, e->call_stmt, new_stmt);
