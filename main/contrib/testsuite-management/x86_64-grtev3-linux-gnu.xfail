@@ -652,6 +652,142 @@ FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-obj
 FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
 
+FAIL: gcc.c-torture/unsorted/xopt.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xopt.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xopt.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xor.c, -O0
+FAIL: gcc.c-torture/unsorted/xor.c, -O1
+FAIL: gcc.c-torture/unsorted/xor.c, -O2
+FAIL: gcc.c-torture/unsorted/xor.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xor.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xor.c, -Os
+FAIL: gcc.c-torture/unsorted/xor.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xor.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xor.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xorn.c, -O0
+FAIL: gcc.c-torture/unsorted/xorn.c, -O1
+FAIL: gcc.c-torture/unsorted/xorn.c, -O2
+FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer -funroll-loops
+FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xorn.c, -Os
+FAIL: gcc.c-torture/unsorted/xorn.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xorn.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xorn.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xp.c, -O0
+FAIL: gcc.c-torture/unsorted/xp.c, -O1
+FAIL: gcc.c-torture/unsorted/xp.c, -O2
+FAIL: gcc.c-torture/unsorted/xp.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xp.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xp.c, -Os
+FAIL: gcc.c-torture/unsorted/xp.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xp.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xp.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xpp.c, -O0
+FAIL: gcc.c-torture/unsorted/xpp.c, -O1
+FAIL: gcc.c-torture/unsorted/xpp.c, -O2
+FAIL: gcc.c-torture/unsorted/xpp.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xpp.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xpp.c, -Os
+FAIL: gcc.c-torture/unsorted/xpp.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xpp.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xpp.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xs.c, -O0
+FAIL: gcc.c-torture/unsorted/xs.c, -O1
+FAIL: gcc.c-torture/unsorted/xs.c, -O2
+FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer -funroll-loops
+FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+FAIL: gcc.c-torture/unsorted/xs.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xs.c, -Os
+FAIL: gcc.c-torture/unsorted/xs.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xs.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xs.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xsh.c, -O0
+FAIL: gcc.c-torture/unsorted/xsh.c, -O1
+FAIL: gcc.c-torture/unsorted/xsh.c, -O2
+FAIL: gcc.c-torture/unsorted/xsh.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xsh.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xsh.c, -Os
+FAIL: gcc.c-torture/unsorted/xsh.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xsh.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xsh.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xz.c, -O0
+FAIL: gcc.c-torture/unsorted/xz.c, -O1
+FAIL: gcc.c-torture/unsorted/xz.c, -O2
+FAIL: gcc.c-torture/unsorted/xz.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xz.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xz.c, -Os
+FAIL: gcc.c-torture/unsorted/xz.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xz.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xz.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/unsorted/xzz.c, -O0
+FAIL: gcc.c-torture/unsorted/xzz.c, -O1
+FAIL: gcc.c-torture/unsorted/xzz.c, -O2
+FAIL: gcc.c-torture/unsorted/xzz.c, -O3 -fomit-frame-pointer
+FAIL: gcc.c-torture/unsorted/xzz.c, -O3 -g
+FAIL: gcc.c-torture/unsorted/xzz.c, -Os
+FAIL: gcc.c-torture/unsorted/xzz.c, -Og -g
+FAIL: gcc.c-torture/unsorted/xzz.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
+FAIL: gcc.c-torture/unsorted/xzz.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.dg/torture/builtin-convert-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-convert-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-convert-2.c -O0  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-convert-2.c -O1  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-convert-2.c -O2  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-convert-2.c -O3 -fomit-frame-pointer  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-ctype-1.c -O3 -g  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-ctype-1.c -Os  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-ctype-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+FAIL: gcc.dg/torture/builtin-ctype-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O1  (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1  compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-3.c -O2  (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O2  compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O2  (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2  compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-5.c -O3 -g -mforce-drap -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -O3 -g -mforce-drap -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-5.c -Os  (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os  compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-5.c -Os -fpic (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os -fpic compilation failed to produce executable
+FAIL: gcc.dg/torture/stackalign/nested-5.c -Os -mforce-drap (test for excess errors)
+UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os -mforce-drap compilation failed to produce executable
+UNRESOLVED: gcc.dg/torture/vshuf-v8hi.c -O2  compilation failed to produce executable
+FAIL: gcc.dg/vect/pr18400.c (test for excess errors)
+UNRESOLVED: gcc.dg/vect/pr18400.c compilation failed to produce executable
+FAIL: gcc.dg/vect/pr18425.c (test for excess errors)
+UNRESOLVED: gcc.dg/vect/pr18425.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/vect/pr18536.c (test for excess errors)
+UNRESOLVED: gcc.dg/vect/pr18536.c compilation failed to produce executable
+UNRESOLVED: gcc.dg/vect/pr18536.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/vect/pr20122.c (test for excess errors)
+UNRESOLVED: gcc.dg/vect/pr20122.c compilation failed to produce executable
+UNRESOLVED: gcc.dg/vect/pr20122.c scan-tree-dump-times vect "vectorized 1 loops" 3
 
 # also failed in trunk
 
