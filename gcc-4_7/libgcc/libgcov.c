@@ -1081,7 +1081,9 @@ rewrite:;
     if (!summary_pos)
       {
          memset (&program, 0, sizeof (program));
+#ifndef __GCOV_KERNEL__
          summary_pos = eof_pos;
+#endif
       }
 
     /* Merge the summaries.  */
