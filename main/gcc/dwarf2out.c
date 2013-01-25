@@ -20895,7 +20895,7 @@ set_cur_line_info_table (section *sec)
 	{
 	  char label[MAX_ARTIFICIAL_LABEL_BYTES];
 	  ASM_GENERATE_INTERNAL_LABEL (label, FUNC_END_LABEL,
-				       current_function_funcdef_no);
+				       FUNC_LABEL_ID (cfun));
 	  end_label = ggc_strdup (label);
 	}
 

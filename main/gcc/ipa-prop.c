@@ -1420,7 +1420,10 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
         {
           if (L_IPO_COMP_MODE && TREE_CODE (arg) == ADDR_EXPR
               && TREE_CODE (TREE_OPERAND (arg, 0)) == FUNCTION_DECL)
-            arg = TREE_OPERAND (arg, 0);
+            {
+              arg = TREE_OPERAND (arg, 0);
+	      arg = cgraph_lipo_get_resolved_node (arg)->symbol.decl;
+            }
           ipa_set_jf_constant (jfunc, arg);
         }
       else if (!is_gimple_reg_type (TREE_TYPE (arg))
