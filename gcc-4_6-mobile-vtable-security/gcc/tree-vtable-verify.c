@@ -44,6 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "tree-vtable-verify.h"
 
+int total_num_virtual_calls = 0;
+int total_num_verified_vcalls = 0;
+
 unsigned num_vtable_map_nodes = 0;
 bool any_verification_calls_generated = false;
 
@@ -219,15 +222,44 @@ eq_vtbl_map_node (const void *p1, const void *p2)
 
 /* Return vtbl_map node assigned to DECL without creating a new one.  */
 struct vtbl_map_node *
-vtbl_map_get_node (const_tree class_name)
+vtbl_map_get_node (tree class_type)
 {
   struct vtbl_map_node key;
   struct vtbl_map_node **slot;
+  tree class_type_decl;
+  tree type_decl_type;
+  tree class_name;
+  unsigned int save_quals;
+  unsigned int null_quals = TYPE_UNQUALIFIED;
 
   if (!vtbl_map_hash)
     return NULL;
 
-  key.class_name = CONST_CAST2 (tree, const_tree, class_name);
+  gcc_assert (TREE_CODE (class_type) == RECORD_TYPE);
+
+  /* Use the mangled name for the *unqualified* class as the key in our
+     hashtable.  First we need to find and temporarily remove any type
+     qualifiers on the type.  */
+
+  /* Find the TYPE_DECL for the class.  */
+  if (TREE_CHAIN (class_type))
+    class_type_decl = TREE_CHAIN (class_type);
+  else
+    class_type_decl = TYPE_NAME (class_type);
+
+  /* Temporarily remove any qualifiers on the type.  */
+  type_decl_type = TREE_TYPE (class_type_decl);
+  save_quals = TYPE_QUALS (type_decl_type);
+  reset_type_qualifiers (null_quals, type_decl_type);
+
+  /* Get the mangled name for the unqualified type.  */
+  class_name = DECL_ASSEMBLER_NAME (class_type_decl);
+
+  /* Restore any type qualifiers.  */
+  reset_type_qualifiers (save_quals, type_decl_type);
+
+  key.class_name = class_name;
+  /* key.class_name = CONST_CAST2 (tree, const_tree, class_name); */
   slot = (struct vtbl_map_node **) htab_find_slot (vtbl_map_hash, &key,
                                                    NO_INSERT);
   if (!slot)
@@ -244,17 +276,31 @@ find_or_create_vtbl_map_node (tree base_class_type)
   struct vtbl_map_node *node;
   struct vtbl_map_node **slot;
   unsigned i;
+  tree class_type_decl;
+  tree type_decl_type;
+  unsigned int save_quals;
+  unsigned int null_quals = TYPE_UNQUALIFIED;
 
   if (!vtbl_map_hash)
     vtbl_map_hash = htab_create (10, hash_vtbl_map_node,
                                  eq_vtbl_map_node, NULL);
 
   if (TREE_CHAIN (base_class_type))
-    key.class_name = DECL_ASSEMBLER_NAME (TREE_CHAIN (base_class_type));
+    class_type_decl = TREE_CHAIN (base_class_type);
   else
-    key.class_name = DECL_ASSEMBLER_NAME (TYPE_NAME (base_class_type));
+    class_type_decl = TYPE_NAME (base_class_type);
+
+  /* Temporarily remove any type qualifiers on type.  */
+  type_decl_type = TREE_TYPE (class_type_decl);
+  save_quals = TYPE_QUALS (type_decl_type);
+  reset_type_qualifiers (null_quals, type_decl_type);
+
+  key.class_name = DECL_ASSEMBLER_NAME (class_type_decl);
   slot = (struct vtbl_map_node **) htab_find_slot (vtbl_map_hash, &key,
                                                    INSERT);
+  /* Restore any type qualifiers.  */
+  reset_type_qualifiers (save_quals, type_decl_type);
+
   if (*slot)
     return *slot;
 
@@ -297,6 +343,26 @@ find_or_create_vtbl_map_node (tree base_class_type)
 }
 
 /* End of hashtable functions for vtable_map variables hash table.   */
+
+void
+reset_type_qualifiers (unsigned int new_quals, tree type_node)
+{
+  if (new_quals & TYPE_QUAL_CONST)
+    TYPE_READONLY (type_node) = 1;
+  else
+    TYPE_READONLY (type_node) = 0;
+
+  if (new_quals & TYPE_QUAL_VOLATILE)
+    TYPE_VOLATILE (type_node) = 1;
+  else
+    TYPE_VOLATILE (type_node) = 0;
+
+  if (new_quals & TYPE_QUAL_RESTRICT)
+    TYPE_RESTRICT (type_node) = 1;
+  else
+    TYPE_RESTRICT (type_node) = 0;
+
+}
 
 static tree
 my_build1 (enum tree_code code, tree type, tree node MEM_STAT_DECL)
@@ -489,6 +555,8 @@ verify_bb_vtables (basic_block bb)
               gimple def_stmt;
               gimple prev_use = NULL;
 
+              total_num_virtual_calls++;
+
               /* The first argument to the function must be "this", a pointer
                  to the object itself.  */
 
@@ -607,7 +675,6 @@ verify_bb_vtables (basic_block bb)
                           tree lhs;
                           tree vtbl_var_decl = NULL_TREE;
                           tree vtbl = NULL_TREE;
-                          tree var_id;
                           gimple_seq pre_p = NULL;
                           struct vtbl_map_node *vtable_map_node = NULL;
                           tree vtbl_decl = NULL_TREE;
@@ -705,12 +772,7 @@ verify_bb_vtables (basic_block bb)
                           if (TREE_CODE (TREE_TYPE (vtbl)) == POINTER_TYPE)
                             force_gimple_operand (vtbl, &pre_p, 1, NULL);
 
-                          if (TREE_CHAIN (rhs))
-                            var_id = DECL_ASSEMBLER_NAME (TREE_CHAIN (rhs));
-                          else
-                            var_id = DECL_ASSEMBLER_NAME (TYPE_NAME (rhs));
-
-                          vtable_map_node = vtbl_map_get_node (var_id);
+                          vtable_map_node = vtbl_map_get_node (rhs);
 
                           /* Build  verify_vtbl_ptr_fndecl */
 
@@ -785,6 +847,7 @@ verify_bb_vtables (basic_block bb)
                               gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
                                                     GSI_NEW_STMT);
                               any_verification_calls_generated = true;
+                              total_num_verified_vcalls++;
                             }
                         }
                     }

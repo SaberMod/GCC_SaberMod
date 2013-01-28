@@ -1,3 +1,34 @@
+2013-01-28  Caroline Tice  <cmtice@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c (record_register_pairs):
+	Remove code to calculate mangled name of class; pass class
+	type directly to vtbl_map_get_node.
+	(register_vptr_fields): Fix white spaces.
+	(find_graph_node):  Remove code do calculate mangled name of
+	class; pass class type directly to vtbl_map_get_node.
+	(write_out_counters):  New function.
+	(vtv_generate_init_routine):  Add call to write_out_counters,
+	if VTV_COUNT is defined.
+	(vtbl_find_or_create_map_decl): Remove qualifiers on class type
+	before getting the mangled name (for creating vtable map
+	variable). Pass class type directly to vtbl_map_get_node. Fix
+	comments.
+	(vtv_save_base_class_info):  Fix white spaces.
+	* gcc/tree-vtable-verify.c (total_num_virtual_calls,
+	total_num_verified_vcals):  New global variables.
+	(vtbl_map_get_node):  Change parameter to type class, rather
+	than mangled name of class.  Temporarily remove any type
+	qualifiers on the class before generating the mangled name.
+	(find_of_create_vtbl_map_node):  Temporarily remove any type
+	qualifiers on the class type before generating the mangled name.
+	(reset_type_qualifiers):  New function.
+	(verify_bb_vtables):  Increment total_num_virtual_calls and
+	total_num_verified_vcalls as appropriate. Remove code to calculate
+	mangled class name; pass class type directly to vtbl_map_get_node.
+	* gcc/tree-vtable-verify.h (total_num_virtual_calls,
+	total_num_verified_vcalls):  New extern global variable decls.
+	(reste_type_qualifiers):  New extern function decl.
+
 2013-01-22  Luis Lozano  <llozano@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_utils.cc: create the logs under

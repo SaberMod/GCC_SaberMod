@@ -36,6 +36,12 @@ along with GCC; see the file COPYING3.  If not see
 extern unsigned num_vtable_map_nodes;
 extern bool any_verification_calls_generated;
 
+/* Keep track of how many virtual calls we are actually verifying.  */
+
+extern int total_num_virtual_calls;
+extern int total_num_verified_vcalls;
+
+
 struct vtable_registration
 {
   tree vtable_decl;
@@ -70,12 +76,13 @@ struct vtbl_map_node {
 extern struct vtbl_map_node *vtbl_map_nodes;
 extern struct vtbl_map_node **vtbl_map_nodes_array;
 
-extern struct vtbl_map_node *vtbl_map_get_node (const_tree);
+extern struct vtbl_map_node *vtbl_map_get_node (tree);
 extern struct vtbl_map_node *find_or_create_vtbl_map_node (tree);
 extern void vtbl_map_node_class_insert (struct vtbl_map_node *, unsigned);
 extern bool vtbl_map_node_registration_find (struct vtbl_map_node *,
                                              tree, unsigned);
 extern void vtbl_map_node_registration_insert (struct vtbl_map_node *,
                                                tree, unsigned);
+extern void reset_type_qualifiers (unsigned int, tree);
 
 #endif /* TREE_VTABLE_VERIFY_H */

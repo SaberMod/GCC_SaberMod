@@ -305,15 +305,9 @@ record_register_pairs (tree vtable_decl, tree vptr_address,
                        tree base_class)
 {
   unsigned offset = TREE_INT_CST_LOW (TREE_OPERAND (vptr_address, 1));
-  tree base_id;
   struct vtbl_map_node *base_vtable_map_node;
 
-  if (TREE_CHAIN (base_class))
-    base_id = DECL_ASSEMBLER_NAME (TREE_CHAIN (base_class));
-  else
-    base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_class));
-
-  base_vtable_map_node = vtbl_map_get_node (base_id);
+  base_vtable_map_node = vtbl_map_get_node (base_class);
 
   if (vtbl_map_node_registration_find (base_vtable_map_node, vtable_decl,
                                        offset))
@@ -354,7 +348,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
           tree values = DECL_INITIAL (ztt_decl);
           struct varpool_node * vp_node = varpool_node (ztt_decl);
           if ( vp_node->needed && vp_node->finalized
-	       && (values != NULL_TREE)
+              && (values != NULL_TREE)
               && (TREE_CODE (values) == CONSTRUCTOR)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
             {
@@ -374,7 +368,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 
               for (cnt = 0;
                    VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (values),
-				cnt, ce);
+                                cnt, ce);
                    cnt++)
                 {
                   tree value = ce->value;
@@ -408,7 +402,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                                                base_class_decl_arg, value);
 #endif
 
-		  append_to_statement_list (call_expr, &body);
+                  append_to_statement_list (call_expr, &body);
                 }
             }
         }
@@ -593,17 +587,9 @@ register_all_pairs (tree body)
 static struct vtv_graph_node *
 find_graph_node (tree class_type)
 {
-  tree class_decl = TREE_CHAIN (class_type);
-  tree class_name_id;
   struct vtbl_map_node *vtbl_node;
 
-  if (class_decl)
-    class_name_id = DECL_ASSEMBLER_NAME (class_decl);
-  else
-    class_name_id = DECL_ASSEMBLER_NAME (TYPE_NAME (class_type));
-
-  vtbl_node = vtbl_map_get_node (class_name_id);
-
+  vtbl_node = vtbl_map_get_node (class_type);
   if (vtbl_node)
     return vtbl_node->class_info;
 
@@ -808,6 +794,22 @@ vtv_register_class_hierarchy_information (tree init_routine_body)
 }
 
 
+static void
+write_out_counters (void)
+{
+  if (total_num_virtual_calls == 0)
+    return;
+
+  FILE *fp = fopen ("/tmp/vtable-verification-counters.log", "a");
+
+  if (fp)
+    {
+      fprintf (fp, "%d %d %s\n", total_num_virtual_calls,
+               total_num_verified_vcalls, main_input_filename);
+      fclose (fp);
+    }
+}
+
 /* Generate the special constructor function that calls
    __VLTChangePermission and __VLTRegisterPairs, and give it a very high
    initialization priority.  */
@@ -821,6 +823,14 @@ vtv_generate_init_routine(const char * filename)
   char * cptr;
   int i;
   bool vtable_classes_found = false;
+#ifdef VTV_COUNT
+  bool debug_num_verified = true;
+#else
+  bool debug_num_verified = false;
+#endif
+
+  if (debug_num_verified)
+    write_out_counters ();
 
   /* The last part of the directory tree will be where it
      differentiates; the first part may be the same. */
@@ -877,20 +887,30 @@ vtable_find_or_create_map_decl (tree base_type)
 {
   tree base_decl = TREE_CHAIN (base_type);
   tree base_id;
-
   struct vtbl_map_node *vtable_map_node = NULL;
+  tree base_decl_type;
+  unsigned int save_quals;
+  unsigned int null_quals = TYPE_UNQUALIFIED;
+
   /* Verify the type has an associated vtable */
   if (!TYPE_BINFO (base_type) || !BINFO_VTABLE (TYPE_BINFO (base_type)))
     return NULL;
 
-  if (base_decl)
-    base_id = DECL_ASSEMBLER_NAME (base_decl);
-  else
-    base_id = DECL_ASSEMBLER_NAME (TYPE_NAME (base_type));
+  if (!base_decl)
+    base_decl = TYPE_NAME (base_type);
 
-  if (base_id)
-    /* We've already created the variable; just look it.  */
-    vtable_map_node = vtbl_map_get_node (base_id);
+  /* Temporarily remove any type qualifiers on the type.  */
+  base_decl_type = TREE_TYPE (base_decl);
+  save_quals = TYPE_QUALS (base_decl_type);
+  reset_type_qualifiers (null_quals, base_decl_type);
+
+  base_id = DECL_ASSEMBLER_NAME (base_decl);
+
+  /* Restore the type qualifiers.  */
+  reset_type_qualifiers (save_quals, base_decl_type);
+
+  /* We've already created the variable; just look it.  */
+  vtable_map_node = vtbl_map_get_node (base_type);
 
   if (!vtable_map_node || (vtable_map_node->vtbl_map_decl == NULL_TREE))
     {
@@ -925,8 +945,8 @@ vtable_find_or_create_map_decl (tree base_type)
       DECL_IGNORED_P (var_decl) = 1;
 
       /* Put these mmap variables in to data.rel.ro sections.
-	 It turns out this needs a previous fix in binutils as
-	 explained here:
+         It turns out this needs a previous fix in binutils as
+         explained here:
          http://sourceware.org/ml/binutils/2011-05/msg00083.html
       */
 
@@ -966,9 +986,9 @@ vtv_save_base_class_info (tree type)
 
       /* Go through the list of all base classes for the current (derived)
          type, make sure the *__vtable_map global variable for the base class
-	 exists, and add the base class/derived class pair to the class
-	 hierarchy information we are accumulating (for vtable pointer
-	 verification).  */
+         exists, and add the base class/derived class pair to the class
+         hierarchy information we are accumulating (for vtable pointer
+         verification).  */
       for (i = 0; BINFO_BASE_ITERATE(binfo, i, base_binfo); i++)
         {
           tree tree_val = BINFO_TYPE(base_binfo);
