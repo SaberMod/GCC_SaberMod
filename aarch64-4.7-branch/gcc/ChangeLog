@@ -1,3 +1,194 @@
+2013-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/56114
+	* config/i386/i386.md (*movabs<mode>_1): Add square brackets around
+	operand 0 in movabs insn template for -masm=intel asm alternative.
+	(*movabs<mode>_2): Ditto for operand 1.
+
+2013-01-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-01-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/56028
+	* config/i386/i386.md (*movti_internal_rex64): Change (o,riF)
+	alternative to (o,r).
+	(*movdi_internal_rex64): Remove (!o,n) alternative.
+	(DImode immediate->memory splitter): Remove.
+	(DImode immediate->memory peephole2): Remove.
+	(movtf): Enable for TARGET_64BIT || TARGET_SSE.
+	(*movtf_internal_rex64): Rename from *movtf_internal. Change (!o,F*r)
+	alternative to (!o,*r).
+	(*movtf_internal_sse): New pattern.
+	(*movxf_internal_rex64): New pattern.
+	(*movxf_internal): Disable for TARGET_64BIT.
+	(*movdf_internal_rex64): Remove (!o,F) alternative.
+
+	2013-01-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movdf_internal_rex64): Disparage alternatives
+	involving stack registers slightly.
+
+	2013-01-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/constraints.md (Yf): New constraint.
+	* config/i386/i386.md (*movdf_internal_rex64): Use Yf*f instead
+	of f constraint to conditionaly disable x87 register preferences.
+	(*movdf_internal): Ditto.
+	(*movsf_internal): Ditto.
+
+	2012-01-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movti_internal_rex64): Add (o,e) alternative.
+	(*movtf_internal_rex64): Add (!o,C) alternative
+	(*movxf_internal_rex64): Ditto.
+	(*movdf_internal_rex64): Add (?r,C) and (?m,C) alternatives.
+
+2013-01-25  Georg-Johann Lay  <avr@gjlay.de>
+
+	* doc/invoke.texi (AVR Built-in Macros): Document __XMEGA__.
+
+2013-01-24  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2013-01-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/55755
+	* tree-sra.c (sra_modify_assign): Do not check that an access has no
+	children when trying to avoid producing a VIEW_CONVERT_EXPR.
+
+2013-01-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-01-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (enabled): Do not disable fma4 for TARGET_FMA.
+
+2013-01-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/56023
+	* haifa-sched.c (fix_inter_tick): Do not update ticks of instructions,
+	dependent on debug instruction.
+
+2013-01-21  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2013-01-17  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimizations/55264
+	* cgraph.c (cgraph_create_virtual_clone): Mark clones as non-virtual.
+	* cgraph.h (cgraph_only_called_directly_p_or_aliased_p): Return false
+	for virtual functions.
+	* ipa-inline-transform.c (can_remove_node_now_p_1): Never return true
+	for virtual methods.
+	* ipa.c (cgraph_remove_unreachable_nodes): Never return true for
+	virtual methods before inlining is over.
+
+2013-01-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2012-01-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/55981
+	* config/i386/sync.md (atomic_store<mode>): Generate SWImode
+	store through atomic_store<mode>_1.
+	(atomic_store<mode>_1): Macroize insn using SWI mode iterator.
+
+2013-01-16  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55882
+	* emit-rtl.c (set_mem_attributes_minus_bitpos): Correctly
+	account for bitpos when computing alignment.
+
+2013-01-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2013-01-14 trunk r195169.
+
+	PR target/55974
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): Define __FLASH
+	etc. to 1 and not to __flash.
+	Use LL suffix for __INT24_MAX__ with -mint8.
+	Use ULL suffix for __UINT24_MAX__ with -mint8.
+
+2013-01-14  Matthias Klose  <doko@ubuntu.com>
+
+	* doc/invoke.texi: Document -print-multiarch.
+	* doc/install.texi: Document --enable-multiarch.
+	* doc/fragments.texi: Document MULTILIB_OSDIRNAMES, MULTIARCH_DIRNAME.
+	* configure.ac: Add --enable-multiarch option.
+	Substitute with_cpu, with_float.
+	* configure: Regenerate.
+	* Makefile.in (s-mlib): Pass MULTIARCH_DIRNAME to genmultilib.
+	enable_multiarch, with_cpu, with_float: New macros.
+	if_multiarch: New macro, define in terms of enable_multiarch.
+	* genmultilib: Add new argument for the multiarch name.
+	* gcc.c (multiarch_dir): Define.
+	(for_each_path): Search for multiarch suffixes.
+	(driver_handle_option): Handle multiarch option.
+	(do_spec_1): Pass -imultiarch if defined.
+	(main): Print multiarch.
+	(set_multilib_dir): Separate multilib and multiarch names
+	from multilib_select.
+	(print_multilib_info): Ignore multiarch names in multilib_select.
+	* incpath.c (add_standard_paths): Search the multiarch include dirs.
+	* cppdefault.h (default_include): Document multiarch in multilib
+	member.
+	* cppdefault.c: [LOCAL_INCLUDE_DIR, STANDARD_INCLUDE_DIR] Add an
+	include directory for multiarch directories.
+	* common.opt: New options --print-multiarch and -imultilib.
+
+	* config.gcc <i[34567]86-*-linux* | x86_64-*-linux*> (tmake_file):
+	Include i386/t-linux.
+	<i[34567]86-*-kfreebsd*-gnu | x86_64-*-kfreebsd*-gnu> (tmake_file):
+	Include i386/t-kfreebsd.
+	<i[34567]86-*-gnu*> (tmake_file): Include i386/t-gnu.
+	* config/i386/t-linux64: Add multiarch names in
+	MULTILIB_OSDIRNAMES, define MULTIARCH_DIRNAME.
+	* config/i386/t-gnu: New file.
+	* config/i386/t-kfreebsd: Likewise.
+	* config/i386/t-linux: Likewise.
+
+	* config/sparc/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+	* config/sparc/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <sparc-*-linux*> (tmake_file): Include sparc/t-linux
+	for 32bit non-biarch configurations.
+
+	* config/pa/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <hppa*64*-*-linux*, hppa*-*-linux*> (tmake_file):
+	Include pa/t-linux.
+
+	* config/mips/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+
+	* config/arm/t-linux-eabi: Define MULTIARCH_DIRNAME for linux target.
+
+	* config/rs6000/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+	* config/rs6000/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config/rs6000/t-fprules (SOFT_FLOAT_CPUS): New macro. Add e300c2
+	to the list.
+	(MULTILIB_MATCHES_FLOAT): Define in terms of SOFT_FLOAT_CPUS.
+	* config.gcc <powerpc-*-linux* | powerpc64-*-linux*> (tmake_file):
+	Include rs6000/t-linux for 32bit non-biarch configurations.
+
+	* config/s390/t-linux64: Add multiarch names in MULTILIB_OSDIRNAMES.
+
+	* config/m68k/t-linux: Define MULTIARCH_DIRNAME.
+
+	* config/ia64/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <ia64*-*-linux*> (tmake_file): Include ia64/t-linux.
+
+	* config/alpha/t-linux: New file; define MULTIARCH_DIRNAME.
+	* config.gcc <alpha*-*-linux*> (tmake_file): Include alpha/t-linux.
+
+2013-01-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-vectorizer.h (vect_get_single_scalar_iteraion_cost): Fix typo.
+	* tree-vect-loop.c (vect_get_single_scalar_iteraion_cost): Likewise.
+	(vect_estimate_min_profitable_iter): Adjust to above fix.
+	* tree-vect-data-refs.c (vect_peeling_hash_get_lowest_cost): Likewise.
+
 2013-01-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline

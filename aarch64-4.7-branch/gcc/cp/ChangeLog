@@ -1,3 +1,29 @@
+2013-01-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56104
+	* typeck.c (get_member_function_from_ptrfunc): Don't fold
+	POINTER_PLUS_EXPR.
+
+2013-01-22  Jason Merrill  <jason@redhat.com>
+
+	* call.c (type_has_extended_temps): Fix C++ism.
+
+	PR c++/53650
+	* call.c (type_has_extended_temps): New.
+	* cp-tree.h: Declare it.
+	* decl.c (check_initializer): Use build_aggr_init for arrays
+	if it is false.
+	* init.c (build_vec_init): Avoid mixed signed/unsigned arithmetic.
+
+	PR c++/56071
+	* pt.c (maybe_instantiate_noexcept): Don't defer access checks.
+
+2013-01-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56059
+	* tree.c (strip_typedefs_expr) [TREE_VEC]: Preserve non-default
+	template args count.
+
 2013-01-09  Jason Merrill  <jason@redhat.com>
 
 	PR c++/55893
