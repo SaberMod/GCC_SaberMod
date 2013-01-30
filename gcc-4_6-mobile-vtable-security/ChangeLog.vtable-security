@@ -1,3 +1,42 @@
+2013-01-30  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/configure:  Add vtv_start.o and vtv_end.o to
+	predep_objects and postdep_objects, respectively.
+	* libstdc++-v3/libstupc++/vtv_rts.cc (ReadPersistent):  New function.
+	(ReadFromOffset):  New function.
+	(log_memory_protection_data):  New function.
+	(dl_iterate_phdr_callback):  Completely rewrite function, to find the
+	info record's corresponding file on disk, open it, read the section
+	header information to see if it has a ".vtable_map_vars" section; if
+	so, to read the section header information, use that to find the
+	section's start address and size in memory, and call mprotect to
+	change the protections accordingly on those pages.
+	* libstdc++-v3/libsupc++/vtv_utils.h:  Change the definition of
+	VTV_PROTECTED_VARS_SECTION to ".vtable_map_vars".
+	* libgcc/config.host:  Add vtv_start.o and vtv_end.o to extra_parts.
+	* libgcc/Makefile.in:   Add definitions for building vtv_start.o and
+	vtv_end.o
+	* libgcc/vtv_start.c: New file.
+	* libgcc/vtv_end.c: New file.
+	* gcc/cp/g++spec.c: Add -u_vtable_map_vars_start and
+	-u_vtable-map_vars_end options.
+	* gcc/cp/vtable-class-hierarchy.c (vtable_find_or_create_map_decl):
+	Change sect_name to ".vtable-map_vars".
+	* gcc/tree-vtable-verify.c (verify_bb_vtables):  Eliminate unused
+	variable, prev_use.  Small cleanups.
+	* gcc/varasm.c (assemble_variable):  Update condition for finding
+	and handling variables with the section ".vtable_map_vars".
+	(default_section_type_flags):  Make sure things in ".vtable_map_vars"
+	section get the SECTION_LINKONCE flag.
+	* gcc/config.gcc:  Add vtv_start.o and vtv_end.o to extra_parts.
+	* gcc/config/i386/linux.h:  Add vtv_end.o to ENDFILE_SPEC if the flag
+	"-fvtable-verify=" is present.
+	* gcc/config/i386/linux64.h: Ditto.
+	* gcc/config/gnu-user.h:  Add vtv_start.o to
+	GNU_USER_TARGET_STARTFILE_SEPC if the flag "-fvtable_verify=" is
+	present; Add vtv_end.o to GNU_USER_TARGET_ENDFILE_SPEC if the flag
+	"-fvtable-verify=" is present.
+
 2013-01-28  Caroline Tice  <cmtice@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c (record_register_pairs):

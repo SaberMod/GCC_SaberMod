@@ -5199,7 +5199,8 @@ _ACEOF
 # Check for GMP, MPFR and MPC
 gmplibs="-lmpc -lmpfr -lgmp"
 gmpinc=
-have_gmp=no
+# have_gmp=no
+have_gmp=yes
 
 # Specify a location for mpc
 # check for this first so it ends up on the link line before mpfr.

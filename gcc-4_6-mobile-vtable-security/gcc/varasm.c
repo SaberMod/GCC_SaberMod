@@ -2056,28 +2056,23 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     assemble_noswitch_variable (decl, name, sect);
   else
     {
-      if (flag_vtable_verify)
+      if (sect->named.name
+          && (strcmp (sect->named.name, ".vtable_map_vars") == 0))
         {
-          /* TODO: do a better matching for these vars */
-          if (strstr (name, "__vtable_map"))
-            {
 #if defined (OBJECT_FORMAT_ELF)
-              targetm.asm_out.named_section (sect->named.name,
-                                             sect->named.common.flags
-                                                 | SECTION_LINKONCE,
-                                             DECL_NAME (decl));
-              in_section = sect;
+          targetm.asm_out.named_section (sect->named.name,
+                                         sect->named.common.flags
+                                         | SECTION_LINKONCE,
+                                         DECL_NAME (decl));
+          in_section = sect;
 #else
-              switch_to_section (sect);
+          switch_to_section (sect)
 #endif
-            }
-          else
-            switch_to_section (sect);
         }
       else
         switch_to_section (sect);
       if (DECL_ALIGN (decl) > BITS_PER_UNIT)
-	ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
+        ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (DECL_ALIGN_UNIT (decl)));
       assemble_variable_contents (decl, name, dont_output_data);
     }
 }
@@ -6140,6 +6135,9 @@ default_section_type_flags (tree decl, const char *name, int reloc)
     }
 
   if (decl && DECL_ONE_ONLY (decl))
+    flags |= SECTION_LINKONCE;
+
+  if (strcmp (name, ".vtable_map_vars") == 0)
     flags |= SECTION_LINKONCE;
 
   if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))

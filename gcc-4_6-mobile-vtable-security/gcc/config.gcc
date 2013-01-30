@@ -526,7 +526,7 @@ case ${target} in
   # pleases around the provided core setting.
   gas=yes
   gnu_ld=yes
-  extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o"
+  extra_parts="crtbegin.o crtend.o crtbeginS.o crtendS.o vtv_start.o vtv_end.o"
   fbsd_major=`echo ${target} | sed -e 's/.*freebsd//g' | sed -e 's/\..*//g'`
   tm_defines="${tm_defines} FBSD_MAJOR=${fbsd_major}"
   tmake_file="t-slibgcc-elf-ver t-freebsd"
@@ -563,7 +563,7 @@ case ${target} in
   ;;
 *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu)
   extra_options="$extra_options gnu-user.opt"
-  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o vtv_start.o vtv_end.o"
   gas=yes
   gnu_ld=yes
   case ${enable_threads} in

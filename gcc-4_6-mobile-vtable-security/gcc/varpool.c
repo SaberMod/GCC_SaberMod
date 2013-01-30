@@ -258,12 +258,6 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
   ipa_dump_refering (f, &node->ref_list);
 }
 
-DEBUG_FUNCTION void
-debug_varpool_node(struct varpool_node * node)
-{
-  dump_varpool_node(stderr, node);
-}
-
 /* Dump the variable pool.  */
 void
 dump_varpool (FILE *f)

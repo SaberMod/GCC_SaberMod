@@ -32,6 +32,7 @@
 #include <errno.h>
 #include <link.h>
 #include <fcntl.h>
+#include <limits.h>
 
 /* For gthreads suppport */
 #include <bits/c++config.h>
@@ -137,58 +138,214 @@ struct mprotect_data {
 static void
 log_error_message (const char *log_msg, bool generate_backtrace);
 
+static ssize_t
+ReadPersistent (int fd, void *buf, size_t count)
+{
+  char *buf0 = (char *) buf;
+  size_t num_bytes = 0;
+  while (num_bytes < count)
+    {
+      int len;
+      len = read (fd, buf0 + num_bytes, count - num_bytes);
+      if (len < 0)
+        return -1;
+      if (len == 0)
+        break;
+      num_bytes += len;
+    }
+
+  return num_bytes;
+}
+
+static ssize_t
+ReadFromOffset (int fd, void *buf, const size_t count,
+                const off_t offset)
+{
+  off_t off = lseek (fd, offset, SEEK_SET);
+  if (off != (off_t) -1)
+    return ReadPersistent (fd, buf, count);
+  return -1;
+}
+
+static void
+log_memory_protection_data (char *message)
+{
+  static int log_fd = -1;
+
+  if (log_fd == -1)
+    log_fd = vtv_open_log ("vtv_memory_protection_data.log");
+
+  vtv_add_to_log (log_fd, "%s", message);
+}
+
+/* This is the callback function used by dl_iterate_phdr (which is
+   called from VTV_unprotect_vtable_vars and VTV_protect_vtable_vars).
+   It attempts to find the binary file on disk for the INFO record
+   that dl_iterate_phdr passes in; open the binary file, and read its
+   section header information.  If the file contains a
+   ".vtable_map_vars" section, read the section offset and size.  Use
+   the section offset and size, in conjunction with the data in INFO
+   to locate the pages in memory where the section is.  Call
+   'mprotect' on those pages, setting the protection either to
+   read-only or read-write, depending on what's in DATA.  */
+
 static int
 dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
                           void *data)
 {
   mprotect_data * mdata = (mprotect_data *) data;
+  off_t map_sect_offset = 0;
+  ElfW(Word) map_sect_len = 0;
+  ElfW(Addr) start_addr = 0;
   int j;
+  bool found = false;
+  char buffer[PATH_MAX];
+  char program_name[PATH_MAX];
+  char *cptr;
+  const ElfW(Phdr) *phdr_info = info->dlpi_phdr;
+  const ElfW(Ehdr) *ehdr_info = (const ElfW(Ehdr) *)
+    (info->dlpi_addr + info->dlpi_phdr[0].p_vaddr - info->dlpi_phdr[0].p_offset);
+
+  /* Check to see if this is the record for the Linux Virtual Dynamic
+     Shared Object (linux-vdso.so.1), which exists only in memory (and
+     therefore cannot be read from disk).  */
+
+  if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
+    return 0;
+
+  /* Get the name of the main executable.  This may or may not include
+     arguments passed to the program.  Find the first space, assume it
+     is the start of the argument list, and change it to a '\0'. */
+  snprintf (program_name, sizeof (program_name), program_invocation_name);
+
+  /* Find the first non-escaped space in the program name and make it
+     the end of the string.  */
+  cptr = strchr (program_name, ' ');
+  if (cptr != NULL && cptr[-1] != '\\')
+    cptr[0] = '\0';
+
+  if (phdr_info->p_type == PT_PHDR
+    || phdr_info->p_type == PT_LOAD)
+    {
+      if (ehdr_info->e_shoff && ehdr_info->e_shnum)
+        {
+          const char *map_sect_name = ".vtable_map_vars";
+          int name_len = strlen (map_sect_name);
+          int fd = -1;
+
+          /* Attempt to open the binary file on disk.  */
+          if (strlen (info->dlpi_name) == 0)
+            {
+              /* info->dlpi_name is "" for the main binary, so we need
+                 to use program name instead for that.  */
+              if (strlen (program_name) > 0)
+                {
+                  if (phdr_info->p_type == PT_PHDR)
+                    fd = open (program_name, O_RDONLY);
+                }
+              else
+                /* If this function is called from something in the
+                   preinit array, then program_invocation_name has not
+                   been initialized yet, so we have to get the name of
+                   the main executable from somewhere else.  The
+                   following works on linux systems.  */
+                fd = open ("/proc/self/exe", O_RDONLY);
+            }
+          else
+            fd = open (info->dlpi_name, O_RDONLY);
+
+          VTV_ASSERT (fd != -1);
+
+          /* Find the section header information in the file.  */
+          ElfW(Half) strtab_idx = ehdr_info->e_shstrndx;
+          ElfW(Shdr) shstrtab;
+          off_t shstrtab_offset = ehdr_info->e_shoff +
+                                         (ehdr_info->e_shentsize * strtab_idx);
+          ssize_t bytes_read = ReadFromOffset (fd, &shstrtab,
+                                               sizeof (shstrtab),
+                                               shstrtab_offset);
+
+          VTV_ASSERT (bytes_read == sizeof (shstrtab));
+          ElfW(Shdr) sect_hdr;
+
+          /* Loop through all the section headers, looking for one
+             whose name is ".vtable_map_vars".  */
+          for (int i = 0; i < ehdr_info->e_shnum && !found; ++i)
+            {
+              off_t offset = ehdr_info->e_shoff +
+                                                  (ehdr_info->e_shentsize * i);
+              bytes_read = ReadFromOffset (fd, &sect_hdr,
+                                           sizeof (sect_hdr), offset);
+              VTV_ASSERT (bytes_read == sizeof (sect_hdr));
+
+              char header_name[64];
+              off_t name_offset = shstrtab.sh_offset + sect_hdr.sh_name;
+
+              bytes_read = ReadFromOffset (fd, &header_name, 64,
+                                           name_offset);
+              VTV_ASSERT (bytes_read != 0);
+              if (memcmp (header_name, map_sect_name, name_len) == 0)
+                {
+                  /* We found the section; get its load offset and
+                     size.  */
+                  map_sect_offset = sect_hdr.sh_addr;
+                  map_sect_len = sect_hdr.sh_size - mdata->page_size;
+                  found = true;
+                }
+            }
+          close (fd);
+        }
+      start_addr = (const ElfW(Addr)) info->dlpi_addr + map_sect_offset;
+    }
 
   if (debug_functions)
-    fprintf(stderr, "looking at load module %s to change permissions to %s\n",
-            info->dlpi_name,
-            (mdata->prot_mode & PROT_WRITE) ? "READ/WRITE" : "READ-ONLY");
-  for (j = 0; j < info->dlpi_phnum; j++)
     {
-      ElfW(Addr) relocated_start_addr =
-          info->dlpi_addr + info->dlpi_phdr[j].p_vaddr;
-      ElfW(Addr) unrelocated_start_addr = info->dlpi_phdr[j].p_vaddr;
-      ElfW(Word) size_in_memory = info->dlpi_phdr[j].p_memsz;
+      snprintf (buffer, sizeof(buffer),
+                "  Looking at load module %s to change permissions to %s\n",
+                ((strlen (info->dlpi_name) == 0) ? program_name
+                                                 : info->dlpi_name),
+                (mdata->prot_mode & PROT_WRITE) ? "READ/WRITE"
+                                                : "READ-ONLY");
+      log_memory_protection_data (buffer);
+    }
 
-      if (debug_functions)
-        fprintf(stderr, "Segment info relocated=%p unrelocated=%p size=%u\n",
-                (void *)relocated_start_addr, (void *)unrelocated_start_addr,
-                size_in_memory);
+  /* See if we actually found the section.  */
+  if (start_addr && map_sect_len)
+    {
+      ElfW(Addr) relocated_start_addr = start_addr;
+      ElfW(Word) size_in_memory = map_sect_len;
 
-      if (info->dlpi_phdr[j].p_type == PT_GNU_RELRO)
+      if ((relocated_start_addr != 0)
+          && (size_in_memory != 0))
         {
-          if (debug_functions)
-            fprintf(stderr,
-                    "Found RELRO segment. relocated=%p unrelocated=%p size=%u\n",
-                    (void *)relocated_start_addr, (void *)unrelocated_start_addr,
-                    size_in_memory);
-
+          /* Calculate the address & size to pass to mprotect. */
           ElfW(Addr) mp_low = relocated_start_addr & ~(mdata->page_size - 1);
-          size_t mp_size = relocated_start_addr + size_in_memory - mp_low - 1;
+          size_t mp_size = size_in_memory - 1;
 
-          if (mprotect((void *)mp_low, mp_size, mdata->prot_mode) == -1)
+          /* Change the protections on the pages for the section.  */
+          if (mprotect ((void *) mp_low, mp_size, mdata->prot_mode) == -1)
             {
               if (debug_functions)
                 {
-                  fprintf(stderr, "Failed called to mprotect for %s error: ",
-			  (mdata->prot_mode & PROT_WRITE) ?
-                          "READ/WRITE" : "READ-ONLY");
+                  snprintf (buffer, sizeof (buffer),
+                            "Failed called to mprotect for %s error: ",
+                            (mdata->prot_mode & PROT_WRITE) ?
+                            "READ/WRITE" : "READ-ONLY");
+                  log_memory_protection_data (buffer);
                   perror(NULL);
                 }
               VTV_error();
             }
           else if (debug_functions)
-            fprintf(stderr, "mprotect'ed range [%p, %p]\n",
-		    (void *)mp_low, (char *)mp_low + mp_size);
-
-          break;
+            {
+              snprintf (buffer, sizeof (buffer),
+                        "mprotect'ed range [%p, %p]\n",
+                        (void *) mp_low, (char *) mp_low + mp_size);
+              log_memory_protection_data (buffer);
+            }
         }
     }
+
   return 0;
 }
 
@@ -274,11 +431,11 @@ __VLTChangePermission (int perm)
   if (debug_functions)
     {
       if (perm == __VLTP_READ_WRITE)
-	fprintf (stdout, "Changing VLT permisisons to Read-Write.\n");
+       fprintf (stdout, "Changing VLT permisisons to Read-Write.\n");
       else if (perm == __VLTP_READ_ONLY)
-	fprintf (stdout, "Changing VLT permissions to Read-only.\n");
+       fprintf (stdout, "Changing VLT permissions to Read-only.\n");
       else
-	fprintf (stdout, "Unrecognized permissions value: %d\n", perm);
+       fprintf (stdout, "Unrecognized permissions value: %d\n", perm);
     }
 
 #ifndef __GTHREAD_MUTEX_INIT
@@ -334,7 +491,7 @@ struct insert_only_hash_map_allocator {
 // Explicitly instantiate this class since this file is compiled with
 // -fno-implicit-templates
 template class insert_only_hash_map <vtv_set_handle *, 
-				     insert_only_hash_map_allocator >;
+                                    insert_only_hash_map_allocator >;
 typedef insert_only_hash_map <vtv_set_handle *, insert_only_hash_map_allocator > s2s;
 typedef const s2s::key_type  vtv_symbol_key;
 
@@ -402,7 +559,7 @@ void __VLTInitSetSymbolDebug(void ** set_handle_ptr,
     if (*handle_ptr != NULL)
     {
       snprintf(buffer, sizeof(buffer), 
-	       "*** Found non-NULL local set ptr %p missing for symbol %.*s",
+              "*** Found non-NULL local set ptr %p missing for symbol %.*s",
                *handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes);
       log_error_message(buffer, true);
       VTV_DEBUG_ASSERT(0);
@@ -415,9 +572,9 @@ void __VLTInitSetSymbolDebug(void ** set_handle_ptr,
     VTV_DEBUG_ASSERT(*map_value_ptr != NULL);
     snprintf(buffer, sizeof(buffer), 
              "*** Found diffence between local set ptr %p and set ptr %p"
-	     "for symbol %.*s", 
+            "for symbol %.*s", 
              *handle_ptr, *map_value_ptr, 
-	     symbol_key_ptr->n, symbol_key_ptr->bytes);
+            symbol_key_ptr->n, symbol_key_ptr->bytes);
     log_error_message(buffer, true);
     VTV_DEBUG_ASSERT(0);
   }
@@ -441,7 +598,7 @@ void __VLTInitSetSymbolDebug(void ** set_handle_ptr,
   if (map_value_ptr != NULL)
     {
       if (*map_value_ptr == handle_ptr)
-        vtv_sets::resize(size_hint, *map_value_ptr);
+        vtv_sets::resize (size_hint, *map_value_ptr);
       else
         {
           // The one level handle to the set already exists. So, we
@@ -489,19 +646,19 @@ void __VLTInitSetSymbolDebug(void ** set_handle_ptr,
 
     vtv_add_to_log(init_log_fd, 
                    "Init handle:%p for symbol:%.*s hash:%u size_hint:%lu"
-		   "number of symbols:%lu \n",
+                  "number of symbols:%lu \n",
                    set_handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes, 
                    symbol_key_ptr->hash, size_hint, 
-		   vtv_symbol_unification_map->size());
+                  vtv_symbol_unification_map->size());
   }
 }
 
 
 void
 __VLTRegisterPairDebug (void ** set_handle_ptr, 
-			const void * vtable_ptr,
+                       const void * vtable_ptr,
                         const char * set_symbol_name, 
-			const char * vtable_name)
+                       const char * vtable_name)
 {
   VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
   // *set_handle_ptr can be NULL if the call to InitSetSymbol had a
@@ -522,11 +679,11 @@ __VLTRegisterPairDebug (void ** set_handle_ptr,
   if (debug_init)
     {
       if (init_log_fd == -1)
-	init_log_fd = vtv_open_log("vtv_init.log");
+       init_log_fd = vtv_open_log("vtv_init.log");
 
       vtv_add_to_log(init_log_fd, 
                      "Registered %s : %s (%p) 2 level deref = %s\n",
-		     set_symbol_name, vtable_name, vtbl_ptr, 
+                    set_symbol_name, vtable_name, vtbl_ptr, 
                      is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
     }
 }
@@ -622,17 +779,17 @@ void __VLTInitSetSymbol(void ** set_handle_ptr,
   if (map_value_ptr != NULL)
     {
       if (*map_value_ptr == handle_ptr)
-	vtv_sets::resize(size_hint, *map_value_ptr);
+       vtv_sets::resize(size_hint, *map_value_ptr);
       else
-	{
-	  // The one level handle to the set already exists. So, we
-	  // are adding one level of indirection here and we will
-	  // store a pointer to the one level pointer here.
-	  vtv_set_handle_handle * handle_handle_ptr = 
-	    (vtv_set_handle_handle *)handle_ptr;
-	  *handle_handle_ptr = set_handle_handle(*map_value_ptr);
-	  vtv_sets::resize(size_hint, *map_value_ptr);
-	}
+       {
+         // The one level handle to the set already exists. So, we
+         // are adding one level of indirection here and we will
+         // store a pointer to the one level pointer here.
+         vtv_set_handle_handle * handle_handle_ptr = 
+           (vtv_set_handle_handle *)handle_ptr;
+         *handle_handle_ptr = set_handle_handle(*map_value_ptr);
+         vtv_sets::resize(size_hint, *map_value_ptr);
+       }
     }
   else
     {
@@ -647,7 +804,7 @@ void __VLTInitSetSymbol(void ** set_handle_ptr,
 
       s2s::value_type * value_ptr;
       vtv_symbol_unification_map = 
-	vtv_symbol_unification_map->find_or_add_key(
+       vtv_symbol_unification_map->find_or_add_key(
             (vtv_symbol_key *)map_key, &value_ptr);
       *value_ptr = handle_ptr;
 

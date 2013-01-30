@@ -340,6 +340,15 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  j++;
 	}
 #endif
+      generate_option (OPT_Wl_,"-u_vtable_map_vars_start", 1,
+                       CL_DRIVER, &new_decoded_options[j]);
+      j++;
+
+
+      generate_option (OPT_Wl_,"-u_vtable_map_vars_end", 1,
+                       CL_DRIVER, &new_decoded_options[j]);
+      j++;
+
       generate_option (OPT_l,
 		       saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX, 1,
 		       CL_DRIVER, &new_decoded_options[j]);

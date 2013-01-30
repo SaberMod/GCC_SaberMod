@@ -553,7 +553,6 @@ verify_bb_vtables (basic_block bb)
               bool found = false;
               tree vtable_offset_var = NULL_TREE;
               gimple def_stmt;
-              gimple prev_use = NULL;
 
               total_num_virtual_calls++;
 
@@ -572,7 +571,6 @@ verify_bb_vtables (basic_block bb)
 
                   vtable_offset_var = TREE_OPERAND (fncall, 0);
 
-                  prev_use = stmt;
                   def_stmt = SSA_NAME_DEF_STMT (vtable_offset_var);
 
                   /* This first def_stmt should be a de-reference of the
@@ -593,10 +591,7 @@ verify_bb_vtables (basic_block bb)
                   if (rhs
                       && TREE_CODE (rhs) == MEM_REF
                       && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
-                    {
-                      prev_use = def_stmt;
-                      def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
-                    }
+                    def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (rhs, 0));
 
                   /* Search backwards through the def_stmt chain, to try
                      to find the assignment statement where the rhs of
@@ -618,7 +613,6 @@ verify_bb_vtables (basic_block bb)
                           && TREE_CODE (gimple_assign_rhs1 (def_stmt))
                                                                    == SSA_NAME)
                         {
-                          prev_use = def_stmt;
                           rhs = gimple_assign_rhs1 (def_stmt);
                           def_stmt = SSA_NAME_DEF_STMT (rhs);
                         }
@@ -629,7 +623,6 @@ verify_bb_vtables (basic_block bb)
                                && TREE_CODE (gimple_assign_rhs2 (def_stmt))
                                                                    == SSA_NAME)
                         {
-                          prev_use = def_stmt;
                           rhs = gimple_assign_rhs2 (def_stmt);
                           def_stmt = SSA_NAME_DEF_STMT (rhs);
                         }
@@ -672,7 +665,7 @@ verify_bb_vtables (basic_block bb)
                       if (found)
                         {
                           tree object_rhs = TREE_TYPE (this_object);
-                          tree lhs;
+                          tree lhs = gimple_assign_lhs (stmt);
                           tree vtbl_var_decl = NULL_TREE;
                           tree vtbl = NULL_TREE;
                           gimple_seq pre_p = NULL;
@@ -683,8 +676,6 @@ verify_bb_vtables (basic_block bb)
                           const char *vtable_name = "<unknown>";
                           int len1 = 0;
                           int len2 = 0;
-
-                          lhs = gimple_assign_lhs (stmt);
 
                           /* Now we have found the virtual method dispatch
                              and the preceding access of the _vptr.*
@@ -718,7 +709,7 @@ verify_bb_vtables (basic_block bb)
                               || (! TYPE_BINFO (rhs))
                               || (! BINFO_VTABLE (TYPE_BINFO (rhs)))
                               || (! my_get_vtbl_decl_for_binfo (TYPE_BINFO
-                                                                       (rhs))))
+                                                                (rhs))))
                             {
                               /* The type of the 'this' object did not work,
                                  so try to find the type from the rhs of the

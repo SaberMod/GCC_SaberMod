@@ -347,7 +347,7 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
         {
           tree values = DECL_INITIAL (ztt_decl);
           struct varpool_node * vp_node = varpool_node (ztt_decl);
-          if ( vp_node->needed && vp_node->finalized
+          if (vp_node->needed && vp_node->finalized
               && (values != NULL_TREE)
               && (TREE_CODE (values) == CONSTRUCTOR)
               && (TREE_CODE (TREE_TYPE (values)) == ARRAY_TYPE))
@@ -944,16 +944,10 @@ vtable_find_or_create_map_decl (tree base_type)
       TREE_READONLY (var_decl) = 0;
       DECL_IGNORED_P (var_decl) = 1;
 
-      /* Put these mmap variables in to data.rel.ro sections.
-         It turns out this needs a previous fix in binutils as
-         explained here:
-         http://sourceware.org/ml/binutils/2011-05/msg00083.html
-      */
-
-      sect_name = ACONCAT ((".data.rel.ro.", "vtable_map_vars",
-                            NULL));
+      /* Put these map variables into their own named section so we
+         can find them later, for changing protections on them.  */
       DECL_SECTION_NAME (var_decl) =
-          build_string (strlen (sect_name), sect_name);
+          build_string (strlen (".vtable_map_vars"), ".vtable_map_vars");
       DECL_HAS_IMPLICIT_SECTION_NAME_P (var_decl) = true;
       DECL_COMDAT_GROUP (var_decl) = get_identifier (var_name);
       DECL_INITIAL (var_decl) = initial_value;

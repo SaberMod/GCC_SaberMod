@@ -42,7 +42,7 @@
 #endif
 
 /* Name of the section where we put general VTV variables for protection */
-#define VTV_PROTECTED_VARS_SECTION ".data.rel.ro.vtable_vars"
+#define VTV_PROTECTED_VARS_SECTION ".vtable_map_vars"
 #define VTV_PROTECTED_VAR __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
 
 /* The following logging routines try to use low level file access routines and avoid

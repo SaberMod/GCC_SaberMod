@@ -13192,8 +13192,8 @@ $as_echo "$ld_shlibs_CXX" >&6; }
     ## the running order or otherwise move them around unless you know exactly
     ## what you are doing...
     # Dependencies to place before and after the object being linked:
-predep_objects_CXX=
-postdep_objects_CXX=
+predep_objects_CXX="${glibcxx_builddir}/../libgcc/vtv_start.o"
+postdep_objects_CXX="${glibcxx_builddir}/../libgcc/vtv_end.o"
 predeps_CXX=
 postdeps_CXX=
 compiler_lib_search_path_CXX=

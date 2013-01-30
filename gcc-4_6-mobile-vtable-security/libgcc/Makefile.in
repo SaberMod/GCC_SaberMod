@@ -855,6 +855,15 @@ crtendS$(objext): $(gcc_srcdir)/crtstuff.c
 crtbeginT.o: $(gcc_srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) \
 	  -c $(gcc_srcdir)/crtstuff.c -DCRT_BEGIN -DCRTSTUFFT_O
+
+vtv_start$(objext): $(gcc_srcdir)/../libgcc/vtv_start.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
+	  -c $(gcc_srcdir)/../libgcc/vtv_start.c
+
+vtv_end$(objext): $(gcc_srcdir)/../libgcc/vtv_end.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) \
+	  -c $(gcc_srcdir)/../libgcc/vtv_end.c
+
 endif
 
 # Build extra startfiles in the libgcc directory.
