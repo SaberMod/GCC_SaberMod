@@ -102,7 +102,8 @@ am__objects_1 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
 	new_handler.lo new_op.lo new_opnt.lo new_opv.lo new_opvnt.lo \
 	pbase_type_info.lo pmem_type_info.lo pointer_type_info.lo \
 	pure.lo si_class_type_info.lo tinfo.lo tinfo2.lo vec.lo \
-	vmi_class_type_info.lo vterminate.lo
+	vmi_class_type_info.lo vterminate.lo vtv_rts.lo vtv_malloc.lo \
+	vtv_utils.lo
 @GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
 am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
@@ -110,6 +111,14 @@ libsupc__convenience_la_LIBADD =
 am_libsupc__convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
 libsupc__convenience_la_OBJECTS =  \
 	$(am_libsupc__convenience_la_OBJECTS)
+libvtv_init_la_LIBADD =
+am__objects_3 = vtv_init.lo
+am_libvtv_init_la_OBJECTS = $(am__objects_3)
+libvtv_init_la_OBJECTS = $(am_libvtv_init_la_OBJECTS)
+libvtv_stubs_la_LIBADD =
+am__objects_4 = vtv_stubs.lo
+am_libvtv_stubs_la_OBJECTS = $(am__objects_4)
+libvtv_stubs_la_OBJECTS = $(am_libvtv_stubs_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp =
 am__depfiles_maybe =
@@ -122,7 +131,8 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES)
+SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES) \
+	$(libvtv_init_la_SOURCES) $(libvtv_stubs_la_SOURCES)
 HEADERS = $(bits_HEADERS) $(std_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -340,7 +350,7 @@ AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
-toolexeclib_LTLIBRARIES = libsupc++.la
+toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 std_HEADERS = \
@@ -402,10 +412,21 @@ sources = \
 	tinfo2.cc \
 	vec.cc \
 	vmi_class_type_info.cc \
-	vterminate.cc
+	vterminate.cc \
+        vtv_rts.cc \
+        vtv_malloc.cc \
+        vtv_utils.cc
+
+vtv_init_sources = \
+        vtv_init.cc
+
+vtv_stubs_sources = \
+        vtv_stubs.cc
 
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+libvtv_init_la_SOURCES = $(vtv_init_sources)
+libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -569,6 +590,10 @@ libsupc++.la: $(libsupc___la_OBJECTS) $(libsupc___la_DEPENDENCIES)
 	$(CXXLINK) -rpath $(toolexeclibdir) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
 libsupc++convenience.la: $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_DEPENDENCIES) 
 	$(CXXLINK)  $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_LIBADD) $(LIBS)
+libvtv_init.la: $(libvtv_init_la_OBJECTS) $(libvtv_init_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
+libvtv_stubs.la: $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_DEPENDENCIES) 
+	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

@@ -1,0 +1,90 @@
+2013-01-30  Caroline Tice  <cmtice@google.com>
+
+        Migrate vtable verification work from GCC 4.6.3.
+        * gcc/tree-pass.h (pass_vtable_verify):  Declare new pass.
+	* gcc/tree-vtable-verify.c: New file.
+	* gcc/tree-vtable-verify.h: New file.
+	* gcc/timevr.def (TV_VTABLE_VERIFICATION): New timevar def.
+	* gcc/varasm.c (assemble_variable):  Check to see if the variable
+	goes into the .vtable_map_vars section and make sure it gets the
+	appropriate link flags if so.
+	(assemble_vtv_preinit_initializer):  New function.
+	(default_sectino_type_flags):  Make sure the .vtable_map_vars section
+	is LINK_ONCE.
+	* gcc/config/gun-user.h: Add vtv_start.o to the
+	GNU_USER_TARGET_STARTFILE_SPEC, and add vtv_end.o to the
+	GNU_USER_TARGET_ENDFILE_SPEC.
+	* gcc/config/i386/gnu-user.h: Add vtv_end.o to the ENDFILE_SPEC.
+	* gcc/config/i386/gnu-user64.h: Ditto.
+	* gcc/output.h (assemble_vtv_preinit_initializer):  New function decl.
+	* gcc/flag-types.h (enum vtv_priority):  New enum, declaring the
+	values for the new '-fvtable-verify=' option.
+	* gcc/common.opt: Add the '-fvtable-verify=' option, along with the
+	valid arguments for the option.
+	* gcc/passes.c (init_optimization_passes):  Add call to
+	pass_vtable_verify.
+	* gcc/cp/g++spec.c (VTABLE_LOAD_MODULE_INIT): New macro definition
+	for adding -lvtv_init to the link line.
+	(lang_specific_driver): New global variable, saw_vtable_verify; add
+	code to check for '-fvtable-verify=' and update the variable
+	appropriately.  Also update num_args, and add VTABLE_LOAD_MODULE_INIT,
+	and -u_vtable_map_vars_start and -u_vtable_map_vars_end to the link
+	line.
+	* gcc/cp/config-lang.in (gtfiles): Add vtable-class-hierarchy.c to the
+	list.
+	* gcc/cp/Make-lang.in (CXX_AND_OBJCXX_OBJS): Add
+	vtable-class-hierarchy.o to the list.  Also add rule for making
+	vtable-class-hierarchy.o.
+	* gcc/cp/class.c (finish_struct_1):  Add call to vtv_save_class_info.
+	* gcc/cp/pt.c (makr_class_instantiated):  Ditto.
+	* gcc/cp/init.c (build_vtbl_address):  Remove static qualifier.
+	* gcc/cp/cp-tree.h (vtv_start_verification_constructor_init_function,
+	vtv_finish_verification_constructor_init_function, build_vtbl_address,
+	get_mangled_id, vtv_comput_class_hierarchy_transitive_closure,
+	vtv_generate_init_routine,vtv_save_class_info, vtv_recover_class_info)
+	Add extern function decls.
+	* gcc/cp/decl2.c (cp_write_global_declarations):  Add calls to
+	vtv_recover_class_info and
+	vtv_computer_class_hierarchy_transitive_closure before the call to
+	cgraph_finalize_compilation_unit.  Add call to
+	vtv_generate_init_routine after the call to
+	cgraph_finalize_compilation_unit.
+	(vtv_start_verification_constructor_init_function):  New function.
+	(vtv_finish_verification_constructor_init_function):  New function.
+	* gcc/cp/vtable-class-hierarchy.c: New file.
+	* gcc/cp/mangle.c (get_mangled_id): Remove static function qualifier.
+	* gcc/tree.h (save_vtable_map_decl):  New function decl.
+	* gcc/Makefile.in (OBJS): Add tree-vtable-verify.o to the list.  Also
+	add the rule for making tree-vtable-verify.o
+	* gcc/cgraph.c (cgraph_add_new_function):  Change call to
+	cgraph_create_node to a call to cgraph_get_create_node.
+	* libstdc++-v3/configure:  Add vtv_start.o to predep_objects; add 
+	vtv_end.o to postdep_objects.
+	* libstdc++-v3/src/Makefile.am:  Add "-Wl,-u_vtable_map_vars_start,
+	-u_vtable_map_vars_end" to libstdc___la_LDFLAGS.
+	* libstdc++-v3/src/Makefile.in: Regenerate from Makefile.am.
+	* libstdc++-v3/config/abi/pre/gnu.ver:  Add __VLT* and __vtv functions
+	to the exported symbols list.
+	* libstdc++-v3/libsupc++/vtv_utils.cc:  New file.
+	* libstdc++-v3/libsupc++/vtv_utils.h:  New file.
+	* libstdc++-v3/libsupc++/vtv_init.cc:  New file.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc:  New file.
+	* libstdc++-v3/libsupc++/Makefile.am:  Add vtv_rts.cc, 
+	vtv_malloc.cc and vtv_utils.cc to sources list.  Define
+	vtv_init_sources and vtv_stubs_sources.  Add libvtv_init.la and
+	libvtv_stubs.la to toolexeclib_LTLIBRARIES.  Add definitions for
+	libvtv_init_la_SOURCES and libvtv_stubs_la_SOURCES.
+	* libstdc++-v3/libsupc++/Makefile.in:  Regenerate from Makefile.am.
+	* libstdc++-v3/libsupc++/vtv_rts.cc:  New file.
+	* libstdc++-v3/libsupc++/vtv_rts.h:  New file.
+	* libstdc++-v3/libsupc++/vtv_fail.h:  New file.
+	* libstdc++-v3/libsupc++/vtv_map.h:  New file.
+	* libstdc++-v3/libsupc++/vtv_set.h:  New file.
+	* libstdc++-v3/libsupc++/vtv_stubs.cc:  New file.
+	* libgcc/config.host (extra_parts): Add vtv_start.o and vtv_end.o
+	* libgcc/Makefile.in:  Add rules for building vtv_start.o and
+	vtv_end.o.
+	* libgcc/vtv_end.c:  New file.
+	* libgcc/vtv_start.c:  New file.
+
+

@@ -976,6 +976,14 @@ crtendS$(objext): $(srcdir)/crtstuff.c
 # This is a version of crtbegin for -static links.
 crtbeginT$(objext): $(srcdir)/crtstuff.c
 	$(crt_compile) $(CRTSTUFF_T_CFLAGS) -c $< -DCRT_BEGIN -DCRTSTUFFT_O
+
+# These are used in vtable verification; see comments in source files for
+# more details.
+vtv_start$(objext): $(srcdir)/vtv_start.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_start.c
+
+vtv_end$(objext): $(srcdir)/vtv_end.c
+	$(crt_compile) $(CRTSTUFF_T_CFLAGS_S) -c $(srcdir)/vtv_end.c
 endif
 
 ifeq ($(CUSTOM_CRTIN),)

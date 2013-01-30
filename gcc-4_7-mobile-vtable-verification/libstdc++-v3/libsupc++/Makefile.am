@@ -27,7 +27,7 @@ include $(top_srcdir)/fragment.am
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
-toolexeclib_LTLIBRARIES = libsupc++.la
+toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 
@@ -93,10 +93,21 @@ sources = \
 	tinfo2.cc \
 	vec.cc \
 	vmi_class_type_info.cc \
-	vterminate.cc
+	vterminate.cc \
+        vtv_rts.cc \
+        vtv_malloc.cc \
+        vtv_utils.cc
+
+vtv_init_sources = \
+        vtv_init.cc
+
+vtv_stubs_sources = \
+        vtv_stubs.cc
 
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+libvtv_init_la_SOURCES = $(vtv_init_sources)
+libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually

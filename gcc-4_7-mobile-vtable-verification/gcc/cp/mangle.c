@@ -3347,7 +3347,7 @@ mangle_decl_string (const tree decl)
 
 /* Return an identifier for the external mangled name of DECL.  */
 
-static tree
+tree
 get_mangled_id (tree decl)
 {
   tree id = mangle_decl_string (decl);

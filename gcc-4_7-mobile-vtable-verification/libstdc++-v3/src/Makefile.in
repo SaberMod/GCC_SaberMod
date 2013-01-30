@@ -367,7 +367,7 @@ libstdc___la_DEPENDENCIES = \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
 libstdc___la_LDFLAGS = \
-	-version-info $(libtool_VERSION) ${version_arg} -lm
+	-version-info $(libtool_VERSION) ${version_arg} -lm -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
 

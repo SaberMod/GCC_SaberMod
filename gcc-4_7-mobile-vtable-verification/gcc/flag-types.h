@@ -223,4 +223,11 @@ enum opt_info_verbosity_levels {
   OPT_INFO_MED  = 2,
   OPT_INFO_MAX  = 3
 };
+
+/* flag_vtable_verify initialization levels. */
+enum vtv_priority {
+  VTV_NO_PRIORITY       = 0,  /* i.E. Do NOT do vtable verification. */
+  VTV_STANDARD_PRIORITY = 1,
+  VTV_PREINIT_PRIORITY  = 2
+};
 #endif /* ! GCC_FLAG_TYPES_H */
