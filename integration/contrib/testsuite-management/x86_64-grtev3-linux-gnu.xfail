@@ -33,6 +33,38 @@ flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-static) execution test
 flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-static) execution test
 flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
 
+# libatomic is failing to find standard header files like stdlib.h.
+# Seems like an include path configuration issue.
+FAIL: libatomic.c/atomic-generic.c (test for excess errors)
+UNRESOLVED: libatomic.c/atomic-generic.c compilation failed to produce executable
+FAIL: libatomic.c/generic-2.c (test for excess errors)
+UNRESOLVED: libatomic.c/generic-2.c compilation failed to produce executable
+FAIL: libitm.c++/dropref.C (test for excess errors)
+UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
+FAIL: libitm.c++/throwdown.C (test for excess errors)
+FAIL: libitm.c/cancel.c (test for excess errors)
+UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
+FAIL: libitm.c/clone-1.c (test for excess errors)
+UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
+FAIL: libitm.c/dropref-2.c (test for excess errors)
+UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
+FAIL: libitm.c/dropref.c (test for excess errors)
+UNRESOLVED: libitm.c/dropref.c compilation failed to produce executable
+FAIL: libitm.c/memcpy-1.c (test for excess errors)
+UNRESOLVED: libitm.c/memcpy-1.c compilation failed to produce executable
+FAIL: libitm.c/memset-1.c (test for excess errors)
+UNRESOLVED: libitm.c/memset-1.c compilation failed to produce executable
+FAIL: libitm.c/notx.c (test for excess errors)
+UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
+FAIL: libitm.c/reentrant.c (test for excess errors)
+UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
+FAIL: libitm.c/simple-1.c (test for excess errors)
+UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
+FAIL: libitm.c/simple-2.c (test for excess errors)
+UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
+FAIL: libitm.c/txrelease.c (test for excess errors)
+UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
+
 # These failures are likely due to misconfiguration during the
 # build.  Leaving as expected for now.
 expire=20130115 | FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)

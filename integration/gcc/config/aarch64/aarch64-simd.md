@@ -1586,37 +1586,128 @@
   "TARGET_SIMD"
 {
   int inverse = 0;
+  int swap_bsl_operands = 0;
   rtx mask = gen_reg_rtx (<V_cmp_result>mode);
+  rtx tmp = gen_reg_rtx (<V_cmp_result>mode);
 
-  if (!REG_P (operands[5])
-      && (operands[5] != CONST0_RTX (<MODE>mode)))
-    operands[5] = force_reg (<MODE>mode, operands[5]);
+  rtx (*base_comparison) (rtx, rtx, rtx);
+  rtx (*complimentary_comparison) (rtx, rtx, rtx);
+
+  switch (GET_CODE (operands[3]))
+    {
+    case GE:
+    case LE:
+    case EQ:
+      if (!REG_P (operands[5])
+	  && (operands[5] != CONST0_RTX (<MODE>mode)))
+	operands[5] = force_reg (<MODE>mode, operands[5]);
+      break;
+    default:
+      if (!REG_P (operands[5]))
+	operands[5] = force_reg (<MODE>mode, operands[5]);
+    }
 
   switch (GET_CODE (operands[3]))
     {
     case LT:
+    case UNLT:
       inverse = 1;
       /* Fall through.  */
     case GE:
-      emit_insn (gen_aarch64_cmge<mode> (mask, operands[4], operands[5]));
+    case UNGE:
+    case ORDERED:
+    case UNORDERED:
+      base_comparison = gen_aarch64_cmge<mode>;
+      complimentary_comparison = gen_aarch64_cmgt<mode>;
       break;
     case LE:
+    case UNLE:
       inverse = 1;
       /* Fall through.  */
     case GT:
-      emit_insn (gen_aarch64_cmgt<mode> (mask, operands[4], operands[5]));
+    case UNGT:
+      base_comparison = gen_aarch64_cmgt<mode>;
+      complimentary_comparison = gen_aarch64_cmge<mode>;
       break;
-    case NE:
-      inverse = 1;
-      /* Fall through.  */
     case EQ:
-      emit_insn (gen_aarch64_cmeq<mode> (mask, operands[4], operands[5]));
+    case NE:
+    case UNEQ:
+      base_comparison = gen_aarch64_cmeq<mode>;
+      complimentary_comparison = gen_aarch64_cmeq<mode>;
       break;
     default:
       gcc_unreachable ();
     }
 
-  if (inverse)
+  switch (GET_CODE (operands[3]))
+    {
+    case LT:
+    case LE:
+    case GT:
+    case GE:
+    case EQ:
+      /* The easy case.  Here we emit one of FCMGE, FCMGT or FCMEQ.
+	 As a LT b <=> b GE a && a LE b <=> b GT a.  Our transformations are:
+	 a GE b -> a GE b
+	 a GT b -> a GT b
+	 a LE b -> b GE a
+	 a LT b -> b GT a
+	 a EQ b -> a EQ b  */
+
+      if (!inverse)
+	emit_insn (base_comparison (mask, operands[4], operands[5]));
+      else
+	emit_insn (complimentary_comparison (mask, operands[5], operands[4]));
+      break;
+    case UNLT:
+    case UNLE:
+    case UNGT:
+    case UNGE:
+    case NE:
+      /* FCM returns false for lanes which are unordered, so if we use
+	 the inverse of the comparison we actually want to emit, then
+	 swap the operands to BSL, we will end up with the correct result.
+	 Note that a NE NaN and NaN NE b are true for all a, b.
+
+	 Our transformations are:
+	 a GE b -> !(b GT a)
+	 a GT b -> !(b GE a)
+	 a LE b -> !(a GT b)
+	 a LT b -> !(a GE b)
+	 a NE b -> !(a EQ b)  */
+
+      if (inverse)
+	emit_insn (base_comparison (mask, operands[4], operands[5]));
+      else
+	emit_insn (complimentary_comparison (mask, operands[5], operands[4]));
+
+      swap_bsl_operands = 1;
+      break;
+    case UNEQ:
+      /* We check (a > b ||  b > a).  combining these comparisons give us
+	 true iff !(a != b && a ORDERED b), swapping the operands to BSL
+	 will then give us (a == b ||  a UNORDERED b) as intended.  */
+
+      emit_insn (gen_aarch64_cmgt<mode> (mask, operands[4], operands[5]));
+      emit_insn (gen_aarch64_cmgt<mode> (tmp, operands[5], operands[4]));
+      emit_insn (gen_ior<v_cmp_result>3 (mask, mask, tmp));
+      swap_bsl_operands = 1;
+      break;
+    case UNORDERED:
+       /* Operands are ORDERED iff (a > b || b >= a).
+	 Swapping the operands to BSL will give the UNORDERED case.  */
+     swap_bsl_operands = 1;
+     /* Fall through.  */
+    case ORDERED:
+      emit_insn (gen_aarch64_cmgt<mode> (tmp, operands[4], operands[5]));
+      emit_insn (gen_aarch64_cmge<mode> (mask, operands[5], operands[4]));
+      emit_insn (gen_ior<v_cmp_result>3 (mask, mask, tmp));
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  if (swap_bsl_operands)
     emit_insn (gen_aarch64_simd_bsl<mode> (operands[0], mask, operands[2],
 				    operands[1]));
   else
@@ -2119,17 +2210,49 @@
 ;; sq<r>dmulh_lane
 
 (define_insn "aarch64_sq<r>dmulh_lane<mode>"
-  [(set (match_operand:VSDQ_HSI 0 "register_operand" "=w")
-        (unspec:VSDQ_HSI
-	  [(match_operand:VSDQ_HSI 1 "register_operand" "w")
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+        (unspec:VDQHS
+	  [(match_operand:VDQHS 1 "register_operand" "w")
            (vec_select:<VEL>
-             (match_operand:<VCON> 2 "register_operand" "<vwx>")
+             (match_operand:<VCOND> 2 "register_operand" "<vwx>")
              (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
 	 VQDMULH))]
   "TARGET_SIMD"
   "*
-   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCON>mode));
-   return \"sq<r>dmulh\\t%<v>0<Vmtype>, %<v>1<Vmtype>, %2.<Vetype>[%3]\";"
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCOND>mode));
+   return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
+  [(set_attr "simd_type" "simd_sat_mul")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "aarch64_sq<r>dmulh_laneq<mode>"
+  [(set (match_operand:VDQHS 0 "register_operand" "=w")
+        (unspec:VDQHS
+	  [(match_operand:VDQHS 1 "register_operand" "w")
+           (vec_select:<VEL>
+             (match_operand:<VCONQ> 2 "register_operand" "<vwx>")
+             (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
+	 VQDMULH))]
+  "TARGET_SIMD"
+  "*
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCONQ>mode));
+   return \"sq<r>dmulh\\t%0.<Vtype>, %1.<Vtype>, %2.<Vetype>[%3]\";"
+  [(set_attr "simd_type" "simd_sat_mul")
+   (set_attr "simd_mode" "<MODE>")]
+)
+
+(define_insn "aarch64_sq<r>dmulh_lane<mode>"
+  [(set (match_operand:SD_HSI 0 "register_operand" "=w")
+        (unspec:SD_HSI
+	  [(match_operand:SD_HSI 1 "register_operand" "w")
+           (vec_select:<VEL>
+             (match_operand:<VCONQ> 2 "register_operand" "<vwx>")
+             (parallel [(match_operand:SI 3 "immediate_operand" "i")]))]
+	 VQDMULH))]
+  "TARGET_SIMD"
+  "*
+   aarch64_simd_lane_bounds (operands[3], 0, GET_MODE_NUNITS (<VCONQ>mode));
+   return \"sq<r>dmulh\\t%<v>0, %<v>1, %2.<v>[%3]\";"
   [(set_attr "simd_type" "simd_sat_mul")
    (set_attr "simd_mode" "<MODE>")]
 )
@@ -3559,3 +3682,11 @@
   DONE;
 })
 
+(define_insn "*aarch64_simd_ld1r<mode>"
+  [(set (match_operand:VALLDI 0 "register_operand" "=w")
+	(vec_duplicate:VALLDI
+	  (match_operand:<VEL> 1 "aarch64_simd_struct_operand" "Utv")))]
+  "TARGET_SIMD"
+  "ld1r\\t{%0.<Vtype>}, %1"
+  [(set_attr "simd_type" "simd_load1r")
+   (set_attr "simd_mode" "<MODE>")])
