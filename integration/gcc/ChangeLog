@@ -1,3 +1,308 @@
+2013-01-31  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR middle-end/56113
+	* fwprop.c (fwprop_init): Set up loops without CFG modifications.
+
+2013-01-31  Hiroyuki Ono  <hiroyuki.ono.jc@renesas.com>
+	    Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/constraints.md (Q): Define as a memory constraint.
+	* config/v850/predicates.md (label_ref_operand): New predicate.
+	(e3v5_shift_operand): New predicate.
+	(ior_operator): New predicate.
+	* config/v850/t-v850: Add e3v5 multilib.
+	* config/v850/v850-protos.h (v850_adjust_insn_length): Prototype.
+	(v850_gen_movdi): Prototype.
+	* config/v850/v850.c: Add support for e3v5 architecture.
+	Rename all uses of TARGET_V850E || TARGET_V850E2_ALL to
+	TARGET_V850E_UP.
+	(construct_save_jarl): Add e3v5 long JARL support.
+	(v850_adjust_insn_length): New function.  Adjust length of call
+	insns when using e3v5 instructions.
+	(v850_gen_movdi): New function: Generate instructions to move a
+	DImode value.
+	* config/v850/v850.h (TARGET_CPU_v850e3v5): Define.
+	(CPP_SPEC): Define __v850e3v5__ as appropriate.
+	(TARGET_USE_FPU): Enable for e3v5.
+	(CONST_OK_FOR_W): New macro.
+	(ADJUST_INSN_LENGTH): Define.
+	* config/v850/v850.md (UNSPEC_LOOP): Define.
+	(attr cpu): Add v850e3v5.
+	Rename all uses of TARGET_V850E2 to TARGET_V850E2V3_UP.
+	(movdi): New pattern.
+	(movdi_internal): New pattern.
+	(cbranchsf4): Conditionalize on TARGET_USE_FPU.
+	(cbranchdf4): Conditionalize on TARGET_USE_FPU.
+	(cstoresf4): Likewise.
+	(cstoredf4): Likewise.
+	(insv): New pattern.
+	(rotlso3_a): New pattern.
+	(rotlsi3_b): New pattern
+	(rotlsi3_v850e3v5): New pattern.
+	(doloop_begin): New pattern.
+	(fix_loop_counter): New pattern.
+	(doloop_end): New pattern.
+	(branch_normal): Add e3v5 long branch support.
+	(branch_invert): Likewise.
+	(branch_z_normal): Likewise.
+	(branch_z_invert): Likewise.
+	(branch_nz_normal): Likewise.
+	(branch_nz_invert): Likewise.
+	(call_internal_short): Add e3v5 register-indirect JARL support.
+	(call_internal_long): Likewise.
+	(call_value_internal_short): Likewise.
+	(call_value_internal_long): Likewise.
+	* config/v850/v850.opt (mv850e3v5, mv850e2v4): New options.
+	(mloop): New option.
+	* config.gcc: Add support for configuring v840e3v5 target.
+	* doc/invoke.texi: Document new v850 specific command line
+	options.
+
+2013-01-31  Paul Koning  <ni1d@arrl.net>
+
+	PR debug/55059
+	PR debug/54508
+	* dwarf2out.c (prune_unused_types_mark): Mark all of parent's
+	children if parent is a class.
+	(prune_unused_types_prune): Don't add DW_AT_declaration.
+
+2013-01-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56157
+	* tree-vect-slp.c (vect_get_slp_defs): More thoroughly try to
+	match up operand with SLP child.
+
+2013-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR debug/54410
+	* dwarf2out.c (gen_struct_or_union_type_die): Always schedule template
+	parameters the first time.
+	(gen_scheduled_generic_parms_dies): Check completeness here.
+
+2013-01-31  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/53073
+	* common.opt (faggressive-loop-optimizations): New flag,
+	enabled by default.
+	* doc/invoke.texi (faggressive-loop-optimizations): Document.
+	* tree-ssa-loop-niter.c (estimate_numbers_of_iterations_loop): Guard
+	infer_loop_bounds_from_undefined by it.
+
+2013-01-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56150
+	* tree-ssa-loop-manip.c (find_uses_to_rename_stmt): Do not
+	visit virtual operands.
+	(find_uses_to_rename_bb): Likewise.
+
+2013-01-31  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56150
+	* tree-ssa-tail-merge.c (gimple_equal_p): Properly handle
+	mixed store non-store stmts.
+
+2013-01-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/55374
+	* gcc.c (LIBASAN_SPEC): Define just to ADD_STATIC_LIBASAN_LIBS if
+	LIBASAN_EARLY_SPEC is defined.
+	(LIBASAN_EARLY_SPEC): Define to empty string if not already defined.
+	(LINK_COMMAND_SPEC): Add LIBASAN_EARLY_SPEC for -fsanitize=address,
+	before %o.
+	* config/gnu-user.h (LIBASAN_EARLY_SPEC): Define.
+
+	PR c++/55742
+	* config/i386/i386.c (ix86_valid_target_attribute_inner_p): Diagnose
+	invalid args instead of ICEing on it.
+	(ix86_valid_target_attribute_tree): Return error_mark_node if
+	ix86_valid_target_attribute_inner_p failed.
+	(ix86_valid_target_attribute_p): Return false only if
+	ix86_valid_target_attribute_tree returned error_mark_node.  Allow
+	target("default") attribute.
+	(sorted_attr_string): Change argument from const char * to tree,
+	merge in all target attribute arguments rather than just one.
+	Formatting fix.  Use XNEWVEC instead of xmalloc and XDELETEVEC
+	instead of free.  Avoid using strcat.
+	(ix86_mangle_function_version_assembler_name): Mangle
+	target("default") as if no target attribute is present.  Adjust
+	sorted_attr_string caller.  Avoid leaking memory.  Use XNEWVEC
+	instead of xmalloc and XDELETEVEC instead of free.
+	(ix86_function_versions): Don't return true if one of the decls
+	doesn't have target attribute.  If they don't and one of the decls
+	is DECL_FUNCTION_VERSIONED, report an error.  Adjust
+	sorted_attr_string caller.  Use XDELETEVEC instead of free.
+	(ix86_supports_function_versions): Remove.
+	(make_name): Fix up formatting.
+	(make_dispatcher_decl): Remove resolver_name and its initialization.
+	Avoid leaking memory.
+	(is_function_default_version): Return true if there is
+	target("default") attribute rather than no target attribute at all.
+	(make_resolver_func): Avoid leaking memory.
+	(ix86_generate_version_dispatcher_body): Likewise.
+	(TARGET_OPTION_SUPPORTS_FUNCTION_VERSIONS): Remove.
+	* target.def (supports_function_versions): Remove.
+	* doc/tm.texi.in (SUPPORTS_FUNCTION_VERSIONS): Remove.
+	* doc/tm.texi: Regenerated.
+
+2013-01-30  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/56144
+	* lra-constraints.c (get_reload_reg): Don't reuse reload pseudo
+	for values with side effects.
+
+2013-01-30  Richard Biener  <rguenther@suse.de>
+
+	* sparseset.h (sparseset_bit_p): Use gcc_checking_assert.
+	(sparseset_pop): Likewise.
+	* cfganal.c (compute_idf): Likewise.  Increase work-stack size
+	to be able to use quick_push in the worker loop.
+
+2013-01-30  Marek Polacek  <polacek@redhat.com>
+
+	* cfgcleanup.c (cleanup_cfg): Don't mark affected BBs.
+
+2013-01-30  Richard Biener  <rguenther@suse.de>
+
+	PR lto/56147
+	* lto-symtab.c (lto_symtab_merge_decls_1): Guard DECL_BUILT_IN
+	check.
+
+2013-01-30  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR tree-optimization/56064
+	* fixed-value.c (fixed_from_double_int): New function.
+	* fixed-value.h (fixed_from_double_int): New prototype.
+	(const_fixed_from_double_int): New static inline function.
+	* fold-const.c (native_interpret_fixed): New static function.
+	(native_interpret_expr) <FIXED_POINT_TYPE>: Use it.
+	(can_native_interpret_type_p) <FIXED_POINT_TYPE>: Return true.
+	(native_encode_fixed): New static function.
+	(native_encode_expr) <FIXED_CST>: Use it.
+	(native_interpret_int): Move double_int worker code to...
+	* double-int.c (double_int::from_buffer): ...this new static method.
+	* double-int.h (double_int::from_buffer): Prototype it.
+
+2013-01-30  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (final_solutions, final_solutions_obstack):
+	New pointer-map and obstack.
+	(init_alias_vars): Allocate pointer-map and obstack.
+	(delete_points_to_sets): Free them.
+	(find_what_var_points_to): Cache result.
+	(find_what_p_points_to): Adjust for changed interface of
+	find_what_var_points_to.
+	(compute_points_to_sets): Likewise.
+	(ipa_pta_execute): Likewise.
+
+2013-01-30  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac (HAVE_AS_SPARC_NOBITS): New test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/sparc/sparc.c (sparc_solaris_elf_asm_named_section): Emit
+	#nobits/#progbits if supported.
+
+2013-01-29  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/56121
+	* config/sh/sh.md (bclr_m2a, bset_m2a, bst_m2a, bld_m2a, bldsign_m2a,
+	bld_reg, *bld_regqi, band_m2a, bandreg_m2a, bor_m2a, borreg_m2a,
+	bxor_m2a, bxorreg_m2a): Add satisfies_constraint_K03 condition.
+
+2013-01-29  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/cortex-a7.md (cortex_a7_neon, cortex_a7_all): Remove.
+	(cortex_a7_idiv): Use cortex_a7_both instead of cortex_a7_all.
+
+2013-01-29  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.c (cortexa7_younger): Return true for TYPE_CALL.
+	* config/arm/cortex-a7.md (cortex_a7_call): Update required units.
+
+2013-01-29  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm-protos.h (arm_mac_accumulator_is_result): New
+	declaration.
+	* config/arm/arm.c (arm_mac_accumulator_is_result): New function.
+	* config/arm/cortex-a7.md: New bypasses using
+	arm_mac_accumulator_is_result.
+
+2013-01-29  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/cortex-a7.md (cortex_a7_neon_mul):  New reservation.
+	(cortex_a7_neon_mla): Likewise.
+	(cortex_a7_fpfmad): New reservation.
+	(cortex_a7_fpmacs): Use ffmas and update required units.
+	(cortex_a7_fpmuld): Update required units and latency.
+	(cortex_a7_fpmacd): Likewise.
+	(cortex_a7_fdivs, cortex_a7_fdivd): Likewise.
+	(cortex_a7_neon). Likewise.
+	(bypass) Update participating units.
+
+2013-01-29  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.md (type): Add ffmas and ffmad to "type" attribute.
+	* config/arm/vfp.md (fma,fmsub,fnmsub,fnmadd): Change type
+	from fmac to ffma.
+	* config/arm/vfp11.md (vfp_farith): Use ffmas.
+	(vfp_fmul): Use ffmad.
+	* config/arm/cortex-r4f.md (cortex_r4_fmacs): Use ffmas.
+	(cortex_r4_fmacd): Use ffmad.
+	* config/arm/cortex-m4-fpu.md (cortex_m4_fmacs): Use ffmas.
+	* config/arm/cortex-a9.md (cortex_a9_fmacs):  Use ffmas.
+	(cortex_a9_fmacd): Use ffmad.
+	* config/arm/cortex-a8-neon.md (cortex_a8_vfp_macs): Use ffmas.
+	(cortex_a8_vfp_macd): Use ffmad.
+	* config/arm/cortex-a5.md (cortex_a5_fpmacs): Use ffmas.
+	(cortex_a5_fpmacd): Use ffmad.
+	* config/arm/cortex-a15-neon.md (cortex_a15_vfp_macs) Use ffmas.
+	(cortex_a15_vfp_macd): Use ffmad.
+	* config/arm/arm1020e.md (v10_fmul): Use ffmas and ffmad.
+
+2013-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/54314
+	* varasm.c (default_assemble_visibility): Don't warn about
+	visibility on artificial decls.
+
+2013-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56113
+	* tree-ssa-structalias.c (equiv_class_lookup): Also return
+	the bitmap leader.
+	(label_visit): Free duplicate bitmaps and record the leader instead.
+	(perform_var_substitution): Adjust.
+
+2013-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55270
+	* tree-ssa-dom.c (eliminate_degenerate_phis): If we changed
+	the CFG, schedule loops for fixup.
+
+2013-01-29  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_regno_mode_code_ok_for_base_p): Allow
+	SP_REG.
+
+2013-01-28  Leif Ekblad  <leif@rdos.net>
+
+	* config.gcc (i[34567]86-*-rdos*, x86_64-*-rdos*): New targets.
+	* config/i386/i386.h (TARGET_RDOS): New macro.
+	(DEFAULT_LARGE_SECTION_THRESHOLD): New macro.
+	* config/i386/i386.c (ix86_option_override_internal): For 64bit
+	TARGET_RDOS, set ix86_cmodel to CM_MEDIUM_PIC and flag_pic to 1.
+	* config/i386/i386.opt (mlarge-data-threshold): Initialize to
+	DEFAULT_LARGE_SECTION_THRESHOLD.
+	* config/i386/i386.md (R14_REG, R15_REG): New constants.
+	* config/i386/rdos.h: New file.
+	* config/i386/rdos64.h: New file.
+
+2013-01-28  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR other/54814
+	* reload.c (find_valid_class_1): Use in_hard_reg_set_p instead of
+	TEST_HARD_REG_BIT.
+
 2013-01-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/56117
