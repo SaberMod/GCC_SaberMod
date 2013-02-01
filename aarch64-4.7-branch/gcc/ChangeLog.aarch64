@@ -1,5 +1,14 @@
 2013-02-01 Venkataramanan Kumar  <venkataramanan.kumar@linaro.org>
 
+	backport from mainline.
+	2013-01-04  Andrew Pinski  <apinski@cavium.com>
+
+	* gcc/testsuite/gcc.target/aarch64:
+	New test case cmp-1.c added to test the hook  
+	TARGET_FIXED_CONDITION_CODE_REGS
+
+2013-02-01 Venkataramanan Kumar  <venkataramanan.kumar@linaro.org>
+
 	Backport from mainline.
 	2013-01-04  Andrew Pinski  <apinski@cavium.com>
 
