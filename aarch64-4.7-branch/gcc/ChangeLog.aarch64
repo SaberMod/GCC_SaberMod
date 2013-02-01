@@ -1,3 +1,12 @@
+2013-02-01 Venkataramanan Kumar  <venkataramanan.kumar@linaro.org>
+
+	Backport from mainline.
+	2013-01-04  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (aarch64_fixed_condition_code_regs):
+	New function.
+	(TARGET_FIXED_CONDITION_CODE_REGS): Define
+
 2013-01-25  Tejas Belagod  <tejas.belagod@arm.com>
 
 	* config/aarch64/aarch64-simd-builtins.def: Separate sq<r>dmulh_lane
