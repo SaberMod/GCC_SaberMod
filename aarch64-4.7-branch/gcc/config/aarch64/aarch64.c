@@ -2307,8 +2307,10 @@ aarch64_add_constant (int regnum, int scratchreg, HOST_WIDE_INT delta)
     {
       if (mdelta >= 4096)
 	{
+	  rtx shift;
+
 	  emit_insn (gen_rtx_SET (Pmode, scratch_rtx, GEN_INT (mdelta / 4096)));
-	  rtx shift = gen_rtx_ASHIFT (Pmode, scratch_rtx, GEN_INT (12));
+	  shift = gen_rtx_ASHIFT (Pmode, scratch_rtx, GEN_INT (12));
 	  if (delta < 0)
 	    emit_insn (gen_rtx_SET (Pmode, this_rtx,
 				    gen_rtx_MINUS (Pmode, this_rtx, shift)));
