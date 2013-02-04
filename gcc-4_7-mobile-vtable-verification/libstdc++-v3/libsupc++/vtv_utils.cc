@@ -38,8 +38,14 @@
 #include "vtv_utils.h"
 
 /* This is the directory into which all vtable verication log files
-   get written.  */
-static const char * const logs_dir = "/tmp/vtv_logs";
+   get written, if possible.  */
+static const char * const logs_dir = "/var/log/chrome/vtv_logs";
+
+
+/* This is the directory into which the vtable verification log files
+   will get written if they can't be written to the directory
+   above.  */
+static const char * const alt_logs_dir = "/tmp/vtv_logs";
 
 
 /* This function takes the NAME of a log file to open, attempts to
@@ -49,13 +55,23 @@ static const char * const logs_dir = "/tmp/vtv_logs";
 int
 vtv_open_log (const char *name)
 {
+  /* Try to create the logs under /var/log/chrome first, which is
+     persistent across reboots.  This location only exists on
+     ChromeOS. This code should not be commited upstream GCC.  */
   char log_name[256];
   snprintf (log_name, sizeof (log_name), "%s/%s", logs_dir, name);
   mkdir (logs_dir, S_IRWXU);
   int fd = open (log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+  if (fd != -1)
+    return fd;
+
+  /* Otherwise, try to open in /tmp.  */
+  snprintf(log_name, sizeof(log_name), "%s/%s", alt_logs_dir, name);
+  mkdir(alt_logs_dir, S_IRWXU);
+  fd = open(log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
     vtv_add_to_log (2, "Cannot open log file %s %s\n", name,
-		    strerror (errno));
+                    strerror (errno));
   return fd;
 }
 
@@ -93,7 +109,7 @@ vtv_add_to_log (int log_file, const char * format, ...)
   va_start (ap, format);
 
   snprintf (output, sizeof (output), "VTV: PID=%d PPID=%d ", getpid (),
-	    getppid ());
+            getppid ());
   vtv_log_write (log_file, output);
   vsnprintf (output, sizeof (output), format, ap);
   vtv_log_write (log_file, output);

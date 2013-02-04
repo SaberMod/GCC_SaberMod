@@ -265,7 +265,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 
   /* Add two more linker args, '-Wl,-u_vtable_map_vars_start and
      '-Wl,-u_vtable_map_vars_end.  */
-  if (saw_vtable_verify)
+  if (saw_vtable_verify && library > 0)
     num_args += 2;
 
   new_decoded_options = XNEWVEC (struct cl_decoded_option, num_args);
@@ -346,7 +346,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
      end of the ".vtable_map_vars" section in the binary.  (See
      comments in vtv_start.c and vtv_end.c for more details).  */
 
-  if (saw_vtable_verify > 0)
+  if (saw_vtable_verify > 0 && library > 0)
     {
       generate_option (OPT_Wl_,"-u_vtable_map_vars_start", 1,
                        CL_DRIVER, &new_decoded_options[j]);

@@ -77,6 +77,10 @@ libstdc___la_LDFLAGS = \
 	-version-info $(libtool_VERSION) ${version_arg} -lm -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 
 libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+libvtv___la_LIBADD = \
+        $(top_builddir)/libsupc++/.libs
+LIBVTV_FLAGS = \
+        -L$(libvtv___la_LIBADD) --whole-archive -lvtv_init --no-whole-archive
 
 
 # Use special rules for parallel mode compilation.
@@ -160,7 +164,7 @@ LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 CXXLINK = \
 	$(LIBTOOL) --tag CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
-	--mode=link $(CXX) \
+	--mode=link $(CXX) \ 
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 

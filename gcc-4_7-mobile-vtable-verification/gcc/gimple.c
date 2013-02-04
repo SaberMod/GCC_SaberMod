@@ -3813,7 +3813,8 @@ pop:
    FOR_MERGING_P is true the an incomplete type and a complete type
    are considered different, otherwise they are considered compatible.  */
 
-static bool
+/* static bool */
+bool
 gimple_types_compatible_p (tree t1, tree t2)
 {
   VEC(type_pair_t, heap) *sccstack = NULL;

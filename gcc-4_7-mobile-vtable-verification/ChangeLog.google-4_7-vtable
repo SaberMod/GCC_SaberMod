@@ -1,3 +1,28 @@
+2013-02-04  Caroline Tice  <cmtice@google.com>
+
+        * libstdc++-v3/src/Makefile.am: Add definitions for libvtv___la_LIBADD
+        and LIBVTV_FLAGS.
+	* libstdc++-v3/src/Makefile.in: Regenerate from Makefile.am
+        * libstdc++-v3/libsupc++/vtv_rts.cc (dl_iterate_phdr_callback):  Mark
+        unused parameter with __attribute__((unused)), to avoid compiler
+	warnings.
+        (insert_only_hash_map_allocacor::dealloc): Ditto.
+        * vtv_utils.cc (logs_dir): Change definition.
+        (alt_logs_dir):  New global variable.
+        (vtv_open_log):  Update to try second directory if first fails.
+        * gcc/cp/g++spec.c (lang_specific_driver):  Don't add vtable link
+        commands if library flag is not set, i.e. linker won't be called.
+        * gcc/cp/class_hierarchy.c (write_out_counters):  Change format of
+        output and add percentage.  Also abort if percentage is too low.
+        * gcc/cp/mangle.c (mangle_decl):  Make sure the decl is a VAR_DECL
+        before calling varpool_extra_name_alias.
+	* gcc/tree-ssa-copyrename.c (copy_rename_partition_coalesce):  Use
+        gimple_types_compativle_p rather than types_compatible_p.
+        * gcc/BASE_VER: Change version to 4.7.0-google-vtable.
+        * gcc/gimple.c (gimple_types_compatible_p): Remove 'static' function 
+        qualifier.
+        * gcc/gimple.h (gimple_types_compatible_p):  Add extern function decl.
+
 2013-01-30  Caroline Tice  <cmtice@google.com>
 
         Migrate vtable verification work from GCC 4.6.3.

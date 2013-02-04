@@ -3413,7 +3413,7 @@ mangle_decl (const tree decl)
 	DECL_WEAK (alias) = 1;
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	cgraph_same_body_alias (cgraph_get_create_node (decl), alias, decl);
-      else
+      else if (TREE_CODE (decl) == VAR_DECL)
 	varpool_extra_name_alias (alias, decl);
 #endif
     }

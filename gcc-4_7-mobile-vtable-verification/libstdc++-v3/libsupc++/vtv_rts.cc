@@ -384,7 +384,9 @@ log_memory_protection_data (char *message)
    read-only or read-write, depending on what's in DATA.  */
 
 static int
-dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t unused, void *data)
+dl_iterate_phdr_callback (struct dl_phdr_info *info,
+			  size_t unused __attribute__((__unused__)),
+			  void *data)
 {
   mprotect_data * mdata = (mprotect_data *) data;
   off_t map_sect_offset = 0;
@@ -767,7 +769,7 @@ struct insert_only_hash_map_allocator
     /* P points to the memory to be deallocated; N is the number of
        bytes to deallocate.  */
     void
-    dealloc (void *p, size_t n) const
+    dealloc (void *p, size_t n __attribute__((__unused__))) const
     {
       VTV_free (p);
     }
@@ -924,9 +926,6 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
         handle_ptr = (vtv_set_handle *) set_handle_ptr;
       else
         handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
-      snprintf (buffer, sizeof (buffer), "  Calling resize with %p\n",
-                handle_ptr);
-      log_memory_protection_data (buffer);
       vtv_sets::resize (size_hint, handle_ptr);
       return;
     }

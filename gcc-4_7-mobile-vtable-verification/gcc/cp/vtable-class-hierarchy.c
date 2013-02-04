@@ -1038,11 +1038,17 @@ write_out_counters (void)
     return;
 
   FILE *fp = fopen ("/tmp/vtable-verification-counters.log", "a");
+  double pct_done = (total_num_virtual_calls / total_num_verified_vcalls)
+                    * 100;
+
+  if (total_num_virtual_calls >= 20)
+    gcc_assert (pct_done > 90);
 
   if (fp)
     {
-      fprintf (fp, "%d %d %s\n", total_num_virtual_calls,
-               total_num_verified_vcalls, main_input_filename);
+      fprintf (fp, "%s %d %d (%.2f %%)\n", main_input_filename,
+               total_num_virtual_calls, total_num_verified_vcalls,
+               pct_done);
       fclose (fp);
     }
 }
