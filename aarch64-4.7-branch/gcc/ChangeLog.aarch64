@@ -1,3 +1,7 @@
+2013-02-04  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.c (generic_tunings): Initialise.
+
 2013-02-01 Venkataramanan Kumar  <venkataramanan.kumar@linaro.org>
 
 	backport from mainline.
