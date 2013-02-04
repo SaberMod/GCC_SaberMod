@@ -1,5 +1,13 @@
 2013-02-04  James Greenhalgh  <james.greenhalgh@arm.com>
 
+	Backport from mainline.
+	2012-12-18  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md (insv_imm<mode>): Add modes
+	for source operands.
+
+2013-02-04  James Greenhalgh  <james.greenhalgh@arm.com>
+
 	* config/aarch64/aarch64.c
 	(aarch64_simd_const_bounds): Move declaration of 'lane' above code.
 
