@@ -3712,7 +3712,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
       x = copy_rtx (x);
       push_reload (orig_rtx, NULL_RTX, x_p, NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -3725,7 +3725,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
     {
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, GET_MODE (x), VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
@@ -3789,7 +3789,7 @@ aarch64_legitimize_reload_address (rtx *x_p,
 
       push_reload (XEXP (x, 0), NULL_RTX, &XEXP (x, 0), NULL,
 		   BASE_REG_CLASS, Pmode, VOIDmode, 0, 0,
-		   opnum, type);
+		   opnum, (enum reload_type) type);
       return x;
     }
 
