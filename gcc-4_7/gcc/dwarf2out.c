@@ -166,6 +166,7 @@ static GTY(()) section *debug_loc_section;
 static GTY(()) section *debug_pubnames_section;
 static GTY(()) section *debug_pubtypes_section;
 static GTY(()) section *debug_str_section;
+static GTY(()) section *debug_str_dwo_section;
 static GTY(()) section *debug_str_offsets_section;
 static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_frame_section;
@@ -216,6 +217,28 @@ struct GTY(()) indirect_string_node {
 };
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
+
+/* With split_debug_info, both the comp_dir and dwo_name go in the
+   main object file, rather than the dwo, similar to the force_direct
+   parameter elsewhere but with additional complications:
+
+   1) The string is needed in both the main object file and the dwo.
+   That is, the comp_dir and dwo_name will appear in both places.
+
+   2) Strings can use three forms: DW_FORM_string, DW_FORM_strp or
+   DW_FORM_GNU_str_index.
+
+   3) GCC chooses the form to use late, depending on the size and
+   reference count.
+
+   Rather than forcing the all debug string handling functions and
+   callers to deal with these complications, simply use a separate,
+   special-cased string table for any attribute that should go in the
+   main object file.  This limits the complexity to just the places
+   that need it.  */
+
+static GTY ((param_is (struct indirect_string_node)))
+  htab_t skeleton_debug_str_hash;
 
 static GTY(()) int dw2_string_counter;
 
@@ -3593,6 +3616,8 @@ static bool generic_type_p (tree);
 static void schedule_generic_params_dies_gen (tree t);
 static void gen_scheduled_generic_parms_dies (void);
 
+static const char *comp_dir_string (void);
+
 /* enum for tracking thread-local variables whose address is really an offset
    relative to the TLS pointer, which will need link-time relocation, but will
    not need relocation by the DWARF consumer.  */
@@ -3710,11 +3735,11 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
   (!dwarf_split_debug_info                                              \
    ? (DEBUG_NORM_STR_OFFSETS_SECTION) : (DEBUG_DWO_STR_OFFSETS_SECTION))
 #endif
-#define DEBUG_DWO_STR_SECTION   ".debug_str.dwo"
-#define DEBUG_NORM_STR_SECTION  ".debug_str"
+#ifndef DEBUG_STR_DWO_SECTION
+#define DEBUG_STR_DWO_SECTION   ".debug_str.dwo"
+#endif
 #ifndef DEBUG_STR_SECTION
-#define DEBUG_STR_SECTION                               \
-  (!dwarf_split_debug_info ? (DEBUG_NORM_STR_SECTION) : (DEBUG_DWO_STR_SECTION))
+#define DEBUG_STR_SECTION  ".debug_str"
 #endif
 #ifndef DEBUG_RANGES_SECTION
 #define DEBUG_RANGES_SECTION	".debug_ranges"
@@ -3726,16 +3751,17 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #endif
 
 /* Section flags for .debug_macinfo/.debug_macro section.  */
-#define DEBUG_MACRO_SECTION_FLAGS \
+#define DEBUG_MACRO_SECTION_FLAGS                                       \
   (dwarf_split_debug_info ? SECTION_DEBUG | SECTION_EXCLUDE : SECTION_DEBUG)
 
 /* Section flags for .debug_str section.  */
-#define DEBUG_STR_SECTION_FLAGS \
-  (dwarf_split_debug_info \
-   ? SECTION_DEBUG | SECTION_EXCLUDE \
-   : (HAVE_GAS_SHF_MERGE && flag_merge_debug_strings \
-      ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1        \
-      : SECTION_DEBUG))
+#define DEBUG_STR_SECTION_FLAGS                                 \
+  (HAVE_GAS_SHF_MERGE && flag_merge_debug_strings               \
+   ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1        \
+   : SECTION_DEBUG)
+
+/* Section flags for .debug_str.dwo section.  */
+#define DEBUG_STR_DWO_SECTION_FLAGS (SECTION_DEBUG | SECTION_EXCLUDE)
 
 /* Labels we insert at beginning sections we can reference instead of
    the section names themselves.  */
@@ -4658,19 +4684,15 @@ debug_str_eq (const void *x1, const void *x2)
 		 (const char *)x2) == 0;
 }
 
-/* Add STR to the indirect string hash table.  */
+/* Add STR to the given string hash table.  */
 
 static struct indirect_string_node *
-find_AT_string (const char *str)
+find_AT_string_in_table (const char *str, htab_t table)
 {
   struct indirect_string_node *node;
   void **slot;
 
-  if (! debug_str_hash)
-    debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
-				      debug_str_eq, NULL);
-
-  slot = htab_find_slot_with_hash (debug_str_hash, str,
+  slot = htab_find_slot_with_hash (table, str,
 				   htab_hash_string (str), INSERT);
   if (*slot == NULL)
     {
@@ -4683,6 +4705,18 @@ find_AT_string (const char *str)
 
   node->refcount++;
   return node;
+}
+
+/* Add STR to the indirect string hash table.  */
+
+static struct indirect_string_node *
+find_AT_string (const char *str)
+{
+  if (! debug_str_hash)
+    debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
+				      debug_str_eq, NULL);
+
+  return find_AT_string_in_table (str, debug_str_hash);
 }
 
 /* Add a string attribute value to a DIE.  */
@@ -9355,6 +9389,31 @@ add_AT_pubnames (dw_die_ref die)
     }
 }
 
+/* Add a string attribute value to a skeleton DIE.  */
+
+static inline void
+add_skeleton_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind,
+                        const char *str)
+{
+  dw_attr_node attr;
+  struct indirect_string_node *node;
+
+  if (! skeleton_debug_str_hash)
+    skeleton_debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
+                                               debug_str_eq, NULL);
+
+  node = find_AT_string_in_table (str, skeleton_debug_str_hash);
+  find_string_form (node);
+  if (node->form == DW_FORM_GNU_str_index)
+    node->form = DW_FORM_strp;
+
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_str;
+  attr.dw_attr_val.val_entry = NULL;
+  attr.dw_attr_val.v.val_str = node;
+  add_dwarf_attr (die, &attr);
+}
+
 /* Helper function to generate top-level dies for skeleton debug_info and
    debug_types.  */
 
@@ -9362,18 +9421,11 @@ static void
 add_top_level_skeleton_die_attrs (dw_die_ref die)
 {
   const char *dwo_file_name = concat (aux_base_name, ".dwo", NULL);
-  dw_attr_ref attr;
+  const char *comp_dir = comp_dir_string ();
 
-  add_comp_dir_attribute (die);
-  add_AT_string (die, DW_AT_GNU_dwo_name, dwo_file_name);
-  /* The specification suggests that these attributes be inline to avoid
-     having a .debug_str section.  We know that they exist in the die because
-     we just added them.  */
-  attr = get_AT (die, DW_AT_GNU_dwo_name);
-  attr->dw_attr_val.v.val_str->form = DW_FORM_string;
-  attr = get_AT (die, DW_AT_comp_dir);
-  attr->dw_attr_val.v.val_str->form = DW_FORM_string;
-
+  add_skeleton_AT_string (die, DW_AT_GNU_dwo_name, dwo_file_name);
+  if (comp_dir != NULL)
+    add_skeleton_AT_string (die, DW_AT_comp_dir, comp_dir);
   add_AT_pubnames (die);
   add_AT_lineptr (die, DW_AT_GNU_addr_base, debug_addr_section_label);
 }
@@ -16496,16 +16548,16 @@ add_gnat_descriptive_type_attribute (dw_die_ref die, tree type,
   add_AT_die_ref (die, DW_AT_GNAT_descriptive_type, dtype_die);
 }
 
-/* Generate a DW_AT_comp_dir attribute for DIE.  */
+/* Retrieve the comp_dir string suitable for use with DW_AT_comp_dir.  */
 
-static void
-add_comp_dir_attribute (dw_die_ref die)
+static const char *
+comp_dir_string (void)
 {
   const char *wd = get_src_pwd ();
   char *wd1;
 
   if (wd == NULL)
-    return;
+    return NULL;
 
   if (DWARF2_DIR_SHOULD_END_WITH_SEPARATOR)
     {
@@ -16518,8 +16570,17 @@ add_comp_dir_attribute (dw_die_ref die)
       wd1 [wdlen + 1] = 0;
       wd = wd1;
     }
+  return remap_debug_filename (wd);
+}
 
-    add_AT_string (die, DW_AT_comp_dir, remap_debug_filename (wd));
+/* Generate a DW_AT_comp_dir attribute for DIE.  */
+
+static void
+add_comp_dir_attribute (dw_die_ref die)
+{
+  const char * wd = comp_dir_string ();
+  if (wd != NULL)
+    add_AT_string (die, DW_AT_comp_dir, wd);
 }
 
 /* Return the default for DW_AT_lower_bound, or -1 if there is not any
@@ -22228,6 +22289,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
                                    DEBUG_SKELETON_INFO_SECTION_LABEL, 0);
       debug_loc_section = get_section (DEBUG_DWO_LOC_SECTION,
                                        SECTION_DEBUG | SECTION_EXCLUDE, NULL);
+      debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
+                                           DEBUG_STR_DWO_SECTION_FLAGS, NULL);
     }
   debug_aranges_section = get_section (DEBUG_ARANGES_SECTION,
 				       SECTION_DEBUG, NULL);
@@ -22356,7 +22419,6 @@ output_index_string (void **h, void *v)
       /* Assert that the strings are output in the same order as their
          indexes were assigned.  */
       gcc_assert (*cur_idx == node->index);
-      ASM_OUTPUT_LABEL (asm_out_file, node->label);
       assemble_string (node->str, strlen (node->str) + 1);
       *cur_idx += 1;
     }
@@ -22371,6 +22433,7 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
 {
   struct indirect_string_node *node = (struct indirect_string_node *) *h;
 
+  node->form = find_string_form (node);
   if (node->form == DW_FORM_strp && node->refcount > 0)
     {
       ASM_OUTPUT_LABEL (asm_out_file, node->label);
@@ -22387,22 +22450,34 @@ output_indirect_strings (void)
 {
   if (!dwarf_split_debug_info)
     {
-      switch_to_section (debug_str_section);
-      htab_traverse (debug_str_hash, output_indirect_string, NULL);
+      if (debug_str_hash)
+        {
+          switch_to_section (debug_str_section);
+          htab_traverse (debug_str_hash, output_indirect_string, NULL);
+        }
     }
   else
     {
       unsigned int offset = 0;
       unsigned int cur_idx = 0;
 
-      switch_to_section (debug_str_offsets_section);
-      htab_traverse_noresize (debug_str_hash,
-                              output_index_string_offset,
-                              &offset);
-      switch_to_section (debug_str_section);
-      htab_traverse_noresize (debug_str_hash,
-                              output_index_string,
-                              &cur_idx);
+      if (skeleton_debug_str_hash)
+        {
+          switch_to_section (debug_str_section);
+          htab_traverse (skeleton_debug_str_hash,
+                         output_indirect_string, NULL);
+        }
+      if (debug_str_hash)
+        {
+          switch_to_section (debug_str_offsets_section);
+          htab_traverse_noresize (debug_str_hash,
+                                  output_index_string_offset,
+                                  &offset);
+          switch_to_section (debug_str_dwo_section);
+          htab_traverse_noresize (debug_str_hash,
+                                  output_index_string,
+                                  &cur_idx);
+        }
     }
 }
 
@@ -22810,6 +22885,8 @@ prune_unused_types (void)
 
   if (debug_str_hash)
     htab_empty (debug_str_hash);
+  if (skeleton_debug_str_hash)
+    htab_empty (skeleton_debug_str_hash);
   prune_unused_types_prune (comp_unit_die ());
   for (node = limbo_die_list; node; node = node->next)
     prune_unused_types_prune (node->die);
@@ -24081,6 +24158,7 @@ dwarf2out_finish (const char *filename)
     optimize_location_lists (comp_unit_die ());
 
   save_macinfo_strings ();
+
   if (dwarf_split_debug_info)
     {
       unsigned int index = 0;
@@ -24229,9 +24307,8 @@ dwarf2out_finish (const char *filename)
       output_line_info (true);
     }
 
-  /* If we emitted any indirect strings, output the string table too.  */
-  if (debug_str_hash)
-    output_indirect_strings ();
+  /* If we emitted any indirect strings, output the string tables too.  */
+  output_indirect_strings ();
 }
 
 #include "gt-dwarf2out.h"
