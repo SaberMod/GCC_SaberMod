@@ -213,6 +213,10 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
   if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
     return 0;
 
+  if (strlen (info->dlpi_name) == 0
+      && info->dlpi_addr != 0)
+    return 0;
+
   /* Get the name of the main executable.  This may or may not include
      arguments passed to the program.  Find the first space, assume it
      is the start of the argument list, and change it to a '\0'. */
@@ -254,7 +258,9 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
           else
             fd = open (info->dlpi_name, O_RDONLY);
 
-          VTV_ASSERT (fd != -1);
+          /* VTV_ASSERT (fd != -1); */
+          if (fd != -1)
+          {
 
           /* Find the section header information in the file.  */
           ElfW(Half) strtab_idx = ehdr_info->e_shstrndx;
@@ -294,6 +300,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info, size_t,
                 }
             }
           close (fd);
+          } /* if fd != -1 */
         }
       start_addr = (const ElfW(Addr)) info->dlpi_addr + map_sect_offset;
     }

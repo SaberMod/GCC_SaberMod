@@ -1,3 +1,13 @@
+2013-02-04  Caroline Tice <cmtice@google.com>
+
+	* gcc/cp/g++spec.c: (lang_specific_driver): Add new value to
+	saw_vtable_verify for preinit option; increase the size of num_args if
+	appropriate; only add the vtable verification linker options if the
+	linker will actually be called.
+	* libstdc++-v3/libsupc++/vtv_rts.cc (dl_iterate_phdr_callback):  Add
+	check for empty name-stirng with non-zero address (for
+	linux-vdso.so.1); change vtv_assert (fd != 1) to an if-condition.
+
 2013-01-30  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/configure:  Add vtv_start.o and vtv_end.o to

@@ -247,6 +247,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
         case OPT_fvtable_verify_:
           if (strcmp(arg, "std") == 0)
             saw_vtable_verify = 1;
+          else if (strcmp(arg, "preinit") == 0)
+            saw_vtable_verify = 2;
           break;
 
 	}
@@ -260,6 +262,12 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 
   /* Add one for shared_libgcc or extra static library.  */
   num_args = argc + added + need_math + (library > 0) * 4 + 1;
+
+  /* Add two more linker args, '-Wl,-u_vtable_map_vars_start and
+     '-Wl,-u_vtable_map_vars_end.  */
+  if (saw_vtable_verify)
+    num_args += 2;
+
   new_decoded_options = XNEWVEC (struct cl_decoded_option, num_args);
 
   i = 0;
@@ -322,13 +330,30 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
       j++;
     }
 
-  if (saw_vtable_verify && library > 0)
+  if (saw_vtable_verify == 1 && library > 0)
     {
-      generate_option(OPT_Wl_, VTABLE_LOAD_MODULE_INIT, 1, 
+      generate_option(OPT_Wl_, VTABLE_LOAD_MODULE_INIT, 1,
                       CL_DRIVER, &new_decoded_options[j]);
       added_libraries++;
       j++;
     }
+
+  /* If we are doing vtable verification, make sure the linker does
+     not garbage-collect the special symbols that mark the start and
+     end of the ".vtable_map_vars" section in the binary.  (See
+     comments in vtv_start.c and vtv_end.c for more details).  */
+
+  if (saw_vtable_verify > 0 && library > 0)
+    {
+      generate_option (OPT_Wl_,"-u_vtable_map_vars_start", 1,
+                       CL_DRIVER, &new_decoded_options[j]);
+      j++;
+
+      generate_option (OPT_Wl_,"-u_vtable_map_vars_end", 1,
+                       CL_DRIVER, &new_decoded_options[j]);
+      j++;
+    }
+
   /* Add `-lstdc++' if we haven't already done so.  */
   if (library > 0)
     {
@@ -340,14 +365,6 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  j++;
 	}
 #endif
-      generate_option (OPT_Wl_,"-u_vtable_map_vars_start", 1,
-                       CL_DRIVER, &new_decoded_options[j]);
-      j++;
-
-
-      generate_option (OPT_Wl_,"-u_vtable_map_vars_end", 1,
-                       CL_DRIVER, &new_decoded_options[j]);
-      j++;
 
       generate_option (OPT_l,
 		       saw_profile_flag ? LIBSTDCXX_PROFILE : LIBSTDCXX, 1,
