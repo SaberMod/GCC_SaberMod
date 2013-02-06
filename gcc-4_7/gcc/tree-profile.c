@@ -180,6 +180,12 @@ static tree GTY(()) gcov_lipo_random_seed_decl = NULL_TREE;
 /* extern gcov_unsigned_t __gcov_lipo_random_group_size  */
 static tree GTY(()) gcov_lipo_random_group_size_decl = NULL_TREE;
 
+/* extern gcov_unsigned_t __gcov_lipo_propagate_scale  */
+static tree GTY(()) gcov_lipo_propagate_scale_decl = NULL_TREE;
+
+/* extern gcov_unsigned_t __gcov_lipo_dump_cgraph  */
+static tree GTY(()) gcov_lipo_dump_cgraph_decl = NULL_TREE;
+
 /* Insert STMT_IF around given sequence of consecutive statements in the
    same basic block starting with STMT_START, ending with STMT_END.  */
 
@@ -336,6 +342,18 @@ tree_init_dyn_ipa_parameters (void)
           get_identifier ("__gcov_lipo_random_group_size"),
           get_gcov_unsigned_t ());
       init_comdat_decl (gcov_lipo_random_group_size_decl, PARAM_LIPO_RANDOM_GROUP_SIZE);
+      gcov_lipo_propagate_scale_decl = build_decl (
+          UNKNOWN_LOCATION,
+          VAR_DECL,
+          get_identifier ("__gcov_lipo_propagate_scale"),
+          get_gcov_unsigned_t ());
+      init_comdat_decl (gcov_lipo_propagate_scale_decl, PARAM_LIPO_PROPAGATE_SCALE);
+      gcov_lipo_dump_cgraph_decl = build_decl (
+          UNKNOWN_LOCATION,
+          VAR_DECL,
+          get_identifier ("__gcov_lipo_dump_cgraph"),
+          get_gcov_unsigned_t ());
+      init_comdat_decl (gcov_lipo_dump_cgraph_decl, PARAM_LIPO_DUMP_CGRAPH);
     }
 }
 

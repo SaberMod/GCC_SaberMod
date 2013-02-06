@@ -990,6 +990,20 @@ DEFPARAM (PARAM_LIPO_RANDOM_GROUP_SIZE,
           " no random grouping.",
 	  0, 0, 300)
 
+/* In LIPO profile-gen, use this parameter to specify the scale factor to propagate
+   callee module groups to caller.  */
+DEFPARAM (PARAM_LIPO_PROPAGATE_SCALE,
+	  "lipo-propagate-scale",
+	  "The scale factor to propagate callee module group's weight to the caller.",
+	  100, 0, 100)
+
+/* In LIPO profile-gen, use this parameter to enable cgraph dumping.   */
+DEFPARAM (PARAM_LIPO_DUMP_CGRAPH,
+	  "lipo-dump-cgraph",
+	  "Default is 0. If the value is 1, text dump is used. If the value "
+	  "is 2, .dot dump is enabled. ", 
+	  0, 0, 2)
+
 DEFPARAM (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD,
          "profile-generate-sampling-period",
          "sampling rate with -fprofile-generate-sampling",
