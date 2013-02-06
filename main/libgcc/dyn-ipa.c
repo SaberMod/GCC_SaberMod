@@ -98,6 +98,8 @@ struct dyn_pointer_set
 extern gcov_unsigned_t __gcov_lipo_cutoff;
 extern gcov_unsigned_t __gcov_lipo_random_seed;
 extern gcov_unsigned_t __gcov_lipo_random_group_size;
+extern gcov_unsigned_t __gcov_lipo_propagate_scale;
+extern gcov_unsigned_t __gcov_lipo_dump_cgraph;
 
 #if defined(inhibit_libc)
 __gcov_build_callgraph (void) {}
@@ -109,6 +111,8 @@ static void gcov_dump_callgraph (gcov_type);
 static void gcov_dump_cgraph_node_short (struct dyn_cgraph_node *node);
 static void gcov_dump_cgraph_node (struct dyn_cgraph_node *node,
                                   unsigned m, unsigned f);
+static int do_cgraph_dump (void);  
+
 static void
 gcov_dump_cgraph_node_dot (struct dyn_cgraph_node *node,
                            unsigned m, unsigned f,
@@ -123,6 +127,30 @@ pointer_set_create (unsigned (*get_key) (const void *));
 static struct dyn_cgraph the_dyn_call_graph;
 static int total_zero_count = 0;
 static int total_insane_count = 0;
+
+/* Returns 0 if no dump is enabled. Returns 1 if text form graph
+   dump is enabled. Returns 2 if .dot form dump is enabled.  */
+
+static int
+do_cgraph_dump (void)
+{
+  const char *dyn_cgraph_dump = 0;
+
+  if (__gcov_lipo_dump_cgraph)
+    return __gcov_lipo_dump_cgraph;
+
+  dyn_cgraph_dump = getenv ("GCOV_DYN_CGRAPH_DUMP");
+
+  if (!dyn_cgraph_dump || !strlen (dyn_cgraph_dump))
+     return 0;
+ 
+  if (dyn_cgraph_dump[0] == '1')
+     return 1;
+  if (dyn_cgraph_dump[0] == '2')
+     return 2;
+
+  return 0;
+}
 
 static void
 init_dyn_cgraph_node (struct dyn_cgraph_node *node, gcov_type guid)
@@ -745,7 +773,7 @@ gcov_compute_cutoff_count (void)
     total += edges[i]->count;
 
   cum_cutoff = (total * cutoff_perc)/100;
-  do_dump = (getenv ("GCOV_DYN_CGRAPH_DUMP") != 0);
+  do_dump = (do_cgraph_dump () != 0);
   for (i = 0; i < num_edges; i++)
     {
       cum += edges[i]->count;
@@ -1029,15 +1057,16 @@ gcov_process_cgraph_node (struct dyn_cgraph_node *node,
 /* Compute module grouping using CUTOFF_COUNT as the hot edge
    threshold.  */
 
-#define DEFAULT_IMPORT_SCALE 100
 static void
 gcov_compute_module_groups (gcov_type cutoff_count)
 {
   unsigned m_ix;
   struct gcov_info *gi_ptr;
   const char *import_scale_str;
-  unsigned import_scale = DEFAULT_IMPORT_SCALE;
+  unsigned import_scale = __gcov_lipo_propagate_scale;
 
+  /* Different from __gcov_lipo_cutoff handling, the
+     environment variable here takes precedance  */
   import_scale_str = getenv ("GCOV_DYN_IMPORT_SCALE");
   if (import_scale_str && strlen (import_scale_str))
     import_scale = atoi (import_scale_str);
@@ -1261,7 +1290,7 @@ __gcov_compute_module_groups (void)
       srandom (__gcov_lipo_random_seed);
       init_dyn_call_graph ();
       gcov_compute_random_module_groups (__gcov_lipo_random_group_size);
-      if (getenv ("GCOV_DYN_CGRAPH_DUMP") != 0)
+      if (do_cgraph_dump () != 0)
         {
           fprintf (stderr, " Creating random grouping with %u:%u\n",
                    __gcov_lipo_random_seed, __gcov_lipo_random_group_size);
@@ -1275,7 +1304,7 @@ __gcov_compute_module_groups (void)
       srandom (atoi (seed));
       init_dyn_call_graph ();
       gcov_compute_random_module_groups (atoi (max_group_size));
-      if (getenv ("GCOV_DYN_CGRAPH_DUMP") != 0)
+      if (do_cgraph_dump () != 0)
         {
           fprintf (stderr, " Creating random grouping with %s:%s\n",
                    seed, max_group_size);
@@ -1407,12 +1436,12 @@ gcov_dump_callgraph (gcov_type cutoff_count)
 {
   struct gcov_info *gi_ptr;
   unsigned m_ix;
-  const char *dyn_cgraph_dump = 0;
+  int do_dump;
+  
+  do_dump = do_cgraph_dump ();
 
-  dyn_cgraph_dump = getenv ("GCOV_DYN_CGRAPH_DUMP");
-
-  if (!dyn_cgraph_dump || !strlen (dyn_cgraph_dump))
-      return;
+  if (do_dump == 0)
+    return;
 
   fprintf (stderr,"digraph dyn_call_graph {\n");
   fprintf (stderr,"node[shape=box]\nsize=\"11,8.5\"\n");
@@ -1437,7 +1466,7 @@ gcov_dump_callgraph (gcov_type cutoff_count)
           if (!node->callees && !node->callers)
             continue;
 
-          if (dyn_cgraph_dump[0] == '1')
+          if (do_dump == 1)
             gcov_dump_cgraph_node (node, m_ix, fi_ptr->ident);
           else
             gcov_dump_cgraph_node_dot (node, m_ix, fi_ptr->ident,
