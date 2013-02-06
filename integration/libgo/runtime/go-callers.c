@@ -49,7 +49,7 @@ callback (void *data, uintptr_t pc, const char *filename, int lineno,
       p = strrchr (filename, '/');
       if (p == NULL)
 	p = filename;
-      if (__builtin_strncmp (p, "morestack.S", 11) == 0)
+      if (__builtin_strncmp (p, "/morestack.S", 12) == 0)
 	return 0;
     }
 
@@ -115,8 +115,9 @@ Callers (int skip, struct __go_open_array pc)
 
   /* In the Go 1 release runtime.Callers has an off-by-one error,
      which we can not correct because it would break backward
-     compatibility.  Adjust SKIP here to be compatible.  */
-  ret = runtime_callers (skip - 1, locbuf, pc.__count);
+     compatibility.  Normally we would add 1 to SKIP here, but we
+     don't so that we are compatible.  */
+  ret = runtime_callers (skip, locbuf, pc.__count);
 
   for (i = 0; i < ret; i++)
     ((uintptr *) pc.__values)[i] = locbuf[i].pc;

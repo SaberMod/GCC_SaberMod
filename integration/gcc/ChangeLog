@@ -1,3 +1,169 @@
+2013-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libstdc++/54314
+	* config/i386/winnt.c (i386_pe_assemble_visibility): Don't warn
+	about visibility on artificial decls.
+	* config/sol2.c (solaris_assemble_visibility): Likewise.
+
+2013-02-04  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/56186
+	* config/i386/i386.c (function_value_ms_64): Add additional valtype
+	argument and improve checking of return-argument types for 16-byte
+	modes.
+	(ix86_function_value_1): Add additional valtype argument on call
+	of function_value_64.
+	(return_in_memory_ms_64): Sync 16-byte sized mode handling with
+	handling infunction_value_64 function.
+
+2013-02-04  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	* reload.c (subst_reloads): Fix DEBUG_RELOAD build issue.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56188
+	* tree-ssa-structalias.c (label_visit): Consider case with
+	initially non-empty points-to set.
+	(perform_var_substitution): Dump node mapping and clean up.
+
+2013-02-04  Richard Guenther  <rguenther@suse.de>
+
+	PR lto/56168
+	* lto-symtab.c (lto_symtab_merge_decls_1): Make non-builtin
+	node prevail as last resort.
+	(lto_symtab_merge_decls): Remove guard on LTRANS here.
+	(lto_symtab_prevailing_decl): Builtins are their own prevailing
+	decl.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56113
+	* tree-ssa-structalias.c (equiv_class_lookup, equiv_class_add):
+	Merge into ...
+	(equiv_class_lookup_or_add): ... this.
+	(label_visit): Adjust and fix error in previous patch.
+	(perform_var_substitution): Adjust.
+
+2013-02-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* config/sh/divtab.c: Fix formatting and comments throughout the file.
+	* config/sh/sh4-300.md: Likewise.
+	* config/sh/sh4a.md: Likewise.
+	* config/sh/constraints.md: Likewise.
+	* config/sh/sh.md: Likewise.
+	* config/sh/netbsd-elf.h: Likewise.
+	* config/sh/predicates.md: Likewise.
+	* config/sh/sh-protos.h: Likewise.
+	* config/sh/ushmedia.h: Likewise.
+	* config/sh/linux.h: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/superh.h: Likewise.
+	* config/sh/elf.h: Likewise.
+	* config/sh/sh4.md: Likewise.
+	* config/sh/sh.h: Likewise.
+
+2013-02-03  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	* config/pa/constraints.md: Adjust unused letters.  Change "T"
+	constraint to match_test floating_point_store_memory_operand().
+	* config/pa/predicates.md (reg_plus_base_memory_operand): New.
+	(base14_operand): New.
+	(floating_point_store_memory_operand): New.
+	(integer_store_memory_operand): Revise to use base14_operand and
+	reg_plus_base_memory_operand.
+	(move_dest_operand): Allow symbolic_memory_operands.
+	(symbolic_memory_operand): Check for LO_SOM.
+	(symbolic_operand): Change default case to break.
+	* config/pa/pa.md: Remove unamed DFmode and SFmode patterns to force
+	CONST_DOUBLE values to be reloaded by putting them into memory when
+	the destination is a floating point register.
+	(movdf): Remove code to handle CONST_DOUBLE.
+	(movsf): Likewise.
+	(reload_indf_r1): New.
+	(reload_insf_r1): New.
+	Consistently use "Q" and "T" constraints with integer and floating
+	point move instructions, respectively.
+	(movdi): Remove FAIL.
+	Change predicate for source operand unamed DImode move from
+	general_operand to move_src_operand.
+	(umulsidi3): Change predicate for destination operand to
+	register_operand.
+	Likewise for similar unamed patterns.
+	* config/pa/pa-protos.h (pa_legitimize_reload_address): Declare.
+	* config/pa/pa.c (pa_symbolic_expression_p): Remove extra parenthesis.
+	(hppa_legitimize_address): Simplify mask calculation.
+	(pa_emit_move_sequence): Revised handling of secondary reloads from
+	REG+D addresses for floating point loads and stores.  Directly handle
+	loading CONST0_RTX (mode) to a floating point register.
+	(pa_secondary_reload): Handle reloading DF and SFmode constant values
+	to floating point registers.  Don't restrict secondary reloads to
+	floating point registers to integer modes.  Revise some comments and
+	cleanup some code.
+	(TARGET_LEGITIMATE_ADDRESS_P): Define.
+	(pa_legitimate_address_p): New.
+	(pa_legitimize_reload_address): New.
+	* config/pa/pa.h (STRICT_REG_OK_FOR_INDEX_P): New.
+	(STRICT_REG_OK_FOR_BASE_P): New.
+	(GO_IF_LEGITIMATE_ADDRESS): Delete.  Update some related comments.
+	(LEGITIMIZE_RELOAD_ADDRESS): Revise to use pa_legitimize_reload_address.
+
+2013-02-03  David Edelsohn  <dje.gcc@gmail.com>
+	    Andrew Dixie  <andrewd@gentrack.com>
+
+	* collect2.c (GCC_CHECK_HDR): Do not scan objects with F_LOADONLY
+	flag set.
+
+2013-02-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* expmed.c (extract_bit_field_1): Pass the full width of the
+	structure to get_best_reg_extraction_insn.
+
+2013-02-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/54601
+	* configure.ac (use_cxa_atexit): Add AIX.
+	* configure: Regenerate.
+
+	* config/rs6000/aix61.h (STARTFILE_SPEC): Add crtcxa.o.
+
+2013-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/54793
+	* final.c (need_profile_function): New variable.
+	(final_start_function): Drop ATTRIBUTE_UNUSED from first argument.
+	If first of NOTE_INSN_BASIC_BLOCK or NOTE_INSN_FUNCTION_BEG
+	is only preceeded by NOTE_INSN_VAR_LOCATION or NOTE_INSN_DELETED
+	notes, targetm.asm_out.function_prologue doesn't emit anything,
+	HAVE_prologue and profiler should be emitted before prologue,
+	set need_profile_function instead of emitting it.
+	(final_scan_insn): If need_profile_function, emit
+	profile_function on the first NOTE_INSN_BASIC_BLOCK or
+	NOTE_INSN_FUNCTION_BEG note.
+
+2013-02-01  Richard Henderson  <rth@redhat.com>
+
+	* config/rs6000/rs6000.md (smulditi3): New.
+	(umulditi3): New.
+
+	* config/alpha/alpha.md (umulditi3): New.
+
+2013-02-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/xcoff.h (ASM_OUTPUT_ALIGNED_COMMON): Use floor_log2.
+	(ASM_OUTPUT_ALIGNED_LOCAL): New.
+
+2013-02-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56113
+	* tree-ssa-structalias.c (label_visit): Reduce work for
+	single-predecessor nodes.
+
+2013-02-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (make_range_step) <TRUTH_NOT_EXPR>: Bail out if the
+	range isn't testing for zero.
+
 2013-01-31  Steven Bosscher  <steven@gcc.gnu.org>
 
 	PR middle-end/56113
