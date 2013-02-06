@@ -1720,8 +1720,9 @@ common_handle_option (struct gcc_options *opts,
       break;
 
     case OPT_gmlt:
-      /* [google/integration] - Empty placeholder.  Real implementation
-	 in google/main.  */
+      /* [google/integration] Synonym for -g1.  */
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "1", opts, opts_set,
+		       loc);
       break;
 
     case OPT_gvms:
