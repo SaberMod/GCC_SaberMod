@@ -1,3 +1,5 @@
+# Ignore r194995 for gcc pr55852.
+FAIL: gfortran.dg/intrinsic_size_3.f90 -O   scan-tree-dump-times original "iszs = \\(integer\\(kind=2\\)\\) MAX_EXPR <\\(D.....->dim.0..ubound - D.....->dim.0..lbound\\) \\+ 1, 0>;" 1
 # Ignore gcc pr54127.
 FAIL: gcc.dg/torture/pr53589.c -O3 -g  (test for excess errors)
 FAIL: gcc.dg/torture/pr53589.c  -O3 -g  (internal compiler error)
