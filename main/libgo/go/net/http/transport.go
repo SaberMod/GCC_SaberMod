@@ -144,6 +144,9 @@ func (t *Transport) RoundTrip(req *Request) (resp *Response, err error) {
 		}
 		return rt.RoundTrip(req)
 	}
+	if req.URL.Host == "" {
+		return nil, errors.New("http: no Host in request URL")
+	}
 	treq := &transportRequest{Request: req}
 	cm, err := t.connectMethodForRequest(treq)
 	if err != nil {
@@ -447,7 +450,15 @@ func useProxy(addr string) bool {
 		if hasPort(p) {
 			p = p[:strings.LastIndex(p, ":")]
 		}
-		if addr == p || (p[0] == '.' && (strings.HasSuffix(addr, p) || addr == p[1:])) {
+		if addr == p {
+			return false
+		}
+		if p[0] == '.' && (strings.HasSuffix(addr, p) || addr == p[1:]) {
+			// no_proxy ".foo.com" matches "bar.foo.com" or "foo.com"
+			return false
+		}
+		if p[0] != '.' && strings.HasSuffix(addr, p) && addr[len(addr)-len(p)-1] == '.' {
+			// no_proxy "foo.com" matches "bar.foo.com"
 			return false
 		}
 	}
@@ -739,6 +750,7 @@ WaitResponse:
 		case err := <-writeErrCh:
 			if err != nil {
 				re = responseAndError{nil, err}
+				pc.close()
 				break WaitResponse
 			}
 		case <-pconnDeadCh:

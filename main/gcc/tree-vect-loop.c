@@ -1,6 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com> and
    Ira Rosen <irar@il.ibm.com>
 
@@ -1167,11 +1166,11 @@ vect_analyze_loop_form (struct loop *loop)
      before the loop if needed), where the loop header contains all the
      executable statements, and the latch is empty.  */
   if (!empty_block_p (loop->latch)
-        || !gimple_seq_empty_p (phi_nodes (loop->latch)))
+      || !gimple_seq_empty_p (phi_nodes (loop->latch)))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			 "not vectorized: unexpected loop form.");
+			 "not vectorized: latch block not empty.");
       if (inner_loop_vinfo)
 	destroy_loop_vec_info (inner_loop_vinfo, true);
       return NULL;
@@ -3406,7 +3405,7 @@ get_initial_def_for_induction (gimple iv_phi)
 	  build1 (VIEW_CONVERT_EXPR, resvectype, induc_def), NULL_TREE);
       induc_def = make_ssa_name (gimple_assign_lhs (new_stmt), new_stmt);
       gimple_assign_set_lhs (new_stmt, induc_def);
-      si = gsi_start_bb (bb);
+      si = gsi_after_labels (bb);
       gsi_insert_before (&si, new_stmt, GSI_SAME_STMT);
       set_vinfo_for_stmt (new_stmt,
 			  new_stmt_vec_info (new_stmt, loop_vinfo, NULL));
@@ -4776,6 +4775,17 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
   else
     {
       /* 4. Supportable by target?  */
+
+      if (code == LSHIFT_EXPR || code == RSHIFT_EXPR
+	  || code == LROTATE_EXPR || code == RROTATE_EXPR)
+	{
+	  /* Shifts and rotates are only supported by vectorizable_shifts,
+	     not vectorizable_reduction.  */
+          if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "unsupported shift or rotation.");
+	  return false;
+	}
 
       /* 4.1. check support for the operation in the loop  */
       optab = optab_for_tree_code (code, vectype_in, optab_default);

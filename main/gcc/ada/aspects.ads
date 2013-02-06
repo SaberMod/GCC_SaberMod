@@ -74,6 +74,7 @@ package Aspects is
 
    type Aspect_Id is
      (No_Aspect,                            -- Dummy entry for no aspect
+      Aspect_Abstract_State,                -- GNAT
       Aspect_Address,
       Aspect_Alignment,
       Aspect_Attach_Handler,
@@ -93,6 +94,7 @@ package Aspects is
       Aspect_Dynamic_Predicate,
       Aspect_External_Name,
       Aspect_External_Tag,
+      Aspect_Global,                        -- GNAT
       Aspect_Implicit_Dereference,
       Aspect_Input,
       Aspect_Interrupt_Priority,
@@ -125,7 +127,7 @@ package Aspects is
       Aspect_Unsuppress,
       Aspect_Value_Size,                    -- GNAT
       Aspect_Variable_Indexing,
-      Aspect_Warnings,
+      Aspect_Warnings,                      -- GNAT
       Aspect_Write,
 
       --  The following aspects correspond to library unit pragmas
@@ -221,7 +223,8 @@ package Aspects is
    --  The following array identifies all implementation defined aspects
 
    Impl_Defined_Aspects : constant array (Aspect_Id) of Boolean :=
-                            (Aspect_Ada_2005                 => True,
+                            (Aspect_Abstract_State           => True,
+                             Aspect_Ada_2005                 => True,
                              Aspect_Ada_2012                 => True,
                              Aspect_Compiler_Unit            => True,
                              Aspect_Contract_Case            => True,
@@ -229,7 +232,9 @@ package Aspects is
                              Aspect_Dimension                => True,
                              Aspect_Dimension_System         => True,
                              Aspect_Favor_Top_Level          => True,
+                             Aspect_Global                   => True,
                              Aspect_Inline_Always            => True,
+                             Aspect_Invariant                => True,
                              Aspect_Lock_Free                => True,
                              Aspect_Object_Size              => True,
                              Aspect_Persistent_BSS           => True,
@@ -239,18 +244,19 @@ package Aspects is
                              Aspect_Pure_12                  => True,
                              Aspect_Pure_Function            => True,
                              Aspect_Remote_Access_Type       => True,
-                             Aspect_Shared                   => True,
                              Aspect_Scalar_Storage_Order     => True,
+                             Aspect_Shared                   => True,
                              Aspect_Simple_Storage_Pool      => True,
                              Aspect_Simple_Storage_Pool_Type => True,
                              Aspect_Suppress_Debug_Info      => True,
                              Aspect_Test_Case                => True,
-                             Aspect_Universal_Data           => True,
                              Aspect_Universal_Aliasing       => True,
+                             Aspect_Universal_Data           => True,
                              Aspect_Unmodified               => True,
                              Aspect_Unreferenced             => True,
                              Aspect_Unreferenced_Objects     => True,
                              Aspect_Value_Size               => True,
+                             Aspect_Warnings                 => True,
                              others                          => False);
 
    --  The following array indicates aspects for which multiple occurrences of
@@ -305,6 +311,7 @@ package Aspects is
 
    Aspect_Argument : constant array (Aspect_Id) of Aspect_Expression :=
                        (No_Aspect                      => Optional,
+                        Aspect_Abstract_State          => Expression,
                         Aspect_Address                 => Expression,
                         Aspect_Alignment               => Expression,
                         Aspect_Attach_Handler          => Expression,
@@ -324,6 +331,7 @@ package Aspects is
                         Aspect_Dynamic_Predicate       => Expression,
                         Aspect_External_Name           => Expression,
                         Aspect_External_Tag            => Expression,
+                        Aspect_Global                  => Expression,
                         Aspect_Implicit_Dereference    => Name,
                         Aspect_Input                   => Name,
                         Aspect_Interrupt_Priority      => Expression,
@@ -370,6 +378,7 @@ package Aspects is
 
    Aspect_Names : constant array (Aspect_Id) of Name_Id := (
      No_Aspect                           => No_Name,
+     Aspect_Abstract_State               => Name_Abstract_State,
      Aspect_Ada_2005                     => Name_Ada_2005,
      Aspect_Ada_2012                     => Name_Ada_2012,
      Aspect_Address                      => Name_Address,
@@ -400,6 +409,7 @@ package Aspects is
      Aspect_External_Tag                 => Name_External_Tag,
      Aspect_Export                       => Name_Export,
      Aspect_Favor_Top_Level              => Name_Favor_Top_Level,
+     Aspect_Global                       => Name_Global,
      Aspect_Implicit_Dereference         => Name_Implicit_Dereference,
      Aspect_Import                       => Name_Import,
      Aspect_Independent                  => Name_Independent,

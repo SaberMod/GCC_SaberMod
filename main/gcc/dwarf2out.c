@@ -1,7 +1,5 @@
 /* Output Dwarf2 format symbol table information from GCC.
-   Copyright (C) 1992, 1993, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -11841,6 +11839,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
   dw_loc_descr_ref mem_loc_result = NULL;
   enum dwarf_location_atom op;
   dw_loc_descr_ref op0, op1;
+  rtx inner = NULL_RTX;
 
   if (mode == VOIDmode)
     mode = GET_MODE (rtl);
@@ -11870,35 +11869,39 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	 contains the given subreg.  */
       if (!subreg_lowpart_p (rtl))
 	break;
+      inner = SUBREG_REG (rtl);
+    case TRUNCATE:
+      if (inner == NULL_RTX)
+        inner = XEXP (rtl, 0);
       if (GET_MODE_CLASS (mode) == MODE_INT
-	  && GET_MODE_CLASS (GET_MODE (SUBREG_REG (rtl))) == MODE_INT
+	  && GET_MODE_CLASS (GET_MODE (inner)) == MODE_INT
 	  && (GET_MODE_SIZE (mode) <= DWARF2_ADDR_SIZE
 #ifdef POINTERS_EXTEND_UNSIGNED
 	      || (mode == Pmode && mem_mode != VOIDmode)
 #endif
 	     )
-	  && GET_MODE_SIZE (GET_MODE (SUBREG_REG (rtl))) <= DWARF2_ADDR_SIZE)
+	  && GET_MODE_SIZE (GET_MODE (inner)) <= DWARF2_ADDR_SIZE)
 	{
-	  mem_loc_result = mem_loc_descriptor (SUBREG_REG (rtl),
-					       GET_MODE (SUBREG_REG (rtl)),
+	  mem_loc_result = mem_loc_descriptor (inner,
+					       GET_MODE (inner),
 					       mem_mode, initialized);
 	  break;
 	}
       if (dwarf_strict)
 	break;
-      if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (SUBREG_REG (rtl))))
+      if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (GET_MODE (inner)))
 	break;
-      if (GET_MODE_SIZE (mode) != GET_MODE_SIZE (GET_MODE (SUBREG_REG (rtl)))
+      if (GET_MODE_SIZE (mode) != GET_MODE_SIZE (GET_MODE (inner))
 	  && (GET_MODE_CLASS (mode) != MODE_INT
-	      || GET_MODE_CLASS (GET_MODE (SUBREG_REG (rtl))) != MODE_INT))
+	      || GET_MODE_CLASS (GET_MODE (inner)) != MODE_INT))
 	break;
       else
 	{
 	  dw_die_ref type_die;
 	  dw_loc_descr_ref cvt;
 
-	  mem_loc_result = mem_loc_descriptor (SUBREG_REG (rtl),
-					       GET_MODE (SUBREG_REG (rtl)),
+	  mem_loc_result = mem_loc_descriptor (inner,
+					       GET_MODE (inner),
 					       mem_mode, initialized);
 	  if (mem_loc_result == NULL)
 	    break;
@@ -11910,7 +11913,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
 	      break;
 	    }
 	  if (GET_MODE_SIZE (mode)
-	      != GET_MODE_SIZE (GET_MODE (SUBREG_REG (rtl))))
+	      != GET_MODE_SIZE (GET_MODE (inner)))
 	    cvt = new_loc_descr (DW_OP_GNU_convert, 0, 0);
 	  else
 	    cvt = new_loc_descr (DW_OP_GNU_reinterpret, 0, 0);
@@ -12667,7 +12670,6 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       break;
 
     case COMPARE:
-    case TRUNCATE:
       /* In theory, we could implement the above.  */
       /* DWARF cannot represent the unsigned compare operations
 	 natively.  */
@@ -12711,6 +12713,7 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
     case CONST_VECTOR:
     case CONST_FIXED:
     case CLRSB:
+    case CLOBBER:
       /* If delegitimize_address couldn't do anything with the UNSPEC, we
 	 can't express it in the debug info.  This can happen e.g. with some
 	 TLS UNSPECs.  */
@@ -17872,7 +17875,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 
       /* Compute a displacement from the "steady-state frame pointer" to
 	 the CFA.  The former is what all stack slots and argument slots
-	 will reference in the rtl; the later is what we've told the
+	 will reference in the rtl; the latter is what we've told the
 	 debugger about.  We'll need to adjust all frame_base references
 	 by this displacement.  */
       compute_frame_pointer_to_fb_displacement (cfa_fb_offset);
@@ -19059,6 +19062,10 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
 
   scope_die = scope_die_for (type, context_die);
 
+  /* Generate child dies for template paramaters.  */
+  if (!type_die && debug_info_level > DINFO_LEVEL_TERSE)
+    schedule_generic_params_dies_gen (type);
+
   if (! type_die || (nested && is_cu_die (scope_die)))
     /* First occurrence of type or toplevel definition of nested class.  */
     {
@@ -19075,11 +19082,6 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die,
     }
   else
     remove_AT (type_die, DW_AT_declaration);
-
-  /* Generate child dies for template paramaters.  */
-  if (debug_info_level > DINFO_LEVEL_TERSE
-      && COMPLETE_TYPE_P (type))
-    schedule_generic_params_dies_gen (type);
 
   /* If this type has been completed, then give it a byte_size attribute and
      then give a list of members.  */
@@ -20631,7 +20633,8 @@ gen_scheduled_generic_parms_dies (void)
     return;
   
   FOR_EACH_VEC_ELT (*generic_type_instances, i, t)
-    gen_generic_params_dies (t);
+    if (COMPLETE_TYPE_P (t))
+      gen_generic_params_dies (t);
 }
 
 
@@ -21944,9 +21947,11 @@ prune_unused_types_mark (dw_die_ref die, int dokids)
       prune_unused_types_mark_generic_parms_dies (die);
 
       /* We also have to mark its parents as used.
-	 (But we don't want to mark our parents' kids due to this.)  */
+	 (But we don't want to mark our parent's kids due to this,
+	 unless it is a class.)  */
       if (die->die_parent)
-	prune_unused_types_mark (die->die_parent, 0);
+	prune_unused_types_mark (die->die_parent,
+				 class_scope_p (die->die_parent));
 
       /* Mark any referenced nodes.  */
       prune_unused_types_walk_attribs (die);
@@ -22121,7 +22126,6 @@ static void
 prune_unused_types_prune (dw_die_ref die)
 {
   dw_die_ref c;
-  int pruned = 0;
 
   gcc_assert (die->die_mark);
   prune_unused_types_update_strings (die);
@@ -22144,25 +22148,13 @@ prune_unused_types_prune (dw_die_ref die)
 	      prev->die_sib = c->die_sib;
 	      die->die_child = prev;
 	    }
-	  pruned = 1;
-	  goto finished;
+	  return;
 	}
 
     if (c != prev->die_sib)
-      {
-	prev->die_sib = c;
-	pruned = 1;
-      }
+      prev->die_sib = c;
     prune_unused_types_prune (c);
   } while (c != die->die_child);
-
- finished:
-  /* If we pruned children, and this is a class, mark it as a 
-     declaration to inform debuggers that this is not a complete
-     class definition.  */
-  if (pruned && die->die_mark == 1 && class_scope_p (die)
-      && ! is_declaration_die (die))
-    add_AT_flag (die, DW_AT_declaration, 1);
 }
 
 /* Remove dies representing declarations that we never use.  */

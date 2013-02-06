@@ -1,6 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012 Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -2538,9 +2537,6 @@ verify_cgraph_node (struct cgraph_node *node)
     {
       if (this_cfun->cfg)
 	{
-	  /* The nodes we're interested in are never shared, so walk
-	     the tree ignoring duplicates.  */
-	  struct pointer_set_t *visited_nodes = pointer_set_create ();
 	  /* Reach the trees by walking over the CFG, and note the
 	     enclosing basic-blocks in the call edges.  */
 	  FOR_EACH_BB_FN (this_block, this_cfun)
@@ -2590,7 +2586,6 @@ verify_cgraph_node (struct cgraph_node *node)
 		      }
 		  }
 	      }
-	  pointer_set_destroy (visited_nodes);
 	}
       else
 	/* No CFG available?!  */

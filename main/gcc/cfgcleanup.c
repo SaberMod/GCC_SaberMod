@@ -1,7 +1,5 @@
 /* Control flow optimization code for GNU compiler.
-   Copyright (C) 1987, 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2010, 2011,
-   2012 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -3019,14 +3017,11 @@ cleanup_cfg (int mode)
       && (changed
 	  || (mode & CLEANUP_CFG_CHANGED)))
     {
-      bitmap changed_bbs;
       timevar_push (TV_REPAIR_LOOPS);
       /* The above doesn't preserve dominance info if available.  */
       gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
       calculate_dominance_info (CDI_DOMINATORS);
-      changed_bbs = BITMAP_ALLOC (NULL);
-      fix_loop_structure (changed_bbs);
-      BITMAP_FREE (changed_bbs);
+      fix_loop_structure (NULL);
       free_dominance_info (CDI_DOMINATORS);
       timevar_pop (TV_REPAIR_LOOPS);
     }

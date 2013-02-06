@@ -1,6 +1,5 @@
 ;; ARM VFP instruction patterns
-;; Copyright (C) 2003, 2005, 2006, 2007, 2008, 2010
-;; Free Software Foundation, Inc.
+;; Copyright (C) 2003-2013 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -33,6 +32,8 @@
 ;; fmuld	Double precision multiply.
 ;; fmacs	Single precision multiply-accumulate.
 ;; fmacd	Double precision multiply-accumulate.
+;; ffmas	Single precision fused multiply-accumulate.
+;; ffmad	Double precision fused multiply-accumulate.
 ;; fdivs	Single precision sqrt or division.
 ;; fdivd	Double precision sqrt or division.
 ;; f_flag	fmstat operation
@@ -910,7 +911,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfma%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fmsub<SDF:mode>4"
@@ -922,7 +923,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfms%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fnmsub<SDF:mode>4"
@@ -933,7 +934,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfnms%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 (define_insn "*fnmadd<SDF:mode>4"
@@ -945,7 +946,7 @@
   "TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_FMA"
   "vfnma%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "predicable" "yes")
-   (set_attr "type" "fmac<vfp_type>")]
+   (set_attr "type" "ffma<vfp_type>")]
 )
 
 
@@ -1263,6 +1264,31 @@
   "vrint<vrint_variant>%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1"
   [(set_attr "predicable" "<vrint_predicable>")
    (set_attr "type" "f_rint<vfp_type>")]
+)
+
+;; MIN_EXPR and MAX_EXPR eventually map to 'smin' and 'smax' in RTL.
+;; The 'smax' and 'smin' RTL standard pattern names do not specify which
+;; operand will be returned when both operands are zero (i.e. they may not
+;; honour signed zeroes), or when either operand is NaN.  Therefore GCC
+;; only introduces MIN_EXPR/MAX_EXPR in fast math mode or when not honouring
+;; NaNs.
+
+(define_insn "smax<mode>3"
+  [(set (match_operand:SDF 0 "register_operand" "=<F_constraint>")
+        (smax:SDF (match_operand:SDF 1 "register_operand" "<F_constraint>")
+		  (match_operand:SDF 2 "register_operand" "<F_constraint>")))]
+  "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
+  "vmaxnm.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
+  [(set_attr "type" "f_minmax<vfp_type>")]
+)
+
+(define_insn "smin<mode>3"
+  [(set (match_operand:SDF 0 "register_operand" "=<F_constraint>")
+        (smin:SDF (match_operand:SDF 1 "register_operand" "<F_constraint>")
+		  (match_operand:SDF 2 "register_operand" "<F_constraint>")))]
+  "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
+  "vminnm.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
+  [(set_attr "type" "f_minmax<vfp_type>")]
 )
 
 ;; Unimplemented insns:

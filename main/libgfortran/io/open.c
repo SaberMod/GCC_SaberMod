@@ -1,5 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -844,10 +843,7 @@ st_open (st_parameter_open *opp)
   if ((opp->common.flags & IOPARM_LIBRETURN_MASK) == IOPARM_LIBRETURN_OK)
     {
       if ((opp->common.flags & IOPARM_OPEN_HAS_NEWUNIT))
-	{
-	  *opp->newunit = get_unique_unit_number(opp);
-	  opp->common.unit = *opp->newunit;
-	}
+	opp->common.unit = get_unique_unit_number(opp);
 
       u = find_or_create_unit (opp->common.unit);
       if (u->s == NULL)
@@ -859,6 +855,10 @@ st_open (st_parameter_open *opp)
       else
 	already_open (opp, u, &flags);
     }
-
+    
+  if ((opp->common.flags & IOPARM_OPEN_HAS_NEWUNIT)
+      && (opp->common.flags & IOPARM_LIBRETURN_MASK) == IOPARM_LIBRETURN_OK)
+    *opp->newunit = opp->common.unit;
+  
   library_end ();
 }

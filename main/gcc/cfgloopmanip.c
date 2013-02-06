@@ -1,6 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002, 2003, 2004, 2005, 2007, 2008, 2009, 2010, 2011
-   Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -112,10 +111,13 @@ fix_bb_placement (basic_block bb)
 /* Fix placement of LOOP inside loop tree, i.e. find the innermost superloop
    of LOOP to that leads at least one exit edge of LOOP, and set it
    as the immediate superloop of LOOP.  Return true if the immediate superloop
-   of LOOP changed.  */
+   of LOOP changed.
+
+   IRRED_INVALIDATED is set to true if a change in the loop structures might
+   invalidate the information about irreducible regions.  */
 
 static bool
-fix_loop_placement (struct loop *loop)
+fix_loop_placement (struct loop *loop, bool *irred_invalidated)
 {
   unsigned i;
   edge e;
@@ -140,7 +142,12 @@ fix_loop_placement (struct loop *loop)
       /* The exit edges of LOOP no longer exits its original immediate
 	 superloops; remove them from the appropriate exit lists.  */
       FOR_EACH_VEC_ELT (exits, i, e)
-	rescan_loop_exit (e, false, false);
+	{
+	  /* We may need to recompute irreducible loops.  */
+	  if (e->flags & EDGE_IRREDUCIBLE_LOOP)
+	    *irred_invalidated = true;
+	  rescan_loop_exit (e, false, false);
+	}
 
       ret = true;
     }
@@ -213,7 +220,7 @@ fix_bb_placements (basic_block from,
       if (from->loop_father->header == from)
 	{
 	  /* Subloop header, maybe move the loop upward.  */
-	  if (!fix_loop_placement (from->loop_father))
+	  if (!fix_loop_placement (from->loop_father, irred_invalidated))
 	    continue;
 	  target_loop = loop_outer (from->loop_father);
 	}
@@ -481,7 +488,7 @@ scale_loop_frequencies (struct loop *loop, int num, int den)
    to iterate too many times.  */
 
 void
-scale_loop_profile (struct loop *loop, int scale, int iteration_bound)
+scale_loop_profile (struct loop *loop, int scale, gcov_type iteration_bound)
 {
   gcov_type iterations = expected_loop_iterations_unbounded (loop);
   edge e;
@@ -491,7 +498,7 @@ scale_loop_profile (struct loop *loop, int scale, int iteration_bound)
     fprintf (dump_file, ";; Scaling loop %i with scale %f, "
 	     "bounding iterations to %i from guessed %i\n",
 	     loop->num, (double)scale / REG_BR_PROB_BASE,
-	     iteration_bound, (int)iterations);
+	     (int)iteration_bound, (int)iterations);
 
   /* See if loop is predicted to iterate too many times.  */
   if (iteration_bound && iterations > 0
@@ -966,7 +973,7 @@ fix_loop_placements (struct loop *loop, bool *irred_invalidated)
   while (loop_outer (loop))
     {
       outer = loop_outer (loop);
-      if (!fix_loop_placement (loop))
+      if (!fix_loop_placement (loop, irred_invalidated))
 	break;
 
       /* Changing the placement of a loop in the loop tree may alter the
@@ -1793,6 +1800,38 @@ fix_loop_structure (bitmap changed_bbs)
       record_exits = true;
     }
 
+  /* First re-compute loop latches.  */
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      edge_iterator ei;
+      edge e, first_latch = NULL, latch = NULL;
+
+      if (!loop->header)
+	continue;
+
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
+	if (dominated_by_p (CDI_DOMINATORS, e->src, loop->header))
+	  {
+	    if (!first_latch)
+	      first_latch = latch = e;
+	    else
+	      {
+		latch = NULL;
+		break;
+	      }
+	  }
+      /* If there was no latch, schedule the loop for removal.  */
+      if (!first_latch)
+	loop->header = NULL;
+      /* If there was a single latch, record it.  */
+      else if (latch)
+	loop->latch = latch->src;
+      /* Otherwise there are multiple latches which are eventually
+         disambiguated below.  */
+      else
+	loop->latch = NULL;
+    }
+
   /* Remove the dead loops from structures.  We start from the innermost
      loops, so that when we remove the loops, we know that the loops inside
      are preserved, and do not waste time relinking loops that will be
@@ -1849,34 +1888,18 @@ fix_loop_structure (bitmap changed_bbs)
 	}
     }
 
-  /* Then re-compute the single latch if there is one.  */
-  FOR_EACH_LOOP (li, loop, 0)
-    {
-      edge_iterator ei;
-      edge e, latch = NULL;
-      FOR_EACH_EDGE (e, ei, loop->header->preds)
-	if (dominated_by_p (CDI_DOMINATORS, e->src, loop->header))
-	  {
-	    if (!latch)
-	      latch = e;
-	    else
-	      {
-		latch = NULL;
-		break;
-	      }
-	  }
-      if (latch
-	  && latch->src->loop_father == loop)
-	loop->latch = latch->src;
-      else
-	loop->latch = NULL;
-    }
-
   if (!loops_state_satisfies_p (LOOPS_MAY_HAVE_MULTIPLE_LATCHES))
     disambiguate_loops_with_multiple_latches ();
 
   if (loops_state_satisfies_p (LOOPS_HAVE_PREHEADERS))
-    create_preheaders (CP_SIMPLE_PREHEADERS);
+    {
+      int cp_flags = CP_SIMPLE_PREHEADERS;
+
+      if (loops_state_satisfies_p (LOOPS_HAVE_FALLTHRU_PREHEADERS))
+	cp_flags |= CP_FALLTHRU_PREHEADERS;
+
+      create_preheaders (cp_flags);
+    }
 
   if (loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES))
     force_single_succ_latches ();

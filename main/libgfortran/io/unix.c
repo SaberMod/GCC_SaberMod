@@ -1,6 +1,4 @@
-/* Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -344,7 +342,15 @@ raw_seek (unix_stream * s, gfc_offset offset, int whence)
 static gfc_offset
 raw_tell (unix_stream * s)
 {
-  return lseek (s->fd, 0, SEEK_CUR);
+  gfc_offset x;
+  x = lseek (s->fd, 0, SEEK_CUR);
+
+  /* Non-seekable files should always be assumed to be at
+     current position.  */
+  if (x == -1 && errno == ESPIPE)
+    x = 0;
+
+  return x;
 }
 
 static gfc_offset

@@ -1,3 +1,85 @@
+2013-02-01  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/54601
+	* config.host (powerpc-ibm-aix[56789]): Add t-aix-cxa to tmake_file.
+	Add crtcxa to extra_parts.
+	* config/rs6000/exit.h: New file.
+	* config/rs6000/cxa_atexit.c: New file.
+	* config/rs6000/cxa_finalize.c: New file.
+	* config/rs6000/crtcxa.c: New file.
+	* config/rs6000/t-aix-cxa: New file.
+	* config/rs6000/libgcc-aix-cxa.ver: New file.
+
+2013-01-31  Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/lib1funcs.S: Add support for e3v5 architecture
+	variant.
+
+2013-01-29  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/54222
+	* config/avr/t-avr (LIB2FUNCS_EXCLUDE): Add:
+	_mulQQ,  _mulHQ,  _mulHA,  _mulSA,
+	_mulUQQ, _mulUHQ, _mulUHA, _mulUSA,
+	_divQQ,  _divHQ,  _divHA,  _divSA,
+	_divUQQ, _divUHQ, _divUHA, _divUSA.
+
+2013-01-26  David Holsgrove <david.holsgrove@xilinx.com>
+
+	* config.host(microblaze*-linux*): tmake_file: Remove
+	t-slibgcc-nolc-override, add t-slibgcc-libgcc.
+	* config/microblaze/t-microblaze: Set LIB2FUNCS_EXCLUDE
+	to exclude functions from being built with libgcc.c and use
+	the microblaze assembly.
+
+2013-01-26  Edgar E. Iglesias <edgar.iglesias@gmail.com>
+
+	* config.host (microblaze*-*-*): Rename microblaze*-*-elf, update
+	extra_parts.
+
+2013-01-17  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Cast the
+	results of (dcache_lsize - 1) and (icache_lsize - 1) to the type
+	__UINTPTR_TYPE__; also cast 'base' to the same type before the
+	alignment operation.
+
+2013-01-15  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/sync-cache.c (__aarch64_sync_cache_range): Update
+	loop start address for cache clearing.
+
+2013-01-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/lib1funcs.S: Remove trailing blanks.
+	* config/avr/lib1funcs-fixed.S: Ditto.
+
+2013-01-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	* config/avr/avr-lib.h: Add GPL copyright notice.
+
+2013-01-14  Georg-Johann Lay  <avr@gjlay.de>
+
+	* fixed-bit.c (SATFRACT) <FROM_TYPE=1, TO_TYPE=4>: Only
+	declare / set min_low, min_high if TO_MODE_UNSIGNED == 0.
+	(SATFRACT) <FROM_TYPE=TO_TYPE=4>: Only declare / set min_low,
+	min_high if FROM_MODE_UNSIGNED == 0 and TO_MODE_UNSIGNED == 0.
+
+2013-01-07  Mark Kettenis  <kettenis@openbsd.org>
+
+	* config.host (i[34567]86-*-openbsd* and x86_64-*-openbsd*):
+	Add to lists of i[34567]86-*-* and x86_64-*-* soft-fp targets.
+
+2013-01-04  Nick Clifton  <nickc@redhat.com>
+
+	* config/v850/lib1funcs.S: Only provide CALLT support functions if
+	the CALLT instruction is supported.
+
+2012-12-20  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* gthr.h (__gthread_cond_timedwait_recursive): Do not require.
+	* gthr-posix.h (__gthread_cond_timedwait_recursive): Remove.
+
 2012-12-13  John Tytgat  <John@bass-software.com>
 
 	* config/arm/fp16.c (__gnu_f2h_internal): Fix inaccuracy when aexp

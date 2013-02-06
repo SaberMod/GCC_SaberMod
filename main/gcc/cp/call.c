@@ -1,8 +1,5 @@
 /* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -7548,6 +7545,9 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	 build_special_member_call.  */
       if (CONSTRUCTOR_NELTS (init_list) == 0
 	  && TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
+	  /* For a user-provided default constructor, use the normal
+	     mechanisms so that protected access works.  */
+	  && !type_has_user_provided_default_constructor (basetype)
 	  && !processing_template_decl)
 	init = build_value_init (basetype, complain);
 
@@ -9243,6 +9243,28 @@ extend_ref_init_temps (tree decl, tree init, vec<tree, va_gc> **cleanups)
     }
 
   return init;
+}
+
+/* Returns true iff an initializer for TYPE could contain temporaries that
+   need to be extended because they are bound to references or
+   std::initializer_list.  */
+
+bool
+type_has_extended_temps (tree type)
+{
+  type = strip_array_types (type);
+  if (TREE_CODE (type) == REFERENCE_TYPE)
+    return true;
+  if (CLASS_TYPE_P (type))
+    {
+      if (is_std_init_list (type))
+	return true;
+      for (tree f = next_initializable_field (TYPE_FIELDS (type));
+	   f; f = next_initializable_field (DECL_CHAIN (f)))
+	if (type_has_extended_temps (TREE_TYPE (f)))
+	  return true;
+    }
+  return false;
 }
 
 /* Returns true iff TYPE is some variant of std::initializer_list.  */

@@ -1,8 +1,5 @@
 /* Compiler driver program that can handle many languages.
-   Copyright (C) 1987, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -551,13 +548,19 @@ proper position among the other output files.  */
 #else
 #define ADD_STATIC_LIBASAN_LIBS
 #endif
-#ifdef HAVE_LD_STATIC_DYNAMIC
+#ifdef LIBASAN_EARLY_SPEC
+#define LIBASAN_SPEC ADD_STATIC_LIBASAN_LIBS
+#elif defined(HAVE_LD_STATIC_DYNAMIC)
 #define LIBASAN_SPEC "%{static-libasan:" LD_STATIC_OPTION \
 		     "} -lasan %{static-libasan:" LD_DYNAMIC_OPTION "}" \
 		     ADD_STATIC_LIBASAN_LIBS
 #else
 #define LIBASAN_SPEC "-lasan" ADD_STATIC_LIBASAN_LIBS
 #endif
+#endif
+
+#ifndef LIBASAN_EARLY_SPEC
+#define LIBASAN_EARLY_SPEC ""
 #endif
 
 #ifndef LIBTSAN_SPEC
@@ -705,9 +708,11 @@ proper position among the other output files.  */
     LINK_PLUGIN_SPEC \
     "%{flto|flto=*:%<fcompare-debug*} \
     %{flto} %{flto=*} %l " LINK_PIE_SPEC \
-   "%X %{o*} %{e*} %{N} %{n} %{r}\
+   "%{fuse-ld=*:-fuse-ld=%*}\
+    %X %{o*} %{e*} %{N} %{n} %{r}\
     %{s} %{t} %{u*} %{z} %{Z} %{!nostdlib:%{!nostartfiles:%S}}\
-    %{static:} %{L*} %(mfwrap) %(link_libgcc) %o\
+    %{static:} %{L*} %(mfwrap) %(link_libgcc) \
+    %{fsanitize=address:" LIBASAN_EARLY_SPEC "} %o\
     %{fopenmp|ftree-parallelize-loops=*:%:include(libgomp.spec)%(link_gomp)}\
     %{fgnu-tm:%:include(libitm.spec)%(link_itm)}\
     %(mflib) " STACK_SPLIT_SPEC "\
@@ -857,6 +862,7 @@ static const char *multilib_select;
 static const char *multilib_matches;
 static const char *multilib_defaults;
 static const char *multilib_exclusions;
+static const char *multilib_reuse;
 
 /* Check whether a particular argument is a default argument.  */
 
@@ -1250,6 +1256,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("multilib_matches",		&multilib_matches),
   INIT_STATIC_SPEC ("multilib_exclusions",	&multilib_exclusions),
   INIT_STATIC_SPEC ("multilib_options",		&multilib_options),
+  INIT_STATIC_SPEC ("multilib_reuse",		&multilib_reuse),
   INIT_STATIC_SPEC ("linker",			&linker_name_spec),
   INIT_STATIC_SPEC ("linker_plugin_file",	&linker_plugin_file_spec),
   INIT_STATIC_SPEC ("lto_wrapper",		&lto_wrapper_spec),
@@ -6332,6 +6339,13 @@ main (int argc, char **argv)
     obstack_1grow (&multilib_obstack, 0);
     multilib_exclusions = XOBFINISH (&multilib_obstack, const char *);
 
+    q = multilib_reuse_raw;
+    while ((p = *q++) != (char *) 0)
+      obstack_grow (&multilib_obstack, p, strlen (p));
+
+    obstack_1grow (&multilib_obstack, 0);
+    multilib_reuse = XOBFINISH (&multilib_obstack, const char *);
+
     need_space = FALSE;
     for (i = 0; i < ARRAY_SIZE (multilib_defaults_raw); i++)
       {
@@ -6721,7 +6735,7 @@ main (int argc, char **argv)
     {
       printf (_("%s %s%s\n"), progname, pkgversion_string,
 	      version_string);
-      printf ("Copyright %s 2012 Free Software Foundation, Inc.\n",
+      printf ("Copyright %s 2013 Free Software Foundation, Inc.\n",
 	      _("(C)"));
       fputs (_("This is free software; see the source for copying conditions.  There is NO\n\
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"),
@@ -7545,6 +7559,12 @@ set_multilib_dir (void)
 
   first = 1;
   p = multilib_select;
+
+  /* Append multilib reuse rules if any.  With those rules, we can reuse
+     one multilib for certain different options sets.  */
+  if (strlen (multilib_reuse) > 0)
+    p = concat (p, multilib_reuse, NULL);
+
   while (*p != '\0')
     {
       /* Ignore newlines.  */
@@ -7561,8 +7581,8 @@ set_multilib_dir (void)
 	  if (*p == '\0')
 	    {
 	    invalid_select:
-	      fatal_error ("multilib select %qs is invalid",
-			   multilib_select);
+	      fatal_error ("multilib select %qs %qs is invalid",
+			   multilib_select, multilib_reuse);
 	    }
 	  ++p;
 	}

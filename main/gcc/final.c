@@ -1,8 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-   2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -202,6 +199,9 @@ rtx current_insn_predicate;
 
 /* True if printing into -fdump-final-insns= dump.  */   
 bool final_insns_dump_p;
+
+/* True if profile_function should be called, but hasn't been called yet.  */
+static bool need_profile_function;
 
 static int asm_insn_count (rtx);
 static void profile_function (FILE *);
@@ -1185,6 +1185,29 @@ shorten_branches (rtx first)
 	  if (LABEL_P (insn))
 	    {
 	      int log = LABEL_TO_ALIGNMENT (insn);
+
+#ifdef CASE_VECTOR_SHORTEN_MODE
+	      /* If the mode of a following jump table was changed, we
+		 may need to update the alignment of this label.  */
+	      rtx next;
+	      bool next_is_jumptable;
+
+	      next = next_nonnote_insn (insn);
+	      next_is_jumptable = next && JUMP_TABLE_DATA_P (next);
+	      if ((JUMP_TABLES_IN_TEXT_SECTION
+		   || readonly_data_section == text_section)
+		  && next_is_jumptable)
+		{
+		  int newlog = ADDR_VEC_ALIGN (next);
+		  if (newlog != log)
+		    {
+		      log = newlog;
+		      LABEL_TO_ALIGNMENT (insn) = log;
+		      something_changed = 1;
+		    }
+		}
+#endif
+
 	      if (log > insn_current_align)
 		{
 		  int align = 1 << log;
@@ -1648,12 +1671,14 @@ reemit_insn_block_notes (void)
      test and compare insns.  */
 
 void
-final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
+final_start_function (rtx first, FILE *file,
 		      int optimize_p ATTRIBUTE_UNUSED)
 {
   block_depth = 0;
 
   this_is_asm_operands = 0;
+
+  need_profile_function = false;
 
   last_filename = LOCATION_FILE (prologue_location);
   last_linenum = LOCATION_LINE (prologue_location);
@@ -1675,7 +1700,41 @@ final_start_function (rtx first ATTRIBUTE_UNUSED, FILE *file,
   /* The Sun386i and perhaps other machines don't work right
      if the profiling code comes after the prologue.  */
   if (targetm.profile_before_prologue () && crtl->profile)
-    profile_function (file);
+    {
+      if (targetm.asm_out.function_prologue
+	  == default_function_pro_epilogue
+#ifdef HAVE_prologue
+	  && HAVE_prologue
+#endif
+	 )
+	{
+	  rtx insn;
+	  for (insn = first; insn; insn = NEXT_INSN (insn))
+	    if (!NOTE_P (insn))
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+	    else if (NOTE_KIND (insn) == NOTE_INSN_BASIC_BLOCK
+		     || NOTE_KIND (insn) == NOTE_INSN_FUNCTION_BEG)
+	      break;
+	    else if (NOTE_KIND (insn) == NOTE_INSN_DELETED
+		     || NOTE_KIND (insn) == NOTE_INSN_VAR_LOCATION)
+	      continue;
+	    else
+	      {
+		insn = NULL_RTX;
+		break;
+	      }
+
+	  if (insn)
+	    need_profile_function = true;
+	  else
+	    profile_function (file);
+	}
+      else
+	profile_function (file);
+    }
 
   /* If debugging, assign block numbers to all of the blocks in this
      function.  */
@@ -2059,6 +2118,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  if (targetm.asm_out.unwind_emit)
 	    targetm.asm_out.unwind_emit (asm_out_file, insn);
 
@@ -2114,6 +2179,12 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  break;
 
 	case NOTE_INSN_FUNCTION_BEG:
+	  if (need_profile_function)
+	    {
+	      profile_function (asm_out_file);
+	      need_profile_function = false;
+	    }
+
 	  app_disable ();
 	  if (!DECL_IGNORED_P (current_function_decl))
 	    debug_hooks->end_prologue (last_linenum, last_filename);

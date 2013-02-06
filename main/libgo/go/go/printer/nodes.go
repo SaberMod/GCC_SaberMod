@@ -83,7 +83,7 @@ func (p *printer) setComment(g *ast.CommentGroup) {
 	// don't overwrite any pending comment in the p.comment cache
 	// (there may be a pending comment when a line comment is
 	// immediately followed by a lead comment with no other
-	// tokens inbetween)
+	// tokens between)
 	if p.commentOffset == infinity {
 		p.nextComment() // get comment ready for use
 	}
@@ -307,7 +307,7 @@ func (p *printer) parameters(fields *ast.FieldList) {
 				p.print(blank)
 			}
 			// parameter type
-			p.expr(par.Type)
+			p.expr(stripParensAlways(par.Type))
 			prevLine = parLineEnd
 		}
 		// if the closing ")" is on a separate line from the last parameter,
@@ -336,7 +336,7 @@ func (p *printer) signature(params, result *ast.FieldList) {
 		p.print(blank)
 		if n == 1 && result.List[0].Names == nil {
 			// single anonymous result; no ()'s
-			p.expr(result.List[0].Type)
+			p.expr(stripParensAlways(result.List[0].Type))
 			return
 		}
 		p.parameters(result)
@@ -955,6 +955,13 @@ func stripParens(x ast.Expr) ast.Expr {
 		if strip {
 			return stripParens(px.X)
 		}
+	}
+	return x
+}
+
+func stripParensAlways(x ast.Expr) ast.Expr {
+	if x, ok := x.(*ast.ParenExpr); ok {
+		return stripParensAlways(x.X)
 	}
 	return x
 }

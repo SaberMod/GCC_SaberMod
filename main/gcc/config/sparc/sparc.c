@@ -1,8 +1,5 @@
 /* Subroutines for insn-output.c for SPARC.
-   Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-   2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64-bit SPARC-V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -9515,7 +9512,14 @@ sparc_solaris_elf_asm_named_section (const char *name, unsigned int flags,
   if (flags & SECTION_CODE)
     fputs (",#execinstr", asm_out_file);
 
-  /* ??? Handle SECTION_BSS.  */
+  /* Sun as only supports #nobits/#progbits since Solaris 10.  */
+  if (HAVE_AS_SPARC_NOBITS)
+    {
+      if (flags & SECTION_BSS)
+	fputs (",#nobits", asm_out_file);
+      else
+	fputs (",#progbits", asm_out_file);
+    }
 
   fputc ('\n', asm_out_file);
 }
@@ -11190,18 +11194,6 @@ sparc_emit_membar_for_model (enum memmodel model,
 
   if (before_after & 1)
     {
-      if (model == MEMMODEL_ACQUIRE
-          || model == MEMMODEL_ACQ_REL
-          || model == MEMMODEL_SEQ_CST)
-	{
-	  if (load_store & 1)
-	    mm |= LoadLoad | LoadStore;
-	  if (load_store & 2)
-	    mm |= StoreLoad | StoreStore;
-	}
-    }
-  if (before_after & 2)
-    {
       if (model == MEMMODEL_RELEASE
 	  || model == MEMMODEL_ACQ_REL
 	  || model == MEMMODEL_SEQ_CST)
@@ -11210,6 +11202,18 @@ sparc_emit_membar_for_model (enum memmodel model,
 	    mm |= LoadLoad | StoreLoad;
 	  if (load_store & 2)
 	    mm |= LoadStore | StoreStore;
+	}
+    }
+  if (before_after & 2)
+    {
+      if (model == MEMMODEL_ACQUIRE
+	  || model == MEMMODEL_ACQ_REL
+	  || model == MEMMODEL_SEQ_CST)
+	{
+	  if (load_store & 1)
+	    mm |= LoadLoad | LoadStore;
+	  if (load_store & 2)
+	    mm |= StoreLoad | StoreStore;
 	}
     }
 

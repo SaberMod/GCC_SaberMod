@@ -1,7 +1,5 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 1988-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1732,7 +1730,8 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_P4_NOCONA (m_PENT4 | m_NOCONA)
 #define m_CORE2 (1<<PROCESSOR_CORE2)
 #define m_COREI7 (1<<PROCESSOR_COREI7)
-#define m_CORE2I7 (m_CORE2 | m_COREI7)
+#define m_HASWELL (1<<PROCESSOR_HASWELL)
+#define m_CORE_ALL (m_CORE2 | m_COREI7  | m_HASWELL)
 #define m_ATOM (1<<PROCESSOR_ATOM)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -1745,10 +1744,10 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BDVER1 (1<<PROCESSOR_BDVER1)
 #define m_BDVER2 (1<<PROCESSOR_BDVER2)
 #define m_BDVER3 (1<<PROCESSOR_BDVER3)
-#define m_BDVER	(m_BDVER1 | m_BDVER2 | m_BDVER3)
-#define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_BTVER1 (1<<PROCESSOR_BTVER1)
 #define m_BTVER2 (1<<PROCESSOR_BTVER2)
+#define m_BDVER	(m_BDVER1 | m_BDVER2 | m_BDVER3)
+#define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_AMD_MULTIPLE (m_ATHLON_K8 | m_AMDFAM10 | m_BDVER | m_BTVER)
 
 #define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
@@ -1768,16 +1767,16 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
      negatively, so enabling for Generic64 seems like good code size
      tradeoff.  We can't enable it for 32bit generic because it does not
      work well with PPro base chips.  */
-  m_386 | m_CORE2I7 | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC64,
+  m_386 | m_CORE_ALL | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC64,
 
   /* X86_TUNE_PUSH_MEMORY */
-  m_386 | m_P4_NOCONA | m_CORE2I7 | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
+  m_386 | m_P4_NOCONA | m_CORE_ALL | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_ZERO_EXTEND_WITH_AND */
   m_486 | m_PENT,
 
   /* X86_TUNE_UNROLL_STRLEN */
-  m_486 | m_PENT | m_PPRO | m_ATOM | m_CORE2I7 | m_K6 | m_AMD_MULTIPLE | m_GENERIC,
+  m_486 | m_PENT | m_PPRO | m_ATOM | m_CORE_ALL | m_K6 | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
      on simulation result. But after P4 was made, no performance benefit
@@ -1789,11 +1788,11 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   ~m_386,
 
   /* X86_TUNE_USE_SAHF */
-  m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC,
+  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC,
 
   /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
      partial dependencies.  */
-  m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_GEODE | m_AMD_MULTIPLE  | m_GENERIC,
+  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GEODE | m_AMD_MULTIPLE  | m_GENERIC,
 
   /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
      register stalls on Generic32 compilation setting as well.  However
@@ -1806,17 +1805,17 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_PPRO,
 
   /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
-  m_CORE2I7 | m_GENERIC,
+  m_CORE_ALL | m_GENERIC,
 
   /* X86_TUNE_LCP_STALL: Avoid an expensive length-changing prefix stall
    * on 16-bit immediate moves into memory on Core2 and Corei7.  */
-  m_CORE2I7 | m_GENERIC,
+  m_CORE_ALL | m_GENERIC,
 
   /* X86_TUNE_USE_HIMODE_FIOP */
   m_386 | m_486 | m_K6_GEODE,
 
   /* X86_TUNE_USE_SIMODE_FIOP */
-  ~(m_PENT | m_PPRO | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC),
+  ~(m_PENT | m_PPRO | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC),
 
   /* X86_TUNE_USE_MOV0 */
   m_K6,
@@ -1837,7 +1836,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   ~(m_PENT | m_PPRO),
 
   /* X86_TUNE_PROMOTE_QIMODE */
-  m_386 | m_486 | m_PENT | m_CORE2I7 | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
+  m_386 | m_486 | m_PENT | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_FAST_PREFIX */
   ~(m_386 | m_486 | m_PENT),
@@ -1878,10 +1877,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
      for DFmode copies */
-  ~(m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_GEODE | m_AMD_MULTIPLE | m_ATOM | m_GENERIC),
+  ~(m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GEODE | m_AMD_MULTIPLE | m_ATOM | m_GENERIC),
 
   /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
-  m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
+  m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
      conflict here in between PPro/Pentium4 based chips that thread 128bit
@@ -1892,7 +1891,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
      shows that disabling this option on P4 brings over 20% SPECfp regression,
      while enabling it on K8 brings roughly 2.4% regression that can be partly
      masked by careful scheduling of moves.  */
-  m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM  | m_AMDFAM10 | m_BDVER | m_GENERIC,
+  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM  | m_AMDFAM10 | m_BDVER | m_GENERIC,
 
   /* X86_TUNE_SSE_UNALIGNED_LOAD_OPTIMAL */
   m_COREI7 | m_AMDFAM10 | m_BDVER | m_BTVER,
@@ -1916,7 +1915,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_PPRO | m_P4_NOCONA,
 
   /* X86_TUNE_MEMORY_MISMATCH_STALL */
-  m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
+  m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_PROLOGUE_USING_MOVE */
   m_PPRO | m_ATHLON_K8,
@@ -1938,28 +1937,28 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
      than 4 branch instructions in the 16 byte window.  */
-  m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
+  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_SCHEDULE */
-  m_PENT | m_PPRO | m_CORE2I7 | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
+  m_PENT | m_PPRO | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_USE_BT */
-  m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
+  m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_USE_INCDEC */
-  ~(m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_GENERIC),
+  ~(m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GENERIC),
 
   /* X86_TUNE_PAD_RETURNS */
-  m_CORE2I7 | m_AMD_MULTIPLE | m_GENERIC,
+  m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC,
 
   /* X86_TUNE_PAD_SHORT_FUNCTION: Pad short funtion.  */
   m_ATOM,
 
   /* X86_TUNE_EXT_80387_CONSTANTS */
-  m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_K6_GEODE | m_ATHLON_K8 | m_GENERIC,
+  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_ATHLON_K8 | m_GENERIC,
 
   /* X86_TUNE_AVOID_VECTOR_DECODE */
-  m_CORE2I7 | m_K8 | m_GENERIC64,
+  m_CORE_ALL | m_K8 | m_GENERIC64,
 
   /* X86_TUNE_PROMOTE_HIMODE_IMUL: Modern CPUs have same latency for HImode
      and SImode multiply, but 386 and 486 do HImode multiply faster.  */
@@ -1967,11 +1966,11 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_SLOW_IMUL_IMM32_MEM: Imul of 32-bit constant and memory is
      vector path on AMD machines.  */
-  m_CORE2I7 | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
+  m_CORE_ALL | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
 
   /* X86_TUNE_SLOW_IMUL_IMM8: Imul of 8-bit constant is vector path on AMD
      machines.  */
-  m_CORE2I7 | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
+  m_CORE_ALL | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
 
   /* X86_TUNE_MOVE_M1_VIA_OR: On pentiums, it is faster to load -1 via OR
      than a MOV.  */
@@ -1988,7 +1987,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_USE_VECTOR_FP_CONVERTS: Prefer vector packed SSE conversion
      from FP to FP. */
-  m_CORE2I7 | m_AMDFAM10 | m_GENERIC,
+  m_CORE_ALL | m_AMDFAM10 | m_GENERIC,
 
   /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
      from integer to FP. */
@@ -2014,7 +2013,7 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_AVX128_OPTIMAL: Enable 128-bit AVX instruction generation for
      the auto-vectorizer.  */
-  m_BDVER,
+  m_BDVER | m_BTVER2,
 
   /* X86_TUNE_REASSOC_INT_TO_PARALLEL: Try to produce parallel computations
      during reassociation of integer computation.  */
@@ -2026,7 +2025,11 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
 
   /* X86_TUNE_GENERAL_REGS_SSE_SPILL: Try to spill general regs to SSE
      regs instead of memory.  */
-  m_COREI7 | m_CORE2I7
+  m_CORE_ALL,
+
+  /* X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE: Try to avoid memory operands for
+     a conditional move.  */
+  m_ATOM
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -2052,10 +2055,10 @@ static unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
 };
 
 static const unsigned int x86_accumulate_outgoing_args
-  = m_PPRO | m_P4_NOCONA | m_ATOM | m_CORE2I7 | m_AMD_MULTIPLE | m_GENERIC;
+  = m_PPRO | m_P4_NOCONA | m_ATOM | m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_arch_always_fancy_math_387
-  = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE2I7 | m_ATOM | m_AMD_MULTIPLE | m_GENERIC;
+  = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_avx256_split_unaligned_load
   = m_COREI7 | m_GENERIC;
@@ -2393,12 +2396,6 @@ static enum calling_abi ix86_function_abi (const_tree);
 #define SUBTARGET32_DEFAULT_CPU "i386"
 #endif
 
-/* The svr4 ABI for the i386 says that records and unions are returned
-   in memory.  */
-#ifndef DEFAULT_PCC_STRUCT_RETURN
-#define DEFAULT_PCC_STRUCT_RETURN 1
-#endif
-
 /* Whether -mtune= or -march= were specified */
 static int ix86_tune_defaulted;
 static int ix86_arch_specified;
@@ -2436,6 +2433,8 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&core_cost, 16, 10, 16, 10, 16},
   /* Core i7  */
   {&core_cost, 16, 10, 16, 10, 16},
+  /* Core avx2  */
+  {&core_cost, 16, 10, 16, 10, 16},
   {&generic32_cost, 16, 7, 16, 7, 16},
   {&generic64_cost, 16, 10, 16, 10, 16},
   {&amdfam10_cost, 32, 24, 32, 7, 32},
@@ -2463,6 +2462,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "nocona",
   "core2",
   "corei7",
+  "core-avx2",
   "atom",
   "geode",
   "k6",
@@ -2914,7 +2914,7 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
 	| PTA_RDRND | PTA_F16C | PTA_FXSR | PTA_XSAVE | PTA_XSAVEOPT},
-      {"core-avx2", PROCESSOR_COREI7, CPU_COREI7,
+      {"core-avx2", PROCESSOR_HASWELL, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX | PTA_AVX2
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
@@ -2990,7 +2990,7 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE},
-      {"btver2", PROCESSOR_BTVER2, CPU_GENERIC64,
+      {"btver2", PROCESSOR_BTVER2, CPU_BTVER2,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_SSE4_1
 	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX
@@ -3235,10 +3235,12 @@ ix86_option_override_internal (bool main_args_p)
 	 DLL, and is essentially just as efficient as direct addressing.  */
       if (TARGET_64BIT && DEFAULT_ABI == MS_ABI)
 	ix86_cmodel = CM_SMALL_PIC, flag_pic = 1;
+      else if (TARGET_64BIT && TARGET_RDOS)
+	ix86_cmodel = CM_MEDIUM_PIC, flag_pic = 1;
       else if (TARGET_64BIT)
 	ix86_cmodel = flag_pic ? CM_SMALL_PIC : CM_SMALL;
       else
-        ix86_cmodel = CM_32;
+	ix86_cmodel = CM_32;
     }
   if (TARGET_MACHO && ix86_asm_dialect == ASM_INTEL)
     {
@@ -4223,7 +4225,10 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     }
 
   else if (TREE_CODE (args) != STRING_CST)
-    gcc_unreachable ();
+    {
+      error ("attribute %<target%> argument not a string");
+      return false;
+    }
 
   /* Handle multiple arguments separated by commas.  */
   next_optstr = ASTRDUP (TREE_STRING_POINTER (args));
@@ -4368,7 +4373,7 @@ ix86_valid_target_attribute_tree (tree args)
   /* Process each of the options on the chain.  */
   if (! ix86_valid_target_attribute_inner_p (args, option_strings,
 					     &enum_opts_set))
-    return NULL_TREE;
+    return error_mark_node;
 
   /* If the changed options are different from the default, rerun
      ix86_option_override_internal, and then save the options away.
@@ -4433,6 +4438,15 @@ ix86_valid_target_attribute_p (tree fndecl,
 {
   struct cl_target_option cur_target;
   bool ret = true;
+
+  /* attribute((target("default"))) does nothing, beyond
+     affecting multi-versioning.  */
+  if (TREE_VALUE (args)
+      && TREE_CODE (TREE_VALUE (args)) == STRING_CST
+      && TREE_CHAIN (args) == NULL_TREE
+      && strcmp (TREE_STRING_POINTER (TREE_VALUE (args)), "default") == 0)
+    return true;
+
   tree old_optimize = build_optimization_node ();
   tree new_target, new_optimize;
   tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
@@ -4449,10 +4463,10 @@ ix86_valid_target_attribute_p (tree fndecl,
   new_target = ix86_valid_target_attribute_tree (args);
   new_optimize = build_optimization_node ();
 
-  if (!new_target)
+  if (new_target == error_mark_node)
     ret = false;
 
-  else if (fndecl)
+  else if (fndecl && new_target)
     {
       DECL_FUNCTION_SPECIFIC_TARGET (fndecl) = new_target;
 
@@ -7322,17 +7336,24 @@ function_value_64 (enum machine_mode orig_mode, enum machine_mode mode,
 }
 
 static rtx
-function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode)
+function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
+		      const_tree valtype)
 {
   unsigned int regno = AX_REG;
 
   if (TARGET_SSE)
     {
       switch (GET_MODE_SIZE (mode))
-        {
-        case 16:
-          if((SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
-	     && !COMPLEX_MODE_P (mode))
+	{
+	case 16:
+	  if (valtype != NULL_TREE
+	      && !VECTOR_INTEGER_TYPE_P (valtype)
+	      && !VECTOR_INTEGER_TYPE_P (valtype)
+	      && !INTEGRAL_TYPE_P (valtype)
+	      && !VECTOR_FLOAT_TYPE_P (valtype))
+	    break;
+	  if ((SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
+	      && !COMPLEX_MODE_P (mode))
 	    regno = FIRST_SSE_REG;
 	  break;
 	case 8:
@@ -7359,7 +7380,7 @@ ix86_function_value_1 (const_tree valtype, const_tree fntype_or_decl,
   fntype = fn ? TREE_TYPE (fn) : fntype_or_decl;
 
   if (TARGET_64BIT && ix86_function_type_abi (fntype) == MS_ABI)
-    return function_value_ms_64 (orig_mode, mode);
+    return function_value_ms_64 (orig_mode, mode, valtype);
   else if (TARGET_64BIT)
     return function_value_64 (orig_mode, mode, valtype);
   else
@@ -7472,7 +7493,9 @@ return_in_memory_ms_64 (const_tree type, enum machine_mode mode)
   HOST_WIDE_INT size = int_size_in_bytes (type);
 
   /* __m128 is returned in xmm0.  */
-  if ((SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
+  if ((!type || VECTOR_INTEGER_TYPE_P (type) || INTEGRAL_TYPE_P (type)
+       || VECTOR_FLOAT_TYPE_P (type))
+      && (SCALAR_INT_MODE_P (mode) || VECTOR_MODE_P (mode))
       && !COMPLEX_MODE_P (mode) && (GET_MODE_SIZE (mode) == 16 || size == 16))
     return false;
 
@@ -13243,8 +13266,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  rtx val  = force_operand (XEXP (x, 1), temp);
 	  if (val != temp)
 	    {
-	      if (GET_MODE (val) != Pmode)
-		val = convert_to_mode (Pmode, val, 1);
+	      val = convert_to_mode (Pmode, val, 1);
 	      emit_move_insn (temp, val);
 	    }
 
@@ -13258,8 +13280,7 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 	  rtx val  = force_operand (XEXP (x, 0), temp);
 	  if (val != temp)
 	    {
-	      if (GET_MODE (val) != Pmode)
-		val = convert_to_mode (Pmode, val, 1);
+	      val = convert_to_mode (Pmode, val, 1);
 	      emit_move_insn (temp, val);
 	    }
 
@@ -15927,8 +15948,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	  op1 = force_operand (op1, op0);
 	  if (op1 == op0)
 	    return;
-	  if (GET_MODE (op1) != mode)
-	    op1 = convert_to_mode (mode, op1, 1);
+	  op1 = convert_to_mode (mode, op1, 1);
 	}
       else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
 	       && SYMBOL_REF_DLLIMPORT_P (op1))
@@ -15956,8 +15976,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 				     op0, 1, OPTAB_DIRECT);
 	  if (tmp == op0)
 	    return;
-	  if (GET_MODE (tmp) != mode)
-	    op1 = convert_to_mode (mode, tmp, 1);
+	  op1 = convert_to_mode (mode, tmp, 1);
 	}
     }
 
@@ -16010,8 +16029,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	      op1 = legitimize_pic_address (op1, reg);
 	      if (op0 == op1)
 		return;
-	      if (GET_MODE (op1) != mode)
-		op1 = convert_to_mode (mode, op1, 1);
+	      op1 = convert_to_mode (mode, op1, 1);
 	    }
 	}
     }
@@ -21647,9 +21665,7 @@ ix86_adjust_counter (rtx countreg, HOST_WIDE_INT value)
 rtx
 ix86_zero_extend_to_Pmode (rtx exp)
 {
-  if (GET_MODE (exp) != Pmode)
-    exp = convert_to_mode (Pmode, exp, 1);
-  return force_reg (Pmode, exp);
+  return force_reg (Pmode, convert_to_mode (Pmode, exp, 1));
 }
 
 /* Divide COUNTREG by SCALE.  */
@@ -23621,9 +23637,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	   ? !sibcall_insn_operand (XEXP (fnaddr, 0), word_mode)
 	   : !call_insn_operand (XEXP (fnaddr, 0), word_mode))
     {
-      fnaddr = XEXP (fnaddr, 0);
-      if (GET_MODE (fnaddr) != word_mode)
-	fnaddr = convert_to_mode (word_mode, fnaddr, 1);
+      fnaddr = convert_to_mode (word_mode, XEXP (fnaddr, 0), 1);
       fnaddr = gen_rtx_MEM (QImode, copy_to_mode_reg (word_mode, fnaddr));
     }
 
@@ -24061,6 +24075,7 @@ ix86_issue_rate (void)
     case PROCESSOR_PENTIUM4:
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_HASWELL:
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
     case PROCESSOR_AMDFAM10:
@@ -24317,6 +24332,7 @@ ia32_multipass_dfa_lookahead (void)
 
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_HASWELL:
     case PROCESSOR_ATOM:
       /* Generally, we want haifa-sched:max_issue() to look ahead as far
 	 as many instructions can be executed on a cycle, i.e.,
@@ -24861,6 +24877,7 @@ ix86_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
     {
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_HASWELL:
       /* Do not perform multipass scheduling for pre-reload schedule
          to save compile time.  */
       if (reload_completed)
@@ -28941,47 +28958,6 @@ dispatch_function_versions (tree dispatch_decl,
   return 0;
 }
 
-/* This function returns true if FN1 and FN2 are versions of the same function,
-   that is, the targets of the function decls are different.  This assumes
-   that FN1 and FN2 have the same signature.  */
-
-static bool
-ix86_function_versions (tree fn1, tree fn2)
-{
-  tree attr1, attr2;
-  struct cl_target_option *target1, *target2;
-
-  if (TREE_CODE (fn1) != FUNCTION_DECL
-      || TREE_CODE (fn2) != FUNCTION_DECL)
-    return false;
-
-  attr1 = DECL_FUNCTION_SPECIFIC_TARGET (fn1);
-  attr2 = DECL_FUNCTION_SPECIFIC_TARGET (fn2);
-
-  /* Atleast one function decl should have target attribute specified.  */
-  if (attr1 == NULL_TREE && attr2 == NULL_TREE)
-    return false;
-
-  if (attr1 == NULL_TREE)
-    attr1 = target_option_default_node;
-  else if (attr2 == NULL_TREE)
-    attr2 = target_option_default_node;
-
-  target1 = TREE_TARGET_OPTION (attr1);
-  target2 = TREE_TARGET_OPTION (attr2);
-
-  /* target1 and target2 must be different in some way.  */
-  if (target1->x_ix86_isa_flags == target2->x_ix86_isa_flags
-      && target1->x_target_flags == target2->x_target_flags
-      && target1->arch == target2->arch
-      && target1->tune == target2->tune
-      && target1->x_ix86_fpmath == target2->x_ix86_fpmath
-      && target1->branch_cost == target2->branch_cost)
-    return false;
-
-  return true;
-}
-
 /* Comparator function to be used in qsort routine to sort attribute
    specification strings to "target".  */
 
@@ -28993,26 +28969,44 @@ attr_strcmp (const void *v1, const void *v2)
   return strcmp (c1, c2);
 }
 
-/* STR is the argument to target attribute.  This function tokenizes
+/* ARGLIST is the argument to target attribute.  This function tokenizes
    the comma separated arguments, sorts them and returns a string which
    is a unique identifier for the comma separated arguments.   It also
    replaces non-identifier characters "=,-" with "_".  */
 
 static char *
-sorted_attr_string (const char *str)
+sorted_attr_string (tree arglist)
 {
+  tree arg;
+  size_t str_len_sum = 0;
   char **args = NULL;
   char *attr_str, *ret_str;
   char *attr = NULL;
   unsigned int argnum = 1;
   unsigned int i;
 
-  for (i = 0; i < strlen (str); i++)
-    if (str[i] == ',')
-      argnum++;
+  for (arg = arglist; arg; arg = TREE_CHAIN (arg))
+    {
+      const char *str = TREE_STRING_POINTER (TREE_VALUE (arg));
+      size_t len = strlen (str);
+      str_len_sum += len + 1;
+      if (arg != arglist)
+	argnum++;
+      for (i = 0; i < strlen (str); i++)
+	if (str[i] == ',')
+	  argnum++;
+    }
 
-  attr_str = (char *)xmalloc (strlen (str) + 1);
-  strcpy (attr_str, str);
+  attr_str = XNEWVEC (char, str_len_sum);
+  str_len_sum = 0;
+  for (arg = arglist; arg; arg = TREE_CHAIN (arg))
+    {
+      const char *str = TREE_STRING_POINTER (TREE_VALUE (arg));
+      size_t len = strlen (str);
+      memcpy (attr_str + str_len_sum, str, len);
+      attr_str[str_len_sum + len] = TREE_CHAIN (arg) ? ',' : '\0';
+      str_len_sum += len + 1;
+    }
 
   /* Replace "=,-" with "_".  */
   for (i = 0; i < strlen (attr_str); i++)
@@ -29033,18 +29027,20 @@ sorted_attr_string (const char *str)
       attr = strtok (NULL, ",");
     }
 
-  qsort (args, argnum, sizeof (char*), attr_strcmp);
+  qsort (args, argnum, sizeof (char *), attr_strcmp);
 
-  ret_str = (char *)xmalloc (strlen (str) + 1);
-  strcpy (ret_str, args[0]);
-  for (i = 1; i < argnum; i++)
+  ret_str = XNEWVEC (char, str_len_sum);
+  str_len_sum = 0;
+  for (i = 0; i < argnum; i++)
     {
-      strcat (ret_str, "_");
-      strcat (ret_str, args[i]);
+      size_t len = strlen (args[i]);
+      memcpy (ret_str + str_len_sum, args[i], len);
+      ret_str[str_len_sum + len] = i < argnum - 1 ? '_' : '\0';
+      str_len_sum += len + 1;
     }
 
-  free (args);
-  free (attr_str);
+  XDELETEVEC (args);
+  XDELETEVEC (attr_str);
   return ret_str;
 }
 
@@ -29056,8 +29052,8 @@ static tree
 ix86_mangle_function_version_assembler_name (tree decl, tree id)
 {
   tree version_attr;
-  const char *orig_name, *version_string, *attr_str;
-  char *assembler_name;
+  const char *orig_name, *version_string;
+  char *attr_str, *assembler_name;
 
   if (DECL_DECLARED_INLINE_P (decl)
       && lookup_attribute ("gnu_inline",
@@ -29081,9 +29077,11 @@ ix86_mangle_function_version_assembler_name (tree decl, tree id)
   version_string
     = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (version_attr)));
 
-  attr_str = sorted_attr_string (version_string);
-  assembler_name = (char *) xmalloc (strlen (orig_name)
-				     + strlen (attr_str) + 2);
+  if (strcmp (version_string, "default") == 0)
+    return id;
+
+  attr_str = sorted_attr_string (TREE_VALUE (version_attr));
+  assembler_name = XNEWVEC (char, strlen (orig_name) + strlen (attr_str) + 2);
 
   sprintf (assembler_name, "%s.%s", orig_name, attr_str);
 
@@ -29091,7 +29089,75 @@ ix86_mangle_function_version_assembler_name (tree decl, tree id)
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
     SET_DECL_RTL (decl, NULL);
 
-  return get_identifier (assembler_name);
+  tree ret = get_identifier (assembler_name);
+  XDELETEVEC (attr_str);
+  XDELETEVEC (assembler_name);
+  return ret;
+}
+
+/* This function returns true if FN1 and FN2 are versions of the same function,
+   that is, the target strings of the function decls are different.  This assumes
+   that FN1 and FN2 have the same signature.  */
+
+static bool
+ix86_function_versions (tree fn1, tree fn2)
+{
+  tree attr1, attr2;
+  char *target1, *target2;
+  bool result;
+
+  if (TREE_CODE (fn1) != FUNCTION_DECL
+      || TREE_CODE (fn2) != FUNCTION_DECL)
+    return false;
+
+  attr1 = lookup_attribute ("target", DECL_ATTRIBUTES (fn1));
+  attr2 = lookup_attribute ("target", DECL_ATTRIBUTES (fn2));
+
+  /* At least one function decl should have the target attribute specified.  */
+  if (attr1 == NULL_TREE && attr2 == NULL_TREE)
+    return false;
+
+  /* Diagnose missing target attribute if one of the decls is already
+     multi-versioned.  */
+  if (attr1 == NULL_TREE || attr2 == NULL_TREE)
+    {
+      if (DECL_FUNCTION_VERSIONED (fn1) || DECL_FUNCTION_VERSIONED (fn2))
+	{
+	  if (attr2 != NULL_TREE)
+	    {
+	      tree tem = fn1;
+	      fn1 = fn2;
+	      fn2 = tem;
+	      attr1 = attr2;
+	    }
+	  error_at (DECL_SOURCE_LOCATION (fn2),
+		    "missing %<target%> attribute for multi-versioned %D",
+		    fn2);
+	  error_at (DECL_SOURCE_LOCATION (fn1),
+		    "previous declaration of %D", fn1);
+	  /* Prevent diagnosing of the same error multiple times.  */
+	  DECL_ATTRIBUTES (fn2)
+	    = tree_cons (get_identifier ("target"),
+			 copy_node (TREE_VALUE (attr1)),
+			 DECL_ATTRIBUTES (fn2));
+	}
+      return false;
+    }
+
+  target1 = sorted_attr_string (TREE_VALUE (attr1));
+  target2 = sorted_attr_string (TREE_VALUE (attr2));
+
+  /* The sorted target strings must be different for fn1 and fn2
+     to be versions.  */
+  if (strcmp (target1, target2) == 0)
+    result = false;
+  else
+    result = true;
+
+  XDELETEVEC (target1);
+  XDELETEVEC (target2); 
+  
+  return result;
 }
 
 static tree 
@@ -29134,10 +29200,10 @@ make_name (tree decl, const char *suffix, bool make_unique)
 
   /* Use '.' to concatenate names as it is demangler friendly.  */
   if (make_unique)
-      snprintf (global_var_name, name_len, "%s.%s.%s", name,
-		unique_name, suffix);
+    snprintf (global_var_name, name_len, "%s.%s.%s", name, unique_name,
+	      suffix);
   else
-      snprintf (global_var_name, name_len, "%s.%s", name, suffix);
+    snprintf (global_var_name, name_len, "%s.%s", name, suffix);
 
   return global_var_name;
 }
@@ -29152,7 +29218,7 @@ static tree
 make_dispatcher_decl (const tree decl)
 {
   tree func_decl;
-  char *func_name, *resolver_name;
+  char *func_name;
   tree fn_type, func_type;
   bool is_uniq = false;
 
@@ -29160,14 +29226,13 @@ make_dispatcher_decl (const tree decl)
     is_uniq = true;
 
   func_name = make_name (decl, "ifunc", is_uniq);
-  resolver_name = make_name (decl, "resolver", is_uniq);
-  gcc_assert (resolver_name);
 
   fn_type = TREE_TYPE (decl);
   func_type = build_function_type (TREE_TYPE (fn_type),
 				   TYPE_ARG_TYPES (fn_type));
   
   func_decl = build_fn_decl (func_name, func_type);
+  XDELETEVEC (func_name);
   TREE_USED (func_decl) = 1;
   DECL_CONTEXT (func_decl) = NULL_TREE;
   DECL_INITIAL (func_decl) = error_mark_node;
@@ -29189,9 +29254,14 @@ make_dispatcher_decl (const tree decl)
 static bool
 is_function_default_version (const tree decl)
 {
-  return (TREE_CODE (decl) == FUNCTION_DECL
-	  && DECL_FUNCTION_VERSIONED (decl)
-	  && DECL_FUNCTION_SPECIFIC_TARGET (decl) == NULL_TREE);
+  if (TREE_CODE (decl) != FUNCTION_DECL
+      || !DECL_FUNCTION_VERSIONED (decl))
+    return false;
+  tree attr = lookup_attribute ("target", DECL_ATTRIBUTES (decl));
+  gcc_assert (attr);
+  attr = TREE_VALUE (TREE_VALUE (attr));
+  return (TREE_CODE (attr) == STRING_CST
+	  && strcmp (TREE_STRING_POINTER (attr), "default") == 0);
 }
 
 /* Make a dispatcher declaration for the multi-versioned function DECL.
@@ -29273,7 +29343,7 @@ ix86_get_function_versions_dispatcher (void *decl)
  
   /* Set the dispatcher for all the versions.  */ 
   it_v = default_version_info;
-  while (it_v->next != NULL)
+  while (it_v != NULL)
     {
       it_v->dispatcher_resolver = dispatch_decl;
       it_v = it_v->next;
@@ -29385,6 +29455,7 @@ make_resolver_func (const tree default_decl,
   /* Create the alias for dispatch to resolver here.  */
   /*cgraph_create_function_alias (dispatch_decl, decl);*/
   cgraph_same_body_alias (NULL, dispatch_decl, decl);
+  XDELETEVEC (resolver_name);
   return decl;
 }
 
@@ -29446,7 +29517,7 @@ ix86_generate_version_dispatcher_body (void *node_p)
     }
 
   dispatch_function_versions (resolver_decl, &fn_ver_vec, &empty_bb);
-
+  fn_ver_vec.release ();
   rebuild_cgraph_edges (); 
   pop_cfun ();
   return resolver_decl;
@@ -29609,15 +29680,9 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"avx2",   F_AVX2}
     };
 
-  static tree __processor_model_type = NULL_TREE;
-  static tree __cpu_model_var = NULL_TREE;
-
-  if (__processor_model_type == NULL_TREE)
-    __processor_model_type = build_processor_model_struct ();
-
-  if (__cpu_model_var == NULL_TREE)
-    __cpu_model_var = make_var_decl (__processor_model_type,
-				     "__cpu_model");
+  tree __processor_model_type = build_processor_model_struct ();
+  tree __cpu_model_var = make_var_decl (__processor_model_type,
+					"__cpu_model");
 
   gcc_assert ((args != NULL) && (*args != NULL));
 
@@ -31266,9 +31331,8 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       gcc_assert (target == 0);
       if (memory)
 	{
-	  if (GET_MODE (op) != Pmode)
-	    op = convert_to_mode (Pmode, op, 1);
-	  target = gen_rtx_MEM (tmode, force_reg (Pmode, op));
+	  op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
+	  target = gen_rtx_MEM (tmode, op);
 	}
       else
 	target = force_reg (tmode, op);
@@ -31312,9 +31376,8 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	  if (i == memory)
 	    {
 	      /* This must be the memory operand.  */
-	      if (GET_MODE (op) != Pmode)
-		op = convert_to_mode (Pmode, op, 1);
-	      op = gen_rtx_MEM (mode, force_reg (Pmode, op));
+	      op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
+	      op = gen_rtx_MEM (mode, op);
 	      gcc_assert (GET_MODE (op) == mode
 			  || GET_MODE (op) == VOIDmode);
 	    }
@@ -31562,9 +31625,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       mode1 = insn_data[icode].operand[1].mode;
       mode2 = insn_data[icode].operand[2].mode;
 
-      if (GET_MODE (op0) != Pmode)
-	op0 = convert_to_mode (Pmode, op0, 1);
-      op0 = gen_rtx_MEM (mode1, force_reg (Pmode, op0));
+      op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
+      op0 = gen_rtx_MEM (mode1, op0);
 
       if (!insn_data[icode].operand[0].predicate (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
@@ -31595,11 +31657,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	op0 = expand_normal (arg0);
 	icode = CODE_FOR_sse2_clflush;
 	if (!insn_data[icode].operand[0].predicate (op0, Pmode))
-	  {
-	    if (GET_MODE (op0) != Pmode)
-	      op0 = convert_to_mode (Pmode, op0, 1);
-	    op0 = force_reg (Pmode, op0);
-	  }
+	  op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
 
 	emit_insn (gen_sse2_clflush (op0));
 	return 0;
@@ -31612,11 +31670,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op1 = expand_normal (arg1);
       op2 = expand_normal (arg2);
       if (!REG_P (op0))
-	{
-	  if (GET_MODE (op0) != Pmode)
-	    op0 = convert_to_mode (Pmode, op0, 1);
-	  op0 = force_reg (Pmode, op0);
-	}
+	op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
       if (!REG_P (op1))
 	op1 = copy_to_mode_reg (SImode, op1);
       if (!REG_P (op2))
@@ -31853,11 +31907,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
       op0 = expand_normal (arg0);
       icode = CODE_FOR_lwp_llwpcb;
       if (!insn_data[icode].operand[0].predicate (op0, Pmode))
-	{
-	  if (GET_MODE (op0) != Pmode)
-	    op0 = convert_to_mode (Pmode, op0, 1);
-	  op0 = force_reg (Pmode, op0);
-	}
+	op0 = force_reg (Pmode, convert_to_mode (Pmode, op0, 1));
       emit_insn (gen_lwp_llwpcb (op0));
       return 0;
 
@@ -32003,9 +32053,7 @@ addcarryx:
 
       /* Generate CF from input operand.  */
       op1 = expand_normal (arg0);
-      if (GET_MODE (op1) != QImode)
-	op1 = convert_to_mode (QImode, op1, 1);
-      op1 = copy_to_mode_reg (QImode, op1);
+      op1 = copy_to_mode_reg (QImode, convert_to_mode (QImode, op1, 1));
       emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
 
       /* Gen ADCX instruction to compute X+Y+CF.  */
@@ -32155,9 +32203,7 @@ addcarryx:
       /* Force memory operand only with base register here.  But we
 	 don't want to do it on memory operand for other builtin
 	 functions.  */
-      if (GET_MODE (op1) != Pmode)
-	op1 = convert_to_mode (Pmode, op1, 1);
-      op1 = force_reg (Pmode, op1);
+      op1 = force_reg (Pmode, convert_to_mode (Pmode, op1, 1));
 
       if (!insn_data[icode].operand[1].predicate (op0, mode0))
 	op0 = copy_to_mode_reg (mode0, op0);
@@ -42107,7 +42153,7 @@ static unsigned HOST_WIDE_INT
 ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 {
   unsigned HOST_WIDE_INT model = val & MEMMODEL_MASK;
-  unsigned HOST_WIDE_INT strong;
+  bool strong;
 
   if (val & ~(unsigned HOST_WIDE_INT)(IX86_HLE_ACQUIRE|IX86_HLE_RELEASE
 				      |MEMMODEL_MASK)

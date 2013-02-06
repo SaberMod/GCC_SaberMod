@@ -1,6 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2005-2013 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -1405,10 +1404,10 @@ fwprop_init (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   /* We do not always want to propagate into loops, so we have to find
-     loops and be careful about them.  But we have to call flow_loops_find
-     before df_analyze, because flow_loops_find may introduce new jump
-     insns (sadly) if we are not working in cfglayout mode.  */
-  loop_optimizer_init (0);
+     loops and be careful about them.  Avoid CFG modifications so that
+     we don't have to update dominance information afterwards for
+     build_single_def_use_links.  */
+  loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
 
   build_single_def_use_links ();
   df_set_flags (DF_DEFER_INSN_RESCAN);

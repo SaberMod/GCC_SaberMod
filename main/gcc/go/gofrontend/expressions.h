@@ -7,7 +7,6 @@
 #ifndef GO_EXPRESSIONS_H
 #define GO_EXPRESSIONS_H
 
-#include <gmp.h>
 #include <mpfr.h>
 
 #include "operator.h"
@@ -983,6 +982,11 @@ class Temporary_reference_expression : public Expression
     : Expression(EXPRESSION_TEMPORARY_REFERENCE, location),
       statement_(statement), is_lvalue_(false)
   { }
+
+  // The temporary that this expression refers to.
+  Temporary_statement*
+  statement() const
+  { return this->statement_; }
 
   // Indicate that this reference appears on the left hand side of an
   // assignment statement.

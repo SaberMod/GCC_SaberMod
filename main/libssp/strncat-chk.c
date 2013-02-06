@@ -1,5 +1,5 @@
 /* Checking strncat.
-   Copyright (C) 1991, 1997, 2003, 2004, 2005, 2009 Free Software Foundation, Inc.
+   Copyright (C) 1991-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -63,12 +63,6 @@ __strncat_chk (char *__restrict__ dest, const char *__restrict__ src,
       size_t n4 = n >> 2;
       do
         {
-          if (slen-- == 0)
-            __chk_fail ();
-          c = *src++;
-          *++dest = c;
-          if (c == '\0')
-            return s;
           if (slen-- == 0)
             __chk_fail ();
           c = *src++;

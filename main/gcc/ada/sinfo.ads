@@ -1218,6 +1218,11 @@ package Sinfo is
    --     pragma of the other kind is also present. This is used to avoid
    --     generating some unwanted error messages.
 
+   --  In_Assertion (Flag4-Sem)
+   --     This flag is present in N_Function_Call nodes. It is set if the
+   --     function is called from within an assertion expression. This is
+   --     used to avoid some bogus warnings about early elaboration.
+
    --  Includes_Infinities (Flag11-Sem)
    --    This flag is present in N_Range nodes. It is set for the range of
    --    unconstrained float types defined in Standard, which include not only
@@ -1546,7 +1551,8 @@ package Sinfo is
    --    proc). This is needed for controlled aggregates. When the Object
    --    declaration has an expression, this flag means that this expression
    --    should not be taken into account (needed for in place initialization
-   --    with aggregates).
+   --    with aggregates, and for object with an address clause, which are
+   --    initialized with an assignment at freeze time).
 
    --  No_Minimize_Eliminate (Flag17-Sem)
    --    This flag is present in membership operator nodes (N_In/N_Not_In).
@@ -4756,6 +4762,7 @@ package Sinfo is
       --   actual parameter part)
       --  First_Named_Actual (Node4-Sem)
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
+      --  In_Assertion (Flag4-Sem)
       --  Is_Expanded_Build_In_Place_Call (Flag11-Sem)
       --  Do_Tag_Check (Flag13-Sem)
       --  No_Elaboration_Check (Flag14-Sem)
@@ -7019,11 +7026,10 @@ package Sinfo is
       --  a subexpression, whose value is the value of the Expression after
       --  executing all the actions.
 
-      --  Note: if the actions contain declarations, then these declarations
-      --  may be referenced within the expression. It is thus appropriate for
-      --  the back-end to create a scope that encompasses the construct (any
-      --  declarations within the actions will definitely not be referenced
-      --  once elaboration of the construct is completed).
+      --  If the actions contain declarations, then these declarations may
+      --  be referenced within the expression. However note that there is
+      --  no proper scope associated with the expression-with-action, so the
+      --  back-end will elaborate them in the context of the enclosing scope.
 
       --  Sprint syntax:  do
       --                    action;
@@ -7039,6 +7045,12 @@ package Sinfo is
 
       --  Note: the actions list is always non-null, since we would
       --  never have created this node if there weren't some actions.
+
+      --  Note: Expression may be a Null_Statement, in which case the
+      --  N_Expression_With_Actions has type Standard_Void_Type. However some
+      --  backends do not support such expression-with-actions occurring
+      --  outside of a proper (non-void) expression, so this should just be
+      --  used as an intermediate representation within the front-end.
 
       --------------------
       -- Free Statement --
@@ -7175,7 +7187,7 @@ package Sinfo is
       --  the exception to be raised (i.e. it is equivalent to a raise
       --  statement that raises the corresponding exception). This use
       --  is distinguished by the fact that the Etype in this case is
-      --  Standard_Void_Type, In the subexpression case, the Etype is the
+      --  Standard_Void_Type; in the subexpression case, the Etype is the
       --  same as the type of the subexpression which it replaces.
 
       --  If Condition is empty, then the raise is unconditional. If the
@@ -7632,6 +7644,12 @@ package Sinfo is
       N_Function_Call,
       N_Procedure_Call_Statement,
 
+      --  N_Subexpr, N_Has_Etype, N_Raise_xxx_Error
+
+      N_Raise_Constraint_Error,
+      N_Raise_Program_Error,
+      N_Raise_Storage_Error,
+
       --  N_Subexpr, N_Has_Etype
 
       N_Explicit_Dereference,
@@ -7642,15 +7660,6 @@ package Sinfo is
       N_Null,
       N_Qualified_Expression,
       N_Quantified_Expression,
-
-      --  N_Raise_xxx_Error, N_Subexpr, N_Has_Etype
-
-      N_Raise_Constraint_Error,
-      N_Raise_Program_Error,
-      N_Raise_Storage_Error,
-
-      --  N_Subexpr, N_Has_Etype
-
       N_Aggregate,
       N_Allocator,
       N_Case_Expression,
@@ -8586,6 +8595,9 @@ package Sinfo is
 
    function Import_Interface_Present
      (N : Node_Id) return Boolean;    -- Flag16
+
+   function In_Assertion
+     (N : Node_Id) return Boolean;    -- Flag4
 
    function In_Present
      (N : Node_Id) return Boolean;    -- Flag15
@@ -9561,6 +9573,9 @@ package Sinfo is
 
    procedure Set_Import_Interface_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag16
+
+   procedure Set_In_Assertion
+     (N : Node_Id; Val : Boolean := True);    -- Flag4
 
    procedure Set_In_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag15
@@ -11949,6 +11964,7 @@ package Sinfo is
    pragma Inline (Interface_Present);
    pragma Inline (Includes_Infinities);
    pragma Inline (Import_Interface_Present);
+   pragma Inline (In_Assertion);
    pragma Inline (In_Present);
    pragma Inline (Inherited_Discriminant);
    pragma Inline (Instance_Spec);
@@ -12269,6 +12285,7 @@ package Sinfo is
    pragma Inline (Set_Interface_List);
    pragma Inline (Set_Interface_Present);
    pragma Inline (Set_Import_Interface_Present);
+   pragma Inline (Set_In_Assertion);
    pragma Inline (Set_In_Present);
    pragma Inline (Set_Inherited_Discriminant);
    pragma Inline (Set_Instance_Spec);

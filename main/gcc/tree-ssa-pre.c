@@ -1,6 +1,5 @@
 /* SSA-PRE for trees.
-   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010
-   Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
 
@@ -1974,7 +1973,8 @@ valid_in_sets (bitmap_set_t set1, bitmap_set_t set2, pre_expr expr,
   switch (expr->kind)
     {
     case NAME:
-      return bitmap_set_contains_expr (AVAIL_OUT (block), expr);
+      return bitmap_find_leader (AVAIL_OUT (block),
+				 get_expr_value_id (expr)) != NULL;
     case NARY:
       {
 	unsigned int i;
@@ -3246,7 +3246,8 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
       gcc_assert (get_expr_type (ae) == type
 		  || useless_type_conversion_p (type, get_expr_type (ae)));
       if (ae->kind == CONSTANT)
-	add_phi_arg (phi, PRE_EXPR_CONSTANT (ae), pred, UNKNOWN_LOCATION);
+	add_phi_arg (phi, unshare_expr (PRE_EXPR_CONSTANT (ae)),
+		     pred, UNKNOWN_LOCATION);
       else
 	add_phi_arg (phi, PRE_EXPR_NAME (ae), pred, UNKNOWN_LOCATION);
     }

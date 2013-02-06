@@ -1,6 +1,5 @@
 /* Integrated Register Allocator (IRA) entry point.
-   Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -3563,7 +3562,7 @@ build_insn_chain (void)
 	      c->insn = insn;
 	      c->block = bb->index;
 
-	      if (INSN_P (insn))
+	      if (NONDEBUG_INSN_P (insn))
 		for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
 		  {
 		    df_ref def = *def_rec;
@@ -3654,7 +3653,7 @@ build_insn_chain (void)
 	      bitmap_and_compl_into (live_relevant_regs, elim_regset);
 	      bitmap_copy (&c->live_throughout, live_relevant_regs);
 
-	      if (INSN_P (insn))
+	      if (NONDEBUG_INSN_P (insn))
 		for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 		  {
 		    df_ref use = *use_rec;

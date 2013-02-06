@@ -1,6 +1,5 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005, 2007, 2008, 2009, 2010, 2011, 2012
-   Free Software Foundation, Inc.
+   Copyright (C) 2005-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -296,31 +295,6 @@ ipa_print_all_jump_functions (FILE *f)
     }
 }
 
-/* Worker for prune_expression_for_jf.  */
-
-static tree
-prune_expression_for_jf_1 (tree *tp, int *walk_subtrees, void *)
-{
-  if (EXPR_P (*tp))
-    SET_EXPR_LOCATION (*tp, UNKNOWN_LOCATION);
-  else
-    *walk_subtrees = 0;
-  return NULL_TREE;
-}
-
-/* Return the expression tree EXPR unshared and with location stripped off.  */
-
-static tree
-prune_expression_for_jf (tree exp)
-{
-  if (EXPR_P (exp))
-    {
-      exp = unshare_expr (exp);
-      walk_tree (&exp, prune_expression_for_jf_1, NULL, NULL);
-    }
-  return exp;
-}
-
 /* Set JFUNC to be a known type jump function.  */
 
 static void
@@ -342,7 +316,7 @@ ipa_set_jf_constant (struct ipa_jump_func *jfunc, tree constant)
   if (constant && EXPR_P (constant))
     SET_EXPR_LOCATION (constant, UNKNOWN_LOCATION);
   jfunc->type = IPA_JF_CONST;
-  jfunc->value.constant = prune_expression_for_jf (constant);
+  jfunc->value.constant = unshare_expr_without_location (constant);
 }
 
 /* Set JFUNC to be a simple pass-through jump function.  */
@@ -364,7 +338,7 @@ ipa_set_jf_arith_pass_through (struct ipa_jump_func *jfunc, int formal_id,
 			       tree operand, enum tree_code operation)
 {
   jfunc->type = IPA_JF_PASS_THROUGH;
-  jfunc->value.pass_through.operand = prune_expression_for_jf (operand);
+  jfunc->value.pass_through.operand = unshare_expr_without_location (operand);
   jfunc->value.pass_through.formal_id = formal_id;
   jfunc->value.pass_through.operation = operation;
   jfunc->value.pass_through.agg_preserved = false;
@@ -1386,7 +1360,7 @@ determine_known_aggregate_parts (gimple call, tree arg,
 	    {
 	      struct ipa_agg_jf_item item;
 	      item.offset = list->offset - arg_offset;
-	      item.value = prune_expression_for_jf (list->constant);
+	      item.value = unshare_expr_without_location (list->constant);
 	      jfunc->agg.items->quick_push (item);
 	    }
 	  list = list->next;
@@ -2232,8 +2206,15 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   binfo = ipa_value_from_jfunc (new_root_info, jfunc);
 
-  if (!binfo || TREE_CODE (binfo) != TREE_BINFO)
+  if (!binfo)
     return NULL;
+
+  if (TREE_CODE (binfo) != TREE_BINFO)
+    {
+      binfo = gimple_extract_devirt_binfo_from_cst (binfo);
+      if (!binfo)
+        return NULL;
+    }
 
   binfo = get_binfo_at_offset (binfo, ie->indirect_info->offset,
 			       ie->indirect_info->otr_type);
@@ -2291,8 +2272,31 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 
       param_index = ici->param_index;
       jfunc = ipa_get_ith_jump_func (top, param_index);
-      if (jfunc->type == IPA_JF_PASS_THROUGH
-	  && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
+
+      if (!flag_indirect_inlining)
+	new_direct_edge = NULL;
+      else if (ici->polymorphic)
+	new_direct_edge = try_make_edge_direct_virtual_call (ie, jfunc,
+							     new_root_info);
+      else
+	new_direct_edge = try_make_edge_direct_simple_call (ie, jfunc,
+							    new_root_info);
+      if (new_direct_edge)
+	{
+	  new_direct_edge->indirect_inlining_edge = 1;
+	  if (new_direct_edge->call_stmt)
+	    new_direct_edge->call_stmt_cannot_inline_p
+	      = !gimple_check_call_matching_types (new_direct_edge->call_stmt,
+						   new_direct_edge->callee->symbol.decl);
+	  if (new_edges)
+	    {
+	      new_edges->safe_push (new_direct_edge);
+	      top = IPA_EDGE_REF (cs);
+	      res = true;
+	    }
+	}
+      else if (jfunc->type == IPA_JF_PASS_THROUGH
+	       && ipa_get_jf_pass_through_operation (jfunc) == NOP_EXPR)
 	{
 	  if (ici->agg_contents
 	      && !ipa_get_jf_pass_through_agg_preserved (jfunc))
@@ -2314,31 +2318,6 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
       else
 	/* Either we can find a destination for this edge now or never. */
 	ici->param_index = -1;
-
-      if (!flag_indirect_inlining)
-	continue;
-
-      if (ici->polymorphic)
-	new_direct_edge = try_make_edge_direct_virtual_call (ie, jfunc,
-							     new_root_info);
-      else
-	new_direct_edge = try_make_edge_direct_simple_call (ie, jfunc,
-							    new_root_info);
-
-      if (new_direct_edge)
-	{
-	  new_direct_edge->indirect_inlining_edge = 1;
-	  if (new_direct_edge->call_stmt)
-	    new_direct_edge->call_stmt_cannot_inline_p
-	      = !gimple_check_call_matching_types (new_direct_edge->call_stmt,
-						   new_direct_edge->callee->symbol.decl);
-	  if (new_edges)
-	    {
-	      new_edges->safe_push (new_direct_edge);
-	      top = IPA_EDGE_REF (cs);
-	      res = true;
-	    }
-	}
     }
 
   return res;
