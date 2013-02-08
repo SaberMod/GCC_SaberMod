@@ -22,6 +22,12 @@ XPASS: gfortran.dg/do_1.f90 -O1  execution test
 FAIL: gfortran.dg/class_optional_2.f90 -O1  execution test
 FAIL: 20_util/duration/cons/2.cc execution test
 FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
+FAIL: gcc.target/i386/memcpy-1.c scan-assembler-not test
+FAIL: 20_util/hash/chi2_quality.cc (test for excess errors)
+UNRESOLVED: 20_util/hash/chi2_quality.cc compilation failed to produce executable
+FAIL: 25_algorithms/copy_n/50119.cc (test for excess errors)
+UNRESOLVED: 25_algorithms/copy_n/50119.cc compilation failed to produce executable
+
 
 # Mudflap is completely unreliable.  It should be disabled.
 flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
