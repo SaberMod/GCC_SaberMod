@@ -1575,6 +1575,13 @@ inline_small_functions (void)
       if (!can_inline_edge_p (edge, true))
 	continue;
  
+      /* Suppress ipa-inline if the callee has indirect calls. They can
+         result in imprecise dynamic call graph in LIPO profile-generate.  */
+      if (PARAM_VALUE (PARAM_LIPO_GEN_LIMIT_IPA_INLINE)
+          && profile_arc_flag && flag_dyn_ipa
+          && edge->callee->indirect_calls)
+        continue;
+
       callee = cgraph_function_or_thunk_node (edge->callee, NULL);
       growth = estimate_edge_growth (edge);
       if (dump_file)
