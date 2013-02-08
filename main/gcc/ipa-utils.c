@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "diagnostic.h"
 #include "langhooks.h"
+#include "l-ipo.h"
 
 /* Debugging function for postorder and inorder code. NOTE is a string
    that is printed before the nodes are printed.  ORDER is an array of
@@ -311,6 +312,9 @@ ipa_reverse_postorder (struct cgraph_node **order)
 		      if (DECL_DISREGARD_INLINE_LIMITS (edge->caller->symbol.decl)
 			  && !DECL_DISREGARD_INLINE_LIMITS
 			    (cgraph_function_node (edge->callee, NULL)->symbol.decl))
+			node2 = NULL;
+                      if (L_IPO_COMP_MODE
+		          && cgraph_is_fake_indirect_call_edge (edge))
 			node2 = NULL;
 		    }
 		  for (;ipa_ref_list_referring_iterate (&stack[stack_size].node->symbol.ref_list,

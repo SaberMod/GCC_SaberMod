@@ -362,17 +362,16 @@ record_reference_to_real_target_from_alias (struct cgraph_node *alias)
   /* Need to add a reference to the resolved node in LIPO
      mode to avoid the real node from eliminated  */
   if (alias->alias && alias->analyzed)
-  {
-    struct cgraph_node *target, *real_target;
+    {
+      struct cgraph_node *target, *real_target;
 
-    target = cgraph_alias_aliased_node (alias);
-    real_target = cgraph_lipo_get_resolved_node (target->symbol.decl);
-    /* TODO: this make create duplicate entries in the
-       reference list.  */
-    if (real_target != target)
-      ipa_record_reference ((symtab_node)alias, (symtab_node)real_target,
-                            IPA_REF_ALIAS, NULL);
-  }
+      target = cgraph_alias_aliased_node (alias);
+      real_target = cgraph_lipo_get_resolved_node (target->symbol.decl);
+      /* TODO: this make create duplicate entries in the reference list.  */
+      if (real_target != target)
+        ipa_record_reference ((symtab_node)alias, (symtab_node)real_target,
+                              IPA_REF_ALIAS, NULL);
+    }
 }
 
 /* Mark address taken in STMT.  */

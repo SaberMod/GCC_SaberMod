@@ -3150,7 +3150,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
              FUNC_DECL_FUNC_ID (fun));
   else
     fprintf (dump_file, "\n;; Function %s (%s, funcdef_no=%d",
-             dname, aname, fun->funcdef_no);
+             dname, aname, fun->funcdef_no + (flag_dyn_ipa? 1 : 0));
   if (!(flags & TDF_NOUID))
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)

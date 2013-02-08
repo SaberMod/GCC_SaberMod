@@ -2499,7 +2499,9 @@ verify_cgraph_node (struct cgraph_node *node)
 	    error ("Alias has non-alias reference");
 	    error_found = true;
 	  }
-	else if (ref_found)
+	else if (ref_found
+                 /* in LIPO mode, the alias can refer to the real target also  */
+                 && !L_IPO_COMP_MODE)
 	  {
 	    error ("Alias has more than one alias reference");
 	    error_found = true;

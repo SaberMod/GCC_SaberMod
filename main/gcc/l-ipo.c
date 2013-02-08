@@ -1923,6 +1923,7 @@ process_module_scope_static_func (struct cgraph_node *cnode)
       if (DECL_ASSEMBLER_NAME_SET_P (decl))
         unlink_from_assembler_name_hash ((symtab_node) cnode);
       SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
+      insert_to_assembler_name_hash ((symtab_node) cnode);
       return;
     }
 

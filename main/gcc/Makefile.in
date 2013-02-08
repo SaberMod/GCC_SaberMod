@@ -2931,7 +2931,7 @@ ipa-inline-transform.o : ipa-inline-transform.c $(CONFIG_H) $(SYSTEM_H) coretype
 ipa-utils.o : ipa-utils.c $(IPA_UTILS_H) $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h dumpfile.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) \
    langhooks.h pointer-set.h $(GGC_H) $(GIMPLE_H) $(SPLAY_TREE_H) \
-   $(CGRAPH_H) $(FLAGS_H) $(DIAGNOSTIC_H)
+   $(CGRAPH_H) $(FLAGS_H) $(DIAGNOSTIC_H) l-ipo.h
 ipa-reference.o : ipa-reference.c $(CONFIG_H) $(SYSTEM_H) \
    coretypes.h $(TM_H) $(TREE_H) $(TREE_FLOW_H) $(TREE_INLINE_H) langhooks.h \
    pointer-set.h $(GGC_H) $(IPA_REFERENCE_H) $(IPA_UTILS_H) $(SPLAY_TREE_H) \
