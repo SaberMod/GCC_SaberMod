@@ -1038,7 +1038,7 @@ write_out_counters (void)
     return;
 
   FILE *fp = fopen ("/tmp/vtable-verification-counters.log", "a");
-  double pct_done = (total_num_virtual_calls / total_num_verified_vcalls)
+  double pct_done = (total_num_verified_vcalls / total_num_virtual_calls)
                     * 100;
 
   if (total_num_virtual_calls >= 20)
