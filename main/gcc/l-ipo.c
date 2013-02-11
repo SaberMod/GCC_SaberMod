@@ -2045,8 +2045,8 @@ varpool_is_auxiliary (struct varpool_node *node)
 /* Return the varpool_node to which DECL is resolved to during linking.
    This method can not be used after static to global promotion happens.  */
 
-struct varpool_node *
-real_varpool_node (tree decl)
+static struct varpool_node *
+real_varpool_node_1 (tree decl, bool assert)
 {
   void **slot;
   tree name;
@@ -2061,8 +2061,20 @@ real_varpool_node (tree decl)
   slot = htab_find_slot_with_hash (varpool_symtab, name,
                                    decl_assembler_name_hash (name),
                                    NO_INSERT);
+  if (!slot)
+    {
+      gcc_assert (!assert);
+      return NULL;
+    }
+
   gcc_assert (slot && *slot);
   return (struct varpool_node *)*slot;
+}
+
+struct varpool_node *
+real_varpool_node (tree decl)
+{
+  return real_varpool_node_1 (decl, true);
 }
 
 /* Remove NODE from the link table.  */
@@ -2081,7 +2093,7 @@ varpool_remove_link_node (struct varpool_node *node)
   if (!TREE_PUBLIC (decl) || DECL_ARTIFICIAL (decl))
     return;
 
-  if (real_varpool_node (decl) != node)
+  if (real_varpool_node_1 (decl, false) != node)
     return;
 
   name = DECL_ASSEMBLER_NAME (decl);

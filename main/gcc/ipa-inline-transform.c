@@ -271,6 +271,7 @@ inline_call (struct cgraph_edge *e, bool update_original,
      error due to INLINE_SIZE_SCALE roudoff errors.  */
   gcc_assert (!update_overall_summary || !overall_size
 	      || abs (estimated_growth - (new_size - old_size)) <= 1
+              || resolved_target != callee
 	      /* FIXME: a hack.  Edges with false predicate are accounted
 		 wrong, we should remove them from callgraph.  */
 	      || predicated);
