@@ -66,7 +66,8 @@ enum ld_plugin_output_file_type
 {
   LDPO_REL,
   LDPO_EXEC,
-  LDPO_DYN
+  LDPO_DYN,
+  LDPO_PIE
 };
 
 /* An input file managed by the plugin library.  */
@@ -317,14 +318,6 @@ typedef
 enum ld_plugin_status
 (*ld_plugin_allow_section_ordering) (void);
 
-enum ld_plugin_level
-{
-  LDPL_INFO,
-  LDPL_WARNING,
-  LDPL_ERROR,
-  LDPL_FATAL
-};
-
 /* The linker's interface for specifying that a subset of sections is
    to be mapped to a unique segment.  If the plugin wants to call
    unique_segment_for_sections, it must call this function from a
@@ -352,38 +345,46 @@ enum ld_plugin_status
     const struct ld_plugin_section * section_list,
     unsigned int num_sections);
 
+enum ld_plugin_level
+{
+  LDPL_INFO,
+  LDPL_WARNING,
+  LDPL_ERROR,
+  LDPL_FATAL
+};
+
 /* Values for the tv_tag field of the transfer vector.  */
 
 enum ld_plugin_tag
 {
   LDPT_NULL = 0,
-  LDPT_API_VERSION,
-  LDPT_GOLD_VERSION,
-  LDPT_LINKER_OUTPUT,
-  LDPT_OPTION,
-  LDPT_REGISTER_CLAIM_FILE_HOOK,
-  LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK,
-  LDPT_REGISTER_CLEANUP_HOOK,
-  LDPT_ADD_SYMBOLS,
-  LDPT_GET_SYMBOLS,
-  LDPT_ADD_INPUT_FILE,
-  LDPT_MESSAGE,
-  LDPT_GET_INPUT_FILE,
-  LDPT_RELEASE_INPUT_FILE,
-  LDPT_ADD_INPUT_LIBRARY,
-  LDPT_OUTPUT_NAME,
-  LDPT_SET_EXTRA_LIBRARY_PATH,
-  LDPT_GNU_LD_VERSION,
-  LDPT_GET_VIEW,
-  LDPT_GET_INPUT_SECTION_COUNT,
-  LDPT_GET_INPUT_SECTION_TYPE,
-  LDPT_GET_INPUT_SECTION_NAME,
-  LDPT_GET_INPUT_SECTION_CONTENTS,
-  LDPT_UPDATE_SECTION_ORDER,
-  LDPT_ALLOW_SECTION_ORDERING,
-  LDPT_GET_SYMBOLS_V2,
-  LDPT_ALLOW_UNIQUE_SEGMENT_FOR_SECTIONS,
-  LDPT_UNIQUE_SEGMENT_FOR_SECTIONS
+  LDPT_API_VERSION = 1,
+  LDPT_GOLD_VERSION = 2,
+  LDPT_LINKER_OUTPUT = 3,
+  LDPT_OPTION = 4,
+  LDPT_REGISTER_CLAIM_FILE_HOOK = 5,
+  LDPT_REGISTER_ALL_SYMBOLS_READ_HOOK = 6,
+  LDPT_REGISTER_CLEANUP_HOOK = 7,
+  LDPT_ADD_SYMBOLS = 8,
+  LDPT_GET_SYMBOLS = 9,
+  LDPT_ADD_INPUT_FILE = 10,
+  LDPT_MESSAGE = 11,
+  LDPT_GET_INPUT_FILE = 12,
+  LDPT_RELEASE_INPUT_FILE = 13,
+  LDPT_ADD_INPUT_LIBRARY = 14,
+  LDPT_OUTPUT_NAME = 15,
+  LDPT_SET_EXTRA_LIBRARY_PATH = 16,
+  LDPT_GNU_LD_VERSION = 17,
+  LDPT_GET_VIEW = 18,
+  LDPT_GET_INPUT_SECTION_COUNT = 19,
+  LDPT_GET_INPUT_SECTION_TYPE = 20,
+  LDPT_GET_INPUT_SECTION_NAME = 21,
+  LDPT_GET_INPUT_SECTION_CONTENTS = 22,
+  LDPT_UPDATE_SECTION_ORDER = 23,
+  LDPT_ALLOW_SECTION_ORDERING = 24,
+  LDPT_GET_SYMBOLS_V2 = 25,
+  LDPT_ALLOW_UNIQUE_SEGMENT_FOR_SECTIONS = 26,
+  LDPT_UNIQUE_SEGMENT_FOR_SECTIONS = 27
 };
 
 /* The plugin transfer vector.  */
