@@ -2635,25 +2635,6 @@ coverage_init (const char *filename, const char* source_name)
   da_base_file_name = XNEWVEC (char, strlen (filename) + 1);
   strcpy (da_base_file_name, filename);
 
-  /* Name of bbg file.  */
-  if (flag_test_coverage && !flag_compare_debug)
-    {
-      bbg_file_name = XNEWVEC (char, len + strlen (GCOV_NOTE_SUFFIX) + 1);
-      memcpy (bbg_file_name, filename, len);
-      strcpy (bbg_file_name + len, GCOV_NOTE_SUFFIX);
-      if (!gcov_open (bbg_file_name, -1))
-	{
-	  error ("cannot open %s", bbg_file_name);
-	  bbg_file_name = NULL;
-	}
-      else
-	{
-	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
-	  gcov_write_unsigned (GCOV_VERSION);
-	  gcov_write_unsigned (local_tick);
-	}
-    }
-
   if (profile_data_prefix == 0 && !IS_ABSOLUTE_PATH (source_name))
     {
       src_name_prefix = getpwd ();
@@ -2698,6 +2679,25 @@ coverage_init (const char *filename, const char* source_name)
     }
   if (flag_auto_profile)
     init_auto_profile ();
+
+  /* Name of bbg file.  */
+  if (flag_test_coverage && !flag_compare_debug)
+    {
+      bbg_file_name = XNEWVEC (char, len + strlen (GCOV_NOTE_SUFFIX) + 1);
+      memcpy (bbg_file_name, filename, len);
+      strcpy (bbg_file_name + len, GCOV_NOTE_SUFFIX);
+      if (!gcov_open (bbg_file_name, -1))
+	{
+	  error ("cannot open %s", bbg_file_name);
+	  bbg_file_name = NULL;
+	}
+      else
+	{
+	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
+	  gcov_write_unsigned (GCOV_VERSION);
+	  gcov_write_unsigned (local_tick);
+	}
+    }
 }
 
 /* Return True if any type of profiling is enabled which requires linking
