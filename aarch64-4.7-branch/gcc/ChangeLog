@@ -1,3 +1,210 @@
+2013-02-07  David S. Miller  <davem@davemloft.net>
+
+	* dwarf2out.c (based_loc_descr): Perform leaf register remapping
+	on 'reg'.
+	* var-tracking.c (vt_add_function_parameter): Test the presence of
+	HAVE_window_save properly and do not remap argument registers when
+	we have a leaf function.
+
+2013-02-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-02-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR bootstrap/56227
+	* ggc-page.c (ggc_print_statistics): Use HOST_LONG_LONG_FORMAT
+	instead of "ll".
+	* config/i386/i386.c (ix86_print_operand): Ditto.
+
+2013-02-07  Alan Modra  <amodra@gmail.com>
+
+	PR target/53040
+	* config/rs6000/rs6000.c (rs6000_savres_strategy): When using
+	static chain, set REST_INLINE_FPRS too.
+
+2013-02-06  David Edelsohn  <dje.gcc@gmail.com>
+
+	Backport from mainline
+	2013-01-25  Michael Haubenwallner  <michael.haubenwallner@salomon.at>
+
+	* configure.ac (gcc_cv_ld_static_dynamic): Define for AIX native ld.
+	* configure: Regenerate.
+
+2013-02-05  David Edelsohn  <dje.gcc@gmail.com>
+
+	Backport from mainline
+	2013-02-03  David Edelsohn  <dje.gcc@gmail.com>
+		    Andrew Dixie  <andrewd@gentrack.com>
+
+	* collect2.c (GCC_CHECK_HDR): Do not scan objects with F_LOADONLY
+	flag set.
+
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-12-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55107
+	* tree-ssa-pre.c (struct pre_stats): Remove constified field.
+	(bitmap_set_replace_value): Add gcc_unreachable.
+	(do_regular_insertion): Re-write all_same handling.  Insert
+	an assignment instead of a PHI in this case.
+	(execute_pre): Do not record constified events.
+
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54767
+	* tree-vrp.c (vrp_visit_phi_node): For PHI arguments coming via
+	backedges drop all symbolical range information.
+	(execute_vrp): Compute backedges.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-01-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44061
+	* tree-vrp.c (extract_range_basic): Compute zero as
+	value-range for __builtin_constant_p of function parameters.
+
+	2013-01-08  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR middle-end/55890
+	* tree-ssa-ccp.c (evaluate_stmt): Use gimple_call_builtin_class_p.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53844
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Properly handle
+	the loop virtual PHI.
+
+	2012-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR lto/55660
+	* tree-streamer.c (record_common_node): Check that we are not
+	recursively pre-loading nodes we want to skip.  Handle
+	char_type_node appearing as part of va_list_type_node.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55890
+	* gimple.h (gimple_call_builtin_class_p): New function.
+	* gimple.c (validate_call): New function.
+	(gimple_call_builtin_class_p): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call):
+	Use gimple_call_builtin_class_p.
+	(find_func_clobbers): Likewise.
+	* tree-ssa-strlen.c (adjust_last_stmt): Likewise.
+	(strlen_optimize_stmt): Likewise.
+
+2013-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56125
+	* tree-ssa-math-opts.c (gimple_expand_builtin_pow): Don't optimize
+	pow(x,c) into sqrt(x) * powi(x, n/2) or
+	1.0 / (sqrt(x) * powi(x, abs(n/2))) if c is an integer or when
+	optimizing for size.
+	Don't optimize pow(x,c) into powi(x, n/3) * powi(cbrt(x), n%3) or
+	1.0 / (powi(x, abs(n)/3) * powi(cbrt(x), abs(n)%3)) if 2c is an
+	integer.
+
+	2013-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56098
+	* tree-ssa-phiopt.c (nt_init_block): Don't call add_or_mark_expr
+	for stmts with volatile ops.
+	(cond_store_replacement): Don't optimize if assign has volatile ops.
+	(cond_if_else_store_replacement_1): Don't optimize if either
+	then_assign or else_assign have volatile ops.
+
+	2013-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49069
+	* config/arm/arm.md (cbranchdi4, cstoredi4): Use s_register_operand
+	instead of cmpdi_operand for first comparison operand.
+	Don't assert that comparison operands aren't both constants.
+
+	2013-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56051
+	* fold-const.c (fold_binary_loc): Don't fold
+	X < (cast) (1 << Y) into (X >> Y) != 0 if cast is either
+	a narrowing conversion, or widening conversion from signed
+	to unsigned.
+
+	2013-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56015
+	* expr.c (expand_expr_real_2) <case COMPLEX_EXPR>: Handle
+	the case where writing real complex part of target modifies
+	op1.
+
+	2013-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/55940
+	* function.c (thread_prologue_and_epilogue_insns): Always
+	add crtl->drap_reg to set_up_by_prologue.set, even if
+	stack_realign_drap is false.
+
+	2013-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55921
+	* tree-complex.c (expand_complex_asm): New function.
+	(expand_complex_operations_1): Call it for GIMPLE_ASM.
+
+	2013-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/55838
+	* loop-iv.c (iv_number_of_iterations): Call lowpart_subreg on
+	iv0.step, iv1.step and step.
+
+	2012-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54046
+	* Makefile.in (gimple-low.o): Depend on langhooks.h.
+	* gimple-low.c: Include langhooks.c.
+	(block_may_fallthru): Handle TARGET_EXPR and ERROR_MARK,
+	by default call lang_hooks.block_may_fallthru.
+	* langhooks.h (struct lang_hooks): Add block_may_fallthru
+	langhook.
+	* langhooks-def.h (LANG_HOOKS_BLOCK_MAY_FALLTHRU): Define.
+	(LANG_HOOKS_INITIALIZER): Use it.
+
+	2012-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/55094
+	* builtins.c (expand_builtin_trap): Add REG_ARGS_SIZE note
+	on the trap insn for !ACCUMULATE_OUTGOING_ARGS.
+	* cfgcleanup.c (outgoing_edges_match): Don't look at debug insns
+	on the first old_insns_match_p call.  For !ACCUMULATE_OUTGOING_ARGS
+	fail if the last real insn doesn't have REG_ARGS_SIZE note.
+
+	2012-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55236
+	* fold-const.c (make_range_step) <case NEGATE_EXPR>: For -fwrapv
+	and signed ARG0_TYPE, force low and high to be non-NULL.
+
+	2012-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/54127
+	* cfgrtl.c (force_nonfallthru_and_redirect): When redirecting
+	asm goto labels from BB_HEAD (e->dest) to target bb, decrement
+	LABEL_NUSES of BB_HEAD (e->dest) and increment LABEL_NUSES of
+	BB_HEAD (target) appropriately and adjust JUMP_LABEL and/or
+	REG_LABEL_TARGET and REG_LABEL_OPERAND.
+
+2013-02-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* fold-const.c (make_range_step) <TRUTH_NOT_EXPR>: Bail out if the
+	range isn't testing for zero.
+
 2013-01-29  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56113

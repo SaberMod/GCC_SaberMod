@@ -1,3 +1,23 @@
+2013-02-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/50627
+	PR fortran/56054
+	* decl.c (gfc_match_end):  Remove half-ready namespace
+	from parent if the end of a block is missing.
+	* parse.c (parse_module):  Do not put namespace into
+	gsymbol on error.
+
+2013-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/56052
+	* trans-decl.c (gfc_get_symbol_decl): Set DECL_ARTIFICIAL
+	and DECL_IGNORED_P on select_type_temporary and don't set
+	DECL_BY_REFERENCE.
+
 2013-01-24  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/56081

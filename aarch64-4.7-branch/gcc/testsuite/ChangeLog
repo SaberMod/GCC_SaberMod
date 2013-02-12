@@ -1,3 +1,151 @@
+2013-02-05  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-12-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55107
+	* gcc.dg/torture/pr55107.c: New testcase.
+	* gcc.dg/tree-ssa/ssa-pre-5.c: Adjust.
+
+2013-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/54767
+	* gfortran.fortran-torture/execute/pr54767.f90: New testcase.
+
+2013-02-04  Janis Johnson  <janisjo@codesourcery.com>
+
+	PR testsuite/56206
+	* lib/target-supports.exp (check_effective_target_arm_hard_vfp_ok):
+	Fix typo.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-01-11  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/44061
+	* gcc.dg/pr44061.c: New testcase.
+
+	2013-01-08  Jakub Jelinek  <jakub@redhat.com>
+ 
+	PR middle-end/55890
+	* gcc.dg/torture/pr55890-3.c: New test.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53844
+	* g++.dg/tree-ssa/pr53844.C: New testcase.
+
+	2012-12-13  Richard Biener  <rguenther@suse.de>
+
+	PR lto/55660
+	* gcc.dg/lto/pr55660_0.c: New testcase.
+	* gcc.dg/lto/pr55660_1.c: Likewise.
+
+2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55890
+	* gcc.dg/torture/pr55890-1.c: New testcase.
+	* gcc.dg/torture/pr55890-2.c: Likewise.
+
+2013-02-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/50627
+	PR fortran/56054
+	* gfortran.dg/block_12.f90:  New test.
+	* gfortran.dg/module_error_1.f90:  New test.
+
+2013-02-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-01-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56125
+	* gcc.dg/pr56125.c: New test.
+
+	2013-01-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56098
+	* gcc.dg/pr56098-1.c: New test.
+
+	2013-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/56052
+	* gfortran.dg/gomp/pr56052.f90: New test.
+
+	2013-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/49069
+	* gcc.dg/pr49069.c: New test.
+
+	2013-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56051
+	* gcc.c-torture/execute/pr56051.c: New test.
+
+	2013-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56015
+	* gfortran.dg/pr56015.f90: New test.
+
+	2013-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/55940
+	* gcc.dg/pr55940.c: New test.
+
+	2013-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55921
+	* gcc.c-torture/compile/pr55921.c: New test.
+
+	2013-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/55838
+	* gcc.dg/pr55838.c: New test.
+
+	2012-12-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/55652
+	* g++.dg/cpp0x/noexcept19.C: New test.
+
+	2012-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54207
+	* g++.dg/cpp0x/noexcept18.C: New test.
+
+	2012-12-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/55542
+	* g++.dg/cpp0x/vt-55542.C: New test.
+
+	2012-11-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/54046
+	* g++.dg/warn/Wreturn-type-8.C: New test.
+
+	2012-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/55094
+	* gcc.dg/pr55094.c: New test.
+
+	2012-11-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55236
+	* gcc.dg/pr55236.c: New test.
+
+	2012-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/54127
+	* gcc.dg/torture/pr54127.c: New test.
+
+2013-02-01  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt26.adb: New test.
+
 2013-01-27  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
