@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "auto-profile.h"
 #include "diagnostic-core.h"
+#include "params.h"
 
 int ncalls_inlined;
 int nfunctions_inlined;
@@ -237,11 +238,15 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
    level.  */
 
 static const char *
-cgraph_node_opt_info (struct cgraph_node *node)
+cgraph_node_opt_info (struct cgraph_node *node, bool emit_mod_info)
 {
   char *buf;
   size_t buf_size;
   const char *bfd_name = lang_hooks.dwarf_name (node->decl, 0);
+  const char *mod_name = 0;
+  unsigned int mod_id = 0;
+  int funcdef_no = -1;
+  const char *primary_tag = 0;
 
   if (!bfd_name)
     bfd_name = "unknown";
@@ -249,9 +254,36 @@ cgraph_node_opt_info (struct cgraph_node *node)
   buf_size = strlen (bfd_name) + 1;
   if (profile_info)
     buf_size += (MAX_INT_LENGTH + 3);
+
+  if (L_IPO_COMP_MODE && emit_mod_info)
+    {
+      mod_id = cgraph_get_module_id (node->decl);
+      gcc_assert (mod_id);
+      mod_name = get_module_name (mod_id);
+      primary_tag = (mod_id == primary_module_id ? "*" :"");
+      buf_size += (4 + strlen (mod_name));
+      if (PARAM_VALUE (PARAM_INLINE_DUMP_MODULE_ID))
+        {
+          struct function *func = DECL_STRUCT_FUNCTION (node->decl);
+          if (func)
+            funcdef_no = func->funcdef_no; 
+          buf_size += (2 * MAX_INT_LENGTH + 1);
+	}
+    }
+
   buf = (char *) xmalloc (buf_size);
 
   strcpy (buf, bfd_name);
+
+  if (L_IPO_COMP_MODE && emit_mod_info)
+    {
+      if (PARAM_VALUE (PARAM_INLINE_DUMP_MODULE_ID))
+         sprintf (buf, "%s [%d:%d %s%s]", buf, mod_id, funcdef_no,
+	     primary_tag, mod_name);
+      else
+         sprintf (buf, "%s [%s%s]", buf, primary_tag, mod_name);
+    }
+
   if (profile_info)
     sprintf (buf, "%s ("HOST_WIDEST_INT_PRINT_DEC")", buf, node->count);
   return buf;
@@ -276,7 +308,7 @@ cgraph_node_call_chain (struct cgraph_node *caller,
   for (node = caller; node->global.inlined_to != NULL;
        node = node->callers->caller)
     {
-      const char *name = cgraph_node_opt_info (node);
+      const char *name = cgraph_node_opt_info (node, false);
       current_string_len += (strlen (name) + 1);
       if (current_string_len >= buf_size)
 	{
@@ -323,8 +355,8 @@ dump_inline_decision (struct cgraph_edge *edge)
  
   locus = gimple_location (edge->call_stmt);
   inform (locus, "%s inlined into %s%s%s",
-	  cgraph_node_opt_info (edge->callee),
-	  cgraph_node_opt_info (final_caller),
+	  cgraph_node_opt_info (edge->callee, true),
+	  cgraph_node_opt_info (final_caller, true),
 	  call_count_text,
 	  inline_chain_text);
 }

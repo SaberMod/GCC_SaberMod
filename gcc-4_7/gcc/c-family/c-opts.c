@@ -1135,7 +1135,7 @@ lipo_max_mem_reached (unsigned int i)
           > (size_t) PARAM_VALUE (PARAM_MAX_LIPO_MEMORY))) {
     i++;
     do {
-      if (flag_opt_info >= OPT_INFO_MED)
+      if (flag_opt_info >= OPT_INFO_MIN)
         inform (input_location, "Not importing %s: maximum memory "
                 "consumption reached", in_fnames[i]);
       i++;

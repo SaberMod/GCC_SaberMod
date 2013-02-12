@@ -501,6 +501,43 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
            || has_any_incompatible_cg_opts);
 }
 
+typedef struct {
+  unsigned int mod_id;
+  const char *mod_name;
+}mod_id_to_name_t;
+
+DEF_VEC_O (mod_id_to_name_t);
+DEF_VEC_ALLOC_O (mod_id_to_name_t, heap);
+static VEC (mod_id_to_name_t, heap) *mod_names;
+
+static void
+record_module_name (unsigned int mod_id, const char *name)
+{
+  mod_id_to_name_t t;
+
+  t.mod_id = mod_id;
+  t.mod_name = xstrdup (name);
+  VEC_safe_push (mod_id_to_name_t, heap, mod_names, &t);
+}
+
+/* Return the module name for module with MOD_ID.  */
+
+const char *
+get_module_name (unsigned int mod_id)
+{
+  size_t i;
+  mod_id_to_name_t *elt;
+
+  for (i = 0; VEC_iterate (mod_id_to_name_t, mod_names, i, elt); i++)
+    {
+      if (elt->mod_id == mod_id)
+        return elt->mod_name;
+    }   
+
+  gcc_assert (0);
+  return NULL;
+}
+
 /* Read in the counts file, if available. DA_FILE_NAME is the
    name of the gcda file, and MODULE_ID is the module id of the
    associated source module.  */
@@ -702,41 +739,41 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               gcc_assert (!mod_info->is_primary);
               if (pointer_set_insert (modset, (void *)(size_t)mod_info->ident))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: already imported",
                             mod_info->source_filename);
                 }
               else if ((module_infos[0]->lang & GCOV_MODULE_LANG_MASK) !=
                        (mod_info->lang & GCOV_MODULE_LANG_MASK))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: source language"
                             " different from primary module's source language",
                             mod_info->source_filename);
                 }
               else if (module_infos_read == max_group)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: maximum group"
                             " size reached", mod_info->source_filename);
                 }
               else if (incompatible_cl_args (module_infos[0], mod_info))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: command-line"
                             " arguments not compatible with primary module",
                             mod_info->source_filename);
                 }
               else if ((fd = open (aux_da_filename, O_RDONLY)) < 0)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: couldn't open %s",
                             mod_info->source_filename, aux_da_filename);
                 }
               else if ((mod_info->lang & GCOV_MODULE_ASM_STMTS)
                        && flag_ripa_disallow_asm_modules)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: contains "
                             "assembler statements", mod_info->source_filename);
                 }
@@ -755,7 +792,10 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		}
             }
 
-          if (flag_opt_info >= OPT_INFO_MAX)
+	  record_module_name (mod_info->ident,
+	      lbasename (mod_info->source_filename));
+
+          if (flag_opt_info >= OPT_INFO_MIN)
             {
               inform (input_location,
                       "MODULE Id=%d, Is_Primary=%s,"
