@@ -36,6 +36,17 @@
 #undef  TARGET_HANDLE_OPTION
 #define TARGET_HANDLE_OPTION aarch64_handle_option
 
+#undef	TARGET_OPTION_OPTIMIZATION_TABLE
+#define TARGET_OPTION_OPTIMIZATION_TABLE aarch_option_optimization_table
+
+/* Set default optimization options.  */
+static const struct default_options aarch_option_optimization_table[] =
+  {
+    /* Enable section anchors by default at -O1 or higher.  */
+    { OPT_LEVELS_1_PLUS, OPT_fsection_anchors, NULL, 1 },
+    { OPT_LEVELS_NONE, 0, NULL, 0 }
+  };
+
 /* Implement TARGET_HANDLE_OPTION.
    This function handles the target specific options for CPU/target selection.
 

@@ -7950,6 +7950,17 @@ aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK \
   aarch64_vectorize_vec_perm_const_ok
 
+/* Section anchor support.  */
+
+#undef TARGET_MIN_ANCHOR_OFFSET
+#define TARGET_MIN_ANCHOR_OFFSET -256
+
+/* Limit the maximum anchor offset to 4k-1, since that's the limit for a
+   byte offset; we can do much more for larger data types, but have no way
+   to determine the size of the access.  We assume accesses are aligned.  */
+#undef TARGET_MAX_ANCHOR_OFFSET
+#define TARGET_MAX_ANCHOR_OFFSET 4095
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-aarch64.h"

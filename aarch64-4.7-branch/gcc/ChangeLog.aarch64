@@ -1,3 +1,16 @@
+2013-02-13  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from aarch64-branch.
+	2012-09-06  James Greenhalgh  <james.greenhalgh@arm.com>
+		    Richard Earnshaw  <rearnsha@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(aarch_option_optimization_table): New.
+	(TARGET_OPTION_OPTIMIZATION_TABLE): Define.
+	* gcc/config/aarch64/aarch64-elf.h (ASM_OUTPUT_DEF): New definition.
+	* gcc/config/aarch64/aarch64.c (TARGET_MIN_ANCHOR_OFFSET): Define.
+	(TARGET_MAX_ANCHOR_OFFSET): Likewise.
+
 2013-02-04  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	Backport from mainline.
