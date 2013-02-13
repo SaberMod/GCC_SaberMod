@@ -501,6 +501,149 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
            || has_any_incompatible_cg_opts);
 }
 
+/* Support for module sorting based on user specfication.  */
+typedef  struct
+{
+  const char *source_name;
+  int order;
+} module_name_entry;
+
+/* Hash function for module name  */
+
+static hashval_t
+module_name_hash (const void *p)
+{
+  const module_name_entry *s = (const module_name_entry *)p;
+  return htab_hash_string (s->source_name);
+}
+
+/* Delete function for module name  */
+
+static void
+module_name_del (void *of)
+{
+  module_name_entry *const entry = (module_name_entry *) of;
+  /* XDELETE (entry->source_name); */
+  XDELETE (entry);
+}
+
+/* Equal function for module name  */
+
+static int
+module_name_eq (const void *p1, const void *p2)
+{
+  const module_name_entry *s1 = (const module_name_entry *)p1;
+  const module_name_entry *s2 = (const module_name_entry *)p2;
+
+  return !strcmp (s1->source_name, s2->source_name);
+}
+
+static  htab_t module_name_tab = NULL;
+
+/* Comparison function for sorting module_infos array.  */
+
+static int
+cmp_module_name_entry (const void *p1, const void *p2)
+{
+  void **slot1, **slot2;
+  module_name_entry *m_e1, *m_e2;
+
+  struct gcov_module_info *const *e1 = (struct gcov_module_info *const *) p1;
+  struct gcov_module_info *const *e2 = (struct gcov_module_info *const *) p2;
+
+  module_name_entry e;
+  e.source_name = (*e1)->source_filename;
+  slot1 = htab_find_slot (module_name_tab, &e, NO_INSERT);
+  e.source_name = (*e2)->source_filename;
+  slot2 = htab_find_slot (module_name_tab, &e, NO_INSERT);
+
+  gcc_assert (slot1 && *slot1 && slot2 && *slot2);
+  m_e1 = *(module_name_entry **)slot1;
+  m_e2 = *(module_name_entry **)slot2;
+
+  return m_e1->order - m_e2->order;
+}
+
+/* Comparison function for sorting fname array  */
+
+static int
+cmp_fname_entry (const void *p1, const void *p2)
+{
+  void **slot1, **slot2;
+  module_name_entry *m_e1, *m_e2;
+
+  const char *const *e1 = (const char *const *) p1;
+  const char *const *e2 = (const char *const *) p2;
+
+  module_name_entry e;
+
+  e.source_name = *e1;
+  slot1 = htab_find_slot (module_name_tab, &e, NO_INSERT);
+  e.source_name = *e2;
+  slot2 = htab_find_slot (module_name_tab, &e, NO_INSERT);
+
+  gcc_assert (slot1 && *slot1 && slot2 && *slot2);
+  m_e1 = *(module_name_entry **)slot1;
+  m_e2 = *(module_name_entry **)slot2;
+
+  return m_e1->order - m_e2->order;
+}
+
+/* Reorder module group according to file IMPORTS_FILE  */
+
+static void
+reorder_module_groups (const char *imports_file)
+{
+  FILE *f;
+  int n, order = 0;
+  size_t len;
+  char *line = NULL;
+
+  module_name_tab = htab_create (20, module_name_hash,
+				 module_name_eq, module_name_del);
+
+  f = fopen (imports_file, "r");
+  if (!f)
+    error ("Can't open file %s", imports_file);
+
+  while ((n = getline (&line, &len, f)) != -1)
+    {
+      void **slot;
+      module_name_entry *m_e = XCNEW (module_name_entry);
+
+      line[n - 1] = '\0';
+      m_e->source_name = line;
+      m_e->order = order;
+
+      slot = htab_find_slot (module_name_tab, m_e, INSERT);
+      gcc_assert (!*slot);
+      *slot = m_e;
+
+      line = NULL;
+      order++;
+    }
+
+  /* Now do the sorting  */
+
+  qsort (&module_infos[1], num_in_fnames - 1, sizeof (void *),
+	 cmp_module_name_entry);
+  qsort (&in_fnames[1], num_in_fnames - 1, sizeof (void *),
+	 cmp_fname_entry);
+
+  {
+    unsigned i;
+
+    for (i = 0; i < num_in_fnames; i++)
+      fprintf (stderr, "*** %s\n", in_fnames[i]);
+
+    for (i = 0; i < num_in_fnames; i++)
+      fprintf (stderr, "### %s\n", module_infos[i]->source_filename);
+
+  }
+
+  htab_delete (module_name_tab);
+}
+
 typedef struct {
   unsigned int mod_id;
   const char *mod_name;
@@ -555,6 +698,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   unsigned max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
+  const char *imports_filename;
 
   if (max_group == 0)
     max_group = (unsigned) -1;
@@ -814,6 +958,10 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  break;
 	}
     }
+
+  if ((imports_filename = getenv ("LIPO_REORDER_GROUP"))
+      && flag_dyn_ipa && !module_id)
+    reorder_module_groups (imports_filename);
 
   /* TODO: profile based multiple module compilation does not work
      together with command line (-combine) based ipo -- add a nice
