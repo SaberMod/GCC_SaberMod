@@ -2272,25 +2272,6 @@ coverage_init (const char *filename, const char* source_name)
   da_base_file_name = XNEWVEC (char, strlen (filename) + 1);
   strcpy (da_base_file_name, filename);
 
-  /* Name of bbg file.  */
-  if (flag_test_coverage && !flag_compare_debug)
-    {
-      bbg_file_name = XNEWVEC (char, len + strlen (GCOV_NOTE_SUFFIX) + 1);
-      memcpy (bbg_file_name, filename, len);
-      strcpy (bbg_file_name + len, GCOV_NOTE_SUFFIX);
-      if (!gcov_open (bbg_file_name, -1))
-	{
-	  error ("cannot open %s", bbg_file_name);
-	  bbg_file_name = NULL;
-	}
-      else
-	{
-	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
-	  gcov_write_unsigned (GCOV_VERSION);
-	  gcov_write_unsigned (bbg_file_stamp);
-	}
-    }
-
   if (profile_data_prefix == 0 && !IS_ABSOLUTE_PATH (source_name))
     {
       src_name_prefix = getpwd ();
@@ -2306,6 +2287,8 @@ coverage_init (const char *filename, const char* source_name)
       strcat (main_input_file_name, "/");
       strcat (main_input_file_name, source_name);
     }
+
+  bbg_file_stamp = local_tick;
 
   if (flag_branch_probabilities)
     read_counts_file (da_file_name, 0);
@@ -2326,6 +2309,25 @@ coverage_init (const char *filename, const char* source_name)
     {
       tree_init_dyn_ipa_parameters ();
       tree_init_instrumentation_sampling ();
+    }
+
+  /* Name of bbg file.  */
+  if (flag_test_coverage && !flag_compare_debug)
+    {
+      bbg_file_name = XNEWVEC (char, len + strlen (GCOV_NOTE_SUFFIX) + 1);
+      memcpy (bbg_file_name, filename, len);
+      strcpy (bbg_file_name + len, GCOV_NOTE_SUFFIX);
+      if (!gcov_open (bbg_file_name, -1))
+	{
+	  error ("cannot open %s", bbg_file_name);
+	  bbg_file_name = NULL;
+	}
+      else
+	{
+	  gcov_write_unsigned (GCOV_NOTE_MAGIC);
+	  gcov_write_unsigned (GCOV_VERSION);
+	  gcov_write_unsigned (bbg_file_stamp);
+	}
     }
 }
 
