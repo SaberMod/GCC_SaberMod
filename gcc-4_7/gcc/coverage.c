@@ -604,7 +604,7 @@ cmp_fname_entry (const void *p1, const void *p2)
 /* Reorder module group according to file IMPORTS_FILE  */
 
 static void
-reorder_module_groups (const char *imports_file)
+reorder_module_groups (const char *imports_file, unsigned max_group)
 {
   FILE *f;
   int n, order = 0;
@@ -646,12 +646,17 @@ reorder_module_groups (const char *imports_file)
     unsigned i;
 
     for (i = 0; i < num_in_fnames; i++)
-      fprintf (stderr, "*** %s\n", in_fnames[i]);
+      fprintf (stderr, "*** %s (%s)\n", in_fnames[i],
+	       i < max_group ? "Kept":"Skipped");
 
     for (i = 0; i < num_in_fnames; i++)
-      fprintf (stderr, "### %s\n", module_infos[i]->source_filename);
+      fprintf (stderr, "### %s (%s)\n", module_infos[i]->source_filename,
+	       i < max_group ? "Kept":"Skipped");
 
   }
+
+  if (num_in_fnames > max_group)
+    num_in_fnames = max_group;
 
   htab_delete (module_name_tab);
 }
@@ -907,7 +912,10 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                             " different from primary module's source language",
                             mod_info->source_filename);
                 }
-              else if (module_infos_read == max_group)
+              else if (module_infos_read == max_group
+		       /* If reordering is specified, delay the cutoff
+			  until after sorting.  */
+		       && !getenv ("LIPO_REORDER_GROUP"))
                 {
                   if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: maximum group"
@@ -973,7 +981,11 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 
   if ((imports_filename = getenv ("LIPO_REORDER_GROUP"))
       && flag_dyn_ipa && !module_id)
-    reorder_module_groups (imports_filename);
+    {
+      reorder_module_groups (imports_filename, max_group);
+      if (module_infos_read != num_in_fnames)
+	module_infos_read = num_in_fnames;
+    }
 
   /* TODO: profile based multiple module compilation does not work
      together with command line (-combine) based ipo -- add a nice
