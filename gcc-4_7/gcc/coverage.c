@@ -557,6 +557,12 @@ cmp_module_name_entry (const void *p1, const void *p2)
   e.source_name = (*e2)->source_filename;
   slot2 = htab_find_slot (module_name_tab, &e, NO_INSERT);
 
+  if (!slot1 || !*slot1)
+    return 1;
+
+  if (!slot2 || !*slot2)
+    return -1;
+
   gcc_assert (slot1 && *slot1 && slot2 && *slot2);
   m_e1 = *(module_name_entry **)slot1;
   m_e2 = *(module_name_entry **)slot2;
@@ -581,6 +587,12 @@ cmp_fname_entry (const void *p1, const void *p2)
   slot1 = htab_find_slot (module_name_tab, &e, NO_INSERT);
   e.source_name = *e2;
   slot2 = htab_find_slot (module_name_tab, &e, NO_INSERT);
+
+  if (!slot1 || !*slot1)
+    return 1;
+
+  if (!slot2 || !*slot2)
+    return -1;
 
   gcc_assert (slot1 && *slot1 && slot2 && *slot2);
   m_e1 = *(module_name_entry **)slot1;
