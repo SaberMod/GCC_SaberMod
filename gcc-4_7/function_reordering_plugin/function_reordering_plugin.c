@@ -69,6 +69,7 @@ enum ld_plugin_status claim_file_hook (const struct ld_plugin_input_file *file,
                                        int *claimed);
 enum ld_plugin_status all_symbols_read_hook ();
 
+static ld_plugin_message message = NULL;
 static ld_plugin_register_claim_file register_claim_file_hook = NULL;
 static ld_plugin_register_all_symbols_read
   register_all_symbols_read_hook = NULL;
@@ -88,8 +89,6 @@ static ld_plugin_unique_segment_for_sections unique_segment_for_sections = NULL;
 
 static char *out_file = NULL;
 
-static int is_api_exist = 0;
-
 /* The plugin does nothing when no-op is 1.  */
 static int no_op = 0;
 
@@ -105,12 +104,30 @@ void get_filename (const char *name)
   strcpy (out_file, name);
 }
 
+/* MSG_FATAL prints a format string and aborts.  Uses the plugin API if
+   available, otherwise falls back to using fprintf.  */
+
+#define MSG_FATAL(...) \
+  if (message) { \
+    message (LDPL_FATAL, __VA_ARGS__); } \
+  else { \
+    fprintf (stderr, "fatal: " __VA_ARGS__); abort (); }
+
+/* MSG_ERROR prints a format string. Uses the plugin API if
+   available, otherwise falls back to using fprintf.  */
+
+#define MSG_ERROR(...) \
+  if (message) { \
+    message (LDPL_ERROR, __VA_ARGS__); } \
+  else { \
+    fprintf (stderr, "error: " __VA_ARGS__); }
+
 /* Process options to plugin.  Options with prefix "group=" are special.
    They specify the type of grouping. The option "group=none" makes the
    plugin do nothing.   Options with prefix "file=" set the output file
    where the final function order must be stored.  Option "segment=none"
    does not place the cold code in a separate ELF segment.  */
-void
+static int
 process_option (const char *name)
 {
   const char *option_group = "group=";
@@ -124,13 +141,13 @@ process_option (const char *name)
 	no_op = 1;
       else
 	no_op = 0;
-      return;
+      return 0;
     }
   /* Check if option is "file=" */
   else if (strncmp (name, option_file, strlen (option_file)) == 0)
     {
       get_filename (name + strlen (option_file));
-      return;
+      return 0;
     }
   /* Check if options is "split_segment=[yes|no]"  */
   else if (strncmp (name, option_segment, strlen (option_segment)) == 0)
@@ -139,19 +156,18 @@ process_option (const char *name)
       if (strcmp (option_val, "no") == 0)
 	{
 	  split_segment = 0;
-	  return;
+	  return 0;
 	}
       else if (strcmp (option_val, "yes") == 0)
 	{
 	  split_segment = 1;
-	  return;
+	  return 0;
 	}
     }
 
-  /* Unknown option, set no_op to 1.  */
-  no_op = 1;
-  fprintf (stderr, "Unknown option to function reordering plugin :%s\n",
-	   name);
+  /* Flag error on unknown plugin option.  */
+  MSG_ERROR ("Unknown option to function reordering plugin :%s\n", name);
+  return 1;
 }
 
 /* Plugin entry point.  */
@@ -168,9 +184,13 @@ onload (struct ld_plugin_tv *tv)
         case LDPT_GOLD_VERSION:
           break;
         case LDPT_OPTION:
-	  process_option (entry->tv_u.tv_string);
+	  if (process_option (entry->tv_u.tv_string) == 1)
+	    return LDPS_ERR;
 	  /* If no_op is set, do not do anything else.  */
 	  if (no_op) return LDPS_OK;
+	  break;
+	case LDPT_MESSAGE:
+	  message = *entry->tv_u.tv_message;
 	  break;
         case LDPT_REGISTER_CLAIM_FILE_HOOK:
 	  register_claim_file_hook = *entry->tv_u.tv_register_claim_file;
@@ -211,19 +231,26 @@ onload (struct ld_plugin_tv *tv)
 
   assert (!no_op);
 
-  if (register_all_symbols_read_hook != NULL
-      && register_claim_file_hook != NULL
-      && get_input_section_count != NULL
-      && get_input_section_type != NULL
-      && get_input_section_name != NULL
-      && get_input_section_contents != NULL
-      && update_section_order != NULL
-      && allow_section_ordering != NULL
-      && allow_unique_segment_for_sections != NULL
-      && unique_segment_for_sections != NULL)
-    is_api_exist = 1;
-  else
-    return LDPS_OK;
+  /* If the API for code reordering is missing, abort!  */
+  if (register_all_symbols_read_hook == NULL
+      || register_claim_file_hook == NULL
+      || get_input_section_count == NULL
+      || get_input_section_type == NULL
+      || get_input_section_name == NULL
+      || get_input_section_contents == NULL
+      || update_section_order == NULL
+      || allow_section_ordering == NULL)
+    {
+      MSG_FATAL ("API for code reordering not available\n");
+    }
+
+  /* If segment splitting is desired and the API is missing, flag error.  */
+  if (split_segment == 1
+      && (allow_unique_segment_for_sections == NULL
+          || unique_segment_for_sections == NULL))
+    {
+      MSG_FATAL ("Segment splitting API not available for split_segment\n");
+    }
 
   /* Register handlers.  */
   assert ((*register_all_symbols_read_hook) (all_symbols_read_hook)
@@ -245,9 +272,6 @@ claim_file_hook (const struct ld_plugin_input_file *file, int *claimed)
   unsigned int shndx;
 
   (void) claimed;
-
-  /* Plugin APIs are supported if this is called.  */
-  assert (is_api_exist);
 
   if (is_ordering_specified == 0)
     {
@@ -314,9 +338,6 @@ all_symbols_read_hook (void)
   void **handles;
   unsigned int *shndx;
   FILE *fp = NULL;
-
-  /* Plugin APIs are supported if this is called.  */
-  assert (is_api_exist);
 
   if (is_callgraph_empty ())
     return LDPS_OK;
