@@ -35,6 +35,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcov-io.h"
 #include "timevar.h"
 
+unsigned ggc_total_memory; /* in KB */
+
 struct GTY(()) saved_module_scope
 {
   VEC(tree, gc) *module_decls;

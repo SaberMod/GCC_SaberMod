@@ -100,6 +100,7 @@ extern gcov_unsigned_t __gcov_lipo_random_seed;
 extern gcov_unsigned_t __gcov_lipo_random_group_size;
 extern gcov_unsigned_t __gcov_lipo_propagate_scale;
 extern gcov_unsigned_t __gcov_lipo_dump_cgraph;
+extern gcov_unsigned_t __gcov_lipo_max_mem;
 
 #if defined(inhibit_libc)
 __gcov_build_callgraph (void) {}
@@ -234,6 +235,7 @@ init_dyn_call_graph (void)
 {
   unsigned num_modules = 0;
   struct gcov_info *gi_ptr;
+  int do_dump = (do_cgraph_dump () != 0);
 
   the_dyn_call_graph.call_graph_nodes = 0;
   the_dyn_call_graph.modules = 0;
@@ -259,10 +261,19 @@ init_dyn_call_graph (void)
 
   gi_ptr = __gcov_list;
 
+  if (do_dump)
+    fprintf (stderr, "Group mem limit: %u KB \n",
+             __gcov_lipo_max_mem);
+
   for (; gi_ptr; gi_ptr = gi_ptr->next)
     {
       unsigned j, mod_id, max_func_ident = 0;
       struct dyn_cgraph_node *node;
+
+      if (do_dump)
+        fprintf (stderr, "Module %s uses %u KB memory in parsing\n",
+	         gi_ptr->mod_info->source_filename,
+		 gi_ptr->mod_info->ggc_memory);
 
       mod_id = get_module_idx (gi_ptr);
 

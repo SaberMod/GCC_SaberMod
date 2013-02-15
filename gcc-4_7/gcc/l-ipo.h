@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_L_IPO_H
 #define GCC_L_IPO_H
 
+/* Used in profile-gen  */
+extern unsigned ggc_total_memory; /* in KB */
+
 /* Primary module's id (non-zero). If no module-info was read in, this will
    be zero.  */
 extern unsigned primary_module_id;
