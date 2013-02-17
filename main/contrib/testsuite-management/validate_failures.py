@@ -66,6 +66,7 @@ import sys
 
 # Handled test results.
 _VALID_TEST_RESULTS = [ 'FAIL', 'UNRESOLVED', 'XPASS', 'ERROR' ]
+_VALID_TEST_RESULTS_REX = re.compile("%s" % "|".join(_VALID_TEST_RESULTS))
 
 # Subdirectory of srcdir in which to find the manifest file.
 _MANIFEST_SUBDIR = 'contrib/testsuite-management'
@@ -213,11 +214,7 @@ def IsInterestingResult(line):
   if '|' in line:
     (_, line) = line.split('|', 1)
     line = line.strip()
-  # We could use any() here, but we need compatibility with Python 2.4.
-  for result in _VALID_TEST_RESULTS:
-    if line.startswith(result):
-      return True
-  return False
+  return bool(_VALID_TEST_RESULTS_REX.match(line))
 
 
 def IsInclude(line):
@@ -364,7 +361,7 @@ def GetManifestPath(srcdir, target, user_provided_must_exist):
       Error('Manifest does not exist: %s' % manifest_path)
     return manifest_path
   else:
-    assert srdir and target
+    assert srcdir and target
     return _MANIFEST_PATH_PATTERN % (srcdir, _MANIFEST_SUBDIR, target)
 
 
