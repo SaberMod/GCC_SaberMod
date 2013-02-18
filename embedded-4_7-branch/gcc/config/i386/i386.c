@@ -1,6 +1,6 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012
+   Copyright (C) 1988, 1992, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -9558,6 +9558,8 @@ get_scratch_register_on_entry (struct scratch_reg *sr)
       tree decl = current_function_decl, fntype = TREE_TYPE (decl);
       bool fastcall_p
 	= lookup_attribute ("fastcall", TYPE_ATTRIBUTES (fntype)) != NULL_TREE;
+      bool thiscall_p
+	= lookup_attribute ("thiscall", TYPE_ATTRIBUTES (fntype)) != NULL_TREE;
       bool static_chain_p = DECL_STATIC_CHAIN (decl);
       int regparm = ix86_function_regparm (fntype, decl);
       int drap_regno
@@ -9568,10 +9570,15 @@ get_scratch_register_on_entry (struct scratch_reg *sr)
       if ((regparm < 1 || (fastcall_p && !static_chain_p))
 	  && drap_regno != AX_REG)
 	regno = AX_REG;
-      else if (regparm < 2 && drap_regno != DX_REG)
+      /* 'thiscall' sets regparm to 1, uses ecx for arguments and edx
+	  for the static chain register.  */
+      else if (thiscall_p && !static_chain_p && drap_regno != AX_REG)
+        regno = AX_REG;
+      else if (regparm < 2 && !thiscall_p && drap_regno != DX_REG)
 	regno = DX_REG;
       /* ecx is the static chain register.  */
-      else if (regparm < 3 && !fastcall_p && !static_chain_p
+      else if (regparm < 3 && !fastcall_p && !thiscall_p
+	       && !static_chain_p
 	       && drap_regno != CX_REG)
 	regno = CX_REG;
       else if (ix86_save_reg (BX_REG, true))
@@ -9604,6 +9611,7 @@ release_scratch_register_on_entry (struct scratch_reg *sr)
 {
   if (sr->saved)
     {
+      struct machine_function *m = cfun->machine;
       rtx x, insn = emit_insn (gen_pop (sr->reg));
 
       /* The RTX_FRAME_RELATED_P mechanism doesn't know about pop.  */
@@ -9611,6 +9619,7 @@ release_scratch_register_on_entry (struct scratch_reg *sr)
       x = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (UNITS_PER_WORD));
       x = gen_rtx_SET (VOIDmode, stack_pointer_rtx, x);
       add_reg_note (insn, REG_FRAME_RELATED_EXPR, x);
+      m->fs.sp_offset -= UNITS_PER_WORD;
     }
 }
 
@@ -10339,7 +10348,7 @@ ix86_expand_prologue (void)
       rtx eax = gen_rtx_REG (Pmode, AX_REG);
       rtx r10 = NULL;
       rtx (*adjust_stack_insn)(rtx, rtx, rtx);
-
+      const bool sp_is_cfa_reg = (m->fs.cfa_reg == stack_pointer_rtx);
       bool eax_live = false;
       bool r10_live = false;
 
@@ -10348,16 +10357,31 @@ ix86_expand_prologue (void)
       if (!TARGET_64BIT_MS_ABI)
         eax_live = ix86_eax_live_at_start_p ();
 
+      /* Note that SEH directives need to continue tracking the stack
+	 pointer even after the frame pointer has been set up.  */
       if (eax_live)
 	{
-	  emit_insn (gen_push (eax));
+	  insn = emit_insn (gen_push (eax));
 	  allocate -= UNITS_PER_WORD;
+	  if (sp_is_cfa_reg || TARGET_SEH)
+	    {
+	      if (sp_is_cfa_reg)
+		m->fs.cfa_offset += UNITS_PER_WORD;
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	    }
 	}
+
       if (r10_live)
 	{
 	  r10 = gen_rtx_REG (Pmode, R10_REG);
-	  emit_insn (gen_push (r10));
+	  insn = emit_insn (gen_push (r10));
 	  allocate -= UNITS_PER_WORD;
+	  if (sp_is_cfa_reg || TARGET_SEH)
+	    {
+	      if (sp_is_cfa_reg)
+		m->fs.cfa_offset += UNITS_PER_WORD;
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	    }
 	}
 
       emit_move_insn (eax, GEN_INT (allocate));
@@ -10371,13 +10395,10 @@ ix86_expand_prologue (void)
       insn = emit_insn (adjust_stack_insn (stack_pointer_rtx,
 					   stack_pointer_rtx, eax));
 
-      /* Note that SEH directives need to continue tracking the stack
-	 pointer even after the frame pointer has been set up.  */
-      if (m->fs.cfa_reg == stack_pointer_rtx || TARGET_SEH)
+      if (sp_is_cfa_reg || TARGET_SEH)
 	{
-	  if (m->fs.cfa_reg == stack_pointer_rtx)
+	  if (sp_is_cfa_reg)
 	    m->fs.cfa_offset += allocate;
-
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	  add_reg_note (insn, REG_FRAME_RELATED_EXPR,
 			gen_rtx_SET (VOIDmode, stack_pointer_rtx,
@@ -11069,10 +11090,13 @@ split_stack_prologue_scratch_regno (void)
     return R11_REG;
   else
     {
-      bool is_fastcall;
+      bool is_fastcall, is_thiscall;
       int regparm;
 
       is_fastcall = (lookup_attribute ("fastcall",
+				       TYPE_ATTRIBUTES (TREE_TYPE (cfun->decl)))
+		     != NULL);
+      is_thiscall = (lookup_attribute ("thiscall",
 				       TYPE_ATTRIBUTES (TREE_TYPE (cfun->decl)))
 		     != NULL);
       regparm = ix86_function_regparm (TREE_TYPE (cfun->decl), cfun->decl);
@@ -11085,6 +11109,12 @@ split_stack_prologue_scratch_regno (void)
 		     "nested function");
 	      return INVALID_REGNUM;
 	    }
+	  return AX_REG;
+	}
+      else if (is_thiscall)
+        {
+	  if (!DECL_STATIC_CHAIN (cfun->decl))
+	    return DX_REG;
 	  return AX_REG;
 	}
       else if (regparm < 3)
@@ -11400,10 +11430,6 @@ ix86_address_subreg_operand (rtx op)
   /* Don't allow SUBREGs that span more than a word.  It can lead to spill
      failures when the register is one word out of a two word structure.  */
   if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-    return false;
-
-  /* simplify_subreg does not handle stack pointer.  */
-  if (REGNO (op) == STACK_POINTER_REGNUM)
     return false;
 
   /* Allow only SUBREGs of non-eliminable hard registers.  */
@@ -12320,7 +12346,6 @@ legitimize_pic_address (rtx orig, rtx reg)
 {
   rtx addr = orig;
   rtx new_rtx = orig;
-  rtx base;
 
 #if TARGET_MACHO
   if (TARGET_MACHO && !TARGET_64BIT)
@@ -12525,20 +12550,33 @@ legitimize_pic_address (rtx orig, rtx reg)
 	    }
 	  else
 	    {
-	      base = legitimize_pic_address (XEXP (addr, 0), reg);
-	      new_rtx  = legitimize_pic_address (XEXP (addr, 1),
-						 base == reg ? NULL_RTX : reg);
+	      rtx base = legitimize_pic_address (op0, reg);
+	      enum machine_mode mode = GET_MODE (base);
+	      new_rtx
+	        = legitimize_pic_address (op1, base == reg ? NULL_RTX : reg);
 
 	      if (CONST_INT_P (new_rtx))
-		new_rtx = plus_constant (base, INTVAL (new_rtx));
+		{
+		  if (INTVAL (new_rtx) < -16*1024*1024
+		      || INTVAL (new_rtx) >= 16*1024*1024)
+		    {
+		      if (!x86_64_immediate_operand (new_rtx, mode))
+			new_rtx = force_reg (mode, new_rtx);
+		      new_rtx
+		        = gen_rtx_PLUS (mode, force_reg (mode, base), new_rtx);
+		    }
+		  else
+		    new_rtx = plus_constant (base, INTVAL (new_rtx));
+		}
 	      else
 		{
-		  if (GET_CODE (new_rtx) == PLUS && CONSTANT_P (XEXP (new_rtx, 1)))
+		  if (GET_CODE (new_rtx) == PLUS
+		      && CONSTANT_P (XEXP (new_rtx, 1)))
 		    {
-		      base = gen_rtx_PLUS (Pmode, base, XEXP (new_rtx, 0));
+		      base = gen_rtx_PLUS (mode, base, XEXP (new_rtx, 0));
 		      new_rtx = XEXP (new_rtx, 1);
 		    }
-		  new_rtx = gen_rtx_PLUS (Pmode, base, new_rtx);
+		  new_rtx = gen_rtx_PLUS (mode, base, new_rtx);
 		}
 	    }
 	}
@@ -12637,6 +12675,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 	  tp = get_thread_pointer (true);
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, tp, dest));
 
+	  if (GET_MODE (x) != Pmode)
+	    x = gen_rtx_ZERO_EXTEND (Pmode, x);
+
 	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
       else
@@ -12645,12 +12686,16 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 
 	  if (TARGET_64BIT)
 	    {
-	      rtx rax = gen_rtx_REG (Pmode, AX_REG), insns;
+	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
+	      rtx insns;
 
 	      start_sequence ();
 	      emit_call_insn (gen_tls_global_dynamic_64 (rax, x, caddr));
 	      insns = get_insns ();
 	      end_sequence ();
+
+	      if (GET_MODE (x) != Pmode)
+		x = gen_rtx_ZERO_EXTEND (Pmode, x);
 
 	      RTL_CONST_CALL_P (insns) = 1;
 	      emit_libcall_block (insns, dest, rax, x);
@@ -12693,7 +12738,8 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 
 	  if (TARGET_64BIT)
 	    {
-	      rtx rax = gen_rtx_REG (Pmode, AX_REG), insns, eqv;
+	      rtx rax = gen_rtx_REG (Pmode, AX_REG);
+	      rtx insns, eqv;
 
 	      start_sequence ();
 	      emit_call_insn (gen_tls_local_dynamic_base_64 (rax, caddr));
@@ -12720,6 +12766,9 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
       if (TARGET_GNU2_TLS)
 	{
 	  dest = force_reg (Pmode, gen_rtx_PLUS (Pmode, dest, tp));
+
+	  if (GET_MODE (x) != Pmode)
+	    x = gen_rtx_ZERO_EXTEND (Pmode, x);
 
 	  set_unique_reg_note (get_last_insn (), REG_EQUAL, x);
 	}
@@ -13680,14 +13729,8 @@ void
 print_reg (rtx x, int code, FILE *file)
 {
   const char *reg;
+  unsigned int regno;
   bool duplicated = code == 'd' && TARGET_AVX;
-
-  gcc_assert (x == pc_rtx
-	      || (REGNO (x) != ARG_POINTER_REGNUM
-		  && REGNO (x) != FRAME_POINTER_REGNUM
-		  && REGNO (x) != FLAGS_REG
-		  && REGNO (x) != FPSR_REG
-		  && REGNO (x) != FPCR_REG));
 
   if (ASSEMBLER_DIALECT == ASM_ATT)
     putc ('%', file);
@@ -13698,6 +13741,13 @@ print_reg (rtx x, int code, FILE *file)
       fputs ("rip", file);
       return;
     }
+
+  regno = true_regnum (x);
+  gcc_assert (regno != ARG_POINTER_REGNUM
+	      && regno != FRAME_POINTER_REGNUM
+	      && regno != FLAGS_REG
+	      && regno != FPSR_REG
+	      && regno != FPCR_REG);
 
   if (code == 'w' || MMX_REG_P (x))
     code = 2;
@@ -13720,11 +13770,11 @@ print_reg (rtx x, int code, FILE *file)
 
   /* Irritatingly, AMD extended registers use different naming convention
      from the normal registers: "r%d[bwd]"  */
-  if (REX_INT_REG_P (x))
+  if (REX_INT_REGNO_P (regno))
     {
       gcc_assert (TARGET_64BIT);
       putc ('r', file);
-      fprint_ul (file, REGNO (x) - FIRST_REX_INT_REG + 8);
+      fprint_ul (file, regno - FIRST_REX_INT_REG + 8);
       switch (code)
 	{
 	  case 0:
@@ -13768,24 +13818,24 @@ print_reg (rtx x, int code, FILE *file)
     case 16:
     case 2:
     normal:
-      reg = hi_reg_name[REGNO (x)];
+      reg = hi_reg_name[regno];
       break;
     case 1:
-      if (REGNO (x) >= ARRAY_SIZE (qi_reg_name))
+      if (regno >= ARRAY_SIZE (qi_reg_name))
 	goto normal;
-      reg = qi_reg_name[REGNO (x)];
+      reg = qi_reg_name[regno];
       break;
     case 0:
-      if (REGNO (x) >= ARRAY_SIZE (qi_high_reg_name))
+      if (regno >= ARRAY_SIZE (qi_high_reg_name))
 	goto normal;
-      reg = qi_high_reg_name[REGNO (x)];
+      reg = qi_high_reg_name[regno];
       break;
     case 32:
       if (SSE_REG_P (x))
 	{
 	  gcc_assert (!duplicated);
 	  putc ('y', file);
-	  fputs (hi_reg_name[REGNO (x)] + 1, file);
+	  fputs (hi_reg_name[regno] + 1, file);
 	  return;
 	}
       break;
@@ -14458,7 +14508,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	putc ('$', file);
       /* Sign extend 32bit SFmode immediate to 8 bytes.  */
       if (code == 'q')
-	fprintf (file, "0x%08llx", (unsigned long long) (int) l);
+	fprintf (file, "0x%08" HOST_LONG_LONG_FORMAT "x",
+		 (unsigned long long) (int) l);
       else
 	fprintf (file, "0x%08x", (unsigned int) l);
     }
@@ -14560,22 +14611,6 @@ ix86_print_operand_address (FILE *file, rtx addr)
 
   gcc_assert (ok);
 
-  if (parts.base && GET_CODE (parts.base) == SUBREG)
-    {
-      rtx tmp = SUBREG_REG (parts.base);
-      parts.base = simplify_subreg (GET_MODE (parts.base),
-				    tmp, GET_MODE (tmp), 0);
-      gcc_assert (parts.base != NULL_RTX);
-    }
-
-  if (parts.index && GET_CODE (parts.index) == SUBREG)
-    {
-      rtx tmp = SUBREG_REG (parts.index);
-      parts.index = simplify_subreg (GET_MODE (parts.index),
-				     tmp, GET_MODE (tmp), 0);
-      gcc_assert (parts.index != NULL_RTX);
-    }
-
   base = parts.base;
   index = parts.index;
   disp = parts.disp;
@@ -14647,7 +14682,30 @@ ix86_print_operand_address (FILE *file, rtx addr)
 	    }
 #endif
 	  gcc_assert (!code);
-	  code = 'l';
+	  code = 'k';
+	}
+      else if (code == 0
+	       && TARGET_X32
+	       && disp
+	       && CONST_INT_P (disp)
+	       && INTVAL (disp) < -16*1024*1024)
+	{
+	  /* X32 runs in 64-bit mode, where displacement, DISP, in
+	     address DISP(%r64), is encoded as 32-bit immediate sign-
+	     extended from 32-bit to 64-bit.  For -0x40000300(%r64),
+	     address is %r64 + 0xffffffffbffffd00.  When %r64 <
+	     0x40000300, like 0x37ffe064, address is 0xfffffffff7ffdd64,
+	     which is invalid for x32.  The correct address is %r64
+	     - 0x40000300 == 0xf7ffdd64.  To properly encode
+	     -0x40000300(%r64) for x32, we zero-extend negative
+	     displacement by forcing addr32 prefix which truncates
+	     0xfffffffff7ffdd64 to 0xf7ffdd64.  In theory, we should
+	     zero-extend all negative displacements, including -1(%rsp).
+	     However, for small negative displacements, sign-extension
+	     won't cause overflow.  We only zero-extend negative
+	     displacements if they < -16*1024*1024, which is also used
+	     to check legitimate address displacements for PIC.  */
+	  code = 'k';
 	}
 
       if (ASSEMBLER_DIALECT == ASM_ATT)
@@ -15548,8 +15606,7 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 				     op0, 1, OPTAB_DIRECT);
 	  if (tmp == op0)
 	    return;
-	  if (GET_MODE (tmp) != mode)
-	    op1 = convert_to_mode (mode, tmp, 1);
+	  op1 = convert_to_mode (mode, tmp, 1);
 	}
     }
 
@@ -23325,7 +23382,6 @@ ix86_init_machine_status (void)
 
   f = ggc_alloc_cleared_machine_function ();
   f->use_fast_prologue_epilogue_nregs = -1;
-  f->tls_descriptor_call_expanded_p = 0;
   f->call_abi = ix86_abi;
 
   return f;
@@ -23344,9 +23400,6 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
 
   gcc_assert (n < MAX_386_STACK_LOCALS);
 
-  /* Virtual slot is valid only before vregs are instantiated.  */
-  gcc_assert ((n == SLOT_VIRTUAL) == !virtuals_instantiated);
-
   for (s = ix86_stack_locals; s; s = s->next)
     if (s->mode == mode && s->n == n)
       return validize_mem (copy_rtx (s->rtl));
@@ -23359,6 +23412,16 @@ assign_386_stack_local (enum machine_mode mode, enum ix86_stack_slot n)
   s->next = ix86_stack_locals;
   ix86_stack_locals = s;
   return validize_mem (s->rtl);
+}
+
+static void
+ix86_instantiate_decls (void)
+{
+  struct stack_local_entry *s;
+
+  for (s = ix86_stack_locals; s; s = s->next)
+    if (s->rtl != NULL_RTX)
+      instantiate_decl_rtl (s->rtl);
 }
 
 /* Calculate the length of the memory address in the instruction encoding.
@@ -24412,12 +24475,19 @@ ix86_static_chain (const_tree fndecl, bool incoming_p)
 
       fntype = TREE_TYPE (fndecl);
       ccvt = ix86_get_callcvt (fntype);
-      if ((ccvt & (IX86_CALLCVT_FASTCALL | IX86_CALLCVT_THISCALL)) != 0)
+      if ((ccvt & IX86_CALLCVT_FASTCALL) != 0)
 	{
 	  /* Fastcall functions use ecx/edx for arguments, which leaves
 	     us with EAX for the static chain.
 	     Thiscall functions use ecx for arguments, which also
 	     leaves us with EAX for the static chain.  */
+	  regno = AX_REG;
+	}
+      else if ((ccvt & IX86_CALLCVT_THISCALL) != 0)
+	{
+	  /* Thiscall functions use ecx for arguments, which leaves
+	     us with EAX and EDX for the static chain.
+	     We are using for abi-compatibility EAX.  */
 	  regno = AX_REG;
 	}
       else if (ix86_function_regparm (fntype, fndecl) == 3)
@@ -29408,13 +29478,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 
     case IX86_BUILTIN_LDMXCSR:
       op0 = expand_normal (CALL_EXPR_ARG (exp, 0));
-      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_move_insn (target, op0);
       emit_insn (gen_sse_ldmxcsr (target));
       return 0;
 
     case IX86_BUILTIN_STMXCSR:
-      target = assign_386_stack_local (SImode, SLOT_VIRTUAL);
+      target = assign_386_stack_local (SImode, SLOT_TEMP);
       emit_insn (gen_sse_stmxcsr (target));
       return copy_to_mode_reg (SImode, target);
 
@@ -32209,8 +32279,10 @@ x86_output_mi_thunk (FILE *file,
   else
     {
       unsigned int ccvt = ix86_get_callcvt (TREE_TYPE (function));
-      if ((ccvt & (IX86_CALLCVT_FASTCALL | IX86_CALLCVT_THISCALL)) != 0)
+      if ((ccvt & IX86_CALLCVT_FASTCALL) != 0)
 	tmp_regno = AX_REG;
+      else if ((ccvt & IX86_CALLCVT_THISCALL) != 0)
+	tmp_regno = DX_REG;
       else
 	tmp_regno = CX_REG;
     }
@@ -38912,6 +38984,9 @@ ix86_autovectorize_vector_sizes (void)
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE ix86_promote_function_mode
+
+#undef TARGET_INSTANTIATE_DECLS
+#define TARGET_INSTANTIATE_DECLS ix86_instantiate_decls
 
 #undef TARGET_SECONDARY_RELOAD
 #define TARGET_SECONDARY_RELOAD ix86_secondary_reload

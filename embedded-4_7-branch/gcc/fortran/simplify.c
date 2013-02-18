@@ -3839,7 +3839,7 @@ gfc_simplify_matmul (gfc_expr *matrix_a, gfc_expr *matrix_b)
   if (matrix_a->rank == 1 && matrix_b->rank == 2)
     {
       result_rows = 1;
-      result_columns = mpz_get_si (matrix_b->shape[0]);
+      result_columns = mpz_get_si (matrix_b->shape[1]);
       stride_a = 1;
       stride_b = mpz_get_si (matrix_b->shape[0]);
 
@@ -3849,7 +3849,7 @@ gfc_simplify_matmul (gfc_expr *matrix_a, gfc_expr *matrix_b)
     }
   else if (matrix_a->rank == 2 && matrix_b->rank == 1)
     {
-      result_rows = mpz_get_si (matrix_b->shape[0]);
+      result_rows = mpz_get_si (matrix_a->shape[0]);
       result_columns = 1;
       stride_a = mpz_get_si (matrix_a->shape[0]);
       stride_b = 1;
@@ -3862,7 +3862,7 @@ gfc_simplify_matmul (gfc_expr *matrix_a, gfc_expr *matrix_b)
     {
       result_rows = mpz_get_si (matrix_a->shape[0]);
       result_columns = mpz_get_si (matrix_b->shape[1]);
-      stride_a = mpz_get_si (matrix_a->shape[1]);
+      stride_a = mpz_get_si (matrix_a->shape[0]);
       stride_b = mpz_get_si (matrix_b->shape[0]);
 
       result->rank = 2;
@@ -5573,7 +5573,9 @@ gfc_simplify_size (gfc_expr *array, gfc_expr *dim, gfc_expr *kind)
       /* Otherwise, we build a new SIZE call.  This is hopefully at least
 	 simpler than the original one.  */
       if (!simplified)
-	simplified = gfc_build_intrinsic_call ("size", array->where, 3,
+	simplified = gfc_build_intrinsic_call (gfc_current_ns,
+					       GFC_ISYM_SIZE, "size",
+					       array->where, 3,
 					       gfc_copy_expr (replacement),
 					       gfc_copy_expr (dim),
 					       gfc_copy_expr (kind));

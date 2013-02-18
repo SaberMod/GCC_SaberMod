@@ -3151,8 +3151,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   if (TREE_CODE (atype) == ARRAY_TYPE && TYPE_DOMAIN (atype))
     maxindex = array_type_nelts (atype);
 
-  if (maxindex == NULL_TREE || maxindex == error_mark_node
-      || integer_all_onesp (maxindex))
+  if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
   if (explicit_value_init_p)
@@ -3502,7 +3501,9 @@ build_vec_init (tree base, tree maxindex, tree init,
       if (TREE_CODE (type) == ARRAY_TYPE)
 	m = cp_build_binary_op (input_location,
 				MULT_EXPR, m,
-				array_type_nelts_total (type),
+				/* Force signed arithmetic.  */
+				convert (TREE_TYPE (m),
+					 array_type_nelts_total (type)),
 				complain);
 
       finish_cleanup_try_block (try_block);

@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "tree.h"
 #include "tree-flow.h"
+#include "output.h"
 #include "diagnostic-core.h"
 #include "tm.h"
 #include "cgraph.h"
@@ -1057,8 +1058,7 @@ lto_resolution_read (splay_tree file_ids, FILE *resolution, lto_file *file)
 	{
 	  nd = lto_splay_tree_lookup (file_ids, id);
 	  if (nd == NULL)
-	    internal_error ("resolution sub id " HOST_WIDE_INT_PRINT_HEX_PURE
-			    " not in object file", id);
+	    internal_error ("resolution sub id %wx not in object file", id);
 	}
 
       file_data = (struct lto_file_decl_data *)nd->value;
