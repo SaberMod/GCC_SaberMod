@@ -1459,14 +1459,21 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 /* Returns true iff two spec_entry nodes are equivalent.  Only compares the
    TMPL and ARGS members, ignores SPEC.  */
 
+int comparing_specializations;
+
 static int
 eq_specializations (const void *p1, const void *p2)
 {
   const spec_entry *e1 = (const spec_entry *)p1;
   const spec_entry *e2 = (const spec_entry *)p2;
+  int equal;
 
-  return (e1->tmpl == e2->tmpl
-	  && comp_template_args (e1->args, e2->args));
+  ++comparing_specializations;
+  equal = (e1->tmpl == e2->tmpl
+	   && comp_template_args (e1->args, e2->args));
+  --comparing_specializations;
+
+  return equal;
 }
 
 /* Returns a hash for a template TMPL and template arguments ARGS.  */
@@ -14109,9 +14116,11 @@ tsubst_copy_and_build (tree t,
 	complete_type (type);
 
 	/* The capture list refers to closure members, so this needs to
-	   wait until after we finish instantiating the type.  */
+	   wait until after we finish instantiating the type.  Also keep
+	   any captures that may have been added during instantiation.  */
 	LAMBDA_EXPR_CAPTURE_LIST (r)
-	  = RECUR (LAMBDA_EXPR_CAPTURE_LIST (t));
+	  = chainon (RECUR (LAMBDA_EXPR_CAPTURE_LIST (t)),
+		     LAMBDA_EXPR_CAPTURE_LIST (r));
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
 
 	return build_lambda_object (r);

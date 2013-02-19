@@ -1,3 +1,48 @@
+2013-02-13  David S. Miller  <davem@davemloft.net>
+
+	* expmed.c (expand_shift_1): Only strip scalar integer subregs.
+
+2013-02-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-02-11  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/56275
+	* simplify-rtx.c (avoid_constant_pool_reference): Check that
+	offset is non-negative and less than cmode size before
+	calling simplify_subreg.
+
+2013-02-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-02-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (FMAMODEM): New mode iterator.
+	(fma<mode>4, fms<mode>4, fnma<mode>4, fnms<mode>4): Use FMAMODEM
+	mode iterator. Do not use TARGET_SSE_MATH in insn constraint.
+
+	2013-02-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/gnu-user.h (TARGET_CAN_SPLIT_STACK): Define only
+	when HAVE_GAS_CFI_PERSONALITY_DIRECTIVE is set.
+	* config/i386/gnu-user64.h (TARGET_CAN_SPLIT_STACK): Ditto.
+
+2013-02-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2013-02-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/56043
+	* config/rs6000/rs6000.c (rs6000_builtin_vectorized_libmass):
+	If there is no implicit builtin declaration, just return NULL.
+
+2013-02-08  David Edelsohn  <dje.gcc@gmail.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Clear
+	MASK_VSX from set_masks if OS_MISSING_ALTIVEC.
+
 2013-02-07  David S. Miller  <davem@davemloft.net>
 
 	* dwarf2out.c (based_loc_descr): Perform leaf register remapping
@@ -68,7 +113,7 @@
 	value-range for __builtin_constant_p of function parameters.
 
 	2013-01-08  Jakub Jelinek  <jakub@redhat.com>
- 
+
 	PR middle-end/55890
 	* tree-ssa-ccp.c (evaluate_stmt): Use gimple_call_builtin_class_p.
 

@@ -1,3 +1,40 @@
+2013-02-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54276
+	* semantics.c (finish_id_expression): Also return the identifier
+	for an outer local static.
+
+	PR c++/52026
+	* semantics.c (finish_id_expression): In a template, return
+	the identifier for a constant variable.
+
+	PR c++/55710
+	* semantics.c (maybe_add_lambda_conv_op): Mark static thunk
+	TREE_USED.
+
+	PR c++/56135
+	* pt.c (tsubst_copy_and_build): Don't forget any new
+	captures that arose from use of dependent names.
+
+2013-02-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56291
+	* semantics.c (sort_constexpr_mem_initializers): Handle
+	vptr out of order.
+
+2013-02-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56268
+	* semantics.c (classtype_has_nothrow_assign_or_copy_p): Call
+	maybe_instantiate_noexcept.
+
+2013-02-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56247
+	* pt.c (eq_specializations): Set comparing_specializations.
+	* tree.c (cp_tree_equal): Check it.
+	* cp-tree.h: Declare it.
+
 2013-02-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/54122

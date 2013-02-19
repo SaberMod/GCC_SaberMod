@@ -2822,16 +2822,24 @@ baselink_for_fns (tree fns)
   return build_baselink (cl, cl, fns, /*optype=*/NULL_TREE);
 }
 
-/* Returns true iff DECL is an automatic variable from a function outside
+/* Returns true iff DECL is a variable from a function outside
    the current one.  */
+
+static bool
+outer_var_p (tree decl)
+{
+  return ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+	  && DECL_FUNCTION_SCOPE_P (decl)
+	  && DECL_CONTEXT (decl) != current_function_decl);
+}
+
+/* As above, but also checks that DECL is automatic.  */
 
 static bool
 outer_automatic_var_p (tree decl)
 {
-  return ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
-	  && DECL_FUNCTION_SCOPE_P (decl)
-	  && !TREE_STATIC (decl)
-	  && DECL_CONTEXT (decl) != current_function_decl);
+  return (outer_var_p (decl)
+	  && !TREE_STATIC (decl));
 }
 
 /* ID_EXPRESSION is a representation of parsed, but unprocessed,
@@ -2940,9 +2948,18 @@ finish_id_expression (tree id_expression,
 
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */
-      if (outer_automatic_var_p (decl)
+      if (!outer_var_p (decl)
 	  /* It's not a use (3.2) if we're in an unevaluated context.  */
-	  && !cp_unevaluated_operand)
+	  || cp_unevaluated_operand)
+	/* OK.  */;
+      else if (TREE_STATIC (decl))
+	{
+	  if (processing_template_decl)
+	    /* For a use of an outer static var, return the identifier so
+	       that we'll look it up again in the instantiation.  */
+	    return id_expression;
+	}
+      else
 	{
 	  tree context = DECL_CONTEXT (decl);
 	  tree containing_function = current_function_decl;
@@ -2961,7 +2978,14 @@ finish_id_expression (tree id_expression,
 
 	     FIXME update for final resolution of core issue 696.  */
 	  if (decl_constant_var_p (decl))
-	    return integral_constant_value (decl);
+	    {
+	      if (processing_template_decl)
+		/* In a template, the constant value may not be in a usable
+		   form, so look it up again at instantiation time.  */
+		return id_expression;
+	      else
+		return integral_constant_value (decl);
+	    }
 
 	  /* If we are in a lambda function, we can move out until we hit
 	     1. the context,
@@ -5351,6 +5375,7 @@ classtype_has_nothrow_assign_or_copy_p (tree type, bool assign_p)
       else if (copy_fn_p (fn) <= 0)
 	continue;
 
+      maybe_instantiate_noexcept (fn);
       if (!TYPE_NOTHROW_P (TREE_TYPE (fn)))
 	return false;
     }
@@ -5884,31 +5909,38 @@ check_constexpr_ctor_body (tree last, tree list)
 /* VEC is a vector of constructor elements built up for the base and member
    initializers of a constructor for TYPE.  They need to be in increasing
    offset order, which they might not be yet if TYPE has a primary base
-   which is not first in the base-clause.  */
+   which is not first in the base-clause or a vptr and at least one base
+   all of which are non-primary.  */
 
 static VEC(constructor_elt,gc) *
 sort_constexpr_mem_initializers (tree type, VEC(constructor_elt,gc) *vec)
 {
   tree pri = CLASSTYPE_PRIMARY_BINFO (type);
+  tree field_type;
   constructor_elt elt;
   int i;
 
-  if (pri == NULL_TREE
-      || pri == BINFO_BASE_BINFO (TYPE_BINFO (type), 0))
+  if (pri)
+    field_type = BINFO_TYPE (pri);
+  else if (TYPE_CONTAINS_VPTR_P (type))
+    field_type = vtbl_ptr_type_node;
+  else
     return vec;
 
-  /* Find the element for the primary base and move it to the beginning of
-     the vec.  */
-  pri = BINFO_TYPE (pri);
-  for (i = 1; ; ++i)
-    if (TREE_TYPE (VEC_index (constructor_elt, vec, i)->index) == pri)
+  /* Find the element for the primary base or vptr and move it to the
+     beginning of the vec.  */
+  for (i = 0; ; ++i)
+    if (TREE_TYPE (VEC_index (constructor_elt, vec, i)->index) == field_type)
       break;
 
-  elt = *VEC_index (constructor_elt, vec, i);
-  for (; i > 0; --i)
-    VEC_replace (constructor_elt, vec, i,
-		 VEC_index (constructor_elt, vec, i-1));
-  VEC_replace (constructor_elt, vec, 0, &elt);
+  if (i > 0)
+    {
+      elt = *VEC_index (constructor_elt, vec, i);
+      for (; i > 0; --i)
+	VEC_replace (constructor_elt, vec, i,
+		     VEC_index (constructor_elt, vec, i-1));
+      VEC_replace (constructor_elt, vec, 0, &elt);
+    }
   return vec;
 }
 
@@ -9402,6 +9434,8 @@ maybe_add_lambda_conv_op (tree type)
   body = begin_function_body ();
   compound_stmt = begin_compound_stmt (0);
 
+  /* decl_needed_p needs to see that it's used.  */
+  TREE_USED (statfn) = 1;
   finish_return_stmt (decay_conversion (statfn));
 
   finish_compound_stmt (compound_stmt);
