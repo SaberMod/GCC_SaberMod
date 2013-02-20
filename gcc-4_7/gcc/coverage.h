@@ -75,6 +75,8 @@ extern void coverage_dc_end_function (void);
    is present in the coverage internal data structures.  */
 extern bool coverage_function_present (unsigned fn_ident);
 
+extern void emit_function_name (void);
+
 /* True if there is PMU data present in this compilation. */
 extern bool pmu_data_present (void);
 

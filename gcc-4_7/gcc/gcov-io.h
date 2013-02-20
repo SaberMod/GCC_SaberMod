@@ -1005,8 +1005,8 @@ gcov_write_branch_mispredict_line (const gcov_pmu_brm_info_t
 GCOV_LINKAGE void
 gcov_write_string_table_entry (const gcov_pmu_st_entry_t
                                *st_entry) ATTRIBUTE_HIDDEN;
-GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
-    ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info,
+                                           int do_lipo) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;
