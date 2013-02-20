@@ -703,8 +703,8 @@ GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
 				      const struct gcov_summary *)
     ATTRIBUTE_HIDDEN;
 
-GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
-    ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info,
+                                           int do_lipo) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;

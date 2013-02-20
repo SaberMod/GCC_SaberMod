@@ -1251,15 +1251,19 @@ gcov_write_module_info (const struct gcov_info *mod_info,
     }
 }
 
-/* Write out MOD_INFO and its imported modules into gcda file.  */
+/* Write out MOD_INFO and its imported modules into gcda file. When
+   DO_LIPO is false, only emit the primary module.  */
 
 void
-gcov_write_module_infos (struct gcov_info *mod_info)
+gcov_write_module_infos (struct gcov_info *mod_info, int do_lipo)
 {
   unsigned imp_len = 0;
   const struct dyn_imp_mod **imp_mods;
 
   gcov_write_module_info (mod_info, 1);
+
+  if (!do_lipo)
+    return;
 
   imp_mods = gcov_get_sorted_import_module_array (mod_info, &imp_len);
   if (imp_mods)

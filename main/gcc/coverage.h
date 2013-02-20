@@ -69,6 +69,8 @@ extern void coverage_dc_end_function (void);
    is present in the coverage internal data structures.  */
 extern bool coverage_function_present (unsigned fn_ident);
 
+extern void emit_function_name (void);
+
 extern tree get_gcov_type (void);
 extern tree get_gcov_unsigned_t (void);
 

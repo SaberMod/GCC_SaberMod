@@ -585,12 +585,16 @@ gcov_write_import_file (char *gi_filename, struct gcov_info *gi_ptr)
     }
 }
 
+/* Compute and dump module groups for lipo compilation. When DO_LIPO is
+   false, simply emit the primary module.  */
+
 static void
-gcov_dump_module_info (void)
+gcov_dump_module_info (int do_lipo)
 {
   struct gcov_info *gi_ptr;
 
-  __gcov_compute_module_groups ();
+  if (do_lipo)
+    __gcov_compute_module_groups ();
 
   /* Now write out module group info.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
@@ -607,7 +611,7 @@ gcov_dump_module_info (void)
     gcov_rewrite ();
     gcov_seek (gi_ptr->eof_pos);
 
-    gcov_write_module_infos (gi_ptr);
+    gcov_write_module_infos (gi_ptr, do_lipo);
     /* Write the end marker  */
     gcov_write_unsigned (0);
     gcov_truncate ();
@@ -616,9 +620,11 @@ gcov_dump_module_info (void)
          gcov_error (error  < 0 ?  "profiling:%s:Overflow writing\n" :
                                    "profiling:%s:Error writing\n",
                                    gi_filename);
-    gcov_write_import_file (gi_filename, gi_ptr);
+    if (do_lipo)
+      gcov_write_import_file (gi_filename, gi_ptr);
   }
-  __gcov_finalize_dyn_callgraph ();
+  if (do_lipo)
+    __gcov_finalize_dyn_callgraph ();
 }
 
 /* Dump the coverage counts. We merge with existing counts when
@@ -632,20 +638,19 @@ void
 gcov_exit (void)
 {
   struct gcov_info *gi_ptr;
-  int dump_module_info;
+  int do_lipo;
 
   /* Prevent the counters from being dumped a second time on exit when the
      application already wrote out the profile using __gcov_dump().  */
   if (gcov_dump_complete)
     return;
 
-  dump_module_info = gcov_exit_init ();
+  do_lipo = gcov_exit_init ();
 
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
     gcov_dump_one_gcov (gi_ptr);
 
-  if (dump_module_info)
-    gcov_dump_module_info ();
+  gcov_dump_module_info (do_lipo);
 
   free (gi_filename);
 }
@@ -1186,9 +1191,9 @@ static int
 gcov_exit_init (void)
 {
   struct gcov_info *gi_ptr;
-  int dump_module_info = 0;
+  int do_lipo = 0;
 
-  dump_module_info = 0;
+  do_lipo = 0;
   gcov_prefix_strip = 0;
 
   memset (&all, 0, sizeof (all));
@@ -1201,14 +1206,14 @@ gcov_exit_init (void)
 
       /* The IS_PRIMARY field is overloaded to indicate if this module
          is FDO/LIPO.  */
-      dump_module_info |= gi_ptr->mod_info->is_primary;
+      do_lipo |= gi_ptr->mod_info->is_primary;
     }
 
   gcov_compute_histogram (&this_program);
 
   gcov_alloc_filename ();
 
-  return dump_module_info;
+  return do_lipo;
 }
 
 /* Dump one entry in the gcov_info list (for one object).  */
