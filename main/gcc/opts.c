@@ -1444,6 +1444,15 @@ common_handle_option (struct gcc_options *opts,
       opts->x_flag_stack_usage_info = value != -1;
       break;
 
+    case OPT_Wshadow:
+      warn_shadow_local = value;
+      warn_shadow_compatible_local = value;
+      break;
+
+    case OPT_Wshadow_local:
+      warn_shadow_compatible_local = value;
+      break;
+
     case OPT_Wstrict_aliasing:
       set_Wstrict_aliasing (opts, value);
       break;
