@@ -130,3 +130,4 @@ CXXLINK = $(LIBTOOL) --tag CXX --tag disable-shared $(LIBTOOLFLAGS) \
 
 # Google-specific pessimization
 functexcept.lo_no_omit_frame_pointer = -fno-omit-frame-pointer
+debug.lo_no_omit_frame_pointer = -fno-omit-frame-pointer
