@@ -824,6 +824,19 @@ gcov_seek (gcov_position_t base)
   gcov_var.start = _GCOV_ftell (gcov_var.file) >> 2;
 }
 
+/* Move to the end minus the given number of 4-byte words.  */
+
+GCOV_LINKAGE void
+gcov_seek_from_end (gcov_position_t offset)
+{
+  int offset_in_bytes = offset << 2;
+  gcc_assert (gcov_var.mode < 0);
+  if (gcov_var.offset)
+    gcov_write_block (gcov_var.offset);
+  _GCOV_fseek (gcov_var.file, -offset_in_bytes, SEEK_END);
+  gcov_var.start = _GCOV_ftell (gcov_var.file) >> 2;
+}
+
 /* Truncate the gcov file at the current position.  */
 
 GCOV_LINKAGE void
