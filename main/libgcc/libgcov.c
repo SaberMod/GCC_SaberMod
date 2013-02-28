@@ -183,9 +183,6 @@ static struct gcov_summary program;
 /* Record the position of summary info.  */
 static gcov_position_t summary_pos = 0;
 
-/* Record the postion of eof.  */
-static gcov_position_t eof_pos = 0;
-
 /* Number of chars in prefix to be stripped.  */
 static int gcov_prefix_strip = 0;
 
@@ -609,7 +606,7 @@ gcov_dump_module_info (int do_lipo)
 
     /* Overwrite the zero word at the of the file.  */
     gcov_rewrite ();
-    gcov_seek (gi_ptr->eof_pos);
+    gcov_seek_from_end (1);
 
     gcov_write_module_infos (gi_ptr, do_lipo);
     /* Write the end marker  */
@@ -861,8 +858,8 @@ gcov_merge_gcda_file (struct gcov_info *gi_ptr)
   const struct gcov_fn_info *gfi_ptr;
   int error = 0;
   gcov_unsigned_t tag, length, version, stamp;
+  gcov_position_t eof_pos = 0;
 
-  eof_pos = 0;
   summary_pos = 0;
   sum_buffer = 0;
   sum_tail = &sum_buffer;
@@ -1112,7 +1109,6 @@ gcov_write_gcda_file (struct gcov_info *gi_ptr)
   const struct gcov_ctr_info *ci_ptr;
   unsigned t_ix, f_ix, n_counts, length;
   int error = 0;
-  gcov_position_t eof_pos1 = 0;
 
   /* Write out the data.  */
   gcov_seek (0);
@@ -1166,14 +1162,9 @@ gcov_write_gcda_file (struct gcov_info *gi_ptr)
             gcov_write_counter (*c_ptr++);
           ci_ptr++;
         }
-      eof_pos1 = gcov_position ();
     }
-
-    eof_pos = eof_pos1;
     /* Write the end marker  */
     gcov_write_unsigned (0);
-
-    gi_ptr->eof_pos = eof_pos;
 
     if ((error = gcov_close ()))
       gcov_error (error  < 0 ?

@@ -280,6 +280,7 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #define gcov_write_tag_length __gcov_write_tag_length
 #define gcov_position __gcov_position
 #define gcov_seek __gcov_seek
+#define gcov_seek_from_end __gcov_seek_from_end
 #define gcov_rewrite __gcov_rewrite
 #define gcov_truncate __gcov_truncate
 #define gcov_is_error __gcov_is_error
@@ -561,7 +562,6 @@ struct gcov_info
 
   gcov_unsigned_t stamp;	/* uniquifying time stamp */
   const char *filename;		/* output file name */
-  gcov_unsigned_t eof_pos;      /* end position of profile data */
   gcov_merge_fn merge[GCOV_COUNTERS];  /* merge functions (null for
 					  unused) */
   
@@ -670,10 +670,10 @@ GCOV_LINKAGE struct gcov_var
    file either for reading or for writing. When reading a file you may
    use the gcov_read_* functions, gcov_sync, gcov_position, &
    gcov_error. When writing a file you may use the gcov_write
-   functions, gcov_seek & gcov_error. When a file is to be rewritten
-   you use the functions for reading, then gcov_rewrite then the
-   functions for writing.  Your file may become corrupted if you break
-   these invariants.  */
+   functions, gcov_seek, gcov_seek_from_end & gcov_error. When a file
+   is to be rewritten you use the functions for reading, then gcov_rewrite
+   then the functions for writing.  Your file may become corrupted if you
+   break these invariants.  */
 #if IN_LIBGCOV
 GCOV_LINKAGE int gcov_open (const char */*name*/) ATTRIBUTE_HIDDEN;
 #else
@@ -710,6 +710,8 @@ gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;
 static void gcov_rewrite (void);
 GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_seek_from_end (gcov_position_t /*offset*/)
+    ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_truncate (void) ATTRIBUTE_HIDDEN;
 #else
 /* Available outside libgcov */
