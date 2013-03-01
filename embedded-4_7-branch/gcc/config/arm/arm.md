@@ -746,7 +746,7 @@
 		      operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "2,4,4,4,4,4,2,4,4,4,4,16")
+  [(set_attr "length" "4,4,4,4,4,4,4,4,4,4,4,16")
    (set_attr "predicable" "yes")
    (set_attr "arch" "t2,*,*,*,t2,t2,t2,*,*,t2,t2,*")]
 )
@@ -1234,7 +1234,7 @@
                       INTVAL (operands[1]), operands[0], operands[2], 0);
   DONE;
   "
-  [(set_attr "length" "4,2,4,4,16")
+  [(set_attr "length" "4,4,4,4,16")
    (set_attr "predicable" "yes")
    (set_attr "arch" "*,t2,*,*,*")]
 )
@@ -1360,7 +1360,7 @@
 		 (match_operand:SI 2 "s_register_operand" "0,r")))]
   "TARGET_32BIT && arm_arch6"
   "mul%?\\t%0, %1, %2"
-  [(set_attr "length" "2,4")
+  [(set_attr "length" "4,4")
    (set_attr "insn" "mul")
    (set_attr "predicable" "yes")
    (set_attr "arch" "t2,*")]
@@ -2213,7 +2213,7 @@
 	               INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
   "
-  [(set_attr "length" "2,2,4,4,16")
+  [(set_attr "length" "4,4,4,4,16")
    (set_attr "predicable" "yes")
    (set_attr "arch" "t2,t2,*,*,*")]
 )
@@ -2797,7 +2797,7 @@
 		(match_operand:SI 1 "s_register_operand" "0,r")))]
   "TARGET_32BIT"
   "bic%?\\t%0, %1, %2"
-  [(set_attr "length" "2,4")
+  [(set_attr "length" "4,4")
    (set_attr "predicable" "yes")
    (set_attr "arch" "t2,*")]
 )
@@ -2943,7 +2943,7 @@
                       INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
 }
-  [(set_attr "length" "2,4,4,16")
+  [(set_attr "length" "4,4,4,16")
    (set_attr "arch" "t2,32,t2,32")
    (set_attr "predicable" "yes")])
 
@@ -3080,7 +3080,7 @@
                       INTVAL (operands[2]), operands[0], operands[1], 0);
   DONE;
 }
-  [(set_attr "length" "2,4,16")
+  [(set_attr "length" "4,4,16")
    (set_attr "predicable" "yes")
    (set_attr "arch" "t2,*,*")]
 )
@@ -3692,7 +3692,7 @@
 	  (match_operand:SI 2 "reg_or_int_operand" "l,rM")]))]
   "TARGET_32BIT"
   "* return arm_output_shift(operands, 0);"
-  [(set_attr "length" "2,4")
+  [(set_attr "length" "4,4")
    (set_attr "predicable" "yes")
    (set_attr "shift" "1")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")

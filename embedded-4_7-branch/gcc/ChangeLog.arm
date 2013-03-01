@@ -1,3 +1,10 @@
+2013-03-01  Bin Cheng  <bin.cheng@arm.com>
+
+	* config/arm/arm.md (*arm_addsi3, *arm_subsi3_insn, *arm_mulsi3_v6)
+	(*arm_andsi3_insn, andsi_notsi_si, *iorsi3_insn, *arm_xorsi3)
+	(*arm_shiftsi3): Change attribute length from 2 to 4 for all 
+	alternatives.
+
 2012-12-07  Zhenqiang Chen  <zhenqiang.chen@arm.com>
 
 	* config/arm/arm.c (arm_option_override): Disable loop2_invariant pass
