@@ -442,7 +442,7 @@ afdo_add_module (struct gcov_module_info **module_info,
   *module_info = XCNEWVAR (struct gcov_module_info, info_sz);
   (*module_info)->ident = module->ident;
   (*module_info)->is_primary = is_primary;
-  (*module_info)->is_exported = is_primary ? module->exported : 1;
+  (*module_info)->flags = is_primary ? module->exported : 1;
   (*module_info)->source_filename = module->name;
   (*module_info)->num_quote_paths = module->num_quote_paths;
   (*module_info)->num_bracket_paths = module->num_bracket_paths;

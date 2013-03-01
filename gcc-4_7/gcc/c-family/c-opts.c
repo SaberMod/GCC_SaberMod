@@ -1167,7 +1167,7 @@ c_common_parse_file (void)
 	 to hit memory limits, and cause thrashing -- prevent this by not
 	 processing any further auxiliary modules if we reach a certain
 	 memory limit.  */
-      if (lipo_max_mem_reached (i))
+      if (!include_all_aux && lipo_max_mem_reached (i))
 	num_in_fnames = i + 1;
       pop_file_scope ();
       /* And end the main input file, if the debug writer wants it  */

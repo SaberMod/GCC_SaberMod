@@ -44,6 +44,7 @@ extern unsigned primary_module_id;
 
 /* Current module id.  */
 extern unsigned current_module_id;
+extern unsigned include_all_aux;
 extern struct gcov_module_info **module_infos;
 extern int is_last_module (unsigned mod_id);
 

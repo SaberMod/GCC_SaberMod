@@ -746,7 +746,7 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
   gcov_unsigned_t src_filename_len, filename_len, i, j, num_strings;
   mod_info->ident = gcov_read_unsigned ();
   mod_info->is_primary = gcov_read_unsigned ();
-  mod_info->is_exported = gcov_read_unsigned ();
+  mod_info->flags = gcov_read_unsigned ();
   mod_info->lang  = gcov_read_unsigned ();
   mod_info->num_quote_paths = gcov_read_unsigned ();
   mod_info->num_bracket_paths = gcov_read_unsigned ();
