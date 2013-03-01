@@ -1693,10 +1693,7 @@ inline_small_functions (void)
 	     thus we need to recompute everything all the time.  Once this is
 	     solved, "|| 1" should go away.  */
 	  if (callee->global.inlined_to || 1)
-	    {
-	      update_all_callee_keys (heap, edge->callee, updated_nodes);
-	      update_all_callee_keys (heap, callee, updated_nodes);
-	    }
+	    update_all_callee_keys (heap, callee, updated_nodes);
 	  else
 	    update_callee_keys (heap, edge->callee, updated_nodes);
 	}
