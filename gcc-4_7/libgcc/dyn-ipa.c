@@ -1745,7 +1745,8 @@ modu_add_auxiliary_1 (const void *value,
     s_exported_to = create_exported_to (s_m_id);
   gp = (struct gcov_info **) pointer_set_find_or_insert
              (s_exported_to, t_m_id);
-  *gp = the_dyn_call_graph.modules[t_m_id-1];
+  *gp = the_dyn_call_graph.modules[t_m_id - 1];
+  s_exported_to->n_elements++;
 
   return 1;
 }
@@ -1800,12 +1801,12 @@ static int
 ps_add_auxiliary (const void *value,
                   void *data1,
                   void *data2,
-                  void *data3 ATTRIBUTE_UNUSED)
+                  void *data3)
 {
   const struct gcov_info *modu = (const struct gcov_info *) value;
   unsigned s_m_id = *(unsigned *) data1;
   unsigned m_id = get_module_ident (modu);
-  int not_safe_to_insert = *(int *) data2;
+  int not_safe_to_insert = *(int *) data3;
   gcov_unsigned_t new_ggc_size;
 
   /* For strict incluesion, we know it's safe to insert.  */
@@ -1848,7 +1849,7 @@ modu_edge_add_auxiliary (struct modu_edge *edge)
   if (m_id == 0)
     return 0;
 
-  group_ggc_mem = the_dyn_call_graph.sup_modules[m_id-1].group_ggc_mem;
+  group_ggc_mem = the_dyn_call_graph.sup_modules[m_id - 1].group_ggc_mem;
 
   if (group_ggc_mem >= mem_threshold)
     return 0;
@@ -1880,7 +1881,7 @@ modu_edge_add_auxiliary (struct modu_edge *edge)
 
   if (node_exported_to)
     pointer_set_traverse (node_exported_to, ps_add_auxiliary,
-       &callee_m_id, &fail, 0);
+       &callee_m_id, &(edge->sum_count), &fail);
   return 1;
 }
 
@@ -2390,7 +2391,7 @@ dump_exported_to_1 (const void *value,
   return 1;
 }
 
-static void
+static void ATTRIBUTE_UNUSED
 debug_dump_imported_modules (const struct dyn_pointer_set *p)
 {
   fprintf (stderr, "imported: ");
@@ -2398,7 +2399,7 @@ debug_dump_imported_modules (const struct dyn_pointer_set *p)
   fprintf (stderr, "\n");
 }
 
-static void
+static void ATTRIBUTE_UNUSED
 debug_dump_exported_to (const struct dyn_pointer_set *p)
 {
   fprintf (stderr, "exported: ");
