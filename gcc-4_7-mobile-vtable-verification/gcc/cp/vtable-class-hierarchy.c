@@ -873,6 +873,8 @@ create_undef_reference_to_vtv_init (tree init_routine_body)
   TREE_READONLY (var_decl) = 0;
   DECL_IGNORED_P (var_decl) = 1;
   DECL_PRESERVE_P (var_decl) = 1;
+  DECL_VISIBILITY (var_decl) = VISIBILITY_HIDDEN;
+  DECL_VISIBILITY_SPECIFIED (var_decl) = 1;
   varpool_finalize_decl (var_decl);
 
   /* Store a value in the undefined variable to force the creation of a

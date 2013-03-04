@@ -1,3 +1,9 @@
+2013-02-07  Luis Lozano  <llozano@google.com>
+
+	* gcc/cp/vtable-class-hierarchy.c: make sure that the symbol
+	__vtv_defined_in_vtv_init_lib is marked as HIDDEN so that we
+	get complains about this at link time instead of at load time.
+
 2013-02-04  Caroline Tice  <cmtice@google.com>
 
         * libstdc++-v3/src/Makefile.am: Add definitions for libvtv___la_LIBADD
