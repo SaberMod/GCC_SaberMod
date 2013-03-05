@@ -157,7 +157,7 @@ extern gcov_unsigned_t __gcov_lipo_dump_cgraph;
 extern gcov_unsigned_t __gcov_lipo_max_mem;
 extern gcov_unsigned_t __gcov_lipo_grouping_algorithm;
 extern gcov_unsigned_t __gcov_lipo_merge_modu_edges;
-extern gcov_unsigned_t __gcov_lipo_strict_inclusion;
+extern gcov_unsigned_t __gcov_lipo_weak_inclusion;
 
 #if defined(inhibit_libc)
 __gcov_build_callgraph (void) {}
@@ -195,7 +195,7 @@ enum GROUPING_ALGORITHM
 };
 static int flag_alg_mode;
 static int flag_modu_merge_edges;
-static int flag_strict_inclusion;
+static int flag_weak_inclusion;
 static gcov_unsigned_t mem_threshold;
 
 /* Returns 0 if no dump is enabled. Returns 1 if text form graph
@@ -387,7 +387,7 @@ init_dyn_call_graph (void)
 
   flag_alg_mode = __gcov_lipo_grouping_algorithm;
   flag_modu_merge_edges = __gcov_lipo_merge_modu_edges;
-  flag_strict_inclusion = __gcov_lipo_strict_inclusion;
+  flag_weak_inclusion = __gcov_lipo_weak_inclusion;
   mem_threshold = __gcov_lipo_max_mem * 1.25;
 
   gi_ptr = __gcov_list;
@@ -417,13 +417,13 @@ init_dyn_call_graph (void)
       if ((env_str = getenv ("GCOV_DYN_MERGE_EDGES")))
         flag_modu_merge_edges = atoi (env_str);
 
-      if ((env_str = getenv ("GCOV_DYN_STRICT_INCLUSION")))
-        flag_strict_inclusion = atoi (env_str);
+      if ((env_str = getenv ("GCOV_DYN_WEAK_INCLUSION")))
+        flag_weak_inclusion = atoi (env_str);
 
       if (do_dump)
 	fprintf (stderr, 
-            "!!!! Using ALG=%d merge_edges=%d strict_inclusion=%d. \n",
-            flag_alg_mode, flag_modu_merge_edges, flag_strict_inclusion);
+            "!!!! Using ALG=%d merge_edges=%d weak_inclusion=%d. \n",
+            flag_alg_mode, flag_modu_merge_edges, flag_weak_inclusion);
     }
 
   if (do_dump)
@@ -1809,7 +1809,7 @@ ps_add_auxiliary (const void *value,
   int not_safe_to_insert = *(int *) data3;
   gcov_unsigned_t new_ggc_size;
 
-  /* For strict incluesion, we know it's safe to insert.  */
+  /* For strict inclusion, we know it's safe to insert.  */
   if (!not_safe_to_insert)
     {
       modu_add_auxiliary (m_id, s_m_id, *(gcov_type*)data2);
@@ -1825,7 +1825,8 @@ ps_add_auxiliary (const void *value,
   return 1;
 }
 
-/* return 1 if insertion happened, otherwise 0.  */
+/* Return 1 if insertion happened, otherwise 0.  */
+
 static int
 modu_edge_add_auxiliary (struct modu_edge *edge)
 {
@@ -1871,7 +1872,7 @@ modu_edge_add_auxiliary (struct modu_edge *edge)
     {
       pointer_set_traverse (node_exported_to, ps_check_ggc_mem,
                             &callee_m_id, &fail, 0);
-      if (fail && flag_strict_inclusion)
+      if (fail && !flag_weak_inclusion)
         return 0;
     }
 

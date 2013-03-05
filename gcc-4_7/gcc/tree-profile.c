@@ -389,10 +389,10 @@ tree_init_dyn_ipa_parameters (void)
       gcov_lipo_strict_inclusion = build_decl (
           UNKNOWN_LOCATION,
           VAR_DECL,
-          get_identifier ("__gcov_lipo_strict_inclusion"),
+          get_identifier ("__gcov_lipo_weak_inclusion"),
           get_gcov_unsigned_t ());
       init_comdat_decl (gcov_lipo_strict_inclusion,
-                        PARAM_LIPO_STRICT_INCLUSION);
+                        PARAM_LIPO_WEAK_INCLUSION);
     }
 }
 
