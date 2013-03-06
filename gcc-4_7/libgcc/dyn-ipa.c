@@ -1763,7 +1763,7 @@ modu_add_auxiliary (unsigned t_mid, unsigned s_mid, gcov_type count)
                         &t_mid, &count, 0);
 
   /* Recompute the gcc_memory for the group.  */
-  the_dyn_call_graph.sup_modules[t_mid].group_ggc_mem =
+  the_dyn_call_graph.sup_modules[t_mid - 1].group_ggc_mem =
     get_group_ggc_mem (get_imported_modus (t_mid));
 }
 
