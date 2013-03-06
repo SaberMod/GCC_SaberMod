@@ -107,7 +107,7 @@ along with GCC; see the file COPYING3.  If not see
    the first pass could examine a block in either direction.  The
    forwards ordering is to accommodate cselib.
 
-   We a simplifying assumption: addresses fall into four broad
+   We make a simplifying assumption: addresses fall into four broad
    categories:
 
    1) base has rtx_varies_p == false, offset is constant.
@@ -116,18 +116,18 @@ along with GCC; see the file COPYING3.  If not see
    4) base has rtx_varies_p == true, offset variable.
 
    The local passes are able to process all 4 kinds of addresses.  The
-   global pass only handles (1).
+   global pass only handles 1).
 
    The global problem is formulated as follows:
 
      A store, S1, to address A, where A is not relative to the stack
      frame, can be eliminated if all paths from S1 to the end of the
-     of the function contain another store to A before a read to A.
+     function contain another store to A before a read to A.
 
      If the address A is relative to the stack frame, a store S2 to A
-     can be eliminated if there are no paths from S1 that reach the
+     can be eliminated if there are no paths from S2 that reach the
      end of the function that read A before another store to A.  In
-     this case S2 can be deleted if there are paths to from S2 to the
+     this case S2 can be deleted if there are paths from S2 to the
      end of the function that have no reads or writes to A.  This
      second case allows stores to the stack frame to be deleted that
      would otherwise die when the function returns.  This cannot be
@@ -138,7 +138,7 @@ along with GCC; see the file COPYING3.  If not see
      dataflow problem where the stores are the gens and reads are the
      kills.  Set union problems are rare and require some special
      handling given our representation of bitmaps.  A straightforward
-     implementation of requires a lot of bitmaps filled with 1s.
+     implementation requires a lot of bitmaps filled with 1s.
      These are expensive and cumbersome in our bitmap formulation so
      care has been taken to avoid large vectors filled with 1s.  See
      the comments in bb_info and in the dataflow confluence functions
@@ -996,7 +996,32 @@ delete_dead_store_insn (insn_info_t insn_info)
   insn_info->wild_read = false;
 }
 
-/* Check if EXPR can possibly escape the current function scope.  */
+/* Return whether DECL, a local variable, can possibly escape the current
+   function scope.  */
+
+static bool
+local_variable_can_escape (tree decl)
+{
+  if (TREE_ADDRESSABLE (decl))
+    return true;
+
+  /* If this is a partitioned variable, we need to consider all the variables
+     in the partition.  This is necessary because a store into one of them can
+     be replaced with a store into another and this may not change the outcome
+     of the escape analysis.  */
+  if (cfun->gimple_df->decls_to_pointers != NULL)
+    {
+      void *namep
+	= pointer_map_contains (cfun->gimple_df->decls_to_pointers, decl);
+      if (namep)
+	return TREE_ADDRESSABLE (*(tree *)namep);
+    }
+
+  return false;
+}
+
+/* Return whether EXPR can possibly escape the current function scope.  */
+
 static bool
 can_escape (tree expr)
 {
@@ -1005,7 +1030,11 @@ can_escape (tree expr)
     return true;
   base = get_base_address (expr);
   if (DECL_P (base)
-      && !may_be_aliased (base))
+      && !may_be_aliased (base)
+      && !(TREE_CODE (base) == VAR_DECL
+	   && !DECL_EXTERNAL (base)
+	   && !TREE_STATIC (base)
+	   && local_variable_can_escape (base)))
     return false;
   return true;
 }

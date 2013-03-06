@@ -169,7 +169,8 @@ void
 dump_pointer (dump_info_p di, const char *field, void *ptr)
 {
   dump_maybe_newline (di);
-  fprintf (di->stream, "%-4s: %-8lx ", field, (unsigned long) ptr);
+  fprintf (di->stream, "%-4s: %-8" HOST_WIDE_INT_PRINT "x ", field,
+	   (unsigned HOST_WIDE_INT) (uintptr_t) ptr);
   di->column += 15;
 }
 
@@ -824,9 +825,11 @@ static const struct dump_option_value_info dump_options[] =
   {"nouid", TDF_NOUID},
   {"enumerate_locals", TDF_ENUMERATE_LOCALS},
   {"scev", TDF_SCEV},
+  {"pmu", TDF_PMU},
   {"all", ~(TDF_RAW | TDF_SLIM | TDF_LINENO | TDF_TREE | TDF_RTL | TDF_IPA
 	    | TDF_STMTADDR | TDF_GRAPH | TDF_DIAGNOSTIC | TDF_VERBOSE
-	    | TDF_RHS_ONLY | TDF_NOUID | TDF_ENUMERATE_LOCALS | TDF_SCEV)},
+	    | TDF_RHS_ONLY | TDF_NOUID | TDF_ENUMERATE_LOCALS | TDF_SCEV
+            | TDF_PMU)},
   {NULL, 0}
 };
 

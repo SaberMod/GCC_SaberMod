@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
    flow graph is manipulated by various optimizations.  A signed type
    makes those easy to detect.  */
 typedef HOST_WIDEST_INT gcov_type;
+typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 
 /* Control flow edge information.  */
 struct GTY(()) edge_def {
@@ -47,8 +48,7 @@ struct GTY(()) edge_def {
   /* Auxiliary info specific to a pass.  */
   PTR GTY ((skip (""))) aux;
 
-  /* Location of any goto implicit in the edge and associated BLOCK.  */
-  tree goto_block;
+  /* Location of any goto implicit in the edge.  */
   location_t goto_locus;
 
   /* The index number corresponding to this edge in the edge vector
@@ -89,14 +89,25 @@ DEF_VEC_ALLOC_P(edge,heap);
 					   and cold sections, when we
 					   do partitioning.  */
 #define EDGE_PRESERVE		0x4000	/* Never merge blocks via this edge. */
-#define EDGE_ALL_FLAGS		0x7fff
-
+#define EDGE_ANNOTATED		0x8000  /* Edge has been annotated by AutoFDO
+					   profile.  */
+#define EDGE_ALL_FLAGS          0xffff
 #define EDGE_COMPLEX \
   (EDGE_ABNORMAL | EDGE_ABNORMAL_CALL | EDGE_EH | EDGE_PRESERVE)
 
 /* Counter summary from the last set of coverage counts read by
    profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;
+
+/* Working set size statistics for a given percentage of the entire
+   profile (sum_all from the counter summary).  */
+typedef struct gcov_working_set_info
+{
+  /* Number of hot counters included in this working set.  */
+  unsigned num_counters;
+  /* Smallest counter included in this working set.  */
+  gcov_type min_counter;
+} gcov_working_set_t;
 
 /* Declared in cfgloop.h.  */
 struct loop;
@@ -258,7 +269,11 @@ enum bb_flags
   /* Set on blocks that are in a transaction.  This is calculated on
      demand, and is available after calling
      compute_transaction_bits().  */
-  BB_IN_TRANSACTION = 1 << 13
+  BB_IN_TRANSACTION = 1 << 13,
+
+  /* Set on blocks that has been annotated by AutoFDO profile. This is
+     calculated while propagating profiles on control flow graph.  */
+  BB_ANNOTATED = 1 << 14
 };
 
 /* Dummy flag for convenience in the hot/cold partitioning code.  */
@@ -948,5 +963,9 @@ extern bool mfb_keep_just (edge);
 extern void rtl_profile_for_bb (basic_block);
 extern void rtl_profile_for_edge (edge);
 extern void default_rtl_profile (void);
+
+/* In profile.c.  */
+extern gcov_working_set_t *find_working_set(unsigned pct_times_10);
+extern void add_working_set (gcov_working_set_t *);
 
 #endif /* GCC_BASIC_BLOCK_H */

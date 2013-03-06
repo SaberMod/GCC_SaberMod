@@ -2943,8 +2943,10 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 
   /* We always use the 16-byte scratch area provided by the caller, but
      if we are a leaf function, there's no one to which we need to provide
-     a scratch area.  */
-  if (current_function_is_leaf)
+     a scratch area.  However, if the function allocates dynamic stack space,
+     the dynamic offset is computed early and contains STACK_POINTER_OFFSET,
+     so we need to cope.  */
+  if (current_function_is_leaf && !cfun->calls_alloca)
     total_size = MAX (0, total_size - 16);
 
   current_frame_info.total_size = total_size;
@@ -2978,18 +2980,15 @@ ia64_initial_elimination_offset (int from, int to)
       switch (to)
 	{
 	case HARD_FRAME_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = -current_frame_info.total_size;
-	  else
-	    offset = -(current_frame_info.total_size
-		       - crtl->outgoing_args_size - 16);
+	  offset = -current_frame_info.total_size;
+	  if (!current_function_is_leaf || cfun->calls_alloca)
+	    offset += 16 + crtl->outgoing_args_size;
 	  break;
 
 	case STACK_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = 0;
-	  else
-	    offset = 16 + crtl->outgoing_args_size;
+	  offset = 0;
+	  if (!current_function_is_leaf || cfun->calls_alloca)
+	    offset += 16 + crtl->outgoing_args_size;
 	  break;
 
 	default:
@@ -10711,7 +10710,6 @@ ia64_output_mi_thunk (FILE *file, tree thunk ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
 
-  insn_locators_alloc ();
   emit_all_insn_group_barriers (NULL);
   insn = get_insns ();
   shorten_branches (insn);

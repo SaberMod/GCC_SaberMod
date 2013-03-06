@@ -424,10 +424,11 @@ DEFPARAM(PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD,
 	 "A threshold on the average loop count considered by the swing modulo scheduler",
 	 0, 0, 0)
 
-DEFPARAM(HOT_BB_COUNT_FRACTION,
-	 "hot-bb-count-fraction",
-	 "Select fraction of the maximal count of repetitions of basic block in program given basic block needs to have to be considered hot",
-	 60000, 0, 0)
+DEFPARAM(HOT_BB_COUNT_WS_PERMILLE,
+	 "hot-bb-count-ws-permille",
+         "A basic block profile count is considered hot if it contributes to "
+         "the given permillage of the entire profiled execution",
+	 999, 0, 1000)
 DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
 	 "hot-bb-frequency-fraction",
 	 "Select fraction of the maximal frequency of executions of basic block in function given basic block needs to have to be considered hot",
@@ -451,7 +452,7 @@ DEFPARAM (PARAM_ALIGN_LOOP_ITERATIONS,
    flatten the profile.
 
    We need to cut the maximal predicted iterations to large enough iterations
-   so the loop appears important, but safely within HOT_BB_COUNT_FRACTION
+   so the loop appears important, but safely within maximum hotness
    range.  */
 
 DEFPARAM(PARAM_MAX_PREDICTED_ITERATIONS,
@@ -707,11 +708,12 @@ DEFPARAM(PARAM_MAX_LAST_VALUE_RTL,
 
 /* INTEGER_CST nodes are shared for values [{-1,0} .. N) for
    {signed,unsigned} integral types.  This determines N.
-   Experimentation shows 256 to be a good value.  */
+   Experimentation shows 251 to be a good value that generates the
+   least amount of garbage for allocating the TREE_VEC storage.  */
 DEFPARAM (PARAM_INTEGER_SHARE_LIMIT,
 	  "integer-share-limit",
 	  "The upper bound for sharing integer constants",
-	  256, 2, 2)
+	  251, 2, 2)
 
 /* Incremental SSA updates for virtual operands may be very slow if
    there is a large number of mappings to process.  In those cases, it
@@ -905,6 +907,7 @@ DEFPARAM (PARAM_LOOP_INVARIANT_MAX_BBS_IN_LOOP,
 /* Promote indirect call to conditional direct call only
    when the percentage of the target count over the total
    indirect call count is no smaller than the threshold.  */
+/* For multi-targ indirect_call.  */
 DEFPARAM (PARAM_ICALL_PROMOTE_PERCENT_THRESHOLD,
 	  "icall-promote-target-percent-threshold",
 	  "percentage threshold for direct call promotion"
@@ -913,6 +916,19 @@ DEFPARAM (PARAM_ICALL_PROMOTE_PERCENT_THRESHOLD,
 
 DEFPARAM (PARAM_ICALL_PROMOTE_COUNT_THRESHOLD,
 	  "icall-promote-target_count-threshold",
+	  "call count threshold for direct call promotion"
+          " of a callee target",
+	  1, 0, 0)
+
+/* For single-targ indirect_call.  */
+DEFPARAM (PARAM_SINGLE_ICALL_PROMOTE_PERCENT_THRESHOLD,
+	  "single_icall-promote-target-percent-threshold",
+	  "percentage threshold for direct call promotion"
+          " of a callee target",
+	  67, 0, 100)
+
+DEFPARAM (PARAM_SINGLE_ICALL_PROMOTE_COUNT_THRESHOLD,
+	  "single_icall-promote-target_count-threshold",
 	  "call count threshold for direct call promotion"
           " of a callee target",
 	  1, 0, 0)
@@ -958,6 +974,16 @@ DEFPARAM (PARAM_LIPO_CUTOFF,
           " enviornment variable",
 	  100, 0, 100)
 
+/* In LIPO profile-gen, use this parameter to limit IPA inline.  */
+DEFPARAM (PARAM_LIPO_GEN_LIMIT_IPA_INLINE,
+	  "lipo-gen-limit-ipa-inline",
+          "In LIPO profile gen compilation, the inline of a function that"
+          "has hot indirect call can result in imprecise dynamic call graph due"
+          "to phrase ordering issues. This parameter is used to disable"
+          "the inline of function that has a indirect call, only in LIPO-gen"
+          "compilation. Default is 0. If the value is 1, limit is on",
+	  0, 0, 1)
+
 /* In LIPO profile-gen, use this parameter to set random group generation
    seed value.  */
 DEFPARAM (PARAM_LIPO_RANDOM_SEED,
@@ -974,6 +1000,27 @@ DEFPARAM (PARAM_LIPO_RANDOM_GROUP_SIZE,
           " no random grouping.",
 	  0, 0, 300)
 
+/* In LIPO profile-gen, use this parameter to specify the scale factor to propagate
+   callee module groups to caller.  */
+DEFPARAM (PARAM_LIPO_PROPAGATE_SCALE,
+	  "lipo-propagate-scale",
+	  "The scale factor to propagate callee module group's weight to the caller.",
+	  100, 0, 100)
+
+/* In LIPO profile-use, use this parameter to enable the dumping of module id
+   in inline message.   */
+DEFPARAM (PARAM_INLINE_DUMP_MODULE_ID,
+	  "inline-dump-module-id",
+	  "Default is 0. If the value is 1, dumping is enabled.",
+	  0, 0, 1)
+
+/* In LIPO profile-gen, use this parameter to enable cgraph dumping.   */
+DEFPARAM (PARAM_LIPO_DUMP_CGRAPH,
+	  "lipo-dump-cgraph",
+	  "Default is 0. If the value is 1, text dump is used. If the value "
+	  "is 2, .dot dump is enabled. ", 
+	  0, 0, 2)
+
 DEFPARAM (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD,
          "profile-generate-sampling-period",
          "sampling rate with -fprofile-generate-sampling",
@@ -984,7 +1031,7 @@ DEFPARAM (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD,
 DEFPARAM (PARAM_GCOV_DEBUG,
 	  "gcov-debug",
 	  "Looking for gcda file in current dir.",
-	  1, 0, 1)
+	  0, 0, 1)
 
 DEFPARAM (PARAM_REUSEDIST_MEAN_DIST_LARGE_THRESH,
           "reusedist-mean-dist-large-thresh",

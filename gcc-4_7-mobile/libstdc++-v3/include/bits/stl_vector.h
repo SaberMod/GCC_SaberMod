@@ -159,7 +159,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       ~_Vector_base()
       { _M_deallocate(this->_M_impl._M_start, this->_M_impl._M_end_of_storage
-		      - this->_M_impl._M_start); }
+		      - this->_M_impl._M_start);
+#if __google_stl_debug_dangling_vector
+        this->_M_impl._M_start = 0;
+        this->_M_impl._M_finish = reinterpret_cast<_Tp*>(~0UL);
+#endif
+      }
 
     public:
       _Vector_impl _M_impl;
@@ -878,7 +883,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       reference
       front()
-      { return *begin(); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) __throw_logic_error("front() on empty vector");
+#endif
+        return *begin();
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -886,7 +896,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_reference
       front() const
-      { return *begin(); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) __throw_logic_error("front() on empty vector");
+#endif
+        return *begin();
+      }
 
       /**
        *  Returns a read/write reference to the data at the last
@@ -894,7 +909,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       reference
       back()
-      { return *(end() - 1); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) __throw_logic_error("back() on empty vector");
+#endif
+        return *(end() - 1);
+      }
       
       /**
        *  Returns a read-only (constant) reference to the data at the
@@ -902,7 +922,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_reference
       back() const
-      { return *(end() - 1); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) __throw_logic_error("back() on empty vector");
+#endif
+        return *(end() - 1);
+      }
 
       // _GLIBCXX_RESOLVE_LIB_DEFECTS
       // DR 464. Suggestion for new member functions in standard containers.
@@ -917,7 +942,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       pointer
 #endif
       data() _GLIBCXX_NOEXCEPT
-      { return std::__addressof(front()); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) return 0;
+#endif
+        return std::__addressof(front());
+      }
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
       const _Tp*
@@ -925,7 +955,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       const_pointer
 #endif
       data() const _GLIBCXX_NOEXCEPT
-      { return std::__addressof(front()); }
+      {
+#if __google_stl_debug_vector
+        if (empty()) return 0;
+#endif
+        return std::__addressof(front());
+      }
 
       // [23.2.4.3] modifiers
       /**

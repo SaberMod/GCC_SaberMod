@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
 #include "pointer-set.h"
+#include "auto-profile.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
@@ -136,13 +137,20 @@ maybe_hot_frequency_p (int freq)
 bool
 maybe_hot_count_p (gcov_type count)
 {
+  gcov_working_set_t *ws = NULL;
+  static gcov_type min_count = -1;
   if (!profile_info)
     return false;
   /* Code executed at most once is not hot.  */
   if (profile_info->runs >= count)
     return false;
-  return (count
-	  > profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION));
+  if (min_count == -1)
+    {
+      ws = find_working_set (PARAM_VALUE (HOT_BB_COUNT_WS_PERMILLE));
+      gcc_assert (ws);
+      min_count = ws->min_counter;
+    }
+  return (count >= min_count);
 }
 
 /* Return true in case BB can be CPU intensive and should be optimized
@@ -162,8 +170,7 @@ bool
 cgraph_maybe_hot_edge_p (struct cgraph_edge *edge)
 {
   if (profile_info && flag_branch_probabilities
-      && (edge->count
-	  <= profile_info->sum_max / PARAM_VALUE (HOT_BB_COUNT_FRACTION)))
+      && !maybe_hot_count_p (edge->count))
     return false;
   if (edge->caller->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
       || edge->callee->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
@@ -1365,22 +1372,16 @@ predict_extra_loop_exits (edge exit_edge)
 
       if (!TREE_CONSTANT (val) || !(integer_zerop (val) || integer_onep (val)))
 	continue;
-      if (check_value_one ^ integer_onep (val))
+      if ((check_value_one ^ integer_onep (val)) == 1)
 	continue;
-      if (VEC_length (edge, e->src->succs) != 1)
+      if (EDGE_COUNT (e->src->succs) != 1)
 	{
-	  if (!predicted_by_p (exit_edge->src, PRED_LOOP_ITERATIONS_GUESSED)
-	      && !predicted_by_p (exit_edge->src, PRED_LOOP_ITERATIONS)
-	      && !predicted_by_p (exit_edge->src, PRED_LOOP_EXIT))
-	    predict_edge_def (e, PRED_LOOP_EXIT, NOT_TAKEN);
+	  predict_paths_leading_to_edge (e, PRED_LOOP_EXIT, NOT_TAKEN);
 	  continue;
 	}
 
       FOR_EACH_EDGE (e1, ei, e->src->preds)
-	if (!predicted_by_p (exit_edge->src, PRED_LOOP_ITERATIONS_GUESSED)
-	    && !predicted_by_p (exit_edge->src, PRED_LOOP_ITERATIONS)
-	    && !predicted_by_p (exit_edge->src, PRED_LOOP_EXIT))
-	  predict_edge_def (e1, PRED_LOOP_EXIT, NOT_TAKEN);
+	predict_paths_leading_to_edge (e1, PRED_LOOP_EXIT, NOT_TAKEN);
     }
 }
 
@@ -2749,7 +2750,8 @@ compute_function_frequency (void)
   if (DECL_STATIC_DESTRUCTOR (current_function_decl))
     node->only_called_at_exit = true;
 
-  if (!profile_info || !flag_branch_probabilities)
+  if (!profile_info || !flag_branch_probabilities
+      || (flag_auto_profile && profile_status == PROFILE_GUESSED))
     {
       int flags = flags_from_decl_or_type (current_function_decl);
       if (lookup_attribute ("cold", DECL_ATTRIBUTES (current_function_decl))
@@ -2851,16 +2853,33 @@ rebuild_frequencies (void)
   timevar_push (TV_REBUILD_FREQUENCIES);
   if (profile_status == PROFILE_GUESSED)
     {
-      loop_optimizer_init (0);
-      add_noreturn_fake_exit_edges ();
-      mark_irreducible_loops ();
-      connect_infinite_loops_to_exit ();
-      estimate_bb_frequencies ();
-      remove_fake_exit_edges ();
-      loop_optimizer_finalize ();
+      /* In AutoFDO it is possible that some basic blocks will get
+	 non-zero counts after function inlining. In this case, we
+	 will use profile information to estimated the frequency.  */
+      if (flag_auto_profile && counts_to_freqs ())
+	{
+	  afdo_calculate_branch_prob ();
+	  counts_to_freqs();
+	  profile_status = PROFILE_READ;
+	  compute_function_frequency ();
+	}
+      else
+	{
+	  loop_optimizer_init (0);
+	  add_noreturn_fake_exit_edges ();
+	  mark_irreducible_loops ();
+	  connect_infinite_loops_to_exit ();
+	  estimate_bb_frequencies ();
+	  remove_fake_exit_edges ();
+	  loop_optimizer_finalize ();
+	}
     }
   else if (profile_status == PROFILE_READ)
-    counts_to_freqs ();
+    {
+      if (flag_auto_profile)
+	afdo_calculate_branch_prob ();
+      counts_to_freqs ();
+    }
   else
     gcc_unreachable ();
   timevar_pop (TV_REBUILD_FREQUENCIES);

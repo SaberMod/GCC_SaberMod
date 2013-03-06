@@ -84,6 +84,7 @@ enum tree_dump_index
 #define TDF_ENUMERATE_LOCALS (1 << 22)	/* Enumerate locals by uid.  */
 #define TDF_CSELIB	(1 << 23)	/* Dump cselib details.  */
 #define TDF_SCEV	(1 << 24)	/* Dump SCEV details.  */
+#define TDF_PMU         (1 << 25)       /* Dump PMU Profiling details  */
 
 
 /* In tree-dump.c */
@@ -465,6 +466,7 @@ extern struct gimple_opt_pass pass_tree_convert_builtin_dispatch;
 extern struct simple_ipa_opt_pass pass_ipa_lower_emutls;
 extern struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility;
 extern struct simple_ipa_opt_pass pass_ipa_tree_profile;
+extern struct simple_ipa_opt_pass pass_ipa_auto_profile;
 
 extern struct simple_ipa_opt_pass pass_early_local_passes;
 

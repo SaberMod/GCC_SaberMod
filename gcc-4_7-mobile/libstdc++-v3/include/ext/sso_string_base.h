@@ -86,7 +86,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
 	if (!_M_is_local())
 	  _M_destroy(_M_allocated_capacity);
-#if __google_stl_debug_string_dangling
+#if __google_stl_debug_dangling_string
 	else {
           // Wipe local storage for destructed string with 0xCD.
           // This mimics what DebugAllocation does to free()d memory.
@@ -185,7 +185,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_set_length(size_type __n)
       {
-#if __google_stl_debug_string_dangling
+#if __google_stl_debug_dangling_string
 	if (__n + 1 < _M_length())
 	  {
 	    // Wipe the storage with 0xCD.
@@ -215,7 +215,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			  const _Alloc& __a);
 
       ~__sso_string_base()
-      { _M_dispose(); }
+      {
+          _M_dispose();
+#ifdef __google_stl_debug_dangling_string
+          __builtin_memset(this, 0xcd, sizeof(*this));
+#endif
+      }
 
       _CharT_alloc_type&
       _M_get_allocator()

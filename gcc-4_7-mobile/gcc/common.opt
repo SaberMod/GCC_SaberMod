@@ -675,6 +675,18 @@ Wthread-safety
 Common Var(warn_thread_safety) Warning
 Warn about potential thread safety issues when the code is annotated with thread safety attributes
 
+Wthread-safety-analysis
+Common Ignore
+Does nothing.  For compatibility with clang thread safety analysis.
+
+Wthread-safety-attributes
+Common Ignore
+Does nothing.  For compatibility with clang thread safety analysis.
+
+Wthread-safety-precise
+Common Ignore
+Does nothing.  For compatibility with clang thread safety analysis.
+
 Wthread-unguarded-var
 Common Var(warn_thread_unguarded_var) Init(1) Warning
 Warn about shared variables not properly protected by locks specified in the attributes
@@ -912,6 +924,16 @@ Generate unwind tables that are exact at each instruction boundary
 fauto-inc-dec
 Common Report Var(flag_auto_inc_dec) Init(1)
 Generate auto-inc/dec instructions
+
+fauto-profile
+Common Report Var(flag_auto_profile) Optimization
+Use sample profile information for call graph node weights. The default
+profile file is fbdata.afdo in 'pwd'.
+
+fauto-profile=
+Common Joined RejectNegative Var(auto_profile_file)
+Use sample profile information for call graph node weights. The profile
+file is specified in the argument.
 
 ; -fcheck-bounds causes gcc to generate array bounds checks.
 ; For C, C++ and ObjC: defaults off.
@@ -1695,9 +1717,13 @@ fpmu-profile-generate=
 Common Joined RejectNegative Var(flag_pmu_profile_generate)
 -fpmu-profile-generate=[load-latency]  Generate pmu profile for cache misses. Currently only pfmon based load latency profiling is supported on Intel/PEBS and AMD/IBS platforms.
 
+fpmu-profile-use
+Common Var(flag_pmu_profile_use)
+-fpmu-profile-use=[pmuprofile.gcda]  The pmu profile data file to use for pmu feedback.
+
 fpmu-profile-use=
-Common Joined RejectNegative Var(flag_pmu_profile_use)
--fpmu-profile-use=[load-latency]  Use pmu profile data while optimizing.  Currently only perfmon based load latency profiling is supported on Intel/PEBS and AMD/IBS platforms.
+Common Joined RejectNegative Var(pmu_profile_data)
+-fpmu-profile-use=[pmuprofile.gcda]  The pmu profile data file to use for pmu feedback.
 
 fpredictive-commoning
 Common Report Var(flag_predictive_commoning) Optimization
@@ -1727,6 +1753,15 @@ Enable correction of flow inconsistent profile data input
 fprofile-dump
 Common Report Var(flag_profile_dump) Init(0) Optimization
 Dump CFG profile for comparison.
+
+; fprofile-gen-atomic=0: disable aotimically update.
+; fprofile-gen-atomic=1: aotimically update edge profile counters.
+; fprofile-gen-atomic=2: aotimically update value profile counters.
+; fprofile-gen-atomic=3: aotimically update edge and value profile counters.
+; other values will be ignored (fall back to the default of 0).
+fprofile-gen-atomic=
+Common Joined UInteger Report Var(flag_profile_gen_atomic) Init(0) Optimization
+fprofile-gen-atomic=[0..3] Atomically increments for profile counters.
 
 fprofile-generate
 Common
@@ -2311,6 +2346,10 @@ fvar-tracking-assignments-toggle
 Common Report Var(flag_var_tracking_assignments_toggle) Optimization
 Toggle -fvar-tracking-assignments
 
+; Positive if we should track uninitialized variables, negative if
+; we should run the var-tracking pass only to discard debug
+; annotations.  When flag_var_tracking_uninit == AUTODETECT_VALUE it
+; will be set according to flag_var_tracking.
 fvar-tracking-uninit
 Common Report Var(flag_var_tracking_uninit) Optimization
 Perform variable tracking and also tag variables that are uninitialized
@@ -2417,12 +2456,16 @@ Common RejectNegative
 Generate debug information at level 1 with minimal line table
 
 gno-pubnames
-Common RejectNegative Var(debug_generate_pub_sections, 0) Init(-1)
+Common Negative(gpubnames) Var(debug_generate_pub_sections, 0) Init(-1)
 Don't generate DWARF pubnames and pubtypes sections.
 
 gpubnames
-Common RejectNegative Var(debug_generate_pub_sections, 1)
+Common Negative(ggnu-pubnames) Var(debug_generate_pub_sections, 1)
 Generate DWARF pubnames and pubtypes sections.
+
+ggnu-pubnames
+Common Negative(gno-pubnames) Var(debug_generate_pub_sections, 2)
+Generate DWARF pubnames and pubtypes sections with GNU extensions.
 
 gno-record-gcc-switches
 Common RejectNegative Var(dwarf_record_gcc_switches,0) Init(0)

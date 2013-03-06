@@ -2041,12 +2041,16 @@ change_address (rtx memref, enum machine_mode mode, rtx addr)
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address offset by OFFSET bytes.  If VALIDATE is
    nonzero, the memory address is forced to be valid.
-   If ADJUST is zero, OFFSET is only used to update MEM_ATTRS
-   and caller is responsible for adjusting MEMREF base register.  */
+   If ADJUST_ADDRESS is zero, OFFSET is only used to update MEM_ATTRS
+   and the caller is responsible for adjusting MEMREF base register.
+   If ADJUST_OBJECT is zero, the underlying object associated with the
+   memory reference is left unchanged and the caller is responsible for
+   dealing with it.  Otherwise, if the new memory reference is outside
+   the underlying object, even partially, then the object is dropped.  */
 
 rtx
 adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
-		  int validate, int adjust)
+		  int validate, int adjust_address, int adjust_object)
 {
   rtx addr = XEXP (memref, 0);
   rtx new_rtx;
@@ -2079,7 +2083,7 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
 		>> shift);
     }
 
-  if (adjust)
+  if (adjust_address)
     {
       /* If MEMREF is a LO_SUM and the offset is within the alignment of the
 	 object, we can merge it into the LO_SUM.  */
@@ -2100,10 +2104,26 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
   if (new_rtx == memref && offset != 0)
     new_rtx = copy_rtx (new_rtx);
 
+  /* Conservatively drop the object if we don't know where we start from.  */
+  if (adjust_object && (!attrs.offset_known_p || !attrs.size_known_p))
+    {
+      attrs.expr = NULL_TREE;
+      attrs.alias = 0;
+    }
+
   /* Compute the new values of the memory attributes due to this adjustment.
      We add the offsets and update the alignment.  */
   if (attrs.offset_known_p)
-    attrs.offset += offset;
+    {
+      attrs.offset += offset;
+
+      /* Drop the object if the new left end is not within its bounds.  */
+      if (adjust_object && attrs.offset < 0)
+	{
+	  attrs.expr = NULL_TREE;
+	  attrs.alias = 0;
+	}
+    }
 
   /* Compute the new alignment by taking the MIN of the alignment and the
      lowest-order set bit in OFFSET, but don't change the alignment if OFFSET
@@ -2118,16 +2138,24 @@ adjust_address_1 (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset,
   defattrs = mode_mem_attrs[(int) GET_MODE (new_rtx)];
   if (defattrs->size_known_p)
     {
+      /* Drop the object if the new right end is not within its bounds.  */
+      if (adjust_object && (offset + defattrs->size) > attrs.size)
+	{
+	  attrs.expr = NULL_TREE;
+	  attrs.alias = 0;
+	}
       attrs.size_known_p = true;
       attrs.size = defattrs->size;
     }
   else if (attrs.size_known_p)
-    attrs.size -= offset;
+    {
+      attrs.size -= offset;
+      /* ??? The store_by_pieces machinery generates negative sizes.  */
+      gcc_assert (!(adjust_object && attrs.size < 0));
+    }
 
   set_mem_attrs (new_rtx, &attrs);
 
-  /* At some point, we should validate that this offset is within the object,
-     if all the appropriate values are known.  */
   return new_rtx;
 }
 
@@ -2141,7 +2169,7 @@ adjust_automodify_address_1 (rtx memref, enum machine_mode mode, rtx addr,
 			     HOST_WIDE_INT offset, int validate)
 {
   memref = change_address_1 (memref, VOIDmode, addr, validate);
-  return adjust_address_1 (memref, mode, offset, validate, 0);
+  return adjust_address_1 (memref, mode, offset, validate, 0, 0);
 }
 
 /* Return a memory reference like MEMREF, but whose address is changed by
@@ -2223,7 +2251,7 @@ replace_equiv_address_nv (rtx memref, rtx addr)
 rtx
 widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 {
-  rtx new_rtx = adjust_address_1 (memref, mode, offset, 1, 1);
+  rtx new_rtx = adjust_address_1 (memref, mode, offset, 1, 1, 0);
   struct mem_attrs attrs;
   unsigned int size = GET_MODE_SIZE (mode);
 
@@ -3642,7 +3670,7 @@ try_split (rtx pat, rtx trial, int last)
 	}
     }
 
-  tem = emit_insn_after_setloc (seq, trial, INSN_LOCATOR (trial));
+  tem = emit_insn_after_setloc (seq, trial, INSN_LOCATION (trial));
 
   delete_insn (trial);
   if (has_barrier)
@@ -3678,7 +3706,7 @@ make_insn_raw (rtx pattern)
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
-  INSN_LOCATOR (insn) = curr_insn_locator ();
+  INSN_LOCATION (insn) = curr_insn_location ();
   BLOCK_FOR_INSN (insn) = NULL;
 
 #ifdef ENABLE_RTL_CHECKING
@@ -3711,7 +3739,7 @@ make_debug_insn_raw (rtx pattern)
   PATTERN (insn) = pattern;
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
-  INSN_LOCATOR (insn) = curr_insn_locator ();
+  INSN_LOCATION (insn) = curr_insn_location ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -3731,7 +3759,7 @@ make_jump_insn_raw (rtx pattern)
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
   JUMP_LABEL (insn) = NULL;
-  INSN_LOCATOR (insn) = curr_insn_locator ();
+  INSN_LOCATION (insn) = curr_insn_location ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -3751,7 +3779,7 @@ make_call_insn_raw (rtx pattern)
   INSN_CODE (insn) = -1;
   REG_NOTES (insn) = NULL;
   CALL_INSN_FUNCTION_USAGE (insn) = NULL;
-  INSN_LOCATOR (insn) = curr_insn_locator ();
+  INSN_LOCATION (insn) = curr_insn_location ();
   BLOCK_FOR_INSN (insn) = NULL;
 
   return insn;
@@ -4435,8 +4463,8 @@ emit_pattern_after_setloc (rtx pattern, rtx after, int loc,
   after = NEXT_INSN (after);
   while (1)
     {
-      if (active_insn_p (after) && !INSN_LOCATOR (after))
-	INSN_LOCATOR (after) = loc;
+      if (active_insn_p (after) && !INSN_LOCATION (after))
+	INSN_LOCATION (after) = loc;
       if (after == last)
 	break;
       after = NEXT_INSN (after);
@@ -4459,62 +4487,62 @@ emit_pattern_after (rtx pattern, rtx after, bool skip_debug_insns,
       prev = PREV_INSN (prev);
 
   if (INSN_P (prev))
-    return emit_pattern_after_setloc (pattern, after, INSN_LOCATOR (prev),
+    return emit_pattern_after_setloc (pattern, after, INSN_LOCATION (prev),
 				      make_raw);
   else
     return emit_pattern_after_noloc (pattern, after, NULL, make_raw);
 }
 
-/* Like emit_insn_after_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_insn_after_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   return emit_pattern_after_setloc (pattern, after, loc, make_insn_raw);
 }
 
-/* Like emit_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+/* Like emit_insn_after_noloc, but set INSN_LOCATION according to AFTER.  */
 rtx
 emit_insn_after (rtx pattern, rtx after)
 {
   return emit_pattern_after (pattern, after, true, make_insn_raw);
 }
 
-/* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_jump_insn_after_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_jump_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   return emit_pattern_after_setloc (pattern, after, loc, make_jump_insn_raw);
 }
 
-/* Like emit_jump_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+/* Like emit_jump_insn_after_noloc, but set INSN_LOCATION according to AFTER.  */
 rtx
 emit_jump_insn_after (rtx pattern, rtx after)
 {
   return emit_pattern_after (pattern, after, true, make_jump_insn_raw);
 }
 
-/* Like emit_call_insn_after_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_call_insn_after_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_call_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   return emit_pattern_after_setloc (pattern, after, loc, make_call_insn_raw);
 }
 
-/* Like emit_call_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+/* Like emit_call_insn_after_noloc, but set INSN_LOCATION according to AFTER.  */
 rtx
 emit_call_insn_after (rtx pattern, rtx after)
 {
   return emit_pattern_after (pattern, after, true, make_call_insn_raw);
 }
 
-/* Like emit_debug_insn_after_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_debug_insn_after_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_debug_insn_after_setloc (rtx pattern, rtx after, int loc)
 {
   return emit_pattern_after_setloc (pattern, after, loc, make_debug_insn_raw);
 }
 
-/* Like emit_debug_insn_after_noloc, but set INSN_LOCATOR according to AFTER.  */
+/* Like emit_debug_insn_after_noloc, but set INSN_LOCATION according to AFTER.  */
 rtx
 emit_debug_insn_after (rtx pattern, rtx after)
 {
@@ -4544,8 +4572,8 @@ emit_pattern_before_setloc (rtx pattern, rtx before, int loc, bool insnp,
     first = NEXT_INSN (first);
   while (1)
     {
-      if (active_insn_p (first) && !INSN_LOCATOR (first))
-	INSN_LOCATOR (first) = loc;
+      if (active_insn_p (first) && !INSN_LOCATION (first))
+	INSN_LOCATION (first) = loc;
       if (first == last)
 	break;
       first = NEXT_INSN (first);
@@ -4569,7 +4597,7 @@ emit_pattern_before (rtx pattern, rtx before, bool skip_debug_insns,
       next = PREV_INSN (next);
 
   if (INSN_P (next))
-    return emit_pattern_before_setloc (pattern, before, INSN_LOCATOR (next),
+    return emit_pattern_before_setloc (pattern, before, INSN_LOCATION (next),
 				       insnp, make_raw);
   else
     return emit_pattern_before_noloc (pattern, before,
@@ -4577,7 +4605,7 @@ emit_pattern_before (rtx pattern, rtx before, bool skip_debug_insns,
                                       NULL, make_raw);
 }
 
-/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
@@ -4585,14 +4613,14 @@ emit_insn_before_setloc (rtx pattern, rtx before, int loc)
 				     make_insn_raw);
 }
 
-/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to BEFORE.  */
+/* Like emit_insn_before_noloc, but set INSN_LOCATION according to BEFORE.  */
 rtx
 emit_insn_before (rtx pattern, rtx before)
 {
   return emit_pattern_before (pattern, before, true, true, make_insn_raw);
 }
 
-/* like emit_insn_before_noloc, but set INSN_LOCATOR according to LOC.  */
+/* like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_jump_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
@@ -4600,7 +4628,7 @@ emit_jump_insn_before_setloc (rtx pattern, rtx before, int loc)
 				     make_jump_insn_raw);
 }
 
-/* Like emit_jump_insn_before_noloc, but set INSN_LOCATOR according to BEFORE.  */
+/* Like emit_jump_insn_before_noloc, but set INSN_LOCATION according to BEFORE.  */
 rtx
 emit_jump_insn_before (rtx pattern, rtx before)
 {
@@ -4608,7 +4636,7 @@ emit_jump_insn_before (rtx pattern, rtx before)
 			      make_jump_insn_raw);
 }
 
-/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
@@ -4617,7 +4645,7 @@ emit_call_insn_before_setloc (rtx pattern, rtx before, int loc)
 }
 
 /* Like emit_call_insn_before_noloc,
-   but set insn_locator according to BEFORE.  */
+   but set insn_location according to BEFORE.  */
 rtx
 emit_call_insn_before (rtx pattern, rtx before)
 {
@@ -4625,7 +4653,7 @@ emit_call_insn_before (rtx pattern, rtx before)
 			      make_call_insn_raw);
 }
 
-/* Like emit_insn_before_noloc, but set INSN_LOCATOR according to LOC.  */
+/* Like emit_insn_before_noloc, but set INSN_LOCATION according to LOC.  */
 rtx
 emit_debug_insn_before_setloc (rtx pattern, rtx before, int loc)
 {
@@ -4634,7 +4662,7 @@ emit_debug_insn_before_setloc (rtx pattern, rtx before, int loc)
 }
 
 /* Like emit_debug_insn_before_noloc,
-   but set insn_locator according to BEFORE.  */
+   but set insn_location according to BEFORE.  */
 rtx
 emit_debug_insn_before (rtx pattern, rtx before)
 {
@@ -5898,7 +5926,7 @@ emit_copy_of_insn_after (rtx insn, rtx after)
   /* Update LABEL_NUSES.  */
   mark_jump_label (PATTERN (new_rtx), new_rtx, 0);
 
-  INSN_LOCATOR (new_rtx) = INSN_LOCATOR (insn);
+  INSN_LOCATION (new_rtx) = INSN_LOCATION (insn);
 
   /* If the old insn is frame related, then so is the new one.  This is
      primarily needed for IA-64 unwind info which marks epilogue insns,

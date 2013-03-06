@@ -139,7 +139,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 	counts: header int64:count*
 	summary: int32:checksum {count-summary}GCOV_COUNTERS_SUMMABLE
 	count-summary:	int32:num int32:runs int64:sum
-			int64:max int64:sum_max
+			int64:max int64:sum_max histogram
+        histogram: {int32:bitvector}8 histogram-buckets*
+        histogram-buckets: int32:num int64:min int64:sum
 
    The ANNOUNCE_FUNCTION record is the same as that in the note file,
    but without the source location.  The COUNTS gives the
@@ -181,6 +183,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
   Todo: using a program to auto-generate the vaules in build time.  */
 #define BITS_PER_UNIT 8
 #define LONG_LONG_TYPE_SIZE 64
+#define MEMMODEL_RELAXED 0
 
 /* There are many gcc_assertions. Set the vaule to 1 if we want a warning
    message if the assertion fails.  */
@@ -256,10 +259,12 @@ typedef unsigned gcov_unsigned_t __attribute__ ((mode (SI)));
 typedef unsigned gcov_position_t __attribute__ ((mode (SI)));
 #if LONG_LONG_TYPE_SIZE > 32
 typedef signed gcov_type __attribute__ ((mode (DI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (DI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 #else
 typedef signed gcov_type __attribute__ ((mode (SI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (SI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
 #endif
@@ -269,10 +274,12 @@ typedef unsigned gcov_unsigned_t __attribute__ ((mode (HI)));
 typedef unsigned gcov_position_t __attribute__ ((mode (HI)));
 #if LONG_LONG_TYPE_SIZE > 32
 typedef signed gcov_type __attribute__ ((mode (SI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (SI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 #else
 typedef signed gcov_type __attribute__ ((mode (HI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (HI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
 #endif
@@ -281,16 +288,30 @@ typedef unsigned gcov_unsigned_t __attribute__ ((mode (QI)));
 typedef unsigned gcov_position_t __attribute__ ((mode (QI)));
 #if LONG_LONG_TYPE_SIZE > 32
 typedef signed gcov_type __attribute__ ((mode (HI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (HI)));
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 #else
 typedef signed gcov_type __attribute__ ((mode (QI)));
+typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define FUNC_ID_WIDTH 16
 #define FUNC_ID_MASK ((1 << FUNC_ID_WIDTH) - 1)
 #endif
 #endif /* BITS_PER_UNIT == 16  */ 
 
 #endif  /* BITS_PER_UNIT == 8  */
+
+#if LONG_LONG_TYPE_SIZE > 32
+#define GCOV_TYPE_ATOMIC_FETCH_ADD_FN __atomic_fetch_add_8
+#define GCOV_TYPE_ATOMIC_FETCH_ADD BUILT_IN_ATOMIC_FETCH_ADD_8
+#else
+#define GCOV_TYPE_ATOMIC_FETCH_ADD_FN __atomic_fetch_add_4
+#define GCOV_TYPE_ATOMIC_FETCH_ADD BUILT_IN_ATOMIC_FETCH_ADD_4
+#endif
+/* Make the atomic builtin weak. Otherwise we get link unsat 
+   if the builtin is not available.  */
+extern gcov_type GCOV_TYPE_ATOMIC_FETCH_ADD_FN
+  (gcov_type*, gcov_type, int) __attribute__ ((weak));
 
 #undef EXTRACT_MODULE_ID_FROM_GLOBAL_ID
 #undef EXTRACT_FUNC_ID_FROM_GLOBAL_ID
@@ -314,10 +335,23 @@ typedef signed gcov_type __attribute__ ((mode (QI)));
 typedef unsigned gcov_unsigned_t;
 typedef unsigned gcov_position_t;
 
+#if LONG_LONG_TYPE_SIZE > 32
+#define GCOV_TYPE_ATOMIC_FETCH_ADD_FN __atomic_fetch_add_8
+#define GCOV_TYPE_ATOMIC_FETCH_ADD BUILT_IN_ATOMIC_FETCH_ADD_8
+#else
+#define GCOV_TYPE_ATOMIC_FETCH_ADD_FN __atomic_fetch_add_4
+#define GCOV_TYPE_ATOMIC_FETCH_ADD BUILT_IN_ATOMIC_FETCH_ADD_4
+#endif
+#define PROFILE_GEN_EDGE_ATOMIC (flag_profile_gen_atomic == 1 || \
+                                 flag_profile_gen_atomic == 3)
+#define PROFILE_GEN_VALUE_ATOMIC (flag_profile_gen_atomic == 2 || \
+                                  flag_profile_gen_atomic == 3)
+
 /* gcov_type is typedef'd elsewhere for the compiler */
 #if IN_GCOV
 #define GCOV_LINKAGE static
 typedef HOST_WIDEST_INT gcov_type;
+typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #if IN_GCOV > 0
 #include <sys/types.h>
 #endif
@@ -439,16 +473,21 @@ typedef HOST_WIDEST_INT gcov_type;
 #define GCOV_TAG_COUNTER_NUM(LENGTH) ((LENGTH) / 2)
 #define GCOV_TAG_OBJECT_SUMMARY  ((gcov_unsigned_t)0xa1000000) /* Obsolete */
 #define GCOV_TAG_PROGRAM_SUMMARY ((gcov_unsigned_t)0xa3000000)
-#define GCOV_TAG_SUMMARY_LENGTH  \
-	(1 + GCOV_COUNTERS_SUMMABLE * (3 + 3 * 2))
+#define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
+	(1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
 #define GCOV_TAG_PMU_LOAD_LATENCY_INFO ((gcov_unsigned_t)0xa5000000)
-#define GCOV_TAG_PMU_LOAD_LATENCY_LENGTH(filename)  \
-  (gcov_string_length (filename) + 12 + 2)
+#define GCOV_TAG_PMU_LOAD_LATENCY_LENGTH (15)
 #define GCOV_TAG_PMU_BRANCH_MISPREDICT_INFO ((gcov_unsigned_t)0xa7000000)
-#define GCOV_TAG_PMU_BRANCH_MISPREDICT_LENGTH(filename)  \
-  (gcov_string_length (filename) + 5 + 2)
+#define GCOV_TAG_PMU_BRANCH_MISPREDICT_LENGTH (8)
 #define GCOV_TAG_PMU_TOOL_HEADER ((gcov_unsigned_t)0xa9000000)
 #define GCOV_TAG_MODULE_INFO ((gcov_unsigned_t)0xab000000)
+#define GCOV_TAG_AFDO_FILE_NAMES ((gcov_unsigned_t)0xaa000000)
+#define GCOV_TAG_AFDO_FUNCTION ((gcov_unsigned_t)0xac000000)
+#define GCOV_TAG_AFDO_MODULE_GROUPING ((gcov_unsigned_t)0xae000000)
+#define GCOV_TAG_AFDO_WORKING_SET ((gcov_unsigned_t)0xaf000000)
+#define GCOV_TAG_PMU_STRING_TABLE_ENTRY ((gcov_unsigned_t)0xad000000)
+#define GCOV_TAG_PMU_STRING_TABLE_ENTRY_LENGTH(filename) \
+  (gcov_string_length (filename) + 1)
 
 /* Counters that are collected.  */
 #define GCOV_COUNTER_ARCS 	0  /* Arc transitions.  */
@@ -537,16 +576,39 @@ typedef HOST_WIDEST_INT gcov_type;
 
 /* Structured records.  */
 
+/* Structure used for each bucket of the log2 histogram of counter values.  */
+typedef struct
+{
+  /* Number of counters whose profile count falls within the bucket.  */
+  gcov_unsigned_t num_counters;
+  /* Smallest profile count included in this bucket.  */
+  gcov_type min_value;
+  /* Cumulative value of the profile counts in this bucket.  */
+  gcov_type cum_value;
+} gcov_bucket_type;
+
+/* For a log2 scale histogram with each range split into 4
+   linear sub-ranges, there will be at most 64 (max gcov_type bit size) - 1 log2
+   ranges since the lowest 2 log2 values share the lowest 4 linear
+   sub-range (values 0 - 3).  This is 252 total entries (63*4).  */
+
+#define GCOV_HISTOGRAM_SIZE 252
+
+/* How many unsigned ints are required to hold a bit vector of non-zero
+   histogram entries when the histogram is written to the gcov file.
+   This is essentially a ceiling divide by 32 bits.  */
+#define GCOV_HISTOGRAM_BITVECTOR_SIZE (GCOV_HISTOGRAM_SIZE + 31) / 32
+
 /* Cumulative counter data.  */
 struct gcov_ctr_summary
 {
   gcov_unsigned_t num;		/* number of counters.  */
-  gcov_unsigned_t num_hot_counters;/* number of counters to reach a given
-                                      percent of sum_all.  */
   gcov_unsigned_t runs;		/* number of program runs */
   gcov_type sum_all;		/* sum of all counters accumulated.  */
   gcov_type run_max;		/* maximum value on a single run.  */
   gcov_type sum_max;    	/* sum of individual run max values.  */
+  gcov_bucket_type histogram[GCOV_HISTOGRAM_SIZE]; /* histogram of
+                                                      counter values.  */
 };
 
 /* Object & program summary record.  */
@@ -635,7 +697,7 @@ typedef struct gcov_pmu_load_latency_info
   gcov_type code_addr;        /* the actual miss address (pc+1 for Intel) */
   gcov_unsigned_t line;       /* line number corresponding to this miss */
   gcov_unsigned_t discriminator;   /* discriminator information for this miss */
-  char *filename;       /* filename corresponding to this miss */
+  gcov_unsigned_t filetag;    /* location in string table of filename */
 } gcov_pmu_ll_info_t;
 
 /* This structure is used during runtime as well as in gcov.  */
@@ -665,7 +727,7 @@ typedef struct gcov_pmu_branch_mispredict_info
   gcov_type code_addr;        /* the actual mispredict address */
   gcov_unsigned_t line;       /* line number corresponding to this event */
   gcov_unsigned_t discriminator;   /* discriminator for this event */
-  char *filename;       /* filename corresponding to this event */
+  gcov_unsigned_t filetag;    /* location in string table of filename */
 } gcov_pmu_brm_info_t;
 
 /* This structure is used during runtime as well as in gcov.  */
@@ -681,6 +743,25 @@ typedef struct branch_mispredict_infos
   /* PMU tool header */
   gcov_pmu_tool_header_t *pmu_tool_header;
 } brm_infos_t;
+
+typedef struct gcov_pmu_string_table_entry
+{
+  gcov_unsigned_t index;   /* The corresponding string table index */
+  char* str;          /* The string that belongs at this index */
+} gcov_pmu_st_entry_t;
+
+typedef struct string_table
+{
+  /* An array describing the total number of string table entries.  */
+  gcov_pmu_st_entry_t **st_array;
+  /* The total number of entries in the above array.  */
+  unsigned st_count;
+  /* The total number of entries currently allocated in the array.
+     Used for bookkeeping.  */
+  unsigned alloc_st_count;
+  /* PMU tool header */
+  gcov_pmu_tool_header_t *pmu_tool_header;
+} string_table_t;
 
 /* Structures embedded in coveraged program.  The structures generated
    by write_profile must match these.  */
@@ -725,8 +806,8 @@ struct gcov_info
 					  unused) */
   
   unsigned n_functions;		/* number of functions */
-  const struct gcov_fn_info *const *functions; /* pointer to pointers
-					          to function information  */
+  const struct gcov_fn_info **functions; /* pointer to pointers
+					    to function information  */
 };
 
 /* Information about a single imported module.  */
@@ -871,8 +952,13 @@ GCOV_LINKAGE void
 gcov_read_pmu_branch_mispredict_info (gcov_pmu_brm_info_t *brm_info,
                                       gcov_unsigned_t len) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void
+gcov_read_pmu_string_table_entry (gcov_pmu_st_entry_t *entry,
+                                  gcov_unsigned_t len) ATTRIBUTE_HIDDEN;
+
+GCOV_LINKAGE void
 gcov_read_pmu_tool_header (gcov_pmu_tool_header_t *tool_header,
                            gcov_unsigned_t len) ATTRIBUTE_HIDDEN;
+
 #ifndef __GCOV_KERNEL__
 GCOV_LINKAGE float convert_unsigned_to_pct (
     const unsigned number) ATTRIBUTE_HIDDEN;
@@ -886,6 +972,9 @@ GCOV_LINKAGE void print_load_latency_line (FILE *fp,
                                            const enum print_newline);
 GCOV_LINKAGE void
 print_branch_mispredict_line (FILE *fp, const gcov_pmu_brm_info_t *brm_info,
+                              const enum print_newline);
+GCOV_LINKAGE void
+print_pmu_string_table_entry (FILE* fp, const gcov_pmu_st_entry_t *entry,
                               const enum print_newline);
 GCOV_LINKAGE void print_pmu_tool_header (FILE *fp,
                                          gcov_pmu_tool_header_t *tool_header,
@@ -905,7 +994,16 @@ GCOV_LINKAGE void gcov_write_tag_length (gcov_unsigned_t, gcov_unsigned_t)
 GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
 				      const struct gcov_summary *)
     ATTRIBUTE_HIDDEN;
-
+GCOV_LINKAGE void
+gcov_write_tool_header (gcov_pmu_tool_header_t *header) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void
+gcov_write_ll_line (const gcov_pmu_ll_info_t *ll_info) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void
+gcov_write_branch_mispredict_line (const gcov_pmu_brm_info_t
+                                   *brm_info) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void
+gcov_write_string_table_entry (const gcov_pmu_st_entry_t
+                               *st_entry) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const struct dyn_imp_mod **

@@ -866,9 +866,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_reorder_functions > 1)
     opts->x_flag_function_sections = 1;
 
-  /* The -gsplit-dwarf option requires -gpubnames.  */
+  /* The -gsplit-dwarf option requires -ggnu-pubnames.  */
   if (opts->x_dwarf_split_debug_info)
-    opts->x_debug_generate_pub_sections = 1;
+    opts->x_debug_generate_pub_sections = 2;
 }
 
 #define LEFT_COLUMN	27
@@ -1651,6 +1651,39 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_unswitch_loops = value;
       if (!opts_set->x_flag_gcse_after_reload)
 	opts->x_flag_gcse_after_reload = value;
+      break;
+
+    case OPT_fauto_profile_:
+      auto_profile_file = xstrdup (arg);
+      opts->x_flag_auto_profile = true;
+      value = true;
+    /* No break here - do -fauto-profile processing. */
+    case OPT_fauto_profile:
+      if (!opts_set->x_flag_branch_probabilities)
+	opts->x_flag_branch_probabilities = value;
+      if (!opts_set->x_flag_unroll_loops)
+	opts->x_flag_unroll_loops = value;
+      if (!opts_set->x_flag_peel_loops)
+	opts->x_flag_peel_loops = value;
+      if (!opts_set->x_flag_inline_functions)
+	opts->x_flag_inline_functions = value;
+      if (!opts_set->x_flag_ipa_cp)
+	opts->x_flag_ipa_cp = value;
+      if (!opts_set->x_flag_ipa_cp_clone
+	  && value && opts->x_flag_ipa_cp)
+	opts->x_flag_ipa_cp_clone = value;
+      if (!opts_set->x_flag_predictive_commoning)
+	opts->x_flag_predictive_commoning = value;
+      if (!opts_set->x_flag_unswitch_loops)
+	opts->x_flag_unswitch_loops = value;
+      if (!opts_set->x_flag_gcse_after_reload)
+	opts->x_flag_gcse_after_reload = value;
+      break;
+
+    case OPT_fpmu_profile_use_:
+      opts->x_pmu_profile_data = xstrdup (arg);
+      opts->x_flag_pmu_profile_use = true;
+      value = true;
       break;
 
     case OPT_fprofile_generate_:

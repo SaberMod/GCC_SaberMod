@@ -1,4 +1,4 @@
-# Copyright (C) 2008, 2010 Free Software Foundation, Inc.
+# Copyright (C) 2008, 2010, 2012 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -148,9 +148,9 @@ GCC_4.3.0 {
   __unordtf2
 }
 
-GCC_4.7.0 {
+GCC_4.8.0 {
   __cpu_model
-  __cpu_features
+  __cpu_indicator_init
 }
 %else
 GCC_4.4.0 {
@@ -188,8 +188,9 @@ GCC_4.4.0 {
 GCC_4.5.0 {
   __extendxftf2
 }
-GCC_4.7.0 {
+
+GCC_4.8.0 {
   __cpu_model
-  __cpu_features
+  __cpu_indicator_init
 }
 %endif

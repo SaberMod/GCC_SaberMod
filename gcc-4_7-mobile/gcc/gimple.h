@@ -326,10 +326,6 @@ struct GTY(()) gimple_statement_base {
   /* [ WORD 3 ]
      Basic block holding this statement.  */
   struct basic_block_def *bb;
-
-  /* [ WORD 4 ]
-     Lexical block holding this statement.  */
-  tree block;
 };
 
 
@@ -1087,6 +1083,24 @@ struct gimplify_ctx
   bool in_cleanup_point_expr;
 };
 
+/* Return true if gimplify_one_sizepos doesn't need to gimplify
+   expr (when in TYPE_SIZE{,_UNIT} and similar type/decl size/bitsize
+   fields).  */
+static inline bool
+is_gimple_sizepos (tree expr)
+{
+  /* gimplify_one_sizepos doesn't need to do anything if the value isn't there,
+     is constant, or contains A PLACEHOLDER_EXPR.  We also don't want to do
+     anything if it's already a VAR_DECL.  If it's a VAR_DECL from another
+     function, the gimplifier will want to replace it with a new variable,
+     but that will cause problems if this type is from outside the function.
+     It's OK to have that here.  */
+  return (expr == NULL_TREE
+	  || TREE_CONSTANT (expr)
+	  || TREE_CODE (expr) == VAR_DECL
+	  || CONTAINS_PLACEHOLDER_P (expr));
+}                                        
+
 extern enum gimplify_status gimplify_expr (tree *, gimple_seq *, gimple_seq *,
 					   bool (*) (tree), fallback_t);
 extern void gimplify_type_sizes (tree, gimple_seq *);
@@ -1212,7 +1226,7 @@ gimple_bb (const_gimple g)
 static inline tree
 gimple_block (const_gimple g)
 {
-  return g->gsbase.block;
+  return LOCATION_BLOCK (g->gsbase.location);
 }
 
 
@@ -1221,7 +1235,11 @@ gimple_block (const_gimple g)
 static inline void
 gimple_set_block (gimple g, tree block)
 {
-  g->gsbase.block = block;
+  if (block)
+    g->gsbase.location =
+	COMBINE_LOCATION_DATA (line_table, g->gsbase.location, block);
+  else
+    g->gsbase.location = LOCATION_LOCUS (g->gsbase.location);
 }
 
 
@@ -1256,7 +1274,7 @@ gimple_set_location (gimple g, location_t location)
 static inline bool
 gimple_has_location (const_gimple g)
 {
-  return gimple_location (g) != UNKNOWN_LOCATION;
+  return LOCATION_LOCUS (gimple_location (g)) != UNKNOWN_LOCATION;
 }
 
 

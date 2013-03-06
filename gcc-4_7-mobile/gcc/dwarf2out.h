@@ -89,8 +89,8 @@ typedef struct GTY(()) dw_fde_struct {
   int dw_fde_switch_cfi_index; /* Last CFI before switching sections.  */
   HOST_WIDE_INT stack_realignment;
 
-  unsigned funcdef_number;
-  unsigned fde_index;
+  unsigned long funcdef_number;
+  unsigned long fde_index;
 
   /* Dynamic realign argument pointer register.  */
   unsigned int drap_reg;
@@ -167,12 +167,14 @@ typedef struct GTY(()) dw_vec_struct {
 }
 dw_vec_const;
 
+struct addr_table_entry_struct;
+
 /* The dw_val_node describes an attribute's value, as it is
    represented internally.  */
 
 typedef struct GTY(()) dw_val_struct {
   enum dw_val_class val_class;
-  unsigned int val_index;
+  struct addr_table_entry_struct * GTY(()) val_entry;
   union dw_val_struct_union
     {
       rtx GTY ((tag ("dw_val_class_addr"))) val_addr;

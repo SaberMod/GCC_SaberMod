@@ -294,6 +294,11 @@ ipa_reverse_postorder (struct cgraph_node **order)
 			  && !DECL_DISREGARD_INLINE_LIMITS
 			    (cgraph_function_node (edge->callee, NULL)->decl))
 			node2 = NULL;
+		        /* LIPO profile-use compilation may insert fake edges that
+			   result in different traverse order. Skip these egdes to
+			   get same order as profile-generate compilation.   */
+		        if (cgraph_is_fake_indirect_call_edge (edge))
+			  node2 = NULL;
 		    }
 		  for (;ipa_ref_list_refering_iterate (&stack[stack_size].node->ref_list,
 						       stack[stack_size].ref,

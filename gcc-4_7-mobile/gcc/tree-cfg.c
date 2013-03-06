@@ -779,6 +779,8 @@ assign_discriminator (location_t locus, basic_block bb)
 {
   gimple first_in_to_bb, last_in_to_bb;
   int discriminator = 0;
+  tree block = LOCATION_BLOCK (locus);
+  locus = LOCATION_LOCUS (locus);
 
   if (locus == UNKNOWN_LOCATION)
     return;
@@ -821,7 +823,9 @@ assign_discriminator (location_t locus, basic_block bb)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  if (same_line_p (locus, gimple_location (stmt)))
-	    gimple_set_location (stmt, new_locus);
+	    gimple_set_location (stmt, block ?
+		COMBINE_LOCATION_DATA (line_table, new_locus, block) :
+		LOCATION_LOCUS (new_locus));
 	}
     }
 }
@@ -854,15 +858,11 @@ make_cond_expr_edges (basic_block bb)
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
   assign_discriminator (entry_locus, then_bb);
   e->goto_locus = gimple_location (then_stmt);
-  if (e->goto_locus)
-    e->goto_block = gimple_block (then_stmt);
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
     {
       assign_discriminator (entry_locus, else_bb);
       e->goto_locus = gimple_location (else_stmt);
-      if (e->goto_locus)
-	e->goto_block = gimple_block (else_stmt);
     }
 
   /* We do not need the labels anymore.  */
@@ -1072,8 +1072,6 @@ make_goto_expr_edges (basic_block bb)
       edge e = make_edge (bb, label_bb, EDGE_FALLTHRU);
       e->goto_locus = gimple_location (goto_t);
       assign_discriminator (e->goto_locus, label_bb);
-      if (e->goto_locus)
-	e->goto_block = gimple_block (goto_t);
       gsi_remove (&last, true);
       return;
     }
@@ -1546,7 +1544,7 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
 
   /* When not optimizing, don't merge if we'd lose goto_locus.  */
   if (!optimize
-      && single_succ_edge (a)->goto_locus != UNKNOWN_LOCATION)
+      && single_succ_edge (a)->goto_locus)
     {
       location_t goto_locus = single_succ_edge (a)->goto_locus;
       gimple_stmt_iterator prev, next;
@@ -1807,6 +1805,14 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  gsi_next (&gsi);
 	}
     }
+
+  /* When merging two BBs, if their counts are different, the larger
+     count is selected as the new bb count.  */
+  if (flag_auto_profile && a->count != b->count)
+    {
+      a->count = MAX (a->count, b->count);
+      a->frequency = MAX (a->frequency, b->frequency);
+    } 
 
   /* Merge the sequences.  */
   last = gsi_last_bb (a);
@@ -5944,9 +5950,12 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
   tree t = *tp;
 
   if (EXPR_P (t))
-    /* We should never have TREE_BLOCK set on non-statements.  */
-    gcc_assert (!TREE_BLOCK (t));
-
+    {
+      if (TREE_BLOCK (t) == p->orig_block
+	  || (p->orig_block == NULL_TREE
+	  && TREE_BLOCK (t) == NULL_TREE))
+	TREE_SET_BLOCK (t, p->new_block);
+    }
   else if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
     {
       if (TREE_CODE (t) == SSA_NAME)
@@ -6185,6 +6194,7 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
       use_operand_p use;
       tree op = PHI_RESULT (phi);
       ssa_op_iter oi;
+      unsigned i;
 
       if (!is_gimple_reg (op))
 	{
@@ -6201,6 +6211,23 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
 	  op = USE_FROM_PTR (use);
 	  if (TREE_CODE (op) == SSA_NAME)
 	    SET_USE (use, replace_ssa_name (op, d->vars_map, dest_cfun->decl));
+	}
+
+      for (i = 0; i < EDGE_COUNT (bb->preds); i++)
+	{
+	  location_t locus = gimple_phi_arg_location (phi, i);
+	  tree block = LOCATION_BLOCK (locus);
+
+	  if (locus == UNKNOWN_LOCATION)
+	    continue;
+	  if (d->orig_block == NULL_TREE || block == d->orig_block)
+	    {
+	      if (d->new_block == NULL_TREE)
+		locus = LOCATION_LOCUS (locus);
+	      else
+		locus = COMBINE_LOCATION_DATA (line_table, locus, d->new_block);
+	      gimple_phi_arg_set_location (phi, i, locus);
+	    }
 	}
 
       gsi_next (&si);
@@ -6254,12 +6281,14 @@ move_block_to_fn (struct function *dest_cfun, basic_block bb,
     }
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->goto_locus)
+    if (e->goto_locus != UNKNOWN_LOCATION)
       {
-	tree block = e->goto_block;
+	tree block = LOCATION_BLOCK (e->goto_locus);
 	if (d->orig_block == NULL_TREE
 	    || block == d->orig_block)
-	  e->goto_block = d->new_block;
+	  e->goto_locus = d->new_block ?
+	      COMBINE_LOCATION_DATA (line_table, e->goto_locus, d->new_block) :
+	      LOCATION_LOCUS (e->goto_locus);
 #ifdef ENABLE_CHECKING
 	else if (block != d->new_block)
 	  {

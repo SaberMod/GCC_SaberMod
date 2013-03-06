@@ -11026,6 +11026,46 @@ $as_echo "#define HAVE_CLOCK_T 1" >>confdefs.h
 
 fi
 
+# Check if F_SETLKW is supported by fcntl.
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for F_SETLKW" >&5
+$as_echo_n "checking for F_SETLKW... " >&6; }
+if test "${ac_cv_f_setlkw+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <fcntl.h>
+int
+main ()
+{
+
+struct flock fl;
+fl.l_whence = 0;
+fl.l_start = 0;
+fl.l_len = 0;
+fl.l_pid = 0;
+return fcntl (1, F_SETLKW, &fl);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  ac_cv_f_setlkw=yes
+else
+  ac_cv_f_setlkw=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_f_setlkw" >&5
+$as_echo "$ac_cv_f_setlkw" >&6; }
+if test $ac_cv_f_setlkw = yes; then
+
+$as_echo "#define HOST_HAS_F_SETLKW 1" >>confdefs.h
+
+fi
+
 # Restore CFLAGS, CXXFLAGS from before the gcc_AC_NEED_DECLARATIONS tests.
 CFLAGS="$saved_CFLAGS"
 CXXFLAGS="$saved_CXXFLAGS"
@@ -18035,7 +18075,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18038 "configure"
+#line 18078 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18141,7 +18181,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18144 "configure"
+#line 18184 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -24809,39 +24849,6 @@ $as_echo "#define HAVE_AS_IX86_SAHF 1" >>confdefs.h
 
 fi
 
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for hle prefixes" >&5
-$as_echo_n "checking assembler for hle prefixes... " >&6; }
-if test "${gcc_cv_as_ix86_hle+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  gcc_cv_as_ix86_hle=no
-  if test x$gcc_cv_as != x; then
-    $as_echo '.code64
-       lock xacquire cmpxchg %esi, (%rcx)
-       ' > conftest.s
-    if { ac_try='$gcc_cv_as $gcc_cv_as_flags  -o conftest.o conftest.s >&5'
-  { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_try\""; } >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; }
-    then
-	gcc_cv_as_ix86_hle=yes
-    else
-      echo "configure: failed program was" >&5
-      cat conftest.s >&5
-    fi
-    rm -f conftest.o conftest.s
-  fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as_ix86_hle" >&5
-$as_echo "$gcc_cv_as_ix86_hle" >&6; }
-if test $gcc_cv_as_ix86_hle = yes; then
-
-$as_echo "#define HAVE_AS_IX86_HLE 1" >>confdefs.h
-
-fi
-
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for swap suffix" >&5
 $as_echo_n "checking assembler for swap suffix... " >&6; }
 if test "${gcc_cv_as_ix86_swap+set}" = set; then :
@@ -26606,7 +26613,9 @@ if test "${gcc_cv_ld_no_dot_syms+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
   gcc_cv_ld_no_dot_syms=no
-    if test $in_tree_ld = yes ; then
+    if test x"$ld_is_gold" = xyes; then
+      gcc_cv_ld_no_dot_syms=yes
+    elif test $in_tree_ld = yes ; then
       if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2; then
         gcc_cv_ld_no_dot_syms=yes
       fi
@@ -26650,7 +26659,9 @@ if test "${gcc_cv_ld_large_toc+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
   gcc_cv_ld_large_toc=no
-    if test $in_tree_ld = yes ; then
+    if test x"$ld_is_gold" = xyes; then
+      gcc_cv_ld_large_toc=yes
+    elif test $in_tree_ld = yes ; then
       if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 21 -o "$gcc_cv_gld_major_version" -gt 2; then
         gcc_cv_ld_large_toc=yes
       fi
@@ -26838,6 +26849,11 @@ else
 	     $target_header_dir/bits/uClibc_config.h > /dev/null; then
 	  gcc_cv_libc_provides_ssp=yes
 	fi
+      # all versions of Bionic support stack protector
+      elif test -f $target_header_dir/sys/cdefs.h \
+        && $EGREP '^[  ]*#[    ]*define[       ]+__BIONIC__[   ]+1' \
+           $target_header_dir/sys/cdefs.h > /dev/null; then
+         gcc_cv_libc_provides_ssp=yes
       fi
 	;;
        *-*-gnu*)

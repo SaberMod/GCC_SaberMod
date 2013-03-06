@@ -2899,7 +2899,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 
 	  i1 = gen_rtx_INSN (VOIDmode, INSN_UID (i2), NULL_RTX, i2,
 			     BLOCK_FOR_INSN (i2), XVECEXP (PATTERN (i2), 0, 1),
-			     INSN_LOCATOR (i2), -1, NULL_RTX);
+			     INSN_LOCATION (i2), -1, NULL_RTX);
 
 	  SUBST (PATTERN (i2), XVECEXP (PATTERN (i2), 0, 0));
 	  SUBST (XEXP (SET_SRC (PATTERN (i2)), 0),
@@ -10800,13 +10800,6 @@ gen_lowpart_for_combine (enum machine_mode omode, rtx x)
   rtx result;
 
   if (omode == imode)
-    return x;
-
-  /* Return identity if this is a CONST or symbolic reference.  */
-  if (omode == Pmode
-      && (GET_CODE (x) == CONST
-	  || GET_CODE (x) == SYMBOL_REF
-	  || GET_CODE (x) == LABEL_REF))
     return x;
 
   /* We can only support MODE being wider than a word if X is a

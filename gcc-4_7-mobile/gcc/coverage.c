@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "filenames.h"
 #include "dwarf2asm.h"
 #include "target.h"
+#include "auto-profile.h"
 
 #include "gcov-io.h"
 #include "gcov-io.c"
@@ -96,6 +97,17 @@ typedef struct counts_entry
   struct gcov_ctr_summary summary;
 } counts_entry_t;
 
+typedef struct pmu_entry
+{
+  /* We hash by  */
+  gcov_unsigned_t lineno;
+  char *filename;
+
+  /* Store  */
+  gcov_pmu_ll_info_t *ll_info;
+  gcov_pmu_brm_info_t *brm_info;
+} pmu_entry_t;
+
 static GTY(()) struct coverage_data *functions_head = 0;
 static struct coverage_data **functions_tail = &functions_head;
 static unsigned no_coverage = 0;
@@ -129,6 +141,9 @@ static char pmu_profile_filename[] = "pmuprofile";
 /* Hash table of count data.  */
 static htab_t counts_hash = NULL;
 
+/* Hash table of pmu data, */
+static htab_t pmu_hash = NULL;
+
 /* The names of merge functions for counters.  */
 static const char *const ctr_merge_functions[GCOV_COUNTERS] = GCOV_MERGE_FUNCTIONS;
 static const char *const ctr_names[GCOV_COUNTERS] = GCOV_COUNTER_NAMES;
@@ -159,11 +174,27 @@ static tree gcov_pmu_top_n_address_decl = NULL_TREE;
 /* To ensure that the above variables are initialized only once.  */
 static int pmu_profiling_initialized = 0;
 
+/* Cumulative pmu data */
+struct gcov_pmu_summary
+{
+  ll_infos_t ll_infos;         /* load latency infos. */
+  brm_infos_t brm_infos;       /* branch misprediction infos */
+  string_table_t string_table; /* string table entries */
+};
+
+struct gcov_pmu_summary pmu_global_summary;
+
 /* Forward declarations.  */
 static hashval_t htab_counts_entry_hash (const void *);
+static hashval_t htab_pmu_entry_hash (const void *);
 static int htab_counts_entry_eq (const void *, const void *);
+static int htab_pmu_entry_eq (const void *, const void *);
 static void htab_counts_entry_del (void *);
+static void htab_pmu_entry_del (void *);
 static void read_counts_file (const char *, unsigned);
+static void read_pmu_file (const char*);
+static pmu_entry_t *get_pmu_hash_entry (gcov_unsigned_t, gcov_unsigned_t);
+static void process_pmu_data (void);
 static tree build_var (tree, tree, int);
 static void build_fn_info_type (tree, unsigned, tree);
 static void build_info_type (tree, tree);
@@ -211,6 +242,14 @@ htab_counts_entry_hash (const void *of)
   return entry->ident * GCOV_COUNTERS + entry->ctr;
 }
 
+static hashval_t
+htab_pmu_entry_hash (const void *of)
+{
+  const pmu_entry_t *const entry = (const pmu_entry_t *) of;
+
+  return htab_hash_string (entry->filename) + entry->lineno;
+}
+
 static int
 htab_counts_entry_eq (const void *of1, const void *of2)
 {
@@ -218,6 +257,16 @@ htab_counts_entry_eq (const void *of1, const void *of2)
   const counts_entry_t *const entry2 = (const counts_entry_t *) of2;
 
   return entry1->ident == entry2->ident && entry1->ctr == entry2->ctr;
+}
+
+static int
+htab_pmu_entry_eq (const void *of1, const void *of2)
+{
+  const pmu_entry_t *const entry1 = (const pmu_entry_t *) of1;
+  const pmu_entry_t *const entry2 = (const pmu_entry_t *) of2;
+
+  return strcmp (entry1->filename, entry2->filename) == 0 &&
+      entry1->lineno == entry2->lineno;
 }
 
 static void
@@ -231,6 +280,17 @@ htab_counts_entry_del (void *of)
       free (entry->counts);
       free (entry);
     }
+}
+
+static void
+htab_pmu_entry_del (void *of)
+{
+  pmu_entry_t *const entry = (pmu_entry_t *) of;
+
+  free (entry->filename);
+  free (entry->ll_info);
+  free (entry->brm_info);
+  free (entry);
 }
 
 /* Returns true if MOD_ID is the id of the last source module.  */
@@ -261,6 +321,58 @@ str_eq (const void *p1, const void *p2)
   return !strcmp (s1, s2);
 }
 
+/* Command line option descriptor.  */
+
+struct opt_desc
+{
+  const char *opt_str;
+  const char *opt_neg_str;
+  bool default_val;  /* TODO better handling of default  */
+};
+
+static struct opt_desc force_matching_cg_opts[] =
+  {
+    { "-fexceptions", "-fno-exceptions", true },
+    { "-fsized-delete", "-fno-sized-delete", false },
+    { "-frtti", "-fno-rtti", true },
+    { "-fstrict-aliasing", "-fno-strict-aliasing", true },
+    { NULL, NULL, false }
+  };
+
+/* A helper function to check if OPTION_STRING is one of the codegen
+   options specified in FORCE_MATCHING_CG_ARGS. If yes, set the
+   corresponding entry in CG_ARG_VAL to the value of the option specified
+   in OPTION_STRING.  */
+
+static void
+check_cg_opts (bool *cg_opt_val, const char *option_str)
+{
+  unsigned int i;
+  for (i = 0; force_matching_cg_opts[i].opt_str; i++)
+    {
+      if (!strcmp (force_matching_cg_opts[i].opt_str, option_str))
+        cg_opt_val[i] = true;
+      else if (!strcmp (force_matching_cg_opts[i].opt_neg_str, option_str))
+        cg_opt_val[i] = false;
+    }
+}
+
+/* A helper function to check if CG_OPTS1 and CG_OPTS are identical. It returns
+   true if yes, false otherwise.  */
+
+static bool
+has_incompatible_cg_opts (bool *cg_opts1, bool *cg_opts2, unsigned num_cg_opts)
+{
+  unsigned i;
+
+  for (i = 0; i < num_cg_opts; i++)
+    {
+      if (cg_opts1[i] != cg_opts2[i])
+        return true;
+    }
+
+  return false;
+}
 
 /* Returns true if the command-line arguments stored in the given module-infos
    are incompatible.  */
@@ -276,8 +388,6 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
-  bool with_fexceptions1 = true;
-  bool with_fexceptions2 = true;
   htab_t option_tab1, option_tab2;
   unsigned int start_index1 = mod_info1->num_quote_paths +
     mod_info1->num_bracket_paths + mod_info1->num_cpp_defines +
@@ -285,6 +395,22 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   unsigned int start_index2 = mod_info2->num_quote_paths +
     mod_info2->num_bracket_paths + mod_info2->num_cpp_defines +
     mod_info2->num_cpp_includes;
+
+  bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts;
+  unsigned int num_cg_opts = 0;
+
+  for (i = 0; force_matching_cg_opts[i].opt_str; i++)
+    num_cg_opts++;
+
+  cg_opts1 = XCNEWVEC (bool, num_cg_opts);
+  cg_opts2 = XCNEWVEC (bool, num_cg_opts);
+
+  /* Initialize the array to default value  */
+  for (i = 0; force_matching_cg_opts[i].opt_str; i++)
+    {
+      cg_opts1[i] = force_matching_cg_opts[i].default_val;
+      cg_opts2[i] = force_matching_cg_opts[i].default_val;
+    }
 
   option_tab1 = htab_create (10, str_hash, str_eq, NULL);
   option_tab2 = htab_create (10, str_hash, str_eq, NULL);
@@ -297,12 +423,9 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     else
       {
         void **slot;
-        char* option_string = mod_info1->string_array[start_index1 + i];
+        char *option_string = mod_info1->string_array[start_index1 + i];
 
-        if (!strcmp ("-fexceptions", option_string))
-          with_fexceptions1 = true;
-        else if (!strcmp ("-fno-exceptions", option_string))
-          with_fexceptions1 = false;
+        check_cg_opts (cg_opts1, option_string);
 
         slot = htab_find_slot (option_tab1, option_string, INSERT);
         if (!*slot)
@@ -319,12 +442,10 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     else
       {
         void **slot;
-        char* option_string = mod_info2->string_array[start_index2 + i];
+        char *option_string = mod_info2->string_array[start_index2 + i];
 
-        if (!strcmp ("-fexceptions", option_string))
-          with_fexceptions2 = true;
-        else if (!strcmp ("-fno-exceptions", option_string))
-          with_fexceptions2 = false;
+        check_cg_opts (cg_opts2, option_string);
+
         slot = htab_find_slot (option_tab2, option_string, INSERT);
         if (!*slot)
           {
@@ -354,7 +475,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     warning (OPT_Wripa_opt_mismatch, "command line arguments mismatch for %s "
 	     "and %s", mod_info1->source_filename, mod_info2->source_filename);
 
-   if (warn_ripa_opt_mismatch && non_warning_mismatch 
+   if (warn_ripa_opt_mismatch && non_warning_mismatch
        && (flag_opt_info >= OPT_INFO_MED))
      {
        inform (UNKNOWN_LOCATION, "Options for %s", mod_info1->source_filename);
@@ -365,14 +486,56 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
          inform (UNKNOWN_LOCATION, non_warning_opts2[i]);
      }
 
-  XDELETEVEC (warning_opts1);
-  XDELETEVEC (warning_opts2);
-  XDELETEVEC (non_warning_opts1);
-  XDELETEVEC (non_warning_opts2);
-  htab_delete (option_tab1);
-  htab_delete (option_tab2);
-  return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
-          || (with_fexceptions1 != with_fexceptions2));
+   has_any_incompatible_cg_opts
+       = has_incompatible_cg_opts (cg_opts1, cg_opts2, num_cg_opts);
+
+   XDELETEVEC (warning_opts1);
+   XDELETEVEC (warning_opts2);
+   XDELETEVEC (non_warning_opts1);
+   XDELETEVEC (non_warning_opts2);
+   XDELETEVEC (cg_opts1);
+   XDELETEVEC (cg_opts2);
+   htab_delete (option_tab1);
+   htab_delete (option_tab2);
+   return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
+           || has_any_incompatible_cg_opts);
+}
+
+typedef struct {
+  unsigned int mod_id;
+  const char *mod_name;
+}mod_id_to_name_t;
+
+DEF_VEC_O (mod_id_to_name_t);
+DEF_VEC_ALLOC_O (mod_id_to_name_t, heap);
+static VEC (mod_id_to_name_t, heap) *mod_names;
+
+static void
+record_module_name (unsigned int mod_id, const char *name)
+{
+  mod_id_to_name_t t;
+
+  t.mod_id = mod_id;
+  t.mod_name = xstrdup (name);
+  VEC_safe_push (mod_id_to_name_t, heap, mod_names, &t);
+}
+
+/* Return the module name for module with MOD_ID.  */
+
+const char *
+get_module_name (unsigned int mod_id)
+{
+  size_t i;
+  mod_id_to_name_t *elt;
+
+  for (i = 0; VEC_iterate (mod_id_to_name_t, mod_names, i, elt); i++)
+    {
+      if (elt->mod_id == mod_id)
+        return elt->mod_name;
+    }   
+
+  gcc_assert (0);
+  return NULL;
 }
 
 /* Read in the counts file, if available. DA_FILE_NAME is the
@@ -465,14 +628,19 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  gcov_read_summary (&sum);
 	  for (ix = 0; ix != GCOV_COUNTERS_SUMMABLE; ix++)
 	    {
-	      summary.ctrs[ix].num_hot_counters
-                  += sum.ctrs[ix].num_hot_counters;
 	      summary.ctrs[ix].runs += sum.ctrs[ix].runs;
 	      summary.ctrs[ix].sum_all += sum.ctrs[ix].sum_all;
 	      if (summary.ctrs[ix].run_max < sum.ctrs[ix].run_max)
 		summary.ctrs[ix].run_max = sum.ctrs[ix].run_max;
 	      summary.ctrs[ix].sum_max += sum.ctrs[ix].sum_max;
 	    }
+          if (new_summary)
+            memcpy (summary.ctrs[GCOV_COUNTER_ARCS].histogram,
+                    sum.ctrs[GCOV_COUNTER_ARCS].histogram,
+                    sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
+          else
+            gcov_histogram_merge (summary.ctrs[GCOV_COUNTER_ARCS].histogram,
+                                  sum.ctrs[GCOV_COUNTER_ARCS].histogram);
 	  new_summary = 0;
 	}
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
@@ -494,8 +662,9 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      entry->ctr = elt.ctr;
 	      entry->lineno_checksum = lineno_checksum;
 	      entry->cfg_checksum = cfg_checksum;
-	      entry->summary = summary.ctrs[elt.ctr];
-	      entry->summary.num = n_counts;
+              if (elt.ctr < GCOV_COUNTERS_SUMMABLE)
+                entry->summary = summary.ctrs[elt.ctr];
+              entry->summary.num = n_counts;
 	      entry->counts = XCNEWVEC (gcov_type, n_counts);
 	    }
 	  else if (entry->lineno_checksum != lineno_checksum
@@ -570,41 +739,41 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               gcc_assert (!mod_info->is_primary);
               if (pointer_set_insert (modset, (void *)(size_t)mod_info->ident))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: already imported",
                             mod_info->source_filename);
                 }
               else if ((module_infos[0]->lang & GCOV_MODULE_LANG_MASK) !=
                        (mod_info->lang & GCOV_MODULE_LANG_MASK))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: source language"
                             " different from primary module's source language",
                             mod_info->source_filename);
                 }
               else if (module_infos_read == max_group)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: maximum group"
                             " size reached", mod_info->source_filename);
                 }
               else if (incompatible_cl_args (module_infos[0], mod_info))
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: command-line"
                             " arguments not compatible with primary module",
                             mod_info->source_filename);
                 }
               else if ((fd = open (aux_da_filename, O_RDONLY)) < 0)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: couldn't open %s",
                             mod_info->source_filename, aux_da_filename);
                 }
               else if ((mod_info->lang & GCOV_MODULE_ASM_STMTS)
                        && flag_ripa_disallow_asm_modules)
                 {
-                  if (flag_opt_info >= OPT_INFO_MAX)
+                  if (flag_opt_info >= OPT_INFO_MIN)
                     inform (input_location, "Not importing %s: contains "
                             "assembler statements", mod_info->source_filename);
                 }
@@ -623,7 +792,10 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		}
             }
 
-          if (flag_opt_info >= OPT_INFO_MAX)
+	  record_module_name (mod_info->ident,
+	      lbasename (mod_info->source_filename));
+
+          if (flag_opt_info >= OPT_INFO_MIN)
             {
               inform (input_location,
                       "MODULE Id=%d, Is_Primary=%s,"
@@ -656,6 +828,252 @@ read_counts_file (const char *da_file_name, unsigned module_id)
     gcc_assert (primary_module_id && num_in_fnames >= 1);
 
   gcov_close ();
+}
+
+/* Read in the pmu profiling file, if available. DA_FILE_NAME is the
+   name of the gcda file. */
+
+static void
+read_pmu_file (const char* da_file_name)
+{
+  gcov_unsigned_t tag;
+  ll_infos_t *ll_infos = &pmu_global_summary.ll_infos;
+  brm_infos_t *brm_infos = &pmu_global_summary.brm_infos;
+  string_table_t *string_table = &pmu_global_summary.string_table;
+  int is_error = 0;
+
+  if (!gcov_open (da_file_name, 1))
+    {
+      if (PARAM_VALUE (PARAM_GCOV_DEBUG))
+        {
+          /* Try to find .gcda file in the current working dir.  */
+          da_file_name = lbasename (da_file_name);
+          if (!gcov_open (da_file_name, 1))
+            return;
+        }
+      else
+        return;
+    }
+
+  if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
+    {
+      warning (0, "%qs is not a gcov data file", da_file_name);
+      gcov_close ();
+      return;
+    }
+  else if ((tag = gcov_read_unsigned ()) != GCOV_VERSION)
+    {
+      char v[4], e[4];
+
+      GCOV_UNSIGNED2STRING (v, tag);
+      GCOV_UNSIGNED2STRING (e, GCOV_VERSION);
+
+      warning (0, "%qs is version %q.*s, expected version %q.*s",
+               da_file_name, 4, v, 4, e);
+      gcov_close ();
+      return;
+    }
+
+  /* Read and discard the version. */
+  tag = gcov_read_unsigned ();
+
+  /* Read and discard the stamp.  */
+  tag = gcov_read_unsigned ();
+
+  /* Initialize PMU data fields. */
+  ll_infos->ll_count = 0;
+  ll_infos->alloc_ll_count = 64;
+  ll_infos->ll_array = XCNEWVEC (gcov_pmu_ll_info_t *, ll_infos->alloc_ll_count);
+
+  brm_infos->brm_count = 0;
+  brm_infos->alloc_brm_count = 64;
+  brm_infos->brm_array = XCNEWVEC (gcov_pmu_brm_info_t *,
+                                   brm_infos->alloc_brm_count);
+
+  string_table->st_count = 0;
+  string_table->alloc_st_count = 64;
+  string_table->st_array = XCNEWVEC (gcov_pmu_st_entry_t *,
+                                     string_table->alloc_st_count);
+
+  while ((tag = gcov_read_unsigned ()))
+    {
+      gcov_unsigned_t length = gcov_read_unsigned ();
+      gcov_position_t base = gcov_position ();
+
+      if (tag == GCOV_TAG_PMU_LOAD_LATENCY_INFO)
+        {
+          gcov_pmu_ll_info_t *ll_info = XCNEW (gcov_pmu_ll_info_t);
+          gcov_read_pmu_load_latency_info (ll_info, length);
+          ll_infos->ll_count++;
+          if (ll_infos->ll_count >= ll_infos->alloc_ll_count)
+            {
+              /* need to realloc */
+              ll_infos->ll_array = (gcov_pmu_ll_info_t **)
+                xrealloc (ll_infos->ll_array, 2 * ll_infos->alloc_ll_count);
+            }
+          ll_infos->ll_array[ll_infos->ll_count - 1] = ll_info;
+        }
+      else if (tag == GCOV_TAG_PMU_BRANCH_MISPREDICT_INFO)
+        {
+          gcov_pmu_brm_info_t *brm_info = XCNEW (gcov_pmu_brm_info_t);
+          gcov_read_pmu_branch_mispredict_info (brm_info, length);
+          brm_infos->brm_count++;
+          if (brm_infos->brm_count >= brm_infos->alloc_brm_count)
+            {
+              /* need to realloc */
+              brm_infos->brm_array = (gcov_pmu_brm_info_t **)
+                xrealloc (brm_infos->brm_array, 2 * brm_infos->alloc_brm_count);
+            }
+          brm_infos->brm_array[brm_infos->brm_count - 1] = brm_info;
+        }
+      else if (tag == GCOV_TAG_PMU_TOOL_HEADER)
+        {
+          gcov_pmu_tool_header_t *tool_header = XCNEW (gcov_pmu_tool_header_t);
+          gcov_read_pmu_tool_header (tool_header, length);
+          ll_infos->pmu_tool_header = tool_header;
+          brm_infos->pmu_tool_header = tool_header;
+        }
+      else if (tag == GCOV_TAG_PMU_STRING_TABLE_ENTRY)
+       {
+         gcov_pmu_st_entry_t *st_entry = XCNEW (gcov_pmu_st_entry_t);
+         gcov_read_pmu_string_table_entry (st_entry, length);
+         string_table->st_count++;
+         if (string_table->st_count >= string_table->alloc_st_count)
+           {
+             string_table->alloc_st_count *= 2;
+             string_table->st_array = (gcov_pmu_st_entry_t **)
+                 xrealloc (string_table->st_array,
+                           string_table->alloc_st_count);
+           }
+
+         string_table->st_array[string_table->st_count - 1] = st_entry;
+       }
+
+      gcov_sync (base, length);
+      if ((is_error = gcov_is_error ()))
+       {
+         error (is_error < 0 ? "%qs has overflowed" : "%qs is corrupted",
+                da_file_name);
+          gcov_close ();
+         break;
+       }
+    }
+
+  gcov_close ();
+
+  /* Store pmu data in a global hash table keyed by source position.  */
+  process_pmu_data ();
+}
+
+/* Return a pmu hash table entry for the given FILETAG and LINE, creating
+   a new entry if necessary.  */
+
+static pmu_entry_t *
+get_pmu_hash_entry (gcov_unsigned_t filetag, gcov_unsigned_t line)
+{
+  string_table_t *string_table = &pmu_global_summary.string_table;
+  gcov_pmu_st_entry_t *st_entry;
+  pmu_entry_t **slot, *entry, elt;
+
+  st_entry = string_table->st_array[filetag - 1];
+  elt.lineno = line;
+  elt.filename = xstrdup (st_entry->str);
+  slot = (pmu_entry_t **) htab_find_slot
+      (pmu_hash, &elt, INSERT);
+  entry = *slot;
+  XDELETE (elt.filename);
+  if (!entry)
+    {
+      *slot = entry = XCNEW (pmu_entry_t);
+      entry->lineno = elt.lineno;
+      entry->filename = xstrdup (st_entry->str);
+    }
+  return entry;
+}
+
+/* Process the pmu profiling data, storing it in a global hash table
+   keyed by source position.  */
+
+static void
+process_pmu_data (void)
+{
+  ll_infos_t *ll_infos = &pmu_global_summary.ll_infos;
+  brm_infos_t *brm_infos = &pmu_global_summary.brm_infos;
+  unsigned i;
+  pmu_entry_t *entry;
+  gcov_pmu_ll_info_t *ll_info;
+  gcov_pmu_brm_info_t *brm_info;
+
+  /* Construct hash table with information from gcda file. Entry keys are a
+     unique combination of the filename and the line number for easy access */
+  if (!pmu_hash)
+    pmu_hash = htab_create (10,
+                            htab_pmu_entry_hash, htab_pmu_entry_eq,
+                            htab_pmu_entry_del);
+
+  gcc_assert (pmu_hash != NULL);
+  gcc_assert (ll_infos->ll_count > 0);
+  gcc_assert (brm_infos->brm_count > 0);
+
+  for (i = 0; i < ll_infos->ll_count; ++i)
+    {
+      ll_info = ll_infos->ll_array[i];
+      entry = get_pmu_hash_entry (ll_info->filetag, ll_info->line);
+      entry->ll_info = ll_info;
+    }
+
+  for (i = 0; i < brm_infos->brm_count; ++i)
+    {
+      brm_info = brm_infos->brm_array[i];
+      entry = get_pmu_hash_entry (brm_info->filetag, brm_info->line);
+      entry->brm_info = brm_info;
+    }
+}
+
+/* Returns the load latency info for line number LINENO of source file
+   FILENAME. */
+
+gcov_pmu_ll_info_t *
+get_coverage_pmu_latency (const char* filename, gcov_unsigned_t lineno)
+{
+  pmu_entry_t *entry, elt;
+
+  /* No hash table, no pmu data */
+  if (pmu_hash == NULL)
+    return NULL;
+
+  elt.filename = xstrdup (filename);
+  elt.lineno = lineno;
+
+  entry = (pmu_entry_t *) htab_find (pmu_hash, &elt);
+  XDELETE (elt.filename);
+  if (entry)
+    return entry->ll_info;
+
+  return NULL;
+}
+
+/* Returns the branch misprediction info for line number LINENO of source file
+   FILENAME. */
+
+gcov_pmu_brm_info_t *
+get_coverage_pmu_branch_mispredict (const char* filename, gcov_unsigned_t lineno)
+{
+  pmu_entry_t *entry, elt;
+
+  /* No hash table, no pmu data */
+  if (pmu_hash == NULL)
+    return NULL;
+
+  elt.filename = xstrdup (filename);
+  elt.lineno = lineno;
+
+  entry = (pmu_entry_t *) htab_find (pmu_hash, &elt);
+  XDELETE (elt.filename);
+  if (entry)
+    return entry->brm_info;
+
+  return NULL;
 }
 
 /* Returns the coverage data entry for counter type COUNTER of function
@@ -833,6 +1251,26 @@ tree_coverage_counter_addr (unsigned counter, unsigned no)
 }
 
 
+/* Generate a crc32 of a string with specified STR_LEN when it's not 0.
+   Non-zero STR_LEN should only be seen in LIPO mode.  */
+
+static unsigned
+crc32_string_1 (unsigned chksum, const char *string, unsigned str_len)
+{
+  char *dup;
+
+  if (!L_IPO_COMP_MODE || str_len == 0)
+    return crc32_string (chksum, string);
+
+  gcc_assert (str_len > 0 && str_len < strlen (string));
+  dup = xstrdup (string);
+  dup[str_len] = 0;
+  chksum = crc32_string (chksum, dup);
+  free (dup);
+
+  return chksum;
+}
+
 /* Generate a checksum for a string.  CHKSUM is the current
    checksum.  */
 
@@ -841,6 +1279,25 @@ coverage_checksum_string (unsigned chksum, const char *string)
 {
   int i;
   char *dup = NULL;
+  unsigned lipo_orig_str_len = 0;
+
+  /* Strip out the ending ".cmo.[0-9]*" string from function
+     name. Otherwise we will have lineno checksum mismatch.  */
+  if (L_IPO_COMP_MODE)
+    {
+      int len;
+
+      i = len = strlen (string);
+      while (i--)
+        if ((string[i] < '0' || string[i] > '9'))
+          break;
+      if ((i > 5) && (i != len - 1))
+        {
+          if (!strncmp (string + i - 4, ".cmo.", 5))
+            lipo_orig_str_len = i - 4;
+        }
+
+    }
 
   /* Look for everything that looks if it were produced by
      get_file_function_name and zero out the second part
@@ -887,7 +1344,7 @@ coverage_checksum_string (unsigned chksum, const char *string)
 	}
     }
 
-  chksum = crc32_string (chksum, string);
+  chksum = crc32_string_1 (chksum, string, lipo_orig_str_len);
   if (dup)
     free (dup);
 
@@ -1059,6 +1516,14 @@ coverage_function_present (unsigned fn_ident)
   while (item && item->ident != fn_ident)
     item = item->next;
   return item != NULL;
+}
+
+/* True if there is PMU data present in this compilation */
+
+bool
+pmu_data_present (void)
+{
+  return (pmu_hash != NULL);
 }
 
 /* Update function and program direct-call coverage counts.  */
@@ -1726,7 +2191,8 @@ build_info (tree info_type, tree fn_ary)
 
   /* mod_info */
   mod_value = build_gcov_module_info_value (TREE_TYPE (TREE_TYPE (info_fields)));
-  mod_value = build1 (ADDR_EXPR, TREE_TYPE (mod_value), mod_value);
+  mod_value = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (mod_value)),
+                      mod_value);
   CONSTRUCTOR_APPEND_ELT (v1, info_fields, mod_value);
   info_fields = DECL_CHAIN (info_fields);
 
@@ -2207,6 +2673,11 @@ coverage_init (const char *filename, const char* source_name)
   if (flag_branch_probabilities)
     read_counts_file (da_file_name, 0);
 
+  /* Reads at most one auxiliary GCDA file since we don't support merging */
+  if (flag_pmu_profile_use)
+    read_pmu_file (pmu_profile_data ? pmu_profile_data
+                   : get_da_file_name (pmu_profile_filename));
+
   /* Rebuild counts_hash and read the auxiliary GCDA files.  */
   if (flag_profile_use && L_IPO_COMP_MODE)
     {
@@ -2225,6 +2696,8 @@ coverage_init (const char *filename, const char* source_name)
       init_pmu_profiling ();
       tree_init_instrumentation_sampling ();
     }
+  if (flag_auto_profile)
+    init_auto_profile ();
 }
 
 /* Return True if any type of profiling is enabled which requires linking

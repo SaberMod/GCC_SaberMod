@@ -143,6 +143,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "l-ipo.h"
+#include "auto-profile.h"
 
 static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
@@ -1324,12 +1325,34 @@ handle_alias_pairs (void)
 }
 
 
+static bool backend_entered_p = false;
+extern bool is_backend_entered_p (void);
+
+/* Returns true if FE parsing is completely
+  done (including pending decl processing) and backend
+  takes over the control.  */
+
+bool
+is_backend_entered_p (void)
+{
+  return backend_entered_p;
+}
+
 /* Analyze the whole compilation unit once it is parsed completely.  */
 
 void
 cgraph_finalize_compilation_unit (void)
 {
   timevar_push (TV_CGRAPH);
+
+  backend_entered_p = true;
+
+  /* Before compilation, auto profile will process the profile to build the
+     hash tables for later optimizations. We delay this function call here
+     because all the parsing should be done so that we will have the bfd
+     name mapping ready. */
+  if (flag_auto_profile)
+    process_auto_profile ();
 
   /* If LTO is enabled, initialize the streamer hooks needed by GIMPLE.  */
   if (flag_lto)
@@ -1415,7 +1438,12 @@ cgraph_add_output_node (struct cgraph_node *node)
   if (!L_IPO_COMP_MODE)
     return node;
 
-  if (!TREE_PUBLIC (node->decl))
+  /* Never common non public names except for compiler
+     generated static functions. (they are not promoted
+     to globals either.  */
+  if (!TREE_PUBLIC (node->decl)
+      && !(DECL_ARTIFICIAL (node->decl)
+	   && DECL_ASSEMBLER_NAME_SET_P (node->decl)))
     return node;
 
   if (!output_node_hash)

@@ -1,9 +1,11 @@
-# Temporarily ignore gcc pr54127.
-expire=20121031 | FAIL: gcc.dg/torture/pr53589.c -O3 -g  (test for excess errors)
-expire=20121031 | FAIL: gcc.dg/torture/pr53589.c  -O3 -g  (internal compiler error)
-# Temporarily ignore Google ref b/6983319.
-expire=20121031 | FAIL: gcc.target/powerpc/regnames-1.c (test for excess errors)
-expire=20121031 | FAIL: gcc.target/powerpc/regnames-1.c (internal compiler error)
+# Ignore r194995 for gcc pr55852.
+FAIL: gfortran.dg/intrinsic_size_3.f90 -O   scan-tree-dump-times original "iszs = \\(integer\\(kind=2\\)\\) MAX_EXPR <\\(D.....->dim.0..ubound - D.....->dim.0..lbound\\) \\+ 1, 0>;" 1
+# Ignore gcc pr54127.
+FAIL: gcc.dg/torture/pr53589.c -O3 -g  (test for excess errors)
+FAIL: gcc.dg/torture/pr53589.c  -O3 -g  (internal compiler error)
+# Ignore Google ref b/6983319.
+FAIL: gcc.target/powerpc/regnames-1.c (test for excess errors)
+FAIL: gcc.target/powerpc/regnames-1.c (internal compiler error)
 
 FAIL: gfortran.dg/bessel_6.f90  -O0  execution test
 FAIL: gfortran.dg/bessel_6.f90  -O1  execution test
@@ -55,6 +57,7 @@ UNRESOLVED: g++.dg/tree-prof/callgraph-profiles.C scan-file Callgraph group : ma
 UNRESOLVED: g++.dg/tree-prof/callgraph-profiles.C scan-file .text.*.main\n.text.*._Z3barv\n.text.*._Z3foov\n.text.*._Z9notcalledv
 UNRESOLVED: g++.dg/tree-prof/callgraph-profiles.C scan-file Callgraph group : main _Z3barv _Z3foov\n
 UNRESOLVED: g++.dg/tree-prof/callgraph-profiles.C scan-file .text.*.main\n.text.*._Z3barv\n.text.*._Z3foov\n.text.*._Z9notcalledv
+UNRESOLVED: g++.dg/tree-prof/callgraph-profiles.C scan-file Moving 1 section\\(s\\) to new segment
 FAIL: g++.dg/tree-prof/mversn15.C execution,    -g  -fprofile-generate
 UNRESOLVED: g++.dg/tree-prof/mversn15.C compilation,  -g  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -g  -fprofile-use

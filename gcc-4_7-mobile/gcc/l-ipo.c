@@ -671,8 +671,9 @@ lipo_cmp_type (tree t1, tree t2)
     case COMPLEX_TYPE:
       return lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2));
     case ARRAY_TYPE:
-      return (lipo_cmp_type (TYPE_DOMAIN (t1), TYPE_DOMAIN (t2))
-              && lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2)));
+      return (TYPE_DOMAIN (t1) == NULL || TYPE_DOMAIN (t2) == NULL
+              || (lipo_cmp_type (TYPE_DOMAIN (t1), TYPE_DOMAIN (t2))
+                  && lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2))));
     case METHOD_TYPE:
       return lipo_cmp_type (TYPE_METHOD_BASETYPE (t1),
                             TYPE_METHOD_BASETYPE (t2));
@@ -1111,15 +1112,15 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
   if (node->is_versioned_clone)
     return false;
 
-  /* virtual functions won't be deleted in the primary module.  */
-  if (DECL_VIRTUAL_P (decl))
-    return true;
-
   /* Comdat or weak functions in aux modules are not external --
      there is no guarantee that the definitition will be emitted
      in the primary compilation of this auxiliary module.  */
   if (DECL_COMDAT (decl) || DECL_WEAK (decl))
     return false;
+
+  /* virtual functions won't be deleted in the primary module.  */
+  if (DECL_VIRTUAL_P (decl))
+    return true;
 
   if (!TREE_PUBLIC (decl))
     return false;

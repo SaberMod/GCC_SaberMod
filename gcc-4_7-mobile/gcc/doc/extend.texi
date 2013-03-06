@@ -1274,7 +1274,7 @@ RAM using the lower two bytes as RAM address.
 If the high bit of the address is clear, data is read from flash
 with @code{RAMPZ} set according to the high byte of the address.
 
-Objects in this address space will be located in @code{.progmem.data}.
+Objects in this address space will be located in @code{.progmemx.data}.
 @end table
 
 @b{Example}
@@ -7136,8 +7136,7 @@ to the same names in the C++11 standard.  Refer there or to the
 atomic synchronization} for more detailed definitions.  These memory
 models integrate both barriers to code motion as well as synchronization
 requirements with other threads. These are listed in approximately
-ascending order of strength. It is also possible to use target specific
-flags for memory model flags, like Hardware Lock Elision.
+ascending order of strength.
 
 @table  @code
 @item __ATOMIC_RELAXED
@@ -9458,6 +9457,147 @@ Similar to @code{__builtin_huge_val}, except the return type is @code{__float128
 @findex __builtin_huge_valq
 @end table
 
+The following built-in functions are always available and can be used to
+check the target platform type.
+
+@deftypefn {Built-in Function} void __builtin_cpu_init (void)
+This function runs the CPU detection code to check the type of CPU and the
+features supported.  This builtin needs to be invoked along with the builtins
+to check CPU type and features, @code{__builtin_cpu_is} and
+@code{__builtin_cpu_supports}, only when used in a function that will be
+executed before any constructors are called.  The CPU detection code is
+automatically executed in a very high priority constructor.
+
+For example, this function has to be used in @code{ifunc} resolvers which
+check for CPU type using the builtins @code{__builtin_cpu_is}
+and @code{__builtin_cpu_supports}, or in constructors on targets which
+don't support constructor priority.
+@smallexample
+
+static void (*resolve_memcpy (void)) (void)
+@{
+  // ifunc resolvers fire before constructors, explicitly call the init
+  // function.
+  __builtin_cpu_init ();
+  if (__builtin_cpu_supports ("ssse3"))
+    return ssse3_memcpy; // super fast memcpy with ssse3 instructions.
+  else
+    return default_memcpy;
+@}
+
+void *memcpy (void *, const void *, size_t)
+     __attribute__ ((ifunc ("resolve_memcpy")));
+@end smallexample
+
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_cpu_is (const char *@var{cpuname})
+This function returns a positive integer if the runtime cpu is of type @var{cpuname}
+ and returns @code{0} otherwise. The following cpu names can be detected:
+
+@table @samp
+@item intel
+Intel CPU.
+
+@item atom
+Intel ATOM CPU.
+
+@item core2
+Intel Core2 CPU.
+
+@item corei7
+Intel Corei7 CPU.
+
+@item nehalem
+Intel Corei7 Nehalem CPU.
+
+@item westmere
+Intel Corei7 Westmere CPU.
+
+@item sandybridge
+Intel Corei7 Sandybridge CPU.
+
+@item amd
+AMD CPU.
+
+@item amdfam10h
+AMD family 10h CPU.
+
+@item barcelona
+AMD family 10h Barcelona CPU.
+
+@item shanghai
+AMD family 10h Shanghai CPU.
+
+@item istanbul
+AMD family 10h Istanbul CPU.
+
+@item amdfam15h
+AMD family 15h CPU.
+
+@item bdver1
+AMD family 15h Bulldozer version 1.
+
+@item bdver2
+AMD family 15h Bulldozer version 2.
+@end table
+
+Here is an example:
+@smallexample
+if (__builtin_cpu_is ("corei7"))
+  @{
+     do_corei7 (); //Corei7 specific implementation.
+  @}
+else
+  @{
+     do_generic (); //Generic implementation.
+  @}
+@end smallexample
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_cpu_supports (const char *@var{feature})
+This function returns a postive integer if the runtime cpu supports @var{feature}
+ and returns @code{0} otherwise. The following features can be detected:
+
+@table @samp
+@item cmov
+CMOV instruction.
+@item mmx
+MMX instructions.
+@item popcnt
+POPCNT instruction.
+@item sse
+SSE instructions.
+@item sse2
+SSE2 instructions.
+@item sse3
+SSE3 instructions.
+@item ssse3
+SSSE3 instructions.
+@item sse4.1
+SSE4.1 instructions.
+@item sse4.2
+SSE4.2 instructions.
+@item avx
+AVX instructions.
+@item avx2
+AVX2 instructions.
+@end table
+
+Here is an example:
+@smallexample
+if (__builtin_cpu_supports ("popcnt"))
+  @{
+     asm("popcnt %1,%0" : "=r"(count) : "rm"(n) : "cc");
+  @}
+else
+  @{
+     count = generic_countbits (n); //generic implementation.
+  @}
+@end smallexample
+@end deftypefn
+
+
 The following built-in functions are made available by @option{-mmmx}.
 All of them generate the machine instruction that is part of the name.
 
@@ -10141,11 +10281,11 @@ v32qi __builtin_ia32_mpsadbw256 (v32qi,v32qi,v32qi,int)
 v32qi __builtin_ia32_pabsb256 (v32qi)
 v16hi __builtin_ia32_pabsw256 (v16hi)
 v8si __builtin_ia32_pabsd256 (v8si)
-v16hi builtin_ia32_packssdw256 (v8si,v8si)
+v16hi __builtin_ia32_packssdw256 (v8si,v8si)
 v32qi __builtin_ia32_packsswb256 (v16hi,v16hi)
 v16hi __builtin_ia32_packusdw256 (v8si,v8si)
 v32qi __builtin_ia32_packuswb256 (v16hi,v16hi)
-v32qi__builtin_ia32_paddb256 (v32qi,v32qi)
+v32qi __builtin_ia32_paddb256 (v32qi,v32qi)
 v16hi __builtin_ia32_paddw256 (v16hi,v16hi)
 v8si __builtin_ia32_paddd256 (v8si,v8si)
 v4di __builtin_ia32_paddq256 (v4di,v4di)
@@ -10156,7 +10296,7 @@ v16hi __builtin_ia32_paddusw256 (v16hi,v16hi)
 v4di __builtin_ia32_palignr256 (v4di,v4di,int)
 v4di __builtin_ia32_andsi256 (v4di,v4di)
 v4di __builtin_ia32_andnotsi256 (v4di,v4di)
-v32qi__builtin_ia32_pavgb256 (v32qi,v32qi)
+v32qi __builtin_ia32_pavgb256 (v32qi,v32qi)
 v16hi __builtin_ia32_pavgw256 (v16hi,v16hi)
 v32qi __builtin_ia32_pblendvb256 (v32qi,v32qi,v32qi)
 v16hi __builtin_ia32_pblendw256 (v16hi,v16hi,int)

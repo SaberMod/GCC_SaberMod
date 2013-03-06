@@ -807,7 +807,7 @@ add_removable_extension (const_rtx expr, rtx insn,
       for (def = defs; def; def = def->next)
 	if ((idx = def_map[INSN_UID(DF_REF_INSN (def->ref))])
 	    && (cand = VEC_index (ext_cand, *insn_list, idx - 1))
-	    && (cand->code != code || cand->mode != mode))
+	    && cand->code != code)
 	  {
 	    if (dump_file)
 	      {
@@ -936,6 +936,9 @@ find_and_remove_re (void)
 static unsigned int
 rest_of_handle_ree (void)
 {
+  if (df_check_ud_du_memory_usage ())
+    return 0;
+
   timevar_push (TV_REE);
   find_and_remove_re ();
   timevar_pop (TV_REE);

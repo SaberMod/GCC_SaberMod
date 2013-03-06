@@ -42,9 +42,11 @@ along with GCC; see the file COPYING3.  If not see
    analogous to REG_FREQ_FROM_BB.  When optimizing for size, or
    profile driven feedback is available and the function is never
    executed, frequency is always equivalent.  Otherwise rescale the
-   edge frequency.  */
+   edge frequency.  For AutoFDO, even if a function is not sampled,
+   it can still be executed, thus frequency rescale is still used.  */
 #define REG_FREQ_FROM_EDGE_FREQ(freq)					   \
-  (optimize_size || (flag_branch_probabilities && !ENTRY_BLOCK_PTR->count) \
+  (optimize_size || (flag_branch_probabilities				   \
+   && !flag_auto_profile && !ENTRY_BLOCK_PTR->count) 			   \
    ? REG_FREQ_MAX : (freq * REG_FREQ_MAX / BB_FREQ_MAX)			   \
    ? (freq * REG_FREQ_MAX / BB_FREQ_MAX) : 1)
 
@@ -1138,8 +1140,13 @@ static inline bool
 ira_allocno_object_iter_cond (ira_allocno_object_iterator *i, ira_allocno_t a,
 			      ira_object_t *o)
 {
-  *o = ALLOCNO_OBJECT (a, i->n);
-  return i->n++ < ALLOCNO_NUM_OBJECTS (a);
+  int n = i->n++;
+  if (n < ALLOCNO_NUM_OBJECTS (a))
+    {
+      *o = ALLOCNO_OBJECT (a, n);
+      return true;
+    }
+  return false;
 }
 
 /* Loop over all objects associated with allocno A.  In each

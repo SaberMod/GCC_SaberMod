@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "plugin.h"
 #include "tree-threadsafe-analyze.h"
+#include "auto-profile.h"
 
 #if defined (DWARF2_UNWIND_INFO) || defined (DWARF2_DEBUGGING_INFO)
 #include "dwarf2out.h"
@@ -699,6 +700,10 @@ compile_file (void)
 	       IDENT_ASM_OP, pkg_version, version_string);
     }
 #endif
+
+  /* Auto profile finalization. */
+  if (flag_auto_profile)
+    end_auto_profile ();
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
@@ -1494,6 +1499,9 @@ process_options (void)
     error ("target system does not support the \"%s\" debug format",
 	   debug_type_names[write_symbols]);
 
+  if (flag_auto_profile && debug_info_level == DINFO_LEVEL_NONE)
+    debug_hooks = &auto_profile_debug_hooks;
+
   /* We know which debug output will be used so we can set flag_var_tracking
      and flag_var_tracking_uninit if the user has not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
@@ -1522,11 +1530,14 @@ process_options (void)
   /* If the user specifically requested variable tracking with tagging
      uninitialized variables, we need to turn on variable tracking.
      (We already determined above that variable tracking is feasible.)  */
-  if (flag_var_tracking_uninit)
+  if (flag_var_tracking_uninit == 1)
     flag_var_tracking = 1;
 
   if (flag_var_tracking == AUTODETECT_VALUE)
     flag_var_tracking = optimize >= 1;
+
+  if (flag_var_tracking_uninit == AUTODETECT_VALUE)
+    flag_var_tracking_uninit = flag_var_tracking;
 
   if (flag_var_tracking_assignments == AUTODETECT_VALUE)
     flag_var_tracking_assignments = flag_var_tracking
@@ -1571,12 +1582,6 @@ process_options (void)
 	  warning (0, "-fdata-sections not supported for this target");
 	  flag_data_sections = 0;
 	}
-    }
-
-  if (flag_function_sections && profile_flag)
-    {
-      warning (0, "-ffunction-sections disabled; it makes profiling impossible");
-      flag_function_sections = 0;
     }
 
 #ifndef HAVE_prefetch
@@ -2049,6 +2054,7 @@ toplev_main (int argc, char **argv)
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
   finalize_plugins ();
+  location_adhoc_data_fini (line_table);
   if (seen_error ())
     return (FATAL_EXIT_CODE);
 

@@ -10626,7 +10626,6 @@ sparc_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
      instruction scheduling worth while.  Note that use_thunk calls
      assemble_start_function and assemble_end_function.  */
   insn = get_insns ();
-  insn_locators_alloc ();
   shorten_branches (insn);
   final_start_function (insn, file, 1);
   final (insn, file, 1);
@@ -10663,7 +10662,10 @@ sparc_reorg (void)
   /* We need to have the (essentially) final form of the insn stream in order
      to properly detect the various hazards.  Run delay slot scheduling.  */
   if (optimize > 0 && flag_delayed_branch)
-    dbr_schedule (get_insns ());
+    {
+      cleanup_barriers ();
+      dbr_schedule (get_insns ());
+    }
 
   /* Now look for specific patterns in the insn stream.  */
   for (insn = get_insns (); insn; insn = next)
@@ -10946,18 +10948,6 @@ sparc_emit_membar_for_model (enum memmodel model,
 
   if (before_after & 1)
     {
-      if (model == MEMMODEL_ACQUIRE
-          || model == MEMMODEL_ACQ_REL
-          || model == MEMMODEL_SEQ_CST)
-	{
-	  if (load_store & 1)
-	    mm |= LoadLoad | LoadStore;
-	  if (load_store & 2)
-	    mm |= StoreLoad | StoreStore;
-	}
-    }
-  if (before_after & 2)
-    {
       if (model == MEMMODEL_RELEASE
 	  || model == MEMMODEL_ACQ_REL
 	  || model == MEMMODEL_SEQ_CST)
@@ -10966,6 +10956,18 @@ sparc_emit_membar_for_model (enum memmodel model,
 	    mm |= LoadLoad | StoreLoad;
 	  if (load_store & 2)
 	    mm |= LoadStore | StoreStore;
+	}
+    }
+  if (before_after & 2)
+    {
+      if (model == MEMMODEL_ACQUIRE
+	  || model == MEMMODEL_ACQ_REL
+	  || model == MEMMODEL_SEQ_CST)
+	{
+	  if (load_store & 1)
+	    mm |= LoadLoad | LoadStore;
+	  if (load_store & 2)
+	    mm |= StoreLoad | StoreStore;
 	}
     }
 
