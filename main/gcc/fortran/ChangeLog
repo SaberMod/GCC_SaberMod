@@ -1,3 +1,14 @@
+2013-03-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56491
+	* iresolve.c (resolve_bound): Use gfc_get_string instead of xstrdup.
+	* symbol.c (free_components): Free proc-pointer components.
+
+2013-03-01  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_trans_deferred_vars): Free expr after use.
+	* trans-io.c (build_dt): Ditto.
+
 2013-02-24  Joseph Myers  <joseph@codesourcery.com>
 
 	* resolve.c (generate_component_assignments): Don't use UTF-8
