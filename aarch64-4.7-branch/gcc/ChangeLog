@@ -1,3 +1,71 @@
+2013-02-26  Nick Clifton  <nickc@redhat.com>
+
+	PR target/56453
+	Import this patch from the mainline:
+
+	2012-08-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/fr30/fr30.md (cbranchsi4): Remove mode from comparison.
+	(branch_true): Likewise.
+	(branch_false): Likewise.
+
+2013-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56443
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size): For
+	overaligned types, pass TYPE_UNSIGNED (scalar_type) as second argument
+	to type_for_mode langhook.
+
+2013-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/56258
+	* doc/invoke.texi (-fdump-rtl-pro_and_epilogue): Use @item
+	instead of @itemx.
+
+2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56350
+	* tree-vect-loop.c (vectorizable_reduction): If orig_stmt, return false
+	if haven't found reduction or nested cycle operand, rather than
+	asserting we must find it.
+
+	PR tree-optimization/56381
+	* tree-ssa-pre.c (create_expression_by_pieces): Fix up last argument
+	to fold_build3.
+
+	2013-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56250
+	* fold-const.c (extract_muldiv_1) <case NEGATE_EXPR>: Don't optimize
+	if type is unsigned and code isn't MULT_EXPR.
+
+	2013-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56217
+	* omp-low.c (use_pointer_for_field): Return false if
+	lower_send_shared_vars doesn't generate any copy-out code.
+
+	2012-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55110
+	* tree-vect-loop.c (vectorizable_reduction): Don't assert
+	that STMT_VINFO_RELATED_STMT of orig_stmt is stmt.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	Revert
+	2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53844
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Properly handle
+	the loop virtual PHI.
+
 2013-02-13  David S. Miller  <davem@davemloft.net>
 
 	* expmed.c (expand_shift_1): Only strip scalar integer subregs.

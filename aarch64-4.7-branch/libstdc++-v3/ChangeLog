@@ -1,3 +1,52 @@
+2013-02-26  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56012
+	* include/bits/atomic_base.h (atomic_flag): Fix narrowing conversion.
+	* testsuite/29_atomics/atomic/operators/56012.cc: New.
+
+	PR libstdc++/56011
+	* include/std/atomic (atomic<bool>::operator=(bool) volatile): Add
+	missing overload.
+	* testsuite/29_atomics/atomic/operators/56011.cc: New.
+
+2013-02-20  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/streambuf (basic_streambuf): Fix unclosed Doxygen group.
+
+2013-02-20  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/55043
+	* include/bits/alloc_traits.h (allocator_traits::construct): Disable
+	unless construction would be well-formed.
+	(__allow_copy_cons, __check_copy_constructible): Define.
+	* include/bits/unordered_map.h (__check_copy_constructible): Use as
+	base class so copy constructor will be deleted if appropriate.
+	* include/bits/unordered_set.h: Likewise.
+	* include/std/unordered_set: Include alloc_traits.h.
+	* include/std/unordered_set: Likewise.
+	* include/debug/unordered_map.h: Default copy and move constructors.
+	* include/debug/unordered_set.h: Likewise.
+	* testsuite/23_containers/unordered_map/55043.cc: Fix test.
+	* testsuite/23_containers/unordered_multimap/55043.cc: Likewise.
+	* testsuite/23_containers/unordered_multiset/55043.cc: Likewise.
+	* testsuite/23_containers/unordered_set/55043.cc: Likewise.
+	* testsuite/23_containers/unordered_map/requirements/53339.cc: XFAIL,
+	cannot support incomplete types.
+	* testsuite/23_containers/unordered_multimap/requirements/53339.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error line number.
+
+2013-02-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/functional (mem_fn): Qualify to prevent ADL.
+	* testsuite/20_util/function_objects/mem_fn/adl.cc: New.
+
+2013-02-18  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/hashtable.h: Improve comments.
+	* include/bits/hashtable_policy.h: Likewise.
+
 2013-01-24  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/56085

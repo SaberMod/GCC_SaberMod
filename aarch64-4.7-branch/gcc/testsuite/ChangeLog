@@ -1,3 +1,66 @@
+2013-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56443
+	* gcc.dg/torture/pr56443.c: New test.
+
+2013-02-22  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/56385
+	* gfortran.dg/proc_ptr_comp_37.f90: New.
+
+2013-02-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2012-06-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/clearcapv2.map: New file.
+	* gcc.target/i386/i386.exp: Try it first before clearcap.map.
+
+2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56350
+	* gcc.dg/pr56350.c: New test.
+
+	2013-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56250
+	* gcc.c-torture/execute/pr56250.c: New test.
+
+	2013-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56241
+	* g++.dg/parse/crash61.C: New test.
+
+	PR c++/56239
+	* g++.dg/parse/pr56239.C: New test.
+
+	PR c++/56237
+	* g++.dg/abi/mangle61.C: New test.
+
+	2013-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56217
+	* g++.dg/gomp/pr56217.C: New test.
+
+	2012-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55110
+	* gcc.dg/pr55110.c: New test.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	Revert
+	2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53844
+	* g++.dg/tree-ssa/pr53844.C: New testcase.
+
 2013-02-17  Tobias Burnus  <burnus@net-b.de>
 	    Mikael Morin  <mikael@gcc.gnu.org>
 
