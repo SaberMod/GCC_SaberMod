@@ -1557,9 +1557,6 @@ tree_profiling (void)
       /* Re-set global shared temporary variable for edge-counters.  */
       gcov_type_tmp_var = NULL_TREE;
 
-      if (flag_emit_function_names)
-        emit_function_name ();
-
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
 	cleanup_tree_cfg ();
