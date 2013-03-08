@@ -1,3 +1,120 @@
+2013-03-08  Joey Ye  <joey.ye@arm.com>
+
+	Backport from mainline
+	2013-03-06  Joey Ye  <joey.ye@arm.com>
+
+	PR lto/50293
+	* gcc.c (convert_white_space): New function.
+	(main): Handles white space in function name.
+
+2013-03-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2013-03-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/56529
+	* config/sh/sh.c (sh_option_override): Check for TARGET_DYNSHIFT
+	instead of TARGET_SH2 for call-table case.  Do not set sh_div_strategy
+	to SH_DIV_CALL_TABLE for TARGET_SH2.
+	* config.gcc (sh_multilibs): Add m2 and m2a to sh*-*-linux* multilib
+	list.
+	* doc/invoke.texi (SH options): Use table for mdiv= option.  Document
+	mdiv= call-div1, call-fp, call-table options.
+
+2013-03-06  Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (arm*-*-rtemself*): New.
+	(arm*-*-rtems*): Removed.
+	(arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*): Rename
+	"arm*-*-rtemseabi*" to "arm*-*-rtems*".
+
+2013-03-01  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-12-12  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/55481
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Fall
+	back to general rewriting if we cannot leave an original biv
+	definition alone.
+
+2013-03-01  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-04-10  Richard Guenther  <rguenther@suse.de>
+ 
+	PR middle-end/52888
+	* gimple-low.c (gimple_check_call_args): Properly account for
+	compatible aggregate types.
+
+2013-02-26  Nick Clifton  <nickc@redhat.com>
+
+	PR target/56453
+	Import this patch from the mainline:
+
+	2012-08-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/fr30/fr30.md (cbranchsi4): Remove mode from comparison.
+	(branch_true): Likewise.
+	(branch_false): Likewise.
+
+2013-02-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56443
+	* tree-vect-stmts.c (get_vectype_for_scalar_type_and_size): For
+	overaligned types, pass TYPE_UNSIGNED (scalar_type) as second argument
+	to type_for_mode langhook.
+
+2013-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/56258
+	* doc/invoke.texi (-fdump-rtl-pro_and_epilogue): Use @item
+	instead of @itemx.
+
+2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56350
+	* tree-vect-loop.c (vectorizable_reduction): If orig_stmt, return false
+	if haven't found reduction or nested cycle operand, rather than
+	asserting we must find it.
+
+	PR tree-optimization/56381
+	* tree-ssa-pre.c (create_expression_by_pieces): Fix up last argument
+	to fold_build3.
+
+	2013-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56250
+	* fold-const.c (extract_muldiv_1) <case NEGATE_EXPR>: Don't optimize
+	if type is unsigned and code isn't MULT_EXPR.
+
+	2013-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56217
+	* omp-low.c (use_pointer_for_field): Return false if
+	lower_send_shared_vars doesn't generate any copy-out code.
+
+	2012-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/55110
+	* tree-vect-loop.c (vectorizable_reduction): Don't assert
+	that STMT_VINFO_RELATED_STMT of orig_stmt is stmt.
+
+2013-02-18  Richard Biener  <rguenther@suse.de>
+
+	Revert
+	2013-02-04  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-07-04  Richard Guenther  <rguenther@suse.de>
+
+	PR tree-optimization/53844
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Properly handle
+	the loop virtual PHI.
+
 2013-02-13  David S. Miller  <davem@davemloft.net>
 
 	* expmed.c (expand_shift_1): Only strip scalar integer subregs.
