@@ -1,3 +1,16 @@
+2013-03-08  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r195134
+	2013-01-13  Terry Guo  <terry.guo@arm.com>
+
+	* gcc/Makefile.in (s-mlib): New argument MULTILIB_REUSE.
+	* gcc/doc/fragments.texi: Document MULTILIB_REUSE.
+	* gcc/gcc.c (multilib_reuse): New internal spec.
+	(set_multilib_dir): Also search multilib from multilib_reuse.
+	* gcc/genmultilib (tmpmultilib3): Refactor code.
+	(tmpmultilib4): Ditto.
+	(multilib_reuse): New multilib argument.
+
 2013-03-01  Bin Cheng  <bin.cheng@arm.com>
 
 	* config/arm/arm.md (*arm_addsi3, *arm_subsi3_insn, *arm_mulsi3_v6)
