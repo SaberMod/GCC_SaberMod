@@ -8,12 +8,12 @@ space +=
 
 MULTILIB_OPTIONS   = mthumb/marm
 MULTILIB_DIRNAMES  = thumb arm
-MULTILIB_OPTIONS  += march=armv6s-m/march=armv7-m/march=armv7e-m/march=armv7-r/march=armv7-a
-MULTILIB_DIRNAMES += armv6-m armv7-m armv7e-m armv7-r armv7-a 
+MULTILIB_OPTIONS  += march=armv6s-m/march=armv7-m/march=armv7e-m/march=armv7
+MULTILIB_DIRNAMES += armv6-m armv7-m armv7e-m armv7-ar
 MULTILIB_OPTIONS  += mfloat-abi=softfp/mfloat-abi=hard
 MULTILIB_DIRNAMES += softfp fpu
-MULTILIB_OPTIONS  += mfpu=fpv4-sp-d16/mfpu=vfpv3-d16/mfpu=neon
-MULTILIB_DIRNAMES += fpv4-sp-d16 vfpv3-d16 neon
+MULTILIB_OPTIONS  += mfpu=fpv4-sp-d16/mfpu=vfpv3-d16
+MULTILIB_DIRNAMES += fpv4-sp-d16 vfpv3-d16
 
 MULTILIB_MATCHES   = march?armv6s-m=mcpu?cortex-m0
 MULTILIB_MATCHES  += march?armv6s-m=mcpu?cortex-m0plus
@@ -21,13 +21,29 @@ MULTILIB_MATCHES  += march?armv6s-m=mcpu?cortex-m1
 MULTILIB_MATCHES  += march?armv6s-m=march?armv6-m
 MULTILIB_MATCHES  += march?armv7-m=mcpu?cortex-m3
 MULTILIB_MATCHES  += march?armv7e-m=mcpu?cortex-m4
-MULTILIB_MATCHES  += march?armv7-r=mcpu?cortex-r4
-MULTILIB_MATCHES  += march?armv7-r=mcpu?cortex-r4f
-MULTILIB_MATCHES  += march?armv7-r=mcpu?cortex-r5
-MULTILIB_MATCHES  += march?armv7-a=mcpu?cortex-a8
-MULTILIB_MATCHES  += march?armv7-a=mcpu?cortex-a8
+MULTILIB_MATCHES  += march?armv7=march?armv7-r
+MULTILIB_MATCHES  += march?armv7=march?armv7-a
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-r4
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-r4f
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-r5
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a5
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a7
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a8
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a9
+MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a15
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3-fp16
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3-d16-fp16
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3xd
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3xd-fp16
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv4
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv4-d16
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?neon
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?neon-fp16
+MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?neon-vfpv4
 
 MULTILIB_EXCEPTIONS =
+MULTILIB_REUSE =
 
 MULTILIB_REQUIRED  = mthumb
 MULTILIB_REQUIRED += marm
@@ -56,20 +72,14 @@ MULTILIB_OSDIRNAMES += mthumb/march.armv7e-m/mfloat-abi.hard/mfpu.fpv4-sp-d16=!a
 MULTILIB_OSDIRNAMES += mthumb/march.armv7e-m/mfloat-abi.softfp/mfpu.fpv4-sp-d16=!armv7e-m/softfp
 endif
 
-ifneq (,$(findstring armv7-r,$(subst $(comma),$(space),$(with_multilib_list))))
-MULTILIB_REQUIRED   += mthumb/march=armv7-r
-MULTILIB_REQUIRED   += mthumb/march=armv7-r/mfloat-abi=softfp/mfpu=vfpv3-d16
-MULTILIB_REQUIRED   += mthumb/march=armv7-r/mfloat-abi=hard/mfpu=vfpv3-d16
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-r=!armv7-r/thumb
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-r/mfloat-abi.hard/mfpu.vfpv3-d16=!armv7-r/thumb/fpu
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-r/mfloat-abi.softfp/mfpu.vfpv3-d16=!armv7-r/thumb/softfp
-endif
-
-ifneq (,$(findstring armv7-a,$(subst $(comma),$(space),$(with_multilib_list))))
-MULTILIB_REQUIRED   += mthumb/march=armv7-a
-MULTILIB_REQUIRED   += mthumb/march=armv7-a/mfloat-abi=softfp/mfpu=neon
-MULTILIB_REQUIRED   += mthumb/march=armv7-a/mfloat-abi=hard/mfpu=neon
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-a=!armv7-a/thumb
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-a/mfloat-abi.hard/mfpu.neon=!armv7-a/thumb/fpu
-MULTILIB_OSDIRNAMES += mthumb/march.armv7-a/mfloat-abi.softfp/mfpu.neon=!armv7-a/thumb/softfp
+ifneq (,$(filter armv7 armv7-r armv7-a,$(subst $(comma),$(space),$(with_multilib_list))))
+MULTILIB_REQUIRED   += mthumb/march=armv7
+MULTILIB_REQUIRED   += mthumb/march=armv7/mfloat-abi=softfp/mfpu=vfpv3-d16
+MULTILIB_REQUIRED   += mthumb/march=armv7/mfloat-abi=hard/mfpu=vfpv3-d16
+MULTILIB_OSDIRNAMES += mthumb/march.armv7=!armv7-ar/thumb
+MULTILIB_OSDIRNAMES += mthumb/march.armv7/mfloat-abi.hard/mfpu.vfpv3-d16=!armv7-ar/thumb/fpu
+MULTILIB_OSDIRNAMES += mthumb/march.armv7/mfloat-abi.softfp/mfpu.vfpv3-d16=!armv7-ar/thumb/softfp
+MULTILIB_REUSE      += mthumb/march.armv7=marm/march.armv7
+MULTILIB_REUSE      += mthumb/march.armv7/mfloat-abi.softfp/mfpu.vfpv3-d16=marm/march.armv7/mfloat-abi.softfp/mfpu.vfpv3-d16
+MULTILIB_REUSE      += mthumb/march.armv7/mfloat-abi.hard/mfpu.vfpv3-d16=marm/march.armv7/mfloat-abi.hard/mfpu.vfpv3-d16
 endif

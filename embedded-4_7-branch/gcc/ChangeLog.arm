@@ -1,3 +1,8 @@
+2013-03-11  Terry Guo  <terry.guo@arm.com>
+
+	* gcc/config/arm/t-mlibs: Adjust the multilib configuration
+	to share multilib between cortex-a and cortex-r cores.
+
 2013-03-08  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r195134
