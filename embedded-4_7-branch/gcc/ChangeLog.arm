@@ -1,3 +1,7 @@
+2013-03-11  Zhenqiang Chen <zhenqiang.chen@arm.com>
+
+	* gcc/config.gcc: add arm/t-mlibs for uclinux build
+
 2013-03-11  Terry Guo  <terry.guo@arm.com>
 
 	* gcc/config/arm/t-mlibs: Adjust the multilib configuration
