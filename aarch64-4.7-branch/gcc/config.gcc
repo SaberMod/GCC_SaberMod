@@ -257,7 +257,7 @@ case ${target} in
  | arm*-*-elf				\
  | arm*-*-freebsd*			\
  | arm*-*-linux*			\
- | arm*-*-rtems*			\
+ | arm*-*-rtemself*			\
  | arm*-*-uclinux*			\
  | arm*-wince-pe*			\
  | mips-sgi-irix6.5			\
@@ -926,7 +926,11 @@ arm*-*-ecos-elf)
 	tm_file="dbxelf.h elfos.h newlib-stdint.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/ecos-elf.h"
 	tmake_file="arm/t-arm arm/t-arm-elf"
 	;;
-arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*)
+arm*-*-rtemself*)
+	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/rtems-elf.h rtems.h newlib-stdint.h"
+	tmake_file="arm/t-arm arm/t-arm-elf t-rtems arm/t-rtems"
+	;;
+arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	# The BPABI long long divmod functions return a 128-bit value in
 	# registers r0-r3.  Correctly modeling that requires the use of
 	# TImode.
@@ -940,7 +944,7 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*)
 	  tmake_file="${tmake_file} arm/t-bpabi"
 	  use_gcc_stdint=wrap
 	  ;;
-	arm*-*-rtemseabi*)
+	arm*-*-rtems*)
 	  tm_file="${tm_file} rtems.h arm/rtems-eabi.h newlib-stdint.h"
 	  tmake_file="${tmake_file} arm/t-bpabi t-rtems arm/t-rtems-eabi"
 	  ;;
@@ -952,10 +956,6 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*)
 	  ;;
 	esac
 	tm_file="${tm_file} arm/aout.h arm/arm.h"
-	;;
-arm*-*-rtems*)
-	tm_file="dbxelf.h elfos.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h arm/rtems-elf.h rtems.h newlib-stdint.h"
-	tmake_file="arm/t-arm arm/t-arm-elf t-rtems arm/t-rtems"
 	;;
 arm*-*-elf)
 	tm_file="dbxelf.h elfos.h newlib-stdint.h arm/unknown-elf.h arm/elf.h arm/aout.h arm/arm.h"
@@ -2379,7 +2379,7 @@ sh-*-elf* | sh[12346l]*-*-elf* | \
 		sh[1234]*)	sh_multilibs=${sh_cpu_target} ;;
 		sh64* | sh5*)	sh_multilibs=m5-32media,m5-32media-nofpu,m5-compact,m5-compact-nofpu,m5-64media,m5-64media-nofpu ;;
 		sh-superh-*)	sh_multilibs=m4,m4-single,m4-single-only,m4-nofpu ;;
-		sh*-*-linux*)	sh_multilibs=m1,m3e,m4 ;;
+		sh*-*-linux*)	sh_multilibs=m1,m2,m2a,m3e,m4 ;;
 		sh*-*-netbsd*)	sh_multilibs=m3,m3e,m4 ;;
 		*) sh_multilibs=m1,m2,m2e,m4,m4-single,m4-single-only,m2a,m2a-single ;;
 		esac

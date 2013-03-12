@@ -1,3 +1,43 @@
+2013-03-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2013-03-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/56529
+	* config/sh/sh.c (sh_option_override): Check for TARGET_DYNSHIFT
+	instead of TARGET_SH2 for call-table case.  Do not set sh_div_strategy
+	to SH_DIV_CALL_TABLE for TARGET_SH2.
+	* config.gcc (sh_multilibs): Add m2 and m2a to sh*-*-linux* multilib
+	list.
+	* doc/invoke.texi (SH options): Use table for mdiv= option.  Document
+	mdiv= call-div1, call-fp, call-table options.
+
+2013-03-06  Sebastian Huber <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (arm*-*-rtemself*): New.
+	(arm*-*-rtems*): Removed.
+	(arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtemseabi*): Rename
+	"arm*-*-rtemseabi*" to "arm*-*-rtems*".
+
+2013-03-01  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-12-12  Zdenek Dvorak  <ook@ucw.cz>
+
+	PR tree-optimization/55481
+	* tree-ssa-loop-ivopts.c (rewrite_use_nonlinear_expr): Fall
+	back to general rewriting if we cannot leave an original biv
+	definition alone.
+
+2013-03-01  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2012-04-10  Richard Guenther  <rguenther@suse.de>
+ 
+	PR middle-end/52888
+	* gimple-low.c (gimple_check_call_args): Properly account for
+	compatible aggregate types.
+
 2013-02-26  Nick Clifton  <nickc@redhat.com>
 
 	PR target/56453
