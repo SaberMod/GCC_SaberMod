@@ -376,7 +376,6 @@ inline_call (struct cgraph_edge *e, bool update_original,
   struct cgraph_node *to = NULL;
   struct cgraph_edge *curr = e;
   struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
-  struct cgraph_node *resolved_target = callee;
 
   /* Skip fake edge.  */
   if (L_IPO_COMP_MODE && !e->call_stmt)
@@ -403,9 +402,7 @@ inline_call (struct cgraph_edge *e, bool update_original,
     {
       struct cgraph_node *alias = e->callee, *next_alias;
 
-      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
-        resolved_target = cgraph_lipo_get_resolved_node (callee->decl);
-      cgraph_redirect_edge_callee (e, resolved_target);
+      cgraph_redirect_edge_callee (e, callee);
       while (alias && alias != callee)
 	{
 	  if (!alias->callers
