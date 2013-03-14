@@ -961,7 +961,7 @@ DEFPARAM (PARAM_MAX_LIPO_GROUP,
 DEFPARAM (PARAM_MAX_LIPO_MEMORY,
 	  "max-lipo-mem",
 	  "don't import aux files if memory consumption exceeds this value",
-	  2800000, 0, 0)
+	  3000000, 0, 0)
 
 /* In LIPO profile-gen, use this parameter to record the cutoff value used at
    profile collection runtime.  */
@@ -991,7 +991,7 @@ DEFPARAM (PARAM_LIPO_SKIP_SPECIAL_SECTIONS,
           "profiling to functions marked with __attribute__((section(...))"
           "Those functions can not be inlined so there is no point tracking"
           "them.",
-	  0, 0, 1)
+	  1, 0, 1)
 
 /* In LIPO profile-gen, use this parameter to set random group generation
    seed value.  */
