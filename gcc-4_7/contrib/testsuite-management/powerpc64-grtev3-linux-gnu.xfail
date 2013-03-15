@@ -128,10 +128,15 @@ FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
 FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
 FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
-FAIL: g++.dg/tree-prof/mversn15.C execution,    -fprofile-generate
+# b/8397853, a LIPO bug, causing compilation to fail.
+FAIL: g++.dg/tree-prof/mversn15.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -fprofile-generate
+#FAIL: g++.dg/tree-prof/mversn15.C execution,    -fprofile-generate
 UNRESOLVED: g++.dg/tree-prof/mversn15.C compilation,  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -fprofile-use
-FAIL: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-generate
+FAIL: g++.dg/tree-prof/mversn15a.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-generate
+#FAIL: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-generate
 UNRESOLVED: g++.dg/tree-prof/mversn15a.C compilation,  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-use
 
