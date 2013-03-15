@@ -17799,6 +17799,7 @@ mark_class_instantiated (tree t, int extern_p)
   if (! extern_p)
     {
       CLASSTYPE_DEBUG_REQUESTED (t) = 1;
+
       rest_of_type_compilation (t, 1);
     }
 }

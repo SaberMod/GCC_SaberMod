@@ -388,6 +388,16 @@ sources = \
 	${host_sources_extra}
 
 libc__98convenience_la_SOURCES = $(sources)
+@ENABLE_VTABLE_VERIFY_FALSE@EXTRA_VTV_LDFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@EXTRA_VTV_LDFLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@        -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+
+@ENABLE_VTABLE_VERIFY_FALSE@LIBVTV_FLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@LIBVTV_FLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@        -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXFLAGS = -fvtable-verify=std $(EXTRA_VTV_LDFLAGS)
 
 # Use special rules for the deprecated source files so that they find
 # deprecated include files.
@@ -403,7 +413,7 @@ PARALLEL_FLAGS = -fopenmp -D_GLIBCXX_PARALLEL -I$(glibcxx_builddir)/../libgomp
 # as the occasion calls for it.
 AM_CXXFLAGS = \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	$(XTEMPLATE_FLAGS) \
+	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS)
 
 AM_MAKEFLAGS = \
@@ -454,6 +464,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX --tag disable-shared \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(LIBVTV_FLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 all: all-am

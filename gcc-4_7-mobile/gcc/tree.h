@@ -5920,6 +5920,9 @@ is_tm_safe_or_pure (const_tree x)
 
 void init_inline_once (void);
 
+/* In tree-vtable-verify.c */
+extern void save_vtable_map_decl (tree);
+
 /* Compute the number of operands in an expression node NODE.  For
    tcc_vl_exp nodes like CALL_EXPRs, this is stored in the node itself,
    otherwise it is looked up from the node's code.  */

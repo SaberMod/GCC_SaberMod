@@ -5149,6 +5149,8 @@ extern void note_vague_linkage_fn		(tree);
 extern tree build_artificial_parm		(tree, tree);
 extern bool possibly_inlined_p			(tree);
 extern int parm_index                           (tree);
+extern tree vtv_start_verification_constructor_init_function (void);
+extern tree vtv_finish_verification_constructor_init_function (tree);
 
 /* in error.c */
 extern void init_error				(void);
@@ -5236,6 +5238,7 @@ extern tree build_java_class_ref		(tree);
 extern tree integral_constant_value		(tree);
 extern tree decl_constant_value_safe	        (tree);
 extern int diagnose_uninitialized_cst_or_ref_member (tree, bool, bool);
+extern tree build_vtbl_address                  (tree);
 
 /* in lex.c */
 extern void cxx_dup_lang_specific_decl		(tree);
@@ -5917,6 +5920,7 @@ extern tree mangle_thunk			(tree, int, tree, tree);
 extern tree mangle_conv_op_name_for_type	(tree);
 extern tree mangle_guard_variable		(tree);
 extern tree mangle_ref_init_variable		(tree);
+extern char * get_mangled_vtable_map_var_name   (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);
@@ -5963,6 +5967,12 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
+
+/* in vtable-class-hierarchy.c */
+extern void vtv_compute_class_hierarchy_transitive_closure (void);
+extern void vtv_generate_init_routine           (void);
+extern void vtv_save_class_info                 (tree);
+extern void vtv_recover_class_info              (void);
 
 /* -- end of C++ */
 

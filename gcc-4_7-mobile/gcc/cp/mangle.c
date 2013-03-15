@@ -3413,7 +3413,8 @@ mangle_decl (const tree decl)
 	DECL_WEAK (alias) = 1;
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	cgraph_same_body_alias (cgraph_get_create_node (decl), alias, decl);
-      else
+      else if (!flag_vtable_verify
+               || TREE_CODE (decl) == VAR_DECL)
 	varpool_extra_name_alias (alias, decl);
 #endif
     }
@@ -3737,6 +3738,35 @@ write_java_integer_type_codes (const tree type)
     write_char ('b');
   else
     gcc_unreachable ();
+}
+
+/* Given a CLASS_TYPE, such as a record for std::bad_exception this
+   function generates a mangled name for the vtable map variable of
+   the class type.  For example, if the class type is
+   "std::bad_exception", the mangled name for the class is
+   "St13bad_exception".  This function would generate the name
+   "_ZN4_VTVISt13bad_exceptionE12__vtable_mapE", which unmangles as:
+   "_VTV<std::bad_exception>::__vtable_map".  */
+
+
+char *
+get_mangled_vtable_map_var_name (tree class_type)
+{
+  char *var_name = NULL;
+
+  gcc_assert (TREE_CODE (class_type) == RECORD_TYPE);
+
+  tree class_id = DECL_ASSEMBLER_NAME (TYPE_NAME (class_type));
+  unsigned int len = strlen (IDENTIFIER_POINTER (class_id)) +
+                     strlen ("_ZN4_VTVI") +
+                     strlen ("E12__vtable_mapE") + 1;
+
+  var_name = (char *) xmalloc (len);
+
+  sprintf (var_name, "_ZN4_VTVI%sE12__vtable_mapE",
+           IDENTIFIER_POINTER (class_id));
+
+  return var_name;
 }
 
 #include "gt-cp-mangle.h"

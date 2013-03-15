@@ -61,6 +61,18 @@ vpath % $(top_srcdir)/src/c++11
 
 libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 
+if ENABLE_VTABLE_VERIFY
+EXTRA_VTV_LDFLAGS = \
+        -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+LIBVTV_FLAGS = \
+        -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+VTV_CXXFLAGS = -fvtable-verify=std $(EXTRA_VTV_LDFLAGS)
+else
+EXTRA_VTV_LDFLAGS =
+LIBVTV_FLAGS =
+VTV_CXXFLAGS =
+endif
+
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
 # set this option because CONFIG_CXXFLAGS has to be after
@@ -69,7 +81,7 @@ libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 AM_CXXFLAGS = \
 	-std=gnu++11 \
 	$(glibcxx_lt_pic_flag) $(glibcxx_compiler_shared_flag) \
-	$(XTEMPLATE_FLAGS) \
+	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS) \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS) \
 	$($(@)_no_omit_frame_pointer)
 
@@ -120,6 +132,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX --tag disable-shared \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(LIBVTV_FLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 # Google-specific pessimization

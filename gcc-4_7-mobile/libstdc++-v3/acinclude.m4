@@ -2223,6 +2223,25 @@ AC_DEFUN([GLIBCXX_ENABLE_EXTERN_TEMPLATE], [
 ])
 
 dnl
+dnl Use vtable verification.
+dnl
+dnl --enable-vtable-verify defines _GLIBCXX_VTABLE_VERIFY to 1
+dnl --disable-vtable-verify defines _GLIBCXX_VTABLE_VERIFY to 0
+
+dnl  +  Usage:  GLIBCXX_ENABLE_VTABLE_VERIFY[(DEFAULT)]
+dnl       Where DEFAULT is `yes' or `no'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
+
+  GLIBCXX_ENABLE(vtable-verify,$1,,[enable vtable verify])
+
+  AC_MSG_CHECKING([for vtable verify support])
+  AC_MSG_RESULT([$enable_vtable_verify])
+
+  GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
+])
+
+dnl
 dnl Check for parallel mode pre-requisites, including OpenMP support.
 dnl
 dnl  +  Usage:  GLIBCXX_ENABLE_PARALLEL

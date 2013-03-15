@@ -27,7 +27,11 @@ include $(top_srcdir)/fragment.am
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
+if ENABLE_VTABLE_VERIFY
+toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
+else
 toolexeclib_LTLIBRARIES = libsupc++.la
+endif
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 
@@ -45,7 +49,73 @@ if GLIBCXX_HOSTED
 	cp-demangle.c
 endif
 
-sources = \
+if ENABLE_VTABLE_VERIFY
+    sources = \
+	array_type_info.cc \
+	atexit_arm.cc \
+	bad_alloc.cc \
+	bad_cast.cc \
+	bad_typeid.cc \
+	class_type_info.cc \
+	del_op.cc \
+	del_opsz.cc \
+	del_opnt.cc \
+	del_opv.cc \
+	del_opvnt.cc \
+	dyncast.cc \
+	eh_alloc.cc \
+	eh_arm.cc \
+	eh_aux_runtime.cc \
+	eh_call.cc \
+	eh_catch.cc \
+	eh_exception.cc \
+	eh_globals.cc \
+	eh_personality.cc \
+	eh_ptr.cc \
+	eh_term_handler.cc \
+	eh_terminate.cc \
+	eh_tm.cc \
+	eh_throw.cc \
+	eh_type.cc \
+	eh_unex_handler.cc \
+	enum_type_info.cc \
+	function_type_info.cc \
+	fundamental_type_info.cc \
+	guard.cc \
+	guard_error.cc \
+	hash_bytes.cc \
+	nested_exception.cc \
+	new_handler.cc \
+	new_op.cc \
+	new_opnt.cc \
+	new_opv.cc \
+	new_opvnt.cc \
+	pbase_type_info.cc \
+	pmem_type_info.cc \
+	pointer_type_info.cc \
+	pure.cc \
+	si_class_type_info.cc \
+	tinfo.cc \
+	tinfo2.cc \
+	vec.cc \
+	vmi_class_type_info.cc \
+	vterminate.cc \
+        vtv_rts.cc \
+        vtv_malloc.cc \
+        vtv_utils.cc
+
+    vtv_init_sources = \
+        vtv_init.cc
+
+    vtv_stubs_sources = \
+        vtv_stubs.cc
+
+    libsupc___la_SOURCES = $(sources) $(c_sources)
+    libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+    libvtv_init_la_SOURCES = $(vtv_init_sources)
+    libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
+else
+    sources = \
 	array_type_info.cc \
 	atexit_arm.cc \
 	bad_alloc.cc \
@@ -96,8 +166,9 @@ sources = \
 	vmi_class_type_info.cc \
 	vterminate.cc
 
-libsupc___la_SOURCES = $(sources) $(c_sources)
-libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+    libsupc___la_SOURCES = $(sources) $(c_sources)
+    libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+endif
 
 cp-demangle.c:
 	rm -f $@

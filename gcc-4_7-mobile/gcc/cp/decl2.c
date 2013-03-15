@@ -2778,7 +2778,8 @@ set_guard (tree guard)
 }
 
 /* Start the process of running a particular set of global constructors
-   or destructors.  Subroutine of do_[cd]tors.  */
+   or destructors.  Subroutine of do_[cd]tors.  Also called from
+   vtv_start_verification_constructor_init_function.  */
 
 static tree
 start_objects (int method_type, int initp)
@@ -2830,8 +2831,12 @@ start_objects (int method_type, int initp)
   return body;
 }
 
-/* Finish the process of running a particular set of global constructors
-   or destructors.  Subroutine of do_[cd]tors.  */
+/* Finish the process of running a particular set of global
+   constructors or destructors.  Subroutine of do_[cd]tors.  Also
+   called from vtv_finish_verification_constructor_init_function.
+
+   This function returns a tree containing the functino decl for the
+   functin it finished creating.  */
 
 static void
 finish_objects (int method_type, int initp, tree body)
@@ -4121,7 +4126,21 @@ cp_write_global_declarations (void)
 
   timevar_start (TV_PHASE_CGRAPH);
 
+  if (flag_vtable_verify)
+    {
+      vtv_recover_class_info ();
+      vtv_compute_class_hierarchy_transitive_closure ();
+    }
+
   cgraph_finalize_compilation_unit ();
+
+  if (flag_vtable_verify)
+    {
+      /* Generate the special constructor initialization function that
+         calls __VLTRegisterPairs, and give it a very high initialization
+         priority.  */
+      vtv_generate_init_routine ();
+    }
 
   timevar_stop (TV_PHASE_CGRAPH);
   timevar_start (TV_PHASE_CHECK_DBGINFO);
@@ -4469,6 +4488,25 @@ mark_used (tree decl)
     }
 
   return true;
+}
+
+tree
+vtv_start_verification_constructor_init_function (void)
+{
+  return start_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1);
+}
+
+tree
+vtv_finish_verification_constructor_init_function (tree function_body)
+{
+  tree fn;
+
+  finish_compound_stmt (function_body);
+  fn = finish_function (0);
+  DECL_STATIC_CONSTRUCTOR (fn) = 1;
+  decl_init_priority_insert (fn, MAX_RESERVED_INIT_PRIORITY - 1);
+
+  return fn;
 }
 
 #include "gt-cp-decl2.h"

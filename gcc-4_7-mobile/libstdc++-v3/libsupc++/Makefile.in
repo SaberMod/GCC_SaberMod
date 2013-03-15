@@ -90,26 +90,91 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" \
 	"$(DESTDIR)$(stddir)"
 LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libsupc___la_LIBADD =
-am__objects_1 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
-	bad_cast.lo bad_typeid.lo class_type_info.lo del_op.lo \
-	del_opsz.lo del_opnt.lo del_opv.lo del_opvnt.lo dyncast.lo \
-	eh_alloc.lo eh_arm.lo eh_aux_runtime.lo eh_call.lo eh_catch.lo \
-	eh_exception.lo eh_globals.lo eh_personality.lo eh_ptr.lo \
-	eh_term_handler.lo eh_terminate.lo eh_tm.lo eh_throw.lo \
-	eh_type.lo eh_unex_handler.lo enum_type_info.lo \
-	function_type_info.lo fundamental_type_info.lo guard.lo \
-	guard_error.lo hash_bytes.lo nested_exception.lo \
-	new_handler.lo new_op.lo new_opnt.lo new_opv.lo new_opvnt.lo \
-	pbase_type_info.lo pmem_type_info.lo pointer_type_info.lo \
-	pure.lo si_class_type_info.lo tinfo.lo tinfo2.lo vec.lo \
-	vmi_class_type_info.lo vterminate.lo
+@ENABLE_VTABLE_VERIFY_FALSE@am__objects_1 = array_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	atexit_arm.lo bad_alloc.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	bad_cast.lo bad_typeid.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	class_type_info.lo del_op.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opsz.lo del_opnt.lo del_opv.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opvnt.lo dyncast.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_alloc.lo eh_arm.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_aux_runtime.lo eh_call.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_catch.lo eh_exception.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_globals.lo eh_personality.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_ptr.lo eh_term_handler.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_terminate.lo eh_tm.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_throw.lo eh_type.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_unex_handler.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	enum_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	function_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	fundamental_type_info.lo guard.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	guard_error.lo hash_bytes.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	nested_exception.lo new_handler.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_op.lo new_opnt.lo new_opv.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_opvnt.lo pbase_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	pmem_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	pointer_type_info.lo pure.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	si_class_type_info.lo tinfo.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	tinfo2.lo vec.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	vmi_class_type_info.lo \
+@ENABLE_VTABLE_VERIFY_FALSE@	vterminate.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_1 = array_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	atexit_arm.lo bad_alloc.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	bad_cast.lo bad_typeid.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	class_type_info.lo del_op.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opsz.lo del_opnt.lo del_opv.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opvnt.lo dyncast.lo eh_alloc.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_arm.lo eh_aux_runtime.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_call.lo eh_catch.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_exception.lo eh_globals.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_personality.lo eh_ptr.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_term_handler.lo eh_terminate.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_tm.lo eh_throw.lo eh_type.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_unex_handler.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	enum_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	function_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	fundamental_type_info.lo guard.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	guard_error.lo hash_bytes.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	nested_exception.lo new_handler.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_op.lo new_opnt.lo new_opv.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_opvnt.lo pbase_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	pmem_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	pointer_type_info.lo pure.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	si_class_type_info.lo tinfo.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	tinfo2.lo vec.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	vmi_class_type_info.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	vterminate.lo vtv_rts.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	vtv_malloc.lo vtv_utils.lo
 @GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
-am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
+@ENABLE_VTABLE_VERIFY_FALSE@am_libsupc___la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_FALSE@	$(am__objects_1) $(am__objects_2)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libsupc___la_OBJECTS = $(am__objects_1) \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_2)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_FALSE@am_libsupc___la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_FALSE@	$(toolexeclibdir)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libsupc___la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 libsupc__convenience_la_LIBADD =
-am_libsupc__convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
+@ENABLE_VTABLE_VERIFY_FALSE@am_libsupc__convenience_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_FALSE@	$(am__objects_1) $(am__objects_2)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libsupc__convenience_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_1) $(am__objects_2)
 libsupc__convenience_la_OBJECTS =  \
 	$(am_libsupc__convenience_la_OBJECTS)
+libvtv_init_la_LIBADD =
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_3 = vtv_init.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_3)
+libvtv_init_la_OBJECTS = $(am_libvtv_init_la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
+libvtv_stubs_la_LIBADD =
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_4 = vtv_stubs.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_stubs_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_4)
+libvtv_stubs_la_OBJECTS = $(am_libvtv_stubs_la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_stubs_la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp =
 am__depfiles_maybe =
@@ -122,7 +187,8 @@ LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CXXFLAGS) $(CXXFLAGS)
 CXXLD = $(CXX)
-SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES)
+SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES) \
+	$(libvtv_init_la_SOURCES) $(libvtv_stubs_la_SOURCES)
 HEADERS = $(bits_HEADERS) $(std_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -338,11 +404,12 @@ WARN_CXXFLAGS = \
 
 # -I/-D flags to pass when compiling.
 AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
+@ENABLE_VTABLE_VERIFY_FALSE@toolexeclib_LTLIBRARIES = libsupc++.la
 
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
-toolexeclib_LTLIBRARIES = libsupc++.la
+@ENABLE_VTABLE_VERIFY_TRUE@toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 std_HEADERS = \
@@ -356,59 +423,123 @@ headers = $(std_HEADERS) $(bits_HEADERS)
 @GLIBCXX_HOSTED_TRUE@c_sources = \
 @GLIBCXX_HOSTED_TRUE@	cp-demangle.c
 
-sources = \
-	array_type_info.cc \
-	atexit_arm.cc \
-	bad_alloc.cc \
-	bad_cast.cc \
-	bad_typeid.cc \
-	class_type_info.cc \
-	del_op.cc \
-	del_opsz.cc \
-	del_opnt.cc \
-	del_opv.cc \
-	del_opvnt.cc \
-	dyncast.cc \
-	eh_alloc.cc \
-	eh_arm.cc \
-	eh_aux_runtime.cc \
-	eh_call.cc \
-	eh_catch.cc \
-	eh_exception.cc \
-	eh_globals.cc \
-	eh_personality.cc \
-	eh_ptr.cc \
-	eh_term_handler.cc \
-	eh_terminate.cc \
-	eh_tm.cc \
-	eh_throw.cc \
-	eh_type.cc \
-	eh_unex_handler.cc \
-	enum_type_info.cc \
-	function_type_info.cc \
-	fundamental_type_info.cc \
-	guard.cc \
-	guard_error.cc \
-	hash_bytes.cc \
-	nested_exception.cc \
-	new_handler.cc \
-	new_op.cc \
-	new_opnt.cc \
-	new_opv.cc \
-	new_opvnt.cc \
-	pbase_type_info.cc \
-	pmem_type_info.cc \
-	pointer_type_info.cc \
-	pure.cc \
-	si_class_type_info.cc \
-	tinfo.cc \
-	tinfo2.cc \
-	vec.cc \
-	vmi_class_type_info.cc \
-	vterminate.cc
+@ENABLE_VTABLE_VERIFY_FALSE@sources = \
+@ENABLE_VTABLE_VERIFY_FALSE@	array_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	atexit_arm.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	bad_alloc.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	bad_cast.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	bad_typeid.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_op.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opsz.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opnt.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opv.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	del_opvnt.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	dyncast.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_alloc.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_arm.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_aux_runtime.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_call.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_catch.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_exception.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_globals.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_personality.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_ptr.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_term_handler.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_terminate.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_tm.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_throw.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_type.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	eh_unex_handler.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	enum_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	function_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	fundamental_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	guard.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	guard_error.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	hash_bytes.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	nested_exception.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_handler.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_op.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_opnt.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_opv.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	new_opvnt.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	pbase_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	pmem_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	pointer_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	pure.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	si_class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	tinfo.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	tinfo2.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	vec.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	vmi_class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_FALSE@	vterminate.cc
 
-libsupc___la_SOURCES = $(sources) $(c_sources)
-libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@	array_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	atexit_arm.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	bad_alloc.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	bad_cast.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	bad_typeid.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_op.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opsz.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opnt.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opv.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	del_opvnt.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	dyncast.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_alloc.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_arm.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_aux_runtime.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_call.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_catch.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_exception.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_globals.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_personality.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_ptr.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_term_handler.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_terminate.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_tm.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_throw.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_type.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	eh_unex_handler.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	enum_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	function_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	fundamental_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	guard.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	guard_error.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	hash_bytes.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	nested_exception.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_handler.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_op.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_opnt.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_opv.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	new_opvnt.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	pbase_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	pmem_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	pointer_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	pure.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	si_class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	tinfo.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	tinfo2.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	vec.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	vmi_class_type_info.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@	vterminate.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_rts.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_malloc.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_utils.cc
+
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_init_sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_init.cc
+
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_stubs_sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_stubs.cc
+
+@ENABLE_VTABLE_VERIFY_FALSE@libsupc___la_SOURCES = $(sources) $(c_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libsupc___la_SOURCES = $(sources) $(c_sources)
+@ENABLE_VTABLE_VERIFY_FALSE@libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_init_la_SOURCES = $(vtv_init_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -575,9 +706,13 @@ clean-toolexeclibLTLIBRARIES:
 	  rm -f "$${dir}/so_locations"; \
 	done
 libsupc++.la: $(libsupc___la_OBJECTS) $(libsupc___la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
+	$(CXXLINK) $(am_libsupc___la_rpath) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
 libsupc++convenience.la: $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_DEPENDENCIES) 
 	$(CXXLINK)  $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_LIBADD) $(LIBS)
+libvtv_init.la: $(libvtv_init_la_OBJECTS) $(libvtv_init_la_DEPENDENCIES) 
+	$(CXXLINK) $(am_libvtv_init_la_rpath) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
+libvtv_stubs.la: $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_DEPENDENCIES) 
+	$(CXXLINK) $(am_libvtv_stubs_la_rpath) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

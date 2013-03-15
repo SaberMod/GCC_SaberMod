@@ -44,11 +44,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #if defined HAVE_LD_PIE
 #define GNU_USER_TARGET_STARTFILE_SPEC \
   "%{!shared: %{pg|p|profile:gcrt1.o%s;pie:Scrt1.o%s;:crt1.o%s}} \
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s} \
+   %{fvtable-verify*:vtv_start.o%s}"
 #else
 #define GNU_USER_TARGET_STARTFILE_SPEC \
   "%{!shared: %{pg|p|profile:gcrt1.o%s;:crt1.o%s}} \
-   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s}"
+   crti.o%s %{static:crtbeginT.o%s;shared|pie:crtbeginS.o%s;:crtbegin.o%s} \
+   %{fvtable-verify*:vtv_start.o%s}"
 #endif
 #undef  STARTFILE_SPEC
 #define STARTFILE_SPEC GNU_USER_TARGET_STARTFILE_SPEC
@@ -60,7 +62,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    GNU userspace "finalizer" file, `crtn.o'.  */
 
 #define GNU_USER_TARGET_ENDFILE_SPEC \
-  "%{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
+  "%{fvtable-verify*:vtv_end.o%s} \
+   %{shared|pie:crtendS.o%s;:crtend.o%s} crtn.o%s"
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC GNU_USER_TARGET_ENDFILE_SPEC
 
