@@ -27,6 +27,12 @@ FAIL: 20_util/hash/chi2_quality.cc (test for excess errors)
 UNRESOLVED: 20_util/hash/chi2_quality.cc compilation failed to produce executable
 FAIL: 25_algorithms/copy_n/50119.cc (test for excess errors)
 UNRESOLVED: 25_algorithms/copy_n/50119.cc compilation failed to produce executable
+XPASS: gfortran.dg/do_1.f90 -O2  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -g  execution test
+XPASS: gfortran.dg/do_1.f90 -Os  execution test
 
 # These failures only occur when testing is distributed.  These tests
 # have dependencies that are not explicitly handled by the driver script.

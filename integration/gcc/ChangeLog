@@ -1,3 +1,162 @@
+2013-03-14  Andi Kleen  <ak@linux.intel.com>
+
+	PR target/56619
+	* doc/extend.texi: Document __ATOMIC_HLE_ACQUIRE,
+	__ATOMIC_HLE_RELEASE. Document __builtin_ia32 TSX intrincs.
+	Document _x* TSX intrinsics.
+
+2013-03-14  Edgar E. Iglesias <edgar.iglesias@xilinx.com>
+	    David Holsgrove <david.holsgrove@xilinx.com>
+
+	* configure.ac: Add MicroBlaze TLS support detection.
+	* configure: Regenerate.
+	* config/microblaze/microblaze-protos.h: (microblaze_cannot_force_const_mem,
+	microblaze_tls_referenced_p, symbol_mentioned_p, label_mentioned_p): 
+	Add prototypes.
+	* config/microblaze/microblaze.c (microblaze_address_type): Add ADDRESS_TLS
+	and tls_reloc address types.
+	(microblaze_address_info): Add tls_reloc.
+	(TARGET_HAVE_TLS): Define.
+	(get_tls_get_addr, microblaze_tls_symbol_p, microblaze_tls_operand_p_1,
+	 microblaze_tls_referenced_p, microblaze_cannot_force_const_mem,
+	 symbol_mentioned_p, label_mentioned_p, tls_mentioned_p, load_tls_operand,
+	 microblaze_call_tls_get_addr, microblaze_legitimize_tls_address): New functions.
+	(microblaze_classify_unspec): Handle UNSPEC_TLS.
+	(get_base_reg): Use microblaze_tls_symbol_p.
+	(microblaze_classify_address): Handle TLS.
+	(microblaze_legitimate_pic_operand): Use symbol_mentioned_p, label_mentioned_p
+	and microblaze_tls_referenced_p.
+	(microblaze_legitimize_address): Handle TLS.
+	(microblaze_address_insns): Handle ADDRESS_TLS.
+	(pic_address_needs_scratch): Handle TLS.
+	(print_operand_address): Handle TLS.
+	(microblaze_expand_prologue): Check TLS_NEEDS_GOT.
+	(microblaze_expand_move): Handle TLS.
+	(microblaze_legitimate_constant_p): Check microblaze_cannot_force_const_mem
+	and microblaze_tls_symbol_p.
+	(TARGET_CANNOT_FORCE_CONST_MEM): Define.
+	* config/microblaze/microblaze.h (TLS_NEEDS_GOT): Define
+	(PIC_OFFSET_TABLE_REGNUM): Set.
+	* config/microblaze/linux.h (TLS_NEEDS_GOT): Define.
+	* config/microblaze/microblaze.md (UNSPEC_TLS): Define.
+	(addsi3, movsi_internal2, movdf_internal): Update constraints
+	* config/microblaze/predicates.md (arith_plus_operand): Define
+	(move_operand): Redefine as move_src_operand, check microblaze_tls_referenced_p.
+
+2013-03-14  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md: (*and<mode>3nr_compare0): Use CC_NZ.
+	(*and_<SHIFT:optab><mode>3nr_compare0): Likewise.
+
+2013-03-14  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_select_cc_mode): Return correct
+	CC mode for AND.
+
+2013-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/53265
+	* common.opt (Waggressive-loop-optimizations): New option.
+	* tree-ssa-loop-niter.c: Include tree-pass.h.
+	(do_warn_aggressive_loop_optimizations): New function.
+	(record_estimate): Call it.  Don't add !is_exit bounds to loop->bounds
+	if number_of_latch_executions returned constant.
+	(estimate_numbers_of_iterations_loop): Call number_of_latch_executions
+	early.  If number_of_latch_executions returned constant, set
+	nb_iterations_upper_bound back to it.
+	* cfgloop.h (struct loop): Add warned_aggressive_loop_optimizations
+	field.
+	* Makefile.in (tree-ssa-loop-niter.o): Depend on $(TREE_PASS_H).
+	* doc/invoke.texi (-Wno-aggressive-loop-optimizations): Document.
+
+	* config/aarch64/t-aarch64-linux (MULTARCH_DIRNAME): Remove.
+	(MULTILIB_OSDIRNAMES): Set.
+	* genmultilib: If defaultosdirname doesn't start with :: , set
+	defaultosdirname2 instead, clear it and emit two . multilib_raw
+	entries instead of just one.
+
+2013-03-14  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/linux.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): Set TARGET_USERMODE as default.
+	* config/sh/netbsd-elf.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): New.
+
+2013-03-13  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/49880
+	* config/sh/sh.opt (FPU_SINGLE_ONLY): New mask.
+	(musermode): Convert to Var(TARGET_USERMODE).
+	* config/sh/sh.h (SELECT_SH2A_SINGLE_ONLY, SELECT_SH4_SINGLE_ONLY,
+	MASK_ARCH): Add MASK_FPU_SINGLE_ONLY.
+	* config/sh/sh.c (sh_option_override): Use
+	TARGET_FPU_DOUBLE || TARGET_FPU_SINGLE_ONLY for call-fp case.
+	* config/sh/sh.md (udivsi3_i1, divsi3_i1): Remove ! TARGET_SH4
+	condition.
+	(udivsi3_i4, divsi3_i4): Use TARGET_FPU_DOUBLE condition instead of
+	TARGET_SH4.
+	(udivsi3_i4_single, divsi3_i4_single): Use
+	TARGET_FPU_SINGLE_ONLY || TARGET_FPU_DOUBLE instead of TARGET_HARD_SH4.
+
+2013-03-13  Dave Korn  <dave.korn.cygwin@....>
+
+	* config/i386/cygwin.h (SHARED_LIBGCC_SPEC): Make shared libgcc the
+	default setting.
+
+2013-03-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56608
+	* tree-vect-slp.c (vect_schedule_slp): Do not remove scalar
+	calls when vectorizing basic-blocks.
+
+2013-03-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR plugins/45078
+	* config.gcc: On arm, mips, sh and sparc add vxworks-dummy.h to
+	tm_file.
+
+2013-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* doc/invoke.texi (-Waddr-space-convert): Move into the table earlier.
+
+2013-03-11  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/56557
+	* lto-streamer-out.c (output_symbol_p): Skip references from
+	constructors of external variables.
+
+2013-03-11  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/56571
+	* valtrack.c (cleanup_auto_inc_dec): Unshare clobbers originating
+	from pseudos.
+	* emit-rtl.c (verify_rtx_sharing): Likewise.
+	(copy_insn_1): Likewise.
+	* rtl.c (copy_rtx): Likewise.
+
+2013-03-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/56591
+	* config/avr/avr.c (avr_print_operand): Add space after '%c' in
+	output_operand_lossage message.
+	
+2013-03-11  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/56470
+	* arm.c (shift_op): Validate RTL pattern on the fly.
+	(arm_print_operand, case 'S'): Don't use shift_operator to validate
+	the RTL.
+
+2013-03-10  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/56347
+	* config/pa/pa.md (call_value): Check for calls to powf and direct to
+	new call patterns that clobber %fr12.
+	(call_val_powf, call_val_powf_pic, call_val_powf_64bit): New insn,
+	split and postreload patterns.
+	* config/pa/pa.c (pa_conditional_register_usage): Revert marking
+	registers %fr12 and %fr12R as call used.
+
 2013-03-09  Steven Bosscher  <steven@gcc.gnu.org>
 
 	* dse.c (delete_dead_store_insn): Respect TDF_DETAILS.
