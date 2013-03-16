@@ -36,3 +36,9 @@ FAIL: sourcelocation -findirect-dispatch output - source compiled test
 FAIL: sourcelocation output - source compiled test
 FAIL: sourcelocation -O3 output - source compiled test
 FAIL: gfortran.dg/class_optional_2.f90 -Os  execution test
+XPASS: gfortran.dg/do_1.f90 -O2  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+XPASS: gfortran.dg/do_1.f90 -O3 -g  execution test
+XPASS: gfortran.dg/do_1.f90 -Os  execution test
