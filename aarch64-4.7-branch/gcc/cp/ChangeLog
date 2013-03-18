@@ -1,3 +1,21 @@
+2013-03-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56614
+	* decl.c (local_variable_p_walkfn): Check DECL_ARTIFICIAL again.
+
+2013-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56403
+	* init.c (build_zero_init_1): Use RECORD_OR_UNION_CODE_P instead
+	of CLASS_TYPE_P.
+
+2013-03-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56534
+	* parser.c (cp_parser_elaborated_type_specifier): Don't call
+	check_elaborated_type_specifier when TREE_CODE (decl) != TYPE_DECL.
+	* decl.c (check_elaborated_type_specifier): Tidy.
+
 2013-03-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/56543
