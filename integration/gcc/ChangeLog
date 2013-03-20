@@ -1,3 +1,198 @@
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (*sub<mode>3_carryin): New pattern.
+	(*subsi3_carryin_uxtw): Likewise.
+
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (*ror<mode>3_insn): New pattern.
+	(*rorsi3_insn_uxtw): Likewise.
+
+2013-03-19  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (*extr<mode>5_insn): New pattern.
+	(*extrsi5_insn_uxtw): Likewise.
+
+2013-03-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56273
+	* passes.c (init_optimization_passes): Move second VRP after DOM.
+
+2013-03-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movti_internal): Merge from
+	*movti_internal_rex64 and *movti_internal_sse.  Use x64 isa attribute.
+	(*movdi_internal): Merge with *movdi_internal_rex64.  Use x64 and
+	nox64 isa attributes.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-structalias.c (find): Use gcc_checking_assert.
+	(unite): Likewise.
+	(merge_node_constraints): Likewise.
+	(build_succ_graph): Likewise.
+	(valid_graph_edge): Inline into single caller.
+	(unify_nodes): Likewise.  Use bitmap_set_bit return value
+	and cache varinfo.
+	(scc_visit): Fix formatting and variable use.
+	(do_sd_constraint): Use gcc_checking_assert.
+	(do_ds_constraint): Likewise.
+	(do_complex_constraint): Likewise.
+	(condense_visit): Likewise.  Cleanup.
+	(dump_pred_graph): New function.
+	(perform_var_substitution): Dump the pred-graph before
+	variable substitution.
+	(find_equivalent_node): Use gcc_checking_assert.
+	(rewrite_constraints): Guard checking loop with ENABLE_CHECKING.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
+	Remove cond_expr_stmt_list argument and do not gimplify the
+	built expression.
+	(vect_loop_versioning): Adjust.
+	* tree-vect-data-refs.c (vect_create_addr_base_for_vector_ref):
+	Cleanup to use less temporaries.
+	(vect_create_data_ref_ptr): Cleanup.
+
+2013-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56635
+	* fold-const.c (operand_equal_p): For MEM_REF and TARGET_MEM_REF,
+	require types_compatible_p types.
+
+2013-03-18  Nick Clifton  <nickc@redhat.com>
+
+	* config/stormy16/stormy16.c (xstormy16_expand_prologue): Remove
+	spurious backslash.
+
+	* config/mn10300/mn10300.c (mn10300_get_live_callee_saved_regs):
+	Add missing line to comment describing function.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56210
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call):
+	Handle string / character search functions.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Likewise.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56483
+	* cfgexpand.c (expand_gimple_cond): Inline gimple_cond_single_var_p
+	and implement properly.
+	* gimple.h (gimple_cond_single_var_p): Remove.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-data-ref.h (find_data_references_in_loop): Declare.
+	* tree-data-ref.c (get_references_in_stmt): Use a stack
+	vector pre-allocated in the callers.
+	(find_data_references_in_stmt): Adjust.
+	(graphite_find_data_references_in_stmt): Likewise.
+	(create_rdg_vertices): Likewise.
+	(find_data_references_in_loop): Export.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependences):
+	Compute dependences here...
+	(vect_analyze_data_refs): ...not here.  When we encounter
+	a non-vectorizable data reference in basic-block vectorization
+	truncate the data reference vector.  Do not bother to
+	fixup data-dependence information for gather loads.
+	* tree-vect-slp.c (vect_slp_analyze_bb_1): Check the number
+	of data references, as reported.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/3713
+	* tree-ssa-sccvn.c (visit_copy): Simplify.  Always propagate
+	has_constants and expr.
+	(stmt_has_constants): Properly valueize SSA names when deciding
+	whether the stmt has constants.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-loop-manip.c (find_uses_to_rename): Do not scan the
+	whole function when there is nothing to do.
+	* tree-ssa-loop.c (pass_vectorize): Remove TODO_update_ssa.
+	* tree-vectorizer.c (vectorize_loops): Update virtual and
+	loop-closed SSA once.
+	* tree-vect-loop.c (vect_transform_loop): Do not update SSA here.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56113
+	* domwalk.c (bb_postorder): New global static.
+	(cmp_bb_postorder): New function.
+	(walk_dominator_tree): Replace scheme imposing an order for
+	visiting dominator sons by one sorting them at the time they
+	are pushed on the stack.
+
+2013-03-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/39326
+	* tree-ssa-loop-im.c (refs_independent_p): Exploit symmetry.
+	(struct mem_ref): Replace mem member with ao_ref typed member.
+	(MEM_ANALYZABLE): Adjust.
+	(memref_eq): Likewise.
+	(mem_ref_alloc): Likewise.
+	(gather_mem_refs_stmt): Likewise.
+	(mem_refs_may_alias_p): Use the ao_ref to query the alias oracle.
+	(execute_sm_if_changed_flag_set): Adjust.
+	(execute_sm): Likewise.
+	(ref_always_accessed_p): Likewise.
+	(refs_independent_p): Likewise.
+	(can_sm_ref_p): Likewise.
+
+2013-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/56566
+	* tree.c (tree_int_cst_min_precision): For integer_zerop (value)
+	return 1 even for !unsignedp.
+
+2013-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (isa): Add x64 and nox64.
+	(enabled): Define x64 for TARGET_64BIT and nox64 for !TARGET_64BIT.
+	(*pushtf): Enable *roF alternative for x64 isa only.
+	(*pushxf): Merge with *pushxf_nointeger.  Use Yx*r constraint. Set
+	mode attribute of integer alternatives to DImode for TARGET_64BIT.
+	(*pushdf): Merge with *pushdf_rex64.  Use x64 and nox64 isa attributes.
+	(*movtf_internal): Merge from *movtf_internal_rex64 and
+	*movtf_internal_sse.  Use x64 and nox64 isa attributes.
+	(*movxf_internal): Merge with *movxf_internal_rex64.  Use x64 and
+	nox64 isa attributes.
+	(*movdf_internal): Merge with *movdf_internal_rex64.  Use x64 and
+	nox64 isa attributes.
+	* config/i386/constraints.md (Yd): Do not set for TARGET_64BIT.
+
+2013-03-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c (TARGET_LRA_P): New define.
+
+2013-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56640
+	* config/arm/arm.h (REG_CLASS_NAMES): Add "SFP_REG" and "AFP_REG"
+	class names.  Remove trailing comma after "ALL_REGS".
+
+2013-03-16  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (cgraph_get_create_real_symbol_node): Declare.
+	* cgraph.c (cgraph_get_create_real_symbol_node): New function.
+	* cgrpahbuild.c: Use cgraph_get_create_real_symbol_node instead
+	of cgraph_get_create_node.
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Likewise.
+
+2013-03-16  Jason Merrill  <jason@redhat.com>
+
+	PR debug/49090
+	* dwarf2out.c (gen_generic_params_dies): Indicate default arguments
+	with DW_AT_default_value.
+
+2013-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.9.0.
+
 2013-03-14  Andi Kleen  <ak@linux.intel.com>
 
 	PR target/56619
@@ -5,35 +200,36 @@
 	__ATOMIC_HLE_RELEASE. Document __builtin_ia32 TSX intrincs.
 	Document _x* TSX intrinsics.
 
-2013-03-14  Edgar E. Iglesias <edgar.iglesias@xilinx.com>
-	    David Holsgrove <david.holsgrove@xilinx.com>
+2013-03-14  Edgar E. Iglesias  <edgar.iglesias@xilinx.com>
+	    David Holsgrove  <david.holsgrove@xilinx.com>
 
 	* configure.ac: Add MicroBlaze TLS support detection.
 	* configure: Regenerate.
-	* config/microblaze/microblaze-protos.h: (microblaze_cannot_force_const_mem,
-	microblaze_tls_referenced_p, symbol_mentioned_p, label_mentioned_p): 
-	Add prototypes.
-	* config/microblaze/microblaze.c (microblaze_address_type): Add ADDRESS_TLS
-	and tls_reloc address types.
+	* config/microblaze/microblaze-protos.h
+	(microblaze_cannot_force_const_mem, microblaze_tls_referenced_p,
+	symbol_mentioned_p, label_mentioned_p): Add prototypes.
+	* config/microblaze/microblaze.c (microblaze_address_type): Add
+	ADDRESS_TLS and tls_reloc address types.
 	(microblaze_address_info): Add tls_reloc.
 	(TARGET_HAVE_TLS): Define.
 	(get_tls_get_addr, microblaze_tls_symbol_p, microblaze_tls_operand_p_1,
 	 microblaze_tls_referenced_p, microblaze_cannot_force_const_mem,
-	 symbol_mentioned_p, label_mentioned_p, tls_mentioned_p, load_tls_operand,
-	 microblaze_call_tls_get_addr, microblaze_legitimize_tls_address): New functions.
+	 symbol_mentioned_p, label_mentioned_p, tls_mentioned_p,
+	load_tls_operand,  microblaze_call_tls_get_addr,
+	microblaze_legitimize_tls_address): New functions.
 	(microblaze_classify_unspec): Handle UNSPEC_TLS.
 	(get_base_reg): Use microblaze_tls_symbol_p.
 	(microblaze_classify_address): Handle TLS.
-	(microblaze_legitimate_pic_operand): Use symbol_mentioned_p, label_mentioned_p
-	and microblaze_tls_referenced_p.
+	(microblaze_legitimate_pic_operand): Use symbol_mentioned_p,
+	label_mentioned_p and microblaze_tls_referenced_p.
 	(microblaze_legitimize_address): Handle TLS.
 	(microblaze_address_insns): Handle ADDRESS_TLS.
 	(pic_address_needs_scratch): Handle TLS.
 	(print_operand_address): Handle TLS.
 	(microblaze_expand_prologue): Check TLS_NEEDS_GOT.
 	(microblaze_expand_move): Handle TLS.
-	(microblaze_legitimate_constant_p): Check microblaze_cannot_force_const_mem
-	and microblaze_tls_symbol_p.
+	(microblaze_legitimate_constant_p): Check
+	microblaze_cannot_force_const_mem and microblaze_tls_symbol_p.
 	(TARGET_CANNOT_FORCE_CONST_MEM): Define.
 	* config/microblaze/microblaze.h (TLS_NEEDS_GOT): Define
 	(PIC_OFFSET_TABLE_REGNUM): Set.
@@ -41,7 +237,8 @@
 	* config/microblaze/microblaze.md (UNSPEC_TLS): Define.
 	(addsi3, movsi_internal2, movdf_internal): Update constraints
 	* config/microblaze/predicates.md (arith_plus_operand): Define
-	(move_operand): Redefine as move_src_operand, check microblaze_tls_referenced_p.
+	(move_operand): Redefine as move_src_operand,
+	check microblaze_tls_referenced_p.
 
 2013-03-14  Ian Bolton  <ian.bolton@arm.com>
 
@@ -139,7 +336,7 @@
 	PR target/56591
 	* config/avr/avr.c (avr_print_operand): Add space after '%c' in
 	output_operand_lossage message.
-	
+
 2013-03-11  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR target/56470
@@ -484,9 +681,9 @@
 
 2013-03-04  David Holsgrove  <david.holsgrove@xilinx.com>
 
-	* config/microblaze/microblaze.c (microblaze_valid_pic_const): New 
+	* config/microblaze/microblaze.c (microblaze_valid_pic_const): New
 	(microblaze_legitimate_pic_operand): Likewise
-	* config/microblaze/microblaze.h (LEGITIMATE_PIC_OPERAND_P): calls 
+	* config/microblaze/microblaze.h (LEGITIMATE_PIC_OPERAND_P): calls
 	new function microblaze_legitimate_pic_operand
 	* config/microblaze/microblaze-protos.h
 	(microblaze_legitimate_pic_operand): Declare.
@@ -538,8 +735,8 @@
 	DRIVER_SELF_SPECS.
 	* config/microblaze/microblaze.md: New bswapsi2 and bswaphi2.
 	instructions emitted if TARGET_REORDER.
-	* config/microblaze/microblaze.opt: New option -mxl-reorder set to 1 
-	or 0 for -m/-mno case, but initialises as 2 to detect default use case 
+	* config/microblaze/microblaze.opt: New option -mxl-reorder set to 1
+	or 0 for -m/-mno case, but initialises as 2 to detect default use case
 	separately.
 
 2013-03-01  Xinliang David Li  <davidxl@google.com>
@@ -709,8 +906,7 @@
 	pointer_set_destroy on not_executed_last_iteration.
 
 	PR middle-end/56461
-	* tree-vect-loop.c (vectorizable_reduction): Release vect_defs
-	vector.
+	* tree-vect-loop.c (vectorizable_reduction): Release vect_defs vector.
 
 	PR middle-end/56461
 	* ipa-pure-const.c (propagate): Use FOR_EACH_FUNCTION instead of
@@ -826,8 +1022,7 @@
 2013-02-26  Marek Polacek  <polacek@redhat.com>
 
 	PR tree-optimization/56426
-	* tree-ssa-loop.c (tree_ssa_loop_init): Always call
-	scev_initialize.
+	* tree-ssa-loop.c (tree_ssa_loop_init): Always call scev_initialize.
 
 2013-02-26  Richard Biener  <rguenther@suse.de>
 
@@ -871,8 +1066,9 @@
 	    Iain Sandoe  <iain@codesourcery.com>
 	    Nathan Froyd  <froydnj@codesourcery.com>
 	    Chao-ying Fu  <fu@mips.com>
+
 	* doc/extend.texi: (micromips, nomicromips, nocompression):
-	Document new function attributes. 
+	Document new function attributes.
 	* doc/invoke.texi (minterlink-compressed, mmicromips,
 	m14k, m14ke, m14kec): Document new options.
 	(minterlink-mips16): Update documentation.
@@ -1022,7 +1218,7 @@
 	    Chao-ying Fu  <fu@mips.com>
 
 	* doc/extend.texi: (micromips, nomicromips, nocompression):
-	Document new function attributes. 
+	Document new function attributes.
 	* doc/invoke.texi (minterlink-compressed, mmicromips,
 	m14k, m14ke, m14kec): Document new options.
 	(minterlink-mips16): Update documentation.
@@ -1257,8 +1453,8 @@
 2013-02-20  Jan Hubicka  <jh@suse.cz>
 
 	PR tree-optimization/56265
-	* ipa-prop.c (ipa_make_edge_direct_to_target): Fixup callgraph when target is
-	referenced for firs ttime.
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Fixup callgraph
+	when target is referenced for first time.
 
 2013-02-20  Richard Biener  <rguenther@suse.de>
 
@@ -1269,8 +1465,7 @@
 	not return anything.
 	(rename_ssa_copies): Do not remove unused locals.
 	* tree-ssa-ccp.c (do_ssa_ccp): Likewise.
-	* tree-ssanames.c (pass_release_ssa_names): Remove unused
-	locals first.
+	* tree-ssanames.c (pass_release_ssa_names): Remove unused locals first.
 	* passes.c (execute_function_todo): Do not schedule unused locals
 	removal if cleanup_tree_cfg did something.
 	* tree-ssa-live.c (remove_unused_locals): Dump statistics
@@ -1279,8 +1474,7 @@
 2013-02-20  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56398
-	* tree-vect-loop-manip.c (adjust_debug_stmts): Skip
-	SSA default defs.
+	* tree-vect-loop-manip.c (adjust_debug_stmts): Skip SSA default defs.
 
 2013-02-20  Martin Jambor  <mjambor@suse.cz>
 
@@ -1289,7 +1483,7 @@
 	restricted pointers to arrays.
 
 2013-02-20  Richard Biener  <rguenther@suse.de>
-	Jakub Jelinek  <jakub@redhat.com>
+	    Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/56396
 	* tree-ssa-ccp.c (n_const_val): New static variable.
@@ -1326,7 +1520,7 @@
 
 	* config/microblaze/microblaze.c: microblaze_has_clz = 0
 	Add version check for v8.10.a to enable microblaze_has_clz
-	* config/microblaze/microblaze.h: Add TARGET_HAS_CLZ as combined 
+	* config/microblaze/microblaze.h: Add TARGET_HAS_CLZ as combined
 	version and TARGET_PATTERN_COMPARE check
 	* config/microblaze/microblaze.md: New clzsi2 instruction
 
@@ -1344,11 +1538,10 @@
 2012-02-19  Andrey Belevantsev  <abel@ispras.ru>
 
 	PR middle-end/55889
-
 	* sel-sched.c: Include ira.h.
 	(implicit_clobber_conflict_p): New function.
 	(moveup_expr): Use it.
-	* Makefile.in (sel-sched.o): Depend on ira.h. 
+	* Makefile.in (sel-sched.o): Depend on ira.h.
 
 2013-02-19  Richard Biener  <rguenther@suse.de>
 
@@ -1379,8 +1572,7 @@
 	* genopinit.c (raw_optab_handler): Use this_fn_optabs.
 	(swap_optab_enable): Same.
 	(init_all_optabs): Use argument instead of global.
-	* tree.h (struct tree_optimization_option): New field
-	target_optabs.
+	* tree.h (struct tree_optimization_option): New field target_optabs.
 	* expr.h (init_all_optabs): Add argument to prototype.
 	(TREE_OPTIMIZATION_OPTABS): New.
 	(save_optabs_if_changed): Protoize.
@@ -1404,8 +1596,8 @@
 
 	PR target/56214
 	* config/pa/predicates.md (base14_operand): Except for BLKmode, QImode
-	and HImode, require all displacements to be an integer multiple of their
-	mode size.
+	and HImode, require all displacements to be an integer multiple of
+	their mode size.
 	* config/pa/pa.c (pa_legitimate_address_p): For REG+BASE addresses,
 	only allow QImode and HImode when reload is in progress and strict is
 	true.  Likewise for symbolic addresses.  Use base14_operand to check
@@ -1446,18 +1638,17 @@
 
 2013-02-16  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
 
-	* config/microblaze/microblaze.c (microblaze_asm_trampoline_template): 
+	* config/microblaze/microblaze.c (microblaze_asm_trampoline_template):
 	Replace with a microblaze version.
 	(microblaze_trampoline_init): Adapt for microblaze.
-	* gcc/config/microblaze/microblaze.h (TRAMPOLINE_SIZE): Adapt for 
+	* config/microblaze/microblaze.h (TRAMPOLINE_SIZE): Adapt for
 	microblaze.
 
 2013-02-16  Jakub Jelinek  <jakub@redhat.com>
 	    Dodji Seketeli  <dodji@redhat.com>
 
 	PR asan/56330
-	* asan.c (get_mem_refs_of_builtin_call): White space and style
-	cleanup.
+	* asan.c (get_mem_refs_of_builtin_call): White space and style cleanup.
 	(instrument_mem_region_access): Do not forget to always put
 	instrumentation of the of 'base' and 'base + len' in a "if (len !=
 	0) statement, even for cases where either 'base' or 'base + len'
@@ -1547,13 +1738,12 @@
 	re-initializing preserved loops.
 	* loop-unswitch.c (unswitch_single_loop): Return whether
 	we unswitched the loop.  Do not verify loop state here.
-	(unswitch_loops): When we unswitched a loop discover new
-	loops.
+	(unswitch_loops): When we unswitched a loop discover new loops.
 
 2013-02-13  Kostya Serebryany  <kcc@google.com>
 
-	* config/i386/i386.c: Use 0x7fff8000 as asan_shadow_offset on x86_64
-	linux.
+	* config/i386/i386.c: Use 0x7fff8000 as asan_shadow_offset
+	on x86_64 linux.
 	* sanitizer.def: Rename __asan_init to __asan_init_v1.
 
 2013-02-12  Dodji Seketeli  <dodji@redhat.com>

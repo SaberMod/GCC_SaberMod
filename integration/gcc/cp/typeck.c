@@ -4015,7 +4015,7 @@ cp_build_binary_op (location_t location,
 	{
 	  enum tree_code tcode0 = code0, tcode1 = code1;
 
-	  warn_for_div_by_zero (location, op1);
+	  warn_for_div_by_zero (location, maybe_constant_value (op1));
 
 	  if (tcode0 == COMPLEX_TYPE || tcode0 == VECTOR_TYPE)
 	    tcode0 = TREE_CODE (TREE_TYPE (TREE_TYPE (op0)));
@@ -4051,7 +4051,7 @@ cp_build_binary_op (location_t location,
 
     case TRUNC_MOD_EXPR:
     case FLOOR_MOD_EXPR:
-      warn_for_div_by_zero (location, op1);
+      warn_for_div_by_zero (location, maybe_constant_value (op1));
 
       if (code0 == VECTOR_TYPE && code1 == VECTOR_TYPE
 	  && TREE_CODE (TREE_TYPE (type0)) == INTEGER_TYPE
@@ -6237,6 +6237,12 @@ build_static_cast_1 (tree type, tree expr, bool c_cast_p,
      Any expression can be explicitly converted to type cv void.  */
   if (TREE_CODE (type) == VOID_TYPE)
     return convert_to_void (expr, ICV_CAST, complain);
+
+  /* [class.abstract]
+     An abstract class shall not be used ... as the type of an explicit
+     conversion.  */
+  if (abstract_virtuals_error_sfinae (ACU_CAST, type, complain))
+    return error_mark_node;
 
   /* [expr.static.cast]
 

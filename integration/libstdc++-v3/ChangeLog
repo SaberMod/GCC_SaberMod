@@ -1,3 +1,44 @@
+2013-03-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/55977 (partial, std::vector and std::deque bits)
+	* include/bits/stl_vector.h (_M_range_initialize(_InputIterator,
+	_InputIterator, std::input_iterator_tag)): Use emplace_back.
+	* include/bits/deque.tcc (_M_range_initialize(_InputIterator,
+	_InputIterator, std::input_iterator_tag)): Likewise.
+	* testsuite/23_containers/vector/cons/55977.cc: New.
+	* testsuite/23_containers/deque/cons/55977.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+2013-03-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/55979
+	* include/bits/stl_list.h (_M_initialize_dispatch(_InputIterator,
+	_InputIterator, __false_type)): Use emplace_back.
+	* testsuite/23_containers/list/cons/55979.cc: New.
+	* testsuite/23_containers/list/modifiers/1.h: Adjust.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+
+2013-03-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55017
+	* testsuite/20_util/pair/piecewise2.cc (test01): Use std::move.
+
+2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56468
+	* libsupc++/exception_ptr.h (type_info): Declare.
+
+2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56002
+	* include/std/mutex (lock_guard, unique_lock, lock): Define without
+	depending on _GLIBCXX_HAS_GTHREADS.
+	* testsuite/30_threads/lock_guard/cons/1.cc: Run on all targets.
+
 2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	PR libstdc++/56492
