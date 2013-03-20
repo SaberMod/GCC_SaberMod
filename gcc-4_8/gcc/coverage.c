@@ -426,6 +426,204 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
            || has_any_incompatible_cg_opts);
 }
 
+
+/* Support for module sorting based on user specfication.  */
+struct module_name_entry
+{
+  typedef module_name_entry value_type;
+  typedef module_name_entry compare_type;
+  static inline hashval_t hash (const value_type *entry);
+  static inline int equal (const value_type *entry1, const compare_type *entry2);
+  static inline void remove (value_type *v);
+
+  const char *source_name;
+  int order;
+};
+
+/* Hash function for module name  */
+
+hashval_t
+module_name_entry::hash (const value_type *s)
+{
+  return htab_hash_string (s->source_name);
+}
+
+/* Delete function for module name  */
+
+void
+module_name_entry::remove (value_type  *entry)
+{
+  /* XDELETE (entry->source_name); */
+  XDELETE (entry);
+}
+
+/* Equal function for module name  */
+
+int
+module_name_entry::equal (const value_type *s1, const compare_type *s2)
+{
+  return !strcmp (s1->source_name, s2->source_name);
+}
+
+static  hash_table<module_name_entry> module_name_tab;
+
+/* Comparison function for sorting module_infos array.  */
+
+static int
+cmp_module_name_entry (const void *p1, const void *p2)
+{
+  module_name_entry **slot1, **slot2;
+  module_name_entry *m_e1, *m_e2;
+
+  struct gcov_module_info *const *e1 = (struct gcov_module_info *const *) p1;
+  struct gcov_module_info *const *e2 = (struct gcov_module_info *const *) p2;
+
+  module_name_entry e;
+  e.source_name = (*e1)->source_filename;
+  slot1 = module_name_tab.find_slot (&e, NO_INSERT);
+  e.source_name = (*e2)->source_filename;
+  slot2 = module_name_tab.find_slot (&e, NO_INSERT);
+
+  if (!slot1 || !*slot1)
+    return 1;
+
+  if (!slot2 || !*slot2)
+    return -1;
+
+  gcc_assert (slot1 && *slot1 && slot2 && *slot2);
+  m_e1 = *slot1;
+  m_e2 = *slot2;
+
+  return m_e1->order - m_e2->order;
+}
+
+/* Comparison function for sorting fname array  */
+
+static int
+cmp_fname_entry (const void *p1, const void *p2)
+{
+  module_name_entry **slot1, **slot2;
+  module_name_entry *m_e1, *m_e2;
+
+  const char *const *e1 = (const char *const *) p1;
+  const char *const *e2 = (const char *const *) p2;
+
+  module_name_entry e;
+
+  e.source_name = *e1;
+  slot1 = module_name_tab.find_slot (&e, NO_INSERT);
+  e.source_name = *e2;
+  slot2 = module_name_tab.find_slot (&e, NO_INSERT);
+
+  if (!slot1 || !*slot1)
+    return 1;
+
+  if (!slot2 || !*slot2)
+    return -1;
+
+  gcc_assert (slot1 && *slot1 && slot2 && *slot2);
+  m_e1 = *slot1;
+  m_e2 = *slot2;
+
+  return m_e1->order - m_e2->order;
+}
+
+/* Reorder module group according to file IMPORTS_FILE  */
+
+static void
+reorder_module_groups (const char *imports_file, unsigned max_group)
+{
+  FILE *f;
+  int n, order = 0;
+  size_t len;
+  char *line = NULL;
+
+  module_name_tab.create (20);
+
+  f = fopen (imports_file, "r");
+  if (!f)
+    error ("Can't open file %s", imports_file);
+
+  while ((n = getline (&line, &len, f)) != -1)
+    {
+      module_name_entry **slot;
+      module_name_entry *m_e = XCNEW (module_name_entry);
+
+      line[n - 1] = '\0';
+      m_e->source_name = line;
+      m_e->order = order;
+
+      slot = module_name_tab.find_slot (m_e, INSERT);
+      gcc_assert (!*slot);
+      *slot = m_e;
+
+      line = NULL;
+      order++;
+    }
+
+  /* Now do the sorting  */
+
+  qsort (&module_infos[1], num_in_fnames - 1, sizeof (void *),
+         cmp_module_name_entry);
+  qsort (&in_fnames[1], num_in_fnames - 1, sizeof (void *),
+         cmp_fname_entry);
+
+  {
+    unsigned i;
+
+    for (i = 0; i < num_in_fnames; i++)
+      fprintf (stderr, "*** %s (%s)\n", in_fnames[i],
+	       i < max_group ? "Kept":"Skipped");
+
+    for (i = 0; i < num_in_fnames; i++)
+      fprintf (stderr, "### %s (%s)\n", module_infos[i]->source_filename,
+	       i < max_group ? "Kept":"Skipped");
+
+  }
+
+  if (num_in_fnames > max_group)
+    num_in_fnames = max_group;
+
+  module_name_tab.dispose ();
+}
+
+typedef struct {
+  unsigned int mod_id;
+  const char *mod_name;
+} mod_id_to_name_t;
+
+static vec<mod_id_to_name_t> *mod_names;
+
+static void
+record_module_name (unsigned int mod_id, const char *name)
+{
+  mod_id_to_name_t t;
+
+  t.mod_id = mod_id;
+  t.mod_name = xstrdup (name);
+  if (!mod_names)
+    vec_alloc (mod_names, 10);
+  mod_names->safe_push (t);
+}
+
+/* Return the module name for module with MOD_ID.  */
+
+const char *
+get_module_name (unsigned int mod_id)
+{
+  size_t i;
+  mod_id_to_name_t *elt;
+
+  for (i = 0; mod_names->iterate (i, &elt); i++)
+    {
+      if (elt->mod_id == mod_id)
+        return elt->mod_name;
+    }
+
+  gcc_assert (0);
+  return NULL;
+}
+
 /* Read in the counts file, if available. DA_FILE_NAME is the
    name of the gcda file, and MODULE_ID is the module id of the
    associated source module.  */
@@ -443,6 +641,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   unsigned max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
+  const char *imports_filename;
 
   if (max_group == 0)
     max_group = (unsigned) -1;
@@ -632,7 +831,10 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		inform (input_location, "Not importing %s: source language"
 			" different from primary module's source language",
 			mod_info->source_filename);
-	      else if (module_infos_read == max_group)
+	      else if (module_infos_read == max_group
+                       /* If reordering is specified, delay the cutoff
+			  until after sorting.  */
+		       && !getenv ("LIPO_REORDER_GROUP"))
 		inform (input_location, "Not importing %s: maximum group size"
 			" reached", mod_info->source_filename);
 	      else if (incompatible_cl_args (module_infos[0], mod_info))
@@ -661,6 +863,9 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		}
             }
 
+          record_module_name (mod_info->ident,
+                              lbasename (mod_info->source_filename));
+
           if (flag_ripa_verbose)
             {
               inform (input_location,
@@ -679,6 +884,14 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  counts_hash.dispose ();
 	  break;
 	}
+    }
+
+  if ((imports_filename = getenv ("LIPO_REORDER_GROUP"))
+      && flag_dyn_ipa && !module_id)
+    {
+      reorder_module_groups (imports_filename, max_group);
+      if (module_infos_read != num_in_fnames)
+	module_infos_read = num_in_fnames;
     }
 
   /* TODO: profile based multiple module compilation does not work
