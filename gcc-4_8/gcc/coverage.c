@@ -1777,6 +1777,12 @@ build_gcov_module_info_type (void)
   DECL_CHAIN (field) = fields;
   fields = field;
 
+  /* ggc_memory field */
+  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+                      NULL_TREE, get_gcov_unsigned_t ());
+  DECL_CHAIN (field) = fields;
+  fields = field;
+
   /* da_filename */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
                       NULL_TREE, string_type);
@@ -1899,6 +1905,11 @@ build_gcov_module_info_value (tree mod_type)
 
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
                           build_int_cstu (get_gcov_unsigned_t (), lang));
+  info_fields = DECL_CHAIN (info_fields);
+
+  /* ggc_memory field */
+  CONSTRUCTOR_APPEND_ELT (v, info_fields,
+                          build_int_cstu (get_gcov_unsigned_t (), ggc_total_memory));
   info_fields = DECL_CHAIN (info_fields);
 
   /* da_filename */

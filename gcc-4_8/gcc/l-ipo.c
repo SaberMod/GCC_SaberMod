@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "vec.h"
 
+unsigned ggc_total_memory; /* in KB */
+
 struct GTY(()) saved_module_scope
 {
   vec<tree, va_gc> *module_decls;
