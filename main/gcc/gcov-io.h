@@ -507,6 +507,7 @@ struct gcov_module_info
   gcov_unsigned_t lang; /* lower 16 bits encode the language, and the upper
 			   16 bits enocde other attributes, such as whether
 			   any assembler is present in the source, etc.  */
+  gcov_unsigned_t ggc_memory; /* memory needed for parsing in kb  */
   char *da_filename;
   char *source_filename;
   gcov_unsigned_t num_quote_paths;

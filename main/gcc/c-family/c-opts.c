@@ -1102,6 +1102,7 @@ c_common_parse_file (void)
       if (!this_input_filename)
 	break;
     }
+    ggc_total_memory = (ggc_total_allocated () >> 10);
     parsing_done_p = true;
 }
 
