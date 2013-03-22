@@ -2473,7 +2473,6 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	  base = gimple_call_arg (stmt, adj->base_index);
 	  loc = DECL_P (base) ? DECL_SOURCE_LOCATION (base)
 			      : EXPR_LOCATION (base);
-	  loc = EXPR_LOCATION (base);
 
 	  if (TREE_CODE (base) != ADDR_EXPR
 	      && POINTER_TYPE_P (TREE_TYPE (base)))
