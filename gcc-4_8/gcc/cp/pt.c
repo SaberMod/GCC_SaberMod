@@ -4308,6 +4308,13 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
        local scope.  */
     return true;
 
+  if (TREE_CODE (decl) == TYPE_DECL
+      && TREE_TYPE (decl)
+      && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+    /* A lambda doesn't have an explicit declaration; don't complain
+       about the parms of the enclosing class.  */
+    return true;
+
   if (current_class_type
       && !TYPE_BEING_DEFINED (current_class_type)
       && DECL_LANG_SPECIFIC (decl)
@@ -4676,6 +4683,8 @@ push_template_decl_real (tree decl, bool is_friend)
   if (!ctx
       || TREE_CODE (ctx) == FUNCTION_DECL
       || (CLASS_TYPE_P (ctx) && TYPE_BEING_DEFINED (ctx))
+      || (TREE_CODE (decl) == TYPE_DECL
+	  && LAMBDA_TYPE_P (TREE_TYPE (decl)))
       || (is_friend && !DECL_TEMPLATE_INFO (decl)))
     {
       if (DECL_LANG_SPECIFIC (decl)
@@ -8994,12 +9003,26 @@ instantiate_class_template_1 (tree type)
 	}
     }
 
-  if (CLASSTYPE_LAMBDA_EXPR (type))
+  if (tree expr = CLASSTYPE_LAMBDA_EXPR (type))
     {
       tree decl = lambda_function (type);
       if (decl)
 	{
 	  instantiate_decl (decl, false, false);
+
+	  /* We need to instantiate the capture list from the template
+	     after we've instantiated the closure members, but before we
+	     consider adding the conversion op.  Also keep any captures
+	     that may have been added during instantiation of the op().  */
+	  tree tmpl_expr = CLASSTYPE_LAMBDA_EXPR (pattern);
+	  tree tmpl_cap
+	    = tsubst_copy_and_build (LAMBDA_EXPR_CAPTURE_LIST (tmpl_expr),
+				     args, tf_warning_or_error, NULL_TREE,
+				     false, false);
+
+	  LAMBDA_EXPR_CAPTURE_LIST (expr)
+	    = chainon (tmpl_cap, nreverse (LAMBDA_EXPR_CAPTURE_LIST (expr)));
+
 	  maybe_add_lambda_conv_op (type);
 	}
       else
@@ -10828,6 +10851,9 @@ tsubst_arg_types (tree arg_types,
           }
         return error_mark_node;
     }
+    /* DR 657. */
+    if (abstract_virtuals_error_sfinae (NULL_TREE, type, complain))
+      return error_mark_node;
     
     /* Do array-to-pointer, function-to-pointer conversion, and ignore
        top-level qualifiers as required.  */
@@ -10890,10 +10916,8 @@ tsubst_function_type (tree t,
   return_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
   if (return_type == error_mark_node)
     return error_mark_node;
-  /* The standard does not presently indicate that creation of a
-     function type with an invalid return type is a deduction failure.
-     However, that is clearly analogous to creating an array of "void"
-     or a reference to a reference.  This is core issue #486.  */
+  /* DR 486 clarifies that creation of a function type with an
+     invalid return type is a deduction failure.  */
   if (TREE_CODE (return_type) == ARRAY_TYPE
       || TREE_CODE (return_type) == FUNCTION_TYPE)
     {
@@ -10906,6 +10930,9 @@ tsubst_function_type (tree t,
 	}
       return error_mark_node;
     }
+  /* And DR 657. */
+  if (abstract_virtuals_error_sfinae (NULL_TREE, return_type, complain))
+    return error_mark_node;
 
   /* Substitute the argument types.  */
   arg_types = tsubst_arg_types (TYPE_ARG_TYPES (t), args, NULL_TREE,
@@ -11759,7 +11786,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	++c_inhibit_evaluation_warnings;
 
 	type = tsubst_expr (DECLTYPE_TYPE_EXPR (t), args,
-			    complain, in_decl,
+			    complain|tf_decltype, in_decl,
 			    /*integral_constant_expression_p=*/false);
 
 	--cp_unevaluated_operand;
@@ -12012,7 +12039,7 @@ tsubst_qualified_id (tree qualified_id, tree args,
   else if (TYPE_P (scope))
     {
       expr = (adjust_result_of_qualified_name_lookup
-	      (expr, scope, current_class_type));
+	      (expr, scope, current_nonlambda_class_type ()));
       expr = (finish_qualified_id_expr
 	      (scope, expr, done, address_p && PTRMEM_OK_P (qualified_id),
 	       QUALIFIED_NAME_IS_TEMPLATE (qualified_id),
@@ -13395,6 +13422,12 @@ tsubst_copy_and_build (tree t,
   if (EXPR_HAS_LOCATION (t))
     input_location = EXPR_LOCATION (t);
 
+  /* N3276 decltype magic only applies to calls at the top level or on the
+     right side of a comma.  */
+  if (TREE_CODE (t) != CALL_EXPR
+      && TREE_CODE (t) != COMPOUND_EXPR)
+    complain &= ~tf_decltype;
+
   switch (TREE_CODE (t))
     {
     case USING_DECL:
@@ -13822,10 +13855,16 @@ tsubst_copy_and_build (tree t,
 	complain));
 
     case COMPOUND_EXPR:
-      RETURN (build_x_compound_expr (EXPR_LOCATION (t),
-				    RECUR (TREE_OPERAND (t, 0)),
-				    RECUR (TREE_OPERAND (t, 1)),
-                                    complain));
+      {
+	tree op0 = tsubst_copy_and_build (TREE_OPERAND (t, 0), args,
+					  complain & ~tf_decltype, in_decl,
+					  /*function_p=*/false,
+					  integral_constant_expression_p);
+	RETURN (build_x_compound_expr (EXPR_LOCATION (t),
+				       op0,
+				       RECUR (TREE_OPERAND (t, 1)),
+				       complain));
+      }
 
     case CALL_EXPR:
       {
@@ -13835,6 +13874,10 @@ tsubst_copy_and_build (tree t,
 	bool qualified_p;
 	bool koenig_p;
 	tree ret;
+
+	/* Don't pass tf_decltype down to subexpressions.  */
+	tsubst_flags_t decltype_flag = (complain & tf_decltype);
+	complain &= ~tf_decltype;
 
 	function = CALL_EXPR_FN (t);
 	/* When we parsed the expression,  we determined whether or
@@ -14001,6 +14044,9 @@ tsubst_copy_and_build (tree t,
 	/* Remember that there was a reference to this entity.  */
 	if (DECL_P (function))
 	  mark_used (function);
+
+	/* Put back tf_decltype for the actual call.  */
+	complain |= decltype_flag;
 
 	if (TREE_CODE (function) == OFFSET_REF)
 	  ret = build_offset_ref_call_from_tree (function, &call_args,
@@ -14469,12 +14515,6 @@ tsubst_copy_and_build (tree t,
 	   declaration of the op() for later calls to lambda_function.  */
 	complete_type (type);
 
-	/* The capture list refers to closure members, so this needs to
-	   wait until after we finish instantiating the type.  Also keep
-	   any captures that may have been added during instantiation.  */
-	LAMBDA_EXPR_CAPTURE_LIST (r)
-	  = chainon (RECUR (LAMBDA_EXPR_CAPTURE_LIST (t)),
-		     LAMBDA_EXPR_CAPTURE_LIST (r));
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
 
 	RETURN (build_lambda_object (r));

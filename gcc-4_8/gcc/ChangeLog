@@ -1,3 +1,38 @@
+2012-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* BASE-VER: Set to 4.8.1.
+	* DEV-PHASE: Set to prerelease.
+
+2013-03-22  Release Manager
+
+	* GCC 4.8.0 released.
+
+2013-03-21  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/sync.md (atomic_test_and_set): New pattern.
+
+2013-03-21  Mark Wielaard  <mjw@redhat.com>
+
+	* dwarf2out.c (size_of_aranges): Skip DECL_IGNORED_P functions.
+
+2013-03-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56661
+	* tree-ssa-sccvn.c (visit_use): Only value-number calls if
+	the result does not have to be distinct.
+
+2013-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56635
+	* tree-ssa-phiopt.c (cond_if_else_store_replacement_1): Give up
+	if lhs of then_assign and else_assign don't have compatible types.
+
+2013-03-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56640
+	* config/arm/arm.h (REG_CLASS_NAMES): Add "SFP_REG" and "AFP_REG"
+	class names.  Remove trailing comma after "ALL_REGS".
+
 2013-03-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* DEV-PHASE: Set to prerelease.

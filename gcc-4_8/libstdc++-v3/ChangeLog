@@ -1,3 +1,24 @@
+2013-03-24  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56002
+	* include/std/mutex (lock_guard, unique_lock, lock): Define without
+	depending on _GLIBCXX_HAS_GTHREADS.
+	* testsuite/30_threads/lock_guard/cons/1.cc: Run on all targets.
+
+2013-03-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56678
+	* include/std/chrono (__is_ratio): Uglify T.
+
+2013-03-22  Release Manager
+
+	* GCC 4.8.0 released.
+
+2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56468
+	* libsupc++/exception_ptr.h (type_info): Declare.
+
 2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	PR libstdc++/56492
