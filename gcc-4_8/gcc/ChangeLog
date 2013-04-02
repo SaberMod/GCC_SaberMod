@@ -1,3 +1,151 @@
+2013-04-01  Wei Mi  <wmi@google.com>
+
+	* config/i386/i386.md (*ashl<mode>3_mask): Rewrite as define_insn.
+	Truncate operand 2 using %b asm operand modifier.
+	(*<shift_insn><mode>3_mask): Ditto.
+	(*<rotate_insn><mode>3_mask): Ditto.
+
+2013-04-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movsf_internal): Change type of
+	alternatives 3,4 to imov.
+
+2013-03-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR lto/56777
+	* doc/invoke.texi ([-fwhole-program]): Fix typo.
+
+2013-03-29  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* config/i386/avx2intrin.h (_mm256_broadcastsi128_si256):
+	Fix declaration name.
+
+2013-03-28  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (AVR Options): Tweak link for AVR-LibC user manual.
+	* doc/extend.texi (Named Address Spaces): Ditto.
+	(Variable Attributes): Ditto.
+
+2013-03-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* toplev.c (process_options): Do not disable -fomit-frame-pointer on a
+	general basis if unwind info is requested and ACCUMULATE_OUTGOING_ARGS
+	is not enabled.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_expand_prologue): Avoid
+	double-decrement of next_scratch_regno.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_v1mulu): Fix predicates on
+	input operands.
+	(insn_v1mulus): Ditto.
+	(insn_v2muls): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (ASM_OUTPUT_ADDR_VEC_ELT): Delete
+	extra tab.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (*sibcall_insn): Fix type atribute for jr.
+	(*sibcall_value): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_mnz_<mode>): Replaced by ...
+	(insn_mnz_v8qi): ... this ...
+	(insn_mnz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mnz): Replaced by ...
+	(insn_v1mnz): ... this ...
+	(insn_v2mnz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+	(insn_mz_<mode>): Replaced by ...
+	(insn_mz_v8qi): ... this ...
+	(insn_mz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mz): Replaced by ...
+	(insn_v1mz): ... this ...
+	(insn_v2mz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+
+2013-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC options): Remove -mlittle-endian.
+
+2013-03-26  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems.opt: Add -pthread option.
+
+2013-03-26  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_address): Support
+	PC-relative load in SI modes and above only.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-26  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (PROFILE_BEFORE_PROLOGUE): Define.
+	* config/tilegx/tilepro.h (PROFILE_BEFORE_PROLOGUE): Define.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx-builtins.h (enum tilegx_builtin): Add
+	TILEGX_INSN_SHUFFLEBYTES1.
+	* config/tilegx/tilegx.c (tilegx_builtin_info): Add entry for
+	shufflebytes1.
+	(tilegx_builtins): Ditto.
+	* config/tilegx/tilegx.md (insn_shufflebytes1): New pattern.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (expand_set_cint64_one_inst): Inline
+	tests for constraint J, K, N, P.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_asm_preferred_eh_data_format):
+	Use indirect/pcrel encoding.
+	* config/tilepro/tilepro.c (tilepro_asm_preferred_eh_data_format):
+	Ditto.
+
+2013-03-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56694
+	* tree-eh.c (lower_eh_must_not_throw): Strip BLOCKs from the
+	must-not-throw stmt location.
+
 2012-03-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* BASE-VER: Set to 4.8.1.
@@ -49,30 +197,31 @@
 
 	* configure.ac: Add MicroBlaze TLS support detection.
 	* configure: Regenerate.
-	* config/microblaze/microblaze-protos.h: (microblaze_cannot_force_const_mem,
-	microblaze_tls_referenced_p, symbol_mentioned_p, label_mentioned_p): 
-	Add prototypes.
-	* config/microblaze/microblaze.c (microblaze_address_type): Add ADDRESS_TLS
-	and tls_reloc address types.
+	* config/microblaze/microblaze-protos.h
+	(microblaze_cannot_force_const_mem, microblaze_tls_referenced_p,
+	symbol_mentioned_p, label_mentioned_p): Add prototypes.
+	* config/microblaze/microblaze.c (microblaze_address_type): Add
+	ADDRESS_TLS and tls_reloc address types.
 	(microblaze_address_info): Add tls_reloc.
 	(TARGET_HAVE_TLS): Define.
 	(get_tls_get_addr, microblaze_tls_symbol_p, microblaze_tls_operand_p_1,
-	 microblaze_tls_referenced_p, microblaze_cannot_force_const_mem,
-	 symbol_mentioned_p, label_mentioned_p, tls_mentioned_p, load_tls_operand,
-	 microblaze_call_tls_get_addr, microblaze_legitimize_tls_address): New functions.
+	microblaze_tls_referenced_p, microblaze_cannot_force_const_mem,
+	symbol_mentioned_p, label_mentioned_p, tls_mentioned_p,
+	load_tls_operand, microblaze_call_tls_get_addr,
+	microblaze_legitimize_tls_address): New functions.
 	(microblaze_classify_unspec): Handle UNSPEC_TLS.
 	(get_base_reg): Use microblaze_tls_symbol_p.
 	(microblaze_classify_address): Handle TLS.
-	(microblaze_legitimate_pic_operand): Use symbol_mentioned_p, label_mentioned_p
-	and microblaze_tls_referenced_p.
+	(microblaze_legitimate_pic_operand): Use symbol_mentioned_p,
+	label_mentioned_p and microblaze_tls_referenced_p.
 	(microblaze_legitimize_address): Handle TLS.
 	(microblaze_address_insns): Handle ADDRESS_TLS.
 	(pic_address_needs_scratch): Handle TLS.
 	(print_operand_address): Handle TLS.
 	(microblaze_expand_prologue): Check TLS_NEEDS_GOT.
 	(microblaze_expand_move): Handle TLS.
-	(microblaze_legitimate_constant_p): Check microblaze_cannot_force_const_mem
-	and microblaze_tls_symbol_p.
+	(microblaze_legitimate_constant_p): Check
+	microblaze_cannot_force_const_mem and microblaze_tls_symbol_p.
 	(TARGET_CANNOT_FORCE_CONST_MEM): Define.
 	* config/microblaze/microblaze.h (TLS_NEEDS_GOT): Define
 	(PIC_OFFSET_TABLE_REGNUM): Set.
@@ -80,7 +229,8 @@
 	* config/microblaze/microblaze.md (UNSPEC_TLS): Define.
 	(addsi3, movsi_internal2, movdf_internal): Update constraints
 	* config/microblaze/predicates.md (arith_plus_operand): Define
-	(move_operand): Redefine as move_src_operand, check microblaze_tls_referenced_p.
+	(move_operand): Redefine as move_src_operand, check
+	microblaze_tls_referenced_p.
 
 2013-03-14  Ian Bolton  <ian.bolton@arm.com>
 
@@ -178,7 +328,7 @@
 	PR target/56591
 	* config/avr/avr.c (avr_print_operand): Add space after '%c' in
 	output_operand_lossage message.
-	
+
 2013-03-11  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR target/56470
@@ -523,10 +673,10 @@
 
 2013-03-04  David Holsgrove  <david.holsgrove@xilinx.com>
 
-	* config/microblaze/microblaze.c (microblaze_valid_pic_const): New 
-	(microblaze_legitimate_pic_operand): Likewise
-	* config/microblaze/microblaze.h (LEGITIMATE_PIC_OPERAND_P): calls 
-	new function microblaze_legitimate_pic_operand
+	* config/microblaze/microblaze.c (microblaze_valid_pic_const): New.
+	(microblaze_legitimate_pic_operand): Likewise.
+	* config/microblaze/microblaze.h (LEGITIMATE_PIC_OPERAND_P): Call
+	new function microblaze_legitimate_pic_operand.
 	* config/microblaze/microblaze-protos.h
 	(microblaze_legitimate_pic_operand): Declare.
 
@@ -577,8 +727,8 @@
 	DRIVER_SELF_SPECS.
 	* config/microblaze/microblaze.md: New bswapsi2 and bswaphi2.
 	instructions emitted if TARGET_REORDER.
-	* config/microblaze/microblaze.opt: New option -mxl-reorder set to 1 
-	or 0 for -m/-mno case, but initialises as 2 to detect default use case 
+	* config/microblaze/microblaze.opt: New option -mxl-reorder set to 1
+	or 0 for -m/-mno case, but initialises as 2 to detect default use case
 	separately.
 
 2013-03-01  Xinliang David Li  <davidxl@google.com>
@@ -615,12 +765,10 @@
 	(Other MIPS Built-in Functions): Move last MIPS entry before
 	"picoChip Built-in Functions".
 	(SH Built-in Functions): Move after RX Built-in Functions.
-	* doc/gcc.texi (Introduction): Change order in @menu
-	to match @node.
+	* doc/gcc.texi (Introduction): Change order in @menu to match @node.
 	* doc/md.texi (Constraints): Ditto.
 	* gty.texi (Type Information): Ditto.
-	(User-provided marking routines for template types): Make
-	subsection.
+	(User-provided marking routines for template types): Make subsection.
 	* doc/invoke.texi (AArch64 Options): Move before
 	"Adapteva Epiphany Options".
 
@@ -748,8 +896,7 @@
 	pointer_set_destroy on not_executed_last_iteration.
 
 	PR middle-end/56461
-	* tree-vect-loop.c (vectorizable_reduction): Release vect_defs
-	vector.
+	* tree-vect-loop.c (vectorizable_reduction): Release vect_defs vector.
 
 	PR middle-end/56461
 	* ipa-pure-const.c (propagate): Use FOR_EACH_FUNCTION instead of
@@ -910,8 +1057,9 @@
 	    Iain Sandoe  <iain@codesourcery.com>
 	    Nathan Froyd  <froydnj@codesourcery.com>
 	    Chao-ying Fu  <fu@mips.com>
-	* doc/extend.texi: (micromips, nomicromips, nocompression):
-	Document new function attributes. 
+
+	* doc/extend.texi (micromips, nomicromips, nocompression):
+	Document new function attributes.
 	* doc/invoke.texi (minterlink-compressed, mmicromips,
 	m14k, m14ke, m14kec): Document new options.
 	(minterlink-mips16): Update documentation.
@@ -1060,8 +1208,8 @@
 	    Nathan Froyd  <froydnj@codesourcery.com>
 	    Chao-ying Fu  <fu@mips.com>
 
-	* doc/extend.texi: (micromips, nomicromips, nocompression):
-	Document new function attributes. 
+	* doc/extend.texi (micromips, nomicromips, nocompression):
+	Document new function attributes.
 	* doc/invoke.texi (minterlink-compressed, mmicromips,
 	m14k, m14ke, m14kec): Document new options.
 	(minterlink-mips16): Update documentation.
@@ -1224,8 +1372,8 @@
 	((dword_type) -1) << (BITS_PER_WORD - 1).  Improve multiplication by
 	((dword_type) 1) << (BITS_PER_WORD - 1).  Avoid undefined behavior
 	in the compiler if coeff is HOST_WIDE_INT_MIN.
-	(expand_divmod): Don't make ext_op1 static, change it's type to
-	uhwi.  Avoid undefined behavior in -INTVAL (op1).
+	(expand_divmod): Don't make ext_op1 static, change it's type to uhwi.
+	Avoid undefined behavior in -INTVAL (op1).
 
 	PR rtl-optimization/50339
 	* lower-subreg.h (struct lower_subreg_choices): Add splitting_ashiftrt
@@ -1296,8 +1444,8 @@
 2013-02-20  Jan Hubicka  <jh@suse.cz>
 
 	PR tree-optimization/56265
-	* ipa-prop.c (ipa_make_edge_direct_to_target): Fixup callgraph when target is
-	referenced for firs ttime.
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Fixup callgraph when
+	target is referenced for first time.
 
 2013-02-20  Richard Biener  <rguenther@suse.de>
 
@@ -1308,8 +1456,7 @@
 	not return anything.
 	(rename_ssa_copies): Do not remove unused locals.
 	* tree-ssa-ccp.c (do_ssa_ccp): Likewise.
-	* tree-ssanames.c (pass_release_ssa_names): Remove unused
-	locals first.
+	* tree-ssanames.c (pass_release_ssa_names): Remove unused locals first.
 	* passes.c (execute_function_todo): Do not schedule unused locals
 	removal if cleanup_tree_cfg did something.
 	* tree-ssa-live.c (remove_unused_locals): Dump statistics
@@ -1365,7 +1512,7 @@
 
 	* config/microblaze/microblaze.c: microblaze_has_clz = 0
 	Add version check for v8.10.a to enable microblaze_has_clz
-	* config/microblaze/microblaze.h: Add TARGET_HAS_CLZ as combined 
+	* config/microblaze/microblaze.h: Add TARGET_HAS_CLZ as combined
 	version and TARGET_PATTERN_COMPARE check
 	* config/microblaze/microblaze.md: New clzsi2 instruction
 
@@ -1383,11 +1530,10 @@
 2012-02-19  Andrey Belevantsev  <abel@ispras.ru>
 
 	PR middle-end/55889
-
 	* sel-sched.c: Include ira.h.
 	(implicit_clobber_conflict_p): New function.
 	(moveup_expr): Use it.
-	* Makefile.in (sel-sched.o): Depend on ira.h. 
+	* Makefile.in (sel-sched.o): Depend on ira.h.
 
 2013-02-19  Richard Biener  <rguenther@suse.de>
 
@@ -1418,8 +1564,7 @@
 	* genopinit.c (raw_optab_handler): Use this_fn_optabs.
 	(swap_optab_enable): Same.
 	(init_all_optabs): Use argument instead of global.
-	* tree.h (struct tree_optimization_option): New field
-	target_optabs.
+	* tree.h (struct tree_optimization_option): New field target_optabs.
 	* expr.h (init_all_optabs): Add argument to prototype.
 	(TREE_OPTIMIZATION_OPTABS): New.
 	(save_optabs_if_changed): Protoize.
@@ -1443,8 +1588,8 @@
 
 	PR target/56214
 	* config/pa/predicates.md (base14_operand): Except for BLKmode, QImode
-	and HImode, require all displacements to be an integer multiple of their
-	mode size.
+	and HImode, require all displacements to be an integer multiple of
+	their mode size.
 	* config/pa/pa.c (pa_legitimate_address_p): For REG+BASE addresses,
 	only allow QImode and HImode when reload is in progress and strict is
 	true.  Likewise for symbolic addresses.  Use base14_operand to check
@@ -1485,10 +1630,10 @@
 
 2013-02-16  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
 
-	* config/microblaze/microblaze.c (microblaze_asm_trampoline_template): 
+	* config/microblaze/microblaze.c (microblaze_asm_trampoline_template):
 	Replace with a microblaze version.
 	(microblaze_trampoline_init): Adapt for microblaze.
-	* gcc/config/microblaze/microblaze.h (TRAMPOLINE_SIZE): Adapt for 
+	* config/microblaze/microblaze.h (TRAMPOLINE_SIZE): Adapt for
 	microblaze.
 
 2013-02-16  Jakub Jelinek  <jakub@redhat.com>
