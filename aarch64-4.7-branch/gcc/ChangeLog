@@ -1,3 +1,213 @@
+2013-04-01  Wei Mi  <wmi@google.com>
+
+	* config/i386/i386.md (*ashl<mode>3_mask): Rewrite as define_insn.
+	Truncate operand 2 using %b asm operand modifier.
+	(*<shift_insn><mode>3_mask): Ditto.
+	(*<rotate_insn><mode>3_mask): Ditto.
+
+2013-04-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movsf_internal): Change type of
+	alternatives 3,4 to imov.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-27  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/45472
+	* sel-sched-ir.c (merge_expr): Also change vinsn of merged expr
+	when the may_trap_p bit of the exprs being merged differs.
+	Reorder tests for speculativeness in the logical and operator.
+
+	Backport from mainline
+	 2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56461
+	* sel-sched-ir.c (free_sched_pools): Release
+	succs_info_pool.stack[succs_info_pool.max_top] vectors too
+	if succs_info_pool.max_top isn't -1.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-02-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/55889
+	* sel-sched.c: Include ira.h.
+	(implicit_clobber_conflict_p): New function.
+	(moveup_expr): Use it.
+	* Makefile.in (sel-sched.o): Depend on ira.h.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-25  Andrey Belevantsev  <abel@ispras.ru>
+	Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/56077
+	* sched-deps.c (sched_analyze_insn): When reg_pending_barrier,
+	flush pending lists also on non-jumps.  Adjust comment.
+
+2013-03-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (AVR Options): Tweak link for AVR-LibC user manual.
+	* doc/extend.texi (Named Address Spaces): Ditto.
+	(Variable Attributes): Ditto.
+
+2013-03-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* toplev.c (process_options): Do not disable -fomit-frame-pointer on a
+	general basis if unwind info is requested and ACCUMULATE_OUTGOING_ARGS
+	is not enabled.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_expand_prologue): Avoid
+	double-decrement of next_scratch_regno.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_v1mulu): Fix predicates on
+	input operands.
+	(insn_v1mulus): Ditto.
+	(insn_v2muls): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (ASM_OUTPUT_ADDR_VEC_ELT): Delete
+	extra tab.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (*sibcall_insn): Fix type atribute
+	for jr.
+	(*sibcall_value): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_mnz_<mode>): Replaced by ...
+	(insn_mnz_v8qi): ... this ...
+	(insn_mnz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mnz): Replaced by ...
+	(insn_v1mnz): ... this ...
+	(insn_v2mnz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+	(insn_mz_<mode>): Replaced by ...
+	(insn_mz_v8qi): ... this ...
+	(insn_mz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mz): Replaced by ...
+	(insn_v1mz): ... this ...
+	(insn_v2mz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+
+2013-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC options): Remove -mlittle-endian.
+
+2013-03-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline:
+	2013-03-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56608
+	* tree-vect-slp.c (vect_schedule_slp): Do not remove scalar
+	calls when vectorizing basic-blocks.
+
+	2013-03-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56270
+	* tree-vect-slp.c (vect_schedule_slp): Clear vectorized stmts
+	of loads after scheduling an SLP instance.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-26  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (PROFILE_BEFORE_PROLOGUE): Define.
+	* config/tilegx/tilepro.h (PROFILE_BEFORE_PROLOGUE): Define.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx-builtins.h (enum tilegx_builtin): Add
+	TILEGX_INSN_SHUFFLEBYTES1.
+	* config/tilegx/tilegx.c (tilegx_builtin_info): Add entry for
+	shufflebytes1.
+	(tilegx_builtins): Ditto.
+	* config/tilegx/tilegx.md (insn_shufflebytes1): New pattern.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (expand_set_cint64_one_inst): Inline
+	tests for constraint J, K, N, P.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_asm_preferred_eh_data_format):
+	Use indirect/pcrel encoding.
+	* config/tilepro/tilepro.c (tilepro_asm_preferred_eh_data_format):
+	Ditto.
+
+2013-03-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2013-03-13  Oleg Endo  <olegendo@gcc.gnu.org>
+	2013-03-14  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49880
+	* config/sh/sh.opt (FPU_SINGLE_ONLY): New mask.
+	(musermode): Convert to Var(TARGET_USERMODE).
+	* config/sh/sh.h (SELECT_SH2A_SINGLE_ONLY, SELECT_SH4_SINGLE_ONLY,
+	MASK_ARCH): Add MASK_FPU_SINGLE_ONLY.
+	* config/sh/sh.c (sh_option_override): Use
+	TARGET_FPU_DOUBLE || TARGET_FPU_SINGLE_ONLY for call-fp case.
+	* config/sh/sh.md (udivsi3_i1, divsi3_i1): Remove ! TARGET_SH4
+	condition.
+	(udivsi3_i4, divsi3_i4): Use TARGET_FPU_DOUBLE condition instead of
+	TARGET_SH4.
+	(udivsi3_i4_single, divsi3_i4_single): Use
+	TARGET_FPU_SINGLE_ONLY || TARGET_FPU_DOUBLE instead of TARGET_HARD_SH4.
+	* config/sh/linux.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): Set TARGET_USERMODE as default.
+	* config/sh/netbsd-elf.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): New.
+
+2013-03-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2012-04-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-sh (MULTILIB_MATCHES): Match m2a-single-only
+	to m2a-single instead of m2e.
+
 2013-03-22  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/56560
@@ -97,7 +307,7 @@
 
 	Backport from mainline
 	2012-04-10  Richard Guenther  <rguenther@suse.de>
- 
+
 	PR middle-end/52888
 	* gimple-low.c (gimple_check_call_args): Properly account for
 	compatible aggregate types.
