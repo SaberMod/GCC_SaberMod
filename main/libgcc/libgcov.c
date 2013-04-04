@@ -183,6 +183,9 @@ static struct gcov_summary program;
 /* Record the position of summary info.  */
 static gcov_position_t summary_pos = 0;
 
+/* Record the postion of eof.  */
+static gcov_position_t eof_pos = 0;
+
 /* Number of chars in prefix to be stripped.  */
 static int gcov_prefix_strip = 0;
 
@@ -582,16 +585,12 @@ gcov_write_import_file (char *gi_filename, struct gcov_info *gi_ptr)
     }
 }
 
-/* Compute and dump module groups for lipo compilation. When DO_LIPO is
-   false, simply emit the primary module.  */
-
 static void
-gcov_dump_module_info (int do_lipo)
+gcov_dump_module_info (void)
 {
   struct gcov_info *gi_ptr;
 
-  if (do_lipo)
-    __gcov_compute_module_groups ();
+  __gcov_compute_module_groups ();
 
   /* Now write out module group info.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
@@ -606,9 +605,9 @@ gcov_dump_module_info (int do_lipo)
 
     /* Overwrite the zero word at the of the file.  */
     gcov_rewrite ();
-    gcov_seek_from_end (1);
+    gcov_seek (gi_ptr->eof_pos);
 
-    gcov_write_module_infos (gi_ptr, do_lipo);
+    gcov_write_module_infos (gi_ptr);
     /* Write the end marker  */
     gcov_write_unsigned (0);
     gcov_truncate ();
@@ -617,11 +616,9 @@ gcov_dump_module_info (int do_lipo)
          gcov_error (error  < 0 ?  "profiling:%s:Overflow writing\n" :
                                    "profiling:%s:Error writing\n",
                                    gi_filename);
-    if (do_lipo)
-      gcov_write_import_file (gi_filename, gi_ptr);
+    gcov_write_import_file (gi_filename, gi_ptr);
   }
-  if (do_lipo)
-    __gcov_finalize_dyn_callgraph ();
+  __gcov_finalize_dyn_callgraph ();
 }
 
 /* Dump the coverage counts. We merge with existing counts when
@@ -635,19 +632,20 @@ void
 gcov_exit (void)
 {
   struct gcov_info *gi_ptr;
-  int do_lipo;
+  int dump_module_info;
 
   /* Prevent the counters from being dumped a second time on exit when the
      application already wrote out the profile using __gcov_dump().  */
   if (gcov_dump_complete)
     return;
 
-  do_lipo = gcov_exit_init ();
+  dump_module_info = gcov_exit_init ();
 
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
     gcov_dump_one_gcov (gi_ptr);
 
-  gcov_dump_module_info (do_lipo);
+  if (dump_module_info)
+    gcov_dump_module_info ();
 
   free (gi_filename);
 }
@@ -858,8 +856,8 @@ gcov_merge_gcda_file (struct gcov_info *gi_ptr)
   const struct gcov_fn_info *gfi_ptr;
   int error = 0;
   gcov_unsigned_t tag, length, version, stamp;
-  gcov_position_t eof_pos = 0;
 
+  eof_pos = 0;
   summary_pos = 0;
   sum_buffer = 0;
   sum_tail = &sum_buffer;
@@ -1109,6 +1107,7 @@ gcov_write_gcda_file (struct gcov_info *gi_ptr)
   const struct gcov_ctr_info *ci_ptr;
   unsigned t_ix, f_ix, n_counts, length;
   int error = 0;
+  gcov_position_t eof_pos1 = 0;
 
   /* Write out the data.  */
   gcov_seek (0);
@@ -1162,9 +1161,14 @@ gcov_write_gcda_file (struct gcov_info *gi_ptr)
             gcov_write_counter (*c_ptr++);
           ci_ptr++;
         }
+      eof_pos1 = gcov_position ();
     }
+
+    eof_pos = eof_pos1;
     /* Write the end marker  */
     gcov_write_unsigned (0);
+
+    gi_ptr->eof_pos = eof_pos;
 
     if ((error = gcov_close ()))
       gcov_error (error  < 0 ?
@@ -1182,9 +1186,9 @@ static int
 gcov_exit_init (void)
 {
   struct gcov_info *gi_ptr;
-  int do_lipo = 0;
+  int dump_module_info = 0;
 
-  do_lipo = 0;
+  dump_module_info = 0;
   gcov_prefix_strip = 0;
 
   memset (&all, 0, sizeof (all));
@@ -1197,14 +1201,14 @@ gcov_exit_init (void)
 
       /* The IS_PRIMARY field is overloaded to indicate if this module
          is FDO/LIPO.  */
-      do_lipo |= gi_ptr->mod_info->is_primary;
+      dump_module_info |= gi_ptr->mod_info->is_primary;
     }
 
   gcov_compute_histogram (&this_program);
 
   gcov_alloc_filename ();
 
-  return do_lipo;
+  return dump_module_info;
 }
 
 /* Dump one entry in the gcov_info list (for one object).  */
