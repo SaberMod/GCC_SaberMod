@@ -31004,7 +31004,7 @@ all-function_reordering_plugin: configure-function_reordering_plugin
 	s=`cd $(srcdir); ${PWD_COMMAND}`; export s; \
 	$(HOST_EXPORTS)  \
 	(cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS)  \
+	  $(MAKE) $(BASE_FLAGS_TO_PASS) $(EXTRA_HOST_FLAGS) $(STAGE1_FLAGS_TO_PASS)  \
 		$(TARGET-function_reordering_plugin))
 @endif function_reordering_plugin
 
@@ -31032,7 +31032,8 @@ all-stage1-function_reordering_plugin: configure-stage1-function_reordering_plug
 		CFLAGS_FOR_TARGET="$(CFLAGS_FOR_TARGET)" \
 		CXXFLAGS_FOR_TARGET="$(CXXFLAGS_FOR_TARGET)" \
 		LIBCFLAGS_FOR_TARGET="$(LIBCFLAGS_FOR_TARGET)" \
-		$(EXTRA_HOST_FLAGS)   \
+		$(EXTRA_HOST_FLAGS)  \
+		$(STAGE1_FLAGS_TO_PASS)  \
 		TFLAGS="$(STAGE1_TFLAGS)" \
 		$(TARGET-stage1-function_reordering_plugin)
 
@@ -31047,7 +31048,7 @@ clean-stage1-function_reordering_plugin:
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
 	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		 clean
+	$(STAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
@@ -31088,9 +31089,7 @@ clean-stage2-function_reordering_plugin:
 	  $(MAKE) stage2-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		$(POSTSTAGE1_FLAGS_TO_PASS)  \
-		 clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
@@ -31131,9 +31130,7 @@ clean-stage3-function_reordering_plugin:
 	  $(MAKE) stage3-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		$(POSTSTAGE1_FLAGS_TO_PASS)  \
-		 clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
@@ -31174,9 +31171,7 @@ clean-stage4-function_reordering_plugin:
 	  $(MAKE) stage4-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		$(POSTSTAGE1_FLAGS_TO_PASS)  \
-		 clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
@@ -31217,9 +31212,7 @@ clean-stageprofile-function_reordering_plugin:
 	  $(MAKE) stageprofile-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		$(POSTSTAGE1_FLAGS_TO_PASS)  \
-		 clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
@@ -31260,9 +31253,7 @@ clean-stagefeedback-function_reordering_plugin:
 	  $(MAKE) stagefeedback-start; \
 	fi; \
 	cd $(HOST_SUBDIR)/function_reordering_plugin && \
-	$(MAKE) $(EXTRA_HOST_FLAGS)  \
-		$(POSTSTAGE1_FLAGS_TO_PASS)  \
-		 clean
+	$(MAKE) $(EXTRA_HOST_FLAGS) $(POSTSTAGE1_FLAGS_TO_PASS)  clean
 @endif function_reordering_plugin-bootstrap
 
 
