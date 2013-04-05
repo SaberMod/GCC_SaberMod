@@ -47168,6 +47168,7 @@ all-target-libjava: maybe-all-target-boehm-gc
 all-target-libjava: maybe-all-target-libffi
 configure-target-libobjc: maybe-configure-target-boehm-gc
 all-target-libobjc: maybe-all-target-boehm-gc
+configure-target-libmudflap: maybe-configure-target-libstdc++-v3
 configure-target-libstdc++-v3: maybe-configure-target-libgomp
 
 configure-stage1-target-libstdc++-v3: maybe-configure-stage1-target-libgomp
