@@ -1610,6 +1610,12 @@ build_info_type (tree type, tree fn_info_ptr_type)
   DECL_CHAIN (field) = fields;
   fields = field;
 
+  /* eof_pos */
+  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+                      NULL_TREE, get_gcov_unsigned_t ());
+  DECL_CHAIN (field) = fields;
+  fields = field;
+
   /* merge fn array */
   merge_fn_type
     = build_function_type_list (void_type_node,
@@ -1716,19 +1722,6 @@ build_cl_args_array_value (tree string_type, vec<constructor_elt, va_gc> **v)
 			       build1 (ADDR_EXPR, string_type, arg_string));
     }
   return;
-}
-
-/* Emit mapping between module name and function id to the function's
-   assembler name, for use in correlating function idents in the gcda file
-   with the function name.  */
-
-void
-emit_function_name (void)
-{
-  fprintf (stderr, "Module %s FuncId %u Name %s\n",
-           main_input_file_name,
-           FUNC_DECL_FUNC_ID (cfun),
-           IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
 }
 
 /* Returns the type of the module info associated with the
@@ -2054,6 +2047,11 @@ build_info (tree info_type, tree fn_ary)
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
 			  build1 (ADDR_EXPR, TREE_TYPE (info_fields),
 				  filename_string));
+  info_fields = DECL_CHAIN (info_fields);
+
+  /* eof_pos */
+  CONSTRUCTOR_APPEND_ELT (v1, info_fields,
+                          build_int_cstu (TREE_TYPE (info_fields), 0));
   info_fields = DECL_CHAIN (info_fields);
 
   /* merge fn array -- NULL slots indicate unmeasured counters */

@@ -560,15 +560,13 @@ tag_module_info (const char *filename ATTRIBUTE_UNUSED,
   if (flag_dump_aux_modules_only)
     {
       if (!mod_info->is_primary)
-	printf ("%s (ident=%u)\n", mod_info->source_filename,
-                mod_info->ident);
+	printf ("%s\n", mod_info->source_filename);
     }
   else
     {
       const char *suffix = mod_info->is_primary
 	? (mod_info->is_exported ? "primary, exported" : "primary")
 	: "auxiliary";
-      printf (": %s (ident=%u) [%s]", mod_info->source_filename,
-              mod_info->ident, suffix);
+      printf (": %s [%s]", mod_info->source_filename, suffix);
     }
 }
