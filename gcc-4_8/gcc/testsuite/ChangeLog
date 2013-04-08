@@ -1,3 +1,80 @@
+2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2013-04-04  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/48186
+	* gcc.dg/pr48186.c: New test.
+
+2013-04-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline:
+	2013-03-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56720
+	* gcc.target/arm/neon-vcond-gt.c: New test.
+	* gcc.target/arm/neon-vcond-ltgt.c: Likewise.
+	* gcc.target/arm/neon-vcond-unordered.c: Likewise.
+
+2013-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56837
+	* g++.dg/torture/pr56837.C: New testcase.
+
+2013-04-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline:
+	2013-04-03  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/55702
+	* gcc.dg/pr55702.c: New test.
+
+2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56819
+	* g++.dg/debug/pr56819.C: New test.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56817
+	* g++.dg/torture/pr56817.C: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/55964
+	* gcc.dg/torture/pr55964-2.c: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56501
+	* gcc.dg/torture/pr56501.c: New testcase.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56407
+	* gcc.dg/torture/pr56407.c: New testcase.
+
+2013-04-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/56745
+	* gcc.c-torture/compile/pr56745.c: New test.
+
+2013-04-02  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56735
+	* gfortran.dg/namelist_80.f90: New.
+
+2013-04-02  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56737
+	* testsuite/gfortran.dg/fmt_cache_3.f90: New.
+
 2013-04-02  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/56768
