@@ -1234,7 +1234,8 @@ update_all_callee_keys (fibheap_t heap, struct cgraph_node *node,
 	   Reset their caches  */
         reset_node_growth_cache (callee);
 	if (e->inline_failed)
-	  update_caller_keys (heap, callee, updated_nodes, e);
+	  update_caller_keys (heap, callee, updated_nodes,
+			      flag_auto_profile ? NULL : e);
 	if (e->next_callee)
 	  e = e->next_callee;
 	else
