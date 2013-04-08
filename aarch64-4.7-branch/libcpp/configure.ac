@@ -151,6 +151,7 @@ case $target in
 	aarch64*-*-* | \
 	alpha*-*-* | \
 	arm*-*-*eabi* | \
+	arm*-*-rtems[.0-9]* | \
 	arm*-*-symbianelf* | \
 	x86_64-*-* | \
 	ia64-*-* | \
