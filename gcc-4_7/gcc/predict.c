@@ -2877,7 +2877,10 @@ rebuild_frequencies (void)
   else if (profile_status == PROFILE_READ)
     {
       if (flag_auto_profile)
-	afdo_calculate_branch_prob ();
+	{
+	  afdo_calculate_branch_prob ();
+	  compute_function_frequency ();
+	}
       counts_to_freqs ();
     }
   else
