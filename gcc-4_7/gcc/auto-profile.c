@@ -267,7 +267,9 @@ afdo_stack_hash (const void *stack)
   for (i = 0; i < s->size; i++) {
     const struct gcov_callsite_pos *p = s->stack + i;
     const char *file = afdo_get_filename (p->file);
+    const char *func = afdo_get_bfd_name (p->func);
     h = iterative_hash (file, strlen (file), h);
+    h = iterative_hash (func, strlen (func), h);
     h = iterative_hash (&p->line, sizeof (p->line), h);
     if (i == 0)
       h = iterative_hash (&p->discr, sizeof (p->discr), h);
@@ -311,6 +313,7 @@ afdo_stack_eq (const void *p, const void *q)
       const struct gcov_callsite_pos *p1 = s1->stack + i;
       const struct gcov_callsite_pos *p2 = s2->stack + i;
       if (strcmp (afdo_get_filename(p1->file), afdo_get_filename(p2->file))
+	  || strcmp (afdo_get_bfd_name(p1->func), afdo_get_bfd_name (p2->func))
 	  || p1->line != p2->line || (i== 0 && p1->discr != p2->discr))
 	return 0;
     }
@@ -538,10 +541,10 @@ get_inline_stack_size_by_edge (struct cgraph_edge *edge)
   return size;
 }
 
-/* Return the function name of a given lexical BLOCK.  */
+/* Return the function decl of a given lexical BLOCK.  */
 
-static const char *
-get_function_name_from_block (tree block)
+static tree
+get_function_decl_from_block (tree block)
 {
   tree decl;
   for (decl = BLOCK_ABSTRACT_ORIGIN (block);
@@ -549,7 +552,7 @@ get_function_name_from_block (tree block)
        decl = BLOCK_ABSTRACT_ORIGIN (decl))
     if (TREE_CODE (decl) == FUNCTION_DECL)
       break;
-  return decl ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)) : NULL;
+  return decl;
 }
 
 /* Store the inline stack of STMT to POS_STACK, return the size of the
@@ -583,16 +586,22 @@ get_inline_stack_by_stmt (gimple stmt, tree decl,
        block && (TREE_CODE (block) == BLOCK);
        block = BLOCK_SUPERCONTEXT (block))
     {
+      tree decl = get_function_decl_from_block (block);
       if (LOCATION_LOCUS (BLOCK_SOURCE_LOCATION (block)) == UNKNOWN_LOCATION)
 	continue;
       loc = BLOCK_SOURCE_LOCATION (block);
       pos_stack[idx].file = expand_location (loc).file;
       pos_stack[idx].line = expand_location (loc).line;
-      pos_stack[idx - 1].func = get_function_name_from_block (block);
+      pos_stack[idx - 1].func =
+          decl ? IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)) : NULL;
+      pos_stack[idx - 1].line -= decl ? DECL_SOURCE_LINE (decl) : 0;
       pos_stack[idx++].discr = 0;
     }
   if (decl)
-    pos_stack[idx - 1].func = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+    {
+      pos_stack[idx - 1].func = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      pos_stack[idx - 1].line -= DECL_SOURCE_LINE (decl);
+    }
   return idx;
 }
 
@@ -1064,12 +1073,15 @@ read_profile (void)
 		     * sizeof (struct gcov_callsite_pos));
 	  for (k = 0; k < gcov_functions[i].stacks[j].size; k++)
 	    {
+	      gcov_unsigned_t line, start_line;
 	      gcov_functions[i].stacks[j].stack[k].func =
 		file_names[gcov_read_unsigned ()];
 	      gcov_functions[i].stacks[j].stack[k].file =
 		file_names[gcov_read_unsigned ()];
+	      line = gcov_read_unsigned ();
+	      start_line = gcov_read_unsigned ();
 	      gcov_functions[i].stacks[j].stack[k].line =
-		gcov_read_unsigned ();
+		line > start_line ? line - start_line : 0;
 	      gcov_functions[i].stacks[j].stack[k].discr =
 		gcov_read_unsigned ();
 	    }
