@@ -45,6 +45,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 struct dyn_pointer_set;
 
 #define XNEWVEC(type,ne) (type *)malloc(sizeof(type) * (ne))
+#define XCNEWVEC(type,ne) (type *)calloc(1, sizeof(type) * (ne))
 #define XNEW(type) (type *)malloc(sizeof(type))
 #define XDELETEVEC(p) free(p)
 #define XDELETE(p) free(p)
@@ -73,6 +74,12 @@ struct dyn_module_info
 {
   struct dyn_pointer_set *imported_modules;
   gcov_unsigned_t max_func_ident;
+
+  /* Used by new algorithm. This dyn_pointer_set only
+     stored the gcov_info pointer, keyed by
+     module ident.  */
+  struct dyn_pointer_set *exported_to;
+  gcov_unsigned_t group_ggc_mem;
 };
 
 struct dyn_cgraph
@@ -83,6 +90,28 @@ struct dyn_cgraph
   struct dyn_module_info *sup_modules;
   unsigned num_modules;
   unsigned num_nodes_executed;
+  /* used by new algorithm  */
+  struct modu_node *modu_nodes;
+};
+
+/* Module info is stored in dyn_caph->sup_modules
+   which is indexed by m_ix.  */
+struct modu_node
+{
+  struct gcov_info *module;
+  struct modu_edge *callees;
+  struct modu_edge *callers;
+};
+
+struct modu_edge
+{
+  struct modu_node *caller;
+  struct modu_node *callee;
+  struct modu_edge *next_caller;
+  struct modu_edge *next_callee;
+  unsigned n_edges;  /* used when combining edges */
+  gcov_type sum_count;
+  unsigned char visited;
 };
 
 struct dyn_pointer_set
@@ -95,12 +124,40 @@ struct dyn_pointer_set
   unsigned (*get_key) (const void *);
 };
 
+typedef long dyn_fibheapkey_t;
+
+typedef struct dyn_fibheap
+{
+  size_t nodes;
+  struct fibnode *min;
+  struct fibnode *root;
+} *dyn_fibheap_t;
+
+typedef struct fibnode
+{
+  struct fibnode *parent;
+  struct fibnode *child;
+  struct fibnode *left;
+  struct fibnode *right;
+  dyn_fibheapkey_t key;
+  void *data;
+  unsigned int degree : 31;
+  unsigned int mark : 1;
+} *fibnode_t;
+
+static dyn_fibheap_t dyn_fibheap_new (void);
+static fibnode_t dyn_fibheap_insert (dyn_fibheap_t, dyn_fibheapkey_t, void *);
+static void *dyn_fibheap_extract_min (dyn_fibheap_t);
+
 extern gcov_unsigned_t __gcov_lipo_cutoff;
 extern gcov_unsigned_t __gcov_lipo_random_seed;
 extern gcov_unsigned_t __gcov_lipo_random_group_size;
 extern gcov_unsigned_t __gcov_lipo_propagate_scale;
 extern gcov_unsigned_t __gcov_lipo_dump_cgraph;
 extern gcov_unsigned_t __gcov_lipo_max_mem;
+extern gcov_unsigned_t __gcov_lipo_grouping_algorithm;
+extern gcov_unsigned_t __gcov_lipo_merge_modu_edges;
+extern gcov_unsigned_t __gcov_lipo_weak_inclusion;
 
 #if defined(inhibit_libc)
 __gcov_build_callgraph (void) {}
@@ -112,7 +169,7 @@ static void gcov_dump_callgraph (gcov_type);
 static void gcov_dump_cgraph_node_short (struct dyn_cgraph_node *node);
 static void gcov_dump_cgraph_node (struct dyn_cgraph_node *node,
                                   unsigned m, unsigned f);
-static int do_cgraph_dump (void);  
+static int do_cgraph_dump (void);
 
 static void
 gcov_dump_cgraph_node_dot (struct dyn_cgraph_node *node,
@@ -120,6 +177,8 @@ gcov_dump_cgraph_node_dot (struct dyn_cgraph_node *node,
                            gcov_type cutoff_count);
 static void
 pointer_set_destroy (struct dyn_pointer_set *pset);
+static void
+pointer_set_destroy_not_free_value_pointer (struct dyn_pointer_set *);
 static void **
 pointer_set_find_or_insert (struct dyn_pointer_set *pset, unsigned key);
 static struct dyn_pointer_set *
@@ -128,6 +187,16 @@ pointer_set_create (unsigned (*get_key) (const void *));
 static struct dyn_cgraph the_dyn_call_graph;
 static int total_zero_count = 0;
 static int total_insane_count = 0;
+
+enum GROUPING_ALGORITHM
+{
+  EAGER_PROPAGATION_ALGORITHM=0,
+  INCLUSION_BASED_PRIORITY_ALGORITHM
+};
+static int flag_alg_mode;
+static int flag_modu_merge_edges;
+static int flag_weak_inclusion;
+static gcov_unsigned_t mem_threshold;
 
 /* Returns 0 if no dump is enabled. Returns 1 if text form graph
    dump is enabled. Returns 2 if .dot form dump is enabled.  */
@@ -144,7 +213,7 @@ do_cgraph_dump (void)
 
   if (!dyn_cgraph_dump || !strlen (dyn_cgraph_dump))
      return 0;
- 
+
   if (dyn_cgraph_dump[0] == '1')
      return 1;
   if (dyn_cgraph_dump[0] == '2')
@@ -163,20 +232,21 @@ init_dyn_cgraph_node (struct dyn_cgraph_node *node, gcov_type guid)
   node->visited = 0;
 }
 
-/* Return (module_id - 1). FUNC_GUID is the global unique id.  */
+/* Return module_id. FUNC_GUID is the global unique id.  
+   This id is 1 based. 0 is the invalid id.  */
 
 static inline gcov_unsigned_t
-get_module_idx_from_func_glob_uid (gcov_type func_guid)
+get_module_ident_from_func_glob_uid (gcov_type func_guid)
 {
-  return EXTRACT_MODULE_ID_FROM_GLOBAL_ID (func_guid) - 1;
+  return EXTRACT_MODULE_ID_FROM_GLOBAL_ID (func_guid);
 }
 
-/* Return (module_id - 1) for MODULE_INFO.  */
+/* Return module_id for MODULE_INFO.  */
 
 static inline gcov_unsigned_t
-get_module_idx (const struct gcov_info *module_info)
+get_module_ident (const struct gcov_info *module_info)
 {
-  return module_info->mod_info->ident - 1;
+  return module_info->mod_info->ident;
 }
 
 /* Return intra-module function id given function global unique id
@@ -193,23 +263,50 @@ get_intra_module_func_id (gcov_type func_guid)
 static inline struct dyn_cgraph_node *
 get_cgraph_node (gcov_type func_guid)
 {
-  gcov_unsigned_t mod_id, func_id;
+  gcov_unsigned_t mod_idx, func_id;
 
-  mod_id = get_module_idx_from_func_glob_uid (func_guid);
+  mod_idx = get_module_ident_from_func_glob_uid (func_guid) - 1;
 
   /* This is to workaround: calls in __static_initialization_and_destruction
      should not be instrumented as the module id context for the callees have
-     not setup yet -- this leads to mod_id == (unsigned) (0 - 1). Multithreaded
+     not setup yet -- this leads to mod_idx == (unsigned) (0 - 1). Multithreaded
      programs may also produce insane func_guid in the profile counter.  */
-  if (mod_id >= the_dyn_call_graph.num_modules)
+  if (mod_idx >= the_dyn_call_graph.num_modules)
     return 0;
 
   func_id = get_intra_module_func_id (func_guid);
-  if (func_id > the_dyn_call_graph.sup_modules[mod_id].max_func_ident)
+  if (func_id > the_dyn_call_graph.sup_modules[mod_idx].max_func_ident)
     return 0;
 
   return *(pointer_set_find_or_insert
-	   (the_dyn_call_graph.call_graph_nodes[mod_id], func_id));
+	   (the_dyn_call_graph.call_graph_nodes[mod_idx], func_id));
+}
+
+static inline unsigned
+imp_mod_get_key (const void *p)
+{
+  return ((const struct dyn_imp_mod *) p)->imp_mod->mod_info->ident;
+}
+
+static int
+imp_mod_set_insert (struct dyn_pointer_set *p, const struct gcov_info *imp_mod,
+		    double wt)
+{
+  struct dyn_imp_mod **m = (struct dyn_imp_mod **)
+    pointer_set_find_or_insert (p, get_module_ident (imp_mod));
+  if (*m)
+    {
+      (*m)->weight += wt;
+      return 1;
+    }
+  else
+    {
+      *m = XNEW (struct dyn_imp_mod);
+      (*m)->imp_mod = imp_mod;
+      (*m)->weight = wt;
+      p->n_elements++;
+      return 0;
+    }
 }
 
 /* Return the gcov_info pointer for module with id MODULE_ID.  */
@@ -217,7 +314,7 @@ get_cgraph_node (gcov_type func_guid)
 static inline struct gcov_info *
 get_module_info (gcov_unsigned_t module_id)
 {
-  return the_dyn_call_graph.modules[module_id];
+  return the_dyn_call_graph.modules[module_id - 1];
 }
 
 struct gcov_info *__gcov_list ATTRIBUTE_HIDDEN;
@@ -228,6 +325,52 @@ cgraph_node_get_key (const void *p)
   return get_intra_module_func_id (((const struct dyn_cgraph_node *) p)->guid);
 }
 
+static inline unsigned
+gcov_info_get_key (const void *p)
+{
+  return get_module_ident ((const struct gcov_info *)p);
+}
+
+static struct dyn_pointer_set *
+get_exported_to (unsigned module_ident)
+{
+  gcc_assert (module_ident != 0);
+  return the_dyn_call_graph.sup_modules[module_ident - 1].exported_to;
+}
+
+static struct dyn_pointer_set *
+create_exported_to (unsigned module_ident)
+{
+  struct dyn_pointer_set *p;
+
+  gcc_assert (module_ident != 0);
+  p = pointer_set_create (gcov_info_get_key);
+  the_dyn_call_graph.sup_modules[module_ident - 1].exported_to = p;
+  return p;
+}
+
+static struct dyn_pointer_set *
+get_imported_modus (unsigned module_ident)
+{
+  struct dyn_pointer_set *p;
+  struct gcov_info *gi_ptr;
+
+  gcc_assert (module_ident != 0);
+  p = the_dyn_call_graph.sup_modules[module_ident - 1].imported_modules;
+
+  if (p)
+    return p;
+
+  the_dyn_call_graph.sup_modules[module_ident - 1].imported_modules = p
+    = pointer_set_create (imp_mod_get_key);
+
+  gi_ptr = the_dyn_call_graph.modules[module_ident - 1];
+  /* make the modules an auxiliay module to itself.  */
+  imp_mod_set_insert (p, gi_ptr, 0);
+
+  return p;
+}
+
 /* Initialize dynamic call graph.  */
 
 static void
@@ -235,11 +378,17 @@ init_dyn_call_graph (void)
 {
   unsigned num_modules = 0;
   struct gcov_info *gi_ptr;
+  const char *env_str;
   int do_dump = (do_cgraph_dump () != 0);
 
   the_dyn_call_graph.call_graph_nodes = 0;
   the_dyn_call_graph.modules = 0;
   the_dyn_call_graph.num_nodes_executed = 0;
+
+  flag_alg_mode = __gcov_lipo_grouping_algorithm;
+  flag_modu_merge_edges = __gcov_lipo_merge_modu_edges;
+  flag_weak_inclusion = __gcov_lipo_weak_inclusion;
+  mem_threshold = __gcov_lipo_max_mem * 1.25;
 
   gi_ptr = __gcov_list;
 
@@ -261,41 +410,75 @@ init_dyn_call_graph (void)
 
   gi_ptr = __gcov_list;
 
+  if ((env_str = getenv ("GCOV_DYN_ALG")))
+    {
+      flag_alg_mode = atoi (env_str);
+
+      if ((env_str = getenv ("GCOV_DYN_MERGE_EDGES")))
+        flag_modu_merge_edges = atoi (env_str);
+
+      if ((env_str = getenv ("GCOV_DYN_WEAK_INCLUSION")))
+        flag_weak_inclusion = atoi (env_str);
+
+      if (do_dump)
+	fprintf (stderr, 
+            "!!!! Using ALG=%d merge_edges=%d weak_inclusion=%d. \n",
+            flag_alg_mode, flag_modu_merge_edges, flag_weak_inclusion);
+    }
+
   if (do_dump)
     fprintf (stderr, "Group mem limit: %u KB \n",
              __gcov_lipo_max_mem);
 
   for (; gi_ptr; gi_ptr = gi_ptr->next)
     {
-      unsigned j, mod_id, max_func_ident = 0;
+      /* mod_idx is module_ident - 1.  */
+      unsigned j, mod_id, mod_idx, max_func_ident = 0;
       struct dyn_cgraph_node *node;
 
+      /* initialize flags field.  */
+      gi_ptr->mod_info->flags = 0;
+
+      mod_id = get_module_ident (gi_ptr);
       if (do_dump)
-        fprintf (stderr, "Module %s uses %u KB memory in parsing\n",
-	         gi_ptr->mod_info->source_filename,
+        fprintf (stderr, "Module %s %d uses %u KB memory in parsing\n",
+	         gi_ptr->mod_info->source_filename, mod_id,
 		 gi_ptr->mod_info->ggc_memory);
 
-      mod_id = get_module_idx (gi_ptr);
+      if (mod_id == 0)
+        {
+          fprintf (stderr, "Bad module_ident of 0. Skipping.\n");
+          continue;
+        }
+      mod_idx = mod_id - 1;
 
-      the_dyn_call_graph.modules[mod_id] = gi_ptr;
+      the_dyn_call_graph.modules[mod_idx] = gi_ptr;
 
-      the_dyn_call_graph.call_graph_nodes[mod_id]
+      the_dyn_call_graph.call_graph_nodes[mod_idx]
 	= pointer_set_create (cgraph_node_get_key);
-
 
       for (j = 0; j < gi_ptr->n_functions; j++)
 	{
           const struct gcov_fn_info *fi_ptr = gi_ptr->functions[j];
 	  *(pointer_set_find_or_insert
-	    (the_dyn_call_graph.call_graph_nodes[mod_id], fi_ptr->ident))
+	    (the_dyn_call_graph.call_graph_nodes[mod_idx], fi_ptr->ident))
 	    = node = XNEW (struct dyn_cgraph_node);
-	  the_dyn_call_graph.call_graph_nodes[mod_id]->n_elements++;
+	  the_dyn_call_graph.call_graph_nodes[mod_idx]->n_elements++;
 	  init_dyn_cgraph_node (node, GEN_FUNC_GLOBAL_ID (gi_ptr->mod_info->ident,
 							  fi_ptr->ident));
           if (fi_ptr->ident > max_func_ident)
             max_func_ident = fi_ptr->ident;
 	}
-      the_dyn_call_graph.sup_modules[mod_id].max_func_ident = max_func_ident;
+      the_dyn_call_graph.sup_modules[mod_idx].max_func_ident = max_func_ident;
+      if (flag_alg_mode == INCLUSION_BASED_PRIORITY_ALGORITHM)
+        {
+          struct dyn_module_info *sup_module =
+	    &(the_dyn_call_graph.sup_modules[mod_idx]);
+
+          sup_module->group_ggc_mem = gi_ptr->mod_info->ggc_memory;
+          sup_module->imported_modules = 0;
+          sup_module->exported_to = 0;
+        }
     }
 }
 
@@ -338,6 +521,10 @@ __gcov_finalize_dyn_callgraph (void)
       /* Now delete sup modules */
       if (the_dyn_call_graph.sup_modules[i].imported_modules)
         pointer_set_destroy (the_dyn_call_graph.sup_modules[i].imported_modules);
+      if (flag_alg_mode == INCLUSION_BASED_PRIORITY_ALGORITHM
+          && the_dyn_call_graph.sup_modules[i].exported_to)
+        pointer_set_destroy_not_free_value_pointer
+          (the_dyn_call_graph.sup_modules[i].exported_to);
     }
   XDELETEVEC (the_dyn_call_graph.call_graph_nodes);
   XDELETEVEC (the_dyn_call_graph.sup_modules);
@@ -555,6 +742,14 @@ pointer_set_destroy (struct dyn_pointer_set *pset)
   XDELETE (pset);
 }
 
+/* Reclaim the memory of PSET but not the value pointer.  */
+static void
+pointer_set_destroy_not_free_value_pointer (struct dyn_pointer_set *pset)
+{
+  XDELETEVEC (pset->slots);
+  XDELETE (pset);
+}
+
 /* Subroutine of pointer_set_find_or_insert.  Return the insertion slot for KEY
    into an empty element of SLOTS, an array of length N_SLOTS.  */
 static inline size_t
@@ -614,6 +809,7 @@ pointer_set_find_or_insert (struct dyn_pointer_set *pset, unsigned key)
   return &pset->slots[n];
 }
 
+
 /* Pass each pointer in PSET to the function in FN, together with the fixed
    parameters DATA1, DATA2, DATA3.  If FN returns false, the iteration stops.  */
 
@@ -628,24 +824,27 @@ pointer_set_traverse (const struct dyn_pointer_set *pset,
       break;
 }
 
+
+/* Returns nonzero if PSET contains an entry with KEY as the key value.
+   Collisions are resolved by linear probing.  */
+
 static int
-imp_mod_set_insert (struct dyn_pointer_set *p, const struct gcov_info *imp_mod,
-		    double wt)
+pointer_set_contains (const struct dyn_pointer_set *pset, unsigned key)
 {
-  struct dyn_imp_mod **m = (struct dyn_imp_mod **)
-    pointer_set_find_or_insert (p, imp_mod->mod_info->ident);
-  if (*m)
+  size_t n = hash1 (key, pset->n_slots, pset->log_slots);
+
+  while (1)
     {
-      (*m)->weight += wt;
-      return 1;
-    }
-  else
-    {
-      *m = XNEW (struct dyn_imp_mod);
-      (*m)->imp_mod = imp_mod;
-      (*m)->weight = wt;
-      p->n_elements++;
-      return 0;
+      if (pset->slots[n] == 0)
+       return 0;
+      else if (pset->get_key (pset->slots[n]) == key)
+       return 1;
+      else
+       {
+         ++n;
+         if (n == pset->n_slots)
+           n = 0;
+       }
     }
 }
 
@@ -653,6 +852,7 @@ imp_mod_set_insert (struct dyn_pointer_set *p, const struct gcov_info *imp_mod,
    caller's imported-module-set (DATA1).
    The weight is scaled by the scaling-factor (DATA2) before propagation,
    and accumulated into DATA3.  */
+
 static int
 gcov_propagate_imp_modules (const void *value, void *data1, void *data2,
 			    void *data3)
@@ -817,12 +1017,6 @@ gcov_compute_cutoff_count (void)
   return cutoff_count;
 }
 
-static inline unsigned
-imp_mod_get_key (const void *p)
-{
-  return ((const struct dyn_imp_mod *) p)->imp_mod->mod_info->ident;
-}
-
 /* Return the imported module set for NODE.  */
 
 static struct dyn_pointer_set *
@@ -856,7 +1050,7 @@ gcov_mark_export_modules (const void *value,
   const struct gcov_info *module_info
     = ((const struct dyn_imp_mod *) value)->imp_mod;
 
-  module_info->mod_info->is_exported = 1;
+  SET_MODULE_EXPORTED (module_info->mod_info);
   return 1;
 }
 
@@ -913,7 +1107,7 @@ sort_by_module_wt (const void *pa, const void *pb)
     return +1;
   if (m_a->weight > m_b->weight)
     return -1;
-  return get_module_idx (m_a->imp_mod) - get_module_idx (m_b->imp_mod);
+  return get_module_ident (m_a->imp_mod) - get_module_ident (m_b->imp_mod);
 }
 
 /* Return a dynamic array of imported modules that is sorted for
@@ -924,13 +1118,13 @@ const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info,
                                      unsigned *len)
 {
-  unsigned mod_id;
+  unsigned mod_idx;
   struct dyn_module_info *sup_mod_info;
   unsigned array_len = 0;
   struct gcov_import_mod_array imp_array;
 
-  mod_id = get_module_idx (mod_info);
-  sup_mod_info = &the_dyn_call_graph.sup_modules[mod_id];
+  mod_idx = get_module_ident (mod_info) - 1;
+  sup_mod_info = &the_dyn_call_graph.sup_modules[mod_idx];
 
   if (sup_mod_info->imported_modules == 0)
     return 0;
@@ -1018,7 +1212,7 @@ gcov_process_cgraph_node (struct dyn_cgraph_node *node,
     }
 
   callees = node->callees;
-  mod_id = get_module_idx_from_func_glob_uid (node->guid);
+  mod_id = get_module_ident_from_func_glob_uid (node->guid);
 
   while (callees)
     {
@@ -1039,7 +1233,7 @@ gcov_process_cgraph_node (struct dyn_cgraph_node *node,
               = gcov_get_imp_module_set (node);
 
           callee_mod_id
-              = get_module_idx_from_func_glob_uid (callees->callee->guid);
+              = get_module_ident_from_func_glob_uid (callees->callee->guid);
 
 	  double callee_mod_wt = (double) callees->count;
           if (callees->callee->imported_modules)
@@ -1065,11 +1259,691 @@ gcov_process_cgraph_node (struct dyn_cgraph_node *node,
     }
 }
 
+static void gcov_compute_module_groups_eager_propagation (gcov_type);
+static void gcov_compute_module_groups_inclusion_based_with_priority
+              (gcov_type);
+
+/* dyn_fibheap */
+static void dyn_fibheap_ins_root (dyn_fibheap_t, fibnode_t);
+static void dyn_fibheap_rem_root (dyn_fibheap_t, fibnode_t);
+static void dyn_fibheap_consolidate (dyn_fibheap_t);
+static void dyn_fibheap_link (dyn_fibheap_t, fibnode_t, fibnode_t);
+static fibnode_t dyn_fibheap_extr_min_node (dyn_fibheap_t);
+static int dyn_fibheap_compare (dyn_fibheap_t, fibnode_t, fibnode_t);
+static int dyn_fibheap_comp_data (dyn_fibheap_t, dyn_fibheapkey_t,
+                                  void *, fibnode_t);
+static fibnode_t fibnode_new (void);
+static void fibnode_insert_after (fibnode_t, fibnode_t);
+#define fibnode_insert_before(a, b) fibnode_insert_after (a->left, b)
+static fibnode_t fibnode_remove (fibnode_t);
+
+/* Create a new fibonacci heap.  */
+static dyn_fibheap_t
+dyn_fibheap_new (void)
+{
+  return (dyn_fibheap_t) calloc (1, sizeof (struct dyn_fibheap));
+}
+
+/* Create a new fibonacci heap node.  */
+static fibnode_t
+fibnode_new (void)
+{
+  fibnode_t node;
+
+  node = (fibnode_t) calloc (1, sizeof *node);
+  node->left = node;
+  node->right = node;
+
+  return node;
+}
+
+static inline int
+dyn_fibheap_compare (dyn_fibheap_t heap ATTRIBUTE_UNUSED, fibnode_t a,
+                     fibnode_t b)
+{
+  if (a->key < b->key)
+    return -1;
+  if (a->key > b->key)
+    return 1;
+  return 0;
+}
+
+static inline int
+dyn_fibheap_comp_data (dyn_fibheap_t heap, dyn_fibheapkey_t key,
+                       void *data, fibnode_t b)
+{
+  struct fibnode a;
+
+  a.key = key;
+  a.data = data;
+
+  return dyn_fibheap_compare (heap, &a, b);
+}
+
+/* Insert DATA, with priority KEY, into HEAP.  */
+static fibnode_t
+dyn_fibheap_insert (dyn_fibheap_t heap, dyn_fibheapkey_t key, void *data)
+{
+  fibnode_t node;
+
+  /* Create the new node.  */
+  node = fibnode_new ();
+
+  /* Set the node's data.  */
+  node->data = data;
+  node->key = key;
+
+  /* Insert it into the root list.  */
+  dyn_fibheap_ins_root (heap, node);
+
+  /* If their was no minimum, or this key is less than the min,
+     it's the new min.  */
+  if (heap->min == 0 || node->key < heap->min->key)
+    heap->min = node;
+
+  heap->nodes++;
+
+  return node;
+}
+
+/* Extract the data of the minimum node from HEAP.  */
+static void *
+dyn_fibheap_extract_min (dyn_fibheap_t heap)
+{
+  fibnode_t z;
+  void *ret = 0;
+
+  /* If we don't have a min set, it means we have no nodes.  */
+  if (heap->min != 0)
+    {
+      /* Otherwise, extract the min node, free the node, and return the
+         node's data.  */
+      z = dyn_fibheap_extr_min_node (heap);
+      ret = z->data;
+      free (z);
+    }
+
+  return ret;
+}
+
+/* Delete HEAP.  */
+static void
+dyn_fibheap_delete (dyn_fibheap_t heap)
+{
+  while (heap->min != 0)
+    free (dyn_fibheap_extr_min_node (heap));
+
+  free (heap);
+}
+
+/* Extract the minimum node of the heap.  */
+static fibnode_t
+dyn_fibheap_extr_min_node (dyn_fibheap_t heap)
+{
+  fibnode_t ret = heap->min;
+  fibnode_t x, y, orig;
+
+  /* Attach the child list of the minimum node to the root list of the heap.
+     If there is no child list, we don't do squat.  */
+  for (x = ret->child, orig = 0; x != orig && x != 0; x = y)
+    {
+      if (orig == 0)
+	orig = x;
+      y = x->right;
+      x->parent = 0;
+      dyn_fibheap_ins_root (heap, x);
+    }
+
+  /* Remove the old root.  */
+  dyn_fibheap_rem_root (heap, ret);
+  heap->nodes--;
+
+  /* If we are left with no nodes, then the min is 0.  */
+  if (heap->nodes == 0)
+    heap->min = 0;
+  else
+    {
+      /* Otherwise, consolidate to find new minimum, as well as do the reorg
+         work that needs to be done.  */
+      heap->min = ret->right;
+      dyn_fibheap_consolidate (heap);
+    }
+
+  return ret;
+}
+
+/* Insert NODE into the root list of HEAP.  */
+static void
+dyn_fibheap_ins_root (dyn_fibheap_t heap, fibnode_t node)
+{
+  /* If the heap is currently empty, the new node becomes the singleton
+     circular root list.  */
+  if (heap->root == 0)
+    {
+      heap->root = node;
+      node->left = node;
+      node->right = node;
+      return;
+    }
+
+  /* Otherwise, insert it in the circular root list between the root
+     and it's right node.  */
+  fibnode_insert_after (heap->root, node);
+}
+
+/* Remove NODE from the rootlist of HEAP.  */
+static void
+dyn_fibheap_rem_root (dyn_fibheap_t heap, fibnode_t node)
+{
+  if (node->left == node)
+    heap->root = 0;
+  else
+    heap->root = fibnode_remove (node);
+}
+
+/* Consolidate the heap.  */
+static void
+dyn_fibheap_consolidate (dyn_fibheap_t heap)
+{
+  fibnode_t a[1 + 8 * sizeof (long)];
+  fibnode_t w;
+  fibnode_t y;
+  fibnode_t x;
+  int i;
+  int d;
+  int D;
+
+  D = 1 + 8 * sizeof (long);
+
+  memset (a, 0, sizeof (fibnode_t) * D);
+
+  while ((w = heap->root) != 0)
+    {
+      x = w;
+      dyn_fibheap_rem_root (heap, w);
+      d = x->degree;
+      while (a[d] != 0)
+	{
+	  y = a[d];
+	  if (dyn_fibheap_compare (heap, x, y) > 0)
+	    {
+	      fibnode_t temp;
+	      temp = x;
+	      x = y;
+	      y = temp;
+	    }
+	  dyn_fibheap_link (heap, y, x);
+	  a[d] = 0;
+	  d++;
+	}
+      a[d] = x;
+    }
+  heap->min = 0;
+  for (i = 0; i < D; i++)
+    if (a[i] != 0)
+      {
+	dyn_fibheap_ins_root (heap, a[i]);
+	if (heap->min == 0 || dyn_fibheap_compare (heap, a[i], heap->min) < 0)
+	  heap->min = a[i];
+      }
+}
+
+/* Make NODE a child of PARENT.  */
+static void
+dyn_fibheap_link (dyn_fibheap_t heap ATTRIBUTE_UNUSED,
+              fibnode_t node, fibnode_t parent)
+{
+  if (parent->child == 0)
+    parent->child = node;
+  else
+    fibnode_insert_before (parent->child, node);
+  node->parent = parent;
+  parent->degree++;
+  node->mark = 0;
+}
+
+static void
+fibnode_insert_after (fibnode_t a, fibnode_t b)
+{
+  if (a == a->right)
+    {
+      a->right = b;
+      a->left = b;
+      b->right = a;
+      b->left = a;
+    }
+  else
+    {
+      b->right = a->right;
+      a->right->left = b;
+      a->right = b;
+      b->left = a;
+    }
+}
+
+static fibnode_t
+fibnode_remove (fibnode_t node)
+{
+  fibnode_t ret;
+
+  if (node == node->left)
+    ret = 0;
+  else
+    ret = node->left;
+
+  if (node->parent != 0 && node->parent->child == node)
+    node->parent->child = ret;
+
+  node->right->left = node->left;
+  node->left->right = node->right;
+
+  node->parent = 0;
+  node->left = node;
+  node->right = node;
+
+  return ret;
+}
+/* end of dyn_fibheap */
+
 /* Compute module grouping using CUTOFF_COUNT as the hot edge
    threshold.  */
 
 static void
 gcov_compute_module_groups (gcov_type cutoff_count)
+{
+  switch (flag_alg_mode)
+    {
+      case INCLUSION_BASED_PRIORITY_ALGORITHM:
+        return gcov_compute_module_groups_inclusion_based_with_priority
+                 (cutoff_count);
+      case EAGER_PROPAGATION_ALGORITHM:
+      default:
+        return gcov_compute_module_groups_eager_propagation (cutoff_count);
+    }
+}
+
+static void
+modu_graph_add_edge (unsigned m_id, unsigned callee_m_id, gcov_type count)
+{
+  struct modu_node *mnode;
+  struct modu_node *callee_mnode;
+  struct modu_edge *e;
+
+  if (m_id == 0 || callee_m_id == 0)
+    return;
+
+  mnode = &the_dyn_call_graph.modu_nodes[m_id - 1];
+  callee_mnode = &the_dyn_call_graph.modu_nodes[callee_m_id - 1];
+
+  if (flag_modu_merge_edges)
+    {
+       struct modu_edge *callees = mnode->callees;
+       while (callees)
+         {
+            if (callees->callee == callee_mnode)
+              {
+                 callees->n_edges += 1;
+                 callees->sum_count += count;
+                 return;
+              }
+            callees = callees->next_callee;
+         }
+    }
+  e = XNEW (struct modu_edge);
+  e->caller = mnode;
+  e->callee = callee_mnode;
+  e->n_edges = 1;
+  e->sum_count = count;
+  e->next_callee = mnode->callees;
+  e->next_caller = callee_mnode->callers;
+  mnode->callees = e;
+  callee_mnode->callers = e;
+  e->visited = 0;
+}
+
+static void
+modu_graph_process_dyn_cgraph_node (struct dyn_cgraph_node *node,
+                                    gcov_type cutoff_count)
+{
+  unsigned m_id = get_module_ident_from_func_glob_uid (node->guid);
+  struct dyn_cgraph_edge *callees;
+  struct dyn_cgraph_node *callee;
+
+  callees = node->callees;
+  while (callees != 0)
+    {
+      callee = callees->callee;
+      unsigned callee_m_id = 
+        get_module_ident_from_func_glob_uid (callee->guid);
+      if (callee_m_id != m_id)
+        {
+          if (callees->count >= cutoff_count)
+            modu_graph_add_edge (m_id, callee_m_id, callees->count);
+        }
+      callees = callees->next_callee;
+    }
+}
+
+static void
+build_modu_graph (gcov_type cutoff_count)
+{
+  unsigned m_ix;
+  struct gcov_info *gi_ptr;
+  unsigned n_modules = the_dyn_call_graph.num_modules;
+  struct modu_node *modu_nodes;
+
+  /* Create modu graph nodes/edges.  */
+  modu_nodes = XCNEWVEC (struct modu_node, n_modules);
+  the_dyn_call_graph.modu_nodes = modu_nodes;
+  for (m_ix = 0; m_ix < n_modules; m_ix++)
+    {
+      const struct gcov_fn_info *fi_ptr;
+      unsigned f_ix;
+
+      gi_ptr = the_dyn_call_graph.modules[m_ix];
+      modu_nodes[m_ix].module = gi_ptr;
+
+      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
+	{
+	  struct dyn_cgraph_node *node;
+
+	  fi_ptr = gi_ptr->functions[f_ix];
+	  node = *(pointer_set_find_or_insert
+		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
+	  if (!node)
+            {
+              fprintf (stderr, "Cannot find module_node (ix = %u)./n", m_ix);
+              continue;
+            }
+          modu_graph_process_dyn_cgraph_node (node, cutoff_count);
+	}
+    }
+}
+
+/* Collect ggc_mem_size for the impored_module in VALUE
+   if DATA1 (a pointer_set) is provided, only count these not in DATA1.
+   Result is stored in DATA2.  */
+
+static int
+collect_ggc_mem_size (const void *value,
+                 void *data1,
+                 void *data2,
+                 void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct dyn_imp_mod *g = (const struct dyn_imp_mod *) value;
+  struct dyn_pointer_set *s = (struct dyn_pointer_set *) data1;
+  unsigned mod_id = get_module_ident (g->imp_mod);
+  gcov_unsigned_t *size = (gcov_unsigned_t *) data2;
+
+  if (s && pointer_set_contains (s, mod_id))
+    return 1;
+
+  (*size) += g->imp_mod->mod_info->ggc_memory;
+
+  return 1;
+
+}
+
+/* Get the group ggc_memory size of a imported list.  */
+
+static gcov_unsigned_t
+get_group_ggc_mem (struct dyn_pointer_set *s)
+{
+  gcov_unsigned_t ggc_size = 0;
+
+  pointer_set_traverse (s, collect_ggc_mem_size, 0, &ggc_size, 0);
+  return ggc_size;
+}
+
+/* Get the group ggc_memory size of the unioned imported lists. */
+
+static gcov_unsigned_t
+modu_union_ggc_size (unsigned t_mid, unsigned s_mid)
+{
+  struct dyn_pointer_set *t_imported_mods = get_imported_modus (t_mid);
+  struct dyn_pointer_set *s_imported_mods = get_imported_modus (s_mid);
+  gcov_unsigned_t size = 0;
+
+  pointer_set_traverse (s_imported_mods, collect_ggc_mem_size,
+      t_imported_mods, &size, 0);
+
+  size += get_group_ggc_mem (t_imported_mods);
+
+  return size;
+}
+
+/* Insert one module (VALUE) to the target module (DATA1) */
+
+static int
+modu_add_auxiliary_1 (const void *value,
+                      void *data1,
+                      void *data2,
+                      void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct dyn_imp_mod *src = (const struct dyn_imp_mod *) value;
+  const struct gcov_info *src_modu = src->imp_mod;
+  unsigned t_m_id = *(unsigned *) data1;
+  struct dyn_pointer_set *t_imported_mods = get_imported_modus (t_m_id);
+  double wt = (double) *(gcov_type*)data2;
+  unsigned s_m_id = get_module_ident (src_modu);
+  struct gcov_info **gp;
+  struct dyn_pointer_set *s_exported_to;
+  int already_have = 0;
+
+  if (pointer_set_contains (t_imported_mods, s_m_id))
+    already_have = 1;
+
+  /* Insert even it's already there. This is to update the wt.  */
+  imp_mod_set_insert (t_imported_mods, src_modu, wt);
+
+  if (already_have)
+    return 1;
+
+  /* add module t_m_id to s_m_id's exported list. */
+  s_exported_to = get_exported_to (s_m_id);
+  if (!s_exported_to)
+    s_exported_to = create_exported_to (s_m_id);
+  gp = (struct gcov_info **) pointer_set_find_or_insert
+             (s_exported_to, t_m_id);
+  *gp = the_dyn_call_graph.modules[t_m_id - 1];
+  s_exported_to->n_elements++;
+
+  return 1;
+}
+
+/* Insert module S_MID and it's imported modules to
+   imported list of module T_MID.  */
+
+static void
+modu_add_auxiliary (unsigned t_mid, unsigned s_mid, gcov_type count)
+{
+  struct dyn_pointer_set *s_imported_mods = get_imported_modus (s_mid);
+
+  pointer_set_traverse (s_imported_mods, modu_add_auxiliary_1,
+                        &t_mid, &count, 0);
+
+  /* Recompute the gcc_memory for the group.  */
+  the_dyn_call_graph.sup_modules[t_mid - 1].group_ggc_mem =
+    get_group_ggc_mem (get_imported_modus (t_mid));
+}
+
+/* Check if inserting the module specified by DATA1 (including
+   it's imported list to grouping VALUE, makes the ggc_memory
+   size exceed the memory threshold. 
+   Return 0 if size is great than the thereshold and 0 otherwise.  */
+
+static int
+ps_check_ggc_mem (const void *value,
+                  void *data1,
+                  void *data2,
+                  void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct gcov_info *modu = (const struct gcov_info *) value;
+  unsigned s_m_id = *(unsigned *) data1;
+  unsigned *fail = (unsigned *) data2;
+  unsigned m_id = get_module_ident (modu);
+  gcov_unsigned_t new_ggc_size;
+
+  new_ggc_size = modu_union_ggc_size (m_id, s_m_id);
+  if (new_ggc_size > mem_threshold)
+    {
+      (*fail) = 1;
+      return 0;
+    }
+
+  return 1;
+}
+
+/* Add module specified by DATA1 and it's imported list to
+   the grouping specified by VALUE.  */
+
+static int
+ps_add_auxiliary (const void *value,
+                  void *data1,
+                  void *data2,
+                  void *data3)
+{
+  const struct gcov_info *modu = (const struct gcov_info *) value;
+  unsigned s_m_id = *(unsigned *) data1;
+  unsigned m_id = get_module_ident (modu);
+  int not_safe_to_insert = *(int *) data3;
+  gcov_unsigned_t new_ggc_size;
+
+  /* For strict inclusion, we know it's safe to insert.  */
+  if (!not_safe_to_insert)
+    {
+      modu_add_auxiliary (m_id, s_m_id, *(gcov_type*)data2);
+      return 1;
+    }
+
+  /* Check if we can do a partial insertion.  */
+  new_ggc_size = modu_union_ggc_size (m_id, s_m_id);
+  if (new_ggc_size > mem_threshold)
+    return 1;
+
+  modu_add_auxiliary (m_id, s_m_id, *(gcov_type*)data2);
+  return 1;
+}
+
+/* Return 1 if insertion happened, otherwise 0.  */
+
+static int
+modu_edge_add_auxiliary (struct modu_edge *edge)
+{
+  struct modu_node *node;
+  struct modu_node *callee;
+  struct gcov_info *node_modu;
+  struct gcov_info *callee_modu;
+  gcov_unsigned_t group_ggc_mem;
+  gcov_unsigned_t new_ggc_size;
+  struct dyn_pointer_set *node_imported_mods;
+  struct dyn_pointer_set *node_exported_to;
+  unsigned m_id, callee_m_id;
+  int fail = 0;
+
+  node = edge->caller;
+  callee = edge->callee;
+  node_modu = node->module;
+  callee_modu = callee->module;
+  m_id = get_module_ident (node_modu);
+
+  if (m_id == 0)
+    return 0;
+
+  group_ggc_mem = the_dyn_call_graph.sup_modules[m_id - 1].group_ggc_mem;
+
+  if (group_ggc_mem >= mem_threshold)
+    return 0;
+
+  node_imported_mods = get_imported_modus (m_id);
+
+  /* Check if the callee is already included.  */
+  callee_m_id = get_module_ident (callee_modu);
+  if (pointer_set_contains (node_imported_mods, callee_m_id))
+    return 0;
+
+  new_ggc_size = modu_union_ggc_size (m_id, callee_m_id);
+  if (new_ggc_size > mem_threshold)
+    return 0;
+
+  /* check the size for the grouping that includes this node. */
+  node_exported_to = get_exported_to (m_id);
+  if (node_exported_to)
+    {
+      pointer_set_traverse (node_exported_to, ps_check_ggc_mem,
+                            &callee_m_id, &fail, 0);
+      if (fail && !flag_weak_inclusion)
+        return 0;
+    }
+
+  /* Perform the insertion: first insert to node
+  and then to all the exported_to nodes.  */
+  modu_add_auxiliary (m_id, callee_m_id, edge->sum_count);
+
+  if (node_exported_to)
+    pointer_set_traverse (node_exported_to, ps_add_auxiliary,
+       &callee_m_id, &(edge->sum_count), &fail);
+  return 1;
+}
+
+static void
+compute_module_groups_inclusion_impl (void)
+{
+  dyn_fibheap_t heap;
+  unsigned i;
+  unsigned n_modules = the_dyn_call_graph.num_modules;
+
+  /* insert all the edges to the heap.  */
+  heap = dyn_fibheap_new ();
+  for (i = 0; i < n_modules; i++)
+    {
+      struct modu_edge * callees;
+      struct modu_node *node = &the_dyn_call_graph.modu_nodes[i];
+
+      callees = node->callees;
+      while (callees != 0)
+        {
+	  dyn_fibheap_insert (heap, -1 * callees->sum_count, callees);
+          callees = callees->next_callee;
+        }
+    }
+
+  while (1)
+    {
+      struct modu_edge *curr
+	= (struct modu_edge *) dyn_fibheap_extract_min (heap);
+
+      if (!curr)
+	break;
+      if (curr->visited)
+	continue;
+      curr->visited = 1;
+
+      modu_edge_add_auxiliary (curr);
+    }
+
+  dyn_fibheap_delete (heap);
+
+  /* Now compute the export attribute  */
+  for (i = 0; i < n_modules; i++)
+    {
+      struct dyn_module_info *mi
+          = &the_dyn_call_graph.sup_modules[i];
+      if (mi->exported_to)
+        SET_MODULE_EXPORTED (the_dyn_call_graph.modules[i]->mod_info);
+    }
+}
+
+static void
+gcov_compute_module_groups_inclusion_based_with_priority
+            (gcov_type cutoff_count)
+{
+  build_modu_graph (cutoff_count);
+  compute_module_groups_inclusion_impl ();
+}
+
+static void
+gcov_compute_module_groups_eager_propagation (gcov_type cutoff_count)
 {
   unsigned m_ix;
   struct gcov_info *gi_ptr;
@@ -1125,12 +1999,12 @@ gcov_compute_module_groups (gcov_type cutoff_count)
           if (!node->imported_modules)
             continue;
 
-          mod_id = get_module_idx_from_func_glob_uid (node->guid);
-          gcc_assert (mod_id == m_ix);
+          mod_id = get_module_ident_from_func_glob_uid (node->guid);
+          gcc_assert (mod_id == (m_ix + 1));
 
           imp_modules
               = gcov_get_module_imp_module_set (
-                  &the_dyn_call_graph.sup_modules[mod_id]);
+                  &the_dyn_call_graph.sup_modules[mod_id - 1]);
 
           pointer_set_traverse (node->imported_modules,
                                 gcov_propagate_imp_modules,
@@ -1143,6 +2017,7 @@ gcov_compute_module_groups (gcov_type cutoff_count)
     {
       struct dyn_module_info *mi
           = &the_dyn_call_graph.sup_modules[m_ix];
+
       if (mi->imported_modules)
         pointer_set_traverse (mi->imported_modules,
                               gcov_mark_export_modules, 0, 0, 0);
@@ -1169,10 +2044,10 @@ gcov_compute_random_module_groups (unsigned max_group_size)
       while (i < cur_group_size)
 	{
 	  struct gcov_info *imp_mod_info;
-	  unsigned mod_id = random () % the_dyn_call_graph.num_modules;
-	  if (mod_id == m_ix)
+	  unsigned mod_idx = random () % the_dyn_call_graph.num_modules;
+	  if (mod_idx == m_ix)
 	    continue;
-	  imp_mod_info = get_module_info (mod_id);
+	  imp_mod_info = get_module_info (mod_idx + 1);
 	  if (!imp_mod_set_insert (imp_modules, imp_mod_info, 1.0))
 	    i++;
 	}
@@ -1224,7 +2099,9 @@ gcov_write_module_info (const struct gcov_info *mod_info,
   gcov_write_tag_length (GCOV_TAG_MODULE_INFO, len);
   gcov_write_unsigned (module_info->ident);
   gcov_write_unsigned (is_primary);
-  gcov_write_unsigned (module_info->is_exported);
+  if (flag_alg_mode == INCLUSION_BASED_PRIORITY_ALGORITHM && is_primary)
+    SET_MODULE_INCLUDE_ALL_AUX (module_info);
+  gcov_write_unsigned (module_info->flags);
   gcov_write_unsigned (module_info->lang);
   gcov_write_unsigned (module_info->num_quote_paths);
   gcov_write_unsigned (module_info->num_bracket_paths);
@@ -1280,7 +2157,8 @@ gcov_write_module_infos (struct gcov_info *mod_info)
       for (i = 0; i < imp_len; i++)
         {
           const struct gcov_info *imp_mod = imp_mods[i]->imp_mod;
-          gcov_write_module_info (imp_mod, 0);
+	  if (imp_mod != mod_info)
+            gcov_write_module_info (imp_mod, 0);
         }
       free (imp_mods);
     }
@@ -1340,13 +2218,13 @@ gcov_dump_cgraph_node_short (struct dyn_cgraph_node *node)
 {
   unsigned mod_id, func_id;
   struct gcov_info *mod_info;
-  mod_id = get_module_idx_from_func_glob_uid (node->guid);
+  mod_id = get_module_ident_from_func_glob_uid (node->guid);
   func_id = get_intra_module_func_id (node->guid);
 
-  mod_info = the_dyn_call_graph.modules[mod_id];
+  mod_info = the_dyn_call_graph.modules[mod_id - 1];
 
   fprintf (stderr, "NODE(%llx) module(%s) func(%u)",
-           (long long)node->guid, 
+           (long long)node->guid,
            mod_info->mod_info->source_filename, func_id);
 }
 
@@ -1360,11 +2238,11 @@ gcov_dump_cgraph_node (struct dyn_cgraph_node *node, unsigned m, unsigned f)
   struct dyn_cgraph_edge *callers;
   struct dyn_cgraph_edge *callees;
 
-  mod_id = get_module_idx_from_func_glob_uid (node->guid);
+  mod_id = get_module_ident_from_func_glob_uid (node->guid);
   func_id = get_intra_module_func_id (node->guid);
-  gcc_assert (mod_id == m && func_id == f);
+  gcc_assert (mod_id == (m + 1) && func_id == f);
 
-  mod_info = the_dyn_call_graph.modules[mod_id];
+  mod_info = the_dyn_call_graph.modules[mod_id - 1];
 
   fprintf (stderr, "NODE(%llx) module(%s) func(%x)\n",
            (long long) node->guid,
@@ -1392,7 +2270,8 @@ gcov_dump_cgraph_node (struct dyn_cgraph_node *node, unsigned m, unsigned f)
     }
 }
 
-/* Dumper function for NODE.   M is the module id and F is the function id.  */
+/* Dumper function for NODE.   M is the module_ident -1
+   and F is the function id.  */
 
 static void
 gcov_dump_cgraph_node_dot (struct dyn_cgraph_node *node,
@@ -1404,11 +2283,11 @@ gcov_dump_cgraph_node_dot (struct dyn_cgraph_node *node,
   const struct dyn_imp_mod **imp_mods;
   struct dyn_cgraph_edge *callees;
 
-  mod_id = get_module_idx_from_func_glob_uid (node->guid);
+  mod_id = get_module_ident_from_func_glob_uid (node->guid);
   func_id = get_intra_module_func_id (node->guid);
-  gcc_assert (mod_id == m && func_id == f);
+  gcc_assert (mod_id == (m + 1) && func_id == f);
 
-  mod_info = the_dyn_call_graph.modules[mod_id];
+  mod_info = the_dyn_call_graph.modules[mod_id - 1];
 
   fprintf (stderr, "NODE_%llx[label=\"MODULE\\n(%s)\\n FUNC(%x)\\n",
            (long long) node->guid, mod_info->mod_info->source_filename, f);
@@ -1448,7 +2327,7 @@ gcov_dump_callgraph (gcov_type cutoff_count)
   struct gcov_info *gi_ptr;
   unsigned m_ix;
   int do_dump;
-  
+
   do_dump = do_cgraph_dump ();
 
   if (do_dump == 0)
@@ -1487,5 +2366,41 @@ gcov_dump_callgraph (gcov_type cutoff_count)
   fprintf (stderr,"}\n");
 }
 
+static int
+dump_imported_modules_1 (const void *value,
+                    void *data1 ATTRIBUTE_UNUSED,
+                    void *data2 ATTRIBUTE_UNUSED,
+                    void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct dyn_imp_mod *d = (const struct dyn_imp_mod*) value;
+  fprintf (stderr, "%d ", get_module_ident (d->imp_mod));
+  return 1;
+}
 
+static int
+dump_exported_to_1 (const void *value,
+                    void *data1 ATTRIBUTE_UNUSED,
+                    void *data2 ATTRIBUTE_UNUSED,
+                    void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct gcov_info *modu = (const struct gcov_info *) value;
+  fprintf (stderr, "%d ", get_module_ident (modu));
+  return 1;
+}
+
+static void ATTRIBUTE_UNUSED
+debug_dump_imported_modules (const struct dyn_pointer_set *p)
+{
+  fprintf (stderr, "imported: ");
+  pointer_set_traverse (p, dump_imported_modules_1, 0, 0, 0);
+  fprintf (stderr, "\n");
+}
+
+static void ATTRIBUTE_UNUSED
+debug_dump_exported_to (const struct dyn_pointer_set *p)
+{
+  fprintf (stderr, "exported: ");
+  pointer_set_traverse (p, dump_exported_to_1, 0, 0, 0);
+  fprintf (stderr, "\n");
+}
 #endif

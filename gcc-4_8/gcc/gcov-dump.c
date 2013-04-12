@@ -564,9 +564,21 @@ tag_module_info (const char *filename ATTRIBUTE_UNUSED,
     }
   else
     {
-      const char *suffix = mod_info->is_primary
-	? (mod_info->is_exported ? "primary, exported" : "primary")
-	: "auxiliary";
-      printf (": %s [%s]", mod_info->source_filename, suffix);
+      const char *primary_suffix =
+               mod_info->is_primary ? "primary" : "auxiliary";
+      const char *export_suffix = "";
+      const char *include_all_suffix = "";
+
+      if (mod_info->is_primary)
+        {
+          if (MODULE_EXPORTED_FLAG (mod_info))
+            export_suffix = ",exported";
+          if (MODULE_INCLUDE_ALL_AUX_FLAG (mod_info))
+            include_all_suffix =",include_all";
+        }
+
+      printf (": %s (ident=%u) [%s%s%s]", mod_info->source_filename,
+              mod_info->ident, primary_suffix, export_suffix,
+              include_all_suffix);
     }
 }

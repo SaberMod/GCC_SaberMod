@@ -502,7 +502,9 @@ struct gcov_module_info
 				 (1) means FDO/LIPO in instrumented binary.
 				 (2) means IS_PRIMARY in persistent file or
 				     memory copy used in profile-use.  */
-  gcov_unsigned_t is_exported;
+  gcov_unsigned_t flags;      /* bit 0: is_exported,
+                                 bit 1: need to include all the auxiliary 
+                                 modules in use compilation.  */
   gcov_unsigned_t lang; /* lower 16 bits encode the language, and the upper
 			   16 bits enocde other attributes, such as whether
 			   any assembler is present in the source, etc.  */
@@ -519,8 +521,12 @@ struct gcov_module_info
 
 extern struct gcov_module_info **module_infos;
 extern unsigned primary_module_id;
+#define SET_MODULE_INCLUDE_ALL_AUX(modu) ((modu->flags |= 0x2))
+#define MODULE_INCLUDE_ALL_AUX_FLAG(modu) ((modu->flags & 0x2))
+#define SET_MODULE_EXPORTED(modu) ((modu->flags |= 0x1))
+#define MODULE_EXPORTED_FLAG(modu) ((modu->flags & 0x1))
 #define PRIMARY_MODULE_EXPORTED                                         \
-  (module_infos[0]->is_exported						\
+  (MODULE_EXPORTED_FLAG (module_infos[0])				\
    && !((module_infos[0]->lang & GCOV_MODULE_ASM_STMTS)			\
 	&& flag_ripa_disallow_asm_modules))
 

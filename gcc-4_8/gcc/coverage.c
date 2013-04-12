@@ -814,6 +814,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               modset = pointer_set_create ();
               pointer_set_insert (modset, (void *)(size_t)mod_info->ident);
 	      primary_module_id = mod_info->ident;
+              include_all_aux = MODULE_INCLUDE_ALL_AUX_FLAG (mod_info);
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
               module_infos[0] = XCNEWVAR (struct gcov_module_info, info_sz);
               memcpy (module_infos[0], mod_info, info_sz);
@@ -848,6 +849,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 		       && flag_ripa_disallow_asm_modules)
 		inform (input_location, "Not importing %s: contains assembler"
 			" statements", mod_info->source_filename);
+              else if (mod_info->is_primary == false 
+                       && MODULE_EXPORTED_FLAG (mod_info) == false)
+                {
+                  warning (0, "MODULE_ID=%d (%s) is an auxiliary module, "
+                              "but export_bit is not set. \n",
+                              mod_info->ident, mod_info->source_filename);
+                }
 	      else
 		{
 		  close (fd);
@@ -870,9 +878,11 @@ read_counts_file (const char *da_file_name, unsigned module_id)
             {
               inform (input_location,
                       "MODULE Id=%d, Is_Primary=%s,"
-                      " Is_Exported=%s, Name=%s (%s)",
+                      " Is_Exported=%s, Include_all=%s, Name=%s (%s)",
                       mod_info->ident, mod_info->is_primary?"yes":"no",
-                      mod_info->is_exported?"yes":"no", mod_info->source_filename,
+                      MODULE_EXPORTED_FLAG (mod_info)?"yes":"no",
+                      MODULE_INCLUDE_ALL_AUX_FLAG (mod_info)?"yes":"no",
+                      mod_info->source_filename,
                       mod_info->da_filename);
             }
         }
@@ -1758,7 +1768,7 @@ build_gcov_module_info_type (void)
   DECL_CHAIN (field) = fields;
   fields = field;
 
-  /* is_exported */
+  /* flags: is_exported and include_all_aux flag.  */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
                       NULL_TREE, get_gcov_unsigned_t ());
   DECL_CHAIN (field) = fields;
@@ -1881,7 +1891,7 @@ build_gcov_module_info_value (tree mod_type)
                                           flag_dyn_ipa ? 1 : 0));
   info_fields = DECL_CHAIN (info_fields);
 
-  /* is_exported */
+  /* flags */
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
                           build_int_cstu (get_gcov_unsigned_t (), 0));
   info_fields = DECL_CHAIN (info_fields);
@@ -2334,7 +2344,7 @@ add_module_info (unsigned module_id, bool is_primary, int index)
   module_infos[index] = XNEW (struct gcov_module_info);
   cur_info = module_infos[index];
   cur_info->ident = module_id;
-  cur_info->is_exported = true;
+  SET_MODULE_EXPORTED (cur_info);
   cur_info->num_quote_paths = 0;
   cur_info->num_bracket_paths = 0;
   cur_info->da_filename = NULL;

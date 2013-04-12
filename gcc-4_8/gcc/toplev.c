@@ -185,6 +185,10 @@ unsigned primary_module_id = 0;
 
 unsigned current_module_id = 0;
 
+/* Include all auxiliary modules specified in the profile. This
+   will bypass the ggc_memory limit check.  */
+bool include_all_aux = 0;
+
 /* Initialize src_pwd with the given string, and return true.  If it
    was already initialized, return false.  As a special case, it may
    be called with a NULL argument to test whether src_pwd has NOT been
