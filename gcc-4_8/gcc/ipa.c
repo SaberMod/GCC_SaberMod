@@ -252,8 +252,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	&& (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
 	    /* Keep around virtual functions for possible devirtualization.  */
 	    || (before_inlining_p
-		&& DECL_VIRTUAL_P (node->symbol.decl)
-		&& cgraph_is_aux_decl_external (node))))
+		&& DECL_VIRTUAL_P (node->symbol.decl))))
       {
         gcc_assert (!node->global.inlined_to);
 	pointer_set_insert (reachable, node);

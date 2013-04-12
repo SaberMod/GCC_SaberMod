@@ -1652,6 +1652,9 @@ inline_small_functions (void)
           && !better_inline_comdat_function_p (edge->callee))
 	continue;
 
+      if (!dbg_cnt (inl))
+         continue;
+
       /* Heuristics for inlining small functions works poorly for
 	 recursive calls where we do efect similar to loop unrolling.
 	 When inliing such edge seems profitable, leave decision on
@@ -1679,9 +1682,6 @@ inline_small_functions (void)
 	{
 	  struct cgraph_node *outer_node = NULL;
 	  int depth = 0;
-
-          if (!dbg_cnt (inl))
-            continue;
 
 	  /* Consider the case where self recursive function A is inlined into B.
 	     This is desired optimization in some cases, since it leads to effect
