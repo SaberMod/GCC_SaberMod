@@ -943,6 +943,31 @@ DEFPARAM (PARAM_LIPO_PROPAGATE_SCALE,
 	  "The scale factor to propagate callee module group's weight to the caller.",
 	  100, 0, 100)
 
+/* Choose different module grouping algorithms. This only affects
+   LIPO profile-gen.  */
+DEFPARAM (PARAM_LIPO_GROUPING_ALGORITHM,
+	  "lipo-grouping-algorithm",
+	  "Algorithm 0 uses the eager propagation algorithm."
+	  "Algorithm 1 uses the inclusion_based priority algorithm."
+	  "The default algorithm is 1.",
+	  1, 0, 1)
+
+/* In the inclusion_based_priority grouping algorithm, specify if we combine the
+   the edges b/w modules.  */
+DEFPARAM (PARAM_LIPO_MERGE_MODU_EDGES,
+	  "lipo-merge-modu-edges",
+	  "Default is 0 which not merge."
+	  "If the value is 1, merge the edges.",
+	  0, 0, 1)
+
+/* In the inclusion_based_priority grouping algorithm, specify if we force
+   strict inclusion of modules.  */
+DEFPARAM (PARAM_LIPO_WEAK_INCLUSION,
+	  "lipo-weak-inclusion",
+	  "0: force strict inclusion; 1: weak inclusion."
+	  "Default is 0.",
+	  0, 0, 1)
+
 /* In LIPO profile-gen, use this parameter to enable cgraph dumping.   */
 DEFPARAM (PARAM_LIPO_DUMP_CGRAPH,
 	  "lipo-dump-cgraph",
