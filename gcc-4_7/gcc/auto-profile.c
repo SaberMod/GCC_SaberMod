@@ -1172,8 +1172,7 @@ process_auto_profile (void)
 	{
 	  (*func_slot)->entry_count += gcov_functions[i].entry_count;
 	  (*func_slot)->total_count += gcov_functions[i].total_count;
-	  if ((*func_slot)->total_count > afdo_profile_info->sum_all)
-	    afdo_profile_info->sum_all = (*func_slot)->total_count;
+	  afdo_profile_info->sum_all += (*func_slot)->total_count;
 	}
       else
 	*func_slot = gcov_functions + i;
@@ -1275,6 +1274,7 @@ init_auto_profile (void)
     xcalloc (1, sizeof (struct gcov_ctr_summary));
   afdo_profile_info->runs = 1;
   afdo_profile_info->sum_max = 0;
+  afdo_profile_info->sum_all = 0;
 
   /* Read the profile from the profile file.  */
   read_profile ();
