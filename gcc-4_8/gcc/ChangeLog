@@ -1,3 +1,74 @@
+2013-04-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/56903
+	* config/i386/i386.c (ix86_hard_regno_mode_ok): Add
+	lra_in_progress for return.
+
+2013-04-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56918
+	PR tree-optimization/56920
+	* fold-const.c (int_const_binop_1): Use op1.mul_with_sign (op2, ...)
+	instead of op1 - op2.  Pass 2 * TYPE_PRECISION (type) as second
+	argument to rshift method.
+
+2013-04-12  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* ifcvt.c (end_ifcvt_sequence): Mark a and b for unsharing as
+	well.
+
+2013-04-11  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/48184
+	* params.def (PARAM_ALIGN_THRESHOLD): Increase the minimum
+	value to 1.
+
+2013-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backported from mainline.
+	2013-04-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_vcond_internal): Fix
+	floating-point vector comparisons against 0.
+
+2013-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56899
+	* fold-const.c (extract_muldiv_1): Apply distributive law
+	only if TYPE_OVERFLOW_WRAPS (ctype).
+
+2013-04-10  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.h (ASM_CPU_SPEC): Pass -Av8 if -mcpu=supersparc
+	or -mcpu=hypersparc.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-04-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56883
+	* omp-low.c (expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk): Use simple_p = true in
+	force_gimple_operand_gsi calls when assigning to addressable decls.
+
+2013-04-09  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/48762
+	* params.def (PARAM_MAX_CSE_INSNS): Increase the minimum
+	value to 1.
+
+2013-04-08  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_insv): Only accept insertions
+	within mode size.
+
+2013-04-08  Marek Polacek  <polacek@redhat.com>
+
+	PR rtl-optimization/48182
+	* params.def (PARAM_MIN_CROSSJUMP_INSNS): Increase the minimum
+	value to 1.
+
 2013-04-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 
 	PR target/55487

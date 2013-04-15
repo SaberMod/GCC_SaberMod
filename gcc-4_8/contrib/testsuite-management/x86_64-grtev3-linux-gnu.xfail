@@ -42,6 +42,9 @@ XPASS: gfortran.dg/do_1.f90 -Os  execution test
 flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O   (test for errors, line 8)
 flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O   (test for errors, line 15)
 flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O  (test for excess errors)
+flaky | FAIL: gfortran.dg/binding_label_tests_10_main.f03  -O   (test for errors, line 7)
+flaky | FAIL: gfortran.dg/binding_label_tests_10_main.f03  -O   (test for errors, line 11)
+flaky | FAIL: gfortran.dg/binding_label_tests_10_main.f03  -O  (test for excess errors)
 
 
 # Mudflap is completely unreliable.  It should be disabled.
