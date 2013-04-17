@@ -82,6 +82,7 @@ extern bool pmu_data_present (void);
 
 extern tree get_gcov_type (void);
 extern tree get_gcov_unsigned_t (void);
+extern tree get_const_string_type (void);
 
 /* Mark this module as containing asm statements.  */
 extern void coverage_has_asm_stmt (void);
@@ -89,5 +90,6 @@ extern void coverage_has_asm_stmt (void);
 /* Defined in tree-profile.c.  */
 extern void tree_init_instrumentation_sampling (void);
 extern void tree_init_dyn_ipa_parameters (void);
+extern void tree_init_instrumentation (void);
 
 #endif

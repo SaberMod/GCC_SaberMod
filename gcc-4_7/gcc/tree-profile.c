@@ -165,6 +165,9 @@ static struct pointer_set_t *instrumentation_to_be_sampled = NULL;
 /* extern __thread gcov_unsigned_t __gcov_sample_counter  */
 static GTY(()) tree gcov_sample_counter_decl = NULL_TREE;
 
+/* extern gcov_unsigned_t __gcov_profile_prefix  */
+static tree GTY(()) gcov_profile_prefix_decl = NULL_TREE;
+
 /* extern gcov_unsigned_t __gcov_sampling_period  */
 static tree GTY(()) gcov_sampling_period_decl = NULL_TREE;
 
@@ -404,6 +407,41 @@ cleanup_instrumentation_sampling (void)
     {
       pointer_set_destroy (instrumentation_to_be_sampled);
       instrumentation_to_be_sampled = NULL;
+    }
+}
+
+/* Initialization function for FDO instrumentation.  */
+
+void
+tree_init_instrumentation (void)
+{
+  if (!gcov_profile_prefix_decl)
+    {
+      tree prefix_ptr;
+      int prefix_len;
+      tree prefix_string;
+
+      /* Construct an initializer for __gcov_profile_prefix.  */
+      gcov_profile_prefix_decl =
+        build_decl (UNKNOWN_LOCATION, VAR_DECL,
+                    get_identifier ("__gcov_profile_prefix"),
+                    get_const_string_type ());
+      TREE_PUBLIC (gcov_profile_prefix_decl) = 1;
+      DECL_ARTIFICIAL (gcov_profile_prefix_decl) = 1;
+      make_decl_one_only (gcov_profile_prefix_decl,
+                          DECL_ASSEMBLER_NAME (gcov_profile_prefix_decl));
+      TREE_STATIC (gcov_profile_prefix_decl) = 1;
+
+      prefix_len = strlen (profile_data_prefix);
+      prefix_string = build_string (prefix_len + 1, profile_data_prefix);
+      TREE_TYPE (prefix_string) = build_array_type
+          (char_type_node, build_index_type
+           (build_int_cst (NULL_TREE, prefix_len)));
+      prefix_ptr = build1 (ADDR_EXPR, get_const_string_type (),
+                           prefix_string);
+
+      DECL_INITIAL (gcov_profile_prefix_decl) = prefix_ptr;
+      varpool_finalize_decl (gcov_profile_prefix_decl);
     }
 }
 

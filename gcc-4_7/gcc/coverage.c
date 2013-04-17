@@ -227,7 +227,7 @@ get_gcov_unsigned_t (void)
 
 /* Return the type node for const char *.  */
 
-static tree
+tree
 get_const_string_type (void)
 {
   return build_pointer_type
@@ -2879,6 +2879,7 @@ coverage_init (const char *filename, const char* source_name)
   /* Define variables which are referenced at runtime by libgcov.  */
   if (profiling_enabled_p ())
     {
+      tree_init_instrumentation ();
       tree_init_dyn_ipa_parameters ();
       init_pmu_profiling ();
       tree_init_instrumentation_sampling ();

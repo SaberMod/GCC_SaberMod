@@ -183,6 +183,14 @@ unsigned int __gcov_sampling_enabled ()
   return __gcov_has_sampling;
 }
 
+/* Profile directory prefix specified to -fprofile-generate=.  */
+extern char * __gcov_profile_prefix;
+
+char *__gcov_get_profile_prefix ()
+{
+  return __gcov_profile_prefix;
+}
+
 /* Per thread sample counter.  */
 THREAD_PREFIX gcov_unsigned_t __gcov_sample_counter = 0;
 
