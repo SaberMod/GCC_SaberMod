@@ -5611,7 +5611,10 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	{
 	  /* The return value of this function uses 256bit AVX modes.  */
 	  if (caller)
-	    cfun->machine->callee_return_avx256_p = true;
+	    {
+	      cfun->machine->callee_return_avx256_p = true;
+	      cum->callee_return_avx256_p = true;
+	    }
 	  else
 	    cfun->machine->caller_return_avx256_p = true;
 	}
@@ -6882,9 +6885,18 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
     {
       /* This argument uses 256bit AVX modes.  */
       if (cum->caller)
-	cfun->machine->callee_pass_avx256_p = true;
+	cum->callee_pass_avx256_p = true;
       else
 	cfun->machine->caller_pass_avx256_p = true;
+    }
+
+  if (cum->caller && mode == VOIDmode)
+    {
+      /* This function is called with MODE == VOIDmode immediately
+	 before the call instruction is emitted.  We copy callee 256bit
+	 AVX info from the current CUM here.  */
+      cfun->machine->callee_return_avx256_p = cum->callee_return_avx256_p;
+      cfun->machine->callee_pass_avx256_p = cum->callee_pass_avx256_p;
     }
 
   return arg;
@@ -14751,7 +14763,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	putc ('$', file);
       /* Sign extend 32bit SFmode immediate to 8 bytes.  */
       if (code == 'q')
-	fprintf (file, "0x%08llx", (unsigned long long) (int) l);
+	fprintf (file, "0x%08" HOST_LONG_LONG_FORMAT "x",
+		 (unsigned long long) (int) l);
       else
 	fprintf (file, "0x%08x", (unsigned int) l);
     }
@@ -33250,6 +33263,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int opno, int *total,
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    *total = cost->shift_const;
+	  else if (GET_CODE (XEXP (x, 1)) == SUBREG
+		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
+	    {
+	      /* Return the cost after shift-and truncation.  */
+	      *total = cost->shift_var;
+	      return true;
+	    }
 	  else
 	    *total = cost->shift_var;
 	}

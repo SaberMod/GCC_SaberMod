@@ -1493,14 +1493,21 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 /* Returns true iff two spec_entry nodes are equivalent.  Only compares the
    TMPL and ARGS members, ignores SPEC.  */
 
+int comparing_specializations;
+
 static int
 eq_specializations (const void *p1, const void *p2)
 {
   const spec_entry *e1 = (const spec_entry *)p1;
   const spec_entry *e2 = (const spec_entry *)p2;
+  int equal;
 
-  return (e1->tmpl == e2->tmpl
-	  && comp_template_args (e1->args, e2->args));
+  ++comparing_specializations;
+  equal = (e1->tmpl == e2->tmpl
+	   && comp_template_args (e1->args, e2->args));
+  --comparing_specializations;
+
+  return equal;
 }
 
 /* Returns a hash for a template TMPL and template arguments ARGS.  */
@@ -2895,6 +2902,8 @@ make_ith_pack_parameter_name (tree name, int i)
   char* newname;
   int newname_len;
 
+  if (name == NULL_TREE)
+    return name;
   snprintf (numbuf, NUMBUF_LEN, "%i", i);
   newname_len = IDENTIFIER_LENGTH (name)
 	        + strlen (numbuf) + 2;
@@ -4775,6 +4784,8 @@ push_template_decl_real (tree decl, bool is_friend)
 		  error ("got %d template parameters for %q#T",
 			 TREE_VEC_LENGTH (a), current);
 		error ("  but %d required", TREE_VEC_LENGTH (t));
+		/* Avoid crash in import_export_decl.  */
+		DECL_INTERFACE_KNOWN (decl) = 1;
 		return error_mark_node;
 	      }
 
@@ -10275,10 +10286,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
                 /* Get the Ith type.  */
                 type = TREE_VEC_ELT (expanded_types, i);
 
-                if (DECL_NAME (r))
-                  /* Rename the parameter to include the index.  */
-                  DECL_NAME (r) =
-                    make_ith_pack_parameter_name (DECL_NAME (r), i);
+		/* Rename the parameter to include the index.  */
+		DECL_NAME (r)
+		  = make_ith_pack_parameter_name (DECL_NAME (r), i);
               }
             else if (!type)
               /* We're dealing with a normal parameter.  */
@@ -10847,7 +10857,7 @@ tsubst_exception_specification (tree fntype,
     {
       /* A noexcept-specifier.  */
       tree expr = TREE_PURPOSE (specs);
-      if (expr == boolean_true_node || expr == boolean_false_node)
+      if (TREE_CODE (expr) == INTEGER_CST)
 	new_specs = expr;
       else if (defer_ok)
 	{
@@ -14232,9 +14242,11 @@ tsubst_copy_and_build (tree t,
 	complete_type (type);
 
 	/* The capture list refers to closure members, so this needs to
-	   wait until after we finish instantiating the type.  */
+	   wait until after we finish instantiating the type.  Also keep
+	   any captures that may have been added during instantiation.  */
 	LAMBDA_EXPR_CAPTURE_LIST (r)
-	  = RECUR (LAMBDA_EXPR_CAPTURE_LIST (t));
+	  = chainon (RECUR (LAMBDA_EXPR_CAPTURE_LIST (t)),
+		     LAMBDA_EXPR_CAPTURE_LIST (r));
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
 
 	return build_lambda_object (r);
@@ -15839,10 +15851,10 @@ unify_pack_expansion (tree tparms, tree targs, tree packed_parms,
           arg = NULL_TREE;
           if (TREE_VALUE (pack)
               && (pargs = ARGUMENT_PACK_EXPLICIT_ARGS (TREE_VALUE (pack)))
-              && (i < TREE_VEC_LENGTH (pargs)))
+              && (i - start < TREE_VEC_LENGTH (pargs)))
             {
               any_explicit = true;
-              arg = TREE_VEC_ELT (pargs, i);
+              arg = TREE_VEC_ELT (pargs, i - start);
             }
           TMPL_ARG (targs, level, idx) = arg;
         }
@@ -18210,12 +18222,14 @@ maybe_instantiate_noexcept (tree fn)
       if (push_tinst_level (fn))
 	{
 	  push_access_scope (fn);
+	  push_deferring_access_checks (dk_no_deferred);
 	  input_location = DECL_SOURCE_LOCATION (fn);
 	  noex = tsubst_copy_and_build (DEFERRED_NOEXCEPT_PATTERN (noex),
 					DEFERRED_NOEXCEPT_ARGS (noex),
 					tf_warning_or_error, fn,
 					/*function_p=*/false,
 					/*integral_constant_expression_p=*/true);
+	  pop_deferring_access_checks ();
 	  pop_access_scope (fn);
 	  pop_tinst_level ();
 	  spec = build_noexcept_spec (noex, tf_warning_or_error);

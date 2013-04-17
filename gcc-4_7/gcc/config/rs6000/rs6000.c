@@ -1,7 +1,7 @@
 /* Subroutines used for code generation on IBM RS/6000.
    Copyright (C) 1991, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
    2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011,
-   2012
+   2012, 2013
    Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
@@ -2646,7 +2646,7 @@ rs6000_option_override_internal (bool global_init_p)
 #endif
 #ifdef OS_MISSING_ALTIVEC
   if (OS_MISSING_ALTIVEC)
-    set_masks &= ~MASK_ALTIVEC;
+    set_masks &= ~(MASK_ALTIVEC | MASK_VSX);
 #endif
 
   /* Don't override by the processor default if given explicitly.  */
@@ -3753,7 +3753,8 @@ rs6000_builtin_vectorized_libmass (tree fndecl, tree type_out, tree type_in)
 	  bdecl = builtin_decl_implicit (fn);
 	  suffix = "d2";				/* pow -> powd2 */
 	  if (el_mode != DFmode
-	      || n != 2)
+	      || n != 2
+	      || !bdecl)
 	    return NULL_TREE;
 	  break;
 
@@ -3790,7 +3791,8 @@ rs6000_builtin_vectorized_libmass (tree fndecl, tree type_out, tree type_in)
 	  bdecl = builtin_decl_implicit (fn);
 	  suffix = "4";					/* powf -> powf4 */
 	  if (el_mode != SFmode
-	      || n != 4)
+	      || n != 4
+	      || !bdecl)
 	    return NULL_TREE;
 	  break;
 
@@ -3803,6 +3805,9 @@ rs6000_builtin_vectorized_libmass (tree fndecl, tree type_out, tree type_in)
 
   gcc_assert (suffix != NULL);
   bname = IDENTIFIER_POINTER (DECL_NAME (bdecl));
+  if (!bname)
+    return NULL_TREE;
+
   strcpy (name, bname + sizeof ("__builtin_") - 1);
   strcat (name, suffix);
 
@@ -17503,8 +17508,9 @@ rs6000_savres_strategy (rs6000_stack_t *info,
      static chain is rarely used anyway.  FPRs are saved w.r.t the stack
      pointer on Darwin.  */
   if (using_static_chain_p)
-    strategy |= (DEFAULT_ABI == ABI_DARWIN ? 0 : SAVE_INLINE_FPRS)
-		| SAVE_INLINE_GPRS;
+    strategy |= ((DEFAULT_ABI == ABI_DARWIN
+		  ? 0 : SAVE_INLINE_FPRS | REST_INLINE_FPRS)
+		 | SAVE_INLINE_GPRS);
 
   /* If we are going to use store multiple, then don't even bother
      with the out-of-line routines, since the store-multiple

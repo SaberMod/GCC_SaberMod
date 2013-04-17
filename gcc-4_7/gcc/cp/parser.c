@@ -7079,8 +7079,9 @@ cp_parser_delete_expression (cp_parser* parser)
    otherwise.  */
 
 static bool
-cp_parser_token_starts_cast_expression (cp_token *token)
+cp_parser_tokens_start_cast_expression (cp_parser *parser)
 {
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
   switch (token->type)
     {
     case CPP_COMMA:
@@ -7120,6 +7121,12 @@ cp_parser_token_starts_cast_expression (cp_token *token)
     case CPP_OR_OR:
     case CPP_EOF:
       return false;
+
+    case CPP_OPEN_PAREN:
+      /* In ((type ()) () the last () isn't a valid cast-expression,
+	 so the whole must be parsed as postfix-expression.  */
+      return cp_lexer_peek_nth_token (parser->lexer, 2)->type
+	     != CPP_CLOSE_PAREN;
 
       /* '[' may start a primary-expression in obj-c++.  */
     case CPP_OPEN_SQUARE:
@@ -7213,8 +7220,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 parenthesized ctor such as `(T ())' that looks like a cast to
 	 function returning T.  */
       if (!cp_parser_error_occurred (parser)
-	  && cp_parser_token_starts_cast_expression (cp_lexer_peek_token
-						     (parser->lexer)))
+	  && cp_parser_tokens_start_cast_expression (parser))
 	{
 	  cp_parser_parse_definitely (parser);
 	  expr = cp_parser_cast_expression (parser,
@@ -9447,7 +9453,10 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
 	range_expr = error_mark_node;
       stmt = begin_range_for_stmt (scope, init);
       finish_range_for_decl (stmt, range_decl, range_expr);
-      if (!type_dependent_expression_p (range_expr)
+      if (range_expr != error_mark_node
+	  && !type_dependent_expression_p (range_expr)
+	  /* The length of an array might be dependent.  */
+	  && COMPLETE_TYPE_P (TREE_TYPE (range_expr))
 	  /* do_auto_deduction doesn't mess with template init-lists.  */
 	  && !BRACE_ENCLOSED_INITIALIZER_P (range_expr))
 	do_range_for_auto_deduction (range_decl, range_expr);
@@ -14118,12 +14127,14 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 				   typename_type,
 				   /*complain=*/tf_error);
       /* If the `typename' keyword is in effect and DECL is not a type
-	 decl. Then type is non existant.   */
+	 decl, then type is non existent.   */
       else if (tag_type == typename_type && TREE_CODE (decl) != TYPE_DECL)
-        type = NULL_TREE; 
-      else 
-	type = check_elaborated_type_specifier (tag_type, decl,
+        ; 
+      else if (TREE_CODE (decl) == TYPE_DECL)
+        type = check_elaborated_type_specifier (tag_type, decl,
 						/*allow_template_p=*/true);
+      else if (decl == error_mark_node)
+	type = error_mark_node; 
     }
 
   if (!type)
@@ -16800,17 +16811,21 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_cv_quals quals)
   /* Consume the ->.  */
   cp_lexer_consume_token (parser->lexer);
 
+  tree save_ccp = current_class_ptr;
+  tree save_ccr = current_class_ref;
   if (quals >= 0)
     {
       /* DR 1207: 'this' is in scope in the trailing return type.  */
-      gcc_assert (current_class_ptr == NULL_TREE);
       inject_this_parameter (current_class_type, quals);
     }
 
   type = cp_parser_trailing_type_id (parser);
 
   if (quals >= 0)
-    current_class_ptr = current_class_ref = NULL_TREE;
+    {
+      current_class_ptr = save_ccp;
+      current_class_ref = save_ccr;
+    }
 
   return type;
 }

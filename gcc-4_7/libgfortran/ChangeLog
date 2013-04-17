@@ -1,3 +1,41 @@
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56737
+	* io/format.c (parse_format): With caching, copy
+	dtp->format string.
+	(save_parsed_format): Use dtp->format directly without
+	copying.
+
+	2012-03-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56737
+	* io/format.c (parse_format_list): Also cache FMT_STRING.
+	(parse_format): Update call.
+
+2013-04-03  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline:
+	2013-03-28  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56735
+	* io/list_read.c (nml_query): Only abort when
+	an error occured.
+	(namelist_read): Add goto instead of falling through.
+
+2013-02-21  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/30162
+	* io/open.c (test_endfile): Call stell only if size != 0.
+	* io/unix.c (raw_tell): Revert r194694.
+	(raw_size): Return size field only for regular files, otherwise 0.
+
 2012-12-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR libfortran/30162
@@ -27,9 +65,9 @@
 
 2012-05-31  Benjamin Kosnik  <bkoz@redhat.com>
 
-        PR libstdc++/52007
-        * configure.ac: Allow gnu, gnu* variants for --enable-symvers argument.
-        * configure: Regenerated.
+	PR libstdc++/52007
+	* configure.ac: Allow gnu, gnu* variants for --enable-symvers argument.
+	* configure: Regenerated.
 
 2012-05-12  Tobias Burnus  <burnus@net-b.de>
 

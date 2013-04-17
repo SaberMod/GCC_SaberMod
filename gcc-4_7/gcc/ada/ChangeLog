@@ -1,3 +1,52 @@
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-03-08  Cesar Strauss  <cestrauss@gmail.com>
+
+	PR ada/52123
+	* seh_init.c (Raise_From_Signal_Handler): Declare as no-return.
+	(__gnat_SEH_error_handler): Likewise.  Remove final return.
+
+2013-02-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR bootstrap/56258
+	* gnat-style.texi (@title): Remove @hfill.
+	* projects.texi: Avoid line wrapping inside of @pxref or @xref.
+
+2013-02-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/56271
+	Backport from mainline
+	2012-05-15  Olivier Hainque  <hainque@adacore.com>
+
+	* gcc-interface/Make-lang.in (COMMON_FLAGS_TO_PASS): Use WARN_CFLAGS
+	instead of trying to mimic it.
+
+2013-02-14  Rainer Emrich  <rainer@emrich-ebersheim.de>
+
+	Back-port from mainline.
+	PR target/52123
+	* adaint.c (__gnat_check_OWNER_ACL): Cast from pointer via
+	SECURITY_DESCRIPTOR *.
+	(__gnat_set_OWNER_ACL): Cast from DWORD to ACCESS_MODE.
+	(__gnat_portable_spawn): Fix cast to char* const*.
+	(add_handle): Cast from pointer via void **.
+	(add_handle): Cast from pointer via int *.
+	(__gnat_locate_exec_on_path): Cast from pointer via TCHAR *.
+	(__gnat_locate_exec_on_path): Cast from pointer via char *.
+	* initialize.c (append_arg): Cast from pointer via LPWSTR.
+	(__gnat_initialize): Cast from pointer via LPWSTR.
+	* seh_init.c (__gnat_SEH_error_handler): Cast from pointer via FARPROC.
+	* tracebak.c: Cast from pointer via FARPROC.
+
+2013-02-07  Simon Wright  <simon@pushface.org>
+
+	PR target/50678
+	* init.c (__darwin_major_version): New function for x86-64/Darwin.
+	(__gnat_adjust_context_for_raise) [Darwin]: Disable the workaround
+	on Darwin 12 and above.
+
 2013-01-06  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/decl.c (gnat_to_gnu_entity) <discrete_type>: Do not
