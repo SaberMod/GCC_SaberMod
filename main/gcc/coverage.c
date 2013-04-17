@@ -187,6 +187,15 @@ get_gcov_unsigned_t (void)
   return lang_hooks.types.type_for_mode (mode, true);
 }
 
+/* Return the type node for const char *.  */
+
+tree
+get_const_string_type (void)
+{
+  return build_pointer_type
+    (build_qualified_type (char_type_node, TYPE_QUAL_CONST));
+}
+
 inline hashval_t
 counts_entry::hash (const value_type *entry)
 {
@@ -2541,6 +2550,7 @@ coverage_init (const char *filename, const char* source_name)
   /* Define variables which are referenced at runtime by libgcov.  */
   if (profiling_enabled_p ())
     {
+      tree_init_instrumentation ();
       tree_init_dyn_ipa_parameters ();
       tree_init_instrumentation_sampling ();
     }
