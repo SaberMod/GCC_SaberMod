@@ -1,3 +1,8 @@
+2013-04-17  Luis Lozano  <llozano@google.com>
+
+	* gcc/tree-ssa-copyrename.c: fix from Rong for the copy-rename
+	issue
+
 2013-02-07  Luis Lozano  <llozano@google.com>
 
 	* gcc/cp/vtable-class-hierarchy.c: make sure that the symbol
