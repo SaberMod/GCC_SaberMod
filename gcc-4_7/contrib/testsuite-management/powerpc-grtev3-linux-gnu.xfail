@@ -1,3 +1,6 @@
+# ICE to be reported upstream
+FAIL: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o link, -O2 -fprofile-arcs -flto -r -nostdlib (internal compiler error)
+UNRESOLVED: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o execute -O2 -fprofile-arcs -flto -r -nostdlib
 # Ignore r194995 for gcc pr55852.
 FAIL: gfortran.dg/intrinsic_size_3.f90 -O   scan-tree-dump-times original "iszs = \\(integer\\(kind=2\\)\\) MAX_EXPR <\\(D.....->dim.0..ubound - D.....->dim.0..lbound\\) \\+ 1, 0>;" 1
 # Ignore gcc pr54127.

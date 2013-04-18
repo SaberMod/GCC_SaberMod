@@ -1,3 +1,6 @@
+# ICE to be reported upstream
+FAIL: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o link, -O2 -fprofile-arcs -flto -r -nostdlib (internal compiler error)
+UNRESOLVED: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o execute -O2 -fprofile-arcs -flto -r -nostdlib
 # Marked test failures for v16-powerpc64 toolchain built from
 # v16 release branch @64346, and v16 dev branch @64533.
 # *** gcc:
