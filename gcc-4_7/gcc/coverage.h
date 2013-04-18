@@ -61,7 +61,7 @@ extern gcov_type *get_coverage_counts (unsigned /*counter*/,
 extern gcov_type *get_coverage_counts_no_warn (struct function *, 
                                                unsigned /*counter*/, unsigned *);
 
-extern struct cgraph_node * find_func_by_global_id (unsigned HOST_WIDE_INT gid);
+extern struct cgraph_node * find_func_by_global_id (gcov_type gid, bool);
 
 /* All the coverage counters are supposed to be allocated by the time
    coverage_end_function is called. However, direct-call counters are

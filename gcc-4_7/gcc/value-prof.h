@@ -77,6 +77,8 @@ typedef VEC(histogram_value,heap) *histogram_values;
 extern void gimple_find_values_to_profile (histogram_values *);
 extern bool gimple_value_profile_transformations (void);
 
+histogram_value gimple_alloc_histogram_value (struct function *, enum hist_type,
+					      gimple stmt, tree);
 histogram_value gimple_histogram_value (struct function *, gimple);
 histogram_value gimple_histogram_value_of_type (struct function *, gimple,
 						enum hist_type);

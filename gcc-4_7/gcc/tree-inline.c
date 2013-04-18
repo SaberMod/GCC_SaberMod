@@ -1829,8 +1829,10 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
   if (flag_auto_profile && profile_info)
     {
       /* If the same inline happens in the profile-collection binary, use
-	 that instance's profile count. Otherwise use the scaled count.  */
-      gcov_type count = afdo_get_bb_count (copy_basic_block);
+	 that instance's profile count. Otherwise use the scaled count.
+	 Do *not* annotate value histogram on it because no value profile
+	 transformations will happen after ipa-inline.  */
+      gcov_type count = afdo_get_bb_count (copy_basic_block, false);
       if (copy_basic_block->flags & BB_ANNOTATED)
 	copy_basic_block->count = count;
       else if (bb->flags & BB_ANNOTATED)

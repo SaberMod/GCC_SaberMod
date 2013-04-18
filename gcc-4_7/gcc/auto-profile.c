@@ -27,8 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "flags.h"	      /* for auto_profile_file.  */
 #include "basic-block.h"      /* for gcov_type.	 */
-#include "diagnostic-core.h"  /* for inform().  */
-#include "gcov-io.h"	      /* for gcov_read_unsigned().  */
+#include "diagnostic-core.h"  /* for inform ().  */
+#include "gcov-io.h"	      /* for gcov_read_unsigned ().  */
 #include "input.h"	      /* for expanded_location.	 */
 #include "profile.h"	      /* for profile_info.  */
 #include "langhooks.h"	      /* for langhooks.	 */
@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "cgraph.h"
 #include "tree-flow.h"
+#include "value-prof.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -109,6 +110,8 @@ struct gcov_stack
   const char *callee_name;
   struct gcov_callsite_pos *stack;
   gcov_unsigned_t size;
+  struct gcov_hist *hist;
+  gcov_unsigned_t hist_size;
   gcov_type num_inst;
   gcov_type count;
   gcov_type max_count;
@@ -148,6 +151,17 @@ struct afdo_module
   unsigned num_cpp_includes;
   unsigned num_cl_args;
   char **strings;
+};
+
+struct gcov_hist
+{
+  enum hist_type type;
+  union
+    {
+      const char *func_name;
+      unsigned long long value;
+    } value;
+  gcov_type count;
 };
 
 /* Store the file name strings read from the profile data file.	 */
@@ -190,7 +204,7 @@ afdo_get_filename (const char *path_name)
   return path_name;
   if (path_name == NULL)
     return NULL;
-  last = strrchr(path_name, '/');
+  last = strrchr (path_name, '/');
   return ((last == 0) ? path_name : last + 1);
 }
 
@@ -206,7 +220,7 @@ afdo_get_original_name_size (const char *name)
     return 0;
   ret = strchr (name, '.');
   if (!ret)
-    return strlen(name);
+    return strlen (name);
   else
     return ret - name;
 }
@@ -312,8 +326,8 @@ afdo_stack_eq (const void *p, const void *q)
     {
       const struct gcov_callsite_pos *p1 = s1->stack + i;
       const struct gcov_callsite_pos *p2 = s2->stack + i;
-      if (strcmp (afdo_get_filename(p1->file), afdo_get_filename(p2->file))
-	  || strcmp (afdo_get_bfd_name(p1->func), afdo_get_bfd_name (p2->func))
+      if (strcmp (afdo_get_filename (p1->file), afdo_get_filename (p2->file))
+	  || strcmp (afdo_get_bfd_name (p1->func), afdo_get_bfd_name (p2->func))
 	  || p1->line != p2->line || (i== 0 && p1->discr != p2->discr))
 	return 0;
     }
@@ -493,6 +507,68 @@ read_aux_modules (void)
     }
 }
 
+/* From AutoFDO profiles, find values inside STMT for that we want to measure
+   histograms for indirect-call optimization.  */
+
+static void
+afdo_indirect_call (gimple stmt, struct gcov_hist *values, int hist_size)
+{
+  tree callee;
+  int i, total = 0;
+  int actual_count = 0;
+  histogram_value hist;
+
+  if (gimple_code (stmt) != GIMPLE_CALL
+      || gimple_call_fndecl (stmt) != NULL_TREE)
+    return;
+
+  callee = gimple_call_fn (stmt);
+
+  for (i = 0; i < hist_size; i++)
+    if (values[i].type == HIST_TYPE_INDIR_CALL_TOPN)
+      break;
+
+  if (i == hist_size)
+    return;
+
+  hist = gimple_alloc_histogram_value (cfun, HIST_TYPE_INDIR_CALL_TOPN,
+				       stmt, callee);
+  hist->n_counters = (GCOV_ICALL_TOPN_VAL << 2) + 1;
+  hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
+  gimple_add_histogram_value (cfun, stmt, hist);
+
+  for (i = 0; i < hist_size; i++)
+    if (values[i].type == HIST_TYPE_INDIR_CALL_TOPN)
+      {
+	total += values[i].count;
+	/* Values are pre-sorted by the profile generator.  */
+	if (actual_count < 2)
+	  {
+	    hist->hvalue.counters[actual_count * 2 + 1] =
+		(unsigned long long) values[i].value.func_name;
+	    hist->hvalue.counters[actual_count * 2 + 2] = values[i].count;
+	    actual_count ++;
+	  }
+      }
+
+  hist->hvalue.counters[0] = total;
+
+  if (actual_count == 1)
+    {
+      hist->hvalue.counters[3] = 0;
+      hist->hvalue.counters[4] = 0;
+    }
+}
+
+/* From AutoFDO profiles, find values inside STMT for that we want to measure
+   histograms and adds them to list VALUES.  */
+
+static void
+afdo_vpt (gimple stmt, struct gcov_hist *v, int hist_size)
+{
+  afdo_indirect_call (stmt, v, hist_size);
+}
+
 /* Return the size of the inline stack of the STMT.  */
 
 static int
@@ -575,8 +651,8 @@ get_inline_stack_by_stmt (gimple stmt, tree decl,
   loc = gimple_location (stmt);
   if (LOCATION_LOCUS (loc) == UNKNOWN_LOCATION)
     return 0;
-  pos_stack[idx].file = expand_location(loc).file;
-  pos_stack[idx].line = expand_location(loc).line;
+  pos_stack[idx].file = expand_location (loc).file;
+  pos_stack[idx].line = expand_location (loc).line;
   if (discr)
     pos_stack[idx].discr = get_discriminator_from_locus (loc);
   else
@@ -828,17 +904,18 @@ afdo_add_copy_scale (struct cgraph_edge *edge)
     afdo_propagate_copy_scale (e, stack);
 }
 
-/* For a given POS_STACK with SIZE, get the COUNT/NUM_INST info for the
-   inline stack. If CALLEE_NAME is non-null, the COUNT represents the
-   total count in the inline stack. Otherwise, the COUNT represents the
-   count of an ordinary statement. Return FALSE if profile is not found
-   for the given POS_STACK.  */
+/* For a given POS_STACK with SIZE, get the COUNT, MAX_COUNT, NUM_INST,
+   HIST_SIZE and HIST for the inline stack. If CALLEE_NAME is non-null,
+   the COUNT/MAX_COUNT represents the total/max count in the inline stack.
+   Otherwise, the COUNT represents the count of an ordinary statement,
+   HIST stores the value histogram vectors with size of HIST_SIZE.
+   Return FALSE if profile is not found for the given POS_STACK.  */
 
 static bool
 get_stack_count (struct gcov_callsite_pos *pos_stack,
-		 const char *callee_name,
-		 int size,
-		 gcov_type *count, gcov_type *max_count, gcov_type *num_inst)
+		 const char *callee_name, int size,
+		 gcov_type *count, gcov_type *max_count, gcov_type *num_inst,
+		 gcov_unsigned_t *hist_size, struct gcov_hist **hist)
 {
   int i;
 
@@ -858,6 +935,11 @@ get_stack_count (struct gcov_callsite_pos *pos_stack,
 	      *num_inst = entry->num_inst;
 	      if (max_count)
 		*max_count = entry->max_count;
+	      if (hist_size)
+		{
+		  *hist_size = entry->hist_size;
+		  *hist = entry->hist;
+		}
 	      return true;
 	    }
 	  else
@@ -876,6 +958,11 @@ get_stack_count (struct gcov_callsite_pos *pos_stack,
 		  *num_inst = entry->num_inst;
 		  if (max_count)
 		    *max_count = entry->max_count;
+		  if (hist_size)
+		    {
+		      *hist_size = entry->hist_size;
+		      *hist = entry->hist;
+		    }
 		  return true;
 		}
 	    }
@@ -885,6 +972,11 @@ get_stack_count (struct gcov_callsite_pos *pos_stack,
   *num_inst = 0;
   if (max_count)
     *max_count = 0;
+  if (hist_size)
+    {
+      *hist_size = 0;
+      *hist = 0;
+    }
   return false;
 }
 
@@ -892,7 +984,8 @@ get_stack_count (struct gcov_callsite_pos *pos_stack,
    Return FALSE if profile is not found for STMT.  */
 
 static bool
-get_stmt_count (gimple stmt, gcov_type *count, gcov_type *num_inst)
+get_stmt_count (gimple stmt, gcov_type *count, gcov_type *num_inst,
+		gcov_unsigned_t *hist_size, struct gcov_hist **hist)
 {
   struct gcov_callsite_pos *pos_stack;
   int size;
@@ -910,7 +1003,8 @@ get_stmt_count (gimple stmt, gcov_type *count, gcov_type *num_inst)
 
   get_inline_stack_by_stmt (stmt, current_function_decl, pos_stack, true);
 
-  return get_stack_count (pos_stack, NULL, size, count, NULL, num_inst);
+  return get_stack_count (pos_stack, NULL, size, count, NULL, num_inst,
+			  hist_size, hist);
 }
 
 /* For a given EDGE, if IS_TOTAL is true, save EDGE->callee's total count
@@ -935,16 +1029,17 @@ afdo_get_callsite_count (struct cgraph_edge *edge, gcov_type *count,
 
   if (!is_total)
     pos_stack[0].discr =
-	get_discriminator_from_locus(gimple_location(edge->call_stmt));
+	get_discriminator_from_locus (gimple_location (edge->call_stmt));
 
   return get_stack_count (pos_stack, callee_name,
-			  size, count, max_count, &num_inst);
+			  size, count, max_count, &num_inst, NULL, NULL);
 }
 
-/* For a given BB, return its execution count.  */
+/* For a given BB, return its execution count, and annotate value profile
+   on statements if ANNOTATE_VPT is true.  */
 
 gcov_type
-afdo_get_bb_count (basic_block bb)
+afdo_get_bb_count (basic_block bb, bool annotate_vpt)
 {
   gimple_stmt_iterator gsi;
   gcov_type max_count = 0;
@@ -953,12 +1048,16 @@ afdo_get_bb_count (basic_block bb)
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gcov_type count, num_inst;
+      gcov_unsigned_t hist_size;
+      struct gcov_hist *hist;
       gimple stmt = gsi_stmt (gsi);
-      if (get_stmt_count (stmt, &count, &num_inst))
+      if (get_stmt_count (stmt, &count, &num_inst, &hist_size, &hist))
 	{
 	  if (count > max_count)
 	    max_count = count;
 	  has_annotated = true;
+	  if (annotate_vpt && hist_size > 0)
+	    afdo_vpt (stmt, hist, hist_size);
 	}
     }
   if (has_annotated)
@@ -980,7 +1079,7 @@ afdo_annotate_cfg (void)
 
   FOR_EACH_BB (bb)
     {
-      bb->count = afdo_get_bb_count (bb);
+      bb->count = afdo_get_bb_count (bb, true);
       if (bb->count > max_count)
 	max_count = bb->count;
     }
@@ -992,6 +1091,8 @@ afdo_annotate_cfg (void)
       afdo_calculate_branch_prob ();
       profile_status = PROFILE_READ;
     }
+  if (flag_value_profile_transformations)
+    gimple_value_profile_transformations ();
 }
 
 extern gcov_working_set_t *gcov_working_sets;
@@ -1055,7 +1156,7 @@ read_profile (void)
     xmalloc (function_num * sizeof (struct gcov_function));
   for (i = 0; i < function_num; i++)
     {
-      gcov_functions[i].name = xstrdup (gcov_read_string ());
+      gcov_functions[i].name = file_names[gcov_read_unsigned ()];
       gcov_functions[i].file = file_names[gcov_read_unsigned ()];
       gcov_functions[i].total_count = gcov_read_counter ();
       gcov_functions[i].entry_count = gcov_read_counter ();
@@ -1087,6 +1188,26 @@ read_profile (void)
 	    }
 	  gcov_functions[i].stacks[j].count = gcov_read_counter ();
 	  gcov_functions[i].stacks[j].num_inst = gcov_read_counter ();
+	  gcov_functions[i].stacks[j].hist_size = gcov_read_unsigned ();
+	  if (gcov_functions[i].stacks[j].hist_size > 0)
+	    gcov_functions[i].stacks[j].hist = (struct gcov_hist *)
+	      xmalloc (gcov_functions[i].stacks[j].hist_size
+		       * sizeof (struct gcov_hist));
+	  else
+	    gcov_functions[i].stacks[j].hist = NULL;
+	  for (k = 0; k < gcov_functions[i].stacks[j].hist_size; k++)
+	    {
+	      gcov_functions[i].stacks[j].hist[k].type =
+		  (enum hist_type) gcov_read_unsigned ();
+	      if (gcov_functions[i].stacks[j].hist[k].type ==
+		  HIST_TYPE_INDIR_CALL_TOPN)
+		gcov_functions[i].stacks[j].hist[k].value.func_name =
+		    file_names[gcov_read_counter ()];
+	      else
+		gcov_functions[i].stacks[j].hist[k].value.value =
+		    gcov_read_counter ();
+	      gcov_functions[i].stacks[j].hist[k].count = gcov_read_counter ();
+	    }
 	}
     }
 
@@ -1107,19 +1228,19 @@ read_profile (void)
     {
       unsigned num_strings;
       struct afdo_module **slot;
-      modules[i].name = xstrdup (gcov_read_string());
+      modules[i].name = xstrdup (gcov_read_string ());
       modules[i].ident = i + 1;
       /* exported flag.	 */
-      modules[i].exported = gcov_read_unsigned();
+      modules[i].exported = gcov_read_unsigned ();
       /* has_asm flag.  */
-      modules[i].has_asm = gcov_read_unsigned();
+      modules[i].has_asm = gcov_read_unsigned ();
       /* aux_module and 5 options.  */
-      modules[i].num_aux_modules = gcov_read_unsigned();
-      modules[i].num_quote_paths = gcov_read_unsigned();
-      modules[i].num_bracket_paths = gcov_read_unsigned();
-      modules[i].num_cpp_defines = gcov_read_unsigned();
-      modules[i].num_cpp_includes = gcov_read_unsigned();
-      modules[i].num_cl_args = gcov_read_unsigned();
+      modules[i].num_aux_modules = gcov_read_unsigned ();
+      modules[i].num_quote_paths = gcov_read_unsigned ();
+      modules[i].num_bracket_paths = gcov_read_unsigned ();
+      modules[i].num_cpp_defines = gcov_read_unsigned ();
+      modules[i].num_cpp_includes = gcov_read_unsigned ();
+      modules[i].num_cl_args = gcov_read_unsigned ();
       num_strings = modules[i].num_aux_modules
 	+ modules[i].num_quote_paths
 	+ modules[i].num_bracket_paths
@@ -1129,7 +1250,7 @@ read_profile (void)
       modules[i].strings = (char **)
 	xmalloc (num_strings * sizeof (char *));
       for (j = 0; j < num_strings; j++)
-	modules[i].strings[j] = xstrdup (gcov_read_string());
+	modules[i].strings[j] = xstrdup (gcov_read_string ());
       slot = (struct afdo_module **)
 	htab_find_slot (module_htab, &modules[i], INSERT);
       if (!*slot)
@@ -1280,7 +1401,7 @@ init_auto_profile (void)
   read_profile ();
 
   if (flag_dyn_ipa)
-    read_aux_modules();
+    read_aux_modules ();
 }
 
 /* Free the resources.  */
@@ -1293,7 +1414,11 @@ end_auto_profile (void)
   for (i = 0; i < function_num; i++)
     {
       for (j = 0; j < gcov_functions[i].stack_num; ++j)
-	free (gcov_functions[i].stacks[j].stack);
+	{
+	  if (gcov_functions[i].stacks[j].hist_size > 0)
+	    free (gcov_functions[i].stacks[j].hist);
+	  free (gcov_functions[i].stacks[j].stack);
+	}
       free (gcov_functions[i].stacks);
     }
   free (gcov_functions);
@@ -1533,7 +1658,7 @@ afdo_propagate_circuit (void)
       phi_stmt = SSA_NAME_DEF_STMT (cmp_lhs);
       while (phi_stmt && gimple_code (phi_stmt) == GIMPLE_ASSIGN
 	     && gimple_assign_single_p (phi_stmt)
-	     && TREE_CODE(gimple_assign_rhs1 (phi_stmt)) == SSA_NAME)
+	     && TREE_CODE (gimple_assign_rhs1 (phi_stmt)) == SSA_NAME)
 	phi_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (phi_stmt));
       if (!phi_stmt || gimple_code (phi_stmt) != GIMPLE_PHI)
 	continue;
@@ -1667,6 +1792,27 @@ afdo_calculate_branch_prob (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
+/* Returns TRUE if EDGE is hot enough to be inlined early.  */
+
+bool
+afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *edge)
+{
+  gcov_type count, max_count;
+  if (afdo_get_callsite_count (edge, &count, &max_count, true))
+    {
+      bool is_hot;
+      const struct gcov_ctr_summary *saved_profile_info = profile_info;
+      /* At earling inline stage, profile_info is not set yet. We need to
+	 temporarily set it to afdo_profile_info to calculate hotness.  */
+      profile_info = afdo_profile_info;
+      is_hot = maybe_hot_count_p (count);
+      profile_info = saved_profile_info;
+      return is_hot;
+    }
+  else
+    return false;
+}
+
 /* Use AutoFDO profile to annoate the control flow graph.
    Return the todo flag.  */
 
@@ -1678,7 +1824,7 @@ auto_profile (void)
   if (cgraph_state == CGRAPH_STATE_FINISHED)
     return 0;
 
-  init_node_map();
+  init_node_map ();
   profile_info = afdo_profile_info;
 
   for (node = cgraph_nodes; node; node = node->next)
@@ -1698,6 +1844,7 @@ auto_profile (void)
 
       afdo_annotate_cfg ();
       compute_function_frequency ();
+      update_ssa (TODO_update_ssa);
 
       current_function_decl = NULL;
       pop_cfun ();

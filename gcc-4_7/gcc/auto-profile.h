@@ -42,6 +42,9 @@ extern void afdo_calculate_branch_prob (void);
 extern bool afdo_get_callsite_count (struct cgraph_edge *, gcov_type *,
 				     gcov_type *, bool);
 
+/* Returns TRUE if EDGE is hot enough to be inlined early.  */
+extern bool afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *);
+
 /* Calculate basic block count.  */
-extern gcov_type afdo_get_bb_count (basic_block);
+extern gcov_type afdo_get_bb_count (basic_block, bool);
 #endif /* AUTO_PROFILE_H */
