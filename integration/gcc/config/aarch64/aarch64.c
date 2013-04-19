@@ -2926,9 +2926,10 @@ aarch64_classify_address (struct aarch64_address_info *info,
     case CONST:
     case SYMBOL_REF:
     case LABEL_REF:
-      /* load literal: pc-relative constant pool entry.  */
+      /* load literal: pc-relative constant pool entry.  Only supported
+         for SI mode or larger.  */
       info->type = ADDRESS_SYMBOLIC;
-      if (outer_code != PARALLEL)
+      if (outer_code != PARALLEL && GET_MODE_SIZE (mode) >= 4)
 	{
 	  rtx sym, addend;
 
@@ -3348,7 +3349,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  output_operand_lossage ("incompatible floating point / vector register operand for '%%%c'", code);
 	  return;
 	}
-      asm_fprintf (f, "%s%c%d", REGISTER_PREFIX, code, REGNO (x) - V0_REGNUM);
+      asm_fprintf (f, "%c%d", code, REGNO (x) - V0_REGNUM);
       break;
 
     case 'S':
@@ -3361,8 +3362,17 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  output_operand_lossage ("incompatible floating point / vector register operand for '%%%c'", code);
 	  return;
 	}
-      asm_fprintf (f, "%sv%d", REGISTER_PREFIX,
-			       REGNO (x) - V0_REGNUM + (code - 'S'));
+      asm_fprintf (f, "v%d", REGNO (x) - V0_REGNUM + (code - 'S'));
+      break;
+
+    case 'X':
+      /* Print integer constant in hex.  */
+      if (GET_CODE (x) != CONST_INT)
+	{
+	  output_operand_lossage ("invalid operand for '%%%c'", code);
+	  return;
+	}
+      asm_fprintf (f, "0x%x", UINTVAL (x));
       break;
 
     case 'w':
@@ -3372,20 +3382,19 @@ aarch64_print_operand (FILE *f, rtx x, char code)
       if (x == const0_rtx
 	  || (CONST_DOUBLE_P (x) && aarch64_float_const_zero_rtx_p (x)))
 	{
-	  asm_fprintf (f, "%s%czr", REGISTER_PREFIX, code);
+	  asm_fprintf (f, "%czr", code);
 	  break;
 	}
 
       if (REG_P (x) && GP_REGNUM_P (REGNO (x)))
 	{
-	  asm_fprintf (f, "%s%c%d", REGISTER_PREFIX, code,
-		       REGNO (x) - R0_REGNUM);
+	  asm_fprintf (f, "%c%d", code, REGNO (x) - R0_REGNUM);
 	  break;
 	}
 
       if (REG_P (x) && REGNO (x) == SP_REGNUM)
 	{
-	  asm_fprintf (f, "%s%ssp", REGISTER_PREFIX, code == 'w' ? "w" : "");
+	  asm_fprintf (f, "%ssp", code == 'w' ? "w" : "");
 	  break;
 	}
 
@@ -3870,14 +3879,21 @@ aarch64_can_eliminate (const int from, const int to)
     }
   else
     {
-      /* If we decided that we didn't need a frame pointer but then used
-	 LR in the function, then we do need a frame pointer after all, so
-	 prevent this elimination to ensure a frame pointer is used.  */
+      /* If we decided that we didn't need a leaf frame pointer but then used
+	 LR in the function, then we'll want a frame pointer after all, so
+	 prevent this elimination to ensure a frame pointer is used.
 
+	 NOTE: the original value of flag_omit_frame_pointer gets trashed
+	 IFF flag_omit_leaf_frame_pointer is true, so we check the value
+	 of faked_omit_frame_pointer here (which is true when we always
+	 wish to keep non-leaf frame pointers but only wish to keep leaf frame
+	 pointers when LR is clobbered).  */
       if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM
-	  && df_regs_ever_live_p (LR_REGNUM))
+	  && df_regs_ever_live_p (LR_REGNUM)
+	  && faked_omit_frame_pointer)
 	return false;
     }
+
   return true;
 }
 
@@ -4054,7 +4070,7 @@ aarch64_output_casesi (rtx *operands)
 {
   char buf[100];
   char label[100];
-  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_active_insn (operands[2]));
   int index;
   static const char *const patterns[4][2] =
   {
@@ -6389,6 +6405,21 @@ aarch64_simd_gen_const_vector_dup (enum machine_mode mode, int val)
     RTVEC_ELT (v, i) = GEN_INT (val);
 
   return gen_rtx_CONST_VECTOR (mode, v);
+}
+
+/* Check OP is a legal scalar immediate for the MOVI instruction.  */
+
+bool
+aarch64_simd_scalar_immediate_valid_for_move (rtx op, enum machine_mode mode)
+{
+  enum machine_mode vmode;
+
+  gcc_assert (!VECTOR_MODE_P (mode));
+  vmode = aarch64_preferred_simd_mode (mode);
+  rtx op_v = aarch64_simd_gen_const_vector_dup (vmode, INTVAL (op));
+  int retval = aarch64_simd_immediate_valid_for_move (op_v, vmode, 0,
+						      NULL, NULL, NULL, NULL);
+  return retval;
 }
 
 /* Construct and return a PARALLEL RTX vector.  */
