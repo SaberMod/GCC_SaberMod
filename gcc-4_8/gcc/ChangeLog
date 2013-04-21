@@ -1,3 +1,39 @@
+2013-04-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56984
+	* tree-vrp.c (register_edge_assert_for_2): For (x >> M) < N
+	and (x >> M) >= N don't register any assertion if N << M is the
+	minimum value.
+
+2013-04-17  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR target/56948
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add j->r alternative.
+
+2013-04-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56962
+	* gimple-ssa-strength-reduction.c (record_increment): Only set
+	initializer if gimple_assign_rhs_code is {,POINTER_}PLUS_EXPR and
+	either rhs1 or rhs2 is equal to c->base_expr.
+
+2013-04-15  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* emit-rtl.c (reset_all_used_flags): New function.
+	(verify_rtl_sharing): Call reset_all_used_flags before and after
+	performing the checks.
+
+2013-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/56890
+	* config/sparc/sparc.c (enum sparc_mode_class): Add H_MODE value.
+	(S_MODES): Set H_MODE bit.
+	(SF_MODES): Set only S_MODE and SF_MODE bits.
+	(DF_MODES): Set SF_MODES and only D_MODE and DF_MODE bits.
+	(sparc_init_modes) <MODE_INT>: Set H_MODE bit for sub-word modes.
+	<MODE_VECTOR_INT>: Do not set SF_MODE for sub-word modes.
+	<MODE_FLOAT>: Likewise.
+
 2013-04-12  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR target/56903
