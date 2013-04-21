@@ -1852,7 +1852,7 @@ static tree cp_parser_qualifying_entity
 static tree cp_parser_postfix_expression
   (cp_parser *, bool, bool, bool, bool, cp_id_kind *);
 static tree cp_parser_postfix_open_square_expression
-  (cp_parser *, tree, bool);
+  (cp_parser *, tree, bool, bool);
 static tree cp_parser_postfix_dot_deref_expression
   (cp_parser *, enum cpp_ttype, tree, bool, cp_id_kind *, location_t);
 static vec<tree, va_gc> *cp_parser_parenthesized_expression_list
@@ -3702,6 +3702,37 @@ make_char_string_pack (tree value)
   return argvec;
 }
 
+/* A subroutine of cp_parser_userdef_numeric_literal to
+   create a char... template parameter pack from a string node.  */
+
+static tree
+make_string_pack (tree value)
+{
+  tree charvec;
+  tree argpack = make_node (NONTYPE_ARGUMENT_PACK);
+  const char *str = TREE_STRING_POINTER (value);
+  int i, len = TREE_STRING_LENGTH (value) - 1;
+  tree argvec = make_tree_vec (2);
+
+  tree string_char_type_node = TREE_TYPE (TREE_TYPE (value));
+
+  /* First template parm is character type.  */
+  TREE_VEC_ELT (argvec, 0) = string_char_type_node;
+
+  /* Fill in CHARVEC with all of the parameters.  */
+  charvec = make_tree_vec (len);
+  for (i = 0; i < len; ++i)
+    TREE_VEC_ELT (charvec, i) = build_int_cst (string_char_type_node, str[i]);
+
+  /* Build the argument packs.  */
+  SET_ARGUMENT_PACK_ARGS (argpack, charvec);
+  TREE_TYPE (argpack) = string_char_type_node;
+
+  TREE_VEC_ELT (argvec, 1) = argpack;
+
+  return argvec;
+}
+
 /* Parse a user-defined numeric constant.  returns a call to a user-defined
    literal operator.  */
 
@@ -3801,10 +3832,29 @@ cp_parser_userdef_string_literal (cp_token *token)
   int len = TREE_STRING_LENGTH (value)
 	/ TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (value)))) - 1;
   tree decl, result;
+  vec<tree, va_gc> *args;
+
+  /* Look for a template function with typename parameter CharT
+     and parameter pack CharT...  Call the function with
+     template parameter characters representing the string.  */
+  args = make_tree_vector ();
+  decl = lookup_literal_operator (name, args);
+  if (decl && decl != error_mark_node)
+    {
+      tree tmpl_args = make_string_pack (value);
+      decl = lookup_template_function (decl, tmpl_args);
+      result = finish_call_expr (decl, &args, false, true, tf_none);
+      if (result != error_mark_node)
+	{
+	  release_tree_vector (args);
+	  return result;
+	}
+    }
+  release_tree_vector (args);
 
   /* Build up a call to the user-defined operator  */
   /* Lookup the name we got back from the id-expression.  */
-  vec<tree, va_gc> *args = make_tree_vector ();
+  args = make_tree_vector ();
   vec_safe_push (args, value);
   vec_safe_push (args, build_int_cst (size_type_node, len));
   decl = lookup_name (name);
@@ -3889,6 +3939,18 @@ cp_parser_translation_unit (cp_parser* parser)
 
   /* All went well.  */
   return success;
+}
+
+/* Return the appropriate tsubst flags for parsing, possibly in N3276
+   decltype context.  */
+
+static inline tsubst_flags_t
+complain_flags (bool decltype_p)
+{
+  tsubst_flags_t complain = tf_warning_or_error;
+  if (decltype_p)
+    complain |= tf_decltype;
+  return complain;
 }
 
 /* Expressions [gram.expr] */
@@ -5726,7 +5788,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  postfix_expression
 	    = cp_parser_postfix_open_square_expression (parser,
 							postfix_expression,
-							false);
+							false,
+							decltype_p);
 	  idk = CP_ID_KIND_NONE;
           is_member_access = false;
 	  break;
@@ -5738,11 +5801,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    bool is_builtin_constant_p;
 	    bool saved_integral_constant_expression_p = false;
 	    bool saved_non_integral_constant_expression_p = false;
-	    int complain = tf_warning_or_error;
+	    tsubst_flags_t complain = complain_flags (decltype_p);
 	    vec<tree, va_gc> *args;
-
-	    if (decltype_p)
-	      complain |= tf_decltype;
 
             is_member_access = false;
 
@@ -5972,7 +6032,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 static tree
 cp_parser_postfix_open_square_expression (cp_parser *parser,
 					  tree postfix_expression,
-					  bool for_offsetof)
+					  bool for_offsetof,
+					  bool decltype_p)
 {
   tree index;
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
@@ -6006,7 +6067,8 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
   cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
 
   /* Build the ARRAY_REF.  */
-  postfix_expression = grok_array_decl (loc, postfix_expression, index);
+  postfix_expression = grok_array_decl (loc, postfix_expression,
+					index, decltype_p);
 
   /* When not doing offsetof, array references are not permitted in
      constant-expressions.  */
@@ -6702,6 +6764,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
       tree expression = error_mark_node;
       non_integral_constant non_constant_p = NIC_NONE;
       location_t loc = token->location;
+      tsubst_flags_t complain = complain_flags (decltype_p);
 
       /* Consume the operator token.  */
       token = cp_lexer_consume_token (parser->lexer);
@@ -6719,7 +6782,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  non_constant_p = NIC_STAR;
 	  expression = build_x_indirect_ref (loc, cast_expression,
 					     RO_UNARY_STAR,
-                                             tf_warning_or_error);
+                                             complain);
 	  break;
 
 	case ADDR_EXPR:
@@ -6728,7 +6791,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
 	case BIT_NOT_EXPR:
 	  expression = build_x_unary_op (loc, unary_operator,
 					 cast_expression,
-                                         tf_warning_or_error);
+                                         complain);
 	  break;
 
 	case PREINCREMENT_EXPR:
@@ -6740,7 +6803,7 @@ cp_parser_unary_expression (cp_parser *parser, bool address_p, bool cast_p,
 	case NEGATE_EXPR:
 	case TRUTH_NOT_EXPR:
 	  expression = finish_unary_op_expr (loc, unary_operator,
-					     cast_expression);
+					     cast_expression, complain);
 	  break;
 
 	default:
@@ -7567,7 +7630,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 	current.lhs = build_x_binary_op (current.loc, current.tree_type,
 					 current.lhs, current.lhs_type,
 					 rhs, rhs_type, &overload,
-					 tf_warning_or_error);
+					 complain_flags (decltype_p));
       current.lhs_type = current.tree_type;
       if (EXPR_P (current.lhs))
 	SET_EXPR_LOCATION (current.lhs, current.loc);
@@ -7722,7 +7785,7 @@ cp_parser_assignment_expression (cp_parser* parser, bool cast_p,
 	      expr = build_x_modify_expr (loc, expr,
 					  assignment_operator,
 					  rhs,
-					  tf_warning_or_error);
+					  complain_flags (decltype_p));
 	      input_location = saved_input_location;
 	    }
 	}
@@ -7868,7 +7931,7 @@ cp_parser_expression (cp_parser* parser, bool cast_p, bool decltype_p,
       else
 	expression = build_x_compound_expr (loc, expression,
 					    assignment_expression,
-                                            tf_warning_or_error);
+					    complain_flags (decltype_p));
       /* If the next token is not a comma, then we are done with the
 	 expression.  */
       if (cp_lexer_next_token_is_not (parser->lexer, CPP_COMMA))
@@ -8019,12 +8082,14 @@ cp_parser_builtin_offsetof (cp_parser *parser)
 	{
 	case CPP_OPEN_SQUARE:
 	  /* offsetof-member-designator "[" expression "]" */
-	  expr = cp_parser_postfix_open_square_expression (parser, expr, true);
+	  expr = cp_parser_postfix_open_square_expression (parser, expr,
+							   true, false);
 	  break;
 
 	case CPP_DEREF:
 	  /* offsetof-member-designator "->" identifier */
-	  expr = grok_array_decl (token->location, expr, integer_zero_node);
+	  expr = grok_array_decl (token->location, expr,
+				  integer_zero_node, false);
 	  /* FALLTHRU */
 
 	case CPP_DOT:
@@ -9766,7 +9831,8 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
 
   /* The new increment expression.  */
   expression = finish_unary_op_expr (input_location,
-				     PREINCREMENT_EXPR, begin);
+				     PREINCREMENT_EXPR, begin,
+				     tf_warning_or_error);
   finish_for_expr (expression, statement);
 
   /* The declaration is initialized with *__begin inside the loop body.  */
@@ -11444,7 +11510,7 @@ cp_parser_decltype (cp_parser *parser)
       cp_lexer_consume_token (parser->lexer);
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	return error_mark_node;
-      expr = make_auto ();
+      expr = make_decltype_auto ();
       AUTO_IS_DECLTYPE (expr) = true;
       goto rewrite;
     }
@@ -14750,6 +14816,9 @@ cp_parser_enum_specifier (cp_parser* parser)
 	{
 	  identifier = make_anon_name ();
 	  is_anonymous = true;
+	  if (scoped_enum_p)
+	    error_at (type_start_token->location,
+		      "anonymous scoped enum is not allowed");
 	}
     }
   pop_deferring_access_checks ();
@@ -14897,7 +14966,13 @@ cp_parser_enum_specifier (cp_parser* parser)
       if (type == error_mark_node)
 	cp_parser_skip_to_end_of_block_or_statement (parser);
       /* If the next token is not '}', then there are some enumerators.  */
-      else if (cp_lexer_next_token_is_not (parser->lexer, CPP_CLOSE_BRACE))
+      else if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
+	{
+	  if (is_anonymous && !scoped_enum_p)
+	    pedwarn (type_start_token->location, OPT_Wpedantic,
+		     "ISO C++ forbids empty anonymous enum");
+	}
+      else
 	cp_parser_enumerator_list (parser, type);
 
       /* Consume the final '}'.  */
@@ -22076,9 +22151,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       else
 	{
 	  int num_parms = TREE_VEC_LENGTH (parameter_list);
-	  if (num_parms != 1)
-	    ok = false;
-	  else
+	  if (num_parms == 1)
 	    {
 	      tree parm_list = TREE_VEC_ELT (parameter_list, 0);
 	      tree parm = INNERMOST_TEMPLATE_PARMS (parm_list);
@@ -22086,10 +22159,23 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 		  || !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
 		ok = false;
 	    }
+	  else if (num_parms == 2 && cxx_dialect >= cxx1y)
+	    {
+	      tree parm_type = TREE_VEC_ELT (parameter_list, 0);
+	      tree type = INNERMOST_TEMPLATE_PARMS (parm_type);
+	      tree parm_list = TREE_VEC_ELT (parameter_list, 1);
+	      tree parm = INNERMOST_TEMPLATE_PARMS (parm_list);
+	      if (TREE_TYPE (parm) != TREE_TYPE (type)
+		  || !TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)))
+		ok = false;
+	    }
+	  else
+	    ok = false;
 	}
       if (!ok)
 	error ("literal operator template %qD has invalid parameter list."
-	       "  Expected non-type template argument pack <char...>",
+	       "  Expected non-type template argument pack <char...>"
+	       " or <typename CharT, CharT...>",
 	       decl);
     }
   /* Register member declarations.  */

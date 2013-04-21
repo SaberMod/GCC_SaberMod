@@ -43,32 +43,32 @@ along with GCC; see the file COPYING3.	If not see
 
    Here is block diagram of LRA passes:
 
-	  ---------------------
-	 | Undo inheritance    |      ---------------	     ---------------
-	 | for spilled pseudos)|     | Memory-memory |	    | New (and old) |
-	 | and splits (for     |<----| move coalesce |<-----|	 pseudos    |
-	 | pseudos got the     |      ---------------	    |	assignment  |
-  Start	 |  same  hard regs)   |			     ---------------
-    |	  ---------------------					    ^
-    V		  |		 ----------------		    |
- -----------	  V		| Update virtual |		    |
-|  Remove   |----> ------------>|    register	 |		    |
-| scratches |	  ^		|  displacements |		    |
- -----------	  |		 ----------------		    |
-		  |			 |			    |
-		  |			 V	   New		    |
-	 ----------------    No	   ------------	 pseudos   -------------------
-	| Spilled pseudo | change |Constraints:| or insns | Inheritance/split |
-	|    to memory	 |<-------|    RTL     |--------->|  transformations  |
-	|  substitution	 |	  | transfor-  |	  |    in EBB scope   |
-	 ----------------	  |  mations   |	   -------------------
-		|		    ------------
-		V
+                                ---------------------
+           ---------------     | Undo inheritance    |     ---------------
+          | Memory-memory |    | for spilled pseudos)|    | New (and old) |
+          | move coalesce |<---| and splits (for     |<-- |   pseudos     |
+           ---------------     | pseudos got the     |    |  assignment   |
+  Start           |            |  same  hard regs)   |     ---------------
+    |             |             ---------------------               ^
+    V             |              ----------------                   |
+ -----------      V             | Update virtual |                  |
+|  Remove   |----> ------------>|    register    |                  |
+| scratches |     ^             |  displacements |                  |
+ -----------      |              ----------------                   |
+                  |                      |                          |
+                  |                      V         New              |
+         ----------------    No    ------------  pseudos   -------------------
+        | Spilled pseudo | change |Constraints:| or insns | Inheritance/split |
+        |    to memory   |<-------|    RTL     |--------->|  transformations  |
+        |  substitution  |        | transfor-  |          |    in EBB scope   |
+         ----------------         |  mations   |           -------------------
+                |                   ------------
+                V
     -------------------------
    | Hard regs substitution, |
    |  devirtalization, and   |------> Finish
    | restoring scratches got |
-   |	     memory	     |
+   |         memory          |
     -------------------------
 
    To speed up the process:
@@ -2295,11 +2295,20 @@ lra (FILE *f)
 	    lra_assign ();
 	  else
 	    {
-	      /* Do coalescing only for regular algorithms.  */
-	      if (! lra_assign () && lra_coalesce ())
-		live_p = false;
+	      bool spill_p = !lra_assign ();
+
 	      if (lra_undo_inheritance ())
 		live_p = false;
+	      if (spill_p)
+		{
+		  if (! live_p)
+		    {
+		      lra_create_live_ranges (true);
+		      live_p = true;
+		    }
+		  if (lra_coalesce ())
+		    live_p = false;
+		}
 	      if (! live_p)
 		lra_clear_live_ranges ();
 	    }

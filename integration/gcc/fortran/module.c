@@ -71,15 +71,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "arith.h"
 #include "match.h"
 #include "parse.h" /* FIXME */
-#include "md5.h"
 #include "constructor.h"
 #include "cpp.h"
 #include "tree.h"
+#include "scanner.h"
+#include <zlib.h>
 
 #define MODULE_EXTENSION ".mod"
 
-/* Don't put any single quote (') in MOD_VERSION, 
-   if yout want it to be recognized.  */
+/* Don't put any single quote (') in MOD_VERSION, if you want it to be
+   recognized.  
+   TODO: When the version is bumped, remove the extra empty line at
+   the beginning of module files.  */
 #define MOD_VERSION "10"
 
 
@@ -180,11 +183,9 @@ pointer_info;
 
 /* Local variables */
 
-/* The FILE for the module we're reading or writing.  */
-static FILE *module_fp;
+/* The gzFile for the module we're reading or writing.  */
+static gzFile module_fp;
 
-/* MD5 context structure.  */
-static struct md5_ctx ctx;
 
 /* The name of the module we're reading (USE'ing) or writing.  */
 static const char *module_name;
@@ -555,8 +556,8 @@ gfc_match_use (void)
     {
       if ((m = gfc_match (" %n ::", module_nature)) == MATCH_YES)
 	{
-	  if (gfc_notify_std (GFC_STD_F2003, "module "
-			      "nature in USE statement at %C") == FAILURE)
+	  if (!gfc_notify_std (GFC_STD_F2003, "module "
+			       "nature in USE statement at %C"))
 	    goto cleanup;
 
 	  if (strcmp (module_nature, "intrinsic") == 0)
@@ -590,8 +591,7 @@ gfc_match_use (void)
     {
       m = gfc_match (" ::");
       if (m == MATCH_YES &&
-	  gfc_notify_std (GFC_STD_F2003,
-			  "\"USE :: module\" at %C") == FAILURE)
+	  !gfc_notify_std(GFC_STD_F2003, "\"USE :: module\" at %C"))
 	goto cleanup;
 
       if (m != MATCH_YES)
@@ -658,9 +658,8 @@ gfc_match_use (void)
 	  m = gfc_match (" =>");
 
 	  if (type == INTERFACE_USER_OP && m == MATCH_YES
-	      && (gfc_notify_std (GFC_STD_F2003, "Renaming "
-				  "operators in USE statements at %C")
-		 == FAILURE))
+	      && (!gfc_notify_std(GFC_STD_F2003, "Renaming "
+				  "operators in USE statements at %C")))
 	    goto cleanup;
 
 	  if (type == INTERFACE_USER_OP)
@@ -977,6 +976,76 @@ free_true_name (true_name *t)
 /*****************************************************************/
 
 /* Module reading and writing.  */
+
+/* The following are versions similar to the ones in scanner.c, but
+   for dealing with compressed module files.  */
+
+static gzFile
+gzopen_included_file_1 (const char *name, gfc_directorylist *list,
+                     bool module, bool system)
+{
+  char *fullname;
+  gfc_directorylist *p;
+  gzFile f;
+
+  for (p = list; p; p = p->next)
+    {
+      if (module && !p->use_for_modules)
+       continue;
+
+      fullname = (char *) alloca(strlen (p->path) + strlen (name) + 1);
+      strcpy (fullname, p->path);
+      strcat (fullname, name);
+
+      f = gzopen (fullname, "r");
+      if (f != NULL)
+       {
+         if (gfc_cpp_makedep ())
+           gfc_cpp_add_dep (fullname, system);
+
+         return f;
+       }
+    }
+
+  return NULL;
+}
+
+static gzFile 
+gzopen_included_file (const char *name, bool include_cwd, bool module)
+{
+  gzFile f = NULL;
+
+  if (IS_ABSOLUTE_PATH (name) || include_cwd)
+    {
+      f = gzopen (name, "r");
+      if (f && gfc_cpp_makedep ())
+       gfc_cpp_add_dep (name, false);
+    }
+
+  if (!f)
+    f = gzopen_included_file_1 (name, include_dirs, module, false);
+
+  return f;
+}
+
+static gzFile
+gzopen_intrinsic_module (const char* name)
+{
+  gzFile f = NULL;
+
+  if (IS_ABSOLUTE_PATH (name))
+    {
+      f = gzopen (name, "r");
+      if (f && gfc_cpp_makedep ())
+        gfc_cpp_add_dep (name, true);
+    }
+
+  if (!f)
+    f = gzopen_included_file_1 (name, intrinsic_modules_dirs, true, true);
+
+  return f;
+}
+
 
 typedef enum
 {
@@ -1465,12 +1534,9 @@ read_string (void)
 static void
 write_char (char out)
 {
-  if (putc (out, module_fp) == EOF)
+  if (gzputc (module_fp, out) == EOF)
     gfc_fatal_error ("Error writing modules file: %s", xstrerror (errno));
 
-  /* Add this to our MD5.  */
-  md5_process_bytes (&out, sizeof (out), &ctx);
-  
   if (out != '\n')
     module_column++;
   else
@@ -4089,7 +4155,7 @@ load_generic_interfaces (void)
 	      if (st && !sym->attr.generic
 		     && !st->ambiguous
 		     && sym->module
-		     && strcmp(module, sym->module))
+		     && strcmp (module, sym->module))
 		{
 		  ambiguous_set = true;
 		  st->ambiguous = 1;
@@ -5409,61 +5475,47 @@ write_module (void)
 }
 
 
-/* Read a MD5 sum from the header of a module file.  If the file cannot
-   be opened, or we have any other error, we return -1.  */
+/* Read a CRC32 sum from the gzip trailer of a module file.  Returns
+   true on success, false on failure.  */
 
-static int
-read_md5_from_module_file (const char * filename, unsigned char md5[16])
+static bool
+read_crc32_from_module_file (const char* filename, uLong* crc)
 {
   FILE *file;
-  char buf[1024];
-  int n;
+  char buf[4];
+  unsigned int val;
 
-  /* Open the file.  */
-  if ((file = fopen (filename, "r")) == NULL)
-    return -1;
+  /* Open the file in binary mode.  */
+  if ((file = fopen (filename, "rb")) == NULL)
+    return false;
 
-  /* Read the first line.  */
-  if (fgets (buf, sizeof (buf) - 1, file) == NULL)
+  /* The gzip crc32 value is found in the [END-8, END-4] bytes of the
+     file. See RFC 1952.  */
+  if (fseek (file, -8, SEEK_END) != 0)
     {
       fclose (file);
-      return -1;
+      return false;
     }
 
-  /* The file also needs to be overwritten if the version number changed.  */
-  n = strlen ("GFORTRAN module version '" MOD_VERSION "' created");
-  if (strncmp (buf, "GFORTRAN module version '" MOD_VERSION "' created", n) != 0)
+  /* Read the CRC32.  */
+  if (fread (buf, 1, 4, file) != 4)
     {
       fclose (file);
-      return -1;
-    }
- 
-  /* Read a second line.  */
-  if (fgets (buf, sizeof (buf) - 1, file) == NULL)
-    {
-      fclose (file);
-      return -1;
+      return false;
     }
 
   /* Close the file.  */
   fclose (file);
 
-  /* If the header is not what we expect, or is too short, bail out.  */
-  if (strncmp (buf, "MD5:", 4) != 0 || strlen (buf) < 4 + 16)
-    return -1;
+  val = (buf[0] & 0xFF) + ((buf[1] & 0xFF) << 8) + ((buf[2] & 0xFF) << 16) 
+    + ((buf[3] & 0xFF) << 24);
+  *crc = val;
+  
+  /* For debugging, the CRC value printed in hexadecimal should match
+     the CRC printed by "zcat -l -v filename".
+     printf("CRC of file %s is %x\n", filename, val); */
 
-  /* Now, we have a real MD5, read it into the array.  */
-  for (n = 0; n < 16; n++)
-    {
-      unsigned int x;
-
-      if (sscanf (&(buf[4+2*n]), "%02x", &x) != 1)
-       return -1;
-
-      md5[n] = x;
-    }
-
-  return 0;
+  return true;
 }
 
 
@@ -5476,8 +5528,7 @@ gfc_dump_module (const char *name, int dump_flag)
 {
   int n;
   char *filename, *filename_tmp;
-  fpos_t md5_pos;
-  unsigned char md5_new[16], md5_old[16];
+  uLong crc, crc_old;
 
   n = strlen (name) + strlen (MODULE_EXTENSION) + 1;
   if (gfc_option.module_dir != NULL)
@@ -5511,20 +5562,18 @@ gfc_dump_module (const char *name, int dump_flag)
     gfc_cpp_add_target (filename);
 
   /* Write the module to the temporary file.  */
-  module_fp = fopen (filename_tmp, "w");
+  module_fp = gzopen (filename_tmp, "w");
   if (module_fp == NULL)
     gfc_fatal_error ("Can't open module file '%s' for writing at %C: %s",
 		     filename_tmp, xstrerror (errno));
 
-  /* Write the header, including space reserved for the MD5 sum.  */
-  fprintf (module_fp, "GFORTRAN module version '%s' created from %s\n"
-	   "MD5:", MOD_VERSION, gfc_source_file);
-  fgetpos (module_fp, &md5_pos);
-  fputs ("00000000000000000000000000000000 -- "
-	"If you edit this, you'll get what you deserve.\n\n", module_fp);
+  /* Write the header.
+     FIXME: For backwards compatibility with the old uncompressed
+     module format, write an extra empty line. When the module version
+     is bumped, this can be removed.  */
+  gzprintf (module_fp, "GFORTRAN module version '%s' created from %s\n\n",
+	    MOD_VERSION, gfc_source_file);
 
-  /* Initialize the MD5 context that will be used for output.  */
-  md5_init_ctx (&ctx);
 
   /* Write the module itself.  */
   iomode = IO_OUTPUT;
@@ -5539,24 +5588,17 @@ gfc_dump_module (const char *name, int dump_flag)
 
   write_char ('\n');
 
-  /* Write the MD5 sum to the header of the module file.  */
-  md5_finish_ctx (&ctx, md5_new);
-  fsetpos (module_fp, &md5_pos);
-  for (n = 0; n < 16; n++)
-    fprintf (module_fp, "%02x", md5_new[n]);
-
-  if (fclose (module_fp))
+  if (gzclose (module_fp))
     gfc_fatal_error ("Error writing module file '%s' for writing: %s",
 		     filename_tmp, xstrerror (errno));
 
-  /* Read the MD5 from the header of the old module file and compare.  */
-  if (read_md5_from_module_file (filename, md5_old) != 0
-      || memcmp (md5_old, md5_new, sizeof (md5_old)) != 0)
+  /* Read the CRC32 from the gzip trailers of the module files and
+     compare.  */
+  if (!read_crc32_from_module_file (filename_tmp, &crc)
+      || !read_crc32_from_module_file (filename, &crc_old)
+      || crc_old != crc)
     {
       /* Module file have changed, replace the old one.  */
-      if (unlink (filename) && errno != ENOENT)
-	gfc_fatal_error ("Can't delete module file '%s': %s", filename,
-			 xstrerror (errno));
       if (rename (filename_tmp, filename))
 	gfc_fatal_error ("Can't rename module file '%s' to '%s': %s",
 			 filename_tmp, filename, xstrerror (errno));
@@ -6025,17 +6067,27 @@ create_derived_type (const char *name, const char *modname,
 static void
 read_module_to_tmpbuf ()
 {
-  /* Find out the size of the file and reserve space.  Assume we're at
-     the beginning.  */
-  fseek (module_fp, 0, SEEK_END);
-  long file_size = ftell (module_fp);
-  fseek (module_fp, 0, SEEK_SET);
+  /* We don't know the uncompressed size, so enlarge the buffer as
+     needed.  */
+  int cursz = 4096;
+  int rsize = cursz;
+  int len = 0;
 
-  /* An extra byte for the terminating NULL.  */
-  module_content = XNEWVEC (char, file_size + 1);
+  module_content = XNEWVEC (char, cursz);
 
-  fread (module_content, 1, file_size, module_fp);
-  module_content[file_size] = '\0';
+  while (1)
+    {
+      int nread = gzread (module_fp, module_content + len, rsize);
+      len += nread;
+      if (nread < rsize)
+	break;
+      cursz *= 2;
+      module_content = XRESIZEVEC (char, module_content, cursz);
+      rsize = cursz - len;
+    }
+
+  module_content = XRESIZEVEC (char, module_content, len + 1);
+  module_content[len] = '\0';
 
   module_pos = 0;
 }
@@ -6096,10 +6148,9 @@ use_iso_fortran_env_module (void)
 	      found = true;
 	      u->found = 1;
 
-	      if (gfc_notify_std (symbol[i].standard, "The symbol '%s', "
-				  "referenced at %L, is not in the selected "
-				  "standard", symbol[i].name,
-				  &u->where) == FAILURE)
+	      if (!gfc_notify_std (symbol[i].standard, "The symbol '%s', "
+				   "referenced at %L, is not in the selected "
+				   "standard", symbol[i].name, &u->where))
 	        continue;
 
 	      if ((gfc_option.flag_default_integer || gfc_option.flag_default_real)
@@ -6257,7 +6308,7 @@ gfc_use_module (gfc_use_list *module)
      specified that the module is intrinsic.  */
   module_fp = NULL;
   if (!module->intrinsic)
-    module_fp = gfc_open_included_file (filename, true, true);
+    module_fp = gzopen_included_file (filename, true, true);
 
   /* Then, see if it's an intrinsic one, unless the USE statement
      specified that the module is non-intrinsic.  */
@@ -6265,7 +6316,7 @@ gfc_use_module (gfc_use_list *module)
     {
       if (strcmp (module_name, "iso_fortran_env") == 0
 	  && gfc_notify_std (GFC_STD_F2003, "ISO_FORTRAN_ENV "
-			     "intrinsic module at %C") != FAILURE)
+			     "intrinsic module at %C"))
        {
 	 use_iso_fortran_env_module ();
 	 free_rename (module->rename);
@@ -6276,8 +6327,7 @@ gfc_use_module (gfc_use_list *module)
        }
 
       if (strcmp (module_name, "iso_c_binding") == 0
-	  && gfc_notify_std (GFC_STD_F2003,
-			     "ISO_C_BINDING module at %C") != FAILURE)
+	  && gfc_notify_std (GFC_STD_F2003, "ISO_C_BINDING module at %C"))
 	{
 	  import_iso_c_binding_module();
 	  free_rename (module->rename);
@@ -6287,7 +6337,7 @@ gfc_use_module (gfc_use_list *module)
 	  return;
 	}
 
-      module_fp = gfc_open_intrinsic_module (filename);
+      module_fp = gzopen_intrinsic_module (filename);
 
       if (module_fp == NULL && module->intrinsic)
 	gfc_fatal_error ("Can't find an intrinsic module named '%s' at %C",
@@ -6312,7 +6362,7 @@ gfc_use_module (gfc_use_list *module)
   start = 0;
 
   read_module_to_tmpbuf ();
-  fclose (module_fp);
+  gzclose (module_fp);
 
   /* Skip the first two lines of the module, after checking that this is
      a gfortran module file.  */

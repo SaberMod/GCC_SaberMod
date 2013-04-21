@@ -341,14 +341,34 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (drb));
 	    }
 
-          /* For interleaving, mark that there is a read-write dependency if
-             necessary.  We check before that one of the data-refs is store.  */
-          if (DR_IS_READ (dra))
-            GROUP_READ_WRITE_DEPENDENCE (stmtinfo_a) = true;
-	  else
-            {
-              if (DR_IS_READ (drb))
-                GROUP_READ_WRITE_DEPENDENCE (stmtinfo_b) = true;
+	  /* When we perform grouped accesses and perform implicit CSE
+	     by detecting equal accesses and doing disambiguation with
+	     runtime alias tests like for
+	        .. = a[i];
+		.. = a[i+1];
+		a[i] = ..;
+		a[i+1] = ..;
+		*p = ..;
+		.. = a[i];
+		.. = a[i+1];
+	     where we will end up loading { a[i], a[i+1] } once, make
+	     sure that inserting group loads before the first load and
+	     stores after the last store will do the right thing.  */
+	  if ((STMT_VINFO_GROUPED_ACCESS (stmtinfo_a)
+	       && GROUP_SAME_DR_STMT (stmtinfo_a))
+	      || (STMT_VINFO_GROUPED_ACCESS (stmtinfo_b)
+		  && GROUP_SAME_DR_STMT (stmtinfo_b)))
+	    {
+	      gimple earlier_stmt;
+	      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
+	      if (DR_IS_WRITE
+		    (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				     "READ_WRITE dependence in interleaving.");
+		  return true;
+		}
 	    }
 
 	  continue;
@@ -1456,20 +1476,35 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
             }
           else
             {
-              /* If we don't know all the misalignment values, we prefer
-                 peeling for data-ref that has maximum number of data-refs
+              /* If we don't know any misalignment values, we prefer
+                 peeling for data-ref that has the maximum number of data-refs
                  with the same alignment, unless the target prefers to align
                  stores over load.  */
               if (all_misalignments_unknown)
                 {
-                  if (same_align_drs_max 
-			< STMT_VINFO_SAME_ALIGN_REFS (stmt_info).length ()
-                      || !dr0)
+		  unsigned same_align_drs
+		    = STMT_VINFO_SAME_ALIGN_REFS (stmt_info).length ();
+                  if (!dr0
+		      || same_align_drs_max < same_align_drs)
                     {
-                      same_align_drs_max
-			  = STMT_VINFO_SAME_ALIGN_REFS (stmt_info).length ();
+                      same_align_drs_max = same_align_drs;
                       dr0 = dr;
                     }
+		  /* For data-refs with the same number of related
+		     accesses prefer the one where the misalign
+		     computation will be invariant in the outermost loop.  */
+		  else if (same_align_drs_max == same_align_drs)
+		    {
+		      struct loop *ivloop0, *ivloop;
+		      ivloop0 = outermost_invariant_loop_for_expr
+			  (loop, DR_BASE_ADDRESS (dr0));
+		      ivloop = outermost_invariant_loop_for_expr
+			  (loop, DR_BASE_ADDRESS (dr));
+		      if ((ivloop && !ivloop0)
+			  || (ivloop && ivloop0
+			      && flow_loop_nested_p (ivloop, ivloop0)))
+			dr0 = dr;
+		    }
 
                   if (!first_store && DR_IS_WRITE (dr))
                     first_store = dr;
@@ -1478,8 +1513,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               /* If there are both known and unknown misaligned accesses in the
                  loop, we choose peeling amount according to the known
                  accesses.  */
-
-
               if (!supportable_dr_alignment)
                 {
                   dr0 = dr;
@@ -1991,7 +2024,7 @@ vect_analyze_group_access (struct data_reference *dr)
 
   /* For interleaving, GROUPSIZE is STEP counted in elements, i.e., the
      size of the interleaving group (including gaps).  */
-  groupsize = dr_step / type_size;
+  groupsize = absu_hwi (dr_step) / type_size;
 
   /* Not consecutive access is possible only if it is a part of interleaving.  */
   if (!GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)))
@@ -2061,10 +2094,10 @@ vect_analyze_group_access (struct data_reference *dr)
       gimple next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
       struct data_reference *data_ref = dr;
       unsigned int count = 1;
-      tree next_step;
       tree prev_init = DR_INIT (data_ref);
       gimple prev = stmt;
-      HOST_WIDE_INT diff, count_in_bytes, gaps = 0;
+      HOST_WIDE_INT diff, gaps = 0;
+      unsigned HOST_WIDE_INT count_in_bytes;
 
       while (next)
         {
@@ -2084,17 +2117,6 @@ vect_analyze_group_access (struct data_reference *dr)
                   return false;
                 }
 
-              /* Check that there is no load-store dependencies for this loads
-                 to prevent a case of load-store-load to the same location.  */
-              if (GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (next))
-                  || GROUP_READ_WRITE_DEPENDENCE (vinfo_for_stmt (prev)))
-                {
-                  if (dump_enabled_p ())
-                    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
-                                     "READ_WRITE dependence in interleaving.");
-                  return false;
-                }
-
               /* For load use the same data-ref load.  */
               GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
 
@@ -2104,18 +2126,11 @@ vect_analyze_group_access (struct data_reference *dr)
             }
 
           prev = next;
-
-          /* Check that all the accesses have the same STEP.  */
-          next_step = DR_STEP (STMT_VINFO_DATA_REF (vinfo_for_stmt (next)));
-          if (tree_int_cst_compare (step, next_step))
-            {
-              if (dump_enabled_p ())
-                dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
-                                 "not consecutive access in interleaving");
-              return false;
-            }
-
           data_ref = STMT_VINFO_DATA_REF (vinfo_for_stmt (next));
+
+	  /* All group members have the same STEP by construction.  */
+	  gcc_checking_assert (operand_equal_p (DR_STEP (data_ref), step, 0));
+
           /* Check that the distance between two accesses is equal to the type
              size. Otherwise, we have gaps.  */
           diff = (TREE_INT_CST_LOW (DR_INIT (data_ref))
@@ -2153,7 +2168,8 @@ vect_analyze_group_access (struct data_reference *dr)
 
       /* Check that the size of the interleaving (including gaps) is not
          greater than STEP.  */
-      if (dr_step && dr_step < count_in_bytes + gaps * type_size)
+      if (dr_step != 0
+	  && absu_hwi (dr_step) < count_in_bytes + gaps * type_size)
         {
           if (dump_enabled_p ())
             {
@@ -2166,7 +2182,8 @@ vect_analyze_group_access (struct data_reference *dr)
 
       /* Check that the size of the interleaving is equal to STEP for stores,
          i.e., that there are no gaps.  */
-      if (dr_step && dr_step != count_in_bytes)
+      if (dr_step != 0
+	  && absu_hwi (dr_step) != count_in_bytes)
         {
           if (DR_IS_READ (dr))
             {
@@ -2186,7 +2203,8 @@ vect_analyze_group_access (struct data_reference *dr)
         }
 
       /* Check that STEP is a multiple of type size.  */
-      if (dr_step && (dr_step % type_size) != 0)
+      if (dr_step != 0
+	  && (dr_step % type_size) != 0)
         {
           if (dump_enabled_p ())
             {
@@ -3498,7 +3516,6 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   tree aptr;
   gimple_stmt_iterator incr_gsi;
   bool insert_after;
-  bool negative;
   tree indx_before_incr, indx_after_incr;
   gimple incr;
   tree step;
@@ -3528,11 +3545,10 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   else
     step = DR_STEP (STMT_VINFO_DATA_REF (stmt_info));
 
-  if (tree_int_cst_compare (step, size_zero_node) == 0)
+  if (integer_zerop (step))
     *inv_p = true;
   else
     *inv_p = false;
-  negative = tree_int_cst_compare (step, size_zero_node) < 0;
 
   /* Create an expression for the first address accessed by this load
      in LOOP.  */
@@ -3671,18 +3687,18 @@ vect_create_data_ref_ptr (gimple stmt, tree aggr_type, struct loop *at_loop,
   else
     {
       /* The step of the aggregate pointer is the type size.  */
-      tree step = TYPE_SIZE_UNIT (aggr_type);
+      tree iv_step = TYPE_SIZE_UNIT (aggr_type);
       /* One exception to the above is when the scalar step of the load in
 	 LOOP is zero. In this case the step here is also zero.  */
       if (*inv_p)
-	step = size_zero_node;
-      else if (negative)
-	step = fold_build1 (NEGATE_EXPR, TREE_TYPE (step), step);
+	iv_step = size_zero_node;
+      else if (tree_int_cst_sgn (step) == -1)
+	iv_step = fold_build1 (NEGATE_EXPR, TREE_TYPE (iv_step), iv_step);
 
       standard_iv_increment_position (loop, &incr_gsi, &insert_after);
 
       create_iv (aggr_ptr_init,
-		 fold_convert (aggr_ptr_type, step),
+		 fold_convert (aggr_ptr_type, iv_step),
 		 aggr_ptr, loop, &incr_gsi, insert_after,
 		 &indx_before_incr, &indx_after_incr);
       incr = gsi_stmt (incr_gsi);
