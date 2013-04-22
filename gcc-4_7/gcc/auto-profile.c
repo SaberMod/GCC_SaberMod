@@ -623,6 +623,10 @@ static tree
 get_function_decl_from_block (tree block)
 {
   tree decl;
+
+  if (LOCATION_LOCUS (BLOCK_SOURCE_LOCATION (block) == UNKNOWN_LOCATION))
+    return NULL_TREE;
+
   for (decl = BLOCK_ABSTRACT_ORIGIN (block);
        decl && (TREE_CODE (decl) == BLOCK);
        decl = BLOCK_ABSTRACT_ORIGIN (decl))
@@ -662,10 +666,12 @@ get_inline_stack_by_stmt (gimple stmt, tree decl,
        block && (TREE_CODE (block) == BLOCK);
        block = BLOCK_SUPERCONTEXT (block))
     {
-      tree decl = get_function_decl_from_block (block);
-      if (LOCATION_LOCUS (BLOCK_SOURCE_LOCATION (block)) == UNKNOWN_LOCATION)
-	continue;
+      tree decl;
       loc = BLOCK_SOURCE_LOCATION (block);
+
+      if (LOCATION_LOCUS (loc) == UNKNOWN_LOCATION)
+	continue;
+      decl = get_function_decl_from_block (block);
       pos_stack[idx].file = expand_location (loc).file;
       pos_stack[idx].line = expand_location (loc).line;
       pos_stack[idx - 1].func =
