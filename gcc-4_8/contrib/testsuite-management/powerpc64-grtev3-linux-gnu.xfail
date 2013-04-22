@@ -20,7 +20,7 @@ FAIL: gcc.dg/cleanup-10.c execution test
 FAIL: gcc.dg/cleanup-11.c execution test
 FAIL: gcc.dg/cleanup-8.c execution test
 FAIL: gcc.dg/cleanup-9.c execution test
-FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
+| FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
 FAIL: gcc.dg/pr44194-1.c scan-rtl-dump-not final "set \\(mem"
 FAIL: gcc.dg/pr46728-6.c scan-assembler-not pow
 
@@ -115,7 +115,7 @@ FAIL: gcc.target/powerpc/pr46728-4.c scan-assembler-not pow
 FAIL: gcc.target/powerpc/pr46728-7.c scan-assembler-not pow
 FAIL: gcc.target/powerpc/pr46728-8.c scan-assembler-not pow
 
-*** g++:
+# *** g++:
 FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
 FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
 FAIL: g++.dg/ext/cleanup-10.C -std=gnu++98 execution test
@@ -136,7 +136,7 @@ UNRESOLVED: g++.dg/tree-prof/mversn15a.C compilation,  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-use
 
 # Fortran failures are not important to us so far.
-*** gfortran:
+# *** gfortran:
 FAIL: gfortran.dg/bessel_6.f90  -O0  execution test
 FAIL: gfortran.dg/bessel_6.f90  -O1  execution test
 FAIL: gfortran.dg/bessel_6.f90  -O2  execution test
