@@ -204,6 +204,9 @@ rtx current_insn_predicate;
 /* True if printing into -fdump-final-insns= dump.  */   
 bool final_insns_dump_p;
 
+/* True if the function has a split cold section.  */
+static bool has_cold_section_p;
+
 #ifdef HAVE_ATTR_length
 static int asm_insn_count (rtx);
 #endif
@@ -1934,6 +1937,7 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  targetm.asm_out.function_switched_text_sections (asm_out_file,
 							   current_function_decl,
 							   in_cold_section_p);
+	  has_cold_section_p = true;
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:
@@ -4330,6 +4334,24 @@ dump_cgraph_profiles (void)
     }
 }
 
+/* Iterate through the basic blocks in DECL and get the max count.
+   If COLD is true, find the max count of the cold part of the split.  */
+static gcov_type
+get_max_count (tree decl, bool cold)
+{
+  basic_block bb;
+  gcov_type max_count = cold ? 0 :(cgraph_get_node (decl))->count;
+
+  FOR_EACH_BB (bb)
+    {
+      if (cold && BB_PARTITION (bb) != BB_COLD_PARTITION)
+        continue;
+      if (bb->count > max_count)
+        max_count = bb->count;
+    }
+  return max_count;
+}
+
 /* Turn the RTL into assembly.  */
 static unsigned int
 rest_of_handle_final (void)
@@ -4347,6 +4369,8 @@ rest_of_handle_final (void)
   x = XEXP (x, 0);
   gcc_assert (GET_CODE (x) == SYMBOL_REF);
   fnname = XSTR (x, 0);
+
+  has_cold_section_p = false;
 
   assemble_start_function (current_function_decl, fnname);
   final_start_function (get_insns (), asm_out_file, optimize);
@@ -4403,12 +4427,27 @@ rest_of_handle_final (void)
   if ((flag_reorder_functions > 1)
       && flag_profile_use
       && cgraph_get_node (current_function_decl) != NULL
-      && (cgraph_get_node (current_function_decl))->callees != NULL)
+      && ((cgraph_get_node (current_function_decl))->callees != NULL
+	  || (cgraph_get_node (current_function_decl))->count > 0))
     {
       flags = SECTION_DEBUG | SECTION_EXCLUDE;
       asprintf (&profile_fnname, ".gnu.callgraph.text.%s", fnname);
       switch_to_section (get_section (profile_fnname, flags, NULL));
       fprintf (asm_out_file, "\t.string \"Function %s\"\n", fnname);
+      fprintf (asm_out_file, "\t.string \"Weight "
+                            HOST_WIDEST_INT_PRINT_DEC
+                            " "
+                            HOST_WIDEST_INT_PRINT_DEC
+                            "\"\n",
+              (cgraph_get_node (current_function_decl))->count,
+              get_max_count (current_function_decl, false));
+      /* If this function is split into a cold section, record that weight
+        here.  */
+      if (has_cold_section_p)
+        fprintf (asm_out_file, "\t.string \"ColdWeight "
+                 HOST_WIDEST_INT_PRINT_DEC
+                 "\"\n",
+                 get_max_count (current_function_decl, true));
       dump_cgraph_profiles ();
       free (profile_fnname);
     }

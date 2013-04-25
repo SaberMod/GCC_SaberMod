@@ -97,6 +97,29 @@ static int no_op = 0;
    "--plugin-opt,split_segment=yes".  */
 static int split_segment = 0;
 
+/* If SORT_NAME_PREFIX is true then the sections not touched by the callgraph
+   are grouped according to their name prefix.  When SORT_NAME_PREFIX is zero,
+   all the sections are put together and sorted according to their node
+   weights.  The default value of SORT_NAME_PREFIX is 0.  Even when sections
+   are grouped by their prefix, each group is sorted by the node weights.  */
+int sort_name_prefix = 0;
+
+/* Edge cutoff is used to discard callgraph edges that are not above a
+   certain threshold.  cutoff_p is to express this as a percent of the
+   maximum value and cutoff_a is used to express this as an absolute
+   value.  The default is to consider all edges.  */
+unsigned int edge_cutoff_p = 0;
+unsigned long long edge_cutoff_a = 0;
+
+/* This is true if the max count of any bb in a function should be used as
+   the node weight rather than the count of the entry bb.  */
+int use_max_count = 1;
+
+/* This is used to decide which sections are considered unlikely.  If the
+   section profile is greater than this value then it is not unlikely
+   executed.  */
+unsigned long long unlikely_segment_profile_cutoff = 0;
+
 /* Copies new output file name out_file  */
 void get_filename (const char *name)
 {
@@ -133,6 +156,10 @@ process_option (const char *name)
   const char *option_group = "group=";
   const char *option_file = "file=";
   const char *option_segment = "split_segment=";
+  const char *option_edge_cutoff = "edge_cutoff=";
+  const char *option_sort_name_prefix = "sort_name_prefix=";
+  const char *option_max_count = "use_maxcount=";
+  const char *option_unlikely_cutoff = "unlikely_cutoff=";
 
   /* Check if option is "group="  */
   if (strncmp (name, option_group, strlen (option_group)) == 0)
@@ -163,6 +190,78 @@ process_option (const char *name)
 	  split_segment = 1;
 	  return 0;
 	}
+    }
+  else if (strncmp (name, option_edge_cutoff,
+	   strlen (option_edge_cutoff)) == 0)
+    {
+      const char *a_or_p = name + strlen (option_edge_cutoff);
+      char *endptr = NULL;
+      if (a_or_p[0] == 'p')
+	{
+          edge_cutoff_p = strtol (a_or_p + 1, &endptr, 10);
+	  /* Sanity check value entered.  */
+	  if (*endptr == '\0' && edge_cutoff_p <= 100)
+	    return 0;
+	  if (edge_cutoff_p > 100)
+	    {
+	      MSG_ERROR ("Percent value > 100 in option %s\n", name);
+	      return 1;
+	    }
+	}
+      else if (a_or_p[0] == 'a')
+	{
+          edge_cutoff_a = strtoll (a_or_p + 1, &endptr, 10);
+	  /* Sanity check value entered.  */
+	  if (*endptr == '\0')
+	    return 0;
+	}
+      MSG_ERROR ("Wrong format/non-numeric value for edge_cutoff in %s, "
+   	        "use edge_cutoff=[p|a]<value>\n", name);
+      return 1;
+    }
+  else if (strncmp (name, option_sort_name_prefix,
+	   strlen (option_sort_name_prefix)) == 0)
+    {
+      const char *option_val = name + strlen (option_sort_name_prefix);
+      if (strcmp (option_val, "no") == 0)
+	{
+	  sort_name_prefix = 0;
+	  return 0;
+	}
+      else if (strcmp (option_val, "yes") == 0)
+	{
+	  sort_name_prefix = 1;
+	  return 0;
+	}
+    }
+  else if (strncmp (name, option_max_count,
+	   strlen (option_max_count)) == 0)
+    {
+      const char *option_val = name + strlen (option_max_count);
+      if (strcmp (option_val, "no") == 0)
+	{
+	  use_max_count = 0;
+	  return 0;
+	}
+      else if (strcmp (option_val, "yes") == 0)
+	{
+	  use_max_count = 1;
+	  return 0;
+	}
+    }
+  /* Check if option is unlikely_cutoff.  This decides what sections are
+     considered unlikely for segment splitting.  The default cutoff is 0.  */
+  else if (strncmp (name, option_unlikely_cutoff,
+	   strlen (option_unlikely_cutoff)) == 0)
+    {
+      const char *option_val = name + strlen (option_unlikely_cutoff);
+      char *endptr = NULL;
+      unlikely_segment_profile_cutoff = strtoll (option_val, &endptr, 10);
+      /* Sanity check value entered.  */
+      if (*endptr == '\0')
+	return 0;
+      MSG_ERROR ("Non-numeric value in option %s\n", name);
+      return 1;
     }
 
   /* Flag error on unknown plugin option.  */
@@ -365,24 +464,27 @@ all_symbols_read_hook (void)
       section_list[i].shndx = shndx[i];
     }
 
-  if (split_segment == 1)
+  if (split_segment == 1
+      && unlikely_segment_start >= 0
+      && (unlikely_segment_end >= unlikely_segment_start))
     {
       /* Pass the new order of functions to the linker.  */
       /* Fix the order of all sections upto the beginning of the
 	 unlikely section.  */
       update_section_order (section_list, unlikely_segment_start);
-      assert (num_entries >= unlikely_segment_end);
+      assert (num_entries > unlikely_segment_end);
       /* Fix the order of all sections after the end of the unlikely
 	 section.  */
-      update_section_order (section_list, num_entries - unlikely_segment_end);
+      update_section_order (section_list + unlikely_segment_end + 1,
+			    num_entries - unlikely_segment_end - 1);
       /* Map all unlikely code into a new segment.  */
       unique_segment_for_sections (
 	  ".text.unlikely_executed", 0, 0x1000,
 	  section_list + unlikely_segment_start,
-	  unlikely_segment_end - unlikely_segment_start);
+	  unlikely_segment_end - unlikely_segment_start + 1);
       if (fp != NULL)
 	fprintf (fp, "Moving %u section(s) to new segment\n",
-		 unlikely_segment_end - unlikely_segment_start);
+		 unlikely_segment_end - unlikely_segment_start + 1);
     }
   else
     {
