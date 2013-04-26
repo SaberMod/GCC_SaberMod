@@ -822,6 +822,21 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	}
     }
 
+  if (opts->x_profile_arc_flag
+      || opts->x_flag_branch_probabilities)
+    {
+      /* With profile data, inlining is much more selective and makes
+	 better decisions, so increase the inlining function size
+	 limits.  Changes must be added to both the generate and use
+	 builds to avoid profile mismatches.  */
+      maybe_set_param_value
+	(PARAM_MAX_INLINE_INSNS_SINGLE, 1000,
+	 opts->x_param_values, opts_set->x_param_values);
+      maybe_set_param_value
+	(PARAM_MAX_INLINE_INSNS_AUTO, 1000,
+	 opts->x_param_values, opts_set->x_param_values);
+    }
+
   /* Set PARAM_MAX_STORES_TO_SINK to 0 if either vectorization or if-conversion
      is disabled.  */
   if (!opts->x_flag_tree_vectorize || !opts->x_flag_tree_loop_if_convert)
