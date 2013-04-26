@@ -195,8 +195,7 @@ caller_growth_limits (struct cgraph_edge *e)
   stack_size_limit += ((gcov_type)stack_size_limit
 		       * PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) / 100);
 
-  inlined_stack = (outer_info->stack_frame_offset
-		   + outer_info->estimated_self_stack_size
+  inlined_stack = (outer_info->estimated_stack_size
 		   + what_info->estimated_stack_size);
   /* Check new stack consumption with stack consumption at the place
      stack is used.  */
