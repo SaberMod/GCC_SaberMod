@@ -277,7 +277,7 @@ lipo_save_cl_args (struct cl_decoded_option *decoded)
   */
   if (opt[0] == '-'
       && (opt[1] == 'f' || opt[1] == 'm' || opt[1] == 'W' || opt[1] == 'O'
-	  || (strstr (opt, "--param") == opt))
+	  || (strstr (opt, "--param") == opt) || (strstr (opt, "-std=")))
       && !strstr(opt, "-frandom-seed")
       && !strstr(opt, "-fripa-disallow-opt-mismatch")
       && !strstr(opt, "-Wripa-opt-mismatch"))
