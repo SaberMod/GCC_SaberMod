@@ -310,6 +310,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   char **warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
   char **non_warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
   char **non_warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
+  char *std_opts1 = NULL, *std_opts2 = NULL;
   unsigned int i, num_warning_opts1 = 0, num_warning_opts2 = 0;
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
@@ -322,7 +323,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     mod_info2->num_bracket_paths + mod_info2->num_cpp_defines +
     mod_info2->num_cpp_includes;
 
-  bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts;
+  bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts, has_incompatible_std;
   unsigned int num_cg_opts = 0;
 
   for (i = 0; force_matching_cg_opts[i].opt_str; i++)
@@ -352,6 +353,8 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
         char *option_string = mod_info1->string_array[start_index1 + i];
 
         check_cg_opts (cg_opts1, option_string);
+	if (strstr (option_string, "-std="))
+	  std_opts1 = option_string;
 
         slot = option_tab1.find_slot (option_string, INSERT);
         if (!*slot)
@@ -371,6 +374,8 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
         char *option_string = mod_info2->string_array[start_index2 + i];
 
         check_cg_opts (cg_opts2, option_string);
+	if (strstr (option_string, "-std="))
+	  std_opts2 = option_string;
 
         slot = option_tab2.find_slot (option_string, INSERT);
         if (!*slot)
@@ -379,6 +384,10 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
             non_warning_opts2[num_non_warning_opts2++] = option_string;
           }
       }
+
+  has_incompatible_std =
+      std_opts1 != std_opts2 && (std_opts1 == NULL || std_opts2 == NULL
+				 || strcmp (std_opts1, std_opts2));
 
   /* Compare warning options. If these mismatch, we emit a warning.  */
   if (num_warning_opts1 != num_warning_opts2)
@@ -423,7 +432,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
    option_tab1.dispose ();
    option_tab2.dispose ();
    return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
-           || has_any_incompatible_cg_opts);
+           || has_any_incompatible_cg_opts || has_incompatible_std);
 }
 
 
