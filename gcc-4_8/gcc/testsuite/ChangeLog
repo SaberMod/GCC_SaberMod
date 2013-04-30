@@ -1,3 +1,104 @@
+2013-04-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56450
+	* g++.dg/cpp0x/decltype52.C: New.
+
+2013-04-29  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57103
+	* gcc.dg/autopar/pr57103.c: New testcase.
+
+2013-04-29  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/57108
+	* gcc.target/sh/pr57108.c: New test.
+
+2013-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57083
+	* gcc.dg/torture/pr57083.c: New test.
+
+2013-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk:
+
+	PR fortran/51825
+	* gfortran.dg/namelist_77.f90: New test.
+	* gfortran.dg/namelist_78.f90: New test.
+
+2013-04-28  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/56786
+	* gfortran.dg/namelist_81.f90:  New test.
+
+2013-04-27  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from trunk:
+
+	PR fortran/52512
+	* gfortran.dg/namelist_79.f90: New test.
+
+2013-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56866
+	* gcc.c-torture/execute/pr56866.c: New test.
+	* gcc.target/i386/pr56866.c: New test.
+
+2013-04-26  Janus Weil  <janus@gcc.gnu.org>
+
+	Backports from trunk:
+
+	PR fortran/56968
+	* gfortran.dg/proc_ptr_41.f90: New.
+
+	PR fortran/56814
+	* gfortran.dg/proc_ptr_42.f90: New.
+
+	PR fortran/53685
+	PR fortran/57022
+	* gfortran.dg/transfer_check_4.f90: New.
+
+2013-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57003
+	* gcc.target/i386/pr57003.c: New test.
+
+2013-04-25  Ian Bolton  <ian.bolton@arm.com>
+
+	Backported from mainline.
+	2013-03-22  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/movk.c: New test.
+
+2013-04-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56970
+	* g++.dg/cpp0x/sfinae45.C: New.
+
+2013-04-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backported from mainline.
+	PR rtl-optimization/56605
+	* gcc.target/powerpc/pr56605.c: New.
+
+2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-04-22  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/56990
+	* gcc.dg/pr56990.c: New test.
+
+2013-04-22  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/56872
+	* gfortran.dg/array_constructor_45.f90:  New test.
+	* gfortran.dg/array_constructor_46.f90:  New test.
+	* gfortran.dg/array_constructor_47.f90:  New test.
+	* gfortran.dg/array_constructor_40.f90:  Adjust number of
+	while loops.
+
 2013-04-18  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/56816
