@@ -196,6 +196,10 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   new_node->global = n->global;
   new_node->rtl = n->rtl;
   new_node->count = count;
+  new_node->max_bb_count = count;
+  if (n->count)
+    new_node->max_bb_count = ((n->max_bb_count + n->count / 2)
+                              / n->count) * count;
   new_node->frequency = n->frequency;
   new_node->clone = n->clone;
   new_node->clone.tree_map = NULL;
@@ -212,7 +216,10 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
     {
       n->count -= count;
       if (n->count < 0)
-	n->count = 0;
+        n->count = 0;
+      n->max_bb_count -= new_node->max_bb_count;
+      if (n->max_bb_count < 0)
+        n->max_bb_count = 0;
     }
 
   FOR_EACH_VEC_ELT (redirect_callers, i, e)
@@ -637,6 +644,7 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
    new_version->global = old_version->global;
    new_version->rtl = old_version->rtl;
    new_version->count = old_version->count;
+   new_version->max_bb_count = old_version->max_bb_count;
 
    for (e = old_version->callees; e; e=e->next_callee)
      if (!bbs_to_copy

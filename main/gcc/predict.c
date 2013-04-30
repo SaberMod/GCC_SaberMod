@@ -130,13 +130,15 @@ maybe_hot_frequency_p (struct function *fun, int freq)
 
 /* Return TRUE if frequency FREQ is considered to be hot.  */
 
-static inline bool
+bool
 maybe_hot_count_p (struct function *fun, gcov_type count)
 {
   gcov_working_set_t *ws;
   static gcov_type min_count = -1;
   if (fun && profile_status_for_function (fun) != PROFILE_READ)
     return true;
+  if (!profile_info)
+    return false;
   /* Code executed at most once is not hot.  */
   if (profile_info->runs >= count)
     return false;

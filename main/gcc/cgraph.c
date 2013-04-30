@@ -1553,6 +1553,9 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (node->count)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
+  if (node->max_bb_count)
+    fprintf (f, " hottest bb executed "HOST_WIDEST_INT_PRINT_DEC"x",
+	     (HOST_WIDEST_INT)node->max_bb_count);
   if (node->origin)
     fprintf (f, " nested in: %s", cgraph_node_asm_name (node->origin));
   if (gimple_has_body_p (node->symbol.decl))
