@@ -1,5 +1,30 @@
 2013-04-30  Caroline Tice  <cmtice@google.com>
 
+	* libstdc++-v3/libsupc++/vtv_rts.cc: (WHITELIST_SIZE,
+	whitelist_fail_count, whitelist_phdr_callback_count, whitelist_entries,
+	whiteliest_data, vtv_page_size):  New variables.
+	(struct whitelist_data_struct):  New struct.
+	(update_whitelist_lock): New mutex for whitelist work.
+	(dl_iterate_phdr_whitelist_callback): New function; called by
+	dl_iterate_phdr, it checks each entry to see if it is for one of the
+	white-listed libraries, and if so, records the addresses of the RELRO
+	section for that library in whitelist_data (assuming it's not already
+	there).
+	(dl_iterate_phdr_callback):  Initialize vtv_page_size.
+	(initialize_whitelist_mutexes): New function, to initialize
+	update_whitelist_lock mutex.
+	(__vtv_verify_fail):  Check to see if whitelist_data has any empty
+	entries; if so call dl_iterate_phdr, with the callback
+	dl_iterate_phdr_whitelist_callback.  Call mprotect before & after
+	calling dl_iterate_phdr, to make whitelist_data writeable, then
+	read-only again.  All code to update the whitelist data is protected
+	by the update_whitelist_lock mutex.  One the data is up-to-date, go
+	through whitelist_data, to see if the failed vtable_pointer is in the
+	address range of any whitelisted library.  If so, return; otherwise
+	continue to fail.
+
+2013-04-30  Caroline Tice  <cmtice@google.com>
+
 	* libstdc++-v3/libsupc++/vtv_rts.cc: (sect_info_cache,
 	num_cache_entries): Mark these variables as VTV_PROTECTED_VAR.
 	(dl_iterate_phdr_callback):  Remove first_time variable and condition

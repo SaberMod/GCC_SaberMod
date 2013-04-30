@@ -210,12 +210,34 @@ static int set_log_fd = -1;
 #endif
 
 
+#define WHITELIST_SIZE 2
+
+
+static int whitelist_fail_count VTV_PROTECTED_VAR = 0;
+static int whitelist_phdr_callback_count VTV_PROTECTED_VAR = 0;
+
+static char whitelist_entries [WHITELIST_SIZE][80] VTV_PROTECTED_VAR =
+                                                 { "libnetflixplugin2.so",
+                                                   "libpepflashplayer.so" };
+
+struct whitelist_data_struct
+{
+  ElfW (Addr) low_addr;
+  ElfW (Addr) high_addr;
+};
+
+static int vtv_page_size = 0;
+
+struct whitelist_data_struct whitelist_data[WHITELIST_SIZE] VTV_PROTECTED_VAR = { 0 };
+
 #ifdef __GTHREAD_MUTEX_INIT
 /* TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!  */
 static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
+static __gthread_mutex_t update_whitelist_lock VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
 #else
 /* TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!  */
 static __gthread_mutex_t change_permissions_lock;
+static __gthread_mutex_t update_whitelist_lock VTV_PROTECTED_VAR;
 #endif
 
 /* Types needed by insert_only_hash_sets.  */
@@ -372,6 +394,35 @@ log_memory_protection_data (char *message)
   vtv_add_to_log (log_fd, "%s", message);
 }
 
+static int
+dl_iterate_phdr_whitelist_callback (struct dl_phdr_info *info,
+                                    size_t unused __attribute__((__unused__)),
+                                    void *data)
+{
+  if (strlen (info->dlpi_name) == 0)
+    return 0;
+
+  for (int i = 0; i < WHITELIST_SIZE; ++i)
+    {
+      if (whitelist_data[i].low_addr != (ElfW (Addr)) 0x0)
+        continue;
+
+      if (strstr (info->dlpi_name, whitelist_entries[i]) != NULL)
+        for (int j = 0; j < info->dlpi_phnum; ++j)
+          if (info->dlpi_phdr[j].p_type == PT_GNU_RELRO)
+            {
+              whitelist_data[i].low_addr = info->dlpi_addr
+                                               + info->dlpi_phdr[j].p_vaddr;
+              whitelist_data[i].high_addr = info->dlpi_addr
+                                               + info->dlpi_phdr[j].p_vaddr
+                                               + info->dlpi_phdr[j].p_memsz;
+	      break;
+            }
+    }
+
+  return 0;
+}
+
 /* This is the callback function used by dl_iterate_phdr (which is
    called from VTV_unprotect_vtable_vars and VTV_protect_vtable_vars).
    It attempts to find the binary file on disk for the INFO record
@@ -401,6 +452,8 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
   const ElfW (Ehdr) *ehdr_info =
     (const ElfW (Ehdr) *) (info->dlpi_addr + info->dlpi_phdr[0].p_vaddr
                            - info->dlpi_phdr[0].p_offset);
+
+  vtv_page_size = mdata->page_size;
 
   /* Check to see if this is the record for the Linux Virtual Dynamic
      Shared Object (linux-vdso.so.1), which exists only in memory (and
@@ -681,6 +734,12 @@ static void
 initialize_change_permissions_mutexes ()
 {
   __GTHREAD_MUTEX_INIT_FUNCTION (&change_permissions_lock);
+}
+
+static void
+initialize_whitelist_mutexes ()
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&update_whitelist_lock);
 }
 #endif
 
@@ -1328,6 +1387,53 @@ void
 __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
 {
   char log_msg[256];
+  bool need_to_update_whitelist = false;
+
+#ifndef __GTHREAD_MUTEX_INIT
+  static __gthread_once_t mutex_once VTV_PROTECTED_VAR = __GTHREAD_ONCE_INIT;
+
+  __gthread_once (&mutex_once, initialize_whitelist_mutexes);
+#endif
+
+  for (int i = 0; i < WHITELIST_SIZE; ++i)
+    if (whitelist_data[i].low_addr == (ElfW (Addr)) 0x0
+	|| whitelist_data[i].high_addr == (ElfW (Addr)) 0x0)
+      need_to_update_whitelist = true;
+
+  if (need_to_update_whitelist)
+    {
+      ElfW (Addr) low_address;
+      size_t list_size;
+
+      __gthread_mutex_lock (&update_whitelist_lock);
+
+      low_address = (ElfW (Addr)) &(whitelist_data);
+      list_size = WHITELIST_SIZE * sizeof (struct whitelist_data_struct);
+
+      low_address = low_address & ~(vtv_page_size - 1);
+
+
+      if (mprotect ((void *) low_address, list_size,
+                    PROT_READ | PROT_WRITE) == -1)
+        VTV_error ();
+
+      dl_iterate_phdr (dl_iterate_phdr_whitelist_callback, (void *) NULL);
+      whitelist_phdr_callback_count++;
+
+      if (mprotect ((void *) low_address, list_size, PROT_READ) == -1)
+        VTV_error ();
+
+      __gthread_mutex_unlock (&update_whitelist_lock);
+    }
+
+  for (int i = 0; i < WHITELIST_SIZE; ++i)
+    if (whitelist_data[i].low_addr <= (ElfW (Addr)) vtbl_ptr
+        && (ElfW (Addr)) vtbl_ptr <= whitelist_data[i].high_addr)
+      {
+        whitelist_fail_count++;
+        return;
+      }
+
   snprintf (log_msg, sizeof (log_msg), "Looking for vtable %p in set %p.\n",
             vtbl_ptr,
             is_set_handle_handle (*data_set_ptr) ?
