@@ -1,3 +1,39 @@
+2013-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56866
+	* gcc.c-torture/execute/pr56866.c: New test.
+	* gcc.target/i386/pr56866.c: New test.
+
+2013-04-26  Janus Weil  <janus@gcc.gnu.org>
+
+	Backports from trunk:
+
+	PR fortran/56968
+	* gfortran.dg/proc_ptr_41.f90: New.
+
+	PR fortran/53685
+	PR fortran/57022
+	* gfortran.dg/transfer_check_4.f90: New.
+
+2013-04-19  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-01-08  Steven Bosscher  <steven@gcc.gnu.org>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48189
+	* gcc.dg/pr48189.c: New test.
+
+2013-04-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/torture/pr53922.c: Skip on alpha*-*-osf*.
+	Remove dg-skip-if default args.
+
+2013-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr56890-1.c: New test.
+	* gcc.dg/pr56890-2.c: Likewise.
+
 2013-04-11  Release Manager
 
 	* GCC 4.7.3 released.
