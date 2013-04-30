@@ -1,3 +1,17 @@
+2013-04-30  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc: (sect_info_cache,
+	num_cache_entries): Mark these variables as VTV_PROTECTED_VAR.
+	(dl_iterate_phdr_callback):  Remove first_time variable and condition
+	clause (not needed in C++).  Move the "if debug_function" condition to
+	not control whether or not data gets stored in the sect_info_cache (now
+	the data alwasys test stored in the cache if we're in read-write mode).
+	(change_protections_on_phdr_cache): New function, to make the
+	sect_info_cache either read-only or read-write.
+	(VTV_unprotect_vtable_vars): Add call to
+	change_protections_on_phdr_cache.
+	(VTV_protect_vtable_vars): Add call to change_protections_on_phdr_cache.
+
 2013-04-17  Luis Lozano  <llozano@google.com>
 
 	* gcc/tree-ssa-copyrename.c: fix from Rong for the copy-rename

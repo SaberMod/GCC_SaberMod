@@ -294,9 +294,9 @@ struct sect_hdr_data
    again.  */
 
 #define MAX_ENTRIES 250
-struct sect_hdr_data sect_info_cache[MAX_ENTRIES];
+struct sect_hdr_data sect_info_cache[MAX_ENTRIES] VTV_PROTECTED_VAR;
 
-unsigned int num_cache_entries = 0;
+unsigned int num_cache_entries VTV_PROTECTED_VAR = 0;
 
 /* This function takes the LOAD_ADDR for an object opened by the
    dynamic loader, and checks the array of cached file data to see if
@@ -385,8 +385,8 @@ log_memory_protection_data (char *message)
 
 static int
 dl_iterate_phdr_callback (struct dl_phdr_info *info,
-			  size_t unused __attribute__((__unused__)),
-			  void *data)
+                          size_t unused __attribute__((__unused__)),
+                          void *data)
 {
   mprotect_data * mdata = (mprotect_data *) data;
   off_t map_sect_offset = 0;
@@ -397,7 +397,6 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
   char buffer[PATH_MAX];
   char program_name[PATH_MAX];
   char *cptr;
-  static bool first_time = true;
   const ElfW (Phdr) *phdr_info = info->dlpi_phdr;
   const ElfW (Ehdr) *ehdr_info =
     (const ElfW (Ehdr) *) (info->dlpi_addr + info->dlpi_phdr[0].p_vaddr
@@ -413,18 +412,6 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
   if (strlen (info->dlpi_name) == 0
       && info->dlpi_addr != 0)
     return 0;
-
-  if (first_time)
-    {
-      int i;
-      for (i = 0; i < MAX_ENTRIES; ++i)
-        {
-          sect_info_cache[i].dlpi_addr = (ElfW (Addr)) 0;
-          sect_info_cache[i].dlpi_addr = (ElfW (Addr)) 0;
-          sect_info_cache[i].dlpi_addr =  0;
-        }
-      first_time = false;
-    }
 
   /* Get the name of the main executable.  This may or may not include
      arguments passed to the program.  Find the first space, assume it
@@ -458,7 +445,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
           snprintf (buffer, sizeof (buffer),
                     "mprotect'ed range [%p, %p]\n",
                     (void *) cached_data->mp_low,
-		    (char *) cached_data->mp_low + cached_data->mp_size);
+                    (char *) cached_data->mp_low + cached_data->mp_size);
           log_memory_protection_data (buffer);
         }
       return 0;
@@ -595,9 +582,18 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
                 }
               VTV_error();
             }
-          else if (debug_functions)
+          else
             {
-              if (num_cache_entries < MAX_ENTRIES)
+              /* Since we got this far, we must not have found these
+                 pages in the cache, so add them to it.  NOTE: We
+                 could get here either while making everything
+                 read-only or while making everything read-write.  We
+                 will only update the cache if we get here on a
+                 read-write (to make absolutely sure the cache is
+                 writable -- also the read-write pass should come
+                 before the read-only pass).  */
+              if ((mdata->prot_mode & PROT_WRITE)
+                  && num_cache_entries < MAX_ENTRIES)
                 {
                   sect_info_cache[num_cache_entries].dlpi_addr =
                                                                info->dlpi_addr;
@@ -605,15 +601,49 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
                   sect_info_cache[num_cache_entries].mp_size = mp_size;
                   num_cache_entries++;
                 }
-              snprintf (buffer, sizeof (buffer),
-                        "mprotect'ed range [%p, %p]\n",
-                        (void *) mp_low, (char *) mp_low + mp_size);
-              log_memory_protection_data (buffer);
+              if (debug_functions)
+                {
+                  snprintf (buffer, sizeof (buffer),
+                            "mprotect'ed range [%p, %p]\n",
+                            (void *) mp_low, (char *) mp_low + mp_size);
+                  log_memory_protection_data (buffer);
+                }
             }
         }
     }
 
   return 0;
+}
+
+/* This function explicitly changes the protection (read-only or read-write)
+   on the sect_info_cache, which is used for speeding up look ups in the 
+   function dl_iterate_phdr_callback.  This data structure needs to be
+   explicitly made read-write before any calls  to dl_iterate_phdr_callback,
+   because otherwise it may still be read-only when dl_iterate_phdr_callback
+   attempts to write to it.  
+
+   More detailed explanation:  dl_iterate_phdr_callback finds all the 
+   .vtable_map_vars sections in all loaded objects (including the main program)
+   and (depending on where it was called from) either makes all the pages in the
+   sections read-write or read-only.  The sect_info_cache should be in the
+   .vtable_map_vars section for libstdc++.so, which means that normally it would
+   be read-only until libstdc++.so is processed by dl_iterate_phdr_callback
+   (on the read-write pass), after which it will be writable.  But if any loaded
+   object gets processed before libstdc++.so, it will attempt to update the
+   data cache, which will still be read-only, and cause a seg fault.  Hence
+   we need a special function, called before dl_iterate_phdr_callback, that
+   will make the data cache writable.  */
+
+static void
+change_protections_on_phdr_cache (mprotect_data *mdata, int protection_flag)
+{
+  ElfW (Addr) low_address = (ElfW (Addr)) &(sect_info_cache);
+  size_t cache_size = MAX_ENTRIES * sizeof (struct sect_hdr_data);
+
+  low_address = low_address & ~(mdata->page_size -1);
+
+  if (mprotect ((void *) low_address, cache_size, protection_flag) == -1)
+    VTV_error ();
 }
 
 /* Unprotect all the vtable map vars and other side data that is used
@@ -627,6 +657,7 @@ VTV_unprotect_vtable_vars (void)
 
   mdata.prot_mode = PROT_READ | PROT_WRITE;
   mdata.page_size = sysconf (_SC_PAGE_SIZE);
+  change_protections_on_phdr_cache (&mdata, PROT_READ | PROT_WRITE);
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
 }
 
@@ -642,6 +673,7 @@ VTV_protect_vtable_vars (void)
   mdata.prot_mode = PROT_READ;
   mdata.page_size = sysconf (_SC_PAGE_SIZE);
   dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
+  change_protections_on_phdr_cache (&mdata, PROT_READ);
 }
 
 #ifndef __GTHREAD_MUTEX_INIT
