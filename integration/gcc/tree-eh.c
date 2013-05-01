@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
@@ -193,20 +194,42 @@ struct finally_tree_node
   gimple parent;
 };
 
+/* Hashtable helpers.  */
+
+struct finally_tree_hasher : typed_free_remove <finally_tree_node>
+{
+  typedef finally_tree_node value_type;
+  typedef finally_tree_node compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+finally_tree_hasher::hash (const value_type *v)
+{
+  return (intptr_t)v->child.t >> 4;
+}
+
+inline bool
+finally_tree_hasher::equal (const value_type *v, const compare_type *c)
+{
+  return v->child.t == c->child.t;
+}
+
 /* Note that this table is *not* marked GTY.  It is short-lived.  */
-static htab_t finally_tree;
+static hash_table <finally_tree_hasher> finally_tree;
 
 static void
 record_in_finally_tree (treemple child, gimple parent)
 {
   struct finally_tree_node *n;
-  void **slot;
+  finally_tree_node **slot;
 
   n = XNEW (struct finally_tree_node);
   n->child = child;
   n->parent = parent;
 
-  slot = htab_find_slot (finally_tree, n, INSERT);
+  slot = finally_tree.find_slot (n, INSERT);
   gcc_assert (!*slot);
   *slot = n;
 }
@@ -285,7 +308,7 @@ outside_finally_tree (treemple start, gimple target)
   do
     {
       n.child = start;
-      p = (struct finally_tree_node *) htab_find (finally_tree, &n);
+      p = finally_tree.find (&n);
       if (!p)
 	return true;
       start.g = p->parent;
@@ -2102,7 +2125,7 @@ lower_eh_constructs (void)
   if (bodyp == NULL)
     return 0;
 
-  finally_tree = htab_create (31, struct_ptr_hash, struct_ptr_eq, free);
+  finally_tree.create (31);
   eh_region_may_contain_throw_map = BITMAP_ALLOC (NULL);
   memset (&null_state, 0, sizeof (null_state));
 
@@ -2120,7 +2143,7 @@ lower_eh_constructs (void)
      didn't change its value, and we don't have to re-set the function.  */
   gcc_assert (bodyp == gimple_body (current_function_decl));
 
-  htab_delete (finally_tree);
+  finally_tree.dispose ();
   BITMAP_FREE (eh_region_may_contain_throw_map);
   eh_seq = NULL;
 
@@ -3319,7 +3342,24 @@ sink_clobbers (basic_block bb)
   if (!any_clobbers)
     return 0;
 
-  succbb = single_succ (bb);
+  edge succe = single_succ_edge (bb);
+  succbb = succe->dest;
+
+  /* See if there is a virtual PHI node to take an updated virtual
+     operand from.  */
+  gimple vphi = NULL;
+  tree vuse = NULL_TREE;
+  for (gsi = gsi_start_phis (succbb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      tree res = gimple_phi_result (gsi_stmt (gsi));
+      if (virtual_operand_p (res))
+	{
+	  vphi = gsi_stmt (gsi);
+	  vuse = res;
+	  break;
+	}
+    }
+
   dgsi = gsi_after_labels (succbb);
   gsi = gsi_last_bb (bb);
   for (gsi_prev (&gsi); !gsi_end_p (gsi); gsi_prev (&gsi))
@@ -3330,7 +3370,6 @@ sink_clobbers (basic_block bb)
 	continue;
       if (gimple_code (stmt) == GIMPLE_LABEL)
 	break;
-      unlink_stmt_vdef (stmt);
       lhs = gimple_assign_lhs (stmt);
       /* Unfortunately we don't have dominance info updated at this
 	 point, so checking if
@@ -3342,21 +3381,33 @@ sink_clobbers (basic_block bb)
 	  && TREE_CODE (TREE_OPERAND (lhs, 0)) == SSA_NAME
 	  && !SSA_NAME_IS_DEFAULT_DEF (TREE_OPERAND (lhs, 0)))
 	{
+	  unlink_stmt_vdef (stmt);
 	  gsi_remove (&gsi, true);
 	  release_defs (stmt);
 	  continue;
 	}
+
+      /* As we do not change stmt order when sinking across a
+         forwarder edge we can keep virtual operands in place.  */
       gsi_remove (&gsi, false);
-      /* Trigger the operand scanner to cause renaming for virtual
-         operands for this statement.
-	 ???  Given the simple structure of this code manually
-	 figuring out the reaching definition should not be too hard.  */
-      if (gimple_vuse (stmt))
-	gimple_set_vuse (stmt, NULL_TREE);
-      gsi_insert_before (&dgsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (&dgsi, stmt, GSI_NEW_STMT);
+
+      /* But adjust virtual operands if we sunk across a PHI node.  */
+      if (vuse)
+	{
+	  gimple use_stmt;
+	  imm_use_iterator iter;
+	  use_operand_p use_p;
+	  FOR_EACH_IMM_USE_STMT (use_stmt, iter, vuse)
+	    FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
+	      SET_USE (use_p, gimple_vdef (stmt));
+	  /* Adjust the incoming virtual operand.  */
+	  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (vphi, succe), gimple_vuse (stmt));
+	  SET_USE (gimple_vuse_op (stmt), vuse);
+	}
     }
 
-  return TODO_update_ssa_only_virtuals;
+  return 0;
 }
 
 /* At the end of inlining, we can lower EH_DISPATCH.  Return true when 

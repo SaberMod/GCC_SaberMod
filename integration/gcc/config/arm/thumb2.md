@@ -24,33 +24,7 @@
 ;; changes made in armv5t as "thumb2".  These are considered part
 ;; the 16-bit Thumb-1 instruction set.
 
-(define_insn "*thumb2_incscc"
-  [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-        (plus:SI (match_operator:SI 2 "arm_comparison_operator"
-                    [(match_operand:CC 3 "cc_register" "") (const_int 0)])
-                 (match_operand:SI 1 "s_register_operand" "0,?r")))]
-  "TARGET_THUMB2"
-  "@
-  it\\t%d2\;add%d2\\t%0, %1, #1
-  ite\\t%D2\;mov%D2\\t%0, %1\;add%d2\\t%0, %1, #1"
-  [(set_attr "conds" "use")
-   (set_attr "length" "6,10")]
-)
-
-(define_insn "*thumb2_decscc"
-  [(set (match_operand:SI            0 "s_register_operand" "=r,r")
-        (minus:SI (match_operand:SI  1 "s_register_operand" "0,?r")
-		  (match_operator:SI 2 "arm_comparison_operator"
-                   [(match_operand   3 "cc_register" "") (const_int 0)])))]
-  "TARGET_THUMB2"
-  "@
-   it\\t%d2\;sub%d2\\t%0, %1, #1
-   ite\\t%D2\;mov%D2\\t%0, %1\;sub%d2\\t%0, %1, #1"
-  [(set_attr "conds" "use")
-   (set_attr "length" "6,10")]
-)
-
-;; Thumb-2 only allows shift by constant on data processing instructions 
+;; Thumb-2 only allows shift by constant on data processing instructions
 (define_insn "*thumb_andsi_not_shiftsi_si"
   [(set (match_operand:SI 0 "s_register_operand" "=r")
 	(and:SI (not:SI (match_operator:SI 4 "shift_operator"
@@ -330,7 +304,7 @@
   [(set_attr "conds" "clob")]
 )
 ;; Don't define thumb2_load_indirect_jump because we can't guarantee label
-;; addresses will have the thumb bit set correctly. 
+;; addresses will have the thumb bit set correctly.
 
 
 (define_insn "*thumb2_and_scc"
@@ -401,7 +375,7 @@
 
 (define_insn "*thumb2_cond_arith"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-        (match_operator:SI 5 "shiftable_operator" 
+        (match_operator:SI 5 "shiftable_operator"
 	 [(match_operator:SI 4 "arm_comparison_operator"
            [(match_operand:SI 2 "s_register_operand" "r,r")
 	    (match_operand:SI 3 "arm_rhs_operand" "rI,rI")])
@@ -864,7 +838,7 @@
   else
     return \"cmp\\t%0, #0\;beq\\t%l1\";
   "
-  [(set (attr "length") 
+  [(set (attr "length")
         (if_then_else
 	    (and (ge (minus (match_dup 1) (pc)) (const_int 2))
 	         (le (minus (match_dup 1) (pc)) (const_int 128))
@@ -887,7 +861,7 @@
   else
     return \"cmp\\t%0, #0\;bne\\t%l1\";
   "
-  [(set (attr "length") 
+  [(set (attr "length")
         (if_then_else
 	    (and (ge (minus (match_dup 1) (pc)) (const_int 2))
 	         (le (minus (match_dup 1) (pc)) (const_int 128))

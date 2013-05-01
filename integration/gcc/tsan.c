@@ -128,10 +128,13 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
 	return false;
     }
 
-  if (TREE_READONLY (base))
+  if (TREE_READONLY (base)
+      || (TREE_CODE (base) == VAR_DECL
+	  && DECL_HARD_REGISTER (base)))
     return false;
 
-  if (bitpos % (size * BITS_PER_UNIT)
+  if (size == 0
+      || bitpos % (size * BITS_PER_UNIT)
       || bitsize != size * BITS_PER_UNIT)
     return false;
 

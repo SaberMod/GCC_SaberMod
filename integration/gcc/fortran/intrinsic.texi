@@ -9619,7 +9619,7 @@ Fortran 95 and later
 Transformational function
 
 @item @emph{Syntax}:
-@code{RESULT = PACK(ARRAY, MASK[,VECTOR]}
+@code{RESULT = PACK(ARRAY, MASK[,VECTOR])}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -10279,7 +10279,7 @@ Technical Specification (TS) 29113
 Inquiry function
 
 @item @emph{Syntax}:
-@code{RESULT = RANGE(A)}
+@code{RESULT = RANK(A)}
 
 @item @emph{Arguments}:
 @multitable @columnfractions .15 .70
@@ -10296,7 +10296,7 @@ program test_rank
   integer :: a
   real, allocatable :: b(:,:)
 
-  print *, rank(a), rank(b) ! Prints:  0  3
+  print *, rank(a), rank(b) ! Prints:  0  2
 end program test_rank
 @end smallexample
 

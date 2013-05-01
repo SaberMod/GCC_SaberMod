@@ -84,7 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "cgraph.h"
 #include "input.h"
 #include "gimple.h"
@@ -157,6 +157,7 @@ static GTY(()) section *debug_loc_section;
 static GTY(()) section *debug_pubnames_section;
 static GTY(()) section *debug_pubtypes_section;
 static GTY(()) section *debug_str_section;
+static GTY(()) section *debug_str_dwo_section;
 static GTY(()) section *debug_str_offsets_section;
 static GTY(()) section *debug_ranges_section;
 static GTY(()) section *debug_frame_section;
@@ -205,6 +206,28 @@ struct GTY(()) indirect_string_node {
 };
 
 static GTY ((param_is (struct indirect_string_node))) htab_t debug_str_hash;
+
+/* With split_debug_info, both the comp_dir and dwo_name go in the
+   main object file, rather than the dwo, similar to the force_direct
+   parameter elsewhere but with additional complications:
+
+   1) The string is needed in both the main object file and the dwo.
+   That is, the comp_dir and dwo_name will appear in both places.
+
+   2) Strings can use three forms: DW_FORM_string, DW_FORM_strp or
+   DW_FORM_GNU_str_index.
+
+   3) GCC chooses the form to use late, depending on the size and
+   reference count.
+
+   Rather than forcing the all debug string handling functions and
+   callers to deal with these complications, simply use a separate,
+   special-cased string table for any attribute that should go in the
+   main object file.  This limits the complexity to just the places
+   that need it.  */
+
+static GTY ((param_is (struct indirect_string_node)))
+  htab_t skeleton_debug_str_hash;
 
 static GTY(()) int dw2_string_counter;
 
@@ -3015,17 +3038,9 @@ static dw_die_ref remove_child_or_replace_with_skeleton (dw_die_ref,
                                                          dw_die_ref,
                                                          dw_die_ref);
 static void break_out_comdat_types (dw_die_ref);
-static dw_die_ref copy_ancestor_tree (dw_die_ref, dw_die_ref, htab_t);
-static void copy_decls_walk (dw_die_ref, dw_die_ref, htab_t);
 static void copy_decls_for_unworthy_types (dw_die_ref);
 
-static hashval_t htab_cu_hash (const void *);
-static int htab_cu_eq (const void *, const void *);
-static void htab_cu_del (void *);
-static int check_duplicate_cu (dw_die_ref, htab_t, unsigned *);
-static void record_comdat_symbol_number (dw_die_ref, htab_t, unsigned);
 static void add_sibling_attributes (dw_die_ref);
-static void build_abbrev_table (dw_die_ref, htab_t);
 static void output_location_lists (dw_die_ref);
 static int constant_size (unsigned HOST_WIDE_INT);
 static unsigned long size_of_die (dw_die_ref);
@@ -3197,6 +3212,8 @@ static bool generic_type_p (tree);
 static void schedule_generic_params_dies_gen (tree t);
 static void gen_scheduled_generic_parms_dies (void);
 
+static const char *comp_dir_string (void);
+
 /* enum for tracking thread-local variables whose address is really an offset
    relative to the TLS pointer, which will need link-time relocation, but will
    not need relocation by the DWARF consumer.  */
@@ -3310,11 +3327,11 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
   (!dwarf_split_debug_info                                              \
    ? (DEBUG_NORM_STR_OFFSETS_SECTION) : (DEBUG_DWO_STR_OFFSETS_SECTION))
 #endif
-#define DEBUG_DWO_STR_SECTION   ".debug_str.dwo"
-#define DEBUG_NORM_STR_SECTION  ".debug_str"
+#ifndef DEBUG_STR_DWO_SECTION
+#define DEBUG_STR_DWO_SECTION   ".debug_str.dwo"
+#endif
 #ifndef DEBUG_STR_SECTION
-#define DEBUG_STR_SECTION                               \
-  (!dwarf_split_debug_info ? (DEBUG_NORM_STR_SECTION) : (DEBUG_DWO_STR_SECTION))
+#define DEBUG_STR_SECTION  ".debug_str"
 #endif
 #ifndef DEBUG_RANGES_SECTION
 #define DEBUG_RANGES_SECTION	".debug_ranges"
@@ -3326,16 +3343,17 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #endif
 
 /* Section flags for .debug_macinfo/.debug_macro section.  */
-#define DEBUG_MACRO_SECTION_FLAGS \
+#define DEBUG_MACRO_SECTION_FLAGS                                       \
   (dwarf_split_debug_info ? SECTION_DEBUG | SECTION_EXCLUDE : SECTION_DEBUG)
 
 /* Section flags for .debug_str section.  */
-#define DEBUG_STR_SECTION_FLAGS \
-  (dwarf_split_debug_info \
-   ? SECTION_DEBUG | SECTION_EXCLUDE \
-   : (HAVE_GAS_SHF_MERGE && flag_merge_debug_strings \
-      ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1        \
-      : SECTION_DEBUG))
+#define DEBUG_STR_SECTION_FLAGS                                 \
+  (HAVE_GAS_SHF_MERGE && flag_merge_debug_strings               \
+   ? SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | 1        \
+   : SECTION_DEBUG)
+
+/* Section flags for .debug_str.dwo section.  */
+#define DEBUG_STR_DWO_SECTION_FLAGS (SECTION_DEBUG | SECTION_EXCLUDE)
 
 /* Labels we insert at beginning sections we can reference instead of
    the section names themselves.  */
@@ -3819,19 +3837,15 @@ debug_str_eq (const void *x1, const void *x2)
 		 (const char *)x2) == 0;
 }
 
-/* Add STR to the indirect string hash table.  */
+/* Add STR to the given string hash table.  */
 
 static struct indirect_string_node *
-find_AT_string (const char *str)
+find_AT_string_in_table (const char *str, htab_t table)
 {
   struct indirect_string_node *node;
   void **slot;
 
-  if (! debug_str_hash)
-    debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
-				      debug_str_eq, NULL);
-
-  slot = htab_find_slot_with_hash (debug_str_hash, str,
+  slot = htab_find_slot_with_hash (table, str,
 				   htab_hash_string (str), INSERT);
   if (*slot == NULL)
     {
@@ -3844,6 +3858,18 @@ find_AT_string (const char *str)
 
   node->refcount++;
   return node;
+}
+
+/* Add STR to the indirect string hash table.  */
+
+static struct indirect_string_node *
+find_AT_string (const char *str)
+{
+  if (! debug_str_hash)
+    debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
+				      debug_str_eq, NULL);
+
+  return find_AT_string_in_table (str, debug_str_hash);
 }
 
 /* Add a string attribute value to a DIE.  */
@@ -6505,31 +6531,34 @@ struct cu_hash_table_entry
   struct cu_hash_table_entry *next;
 };
 
-/* Routines to manipulate hash table of CUs.  */
-static hashval_t
-htab_cu_hash (const void *of)
-{
-  const struct cu_hash_table_entry *const entry =
-    (const struct cu_hash_table_entry *) of;
+/* Helpers to manipulate hash table of CUs.  */
 
+struct cu_hash_table_entry_hasher
+{
+  typedef cu_hash_table_entry value_type;
+  typedef die_struct compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+  static inline void remove (value_type *);
+};
+
+inline hashval_t
+cu_hash_table_entry_hasher::hash (const value_type *entry)
+{
   return htab_hash_string (entry->cu->die_id.die_symbol);
 }
 
-static int
-htab_cu_eq (const void *of1, const void *of2)
+inline bool
+cu_hash_table_entry_hasher::equal (const value_type *entry1,
+				   const compare_type *entry2)
 {
-  const struct cu_hash_table_entry *const entry1 =
-    (const struct cu_hash_table_entry *) of1;
-  const struct die_struct *const entry2 = (const struct die_struct *) of2;
-
   return !strcmp (entry1->cu->die_id.die_symbol, entry2->die_id.die_symbol);
 }
 
-static void
-htab_cu_del (void *what)
+inline void
+cu_hash_table_entry_hasher::remove (value_type *entry)
 {
-  struct cu_hash_table_entry *next,
-    *entry = (struct cu_hash_table_entry *) what;
+  struct cu_hash_table_entry *next;
 
   while (entry)
     {
@@ -6539,19 +6568,21 @@ htab_cu_del (void *what)
     }
 }
 
+typedef hash_table <cu_hash_table_entry_hasher> cu_hash_type;
+
 /* Check whether we have already seen this CU and set up SYM_NUM
    accordingly.  */
 static int
-check_duplicate_cu (dw_die_ref cu, htab_t htable, unsigned int *sym_num)
+check_duplicate_cu (dw_die_ref cu, cu_hash_type htable, unsigned int *sym_num)
 {
   struct cu_hash_table_entry dummy;
   struct cu_hash_table_entry **slot, *entry, *last = &dummy;
 
   dummy.max_comdat_num = 0;
 
-  slot = (struct cu_hash_table_entry **)
-    htab_find_slot_with_hash (htable, cu, htab_hash_string (cu->die_id.die_symbol),
-	INSERT);
+  slot = htable.find_slot_with_hash (cu,
+				     htab_hash_string (cu->die_id.die_symbol),
+				     INSERT);
   entry = *slot;
 
   for (; entry; last = entry, entry = entry->next)
@@ -6577,13 +6608,14 @@ check_duplicate_cu (dw_die_ref cu, htab_t htable, unsigned int *sym_num)
 
 /* Record SYM_NUM to record of CU in HTABLE.  */
 static void
-record_comdat_symbol_number (dw_die_ref cu, htab_t htable, unsigned int sym_num)
+record_comdat_symbol_number (dw_die_ref cu, cu_hash_type htable,
+			     unsigned int sym_num)
 {
   struct cu_hash_table_entry **slot, *entry;
 
-  slot = (struct cu_hash_table_entry **)
-    htab_find_slot_with_hash (htable, cu, htab_hash_string (cu->die_id.die_symbol),
-	NO_INSERT);
+  slot = htable.find_slot_with_hash (cu,
+				     htab_hash_string (cu->die_id.die_symbol),
+				     NO_INSERT);
   entry = *slot;
 
   entry->max_comdat_num = sym_num;
@@ -6599,7 +6631,7 @@ break_out_includes (dw_die_ref die)
   dw_die_ref c;
   dw_die_ref unit = NULL;
   limbo_die_node *node, **pnode;
-  htab_t cu_hash_table;
+  cu_hash_type cu_hash_table;
 
   c = die->die_child;
   if (c) do {
@@ -6632,7 +6664,7 @@ break_out_includes (dw_die_ref die)
 #endif
 
   assign_symbol_names (die);
-  cu_hash_table = htab_create (10, htab_cu_hash, htab_cu_eq, htab_cu_del);
+  cu_hash_table.create (10);
   for (node = limbo_die_list, pnode = &limbo_die_list;
        node;
        node = node->next)
@@ -6652,7 +6684,7 @@ break_out_includes (dw_die_ref die)
 		comdat_symbol_number);
 	}
     }
-  htab_delete (cu_hash_table);
+  cu_hash_table.dispose ();
 }
 
 /* Return non-zero if this DIE is a declaration.  */
@@ -6827,6 +6859,94 @@ clone_as_declaration (dw_die_ref die)
   return clone;
 }
 
+
+/* Structure to map a DIE in one CU to its copy in a comdat type unit.  */
+
+struct decl_table_entry
+{
+  dw_die_ref orig;
+  dw_die_ref copy;
+};
+
+/* Helpers to manipulate hash table of copied declarations.  */
+
+/* Hashtable helpers.  */
+
+struct decl_table_entry_hasher : typed_free_remove <decl_table_entry>
+{
+  typedef decl_table_entry value_type;
+  typedef die_struct compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+decl_table_entry_hasher::hash (const value_type *entry)
+{
+  return htab_hash_pointer (entry->orig);
+}
+
+inline bool
+decl_table_entry_hasher::equal (const value_type *entry1,
+				const compare_type *entry2)
+{
+  return entry1->orig == entry2;
+}
+
+typedef hash_table <decl_table_entry_hasher> decl_hash_type;
+
+/* Copy DIE and its ancestors, up to, but not including, the compile unit
+   or type unit entry, to a new tree.  Adds the new tree to UNIT and returns
+   a pointer to the copy of DIE.  If DECL_TABLE is provided, it is used
+   to check if the ancestor has already been copied into UNIT.  */
+
+static dw_die_ref
+copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
+{
+  dw_die_ref parent = die->die_parent;
+  dw_die_ref new_parent = unit;
+  dw_die_ref copy;
+  decl_table_entry **slot = NULL;
+  struct decl_table_entry *entry = NULL;
+
+  if (decl_table.is_created ())
+    {
+      /* Check if the entry has already been copied to UNIT.  */
+      slot = decl_table.find_slot_with_hash (die, htab_hash_pointer (die),
+					     INSERT);
+      if (*slot != HTAB_EMPTY_ENTRY)
+        {
+          entry = *slot;
+          return entry->copy;
+        }
+
+      /* Record in DECL_TABLE that DIE has been copied to UNIT.  */
+      entry = XCNEW (struct decl_table_entry);
+      entry->orig = die;
+      entry->copy = NULL;
+      *slot = entry;
+    }
+
+  if (parent != NULL)
+    {
+      dw_die_ref spec = get_AT_ref (parent, DW_AT_specification);
+      if (spec != NULL)
+        parent = spec;
+      if (!is_unit_die (parent))
+        new_parent = copy_ancestor_tree (unit, parent, decl_table);
+    }
+
+  copy = clone_as_declaration (die);
+  add_child_die (new_parent, copy);
+
+  if (decl_table.is_created ())
+    {
+      /* Record the pointer to the copy.  */
+      entry->copy = copy;
+    }
+
+  return copy;
+}
 /* Copy the declaration context to the new type unit DIE.  This includes
    any surrounding namespace or type declarations.  If the DIE has an
    AT_specification attribute, it also includes attributes and children
@@ -6874,7 +6994,7 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
   if (decl->die_parent != NULL
       && !is_unit_die (decl->die_parent))
     {
-      new_decl = copy_ancestor_tree (unit, decl, NULL);
+      new_decl = copy_ancestor_tree (unit, decl, decl_hash_type ());
       if (new_decl != NULL)
         {
           remove_AT (new_decl, DW_AT_signature);
@@ -7073,106 +7193,16 @@ break_out_comdat_types (dw_die_ref die)
   } while (next != NULL);
 }
 
-/* Structure to map a DIE in one CU to its copy in a comdat type unit.  */
-
-struct decl_table_entry
-{
-  dw_die_ref orig;
-  dw_die_ref copy;
-};
-
-/* Routines to manipulate hash table of copied declarations.  */
-
-static hashval_t
-htab_decl_hash (const void *of)
-{
-  const struct decl_table_entry *const entry =
-    (const struct decl_table_entry *) of;
-
-  return htab_hash_pointer (entry->orig);
-}
-
-static int
-htab_decl_eq (const void *of1, const void *of2)
-{
-  const struct decl_table_entry *const entry1 =
-    (const struct decl_table_entry *) of1;
-  const struct die_struct *const entry2 = (const struct die_struct *) of2;
-
-  return entry1->orig == entry2;
-}
-
-static void
-htab_decl_del (void *what)
-{
-  struct decl_table_entry *entry = (struct decl_table_entry *) what;
-
-  free (entry);
-}
-
-/* Copy DIE and its ancestors, up to, but not including, the compile unit
-   or type unit entry, to a new tree.  Adds the new tree to UNIT and returns
-   a pointer to the copy of DIE.  If DECL_TABLE is provided, it is used
-   to check if the ancestor has already been copied into UNIT.  */
-
-static dw_die_ref
-copy_ancestor_tree (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
-{
-  dw_die_ref parent = die->die_parent;
-  dw_die_ref new_parent = unit;
-  dw_die_ref copy;
-  void **slot = NULL;
-  struct decl_table_entry *entry = NULL;
-
-  if (decl_table)
-    {
-      /* Check if the entry has already been copied to UNIT.  */
-      slot = htab_find_slot_with_hash (decl_table, die,
-                                       htab_hash_pointer (die), INSERT);
-      if (*slot != HTAB_EMPTY_ENTRY)
-        {
-          entry = (struct decl_table_entry *) *slot;
-          return entry->copy;
-        }
-
-      /* Record in DECL_TABLE that DIE has been copied to UNIT.  */
-      entry = XCNEW (struct decl_table_entry);
-      entry->orig = die;
-      entry->copy = NULL;
-      *slot = entry;
-    }
-
-  if (parent != NULL)
-    {
-      dw_die_ref spec = get_AT_ref (parent, DW_AT_specification);
-      if (spec != NULL)
-        parent = spec;
-      if (!is_unit_die (parent))
-        new_parent = copy_ancestor_tree (unit, parent, decl_table);
-    }
-
-  copy = clone_as_declaration (die);
-  add_child_die (new_parent, copy);
-
-  if (decl_table != NULL)
-    {
-      /* Record the pointer to the copy.  */
-      entry->copy = copy;
-    }
-
-  return copy;
-}
-
 /* Like clone_tree, but additionally enter all the children into
    the hash table decl_table.  */
 
 static dw_die_ref
-clone_tree_hash (dw_die_ref die, htab_t decl_table)
+clone_tree_hash (dw_die_ref die, decl_hash_type decl_table)
 {
   dw_die_ref c;
   dw_die_ref clone = clone_die (die);
   struct decl_table_entry *entry;
-  void **slot = htab_find_slot_with_hash (decl_table, die,
+  decl_table_entry **slot = decl_table.find_slot_with_hash (die,
 					  htab_hash_pointer (die), INSERT);
   /* Assert that DIE isn't in the hash table yet.  If it would be there
      before, the ancestors would be necessarily there as well, therefore
@@ -7194,7 +7224,7 @@ clone_tree_hash (dw_die_ref die, htab_t decl_table)
    type_unit).  */
 
 static void
-copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
+copy_decls_walk (dw_die_ref unit, dw_die_ref die, decl_hash_type decl_table)
 {
   dw_die_ref c;
   dw_attr_ref a;
@@ -7205,20 +7235,20 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
       if (AT_class (a) == dw_val_class_die_ref)
         {
           dw_die_ref targ = AT_ref (a);
-          void **slot;
+          decl_table_entry **slot;
           struct decl_table_entry *entry;
 
           if (targ->die_mark != 0 || targ->comdat_type_p)
             continue;
 
-          slot = htab_find_slot_with_hash (decl_table, targ,
-                                           htab_hash_pointer (targ), INSERT);
+          slot = decl_table.find_slot_with_hash (targ, htab_hash_pointer (targ),
+						 INSERT);
 
           if (*slot != HTAB_EMPTY_ENTRY)
             {
               /* TARG has already been copied, so we just need to
                  modify the reference to point to the copy.  */
-              entry = (struct decl_table_entry *) *slot;
+              entry = *slot;
               a->dw_attr_val.v.val_die_ref.die = entry->copy;
             }
           else
@@ -7285,12 +7315,12 @@ copy_decls_walk (dw_die_ref unit, dw_die_ref die, htab_t decl_table)
 static void
 copy_decls_for_unworthy_types (dw_die_ref unit)
 {
-  htab_t decl_table;
+  decl_hash_type decl_table;
 
   mark_dies (unit);
-  decl_table = htab_create (10, htab_decl_hash, htab_decl_eq, htab_decl_del);
+  decl_table.create (10);
   copy_decls_walk (unit, unit, decl_table);
-  htab_delete (decl_table);
+  decl_table.dispose ();
   unmark_dies (unit);
 }
 
@@ -7345,37 +7375,42 @@ struct external_ref
   unsigned n_refs;
 };
 
-/* Hash an external_ref.  */
+/* Hashtable helpers.  */
 
-static hashval_t
-hash_external_ref (const void *p)
+struct external_ref_hasher : typed_free_remove <external_ref>
 {
-  const struct external_ref *r = (const struct external_ref *)p;
+  typedef external_ref value_type;
+  typedef external_ref compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+external_ref_hasher::hash (const value_type *r)
+{
   return htab_hash_pointer (r->type);
 }
 
-/* Compare external_refs.  */
-
-static int
-external_ref_eq (const void *p1, const void *p2)
+inline bool
+external_ref_hasher::equal (const value_type *r1, const compare_type *r2)
 {
-  const struct external_ref *r1 = (const struct external_ref *)p1;
-  const struct external_ref *r2 = (const struct external_ref *)p2;
   return r1->type == r2->type;
 }
+
+typedef hash_table <external_ref_hasher> external_ref_hash_type;
 
 /* Return a pointer to the external_ref for references to DIE.  */
 
 static struct external_ref *
-lookup_external_ref (htab_t map, dw_die_ref die)
+lookup_external_ref (external_ref_hash_type map, dw_die_ref die)
 {
   struct external_ref ref, *ref_p;
-  void ** slot;
+  external_ref **slot;
 
   ref.type = die;
-  slot = htab_find_slot (map, &ref, INSERT);
+  slot = map.find_slot (&ref, INSERT);
   if (*slot != HTAB_EMPTY_ENTRY)
-    return (struct external_ref *) *slot;
+    return *slot;
 
   ref_p = XCNEW (struct external_ref);
   ref_p->type = die;
@@ -7389,7 +7424,7 @@ lookup_external_ref (htab_t map, dw_die_ref die)
    references, remember how many we've seen.  */
 
 static void
-optimize_external_refs_1 (dw_die_ref die, htab_t map)
+optimize_external_refs_1 (dw_die_ref die, external_ref_hash_type map)
 {
   dw_die_ref c;
   dw_attr_ref a;
@@ -7422,17 +7457,17 @@ optimize_external_refs_1 (dw_die_ref die, htab_t map)
    points to an external_ref, DATA is the CU we're processing.  If we don't
    already have a local stub, and we have multiple refs, build a stub.  */
 
-static int
-build_local_stub (void **slot, void *data)
+int
+dwarf2_build_local_stub (external_ref **slot, dw_die_ref data)
 {
-  struct external_ref *ref_p = (struct external_ref *)*slot;
+  struct external_ref *ref_p = *slot;
 
   if (ref_p->stub == NULL && ref_p->n_refs > 1 && !dwarf_strict)
     {
       /* We have multiple references to this type, so build a small stub.
 	 Both of these forms are a bit dodgy from the perspective of the
 	 DWARF standard, since technically they should have names.  */
-      dw_die_ref cu = (dw_die_ref) data;
+      dw_die_ref cu = data;
       dw_die_ref type = ref_p->type;
       dw_die_ref stub = NULL;
 
@@ -7460,12 +7495,13 @@ build_local_stub (void **slot, void *data)
    them which will be applied in build_abbrev_table.  This is useful because
    references to local DIEs are smaller.  */
 
-static htab_t
+static external_ref_hash_type
 optimize_external_refs (dw_die_ref die)
 {
-  htab_t map = htab_create (10, hash_external_ref, external_ref_eq, free);
+  external_ref_hash_type map;
+  map.create (10);
   optimize_external_refs_1 (die, map);
-  htab_traverse (map, build_local_stub, die);
+  map.traverse <dw_die_ref, dwarf2_build_local_stub> (die);
   return map;
 }
 
@@ -7475,7 +7511,7 @@ optimize_external_refs (dw_die_ref die)
    die are visited recursively.  */
 
 static void
-build_abbrev_table (dw_die_ref die, htab_t extern_map)
+build_abbrev_table (dw_die_ref die, external_ref_hash_type extern_map)
 {
   unsigned long abbrev_id;
   unsigned int n_alloc;
@@ -8606,7 +8642,7 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 {
   const char *secname, *oldsym;
   char *tmp;
-  htab_t extern_map;
+  external_ref_hash_type extern_map;
 
   /* Unless we are outputting main CU, we may throw away empty ones.  */
   if (!output_if_empty && die->die_child == NULL)
@@ -8623,7 +8659,7 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 
   build_abbrev_table (die, extern_map);
 
-  htab_delete (extern_map);
+  extern_map.dispose ();
 
   /* Initialize the beginning DIE offset - and calculate sizes/offsets.  */
   next_die_offset = DWARF_COMPILE_UNIT_HEADER_SIZE;
@@ -8680,6 +8716,31 @@ add_AT_pubnames (dw_die_ref die)
     add_AT_flag (die, DW_AT_GNU_pubnames, 1);
 }
 
+/* Add a string attribute value to a skeleton DIE.  */
+
+static inline void
+add_skeleton_AT_string (dw_die_ref die, enum dwarf_attribute attr_kind,
+                        const char *str)
+{
+  dw_attr_node attr;
+  struct indirect_string_node *node;
+
+  if (! skeleton_debug_str_hash)
+    skeleton_debug_str_hash = htab_create_ggc (10, debug_str_do_hash,
+                                               debug_str_eq, NULL);
+
+  node = find_AT_string_in_table (str, skeleton_debug_str_hash);
+  find_string_form (node);
+  if (node->form == DW_FORM_GNU_str_index)
+    node->form = DW_FORM_strp;
+
+  attr.dw_attr = attr_kind;
+  attr.dw_attr_val.val_class = dw_val_class_str;
+  attr.dw_attr_val.val_entry = NULL;
+  attr.dw_attr_val.v.val_str = node;
+  add_dwarf_attr (die, &attr);
+}
+
 /* Helper function to generate top-level dies for skeleton debug_info and
    debug_types.  */
 
@@ -8687,18 +8748,11 @@ static void
 add_top_level_skeleton_die_attrs (dw_die_ref die)
 {
   const char *dwo_file_name = concat (aux_base_name, ".dwo", NULL);
-  dw_attr_ref attr;
+  const char *comp_dir = comp_dir_string ();
 
-  add_comp_dir_attribute (die);
-  add_AT_string (die, DW_AT_GNU_dwo_name, dwo_file_name);
-  /* The specification suggests that these attributes be inline to avoid
-     having a .debug_str section.  We know that they exist in the die because
-     we just added them.  */
-  attr = get_AT (die, DW_AT_GNU_dwo_name);
-  attr->dw_attr_val.v.val_str->form = DW_FORM_string;
-  attr = get_AT (die, DW_AT_comp_dir);
-  attr->dw_attr_val.v.val_str->form = DW_FORM_string;
-
+  add_skeleton_AT_string (die, DW_AT_GNU_dwo_name, dwo_file_name);
+  if (comp_dir != NULL)
+    add_skeleton_AT_string (die, DW_AT_comp_dir, comp_dir);
   add_AT_pubnames (die);
   add_AT_lineptr (die, DW_AT_GNU_addr_base, debug_addr_section_label);
 }
@@ -8731,9 +8785,6 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
   /* These attributes will be found in the full debug_info section.  */
   remove_AT (comp_unit, DW_AT_producer);
   remove_AT (comp_unit, DW_AT_language);
-
-  /* Add attributes common to skeleton compile_units and type_units.  */
-  add_top_level_skeleton_die_attrs (comp_unit);
 
   switch_to_section (debug_skeleton_info_section);
   ASM_OUTPUT_LABEL (asm_out_file, debug_skeleton_info_section_label);
@@ -8781,7 +8832,7 @@ output_comdat_type_unit (comdat_type_node *node)
 #if defined (OBJECT_FORMAT_ELF)
   tree comdat_key;
 #endif
-  htab_t extern_map;
+  external_ref_hash_type extern_map;
 
   /* First mark all the DIEs in this CU so we know which get local refs.  */
   mark_dies (node->root_die);
@@ -8790,7 +8841,7 @@ output_comdat_type_unit (comdat_type_node *node)
 
   build_abbrev_table (node->root_die, extern_map);
 
-  htab_delete (extern_map);
+  extern_map.dispose ();
 
   /* Initialize the beginning DIE offset - and calculate sizes/offsets.  */
   next_die_offset = DWARF_COMDAT_TYPE_UNIT_HEADER_SIZE;
@@ -15787,16 +15838,21 @@ add_gnat_descriptive_type_attribute (dw_die_ref die, tree type,
   add_AT_die_ref (die, DW_AT_GNAT_descriptive_type, dtype_die);
 }
 
-/* Generate a DW_AT_comp_dir attribute for DIE.  */
+/* Retrieve the comp_dir string suitable for use with DW_AT_comp_dir.  */
 
-static void
-add_comp_dir_attribute (dw_die_ref die)
+static const char *
+comp_dir_string (void)
 {
-  const char *wd = get_src_pwd ();
+  const char *wd;
   char *wd1;
+  static const char *cached_wd = NULL;
 
+  if (cached_wd != NULL)
+    return cached_wd;
+
+  wd = get_src_pwd ();
   if (wd == NULL)
-    return;
+    return NULL;
 
   if (DWARF2_DIR_SHOULD_END_WITH_SEPARATOR)
     {
@@ -15810,7 +15866,18 @@ add_comp_dir_attribute (dw_die_ref die)
       wd = wd1;
     }
 
-    add_AT_string (die, DW_AT_comp_dir, remap_debug_filename (wd));
+  cached_wd = remap_debug_filename (wd);
+  return cached_wd;
+}
+
+/* Generate a DW_AT_comp_dir attribute for DIE.  */
+
+static void
+add_comp_dir_attribute (dw_die_ref die)
+{
+  const char * wd = comp_dir_string ();
+  if (wd != NULL)
+    add_AT_string (die, DW_AT_comp_dir, wd);
 }
 
 /* Return the default for DW_AT_lower_bound, or -1 if there is not any
@@ -17027,15 +17094,27 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	  if (TREE_CODE (value) == CONST_DECL)
 	    value = DECL_INITIAL (value);
 
-	  if (host_integerp (value, TYPE_UNSIGNED (TREE_TYPE (value))))
+	  if (host_integerp (value, TYPE_UNSIGNED (TREE_TYPE (value)))
+	      && (simple_type_size_in_bits (TREE_TYPE (value))
+		  <= HOST_BITS_PER_WIDE_INT || host_integerp (value, 0)))
 	    /* DWARF2 does not provide a way of indicating whether or
 	       not enumeration constants are signed or unsigned.  GDB
 	       always assumes the values are signed, so we output all
 	       values as if they were signed.  That means that
 	       enumeration constants with very large unsigned values
-	       will appear to have negative values in the debugger.  */
-	    add_AT_int (enum_die, DW_AT_const_value,
-			tree_low_cst (value, tree_int_cst_sgn (value) > 0));
+	       will appear to have negative values in the debugger.
+
+	       TODO: the above comment is wrong, DWARF2 does provide
+	       DW_FORM_sdata/DW_FORM_udata to represent signed/unsigned data.
+	       This should be re-worked to use correct signed/unsigned
+	       int/double tags for all cases, instead of always treating as
+	       signed.  */
+	    add_AT_int (enum_die, DW_AT_const_value, TREE_INT_CST_LOW (value));
+	  else
+	    /* Enumeration constants may be wider than HOST_WIDE_INT.  Handle
+	       that here.  */
+	    add_AT_double (enum_die, DW_AT_const_value,
+			   TREE_INT_CST_HIGH (value), TREE_INT_CST_LOW (value));
 	}
 
       add_gnat_descriptive_type_attribute (type_die, type, context_die);
@@ -21249,25 +21328,30 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
     }
 }
 
-/* Routines to manipulate hash table of CUs.  */
+/* Helpers to manipulate hash table of CUs.  */
 
-static hashval_t
-htab_macinfo_hash (const void *of)
+struct macinfo_entry_hasher : typed_noop_remove <macinfo_entry>
 {
-  const macinfo_entry *const entry =
-    (const macinfo_entry *) of;
+  typedef macinfo_entry value_type;
+  typedef macinfo_entry compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
 
+inline hashval_t
+macinfo_entry_hasher::hash (const value_type *entry)
+{
   return htab_hash_string (entry->info);
 }
 
-static int
-htab_macinfo_eq (const void *of1, const void *of2)
+inline bool
+macinfo_entry_hasher::equal (const value_type *entry1,
+			     const compare_type *entry2)
 {
-  const macinfo_entry *const entry1 = (const macinfo_entry *) of1;
-  const macinfo_entry *const entry2 = (const macinfo_entry *) of2;
-
   return !strcmp (entry1->info, entry2->info);
 }
+
+typedef hash_table <macinfo_entry_hasher> macinfo_hash_type;
 
 /* Output a single .debug_macinfo entry.  */
 
@@ -21357,7 +21441,7 @@ output_macinfo_op (macinfo_entry *ref)
 
 static unsigned
 optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
-			htab_t *macinfo_htab)
+			macinfo_hash_type *macinfo_htab)
 {
   macinfo_entry *first, *second, *cur, *inc;
   char linebuf[sizeof (HOST_WIDE_INT) * 3 + 1];
@@ -21366,7 +21450,7 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   char *grp_name, *tail;
   const char *base;
   unsigned int i, count, encoded_filename_len, linebuf_len;
-  void **slot;
+  macinfo_entry **slot;
 
   first = &(*macinfo_table)[idx];
   second = &(*macinfo_table)[idx + 1];
@@ -21444,17 +21528,17 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   inc->code = DW_MACRO_GNU_transparent_include;
   inc->lineno = 0;
   inc->info = ggc_strdup (grp_name);
-  if (*macinfo_htab == NULL)
-    *macinfo_htab = htab_create (10, htab_macinfo_hash, htab_macinfo_eq, NULL);
+  if (!macinfo_htab->is_created ())
+    macinfo_htab->create (10);
   /* Avoid emitting duplicates.  */
-  slot = htab_find_slot (*macinfo_htab, inc, INSERT);
+  slot = macinfo_htab->find_slot (inc, INSERT);
   if (*slot != NULL)
     {
       inc->code = 0;
       inc->info = NULL;
       /* If such an entry has been used before, just emit
 	 a DW_MACRO_GNU_transparent_include op.  */
-      inc = (macinfo_entry *) *slot;
+      inc = *slot;
       output_macinfo_op (inc);
       /* And clear all macinfo_entry in the range to avoid emitting them
 	 in the second pass.  */
@@ -21467,7 +21551,7 @@ optimize_macinfo_range (unsigned int idx, vec<macinfo_entry, va_gc> *files,
   else
     {
       *slot = inc;
-      inc->lineno = htab_elements (*macinfo_htab);
+      inc->lineno = macinfo_htab->elements ();
       output_macinfo_op (inc);
     }
   return count;
@@ -21518,7 +21602,7 @@ output_macinfo (void)
   unsigned long length = vec_safe_length (macinfo_table);
   macinfo_entry *ref;
   vec<macinfo_entry, va_gc> *files = NULL;
-  htab_t macinfo_htab = NULL;
+  macinfo_hash_type macinfo_htab;
 
   if (! length)
     return;
@@ -21591,10 +21675,10 @@ output_macinfo (void)
       ref->code = 0;
     }
 
-  if (macinfo_htab == NULL)
+  if (!macinfo_htab.is_created ())
     return;
 
-  htab_delete (macinfo_htab);
+  macinfo_htab.dispose ();
 
   /* If any DW_MACRO_GNU_transparent_include were used, on those
      DW_MACRO_GNU_transparent_include entries terminate the
@@ -21718,6 +21802,8 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
                                    DEBUG_SKELETON_INFO_SECTION_LABEL, 0);
       debug_loc_section = get_section (DEBUG_DWO_LOC_SECTION,
                                        SECTION_DEBUG | SECTION_EXCLUDE, NULL);
+      debug_str_dwo_section = get_section (DEBUG_STR_DWO_SECTION,
+                                           DEBUG_STR_DWO_SECTION_FLAGS, NULL);
     }
   debug_aranges_section = get_section (DEBUG_ARANGES_SECTION,
 				       SECTION_DEBUG, NULL);
@@ -21842,7 +21928,6 @@ output_index_string (void **h, void *v)
       /* Assert that the strings are output in the same order as their
          indexes were assigned.  */
       gcc_assert (*cur_idx == node->index);
-      ASM_OUTPUT_LABEL (asm_out_file, node->label);
       assemble_string (node->str, strlen (node->str) + 1);
       *cur_idx += 1;
     }
@@ -21857,6 +21942,7 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
 {
   struct indirect_string_node *node = (struct indirect_string_node *) *h;
 
+  node->form = find_string_form (node);
   if (node->form == DW_FORM_strp && node->refcount > 0)
     {
       ASM_OUTPUT_LABEL (asm_out_file, node->label);
@@ -21871,21 +21957,21 @@ output_indirect_string (void **h, void *v ATTRIBUTE_UNUSED)
 static void
 output_indirect_strings (void)
 {
+  switch_to_section (debug_str_section);
   if (!dwarf_split_debug_info)
-    {
-      switch_to_section (debug_str_section);
-      htab_traverse (debug_str_hash, output_indirect_string, NULL);
-    }
+    htab_traverse (debug_str_hash, output_indirect_string, NULL);
   else
     {
       unsigned int offset = 0;
       unsigned int cur_idx = 0;
 
+      htab_traverse (skeleton_debug_str_hash, output_indirect_string, NULL);
+
       switch_to_section (debug_str_offsets_section);
       htab_traverse_noresize (debug_str_hash,
                               output_index_string_offset,
                               &offset);
-      switch_to_section (debug_str_section);
+      switch_to_section (debug_str_dwo_section);
       htab_traverse_noresize (debug_str_hash,
                               output_index_string,
                               &cur_idx);
@@ -22300,6 +22386,8 @@ prune_unused_types (void)
 
   if (debug_str_hash)
     htab_empty (debug_str_hash);
+  if (skeleton_debug_str_hash)
+    htab_empty (skeleton_debug_str_hash);
   prune_unused_types_prune (comp_unit_die ());
   for (node = limbo_die_list; node; node = node->next)
     prune_unused_types_prune (node->die);
@@ -22329,24 +22417,28 @@ file_table_relative_p (void ** slot, void *param)
   return 1;
 }
 
-/* Routines to manipulate hash table of comdat type units.  */
+/* Helpers to manipulate hash table of comdat type units.  */
 
-static hashval_t
-htab_ct_hash (const void *of)
+struct comdat_type_hasher : typed_noop_remove <comdat_type_node>
+{
+  typedef comdat_type_node value_type;
+  typedef comdat_type_node compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+comdat_type_hasher::hash (const value_type *type_node)
 {
   hashval_t h;
-  const comdat_type_node *const type_node = (const comdat_type_node *) of;
-
   memcpy (&h, type_node->signature, sizeof (h));
   return h;
 }
 
-static int
-htab_ct_eq (const void *of1, const void *of2)
+inline bool
+comdat_type_hasher::equal (const value_type *type_node_1,
+			   const compare_type *type_node_2)
 {
-  const comdat_type_node *const type_node_1 = (const comdat_type_node *) of1;
-  const comdat_type_node *const type_node_2 = (const comdat_type_node *) of2;
-
   return (! memcmp (type_node_1->signature, type_node_2->signature,
                     DWARF_TYPE_SIGNATURE_SIZE));
 }
@@ -23410,21 +23502,29 @@ compare_locs (dw_loc_descr_ref x, dw_loc_descr_ref y)
   return x == NULL && y == NULL;
 }
 
+/* Hashtable helpers.  */
+
+struct loc_list_hasher : typed_noop_remove <dw_loc_list_struct>
+{
+  typedef dw_loc_list_struct value_type;
+  typedef dw_loc_list_struct compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
 /* Return precomputed hash of location list X.  */
 
-static hashval_t
-loc_list_hash (const void *x)
+inline hashval_t
+loc_list_hasher::hash (const value_type *x)
 {
-  return ((const struct dw_loc_list_struct *) x)->hash;
+  return x->hash;
 }
 
-/* Return 1 if location lists X and Y are the same.  */
+/* Return true if location lists A and B are the same.  */
 
-static int
-loc_list_eq (const void *x, const void *y)
+inline bool
+loc_list_hasher::equal (const value_type *a, const compare_type *b)
 {
-  const struct dw_loc_list_struct *a = (const struct dw_loc_list_struct *) x;
-  const struct dw_loc_list_struct *b = (const struct dw_loc_list_struct *) y;
   if (a == b)
     return 1;
   if (a->hash != b->hash)
@@ -23439,16 +23539,19 @@ loc_list_eq (const void *x, const void *y)
   return a == NULL && b == NULL;
 }
 
+typedef hash_table <loc_list_hasher> loc_list_hash_type;
+
+
 /* Recursively optimize location lists referenced from DIE
    children and share them whenever possible.  */
 
 static void
-optimize_location_lists_1 (dw_die_ref die, htab_t htab)
+optimize_location_lists_1 (dw_die_ref die, loc_list_hash_type htab)
 {
   dw_die_ref c;
   dw_attr_ref a;
   unsigned ix;
-  void **slot;
+  dw_loc_list_struct **slot;
 
   FOR_EACH_VEC_SAFE_ELT (die->die_attr, ix, a)
     if (AT_class (a) == dw_val_class_loc_list)
@@ -23457,12 +23560,11 @@ optimize_location_lists_1 (dw_die_ref die, htab_t htab)
 	/* TODO: perform some optimizations here, before hashing
 	   it and storing into the hash table.  */
 	hash_loc_list (list);
-	slot = htab_find_slot_with_hash (htab, list, list->hash,
-					 INSERT);
+	slot = htab.find_slot_with_hash (list, list->hash, INSERT);
 	if (*slot == NULL)
-	  *slot = (void *) list;
+	  *slot = list;
 	else
-          a->dw_attr_val.v.val_loc_list = (dw_loc_list_ref) *slot;
+          a->dw_attr_val.v.val_loc_list = *slot;
       }
 
   FOR_EACH_CHILD (die, c, optimize_location_lists_1 (c, htab));
@@ -23507,9 +23609,10 @@ index_location_lists (dw_die_ref die)
 static void
 optimize_location_lists (dw_die_ref die)
 {
-  htab_t htab = htab_create (500, loc_list_hash, loc_list_eq, NULL);
+  loc_list_hash_type htab;
+  htab.create (500);
   optimize_location_lists_1 (die, htab);
-  htab_delete (htab);
+  htab.dispose ();
 }
 
 /* Output stuff that dwarf requires at the end of every file,
@@ -23520,7 +23623,7 @@ dwarf2out_finish (const char *filename)
 {
   limbo_die_node *node, *next_node;
   comdat_type_node *ctnode;
-  htab_t comdat_type_table;
+  hash_table <comdat_type_hasher> comdat_type_table;
   unsigned int i;
   dw_die_ref main_comp_unit_die;
 
@@ -23769,9 +23872,18 @@ dwarf2out_finish (const char *filename)
     optimize_location_lists (comp_unit_die ());
 
   save_macinfo_strings ();
+
   if (dwarf_split_debug_info)
     {
       unsigned int index = 0;
+
+      /* Add attributes common to skeleton compile_units and
+         type_units.  Because these attributes include strings, it
+         must be done before freezing the string table.  Top-level
+         skeleton die attrs are added when the skeleton type unit is
+         created, so ensure it is created by this point.  */
+      add_top_level_skeleton_die_attrs (main_comp_unit_die);
+      (void) get_skeleton_type_unit ();
       htab_traverse_noresize (debug_str_hash, index_string, &index);
     }
 
@@ -23780,10 +23892,10 @@ dwarf2out_finish (const char *filename)
   for (node = limbo_die_list; node; node = node->next)
     output_comp_unit (node->die, 0);
 
-  comdat_type_table = htab_create (100, htab_ct_hash, htab_ct_eq, NULL);
+  comdat_type_table.create (100);
   for (ctnode = comdat_type_list; ctnode != NULL; ctnode = ctnode->next)
     {
-      void **slot = htab_find_slot (comdat_type_table, ctnode, INSERT);
+      comdat_type_node **slot = comdat_type_table.find_slot (ctnode, INSERT);
 
       /* Don't output duplicate types.  */
       if (*slot != HTAB_EMPTY_ENTRY)
@@ -23801,7 +23913,7 @@ dwarf2out_finish (const char *filename)
       output_comdat_type_unit (ctnode);
       *slot = ctnode;
     }
-  htab_delete (comdat_type_table);
+  comdat_type_table.dispose ();
 
   /* The AT_pubnames attribute needs to go in all skeleton dies, including
      both the main_cu and all skeleton TUs.  Making this call unconditional
@@ -23919,7 +24031,7 @@ dwarf2out_finish (const char *filename)
     }
 
   /* If we emitted any indirect strings, output the string table too.  */
-  if (debug_str_hash)
+  if (debug_str_hash || skeleton_debug_str_hash)
     output_indirect_strings ();
 }
 

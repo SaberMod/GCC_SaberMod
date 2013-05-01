@@ -64,7 +64,7 @@ static sreal real_zero, real_one, real_almost_one, real_br_prob_base,
 
 /* Random guesstimation given names.
    PROV_VERY_UNLIKELY should be small enough so basic block predicted
-   by it gets bellow HOT_BB_FREQUENCY_FRANCTION.  */
+   by it gets below HOT_BB_FREQUENCY_FRACTION.  */
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 2000 - 1)
 #define PROB_EVEN		(REG_BR_PROB_BASE / 2)
 #define PROB_VERY_LIKELY	(REG_BR_PROB_BASE - PROB_VERY_UNLIKELY)
@@ -2338,7 +2338,7 @@ tree_estimate_probability (void)
   tree_bb_level_predictions ();
   record_loop_exits ();
 
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     predict_loops ();
 
   FOR_EACH_BB (bb)
@@ -2372,7 +2372,7 @@ tree_estimate_probability_driver (void)
 
   mark_irreducible_loops ();
 
-  nb_loops = number_of_loops ();
+  nb_loops = number_of_loops (cfun);
   if (nb_loops > 1)
     scev_initialize ();
 
@@ -2694,7 +2694,7 @@ estimate_loops (void)
   basic_block bb;
 
   /* Start by estimating the frequencies in the loops.  */
-  if (number_of_loops () > 1)
+  if (number_of_loops (cfun) > 1)
     estimate_loops_at_level (current_loops->tree_root->inner);
 
   /* Now propagate the frequencies through all the blocks.  */

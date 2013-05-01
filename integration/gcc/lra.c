@@ -194,7 +194,7 @@ lra_create_new_reg (enum machine_mode md_mode, rtx original,
   new_reg
     = lra_create_new_reg_with_unique_value (md_mode, original, rclass, title);
   if (original != NULL_RTX && REG_P (original))
-    lra_reg_info[REGNO (new_reg)].val = lra_reg_info[REGNO (original)].val;
+    lra_assign_reg_val (REGNO (original), REGNO (new_reg));
   return new_reg;
 }
 
@@ -1392,6 +1392,7 @@ initialize_lra_reg_info_element (int i)
   lra_reg_info[i].last_reload = 0;
   lra_reg_info[i].restore_regno = -1;
   lra_reg_info[i].val = get_new_reg_value ();
+  lra_reg_info[i].offset = 0;
   lra_reg_info[i].copies = NULL;
 }
 
@@ -2202,6 +2203,10 @@ lra (FILE *f)
 
   timevar_push (TV_LRA);
 
+  /* Make sure that the last insn is a note.  Some subsequent passes
+     need it.  */
+  emit_note (NOTE_INSN_DELETED);
+
   COPY_HARD_REG_SET (lra_no_alloc_regs, ira_no_alloc_regs);
 
   init_reg_info ();
@@ -2258,6 +2263,11 @@ lra (FILE *f)
   bitmap_initialize (&lra_split_regs, &reg_obstack);
   bitmap_initialize (&lra_optional_reload_pseudos, &reg_obstack);
   live_p = false;
+  if (get_frame_size () != 0 && crtl->stack_alignment_needed)
+    /* If we have a stack frame, we must align it now.  The stack size
+       may be a part of the offset computation for register
+       elimination.  */
+    assign_stack_local (BLKmode, 0, crtl->stack_alignment_needed);
   for (;;)
     {
       for (;;)
