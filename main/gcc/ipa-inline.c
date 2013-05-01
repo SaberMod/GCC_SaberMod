@@ -403,7 +403,6 @@ num_calls (struct cgraph_node *n)
   return num;
 }
 
-
 /* Return true if we are interested in inlining small function.  */
 
 static bool
@@ -424,12 +423,12 @@ want_early_inline_function_p (struct cgraph_edge *e)
   else
     {
       int growth = estimate_edge_growth (e);
+      struct cgraph_node *callee = e->callee;
       int n;
 
-      if (growth <= 0)
+      if (growth <= PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_ANY))
 	;
-      else if (!cgraph_maybe_hot_edge_p (e)
-	       && growth > 0)
+      else if (!cgraph_maybe_hot_edge_p (e))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "  will not early inline: %s/%i->%s/%i, "
@@ -449,6 +448,9 @@ want_early_inline_function_p (struct cgraph_edge *e)
 		     growth);
 	  want_inline = false;
 	}
+      else if (DECL_COMDAT (callee->symbol.decl)
+               && growth <= PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_COMDAT))
+        ;
       else if ((n = num_calls (callee)) != 0
 	       && growth * (n + 1) > PARAM_VALUE (PARAM_EARLY_INLINING_INSNS))
 	{
