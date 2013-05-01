@@ -226,8 +226,6 @@ struct whitelist_data_struct
   ElfW (Addr) high_addr;
 };
 
-static int vtv_page_size = 0;
-
 struct whitelist_data_struct whitelist_data[WHITELIST_SIZE] VTV_PROTECTED_VAR = { 0 };
 
 #ifdef __GTHREAD_MUTEX_INIT
@@ -285,16 +283,6 @@ typedef insert_only_hash_sets<int_vptr, vptr_hash, vptr_set_alloc> vtv_sets;
 typedef vtv_sets::insert_only_hash_set vtv_set;
 typedef vtv_set * vtv_set_handle;
 typedef vtv_set_handle * vtv_set_handle_handle; 
-
-/* Data structure passed to our dl_iterate_phdr callback function,
-   indicating whether mprotect should make the pages readonly or
-   read/write, and what page size to use.  */
-
-struct mprotect_data
-  {
-    int prot_mode;
-    unsigned long page_size;
-  };
 
 /* Records for caching teh section header information that we have
    read out of the file(s) on disk (in dl_iterate_phdr_callback), to
@@ -439,7 +427,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
                           size_t unused __attribute__((__unused__)),
                           void *data)
 {
-  mprotect_data * mdata = (mprotect_data *) data;
+  int * mprotect_flags = (int *) data;
   off_t map_sect_offset = 0;
   ElfW (Word) map_sect_len = 0;
   ElfW (Addr) start_addr = 0;
@@ -452,8 +440,6 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
   const ElfW (Ehdr) *ehdr_info =
     (const ElfW (Ehdr) *) (info->dlpi_addr + info->dlpi_phdr[0].p_vaddr
                            - info->dlpi_phdr[0].p_offset);
-
-  vtv_page_size = mdata->page_size;
 
   /* Check to see if this is the record for the Linux Virtual Dynamic
      Shared Object (linux-vdso.so.1), which exists only in memory (and
@@ -480,13 +466,13 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
          appropriate addresses; use the cached data to set the
          appropriate protections and return.  */
       if (mprotect ((void *) cached_data->mp_low, cached_data->mp_size,
-                    mdata->prot_mode) == -1)
+                    *mprotect_flags) == -1)
         {
           if (debug_functions)
             {
               snprintf (buffer, sizeof (buffer),
                         "Failed called to mprotect for %s error: ",
-                        (mdata->prot_mode & PROT_WRITE) ?
+                        (*mprotect_flags & PROT_WRITE) ?
                         "READ/WRITE" : "READ-ONLY");
               log_memory_protection_data (buffer);
               perror(NULL);
@@ -576,7 +562,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
               /* We found the section; get its load offset and
                  size.  */
               map_sect_offset = sect_hdr.sh_addr;
-              map_sect_len = sect_hdr.sh_size - mdata->page_size;
+              map_sect_len = sect_hdr.sh_size - VTV_PAGE_SIZE;
               found = true;
             }
         }
@@ -593,7 +579,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
                 "  Looking at load module %s to change permissions to %s\n",
                 ((strlen (info->dlpi_name) == 0) ? program_name
                                                  : info->dlpi_name),
-                (mdata->prot_mode & PROT_WRITE) ? "READ/WRITE" : "READ-ONLY");
+                (*mprotect_flags & PROT_WRITE) ? "READ/WRITE" : "READ-ONLY");
       log_memory_protection_data (buffer);
     }
 
@@ -607,7 +593,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
           && (size_in_memory != 0))
         {
           /* Calculate the address & size to pass to mprotect. */
-          ElfW (Addr) mp_low = relocated_start_addr & ~(mdata->page_size - 1);
+          ElfW (Addr) mp_low = relocated_start_addr & ~(VTV_PAGE_SIZE - 1);
           size_t mp_size = size_in_memory - 1;
 
           if (debug_functions)
@@ -622,13 +608,13 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
             }
 
           /* Change the protections on the pages for the section.  */
-          if (mprotect ((void *) mp_low, mp_size, mdata->prot_mode) == -1)
+          if (mprotect ((void *) mp_low, mp_size, *mprotect_flags) == -1)
             {
               if (debug_functions)
                 {
                   snprintf (buffer, sizeof (buffer),
                             "Failed called to mprotect for %s error: ",
-                            (mdata->prot_mode & PROT_WRITE) ?
+                            (*mprotect_flags & PROT_WRITE) ?
                             "READ/WRITE" : "READ-ONLY");
                   log_memory_protection_data (buffer);
                   perror(NULL);
@@ -645,7 +631,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
                  read-write (to make absolutely sure the cache is
                  writable -- also the read-write pass should come
                  before the read-only pass).  */
-              if ((mdata->prot_mode & PROT_WRITE)
+              if ((*mprotect_flags & PROT_WRITE)
                   && num_cache_entries < MAX_ENTRIES)
                 {
                   sect_info_cache[num_cache_entries].dlpi_addr =
@@ -688,12 +674,12 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
    will make the data cache writable.  */
 
 static void
-change_protections_on_phdr_cache (mprotect_data *mdata, int protection_flag)
+change_protections_on_phdr_cache (int protection_flag)
 {
   ElfW (Addr) low_address = (ElfW (Addr)) &(sect_info_cache);
   size_t cache_size = MAX_ENTRIES * sizeof (struct sect_hdr_data);
 
-  low_address = low_address & ~(mdata->page_size -1);
+  low_address = low_address & ~(VTV_PAGE_SIZE -1);
 
   if (mprotect ((void *) low_address, cache_size, protection_flag) == -1)
     VTV_error ();
@@ -706,12 +692,11 @@ change_protections_on_phdr_cache (mprotect_data *mdata, int protection_flag)
 static void
 VTV_unprotect_vtable_vars (void)
 {
-  mprotect_data mdata;
+  int mprotect_flags;
 
-  mdata.prot_mode = PROT_READ | PROT_WRITE;
-  mdata.page_size = sysconf (_SC_PAGE_SIZE);
-  change_protections_on_phdr_cache (&mdata, PROT_READ | PROT_WRITE);
-  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
+  mprotect_flags = PROT_READ | PROT_WRITE;
+  change_protections_on_phdr_cache (mprotect_flags);
+  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mprotect_flags);
 }
 
 /* Protect all the vtable map vars and other side data that is used
@@ -721,12 +706,11 @@ VTV_unprotect_vtable_vars (void)
 static void
 VTV_protect_vtable_vars (void)
 {
-  mprotect_data mdata;
+  int mprotect_flags;
 
-  mdata.prot_mode = PROT_READ;
-  mdata.page_size = sysconf (_SC_PAGE_SIZE);
-  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mdata);
-  change_protections_on_phdr_cache (&mdata, PROT_READ);
+  mprotect_flags = PROT_READ;
+  dl_iterate_phdr (dl_iterate_phdr_callback, (void *) &mprotect_flags);
+  change_protections_on_phdr_cache (mprotect_flags);
 }
 
 #ifndef __GTHREAD_MUTEX_INIT
@@ -1410,7 +1394,7 @@ __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
       low_address = (ElfW (Addr)) &(whitelist_data);
       list_size = WHITELIST_SIZE * sizeof (struct whitelist_data_struct);
 
-      low_address = low_address & ~(vtv_page_size - 1);
+      low_address = low_address & ~(VTV_PAGE_SIZE - 1);
 
 
       if (mprotect ((void *) low_address, list_size,

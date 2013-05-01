@@ -45,6 +45,8 @@
 #define VTV_PROTECTED_VAR \
                        __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
 
+#define VTV_PAGE_SIZE 4096
+
 /* The following logging routines try to use low level file access
    routines and avoid calling malloc. We need this so that we dont
    disturb the order of calls to dlopen.  Changing the order of dlopen

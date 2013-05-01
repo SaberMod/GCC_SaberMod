@@ -48,7 +48,6 @@
    protected again by calls to VTV_unprotect and VTV_protect */
 
 static struct obstack VTV_obstack VTV_PROTECTED_VAR;
-static unsigned long page_size VTV_PROTECTED_VAR = 0;
 static void *current_chunk VTV_PROTECTED_VAR = 0;
 static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
 static int malloc_initialized VTV_PROTECTED_VAR = 0;
@@ -63,7 +62,7 @@ VTV_malloc_protect (void)
   ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
     {
-      VTV_DEBUG_ASSERT (((unsigned long) ci & (page_size - 1)) == 0);
+      VTV_DEBUG_ASSERT (((unsigned long) ci & (VTV_PAGE_SIZE - 1)) == 0);
       if (mprotect (ci, (ci->limit - (char *) ci), PROT_READ) == -1)
 	VTV_error ();
       ci = ci->prev;
@@ -84,7 +83,7 @@ VTV_malloc_unprotect (void)
   ci = (struct _obstack_chunk *) current_chunk;
   while (ci)
     {
-      VTV_DEBUG_ASSERT (((unsigned long) ci & (page_size - 1)) == 0);
+      VTV_DEBUG_ASSERT (((unsigned long) ci & (VTV_PAGE_SIZE - 1)) == 0);
       if (mprotect (ci, (ci->limit - (char *) ci), PROT_READ | PROT_WRITE)
                                                                          == -1)
 	VTV_error ();
@@ -101,15 +100,15 @@ static void *
 obstack_chunk_alloc (size_t size)
 {
   /* Increase size to the next multiple of page_size.   */
-  size = (size + (page_size - 1)) & (~(page_size - 1));
-  VTV_DEBUG_ASSERT ((size & (page_size - 1)) == 0);
+  size = (size + (VTV_PAGE_SIZE - 1)) & (~(VTV_PAGE_SIZE - 1));
+  VTV_DEBUG_ASSERT ((size & (VTV_PAGE_SIZE - 1)) == 0);
   void *allocated;
 
   if ((allocated = mmap (NULL, size, PROT_READ | PROT_WRITE,
                          MAP_PRIVATE | MAP_ANONYMOUS,  -1, 0)) == 0)
     VTV_error ();
 
-  VTV_DEBUG_ASSERT (((unsigned long) allocated & (page_size - 1)) == 0);
+  VTV_DEBUG_ASSERT (((unsigned long) allocated & (VTV_PAGE_SIZE - 1)) == 0);
 
   current_chunk = allocated;
   current_chunk_size = size;
@@ -133,11 +132,10 @@ VTV_malloc_init (void)
   if (malloc_initialized)
     return;
 
-  page_size = sysconf (_SC_PAGE_SIZE);
-  if (page_size != 4096)
+  if (VTV_PAGE_SIZE != sysconf (_SC_PAGE_SIZE))
     VTV_error ();
 
-  obstack_chunk_size (&VTV_obstack) = page_size;
+  obstack_chunk_size (&VTV_obstack) = VTV_PAGE_SIZE;
   obstack_alignment_mask (&VTV_obstack) = sizeof (long) - 1;
   /* We guarantee that the obstack alloc failed handler will never be
      called because in case the allocation of the chunk fails, it will
@@ -182,7 +180,7 @@ VTV_malloc_stats (void)
     }
   fprintf (stderr,
 	   "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
-	   "Number of pages = %d\n", page_size, count);
+	   "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 
 /* This is a debugging function.  It writes out our memory allocation

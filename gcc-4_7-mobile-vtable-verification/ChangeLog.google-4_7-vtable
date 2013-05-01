@@ -1,3 +1,28 @@
+2013-05-01  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_malloc.cc (page_size): Delete static 
+	global variable.
+	(VTV_malloc_protect): Use VTV_PAGE_SIZE instead of page_size.
+	(VTV_malloc_unprotect): Ditto.
+	(obstack_chunk_alloc): Ditto.
+	(VTV_malloc_init): Verify that VTV_PAGE_SIZE is the same as
+	sysconf (_SC_PAGE_SIZE).  Replace page_size with VTV_PAGE_SIZE.
+	(VTV_malloc_stats): Replace page_size with VTV_PAGE_SIZE.
+	* libstdc++-v3/libsupc++/vtv_utils.h (VTV_PAGE_SIZE): New constant.
+	* libstdc++-v3/libsupc++/vtv_rts.cc (vtv_page_size): Delete static
+	global variable.
+	(struct mprotect_data): Delete struct definition.
+	(dl_iterate_callback_header): Replace mdata->prot_mode with
+	mprotect_flags (an integer); Replace mdata->page_size with 
+	VTV_PAGE_SIZE.
+	(change_protections_on_phdr_cace): Remove mdata parameter. Replace
+	mdata->page_size with VTV_PAGE_SIZE.
+	(VTV_unprotect_vtable_vars): Replace mdata.prot_mode with 
+	mprotect_flags. Replace mdata.page_size with VTV_PAGE_SIZE. Pass
+	mprotect_flags for arguments instead of mdata.
+	(VTV_protect_vtable_vars): Ditto.
+	(__vtv_verify_fail): Replace vtv_page_size with VTV_PAGE_SIZE.
+
 2013-04-30  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc: (WHITELIST_SIZE,
