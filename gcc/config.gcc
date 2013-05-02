@@ -1829,6 +1829,12 @@ mips*-*-linux*)				# Linux MIPS, either endian.
         mipsisa32*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
         esac
+	case ${target} in
+	*android*)
+		# Default to little-endian for MIPS Android
+		# tm_defines="${tm_defines} TARGET_ENDIAN_DEFAULT=0"
+		tmake_file="$tmake_file mips/t-linux-android"
+        esac
 	test x$with_llsc != x || with_llsc=yes
 	;;
 mips*-mti-elf*)
