@@ -58,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GNU_USER_TARGET_LINK_SPEC \
  "%(endian_spec) \
   %{shared:-shared} \
+  %{!EB:%{!meb:-m elf32ltsmip}} %{EB|meb:-m elf32btsmip} \
   %{!shared: \
     %{!static: \
       %{rdynamic:-export-dynamic} \
