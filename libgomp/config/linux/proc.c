@@ -264,8 +264,10 @@ gomp_init_num_threads (void)
       return;
     }
 #endif
-#ifdef _SC_NPROCESSORS_ONLN
+#if defined(__ANDROID__)
   gomp_global_icv.nthreads_var = sc_nprocessors_actu ();
+#elif defined(_SC_NPROCESSORS_ONLN)
+  gomp_global_icv.nthreads_var = sysconf (_SC_NPROCESSORS_ONLN);
 #endif
 }
 
@@ -296,8 +298,10 @@ get_num_procs (void)
       return gomp_available_cpus;
     }
 #endif
-#ifdef _SC_NPROCESSORS_ONLN
+#if defined(__ANDROID__)
   return sc_nprocessors_actu ();
+#elif defined(_SC_NPROCESSORS_ONLN)
+  return sysconf (_SC_NPROCESSORS_ONLN);
 #else
   return gomp_icv (false)->nthreads_var;
 #endif
