@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #define VTABLE_LOAD_MODULE_INIT "--whole-archive,-lvtv_init,--no-whole-archive"
+#define VTABLE_LOAD_MODULE_PREINIT "-lvtv_init"
 
 void
 lang_specific_driver (struct cl_decoded_option **in_decoded_options,
@@ -336,6 +337,13 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
   if (saw_vtable_verify == 1 && library > 0)
     {
       generate_option(OPT_Wl_, VTABLE_LOAD_MODULE_INIT, 1,
+                      CL_DRIVER, &new_decoded_options[j]);
+      added_libraries++;
+      j++;
+    }
+  else if (saw_vtable_verify == 2 && library > 0)
+    {
+      generate_option(OPT_Wl_, VTABLE_LOAD_MODULE_PREINIT, 1,
                       CL_DRIVER, &new_decoded_options[j]);
       added_libraries++;
       j++;

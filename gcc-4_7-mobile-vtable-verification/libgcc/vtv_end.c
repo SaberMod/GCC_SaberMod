@@ -46,12 +46,8 @@ along with GCC; see the file COPYING3.  If not see
    section page-aligned and page-size paded, ensuring that no other
    program data lands on our pages.  */
 
-#ifdef BIG_PAGE_SIZE
-/* TODO - Replace '4096' below with correct big page size.  */
-#define VTV_PAGE_SIZE 4096
-#else
-#define VTV_PAGE_SIZE 4096
-#endif
+
+#include "vtv-change-permission.h"
 
 /* Page-sized variable to mark end of .vtable_map_vars section.  */
 char _vtable_map_vars_end[VTV_PAGE_SIZE]

@@ -2384,6 +2384,10 @@ Enum(vtv_priority) String(std) Value(VTV_STANDARD_PRIORITY)
 EnumValue
 Enum(vtv_priority) String(preinit) Value(VTV_PREINIT_PRIORITY)
 
+fvtv-counts
+Common Var(flag_vtv_counts)
+Output vtable verification counters.
+
 fvpt
 Common Report Var(flag_value_profile_transformations) Optimization
 Use expression value profiles in optimizations

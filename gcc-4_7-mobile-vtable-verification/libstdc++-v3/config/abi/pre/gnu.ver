@@ -1333,11 +1333,11 @@ GLIBCXX_3.4.18 {
     _Z23__VLTInitSetSymbolDebug*;
     _Z17__VLTRegisterPair*;
     _Z22__VLTRegisterPairDebug*;
-    _Z21__VLTChangePermission*;
     _Z24__VLTVerifyVtablePointer*;
     _Z29__VLTVerifyVtablePointerDebug*;
     _Z17__vtv_verify_fail*;
     _Z17__vtv_really_fail*;
+    __VLTChangePermission;
 
 
 } GLIBCXX_3.4.17;

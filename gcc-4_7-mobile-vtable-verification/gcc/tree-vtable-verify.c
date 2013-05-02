@@ -939,7 +939,7 @@ verify_bb_vtables (basic_block bb)
                  (also need to find the object's declared static
                  type).  */
 
-	      total_num_virtual_calls++;
+              total_num_virtual_calls++;
 
               /* The first argument to the function must be "this", a
                  pointer to the object itself.  */
@@ -1017,8 +1017,8 @@ verify_bb_vtables (basic_block bb)
                     {
                       vtable_map_node->is_used = true;
                       vtbl_var_decl = vtable_map_node->vtbl_map_decl;
-		      if (!var_ann (vtbl_var_decl))
-			add_referenced_var (vtbl_var_decl);
+                      if (!var_ann (vtbl_var_decl))
+                        add_referenced_var (vtbl_var_decl);
 
                       if (TREE_CODE (vtbl_decl) == VAR_DECL)
                         vtable_name = IDENTIFIER_POINTER
@@ -1072,7 +1072,7 @@ verify_bb_vtables (basic_block bb)
                       gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
                                             GSI_NEW_STMT);
                       any_verification_calls_generated = true;
-		      total_num_verified_vcalls++;
+                      total_num_verified_vcalls++;
                     }
                 }
             }

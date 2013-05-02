@@ -88,7 +88,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Similar to standard GNU userspace, but adding -ffast-math support.  */
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC \
-  "%{fvtable-verify*:vtv_end.o%s} \
+  "%{fvtable-verify=std:vtv_end.o%s} \
+   %{fvtable-verify=preinit:vtv_end_preinit.o%s} \
    %{Ofast|ffast-math|funsafe-math-optimizations:crtfastmath.o%s} \
    %{mpc32:crtprec32.o%s} \
    %{mpc64:crtprec64.o%s} \

@@ -52,43 +52,66 @@ static void *current_chunk VTV_PROTECTED_VAR = 0;
 static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
 static int malloc_initialized VTV_PROTECTED_VAR = 0;
 
+
 /* This function goes through all of the pages we have allocated so
-   far and calls mprotect to make each page read-only.  */
+   far and calls mprotect to change the protections on the pages.  */
+
+static void
+change_protections_on_data_chunks (int protection_flag)
+{
+  struct _obstack_chunk *ci;
+  ci = (struct _obstack_chunk *) current_chunk;
+
+  while (ci)
+    {
+      /* Initial set up for mprotect call.*/
+      struct _obstack_chunk *protect_start = ci;
+      size_t chunk_size;
+      size_t total_size;
+      unsigned int num_pages_in_chunk;
+      char *next_page;
+
+
+      /* As long as the next 'chunk' is adjacent to the current one,
+         keep going down the list.  */
+      do
+        {
+          chunk_size = (ci->limit - (char *) ci);
+          total_size = (ci->limit - (char *) protect_start);
+          num_pages_in_chunk = chunk_size / VTV_PAGE_SIZE;
+          if (chunk_size % VTV_PAGE_SIZE > 0)
+            num_pages_in_chunk++;
+          next_page = (char *) ci + (num_pages_in_chunk * VTV_PAGE_SIZE);
+          ci = ci->prev;
+        } while (ci && (char *) ci == next_page);
+
+      VTV_DEBUG_ASSERT (((unsigned long) protect_start & (VTV_PAGE_SIZE - 1))
+                                                                       == 0);
+
+      /* Protect the contiguous chunks so far.  */
+      if (mprotect (protect_start, total_size, protection_flag) == -1)
+        VTV_error ();
+    }
+
+#if (VTV_DEBUG_MALLOC == 1)
+  VTV_malloc_dump_stats ();
+#endif
+}
+
+/* This function makes all of our data pages read-only.  */
 
 void
 VTV_malloc_protect (void)
 {
-  struct _obstack_chunk *ci;
-  ci = (struct _obstack_chunk *) current_chunk;
-  while (ci)
-    {
-      VTV_DEBUG_ASSERT (((unsigned long) ci & (VTV_PAGE_SIZE - 1)) == 0);
-      if (mprotect (ci, (ci->limit - (char *) ci), PROT_READ) == -1)
-	VTV_error ();
-      ci = ci->prev;
-    }
-
-#if (VTV_DEBUG_MALLOC == 1)
-    VTV_malloc_dump_stats ();
-#endif
+  change_protections_on_data_chunks (PROT_READ);
 }
 
-/* This function goes through all of the pages we have allocated so
-   far and calls mrpotect to make each page read-write.  */
+/* This function makes all of our data pages read-write.  */
 
 void
 VTV_malloc_unprotect (void)
 {
-  struct _obstack_chunk * ci;
-  ci = (struct _obstack_chunk *) current_chunk;
-  while (ci)
-    {
-      VTV_DEBUG_ASSERT (((unsigned long) ci & (VTV_PAGE_SIZE - 1)) == 0);
-      if (mprotect (ci, (ci->limit - (char *) ci), PROT_READ | PROT_WRITE)
-                                                                         == -1)
-	VTV_error ();
-      ci = ci->prev;
-    }
+  change_protections_on_data_chunks (PROT_READ | PROT_WRITE);
 }
 
 /* Allocates a SIZE-sized chunk of memory that is aligned to a page
@@ -192,7 +215,7 @@ VTV_malloc_dump_stats (void)
   static int fd = -1;
 
   if (fd == -1)
-    fd = vtv_open_log ("/tmp/vtv_mem_protection.log");
+    fd = vtv_open_log ("vtv_mem_protection.log");
   if (fd == -1)
     return;
 

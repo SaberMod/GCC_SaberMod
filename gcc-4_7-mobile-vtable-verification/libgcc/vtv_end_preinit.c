@@ -29,26 +29,38 @@ along with GCC; see the file COPYING3.  If not see
    and which is padded with a page-sized amount of zeros at the end.
    To make this section page aligned, we create a special symbol,
    "_vtable_map_vars_start" which we make the very first thing that
-   goes into the section.  This file defines that symbol (and only
-   that symbol).  GCC compiles this file into vtv_start.o, and
-   inserts vtv_start.o into the link line immediately after
-   crtbegin.o, if the program is compiled with -fvtable.verify.
+   goes into the section.  That is defined in vtv_start.c (which
+   contains nothing else).  vtv_start.c gest compiled into
+   vtv_start.o, and vtv_start.o gets inserted into the link line
+   immediately after crtbegin.o, if the program is compiled with
+   -fvtable.verify.
 
    In order to pad the ".vtable_map_vars" section with a page-sized
    amount of zeros at the end, there is a second symbol,
-   _vtable_map_vars_end, which is defined in another file, vtv_end.c.
-   This second symbol is a page-sized array of chars, zero-filled, and
-   is the very last thing to go into the section.  When the GCC driver
-   inserts vtv_start.o into the link line (just after crtbegin.o) it
-   also inserts vtv_end.o into the link line, just before crtend.o.
-   This has the desired effect of making our section page-aligned and
-   page-size paded, ensuring that no other program data lands on our
-   pages.  */
+   _vtable_map_vars_end.  This file defines that symbol (and only this
+   symbol).  This second symbol is a page-sized array of chars,
+   zero-filled, and is the very last thing to go into the section.
+   When the GCC driver inserts vtv_start.o into the link line (just
+   after crtbegin.o) it also inserts vtv_end.o into the link line,
+   just before crtend.o.  This has the desired effect of making our
+   section page-aligned and page-size paded, ensuring that no other
+   program data lands on our pages.  */
 
 #include "vtv-change-permission.h"
 
-/* Page-aligned symbol to mark beginning of .vtable_map_vars section.  */
-char _vtable_map_vars_start []
-__attribute__ ((__visibility__ ("protected"), used, aligned(VTV_PAGE_SIZE),
-		section(".vtable_map_vars")))
-  = { };
+void
+__VLTProtectPreinit (void)
+{
+  __VLTChangePermission (__VLTP_READ_ONLY);
+}
+
+/* Page-sized variable to mark end of .vtable_map_vars section.  */
+char _vtable_map_vars_end[VTV_PAGE_SIZE]
+  __attribute__ ((__visibility__ ("protected"), used,
+		  section(".vtable_map_vars")));
+
+/* Put the function __VLTProtectPreinit into the .preinit_array
+   section.  */
+
+__attribute__ ((section (".preinit_array")))
+    typeof (__VLTProtectPreinit) *__preinit_end = __VLTProtectPreinit;

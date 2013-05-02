@@ -155,6 +155,8 @@
 #include "vtv_rts.h"
 #include "vtv_fail.h"
 
+#include "../../include/vtv-change-permission.h"
+
 extern "C" {
 
   /* __fortify_fail is a function in glibc that calls __libc_message,
@@ -776,6 +778,7 @@ log_set_stats (void)
    contain our vtable map variables).  PERM indicates whether to make
    the permissions read-only or read-write.  */
 
+extern "C" /* This is only being applied to __VLTChangePermission.  */
 void
 __VLTChangePermission (int perm)
 {
@@ -1381,7 +1384,7 @@ __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
 
   for (int i = 0; i < WHITELIST_SIZE; ++i)
     if (whitelist_data[i].low_addr == (ElfW (Addr)) 0x0
-	|| whitelist_data[i].high_addr == (ElfW (Addr)) 0x0)
+        || whitelist_data[i].high_addr == (ElfW (Addr)) 0x0)
       need_to_update_whitelist = true;
 
   if (need_to_update_whitelist)

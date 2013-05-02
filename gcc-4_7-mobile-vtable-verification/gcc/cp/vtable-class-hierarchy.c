@@ -133,6 +133,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vtable-verify.h"
 #include "gimple.h"
 
+
 /* Mark these specially since they need to be stored in precompiled
    header IR.  */
 static GTY (()) tree vlt_saved_class_info = NULL_TREE;
@@ -197,8 +198,6 @@ init_functions (void)
                                DECL_ATTRIBUTES (vlt_change_permission_fndecl));
   TREE_PUBLIC (vlt_change_permission_fndecl) = 1;
   DECL_PRESERVE_P (vlt_change_permission_fndecl) = 1;
-  retrofit_lang_decl (vlt_change_permission_fndecl);
-  SET_DECL_LANGUAGE (vlt_change_permission_fndecl, lang_cplusplus);
 
   arg_types = build_tree_list (NULL_TREE, build_pointer_type (void_ptr_type));
   arg_types = chainon (arg_types, build_tree_list (NULL_TREE,
@@ -491,35 +490,35 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
 
               for (cnt = 0;
                    VEC_iterate (constructor_elt, CONSTRUCTOR_ELTS (values),
-				cnt, ce);
+                                cnt, ce);
                    cnt++)
                 {
                   tree value = ce->value;
                   tree val_vtbl_decl;
 
-		  /* We need to check value and find the bit where we have
-		     something with 2 arguments, the first argument of which
-		     is an ADDR_EXPR and the second argument of which is
-		     an INTEGER_CST.  */
+                  /* We need to check value and find the bit where we have
+                     something with 2 arguments, the first argument of which
+                     is an ADDR_EXPR and the second argument of which is
+                     an INTEGER_CST.  */
 
-		  while (value && TREE_OPERAND_LENGTH (value) == 1
-			 && TREE_CODE (TREE_OPERAND (value, 0)) == ADDR_EXPR)
-		    value = TREE_OPERAND (value, 0);
+                  while (value && TREE_OPERAND_LENGTH (value) == 1
+                         && TREE_CODE (TREE_OPERAND (value, 0)) == ADDR_EXPR)
+                    value = TREE_OPERAND (value, 0);
 
-		  /*
-		  gcc_assert (TREE_OPERAND_LENGTH (value) >= 2
-			      && TREE_CODE (TREE_OPERAND (value, 0)) == ADDR_EXPR
-			      && TREE_CODE (TREE_OPERAND (value, 1)) == INTEGER_CST);
-		  */
-		  /* The VAR_DECL for the vtable should be the first argument of
-		     the ADDR_EXPR, which is the first argument of value.*/
+                  /*
+                  gcc_assert (TREE_OPERAND_LENGTH (value) >= 2
+                              && TREE_CODE (TREE_OPERAND (value, 0)) == ADDR_EXPR
+                              && TREE_CODE (TREE_OPERAND (value, 1)) == INTEGER_CST);
+                  */
+                  /* The VAR_DECL for the vtable should be the first argument of
+                     the ADDR_EXPR, which is the first argument of value.*/
 
-		  if (TREE_OPERAND (value, 0))
-		    val_vtbl_decl = TREE_OPERAND (value, 0);
+                  if (TREE_OPERAND (value, 0))
+                    val_vtbl_decl = TREE_OPERAND (value, 0);
 
-		  while (TREE_CODE (val_vtbl_decl) != VAR_DECL
-			 && TREE_OPERAND (val_vtbl_decl, 0))
-		    val_vtbl_decl = TREE_OPERAND (val_vtbl_decl, 0);
+                  while (TREE_CODE (val_vtbl_decl) != VAR_DECL
+                         && TREE_OPERAND (val_vtbl_decl, 0))
+                    val_vtbl_decl = TREE_OPERAND (val_vtbl_decl, 0);
 
                   gcc_assert (TREE_CODE (val_vtbl_decl) == VAR_DECL);
 
@@ -998,33 +997,10 @@ vtv_register_class_hierarchy_information (tree init_routine_body)
   inited_some_sets = init_all_sets (init_routine_body);
 
   if (registered_something || inited_some_sets)
-  {
-      /* If this function is going into the preinit_array, then we
-         need to manually call __VLTChangePermission, rather than
-         depending on initialization prioritys in vtv_init.  */
-      if (flag_vtable_verify == VTV_PREINIT_PRIORITY)
-        {
-          /* Pass __VLTP_READ_WRITE value as defined in vtv_rts.h.  */
-          tree arg_read_write = build_int_cst (integer_type_node, 1);
-          tree arg_read_only = build_int_cst (integer_type_node, 0);
-
-          tree call_rw_expr = build_call_expr (vlt_change_permission_fndecl,
-                                               1, arg_read_write);
-          tree call_r_expr = build_call_expr (vlt_change_permission_fndecl,
-                                              1, arg_read_only);
-          tree_stmt_iterator i = tsi_start (init_routine_body);
-          /* Insert the call to make permissions read-write at the
-             beginning of the init routine.  */
-          tsi_link_before (&i, call_rw_expr, TSI_SAME_STMT);
-
-          /* Append the call to make permissions read-only at the
-             end of the init routine.  */
-          append_to_statement_list (call_r_expr, &init_routine_body);
-        }
-
+    {
       if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
         create_undef_reference_to_vtv_init (init_routine_body);
-  }
+    }
 
   return registered_something || inited_some_sets;
 }
@@ -1060,13 +1036,8 @@ vtv_generate_init_routine (void)
 {
   tree init_routine_body;
   bool vtable_classes_found = false;
-#ifdef VTV_COUNT
-  bool debug_num_verified = true;
-#else
-  bool debug_num_verified = false;
-#endif
 
-  if (debug_num_verified)
+  if (flag_vtv_counts)
     write_out_counters ();
 
   push_lang_context (lang_name_c);

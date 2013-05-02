@@ -22,6 +22,7 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
+#include "../../include/vtv-change-permission.h"
 #include "vtv_rts.h"
 
 /* The is part of the vtable verification runtime library.  For more
@@ -39,6 +40,7 @@
    the real verification functions with a set of functions that do
    nothing (so no more verification failures/aborts).  */
 
+extern "C"
 void
 __VLTChangePermission (int perm __attribute__((__unused__)))
 {
@@ -48,8 +50,8 @@ __VLTChangePermission (int perm __attribute__((__unused__)))
 
 void __VLTInitSetSymbolDebug
                       (void **set_handle_ptr __attribute__((__unused__)),
-		       const void *set_symbol_key __attribute__((__unused__)),
-		       std::size_t size_hint __attribute__((__unused__)))
+                       const void *set_symbol_key __attribute__((__unused__)),
+                       std::size_t size_hint __attribute__((__unused__)))
 {
 }
 
@@ -57,16 +59,16 @@ void
 __VLTRegisterPairDebug (void **set_handle_ptrr __attribute__((__unused__)),
                       const void *vtable_ptr __attribute__((__unused__)),
                       const char *set_symbol_name __attribute__((__unused__)),
-		      const char *vtable_name __attribute__((__unused__)))
+                      const char *vtable_name __attribute__((__unused__)))
 {
 }
 
 const void *
 __VLTVerifyVtablePointerDebug
                      (void **set_handle_ptr  __attribute__((__unused__)),
-	       	      const void *vtable_ptr,
-		      const char *set_symbol_name __attribute__((__unused__)),
-		      const char *vtable_name __attribute__((__unused__)))
+                             const void *vtable_ptr,
+                      const char *set_symbol_name __attribute__((__unused__)),
+                      const char *vtable_name __attribute__((__unused__)))
 
 {
   return vtable_ptr;
@@ -77,7 +79,7 @@ __VLTVerifyVtablePointerDebug
 void __VLTInitSetSymbol
                       (void **set_handle_ptr __attribute__((__unused__)),
                        const void *set_symbol_key __attribute__((__unused__)),
-		       std::size_t size_hint __attribute__((__unused__)))
+                       std::size_t size_hint __attribute__((__unused__)))
 {
 }
 

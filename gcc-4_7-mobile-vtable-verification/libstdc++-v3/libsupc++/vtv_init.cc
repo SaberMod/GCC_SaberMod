@@ -70,6 +70,7 @@
 #error "This file must be compiled with a C++ compiler"
 #endif
 
+#include "../../include/vtv-change-permission.h"
 #include "vtv_rts.h"
 
 /* Define this dummy symbol to detect at link time the cases where

@@ -47,8 +47,22 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "vtv-change-permission.h"
 
+void
+__VLTUnprotectPreinit (void)
+{
+  __VLTChangePermission (__VLTP_READ_WRITE);
+}
+
 /* Page-aligned symbol to mark beginning of .vtable_map_vars section.  */
 char _vtable_map_vars_start []
 __attribute__ ((__visibility__ ("protected"), used, aligned(VTV_PAGE_SIZE),
 		section(".vtable_map_vars")))
   = { };
+
+
+/* Put the function __VLTUnprotectPreinit into the .preinit_array
+   section.  */
+
+__attribute__ ((section (".preinit_array")))
+    typeof (__VLTUnprotectPreinit) *__preinit = __VLTUnprotectPreinit;
+

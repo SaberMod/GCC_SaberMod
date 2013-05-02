@@ -1,3 +1,63 @@
+2013-05-02  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (vtv-change-permission.h) New
+	include.
+	(__VLTChangePermission): Mark function as extern "C".
+	(__vtv_verify_fail) Fix white-space formatting.
+	* libstdc++-v3/libsupc++/vtv_rts.h (__VLTP_READ_ONLY, __VLTP_READ_WRITE)
+	Remove definitions (move to vtv-change-permission.h).
+	(__VLTChangePermission):  Remove extern function decl move it to
+	vtv-change-permission.h).
+	* libstdc++-v3/libsupc++/vtv_stubs.cc: (vtv-change-permission.h):  New
+	include.
+	(__VLTChangePermission):  Make function extern "C".
+	Fix white-space formatting.
+	* libstdc++-v3/libsupc++/vtv_init.cc (vtv-change-permission.h): new
+	include.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc
+	(change_protections_on_data_chunks):  New function.  Goes through all
+	the pages we have allocated so far and  calls mprotect to change the
+	protections on the pages. Does this in as few calls as possible by
+	looking for contiguously allocated chunks and changing permission on
+	all of them at once.
+	(VTV_malloc_protect):  Re-written. Calls
+	change_protections_on_data_chunks, with PROT_READ.
+	(VTV_malloc_unprotect): Ditto, except with PROT_READ | PROT_WRITE.
+	(VTV_malloc_dump_stats): Remove directory from log file name.
+	* libstdc++-v3/config/abi/pre/gnu.ver: Change __VLTChangePermission from
+	C++ symbol to a C symbol, in the global export list.
+	* include/vtv-change-permission.h:  New file.
+	* libgcc/config.host (extra_parts):  Add vtv_start_preinit.o and
+	vtv_end_preinit.o to list.
+	* libgcc/Makefile.in: Add rules to build vtv_start_preinit.o and
+	vtv_end_preinit.o
+	* libgcc/vtv_start_preinit.c: New file.
+	* libgcc/vtv_end_preinit.c:  New file.
+	* libgcc/vtv_start.c: Remove VTV_PAGE_SIZE macro; add
+	vtv-change-permisison.h include statement.
+	* libgcc/vtv_end.c:  Ditto.
+	* gcc/cp/g++spec.c (VTABLE_LOAD_MODULE_PREINIT):  New macro.
+	(lang_specific_driver):  Add VTABLE_LOAD_MODULE_PREINIT to  link
+	options, if -fvtable-verify=preinit was used.
+	* gcc/cp/vtable-class-hierarchy.c (init_functions):  Remove bits that
+	made vlt_change_permission_fndecl a C++ function decl.
+	(register_vptr_fields):  Fix white-space formatting.
+	(vtv_register_class_hierarchy_information):  Remove code to add
+	calls to __VLTChangePermission in the preinit case.
+	(vtv_generate_init_routine):  Remove debug_num_verified. Use
+	flag_vtv_counts to control call to write_out_counters.
+	* gcc/tree-vtable-verify.c:  Fix white-space formatting.
+	* gcc/common.opt (fvtv-counts):  New flag.
+	* gcc/config/i386/gnu-user.h (ENDFILE_SPEC):  Modify to use
+	vtv_end_preinit.o for -fvtable-verify=preinit, and vtv_end.o for
+	-fvtable-verify=std.
+	* gcc/config/i386/gnu-user64.h: Ditto.
+	* gcc/config/gnu-user.h (GNU_USER_TARGET_STARTFILE_SPEC): Modify to use
+	vtv_start_preinit.o for -fvtable-verify=preinit, and vtv_start.o for
+	-fvtable-verify=std.
+	(GNU_USER_TARGET_ENDFILE_SPEC): Modify to use vtv_end_preinit.o for
+	-fvtable-verify=preinit, and vtv_end.o for -fvtable-verify=std.
+
 2013-05-01  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_malloc.cc (page_size): Delete static 

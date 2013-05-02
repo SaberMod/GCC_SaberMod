@@ -27,23 +27,16 @@
 
 #include <cstdlib>
 
-/* This prototype needs to be kept in sync with the compiler-
-   generated declaration in vtable-class-hierarchy.c.  */
-
-/* We could have used an enumeration here but it just makes it more
-   difficult for the compiler to generate a call to this.  */
-#define __VLTP_READ_ONLY  0
-#define __VLTP_READ_WRITE 1
-
-extern void __VLTChangePermission (int);
+/* These prototypes need to be kept in sync with the compiler-
+   generated declarations in vtable-class-hierarchy.c.  */
 
 #ifdef VTV_DEBUG
 
 extern void __VLTInitSetSymbolDebug (void **, const void *, std::size_t);
 extern void __VLTRegisterPairDebug (void **, const void *, const char *,
-				    const char *);
+                                    const char *);
 extern const void *__VLTVerifyVtablePointerDebug (void **, const void *,
-						  const char *, const char *);
+                                                  const char *, const char *);
 
 #else
 
