@@ -6392,7 +6392,8 @@ arm_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, reg_class_t rclass)
       if (rclass == GENERAL_REGS
 	  || rclass == HI_REGS
 	  || rclass == NO_REGS
-	  || rclass == STACK_REG)
+	  || rclass == STACK_REG
+	  || rclass == CORE_REGS)
 	return LO_REGS;
       else
 	return rclass;
