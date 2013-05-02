@@ -11191,6 +11191,8 @@ ix86_output_function_nops_prologue_epilogue (FILE *file,
   unsigned int section_flags = SECTION_RELRO;
   char *section_name_comdat = NULL;
   const char *decl_section_name = NULL;
+  const char *func_name = NULL;
+  char *section_name_function_sections = NULL;
   size_t len;
 
   gcc_assert (num_remaining_nops >= 0);
@@ -11242,11 +11244,23 @@ ix86_output_function_nops_prologue_epilogue (FILE *file,
     {
       decl_section_name =
           TREE_STRING_POINTER (DECL_SECTION_NAME (current_function_decl));
-      len = strlen (decl_section_name) + strlen (section_name) + 1;
+      len = strlen (decl_section_name) + strlen (section_name) + 2;
       section_name_comdat = (char *) alloca (len);
       sprintf (section_name_comdat, "%s.%s", section_name, decl_section_name);
       section_name = section_name_comdat;
       section_flags |= SECTION_LINKONCE;
+    }
+  else if (flag_function_sections)
+    {
+      func_name = XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0);
+      if (func_name)
+        {
+          len = strlen (func_name) + strlen (section_name) + 2;
+          section_name_function_sections = (char *) alloca (len);
+          sprintf (section_name_function_sections, "%s.%s", section_name,
+                   func_name);
+          section_name = section_name_function_sections;
+        }
     }
   section = get_section (section_name, section_flags, current_function_decl);
   switch_to_section (section);
@@ -11275,7 +11289,7 @@ ix86_elf_asm_named_section (const char *name, unsigned int flags,
                             tree decl)
 {
   const char *section_name = name;
-  if (HAVE_COMDAT_GROUP && flags & SECTION_LINKONCE)
+  if (!flag_function_sections && HAVE_COMDAT_GROUP && flags & SECTION_LINKONCE)
     {
       const int prologue_section_name_length =
           sizeof(FUNCTION_PATCH_PROLOGUE_SECTION) - 1;
