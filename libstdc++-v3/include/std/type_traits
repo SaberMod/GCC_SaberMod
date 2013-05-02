@@ -264,7 +264,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     struct __is_floating_point_helper<long double>
     : public true_type { };
 
-#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128)
+#if !defined(__STRICT_ANSI__) && defined(_GLIBCXX_USE_FLOAT128) && !defined(__clang__)
   template<>
     struct __is_floating_point_helper<__float128>
     : public true_type { };
