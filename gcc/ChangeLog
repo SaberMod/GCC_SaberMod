@@ -1,3 +1,80 @@
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_alt_operands): Add checking alt
+	number to choose the best alternative.
+
+	2013-05-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57091
+	* lra-constraints.c (best_small_class_operands_num): Remove.
+	(process_alt_operands): Remove small_class_operands_num.  Take
+	small classes operands into losers and only if the operand is not
+	matched.  Modify debugging output.
+	(curr_insn_transform): Remove best_small_class_operands_num.
+	Print insn name.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/57097
+	* lra-constraints.c (process_alt_operands): Discourage a bit more
+	using memory for pseudos.  Print cost dump for alternatives.
+	Modify cost values for conflicts with early clobbers.
+	(curr_insn_transform): Spill pseudos reassigned to NO_REGS.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-24  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimizations/57046
+        * lra-constraints (split_reg): Set up lra_risky_transformations_p
+        for multi-reg splits.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR target/57018
+        * lra-eliminations.c (mark_not_eliminable): Prevent elimination of
+        a set sp if no stack realignment.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimization/56999
+        * lra-coalesce.c (coalescable_pseudo_p): Remove 2nd parameter and
+        related code.
+        (lra_coalesce): Remove split_origin_bitmap and related code.
+        * lra.c (lra): Coalesce after undoing inheritance. Recreate live
+        ranges if necessary.
+
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	Backport from mainline
+	2013-04-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+        PR rtl-optimization/56847
+        * lra-constraints.c (process_alt_operands): Discourage alternative
+        with non-matche doffsettable memory constraint fro memory with
+        known offset.
+
+2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+
+	Backport from mainline
+	2013-03-28  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (aarch64_can_eliminate): Keep frame
+	record only when desired or required.
+
 2013-04-30  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/57104
