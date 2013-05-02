@@ -1,3 +1,81 @@
+2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (process_alt_operands): Add checking alt
+	number to choose the best alternative.
+
+2013-05-02  Richard Biener  <rguenther@suse.de>
+
+	* tree-eh.c (cleanup_empty_eh_merge_phis): Remove rename_virts
+	bitmap and its handling.
+	(pass_cleanup_eh): Set todo_flags_finish to TODO_verify_ssa.
+
+2013-05-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57140
+	* tree-inline.c (copy_loops): Properly handle removed loops.
+	(copy_cfg_body): Mark destination loops for fixup if source
+	loops needed fixup.
+
+2013-05-02  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	PR target/56732
+	* config/arm/arm.c (arm_expand_epilogue): Check really_return before
+	generating simple_return for naked functions.
+
+2013-05-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/56988
+	* ipa-prop.h (ipa_agg_replacement_value): New flag by_ref.
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Also check that by_ref
+	flags match.
+	(find_aggregate_values_for_callers_subset): Fill in the by_ref flag of
+	ipa_agg_replacement_value structures.
+	(known_aggs_to_agg_replacement_list): Likewise.
+	* ipa-prop.c (write_agg_replacement_chain): Stream by_ref flag.
+	(read_agg_replacement_chain): Likewise.
+	(ipcp_transform_function): Also check that by_ref flags match.
+
+2013-05-02  Richard Biener  <rguenther@suse.de>
+
+	* graphds.h (struct graph): Add obstack member.
+	* graphds.c (new_graph): Initialize obstack and allocate
+	vertices from it.
+	(add_edge): Allocate edge from the obstack.
+	(free_graph): Free the obstack instead of all edges and
+	vertices.
+
+2013-05-02  Teresa Johnson  <tejohnson@google.com>
+
+	* loop-unswitch.c (unswitch_loop): Use helper routines with rounding
+	divides.
+	* cfg.c (update_bb_profile_for_threading): Ditto.
+	* tree-inline.c (copy_bb): Ditto.
+	(copy_edges_for_bb): Ditto.
+	(initialize_cfun): Ditto.
+	(copy_cfg_body): Ditto.
+	(expand_call_inline): Ditto.
+	* ipa-inline-analysis.c (estimate_edge_size_and_time): Ditto.
+	(estimate_node_size_and_time): Ditto.
+	(inline_merge_summary): Ditto.
+	* cgraphclones.c (cgraph_clone_edge): Ditto.
+	(cgraph_clone_node): Ditto.
+	* sched-rgn.c (compute_dom_prob_ps): Ditto.
+	(compute_trg_info): Ditto.
+
+2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (movsi_aarch64): Only allow to/from
+	S reg when fp attribute set.
+	(movdi_aarch64): Only allow to/from D reg when fp attribute set.
+
+2013-05-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (*and_one_cmpl<mode>3_compare0):
+	New pattern.
+	(*and_one_cmplsi3_compare0_uxtw): Likewise.
+	(*and_one_cmpl_<SHIFT:optab><mode>3_compare0): Likewise.
+	(*and_one_cmpl_<SHIFT:optab>si3_compare0_uxtw): Likewise.
+
 2013-05-02  Richard Biener  <rguenther@suse.de>
 
 	* tree-scalar-evolution.c (scev_info_hasher): Remove.
