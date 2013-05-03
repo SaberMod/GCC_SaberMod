@@ -1961,6 +1961,8 @@ do_compile (void)
           timevar_stop (TV_PHASE_SETUP);
 
           compile_file ();
+	  if (flag_record_compilation_info_in_elf)
+	    write_compilation_info_to_asm ();
         }
       else
         {

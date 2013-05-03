@@ -376,7 +376,7 @@ has_incompatible_cg_opts (bool *cg_opts1, bool *cg_opts2, unsigned num_cg_opts)
 
 /* Returns true if the command-line arguments stored in the given module-infos
    are incompatible.  */
-static bool
+bool
 incompatible_cl_args (struct gcov_module_info* mod_info1,
 		      struct gcov_module_info* mod_info2)
 {
@@ -2866,7 +2866,7 @@ coverage_init (const char *filename, const char* source_name)
       strcat (main_input_file_name, source_name);
     }
 
-  if (flag_branch_probabilities)
+  if (flag_branch_probabilities && !flag_auto_profile)
     read_counts_file (da_file_name, 0);
 
   /* Reads at most one auxiliary GCDA file since we don't support merging */
@@ -3109,15 +3109,31 @@ coverage_has_asm_stmt (void)
 /* Write command line options to the .note section.  */
 
 void
-write_opts_to_asm (void)
+write_compilation_info_to_asm (void)
 {
   size_t i;
   cpp_dir *quote_paths, *bracket_paths, *pdir;
   struct str_list *pdef, *pinc;
   int num_quote_paths = 0;
   int num_bracket_paths = 0;
+  unsigned lang;
 
   get_include_chains (&quote_paths, &bracket_paths);
+
+  /* Write lang, ggc_memory to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.lipo_info",
+				  SECTION_DEBUG, NULL));
+  if (!strcmp (lang_hooks.name, "GNU C"))
+    lang = GCOV_MODULE_C_LANG;
+  else if (!strcmp (lang_hooks.name, "GNU C++"))
+    lang = GCOV_MODULE_CPP_LANG;
+  else
+    lang = GCOV_MODULE_UNKNOWN_LANG;
+  if (has_asm_statement)
+    lang |= GCOV_MODULE_ASM_STMTS;
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (lang, NULL);
+  dw2_asm_output_data_uleb128 (ggc_total_memory, NULL);
 
   /* Write quote_paths to ASM section.  */
   switch_to_section (get_section (".gnu.switches.text.quote_paths",

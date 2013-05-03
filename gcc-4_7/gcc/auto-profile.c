@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-flow.h"
 #include "value-prof.h"
+#include "coverage.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -143,7 +144,8 @@ struct afdo_module
   char *name;
   int ident;
   unsigned exported;
-  unsigned has_asm;
+  unsigned lang;
+  unsigned ggc_memory;
   unsigned num_aux_modules;
   unsigned num_quote_paths;
   unsigned num_bracket_paths;
@@ -283,7 +285,8 @@ afdo_stack_hash (const void *stack)
     const char *file = afdo_get_filename (p->file);
     const char *func = afdo_get_bfd_name (p->func);
     h = iterative_hash (file, strlen (file), h);
-    h = iterative_hash (func, strlen (func), h);
+    if (func)
+      h = iterative_hash (func, strlen (func), h);
     h = iterative_hash (&p->line, sizeof (p->line), h);
     if (i == 0)
       h = iterative_hash (&p->discr, sizeof (p->discr), h);
@@ -326,8 +329,18 @@ afdo_stack_eq (const void *p, const void *q)
     {
       const struct gcov_callsite_pos *p1 = s1->stack + i;
       const struct gcov_callsite_pos *p2 = s2->stack + i;
+      const char *func1 = afdo_get_bfd_name (p1->func);
+      const char *func2 = afdo_get_bfd_name (p2->func);
+
+      if (func1 != NULL && func2 != NULL)
+	{
+	  if (strcmp (func1, func2))
+	    return 0;
+	}
+      else if (func1 != func2)
+	return 0;
+
       if (strcmp (afdo_get_filename (p1->file), afdo_get_filename (p2->file))
-	  || strcmp (afdo_get_bfd_name (p1->func), afdo_get_bfd_name (p2->func))
 	  || p1->line != p2->line || (i== 0 && p1->discr != p2->discr))
 	return 0;
     }
@@ -460,6 +473,8 @@ afdo_add_module (struct gcov_module_info **module_info,
   (*module_info)->ident = module->ident;
   (*module_info)->is_primary = is_primary;
   (*module_info)->flags = is_primary ? module->exported : 1;
+  (*module_info)->lang = module->lang;
+  (*module_info)->ggc_memory = module->ggc_memory;
   (*module_info)->source_filename = module->name;
   (*module_info)->num_quote_paths = module->num_quote_paths;
   (*module_info)->num_bracket_paths = module->num_bracket_paths;
@@ -502,8 +517,37 @@ read_aux_modules (void)
 	  inform (0, "aux module %s cannot be found.", module.name);
 	  continue;
 	}
-      afdo_add_module (&module_infos[curr_module++], aux_entry, false);
-      add_input_filename (module.name);
+      if ((aux_entry->lang & GCOV_MODULE_LANG_MASK) !=
+	  (entry->lang & GCOV_MODULE_LANG_MASK))
+	{
+	  inform (0, "Not importing %s: source language"
+		  " different from primary module's source language",
+		  aux_entry->name);
+	  continue;
+	}
+      if ((aux_entry->lang & GCOV_MODULE_ASM_STMTS)
+	   && flag_ripa_disallow_asm_modules)
+	{
+	  if (flag_opt_info >= OPT_INFO_MIN)
+	    inform (0, "Not importing %s: contains "
+		    "assembler statements", aux_entry->name);
+	  continue;
+	}
+      afdo_add_module (&module_infos[curr_module], aux_entry, false);
+      if (incompatible_cl_args (module_infos[0], module_infos[curr_module]))
+	{
+	  if (flag_opt_info >= OPT_INFO_MIN)
+	    inform (0, "Not importing %s: command-line"
+		    " arguments not compatible with primary module",
+		    aux_entry->name);
+	  free (module_infos[curr_module]);
+	  continue;
+	}
+      else
+	{
+	  curr_module ++;
+	  add_input_filename (module.name);
+	}
     }
 }
 
@@ -1238,8 +1282,8 @@ read_profile (void)
       modules[i].ident = i + 1;
       /* exported flag.	 */
       modules[i].exported = gcov_read_unsigned ();
-      /* has_asm flag.  */
-      modules[i].has_asm = gcov_read_unsigned ();
+      modules[i].lang = gcov_read_unsigned ();
+      modules[i].ggc_memory = gcov_read_unsigned ();
       /* aux_module and 5 options.  */
       modules[i].num_aux_modules = gcov_read_unsigned ();
       modules[i].num_quote_paths = gcov_read_unsigned ();
@@ -1855,6 +1899,13 @@ auto_profile (void)
       current_function_decl = NULL;
       pop_cfun ();
     }
+
+  cgraph_pre_profiling_inlining_done = true;
+  cgraph_process_module_scope_statics ();
+  /* Now perform link to allow cross module inlining.  */
+  cgraph_do_link ();
+  varpool_do_link ();
+  cgraph_unify_type_alias_sets ();
 
   return TODO_rebuild_cgraph_edges;
 }

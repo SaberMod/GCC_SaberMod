@@ -1822,8 +1822,8 @@ Record gcc command line switches in the object file.
 ; divide the command line options into several categories. And the
 ; section is not mergable so that linker can save gcc switches for
 ; each module.
-frecord-gcc-switches-in-elf
-Common Report Var(flag_record_gcc_switches_in_elf)
+frecord-compilation-info-in-elf
+Common Report Var(flag_record_compilation_info_in_elf)
 Record the compiler optimizations in a .gnu.switches.text section.
 
 freg-struct-return

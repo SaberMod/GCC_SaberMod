@@ -87,6 +87,9 @@ extern tree get_const_string_type (void);
 /* Mark this module as containing asm statements.  */
 extern void coverage_has_asm_stmt (void);
 
+extern bool incompatible_cl_args (struct gcov_module_info *,
+				  struct gcov_module_info *);
+
 /* Defined in tree-profile.c.  */
 extern void tree_init_instrumentation_sampling (void);
 extern void tree_init_dyn_ipa_parameters (void);
