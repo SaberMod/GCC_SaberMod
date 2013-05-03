@@ -848,7 +848,8 @@ update_bb_profile_for_threading (basic_block bb, int edge_frequency,
   /* Compute the probability of TAKEN_EDGE being reached via threaded edge.
      Watch for overflows.  */
   if (bb->frequency)
-    prob = GCOV_COMPUTE_SCALE (edge_frequency, bb->frequency);
+    /* Update to use GCOV_COMPUTE_SCALE.  */
+    prob = edge_frequency * REG_BR_PROB_BASE / bb->frequency;
   else
     prob = 0;
   if (prob > taken_edge->probability)
