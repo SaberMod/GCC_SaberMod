@@ -1,3 +1,56 @@
+2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/tree-ssa/slsr-32.c: Skip test for now.
+	* gcc.dg/tree-ssa/slsr-33.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-34.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-35.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-36.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-37.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-38.c: Likewise.
+
+2013-05-03  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gcc.target/i386/sse2-init-v2di-2.c: Remove "\\" from
+	scan-assembler-times.
+
+2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/tree-ssa/slsr-32.c: New.
+	* gcc.dg/tree-ssa/slsr-33.c: New.
+	* gcc.dg/tree-ssa/slsr-34.c: New.
+	* gcc.dg/tree-ssa/slsr-35.c: New.
+	* gcc.dg/tree-ssa/slsr-36.c: New.
+	* gcc.dg/tree-ssa/slsr-37.c: New.
+	* gcc.dg/tree-ssa/slsr-38.c: New.
+
+2013-05-03  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/tst_1.c: New test.
+	* gcc.target/aarch64/tst_2.c: Likewise
+
+2013-05-02  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/57144
+	* gcc.c-torture/execute/pr57144.c: New test.
+
+2013-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57130
+	* gcc.c-torture/execute/pr57130.c: New test.
+
+2013-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse2-init-v2di-2.c: Update scan assembler string.
+
+2013-05-03  Vidya Praveen <vidyapraveen@arm.com>
+
+	* gcc.target/aarch64/fabd.c: New file.
+
+2013-05-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54318
+	* g++.dg/cpp0x/pr54318.C: New.
+
 2013-05-03  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/14283

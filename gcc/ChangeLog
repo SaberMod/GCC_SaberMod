@@ -1,3 +1,127 @@
+2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (slsr_process_phi): Disable.
+	(find_candidates_in_block): Disable slsr_process_phi.
+
+2013-05-03  Guozhi Wei  <carrot@google.com>
+
+	* coverage.c (coverage_obj_init): Move the construction of gcov
+	constructor to
+	(build_init_ctor): here.
+
+2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (cand_kind): Add CAND_PHI.
+	(slsr_cand_d): Redefine def_phi.
+	(stride_status, phi_adjust_status, count_phis_status): New enums.
+	(find_phi_def): New.
+	(find_basis_for_base_expr): New.
+	(find_basis_for_candidate): Handle hidden bases.
+	(alloc_cand_and_find_basis): Handle phi candidates.
+	(slsr_process_phi): New.
+	(create_mul_ssa_cand): Exclude phi base candidates; use integer_onep.
+	(create_mul_imm_cand): Likewise.
+	(create_add_ssa_cand): Exclude phi base candidates.
+	(create_add_imm_cand): Likewise.
+	(slsr_process_cast): Likewise.
+	(slsr_process_copy): Likewise.
+	(find_candidates_in_block): Handle phi candidates.
+	(dump_candidate): Likewise.
+	(unconditional_cands): Delete.
+	(unconditional_cands_with_known_stride_p): Delete.
+	(phi_dependent_cand_p): New.
+	(cand_increment): Handle phi-dependent candidates.
+	(replace_dependent): Delete.
+	(replace_mult_candidate): New.
+	(replace_unconditional_candidate): New.
+	(incr_vec_index): Move to avoid forward reference.
+	(create_add_on_incoming_edge): New.
+	(create_phi_basis): New.
+	(replace_dependents): Delete.
+	(replace_conditional_candidate): New.
+	(phi_add_costs): New.
+	(replace_uncond_cands_and_profitable_phis): New.
+	(record_increment): Handle phi adjustments.
+	(record_phi_increments): New.
+	(record_increments): Handle phi adjustments.
+	(phi_incr_cost): New.
+	(lowest_cost_path): Handle phis.
+	(total_savings): Likewise.
+	(analyze_increments): Likewise.
+	(ncd_with_phi): New.
+	(ncd_of_cand_and_phis): New.
+	(nearest_common_dominator_for_cands): Handle phi increments.
+	(all_phi_incrs_profitable): New.
+	(replace_profitable_candidates): Handle phi-dependent candidates.
+	(analyze_candidates_and_replace): Likewise.
+
+2013-05-03  Teresa Johnson  <tejohnson@google.com>
+
+	PR bootstrap/57154
+	* sched-rgn.c (compute_dom_prob_ps): Ensure accumulated probabilities
+	do not exceed REG_BR_PROB_BASE.
+
+2013-05-03  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/57144
+	* tree-vrp.c (simplify_cond_using_ranges): Verify the constant
+	operand of the condition will bit into the new type when eliminating
+	a cast feeding a condition.
+
+2013-05-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57130
+	* combine.c (make_compound_operation) <case SUBREG>: Pass
+	SET instead of COMPARE as in_code to the recursive call
+	if needed.
+
+2013-05-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (isa): Add x64_sse4_noavx and x64_avx members.
+	(enabled): Handle new members.
+	* config/i386/sse.md (*vec_concatv2si): Merge from
+	*vec_concatv2si_sse2 and vec_concatv2si_sse.
+	(vec_concatv2di): Merge with *vec_concatv2di_rex64.
+
+2013-05-03  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR tree-optimization/57027
+	* tree-ssa-math-opts.c (convert_mult_to_fma): When checking
+	for fnms opportunity, check we got the prerequisite kind
+	of tree / gimple before using accessor functions.
+
+2013-05-03  Richard Biener  <rguenther@suse.de>
+
+	* double-int.h (lshift): New overload without precision
+	and arith argument.
+	(operator *=, operator +=, operator -=): Move ...
+	* double-int.c (operator *=, operator +=, operator -=): ... here
+	and implement more efficiently.
+	(mul_double_with_sign): Remove.
+	(lshift_double): Adjust to take unsinged shift argument, push
+	dispatching code to callers.
+	(mul_double_wide_with_sign): Add early out for callers that
+	are not interested in high parts or overflow.
+	(lshift): New function.
+	(lshift, rshift, alshift, arshift, llshift, lrshift): Add
+	dispatch code here.
+	(lrotate, rrotate): Use logical shifts.
+	* expr.c (get_inner_reference): Use lshift.
+	* fixed-value.c (do_fixed_divide): Likewise.
+	* tree-dfa.c (get_ref_base_and_extent): Likewise.
+	* tree-ssa-alias.c (indirect_ref_may_alias_decl_p): Likewise.
+	(indirect_refs_may_alias_p): Likewise.
+	(stmt_kills_ref_p_1): Likewise.
+
+2013-05-03  Vidya Praveen  <vidyapraveen@arm.com>
+
+	* config/aarch64/aarch64-simd.md (simd_fabd): Correct the description.
+
+2013-05-03  Vidya Praveen  <vidyapraveen@arm.com>
+
+	* config/aarch64/aarch64-simd.md (*fabd_scalar<mode>3): Support
+	scalar form of FABD instruction.
+
 2013-05-02  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (process_alt_operands): Add checking alt
@@ -41,8 +165,7 @@
 	* graphds.c (new_graph): Initialize obstack and allocate
 	vertices from it.
 	(add_edge): Allocate edge from the obstack.
-	(free_graph): Free the obstack instead of all edges and
-	vertices.
+	(free_graph): Free the obstack instead of all edges and vertices.
 
 2013-05-02  Teresa Johnson  <tejohnson@google.com>
 
@@ -282,8 +405,7 @@
 2013-04-30  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/57122
-	* cfghooks.c (split_edge): Properly check for the loop
-	latch edge.
+	* cfghooks.c (split_edge): Properly check for the loop latch edge.
 
 2013-04-30  Richard Biener  <rguenther@suse.de>
 
@@ -294,7 +416,6 @@
 
 	PR rtl-optimization/56957
 	PR rtl-optimization/57105
-
 	* sel-sched.c (move_op_orig_expr_found): Remove insn_emitted
 	variable.  Use just INSN_UID for determining whether an insn
 	should be only disconnected from the insn stream.
@@ -1112,7 +1233,7 @@
 2013-04-25  Marek Polacek  <polacek@redhat.com>
 
 	PR tree-optimization/57066
-        * builtins.c (fold_builtin_logb): Return +Inf for -Inf.
+	* builtins.c (fold_builtin_logb): Return +Inf for -Inf.
 
 2013-04-25  James Greenhalgh  <jame.greenhalgh@arm.com>
 
@@ -1150,7 +1271,7 @@
 	(*ngcsi_uxtw): New pattern.
 
 2013-04-25  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-            Julian Brown  <julian@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
 
 	* config/arm/arm.c (neon_builtin_type_mode): Add T_V4HF.
 	(TB_DREG): Add T_V4HF.
