@@ -1,3 +1,30 @@
+2013-05-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53745
+	* g++.dg/cpp0x/enum27.C: New.
+	* g++.dg/cpp0x/enum_base.C: Adjust.
+
+2013-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56205
+	* gcc.dg/tree-ssa/stdarg-6.c: Add cleanup-tree-dump "stdarg".
+
+2013-05-04  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/bind_c_array_params.f03: Update dg-error.
+	* gfortran.dg/bind_c_usage_27.f90: New.
+	* gfortran.dg/bind_c_usage_28.f90: New.
+
+2013-05-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51927
+	* g++.dg/cpp0x/lambda/lambda-nsdmi4.C: New.
+
+2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* gcc.target/powerpc/pr57150.c: New file.
+
 2013-05-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.dg/tree-ssa/slsr-32.c: Skip test for now.
