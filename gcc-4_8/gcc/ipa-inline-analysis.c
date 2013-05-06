@@ -977,7 +977,6 @@ reset_inline_summary (struct cgraph_node *node)
   info->self_size = info->self_time = 0;
   info->estimated_stack_size = 0;
   info->estimated_self_stack_size = 0;
-  info->stack_frame_offset = 0;
   info->size = 0;
   info->time = 0;
   info->growth = 0;
@@ -1320,10 +1319,9 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
 	  }
       if (!edge->inline_failed)
 	{
-	  fprintf (f, "%*sStack frame offset %i, callee self size %i,"
+	  fprintf (f, "%*sCallee self size %i,"
 		   " callee size %i\n",
 		   indent + 2, "",
-		   (int) inline_summary (callee)->stack_frame_offset,
 		   (int) inline_summary (callee)->estimated_self_stack_size,
 		   (int) inline_summary (callee)->estimated_stack_size);
 	  dump_inline_edge_summary (f, indent + 2, callee, info);
@@ -2662,7 +2660,6 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   self_stack_size = optimize ? estimated_stack_frame_size (node) : 0;
   info->estimated_self_stack_size = self_stack_size;
   info->estimated_stack_size = self_stack_size;
-  info->stack_frame_offset = 0;
 
   /* Can this function be inlined at all?  */
   info->inlinable = tree_inlinable_function_p (node->symbol.decl);
@@ -2695,7 +2692,6 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
   info->time = info->self_time;
   info->size = info->self_size;
-  info->stack_frame_offset = 0;
   info->estimated_stack_size = info->estimated_self_stack_size;
 #ifdef ENABLE_CHECKING
   inline_update_overall_summary (node);
@@ -3072,16 +3068,12 @@ inline_update_callee_summaries (struct cgraph_node *node, int depth)
 {
   struct cgraph_edge *e;
   struct inline_summary *callee_info = inline_summary (node);
-  struct inline_summary *caller_info = inline_summary (node->callers->caller);
-  HOST_WIDE_INT peak;
 
-  callee_info->stack_frame_offset
-    = caller_info->stack_frame_offset
-    + caller_info->estimated_self_stack_size;
-  peak = callee_info->stack_frame_offset
-    + callee_info->estimated_self_stack_size;
-  if (inline_summary (node->global.inlined_to)->estimated_stack_size < peak)
-      inline_summary (node->global.inlined_to)->estimated_stack_size = peak;
+  /* Pessimistically assume no sharing of stack space.  That is, the
+    frame size of a function is estimated as the original frame size
+    plus the sum of the frame sizes of all inlined callees.  */
+  inline_summary (node->global.inlined_to)->estimated_stack_size +=
+      callee_info->estimated_self_stack_size;
   cgraph_propagate_frequency (node);
   for (e = node->callees; e; e = e->next_callee)
     {

@@ -164,8 +164,6 @@ struct GTY(()) cgraph_local_info {
 struct GTY(()) cgraph_global_info {
   /* Estimated stack frame consumption by the function.  */
   HOST_WIDE_INT estimated_stack_size;
-  /* Expected offset of the stack frame of inlined function.  */
-  HOST_WIDE_INT stack_frame_offset;
 
   /* For inline clones this points to the function they will be
      inlined into.  */
@@ -250,6 +248,8 @@ struct GTY(()) cgraph_node {
 
   /* Expected number of executions: calculated in profile.c.  */
   gcov_type count;
+  /* Maximum count of any basic block in the function.  */
+  gcov_type max_bb_count;
   /* How to scale counts at materialization time; used to merge
      LTO units with different number of profile runs.  */
   int count_materialization_scale;

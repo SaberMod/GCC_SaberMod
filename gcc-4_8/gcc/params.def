@@ -108,6 +108,11 @@ DEFPARAM (PARAM_INLINE_FUNCTION_OVERHEAD_SIZE,
 	  "Size estimate of function overhead (prologue/epilogue) for inlining purposes",
 	  7, 0, 0)
 
+DEFPARAM (PARAM_INLINE_HOT_CALLER,
+	  "inline-hot-caller",
+	  "Consider cold callsites for inlining if caller contains hot code",
+	  1, 0, 1)
+
 /* Limit of iterations of early inliner.  This basically bounds number of
    nested indirect calls early inliner can resolve.  Deeper chains are still
    handled by late inlining.  */
@@ -204,6 +209,14 @@ DEFPARAM(PARAM_EARLY_INLINING_INSNS,
 	 "early-inlining-insns",
 	 "Maximal estimated growth of function body caused by early inlining of single call",
 	 11, 0, 0)
+DEFPARAM(PARAM_EARLY_INLINING_INSNS_ANY,
+	 "early-inlining-insns-any",
+	 "Early inline calls if growth does not exceed this limit",
+	 0, 0, 0)
+DEFPARAM(PARAM_EARLY_INLINING_INSNS_COMDAT,
+	 "early-inlining-insns-comdat",
+	 "Early inline calls to comdate functions if growth does not exceed this limit",
+	 15, 0, 0)
 DEFPARAM(PARAM_LARGE_STACK_FRAME,
 	 "large-stack-frame",
 	 "The size of stack frame to be considered large",

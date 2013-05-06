@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-ipa-inline"  } */
+/* { dg-options "-O2 -fdump-ipa-inline --param=early-inlining-insns-comdat=0" } */
 double foo ();
 struct B
 {

@@ -195,8 +195,7 @@ caller_growth_limits (struct cgraph_edge *e)
   stack_size_limit += ((gcov_type)stack_size_limit
 		       * PARAM_VALUE (PARAM_STACK_FRAME_GROWTH) / 100);
 
-  inlined_stack = (outer_info->stack_frame_offset
-		   + outer_info->estimated_self_stack_size
+  inlined_stack = (outer_info->estimated_stack_size
 		   + what_info->estimated_stack_size);
   /* Check new stack consumption with stack consumption at the place
      stack is used.  */
@@ -404,7 +403,6 @@ num_calls (struct cgraph_node *n)
   return num;
 }
 
-
 /* Return true if we are interested in inlining small function.  */
 
 static bool
@@ -425,12 +423,12 @@ want_early_inline_function_p (struct cgraph_edge *e)
   else
     {
       int growth = estimate_edge_growth (e);
+      struct cgraph_node *callee = e->callee;
       int n;
 
-      if (growth <= 0)
+      if (growth <= PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_ANY))
 	;
-      else if (!cgraph_maybe_hot_edge_p (e)
-	       && growth > 0)
+      else if (!cgraph_maybe_hot_edge_p (e))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "  will not early inline: %s/%i->%s/%i, "
@@ -450,6 +448,9 @@ want_early_inline_function_p (struct cgraph_edge *e)
 		     growth);
 	  want_inline = false;
 	}
+      else if (DECL_COMDAT (callee->symbol.decl)
+               && growth <= PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_COMDAT))
+        ;
       else if ((n = num_calls (callee)) != 0
 	       && growth * (n + 1) > PARAM_VALUE (PARAM_EARLY_INLINING_INSNS))
 	{
@@ -515,6 +516,20 @@ big_speedup_p (struct cgraph_edge *e)
 					              estimate_edge_time (e));
   if (time - inlined_time
       > RDIV (time * PARAM_VALUE (PARAM_INLINE_MIN_SPEEDUP), 100))
+    return true;
+  return false;
+}
+
+/* Returns true if an edge or its caller are hot enough to
+   be considered for inlining.  */
+
+static bool
+edge_hot_enough_p (struct cgraph_edge *edge)
+{
+  if (cgraph_maybe_hot_edge_p (edge))
+    return true;
+  if (PARAM_VALUE (PARAM_INLINE_HOT_CALLER)
+      && maybe_hot_count_p (NULL, edge->caller->max_bb_count))
     return true;
   return false;
 }
@@ -616,7 +631,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
 	  want_inline = false;
 	}
       /* If call is cold, do not inline when function body would grow. */
-      else if (!cgraph_maybe_hot_edge_p (e))
+      else if (!edge_hot_enough_p (e))
 	{
           e->inline_failed = CIF_UNLIKELY_CALL;
 	  want_inline = false;
