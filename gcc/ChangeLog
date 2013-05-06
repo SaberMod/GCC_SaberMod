@@ -1,3 +1,132 @@
+013-05-06  Graham Stott  <grahams@btinternet.com>
+
+	* gensupport.c (add_predicate_code): Also exclude SCRATCH from rtx
+	codes which allow non-lvalues.
+
+2013-05-06  Marc Glisse  <marc.glisse@inria.fr>
+
+	* tree.c (integer_all_onesp) <COMPLEX_CST>: Test that both
+	components are all 1s.
+	(integer_minus_onep): New function.
+	* tree.h (integer_minus_onep): Declare it.
+	* fold-const.c (fold_binary_loc) <MULT_EXPR>: Test
+	integer_minus_onep instead of integer_all_onesp.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52933
+	* config/sh/sh.md (*cmp_div0s_0, *cmp_div0s_1, *movsicc_div0s): Add
+	variations of these patterns.
+
+2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (isa): Add x64_sse4 member.
+	(enabled): Handle x64_sse4.
+	(*movdi_internal): Add *x->?r alternative to emit pextrq $0,%xmm,%reg
+	instruction for 64bit SSE4_1 targets.  Update insn attributes.
+	(*movsi_internal): Add *x->?r alternative to emit pextrd $0,%xmm,%reg
+	instruction for SSE4_1 targets.  Update insn attributes.
+	* config/i386/sse.md (*vec_extract<ssevecmodelower>_0): Merge
+	with *sse4_1_pextrd and *sse4_1_pextrq having const_0 selector.
+	(*vec_extractv2di_1): Merge with *sse4_1_pextrq having
+	const_1 selector.
+	(*vec_extractv4si): Rename from *sse4_1_pextrd.
+	(*vec_extractv4si_zext): Rename from *sse4_1_pextrd_zext.
+	(*vec_extract<ssevecmodelower>_0 splitters): Merge splitters together.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/57108
+	* config/sh/sh.md (tstsi_t_zero_extract_eq): Use QIHISIDI mode iterator.
+
+2013-05-06  Maxim Kuznetsov  <maks.kuznetsov@gmail.com>
+
+	* final.c (do_assembler_dialects): Don't handle curly braces and
+	vertical bar escaped by % as dialect delimiters.
+	(output_asm_insn): Print curly braces and vertical bar if escaped
+	by % and ASSEMBLER_DIALECT defined.
+	* doc/tm.texi.in (ASSEMBLER_DIALECT): Document new standard escapes.
+	* doc/tm.texi: Regenerated.
+
+2013-05-06  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/mips/mips.c: Include tree-pass.h.
+	(mips_reorg): Split in pre- and post-dbr_schedule parts.
+	(mips_machine_reorg2): Move mips_reorg post-dbr_schedule parts here.
+	(pass_mips_machine_reorg2): New machine specific pass.
+	(insert_pass_mips_machine_reorg2): New pass plugin definition.
+	(mips_option_override): Register the new pass.
+	* rtl.h (cleanup_barriers): Remove prototype.
+	(dbr_schedule): Likewise.
+	* jump.c (cleanup_barriers): Make static.
+	* reorg.c (dbr_schedule): Likewise.
+
+2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57185
+	* tree-parloops.c (add_field_for_reduction): Handle anonymous
+	SSA names properly.
+
+2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57106
+	* config/i386/i386.c (add_parameter_dependencies): Add dependence
+	between "first_arg" and "insn", not "last" and "insn".
+
+2013-05-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (slsr_process_phi): Re-enable.
+	(find_candidates_in_block): Re-enable slsr_process_phi.
+	(create_phi_basis): Fix double counting of candidate adjustment.
+
+2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57147
+	* tree-cfg.c (gimple_purge_dead_abnormal_call_edges): If
+	the edge is also fallthru, preserve it and just clear the
+	abnormal flag.
+	* tree-cfgcleanup.c (remove_fallthru_edge): If the edge is
+	also complex, preserve that and just clear the fallthru flag.
+	* tree-inline.c (update_ssa_across_abnormal_edges): Also
+	update virtual operands.
+
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/linux.h (DEFAULT_ASM_ENDIAN): Define.
+	(LINK_OS_LINUX_EMUL): Use ENDIAN_SELECT.
+	* config/rs6000/linux64.h (DEFAULT_ASM_ENDIAN): Define.
+	* config/rs6000/sysv4le.h (DEFAULT_ASM_ENDIAN): Define.
+	(LINK_TARGET_SPEC): Use ENDIAN_SELECT.
+	* config/rs6000/sysv4.h (DEFAULT_ASM_ENDIAN): Define as -mbig.
+
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/sysv4.h (ENDIAN_SELECT): Define, extracted from
+	(ASM_SPEC): ..here.  Emit DEFAULT_ASM_ENDIAN too.
+	(DEFAULT_ASM_ENDIAN): Define.
+	(CC1_SPEC, LINK_TARGET_SPEC): Use ENDIAN_SELECT.
+	* config/rs6000/linux64.h (ASM_SPEC32): Remove endian options.
+	Update -K PIC clause from sysv4.h.
+	(ASM_SPEC_COMMON): Use ENDIAN_SELECT.
+	(LINK_OS_LINUX_EMUL32, LINK_OS_LINUX_EMUL64): Likewise.
+
+2013-05-06  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.md (bswapdi 2nd splitter): Don't swap words
+	twice for little-endian.
+	(ashrdi3_no_power, ashrdi3): Support little-endian.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55303
+	* config/sh/sh.c (sh_rtx_costs): Handle SMIN and SMAX cases.
+	* config/sh/sh.md (*clips, uminsi3, *clipu, clipu_one): New insns and
+	related expanders.
+	* config/sh/iterators.md (SMIN_SMAX): New code iterator.
+	* config/sh/predicates.md (arith_reg_or_0_or_1_operand,
+	clips_min_const_int, clips_max_const_int, clipu_max_const_int):
+	New predicates.
+
 2013-05-05  Steven Bosscher  <steven@gcc.gnu.org>
 	    John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
 

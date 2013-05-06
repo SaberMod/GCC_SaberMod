@@ -1,3 +1,55 @@
+2013-05-06  Marc Glisse  <marc.glisse@inria.fr>
+
+	* c-c++-common/vector-scalar-2.c: New testcase.
+
+2013-05-06  Maxim Kuznetsov  <maks.kuznetsov@gmail.com>
+
+	* gcc.target/i386/asm-dialect-2.c: New testcase.
+
+2013-05-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57183
+	* g++.dg/cpp0x/auto38.C: New.
+
+2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57185
+	* gcc.dg/autopar/pr57185.c: New testcase.
+
+2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57106
+	* gcc.target/i386/pr57106.c: New test.
+
+2013-05-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/tree-ssa/slsr-32.c: Re-enable.
+	* gcc.dg/tree-ssa/slsr-33.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-34.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-35.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-36.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-37.c: Likewise.
+	* gcc.dg/tree-ssa/slsr-38.c: Likewise.
+
+2013-05-06  Teresa Johnson  <tejohnson@google.com>
+
+	PR bootstrap/57154
+	* gcc.dg/pr57154.c: New test.
+
+2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57147
+	* gcc.dg/torture/pr57147-1.c: New testcase.
+	* gcc.dg/torture/pr57147-2.c: Likewise.
+	* gcc.dg/torture/pr57147-3.c: Likewise.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/55303
+	* gcc.target/sh/pr55303-1.c: New.
+	* gcc.target/sh/pr55303-2.c: New.
+	* gcc.target/sh/pr55303-3.c: New.
+
 2013-05-05  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.dg/allocate_with_source_3.f90: New.
