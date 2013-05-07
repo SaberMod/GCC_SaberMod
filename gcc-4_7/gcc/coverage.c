@@ -2504,8 +2504,7 @@ build_init_ctor (tree gcov_info_type)
   cgraph_build_static_cdtor ('I', ctor, DEFAULT_INIT_PRIORITY);
 }
 
-/* Create the gcov_info types and object.  Generate the constructor
-   function to call __gcov_init.  Does not generate the initializer
+/* Create the gcov_info types and object. Does not generate the initializer
    for the object.  Returns TRUE if coverage data is being emitted.  */
 
 static bool
@@ -2557,8 +2556,6 @@ coverage_obj_init (void)
   ASM_GENERATE_INTERNAL_LABEL (name_buf, "LPBX", 0);
   DECL_NAME (gcov_info_var) = get_identifier (name_buf);
 
-  build_init_ctor (gcov_info_type);
-
   return true;
 }
 
@@ -2581,7 +2578,8 @@ coverage_obj_fn (VEC(constructor_elt,gc) *ctor, tree fn,
 }
 
 /* Finalize the coverage data.  Generates the array of pointers to
-   function objects from CTOR.  Generate the gcov_info initializer.  */
+   function objects from CTOR.  Generate the gcov_info initializer.
+   Generate the constructor function to call __gcov_init.  */
 
 static void
 coverage_obj_finish (VEC(constructor_elt,gc) *ctor)
@@ -2599,9 +2597,12 @@ coverage_obj_finish (VEC(constructor_elt,gc) *ctor)
   DECL_NAME (fn_info_ary) = get_identifier (name_buf);
   DECL_INITIAL (fn_info_ary) = build_constructor (fn_info_ary_type, ctor);
   varpool_finalize_decl (fn_info_ary);
-  
+
   DECL_INITIAL (gcov_info_var)
     = build_info (TREE_TYPE (gcov_info_var), fn_info_ary);
+
+  build_init_ctor (TREE_TYPE (gcov_info_var));
+
   varpool_finalize_decl (gcov_info_var);
 }
 
