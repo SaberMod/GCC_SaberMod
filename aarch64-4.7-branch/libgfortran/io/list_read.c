@@ -2028,8 +2028,8 @@ calls:
 
 static try
 nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
-		     array_loop_spec *ls, int rank, char *parse_err_msg,
-		     size_t parse_err_msg_size,
+		     array_loop_spec *ls, int rank, bt nml_elem_type,
+		     char *parse_err_msg, size_t parse_err_msg_size,
 		     int *parsed_rank)
 {
   int dim;
@@ -2053,7 +2053,7 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
   /* The next character in the stream should be the '('.  */
 
   if ((c = next_char (dtp)) == EOF)
-    return FAILURE;
+    goto err_ret;
 
   /* Process the qualifier, by dimension and triplet.  */
 
@@ -2067,7 +2067,7 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 
 	  /* Process a potential sign.  */
 	  if ((c = next_char (dtp)) == EOF)
-	    return FAILURE;
+	    goto err_ret;
 	  switch (c)
 	    {
 	    case '-':
@@ -2085,11 +2085,12 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 	  /* Process characters up to the next ':' , ',' or ')'.  */
 	  for (;;)
 	    {
-	      if ((c = next_char (dtp)) == EOF)
-		return FAILURE;
-
+	      c = next_char (dtp);
 	      switch (c)
 		{
+		case EOF:
+		  goto err_ret;
+
 		case ':':
                   is_array_section = 1;
 		  break;
@@ -2112,10 +2113,8 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		  push_char (dtp, c);
 		  continue;
 
-		case ' ': case '\t':
+		case ' ': case '\t': case '\r': case '\n':
 		  eat_spaces (dtp);
-		  if ((c = next_char (dtp) == EOF))
-		    return FAILURE;
 		  break;
 
 		default:
@@ -2204,7 +2203,7 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 		      do not allow excess data to be processed.  */
 		  if (is_array_section == 1
 		      || !(compile_options.allow_std & GFC_STD_GNU)
-		      || dtp->u.p.ionml->type == BT_DERIVED)
+		      || nml_elem_type == BT_DERIVED)
 		    ls[dim].end = ls[dim].start;
 		  else
 		    dtp->u.p.expanded_read = 1;
@@ -2257,6 +2256,15 @@ nml_parse_qualifier (st_parameter_dt *dtp, descriptor_dimension *ad,
 
 err_ret:
 
+  /* The EOF error message is issued by hit_eof. Return true so that the
+     caller does not use parse_err_msg and parse_err_msg_size to generate
+     an unrelated error message.  */
+  if (c == EOF)
+    {
+      hit_eof (dtp);
+      dtp->u.p.input_complete = 1;
+      return SUCCESS;
+    }
   return FAILURE;
 }
 
@@ -2553,17 +2561,17 @@ nml_read_obj (st_parameter_dt *dtp, namelist_info * nl, index_type offset,
 	       since a single object can have multiple reads.  */
 	    dtp->u.p.expanded_read = 0;
 
-	    /* Now loop over the components. Update the component pointer
-	       with the return value from nml_write_obj.  This loop jumps
-	       past nested derived types by testing if the potential
-	       component name contains '%'.  */
+	    /* Now loop over the components.  */
 
 	    for (cmp = nl->next;
 		 cmp &&
-		   !strncmp (cmp->var_name, obj_name, obj_name_len) &&
-		   !strchr (cmp->var_name + obj_name_len, '%');
+		   !strncmp (cmp->var_name, obj_name, obj_name_len);
 		 cmp = cmp->next)
 	      {
+		/* Jump over nested derived type by testing if the potential
+		   component name contains '%'.  */
+		if (strchr (cmp->var_name + obj_name_len, '%'))
+		    continue;
 
 		if (nml_read_obj (dtp, cmp, (index_type)(pdata - nl->mem_pos),
 				  pprev_nl, nml_err_msg, nml_err_msg_size,
@@ -2726,12 +2734,12 @@ nml_get_obj_data (st_parameter_dt *dtp, namelist_info **pprev_nl,
     return SUCCESS;
 
   if ((c = next_char (dtp)) == EOF)
-    return FAILURE;
+    goto nml_err_ret;
   switch (c)
     {
     case '=':
       if ((c = next_char (dtp)) == EOF)
-	return FAILURE;
+	goto nml_err_ret;
       if (c != '?')
 	{
 	  snprintf (nml_err_msg, nml_err_msg_size, 
@@ -2781,8 +2789,9 @@ get_name:
       if (!is_separator (c))
 	push_char (dtp, tolower(c));
       if ((c = next_char (dtp)) == EOF)
-	return FAILURE;
-    } while (!( c=='=' || c==' ' || c=='\t' || c =='(' || c =='%' ));
+	goto nml_err_ret;
+    }
+  while (!( c=='=' || c==' ' || c=='\t' || c =='(' || c =='%' ));
 
   unget_char (dtp, c);
 
@@ -2842,7 +2851,7 @@ get_name:
     {
       parsed_rank = 0;
       if (nml_parse_qualifier (dtp, nl->dim, nl->ls, nl->var_rank,
-			       nml_err_msg, nml_err_msg_size, 
+			       nl->type, nml_err_msg, nml_err_msg_size,
 			       &parsed_rank) == FAILURE)
 	{
 	  char *nml_err_msg_end = strchr (nml_err_msg, '\0');
@@ -2857,7 +2866,7 @@ get_name:
       qualifier_flag = 1;
 
       if ((c = next_char (dtp)) == EOF)
-	return FAILURE;
+	goto nml_err_ret;
       unget_char (dtp, c);
     }
   else if (nl->var_rank > 0)
@@ -2876,14 +2885,15 @@ get_name:
 	  goto nml_err_ret;
 	}
 
-      if (*pprev_nl == NULL || !component_flag)
+      /* Don't move first_nl further in the list if a qualifier was found.  */
+      if ((*pprev_nl == NULL && !qualifier_flag) || !component_flag)
 	first_nl = nl;
 
       root_nl = nl;
 
       component_flag = 1;
       if ((c = next_char (dtp)) == EOF)
-	return FAILURE;
+	goto nml_err_ret;
       goto get_name;
     }
 
@@ -2898,8 +2908,8 @@ get_name:
       descriptor_dimension chd[1] = { {1, clow, nl->string_length} };
       array_loop_spec ind[1] = { {1, clow, nl->string_length, 1} };
 
-      if (nml_parse_qualifier (dtp, chd, ind, -1, nml_err_msg, 
-			       nml_err_msg_size, &parsed_rank)
+      if (nml_parse_qualifier (dtp, chd, ind, -1, nl->type,
+			       nml_err_msg, nml_err_msg_size, &parsed_rank)
 	  == FAILURE)
 	{
 	  char *nml_err_msg_end = strchr (nml_err_msg, '\0');
@@ -2921,7 +2931,7 @@ get_name:
 	}
 
       if ((c = next_char (dtp)) == EOF)
-	return FAILURE;
+	goto nml_err_ret;
       unget_char (dtp, c);
     }
 
@@ -2961,7 +2971,7 @@ get_name:
     return SUCCESS;
 
   if ((c = next_char (dtp)) == EOF)
-    return FAILURE;
+    goto nml_err_ret;
 
   if (c != '=')
     {
@@ -2995,6 +3005,17 @@ get_name:
   return SUCCESS;
 
 nml_err_ret:
+
+  /* The EOF error message is issued by hit_eof. Return true so that the
+     caller does not use nml_err_msg and nml_err_msg_size to generate
+     an unrelated error message.  */
+  if (c == EOF)
+    {
+      dtp->u.p.input_complete = 1;
+      unget_char (dtp, c);
+      hit_eof (dtp);
+      return SUCCESS;
+    }
 
   return FAILURE;
 }
