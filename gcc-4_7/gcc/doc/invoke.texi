@@ -402,7 +402,7 @@ Objective-C and Objective-C++ Dialects}.
 -fpmu-profile-generate=@var{pmuoption} @gol
 -fpmu-profile-use=@var{pmudata} @gol
 -freciprocal-math -free -fregmove -frename-registers -freorder-blocks @gol
--frecord-gcc-switches-in-elf@gol
+-frecord-compilation-info-in-elf@gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -fripa -fripa-disallow-asm-modules -fripa-disallow-opt-mismatch @gol
@@ -8475,8 +8475,8 @@ Do not promote static functions with always inline attribute in LIPO compilation
 Enable printing of verbose information about dynamic inter-procedural optimizations.
 This is used in conjunction with the @option{-fripa}.
 
-@item -frecord-gcc-switches-in-elf
-@opindex frecord-gcc-switches-in-elf
+@item -frecord-compilation-info-in-elf
+@opindex frecord-compilation-info-in-elf
 Record the command line options in the .gnu.switches.text elf section for sample
 based LIPO to do module grouping.
 @end table

@@ -1,5 +1,5 @@
 /* { dg-do compile} */
-/* { dg-options "-frecord-gcc-switches-in-elf -Dtest -dA" } */
+/* { dg-options "-frecord-compilation-info-in-elf -Dtest -dA" } */
 
 void foobar(int);
 
