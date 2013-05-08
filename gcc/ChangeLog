@@ -1,4 +1,150 @@
-013-05-06  Graham Stott  <grahams@btinternet.com>
+2013-05-07  Han Shen  <shenhan@google.com>
+
+	* cfgexpand.c (record_or_union_type_has_array_p): New function.
+	(expand_used_vars): Add logic handling '-fstack-protector-strong'.
+	* common.opt (fstack-protector-strong): New option.
+	* doc/cpp.texi (__SSP_STRONG__): New builtin "__SSP_STRONG__".
+	* doc/invoke.texi (Optimization Options): Document
+	"-fstack-protector-strong".
+	* gcc.c (LINK_SSP_SPEC): Add 'fstack-protector-strong'.
+
+2013-05-06  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/mips/mips.c (mips_machine_reorg2): Return 0.
+
+2013-05-07  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* ira.c (update_equiv_regs): Add insn having equiv memory even if
+	it is not lhs of the insn.
+	(setup_reg_equiv): Remove insn having equiv memory which it is not
+	lhs of the insn.
+	* lra-constraints.c (process_address): Try to improve generation
+	code for address base + disp.
+	(lra_constraints): Make correct the code for checking insn setting
+	up backward equivalence.  Remove insn only if it is in the init
+	insn list.
+	* lra-eliminations.c (update_reg_eliminate): Change return value.
+	(lra_eliminate): Use the result.
+
+2013-05-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (ssescalarnummask): New mode attribute.
+	(PEXTR_MODE, PEXTR_MODEx): New mode iterators.
+	(*vec_extract<mode>): Merge from *sse4_1_pextrb_memory and
+	*sse4_1_pextrw_memory using PEXTR_MODE mode iterator. Handle
+	register target operands.
+	(*vec_extractv8hi_sse2): New pattern.
+	(*vec_extractv16qi_zext): Rename from *sse4_1_pextrb_<mode>.
+	(*vec_extractv8hi_zext): Rename from *sse2_pextrw_<mode>.
+	(*vec_extract<mode>_mem): New insn and split pattern.
+
+2013-05-07  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* config/arm/arm.c (arm_asan_shadow_offset): New function.
+	(TARGET_ASAN_SHADOW_OFFSET): Define.
+	* config/arm/linux-eabi.h (ASAN_CC1_SPEC): Define.
+	(LINUX_OR_ANDROID_CC): Add ASAN_CC1_SPEC.
+
+2013-05-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (MAX_INCR_VEC_LEN): New constant.
+	(incr_vec_index): Return -1 if increment not found.
+	(create_add_on_incoming_edge): Assert if increment not found.
+	(record_increment): Limit number of increments recorded.
+	(all_phi_incrs_profitable): Return false if an increment not found.
+	(replace_profitable_candidates): Don't process increments that were
+	not recorded.
+	(analyze_candidates_and_replace): Limit size of incr_vec.
+
+2013-05-07  Richard Biener  <rguenther@suse.de>
+
+	* calls.c (special_function_p): setjmp-like functions are leaf.
+	* builtins.def (BUILT_IN_SETJMP): setjmp is leaf.
+	* tree-inline.c (update_ssa_across_abnormal_edges): Remove assert.
+
+2013-05-07  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>): call splitter.
+	(aarch64_simd_mov<mode>): New expander.
+	(aarch64_simd_mov_to_<mode>low): New instruction pattern.
+	(aarch64_simd_mov_to_<mode>high): Likewise.
+	(aarch64_simd_mov_from_<mode>low): Likewise.
+	(aarch64_simd_mov_from_<mode>high): Likewise.
+	(aarch64_dup_lane<mode>): Update.
+	(aarch64_dup_lanedi): New instruction pattern.
+	* config/aarch64/aarch64-protos.h (aarch64_split_simd_move): New prototype.
+	* config/aarch64/aarch64.c (aarch64_split_simd_move): New function.
+
+2013-05-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (lazy_create_slsr_reg): Remove.
+	(replace_mult_candidate): Remove unnecessary argument; remove
+	unnecessary parameter from call to introduce_cast_before_cand.
+	(replace_unconditional_candidate): Remove unnecessary parameter
+	from call to replace_mult_candidate.
+	(replace_conditional_candidate): Likewise.
+	(insert_initializers): Use make_temp_ssa_name.
+	(introduce_cast_before_cand): Remove unnecessary argument; use
+	make_temp_ssa_name.
+	(replace_one_candidate): Remove unnecessary argument; remove
+	unnecessary parameter from calls to introduce_cast_before_cand.
+	(replace_profitable_candidates): Remove unnecessary parameters
+	from calls to replace_one_candidate.
+
+2013-05-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gimple-ssa-strength-reduction.c (find_phi_def): Don't record a
+	phi def as possibly hiding a basis for a CAND_ADD whose operands
+	have been commuted in the analysis.
+	(alloc_cand_and_find_basis): Add parms to call to find_phi_def.
+
+2013-05-07  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md
+	(cmp_swp_<optab><ALLX:mode>_shft_<GPI:mode>): Restrict the
+	shift value between 0-4.
+
+2013-05-07  Richard Biener  <rguenther@suse.de>
+
+	* double-int.h (rshift): New overload.
+	* double-int.c (rshift): New function.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Optimize.
+	(create_reference_ops_from_ref): Remove.
+	(vn_reference_insert): Use shared ops for constructing the
+	reference and copy it.
+
+2013-05-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57190
+	* tree-eh.c (sink_clobbers): Properly propagate
+	SSA_NAME_OCCURS_IN_ABNORMAL_PHI.
+
+2013-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57149
+	* tree-ssa-uninit.c (uninit_undefined_value_p): New inline.
+	(can_skip_redundant_opnd, compute_uninit_opnds_pos,
+	collect_phi_def_edges, execute_late_warn_uninitialized): Use
+	uninit_undefined_value_p instead of ssa_undefined_value_p.
+
+	PR debug/57184
+	* expr.c (expand_expr_addr_expr_1): Handle COMPOUND_LITERAL_EXPR
+	for modifier == EXPAND_INITIALIZER.
+
+2013-05-07  Anton Blanchard  <anton@samba.org>
+
+	* configure.ac (HAVE_LD_LARGE_TOC): Use correct linker emulation
+	for powerpc64 little endian.
+	* configure: Regenerate.
+
+2013-05-06  Graham Stott  <grahams@btinternet.com>
+
+	* expmed.c (init_expmed_rtl): Remove unused fields reg_fld, plus_fld,
+	mult_fld, sdiv_fld1, udiv_fld1, sdiv_32_fld1, smod_32_fld1,
+	wide_mult_fld1, wide_lshr_fld1, shift_fld1, shift_mult_fld1,
+	shift_add_fld1, shift_sub0_fld1, shift_sub1_fld1.
+
+2013-05-06  Graham Stott  <grahams@btinternet.com>
 
 	* gensupport.c (add_predicate_code): Also exclude SCRATCH from rtx
 	codes which allow non-lvalues.
