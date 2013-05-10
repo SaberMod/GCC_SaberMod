@@ -1,3 +1,30 @@
+2013-05-10  Alan Modra  <amodra@gmail.com>
+
+	PR target/55033
+	* varasm.c (default_elf_select_section): Move !DECL_P check..
+	(get_named_section): ..to here before calling get_section_name.
+	Adjust assertion.
+	(default_section_type_flags): Add DECL_P check.
+	* config/i386/winnt.c (i386_pe_section_type_flags): Likewise.
+	* config/rs6000/rs6000.c (rs6000_xcoff_section_type_flags): Likewise.
+
+2013-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_expand_prologue):
+	When using gen_stack_adjust_str with a register offset, add a
+	REG_FRAME_RELATED_EXPR note.
+
+2013-05-09  Martin Jambor  <mjambor@suse.cz>
+
+        PR middle-end/56988
+        * ipa-prop.h (ipa_agg_replacement_value): New flag by_ref.
+        * ipa-cp.c (find_aggregate_values_for_callers_subset): Fill in the
+	by_ref flag of ipa_agg_replacement_value structures.
+        (known_aggs_to_agg_replacement_list): Likewise.
+        * ipa-prop.c (write_agg_replacement_chain): Stream by_ref flag.
+        (read_agg_replacement_chain): Likewise.
+        (ipcp_transform_function): Also check that by_ref flags match.
+
 2013-05-08  Diego Novillo  <dnovillo@google.com>
 
 	PR bootstrap/54659
