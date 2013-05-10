@@ -1,3 +1,86 @@
+2013-05-10  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac (HAVE_AS_TLS): Swap powerpc64 and powerpc cases.
+	(HAVE_LD_LARGE_TOC): Don't mention AIX in help text.
+	* configure: Regenerate.
+
+2013-05-10  Alan Modra  <amodra@gmail.com>
+
+	PR target/55033
+	* varasm.c (default_elf_select_section): Move !DECL_P check..
+	(get_named_section): ..to here before calling get_section_name.
+	Adjust assertion.
+	(default_section_type_flags): Add DECL_P check.
+	* config/i386/winnt.c (i386_pe_section_type_flags): Likewise.
+	* config/rs6000/rs6000.c (rs6000_xcoff_section_type_flags): Likewise.
+
+2013-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_expand_prologue):
+	When using gen_stack_adjust_str with a register offset, add a
+	REG_FRAME_RELATED_EXPR note.
+
+2013-05-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (*vec_extractv4si_0_zext): New pattern.
+	(*vec_extractv4si_zext_mem): Ditto.
+	(*vec_extractv2di): Add 0->x and x->x alternatives.
+	* config/i386/mmx.md (*vec_extractv2si_zext_mem): New pattern.
+	* config/i386/i386.md (*zero_extendsidi2): Add *Yj->?r alternative.
+
+2013-05-09  Jason Merrill  <jason@redhat.com>
+
+	N3639 C++1y VLA support
+	* gimplify.c (gimplify_vla_decl): Don't touch an existing
+	DECL_VALUE_EXPR.
+
+	* tree.c (build_constructor_va): New.
+	* tree.h: Declare it.
+
+2013-05-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/57084
+	* gimple-fold.c (canonicalize_constructor_val): Call
+	cgraph_get_create_real_symbol_node instead of cgraph_get_create_node.
+
+2013-05-09  Jan Hubicka  <jh@suse.cz>
+	    Richard Biener  <rguenther@suse.de>
+
+	PR lto/54095
+	* symtab.c (symtab_make_decl_local): Do not add private names.
+
+2013-05-09  Jan Hubicka  <jh@suse.cz>
+
+	PR lto/54095
+	* symtab.c (insert_to_assembler_name_hash): Handle clones.
+	(unlink_from_assembler_name_hash): Likewise.
+	(symtab_prevail_in_asm_name_hash, symtab_register_node,
+	symtab_unregister_node, symtab_initialize_asm_name_hash,
+	change_decl_assembler_name): Update.
+
+2013-05-09  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64.md: New movtf split.
+	(*movtf_aarch64): Update.
+	(aarch64_movdi_tilow): Handle TF modes and rename to
+	aarch64_movdi_<mode>low.
+	(aarch64_movdi_tihigh): Handle TF modes and rename to
+	aarch64_movdi_<mode>high
+	(aarch64_movtihigh_di): Handle TF modes and rename to
+	aarch64_mov<mode>high_di
+	(aarch64_movtilow_di): Handle TF modes and rename to
+	aarch64_mov<mode>low_di
+	(aarch64_movtilow_tilow): Remove spurious whitespace.
+	* config/aarch64/aarch64.c (aarch64_split_128bit_move): Handle TFmode
+	splits.
+	(aarch64_print_operand): Update.
+
+2013-05-09  Alan Modra  <amodra@gmail.com>
+
+	* configure.ac (HAVE_AS_TLS): Enable tests for powerpcle and
+	powerpc64le.
+	* configure: Regenerate.
+
 2013-05-08  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/mmx.md (*vec_extract* splitters): Simplify post-reload

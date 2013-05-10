@@ -1547,6 +1547,15 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
       return value;
     }
 
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      if (complain & tf_warning_or_error)
+	pedwarn (input_location, OPT_Wvla,
+		 "taking sizeof array of runtime bound");
+      else
+	return error_mark_node;
+    }
+
   return c_sizeof_or_alignof_type (input_location, complete_type (type),
 				   op == SIZEOF_EXPR,
 				   complain);
@@ -2788,6 +2797,19 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
   return expr;
 }
 
+/* Build a COMPONENT_REF of OBJECT and MEMBER with the appropriate
+   type.  */
+
+tree
+build_simple_component_ref (tree object, tree member)
+{
+  tree type = cp_build_qualified_type (TREE_TYPE (member),
+				       cp_type_quals (TREE_TYPE (object)));
+  return fold_build3_loc (input_location,
+			  COMPONENT_REF, type,
+			  object, member, NULL_TREE);
+}
+
 /* Return an expression for the MEMBER_NAME field in the internal
    representation of PTRMEM, a pointer-to-member function.  (Each
    pointer-to-member function type gets its own RECORD_TYPE so it is
@@ -2800,7 +2822,6 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
 {
   tree ptrmem_type;
   tree member;
-  tree member_type;
 
   /* This code is a stripped down version of
      build_class_member_access_expr.  It does not work to use that
@@ -2810,11 +2831,7 @@ build_ptrmemfunc_access_expr (tree ptrmem, tree member_name)
   gcc_assert (TYPE_PTRMEMFUNC_P (ptrmem_type));
   member = lookup_member (ptrmem_type, member_name, /*protect=*/0,
 			  /*want_type=*/false, tf_warning_or_error);
-  member_type = cp_build_qualified_type (TREE_TYPE (member),
-					 cp_type_quals (ptrmem_type));
-  return fold_build3_loc (input_location,
-		      COMPONENT_REF, member_type,
-		      ptrmem, member, NULL_TREE);
+  return build_simple_component_ref (ptrmem, member);
 }
 
 /* Given an expression PTR for a pointer, return an expression
@@ -5308,7 +5325,17 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     }
 
   if (argtype != error_mark_node)
-    argtype = build_pointer_type (argtype);
+    {
+      if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (argtype))
+	{
+	  if (complain & tf_warning_or_error)
+	    pedwarn (input_location, OPT_Wvla,
+		     "taking address of array of runtime bound");
+	  else
+	    return error_mark_node;
+	}
+      argtype = build_pointer_type (argtype);
+    }
 
   /* In a template, we are processing a non-dependent expression
      so we can just form an ADDR_EXPR with the correct type.  */

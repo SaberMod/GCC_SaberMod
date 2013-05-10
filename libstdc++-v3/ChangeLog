@@ -1,3 +1,33 @@
+2013-05-08  Jason Merrill  <jason@redhat.com>
+
+	Add std::bad_array_length (N3639)
+	* libsupc++/new: Add std::bad_array_length.
+	* libsupc++/bad_array_length.cc: New.
+	* libsupc++/eh_aux_runtime.cc: Add __cxa_bad_array_length.
+	* libsupc++/Makefile.in: Build them.
+	* config/abi/pre/gnu.ver: Add new symbols.
+	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
+
+2013-05-08  Andi Kleen  <ak@linux.intel.com>
+
+	PR target/55947
+	* libstdc++-v3/include/bits/atomic_base.h
+	(_GLIBCXX_ALWAYS_INLINE): Add new macro.
+	(atomic_thread_fence, atomic_signal_fence, test_and_set,
+	clear, store, load, exchange, compare_exchange_weak)
+	compare_exchange_strong, fetch_add, fetch_sub, fetch_and,
+	fetch_or, fetch_xor): Mark _GLIBCXX_ALWAYS_INLINE.
+
+2013-05-08  Jason Merrill  <jason@redhat.com>
+
+	Add std::bad_array_new_length (N2932)
+	* libsupc++/new: Add std::bad_array_new_length.
+	* libsupc++/bad_array_new.cc: New.
+	* libsupc++/eh_aux_runtime.cc: Add __cxa_throw_bad_array_new_length.
+	* libsupc++/Makefile.in: Build them.
+	* config/abi/pre/gnu.ver: Add new symbols.
+	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
+
 2013-05-08  Andoni Morales Alastruey <ylatuya@gmail.com>
 
 	PR libstdc++/57212
