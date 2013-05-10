@@ -497,10 +497,7 @@ read_aux_modules (void)
   module.name = xstrdup (in_fnames[0]);
   entry = (struct afdo_module *) htab_find (module_htab, &module);
   if (!entry)
-    {
-      inform (0, "primary module %s cannot be found.", in_fnames[0]);
-      return;
-    }
+    return;
   module_infos = XCNEWVEC (struct gcov_module_info *,
 			   entry->num_aux_modules + 1);
   afdo_add_module (module_infos, entry, true);
