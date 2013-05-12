@@ -7643,15 +7643,17 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	    }
 	}
     }
-  /* *(foo *)fooarrptreturn> (*fooarrptr)[0] */
+  /* *(foo *)fooarrptr => (*fooarrptr)[0] */
   else if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
 	   && (same_type_ignoring_top_level_qualifiers_p
 	       (type, TREE_TYPE (TREE_TYPE (subtype)))))
     {
       tree type_domain;
       tree min_val = size_zero_node;
-      sub = cxx_fold_indirect_ref (loc, TREE_TYPE (subtype), sub, NULL);
-      if (!sub)
+      tree newsub = cxx_fold_indirect_ref (loc, TREE_TYPE (subtype), sub, NULL);
+      if (newsub)
+	sub = newsub;
+      else
 	sub = build1_loc (loc, INDIRECT_REF, TREE_TYPE (subtype), sub);
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
       if (type_domain && TYPE_MIN_VALUE (type_domain))
@@ -9463,9 +9465,12 @@ add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
   type = lambda_capture_field_type (initializer, explicit_init_p);
   if (array_of_runtime_bound_p (type))
     {
+      if (!by_reference_p)
+	error ("array of runtime bound cannot be captured by copy, "
+	       "only by reference");
+
       /* For a VLA, we capture the address of the first element and the
 	 maximum index, and then reconstruct the VLA for the proxy.  */
-      gcc_assert (by_reference_p);
       tree elt = cp_build_array_ref (input_location, initializer,
 				     integer_zero_node, tf_warning_or_error);
       tree ctype = vla_capture_type (type);

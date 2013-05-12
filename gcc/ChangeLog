@@ -1,3 +1,92 @@
+2013-05-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (memory): Handle sseishft1.
+	* config/i386/sse.md (*vec_extractv4si): Remove memory attribute.
+	(*vec_extractv2di_1): Ditto.
+
+2013-05-10  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assigns.c (find_hard_regno_for): Add 1 to the cost of call
+	saved registers.
+
+2013-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems-eabi: Remove mthumb/march=armv7 multilib.
+	Add mthumb/march=armv7-a multilib.
+	Add mthumb/march=armv7-r multilib.
+	Add mthumb/march=armv7-a/mfpu=neon/mfloat-abi=hard multilib.
+
+2013-05-10  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	* config/v850/t-rtems: Add more multilibs.
+
+2013-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57214
+	* tree-ssa-loop-ivcanon.c (propagate_constants_for_unrolling): Do
+	not propagate from SSA names that occur in abnormal PHI nodes.
+
+2013-05-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* stor-layout.c (element_precision): New function.
+	* machmode.h (element_precision): Declare it.
+	* tree.c (build_minus_one_cst): New function.
+	(element_precision): Likewise.
+	* tree.h (build_minus_one_cst): Declare new function.
+	(element_precision): Likewise.
+	* fold-const.c (operand_equal_p): Use element_precision.
+	(fold_binary_loc): Handle vector types.
+	* convert.c (convert_to_integer): Use element_precision.
+	* gimple.c (iterative_hash_canonical_type): Handle complex and vectors
+	separately.
+
+2013-05-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips-protos.h (m16_uimm3_b, m16_simm4_1, m16_nsimm4_1)
+	(m16_simm5_1, m16_nsimm5_1, m16_uimm5_4, m16_nuimm5_4, m16_simm8_1)
+	(m16_nsimm8_1, m16_uimm8_1, m16_nuimm8_1, m16_uimm8_m1_1, m16_uimm8_4)
+	(m16_nuimm8_4, m16_simm8_8, m16_nsimm8_8): Delete.
+	* config/mips/mips.c (m16_check_op, m16_uimm3_b, m16_simm4_1)
+	(m16_nsimm4_1, m16_simm5_1, m16_nsimm5_1, m16_uimm5_4, m16_nuimm5_4)
+	(m16_simm8_1, m16_nsimm8_1, m16_uimm8_1, m16_nuimm8_1, m16_uimm8_m1_1)
+	(m16_uimm8_4, m16_nuimm8_4, m16_simm8_8, m16_nsimm8_8): Delete.
+	* config/mips/constraints.md (Udb8, Usb5, Usb8, Usd8, Uub8, Uuw5)
+	(Uuw8): New constraints.
+	(Usb4): Move into alphabetical order.
+	* config/mips/predicates.md (db8_operand, sb5_operand, sb8_operand)
+	(sd8_operand, ub8_operand, uw8_operand): New predicates.
+	* config/mips/mips.md (*xor<mode>3, *xor<mode>3_mips16): Name
+	previously unnamed patterns.
+	(*add<mode>3_mips16, *xor<mode>3_mips16, *<optab>si3_mips16)
+	(*ashldi3_mips16, *ashrdi3_mips16, *lshrdi3_mips16)
+	(*slt<u>_<GPR:mode><GPR2:mode>_mips16)
+	(*sle<u>_<GPR:mode><GPR2:mode>_mips16): Use constraints instead
+	of set_attr_alternative/if_then_else.  Use extended_mips16 instead
+	of specific lengths.
+
+2013-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (rotateinv): New code attr.
+	(*<rotate_insn><mode>3_1, *<rotate_insn>si3_1_zext,
+	*<rotate_insn>qi3_1_slp): Emit rorl %eax instead of
+	roll $31, %eax, etc.
+
+	PR tree-optimization/45216
+	PR tree-optimization/57157
+	* tree-ssa-forwprop.c (simplify_rotate): New function.
+	(ssa_forward_propagate_and_combine): Call it.
+
+2013-05-10  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_enhance_data_refs_alignment): Do not
+	disable peeling when we version for aliasing.
+	(vector_alignment_reachable_p): Honor explicit user alignment.
+	(vect_supportable_dr_alignment): Likewise.
+	* tree-vect-loop-manip.c (vect_can_advance_ivs_p): Use
+	STMT_VINFO_LOOP_PHI_EVOLUTION_PART instead of recomputing it.
+	* tree-vect-loop.c (vect_transform_loop): First apply versioning,
+	then peeling to arrange for the cost-model check to come first.
+
 2013-05-10  Alan Modra  <amodra@gmail.com>
 
 	* configure.ac (HAVE_AS_TLS): Swap powerpc64 and powerpc cases.

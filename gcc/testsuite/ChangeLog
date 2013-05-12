@@ -1,3 +1,49 @@
+2013-05-12  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/57108
+	* gcc.target/sh/pr57108.c: Move this test case to ...
+	* gcc.c-torture/compile/pr57108.c: ... here.
+
+2013-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57214
+	* gcc.dg/torture/pr57214.c: New testcase.
+
+2013-05-10  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/vector-shift.c: New testcase.
+
+2013-05-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/i386/rotate-1.c: Accept rolb or rorb instruction.
+
+	PR tree-optimization/45216
+	PR tree-optimization/57157
+	* c-c++-common/rotate-1.c: New test.
+	* c-c++-common/rotate-1a.c: New test.
+	* c-c++-common/rotate-2.c: New test.
+	* c-c++-common/rotate-2a.c: New test.
+	* c-c++-common/rotate-3.c: New test.
+	* c-c++-common/rotate-3a.c: New test.
+	* c-c++-common/rotate-4.c: New test.
+	* c-c++-common/rotate-4a.c: New test.
+
+2013-05-10  Richard Biener  <rguenther@suse.de>
+
+	* gcc.target/i386/avx256-unaligned-load-2.c: Make well-defined.
+	* gcc.target/i386/l_fma_double_1.c: Adjust.
+	* gcc.target/i386/l_fma_double_2.c: Likewise.
+	* gcc.target/i386/l_fma_double_3.c: Likewise.
+	* gcc.target/i386/l_fma_double_4.c: Likewise.
+	* gcc.target/i386/l_fma_double_5.c: Likewise.
+	* gcc.target/i386/l_fma_double_6.c: Likewise.
+	* gcc.target/i386/l_fma_float_1.c: Likewise.
+	* gcc.target/i386/l_fma_float_2.c: Likewise.
+	* gcc.target/i386/l_fma_float_3.c: Likewise.
+	* gcc.target/i386/l_fma_float_4.c: Likewise.
+	* gcc.target/i386/l_fma_float_5.c: Likewise.
+	* gcc.target/i386/l_fma_float_6.c: Likewise.
+
 2013-05-08  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51226
