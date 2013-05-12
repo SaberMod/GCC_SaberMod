@@ -6181,6 +6181,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 						   auto_node);
       if (type == error_mark_node)
 	return;
+      cp_apply_type_quals_to_decl (cp_type_quals (type), decl);
     }
 
   if (!ensure_literal_type_for_constexpr_object (decl))
@@ -9604,6 +9605,7 @@ grokdeclarator (const cp_declarator *declarator,
 
 		if (rqual)
 		  {
+		    maybe_warn_cpp0x (CPP0X_REF_QUALIFIER);
 		    error ((flags == DTOR_FLAG)
 			   ? "destructors may not be ref-qualified"
 			   : "constructors may not be ref-qualified");

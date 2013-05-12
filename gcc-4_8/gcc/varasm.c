@@ -403,12 +403,16 @@ get_named_section (tree decl, const char *name, int reloc)
 {
   unsigned int flags;
 
-  gcc_assert (!decl || DECL_P (decl));
   if (name == NULL)
-    name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    {
+      gcc_assert (decl && DECL_P (decl) && DECL_SECTION_NAME (decl));
+      name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+    }
 
   flags = targetm.section_type_flags (decl, name, reloc);
 
+  if (decl && !DECL_P (decl))
+    decl = NULL_TREE;
   return get_section (name, flags, decl);
 }
 
@@ -6010,7 +6014,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
 	flags |= SECTION_RELRO;
     }
 
-  if (decl && DECL_ONE_ONLY (decl))
+  if (decl && DECL_P (decl) && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
   if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
@@ -6369,8 +6373,6 @@ default_elf_select_section (tree decl, int reloc,
       gcc_unreachable ();
     }
 
-  if (!DECL_P (decl))
-    decl = NULL_TREE;
   return get_named_section (decl, sname, reloc);
 }
 

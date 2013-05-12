@@ -1,3 +1,125 @@
+2013-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems-eabi: Remove mthumb/march=armv7 multilib.
+	Add mthumb/march=armv7-a multilib.
+	Add mthumb/march=armv7-r multilib.
+	Add mthumb/march=armv7-a/mfpu=neon/mfloat-abi=hard multilib.
+
+2013-05-10  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	PR target/57237
+	* config/v850/t-rtems: Add more multilibs.
+
+2013-05-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57214
+	* tree-ssa-loop-ivcanon.c (propagate_constants_for_unrolling): Do
+	not propagate from SSA names that occur in abnormal PHI nodes.
+
+2013-05-10  Alan Modra  <amodra@gmail.com>
+
+	PR target/55033
+	* varasm.c (default_elf_select_section): Move !DECL_P check..
+	(get_named_section): ..to here before calling get_section_name.
+	Adjust assertion.
+	(default_section_type_flags): Add DECL_P check.
+	* config/i386/winnt.c (i386_pe_section_type_flags): Likewise.
+	* config/rs6000/rs6000.c (rs6000_xcoff_section_type_flags): Likewise.
+
+2013-05-09  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* config/epiphany/epiphany.c (epiphany_expand_prologue):
+	When using gen_stack_adjust_str with a register offset, add a
+	REG_FRAME_RELATED_EXPR note.
+
+2013-05-09  Martin Jambor  <mjambor@suse.cz>
+
+        PR middle-end/56988
+        * ipa-prop.h (ipa_agg_replacement_value): New flag by_ref.
+        * ipa-cp.c (find_aggregate_values_for_callers_subset): Fill in the
+	by_ref flag of ipa_agg_replacement_value structures.
+        (known_aggs_to_agg_replacement_list): Likewise.
+        * ipa-prop.c (write_agg_replacement_chain): Stream by_ref flag.
+        (read_agg_replacement_chain): Likewise.
+        (ipcp_transform_function): Also check that by_ref flags match.
+
+2013-05-08  Diego Novillo  <dnovillo@google.com>
+
+	PR bootstrap/54659
+
+	Revert:
+
+	2012-08-17  Diego Novillo  <dnovillo@google.com>
+
+		PR bootstrap/54281
+		* configure.ac: Add libintl.h to AC_CHECK_HEADERS list.
+		* config.in: Regenerate.
+		* configure: Regenerate.
+		* intl.h: Always include libintl.h if HAVE_LIBINTL_H is
+		set.
+
+2013-05-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR tree-optimization/57200
+	* tree-ssa-loop-niter.c (do_warn_aggressive_loop_optimizations):
+	Only call inform if the preceding warning_at returns true.
+
+2013-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57149
+	* tree-ssa-uninit.c (uninit_undefined_value_p): New inline.
+	(can_skip_redundant_opnd, compute_uninit_opnds_pos,
+	collect_phi_def_edges, execute_late_warn_uninitialized): Use
+	uninit_undefined_value_p instead of ssa_undefined_value_p.
+
+	PR debug/57184
+	* expr.c (expand_expr_addr_expr_1): Handle COMPOUND_LITERAL_EXPR
+	for modifier == EXPAND_INITIALIZER.
+
+2013-05-07  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-05-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57185
+	* tree-parloops.c (add_field_for_reduction): Handle anonymous
+	SSA names properly.
+
+	2013-04-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57000
+	* tree-ssa-reassoc.c (pass_reassoc): Add TODO_update_ssa_only_virtuals.
+
+2013-05-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Use DFmode
+	to save TFmode registers and DImode to save TImode registers for
+	caller save operations.
+	(HARD_REGNO_CALL_PART_CLOBBERED): TFmode and TDmode do not need to
+	mark being partially clobbered since they only use the first
+	double word.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): TFmode
+	and TDmode only use the upper 64-bits of each VSX register.
+
+2013-05-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/57108
+	* config/sh/sh.md (tstsi_t_zero_extract_eq): Use QIHISIDI mode iterator.
+
+2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-05-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57106
+	* config/i386/i386.c (add_parameter_dependencies): Add dependence
+	between "first_arg" and "insn", not "last" and "insn".
+
 2013-05-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/57130
