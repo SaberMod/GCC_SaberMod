@@ -133,6 +133,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vtable-verify.h"
 #include "gimple.h"
 
+static int num_calls_to_regpair = 0;
+static int num_calls_to_initset = 0;
+static int current_set_size;
 
 /* Mark these specially since they need to be stored in precompiled
    header IR.  */
@@ -556,6 +559,8 @@ register_vptr_fields (tree base_class_decl_arg, tree base_class,
                                                base_class_decl_arg, value);
 #endif
                   append_to_statement_list (call_expr, &body);
+                  num_calls_to_regpair++;
+                  current_set_size++;
                 }
             }
         }
@@ -616,6 +621,8 @@ register_other_binfo_vtables (tree binfo, tree body, tree arg1, tree str1,
                                              arg1, vtable_address);
 #endif
               append_to_statement_list (call_expr, &body);
+              num_calls_to_regpair++;
+              current_set_size++;
             }
         }
 
@@ -656,6 +663,26 @@ guess_num_vtable_pointers (struct vtv_graph_node *class_node)
   return num_vtbls_power_of_two;
 }
 
+static void
+write_out_current_set_data (tree base_class, int set_size)
+{
+  static int class_data_log_fd = -1;
+  char buffer[1024];
+
+
+  if (class_data_log_fd == -1)
+    class_data_log_fd = open ("/tmp/vtv_class_set_sizes.log",
+                              O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+
+  if (class_data_log_fd == -1)
+    return;
+
+  snprintf (buffer, sizeof (buffer), "%s %d\n",
+            IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (TYPE_NAME (base_class))),
+            set_size);
+  write (class_data_log_fd, buffer, strlen (buffer));
+}
+
 /* This function goes through our internal class hierarchy & vtable
    pointer data structure and outputs calls to __VLTRegisterPair for
    every class-vptr pair (for those classes whose vtable would be
@@ -676,6 +703,8 @@ register_all_pairs (tree body)
       tree base_class = current->class_info->class_type;
       tree base_ptr_var_decl = current->vtbl_map_decl;
       tree str1 = NULL_TREE;
+
+      current_set_size = 0;
 
       gcc_assert (current->class_info != NULL);
 
@@ -745,6 +774,8 @@ register_all_pairs (tree body)
 #endif
 
                       append_to_statement_list (call_expr, &body);
+                      num_calls_to_regpair++;
+                      current_set_size++;
 
                       registered_at_least_one = true;
 
@@ -761,6 +792,10 @@ register_all_pairs (tree body)
                 }
             }
           }
+
+      if (flag_vtv_counts)
+        write_out_current_set_data (base_class, current_set_size);
+
     }
 
   return registered_at_least_one;
@@ -963,11 +998,49 @@ init_all_sets (tree init_routine_body)
       gcc_assert (size_hint != 0);
       tsi_link_before (&i, init_set_call, TSI_SAME_STMT);
 
+      num_calls_to_initset++;
       inited_at_least_one = true;
     }
   return inited_at_least_one;
 }
 
+
+static void
+write_out_vtv_count_data (void)
+{
+  static int vtv_count_log_fd = -1;
+  char buffer[1024];
+  struct vtbl_map_node *current;
+  int unused_vtbl_map_vars = 0;
+
+  if (vtv_count_log_fd == -1)
+    vtv_count_log_fd = open ("/tmp/vtv_count_data.log",
+                             O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
+  if (vtv_count_log_fd == -1)
+    return;
+
+  /*
+    Format for file data:
+ 
+    file-name num-virtual-calls num-verify-calls  num-regpair num-init-set
+                                                            unused_map_vars
+
+  */
+
+  for (current = vtbl_map_nodes; current; current = current->next)
+    {
+      if (!current->is_used
+          && htab_elements (current->registered) == 0)
+        unused_vtbl_map_vars++;
+    }
+
+  snprintf (buffer, sizeof (buffer), "%s %d %d %d %d %d\n",
+            main_input_filename, total_num_virtual_calls,
+            total_num_verified_vcalls, num_calls_to_regpair,
+            num_calls_to_initset, unused_vtbl_map_vars);
+
+  write (vtv_count_log_fd, buffer, strlen (buffer));
+}
 
 /* This function calls register_all_pairs, which actually generates
    all the calls to __VLTRegisterPair (in the verification constructor
@@ -1000,6 +1073,11 @@ vtv_register_class_hierarchy_information (tree init_routine_body)
     {
       if (flag_vtable_verify == VTV_STANDARD_PRIORITY)
         create_undef_reference_to_vtv_init (init_routine_body);
+    }
+
+  if (flag_vtv_counts)
+    {
+      write_out_vtv_count_data ();
     }
 
   return registered_something || inited_some_sets;
@@ -1036,9 +1114,6 @@ vtv_generate_init_routine (void)
 {
   tree init_routine_body;
   bool vtable_classes_found = false;
-
-  if (flag_vtv_counts)
-    write_out_counters ();
 
   push_lang_context (lang_name_c);
 

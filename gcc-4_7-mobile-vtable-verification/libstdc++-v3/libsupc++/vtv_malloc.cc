@@ -43,6 +43,16 @@
 #include "vtv_malloc.h"
 #include "obstack.h"
 
+/* The following variables are used only for debugging and performance tuning
+   purposes. Therefore they do not need to be "protected".  They cannot be used
+   to attack the vtable verification system and if they become corrupted it will
+   not affect the correctness or security of any of the rest of the vtable
+   verification feature.  */
+
+unsigned int num_calls_to_mprotect = 0;
+unsigned int num_pages_protected = 0;
+unsigned int long long mprotect_cycles = 0;
+
 /* Put the following variables in our ".vtable_map_vars" section so
    that they are protected.  They are explicitly unprotected and
    protected again by calls to VTV_unprotect and VTV_protect */
@@ -52,6 +62,19 @@ static void *current_chunk VTV_PROTECTED_VAR = 0;
 static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
 static int malloc_initialized VTV_PROTECTED_VAR = 0;
 
+int
+VTV_count_mmapped_pages (void)
+{
+  int count = 0;
+  struct _obstack_chunk * ci = (struct _obstack_chunk *) current_chunk;
+  while (ci)
+    {
+      count++;
+      ci = ci->prev;
+    }
+
+  return count;
+}
 
 /* This function goes through all of the pages we have allocated so
    far and calls mprotect to change the protections on the pages.  */
@@ -70,6 +93,8 @@ change_protections_on_data_chunks (int protection_flag)
       size_t total_size;
       unsigned int num_pages_in_chunk;
       char *next_page;
+      unsigned long long start, end;
+      int result;
 
 
       /* As long as the next 'chunk' is adjacent to the current one,
@@ -89,8 +114,14 @@ change_protections_on_data_chunks (int protection_flag)
                                                                        == 0);
 
       /* Protect the contiguous chunks so far.  */
-      if (mprotect (protect_start, total_size, protection_flag) == -1)
+      start = rdtsc ();
+      result = mprotect (protect_start, total_size, protection_flag);
+      end = rdtsc ();
+      mprotect_cycles += end - start;
+      if (result == -1)
         VTV_error ();
+      num_calls_to_mprotect++;
+      num_pages_protected += (total_size + VTV_PAGE_SIZE - 1)/ VTV_PAGE_SIZE;
     }
 
 #if (VTV_DEBUG_MALLOC == 1)
@@ -202,8 +233,8 @@ VTV_malloc_stats (void)
       ci = ci->prev;
     }
   fprintf (stderr,
-	   "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
-	   "Number of pages = %d\n", VTV_PAGE_SIZE, count);
+           "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
+           "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 
 /* This is a debugging function.  It writes out our memory allocation

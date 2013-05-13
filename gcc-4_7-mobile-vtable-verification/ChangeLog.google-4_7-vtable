@@ -1,3 +1,81 @@
+2013-05-13  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc: (num_calls_to_register_pair,
+	num_calls_to_init_set, num_calls_to_verify_vtable, register_pair_cycles,
+	init_set_cycles, verify_vtable_cycles) Initialize new global variables.
+	(get_cycle_count):  New function.  Do nothing unless VTV_STATS is
+	defined.
+	(accumulate_cycle_count):  New function.  Do nothing unless VTV_STATS is
+	defined.
+	(increment_num_calls):  New function.  Do nothing unless VTV_STATS is
+	defined.
+	(read_section_offset_and_length):  New function.  Most of the code from
+	dl_iterate_phdr_callback that reads the section information out of the
+	binary file on disk and stores the information in a cache has been 
+	moved into this function.
+	(dl_iterate_phdr_callback): Move a lot of code out of here to 
+	read_section_offset_and_length.  Assign results of mprotect calls to
+	result variable; surround calls to mprotect with calls to get_cycle_count
+ 	and accumulate_cycle_count; add the difference to mprotect_cycles
+	variable. Call increment_num_calls on num_calls_to_mprotect when mprotect
+	is called, and add the number of pages protected or unprotected to
+	num_pages_protected.
+	(__VLTInitSetSymbolDebug):  Call get_cycle_count at the start and  call
+	accumulate_cycle_count just before returning; add the differences to
+	init_set_cycles.  Call increment_num_calls on num_calls_to_init_set.
+	(__VLTInitSetSymbol): Ditto.
+	(__VLTRegisterPairDebug): Call get_cycle_count at the start and call
+	accumulate_cycle_count at the end of the function; add the difference to
+	register_pair_cycles.  Call inncrement_num_calls on
+	num_calls_to_register_pair.
+	(__VLTRegisterPair): Ditto.
+	(__VLTVerifyVtablePointerDebug):  Ditto, except use the verify_vtable
+	counters.
+	(__VLTVerifyVtable): Ditto.
+	(page_count_2): New static global variable.
+	(dl_iterate_phdr_count_pages):  New function to iterate through all the
+	loaded modules and count the number of pages in their vtable_map_vars
+	sections.
+	(count_all_pages): New function.
+	(__VLTDumpStats):  New function; collects and writes out all the runtime
+	stats.
+	* libstdc++-v3/libsupc++/vtv_malloc.h (rdtsc): New function, to help
+	measure runtime cycles.
+	(num_calls_to_mprotect, num_pages_protected, num_calls_to_register_pair,
+	num_calls_to_init_set, mprotect_cycles, register_pair_cycles,
+	init_set_cycles):  New extern global variable decls, for measurements.
+	(VTV_count_mmapped_pages): New extern function decl.
+	* libstdc++-v3/libsupc++/vtv_malloc.cc (num_calls_to_mprotect,
+	num_pages_protected, mprotect_cycles): Initialize global variables.
+	(VTV_count_mmapped_pages):  New function.
+	(VTV_malloc_protect): Pull call to mprotect out of conditional
+	statement, surround it by calls to rdtsc, and add the difference to
+	mprotect_cycles.  Also increment num_calls_to_mprotect and
+	num_pages_protected.
+	(VTV_malloc_unprotect): Ditto.
+	(VTV_malloc_dump_stats): Remove directory from log file name.
+	* libstdc++-v3/config/abi/pre/gnu.ver: Add _Z14__VLTDumpStats* to the
+	list of global exported symbols.
+	* gcc/cp/vtable-class-hierarchy.c (nun_calls_to_regpair,
+	num_calls_to_initset): New global static variables.
+	(register_vptr_fields): Fix white-space formatting. Increment
+	num_calls_to_regpair and current_set_size.
+	(register_other_binfo_vtables):  Increment num_calls_to_regpair and
+	current_set_size.
+	(write_out_current_set_data): New function, writes the name of the
+	current base class and the number of vtable pointers for that class'
+	set to a log file.
+	(register_all_pairs):  Initializes current_set_size each time the base
+	class changes; increments num_calls_to_regpair and current_set_size.
+	Calls write_out_current_set_data if flag_vtv_counts is true.
+	(init_all_sets):  Increments num_calls_to_initset.
+	(write_out_vtv_count_data):  New functions, writes the new counter data
+	except for the set sizes to a log file.
+	(vtv_register_class_hierarchy): Calls write_out_vtv_count_data if
+	flag_vtv_clounts is true.
+	(vtv_generate_init_routine):  Remove debug_num_verified; commment out
+	call to write_out_counters.
+
 2013-05-02  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc (vtv-change-permission.h) New

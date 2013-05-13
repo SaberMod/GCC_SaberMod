@@ -175,6 +175,20 @@ extern "C" {
 } /* extern "C" */
 
 
+/* The following variables are used only for debugging and performance tuning
+   purposes. Therefore they do not need to be "protected".  They cannot be used
+   to attack the vtable verification system and if they become corrupted it will
+   not affect the correctness or security of any of the rest of the vtable
+   verification feature.  */
+
+unsigned int num_calls_to_register_pair = 0;
+unsigned int num_calls_to_init_set = 0;
+unsigned int num_calls_to_verify_vtable = 0;
+unsigned long long register_pair_cycles = 0;
+unsigned long long init_set_cycles = 0;
+unsigned long long verify_vtable_cycles = 0;
+
+
 /* Be careful about initialization of statics in this file.  Some of
    the routines below are called before any runtime initialization for
    statics in this file will be done. For example, dont try to
@@ -242,6 +256,54 @@ static __gthread_mutex_t update_whitelist_lock VTV_PROTECTED_VAR;
 
 /* Types needed by insert_only_hash_sets.  */
 typedef uintptr_t int_vptr;
+
+#ifndef VTV_STATS
+#define VTV_STATS 0
+#endif
+
+#if VTV_STATS
+
+static inline unsigned long long
+get_cycle_count (void)
+{
+  return rdtsc();
+}
+
+static inline void
+accumulate_cycle_count (unsigned long long *sum, unsigned long long start)
+{
+  unsigned long long end = rdtsc();
+  *sum = *sum + (end - start);
+}
+
+static inline void
+increment_num_calls (unsigned int *num_calls)
+{
+  *num_calls = *num_calls + 1;
+}
+
+#else
+
+static inline unsigned long long
+get_cycle_count (void)
+{
+  return (unsigned long long) 0;
+}
+
+static inline void
+accumulate_cycle_count (unsigned long long *sum, unsigned long long start)
+{
+  /* Do nothing.  */
+}
+
+static inline void
+increment_num_calls (unsigned int *num_calls)
+{
+  /* Do nothing.  */
+}
+
+#endif
+
 
 /* The set of valid vtable pointers for each virtual class is stored
    in a hash table.  This is the hashing function used for the hash
@@ -406,53 +468,29 @@ dl_iterate_phdr_whitelist_callback (struct dl_phdr_info *info,
               whitelist_data[i].high_addr = info->dlpi_addr
                                                + info->dlpi_phdr[j].p_vaddr
                                                + info->dlpi_phdr[j].p_memsz;
-	      break;
+              break;
             }
     }
 
   return 0;
 }
 
-/* This is the callback function used by dl_iterate_phdr (which is
-   called from VTV_unprotect_vtable_vars and VTV_protect_vtable_vars).
-   It attempts to find the binary file on disk for the INFO record
-   that dl_iterate_phdr passes in; open the binary file, and read its
-   section header information.  If the file contains a
-   ".vtable_map_vars" section, read the section offset and size.  Use
-   the secttion offset and size, in conjunction with the data in INFO
-   to locate the pages in memory where the section is.  Call
-   'mprotect' on those pages, setting the protection either to
-   read-only or read-write, depending on what's in DATA.  */
-
-static int
-dl_iterate_phdr_callback (struct dl_phdr_info *info,
-                          size_t unused __attribute__((__unused__)),
-                          void *data)
+static void
+read_section_offset_and_length (struct dl_phdr_info *info,
+                                const char *sect_name,
+                                int mprotect_flags,
+                                off_t *sect_offset,
+                                ElfW (Word) *sect_len)
 {
-  int * mprotect_flags = (int *) data;
-  off_t map_sect_offset = 0;
-  ElfW (Word) map_sect_len = 0;
-  ElfW (Addr) start_addr = 0;
-  struct sect_hdr_data *cached_data = NULL;
-  bool found = false;
-  char buffer[PATH_MAX];
   char program_name[PATH_MAX];
   char *cptr;
+  bool found = false;
+  struct sect_hdr_data *cached_data = NULL;
   const ElfW (Phdr) *phdr_info = info->dlpi_phdr;
   const ElfW (Ehdr) *ehdr_info =
     (const ElfW (Ehdr) *) (info->dlpi_addr + info->dlpi_phdr[0].p_vaddr
                            - info->dlpi_phdr[0].p_offset);
 
-  /* Check to see if this is the record for the Linux Virtual Dynamic
-     Shared Object (linux-vdso.so.1), which exists only in memory (and
-     therefore cannot be read from disk).  */
-
-  if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
-    return 0;
-
-  if (strlen (info->dlpi_name) == 0
-      && info->dlpi_addr != 0)
-    return 0;
 
   /* Get the name of the main executable.  This may or may not include
      arguments passed to the program.  Find the first space, assume it
@@ -464,32 +502,9 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
 
   if (cached_data)
     {
-      /* We already read the section header data and calculated the
-         appropriate addresses; use the cached data to set the
-         appropriate protections and return.  */
-      if (mprotect ((void *) cached_data->mp_low, cached_data->mp_size,
-                    *mprotect_flags) == -1)
-        {
-          if (debug_functions)
-            {
-              snprintf (buffer, sizeof (buffer),
-                        "Failed called to mprotect for %s error: ",
-                        (*mprotect_flags & PROT_WRITE) ?
-                        "READ/WRITE" : "READ-ONLY");
-              log_memory_protection_data (buffer);
-              perror(NULL);
-            }
-          VTV_error();
-        }
-      else if (debug_functions)
-        {
-          snprintf (buffer, sizeof (buffer),
-                    "mprotect'ed range [%p, %p]\n",
-                    (void *) cached_data->mp_low,
-                    (char *) cached_data->mp_low + cached_data->mp_size);
-          log_memory_protection_data (buffer);
-        }
-      return 0;
+      *sect_offset = cached_data->mp_low;
+      *sect_len = cached_data->mp_size;
+      return;
     }
 
   /* Find the first non-escaped space in the program name and make it
@@ -501,8 +516,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
   if ((phdr_info->p_type == PT_PHDR || phdr_info->p_type == PT_LOAD)
       && (ehdr_info->e_shoff && ehdr_info->e_shnum))
     {
-      const char *map_sect_name = ".vtable_map_vars";
-      int name_len = strlen (map_sect_name);
+      int name_len = strlen (sect_name);
       int fd = -1;
 
       /* Attempt to open the binary file on disk.  */
@@ -525,55 +539,119 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
       else
         fd = open (info->dlpi_name, O_RDONLY);
 
-      /* VTV_ASSERT (fd != -1); */
       if (fd != -1)
-      {
-
-      /* Find the section header information in the file.  */
-      ElfW (Half) strtab_idx = ehdr_info->e_shstrndx;
-      ElfW (Shdr) shstrtab;
-      off_t shstrtab_offset = ehdr_info->e_shoff +
-                                         (ehdr_info->e_shentsize * strtab_idx);
-      size_t bytes_read = ReadFromOffset (fd, &shstrtab, sizeof (shstrtab),
-                                          shstrtab_offset);
-      VTV_ASSERT (bytes_read == sizeof (shstrtab));
-
-      ElfW (Shdr) sect_hdr;
-
-      /* Loop through all the section headers, looking for one whose
-         name is ".vtable_map_vars".  */
-
-      for (int i = 0; i < ehdr_info->e_shnum && !found; ++i)
         {
-          off_t offset = ehdr_info->e_shoff + (ehdr_info->e_shentsize * i);
 
-          bytes_read = ReadFromOffset (fd, &sect_hdr, sizeof (sect_hdr),
-                                       offset);
+          /* Find the section header information in the file.  */
+          ElfW (Half) strtab_idx = ehdr_info->e_shstrndx;
+          ElfW (Shdr) shstrtab;
+          off_t shstrtab_offset = ehdr_info->e_shoff +
+                                         (ehdr_info->e_shentsize * strtab_idx);
+          size_t bytes_read = ReadFromOffset (fd, &shstrtab, sizeof (shstrtab),
+                                              shstrtab_offset);
+          VTV_ASSERT (bytes_read == sizeof (shstrtab));
 
-          VTV_ASSERT (bytes_read == sizeof (sect_hdr));
+          ElfW (Shdr) sect_hdr;
 
-          char header_name[64];
-          off_t name_offset = shstrtab.sh_offset +  sect_hdr.sh_name;
+          /* Loop through all the section headers, looking for one whose
+             name is ".vtable_map_vars".  */
 
-          bytes_read = ReadFromOffset (fd, &header_name, 64, name_offset);
-
-          VTV_ASSERT (bytes_read > 0);
-
-          if (memcmp (header_name, map_sect_name, name_len) == 0)
+          for (int i = 0; i < ehdr_info->e_shnum && !found; ++i)
             {
-              /* We found the section; get its load offset and
-                 size.  */
-              map_sect_offset = sect_hdr.sh_addr;
-              map_sect_len = sect_hdr.sh_size - VTV_PAGE_SIZE;
-              found = true;
-            }
-        }
-      close (fd);
+              off_t offset = ehdr_info->e_shoff + (ehdr_info->e_shentsize * i);
 
-      }
-      /* Calculate the start address of the section in memory.  */
-      start_addr = (const ElfW (Addr)) info->dlpi_addr + map_sect_offset;
+              bytes_read = ReadFromOffset (fd, &sect_hdr, sizeof (sect_hdr),
+                                           offset);
+
+              VTV_ASSERT (bytes_read == sizeof (sect_hdr));
+
+              char header_name[64];
+              off_t name_offset = shstrtab.sh_offset +  sect_hdr.sh_name;
+
+              bytes_read = ReadFromOffset (fd, &header_name, 64, name_offset);
+              
+              VTV_ASSERT (bytes_read > 0);
+
+              if (memcmp (header_name, sect_name, name_len) == 0)
+                {
+                  /* We found the section; get its load offset and
+                     size.  */
+                  *sect_offset = sect_hdr.sh_addr;
+                  *sect_len = sect_hdr.sh_size - VTV_PAGE_SIZE;
+                  found = true;
+                }
+            }
+          close (fd);
+        }
     }
+
+  if (*sect_offset != 0 && *sect_len != 0)
+    {
+      /* Calculate the page location in memory, making sure the
+         address is page-aligned.  */
+      ElfW (Addr) start_addr = (const ElfW (Addr)) info->dlpi_addr + *sect_offset;
+      *sect_offset = start_addr & ~(VTV_PAGE_SIZE - 1);
+      *sect_len = *sect_len - 1;
+
+      /* Since we got this far, we must not have found these pages in
+         the cache, so add them to it.  NOTE: We could get here either
+         while making everything read-only or while making everything
+         read-write.  We will only update the cache if we get here on
+         a read-write (to make absolutely sure the cache is writable
+         -- also the read-write pass should come before the read-only
+         pass).  */
+      if ((mprotect_flags & PROT_WRITE)
+          && num_cache_entries < MAX_ENTRIES)
+        {
+          sect_info_cache[num_cache_entries].dlpi_addr = info->dlpi_addr;
+          sect_info_cache[num_cache_entries].mp_low = *sect_offset;
+          sect_info_cache[num_cache_entries].mp_size = *sect_len;
+          num_cache_entries++;
+        }
+    }
+}
+
+/* This is the callback function used by dl_iterate_phdr (which is
+   called from VTV_unprotect_vtable_vars and VTV_protect_vtable_vars).
+   It attempts to find the binary file on disk for the INFO record
+   that dl_iterate_phdr passes in; open the binary file, and read its
+   section header information.  If the file contains a
+   ".vtable_map_vars" section, read the section offset and size.  Use
+   the secttion offset and size, in conjunction with the data in INFO
+   to locate the pages in memory where the section is.  Call
+   'mprotect' on those pages, setting the protection either to
+   read-only or read-write, depending on what's in DATA.  */
+
+static int
+dl_iterate_phdr_callback (struct dl_phdr_info *info,
+                          size_t unused __attribute__((__unused__)),
+                          void *data)
+{
+  int *mprotect_flags = (int *) data;
+  off_t map_sect_offset = 0;
+  ElfW (Word) map_sect_len = 0;
+  char buffer[PATH_MAX];
+  char program_name[PATH_MAX];
+  const char *map_sect_name = VTV_PROTECTED_VARS_SECTION;
+
+  /* Check to see if this is the record for the Linux Virtual Dynamic
+     Shared Object (linux-vdso.so.1), which exists only in memory (and
+     therefore cannot be read from disk).  */
+
+  if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
+    return 0;
+
+  if (strlen (info->dlpi_name) == 0
+      && info->dlpi_addr != 0)
+    return 0;
+
+  /* Get the name of the main executable.  This may or may not include
+     arguments passed to the program.  Find the first space, assume it
+     is the start of the argument list, and change it to a '\0'. */
+  snprintf (program_name, sizeof (program_name), program_invocation_name);
+
+  read_section_offset_and_length (info, map_sect_name, *mprotect_flags,
+                                  &map_sect_offset, &map_sect_len);
 
   if (debug_functions)
     {
@@ -586,71 +664,54 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
     }
 
   /* See if we actually found the section.  */
-  if (start_addr && map_sect_len)
+  if (map_sect_offset && map_sect_len)
     {
-      ElfW (Addr) relocated_start_addr = start_addr;
-      ElfW (Word) size_in_memory = map_sect_len;
+      unsigned long long start;
+      int result;
 
-      if ((relocated_start_addr != 0)
-          && (size_in_memory != 0))
+      if (debug_functions)
         {
-          /* Calculate the address & size to pass to mprotect. */
-          ElfW (Addr) mp_low = relocated_start_addr & ~(VTV_PAGE_SIZE - 1);
-          size_t mp_size = size_in_memory - 1;
+          snprintf (buffer, sizeof (buffer),
+                    "  (%s): Protecting %p to %p\n",
+                    ((strlen (info->dlpi_name) == 0) ? program_name
+                     : info->dlpi_name),
+                    (void *) map_sect_offset,
+                    (void *) (map_sect_offset + map_sect_len));
+          log_memory_protection_data (buffer);
+        }
 
+      /* Change the protections on the pages for the section.  */
+
+      start = get_cycle_count ();
+      result = mprotect ((void *) map_sect_offset, map_sect_len,
+                         *mprotect_flags);
+      accumulate_cycle_count (&mprotect_cycles, start);
+      if (result == -1)
+        {
           if (debug_functions)
             {
               snprintf (buffer, sizeof (buffer),
-                        "  (%s): Protecting %p to %p\n",
-                       ((strlen (info->dlpi_name) == 0) ? program_name
-                                                        : info->dlpi_name),
-                       (void *) mp_low,
-                       ((void *) mp_low + mp_size));
+                        "Failed called to mprotect for %s error: ",
+                        (*mprotect_flags & PROT_WRITE) ?
+                        "READ/WRITE" : "READ-ONLY");
+              log_memory_protection_data (buffer);
+              perror(NULL);
+            }
+          VTV_error();
+        }
+      else
+        {
+          if (debug_functions)
+            {
+              snprintf (buffer, sizeof (buffer),
+                        "mprotect'ed range [%p, %p]\n",
+                        (void *) map_sect_offset,
+                        (char *) map_sect_offset + map_sect_len);
               log_memory_protection_data (buffer);
             }
-
-          /* Change the protections on the pages for the section.  */
-          if (mprotect ((void *) mp_low, mp_size, *mprotect_flags) == -1)
-            {
-              if (debug_functions)
-                {
-                  snprintf (buffer, sizeof (buffer),
-                            "Failed called to mprotect for %s error: ",
-                            (*mprotect_flags & PROT_WRITE) ?
-                            "READ/WRITE" : "READ-ONLY");
-                  log_memory_protection_data (buffer);
-                  perror(NULL);
-                }
-              VTV_error();
-            }
-          else
-            {
-              /* Since we got this far, we must not have found these
-                 pages in the cache, so add them to it.  NOTE: We
-                 could get here either while making everything
-                 read-only or while making everything read-write.  We
-                 will only update the cache if we get here on a
-                 read-write (to make absolutely sure the cache is
-                 writable -- also the read-write pass should come
-                 before the read-only pass).  */
-              if ((*mprotect_flags & PROT_WRITE)
-                  && num_cache_entries < MAX_ENTRIES)
-                {
-                  sect_info_cache[num_cache_entries].dlpi_addr =
-                                                               info->dlpi_addr;
-                  sect_info_cache[num_cache_entries].mp_low = mp_low;
-                  sect_info_cache[num_cache_entries].mp_size = mp_size;
-                  num_cache_entries++;
-                }
-              if (debug_functions)
-                {
-                  snprintf (buffer, sizeof (buffer),
-                            "mprotect'ed range [%p, %p]\n",
-                            (void *) mp_low, (char *) mp_low + mp_size);
-                  log_memory_protection_data (buffer);
-                }
-            }
         }
+      increment_num_calls (&num_calls_to_mprotect);
+      num_pages_protected += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
     }
 
   return 0;
@@ -952,6 +1013,9 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
                               const void *set_symbol_key, 
                               size_t size_hint)
 {
+  unsigned long long start;
+  start = get_cycle_count ();
+  increment_num_calls (&num_calls_to_init_set);
   VTV_DEBUG_ASSERT (set_handle_ptr);
 
   if (vtv_symbol_unification_map == NULL)
@@ -1005,6 +1069,7 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
       else
         handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
       vtv_sets::resize (size_hint, handle_ptr);
+      accumulate_cycle_count (&init_set_cycles, start);
       return;
     }
 
@@ -1063,6 +1128,7 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
                       symbol_key_ptr->bytes, symbol_key_ptr->hash, size_hint, 
                       vtv_symbol_unification_map->size ());
     }
+  accumulate_cycle_count (&init_set_cycles, start);
 }
 
 /* This function takes a the address of a vtable map variable
@@ -1079,6 +1145,9 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const void *vtable_ptr,
                         const char *set_symbol_name, const char *vtable_name)
                         
 {
+  unsigned long long start;
+  start = get_cycle_count ();
+  increment_num_calls (&num_calls_to_register_pair);
   VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
   /* set_handle_ptr can be NULL if the call to InitSetSymbol had a
      size hint of 1.  */
@@ -1104,6 +1173,7 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const void *vtable_ptr,
                      set_symbol_name, vtable_name, vtbl_ptr, 
                      is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
     }
+  accumulate_cycle_count (&register_pair_cycles, start);
 }
 
 /* This function is called from __VLTVerifyVtablePointerDebug; it
@@ -1146,7 +1216,9 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
 #ifndef VTV_EMPTY_VERIFY
   VTV_DEBUG_ASSERT (set_handle_ptr != NULL && *set_handle_ptr != NULL);
   int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+  unsigned long long start = get_cycle_count ();
 
+  increment_num_calls (&num_calls_to_verify_vtable);
   vtv_set_handle *handle_ptr;
   if (!is_set_handle_handle (*set_handle_ptr))
     handle_ptr = (vtv_set_handle *) set_handle_ptr;
@@ -1179,6 +1251,7 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
          with some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }
+  accumulate_cycle_count (&verify_vtable_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY*/
 
   return vtable_ptr;
@@ -1206,7 +1279,9 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
 void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
                          size_t size_hint)
 {
+  unsigned long long start = get_cycle_count ();
   vtv_set_handle *handle_ptr = (vtv_set_handle *) set_handle_ptr;
+  increment_num_calls (&num_calls_to_init_set);
   if (*handle_ptr != NULL)
     {
       if (!is_set_handle_handle (*set_handle_ptr))
@@ -1214,6 +1289,7 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
       else
         handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
       vtv_sets::resize (size_hint, handle_ptr);
+      accumulate_cycle_count (&init_set_cycles, start);
       return;
     }
 
@@ -1259,6 +1335,7 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
       /* TODO: We should verify the return value.  */
       vtv_sets::create (size_hint, handle_ptr);
     }
+  accumulate_cycle_count (&init_set_cycles, start);
 }
 
 /* This function takes a the address of a vtable map variable
@@ -1270,8 +1347,11 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
 void 
 __VLTRegisterPair (void **set_handle_ptr, const void *vtable_ptr)
 {
+  unsigned long long start = get_cycle_count ();
   int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
   vtv_set_handle *handle_ptr;
+
+  increment_num_calls (&num_calls_to_register_pair);
   if (!is_set_handle_handle (*set_handle_ptr))
     handle_ptr = (vtv_set_handle *) set_handle_ptr;
   else
@@ -1279,6 +1359,7 @@ __VLTRegisterPair (void **set_handle_ptr, const void *vtable_ptr)
 
   /* TODO: We should verify the return value.  */
   vtv_sets::insert (vtbl_ptr, handle_ptr);
+  accumulate_cycle_count (&register_pair_cycles, start);
 }
 
 #ifndef VTV_STATIC_VERIFY
@@ -1295,9 +1376,11 @@ const void *
 __VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
 {
 #ifndef VTV_EMPTY_VERIFY
+  unsigned long long start = get_cycle_count ();
   int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
 
   vtv_set_handle *handle_ptr;
+  increment_num_calls (&num_calls_to_verify_vtable);
   if (!is_set_handle_handle (*set_handle_ptr))
     handle_ptr = (vtv_set_handle *) set_handle_ptr;
   else
@@ -1312,6 +1395,7 @@ __VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
          some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }
+  accumulate_cycle_count (&verify_vtable_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY  */
 
   return vtable_ptr;
@@ -1436,4 +1520,77 @@ __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
 
   const char *fail_msg = "Potential vtable pointer corruption detected!!\n";
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
+}
+
+static int page_count_2 = 0;
+
+static int
+dl_iterate_phdr_count_pages (struct dl_phdr_info *info,
+                             size_t unused __attribute__ ((__unused__)),
+                             void *data)
+{
+  int *mprotect_flags = (int *) data;
+  off_t map_sect_offset = 0;
+  ElfW (Word) map_sect_len = 0;
+  const char *map_sect_name = VTV_PROTECTED_VARS_SECTION;
+
+  /* Check to see if this is the record for the Linux Virtual Dynamic
+     Shared Object (linux-vdso.so.1), which exists only in memory (and
+     therefore cannot be read from disk).  */
+
+  if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
+    return 0;
+
+  if (strlen (info->dlpi_name) == 0
+      && info->dlpi_addr != 0)
+    return 0;
+
+  read_section_offset_and_length (info, map_sect_name, *mprotect_flags,
+                                 &map_sect_offset, &map_sect_len);
+
+  /* See if we actually found the section.  */
+  if (map_sect_len)
+    page_count_2 += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
+
+  return 0;
+}
+
+static void
+count_all_pages (void)
+{
+  int mprotect_flags;
+
+  mprotect_flags = PROT_READ;
+  page_count_2 = 0;
+
+  dl_iterate_phdr (dl_iterate_phdr_count_pages, (void *) &mprotect_flags);
+  page_count_2 += VTV_count_mmapped_pages ();
+}
+
+void
+__VLTDumpStats (void)
+{
+
+  
+  int log_fd = vtv_open_log ("vtv-runtime-stats.log");
+
+  if (log_fd != -1)
+    {
+      count_all_pages ();
+      vtv_add_to_log (log_fd,
+                      "Calls: mprotect (%d)  reg_pair (%d) init_set (%d) "
+                      "verify_vtable (%d)\n",
+                      num_calls_to_mprotect, num_calls_to_register_pair, 
+                      num_calls_to_init_set, num_calls_to_verify_vtable);
+      vtv_add_to_log (log_fd,
+                      "Cycles: mprotect (%lld) reg_pair (%lld) "
+                      "init_set (%lld) verify_vtable (%lld)\n",
+                      mprotect_cycles, register_pair_cycles, init_set_cycles,
+                      verify_vtable_cycles);
+      vtv_add_to_log (log_fd,
+                      "Pages protected (1): %d\n", num_pages_protected);
+      vtv_add_to_log (log_fd, "Pages protected (2): %d\n", page_count_2);
+
+      close (log_fd);
+    }
 }
