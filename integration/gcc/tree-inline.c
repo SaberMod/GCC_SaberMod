@@ -1519,13 +1519,11 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
      basic_block_info automatically.  */
   copy_basic_block = create_basic_block (NULL, (void *) 0,
                                          (basic_block) prev->aux);
-  /* Update to use apply_scale().  */
-  copy_basic_block->count = bb->count * count_scale / REG_BR_PROB_BASE;
+  copy_basic_block->count = apply_scale (bb->count, count_scale);
 
   /* We are going to rebuild frequencies from scratch.  These values
      have just small importance to drive canonicalize_loop_headers.  */
-  /* Update to use EDGE_FREQUENCY.  */
-  freq = ((gcov_type)bb->frequency * frequency_scale / REG_BR_PROB_BASE);
+  freq = apply_scale ((gcov_type)bb->frequency, frequency_scale);
 
   /* We recompute frequencies after inlining, so this is quite safe.  */
   if (freq > BB_FREQ_MAX)
@@ -1837,20 +1835,14 @@ update_ssa_across_abnormal_edges (basic_block bb, basic_block ret_bb,
 
 	    phi = gsi_stmt (si);
 
-	    /* There shouldn't be any PHI nodes in the ENTRY_BLOCK.  */
-	    gcc_assert (!e->dest->aux);
+	    /* For abnormal goto/call edges the receiver can be the
+	       ENTRY_BLOCK.  Do not assert this cannot happen.  */
 
 	    gcc_assert ((e->flags & EDGE_EH)
 			|| SSA_NAME_OCCURS_IN_ABNORMAL_PHI (PHI_RESULT (phi)));
 
-	    if (virtual_operand_p (PHI_RESULT (phi)))
-	      {
-		mark_virtual_operands_for_renaming (cfun);
-		continue;
-	      }
-
 	    re = find_edge (ret_bb, e->dest);
-	    gcc_assert (re);
+	    gcc_checking_assert (re);
 	    gcc_assert ((re->flags & (EDGE_EH | EDGE_ABNORMAL))
 			== (e->flags & (EDGE_EH | EDGE_ABNORMAL)));
 
@@ -1891,8 +1883,7 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb,
 	    && old_edge->dest->aux != EXIT_BLOCK_PTR)
 	  flags |= EDGE_FALLTHRU;
 	new_edge = make_edge (new_bb, (basic_block) old_edge->dest->aux, flags);
-        /* Update to use apply_scale().  */
-	new_edge->count = old_edge->count * count_scale / REG_BR_PROB_BASE;
+	new_edge->count = apply_scale (old_edge->count, count_scale);
 	new_edge->probability = old_edge->probability;
       }
 
@@ -2066,10 +2057,10 @@ initialize_cfun (tree new_fndecl, tree callee_fndecl, gcov_type count)
   struct function *src_cfun = DECL_STRUCT_FUNCTION (callee_fndecl);
   gcov_type count_scale;
 
-  /* Update to use GCOV_COMPUTE_SCALE.  */
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
-    count_scale = (REG_BR_PROB_BASE * count
-		   / ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
+    count_scale
+        = GCOV_COMPUTE_SCALE (count,
+                              ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
   else
     count_scale = REG_BR_PROB_BASE;
 
@@ -2211,8 +2202,11 @@ copy_loops (bitmap blocks_to_copy,
 
 	  /* Assign the new loop its header and latch and associate
 	     those with the new loop.  */
-	  dest_loop->header = (basic_block)src_loop->header->aux;
-	  dest_loop->header->loop_father = dest_loop;
+	  if (src_loop->header != NULL)
+	    {
+	      dest_loop->header = (basic_block)src_loop->header->aux;
+	      dest_loop->header->loop_father = dest_loop;
+	    }
 	  if (src_loop->latch != NULL)
 	    {
 	      dest_loop->latch = (basic_block)src_loop->latch->aux;
@@ -2253,10 +2247,10 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   int incoming_frequency = 0;
   gcov_type incoming_count = 0;
 
-  /* Update to use GCOV_COMPUTE_SCALE.  */
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
-    count_scale = (REG_BR_PROB_BASE * count
-		   / ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
+    count_scale
+        = GCOV_COMPUTE_SCALE (count,
+                              ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
   else
     count_scale = REG_BR_PROB_BASE;
 
@@ -2278,11 +2272,9 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 	    incoming_frequency += EDGE_FREQUENCY (e);
 	    incoming_count += e->count;
 	  }
-      /* Update to use apply_scale().  */
-      incoming_count = incoming_count * count_scale / REG_BR_PROB_BASE;
-      /* Update to use EDGE_FREQUENCY.  */
+      incoming_count = apply_scale (incoming_count, count_scale);
       incoming_frequency
-	= incoming_frequency * frequency_scale / REG_BR_PROB_BASE;
+	= apply_scale ((gcov_type)incoming_frequency, frequency_scale);
       ENTRY_BLOCK_PTR->count = incoming_count;
       ENTRY_BLOCK_PTR->frequency = incoming_frequency;
     }
@@ -2340,6 +2332,11 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
       /* Defer to cfgcleanup to update loop-father fields of basic-blocks.  */
       loops_state_set (LOOPS_NEED_FIXUP);
     }
+
+  /* If the loop tree in the source function needed fixup, mark the
+     destination loop tree for fixup, too.  */
+  if (loops_for_fn (src_cfun)->state & LOOPS_NEED_FIXUP)
+    loops_state_set (LOOPS_NEED_FIXUP);
 
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
@@ -4114,8 +4111,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
   copy_body (id, bb->count,
-             /* Update to use GCOV_COMPUTE_SCALE.  */
-  	     cg_edge->frequency * REG_BR_PROB_BASE / CGRAPH_FREQ_BASE,
+  	     GCOV_COMPUTE_SCALE (cg_edge->frequency, CGRAPH_FREQ_BASE),
 	     bb, return_block, NULL, NULL);
 
   /* Reset the escaped solution.  */

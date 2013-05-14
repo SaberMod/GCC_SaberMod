@@ -2872,8 +2872,16 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
   else if (parser->scope != error_mark_node)
     {
       if (TREE_CODE (parser->scope) == NAMESPACE_DECL)
-	error_at (location, "%qE in namespace %qE does not name a type",
-		  id, parser->scope);
+	{
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+	    error_at (location_of (id),
+		      "%qE in namespace %qE does not name a template type",
+		      id, parser->scope);
+	  else
+	    error_at (location_of (id),
+		      "%qE in namespace %qE does not name a type",
+		      id, parser->scope);
+	}
       else if (CLASS_TYPE_P (parser->scope)
 	       && constructor_name_p (id, parser->scope))
 	{
@@ -2890,8 +2898,16 @@ cp_parser_diagnose_invalid_type_name (cp_parser *parser,
 		  "%qT is a dependent scope",
 		  parser->scope, id, parser->scope);
       else if (TYPE_P (parser->scope))
-	error_at (location, "%qE in %q#T does not name a type",
-		  id, parser->scope);
+	{
+	  if (cp_lexer_next_token_is (parser->lexer, CPP_LESS))
+	    error_at (location_of (id),
+		      "%qE in %q#T does not name a template type",
+		      id, parser->scope);
+	  else
+	    error_at (location_of (id),
+		      "%qE in %q#T does not name a type",
+		      id, parser->scope);
+	}
       else
 	gcc_unreachable ();
     }
@@ -9826,13 +9842,21 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
     begin_expr = end_expr = iter_type = error_mark_node;
   else
     {
-      tree range_temp = build_range_temp (range_expr);
-      pushdecl (range_temp);
-      cp_finish_decl (range_temp, range_expr,
-		      /*is_constant_init*/false, NULL_TREE,
-		      LOOKUP_ONLYCONVERTING);
+      tree range_temp;
 
-      range_temp = convert_from_reference (range_temp);
+      if (TREE_CODE (range_expr) == VAR_DECL
+	  && array_of_runtime_bound_p (TREE_TYPE (range_expr)))
+	/* Can't bind a reference to an array of runtime bound.  */
+	range_temp = range_expr;
+      else
+	{
+	  range_temp = build_range_temp (range_expr);
+	  pushdecl (range_temp);
+	  cp_finish_decl (range_temp, range_expr,
+			  /*is_constant_init*/false, NULL_TREE,
+			  LOOKUP_ONLYCONVERTING);
+	  range_temp = convert_from_reference (range_temp);
+	}
       iter_type = cp_parser_perform_range_for_lookup (range_temp,
 						      &begin_expr, &end_expr);
     }
@@ -14840,6 +14864,8 @@ cp_parser_enum_specifier (cp_parser* parser)
 	      type = NULL_TREE;
 	    }
 	}
+      else if (nested_name_specifier == error_mark_node)
+	/* We already issued an error.  */;
       else
 	error_at (type_start_token->location,
 		  "%qD is not an enumerator-name", identifier);
@@ -14949,7 +14975,8 @@ cp_parser_enum_specifier (cp_parser* parser)
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {
       timevar_push (TV_PARSE_ENUM);
-      if (nested_name_specifier)
+      if (nested_name_specifier
+	  && nested_name_specifier != error_mark_node)
 	{
 	  /* The following catches invalid code such as:
 	     enum class S<int>::E { A, B, C }; */
@@ -17179,9 +17206,6 @@ cp_parser_ref_qualifier_opt (cp_parser* parser)
 	  cp_lexer_consume_token (parser->lexer);
 	}
     }
-
-  if (ref_qual)
-    maybe_warn_cpp0x (CPP0X_REF_QUALIFIER);
 
   return ref_qual;
 }

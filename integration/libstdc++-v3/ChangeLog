@@ -1,3 +1,95 @@
+2013-05-08  Jason Merrill  <jason@redhat.com>
+
+	Add std::bad_array_length (N3639)
+	* libsupc++/new: Add std::bad_array_length.
+	* libsupc++/bad_array_length.cc: New.
+	* libsupc++/eh_aux_runtime.cc: Add __cxa_bad_array_length.
+	* libsupc++/Makefile.in: Build them.
+	* config/abi/pre/gnu.ver: Add new symbols.
+	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
+
+2013-05-08  Andi Kleen  <ak@linux.intel.com>
+
+	PR target/55947
+	* libstdc++-v3/include/bits/atomic_base.h
+	(_GLIBCXX_ALWAYS_INLINE): Add new macro.
+	(atomic_thread_fence, atomic_signal_fence, test_and_set,
+	clear, store, load, exchange, compare_exchange_weak)
+	compare_exchange_strong, fetch_add, fetch_sub, fetch_and,
+	fetch_or, fetch_xor): Mark _GLIBCXX_ALWAYS_INLINE.
+
+2013-05-08  Jason Merrill  <jason@redhat.com>
+
+	Add std::bad_array_new_length (N2932)
+	* libsupc++/new: Add std::bad_array_new_length.
+	* libsupc++/bad_array_new.cc: New.
+	* libsupc++/eh_aux_runtime.cc: Add __cxa_throw_bad_array_new_length.
+	* libsupc++/Makefile.in: Build them.
+	* config/abi/pre/gnu.ver: Add new symbols.
+	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
+
+2013-05-08  Andoni Morales Alastruey <ylatuya@gmail.com>
+
+	PR libstdc++/57212
+	* include/Makefile.am (_GLIBCXX___MINGW32_GLIBCXX___): Modify
+	to __MINGW32__.
+	* include/Makefile.in: Regenerated.
+
+2013-05-07  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/profile/unordered_base.h: New.
+	* include/Makefile.am: Add new profile header.
+	* include/Makefile.in: Regenerate.
+	* include/profile/impl/profiler.h
+	(__profcxx_inefficient_hash_is_on): New macro.
+	* include/profile/unordered_map (std::profile::unordered_map<>):
+	Use new _Unordered_profile base class. Use default implementations
+	for special functions.
+	(std::profile::unordered_multimap<>): Likewise.
+	* include/profile/unordered_set (std::profile::unordered_set<>):
+	Likewise.
+	(std::profile::unordered_multiset<>): Likewise.
+	* testsuite/23_containers/unordered_multiset/55043.cc: Fix
+	MoveOnly equality operator signature.
+
+2013-05-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/tr1/4_metaprogramming/integral_constant/requirements/
+	constexpr_data.cc: Move...
+	* testsuite/20_util/integral_constant/requirements/constexpr_data.cc:
+	... here.
+	* testsuite/20_util/integral_constant/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/integral_constant/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/integral_constant/static_definition.cc: Likewise.
+	* testsuite/20_util/integral_constant/true_false_type_typedefs.cc:
+	Likewise.
+	* testsuite/20_util/integral_constant/true_false_value.cc: Likewise.
+	* testsuite/20_util/integral_constant/operator_value_type.cc: Likewise.
+
+2013-05-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/type_traits (is_null_pointer): Add.
+	(__is_nullptr_t): Implement in terms of the latter.
+	(is_fundamental, is_scalar): Adjust.
+	* testsuite/20_util/is_null_pointer/requirements/
+	explicit_instantiation.cc: New.
+	* testsuite/20_util/is_null_pointer/requirements/typedefs.cc:
+	Likewise.
+	* testsuite/20_util/is_null_pointer/value.cc: Likewise.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error
+	line number.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+2013-05-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/c_global/cstdio: Add comment about LWG 2249.
+	* include/c_std/cstdio: Likewise.
+
 2013-04-28  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* include/bits/hashtable_policy.h (_Hashtable_ebo_helper): Fix

@@ -407,8 +407,8 @@ Objective-C and Objective-C++ Dialects}.
 -fsel-sched-pipelining -fsel-sched-pipelining-outer-loops @gol
 -fshrink-wrap -fsignaling-nans -fsingle-precision-constant @gol
 -fsplit-ivs-in-unroller -fsplit-wide-types -fstack-protector @gol
--fstack-protector-all -fstrict-aliasing -fstrict-overflow @gol
--fthread-jumps -ftracer -ftree-bit-ccp @gol
+-fstack-protector-all -fstack-protector-strong -fstrict-aliasing @gol
+-fstrict-overflow -fthread-jumps -ftracer -ftree-bit-ccp @gol
 -ftree-builtin-call-dce -ftree-ccp -ftree-ch @gol
 -ftree-coalesce-inline-vars -ftree-coalesce-vars -ftree-copy-prop @gol
 -ftree-copyrename -ftree-dce -ftree-dominator-opts -ftree-dse @gol
@@ -618,11 +618,11 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{HPPA Options}
 @gccoptlist{-march=@var{architecture-type} @gol
--mbig-switch  -mdisable-fpregs  -mdisable-indexing @gol
+-mdisable-fpregs  -mdisable-indexing @gol
 -mfast-indirect-calls  -mgas  -mgnu-ld   -mhp-ld @gol
 -mfixed-range=@var{register-range} @gol
 -mjump-in-delay -mlinker-opt -mlong-calls @gol
--mlong-load-store  -mno-big-switch  -mno-disable-fpregs @gol
+-mlong-load-store  -mno-disable-fpregs @gol
 -mno-disable-indexing  -mno-fast-indirect-calls  -mno-gas @gol
 -mno-jump-in-delay  -mno-long-load-store @gol
 -mno-portable-runtime  -mno-soft-float @gol
@@ -8966,6 +8966,12 @@ If a guard check fails, an error message is printed and the program exits.
 @opindex fstack-protector-all
 Like @option{-fstack-protector} except that all functions are protected.
 
+@item -fstack-protector-strong
+@opindex fstack-protector-strong
+Like @option{-fstack-protector} but includes additional functions to
+be protected --- those that have local array definitions, or have
+references to local frame addresses.
+
 @item -fsection-anchors
 @opindex fsection-anchors
 Try to reduce the number of symbolic address calculations by using
@@ -13523,12 +13529,6 @@ other way around.
 @opindex mpa-risc-1-1
 @opindex mpa-risc-2-0
 Synonyms for @option{-march=1.0}, @option{-march=1.1}, and @option{-march=2.0} respectively.
-
-@item -mbig-switch
-@opindex mbig-switch
-Generate code suitable for big switch tables.  Use this option only if
-the assembler/linker complain about out-of-range branches within a switch
-table.
 
 @item -mjump-in-delay
 @opindex mjump-in-delay
