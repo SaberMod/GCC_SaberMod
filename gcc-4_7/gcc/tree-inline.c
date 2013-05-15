@@ -51,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "integrate.h"
 #include "langhooks.h"
 #include "l-ipo.h"
-#include "auto-profile.h"
 
 #include "rtl.h"	/* FIXME: For asm_str_count.  */
 
@@ -1826,19 +1825,6 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
       copy_gsi = gsi_last_bb (copy_basic_block);
     }
 
-  if (flag_auto_profile && profile_info)
-    {
-      /* If the same inline happens in the profile-collection binary, use
-	 that instance's profile count. Otherwise use the scaled count.
-	 Do *not* annotate value histogram on it because no value profile
-	 transformations will happen after ipa-inline.  */
-      gcov_type count = afdo_get_bb_count (copy_basic_block, false);
-      if (copy_basic_block->flags & BB_ANNOTATED)
-	copy_basic_block->count = count;
-      else if (bb->flags & BB_ANNOTATED)
-	copy_basic_block->flags |= BB_ANNOTATED;
-    }
-
   return copy_basic_block;
 }
 
@@ -2269,8 +2255,6 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   if (ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count)
     count_scale = (REG_BR_PROB_BASE * (double)count
 		   / ENTRY_BLOCK_PTR_FOR_FUNCTION (src_cfun)->count);
-  else if (flag_auto_profile && count == 0)
-    count_scale = 0;
   else
     count_scale = REG_BR_PROB_BASE;
   if (count_scale > REG_BR_PROB_BASE)

@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tree.h"
 #include "flags.h"	      /* for auto_profile_file.  */
 #include "basic-block.h"      /* for gcov_type.	 */
 #include "diagnostic-core.h"  /* for inform ().  */
@@ -177,9 +179,6 @@ static htab_t function_htab;
 
 /* Hash table to hold stack information.  */
 static htab_t stack_htab;
-
-/* Hash table to hold inline scale information.  */
-static htab_t stack_scale_htab;
 
 /* Hash table to hold assembler name to bfd name mapping.  */
 static htab_t bfd_name_htab;
@@ -525,7 +524,7 @@ read_aux_modules (void)
       if ((aux_entry->lang & GCOV_MODULE_ASM_STMTS)
 	   && flag_ripa_disallow_asm_modules)
 	{
-	  if (flag_opt_info >= OPT_INFO_MIN)
+	  if (flag_opt_info)
 	    inform (0, "Not importing %s: contains "
 		    "assembler statements", aux_entry->name);
 	  continue;
@@ -533,7 +532,7 @@ read_aux_modules (void)
       afdo_add_module (&module_infos[curr_module], aux_entry, false);
       if (incompatible_cl_args (module_infos[0], module_infos[curr_module]))
 	{
-	  if (flag_opt_info >= OPT_INFO_MIN)
+	  if (flag_opt_info)
 	    inform (0, "Not importing %s: command-line"
 		    " arguments not compatible with primary module",
 		    aux_entry->name);
@@ -815,142 +814,6 @@ afdo_add_bfd_name_mapping (const char *as_name, const char *bfd_name)
     free (entry);
 }
 
-/* When EDGE is inlined, the callee is cloned recursively. This function
-   updates the copy scale recursively along the callee. STACK stores the
-   call stack info from the original inlined edge to the caller of EDGE.
-
-   E.g. foo calls bar with call count 100;
-	bar calls baz with call count 300;
-	bar has an entry count of 400, baz has an entry count of 1000;
-   Initial callgraph looks like:
-     foo --(100)--> bar(400)
-     bar --(300)--> baz(1000)
-
-   Consider baz is first inlined into bar, we will have a call graph like:
-     foo --(100)--> bar(400)
-     bar --(300)--> baz.clone(300)
-     baz(700)
-   At this point, a copyscale mapping is added:
-     (bar->baz) --> 0.3
-
-   Consider bar is then inlined into foo, we will have a call graph like:
-     foo --(100)--> bar.clone(100)
-     bar.clone --(75)-->baz.clone_2(75)
-     bar --(225)->baz.clone(225)
-     baz(700)
-   At this point, two copyscale mappings are added:
-     (foo->bar) --> 0.25
-     (foo->bar->baz)  --> 0.25 * 0.3
-*/
-
-static void
-afdo_propagate_copy_scale (struct cgraph_edge *edge, struct gcov_stack *stack)
-{
-  struct gcov_stack *new_stack, *entry, **stack_slot;
-  struct cgraph_edge *e;
-
-  if (edge->callee->global.inlined_to == NULL)
-    return;
-  if (stack->count == 0)
-    return;
-
-  new_stack = (struct gcov_stack *) xmalloc (sizeof (struct gcov_stack));
-  new_stack->func_name =
-      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->caller->decl));
-  new_stack->callee_name =
-      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->callee->decl));
-  new_stack->size = get_inline_stack_size_by_stmt (edge->call_stmt);
-  new_stack->stack = (struct gcov_callsite_pos *) xmalloc (
-      sizeof (struct gcov_callsite_pos) * (new_stack->size + stack->size));
-  get_inline_stack_by_stmt (edge->call_stmt, edge->caller->decl,
-			    new_stack->stack, false);
-  entry = (struct gcov_stack *) htab_find (stack_scale_htab, new_stack);
-  if (entry == NULL)
-    {
-      free (new_stack->stack);
-      free (new_stack);
-      return;
-    }
-
-  new_stack->func_name = stack->func_name;
-  new_stack->count = entry->count * stack->count / REG_BR_PROB_BASE;
-  memcpy (new_stack->stack + new_stack->size,
-	  stack->stack, stack->size * sizeof (struct gcov_callsite_pos));
-  new_stack->size += stack->size;
-  stack_slot = (struct gcov_stack **)
-      htab_find_slot (stack_scale_htab, new_stack, INSERT);
-  if (!*stack_slot)
-    *stack_slot = new_stack;
-  else
-    (*stack_slot)->count = MAX ((*stack_slot)->count, new_stack->count);
-
-  for (e = edge->callee->callees; e; e = e->next_callee)
-    afdo_propagate_copy_scale (e, new_stack);
-}
-
-/* For an inlined EDGE, the scale (i.e. edge->count / edge->callee->count)
-   is recorded in a hash map.  */
-
-void
-afdo_add_copy_scale (struct cgraph_edge *edge)
-{
-  struct gcov_stack *stack;
-  struct gcov_stack **stack_slot;
-  int scale;
-  int size = get_inline_stack_size_by_edge (edge);
-  struct cgraph_node *n = edge->callee->clone_of;
-  struct cgraph_edge *e;
-  gcov_type sum_cloned_count;
-
-  if (edge->callee->clone_of)
-    {
-      n = edge->callee->clone_of->clones;
-      sum_cloned_count = edge->callee->clone_of->count;
-    }
-  else
-    {
-      n = edge->callee->clones;
-      sum_cloned_count = edge->callee->count;
-    }
-
-  for (; n; n = n->next_sibling_clone)
-    sum_cloned_count += n->count;
-  if (sum_cloned_count > 0)
-    scale = (double) edge->count * REG_BR_PROB_BASE / sum_cloned_count;
-  else if (edge->caller->count == 0 && edge->caller->max_bb_count == 0)
-    scale = 0;
-  else
-    scale = REG_BR_PROB_BASE;
-  if (scale > REG_BR_PROB_BASE)
-    scale = REG_BR_PROB_BASE;
-
-  if (size == 0)
-    return;
-  stack = (struct gcov_stack *) xmalloc (sizeof (struct gcov_stack));
-  stack->func_name
-      = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (
-	edge->caller->global.inlined_to ?
-	    edge->caller->global.inlined_to->decl : edge->caller->decl));
-  stack->callee_name
-      = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->callee->decl));
-  stack->size = size;
-  stack->stack = (struct gcov_callsite_pos *)
-      xmalloc (sizeof (struct gcov_callsite_pos) * size);
-  stack->count = scale;
-
-  get_inline_stack_by_edge (edge, stack->stack);
-
-  stack_slot = (struct gcov_stack **)
-      htab_find_slot (stack_scale_htab, stack, INSERT);
-  if (!*stack_slot)
-    *stack_slot = stack;
-  else
-    (*stack_slot)->count = MAX ((*stack_slot)->count, stack->count);
-
-  for (e = edge->callee->callees; e; e = e->next_callee)
-    afdo_propagate_copy_scale (e, stack);
-}
-
 /* For a given POS_STACK with SIZE, get the COUNT, MAX_COUNT, NUM_INST,
    HIST_SIZE and HIST for the inline stack. If CALLEE_NAME is non-null,
    the COUNT/MAX_COUNT represents the total/max count in the inline stack.
@@ -964,56 +827,24 @@ get_stack_count (struct gcov_callsite_pos *pos_stack,
 		 gcov_type *count, gcov_type *max_count, gcov_type *num_inst,
 		 gcov_unsigned_t *hist_size, struct gcov_hist **hist)
 {
-  int i;
-
-  for (i = 0; i < size; i++)
+  struct gcov_stack stack, *entry;
+  stack.func_name = pos_stack[size - 1].func;
+  stack.callee_name = callee_name;
+  stack.stack = pos_stack;
+  stack.size = size;
+  entry = (struct gcov_stack *) htab_find (stack_htab, &stack);
+  if (entry)
     {
-      struct gcov_stack stack, *entry;
-      stack.func_name = pos_stack[size - i - 1].func;
-      stack.callee_name = callee_name;
-      stack.stack = pos_stack;
-      stack.size = size - i;
-      entry = (struct gcov_stack *) htab_find (stack_htab, &stack);
-      if (entry)
+      *count = entry->count;
+      *num_inst = entry->num_inst;
+      if (max_count)
+	*max_count = entry->max_count;
+      if (hist_size)
 	{
-	  if (i == 0)
-	    {
-	      *count = entry->count;
-	      *num_inst = entry->num_inst;
-	      if (max_count)
-		*max_count = entry->max_count;
-	      if (hist_size)
-		{
-		  *hist_size = entry->hist_size;
-		  *hist = entry->hist;
-		}
-	      return true;
-	    }
-	  else
-	    {
-	      struct gcov_stack scale_stack, *scale_entry;
-	      scale_stack.stack = pos_stack + size - i;
-	      scale_stack.size = i;
-	      scale_stack.func_name = pos_stack[size - 1].func;
-	      scale_stack.callee_name = stack.func_name;
-	      scale_entry = (struct gcov_stack *)
-		  htab_find (stack_scale_htab, &scale_stack);
-	      if (scale_entry)
-		{
-		  *count = entry->count * scale_entry->count
-			   / REG_BR_PROB_BASE;
-		  *num_inst = entry->num_inst;
-		  if (max_count)
-		    *max_count = entry->max_count;
-		  if (hist_size)
-		    {
-		      *hist_size = entry->hist_size;
-		      *hist = entry->hist;
-		    }
-		  return true;
-		}
-	    }
+	  *hist_size = entry->hist_size;
+	  *hist = entry->hist;
 	}
+      return true;
     }
   *count = 0;
   *num_inst = 0;
@@ -1057,14 +888,14 @@ get_stmt_count (gimple stmt, gcov_type *count, gcov_type *num_inst,
 /* For a given EDGE, if IS_TOTAL is true, save EDGE->callee's total count
    to COUNT, otherwise save EDGE's count to COUNT.  */
 
-bool
-afdo_get_callsite_count (struct cgraph_edge *edge, gcov_type *count,
-			 gcov_type *max_count, bool is_total)
+static bool
+get_callsite_count (struct cgraph_edge *edge, gcov_type *count,
+		    gcov_type *max_count)
 {
   struct gcov_callsite_pos *pos_stack;
   gcov_type num_inst;
-  const char *callee_name = is_total ?
-      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->callee->decl)) : NULL;
+  const char *callee_name =
+      IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->callee->decl));
   int size = get_inline_stack_size_by_edge (edge);
 
   if (size == 0)
@@ -1074,19 +905,15 @@ afdo_get_callsite_count (struct cgraph_edge *edge, gcov_type *count,
 
   get_inline_stack_by_edge (edge, pos_stack);
 
-  if (!is_total)
-    pos_stack[0].discr =
-	get_discriminator_from_locus (gimple_location (edge->call_stmt));
-
   return get_stack_count (pos_stack, callee_name,
 			  size, count, max_count, &num_inst, NULL, NULL);
 }
 
 /* For a given BB, return its execution count, and annotate value profile
-   on statements if ANNOTATE_VPT is true.  */
+   on statements.  */
 
-gcov_type
-afdo_get_bb_count (basic_block bb, bool annotate_vpt)
+static gcov_type
+afdo_get_bb_count (basic_block bb)
 {
   gimple_stmt_iterator gsi;
   gcov_type max_count = 0;
@@ -1103,7 +930,7 @@ afdo_get_bb_count (basic_block bb, bool annotate_vpt)
 	  if (count > max_count)
 	    max_count = count;
 	  has_annotated = true;
-	  if (annotate_vpt && hist_size > 0)
+	  if (hist_size > 0)
 	    afdo_vpt (stmt, hist, hist_size);
 	}
     }
@@ -1126,16 +953,24 @@ afdo_annotate_cfg (void)
 
   FOR_EACH_BB (bb)
     {
-      bb->count = afdo_get_bb_count (bb, true);
+      bb->count = afdo_get_bb_count (bb);
       if (bb->count > max_count)
 	max_count = bb->count;
     }
   if (ENTRY_BLOCK_PTR->count > ENTRY_BLOCK_PTR->next_bb->count)
-    ENTRY_BLOCK_PTR->next_bb->count = ENTRY_BLOCK_PTR->count;
+    {
+      ENTRY_BLOCK_PTR->next_bb->count = ENTRY_BLOCK_PTR->count;
+      ENTRY_BLOCK_PTR->next_bb->flags |= BB_ANNOTATED;
+    }
+  if (ENTRY_BLOCK_PTR->count > EXIT_BLOCK_PTR->prev_bb->count)
+    {
+      EXIT_BLOCK_PTR->prev_bb->count = ENTRY_BLOCK_PTR->count;
+      EXIT_BLOCK_PTR->prev_bb->flags |= BB_ANNOTATED;
+    }
   if (max_count > 0)
     {
-      counts_to_freqs ();
       afdo_calculate_branch_prob ();
+      counts_to_freqs ();
       profile_status = PROFILE_READ;
     }
   if (flag_value_profile_transformations)
@@ -1416,13 +1251,6 @@ init_auto_profile (void)
 				  0,
 				  xcalloc,
 				  free);
-  /* Initialize the stack scale hash table.  */
-  stack_scale_htab = htab_create_alloc ((size_t) SP_HTAB_INIT_SIZE,
-				  afdo_stack_hash,
-				  afdo_stack_eq,
-				  0,
-				  xcalloc,
-				  free);
   /* Initialize the bfd name mapping table.  */
   bfd_name_htab = htab_create_alloc ((size_t) SP_HTAB_INIT_SIZE,
 				     afdo_bfd_name_hash,
@@ -1477,7 +1305,6 @@ end_auto_profile (void)
   free (file_names);
   htab_delete (function_htab);
   htab_delete (stack_htab);
-  htab_delete (stack_scale_htab);
   htab_delete (bfd_name_htab);
   htab_delete (module_htab);
   profile_info = NULL;
@@ -1845,7 +1672,7 @@ bool
 afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *edge)
 {
   gcov_type count, max_count;
-  if (afdo_get_callsite_count (edge, &count, &max_count, true))
+  if (get_callsite_count (edge, &count, &max_count))
     {
       bool is_hot;
       const struct gcov_ctr_summary *saved_profile_info = profile_info;

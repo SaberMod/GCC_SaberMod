@@ -32,19 +32,10 @@ extern void afdo_set_current_function_count (void);
 /* Add the assembly_name to bfd_name mapping.  */
 extern void afdo_add_bfd_name_mapping (const char *, const char *);
 
-/* Add copy scale for an inlined edge to stack_scale_map.  */
-extern void afdo_add_copy_scale (struct cgraph_edge *);
-
 /* Calculate branch probability in both AutoFDO pass and after inlining.  */
 extern void afdo_calculate_branch_prob (void);
-
-/* Calculate total sample count of an inlined callsite.  */
-extern bool afdo_get_callsite_count (struct cgraph_edge *, gcov_type *,
-				     gcov_type *, bool);
 
 /* Returns TRUE if EDGE is hot enough to be inlined early.  */
 extern bool afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *);
 
-/* Calculate basic block count.  */
-extern gcov_type afdo_get_bb_count (basic_block, bool);
 #endif /* AUTO_PROFILE_H */

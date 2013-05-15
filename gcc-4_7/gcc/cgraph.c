@@ -2326,11 +2326,6 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
                               / n->count) * count;
   new_node->is_versioned_clone = n->is_versioned_clone;
   new_node->frequency = n->frequency;
-  /* In AutoFDO, a cloned callee may be hot even when the original
-     function is profiled cold.  */
-  if (flag_auto_profile && count > 0
-      && new_node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    new_node->frequency = NODE_FREQUENCY_NORMAL;
   new_node->clone = n->clone;
   new_node->clone.tree_map = 0;
   if (n->count)
