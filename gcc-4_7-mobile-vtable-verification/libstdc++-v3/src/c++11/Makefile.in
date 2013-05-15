@@ -323,6 +323,20 @@ sources = \
 @ENABLE_EXTERN_TEMPLATE_TRUE@	wstring-inst.cc
 
 libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
+@ENABLE_VTABLE_VERIFY_FALSE@EXTRA_VTV_LDFLAGS = 
+
+# We need to add this here because even thought the GCC driver normally would
+# add the flags below when doing a vtable-verification build, the driver
+# flags do not appear to be used when building the C++ std library.
+@ENABLE_VTABLE_VERIFY_TRUE@EXTRA_VTV_LDFLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@        -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+
+@ENABLE_VTABLE_VERIFY_FALSE@LIBVTV_FLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@LIBVTV_FLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@        -L$(top_builddir)/libsupc++/.libs --whole-archive -lvtv_init --no-whole-archive
+
+@ENABLE_VTABLE_VERIFY_FALSE@VTV_CXXFLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@VTV_CXXFLAGS = -fvtable-verify=std $(EXTRA_VTV_LDFLAGS)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -332,7 +346,7 @@ libc__11convenience_la_SOURCES = $(sources)  $(inst_sources)
 AM_CXXFLAGS = \
 	-std=gnu++11 \
 	$(PIC_CXXFLAGS) \
-	$(XTEMPLATE_FLAGS) \
+	$(XTEMPLATE_FLAGS) $(VTV_CXXFLAGS)  \
 	$(WARN_CXXFLAGS) $(OPTIMIZE_CXXFLAGS) $(CONFIG_CXXFLAGS) \
 	$($(@)_no_omit_frame_pointer)
 
@@ -378,6 +392,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX --tag disable-shared \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(LIBVTV_FLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 

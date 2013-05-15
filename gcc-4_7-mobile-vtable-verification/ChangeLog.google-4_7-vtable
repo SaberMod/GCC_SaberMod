@@ -1,3 +1,99 @@
+2013-05-15  Caroline Tice  <cmtice@google.com>
+
+	* libgcc/Makefile.in: Get value for enable_vtable_verify.  Only
+	generate vtv_start.o and vtv_end.o if enable_vtable_verify is yes.
+	* libgcc/configure:  Add enable_vtable_verify and test for it.
+	* libstdc++-v3/configure.ac: Add vtv_start.o and vtv_end.o to
+	predep_objects_CXX and postdep_objects_CXX, respectively, but only if
+	enable_vtable_verify is yes.  Define GLIBCXX_ENABLE_VTABLE_VERIFY.
+	* libstdc++-v3/configure:  Regenerated.
+	* libstdc++-v3/libsupc++/Makefile.am: Add checks for
+	ENABLE_VTABLE_VERIFY;  make sure we only compile and generate vtable
+	verification files if ENABLE_VTABLE_VERIFY is true.
+	* libstdc++-v3/libsupc++/Makefile.in: Regenerated.
+	* libstdc++-v3/libsupc++/vtv_rts.cc (dl_iterate_phdr_callback):  Fix
+	some format issues; fix type cast to avoid warning.
+	* libstdc++-v3/acinclude.m4:  Add information about the
+	--enable-vtable-verify flag; add definition for
+	GLIBCXX_ENABLE_VTABLE_VERIFY.
+	* libstdc++/src/c++98/Makefile.am:  Define EXTRA_VTV_LDFLAGS, 
+	LIBVTV_FLAGS, and VTV_CXXFLAGS, but only give them real values if
+	ENABLE_VTABLE_VERIFY is true.  Add VTV_CXXFLAGS to AM_CXXFLAGS.  Add
+	LIBVTV_FLAGS to CXXLINK.
+	* libstdc++-v3/src/c++98/Makefile.in:  Regenerated.
+	* libstdc++-v3/src/Makefile.am: Only add vtable verification build 
+	flags and options if ENABLE_VTABLE_VERIFY is true.  Add $(LIBVTV_FLAGS)
+	to CXXLINK.
+	* libstdc++-v3/src/Makefile.in:  Regenerated.
+	* libstdc++/src/c++11/Makefile.am:  Define EXTRA_VTV_LDFLAGS, 
+	LIBVTV_FLAGS, and VTV_CXXFLAGS, but only give them real values if
+	ENABLE_VTABLE_VERIFY is true.  Add VTV_CXXFLAGS to AM_CXXFLAGS.  Add
+	LIBVTV_FLAGS to CXXLINK.
+	* libstdc++-v3/src/c++11/Makefile.in:  Regenerated.
+	* configure.ac:  Add libsupc++/.libs to library search path for
+	CXX_FOR_TARGET and RAW_CXX_FOR_TARGET.
+	* configure:  Regenerated.
+	* gcc/Makefile.in:  Removed definitino of CP_TREE_H.  Removed
+	CP_TREE_H from rule for building tree-vtable-verify.o.  Un-comment
+	header files in rule for building tree-vtable-verify.o.
+ 	* gcc/tree-vtable-verify.c: Remove cp-tree.h from include list.
+	(verify_vtbl_ptr_fndecl): Change static decl to extern decl. Add local
+	initialization statement.
+	(vtbl_map_node_registration_insert): Change return type to bool; Return
+	true if something got inserted & false otherwise.
+	(vtbl_map_get_node):  Remove code for resetting type qualifiers; add
+	assertion that type is unqualified.
+	(find_or_create_vtbl_map_node):  Ditto.
+	(build_vtable_verify_fndecl):  Move function to
+	vtable-class-hierarchy.c (c++ front end).
+	(reset_type_qualifiers):  Delete function.
+	(type_name_is_vtable_pointer):  Delete function.
+	(is_vtable_assignment_stmt):  Remove unnecessary test; call
+	DECL_VIRTUAL_P rather than examining name of field decl (request from
+	Jason Merrill).
+	(my_get_vtbl_decl_for_binfo):  Delete function.
+	(find_vtable_ptr_assignment_stmt):  Delete function.
+	(find_stmt_in_bb_stmts):  Delete function.
+	(extract_object_class_type):  Heavily rewrote function, based on
+	comments from Diego.
+	(verify_bb_vtables): Heavily rewrote function, based on comments from
+	Diego (much simpler now).
+	* gcc/tree-vtable-verify.h: Added extern decl for
+	verify_vtbl_ptr_fndecl.  Fixed some spacing issues. Changed return type
+	of vtbl_map_node_registration_insert to bool.  Eliminated decl for
+	reset_type_qualifiers.
+	* gcc/cp/pt.c (mark_class_instantiated):  Remove unnecessary call to
+	vtv_save_class_info.
+	* gcc/cp/cp-tree.h: Remove decl for get_mangled_id; Add decls for 
+	get_mangled_vtable_map_var_name and vtv_build_vtable_verify_fndecl.
+	* gcc/cp/decl2.c (cp_write_global_declarations):  Add call to
+	vtv_build_vtable_verify_fndecl.
+	(vtv_finish_verification_constructor_init_function): Remove commented
+	out code.
+	* gcc/cp/vtable-class-hierarchy.c (vtv_build_vtable_verify_fndecl): 
+	Move function here from tree-vtable-verify.c, and add 'vtv_' prefix to
+	name.
+	(record_register_pairs):  Rename function to
+	check_and_record_registered_pairs. Also change name at all call sites.
+	After modifying vtbl_map_nde_registration_insert to return a boolean,
+	eliminate redundant call to vtbl_map_node_registration_find.
+	(register_vptr_fields):  Renamed function to
+	register_construction_vtables and updated call sites appropriately.
+	Completely re-wrote large portions of this function based on feedback
+	from Jason Merrill about how it should be done.
+	(init_all_sets): Rearrange var decls to elimiate ISO warning about 
+	mixed decls and code.
+	(write_out_counters):  Ditto.  Add output for sub_vtt counter.
+	(vtable_find_or_create_map_decl):  Remove the type qualifiers checking
+	and setting code.  Call get_mangled_vtable_map_var_name to get mangled
+	name for vtable map variable.
+	* gcc/cp/mangle.c (mangle_decl): Only apply our change if
+	flag_vtable_verify is true.
+	(get_mangled_vtable_map_var_name):  New function to generate mangled
+	vtable map variable names.
+	* gcc/cgraph.c (cgraph_add_new_function):  If flag_vtable_verify is
+	true, call cgraph_get_create_node rather than cgraph_create_node.
+	
 2013-05-13  Caroline Tice  <cmtice@google.com>
 
 	* libstdc++-v3/libsupc++/vtv_rts.cc: (num_calls_to_register_pair,

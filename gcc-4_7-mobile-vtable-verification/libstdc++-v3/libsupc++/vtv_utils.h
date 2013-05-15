@@ -26,6 +26,7 @@
 #define _VTV_UTILS_H 1
 
 #include <stdlib.h>
+#include "../../include/vtv-change-permission.h"
 
 /* Handler for verification runtime errors.  */
 #define VTV_error abort
@@ -44,8 +45,6 @@
 #define VTV_PROTECTED_VARS_SECTION ".vtable_map_vars"
 #define VTV_PROTECTED_VAR \
                        __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
-
-#define VTV_PAGE_SIZE 4096
 
 /* The following logging routines try to use low level file access
    routines and avoid calling malloc. We need this so that we dont

@@ -348,7 +348,7 @@ typedef vtv_sets::insert_only_hash_set vtv_set;
 typedef vtv_set * vtv_set_handle;
 typedef vtv_set_handle * vtv_set_handle_handle; 
 
-/* Records for caching teh section header information that we have
+/* Records for caching the section header information that we have
    read out of the file(s) on disk (in dl_iterate_phdr_callback), to
    avoid having to re-open and re-read the same file multiple
    times.  */

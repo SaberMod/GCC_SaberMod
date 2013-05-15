@@ -33,6 +33,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "sbitmap.h"
 
+/* The function decl used to create calls to __VLTVtableVerify.  It must
+   be global because it needs to be initialized in the C++ front end, but
+   used in the middle end (in the vtable verification pass).  */
+
+extern tree verify_vtbl_ptr_fndecl;
+
 /* Global variable keeping track of how many vtable map variables we
    have created. */
 extern unsigned num_vtable_map_nodes;
@@ -62,7 +68,7 @@ struct vtable_registration
   tree vtable_decl;            /* The var decl of the vtable.                */
   unsigned max_offsets;        /* The allocated size of the offsets array.   */
   unsigned cur_offset;         /* The next availabe entry in the offsets
-				  array.                                     */
+                                  array.                                     */
   unsigned *offsets;           /* The offsets array.                         */
 };
 
@@ -91,7 +97,7 @@ struct vtv_graph_node {
   struct vtv_graph_node **parents;  /* Array of parents in the graph.        */
   struct vtv_graph_node **children; /* Array of children in the graph.       */
   sbitmap descendants;              /* Bitmap representing all this node's
-				       descendants in the graph.             */
+                                       descendants in the graph.             */
 };
 
 /* This is the node used for our hashtable of vtable map variable
@@ -112,20 +118,20 @@ struct vtv_graph_node {
 
 struct vtbl_map_node {
   tree vtbl_map_decl;                 /* The var decl for the vtable map
-					 variable.                           */
+                                         variable.                           */
   tree class_name;                    /* The DECL_ASSEMBLER_NAME of the
-					 class.                              */
+                                         class.                              */
   struct vtv_graph_node *class_info;  /* Our class hierarchy info for the
-					 class.                              */
+                                         class.                              */
   unsigned uid;                       /* The unique id for the vtable map
-					 variable.                           */
+                                         variable.                           */
   struct vtbl_map_node *next, *prev;  /* Pointers for the linked list
-					 structure.                          */
+                                         structure.                          */
   htab_t registered;     /* Hashtable of vtable pointers for which we have
-			    generated a _VLTRegisterPair call with this vtable
-			    map variable.                                    */
+                            generated a _VLTRegisterPair call with this vtable
+                            map variable.                                    */
   bool is_used;          /* Boolean indicating if we used this vtable map
-			    variable in a call to __VLTVerifyVtablePointer.  */
+                            variable in a call to __VLTVerifyVtablePointer.  */
 };
 
 /* The global linked list of vtbl_map_nodes.  */
@@ -139,8 +145,7 @@ extern struct vtbl_map_node *find_or_create_vtbl_map_node (tree);
 extern void vtbl_map_node_class_insert (struct vtbl_map_node *, unsigned);
 extern bool vtbl_map_node_registration_find (struct vtbl_map_node *,
                                              tree, unsigned);
-extern void vtbl_map_node_registration_insert (struct vtbl_map_node *,
+extern bool vtbl_map_node_registration_insert (struct vtbl_map_node *,
                                                tree, unsigned);
-extern void reset_type_qualifiers (unsigned int, tree);
 
 #endif /* TREE_VTABLE_VERIFY_H */

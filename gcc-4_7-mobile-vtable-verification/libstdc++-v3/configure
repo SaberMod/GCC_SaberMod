@@ -662,6 +662,8 @@ LIBICONV
 OPT_LDFLAGS
 SECTION_LDFLAGS
 GLIBCXX_LIBS
+ENABLE_VTABLE_VERIFY_FALSE
+ENABLE_VTABLE_VERIFY_TRUE
 ENABLE_WERROR_FALSE
 ENABLE_WERROR_TRUE
 ENABLE_PYTHONDIR_FALSE
@@ -861,6 +863,7 @@ enable_fully_dynamic_string
 enable_extern_template
 with_python_dir
 enable_werror
+enable_vtable_verify
 enable_libstdcxx_time
 enable_tls
 enable_rpath
@@ -1551,6 +1554,7 @@ Optional Features:
   --enable-extern-template
                           enable extern template [default=yes]
   --enable-werror         turns on -Werror [default=yes]
+  --enable-vtable-verify  enable vtable verify [default=no]
   --enable-libstdcxx-time[=KIND]
                           use KIND for check type [default=no]
   --enable-tls            Use thread-local storage [default=yes]
@@ -11512,7 +11516,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11515 "configure"
+#line 11519 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11618,7 +11622,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11621 "configure"
+#line 11625 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -12798,7 +12802,7 @@ if test -z "$aix_libpath"; then aix_libpath="/usr/lib:/lib"; fi
 	      archive_cmds_CXX='tpldir=Template.dir~
 		rm -rf $tpldir~
 		$CC --prelink_objects --instantiation_dir $tpldir $predep_objects $libobjs $deplibs $convenience $postdep_objects~
-		$CC -shared $pic_flag $predep_objects`< $libobjs $deplibs `find $tpldir -name \*.o | $NL2SP` $postdep_objects $compiler_flags ${wl}-soname ${wl}$soname -o $lib'
+		$CC -shared $pic_flag $predep_objects $libobjs $deplibs `find $tpldir -name \*.o | $NL2SP` $postdep_objects $compiler_flags ${wl}-soname ${wl}$soname -o $lib'
 	      archive_expsym_cmds_CXX='tpldir=Template.dir~
 		rm -rf $tpldir~
 		$CC --prelink_objects --instantiation_dir $tpldir $predep_objects $libobjs $deplibs $convenience $postdep_objects~
@@ -13205,8 +13209,8 @@ $as_echo "$ld_shlibs_CXX" >&6; }
     ## the running order or otherwise move them around unless you know exactly
     ## what you are doing...
     # Dependencies to place before and after the object being linked:
-predep_objects_CXX="${glibcxx_builddir}/../libgcc/vtv_start.o"
-postdep_objects_CXX="${glibcxx_builddir}/../libgcc/vtv_end.o"
+predep_objects_CXX=
+postdep_objects_CXX=
 predeps_CXX=
 postdeps_CXX=
 compiler_lib_search_path_CXX=
@@ -14904,6 +14908,11 @@ esac
 
 
 
+if test "$enable_vtable_verify" = yes; then
+  predep_objects_CXX="${predep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_start.o"
+  postdep_objects_CXX="${postdep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_end.o"
+fi
+
 # Eliminate -lstdc++ addition to postdeps for cross compiles.
 postdeps_CXX=`echo " $postdeps_CXX " | sed 's, -lstdc++ ,,g'`
 
@@ -14976,7 +14985,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 14979 "configure"
+#line 14988 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15311,7 +15320,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15314 "configure"
+#line 15323 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15346,7 +15355,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15349 "configure"
+#line 15358 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15381,7 +15390,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15384 "configure"
+#line 15393 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15417,7 +15426,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15420 "configure"
+#line 15429 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15496,7 +15505,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15499 "configure"
+#line 15508 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15538,7 +15547,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15541 "configure"
+#line 15550 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15572,7 +15581,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15575 "configure"
+#line 15584 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15587,6 +15596,8 @@ int main()
 }
 EOF
 
+
+
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for __float128" >&5
 $as_echo_n "checking for __float128... " >&6; }
     if { { eval echo "\"\$as_me\":${as_lineno-$LINENO}: \"$ac_compile\""; } >&5
@@ -15594,8 +15605,7 @@ $as_echo_n "checking for __float128... " >&6; }
   ac_status=$?
   $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
   test $ac_status = 0; }; then
-
-$as_echo "#define _GLIBCXX_USE_FLOAT128 1" >>confdefs.h
+      $as_echo "#define _GLIBCXX_USE_FLOAT128 1" >>confdefs.h
 
       enable_float128=yes
     else
@@ -17302,6 +17312,29 @@ fi
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_werror" >&5
 $as_echo "$enable_werror" >&6; }
+
+
+
+
+   # Check whether --enable-vtable-verify was given.
+if test "${enable_vtable_verify+set}" = set; then :
+  enableval=$enable_vtable_verify;
+      case "$enableval" in
+       yes|no) ;;
+       *) as_fn_error "Argument to enable/disable vtable-verify must be yes or no" "$LINENO" 5 ;;
+      esac
+
+else
+  enable_vtable_verify=no
+fi
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for vtable verify support" >&5
+$as_echo_n "checking for vtable verify support... " >&6; }
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_vtable_verify" >&5
+$as_echo "$enable_vtable_verify" >&6; }
+
 
 
 
@@ -66215,6 +66248,15 @@ else
 fi
 
 
+    if test $enable_vtable_verify = yes; then
+  ENABLE_VTABLE_VERIFY_TRUE=
+  ENABLE_VTABLE_VERIFY_FALSE='#'
+else
+  ENABLE_VTABLE_VERIFY_TRUE='#'
+  ENABLE_VTABLE_VERIFY_FALSE=
+fi
+
+
     if test $enable_symvers != no; then
   ENABLE_SYMVERS_TRUE=
   ENABLE_SYMVERS_FALSE='#'
@@ -66665,6 +66707,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_WERROR_TRUE}" && test -z "${ENABLE_WERROR_FALSE}"; then
   as_fn_error "conditional \"ENABLE_WERROR\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ENABLE_VTABLE_VERIFY_TRUE}" && test -z "${ENABLE_VTABLE_VERIFY_FALSE}"; then
+  as_fn_error "conditional \"ENABLE_VTABLE_VERIFY\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ENABLE_SYMVERS_TRUE}" && test -z "${ENABLE_SYMVERS_FALSE}"; then

@@ -366,15 +366,21 @@ libstdc___la_DEPENDENCIES = \
 	$(top_builddir)/src/c++98/libc++98convenience.la \
 	$(top_builddir)/src/c++11/libc++11convenience.la
 
-libstdc___la_LDFLAGS = \
-	-version-info $(libtool_VERSION) ${version_arg} -lm -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
+@ENABLE_VTABLE_VERIFY_FALSE@libstdc___la_LDFLAGS = \
+@ENABLE_VTABLE_VERIFY_FALSE@	-version-info $(libtool_VERSION) ${version_arg} -lm
 
-libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
-libvtv___la_LIBADD = \
-        $(top_builddir)/libsupc++/.libs
+@ENABLE_VTABLE_VERIFY_TRUE@libstdc___la_LDFLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@	-version-info $(libtool_VERSION) ${version_arg} -lm -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end
 
-LIBVTV_FLAGS = \
-        -L$(libvtv___la_LIBADD) --whole-archive -lvtv_init --no-whole-archive
+@ENABLE_VTABLE_VERIFY_FALSE@libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+@ENABLE_VTABLE_VERIFY_TRUE@libstdc___la_LINK = $(CXXLINK) $(libstdc___la_LDFLAGS)
+@ENABLE_VTABLE_VERIFY_FALSE@libvtv___la_LIBADD = 
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv___la_LIBADD = \
+@ENABLE_VTABLE_VERIFY_TRUE@        $(top_builddir)/libsupc++/.libs
+
+@ENABLE_VTABLE_VERIFY_FALSE@LIBVTV_FLAGS = 
+@ENABLE_VTABLE_VERIFY_TRUE@LIBVTV_FLAGS = \
+@ENABLE_VTABLE_VERIFY_TRUE@        -L$(libvtv___la_LIBADD) --whole-archive -lvtv_init --no-whole-archive
 
 
 # Use special rules for parallel mode compilation.
@@ -426,6 +432,7 @@ CXXLINK = \
 	$(LIBTOOL) --tag CXX \
 	$(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CXX) \
+	$(LIBVTV_FLAGS) \
 	$(OPT_LDFLAGS) $(SECTION_LDFLAGS) $(AM_CXXFLAGS) $(LTLDFLAGS) -o $@
 
 @ENABLE_SYMVERS_TRUE@CLEANFILES = libstdc++-symbols.ver $(version_dep)

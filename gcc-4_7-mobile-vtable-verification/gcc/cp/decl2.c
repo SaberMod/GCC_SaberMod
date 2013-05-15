@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
+#include "tree-vtable-verify.h"
 
 extern cpp_reader *parse_in;
 
@@ -4134,6 +4135,7 @@ cp_write_global_declarations (void)
     {
       vtv_recover_class_info ();
       vtv_compute_class_hierarchy_transitive_closure ();
+      vtv_build_vtable_verify_fndecl ();
     }
 
   cgraph_finalize_compilation_unit ();
@@ -4503,7 +4505,6 @@ vtv_start_verification_constructor_init_function (void)
 tree
 vtv_finish_verification_constructor_init_function (tree function_body)
 {
-  /* return finish_objects ('I', MAX_RESERVED_INIT_PRIORITY - 1, function_body); */
   tree fn;
 
   finish_compound_stmt (function_body);

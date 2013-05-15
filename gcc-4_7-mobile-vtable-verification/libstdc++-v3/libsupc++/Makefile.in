@@ -38,6 +38,11 @@ host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(top_srcdir)/fragment.am $(srcdir)/Makefile.in \
 	$(srcdir)/Makefile.am $(bits_HEADERS) $(std_HEADERS)
+@ENABLE_VTABLE_VERIFY_TRUE@am__append_1 = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_rts.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_malloc.cc \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_utils.cc
+
 subdir = libsupc++
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/../config/acx.m4 \
@@ -90,7 +95,9 @@ am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" \
 	"$(DESTDIR)$(stddir)"
 LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libsupc___la_LIBADD =
-am__objects_1 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_1 = vtv_rts.lo vtv_malloc.lo \
+@ENABLE_VTABLE_VERIFY_TRUE@	vtv_utils.lo
+am__objects_2 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
 	bad_cast.lo bad_typeid.lo class_type_info.lo del_op.lo \
 	del_opnt.lo del_opv.lo del_opvnt.lo dyncast.lo eh_alloc.lo \
 	eh_arm.lo eh_aux_runtime.lo eh_call.lo eh_catch.lo \
@@ -102,23 +109,32 @@ am__objects_1 = array_type_info.lo atexit_arm.lo bad_alloc.lo \
 	new_handler.lo new_op.lo new_opnt.lo new_opv.lo new_opvnt.lo \
 	pbase_type_info.lo pmem_type_info.lo pointer_type_info.lo \
 	pure.lo si_class_type_info.lo tinfo.lo tinfo2.lo vec.lo \
-	vmi_class_type_info.lo vterminate.lo vtv_rts.lo vtv_malloc.lo \
-	vtv_utils.lo
-@GLIBCXX_HOSTED_TRUE@am__objects_2 = cp-demangle.lo
-am_libsupc___la_OBJECTS = $(am__objects_1) $(am__objects_2)
+	vmi_class_type_info.lo vterminate.lo $(am__objects_1)
+@GLIBCXX_HOSTED_TRUE@am__objects_3 = cp-demangle.lo
+am_libsupc___la_OBJECTS = $(am__objects_2) $(am__objects_3)
 libsupc___la_OBJECTS = $(am_libsupc___la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_FALSE@am_libsupc___la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_FALSE@	$(toolexeclibdir)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libsupc___la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 libsupc__convenience_la_LIBADD =
-am_libsupc__convenience_la_OBJECTS = $(am__objects_1) $(am__objects_2)
+am_libsupc__convenience_la_OBJECTS = $(am__objects_2) $(am__objects_3)
 libsupc__convenience_la_OBJECTS =  \
 	$(am_libsupc__convenience_la_OBJECTS)
 libvtv_init_la_LIBADD =
-am__objects_3 = vtv_init.lo
-am_libvtv_init_la_OBJECTS = $(am__objects_3)
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_4 = vtv_init.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_4)
 libvtv_init_la_OBJECTS = $(am_libvtv_init_la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_init_la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 libvtv_stubs_la_LIBADD =
-am__objects_4 = vtv_stubs.lo
-am_libvtv_stubs_la_OBJECTS = $(am__objects_4)
+@ENABLE_VTABLE_VERIFY_TRUE@am__objects_5 = vtv_stubs.lo
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_stubs_la_OBJECTS =  \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(am__objects_5)
 libvtv_stubs_la_OBJECTS = $(am_libvtv_stubs_la_OBJECTS)
+@ENABLE_VTABLE_VERIFY_TRUE@am_libvtv_stubs_la_rpath = -rpath \
+@ENABLE_VTABLE_VERIFY_TRUE@	$(toolexeclibdir)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp =
 am__depfiles_maybe =
@@ -346,11 +362,12 @@ WARN_CXXFLAGS = \
 
 # -I/-D flags to pass when compiling.
 AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
+@ENABLE_VTABLE_VERIFY_FALSE@toolexeclib_LTLIBRARIES = libsupc++.la
 
 # Need this library to both be part of libstdc++.a, and installed
 # separately too.
 # 1) separate libsupc++.la
-toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
+@ENABLE_VTABLE_VERIFY_TRUE@toolexeclib_LTLIBRARIES = libsupc++.la libvtv_init.la libvtv_stubs.la
 # 2) integrated libsupc++convenience.la that is to be a part of libstdc++.a
 noinst_LTLIBRARIES = libsupc++convenience.la
 std_HEADERS = \
@@ -364,69 +381,29 @@ headers = $(std_HEADERS) $(bits_HEADERS)
 @GLIBCXX_HOSTED_TRUE@c_sources = \
 @GLIBCXX_HOSTED_TRUE@	cp-demangle.c
 
-sources = \
-	array_type_info.cc \
-	atexit_arm.cc \
-	bad_alloc.cc \
-	bad_cast.cc \
-	bad_typeid.cc \
-	class_type_info.cc \
-	del_op.cc \
-	del_opnt.cc \
-	del_opv.cc \
-	del_opvnt.cc \
-	dyncast.cc \
-	eh_alloc.cc \
-	eh_arm.cc \
-	eh_aux_runtime.cc \
-	eh_call.cc \
-	eh_catch.cc \
-	eh_exception.cc \
-	eh_globals.cc \
-	eh_personality.cc \
-	eh_ptr.cc \
-	eh_term_handler.cc \
-	eh_terminate.cc \
-	eh_tm.cc \
-	eh_throw.cc \
-	eh_type.cc \
-	eh_unex_handler.cc \
-	enum_type_info.cc \
-	function_type_info.cc \
-	fundamental_type_info.cc \
-	guard.cc \
-	guard_error.cc \
-	hash_bytes.cc \
-	nested_exception.cc \
-	new_handler.cc \
-	new_op.cc \
-	new_opnt.cc \
-	new_opv.cc \
-	new_opvnt.cc \
-	pbase_type_info.cc \
-	pmem_type_info.cc \
-	pointer_type_info.cc \
-	pure.cc \
-	si_class_type_info.cc \
-	tinfo.cc \
-	tinfo2.cc \
-	vec.cc \
-	vmi_class_type_info.cc \
-	vterminate.cc \
-        vtv_rts.cc \
-        vtv_malloc.cc \
-        vtv_utils.cc
+sources = array_type_info.cc atexit_arm.cc bad_alloc.cc bad_cast.cc \
+	bad_typeid.cc class_type_info.cc del_op.cc del_opnt.cc \
+	del_opv.cc del_opvnt.cc dyncast.cc eh_alloc.cc eh_arm.cc \
+	eh_aux_runtime.cc eh_call.cc eh_catch.cc eh_exception.cc \
+	eh_globals.cc eh_personality.cc eh_ptr.cc eh_term_handler.cc \
+	eh_terminate.cc eh_tm.cc eh_throw.cc eh_type.cc \
+	eh_unex_handler.cc enum_type_info.cc function_type_info.cc \
+	fundamental_type_info.cc guard.cc guard_error.cc hash_bytes.cc \
+	nested_exception.cc new_handler.cc new_op.cc new_opnt.cc \
+	new_opv.cc new_opvnt.cc pbase_type_info.cc pmem_type_info.cc \
+	pointer_type_info.cc pure.cc si_class_type_info.cc tinfo.cc \
+	tinfo2.cc vec.cc vmi_class_type_info.cc vterminate.cc \
+	$(am__append_1)
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_init_sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_init.cc
 
-vtv_init_sources = \
-        vtv_init.cc
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_stubs_sources = \
+@ENABLE_VTABLE_VERIFY_TRUE@        vtv_stubs.cc
 
-vtv_stubs_sources = \
-        vtv_stubs.cc
-
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_init_la_SOURCES = $(vtv_init_sources)
+@ENABLE_VTABLE_VERIFY_TRUE@libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 libsupc___la_SOURCES = $(sources) $(c_sources)
 libsupc__convenience_la_SOURCES = $(sources) $(c_sources)
-libvtv_init_la_SOURCES = $(vtv_init_sources)
-libvtv_stubs_la_SOURCES = $(vtv_stubs_sources)
 
 # AM_CXXFLAGS needs to be in each subdirectory so that it can be
 # modified in a per-library or per-sub-library way.  Need to manually
@@ -587,13 +564,13 @@ clean-toolexeclibLTLIBRARIES:
 	  rm -f "$${dir}/so_locations"; \
 	done
 libsupc++.la: $(libsupc___la_OBJECTS) $(libsupc___la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
+	$(CXXLINK) $(am_libsupc___la_rpath) $(libsupc___la_OBJECTS) $(libsupc___la_LIBADD) $(LIBS)
 libsupc++convenience.la: $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_DEPENDENCIES) 
 	$(CXXLINK)  $(libsupc__convenience_la_OBJECTS) $(libsupc__convenience_la_LIBADD) $(LIBS)
 libvtv_init.la: $(libvtv_init_la_OBJECTS) $(libvtv_init_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
+	$(CXXLINK) $(am_libvtv_init_la_rpath) $(libvtv_init_la_OBJECTS) $(libvtv_init_la_LIBADD) $(LIBS)
 libvtv_stubs.la: $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_DEPENDENCIES) 
-	$(CXXLINK) -rpath $(toolexeclibdir) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
+	$(CXXLINK) $(am_libvtv_stubs_la_rpath) $(libvtv_stubs_la_OBJECTS) $(libvtv_stubs_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

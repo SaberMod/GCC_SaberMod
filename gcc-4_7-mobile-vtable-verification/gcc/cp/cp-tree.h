@@ -5922,7 +5922,7 @@ extern tree mangle_thunk			(tree, int, tree, tree);
 extern tree mangle_conv_op_name_for_type	(tree);
 extern tree mangle_guard_variable		(tree);
 extern tree mangle_ref_init_variable		(tree);
-extern tree get_mangled_id                      (tree);
+extern char * get_mangled_vtable_map_var_name   (tree);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);
@@ -5975,6 +5975,7 @@ extern void vtv_compute_class_hierarchy_transitive_closure (void);
 extern void vtv_generate_init_routine           (void);
 extern void vtv_save_class_info                 (tree);
 extern void vtv_recover_class_info              (void);
+extern void vtv_build_vtable_verify_fndecl      (void);
 
 /* -- end of C++ */
 

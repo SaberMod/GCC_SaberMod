@@ -567,6 +567,7 @@ set_have_cc_tls
 vis_hide
 fixed_point
 enable_decimal_float
+enable_vtable_verify
 decimal_float
 long_double_type_size
 double_type_size
@@ -659,6 +660,7 @@ with_slibdir
 enable_maintainer_mode
 with_build_libsubdir
 enable_decimal_float
+enable_vtable_verify
 with_system_libunwind
 enable_sjlj_exceptions
 enable_tls
@@ -2135,7 +2137,17 @@ else
   enable_shared=yes
 fi
 
+# Check whether --enable-vtable-verify was given.
+if test "${enable_vtable_verify+set}" = set; then :
+  enableval=$enable_vtable_verify;
+    case "$enableval" in
+    yes | no) ;;
+    *) as_fn_error "Argument to enable/disable vtable-verify must be yes or no" "$LINENO" 5 ;;
+    esac
 
+else
+  enable_vtable_verify=no
+fi
 
 # Make sure we can run config.sub.
 $SHELL "$ac_aux_dir/config.sub" sun4 >/dev/null 2>&1 ||

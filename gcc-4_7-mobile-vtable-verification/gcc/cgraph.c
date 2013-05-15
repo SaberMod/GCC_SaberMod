@@ -2498,7 +2498,10 @@ cgraph_add_new_function (tree fndecl, bool lowered)
       case CGRAPH_STATE_FINISHED:
 	/* At the very end of compilation we have to do all the work up
 	   to expansion.  */
-	node = cgraph_get_create_node (fndecl);
+	if (flag_vtable_verify)
+	  node = cgraph_get_create_node (fndecl);
+	else
+	  node = cgraph_create_node (fndecl);
 	if (lowered)
 	  node->lowered = true;
 	cgraph_analyze_function (node);
