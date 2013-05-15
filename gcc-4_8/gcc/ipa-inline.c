@@ -122,6 +122,9 @@ along with GCC; see the file COPYING3.  If not see
 static int overall_size;
 static gcov_type max_count;
 
+/* Global variable to denote if it is in ipa-inline pass. */
+bool is_in_ipa_inline = false;
+
 /* Return false when inlining edge E would lead to violating
    limits on function unit growth or stack usage growth.  
 
@@ -1506,6 +1509,8 @@ inline_small_functions (void)
   vec<cgraph_edge_p> new_indirect_edges = vNULL;
   int initial_size = 0;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+
+  is_in_ipa_inline = true;
 
   if (flag_indirect_inlining)
     new_indirect_edges.create (8);

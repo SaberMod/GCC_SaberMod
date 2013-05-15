@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "dumpfile.h"
 #include "tm.h"
 #include "tree.h"
 #include "langhooks.h"
@@ -44,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "l-ipo.h"
+#include "params.h"
 
 int ncalls_inlined;
 int nfunctions_inlined;
@@ -187,6 +189,134 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       clone_inlined_nodes (e, duplicate, update_original, overall_size);
 }
 
+#define MAX_INT_LENGTH 16
+
+/* Return NODE's name and aux info. The output is controled by OPT_INFO
+   level.  */
+
+static const char *
+cgraph_node_opt_info (struct cgraph_node *node, bool emit_mod_info)
+{
+  char *buf;
+  size_t buf_size;
+  const char *bfd_name = lang_hooks.dwarf_name (node->symbol.decl, 0);
+  const char *mod_name = 0;
+  unsigned int mod_id = 0;
+  int funcdef_no = -1;
+  const char *primary_tag = 0;
+
+  if (!bfd_name)
+    bfd_name = "unknown";
+
+  buf_size = strlen (bfd_name) + 1;
+  if (profile_info)
+    buf_size += (MAX_INT_LENGTH + 3);
+
+  if (L_IPO_COMP_MODE && emit_mod_info)
+    {
+      mod_id = cgraph_get_module_id (node->symbol.decl);
+      gcc_assert (mod_id);
+      mod_name = get_module_name (mod_id);
+      primary_tag = (mod_id == primary_module_id ? "*" :"");
+      buf_size += (4 + strlen (mod_name));
+      if (PARAM_VALUE (PARAM_INLINE_DUMP_MODULE_ID))
+        {
+          struct function *func = DECL_STRUCT_FUNCTION (node->symbol.decl);
+          if (func)
+            funcdef_no = func->funcdef_no; 
+          buf_size += (2 * MAX_INT_LENGTH + 1);
+	}
+    }
+
+  buf = (char *) xmalloc (buf_size);
+
+  strcpy (buf, bfd_name);
+
+  if (L_IPO_COMP_MODE && emit_mod_info)
+    {
+      if (PARAM_VALUE (PARAM_INLINE_DUMP_MODULE_ID))
+         sprintf (buf, "%s [%d:%d %s%s]", buf, mod_id, funcdef_no,
+	     primary_tag, mod_name);
+      else
+         sprintf (buf, "%s [%s%s]", buf, primary_tag, mod_name);
+    }
+
+  if (profile_info)
+    sprintf (buf, "%s ("HOST_WIDEST_INT_PRINT_DEC")", buf, node->count);
+  return buf;
+}
+
+/* Return CALLER's inlined call chain. Save the cgraph_node of the ultimate
+   function that the caller is inlined to in FINAL_CALLER.  */
+
+static const char *
+cgraph_node_call_chain (struct cgraph_node *caller,
+		        struct cgraph_node **final_caller)
+{
+  struct cgraph_node *node;
+  const char *via_str = " (via inline instance";
+  size_t current_string_len = strlen (via_str) + 1;
+  size_t buf_size = current_string_len;
+  char *buf = (char *) xmalloc (buf_size);
+
+  buf[0] = 0;
+  gcc_assert (caller->global.inlined_to != NULL);
+  strcat (buf, via_str);
+  for (node = caller; node->global.inlined_to != NULL;
+       node = node->callers->caller)
+    {
+      const char *name = cgraph_node_opt_info (node, false);
+      current_string_len += (strlen (name) + 1);
+      if (current_string_len >= buf_size)
+	{
+	  buf_size = current_string_len * 2;
+	  buf = (char *) xrealloc (buf, buf_size);
+	}
+      strcat (buf, " ");
+      strcat (buf, name);
+    }
+  strcat (buf, ")");
+  *final_caller = node;
+  return buf;
+}
+
+/* Dump the inline decision of EDGE to stderr.  */
+
+static void
+dump_inline_decision (struct cgraph_edge *edge)
+{
+  location_t locus;
+  const char *inline_chain_text;
+  const char *call_count_text;
+  struct cgraph_node *final_caller = edge->caller;
+
+  if (final_caller->global.inlined_to != NULL)
+    inline_chain_text = cgraph_node_call_chain (final_caller, &final_caller);
+  else
+    inline_chain_text = "";
+
+  if (edge->count > 0)
+    {
+      const char *call_count_str = " with call count ";
+      char *buf = (char *) xmalloc (strlen (call_count_str) + MAX_INT_LENGTH);
+      sprintf (buf, "%s"HOST_WIDEST_INT_PRINT_DEC, call_count_str,
+	       edge->count);
+      call_count_text = buf;
+    }
+  else
+    {
+      call_count_text = "";
+    }
+ 
+  locus = gimple_location (edge->call_stmt);
+  dump_printf_loc (is_in_ipa_inline ? MSG_OPTIMIZED_LOCATIONS : MSG_NOTE,
+                   locus,
+                   "%s inlined into %s%s%s\n",
+                   cgraph_node_opt_info (edge->callee, true),
+                   cgraph_node_opt_info (final_caller, true),
+                   call_count_text,
+                   inline_chain_text);
+}
 
 /* Mark edge E as inlined and update callgraph accordingly.  UPDATE_ORIGINAL
    specify whether profile of original function should be updated.  If any new
@@ -218,6 +348,9 @@ inline_call (struct cgraph_edge *e, bool update_original,
   int estimated_growth = estimate_edge_growth (e);
   bool predicated = inline_edge_summary (e)->predicate != NULL;
 #endif
+
+  if (dump_enabled_p ())
+    dump_inline_decision (e);
 
   /* Don't inline inlined edges.  */
   gcc_assert (e->inline_failed);
