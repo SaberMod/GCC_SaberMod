@@ -6767,6 +6767,7 @@ handle_unused_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
       if (TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == VAR_DECL
+	  || TREE_CODE (decl) == FIELD_DECL
 	  || TREE_CODE (decl) == FUNCTION_DECL
 	  || TREE_CODE (decl) == LABEL_DECL
 	  || TREE_CODE (decl) == TYPE_DECL)
