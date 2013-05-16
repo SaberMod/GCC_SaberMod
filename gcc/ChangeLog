@@ -1,5 +1,47 @@
 2013-05-16  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree-vectorizer.h (NUM_PATTERNS): Increment.
+	* tree-vect-patterns.c (vect_vect_recog_func_ptrs): Add
+	vect_recog_rotate_pattern.
+	(vect_recog_rotate_pattern): New function.
+
+2013-05-16  Jason Merrill  <jason@redhat.com>
+
+	* Makefile.in (LLINKER): New variable.
+	(mostlyclean): Remove link mutex.
+	* configure.ac: Handle --enable-link-mutex.
+	* lock-and-run.sh: New script.
+
+2013-05-16  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/19599
+	* config/arm/arm.c (arm_function_ok_for_sibcall): Add check
+	for NULL decl.
+
+2013-05-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* reorg.c (link_cc0_insns): Wrap in #ifdef HAVE_cc0.
+
+2013-05-16  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm-protos.h (gen_movmem_ldrd_strd): New declaration.
+	* config/arm/arm.c (next_consecutive_mem): New function.
+	(gen_movmem_ldrd_strd): Likewise.
+	* config/arm/arm.md (movmemqi): Update condition and code.
+	(unaligned_loaddi, unaligned_storedi): New patterns.
+
+2013-05-16  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc: Obsolete *-*-solaris2.9*.
+	* doc/install.texi (Specific, *-*-solaris2*): Document it.
+
+2013-05-16  Richard Biener  <rguenther@suse.de>
+
+	* passes.c (init_optimization_passes): Move pass_parallelize_loops
+	earlier, after GRAPHITE transforms and IV canonicalization.
+
+2013-05-16  Jakub Jelinek  <jakub@redhat.com>
+
 	* omp-low.c (extract_omp_for_data): For collapsed loops,
 	if at least one of the loops is known at compile time to
 	iterate zero times, set count to 0.
