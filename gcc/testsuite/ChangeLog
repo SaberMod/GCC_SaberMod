@@ -1,3 +1,160 @@
+2013-05-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/visibility-21.c: New.
+
+2013-05-16  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR middle-end/57286
+	* gcc.dg/pr57286.c: New testcase.
+	* gcc.dg/vector-shift-2.c: Don't assume int has size 4.
+	* g++.dg/ext/vector22.C: Comment out transformations not
+	performed anymore.
+
+2013-05-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/57260
+	* gcc.target/mips/call-1.c: Restrict to o32.
+	* gcc.target/mips/call-5.c, gcc.target/mips/call-6.c: New test.
+
+2013-05-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/lambda/lambda-shadow1.C: Replace dg-warnings with
+	dg-messages.
+	* g++.dg/warn/Wshadow-1.C: Likewise.
+	* g++.dg/warn/Wshadow-6.C: Likewise.
+	* g++.dg/warn/Wshadow-7.C: Likewise.
+
+2013-05-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/31952
+	* g++.dg/parse/pr31952-1.C: New.
+	* g++.dg/parse/pr31952-2.C: Likewise.
+	* g++.dg/parse/pr31952-3.C: Likewise.
+
+	* g++.dg/parse/pr18770.C: Adjust dg-errors to dg-messages.
+	* g++.old-deja/g++.jason/cond.C: Likewise.
+	* g++.dg/cpp0x/range-for5.C: Likewise.
+
+2013-05-15  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/19599
+	* gcc.target/arm/pr40887.c: Adjust testcase.
+	* gcc.target/arm/pr19599.c: New test.
+
+2013-05-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57275
+	* gcc.target/i386/pr57275.c: New testcase.
+
+2013-05-15  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/lto/attr-weakref-1_0.c: New testcase.
+	* gcc.dg/lto/attr-weakref-1_1.c: New testcase.
+	* gcc.dg/lto/attr-weakref-1_2.c: New testcase.
+
+2013-05-14  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/torture/alias-1.c: Add dg-require-effective-target
+	scheduling.
+
+2013-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/57274
+	* c-c++-common/Wsequence-point-1.c: New test.
+
+2013-05-14  Marc Glisse  <marc.glisse@inria.fr>
+
+	* g++.dg/ext/vector22.C: New testcase.
+	* gcc.dg/binop-xor3.c: Remove xfail.
+
+2013-05-14  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vect-fcm.x: Add cases testing
+	FLOAT cmp FLOAT ? INT : INT.
+	* gcc.target/aarch64/vect-fcm-eq-d.c: Define IMODE.
+	* gcc.target/aarch64/vect-fcm-eq-f.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-ge-d.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-ge-f.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-gt-d.c: Likewise.
+	* gcc.target/aarch64/vect-fcm-gt-f.c: Likewise.
+
+2013-05-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53903
+	* g++.dg/cpp0x/defaulted43.C: New.
+
+2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/fstack-protector-strong.c: Don't include <stdlib.h>.
+	(alloca): Remove declaration.
+	(foo9): Replace alloca by __builtin_alloca.
+
+2013-05-14  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	* gcc.c-torture/compile/limits-externdecl.c [target avr-*-*]:
+        Expect "size of array is too large" error.
+
+2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/fstack-protector-strong.c (alloca): Declare.
+
+2013-05-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57235
+	* g++.dg/torture/pr57235.C: New testcase.
+
+2013-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/57251
+	* gcc.dg/torture/pr57251.c: New test.
+
+2013-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57264
+	* gcc.target/i386/pr57264.c: New test.
+
+2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/vector-shift-2.c: Add -O to dg-options.
+
+2013-05-13  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* gcc.dg/tree-ssa/forwprop-26.c: Add -fno-short-enums to dg-options.
+
+2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/45216
+	PR tree-optimization/57157
+	* c-c++-common/rotate-1.c: Add 32 tests with +.
+	* c-c++-common/rotate-1a.c: Adjust.
+	* c-c++-common/rotate-2.c: Add 32 tests with +, expect only 48 rotates.
+	* c-c++-common/rotate-2b.c: New test.
+	* c-c++-common/rotate-3.c: Add 32 tests with +.
+	* c-c++-common/rotate-4.c: Add 32 tests with +, expect only 48 rotates.
+	* c-c++-common/rotate-4b.c: New test.
+	* c-c++-common/rotate-5.c: New test.
+
+2013-05-13  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/42371
+	* gcc.dg/ipa/remref-0.c: New test.
+	* gcc.dg/ipa/remref-1a.c: Likewise.
+	* gcc.dg/ipa/remref-1b.c: Likewise.
+	* gcc.dg/ipa/remref-2a.c: Likewise.
+	* gcc.dg/ipa/remref-2b.c: Likewise.
+
+2013-05-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/vector-shift-2.c: New testcase.
+
+2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57230
+	* gcc.dg/strlenopt-24.c: New test.
+
+	PR tree-optimization/57230
+	* gcc.dg/strlenopt-23.c: New test.
+
 2013-05-12  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	PR target/57108

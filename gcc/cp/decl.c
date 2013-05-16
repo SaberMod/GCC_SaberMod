@@ -1024,6 +1024,7 @@ decls_match (tree newdecl, tree olddecl)
 	  else
 	    types_match =
 	      compparms (p1, p2)
+	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
@@ -5199,6 +5200,9 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
       /* Handle designated initializers, as an extension.  */
       if (d->cur->index)
 	{
+	  if (d->cur->index == error_mark_node)
+	    return error_mark_node;
+
 	  if (TREE_CODE (d->cur->index) == INTEGER_CST)
 	    {
 	      if (complain & tf_error)
@@ -10283,7 +10287,7 @@ grokdeclarator (const cp_declarator *declarator,
 	      type = void_type_node;
 	    }
 	}
-      else if (memfn_quals)
+      else if (memfn_quals || rqual)
 	{
 	  if (ctype == NULL_TREE
 	      && TREE_CODE (type) == METHOD_TYPE)

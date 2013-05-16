@@ -1,3 +1,27 @@
+2013-05-15  François Dumont  <fdumont@gcc.gnu.org>
+
+	* python/libstdcxx/v6/printers.py (Tr1HashtableIterator): Fix
+	rendering of std::tr1 unordered containers iterator.
+	(StdHashtableIterator): New, render std unordered containers iterator.
+	* testsuite/libstdc++-prettyprinters/tr1.cc: New.
+
+2013-05-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/basic_string.h (getline): Fix doxygen comments.
+
+2013-05-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/stl_iterator.h (__normal_iterator<>::_M_const_cast):
+	Use std::pointer_traits.
+
+2013-05-13  Benjamin Kosnik  <bkoz@redhat.com>
+
+	* libsupc++/Makefile.am (sources): Add bad_array_length.cc,
+	bad_array_new.cc.
+	* libsupc++/Makefile.in: Regenerate.
+	* libsupc++/bad_array_length.cc: Tweak.
+	* libsupc++/bad_array_new.cc: Tweak.
+
 2013-05-10  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/54577
@@ -439,7 +463,6 @@
 
 	* doc/xml/manual/policy_data_structures_biblio.xml: Adjust links
 	for biblio.maverik_lowerbounds and biblio.nelson96stlpq.
-	Remove direct link to IBM Haifa Research Labs.
 
 	* doc/xml/manual/profile_mode.xml: Adjust two links to acm.org
 	papers.
