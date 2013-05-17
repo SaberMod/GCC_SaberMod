@@ -1,3 +1,153 @@
+2013-05-17  Po-Chun Chang  <pchang9@cs.wisc.edu>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57276
+	* ipa-cp.c (cgraph_edge_brings_all_agg_vals_for_node): Break when a
+	value that corresponds to the given aggval is found in values vector.
+
+2013-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Pass mmx, 3dnow,
+	sse, sse2, sse3, ssse3 and sse4a flags to options.
+
+2013-05-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* gengtype-state.c: (s_expr_writer): New class, to handle
+	prettifying of output layout of s-expressions.
+	(state_writer): New class, to write out gtype.state.
+	(state_written_type_count): Move this variable into member data of
+	state_writer.
+	(s_expr_writer::s_expr_writer): New code: constructor for new class
+	(state_writer::state_writer(): ditto
+	(s_expr_writer::write_new_line): New function
+	(s_expr_writer::write_any_indent): ditto
+	(s_expr_writer::begin_s_expr): ditto
+	(s_expr_writer::end_s_expr): ditto
+	(write_state_fileloc): convert to method of state_writer...
+	(state_writer:: write_state_fileloc): ...and use methods of
+	s_expr_writer to write indentation into the gtype.state output file
+	to visually represent the hierarchical structure of the list
+	structures
+	(write_state_fields): ditto, renaming to...
+	(state_writer::write_state_fields)
+	(write_state_a_string): ditto, renaming to...
+	(state_writer::write_state_a_string)
+	(write_state_string_option): ditto, renaming to...
+	(state_writer::write_state_string_option)
+	(write_state_type_option): ditto, renaming to...
+	(state_writer::write_state_type_option)
+	(write_state_nested_option): ditto, renaming to...
+	(state_writer::write_state_nested_option)
+	(write_state_option): ditto, renaming to...
+	(state_writer::write_state_option)
+	(write_state_options): ditto, renaming to...
+	(state_writer::write_state_options)
+	(write_state_lang_bitmap): ditto, renaming to...
+	(state_writer::write_state_lang_bitmap)
+	(write_state_version): ditto, renaming to...
+	(state_writer::write_state_version)
+	(write_state_scalar_type): ditto, renaming to...
+	(state_writer::write_state_scalar_type)
+	(write_state_string_type): ditto, renaming to...
+	(state_writer::write_state_string_type)
+	(write_state_undefined_type): ditto, renaming to...
+	(state_writer::write_state_undefined_type)
+	(write_state_struct_union_type): ditto, renaming to...
+	(state_writer::write_state_struct_union_type)
+	(write_state_struct_type): ditto, renaming to...
+	(state_writer::write_state_struct_type)
+	(write_state_user_struct_type): ditto, renaming to...
+	(state_writer::write_state_user_struct_type)
+	(write_state_lang_struct_type): ditto, renaming to...
+	(state_writer::write_state_lang_struct_type)
+	(write_state_param_struct_type): ditto, renaming to...
+	(state_writer::write_state_param_struct_type)
+	(write_state_pointer_type): ditto, renaming to...
+	(state_writer::write_state_pointer_type)
+	(write_state_array_type): ditto, renaming to...
+	(state_writer::write_state_array_type)
+	(write_state_gc_used): ditto, renaming to...
+	(state_writer::write_state_gc_used)
+	(write_state_common_type_content): ditto, renaming to...
+	(state_writer::write_state_common_type_content)
+	(write_state_type): ditto, renaming to...
+	(state_writer::write_state_type)
+	(write_state_pair_list): ditto, renaming to...
+	(state_writer::write_state_pair_list)
+	(write_state_pair): ditto, renaming to...
+	(state_writer::write_state_pair)
+	(write_state_typedefs): ditto, renaming to...
+	(state_writer::write_state_typedefs)
+	(write_state_structures): ditto, renaming to...
+	(state_writer::write_state_structures)
+	(write_state_param_structs): ditto, renaming to...
+	(state_writer::write_state_param_structs)
+	(write_state_variables): ditto, renaming to...
+	(state_writer::write_state_variables)
+	(write_state_srcdir): ditto, renaming to...
+	(state_writer::write_state_srcdir)
+	(write_state_files_list): ditto, renaming to...
+	(state_writer::write_state_files_list)
+	(write_state_languages): ditto, renaming to...
+	(state_writer::write_state_languages)
+	(write_state): create a state_writer instance and use it when
+	writing out the state file
+
+2013-05-17  Mike Stump  <mikestump@comcast.net>
+
+	PR rtl-optimization/57304
+	* web.c (union_match_dups): Ensure that DF_REF_LOC exists before
+	accessing DF_REF_REAL_LOC.
+
+2013-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57281
+	PR rtl-optimization/57300
+	* config/i386/i386.md (extendsidi2_1 dead reg splitter): Remove.
+	(extendsidi2_1 peephole2s): Add instead 2 new peephole2s, that undo
+	what the other splitter did if the registers are dead.
+
+2013-05-17  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-alias.c (stmt_kills_ref_p_1): Properly compare
+	MEM_REF offsets.
+
+2013-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c (SANITIZER_SPEC): Reject -fsanitize=address -fsanitize=thread
+	linking.
+
+2013-05-17  Marek Polacek  <polacek@redhat.com>
+
+	* tree-ssa-strlen.c (handle_char_store): Don't invalidate cached
+	length when doing non-zero store of storing '\0' to '\0'.
+
+2013-05-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-patterns.c (vect_recog_rotate_pattern): For
+	vect_external_def oprnd1 with loop_vinfo, try to emit
+	optional cast, negation and and stmts on the loop preheader
+	edge instead of into the pattern def seq.
+
+	PR tree-optimization/57051
+	* fold-const.c (const_binop) <case VEC_LSHIFT_EXPR,
+	case VEC_RSHIFT_EXPR>: Fix BYTES_BIG_ENDIAN handling.
+
+2013-05-16  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_attribute_table): Add naked.
+	(rl78_is_naked_func): New function.
+	(rl78_expand_prologue): Skip prologue generation for naked
+	functions.
+	(rl78_expand_epilogue): Skip epilogue generation for naked
+	functions.
+	* doc/extend.texi (naked): Add RL78 to the list of processors
+	that supports this attribute.
+
+2013-05-16  Jeff Law  <law@redhat.com>
+
+	* Makefile.in (tree-switch-conversion.o): Depend on $(OPTABS_H).
+
 2013-05-16  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/i386/driver-i386.c (host_detect_local_cpu): Determine
