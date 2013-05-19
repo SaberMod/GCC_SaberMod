@@ -1,7 +1,6 @@
-// { dg-options "-std=gnu++0x " }
-// { dg-do compile }
+// { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,13 +17,28 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <memory>
+// Tuple
 
-struct B { };
-struct D : B { };
+#include <tuple>
+#include <testsuite_hooks.h>
 
-// libstdc++/48631
-D d;
-std::default_delete<B[]> db;
-typedef decltype(db(&d)) type; // { dg-error "use of deleted function" }
-// { dg-error "declared here" "" { target *-*-* } 122 }
+using namespace std;
+
+int
+main()
+{
+  bool test __attribute__((unused)) = true;
+
+  int j=1;
+  const int k=2;
+  tuple<int,int &,const int&> a(0,j,k);
+  const tuple<int,int &,const int&> b(1,j,k);
+  VERIFY(get<int>(a)==0 && get<int&>(a)==1 && get<const int&>(a)==2);
+  get<0>(a)=3;
+  get<1>(a)=4;
+  VERIFY(get<int>(a)==3 && get<int&>(a)==4);
+  VERIFY(j==4);
+  get<1>(b)=5;
+  VERIFY(get<int>(b)==1 && get<int&>(b)==5 && get<const int&>(b)==2);
+  VERIFY(j==5);
+}

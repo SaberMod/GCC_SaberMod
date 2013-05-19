@@ -1,7 +1,6 @@
-// { dg-options "-std=gnu++0x " }
-// { dg-do compile }
+// { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,13 +17,30 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
+// 20.9.1.4 unique_ptr creation [unique.ptr.create]
+
 #include <memory>
+#include <testsuite_hooks.h>
 
-struct B { };
-struct D : B { };
+struct A
+{
+  A() : b(true) { }
+  A(int) : b(false) { }
+  bool b;
+};
 
-// libstdc++/48631
-D d;
-std::default_delete<B[]> db;
-typedef decltype(db(&d)) type; // { dg-error "use of deleted function" }
-// { dg-error "declared here" "" { target *-*-* } 122 }
+void
+test01()
+{
+  bool test __attribute__((unused)) = true;
+
+  std::unique_ptr<A[]> a = std::make_unique<A[]>(3);
+  VERIFY( a != nullptr );
+  VERIFY( a[0].b && a[1].b && a[2].b );
+}
+
+int
+main()
+{
+  test01();
+}

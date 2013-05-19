@@ -1,30 +1,30 @@
-// { dg-options "-std=gnu++0x " }
 // { dg-do compile }
+// { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
 // terms of the GNU General Public License as published by the
 // Free Software Foundation; either version 3, or (at your option)
 // any later version.
-
+//
 // This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <memory>
+#include <utility>
 
-struct B { };
-struct D : B { };
+void test01()
+{
+  std::pair<int, int> p;
 
-// libstdc++/48631
-D d;
-std::default_delete<B[]> db;
-typedef decltype(db(&d)) type; // { dg-error "use of deleted function" }
-// { dg-error "declared here" "" { target *-*-* } 122 }
+  std::get<2>(p);  // { dg-error "no matching function" }
+}
+
+// { dg-prune-output "tuple_element<2" }

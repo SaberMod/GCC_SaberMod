@@ -1,7 +1,7 @@
-// { dg-options "-std=gnu++0x " }
+// { dg-options "-std=gnu++1y" }
 // { dg-do compile }
 
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -18,13 +18,13 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-#include <memory>
+// Tuple
 
-struct B { };
-struct D : B { };
+#include <tuple>
 
-// libstdc++/48631
-D d;
-std::default_delete<B[]> db;
-typedef decltype(db(&d)) type; // { dg-error "use of deleted function" }
-// { dg-error "declared here" "" { target *-*-* } 122 }
+std::tuple<long, int, const int, long> ti;
+const std::tuple<long, int, const int, long> cti;
+
+constexpr const int& cri = std::get<int>(cti);
+constexpr int&  ri = std::get<int>(ti);
+constexpr int&& rri = std::get<int>(std::move(ti));

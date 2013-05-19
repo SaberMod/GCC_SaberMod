@@ -1,3 +1,70 @@
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.h (BASE_INSN_LENGTH, NOP_INSN_LENGTH): New macros.
+	* config/mips/mips.c (mips_symbol_insns, mips_address_insns)
+	(mips_const_insns, mips_split_const_insns, mips_load_store_insns)
+	(mips_idiv_insns): Update the comments to say that the returned
+	instruction counts are in units of BASE_INSN_LENGTH.
+	(mips_adjust_insn_length): Multiply the mips_load_label_num_insns
+	by BASE_INSN_LENGTH rather than 4.  Add the jump separately,
+	using 2 rather than 4 as the length of indirect MIPS16 and
+	microMIPS jumps.  Use NOP_INSN_LENGTH rather than 4 as the
+	length of a NOP.  Don't divide MIPS16 lengths by 2.
+	(mips16_split_long_branches): Assume a branch is long if the
+	length is greater than 4 rather than 8.
+	* config/mips/mips.md (length): Give MIPS16 lengths directly,
+	rather than multiplying them by 2.  Multiply instruction counts
+	by BASE_INSN_LENGTH rather than 4.
+	(*jump_mips16, tls_get_tp_mips16_<mode>)
+	(*tls_get_tp_mips16_call_<mode>): Divide lengths by 2.
+
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md (extended_mips16): Remove branch case.
+	(length): Remove duplicated extended_mips16 test.
+
+2013-05-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/t-sde: Don't build 64-bit microMIPS multilibs.
+
+2013-05-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* recog.h (Recog_data): Rename to...
+	(recog_data_d): ...this.
+	(recog_data): Update accordingly.
+	* recog.c (recog_data): Likewise.
+	* reload.c (save_recog_data): Likewise.
+	* config/picochip/picochip.c (picochip_saved_recog_data): Likewise.
+	(picochip_save_recog_data, picochip_restore_recog_data): Likewise.
+
+2013-05-17  Julian Brown  <julian@codesourcery.com>
+
+	* gcse.c (compute_ld_motion_mems): If a non-simple MEM is
+	found in a REG_EQUAL note, invalidate it.
+
+2013-05-17   Easwaran Raman  <eraman@google.com>
+
+	* tree-ssa-reassoc.c (find_insert_point): New function.
+	(insert_stmt_after): Likewise.
+	(get_def_stmt): Likewise.
+	(ensure_ops_are_available): Likewise.
+	(not_dominated_by): Likewise.
+	(rewrite_expr_tree): Do not move statements beyond what is
+	necessary. Remove call to swap_ops_for_binary_stmt...
+	(reassociate_bb): ... and move it here.
+	(build_and_add_sum): Assign UIDs for new statements.
+	(linearize_expr): Likewise.
+	(do_reassoc): Renumber gimple statement UIDs.
+
+2013-05-17  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_symtab_merge_cgraph_nodes): Resolve cross module
+	weakrefs.
+	* cgraph.c (dump_cgraph_node): Do not ice on unresolved alias.
+	* cgraphunit.c (handle_alias_pairs): Store target of unresolved
+	weakrefs.
+	(output_weakrefs): Update.
+
 2013-05-17  Po-Chun Chang  <pchang9@cs.wisc.edu>
 	    Martin Jambor  <mjambor@suse.cz>
 
