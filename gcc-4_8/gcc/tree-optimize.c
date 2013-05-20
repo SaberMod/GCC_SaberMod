@@ -40,51 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "except.h"
 #include "plugin.h"
-#include "params.h"
 
-
-int cgraph_codesize_estimate = -1;
-
-/* Estimate the code size from the dynamic IPA call graph. */
-static void
-compute_codesize_estimate(void)
-{
-  struct cgraph_node *node;
-  basic_block bb;
-  gimple_stmt_iterator bsi;
-  struct function *my_function;
-
-  if (!flag_dyn_ipa)
-    return;
-
-  if (cgraph_codesize_estimate >= 0)
-    return;
-  cgraph_codesize_estimate = 0;
-
-  FOR_EACH_DEFINED_FUNCTION (node)
-    {
-      if (node->count == 0)
-        continue;
-
-      if (!gimple_has_body_p(node->symbol.decl))
-        continue;
-
-      my_function = DECL_STRUCT_FUNCTION (node->symbol.decl);
-
-      FOR_EACH_BB_FN (bb, my_function)
-        {
-          if (bb->count < PARAM_VALUE (PARAM_CODESIZE_HOTNESS_THRESHOLD))
-            continue;
-          for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
-            {
-              gimple stmt = gsi_stmt (bsi);
-              cgraph_codesize_estimate += estimate_num_insns (stmt, &eni_size_weights);
-            }
-        }
-    }
-  if (dump_file)
-    fprintf (dump_file, "Code size estimate from cgraph: %d\n", cgraph_codesize_estimate);
-}
 
 /* Pass: cleanup the CFG just before expanding trees to RTL.
    This is just a round of label cleanups and case node grouping
@@ -96,8 +52,6 @@ execute_cleanup_cfg_post_optimizing (void)
 {
   unsigned int todo = 0;
 
-  /* Estimate the code footprint for hot BBs before we enter RTL */
-  compute_codesize_estimate();
   if (cleanup_tree_cfg ())
     todo |= TODO_update_ssa;
   maybe_remove_unreachable_handlers ();

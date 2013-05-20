@@ -393,7 +393,7 @@ Objective-C and Objective-C++ Dialects}.
 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
 -fomit-frame-pointer -foptimize-register-move -foptimize-sibling-calls @gol
--fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
+-fpartial-inlining -fpeel-codesize-limit -fpeel-loops -fpredictive-commoning @gol
 -fprefetch-loop-arrays -fprofile-report @gol
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} -fprofile-generate-sampling @gol
@@ -403,8 +403,8 @@ Objective-C and Objective-C++ Dialects}.
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -fripa -fripa-disallow-asm-modules -fripa-disallow-opt-mismatch @gol
--fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func -fripa-verbose @gol
--fripa-peel-size-limit -fripa-unroll-size-limit -frounding-math @gol
+-fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func @gol
+-fripa-verbose -frounding-math @gol
 -fsched2-use-superblocks -fsched-pressure @gol
 -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol
@@ -429,7 +429,7 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-reassoc -ftree-sink -ftree-slsr -ftree-sra @gol
 -ftree-switch-conversion -ftree-tail-merge @gol
 -ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp @gol
--funit-at-a-time -funroll-all-loops -funroll-loops @gol
+-funit-at-a-time -funroll-all-loops -funroll-loops -funroll-codesize-limit @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
 -fwhole-program -fwpa -fuse-ld=@var{linker} -fuse-linker-plugin @gol
@@ -9025,6 +9025,14 @@ the loop is entered.  This usually makes programs run more slowly.
 @option{-funroll-all-loops} implies the same options as
 @option{-funroll-loops}.
 
+@item -funroll-codesize-limit
+@opindex funroll-codesize-limit
+Limit loop unrolling of non-const non-FP loops in a profile feedback compilation
+under estimates of a large code footprint. Enabled by default with
+@option{-fprofile-use}. Code size and execution weight thresholds are controlled
+by the @option{unrollpeel-codesize-threshold} and
+@option{unrollpeel-hotness-threshold} parameters.
+
 @item -fpeel-loops
 @opindex fpeel-loops
 Peels loops for which there is enough information that they do not
@@ -9032,6 +9040,14 @@ roll much (from profile feedback).  It also turns on complete loop peeling
 (i.e.@: complete removal of loops with small constant number of iterations).
 
 Enabled with @option{-fprofile-use}.
+
+@item -fpeel-codesize-limit
+@opindex fpeel-codesize-limit
+Limit loop peeling of non-const non-FP loops in a profile feedback compilation
+under estimates of a large code footprint. Enabled by default with
+@option{-fprofile-use}. Code size and execution weight thresholds are controlled
+by the @option{unrollpeel-codesize-threshold} and
+@option{unrollpeel-hotness-threshold} parameters.
 
 @item -fmove-loop-invariants
 @opindex fmove-loop-invariants
@@ -9410,6 +9426,15 @@ The maximum number of iterations of a loop to be suitable for complete peeling.
 
 @item max-completely-peel-loop-nest-depth
 The maximum depth of a loop nest suitable for complete peeling.
+
+@item unrollpeel-codesize-threshold
+Maximum profile-based code size footprint estimate for loop unrolling and
+peeling.
+
+@item unrollpeel-hotness-threshold
+Maximum ratio of total execution count to loop entry block count under which
+most profile-based code size estimates will be ignored for loop unrolling and
+peeling.
 
 @item max-unswitch-insns
 The maximum number of insns of an unswitched loop.

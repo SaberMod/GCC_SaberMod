@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "target.h"
 #include "dumpfile.h"
+#include "gcov-io.h"
 
 /* This pass performs loop unrolling and peeling.  We only perform these
    optimizations on innermost loops (with single exception) because
@@ -293,6 +294,82 @@ report_unroll_peel (struct loop *loop, location_t locus)
     dump_printf (report_flags, ")");
 
   dump_printf (report_flags, "\n");
+}
+
+/* Determine whether and how much LOOP unrolling/peeling should be constrained
+   based on code footprint estimates. Returns the codesize-based factor to be
+   divided into the max instructions in an unrolled or peeled loop:
+   1) For size <= threshold, do not limit (by returning 1).
+   2) For threshold < size < 2*threshold, reduce maximum allowed peeled or
+      unrolled instructions according to loop hotness.
+   3) For threshold >= 2*threshold, disable unrolling/peeling (by returning
+      INT_MAX).  */
+
+static int
+code_size_limit_factor(struct loop *loop)
+{
+  unsigned size_threshold, num_hot_counters;
+  struct niter_desc *desc = get_simple_loop_desc (loop);
+  gcov_type sum_to_header_ratio;
+  int hotness_ratio_threshold;
+  int limit_factor;
+  gcov_working_set_t *ws;
+
+  ws = find_working_set(999);
+  if (! ws)
+    return 1;
+  num_hot_counters = ws->num_counters;
+
+  /* First check if the application has a large codesize footprint.
+     This is estimated from FDO profile summary information for the
+     program, where the num_hot_counters indicates the number of hottest
+     counters (blocks) that compose most of the execution time of
+     the program. A large value would indicate a large flat execution
+     profile where icache misses may be a concern.  */
+  size_threshold = PARAM_VALUE (PARAM_UNROLLPEEL_CODESIZE_THRESHOLD);
+  if (!profile_info
+      || num_hot_counters <= size_threshold
+      || !profile_info->sum_all)
+    return 1;
+
+  /* Next, exclude some loops where unrolling/peeling may be more
+     important to overall performance.  */
+
+  /* Ignore FP loops, which are more likely to benefit heavily from
+     unrolling. */
+  if (desc->has_fp)
+    return 1;
+
+  /* Next, set the value of the codesize-based unroll factor divisor which in
+     most loops will need to be set to a value that will reduce or eliminate
+     unrolling/peeling.  */
+  if (num_hot_counters < size_threshold * 2
+      && loop->header->count > 0)
+    {
+      /* For applications that are less than twice the codesize limit, allow
+         limited unrolling for very hot loops.  */
+      sum_to_header_ratio = profile_info->sum_all / loop->header->count;
+      hotness_ratio_threshold = PARAM_VALUE (PARAM_UNROLLPEEL_HOTNESS_THRESHOLD);
+      /* When the profile count sum to loop entry header ratio is smaller than
+         the threshold (i.e. the loop entry is hot enough), the divisor is set
+         to 1 so the unroll/peel factor is not reduced. When it is bigger
+         than the ratio, increase the divisor by the amount this ratio
+         is over the threshold, which will quickly reduce the unroll/peel
+         factor to zero as the loop's hotness reduces.  */
+      if (sum_to_header_ratio > hotness_ratio_threshold)
+        {
+          limit_factor = sum_to_header_ratio / hotness_ratio_threshold;
+          gcc_assert (limit_factor >= 1);
+        }
+      else
+        limit_factor = 1;
+    }
+  else
+    /* For appliations that are at least twice the codesize limit, set
+       the divisor to a large value that will force the unroll factor to 0.  */
+    limit_factor = INT_MAX;
+
+  return limit_factor;
 }
 
 /* Unroll and/or peel (depending on FLAGS) LOOPS.  */
@@ -995,6 +1072,7 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
   unsigned nunroll, nunroll_by_av, nunroll_branches, i;
   struct niter_desc *desc;
   double_int iterations;
+  int limit_factor = 1;
 
   if (!(flags & UAP_UNROLL))
     {
@@ -1007,10 +1085,26 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
 	     "\n;; Considering unrolling loop with runtime "
 	     "computable number of iterations\n");
 
+  if (flag_unroll_codesize_limit)
+    {
+      /* Determine whether to limit code size growth from unrolling,
+         using FDO profile summary information that gives an
+         estimated number of executed blocks.  */
+      limit_factor = code_size_limit_factor (loop);
+      if (dump_file && limit_factor > 1)
+	{
+          fprintf (dump_file,
+                   ";; Due to large code size footprint estimate, limit "
+                   "max unrolled insns by divisor %d\n", limit_factor);
+	}
+    }
+
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
-  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / limit_factor
+            / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS)
+                  / limit_factor / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
     nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
@@ -1412,6 +1506,7 @@ decide_peel_simple (struct loop *loop, int flags)
 {
   unsigned npeel;
   double_int iterations;
+  int limit_factor = 1;
 
   if (!(flags & UAP_PEEL))
     {
@@ -1422,8 +1517,23 @@ decide_peel_simple (struct loop *loop, int flags)
   if (dump_file)
     fprintf (dump_file, "\n;; Considering simply peeling loop\n");
 
+  if (flag_peel_codesize_limit)
+    {
+      /* Determine whether to limit code size growth from peeling,
+         using FDO profile summary information that gives an
+         estimated number of executed blocks.  */
+      limit_factor = code_size_limit_factor (loop);
+      if (dump_file && limit_factor > 1)
+	{
+          fprintf (dump_file,
+                   ";; Due to large code size footprint estimate, limit "
+                   "max peeled insns by divisor %d\n", limit_factor);
+	}
+    }
+
   /* npeel = number of iterations to peel.  */
-  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / loop->ninsns;
+  npeel = PARAM_VALUE (PARAM_MAX_PEELED_INSNS) / limit_factor
+          / loop->ninsns;
   if (npeel > (unsigned) PARAM_VALUE (PARAM_MAX_PEEL_TIMES))
     npeel = PARAM_VALUE (PARAM_MAX_PEEL_TIMES);
 
@@ -1577,6 +1687,7 @@ decide_unroll_stupid (struct loop *loop, int flags)
   unsigned nunroll, nunroll_by_av, i;
   struct niter_desc *desc;
   double_int iterations;
+  int limit_factor = 1;
 
   if (!(flags & UAP_UNROLL_ALL))
     {
@@ -1587,11 +1698,26 @@ decide_unroll_stupid (struct loop *loop, int flags)
   if (dump_file)
     fprintf (dump_file, "\n;; Considering unrolling loop stupidly\n");
 
+  if (flag_unroll_codesize_limit)
+    {
+      /* Determine whether to limit code size growth from unrolling,
+         using FDO profile summary information that gives an
+         estimated number of executed blocks.  */
+      limit_factor = code_size_limit_factor (loop);
+      if (dump_file && limit_factor > 1)
+	{
+          fprintf (dump_file,
+                   ";; Due to large code size footprint estimate, limit "
+                   "max unrolled insns by divisor %d\n", limit_factor);
+	}
+    }
+
   /* nunroll = total number of copies of the original loop body in
      unrolled loop (i.e. if it is 2, we have to duplicate loop body once.  */
-  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / loop->ninsns;
-  nunroll_by_av
-    = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS) / loop->av_ninsns;
+  nunroll = PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS) / limit_factor
+            / loop->ninsns;
+  nunroll_by_av = PARAM_VALUE (PARAM_MAX_AVERAGE_UNROLLED_INSNS)
+                  / limit_factor / loop->av_ninsns;
   if (nunroll > nunroll_by_av)
     nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
