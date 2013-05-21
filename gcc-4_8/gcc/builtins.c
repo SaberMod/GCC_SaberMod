@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
+#include "input.h"
 
 
 #ifndef PAD_VARARGS_DOWN
@@ -12107,13 +12108,16 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
   tree fntype = TREE_TYPE (current_function_decl);
   int nargs = call_expr_nargs (exp);
   tree arg;
+  location_t loc = LOCATION_LOCUS (input_location);
+  if (has_discriminator (loc))
+    loc = map_discriminator_location (loc);
+
   /* There is good chance the current input_location points inside the
      definition of the va_start macro (perhaps on the token for
      builtin) in a system header, so warnings will not be emitted.
      Use the location in real source code.  */
   source_location current_location =
-    linemap_unwind_to_first_non_reserved_loc (line_table, input_location,
-					      NULL);
+    linemap_unwind_to_first_non_reserved_loc (line_table, loc, NULL);
 
   if (!stdarg_p (fntype))
     {

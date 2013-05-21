@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "input.h"
 #include "tree.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
@@ -107,6 +108,8 @@ maybe_unwind_expanded_macro_loc (diagnostic_context *context,
   unsigned ix;
   loc_map_pair loc, *iter;
 
+  if (has_discriminator (where))
+    where = map_discriminator_location (where);
   map = linemap_lookup (line_table, where);
   if (!linemap_macro_expansion_map_p (map))
     return;

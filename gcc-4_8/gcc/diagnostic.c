@@ -185,6 +185,7 @@ diagnostic_set_info_translated (diagnostic_info *diagnostic, const char *msg,
 				va_list *args, location_t location,
 				diagnostic_t kind)
 {
+  location = map_discriminator_location (location);
   diagnostic->message.err_no = errno;
   diagnostic->message.args_ptr = args;
   diagnostic->message.format_spec = msg;
@@ -476,6 +477,9 @@ diagnostic_report_current_module (diagnostic_context *context, location_t where)
 
   if (where <= BUILTINS_LOCATION)
     return;
+
+  if (has_discriminator (where))
+    where = map_discriminator_location (where);
 
   linemap_resolve_location (line_table, where,
 			    LRK_MACRO_DEFINITION_LOCATION,

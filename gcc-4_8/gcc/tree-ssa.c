@@ -28,6 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
@@ -1610,6 +1611,8 @@ warn_uninit (enum opt_code wc, tree t,
   location = (context != NULL && gimple_has_location (context))
 	     ? gimple_location (context)
 	     : DECL_SOURCE_LOCATION (var);
+  if (has_discriminator (location))
+    location = map_discriminator_location (location);
   location = linemap_resolve_location (line_table, location,
 				       LRK_SPELLING_LOCATION,
 				       NULL);
