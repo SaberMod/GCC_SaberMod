@@ -175,19 +175,19 @@ extern "C" {
 } /* extern "C" */
 
 
-/* The following variables are used only for debugging and performance tuning
-   purposes. Therefore they do not need to be "protected".  They cannot be used
-   to attack the vtable verification system and if they become corrupted it will
-   not affect the correctness or security of any of the rest of the vtable
-   verification feature.  */
 
-unsigned int num_calls_to_register_pair = 0;
-unsigned int num_calls_to_init_set = 0;
+/* The following variables are used only for debugging and performance
+   tuning purposes. Therefore they do not need to be "protected".
+   They cannot be used to attack the vtable verification system and if
+   they become corrupted it will not affect the correctness or
+   security of any of the rest of the vtable verification feature.  */
+
+unsigned int num_calls_to_regset = 0;
+unsigned int num_calls_to_regpair = 0;
 unsigned int num_calls_to_verify_vtable = 0;
-unsigned long long register_pair_cycles = 0;
-unsigned long long init_set_cycles = 0;
+unsigned long long regset_cycles = 0;
+unsigned long long regpair_cycles = 0;
 unsigned long long verify_vtable_cycles = 0;
-
 
 /* Be careful about initialization of statics in this file.  Some of
    the routines below are called before any runtime initialization for
@@ -210,15 +210,15 @@ static const int debug_verify_vtable = 0;
 
 #ifdef VTV_DEBUG
 /* Global file descriptor variables for logging, tracing and debugging.  */
-static int init_log_fd = -1;
 static int verify_vtable_log_fd = -1;
 
 /* This holds a formatted error logging message, to be written to the
    vtable verify failures log.  */
 static char debug_log_message[1024];
-#endif 
+#endif
 
 /* TODO: should this be under VTV_DEBUG?  */
+static int init_log_fd = -1;
 static int vtv_failures_log_fd = -1;
 
 #if HASHTABLE_STATS
@@ -242,12 +242,14 @@ struct whitelist_data_struct
   ElfW (Addr) high_addr;
 };
 
-struct whitelist_data_struct whitelist_data[WHITELIST_SIZE] VTV_PROTECTED_VAR = { 0 };
+struct whitelist_data_struct whitelist_data[WHITELIST_SIZE] VTV_PROTECTED_VAR
+                                                                        = { 0 };
 
 #ifdef __GTHREAD_MUTEX_INIT
 /* TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!  */
 static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
-static __gthread_mutex_t update_whitelist_lock VTV_PROTECTED_VAR = __GTHREAD_MUTEX_INIT;
+static __gthread_mutex_t update_whitelist_lock VTV_PROTECTED_VAR
+                                                         = __GTHREAD_MUTEX_INIT;
 #else
 /* TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!  */
 static __gthread_mutex_t change_permissions_lock;
@@ -291,13 +293,14 @@ get_cycle_count (void)
 }
 
 static inline void
-accumulate_cycle_count (unsigned long long *sum, unsigned long long start)
+accumulate_cycle_count (unsigned long long *sum __attribute__((__unused__)),
+                        unsigned long long start __attribute__((__unused__)))
 {
   /* Do nothing.  */
 }
 
 static inline void
-increment_num_calls (unsigned int *num_calls)
+increment_num_calls (unsigned int *num_calls __attribute__((__unused__)))
 {
   /* Do nothing.  */
 }
@@ -346,7 +349,7 @@ struct vptr_set_alloc
 typedef insert_only_hash_sets<int_vptr, vptr_hash, vptr_set_alloc> vtv_sets;
 typedef vtv_sets::insert_only_hash_set vtv_set;
 typedef vtv_set * vtv_set_handle;
-typedef vtv_set_handle * vtv_set_handle_handle; 
+typedef vtv_set_handle * vtv_set_handle_handle;
 
 /* Records for caching the section header information that we have
    read out of the file(s) on disk (in dl_iterate_phdr_callback), to
@@ -449,7 +452,7 @@ log_memory_protection_data (char *message)
 static int
 dl_iterate_phdr_whitelist_callback (struct dl_phdr_info *info,
                                     size_t unused __attribute__((__unused__)),
-                                    void *data)
+                                    void *data __attribute__((__unused__)))
 {
   if (strlen (info->dlpi_name) == 0)
     return 0;
@@ -569,7 +572,7 @@ read_section_offset_and_length (struct dl_phdr_info *info,
               off_t name_offset = shstrtab.sh_offset +  sect_hdr.sh_name;
 
               bytes_read = ReadFromOffset (fd, &header_name, 64, name_offset);
-              
+
               VTV_ASSERT (bytes_read > 0);
 
               if (memcmp (header_name, sect_name, name_len) == 0)
@@ -589,7 +592,8 @@ read_section_offset_and_length (struct dl_phdr_info *info,
     {
       /* Calculate the page location in memory, making sure the
          address is page-aligned.  */
-      ElfW (Addr) start_addr = (const ElfW (Addr)) info->dlpi_addr + *sect_offset;
+      ElfW (Addr) start_addr = (const ElfW (Addr)) info->dlpi_addr
+                                                                 + *sect_offset;
       *sect_offset = start_addr & ~(VTV_PAGE_SIZE - 1);
       *sect_len = *sect_len - 1;
 
@@ -702,7 +706,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
       else
         {
           if (debug_functions)
-            {
+           {
               snprintf (buffer, sizeof (buffer),
                         "mprotect'ed range [%p, %p]\n",
                         (void *) map_sect_offset,
@@ -718,13 +722,13 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
 }
 
 /* This function explicitly changes the protection (read-only or read-write)
-   on the sect_info_cache, which is used for speeding up look ups in the 
+   on the sect_info_cache, which is used for speeding up look ups in the
    function dl_iterate_phdr_callback.  This data structure needs to be
    explicitly made read-write before any calls  to dl_iterate_phdr_callback,
    because otherwise it may still be read-only when dl_iterate_phdr_callback
-   attempts to write to it.  
+   attempts to write to it.
 
-   More detailed explanation:  dl_iterate_phdr_callback finds all the 
+   More detailed explanation:  dl_iterate_phdr_callback finds all the
    .vtable_map_vars sections in all loaded objects (including the main program)
    and (depending on where it was called from) either makes all the pages in the
    sections read-write or read-only.  The sect_info_cache should be in the
@@ -901,7 +905,7 @@ struct insert_only_hash_map_allocator
     /* N is the number of bytes to allocate.  */
     void *
     alloc (size_t n) const
-    {  
+    {
       return VTV_malloc (n);
     }
 
@@ -917,7 +921,7 @@ struct insert_only_hash_map_allocator
 /* Explicitly instantiate this class since this file is compiled with
    -fno-implicit-templates.  These are for the hash table that is used
    to do vtable map variable symbol resolution.  */
-template class insert_only_hash_map <vtv_set_handle *, 
+template class insert_only_hash_map <vtv_set_handle *,
                                      insert_only_hash_map_allocator >;
 typedef insert_only_hash_map <vtv_set_handle *,
                               insert_only_hash_map_allocator > s2s;
@@ -945,7 +949,7 @@ is_set_handle_handle (void * ptr)
 /* Returns the actual pointer value of a vtable map variable, PTR (see
    comments for is_set_handle_handle for more details).  */
 
-static inline vtv_set_handle * 
+static inline vtv_set_handle *
 ptr_from_set_handle_handle (void * ptr)
 {
   return (vtv_set_handle *) ((unsigned long) ptr & ~SET_HANDLE_HANDLE_BIT);
@@ -986,6 +990,66 @@ log_error_message (const char *log_msg, bool generate_backtrace)
     }
 }
 
+static inline void
+register_set_common (void **set_handle_ptr, size_t num_args,
+                     void **vtable_ptr_array, bool debug)
+{
+  /* Now figure out what pointer to use for the set pointer, for the
+     inserts.  */
+  vtv_set_handle *handle_ptr = (vtv_set_handle *) set_handle_ptr;
+
+  if (debug)
+    VTV_DEBUG_ASSERT (vtv_symbol_unification_map != NULL);
+
+  if (!is_set_handle_handle (*set_handle_ptr))
+    handle_ptr = (vtv_set_handle *) set_handle_ptr;
+  else
+    handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
+
+  /* Now we've got the set and it's initialized, add the vtable
+     pointers.  */
+  for (size_t index = 0; index < num_args; ++index)
+    {
+      int_vptr vtbl_ptr = (int_vptr) vtable_ptr_array[index];
+      vtv_sets::insert (vtbl_ptr, handle_ptr);
+    }
+}
+
+static inline void
+register_pair_common (void **set_handle_ptr, const void *vtable_ptr,
+                      const char *set_symbol_name, const char *vtable_name,
+                      bool debug)
+{
+  /* Now we've got the set and it's initialized, add the vtable
+     pointer (assuming that it's not NULL...It may be NULL, as we may
+     have called this function merely to initialize the set
+     pointer).  */
+  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
+  if (vtbl_ptr)
+    {
+      vtv_set_handle *handle_ptr = (vtv_set_handle *) set_handle_ptr;
+      if (debug)
+        VTV_DEBUG_ASSERT (vtv_symbol_unification_map != NULL);
+      if (!is_set_handle_handle (*set_handle_ptr))
+        handle_ptr = (vtv_set_handle *) set_handle_ptr;
+      else
+        handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
+
+      vtv_sets::insert (vtbl_ptr, handle_ptr);
+    }
+
+  if (debug && debug_init)
+    {
+      if (init_log_fd == -1)
+        init_log_fd = vtv_open_log("vtv_init.log");
+
+      vtv_add_to_log(init_log_fd,
+                     "Registered %s : %s (%p) 2 level deref = %s\n",
+                     set_symbol_name, vtable_name, vtbl_ptr,
+                     is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
+    }
+}
+
 /* Ideally it would be nice if the library always provided the 2
    versions of the runtime libraries. However, when we use VTV_DEBUG
    we want to make sure that only the debug versions are being
@@ -993,29 +1057,10 @@ log_error_message (const char *log_msg, bool generate_backtrace)
 
 #ifdef VTV_DEBUG
 
-/* This routine initializes a set handle to a vtable set. It makes
-   sure that there is only one set handle for a particular set by
-   using a map from set name to pointer to set handle. Since there
-   will be multiple copies of the pointer to the set handle (one per
-   compilation unit that uses it), it makes sure to initialize all the
-   pointers to the set handle so that the set handle is unique. To
-   make this a little more efficient and avoid a level of indirection
-   in some cases, the first pointer to handle for a particular handle
-   becomes the handle itself and the other pointers will point to the
-   set handle.  This is the debug version of this function, so it
-   outputs extra debugging messages and logging.  SET_HANDLE_PTR is
-   the address of the vtable map variable, SET_SYMBOL_KEY is the hash
-   table key (containing the name of the map variable and the hash
-   value) and SIZE_HINT is a guess for the best initial size for the
-   set of vtable pointers that SET_HANDLE_POINTER will point to.  */
-
-void __VLTInitSetSymbolDebug (void **set_handle_ptr,
-                              const void *set_symbol_key, 
-                              size_t size_hint)
+static inline void
+init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
+                       size_t size_hint)
 {
-  unsigned long long start;
-  start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_init_set);
   VTV_DEBUG_ASSERT (set_handle_ptr);
 
   if (vtv_symbol_unification_map == NULL)
@@ -1029,14 +1074,14 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
   vtv_set_handle *handle_ptr = (vtv_set_handle *) set_handle_ptr;
   vtv_symbol_key *symbol_key_ptr = (vtv_symbol_key *) set_symbol_key;
 
-  const s2s::value_type * map_value_ptr = 
+  const s2s::value_type * map_value_ptr =
                               vtv_symbol_unification_map->get (symbol_key_ptr);
   char buffer[200];
   if (map_value_ptr == NULL)
     {
       if (*handle_ptr != NULL)
         {
-          snprintf (buffer, sizeof(buffer), 
+          snprintf (buffer, sizeof (buffer),
                     "*** Found non-NULL local set ptr %p missing for symbol"
                     " %.*s",
                     *handle_ptr, symbol_key_ptr->n, symbol_key_ptr->bytes);
@@ -1044,15 +1089,15 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
           VTV_DEBUG_ASSERT (0);
         }
     }
-  else if (*handle_ptr != NULL && 
-           (handle_ptr != *map_value_ptr && 
+  else if (*handle_ptr != NULL &&
+           (handle_ptr != *map_value_ptr &&
             ptr_from_set_handle_handle (*handle_ptr) != *map_value_ptr))
     {
       VTV_DEBUG_ASSERT (*map_value_ptr != NULL);
-      snprintf (buffer, sizeof(buffer), 
+      snprintf (buffer, sizeof(buffer),
                 "*** Found diffence between local set ptr %p and set ptr %p"
-                "for symbol %.*s", 
-                *handle_ptr, *map_value_ptr, 
+                "for symbol %.*s",
+                *handle_ptr, *map_value_ptr,
                 symbol_key_ptr->n, symbol_key_ptr->bytes);
       log_error_message (buffer, true);
       VTV_DEBUG_ASSERT (0);
@@ -1069,7 +1114,6 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
       else
         handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
       vtv_sets::resize (size_hint, handle_ptr);
-      accumulate_cycle_count (&init_set_cycles, start);
       return;
     }
 
@@ -1084,7 +1128,7 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
              are adding one level of indirection here and we will
              store a pointer to the one level handle here.  */
 
-          vtv_set_handle_handle * handle_handle_ptr = 
+          vtv_set_handle_handle * handle_handle_ptr =
                                            (vtv_set_handle_handle *)handle_ptr;
           *handle_handle_ptr = set_handle_handle(*map_value_ptr);
           VTV_DEBUG_ASSERT(*handle_handle_ptr != NULL);
@@ -1106,9 +1150,9 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
       memcpy (map_key, symbol_key_ptr, map_key_len);
 
       s2s::value_type *value_ptr;
-      vtv_symbol_unification_map = 
+      vtv_symbol_unification_map =
         vtv_symbol_unification_map->find_or_add_key ((vtv_symbol_key *)map_key,
-                                                     &value_ptr);              
+                                                     &value_ptr);
       *value_ptr = handle_ptr;
 
       /*  TODO: We should verify the return value. */
@@ -1121,59 +1165,62 @@ void __VLTInitSetSymbolDebug (void **set_handle_ptr,
       if (init_log_fd == -1)
         init_log_fd = vtv_open_log ("vtv_init.log");
 
-      vtv_add_to_log (init_log_fd, 
+      vtv_add_to_log (init_log_fd,
                       "Init handle:%p for symbol:%.*s hash:%u size_hint:%lu"
                       "number of symbols:%lu \n",
                       set_handle_ptr, symbol_key_ptr->n,
-                      symbol_key_ptr->bytes, symbol_key_ptr->hash, size_hint, 
+                      symbol_key_ptr->bytes, symbol_key_ptr->hash, size_hint,
                       vtv_symbol_unification_map->size ());
     }
-  accumulate_cycle_count (&init_set_cycles, start);
 }
 
-/* This function takes a the address of a vtable map variable
-   (SET_HANDLE_PTR), a VTABLE_PTR to add to the data set, the name of
-   the vtable map variable (SET_SYMBOL_NAME) and the name of the
-   vtable (VTABLE_NAME) being pointed to.  If the vtable map variable
-   is NULL it creates a new data set and initializes the variable,
-   otherwise it uses our symbol unification to find the right data
-   set; in either case it then adds the vtable pointer to the set.
-   The other two parameters are used for debugging information.  */
+/* This routine initializes a set handle to a vtable set. It makes
+   sure that there is only one set handle for a particular set by
+   using a map from set name to pointer to set handle. Since there
+   will be multiple copies of the pointer to the set handle (one per
+   compilation unit that uses it), it makes sure to initialize all the
+   pointers to the set handle so that the set handle is unique. To
+   make this a little more efficient and avoid a level of indirection
+   in some cases, the first pointer to handle for a particular handle
+   becomes the handle itself and the other pointers will point to the
+   set handle.  This is the debug version of this function, so it
+   outputs extra debugging messages and logging.  SET_HANDLE_PTR is
+   the address of the vtable map variable, SET_SYMBOL_KEY is the hash
+   table key (containing the name of the map variable and the hash
+   value) and SIZE_HINT is a guess for the best initial size for the
+   set of vtable pointers that SET_HANDLE_POINTER will point to.  */
 
 void
-__VLTRegisterPairDebug (void **set_handle_ptr, const void *vtable_ptr,
-                        const char *set_symbol_name, const char *vtable_name)
-                        
+__VLTRegisterSetDebug (void **set_handle_ptr, const void *set_symbol_key,
+                       size_t size_hint, size_t num_args,
+                       void **vtable_ptr_array)
 {
-  unsigned long long start;
-  start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_register_pair);
+  unsigned long long start = get_cycle_count ();
+  increment_num_calls (&num_calls_to_regset);
+
   VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
-  /* set_handle_ptr can be NULL if the call to InitSetSymbol had a
-     size hint of 1.  */
+  init_set_symbol_debug (set_handle_ptr, set_symbol_key, size_hint);
 
-  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
-  VTV_DEBUG_ASSERT (vtv_symbol_unification_map != NULL);
-  vtv_set_handle *handle_ptr;
-  if (!is_set_handle_handle (*set_handle_ptr))
-    handle_ptr = (vtv_set_handle *) set_handle_ptr;
-  else
-    handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
+  register_set_common (set_handle_ptr, num_args, vtable_ptr_array);
 
-  /* TODO: We should verify the return value.  */
-  vtv_sets::insert (vtbl_ptr, handle_ptr);
+  accumulate_cycle_count (&regset_cycles, start);
+}
 
-  if (debug_init)
-    {
-      if (init_log_fd == -1)
-        init_log_fd = vtv_open_log("vtv_init.log");
+void
+__VLTRegisterPairDebug (void **set_handle_ptr, const  void *set_symbol_key,
+                        size_t size_hint, const void *vtable_ptr,
+                        const char *set_symbol_name, const char *vtable_name)
+{
+  unsigned long long start = get_cycle_count ();
+  increment_num_calls (&num_calls_to_regpair);
 
-      vtv_add_to_log(init_log_fd, 
-                     "Registered %s : %s (%p) 2 level deref = %s\n",
-                     set_symbol_name, vtable_name, vtbl_ptr, 
-                     is_set_handle_handle(*set_handle_ptr) ? "yes" : "no" );
-    }
-  accumulate_cycle_count (&register_pair_cycles, start);
+  VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
+  init_set_symbol_debug (set_handle_ptr, set_symbol_key, size_hint);
+
+  register_pair_common (set_handle_ptr, vtable_ptr, set_symbol_name, vtable_name,
+                        true);
+
+  accumulate_cycle_count (&regpair_cycles, start);
 }
 
 /* This function is called from __VLTVerifyVtablePointerDebug; it
@@ -1184,7 +1231,7 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const void *vtable_ptr,
    written to the log file before failing. n */
 
 static void
-__vtv_verify_fail_debug (void **set_handle_ptr, const void *vtbl_ptr, 
+__vtv_verify_fail_debug (void **set_handle_ptr, const void *vtbl_ptr,
                          const char *debug_msg)
 {
   log_error_message (debug_msg, false);
@@ -1261,27 +1308,12 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
 
 #else /* ifdef VTV_DEBUG */
 
-/* This routine initializes a set handle to a vtable set. It makes
-   sure that there is only one set handle for a particular set by
-   using a map from set name to pointer to set handle. Since there
-   will be multiple copies of the pointer to the set handle (one per
-   compilation unit that uses it), it makes sure to initialize all the
-   pointers to the set handle so that the set handle is unique. To
-   make this a little more efficient and avoid a level of indirection
-   in some cases, the first pointer to handle for a particular handle
-   becomes the handle itself and the other pointers will point to the
-   set handle.  SET_HANDLE_PTR is the address of the vtable map
-   variable, SET_SYMBOL_KEY is the hash table key (containing the name
-   of the map variable and the hash value) and SIZE_HINT is a guess
-   for the best initial size for the set of vtable pointers that
-   SET_HANDLE_POINTER will point to.*/
-
-void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
-                         size_t size_hint)
+static inline void
+init_set_symbol (void **set_handle_ptr, const void *set_symbol_key,
+                 size_t size_hint)
 {
-  unsigned long long start = get_cycle_count ();
   vtv_set_handle *handle_ptr = (vtv_set_handle *) set_handle_ptr;
-  increment_num_calls (&num_calls_to_init_set);
+
   if (*handle_ptr != NULL)
     {
       if (!is_set_handle_handle (*set_handle_ptr))
@@ -1289,7 +1321,6 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
       else
         handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
       vtv_sets::resize (size_hint, handle_ptr);
-      accumulate_cycle_count (&init_set_cycles, start);
       return;
     }
 
@@ -1297,7 +1328,7 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
     vtv_symbol_unification_map = s2s::create (1024);
 
   vtv_symbol_key *symbol_key_ptr = (vtv_symbol_key *) set_symbol_key;
-  const s2s::value_type *map_value_ptr = 
+  const s2s::value_type *map_value_ptr =
                               vtv_symbol_unification_map->get (symbol_key_ptr);
 
   if (map_value_ptr != NULL)
@@ -1309,7 +1340,7 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
           /* The one level handle to the set already exists. So, we
              are adding one level of indirection here and we will
              store a pointer to the one level pointer here.  */
-          vtv_set_handle_handle *handle_handle_ptr = 
+          vtv_set_handle_handle *handle_handle_ptr =
                                           (vtv_set_handle_handle *) handle_ptr;
           *handle_handle_ptr = set_handle_handle (*map_value_ptr);
           vtv_sets::resize (size_hint, *map_value_ptr);
@@ -1326,40 +1357,59 @@ void __VLTInitSetSymbol (void **set_handle_ptr, const void *set_symbol_key,
       memcpy (map_key, symbol_key_ptr, map_key_len);
 
       s2s::value_type * value_ptr;
-      vtv_symbol_unification_map = 
+      vtv_symbol_unification_map =
         vtv_symbol_unification_map->find_or_add_key ((vtv_symbol_key *)map_key,
                                                      &value_ptr);
-            
+
       *value_ptr = handle_ptr;
 
       /* TODO: We should verify the return value.  */
       vtv_sets::create (size_hint, handle_ptr);
     }
-  accumulate_cycle_count (&init_set_cycles, start);
 }
 
-/* This function takes a the address of a vtable map variable
-   (SET_HANDLE_PTR) and a VTABLE_PTR.  If the vtable map variable is
-   NULL it creates a new data set and initializes the variable,
-   otherwise it uses our symbol unification to find the right data
-   set; in either case it then adds the vtable pointer to the set.  */
+/* This routine initializes a set handle to a vtable set. It makes
+   sure that there is only one set handle for a particular set by
+   using a map from set name to pointer to set handle. Since there
+   will be multiple copies of the pointer to the set handle (one per
+   compilation unit that uses it), it makes sure to initialize all the
+   pointers to the set handle so that the set handle is unique. To
+   make this a little more efficient and avoid a level of indirection
+   in some cases, the first pointer to handle for a particular handle
+   becomes the handle itself and the other pointers will point to the
+   set handle.  SET_HANDLE_PTR is the address of the vtable map
+   variable, SET_SYMBOL_KEY is the hash table key (containing the name
+   of the map variable and the hash value) and SIZE_HINT is a guess
+   for the best initial size for the set of vtable pointers that
+   SET_HANDLE_POINTER will point to.*/
 
-void 
-__VLTRegisterPair (void **set_handle_ptr, const void *vtable_ptr)
+
+void
+__VLTRegisterSet (void **set_handle_ptr, const void *set_symbol_key,
+                  size_t size_hint, size_t num_args, void **vtable_ptr_array)
 {
   unsigned long long start = get_cycle_count ();
-  int_vptr vtbl_ptr = (int_vptr) vtable_ptr;
-  vtv_set_handle *handle_ptr;
+  increment_num_calls (&num_calls_to_regset);
 
-  increment_num_calls (&num_calls_to_register_pair);
-  if (!is_set_handle_handle (*set_handle_ptr))
-    handle_ptr = (vtv_set_handle *) set_handle_ptr;
-  else
-    handle_ptr = ptr_from_set_handle_handle (*set_handle_ptr);
+  init_set_symbol (set_handle_ptr, set_symbol_key, size_hint);
+  register_set_common (set_handle_ptr, num_args, vtable_ptr_array, false);
 
-  /* TODO: We should verify the return value.  */
-  vtv_sets::insert (vtbl_ptr, handle_ptr);
-  accumulate_cycle_count (&register_pair_cycles, start);
+  accumulate_cycle_count (&regset_cycles, start);
+}
+
+
+
+void
+__VLTRegisterPair (void **set_handle_ptr, const  void *set_symbol_key,
+                   size_t size_hint, const void *vtable_ptr)
+{
+  unsigned long long start = get_cycle_count ();
+  increment_num_calls (&num_calls_to_regpair);
+
+  init_set_symbol (set_handle_ptr, set_symbol_key, size_hint);
+  register_pair_common (set_handle_ptr, vtable_ptr, NULL, NULL,  false);
+
+  accumulate_cycle_count (&regpair_cycles, start);
 }
 
 #ifndef VTV_STATIC_VERIFY
@@ -1570,22 +1620,20 @@ count_all_pages (void)
 void
 __VLTDumpStats (void)
 {
-
-  
   int log_fd = vtv_open_log ("vtv-runtime-stats.log");
 
   if (log_fd != -1)
     {
       count_all_pages ();
       vtv_add_to_log (log_fd,
-                      "Calls: mprotect (%d)  reg_pair (%d) init_set (%d) "
-                      "verify_vtable (%d)\n",
-                      num_calls_to_mprotect, num_calls_to_register_pair, 
-                      num_calls_to_init_set, num_calls_to_verify_vtable);
+                      "Calls: mprotect (%d)  regset (%d) regpair (%d)"
+                      " verify_vtable (%d)\n",
+                      num_calls_to_mprotect, num_calls_to_regset,
+                      num_calls_to_regpair, num_calls_to_verify_vtable);
       vtv_add_to_log (log_fd,
-                      "Cycles: mprotect (%lld) reg_pair (%lld) "
-                      "init_set (%lld) verify_vtable (%lld)\n",
-                      mprotect_cycles, register_pair_cycles, init_set_cycles,
+                      "Cycles: mprotect (%lld) regset (%lld) "
+                      "regpair (%lld) verify_vtable (%lld)\n",
+                      mprotect_cycles, regset_cycles, regpair_cycles,
                       verify_vtable_cycles);
       vtv_add_to_log (log_fd,
                       "Pages protected (1): %d\n", num_pages_protected);

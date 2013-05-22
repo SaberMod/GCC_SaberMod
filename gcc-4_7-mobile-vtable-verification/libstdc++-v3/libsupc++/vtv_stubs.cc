@@ -46,27 +46,32 @@ __VLTChangePermission (int perm __attribute__((__unused__)))
 {
 }
 
+
 #ifdef VTV_DEBUG
 
-void __VLTInitSetSymbolDebug
-                      (void **set_handle_ptr __attribute__((__unused__)),
-                       const void *set_symbol_key __attribute__((__unused__)),
-                       std::size_t size_hint __attribute__((__unused__)))
+void
+__VLTRegisterSetDebug (void ** __attribute__((__unused__)), 
+                       const void * __attribute__((__unused__)),
+                       std::size_t __attribute__((__unused__)),
+                       std::size_t __attribute__((__unused__)),
+                       void ** __attribute__((__unused__)))
 {
 }
 
 void
-__VLTRegisterPairDebug (void **set_handle_ptrr __attribute__((__unused__)),
-                      const void *vtable_ptr __attribute__((__unused__)),
-                      const char *set_symbol_name __attribute__((__unused__)),
-                      const char *vtable_name __attribute__((__unused__)))
+__VLTRegisterPairDebug (void ** __attribute__((__unused__)),
+                        const  void * __attribute__((__unused__)),
+                        std::size_t __attribute__((__unused__)),
+                        const  void * __attribute__((__unused__)),
+                        const  char * __attribute__((__unused__)),
+                        const  char * __attribute__((__unused__)))
 {
 }
 
 const void *
 __VLTVerifyVtablePointerDebug
                      (void **set_handle_ptr  __attribute__((__unused__)),
-                             const void *vtable_ptr,
+                      const void *vtable_ptr,
                       const char *set_symbol_name __attribute__((__unused__)),
                       const char *vtable_name __attribute__((__unused__)))
 
@@ -76,16 +81,20 @@ __VLTVerifyVtablePointerDebug
 
 #else
 
-void __VLTInitSetSymbol
-                      (void **set_handle_ptr __attribute__((__unused__)),
-                       const void *set_symbol_key __attribute__((__unused__)),
-                       std::size_t size_hint __attribute__((__unused__)))
+void
+__VLTRegisterSet (void ** __attribute__((__unused__)),
+                  const void * __attribute__((__unused__)),
+                  std::size_t __attribute__((__unused__)),
+                  std::size_t __attribute__((__unused__)),
+                  void ** __attribute__((__unused__)))
 {
 }
 
 void
-__VLTRegisterPair (void **set_handle_ptr __attribute__((__unused__)),
-                   const void *vtable_ptr __attribute__((__unused__)))
+__VLTRegisterPair (void ** __attribute__((__unused__)),
+                   const  void * __attribute__((__unused__)),
+                   std::size_t __attribute__((__unused__)),
+                   const  void * __attribute__((__unused__)))
 {
 }
 

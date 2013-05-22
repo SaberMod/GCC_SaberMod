@@ -32,17 +32,23 @@
 
 #ifdef VTV_DEBUG
 
-extern void __VLTInitSetSymbolDebug (void **, const void *, std::size_t);
-extern void __VLTRegisterPairDebug (void **, const void *, const char *,
-                                    const char *);
+extern void __VLTRegisterSetDebug (void **, const void *, std::size_t,
+                                   std::size_t, void **);
+
+extern void __VLTRegisterPairDebug (void **, const void *, size_t,
+                                    const void *, const char *, const char *);
+
 extern const void *__VLTVerifyVtablePointerDebug (void **, const void *,
                                                   const char *, const char *);
 
 #else
 
-extern void __VLTRegisterPair      (void **, const void *);
-extern const void *__VLTVerifyVtablePointer      (void **, const void *);
-extern void __VLTInitSetSymbol      (void **, const void *, std::size_t );
+extern void __VLTRegisterSet (void **, const void *, std::size_t, std::size_t,
+                              void **);
+
+extern void __VLTRegisterPair (void **, const void *, size_t, const void *);
+
+extern const void *__VLTVerifyVtablePointer (void **, const void *);
 
 #endif
 

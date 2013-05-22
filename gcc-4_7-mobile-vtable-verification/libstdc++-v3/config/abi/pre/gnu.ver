@@ -1329,10 +1329,10 @@ GLIBCXX_3.4.18 {
     # Virtual table verification symbols
     _Z12__VLTprotectv;
     _Z14__VLTunprotectv;
-    _Z18__VLTInitSetSymbol*;
-    _Z23__VLTInitSetSymbolDebug*;
     _Z17__VLTRegisterPair*;
     _Z22__VLTRegisterPairDebug*;
+    _Z16__VLTRegisterSet*;
+    _Z21__VLTRegisterSetDebug*;
     _Z24__VLTVerifyVtablePointer*;
     _Z29__VLTVerifyVtablePointerDebug*;
     _Z17__vtv_verify_fail*;

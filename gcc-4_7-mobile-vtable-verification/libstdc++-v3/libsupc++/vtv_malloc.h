@@ -73,11 +73,11 @@ rdtsc ()
 
 extern unsigned int num_calls_to_mprotect;
 extern unsigned int num_pages_protected;
-extern unsigned int num_calls_to_register_pair;
-extern unsigned int num_calls_to_init_set;
+extern unsigned int num_calls_to_regset;
+extern unsigned int num_calls_to_regpair;
 extern unsigned long long mprotect_cycles;
-extern unsigned long long register_pair_cycles;
-extern unsigned long long init_set_cycles;
+extern unsigned long long regset_cycles;
+extern unsigned long long regpair_cycles;
 
 
 /* Function declarations.  */

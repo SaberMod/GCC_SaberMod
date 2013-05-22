@@ -1,3 +1,112 @@
+2013-05-20  Caroline Tice  <cmtice@google.com>
+
+	* libstdc++-v3/libsupc++/vtv_rts.cc (num_calls_to_register_pair,
+	num_calls_to_init_set, register_pair_cycles, init_set_cycles):  Delete
+	old global counter variables.
+ 	(num_calls_to_regset, num_calls_to_regpair, regset_cycles,
+	regpair_cycles):  Add and initialize new static global counter
+	variables.  Re-format comment.
+	(init_log_fd):  Move variable outside VTV_DEBUG ifdef.
+	(accumulate_cycle_count): Add unused attribute to parameters of
+	do-nothing version.
+	(increment_num_calls): Ditto.
+	(dl_iterate_phdr_whitelist_callback):  Add unused attribute to data
+	parameter; remove extra blank line.
+	(read_section_offset_and_length):  Remove trailing whitespace; fix 
+	lines that are too long.
+	(dl_iterate_callback_header):  Fix formatting.
+	(change_protections_on_phdr_cache):  Fix function comments.
+	(insert_only_hash_map_allocator::alloc): Remove trailing whitespace.
+	(ptr_from_set_handle_handle): Ditto.
+	(register_set_common):  New function; does non-debug-specific parts of
+	__VLTRegisterSet.
+	(register_pair_common):  New function, does non-debug-specific parts of
+	__VLTRegisterPair.
+	(__VLTInitSetSymbolDebug): Rename function init_set_symbol_debug, and
+	make it local, static and inlined.  Remove call & cycle counters.  Fix
+	formatting and remove trailing whitespace.
+	(__VLTRegisterSetDebug):  New function.
+	(__VLTRegisterPairDebug):  Add parameters to allow it to call
+	init_set_symbol_debug; add call to init_set_symbol_debug.  Move most of
+	code to register_pair_common.
+	(__vtv_verify_fail_debug): Remove trailing whitespace.
+	(__VLTInitSetSymbol): Rename function init_set_symbol, and make it
+	local, static and inlined.  Remove call & cycle counters.  Fix 
+	formatting and remove trailing whitespace.
+	(__VLTRegisterSet:  New function.
+	(__VLTRegisterPair):  Add parameters to allow it to call
+	init_set_symbol; call init_set_symbol.  Move most of the code to
+	register_pair_common.
+	(__VLTDumpStats):  Fix formatting.
+	* libstdc++-v3/libsupc++/vtv_malloc.h: Replace
+	num_calls_to_register_pair, num_calls_to_init_set register_pair_cycles,
+	and init_set_cycles, with num_calls_to_regset, num_calls_to_regpair,
+	regset_cycles and regpair_cycles, respectively.
+	* libstdc++-v3/libsupc++/vtv_rts.h (__VLTInitSetSymbolDebug): Delete
+	function decl.
+	(__VLTInitSetSymbol):  Ditto.
+	(__VLTRegisterPairDebug): Add three new parameters.
+	(__VLTRegisterPair):  Ditto.
+	(__VLTRegisterSetDebug):  New extern function decl.
+	(__VLTRegisterSet):  New extern function decl.
+	* libstdc++-v3/libsupc++/vtv_stubs.cc (__VLTInitSetSymbolDebug,
+	__VLTInitSetSymbol):  Delete
+	stub functions.
+	(__VLTRegisterPairDebug, __VLTRegisterPair):  Add new parameters.
+	(__VLTRegisterSetDebug, __VLTRegisterSet):  New stub functions.
+	* libstdc++-v3/config/abi/pre/gnu.ver: Remove *__VLTInitSetSymbol* from
+	globally exported symbols.  Add _Z16__VLTRegisterSet* and
+	_Z21__VLTRegisterSetDebug* to list of globally exported symbols.
+	* gcc/cp/vtable-class-hierarchy.c : Fix comments to refer to 
+	__VLTRegisterSet correctly.
+	(MAX_SET_SIZE):  Define new constant.
+	(num_calls_to_regset, sub_vtt_count):  Add and initialize new static
+	global variables.
+	(vlt_init_set_symbol_fndecl):  Delete global variable.
+	(vlt_change_permission_fndecl):  Delete global variable.
+	(vlt_register_set_fndecl):  New global variable.
+	(vtv_build_vtable_verify_fndecl):  Remove trailing whitespace.
+	(init_functions):  Fix function comment.  Remove code to initialize
+	vlt_change_permission_fndecl, since it's no longer used.  Add code to
+	initialize vlt_register_set_fndecl. Update code for
+	vlt_register_pairs_fndecl to add new parameters. Remove code to 
+	initialize vlt_init_set_symbol_fndecl.
+	(record_register_pairs):  Rename function to
+	check_and_record_registered_pairs and update function comment.
+	(register_construction_vtables):  Change the function paramenters;
+        remove code that generates calls to RegisterPair; add code to insert
+        vtable pointers into an array instead,  and increment array counter. Also
+ 	fix various white-space formatting issues.
+	(register_other_binfo_vtables):  Rename function to
+	collect_other_binfo_vtables and change the function parameters; instead
+	of making call to RegisterPair with found vtable pointers, add them to
+	an array and increment the array counter.
+	(guess_num_vtable_pointers): Update function comment.
+	(vtv_string_hash):  Move function to before register_all_pairs.
+	(write_out_current_set_data): Add bytes_written, to get return value
+	from call to write.
+	(build_key_buffer_arg):  New function (contains some code from
+	init_all_sets);
+	(insert_call_to_register_set):  New function.
+	(insert_call_to_register_pair):  New function(s), with #ifdef.
+	(register_all_pairs):  Instead of generating call to RegisterPair for
+	each vtable pointer, collect the vtable pointers for each base class
+	into an array, and count how many there are; pass array & counter to
+	register_construction_vtables and collect_other_binfo_vtables.  Once all
+	vtables pointers for a base class are found generate either a call
+	to __VLTRegisterPair (if the number of vtable pointers is 1 or less)
+	or to __VLTRegisterSet.  Also generate and pass in arguments
+	that are necessary for the work that used to be done in 
+	__VLTInitSetSymbol, but is now done through calls to __VLTRegisterSet or
+	__VLTRegisterPair.  If flag_vtv_counts is true, call
+	write_out_current_set_data.
+	(init_all_sets):  Delete function.
+	(write_out_vtv_count_data):  Remove inaccurate comment; add bytes_written
+	to get return value of call to write.
+	(vtv_register_class_hierarchy_information:  Remove call to
+	init_all_sets.
+	(write_out_counters): Delete function.
+ 
 2013-05-15  Caroline Tice  <cmtice@google.com>
 
 	* libgcc/Makefile.in: Get value for enable_vtable_verify.  Only
