@@ -1120,12 +1120,12 @@ DEFPARAM (CXX_MAX_NAMESPACES_FOR_DIAGNOSTIC_HELP,
 	  1000, 0, 0)
 
 
-/* Only output those call graph edges in .note.callgraph.text sections
+/* Only output those call graph edges in .gnu.callgraph.text sections
    whose count is greater than this value. */
-DEFPARAM (PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD,
-	  "note-cgraph-section-edge-threshold",
+DEFPARAM (PARAM_GNU_CGRAPH_SECTION_EDGE_THRESHOLD,
+	  "gnu-cgraph-section-edge-threshold",
 	  "minimum call graph edge count for inclusion in "
-          ".note.callgraph.text section",
+          ".gnu.callgraph.text section",
 	  0, 0, 0)
 
 /* Maximum number of conditional store pairs that can be sunk.  */
