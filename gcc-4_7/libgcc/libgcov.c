@@ -135,6 +135,14 @@ extern int gcov_dump_complete ATTRIBUTE_HIDDEN;
    these symbols will always need to be resolved.  */
 void (*__gcov_dummy_ref1)() = &__gcov_reset;
 void (*__gcov_dummy_ref2)() = &__gcov_dump;
+
+__attribute__((weak)) void
+__coverage_callback (gcov_type funcdef_no __attribute__ ((unused)),
+                     int edge_no __attribute__ ((unused)))
+{
+   /* nothing */
+}
+
 #endif /* __GCOV_KERNEL__ */
 
 /* Utility function for outputing errors.  */

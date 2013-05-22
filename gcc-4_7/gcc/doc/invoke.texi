@@ -9751,6 +9751,14 @@ Set the maximum number of instructions executed in parallel in
 reassociated tree. This parameter overrides target dependent
 heuristics used by default if has non zero value.
 
+@item coverage-callback
+Set to 1 to instrument a callback function together with
+arc counter update. The name of the callback function
+is "__coverage_callback".
+
+@item coverage-exec_once
+Set to 1 to update each arc counter only once.
+
 @end table
 @end table
 

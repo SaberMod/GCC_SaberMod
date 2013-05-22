@@ -54,6 +54,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "output.h"
 
+/* Default name for coverage callback function.  */
+#define COVERAGE_CALLBACK_FUNC_NAME "__coverage_callback"
+
+/* True if we insert a callback to edge instrumentation code. Avoid this
+   for the callback function itself.  */
+#define COVERAGE_INSERT_CALL ((PARAM_VALUE (PARAM_COVERAGE_CALLBACK) == 1) \
+                              && strcmp (get_name (current_function_decl), \
+                                         COVERAGE_CALLBACK_FUNC_NAME))
+
 /* Number of statements inserted for each edge counter increment.  */
 #define EDGE_COUNTER_STMT_COUNT 3
 
@@ -202,14 +211,16 @@ static tree GTY(()) gcov_lipo_merge_modu_edges = NULL_TREE;
 static tree GTY(()) gcov_lipo_strict_inclusion = NULL_TREE;
 
 /* Insert STMT_IF around given sequence of consecutive statements in the
-   same basic block starting with STMT_START, ending with STMT_END.  */
+   same basic block starting with STMT_START, ending with STMT_END.
+   PROB is the probability of the taken branch.  */
 
 static void
-insert_if_then (gimple stmt_start, gimple stmt_end, gimple stmt_if)
+insert_if_then (gimple stmt_start, gimple stmt_end, gimple stmt_if, int prob)
 {
   gimple_stmt_iterator gsi;
   basic_block bb_original, bb_before_if, bb_after_if;
-  edge e_if_taken, e_then_join;
+  edge e_if_taken, e_then_join, e_else;
+  int orig_frequency;
 
   gsi = gsi_for_stmt (stmt_start);
   gsi_insert_before (&gsi, stmt_if, GSI_SAME_STMT);
@@ -220,7 +231,11 @@ insert_if_then (gimple stmt_start, gimple stmt_end, gimple stmt_if)
   e_then_join = split_block (e_if_taken->dest, stmt_end);
   bb_before_if = e_if_taken->src;
   bb_after_if = e_then_join->dest;
-  make_edge (bb_before_if, bb_after_if, EDGE_FALSE_VALUE);
+  e_else = make_edge (bb_before_if, bb_after_if, EDGE_FALSE_VALUE);
+  orig_frequency = bb_original->frequency;
+  e_if_taken->probability = prob;
+  e_else->probability = REG_BR_PROB_BASE - prob;
+  e_if_taken->dest->frequency = orig_frequency * (prob / REG_BR_PROB_BASE);
 }
 
 /* Transform:
@@ -274,7 +289,34 @@ add_sampling_wrapper (gimple stmt_start, gimple stmt_end)
   gsi_insert_before (&gsi, stmt_reset_counter, GSI_SAME_STMT);
 
   /* Insert IF block.  */
-  insert_if_then (stmt_reset_counter, stmt_end, stmt_if);
+  /* Sampling rate can be changed at runtime: hard to guess the branch prob,
+     so make it 1.  */
+  insert_if_then (stmt_reset_counter, stmt_end, stmt_if, REG_BR_PROB_BASE);
+}
+
+/* Add a conditional stmt so that counter update will only exec one time.  */
+ 
+static void
+add_execonce_wrapper (gimple stmt_start, gimple stmt_end)
+{
+  tree zero, tmp_var, tmp1;
+  gimple stmt_if, stmt_assign;
+  gimple_stmt_iterator gsi;
+
+  /* Create all the new statements needed.  */
+  tmp_var = create_tmp_reg (get_gcov_type (), "PROF_temp");
+  tmp1 = make_ssa_name (tmp_var, NULL);
+  stmt_assign = gimple_build_assign (tmp1, gimple_assign_lhs (stmt_end));
+
+  zero = build_int_cst (get_gcov_type (), 0);
+  stmt_if = gimple_build_cond (EQ_EXPR, tmp1, zero, NULL_TREE, NULL_TREE);
+  find_referenced_vars_in (stmt_if);
+
+  gsi = gsi_for_stmt (stmt_start);
+  gsi_insert_before (&gsi, stmt_assign, GSI_SAME_STMT);
+
+  /* Insert IF block.  */
+  insert_if_then (stmt_start, stmt_end, stmt_if, 1);
 }
 
 /* Return whether STMT is the beginning of an instrumentation block to be
@@ -295,22 +337,34 @@ add_sampling_to_edge_counters (void)
   basic_block bb;
 
   FOR_EACH_BB_REVERSE (bb)
-    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    for (gsi = gsi_last (bb_seq (bb)); !gsi_end_p (gsi); gsi_prev (&gsi))
       {
-        gimple stmt = gsi_stmt (gsi);
-        if (is_instrumentation_to_be_sampled (stmt))
+        gimple stmt_end = gsi_stmt (gsi);
+        if (is_instrumentation_to_be_sampled (stmt_end))
           {
-            gimple stmt_end;
+            gimple stmt_beg;
             int i;
+            int edge_counter_stmt_count = EDGE_COUNTER_STMT_COUNT;
+
             /* The code for edge counter increment has EDGE_COUNTER_STMT_COUNT
                gimple statements. Advance that many statements to find the
-               last statement.  */
-            for (i = 0; i < EDGE_COUNTER_STMT_COUNT - 1; i++)
-              gsi_next (&gsi);
-            stmt_end = gsi_stmt (gsi);
-            gcc_assert (stmt_end);
-            add_sampling_wrapper (stmt, stmt_end);
-            break;
+               beginning statement.  */
+            if (COVERAGE_INSERT_CALL)
+              edge_counter_stmt_count++;
+
+            for (i = 0; i < edge_counter_stmt_count - 1; i++)
+              gsi_prev (&gsi);
+            stmt_beg = gsi_stmt (gsi);
+            gcc_assert (stmt_beg);
+
+
+            if (flag_profile_generate_sampling)
+              add_sampling_wrapper (stmt_beg, stmt_end);
+            if (PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE))
+              add_execonce_wrapper (stmt_beg, stmt_end);
+
+            /* reset the iterator and continue.  */
+            gsi = gsi_last (bb_seq (bb));
           }
       }
 }
@@ -508,6 +562,9 @@ tree_init_instrumentation_sampling (void)
         DECL_TLS_MODEL (gcov_sample_counter_decl) =
             decl_default_tls_model (gcov_sample_counter_decl);
     }
+  if (PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE)
+      && instrumentation_to_be_sampled == 0)
+    instrumentation_to_be_sampled = pointer_set_create ();
 }
 
 void
@@ -675,6 +732,31 @@ gimple_gen_edge_profiler (int edgeno, edge e)
     ref = tree_coverage_counter_ref (GCOV_COUNTER_ARCS, edgeno);
 
   one = build_int_cst (gcov_type_node, 1);
+
+  /* insert a callback stmt stmt */
+  if (COVERAGE_INSERT_CALL)
+    {
+      gimple call;
+      tree tree_edgeno = build_int_cst (gcov_type_node, edgeno);
+      tree tree_uid = build_int_cst (gcov_type_node,
+                                     current_function_funcdef_no);
+      tree callback_fn_type
+              = build_function_type_list (void_type_node,
+                                          gcov_type_node,
+                                          integer_type_node,
+                                          NULL_TREE);
+      tree tree_callback_fn = build_fn_decl (COVERAGE_CALLBACK_FUNC_NAME,
+                                             callback_fn_type);
+      TREE_NOTHROW (tree_callback_fn) = 1;
+      DECL_ATTRIBUTES (tree_callback_fn)
+        = tree_cons (get_identifier ("leaf"), NULL,
+                     DECL_ATTRIBUTES (tree_callback_fn));
+  
+      call = gimple_build_call (tree_callback_fn, 2, tree_uid, tree_edgeno);
+      find_referenced_vars_in (call);
+      gsi_insert_on_edge(e, call);
+    }
+
   if (PROFILE_GEN_EDGE_ATOMIC)
     {
       /* __atomic_fetch_add (&counter, 1, MEMMODEL_RELAXED); */
@@ -695,13 +777,14 @@ gimple_gen_edge_profiler (int edgeno, edge e)
       gimple_assign_set_lhs (stmt2, make_ssa_name (gcov_type_tmp_var, stmt2));
       stmt3 = gimple_build_assign (unshare_expr (ref), gimple_assign_lhs (stmt2));
 
-      if (flag_profile_generate_sampling)
-        pointer_set_insert (instrumentation_to_be_sampled, stmt1);
-
       gsi_insert_on_edge (e, stmt1);
       gsi_insert_on_edge (e, stmt2);
     }
   gsi_insert_on_edge (e, stmt3);
+
+  if (flag_profile_generate_sampling
+      || PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE))
+    pointer_set_insert (instrumentation_to_be_sampled, stmt3);
 }
 
 /* Emits code to get VALUE to instrument at GSI, and returns the
@@ -802,7 +885,7 @@ gimple_gen_ic_profiler (histogram_value value, unsigned tag, unsigned base)
   gimple stmt;
   gimple_stmt_iterator gsi;
   tree ref_ptr;
- 
+
   stmt = value->hvalue.stmt;
   gsi = gsi_for_stmt (stmt);
   ref_ptr = tree_coverage_counter_addr (tag, base);
@@ -905,7 +988,7 @@ gimple_gen_ic_func_topn_profiler (void)
   gcov_info = build_fold_addr_expr (gcov_info_decl);
   cur_func_id = build_int_cst (get_gcov_unsigned_t (),
 			       FUNC_DECL_FUNC_ID (cfun));
-  stmt1 = gimple_build_call (tree_indirect_call_topn_profiler_fn, 
+  stmt1 = gimple_build_call (tree_indirect_call_topn_profiler_fn,
 			     3, cur_func, gcov_info, cur_func_id);
   gsi_insert_before (&gsi, stmt1, GSI_SAME_STMT);
 }
@@ -922,7 +1005,7 @@ gimple_gen_dc_profiler (unsigned base, gimple call_stmt)
   gimple stmt1, stmt2, stmt3;
   gimple_stmt_iterator gsi = gsi_for_stmt (call_stmt);
   tree tmp1, tmp2, tmp3, callee = gimple_call_fn (call_stmt);
- 
+
   /* Insert code:
      __gcov_direct_call_counters = get_relevant_counter_ptr ();
      __gcov_callee = (void *) callee;
