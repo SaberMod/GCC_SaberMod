@@ -872,8 +872,11 @@
 /* Define to 1 if a verbose library is built, or 0 otherwise. */
 #undef _GLIBCXX_VERBOSE
 
-/* Defined if as can handle rdrand. */
+/* Defined if as can handle rdrand.
+   Disable when building with Clang.  Google ref b/8680429 */
+#ifndef __clang__
 #undef _GLIBCXX_X86_RDRAND
+#endif
 
 /* Define to 1 if mutex_timedlock is available. */
 #undef _GTHREAD_USE_MUTEX_TIMEDLOCK

@@ -3484,9 +3484,15 @@ AC_DEFUN([GLIBCXX_CHECK_X86_RDRAND], [
 		[ac_cv_x86_rdrand=yes], [ac_cv_x86_rdrand=no])
   esac
   ])
+  AH_VERBATIM([_GLIBCXX_X86_RDRAND,],
+              [/* Defined if as can handle rdrand.
+   Disable when building with Clang.  Google ref b/8680429 */
+#ifndef __clang__
+#undef _GLIBCXX_X86_RDRAND
+#endif])
+
   if test $ac_cv_x86_rdrand = yes; then
-    AC_DEFINE(_GLIBCXX_X86_RDRAND, 1,
-		[ Defined if as can handle rdrand. ])
+    AC_DEFINE(_GLIBCXX_X86_RDRAND, 1)
   fi
   AC_MSG_RESULT($ac_cv_x86_rdrand)
 ])
