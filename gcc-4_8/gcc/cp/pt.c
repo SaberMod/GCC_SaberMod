@@ -6364,7 +6364,8 @@ convert_template_argument (tree parm,
 	      val = error_mark_node;
 	    }
 	}
-      else if (!uses_template_parms (orig_arg) && !uses_template_parms (t))
+      else if (!dependent_template_arg_p (orig_arg)
+	       && !uses_template_parms (t))
 	/* We used to call digest_init here.  However, digest_init
 	   will report errors, which we don't want when complain
 	   is zero.  More importantly, digest_init will try too
@@ -9199,8 +9200,15 @@ use_pack_expansion_extra_args_p (tree parm_packs,
 				 int arg_pack_len,
 				 bool has_empty_arg)
 {
+  /* If one pack has an expansion and another pack has a normal
+     argument or if one pack has an empty argument and an another
+     one hasn't then tsubst_pack_expansion cannot perform the
+     substitution and need to fall back on the
+     PACK_EXPANSION_EXTRA mechanism.  */
   if (parm_packs == NULL_TREE)
     return false;
+  else if (has_empty_arg)
+    return true;
 
   bool has_expansion_arg = false;
   for (int i = 0 ; i < arg_pack_len; ++i)
@@ -9218,13 +9226,7 @@ use_pack_expansion_extra_args_p (tree parm_packs,
 	    has_non_expansion_arg = true;
 	}
 
-      /* If one pack has an expansion and another pack has a normal
-	 argument or if one pack has an empty argument another one
-	 hasn't then tsubst_pack_expansion cannot perform the
-	 substitution and need to fall back on the
-	 PACK_EXPANSION_EXTRA mechanism.  */
-      if ((has_expansion_arg && has_non_expansion_arg)
-	  || (has_empty_arg && (has_expansion_arg || has_non_expansion_arg)))
+      if (has_expansion_arg && has_non_expansion_arg)
 	return true;
     }
   return false;
@@ -14356,7 +14358,10 @@ tsubst_copy_and_build (tree t,
         newlen = vec_safe_length (n);
 	FOR_EACH_VEC_SAFE_ELT (n, idx, ce)
 	  {
-	    if (ce->index && process_index_p)
+	    if (ce->index && process_index_p
+		/* An identifier index is looked up in the type
+		   being initialized, not the current scope.  */
+		&& TREE_CODE (ce->index) != IDENTIFIER_NODE)
 	      ce->index = RECUR (ce->index);
 
             if (PACK_EXPANSION_P (ce->value))
