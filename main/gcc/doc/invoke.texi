@@ -402,8 +402,8 @@ Objective-C and Objective-C++ Dialects}.
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -fripa -fripa-disallow-asm-modules -fripa-disallow-opt-mismatch @gol
--fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func -fripa-verbose @gol
--fripa-peel-size-limit -fripa-unroll-size-limit -frounding-math @gol
+-fripa-inc-path-sub=@var{path_mapping} -fripa-no-promote-always-inline-func @gol
+-fripa-verbose -frounding-math @gol
 -fsched2-use-superblocks -fsched-pressure @gol
 -fsched-spec-load -fsched-spec-load-dangerous @gol
 -fsched-stalled-insns-dep[=@var{n}] -fsched-stalled-insns[=@var{n}] @gol

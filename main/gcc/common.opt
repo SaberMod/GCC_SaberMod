@@ -1162,14 +1162,6 @@ Common Report Var(flag_ripa_no_promote_always_inline) Init(0)
 Don't promote always inline static functions assuming they
 will be inlined and no copy is needed.
 
-fripa-peel-size-limit
-Common Report Var(flag_ripa_peel_size_limit) Init(1) Optimization
-Limit non-const non-FP loop peeling under dynamic IPA estimates of large code footprint
-
-fripa-unroll-size-limit
-Common Report Var(flag_ripa_unroll_size_limit) Init(1) Optimization
-Limit non-const non-FP loop unrolling under dynamic IPA estimates of large code footprint
-
 fripa-inc-path-sub=
 Common Joined RejectNegative Var(lipo_inc_path_pattern)
 Substitute substring in include paths with a new string to allow reuse profile data
