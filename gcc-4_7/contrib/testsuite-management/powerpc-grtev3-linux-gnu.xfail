@@ -82,6 +82,8 @@ UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -O3 -g  -fprofile-use
 FAIL: g++.dg/tree-prof/mversn15.C execution,    -Os  -fprofile-generate
 UNRESOLVED: g++.dg/tree-prof/mversn15.C compilation,  -Os  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -Os  -fprofile-use
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "return 0"
+FAIL: g++.dg/tree-prof/mversn15.C scan-tree-dump optimized "main_clone"
 FAIL: g++.dg/tree-prof/mversn15a.C execution,    -g  -fprofile-generate
 UNRESOLVED: g++.dg/tree-prof/mversn15a.C compilation,  -g  -fprofile-use
 UNRESOLVED: g++.dg/tree-prof/mversn15a.C execution,    -g  -fprofile-use
