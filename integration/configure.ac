@@ -1679,6 +1679,8 @@ enable_lto=yes; default_enable_lto=yes)
 
 ACX_ELF_TARGET_IFELSE([# ELF platforms build the lto-plugin always.
   build_lto_plugin=yes
+  # Allow ELF platforms to build the function_reordering_plugin always.
+  build_function_reordering_plugin=yes
 ],[if test x"$default_enable_lto" = x"yes" ; then
     case $target in
       *-apple-darwin9* | *-cygwin* | *-mingw*) ;;
@@ -1818,6 +1820,11 @@ if test -d ${srcdir}/gcc; then
       extra_host_libiberty_configure_flags=--enable-shared
     fi
   fi
+  if test "${build_function_reordering_plugin}" = "yes" ; then
+    configdirs="$configdirs function_reordering_plugin"
+    extra_host_libiberty_configure_flags=--enable-shared
+  fi
+
   AC_SUBST(extra_host_libiberty_configure_flags)
 
   missing_languages=`echo ",$enable_languages," | sed -e s/,all,/,/ -e s/,c,/,/ `
