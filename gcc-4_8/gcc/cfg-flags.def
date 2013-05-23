@@ -93,6 +93,9 @@ DEF_BASIC_BLOCK_FLAG(VISITED, 13)
    demand, and is available after calling compute_transaction_bits().  */
 DEF_BASIC_BLOCK_FLAG(IN_TRANSACTION, 14)
 
+/* Set on blocks that has been annotated during AutoFDO profile
+   attribution.  */
+DEF_BASIC_BLOCK_FLAG(ANNOTATED, 15)
 #endif
 
 #ifdef DEF_EDGE_FLAG
@@ -176,6 +179,9 @@ DEF_EDGE_FLAG(TM_UNINSTRUMENTED, 15)
 
 /* Abort (over) edge out of a GIMPLE_TRANSACTION statement.  */
 DEF_EDGE_FLAG(TM_ABORT, 16)
+
+/* Annotated during AutoFDO profile attribution.  */
+DEF_EDGE_FLAG(ANNOTATED, 17)
 
 #endif
 

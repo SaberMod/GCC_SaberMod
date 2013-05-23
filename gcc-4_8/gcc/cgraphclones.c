@@ -94,6 +94,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "except.h"
+#include "auto-profile.h"
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
@@ -212,6 +213,11 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
     }
   else
     count_scale = 0;
+  /* In AutoFDO, if edge count is larger than callee's entry block
+     count, we will not update the original callee because it may
+     mistakenly mark some hot function as cold.  */
+  if (flag_auto_profile && count >= n->count)
+    update_original = false;
   if (update_original)
     {
       n->count -= count;
@@ -272,6 +278,9 @@ clone_function_name (tree decl, const char *suffix)
   prefix[len] = '_';
 #endif
   ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
+  if (flag_auto_profile)
+    afdo_add_bfd_name_mapping (xstrdup (tmp_name),
+			       xstrdup (lang_hooks.dwarf_name (decl, 0)));
   return get_identifier (tmp_name);
 }
 

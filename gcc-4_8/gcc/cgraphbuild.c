@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "l-ipo.h"
 #include "ipa-inline.h"
+#include "auto-profile.h"
 
 /* Context of record_reference.  */
 struct record_reference_ctx
@@ -255,6 +256,7 @@ add_fake_indirect_call_edges (struct cgraph_node *node)
     return;
 
   gcc_assert ((n_counts % GCOV_ICALL_TOPN_NCOUNTS) == 0);
+  gcc_assert (!flag_auto_profile);
 
 /* After the early_inline_1 before value profile transformation,
    functions that are indirect call targets may have their bodies
@@ -281,7 +283,7 @@ add_fake_indirect_call_edges (struct cgraph_node *node)
       if (val1 == 0 || count1 == 0)
         continue;
 
-      direct_call1 = find_func_by_global_id (val1);
+      direct_call1 = find_func_by_global_id (val1, false);
       if (direct_call1)
         {
           tree decl = direct_call1->symbol.decl;
@@ -293,7 +295,7 @@ add_fake_indirect_call_edges (struct cgraph_node *node)
 
       if (val2 == 0 || count2 == 0)
         continue;
-      direct_call2 = find_func_by_global_id (val2);
+      direct_call2 = find_func_by_global_id (val2, false);
       if (direct_call2)
         {
           tree decl = direct_call2->symbol.decl;
@@ -488,6 +490,9 @@ build_cgraph_edges (void)
   gimple_stmt_iterator gsi;
   tree decl;
   unsigned ix;
+
+  if (flag_auto_profile)
+    afdo_set_current_function_count ();
 
   /* Create the callgraph edges and record the nodes referenced by the function.
      body.  */

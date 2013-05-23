@@ -370,6 +370,7 @@ extern struct gimple_opt_pass pass_strength_reduction;
 extern struct simple_ipa_opt_pass pass_ipa_lower_emutls;
 extern struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility;
 extern struct simple_ipa_opt_pass pass_ipa_tree_profile;
+extern struct simple_ipa_opt_pass pass_ipa_auto_profile;
 
 extern struct simple_ipa_opt_pass pass_early_local_passes;
 
