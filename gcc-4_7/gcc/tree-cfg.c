@@ -102,13 +102,13 @@ static void factor_computed_gotos (void);
 
 /* Edges.  */
 static void make_edges (void);
+static void assign_discriminators (void);
 static void make_cond_expr_edges (basic_block);
 static void make_gimple_switch_edges (basic_block);
 static void make_goto_expr_edges (basic_block);
 static void make_gimple_asm_edges (basic_block);
 static unsigned int locus_map_hash (const void *);
 static int locus_map_eq (const void *, const void *);
-static void assign_discriminator (location_t, basic_block);
 static edge gimple_redirect_edge_and_branch (edge, basic_block);
 static edge gimple_try_redirect_by_replacing_jump (edge, basic_block);
 static unsigned int split_critical_edges (void);
@@ -217,6 +217,7 @@ build_gimple_cfg (gimple_seq seq)
   discriminator_per_locus = htab_create (13, locus_map_hash, locus_map_eq,
                                          free);
   make_edges ();
+  assign_discriminators ();
   cleanup_dead_labels ();
   htab_delete (discriminator_per_locus);
 
@@ -687,11 +688,7 @@ make_edges (void)
 	fallthru = true;
 
       if (fallthru)
-        {
-	  make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
-	  if (last)
-            assign_discriminator (gimple_location (last), bb->next_bb);
-	}
+	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
   if (root_omp_region)
@@ -707,7 +704,7 @@ make_edges (void)
 static unsigned int
 locus_map_hash (const void *item)
 {
-  return ((const struct locus_discrim_map *) item)->locus;
+  return LOCATION_LINE (((const struct locus_discrim_map *) item)->locus);
 }
 
 /* Equality function for the locus-to-discriminator map.  VA and VB
@@ -718,7 +715,7 @@ locus_map_eq (const void *va, const void *vb)
 {
   const struct locus_discrim_map *a = (const struct locus_discrim_map *) va;
   const struct locus_discrim_map *b = (const struct locus_discrim_map *) vb;
-  return a->locus == b->locus;
+  return LOCATION_LINE (a->locus) == LOCATION_LINE (b->locus);
 }
 
 /* Find the next available discriminator value for LOCUS.  The
@@ -777,55 +774,59 @@ same_line_p (location_t locus1, location_t locus2)
 static void
 assign_discriminator (location_t locus, basic_block bb)
 {
-  gimple first_in_to_bb, last_in_to_bb;
-  int discriminator = 0;
+  gimple_stmt_iterator gsi;
   tree block = LOCATION_BLOCK (locus);
-  locus = LOCATION_LOCUS (locus);
+
+  locus = map_discriminator_location (locus);
 
   if (locus == UNKNOWN_LOCATION)
     return;
 
-  if (has_discriminator (locus))
-    locus = map_discriminator_location (locus);
+  locus = location_with_discriminator (
+      locus, next_discriminator_for_locus (locus));
 
-  /* Check the locus of the first (non-label) instruction in the block.  */
-  first_in_to_bb = first_non_label_stmt (bb);
-  if (first_in_to_bb)
+  if (block != NULL)
+    locus = COMBINE_LOCATION_DATA (line_table, locus, block);
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      location_t first_locus = gimple_location (first_in_to_bb);
-      if (! has_discriminator (first_locus)
-	  && same_line_p (locus, first_locus))
-	discriminator = next_discriminator_for_locus (locus);
+      gimple stmt = gsi_stmt (gsi);
+      if (same_line_p (locus, gimple_location (stmt)))
+	gimple_set_location (stmt, locus);
     }
+}
 
-  /* If the first instruction doesn't trigger a discriminator, check the
-     last instruction of the block.  This catches the case where the
-     increment portion of a for loop is placed at the end of the loop
-     body.  */
-  if (discriminator == 0)
+/* Assign discriminators to each basic block.  */
+
+static void
+assign_discriminators (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
     {
-      last_in_to_bb = last_stmt (bb);
-      if (last_in_to_bb)
-	{
-	   location_t last_locus = gimple_location (last_in_to_bb);
-	   if (! has_discriminator (last_locus)
-	       && same_line_p (locus, last_locus))
-	     discriminator = next_discriminator_for_locus (locus);
-	}
-    }
+      edge e;
+      edge_iterator ei;
+      gimple last = last_stmt (bb);
+      location_t locus = last ? gimple_location (last) : UNKNOWN_LOCATION;
 
-  if (discriminator != 0)
-    {
-      location_t new_locus = location_with_discriminator (locus, discriminator);
-      gimple_stmt_iterator gsi;
+      if (locus == UNKNOWN_LOCATION)
+	continue;
 
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      FOR_EACH_EDGE (e, ei, bb->succs)
 	{
-	  gimple stmt = gsi_stmt (gsi);
-	  if (same_line_p (locus, gimple_location (stmt)))
-	    gimple_set_location (stmt, block ?
-		COMBINE_LOCATION_DATA (line_table, new_locus, block) :
-		LOCATION_LOCUS (new_locus));
+	  gimple first = first_non_label_stmt (e->dest);
+	  gimple last = last_stmt (e->dest);
+	  if ((first && same_line_p (locus, gimple_location (first)))
+	      || (last && same_line_p (locus, gimple_location (last))))
+	    {
+	      if (((first && has_discriminator (gimple_location (first)))
+		   || (last && has_discriminator (gimple_location (last))))
+		  && !has_discriminator (locus))
+		assign_discriminator (locus, bb);
+	      else
+		assign_discriminator (locus, e->dest);
+	    }
 	}
     }
 }
@@ -840,12 +841,9 @@ make_cond_expr_edges (basic_block bb)
   basic_block then_bb, else_bb;
   tree then_label, else_label;
   edge e;
-  location_t entry_locus;
 
   gcc_assert (entry);
   gcc_assert (gimple_code (entry) == GIMPLE_COND);
-
-  entry_locus = gimple_location (entry);
 
   /* Entry basic blocks for each component.  */
   then_label = gimple_cond_true_label (entry);
@@ -856,14 +854,10 @@ make_cond_expr_edges (basic_block bb)
   else_stmt = first_stmt (else_bb);
 
   e = make_edge (bb, then_bb, EDGE_TRUE_VALUE);
-  assign_discriminator (entry_locus, then_bb);
   e->goto_locus = gimple_location (then_stmt);
   e = make_edge (bb, else_bb, EDGE_FALSE_VALUE);
   if (e)
-    {
-      assign_discriminator (entry_locus, else_bb);
-      e->goto_locus = gimple_location (else_stmt);
-    }
+    e->goto_locus = gimple_location (else_stmt);
 
   /* We do not need the labels anymore.  */
   gimple_cond_set_true_label (entry, NULL_TREE);
@@ -983,10 +977,7 @@ static void
 make_gimple_switch_edges (basic_block bb)
 {
   gimple entry = last_stmt (bb);
-  location_t entry_locus;
   size_t i, n;
-
-  entry_locus = gimple_location (entry);
 
   n = gimple_switch_num_labels (entry);
 
@@ -995,7 +986,6 @@ make_gimple_switch_edges (basic_block bb)
       tree lab = CASE_LABEL (gimple_switch_label (entry, i));
       basic_block label_bb = label_to_block (lab);
       make_edge (bb, label_bb, 0);
-      assign_discriminator (entry_locus, label_bb);
     }
 }
 
@@ -1071,7 +1061,6 @@ make_goto_expr_edges (basic_block bb)
       basic_block label_bb = label_to_block (dest);
       edge e = make_edge (bb, label_bb, EDGE_FALLTHRU);
       e->goto_locus = gimple_location (goto_t);
-      assign_discriminator (e->goto_locus, label_bb);
       gsi_remove (&last, true);
       return;
     }
@@ -1086,7 +1075,6 @@ static void
 make_gimple_asm_edges (basic_block bb)
 {
   gimple stmt = last_stmt (bb);
-  location_t stmt_loc = gimple_location (stmt);
   int i, n = gimple_asm_nlabels (stmt);
 
   for (i = 0; i < n; ++i)
@@ -1094,7 +1082,6 @@ make_gimple_asm_edges (basic_block bb)
       tree label = TREE_VALUE (gimple_asm_label_op (stmt, i));
       basic_block label_bb = label_to_block (label);
       make_edge (bb, label_bb, 0);
-      assign_discriminator (stmt_loc, label_bb);
     }
 }
 
