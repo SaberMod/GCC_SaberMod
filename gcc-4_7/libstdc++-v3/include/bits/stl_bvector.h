@@ -639,7 +639,7 @@ template<typename _Alloc>
     {
 #if __google_stl_debug_bvector
       if (!this->_M_is_valid())
-	__throw_logic_error("assign on corrupt (dangling?) vector");
+	__throw_logic_error("assign() on corrupt (dangling?) vector");
 #endif
       _M_fill_assign(__n, __x);
     }
@@ -943,13 +943,7 @@ template<typename _Alloc>
 
 #ifdef __GXX_EXPERIMENTAL_CXX0X__
     void insert(iterator __p, initializer_list<bool> __l)
-    {
-#if __google_stl_debug_bvector
-      if (!this->_M_is_valid())
-	__throw_logic_error("insert() on corrupt (dangling?) vector");
-#endif
-      this->insert(__p, __l.begin(), __l.end());
-    }
+    { this->insert(__p, __l.begin(), __l.end()); }
 #endif
 
     void
