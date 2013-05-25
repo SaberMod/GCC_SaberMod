@@ -1,3 +1,51 @@
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (gnat_init_gcc_fp): Declare.
+	* gcc-interface/trans.c (gigi): Call it.
+	* gcc-interface/misc.c (gnat_init_gcc_fp): New function.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/gigi.h (enum inline_status_t): New type.
+	(create_subprog_decl): Adjust prototype.
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Procedure>: Adjust
+	calls to create_subprog_decl.
+	(get_minimal_subprog_decl): Likewise.
+	* gcc-interface/trans.c (gigi): Likewise.
+	(build_raise_check): Likewise.
+	(establish_gnat_vms_condition_handler): Likewise.
+	(Compilation_Unit_to_gnu): Likewise.
+	(gnat_to_gnu): Likewise.
+	* gcc-interface/utils.c (create_subprog_decl): Change inline_flag
+	parameter to inline_status and implement for suppressed inlining.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/ada-tree.h (LOOP_STMT_NO_UNROLL): New define.
+	(LOOP_STMT_UNROLL): Likewise.
+	(LOOP_STMT_NO_VECTOR): Likewise.
+	(LOOP_STMT_VECTOR): Likewise.
+	* gcc-interface/trans.c (struct loop_info_d): Replace label field
+	with stmt field.
+	(Pragma_to_gnu) <Pragma_Loop_Optimize>: New case.
+	(Loop_Statement_to_gnu): Save the loop statement onto the stack
+	instead of the label.
+	(gnat_to_gnu) <N_Exit_Statement>: Retrieve the loop label.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c: Include diagnostic.h and opts.h.
+	(Pragma_to_gnu) <Pragma_Warnings>: New case.
+
+2013-05-24  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Record_Type>: Constify
+	a handful of local variables.
+	For a derived untagged type that renames discriminants, change the type
+	of the stored discriminants to a subtype with the bounds of the type
+	of the visible discriminants.
+	(build_subst_list): Rename local variable.
+
 2013-05-16  Jason Merrill  <jason@redhat.com>
 
 	* gcc-interface/Make-lang.in (gnat1$(exeext)): Use link mutex.
@@ -13,7 +61,7 @@
 	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Subtype>: Use
 	int_const_binop to shift bounds by 1 when they are integer constants.
 
-2013-04-25  Arnaud Charlet  <charlet@adacore.com>
+2013-04-25  Arnaud Charlet  <charlet@adacore.com>>
 
 	* gcc-interface/Makefile.in (ADA_EXCLUDE_SRCS): Exclude s-init.ad{s,b}
 

@@ -430,6 +430,17 @@ enum exception_info_kind
   exception_column
 };
 
+/* Define the inline status of a subprogram.  */
+enum inline_status_t
+{
+  /* Inlining is suppressed for the subprogram.  */
+  is_suppressed,
+  /* No inlining is requested for the subprogram.  */
+  is_disabled,
+  /* Inlining is requested for the subprogram.  */
+  is_enabled
+};
+
 extern GTY(()) tree gnat_std_decls[(int) ADT_LAST];
 extern GTY(()) tree gnat_raise_decls[(int) LAST_REASON_CODE + 1];
 extern GTY(()) tree gnat_raise_decls_ext[(int) LAST_REASON_CODE + 1];
@@ -491,7 +502,13 @@ extern tree get_block_jmpbuf_decl (void);
    for location information and flag propagation.  */
 extern void gnat_pushdecl (tree decl, Node_Id gnat_node);
 
+/* Initialize the GCC support for exception handling.  */
 extern void gnat_init_gcc_eh (void);
+
+/* Initialize the GCC support for floating-point operations.  */
+extern void gnat_init_gcc_fp (void);
+
+/* Install the builtin functions we might need.  */
 extern void gnat_install_builtins (void);
 
 /* Return an integer type with the number of bits of precision given by
@@ -718,13 +735,14 @@ extern tree create_label_decl (tree, Node_Id);
    node), PARAM_DECL_LIST is the list of the subprogram arguments (a list of
    PARM_DECL nodes chained through the DECL_CHAIN field).
 
-   INLINE_FLAG, PUBLIC_FLAG, EXTERN_FLAG, ARTIFICIAL_FLAG and ATTR_LIST are
+   INLINE_STATUS, PUBLIC_FLAG, EXTERN_FLAG, ARTIFICIAL_FLAG and ATTR_LIST are
    used to set the appropriate fields in the FUNCTION_DECL.  GNAT_NODE is
    used for the position of the decl.  */
 extern tree create_subprog_decl (tree subprog_name, tree asm_name,
 				 tree subprog_type, tree param_decl_list,
-				 bool inline_flag, bool public_flag,
-				 bool extern_flag, bool artificial_flag,
+				 enum inline_status_t inline_status,
+				 bool public_flag, bool extern_flag,
+				 bool artificial_flag,
 				 struct attrib *attr_list, Node_Id gnat_node);
 
 /* Set up the framework for generating code for SUBPROG_DECL, a subprogram
