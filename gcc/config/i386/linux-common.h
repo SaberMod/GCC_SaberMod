@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
   LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC, \
 		       GNU_USER_TARGET_CC1_SPEC \
                        " -mstackrealign -msse3" \
-                       " -m32 -fno-short-enums" \
+                       " -fno-short-enums" \
                        " " \
                        ANDROID_CC1_SPEC("-fPIC"))
 
