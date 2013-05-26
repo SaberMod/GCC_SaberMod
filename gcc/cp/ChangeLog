@@ -1,3 +1,23 @@
+2013-05-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57388
+	* tree.c (build_ref_qualified_type): Clear
+	FUNCTION_RVALUE_QUALIFIED for lvalue ref-qualifier.
+
+	PR c++/57016
+	* pt.c (instantiation_dependent_r) [TRAIT_EXPR]: Only check type2
+	if there is one.
+
+2013-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57325
+	* tree.c (build_cplus_array_type): Copy layout info if element
+	type is complete.
+
+	PR c++/57317
+	* decl2.c (determine_visibility): Use PRIMARY_TEMPLATE_P to decide
+	whether a template has its own args.
+
 2013-05-16  Jason Merrill  <jason@redhat.com>
 
 	PR c++/57279
