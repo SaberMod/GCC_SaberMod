@@ -567,7 +567,6 @@ set_have_cc_tls
 vis_hide
 fixed_point
 enable_decimal_float
-enable_vtable_verify
 decimal_float
 long_double_type_size
 double_type_size
@@ -608,6 +607,7 @@ build_os
 build_vendor
 build_cpu
 build
+enable_vtable_verify
 enable_shared
 libgcc_topdir
 target_alias
@@ -655,12 +655,12 @@ with_target_subdir
 with_cross_host
 with_ld
 enable_shared
+enable_vtable_verify
 enable_version_specific_runtime_libs
 with_slibdir
 enable_maintainer_mode
 with_build_libsubdir
 enable_decimal_float
-enable_vtable_verify
 with_system_libunwind
 enable_sjlj_exceptions
 enable_tls
@@ -1289,6 +1289,7 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --disable-shared        don't provide a shared libgcc
+  --enable-vtable-verify    Enable vtable verification feature
   --enable-version-specific-runtime-libs    Specify that runtime libraries should be installed in a compiler-specific directory
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
@@ -2137,17 +2138,20 @@ else
   enable_shared=yes
 fi
 
+
+
 # Check whether --enable-vtable-verify was given.
 if test "${enable_vtable_verify+set}" = set; then :
-  enableval=$enable_vtable_verify;
-    case "$enableval" in
-    yes | no) ;;
-    *) as_fn_error "Argument to enable/disable vtable-verify must be yes or no" "$LINENO" 5 ;;
-    esac
-
+  enableval=$enable_vtable_verify; case "$enableval" in
+ yes) enable_vtable_verify=yes ;;
+ no)  enable_vtable_verify=no ;;
+ *)   enable_vtable_verify=no;;
+ esac
 else
   enable_vtable_verify=no
 fi
+
+
 
 # Make sure we can run config.sub.
 $SHELL "$ac_aux_dir/config.sub" sun4 >/dev/null 2>&1 ||
