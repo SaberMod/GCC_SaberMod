@@ -1,3 +1,51 @@
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/57412
+	* omp-low.c (expand_omp_atomic_pipeline): Use the correct latch
+	block for the new loop.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57343
+	* tree-ssa-loop-niter.c (number_of_iterations_ne_max): Do not
+	use multiple_of_p if not TYPE_OVERFLOW_UNDEFINED.
+	(number_of_iterations_cond): Do not build the folded tree.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	Revert
+	PR middle-end/57381
+	* fold-const.c (operand_equal_p): Compare FIELD_DECLs with
+	OEP_CONSTANT_ADDRESS_OF retained.
+
+	PR tree-optimization/57417
+	* tree-ssa-sccvn.c (vn_reference_fold_indirect): Fix test
+	for unchanged base.
+	(set_ssa_val_to): Compare addresses using
+	get_addr_base_and_unit_offset.
+
+2013-05-27  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/56833
+	* postreload.c (move2add_record_mode): New function.
+	(move2add_record_sym_value, move2add_valid_value_p): Likewise.
+	(move2add_use_add2_insn): Use move2add_record_sym_value.
+	(move2add_use_add3_insn): Likewise.
+	(reload_cse_move2add): Use move2add_valid_value_p and
+	move2add_record_mode.  Invalidate call-clobbered and REG_INC
+	affected regs by setting reg_mode to VOIDmode.
+	(move2add_note_store): Don't pretend the inside of a SUBREG is
+	the actual destination.  Invalidate single/leading registers by
+	setting reg_mode to VOIDmode.
+	Use move2add_record_sym_value, move2add_valid_value_p and
+	move2add_record_mode.
+
+2013-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57396
+	* tree-affine.c (double_int_constant_multiple_p): Properly
+	return false for val == 0 and div != 0.
+
 2013-05-25  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* config/mips/mips.h: Use #elif in preprocessor conditions.
