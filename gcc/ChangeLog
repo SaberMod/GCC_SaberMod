@@ -1,3 +1,445 @@
+2013-05-29  Teresa Johnson  <tejohnson@google.com>
+
+	* passes.c (dump_passes): Use FOR_EACH_FUNCTION since
+	functions are not yet marked as defined.
+
+2013-05-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_I): Add support for new power8 V2DI
+	instructions.
+	(VEC_A): Likewise.
+	(VEC_C): Likewise.
+	(vrotl<mode>3): Likewise.
+	(vashl<mode>3): Likewise.
+	(vlshr<mode>3): Likewise.
+	(vashr<mode>3): Likewise.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	support for power8 V2DI builtins.
+
+	* config/rs6000/rs6000-builtin.def (abs_v2di): Add support for
+	power8 V2DI builtins.
+	(vupkhsw): Likewise.
+	(vupklsw): Likewise.
+	(vaddudm): Likewise.
+	(vminsd): Likewise.
+	(vmaxsd): Likewise.
+	(vminud): Likewise.
+	(vmaxud): Likewise.
+	(vpkudum): Likewise.
+	(vpksdss): Likewise.
+	(vpkudus): Likewise.
+	(vpksdus): Likewise.
+	(vrld): Likewise.
+	(vsld): Likewise.
+	(vsrd): Likewise.
+	(vsrad): Likewise.
+	(vsubudm): Likewise.
+	(vcmpequd): Likewise.
+	(vcmpgtsd): Likewise.
+	(vcmpgtud): Likewise.
+	(vcmpequd_p): Likewise.
+	(vcmpgtsd_p): Likewise.
+	(vcmpgtud_p): Likewise.
+	(vupkhsw): Likewise.
+	(vupklsw): Likewise.
+	(vaddudm): Likewise.
+	(vmaxsd): Likewise.
+	(vmaxud): Likewise.
+	(vminsd): Likewise.
+	(vminud): Likewise.
+	(vpksdss): Likewise.
+	(vpksdus): Likewise.
+	(vpkudum): Likewise.
+	(vpkudus): Likewise.
+	(vrld): Likewise.
+	(vsld): Likewise.
+	(vsrad): Likewise.
+	(vsrd): Likewise.
+	(vsubudm): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Add
+	support for power8 V2DI instructions.
+
+	* config/rs6000/altivec.md (UNSPEC_VPKUHUM): Add support for
+	power8 V2DI instructions.  Combine pack and unpack insns to use an
+	iterator for each mode.  Check whether a particular mode supports
+	Altivec instructions instead of just checking TARGET_ALTIVEC.
+	(UNSPEC_VPKUWUM): Likewise.
+	(UNSPEC_VPKSHSS): Likewise.
+	(UNSPEC_VPKSWSS): Likewise.
+	(UNSPEC_VPKUHUS): Likewise.
+	(UNSPEC_VPKSHUS): Likewise.
+	(UNSPEC_VPKUWUS): Likewise.
+	(UNSPEC_VPKSWUS): Likewise.
+	(UNSPEC_VPACK_SIGN_SIGN_SAT): Likewise.
+	(UNSPEC_VPACK_SIGN_UNS_SAT): Likewise.
+	(UNSPEC_VPACK_UNS_UNS_SAT): Likewise.
+	(UNSPEC_VPACK_UNS_UNS_MOD): Likewise.
+	(UNSPEC_VUPKHSB): Likewise.
+	(UNSPEC_VUNPACK_HI_SIGN): Likewise.
+	(UNSPEC_VUNPACK_LO_SIGN): Likewise.
+	(UNSPEC_VUPKHSH): Likewise.
+	(UNSPEC_VUPKLSB): Likewise.
+	(UNSPEC_VUPKLSH): Likewise.
+	(VI2): Likewise.
+	(VI_char): Likewise.
+	(VI_scalar): Likewise.
+	(VI_unit): Likewise.
+	(VP): Likewise.
+	(VP_small): Likewise.
+	(VP_small_lc): Likewise.
+	(VU_char): Likewise.
+	(add<mode>3): Likewise.
+	(altivec_vaddcuw): Likewise.
+	(altivec_vaddu<VI_char>s): Likewise.
+	(altivec_vadds<VI_char>s): Likewise.
+	(sub<mode>3): Likewise.
+	(altivec_vsubcuw): Likewise.
+	(altivec_vsubu<VI_char>s): Likewise.
+	(altivec_vsubs<VI_char>s): Likewise.
+	(altivec_vavgs<VI_char>): Likewise.
+	(altivec_vcmpbfp): Likewise.
+	(altivec_eq<mode>): Likewise.
+	(altivec_gt<mode>): Likewise.
+	(altivec_gtu<mode>): Likewise.
+	(umax<mode>3): Likewise.
+	(smax<mode>3): Likewise.
+	(umin<mode>3): Likewise.
+	(smin<mode>3): Likewise.
+	(altivec_vpkuhum): Likewise.
+	(altivec_vpkuwum): Likewise.
+	(altivec_vpkshss): Likewise.
+	(altivec_vpkswss): Likewise.
+	(altivec_vpkuhus): Likewise.
+	(altivec_vpkshus): Likewise.
+	(altivec_vpkuwus): Likewise.
+	(altivec_vpkswus): Likewise.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+	(altivec_vrl<VI_char>): Likewise.
+	(altivec_vsl<VI_char>): Likewise.
+	(altivec_vsr<VI_char>): Likewise.
+	(altivec_vsra<VI_char>): Likewise.
+	(altivec_vsldoi_<mode>): Likewise.
+	(altivec_vupkhsb): Likewise.
+	(altivec_vupkhs<VU_char>): Likewise.
+	(altivec_vupkls<VU_char>): Likewise.
+	(altivec_vupkhsh): Likewise.
+	(altivec_vupklsb): Likewise.
+	(altivec_vupklsh): Likewise.
+	(altivec_vcmpequ<VI_char>_p): Likewise.
+	(altivec_vcmpgts<VI_char>_p): Likewise.
+	(altivec_vcmpgtu<VI_char>_p): Likewise.
+	(abs<mode>2): Likewise.
+	(vec_unpacks_hi_v16qi): Likewise.
+	(vec_unpacks_hi_v8hi): Likewise.
+	(vec_unpacks_lo_v16qi): Likewise.
+	(vec_unpacks_hi_<VP_small_lc>): Likewise.
+	(vec_unpacks_lo_v8hi): Likewise.
+	(vec_unpacks_lo_<VP_small_lc>): Likewise.
+	(vec_pack_trunc_v8h): Likewise.
+	(vec_pack_trunc_v4si): Likewise.
+	(vec_pack_trunc_<mode>): Likewise.
+
+	* config/rs6000/altivec.h (vec_vaddudm): Add defines for power8
+	V2DI builtins.
+	(vec_vmaxsd): Likewise.
+	(vec_vmaxud): Likewise.
+	(vec_vminsd): Likewise.
+	(vec_vminud): Likewise.
+	(vec_vpksdss): Likewise.
+	(vec_vpksdus): Likewise.
+	(vec_vpkudum): Likewise.
+	(vec_vpkudus): Likewise.
+	(vec_vrld): Likewise.
+	(vec_vsld): Likewise.
+	(vec_vsrad): Likewise.
+	(vec_vsrd): Likewise.
+	(vec_vsubudm): Likewise.
+	(vec_vupkhsw): Likewise.
+	(vec_vupklsw): Likewise.
+
+2013-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (symtab_node_base): Add definition, alias and analyzed
+	flags; reorder rest of fields in more consistent way.
+	(varpool_node): Remove analyzed, finalized and alias.
+	(cgraph_ndoe): Likewise.
+	(symtab_alias_ultimate_target): New function.
+	(cgraph_function_node): Move offline.
+	(cgraph_reset_node): Declare.
+	(cgraph_comdat_can_be_unshared_p): Remove.
+	(varpool_remove_initializer): Declare.
+	(varpool_first_defined_variable, varpool_next_defined_variable
+	cgraph_first_defined_function, cgraph_next_defined_function): Update.
+	(cgraph_function_with_gimple_body_p): Update.
+	(varpool_all_refs_explicit_p): Update.
+	(symtab_alias_target): New function.
+	(cgraph_alias_aliased_node, varpool_alias_aliased_node): Rename to ...
+	(cgraph_alias_target, varpool_alias_target): .. this one; simplify.
+	(cgraph_function_or_thunk_node): Simplify using symtab_alias_ultimate_target.
+	(varpool_variable_node): Likewise.
+	* cgraph.c (cgraph_create_function_alias): Update.
+	(cgraph_add_thunk): Update.
+	(cgraph_remove_node): Update.
+	(dump_cgraph_node): Do not dump removed flags.
+	(cgraph_function_body_availability): Update.
+	(cgraph_propagate_frequency): Update.
+	(verify_cgraph_node): Check sanity of local flag.
+	(cgraph_function_node): Move here from cgraph.h; revamp for
+	cgraph_function_or_thunk_node.
+	* lto-symtab.c (lto_varpool_replace_node): Update.
+	(lto_symtab_resolve_can_prevail_p): Update.
+	(lto_symtab_merge_cgraph_nodes): Update.
+	* ipa-cp.c (determine_versionability, initialize_node_lattices,
+	propagate_constants_accross_call, devirtualization_time_bonus,
+	ipcp_propagate_stage): Update.
+	* tree-emutls.c (create_emultls_var, ipa_lower_emutls): Update.
+	* ipa-inline-transform.c (clone_inlined_nodes, preserve_function_body_p): Update.
+	* ipa-reference.c (propagate): Update.
+	(write_node_summary_p): Update.
+	* toplev.c (wrapup_global_declaration_2): Update.
+	* cgraphunit.c (cgraph_analyze_function): Rename to ...
+	(analyze_function) ... this one.
+	(cgraph_process_new_functions): Update.
+	(cgraph_reset_node): Export.
+	(cgraph_finalize_function): Update.
+	(cgraph_add_new_function): Update.
+	(process_function_and_variable_attributes): Update.
+	(varpool_finalize_decl): Update.
+	(symbol_finalized): Remove.
+	(symbol_finalized_and_needed): Rename to ...
+	(symbol_defined_and_needed): ... update.
+	(cgraph_analyze_functions): Update.
+	(handle_alias_pairs): Update.
+	(mark_functions_to_output): Update.
+	(assemble_thunk): Update.
+	(output_in_order): Update.
+	(output_weakrefs): Update.
+	(finalize_compilation_unit): Update.
+	* lto-cgraph.c (reachable_from_other_partition_p, lto_output_node,
+	lto_output_varpool_node, compute_ltrans_boundary, input_overwrite_node,
+	input_node, input_varpool_node): Update.
+	* dbxout.c (dbxout_expand_expr): Update.
+	* cgraphclones.c (cgraph_clone_node): Update.
+	(cgraph_copy_node_for_versioning): Update.
+	(cgraph_materialize_clone): Update.
+	(cgraph_materialize_all_clones): Update.
+	* ipa-pure-const.c (analyze_function, pure_const_write_summary,
+	propagate_pure_const, propagate_nothrow): Update.
+	* lto-streamer-out.c (lto_output, write_symbol): Update.
+	* ipa-utils.c (ipa_reverse_postorder): Update.
+	* ipa-inline.c (can_inline_edge_p): Update.
+	(update_caller_keys, ipa_inline): Update.
+	* dwarf2out.c (reference_to_unused,
+	premark_types_used_by_global_vars_helper): Update.
+	* tree-eh.c (tree_could_trap_p): Update.
+	* ipa-split.c (consider_split, execute_split_functions): Update.
+	* ipa.c (cgraph_non_local_node_p_1, cgraph_local_node_p,
+	 has_addr_references_p): Update;
+	move ahead in file for better readability.
+	(process_references): Simplify.
+	(symtab_remove_unreachable_nodes): Update; cleanup way function/var
+	bodies are removed.
+	(cgraph_comdat_can_be_unshared_p): Make static.
+	(cgraph_externally_visible_p): Update.
+	(varpool_externally_visible_p): Update.
+	(function_and_variable_visibility): Update.
+	* trans-mem.c (get_cg_data, ipa_tm_mayenterirr_function,
+	ipa_tm_mark_force_output_node): Update.
+	* ipa-inline-analysis.c (dump_inline_summary, initialize_inline_failed,
+	estimate_edge_devirt_benefit, inline_generate_summary,
+	inline_write_summary): Update.
+	* gimple-fold.c (can_refer_decl_in_current_unit_p): Update.
+	* ipa-prop.c (ipa_compute_jump_functions): Update.
+	(ipa_print_node_params, ipa_prop_read_section, ipa_update_after_lto_read,
+	read_replacements_section): Update.
+	* varasm.c (mark_decl_referenced): Update.
+	(assemble_alias, dump_tm_clone_pairs): Update.
+	* tree-inline.c (copy_bb): Update.
+	(estimate_num_insns, optimize_inline_calls, tree_function_versioning):
+	Update.
+	* symtab.c (dump_symtab_base): Print new flags.
+	(verify_symtab_base): Verify new flags.
+	(symtab_alias_ultimate_target): New function.
+	* tree-ssa-structalias.c (get_constraint_for_ssa_var,
+	create_variable_info_for, associate_varinfo_to_alias, ipa_pta_execute):
+	Update.
+	* passes.c (ipa_write_summaries, ipa_write_optimization_summaries): Update.
+	* i386.c (ix86_get_function_versions_dispatcher,
+	ix86_generate_version_dispatcher_body): Update.
+	(fold_builtin_cpu): Use varpool_add_new_variable.
+	* varpool.c (varpool_remove_initializer): Break out from ...
+	(varpool_remove_node): ... this one.
+	(dump_varpool_node, varpool_node_for_asm,
+	cgraph_variable_initializer_availability, varpool_analyze_node,
+	varpool_assemble_decl, varpool_remove_unreferenced_decls,
+	varpool_finalize_named_section_flags, varpool_create_variable_alias): Update
+
+2013-05-29  Jan Hubicka  <jh@suse.cz>
+
+	* passes.c (init_optimization_passes): Move OMP expansion into lowering.
+
+2013-05-29  Easwaran Raman  <eraman@google.com>
+
+	PR tree-optimization/57442
+	* tree-ssa-reassoc.c (appears_later_in_bb): Return correct value
+	when control exits the main loop.
+
+2013-05-29  Sandeep Kumar Singh  <Sandeep.Singh2@kpitcummins.com>
+
+	* rx/rx.h (TARGET_CPU_CPP_BUILTINS): Add macros for RX100, RX200,
+	and RX600.
+	* rx/rx.opt: Add macro for rx100 with string rx100 and value
+	RX100.
+	* rx/rx-opts.h (rx_cpu_types): Add new cpu type rx100.
+	* rx/t-rx: Add rx100 under multi library matches option for nofpu
+	option.
+
+2013-05-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/57441
+	* gimple-ssa-strength-reduction.c (analyze_candidates_and_replace):
+	Don't limit size of incr_vec to number of candidates.
+
+2013-05-29  Steve Ellcey  <sellcey@imgtec.com>
+
+	* config/mips/mti-linux.h (SYSROOT_SUFFIX_SPEC): Add micromips
+	and mips16 directories.
+	* config/mips/t-mti-linux (MULTILIB_OPTIONS): Add micromips and
+	mips16.
+	(MULTILIB_DIRNAMES): Ditto.
+	(MULTILIB_EXCEPTIONS): Add new exceptions.
+	* config/mips/t-mti-elf (MULTILIB_OPTIONS): Add micromips.
+	(MULTILIB_DIRNAMES): Ditto.
+	(MULTILIB_EXCEPTIONS): Add new exceptions.
+
+2012-05-29  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_type): Define
+	SYMBOL_TINY_ABSOLUTE.
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately): Handle
+	SYMBOL_TINY_ABSOLUTE.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_classify_symbol): Likewise.
+	(aarch64_mov_operand_p): Remove ATTRIBUTE_UNUSED.
+	Permit SYMBOL_TINY_ABSOLUTE.
+	* config/aarch64/predicates.md (aarch64_mov_operand): Permit CONST.
+
+2013-05-29  Chris Schlumberger-Socha <chris.schlumberger-socha@arm.com>
+	    Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_symbol): Remove comment.
+	Refactor if/switch.  Replace gcc_assert with if.
+
+2013-05-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.c (initial_ix86_tune_features): Enable
+	FP Reassociation for AMD bdver1 and bdver2.
+
+2013-05-29  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-cfg.c (verify_expr): Verify that BIT_FIELD_REF, REALPART_EXPR
+	and IMAGPART_EXPR do not occur within other handled_components.
+
+2013-05-29  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-slp.c (vect_bb_slp_scalar_cost): Guard vinfo
+	access on whether the use is in the BB we currently try to
+	vectorize.
+	(vect_bb_vectorization_profitable_p): Pass the BB we currently
+	vectorize to vect_bb_slp_scalar_cost.
+
+2013-05-29  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-slp.c (vect_bb_slp_scalar_cost): New function
+	computing scalar cost offsetted by stmts that are kept live
+	by scalar uses.
+	(vect_bb_vectorization_profitable_p): Use vect_bb_slp_scalar_cost
+	for computation of scalar cost.
+
+2013-05-28  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips-cpus.def (mips32r2): Change processor type.
+
+2013-05-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* doc/extend.texi (C Extensions): Added documentation about Cilk Plus
+	array notation built-in reduction functions.
+	* doc/passes.texi (Passes): Added documentation about changes done
+	for Cilk Plus.
+	* doc/invoke.texi (C Dialect Options): Added documentation about
+	the -fcilkplus flag.
+	* Makefile.in (C_COMMON_OBJS): Added c-family/array-notation-common.o.
+	(BUILTINS_DEF): Depend on cilkplus.def.
+	* builtins.def: Include cilkplus.def.  Define DEF_CILKPLUS_BUILTIN.
+	* builtin-types.def: Define BT_FN_INT_PTR_PTR_PTR.
+	* cilkplus.def: New file.
+
+2013-05-28  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57439
+	* postreload.c (move2add_use_add2_insn): Use gen_lowpart_common.
+
+2013-05-28  Easwaran Raman  <eraman@google.com>
+
+	PR tree-optimization/57337
+	* tree-ssa-reassoc.c (appears_later_in_bb): New function.
+	(find_insert_point): Correctly identify the insertion point
+	when two statements with the same UID is compared.
+
+2013-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56787
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Drop clobbers
+	from the list of data references.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Skip
+	clobbers.
+	(vect_analyze_loop_operations): Likewise.
+	(vect_transform_loop): Remove clobbers.
+
+2013-05-28  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-cfg.c (verify_expr): Verify that BIT_FIELD_REFs, IMAGPART_EXPRs
+	and REALPART_EXPRs have scalar type.
+
+2013-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57411
+	* tree-ssa-copy.c (may_propagate_copy): Cannot propagate
+	virtual operands.
+	* tree-ssa-dom.c (eliminate_const_or_copy): Special-case
+	virtual operand propagation.
+
+2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.c (sparc_expand_vec_perm_bmask): Use %g0 as
+	destination register for bmasksi_vis.
+	(vector_init_bshuffle): Likewise.
+	* config/sparc/sparc.md (vec_perm_constv8qi): Likewise.
+
+2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC Options): Document -mfix-ut699.
+	* builtins.c (expand_builtin_mathfn) <BUILT_IN_SQRT>: Try to widen the
+	mode if the instruction isn't available in the original mode.
+	* config/sparc/sparc.opt (mfix-ut699): New option.
+	* config/sparc/sparc.md (muldf3_extend): Disable if -mfix-ut699.
+	(divdf3): Turn into expander.
+	(divdf3_nofix): New insn.
+	(divdf3_fix): Likewise.
+	(divsf3): Disable if -mfix-ut699.
+	(sqrtdf2): Turn into expander.
+	(sqrtdf2_nofix): New insn.
+	(sqrtdf2_fix): Likewise.
+	(sqrtsf2): Disable if -mfix-ut699.
+
 2013-05-27  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/57412
@@ -100,7 +542,7 @@
 
 2013-05-24  Dehao Chen  <dehao@google.com>
 
-	* gcc/tree-cfg.c (locus_discrim_map): Fix the typo.
+	* tree-cfg.c (locus_discrim_map): Fix the typo.
 	(locus_discrim_hasher): Likewise.
 	(locus_discrim_hasher::hash): Likewise.
 	(locus_discrim_hasher::equal): Likewise.
@@ -132,11 +574,11 @@
 
 2013-05-24  Dehao Chen  <dehao@google.com>
 
-	* gcc/testsuite/gcc.dg/debug/dwarf2/discriminator.c: New Testcase.
-	* gcc/tree-cfg.c (locus_descrim_hasher::hash): Change discrminator
+	* testsuite/gcc.dg/debug/dwarf2/discriminator.c: New Testcase.
+	* tree-cfg.c (locus_descrim_hasher::hash): Change discriminator
 	hash function.
 	(locus_descrim_hasher::equal): Likewise.
-	(build_gimple_cfg): New discrminator assignmnet algorithm
+	(build_gimple_cfg): New discriminator assignment algorithm.
 	(make_edges): Likewise.
 	(next_discriminator_for_locus): Likewise.
 	(same_line_p): Likewise.
@@ -418,6 +860,7 @@
 	* config/rs6000/rs6000-opts.h (PROCESSOR_POWER8): Likewise.
 	(enum rs6000_vector): Add power8 vector support.
 
+>>>>>>> .r199383
 2013-05-22  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
 	PR target/19599
@@ -449,8 +892,8 @@
 2013-05-21  Easwaran Raman  <eraman@google.com>
 
 	PR tree-optimization/57322
-	* (build_and_add_sum): If a BB is empty, set the UID of the statement
-	added to the BB to be 1.
+	* tree-ssa-reassoc.c (build_and_add_sum): If a BB is empty, set the
+	UID of the statement added to the BB to be 1.
 
 2013-05-21  Jakub Jelinek  <jakub@redhat.com>
 

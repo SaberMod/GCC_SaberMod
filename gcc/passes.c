@@ -718,7 +718,7 @@ dump_passes (void)
 
   create_pass_tab();
 
-  FOR_EACH_DEFINED_FUNCTION (n)
+  FOR_EACH_FUNCTION (n)
     if (DECL_STRUCT_FUNCTION (n->symbol.decl))
       {
 	node = n;
@@ -1300,6 +1300,7 @@ init_optimization_passes (void)
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
   NEXT_PASS (pass_warn_function_return);
+  NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_build_cgraph_edges);
   *p = NULL;
 
@@ -1312,7 +1313,6 @@ init_optimization_passes (void)
       struct opt_pass **p = &pass_early_local_passes.pass.sub;
       NEXT_PASS (pass_fixup_cfg);
       NEXT_PASS (pass_init_datastructures);
-      NEXT_PASS (pass_expand_omp);
 
       NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_early_warn_uninitialized);
@@ -2492,12 +2492,12 @@ ipa_write_summaries (void)
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
-      if (node->analyzed)
+      if (node->symbol.definition)
         lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
     }
 
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if ((!vnode->alias || vnode->alias_of))
+    if ((!vnode->symbol.alias || vnode->alias_of))
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
 
   ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
@@ -2564,7 +2564,7 @@ ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
 
 	 For functions newly born at WPA stage we need to initialize
 	 the uids here.  */
-      if (node->analyzed
+      if (node->symbol.definition
 	  && gimple_has_body_p (node->symbol.decl))
 	{
 	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
