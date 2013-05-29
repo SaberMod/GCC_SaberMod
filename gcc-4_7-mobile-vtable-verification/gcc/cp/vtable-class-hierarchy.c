@@ -1039,6 +1039,9 @@ register_all_pairs (tree body)
                   || (htab_elements (current->registered) > 0)))
             {
 #ifdef VTV_DEBUG
+	      if (str2 == NULL_TREE)
+		str2 = build_string_literal (strlen ("unknown") + 1,
+					     "unknown");
               insert_call_to_register_pair (vtbl_ptr_array[0], num_vtable_args,
                                             arg1, arg2, size_hint_arg, str1,
                                             str2, body);

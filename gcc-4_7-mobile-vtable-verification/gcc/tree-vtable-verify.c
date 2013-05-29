@@ -719,6 +719,10 @@ verify_bb_vtables (basic_block bb)
                   tree expr_tree;
                   gimple_seq pre_p = NULL;
                   char *vtable_name = "<unknown>";
+#ifdef VTV_DEBUG
+		  int len1;
+		  int len2;
+#endif
 
                   vtable_map_node->is_used = true;
                   vtbl_var_decl = vtable_map_node->vtbl_map_decl;

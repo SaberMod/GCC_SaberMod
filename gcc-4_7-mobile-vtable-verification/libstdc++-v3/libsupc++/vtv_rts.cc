@@ -1201,7 +1201,7 @@ __VLTRegisterSetDebug (void **set_handle_ptr, const void *set_symbol_key,
   VTV_DEBUG_ASSERT(set_handle_ptr != NULL);
   init_set_symbol_debug (set_handle_ptr, set_symbol_key, size_hint);
 
-  register_set_common (set_handle_ptr, num_args, vtable_ptr_array);
+  register_set_common (set_handle_ptr, num_args, vtable_ptr_array, true);
 
   accumulate_cycle_count (&regset_cycles, start);
 }
