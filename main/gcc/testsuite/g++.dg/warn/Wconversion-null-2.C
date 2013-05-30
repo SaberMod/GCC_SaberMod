@@ -3,54 +3,32 @@
 
 #include <cstddef>
 
-void
-g (int)
-{
-}
+void g(int) {}
+void g(long) {}
+void g(long long) {}
+extern void g(void*);
 
-void
-g (long)
-{
-}
+template <int I>
+void h() {}
 
-void
-g (long long)
-{
-}
+void k(int) {}
 
-extern void g (void *);
+template <class T>
+void l(T);
 
-template < int I > void
-h ()
-{
-}
+template <>
+void l(int) {}
 
-void
-k (int)
-{
-}
+template <>
+void l(long) {}
 
-template < class T > void l (T);
+template <>
+void l(long long) {}
 
 void warn_for_NULL()
 {
-}
-
-template <> void
-l (long)
-{
-}
-
-template <> void
-l (long long)
-{
-}
-
-int
-main ()
-{
-  int i = NULL;			// { dg-warning "" } converting NULL to non-pointer type
-  float z = NULL;		// { dg-warning "" } converting NULL to non-pointer type
+  int i = NULL; // { dg-warning "" } converting NULL to non-pointer type
+  float z = NULL; // { dg-warning "" } converting NULL to non-pointer type
   int a[2];
 
   i != NULL; // { dg-warning "" } NULL used in arithmetic

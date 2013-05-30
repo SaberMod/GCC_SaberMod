@@ -602,10 +602,6 @@ FAIL: g++.dg/asan/symbolize-callback-1.C  -O2  (test for excess errors)
 FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
 FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 
-# Also failed in trunk ?
-FAIL: g++.dg/warn/Wconversion-null-2.C -std=gnu++98 (test for excess errors)
-FAIL: g++.dg/warn/Wconversion-null-2.C -std=gnu++11 (test for excess errors)
-
 # REAL bug in google/main
 FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 15)
 FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 19)
