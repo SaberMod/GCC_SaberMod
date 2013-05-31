@@ -1,4 +1,38 @@
-2013-05-28  Tobias Burnus  <burnus@net-b.de>
+2013-05-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57456
+	* trans-array.c (gfc_array_init_size): Use passed type spec,
+	when available.
+	(gfc_array_allocate): Pass typespec on.
+	* trans-array.h (gfc_array_allocate): Update prototype.
+	* trans-stmt.c (gfc_trans_allocate): Pass typespec on.
+
+2013-05-31  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54190
+	PR fortran/57217
+	* gfortran.h (gfc_terminal_width): Remove prototype.
+	* error.c (get_terminal_width): Moved here from misc.c. Renamed.
+	Try to determine terminal width from environment variable.
+	* interface.c (compare_type, compare_rank): New functions. Fix assumed
+	type/rank handling.
+	(compare_type_rank, check_dummy_characteristics,
+	check_result_characteristics, gfc_compare_interfaces): Use them.
+	(symbol_rank): Slightly modified and moved.
+	* misc.c (gfc_terminal_width): Moved to error.c.
+
+2013-05-30  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54189
+	* resolve.c (check_assumed_size_reference): Check for e->ref.
+
+2013-05-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57458
+	* interface.c (compare_parameter): Update C1239/C1240 constraint
+	check for assumed-rank/TS29113.
+
+2013-05-29  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/37336
 	* class.c (finalize_component): Fix coarray array refs.
@@ -15,7 +49,7 @@
 	BT_CLASS allocations.
 	* trans-stmt.c (gfc_trans_allocate): Ditto.
 
-2013-05-28  Tobias Burnus  <burnus@net-b.de>
+2013-05-29  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/37336
 	* resolve.c (gfc_resolve_finalizers): Remove not implemented error.

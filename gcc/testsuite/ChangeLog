@@ -1,3 +1,78 @@
+2013-05-31  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57452
+	* c-c++-common/cilk-plus/AN/if_test.c: Fixed out of bounds issue in
+	test-case.
+
+2013-05-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/shrink-wrap-alloca.c: Use __builtin_alloca.
+
+2013-05-31  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/57478
+	PR tree-optimization/57453
+	* gcc.dg/torture/pr57478.c: New test.
+
+2013-05-31  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57456
+	* gfortran.dg/class_array_17.f90: New.
+
+2013-05-31  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56315
+	* gcc.target/arm/iordi3-opt.c: New test.
+
+2013-05-31  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54190
+	PR fortran/57217
+	* gfortran.dg/dummy_procedure_5.f90: Modified error message.
+	* gfortran.dg/interface_26.f90: Ditto.
+	* gfortran.dg/proc_ptr_11.f90: Ditto.
+	* gfortran.dg/proc_ptr_15.f90: Ditto.
+	* gfortran.dg/proc_ptr_comp_20.f90: Ditto.
+	* gfortran.dg/proc_ptr_comp_33.f90: Ditto.
+	* gfortran.dg/proc_ptr_result_5.f90: Ditto.
+	* gfortran.dg/typebound_override_1.f90: Ditto.
+	* gfortran.dg/typebound_override_4.f90: Ditto.
+	* gfortran.dg/typebound_proc_6.f03: Ditto.
+	* gfortran.dg/assumed_type_7.f90: New test.
+	* gfortran.dg/typebound_override_5.f90: New test.
+	* gfortran.dg/typebound_override_6.f90: New test.
+	* gfortran.dg/typebound_override_7.f90: New test.
+
+2013-05-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR middle-end/57073
+	* gfortran.dg/power_6.f90: New.
+
+2013-05-30  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/insv_1.c: New test.
+
+2013-05-30  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* g++.dg/cpp0x/alias-decl-debug-0.C: Add aarch64*-*-* to the
+	dg-skip-if "No stabs".
+
+2013-05-30  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54189
+	* gfortran.dg/assumed_size_1.f90: New.
+
+2013-05-30  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* gcc.dg/shrink-wrap-alloca.c: New added.
+	* gcc.dg/shrink-wrap-pretend.c: New added.
+	* gcc.dg/shrink-wrap-sibcall.c: New added.
+
+2013-05-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57458
+	* gfortran.dg/assumed_rank_13.f90: New.
+
 2013-05-29  Easwaran Raman  <eraman@google.com>
 
 	PR tree-optimization/57442
@@ -13,7 +88,7 @@
 	PR testsuite/57413
 	* gcc.dg/debug/dwarf2/discriminator.c: Restrict the test to linux-gnu.
 
-2013-05-28  Tobias Burnus  <burnus@net-b.de>
+2013-05-29  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/37336
 	* gfortran.dg/auto_dealloc_2.f90: Update _free count in the dump.
@@ -65,7 +140,7 @@
 	* c-c++-common/cilk-plus/AN/test_sec_limits.c: Likewise.
 	* gcc.dg/cilk-plus/cilk-plus.exp: New script.
 
-2013-05-28  Tobias Burnus  <burnus@net-b.de>
+2013-05-29  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/37336
 	* gfortran.dg/finalize_11.f90: New.
@@ -191,6 +266,10 @@
 
 	PR tree-optimization/57294
 	* gcc.dg/ipa/pr57294.c: New test.
+
+2013-05-24  Dehao Chen  <dehao@google.com>
+
+	* gcc.dg/debug/dwarf2/discriminator.c: New Testcase.
 
 2013-05-24  Ian Bolton  <ian.bolton@arm.com>
 
