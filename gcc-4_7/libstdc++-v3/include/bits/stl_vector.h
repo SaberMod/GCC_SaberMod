@@ -244,12 +244,27 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       bool _M_is_valid() const
       {
-        return (this->_M_impl._M_end_of_storage == 0
-		&& this->_M_impl._M_start == 0
-		&& this->_M_impl._M_finish == 0)
-	      || (this->_M_impl._M_start <= this->_M_impl._M_finish
-		  && this->_M_impl._M_finish <= this->_M_impl._M_end_of_storage
-		  && this->_M_impl._M_start < this->_M_impl._M_end_of_storage);
+        if (this->_M_impl._M_end_of_storage == 0
+	    && this->_M_impl._M_start == 0
+	    && this->_M_impl._M_finish == 0)
+	  return true;
+
+	if (this->_M_impl._M_start <= this->_M_impl._M_finish
+	    && this->_M_impl._M_finish <= this->_M_impl._M_end_of_storage)
+	  {
+	    if (this->_M_impl._M_start < this->_M_impl._M_end_of_storage)
+	      return true;
+	    else if (this->_M_impl._M_start == this->_M_impl._M_end_of_storage
+		     && this->_M_impl._M_start == this->_M_impl._M_finish)
+	      {
+		pointer _0xcdcd;
+
+		__builtin_memset(&_0xcdcd, 0xcd, sizeof(_0xcdcd));
+		return this->_M_impl._M_finish != _0xcdcd;
+	      }
+	  }
+
+	return false;
       }
 
     public:
