@@ -3789,6 +3789,15 @@ add_local_variables (struct function *callee, struct function *caller,
 	  {
 	    tree tem = DECL_DEBUG_EXPR (var);
 	    bool old_regimplify = id->regimplify;
+
+            /* The mapped debug expression might be deleted
+               as a varpool node (the reachbility analysis
+               of varpool node does not check the reference
+               from debug expressions.
+               Set it to 0 for all global vars.  */
+            if (L_IPO_COMP_MODE && tem && is_global_var (tem))
+              tem = NULL;
+
 	    id->remapping_type_depth++;
 	    walk_tree (&tem, copy_tree_body_r, id, NULL);
 	    id->remapping_type_depth--;
