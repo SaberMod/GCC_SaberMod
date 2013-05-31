@@ -43,11 +43,11 @@ extern "C" void __VLTChangePermission (int);
 extern void __VLTChangePermission (int);
 #endif
 
-#ifdef BIG_PAGE_SIZE
+#ifdef VTV_BIG_PAGE_SIZE
 /* TODO - Replace '4096' below with correct big page size.  */
-#define VTV_PAGE_SIZE 4096
+#define VTV_PAGE_SIZE 4096UL
 #else 
-#define VTV_PAGE_SIZE 4096
+#define VTV_PAGE_SIZE 4096UL
 #endif
 
 

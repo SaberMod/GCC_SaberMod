@@ -567,7 +567,6 @@ static bool
 var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
 {
   imm_use_iterator imm_iter;
-  gimple stmt2;
   bool found_vcall = false;
   use_operand_p use_p;
 
@@ -592,36 +591,36 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
           tree fncall = gimple_call_fn (stmt2);
           if (TREE_CODE (fncall) == OBJ_TYPE_REF)
             found_vcall = true;
-	  else
-	    return false;
+          else
+            return false;
         }
       else if (gimple_code (stmt2) == GIMPLE_PHI)
         {
           found_vcall = var_is_used_for_virtual_call_p
-	                                            (gimple_phi_result (stmt2),
-	                                             mem_ref_depth);
+                                                    (gimple_phi_result (stmt2),
+                                                     mem_ref_depth);
         }
       else if (gimple_code (stmt2) == GIMPLE_ASSIGN)
         {
-	  tree rhs = gimple_assign_rhs1 (stmt2);
-	  if (TREE_CODE (rhs) == ADDR_EXPR
-	      || TREE_CODE (rhs) == MEM_REF)
-	    *mem_ref_depth = *mem_ref_depth + 1;
-	  
-	  if (TREE_CODE (rhs) == COMPONENT_REF)
-	    {
-	      while (TREE_CODE (TREE_OPERAND (rhs, 0)) == COMPONENT_REF)
-		rhs = TREE_OPERAND (rhs, 0);
+          tree rhs = gimple_assign_rhs1 (stmt2);
+          if (TREE_CODE (rhs) == ADDR_EXPR
+              || TREE_CODE (rhs) == MEM_REF)
+            *mem_ref_depth = *mem_ref_depth + 1;
 
-	      if (TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
-		  || TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF)
-		*mem_ref_depth = *mem_ref_depth + 1;
-	    }
+          if (TREE_CODE (rhs) == COMPONENT_REF)
+            {
+              while (TREE_CODE (TREE_OPERAND (rhs, 0)) == COMPONENT_REF)
+                rhs = TREE_OPERAND (rhs, 0);
 
-	  if (*mem_ref_depth < 3)
-	    found_vcall = var_is_used_for_virtual_call_p
-	                                            (gimple_assign_lhs (stmt2),
-						     mem_ref_depth);
+              if (TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
+                  || TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF)
+                *mem_ref_depth = *mem_ref_depth + 1;
+            }
+
+          if (*mem_ref_depth < 3)
+            found_vcall = var_is_used_for_virtual_call_p
+                                                    (gimple_assign_lhs (stmt2),
+                                                     mem_ref_depth);
         }
 
       else
@@ -670,12 +669,12 @@ verify_bb_vtables (basic_block bb)
       if (is_vtable_assignment_stmt (stmt))
         {
           tree lhs = gimple_assign_lhs (stmt);
-	  tree vtbl_var_decl = NULL_TREE;
+          tree vtbl_var_decl = NULL_TREE;
           struct vtbl_map_node *vtable_map_node;
           tree vtbl_decl = NULL_TREE;
           struct gimplify_ctx gctx;
-	  int mem_ref_depth = 0;
-	  tree class_type;
+          int mem_ref_depth = 0;
+          tree class_type;
 
           /* Make sure this vptr field access is for a virtual call.  */
           if (!var_is_used_for_virtual_call_p (lhs, &mem_ref_depth))
@@ -718,13 +717,14 @@ verify_bb_vtables (basic_block bb)
                 {
                   tree expr_tree;
                   gimple_seq pre_p = NULL;
-                  char *vtable_name = "<unknown>";
+                  const char *vtable_name = "<unknown>";
 #ifdef VTV_DEBUG
-		  int len1;
-		  int len2;
+                  int len1, len2;
 #endif
 
                   vtable_map_node->is_used = true;
+
+#ifndef VTV_NO_VERIFY
                   vtbl_var_decl = vtable_map_node->vtbl_map_decl;
 
                   if (!var_ann (vtbl_var_decl))
@@ -764,6 +764,7 @@ verify_bb_vtables (basic_block bb)
                                                  vtbl_var_decl),
                                       SSA_NAME_VAR (lhs));
 #endif
+
                   /* Assign the result of the call to the original
                      variable receiving the assignment of the
                      object's vtable pointer; mark that variable
@@ -772,7 +773,7 @@ verify_bb_vtables (basic_block bb)
                   mark_sym_for_renaming (SSA_NAME_VAR (lhs));
                   force_gimple_operand (expr_tree, &pre_p, 1,
                                         SSA_NAME_VAR (lhs));
-  
+
                   /* Insert the new call just after the original
                      assignment of the object's vtable pointer.  */
 
@@ -780,6 +781,7 @@ verify_bb_vtables (basic_block bb)
                   gsi_vtbl_assign = gsi_for_stmt (stmt);
                   gsi_insert_seq_after (&gsi_vtbl_assign, pre_p,
                                         GSI_NEW_STMT);
+#endif
 
                   any_verification_calls_generated = true;
                   total_num_verified_vcalls++;

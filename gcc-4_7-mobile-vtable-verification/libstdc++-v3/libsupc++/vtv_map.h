@@ -277,7 +277,7 @@ insert_only_hash_map <T, Alloc>::put_internal (
 }
 
 template <typename T, typename Alloc>
-const typename insert_only_hash_map <T, Alloc>::value_type*
+inline const typename insert_only_hash_map <T, Alloc>::value_type*
 insert_only_hash_map <T, Alloc>::get (const insert_only_hash_map::key_type *k)
                                                                           const
 {
@@ -298,7 +298,7 @@ insert_only_hash_map <T, Alloc>::get (const insert_only_hash_map::key_type *k)
 }
 
 template <typename T, typename Alloc>
-bool
+inline bool
 insert_only_hash_map <T, Alloc>::key_type::equals (
              const typename insert_only_hash_map <T, Alloc>::key_type *k) const
 {

@@ -2068,10 +2068,11 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
           && (strcmp (sect->named.name, ".vtable_map_vars") == 0))
         {
 #if defined (OBJECT_FORMAT_ELF)
+          gcc_assert(DECL_ONE_ONLY(decl));
+          gcc_assert(sect->named.common.flags & SECTION_LINKONCE);
           targetm.asm_out.named_section (sect->named.name,
-                                         sect->named.common.flags
-                                         | SECTION_LINKONCE,
-                                             DECL_NAME (decl));
+                                         sect->named.common.flags,
+                                         DECL_NAME (decl));
           in_section = sect;
 #else
           switch_to_section (sect);
@@ -6368,8 +6369,10 @@ default_section_type_flags (tree decl, const char *name, int reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+#ifdef VTV_NO_MPROTECT
   if (strcmp (name, ".vtable_map_vars") == 0)
-    flags |= SECTION_LINKONCE;
+      flags |= SECTION_WRITE;
+#endif
 
   if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL_P (decl))
     flags |= SECTION_TLS | SECTION_WRITE;

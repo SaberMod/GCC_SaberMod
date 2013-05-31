@@ -229,10 +229,13 @@ vtv_build_vtable_verify_fndecl (void)
   DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl)
       = tree_cons (get_identifier ("leaf"), NULL,
                    DECL_ATTRIBUTES (verify_vtbl_ptr_fndecl));
-  DECL_PURE_P (verify_vtbl_ptr_fndecl) = 1;
+  // Mark this function a CONST, the value only depends on the value of the incoming
+  // arguments. Whatever global memory we read is "logically" read-only.
+  TREE_READONLY(verify_vtbl_ptr_fndecl) = 1;
   TREE_PUBLIC (verify_vtbl_ptr_fndecl) = 1;
 #ifdef VTV_STATIC_VERIFY
-  DECL_VISIBILITY (verify_vtbl_ptr_fndecl) = 1;
+  DECL_VISIBILITY (verify_vtbl_ptr_fndecl) = VISIBILITY_INTERNAL;
+  DECL_VISIBILITY_SPECIFIED (verify_vtbl_ptr_fndecl) = 1;
 #endif
   DECL_PRESERVE_P (verify_vtbl_ptr_fndecl) = 1;
   DECL_LANG_SPECIFIC (verify_vtbl_ptr_fndecl) = ld;
@@ -315,6 +318,10 @@ init_functions (void)
                                DECL_ATTRIBUTES
                                              (vlt_register_set_fndecl));
   TREE_PUBLIC (vlt_register_set_fndecl) = 1;
+#ifdef VTV_STATIC_VERIFY
+  DECL_VISIBILITY (vlt_register_set_fndecl) = VISIBILITY_INTERNAL;
+  DECL_VISIBILITY_SPECIFIED (vlt_register_set_fndecl) = 1;
+#endif
   DECL_PRESERVE_P (vlt_register_set_fndecl) = 1;
   retrofit_lang_decl (vlt_register_set_fndecl);
   SET_DECL_LANGUAGE (vlt_register_set_fndecl, lang_cplusplus);
@@ -363,6 +370,10 @@ init_functions (void)
                                DECL_ATTRIBUTES
                                              (vlt_register_pairs_fndecl));
   TREE_PUBLIC (vlt_register_pairs_fndecl) = 1;
+#ifdef VTV_STATIC_VERIFY
+  DECL_VISIBILITY (vlt_register_pairs_fndecl) = VISIBILITY_INTERNAL;
+  DECL_VISIBILITY_SPECIFIED (vlt_register_pairs_fndecl) = 1;
+#endif
   DECL_PRESERVE_P (vlt_register_pairs_fndecl) = 1;
   retrofit_lang_decl (vlt_register_pairs_fndecl);
   SET_DECL_LANGUAGE (vlt_register_pairs_fndecl, lang_cplusplus);
@@ -1039,9 +1050,9 @@ register_all_pairs (tree body)
                   || (htab_elements (current->registered) > 0)))
             {
 #ifdef VTV_DEBUG
-	      if (str2 == NULL_TREE)
-		str2 = build_string_literal (strlen ("unknown") + 1,
-					     "unknown");
+              if (str2 == NULL_TREE)
+                str2 = build_string_literal (strlen ("unknown") + 1,
+                                             "unknown");
               insert_call_to_register_pair (vtbl_ptr_array[0], num_vtable_args,
                                             arg1, arg2, size_hint_arg, str1,
                                             str2, body);

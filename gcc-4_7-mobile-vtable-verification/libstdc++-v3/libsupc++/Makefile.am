@@ -44,6 +44,11 @@ bits_HEADERS = \
 
 headers = $(std_HEADERS) $(bits_HEADERS)
 
+if ENABLE_VTABLE_VERIFY
+vtv_HEADERS = vtv_fail.h
+headers += $(vtv_HEADERS)
+endif
+
 if GLIBCXX_HOSTED
   c_sources = \
 	cp-demangle.c
@@ -179,6 +184,33 @@ nested_exception.lo: nested_exception.cc
 nested_exception.o: nested_exception.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
 
+if ENABLE_VTABLE_VERIFY
+#use special rules for the VTV sources to force -fno-exceptions
+vtv_int_headers = vtv_malloc.h vtv_map.h vtv_rts_core.h \
+  vtv_rts.h vtv_set.h vtv_utils.h
+
+vtv_rts.lo: vtv_rts.cc vtv_rts_core.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(LTCXXCOMPILE) -fno-exceptions -c $<
+vtv_rts.o: vtv_rts.cc vtv_rts_core.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(CXXCOMPILE) -fno-exceptions -c $<
+vtv_malloc.lo: vtv_malloc.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(LTCXXCOMPILE) -fno-exceptions -c $<
+vtv_malloc.o: vtv_malloc.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(CXXCOMPILE) -fno-exceptions -c $<
+vtv_utils.lo: vtv_utils.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(LTCXXCOMPILE) -fno-exceptions -c $<
+vtv_utils.o: vtv_utils.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(CXXCOMPILE) -fno-exceptions -c $<
+vtv_init.lo: vtv_init.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(LTCXXCOMPILE) -fno-exceptions -c $<
+vtv_init.o: vtv_init.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(CXXCOMPILE) -fno-exceptions -c $<
+vtv_stubs.lo: vtv_stubs.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(LTCXXCOMPILE) -fno-exceptions -c $<
+vtv_stubs.o:vtv_stubs.cc $(vtv_HEADERS) $(vtv_int_headers)
+	$(CXXCOMPILE) -fno-exceptions -c $<
+endif
+
 # Libtool notes
 
 # 1) Need to explicitly set LTCXXCOMPILE so that AM_CXXFLAGS is
@@ -259,6 +291,27 @@ uninstall-bitsHEADERS:
 	  q=`echo $$p | sed -e 's,.*/,,'`; \
 	  rm -f $(DESTDIR)$(bitsdir)/$$q; \
 	done
+
+if ENABLE_VTABLE_VERIFY
+vtvdir = $(gxx_include_dir)
+
+install-vtvHEADERS: $(vtv_HEADERS)
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(vtvdir)
+	@list='$(vtv_HEADERS)'; for p in $$list; do \
+	  q=`echo $$p | sed -e 's,.*/,,'`; \
+	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(vtvdir)/$$q"; \
+	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(vtvdir)/$$q; \
+	done
+
+uninstall-vtvHEADERS:
+	@$(NORMAL_UNINSTALL)
+	list='$(vtv_HEADERS)'; for p in $$list; do \
+	  q=`echo $$p | sed -e 's,.*/,,'`; \
+	  rm -f $(DESTDIR)$(vtvdir)/$$q; \
+	done
+endif
 
 # Google-specific pessimization
 eh_terminate.lo_no_omit_frame_pointer = -fno-omit-frame-pointer

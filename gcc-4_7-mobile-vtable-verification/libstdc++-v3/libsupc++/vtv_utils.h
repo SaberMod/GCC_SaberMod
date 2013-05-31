@@ -43,14 +43,19 @@
 
 /* Name of the section where we put general VTV variables for protection */
 #define VTV_PROTECTED_VARS_SECTION ".vtable_map_vars"
-#define VTV_PROTECTED_VAR \
-                       __attribute__ ((section (VTV_PROTECTED_VARS_SECTION)))
+#define VTV_PROTECTED_HIDDEN_VAR \
+  __attribute__ ((section (VTV_PROTECTED_VARS_SECTION), visibility("hidden")))
+#define VTV_PROTECTED_GLOBAL_VAR \
+  __attribute__ ((section (VTV_PROTECTED_VARS_SECTION), visibility("default")))
+
+#define VTV_LIKELY(x)      __builtin_expect((x), 1)
+#define VTV_UNLIKELY(x)    __builtin_expect((x), 0)
 
 /* The following logging routines try to use low level file access
    routines and avoid calling malloc. We need this so that we dont
    disturb the order of calls to dlopen.  Changing the order of dlopen
    calls may lead to deadlocks */
-int vtv_open_log (const char * name);
-int vtv_add_to_log (int log, const char * format, ...);
-
+int __vtv_open_log (const char * name);
+int __vtv_add_to_log (int log, const char * format, ...);
+void __vtv_log_verification_failure (const char *log_msg, bool generate_backtrace);
 #endif /* VTV_UTILS_H */

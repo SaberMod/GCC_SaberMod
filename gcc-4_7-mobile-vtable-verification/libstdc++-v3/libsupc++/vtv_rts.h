@@ -1,8 +1,8 @@
 /* Copyright (C) 2012
    Free Software Foundation
-  
+
    This file is part of GCC.
-  
+
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
@@ -27,28 +27,61 @@
 
 #include <cstdlib>
 
+#ifdef VTV_STATIC_VERIFY
+#define VTV_VISIBILITY_ATTR "internal"
+#else
+#define VTV_VISIBILITY_ATTR "default"
+#endif
+
+// Not using the "hot" attribute by default because it seems to cause
+// some conflict with the function ordering file used at link
+// time. Specifying an oder for these routines in the ordering file
+// does not seem to work if marked with "hot"
+#ifdef VTV_USE_HOT_ATTR
+#define VTV_HOT_ATTR hot
+#else
+#define VTV_HOT_ATTR
+#endif
+
 /* These prototypes need to be kept in sync with the compiler-
    generated declarations in vtable-class-hierarchy.c.  */
 
 #ifdef VTV_DEBUG
 
 extern void __VLTRegisterSetDebug (void **, const void *, std::size_t,
-                                   std::size_t, void **);
+                                   std::size_t, void **)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
 extern void __VLTRegisterPairDebug (void **, const void *, size_t,
-                                    const void *, const char *, const char *);
+                                    const void *, const char *, const char *)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
 extern const void *__VLTVerifyVtablePointerDebug (void **, const void *,
-                                                  const char *, const char *);
+						  const char *, const char *)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf, 
+		    const));
 
 #else
 
 extern void __VLTRegisterSet (void **, const void *, std::size_t, std::size_t,
-                              void **);
+                              void **)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
-extern void __VLTRegisterPair (void **, const void *, size_t, const void *);
+extern void __VLTRegisterPair (void **, const void *, size_t, const void *)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
-extern const void *__VLTVerifyVtablePointer (void **, const void *);
+/* This is the most performance critical routine. We use every attribute
+   we can use to improve its performance
+   - aligned(64). This function body is pretty small we want it to use the
+     smallest number of cache lines
+   - "const". this function return value only depends on the value of
+     incoming arguments and the value of global memory but this global
+     memory is "constant". So we can say that the return value only
+     logically depends on the incoming arguments
+*/
+extern const void *__VLTVerifyVtablePointer (void **, const void *)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf,
+		    const, aligned(64)));
 
 #endif
 

@@ -57,10 +57,10 @@ unsigned int long long mprotect_cycles = 0;
    that they are protected.  They are explicitly unprotected and
    protected again by calls to VTV_unprotect and VTV_protect */
 
-static struct obstack VTV_obstack VTV_PROTECTED_VAR;
-static void *current_chunk VTV_PROTECTED_VAR = 0;
-static size_t current_chunk_size VTV_PROTECTED_VAR = 0;
-static int malloc_initialized VTV_PROTECTED_VAR = 0;
+struct obstack VTV_obstack VTV_PROTECTED_HIDDEN_VAR;
+void *current_chunk VTV_PROTECTED_HIDDEN_VAR = 0;
+size_t current_chunk_size VTV_PROTECTED_HIDDEN_VAR = 0;
+int malloc_initialized VTV_PROTECTED_HIDDEN_VAR = 0;
 
 int
 VTV_count_mmapped_pages (void)
@@ -82,6 +82,7 @@ VTV_count_mmapped_pages (void)
 static void
 change_protections_on_data_chunks (int protection_flag)
 {
+#ifndef VTV_NO_MPROTECT
   struct _obstack_chunk *ci;
   ci = (struct _obstack_chunk *) current_chunk;
 
@@ -127,12 +128,13 @@ change_protections_on_data_chunks (int protection_flag)
 #if (VTV_DEBUG_MALLOC == 1)
   VTV_malloc_dump_stats ();
 #endif
+#endif
 }
 
 /* This function makes all of our data pages read-only.  */
 
 void
-VTV_malloc_protect (void)
+__vtv_malloc_protect (void)
 {
   change_protections_on_data_chunks (PROT_READ);
 }
@@ -140,7 +142,7 @@ VTV_malloc_protect (void)
 /* This function makes all of our data pages read-write.  */
 
 void
-VTV_malloc_unprotect (void)
+__vtv_malloc_unprotect (void)
 {
   change_protections_on_data_chunks (PROT_READ | PROT_WRITE);
 }
@@ -170,7 +172,7 @@ obstack_chunk_alloc (size_t size)
 }
 
 static void
-obstack_chunk_free (size_t size)
+obstack_chunk_free (size_t)
 {
   /* Do nothing. For our purposes there should be very little
      de-allocation. */
@@ -180,7 +182,7 @@ obstack_chunk_free (size_t size)
    memory allocation scheme.  */
 
 void
-VTV_malloc_init (void)
+__vtv_malloc_init (void)
 {
   /* Make sure we only execute the main body of this function ONCE.  */
   if (malloc_initialized)
@@ -204,23 +206,12 @@ VTV_malloc_init (void)
    the requested number of bytes to be allocated/  */
 
 void *
-VTV_malloc (size_t size)
+__vtv_malloc (size_t size)
 {
   return obstack_alloc (&VTV_obstack, size);
 }
 
-
-/* This is our external interface for memory deallocation.  */
-
-void
-VTV_free (void *)
-{
-  /* Do nothing. We dont care about recovering unneded memory at this
-     time.  */
-}
-
-
-/* This is a debugging function tat collects statistics about our
+/* This is a debugging function that collects statistics about our
    memory allocation.  */
 void
 VTV_malloc_stats (void)
@@ -233,7 +224,7 @@ VTV_malloc_stats (void)
       ci = ci->prev;
     }
   fprintf (stderr,
-           "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
+           "VTV_malloc_stats:\n  Page Size = %u bytes\n  "
            "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 
@@ -246,7 +237,7 @@ VTV_malloc_dump_stats (void)
   static int fd = -1;
 
   if (fd == -1)
-    fd = vtv_open_log ("vtv_mem_protection.log");
+    fd = __vtv_open_log ("vtv_mem_protection.log");
   if (fd == -1)
     return;
 
@@ -258,5 +249,5 @@ VTV_malloc_dump_stats (void)
       ci = ci->prev;
     }
 
-  vtv_add_to_log (fd, "VTV_malloc_protect protected=%d pages\n", count);
+  __vtv_add_to_log (fd, "__vtv_malloc_protect protected=%d pages\n", count);
 }

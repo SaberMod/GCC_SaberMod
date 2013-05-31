@@ -91,7 +91,6 @@ libvtv___la_LIBADD =
 LIBVTV_FLAGS =
 endif
 
-
 # Use special rules for parallel mode compilation.
 PARALLEL_FLAGS = -fopenmp -D_GLIBCXX_PARALLEL -I$(glibcxx_builddir)/../libgomp
 compatibility-parallel_list.lo: compatibility-parallel_list.cc

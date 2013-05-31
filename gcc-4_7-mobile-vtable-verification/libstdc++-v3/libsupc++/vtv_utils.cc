@@ -34,6 +34,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
+#include <execinfo.h>
 
 #include "vtv_utils.h"
 
@@ -53,7 +54,7 @@ static const char * const alt_logs_dir = "/tmp/vtv_logs";
    decriptor.  */
 
 int
-vtv_open_log (const char *name)
+__vtv_open_log (const char *name)
 {
   /* Try to create the logs under /var/log/chrome first, which is
      persistent across reboots.  This location only exists on
@@ -70,7 +71,7 @@ vtv_open_log (const char *name)
   mkdir(alt_logs_dir, S_IRWXU);
   fd = open(log_name, O_WRONLY | O_APPEND | O_CREAT, S_IRWXU);
   if (fd == -1)
-    vtv_add_to_log (2, "Cannot open log file %s %s\n", name,
+    __vtv_add_to_log (2, "Cannot open log file %s %s\n", name,
                     strerror (errno));
   return fd;
 }
@@ -85,7 +86,7 @@ vtv_log_write (int fd, const char *str)
     return 0;
 
   if (fd != 2) /* Make sure we dont get in a loop.  */
-    vtv_add_to_log (2, "Error writing to log: %s\n", strerror (errno));
+    __vtv_add_to_log (2, "Error writing to log: %s\n", strerror (errno));
   return -1;
 }
 
@@ -98,7 +99,7 @@ vtv_log_write (int fd, const char *str)
  to vtv_log_write.  */
 
 int
-vtv_add_to_log (int log_file, const char * format, ...)
+__vtv_add_to_log (int log_file, const char * format, ...)
 {
   /* We dont want to dynamically allocate this buffer. This should be
      more than enough in most cases. It if isn't we are careful not to
@@ -119,4 +120,29 @@ vtv_add_to_log (int log_file, const char * format, ...)
   /*  fdatasync(log_file);  */
 
   return 0;
+}
+
+/* Open error logging file, if not already open, and write vtable
+   verification failure messages (LOG_MSG) to the log file.  Also
+   generate a backtrace in the log file, if GENERATE_BACKTRACE is
+   set.  */
+
+void __vtv_log_verification_failure (const char *log_msg, bool generate_backtrace)
+{
+  static int vtv_failures_log_fd = -1;
+  if (vtv_failures_log_fd == -1)
+    vtv_failures_log_fd = __vtv_open_log ("vtable_verification_failures.log");
+
+  if (vtv_failures_log_fd == -1)
+    return;
+
+  __vtv_add_to_log (vtv_failures_log_fd, "%s", log_msg);
+
+  if (generate_backtrace)
+    {
+#define STACK_DEPTH 20
+      void *callers[STACK_DEPTH];
+      int actual_depth = backtrace (callers, STACK_DEPTH);
+      backtrace_symbols_fd (callers, actual_depth, vtv_failures_log_fd);
+    }
 }

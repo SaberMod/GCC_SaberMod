@@ -37,8 +37,10 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(top_srcdir)/fragment.am $(srcdir)/Makefile.in \
-	$(srcdir)/Makefile.am $(bits_HEADERS) $(std_HEADERS)
-@ENABLE_VTABLE_VERIFY_TRUE@am__append_1 = \
+	$(srcdir)/Makefile.am $(bits_HEADERS) $(std_HEADERS) \
+	$(am__vtv_HEADERS_DIST)
+@ENABLE_VTABLE_VERIFY_TRUE@am__append_1 = $(vtv_HEADERS)
+@ENABLE_VTABLE_VERIFY_TRUE@am__append_2 = \
 @ENABLE_VTABLE_VERIFY_TRUE@        vtv_rts.cc \
 @ENABLE_VTABLE_VERIFY_TRUE@        vtv_malloc.cc \
 @ENABLE_VTABLE_VERIFY_TRUE@        vtv_utils.cc
@@ -92,7 +94,7 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" \
-	"$(DESTDIR)$(stddir)"
+	"$(DESTDIR)$(stddir)" "$(DESTDIR)$(vtvdir)"
 LTLIBRARIES = $(noinst_LTLIBRARIES) $(toolexeclib_LTLIBRARIES)
 libsupc___la_LIBADD =
 @ENABLE_VTABLE_VERIFY_TRUE@am__objects_1 = vtv_rts.lo vtv_malloc.lo \
@@ -149,7 +151,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 SOURCES = $(libsupc___la_SOURCES) $(libsupc__convenience_la_SOURCES) \
 	$(libvtv_init_la_SOURCES) $(libvtv_stubs_la_SOURCES)
-HEADERS = $(bits_HEADERS) $(std_HEADERS)
+am__vtv_HEADERS_DIST = vtv_fail.h
+HEADERS = $(bits_HEADERS) $(std_HEADERS) $(vtv_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 ABI_TWEAKS_SRCDIR = @ABI_TWEAKS_SRCDIR@
@@ -377,7 +380,8 @@ bits_HEADERS = \
 	atomic_lockfree_defines.h cxxabi_forced.h \
 	exception_defines.h exception_ptr.h hash_bytes.h nested_exception.h
 
-headers = $(std_HEADERS) $(bits_HEADERS)
+headers = $(std_HEADERS) $(bits_HEADERS) $(am__append_1)
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_HEADERS = vtv_fail.h
 @GLIBCXX_HOSTED_TRUE@c_sources = \
 @GLIBCXX_HOSTED_TRUE@	cp-demangle.c
 
@@ -393,7 +397,7 @@ sources = array_type_info.cc atexit_arm.cc bad_alloc.cc bad_cast.cc \
 	new_opv.cc new_opvnt.cc pbase_type_info.cc pmem_type_info.cc \
 	pointer_type_info.cc pure.cc si_class_type_info.cc tinfo.cc \
 	tinfo2.cc vec.cc vmi_class_type_info.cc vterminate.cc \
-	$(am__append_1)
+	$(am__append_2)
 @ENABLE_VTABLE_VERIFY_TRUE@vtv_init_sources = \
 @ENABLE_VTABLE_VERIFY_TRUE@        vtv_init.cc
 
@@ -435,6 +439,11 @@ C_COMPILE = \
 LTCOMPILE = $(LIBTOOL) --tag CC --tag disable-shared $(LIBTOOLFLAGS) --mode=compile \
 	    $(CC) $(DEFS) $(C_INCLUDES) $(PIC_CXXFLAGS) \
 	    $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+
+
+#use special rules for the VTV sources to force -fno-exceptions
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_int_headers = vtv_malloc.h vtv_map.h vtv_rts_core.h \
+@ENABLE_VTABLE_VERIFY_TRUE@  vtv_rts.h vtv_set.h vtv_utils.h
 
 
 # Libtool notes
@@ -484,6 +493,7 @@ CXXLINK = \
 # prepending each of $(*_HEADERS) with VPATH below.
 stddir = $(gxx_include_dir)
 bitsdir = $(gxx_include_dir)/bits
+@ENABLE_VTABLE_VERIFY_TRUE@vtvdir = $(gxx_include_dir)
 
 # Google-specific pessimization
 eh_terminate.lo_no_omit_frame_pointer = -fno-omit-frame-pointer
@@ -601,6 +611,26 @@ mostlyclean-libtool:
 
 clean-libtool:
 	-rm -rf .libs _libs
+@ENABLE_VTABLE_VERIFY_FALSE@install-vtvHEADERS: $(vtv_HEADERS)
+@ENABLE_VTABLE_VERIFY_FALSE@	@$(NORMAL_INSTALL)
+@ENABLE_VTABLE_VERIFY_FALSE@	test -z "$(vtvdir)" || $(MKDIR_P) "$(DESTDIR)$(vtvdir)"
+	@list='$(vtv_HEADERS)'; test -n "$(vtvdir)" || list=; \
+	for p in $$list; do \
+	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
+	  echo "$$d$$p"; \
+	done | $(am__base_list) | \
+	while read files; do \
+	  echo " $(INSTALL_HEADER) $$files '$(DESTDIR)$(vtvdir)'"; \
+	  $(INSTALL_HEADER) $$files "$(DESTDIR)$(vtvdir)" || exit $$?; \
+	done
+
+@ENABLE_VTABLE_VERIFY_FALSE@uninstall-vtvHEADERS:
+@ENABLE_VTABLE_VERIFY_FALSE@	@$(NORMAL_UNINSTALL)
+@ENABLE_VTABLE_VERIFY_FALSE@	@list='$(vtv_HEADERS)'; test -n "$(vtvdir)" || list=; \
+@ENABLE_VTABLE_VERIFY_FALSE@	files=`for p in $$list; do echo $$p; done | sed -e 's|^.*/||'`; \
+@ENABLE_VTABLE_VERIFY_FALSE@	test -n "$$files" || exit 0; \
+@ENABLE_VTABLE_VERIFY_FALSE@	echo " ( cd '$(DESTDIR)$(vtvdir)' && rm -f" $$files ")"; \
+@ENABLE_VTABLE_VERIFY_FALSE@	cd "$(DESTDIR)$(vtvdir)" && rm -f $$files
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -657,7 +687,7 @@ check-am: all-am
 check: check-am
 all-am: Makefile $(LTLIBRARIES) $(HEADERS)
 installdirs:
-	for dir in "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" "$(DESTDIR)$(stddir)"; do \
+	for dir in "$(DESTDIR)$(toolexeclibdir)" "$(DESTDIR)$(bitsdir)" "$(DESTDIR)$(stddir)" "$(DESTDIR)$(vtvdir)"; do \
 	  test -z "$$dir" || $(MKDIR_P) "$$dir"; \
 	done
 install: install-am
@@ -707,7 +737,8 @@ info: info-am
 
 info-am:
 
-install-data-am: install-bitsHEADERS install-stdHEADERS
+install-data-am: install-bitsHEADERS install-stdHEADERS \
+	install-vtvHEADERS
 
 install-dvi: install-dvi-am
 
@@ -753,7 +784,7 @@ ps: ps-am
 ps-am:
 
 uninstall-am: uninstall-bitsHEADERS uninstall-stdHEADERS \
-	uninstall-toolexeclibLTLIBRARIES
+	uninstall-toolexeclibLTLIBRARIES uninstall-vtvHEADERS
 
 .MAKE: install-am install-strip
 
@@ -767,12 +798,13 @@ uninstall-am: uninstall-bitsHEADERS uninstall-stdHEADERS \
 	install-html-am install-info install-info-am install-man \
 	install-pdf install-pdf-am install-ps install-ps-am \
 	install-stdHEADERS install-strip \
-	install-toolexeclibLTLIBRARIES installcheck installcheck-am \
-	installdirs maintainer-clean maintainer-clean-generic \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool pdf pdf-am ps ps-am tags uninstall \
-	uninstall-am uninstall-bitsHEADERS uninstall-stdHEADERS \
-	uninstall-toolexeclibLTLIBRARIES
+	install-toolexeclibLTLIBRARIES install-vtvHEADERS installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-bitsHEADERS \
+	uninstall-stdHEADERS uninstall-toolexeclibLTLIBRARIES \
+	uninstall-vtvHEADERS
 
 
 cp-demangle.c:
@@ -803,6 +835,27 @@ nested_exception.lo: nested_exception.cc
 	$(LTCXXCOMPILE) -std=gnu++0x -c $<
 nested_exception.o: nested_exception.cc
 	$(CXXCOMPILE) -std=gnu++0x -c $<
+
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_rts.lo: vtv_rts.cc vtv_rts_core.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(LTCXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_rts.o: vtv_rts.cc vtv_rts_core.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(CXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_malloc.lo: vtv_malloc.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(LTCXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_malloc.o: vtv_malloc.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(CXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_utils.lo: vtv_utils.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(LTCXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_utils.o: vtv_utils.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(CXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_init.lo: vtv_init.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(LTCXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_init.o: vtv_init.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(CXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_stubs.lo: vtv_stubs.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(LTCXXCOMPILE) -fno-exceptions -c $<
+@ENABLE_VTABLE_VERIFY_TRUE@vtv_stubs.o:vtv_stubs.cc $(vtv_HEADERS) $(vtv_int_headers)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(CXXCOMPILE) -fno-exceptions -c $<
 
 install-stdHEADERS: $(std_HEADERS)
 	@$(NORMAL_INSTALL)
@@ -837,6 +890,23 @@ uninstall-bitsHEADERS:
 	  q=`echo $$p | sed -e 's,.*/,,'`; \
 	  rm -f $(DESTDIR)$(bitsdir)/$$q; \
 	done
+
+@ENABLE_VTABLE_VERIFY_TRUE@install-vtvHEADERS: $(vtv_HEADERS)
+@ENABLE_VTABLE_VERIFY_TRUE@	@$(NORMAL_INSTALL)
+@ENABLE_VTABLE_VERIFY_TRUE@	$(mkinstalldirs) $(DESTDIR)$(vtvdir)
+@ENABLE_VTABLE_VERIFY_TRUE@	@list='$(vtv_HEADERS)'; for p in $$list; do \
+@ENABLE_VTABLE_VERIFY_TRUE@	  q=`echo $$p | sed -e 's,.*/,,'`; \
+@ENABLE_VTABLE_VERIFY_TRUE@	  if test -f "$$p"; then d= ; else d="$(srcdir)/"; fi; \
+@ENABLE_VTABLE_VERIFY_TRUE@	  echo " $(INSTALL_DATA) $$d$$p $(DESTDIR)$(vtvdir)/$$q"; \
+@ENABLE_VTABLE_VERIFY_TRUE@	  $(INSTALL_DATA) $$d$$p $(DESTDIR)$(vtvdir)/$$q; \
+@ENABLE_VTABLE_VERIFY_TRUE@	done
+
+@ENABLE_VTABLE_VERIFY_TRUE@uninstall-vtvHEADERS:
+@ENABLE_VTABLE_VERIFY_TRUE@	@$(NORMAL_UNINSTALL)
+@ENABLE_VTABLE_VERIFY_TRUE@	list='$(vtv_HEADERS)'; for p in $$list; do \
+@ENABLE_VTABLE_VERIFY_TRUE@	  q=`echo $$p | sed -e 's,.*/,,'`; \
+@ENABLE_VTABLE_VERIFY_TRUE@	  rm -f $(DESTDIR)$(vtvdir)/$$q; \
+@ENABLE_VTABLE_VERIFY_TRUE@	done
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

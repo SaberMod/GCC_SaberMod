@@ -1,8 +1,8 @@
 /* Copyright (C) 2012
    Free Software Foundation
-  
+
    This file is part of GCC.
-  
+
    GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 3, or (at your option)
@@ -32,7 +32,8 @@
   attempt to rewrite __vtv_really_fail. */
 
 extern void
-__vtv_really_fail (const char *fail_msg) __attribute__ ((noreturn));
+__vtv_really_fail (const char *fail_msg)
+    __attribute__ ((visibility ("default"), noreturn, nothrow));
 
 /* __vtv_verify_fail is the function that gets called if the vtable
   verification code discovers a vtable pointer that it cannot verify
@@ -48,6 +49,6 @@ __vtv_really_fail (const char *fail_msg) __attribute__ ((noreturn));
 
 extern void
 __vtv_verify_fail (void **data_set_ptr, const void *vtbl_pointer)
-                                 __attribute__((visibility ("default")));
+    __attribute__((visibility ("default"), nothrow));
 
 #endif /* _VTV_FAIL_H */

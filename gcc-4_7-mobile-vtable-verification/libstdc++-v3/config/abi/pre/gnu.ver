@@ -1339,8 +1339,14 @@ GLIBCXX_3.4.18 {
     _Z17__vtv_really_fail*;
     _Z14__VLTDumpStats*;
     __VLTChangePermission;
-
-
+    _Z12__vtv_malloc*;
+    _Z17__vtv_malloc_init*;
+    _Z22__vtv_malloc_unprotect*;
+    _Z20__vtv_malloc_protect*;
+    _Z14__vtv_open_log*;
+    _Z16__vtv_add_to_log*;
+    _Z30__vtv_log_verification_failure*;
+    __vtv_symbol_unification_map;
 } GLIBCXX_3.4.17;
 
 # Symbols in the support library (libsupc++) have their own tag.

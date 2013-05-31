@@ -344,9 +344,9 @@ class insert_only_hash_sets
           inc_by (stat_contains_sizes, size (s));
 	}
 
-      return (singleton (s) ?
+      return (VTV_UNLIKELY (singleton (s)) ?
               singleton_key (key) == s :
-              ((s != NULL) && s->contains (key)));
+              (VTV_LIKELY (s != NULL) && VTV_LIKELY (s->contains (key))));
     }
 
     /* Return a set's size.  */
@@ -378,7 +378,7 @@ class insert_only_hash_sets
       return (key_type) ((uintptr_t) s - 1);
     }
 
-    volatile key_type &
+    key_type &
     key_at_index (size_type index)
     { return buckets[index]; }
 
@@ -398,8 +398,8 @@ class insert_only_hash_sets
     
     size_type num_buckets;  /* Must be a power of 2 not less than
 			       min_capacity.  */
-    volatile size_type num_entries;
-    volatile key_type buckets[0];  /* Actual array size is num_buckets.  */
+    size_type num_entries;
+    key_type buckets[0];  /* Actual array size is num_buckets.  */
   };
 
   /* Create an empty set with the given capacity.  Requires that n be
@@ -576,11 +576,11 @@ insert_only_hash_sets<Key, HashFcn, Alloc>::insert_only_hash_set::contains
   key_type k = key_at_index (index);
   size_type indices_examined = 0;
   inc (stat_probes_in_non_trivial_set);
-  while (k != key)
+  while (VTV_UNLIKELY (k != key))
     {
       ++indices_examined;
-      if (/*UNLIKELY*/(k == (key_type) illegal_key
-		       || indices_examined == capacity))
+      if (VTV_UNLIKELY (k == (key_type) illegal_key)
+	  || VTV_UNLIKELY (indices_examined == capacity))
 	return false;
 
       index = next_index (index, indices_examined);

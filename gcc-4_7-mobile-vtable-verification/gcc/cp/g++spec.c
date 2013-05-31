@@ -266,7 +266,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 
   /* Add two more linker args, '-Wl,-u_vtable_map_vars_start and
      '-Wl,-u_vtable_map_vars_end.  */
-  if (saw_vtable_verify && library > 0)
+  if (saw_vtable_verify != 0 && library > 0)
     num_args += 2;
 
   new_decoded_options = XNEWVEC (struct cl_decoded_option, num_args);
@@ -331,7 +331,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
       j++;
     }
 
-  /* Add option to make sure that if we are doing 'std' vtable
+  /* Add option to make sure that if we are doing vtable
      verification then we link with the libvtv_init library.  */
 
   if (saw_vtable_verify == 1 && library > 0)

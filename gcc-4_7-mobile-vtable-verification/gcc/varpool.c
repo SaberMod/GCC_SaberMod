@@ -406,6 +406,19 @@ varpool_finalize_decl (tree decl)
 	varpool_assemble_pending_decls ();
       return;
     }
+
+  /* make sure that all the variables that are in the special vtable variables
+     section are also COMDAT varibles. COMDAT and non-COMDAT variables
+     cannot be put in the same section */
+  if (!DECL_ONE_ONLY(decl)
+      && DECL_SECTION_NAME (decl)
+      && (strcmp(TREE_STRING_POINTER(DECL_SECTION_NAME (decl)),
+                 ".vtable_map_vars") == 0))
+    {
+       gcc_assert(TREE_PUBLIC(decl));
+       DECL_COMDAT_GROUP (decl) = DECL_NAME(decl);
+    }
+
   if (node->needed)
     varpool_enqueue_needed_node (node);
   node->finalized = true;
