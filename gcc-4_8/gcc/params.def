@@ -935,6 +935,15 @@ DEFPARAM (PARAM_LIPO_CUTOFF,
           " enviornment variable",
 	  100, 0, 100)
 
+/* In LIPO profile-gen, use this parameter to limit IPA inline.  */
+DEFPARAM (PARAM_LIPO_SKIP_SPECIAL_SECTIONS,
+	  "lipo-skip-special-sections",
+          "In LIPO profile gen compilation, do not generate direct call "
+          "profiling to functions marked with __attribute__((section(...))"
+          "Those functions can not be inlined so there is no point tracking"
+          "them.",
+	  1, 0, 1)
+
 /* In LIPO profile-gen, use this parameter to set random group generation
    seed value.  */
 DEFPARAM (PARAM_LIPO_RANDOM_SEED,

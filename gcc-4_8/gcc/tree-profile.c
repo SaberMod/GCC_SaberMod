@@ -1128,6 +1128,19 @@ direct_call_profiling (void)
 		|| DECL_IS_BUILTIN (gimple_call_fndecl (stmt)))
 	      continue;
 
+            if (PARAM_VALUE (PARAM_LIPO_SKIP_SPECIAL_SECTIONS))
+            {
+              tree callee = gimple_call_fndecl (stmt);
+              if (DECL_IS_MALLOC (callee)
+                  || DECL_IS_OPERATOR_NEW (callee)
+                  || (DECL_ASSEMBLER_NAME_SET_P (callee)
+                      && (!strcmp (IDENTIFIER_POINTER (
+                          DECL_ASSEMBLER_NAME (callee)), "_ZdlPv")
+                          || !strcmp (IDENTIFIER_POINTER (
+                              DECL_ASSEMBLER_NAME (callee)), "_ZdaPv"))))
+                continue;
+            }
+
 	    if (!coverage_counter_alloc (GCOV_COUNTER_DIRECT_CALL, 2))
 	      continue;
 	    gimple_gen_dc_profiler (0, stmt);
