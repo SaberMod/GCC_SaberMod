@@ -254,6 +254,8 @@ gimple_check_call_args (gimple stmt, tree fndecl)
 		  && !fold_convertible_p (DECL_ARG_TYPE (p), arg)))
             return false;
 	}
+      if (p != NULL)
+	return false;
     }
   else if (parms)
     {
