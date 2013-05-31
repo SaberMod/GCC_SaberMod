@@ -107,7 +107,7 @@ vectorize_loops (void)
 	vect_location = find_loop_location (loop);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
 	    && dump_enabled_p ())
-	  dump_printf (MSG_ALL, "\nAnalyzing loop at %s:%d\n",
+	  dump_printf (MSG_NOTE, "\nAnalyzing loop at %s:%d\n",
                        LOC_FILE (vect_location), LOC_LINE (vect_location));
 
 	loop_vinfo = vect_analyze_loop (loop);
@@ -118,8 +118,7 @@ vectorize_loops (void)
 
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
 	    && dump_enabled_p ())
-          dump_printf (MSG_ALL, "\n\nVectorizing loop at %s:%d\n",
-                       LOC_FILE (vect_location), LOC_LINE (vect_location));
+          dump_printf_loc (MSG_ALL, vect_location, "Vectorized loop\n");
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;
       }
@@ -129,7 +128,7 @@ vectorize_loops (void)
   statistics_counter_event (cfun, "Vectorized loops", num_vectorized_loops);
   if (dump_enabled_p ()
       || (num_vectorized_loops > 0 && dump_enabled_p ()))
-    dump_printf_loc (MSG_ALL, vect_location,
+    dump_printf_loc (MSG_NOTE, vect_location,
                      "vectorized %u loops in function.\n",
                      num_vectorized_loops);
 
