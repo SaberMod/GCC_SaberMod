@@ -1,3 +1,32 @@
+2013-06-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57456
+	* gfortran.dg/class_array_17.f90: New.
+
+2013-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ada/acats/floatstore.lst: New.
+	* ada/acats/run_all.sh: Process it.
+
+2013-05-31  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/powerpc/e500-ord-1.c: New test.
+	* gcc.target/powerpc/e500-ord-2.c: Likewise.
+	* gcc.target/powerpc/e500-unord-1.c: Likewise.
+	* gcc.target/powerpc/e500-unord-2.c: Likewise.
+
+2013-05-31  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* g++.dg/torture/pr54684.C: Add -fno-short-enums.
+
+2013-05-31  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.target/arm/pr56184.C: Add -fno-short-enums.
+
+2013-05-31  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* g++.old-deja/g++.robertl/eb76.C: Add -fno-short-enums.
+
 2013-05-31  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	PR c/57452
