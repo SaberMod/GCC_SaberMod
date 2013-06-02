@@ -310,9 +310,10 @@ afdo_stack_eq (const void *p, const void *q)
       if (s2->callee_name != NULL)
 	return 0;
     }
-  else if (s2->callee_name != NULL
-	   && strcmp (afdo_get_bfd_name (s1->callee_name),
-		      afdo_get_bfd_name (s2->callee_name)))
+  else if (s2->callee_name == NULL)
+    return 0;
+  else if (strcmp (afdo_get_bfd_name (s1->callee_name),
+		   afdo_get_bfd_name (s2->callee_name)))
     return 0;
 
   i = afdo_get_original_name_size (s1->func_name);
@@ -1214,6 +1215,8 @@ process_auto_profile (void)
 	      new_stack->num_inst = 0;
 	      new_stack->count = 0;
 	      new_stack->max_count = 0;
+	      new_stack->hist_size = 0;
+	      new_stack->hist = NULL;
 	      stack_slot = (struct gcov_stack **)
 		  htab_find_slot (stack_htab, new_stack, INSERT);
 	      if (!*stack_slot)
