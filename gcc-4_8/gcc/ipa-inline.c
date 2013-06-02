@@ -2161,7 +2161,8 @@ early_inliner (void)
     {
       /* We iterate incremental inlining to get trivial cases of indirect
 	 inlining.  */
-      while (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS)
+      while ((flag_auto_profile
+	      || iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS))
 	     && early_inline_small_functions (node))
 	{
 	  timevar_push (TV_INTEGRATION);
