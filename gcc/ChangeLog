@@ -1,3 +1,22 @@
+2013-06-01  Janus Weil  <janus@gcc.gnu.org>
+	    Mikael Morin  <mikael@gcc.gnu.org>
+
+	* configure.ac: Add AC_HEADER_TIOCGWINSZ macro.
+	* config.in: Regenerated.
+	* configure: Regenerated.
+
+2013-06-01  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/57366
+	* cgraphunit.c (compile): When weakref is not supported,
+	set up transparent aliases before final output pass.
+	* varasm.c (assemble_alias): Do not try to do it here.
+
+2013-06-01  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/57467
+	* passes.c (for_per_function): Skip unanalyzed functions.
+
 2013-06-01  Jan Hubicka  <jh@suse.cz>
 
 	* lto-symtab.c (lto_symtab_merge_cgraph_nodes_1): Rename to ...
