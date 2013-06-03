@@ -367,3 +367,75 @@ s2s * __vtv_symbol_unification_map VTV_PROTECTED_HIDDEN_VAR = NULL;
 s2s * __vtv_symbol_unification_map VTV_PROTECTED_GLOBAL_VAR = NULL;
 
 #endif
+
+
+static int page_count_2 = 0;
+
+static int
+dl_iterate_phdr_count_pages (struct dl_phdr_info *info,
+                             size_t unused __attribute__ ((__unused__)),
+                             void *data)
+{
+  int *mprotect_flags = (int *) data;
+  off_t map_sect_offset = 0;
+  ElfW (Word) map_sect_len = 0;
+  const char *map_sect_name = VTV_PROTECTED_VARS_SECTION;
+
+  /* Check to see if this is the record for the Linux Virtual Dynamic
+     Shared Object (linux-vdso.so.1), which exists only in memory (and
+     therefore cannot be read from disk).  */
+
+  if (strcmp (info->dlpi_name, "linux-vdso.so.1") == 0)
+    return 0;
+
+  if (strlen (info->dlpi_name) == 0
+      && info->dlpi_addr != 0)
+    return 0;
+
+  read_section_offset_and_length (info, map_sect_name, *mprotect_flags,
+                                 &map_sect_offset, &map_sect_len);
+
+  /* See if we actually found the section.  */
+  if (map_sect_len)
+    page_count_2 += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
+
+  return 0;
+}
+
+static void
+count_all_pages (void)
+{
+  int mprotect_flags;
+
+  mprotect_flags = PROT_READ;
+  page_count_2 = 0;
+
+  dl_iterate_phdr (dl_iterate_phdr_count_pages, (void *) &mprotect_flags);
+  page_count_2 += VTV_count_mmapped_pages ();
+}
+
+void
+__VLTDumpStats (void)
+{
+  int log_fd = __vtv_open_log ("vtv-runtime-stats.log");
+
+  if (log_fd != -1)
+    {
+      count_all_pages ();
+      __vtv_add_to_log (log_fd,
+                        "Calls: mprotect (%d)  regset (%d) regpair (%d)"
+                        " verify_vtable (%d)\n",
+                        num_calls_to_mprotect, num_calls_to_regset,
+                        num_calls_to_regpair, num_calls_to_verify_vtable);
+      __vtv_add_to_log (log_fd,
+                        "Cycles: mprotect (%lld) regset (%lld) "
+                        "regpair (%lld) verify_vtable (%lld)\n",
+                        mprotect_cycles, regset_cycles, regpair_cycles,
+                        verify_vtable_cycles);
+      __vtv_add_to_log (log_fd,
+                        "Pages protected (1): %d\n", num_pages_protected);
+      __vtv_add_to_log (log_fd, "Pages protected (2): %d\n", page_count_2);
+
+      close (log_fd);
+    }
+}

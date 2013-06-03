@@ -224,7 +224,7 @@ VTV_malloc_stats (void)
       ci = ci->prev;
     }
   fprintf (stderr,
-           "VTV_malloc_stats:\n  Page Size = %u bytes\n  "
+           "VTV_malloc_stats:\n  Page Size = %lu bytes\n  "
            "Number of pages = %d\n", VTV_PAGE_SIZE, count);
 }
 
