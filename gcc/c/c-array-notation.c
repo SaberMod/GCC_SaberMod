@@ -1541,7 +1541,10 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
 	}
       else
 	for (jj = 0; jj < rhs_rank; jj++)
-	  rhs_vector[ii][jj] = false;
+	  { 
+	    rhs_vector[ii][jj] = false;
+	    rhs_length[ii][jj] = NULL_TREE;
+	  }
     }
 
   if (length_mismatch_in_expr_p (EXPR_LOCATION (lhs), lhs_length,
@@ -1555,6 +1558,7 @@ build_array_notation_expr (location_t location, tree lhs, tree lhs_origtype,
 
   if (lhs_list_size > 0 && rhs_list_size > 0 && lhs_rank > 0 && rhs_rank > 0
       && TREE_CODE (lhs_length[0][0]) == INTEGER_CST
+      && rhs_length[0][0]
       && TREE_CODE (rhs_length[0][0]) == INTEGER_CST)
     {
       HOST_WIDE_INT l_length = int_cst_value (lhs_length[0][0]);
@@ -1875,7 +1879,7 @@ fix_conditional_array_notations_1 (tree stmt)
   if (!find_rank (location, cond, cond, false, &rank))
     return error_mark_node;
   
-  extract_array_notation_exprs (cond, false, &array_list);
+  extract_array_notation_exprs (stmt, false, &array_list);
   loop_init = push_stmt_list ();
   for (ii = 0; ii < vec_safe_length (array_list); ii++)
     { 
@@ -1895,12 +1899,12 @@ fix_conditional_array_notations_1 (tree stmt)
 	      vec_safe_push (sub_list, array_node);
 	      vec_safe_push (new_var_list, new_var);
 	      add_stmt (builtin_loop);
-	      replace_array_notations (&cond, false, sub_list, new_var_list); 
+	      replace_array_notations (&stmt, false, sub_list, new_var_list); 
 	    }
 	}
     }
 
-  if (!find_rank (location, cond, cond, true, &rank))
+  if (!find_rank (location, stmt, stmt, true, &rank))
     {
       pop_stmt_list (loop_init);
       return error_mark_node;
@@ -1911,7 +1915,7 @@ fix_conditional_array_notations_1 (tree stmt)
       pop_stmt_list (loop_init); 
       return loop_init;
     }  
-  extract_array_notation_exprs (cond, true, &array_list);
+  extract_array_notation_exprs (stmt, true, &array_list);
 
   if (vec_safe_length (array_list) == 0)
     return stmt;
@@ -2761,6 +2765,18 @@ expand_array_notation_exprs (tree t)
 	    expand_array_notation_exprs (*tsi_stmt_ptr (ii_tsi));
       }
       return t;
+    case MODIFY_EXPR:
+      {
+	location_t loc = EXPR_HAS_LOCATION (t) ? EXPR_LOCATION (t) :
+	  UNKNOWN_LOCATION;
+	tree lhs = TREE_OPERAND (t, 0);
+	tree rhs = TREE_OPERAND (t, 1);
+	location_t rhs_loc = EXPR_HAS_LOCATION (rhs) ? EXPR_LOCATION (rhs) :
+	  UNKNOWN_LOCATION;
+	t = build_array_notation_expr (loc, lhs, TREE_TYPE (lhs), NOP_EXPR,
+				       rhs_loc, rhs, TREE_TYPE (rhs));
+	return t;
+      }
     case CALL_EXPR:
       t = fix_array_notation_call_expr (t);
       return t;

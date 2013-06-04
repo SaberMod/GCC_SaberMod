@@ -752,6 +752,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-float -msingle-float  -mdouble-float  @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
+-meva -mno-eva @gol
 -mmicromips -mno-micromips @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
@@ -6172,7 +6173,7 @@ Controls optimization dumps from various optimization passes. If the
 @samp{-@var{options}} form is used, @var{options} is a list of
 @samp{-} separated options to select the dump details and
 optimizations.  If @var{options} is not specified, it defaults to
-@option{all} for details and @option{optall} for optimization
+@option{optimized} for details and @option{optall} for optimization
 groups. If the @var{filename} is not specified, it defaults to
 @file{stderr}. Note that the output @var{filename} will be overwritten
 in case of multiple translation units. If a combined output from
@@ -16378,6 +16379,12 @@ Use (do not use) MT Multithreading instructions.
 @opindex mmcu
 @opindex mno-mcu
 Use (do not use) the MIPS MCU ASE instructions.
+
+@item -meva
+@itemx -mno-eva
+@opindex meva
+@opindex mno-eva
+Use (do not use) the MIPS Enhanced Virtual Addressing instructions.
 
 @item -mlong64
 @opindex mlong64

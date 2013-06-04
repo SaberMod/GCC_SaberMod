@@ -1,3 +1,160 @@
+2013-06-04  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/attr-alias.c: New testcase.
+
+2013-06-04  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-c++-common/cilk-plus/AN/array_test1.c (main): Replaced argc, argv
+	parameters with void.
+	(main2): Removed argc parameter.
+	* c-c++-common/cilk-plus/AN/array_test2.c (main2): Likewise.
+	(main): Replaced argc, argv parameters with void.
+	* c-c++-common/cilk-plus/AN/array_test_ND.c (main): Likewise.
+	(main2): Removed argc parameter.
+	* c-c++-common/cilk-plus/AN/builtin_fn_custom.c (main): Replaced argc
+	argv parameters with void.  Added __asm volatile to avoid optimization
+	on argc, if necessary.
+	* c-c++-common/cilk-plus/AN/builtin_fn_mutating (main): Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_func_double.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/builtin_func_double2.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/conditional.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/exec-once.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/exec-once2.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/fn_ptr.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/gather-scatter-errors.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/gather_scatter.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/misc.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors2.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors3.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/parser_errors4.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/rank_mismatch2.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/sec_reduce_return.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/test_builtin_return.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/vla.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/comma-exp.c (main): Replaced argc, argv
+	parameters with void.
+	(main2): Removed argc parameter.
+	* c-c++-common/cilk-plus/AN/if_test.c (main2): Likewise.
+	(main): Replaced argc, argv parameters with void.
+	* c-c++-common/cilk-plus/AN/fp_triplet_values (main2): Replace argc,
+	argv parameters with void.  Also renamed this function as main, and
+	delete the existing main.
+	* c-c++-common/cilk-plus/AN/sec_implicit.c (main2): Likewise.
+	* c-c++-common/cilk-plus/AN/sec_implicit2.c (main2): Likewise.
+	* c-c++-common/cilk-plus/AN/sec_reduce_max_min_ind.c (main2): Likewise.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/movi_1.c: New test.
+
+2013-06-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/finalize_12.f90: New.
+	* gfortran.dg/alloc_comp_basics_1.f90: Add BLOCK for
+	end of scope finalization.
+	* gfortran.dg/alloc_comp_constructor_1.f90: Ditto.
+	* gfortran.dg/allocatable_scalar_9.f90: Ditto.
+	* gfortran.dg/auto_dealloc_2.f90: Ditto.
+	* gfortran.dg/class_19.f03: Ditto.
+	* gfortran.dg/coarray_lib_alloc_1.f90: Ditto.
+	* gfortran.dg/coarray_lib_alloc_2.f90: Ditto.
+	* gfortran.dg/extends_14.f03: Ditto.
+	* gfortran.dg/move_alloc_4.f90: Ditto.
+	* gfortran.dg/typebound_proc_27.f03: Ditto.
+
+2013-06-04  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* gfortran.dg/bounds_check_7.f90: Remove "! {".
+	* gfortran.dg/coarray_poly_3.f90: Remove inactive, broken dg-*.
+	* gfortran.dg/default_initialization_5.f90: Update dg-do.
+	* gfortran.dg/g77/f77-edit-s-out.f: Fix broken dg-output.
+	* gfortran.dg/g77/f77-edit-t-out.f: Fix broken dg-output.
+	* gfortran.dg/g77/f77-edit-x-out.f: Fix broken dg-output.
+	* gfortran.dg/init_flag_11.f90: Fix broken dg-options.
+	* gfortran.dg/io_real_boz_3.f90: Add comment regarding dg-do  run.
+	* gfortran.dg/io_real_boz_4.f90: Ditto.
+	* gfortran.dg/io_real_boz_5.f90: Ditto.
+	* gfortran.dg/namelist_print_1.f: Fix broken dg-output.
+	* gfortran.dg/read_x_eor.f90: Fix broken dg-output.
+	* gfortran.dg/repeat_1.f90: Improve dg-output pattern.
+	* gfortran.dg/spread_bounds_1.f90: Fix broken dg-output.
+	* gfortran.dg/transpose_2.f90: Fix dg-output.
+
+2013-06-03  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-c++-common/cilk-plus/AN/if_test_errors.c (main): New testcase.
+	* c-c++-common/cilk-plus/AN/rank_mismatch.c: Added a '-w' option to
+	dg-option and an header comment.
+	
+2013-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57419
+	* g++.dg/cpp0x/sfinae46.C: New.
+	* g++.dg/cpp0x/defaulted13.C: Adjust.
+	* g++.dg/cpp0x/defaulted2.C: Likewise.
+	* g++.dg/cpp0x/defaulted26.C: Likewise.
+	* g++.dg/cpp0x/defaulted3.C: Likewise.
+	* g++.dg/cpp0x/error1.C: Likewise.
+	* g++.dg/cpp0x/implicit1.C: Likewise.
+	* g++.dg/cpp0x/implicit11.C: Likewise.
+	* g++.dg/cpp0x/inh-ctor13.C: Likewise.
+	* g++.dg/cpp0x/initlist47.C: Likewise.
+	* g++.dg/cpp0x/initlist9.C: Likewise.
+	* g++.dg/cpp0x/lambda/lambda-errloc.C: Likewise.
+	* g++.dg/cpp0x/lambda/lambda-errloc2.C: Likewise.
+	* g++.dg/cpp0x/nsdmi-local.C: Likewise.
+	* g++.dg/cpp0x/union4.C: Likewise.
+	* g++.dg/template/crash108.C: Likewise.
+	* g++.dg/template/crash41.C: Likewise.
+	* g++.old-deja/g++.jason/local.C: Likewise.
+	* g++.old-deja/g++.law/visibility3.C: Likewise.
+
+2013-06-03  Teresa Johnson  <tejohnson@google.com>
+
+	* gcc.dg/vect/bb-slp-31.c: Update vect dump message.
+	* gcc.dg/vect/bb-slp-14.c: Ditto.
+	* gcc.dg/vect/fast-math-bb-slp-call-1.c: Ditto.
+	* gcc.dg/vect/bb-slp-23.c: Ditto.
+	* gcc.dg/vect/bb-slp-15.c: Ditto.
+	* gcc.dg/vect/fast-math-bb-slp-call-2.c: Ditto.
+	* gcc.dg/vect/bb-slp-24.c: Ditto.
+	* gcc.dg/vect/bb-slp-16.c: Ditto.
+	* gcc.dg/vect/bb-slp-25.c: Ditto.
+	* gcc.dg/vect/bb-slp-pattern-2.c: Ditto.
+	* gcc.dg/vect/bb-slp-17.c: Ditto.
+	* gcc.dg/vect/bb-slp-1.c: Ditto.
+	* gcc.dg/vect/bb-slp-26.c: Ditto.
+	* gcc.dg/vect/bb-slp-18.c: Ditto.
+	* gcc.dg/vect/bb-slp-2.c: Ditto.
+	* gcc.dg/vect/no-tree-reassoc-bb-slp-12.c: Ditto.
+	* gcc.dg/vect/bb-slp-27.c: Ditto.
+	* gcc.dg/vect/bb-slp-19.c: Ditto.
+	* gcc.dg/vect/bb-slp-3.c: Ditto.
+	* gcc.dg/vect/bb-slp-28.c: Ditto.
+	* gcc.dg/vect/bb-slp-4.c: Ditto.
+	* gcc.dg/vect/bb-slp-29.c: Ditto.
+	* gcc.dg/vect/bb-slp-5.c: Ditto.
+	* gcc.dg/vect/bb-slp-6.c: Ditto.
+	* gcc.dg/vect/bb-slp-8a.c: Ditto.
+	* gcc.dg/vect/bb-slp-7.c: Ditto.
+	* gcc.dg/vect/bb-slp-8b.c: Ditto.
+	* gcc.dg/vect/bb-slp-8.c: Ditto.
+	* gcc.dg/vect/bb-slp-9.c: Ditto.
+	* gcc.dg/vect/bb-slp-10.c: Ditto.
+	* gcc.dg/vect/bb-slp-11.c: Ditto.
+	* gcc.dg/vect/bb-slp-20.c: Ditto.
+	* gcc.dg/vect/bb-slp-cond-1.c: Ditto.
+	* gcc.dg/vect/bb-slp-21.c: Ditto.
+	* gcc.dg/vect/bb-slp-30.c: Ditto.
+	* gcc.dg/vect/bb-slp-13.c: Ditto.
+	* gcc.dg/vect/bb-slp-22.c: Ditto.
+	* g++.dg/vect/slp-pr50413.cc: Ditto.
+	* g++.dg/vect/slp-pr56812.cc: Ditto.
+	* g++.dg/vect/slp-pr50819.cc: Ditto.
+
 2013-06-01  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/57456

@@ -1,3 +1,180 @@
+2013-06-04  Jan Hubicka  <jh@suse.cz>
+
+	* ipa-inline.c (update_caller_keys): Fix availability test.
+	(update_callee_keys): Likewise.
+	* symtab.c (symtab_alias_ultimate_target): Make availaiblity logic
+	to follow ELF standard.
+
+2013-06-04  Jürgen Urban  <JuergenUrban@gmx.de>
+
+	* config.gcc (mipsr5900-*-elf*, mipsr5900el-*-elf*, mips64r5900-*-elf*)
+	(mips64r5900el-*-elf*): New configurations.
+	* config/mips/mips-cpus.def (r5900): New processor.
+	* config/mips/mips-tables.opt: Regenerate.
+	* config/mips/mips.c (mips_rtx_cost_data): Add an R5900 entry.
+	(mips_issue_rate): Handle PROCESSOR_R5900.
+	(mips_reorg_process_insns): Force reorder mode for the R5900.
+	* config/mips/mips.h (TARGET_MIPS5900): Define.
+	(ISA_HAS_CONDMOVE, ISA_HAS_PREFETCH, ISA_HAS_HILO_INTERLOCKS): Include
+	TARGET_MIPS5900.
+	(ISA_HAS_LOAD_DELAY, ISA_HAS_XFER_DELAY, ISA_HAS_FCMP_DELAY): Exclude
+	TARGET_MIPS5900.
+	* config/mips/mips.md (processor): Add r5900.
+	(MOVECC): Disallow CCmode conditions for TARGET_MIPS5900.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.md (*mov<mode>_aarch64): Call
+	into function to generate MOVI instruction.
+	* config/aarch64/aarch64.c (aarch64_simd_container_mode):
+	New function.
+	(aarch64_preferred_simd_mode): Turn into wrapper.
+	(aarch64_output_scalar_simd_mov_immediate): New function.
+	* config/aarch64/aarch64-protos.h: Add prototype for above.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (simd_immediate_info): Remove
+	element_char member.
+	(sizetochar): Return signed char.
+	(aarch64_simd_valid_immediate): Remove elchar and other
+	unnecessary variables.
+	(aarch64_output_simd_mov_immediate): Take rtx instead of &rtx.
+	Calculate element_char as required.
+	* config/aarch64/aarch64-protos.h: Update and move prototype
+	for aarch64_output_simd_mov_immediate.
+	* config/aarch64/aarch64-simd.md (*aarch64_simd_mov<mode>):
+	Update arguments.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (simd_immediate_info): Struct to hold
+	information completed by aarch64_simd_valid_immediate.
+	(aarch64_legitimate_constant_p): Update arguments.
+	(aarch64_simd_valid_immediate): Work with struct rather than many
+	pointers.
+	(aarch64_simd_scalar_immediate_valid_for_move): Update arguments.
+	(aarch64_simd_make_constant): Update arguments.
+	(aarch64_output_simd_mov_immediate): Work with struct rather than
+	many pointers.  Output immediate directly rather than as operand.
+	* config/aarch64/aarch64-protos.h (aarch64_simd_valid_immediate):
+	Update prototype.
+	* config/aarch64/constraints.md (Dn): Update arguments.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_valid_immediate): No
+	longer static.
+	(aarch64_simd_immediate_valid_for_move): Remove.
+	(aarch64_simd_scalar_immediate_valid_for_move): Update call.
+	(aarch64_simd_make_constant): Update call.
+	(aarch64_output_simd_mov_immediate): Update call.
+	* config/aarch64/aarch64-protos.h (aarch64_simd_valid_immediate):
+	Add prototype.
+	* config/aarch64/constraints.md (Dn): Update call.
+
+2013-06-04  Ian Bolton  <ian.bolton@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_valid_immediate): Change
+	return type to bool for prototype.
+	(aarch64_legitimate_constant_p): Check for true instead of not -1.
+	(aarch64_simd_valid_immediate): Fix up each return to return a bool.
+	(aarch64_simd_immediate_valid_for_move): Update retval for bool.
+
+2013-06-04  Catherine Moore  <clm@codesourcery.com>
+
+	* config/mips/mips.opt (meva): New.
+	* config/mips/mips.h (TARGET_CPU_CPP_BUILTINS):
+	Define __mips_eva.
+	(ASM_SPEC): Handle -meva.
+	* doc/invoke.texi (meva):  Document.
+
+2013-06-04  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (output_toc): Correct little-endian float
+	constant output.
+
+2013-06-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* rtl.def: Add extra fourth optional field to define_cond_exec.
+	* gensupport.c (process_one_cond_exec): Process attributes from
+	define_cond_exec.
+	* doc/md.texi: Document fourth field in define_cond_exec.
+
+2013-06-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expmed.c (extract_bit_field_1): In the larger-than-a-word case, factor
+	out the processing order as in store_bit_field_1.
+
+2013-06-04  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/57500
+	* cgraphunit.c (cgraph_process_same_body_aliases): Create
+	non-VAR_DECL node if it does not exist yet.
+
+2013-06-03  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mipsisa64sr71k-*-elf*, mipsisa64sb1-*-elf*)
+	(mipsisa64sb1el-*-elf*, mips64-*-elf*, mips64el-*-elf*)
+	(mips64orion-*-elf*, mips64orionel-*-elf*): Remove
+	target_cpu_default setting.
+
+2013-06-03  Teresa Johnson  <tejohnson@google.com>
+
+	* dumpfile.c (opt_info_switch_p): Change -fopt-info
+	default to -fopt-info=optimized instead of all.
+	* doc/invoke.texi: Ditto.
+	* tree-vectorizer.c (vectorize_loops): Emit loop vectorization
+	success under MSG_OPTIMIZED_LOCATIONS, and use dump_printf_loc.
+	(execute_vect_slp): Emit BB vectorization success under
+	MSG_OPTIMIZED_LOCATIONS.
+	* tree-vect-slp.c (vect_slp_transform_bb): Change
+	MSG_OPTIMIZED_LOCATIONS to MSG_NOTE.
+	* tree-vect-loop.c (vect_transform_loop): Ditto.
+
+2013-06-03  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57415
+	* config/rs6000/rs6000-c.c (altivec_resolve_overloaded_builtin):
+	Use TARGET_EXPR for C++.
+
+2013-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57268
+	* sched-deps.c (sched_analyze_2): Don't flush_pending_lists
+	if DEBUG_INSN_P (insn).
+
+	Reapply
+	2013-05-31  Dinar Temirbulatov  <dinar@kugelworks.com>
+
+	PR rtl-optimization/57268
+	* sched-deps.c (sched_analyze_2): Flush dependence lists if
+	the sum of the read and write lists exceeds MAX_PENDING_LIST_LENGTH.
+
+2013-06-03  Yuri Rumyantsev  <yuri.s.rumyantsev@intel.com>
+
+	* config/i386/i386.c (ix86_lea_outperforms): Fix formatting.
+	(ix86_avoid_lea_for_addr): Likewise.
+	(exact_dependency_1): Likewise.
+	(ix86_adjust_cost): Likewise.
+	(swap_top_of_ready_list): Fix formatting and !reload_completed check
+	removed.
+	(do_reorder_for_imul): Fix typo, formatting and
+	!reload_completed check removed.
+	(ix86_sched_reorder): Fix typo and formatting.
+	(fold_builtin_cpu): Move M_INTEL_SLM at the end of processor types
+	list.
+
+2013-06-03  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64.md (*movdi_aarch64): Define "simd" attribute.
+
+2013-06-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* varasm.c (output_constant) <CONSTRUCTOR>: Minor formatting tweak.
+	<STRING_CST>: Likewise.
+	<VECTOR_CST>: Likewise.
+
 2013-06-01  Janus Weil  <janus@gcc.gnu.org>
 	    Mikael Morin  <mikael@gcc.gnu.org>
 
@@ -258,8 +435,6 @@
 
 	* config/i386/i386.md (cpu): Add new value "slm".
 	(slm.md): Include slm.md.
-
-	* libgcc/config/i386/cpuinfo.c (INTEL_SLM): New enum value.
 
 2013-05-30  Bernd Schmidt  <bernds@codesourcery.com>
 	    Zhenqiang Chen  <zhenqiang.chen@linaro.org>
