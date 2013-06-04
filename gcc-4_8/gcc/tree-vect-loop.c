@@ -5779,8 +5779,10 @@ vect_transform_loop (loop_vec_info loop_vinfo)
   update_ssa (TODO_update_ssa);
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location, "LOOP VECTORIZED.");
-  if (loop->inner && dump_enabled_p ())
-    dump_printf_loc (MSG_NOTE, vect_location,
-		     "OUTER LOOP VECTORIZED.");
+    {
+      dump_printf_loc (MSG_NOTE, vect_location, "LOOP VECTORIZED.");
+      if (loop->inner)
+        dump_printf_loc (MSG_NOTE, vect_location,
+                         "OUTER LOOP VECTORIZED.");
+    }
 }

@@ -1793,8 +1793,8 @@ vect_make_slp_decision (loop_vec_info loop_vinfo)
   LOOP_VINFO_SLP_UNROLLING_FACTOR (loop_vinfo) = unrolling_factor;
 
   if (decided_to_slp && dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
-		     "Vectorized %d SLP instances with unroll factor %d",
+    dump_printf_loc (MSG_NOTE, vect_location,
+		     "Decided to SLP %d instances. Unrolling factor %d",
 		     decided_to_slp, unrolling_factor);
 
   return (decided_to_slp > 0);
@@ -3249,7 +3249,8 @@ vect_slp_transform_bb (basic_block bb)
     }
 
   if (dump_enabled_p ())
-    dump_printf (MSG_NOTE, "BASIC BLOCK VECTORIZED\n");
+    dump_printf_loc (MSG_NOTE, vect_location,
+                     "BASIC BLOCK VECTORIZED\n");
 
   destroy_bb_vec_info (bb_vinfo);
 }

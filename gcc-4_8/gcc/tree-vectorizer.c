@@ -118,7 +118,8 @@ vectorize_loops (void)
 
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
 	    && dump_enabled_p ())
-          dump_printf_loc (MSG_ALL, vect_location, "Vectorized loop\n");
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+                           "Vectorized loop\n");
 	vect_transform_loop (loop_vinfo);
 	num_vectorized_loops++;
       }
@@ -170,7 +171,7 @@ execute_vect_slp (void)
           vect_slp_transform_bb (bb);
           if (dump_enabled_p ())
             dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
-			     "basic block vectorized using SLP\n");
+			     "Vectorized basic-block\n");
         }
     }
 
