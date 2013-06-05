@@ -1,3 +1,81 @@
+2013-05-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57325
+	* tree.c (build_cplus_array_type): Copy layout info if element
+	type is complete.
+
+2013-05-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57047
+	* semantics.c (cxx_fold_indirect_ref): Fix thinko.
+
+2013-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* parser.c (cp_parser_late_return_type_opt): Fix C++ism.
+
+2013-04-15  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56388
+	* semantics.c (insert_capture_proxy): Just use index 1 in the
+	stmt_list_stack.
+
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56819
+	* tree.c (strip_typedefs): Copy NON_DEFAULT_TEMPLATE_ARGS_COUNT
+	from args to new_args.
+	(strip_typedefs_expr): Copy NON_DEFAULT_TEMPLATE_ARGS_COUNT from t to
+	r instead of doing {S,G}ET_NON_DEFAULT_TEMPLATE_ARGS_COUNT.
+
+2013-04-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56794
+	* parser.c (cp_parser_range_for): Don't try to do auto deduction
+	in a template if the type of the range is incomplete.
+
+2013-03-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56774
+	PR c++/35722
+	* pt.c (unify_pack_expansion): Fix indexing.
+
+2013-03-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/54277
+	* semantics.c (lambda_capture_field_type): Don't build a
+	magic decltype for pointer types.
+	(lambda_proxy_type): Likewise.
+	(finish_non_static_data_member): Get the quals from
+	the object.
+
+2013-03-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56646
+	* parser.c (cp_parser_late_return_type_opt): Save and restore
+	current_class_ptr/ref.
+
+2013-03-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/56614
+	* decl.c (local_variable_p_walkfn): Check DECL_ARTIFICIAL again.
+
+2013-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/56403
+	* init.c (build_zero_init_1): Use RECORD_OR_UNION_CODE_P instead
+	of CLASS_TYPE_P.
+
+2013-03-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56534
+	* parser.c (cp_parser_elaborated_type_specifier): Don't call
+	check_elaborated_type_specifier when TREE_CODE (decl) != TYPE_DECL.
+	* decl.c (check_elaborated_type_specifier): Tidy.
+
 2013-03-06  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/56543

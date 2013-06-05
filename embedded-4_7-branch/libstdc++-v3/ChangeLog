@@ -1,3 +1,89 @@
+2013-05-15  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/basic_string.h (getline): Fix doxygen comments.
+
+2013-05-14  Evgeniy Stepanov  <eugenis@google.com>
+
+	* src/c++11/system_error.cc (generic_category_instance): Add
+	initializer.
+	(system_category_instance): Likewise.
+	* src/c++11/future.cc (__fec): Likewise.
+
+2013-04-15  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	Backport from mainline
+
+	2012-10-10  Jack Howarth  <howarth@bromo.med.uc.edu>
+ 		    Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/54847
+	* config/os/bsd/darwin/os_defines.h: Define _GLIBCXX_USE_NANOSLEEP
+	and _GLIBCXX_USE_SCHED_YIELD.
+	* acinclude.m4 (GLIBCXX_ENABLE_LIBSTDCXX_TIME): Add comment.
+
+2013-04-15  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* testsuite/30_threads/condition_variable/members/53841.cc: Add
+	-std=gnu++0x -pthread on alpha*-*-osf*, mips-sgi-irix6*.
+
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-03-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/xml/manual/allocator.xml: Adjust link to Dr.Dobb's article.q
+
+	* doc/xml/manual/appendix_contributing.xml: Adjust link to GNU
+	Coding Standards.
+
+	* doc/xml/manual/debug.xml: Adjust link for ThreadSanitizer.
+
+	* doc/xml/manual/debug_mode.xml: Adjust link for SafeSTL.
+
+	* doc/xml/manual/documentation_hacking.xml: Adjust Doxygen link.
+
+	* doc/xml/manual/messages.xml: Adjust link to Java API specs.
+
+	* doc/xml/manual/policy_data_structures: Remove direct link to
+	IBM Haifa Research Labs.
+
+	* doc/xml/manual/policy_data_structures_biblio.xml: Adjust links
+	for biblio.maverik_lowerbounds and biblio.nelson96stlpq.
+
+	* doc/xml/manual/profile_mode.xml: Adjust two links to acm.org
+	papers.
+
+	* doc/xml/manual/shared_ptr.xml: Use canonical address for
+	www.boost.org.
+
+2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56468
+	* libsupc++/exception_ptr.h (type_info): Declare.
+
+2013-03-16  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/56002
+	* include/std/mutex (lock_guard, unique_lock, lock): Define without
+	depending on _GLIBCXX_HAS_GTHREADS.
+	* testsuite/30_threads/lock_guard/cons/1.cc: Run on all targets.
+
+2013-03-09  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/vector.tcc (vector<>operator=(const vector<>&):
+	Reset pointers after deallocation when memory can be reused.
+	* testsuite/23_containers/vector/allocator/minimal.cc: Insert
+	elements to really challenge C++11 allocator integration.
+	* testsuite/23_containers/vector/allocator/copy.cc: Likewise.
+	* testsuite/23_containers/vector/allocator/copy_assign.cc:
+	Likewise.
+	* testsuite/23_containers/vector/allocator/move_assign.cc:
+	Likewise.
+	* testsuite/23_containers/vector/allocator/swap.cc: Likewise and
+	swap vector back before checks on memory/personality mapping are
+	performed.
+
 2013-02-26  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	PR libstdc++/56012

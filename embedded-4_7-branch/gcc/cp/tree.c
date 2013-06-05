@@ -816,10 +816,12 @@ build_cplus_array_type (tree elt_type, tree index_type)
 
       if (TYPE_MAIN_VARIANT (t) != m)
 	{
-	  if (COMPLETE_TYPE_P (t) && !COMPLETE_TYPE_P (m))
+	  if (COMPLETE_TYPE_P (TREE_TYPE (t)) && !COMPLETE_TYPE_P (m))
 	    {
 	      /* m was built before the element type was complete, so we
-		 also need to copy the layout info from t.  */
+		 also need to copy the layout info from t.  We might
+	         end up doing this multiple times if t is an array of
+	         unknown bound.  */
 	      tree size = TYPE_SIZE (t);
 	      tree size_unit = TYPE_SIZE_UNIT (t);
 	      unsigned int align = TYPE_ALIGN (t);
@@ -1229,8 +1231,13 @@ strip_typedefs (tree t)
 		  changed = true;
 	      }
 	    if (changed)
-	      fullname = lookup_template_function (TREE_OPERAND (fullname, 0),
-						   new_args);
+	      {
+		NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_args)
+		  = NON_DEFAULT_TEMPLATE_ARGS_COUNT (args);
+		fullname
+		  = lookup_template_function (TREE_OPERAND (fullname, 0),
+					      new_args);
+	      }
 	    else
 	      ggc_free (new_args);
 	  }
@@ -1363,8 +1370,8 @@ strip_typedefs_expr (tree t)
 	    r = copy_node (t);
 	    for (i = 0; i < n; ++i)
 	      TREE_VEC_ELT (r, i) = VEC_index (tree, vec, i);
-	    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
-	      (r, GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (t));
+	    NON_DEFAULT_TEMPLATE_ARGS_COUNT (r)
+	      = NON_DEFAULT_TEMPLATE_ARGS_COUNT (t);
 	  }
 	else
 	  r = t;

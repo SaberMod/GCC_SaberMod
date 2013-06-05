@@ -1,3 +1,73 @@
+2013-06-01  Janus Weil  <janus@gcc.gnu.org>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57217
+	* interface.c (check_dummy_characteristics): Symmetrize type check.
+
+2013-05-22  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* intrinsic.texi (RANDOM_SEED): Improve example.
+
+2013-05-07  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2013-05-02  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57142
+	* simplify.c (gfc_simplify_size): Renamed from
+	simplify_size; fix kind=8 handling.
+	(gfc_simplify_size): New function.
+	(gfc_simplify_shape): Add range check.
+	* resolve.c (resolve_function): Fix handling
+	for ISYM_SIZE.
+
+2013-04-26  Janus Weil  <janus@gcc.gnu.org>
+
+	Backports from trunk:
+
+	PR fortran/56968
+	* expr.c (gfc_check_pointer_assign): Handle generic functions returning
+	procedure pointers.
+
+	PR fortran/53685
+	PR fortran/57022
+	* check.c (gfc_calculate_transfer_sizes): Fix for array-valued SOURCE
+	expressions.
+	* target-memory.h (gfc_element_size): New prototype.
+	* target-memory.c (size_array): Remove.
+	(gfc_element_size): New function.
+	(gfc_target_expr_size): Modified to always return the full size of the
+	expression.
+
+2013-04-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56994
+	* invoke.texi (NEAREST): S argument is not optional.
+
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-03-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/56615
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Pack arrays
+	if they are not simply contiguous.
+
+2013-03-13  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/56575
+	* expr.c (gfc_default_initializer): Check that a class declared
+	type has any components.
+	* resolve.c (resolve_fl_derived0): On failing the test for C437
+	set the type to BT_UNKNOWN to prevent repeat error messages.
+
+2013-03-10  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/55362
+	* check.c (array_check): It is an error if a procedure is
+	passed.
+
 2013-02-22  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/56385

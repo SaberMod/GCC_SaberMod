@@ -3155,6 +3155,7 @@ resolve_function (gfc_expr *expr)
       for (arg = expr->value.function.actual; arg; arg = arg->next)
 	{
 	  if ((GENERIC_ID == GFC_ISYM_UBOUND || GENERIC_ID == GFC_ISYM_SIZE)
+	      && arg == expr->value.function.actual
 	      && arg->next != NULL && arg->next->expr)
 	    {
 	      if (arg->next->expr->expr_type != EXPR_CONSTANT)
@@ -11967,6 +11968,8 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	{
 	  gfc_error ("Component '%s' with CLASS at %L must be allocatable "
 		     "or pointer", c->name, &c->loc);
+	  /* Prevent a recurrence of the error.  */
+	  c->ts.type = BT_UNKNOWN;
 	  return FAILURE;
 	}
 

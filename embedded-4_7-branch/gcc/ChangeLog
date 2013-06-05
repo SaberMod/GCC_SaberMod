@@ -1,3 +1,551 @@
+2013-05-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57356
+	* config/i386/i386.md (*movti_internal_rex64): Emit movaps/movups
+	for non-sse2 targets.  Simplify mode attribute calculation.
+
+2013-05-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Determine
+	cache parameters using detect_caches_amd also for CYRIX,
+	NSC and TM2 signatures.
+
+	2013-05-16  Uros Bizjak  <ubizjak@gmail.com>
+		    Dzianis Kahanovich  <mahatma@eu.by>
+
+	PR target/45359
+	PR target/46396
+	* config/i386/driver-i386.c (host_detect_local_cpu): Detect
+	VIA/Centaur processors and determine their cache parameters
+	using detect_caches_amd.
+
+	2013-05-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_option_override_internal): Add
+	PTA_POPCNT to corei7 entry.
+
+2013-05-14  Richard Biener  <rguenther@suse.de>
+
+	PR gcov-profile/57269
+	Backport from mainline
+	2012-06-30  Nathan Sidwell  <nathan@acm.org>
+
+	* coverage.c (coverage_init): Read counts file before writing
+	graph header.
+
+2013-05-13  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57264
+	Backport from mainline
+	2013-01-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/55686
+	* config/i386/i386.md (UNSPEC_STOS): New.
+	(strset_singleop, *strsetdi_rex_1, *strsetsi_1, *strsethi_1,
+	*strsetqi_1): Add UNSPEC_STOS.
+
+2013-05-10  Joey Ye  <joey.ye@arm.com>
+
+	Backport from mainline
+	2012-11-29  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+
+	PR target/54974
+	* config/arm/arm.md (thumb2_pool_range, pool_range): Add comment on
+	Thumb pool ranges.
+	(thumb1_extendhisi2): Reduce Thumb pool range.
+	(arm_movdi): Likewise.
+	(thumb1_movdi_insn): Likewise.
+	(thumb1_movsi_insn): Likewise.
+	(pic_load_addr_unified): Likewise.
+	(pic_load_addr_32bit): Likewise.
+	(pic_load_addr_thumb1): Likewise.
+	(thumb1_movhf): Likewise.
+	(arm_movsf_soft_insn): Likewise.
+	(thumb1_movsf_soft_insn): Likewise.
+	(movdf_soft_insn): Likewise.
+	(thumb1_movdf_soft_insn): Likewise.
+	* config/arm/neon.md (*neon_mov<mode>): Likewise.
+	(*neon_mov<mode>): Likwise.
+	* config/arm/thumb2.md: (*thumb2_movsi_insn): Likewise.
+	(*thumb2_movhi_insn): Likewise.
+	(*thumb2_extendqisi_v6): Likewise.
+	(*thumb2_zero_extendqisi_v6): Likewise.
+	(*thumb2_zero_extendqisi2_v6): Likewise.
+	* config/arm/vfp.md: (*thumb2_movsi_vfp): Likewise.
+	(*movdi_vfp): Likewise.
+	(*movdi_vfp_cortexa8): Likewise.
+	(*thumb2_movsf_vfp): Likewise.
+	(*thumb2_movdf_vfp): Likewise.
+
+2013-05-10  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems-eabi: Remove mthumb/march=armv7 multilib.
+	Add mthumb/march=armv7-a multilib.
+	Add mthumb/march=armv7-r multilib.
+	Add mthumb/march=armv7-a/mfpu=neon/mfloat-abi=hard multilib.
+
+2013-05-10  Ralf Corsépius  <ralf.corsepius@rtems.org>
+
+	PR target/57237
+	* config/v850/t-rtems: Add more multilibs.
+
+2013-05-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from trunk
+	2013-05-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57150
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Use DFmode
+	to save TFmode registers and DImode to save TImode registers for
+	caller save operations.
+	(HARD_REGNO_CALL_PART_CLOBBERED): TFmode and TDmode do not need to
+	mark being partially clobbered since they only use the first
+	double word.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): TFmode
+	and TDmode only use the upper 64-bits of each VSX register.
+
+2013-05-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-04-25  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/57066
+	* builtins.c (fold_builtin_logb): Return +Inf for -Inf.
+
+2013-04-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/44578
+	* config/i386/i386.md (*zero_extendsidi2_rex64): Add "!" to m->?*y
+	alternative.
+	(*zero_extendsidi2): Ditto.
+
+	Backport from mainline
+	2013-04-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57098
+	* config/i386/i386.c (ix86_expand_vec_perm): Validize constant memory.
+
+2013-04-29  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/57108
+	* sh.md (tstsi_t_zero_extract_eq): Set mode for operand 0.
+
+2013-04-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56866
+	* config/i386/sse.md (xop_rotr<mode>3): Fix up computation of
+	the immediate rotate count.
+
+2013-04-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* cfgexpand.c (avoid_complex_debug_insns): Fix C++ism.
+
+2013-04-19  Matthias Klose  <doko@ubuntu.com>
+
+	PR middle-end/56848
+	Re-apply
+	2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-25  Andrey Belevantsev  <abel@ispras.ru>
+	Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/56077
+	* sched-deps.c (sched_analyze_insn): When reg_pending_barrier,
+	flush pending lists also on non-jumps.  Adjust comment.
+
+	Backport from 4.8:
+	2012-08-27  Maxim Kuvyrkov  <maxim@codesourcery.com>
+
+	* sched-deps.c (add_dependence_list_and_free): Simplify.
+	(flush_pending_list_and_free): Fix a hack that was fixing a hack.  Free
+	lists when add_dependence_list_and_free doesn't free them.
+
+2013-04-19  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2013-01-08  Steven Bosscher  <steven@gcc.gnu.org>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/48189
+	* predict.c (predict_loops): If max is 0, don't call compare_tree_int.
+	If nitercst is 0, don't predict the exit edge.
+
+2013-04-16  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	Backport from mainline
+	2012-05-29  Jack Howarth  <howarth@bromo.med.uc.edu>
+	* config/darwin.h (STARTFILE_SPEC): Use -no_new_main with -lgcrt1.o
+	on Darwin >= 12.
+	(DARWIN_CRT1_SPEC): Use -lcrt1.10.6.o when Darwin >= 10 and < 12.
+
+
+	2012-05-29  Jack Howarth  <howarth@bromo.med.uc.edu>
+	PR debug/53453
+	* doc/tm.texi: Update.
+	* doc/tm.texi.in (SDB and DWARF) <TARGET_FORCE_AT_COMP_DIR>: Add @hook.
+	* target.def (force_at_comp_dir): New hook.
+	* config/darwin.h (TARGET_FORCE_AT_COMP_DIR): Define.
+	* dwarf2out.c (dwarf2out_finish): Check targetm.force_at_comp_dir.
+
+2013-04-15  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/56890
+	* config/sparc/sparc.c (enum sparc_mode_class): Add H_MODE value.
+	(S_MODES): Set H_MODE bit.
+	(SF_MODES): Set only S_MODE and SF_MODE bits.
+	(DF_MODES): Set SF_MODES and only D_MODE and DF_MODE bits.
+	(sparc_init_modes) <MODE_INT>: Set H_MODE bit for sub-word modes.
+	<MODE_VECTOR_INT>: Do not set SF_MODE for sub-word modes.
+	<MODE_FLOAT>: Likewise.
+
+2013-04-13  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	Backport from mainline:
+	2013-04-06  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR target/55487
+	* config/pa/pa.c (legitimize_pic_address): Before incrementing label
+	nuses, make sure we have a label.
+
+2013-04-11  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Set to 4.7.4.
+	* DEV-PHASE: Set to prerelease.
+
+2013-04-11  Release Manager
+
+	* GCC 4.7.3 released.
+
+2013-04-10  David S. Miller  <davem@davemloft.net>
+
+	* config/sparc/sparc.h (ASM_CPU_SPEC): Pass -Av8 if -mcpu=supersparc
+	or -mcpu=hypersparc.
+
+2013-04-05  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/56848
+	Revert
+	2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-25  Andrey Belevantsev  <abel@ispras.ru>
+	Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/56077
+	* sched-deps.c (sched_analyze_insn): When reg_pending_barrier,
+	flush pending lists also on non-jumps.  Adjust comment.
+
+2013-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56501
+	* tree-switch-conversion.c (check_process_case): Properly
+	handle !single_succ_p case.
+
+2013-04-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/56539
+	* tree-tailcall.c (adjust_return_value_with_ops): Use GSI_SAME_STMT
+	instead of GSI_CONTINUE_LINKING as last argument to
+	force_gimple_operand_gsi.  Adjust function comment.
+
+	2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/56510
+	* cfgexpand.c (expand_debug_parm_decl): Call copy_rtx on incoming.
+	(avoid_complex_debug_insns): New function.
+	(expand_debug_locations): Call it.
+
+2013-04-02  Wei Mi  <wmi@google.com>
+
+	* config/i386/i386.c (ix86_rtx_costs): Set proper rtx cost for
+	ashl<mode>3_mask, *<shift_insn><mode>3_mask and
+	*<rotate_insn><mode>3_mask in i386.md.
+
+2013-04-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56768
+	Backport from mainline
+	2012-05-16  Richard Guenther  <rguenther@suse.de>
+
+	* tree-inline.c (declare_return_variable): Properly handle
+	DECL_BY_REFERENCE return vars in SSA form.
+
+2013-04-01  Wei Mi  <wmi@google.com>
+
+	* config/i386/i386.md (*ashl<mode>3_mask): Rewrite as define_insn.
+	Truncate operand 2 using %b asm operand modifier.
+	(*<shift_insn><mode>3_mask): Ditto.
+	(*<rotate_insn><mode>3_mask): Ditto.
+
+2013-04-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*movsf_internal): Change type of
+	alternatives 3,4 to imov.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-27  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/45472
+	* sel-sched-ir.c (merge_expr): Also change vinsn of merged expr
+	when the may_trap_p bit of the exprs being merged differs.
+	Reorder tests for speculativeness in the logical and operator.
+
+	Backport from mainline
+	 2013-03-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/56461
+	* sel-sched-ir.c (free_sched_pools): Release
+	succs_info_pool.stack[succs_info_pool.max_top] vectors too
+	if succs_info_pool.max_top isn't -1.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2012-02-19  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR middle-end/55889
+	* sel-sched.c: Include ira.h.
+	(implicit_clobber_conflict_p): New function.
+	(moveup_expr): Use it.
+	* Makefile.in (sel-sched.o): Depend on ira.h.
+
+2013-04-01  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2013-02-25  Andrey Belevantsev  <abel@ispras.ru>
+	Alexander Monakov  <amonakov@ispras.ru>
+
+	PR middle-end/56077
+	* sched-deps.c (sched_analyze_insn): When reg_pending_barrier,
+	flush pending lists also on non-jumps.  Adjust comment.
+
+2013-03-30  Gerald Pfeifer  <gerald@pfeifer.com>
+
+	* doc/invoke.texi (AVR Options): Tweak link for AVR-LibC user manual.
+	* doc/extend.texi (Named Address Spaces): Ditto.
+	(Variable Attributes): Ditto.
+
+2013-03-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* toplev.c (process_options): Do not disable -fomit-frame-pointer on a
+	general basis if unwind info is requested and ACCUMULATE_OUTGOING_ARGS
+	is not enabled.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_expand_prologue): Avoid
+	double-decrement of next_scratch_regno.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_v1mulu): Fix predicates on
+	input operands.
+	(insn_v1mulus): Ditto.
+	(insn_v2muls): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (ASM_OUTPUT_ADDR_VEC_ELT): Delete
+	extra tab.
+	(ASM_OUTPUT_ADDR_DIFF_ELT): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (*sibcall_insn): Fix type atribute
+	for jr.
+	(*sibcall_value): Ditto.
+
+2013-03-27  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-27  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.md (insn_mnz_<mode>): Replaced by ...
+	(insn_mnz_v8qi): ... this ...
+	(insn_mnz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mnz): Replaced by ...
+	(insn_v1mnz): ... this ...
+	(insn_v2mnz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+	(insn_mz_<mode>): Replaced by ...
+	(insn_mz_v8qi): ... this ...
+	(insn_mz_v4hi): ... and this.  Replace (const_int 0) with the
+	vector equivalent.
+	(insn_v<n>mz): Replaced by ...
+	(insn_v1mz): ... this ...
+	(insn_v2mz): ... and this.  Replace (const_int 0) with the vector
+	equivalent.
+
+2013-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC options): Remove -mlittle-endian.
+
+2013-03-26  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline:
+	2013-03-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56608
+	* tree-vect-slp.c (vect_schedule_slp): Do not remove scalar
+	calls when vectorizing basic-blocks.
+
+	2013-03-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56270
+	* tree-vect-slp.c (vect_schedule_slp): Clear vectorized stmts
+	of loads after scheduling an SLP instance.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-26  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.h (PROFILE_BEFORE_PROLOGUE): Define.
+	* config/tilegx/tilepro.h (PROFILE_BEFORE_PROLOGUE): Define.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx-builtins.h (enum tilegx_builtin): Add
+	TILEGX_INSN_SHUFFLEBYTES1.
+	* config/tilegx/tilegx.c (tilegx_builtin_info): Add entry for
+	shufflebytes1.
+	(tilegx_builtins): Ditto.
+	* config/tilegx/tilegx.md (insn_shufflebytes1): New pattern.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (expand_set_cint64_one_inst): Inline
+	tests for constraint J, K, N, P.
+
+2013-03-26  Walter Lee  <walt@tilera.com>
+
+	Backport from mainline:
+	2013-03-25  Walter Lee  <walt@tilera.com>
+
+	* config/tilegx/tilegx.c (tilegx_asm_preferred_eh_data_format):
+	Use indirect/pcrel encoding.
+	* config/tilepro/tilepro.c (tilepro_asm_preferred_eh_data_format):
+	Ditto.
+
+2013-03-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2013-03-13  Oleg Endo  <olegendo@gcc.gnu.org>
+	2013-03-14  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/49880
+	* config/sh/sh.opt (FPU_SINGLE_ONLY): New mask.
+	(musermode): Convert to Var(TARGET_USERMODE).
+	* config/sh/sh.h (SELECT_SH2A_SINGLE_ONLY, SELECT_SH4_SINGLE_ONLY,
+	MASK_ARCH): Add MASK_FPU_SINGLE_ONLY.
+	* config/sh/sh.c (sh_option_override): Use
+	TARGET_FPU_DOUBLE || TARGET_FPU_SINGLE_ONLY for call-fp case.
+	* config/sh/sh.md (udivsi3_i1, divsi3_i1): Remove ! TARGET_SH4
+	condition.
+	(udivsi3_i4, divsi3_i4): Use TARGET_FPU_DOUBLE condition instead of
+	TARGET_SH4.
+	(udivsi3_i4_single, divsi3_i4_single): Use
+	TARGET_FPU_SINGLE_ONLY || TARGET_FPU_DOUBLE instead of TARGET_HARD_SH4.
+	* config/sh/linux.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): Set TARGET_USERMODE as default.
+	* config/sh/netbsd-elf.h (TARGET_DEFAULT): Remove MASK_USERMODE.
+	(SUBTARGET_OVERRIDE_OPTIONS): New.
+
+2013-03-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2012-04-03  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	* config/sh/t-sh (MULTILIB_MATCHES): Match m2a-single-only
+	to m2a-single instead of m2e.
+
+2013-03-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/56560
+	* config/i386/i386.h (ix86_args): Define only if USED_FOR_TARGET
+	isn't defined.
+
+2013-03-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/56560
+	* config/i386/i386.c (init_cumulative_args): Also set
+	cum->callee_return_avx256_p.
+	(ix86_function_arg): Set cum->callee_pass_avx256_p.  Set
+	cfun->machine->callee_pass_avx256_p only when MODE == VOIDmode.
+
+	* config/i386/i386.h (ix86_args): Add callee_pass_avx256_p and
+	callee_return_avx256_p.
+
+2013-03-20  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	Backport from mainline:
+	2012-12-04  Ian Lance Taylor  <iant@google.com>
+
+	* godump.c (find_dummy_types): Output a dummy type if we couldn't
+	output the real type.
+
+2013-03-20  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR bootstrap/56258
+	* doc/generic.texi (POINTER_PLUS_EXPR): Use @item instead of @itemx.
+	(PLUS_EXPR): Likewise.
+	* doc/cppopts.texi (--help): Likewise.
+	* doc/invoke.texi (-fenable-@var{kind}-@var{pass}): Likewise.
+	(-fdump-rtl-cprop_hardreg): Likewise.
+	(-fdump-rtl-csa): Likewise.
+	(-fdump-rtl-dce): Likewise.
+	(-fdump-rtl-dbr): Likewise.
+	(-fdump-rtl-into_cfglayout): Likewise.
+	(-fdump-rtl-outof_cfglayout): Likewise.
+
+2013-03-18  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/56470
+	* config/arm/arm.c (shift_op): Validate RTL pattern on the fly.
+	(arm_print_operand, case 'S'): Don't use shift_operator to validate
+	the RTL.
+
+2013-03-14  Seth LaForge  <sethml@google.com>
+
+	PR target/56351
+	Backport from mainline
+	2012-10-22  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.h (CANNOT_CHANGE_MODE_CLASS): Avoid subreg'ing
+	VFP D registers in big-endian mode.
+
 2013-03-08  Joey Ye  <joey.ye@arm.com>
 
 	Backport from mainline
@@ -42,7 +590,7 @@
 
 	Backport from mainline
 	2012-04-10  Richard Guenther  <rguenther@suse.de>
- 
+
 	PR middle-end/52888
 	* gimple-low.c (gimple_check_call_args): Properly account for
 	compatible aggregate types.

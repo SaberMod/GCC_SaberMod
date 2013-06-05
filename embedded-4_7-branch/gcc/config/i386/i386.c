@@ -2979,7 +2979,7 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_SSSE3 | PTA_CX16},
       {"corei7", PROCESSOR_COREI7_64, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16},
+	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT},
       {"corei7-avx", PROCESSOR_COREI7_64, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
@@ -5592,7 +5592,10 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	{
 	  /* The return value of this function uses 256bit AVX modes.  */
 	  if (caller)
-	    cfun->machine->callee_return_avx256_p = true;
+	    {
+	      cfun->machine->callee_return_avx256_p = true;
+	      cum->callee_return_avx256_p = true;
+	    }
 	  else
 	    cfun->machine->caller_return_avx256_p = true;
 	}
@@ -6863,9 +6866,18 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
     {
       /* This argument uses 256bit AVX modes.  */
       if (cum->caller)
-	cfun->machine->callee_pass_avx256_p = true;
+	cum->callee_pass_avx256_p = true;
       else
 	cfun->machine->caller_pass_avx256_p = true;
+    }
+
+  if (cum->caller && mode == VOIDmode)
+    {
+      /* This function is called with MODE == VOIDmode immediately
+	 before the call instruction is emitted.  We copy callee 256bit
+	 AVX info from the current CUM here.  */
+      cfun->machine->callee_return_avx256_p = cum->callee_return_avx256_p;
+      cfun->machine->callee_pass_avx256_p = cum->callee_pass_avx256_p;
     }
 
   return arg;
@@ -20014,7 +20026,7 @@ ix86_expand_vec_perm (rtx operands[])
 	      vec[i * 2 + 1] = const1_rtx;
 	    }
 	  vt = gen_rtx_CONST_VECTOR (maskmode, gen_rtvec_v (w, vec));
-	  vt = force_const_mem (maskmode, vt);
+	  vt = validize_mem (force_const_mem (maskmode, vt));
 	  t1 = expand_simple_binop (maskmode, PLUS, t1, vt, t1, 1,
 				    OPTAB_DIRECT);
 
@@ -20211,7 +20223,7 @@ ix86_expand_vec_perm (rtx operands[])
       for (i = 0; i < 16; ++i)
 	vec[i] = GEN_INT (i/e * e);
       vt = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, vec));
-      vt = force_const_mem (V16QImode, vt);
+      vt = validize_mem (force_const_mem (V16QImode, vt));
       if (TARGET_XOP)
 	emit_insn (gen_xop_pperm (mask, mask, mask, vt));
       else
@@ -20222,7 +20234,7 @@ ix86_expand_vec_perm (rtx operands[])
       for (i = 0; i < 16; ++i)
 	vec[i] = GEN_INT (i % e);
       vt = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, vec));
-      vt = force_const_mem (V16QImode, vt);
+      vt = validize_mem (force_const_mem (V16QImode, vt));
       emit_insn (gen_addv16qi3 (mask, mask, vt));
     }
 
@@ -31610,6 +31622,13 @@ ix86_rtx_costs (rtx x, int code, int outer_code_i, int opno, int *total,
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    *total = cost->shift_const;
+	  else if (GET_CODE (XEXP (x, 1)) == SUBREG
+		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
+	    {
+	      /* Return the cost after shift-and truncation.  */
+	      *total = cost->shift_var;
+	      return true;
+	    }
 	  else
 	    *total = cost->shift_var;
 	}
