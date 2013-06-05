@@ -1,0 +1,52 @@
+# ICE to be reported upstream
+FAIL: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o link, -O2 -fprofile-arcs -flto -r -nostdlib (internal compiler error)
+UNRESOLVED: gcc.dg/lto/20100430-1 c_lto_20100430-1_0.o-c_lto_20100430-1_0.o execute -O2 -fprofile-arcs -flto -r -nostdlib
+# Marked test failures for v16-powerpc64-native toolchain built from
+# v16 dev branch @47450999.
+# *** gcc:
+FAIL: gcc.dg/and-1.c scan-assembler-not nand
+FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
+FAIL: gcc.dg/pr44194-1.c scan-rtl-dump-not final "set \\(mem"
+FAIL: gcc.dg/pr46728-6.c scan-assembler-not pow
+
+# These tests succeeded in v15-powerpc64. But they failed in v16-x86 too.
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 13)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 15)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 18)
+FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 19)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 8)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 9)
+FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 8)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 9)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 10)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 22)
+FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 30)
+FAIL: gcc.dg/thread_annot_lock-42.c  (test for warnings, line 9)
+
+FAIL: gcc.dg/tree-ssa/ssa-dom-thread-4.c scan-tree-dump-times dom1 "Threaded" 3
+FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
+FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times dom2 "x[^ ]* & y" 1
+FAIL: gcc.target/powerpc/ppc-vector-memcpy.c scan-assembler lvx
+FAIL: gcc.target/powerpc/pr46728-1.c scan-assembler-not pow
+FAIL: gcc.target/powerpc/pr46728-2.c scan-assembler-not pow
+FAIL: gcc.target/powerpc/pr46728-3.c scan-assembler-not pow
+FAIL: gcc.target/powerpc/pr46728-4.c scan-assembler-not pow
+FAIL: gcc.target/powerpc/pr46728-7.c scan-assembler-not pow
+FAIL: gcc.target/powerpc/pr46728-8.c scan-assembler-not pow
+
+*** g++:
+FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
+
+# Fortran failures are not important to us so far.
+*** gfortran:
+FAIL: gfortran.dg/bessel_6.f90  -O0  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O1  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O2  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O3 -fomit-frame-pointer  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gfortran.dg/bessel_6.f90  -O3 -g  execution test
+FAIL: gfortran.dg/bessel_6.f90  -Os  execution test
+XPASS: gfortran.dg/nint_2.f90  -O0  execution test
