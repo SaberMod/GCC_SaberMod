@@ -1,3 +1,75 @@
+2013-06-05  Jan Hubicka  <jh@suse.cz>
+
+	* varasm.c (mark_decl_referenced): Revert the removal until targets
+	are fixed.
+
+2013-06-05  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (print_operand, 'z'): Use DECL_PRESERVE_P
+	instead of mark_decl_referenced.
+
+2013-06-05  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (cgraph_remove_node): Clear forced_by_abi.
+	(cgraph_node_cannot_be_local_p_1): Honnor symbol.forced_by_abi
+	and symtab_used_from_object_file_p.
+	(cgraph_make_node_local_1): Clear forced_by_abi.
+	(cgraph_can_remove_if_no_direct_calls_and): Use forced_by_abi
+	* cgraph.h (symtab_node_base): Add forced_by_abi.
+	(decide_is_variable_needed): Remove.
+	(varpool_can_remove_if_no_refs): Honnor symbol.forced_by_abi.
+	* cgraphunit.c (cgraph_decide_is_function_needed): Rename to ..
+	(decide_is_symbol_needed): ... this one; handle symbols in general;
+	always analyze virtuals; honnor forced_by_abi.
+	(cgraph_finalize_function): Update.
+	(varpool_finalize_decl): Update.
+	(symbol_defined_and_needed): Remove.
+	(analyze_functions): Update.
+	* lto-cgraph.c (lto_output_node, lto_output_varpool_node,
+	output_refs, input_overwrite_node): Handle forced_by_abi.
+	* ipa.c (cgraph_address_taken_from_non_vtable_p): Rename to ...
+	(address_taken_from_non_vtable_p): ... this one.
+	(comdat_can_be_unshared_p_1): New function.
+	(cgraph_comdat_can_be_unshared_p): Rename to ...
+	(comdat_can_be_unshared_p): ... this one; handle symbols in general.
+	(varpool_externally_visible_p): Use comdat_can_be_unshared_p.
+	(function_and_variable_visibility): Clear forced_by_abi as needed.
+	* trans-mem.c (ipa_tm_mark_forced_by_abi_node): New functoin.
+	(ipa_tm_create_version_alias, ipa_tm_create_version): Update.
+	* symtab.c (dump_symtab_base): Dump forced_by_abi.
+	* varpool.c (decide_is_variable_needed): Remove.
+
+2013-06-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (MAX_INSN_PER_IT_BLOCK): New macro.
+	(arm_option_override): Override arm_restrict_it where appropriate.
+	(thumb2_final_prescan_insn): Use MAX_INSN_PER_IT_BLOCK.
+	* config/arm/arm.opt (mrestrict-it): New command-line option.
+	* doc/invoke.texi: Document -mrestrict-it.
+
+2013-06-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* tsan.c (tsan_atomic_table): Make const.
+
+2013-06-05  Richard Biener  <rguenther@suse.de>
+
+	* tree-streamer.c (streamer_tree_cache_insert_1): Update the
+	index associated with the tree we are supposed to replace.
+	* tree-streamer-out.c (pack_ts_base_value_fields): Output
+	TREE_ASM_WRITTEN as zero for everything but SSA names.
+
+2013-06-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* tree-ssa-structalias.c (call_stmt_vars): Make static.
+
+2013-06-04  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (get_alias_symbol): Remove weakref sanity check.
+	(input_node, input_varpool_node): Handle correctly external same
+	body aliases.
+	* ipa.c (symtab_remove_unreachable_nodes): Do not remove external
+	nodes at ltrans stage.
+
 2013-06-04  Jan Hubicka  <jh@suse.cz>
 
 	* ipa-inline.c (update_caller_keys): Fix availability test.
