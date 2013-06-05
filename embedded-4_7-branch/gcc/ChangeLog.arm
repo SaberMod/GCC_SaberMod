@@ -1,3 +1,7 @@
+2013-06-05  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/t-mlibs: Add MULTILIB_MATCHES for cortex-r7.
+
 2013-06-04  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r197153
