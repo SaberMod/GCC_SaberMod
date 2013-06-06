@@ -254,4 +254,5 @@ else
 fi
 
 AC_CONFIG_FILES(Makefile testsuite/Makefile)
+AC_CONFIG_FILES(testsuite/atomicconfig.exp)
 AC_OUTPUT
