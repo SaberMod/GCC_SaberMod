@@ -63,6 +63,7 @@ flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
 FAIL: libatomic.c/atomic-generic.c (test for excess errors)
 FAIL: libatomic.c/generic-2.c (test for excess errors)
 FAIL: libitm.c++/dropref.C (test for excess errors)
+FAIL: libitm.c++/eh-1.C (test for excess errors)
 FAIL: libitm.c++/throwdown.C (test for excess errors)
 FAIL: libitm.c/cancel.c (test for excess errors)
 FAIL: libitm.c/clone-1.c (test for excess errors)
@@ -74,10 +75,12 @@ FAIL: libitm.c/notx.c (test for excess errors)
 FAIL: libitm.c/reentrant.c (test for excess errors)
 FAIL: libitm.c/simple-1.c (test for excess errors)
 FAIL: libitm.c/simple-2.c (test for excess errors)
+FAIL: libitm.c/stackundo.c (test for excess errors)
 FAIL: libitm.c/txrelease.c (test for excess errors)
 UNRESOLVED: libatomic.c/atomic-generic.c compilation failed to produce executable
 UNRESOLVED: libatomic.c/generic-2.c compilation failed to produce executable
 UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
+UNRESOLVED: libitm.c++/eh-1.C compilation failed to produce executable
 UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
 UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
 UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
@@ -88,6 +91,7 @@ UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
 UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
 UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
 UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
+UNRESOLVED: libitm.c/stackundo.c compilation failed to produce executable
 UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
 
 # These failures are likely due to misconfiguration during the
