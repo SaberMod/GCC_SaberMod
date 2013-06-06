@@ -1,3 +1,14 @@
+2013-06-05  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR C/57457
+	* c-c++-common/cilk-plus/AN/pr57457.c: New test.
+	* c-c++-common/cilk-plus/AN/pr57457-2.c: Likewise.
+
+2013-06-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51908
+	* g++.dg/cpp0x/decltype54.C: New.
+
 2013-06-05  James Greenhalgh  <james.greenhalgh@arm.com>
 
 	* gcc.dg/fshort-wchar.c: Add extra dg-options for
