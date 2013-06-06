@@ -8760,8 +8760,6 @@ arm_cortex_a5_branch_cost (bool speed_p, bool predictable_p)
 static int
 arm_cortex_v7m_branch_cost (bool speed_p, bool predictable_p ATTRIBUTE_UNUSED)
 {
-  gcc_assert (TARGET_32BIT && TARGET_THUMB2);
-
   return 1;
 }
 
