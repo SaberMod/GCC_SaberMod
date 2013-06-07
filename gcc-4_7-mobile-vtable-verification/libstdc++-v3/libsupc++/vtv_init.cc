@@ -25,8 +25,8 @@
 
 /* This file contains all the definitions that go into the libvtv_init
    library, which is part of the vtable verification feature.  This
-   library should contain exactly two functionsa (__VLTunprotect and
-   __VLTprotect) and one global variable definition
+   library should contain exactly two functionsa (__vtv_unprotect and
+   __vtv_protect) and one global variable definition
    (__vtv_defined_in_vtv_init_lib).  Any program that was compiled
    with the option "-fvtable-verify=std" MUST also be linked with
    libvtv_init, because the two functions defined here are used by the
@@ -38,17 +38,17 @@
    the data structures needed for verification.  At all times except
    when they are being constructed, these data structures need to be
    in protected memory, so that attackers cannot corrupt them.
-   __VLTunprotect sets the memory containing these data structures to
-   be writable, for updates.  __VLTprotect makes the memory read-only,
+   __vtv_unprotect sets the memory containing these data structures to
+   be writable, for updates.  __vtv_protect makes the memory read-only,
    for all other times.  This memory protection and unprotection is
    done via calls to mprotect, which are costly.  So instead of
-   calling __VLTunprotect and __VLTprotect once per object file we
+   calling __vtv_unprotect and __vtv_protect once per object file we
    want to call them once per executable.  Therefore instead of
    putting calls to them directly into each object file, we put the
-   calls to them only in __VLTRegisterPair, in the libstdc++ library.
-   We give __VLTunprotect an initialization priority to make it run
+   calls to them only in __vtv_register_pair, in the libstdc++ library.
+   We give __vtv_unprotect an initialization priority to make it run
    before all of our data structure construction functions, and we
-   give __VLTprotect an initialization priority to make it run after
+   give __vtv_protect an initialization priority to make it run after
    all of our data structure constructiion functions.  We put them
    into a separate library and link that library with the
    "--whole-archive" linker option, to make sure that both functions get
@@ -65,7 +65,7 @@
 
 
 /* Needs to build with C++ because the definition of
-   __VLTChangePermission is in C++.  */
+   __vtv_change_permission is in C++.  */
 #ifndef __cplusplus
 #error "This file must be compiled with a C++ compiler"
 #endif
@@ -81,19 +81,19 @@
 unsigned int
 __vtv_defined_in_vtv_init_lib __attribute__ ((visibility ("hidden"))) = 0;
 
-void __VLTunprotect (void) __attribute__ ((constructor(98)));
-void __VLTprotect (void) __attribute__ ((constructor(100)));
+void __vtv_unprotect (void) __attribute__ ((constructor(98)));
+void __vtv_protect (void) __attribute__ ((constructor(100)));
 
 void
-__VLTunprotect (void)
+__vtv_unprotect (void)
 {
-  __VLTChangePermission (__VLTP_READ_WRITE);
+  __vtv_change_permission (__VLTP_READ_WRITE);
 }
 
 void
-__VLTprotect (void)
+__vtv_protect (void)
 {
-  __VLTChangePermission (__VLTP_READ_ONLY);
+  __vtv_change_permission (__VLTP_READ_ONLY);
 }
 
 

@@ -1,8 +1,8 @@
 /* Copyright (C) 2013
    Free Software Foundation
-  
+
    This file is part of GCC.
-  
+
    modify it under the terms of the GNU Library General Public License
    as published by the Free Software Foundation; either version 2, or
    (at your option) any later version.
@@ -32,21 +32,21 @@
 
 /* We could have used an enumeration here but it just makes it more
    difficult for the compiler to generate a call to this.  These are
-   used as arguments to the function __VLTChangePermission, declared
+   used as arguments to the function __vtv_change_permission, declared
    below.  */
 #define __VLTP_READ_ONLY  0
 #define __VLTP_READ_WRITE 1
 
 #ifdef __cplusplus
-extern "C" void __VLTChangePermission (int);
+extern "C" void __vtv_change_permission (int);
 #else
-extern void __VLTChangePermission (int);
+extern void __vtv_change_permission (int);
 #endif
 
 #ifdef VTV_BIG_PAGE_SIZE
 /* TODO - Replace '4096' below with correct big page size.  */
 #define VTV_PAGE_SIZE 4096UL
-#else 
+#else
 #define VTV_PAGE_SIZE 4096UL
 #endif
 

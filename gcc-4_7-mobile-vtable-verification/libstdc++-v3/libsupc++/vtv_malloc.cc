@@ -126,7 +126,7 @@ change_protections_on_data_chunks (int protection_flag)
 /* This function makes all of our data pages read-only.  */
 
 void
-__vtv_malloc_protect (void)
+VTV_malloc_protect (void)
 {
   change_protections_on_data_chunks (PROT_READ);
 }
@@ -134,7 +134,7 @@ __vtv_malloc_protect (void)
 /* This function makes all of our data pages read-write.  */
 
 void
-__vtv_malloc_unprotect (void)
+VTV_malloc_unprotect (void)
 {
   change_protections_on_data_chunks (PROT_READ | PROT_WRITE);
 }
@@ -174,7 +174,7 @@ obstack_chunk_free (size_t)
    memory allocation scheme.  */
 
 void
-__vtv_malloc_init (void)
+VTV_malloc_init (void)
 {
   /* Make sure we only execute the main body of this function ONCE.  */
   if (malloc_initialized)
@@ -241,5 +241,5 @@ VTV_malloc_dump_stats (void)
       ci = ci->prev;
     }
 
-  __vtv_add_to_log (fd, "__vtv_malloc_protect protected=%d pages\n", count);
+  __vtv_add_to_log (fd, "VTV_malloc_protect protected=%d pages\n", count);
 }

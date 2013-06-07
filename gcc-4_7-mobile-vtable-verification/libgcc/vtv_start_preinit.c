@@ -50,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 void
 __VLTUnprotectPreinit (void)
 {
-  __VLTChangePermission (__VLTP_READ_WRITE);
+  __vtv_change_permission (__VLTP_READ_WRITE);
 }
 
 /* Page-aligned symbol to mark beginning of .vtable_map_vars section.  */
@@ -65,4 +65,3 @@ __attribute__ ((__visibility__ ("protected"), used, aligned(VTV_PAGE_SIZE),
 
 __attribute__ ((section (".preinit_array")))
     typeof (__VLTUnprotectPreinit) *__preinit = __VLTUnprotectPreinit;
-

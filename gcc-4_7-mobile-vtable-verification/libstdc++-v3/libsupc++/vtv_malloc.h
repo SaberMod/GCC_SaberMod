@@ -37,12 +37,12 @@
 
 /* Function declarations.  */
 
-extern void __vtv_malloc_init (void);
+extern void VTV_malloc_init (void);
 extern void * __vtv_malloc (size_t size) __attribute__ ((malloc));
 /* Do nothing. We dont care about recovering unneded memory */
 static inline void __vtv_free (void *) {};
-extern void __vtv_malloc_protect (void);
-extern void __vtv_malloc_unprotect (void);
+extern void VTV_malloc_protect (void);
+extern void VTV_malloc_unprotect (void);
 
 extern void VTV_malloc_stats (void);
 extern void VTV_malloc_dump_stats (void);

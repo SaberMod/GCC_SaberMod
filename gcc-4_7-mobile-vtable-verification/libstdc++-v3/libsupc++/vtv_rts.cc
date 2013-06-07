@@ -73,7 +73,7 @@
   hierarchy and vtable information about every virtual class, and we
   generate calls to build up the data sets at runtime.  To build the
   data sets, we call one of the functions we add to the runtime
-  library, __VLTRegisterPair.  __VLTRegisterPair takes two arguments,
+  library, __vtv_register_pair.  __vtv_register_pair takes two arguments,
   a vtable map variable and the address of a vtable.  If the vtable
   map variable is currently NULL, it creates a new data set (hash
   table), makes the vtable map variable point to the new data set, and
@@ -83,14 +83,14 @@
   any verification calls happen, we create a special constructor
   initialization function for each compilation unit, give it a very
   high initialization priority, and insert all of our calls to
-  __VLTRegisterPair into our special constructor initialization
+  __vtv_register_pair into our special constructor initialization
   function.  */
 
 /* This file contains the main externally visible runtime library
-   functions for vtable verification: __VLTChangePermission,
-   __VLTRegisterPair, and __VLTVerifyVtablePointer.  It also contains
-   debug versions __VLTRegisterPairDebug and
-   __VLTVerifyVtablePointerDebug, which have extra parameters in order
+   functions for vtable verification: __vtv_change_permission,
+   __vtv_register_pair, and __vtv_verify_vtable_pointer.  It also contains
+   debug versions __vtv_register_pairDebug and
+   __vtv_verify_vtable_pointer_debug, which have extra parameters in order
    to make it easier to debug verification failures.
 
    This file also contains the failure functions that get called when
@@ -98,7 +98,7 @@
    important functions are __vtv_verify_fail and __vtv_really_fail.
    They are both externally visible.  __vtv_verify_fail is defined in
    such a way that it can be replaced by a programmer, if desired.  It
-   is the function that __VLTVerifyVtablePointer calls if it can't
+   is the function that __vtv_verify_vtable_pointer calls if it can't
    find the pointer in the data set.  Allowing the programmer to
    overwrite this function means that he/she can do some alternate
    verification, including NOT failing in certain specific cases, if
@@ -126,7 +126,7 @@
    "-fvtable-verify=std" must be linked with libvtv_init.so (the gcc
    driver has been modified to do this).  vtv_stubs.so is built from
    vtv_stubs.cc.  It replaces the main runtime functions
-   (__VLTChangePermissino, __VLTRegisterPair and
+   (__VLTChangePermissino, __vtv_register_pair and
    __VLTVerifyVtablePoitner) with stub functions that do nothing.  If
    a programmer has a library that was built with verification, but
    wishes to not have verification turned on, the programmer can link
@@ -230,23 +230,17 @@ dl_iterate_phdr_whitelist_callback (struct dl_phdr_info *info,
   return 0;
 }
 
-extern "C" {
+/* __fortify_fail is a function in glibc that calls __libc_message,
+   causing it to print out a program termination error message
+   (including the name of the binary being terminated), a stack trace
+   where the error occurred, and a memory map dump.  Ideally we would
+   have called __libc_message directly, but that function does not
+   appear to be accessible to functions outside glibc, whereas
+   __fortify_fail is.  We call __fortify_fail from __vtv_really_fail.
+   We looked at calling __libc_fatal, which is externally accessible,
+   but it does not do the back trace and memory dump.  */
 
-  /* __fortify_fail is a function in glibc that calls __libc_message,
-     causing it to print out a program termination error message
-     (including the name of the binary being terminated), a stack
-     trace where the error occurred, and a memory map dump.  Ideally
-     we would have called __libc_message directly, but that function
-     does not appear to be accessible to functions outside glibc,
-     whereas __fortify_fail is.  We call __fortify_fail from
-     __vtv_really_fail.  We looked at calling __libc_fatal, which is
-     externally accessible, but it does not do the back trace and
-     memory dump.  */
-
-  extern void __fortify_fail (const char *) __attribute__((noreturn));
-
-} /* extern "C" */
-
+extern "C" void __fortify_fail (const char *) __attribute__((noreturn));
 
 /* This function calls __fortify_fail with a FAILURE_MSG and then
    calls abort.  */
@@ -364,19 +358,6 @@ __vtv_verify_fail (void **data_set_ptr, const void *vtbl_ptr)
   const char *fail_msg = "Potential vtable pointer corruption detected!!\n";
   vtv_fail (fail_msg, data_set_ptr, vtbl_ptr);
 }
-
-
-#ifndef VTV_STATIC_VERIFY
-
-s2s * __vtv_symbol_unification_map VTV_PROTECTED_HIDDEN_VAR = NULL;
-
-#include "vtv_rts_core.cc"
-
-#else
-
-s2s * __vtv_symbol_unification_map VTV_PROTECTED_GLOBAL_VAR = NULL;
-
-#endif
 
 #ifdef __GTHREAD_MUTEX_INIT
 /* TODO: NEED TO PROTECT THIS VAR  !!!!!!!!!!!!!!!!!!!  */
@@ -603,8 +584,8 @@ read_section_offset_and_length (struct dl_phdr_info *info,
          address is page-aligned.  */
       ElfW (Addr) start_addr = (const ElfW (Addr)) info->dlpi_addr
                                                                  + *sect_offset;
-      *sect_offset = start_addr & ~(VTV_PAGE_SIZE - 1);
-      *sect_len = *sect_len - 1;
+      VTV_ASSERT ((start_addr & ~(VTV_PAGE_SIZE - 1)) == start_addr);
+      *sect_offset = start_addr;
 
       /* Since we got this far, we must not have found these pages in
          the cache, so add them to it.  NOTE: We could get here either
@@ -808,11 +789,13 @@ static void
 log_set_stats (void)
 {
 #if HASHTABLE_STATS
-      if (set_log_fd == -1)
-        set_log_fd = __vtv_open_log ("vtv_set_stats.log");
+  static int set_log_fd = -1;
 
-      __vtv_add_to_log (set_log_fd, "---\n%s\n",
-                        insert_only_hash_tables_stats().c_str());
+  if (set_log_fd == -1)
+    set_log_fd = __vtv_open_log ("vtv_set_stats.log");
+
+  __vtv_add_to_log (set_log_fd, "---\n%s\n",
+		    insert_only_hash_tables_stats().c_str());
 #endif
 }
 
@@ -821,9 +804,9 @@ log_set_stats (void)
    contain our vtable map variables).  PERM indicates whether to make
    the permissions read-only or read-write.  */
 
-extern "C" /* This is only being applied to __VLTChangePermission.  */
+extern "C" /* This is only being applied to __vtv_change_permission.  */
 void
-__VLTChangePermission (int perm)
+__vtv_change_permission (int perm)
 {
   if (debug_functions)
     {
@@ -851,8 +834,8 @@ __VLTChangePermission (int perm)
       __gthread_mutex_lock (&change_permissions_lock);
 
       VTV_unprotect_vtable_vars ();
-      __vtv_malloc_init ();
-      __vtv_malloc_unprotect ();
+      VTV_malloc_init ();
+      VTV_malloc_unprotect ();
 
     }
   else if (perm == __VLTP_READ_ONLY)
@@ -860,7 +843,7 @@ __VLTChangePermission (int perm)
       if (debug_hash)
         log_set_stats();
 
-      __vtv_malloc_protect ();
+      VTV_malloc_protect ();
       VTV_protect_vtable_vars ();
 
       __gthread_mutex_unlock (&change_permissions_lock);
@@ -913,7 +896,7 @@ count_all_pages (void)
 }
 
 void
-__VLTDumpStats (void)
+__vtv_dump_stats (void)
 {
   int log_fd = __vtv_open_log ("vtv-runtime-stats.log");
 
@@ -942,3 +925,15 @@ __VLTDumpStats (void)
       close (log_fd);
     }
 }
+
+#ifndef VTV_STATIC_VERIFY
+
+s2s * __vtv_symbol_unification_map VTV_PROTECTED_HIDDEN_VAR = NULL;
+
+#include "vtv_rts_core.cc"
+
+#else
+
+s2s * __vtv_symbol_unification_map VTV_PROTECTED_GLOBAL_VAR = NULL;
+
+#endif

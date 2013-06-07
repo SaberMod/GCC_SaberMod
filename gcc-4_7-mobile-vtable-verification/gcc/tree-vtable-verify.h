@@ -54,7 +54,7 @@ extern int total_num_verified_vcalls;
 /* Each vtable map variable corresponds to a virtual class.  Each
    vtable map variable has a hash table associated with it, that keeps
    track of the vtable pointers for which we have generated a call to
-   __VLTRegisterPair (with the current vtable map variable).  This is
+   __vtv_register_pair (with the current vtable map variable).  This is
    the hash table node that is used for each entry in this hash table
    of vtable pointers.
 
@@ -131,7 +131,7 @@ struct vtbl_map_node {
                             generated a _VLTRegisterPair call with this vtable
                             map variable.                                    */
   bool is_used;          /* Boolean indicating if we used this vtable map
-                            variable in a call to __VLTVerifyVtablePointer.  */
+                            variable in a call to __vtv_verify_vtable_pointer.*/
 };
 
 /* The global linked list of vtbl_map_nodes.  */

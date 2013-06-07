@@ -71,7 +71,7 @@ along with GCC; see the file COPYING3.  If not see
   hierarchy and vtable information about every virtual class, and we
   generate calls to build up the data sets at runtime.  To build the
   data sets, we call one of the functions we add to the runtime
-  library, __VLTRegisterPair.  __VLTRegisterPair takes two arguments,
+  library, __vtv_register_pair.  __vtv_register_pair takes two arguments,
   a vtable map variable and the address of a vtable.  If the vtable
   map variable is currently NULL, it creates a new data set (hash
   table), makes the vtable map variable point to the new data set, and
@@ -81,7 +81,7 @@ along with GCC; see the file COPYING3.  If not see
   any verification calls happen, we create a special constructor
   initialization function for each compilation unit, give it a very
   high initialization priority, and insert all of our calls to
-  __VLTRegisterPair into our special constructor initialization
+  __vtv_register_pair into our special constructor initialization
   function.
 
   The vtable verification feature is controlled by the flag
@@ -92,18 +92,18 @@ along with GCC; see the file COPYING3.  If not see
   preinit array.  This is necessary if there are data sets that need
   to be built very early in execution.  If the constructor
   initialization function gets put into the preinit array, the we also
-  add calls to __VLTChangePermission at the beginning and end of the
+  add calls to __vtv_change_permission at the beginning and end of the
   function.  The call at the beginning sets the permissions on the
   data sets and vtable map variables to read/write, and the one at the
   end makes them read-only.  If the '-fvtable-verify=std' option is
   used, the constructor initialization functions are executed at their
-  normal time, and the __VLTChangePermission calls are handled
+  normal time, and the __vtv_change_permission calls are handled
   differently (see the comments in libstdc++-v3/libsupc++/vtv_rts.cc).
   The option '-fvtable-verify=none' turns off vtable verification.
 
   This file contains code for the tree pass that goes through all the
   statements in each basic block, looking for virtual calls, and
-  inserting a call to __VLTVerifyVtablePointer (with appropriate
+  inserting a call to __vtv_verify_vtable_pointer (with appropriate
   arguments) before each one.  It also contains the hash table
   functions for the data structures used for collecting the class
   hierarchy data and building/maintaining the vtable map variable data
@@ -121,12 +121,12 @@ along with GCC; see the file COPYING3.  If not see
   virtual call, we need to find the vtable pointer through which the
   call is being made, and the type of the object containing the
   pointer (to find the appropriate vtable map variable).  We then use
-  these to build a call to __VLTVerifyVtablePointer, passing the
+  these to build a call to __vtv_verify_vtable_pointer, passing the
   vtable map variable, and the vtable pointer.  We insert the
   verification call just after the gimple statement that gets the
   vtable pointer out of the object, and we update the next
   statement to depend on the result returned from
-  __VLTVerifyVtablePointer (the vtable pointer value), to ensure
+  __vtv_verify_vtable_pointer (the vtable pointer value), to ensure
   subsequent compiler phases don't remove or reorder the call (it's no
   good to have the verification occur after the virtual call, for
   example).  To find the vtable pointer being used (and the type of
@@ -170,7 +170,7 @@ unsigned int vtable_verify_main (void);
 /* The following few functions are for the vtbl pointer hash table
    in the 'registered' field of the struct vtable_map_node.  The hash
    table keeps track of which vtable pointers have been used in
-   calls to __VLTRegisterPair with that particular vtable map variable.  */
+   calls to __vtv_register_pair with that particular vtable map variable.  */
 
 /* This function checks to see if a particular VTABLE_DECL and OFFSET are
    already in the 'registered' hash table for NODE.  */
@@ -637,7 +637,7 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
    for virtual method calls.  For each virtual method dispatch, find
    the vptr value used, and the statically declared type of the
    object; retrieve the vtable map variable for the type of the
-   object; generate a call to __VLTVerifyVtablePointer; and insert the
+   object; generate a call to __vtv_verify_vtable_pointer; and insert the
    generated call into the basic block, after the point where the vptr
    value is gotten out of the object and before the virtual method
    dispatch. Make the virtual method dispatch depend on the return
@@ -708,7 +708,7 @@ verify_bb_vtables (basic_block bb)
               gcc_assert (verify_vtbl_ptr_fndecl);
 
               /* Given the vtable pointer for the base class of the
-                 object, build the call to __VLTVerifyVtablePointer to
+                 object, build the call to __vtv_verify_vtable_pointer to
                  verify that the object's vtable pointer (contained in
                  lhs) is in the set of valid vtable pointers for the
                  base class.  */
@@ -794,7 +794,7 @@ verify_bb_vtables (basic_block bb)
 /* Main function, called from pass->excute().  Loop through all the
    basic blocks in the current function, passing them to
    verify_bb_vtables, which searches for virtual calls, and inserts
-   calls to __VLTVerifyVtablePointer.  */
+   calls to __vtv_verify_vtable_pointer.  */
 
 unsigned int
 vtable_verify_main (void)

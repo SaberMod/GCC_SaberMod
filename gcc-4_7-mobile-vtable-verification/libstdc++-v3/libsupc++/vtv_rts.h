@@ -48,26 +48,28 @@
 
 #ifdef VTV_DEBUG
 
-extern void __VLTRegisterSetDebug (void **, const void *, std::size_t,
-                                   std::size_t, void **)
+extern void __vtv_register_set_debug (void **, const void *, std::size_t,
+                                      std::size_t, void **)
     __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
-extern void __VLTRegisterPairDebug (void **, const void *, size_t,
-                                    const void *, const char *, const char *)
+extern void __vtv_register_pair_debug (void **, const void *, size_t,
+                                       const void *, const char *,
+                                       const char *)
     __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
-extern const void *__VLTVerifyVtablePointerDebug (void **, const void *,
-						  const char *, const char *)
-    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf, 
+extern const void *__vtv_verify_vtable_pointer_debug (void **, const void *,
+						      const char *,
+                                                      const char *)
+    __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf,
 		    const));
 
 #else
 
-extern void __VLTRegisterSet (void **, const void *, std::size_t, std::size_t,
-                              void **)
+extern void __vtv_register_set (void **, const void *, std::size_t, std::size_t,
+                                void **)
     __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
-extern void __VLTRegisterPair (void **, const void *, size_t, const void *)
+extern void __vtv_register_pair (void **, const void *, size_t, const void *)
     __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf));
 
 /* This is the most performance critical routine. We use every attribute
@@ -79,7 +81,7 @@ extern void __VLTRegisterPair (void **, const void *, size_t, const void *)
      memory is "constant". So we can say that the return value only
      logically depends on the incoming arguments
 */
-extern const void *__VLTVerifyVtablePointer (void **, const void *)
+extern const void *__vtv_verify_vtable_pointer (void **, const void *)
     __attribute__ ((visibility (VTV_VISIBILITY_ATTR), VTV_HOT_ATTR, leaf,
 		    const, aligned(64)));
 

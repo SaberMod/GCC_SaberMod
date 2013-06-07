@@ -42,7 +42,7 @@
 
 extern "C"
 void
-__VLTChangePermission (int perm __attribute__((__unused__)))
+__vtv_change_permission (int perm __attribute__((__unused__)))
 {
 }
 
@@ -50,26 +50,26 @@ __VLTChangePermission (int perm __attribute__((__unused__)))
 #ifdef VTV_DEBUG
 
 void
-__VLTRegisterSetDebug (void ** __attribute__((__unused__)), 
-                       const void * __attribute__((__unused__)),
-                       std::size_t __attribute__((__unused__)),
-                       std::size_t __attribute__((__unused__)),
-                       void ** __attribute__((__unused__)))
+__vtv_register_set_debug (void ** __attribute__((__unused__)),
+                          const void * __attribute__((__unused__)),
+                          std::size_t __attribute__((__unused__)),
+                          std::size_t __attribute__((__unused__)),
+                          void ** __attribute__((__unused__)))
 {
 }
 
 void
-__VLTRegisterPairDebug (void ** __attribute__((__unused__)),
-                        const  void * __attribute__((__unused__)),
-                        std::size_t __attribute__((__unused__)),
-                        const  void * __attribute__((__unused__)),
-                        const  char * __attribute__((__unused__)),
-                        const  char * __attribute__((__unused__)))
+__vtv_register_pair_debug (void ** __attribute__((__unused__)),
+                           const  void * __attribute__((__unused__)),
+                           std::size_t __attribute__((__unused__)),
+                           const  void * __attribute__((__unused__)),
+                           const  char * __attribute__((__unused__)),
+                           const  char * __attribute__((__unused__)))
 {
 }
 
 const void *
-__VLTVerifyVtablePointerDebug
+__vtv_verify_vtable_pointer_debug
                      (void **set_handle_ptr  __attribute__((__unused__)),
                       const void *vtable_ptr,
                       const char *set_symbol_name __attribute__((__unused__)),
@@ -82,25 +82,25 @@ __VLTVerifyVtablePointerDebug
 #else
 
 void
-__VLTRegisterSet (void ** __attribute__((__unused__)),
-                  const void * __attribute__((__unused__)),
-                  std::size_t __attribute__((__unused__)),
-                  std::size_t __attribute__((__unused__)),
-                  void ** __attribute__((__unused__)))
+__vtv_register_set (void ** __attribute__((__unused__)),
+                    const void * __attribute__((__unused__)),
+                    std::size_t __attribute__((__unused__)),
+                    std::size_t __attribute__((__unused__)),
+                    void ** __attribute__((__unused__)))
 {
 }
 
 void
-__VLTRegisterPair (void ** __attribute__((__unused__)),
-                   const  void * __attribute__((__unused__)),
-                   std::size_t __attribute__((__unused__)),
-                   const  void * __attribute__((__unused__)))
+__vtv_register_pair (void ** __attribute__((__unused__)),
+                     const  void * __attribute__((__unused__)),
+                     std::size_t __attribute__((__unused__)),
+                     const  void * __attribute__((__unused__)))
 {
 }
 
 const void *
-__VLTVerifyVtablePointer (void **set_handle_ptr __attribute__((__unused__)),
-                          const void *vtable_ptr)
+__vtv_verify_vtable_pointer (void **set_handle_ptr __attribute__((__unused__)),
+                             const void *vtable_ptr)
 {
   return vtable_ptr;
 }

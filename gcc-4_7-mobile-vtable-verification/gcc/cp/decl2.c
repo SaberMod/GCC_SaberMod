@@ -4143,7 +4143,7 @@ cp_write_global_declarations (void)
   if (flag_vtable_verify)
     {
       /* Generate the special constructor initialization function that
-         calls __VLTRegisterPairs, and give it a very high initialization
+         calls __vtv_register_pairs, and give it a very high initialization
          priority.  */
       vtv_generate_init_routine ();
     }

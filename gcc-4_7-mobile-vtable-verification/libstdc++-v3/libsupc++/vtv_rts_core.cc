@@ -73,7 +73,7 @@
   hierarchy and vtable information about every virtual class, and we
   generate calls to build up the data sets at runtime.  To build the
   data sets, we call one of the functions we add to the runtime
-  library, __VLTRegisterPair.  __VLTRegisterPair takes two arguments,
+  library, __vtv_register_pair.  __vtv_register_pair takes two arguments,
   a vtable map variable and the address of a vtable.  If the vtable
   map variable is currently NULL, it creates a new data set (hash
   table), makes the vtable map variable point to the new data set, and
@@ -83,14 +83,14 @@
   any verification calls happen, we create a special constructor
   initialization function for each compilation unit, give it a very
   high initialization priority, and insert all of our calls to
-  __VLTRegisterPair into our special constructor initialization
+  __vtv_register_pair into our special constructor initialization
   function.  */
 
 /* This file contains the main externally visible runtime library
-   functions for vtable verification: __VLTChangePermission,
-   __VLTRegisterPair, and __VLTVerifyVtablePointer.  It also contains
-   debug versions __VLTRegisterPairDebug and
-   __VLTVerifyVtablePointerDebug, which have extra parameters in order
+   functions for vtable verification: __vtv_change_permission,
+   __vtv_register_pair, and __vtv_verify_vtable_pointer.  It also contains
+   debug versions __vtv_register_pair_debug and
+   __vtv_verify_vtable_pointer_debug, which have extra parameters in order
    to make it easier to debug verification failures.
 
    This file also contains the failure functions that get called when
@@ -98,7 +98,7 @@
    important functions are __vtv_verify_fail and __vtv_really_fail.
    They are both externally visible.  __vtv_verify_fail is defined in
    such a way that it can be replaced by a programmer, if desired.  It
-   is the function that __VLTVerifyVtablePointer calls if it can't
+   is the function that __vtv_verify_vtable_pointer calls if it can't
    find the pointer in the data set.  Allowing the programmer to
    overwrite this function means that he/she can do some alternate
    verification, including NOT failing in certain specific cases, if
@@ -126,8 +126,8 @@
    "-fvtable-verify=std" must be linked with libvtv_init.so (the gcc
    driver has been modified to do this).  vtv_stubs.so is built from
    vtv_stubs.cc.  It replaces the main runtime functions
-   (__VLTChangePermissino, __VLTRegisterPair and
-   __VLTVerifyVtablePoitner) with stub functions that do nothing.  If
+   (__VLTChangePermissino, __vtv_register_pair and
+   __vtv_verify_vtable_pointer) with stub functions that do nothing.  If
    a programmer has a library that was built with verification, but
    wishes to not have verification turned on, the programmer can link
    in the vtv_stubs.so library.  */
@@ -167,25 +167,11 @@
    they become corrupted it will not affect the correctness or
    security of any of the rest of the vtable verification feature.  */
 
-
 static const bool local_debug_hash = HASHTABLE_STATS;
 static const int debug_init = 0;
 static const int debug_verify_vtable = 0;
 
-
-#ifdef VTV_DEBUG
-/* Global file descriptor variables for logging, tracing and debugging.  */
-static int verify_vtable_log_fd = -1;
-
-/* This holds a formatted error logging message, to be written to the
-   vtable verify failures log.  */
-static char debug_log_message[1024];
-#endif
-
 static int init_log_fd = -1;
-#if HASHTABLE_STATS
-static int set_log_fd = -1;
-#endif
 
 /*  Variables needed for getting the statistics about the hashtable set.  */
 #if HASHTABLE_STATS
@@ -216,7 +202,6 @@ _AtomicStatCounter stat_insert_found_hash_collision = 0;
 _AtomicStatCounter stat_contains_in_non_trivial_set = 0;
 _AtomicStatCounter stat_insert_key_that_was_already_present = 0;
 #endif
-
 
 typedef const s2s::key_type  vtv_symbol_key;
 
@@ -286,6 +271,13 @@ register_pair_common (void **set_handle_ptr, const void *vtable_ptr,
    used. We could change this once the code is more stable.  */
 
 #ifdef VTV_DEBUG
+
+/* Global file descriptor variables for logging, tracing and debugging.  */
+static int verify_vtable_log_fd = -1;
+
+/* This holds a formatted error logging message, to be written to the
+   vtable verify failures log.  */
+static char debug_log_message[1024];
 
 static inline void
 init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
@@ -421,9 +413,9 @@ init_set_symbol_debug (void **set_handle_ptr, const void *set_symbol_key,
    set of vtable pointers that SET_HANDLE_POINTER will point to.  */
 
 void
-__VLTRegisterSetDebug (void **set_handle_ptr, const void *set_symbol_key,
-                       size_t size_hint, size_t num_args,
-                       void **vtable_ptr_array)
+__vtv_register_set_debug (void **set_handle_ptr, const void *set_symbol_key,
+                          size_t size_hint, size_t num_args,
+                          void **vtable_ptr_array)
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
@@ -439,9 +431,9 @@ __VLTRegisterSetDebug (void **set_handle_ptr, const void *set_symbol_key,
 }
 
 void
-__VLTRegisterPairDebug (void **set_handle_ptr, const  void *set_symbol_key,
-                        size_t size_hint, const void *vtable_ptr,
-                        const char *set_symbol_name, const char *vtable_name)
+__vtv_register_pair_debug (void **set_handle_ptr, const  void *set_symbol_key,
+                           size_t size_hint, const void *vtable_ptr,
+                           const char *set_symbol_name, const char *vtable_name)
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
@@ -457,7 +449,7 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const  void *set_symbol_key,
 #endif
 }
 
-/* This function is called from __VLTVerifyVtablePointerDebug; it
+/* This function is called from __vtv_verify_vtable_pointer_debug; it
    sends as much debugging information as it can to the error log
    file, then calls __vtv_verify_fail.  SET_HANDLE_PTR is the pointer
    to the set of valid vtable pointers, VTBL_PTR is the pointer that
@@ -488,9 +480,10 @@ __vtv_verify_fail_debug (void **set_handle_ptr, const void *vtbl_ptr,
    messages and calls abort.  */
 
 const void *
-__VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
-                               const char *set_symbol_name,
-                               const char *vtable_name)
+__vtv_verify_vtable_pointer_debug (void **set_handle_ptr,
+                                   const void *vtable_ptr,
+                                   const char *set_symbol_name,
+                                   const char *vtable_name)
 {
 #ifndef VTV_EMPTY_VERIFY
   increment_num_calls (&__vtv_stats.num_calls_to_verify_vtable);
@@ -615,8 +608,8 @@ init_set_symbol (void **set_handle_ptr, const void *set_symbol_key,
 
 
 void
-__VLTRegisterSet (void **set_handle_ptr, const void *set_symbol_key,
-                  size_t size_hint, size_t num_args, void **vtable_ptr_array)
+__vtv_register_set (void **set_handle_ptr, const void *set_symbol_key,
+                    size_t size_hint, size_t num_args, void **vtable_ptr_array)
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
@@ -632,8 +625,8 @@ __VLTRegisterSet (void **set_handle_ptr, const void *set_symbol_key,
 
 
 void
-__VLTRegisterPair (void **set_handle_ptr, const  void *set_symbol_key,
-                   size_t size_hint, const void *vtable_ptr)
+__vtv_register_pair (void **set_handle_ptr, const  void *set_symbol_key,
+                     size_t size_hint, const void *vtable_ptr)
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
@@ -655,7 +648,7 @@ __VLTRegisterPair (void **set_handle_ptr, const  void *set_symbol_key,
    important for it to be as efficient as possible.  */
 
 const void *
-__VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
+__vtv_verify_vtable_pointer (void ** set_handle_ptr, const void * vtable_ptr)
 {
 #ifndef VTV_EMPTY_VERIFY
   increment_num_calls (&__vtv_stats.num_calls_to_verify_vtable);

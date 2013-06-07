@@ -1327,27 +1327,24 @@ GLIBCXX_3.4.18 {
     _ZdlPv[jmy];
 
     # Virtual table verification symbols
-    _Z12__VLTprotectv;
-    _Z14__VLTunprotectv;
-    _Z17__VLTRegisterPair*;
-    _Z22__VLTRegisterPairDebug*;
-    _Z16__VLTRegisterSet*;
-    _Z21__VLTRegisterSetDebug*;
-    _Z24__VLTVerifyVtablePointer*;
-    _Z29__VLTVerifyVtablePointerDebug*;
+    _Z13__vtv_protectv;
+    _Z15__vtv_unprotectv;
+    _Z19__vtv_register_pair*;
+    _Z25__vtv_register_pair_debug*;
+    _Z18__vtv_register_set*;
+    _Z24__vtv_register_set_debug*;
+    _Z27__vtv_verify_vtable_pointer*;
+    _Z33__vtv_verify_vtable_pointer_debug*;
     _Z17__vtv_verify_fail*;
     _Z17__vtv_really_fail*;
-    _Z14__VLTDumpStats*;
-    __VLTChangePermission;
     _Z12__vtv_malloc*;
-    _Z17__vtv_malloc_init*;
-    _Z22__vtv_malloc_unprotect*;
-    _Z20__vtv_malloc_protect*;
     _Z14__vtv_open_log*;
     _Z16__vtv_add_to_log*;
     _Z30__vtv_log_verification_failure*;
-    __vtv_symbol_unification_map;
+    _Z16__vtv_dump_stats*;
+    __vtv_change_permission;
     __vtv_stats;
+    __vtv_symbol_unification_map;
 } GLIBCXX_3.4.17;
 
 # Symbols in the support library (libsupc++) have their own tag.

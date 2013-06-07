@@ -70,14 +70,14 @@ along with GCC; see the file COPYING3.  If not see
   hierarchy and vtable information about every virtual class, and we
   generate calls to build up the data sets at runtime.  To build the
   data sets, we call two of the functions we add to the runtime
-  library, __VLTRegisterPair or __VLTRegisterSet.  __VLTRegisterPair
+  library, __vtv_register_pair or __vtv_register_set.  __vtv_register_pair
   takes four arguments, a vtable map variable, a set key and size hint
   (for initializing the data set, if not already initialized) and the
-  vtable pointer to add to the set.  __VLTRegisterSet takes five
+  vtable pointer to add to the set.  __vtv_register_set takes five
   arguments: the vtable map var, set key and size hint, and also an
   array of vtable pointers to add to the set and the size of the
-  array.  __VLTRegisterPair is used to add a single vtable pointer to
-  the set, while __VLTRegisterSet is used to add multiple pointers at
+  array.  __vtv_register_pair is used to add a single vtable pointer to
+  the set, while __vtv_register_set is used to add multiple pointers at
   a time.  If the vtable map variable is currently NULL when passed to
   either of these routines, they create a new data set (hash table),
   makes the vtable map variable point to the new data set, and inserts
@@ -87,7 +87,7 @@ along with GCC; see the file COPYING3.  If not see
   verification calls happen, we create a special constructor
   initialization function for each compilation unit, give it a very
   high initialization priority, and insert all of our calls to
-  __VLTRegisterSet and __VLTRegisterPair into our special constructor
+  __vtv_register_set and __vtv_register_pair into our special constructor
   initialization function.
 
   The vtable verification feature is controlled by the flag
@@ -105,7 +105,7 @@ along with GCC; see the file COPYING3.  If not see
   the virtual classes in a program, and all the vtables associated
   with each such class; to generate the vtable map variables; and to
   generate the constructor initialization function (with the calls to
-  __VLTRegisterSet, and/or __VLTRegisterPair).  The main data
+  __vtv_register_set, and/or __vtv_register_pair).  The main data
   structures used for collecting the class hierarchy data and
   building/maintaining the vtable map variable data are defined in
   gcc/tree-vtable-verify.h, because they are used both here and in
@@ -155,22 +155,22 @@ struct work_node {
 struct vtbl_map_node *vtable_find_or_create_map_decl (tree);
 
 /* As part of vtable verification the compiler generates and inserts
-   calls to __VLTVerifyVtablePointer, which is in libstdc++.  This
+   calls to __vtv_verify_vtable_pointer, which is in libstdc++.  This
    function builds and initializes the function decl that is used
    in generating those function calls.
 
-   In addition to __VLTVerifyVtablePointer there is also
-   __VLTVerifyVtablePointerDebug which can be used in place of
-   __VLTVerifyVtablePointer, and which takes extra parameters and
+   In addition to __vtv_verify_vtable_pointer there is also
+   __vtv_verify_vtable_pointer_debug which can be used in place of
+   __vtv_verify_vtable_pointer, and which takes extra parameters and
    outputs extra information, to help debug problems.  The debug
    version of this function is generated and used if VTV_DEBUG is
    defined.
 
    The signatures for these functions are:
 
-   void * __VLTVerifyVtablePointer (void **, void*);
-   void * __VLTVerifyVtablePointerDebug (void**, void *, char *, int, char *,
-                                         int);
+   void * __vtv_verify_vtable_pointer (void **, void*);
+   void * __vtv_verify_vtable_pointer_debug (void**, void *, char *, int,
+                                             char *, int);
 */
 
 void
@@ -209,19 +209,19 @@ vtv_build_vtable_verify_fndecl (void)
 
 #ifdef VTV_DEBUG
   /* const void *
-     __VLTVerifyVtablePointerDebug (void ** set_handle_ptr,
-                                    const void * vtable_ptr,
-                                    const char * set_symbol_name,
-                                    const char * vtable_name)      */
+     __vtv_verify_vtable_pointer_debug (void ** set_handle_ptr,
+                                        const void * vtable_ptr,
+                                        const char * set_symbol_name,
+                                        const char * vtable_name)      */
 
-    verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointerDebug",
+    verify_vtbl_ptr_fndecl = build_fn_decl ("__vtv_verify_vtable_pointer_debug",
                                             func_type);
 #else
   /* const void *
-     __VLTVerifyVtablePointerDebug (void ** set_handle_ptr,
-                                    const void * vtable_ptr)            */
+     __vtv_verify_vtable_pointer_debug (void ** set_handle_ptr,
+                                        const void * vtable_ptr)            */
 
-    verify_vtbl_ptr_fndecl = build_fn_decl ("__VLTVerifyVtablePointer",
+    verify_vtbl_ptr_fndecl = build_fn_decl ("__vtv_verify_vtable_pointer",
                                             func_type);
 #endif
 
@@ -243,22 +243,22 @@ vtv_build_vtable_verify_fndecl (void)
 }
 
 /* As part of vtable verification the compiler generates and inserts
-   calls to __VLTRegisterSet and __VLTRegisterPair, which are in
+   calls to __vtv_register_set and __vtv_register_pair, which are in
    libsupc++.  This function builds and initializes the function decls
    that are used in generating those function calls.
 
    The signatures for these functions are:
 
-   void __VLTRegisterSetDebug (void **, const void *, std::size_t,
-                               size_t, void **);
+   void __vtv_register_set_debug (void **, const void *, std::size_t,
+                                  size_t, void **);
 
-   void __VLTRegisterSet (void **, const void *, std::size_t,
-                          size_t, void **);
+   void __vtv_register_set (void **, const void *, std::size_t,
+                            size_t, void **);
 
-   void __VLTRegisterPairDebug (void **, const void *, size_t,
-                                const void *, const char *, const char *);
+   void __vtv_register_pair_debug (void **, const void *, size_t,
+                                   const void *, const char *, const char *);
 
-   void __VLTRegisterPair (void **, const void *, size_t, const void *);
+   void __vtv_register_pair (void **, const void *, size_t, const void *);
 */
 
 static void
@@ -280,7 +280,7 @@ init_functions (void)
   gcc_assert (vlt_register_set_fndecl == NULL_TREE);
   gcc_assert (vlt_register_pairs_fndecl == NULL_TREE);
 
-  /* Build arg types for __VLTRegisterSet[Debug], and initialize
+  /* Build arg types for __vtv_register_set[Debug], and initialize
      vlt_register_set_fndecl.  */
 
   /* Arg1: Set handle ptr.  */
@@ -305,10 +305,10 @@ init_functions (void)
   register_set_type = build_function_type (register_set_type, arg_types);
 
 #if VTV_DEBUG
-  vlt_register_set_fndecl = build_fn_decl ("__VLTRegisterSetDebug",
+  vlt_register_set_fndecl = build_fn_decl ("__vtv_register_set_debug",
                                            register_set_type);
 #else
-  vlt_register_set_fndecl = build_fn_decl ("__VLTRegisterSet",
+  vlt_register_set_fndecl = build_fn_decl ("__vtv_register_set",
                                            register_set_type);
 #endif
 
@@ -326,7 +326,7 @@ init_functions (void)
   retrofit_lang_decl (vlt_register_set_fndecl);
   SET_DECL_LANGUAGE (vlt_register_set_fndecl, lang_cplusplus);
 
-  /* Build arg types for __VLTRegisterPair[Debug], and initialize
+  /* Build arg types for __vtv_register_pair[Debug], and initialize
      vlt_register_set_fndecl.  */
 
   /* Arg1: Set handle ptr.  */
@@ -357,10 +357,10 @@ init_functions (void)
   register_pairs_type = build_function_type (register_pairs_type,
                                              arg_types);
 #if VTV_DEBUG
-  vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPairDebug",
+  vlt_register_pairs_fndecl = build_fn_decl ("__vtv_register_pair_debug",
                                              register_pairs_type);
 #else
-  vlt_register_pairs_fndecl = build_fn_decl ("__VLTRegisterPair",
+  vlt_register_pairs_fndecl = build_fn_decl ("__vtv_register_pair",
                                              register_pairs_type);
 #endif
 
@@ -495,7 +495,7 @@ vtv_compute_class_hierarchy_transitive_closure (void)
 }
 
 /* Keep track of which pairs we have already added to our list for
-   __VLTRegisterSet or __VLTRegisterPair, to prevent creating
+   __vtv_register_set or __vtv_register_pair, to prevent creating
    duplicate entries within the same compilation unit.  VTABLE_DECL is
    the var decl for the vtable of the (descendant) class that we are
    adding to our class hierarchy data.  VPTR_ADDRESS is and expression
@@ -534,7 +534,7 @@ check_and_record_registered_pairs (tree vtable_decl, tree vptr_address,
    This function goes through the decl chain of a class record looking
    for any fields that point to secondary vtables, and adding vtable
    addresses for secondary vtable pointers to set to be passed to
-   __VLTRegisterSet.
+   __vtv_register_set.
 
    BASE_CLASS is the record_type node for the base class.
    RECORD_TYPE is the record_type node for the descendant class that
@@ -716,8 +716,8 @@ collect_other_binfo_vtables (tree binfo, tree base_class,
 /* The set of valid vtable pointers for any given class are stored in
    a hash table.  For reasons of efficiency, that hash table size is
    always a power of two.  In order to try to prevent re-sizing the
-   hash tables very often, we pass __VLTRegisterSet or
-   __VLTRegisterPair an initial guess as to the number of entries the
+   hash tables very often, we pass __vtv_register_set or
+   __vtv_register_pair an initial guess as to the number of entries the
    hashtable will eventually need (rounded up to the nearest power of
    two).  This function takes the class information we have collected
    for a particular class, CLASS_NODE, and calculates the hash table
@@ -911,7 +911,7 @@ insert_call_to_register_pair (tree vtable_address, int num_args, tree arg1,
 #endif
 
 /* This function goes through our internal class hierarchy & vtable
-   pointer data structure and outputs calls to __VLTRegisterSet for
+   pointer data structure and outputs calls to __vtv_register_set for
    every class.  These calls get put into our constructor
    initialization function.  BODY is the function body, so far, of our
    constructor initialization function, to which we add the calls.  */
@@ -1154,7 +1154,7 @@ update_class_hierarchy_information (tree base_class,
    violation at runtime.  The parameter, INIT_ROUTINE_BODY, is the
    function body of our constructor initialization function, to which
    we add the reference to this symbol (and all of our calls to
-   __VLTRegisterSet or __VLTRegisterPair).
+   __vtv_register_set or __vtv_register_pair).
 
    For more information, see comments in
    libstdc++-v3/libsupc++/vtv_init.cc.  */
@@ -1220,7 +1220,7 @@ write_out_vtv_count_data (void)
 }
 
 /* This function calls register_all_pairs, which actually generates
-   all the calls to __VLTRegisterSet (in the verification constructor
+   all the calls to __vtv_register_set (in the verification constructor
    init function).  INIT_ROUTINE_BODY is the body of our constructior
    initialization function, to which we add our function calls.*/
 
@@ -1253,7 +1253,7 @@ vtv_register_class_hierarchy_information (tree init_routine_body)
 }
 
 /* Generate the special constructor function that calls
-   __VLTRegisterPair and __VLTRegisterSet, and give it a very
+   __vtv_register_pair and __vtv_register_set, and give it a very
    high initialization priority.  */
 
 void

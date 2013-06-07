@@ -51,7 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 void
 __VLTProtectPreinit (void)
 {
-  __VLTChangePermission (__VLTP_READ_ONLY);
+  __vtv_change_permission (__VLTP_READ_ONLY);
 }
 
 /* Page-sized variable to mark end of .vtable_map_vars section.  */
