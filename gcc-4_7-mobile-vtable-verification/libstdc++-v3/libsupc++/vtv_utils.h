@@ -28,6 +28,100 @@
 #include <stdlib.h>
 #include "../../include/vtv-change-permission.h"
 
+/* The following   */
+
+struct vtv_stats {
+  unsigned long long regset_cycles;
+  unsigned long long regpair_cycles;
+  unsigned long long verify_vtable_cycles;
+  unsigned long long mprotect_cycles;
+  unsigned int num_calls_to_regset;
+  unsigned int num_calls_to_regpair;
+  unsigned int num_calls_to_verify_vtable;
+  unsigned int num_calls_to_mprotect;
+  unsigned int num_pages_protected;
+};
+
+extern vtv_stats __vtv_stats;
+
+#ifdef __x86_64__
+static inline unsigned long
+rdtsc ()
+{
+  unsigned long long hi, lo;
+
+  asm volatile ("rdtsc" : "=a" (lo), "=d" (hi));
+  return hi << 32 | lo;
+}
+#elif defined (__i386__)
+static inline unsigned long long
+rdtsc ()
+{
+  unsigned long long var;
+
+  asm volatile ("rdtsc" : "=A" (var));
+
+  return var;
+}
+#else
+static inline unsigned long long
+rdtsc ()
+{
+  /* Create an empty function for unknown architectures, so that the
+     calls to this function in vtv_malloc.c and vtv_rts.c do not cause
+     compilation errors.  */
+  return ((unsigned long long) 0);
+}
+#endif
+
+#ifndef VTV_STATS
+#define VTV_STATS 0
+#endif
+
+#if VTV_STATS
+
+static inline unsigned long long
+get_cycle_count (void)
+{
+  return rdtsc();
+}
+
+static inline void
+accumulate_cycle_count (unsigned long long *sum, unsigned long long start)
+{
+  unsigned long long end = rdtsc();
+  *sum = *sum + (end - start);
+}
+
+static inline void
+increment_num_calls (unsigned int *num_calls)
+{
+  *num_calls = *num_calls + 1;
+}
+
+#else
+
+static inline unsigned long long
+get_cycle_count (void)
+{
+  return (unsigned long long) 0;
+}
+
+static inline void
+accumulate_cycle_count (unsigned long long *sum __attribute__((__unused__)),
+                        unsigned long long start __attribute__((__unused__)))
+{
+  /* Do nothing.  */
+}
+
+static inline void
+increment_num_calls (unsigned int *num_calls __attribute__((__unused__)))
+{
+  /* Do nothing.  */
+}
+
+#endif
+
 /* Handler for verification runtime errors.  */
 #define VTV_error abort
 

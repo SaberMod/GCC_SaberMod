@@ -43,15 +43,7 @@
 #include "vtv_malloc.h"
 #include "obstack.h"
 
-/* The following variables are used only for debugging and performance tuning
-   purposes. Therefore they do not need to be "protected".  They cannot be used
-   to attack the vtable verification system and if they become corrupted it will
-   not affect the correctness or security of any of the rest of the vtable
-   verification feature.  */
 
-unsigned int num_calls_to_mprotect = 0;
-unsigned int num_pages_protected = 0;
-unsigned int long long mprotect_cycles = 0;
 
 /* Put the following variables in our ".vtable_map_vars" section so
    that they are protected.  They are explicitly unprotected and
@@ -94,7 +86,7 @@ change_protections_on_data_chunks (int protection_flag)
       size_t total_size;
       unsigned int num_pages_in_chunk;
       char *next_page;
-      unsigned long long start, end;
+      unsigned long long start;
       int result;
 
 
@@ -115,14 +107,14 @@ change_protections_on_data_chunks (int protection_flag)
                                                                        == 0);
 
       /* Protect the contiguous chunks so far.  */
-      start = rdtsc ();
+      start = get_cycle_count();
       result = mprotect (protect_start, total_size, protection_flag);
-      end = rdtsc ();
-      mprotect_cycles += end - start;
+      accumulate_cycle_count(&__vtv_stats.mprotect_cycles, start);
       if (result == -1)
         VTV_error ();
-      num_calls_to_mprotect++;
-      num_pages_protected += (total_size + VTV_PAGE_SIZE - 1)/ VTV_PAGE_SIZE;
+      __vtv_stats.num_calls_to_mprotect++;
+      __vtv_stats.num_pages_protected +=
+          (total_size + VTV_PAGE_SIZE - 1)/ VTV_PAGE_SIZE;
     }
 
 #if (VTV_DEBUG_MALLOC == 1)

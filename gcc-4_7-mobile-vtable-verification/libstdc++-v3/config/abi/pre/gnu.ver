@@ -1347,6 +1347,7 @@ GLIBCXX_3.4.18 {
     _Z16__vtv_add_to_log*;
     _Z30__vtv_log_verification_failure*;
     __vtv_symbol_unification_map;
+    __vtv_stats;
 } GLIBCXX_3.4.17;
 
 # Symbols in the support library (libsupc++) have their own tag.

@@ -38,6 +38,8 @@
 
 #include "vtv_utils.h"
 
+vtv_stats __vtv_stats;
+
 /* This is the directory into which all vtable verication log files
    get written, if possible.  */
 static const char * const logs_dir = "/var/log/chrome/vtv_logs";

@@ -425,15 +425,20 @@ __VLTDumpStats (void)
       __vtv_add_to_log (log_fd,
                         "Calls: mprotect (%d)  regset (%d) regpair (%d)"
                         " verify_vtable (%d)\n",
-                        num_calls_to_mprotect, num_calls_to_regset,
-                        num_calls_to_regpair, num_calls_to_verify_vtable);
+                        __vtv_stats.num_calls_to_mprotect,
+                        __vtv_stats.num_calls_to_regset,
+                        __vtv_stats.num_calls_to_regpair,
+                        __vtv_stats.num_calls_to_verify_vtable);
       __vtv_add_to_log (log_fd,
                         "Cycles: mprotect (%lld) regset (%lld) "
                         "regpair (%lld) verify_vtable (%lld)\n",
-                        mprotect_cycles, regset_cycles, regpair_cycles,
-                        verify_vtable_cycles);
+                        __vtv_stats.mprotect_cycles,
+                        __vtv_stats.regset_cycles,
+                        __vtv_stats.regpair_cycles,
+                        __vtv_stats.verify_vtable_cycles);
       __vtv_add_to_log (log_fd,
-                        "Pages protected (1): %d\n", num_pages_protected);
+                        "Pages protected (1): %d\n",
+                        __vtv_stats.num_pages_protected);
       __vtv_add_to_log (log_fd, "Pages protected (2): %d\n", page_count_2);
 
       close (log_fd);

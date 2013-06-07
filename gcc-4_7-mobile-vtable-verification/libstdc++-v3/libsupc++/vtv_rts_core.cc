@@ -167,12 +167,6 @@
    they become corrupted it will not affect the correctness or
    security of any of the rest of the vtable verification feature.  */
 
-unsigned int num_calls_to_regset = 0;
-unsigned int num_calls_to_regpair = 0;
-unsigned int num_calls_to_verify_vtable = 0;
-unsigned long long regset_cycles = 0;
-unsigned long long regpair_cycles = 0;
-unsigned long long verify_vtable_cycles = 0;
 
 static const bool debug_hash = HASHTABLE_STATS;
 
@@ -204,53 +198,6 @@ static __gthread_mutex_t change_permissions_lock = __GTHREAD_MUTEX_INIT;
 static __gthread_mutex_t change_permissions_lock;
 #endif
 
-#ifndef VTV_STATS
-#define VTV_STATS 0
-#endif
-
-#if VTV_STATS
-
-static inline unsigned long long
-get_cycle_count (void)
-{
-  return rdtsc();
-}
-
-static inline void
-accumulate_cycle_count (unsigned long long *sum, unsigned long long start)
-{
-  unsigned long long end = rdtsc();
-  *sum = *sum + (end - start);
-}
-
-static inline void
-increment_num_calls (unsigned int *num_calls)
-{
-  *num_calls = *num_calls + 1;
-}
-
-#else
-
-static inline unsigned long long
-get_cycle_count (void)
-{
-  return (unsigned long long) 0;
-}
-
-static inline void
-accumulate_cycle_count (unsigned long long *sum __attribute__((__unused__)),
-                        unsigned long long start __attribute__((__unused__)))
-{
-  /* Do nothing.  */
-}
-
-static inline void
-increment_num_calls (unsigned int *num_calls __attribute__((__unused__)))
-{
-  /* Do nothing.  */
-}
-
-#endif
 
 /* Records for caching the section header information that we have
    read out of the file(s) on disk (in dl_iterate_phdr_callback), to
@@ -563,7 +510,7 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
       start = get_cycle_count ();
       result = mprotect ((void *) map_sect_offset, map_sect_len,
                          *mprotect_flags);
-      accumulate_cycle_count (&mprotect_cycles, start);
+      accumulate_cycle_count (&__vtv_stats.mprotect_cycles, start);
       if (result == -1)
         {
           if (debug_functions)
@@ -587,8 +534,9 @@ dl_iterate_phdr_callback (struct dl_phdr_info *info,
               log_memory_protection_data (buffer);
             }
         }
-      increment_num_calls (&num_calls_to_mprotect);
-      num_pages_protected += (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
+      increment_num_calls (&__vtv_stats.num_calls_to_mprotect);
+      __vtv_stats.num_pages_protected +=
+          (map_sect_len + VTV_PAGE_SIZE - 1) / VTV_PAGE_SIZE;
     }
 
   return 0;
@@ -970,14 +918,14 @@ __VLTRegisterSetDebug (void **set_handle_ptr, const void *set_symbol_key,
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_regset);
+  increment_num_calls (&__vtv_stats.num_calls_to_regset);
 
   VTV_DEBUG_ASSERT (set_handle_ptr != NULL);
   init_set_symbol_debug (set_handle_ptr, set_symbol_key, size_hint);
 
   register_set_common (set_handle_ptr, num_args, vtable_ptr_array, true);
 
-  accumulate_cycle_count (&regset_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.regset_cycles, start);
 #endif
 }
 
@@ -988,7 +936,7 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const  void *set_symbol_key,
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_regpair);
+  increment_num_calls (&__vtv_stats.num_calls_to_regpair);
 
   VTV_DEBUG_ASSERT (set_handle_ptr != NULL);
   init_set_symbol_debug (set_handle_ptr, set_symbol_key, size_hint);
@@ -996,7 +944,7 @@ __VLTRegisterPairDebug (void **set_handle_ptr, const  void *set_symbol_key,
   register_pair_common (set_handle_ptr, vtable_ptr, set_symbol_name, vtable_name,
                         true);
 
-  accumulate_cycle_count (&regpair_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.regpair_cycles, start);
 #endif
 }
 
@@ -1036,7 +984,7 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
                                const char *vtable_name)
 {
 #ifndef VTV_EMPTY_VERIFY
-  increment_num_calls (&num_calls_to_verify_vtable);
+  increment_num_calls (&__vtv_stats.num_calls_to_verify_vtable);
   unsigned long long start = get_cycle_count ();
   VTV_DEBUG_ASSERT (set_handle_ptr != NULL && *set_handle_ptr != NULL);
   int_vptr vtbl_ptr = vptr_to_int_vptr (vtable_ptr);
@@ -1073,7 +1021,7 @@ __VLTVerifyVtablePointerDebug (void **set_handle_ptr, const void *vtable_ptr,
          with some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }
-  accumulate_cycle_count (&verify_vtable_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.verify_vtable_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY*/
 
   return vtable_ptr;
@@ -1163,12 +1111,12 @@ __VLTRegisterSet (void **set_handle_ptr, const void *set_symbol_key,
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_regset);
+  increment_num_calls (&__vtv_stats.num_calls_to_regset);
 
   init_set_symbol (set_handle_ptr, set_symbol_key, size_hint);
   register_set_common (set_handle_ptr, num_args, vtable_ptr_array, false);
 
-  accumulate_cycle_count (&regset_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.regset_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY  */
 }
 
@@ -1180,12 +1128,12 @@ __VLTRegisterPair (void **set_handle_ptr, const  void *set_symbol_key,
 {
 #ifndef VTV_EMPTY_VERIFY
   unsigned long long start = get_cycle_count ();
-  increment_num_calls (&num_calls_to_regpair);
+  increment_num_calls (&__vtv_stats.num_calls_to_regpair);
 
   init_set_symbol (set_handle_ptr, set_symbol_key, size_hint);
   register_pair_common (set_handle_ptr, vtable_ptr, NULL, NULL,  false);
 
-  accumulate_cycle_count (&regpair_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.regpair_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY  */
 }
 
@@ -1201,7 +1149,7 @@ const void *
 __VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
 {
 #ifndef VTV_EMPTY_VERIFY
-  increment_num_calls (&num_calls_to_verify_vtable);
+  increment_num_calls (&__vtv_stats.num_calls_to_verify_vtable);
   unsigned long long start = get_cycle_count ();
   int_vptr vtbl_ptr = vptr_to_int_vptr (vtable_ptr);
 
@@ -1220,7 +1168,7 @@ __VLTVerifyVtablePointer (void ** set_handle_ptr, const void * vtable_ptr)
          some kind of secondary verification AND this secondary
          verification succeeded, so the vtable pointer is valid.  */
     }
-  accumulate_cycle_count (&verify_vtable_cycles, start);
+  accumulate_cycle_count (&__vtv_stats.verify_vtable_cycles, start);
 #endif /* ifndef VTV_EMPTY_VERIFY  */
 
   return vtable_ptr;

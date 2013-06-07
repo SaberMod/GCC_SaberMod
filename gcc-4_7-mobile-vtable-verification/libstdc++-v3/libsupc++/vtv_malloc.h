@@ -34,50 +34,6 @@
 #define VTV_ALIGNMENT_MASK (0x3)
 #endif
 
-#ifdef __x86_64__
-static inline unsigned long
-rdtsc ()
-{
-  unsigned long long hi, lo;
-
-  asm volatile ("rdtsc" : "=a" (lo), "=d" (hi));
-  return hi << 32 | lo;
-}
-#elif defined (__i386__)
-static inline unsigned long long
-rdtsc ()
-{
-  unsigned long long var;
-
-  asm volatile ("rdtsc" : "=A" (var));
-
-  return var;
-}
-#else
-static inline unsigned long long
-rdtsc ()
-{
-  /* Create an empty function for unknown architectures, so that the
-     calls to this function in vtv_malloc.c and vtv_rts.c do not cause
-     compilation errors.  */
-  return ((unsigned long long) 0);
-}
-#endif
-
-
-/* The following variables are used only for debugging and performance tuning
-   purposes. Therefore they do not need to be "protected".  They cannot be used
-   to attack the vtable verification system and if they become corrupted it will
-   not affect the correctness or security of any of the rest of the vtable
-   verification feature.  */
-
-extern unsigned int num_calls_to_mprotect;
-extern unsigned int num_pages_protected;
-extern unsigned int num_calls_to_regset;
-extern unsigned int num_calls_to_regpair;
-extern unsigned long long mprotect_cycles;
-extern unsigned long long regset_cycles;
-extern unsigned long long regpair_cycles;
 
 /* Function declarations.  */
 
