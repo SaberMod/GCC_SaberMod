@@ -280,7 +280,7 @@ init_functions (void)
   gcc_assert (vlt_register_set_fndecl == NULL_TREE);
   gcc_assert (vlt_register_pairs_fndecl == NULL_TREE);
 
-  /* Build arg types for __vtv_register_set[Debug], and initialize
+  /* Build arg types for __vtv_register_set[_debug], and initialize
      vlt_register_set_fndecl.  */
 
   /* Arg1: Set handle ptr.  */
@@ -326,7 +326,7 @@ init_functions (void)
   retrofit_lang_decl (vlt_register_set_fndecl);
   SET_DECL_LANGUAGE (vlt_register_set_fndecl, lang_cplusplus);
 
-  /* Build arg types for __vtv_register_pair[Debug], and initialize
+  /* Build arg types for __vtv_register_pair[_debug], and initialize
      vlt_register_set_fndecl.  */
 
   /* Arg1: Set handle ptr.  */

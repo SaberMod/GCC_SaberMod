@@ -48,7 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vtv-change-permission.h"
 
 void
-__VLTUnprotectPreinit (void)
+__vlt_unprotect_preinit (void)
 {
   __vtv_change_permission (__VLTP_READ_WRITE);
 }
@@ -60,8 +60,8 @@ __attribute__ ((__visibility__ ("protected"), used, aligned(VTV_PAGE_SIZE),
   = { };
 
 
-/* Put the function __VLTUnprotectPreinit into the .preinit_array
+/* Put the function __vlt_unprotect_preinit into the .preinit_array
    section.  */
 
 __attribute__ ((section (".preinit_array")))
-    typeof (__VLTUnprotectPreinit) *__preinit = __VLTUnprotectPreinit;
+    typeof (__vlt_unprotect_preinit) *__preinit = __vlt_unprotect_preinit;

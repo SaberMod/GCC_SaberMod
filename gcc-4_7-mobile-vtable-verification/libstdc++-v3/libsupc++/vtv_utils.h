@@ -68,7 +68,7 @@ static inline unsigned long long
 rdtsc ()
 {
   /* Create an empty function for unknown architectures, so that the
-     calls to this function in vtv_malloc.c and vtv_rts.c do not cause
+     calls to this function in vtv_malloc.cc and vtv_rts.cc do not cause
      compilation errors.  */
   return ((unsigned long long) 0);
 }

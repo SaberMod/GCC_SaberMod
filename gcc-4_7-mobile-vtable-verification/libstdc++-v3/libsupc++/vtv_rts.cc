@@ -126,8 +126,8 @@
    "-fvtable-verify=std" must be linked with libvtv_init.so (the gcc
    driver has been modified to do this).  vtv_stubs.so is built from
    vtv_stubs.cc.  It replaces the main runtime functions
-   (__VLTChangePermissino, __vtv_register_pair and
-   __VLTVerifyVtablePoitner) with stub functions that do nothing.  If
+   (__vtv_change_permissions, __vtv_register_pair and
+   __vtv_verify_vtable_pointer) with stub functions that do nothing.  If
    a programmer has a library that was built with verification, but
    wishes to not have verification turned on, the programmer can link
    in the vtv_stubs.so library.  */
@@ -811,9 +811,9 @@ __vtv_change_permission (int perm)
   if (debug_functions)
     {
       if (perm == __VLTP_READ_WRITE)
-        fprintf (stdout, "Changing VLT permisisons to Read-Write.\n");
+        fprintf (stdout, "Changing vtv_permisisons to Read-Write.\n");
       else if (perm == __VLTP_READ_ONLY)
-        fprintf (stdout, "Changing VLT permissions to Read-only.\n");
+        fprintf (stdout, "Changing vtv_permissions to Read-only.\n");
       else
         fprintf (stdout, "Unrecognized permissions value: %d\n", perm);
     }

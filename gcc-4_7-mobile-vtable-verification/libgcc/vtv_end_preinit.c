@@ -49,7 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "vtv-change-permission.h"
 
 void
-__VLTProtectPreinit (void)
+__vlt_protect_preinit (void)
 {
   __vtv_change_permission (__VLTP_READ_ONLY);
 }
@@ -59,8 +59,8 @@ char _vtable_map_vars_end[VTV_PAGE_SIZE]
   __attribute__ ((__visibility__ ("protected"), used,
 		  section(".vtable_map_vars")));
 
-/* Put the function __VLTProtectPreinit into the .preinit_array
+/* Put the function __vlt_protect_preinit into the .preinit_array
    section.  */
 
 __attribute__ ((section (".preinit_array")))
-    typeof (__VLTProtectPreinit) *__preinit_end = __VLTProtectPreinit;
+    typeof (__vlt_protect_preinit) *__preinit_end = __vlt_protect_preinit;

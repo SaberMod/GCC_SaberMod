@@ -25,7 +25,7 @@
 
 /* This file contains all the definitions that go into the libvtv_init
    library, which is part of the vtable verification feature.  This
-   library should contain exactly two functionsa (__vtv_unprotect and
+   library should contain exactly two functions (__vtv_unprotect and
    __vtv_protect) and one global variable definition
    (__vtv_defined_in_vtv_init_lib).  Any program that was compiled
    with the option "-fvtable-verify=std" MUST also be linked with
