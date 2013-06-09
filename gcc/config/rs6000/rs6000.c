@@ -2859,6 +2859,16 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
+     silently turn off quad memory mode.  */
+  if (TARGET_QUAD_MEMORY && !TARGET_POWERPC64)
+    {
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_QUAD_MEMORY) != 0)
+	warning (0, N_("-mquad-memory requires 64-bit mode"));
+
+      rs6000_isa_flags &= ~OPTION_MASK_QUAD_MEMORY;
+    }
+
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
     rs6000_print_isa_options (stderr, 0, "before defaults", rs6000_isa_flags);
 
@@ -3042,7 +3052,8 @@ rs6000_option_override_internal (bool global_init_p)
 
   /* Place FP constants in the constant pool instead of TOC
      if section anchors enabled.  */
-  if (flag_section_anchors)
+  if (flag_section_anchors
+      && !global_options_set.x_TARGET_NO_FP_IN_TOC)
     TARGET_NO_FP_IN_TOC = 1;
 
   if (TARGET_DEBUG_REG || TARGET_DEBUG_TARGET)
@@ -4082,6 +4093,22 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
       enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
       switch (fn)
 	{
+	case BUILT_IN_CLZIMAX:
+	case BUILT_IN_CLZLL:
+	case BUILT_IN_CLZL:
+	case BUILT_IN_CLZ:
+	  if (TARGET_P8_VECTOR && in_mode == out_mode && out_n == in_n)
+	    {
+	      if (out_mode == QImode && out_n == 16)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZB];
+	      else if (out_mode == HImode && out_n == 8)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZH];
+	      else if (out_mode == SImode && out_n == 4)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZW];
+	      else if (out_mode == DImode && out_n == 2)
+		return rs6000_builtin_decls[P8V_BUILTIN_VCLZD];
+	    }
+	  break;
 	case BUILT_IN_COPYSIGN:
 	  if (VECTOR_UNIT_VSX_P (V2DFmode)
 	      && out_mode == DFmode && out_n == 2
@@ -4096,6 +4123,22 @@ rs6000_builtin_vectorized_function (tree fndecl, tree type_out,
 	    return rs6000_builtin_decls[VSX_BUILTIN_CPSGNSP];
 	  if (VECTOR_UNIT_ALTIVEC_P (V4SFmode))
 	    return rs6000_builtin_decls[ALTIVEC_BUILTIN_COPYSIGN_V4SF];
+	  break;
+	case BUILT_IN_POPCOUNTIMAX:
+	case BUILT_IN_POPCOUNTLL:
+	case BUILT_IN_POPCOUNTL:
+	case BUILT_IN_POPCOUNT:
+	  if (TARGET_P8_VECTOR && in_mode == out_mode && out_n == in_n)
+	    {
+	      if (out_mode == QImode && out_n == 16)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTB];
+	      else if (out_mode == HImode && out_n == 8)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTH];
+	      else if (out_mode == SImode && out_n == 4)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTW];
+	      else if (out_mode == DImode && out_n == 2)
+		return rs6000_builtin_decls[P8V_BUILTIN_VPOPCNTD];
+	    }
 	  break;
 	case BUILT_IN_SQRT:
 	  if (VECTOR_UNIT_VSX_P (V2DFmode)
@@ -4955,8 +4998,11 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 	{
 	  rtx freg = gen_reg_rtx (V4SFmode);
 	  rtx sreg = force_reg (SFmode, XVECEXP (vals, 0, 0));
+	  rtx cvt  = ((TARGET_XSCVDPSPN)
+		      ? gen_vsx_xscvdpspn_scalar (freg, sreg)
+		      : gen_vsx_xscvdpsp_scalar (freg, sreg));
 
-	  emit_insn (gen_vsx_xscvdpsp_scalar (freg, sreg));
+	  emit_insn (cvt);
 	  emit_insn (gen_vsx_xxspltw_v4sf (target, freg, const0_rtx));
 	}
       else
@@ -5474,91 +5520,102 @@ virtual_stack_registers_memory_p (rtx op)
 	  && regnum <= LAST_VIRTUAL_POINTER_REGISTER);
 }
 
-/* Return true if memory accesses to OP are known to never straddle
-   a 32k boundary.  */
+/* Return true if a MODE sized memory accesses to OP plus OFFSET
+   is known to not straddle a 32k boundary.  */
 
 static bool
 offsettable_ok_by_alignment (rtx op, HOST_WIDE_INT offset,
 			     enum machine_mode mode)
 {
   tree decl, type;
-  unsigned HOST_WIDE_INT dsize, dalign;
+  unsigned HOST_WIDE_INT dsize, dalign, lsb, mask;
 
   if (GET_CODE (op) != SYMBOL_REF)
     return false;
 
+  dsize = GET_MODE_SIZE (mode);
   decl = SYMBOL_REF_DECL (op);
   if (!decl)
     {
-      if (GET_MODE_SIZE (mode) == 0)
+      if (dsize == 0)
 	return false;
 
       /* -fsection-anchors loses the original SYMBOL_REF_DECL when
 	 replacing memory addresses with an anchor plus offset.  We
 	 could find the decl by rummaging around in the block->objects
 	 VEC for the given offset but that seems like too much work.  */
-      dalign = 1;
+      dalign = BITS_PER_UNIT;
       if (SYMBOL_REF_HAS_BLOCK_INFO_P (op)
 	  && SYMBOL_REF_ANCHOR_P (op)
 	  && SYMBOL_REF_BLOCK (op) != NULL)
 	{
 	  struct object_block *block = SYMBOL_REF_BLOCK (op);
-	  HOST_WIDE_INT lsb, mask;
 
-	  /* Given the alignment of the block..  */
 	  dalign = block->alignment;
-	  mask = dalign / BITS_PER_UNIT - 1;
-
-	  /* ..and the combined offset of the anchor and any offset
-	     to this block object..  */
 	  offset += SYMBOL_REF_BLOCK_OFFSET (op);
-	  lsb = offset & -offset;
-
-	  /* ..find how many bits of the alignment we know for the
-	     object.  */
-	  mask &= lsb - 1;
-	  dalign = mask + 1;
 	}
-      return dalign >= GET_MODE_SIZE (mode);
-    }
+      else if (CONSTANT_POOL_ADDRESS_P (op))
+	{
+	  /* It would be nice to have get_pool_align()..  */
+	  enum machine_mode cmode = get_pool_mode (op);
 
-  if (DECL_P (decl))
+	  dalign = GET_MODE_ALIGNMENT (cmode);
+	}
+    }
+  else if (DECL_P (decl))
     {
-      if (TREE_CODE (decl) == FUNCTION_DECL)
-	return true;
+      dalign = DECL_ALIGN (decl);
 
-      if (!DECL_SIZE_UNIT (decl))
-	return false;
+      if (dsize == 0)
+	{
+	  /* Allow BLKmode when the entire object is known to not
+	     cross a 32k boundary.  */
+	  if (!DECL_SIZE_UNIT (decl))
+	    return false;
 
-      if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
-	return false;
+	  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+	    return false;
 
-      dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
-      if (dsize > 32768)
-	return false;
+	  dsize = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  if (dsize > 32768)
+	    return false;
 
-      dalign = DECL_ALIGN_UNIT (decl);
-      return dalign >= dsize;
+	  return dalign / BITS_PER_UNIT >= dsize;
+	}
+    }
+  else
+    {
+      type = TREE_TYPE (decl);
+
+      dalign = TYPE_ALIGN (type);
+      if (CONSTANT_CLASS_P (decl))
+	dalign = CONSTANT_ALIGNMENT (decl, dalign);
+      else
+	dalign = DATA_ALIGNMENT (decl, dalign);
+
+      if (dsize == 0)
+	{
+	  /* BLKmode, check the entire object.  */
+	  if (TREE_CODE (decl) == STRING_CST)
+	    dsize = TREE_STRING_LENGTH (decl);
+	  else if (TYPE_SIZE_UNIT (type)
+		   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	    dsize = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+	  else
+	    return false;
+	  if (dsize > 32768)
+	    return false;
+
+	  return dalign / BITS_PER_UNIT >= dsize;
+	}
     }
 
-  type = TREE_TYPE (decl);
+  /* Find how many bits of the alignment we know for this access.  */
+  mask = dalign / BITS_PER_UNIT - 1;
+  lsb = offset & -offset;
+  mask &= lsb - 1;
+  dalign = mask + 1;
 
-  if (TREE_CODE (decl) == STRING_CST)
-    dsize = TREE_STRING_LENGTH (decl);
-  else if (TYPE_SIZE_UNIT (type)
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
-    dsize = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
-  else
-    return false;
-  if (dsize > 32768)
-    return false;
-
-  dalign = TYPE_ALIGN (type);
-  if (CONSTANT_CLASS_P (decl))
-    dalign = CONSTANT_ALIGNMENT (decl, dalign);
-  else
-    dalign = DATA_ALIGNMENT (decl, dalign);
-  dalign /= BITS_PER_UNIT;
   return dalign >= dsize;
 }
 
@@ -6504,7 +6561,6 @@ use_toc_relative_ref (rtx sym)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (sym),
 					       get_pool_mode (sym)))
 	  || (TARGET_CMODEL == CMODEL_MEDIUM
-	      && !CONSTANT_POOL_ADDRESS_P (sym)
 	      && SYMBOL_REF_LOCAL_P (sym)));
 }
 
@@ -9314,20 +9370,17 @@ setup_incoming_varargs (cumulative_args_t cum, enum machine_mode mode,
   if (! no_rtl && first_reg_offset < GP_ARG_NUM_REG
       && cfun->va_list_gpr_size)
     {
-      int nregs = GP_ARG_NUM_REG - first_reg_offset;
+      int n_gpr, nregs = GP_ARG_NUM_REG - first_reg_offset;
 
       if (va_list_gpr_counter_field)
-	{
-	  /* V4 va_list_gpr_size counts number of registers needed.  */
-	  if (nregs > cfun->va_list_gpr_size)
-	    nregs = cfun->va_list_gpr_size;
-	}
+	/* V4 va_list_gpr_size counts number of registers needed.  */
+	n_gpr = cfun->va_list_gpr_size;
       else
-	{
-	  /* char * va_list instead counts number of bytes needed.  */
-	  if (nregs > cfun->va_list_gpr_size / reg_size)
-	    nregs = cfun->va_list_gpr_size / reg_size;
-	}
+	/* char * va_list instead counts number of bytes needed.  */
+	n_gpr = (cfun->va_list_gpr_size + reg_size - 1) / reg_size;
+
+      if (nregs > n_gpr)
+	nregs = n_gpr;
 
       mem = gen_rtx_MEM (BLKmode,
 			 plus_constant (Pmode, save_area,
@@ -12857,6 +12910,7 @@ builtin_function_type (enum machine_mode mode_ret, enum machine_mode mode_arg0,
     {
       /* unsigned 1 argument functions.  */
     case CRYPTO_BUILTIN_VSBOX:
+    case P8V_BUILTIN_VGBBD:
       h.uns_p[0] = 1;
       h.uns_p[1] = 1;
       break;
@@ -15673,11 +15727,6 @@ print_operand (FILE *file, rtx x, int code)
 	 the PowerPC, do not emit the period, since those systems do not use
 	 TOCs and the like.  */
       gcc_assert (GET_CODE (x) == SYMBOL_REF);
-
-      /* Mark the decl as referenced so that cgraph will output the
-	 function.  */
-      if (SYMBOL_REF_DECL (x))
-	DECL_PRESERVE_P (SYMBOL_REF_DECL (x)) = 1;
 
       /* For macho, check to see if we need a stub.  */
       if (TARGET_MACHO)
@@ -27214,26 +27263,31 @@ bool
 altivec_expand_vec_perm_const (rtx operands[4])
 {
   struct altivec_perm_insn {
+    HOST_WIDE_INT mask;
     enum insn_code impl;
     unsigned char perm[16];
   };
   static const struct altivec_perm_insn patterns[] = {
-    { CODE_FOR_altivec_vpkuhum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum,
       {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 } },
-    { CODE_FOR_altivec_vpkuwum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
-    { CODE_FOR_altivec_vmrghb,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghb,
       {  0, 16,  1, 17,  2, 18,  3, 19,  4, 20,  5, 21,  6, 22,  7, 23 } },
-    { CODE_FOR_altivec_vmrghh,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghh,
       {  0,  1, 16, 17,  2,  3, 18, 19,  4,  5, 20, 21,  6,  7, 22, 23 } },
-    { CODE_FOR_altivec_vmrghw,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrghw,
       {  0,  1,  2,  3, 16, 17, 18, 19,  4,  5,  6,  7, 20, 21, 22, 23 } },
-    { CODE_FOR_altivec_vmrglb,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglb,
       {  8, 24,  9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31 } },
-    { CODE_FOR_altivec_vmrglh,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglh,
       {  8,  9, 24, 25, 10, 11, 26, 27, 12, 13, 28, 29, 14, 15, 30, 31 } },
-    { CODE_FOR_altivec_vmrglw,
-      {  8,  9, 10, 11, 24, 25, 26, 27, 12, 13, 14, 15, 28, 29, 30, 31 } }
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vmrglw,
+      {  8,  9, 10, 11, 24, 25, 26, 27, 12, 13, 14, 15, 28, 29, 30, 31 } },
+    { OPTION_MASK_P8_VECTOR, CODE_FOR_p8_vmrgew,
+      {  0,  1,  2,  3, 16, 17, 18, 19,  8,  9, 10, 11, 24, 25, 26, 27 } },
+    { OPTION_MASK_P8_VECTOR, CODE_FOR_p8_vmrgow,
+      {  4,  5,  6,  7, 20, 21, 22, 23, 12, 13, 14, 15, 28, 29, 30, 31 } }
   };
 
   unsigned int i, j, elt, which;
@@ -27332,6 +27386,9 @@ altivec_expand_vec_perm_const (rtx operands[4])
   for (j = 0; j < ARRAY_SIZE (patterns); ++j)
     {
       bool swapped;
+
+      if ((patterns[j].mask & rs6000_isa_flags) == 0)
+	continue;
 
       elt = patterns[j].perm[0];
       if (perm[0] == elt)

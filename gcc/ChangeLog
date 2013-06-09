@@ -1,3 +1,365 @@
+2013-06-09  David Edelsohn  <dje.gcc@gmail.com>
+	    Jan Hubicka  <jh@suse.cz>
+
+	* config/rs6000/rs6000.c (print_operand, 'z'): Remove historical
+	hack to mark symbols as used.
+
+2013-06-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57559
+	* lra-constraints.c (process_alt_operands): Don't discourage
+	memory with known offset for offsetable memory constraint.
+	* lra.c (lra_emit_add): Exchange y and z for 2-op add insn.
+
+2013-06-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* varasm.c (struct oc_local_state): Reorder fields.
+	(output_constructor_bitfield): Replace OUTER parameter with BIT_OFFSET
+	and adjust accordingly.
+	(output_constructor): Reorder initialization code and adjust call to
+	output_constructor_bitfield.
+
+2013-06-07  Sriraman Tallam  <tmsriram@google.com>
+
+	PR c++/57548
+	* cp/call.c (build_over_call):  Check if current_function_decl is
+	NULL.
+
+2013-06-07  Jan Hubicka  <jh@suse.cz>
+
+	* symtab.c (symtab_resolve_alias): Do not remove alias attribute.
+
+2013-06-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* tree-object-size.c (unknown): Make const.
+
+2013-06-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md (cpu_facility): Add cpu_zarch.
+	("*movmem_short", "*clrmem_short", "*cmpmem_short): Use cpu_zarch
+	for last alternative in the cpu_facility attribute.
+
+2013-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56315
+	* config/arm/arm.md (*xordi3_insn): Change to insn_and_split.
+	(xordi3): Change operand 2 constraint to arm_xordi_operand.
+	* config/arm/arm.c (const_ok_for_dimode_op): Handle XOR.
+	* config/arm/constraints.md (Dg): New constraint.
+	* config/arm/neon.md (xordi3_neon): Remove.
+	(neon_veor<mode>): Generate xordi3 instead of xordi3_neon.
+	* config/arm/predicates.md (arm_xordi_operand): New predicate.
+
+2013-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (anddi3_insn): Remove duplicate alternatives.
+	Clean up alternatives.
+
+2013-06-07  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (setup_incoming_varargs): Round up
+	va_list_gpr_size.
+
+2013-06-07  Alan Modra  <amodra@gmail.com>
+
+	* varasm.c (force_const_mem): Assert mode is not VOID or BLK.
+
+2013-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/constraints.md (Df): New constraint.
+	* config/arm/arm.md (iordi3_insn): Use Df constraint instead of De.
+	Correct length attribute for last two alternatives.
+
+2013-06-07  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Don't
+	override user -mfp-in-toc.
+	(offsettable_ok_by_alignment): Consider just the current access
+	rather than the whole object, unless BLKmode.  Handle
+	CONSTANT_POOL_ADDRESS_P constants that lack a decl too.
+	(use_toc_relative_ref): Allow CONSTANT_POOL_ADDRESS_P constants
+	for -mcmodel=medium.
+	* config/rs6000/linux64.h (SUBSUBTARGET_OVERRIDE_OPTIONS): Don't
+	override user -mfp-in-toc or -msum-in-toc.  Default to
+	-mno-fp-in-toc for -mcmodel=medium.
+
+2013-06-06  DJ Delorie  <dj@redhat.com>
+
+	* config/rl78/rl78.c (rl78_valid_pointer_mode): New, implements
+	TARGET_VALID_POINTER_MODE.
+
+2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document new power8 builtins.
+
+	* config/rs6000/vector.md (and<mode>3): Add a clobber/scratch of a
+	condition code register, to allow 128-bit logical operations to be
+	done in the VSX or GPR registers.
+	(nor<mode>3): Use the canonical form for nor.
+	(eqv<mode>3): Add expanders for power8 xxleqv, xxlnand, xxlorc,
+	vclz*, and vpopcnt* vector instructions.
+	(nand<mode>3): Likewise.
+	(orc<mode>3): Likewise.
+	(clz<mode>2): LIkewise.
+	(popcount<mode>2): Likewise.
+
+	* config/rs6000/predicates.md (int_reg_operand): Rework tests so
+	that only the GPRs are recognized.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	support for new power8 builtins.
+
+	* config/rs6000/rs6000-builtin.def (xscvspdpn): Add new power8
+	builtin functions.
+	(xscvdpspn): Likewise.
+	(vclz): Likewise.
+	(vclzb): Likewise.
+	(vclzh): Likewise.
+	(vclzw): Likewise.
+	(vclzd): Likewise.
+	(vpopcnt): Likewise.
+	(vpopcntb): Likewise.
+	(vpopcnth): Likewise.
+	(vpopcntw): Likewise.
+	(vpopcntd): Likewise.
+	(vgbbd): Likewise.
+	(vmrgew): Likewise.
+	(vmrgow): Likewise.
+	(eqv): Likewise.
+	(eqv_v16qi3): Likewise.
+	(eqv_v8hi3): Likewise.
+	(eqv_v4si3): Likewise.
+	(eqv_v2di3): Likewise.
+	(eqv_v4sf3): Likewise.
+	(eqv_v2df3): Likewise.
+	(nand): Likewise.
+	(nand_v16qi3): Likewise.
+	(nand_v8hi3): Likewise.
+	(nand_v4si3): Likewise.
+	(nand_v2di3): Likewise.
+	(nand_v4sf3): Likewise.
+	(nand_v2df3): Likewise.
+	(orc): Likewise.
+	(orc_v16qi3): Likewise.
+	(orc_v8hi3): Likewise.
+	(orc_v4si3): Likewise.
+	(orc_v2di3): Likewise.
+	(orc_v4sf3): Likewise.
+	(orc_v2df3): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Only
+	allow power8 quad mode in 64-bit.
+	(rs6000_builtin_vectorized_function): Add support to vectorize
+	ISA 2.07 count leading zeros, population count builtins.
+	(rs6000_expand_vector_init): On ISA 2.07 use xscvdpspn to form
+	V4SF vectors instead of xscvdpsp to avoid IEEE related traps.
+	(builtin_function_type): Add vgbbd builtin function which takes an
+	unsigned argument.
+	(altivec_expand_vec_perm_const): Add support for new power8 merge
+	instructions.
+
+	* config/rs6000/vsx.md (VSX_L2): New iterator for 128-bit types,
+	that does not include TImdoe for use with 32-bit.
+	(UNSPEC_VSX_CVSPDPN): Support for power8 xscvdpspn and xscvspdpn
+	instructions.
+	(UNSPEC_VSX_CVDPSPN): Likewise.
+	(vsx_xscvdpspn): Likewise.
+	(vsx_xscvspdpn): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+	(vsx_xscvspdpn_directmove): Likewise.
+	(vsx_and<mode>3): Split logical operations into 32-bit and
+	64-bit. Add support to do logical operations on TImode as well as
+	VSX vector types.  Allow logical operations to be done in either
+	VSX registers or in general purpose registers in 64-bit mode.  Add
+	splitters if GPRs were used. For AND, add clobber of CCmode to
+	allow use of ANDI on GPRs.  Rewrite nor to use the canonical RTL
+	encoding.
+	(vsx_and<mode>3_32bit): Likewise.
+	(vsx_and<mode>3_64bit): Likewise.
+	(vsx_ior<mode>3): Likewise.
+	(vsx_ior<mode>3_32bit): Likewise.
+	(vsx_ior<mode>3_64bit): Likewise.
+	(vsx_xor<mode>3): Likewise.
+	(vsx_xor<mode>3_32bit): Likewise.
+	(vsx_xor<mode>3_64bit): Likewise.
+	(vsx_one_cmpl<mode>2): Likewise.
+	(vsx_one_cmpl<mode>2_32bit): Likewise.
+	(vsx_one_cmpl<mode>2_64bit): Likewise.
+	(vsx_nor<mode>3): Likewise.
+	(vsx_nor<mode>3_32bit): Likewise.
+	(vsx_nor<mode>3_64bit): Likewise.
+	(vsx_andc<mode>3): Likewise.
+	(vsx_andc<mode>3_32bit): Likewise.
+	(vsx_andc<mode>3_64bit): Likewise.
+	(vsx_eqv<mode>3_32bit): Add support for power8 xxleqv, xxlnand,
+	and xxlorc instructions.
+	(vsx_eqv<mode>3_64bit): Likewise.
+	(vsx_nand<mode>3_32bit): Likewise.
+	(vsx_nand<mode>3_64bit): Likewise.
+	(vsx_orc<mode>3_32bit): Likewise.
+	(vsx_orc<mode>3_64bit): Likewise.
+
+	* config/rs6000/rs6000.h (VLOGICAL_REGNO_P): Update comment.
+
+	* config/rs6000/altivec.md (UNSPEC_VGBBD): Add power8 vgbbd
+	instruction.
+	(p8_vmrgew): Add power8 vmrgew and vmrgow instructions.
+	(p8_vmrgow): Likewise.
+	(altivec_and<mode>3): Add clobber of CCmode to allow AND using
+	GPRs to be split under VSX.
+	(p8v_clz<mode>2): Add power8 count leading zero support.
+	(p8v_popcount<mode>2): Add power8 population count support.
+	(p8v_vgbbd): Add power8 gather bits by bytes by doubleword
+	support.
+
+	* config/rs6000/rs6000.md (eqv<mode>3): Add support for powerp eqv
+	instruction.
+
+	* config/rs6000/altivec.h (vec_eqv): Add defines to export power8
+	builtin functions.
+	(vec_nand): Likewise.
+	(vec_vclz): Likewise.
+	(vec_vclzb): Likewise.
+	(vec_vclzd): Likewise.
+	(vec_vclzh): Likewise.
+	(vec_vclzw): Likewise.
+	(vec_vgbbd): Likewise.
+	(vec_vmrgew): Likewise.
+	(vec_vmrgow): Likewise.
+	(vec_vpopcnt): Likewise.
+	(vec_vpopcntb): Likewise.
+	(vec_vpopcntd): Likewise.
+	(vec_vpopcnth): Likewise.
+	(vec_vpopcntw): Likewise.
+
+2013-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57468
+	* config/i386/i386.c (inline_secondary_memory_needed): Ignore
+	spilled pseudos.
+
+2013-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57459
+	* lra-constraints.c (update_ebb_live_info): Fix typo for operand
+	type when setting live regs.
+
+2013-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* config/s390/s390.opt (mlra): New option.
+	* config/s390/s390.c (s390_decompose_address): Check displacement
+	for all registers for LRA.
+	(s390_secondary_reload): Don't used secondary reloads for LRA.
+	(s390_lra_p): New function.
+	(TARGET_LRA_P): Define.
+	* config/s390/s390.md (*movmem_short, *clrmem_short): Change value
+	of attribute cpu_facility to zarch for the last alternative.
+	(*cmpmem_short): Ditto.
+
+2013-06-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_r3_live_at_start_p): New predicate.
+	(arm_compute_static_chain_stack_bytes): Use it.  Tidy up.
+	(arm_expand_prologue): Likewise.
+
+2013-06-06  Teresa Johnson  <tejohnson@google.com>
+
+	PR c++/53743
+	* ifcvt.c (find_if_case_1): Replace BB_COPY_PARTITION with assert
+	as this is now done by redirect_edge_and_branch_force.
+	* function.c (thread_prologue_and_epilogue_insns): Insert new bb after
+	barriers, and fix interaction with splitting.
+	* emit-rtl.c (try_split): Copy REG_CROSSING_JUMP notes.
+	* cfgcleanup.c (try_forward_edges): Fix early return value to properly
+	reflect changes made in the routine.
+	* bb-reorder.c (emit_barrier_after_bb): Move to cfgrtl.c.
+	(fix_up_fall_thru_edges): Remove incorrect check for bb layout order
+	since this is called in cfglayout mode, and replace partition fixup
+	with assert as that is now done by force_nonfallthru_and_redirect.
+	(add_reg_crossing_jump_notes): Handle the fact that some jumps may
+	already be marked with region crossing note.
+	(insert_section_boundary_note): Make non-static, gate on flag
+	has_bb_partition, rewrite to also check for multiple partitions.
+	(rest_of_handle_reorder_blocks): Remove call to
+	insert_section_boundary_note, now done later during free_cfg.
+	(duplicate_computed_gotos): Don't duplicate partition crossing edge.
+	* bb-reorder.h (insert_section_boundary_note): Declare.
+	* Makefile.in (cfgrtl.o): Depend on bb-reorder.h
+	* cfgrtl.c (rest_of_pass_free_cfg): If partitions exist
+	invoke insert_section_boundary_note.
+	(try_redirect_by_replacing_jump): Remove unnecessary
+	check for region crossing note.
+	(fixup_partition_crossing): New function.
+	(rtl_redirect_edge_and_branch): Fixup partition boundaries.
+	(emit_barrier_after_bb): Move here from bb-reorder.c, handle insertion
+	in non-cfglayout mode.
+	(force_nonfallthru_and_redirect): Fixup partition boundaries,
+	remove old code that tried to do this. Emit barrier correctly
+	when we are in cfglayout mode.
+	(last_bb_in_partition): New function.
+	(rtl_split_edge): Correctly fixup partition boundaries.
+	(commit_one_edge_insertion): Remove old code that tried to
+	fixup region crossing edge since this is now handled in
+	split_block, and set up insertion point correctly since
+	block may now end in a jump.
+	(verify_hot_cold_block_grouping): Guard against checking when not in
+	linearized RTL mode.
+	(rtl_verify_edges): Add checks for incorrect/missing REG_CROSSING_JUMP
+	notes.
+	(rtl_verify_flow_info_1): Move verify_hot_cold_block_grouping to
+	rtl_verify_flow_info, so not called in cfglayout mode.
+	(rtl_verify_flow_info): Move verify_hot_cold_block_grouping here.
+	(fixup_reorder_chain): Remove old code that attempted to fixup region
+	crossing note as this is now handled in force_nonfallthru_and_redirect.
+	(duplicate_insn_chain): Don't duplicate switch section notes.
+	(rtl_can_remove_branch_p): Remove unnecessary check for region crossing
+	note.
+	* basic-block.h (emit_barrier_after_bb): Declare.
+
+2013-06-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm-fixed.md (add<mode>3,usadd<mode>3,ssadd<mode>3,
+	sub<mode>3, ussub<mode>3, sssub<mode>3, arm_ssatsihi_shift,
+	arm_usatsihi): Adjust alternatives for arm_restrict_it.
+
+2013-06-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm-ldmstm.ml: Set "predicable_short_it" to "no"
+	where appropriate.
+	* config/arm/ldmstm.md: Regenerate.
+
+2013-06-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/sync.md (atomic_loaddi_1):
+	Disable predication for arm_restrict_it.
+	(arm_load_exclusive<mode>): Likewise.
+	(arm_load_exclusivesi): Likewise.
+	(arm_load_exclusivedi): Likewise.
+	(arm_load_acquire_exclusive<mode>): Likewise.
+	(arm_load_acquire_exclusivesi): Likewise.
+	(arm_load_acquire_exclusivedi): Likewise.
+	(arm_store_exclusive<mode>): Likewise.
+	(arm_store_exclusive<mode>): Likewise.
+	(arm_store_release_exclusivedi): Likewise.
+	(arm_store_release_exclusive<mode>): Likewise.
+
+2013-06-06  Richard Biener  <rguenther@suse.de>
+
+	* lto-streamer.h (enum LTO_tags): Move LTO_tree_pickle_reference
+	after LTO_null.
+	(lto_tag_is_tree_code_p): Adjust.
+	(lto_tag_is_gimple_code_p): Likewise.
+	(lto_gimple_code_to_tag): Likewise.
+	(lto_tag_to_gimple_code): Likewise.
+	(lto_tree_code_to_tag): Likewise.
+	(lto_tag_to_tree_code): Likewise.
+	* data-streamer.h (streamer_write_hwi_in_range): Use
+	uhwi streaming to stream the normalized range.
+	(streamer_read_hwi_in_range): Likewise.
+
 2013-06-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config/arm/arm.md (enabled_for_depr_it): New attribute.
@@ -1716,10 +2078,8 @@
 
 	* config/rl78/rl78.c (rl78_attribute_table): Add naked.
 	(rl78_is_naked_func): New function.
-	(rl78_expand_prologue): Skip prologue generation for naked
-	functions.
-	(rl78_expand_epilogue): Skip epilogue generation for naked
-	functions.
+	(rl78_expand_prologue): Skip prologue generation for naked functions.
+	(rl78_expand_epilogue): Skip epilogue generation for naked functions.
 	* doc/extend.texi (naked): Add RL78 to the list of processors
 	that supports this attribute.
 

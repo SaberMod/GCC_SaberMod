@@ -1,3 +1,55 @@
+2013-06-08  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Simplify and clean up library literals.
+	* include/std/chrono: Simplify namespace and versioning management.
+	* include/bits/basic_string.h: Ditto.
+	* testsuite/20_util/duration/literals/types.cc: Remove bogus comment.
+	* testsuite/20_util/duration/literals/values.cc: Ditto.
+	* testsuite/21_strings/basic_string/literals/types.cc: Ditto.
+	* testsuite/21_strings/basic_string/literals/values.cc: Ditto.
+
+2013-06-08  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement N3654 - Quoted Strings Library Proposal
+	* include/std/iomanip: Add quoted(String, Char delim, Char escape)
+	manipulators and supporting machinery in c++1y mode.
+	* testsuite/27_io/manipulators/standard/char/quoted.cc: New.
+	* testsuite/27_io/manipulators/standard/wchar_t/quoted.cc: New.
+
+2013-06-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/alloc_traits.h (allocator_traits::max_size()): LWG
+	2162: Add noexcept.
+
+2013-06-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/stl_algo.h (is_permutation): Add overloads from N3671.
+	* include/bits/stl_algobase.h (equal, mismatch): Likewise.
+	* testsuite/25_algorithms/equal/1.cc: Remove duplicate test case.
+	* testsuite/25_algorithms/equal/2.cc: New.
+	* testsuite/25_algorithms/equal/check_type2.cc: New.
+	* testsuite/25_algorithms/is_permutationqual/2.cc: New.
+	* testsuite/25_algorithms/is_permutationqual/check_type2.cc: New.
+	* testsuite/25_algorithms/mismatch/2.cc: New.
+	* testsuite/25_algorithms/mismatch/check_type2.cc: New.
+	* testsuite/util/testsuite_iterators.h: Fix spelling.
+
+2013-06-08  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/type-traits (integral_constant::operator()): Implement
+	N3545.
+	* testsuite/20_util/integral_constant/call_operator.cc: New.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error
+	line numbers.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+2013-06-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Update.
+
 2013-06-05  Tom Tromey  <tromey@redhat.com>
 
 	* testsuite/libstdc++-prettyprinters/shared_ptr.cc: Use -O0.

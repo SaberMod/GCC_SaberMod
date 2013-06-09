@@ -1,3 +1,37 @@
+2013-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* trans-decl.c (init_intent_out_dt): Call finalizer
+	when approriate.
+
+2013-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57553
+	* simplify.c (gfc_simplify_storage_size): Handle literal
+	strings.
+	* trans-intrinsic.c (gfc_conv_intrinsic_storage_size):
+	Add missing fold_convert.
+
+2013-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57549
+	* array.c (gfc_match_array_constructor): Call
+	gfc_match_type_spec instead of gfc_match_decl_type_spec.
+	* match.c (gfc_match_type_spec): Renamed from match_type_spec.
+	(gfc_match_type_is, gfc_match_allocate): Update call.
+	* match.h (gfc_match_type_spec): Add prototype.
+
+2013-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57556
+	* trans.c (gfc_build_final_call): Init block before use.
+
+2013-06-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57542
+	* trans.c (gfc_build_final_call): Add se.pre to the block
+	and modify the assert.
+
 2013-06-04  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/37336

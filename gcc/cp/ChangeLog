@@ -1,3 +1,22 @@
+2013-06-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53658
+	* pt.c (lookup_template_class_1): Consistently use TYPE_MAIN_DECL,
+	not TYPE_STUB_DECL, to access the _DECL for a _TYPE.
+
+2013-06-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/55520
+	* semantics.c (add_capture): Diagnose capture of variable-size
+	type that is not a C++1y array of runtime bound.
+
+	* decl.c (grokdeclarator): Keep a decl with error type.
+	(grokfield, grokbitfield): Likewise.
+	* pt.c (instantiate_class_template_1): Likewise.
+	(tsubst_decl): Drop redundant error.
+	* class.c (walk_subobject_offsets): Handle erroneous fields.
+	* typeck2.c (process_init_constructor_record): Likewise.
+
 2013-06-05  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/51908

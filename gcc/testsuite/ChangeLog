@@ -1,3 +1,124 @@
+2013-06-08  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57559
+	* gcc.target/s390/pr57559.c : New test.
+
+2013-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/finalize_10.f90: New.
+	* gfortran.dg/auto_dealloc_2.f90: Update tree-dump.
+	* gfortran.dg/finalize_15.f90: New.
+
+2013-06-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57553
+	* gfortran.dg/storage_size_4.f90: New.
+
+2013-06-07  Sriraman Tallam  <tmsriram@google.com>
+
+	PR c++/57548
+	* testsuite/g++.dg/ext/pr57548.C: New test.
+
+2013-06-07  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR middle-end/57541
+	* c-c++-common/cilk-plus/AN/pr57541.c: New test case.
+
+2013-06-07  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/tree-ssa/attr-alias.c: Remove brackets in template.
+
+2013-06-07  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57549
+	* gfortran.dg/array_constructor_48.f90: New.
+	* gfortran.dg/array_constructor_type_14.f03: Correct test case.
+	* gfortran.dg/array_constructor_type_15.f03: Ditto.
+
+2013-06-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/56315
+	* gcc.target/arm/xordi3-opt.c: New test.
+
+2013-06-07  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/debug/dwarf2/discriminator.c: Fix wording.
+	Revert to dg-options.
+
+2013-06-07  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	PR target/55033
+	* gcc.target/powerpc/pr55033.c: New.
+
+2013-06-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53658
+	* g++.dg/cpp0x/alias-decl-36.C: New.
+
+2013-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-builtin-1.c: New test to test
+	power8 builtin functions.
+	* gcc.target/powerpc/p8vector-builtin-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-3.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-4.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-5.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-6.c: Likewise.
+	* gcc.target/powerpc/p8vector-builtin-7.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-1.c: New
+	tests to test power8 auto-vectorization.
+	* gcc.target/powerpc/p8vector-vectorize-2.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-3.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-4.c: Likewise.
+	* gcc.target/powerpc/p8vector-vectorize-5.c: Likewise.
+
+	* gcc.target/powerpc/crypto-builtin-1.c: Use effective target
+	powerpc_p8vector_ok instead of powerpc_vsx_ok.
+
+	* gcc.target/powerpc/bool.c: New file, add eqv, nand, nor tests.
+
+	* lib/target-supports.exp (check_p8vector_hw_available) Add power8
+	support.
+	(check_effective_target_powerpc_p8vector_ok): Likewise.
+	(is-effective-target): Likewise.
+	(check_vect_support_and_set_flags): Likewise.
+
+2013-06-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/43652
+	* g++.dg/parse/error53.C: New.
+
+2013-06-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57459
+	* gcc.target/i386/pr57459.c: New test.
+
+2013-06-06  Teresa Johnson  <tejohnson@google.com>
+
+	PR c++/53743
+	* gcc.dg/tree-prof/va-arg-pack-1.c: Cloned from c-torture, made
+	into -freorder-blocks-and-partition test.
+	* gcc.dg/tree-prof/comp-goto-1.c: Ditto.
+	* gcc.dg/tree-prof/20041218-1.c: Ditto.
+	* gcc.dg/tree-prof/pr52027.c: Use -O2.
+	* gcc.dg/tree-prof/pr50907.c: Ditto.
+	* gcc.dg/tree-prof/pr45354.c: Ditto.
+	* g++.dg/tree-prof/partition2.C: Ditto.
+	* g++.dg/tree-prof/partition3.C: Ditto.
+
+2013-06-06  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57542
+	* gfortran.dg/finalize_16.f90: New.
+
+2013-06-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.dg/vect/no-section-anchors-vect-68.c:
+	Add dg-skip-if aarch64_tiny.
+
 2013-06-05  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	PR C/57457

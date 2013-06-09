@@ -852,6 +852,7 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
   gcc_assert (final_wrapper->expr_type == EXPR_VARIABLE);
   gcc_assert (var);
 
+  gfc_start_block (&block);
   gfc_init_se (&se, NULL);
   gfc_conv_expr (&se, final_wrapper);
   final_fndecl = se.expr;
@@ -895,7 +896,8 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
       gcc_assert (class_size);
       gfc_init_se (&se, NULL);
       gfc_conv_expr (&se, class_size);
-      gcc_assert (se.pre.head == NULL_TREE && se.post.head == NULL_TREE);
+      gfc_add_block_to_block (&block, &se.pre);
+      gcc_assert (se.post.head == NULL_TREE);
       size = se.expr;
 
       array_expr = gfc_copy_expr (var);
@@ -912,7 +914,8 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
 	{
 	  gfc_add_data_component (array_expr);
 	  gfc_conv_expr (&se, array_expr);
-	  gcc_assert (se.pre.head == NULL_TREE && se.post.head == NULL_TREE);
+	  gfc_add_block_to_block (&block, &se.pre);
+	  gcc_assert (se.post.head == NULL_TREE);
 	  array = se.expr;
 	  if (TREE_CODE (array) == ADDR_EXPR
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (array, 0))))
@@ -934,7 +937,6 @@ gfc_build_final_call (gfc_typespec ts, gfc_expr *final_wrapper, gfc_expr *var,
   if (!POINTER_TYPE_P (TREE_TYPE (array)))
     array = gfc_build_addr_expr (NULL, array);
 
-  gfc_start_block (&block);
   gfc_add_block_to_block (&block, &se.pre);
   tmp = build_call_expr_loc (input_location,
 			     final_fndecl, 3, array,
