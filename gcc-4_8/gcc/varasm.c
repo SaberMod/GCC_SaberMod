@@ -5469,6 +5469,11 @@ do_assemble_alias (tree decl, tree target)
   if (TREE_ASM_WRITTEN (decl))
     return;
 
+  if (L_IPO_COMP_MODE
+      && lookup_attribute ("weakref", DECL_ATTRIBUTES (decl))
+      && TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)))
+    return;
+
   /* We must force creation of DECL_RTL for debug info generation, even though
      we don't use it here.  */
   make_decl_rtl (decl);
