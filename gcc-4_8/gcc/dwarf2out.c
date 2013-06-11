@@ -7405,7 +7405,17 @@ static hashval_t
 hash_external_ref (const void *p)
 {
   const struct external_ref *r = (const struct external_ref *)p;
-  return htab_hash_pointer (r->type);
+  dw_die_ref die = r->type;
+  hashval_t h = 0;
+
+  if (! die->comdat_type_p)
+    h = htab_hash_string (die->die_id.die_symbol);
+  else
+    {
+      comdat_type_node_ref type_node = die->die_id.die_type_node;
+      memcpy (&h, type_node->signature, sizeof (h));
+    }
+  return h;
 }
 
 /* Compare external_refs.  */
