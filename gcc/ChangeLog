@@ -1,3 +1,104 @@
+2013-06-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.md (extended_mips16): Include GOT and constant-pool
+	loads.
+	(insn_count): New attribute, with most cases extracted from...
+	(length): ...here.  Redefine most cases in terms of insn_count.
+	(single_insn): Delete.
+	(can_delay): Use insn_count to check for single instructions.
+	(*mul<mode>3_r4300, mul<mode>3_r4000, *mul_acc_si, *mul_acc_si_r3900)
+	(*msac_using_macc, *mul_sub_si, <u>mulsidi3_32bit_r4000)
+	(<u>mulsidi3_64bit_r4000, <su>muldi3_highpart_internal)
+	(<su>mulsi3_highpart_split, <su>muldi3_highpart_internal)
+	(<u>mulditi3_r4000, *div<mode>3, *recip<mode>3, divmod<mode>4)
+	(udivmod<mode>4, sqrt<mode>2, *rsqrt<mode>a, *rsqrt<mode>b)
+	(fix_truncdfsi2_macro, fix_truncsfsi2_macro, *lea_high64)
+	(*lea64, cprestore_<mode>, clear_hazard_<mode>, <unnamed insn>)
+	(casesi_internal_mips16_<mode>, *tls_get_tp_<mode>_split)
+	(tls_get_tp_mips16, *tls_get_tp_mips16_call_<mode>): Use "insn_count"
+	rather than "length".
+	(tls_get_tp_<mode>): Likewise.  Remove redundant "no_delay" attribute.
+	* config/mips/mips-ps-3d.md (mips_c_cond_4s, mips_cabs_cond_4s):
+	Use "insn_count" rather than "length".
+	* config/mips/mips-dsp.md
+	(mips_l<SHORT:size><u>x_ext<GPR:mode>_<P:mode>)
+	(mips_l<GPR:size>x_<P:mode>, *mips_lw<u>x_<P:mode>_ext): Remove
+	length attributes.
+
+2013-06-12  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/57361
+	* tree-ssa-dse.c (dse_possible_dead_store_p): Handle self-assignment.
+
+2013-06-12  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_combine<mode>): convert to split.
+	(aarch64_simd_combine<mode>): New instruction expansion.
+	* config/aarch64/aarch64-protos.h (aarch64_split_simd_combine): New
+	function prototype.
+	* config/aarch64/aarch64.c (aarch64_split_combine): New function.
+	* config/aarch64/iterators.md (Vdbl): Add entry for DF.
+
+2013-06-12  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.c (verify_edge_corresponds_to_fndecl): Be lax about
+	decl has when in streaming stage.
+	* lto-symtab.c (lto_symtab_merge_symbols): Likewise.
+	* cgraph.h (cgraph_state): Add CGRAPH_LTO_STREAMING.
+
+2013-06-12  Roland Stigge <stigge@antcom.de>
+
+	PR target/57578
+	* config/rs6000/t-linux (MULTIARCH_DIRNAME): Fix SPE version detection.
+
+2013-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57537
+	* tree-vect-patterns.c (vect_recog_widen_mult_pattern): If
+	vect_handle_widen_op_by_const, convert oprnd1 to half_type1.
+
+2013-06-12  Richard Biener  <rguenther@suse.de>
+
+	* data-streamer.h (streamer_write_char_stream): CSE
+	obs->current_pointer.
+	* data-streamer-out.c (streamer_write_uhwi_stream): Inline
+	streamer_write_char_stream manually and optimize the resulting loop.
+	(streamer_write_hwi_stream): Likewise.
+
+2013-06-12  Jan Hubicka  <jh@suse.cz>
+
+	* lto-symtab.c (lto_symtab_merge_symbols): Populate symtab hashtable.
+	* cgraph.h (varpool_create_empty_node): Declare.
+	* lto-cgraph.c (input_node, input_varpool_node): Forcingly create
+	duplicated nodes.
+	* symtab.c (symtab_unregister_node): Be lax about missin entries
+	in node hash.
+	(symtab_get_node): Update comment.
+	* varpool.c (varpool_create_empty_node): Break out from ...
+	(varpool_node_for_decl): ... here.
+	* lto-streamer.h (lto_file_decl_data): Add RESOLUTION_MAP.
+
+2013-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1) <TARGET_MEM_REF>: Use straight-line flow.
+	<MEM_REF>: Use 'type' instead of TREE_TYPE (exp) and tidy up the first
+	part.  Use straight-line flow at the end.
+	<COMPONENT_REF>: Remove superfluous else.
+	<VIEW_CONVERT_EXPR>: Use 'type' instead of TREE_TYPE (exp).
+
+2013-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/56564
+	* varasm.c (decl_binds_to_current_def_p): Call binds_local_p
+	target hook even for !TREE_PUBLIC decls.  If no resolution info
+	is available, return false for common and external decls.
+
+2013-06-12  Kaushik Phatak  <kaushik.phatak@kpitcummins.com>
+
+	* config/rl78/constraints.md (U): New constraint.
+	* config/rl78/rl78.md (*mulqi3_rl78,*mulhi3_rl78,*mulhi3_g13): Add
+	valloc attribute.
+
 2013-06-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/57589

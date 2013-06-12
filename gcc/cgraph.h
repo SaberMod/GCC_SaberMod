@@ -551,6 +551,8 @@ enum cgraph_state
   CGRAPH_STATE_PARSING,
   /* Callgraph is being constructed.  It is safe to add new functions.  */
   CGRAPH_STATE_CONSTRUCTION,
+  /* Callgraph is being at LTO time.  */
+  CGRAPH_LTO_STREAMING,
   /* Callgraph is built and IPA passes are being run.  */
   CGRAPH_STATE_IPA,
   /* Callgraph is built and all functions are transformed to SSA form.  */
@@ -773,6 +775,7 @@ bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 bool cgraph_optimize_for_size_p (struct cgraph_node *);
 
 /* In varpool.c  */
+struct varpool_node *varpool_create_empty_node (void);
 struct varpool_node *varpool_node_for_decl (tree);
 struct varpool_node *varpool_node_for_asm (tree asmname);
 void varpool_mark_needed_node (struct varpool_node *);
