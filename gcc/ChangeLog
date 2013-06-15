@@ -1,3 +1,119 @@
+2013-06-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57615
+	* config/rs6000/rs6000.md (mov<mode>_ppc64): Call
+	rs6000_output_move_128bit to handle emitting quad memory
+	operations.  Set attribute length to 8 bytes.
+
+2013-06-14  Vidya Praveen <vidyapraveen@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_<su>mlal_lo<mode>):
+	New pattern.
+	(aarch64_<su>mlal_hi<mode>, aarch64_<su>mlsl_lo<mode>): Likewise.
+	(aarch64_<su>mlsl_hi<mode>, aarch64_<su>mlal<mode>): Likewise.
+	(aarch64_<su>mlsl<mode>): Likewise.
+
+2013-06-14  Mike Stump  <mikestump@comcast.net>
+
+	* Makefile.in (TARGET_H): Add insn-codes.h.
+
+2013-06-14  Alan Modra  <amodra@gmail.com>
+
+	PR middle-end/57134
+	PR middle-end/57586
+	* expr.c (expand_expr_real_1 <normal_inner_ref>): Pass
+	EXPAND_MEMORY and EXPAND_WRITE to recursive call.  Don't use
+	bitfield expansion when EXPAND_MEMORY.
+	(expand_expr_real_1 <VIEW_CONVERT_EXPR>): Pass modifier likewise.
+
+2013-06-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Move
+	test for clearing quad memory on 32-bit later.
+
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* fold-const.c (negate_expr_p): Handle VECTOR_CST.
+	(fold_negate_expr): Likewise.
+	(fold_real_zero_addition_p): Handle vectors.
+	(fold_binary_loc) <PLUS_EXPR, MINUS_EXPR>: Likewise.
+
+2013-06-14  Alan Modra  <amodra@gmail.com>
+
+	* varasm.c (force_const_mem): Revert 2013-06-07 change.
+
+2013-06-13  Jan Hubicka  <jh@suse.cz>
+
+	* ipa.c (cgraph_externally_visible_p, varpool_externally_visible_p):
+	Local comdats are not externally visible.
+	* symtab.c (dump_symtab_base): Dump externally visible.
+	(verify_symtab_base): Verify back links in the symtab hash.
+
+2013-06-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* fold-const.c (operand_equal_p): Consider NOP_EXPR and
+	CONVERT_EXPR as equal nodes.
+
+2013-06-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* rtlanal.c (noop_move_p): Check the code to be executed for
+	COND_EXEC.
+
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* tree-ssa-forwprop.c (simplify_bitwise_binary, associate_plusminus):
+	Generalize to complex and vector.
+	* tree.c (build_all_ones_cst): New function.
+	* tree.h (build_all_ones_cst): Declare it.
+
+2013-06-13  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (LONG_DOUBLE_LARGE_FIRST): Define.
+	* config/rs6000/rs6000.md (signbittf2): New insn.
+	(extenddftf2_internal): Use LONG_DOUBLE_LARGE_FIRST.
+	(abstf2_internal, cmptf_internal2): Likewise.
+	* config/rs6000/spe.md (spe_abstf2_cmp, spe_abstf2_tst): Likewise.
+
+2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (emit_load_locked): Add support for
+	power8 byte, half-word, and quad-word atomic instructions.
+	(emit_store_conditional): Likewise.
+	(rs6000_expand_atomic_compare_and_swap): Likewise.
+	(rs6000_expand_atomic_op): Likewise.
+
+	* config/rs6000/sync.md (larx): Add new modes for power8.
+	(stcx): Likewise.
+	(AINT): New mode iterator to include TImode as well as normal
+	integer modes on power8.
+	(fetchop_pred): Use int_reg_operand instead of gpc_reg_operand so
+	that VSX registers are not considered.  Use AINT mode iterator
+	instead of INT1 to allow inclusion of quad word atomic operations
+	on power8.
+	(load_locked<mode>): Likewise.
+	(store_conditional<mode>): Likewise.
+	(atomic_compare_and_swap<mode>): Likewise.
+	(atomic_exchange<mode>): Likewise.
+	(atomic_nand<mode>): Likewise.
+	(atomic_fetch_<fetchop_name><mode>): Likewise.
+	(atomic_nand_fetch<mode>): Likewise.
+	(mem_thread_fence): Use gen_loadsync_<mode> instead of enumerating
+	each type.
+	(ATOMIC): On power8, add QImode, HImode modes.
+	(load_locked<QHI:mode>_si): Varients of load_locked for QI/HI
+	modes that promote to SImode.
+	(load_lockedti): Convert TImode arguments to PTImode, so that we
+	get a guaranteed even/odd register pair.
+	(load_lockedpti): Likewise.
+	(store_conditionalti): Likewise.
+	(store_conditionalpti): Likewise.
+
+	* config/rs6000/rs6000.md (QHI): New mode iterator for power8
+	atomic load/store instructions.
+	(HSI): Likewise.
+
 2013-06-12  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* config/mips/mips.md (extended_mips16): Include GOT and constant-pool

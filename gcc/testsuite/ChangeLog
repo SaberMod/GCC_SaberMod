@@ -1,3 +1,94 @@
+2013-06-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* gcc.target/h8300/h8300.exp: New.
+	* gcc.dg/pragma-isr.c: Move to ...
+	* gcc.target/sh/torture/pragma-isr.c: ... here ...
+	* gcc.target/h8300/pragma-isr.c: ... and here.
+	* gcc.dg/pragma-isr2.c: Move to ...
+	* gcc.target/sh/torture/pragma-isr2.c: ... here ...
+	* gcc.target/h8300/pragma-isr2.c: ... and here.
+	* gcc.dg/pragma-isr-trapa.c: Move to ...
+	* gcc.target/sh/pragma-isr-trapa.c: ... here.
+	* gcc.dg/pragma-isr-trapa2.c: Move to ...
+	* gcc.target/sh/pragma-isr-trapa2.c: ... here.
+	* gcc.dg/pragma-isr-trap_exit.c: Move to ...
+	* gcc.target/sh/pragma-isr-trap-exit.c: ... here.
+	* gcc.dg/pragma-isr-nosave_low_regs.c: Move to ...
+	* gcc.target/sh/pragma-isr-nosave_low_regs.c: ... here.
+	* gcc.dg/attr-isr-nosave_low_regs.c: Move to ...
+	* gcc.target/sh/attr-isr-nosave_low_regs.c: ... here.
+	* gcc.dg/attr-isr-trap_exit.c: Move to ...
+	* gcc.target/sh/attr-isr-trap_exit.c: ... here.
+	* gcc.dg/attr-isr-trapa.c: Move to ...
+	* gcc.target/sh/attr-isr-trapa.c: ... here.
+
+2013-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51413
+	* g++.dg/ext/builtin-offsetof1.C: New.
+
+2013-06-14  Vidya Praveen <vidyapraveen@arm.com>
+
+	* gcc.target/aarch64/vect_smlal_1.c: New file.
+
+2013-06-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57508
+	* gfortran.dg/defined_assignment_7.f90: New.
+
+2013-06-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57599
+	* g++.dg/rtti/dyncast6.C: New.
+	* g++.dg/cpp0x/dyncast1.C: Likewise.
+
+2013-06-14  Alan Modra  <amodra@gmail.com>
+
+	PR middle-end/57134
+	* gcc.dg/pr57134.c: New.
+
+2013-06-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57596
+	* gfortran.dg/deferred_type_param_9.f90: New.
+
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/fold-minus-1.c: New testcase.
+
+2013-06-13  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/49074
+	* gfortran.dg/typebound_assignment_5.f03: New.
+
+2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
+
+	* gcc.dg/tree-ssa/forwprop-27.c: New testcase.
+
+2013-06-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/atomic-p7.c: New file, add tests for atomic
+	load/store instructions on power7, power8.
+	* gcc.target/powerpc/atomic-p8.c: Likewise.
+
+2013-06-12  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57577
+	* c-c++-common/cilk-plus/AN/pr57577.c: New testcase.
+
+2013-06-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38958
+	* g++.dg/warn/Wunused-var-20.C: New.
+
+2013-06-12  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/mips.exp: Handle -f{no-,}common.
+	* gcc.target/mips/memcpy-1.c: Remove redundant dg-do.
+	Run with -fno-common.
+
 2013-06-12  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c (main): Replaced abort
