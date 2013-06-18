@@ -1,3 +1,338 @@
+2013-06-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (initial_ix86_tune_features): Fix a typo
+	in comments.
+
+2013-06-18  Julian Brown  <julian@codesourcery.com>
+
+	* config/arm/arm.c (neon_vector_mem_operand): Add strict argument.
+	Permit virtual register pre-reload if !strict.
+	(coproc_secondary_reload_class): Adjust for neon_vector_mem_operand
+	change.
+	* config/arm/arm-protos.h (neon_vector_mem_operand): Adjust
+	prototype.
+	* config/arm/neon.md (movmisalign<mode>): Use
+	neon_perm_struct_or_reg_operand instead of
+	neon_struct_or_register_operand.
+	(*movmisalign<mode>_neon_load, *movmisalign<mode>_neon_store): Use
+	neon_permissive_struct_operand instead of neon_struct_operand.
+	* config/arm/constraints.md (Un, Um, Us): Adjust calls to
+	neon_vector_mem_operand.
+	* config/arm/predicates.md (neon_struct_operand): Adjust call to
+	neon_vector_mem_operand.
+	(neon_permissive_struct_operand): New.
+	(neon_struct_or_register_operand): Rename to...
+	(neon_perm_struct_or_reg_operand): This. Adjust call to
+	neon_vector_mem_operand.
+
+2013-06-18  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (LTO_STREAMER_H): Add pointer-set.h dependency.
+	* lto-streamer.h: Include pointer-set.h.
+	(struct lto_decl_slot): Remove.
+	(struct lto_tree_ref_encoder): Make tree_hash_table a pointer-map.
+	Remove next_index entry.
+	(lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+	lto_hash_type_slot_node, lto_eq_type_slot_node): Remove.
+	(lto_init_tree_ref_encoder): Adjust.
+	(lto_destroy_tree_ref_encoder): Likewise.
+	* lto-section-out.c (lto_hash_decl_slot_node, lto_eq_decl_slot_node,
+	lto_hash_type_slot_node, lto_eq_type_slot_node): Remove.
+	(lto_output_decl_index): Adjust.
+	(lto_new_out_decl_state): Likewise.
+	(lto_record_function_out_decl_state): Likewise.
+	* lto-streamer-out.c (copy_function): Likewise.
+
+2013-06-18  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (cgraphunit.o): Add $(CFGLOOP_H) dependency.
+	* cgraphunit.c: Include cfgloop.h.
+	(init_lowered_empty_function): Initialize the loop tree.
+	(assemble_thunk): Insert new BBs into loops.
+
+2013-06-18  Richard Biener  <rguenther@suse.de>
+
+	* tree-streamer.h (streamer_tree_cache_create): Adjust prototype.
+	* tree-streamer.c (streamer_tree_cache_create): Make maintaining
+	the map from cache entry to cache index optional.
+	(streamer_tree_cache_replace_tree): Adjust accordingly.
+	(streamer_tree_cache_append): Likewise.
+	(streamer_tree_cache_delete): Likewise.
+	* lto-streamer-in.c (lto_data_in_create): Do not maintain the
+	streamer cache map from cache entry to cache index.
+	* lto-streamer-out.c (create_output_block): Adjust.
+
+2013-06-18  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/arm/arm.md (attribute "insn"): Move multiplication and division
+	attributes to...
+	(attribute "type"): ... here.  Remove mult.
+	(attribute "mul32"): New attribute.
+	(attribute "mul64"): Add umaal.
+	(*arm_mulsi3): Update attributes.
+	(*arm_mulsi3_v6): Likewise.
+	(*thumb_mulsi3): Likewise.
+	(*thumb_mulsi3_v6): Likewise.
+	(*mulsi3_compare0): Likewise.
+	(*mulsi3_compare0_v6): Likewise.
+	(*mulsi_compare0_scratch): Likewise.
+	(*mulsi_compare0_scratch_v6): Likewise.
+	(*mulsi3addsi): Likewise.
+	(*mulsi3addsi_v6): Likewise.
+	(*mulsi3addsi_compare0): Likewise.
+	(*mulsi3addsi_compare0_v6): Likewise.
+	(*mulsi3addsi_compare0_scratch): Likewise.
+	(*mulsi3addsi_compare0_scratch_v6): Likewise.
+	(*mulsi3subsi): Likewise.
+	(*mulsidi3adddi): Likewise.
+	(*mulsi3addsi_v6): Likewise.
+	(*mulsidi3adddi_v6): Likewise.
+	(*mulsidi3_nov6): Likewise.
+	(*mulsidi3_v6): Likewise.
+	(*umulsidi3_nov6): Likewise.
+	(*umulsidi3_v6): Likewise.
+	(*umulsidi3adddi): Likewise.
+	(*umulsidi3adddi_v6): Likewise.
+	(*smulsi3_highpart_nov6): Likewise.
+	(*smulsi3_highpart_v6): Likewise.
+	(*umulsi3_highpart_nov6): Likewise.
+	(*umulsi3_highpart_v6): Likewise.
+	(mulhisi3): Likewise.
+	(*mulhisi3tb): Likewise.
+	(*mulhisi3bt): Likewise.
+	(*mulhisi3tt): Likewise.
+	(maddhisi4): Likewise.
+	(*maddhisi4tb): Likewise.
+	(*maddhisi4tt): Likewise.
+	(maddhidi4): Likewise.
+	(*maddhidi4tb): Likewise.
+	(*maddhidi4tt): Likewise.
+	(divsi3): Likewise.
+	(udivsi3): Likewise.
+	* config/arm/thumb2.md (thumb2_mulsi_short): Update attributes.
+	(thumb2_mulsi_short_compare0): Likewise.
+	(thumb2_mulsi_short_compare0_scratch): Likewise.
+	* config/arm/arm1020e.md (1020mult1): Update attribute change.
+	(1020mult2): Likewise.
+	(1020mult3): Likewise.
+	(1020mult4): Likewise.
+	(1020mult5): Likewise.
+	(1020mult6): Likewise.
+	* config/arm/cortex-a15.md (cortex_a15_mult32): Update attribute change.
+	(cortex_a15_mult64): Likewise.
+	(cortex_a15_sdiv): Likewise.
+	(cortex_a15_udiv): Likewise.
+	* config/arm/arm1026ejs.md (mult1): Update attribute change.
+	(mult2): Likewise.
+	(mult3): Likewise.
+	(mult4): Likewise.
+	(mult5): Likewise.
+	(mult6): Likewise.
+	* config/arm/marvell-pj4.md (pj4_ir_mul): Update attribute change.
+	(pj4_ir_div): Likewise.
+	* config/arm/arm1136jfs.md (11_mult1): Update attribute change.
+	(11_mult2): Likewise.
+	(11_mult3): Likewise.
+	(11_mult4): Likewise.
+	(11_mult5): Likewise.
+	(11_mult6): Likewise.
+	(11_mult7): Likewise.
+	* config/arm/cortex-a8.md (cortex_a8_mul): Update attribute change.
+	(cortex_a8_mla): Likewise.
+	(cortex_a8_mull): Likewise.
+	(cortex_a8_smulwy): Likewise.
+	(cortex_a8_smlald): Likewise.
+	* config/arm/cortex-m4.md (cortex_m4_alu): Update attribute change.
+	* config/arm/cortex-r4.md (cortex_r4_mul_4): Update attribute change.
+	(cortex_r4_mul_3): Likewise.
+	(cortex_r4_mla_4): Likewise.
+	(cortex_r4_mla_3): Likewise.
+	(cortex_r4_smlald): Likewise.
+	(cortex_r4_mull): Likewise.
+	(cortex_r4_sdiv): Likewise.
+	(cortex_r4_udiv): Likewise.
+	* config/arm/cortex-a7.md (cortex_a7_mul): Update attribute change.
+	(cortex_a7_idiv): Likewise.
+	* config/arm/arm926ejs.md (9_mult1): Update attribute change.
+	(9_mult2): Likewise.
+	(9_mult3): Likewise.
+	(9_mult4): Likewise.
+	(9_mult5): Likewise.
+	(9_mult6): Likewise.
+	* config/arm/cortex-a53.md (cortex_a53_mul): Update attribute change.
+	(cortex_a53_sdiv): Likewise.
+	(cortex_a53_udiv): Likewise.
+	* config/arm/fa726te.md (726te_mult_op): Update attribute change.
+	* config/arm/fmp626.md (mp626_mult1): Update attribute change.
+	(mp626_mult2): Likewise.
+	(mp626_mult3): Likewise.
+	(mp626_mult4): Likewise.
+	* config/arm/fa526.md (526_mult1): Update attribute change.
+	(526_mult2): Likewise.
+	* config/arm/arm-generic.md (mult): Update attribute change.
+	(mult_ldsched_strongarm): Likewise.
+	(mult_ldsched): Likewise.
+	(multi_cycle): Likewise.
+	* config/arm/cortex-a5.md (cortex_a5_mul): Update attribute change.
+	* config/arm/fa606te.md (606te_mult1): Update attribute change.
+	(606te_mult2): Likewise.
+	(606te_mult3): Likewise.
+	(606te_mult4): Likewise.
+	* config/arm/cortex-a9.md (cortex_a9_mult16): Update attribute change.
+	(cortex_a9_mac16): Likewise.
+	(cortex_a9_multiply): Likewise.
+	(cortex_a9_mac): Likewise.
+	(cortex_a9_multiply_long): Likewise.
+	* config/arm/fa626te.md (626te_mult1): Update attribute change.
+	(626te_mult2): Likewise.
+	(626te_mult3): Likewise.
+	(626te_mult4): Likewise.
+
+2013-06-18  Richard Biener  <rguenther@suse.de>
+
+	PR lto/57334
+	* lto-symtab.c (lto_symtab_merge_decls): Process nodes properly.
+
+2013-06-18  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR target/57609
+	* config/s390/s390.c (s390_chunkify_start): Replace next_real_insn
+	with next_active_insn.
+
+2013-06-18  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.h (enum data_align): New.
+	(LOCAL_ALIGNMENT, DATA_ALIGNMENT): Use rs6000_data_alignment.
+	(DATA_ABI_ALIGNMENT): Define.
+	(CONSTANT_ALIGNMENT): Correct comment.
+	* config/rs6000/rs6000-protos.h (rs6000_data_alignment): Declare.
+	* config/rs6000/rs6000.c (rs6000_data_alignment): New function.
+
+2013-06-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* ggc-page.c (ggc_pch_write_object) <d>: Remove erroneous
+	ATTRIBUTE_UNUSED marking.
+
+2013-06-17  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/aarch64/aarch64-simd.md (aarch64_dup_lane<mode>): Add r<-w
+	alternative and update.
+	(aarch64_dup_lanedi): Delete.
+	* config/aarch64/arm_neon.h (vdup<bhsd>_lane_*): Update.
+	* config/aarch64/aarch64-simd-builtins.def: Update.
+
+2013-06-17  Richard Biener  <rguenther@suse.de>
+
+	* lto-streamer.h (enum LTO_tags): Add LTO_tree_scc.
+	(lto_input_scc): Declare.
+	(lto_input_tree_1): Likewise.
+	(struct lto_stats_d): Add num_tree_bodies_output and
+	num_pickle_refs_output.
+	* lto-streamer-in.c (lto_read_body): Use streamer_tree_cache_get_tree.
+	(lto_read_tree_1): Split out from ...
+	(lto_read_tree): ... this.
+	(lto_input_scc): New function.
+	(lto_input_tree_1): Split out from ...
+	(lto_input_tree): ... this.  Handle LTO_tree_scc.
+	(lto_data_in_create): Create the streamer cache without hashes.
+	* lto-streamer-out.c (create_output_block): Create the streamer
+	cache with hashes when not doing WPA.
+	(lto_write_tree_1): Split out from ...
+	(lto_write_tree): ... this.
+	(get_symbol_initial_value): New function.
+	(lto_output_tree_1): Split out from ...
+	(lto_output_tree): ... this.  Write trees as series of SCCs
+	using a DFS walk via DFS_write_tree.
+	(struct sccs, struct scc_entry): New types.
+	(next_dfs_num, sccstack, sccstate, sccstate_obstack): New globals.
+	(DFS_write_tree_body): New function.
+	(DFS_write_tree): Likewise.
+	(hash_tree): Likewise.
+	(scc_entry_compare): Likewise.
+	(hash_scc): Likewise.
+	(tree_is_indexable): DEBUG_EXPR_DECLs are local entities.
+	* tree-streamer-in.c (lto_input_ts_list_tree_pointers): Stream
+	TREE_CHAIN as regular reference.
+	(streamer_read_integer_cst): Remove.
+	(streamer_get_pickled_tree): Adjust.
+	* tree-streamer-out.c (streamer_write_chain): Disable streaming
+	of DECL_EXTERNALs in BLOCK_VARS for now.
+	(write_ts_list_tree_pointers): Stream TREE_CHAIN as regular
+	reference.
+	* tree-streamer.c (streamer_tree_cache_add_to_node_array):
+	Add hash value argument and record that if hashes are recorded
+	in the cache.
+	(streamer_tree_cache_insert_1): Adjust.
+	(streamer_tree_cache_insert): Likewise.
+	(streamer_tree_cache_insert_at): Rename to ...
+	(streamer_tree_cache_replace_tree): ... this and adjust.
+	(streamer_tree_cache_append): Adjust.
+	(record_common_node): Likewise.
+	(streamer_tree_cache_create): Add argument whether to
+	record hash values together with trees.
+	(streamer_tree_cache_delete): Adjust.
+	* tree-streamer.h (struct streamer_tree_cache_d): Add
+	vector of hashes.
+	(streamer_read_integer_cst): Remove.
+	(streamer_tree_cache_insert): Adjust.
+	(streamer_tree_cache_append): Likewise.
+	(streamer_tree_cache_insert_at): Rename to ...
+	(streamer_tree_cache_replace_tree): ... this and adjust.
+	(streamer_tree_cache_create): Add argument whether to record hashes.
+	(streamer_tree_cache_get): Rename to ...
+	(streamer_tree_cache_get_tree): ... this.
+	(streamer_tree_cache_get_hash): New function.
+	* tree.c (cache_integer_cst): New function.
+	* tree.h (cache_integer_cst): Declare.
+	(ANON_AGGRNAME_FORMAT, ANON_AGGRNAME_P): Move here from cp/cp-tree.h.
+	* lto-symtab.c (lto_varpool_replace_node): Only release
+	DECL_INITIAL of non-prevailing decls.
+	* varpool.c (varpool_remove_initializer): Do not release
+	DECL_INITIAL when we are still in CGRAPH_LTO_STREAMING.
+
+2013-06-16  Jürgen Urban  <JuergenUrban@gmx.de>
+
+	* config/mips/mips.h (ISA_HAS_MUL3): Include TARGET_MIPS5900.
+	(ISA_HAS_MULT, ISA_HAS_DMULT, ISA_HAS_DIV, ISA_HAS_DDIV): New macros.
+	* config/mips/mips.md (mul<mode>3, mul<mode>3_internal)
+	(mul<mode>3_r4000): Require ISA_HAS_<D>MULT.
+	(mul<mode>3_mul3): Handle TARGET_MIPS5900.
+	(mulsidi3_64bit_dmul): Remove redundant TARGET_64BIT test.
+	(<su>muldi3_highpart, <su>muldi3_highpart_internal, <u>mulditi3)
+	(<u>mulditi3_internal, <u>mulditi3_r4000): Require ISA_HAS_DMULT
+	instead of TARGET_64BIT.
+	(divmod<mode>4, udivmod<mode>4, <u>divmod<GPR:mode>4_hilo_<HILO:mode>):
+	Require ISA_HAS_<D>DIV.
+
+2013-06-16  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mips*-mti-linux*, mips64*-*-linux*, mipsisa64*-*-linux*)
+	(mips*-*-linux*): Move default with_llsc setting to where other
+	defaults are set.
+	(mips*-*-vxworks*): Move with_arch default from with_cpu block to
+	with_arch block.
+	(mips64r5900-*-*, mips64r5900el-*-*, mipsr5900-*-*, mipsr5900el-*-*):
+	Likewise.  Remove default with_tune setting.  Move default float
+	setting to its own block.  Handle with_llsc in the same block as above.
+
+2013-06-16  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57425
+	PR rtl-optimization/57569
+	* alias.c (write_dependence_p): Add new parameters mem_size,
+	canon_mem_addr and mem_canonicalized.  Change type of writep to bool.
+	Changed all callers.
+	(canon_anti_dependence): New function.
+	* cse.c (check_dependence): Use canon_anti_dependence.
+	* cselib.c (cselib_invalidate_mem): Likewise.
+	* rtl.h (canon_anti_dependence): Declare.
+
+2013-06-16  Jürgen Urban  <JuergenUrban@gmx.de>
+
+	* config/mips/mips.h (ISA_HAS_LL_SC): Exclude TARGET_MIPS5900.
+	* config/mips/mips.c (mips_start_ll_sc_sync_block): Output
+	".set mips3" for 64-bit targets.
+
 2013-06-15  Dehao Chen  <dehao@google.com>
 
 	* tree-flow.h (gimple_check_call_matching_types): Add new argument.
