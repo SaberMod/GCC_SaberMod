@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
     /* The GNU C++ standard library requires this.  */		\
     if (c_dialect_cxx ())					\
       builtin_define ("_GNU_SOURCE");				\
-    ANDROID_TARGET_OS_CPP_BUILTINS();				\
   } while (0)
 
 #undef SUBTARGET_CPP_SPEC
@@ -119,7 +118,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #endif
 
 #define LINUX_DRIVER_SELF_SPECS \
-  LINUX_OR_ANDROID_CC(NO_SHARED_SPECS, "")				\
+  NO_SHARED_SPECS							\
   MARCH_MTUNE_NATIVE_SPECS,						\
   /* -mplt has no effect without -mno-shared.  Simplify later		\
      specs handling by removing a redundant option.  */			\
