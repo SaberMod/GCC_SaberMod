@@ -313,8 +313,6 @@ bool cgraph_callee_edges_final_cleanup = false;
 static bool
 gate_all_early_optimizations (void)
 {
-  /* The cgraph callee edges are being cleaned up for the last time.  */
-  cgraph_callee_edges_final_cleanup = true;
   return (optimize >= 1
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !seen_error ());
@@ -345,6 +343,8 @@ static struct gimple_opt_pass pass_all_early_optimizations =
 static bool
 gate_all_optimizations (void)
 {
+  /* The cgraph callee edges are being cleaned up for the last time.  */
+  cgraph_callee_edges_final_cleanup = true;
   return optimize >= 1 && !optimize_debug;
 }
 
