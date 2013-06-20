@@ -33,6 +33,8 @@ XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution t
 XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
 XPASS: gfortran.dg/do_1.f90 -O3 -g  execution test
 XPASS: gfortran.dg/do_1.f90 -Os  execution test
+FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
+FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
 
 # These failures only occur when testing is distributed.  These tests
 # have dependencies that are not explicitly handled by the driver script.
