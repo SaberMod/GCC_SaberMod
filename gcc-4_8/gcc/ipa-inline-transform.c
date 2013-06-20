@@ -415,7 +415,11 @@ inline_call (struct cgraph_edge *e, bool update_original,
   /* Account the change of overall unit size; external functions will be
      removed and are thus not accounted.  */
   if (overall_size
-      && !DECL_EXTERNAL (to->symbol.decl))
+      && !DECL_EXTERNAL (to->symbol.decl)
+      && ((L_IPO_COMP_MODE
+           && cgraph_get_module_id (to->symbol.decl)
+           == primary_module_id)
+          || !L_IPO_COMP_MODE))
     *overall_size += new_size - old_size;
   ncalls_inlined++;
 
