@@ -1,3 +1,198 @@
+2013-06-21  Andi Kleen  <ak@linux.intel.com>
+
+	* doc/extend.texi: Dont use __atomic_clear in HLE
+	example.  Fix typo.
+
+2013-06-21  Andi Kleen  <ak@linux.intel.com>
+
+	* doc/extend.texi: Document that __atomic_clear and
+	  __atomic_test_and_set should only be used with bool.
+
+2013-06-20  Jan Hubicka  <jh@suse.cz>
+
+	* gimple-fold.c (gimple_extract_devirt_binfo_from_cst): Use
+	types_same_for_odr.
+	* tree.c (decls_same_for_odr): New function.
+	(same_for_edr): New function.
+	(types_same_for_odr): New function.
+	(get_binfo_at_offset): Use it.
+	* tree.h (types_same_for_odr): Declare.
+
+2013-06-20  Oleg Endo <oleg.endo@t-online.de>
+	    Jason Merrill  <jason@redhat.com>
+
+	* system.h: Include <cstdlib> as well as <stdlib.h>.
+
+2013-06-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57655
+	* config/i386/i386.c (construct_container): Report error if
+	long double is used with disabled x87 float returns.
+
+2013-06-20  Jan Hubicka  <jh@suse.cz>
+
+	* lto-cgraph.c (input_symtab): Do not set cgraph state.
+
+2013-06-20  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57425
+	PR rtl-optimization/57569
+	* alias.c (write_dependence_p): Remove parameters mem_mode and
+	canon_mem_addr.  Add parameters x_mode, x_addr and x_canonicalized.
+	Changed all callers.
+	(canon_anti_dependence): Get comments and semantics in sync.
+	Add parameter mem_canonicalized.  Changed all callers.
+	* rtl.h (canon_anti_dependence): Update prototype.
+
+2013-06-20  Richard Biener  <rguenther@suse.de>
+
+	* data-streamer-in.c (streamer_read_uhwi): Optimize single
+	byte case, inline streamer_read_uchar and defer section
+	overrun check.
+
+2013-06-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57584
+	* tree-ssa-loop-niter.c (expand_simple_operations): Avoid including
+	SSA names into the expanded expression that take part in
+	abnormal coalescing.
+
+2013-06-19    <singhai@google.com>
+
+	* gcov.c (print_usage): Handle new option.
+	(process_args): Ditto.
+	(get_gcov_intermediate_filename): New function.
+	(output_intermediate_file): New function.
+	(output_gcov_file): New function
+	(generate_results): Handle new option.
+	(release_function): Relase demangled name.
+	(read_graph_file): Handle demangled name.
+	(output_lines): Ditto.
+	* doc/gcov.texi: Document gcov intermediate format.
+
+2013-06-19  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR bootstrap/57604
+	* lra.c (emit_add3_insn, emit_add2_insn): New functions.
+	(lra_emit_add): Use the functions.  Add comment about Y as an
+	address segment.
+
+2013-06-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	PR driver/57652
+	* collect2.c (collect_atexit): New.
+	(collect_exit): Delete.
+	(main): Register collect_atexit with atexit.
+	(collect_wait): Change collect_exit to exit.
+	(do_wait): Same.
+	* collect2.h (collect_exit): Delete.
+	* tlink.c (do_tlink): Rename exit to ret. Change collect_exit to exit.
+
+2013-06-19  Wei Mi  <wmi@google.com>
+
+	PR rtl-optimization/57518
+	* ira.c (set_paradoxical_subreg): Set pdx_subregs[regno]
+	if regno is used in paradoxical subreg.
+	(update_equiv_regs): Check pdx_subregs[regno] before
+	set a reg to be equivalent with a mem.
+
+2013-06-19  Matthias Klose  <doko@ubuntu.com>
+
+	PR driver/57651
+	* file-find.h (find_a_file): Add a mode parameter.
+	* file-find.c (find_a_file): Likewise.
+	* gcc-ar.c (main): Call find_a_file with R_OK for the plugin,
+	with X_OK for the executables.
+	* collect2.c (main): Call find_a_file with X_OK.
+
+2013-06-19  Steve Ellcey  <sellcey@mips.com>
+
+	PR target/56942
+	* config/mips/mips.md (casesi_internal_mips16_<mode>):
+	Use NEXT_INSN instead of next_real_insn.
+
+2013-06-19  Jan Hubicka  <jh@suse.cz>
+
+	* cgraph.h (const_value_known_p): Replace by ...
+	(ctor_for_folding): .. this one.
+	* cgraphunit.c (process_function_and_variable_attributes): Use it.
+	* lto-cgraph.c (compute_ltrans_boundary): Use ctor_for_folding.
+	* expr.c (expand_expr_real_1): Likewise.
+	(string_constant): Likewise.
+	* tree-ssa-loop-ivcanon.c (constant_after_peeling): Likewise.
+	* ipa.c (process_references): Likewise.
+	(symtab_remove_unreachable_nodes): Likewise.
+	* ipa-inline-analysis.c (param_change_prob): Likewise.
+	* gimple-fold.c (canonicalize_constructor_val): Likewise.
+	(get_base_constructor): Likwise.
+	* varpool.c (varpool_remove_node): Likewise.
+	(varpool_remove_initializer): LIkewise.
+	(dump_varpool_node): LIkwise.
+	(const_value_known_p): Rewrite to ...
+	(ctor_for_folding): ... this one.
+
+2013-06-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR driver/57651
+	* gcc-ar.c (main): If not CROSS_DIRECTORY_STRUCTURE, look for
+	PERSONALITY in $PATH derived prefixes.
+
+2013-06-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-forwprop.c (simplify_bitwise_binary_boolean): Fix typo
+	in comment.
+
+	* tree-ssa-forwprop.c (simplify_bitwise_binary_boolean): New function.
+	(simplify_bitwise_binary): Use it to simpify certain binary ops on
+	booleans.
+
+2013-06-19  Sofiane Naci  <sofiane.naci@arm.com>
+
+	* config/arm/vfp.md: Move VFP instruction classification documentation
+	to ...
+	* config/arm/arm.md: ... here.  Update instruction classification
+	documentation.
+
+2013-06-19  Richard Earnshaw  <rearnsha@arm.com>
+
+	arm.md (split for eq(reg, 0)): Add variants for ARMv5 and Thumb2.
+	(peepholes for eq(reg, not-0)): Ensure condition register is dead after
+	pattern.  Use more efficient sequences on ARMv5 and Thumb2.
+
+2013-06-19  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR target/57609
+	* config/s390/s390.c (s390_chunkify_start): Replace next_real_insn
+	with NEXT_INSN.  Use tablejump_p to check for jump table data
+	insns.
+
+2013-06-19  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56544
+	* doc/cpp.texi [Standard Predefined Macros, __cplusplus]: Document
+	that now in C++ the value is correct per the C++ standards.
+
+2013-06-19  Richard Biener  <rguenther@suse.de>
+
+	* expr.c (expand_expr_real_1): Use SCOPE_FILE_SCOPE_P to check
+	for global context.
+
+2013-06-19  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	Revert:
+	2013-06-18  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	PR target/57609
+	* config/s390/s390.c (s390_chunkify_start): Replace next_real_insn
+	with next_active_insn.
+
+2013-06-18  Sriraman Tallam  <tmsriram@google.com>
+
+	* ipa-inline.c (inline_always_inline_functions): Pretend always_inline
+	functions are inlined during failures to flag an error.
+	* tree-inline.c (expand_call_inline): Allow the error to be flagged
+	in early inline pass.
+
 2013-06-18  H.J. Lu  <hongjiu.lu@intel.com>
 
 	* config/i386/i386.c (initial_ix86_tune_features): Fix a typo
@@ -64,8 +259,8 @@
 
 2013-06-18  Sofiane Naci  <sofiane.naci@arm.com>
 
-	* config/arm/arm.md (attribute "insn"): Move multiplication and division
-	attributes to...
+	* config/arm/arm.md (attribute "insn"): Move multiplication and
+	division attributes to...
 	(attribute "type"): ... here.  Remove mult.
 	(attribute "mul32"): New attribute.
 	(attribute "mul64"): Add umaal.
@@ -118,7 +313,8 @@
 	(1020mult4): Likewise.
 	(1020mult5): Likewise.
 	(1020mult6): Likewise.
-	* config/arm/cortex-a15.md (cortex_a15_mult32): Update attribute change.
+	* config/arm/cortex-a15.md (cortex_a15_mult32): Update attribute
+	change.
 	(cortex_a15_mult64): Likewise.
 	(cortex_a15_sdiv): Likewise.
 	(cortex_a15_udiv): Likewise.
@@ -319,7 +515,7 @@
 
 	PR rtl-optimization/57425
 	PR rtl-optimization/57569
-	* alias.c (write_dependence_p): Add new parameters mem_size,
+	* alias.c (write_dependence_p): Add new parameters mem_mode,
 	canon_mem_addr and mem_canonicalized.  Change type of writep to bool.
 	Changed all callers.
 	(canon_anti_dependence): New function.
@@ -402,8 +598,7 @@
 
 2013-06-13  Bin Cheng  <bin.cheng@arm.com>
 
-	* rtlanal.c (noop_move_p): Check the code to be executed for
-	COND_EXEC.
+	* rtlanal.c (noop_move_p): Check the code to be executed for COND_EXEC.
 
 2013-06-13  Marc Glisse  <marc.glisse@inria.fr>
 
@@ -494,7 +689,8 @@
 
 2013-06-12  Sofiane Naci  <sofiane.naci@arm.com>
 
-	* config/aarch64/aarch64-simd.md (aarch64_combine<mode>): convert to split.
+	* config/aarch64/aarch64-simd.md (aarch64_combine<mode>): Convert
+	to split.
 	(aarch64_simd_combine<mode>): New instruction expansion.
 	* config/aarch64/aarch64-protos.h (aarch64_split_simd_combine): New
 	function prototype.
@@ -630,8 +826,7 @@
 
 2013-06-11  Richard Biener  <rguenther@suse.de>
 
-	* collect2.c (main): Do not redirect ld stdout/stderr when
-	debugging.
+	* collect2.c (main): Do not redirect ld stdout/stderr when debugging.
 
 2013-06-11  Anton Blanchard  <anton@samba.org>
 
@@ -712,8 +907,7 @@
 	(UNSPEC_P8V_RELOAD_FROM_VSX): Likewise.
 	(UNSPEC_FUSION_GPR): Likewise.
 	(FMOVE128_GPR): New iterator for direct move.
-	(f32_lv): New mode attribute for load/store of SFmode/SDmode
-	values.
+	(f32_lv): New mode attribute for load/store of SFmode/SDmode values.
 	(f32_sv): Likewise.
 	(f32_dm): Likewise.
 	(zero_extend<mode>di2_internal1): Add support for power8 32-bit

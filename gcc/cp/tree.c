@@ -141,6 +141,7 @@ lvalue_kind (const_tree ref)
     case INDIRECT_REF:
     case ARROW_EXPR:
     case ARRAY_REF:
+    case ARRAY_NOTATION_REF:
     case PARM_DECL:
     case RESULT_DECL:
       return clk_ordinary;
@@ -884,8 +885,8 @@ array_of_runtime_bound_p (tree t)
   if (!dom)
     return false;
   tree max = TYPE_MAX_VALUE (dom);
-  return (!value_dependent_expression_p (max)
-	  && !TREE_CONSTANT (max));
+  return (!potential_rvalue_constant_expression (max)
+	  || (!value_dependent_expression_p (max) && !TREE_CONSTANT (max)));
 }
 
 /* Return a reference type node referring to TO_TYPE.  If RVAL is
