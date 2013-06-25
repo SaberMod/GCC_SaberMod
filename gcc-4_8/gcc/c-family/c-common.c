@@ -2668,7 +2668,7 @@ conversion_warning (tree type, tree expr)
   tree expr_type = TREE_TYPE (expr);
   location_t loc = EXPR_LOC_OR_HERE (expr);
 
-  if (!warn_conversion && !warn_sign_conversion)
+  if (!warn_conversion && !warn_sign_conversion && !warn_real_conversion)
     return;
 
   switch (TREE_CODE (expr))
@@ -2715,9 +2715,12 @@ conversion_warning (tree type, tree expr)
 
     default: /* 'expr' is not a constant.  */
       if (unsafe_conversion_p (type, expr, true))
-	warning_at (loc, OPT_Wconversion,
-		    "conversion to %qT from %qT may alter its value",
-		    type, expr_type);
+      {
+        int warn_type = (warn_conversion ? OPT_Wconversion : OPT_Wreal_conversion);
+        warning_at (loc, warn_type,
+                    "conversion to %qT from %qT may alter its value",
+                    type, expr_type);
+      }
     }
 }
 
