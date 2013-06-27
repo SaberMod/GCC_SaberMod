@@ -677,10 +677,6 @@ Wsign-compare
 C ObjC C++ ObjC++ EnabledBy(Wextra)
 ;
 
-Wreal-conversion
-C ObjC C++ ObjC++ Var(warn_real_conversion) Init(-1) Warning
-Warn for implicit type conversions from real to integral values
-
 Wsign-conversion
 C ObjC C++ ObjC++ Var(warn_sign_conversion) LangEnabledBy(C ObjC,Wconversion)
 Warn for implicit type conversions between signed and unsigned integers

@@ -876,12 +876,6 @@ c_common_post_options (const char **pfilename)
   if (warn_packed_bitfield_compat == -1)
     warn_packed_bitfield_compat = 1;
 
-  /* Enable warning for converting real values to integral values
-     when -Wconversion is specified (unless disabled through
-     -Wno-real-conversion).  */
-  if (warn_real_conversion == -1)
-    warn_real_conversion = warn_conversion;
-
   /* Special format checking options don't work without -Wformat; warn if
      they are used.  */
   if (!warn_format)
