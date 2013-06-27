@@ -2665,11 +2665,21 @@ unsafe_conversion_p (tree type, tree expr, bool produce_warns)
 static void
 conversion_warning (tree type, tree expr)
 {
+  int warn_option;
   tree expr_type = TREE_TYPE (expr);
   location_t loc = EXPR_LOC_OR_HERE (expr);
 
-  if (!warn_conversion && !warn_sign_conversion)
+  if (!warn_conversion && !warn_sign_conversion && !warn_real_conversion)
     return;
+
+  /* When either type is a floating point type, warn with
+     -Wreal-conversion instead of -Wconversion (-Wreal-conversion is a
+     subset of -Wconversion that only warns for conversions of real
+     types to integral types).  */
+  warn_option = (warn_real_conversion
+		 && (FLOAT_TYPE_P (type) || FLOAT_TYPE_P (expr_type)))
+    ? OPT_Wreal_conversion
+    : OPT_Wconversion;
 
   switch (TREE_CODE (expr))
     {
@@ -2689,14 +2699,14 @@ conversion_warning (tree type, tree expr)
 	 can hold the values 0 and -1) doesn't lose information - but
 	 it does change the value.  */
       if (TYPE_PRECISION (type) == 1 && !TYPE_UNSIGNED (type))
-	warning_at (loc, OPT_Wconversion,
+	warning_at (loc, warn_option,
 		    "conversion to %qT from boolean expression", type);
       return;
 
     case REAL_CST:
     case INTEGER_CST:
       if (unsafe_conversion_p (type, expr, true))
-	warning_at (loc, OPT_Wconversion,
+	warning_at (loc, warn_option,
 		    "conversion to %qT alters %qT constant value",
 		    type, expr_type);
       return;
@@ -2715,7 +2725,7 @@ conversion_warning (tree type, tree expr)
 
     default: /* 'expr' is not a constant.  */
       if (unsafe_conversion_p (type, expr, true))
-	warning_at (loc, OPT_Wconversion,
+	warning_at (loc, warn_option,
 		    "conversion to %qT from %qT may alter its value",
 		    type, expr_type);
     }

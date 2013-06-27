@@ -237,7 +237,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment @gol
--Wconversion  -Wcoverage-mismatch  -Wno-cpp  -Wno-deprecated  @gol
+-Wconversion -Wreal-conversion -Wcoverage-mismatch  -Wno-cpp  -Wno-deprecated  @gol
 -Wno-deprecated-declarations -Wdisabled-optimization  @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
@@ -4451,6 +4451,12 @@ operator: conversions to @code{void}, the same type, a base class or a
 reference to them. Warnings about conversions between signed and
 unsigned integers are disabled by default in C++ unless
 @option{-Wsign-conversion} is explicitly enabled.
+
+@item -Wreal-conversion
+@opindex Wreal-conversion
+@opindex Wno-real-conversion
+Warn for implicit type conversions from real (@code{double} or @code{float})
+to integral values. This warning is also enabled by @option{-Wconversion}.
 
 @item -Wno-conversion-null @r{(C++ and Objective-C++ only)}
 @opindex Wconversion-null
