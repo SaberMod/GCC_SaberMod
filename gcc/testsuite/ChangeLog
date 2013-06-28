@@ -1,5 +1,119 @@
+2013-06-27  Meador Inge  <meadori@codesourcery.com>
+
+	* gcc.dg/atomic-flag.c: Add dg-require-effective-target sync_*.
+	* g++.dg/simulate-thread/atomics-2.C: Likewise.
+	* g++.dg/simulate-thread/atomics-1.C: Likewise.
+
+2013-06-27  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/57509
+	* g++.dg/ext/pr57509.C: New file.
+
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57623
+	* gcc.target/i386/bmi-bextr-3.c: New test.
+
+	PR target/57623
+	* gcc.target/i386/bmi2-bzhi-1.c: New test.
+
+2013-06-27  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/57172
+	* g++.dg/cpp0x/pr57172.C: New testcase.
+
+2013-06-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/htm-1.c: New file.
+	* gcc.target/s390/htm-nofloat-1.c: New file.
+	* gcc.target/s390/htm-xl-intrin-1.c: New file.
+
+2013-06-26  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/29800
+	* gfortran.dg/bounds_check_17.f90: New.
+
+2013-06-25  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/57640
+	* g++.dg/cpp1y/pr57640.C: New.
+
+2013-06-25  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57692
+	* c-c++-common/cilk-plus/AN/gather_scatter.c: Fixed a bug of stack
+	overflow due to size of arrays.
+
+2013-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57705
+	* gcc.dg/vect/pr57705.c: New test.
+	* gcc.dg/vect/vect-iv-7.c: Add noclone attribute, remove xfail.
+
+2013-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57670
+	* g++.dg/ipa/pr57670.C: New test.
+
+2013-06-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56977
+	* gcc.dg/pr56977.c: New testcase.
+
+2013-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57358
+	* gcc.dg/ipa/pr57358.c: New test.
+
+2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/57686
+	* gcc.dg/torture/pr57584.c: Remove target specific bits.
+
+2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57488
+	* gcc.dg/torture/pr57488.c: New testcase.
+
+2013-06-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+	    Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/52413
+	* gfortran.dg/fraction.f90: New.
+
+2013-06-24  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/altivec-consts.c: Correct for little-endian.
+	Add scan-assembler-not "lvx".
+	* gcc.target/powerpc/le-altivec-consts.c: New.
+
+2013-06-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/sfinae47.C: New.
+
+2013-06-23  Oleg Endo <olegendo@gcc.gnu.org>
+
+	PR target/52483
+	* gcc.target/sh/pr52483-1.c: New.
+	* gcc.target/sh/pr52483-2.c: New.
+	* gcc.target/sh/pr52483-3.c: New.
+	* gcc.target/sh/pr52483-4.c: New.
+	* gcc.target/sh/pr52483-5.c: New.
+
+2013-06-23  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc.target/i386/intrinsics_1.c: New test.
+	* gcc.target/i386/intrinsics_2.c: Ditto.
+	* gcc.target/i386/intrinsics_3.c: Ditto.
+	* gcc.target/i386/intrinsics_4.c: Ditto.
+	* gcc.target/i386/intrinsics_5.c: Ditto.
+	* gcc.target/i386/intrinsics_6.c: Ditto.
+	* gcc.target/i386/avx-1.c: Provide macros for builtins
+	needing immediate arguments in f16cintrin.h and rtmintrin.h.
+
 2013-06-21  Tobias Burnus  <burnus@net-b.de>
 
+	PR fortran/37336
 	* gfortran.dg/finalize_17.f90: New.
 
 2013-06-21  Tobias Burnus  <burnus@net-b.de>

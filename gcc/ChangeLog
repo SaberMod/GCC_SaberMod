@@ -1,3 +1,326 @@
+2013-06-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config.gcc (mips*-mti-elf*, mips*-sde-elf*, mips64r5900-*-elf*)
+	(mips64r5900el-*-elf*): Include mips/n32-elf.h.
+	* config/mips/sde.h (LOCAL_LABEL_PREFIX, NO_DOLLAR_IN_LABEL)
+	(LONG_DOUBLE_TYPE_SIZE, LIBGCC2_LONG_DOUBLE_TYPE_SIZE): Move to...
+	* config/mips/n32-elf.h: ...this new file.
+
+2013-06-27  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR target/57224
+	* config/i386/i386.c (enum ix86_builtins, bdesc_args): Remove
+	IX86_BUILTIN_CMPNGTSS and IX86_BUILTIN_CMPNGESS.
+
+2013-06-27  Catherine Moore <clm@codesourcery.com>
+
+	* config/mips/mips-tables.opt: Regenerate.
+	* config/mips/mips-cpus.def: Add m14ke and m14kec.
+	* config/mips/mips.h (BASE_DRIVER_SELF_SPECS): m14ke* implies
+	-mdspr2.
+	* doc/invoke.texi: Add -m14kc.
+ 
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57623
+	* config/i386/i386.md (bmi_bextr_<mode>): Swap predicates and
+	constraints of operand 1 and 2.
+
+	PR target/57623
+	* config/i386/i386.md (bmi2_bzhi_<mode>3): Swap AND arguments
+	to match RTL canonicalization.  Swap predicates and
+	constraints of operand 1 and 2.
+
+2013-06-27  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (inherit_in_ebb): Process static hard regs
+	too.  Process OP_INOUT regs for splitting too.
+
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-stmts.c (vectorizable_store): Move ptr_incr var
+	decl before the loop, initialize to NULL.
+	(vectorizable_load): Initialize ptr_incr to NULL.
+
+2013-06-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/57208
+	* ipa-ref.h (ipa_maybe_record_reference): Declare.
+	* ipa-ref.c (ipa_maybe_record_reference): New function.
+	* cgraphclones.c (cgraph_create_virtual_clone): Use it.
+	* ipa-cp.c (create_specialized_node): Record potential references from
+	aggvals.
+	* Makefile.in (ipa-ref.o): Add IPA_REF_H to dependencies.
+
+2013-06-27  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_force_temporary): Add an extra
+	parameter 'mode' of type 'enum machine_mode mode'; change to pass
+	'mode' to force_reg.
+	(aarch64_add_offset): Update calls to aarch64_force_temporary.
+	(aarch64_expand_mov_immediate): Likewise.
+
+2013-06-27  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_add_offset): Change to pass
+	'mode' to aarch64_plus_immediate and gen_rtx_PLUS.
+
+2013-06-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c: Rename UNSPEC_CCU_TO_INT to
+	UNSPEC_STRCMPCC_TO_INT and UNSPEC_CCZ_TO_INT to UNSPEC_CC_TO_INT.
+	(struct machine_function): Add tbegin_p.
+	(s390_canonicalize_comparison): Fold CC mode compares to
+	conditional jump if possible.
+	(s390_emit_jump): Return the emitted jump.
+	(s390_branch_condition_mask, s390_branch_condition_mnemonic):
+	Handle CCRAWmode compares.
+	(s390_option_override): Default to -mhtm if available.
+	(s390_reg_clobbered_rtx): Handle floating point regs as well.
+	(s390_regs_ever_clobbered): Use s390_regs_ever_clobbered also for
+	FPRs instead of df_regs_ever_live_p.
+	(s390_optimize_nonescaping_tx): New function.
+	(s390_init_frame_layout): Extend clobbered_regs array to cover
+	FPRs as well.
+	(s390_emit_prologue): Call s390_optimize_nonescaping_tx.
+	(s390_expand_tbegin): New function.
+	(enum s390_builtin): New enum definition.
+	(code_for_builtin): New array definition.
+	(s390_init_builtins): New function.
+	(s390_expand_builtin): New function.
+	(TARGET_INIT_BUILTINS): Define.
+	(TARGET_EXPAND_BUILTIN): Define.
+	* common/config/s390/s390-common.c (processor_flags_table): Add
+	PF_TX.
+	* config/s390/predicates.md (s390_comparison): Handle CCRAWmode.
+	(s390_alc_comparison): Likewise.
+	* config/s390/s390-modes.def: Add CCRAWmode.
+	* config/s390/s390.h (processor_flags): Add PF_TX.
+	(TARGET_CPU_HTM): Define macro.
+	(TARGET_HTM): Define macro.
+	(TARGET_CPU_CPP_BUILTINS): Define __HTM__ for htm.
+	* config/s390/s390.md: Rename UNSPEC_CCU_TO_INT to
+	UNSPEC_STRCMPCC_TO_INT and UNSPEC_CCZ_TO_INT to UNSPEC_CC_TO_INT.
+	(UNSPECV_TBEGIN, UNSPECV_TBEGINC, UNSPECV_TEND, UNSPECV_TABORT)
+	(UNSPECV_ETND, UNSPECV_NTSTG, UNSPECV_PPA): New unspecv enum
+	values.
+	(TBEGIN_MASK, TBEGINC_MASK): New constants.
+	("*cc_to_int"): Move up.
+	("*mov<mode>cc", "*cjump_64", "*cjump_31"): Accept integer
+	constants other than 0.
+	("*ccraw_to_int"): New insn and splitter definition.
+	("tbegin", "tbegin_nofloat", "tbegin_retry")
+	("tbegin_retry_nofloat", "tbeginc", "tend", "tabort")
+	("tx_assist"): New expander.
+	("tbegin_1", "tbegin_nofloat_1", "*tbeginc_1", "*tend_1")
+	("*tabort_1", "etnd", "ntstg", "*ppa"): New insn definition.
+	* config/s390/s390.opt: Add -mhtm option.
+	* config/s390/s390-protos.h (s390_emit_jump): Add return type.
+	* config/s390/htmxlintrin.h: New file.
+	* config/s390/htmintrin.h: New file.
+	* config/s390/s390intrin.h: New file.
+	* doc/extend.texi: Document htm builtins.
+	* config.gcc: Add the new header files to extra_headers.
+
+2013-06-26  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/i386/gnu.h [TARGET_LIBC_PROVIDES_SSP]
+	(TARGET_CAN_SPLIT_STACK, TARGET_THREAD_SPLIT_STACK_OFFSET):
+	Undefine.
+
+2013-06-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Pat Haugen <pthaugen@us.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	* config/rs6000/power8.md: New.
+	* config/rs6000/rs6000-cpus.def (RS6000_CPU table): Adjust processor
+	setting for power8 entry.
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add power8.md.
+	* config/rs6000/rs6000.c (is_microcoded_insn, is_cracked_insn): Adjust
+	test for Power4/Power5 only.
+	(insn_must_be_first_in_group, insn_must_be_last_in_group): Add Power8
+	support.
+	(force_new_group): Adjust comment.
+	* config/rs6000/rs6000.md: Include power8.md.
+
+2013-06-26  Greta Yorsh  <Greta.Yorsh@arm.com>
+
+	* config/arm/arm.h (MAX_CONDITIONAL_EXECUTE): Define macro.
+	* config/arm/arm-protos.h (arm_max_conditional_execute): New
+	declaration.
+	(tune_params): Update comment.
+	* config/arm/arm.c (arm_cortex_a15_tune): Set max_cond_insns to 2.
+	(arm_max_conditional_execute): New function.
+	(thumb2_final_prescan_insn): Use max_insn_skipped and
+	MAX_INSN_PER_IT_BLOCK to compute maximum instructions in a block.
+
+2013-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57705
+	* tree-vect-loop.c (vect_is_simple_iv_evolution): Allow
+	SSA_NAME step, provided that it is not defined inside the loop.
+	(vect_analyze_scalar_cycles_1): Disallow SSA_NAME step in nested
+	loop.
+	(get_initial_def_for_induction): Handle SSA_NAME IV step.
+
+2013-06-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR middle-end/57670
+	* cgraph.h (cgraph_indirect_call_info): New flag member_ptr.
+	* ipa-prop.c (ipa_print_node_jump_functions): Mark member pointer
+	calls in the dump.
+	(ipa_note_param_call): Initialize member_ptr flag.
+	(ipa_analyze_indirect_call_uses): Set member_ptr flag.
+	(ipa_make_edge_direct_to_target): Bail out if member_ptr is set.
+	(ipa_write_indirect_edge_info): Stream member_ptr flag.
+	(ipa_read_indirect_edge_info): Likewise.
+
+2013-06-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/56977
+	* passes.c (init_optimization_passes): Move pass_fold_builtins
+	and pass_dce earlier with -Og.
+
+2013-06-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1) <ARRAY_REF>: Fix formatting glitches.
+	<BIT_FIELD_REF>: Remove trailing TAB.
+	* varasm.c (output_constructor_bitfield): Fix formatting glitch and
+	remove blank line.
+
+2013-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57358
+	* ipa-prop.c (ipa_func_spec_opts_forbid_analysis_p): New function.
+	(ipa_compute_jump_functions_for_edge): Bail out if it returns true.
+	(ipa_analyze_params_uses): Generate pessimistic info when true.
+
+2013-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57539
+	* cgraphclones.c (cgraph_clone_node): Add parameter new_inlined_to, set
+	global.inlined_to of the new node to it.  All callers changed.
+	* ipa-inline-transform.c (clone_inlined_nodes): New variable
+	inlining_into, pass it to cgraph_clone_node.
+	* ipa-prop.c (ipa_propagate_indirect_call_infos): Do not call
+	ipa_free_edge_args_substructures.
+	(ipa_edge_duplication_hook): Only add edges from inlined nodes to
+	rdesc linked list.  Do not assert rdesc edges have inlined caller.
+	Assert we have found an rdesc in the rdesc list.
+
+2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	* pointer-set.h (struct pointer_set_t): Move here from
+	pointer-set.c.
+	(pointer_set_lookup): Declare.
+	(class pointer_map): New template class implementing a
+	generic pointer to T map.
+	(pointer_map<T>::pointer_map, pointer_map<T>::~pointer_map,
+	pointer_map<T>::contains, pointer_map<T>::insert,
+	pointer_map<T>::traverse): New functions.
+	* pointer-set.c (struct pointer_set_t): Moved to pointer-set.h.
+	(pointer_set_lookup): New function.
+	(pointer_set_contains): Use pointer_set_lookup.
+	(pointer_set_insert): Likewise.
+	(insert_aux): Remove.
+	(struct pointer_map_t): Embed a pointer_set_t.
+	(pointer_map_create): Adjust.
+	(pointer_map_destroy): Likewise.
+	(pointer_map_contains): Likewise.
+	(pointer_map_insert): Likewise.
+	(pointer_map_traverse): Likewise.
+	* tree-streamer.h (struct streamer_tree_cache_d): Use a
+	pointer_map<unsigned> instead of a pointer_map_t.
+	* tree-streamer.c (streamer_tree_cache_insert_1): Adjust.
+	(streamer_tree_cache_lookup): Likewise.
+	(streamer_tree_cache_create): Likewise.
+	(streamer_tree_cache_delete): Likewise.
+	* lto-streamer.h (struct lto_tree_ref_encoder): Use a
+	pointer_map<unsigned> instead of a pointer_map_t.
+	(lto_init_tree_ref_encoder): Adjust.
+	(lto_destroy_tree_ref_encoder): Likewise.
+	* lto-section-out.c (lto_output_decl_index): Likewise.
+	(lto_record_function_out_decl_state): Likewise.
+	* dominance.c (iterate_fix_dominators): Use pointer_map<int>.
+
+2013-06-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57488
+	* tree-ssa-pre.c (insert): Clear NEW sets before each iteration.
+
+2013-06-24  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (vspltis_constant): Correct for little-endian.
+	(gen_easy_altivec_constant): Likewise.
+	* config/rs6000/predicates.md (easy_vector_constant_add_self,
+	easy_vector_constant_msb): Likewise.
+
+2013-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57688
+	* common/config/i386/i386-common.c (ix86_handle_option): For OPT_mlzcnt
+	add missing return true.
+
+2013-06-23  Oleg Endo <olegendo@gcc.gnu.org>
+
+	PR target/52483
+	* config/sh/predicates.md (general_extend_operand): Invoke
+	general_movsrc_operand for memory operands.
+	(general_movsrc_operand): Allow reg+reg addressing, do not use
+	general_operand for memory operands.
+
+2013-06-23  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/i386.c (ix86_pragma_target_parse):  Restore target
+	when current target options does not apply.
+	* config/i386/i386-protos.h (ix86_reset_previous_fndecl): New function.
+	* config/i386/i386.c (ix86_reset_previous_fndecl): Ditto.
+	* config/i386/bmiintrin.h: Pass appropriate target attributes to header.
+	* config/i386/mmintrin.h: Ditto.
+	* config/i386/nmmintrin.h: Ditto.
+	* config/i386/avx2intrin.h: Ditto.
+	* config/i386/fxsrintrin.h: Ditto.
+	* config/i386/tbmintrin.h: Ditto.
+	* config/i386/xsaveintrin.h: Ditto.
+	* config/i386/f16cintrin.h: Ditto.
+	* config/i386/xtestintrin.h: Ditto.
+	* config/i386/xsaveoptintrin.h: Ditto.
+	* config/i386/bmi2intrin.h: Ditto.
+	* config/i386/lzcntintrin.h: Ditto.
+	* config/i386/smmintrin.h: Ditto.
+	* config/i386/wmmintrin.h: Ditto.
+	* config/i386/x86intrin.h: Remove all header include guards.
+	* config/i386/prfchwintrin.h: Ditto.
+	* config/i386/pmmintrin.h: Ditto.
+	* config/i386/tmmintrin.h: Ditto.
+	* config/i386/xmmintrin.h: Ditto.
+	* config/i386/popcntintrin.h: Ditto.
+	* config/i386/rdseedintrin.h: Ditto.
+	* config/i386/ammintrin.h: Ditto.
+	* config/i386/emmintrin.h: Ditto.
+	* config/i386/immintrin.h: Remove all header include guards.
+	* config/i386/fma4intrin.h: Ditto.
+	* config/i386/lwpintrin.h: Ditto.
+	* config/i386/xopintrin.h: Ditto.
+	* config/i386/ia32intrin.h: Ditto.
+	* config/i386/avxintrin.h: Ditto.
+	* config/i386/rtmintrin.h: Ditto.
+	* config/i386/fmaintrin.h: Ditto.
+	* config/i386/mm3dnow.h: Ditto.
+
+2013-06-22  Sriraman Tallam  <tmsriram@google.com>
+
+	* common/config/i386/i386-common.c: Handle LZCNT.
+
+2013-06-22  Andi Kleen  <ak@linux.intel.com>
+
+	* doc/extend.texi: Use __atomic_store_n instead of
+	__atomic_store in HLE example.
+
+2013-06-22  Oleg Endo <olegendo@gcc.gnu.org>
+
+	* config/sh/sh.c: Remove <cstdlib> workaround.
+
 2013-06-21  Andi Kleen  <ak@linux.intel.com>
 
 	* doc/extend.texi: Dont use __atomic_clear in HLE
@@ -18,7 +341,7 @@
 	(get_binfo_at_offset): Use it.
 	* tree.h (types_same_for_odr): Declare.
 
-2013-06-20  Oleg Endo <oleg.endo@t-online.de>
+2013-06-20  Oleg Endo <olegendo@gcc.gnu.org>
 	    Jason Merrill  <jason@redhat.com>
 
 	* system.h: Include <cstdlib> as well as <stdlib.h>.
