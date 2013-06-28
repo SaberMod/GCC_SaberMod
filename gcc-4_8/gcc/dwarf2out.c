@@ -9147,6 +9147,7 @@ output_pubname (dw_offset die_offset, pubname_entry *entry)
           GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, is_static);
           break;
         case DW_TAG_namespace:
+        case DW_TAG_imported_declaration:
           GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
           break;
         case DW_TAG_class_type:
@@ -9155,7 +9156,8 @@ output_pubname (dw_offset die_offset, pubname_entry *entry)
         case DW_TAG_union_type:
         case DW_TAG_enumeration_type:
           GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
-          GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
+          if (!is_cxx () && !is_java ())
+	    GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
           break;
         default:
           gcc_unreachable ();
