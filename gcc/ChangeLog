@@ -1,3 +1,31 @@
+2013-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57623
+	* config/i386/i386.md (bmi_bextr_<mode>): Swap predicates and
+	constraints of operand 1 and 2.
+
+	PR target/57623
+	* config/i386/i386.md (bmi2_bzhi_<mode>3): Swap AND arguments
+	to match RTL canonicalization.  Swap predicates and
+	constraints of operand 1 and 2.
+
+	* tree-vect-stmts.c (vectorizable_store): Move ptr_incr var
+	decl before the loop, initialize to NULL.
+	(vectorizable_load): Initialize ptr_incr to NULL.
+
+2013-06-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/57358
+	* ipa-prop.c (parm_ref_data_preserved_p): Always return true when
+	not optimizing.
+
+2013-06-24  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (vspltis_constant): Correct for little-endian.
+	(gen_easy_altivec_constant): Likewise.
+	* config/rs6000/predicates.md (easy_vector_constant_add_self,
+	easy_vector_constant_msb): Likewise.
+
 2013-06-21  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
