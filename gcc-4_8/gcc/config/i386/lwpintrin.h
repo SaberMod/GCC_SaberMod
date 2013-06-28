@@ -29,10 +29,8 @@
 #define _LWPINTRIN_H_INCLUDED
 
 #ifndef __LWP__
-#pragma GCC push_options
-#pragma GCC target("lwp")
-#define __DISABLE_LWP__
-#endif /* __LWP__ */
+# error "LWP instruction set not enabled"
+#else
 
 extern __inline void __attribute__((__gnu_inline__, __always_inline__, __artificial__))
 __llwpcb (void *pcbAddress)
@@ -97,9 +95,6 @@ __lwpins64 (unsigned long long data2, unsigned int data1, unsigned int flags)
 #endif
 #endif
 
-#ifdef __DISABLE_LWP__
-#undef __DISABLE_LWP__
-#pragma GCC pop_options
-#endif /* __DISABLE_LWP__ */
+#endif /* __LWP__ */
 
 #endif /* _LWPINTRIN_H_INCLUDED */
