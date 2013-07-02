@@ -732,8 +732,8 @@ same_line_p (location_t locus1, location_t locus2)
   if (locus1 == locus2)
     return true;
 
-  from = expand_location_to_spelling_point (locus1);
-  to = expand_location_to_spelling_point (locus2);
+  from = expand_location (locus1);
+  to = expand_location (locus2);
 
   if (from.line != to.line)
     return false;
