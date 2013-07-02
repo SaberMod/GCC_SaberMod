@@ -4404,7 +4404,7 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 #define LAMBDANAME_PREFIX "__lambda"
 #define LAMBDANAME_FORMAT LAMBDANAME_PREFIX "%d"
 
-#define UDLIT_OP_ANSI_PREFIX "operator\"\" "
+#define UDLIT_OP_ANSI_PREFIX "operator\"\""
 #define UDLIT_OP_ANSI_FORMAT UDLIT_OP_ANSI_PREFIX "%s"
 #define UDLIT_OP_MANGLED_PREFIX "li"
 #define UDLIT_OP_MANGLED_FORMAT UDLIT_OP_MANGLED_PREFIX "%s"
@@ -4974,6 +4974,7 @@ extern bool pragma_java_exceptions;
 
 /* in call.c */
 extern bool check_dtor_name			(tree, tree);
+bool magic_varargs_p                            (tree);
 
 extern tree build_conditional_expr		(location_t, tree, tree, tree, 
                                                  tsubst_flags_t);

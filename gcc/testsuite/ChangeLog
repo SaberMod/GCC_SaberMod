@@ -1,3 +1,88 @@
+2013-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57741
+	* gcc.dg/vect/pr57741-1.c: New test.
+	* gcc.dg/vect/pr57741-2.c: New test.
+	* gcc.dg/vect/pr57741-3.c: New test.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/config/aarch64/insv_1.c: Update to show it doesn't work
+	on big endian.
+	* gcc.target/config/aarch64/insv_2.c: New test for big endian.
+	* lib/target-supports.exp: Define aarch64_little_endian.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/abs_1.c: New test.
+
+2013-07-02  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/aarch64/bfxil_1.c: New test.
+	* gcc.target/aarch64/bfxil_2.c: Likewise.
+
+2013-07-01  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c/57766
+	* c-c++-common/cilk-plus/AN/sec_implicit_ex.c (NUMBER): Changed
+	array sizes from 100 to 20.
+
+2013-07-01  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/54788
+	* gfortran.dg/pointer_remapping_8.f90: New.
+
+2013-06-28  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	* g++.dg/cpp0x/udlit-nospace-neg.C: Adjust.
+	* g++.dg/cpp1y/udlit-enc-prefix-neg.C: New.
+	* g++.dg/cpp1y/udlit-userdef-string.C: New.
+	* g++.dg/cpp1y/complex_literals.h: New.
+
+2013-06-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57645
+	* g++.dg/cpp0x/noexcept21.C: New.
+
+2013-06-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57736
+	* gcc.target/i386/pr57736.c: New test.
+
+2013-06-28  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-c++-common/cilk-plus/AN/decl-ptr-colon.c (main): Made this testcase
+	c specific.
+	* c-c++-common/cilk-plus/AN/decl-ptr-colon.c (main): Changed dg-error
+	strings to match the fixed error messages.
+	* c-c++-common/cilk-plus/AN/misc.c (main): Likewise.
+	* c-c++-common/cilk-plus/AN/rank_mismatch.c (main): Added a new error
+	message check.
+
+2013-06-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/57744
+	* gcc.target/powerpc/pr57744.c: New test to make sure lqarx and
+	stqcx. get even registers.
+
+2013-06-28  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/57509
+	* g++.dg/ext/pr57509.C: Pass vectors by reference to avoid warnings.
+
+2013-06-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/bmi-1.c: Extend with new instrinsic.
+	Fix scan patterns.
+	* gcc.target/i386/bmi-1.c: Ditto.
+	* gcc.target/i386/bmi-bextr-4.c: New.
+	* gcc.target/i386/bmi-bextr-5.c: Ditto.
+
+2013-06-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57682
+	* g++.dg/cpp0x/initlist73.C: New.
+
 2013-06-27  Meador Inge  <meadori@codesourcery.com>
 
 	* gcc.dg/atomic-flag.c: Add dg-require-effective-target sync_*.
@@ -147,7 +232,7 @@
 	* g++.dg/cilk-plus/AN/postincr_test.cc: Likewise.
 	* g++.dg/cilk-plus/cilk-plus.exp: New script.
 	* gcc/testsuite/g++.dg/dg.exp: Included Cilk Plus C++ tests in the list.
-	
+
 2013-06-21  Joseph Myers  <joseph@codesourcery.com>
 
 	PR other/53317
@@ -437,7 +522,7 @@
 
 	PR c/57563
 	* c-c++-common/cilk-plus/AN/builtin_fn_mutating.c (main): Fixed a bug
-	in how we check __sec_reduce_mutating function's result.	
+	in how we check __sec_reduce_mutating function's result.
 
 2013-06-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 	    Pat Haugen <pthaugen@us.ibm.com>
@@ -805,7 +890,7 @@
 	* c-c++-common/cilk-plus/AN/if_test_errors.c (main): New testcase.
 	* c-c++-common/cilk-plus/AN/rank_mismatch.c: Added a '-w' option to
 	dg-option and an header comment.
-	
+
 2013-06-03  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/57419
