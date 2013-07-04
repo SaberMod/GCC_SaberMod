@@ -31,7 +31,7 @@ location_t input_location;
 struct line_maps *line_table;
 
 static vec<location_t> discriminator_location_locations;
-static vec<location_t> discriminator_location_discriminators;
+static vec<int> discriminator_location_discriminators;
 static location_t next_discriminator_location = UNKNOWN_LOCATION;
 static location_t min_discriminator_location = UNKNOWN_LOCATION;
 
@@ -308,7 +308,8 @@ location_with_discriminator (location_t locus, int discriminator)
 {
   tree block = LOCATION_BLOCK (locus);
   location_t ret;
-  locus = LOCATION_LOCUS (locus);
+  int i;
+  locus = map_discriminator_location (locus);
 
   if (locus == UNKNOWN_LOCATION)
     return block ? COMBINE_LOCATION_DATA (line_table, locus, block)
@@ -320,14 +321,26 @@ location_with_discriminator (location_t locus, int discriminator)
       next_discriminator_location = min_discriminator_location;
     }
 
+  /* Traverse the last few discriminator_locations to see if we can reuse
+     the entry.  */
+  for (i = next_discriminator_location - min_discriminator_location - 1;
+       (i >= 0 && LOCATION_LINE (discriminator_location_locations[i]) ==
+				 LOCATION_LINE (locus)
+        && discriminator_location_discriminators[i] == discriminator);
+       i--)
+    if (discriminator_location_locations[i] == locus)
+      return (block
+	  ? COMBINE_LOCATION_DATA (line_table, min_discriminator_location + i,
+				   block)
+	  : min_discriminator_location + i);
+
   discriminator_location_locations.safe_push(locus);
   discriminator_location_discriminators.safe_push(discriminator);
 
-  if (block != NULL)
-    ret = COMBINE_LOCATION_DATA (line_table, next_discriminator_location,
-				 block);
-  else
-    ret = next_discriminator_location;
+  ret = (block
+      ? COMBINE_LOCATION_DATA (line_table, next_discriminator_location, block)
+      : next_discriminator_location);
+
   next_discriminator_location++;
   return ret;
 }
@@ -362,5 +375,5 @@ get_discriminator_from_locus (location_t locus)
   locus = LOCATION_LOCUS (locus);
   if (! has_discriminator (locus))
     return 0;
-  return (location_t) discriminator_location_discriminators[locus - min_discriminator_location];
+  return discriminator_location_discriminators[locus - min_discriminator_location];
 }

@@ -732,8 +732,8 @@ same_line_p (location_t locus1, location_t locus2)
   if (locus1 == locus2)
     return true;
 
-  from = expand_location_to_spelling_point (locus1);
-  to = expand_location_to_spelling_point (locus2);
+  from = expand_location (locus1);
+  to = expand_location (locus2);
 
   if (from.line != to.line)
     return false;
@@ -751,24 +751,22 @@ static void
 assign_discriminator (location_t locus, basic_block bb)
 {
   gimple_stmt_iterator gsi;
-  tree block = LOCATION_BLOCK (locus);
+  int discriminator;
 
   locus = map_discriminator_location (locus);
 
   if (locus == UNKNOWN_LOCATION)
     return;
 
-  locus = location_with_discriminator (
-      locus, next_discriminator_for_locus (locus));
-
-  if (block != NULL)
-    locus = COMBINE_LOCATION_DATA (line_table, locus, block);
+  discriminator = next_discriminator_for_locus (locus);
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       gimple stmt = gsi_stmt (gsi);
-      if (same_line_p (locus, gimple_location (stmt)))
-	gimple_set_location (stmt, locus);
+      location_t stmt_locus = gimple_location (stmt);
+      if (same_line_p (locus, stmt_locus))
+	gimple_set_location (stmt,
+	    location_with_discriminator (stmt_locus, discriminator));
     }
 }
 
