@@ -1,3 +1,26 @@
+2013-07-04  Veres Lajos  <vlajos@gmail.com>
+	    Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* config/locale/generic/codecvt_members.cc: Fix typo.
+	* configure.host: Likewise.
+	* doc/html/manual/policy_data_structures_design.html: Likewise.
+	* doc/xml/manual/policy_data_structures.xml: Likewise.
+	* include/bits/hashtable.h: Likewise.
+	* include/bits/random.h: Likewise.
+	* include/profile/impl/profiler_trace.h: Likewise.
+	* testsuite/23_containers/deque/cons/2.cc: Likewise.
+	* testsuite/23_containers/deque/debug/shrink_to_fit.cc: Likewise.
+	* testsuite/ext/pb_ds/example/basic_multimap.cc: Likewise.
+	* testsuite/performance/23_containers/insert_erase/41975.cc: Likewise.
+
+2013-07-04  Ray Chason  <chasonr@newsguy.com>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57808
+	* include/bits/regex.h (regex_token_iterator<>::operator==,
+	regex_token_iterator<>::operator!=, regex_token_iterator<>::operator*,
+	regex_token_iterator<>::operator->): Declare const.
+
 2013-07-01  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/bits/stl_list.h (list<>::insert(iterator,
@@ -80,6 +103,21 @@
 	constructor_2_neg.cc: Likewise.
 	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
 	Likewise.
+
+2013-06-29  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable_policy.h (_Insert_base): Consider hint in
+	insert methods.
+	* include/bits/hashtable.h: Likewise.
+	* testsuite/23_containers/unordered_multimap/insert/hint.cc: New.
+	* testsuite/performance/23_containers/insert/unordered_multiset_hint.cc:
+	New.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Likewise.
+	* doc/xml/manual/containers.xml: Document hinting in unordered
+	containers.
 
 2013-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
 
