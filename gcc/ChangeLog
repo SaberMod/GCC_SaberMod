@@ -1,3 +1,34 @@
+2013-07-08  Kai Tietz  <ktietz@redhat.com>
+
+	Backport from mainline
+	PR target/56892
+	* config/i386/i386.c (TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P): Define as
+	hook_bool_const_tree_true.
+
+2013-07-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-07-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (host_detect_local_cpu): Do not check
+	signature_TM2_ebx, it interferes with signature_INTEL_ebx.
+
+	Backport from mainline
+	2013-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/sse.md (sse_movlhps): Change alternative 3
+	of operand 2 to "m".
+
+2013-07-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* Makefile.in (tree-ssa-reassoc.o): Add dependency on $(PARAMS_H).
+
+2013-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57829
+	* simplify-rtx.c (simplify_binary_operation_1) <case IOR>: Ensure that
+	mask bits outside of mode are just sign-extension from mode to HWI.
+
 2013-07-03  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/57777
