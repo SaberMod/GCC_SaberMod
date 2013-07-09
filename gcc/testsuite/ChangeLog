@@ -1,3 +1,81 @@
+2013-07-08  Janis Johnson  <janisjo@codesourcery.com>
+
+	* gcc.target/powerpc/tfmode_off.c: Skip for EABI targets.
+
+	* gcc.target/powerpc/ppc-spe64-1.c: Update expected error message.
+
+	* gcc.target/powerpc/pr47197.c: Require powerpc_altivec_ok.
+
+	* gcc.target/powerpc/sd-vsx.c: Require dfp.
+	* gcc.target/powerpc/sd-pwr6.c: Likewise.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57834
+	* gfortran.dg/c_f_pointer_tests_8.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/50554
+	* gfortran.dg/do_check_9.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57785
+	* gfortran.dg/dot_product_2.f90: New.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57469
+	* gfortran.dg/warn_unused_dummy_argument_4.f90: New.
+
+2013-07-08  Manfred Schwarb  <manfred99@gmx.ch>
+
+	* gfortran.dg/defined_assignment_7.f90: Fix dg-do.
+	* gfortran.dg/finalize_10.f90: Fix dg-final.
+
+2013-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/57819
+	* gcc.target/i386/pr57819.c: New test.
+
+	PR rtl-optimization/57829
+	* gcc.c-torture/execute/pr57829.c: New test.
+
+2013-07-08  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
+
+	* gcc.target/i386/memcpy-vector_loop-1.c: New.
+	* gcc.target/i386/memcpy-vector_loop-2.c: New.
+
+2013-07-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/57807
+	* gcc.target/i386/pr57807.c: New test.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/29776
+	* gcc.dg/tree-ssa/vrp89.c: New test.
+
+2013-07-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/28262
+	* g++.dg/parse/defarg16.C: New.
+
+2013-07-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/55342
+	* gcc.target/i386/pr55342.c: New.
+
+2013-07-05  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* gcc.dg/pr57518.c: Adjust scan-rtl-dump-not pattern.
+
+2013-07-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/14263
+	* g++.dg/inherit/virtual10.C: New.
+
 2013-07-04  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	PR c/57821
@@ -247,18 +325,19 @@
 2013-06-21  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* c-c++-common/cilk-plus/AN/array_test1.c: Make this an execution test.
-	Also changed the returns from error as distinct values so that debugging
-	can get easier.
+	Also changed the returns from error as distinct values so that
+	debugging can get easier.
 	* c-c++-common/cilk-plus/AN/if_test_errors.c (main): Made certain
-	errors specific to C, if necessary.  Also added new error hooks for C++.
+	errors specific to C, if necessary.  Also added new error
+	hooks for C++.
 	* c-c++-common/cilk-plus/AN/misc.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors2.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/parser_errors3.c (main): Likewise.
 	* c-c++-common/cilk-plus/AN/pr57541.c (main): Likewise.
-	* c-c++-common/cilk-plus/AN/parser_errors4.c (main): In addition to the
-	same changes as parser_errors3.c, spaces were added between colons to
-	not confuse C++ compiler with 2 colons as scope.
+	* c-c++-common/cilk-plus/AN/parser_errors4.c (main): In addition to
+	the same changes as parser_errors3.c, spaces were added between colons
+	to not confuse C++ compiler with 2 colons as scope.
 	* c-c++-common/cilk-plus/AN/vla.c: Make this test C specific.
 	* g++.dg/cilk-plus/AN/array_test1_tplt.cc: New test.
 	* g++.dg/cilk-plus/AN/array_test2_tplt.cc: Likewise.
@@ -270,7 +349,8 @@
 	* g++.dg/cilk-plus/AN/preincr_test.cc: Likewise.
 	* g++.dg/cilk-plus/AN/postincr_test.cc: Likewise.
 	* g++.dg/cilk-plus/cilk-plus.exp: New script.
-	* gcc/testsuite/g++.dg/dg.exp: Included Cilk Plus C++ tests in the list.
+	* gcc/testsuite/g++.dg/dg.exp: Included Cilk Plus C++ tests
+	in the list.
 
 2013-06-21  Joseph Myers  <joseph@codesourcery.com>
 
@@ -305,7 +385,7 @@
 	PR tree-optimization/57584
 	* gcc.dg/torture/pr57584.c: New testcase.
 
-2013-06-19    <singhai@google.com>
+2013-06-19  Sharad Singhai  <singhai@google.com>
 
 	* g++.dg/gcov/gcov-8.C: New testcase.
 	* lib/gcov.exp: Handle intermediate format.
@@ -1680,7 +1760,7 @@
 2013-05-14  Joern Rennecke <joern.rennecke@embecosm.com>
 
 	* gcc.c-torture/compile/limits-externdecl.c [target avr-*-*]:
-        Expect "size of array is too large" error.
+	Expect "size of array is too large" error.
 
 2013-05-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 

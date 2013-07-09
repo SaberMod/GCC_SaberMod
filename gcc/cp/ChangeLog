@@ -1,3 +1,24 @@
+2013-07-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57550
+	* pt.c (fn_type_unification): Only defer during substitution.
+	(type_unification_real): Defer during defarg substitution,
+	add checks parm to pass back deferred checks.
+	(unify, do_auto_deduction): Adjust.
+	* semantics.c (reopen_deferring_access_checks): New.
+	* cp-tree.h: Declare it.
+
+2013-07-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/28262
+	* parser.c (cp_parser_init_declarator): If we are parsing a typedef
+	set parser->default_arg_ok_p to false before cp_parser_declarator.
+
+2013-07-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/14263
+	* class.c (build_base_path): Improve diagnostic.
+
 2013-07-04  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/38634
