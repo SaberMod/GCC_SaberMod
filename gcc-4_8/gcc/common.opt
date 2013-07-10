@@ -1761,14 +1761,14 @@ fprofile-dump
 Common Report Var(flag_profile_dump) Init(0) Optimization
 Dump CFG profile for comparison.
 
-; fprofile-gen-atomic=0: disable aotimically update.
-; fprofile-gen-atomic=1: aotimically update edge profile counters.
-; fprofile-gen-atomic=2: aotimically update value profile counters.
-; fprofile-gen-atomic=3: aotimically update edge and value profile counters.
+; fprofile-generate-atomic=0: disable aotimically update.
+; fprofile-generate-atomic=1: aotimically update edge profile counters.
+; fprofile-generate-atomic=2: aotimically update value profile counters.
+; fprofile-generate-atomic=3: aotimically update edge and value profile counters.
 ; other values will be ignored (fall back to the default of 0).
-fprofile-gen-atomic=
-Common Joined UInteger Report Var(flag_profile_gen_atomic) Init(0) Optimization
-fprofile-gen-atomic=[0..3] Atomically increments for profile counters.
+fprofile-generate-atomic=
+Common Joined UInteger Report Var(flag_profile_generate_atomic) Init(0) Optimization
+fprofile-generate-atomic=[0..3] Atomically increments for profile counters.
 
 fprofile-generate
 Common
