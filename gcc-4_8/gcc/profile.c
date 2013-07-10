@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "cfgloop.h"
 #include "dumpfile.h"
+#include "params.h"
 
 #include "profile.h"
 
@@ -1425,7 +1426,8 @@ branch_prob (void)
       /* Commit changes done by instrumentation.  */
       gsi_commit_edge_inserts ();
 
-      if (flag_profile_generate_sampling)
+      if (flag_profile_generate_sampling
+          || PARAM_VALUE (PARAM_COVERAGE_EXEC_ONCE))
         add_sampling_to_edge_counters ();
     }
 

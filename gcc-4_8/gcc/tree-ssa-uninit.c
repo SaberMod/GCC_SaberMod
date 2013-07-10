@@ -2034,7 +2034,7 @@ execute_late_warn_uninitialized (void)
 static bool
 gate_warn_uninitialized (void)
 {
-  return warn_uninitialized != 0;
+  return (warn_uninitialized != 0 && warn_maybe_uninitialized != 0);
 }
 
 struct gimple_opt_pass pass_late_warn_uninitialized =

@@ -109,6 +109,16 @@ extern int gcov_dump_complete ATTRIBUTE_HIDDEN;
 void (*__gcov_dummy_ref1)() = &__gcov_reset;
 void (*__gcov_dummy_ref2)() = &__gcov_dump;
 
+
+/* Default callback function for profile instrumentation callback.  */
+__attribute__((weak)) void
+__coverage_callback (gcov_type funcdef_no __attribute__ ((unused)),
+                     int edge_no __attribute__ ((unused)))
+{
+   /* nothing */
+}
+
+
 /* Utility function for outputing errors.  */
 static int
 gcov_error (const char *fmt, ...)

@@ -1011,6 +1011,16 @@ DEFPARAM (PARAM_PROFILE_GENERATE_SAMPLING_PERIOD,
          "sampling rate with -fprofile-generate-sampling",
          100, 0, 2000000000)
 
+DEFPARAM (PARAM_COVERAGE_CALLBACK,
+         "coverage-callback",
+         "callback a user-define function when for arc counter increments.",
+         0, 0, 1)
+
+DEFPARAM (PARAM_COVERAGE_EXEC_ONCE,
+         "coverage-exec_once",
+         "Stop incrementing arc counts once they become 1.",
+         0, 0, 1)
+
 /* Used for debugging purpose. Tell the compiler to find
    the gcda file in the current directory.  */
 DEFPARAM (PARAM_GCOV_DEBUG,
