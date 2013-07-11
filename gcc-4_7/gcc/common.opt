@@ -1763,7 +1763,7 @@ Dump CFG profile for comparison.
 ; fprofile-generate-atomic=3: aotimically update edge and value profile counters.
 ; other values will be ignored (fall back to the default of 0).
 fprofile-generate-atomic=
-Common Joined UInteger Report Var(flag_profile_generate_atomic) Init(0) Optimization
+Common Joined UInteger Report Var(flag_profile_gen_atomic) Init(0) Optimization
 fprofile-generate-atomic=[0..3] Atomically increments for profile counters.
 
 fprofile-generate
