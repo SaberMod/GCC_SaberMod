@@ -1,4 +1,10 @@
+2013-07-11  Teresa Johnson  <tejohnson@google.com>
+
+	* vec.h (struct va_gc): Move release out-of-line.
+	(va_gc::release): Call ggc_free on released vec.
+
 2014-04-10  Vladimir Makarov  <vmakarov@redhat.com>
+
 
 	PR rtl-optimization/60769
 	* lra-constraints.c (simplify_operand_subreg): Force reload of
