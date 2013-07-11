@@ -1,3 +1,61 @@
+2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57869
+	* typeck.c (build_reinterpret_cast_1): With -Wconditionally-supported
+	warn about casting between pointer-to-function and pointer-to-object.
+
+2013-07-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57402
+	* init.c (build_vec_init): Don't take shortcuts when initializing
+	a VLA.
+
+	PR c++/57471
+	* parser.c (cp_parser_sizeof_pack): Clear parser scopes.
+
+	PR c++/57658
+	* semantics.c (finish_id_expression): Return the id for an
+	unevaluated outer variable.
+
+	PR c++/57526
+	* semantics.c (lambda_capture_field_type): Build a DECLTYPE_TYPE
+	if the variable type uses 'auto'.
+
+	PR c++/57437
+	* typeck.c (check_return_expr): Lambda proxies aren't eligible
+	for nrv or return by move.
+
+	PR c++/57532
+	* parser.c (cp_parser_ref_qualifier_opt): Don't tentatively parse
+	a ref-qualifier in C++98 mode.
+
+	PR c++/57545
+	* pt.c (convert_nontype_argument) [INTEGER_CST]: Force the
+	argument to have the exact type of the parameter.
+
+	PR c++/57551
+	* semantics.c (cxx_eval_indirect_ref): Don't try to look through
+	a POINTER_PLUS_EXPR for type punning diagnostic.
+
+	PR c++/57831
+	* pt.c (tsubst_copy): Handle USING_DECL.
+
+2013-07-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53094
+	* semantics.c (cxx_eval_bit_field_ref): Handle VECTOR_CST.
+
+2013-07-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53000
+	* call.c (build_conditional_expr_1): Preserve xvalues.
+
+2013-07-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51786
+	* parser.c (cp_parser_simple_declaration): Before calling shadow_tag
+	also check declares_class_or_enum.
+
 2013-07-08  Jason Merrill  <jason@redhat.com>
 
 	PR c++/57550
