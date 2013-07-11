@@ -1,3 +1,28 @@
+2013-07-09  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57526
+	* semantics.c (lambda_capture_field_type): Build a DECLTYPE_TYPE
+	if the variable type uses 'auto'.
+
+	PR c++/57437
+	* typeck.c (check_return_expr): Lambda proxies aren't eligible
+	for nrv or return by move.
+
+	PR c++/57532
+	* parser.c (cp_parser_ref_qualifier_opt): Don't tentatively parse
+	a ref-qualifier in C++98 mode.
+
+	PR c++/57545
+	* pt.c (convert_nontype_argument) [INTEGER_CST]: Force the
+	argument to have the exact type of the parameter.
+
+	PR c++/57551
+	* semantics.c (cxx_eval_indirect_ref): Don't try to look through
+	a POINTER_PLUS_EXPR for type punning diagnostic.
+
+	PR c++/57831
+	* pt.c (tsubst_copy): Handle USING_DECL.
+
 2013-07-08  Jason Merrill  <jason@redhat.com>
 
 	PR c++/57550
