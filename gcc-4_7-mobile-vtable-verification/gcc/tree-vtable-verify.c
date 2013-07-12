@@ -564,7 +564,7 @@ extract_object_class_type (tree rhs)
    the use chain.  */
 
 static bool
-var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
+var_is_used_for_virtual_call_p (tree lhs, int *ref_depth)
 {
   imm_use_iterator imm_iter;
   bool found_vcall = false;
@@ -573,7 +573,7 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
   if (TREE_CODE (lhs) != SSA_NAME)
     return false;
 
-  if (*mem_ref_depth > 2)
+  if (*ref_depth > 2)
     return false;
 
   /* Iterate through the immediate uses of the current variable.  If
@@ -596,16 +596,17 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
         }
       else if (gimple_code (stmt2) == GIMPLE_PHI)
         {
+          *ref_depth = *ref_depth + 1;
           found_vcall = var_is_used_for_virtual_call_p
                                                     (gimple_phi_result (stmt2),
-                                                     mem_ref_depth);
+                                                     ref_depth);
         }
       else if (gimple_code (stmt2) == GIMPLE_ASSIGN)
         {
           tree rhs = gimple_assign_rhs1 (stmt2);
           if (TREE_CODE (rhs) == ADDR_EXPR
               || TREE_CODE (rhs) == MEM_REF)
-            *mem_ref_depth = *mem_ref_depth + 1;
+            *ref_depth = *ref_depth + 1;
 
           if (TREE_CODE (rhs) == COMPONENT_REF)
             {
@@ -614,13 +615,13 @@ var_is_used_for_virtual_call_p (tree lhs, int *mem_ref_depth)
 
               if (TREE_CODE (TREE_OPERAND (rhs, 0)) == ADDR_EXPR
                   || TREE_CODE (TREE_OPERAND (rhs, 0)) == MEM_REF)
-                *mem_ref_depth = *mem_ref_depth + 1;
+                *ref_depth = *ref_depth + 1;
             }
 
-          if (*mem_ref_depth < 3)
+          if (*ref_depth < 3)
             found_vcall = var_is_used_for_virtual_call_p
                                                     (gimple_assign_lhs (stmt2),
-                                                     mem_ref_depth);
+                                                     ref_depth);
         }
 
       else
@@ -673,11 +674,11 @@ verify_bb_vtables (basic_block bb)
           struct vtbl_map_node *vtable_map_node;
           tree vtbl_decl = NULL_TREE;
           struct gimplify_ctx gctx;
-          int mem_ref_depth = 0;
+          int ref_depth = 0;
           tree class_type;
 
           /* Make sure this vptr field access is for a virtual call.  */
-          if (!var_is_used_for_virtual_call_p (lhs, &mem_ref_depth))
+          if (!var_is_used_for_virtual_call_p (lhs, &ref_depth))
             continue;
 
           /* Now we have found the virtual method dispatch and
