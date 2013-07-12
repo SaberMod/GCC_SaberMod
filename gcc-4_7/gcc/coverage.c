@@ -3118,20 +3118,12 @@ coverage_has_asm_stmt (void)
   has_asm_statement = flag_ripa_disallow_asm_modules;
 }
 
-/* Write command line options to the .note section.  */
+/* Write compilation info to the .note section.  */
 
 void
 write_compilation_info_to_asm (void)
 {
-  size_t i;
-  cpp_dir *quote_paths, *bracket_paths, *pdir;
-  struct str_list *pdef, *pinc;
-  int num_quote_paths = 0;
-  int num_bracket_paths = 0;
   unsigned lang;
-
-  get_include_chains (&quote_paths, &bracket_paths);
-
   /* Write lang, ggc_memory to ASM section.  */
   switch_to_section (get_section (".gnu.switches.text.lipo_info",
 				  SECTION_DEBUG, NULL));
@@ -3146,6 +3138,21 @@ write_compilation_info_to_asm (void)
   dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
   dw2_asm_output_data_uleb128 (lang, NULL);
   dw2_asm_output_data_uleb128 (ggc_total_memory, NULL);
+}
+
+
+/* Write command line options to the .note section.  */
+
+void
+write_compilation_flags_to_asm (void)
+{
+  size_t i;
+  cpp_dir *quote_paths, *bracket_paths, *pdir;
+  struct str_list *pdef, *pinc;
+  int num_quote_paths = 0;
+  int num_bracket_paths = 0;
+
+  get_include_chains (&quote_paths, &bracket_paths);
 
   /* Write quote_paths to ASM section.  */
   switch_to_section (get_section (".gnu.switches.text.quote_paths",

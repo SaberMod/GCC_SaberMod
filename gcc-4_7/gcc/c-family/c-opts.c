@@ -1160,7 +1160,14 @@ c_common_parse_file (void)
       pch_init ();
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
+
       c_parse_file ();
+      if (i == 0 && flag_record_compilation_info_in_elf)
+        write_compilation_flags_to_asm ();
+
+      if (i == 0)
+	ggc_total_memory = (ggc_total_allocated () >> 10);
+
       /* In lipo mode, processing too many auxiliary files will cause us
 	 to hit memory limits, and cause thrashing -- prevent this by not
 	 processing any further auxiliary modules if we reach a certain
@@ -1183,7 +1190,6 @@ c_common_parse_file (void)
       if (!this_input_filename)
 	break;
     }
-    ggc_total_memory = (ggc_total_allocated () >> 10);
     parsing_done_p = true;
 }
 
