@@ -1,3 +1,9 @@
+2013-07-15  Sterling Augustine  <saugustine@google.com>
+
+	* dwarf2out.c (output_pubnames): Rework assertion.  Move logic
+	checking DW_TAG_enumerator and die_parent ...
+	(include_pubname_in_output): ...to here.
+
 2013-06-20  Wei Mi  <wmi@google.com>
 
 	Backport from mainline
