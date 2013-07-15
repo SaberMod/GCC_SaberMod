@@ -1,3 +1,35 @@
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.h (gfc_deallocate_alloc_comp_no_caf,
+	gfc_reassign_alloc_comp_caf): New prototype.
+	* trans-array.c (enum): Add DEALLOCATE_ALLOC_COMP_NO_CAF
+	and COPY_ALLOC_COMP_CAF.
+	(structure_alloc_comps): Handle it.
+	(gfc_reassign_alloc_comp_caf,
+	gfc_deallocate_alloc_comp_no_caf): New function.
+	(gfc_alloc_allocatable_for_assignment): Call it.
+	* trans-expr.c (gfc_trans_scalar_assign,
+	gfc_trans_arrayfunc_assign, gfc_trans_assignment_1): Ditto.
+	* parse.c (parse_derived): Correctly set coarray_comp.
+	* resolve.c (resolve_symbol): Improve error wording.
+
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* trans.c (gfc_add_comp_finalizer_call): New function.
+	* trans.h (gfc_add_comp_finalizer_call): New prototype.
+	* trans-array.c (structure_alloc_comps): Call it.
+
+2013-07-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+	    Tobias Burnus  <burnus@gcc.gnu.org>
+
+	PR fortran/52669
+	* trans-decl.c (gfc_finish_var_decl):  Move setting of
+	PRIVATE for a module variable if the module has a private
+	default or -fmodule-private is given to...
+	(gfc_create_module_variable): here. Optionally
+	warn about private module variable which is not used.
+
 2013-07-08  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/57834

@@ -1,3 +1,145 @@
+2013-07-15  Peter Bergner <bergner@vnet.ibm.com>
+
+	* config.gcc (powerpc*-*-*): Install htmintrin.h and htmxlintrin.h.
+	* config/rs6000/t-rs6000 (MD_INCLUDES): Add htm.md.
+	* config/rs6000/rs6000.opt: Add -mhtm option.
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Add OPTION_MASK_HTM.
+	(ISA_2_7_MASKS_SERVER): Add OPTION_MASK_HTM.
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__HTM__ if the HTM instructions are available.
+	* config/rs6000/predicates.md (u3bit_cint_operand, u10bit_cint_operand,
+	htm_spr_reg_operand): New define_predicates.
+	* config/rs6000/rs6000.md (define_attr "type"): Add htm.
+	(TFHAR_REGNO, TFIAR_REGNO, TEXASR_REGNO): New define_constants.
+	Include htm.md.
+	* config/rs6000/rs6000-builtin.def (BU_HTM_0, BU_HTM_1, BU_HTM_2,
+	BU_HTM_3, BU_HTM_SPR0, BU_HTM_SPR1): Add support macros for defining
+	HTM builtin functions.
+	* config/rs6000/rs6000.c (RS6000_BUILTIN_H): New macro.
+	(rs6000_reg_names, alt_reg_names): Add HTM SPR register names.
+	(rs6000_init_hard_regno_mode_ok): Add support for HTM instructions.
+	(rs6000_builtin_mask_calculate): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(bdesc_htm): Add new HTM builtin support.
+	(htm_spr_num): New function.
+	(htm_spr_regno): Likewise.
+	(rs6000_htm_spr_icode): Likewise.
+	(htm_expand_builtin): Likewise.
+	(htm_init_builtins): Likewise.
+	(rs6000_expand_builtin): Add support for HTM builtin functions.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_invalid_builtin, rs6000_opt_mask): Add support for -mhtm option.
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): Add support for -mhtm.
+	(TARGET_HTM, MASK_HTM): Define macros.
+	(FIRST_PSEUDO_REGISTER): Adjust for new HTM SPR registers.
+	(FIXED_REGISTERS): Likewise.
+	(CALL_USED_REGISTERS): Likewise.
+	(CALL_REALLY_USED_REGISTERS): Likewise.
+	(REG_ALLOC_ORDER): Likewise.
+	(enum reg_class): Likewise.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	(REGISTER_NAMES): Likewise.
+	(ADDITIONAL_REGISTER_NAMES): Likewise.
+	(RS6000_BTC_SPR, RS6000_BTC_VOID, RS6000_BTC_32BIT, RS6000_BTC_64BIT,
+	RS6000_BTC_MISC_MASK, RS6000_BTM_HTM): New macros.
+	(RS6000_BTM_COMMON): Add RS6000_BTM_HTM.
+	* config/rs6000/htm.md: New file.
+	* config/rs6000/htmintrin.h: New file.
+	* config/rs6000/htmxlintrin.h: New file.
+
+2013-07-15  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_type):
+	Define SYMBOL_TINY_GOT, update comment.
+	* config/aarch64/aarch64.c
+	(aarch64_load_symref_appropriately): Handle SYMBOL_TINY_GOT.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_print_operand): Likewise.
+	(aarch64_classify_symbol): Likewise.
+	* config/aarch64/aarch64.md (UNSPEC_GOTTINYPIC): Define.
+	(ldr_got_tiny): Define.
+
+2013-07-13  Tobias Grosser  <tobias@grosser.es>
+
+	PR tree-optimization/54094
+	* graphite-clast-to-gimple.c (translate_clast_for_loop): Derive the
+	  scheduling dimension for the parallelism check from the polyhedral
+	  information in the AST.
+	* graphite-dependences.c (carries_deps): Do not assume the schedule is
+	  in 2D + 1 form.
+
+2013-07-13  Jason Merrill  <jason@redhat.com>
+
+	* print-tree.c (debug_vec_tree): Use debug_raw.
+	(debug_raw (vec<tree, va_gc> &)): New.
+	(debug_raw (vec<tree, va_gc> *)): New.
+	* tree.h: Declare them.
+
+2013-07-13  Bin Cheng  <bin.cheng@arm.com>
+
+	* ifcvt.c (ifcvt_after_combine): New static variable.
+	(cheap_bb_rtx_cost_p): Set scale to REG_BR_PROB_BASE when optimizing
+	for size.
+	(if_convert): New parameter after_combine.  Set ifcvt_after_combine.
+	(rest_of_handle_if_conversion, rest_of_handle_if_after_combine,
+	rest_of_handle_if_after_reload): Pass new argument for if_convert.
+
+2013-07-12  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips.c (mips_expand_call): Remove empty statement.
+
+2013-07-12  Michael Matz  <matz@suse.de>
+
+	PR middle-end/55771
+	* convert.c (convert_to_real): Reject non-float inner types.
+
+2013-07-12  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_simd_immediate_valid_for_move): Remove.
+	* config/aarch64/aarch64.c (simd_immediate_info): New member.
+	(aarch64_simd_valid_immediate): Recognize idioms for shifting ones
+	cases.
+	(aarch64_output_simd_mov_immediate): Print the correct shift specifier.
+
+2013-07-11  Steve Ellcey  <sellcey@mips.com>
+
+	* config/mips/mips.c (mips_conditional_register_usage): Do not
+	use t[0-7] registers in MIPS16 mode when optimizing for size.
+
+2013-07-11  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/i386.c (dispatch_function_versions): Fix array
+	indexing of function_version_info to match actual_versions.
+
+2013-07-11  Teresa Johnson  <tejohnson@google.com>
+
+	* vec.h (struct va_gc): Move release out-of-line.
+	(va_gc::release): Call ggc_free on released vec.
+
+2013-07-11  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.md (""*tls_gd_low<TLSmode:tls_abi_suffix>"):
+	Require GOT register as additional operand in UNSPEC.
+	("*tls_ld_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_dtprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_got_tprel_low<TLSmode:tls_abi_suffix>"): Likewise.
+	("*tls_gd<TLSmode:tls_abi_suffix>"): Update splitter.
+	("*tls_ld<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_dtprel_<TLSmode:tls_abi_suffix>"): Likewise.
+	("tls_got_tprel_<TLSmode:tls_abi_suffix>"): Likewise.
+
+2013-07-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57631
+	* config/avr/avr.c (avr_set_current_function): Sanity-check signal
+	name seen by assembler/linker rather if available.
+
+2013-07-11  Andreas Schwab  <schwab@suse.de>
+
+	* config/aarch64/aarch64-linux.h (CPP_SPEC): Define.
+
 2013-07-10  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints.c (curr_insn_transform): Switch off optional

@@ -1,3 +1,51 @@
+2013-07-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* lib/target-supports.exp (check_effective_target_powerpc_htm_ok): New
+	function to test if HTM is available.
+	* gcc.target/powerpc/htm-xl-intrin-1.c: New test.
+	* gcc.target/powerpc/htm-builtin-1.c: New test.
+
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray_lib_realloc_1.f90: New.
+	* gfortran.dg/coarray/lib_realloc_1.f90: New.
+	* gfortran.dg/coarray_6.f90: Add dg-error.
+
+2013-07-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/37336
+	* gfortran.dg/finalize_18.f90: New.
+
+2013-07-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/52669
+	* fortran.dg/module_variable_1.f90:  New test.
+	* fortran.dg/module_variable_2.f90:  New test.
+
+2013-07-14  Marc Glisse  <marc.glisse@inria.fr>
+
+	* g++.dg/ext/vector19.C: Adapt.
+	* g++.dg/ext/vector23.C: New testcase.
+
+2013-07-12  Michael Matz  <matz@suse.de>
+
+	PR middle-end/55771
+	* c-c++-common/pr55771.c: New test.
+
+2013-07-12  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* gcc.target/aarch64/vect-movi.c: New.
+
+2013-07-11  Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/57362
+	* g++.dg/ext/pr57362.C: New.
+	
+2013-07-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57631
+	* gcc.target/avr/torture/pr57631.c: New test.
+
 2013-07-10  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/57827

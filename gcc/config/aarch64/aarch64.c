@@ -95,6 +95,7 @@ struct simd_immediate_info
   int shift;
   int element_width;
   bool mvn;
+  bool msl;
 };
 
 /* The current code model.  */
@@ -612,6 +613,10 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	return;
       }
 
+    case SYMBOL_TINY_GOT:
+      emit_insn (gen_ldr_got_tiny (dest, imm));
+      return;
+
     default:
       gcc_unreachable ();
     }
@@ -889,6 +894,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
         case SYMBOL_SMALL_TLSDESC:
         case SYMBOL_SMALL_GOTTPREL:
 	case SYMBOL_SMALL_GOT:
+	case SYMBOL_TINY_GOT:
 	  if (offset != const0_rtx)
 	    {
 	      gcc_assert(can_create_pseudo_p ());
@@ -3645,6 +3651,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tprel:");
 	  break;
 
+	case SYMBOL_TINY_GOT:
+	  gcc_unreachable ();
+	  break;
+
 	default:
 	  break;
 	}
@@ -3672,6 +3682,10 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
 	case SYMBOL_SMALL_TPREL:
 	  asm_fprintf (asm_out_file, ":tprel_lo12_nc:");
+	  break;
+
+	case SYMBOL_TINY_GOT:
+	  asm_fprintf (asm_out_file, ":got:");
 	  break;
 
 	default:
@@ -5240,7 +5254,7 @@ aarch64_classify_symbol (rtx x,
 
 	case AARCH64_CMODEL_TINY_PIC:
 	  if (!aarch64_symbol_binds_local_p (x))
-	    return SYMBOL_SMALL_GOT;
+	    return SYMBOL_TINY_GOT;
 	  return SYMBOL_TINY_ABSOLUTE;
 
 	case AARCH64_CMODEL_SMALL_PIC:
@@ -6437,16 +6451,16 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
       CHECK (2, 16, 11, bytes[i] == 0xff && bytes[i + 1] == bytes[1], 8, 1);
 
       CHECK (4, 32, 12, bytes[i] == 0xff && bytes[i + 1] == bytes[1]
-	     && bytes[i + 2] == 0 && bytes[i + 3] == 0, 0, 0);
+	     && bytes[i + 2] == 0 && bytes[i + 3] == 0, 8, 0);
 
       CHECK (4, 32, 13, bytes[i] == 0 && bytes[i + 1] == bytes[1]
-	     && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff, 0, 1);
+	     && bytes[i + 2] == 0xff && bytes[i + 3] == 0xff, 8, 1);
 
       CHECK (4, 32, 14, bytes[i] == 0xff && bytes[i + 1] == 0xff
-	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0, 0, 0);
+	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0, 16, 0);
 
       CHECK (4, 32, 15, bytes[i] == 0 && bytes[i + 1] == 0
-	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff, 0, 1);
+	     && bytes[i + 2] == bytes[2] && bytes[i + 3] == 0xff, 16, 1);
 
       CHECK (1, 8, 16, bytes[i] == bytes[0], 0, 0);
 
@@ -6455,12 +6469,7 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
     }
   while (0);
 
-  /* TODO: Currently the assembler cannot handle types 12 to 15.
-     And there is no way to specify cmode through the compiler.
-     Disable them till there is support in the assembler.  */
-  if (immtype == -1
-      || (immtype >= 12 && immtype <= 15)
-      || immtype == 18)
+  if (immtype == -1)
     return false;
 
   if (info)
@@ -6470,6 +6479,9 @@ aarch64_simd_valid_immediate (rtx op, enum machine_mode mode, bool inverse,
       info->shift = eshift;
 
       unsigned HOST_WIDE_INT imm = 0;
+
+      if (immtype >= 12 && immtype <= 15)
+	info->msl = true;
 
       /* Un-invert bytes of recognized vector, if necessary.  */
       if (invmask != 0)
@@ -7403,10 +7415,11 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
   bool is_valid;
   static char templ[40];
   const char *mnemonic;
+  const char *shift_op;
   unsigned int lane_count = 0;
   char element_char;
 
-  struct simd_immediate_info info;
+  struct simd_immediate_info info = { NULL_RTX, 0, 0, false, false };
 
   /* This will return true to show const_vector is legal for use as either
      a AdvSIMD MOVI instruction (or, implicitly, MVNI) immediate.  It will
@@ -7442,14 +7455,15 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
     }
 
   mnemonic = info.mvn ? "mvni" : "movi";
+  shift_op = info.msl ? "msl" : "lsl";
 
   if (lane_count == 1)
     snprintf (templ, sizeof (templ), "%s\t%%d0, " HOST_WIDE_INT_PRINT_HEX,
 	      mnemonic, UINTVAL (info.value));
   else if (info.shift)
     snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX
-	      ", lsl %d", mnemonic, lane_count, element_char,
-	      UINTVAL (info.value), info.shift);
+	      ", %s %d", mnemonic, lane_count, element_char,
+	      UINTVAL (info.value), shift_op, info.shift);
   else
     snprintf (templ, sizeof (templ), "%s\t%%0.%d%c, " HOST_WIDE_INT_PRINT_HEX,
 	      mnemonic, lane_count, element_char, UINTVAL (info.value));
