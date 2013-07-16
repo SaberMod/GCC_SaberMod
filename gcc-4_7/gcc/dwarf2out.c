@@ -8538,8 +8538,23 @@ unmark_all_dies (dw_die_ref die)
 static bool
 include_pubname_in_output (VEC (pubname_entry, gc) *table, pubname_entry *p)
 {
-  return (table != pubtype_table
-          || p->die->die_offset != 0
+  if (table == pubname_table)
+    {
+      /* Enumerator names are part of the pubname table, but the
+         parent DW_TAG_enumeration_type die may have been pruned.
+         Don't output them if that is the case.  */
+      if (p->die->die_tag == DW_TAG_enumerator &&
+          (p->die->die_parent == NULL
+           || !p->die->die_parent->die_perennial_p))
+        return false;
+
+      /* Everything else in the pubname table is included.  */
+      return true;
+    }
+
+  /* The pubtypes table shouldn't include types that have been
+     pruned.  */
+  return (p->die->die_offset != 0
           || !flag_eliminate_unused_debug_types);
 }
 
@@ -9808,6 +9823,10 @@ output_pubnames (VEC (pubname_entry, gc) * names)
       if (include_pubname_in_output (names, pub))
 	{
 	  dw_offset die_offset = pub->die->die_offset;
+
+          /* We shouldn't see pubnames for DIEs outside of the main CU.  */
+          if (names == pubname_table && pub->die->die_tag != DW_TAG_enumerator)
+            gcc_assert (pub->die->die_mark);
 
 	  /* If we're putting types in their own .debug_types sections,
 	     the .debug_pubtypes table will still point to the compile
