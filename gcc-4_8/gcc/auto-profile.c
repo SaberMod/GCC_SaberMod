@@ -638,26 +638,6 @@ get_inline_stack_size_by_stmt (gimple stmt)
   return size;
 }
 
-/* Return the size of the inline stack of the EDGE. All inlined callsites
-   along he inline chain are recorded.  */
-
-static int
-get_inline_stack_size_by_edge (struct cgraph_edge *edge)
-{
-  struct cgraph_edge *e;
-  int size = 0;
-  for (e= edge; e; e = e->caller->callers)
-    {
-      gimple stmt = e->call_stmt;
-      if (!stmt)
-	break;
-      size += get_inline_stack_size_by_stmt (stmt);
-      if (!e->caller->global.inlined_to)
-	break;
-    }
-  return size;
-}
-
 /* Return the function decl of a given lexical BLOCK.  */
 
 static tree
@@ -726,29 +706,6 @@ get_inline_stack_by_stmt (gimple stmt, tree decl,
       pos_stack[idx - 1].line -= DECL_SOURCE_LINE (decl);
     }
   return idx;
-}
-
-/* Store the inline stack of EDGE to POS_STACK, return the size of the
-   stack. All inlined callsites along the inline stack are recorded.  */
-
-static int
-get_inline_stack_by_edge (struct cgraph_edge *edge,
-			  struct gcov_callsite_pos *pos_stack)
-{
-  struct cgraph_edge *e;
-  int size = 0;
-
-  for (e = edge; e; e = e->caller->callers)
-    {
-      gimple stmt = e->call_stmt;
-      if (!stmt)
-	break;
-      size += get_inline_stack_by_stmt (stmt, e->caller->symbol.decl,
-					pos_stack + size, false);
-      if (!e->caller->global.inlined_to)
-	break;      
-    }
-  return size;
 }
 
 /* Read sample count info of the function with DECL, and save them
@@ -897,14 +854,15 @@ get_callsite_count (struct cgraph_edge *edge, gcov_type *count,
   gcov_type num_inst;
   const char *callee_name =
       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (edge->callee->symbol.decl));
-  int size = get_inline_stack_size_by_edge (edge);
+  int size = get_inline_stack_size_by_stmt (edge->call_stmt);
 
   if (size == 0)
     return 0;
   pos_stack = (struct gcov_callsite_pos *)
       alloca (sizeof (struct gcov_callsite_pos) * size);
 
-  get_inline_stack_by_edge (edge, pos_stack);
+  get_inline_stack_by_stmt (edge->call_stmt, edge->caller->symbol.decl,
+			    pos_stack, false);
 
   return get_stack_count (pos_stack, callee_name,
 			  size, count, max_count, &num_inst, NULL, NULL);
@@ -1004,9 +962,9 @@ read_profile (void)
 
   if (gcov_read_unsigned () != GCOV_VERSION)
     {
-;/*      inform (0, "Version number does not mathch.");
+      inform (0, "Version number does not mathch.");
       flag_auto_profile = 0;
-      return;*/
+      return;
     }
 
   /* Skip the empty integer.  */
