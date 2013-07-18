@@ -961,11 +961,7 @@ read_profile (void)
     }
 
   if (gcov_read_unsigned () != GCOV_VERSION)
-    {
-      inform (0, "Version number does not mathch.");
-      flag_auto_profile = 0;
-      return;
-    }
+    ;
 
   /* Skip the empty integer.  */
   gcov_read_unsigned ();
