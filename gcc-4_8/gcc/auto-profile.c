@@ -960,8 +960,8 @@ read_profile (void)
       return;
     }
 
-  if (gcov_read_unsigned () != GCOV_VERSION)
-    ;
+  /* GCOV_VERSION.  */
+  gcov_read_unsigned ();
 
   /* Skip the empty integer.  */
   gcov_read_unsigned ();
