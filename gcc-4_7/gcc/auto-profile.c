@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-flow.h"
 #include "value-prof.h"
 #include "coverage.h"
+#include "params.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -491,7 +492,7 @@ afdo_add_module (struct gcov_module_info **module_info,
 static void
 read_aux_modules (void)
 {
-  unsigned i, curr_module = 1;
+  unsigned i, curr_module = 1, max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   struct afdo_module module, *entry;
 
   module.name = xstrdup (in_fnames[0]);
@@ -529,6 +530,12 @@ read_aux_modules (void)
 	    inform (0, "Not importing %s: contains "
 		    "assembler statements", aux_entry->name);
 	  continue;
+	}
+      if (max_group != 0 && curr_module == max_group)
+	{
+	  if (flag_opt_info)
+	    inform (0, "Not importing %s: maximum group size reached",
+		    aux_entry->name);
 	}
       afdo_add_module (&module_infos[curr_module], aux_entry, false);
       if (incompatible_cl_args (module_infos[0], module_infos[curr_module]))
