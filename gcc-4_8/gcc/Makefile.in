@@ -2960,7 +2960,7 @@ coverage.o : coverage.c $(GCOV_IO_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h dumpfil
 auto-profile.o : auto-profile.c $(CONFIG_H) $(SYSTEM_H) $(FLAGS_H) \
    $(BASIC_BLOCK_H) $(DIAGNOSTIC_CORE_H) $(GCOV_IO_H) $(INPUT_H) profile.h \
    $(LANGHOOKS_H) $(OPTS_H) $(TREE_PASS_H) $(CGRAPH_H) $(GIMPLE_H) value-prof.h \
-   $(COVERAGE_H) coretypes.h $(TREE_H) $(AUTO_PROFILE_H)
+   $(COVERAGE_H) coretypes.h $(TREE_H) $(PARAMS_H) $(AUTO_PROFILE_H)
 cselib.o : cselib.c $(CONFIG_H) $(SYSTEM_H) coretypes.h dumpfile.h $(TM_H) $(RTL_H) \
    $(REGS_H) hard-reg-set.h $(FLAGS_H) insn-config.h $(RECOG_H) \
    $(EMIT_RTL_H) $(DIAGNOSTIC_CORE_H) $(FUNCTION_H) \
