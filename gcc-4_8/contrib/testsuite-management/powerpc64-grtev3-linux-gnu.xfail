@@ -1,139 +1,79 @@
-# Marked test failures for v16-powerpc64 toolchain built from
-# v16 release branch @64346, and v16 dev branch @64533.
+# Marked test failures for v17-powerpc64 toolchain.
+
 # *** gcc:
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O0 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O1 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O2 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O3 -fomit-frame-pointer 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O3 -g 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -Os 
-FAIL: gcc.c-torture/execute/20020226-1.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O0 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O1 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O2 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O3 -fomit-frame-pointer 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O3 -g 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -Os 
-FAIL: gcc.c-torture/execute/20020508-1.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none 
+
+# Also xfailed in x86; REAL bug in google/main
+FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 15)
+FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 19)
+FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 20)
+FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 21)
+FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 22)
+
+# Also xfailed in x86; Inline failures not seen outside of google/main.
+FAIL: gcc.dg/inline_3.c (test for excess errors)
+FAIL: gcc.dg/inline_4.c (test for excess errors)
+
+# Also xfailed in x86; REAL bug in google/main
+FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-ipa-dump-times cp "Clone of foo" 1
+FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-tree-dump-not optimized "->c;"
+
+# PPC-specific.  From PR33512, still failing in truck despite resolved PR.
 FAIL: gcc.dg/and-1.c scan-assembler-not nand
-FAIL: gcc.dg/cleanup-10.c execution test
-FAIL: gcc.dg/cleanup-11.c execution test
-FAIL: gcc.dg/cleanup-8.c execution test
-FAIL: gcc.dg/cleanup-9.c execution test
-| FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
-FAIL: gcc.dg/pr44194-1.c scan-rtl-dump-not final "set \\(mem"
-FAIL: gcc.dg/pr46728-6.c scan-assembler-not pow
 
-# These tests succeeded in v15-powerpc64. But they failed in v16-x86 too.
-FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 10)
-FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 13)
-FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 15)
-FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 18)
-FAIL: gcc.dg/thread_annot_lock-23.c  (test for warnings, line 19)
-FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 8)
-FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 9)
-FAIL: gcc.dg/thread_annot_lock-24.c  (test for warnings, line 10)
-FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 8)
-FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 9)
-FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 10)
-FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 22)
-FAIL: gcc.dg/thread_annot_lock-25.c  (test for warnings, line 30)
-FAIL: gcc.dg/thread_annot_lock-42.c  (test for warnings, line 9)
+# PPC-specific.  Appears to affect many 64-bit non-x86 archs; see PR49414.
+FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
 
-FAIL: gcc.dg/torture/pr53589.c  -O3 -g  (internal compiler error)
-FAIL: gcc.dg/torture/pr53589.c  -O3 -g  (test for excess errors)
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -pie -fPIE  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -pie -fPIE  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -pie -fPIE  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -pie -fPIE  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -pie -fPIE  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -fpic  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -fPIC  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -pie -fpie  execution test
-flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -pie -fPIE  execution test
-FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c scan-ipa-dump-times profile "Indirect call -> direct call" 2
-FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c scan-ipa-dump profile "Indirect call -> direct call.* a1"
-FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "foo"
-FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "goo"
+# PPC-specific.  Test error; Power should be handled like MIPS for same reason.
 FAIL: gcc.dg/tree-ssa/ssa-dom-thread-4.c scan-tree-dump-times dom1 "Threaded" 3
+
+# PPC-specific.  Also failing in trunk.
 FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
 FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times dom2 "x[^ ]* & y" 1
-FAIL: gcc.dg/vect/pr45752.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-2short.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-6.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-1.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-2.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-3.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-4.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-5.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-6.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-7.c -flto execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O0  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O1  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O2  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O3 -g  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -Os  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/3a-03.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O0  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O1  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O2  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O3 -g  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -Os  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/3a-03m.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+
+# PPC-specific.  Also failing in trunk.  (PPC64 is using ld, not lvx.)
 FAIL: gcc.target/powerpc/ppc-vector-memcpy.c scan-assembler lvx
-FAIL: gcc.target/powerpc/pr46728-1.c scan-assembler-not pow
-FAIL: gcc.target/powerpc/pr46728-2.c scan-assembler-not pow
-FAIL: gcc.target/powerpc/pr46728-3.c scan-assembler-not pow
-FAIL: gcc.target/powerpc/pr46728-4.c scan-assembler-not pow
-FAIL: gcc.target/powerpc/pr46728-7.c scan-assembler-not pow
-FAIL: gcc.target/powerpc/pr46728-8.c scan-assembler-not pow
+
+# PPC-specific.  Artifact of Google test environment.
+FAIL: gcc.dg/di-sync-multithread.c execution test
+
+# PPC-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
+FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
+
 
 # *** g++:
-FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
-FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-10.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-10.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-11.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-11.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
+
+# Also xfailed in x86; explanation unknown.
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
+
+# Also xfailed in x86; REAL bug in google/main
 FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
-FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
-FAIL: g++.dg/tree-prof/mversn15.C execution,    -fprofile-generate
-UNRESOLVED: g++.dg/tree-prof/mversn15.C compilation,  -fprofile-use
-UNRESOLVED: g++.dg/tree-prof/mversn15.C execution,    -fprofile-use
-FAIL: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-generate
-UNRESOLVED: g++.dg/tree-prof/mversn15a.C compilation,  -fprofile-use
-UNRESOLVED: g++.dg/tree-prof/mversn15a.C execution,    -fprofile-use
+
+# PPC-specific: -flto appears to break exception handling.  Google bug b/9226891.
+FAIL: g++.dg/lto/20081109 cp_lto_20081109_0.o-cp_lto_20081109_1.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+FAIL: g++.dg/lto/20081109 cp_lto_20081109_0.o-cp_lto_20081109_1.o execute -O2 -flto -flto-partition=none -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: g++.dg/lto/20081109 cp_lto_20081109_0.o-cp_lto_20081109_1.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: g++.dg/lto/20081109 cp_lto_20081109_0.o-cp_lto_20081109_1.o execute -O2 -flto -fuse-linker-plugin
+FAIL: g++.dg/torture/pr49115.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-alloca-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-alloca-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/eh-global-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-global-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/eh-inline-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-inline-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/eh-inline-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-inline-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/eh-vararg-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-vararg-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/eh-vararg-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/eh-vararg-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/throw-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/throw-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/throw-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/throw-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+FAIL: g++.dg/torture/stackalign/throw-3.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: g++.dg/torture/stackalign/throw-3.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects -fpic execution test
+
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
@@ -146,4 +86,641 @@ FAIL: gfortran.dg/bessel_6.f90  -O3 -fomit-frame-pointer -funroll-all-loops -fin
 FAIL: gfortran.dg/bessel_6.f90  -O3 -g  execution test
 FAIL: gfortran.dg/bessel_6.f90  -Os  execution test
 XPASS: gfortran.dg/nint_2.f90  -O0  execution test
-FAIL: gfortran.dg/vect/fast-math-pr38968.f90 execution test
+
+
+# *** libstdc++:
+# PPC-specific.  TODO: Needs investigation.
+FAIL: libstdc++-abi/abi_check
+
+# PPC-specific, recent.  TODO: Needs investigation.
+FAIL: 27_io/basic_filebuf/close/char/1.cc execution test
+FAIL: 27_io/basic_filebuf/is_open/char/1.cc execution test
+FAIL: 27_io/basic_filebuf/open/char/1.cc execution test
+FAIL: 27_io/basic_filebuf/sbumpc/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/sbumpc/char/2-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/1-out.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/2-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/2-out.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/3-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekoff/char/3-out.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/1-out.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/2-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/2-out.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/3-io.cc execution test
+FAIL: 27_io/basic_filebuf/seekpos/char/3-out.cc execution test
+FAIL: 27_io/basic_filebuf/setbuf/char/1.cc execution test
+FAIL: 27_io/basic_filebuf/sgetc/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/sgetc/char/2-io.cc execution test
+FAIL: 27_io/basic_filebuf/sgetn/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/sgetn/char/2-io.cc execution test
+FAIL: 27_io/basic_filebuf/snextc/char/1-io.cc execution test
+FAIL: 27_io/basic_filebuf/snextc/char/2-io.cc execution test
+FAIL: 27_io/basic_istream/seekg/char/fstream.cc execution test
+FAIL: 27_io/basic_istream/seekg/wchar_t/fstream.cc execution test
+FAIL: 27_io/basic_istream/tellg/char/fstream.cc execution test
+FAIL: 27_io/basic_istream/tellg/wchar_t/fstream.cc execution test
+
+
+# *** libgomp:
+# TODO: This testsuite is currently not working.
+ERROR: No sysroot directory found!
+
+
+# ASAN-specific.
+# These tests are currently failing due to linker issues.
+FAIL: c-c++-common/asan/global-overflow-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O0  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O1  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -Os  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/pr55617.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/pr55617.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/symbolize-callback-1.C  -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C  -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+
+
+# Our test method is not currently copying data files to the target or
+# copying profile data back to the host, so a number of tests fail due
+# to nonexistent files.
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -g  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -g  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -g  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -O0  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -O0  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -O0  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -O1  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -O1  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -O1  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -O2  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -O2  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -O2  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -O3  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -O3  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -O3  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -O3 -g  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -O3 -g  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -O3 -g  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-1.C execution: file g++-bprob-1.gcda does not exist,  -Os  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C compilation,  -Os  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-1.C execution,    -Os  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -g  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -g  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -g  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -O0  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -O0  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -O0  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -O1  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -O1  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -O1  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -O2  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -O2  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -O2  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -O3  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -O3  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -O3  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -O3 -g  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -O3 -g  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -O3 -g  -fbranch-probabilities
+FAIL: g++.dg/bprob/g++-bprob-2.C execution: file g++-bprob-2.gcda does not exist,  -Os  -fprofile-arcs
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C compilation,  -Os  -fbranch-probabilities
+UNRESOLVED: g++.dg/bprob/g++-bprob-2.C execution,    -Os  -fbranch-probabilities
+FAIL: gcc.misc-tests/bprob-1.c execution: file bprob-1.gcda does not exist,  -O2  -fprofile-arcs
+UNRESOLVED: gcc.misc-tests/bprob-1.c compilation,  -O2  -fbranch-probabilities
+UNRESOLVED: gcc.misc-tests/bprob-1.c execution,    -O2  -fbranch-probabilities
+FAIL: gcc.misc-tests/bprob-1.c execution: file bprob-1.gcda does not exist,  -O3   -fprofile-arcs
+UNRESOLVED: gcc.misc-tests/bprob-1.c compilation,  -O3   -fbranch-probabilities
+UNRESOLVED: gcc.misc-tests/bprob-1.c execution,    -O3   -fbranch-probabilities
+FAIL: gcc.misc-tests/bprob-2.c execution: file bprob-2.gcda does not exist,  -O2  -fprofile-arcs
+UNRESOLVED: gcc.misc-tests/bprob-2.c compilation,  -O2  -fbranch-probabilities
+UNRESOLVED: gcc.misc-tests/bprob-2.c execution,    -O2  -fbranch-probabilities
+FAIL: gcc.misc-tests/bprob-2.c execution: file bprob-2.gcda does not exist,  -O3   -fprofile-arcs
+UNRESOLVED: gcc.misc-tests/bprob-2.c compilation,  -O3   -fbranch-probabilities
+UNRESOLVED: gcc.misc-tests/bprob-2.c execution,    -O3   -fbranch-probabilities
+FAIL: g++.dg/tree-prof/indir-call-prof-2.C execution: file indir-call-prof-2.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof-2.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof-2.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/indir-call-prof.C execution: file indir-call-prof.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/inline_mismatch_args.C execution: file inline_mismatch_args.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/inline_mismatch_args.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/inline_mismatch_args.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C execution: file indir-call-prof-2_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C execution: file indir-call-prof-2_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof_0.C execution: file indir-call-prof_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof_0.C execution: file indir-call-prof_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C execution: file inline_mismatch_args_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C execution: file inline_mismatch_args_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition1_0.C execution: file partition1_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition1_0.C execution: file partition1_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition1_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition1_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition2_0.C execution: file partition2_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition2_0.C execution: file partition2_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition2_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition2_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition3_0.C execution: file partition3_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/partition3_0.C execution: file partition3_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition3_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/partition3_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_0.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_0.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_1.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_1.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_2.gcda does not exist,  -fprofile-generate -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C execution: file vcall1_2.gcda.imports does not exist,  -fprofile-generate -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/vcall1_0.C compilation,  -fprofile-use -fripa -fno-section-anchors
+UNRESOLVED: g++.dg/tree-prof/lipo/vcall1_0.C execution,    -fprofile-use -fripa -fno-section-anchors
+FAIL: g++.dg/tree-prof/partition1.C execution: file partition1.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/partition1.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/partition1.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/partition2.C execution: file partition2.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/partition2.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/partition2.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/partition3.C execution: file partition3.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/partition3.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/partition3.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/pr51719.C execution: file pr51719.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr51719.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/pr51719.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/pr53460.C execution: file pr53460.gcda does not exist,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr53460.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/pr53460.C execution,    -fprofile-use
+FAIL: gcc.dg/tree-prof/bb-reorg.c execution: file bb-reorg.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/bb-reorg.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/bb-reorg.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/ic-misattribution-1.c execution: file ic-misattribution-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/ic-misattribution-1a.c execution: file ic-misattribution-1a.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1a.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1a.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/indir-call-prof.c execution: file indir-call-prof.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/indir-call-prof.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/indir-call-prof.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/inliner-1.c execution: file inliner-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/inliner-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/inliner-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/bb-reorg_0.c execution: file bb-reorg_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/bb-reorg_0.c execution: file bb-reorg_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/bb-reorg_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/bb-reorg_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution: file ic-misattribution-1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution: file ic-misattribution-1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution: file ic-misattribution-1_1.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution: file ic-misattribution-1_1.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c execution: file indir-call-prof-single_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c execution: file indir-call-prof-single_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution: file indir-call-prof_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution: file indir-call-prof_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution: file indir-call-prof_1.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution: file indir-call-prof_1.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/inliner-1_0.c execution: file inliner-1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/inliner-1_0.c execution: file inliner-1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/inliner-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/inliner-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_1.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_1.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_2.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution: file lipo_inline1_2.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/lipo_inline1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr34999_0.c execution: file pr34999_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr34999_0.c execution: file pr34999_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr34999_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr34999_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr45354_0.c execution: file pr45354_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr45354_0.c execution: file pr45354_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr45354_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr45354_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr47187_0.c execution: file pr47187_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/pr47187_0.c execution: file pr47187_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr47187_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/pr47187_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/stringop-1_0.c execution: file stringop-1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/stringop-1_0.c execution: file stringop-1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/stringop-2_0.c execution: file stringop-2_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/stringop-2_0.c execution: file stringop-2_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/stringop-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/tracer-1_0.c execution: file tracer-1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/tracer-1_0.c execution: file tracer-1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/tracer-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/tracer-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c execution: file update-cunroll-2_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c execution: file update-cunroll-2_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-cunroll-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-loopch_0.c execution: file update-loopch_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-loopch_0.c execution: file update-loopch_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-loopch_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-loopch_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-tailcall_0.c execution: file update-tailcall_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/update-tailcall_0.c execution: file update-tailcall_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-tailcall_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/update-tailcall_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-1_0.c execution: file val-prof-1_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-1_0.c execution: file val-prof-1_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-2_0.c execution: file val-prof-2_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-2_0.c execution: file val-prof-2_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-2_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-2_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-3_0.c execution: file val-prof-3_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-3_0.c execution: file val-prof-3_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-3_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-3_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-4_0.c execution: file val-prof-4_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-4_0.c execution: file val-prof-4_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-4_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-4_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-5_0.c execution: file val-prof-5_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-5_0.c execution: file val-prof-5_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-5_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-5_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-6_0.c execution: file val-prof-6_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/val-prof-6_0.c execution: file val-prof-6_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-6_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/val-prof-6_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c execution: file wcoverage-mismatch_0.gcda does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c execution: file wcoverage-mismatch_0.gcda.imports does not exist,  -fprofile-generate -fripa -D_PROFILE_GENERATE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+UNRESOLVED: gcc.dg/tree-prof/lipo/wcoverage-mismatch_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE -fno-section-anchors
+FAIL: gcc.dg/tree-prof/peel-1.c execution: file peel-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/peel-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/peel-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr34999.c execution: file pr34999.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr34999.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr34999.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr44777.c execution: file pr44777.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr44777.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr44777.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr45354.c execution: file pr45354.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr45354.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr45354.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr47187.c execution: file pr47187.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr47187.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr47187.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr49299-1.c execution: file pr49299-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr49299-2.c execution: file pr49299-2.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr50907.c execution: file pr50907.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr50907.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr50907.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr52027.c execution: file pr52027.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr52027.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr52027.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr52150.c execution: file pr52150.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr52150.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr52150.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/prof-robust-1.c execution: file prof-robust-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/prof-robust-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/prof-robust-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/stringop-1.c execution: file stringop-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/stringop-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/stringop-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/stringop-2.c execution: file stringop-2.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/stringop-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/stringop-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/switch-case-1.c execution: file switch-case-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/switch-case-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/switch-case-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/switch-case-2.c execution: file switch-case-2.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/switch-case-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/switch-case-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/tracer-1.c execution: file tracer-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/tracer-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/tracer-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/unroll-1.c execution: file unroll-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/unroll-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/unroll-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/update-cunroll-2.c execution: file update-cunroll-2.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/update-cunroll-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/update-cunroll-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/update-loopch.c execution: file update-loopch.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/update-loopch.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/update-loopch.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/update-tailcall.c execution: file update-tailcall.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/update-tailcall.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/update-tailcall.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-1.c execution: file val-prof-1.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-2.c execution: file val-prof-2.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-3.c execution: file val-prof-3.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-3.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-3.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-4.c execution: file val-prof-4.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-4.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-4.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-5.c execution: file val-prof-5.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-5.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-5.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/val-prof-6.c execution: file val-prof-6.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-6.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/val-prof-6.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/wcoverage-mismatch.c execution: file wcoverage-mismatch.gcda does not exist,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/wcoverage-mismatch.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/wcoverage-mismatch.c execution,    -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/pr47793.c scan-file .
