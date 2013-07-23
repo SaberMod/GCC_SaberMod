@@ -26,17 +26,19 @@ FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
 # PPC-specific.  Test error; Power should be handled like MIPS for same reason.
 FAIL: gcc.dg/tree-ssa/ssa-dom-thread-4.c scan-tree-dump-times dom1 "Threaded" 3
 
-# PPC-specific.  Also failing in trunk.
+# PPC-specific.  Also failing in trunk.  Related to PR38219 and
+# LOGICAL_OP_NON_SHORT_CIRCUIT definition.
 FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
 FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times dom2 "x[^ ]* & y" 1
 
-# PPC-specific.  Also failing in trunk.  (PPC64 is using ld, not lvx.)
+# PPC-specific.  Also failing in trunk.  (PR57955; PPC64 is using ld, not lvx.)
 FAIL: gcc.target/powerpc/ppc-vector-memcpy.c scan-assembler lvx
 
 # PPC-specific.  Artifact of Google test environment.
 FAIL: gcc.dg/di-sync-multithread.c execution test
 
-# PPC-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
+# PPC-specific, introduced 2013-06-04.  TODO: Needs investigation.  (This is
+# not PR52614)
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 
 
