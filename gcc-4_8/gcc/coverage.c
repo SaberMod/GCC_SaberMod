@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "gcov-io.h"
 #include "tree-flow.h"
+#include "tree-pass.h"
 #include "cpplib.h"
 #include "incpath.h"
 #include "diagnostic-core.h"
@@ -411,14 +412,18 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     warning (OPT_Wripa_opt_mismatch, "command line arguments mismatch for %s "
 	     "and %s", mod_info1->source_filename, mod_info2->source_filename);
 
-   if (warn_ripa_opt_mismatch && non_warning_mismatch && flag_ripa_verbose)
+   if (warn_ripa_opt_mismatch && non_warning_mismatch && dump_enabled_p ())
      {
-       inform (UNKNOWN_LOCATION, "Options for %s", mod_info1->source_filename);
+       dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
+                        "Options for %s", mod_info1->source_filename);
        for (i = 0; i < num_non_warning_opts1; i++)
-         inform (UNKNOWN_LOCATION, non_warning_opts1[i]);
-       inform (UNKNOWN_LOCATION, "Options for %s", mod_info2->source_filename);
+         dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
+                          non_warning_opts1[i]);
+       dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
+                        "Options for %s", mod_info2->source_filename);
        for (i = 0; i < num_non_warning_opts2; i++)
-         inform (UNKNOWN_LOCATION, non_warning_opts2[i]);
+         dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
+                          non_warning_opts2[i]);
      }
 
    has_any_incompatible_cg_opts
@@ -835,30 +840,57 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	      char *aux_da_filename = get_da_file_name (mod_info->da_filename);
               gcc_assert (!mod_info->is_primary);
 	      if (pointer_set_insert (modset, (void *)(size_t)mod_info->ident))
-		inform (input_location, "Not importing %s: already imported",
-			mod_info->source_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: already imported",
+                                     mod_info->source_filename);
+                }
 	      else if ((module_infos[0]->lang & GCOV_MODULE_LANG_MASK) !=
 		       (mod_info->lang & GCOV_MODULE_LANG_MASK))
-		inform (input_location, "Not importing %s: source language"
-			" different from primary module's source language",
-			mod_info->source_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: source language"
+                                     " different from primary module's source"
+                                     " language",
+                                     mod_info->source_filename);
+                }
 	      else if (module_infos_read == max_group
                        /* If reordering is specified, delay the cutoff
 			  until after sorting.  */
 		       && !getenv ("LIPO_REORDER_GROUP"))
-		inform (input_location, "Not importing %s: maximum group size"
-			" reached", mod_info->source_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: maximum group size"
+                                     " reached", mod_info->source_filename);
+                }
 	      else if (incompatible_cl_args (module_infos[0], mod_info))
-		inform (input_location, "Not importing %s: command-line"
-			" arguments not compatible with primary module",
-			mod_info->source_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: command-line"
+                                     " arguments not compatible with primary"
+                                     " module",
+                                     mod_info->source_filename);
+                }
 	      else if ((fd = open (aux_da_filename, O_RDONLY)) < 0)
-		inform (input_location, "Not importing %s: couldn't open %s",
-			mod_info->source_filename, aux_da_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: couldn't open %s",
+                                     mod_info->source_filename,
+                                     aux_da_filename);
+                }
 	      else if ((mod_info->lang & GCOV_MODULE_ASM_STMTS)
 		       && flag_ripa_disallow_asm_modules)
-		inform (input_location, "Not importing %s: contains assembler"
-			" statements", mod_info->source_filename);
+                {
+                  if (dump_enabled_p ())
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                     "Not importing %s: contains assembler"
+                                     " statements", mod_info->source_filename);
+                }
               else if (mod_info->is_primary == false 
                        && MODULE_EXPORTED_FLAG (mod_info) == false)
                 {
@@ -884,16 +916,17 @@ read_counts_file (const char *da_file_name, unsigned module_id)
           record_module_name (mod_info->ident,
                               lbasename (mod_info->source_filename));
 
-          if (flag_ripa_verbose)
+          if (dump_enabled_p ())
             {
-              inform (input_location,
-                      "MODULE Id=%d, Is_Primary=%s,"
-                      " Is_Exported=%s, Include_all=%s, Name=%s (%s)",
-                      mod_info->ident, mod_info->is_primary?"yes":"no",
-                      MODULE_EXPORTED_FLAG (mod_info)?"yes":"no",
-                      MODULE_INCLUDE_ALL_AUX_FLAG (mod_info)?"yes":"no",
-                      mod_info->source_filename,
-                      mod_info->da_filename);
+              dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                               "MODULE Id=%d, Is_Primary=%s,"
+                               " Is_Exported=%s, Include_all=%s, Name=%s (%s)",
+                               mod_info->ident, mod_info->is_primary?"yes":"no",
+                               MODULE_EXPORTED_FLAG (mod_info)?"yes":"no",
+                               MODULE_INCLUDE_ALL_AUX_FLAG (mod_info)?"yes"
+                                                                     :"no",
+                               mod_info->source_filename,
+                               mod_info->da_filename);
             }
         }
       gcov_sync (offset, length);
@@ -958,11 +991,13 @@ get_coverage_counts (unsigned counter, unsigned expected,
     {
       static int warned = 0;
 
-      if (!warned++)
-	inform (input_location, (flag_guess_branch_prob
-		 ? "file %s not found, execution counts estimated"
-		 : "file %s not found, execution counts assumed to be zero"),
-		da_file_name);
+      if (!warned++ && dump_enabled_p ())
+	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                         (flag_guess_branch_prob
+                          ? "file %s not found, execution counts estimated"
+                          : "file %s not found, execution counts assumed to "
+                            "be zero"),
+                         da_file_name);
       return NULL;
     }
 
@@ -970,9 +1005,11 @@ get_coverage_counts (unsigned counter, unsigned expected,
 
   if (!entry || !entry->summary.num)
     {
-      if (!flag_dyn_ipa && 0 /*TODO reenable with opt-info */)
-	warning (0, "no coverage for function %qE found",
-		 DECL_ASSEMBLER_NAME (current_function_decl));
+      if (!flag_dyn_ipa && dump_enabled_p ())
+	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                         "no coverage for function %s found",
+                         IDENTIFIER_POINTER
+                         (DECL_ASSEMBLER_NAME (current_function_decl)));
       return NULL;
     }
 
@@ -987,21 +1024,25 @@ get_coverage_counts (unsigned counter, unsigned expected,
 	warning_at (input_location, OPT_Wcoverage_mismatch,
 		    "the control flow of function %qE does not match "
 		    "its profile data (counter %qs)", id, ctr_names[counter]);
-      if (warning_printed)
+      if (warning_printed && dump_enabled_p ())
 	{
-	 inform (input_location, "use -Wno-error=coverage-mismatch to tolerate "
-	 	 "the mismatch but performance may drop if the function is hot");
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                           "use -Wno-error=coverage-mismatch to tolerate "
+                           "the mismatch but performance may drop if the "
+                           "function is hot");
 	  
 	  if (!seen_error ()
 	      && !warned++)
 	    {
-	      inform (input_location, "coverage mismatch ignored");
-	      inform (input_location, flag_guess_branch_prob
-		      ? G_("execution counts estimated")
-		      : G_("execution counts assumed to be zero"));
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                               "coverage mismatch ignored");
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                               flag_guess_branch_prob
+                               ? G_("execution counts estimated")
+                               : G_("execution counts assumed to be zero"));
 	      if (!flag_guess_branch_prob)
-		inform (input_location,
-			"this can result in poorly optimized code");
+		dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                                 "this can result in poorly optimized code");
 	    }
 	}
 
@@ -1009,7 +1050,8 @@ get_coverage_counts (unsigned counter, unsigned expected,
     }
     else if (entry->lineno_checksum != lineno_checksum)
       {
-        warning (0, "Source location for function %qE have changed,"
+        warning (OPT_Wripa_opt_mismatch,
+                 "Source location for function %qE have changed,"
                  " the profile data may be out of date",
                  DECL_ASSEMBLER_NAME (current_function_decl));
       }
@@ -2522,6 +2564,11 @@ coverage_init (const char *filename, const char* source_name)
   int src_name_prefix_len = 0;
   int len = strlen (filename);
 
+  /* Since coverage_init is invoked very early, before the pass
+     manager, we need to set up the dumping explicitly. This is
+     similar to the handling in finish_optimization_passes.  */
+  dump_start (pass_profile.pass.static_pass_number, NULL);
+
   has_asm_statement = false;
   da_file_name = get_da_file_name (filename);
   da_base_file_name = XNEWVEC (char, strlen (filename) + 1);
@@ -2586,6 +2633,8 @@ coverage_init (const char *filename, const char* source_name)
 	  gcov_write_unsigned (bbg_file_stamp);
 	}
     }
+
+  dump_finish (pass_profile.pass.static_pass_number);
 }
 
 /* Return True if any type of profiling is enabled which requires linking

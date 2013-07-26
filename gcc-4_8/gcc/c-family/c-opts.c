@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "params.h"
 #include "l-ipo.h"
+#include "dumpfile.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -1057,12 +1058,16 @@ lipo_max_mem_reached (unsigned int i)
          by the optimizer.  */
       && ((ggc_total_allocated () >> 10) * 1.25
           > (size_t) PARAM_VALUE (PARAM_MAX_LIPO_MEMORY))) {
-    i++;
-    do {
-      inform (input_location, "Not importing %s: maximum memory "
-	      "consumption reached", in_fnames[i]);
-      i++;
-    } while (i < num_in_fnames);
+    if (dump_enabled_p ())
+      {
+        i++;
+        do {
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                           "Not importing %s: maximum memory "
+                           "consumption reached", in_fnames[i]);
+          i++;
+        } while (i < num_in_fnames);
+      }
     return true;
   }
   return false;

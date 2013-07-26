@@ -996,8 +996,8 @@ DEFPARAM (PARAM_LIPO_WEAK_INCLUSION,
    in inline message.   */
 DEFPARAM (PARAM_INLINE_DUMP_MODULE_ID,
 	  "inline-dump-module-id",
-	  "Default is 0. If the value is 1, dumping is enabled.",
-	  0, 0, 1)
+	  "Default is 1. If the value is 0, dumping is disabled.",
+	  1, 0, 1)
 
 /* In LIPO profile-gen, use this parameter to enable cgraph dumping.   */
 DEFPARAM (PARAM_LIPO_DUMP_CGRAPH,

@@ -1437,10 +1437,12 @@ find_minimum_cost_flow (fixup_graph_type *fixup_graph)
       if (iteration > MAX_ITER (fixup_graph->num_vertices,
                                 fixup_graph->num_edges))
 	{
-	  inform (DECL_SOURCE_LOCATION (current_function_decl),
-		  "Exiting profile correction early to avoid excessive "
-		  "compile time");
-	  break;
+          if (dump_enabled_p ())
+            dump_printf_loc (MSG_NOTE,
+                             DECL_SOURCE_LOCATION (current_function_decl),
+                             "Exiting profile correction early to avoid "
+                             "excessive compile time");
+          break;
 	}
     }
 
