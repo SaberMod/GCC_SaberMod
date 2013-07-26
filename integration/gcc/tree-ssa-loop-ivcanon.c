@@ -174,7 +174,7 @@ constant_after_peeling (tree op, gimple stmt, struct loop *loop)
       while (handled_component_p (base))
 	base = TREE_OPERAND (base, 0);
       if ((DECL_P (base)
-	   && const_value_known_p (base))
+	   && ctor_for_folding (base) != error_mark_node)
 	  || CONSTANT_CLASS_P (base))
 	{
 	  /* If so, see if we understand all the indices.  */
@@ -257,8 +257,10 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 
 	  /* Look for reasons why we might optimize this stmt away. */
 
+	  if (gimple_has_side_effects (stmt))
+	    ;
 	  /* Exit conditional.  */
-	  if (exit && body[i] == exit->src
+	  else if (exit && body[i] == exit->src
 		   && stmt == last_stmt (exit->src))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -374,7 +376,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
    is dead and that some instructions will be eliminated after
    peeling.
 
-   Loop body is likely going to simplify futher, this is difficult
+   Loop body is likely going to simplify further, this is difficult
    to guess, we just decrease the result by 1/3.  */
 
 static unsigned HOST_WIDE_INT
@@ -780,7 +782,7 @@ try_unroll_loop_completely (struct loop *loop,
 	 storing or cumulating the return value.  */
       else if (size.num_pure_calls_on_hot_path
 	       /* One IV increment, one test, one ivtmp store
-		  and one usefull stmt.  That is about minimal loop
+		  and one useful stmt.  That is about minimal loop
 		  doing pure call.  */
 	       && (size.non_call_stmts_on_hot_path
 		   <= 3 + size.num_pure_calls_on_hot_path))
@@ -1085,8 +1087,9 @@ propagate_constants_for_unrolling (basic_block bb)
       tree lhs;
 
       if (is_gimple_assign (stmt)
+	  && gimple_assign_rhs_code (stmt) == INTEGER_CST
 	  && (lhs = gimple_assign_lhs (stmt), TREE_CODE (lhs) == SSA_NAME)
-	  && gimple_assign_rhs_code (stmt) == INTEGER_CST)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	{
 	  propagate_into_all_uses (lhs, gimple_assign_rhs1 (stmt));
 	  gsi_remove (&gsi, true);

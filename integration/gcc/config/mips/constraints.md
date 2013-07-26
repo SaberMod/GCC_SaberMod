@@ -92,6 +92,12 @@
 ;; but the DSP version allows any accumulator target.
 (define_register_constraint "ka" "ISA_HAS_DSP_MULT ? ACC_REGS : MD_REGS")
 
+;; The register class to use for an allocatable division result.
+;; MIPS16 uses M16_REGS because LO is fixed.
+(define_register_constraint "kl"
+  "TARGET_MIPS16 ? M16_REGS : TARGET_BIG_ENDIAN ? MD1_REG : MD0_REG"
+  "@internal")
+
 (define_constraint "kf"
   "@internal"
   (match_operand 0 "force_to_mem_operand"))
@@ -178,6 +184,11 @@
    A decremented unsigned constant of 7 bits."
   (match_operand 0 "db7_operand"))
 
+(define_constraint "Udb8"
+  "@internal
+   A decremented unsigned constant of 8 bits."
+  (match_operand 0 "db8_operand"))
+
 (define_constraint "Uead"
   "@internal
    A microMIPS encoded ADDIUR2 immediate operand."
@@ -198,15 +209,45 @@
    An unsigned, incremented constant of 3 bits."
   (match_operand 0 "ib3_operand"))
 
+(define_constraint "Usb4"
+  "@internal
+   A signed constant of 4 bits."
+  (match_operand 0 "sb4_operand"))
+
+(define_constraint "Usb5"
+  "@internal
+   A signed constant of 5 bits."
+  (match_operand 0 "sb5_operand"))
+
+(define_constraint "Usb8"
+  "@internal
+   A signed constant of 8 bits."
+  (match_operand 0 "sb8_operand"))
+
+(define_constraint "Usd8"
+  "@internal
+   A signed constant of 8 bits, shifted left three places."
+  (match_operand 0 "sd8_operand"))
+
+(define_constraint "Uub8"
+  "@internal
+   An unsigned constant of 8 bits."
+  (match_operand 0 "ub8_operand"))
+
+(define_constraint "Uuw5"
+  "@internal
+   An unsigned constant of 5 bits, shifted left two places."
+  (match_operand 0 "uw5_operand"))
+
 (define_constraint "Uuw6"
   "@internal
    An unsigned constant of 6 bits, shifted left two places."
   (match_operand 0 "uw6_operand"))
 
-(define_constraint "Usb4"
+(define_constraint "Uuw8"
   "@internal
-   A signed constant of 4 bits."
-  (match_operand 0 "sb4_operand"))
+   An unsigned constant of 8 bits, shifted left two places."
+  (match_operand 0 "uw8_operand"))
 
 (define_memory_constraint "W"
   "@internal

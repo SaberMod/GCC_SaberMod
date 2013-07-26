@@ -914,13 +914,12 @@ sort_mem_initializers (tree t, tree mem_inits)
      Here we also splice out uninitialized union members.  */
   if (uses_unions_p)
     {
-      tree last_field = NULL_TREE;
+      tree *last_p = NULL;
       tree *p;
       for (p = &sorted_inits; *p; )
 	{
 	  tree field;
 	  tree ctx;
-	  int done;
 
 	  init = *p;
 
@@ -940,22 +939,25 @@ sort_mem_initializers (tree t, tree mem_inits)
 	  for (ctx = DECL_CONTEXT (field);
 	       !same_type_p (ctx, t);
 	       ctx = TYPE_CONTEXT (ctx))
-	    if (TREE_CODE (ctx) == UNION_TYPE)
+	    if (TREE_CODE (ctx) == UNION_TYPE
+		|| !ANON_AGGR_TYPE_P (ctx))
 	      break;
 	  /* If this field is not a member of a union, skip it.  */
 	  if (TREE_CODE (ctx) != UNION_TYPE)
 	    goto next;
 
-	  /* If this union member has no explicit initializer, splice
-	     it out.  */
-	  if (!TREE_VALUE (init))
+	  /* If this union member has no explicit initializer and no NSDMI,
+	     splice it out.  */
+	  if (TREE_VALUE (init) || DECL_INITIAL (field))
+	    /* OK.  */;
+	  else
 	    goto splice;
 
 	  /* It's only an error if we have two initializers for the same
 	     union type.  */
-	  if (!last_field)
+	  if (!last_p)
 	    {
-	      last_field = field;
+	      last_p = p;
 	      goto next;
 	    }
 
@@ -967,41 +969,23 @@ sort_mem_initializers (tree t, tree mem_inits)
 	       union { struct { int i; int j; }; };
 
 	     initializing both `i' and `j' makes sense.  */
-	  ctx = DECL_CONTEXT (field);
-	  done = 0;
-	  do
+	  ctx = common_enclosing_class (DECL_CONTEXT (field),
+					DECL_CONTEXT (TREE_PURPOSE (*last_p)));
+
+	  if (ctx && TREE_CODE (ctx) == UNION_TYPE)
 	    {
-	      tree last_ctx;
-
-	      last_ctx = DECL_CONTEXT (last_field);
-	      while (1)
-		{
-		  if (same_type_p (last_ctx, ctx))
-		    {
-		      if (TREE_CODE (ctx) == UNION_TYPE)
-			error_at (DECL_SOURCE_LOCATION (current_function_decl),
-				  "initializations for multiple members of %qT",
-				  last_ctx);
-		      done = 1;
-		      break;
-		    }
-
-		  if (same_type_p (last_ctx, t))
-		    break;
-
-		  last_ctx = TYPE_CONTEXT (last_ctx);
-		}
-
-	      /* If we've reached the outermost class, then we're
-		 done.  */
-	      if (same_type_p (ctx, t))
-		break;
-
-	      ctx = TYPE_CONTEXT (ctx);
+	      /* A mem-initializer hides an NSDMI.  */
+	      if (TREE_VALUE (init) && !TREE_VALUE (*last_p))
+		*last_p = TREE_CHAIN (*last_p);
+	      else if (TREE_VALUE (*last_p) && !TREE_VALUE (init))
+		goto splice;
+	      else
+		error_at (DECL_SOURCE_LOCATION (current_function_decl),
+			  "initializations for multiple members of %qT",
+			  ctx);
 	    }
-	  while (!done);
 
-	  last_field = field;
+	  last_p = p;
 
 	next:
 	  p = &TREE_CHAIN (*p);
@@ -1520,7 +1504,8 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
       return stmt_expr;
     }
 
-  if (VAR_P (exp) || TREE_CODE (exp) == PARM_DECL)
+  if ((VAR_P (exp) || TREE_CODE (exp) == PARM_DECL)
+      && !lookup_attribute ("warn_unused", TYPE_ATTRIBUTES (type)))
     /* Just know that we've seen something for this node.  */
     TREE_USED (exp) = 1;
 
@@ -2399,7 +2384,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       cookie_size = targetm.cxx.get_cookie_size (elt_type);
       gcc_assert (TREE_CODE (cookie_size) == INTEGER_CST);
       gcc_checking_assert (TREE_INT_CST (cookie_size).ult (max_size));
-      /* Unconditionally substract the cookie size.  This decreases the
+      /* Unconditionally subtract the cookie size.  This decreases the
 	 maximum object size and is safe even if we choose not to use
 	 a cookie after all.  */
       max_size -= TREE_INT_CST (cookie_size);
@@ -2900,8 +2885,8 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 					   NE_EXPR, alloc_node,
 					   nullptr_node,
 					   complain);
-	  rval = build_conditional_expr (ifexp, rval, alloc_node, 
-                                         complain);
+	  rval = build_conditional_expr (input_location, ifexp, rval,
+					 alloc_node, complain);
 	}
 
       /* Perform the allocation before anything else, so that ALLOC_NODE
@@ -3348,6 +3333,7 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   if (init
       && TREE_CODE (atype) == ARRAY_TYPE
+      && TREE_CONSTANT (maxindex)
       && (from_array == 2
 	  ? (!CLASS_TYPE_P (inner_elt_type)
 	     || !TYPE_HAS_COMPLEX_COPY_ASSIGN (inner_elt_type))
@@ -3468,6 +3454,7 @@ build_vec_init (tree base, tree maxindex, tree init,
       tree field, elt;
       /* Should we try to create a constant initializer?  */
       bool try_const = (TREE_CODE (atype) == ARRAY_TYPE
+			&& TREE_CONSTANT (maxindex)
 			&& (literal_type_p (inner_elt_type)
 			    || TYPE_HAS_CONSTEXPR_CTOR (inner_elt_type)));
       /* If the constructor already has the array type, it's been through
@@ -3575,8 +3562,14 @@ build_vec_init (tree base, tree maxindex, tree init,
 	    vec_free (new_vec);
 	}
 
-      /* Clear out INIT so that we don't get confused below.  */
-      init = NULL_TREE;
+      /* Any elements without explicit initializers get {}.  */
+      if (cxx_dialect >= cxx11 && AGGREGATE_TYPE_P (type))
+	init = build_constructor (init_list_type_node, NULL);
+      else
+	{
+	  init = NULL_TREE;
+	  explicit_value_init_p = true;
+	}
     }
   else if (from_array)
     {
@@ -3648,11 +3641,11 @@ build_vec_init (tree base, tree maxindex, tree init,
 	}
       else if (TREE_CODE (type) == ARRAY_TYPE)
 	{
-	  if (init != 0)
+	  if (init && !BRACE_ENCLOSED_INITIALIZER_P (init))
 	    sorry
 	      ("cannot initialize multi-dimensional array with initializer");
 	  elt_init = build_vec_init (build1 (INDIRECT_REF, type, base),
-				     0, 0,
+				     0, init,
 				     explicit_value_init_p,
 				     0, complain);
 	}
@@ -4133,7 +4126,7 @@ build_vec_delete (tree base, tree maxindex,
 	 bad name.  */
       maxindex = array_type_nelts_total (type);
       type = strip_array_types (type);
-      base = cp_build_addr_expr (base, complain);
+      base = decay_conversion (base, complain);
       if (base == error_mark_node)
 	return error_mark_node;
       if (TREE_SIDE_EFFECTS (base))

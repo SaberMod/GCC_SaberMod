@@ -87,6 +87,8 @@ mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
 moxie port		Anthony Green		green@moxielogic.com
+nds32 port		Chung-Ju Wu		jasonwucj@gmail.com
+nds32 port		Shiva Chen		shiva0217@gmail.com
 pdp11 port		Paul Koning		ni1d@arrl.net
 picochip port		Daniel Towner		dant@picochip.com
 rl78 port		DJ Delorie		dj@redhat.com
@@ -452,6 +454,7 @@ Xinliang David Li				davidxl@google.com
 Christophe Lyon					christophe.lyon@st.com
 Luis Machado					luisgpm@br.ibm.com
 Ziga Mahkovec					ziga.mahkovec@klika.si
+David Malcolm					dmalcolm@redhat.com
 Simon Martin					simartin@users.sourceforge.net
 Ranjit Mathew					rmathew@hotmail.com
 Michael Matz					matz@suse.de
@@ -486,6 +489,7 @@ Nicolas Pitre					nico@cam.org
 Paul Pluzhnikov					ppluzhnikov@google.com
 Marek Polacek					polacek@redhat.com
 Antoniu Pop					antoniu.pop@gmail.com
+Vidya Praveen					vidyapraveen@arm.com
 Vladimir Prus					vladimir@codesourcery.com
 Yao Qi						yao@codesourcery.com
 Jerry Quinn					jlquinn@optonline.net
@@ -498,6 +502,7 @@ Tom Rix						trix@redhat.com
 Craig Rodrigues					rodrigc@gcc.gnu.org
 Erven Rohou					erven.rohou@inria.fr
 Ira Rosen					irar@il.ibm.com
+Yvan Roux					yvan.roux@linaro.org
 Maciej W. Rozycki				macro@linux-mips.org
 Silvius Rus					rus@google.com
 Matthew Sachs					msachs@apple.com
@@ -510,6 +515,7 @@ Dodji Seketeli					dodji@gcc.gnu.org
 Svein Seldal					svein@dev.seldal.com
 Thiemo Seufer					ths@networkno.de
 Marcus Shawcroft				marcus.shawcroft@arm.com
+Tim Shen					timshen91@gmail.com
 Sharad Singhai					singhai@google.com
 Johannes Singler				singler@kit.edu
 Franz Sirl					franz.sirl-kernel@lauterbach.com
@@ -529,6 +535,7 @@ Gabriele Svelto					gabriele.svelto@st.com
 Sriraman Tallam					tmsriram@google.com
 Chung-Lin Tang					cltang@codesourcery.com
 Samuel Tardieu					sam@rfc1149.net
+Dinar Temirbulatov				dinar@kugelworks.com
 Kresten Krab Thorup				krab@gcc.gnu.org
 Caroline Tice					ctice@apple.com
 Kyrylo Tkachov					kyrylo.tkachov@arm.com

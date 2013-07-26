@@ -61,8 +61,7 @@
     }
 }
  [(set_attr "neon_type" "neon_int_1,*,neon_vmov,*,neon_mrrc,neon_mcr_2_mcrr,*,*,*")
-  (set_attr "type" "*,f_stored,*,f_loadd,*,*,alu_reg,load2,store2")
-  (set_attr "insn" "*,*,*,*,*,*,mov,*,*")
+  (set_attr "type" "*,f_stored,*,f_loadd,*,*,mov_reg,load2,store2")
   (set_attr "length" "4,4,4,4,4,4,8,8,8")
   (set_attr "arm_pool_range"     "*,*,*,1020,*,*,*,1020,*")
   (set_attr "thumb2_pool_range"     "*,*,*,1018,*,*,*,1018,*")
@@ -107,8 +106,7 @@
 }
   [(set_attr "neon_type" "neon_int_1,neon_stm_2,neon_vmov,neon_ldm_2,\
                           neon_mrrc,neon_mcr_2_mcrr,*,*,*")
-   (set_attr "type" "*,*,*,*,*,*,alu_reg,load4,store4")
-   (set_attr "insn" "*,*,*,*,*,*,mov,*,*")
+   (set_attr "type" "*,*,*,*,*,*,mov_reg,load4,store4")
    (set_attr "length" "4,8,4,8,8,8,16,8,16")
    (set_attr "arm_pool_range" "*,*,*,1020,*,*,*,1020,*")
    (set_attr "thumb2_pool_range" "*,*,*,1018,*,*,*,1018,*")
@@ -241,8 +239,8 @@
 })
 
 (define_expand "movmisalign<mode>"
-  [(set (match_operand:VDQX 0 "neon_struct_or_register_operand")
-	(unspec:VDQX [(match_operand:VDQX 1 "neon_struct_or_register_operand")]
+  [(set (match_operand:VDQX 0 "neon_perm_struct_or_reg_operand")
+	(unspec:VDQX [(match_operand:VDQX 1 "neon_perm_struct_or_reg_operand")]
 		     UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
 {
@@ -255,7 +253,7 @@
 })
 
 (define_insn "*movmisalign<mode>_neon_store"
-  [(set (match_operand:VDX 0 "neon_struct_operand"	       "=Um")
+  [(set (match_operand:VDX 0 "neon_permissive_struct_operand"	"=Um")
 	(unspec:VDX [(match_operand:VDX 1 "s_register_operand" " w")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
@@ -263,15 +261,16 @@
   [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_load"
-  [(set (match_operand:VDX 0 "s_register_operand"		"=w")
-	(unspec:VDX [(match_operand:VDX 1 "neon_struct_operand" " Um")]
+  [(set (match_operand:VDX 0 "s_register_operand"			"=w")
+	(unspec:VDX [(match_operand:VDX 1 "neon_permissive_struct_operand"
+									" Um")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
   "vld1.<V_sz_elem>\t{%P0}, %A1"
   [(set_attr "neon_type" "neon_vld1_1_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_store"
-  [(set (match_operand:VQX 0 "neon_struct_operand"	       "=Um")
+  [(set (match_operand:VQX 0 "neon_permissive_struct_operand"  "=Um")
 	(unspec:VQX [(match_operand:VQX 1 "s_register_operand" " w")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
@@ -279,8 +278,9 @@
   [(set_attr "neon_type" "neon_vst1_1_2_regs_vst2_2_regs")])
 
 (define_insn "*movmisalign<mode>_neon_load"
-  [(set (match_operand:VQX 0 "s_register_operand"	         "=w")
-	(unspec:VQX [(match_operand:VQX 1 "neon_struct_operand" " Um")]
+  [(set (match_operand:VQX 0 "s_register_operand"			"=w")
+	(unspec:VQX [(match_operand:VQX 1 "neon_permissive_struct_operand"
+									" Um")]
 		    UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN"
   "vld1.<V_sz_elem>\t{%q0}, %A1"
@@ -679,29 +679,6 @@
   [(set_attr "neon_type" "neon_int_1")]
 )
 
-(define_insn "iordi3_neon"
-  [(set (match_operand:DI 0 "s_register_operand" "=w,w,?&r,?&r,?w,?w")
-        (ior:DI (match_operand:DI 1 "s_register_operand" "%w,0,0,r,w,0")
-		(match_operand:DI 2 "neon_logic_op2" "w,Dl,r,r,w,Dl")))]
-  "TARGET_NEON"
-{
-  switch (which_alternative)
-    {
-    case 0: /* fall through */
-    case 4: return "vorr\t%P0, %P1, %P2";
-    case 1: /* fall through */
-    case 5: return neon_output_logic_immediate ("vorr", &operands[2],
-		     DImode, 0, VALID_NEON_QREG_MODE (DImode));
-    case 2: return "#";
-    case 3: return "#";
-    default: gcc_unreachable ();
-    }
-}
-  [(set_attr "neon_type" "neon_int_1,neon_int_1,*,*,neon_int_1,neon_int_1")
-   (set_attr "length" "*,*,8,8,*,*")
-   (set_attr "arch" "neon_for_64bits,neon_for_64bits,*,*,avoid_neon_for_64bits,avoid_neon_for_64bits")]
-)
-
 ;; The concrete forms of the Neon immediate-logic instructions are vbic and
 ;; vorr. We support the pseudo-instruction vand instead, because that
 ;; corresponds to the canonical form the middle-end expects to use for
@@ -803,21 +780,6 @@
   "TARGET_NEON"
   "veor\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
   [(set_attr "neon_type" "neon_int_1")]
-)
-
-(define_insn "xordi3_neon"
-  [(set (match_operand:DI 0 "s_register_operand" "=w,?&r,?&r,?w")
-        (xor:DI (match_operand:DI 1 "s_register_operand" "%w,0,r,w")
-	        (match_operand:DI 2 "s_register_operand" "w,r,r,w")))]
-  "TARGET_NEON"
-  "@
-   veor\t%P0, %P1, %P2
-   #
-   #
-   veor\t%P0, %P1, %P2"
-  [(set_attr "neon_type" "neon_int_1,*,*,neon_int_1")
-   (set_attr "length" "*,8,8,*")
-   (set_attr "arch" "neon_for_64bits,*,*,avoid_neon_for_64bits")]
 )
 
 (define_insn "one_cmpl<mode>2"
@@ -5617,7 +5579,7 @@
    (match_operand:SI 3 "immediate_operand" "")]
   "TARGET_NEON"
 {
-  emit_insn (gen_ior<mode>3<V_suf64> (operands[0], operands[1], operands[2]));
+  emit_insn (gen_ior<mode>3 (operands[0], operands[1], operands[2]));
   DONE;
 })
 
@@ -5628,7 +5590,7 @@
    (match_operand:SI 3 "immediate_operand" "")]
   "TARGET_NEON"
 {
-  emit_insn (gen_xor<mode>3<V_suf64> (operands[0], operands[1], operands[2]));
+  emit_insn (gen_xor<mode>3 (operands[0], operands[1], operands[2]));
   DONE;
 })
 

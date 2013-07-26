@@ -61,14 +61,16 @@
 ;; Simple ALU without shift
 (define_insn_reservation "cortex_a15_alu" 2
   (and (eq_attr "tune" "cortexa15")
-       (and (eq_attr "type" "alu_reg,simple_alu_imm")
+       (and (eq_attr "type" "arlo_imm,arlo_reg,shift,shift_reg,\
+                             mov_imm,mov_reg,\
+                             mvn_imm,mvn_reg")
             (eq_attr "neon_type" "none")))
   "ca15_issue1,(ca15_sx1,ca15_sx1_alu)|(ca15_sx2,ca15_sx2_alu)")
 
 ;; ALU ops with immediate shift
 (define_insn_reservation "cortex_a15_alu_shift" 3
   (and (eq_attr "tune" "cortexa15")
-       (and (eq_attr "type" "simple_alu_shift,alu_shift")
+       (and (eq_attr "type" "extend,arlo_shift,,mov_shift,mvn_shift")
             (eq_attr "neon_type" "none")))
   "ca15_issue1,(ca15_sx1,ca15_sx1+ca15_sx1_shf,ca15_sx1_alu)\
 	       |(ca15_sx2,ca15_sx2+ca15_sx2_shf,ca15_sx2_alu)")
@@ -76,7 +78,7 @@
 ;; ALU ops with register controlled shift
 (define_insn_reservation "cortex_a15_alu_shift_reg" 3
   (and (eq_attr "tune" "cortexa15")
-       (and (eq_attr "type" "alu_shift_reg")
+       (and (eq_attr "type" "arlo_shift_reg,mov_shift_reg,mvn_shift_reg")
 	    (eq_attr "neon_type" "none")))
   "(ca15_issue2,ca15_sx1+ca15_sx2,ca15_sx1_shf,ca15_sx2_alu)\
    |(ca15_issue1,(ca15_issue1+ca15_sx2,ca15_sx1+ca15_sx2_shf)\
@@ -87,28 +89,26 @@
 ;; 32-bit multiplies
 (define_insn_reservation "cortex_a15_mult32" 3
   (and (eq_attr "tune" "cortexa15")
-       (and (eq_attr "type" "mult")
-	    (and (eq_attr "neon_type" "none")
-		 (eq_attr "mul64" "no"))))
+       (and (eq_attr "mul32" "yes")
+	    (eq_attr "neon_type" "none")))
   "ca15_issue1,ca15_mx")
 
 ;; 64-bit multiplies
 (define_insn_reservation "cortex_a15_mult64" 4
   (and (eq_attr "tune" "cortexa15")
-       (and (eq_attr "type" "mult")
-	    (and (eq_attr "neon_type" "none")
-		 (eq_attr "mul64" "yes"))))
+       (and (eq_attr "mul64" "yes")
+	    (eq_attr "neon_type" "none")))
   "ca15_issue1,ca15_mx*2")
 
 ;; Integer divide
 (define_insn_reservation "cortex_a15_udiv" 9
   (and (eq_attr "tune" "cortexa15")
-       (eq_attr "insn" "udiv"))
+       (eq_attr "type" "udiv"))
   "ca15_issue1,ca15_mx")
 
 (define_insn_reservation "cortex_a15_sdiv" 10
   (and (eq_attr "tune" "cortexa15")
-       (eq_attr "insn" "sdiv"))
+       (eq_attr "type" "sdiv"))
   "ca15_issue1,ca15_mx")
 
 ;; Block all issue pipes for a cycle

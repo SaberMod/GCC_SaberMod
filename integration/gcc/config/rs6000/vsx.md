@@ -191,6 +191,8 @@
    UNSPEC_VSX_CVDPSXWS
    UNSPEC_VSX_CVDPUXWS
    UNSPEC_VSX_CVSPDP
+   UNSPEC_VSX_CVSPDPN
+   UNSPEC_VSX_CVDPSPN
    UNSPEC_VSX_CVSXWDP
    UNSPEC_VSX_CVUXWDP
    UNSPEC_VSX_CVSXDSP
@@ -207,112 +209,31 @@
 
 ;; VSX moves
 (define_insn "*vsx_mov<mode>"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,*Y,*r,*r,<VSr>,?wa,*r,v,wZ,v")
-	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,Y,r,j,j,j,W,v,wZ"))]
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&r,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
+	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
-  switch (which_alternative)
-    {
-    case 0:
-    case 3:
-      gcc_assert (MEM_P (operands[0])
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_INC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_DEC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_MODIFY);
-      return "stx<VSm>x %x1,%y0";
-
-    case 1:
-    case 4:
-      gcc_assert (MEM_P (operands[1])
-		  && GET_CODE (XEXP (operands[1], 0)) != PRE_INC
-		  && GET_CODE (XEXP (operands[1], 0)) != PRE_DEC
-		  && GET_CODE (XEXP (operands[1], 0)) != PRE_MODIFY);
-      return "lx<VSm>x %x0,%y1";
-
-    case 2:
-    case 5:
-      return "xxlor %x0,%x1,%x1";
-
-    case 6:
-    case 7:
-    case 8:
-    case 11:
-      return "#";
-
-    case 9:
-    case 10:
-      return "xxlxor %x0,%x0,%x0";
-
-    case 12:
-      return output_vec_const_move (operands);
-
-    case 13:
-      gcc_assert (MEM_P (operands[0])
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_INC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_DEC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_MODIFY);
-      return "stvx %1,%y0";
-
-    case 14:
-      gcc_assert (MEM_P (operands[0])
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_INC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_DEC
-		  && GET_CODE (XEXP (operands[0], 0)) != PRE_MODIFY);
-      return "lvx %0,%y1";
-
-    default:
-      gcc_unreachable ();
-    }
+  return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,*,*,*,vecsimple,vecsimple,*,*,vecstore,vecload")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecstore,vecload,vecsimple,load,store,store,load, *,vecsimple,vecsimple,*, *,vecstore,vecload")
+   (set_attr "length" "4,4,4,4,4,4,12,12,12,12,16,4,4,*,16,4,4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.  However for plain data movement, slightly
 ;; favor the vector loads
 (define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,?Y,?r,?r,?r")
-	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v, r, Y, r, n"))]
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v,v,wZ,wQ,&r,Y,r,r,?r")
+	(match_operand:TI 1 "input_operand" "wa,Z,wa,O,W,wZ,v,r,wQ,r,Y,r,n"))]
   "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && (register_operand (operands[0], TImode) 
        || register_operand (operands[1], TImode))"
 {
-  switch (which_alternative)
-    {
-    case 0:
-      return "stxvd2x %x1,%y0";
-
-    case 1:
-      return "lxvd2x %x0,%y1";
-
-    case 2:
-      return "xxlor %x0,%x1,%x1";
-
-    case 3:
-      return "xxlxor %x0,%x0,%x0";
-
-    case 4:
-      return output_vec_const_move (operands);
-
-    case 5:
-      return "stvx %1,%y0";
-
-    case 6:
-      return "lvx %0,%y1";
-
-    case 7:
-    case 8:
-    case 9:
-    case 10:
-      return "#";
-
-    default:
-      gcc_unreachable ();
-    }
+  return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,*,*,*,*")
-   (set_attr "length" "     4,      4,        4,       4,         8,       4,      4,8,8,8,8")])
+  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,load,store,load,*,*")
+   (set_attr "length" "4,4,4,4,16,4,4,8,8,8,8,8,8")])
 
 (define_insn "*vsx_movti_32bit"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
@@ -1003,6 +924,40 @@
   "xscvspdp %x0,%x1"
   [(set_attr "type" "fp")])
 
+;; ISA 2.07 xscvdpspn/xscvspdpn that does not raise an error on signalling NaNs
+(define_insn "vsx_xscvdpspn"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=ws,?wa")
+	(unspec:V4SF [(match_operand:DF 1 "vsx_register_operand" "wd,wa")]
+		     UNSPEC_VSX_CVDPSPN))]
+  "TARGET_XSCVDPSPN"
+  "xscvdpspn %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "vsx_xscvspdpn"
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
+	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
+		   UNSPEC_VSX_CVSPDPN))]
+  "TARGET_XSCVSPDPN"
+  "xscvspdpn %x0,%x1"
+  [(set_attr "type" "fp")])
+
+(define_insn "vsx_xscvdpspn_scalar"
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+		     UNSPEC_VSX_CVDPSPN))]
+  "TARGET_XSCVDPSPN"
+  "xscvdpspn %x0,%x1"
+  [(set_attr "type" "fp")])
+
+;; Used by direct move to move a SFmode value from GPR to VSX register
+(define_insn "vsx_xscvspdpn_directmove"
+  [(set (match_operand:SF 0 "vsx_register_operand" "=wa")
+	(unspec:SF [(match_operand:SF 1 "vsx_register_operand" "wa")]
+		   UNSPEC_VSX_CVSPDPN))]
+  "TARGET_XSCVSPDPN"
+  "xscvspdpn %x0,%x1"
+  [(set_attr "type" "fp")])
+
 ;; Convert from 64-bit to 32-bit types
 ;; Note, favor the Altivec registers since the usual use of these instructions
 ;; is in vector converts and we need to use the Altivec vperm instruction.
@@ -1086,72 +1041,6 @@
   "x<VSv>r<VSs>iz %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
-
-
-;; Logical operations
-;; Do not support TImode logical instructions on 32-bit at present, because the
-;; compiler will see that we have a TImode and when it wanted DImode, and
-;; convert the DImode to TImode, store it on the stack, and load it in a VSX
-;; register.
-(define_insn "*vsx_and<mode>3"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (and:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxland %x0,%x1,%x2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*vsx_ior<mode>3"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (ior:VSX_L (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
-		   (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxlor %x0,%x1,%x2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*vsx_xor<mode>3"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (xor:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxlxor %x0,%x1,%x2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*vsx_one_cmpl<mode>2"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (not:VSX_L
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxlnor %x0,%x1,%x1"
-  [(set_attr "type" "vecsimple")])
-  
-(define_insn "*vsx_nor<mode>3"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (not:VSX_L
-	 (ior:VSX_L
-	  (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")
-	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxlnor %x0,%x1,%x2"
-  [(set_attr "type" "vecsimple")])
-
-(define_insn "*vsx_andc<mode>3"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
-        (and:VSX_L
-	 (not:VSX_L
-	  (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,?wa"))
-	 (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,?wa")))]
-  "VECTOR_MEM_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "xxlandc %x0,%x1,%x2"
-  [(set_attr "type" "vecsimple")])
 
 
 ;; Permute operations

@@ -1912,8 +1912,6 @@ extern rtx next_real_insn (rtx);
 extern rtx prev_active_insn (rtx);
 extern rtx next_active_insn (rtx);
 extern int active_insn_p (const_rtx);
-extern rtx next_label (rtx);
-extern rtx skip_consecutive_labels (rtx);
 extern rtx next_cc0_user (rtx);
 extern rtx prev_cc0_setter (rtx);
 
@@ -2551,7 +2549,6 @@ extern unsigned int unshare_all_rtl (void);
 extern void unshare_all_rtl_again (rtx);
 extern void unshare_all_rtl_in_chain (rtx);
 extern void verify_rtl_sharing (void);
-extern void link_cc0_insns (rtx);
 extern void add_insn (rtx);
 extern void add_insn_before (rtx, rtx, basic_block);
 extern void add_insn_after (rtx, rtx, basic_block);
@@ -2708,6 +2705,8 @@ extern int canon_true_dependence (const_rtx, enum machine_mode, rtx,
 				  const_rtx, rtx);
 extern int read_dependence (const_rtx, const_rtx);
 extern int anti_dependence (const_rtx, const_rtx);
+extern int canon_anti_dependence (const_rtx, bool,
+				  const_rtx, enum machine_mode, rtx);
 extern int output_dependence (const_rtx, const_rtx);
 extern int may_alias_p (const_rtx, const_rtx);
 extern void init_alias_target (void);

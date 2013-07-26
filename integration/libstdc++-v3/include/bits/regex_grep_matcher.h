@@ -64,6 +64,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_set_pos(int __i, int __j, const _PatternCursor& __pc);
 
       void
+      _M_set_range(int __i, const _PatternCursor& __pc)
+      {
+        typedef const _SpecializedCursor<_FwdIterT>& _CursorT;
+        _CursorT __c = static_cast<_CursorT>(__pc);
+        _M_results.at(__i).first = __c._M_begin();
+        _M_results.at(__i).second = __c._M_end();
+      }
+
+      void
       _M_set_matched(int __i, bool __is_matched)
       { _M_results.at(__i).matched = __is_matched; }
 
@@ -98,7 +107,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (__j == 0)
 	_M_results.at(__i).first = __c._M_pos();
       else
-	_M_results.at(__i).second = __c._M_pos()+1;
+        _M_results.at(__i).second = __c._M_pos();
     }
 
   /// A stack of states used in evaluating the NFA.
@@ -111,9 +120,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
   public:
     _Grep_matcher(_PatternCursor&                   __p,
-		  _Results&                         __r,
-		  const _AutomatonPtr&              __automaton,
-		  regex_constants::match_flag_type  __flags);
+                  _Results&                         __r,
+                  const _AutomatonPtr&              __automaton,
+                  regex_constants::match_flag_type  __flags)
+    : _M_nfa(static_pointer_cast<_Nfa>(__automaton)),
+      _M_pattern(__p), _M_results(__r)
+    { }
+
+    // Set matched when string exactly match the pattern.
+    void
+    _M_match();
+
+    // Set matched when some prefix of the string matches the pattern.
+    void
+    _M_search_from_first();
+
+    // TODO: in the future this function will be _M_match, in another class.
+    bool
+    _M_dfs_match()
+    { return _M_dfs<true>(_M_nfa->_M_start()); }
+
+    // TODO: in the future this function will be _M_search_from_first,
+    // in another class.
+    bool
+    _M_dfs_search_from_first()
+    { return _M_dfs<false>(_M_nfa->_M_start()); }
 
   private:
     _StateSet
@@ -124,6 +155,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     _StateSet
     _M_e_closure(_StateStack& __stack, const _StateSet& __s);
+
+    template<bool __match_mode>
+      bool
+      _M_dfs(_StateIdT __i);
 
     const std::shared_ptr<_Nfa>        _M_nfa;
     _PatternCursor&                    _M_pattern;

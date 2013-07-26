@@ -212,6 +212,9 @@ report_unroll_peel (struct loop *loop, location_t locus)
   int niters = 0;
   int report_flags = MSG_OPTIMIZED_LOCATIONS | TDF_RTL | TDF_DETAILS;
 
+  if (loop->lpt_decision.decision == LPT_NONE)
+    return;
+
   if (!dump_enabled_p ())
     return;
 
@@ -1629,7 +1632,7 @@ unroll_loop_stupid (struct loop *loop)
 	 for a loop to be really simple.  We could update the counts, but the
 	 problem is that we are unable to decide which exit will be taken
 	 (not really true in case the number of iterations is constant,
-	 but noone will do anything with this information, so we do not
+	 but no one will do anything with this information, so we do not
 	 worry about it).  */
       desc->simple_p = false;
     }

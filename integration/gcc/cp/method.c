@@ -1179,7 +1179,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
   bool ctor_p;
 
   if (spec_p)
-    *spec_p = (cxx_dialect >= cxx0x ? noexcept_true_spec : empty_except_spec);
+    *spec_p = (cxx_dialect >= cxx11 ? noexcept_true_spec : empty_except_spec);
 
   if (deleted_p)
     {
@@ -1271,7 +1271,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
      resolution, so a constructor can be trivial even if it would otherwise
      call a non-trivial constructor.  */
   if (expected_trivial
-      && (!copy_arg_p || cxx_dialect < cxx0x))
+      && (!copy_arg_p || cxx_dialect < cxx11))
     {
       if (constexpr_p && sfk == sfk_constructor)
 	{
@@ -1353,7 +1353,8 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
       if (diag && assign_p && move_p
 	  && BINFO_VIRTUAL_P (base_binfo)
 	  && rval && TREE_CODE (rval) == FUNCTION_DECL
-	  && move_fn_p (rval) && !trivial_fn_p (rval))
+	  && move_fn_p (rval) && !trivial_fn_p (rval)
+	  && vbase_has_user_provided_move_assign (basetype))
 	warning (OPT_Wvirtual_move_assign,
 		 "defaulted move assignment for %qT calls a non-trivial "
 		 "move assignment operator for virtual base %qT",
@@ -1631,7 +1632,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   if (deleted_p)
     constexpr_p = false;
   /* A trivial copy/move constructor is also a constexpr constructor.  */
-  else if (trivial_p && cxx_dialect >= cxx0x
+  else if (trivial_p && cxx_dialect >= cxx11
 	   && (kind == sfk_copy_constructor
 	       || kind == sfk_move_constructor))
     gcc_assert (constexpr_p);
@@ -1712,7 +1713,7 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   DECL_IN_AGGR_P (fn) = 1;
   DECL_ARTIFICIAL (fn) = 1;
   DECL_DEFAULTED_FN (fn) = 1;
-  if (cxx_dialect >= cxx0x)
+  if (cxx_dialect >= cxx11)
     {
       DECL_DELETED_FN (fn) = deleted_p;
       DECL_DECLARED_CONSTEXPR_P (fn) = constexpr_p;
@@ -1755,6 +1756,7 @@ defaulted_late_check (tree fn)
   bool fn_const_p = (copy_fn_p (fn) == 2);
   tree implicit_fn = implicitly_declare_fn (kind, ctx, fn_const_p,
 					    NULL, NULL);
+  tree eh_spec = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (implicit_fn));
 
   if (!same_type_p (TREE_TYPE (TREE_TYPE (fn)),
 		    TREE_TYPE (TREE_TYPE (implicit_fn)))
@@ -1766,31 +1768,40 @@ defaulted_late_check (tree fn)
 		"does not match expected signature %qD", implicit_fn);
     }
 
-  /* 8.4.2/2: If it is explicitly defaulted on its first declaration, it is
+  /* 8.4.2/2: An explicitly-defaulted function (...) may have an explicit
+     exception-specification only if it is compatible (15.4) with the 
+     exception-specification on the implicit declaration.  If a function
+     is explicitly defaulted on its first declaration, (...) it is
      implicitly considered to have the same exception-specification as if
      it had been implicitly declared.  */
-  if (DECL_DEFAULTED_IN_CLASS_P (fn))
+  if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
     {
-      tree eh_spec = TYPE_RAISES_EXCEPTIONS (TREE_TYPE (implicit_fn));
-      if (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)))
+      maybe_instantiate_noexcept (fn);
+      if (!comp_except_specs (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)),
+			      eh_spec, ce_normal))
 	{
-	  maybe_instantiate_noexcept (fn);
-	  if (!comp_except_specs (TYPE_RAISES_EXCEPTIONS (TREE_TYPE (fn)),
-				  eh_spec, ce_normal))
+	  if (DECL_DEFAULTED_IN_CLASS_P (fn))
 	    error ("function %q+D defaulted on its first declaration "
 		   "with an exception-specification that differs from "
 		   "the implicit declaration %q#D", fn, implicit_fn);
+	  else
+	    error ("function %q+D defaulted on its redeclaration "
+		   "with an exception-specification that differs from "
+		   "the implicit declaration %q#D", fn, implicit_fn);
 	}
-      TREE_TYPE (fn) = build_exception_variant (TREE_TYPE (fn), eh_spec);
-      if (DECL_DECLARED_CONSTEXPR_P (implicit_fn))
-	{
-	  /* Hmm...should we do this for out-of-class too? Should it be OK to
-	     add constexpr later like inline, rather than requiring
-	     declarations to match?  */
-	  DECL_DECLARED_CONSTEXPR_P (fn) = true;
-	  if (kind == sfk_constructor)
-	    TYPE_HAS_CONSTEXPR_CTOR (ctx) = true;
-	}
+    }
+  if (DECL_DEFAULTED_IN_CLASS_P (fn))
+    TREE_TYPE (fn) = build_exception_variant (TREE_TYPE (fn), eh_spec);
+
+  if (DECL_DEFAULTED_IN_CLASS_P (fn)
+      && DECL_DECLARED_CONSTEXPR_P (implicit_fn))
+    {
+      /* Hmm...should we do this for out-of-class too? Should it be OK to
+	 add constexpr later like inline, rather than requiring
+	 declarations to match?  */
+      DECL_DECLARED_CONSTEXPR_P (fn) = true;
+      if (kind == sfk_constructor)
+	TYPE_HAS_CONSTEXPR_CTOR (ctx) = true;
     }
 
   if (!DECL_DECLARED_CONSTEXPR_P (implicit_fn)
@@ -1853,13 +1864,19 @@ defaultable_fn_check (tree fn)
     }
   else
     {
-      tree t = FUNCTION_FIRST_USER_PARMTYPE (fn);
-      for (; t && t != void_list_node; t = TREE_CHAIN (t))
+      for (tree t = FUNCTION_FIRST_USER_PARMTYPE (fn);
+	   t && t != void_list_node; t = TREE_CHAIN (t))
 	if (TREE_PURPOSE (t))
 	  {
 	    error ("defaulted function %q+D with default argument", fn);
 	    break;
 	  }
+
+      /* Avoid do_warn_unused_parameter warnings.  */
+      for (tree p = FUNCTION_FIRST_USER_PARM (fn); p; p = DECL_CHAIN (p))
+	if (DECL_NAME (p))
+	  TREE_NO_WARNING (p) = 1;
+
       if (TYPE_BEING_DEFINED (DECL_CONTEXT (fn)))
 	/* Defer checking.  */;
       else if (!processing_template_decl)

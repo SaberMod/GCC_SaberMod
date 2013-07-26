@@ -368,6 +368,7 @@ static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -411,6 +412,7 @@ const struct c_common_resword c_common_reswords[] =
   { "_Sat",             RID_SAT,       D_CONLY | D_EXT },
   { "_Static_assert",   RID_STATIC_ASSERT, D_CONLY },
   { "_Noreturn",        RID_NORETURN,  D_CONLY },
+  { "_Generic",         RID_GENERIC,   D_CONLY },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -738,6 +740,8 @@ const struct attribute_spec c_common_attribute_table[] =
      The name contains space to prevent its usage in source code.  */
   { "fn spec",	 	      1, 1, false, true, true,
 			      handle_fnspec_attribute, false },
+  { "warn_unused",            0, 0, false, false, false,
+			      handle_warn_unused_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -2227,7 +2231,7 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
   convertible_lax =
     (tree_int_cst_equal (TYPE_SIZE (t1), TYPE_SIZE (t2))
      && (TREE_CODE (TREE_TYPE (t1)) != REAL_TYPE ||
-	 TYPE_PRECISION (t1) == TYPE_PRECISION (t2))
+	 TYPE_VECTOR_SUBPARTS (t1) == TYPE_VECTOR_SUBPARTS (t2))
      && (INTEGRAL_TYPE_P (TREE_TYPE (t1))
 	 == INTEGRAL_TYPE_P (TREE_TYPE (t2))));
 
@@ -2260,7 +2264,8 @@ vector_types_convertible_p (const_tree t1, const_tree t2, bool emit_lax_note)
    an implementation accident and this semantics is not guaranteed to
    the user.  */
 tree
-c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask)
+c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask,
+		       bool complain)
 {
   tree ret;
   bool wrap = true;
@@ -2280,22 +2285,25 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask)
   if (TREE_CODE (TREE_TYPE (mask)) != VECTOR_TYPE
       || TREE_CODE (TREE_TYPE (TREE_TYPE (mask))) != INTEGER_TYPE)
     {
-      error_at (loc, "__builtin_shuffle last argument must "
-		     "be an integer vector");
+      if (complain)
+	error_at (loc, "__builtin_shuffle last argument must "
+		       "be an integer vector");
       return error_mark_node;
     }
 
   if (TREE_CODE (TREE_TYPE (v0)) != VECTOR_TYPE
       || TREE_CODE (TREE_TYPE (v1)) != VECTOR_TYPE)
     {
-      error_at (loc, "__builtin_shuffle arguments must be vectors");
+      if (complain)
+	error_at (loc, "__builtin_shuffle arguments must be vectors");
       return error_mark_node;
     }
 
   if (TYPE_MAIN_VARIANT (TREE_TYPE (v0)) != TYPE_MAIN_VARIANT (TREE_TYPE (v1)))
     {
-      error_at (loc, "__builtin_shuffle argument vectors must be of "
-		     "the same type");
+      if (complain)
+	error_at (loc, "__builtin_shuffle argument vectors must be of "
+		       "the same type");
       return error_mark_node;
     }
 
@@ -2304,17 +2312,19 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask)
       && TYPE_VECTOR_SUBPARTS (TREE_TYPE (v1))
 	 != TYPE_VECTOR_SUBPARTS (TREE_TYPE (mask)))
     {
-      error_at (loc, "__builtin_shuffle number of elements of the "
-		     "argument vector(s) and the mask vector should "
-		     "be the same");
+      if (complain)
+	error_at (loc, "__builtin_shuffle number of elements of the "
+		       "argument vector(s) and the mask vector should "
+		       "be the same");
       return error_mark_node;
     }
 
   if (GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (v0))))
       != GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (TREE_TYPE (mask)))))
     {
-      error_at (loc, "__builtin_shuffle argument vector(s) inner type "
-		     "must have the same size as inner type of the mask");
+      if (complain)
+	error_at (loc, "__builtin_shuffle argument vector(s) inner type "
+		       "must have the same size as inner type of the mask");
       return error_mark_node;
     }
 
@@ -2335,6 +2345,8 @@ c_build_vec_perm_expr (location_t loc, tree v0, tree v1, tree mask)
       mask = c_fully_fold (mask, false, &maybe_const);
       wrap &= maybe_const;
     }
+  else if (two_arguments)
+    v1 = v0 = save_expr (v0);
 
   ret = build3_loc (loc, VEC_PERM_EXPR, TREE_TYPE (v0), v0, v1, mask);
 
@@ -3032,6 +3044,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
   switch (code)
     {
     case CONSTRUCTOR:
+    case SIZEOF_EXPR:
       return;
 
     case COMPOUND_EXPR:
@@ -5453,7 +5466,7 @@ c_common_nodes_and_builtins (void)
     {
       char16_type_node = make_unsigned_type (char16_type_size);
 
-      if (cxx_dialect >= cxx0x)
+      if (cxx_dialect >= cxx11)
 	record_builtin_type (RID_CHAR16, "char16_t", char16_type_node);
     }
 
@@ -5469,7 +5482,7 @@ c_common_nodes_and_builtins (void)
     {
       char32_type_node = make_unsigned_type (char32_type_size);
 
-      if (cxx_dialect >= cxx0x)
+      if (cxx_dialect >= cxx11)
 	record_builtin_type (RID_CHAR32, "char32_t", char32_type_node);
     }
 
@@ -7575,13 +7588,7 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	DECL_INITIAL (decl) = error_mark_node;
       else
-	{
-	  if (lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
-	    DECL_EXTERNAL (decl) = 1;
-	  else
-	    DECL_EXTERNAL (decl) = 0;
-	  TREE_STATIC (decl) = 1;
-	}
+	TREE_STATIC (decl) = 1;
 
       if (!is_alias)
 	/* ifuncs are also aliases, so set that attribute too. */
@@ -7944,6 +7951,27 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   gcc_assert (args
 	      && TREE_CODE (TREE_VALUE (args)) == STRING_CST
 	      && !TREE_CHAIN (args));
+  return NULL_TREE;
+}
+
+/* Handle a "warn_unused" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_warn_unused_attribute (tree *node, tree name,
+			      tree args ATTRIBUTE_UNUSED,
+			      int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
+{
+  if (TYPE_P (*node))
+    /* Do nothing else, just set the attribute.  We'll get at
+       it later with lookup_attribute.  */
+    ;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
   return NULL_TREE;
 }
 
@@ -9778,6 +9806,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
   tree maxindex, type, main_type, elt, unqual_elt;
   int failure = 0, quals;
   hashval_t hashcode = 0;
+  bool overflow_p = false;
 
   maxindex = size_zero_node;
   if (initial_value)
@@ -9806,8 +9835,8 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 	      bool fold_p = false;
 
 	      if ((*v)[0].index)
-		maxindex = fold_convert_loc (input_location, sizetype,
-					     (*v)[0].index);
+		maxindex = (*v)[0].index, fold_p = true;
+
 	      curindex = maxindex;
 
 	      for (cnt = 1; vec_safe_iterate (v, cnt, &ce); cnt++)
@@ -9818,15 +9847,26 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 		  else
 		    {
 		      if (fold_p)
-		        curindex = fold_convert (sizetype, curindex);
+			{
+			  /* Since we treat size types now as ordinary
+			     unsigned types, we need an explicit overflow
+			     check.  */
+			  tree orig = curindex;
+		          curindex = fold_convert (sizetype, curindex);
+			  overflow_p |= tree_int_cst_lt (curindex, orig);
+			}
 		      curindex = size_binop (PLUS_EXPR, curindex,
 					     size_one_node);
 		    }
 		  if (tree_int_cst_lt (maxindex, curindex))
 		    maxindex = curindex, fold_p = curfold_p;
 		}
-	       if (fold_p)
-	         maxindex = fold_convert (sizetype, maxindex);
+	      if (fold_p)
+		{
+		  tree orig = maxindex;
+	          maxindex = fold_convert (sizetype, maxindex);
+		  overflow_p |= tree_int_cst_lt (maxindex, orig);
+		}
 	    }
 	}
       else
@@ -9887,7 +9927,7 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   if (COMPLETE_TYPE_P (type)
       && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-      && TREE_OVERFLOW (TYPE_SIZE_UNIT (type)))
+      && (overflow_p || TREE_OVERFLOW (TYPE_SIZE_UNIT (type))))
     {
       error ("size of array is too large");
       /* If we proceed with the array type as it is, we'll eventually
@@ -10124,7 +10164,7 @@ get_atomic_generic_size (location_t loc, tree function,
     {
       int size;
       tree type = TREE_TYPE ((*params)[x]);
-      /* __atomic_compare_exchange has a bool in the 4th postion, skip it.  */
+      /* __atomic_compare_exchange has a bool in the 4th position, skip it.  */
       if (n_param == 6 && x == 3)
         continue;
       if (!POINTER_TYPE_P (type))
@@ -11423,6 +11463,7 @@ c_common_init_ts (void)
 {
   MARK_TS_TYPED (C_MAYBE_CONST_EXPR);
   MARK_TS_TYPED (EXCESS_PRECISION_EXPR);
+  MARK_TS_TYPED (ARRAY_NOTATION_REF);
 }
 
 /* Build a user-defined numeric literal out of an integer constant type VALUE

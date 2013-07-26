@@ -226,7 +226,7 @@ init_shadowed_var_for_decl (void)
 					   tree_decl_map_eq, 0);
 }
 
-/* Return true if stmt can fall thru.  Used by block_may_fallthru
+/* Return true if stmt can fall through.  Used by block_may_fallthru
    default case.  */
 
 bool
@@ -321,6 +321,7 @@ cp_common_init_ts (void)
   MARK_TS_TYPED (USING_STMT);
   MARK_TS_TYPED (LAMBDA_EXPR);
   MARK_TS_TYPED (CTOR_INITIALIZER);
+  MARK_TS_TYPED (ARRAY_NOTATION_REF);
 }
 
 #include "gt-cp-cp-objcp-common.h"

@@ -216,7 +216,6 @@ static void add_candidates (tree, tree, const vec<tree, va_gc> *, tree, tree,
 			    bool, tree, tree, int, struct z_candidate **,
 			    tsubst_flags_t);
 static conversion *merge_conversion_sequences (conversion *, conversion *);
-static bool magic_varargs_p (tree);
 static tree build_temp (tree, tree, int, diagnostic_t *, tsubst_flags_t);
 
 /* Returns nonzero iff the destructor name specified in NAME matches BASETYPE.
@@ -554,7 +553,7 @@ null_ptr_cst_p (tree t)
   if (CP_INTEGRAL_TYPE_P (TREE_TYPE (t)))
     {
       /* Core issue 903 says only literal 0 is a null pointer constant.  */
-      if (cxx_dialect < cxx0x)
+      if (cxx_dialect < cxx11)
 	t = maybe_constant_value (fold_non_dependent_expr_sfinae (t, tf_none));
       STRIP_NOPS (t);
       if (integer_zerop (t) && !TREE_OVERFLOW (t))
@@ -4353,7 +4352,7 @@ conditional_conversion (tree e1, tree e2, tsubst_flags_t complain)
    arguments to the conditional expression.  */
 
 static tree
-build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
+build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
                           tsubst_flags_t complain)
 {
   tree arg2_type;
@@ -4373,7 +4372,7 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
   if (!arg2)
     {
       if (complain & tf_error)
-	pedwarn (input_location, OPT_Wpedantic, 
+	pedwarn (loc, OPT_Wpedantic, 
 		 "ISO C++ forbids omitting the middle term of a ?: expression");
 
       /* Make sure that lvalues remain lvalues.  See g++.oliva/ext1.C.  */
@@ -4406,17 +4405,61 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
       if (TREE_CODE (arg2_type) != VECTOR_TYPE
 	  && TREE_CODE (arg3_type) != VECTOR_TYPE)
 	{
-	  if (complain & tf_error)
-	    error ("at least one operand of a vector conditional operator "
-		   "must be a vector");
-	  return error_mark_node;
+	  /* Rely on the error messages of the scalar version.  */
+	  tree scal = build_conditional_expr_1 (loc, integer_one_node,
+						orig_arg2, orig_arg3, complain);
+	  if (scal == error_mark_node)
+	    return error_mark_node;
+	  tree stype = TREE_TYPE (scal);
+	  tree ctype = TREE_TYPE (arg1_type);
+	  if (TYPE_SIZE (stype) != TYPE_SIZE (ctype)
+	      || (!INTEGRAL_TYPE_P (stype) && !SCALAR_FLOAT_TYPE_P (stype)))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "inferred scalar type %qT is not an integer or "
+			  "floating point type of the same size as %qT", stype,
+			  COMPARISON_CLASS_P (arg1)
+			  ? TREE_TYPE (TREE_TYPE (TREE_OPERAND (arg1, 0)))
+			  : ctype);
+	      return error_mark_node;
+	    }
+
+	  tree vtype = build_opaque_vector_type (stype,
+			 TYPE_VECTOR_SUBPARTS (arg1_type));
+	  /* We could pass complain & tf_warning to unsafe_conversion_p,
+	     but the warnings (like Wsign-conversion) have already been
+	     given by the scalar build_conditional_expr_1. We still check
+	     unsafe_conversion_p to forbid truncating long long -> float.  */
+	  if (unsafe_conversion_p (stype, arg2, false))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "conversion of scalar %qT to vector %qT "
+			       "involves truncation", arg2_type, vtype);
+	      return error_mark_node;
+	    }
+	  if (unsafe_conversion_p (stype, arg3, false))
+	    {
+	      if (complain & tf_error)
+		error_at (loc, "conversion of scalar %qT to vector %qT "
+			       "involves truncation", arg3_type, vtype);
+	      return error_mark_node;
+	    }
+
+	  arg2 = cp_convert (stype, arg2, complain);
+	  arg2 = save_expr (arg2);
+	  arg2 = build_vector_from_val (vtype, arg2);
+	  arg2_type = vtype;
+	  arg3 = cp_convert (stype, arg3, complain);
+	  arg3 = save_expr (arg3);
+	  arg3 = build_vector_from_val (vtype, arg3);
+	  arg3_type = vtype;
 	}
 
       if ((TREE_CODE (arg2_type) == VECTOR_TYPE)
 	  != (TREE_CODE (arg3_type) == VECTOR_TYPE))
 	{
 	  enum stv_conv convert_flag =
-	    scalar_to_vector (input_location, VEC_COND_EXPR, arg2, arg3,
+	    scalar_to_vector (loc, VEC_COND_EXPR, arg2, arg3,
 			      complain & tf_error);
 
 	  switch (convert_flag)
@@ -4425,6 +4468,7 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 		return error_mark_node;
 	      case stv_firstarg:
 		{
+		  arg2 = save_expr (arg2);
 		  arg2 = convert (TREE_TYPE (arg3_type), arg2);
 		  arg2 = build_vector_from_val (arg3_type, arg2);
 		  arg2_type = TREE_TYPE (arg2);
@@ -4432,6 +4476,7 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 		}
 	      case stv_secondarg:
 		{
+		  arg3 = save_expr (arg3);
 		  arg3 = convert (TREE_TYPE (arg2_type), arg3);
 		  arg3 = build_vector_from_val (arg2_type, arg3);
 		  arg3_type = TREE_TYPE (arg3);
@@ -4448,15 +4493,16 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	  || TYPE_SIZE (arg1_type) != TYPE_SIZE (arg2_type))
 	{
 	  if (complain & tf_error)
-	    error ("incompatible vector types in conditional expression: "
-		   "%qT, %qT and %qT", TREE_TYPE (arg1), TREE_TYPE (orig_arg2),
-		   TREE_TYPE (orig_arg3));
+	    error_at (loc,
+		      "incompatible vector types in conditional expression: "
+		      "%qT, %qT and %qT", TREE_TYPE (arg1),
+		      TREE_TYPE (orig_arg2), TREE_TYPE (orig_arg3));
 	  return error_mark_node;
 	}
 
       if (!COMPARISON_CLASS_P (arg1))
-	arg1 = fold_build2 (NE_EXPR, signed_type_for (arg1_type), arg1,
-		       build_zero_cst (arg1_type));
+	arg1 = cp_build_binary_op (loc, NE_EXPR, arg1,
+				   build_zero_cst (arg1_type), complain);
       return fold_build3 (VEC_COND_EXPR, arg2_type, arg1, arg2, arg3);
     }
 
@@ -4535,15 +4581,15 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
           if (complain & tf_error)
             {
               if (VOID_TYPE_P (arg2_type))
-                error ("second operand to the conditional operator "
-                       "is of type %<void%>, "
-                       "but the third operand is neither a throw-expression "
-                       "nor of type %<void%>");
+                error_at (EXPR_LOC_OR_LOC (arg3, loc),
+			  "second operand to the conditional operator "
+			  "is of type %<void%>, but the third operand is "
+			  "neither a throw-expression nor of type %<void%>");
               else
-                error ("third operand to the conditional operator "
-                       "is of type %<void%>, "
-                       "but the second operand is neither a throw-expression "
-                       "nor of type %<void%>");
+                error_at (EXPR_LOC_OR_LOC (arg2, loc),
+			  "third operand to the conditional operator "
+			  "is of type %<void%>, but the second operand is "
+			  "neither a throw-expression nor of type %<void%>");
             }
 	  return error_mark_node;
 	}
@@ -4583,8 +4629,8 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	  || (conv3 && conv3->kind == ck_ambig))
 	{
 	  if (complain & tf_error)
-	    error ("operands to ?: have different types %qT and %qT",
-		   arg2_type, arg3_type);
+	    error_at (loc, "operands to ?: have different types %qT and %qT",
+		      arg2_type, arg3_type);
 	  result = error_mark_node;
 	}
       else if (conv2 && (!conv2->bad_p || !conv3))
@@ -4641,10 +4687,11 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 
   /* [expr.cond]
 
-     If the second and third operands are lvalues and have the same
-     type, the result is of that type and is an lvalue.  */
-  if (real_lvalue_p (arg2)
-      && real_lvalue_p (arg3)
+     If the second and third operands are glvalues of the same value
+     category and have the same type, the result is of that type and
+     value category.  */
+  if (((real_lvalue_p (arg2) && real_lvalue_p (arg3))
+       || (xvalue_p (arg2) && xvalue_p (arg3)))
       && same_type_p (arg2_type, arg3_type))
     {
       result_type = arg2_type;
@@ -4690,9 +4737,8 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	{
           if (complain & tf_error)
             {
-              op_error (input_location, COND_EXPR, NOP_EXPR,
-			arg1, arg2, arg3, FALSE);
-              print_z_candidates (location_of (arg1), candidates);
+              op_error (loc, COND_EXPR, NOP_EXPR, arg1, arg2, arg3, FALSE);
+              print_z_candidates (loc, candidates);
             }
 	  return error_mark_node;
 	}
@@ -4701,9 +4747,8 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	{
           if (complain & tf_error)
             {
-              op_error (input_location, COND_EXPR, NOP_EXPR,
-			arg1, arg2, arg3, FALSE);
-              print_z_candidates (location_of (arg1), candidates);
+              op_error (loc, COND_EXPR, NOP_EXPR, arg1, arg2, arg3, FALSE);
+              print_z_candidates (loc, candidates);
             }
 	  return error_mark_node;
 	}
@@ -4770,7 +4815,7 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	do_warn_double_promotion (result_type, arg2_type, arg3_type,
 				  "implicit conversion from %qT to %qT to "
 				  "match other result of conditional",
-				  input_location);
+				  loc);
 
       if (TREE_CODE (arg2_type) == ENUMERAL_TYPE
 	  && TREE_CODE (arg3_type) == ENUMERAL_TYPE)
@@ -4781,19 +4826,20 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 	    /* Two enumerators from the same enumeration can have different
 	       types when the enumeration is still being defined.  */;
           else if (complain & tf_warning)
-            warning (OPT_Wenum_compare, 
-                     "enumeral mismatch in conditional expression: %qT vs %qT",
-                     arg2_type, arg3_type);
+            warning_at (loc, OPT_Wenum_compare, "enumeral mismatch in "
+			"conditional expression: %qT vs %qT",
+			arg2_type, arg3_type);
         }
       else if (extra_warnings
 	       && ((TREE_CODE (arg2_type) == ENUMERAL_TYPE
 		    && !same_type_p (arg3_type, type_promotes_to (arg2_type)))
 		   || (TREE_CODE (arg3_type) == ENUMERAL_TYPE
-		       && !same_type_p (arg2_type, type_promotes_to (arg3_type)))))
+		       && !same_type_p (arg2_type,
+					type_promotes_to (arg3_type)))))
         {
           if (complain & tf_warning)
-            warning (0, 
-                     "enumeral and non-enumeral type in conditional expression");
+            warning_at (loc, 0, "enumeral and non-enumeral type in "
+			"conditional expression");
         }
 
       arg2 = perform_implicit_conversion (result_type, arg2, complain);
@@ -4835,8 +4881,8 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
   if (!result_type)
     {
       if (complain & tf_error)
-        error ("operands to ?: have different types %qT and %qT",
-               arg2_type, arg3_type);
+        error_at (loc, "operands to ?: have different types %qT and %qT",
+		  arg2_type, arg3_type);
       return error_mark_node;
     }
 
@@ -4873,12 +4919,12 @@ build_conditional_expr_1 (tree arg1, tree arg2, tree arg3,
 /* Wrapper for above.  */
 
 tree
-build_conditional_expr (tree arg1, tree arg2, tree arg3,
+build_conditional_expr (location_t loc, tree arg1, tree arg2, tree arg3,
                         tsubst_flags_t complain)
 {
   tree ret;
   bool subtime = timevar_cond_start (TV_OVERLOAD);
-  ret = build_conditional_expr_1 (arg1, arg2, arg3, complain);
+  ret = build_conditional_expr_1 (loc, arg1, arg2, arg3, complain);
   timevar_cond_stop (TV_OVERLOAD, subtime);
   return ret;
 }
@@ -5418,7 +5464,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case BIT_AND_EXPR:
     case BIT_IOR_EXPR:
     case BIT_XOR_EXPR:
-      return cp_build_binary_op (input_location, code, arg1, arg2, complain);
+      return cp_build_binary_op (loc, code, arg1, arg2, complain);
 
     case UNARY_PLUS_EXPR:
     case NEGATE_EXPR:
@@ -5857,10 +5903,9 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  else if (t->kind == ck_identity)
 	    break;
 	}
-
-      if (permerror (loc, "invalid conversion from %qT to %qT",
-		     TREE_TYPE (expr), totype)
-	  && fn)
+       if (permerror (loc, "invalid conversion from %qT to %qT",
+                    TREE_TYPE (expr), totype)
+	   && fn)
 	inform (DECL_SOURCE_LOCATION (fn),
 		"initializing argument %P of %qD", argnum, fn);
 
@@ -6199,10 +6244,10 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   if (convs->check_narrowing)
     check_narrowing (totype, expr);
 
-  if (issue_conversion_warnings && (complain & tf_warning))
-    expr = convert_and_check (totype, expr);
+  if (issue_conversion_warnings)
+    expr = cp_convert_and_check (totype, expr, complain);
   else
-    expr = convert (totype, expr);
+    expr = cp_convert (totype, expr, complain);
 
   return expr;
 }
@@ -6394,7 +6439,7 @@ convert_default_arg (tree type, tree arg, tree fn, int parmnum,
   push_defarg_context (fn);
 
   if (fn && DECL_TEMPLATE_INFO (fn))
-    arg = tsubst_default_argument (fn, type, arg);
+    arg = tsubst_default_argument (fn, type, arg, complain);
 
   /* Due to:
 
@@ -6509,9 +6554,12 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
    which no conversions at all should be done.  This is true for some
    builtins which don't act like normal functions.  */
 
-static bool
+bool
 magic_varargs_p (tree fn)
 {
+  if (flag_enable_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
+    return true;
+
   if (DECL_BUILT_IN (fn))
     switch (DECL_FUNCTION_CODE (fn))
       {
@@ -6889,13 +6937,13 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
 	}
-
-      val = convert_like_with_context (conv, arg, fn, i-is_method,
-	                               conversion_warning
+      val = convert_like_with_context (conv, arg, fn, i - is_method,
+				       conversion_warning
 				       ? complain
 				       : complain & (~tf_warning));
 
       val = convert_for_arg_passing (type, val, complain);
+	
       if (val == error_mark_node)
         return error_mark_node;
       else
@@ -7053,7 +7101,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
      otherwise the call should go through the dispatcher.  */
 
   if (DECL_FUNCTION_VERSIONED (fn)
-      && !targetm.target_option.can_inline_p (current_function_decl, fn))
+      && (current_function_decl == NULL
+	  || !targetm.target_option.can_inline_p (current_function_decl, fn)))
     {
       fn = get_function_version_dispatcher (fn);
       if (fn == NULL)
@@ -8810,6 +8859,20 @@ tourney (struct z_candidate *candidates, tsubst_flags_t complain)
 
 bool
 can_convert (tree to, tree from, tsubst_flags_t complain)
+{
+  tree arg = NULL_TREE;
+  /* implicit_conversion only considers user-defined conversions
+     if it has an expression for the call argument list.  */
+  if (CLASS_TYPE_P (from) || CLASS_TYPE_P (to))
+    arg = build1 (CAST_EXPR, from, NULL_TREE);
+  return can_convert_arg (to, from, arg, LOOKUP_IMPLICIT, complain);
+}
+
+/* Returns nonzero if things of type FROM can be converted to TO with a
+   standard conversion.  */
+
+bool
+can_convert_standard (tree to, tree from, tsubst_flags_t complain)
 {
   return can_convert_arg (to, from, NULL_TREE, LOOKUP_IMPLICIT, complain);
 }

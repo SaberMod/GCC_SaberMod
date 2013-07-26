@@ -1694,7 +1694,8 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	      else
 		{
 		  si->writable = true;
-		  si->dont_invalidate = true;
+		  gsi_next (gsi);
+		  return false;
 		}
 	    }
 	  else
@@ -1703,7 +1704,7 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	       its length may be decreased.  */
 	    adjust_last_stmt (si, stmt, false);
 	}
-      else if (si != NULL)
+      else if (si != NULL && integer_zerop (gimple_assign_rhs1 (stmt)))
 	{
 	  si = unshare_strinfo (si);
 	  si->length = build_int_cst (size_type_node, 0);
@@ -1716,6 +1717,33 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	  if (ssaname && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ssaname))
 	    si->endptr = ssaname;
 	  si->dont_invalidate = true;
+	}
+      /* If si->length is non-zero constant, we aren't overwriting '\0',
+	 and if we aren't storing '\0', we know that the length of the
+	 string and any other zero terminated string in memory remains
+	 the same.  In that case we move to the next gimple statement and
+	 return to signal the caller that it shouldn't invalidate anything.  
+
+	 This is benefical for cases like:
+
+	 char p[20];
+	 void foo (char *q)
+	 {
+	   strcpy (p, "foobar");
+	   size_t len = strlen (p);        // This can be optimized into 6
+	   size_t len2 = strlen (q);        // This has to be computed
+	   p[0] = 'X';
+	   size_t len3 = strlen (p);        // This can be optimized into 6
+	   size_t len4 = strlen (q);        // This can be optimized into len2
+	   bar (len, len2, len3, len4);
+        }
+	*/ 
+      else if (si != NULL && si->length != NULL_TREE
+	       && TREE_CODE (si->length) == INTEGER_CST
+	       && integer_nonzerop (gimple_assign_rhs1 (stmt)))
+	{
+	  gsi_next (gsi);
+	  return false;
 	}
     }
   else if (idx == 0 && initializer_zerop (gimple_assign_rhs1 (stmt)))
@@ -1739,6 +1767,25 @@ handle_char_store (gimple_stmt_iterator *gsi)
 	}
       if (si != NULL)
 	si->writable = true;
+    }
+  else if (idx == 0
+	   && TREE_CODE (gimple_assign_rhs1 (stmt)) == STRING_CST
+	   && ssaname == NULL_TREE
+	   && TREE_CODE (TREE_TYPE (lhs)) == ARRAY_TYPE)
+    {
+      size_t l = strlen (TREE_STRING_POINTER (gimple_assign_rhs1 (stmt)));
+      HOST_WIDE_INT a = int_size_in_bytes (TREE_TYPE (lhs));
+      if (a > 0 && (unsigned HOST_WIDE_INT) a > l)
+	{
+	  int idx = new_addr_stridx (lhs);
+	  if (idx != 0)
+	    {
+	      si = new_strinfo (build_fold_addr_expr (lhs), idx,
+				build_int_cst (size_type_node, l));
+	      set_strinfo (idx, si);
+	      si->dont_invalidate = true;
+	    }
+	}
     }
 
   if (si != NULL && initializer_zerop (gimple_assign_rhs1 (stmt)))

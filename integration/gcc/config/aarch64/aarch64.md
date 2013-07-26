@@ -80,6 +80,7 @@
     UNSPEC_FRINTZ
     UNSPEC_GOTSMALLPIC
     UNSPEC_GOTSMALLTLS
+    UNSPEC_GOTTINYPIC
     UNSPEC_LD2
     UNSPEC_LD3
     UNSPEC_LD4
@@ -774,17 +775,34 @@
         (match_operand:SHORT 1 "general_operand"      " r,M,D<hq>,m, m,rZ,*w,*w, r,*w"))]
   "(register_operand (operands[0], <MODE>mode)
     || aarch64_reg_or_zero (operands[1], <MODE>mode))"
-  "@
-   mov\\t%w0, %w1
-   mov\\t%w0, %1
-   movi\\t%0.<Vallxd>, %1
-   ldr<size>\\t%w0, %1
-   ldr\\t%<size>0, %1
-   str<size>\\t%w1, %0
-   str\\t%<size>1, %0
-   umov\\t%w0, %1.<v>[0]
-   dup\\t%0.<Vallxd>, %w1
-   dup\\t%0, %1.<v>[0]"
+{
+   switch (which_alternative)
+     {
+     case 0:
+       return "mov\t%w0, %w1";
+     case 1:
+       return "mov\t%w0, %1";
+     case 2:
+       return aarch64_output_scalar_simd_mov_immediate (operands[1],
+							<MODE>mode);
+     case 3:
+       return "ldr<size>\t%w0, %1";
+     case 4:
+       return "ldr\t%<size>0, %1";
+     case 5:
+       return "str<size>\t%w1, %0";
+     case 6:
+       return "str\t%<size>1, %0";
+     case 7:
+       return "umov\t%w0, %1.<v>[0]";
+     case 8:
+       return "dup\t%0.<Vallxd>, %w1";
+     case 9:
+       return "dup\t%0, %1.<v>[0]";
+     default:
+       gcc_unreachable ();
+     }
+}
   [(set_attr "v8type" "move,alu,alu,load1,load1,store1,store1,*,*,*")
    (set_attr "simd_type" "*,*,simd_move_imm,*,*,*,*,simd_movgp,simd_dupgp,simd_dup")
    (set_attr "simd" "*,*,yes,*,*,*,*,yes,yes,yes")
@@ -809,28 +827,32 @@
 )
 
 (define_insn "*movsi_aarch64"
-  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,r,r,*w,m,  m,*w, r,*w")
-	(match_operand:SI 1 "aarch64_mov_operand"  " r,M,m, m,rZ,*w,rZ,*w,*w"))]
+  [(set (match_operand:SI 0 "nonimmediate_operand" "=r,k,r,r,r,*w,m,  m,r,r  ,*w, r,*w")
+	(match_operand:SI 1 "aarch64_mov_operand"  " r,r,k,M,m, m,rZ,*w,S,Ush,rZ,*w,*w"))]
   "(register_operand (operands[0], SImode)
     || aarch64_reg_or_zero (operands[1], SImode))"
   "@
+   mov\\t%w0, %w1
+   mov\\t%w0, %w1
    mov\\t%w0, %w1
    mov\\t%w0, %1
    ldr\\t%w0, %1
    ldr\\t%s0, %1
    str\\t%w1, %0
    str\\t%s1, %0
+   adr\\t%x0, %a1
+   adrp\\t%x0, %A1
    fmov\\t%s0, %w1
    fmov\\t%w0, %s1
    fmov\\t%s0, %s1"
-  [(set_attr "v8type" "move,alu,load1,load1,store1,store1,fmov,fmov,fmov")
+  [(set_attr "v8type" "move,move,move,alu,load1,load1,store1,store1,adr,adr,fmov,fmov,fmov")
    (set_attr "mode" "SI")
-   (set_attr "fp" "*,*,*,yes,*,yes,yes,yes,yes")]
+   (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes")]
 )
 
 (define_insn "*movdi_aarch64"
-  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,*w,m,  m,r,  r,  *w, r,*w,w")
-	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,m, m,rZ,*w,Usa,Ush,rZ,*w,*w,Dd"))]
+  [(set (match_operand:DI 0 "nonimmediate_operand" "=r,k,r,r,r,*w,m,  m,r,r,  *w, r,*w,w")
+	(match_operand:DI 1 "aarch64_mov_operand"  " r,r,k,N,m, m,rZ,*w,S,Ush,rZ,*w,*w,Dd"))]
   "(register_operand (operands[0], DImode)
     || aarch64_reg_or_zero (operands[1], DImode))"
   "@
@@ -850,7 +872,8 @@
    movi\\t%d0, %1"
   [(set_attr "v8type" "move,move,move,alu,load1,load1,store1,store1,adr,adr,fmov,fmov,fmov,fmov")
    (set_attr "mode" "DI")
-   (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,yes")]
+   (set_attr "fp" "*,*,*,*,*,yes,*,yes,*,*,yes,yes,yes,*")
+   (set_attr "simd" "*,*,*,*,*,*,*,*,*,*,*,*,*,yes")]
 )
 
 (define_insn "insv_imm<mode>"
@@ -858,9 +881,8 @@
 			  (const_int 16)
 			  (match_operand:GPI 1 "const_int_operand" "n"))
 	(match_operand:GPI 2 "const_int_operand" "n"))]
-  "INTVAL (operands[1]) < GET_MODE_BITSIZE (<MODE>mode)
-   && INTVAL (operands[1]) % 16 == 0
-   && UINTVAL (operands[2]) <= 0xffff"
+  "UINTVAL (operands[1]) < GET_MODE_BITSIZE (<MODE>mode)
+   && UINTVAL (operands[1]) % 16 == 0"
   "movk\\t%<w>0, %X2, lsl %1"
   [(set_attr "v8type" "movk")
    (set_attr "mode" "<MODE>")]
@@ -1090,17 +1112,17 @@
 
 ;; Load pair with writeback.  This is primarily used in function epilogues
 ;; when restoring [fp,lr]
-(define_insn "loadwb_pair<GPI:mode>_<PTR:mode>"
+(define_insn "loadwb_pair<GPI:mode>_<P:mode>"
   [(parallel
-    [(set (match_operand:PTR 0 "register_operand" "=k")
-          (plus:PTR (match_operand:PTR 1 "register_operand" "0")
-                  (match_operand:PTR 4 "const_int_operand" "n")))
+    [(set (match_operand:P 0 "register_operand" "=k")
+          (plus:P (match_operand:P 1 "register_operand" "0")
+                  (match_operand:P 4 "const_int_operand" "n")))
      (set (match_operand:GPI 2 "register_operand" "=r")
-          (mem:GPI (plus:PTR (match_dup 1)
+          (mem:GPI (plus:P (match_dup 1)
                    (match_dup 4))))
      (set (match_operand:GPI 3 "register_operand" "=r")
-          (mem:GPI (plus:PTR (match_dup 1)
-                   (match_operand:PTR 5 "const_int_operand" "n"))))])]
+          (mem:GPI (plus:P (match_dup 1)
+                   (match_operand:P 5 "const_int_operand" "n"))))])]
   "INTVAL (operands[5]) == INTVAL (operands[4]) + GET_MODE_SIZE (<GPI:MODE>mode)"
   "ldp\\t%<w>2, %<w>3, [%1], %4"
   [(set_attr "v8type" "load2")
@@ -1109,16 +1131,16 @@
 
 ;; Store pair with writeback.  This is primarily used in function prologues
 ;; when saving [fp,lr]
-(define_insn "storewb_pair<GPI:mode>_<PTR:mode>"
+(define_insn "storewb_pair<GPI:mode>_<P:mode>"
   [(parallel
-    [(set (match_operand:PTR 0 "register_operand" "=&k")
-          (plus:PTR (match_operand:PTR 1 "register_operand" "0")
-                  (match_operand:PTR 4 "const_int_operand" "n")))
-     (set (mem:GPI (plus:PTR (match_dup 0)
+    [(set (match_operand:P 0 "register_operand" "=&k")
+          (plus:P (match_operand:P 1 "register_operand" "0")
+                  (match_operand:P 4 "const_int_operand" "n")))
+     (set (mem:GPI (plus:P (match_dup 0)
                    (match_dup 4)))
           (match_operand:GPI 2 "register_operand" "r"))
-     (set (mem:GPI (plus:PTR (match_dup 0)
-                   (match_operand:PTR 5 "const_int_operand" "n")))
+     (set (mem:GPI (plus:P (match_dup 0)
+                   (match_operand:P 5 "const_int_operand" "n")))
           (match_operand:GPI 3 "register_operand" "r"))])]
   "INTVAL (operands[5]) == INTVAL (operands[4]) + GET_MODE_SIZE (<GPI:MODE>mode)"
   "stp\\t%<w>2, %<w>3, [%0, %4]!"
@@ -1984,6 +2006,38 @@
   return \"sub\t%w0, %w4, %w1, uxt%e3 %p2\";"
   [(set_attr "v8type" "alu_ext")
    (set_attr "mode" "SI")]
+)
+
+(define_insn_and_split "absdi2"
+  [(set (match_operand:DI 0 "register_operand" "=r,w")
+	(abs:DI (match_operand:DI 1 "register_operand" "r,w")))
+   (clobber (match_scratch:DI 2 "=&r,X"))]
+  ""
+  "@
+   #
+   abs\\t%d0, %d1"
+  "reload_completed
+   && GP_REGNUM_P (REGNO (operands[0]))
+   && GP_REGNUM_P (REGNO (operands[1]))"
+  [(const_int 0)]
+  {
+    emit_insn (gen_rtx_SET (VOIDmode, operands[2],
+			    gen_rtx_XOR (DImode,
+					 gen_rtx_ASHIFTRT (DImode,
+							   operands[1],
+							   GEN_INT (63)),
+					 operands[1])));
+    emit_insn (gen_rtx_SET (VOIDmode,
+			    operands[0],
+			    gen_rtx_MINUS (DImode,
+					   operands[2],
+					   gen_rtx_ASHIFTRT (DImode,
+							     operands[1],
+							     GEN_INT (63)))));
+    DONE;
+  }
+  [(set_attr "v8type" "alu")
+   (set_attr "mode" "DI")]
 )
 
 (define_insn "neg<mode>2"
@@ -3164,6 +3218,65 @@
    (set_attr "mode" "<MODE>")]
 )
 
+;; Bitfield Insert (insv)
+(define_expand "insv<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand")
+			  (match_operand 1 "const_int_operand")
+			  (match_operand 2 "const_int_operand"))
+	(match_operand:GPI 3 "general_operand"))]
+  ""
+{
+  unsigned HOST_WIDE_INT width = UINTVAL (operands[1]);
+  unsigned HOST_WIDE_INT pos = UINTVAL (operands[2]);
+  rtx value = operands[3];
+
+  if (width == 0 || (pos + width) > GET_MODE_BITSIZE (<MODE>mode))
+    FAIL;
+
+  if (CONST_INT_P (value))
+    {
+      unsigned HOST_WIDE_INT mask = ((unsigned HOST_WIDE_INT)1 << width) - 1;
+
+      /* Prefer AND/OR for inserting all zeros or all ones.  */
+      if ((UINTVAL (value) & mask) == 0
+	   || (UINTVAL (value) & mask) == mask)
+	FAIL;
+
+      /* 16-bit aligned 16-bit wide insert is handled by insv_imm.  */
+      if (width == 16 && (pos % 16) == 0)
+	DONE;
+    }
+  operands[3] = force_reg (<MODE>mode, value);
+})
+
+(define_insn "*insv_reg<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand" "+r")
+			  (match_operand 1 "const_int_operand" "n")
+			  (match_operand 2 "const_int_operand" "n"))
+	(match_operand:GPI 3 "register_operand" "r"))]
+  "!(UINTVAL (operands[1]) == 0
+     || (UINTVAL (operands[2]) + UINTVAL (operands[1])
+	 > GET_MODE_BITSIZE (<MODE>mode)))"
+  "bfi\\t%<w>0, %<w>3, %2, %1"
+  [(set_attr "v8type" "bfm")
+   (set_attr "mode" "<MODE>")]
+)
+
+(define_insn "*extr_insv_lower_reg<mode>"
+  [(set (zero_extract:GPI (match_operand:GPI 0 "register_operand" "+r")
+			  (match_operand 1 "const_int_operand" "n")
+			  (const_int 0))
+	(zero_extract:GPI (match_operand:GPI 2 "register_operand" "+r")
+			  (match_dup 1)
+			  (match_operand 3 "const_int_operand" "n")))]
+  "!(UINTVAL (operands[1]) == 0
+     || (UINTVAL (operands[3]) + UINTVAL (operands[1])
+	 > GET_MODE_BITSIZE (<MODE>mode)))"
+  "bfxil\\t%<w>0, %<w>2, %3, %1"
+  [(set_attr "v8type" "bfm")
+   (set_attr "mode" "<MODE>")]
+)
+
 (define_insn "*<optab><ALLX:mode>_shft_<GPI:mode>"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(ashift:GPI (ANY_EXTEND:GPI
@@ -3620,25 +3733,63 @@
 ;; and lo_sum's to be used with the labels defining the jump tables in
 ;; rodata section.
 
-(define_insn "add_losym"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(lo_sum:DI (match_operand:DI 1 "register_operand" "r")
-		   (match_operand 2 "aarch64_valid_symref" "S")))]
+(define_expand "add_losym"
+  [(set (match_operand 0 "register_operand" "=r")
+	(lo_sum (match_operand 1 "register_operand" "r")
+		(match_operand 2 "aarch64_valid_symref" "S")))]
   ""
-  "add\\t%0, %1, :lo12:%a2"
-  [(set_attr "v8type" "alu")
-   (set_attr "mode" "DI")]
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
 
+  emit_insn ((mode == DImode
+	      ? gen_add_losym_di
+	      : gen_add_losym_si) (operands[0],
+				   operands[1],
+				   operands[2]));
+  DONE;
+})
+
+(define_insn "add_losym_<mode>"
+  [(set (match_operand:P 0 "register_operand" "=r")
+	(lo_sum:P (match_operand:P 1 "register_operand" "r")
+		  (match_operand 2 "aarch64_valid_symref" "S")))]
+  ""
+  "add\\t%<w>0, %<w>1, :lo12:%a2"
+  [(set_attr "v8type" "alu")
+   (set_attr "mode" "<MODE>")]
 )
 
-(define_insn "ldr_got_small"
-  [(set (match_operand:DI 0 "register_operand" "=r")
-	(unspec:DI [(mem:DI (lo_sum:DI
-			      (match_operand:DI 1 "register_operand" "r")
-			      (match_operand:DI 2 "aarch64_valid_symref" "S")))]
-		   UNSPEC_GOTSMALLPIC))]
+(define_insn "ldr_got_small_<mode>"
+  [(set (match_operand:PTR 0 "register_operand" "=r")
+	(unspec:PTR [(mem:PTR (lo_sum:PTR
+			      (match_operand:PTR 1 "register_operand" "r")
+			      (match_operand:PTR 2 "aarch64_valid_symref" "S")))]
+		    UNSPEC_GOTSMALLPIC))]
   ""
-  "ldr\\t%0, [%1, #:got_lo12:%a2]"
+  "ldr\\t%<w>0, [%1, #:got_lo12:%a2]"
+  [(set_attr "v8type" "load1")
+   (set_attr "mode" "<MODE>")]
+)
+
+(define_insn "ldr_got_small_sidi"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(zero_extend:DI
+	 (unspec:SI [(mem:SI (lo_sum:DI
+			     (match_operand:DI 1 "register_operand" "r")
+			     (match_operand:DI 2 "aarch64_valid_symref" "S")))]
+		    UNSPEC_GOTSMALLPIC)))]
+  "TARGET_ILP32"
+  "ldr\\t%w0, [%1, #:got_lo12:%a2]"
+  [(set_attr "v8type" "load1")
+   (set_attr "mode" "DI")]
+)
+
+(define_insn "ldr_got_tiny"
+  [(set (match_operand:DI 0 "register_operand" "=r")
+	(unspec:DI [(match_operand:DI 1 "aarch64_valid_symref" "S")]
+		   UNSPEC_GOTTINYPIC))]
+  ""
+  "ldr\\t%0, %L1"
   [(set_attr "v8type" "load1")
    (set_attr "mode" "DI")]
 )

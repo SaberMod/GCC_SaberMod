@@ -343,7 +343,11 @@ remove_path (edge e)
     FOR_EACH_EDGE (ae, ei, e->src->succs)
       if (ae != e && ae->dest != EXIT_BLOCK_PTR && !bitmap_bit_p (seen, ae->dest->index)
 	  && ae->flags & EDGE_IRREDUCIBLE_LOOP)
-	irred_invalidated = true;
+	{
+	  irred_invalidated = true;
+	  break;
+	}
+
   for (i = 0; i < nrem; i++)
     {
       bb = rem_bbs[i];
@@ -1300,7 +1304,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
       /* Copy bbs.  */
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop,
-		place_after);
+		place_after, true);
       place_after = new_spec_edges[SE_LATCH]->src;
 
       if (flags & DLTHE_RECORD_COPY_NUMBER)

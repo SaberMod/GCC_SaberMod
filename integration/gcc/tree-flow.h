@@ -395,7 +395,7 @@ extern void verify_gimple_in_cfg (struct function *);
 extern tree gimple_block_label (basic_block);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern bool gimple_duplicate_sese_region (edge, edge, basic_block *, unsigned,
-					basic_block *);
+					basic_block *, bool);
 extern bool gimple_duplicate_sese_tail (edge, edge, basic_block *, unsigned,
 				      basic_block *);
 extern void gather_blocks_in_sese_region (basic_block entry, basic_block exit,
@@ -464,7 +464,7 @@ extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
 extern bool gimple_seq_may_fallthru (gimple_seq);
 extern bool gimple_stmt_may_fallthru (gimple);
-extern bool gimple_check_call_matching_types (gimple, tree);
+extern bool gimple_check_call_matching_types (gimple, tree, bool);
 
 
 /* In tree-ssa.c  */

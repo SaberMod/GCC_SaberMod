@@ -646,6 +646,15 @@ check_classfn (tree ctype, tree function, tree template_parms)
   /* OK, is this a definition of a member template?  */
   is_template = (template_parms != NULL_TREE);
 
+  /* [temp.mem]
+
+     A destructor shall not be a member template.  */
+  if (DECL_DESTRUCTOR_P (function) && is_template)
+    {
+      error ("destructor %qD declared as member template", function);
+      return error_mark_node;
+    }
+
   /* We must enter the scope here, because conversion operators are
      named by target type, and type equivalence relies on typenames
      resolving within the scope of CTYPE.  */
@@ -826,9 +835,11 @@ grokfield (const cp_declarator *declarator,
     init = NULL_TREE;
 
   value = grokdeclarator (declarator, declspecs, FIELD, init != 0, &attrlist);
-  if (! value || error_operand_p (value))
+  if (! value || value == error_mark_node)
     /* friend or constructor went bad.  */
     return error_mark_node;
+  if (TREE_TYPE (value) == error_mark_node)
+    return value;
 
   if (TREE_CODE (value) == TYPE_DECL && init)
     {
@@ -1036,8 +1047,10 @@ grokbitfield (const cp_declarator *declarator,
 {
   tree value = grokdeclarator (declarator, declspecs, BITFIELD, 0, &attrlist);
 
-  if (value == error_mark_node) 
+  if (value == error_mark_node)
     return NULL_TREE; /* friends went bad.  */
+  if (TREE_TYPE (value) == error_mark_node)
+    return value;
 
   /* Pass friendly classes back.  */
   if (VOID_TYPE_P (value))
@@ -1694,9 +1707,10 @@ maybe_make_one_only (tree decl)
 
       if (VAR_P (decl))
 	{
+          struct varpool_node *node = varpool_node_for_decl (decl);
 	  DECL_COMDAT (decl) = 1;
 	  /* Mark it needed so we don't forget to emit it.  */
-	  mark_decl_referenced (decl);
+          node->symbol.forced_by_abi = true;
 	  TREE_USED (decl) = 1;
 	}
     }
@@ -1794,7 +1808,7 @@ import_export_class (tree ctype)
 static bool
 var_finalized_p (tree var)
 {
-  return varpool_node_for_decl (var)->finalized;
+  return varpool_node_for_decl (var)->symbol.definition;
 }
 
 /* DECL is a VAR_DECL or FUNCTION_DECL which, for whatever reason,
@@ -1804,7 +1818,22 @@ void
 mark_needed (tree decl)
 {
   TREE_USED (decl) = 1;
-  mark_decl_referenced (decl);
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      /* Extern inline functions don't become needed when referenced.
+	 If we know a method will be emitted in other TU and no new
+	 functions can be marked reachable, just use the external
+	 definition.  */
+      struct cgraph_node *node = cgraph_get_create_node (decl);
+      node->symbol.forced_by_abi = true;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      struct varpool_node *node = varpool_node_for_decl (decl);
+      /* C++ frontend use mark_decl_references to force COMDAT variables
+         to be output that might appear dead otherwise.  */
+      node->symbol.forced_by_abi = true;
+    }
 }
 
 /* DECL is either a FUNCTION_DECL or a VAR_DECL.  This function
@@ -2210,9 +2239,6 @@ determine_visibility (tree decl)
 	      && !lookup_attribute ("visibility", attribs))
 	    {
 	      int depth = TMPL_ARGS_DEPTH (args);
-	      int class_depth = 0;
-	      if (class_type && CLASSTYPE_TEMPLATE_INFO (class_type))
-		class_depth = TMPL_ARGS_DEPTH (CLASSTYPE_TI_ARGS (class_type));
 	      if (DECL_VISIBILITY_SPECIFIED (decl))
 		{
 		  /* A class template member with explicit visibility
@@ -2225,7 +2251,7 @@ determine_visibility (tree decl)
 		      constrain_visibility_for_template (decl, lev);
 		    }
 		}
-	      else if (depth > class_depth)
+	      else if (PRIMARY_TEMPLATE_P (TI_TEMPLATE (tinfo)))
 		/* Limit visibility based on its template arguments.  */
 		constrain_visibility_for_template (decl, args);
 	    }
@@ -4195,8 +4221,8 @@ cp_write_global_declarations (void)
 	      struct cgraph_node *node, *next;
 
 	      node = cgraph_get_node (decl);
-	      if (node->same_body_alias)
-		node = cgraph_alias_aliased_node (node);
+	      if (node->symbol.cpp_implicit_alias)
+		node = cgraph_alias_target (node);
 
 	      cgraph_for_node_and_aliases (node, clear_decl_external,
 					   NULL, true);
@@ -4218,7 +4244,7 @@ cp_write_global_declarations (void)
 	  if (!DECL_EXTERNAL (decl)
 	      && decl_needed_p (decl)
 	      && !TREE_ASM_WRITTEN (decl)
-	      && !cgraph_get_node (decl)->local.finalized)
+	      && !cgraph_get_node (decl)->symbol.definition)
 	    {
 	      /* We will output the function; no longer consider it in this
 		 loop.  */
@@ -4493,7 +4519,7 @@ possibly_inlined_p (tree decl)
    wrong, true otherwise.  */
 
 bool
-mark_used (tree decl)
+mark_used (tree decl, tsubst_flags_t complain)
 {
   /* If DECL is a BASELINK for a single function, then treat it just
      like the DECL for the function.  Otherwise, if the BASELINK is
@@ -4531,9 +4557,12 @@ mark_used (tree decl)
 	      return false;
 	    }
 	}
-      error ("use of deleted function %qD", decl);
-      if (!maybe_explain_implicit_delete (decl))
-	error_at (DECL_SOURCE_LOCATION (decl), "declared here");
+      if (complain & tf_error)
+	{
+	  error ("use of deleted function %qD", decl);
+	  if (!maybe_explain_implicit_delete (decl))
+	    inform (DECL_SOURCE_LOCATION (decl), "declared here");
+	}
       return false;
     }
 
@@ -4546,7 +4575,8 @@ mark_used (tree decl)
     {
       if (!processing_template_decl && type_uses_auto (TREE_TYPE (decl)))
 	{
-	  error ("use of %qD before deduction of %<auto%>", decl);
+	  if (complain & tf_error)
+	    error ("use of %qD before deduction of %<auto%>", decl);
 	  return false;
 	}
       return true;
@@ -4693,6 +4723,12 @@ mark_used (tree decl)
     }
 
   return true;
+}
+
+bool
+mark_used (tree decl)
+{
+  return mark_used (decl, tf_warning_or_error);
 }
 
 #include "gt-cp-decl2.h"

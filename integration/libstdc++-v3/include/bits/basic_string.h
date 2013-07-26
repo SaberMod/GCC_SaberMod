@@ -2767,10 +2767,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    *  Stores characters from @a __is into @a __str until @a __delim is
    *  found, the end of the stream is encountered, or str.max_size()
-   *  is reached.  If is.width() is non-zero, that is the limit on the
-   *  number of characters stored into @a __str.  Any previous
-   *  contents of @a __str are erased.  If @a __delim was encountered,
-   *  it is extracted but not stored into @a __str.
+   *  is reached.  Any previous contents of @a __str are erased.  If
+   *  @a __delim is encountered, it is extracted but not stored into
+   *  @a __str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_istream<_CharT, _Traits>&
@@ -2785,10 +2784,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *
    *  Stores characters from is into @a __str until &apos;\n&apos; is
    *  found, the end of the stream is encountered, or str.max_size()
-   *  is reached.  If __is.width() is non-zero, that is the limit on
-   *  the number of characters stored into @a __str.  Any previous
-   *  contents of @a __str are erased.  If end of line was
-   *  encountered, it is extracted but not stored into @a __str.
+   *  is reached.  Any previous contents of @a __str are erased.  If
+   *  end of line is encountered, it is extracted but not stored into
+   *  @a __str.
    */
   template<typename _CharT, typename _Traits, typename _Alloc>
     inline basic_istream<_CharT, _Traits>&
@@ -3105,8 +3103,40 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     { };
 #endif
 
+#if __cplusplus > 201103L
+
+  inline namespace literals
+  {
+  inline namespace string_literals
+  {
+
+    inline basic_string<char>
+    operator"" s(const char* __str, size_t __len)
+    { return basic_string<char>{__str, __len}; }
+
+#ifdef _GLIBCXX_USE_WCHAR_T
+    inline basic_string<wchar_t>
+    operator"" s(const wchar_t* __str, size_t __len)
+    { return basic_string<wchar_t>{__str, __len}; }
+#endif
+
+#ifdef _GLIBCXX_USE_C99_STDINT_TR1
+    inline basic_string<char16_t>
+    operator"" s(const char16_t* __str, size_t __len)
+    { return basic_string<char16_t>{__str, __len}; }
+
+    inline basic_string<char32_t>
+    operator"" s(const char32_t* __str, size_t __len)
+    { return basic_string<char32_t>{__str, __len}; }
+#endif
+
+  } // inline namespace string_literals
+  } // inline namespace literals
+
+#endif // __cplusplus > 201103L
+
 _GLIBCXX_END_NAMESPACE_VERSION
-} // namespace
+} // namespace std
 
 #endif // C++11
 

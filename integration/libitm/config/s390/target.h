@@ -22,6 +22,10 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
+#ifdef HAVE_SYS_AUXV_H
+#include <sys/auxv.h>
+#endif
+
 namespace GTM HIDDEN {
 
 #define HW_CACHELINE_SIZE 256
@@ -51,5 +55,69 @@ cpu_relax (void)
 {
   __asm volatile ("" : : : "memory");
 }
+
+
+// Use HTM if it is supported by the system.
+// See gtm_thread::begin_transaction for how these functions are used.
+#if defined (__linux__) \
+    && defined (HAVE_AS_HTM) \
+    && defined (HAVE_GETAUXVAL) \
+    && defined (HWCAP_S390_TE)
+
+#include <htmintrin.h>
+
+/* Number of retries for transient failures.  */
+#define _HTM_ITM_RETRIES 10
+#define USE_HTM_FASTPATH
+
+static inline bool
+htm_available ()
+{
+  return (getauxval (AT_HWCAP) & HWCAP_S390_TE) ? true : false;
+}
+
+static inline uint32_t
+htm_init ()
+{
+  return htm_available () ? _HTM_ITM_RETRIES : 0;
+}
+
+static inline uint32_t
+htm_begin ()
+{
+  return __builtin_tbegin_nofloat (NULL);
+}
+
+static inline bool
+htm_begin_success (uint32_t begin_ret)
+{
+  return begin_ret == _HTM_TBEGIN_STARTED;
+}
+
+static inline void
+htm_commit ()
+{
+  __builtin_tend ();
+}
+
+static inline void
+htm_abort ()
+{
+  __builtin_tabort (_HTM_FIRST_USER_ABORT_CODE);
+}
+
+static inline bool
+htm_abort_should_retry (uint32_t begin_ret)
+{
+  return begin_ret == _HTM_TBEGIN_TRANSIENT;
+}
+
+static inline bool
+htm_transaction_active ()
+{
+  return __builtin_tx_nesting_depth() != 0;
+}
+
+#endif
 
 } // namespace GTM

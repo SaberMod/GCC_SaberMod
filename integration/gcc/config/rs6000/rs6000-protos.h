@@ -50,6 +50,7 @@ extern rtx rs6000_got_register (rtx);
 extern rtx find_addr_reg (rtx);
 extern rtx gen_easy_altivec_constant (rtx);
 extern const char *output_vec_const_move (rtx *);
+extern const char *rs6000_output_move_128bit (rtx *);
 extern void rs6000_expand_vector_init (rtx, rtx);
 extern void paired_expand_vector_init (rtx, rtx);
 extern void rs6000_expand_vector_set (rtx, rtx, int);
@@ -70,6 +71,8 @@ extern int insvdi_rshift_rlwimi_p (rtx, rtx, rtx);
 extern int registers_ok_for_quad_peep (rtx, rtx);
 extern int mems_ok_for_quad_peep (rtx, rtx);
 extern bool gpr_or_gpr_p (rtx, rtx);
+extern bool direct_move_p (rtx, rtx);
+extern bool quad_load_store_p (rtx, rtx);
 extern enum reg_class (*rs6000_preferred_reload_class_ptr) (rtx,
 							    enum reg_class);
 extern enum reg_class (*rs6000_secondary_reload_class_ptr) (enum reg_class,
@@ -135,9 +138,11 @@ extern rtx rs6000_address_for_fpconvert (rtx);
 extern rtx rs6000_address_for_altivec (rtx);
 extern rtx rs6000_allocate_stack_temp (enum machine_mode, bool, bool);
 extern int rs6000_loop_align (rtx);
+extern void rs6000_split_logical (rtx [], enum rtx_code, bool, bool, bool, rtx);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
+extern unsigned int rs6000_data_alignment (tree, unsigned int, enum data_align);
 extern unsigned int rs6000_special_round_type_align (tree, unsigned int,
 						     unsigned int);
 extern unsigned int darwin_rs6000_special_round_type_align (tree, unsigned int,

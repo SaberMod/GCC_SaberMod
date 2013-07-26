@@ -269,7 +269,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 				 DR_REF (drb));
 	    }
-	  return false;
+	  return true;
 	}
 
       if (dump_enabled_p ())
@@ -305,7 +305,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	      dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM,
 				 DR_REF (drb));
 	    }
-	  return false;
+	  return true;
 	}
 
       if (dump_enabled_p ())
@@ -1024,7 +1024,8 @@ vector_alignment_reachable_p (struct data_reference *dr)
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
                          "Unknown misalignment, is_packed = %d",is_packed);
-      if (targetm.vectorize.vector_alignment_reachable (type, is_packed))
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.vector_alignment_reachable (type, is_packed))
 	return true;
       else
 	return false;
@@ -1323,7 +1324,6 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   bool stat;
   gimple stmt;
   stmt_vec_info stmt_info;
-  int vect_versioning_for_alias_required;
   unsigned int npeel = 0;
   bool all_misalignments_unknown = true;
   unsigned int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -1510,15 +1510,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
         }
     }
 
-  vect_versioning_for_alias_required
-    = LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo);
-
-  /* Temporarily, if versioning for alias is required, we disable peeling
-     until we support peeling and versioning.  Often peeling for alignment
-     will require peeling for loop-bound, which in turn requires that we
-     know how to adjust the loop ivs after the loop.  */
-  if (vect_versioning_for_alias_required
-      || !vect_can_advance_ivs_p (loop_vinfo)
+  /* Check if we can possibly peel the loop.  */
+  if (!vect_can_advance_ivs_p (loop_vinfo)
       || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
     do_peeling = false;
 
@@ -2318,6 +2311,81 @@ vect_analyze_data_ref_access (struct data_reference *dr)
   return vect_analyze_group_access (dr);
 }
 
+
+
+/*  A helper function used in the comparator function to sort data
+    references.  T1 and T2 are two data references to be compared.
+    The function returns -1, 0, or 1.  */
+
+static int
+compare_tree (tree t1, tree t2)
+{
+  int i, cmp;
+  enum tree_code code;
+  char tclass;
+
+  if (t1 == t2)
+    return 0;
+  if (t1 == NULL)
+    return -1;
+  if (t2 == NULL)
+    return 1;
+
+
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return TREE_CODE (t1) < TREE_CODE (t2) ? -1 : 1;
+
+  code = TREE_CODE (t1);
+  switch (code)
+    {
+    /* For const values, we can just use hash values for comparisons.  */
+    case INTEGER_CST:
+    case REAL_CST:
+    case FIXED_CST:
+    case STRING_CST:
+    case COMPLEX_CST:
+    case VECTOR_CST:
+      {
+	hashval_t h1 = iterative_hash_expr (t1, 0);
+	hashval_t h2 = iterative_hash_expr (t2, 0);
+	if (h1 != h2)
+	  return h1 < h2 ? -1 : 1;
+	break;
+      }
+
+    case SSA_NAME:
+      cmp = compare_tree (SSA_NAME_VAR (t1), SSA_NAME_VAR (t2));
+      if (cmp != 0)
+	return cmp;
+
+      if (SSA_NAME_VERSION (t1) != SSA_NAME_VERSION (t2))
+	return SSA_NAME_VERSION (t1) < SSA_NAME_VERSION (t2) ? -1 : 1;
+      break;
+
+    default:
+      tclass = TREE_CODE_CLASS (code);
+
+      /* For var-decl, we could compare their UIDs.  */
+      if (tclass == tcc_declaration)
+	{
+	  if (DECL_UID (t1) != DECL_UID (t2))
+	    return DECL_UID (t1) < DECL_UID (t2) ? -1 : 1;
+	  break;
+	}
+
+      /* For expressions with operands, compare their operands recursively.  */
+      for (i = TREE_OPERAND_LENGTH (t1) - 1; i >= 0; --i)
+	{
+	  cmp = compare_tree (TREE_OPERAND (t1, i), TREE_OPERAND (t2, i));
+	  if (cmp != 0)
+	    return cmp;
+	}
+    }
+
+  return 0;
+}
+
+
 /* Compare two data-references DRA and DRB to group them into chunks
    suitable for grouping.  */
 
@@ -2326,7 +2394,6 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
 {
   data_reference_p dra = *(data_reference_p *)const_cast<void *>(dra_);
   data_reference_p drb = *(data_reference_p *)const_cast<void *>(drb_);
-  hashval_t h1, h2;
   int cmp;
 
   /* Stabilize sort.  */
@@ -2336,19 +2403,17 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
   /* Ordering of DRs according to base.  */
   if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0))
     {
-      h1 = iterative_hash_expr (DR_BASE_ADDRESS (dra), 0);
-      h2 = iterative_hash_expr (DR_BASE_ADDRESS (drb), 0);
-      if (h1 != h2)
-	return h1 < h2 ? -1 : 1;
+      cmp = compare_tree (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb));
+      if (cmp != 0)
+        return cmp;
     }
 
   /* And according to DR_OFFSET.  */
   if (!dr_equal_offsets_p (dra, drb))
     {
-      h1 = iterative_hash_expr (DR_OFFSET (dra), 0);
-      h2 = iterative_hash_expr (DR_OFFSET (drb), 0);
-      if (h1 != h2)
-	return h1 < h2 ? -1 : 1;
+      cmp = compare_tree (DR_OFFSET (dra), DR_OFFSET (drb));
+      if (cmp != 0)
+        return cmp;
     }
 
   /* Put reads before writes.  */
@@ -2359,19 +2424,18 @@ dr_group_sort_cmp (const void *dra_, const void *drb_)
   if (!operand_equal_p (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
 			TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))), 0))
     {
-      h1 = iterative_hash_expr (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))), 0);
-      h2 = iterative_hash_expr (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))), 0);
-      if (h1 != h2)
-	return h1 < h2 ? -1 : 1;
+      cmp = compare_tree (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))),
+                          TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
+      if (cmp != 0)
+        return cmp;
     }
 
   /* And after step.  */
   if (!operand_equal_p (DR_STEP (dra), DR_STEP (drb), 0))
     {
-      h1 = iterative_hash_expr (DR_STEP (dra), 0);
-      h2 = iterative_hash_expr (DR_STEP (drb), 0);
-      if (h1 != h2)
-	return h1 < h2 ? -1 : 1;
+      cmp = compare_tree (DR_STEP (dra), DR_STEP (drb));
+      if (cmp != 0)
+        return cmp;
     }
 
   /* Then sort after DR_INIT.  In case of identical DRs sort after stmt UID.  */
@@ -2868,6 +2932,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
       bool gather = false;
       int vf;
 
+again:
       if (!dr || !DR_REF (dr))
         {
           if (dump_enabled_p ())
@@ -2878,6 +2943,19 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 
       stmt = DR_STMT (dr);
       stmt_info = vinfo_for_stmt (stmt);
+
+      /* Discard clobbers from the dataref vector.  We will remove
+         clobber stmts during vectorization.  */
+      if (gimple_clobber_p (stmt))
+	{
+	  if (i == datarefs.length () - 1)
+	    {
+	      datarefs.pop ();
+	      break;
+	    }
+	  datarefs[i] = datarefs.pop ();
+	  goto again;
+	}
 
       /* Check that analysis of the data-ref succeeded.  */
       if (!DR_BASE_ADDRESS (dr) || !DR_OFFSET (dr) || !DR_INIT (dr)
@@ -4722,9 +4800,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-      if (targetm.vectorize.
-	  support_vector_misalignment (mode, type,
-				       DR_MISALIGNMENT (dr), is_packed))
+      if ((TYPE_USER_ALIGN (type) && !is_packed)
+	  || targetm.vectorize.
+	       support_vector_misalignment (mode, type,
+					    DR_MISALIGNMENT (dr), is_packed))
 	/* Can't software pipeline the loads, but can at least do them.  */
 	return dr_unaligned_supported;
     }
@@ -4736,9 +4815,10 @@ vect_supportable_dr_alignment (struct data_reference *dr,
       if (!known_alignment_for_access_p (dr))
 	is_packed = not_size_aligned (DR_REF (dr));
 
-     if (targetm.vectorize.
-         support_vector_misalignment (mode, type,
-				      DR_MISALIGNMENT (dr), is_packed))
+     if ((TYPE_USER_ALIGN (type) && !is_packed)
+	 || targetm.vectorize.
+	      support_vector_misalignment (mode, type,
+					   DR_MISALIGNMENT (dr), is_packed))
        return dr_unaligned_supported;
     }
 

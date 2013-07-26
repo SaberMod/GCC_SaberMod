@@ -237,7 +237,7 @@ Objective-C and Objective-C++ Dialects}.
 -Waggressive-loop-optimizations -Warray-bounds @gol
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
--Wchar-subscripts -Wclobbered  -Wcomment @gol
+-Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
 -Wconversion  -Wcoverage-mismatch  -Wno-cpp  -Wno-deprecated  @gol
 -Wno-deprecated-declarations -Wdisabled-optimization  @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
@@ -470,7 +470,7 @@ Objective-C and Objective-C++ Dialects}.
 @c so users have a clue at guessing where the ones they want will be.
 
 @emph{AArch64 Options}
-@gccoptlist{-mbig-endian  -mlittle-endian @gol
+@gccoptlist{-mabi=@var{name}  -mbig-endian  -mlittle-endian @gol
 -mgeneral-regs-only @gol
 -mcmodel=tiny  -mcmodel=small  -mcmodel=large @gol
 -mstrict-align @gol
@@ -512,7 +512,8 @@ Objective-C and Objective-C++ Dialects}.
 -mword-relocations @gol
 -mfix-cortex-m3-ldrd @gol
 -munaligned-access @gol
--mneon-for-64bits}
+-mneon-for-64bits @gol
+-mrestrict-it}
 
 @emph{AVR Options}
 @gccoptlist{-mmcu=@var{mcu} -maccumulate-args -mbranch-cost=@var{cost} @gol
@@ -752,6 +753,7 @@ Objective-C and Objective-C++ Dialects}.
 -mno-float -msingle-float  -mdouble-float  @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
+-meva -mno-eva @gol
 -mmicromips -mno-micromips @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
@@ -860,7 +862,10 @@ See RS/6000 and PowerPC Options.
 -mno-recip-precision @gol
 -mveclibabi=@var{type} -mfriz -mno-friz @gol
 -mpointers-to-nested-functions -mno-pointers-to-nested-functions @gol
--msave-toc-indirect -mno-save-toc-indirect}
+-msave-toc-indirect -mno-save-toc-indirect @gol
+-mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
+-mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
+-mquad-memory -mno-quad-memory}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -933,7 +938,7 @@ See RS/6000 and PowerPC Options.
 -mvis2  -mno-vis2  -mvis3  -mno-vis3 @gol
 -mcbcond -mno-cbcond @gol
 -mfmaf  -mno-fmaf  -mpopc  -mno-popc @gol
--mfix-at697f}
+-mfix-at697f -mfix-ut699}
 
 @emph{SPU Options}
 @gccoptlist{-mwarn-reloc -merror-reloc @gol
@@ -1804,6 +1809,17 @@ compiler generates parallel code according to the OpenMP Application
 Program Interface v3.0 @w{@uref{http://www.openmp.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
+
+@item -fcilkplus
+@opindex fcilkplus
+@cindex Enable Cilk Plus
+Enable the usage of Cilk Language extension features for C/C++.  When the flag
+@option{-fcilkplus} is specified, all the Cilk Plus components are converted 
+to the appropriate C/C++ code.  The present implementation follows ABI version 
+0.9.  There are four major parts to Cilk Plus language 
+extension: Array Notations, Cilk Keywords, SIMD annotations and elemental 
+functions.  Detailed information about Cilk Plus can be found at 
+@w{@uref{http://www.cilkplus.org}}. 
 
 @item -fgnu-tm
 @opindex fgnu-tm
@@ -4386,6 +4402,11 @@ programs.
 Warn for variables that might be changed by @samp{longjmp} or
 @samp{vfork}.  This warning is also enabled by @option{-Wextra}.
 
+@item -Wconditionally-supported @r{(C++ and Objective-C++ only)}
+@opindex Wconditionally-supported
+@opindex Wno-conditionally-supported
+Warn for conditionally-supported (C++11 [intro.defs]) constructs.
+
 @item -Wconversion
 @opindex Wconversion
 @opindex Wno-conversion
@@ -6167,7 +6188,7 @@ Controls optimization dumps from various optimization passes. If the
 @samp{-@var{options}} form is used, @var{options} is a list of
 @samp{-} separated options to select the dump details and
 optimizations.  If @var{options} is not specified, it defaults to
-@option{all} for details and @option{optall} for optimization
+@option{optimized} for details and @option{optall} for optimization
 groups. If the @var{filename} is not specified, it defaults to
 @file{stderr}. Note that the output @var{filename} will be overwritten
 in case of multiple translation units. If a combined output from
@@ -10965,6 +10986,17 @@ These options are defined for AArch64 implementations:
 
 @table @gcctabopt
 
+@item -mabi=@var{name}
+@opindex mabi
+Generate code for the specified data model.  Permissible values
+are @samp{ilp32} for SysV-like data model where int, long int and pointer
+are 32-bit, and @samp{lp64} for SysV-like data model where int is 32-bit,
+but long int and pointer are 64-bit.
+
+The default depends on the specific target configuration.  Note that
+the LP64 and ILP32 ABIs are not link-compatible; you must compile your
+entire program with the same ABI, and link with a compatible set of libraries.
+
 @item -mbig-endian
 @opindex mbig-endian
 Generate big-endian code.  This is the default when GCC is configured for an
@@ -11632,6 +11664,12 @@ defined.
 Enables using Neon to handle scalar 64-bits operations. This is
 disabled by default since the cost of moving data from core registers
 to Neon is high.
+
+@item -mrestrict-it
+@opindex mrestrict-it
+Restricts generation of IT blocks to conform to the rules of ARMv8.
+IT blocks can only contain a single 16-bit instruction from a select
+set of instructions. This option is on by default for ARMv8 Thumb mode.
 @end table
 
 @node AVR Options
@@ -13825,9 +13863,18 @@ Intel Core CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3,
 SSE4.1, SSE4.2, AVX, AES, PCLMUL, FSGSBASE, RDRND and F16C instruction
 set support.
 
+@item core-avx2
+Intel Core CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1, SSE4.2, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA, BMI, BMI2
+and F16C instruction set support.
+
 @item atom
-Intel Atom CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
+Intel Atom CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
+
+@item slm
+Intel Silvermont CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1 and SSE4.2 instruction set support.
 
 @item k6
 AMD K6 CPU with MMX instruction set support.
@@ -16007,7 +16054,7 @@ The processor names are:
 @samp{1004kc}, @samp{1004kf2_1}, @samp{1004kf1_1},
 @samp{loongson2e}, @samp{loongson2f}, @samp{loongson3a},
 @samp{m4k},
-@samp{m14k}, @samp{m14ke}, @samp{m14kec},
+@samp{m14k}, @samp{m14kc}, @samp{m14ke}, @samp{m14kec},
 @samp{octeon}, @samp{octeon+}, @samp{octeon2},
 @samp{orion},
 @samp{r2000}, @samp{r3000}, @samp{r3900}, @samp{r4000}, @samp{r4400},
@@ -16139,7 +16186,7 @@ knows that the target of the jump is not compressed.
 @opindex mno-interlink-mips16
 Aliases of @option{-minterlink-compressed} and
 @option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
-and are retained for backwards compatiblity.
+and are retained for backwards compatibility.
 
 @item -mabi=32
 @itemx -mabi=o64
@@ -16375,6 +16422,12 @@ Use (do not use) MT Multithreading instructions.
 @opindex mmcu
 @opindex mno-mcu
 Use (do not use) the MIPS MCU ASE instructions.
+
+@item -meva
+@itemx -mno-eva
+@opindex meva
+@opindex mno-eva
+Use (do not use) the MIPS Enhanced Virtual Addressing instructions.
 
 @item -mlong64
 @opindex mlong64
@@ -17355,7 +17408,8 @@ following options:
 @gccoptlist{-maltivec  -mfprnd  -mhard-float  -mmfcrf  -mmultiple @gol
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
--msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx}
+-msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
+-mcrypto -mdirect-move -mpower8-fusion -mpower8-vector -mquad-memory}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -17472,6 +17526,47 @@ This option has been deprecated.  Use @option{-mspe} and
 Generate code that uses (does not use) vector/scalar (VSX)
 instructions, and also enable the use of built-in functions that allow
 more direct access to the VSX instruction set.
+
+@item -mcrypto
+@itemx -mno-crypto
+@opindex mcrypto
+@opindex mno-crypto
+Enable the use (disable) of the built-in functions that allow direct
+access to the cryptographic instructions that were added in version
+2.07 of the PowerPC ISA.
+
+@item -mdirect-move
+@itemx -mno-direct-move
+@opindex mdirect-move
+@opindex mno-direct-move
+Generate code that uses (does not use) the instructions to move data
+between the general purpose registers and the vector/scalar (VSX)
+registers that were added in version 2.07 of the PowerPC ISA.
+
+@item -mpower8-fusion
+@itemx -mno-power8-fusion
+@opindex mpower8-fusion
+@opindex mno-power8-fusion
+Generate code that keeps (does not keeps) some integer operations
+adjacent so that the instructions can be fused together on power8 and
+later processors.
+
+@item -mpower8-vector
+@itemx -mno-power8-vector
+@opindex mpower8-vector
+@opindex mno-power8-vector
+Generate code that uses (does not use) the vector and scalar
+instructions that were added in version 2.07 of the PowerPC ISA.  Also
+enable the use of built-in functions that allow more direct access to
+the vector instructions.
+
+@item -mquad-memory
+@itemx -mno-quad-memory
+@opindex mquad-memory
+@opindex mno-quad-memory
+Generate code that uses (does not use) the quad word memory
+instructions.  The @option{-mquad-memory} option requires use of
+64-bit mode.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
@@ -19262,10 +19357,10 @@ the rules of the ABI@.
 Set the instruction set, register set, and instruction scheduling parameters
 for machine type @var{cpu_type}.  Supported values for @var{cpu_type} are
 @samp{v7}, @samp{cypress}, @samp{v8}, @samp{supersparc}, @samp{hypersparc},
-@samp{leon}, @samp{sparclite}, @samp{f930}, @samp{f934}, @samp{sparclite86x},
-@samp{sparclet}, @samp{tsc701}, @samp{v9}, @samp{ultrasparc},
-@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3},
-and @samp{niagara4}.
+@samp{leon}, @samp{leon3}, @samp{sparclite}, @samp{f930}, @samp{f934},
+@samp{sparclite86x}, @samp{sparclet}, @samp{tsc701}, @samp{v9},
+@samp{ultrasparc}, @samp{ultrasparc3}, @samp{niagara}, @samp{niagara2},
+@samp{niagara3} and @samp{niagara4}.
 
 Native Solaris and GNU/Linux toolchains also support the value @samp{native},
 which selects the best architecture option for the host processor.
@@ -19284,7 +19379,7 @@ implementations.
 cypress
 
 @item v8
-supersparc, hypersparc, leon
+supersparc, hypersparc, leon, leon3
 
 @item sparclite
 f930, f934, sparclite86x
@@ -19346,10 +19441,11 @@ option @option{-mcpu=@var{cpu_type}} does.
 The same values for @option{-mcpu=@var{cpu_type}} can be used for
 @option{-mtune=@var{cpu_type}}, but the only useful values are those
 that select a particular CPU implementation.  Those are @samp{cypress},
-@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{f930}, @samp{f934},
-@samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc}, @samp{ultrasparc3},
-@samp{niagara}, @samp{niagara2}, @samp{niagara3} and @samp{niagara4}.  With
-native Solaris and GNU/Linux toolchains, @samp{native} can also be used.
+@samp{supersparc}, @samp{hypersparc}, @samp{leon}, @samp{leon3}, @samp{f930},
+@samp{f934}, @samp{sparclite86x}, @samp{tsc701}, @samp{ultrasparc},
+@samp{ultrasparc3}, @samp{niagara}, @samp{niagara2}, @samp{niagara3} and
+@samp{niagara4}.  With native Solaris and GNU/Linux toolchains, @samp{native}
+can also be used.
 
 @item -mv8plus
 @itemx -mno-v8plus
@@ -19418,6 +19514,11 @@ later.
 @opindex mfix-at697f
 Enable the documented workaround for the single erratum of the Atmel AT697F
 processor (which corresponds to erratum #13 of the AT697E processor).
+
+@item -mfix-ut699
+@opindex mfix-ut699
+Enable the documented workarounds for the floating-point errata and the data
+cache nullify errata of the UT699 processor.
 @end table
 
 These @samp{-m} options are supported in addition to the above

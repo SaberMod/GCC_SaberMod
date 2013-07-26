@@ -322,7 +322,7 @@ extern const char * built_in_names[(int) END_BUILTINS];
 
 #define CASE_FLT_FN(FN) case FN: case FN##F: case FN##L
 #define CASE_FLT_FN_REENT(FN) case FN##_R: case FN##F_R: case FN##L_R
-#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL
+#define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
 /* In an OMP_CLAUSE node.  */
 
@@ -4767,6 +4767,8 @@ extern tree build_constructor_va (tree, int, ...);
 extern tree build_real_from_int_cst (tree, const_tree);
 extern tree build_complex (tree, tree, tree);
 extern tree build_one_cst (tree);
+extern tree build_minus_one_cst (tree);
+extern tree build_all_ones_cst (tree);
 extern tree build_zero_cst (tree);
 extern tree build_string (int, const char *);
 extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
@@ -4867,6 +4869,7 @@ extern bool may_negate_without_overflow_p (const_tree);
 extern tree strip_array_types (tree);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
+extern unsigned int element_precision (const_tree);
 
 /* Construct various nodes representing fract or accum data types.  */
 
@@ -5289,6 +5292,11 @@ extern tree first_field (const_tree);
 
 extern bool initializer_zerop (const_tree);
 
+/* Given a vector VEC, return its first element if all elements are
+   the same.  Otherwise return NULL_TREE.  */
+
+extern tree uniform_vector_p (const_tree);
+
 /* Given a CONSTRUCTOR CTOR, return the element values as a vector.  */
 
 extern vec<tree, va_gc> *ctor_to_vec (tree);
@@ -5629,6 +5637,7 @@ extern const_tree strip_invariant_refs (const_tree);
 extern tree lhd_gcc_personality (void);
 extern void assign_assembler_name_if_neeeded (tree);
 extern void warn_deprecated_use (tree, tree);
+extern void cache_integer_cst (tree);
 
 
 /* In cgraph.c */
@@ -5763,7 +5772,6 @@ extern tree omit_two_operands_loc (location_t, tree, tree, tree, tree);
 #define invert_truthvalue(T)\
    invert_truthvalue_loc(UNKNOWN_LOCATION, T)
 extern tree invert_truthvalue_loc (location_t, tree);
-extern tree fold_truth_not_expr (location_t, tree);
 extern tree fold_unary_to_constant (enum tree_code, tree, tree);
 extern tree fold_binary_to_constant (enum tree_code, tree, tree, tree);
 extern tree fold_read_from_constant_string (tree);
@@ -5966,8 +5974,10 @@ extern location_t tree_nonartificial_location (tree);
 extern tree block_ultimate_origin (const_tree);
 
 extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
+extern bool types_same_for_odr (tree type1, tree type2);
 extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
 				     HOST_WIDE_INT *, HOST_WIDE_INT *);
+extern bool contains_bitfld_component_ref_p (const_tree);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -6015,6 +6025,8 @@ extern void debug_body (const tree_node *ptr);
 extern void debug_vec_tree (vec<tree, va_gc> *);
 extern void debug (vec<tree, va_gc> &ref);
 extern void debug (vec<tree, va_gc> *ptr);
+extern void debug_raw (vec<tree, va_gc> &ref);
+extern void debug_raw (vec<tree, va_gc> *ptr);
 #ifdef BUFSIZ
 extern void dump_addr (FILE*, const char *, const void *);
 extern void print_node (FILE *, const char *, tree, int);
@@ -6573,5 +6585,28 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
 }
+
+
+/* For anonymous aggregate types, we need some sort of name to
+   hold on to.  In practice, this should not appear, but it should
+   not be harmful if it does.  */
+#ifndef NO_DOT_IN_LABEL
+#define ANON_AGGRNAME_FORMAT "._%d"
+#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '.' \
+				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
+#else /* NO_DOT_IN_LABEL */
+#ifndef NO_DOLLAR_IN_LABEL
+#define ANON_AGGRNAME_FORMAT "$_%d"
+#define ANON_AGGRNAME_P(ID_NODE) (IDENTIFIER_POINTER (ID_NODE)[0] == '$' \
+				  && IDENTIFIER_POINTER (ID_NODE)[1] == '_')
+#else /* NO_DOLLAR_IN_LABEL */
+#define ANON_AGGRNAME_PREFIX "__anon_"
+#define ANON_AGGRNAME_P(ID_NODE) \
+  (!strncmp (IDENTIFIER_POINTER (ID_NODE), ANON_AGGRNAME_PREFIX, \
+	     sizeof (ANON_AGGRNAME_PREFIX) - 1))
+#define ANON_AGGRNAME_FORMAT "__anon_%d"
+#endif	/* NO_DOLLAR_IN_LABEL */
+#endif	/* NO_DOT_IN_LABEL */
+
 
 #endif  /* GCC_TREE_H  */

@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-alias.h"
 #include "plugin.h"
 #include "diagnostic-color.h"
+#include "context.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -393,15 +394,15 @@ wrapup_global_declaration_2 (tree decl)
 
       if (!node && flag_ltrans)
 	needed = false;
-      else if (node && node->finalized)
+      else if (node && node->symbol.definition)
 	needed = false;
-      else if (node && node->alias)
+      else if (node && node->symbol.alias)
 	needed = false;
       else if (!cgraph_global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
-      else if (node && node->analyzed)
+      else if (node && node->symbol.analyzed)
 	/* needed */;
       else if (DECL_COMDAT (decl))
 	needed = false;
@@ -1156,6 +1157,10 @@ general_init (const char *argv0)
   /* This must be done after global_init_params but before argument
      processing.  */
   init_ggc_heuristics();
+
+  /* Create the singleton holder for global state.  */
+  g = new gcc::context();
+
   init_optimization_passes ();
   statistics_early_init ();
   finish_params ();

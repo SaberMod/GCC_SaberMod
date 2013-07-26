@@ -103,11 +103,59 @@ namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-  inline _Grep_matcher::
-  _Grep_matcher(_PatternCursor& __p, _Results& __r,
-		const _AutomatonPtr& __nfa,
-		regex_constants::match_flag_type __flags)
-  : _M_nfa(static_pointer_cast<_Nfa>(__nfa)), _M_pattern(__p), _M_results(__r)
+  // _M_dfs() take a state, along with current string cursor(_M_pattern),
+  // trying to match current state with current character.
+  // Only _S_opcode_match will consume a character.
+  // TODO: This is too slow. Try to compile the NFA to a DFA.
+  template<bool __match_mode>
+    bool _Grep_matcher::
+    _M_dfs(_StateIdT __i)
+    {
+      if (__i == _S_invalid_state_id)
+        // This is not that certain. Need deeper investigate.
+        return false;
+      const auto& __state = (*_M_nfa)[__i];
+      bool __ret = false;
+      switch (__state._M_opcode)
+        {
+        case _S_opcode_alternative:
+          // Greedy mode by default. For non-greedy mode,
+          // swap _M_alt and _M_next.
+          // TODO: Add greedy mode option.
+          __ret = _M_dfs<__match_mode>(__state._M_alt)
+            || _M_dfs<__match_mode>(__state._M_next);
+          break;
+        case _S_opcode_subexpr_begin:
+          __state._M_tagger(_M_pattern, _M_results);
+          __ret = _M_dfs<__match_mode>(__state._M_next);
+          break;
+        case _S_opcode_subexpr_end:
+          __state._M_tagger(_M_pattern, _M_results);
+          __ret = _M_dfs<__match_mode>(__state._M_next);
+          _M_results._M_set_matched(__state._M_subexpr, __ret);
+          break;
+        case _S_opcode_match:
+          if (!_M_pattern._M_at_end() && __state._M_matches(_M_pattern))
+            {
+              _M_pattern._M_next();
+              __ret = _M_dfs<__match_mode>(__state._M_next);
+              _M_pattern._M_prev();
+            }
+          break;
+        case _S_opcode_accept:
+          if (__match_mode)
+            __ret = _M_pattern._M_at_end();
+          else
+            __ret = true;
+          break;
+        default:
+          _GLIBCXX_DEBUG_ASSERT( false );
+        }
+      return __ret;
+    }
+
+  inline void _Grep_matcher::
+  _M_match()
   {
     __detail::_StateSet __t = this->_M_e_closure(_M_nfa->_M_start());
     for (; !_M_pattern._M_at_end(); _M_pattern._M_next())
@@ -115,6 +163,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     _M_results._M_set_matched(0,
                               __includes_some(_M_nfa->_M_final_states(), __t));
+  }
+
+  inline void _Grep_matcher::
+  _M_search_from_first()
+  {
+    __detail::_StateSet __t = this->_M_e_closure(_M_nfa->_M_start());
+    for (; !_M_pattern._M_at_end(); _M_pattern._M_next())
+      {
+        if (__includes_some(_M_nfa->_M_final_states(), __t)) // KISS
+          {
+            _M_results._M_set_matched(0, true);
+            return;
+          }
+        __t = this->_M_e_closure(__move(_M_pattern, *_M_nfa, __t));
+      }
+    _M_results._M_set_matched(0, false);
   }
 
   // Creates the e-closure set for the initial state __i.

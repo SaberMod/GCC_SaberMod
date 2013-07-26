@@ -35,6 +35,23 @@ XPASS: gfortran.dg/do_1.f90 -O3 -g  execution test
 XPASS: gfortran.dg/do_1.f90 -Os  execution test
 FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
 FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
+FAIL: g++.dg/ext/mv12.C -std=gnu++98 execution test
+FAIL: g++.dg/ext/mv12.C -std=gnu++11 execution test
+FAIL: g++.dg/ext/mv2.C -std=gnu++98 execution test
+FAIL: g++.dg/ext/mv2.C -std=gnu++11 execution test
+FAIL: g++.dg/ext/mv5.C -std=gnu++98 execution test
+FAIL: g++.dg/ext/mv5.C -std=gnu++11 execution test
+FAIL: gcc.target/i386/pr55342.c scan-assembler-not notb
+FAIL: gfortran.dg/class_48.f90 -O2  (test for excess errors)
+FAIL: gfortran.dg/class_48.f90 -Os  (test for excess errors)
+FAIL: gfortran.dg/round_4.f90 -O0  execution test
+FAIL: gfortran.dg/round_4.f90 -O1  execution test
+FAIL: gfortran.dg/round_4.f90 -O2  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -g  execution test
+FAIL: gfortran.dg/round_4.f90 -Os  execution test
 
 # These failures only occur when testing is distributed.  These tests
 # have dependencies that are not explicitly handled by the driver script.

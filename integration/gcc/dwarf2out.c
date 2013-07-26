@@ -3214,6 +3214,8 @@ static void gen_scheduled_generic_parms_dies (void);
 
 static const char *comp_dir_string (void);
 
+static hashval_t hash_loc_operands (dw_loc_descr_ref, hashval_t);
+
 /* enum for tracking thread-local variables whose address is really an offset
    relative to the TLS pointer, which will need link-time relocation, but will
    not need relocation by the DWARF consumer.  */
@@ -5437,11 +5439,12 @@ static inline void
 loc_checksum (dw_loc_descr_ref loc, struct md5_ctx *ctx)
 {
   int tem;
+  hashval_t hash = 0;
 
   tem = (loc->dtprel << 8) | ((unsigned int) loc->dw_loc_opc);
   CHECKSUM (tem);
-  CHECKSUM (loc->dw_loc_oprnd1);
-  CHECKSUM (loc->dw_loc_oprnd2);
+  hash = hash_loc_operands (loc, hash);
+  CHECKSUM (hash);
 }
 
 /* Calculate the checksum of an attribute.  */
@@ -5643,9 +5646,12 @@ loc_checksum_ordered (dw_loc_descr_ref loc, struct md5_ctx *ctx)
   /* Otherwise, just checksum the raw location expression.  */
   while (loc != NULL)
     {
+      hashval_t hash = 0;
+
+      CHECKSUM_ULEB128 (loc->dtprel);
       CHECKSUM_ULEB128 (loc->dw_loc_opc);
-      CHECKSUM (loc->dw_loc_oprnd1);
-      CHECKSUM (loc->dw_loc_oprnd2);
+      hash = hash_loc_operands (loc, hash);
+      CHECKSUM (hash);
       loc = loc->dw_loc_next;
     }
 }
@@ -6097,6 +6103,14 @@ die_checksum_ordered (dw_die_ref die, struct md5_ctx *ctx, int *mark)
   CHECKSUM_ULEB128 (0);
 }
 
+/* Add a type name and tag to a hash.  */
+static void
+die_odr_checksum (int tag, const char *name, md5_ctx *ctx)
+{
+  CHECKSUM_ULEB128 (tag);
+  CHECKSUM_STRING (name);
+}
+
 #undef CHECKSUM
 #undef CHECKSUM_STRING
 #undef CHECKSUM_ATTR
@@ -6137,8 +6151,8 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
       if (parent != NULL)
         checksum_die_context (parent, &ctx);
 
-      md5_process_bytes (&die->die_tag, sizeof (die->die_tag), &ctx);
-      md5_process_bytes (name, strlen (name) + 1, &ctx);
+      /* Checksum the current DIE. */
+      die_odr_checksum (die->die_tag, name, &ctx);
       md5_finish_ctx (&ctx, checksum);
 
       add_AT_data8 (type_node->root_die, DW_AT_GNU_odr_signature, &checksum[8]);
@@ -7388,7 +7402,22 @@ struct external_ref_hasher : typed_free_remove <external_ref>
 inline hashval_t
 external_ref_hasher::hash (const value_type *r)
 {
-  return htab_hash_pointer (r->type);
+  dw_die_ref die = r->type;
+  hashval_t h = 0;
+
+  /* We can't use the address of the DIE for hashing, because
+     that will make the order of the stub DIEs non-deterministic.  */
+  if (! die->comdat_type_p)
+    /* We have a symbol; use it to compute a hash.  */
+    h = htab_hash_string (die->die_id.die_symbol);
+  else
+    {
+      /* We have a type signature; use a subset of the bits as the hash.
+	 The 8-byte signature is at least as large as hashval_t.  */
+      comdat_type_node_ref type_node = die->die_id.die_type_node;
+      memcpy (&h, type_node->signature, sizeof (h));
+    }
+  return h;
 }
 
 inline bool
@@ -7858,6 +7887,32 @@ unmark_all_dies (dw_die_ref die)
       unmark_all_dies (AT_ref (a));
 }
 
+/* Calculate if the entry should appear in the final output file.  It may be
+   from a pruned a type.  */
+
+static bool
+include_pubname_in_output (vec<pubname_entry, va_gc> *table, pubname_entry *p)
+{
+  if (table == pubname_table)
+    {
+      /* Enumerator names are part of the pubname table, but the
+         parent DW_TAG_enumeration_type die may have been pruned.
+         Don't output them if that is the case.  */
+      if (p->die->die_tag == DW_TAG_enumerator &&
+          (p->die->die_parent == NULL
+           || !p->die->die_parent->die_perennial_p))
+        return false;
+
+      /* Everything else in the pubname table is included.  */
+      return true;
+    }
+
+  /* The pubtypes table shouldn't include types that have been
+     pruned.  */
+  return (p->die->die_offset != 0
+          || !flag_eliminate_unused_debug_types);
+}
+
 /* Return the size of the .debug_pubnames or .debug_pubtypes table
    generated for the compilation unit.  */
 
@@ -7870,9 +7925,7 @@ size_of_pubnames (vec<pubname_entry, va_gc> *names)
 
   size = DWARF_PUBNAMES_HEADER_SIZE;
   FOR_EACH_VEC_ELT (*names, i, p)
-    if (names != pubtype_table
-	|| p->die->die_offset != 0
-	|| !flag_eliminate_unused_debug_types)
+    if (include_pubname_in_output (names, p))
       size += strlen (p->name) + DWARF_OFFSET_SIZE + 1;
 
   size += DWARF_OFFSET_SIZE;
@@ -8702,9 +8755,9 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 static inline bool
 want_pubnames (void)
 {
-  return (debug_generate_pub_sections != -1
-	  ? debug_generate_pub_sections
-	  : targetm.want_debug_pub_sections);
+  if (debug_generate_pub_sections != -1)
+    return debug_generate_pub_sections;
+  return targetm.want_debug_pub_sections;
 }
 
 /* Add the DW_AT_GNU_pubnames and DW_AT_GNU_pubtypes attributes.  */
@@ -9066,23 +9119,13 @@ output_pubnames (vec<pubname_entry, va_gc> *names)
 
   FOR_EACH_VEC_ELT (*names, i, pub)
     {
-      /* Enumerator names are part of the pubname table, but the parent
-         DW_TAG_enumeration_type die may have been pruned.  Don't output
-         them if that is the case.  */
-      if (pub->die->die_tag == DW_TAG_enumerator &&
-          (pub->die->die_parent == NULL
-	   || !pub->die->die_parent->die_perennial_p))
-        continue;
-
-      /* We shouldn't see pubnames for DIEs outside of the main CU.  */
-      if (names == pubname_table && pub->die->die_tag != DW_TAG_enumerator)
-	gcc_assert (pub->die->die_mark);
-
-      if (names != pubtype_table
-	  || pub->die->die_offset != 0
-	  || !flag_eliminate_unused_debug_types)
+      if (include_pubname_in_output (names, pub))
 	{
 	  dw_offset die_offset = pub->die->die_offset;
+
+          /* We shouldn't see pubnames for DIEs outside of the main CU.  */
+          if (names == pubname_table && pub->die->die_tag != DW_TAG_enumerator)
+            gcc_assert (pub->die->die_mark);
 
 	  /* If we're putting types in their own .debug_types sections,
 	     the .debug_pubtypes table will still point to the compile
@@ -10612,25 +10655,27 @@ static dw_loc_descr_ref
 multiple_reg_loc_descriptor (rtx rtl, rtx regs,
 			     enum var_init_status initialized)
 {
-  int nregs, size, i;
-  unsigned reg;
+  int size, i;
   dw_loc_descr_ref loc_result = NULL;
-
-  reg = REGNO (rtl);
-#ifdef LEAF_REG_REMAP
-  if (crtl->uses_only_leaf_regs)
-    {
-      int leaf_reg = LEAF_REG_REMAP (reg);
-      if (leaf_reg != -1)
-	reg = (unsigned) leaf_reg;
-    }
-#endif
-  gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
-  nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
 
   /* Simple, contiguous registers.  */
   if (regs == NULL_RTX)
     {
+      unsigned reg = REGNO (rtl);
+      int nregs;
+
+#ifdef LEAF_REG_REMAP
+      if (crtl->uses_only_leaf_regs)
+	{
+	  int leaf_reg = LEAF_REG_REMAP (reg);
+	  if (leaf_reg != -1)
+	    reg = (unsigned) leaf_reg;
+	}
+#endif
+
+      gcc_assert ((unsigned) DBX_REGISTER_NUMBER (reg) == dbx_reg_number (rtl));
+      nregs = hard_regno_nregs[REGNO (rtl)][GET_MODE (rtl)];
+
       size = GET_MODE_SIZE (GET_MODE (rtl)) / nregs;
 
       loc_result = NULL;
@@ -10658,10 +10703,9 @@ multiple_reg_loc_descriptor (rtx rtl, rtx regs,
     {
       dw_loc_descr_ref t;
 
-      t = one_reg_loc_descriptor (REGNO (XVECEXP (regs, 0, i)),
+      t = one_reg_loc_descriptor (dbx_reg_number (XVECEXP (regs, 0, i)),
 				  VAR_INIT_STATUS_INITIALIZED);
       add_loc_descr (&loc_result, t);
-      size = GET_MODE_SIZE (GET_MODE (XVECEXP (regs, 0, 0)));
       add_loc_descr_op_piece (&loc_result, size);
     }
 
@@ -14918,7 +14962,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_get_node (*tp);
-      if (!node || !node->analyzed)
+      if (!node || !node->symbol.definition)
 	return *tp;
     }
   else if (TREE_CODE (*tp) == FUNCTION_DECL
@@ -17596,7 +17640,7 @@ premark_types_used_by_global_vars_helper (void **slot,
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
       struct varpool_node *node = varpool_get_node (entry->var_decl);
-      if (node && node->analyzed)
+      if (node && node->symbol.definition)
 	{
 	  die->die_perennial_p = 1;
 	  /* Keep the parent DIEs as well.  */
@@ -22681,7 +22725,7 @@ string_cst_pool_decl (tree t)
    of exprloc or after DW_OP_{,bit_}piece, and val_addr can't be
    resolved.  Replace it (both DW_OP_addr and DW_OP_stack_value)
    with DW_OP_GNU_implicit_pointer if possible
-   and return true, if unsuccesful, return false.  */
+   and return true, if unsuccessful, return false.  */
 
 static bool
 optimize_one_addr_into_implicit_ptr (dw_loc_descr_ref loc)
@@ -23091,7 +23135,7 @@ resolve_addr (dw_die_ref die)
 
 /* Iteratively hash operands of LOC opcode.  */
 
-static inline hashval_t
+static hashval_t
 hash_loc_operands (dw_loc_descr_ref loc, hashval_t hash)
 {
   dw_val_ref val1 = &loc->dw_loc_oprnd1;

@@ -990,7 +990,9 @@ gfc_check_argument_var_dependency (gfc_expr *var, sym_intent intent,
       return 0;
 
     case EXPR_ARRAY:
-      return gfc_check_dependency (var, expr, 1);
+      /* the scalarizer always generates a temporary for array constructors,
+	 so there is no dependency.  */
+      return 0;
 
     case EXPR_FUNCTION:
       if (intent != INTENT_IN)
@@ -2093,11 +2095,23 @@ gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref, gfc_reverse *reverse)
 
 	  for (n=0; n < lref->u.ar.dimen; n++)
 	    {
-	      /* Assume dependency when either of array reference is vector
-		 subscript.  */
+	      /* Handle dependency when either of array reference is vector
+		 subscript. There is no dependency if the vector indices
+		 are equal or if indices are known to be different in a
+		 different dimension.  */
 	      if (lref->u.ar.dimen_type[n] == DIMEN_VECTOR
 		  || rref->u.ar.dimen_type[n] == DIMEN_VECTOR)
-		return 1;
+		{
+		  if (lref->u.ar.dimen_type[n] == DIMEN_VECTOR 
+		      && rref->u.ar.dimen_type[n] == DIMEN_VECTOR
+		      && gfc_dep_compare_expr (lref->u.ar.start[n],
+					       rref->u.ar.start[n]) == 0)
+		    this_dep = GFC_DEP_EQUAL;
+		  else
+		    this_dep = GFC_DEP_OVERLAP;
+
+		  goto update_fin_dep;
+		}
 
 	      if (lref->u.ar.dimen_type[n] == DIMEN_RANGE
 		  && rref->u.ar.dimen_type[n] == DIMEN_RANGE)
@@ -2162,6 +2176,8 @@ gfc_dep_resolver (gfc_ref *lref, gfc_ref *rref, gfc_reverse *reverse)
 
 	      /* Overlap codes are in order of priority.  We only need to
 		 know the worst one.*/
+
+	    update_fin_dep:
 	      if (this_dep > fin_dep)
 		fin_dep = this_dep;
 	    }

@@ -246,6 +246,7 @@ md_file=
 case ${target} in
    picochip-*				\
  | score-*				\
+ | *-*-solaris2.9*			\
  )
     if test "x$enable_obsolete" != xyes; then
       echo "*** Configuration ${target} is obsolete." >&2
@@ -420,7 +421,7 @@ picochip-*-*)
         ;;
 powerpc*-*-*)
 	cpu_type=rs6000
-	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h"
+	extra_headers="ppc-asm.h altivec.h spe.h ppu_intrinsics.h paired.h spu2vmx.h vec_types.h si2vmx.h htmintrin.h htmxlintrin.h"
 	need_64bit_hwint=yes
 	case x$with_cpu in
 	    xpowerpc64|xdefault64|x6[23]0|x970|xG5|xpower[345678]|xpower6x|xrs64a|xcell|xa2|xe500mc64|xe5500|Xe6500)
@@ -452,6 +453,7 @@ s390*-*-*)
 	cpu_type=s390
 	need_64bit_hwint=yes
 	extra_options="${extra_options} fused-madd.opt"
+	extra_headers="s390intrin.h htmintrin.h htmxlintrin.h"
 	;;
 # Note the 'l'; we need to be able to match e.g. "shle" or "shl".
 sh[123456789lbe]*-*-* | sh-*-*)
@@ -496,6 +498,26 @@ then
 fi
 
 case ${target} in
+aarch64*-*-*)
+	case ${with_abi} in
+	"")
+		if test "x$with_multilib_list" = xilp32; then
+			tm_file="aarch64/biarchilp32.h ${tm_file}"
+		else
+			tm_file="aarch64/biarchlp64.h ${tm_file}"
+		fi
+		;;
+	ilp32)
+		tm_file="aarch64/biarchilp32.h ${tm_file}"
+		;;
+	lp64)
+		tm_file="aarch64/biarchlp64.h ${tm_file}"
+		;;
+	*)
+		echo "Unknown ABI used in --with-abi=$with_abi"
+		exit 1
+	esac
+	;;
 i[34567]86-*-*)
 	if test "x$with_abi" != x; then
 		echo "This target does not support --with-abi."
@@ -826,6 +848,22 @@ aarch64*-*-elf)
 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
 		;;
 	esac
+	aarch64_multilibs="${with_multilib_list}"
+	if test "$aarch64_multilibs" = "default"; then
+		aarch64_multilibs="lp64,ilp32"
+	fi
+	aarch64_multilibs=`echo $aarch64_multilibs | sed -e 's/,/ /g'`
+	for aarch64_multilib in ${aarch64_multilibs}; do
+		case ${aarch64_multilib} in
+		ilp32 | lp64 )
+			TM_MULTILIB_CONFIG="${TM_MULTILIB_CONFIG},${aarch64_multilib}"
+			;;
+		*)
+			echo "--with-multilib-list=${aarch64_multilib} not supported."
+			exit 1
+		esac
+	done
+	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
 	;;
 aarch64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h"
@@ -836,6 +874,24 @@ aarch64*-*-linux*)
 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
 		;;
 	esac
+	aarch64_multilibs="${with_multilib_list}"
+	if test "$aarch64_multilibs" = "default"; then
+		# TODO: turn on ILP32 multilib build after its support is mature.
+		# aarch64_multilibs="lp64,ilp32"
+		aarch64_multilibs="lp64"
+	fi
+	aarch64_multilibs=`echo $aarch64_multilibs | sed -e 's/,/ /g'`
+	for aarch64_multilib in ${aarch64_multilibs}; do
+		case ${aarch64_multilib} in
+		ilp32 | lp64 )
+			TM_MULTILIB_CONFIG="${TM_MULTILIB_CONFIG},${aarch64_multilib}"
+			;;
+		*)
+			echo "--with-multilib-list=${aarch64_multilib} not supported."
+			exit 1
+		esac
+	done
+	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
 	;;
 alpha*-*-linux*)
 	tm_file="elfos.h ${tm_file} alpha/elf.h alpha/linux.h alpha/linux-elf.h glibc-stdint.h"
@@ -1097,7 +1153,6 @@ hppa*-*-openbsd*)
 	target_cpu_default="MASK_PA_11"
 	tm_file="${tm_file} dbxelf.h elfos.h openbsd.h openbsd-stdint.h openbsd-libpthread.h \
 		 pa/pa-openbsd.h pa/pa32-regs.h pa/pa32-openbsd.h"
-	tmake_file="${tmake_file} pa/t-openbsd"
 	extra_options="${extra_options} openbsd.opt"
 	gas=yes
 	gnu_ld=yes
@@ -1314,7 +1369,7 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 			TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
 			need_64bit_isa=yes
 			case X"${with_cpu}" in
-			Xgeneric|Xatom|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)			
+			Xgeneric|Xatom|Xslm|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)			
 				;;
 			X)
 				if test x$with_cpu_64 = x; then
@@ -1323,7 +1378,7 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 				;;
 			*)
 				echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-				echo "generic atom core2 corei7 corei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
+				echo "generic atom slm core2 corei7 corei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
 				exit 1
 				;;
 			esac
@@ -1453,7 +1508,7 @@ i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
 		tmake_file="$tmake_file i386/t-sol2-64"
 		need_64bit_isa=yes
 		case X"${with_cpu}" in
-		Xgeneric|Xatom|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)
+		Xgeneric|Xatom|Xslm|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)
 			;;
 		X)
 			if test x$with_cpu_64 = x; then
@@ -1462,7 +1517,7 @@ i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
 			;;
 		*)
 			echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-			echo "generic atom core2 corei7 corei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
+			echo "generic atom slm core2 corei7 corei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
 			exit 1
 			;;
 		esac
@@ -1535,7 +1590,7 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
 			if test x$enable_targets = xall; then
 				tm_defines="${tm_defines} TARGET_BI_ARCH=1"
 				case X"${with_cpu}" in
-				Xgeneric|Xatom|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)
+				Xgeneric|Xatom|Xslm|Xcore2|Xcorei7|Xcorei7-avx|Xnocona|Xx86-64|Xbdver3|Xbdver2|Xbdver1|Xbtver2|Xbtver1|Xamdfam10|Xbarcelona|Xk8|Xopteron|Xathlon64|Xathlon-fx|Xathlon64-sse3|Xk8-sse3|Xopteron-sse3)
 					;;
 				X)
 					if test x$with_cpu_64 = x; then
@@ -1544,7 +1599,7 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
 					;;
 				*)
 					echo "Unsupported CPU used in --with-cpu=$with_cpu, supported values:" 1>&2
-					echo "generic atom core2 corei7 Xcorei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
+					echo "generic atom slm core2 corei7 Xcorei7-avx nocona x86-64 bdver3 bdver2 bdver1 btver2 btver1 amdfam10 barcelona k8 opteron athlon64 athlon-fx athlon64-sse3 k8-sse3 opteron-sse3" 1>&2
 					exit 1
 					;;
 				esac
@@ -1852,7 +1907,6 @@ mips*-mti-linux*)
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
 	gnu_ld=yes
 	gas=yes
-	test x$with_llsc != x || with_llsc=yes
 	;;
 mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
@@ -1873,7 +1927,6 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 	esac
 	gnu_ld=yes
 	gas=yes
-	test x$with_llsc != x || with_llsc=yes
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
         tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h"
@@ -1889,15 +1942,14 @@ mips*-*-linux*)				# Linux MIPS, either endian.
         mipsisa32*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
         esac
-	test x$with_llsc != x || with_llsc=yes
 	;;
 mips*-mti-elf*)
-	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/sde.h mips/mti-elf.h"
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 	tmake_file="mips/t-mti-elf"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
 	;;
 mips*-sde-elf*)
-	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/sde.h"
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h"
 	tmake_file="mips/t-sde"
 	extra_options="${extra_options} mips/sde.opt"
 	case "${with_newlib}" in
@@ -1967,23 +2019,25 @@ mipsisa64r2-*-elf* | mipsisa64r2el-*-elf*)
 mipsisa64sr71k-*-elf*)
         tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
         tmake_file=mips/t-sr71k
-	target_cpu_default="MASK_64BIT|MASK_FLOAT64"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=64 MIPS_CPU_STRING_DEFAULT=\\\"sr71000\\\" MIPS_ABI_DEFAULT=ABI_EABI"
         ;;
 mipsisa64sb1-*-elf* | mipsisa64sb1el-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-elf mips/t-sb1"
-	target_cpu_default="MASK_64BIT|MASK_FLOAT64"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=64 MIPS_CPU_STRING_DEFAULT=\\\"sb1\\\" MIPS_ABI_DEFAULT=ABI_O64"
 	;;
-mips-*-elf* | mipsel-*-elf*)
+mips-*-elf* | mipsel-*-elf* | mipsr5900-*-elf* | mipsr5900el-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-elf"
+	;;
+mips64r5900-*-elf* | mips64r5900el-*-elf*)
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h"
+	tmake_file="mips/t-elf"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_N32"
 	;;
 mips64-*-elf* | mips64el-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-elf"
-	target_cpu_default="MASK_64BIT|MASK_FLOAT64"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_O64"
 	;;
 mips64vr-*-elf* | mips64vrel-*-elf*)
@@ -1994,7 +2048,6 @@ mips64vr-*-elf* | mips64vrel-*-elf*)
 mips64orion-*-elf* | mips64orionel-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elforion.h mips/elf.h"
 	tmake_file="mips/t-elf"
-	target_cpu_default="MASK_64BIT|MASK_FLOAT64"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=3 MIPS_ABI_DEFAULT=ABI_O64"
 	;;
 mips*-*-rtems*)
@@ -2893,6 +2946,10 @@ case ${target} in
 	arch=atom
 	cpu=atom
 	;;
+      slm-*)
+	arch=slm
+	cpu=slm
+	;;
       core2-*)
 	arch=core2
 	cpu=core2
@@ -2964,6 +3021,10 @@ case ${target} in
 	arch=atom
 	cpu=atom
 	;;
+      slm-*)
+	arch=slm
+	cpu=slm
+	;;
       core2-*)
 	arch=core2
 	cpu=core2
@@ -3017,9 +3078,6 @@ if test x$with_cpu = x ; then
 	  with_cpu=m${default_m68k_cpu}
 	  ;;
       esac
-      ;;
-    mips*-*-vxworks)
-      with_arch=mips2
       ;;
     powerpc*-*-*spe*)
       if test x$enable_e500_double = xyes; then
@@ -3081,6 +3139,12 @@ if test x$with_arch = x ; then
     x86_64-*-*)
       with_arch=$arch
       ;;
+    mips64r5900-*-* | mips64r5900el-*-* | mipsr5900-*-* | mipsr5900el-*-*)
+      with_arch=r5900
+      ;;
+    mips*-*-vxworks)
+      with_arch=mips2
+      ;;
   esac
 
   # Avoid overriding --with-arch-32 and --with-arch-64 values.
@@ -3111,6 +3175,27 @@ if test x$with_arch = x ; then
 	with_arch_64=x86-64
 	with_arch=
       fi
+      ;;
+  esac
+fi
+
+# Infer a default setting for --with-float.
+if test x$with_float = x; then
+  case ${target} in
+    mips64r5900-*-* | mips64r5900el-*-* | mipsr5900-*-* | mipsr5900el-*-*)
+      # The R5900 doesn't support 64-bit float.  32-bit float doesn't
+      # comply with IEEE 754.
+      with_float=soft
+      ;;
+  esac
+fi
+
+# Infer a default setting for --with-fpu.
+if test x$with_fpu = x; then
+  case ${target} in
+    mips64r5900-*-* | mips64r5900el-*-* | mipsr5900-*-* | mipsr5900el-*-*)
+      # The R5900 FPU only supports single precision.
+      with_fpu=single
       ;;
   esac
 fi
@@ -3149,6 +3234,20 @@ if test x$with_schedule = x; then
 	esac
 fi
 
+# Infer a default setting for --with-llsc.
+if test x$with_llsc = x; then
+  case ${target} in
+    mips64r5900-*-* | mips64r5900el-*-* | mipsr5900-*-* | mipsr5900el-*-*)
+      # The R5900 doesn't support LL(D) and SC(D).
+      with_llsc=no
+      ;;
+    mips*-*-linux*)
+      # The kernel emulates LL and SC where necessary.
+      with_llsc=yes
+      ;;
+  esac
+fi
+
 # Validate and mark as valid any --with options supported
 # by this target.  In order to use a particular --with option
 # you must list it in supported_defaults; validating the value
@@ -3158,7 +3257,7 @@ fi
 supported_defaults=
 case "${target}" in
 	aarch64*-*-*)
-		supported_defaults="cpu arch"
+		supported_defaults="abi cpu arch"
 		for which in cpu arch; do
 
 			eval "val=\$with_$which"
@@ -3467,7 +3566,7 @@ case "${target}" in
 			| k8 | k8-sse3 | athlon64 | athlon64-sse3 | opteron \
 			| opteron-sse3 | athlon-fx | bdver3 | bdver2 | bdver1 | btver2 \
 			| btver1 | amdfam10 | barcelona | nocona | core2 | corei7 \
-			| corei7-avx | core-avx-i | core-avx2 | atom)
+			| corei7-avx | core-avx-i | core-avx2 | atom | slm)
 				# OK
 				;;
 			*)
@@ -3479,7 +3578,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch arch_32 arch_64 float tune tune_32 tune_64 divide llsc mips-plt synci"
+		supported_defaults="abi arch arch_32 arch_64 float fpu tune tune_32 tune_64 divide llsc mips-plt synci"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -3487,6 +3586,16 @@ case "${target}" in
 			;;
 		*)
 			echo "Unknown floating point type used in --with-float=$with_float" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_fpu} in
+		"" | single | double)
+			# OK
+			;;
+		*)
+			echo "Unknown fpu type used in --with-fpu=$with_fpu" 1>&2
 			exit 1
 			;;
 		esac
@@ -3580,7 +3689,7 @@ case "${target}" in
 				tm_defines="${tm_defines} CONFIG_PPC405CR"
 				eval "with_$which=405"
 				;;
-			"" | common \
+			"" | common | native \
 			| power | power[2345678] | power6x | powerpc | powerpc64 \
 			| rios | rios1 | rios2 | rsc | rsc1 | rs64a \
 			| 401 | 403 | 405 | 405fp | 440 | 440fp | 464 | 464fp \
@@ -3652,7 +3761,7 @@ case "${target}" in
 			case ${val} in
 			"" | sparc | sparcv9 | sparc64 \
 			| v7 | cypress \
-			| v8 | supersparc | hypersparc | leon \
+			| v8 | supersparc | hypersparc | leon | leon3 \
 			| sparclite | f930 | f934 | sparclite86x \
 			| sparclet | tsc701 \
 			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2 \
@@ -3809,15 +3918,6 @@ case ${target} in
 		cxx_target_objs="${cxx_target_objs} sh-c.o"
 		;;
 
-	sparc-leon*-*)
-		if test x$with_tune = x ; then
-		  with_tune=leon;
-		fi
-
-		# The SPARC port checks this value at compile-time.
-		target_cpu_default2="TARGET_CPU_$with_cpu"
-		;;
-
 	sparc*-*-*)
 		# Some standard aliases.
 		case x$with_cpu in
@@ -3828,6 +3928,17 @@ case ${target} in
 			with_cpu=v9
 			;;
 		esac
+
+		if test x$with_tune = x ; then
+		      case ${target} in
+		      *-leon-*)
+			  with_tune=leon
+			  ;;
+		      *-leon[3-9]*)
+			  with_tune=leon3
+			  ;;
+		      esac
+		fi
 
 		# The SPARC port checks this value at compile-time.
 		target_cpu_default2="TARGET_CPU_$with_cpu"

@@ -735,7 +735,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop, edge e)
 
   copy_bbs (bbs, loop->num_nodes + 1, new_bbs,
 	    &exit, 1, &new_exit, NULL,
-	    e->src);
+	    e->src, true);
   basic_block new_preheader = new_bbs[loop->num_nodes];
 
   add_phi_args_after_copy (new_bbs, loop->num_nodes + 1, NULL);
@@ -1555,7 +1555,6 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
     dump_printf_loc (MSG_NOTE, vect_location, "vect_can_advance_ivs_p:");
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      tree access_fn = NULL;
       tree evolution_part;
 
       phi = gsi_stmt (gsi);
@@ -1588,31 +1587,13 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
 
       /* Analyze the evolution function.  */
 
-      access_fn = instantiate_parameters
-	(loop, analyze_scalar_evolution (loop, PHI_RESULT (phi)));
-
-      if (!access_fn)
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                             "No Access function.");
-	  return false;
-	}
-
-      STRIP_NOPS (access_fn);
-      if (dump_enabled_p ())
-        {
-	  dump_printf_loc (MSG_NOTE, vect_location,
-                           "Access function of PHI: ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, access_fn);
-        }
-
-      evolution_part = evolution_part_in_loop_num (access_fn, loop->num);
-
+      evolution_part
+	= STMT_VINFO_LOOP_PHI_EVOLUTION_PART (vinfo_for_stmt (phi));
       if (evolution_part == NULL_TREE)
         {
 	  if (dump_enabled_p ())
-	    dump_printf (MSG_MISSED_OPTIMIZATION, "No evolution.");
+	    dump_printf (MSG_MISSED_OPTIMIZATION,
+			 "No access function or evolution.");
 	  return false;
         }
 
@@ -1780,7 +1761,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   gimple_seq cond_expr_stmt_list = NULL;
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+    dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_do_peeling_for_loop_bound ===");
 
   initialize_original_copy_tables ();
@@ -1834,7 +1815,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo, tree *ratio,
   if (check_profitability)
     max_iter = MAX (max_iter, (int) th - 1);
   record_niter_bound (new_loop, double_int::from_shwi (max_iter), false, true);
-  dump_printf (MSG_OPTIMIZED_LOCATIONS,
+  dump_printf (MSG_NOTE,
                "Setting upper bound of nb iterations for epilogue "
                "loop to %d\n", max_iter);
 
@@ -1899,7 +1880,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters, int
       int npeel = LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo);
 
       if (dump_enabled_p ())
-        dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+        dump_printf_loc (MSG_NOTE, vect_location,
                          "known peeling = %d.", npeel);
 
       iters = build_int_cst (niters_type, npeel);
@@ -1954,9 +1935,9 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters, int
 
   if (dump_enabled_p ())
     {
-      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+      dump_printf_loc (MSG_NOTE, vect_location,
                        "niters for prolog loop: ");
-      dump_generic_expr (MSG_OPTIMIZED_LOCATIONS, TDF_SLIM, iters);
+      dump_generic_expr (MSG_NOTE, TDF_SLIM, iters);
     }
 
   var = create_tmp_var (niters_type, "prolog_loop_niters");
@@ -2011,7 +1992,7 @@ vect_update_inits_of_drs (loop_vec_info loop_vinfo, tree niters)
   struct data_reference *dr;
  
  if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+    dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_update_inits_of_dr ===");
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
@@ -2040,7 +2021,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo,
   int bound = 0;
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+    dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_do_peeling_for_alignment ===");
 
   initialize_original_copy_tables ();
@@ -2068,7 +2049,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo,
   if (check_profitability)
     max_iter = MAX (max_iter, (int) th - 1);
   record_niter_bound (new_loop, double_int::from_shwi (max_iter), false, true);
-  dump_printf (MSG_OPTIMIZED_LOCATIONS,
+  dump_printf (MSG_NOTE,
                "Setting upper bound of nb iterations for prologue "
                "loop to %d\n", max_iter);
 
@@ -2351,11 +2332,11 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 
       if (dump_enabled_p ())
 	{
-	  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location, 
+	  dump_printf_loc (MSG_NOTE, vect_location,
                            "create runtime check for data references ");
-	  dump_generic_expr (MSG_OPTIMIZED_LOCATIONS, TDF_SLIM, DR_REF (dr_a));
-	  dump_printf (MSG_OPTIMIZED_LOCATIONS, " and ");
-	  dump_generic_expr (MSG_OPTIMIZED_LOCATIONS, TDF_SLIM, DR_REF (dr_b));
+	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
+	  dump_printf (MSG_NOTE, " and ");
+	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
 	}
 
       seg_a_min = addr_base_a;
@@ -2381,7 +2362,7 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
     }
 
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+    dump_printf_loc (MSG_NOTE, vect_location,
 		     "created %u versioning for alias checks.\n",
 		     may_alias_ddrs.length ());
 }

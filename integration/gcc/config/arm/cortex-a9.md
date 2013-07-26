@@ -80,18 +80,17 @@ cortex_a9_p1_e2 + cortex_a9_p0_e1 + cortex_a9_p1_e1")
 ;; which can go down E2 without any problem.
 (define_insn_reservation "cortex_a9_dp" 2
   (and (eq_attr "tune" "cortexa9")
-         (ior (and (eq_attr "type" "alu_reg,simple_alu_imm")
-                        (eq_attr "neon_type" "none"))
-	      (and (and (eq_attr "type" "alu_shift_reg, simple_alu_shift,alu_shift")
-			(eq_attr "insn" "mov"))
-                 (eq_attr "neon_type" "none"))))
+       (and (eq_attr "type" "arlo_imm,arlo_reg,shift,shift_reg,\
+                             mov_imm,mov_reg,mvn_imm,mvn_reg,\
+                             mov_shift_reg,mov_shift")
+            (eq_attr "neon_type" "none")))
   "cortex_a9_p0_default|cortex_a9_p1_default")
 
 ;; An instruction using the shifter will go down E1.
 (define_insn_reservation "cortex_a9_dp_shift" 3
    (and (eq_attr "tune" "cortexa9")
-	(and (eq_attr "type" "alu_shift_reg, simple_alu_shift,alu_shift")
-	     (not (eq_attr "insn" "mov"))))
+        (eq_attr "type" "arlo_shift_reg,extend,arlo_shift,\
+                         mvn_shift,mvn_shift_reg"))
    "cortex_a9_p0_shift | cortex_a9_p1_shift")
 
 ;; Loads have a latency of 4 cycles.
@@ -130,29 +129,29 @@ cortex_a9_p1_e2 + cortex_a9_p0_e1 + cortex_a9_p1_e1")
 ;; We get 16*16 multiply / mac results in 3 cycles.
 (define_insn_reservation "cortex_a9_mult16" 3
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "insn" "smulxy"))
+       (eq_attr "type" "smulxy"))
        "cortex_a9_mult16")
 
 ;; The 16*16 mac is slightly different that it
 ;; reserves M1 and M2 in the same cycle.
 (define_insn_reservation "cortex_a9_mac16" 3
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "insn" "smlaxy"))
+       (eq_attr "type" "smlaxy"))
   "cortex_a9_mac16")
 
 (define_insn_reservation "cortex_a9_multiply" 4
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "insn" "mul,smmul,smmulr"))
+       (eq_attr "type" "mul,smmul,smmulr"))
        "cortex_a9_mult")
 
 (define_insn_reservation "cortex_a9_mac" 4
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "insn" "mla,smmla"))
+       (eq_attr "type" "mla,smmla"))
        "cortex_a9_mac")
 
 (define_insn_reservation "cortex_a9_multiply_long" 5
   (and (eq_attr "tune" "cortexa9")
-       (eq_attr "insn" "smull,umull,smulls,umulls,smlal,smlals,umlal,umlals"))
+       (eq_attr "type" "smull,umull,smulls,umulls,smlal,smlals,umlal,umlals"))
        "cortex_a9_mult_long")
 
 ;; An instruction with a result in E2 can be forwarded

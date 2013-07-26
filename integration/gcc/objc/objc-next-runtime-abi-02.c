@@ -1404,7 +1404,7 @@ objc_v2_build_ivar_ref (tree datum, tree component)
 
 /* IVAR refs are made via an externally referenceable offset and built
    on the fly.  That is, unless they refer to (private) fields in  the
-   class stucture.  */
+   class structure.  */
 static tree
 next_runtime_abi_02_build_ivar_ref (location_t loc ATTRIBUTE_UNUSED,
 				   tree base, tree id)
@@ -1639,7 +1639,9 @@ build_v2_build_objc_method_call (int super_flag, tree method_prototype,
 			       fold_convert (rcv_p, integer_zero_node), 1);
 
 #ifdef OBJCPLUS
-      ret_val = build_conditional_expr (ifexp, ret_val, ftree, tf_warning_or_error);
+      ret_val = build_conditional_expr (input_location,
+					ifexp, ret_val, ftree,
+					tf_warning_or_error);
 #else
      /* ??? CHECKME.   */
       ret_val = build_conditional_expr (input_location,
@@ -2228,7 +2230,7 @@ generate_v2_protocol_list (tree i_or_p, tree klass_ctxt)
    that the old ABI is supposed to build 'struct objc_method' which
    has 3 fields, but it does not build the initialization expression
    for 'method_imp' which for protocols is NULL any way.  To be
-   consistant with declaration of 'struct method_t', in the new ABI we
+   consistent with declaration of 'struct method_t', in the new ABI we
    set the method_t.imp to NULL.  */
 
 static tree

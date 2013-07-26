@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2012, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -1902,7 +1902,7 @@ build_simple_component_ref (tree record_variable, tree component,
     {
       tree new_field;
 
-      /* First loop thru normal components.  */
+      /* First loop through normal components.  */
       for (new_field = TYPE_FIELDS (record_type);
 	   new_field;
 	   new_field = DECL_CHAIN (new_field))
@@ -1910,7 +1910,7 @@ build_simple_component_ref (tree record_variable, tree component,
 	  break;
 
       /* Next, see if we're looking for an inherited component in an extension.
-	 If so, look thru the extension directly, but not if the type contains
+	 If so, look through the extension directly, but not if the type contains
 	 a placeholder, as it might be needed for a later substitution.  */
       if (!new_field
 	  && TREE_CODE (record_variable) == VIEW_CONVERT_EXPR
@@ -1926,7 +1926,7 @@ build_simple_component_ref (tree record_variable, tree component,
 	    return ref;
 	}
 
-      /* Next, loop thru DECL_INTERNAL_P components if we haven't found the
+      /* Next, loop through DECL_INTERNAL_P components if we haven't found the
 	 component in the first search.  Doing this search in two steps is
 	 required to avoid hidden homonymous fields in the _Parent field.  */
       if (!new_field)
@@ -2101,7 +2101,8 @@ maybe_wrap_malloc (tree data_size, tree data_type, Node_Id gnat_node)
     = ((data_align > system_allocator_alignment)
        ? make_aligning_type (data_type, data_align, data_size,
 			     system_allocator_alignment,
-			     POINTER_SIZE / BITS_PER_UNIT)
+			     POINTER_SIZE / BITS_PER_UNIT,
+			     gnat_node)
        : NULL_TREE);
 
   tree size_to_malloc

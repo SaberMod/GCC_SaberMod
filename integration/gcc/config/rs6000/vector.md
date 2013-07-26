@@ -24,13 +24,13 @@
 
 
 ;; Vector int modes
-(define_mode_iterator VEC_I [V16QI V8HI V4SI])
+(define_mode_iterator VEC_I [V16QI V8HI V4SI V2DI])
 
 ;; Vector float modes
 (define_mode_iterator VEC_F [V4SF V2DF])
 
 ;; Vector arithmetic modes
-(define_mode_iterator VEC_A [V16QI V8HI V4SI V4SF V2DF])
+(define_mode_iterator VEC_A [V16QI V8HI V4SI V2DI V4SF V2DF])
 
 ;; Vector modes that need alginment via permutes
 (define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
@@ -45,7 +45,7 @@
 (define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF])
 
 ;; Vector comparison modes
-(define_mode_iterator VEC_C [V16QI V8HI V4SI V4SF V2DF])
+(define_mode_iterator VEC_C [V16QI V8HI V4SI V2DI V4SF V2DF])
 
 ;; Vector init/extract modes
 (define_mode_iterator VEC_E [V16QI V8HI V4SI V2DI V4SF V2DF])
@@ -126,7 +126,9 @@
         (match_operand:VEC_L 1 "input_operand" ""))]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
    && reload_completed
-   && gpr_or_gpr_p (operands[0], operands[1])"
+   && gpr_or_gpr_p (operands[0], operands[1])
+   && !direct_move_p (operands[0], operands[1])
+   && !quad_load_store_p (operands[0], operands[1])"
   [(pc)]
 {
   rs6000_split_multireg_move (operands[0], operands[1]);
@@ -708,58 +710,19 @@
   "")
 
 
-;; Vector logical instructions
-;; Do not support TImode logical instructions on 32-bit at present, because the
-;; compiler will see that we have a TImode and when it wanted DImode, and
-;; convert the DImode to TImode, store it on the stack, and load it in a VSX
-;; register.
-(define_expand "xor<mode>3"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (xor:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
-		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
+;; Vector count leading zeros
+(define_expand "clz<mode>2"
+  [(set (match_operand:VEC_I 0 "register_operand" "")
+	(clz:VEC_I (match_operand:VEC_I 1 "register_operand" "")))]
+  "TARGET_P8_VECTOR")
 
-(define_expand "ior<mode>3"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
-		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
+;; Vector population count
+(define_expand "popcount<mode>2"
+  [(set (match_operand:VEC_I 0 "register_operand" "")
+        (popcount:VEC_I (match_operand:VEC_I 1 "register_operand" "")))]
+  "TARGET_P8_VECTOR")
 
-(define_expand "and<mode>3"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (and:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
-		   (match_operand:VEC_L 2 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
-
-(define_expand "one_cmpl<mode>2"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (not:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
-
-(define_expand "nor<mode>3"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (not:VEC_L (ior:VEC_L (match_operand:VEC_L 1 "vlogical_operand" "")
-			      (match_operand:VEC_L 2 "vlogical_operand" ""))))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
-
-(define_expand "andc<mode>3"
-  [(set (match_operand:VEC_L 0 "vlogical_operand" "")
-        (and:VEC_L (not:VEC_L (match_operand:VEC_L 2 "vlogical_operand" ""))
-		   (match_operand:VEC_L 1 "vlogical_operand" "")))]
-  "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)
-   && (<MODE>mode != TImode || TARGET_POWERPC64)"
-  "")
-
+
 ;; Same size conversions
 (define_expand "float<VEC_int><mode>2"
   [(set (match_operand:VEC_F 0 "vfloat_operand" "")
@@ -973,8 +936,12 @@
    (match_operand:V16QI 3 "vlogical_operand" "")]
   "VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
 {
-  emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1], operands[2],
-				       operands[3]));
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[1],
+    	      				 operands[2], operands[3]));
+  else
+    emit_insn (gen_altivec_vperm_<mode> (operands[0], operands[2],
+    	      				 operands[1], operands[3]));
   DONE;
 })
 
@@ -1074,7 +1041,7 @@
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(rotate:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 		      (match_operand:VEC_I 2 "vint_operand" "")))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 ;; Expanders for arithmetic shift left on each vector element
@@ -1082,7 +1049,7 @@
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(ashift:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 		      (match_operand:VEC_I 2 "vint_operand" "")))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 ;; Expanders for logical shift right on each vector element
@@ -1090,7 +1057,7 @@
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(lshiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 			(match_operand:VEC_I 2 "vint_operand" "")))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 ;; Expanders for arithmetic shift right on each vector element
@@ -1098,7 +1065,7 @@
   [(set (match_operand:VEC_I 0 "vint_operand" "")
 	(ashiftrt:VEC_I (match_operand:VEC_I 1 "vint_operand" "")
 			(match_operand:VEC_I 2 "vint_operand" "")))]
-  "TARGET_ALTIVEC"
+  "VECTOR_UNIT_ALTIVEC_OR_VSX_P (<MODE>mode)"
   "")
 
 ;; Vector reduction expanders for VSX

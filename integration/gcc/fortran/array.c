@@ -1073,7 +1073,7 @@ gfc_match_array_constructor (gfc_expr **result)
   /* Try to match an optional "type-spec ::"  */
   gfc_clear_ts (&ts);
   gfc_new_undo_checkpoint (changed_syms);
-  if (gfc_match_decl_type_spec (&ts, 0) == MATCH_YES)
+  if (gfc_match_type_spec (&ts) == MATCH_YES)
     {
       seen_ts = (gfc_match (" ::") == MATCH_YES);
 
@@ -2084,7 +2084,7 @@ spec_size (gfc_array_spec *as, mpz_t *result)
   mpz_t size;
   int d;
 
-  if (as->type == AS_ASSUMED_RANK)
+  if (!as || as->type == AS_ASSUMED_RANK)
     return false;
 
   mpz_init_set_ui (*result, 1);

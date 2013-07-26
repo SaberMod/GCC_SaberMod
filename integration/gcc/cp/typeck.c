@@ -851,6 +851,7 @@ merge_types (tree t1, tree t2)
 	tree raises = merge_exception_specifiers (TYPE_RAISES_EXCEPTIONS (t1),
 						  TYPE_RAISES_EXCEPTIONS (t2),
 						  NULL_TREE);
+	cp_ref_qualifier rqual = type_memfn_rqual (t1);
 	tree t3;
 
 	/* If this was a member function type, get back to the
@@ -864,6 +865,7 @@ merge_types (tree t1, tree t2)
 	t3 = build_method_type_directly (basetype, TREE_TYPE (t3),
 					 TYPE_ARG_TYPES (t3));
 	t1 = build_exception_variant (t3, raises);
+	t1 = build_ref_qualified_type (t1, rqual);
 	break;
       }
 
@@ -2139,7 +2141,8 @@ rationalize_conditional_expr (enum tree_code code, tree t,
       gcc_assert (!TREE_SIDE_EFFECTS (op0)
 		  && !TREE_SIDE_EFFECTS (op1));
       return
-	build_conditional_expr (build_x_binary_op (input_location,
+	build_conditional_expr (EXPR_LOC_OR_HERE (t),
+				build_x_binary_op (EXPR_LOC_OR_HERE (t),
 						   (TREE_CODE (t) == MIN_EXPR
 						    ? LE_EXPR : GE_EXPR),
 						   op0, TREE_CODE (op0),
@@ -2152,7 +2155,7 @@ rationalize_conditional_expr (enum tree_code code, tree t,
     }
 
   return
-    build_conditional_expr (TREE_OPERAND (t, 0),
+    build_conditional_expr (EXPR_LOC_OR_HERE (t), TREE_OPERAND (t, 0),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 1), 0,
                                                complain),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 2), 0,
@@ -3002,6 +3005,22 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
       return error_mark_node;
     }
 
+  /* If an array's index is an array notation, then its rank cannot be
+     greater than one.  */ 
+  if (flag_enable_cilkplus && contains_array_notation_expr (idx))
+    {
+      size_t rank = 0;
+
+      /* If find_rank returns false, then it should have reported an error,
+	 thus it is unnecessary for repetition.  */
+      if (!find_rank (loc, idx, idx, true, &rank))
+	return error_mark_node;
+      if (rank > 1)
+	{
+	  error_at (loc, "rank of the array%'s index is greater than 1");
+	  return error_mark_node;
+	}
+    }
   if (TREE_TYPE (array) == error_mark_node
       || TREE_TYPE (idx) == error_mark_node)
     return error_mark_node;
@@ -3022,7 +3041,7 @@ cp_build_array_ref (location_t loc, tree array, tree idx,
 
     case COND_EXPR:
       ret = build_conditional_expr
-	      (TREE_OPERAND (array, 0),
+	       (loc, TREE_OPERAND (array, 0),
 	       cp_build_array_ref (loc, TREE_OPERAND (array, 1), idx,
 				   complain),
 	       cp_build_array_ref (loc, TREE_OPERAND (array, 2), idx,
@@ -3304,7 +3323,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
 		     cp_build_addr_expr (e2, complain));
 
       e2 = fold_convert (TREE_TYPE (e3), e2);
-      e1 = build_conditional_expr (e1, e2, e3, complain);
+      e1 = build_conditional_expr (input_location, e1, e2, e3, complain);
       if (e1 == error_mark_node)
 	return error_mark_node;
 
@@ -3474,8 +3493,8 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
       params = &allocated;
     }
 
-  nargs = convert_arguments (parm_types, params, fndecl, LOOKUP_NORMAL,
-			     complain);
+    nargs = convert_arguments (parm_types, params, fndecl, LOOKUP_NORMAL,
+			       complain);
   if (nargs < 0)
     return error_mark_node;
 
@@ -3637,8 +3656,7 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	}
       else
 	{
-	  if (fndecl && DECL_BUILT_IN (fndecl)
-	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CONSTANT_P)
+	  if (fndecl && magic_varargs_p (fndecl))
 	    /* Don't do ellipsis conversion for __built_in_constant_p
 	       as this will result in spurious errors for non-trivial
 	       types.  */
@@ -3933,7 +3951,7 @@ cp_build_binary_op (location_t location,
 	}
     }
 
-  type0 = TREE_TYPE (op0);
+  type0 = TREE_TYPE (op0); 
   type1 = TREE_TYPE (op1);
 
   /* The expression codes of the data types of the arguments tell us
@@ -4517,23 +4535,38 @@ cp_build_binary_op (location_t location,
 	  if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (type0),
 							  TREE_TYPE (type1)))
 	    {
-	      error_at (location, "comparing vectors with different "
-				  "element types");
-	      inform (location, "operand types are %qT and %qT", type0, type1);
+	      if (complain & tf_error)
+		{
+		  error_at (location, "comparing vectors with different "
+				      "element types");
+		  inform (location, "operand types are %qT and %qT",
+			  type0, type1);
+		}
 	      return error_mark_node;
 	    }
 
 	  if (TYPE_VECTOR_SUBPARTS (type0) != TYPE_VECTOR_SUBPARTS (type1))
 	    {
-	      error_at (location, "comparing vectors with different "
-				  "number of elements");
-	      inform (location, "operand types are %qT and %qT", type0, type1);
+	      if (complain & tf_error)
+		{
+		  error_at (location, "comparing vectors with different "
+				      "number of elements");
+		  inform (location, "operand types are %qT and %qT",
+			  type0, type1);
+		}
 	      return error_mark_node;
 	    }
 
 	  /* Always construct signed integer vector type.  */
 	  intt = c_common_type_for_size (GET_MODE_BITSIZE
 					   (TYPE_MODE (TREE_TYPE (type0))), 0);
+	  if (!intt)
+	    {
+	      if (complain & tf_error)
+		error_at (location, "could not find an integer type "
+			  "of the same size as %qT", TREE_TYPE (type0));
+	      return error_mark_node;
+	    }
 	  result_type = build_opaque_vector_type (intt,
 						  TYPE_VECTOR_SUBPARTS (type0));
 	  converted = 1;
@@ -4840,6 +4873,21 @@ cp_build_binary_op (location_t location,
     overflow_warning (location, result);
 
   return result;
+}
+
+/* Build a VEC_PERM_EXPR.
+   This is a simple wrapper for c_build_vec_perm_expr.  */
+tree
+build_x_vec_perm_expr (location_t loc,
+			tree arg0, tree arg1, tree arg2,
+			tsubst_flags_t complain)
+{
+  if (processing_template_decl
+      && (type_dependent_expression_p (arg0)
+	  || type_dependent_expression_p (arg1)
+	  || type_dependent_expression_p (arg2)))
+    return build_min_nt_loc (loc, VEC_PERM_EXPR, arg0, arg1, arg2);
+  return c_build_vec_perm_expr (loc, arg0, arg1, arg2, complain & tf_error);
 }
 
 /* Return a tree for the sum or difference (RESULTCODE says which)
@@ -5900,7 +5948,7 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
       op2 = build_non_dependent_expr (op2);
     }
 
-  expr = build_conditional_expr (ifexp, op1, op2, complain);
+  expr = build_conditional_expr (loc, ifexp, op1, op2, complain);
   if (processing_template_decl && expr != error_mark_node
       && TREE_CODE (expr) != VEC_COND_EXPR)
     {
@@ -5908,7 +5956,7 @@ build_x_conditional_expr (location_t loc, tree ifexp, tree op1, tree op2,
 				    orig_ifexp, orig_op1, orig_op2);
       /* In C++11, remember that the result is an lvalue or xvalue.
          In C++98, lvalue_kind can just assume lvalue in a template.  */
-      if (cxx_dialect >= cxx0x
+      if (cxx_dialect >= cxx11
 	  && lvalue_or_rvalue_with_address_p (expr)
 	  && !lvalue_or_rvalue_with_address_p (min))
 	TREE_TYPE (min) = cp_build_reference_type (TREE_TYPE (min),
@@ -6689,12 +6737,12 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
   else if ((TYPE_PTRFN_P (type) && TYPE_PTROBV_P (intype))
 	   || (TYPE_PTRFN_P (intype) && TYPE_PTROBV_P (type)))
     {
-      if (pedantic && (complain & tf_warning))
-	/* Only issue a warning, as we have always supported this
-	   where possible, and it is necessary in some cases.  DR 195
-	   addresses this issue, but as of 2004/10/26 is still in
-	   drafting.  */
-	warning (0, "ISO C++ forbids casting between pointer-to-function and pointer-to-object");
+      if (complain & tf_warning)
+	/* C++11 5.2.10 p8 says that "Converting a function pointer to an
+	   object pointer type or vice versa is conditionally-supported."  */
+	warning (OPT_Wconditionally_supported,
+		 "casting between pointer-to-function and pointer-to-object "
+		 "is conditionally-supported");
       return fold_if_not_in_template (build_nop (type, expr));
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
@@ -7150,7 +7198,7 @@ cp_build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs,
 	  return error_mark_node;
 
 	cond = build_conditional_expr
-	  (TREE_OPERAND (lhs, 0),
+	  (input_location, TREE_OPERAND (lhs, 0),
 	   cp_build_modify_expr (TREE_OPERAND (lhs, 1),
 				 modifycode, rhs, complain),
 	   cp_build_modify_expr (TREE_OPERAND (lhs, 2),
@@ -8140,6 +8188,7 @@ maybe_warn_about_returning_address_of_local (tree retval)
   if (DECL_P (whats_returned)
       && DECL_NAME (whats_returned)
       && DECL_FUNCTION_SCOPE_P (whats_returned)
+      && !is_capture_proxy (whats_returned)
       && !(TREE_STATIC (whats_returned)
 	   || TREE_PUBLIC (whats_returned)))
     {
@@ -8365,8 +8414,9 @@ check_return_expr (tree retval, bool *no_warning)
      && VAR_P (retval)
      && DECL_CONTEXT (retval) == current_function_decl
      && ! TREE_STATIC (retval)
-     && ! DECL_ANON_UNION_VAR_P (retval)
-     && (DECL_ALIGN (retval) >= DECL_ALIGN (result))
+     /* And not a lambda or anonymous union proxy.  */
+     && !DECL_HAS_VALUE_EXPR_P (retval)
+     && (DECL_ALIGN (retval) <= DECL_ALIGN (result))
      /* The cv-unqualified type of the returned value must be the
         same as the cv-unqualified return type of the
         function.  */
@@ -8410,7 +8460,7 @@ check_return_expr (tree retval, bool *no_warning)
          Note that these conditions are similar to, but not as strict as,
 	 the conditions for the named return value optimization.  */
       if ((cxx_dialect != cxx98)
-          && (VAR_P (retval)
+          && ((VAR_P (retval) && !DECL_HAS_VALUE_EXPR_P (retval))
 	      || TREE_CODE (retval) == PARM_DECL)
 	  && DECL_CONTEXT (retval) == current_function_decl
 	  && !TREE_STATIC (retval)
@@ -8549,10 +8599,10 @@ error_type_p (const_tree type)
     }
 }
 
-/* Returns 1 if to and from are (possibly multi-level) pointers to the same
+/* Returns true if to and from are (possibly multi-level) pointers to the same
    type or inheritance-related types, regardless of cv-quals.  */
 
-int
+bool
 ptr_reasonably_similar (const_tree to, const_tree from)
 {
   for (; ; to = TREE_TYPE (to), from = TREE_TYPE (from))
@@ -8564,7 +8614,7 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 	return !error_type_p (to);
 
       if (TREE_CODE (to) != TREE_CODE (from))
-	return 0;
+	return false;
 
       if (TREE_CODE (from) == OFFSET_TYPE
 	  && comptypes (TYPE_OFFSET_BASETYPE (to),
@@ -8574,19 +8624,24 @@ ptr_reasonably_similar (const_tree to, const_tree from)
 
       if (TREE_CODE (to) == VECTOR_TYPE
 	  && vector_types_convertible_p (to, from, false))
-	return 1;
+	return true;
 
       if (TREE_CODE (to) == INTEGER_TYPE
 	  && TYPE_PRECISION (to) == TYPE_PRECISION (from))
-	return 1;
+	return true;
 
       if (TREE_CODE (to) == FUNCTION_TYPE)
 	return !error_type_p (to) && !error_type_p (from);
 
       if (!TYPE_PTR_P (to))
-	return comptypes
-	  (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
-	   COMPARE_BASE | COMPARE_DERIVED);
+	{
+	  /* When either type is incomplete avoid DERIVED_FROM_P,
+	     which may call complete_type (c++/57942).  */
+	  bool b = !COMPLETE_TYPE_P (to) || !COMPLETE_TYPE_P (from);
+	  return comptypes
+	    (TYPE_MAIN_VARIANT (to), TYPE_MAIN_VARIANT (from),
+	     b ? COMPARE_STRICT : COMPARE_BASE | COMPARE_DERIVED);
+	}
     }
 }
 

@@ -1,3 +1,40 @@
+2013-07-19  Yvan Roux  <yvan.roux@linaro.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2013-07-19  Chung-Ju Wu  <jasonwucj@gmail.com>
+	    Shiva Chen  <shiva0217@gmail.com>
+
+	* MAINTAINERS (nds32 port): Add Chung-Ju Wu and Shiva Chen as
+	nds32 port maintainers.
+
+2013-07-17  Tim Shen  <timshen91@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2013-07-16  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* configure.ac: Sync from binutils.
+	* configure: Regenerate.
+
+2013-07-10  Jack Howarth  <howarth@bromo.med.uc.edu>
+
+	PR target/57792
+	* configure.ac: Use --with-sysroot=\"`xcrun --show-sdk-path`\" on darwin13 and later.
+	* configure: Regenerated.
+
+2013-06-14  Vidya Praveen  <vidyapraveen@arm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2013-06-01  Dinar Temirbulatov  <dinar@kugelworks.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2013-05-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2013-04-30  Brooks Moses  <bmoses@google.com>
 
 	* MAINTAINERS: Update my email; move myself from Fortran

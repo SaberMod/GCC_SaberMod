@@ -330,12 +330,10 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			break;
 		      }
 		    if (!targetm.calls.function_value_regno_p (copy_start))
-		      {
-			last_insn = return_copy;
-			continue;
-		      }
-		    copy_num
-		      = hard_regno_nregs[copy_start][GET_MODE (copy_reg)];
+		      copy_num = 0;
+		    else
+		      copy_num
+			= hard_regno_nregs[copy_start][GET_MODE (copy_reg)];
 
 		    /* If the return register is not likely spilled, - as is
 		       the case for floating point on SH4 - then it might
@@ -371,6 +369,11 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 			    && OBJECT_P (SET_SRC (return_copy_pat)))
 			  forced_late_switch = 1;
 			break;
+		      }
+		    if (copy_num == 0)
+		      {
+			last_insn = return_copy;
+			continue;
 		      }
 
 		    if (copy_start >= ret_start
@@ -667,10 +670,12 @@ optimize_mode_switching (void)
 
 	      REG_SET_TO_HARD_REG_SET (live_at_edge, df_get_live_out (src_bb));
 
+	      rtl_profile_for_edge (eg);
 	      start_sequence ();
 	      EMIT_MODE_SET (entity_map[j], mode, live_at_edge);
 	      mode_set = get_insns ();
 	      end_sequence ();
+	      default_rtl_profile ();
 
 	      /* Do not bother to insert empty sequence.  */
 	      if (mode_set == NULL_RTX)
@@ -713,6 +718,7 @@ optimize_mode_switching (void)
 		{
 		  rtx mode_set;
 
+		  rtl_profile_for_bb (bb);
 		  start_sequence ();
 		  EMIT_MODE_SET (entity_map[j], ptr->mode, ptr->regs_live);
 		  mode_set = get_insns ();
@@ -727,6 +733,8 @@ optimize_mode_switching (void)
 		      else
 			emit_insn_before (mode_set, ptr->insn_ptr);
 		    }
+
+		  default_rtl_profile ();
 		}
 
 	      free (ptr);

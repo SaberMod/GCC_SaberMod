@@ -428,7 +428,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 
   intype = TYPE_MAIN_VARIANT (intype);
 
-  can_convert_intype_to_type = can_convert (type, intype, complain);
+  can_convert_intype_to_type = can_convert_standard (type, intype, complain);
 
   if (!can_convert_intype_to_type
       && (convtype & CONV_IMPLICIT) && MAYBE_CLASS_TYPE_P (intype)
@@ -449,7 +449,8 @@ convert_to_reference (tree reftype, tree expr, int convtype,
 	}
     }
 
-  if (((convtype & CONV_STATIC) && can_convert (intype, type, complain))
+  if (((convtype & CONV_STATIC)
+       && can_convert_standard (intype, type, complain))
       || ((convtype & CONV_IMPLICIT) && can_convert_intype_to_type))
     {
       {
@@ -624,10 +625,20 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
   result = cp_convert (type, expr, complain);
 
   if ((complain & tf_warning)
-      && c_inhibit_evaluation_warnings == 0
-      && !TREE_OVERFLOW_P (expr)
-      && result != error_mark_node)
-    warnings_for_convert_and_check (type, expr, result);
+      && c_inhibit_evaluation_warnings == 0)
+    {
+      tree folded = maybe_constant_value (expr);
+      tree stripped = folded;
+      tree folded_result = cp_convert (type, folded, complain);
+
+      /* maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW in a
+	 NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
+      STRIP_NOPS (stripped);
+
+      if (!TREE_OVERFLOW_P (stripped)
+	  && folded_result != error_mark_node)
+	warnings_for_convert_and_check (type, folded, folded_result);
+    }
 
   return result;
 }

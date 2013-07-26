@@ -826,7 +826,8 @@ proc check_effective_target_fpic { } {
 
 proc check_effective_target_pie { } {
     if { [istarget *-*-darwin\[912\]*]
-	 || [istarget *-*-linux*] } {
+	 || [istarget *-*-linux*]
+	 || [istarget *-*-gnu*] } {
 	return 1;
     }
     return 0
@@ -1131,6 +1132,24 @@ proc check_effective_target_static_libgfortran { } {
     } "-static"]
 }
 
+# Return 1 if cilk-plus is supported by the target, 0 otherwise.
+ 
+proc check_effective_target_cilkplus { } {
+    # Skip cilk-plus tests on int16 and size16 targets for now.
+    # The cilk-plus tests are not generic enough to cover these
+    # cases and would throw hundreds of FAILs.
+    if { [check_effective_target_int16]
+	 || ![check_effective_target_size32plus] } {
+	return 0;
+    }
+
+    # Skip AVR, its RAM is too small and too many tests would fail.
+    if { [istarget avr-*-*] } {
+	return 0;
+    }
+    return 1
+}
+
 proc check_linker_plugin_available { } {
   return [check_no_compiler_messages_nocache linker_plugin executable {
      int main() { return 0; }
@@ -1309,6 +1328,32 @@ proc check_effective_target_avx_runtime { } {
 	return 1
     }
     return 0
+}
+
+# Return 1 if the target supports executing power8 vector instructions, 0
+# otherwise.  Cache the result.
+
+proc check_p8vector_hw_available { } {
+    return [check_cached_effective_target p8vector_hw_available {
+	# Some simulators are known to not support VSX/power8 instructions.
+	# For now, disable on Darwin
+	if { [istarget powerpc-*-eabi] || [istarget powerpc*-*-eabispe] || [istarget *-*-darwin*]} {
+	    expr 0
+	} else {
+	    set options "-mpower8-vector"
+	    check_runtime_nocache p8vector_hw_available {
+		int main()
+		{
+		#ifdef __MACH__
+		  asm volatile ("xxlorc vs0,vs0,vs0");
+		#else
+		  asm volatile ("xxlorc 0,0,0");
+	        #endif
+		  return 0;
+		}
+	    } $options
+	}
+    }]
 }
 
 # Return 1 if the target supports executing VSX instructions, 0
@@ -2079,6 +2124,15 @@ proc check_effective_target_aarch64_big_endian { } {
     }]
 }
 
+# Return 1 if this is a AArch64 target supporting little endian
+proc check_effective_target_aarch64_little_endian { } {
+    return [check_no_compiler_messages aarch64_little_endian assembly {
+        #if !defined(__aarch64__) || defined(__AARCH64EB__)
+        #error FOO
+        #endif
+    }]
+}
+
 # Return 1 is this is an arm target using 32-bit instructions
 proc check_effective_target_arm32 { } {
     return [check_no_compiler_messages arm32 assembly {
@@ -2749,6 +2803,33 @@ proc check_effective_target_powerpc_altivec_ok { } {
     }
 }
 
+# Return 1 if this is a PowerPC target supporting -mpower8-vector
+
+proc check_effective_target_powerpc_p8vector_ok { } {
+    if { ([istarget powerpc*-*-*]
+         && ![istarget powerpc-*-linux*paired*])
+	 || [istarget rs6000-*-*] } {
+	# AltiVec is not supported on AIX before 5.3.
+	if { [istarget powerpc*-*-aix4*]
+	     || [istarget powerpc*-*-aix5.1*] 
+	     || [istarget powerpc*-*-aix5.2*] } {
+	    return 0
+	}
+	return [check_no_compiler_messages powerpc_p8vector_ok object {
+	    int main (void) {
+#ifdef __MACH__
+		asm volatile ("xxlorc vs0,vs0,vs0");
+#else
+		asm volatile ("xxlorc 0,0,0");
+#endif
+		return 0;
+	    }
+	} "-mpower8-vector"]
+    } else {
+	return 0
+    }
+}
+
 # Return 1 if this is a PowerPC target supporting -mvsx
 
 proc check_effective_target_powerpc_vsx_ok { } {
@@ -2771,6 +2852,27 @@ proc check_effective_target_powerpc_vsx_ok { } {
 		return 0;
 	    }
 	} "-mvsx"]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target supporting -mhtm
+
+proc check_effective_target_powerpc_htm_ok { } {
+    if { ([istarget powerpc*-*-*]
+         && ![istarget powerpc-*-linux*paired*])
+	 || [istarget rs6000-*-*] } {
+	# HTM is not supported on AIX yet.
+	if { [istarget powerpc*-*-aix*] } {
+	    return 0
+	}
+	return [check_no_compiler_messages powerpc_htm_ok object {
+	    int main (void) {
+		asm volatile ("tbegin. 0");
+		return 0;
+	    }
+	} "-mhtm"]
     } else {
 	return 0
     }
@@ -4576,6 +4678,7 @@ proc is-effective-target { arg } {
 	switch $arg {
 	  "vmx_hw"         { set selected [check_vmx_hw_available] }
 	  "vsx_hw"         { set selected [check_vsx_hw_available] }
+	  "p8vector_hw"    { set selected [check_p8vector_hw_available] }
 	  "ppc_recip_hw"   { set selected [check_ppc_recip_hw_available] }
 	  "named_sections" { set selected [check_named_sections_available] }
 	  "gc_sections"    { set selected [check_gc_sections_available] }
@@ -4597,6 +4700,7 @@ proc is-effective-target-keyword { arg } {
 	switch $arg {
 	  "vmx_hw"         { return 1 }
 	  "vsx_hw"         { return 1 }
+	  "p8vector_hw"    { return 1 }
 	  "ppc_recip_hw"   { return 1 }
 	  "named_sections" { return 1 }
 	  "gc_sections"    { return 1 }
@@ -5181,7 +5285,9 @@ proc check_vect_support_and_set_flags { } {
         }
 
         lappend DEFAULT_VECTCFLAGS "-maltivec"
-        if [check_vsx_hw_available] {
+        if [check_p8vector_hw_available] {
+            lappend DEFAULT_VECTCFLAGS "-mpower8-vector" "-mno-allow-movmisalign"
+        } elseif [check_vsx_hw_available] {
             lappend DEFAULT_VECTCFLAGS "-mvsx" "-mno-allow-movmisalign"
         }
 

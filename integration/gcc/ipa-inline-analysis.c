@@ -1291,7 +1291,7 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
       fprintf (f,
 	       "%*s%s/%i %s\n%*s  loop depth:%2i freq:%4i size:%2i"
 	       " time: %2i callee size:%2i stack:%2i",
-	       indent, "", cgraph_node_name (callee), callee->uid,
+	       indent, "", cgraph_node_name (callee), callee->symbol.order,
 	       !edge->inline_failed
 	       ? "inlined" : cgraph_inline_failed_string (edge-> inline_failed),
 	       indent, "", es->loop_depth, edge->frequency,
@@ -1351,13 +1351,13 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
 void
 dump_inline_summary (FILE *f, struct cgraph_node *node)
 {
-  if (node->analyzed)
+  if (node->symbol.definition)
     {
       struct inline_summary *s = inline_summary (node);
       size_time_entry *e;
       int i;
       fprintf (f, "Inline summary for %s/%i", cgraph_node_name (node),
-	       node->uid);
+	       node->symbol.order);
       if (DECL_DISREGARD_INLINE_LIMITS (node->symbol.decl))
 	fprintf (f, " always_inline");
       if (s->inlinable)
@@ -1427,7 +1427,7 @@ initialize_inline_failed (struct cgraph_edge *e)
 
   if (e->indirect_unknown_callee)
     e->inline_failed = CIF_INDIRECT_UNKNOWN_CALL;
-  else if (!callee->analyzed)
+  else if (!callee->symbol.definition)
     e->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
     e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
@@ -2106,8 +2106,9 @@ param_change_prob (gimple stmt, int i)
       struct record_modified_bb_info info;
       bitmap_iterator bi;
       unsigned index;
+      tree init = ctor_for_folding (base);
 
-      if (const_value_known_p (base))
+      if (init != error_mark_node)
 	return 0;
       if (!bb->frequency)
 	return REG_BR_PROB_BASE;
@@ -2765,7 +2766,7 @@ estimate_edge_devirt_benefit (struct cgraph_edge *ie,
   gcc_checking_assert (*size >= 0);
 
   callee = cgraph_get_node (target);
-  if (!callee || !callee->analyzed)
+  if (!callee || !callee->symbol.definition)
     return false;
   isummary = inline_summary (callee);
   return isummary->inlinable;
@@ -2870,7 +2871,8 @@ estimate_node_size_and_time (struct cgraph_node *node,
     {
       bool found = false;
       fprintf (dump_file, "   Estimating body: %s/%i\n"
-	       "   Known to be false: ", cgraph_node_name (node), node->uid);
+	       "   Known to be false: ", cgraph_node_name (node),
+	       node->symbol.order);
 
       for (i = predicate_not_inlined_condition;
 	   i < (predicate_first_dynamic_condition
@@ -3650,7 +3652,7 @@ inline_analyze_function (struct cgraph_node *node)
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function: %s/%u\n",
-	     cgraph_node_name (node), node->uid);
+	     cgraph_node_name (node), node->symbol.order);
   if (optimize && !node->thunk.thunk_p)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
@@ -3682,7 +3684,7 @@ inline_generate_summary (void)
   inline_free_summary ();
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->alias)
+    if (!node->symbol.alias)
       inline_analyze_function (node);
 }
 
@@ -3916,7 +3918,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && cnode->analyzed)
+      if (cnode && cnode->symbol.definition && !cnode->symbol.alias)
 	count++;
     }
   streamer_write_uhwi (ob, count);
@@ -3925,7 +3927,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && (node = cnode)->analyzed)
+      if (cnode && (node = cnode)->symbol.definition && !node->symbol.alias)
 	{
 	  struct inline_summary *info = inline_summary (node);
 	  struct bitpack_d bp;

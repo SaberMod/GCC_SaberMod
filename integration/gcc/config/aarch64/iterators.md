@@ -76,12 +76,21 @@
 ;; Vector modes for moves.
 (define_mode_iterator VDQM [V8QI V16QI V4HI V8HI V2SI V4SI])
 
+;; This mode iterator allows :P to be used for patterns that operate on
+;; addresses in different modes.  In LP64, only DI will match, while in
+;; ILP32, either can match.
+(define_mode_iterator P [(SI "ptr_mode == SImode || Pmode == SImode")
+			 (DI "ptr_mode == DImode || Pmode == DImode")])
+
 ;; This mode iterator allows :PTR to be used for patterns that operate on
 ;; pointer-sized quantities.  Exactly one of the two alternatives will match.
-(define_mode_iterator PTR [(SI "Pmode == SImode") (DI "Pmode == DImode")])
+(define_mode_iterator PTR [(SI "ptr_mode == SImode") (DI "ptr_mode == DImode")])
 
 ;; Vector Float modes.
 (define_mode_iterator VDQF [V2SF V4SF V2DF])
+
+;; Modes suitable to use as the return type of a vcond expression.
+(define_mode_iterator VDQF_COND [V2SF V2SI V4SF V4SI V2DF V2DI])
 
 ;; All Float modes.
 (define_mode_iterator VALLF [V2SF V4SF V2DF SF DF])
@@ -382,7 +391,8 @@
 ;; Double modes of vector modes (lower case).
 (define_mode_attr Vdbl [(V8QI "v16qi") (V4HI "v8hi")
 			(V2SI "v4si")  (V2SF "v4sf")
-			(SI   "v2si")  (DI   "v2di")])
+			(SI   "v2si")  (DI   "v2di")
+			(DF   "v2df")])
 
 ;; Narrowed modes for VDN.
 (define_mode_attr VNARROWD [(V4HI "V8QI") (V2SI "V4HI")
