@@ -257,14 +257,15 @@ dump_open_alternate_stream (struct dump_file_info *dfi)
 void
 dump_loc (int dump_kind, FILE *dfile, source_location loc)
 {
-  /* Currently vectorization passes print location information.  */
   if (dump_kind)
     {
+      /* Ensure dump message starts on a new line.  */
+      fprintf (dfile, "\n");
       if (LOCATION_LOCUS (loc) > BUILTINS_LOCATION)
-        fprintf (dfile, "\n%s:%d:%d: note: ", LOCATION_FILE (loc),
+        fprintf (dfile, "%s:%d:%d: note: ", LOCATION_FILE (loc),
                  LOCATION_LINE (loc), LOCATION_COLUMN (loc));
       else if (current_function_decl)
-        fprintf (dfile, "\n%s:%d:%d: note: ",
+        fprintf (dfile, "%s:%d:%d: note: ",
                  DECL_SOURCE_FILE (current_function_decl),
                  DECL_SOURCE_LINE (current_function_decl),
                  DECL_SOURCE_COLUMN (current_function_decl));
