@@ -1,0 +1,7 @@
+2013-07-24  Terry Guo  <terry.guo@arm.com>
+
+	* configure.ac (with_multilib_list): Export its value.
+	* Makefile.in (with_multilib_list): Import it from configure files.
+	* configure: Regenerated.
+	* config/arm/t-mlibs: New files to define multilibs.
+	* config.gcc: Use above multilib fragment.
