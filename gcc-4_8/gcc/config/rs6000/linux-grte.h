@@ -1,4 +1,4 @@
-/* Definitions for Linux-based GRTE (Google RunTime Environment) version 3.
+/* Definitions for Linux-based GRTE (Google RunTime Environment).
    Copyright (C) 2009,2010,2011,2012 Free Software Foundation, Inc.
    Contributed by Chris Demetriou and Ollie Wild.
 
@@ -23,9 +23,9 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
-/* Overrides LIB_SPEC from gnu-user.h.  */
-#undef	LIB_SPEC
-#define LIB_SPEC \
+/* Overrides LIB_LINUX_SPEC from sysv4.h.  */
+#undef	LIB_LINUX_SPEC
+#define LIB_LINUX_SPEC \
   "%{pthread:-lpthread} \
    %{shared:-lc} \
    %{!shared:%{mieee-fp:-lieee} %{profile:%(libc_p)}%{!profile:%(libc)}}"

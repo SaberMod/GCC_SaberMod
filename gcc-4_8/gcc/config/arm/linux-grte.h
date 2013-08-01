@@ -1,4 +1,4 @@
-/* Definitions for ARM Linux-based GRTE (Google RunTime Environment) version 2.
+/* Definitions for ARM Linux-based GRTE (Google RunTime Environment).
    Copyright (C) 2011 Free Software Foundation, Inc.
    Contributed by Chris Demetriou.
 
