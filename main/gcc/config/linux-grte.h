@@ -1,5 +1,5 @@
-/* Definitions for Linux-based GRTE (Google RunTime Environment) version 2.
-   Copyright (C) 2009,2010,2011 Free Software Foundation, Inc.
+/* Definitions for Linux-based GRTE (Google RunTime Environment).
+   Copyright (C) 2009,2010,2011,2012 Free Software Foundation, Inc.
    Contributed by Chris Demetriou and Ollie Wild.
 
 This file is part of GCC.

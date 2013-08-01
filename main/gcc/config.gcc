@@ -888,10 +888,10 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 		tmake_file="$tmake_file arm/t-linux-androideabi"
 		;;
 	    esac
-	    # Pull in spec changes for GRTEv2 configurations.
+	    # Pull in spec changes for GRTE configurations.
 	    case ${target} in
-	    *-grtev2-*)
-		tm_file="${tm_file} linux-grtev2.h arm/linux-grtev2.h"
+	    *-grte*)
+		tm_file="${tm_file} linux-grte.h arm/linux-grte.h"
 		;;
 	    esac
   	    # The BPABI long long divmod functions return a 128-bit value in
@@ -1326,10 +1326,10 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		else
 			tm_file="${tm_file} i386/gnu-user-common.h i386/gnu-user.h i386/linux-common.h i386/linux.h"
 		fi
-		# Pull in spec changes for GRTEv3 configurations.
+		# Pull in spec changes for GRTE configurations.
 		case ${target} in
-		*-grtev3-*)
-			tm_file="${tm_file} linux-grtev3.h"
+		*-grte*)
+			tm_file="${tm_file} linux-grte.h"
 			;;
 		esac
 		;;
@@ -1346,9 +1346,6 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-knetbsd*-gnu | i
 		tm_file="$tm_file i386/gnu-user-common.h i386/gnu-user.h gnu.h i386/gnu.h"
 		;;
 	esac
-	if [ "$with_sysroot" = "/usr/grte/v2" ]; then
-	  tm_file="${tm_file} linux-grtev2.h"
-	fi
 	;;
 x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h gnu-user.h glibc-stdint.h \
@@ -1358,10 +1355,10 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 		tm_file="${tm_file} linux.h i386/linux-common.h i386/linux64.h"
 		# Assume modern glibc
 		default_gnu_indirect_function=yes
-		# Pull in spec changes for GRTEv3 configurations.
+		# Pull in spec changes for GRTE configurations.
 		case ${target} in
-		*-grtev3-*)
-			tm_file="${tm_file} linux-grtev3.h"
+		*-grte*)
+			tm_file="${tm_file} linux-grte.h"
 			;;
 		esac
 	  	;;
@@ -1396,9 +1393,6 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 		esac
 	done
 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
-	if [ "$with_sysroot" = "/usr/grte/v2" ]; then
-	  tm_file="${tm_file} linux-grtev2.h"
-	fi
 	;;
 i[34567]86-pc-msdosdjgpp*)
 	xm_file=i386/xm-djgpp.h
@@ -2152,10 +2146,10 @@ powerpc-*-linux* | powerpc64-*-linux*)
 	if test x${enable_secureplt} = xyes; then
 		tm_file="rs6000/secureplt.h ${tm_file}"
 	fi
-	# Pull in spec changes for GRTEv2 configurations.
+	# Pull in spec changes for GRTE configurations.
 	case ${target} in
-	*-grtev2-*)
-	    tm_file="${tm_file} rs6000/linux-grtev2.h"
+	*-grte*)
+	    tm_file="${tm_file} rs6000/linux-grte.h"
 	    ;;
 	esac
 	;;
