@@ -1026,7 +1026,7 @@ DEFPARAM (PARAM_COVERAGE_EXEC_ONCE,
 DEFPARAM (PARAM_GCOV_DEBUG,
 	  "gcov-debug",
 	  "Looking for gcda file in current dir.",
-	  1, 0, 1)
+	  0, 0, 1)
 
 /* Avoid SLP vectorization of large basic blocks.  */
 DEFPARAM (PARAM_SLP_MAX_INSNS_IN_BB,
