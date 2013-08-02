@@ -8,10 +8,9 @@
 //
 // { dg-final { scan-assembler "DIE \\(\[^\n\]*\\) DW_TAG_type_unit" } }
 //
-// Check that func is declared exactly twice in the debug info:
-// once in the type unit for struct D, and once in the compile unit.
+// Check that func is declared exactly once in the debug info.
 //
-// { dg-final { scan-assembler-times "\\.ascii \"func\\\\0\"\[^\n\]*DW_AT_name" 2 } }
+// { dg-final { scan-assembler-times "\\.ascii \"func\\\\0\"\[^\n\]*DW_AT_name" 1 } }
 //
 // Check to make sure that no type unit contains a DIE with DW_AT_low_pc
 // or DW_AT_ranges.  These patterns assume that the compile unit is always
