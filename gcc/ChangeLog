@@ -1,3 +1,38 @@
+2013-08-01  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	Backport from mainline
+	2013-05-13  Ganesh Gopalasubramanian  
+		    <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.c (processor_target_table): Modified default
+	alignment values for AMD BD and BT architectures.
+
+2013-07-31  Sriraman Tallam  <tmsriram@google.com>
+
+	* config/i386/i386.c (dispatch_function_versions): Fix array
+	indexing of function_version_info to match actual_versions.
+
+2013-07-31  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config.gcc (*-*-rtems*): Use __cxa_atexit by default.
+	* config/rs6000/rtems.h (TARGET_LIBGCC_SDATA_SECTION): Define.
+
+2013-07-31  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	Backport from mainline
+        2013-03-27  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.h (TARGET_FLT_EVAL_METHOD): Define.
+
+	2013-07-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/linux-unwind.h: Use the proper dwarf to hard reg
+	mapping for FPRs when creating the fallback framestate.
+
+	2013-07-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("movcc"): Swap load and store instructions.
+
 2013-07-25  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline:
