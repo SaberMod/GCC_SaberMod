@@ -2,6 +2,8 @@
 /* -mlongcall will cause us to place &foo in the CTR register.  */
 /* { dg-skip-if "" { powerpc*-*-* } { "-mlongcall" } { "" } } */
 /* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized" } */
+/* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized -mshort-calls" {target epiphany-*-*} } */
+  
 
 /* On 31-bit S/390 the function address will be stored (once) in the literal pool,
    so scan-assembler-times "foo" will return 1 even if the loop is fully unrolled.
@@ -14,7 +16,7 @@
 /* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized -static" { target *-*-darwin* } } */
 
 /* On MIPS, disable generating hints (R_MIPS_JALR) for PIC calls.  In addition
-   to the load from the GOT this also contains the name of the funtion so for
+   to the load from the GOT this also contains the name of the function so for
    each call the function name would appear twice.  */
 /* { dg-options "-O1 -ftree-loop-ivcanon -funroll-loops -fdump-tree-ivcanon-details -fdump-tree-cunroll-details -fdump-tree-optimized -mno-relax-pic-calls" { target mips*-*-* } } */
 __attribute__ ((pure))

@@ -412,6 +412,7 @@ const struct c_common_resword c_common_reswords[] =
   { "_Sat",             RID_SAT,       D_CONLY | D_EXT },
   { "_Static_assert",   RID_STATIC_ASSERT, D_CONLY },
   { "_Noreturn",        RID_NORETURN,  D_CONLY },
+  { "_Generic",         RID_GENERIC,   D_CONLY },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -10163,7 +10164,7 @@ get_atomic_generic_size (location_t loc, tree function,
     {
       int size;
       tree type = TREE_TYPE ((*params)[x]);
-      /* __atomic_compare_exchange has a bool in the 4th postion, skip it.  */
+      /* __atomic_compare_exchange has a bool in the 4th position, skip it.  */
       if (n_param == 6 && x == 3)
         continue;
       if (!POINTER_TYPE_P (type))

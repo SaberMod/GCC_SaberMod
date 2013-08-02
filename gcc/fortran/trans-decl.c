@@ -975,7 +975,10 @@ gfc_build_dummy_array_decl (gfc_symbol * sym, tree dummy)
 			&& as->lower[n]
 			&& as->upper[n]->expr_type == EXPR_CONSTANT
 			&& as->lower[n]->expr_type == EXPR_CONSTANT))
-		    packed = PACKED_PARTIAL;
+		    {
+		      packed = PACKED_PARTIAL;
+		      break;
+		    }
 		}
 	    }
 	  else
@@ -2157,7 +2160,7 @@ create_function_arglist (gfc_symbol * sym)
 	    }
 	}
       /* For noncharacter scalar intrinsic types, VALUE passes the value,
-	 hence, the optional status cannot be transfered via a NULL pointer.
+	 hence, the optional status cannot be transferred via a NULL pointer.
 	 Thus, we will use a hidden argument in that case.  */
       else if (f->sym->attr.optional && f->sym->attr.value
 	       && !f->sym->attr.dimension && f->sym->ts.type != BT_CLASS

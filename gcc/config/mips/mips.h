@@ -507,6 +507,12 @@ struct mips_cpu_info {
       if (TARGET_PAIRED_SINGLE_FLOAT)					\
 	builtin_define ("__mips_paired_single_float");			\
 									\
+      if (mips_abs == MIPS_IEEE_754_2008)				\
+	builtin_define ("__mips_abs2008");				\
+									\
+      if (mips_nan == MIPS_IEEE_754_2008)				\
+	builtin_define ("__mips_nan2008");				\
+									\
       if (TARGET_BIG_ENDIAN)						\
 	{								\
 	  builtin_define_std ("MIPSEB");				\
@@ -743,6 +749,7 @@ struct mips_cpu_info {
    --with-abi is ignored if -mabi is specified.
    --with-float is ignored if -mhard-float or -msoft-float are
      specified.
+   --with-nan is ignored if -mnan is specified.
    --with-divide is ignored if -mdivide-traps or -mdivide-breaks are
      specified. */
 #define OPTION_DEFAULT_SPECS \
@@ -754,6 +761,8 @@ struct mips_cpu_info {
   {"tune_64", "%{" OPT_ARCH64 ":%{!mtune=*:-mtune=%(VALUE)}}" }, \
   {"abi", "%{!mabi=*:-mabi=%(VALUE)}" }, \
   {"float", "%{!msoft-float:%{!mhard-float:-m%(VALUE)-float}}" }, \
+  {"fpu", "%{!msingle-float:%{!mdouble-float:-m%(VALUE)-float}}" }, \
+  {"nan", "%{!mnan=*:-mnan=%(VALUE)}" }, \
   {"divide", "%{!mdivide-traps:%{!mdivide-breaks:-mdivide-%(VALUE)}}" }, \
   {"llsc", "%{!mllsc:%{!mno-llsc:-m%(VALUE)}}" }, \
   {"mips-plt", "%{!mplt:%{!mno-plt:-m%(VALUE)}}" }, \
@@ -859,7 +868,9 @@ struct mips_cpu_info {
 				 || TARGET_LOONGSON_2EF)
 
 /* ISA has LDC1 and SDC1.  */
-#define ISA_HAS_LDC1_SDC1	(!ISA_MIPS1 && !TARGET_MIPS16)
+#define ISA_HAS_LDC1_SDC1	(!ISA_MIPS1				\
+				 && !TARGET_MIPS5900			\
+				 && !TARGET_MIPS16)
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC.  */
@@ -1157,7 +1168,7 @@ struct mips_cpu_info {
 %(subtarget_asm_debugging_spec) \
 %{mabi=*} %{!mabi=*: %(asm_abi_default_spec)} \
 %{mgp32} %{mgp64} %{march=*} %{mxgot:-xgot} \
-%{mfp32} %{mfp64} \
+%{mfp32} %{mfp64} %{mnan=*} \
 %{mshared} %{mno-shared} \
 %{msym32} %{mno-sym32} \
 %{mtune=*} \
@@ -2892,6 +2903,10 @@ while (0)
 
 #ifndef HAVE_AS_TLS
 #define HAVE_AS_TLS 0
+#endif
+
+#ifndef HAVE_AS_NAN
+#define HAVE_AS_NAN 0
 #endif
 
 #ifndef USED_FOR_TARGET

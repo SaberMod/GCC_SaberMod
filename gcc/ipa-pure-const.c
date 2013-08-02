@@ -1080,7 +1080,7 @@ ignore_edge (struct cgraph_edge *e)
 
 /* Return true if NODE is self recursive function.
    ??? self recursive and indirectly recursive funcions should
-   be the same, so this function seems unnecesary.  */
+   be the same, so this function seems unnecessary.  */
 
 static bool
 self_recursive_p (struct cgraph_node *node)
@@ -1431,7 +1431,10 @@ propagate_nothrow (void)
 	    }
           for (ie = node->indirect_calls; ie; ie = ie->next_callee)
 	    if (ie->can_throw_external)
-	      can_throw = true;
+	      {
+		can_throw = true;
+		break;
+	      }
 	  w_info = (struct ipa_dfs_info *) w->symbol.aux;
 	  w = w_info->next_cycle;
 	}

@@ -1,3 +1,21 @@
+2013-07-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in (lto/lto.o:): Depend on CONTEXT_H and
+	PASS_MANAGER_H.
+
+	* lto.c (do_whole_program_analysis): Update for move of
+	all_regular_ipa_passes from a global to a field of class
+	pass_manager.
+
+2013-07-21   OndÅej BÃ­lka  <neleai@seznam.cz>
+
+	* lto-partition.c: Fix typos.
+
+2013-06-20  Jan Hubicka  <jh@suse.cz>
+
+	* lto-partition.c (lto_balanced_map): Fix -fno-toplevel-reorder
+	partitioning of variables.
+
 2013-06-20  Jan Hubicka  <jh@suse.cz>
 
 	* lto.c (read_cgraph_and_symbols): Set cgraph state.

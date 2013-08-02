@@ -1,3 +1,28 @@
+2013-08-01  Maxim Kuvyrkov  <maxim@kugelworks.com>
+
+	* config/aarch64/sfp-machine.h, config/aarch64/sync-cache.c,
+	* config/i386/cpuinfo.c, config/ia64/unwind-ia64.h,
+	* config/mips/vr4120-div.S: Fix license from GPL-3.0+ to
+	GPL-3.0-with-GCC-exception.
+
+2013-07-30  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips16.S (DELAYf): Alias to DELAYt for the MIPS IV
+	ISA and up.
+
+2013-07-23  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/linux-unwind.h: Use the proper dwarf to hard reg
+	mapping for FPRs when creating the fallback framestate.
+
+2013-07-19  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/57516
+	* config/avr/lib1funcs-fixed.S (__roundqq3, __rounduqq3)
+	(__round_s2_const, __round_u2_const)
+	(__round_s4_const, __round_u4_const, __round_x8):
+	Saturate result if addition result cannot be represented.
+
 2013-07-15  Matthias Klose  <doko@ubuntu.com>
 
 	* libgcc2.c: Don't include <limits.h>.

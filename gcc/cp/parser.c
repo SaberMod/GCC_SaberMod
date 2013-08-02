@@ -9088,7 +9088,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
   cp_lexer_save_tokens (parser->lexer);
   attrs_location = cp_lexer_peek_token (parser->lexer)->location;
   if (c_dialect_objc ())
-    /* In obj-c++, seing '[[' might be the either the beginning of
+    /* In obj-c++, seeing '[[' might be the either the beginning of
        c++11 attributes, or a nested objc-message-expression.  So
        let's parse the c++11 attributes tentatively.  */
     cp_parser_parse_tentatively (parser);
@@ -12261,7 +12261,6 @@ cp_parser_operator (cp_parser* parser)
   tree id = NULL_TREE;
   cp_token *token;
   bool bad_encoding_prefix = false;
-  int string_len = 2;
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
@@ -12462,19 +12461,21 @@ cp_parser_operator (cp_parser* parser)
       return ansi_opname (ARRAY_REF);
 
     case CPP_WSTRING:
-      string_len = 3;
     case CPP_STRING16:
     case CPP_STRING32:
-      string_len = 5;
     case CPP_UTF8STRING:
-      string_len = 4;
-      bad_encoding_prefix = true;
+     bad_encoding_prefix = true;
+      /* Fall through.  */
+
     case CPP_STRING:
       if (cxx_dialect == cxx98)
 	maybe_warn_cpp0x (CPP0X_USER_DEFINED_LITERALS);
       if (bad_encoding_prefix)
-	error ("invalid encoding prefix in literal operator");
-      if (TREE_STRING_LENGTH (token->u.value) > string_len)
+	{
+	  error ("invalid encoding prefix in literal operator");
+	  return error_mark_node;
+	}
+      if (TREE_STRING_LENGTH (token->u.value) > 2)
 	{
 	  error ("expected empty string after %<operator%> keyword");
 	  return error_mark_node;
@@ -12505,21 +12506,23 @@ cp_parser_operator (cp_parser* parser)
 	}
 
     case CPP_WSTRING_USERDEF:
-      string_len = 3;
     case CPP_STRING16_USERDEF:
     case CPP_STRING32_USERDEF:
-      string_len = 5;
     case CPP_UTF8STRING_USERDEF:
-      string_len = 4;
       bad_encoding_prefix = true;
+      /* Fall through.  */
+
     case CPP_STRING_USERDEF:
       if (cxx_dialect == cxx98)
 	maybe_warn_cpp0x (CPP0X_USER_DEFINED_LITERALS);
       if (bad_encoding_prefix)
-	error ("invalid encoding prefix in literal operator");
+	{
+	  error ("invalid encoding prefix in literal operator");
+	  return error_mark_node;
+	}
       {
 	tree string_tree = USERDEF_LITERAL_VALUE (token->u.value);
-	if (TREE_STRING_LENGTH (string_tree) > string_len)
+	if (TREE_STRING_LENGTH (string_tree) > 2)
 	  {
 	    error ("expected empty string after %<operator%> keyword");
 	    return error_mark_node;
@@ -22996,7 +22999,8 @@ cp_parser_late_parse_one_default_arg (cp_parser *parser, tree decl,
       /* In a non-template class, check conversions now.  In a template,
 	 we'll wait and instantiate these as needed.  */
       if (TREE_CODE (decl) == PARM_DECL)
-	parsed_arg = check_default_argument (parmtype, parsed_arg);
+	parsed_arg = check_default_argument (parmtype, parsed_arg,
+					     tf_warning_or_error);
       else
 	{
 	  int flags = LOOKUP_IMPLICIT;
@@ -23136,6 +23140,8 @@ cp_parser_sizeof_pack (cp_parser *parser)
 
   cp_token *token = cp_lexer_peek_token (parser->lexer);
   tree name = cp_parser_identifier (parser);
+  if (name == error_mark_node)
+    return error_mark_node;
   /* The name is not qualified.  */
   parser->scope = NULL_TREE;
   parser->qualifying_scope = NULL_TREE;
@@ -24141,7 +24147,9 @@ cp_parser_cache_defarg (cp_parser *parser, bool nsdmi)
 	case CPP_SEMICOLON:
 	case CPP_CLOSE_BRACE:
 	case CPP_CLOSE_SQUARE:
-	  if (depth == 0)
+	  if (depth == 0
+	      /* Handle correctly int n = sizeof ... ( p );  */
+	      && !(nsdmi && token->type == CPP_ELLIPSIS))
 	    done = true;
 	  /* Update DEPTH, if necessary.  */
 	  else if (token->type == CPP_CLOSE_PAREN

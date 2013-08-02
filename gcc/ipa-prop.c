@@ -130,6 +130,10 @@ ipa_populate_param_decls (struct cgraph_node *node,
   tree parm;
   int param_num;
 
+  /* We do not copy DECL_ARGUMENTS to virtual clones.  */
+  while (node->clone_of)
+    node = node->clone_of;
+
   fndecl = node->symbol.decl;
   fnargs = DECL_ARGUMENTS (fndecl);
   param_num = 0;
@@ -166,6 +170,7 @@ ipa_initialize_node_params (struct cgraph_node *node)
   if (!info->descriptors.exists ())
     {
       int param_count;
+      gcc_assert (!node->clone_of);
 
       param_count = count_formal_params (node->symbol.decl);
       if (param_count)
@@ -682,7 +687,7 @@ mark_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef ATTRIBUTE_UNUSED,
   return true;
 }
 
-/* Return true if a load from a formal parameter PARM_LOAD is known to retreive
+/* Return true if a load from a formal parameter PARM_LOAD is known to retrieve
    a value known not to be modified in this function before reaching the
    statement STMT.  PARM_AINFO is a pointer to a structure containing temporary
    information about the parameter.  */

@@ -1940,7 +1940,8 @@ process_alt_operands (int only_alternative)
 		      && ira_class_hard_regs_num[this_alternative] > 0
 		      && ! HARD_REGNO_MODE_OK (ira_class_hard_regs
 					       [this_alternative][0],
-					       GET_MODE (op)))
+					       GET_MODE
+					       (*curr_id->operand_loc[nop])))
 		    goto fail;
 		  losers++;
 		}
@@ -4203,7 +4204,7 @@ need_for_call_save_p (int regno)
 	       PSEUDO_REGNO_MODE (regno), reg_renumber[regno])));
 }
 
-/* Global registers occuring in the current EBB.  */
+/* Global registers occurring in the current EBB.  */
 static bitmap_head ebb_global_regs;
 
 /* Return true if we need a split for hard register REGNO or pseudo

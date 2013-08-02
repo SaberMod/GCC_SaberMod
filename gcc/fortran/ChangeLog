@@ -1,3 +1,113 @@
+2013-07-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57530
+	* symbol.c (gfc_type_compatible): A type is type compatible with
+	a class if both have the same declared type.
+	* interface.c (compare_type): Reject CLASS/TYPE even if they
+	are type compatible.
+
+2013-07-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57530
+	* trans-expr.c (gfc_trans_class_assign): Handle CLASS array
+	functions.
+	(gfc_trans_pointer_assign): Ditto and support pointer assignment of
+	a polymorphic var to a nonpolymorphic var.
+
+2013-07-22  Po Chang  <pchang9@cs.wisc.edu>
+
+	* match.c (gfc_match_call): Exit loop after setting i.
+
+	* resolve.c (resolve_variable): Exit loop after setting seen.
+
+	* expr.c (gfc_check_pointer_assign): Exit loop after setting warn.
+
+	* trans-array.c (set_loop_bounds): Exit loop after setting
+	nonoptional_arr.
+
+	* trans-io.c (gfc_trans_transfer): Exit loop after setting seen_vector.
+
+2013-07-28  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/58009
+	* expr.c (gfc_check_vardef_context):  Check for same values in
+	vector expression subscripts.
+
+2013-07-27  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57991
+	* interface.c (check_some_aliasing): Also warn for intent OUT/OUT.
+
+2013-07-27  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/57285
+	* check.c (dim_rank_check): Re-enable this check for CLASS arrays.
+
+2013-07-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/57966
+	* resolve.c (resolve_typebound_function): Make sure the declared type,
+	including its type-bound procedures, is resolved before resolving the
+	actual type-bound call.
+
+2013-07-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/57639
+	* interface.c (compare_parameter): Check for class_ok.
+	* simplify.c (gfc_simplify_same_type_as): Ditto.
+
+2013-07-23   Ondřej Bílka  <neleai@seznam.cz>
+
+	* decl.c: Fix comment typos.
+	* interface.c: Likewise.
+	* trans-array.c: Likewise.
+	* trans.c: Likewise.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57906
+	PR fortran/52052
+	* class.c (gfc_build_class_symbol): Set coarray_comp.
+	* trans-array.c (structure_alloc_comps): For coarrays,
+	directly use the data pointer address.
+
+2013-07-22  Chang  <pchang9@cs.wisc.edu>
+
+	* trans-decl.c (gfc_build_dummy_array_decl): Exit loop after
+	setting PACKED_PARTIAL.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_array_allocate): Correct memory-leak patch.
+
+2013-07-22  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-array.c (gfc_array_allocate,
+	gfc_trans_deferred_array): Plug memory leak.
+
+2013-07-21  Ondřej Bílka  <neleai@seznam.cz>
+
+	* trans-decl.c: Fix comment typos.
+	* trans-expr.c: Ditto.
+
+2013-07-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/56937
+	* dependency.c (gfc_dep_resolver):  Treat identical
+	array subscripts as identical; don't unconditionally
+	return a dependency if an array subscript is found.
+
+2013-07-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/35862
+	* libgfortran.h (GFC_FPE_DOWNWARD, GFC_FPE_TONEAREST,
+	GFC_FPE_TOWARDZERO, GFC_FPE_UPWARD): New defines.
+
+2013-07-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57894
+	* check.c (min_max_args): Add keyword= check.
+
 2013-07-17  Mikael Morin  <mikael@gcc.gnu.org>
 	    Tobias Burnus  <burnus@net-b.de>
 

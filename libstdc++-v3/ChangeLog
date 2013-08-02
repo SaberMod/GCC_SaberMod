@@ -1,3 +1,222 @@
+2013-08-01  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/57779
+	* include/debug/formatter.h (_Debug_msg_id): Add
+	__msg_insert_itself_range entry.
+	* include/debug/functions.h (_Insert_range_from_self_is_safe<>):
+	New, indicate container types supporting self range insertion in
+	GNU implementation.
+	(__foreign_iterator): New, check if an iterator points to a given
+	sequence.
+	* include/debug/macros.h (__glibcxx_check_insert_range): Add check
+	using __foreign_iterator.
+	(__gibcxx_check_insert_range_after): Likewise.
+	* include/debug/string (_Insert_range_from_self_is_safe<>):
+	Partially specialized to mark __gnu_debug::basic_string<> as
+	supporting self range insert.
+	* include/debug/list (_Insert_range_from_self_is_safe<>):
+	Partially specialized to mark std::list as supporting self range
+	insert if _GLIBCXX_DEBUG_PEDANTIC is not defined.
+	* include/debug/forward_list (_Insert_range_from_self_is_safe<>):
+	Likewise.
+	* src/c++11/debug.cc (_S_debug_messages): Add
+	__msg_insert_itself_range_entry message.
+	(_Error_formatter::_Parameter::_M_print_description): Display
+	iterator sequence address rather than sequence address when the
+	parameter type is an iterator.
+	(_Error_formatter::_M_print_word): Enhance behavior when
+	displaying a word with an appended '\n'.
+	* testsuite/util/debug/checks.h (check_insert4<>): New.
+	* testsuite/23_containers/deque/debug/insert5_neg.cc: New.
+	* testsuite/23_containers/vector/debug/insert5_neg.cc: Likewise.
+	* testsuite/23_containers/vector/debug/insert6_neg.cc: Likewise.
+	* testsuite/23_containers/vector/debug/57779_neg.cc: Likewise.
+	* testsuite/23_containers/list/debug/insert5_neg.cc: Likewise.
+	* testsuite/23_containers/forward_list/debug/insert_after4_neg.cc:
+	Likewise.
+
+2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/54537
+	* include/tr1/cmath: Remove pow(double,double) overload, remove a
+	duplicated comment about DR 550. Add a comment to explain the
+	issue.
+	* testsuite/tr1/8_c_compatibility/cmath/pow_cmath.cc: New.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56627
+	* include/bits/stl_bvector.h: Use friend struct hash intead of
+	friend class hash to work around useless warnings produced by
+	some compilers.
+	* include/std/bitset: Likewise.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* src/c++11/functexcept.cc: Do not include the whole <regex>.
+	* src/c++11/regex.cc: Likewise.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Revert last commit.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert last commit.
+
+2013-07-30  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-29  Nathan Froyd  <froydnj@gcc.gnu.org>
+
+	* include/std/atomic (compare_exchange_weak, compare_exchange_strong):
+	Add call to __cmpexch_failure_order.
+	* testsuite/util/testsuite_common_types.h
+	(compare_exchange_order_lowering): New generator.
+	* testsuite/29_atomics/atomic/requirements/compare_exchange_lowering.cc:
+	New test.
+
+2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/complex (pow(const complex<>&, int)): Enable in
+	C++11 mode too.
+	* testsuite/26_numerics/complex/dr844.cc: Adjust.
+	* doc/xml/manual/intro.xml: Update.
+
+2013-07-25  Tim Shen  <timshen91@gmail.com>
+
+	Add documents and comments.
+	* include/bits/regex.h: Documents and comments.
+	* include/bits/regex_grep_matcher.h: Likewise.
+	* include/bits/regex_grep_matcher.tcc: Likewise.
+	* testsuite/28_regex/iterators/regex_iterator/char/
+	string_position_01.cc: New.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/57976
+	* doc/xml/manual/status_cxx2011.xml: Note missing time_get::get and
+	time_get::do_get.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/random.h (random_device): Avoid using the FILE type.
+	* include/std/random: Do not include <cstdio>.
+	* src/c++11/random.cc: ... include it here.
+	(random_device::_M_init, random_device::_M_fini,
+	random_device::_M_getval): Cast back and forth void* and FILE*.
+
+2013-07-24  Tim Shen  <timshen91@gmail.com>
+
+	Reimplment matcher using Depth-first search(backtracking).
+	PR libstdc++/53622
+	PR libstdc++/57173
+	* include/bits/regex.h: regex_match() and regex_search().
+	* include/bits/regex_cursor.h: Fix _M_set_pos().
+	* include/bits/regex_grep_matcher.h: add _M_dfs_match().
+	* include/bits/regex_grep_matcher.tcc: Implement it.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc: New.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc: New.
+	* testsuite/28_regex/algorithms/regex_search/basic/string_01.cc:
+	Remove xfail.
+
+2013-07-23  Tim Shen  <timshen91@gmail.com>
+
+	Implement regex_iterator and regex_token_iterator.
+	* include/bits/regex.h: regex_iterator and regex_token_iterator.
+	* testsuite/28_regex/iterators/regex_iterator/char/string_01.cc:
+	New.
+	* testsuite/28_regex/iterators/regex_iterator/wchar_t/string_01.cc:
+	New.
+	* testsuite/28_regex/iterators/regex_token_iterator/char/string_01.cc:
+	New.
+	* testsuite/28_regex/iterators/regex_token_iterator/wchar_t/
+	string_01.cc: New.
+
+2013-07-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/std/random: Add back <cstdio> include.
+	* src/c++11/random.cc: Don't include <cstdio> here.
+
+2013-07-22  Jason Merrill  <jason@redhat.com>
+
+	PR libstdc++/57914
+	* libsupc++/atexit_thread.cc (run): Delete cleanup elts.
+
+2013-07-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57920
+	* src/c++11/random.cc (random_device::_M_getval): If possible, use
+	read instead of std::fread.
+	* include/std/random: Do not include <cstdio> unnecessarily.
+
+2013-07-21  Tim Shen  <timshen91@gmail.com>
+
+	Partially implement regex_search.
+	* include/bits/regex.h: regex_search.
+	* include/bits/regex_grep_matcher.h: _M_search_from_first.
+	* include/bits/regex_grep_matcher.tcc: Implement it.
+	* testsuite/28_regex/algorithms/regex_search/basic/string_01.cc: New.
+
+2013-07-21  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/54352
+	* include/std/condition_variable (condition_variable_any): Move into
+	inline namespace _V2 and replace mutex member with shared_ptr<mutex>.
+	* src/c++11/condition_variable.cc (condition_variable_any): Move
+	definitions to ...
+	* src/c++11/compatibility-condvar.cc (condition_variable_any): Here.
+	* src/Makefile.am: Add new source file.
+	* src/Makefile.in: Regenerate.
+
 2013-07-09  Tim Shen  <timshen91@gmail.com>
 
 	Implement class regex_traits.

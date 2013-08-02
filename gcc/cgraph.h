@@ -59,7 +59,7 @@ struct GTY(()) symtab_node_base
   /* True when alias is a weakref.  */
   unsigned weakref : 1;
   /* C++ frontend produce same body aliases and extra name aliases for
-     virutal functions and vtables that are obviously equivalent.
+     virtual functions and vtables that are obviously equivalent.
      Those aliases are bit special, especially because C++ frontend
      visibility code is so ugly it can not get them right at first time
      and their visibility needs to be copied from their "masters" at
@@ -303,7 +303,7 @@ struct GTY(()) cgraph_node {
 
   /* Set when decl is an abstract function pointed to by the
      ABSTRACT_DECL_ORIGIN of a reachable function.  */
-  unsigned abstract_and_needed : 1;
+  unsigned used_as_abstract_origin : 1;
   /* Set once the function is lowered (i.e. its CFG is built).  */
   unsigned lowered : 1;
   /* Set once the function has been instantiated and its callee
@@ -606,6 +606,7 @@ void debug_cgraph_node (struct cgraph_node *);
 void cgraph_remove_edge (struct cgraph_edge *);
 void cgraph_remove_node (struct cgraph_node *);
 void cgraph_release_function_body (struct cgraph_node *);
+void release_function_body (tree);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
@@ -1347,12 +1348,12 @@ symtab_real_symbol_p (symtab_node node)
 {
   struct cgraph_node *cnode;
 
+  if (DECL_ABSTRACT (node->symbol.decl))
+    return false;
   if (!is_a <cgraph_node> (node))
     return true;
   cnode = cgraph (node);
   if (cnode->global.inlined_to)
-    return false;
-  if (cnode->abstract_and_needed)
     return false;
   return true;
 }

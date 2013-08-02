@@ -6016,7 +6016,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       || TREE_CODE (t) == MODIFY_EXPR)
     {
       member = TREE_OPERAND (t, 0);
-      init = unshare_expr (TREE_OPERAND (t, 1));
+      init = break_out_target_exprs (TREE_OPERAND (t, 1));
     }
   else if (TREE_CODE (t) == CALL_EXPR)
     {
@@ -6024,7 +6024,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       /* We don't use build_cplus_new here because it complains about
 	 abstract bases.  Leaving the call unwrapped means that it has the
 	 wrong type, but cxx_eval_constant_expression doesn't care.  */
-      init = unshare_expr (t);
+      init = break_out_target_exprs (t);
     }
   else if (TREE_CODE (t) == DECL_EXPR)
     /* Declaring a temporary, don't add it to the CONSTRUCTOR.  */
@@ -6261,7 +6261,7 @@ constexpr_fn_retval (tree body)
       }
 
     case RETURN_EXPR:
-      return unshare_expr (TREE_OPERAND (body, 0));
+      return break_out_target_exprs (TREE_OPERAND (body, 0));
 
     case DECL_EXPR:
       if (TREE_CODE (DECL_EXPR_DECL (body)) == USING_DECL)
@@ -6478,7 +6478,7 @@ typedef struct GTY(()) constexpr_call {
   constexpr_fundef *fundef;
   /* Parameter bindings environment.  A TREE_LIST where each TREE_PURPOSE
      is a parameter _DECL and the TREE_VALUE is the value of the parameter.
-     Note: This arrangement is made to accomodate the use of
+     Note: This arrangement is made to accommodate the use of
      iterative_hash_template_arg (see pt.c).  If you change this
      representation, also change the hash calculation in
      cxx_eval_call_expression.  */
@@ -6684,7 +6684,7 @@ cxx_bind_parameters_in_call (const constexpr_call *old_call, tree t,
       tree x, arg;
       tree type = parms ? TREE_TYPE (parms) : void_type_node;
       /* For member function, the first argument is a pointer to the implied
-         object.  And for an object contruction, don't bind `this' before
+         object.  And for an object construction, don't bind `this' before
          it is fully constructed.  */
       if (i == 0 && DECL_CONSTRUCTOR_P (fun))
         goto next;
@@ -8385,7 +8385,7 @@ check_automatic_or_tls (tree ref)
    C++0x [expr.const] used to say
 
    6 An expression is a potential constant expression if it is
-     a constant expression where all occurences of function
+     a constant expression where all occurrences of function
      parameters are replaced by arbitrary constant expressions
      of the appropriate type.
 

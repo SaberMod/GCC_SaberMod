@@ -80,6 +80,9 @@ lto_cgraph_replace_node (struct cgraph_node *node,
   /* Redirect incomming references.  */
   ipa_clone_referring ((symtab_node)prevailing_node, &node->symbol.ref_list);
 
+  if (node->symbol.decl != prevailing_node->symbol.decl)
+    cgraph_release_function_body (node);
+
   /* Finally remove the replaced node.  */
   cgraph_remove_node (node);
 }
@@ -596,6 +599,13 @@ lto_symtab_merge_symbols (void)
 		  && (cnode2 = cgraph_get_node (node->symbol.decl))
 		  && cnode2 != cnode)
 		lto_cgraph_replace_node (cnode2, cnode);
+
+	      /* Abstract functions may have duplicated cgraph nodes attached;
+		 remove them.  */
+	      else if (cnode && DECL_ABSTRACT (cnode->symbol.decl)
+		       && (cnode2 = cgraph_get_node (node->symbol.decl))
+		       && cnode2 != cnode)
+		cgraph_remove_node (cnode2);
 	      symtab_insert_node_to_hashtable ((symtab_node)node);
 	    }
 	}

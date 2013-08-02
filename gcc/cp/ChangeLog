@@ -1,3 +1,90 @@
+2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/54537
+	* cp-tree.h: Check OVL_USED with OVERLOAD_CHECK.
+	* name-lookup.c (do_nonmember_using_decl): Make sure we have an
+	OVERLOAD before calling OVL_USED. Call diagnose_name_conflict
+	instead of issuing an error without mentioning the conflicting
+	declaration.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* parser.c (cp_parser_sizeof_pack): Check cp_parser_identifier
+	return value for error_mark_node.
+
+2013-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57673
+	* parser.c (cp_parser_cache_defarg): In an NSDMI don't stop when
+	token->type == CPP_ELLIPSIS.
+
+2013-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57947
+	* call.c (is_std_init_list): Return false if cxx_dialect == cxx98.
+
+2013-07-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57901
+	* semantics.c (build_data_member_initialization, constexpr_fn_retval):
+	Use break_out_target_exprs instead of unshare_expr.
+
+2013-07-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57948
+	* call.c (initialize_reference): Don't crash when reference_binding
+	returns a conv with conv->kind == ck_ambig.
+
+2013-07-29  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (write_name): Check for null context.
+	(write_unscoped_name): Allow PARM_DECL context.
+
+2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57981
+	* decl.c (check_default_argument): Take a tsubst_flags_t parameter.
+	(grokparms): Adjust.
+	* parser.c (cp_parser_late_parse_one_default_arg): Likewise.
+	* pt.c (tsubst_default_argument, tsubst_default_arguments): Take
+	a tsubst_flags_t parameter.
+	(tsubst_decl): Adjust.
+	* call.c (convert_default_arg): Likewise.
+	* cp-tree.h (check_default_argument, tsubst_default_argument):
+	Update declarations.
+
+2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57880
+	* parser.c (cp_parser_operator, case CPP_WSTRING, CPP_STRING16,
+	CPP_STRING32, CPP_UTF8STRING, CPP_WSTRING_USERDEF,
+	CPP_STRING16_USERDEF, CPP_STRING32_USERDEF, CPP_UTF8STRING_USERDEF):
+	Fix string_len management, tidy.
+
+2013-07-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57942
+	* typeck.c (ptr_reasonably_similar): Use COMPARE_STRICT if either
+	target type is incomplete; return a bool, not an int.
+	* cp-tree.h (ptr_reasonably_similar): Adjust declaration.
+
+2013-07-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* cp-tree.h (DERIVED_FROM_P): Pass tf_none to lookup_base, not
+	tf_warning_or_error.
+
+2013-07-21   OndÅej BÃ­lka  <neleai@seznam.cz>
+
+	* class.c: Fix typos.
+	* cp-array-notation.c: Likewise.
+	* cp-objcp-common.c: Likewise.
+	* decl.c: Likewise.
+	* init.c: Likewise.
+	* mangle.c: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* semantics.c: Likewise.
+
 2013-07-14  Adam Butcher  <adam@jessamine.co.uk>
 
 	* semantics.c (build_lambda_expr),

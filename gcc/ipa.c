@@ -138,7 +138,7 @@ process_references (struct ipa_ref_list *list,
     {
       symtab_node node = ref->referred;
 
-      if (node->symbol.definition
+      if (node->symbol.definition && !node->symbol.in_other_partition
 	  && ((!DECL_EXTERNAL (node->symbol.decl) || node->symbol.alias)
 	      || (before_inlining_p
 		  /* We use variable constructors during late complation for
@@ -234,23 +234,28 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
      This is mostly when they can be referenced externally.  Inline clones
      are special since their declarations are shared with master clone and thus
      cgraph_can_remove_if_no_direct_calls_and_refs_p should not be called on them.  */
-  FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->global.inlined_to
-	&& (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
-	    /* Keep around virtual functions for possible devirtualization.  */
-	    || (before_inlining_p
-		&& DECL_VIRTUAL_P (node->symbol.decl))))
-      {
-        gcc_assert (!node->global.inlined_to);
-	pointer_set_insert (reachable, node);
-	enqueue_node ((symtab_node)node, &first, reachable);
-      }
-    else
-      gcc_assert (!node->symbol.aux);
+  FOR_EACH_FUNCTION (node)
+    {
+      node->used_as_abstract_origin = false;
+      if (node->symbol.definition
+	  && !node->global.inlined_to
+	  && (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
+	      /* Keep around virtual functions for possible devirtualization.  */
+	      || (before_inlining_p
+		  && DECL_VIRTUAL_P (node->symbol.decl))))
+	{
+	  gcc_assert (!node->global.inlined_to);
+	  pointer_set_insert (reachable, node);
+	  enqueue_node ((symtab_node)node, &first, reachable);
+	}
+      else
+	gcc_assert (!node->symbol.aux);
+     }
 
   /* Mark variables that are obviously needed.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (!varpool_can_remove_if_no_refs (vnode))
+    if (!varpool_can_remove_if_no_refs (vnode)
+	&& !vnode->symbol.in_other_partition)
       {
 	pointer_set_insert (reachable, vnode);
 	enqueue_node ((symtab_node)vnode, &first, reachable);
@@ -270,6 +275,13 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	node->symbol.aux = (void *)2;
       else
 	{
+	  if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	    {
+	      struct cgraph_node *origin_node
+	      = cgraph_get_create_real_symbol_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	      origin_node->used_as_abstract_origin = true;
+	      enqueue_node ((symtab_node) origin_node, &first, reachable);
+	    }
 	  /* If any symbol in a comdat group is reachable, force
 	     all other in the same comdat group to be also reachable.  */
 	  if (node->symbol.same_comdat_group)
@@ -296,6 +308,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      for (e = cnode->callees; e; e = e->next_callee)
 		{
 		  if (e->callee->symbol.definition
+		      && !e->callee->symbol.in_other_partition
 		      && (!e->inline_failed
 			  || !DECL_EXTERNAL (e->callee->symbol.decl)
 			  || e->callee->symbol.alias
@@ -306,22 +319,20 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
 	      /* When inline clone exists, mark body to be preserved so when removing
 		 offline copy of the function we don't kill it.  */
-	      if (!cnode->symbol.alias && cnode->global.inlined_to)
+	      if (cnode->global.inlined_to)
 	        pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
-	    }
 
-	  /* For non-inline clones, force their origins to the boundary and ensure
-	     that body is not removed.  */
-	  while (cnode->clone_of
-	         && !gimple_has_body_p (cnode->symbol.decl))
-	    {
-	      bool noninline = cnode->clone_of->symbol.decl != cnode->symbol.decl;
-	      cnode = cnode->clone_of;
-	      if (noninline)
-	      	{
-	          pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
-		  enqueue_node ((symtab_node)cnode, &first, reachable);
-		  break;
+	      /* For non-inline clones, force their origins to the boundary and ensure
+		 that body is not removed.  */
+	      while (cnode->clone_of)
+		{
+		  bool noninline = cnode->clone_of->symbol.decl != cnode->symbol.decl;
+		  cnode = cnode->clone_of;
+		  if (noninline)
+		    {
+		      pointer_set_insert (body_needed_for_clonning, cnode->symbol.decl);
+		      enqueue_node ((symtab_node)cnode, &first, reachable);
+		    }
 		}
 	    }
 	}
@@ -358,6 +369,8 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
         {
 	  if (!pointer_set_contains (body_needed_for_clonning, node->symbol.decl))
 	    cgraph_release_function_body (node);
+	  else if (!node->clone_of)
+	    gcc_assert (DECL_RESULT (node->symbol.decl));
 	  if (node->symbol.definition)
 	    {
 	      if (file)
@@ -366,6 +379,9 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	      changed = true;
 	    }
 	}
+      else
+	gcc_assert (node->clone_of || !cgraph_function_with_gimple_body_p (node)
+		    || DECL_RESULT (node->symbol.decl));
     }
 
   /* Inline clones might be kept around so their materializing allows further
@@ -548,8 +564,8 @@ static bool
 comdat_can_be_unshared_p_1 (symtab_node node)
 {
   /* When address is taken, we don't know if equality comparison won't
-     break eventaully. Exception are virutal functions and vtables, where
-     this is not possible by language standard.  */
+     break eventually. Exception are virutal functions and vtables,
+     where this is not possible by language standard.  */
   if (!DECL_VIRTUAL_P (node->symbol.decl)
       && address_taken_from_non_vtable_p (node))
     return false;
