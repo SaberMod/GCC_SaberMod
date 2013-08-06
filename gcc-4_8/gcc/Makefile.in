@@ -754,6 +754,7 @@ GCC_INSTALL_NAME := $(shell echo gcc|sed '$(program_transform_name)')
 GCC_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcc|sed '$(program_transform_name)')
 CPP_INSTALL_NAME := $(shell echo cpp|sed '$(program_transform_name)')
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
+PROFILE_TOOL_INSTALL_NAME := $(shell echo profile_tool|sed '$(program_transform_name)')
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
@@ -4689,6 +4690,13 @@ install-common: native lang.install-common installdirs
 	then \
 	    rm -f $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \
 	    $(INSTALL_PROGRAM) gcov$(exeext) $(DESTDIR)$(bindir)/$(GCOV_INSTALL_NAME)$(exeext); \
+	fi
+# Install profile_tool if it is available.
+	-if [ -f $(srcdir)/../contrib/profile_tool ]; \
+	then \
+	    rm -f $(DESTDIR)$(bindir)/$(PROFILE_TOOL_INSTALL_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) $(srcdir)/../contrib/profile_tool \
+	    $(DESTDIR)$(bindir)/$(PROFILE_TOOL_INSTALL_NAME)$(exeext); \
 	fi
 
 # Install the driver program as $(target_noncanonical)-gcc,
