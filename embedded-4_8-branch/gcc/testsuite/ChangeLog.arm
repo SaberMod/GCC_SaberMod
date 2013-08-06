@@ -1,0 +1,7 @@
+2013-08-05  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r197956
+	2013-04-15  Joey Ye  <joey.ye@arm.com>
+
+	* gcc.target/arm/thumb1-far-jump-1.c: New test.
+	* gcc.target/arm/thumb1-far-jump-2.c: New test.

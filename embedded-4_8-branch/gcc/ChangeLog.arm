@@ -1,5 +1,15 @@
 2013-08-05  Terry Guo  <terry.guo@arm.com>
 
+	Backport from mainline r197956
+	2013-04-15  Joey Ye  <joey.ye@arm.com>
+
+	* config/arm/arm.c (thumb1_final_prescan_insn): Assert lr save
+	for real far jump.
+	(thumb_far_jump_used_p): Count instruction size and set
+	far_jump_used.
+
+2013-08-05  Terry Guo  <terry.guo@arm.com>
+
 	Backport from mainline r197153
 	2013-03-27  Terry Guo  <terry.guo@arm.com>
 
