@@ -48,6 +48,10 @@ unsigned char arch
 TargetSave
 unsigned char tune
 
+mtune-ctrl=
+Target RejectNegative Joined Var(ix86_tune_ctrl_string)
+Fine grain control of tune features
+
 ;; CPU schedule model
 TargetSave
 unsigned char schedule
