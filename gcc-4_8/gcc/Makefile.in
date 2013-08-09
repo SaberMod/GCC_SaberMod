@@ -2881,8 +2881,7 @@ cgraphunit.o : cgraphunit.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(FIBHEAP_H) output.h $(PARAMS_H) $(RTL_H) $(IPA_PROP_H) \
    gt-cgraphunit.h tree-iterator.h $(COVERAGE_H) $(TREE_DUMP_H) \
    $(GIMPLE_PRETTY_PRINT_H) $(IPA_INLINE_H) $(IPA_UTILS_H) l-ipo.h \
-   $(LTO_STREAMER_H) output.h $(REGSET_H) $(EXCEPT_H) $(GCC_PLUGIN_H) plugin.h \
-   $(AUTO_PROFILE_H)
+   $(LTO_STREAMER_H) output.h $(REGSET_H) $(EXCEPT_H) $(GCC_PLUGIN_H) plugin.h
 cgraphclones.o : cgraphclones.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(TREE_INLINE_H) toplev.h $(DIAGNOSTIC_CORE_H) $(FLAGS_H) $(GGC_H) \
    $(TARGET_H) $(CGRAPH_H) intl.h pointer-set.h $(FUNCTION_H) $(GIMPLE_H) \
@@ -2890,11 +2889,11 @@ cgraphclones.o : cgraphclones.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(PARAMS_H) $(RTL_H) $(IPA_PROP_H) \
    tree-iterator.h $(COVERAGE_H) \
    $(GIMPLE_PRETTY_PRINT_H) $(IPA_INLINE_H) $(IPA_UTILS_H) \
-   $(LTO_STREAMER_H) $(EXCEPT_H) $(GCC_PLUGIN_H) $(AUTO_PROFILE_H) gt-cgraphclones.h
+   $(LTO_STREAMER_H) $(EXCEPT_H) $(GCC_PLUGIN_H) gt-cgraphclones.h
 cgraphbuild.o : cgraphbuild.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) langhooks.h $(CGRAPH_H) intl.h pointer-set.h $(GIMPLE_H) \
    $(TREE_FLOW_H) $(TREE_PASS_H) $(IPA_UTILS_H) $(EXCEPT_H) \
-   $(IPA_INLINE_H) l-ipo.h $(AUTO_PROFILE_H)
+   $(IPA_INLINE_H) l-ipo.h
 varpool.o : varpool.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
    $(TREE_H) $(CGRAPH_H) langhooks.h $(DIAGNOSTIC_CORE_H) $(HASHTAB_H) \
    $(GGC_H) $(TIMEVAR_H) debug.h $(TARGET_H) output.h $(GIMPLE_H) \
@@ -3391,7 +3390,7 @@ predict.o: predict.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(RTL_H) \
    hard-reg-set.h $(DIAGNOSTIC_CORE_H) $(RECOG_H) $(FUNCTION_H) $(EXCEPT_H) \
    $(TM_P_H) $(PREDICT_H) sreal.h $(PARAMS_H) $(TARGET_H) $(CFGLOOP_H) \
    $(COVERAGE_H) $(SCEV_H) $(GGC_H) predict.def \
-   $(TREE_FLOW_H) $(TREE_PASS_H) $(EXPR_H) pointer-set.h $(AUTO_PROFILE_H)
+   $(TREE_FLOW_H) $(TREE_PASS_H) $(EXPR_H) pointer-set.h
 lists.o: lists.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) $(DIAGNOSTIC_CORE_H) \
    $(RTL_H) $(GGC_H) gt-lists.h
 bb-reorder.o : bb-reorder.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \

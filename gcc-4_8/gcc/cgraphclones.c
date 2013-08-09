@@ -94,7 +94,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "except.h"
-#include "auto-profile.h"
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
@@ -278,9 +277,6 @@ clone_function_name (tree decl, const char *suffix)
   prefix[len] = '_';
 #endif
   ASM_FORMAT_PRIVATE_NAME (tmp_name, prefix, clone_fn_id_num++);
-  if (flag_auto_profile)
-    afdo_add_bfd_name_mapping (xstrdup (tmp_name),
-			       xstrdup (lang_hooks.dwarf_name (decl, 0)));
   return get_identifier (tmp_name);
 }
 

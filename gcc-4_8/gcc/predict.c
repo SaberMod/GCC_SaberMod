@@ -56,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
 #include "pointer-set.h"
-#include "auto-profile.h"
 
 /* real constants: 0, 1, 1-1/REG_BR_PROB_BASE, REG_BR_PROB_BASE,
 		   1/REG_BR_PROB_BASE, 0.5, BB_FREQ_MAX.  */
@@ -2939,26 +2938,13 @@ rebuild_frequencies (void)
   timevar_push (TV_REBUILD_FREQUENCIES);
   if (profile_status == PROFILE_GUESSED)
     {
-      /* In AutoFDO it is possible that some basic blocks will get
-	 non-zero counts after function inlining. In this case, we
-	 will use profile information to estimated the frequency.  */
-      if (flag_auto_profile && counts_to_freqs ())
-	{
-	  afdo_calculate_branch_prob ();
-	  counts_to_freqs();
-	  profile_status = PROFILE_READ;
-	  compute_function_frequency ();
-	}
-      else
-	{
-	  loop_optimizer_init (0);
-	  add_noreturn_fake_exit_edges ();
-	  mark_irreducible_loops ();
-	  connect_infinite_loops_to_exit ();
-	  estimate_bb_frequencies ();
-	  remove_fake_exit_edges ();
-	  loop_optimizer_finalize ();
-	}
+      loop_optimizer_init (0);
+      add_noreturn_fake_exit_edges ();
+      mark_irreducible_loops ();
+      connect_infinite_loops_to_exit ();
+      estimate_bb_frequencies ();
+      remove_fake_exit_edges ();
+      loop_optimizer_finalize ();
     }
   else if (profile_status == PROFILE_READ)
     counts_to_freqs ();
