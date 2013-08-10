@@ -1728,11 +1728,23 @@ dump_incr_vec (void)
 static void
 replace_ref (tree *expr, slsr_cand_t c)
 {
-  tree add_expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (c->base_expr),
-			       c->base_expr, c->stride);
-  tree mem_ref = fold_build2 (MEM_REF, TREE_TYPE (*expr), add_expr,
-			      double_int_to_tree (c->cand_type, c->index));
-  
+  tree add_expr, mem_ref, acc_type = TREE_TYPE (*expr);
+  unsigned HOST_WIDE_INT misalign;
+  unsigned align;
+
+  /* Ensure the memory reference carries the minimum alignment
+     requirement for the data type.  See PR58041.  */
+  get_object_alignment_1 (*expr, &align, &misalign);
+  if (misalign != 0)
+    align = (misalign & -misalign);
+  if (align < TYPE_ALIGN (acc_type))
+    acc_type = build_aligned_type (acc_type, align);
+
+  add_expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (c->base_expr),
+			  c->base_expr, c->stride);
+  mem_ref = fold_build2 (MEM_REF, acc_type, add_expr,
+			 double_int_to_tree (c->cand_type, c->index));
+
   /* Gimplify the base addressing expression for the new MEM_REF tree.  */
   gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
   TREE_OPERAND (mem_ref, 0)
@@ -1882,6 +1894,7 @@ replace_mult_candidate (slsr_cand_t c, tree basis_name, double_int bump)
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_set_location (copy_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, copy_stmt, false);
+	  c->cand_stmt = copy_stmt;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    stmt_to_print = copy_stmt;
 	}
@@ -1910,6 +1923,7 @@ replace_mult_candidate (slsr_cand_t c, tree basis_name, double_int bump)
 	      gimple_assign_set_rhs_with_ops (&gsi, code,
 					      basis_name, bump_tree);
 	      update_stmt (gsi_stmt (gsi));
+              c->cand_stmt = gsi_stmt (gsi);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		stmt_to_print = gsi_stmt (gsi);
 	    }
@@ -2178,6 +2192,18 @@ phi_add_costs (gimple phi, slsr_cand_t c, int one_add_cost)
   unsigned i;
   int cost = 0;
   slsr_cand_t phi_cand = base_cand_from_table (gimple_phi_result (phi));
+
+  /* If we work our way back to a phi that isn't dominated by the hidden
+     basis, this isn't a candidate for replacement.  Indicate this by
+     returning an unreasonably high cost.  It's not easy to detect
+     these situations when determining the basis, so we defer the
+     decision until now.  */
+  basic_block phi_bb = gimple_bb (phi);
+  slsr_cand_t basis = lookup_cand (c->basis);
+  basic_block basis_bb = gimple_bb (basis->cand_stmt);
+
+  if (phi_bb == basis_bb || !dominated_by_p (CDI_DOMINATORS, phi_bb, basis_bb))
+    return COST_INFINITE;
 
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
@@ -3101,6 +3127,7 @@ replace_rhs_if_not_dup (enum tree_code new_code, tree new_rhs1, tree new_rhs2,
       gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
       gimple_assign_set_rhs_with_ops (&gsi, new_code, new_rhs1, new_rhs2);
       update_stmt (gsi_stmt (gsi));
+      c->cand_stmt = gsi_stmt (gsi);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	return gsi_stmt (gsi);
@@ -3206,6 +3233,7 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_assign_set_rhs_with_ops (&gsi, MINUS_EXPR, basis_name, rhs2);
 	  update_stmt (gsi_stmt (gsi));
+          c->cand_stmt = gsi_stmt (gsi);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    stmt_to_print = gsi_stmt (gsi);
@@ -3226,6 +3254,7 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_set_location (copy_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, copy_stmt, false);
+	  c->cand_stmt = copy_stmt;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    stmt_to_print = copy_stmt;
@@ -3238,6 +3267,7 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
 							   NULL_TREE);
 	  gimple_set_location (cast_stmt, gimple_location (c->cand_stmt));
 	  gsi_replace (&gsi, cast_stmt, false);
+	  c->cand_stmt = cast_stmt;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    stmt_to_print = cast_stmt;
@@ -3460,22 +3490,40 @@ gate_strength_reduction (void)
   return flag_tree_slsr;
 }
 
-struct gimple_opt_pass pass_strength_reduction =
+namespace {
+
+const pass_data pass_data_strength_reduction =
 {
- {
-  GIMPLE_PASS,
-  "slsr",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_strength_reduction,		/* gate */
-  execute_strength_reduction,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_GIMPLE_SLSR,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_ssa			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "slsr", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_GIMPLE_SLSR, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_strength_reduction : public gimple_opt_pass
+{
+public:
+  pass_strength_reduction(gcc::context *ctxt)
+    : gimple_opt_pass(pass_data_strength_reduction, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_strength_reduction (); }
+  unsigned int execute () { return execute_strength_reduction (); }
+
+}; // class pass_strength_reduction
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_strength_reduction (gcc::context *ctxt)
+{
+  return new pass_strength_reduction (ctxt);
+}

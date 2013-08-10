@@ -1,3 +1,300 @@
+2013-08-09  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex_constants.h: Change syntax_option_type to enum
+	type.
+
+2013-08-08  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* include/bits/regex.h: Replace _A, _B, _C, _R by _Ap, _Bp,
+	_Cp, _Rp.
+
+2013-08-08  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable_policy.h (_Hashtable_alloc): New.
+	(_ReuseOrAllocNode, _AllocNode): Adapt to use latter rather than
+	_Hashtable.
+	(_Before_begin<>): Remove.
+	* include/bits/hashtable.h (_Hashtable): Inherit from
+	_Hashtable_alloc and adapt. Restore _M_before_begin field.
+	* src/c++11/hashtable_c++0x.cc: Add ext/alloc_traits.h include.
+	* python/libstdcxx/v6/printers.py (StdHashtableIterator): Adapt
+	access to hashtable before begin.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Adapt dg-error line number.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc:
+	Likewise.
+
+2013-08-07  Tim Shen  <timshen91@gmail.com>
+
+	* include/Makefile.am: Adjust to new files.
+	* include/Makefile.in: Regenerate.
+	* include/bits/regex.h: Adjust to new interfaces.
+	* include/bits/regex_automaton.h: New.
+	* include/bits/regex_automaton.tcc: New.
+	* include/bits/regex_compiler.h: Adjust to new files.
+	* include/bits/regex_compiler.tcc: New.
+	* include/bits/regex_constants.h: Tail spaces.
+	* include/bits/regex_error.h: Likewise.
+	* include/bits/regex_executor.h: New.
+	* include/bits/regex_executor.tcc: New.
+	* include/std/regex: Adjust to new files.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: Adjust to new interfaces.
+
+2013-08-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/ext/atomicity.h: Add #pragma GCC system_header.
+
+2013-08-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58098
+	* include/bits/random.h (cauchy_distribution<>::min,
+	extreme_value_distribution<>::min, normal_distribution<>::min,
+	student_t_distribution<>::min): Fix.
+	* include/ext/random (normal_mv_distribution<>::min): Likewise.
+	* testsuite/26_numerics/random/cauchy_distribution/cons/parms.cc:
+	Adjust.
+	testsuite/26_numerics/random/cauchy_distribution/cons/default.cc:
+	Likewise.
+	* testsuite/26_numerics/random/extreme_value_distribution/cons/
+	parms.cc: Likewise.
+	testsuite/26_numerics/random/extreme_value_distribution/cons/
+	default.cc: Likewise.
+	* testsuite/26_numerics/random/normal_distribution/cons/parms.cc:
+	Likewise.
+	* testsuite/26_numerics/random/normal_distribution/cons/default.cc:
+	Likewise.
+	* testsuite/26_numerics/random/student_t_distribution/cons/parms.cc:
+	Likewise.
+	* testsuite/26_numerics/random/student_t_distribution/cons/default.cc:
+	Likewise.
+	* testsuite/ext/random/normal_mv_distribution/cons/parms.cc: Likewise.
+	* testsuite/ext/random/normal_mv_distribution/cons/default.cc: Likewise.
+
+	* testsuite/26_numerics/random/exponential_distribution/cons/parms.cc:
+	Minor tweak.
+	* testsuite/26_numerics/random/exponential_distribution/cons/default.cc:
+	Likewise.
+
+	* testsuite/ext/von_mises_distribution/*: Move to...
+	* testsuite/ext/random/von_mises_distribution/*: ... here.
+	* testsuite/ext/triangular_distribution/*: Move to...
+	* testsuite/ext/random/triangular_distribution/*: ... here.
+
+2013-08-06  Caroline Tice  <cmtice@google.com>
+
+	* fragment.am: Add XTEMPLATE_FLAGS.
+	* configure.ac: Add definitions for --enable-vtable-verify.
+	* acinclude.m4:  Add --enable-vtable-verify and
+	--disable-vtable-verify; define --enable-vtable-verify; define
+	VTV_CXXFLAGS, VTV_PCH_CXXFLAGS and VTV_CXXLINKFLAGS.
+	* config/abi/pre/gnu.ver: Export symbols for vtable verification.
+	* libsupc++/Makefile.am: Define vtv_sources and add it to
+	libsupc___la_SOURCES and libsupc__convenience_la_SOURCES.
+	* libsupc++/vtv_stubs.cc: New file.
+	* include/Makefile.am: Add VTV_PCH_CXXFLAGS to PCHFLAGS.
+	* src/Makefile.am: Add VTV_CXXFLAGS to AM_CXXFLAGS; add
+	VTV_CXXLINKFLAGS to CXXLINK.
+	* src/c++98/Makefile.am: Comment out XTEMPLATE_FLAGS; add VTV_CXXFLAGS
+	to AM_CXXFLAGS; add VTV_CXXXLINKFLAGS to CXXLINK.
+	* src/C++11/Makefile.am: Ditto.
+	* doc/xml/manual/configure.xml: Add entry for --enable-vtable-verify.
+	* scripts/testsuite_flags.in: Add cxxvtvflags to Usage; cause
+	cxxvtvflags to use VTV_CXXFLAGS and VTV_CXXLINKFLAGS.
+	* testsuite/lib/libstdc++.exp: Add cxxvtvflags; add code to locate
+	libvtv if --enable-vtable-verify was used; set cxxvtvflags; add
+	cxxvtvflags to cxx_final.
+	* testsuite/18_support/bad_exception/23591_thread-1.c: Add
+	-fvtable-verify=none to compiler flags.
+	* testsuite/17_intro/freestanding.cc: Add -fvtable-verify=none
+	to compiler flags.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* python/Makefile.in: Regenerated.
+	* include/Makefile.in: Regenerated.
+	* libsupc++/Makefile.in: Regenerated.
+	* config.h.in: Regenerated.
+	* po/Makefile.in: Regenerated.
+	* src/Makefile.in: Regenerated.
+	* src/c++98/Makefile.in: Regenerated.
+	* src/c++11/Makefile.in: Regenerated.
+	* doc/Makefile.in: Regenerated.
+	* testsuite/Makefile.in: Regenerated.
+
+2013-08-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert the last commit.
+
+2013-08-06  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable_policy.h (_Hashtable_alloc): New.
+	(_ReuseOrAllocNode, _AllocNode): Adapt to use latter rather than
+	_Hashtable.
+	(_Before_begin<>): Remove.
+	* include/bits/hashtable.h (_Hashtable): Inherit from
+	_Hashtable_alloc and adapt. Restore _M_before_begin field.
+	* python/libstdcxx/v6/printers.py (StdHashtableIterator): Adapt
+	access to hashtable before begin.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Adapt dg-error line number.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc:
+	Likewise.
+
+2013-08-03  Tim Shen  <timshen91@gmail.com>
+
+	Implement bracket expression.
+	* include/bits/regex.h: Remove constexpr from "|=", etc.
+	* include/bits/regex_compiler.h: Parse bracket expression.
+	* include/bits/regex_nfa.h: _Comparator and _BracketMatcher(old
+	_RangeMatcher).
+	* include/bits/regex_nfa.tcc: Implement them.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	from regex_search to regex_match.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	cstring_bracket_01.cc: New.
+
+2013-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/debug/functions.h (__foreign_iterator_aux4):
+	Initialize __l and __ge.
+
+2013-08-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58049
+	* include/debug/functions.h: Include <bits/move.h>; minor formatting
+	changes.
+	(__foreign_iterator_aux4): Declare __l and __ge constexpr.
+	* include/debug/safe_iterator.h (_Safe_iterator<>::operator->):
+	Use __addressof.
+	* include/debug/safe_local_iterator.h (_Safe_local_iterator<>::
+	operator->): Likewise.
+
+2013-08-01  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/57779
+	* include/debug/formatter.h (_Debug_msg_id): Add
+	__msg_insert_itself_range entry.
+	* include/debug/functions.h (_Insert_range_from_self_is_safe<>):
+	New, indicate container types supporting self range insertion in
+	GNU implementation.
+	(__foreign_iterator): New, check if an iterator points to a given
+	sequence.
+	* include/debug/macros.h (__glibcxx_check_insert_range): Add check
+	using __foreign_iterator.
+	(__gibcxx_check_insert_range_after): Likewise.
+	* include/debug/string (_Insert_range_from_self_is_safe<>):
+	Partially specialized to mark __gnu_debug::basic_string<> as
+	supporting self range insert.
+	* include/debug/list (_Insert_range_from_self_is_safe<>):
+	Partially specialized to mark std::list as supporting self range
+	insert if _GLIBCXX_DEBUG_PEDANTIC is not defined.
+	* include/debug/forward_list (_Insert_range_from_self_is_safe<>):
+	Likewise.
+	* src/c++11/debug.cc (_S_debug_messages): Add
+	__msg_insert_itself_range_entry message.
+	(_Error_formatter::_Parameter::_M_print_description): Display
+	iterator sequence address rather than sequence address when the
+	parameter type is an iterator.
+	(_Error_formatter::_M_print_word): Enhance behavior when
+	displaying a word with an appended '\n'.
+	* testsuite/util/debug/checks.h (check_insert4<>): New.
+	* testsuite/23_containers/deque/debug/insert5_neg.cc: New.
+	* testsuite/23_containers/vector/debug/insert5_neg.cc: Likewise.
+	* testsuite/23_containers/vector/debug/insert6_neg.cc: Likewise.
+	* testsuite/23_containers/vector/debug/57779_neg.cc: Likewise.
+	* testsuite/23_containers/list/debug/insert5_neg.cc: Likewise.
+	* testsuite/23_containers/forward_list/debug/insert_after4_neg.cc:
+	Likewise.
+
+2013-08-01  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	PR c++/54537
+	* include/tr1/cmath: Remove pow(double,double) overload, remove a
+	duplicated comment about DR 550. Add a comment to explain the
+	issue.
+	* testsuite/tr1/8_c_compatibility/cmath/pow_cmath.cc: New.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/56627
+	* include/bits/stl_bvector.h: Use friend struct hash intead of
+	friend class hash to work around useless warnings produced by
+	some compilers.
+	* include/std/bitset: Likewise.
+
+2013-07-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* src/c++11/functexcept.cc: Do not include the whole <regex>.
+	* src/c++11/regex.cc: Likewise.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Revert last commit.
+
+2013-07-31  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Revert last commit.
+
+2013-07-30  Tim Shen  <timshen91@gmail.com>
+
+	Thompson matcher refactored. Fix grouping problem.
+	* include/bits/regex.h: Use a dispatcher _M_get_matcher().
+	* include/bits/regex_compiler.h: Tweak for auto switching.
+	* include/bits/regex_grep_matcher.h: Class structure.
+	* include/bits/regex_grep_matcher.tcc: _BFSMatcher(Thompson
+	matcher) refactoring.
+	* include/bits/regex_nfa.h: Change _Results's interfaces.
+	* include/std/regex: Includes <map> and <queue>.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc:
+	For both matchers.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_dispatch_01.cc: New.
+
+2013-07-29  Nathan Froyd  <froydnj@gcc.gnu.org>
+
+	* include/std/atomic (compare_exchange_weak, compare_exchange_strong):
+	Add call to __cmpexch_failure_order.
+	* testsuite/util/testsuite_common_types.h
+	(compare_exchange_order_lowering): New generator.
+	* testsuite/29_atomics/atomic/requirements/compare_exchange_lowering.cc:
+	New test.
+
 2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* include/std/complex (pow(const complex<>&, int)): Enable in
@@ -37,10 +334,8 @@
 	* include/bits/regex_cursor.h: Fix _M_set_pos().
 	* include/bits/regex_grep_matcher.h: add _M_dfs_match().
 	* include/bits/regex_grep_matcher.tcc: Implement it.
-	* testsuite/28_regex/algorithms/regex_match/extended/string_group_01.cc:
-	New.
-	* testsuite/28_regex/algorithms/regex_match/extended/string_group_02.cc:
-	New.
+	* testsuite/28_regex/algorithms/regex_match/extended/53622.cc: New.
+	* testsuite/28_regex/algorithms/regex_match/extended/57173.cc: New.
 	* testsuite/28_regex/algorithms/regex_search/basic/string_01.cc:
 	Remove xfail.
 

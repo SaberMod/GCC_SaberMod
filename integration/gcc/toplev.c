@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"
 #include "diagnostic-color.h"
 #include "context.h"
+#include "pass_manager.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -1158,10 +1159,10 @@ general_init (const char *argv0)
      processing.  */
   init_ggc_heuristics();
 
-  /* Create the singleton holder for global state.  */
+  /* Create the singleton holder for global state.
+     Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context();
 
-  init_optimization_passes ();
   statistics_early_init ();
   finish_params ();
 }
@@ -1818,7 +1819,7 @@ finalize (bool no_backend)
     {
       statistics_fini ();
 
-      finish_optimization_passes ();
+      g->get_passes ()->finish_optimization_passes ();
 
       ira_finish_once ();
     }

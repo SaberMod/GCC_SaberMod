@@ -1676,6 +1676,8 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		  if (edge)
 		    {
 		      int edge_freq = edge->frequency;
+		      int new_freq;
+		      struct cgraph_edge *old_edge = edge;
 		      edge = cgraph_clone_edge (edge, id->dst_node, stmt,
 					        gimple_uid (stmt),
 					        REG_BR_PROB_BASE, CGRAPH_FREQ_BASE,
@@ -1683,25 +1685,52 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		      /* We could also just rescale the frequency, but
 		         doing so would introduce roundoff errors and make
 			 verifier unhappy.  */
-		      edge->frequency
-		        = compute_call_stmt_bb_frequency (id->dst_node->symbol.decl,
-							  copy_basic_block);
-		      if (dump_file
-		      	  && profile_status_for_function (cfun) != PROFILE_ABSENT
-			  && (edge_freq > edge->frequency + 10
-			      || edge_freq < edge->frequency - 10))
+		      new_freq  = compute_call_stmt_bb_frequency (id->dst_node->symbol.decl,
+								  copy_basic_block);
+
+		      /* Speculative calls consist of two edges - direct and indirect.
+			 Duplicate the whole thing and distribute frequencies accordingly.  */
+		      if (edge->speculative)
 			{
-			  fprintf (dump_file, "Edge frequency estimated by "
-			           "cgraph %i diverge from inliner's estimate %i\n",
-			  	   edge_freq,
-				   edge->frequency);
-			  fprintf (dump_file,
-			  	   "Orig bb: %i, orig bb freq %i, new bb freq %i\n",
-				   bb->index,
-				   bb->frequency,
-				   copy_basic_block->frequency);
+			  struct cgraph_edge *direct, *indirect;
+			  struct ipa_ref *ref;
+
+			  gcc_assert (!edge->indirect_unknown_callee);
+			  cgraph_speculative_call_info (old_edge, direct, indirect, ref);
+			  indirect = cgraph_clone_edge (indirect, id->dst_node, stmt,
+							gimple_uid (stmt),
+							REG_BR_PROB_BASE, CGRAPH_FREQ_BASE,
+							true);
+			  if (old_edge->frequency + indirect->frequency)
+			    {
+			      edge->frequency = MIN (RDIV ((gcov_type)new_freq * old_edge->frequency,
+						           (old_edge->frequency + indirect->frequency)),
+						     CGRAPH_FREQ_MAX);
+			      indirect->frequency = MIN (RDIV ((gcov_type)new_freq * indirect->frequency,
+							       (old_edge->frequency + indirect->frequency)),
+							 CGRAPH_FREQ_MAX);
+			    }
+			  ipa_clone_ref (ref, (symtab_node)id->dst_node, stmt);
 			}
-		      stmt = cgraph_redirect_edge_call_stmt_to_callee (edge);
+		      else
+			{
+			  edge->frequency = new_freq;
+			  if (dump_file
+			      && profile_status_for_function (cfun) != PROFILE_ABSENT
+			      && (edge_freq > edge->frequency + 10
+				  || edge_freq < edge->frequency - 10))
+			    {
+			      fprintf (dump_file, "Edge frequency estimated by "
+				       "cgraph %i diverge from inliner's estimate %i\n",
+				       edge_freq,
+				       edge->frequency);
+			      fprintf (dump_file,
+				       "Orig bb: %i, orig bb freq %i, new bb freq %i\n",
+				       bb->index,
+				       bb->frequency,
+				       copy_basic_block->frequency);
+			    }
+			}
 		    }
 		  break;
 
@@ -2232,6 +2261,23 @@ copy_loops (bitmap blocks_to_copy,
     }
 }
 
+/* Call cgraph_redirect_edge_call_stmt_to_callee on all calls in BB */
+
+void
+redirect_all_calls (copy_body_data * id, basic_block bb)
+{
+  gimple_stmt_iterator si;
+  for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
+    {
+      if (is_gimple_call (gsi_stmt (si)))
+	{
+	  struct cgraph_edge *edge = cgraph_edge (id->dst_node, gsi_stmt (si));
+	  if (edge)
+	    cgraph_redirect_edge_call_stmt_to_callee (edge);
+	}
+    }
+}
+
 /* Make a copy of the body of FN so that it can be inserted inline in
    another function.  Walks FN via CFG, returns new fndecl.  */
 
@@ -2356,6 +2402,10 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 	    && bb->index != ENTRY_BLOCK
 	    && bb->index != EXIT_BLOCK)
 	  maybe_move_debug_stmts_to_successors (id, (basic_block) bb->aux);
+	/* Update call edge destinations.  This can not be done before loop
+	   info is updated, because we may split basic blocks.  */
+	if (id->transform_call_graph_edges == CB_CGE_DUPLICATE)
+	  redirect_all_calls (id, (basic_block)bb->aux);
 	((basic_block)bb->aux)->aux = NULL;
 	bb->aux = NULL;
       }
@@ -2367,6 +2417,10 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
       if (need_debug_cleanup)
 	maybe_move_debug_stmts_to_successors (id, BASIC_BLOCK (last));
       BASIC_BLOCK (last)->aux = NULL;
+      /* Update call edge destinations.  This can not be done before loop
+	 info is updated, because we may split basic blocks.  */
+      if (id->transform_call_graph_edges == CB_CGE_DUPLICATE)
+	redirect_all_calls (id, BASIC_BLOCK (last));
     }
   entry_block_map->aux = NULL;
   exit_block_map->aux = NULL;
@@ -3939,6 +3993,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       goto egress;
     }
   fn = cg_edge->callee->symbol.decl;
+  cgraph_get_body (cg_edge->callee);
 
 #ifdef ENABLE_CHECKING
   if (cg_edge->callee->symbol.decl != id->dst_node->symbol.decl)
@@ -4940,43 +4995,47 @@ delete_unreachable_blocks_update_callgraph (copy_body_data *id)
           gimple_stmt_iterator bsi;
 
           for (bsi = gsi_start_bb (b); !gsi_end_p (bsi); gsi_next (&bsi))
-	    if (gimple_code (gsi_stmt (bsi)) == GIMPLE_CALL)
-	      {
-	        struct cgraph_edge *e;
-		struct cgraph_node *node;
+	    {
+	      struct cgraph_edge *e;
+	      struct cgraph_node *node;
 
-	        if ((e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
+	      ipa_remove_stmt_references ((symtab_node)id->dst_node, gsi_stmt (bsi));
+
+	      if (gimple_code (gsi_stmt (bsi)) == GIMPLE_CALL
+		  &&(e = cgraph_edge (id->dst_node, gsi_stmt (bsi))) != NULL)
+		{
+		  if (!e->inline_failed)
+		    cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
+		  else
+		    cgraph_remove_edge (e);
+		}
+	      if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
+		  && id->dst_node->clones)
+		for (node = id->dst_node->clones; node != id->dst_node;)
 		  {
-		    if (!e->inline_failed)
-		      cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
-		    else
-	              cgraph_remove_edge (e);
-		  }
-		if (id->transform_call_graph_edges == CB_CGE_MOVE_CLONES
-		    && id->dst_node->clones)
-     		  for (node = id->dst_node->clones; node != id->dst_node;)
-		    {
-	              if ((e = cgraph_edge (node, gsi_stmt (bsi))) != NULL)
-			{
-		          if (!e->inline_failed)
-		            cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
-			  else
-	                    cgraph_remove_edge (e);
-			}
+		    ipa_remove_stmt_references ((symtab_node)node, gsi_stmt (bsi));
+		    if (gimple_code (gsi_stmt (bsi)) == GIMPLE_CALL
+			&& (e = cgraph_edge (node, gsi_stmt (bsi))) != NULL)
+		      {
+			if (!e->inline_failed)
+			  cgraph_remove_node_and_inline_clones (e->callee, id->dst_node);
+			else
+			  cgraph_remove_edge (e);
+		      }
 
-		      if (node->clones)
-			node = node->clones;
-		      else if (node->next_sibling_clone)
-			node = node->next_sibling_clone;
-		      else
-			{
-			  while (node != id->dst_node && !node->next_sibling_clone)
-			    node = node->clone_of;
-			  if (node != id->dst_node)
-			    node = node->next_sibling_clone;
-			}
-		    }
-	      }
+		    if (node->clones)
+		      node = node->clones;
+		    else if (node->next_sibling_clone)
+		      node = node->next_sibling_clone;
+		    else
+		      {
+			while (node != id->dst_node && !node->next_sibling_clone)
+			  node = node->clone_of;
+			if (node != id->dst_node)
+			  node = node->next_sibling_clone;
+		      }
+		  }
+	    }
 	  delete_basic_block (b);
 	  changed = true;
 	}
@@ -5085,6 +5144,8 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   DECL_ARTIFICIAL (new_decl) = 1;
   DECL_ABSTRACT_ORIGIN (new_decl) = DECL_ORIGIN (old_decl);
+  if (DECL_ORIGIN (old_decl) == old_decl)
+    old_version_node->used_as_abstract_origin = true;
   DECL_FUNCTION_PERSONALITY (new_decl) = DECL_FUNCTION_PERSONALITY (old_decl);
 
   /* Prepare the data structures for the tree copy.  */
@@ -5122,6 +5183,8 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   old_entry_block = ENTRY_BLOCK_PTR_FOR_FUNCTION
     (DECL_STRUCT_FUNCTION (old_decl));
+  DECL_RESULT (new_decl) = DECL_RESULT (old_decl);
+  DECL_ARGUMENTS (new_decl) = DECL_ARGUMENTS (old_decl);
   initialize_cfun (new_decl, old_decl,
 		   old_entry_block->count);
   DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
@@ -5146,17 +5209,43 @@ tree_function_versioning (tree old_decl, tree new_decl,
 	      {
 		int i = replace_info->parm_num;
 		tree parm;
+		tree req_type;
+
 		for (parm = DECL_ARGUMENTS (old_decl); i; parm = DECL_CHAIN (parm))
 		  i --;
 		replace_info->old_tree = parm;
+		req_type = TREE_TYPE (parm);
+		if (!useless_type_conversion_p (req_type, TREE_TYPE (replace_info->new_tree)))
+		  {
+		    if (fold_convertible_p (req_type, replace_info->new_tree))
+		      replace_info->new_tree = fold_build1 (NOP_EXPR, req_type, replace_info->new_tree);
+		    else if (TYPE_SIZE (req_type) == TYPE_SIZE (TREE_TYPE (replace_info->new_tree)))
+		      replace_info->new_tree = fold_build1 (VIEW_CONVERT_EXPR, req_type, replace_info->new_tree);
+		    else
+		      {
+			if (dump_file)
+			  {
+			    fprintf (dump_file, "    const ");
+			    print_generic_expr (dump_file, replace_info->new_tree, 0);
+			    fprintf (dump_file, "  can't be converted to param ");
+			    print_generic_expr (dump_file, parm, 0);
+			    fprintf (dump_file, "\n");
+			  }
+			replace_info->old_tree = NULL;
+		      }
+		  }
 	      }
-	    gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
-	    init = setup_one_parameter (&id, replace_info->old_tree,
-	    			        replace_info->new_tree, id.src_fn,
-				        NULL,
-				        &vars);
-	    if (init)
-	      init_stmts.safe_push (init);
+	    else
+	      gcc_assert (TREE_CODE (replace_info->old_tree) == PARM_DECL);
+	    if (replace_info->old_tree)
+	      {
+		init = setup_one_parameter (&id, replace_info->old_tree,
+					    replace_info->new_tree, id.src_fn,
+					    NULL,
+					    &vars);
+		if (init)
+		  init_stmts.safe_push (init);
+	      }
 	  }
       }
   /* Copy the function's arguments.  */

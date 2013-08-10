@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-globals.h"
 #include "opts.h"
 #include "tree-pass.h"
+#include "context.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -8843,6 +8844,11 @@ mips_file_start (void)
     fprintf (asm_out_file, "\t.section .gcc_compiled_long%d\n"
 	     "\t.previous\n", TARGET_LONG64 ? 64 : 32);
 
+  /* Record the NaN encoding.  */
+  if (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT)
+    fprintf (asm_out_file, "\t.nan\t%s\n",
+	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
+
 #ifdef HAVE_AS_GNU_ATTRIBUTE
   {
     int attr;
@@ -16332,33 +16338,43 @@ mips_machine_reorg2 (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_mips_machine_reorg2 =
+namespace {
+
+const pass_data pass_data_mips_machine_reorg2 =
 {
- {
-  RTL_PASS,
-  "mach2",				/* name */
-  OPTGROUP_NONE,			/* optinfo_flags */
-  NULL,					/* gate */
-  mips_machine_reorg2,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_MACH_DEP,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_rtl_sharing,		/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "mach2", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_MACH_DEP, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_rtl_sharing, /* todo_flags_finish */
 };
 
-struct register_pass_info insert_pass_mips_machine_reorg2 =
+class pass_mips_machine_reorg2 : public rtl_opt_pass
 {
-  &pass_mips_machine_reorg2.pass,	/* pass */
-  "dbr",				/* reference_pass_name */
-  1,					/* ref_pass_instance_number */
-  PASS_POS_INSERT_AFTER			/* po_op */
-};
+public:
+  pass_mips_machine_reorg2(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_mips_machine_reorg2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return mips_machine_reorg2 (); }
+
+}; // class pass_mips_machine_reorg2
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_mips_machine_reorg2 (gcc::context *ctxt)
+{
+  return new pass_mips_machine_reorg2 (ctxt);
+}
+
 
 /* Implement TARGET_ASM_OUTPUT_MI_THUNK.  Generate rtl rather than asm text
    in order to avoid duplicating too much logic from elsewhere.  */
@@ -16980,6 +16996,15 @@ mips_option_override (void)
 	}
     }
 
+  /* Pre-IEEE 754-2008 MIPS hardware has a quirky almost-IEEE format
+     for all its floating point.  */
+  if (mips_nan != MIPS_IEEE_754_2008)
+    {
+      REAL_MODE_FORMAT (SFmode) = &mips_single_format;
+      REAL_MODE_FORMAT (DFmode) = &mips_double_format;
+      REAL_MODE_FORMAT (TFmode) = &mips_quad_format;
+    }
+
   /* Make sure that the user didn't turn off paired single support when
      MIPS-3D support is requested.  */
   if (TARGET_MIPS3D
@@ -17143,6 +17168,14 @@ mips_option_override (void)
   /* We register a second machine specific reorg pass after delay slot
      filling.  Registering the pass must be done at start up.  It's
      convenient to do it here.  */
+  opt_pass *new_pass = make_pass_mips_machine_reorg2 (g);
+  struct register_pass_info insert_pass_mips_machine_reorg2 =
+    {
+      new_pass,		/* pass */
+      "dbr",			/* reference_pass_name */
+      1,			/* ref_pass_instance_number */
+      PASS_POS_INSERT_AFTER	/* po_op */
+    };
   register_pass (&insert_pass_mips_machine_reorg2);
 
   if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
+#include "value-prof.h"
 
 /* Return true when NODE can not be local. Worker for cgraph_local_node_p.  */
 
@@ -234,20 +235,24 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
      This is mostly when they can be referenced externally.  Inline clones
      are special since their declarations are shared with master clone and thus
      cgraph_can_remove_if_no_direct_calls_and_refs_p should not be called on them.  */
-  FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->global.inlined_to
-	&& !node->symbol.in_other_partition
-	&& (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
-	    /* Keep around virtual functions for possible devirtualization.  */
-	    || (before_inlining_p
-		&& DECL_VIRTUAL_P (node->symbol.decl))))
-      {
-        gcc_assert (!node->global.inlined_to);
-	pointer_set_insert (reachable, node);
-	enqueue_node ((symtab_node)node, &first, reachable);
-      }
-    else
-      gcc_assert (!node->symbol.aux);
+  FOR_EACH_FUNCTION (node)
+    {
+      node->used_as_abstract_origin = false;
+      if (node->symbol.definition
+	  && !node->global.inlined_to
+	  && !node->symbol.in_other_partition
+	  && (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
+	      /* Keep around virtual functions for possible devirtualization.  */
+	      || (before_inlining_p
+		  && DECL_VIRTUAL_P (node->symbol.decl))))
+	{
+	  gcc_assert (!node->global.inlined_to);
+	  pointer_set_insert (reachable, node);
+	  enqueue_node ((symtab_node)node, &first, reachable);
+	}
+      else
+	gcc_assert (!node->symbol.aux);
+     }
 
   /* Mark variables that are obviously needed.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
@@ -272,6 +277,13 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	node->symbol.aux = (void *)2;
       else
 	{
+	  if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	    {
+	      struct cgraph_node *origin_node
+	      = cgraph_get_create_real_symbol_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	      origin_node->used_as_abstract_origin = true;
+	      enqueue_node ((symtab_node) origin_node, &first, reachable);
+	    }
 	  /* If any symbol in a comdat group is reachable, force
 	     all other in the same comdat group to be also reachable.  */
 	  if (node->symbol.same_comdat_group)
@@ -360,18 +372,26 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  if (!pointer_set_contains (body_needed_for_clonning, node->symbol.decl))
 	    cgraph_release_function_body (node);
 	  else if (!node->clone_of)
-	    gcc_assert (DECL_RESULT (node->symbol.decl));
+	    gcc_assert (in_lto_p || DECL_RESULT (node->symbol.decl));
 	  if (node->symbol.definition)
 	    {
 	      if (file)
 		fprintf (file, " %s", cgraph_node_name (node));
-	      cgraph_reset_node (node);
+	      node->symbol.analyzed = false;
+	      node->symbol.definition = false;
+	      node->symbol.cpp_implicit_alias = false;
+	      node->symbol.alias = false;
+	      node->symbol.weakref = false;
+	      if (!node->symbol.in_other_partition)
+		node->local.local = false;
+	      cgraph_node_remove_callees (node);
+	      ipa_remove_all_references (&node->symbol.ref_list);
 	      changed = true;
 	    }
 	}
       else
 	gcc_assert (node->clone_of || !cgraph_function_with_gimple_body_p (node)
-		    || DECL_RESULT (node->symbol.decl));
+		    || in_lto_p || DECL_RESULT (node->symbol.decl));
     }
 
   /* Inline clones might be kept around so their materializing allows further
@@ -740,6 +760,21 @@ varpool_externally_visible_p (struct varpool_node *vnode)
   return false;
 }
 
+/* Return true if reference to NODE can be replaced by a local alias.
+   Local aliases save dynamic linking overhead and enable more optimizations.
+ */
+
+bool
+can_replace_by_local_alias (symtab_node node)
+{
+  return (symtab_node_availability (node) > AVAIL_OVERWRITABLE
+	  && !DECL_EXTERNAL (node->symbol.decl)
+	  && (!DECL_ONE_ONLY (node->symbol.decl)
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY
+	      || node->symbol.resolution == LDPR_PREVAILING_DEF_IRONLY_EXP));
+}
+
 /* Mark visibility of all functions.
 
    A local function is one whose calls can occur only in the current
@@ -861,7 +896,36 @@ function_and_variable_visibility (bool whole_program)
 	}
     }
   FOR_EACH_DEFINED_FUNCTION (node)
-    node->local.local = cgraph_local_node_p (node);
+    {
+      node->local.local |= cgraph_local_node_p (node);
+
+      /* If we know that function can not be overwritten by a different semantics
+	 and moreover its section can not be discarded, replace all direct calls
+	 by calls to an nonoverwritable alias.  This make dynamic linking
+	 cheaper and enable more optimization.
+
+	 TODO: We can also update virtual tables.  */
+      if (node->callers && can_replace_by_local_alias ((symtab_node)node))
+	{
+	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias ((symtab_node) node));
+
+	  if (alias != node)
+	    {
+	      while (node->callers)
+		{
+		  struct cgraph_edge *e = node->callers;
+
+		  cgraph_redirect_edge_callee (e, alias);
+		  if (gimple_has_body_p (e->caller->symbol.decl))
+		    {
+		      push_cfun (DECL_STRUCT_FUNCTION (e->caller->symbol.decl));
+		      cgraph_redirect_edge_call_stmt_to_callee (e);
+		      pop_cfun ();
+		    }
+		}
+	    }
+	}
+    }
   FOR_EACH_VARIABLE (vnode)
     {
       /* weak flag makes no sense on local variables.  */
@@ -949,25 +1013,44 @@ local_function_and_variable_visibility (void)
   return function_and_variable_visibility (flag_whole_program && !flag_lto);
 }
 
-struct simple_ipa_opt_pass pass_ipa_function_and_variable_visibility =
+namespace {
+
+const pass_data pass_data_ipa_function_and_variable_visibility =
 {
- {
-  SIMPLE_IPA_PASS,
-  "visibility",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  local_function_and_variable_visibility,/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_CGRAPHOPT,				/* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_remove_functions | TODO_dump_symtab /* todo_flags_finish */
- }
+  SIMPLE_IPA_PASS, /* type */
+  "visibility", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_CGRAPHOPT, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_remove_functions | TODO_dump_symtab ), /* todo_flags_finish */
 };
+
+class pass_ipa_function_and_variable_visibility : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_function_and_variable_visibility(gcc::context *ctxt)
+    : simple_ipa_opt_pass(pass_data_ipa_function_and_variable_visibility, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () {
+    return local_function_and_variable_visibility ();
+  }
+
+}; // class pass_ipa_function_and_variable_visibility
+
+} // anon namespace
+
+simple_ipa_opt_pass *
+make_pass_ipa_function_and_variable_visibility (gcc::context *ctxt)
+{
+  return new pass_ipa_function_and_variable_visibility (ctxt);
+}
 
 /* Free inline summary.  */
 
@@ -978,25 +1061,42 @@ free_inline_summary (void)
   return 0;
 }
 
-struct simple_ipa_opt_pass pass_ipa_free_inline_summary =
+namespace {
+
+const pass_data pass_data_ipa_free_inline_summary =
 {
- {
-  SIMPLE_IPA_PASS,
-  "*free_inline_summary",		/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  free_inline_summary,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FREE_INLINE_SUMMARY,		/* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
+  SIMPLE_IPA_PASS, /* type */
+  "*free_inline_summary", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FREE_INLINE_SUMMARY, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_free_inline_summary : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_free_inline_summary(gcc::context *ctxt)
+    : simple_ipa_opt_pass(pass_data_ipa_free_inline_summary, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return free_inline_summary (); }
+
+}; // class pass_ipa_free_inline_summary
+
+} // anon namespace
+
+simple_ipa_opt_pass *
+make_pass_ipa_free_inline_summary (gcc::context *ctxt)
+{
+  return new pass_ipa_free_inline_summary (ctxt);
+}
 
 /* Do not re-run on ltrans stage.  */
 
@@ -1017,34 +1117,56 @@ whole_program_function_and_variable_visibility (void)
   return 0;
 }
 
-struct ipa_opt_pass_d pass_ipa_whole_program_visibility =
+namespace {
+
+const pass_data pass_data_ipa_whole_program_visibility =
 {
- {
-  IPA_PASS,
-  "whole-program",			/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_whole_program_function_and_variable_visibility,/* gate */
-  whole_program_function_and_variable_visibility,/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_CGRAPHOPT,				/* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_remove_functions | TODO_dump_symtab /* todo_flags_finish */
- },
- NULL,					/* generate_summary */
- NULL,					/* write_summary */
- NULL,					/* read_summary */
- NULL,					/* write_optimization_summary */
- NULL,					/* read_optimization_summary */
- NULL,					/* stmt_fixup */
- 0,					/* TODOs */
- NULL,					/* function_transform */
- NULL,					/* variable_transform */
+  IPA_PASS, /* type */
+  "whole-program", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CGRAPHOPT, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_remove_functions | TODO_dump_symtab ), /* todo_flags_finish */
 };
+
+class pass_ipa_whole_program_visibility : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_whole_program_visibility(gcc::context *ctxt)
+    : ipa_opt_pass_d(pass_data_ipa_whole_program_visibility, ctxt,
+		     NULL, /* generate_summary */
+		     NULL, /* write_summary */
+		     NULL, /* read_summary */
+		     NULL, /* write_optimization_summary */
+		     NULL, /* read_optimization_summary */
+		     NULL, /* stmt_fixup */
+		     0, /* function_transform_todo_flags_start */
+		     NULL, /* function_transform */
+		     NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  bool gate () {
+    return gate_whole_program_function_and_variable_visibility ();
+  }
+  unsigned int execute () {
+    return whole_program_function_and_variable_visibility ();
+  }
+
+}; // class pass_ipa_whole_program_visibility
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_whole_program_visibility (gcc::context *ctxt)
+{
+  return new pass_ipa_whole_program_visibility (ctxt);
+}
 
 /* Entry in the histogram.  */
 
@@ -1170,8 +1292,40 @@ ipa_profile_generate_summary (void)
 	int size = 0;
         for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    time += estimate_num_insns (gsi_stmt (gsi), &eni_time_weights);
-	    size += estimate_num_insns (gsi_stmt (gsi), &eni_size_weights);
+	    gimple stmt = gsi_stmt (gsi);
+	    if (gimple_code (stmt) == GIMPLE_CALL
+		&& !gimple_call_fndecl (stmt))
+	      {
+		histogram_value h;
+		h = gimple_histogram_value_of_type
+		      (DECL_STRUCT_FUNCTION (node->symbol.decl),
+		       stmt, HIST_TYPE_INDIR_CALL);
+		/* No need to do sanity check: gimple_ic_transform already
+		   takes away bad histograms.  */
+		if (h)
+		  {
+		    /* counter 0 is target, counter 1 is number of execution we called target,
+		       counter 2 is total number of executions.  */
+		    if (h->hvalue.counters[2])
+		      {
+			struct cgraph_edge * e = cgraph_edge (node, stmt);
+			e->indirect_info->common_target_id
+			  = h->hvalue.counters [0];
+			e->indirect_info->common_target_probability
+			  = GCOV_COMPUTE_SCALE (h->hvalue.counters [1], h->hvalue.counters [2]);
+			if (e->indirect_info->common_target_probability > REG_BR_PROB_BASE)
+			  {
+			    if (dump_file)
+			      fprintf (dump_file, "Probability capped to 1\n");
+			    e->indirect_info->common_target_probability = REG_BR_PROB_BASE;
+			  }
+		      }
+		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->symbol.decl),
+						    stmt, h);
+		  }
+	      }
+	    time += estimate_num_insns (stmt, &eni_time_weights);
+	    size += estimate_num_insns (stmt, &eni_size_weights);
 	  }
 	account_time_size (hashtable, histogram, bb->count, time, size);
       }
@@ -1253,6 +1407,53 @@ ipa_profile (void)
   bool something_changed = false;
   int i;
   gcov_type overall_time = 0, cutoff = 0, cumulated = 0, overall_size = 0;
+
+  /* Produce speculative calls: we saved common traget from porfiling into
+     e->common_target_id.  Now, at link time, we can look up corresponding
+     function node and produce speculative call.  */
+  if (in_lto_p)
+    {
+      struct cgraph_edge *e;
+      struct cgraph_node *n,*n2;
+
+      init_node_map (false);
+      FOR_EACH_DEFINED_FUNCTION (n)
+	{
+	  bool update = false;
+
+	  for (e = n->indirect_calls; e; e = e->next_callee)
+	    if (e->indirect_info->common_target_id)
+	      {
+		n2 = find_func_by_profile_id (e->indirect_info->common_target_id);
+		if (n2)
+		  {
+		    if (dump_file)
+		      {
+			fprintf (dump_file, "Indirect call -> direct call from"
+				 " other module %s/%i => %s/%i, prob %3.2f\n",
+				 xstrdup (cgraph_node_name (n)), n->symbol.order,
+				 xstrdup (cgraph_node_name (n2)), n2->symbol.order,
+				 e->indirect_info->common_target_probability
+				 / (float)REG_BR_PROB_BASE);
+		      }
+		    cgraph_turn_edge_to_speculative
+		      (e, n2,
+		       apply_scale (e->count,
+				    e->indirect_info->common_target_probability),
+		       apply_scale (e->frequency,
+				    e->indirect_info->common_target_probability));
+		    update = true;
+		  }
+		else
+		  if (dump_file)
+		    fprintf (dump_file, "Function with profile-id %i not found.\n",
+			     e->indirect_info->common_target_id);
+	       }
+	     if (update)
+	       inline_update_overall_summary (n);
+	   }
+	del_node_map ();
+    }
 
   if (dump_file)
     dump_histogram (dump_file, histogram);
@@ -1364,34 +1565,52 @@ gate_ipa_profile (void)
   return flag_ipa_profile;
 }
 
-struct ipa_opt_pass_d pass_ipa_profile =
+namespace {
+
+const pass_data pass_data_ipa_profile =
 {
- {
-  IPA_PASS,
-  "profile_estimate",			/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_ipa_profile,			/* gate */
-  ipa_profile,			        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_PROFILE,		        /* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- },
- ipa_profile_generate_summary,	        /* generate_summary */
- ipa_profile_write_summary,		/* write_summary */
- ipa_profile_read_summary,		/* read_summary */
- NULL,					/* write_optimization_summary */
- NULL,					/* read_optimization_summary */
- NULL,					/* stmt_fixup */
- 0,					/* TODOs */
- NULL,			                /* function_transform */
- NULL					/* variable_transform */
+  IPA_PASS, /* type */
+  "profile_estimate", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_PROFILE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_profile : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_profile(gcc::context *ctxt)
+    : ipa_opt_pass_d(pass_data_ipa_profile, ctxt,
+		     ipa_profile_generate_summary, /* generate_summary */
+		     ipa_profile_write_summary, /* write_summary */
+		     ipa_profile_read_summary, /* read_summary */
+		     NULL, /* write_optimization_summary */
+		     NULL, /* read_optimization_summary */
+		     NULL, /* stmt_fixup */
+		     0, /* function_transform_todo_flags_start */
+		     NULL, /* function_transform */
+		     NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_ipa_profile (); }
+  unsigned int execute () { return ipa_profile (); }
+
+}; // class pass_ipa_profile
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_profile (gcc::context *ctxt)
+{
+  return new pass_ipa_profile (ctxt);
+}
 
 /* Generate and emit a static constructor or destructor.  WHICH must
    be one of 'I' (for a constructor) or 'D' (for a destructor).  BODY
@@ -1675,31 +1894,49 @@ gate_ipa_cdtor_merge (void)
   return !targetm.have_ctors_dtors || (optimize && in_lto_p);
 }
 
-struct ipa_opt_pass_d pass_ipa_cdtor_merge =
+namespace {
+
+const pass_data pass_data_ipa_cdtor_merge =
 {
- {
-  IPA_PASS,
-  "cdtor",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_ipa_cdtor_merge,			/* gate */
-  ipa_cdtor_merge,		        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_CGRAPHOPT,			        /* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- },
- NULL,				        /* generate_summary */
- NULL,					/* write_summary */
- NULL,					/* read_summary */
- NULL,					/* write_optimization_summary */
- NULL,					/* read_optimization_summary */
- NULL,					/* stmt_fixup */
- 0,					/* TODOs */
- NULL,			                /* function_transform */
- NULL					/* variable_transform */
+  IPA_PASS, /* type */
+  "cdtor", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CGRAPHOPT, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_cdtor_merge : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_cdtor_merge(gcc::context *ctxt)
+    : ipa_opt_pass_d(pass_data_ipa_cdtor_merge, ctxt,
+		     NULL, /* generate_summary */
+		     NULL, /* write_summary */
+		     NULL, /* read_summary */
+		     NULL, /* write_optimization_summary */
+		     NULL, /* read_optimization_summary */
+		     NULL, /* stmt_fixup */
+		     0, /* function_transform_todo_flags_start */
+		     NULL, /* function_transform */
+		     NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_ipa_cdtor_merge (); }
+  unsigned int execute () { return ipa_cdtor_merge (); }
+
+}; // class pass_ipa_cdtor_merge
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_cdtor_merge (gcc::context *ctxt)
+{
+  return new pass_ipa_cdtor_merge (ctxt);
+}

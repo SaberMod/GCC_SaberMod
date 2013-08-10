@@ -514,6 +514,12 @@ compare_type (gfc_symbol *s1, gfc_symbol *s2)
   if (s2->attr.ext_attr & (1 << EXT_ATTR_NO_ARG_CHECK))
     return 1;
 
+  /* TYPE and CLASS of the same declared type are type compatible,
+     but have different characteristics.  */
+  if ((s1->ts.type == BT_CLASS && s2->ts.type == BT_DERIVED)
+      || (s1->ts.type == BT_DERIVED && s2->ts.type == BT_CLASS))
+    return 0;
+
   return gfc_compare_types (&s1->ts, &s2->ts) || s2->ts.type == BT_ASSUMED;
 }
 
@@ -3078,7 +3084,8 @@ check_some_aliasing (gfc_formal_arglist *f, gfc_actual_arglist *a)
 	    break;
 	  f2_intent = p[j].f->sym->attr.intent;
 	  if ((f1_intent == INTENT_IN && f2_intent == INTENT_OUT)
-	      || (f1_intent == INTENT_OUT && f2_intent == INTENT_IN))
+	      || (f1_intent == INTENT_OUT && f2_intent == INTENT_IN)
+	      || (f1_intent == INTENT_OUT && f2_intent == INTENT_OUT))
 	    {
 	      gfc_warning ("Same actual argument associated with INTENT(%s) "
 			   "argument '%s' and INTENT(%s) argument '%s' at %L",

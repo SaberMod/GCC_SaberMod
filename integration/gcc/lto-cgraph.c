@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcov-io.h"
 #include "tree-pass.h"
 #include "profile.h"
+#include "context.h"
+#include "pass_manager.h"
 
 static void output_cgraph_opt_summary (void);
 static void input_cgraph_opt_summary (vec<symtab_node>  nodes);
@@ -271,12 +273,13 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
 
   bp = bitpack_create (ob->main_stream);
   uid = (!gimple_has_body_p (edge->caller->symbol.decl)
-	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt));
+	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt) + 1);
   bp_pack_enum (&bp, cgraph_inline_failed_enum,
 	        CIF_N_REASONS, edge->inline_failed);
   bp_pack_var_len_unsigned (&bp, uid);
   bp_pack_var_len_unsigned (&bp, edge->frequency);
   bp_pack_value (&bp, edge->indirect_inlining_edge, 1);
+  bp_pack_value (&bp, edge->speculative, 1);
   bp_pack_value (&bp, edge->call_stmt_cannot_inline_p, 1);
   bp_pack_value (&bp, edge->can_throw_external, 1);
   if (edge->indirect_unknown_callee)
@@ -296,6 +299,14 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
 			     | ECF_NOVOPS)));
     }
   streamer_write_bitpack (&bp);
+  if (edge->indirect_unknown_callee)
+    {
+      streamer_write_hwi_stream (ob->main_stream,
+			         edge->indirect_info->common_target_id);
+      if (edge->indirect_info->common_target_id)
+	streamer_write_hwi_stream
+	   (ob->main_stream, edge->indirect_info->common_target_probability);
+    }
 }
 
 /* Return if LIST contain references from other partitions.  */
@@ -374,7 +385,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bool boundary_p;
   intptr_t ref;
   bool in_other_partition = false;
-  struct cgraph_node *clone_of;
+  struct cgraph_node *clone_of, *ultimate_clone_of;
   struct ipa_opt_pass_d *pass;
   int i;
   bool alias_p;
@@ -421,7 +432,16 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     else
       clone_of = clone_of->clone_of;
 
-  if (LTO_symtab_analyzed_node)
+  /* See if body of the master function is output.  If not, we are seeing only
+     an declaration and we do not need to pass down clone tree. */
+  ultimate_clone_of = clone_of;
+  while (ultimate_clone_of && ultimate_clone_of->clone_of)
+    ultimate_clone_of = ultimate_clone_of->clone_of;
+
+  if (clone_of && !lto_symtab_encoder_encode_body_p (encoder, ultimate_clone_of))
+    clone_of = NULL;
+
+  if (tag == LTO_symtab_analyzed_node)
     gcc_assert (clone_of || !node->clone_of);
   if (!clone_of)
     streamer_write_hwi_stream (ob->main_stream, LCC_NOT_FOUND);
@@ -436,7 +456,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   streamer_write_hwi_stream (ob->main_stream,
 			     node->ipa_transforms_to_apply.length ());
   FOR_EACH_VEC_ELT (node->ipa_transforms_to_apply, i, pass)
-    streamer_write_hwi_stream (ob->main_stream, pass->pass.static_pass_number);
+    streamer_write_hwi_stream (ob->main_stream, pass->static_pass_number);
 
   if (tag == LTO_symtab_analyzed_node)
     {
@@ -472,7 +492,6 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
   bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.address_taken, 1);
-  bp_pack_value (&bp, node->abstract_and_needed, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
 		 && !DECL_EXTERNAL (node->symbol.decl)
 		 && !DECL_COMDAT (node->symbol.decl)
@@ -508,6 +527,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.fixed_offset);
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.virtual_value);
     }
+  streamer_write_hwi_stream (ob->main_stream, node->profile_id);
 }
 
 /* Output the varpool NODE to OB. 
@@ -579,13 +599,24 @@ lto_output_ref (struct lto_simple_output_block *ob, struct ipa_ref *ref,
 {
   struct bitpack_d bp;
   int nref;
+  int uid = ref->lto_stmt_uid;
+  struct cgraph_node *node;
 
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, ref->use, 2);
+  bp_pack_value (&bp, ref->speculative, 1);
   streamer_write_bitpack (&bp);
   nref = lto_symtab_encoder_lookup (encoder, ref->referred);
   gcc_assert (nref != LCC_NOT_FOUND);
   streamer_write_hwi_stream (ob->main_stream, nref);
+  
+  node = dyn_cast <cgraph_node> (ref->referring);
+  if (node)
+    {
+      if (ref->stmt)
+	uid = gimple_uid (ref->stmt) + 1;
+      streamer_write_hwi_stream (ob->main_stream, uid);
+    }
 }
 
 /* Stream out profile_summary to OB.  */
@@ -748,6 +779,13 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
       add_references (encoder, &node->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	{
+	  struct cgraph_node *origin_node
+	  = cgraph_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  add_node_to (encoder, origin_node, true);
+	}
     }
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
@@ -757,6 +795,13 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       add_references (encoder, &vnode->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (vnode->symbol.decl))
+	{
+	  struct varpool_node *origin_node
+	  = varpool_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  lto_set_symtab_encoder_in_partition (encoder, (symtab_node)origin_node);
+	}
     }
   /* Pickle in also the initializer of all referenced readonly variables
      to help folding.  Constant pool variables are not shared, so we must
@@ -887,7 +932,6 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->symbol.forced_by_abi = bp_unpack_value (bp, 1);
   node->symbol.unique_name = bp_unpack_value (bp, 1);
   node->symbol.address_taken = bp_unpack_value (bp, 1);
-  node->abstract_and_needed = bp_unpack_value (bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (bp, 1);
   node->lowered = bp_unpack_value (bp, 1);
   node->symbol.analyzed = tag == LTO_symtab_analyzed_node;
@@ -936,6 +980,7 @@ input_node (struct lto_file_decl_data *file_data,
 	    enum LTO_symtab_tags tag,
 	    vec<symtab_node> nodes)
 {
+  gcc::pass_manager *passes = g->get_passes ();
   tree fn_decl;
   struct cgraph_node *node;
   struct bitpack_d bp;
@@ -981,8 +1026,8 @@ input_node (struct lto_file_decl_data *file_data,
       struct opt_pass *pass;
       int pid = streamer_read_hwi (ib);
 
-      gcc_assert (pid < passes_by_id_size);
-      pass = passes_by_id[pid];
+      gcc_assert (pid < passes->passes_by_id_size);
+      pass = passes->passes_by_id[pid];
       node->ipa_transforms_to_apply.safe_push ((struct ipa_opt_pass_d *) pass);
     }
 
@@ -1021,6 +1066,7 @@ input_node (struct lto_file_decl_data *file_data,
     }
   if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
     node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
+  node->profile_id = streamer_read_hwi (ib);
   return node;
 }
 
@@ -1092,11 +1138,17 @@ input_ref (struct lto_input_block *ib,
   symtab_node node = NULL;
   struct bitpack_d bp;
   enum ipa_ref_use use;
+  bool speculative;
+  struct ipa_ref *ref;
 
   bp = streamer_read_bitpack (ib);
   use = (enum ipa_ref_use) bp_unpack_value (&bp, 2);
+  speculative = (enum ipa_ref_use) bp_unpack_value (&bp, 1);
   node = nodes[streamer_read_hwi (ib)];
-  ipa_record_reference (referring_node, node, use, NULL);
+  ref = ipa_record_reference (referring_node, node, use, NULL);
+  ref->speculative = speculative;
+  if (is_a <cgraph_node> (referring_node))
+    ref->lto_stmt_uid = streamer_read_hwi (ib);
 }
 
 /* Read an edge from IB.  NODES points to a vector of previously read nodes for
@@ -1143,6 +1195,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node> nodes,
     edge = cgraph_create_edge (caller, callee, NULL, count, freq);
 
   edge->indirect_inlining_edge = bp_unpack_value (&bp, 1);
+  edge->speculative = bp_unpack_value (&bp, 1);
   edge->lto_stmt_uid = stmt_id;
   edge->inline_failed = inline_failed;
   edge->call_stmt_cannot_inline_p = bp_unpack_value (&bp, 1);
@@ -1162,6 +1215,9 @@ input_edge (struct lto_input_block *ib, vec<symtab_node> nodes,
       if (bp_unpack_value (&bp, 1))
 	ecf_flags |= ECF_RETURNS_TWICE;
       edge->indirect_info->ecf_flags = ecf_flags;
+      edge->indirect_info->common_target_id = streamer_read_hwi (ib);
+      if (edge->indirect_info->common_target_id)
+        edge->indirect_info->common_target_probability = streamer_read_hwi (ib);
     }
 }
 

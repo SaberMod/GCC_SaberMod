@@ -3628,6 +3628,19 @@ foo:
        kasumi_fi_xor %f46, %f48, %f50, %f52],,
       [AC_DEFINE(HAVE_AS_SPARC4, 1,
                 [Define if your assembler supports SPARC4 instructions.])])
+
+    gcc_GAS_CHECK_FEATURE([LEON instructions],
+      gcc_cv_as_sparc_leon,,
+      [-Aleon],
+      [.text
+       .register %g2, #scratch
+       .register %g3, #scratch
+       .align 4
+       smac %g2, %g3, %g1
+       umac %g2, %g3, %g1
+       cas [[%g2]], %g3, %g1],,
+      [AC_DEFINE(HAVE_AS_LEON, 1,
+                [Define if your assembler supports LEON instructions.])])
     ;;
 
 changequote(,)dnl
@@ -4182,6 +4195,17 @@ EOF
 	    AC_DEFINE(HAVE_LD_PERSONALITY_RELAXATION, 1,
       [Define if your linker can relax absolute .eh_frame personality
 pointers into PC-relative form.])
+    fi
+
+    gcc_GAS_CHECK_FEATURE([-mnan= support],
+      gcc_cv_as_mips_nan,,
+      [-mnan=2008],,,
+      [AC_DEFINE(HAVE_AS_NAN, 1,
+		 [Define if the assembler understands -mnan=.])])
+    if test x$gcc_cv_as_mips_nan = xno \
+       && test x$with_nan != x; then
+      AC_MSG_ERROR(
+	[Requesting --with-nan= requires assembler support for -mnan=])
     fi
     ;;
 esac

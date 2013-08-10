@@ -52,6 +52,7 @@ FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-loops  execution
 FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
 FAIL: gfortran.dg/round_4.f90 -O3 -g  execution test
 FAIL: gfortran.dg/round_4.f90 -Os  execution test
+FAIL: gcc.dg/tree-ssa/attr-alias.c scan-tree-dump-times optimized "  test4 " 1
 
 # These failures only occur when testing is distributed.  These tests
 # have dependencies that are not explicitly handled by the driver script.

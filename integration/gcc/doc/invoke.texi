@@ -191,6 +191,8 @@ in the following sections.
 -ftemplate-depth=@var{n} @gol
 -fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
 -fno-default-inline  -fvisibility-inlines-hidden @gol
+-fvtable-verify=@var{std|preinit|none} @gol
+-fvtv-counts -fvtv-debug @gol
 -fvisibility-ms-compat @gol
 -fext-numeric-literals @gol
 -Wabi  -Wconversion-null  -Wctor-dtor-privacy @gol
@@ -318,6 +320,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-sra@r{[}-@var{n}@r{]} @gol
 -fdump-tree-forwprop@r{[}-@var{n}@r{]} @gol
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
+-fdump-tree-vtable-verify @gol
 -fdump-tree-vrp@r{[}-@var{n}@r{]} @gol
 -ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
@@ -649,6 +652,7 @@ Objective-C and Objective-C++ Dialects}.
 -mbmi2 -mrtm -mlwp -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
+-mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} 
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double -mlong-double-64 -mlong-double-80 @gol
 -mregparm=@var{num}  -msseregparm @gol
@@ -750,7 +754,8 @@ Objective-C and Objective-C++ Dialects}.
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
--mno-float -msingle-float  -mdouble-float  @gol
+-mno-float  -msingle-float  -mdouble-float @gol
+-mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
 -meva -mno-eva @gol
@@ -2309,6 +2314,56 @@ objects are different, so changing one does not change the other;
 and that pointers to function members defined in different shared
 objects may not compare equal.  When this flag is given, it is a
 violation of the ODR to define types with the same name differently.
+
+@item -fvtable-verify=@var{std|preinit|none}
+@opindex fvtable-verify
+Turn on (or off, if using @option{-fvtable-verify=none}) the security
+feature that verifies at runtime, for every virtual call that is made, that
+the vtable pointer through which the call is made is valid for the type of
+the object, and has not been corrupted or overwritten.  If an invalid vtable
+pointer is detected (at runtime), an error is reported and execution of the
+program is immediately halted.
+
+This option causes runtime data structures to be built, at program start up,
+for verifying the vtable pointers.  The options @code{std} and @code{preinit}
+control the timing of when these data structures are built.  In both cases the
+data structures are built before execution reaches 'main'.  The
+@option{-fvtable-verify=std} causes these data structure to be built after the
+shared libraries have been loaded and initialized.
+@option{-fvtable-verify=preinit} causes them to be built before the shared
+libraries have been loaded and initialized.
+
+If this option appears multiple times in the compiler line, with different
+values specified, 'none' will take highest priority over both 'std' and
+'preinit'; 'preinit' will take priority over 'std'.
+
+@item -fvtv-debug
+@opindex (fvtv-debug)
+Causes debug versions of the runtime functions for the vtable verification 
+feature to be called.  This assumes the @option{-fvtable-verify=std} or
+@option{-fvtable-verify=preinit} has been used.  This flag will also cause the
+compiler to keep track of which vtable pointers it found for each class, and
+record that information in the file ``vtv_set_ptr_data.log'', in the dump
+file directory on the user's machine.
+
+Note:  This feature APPENDS data to the log file. If you want a fresh log
+file, be sure to delete any existing one.
+
+@item -fvtv-counts
+@opindex (fvtv-counts)
+This is a debugging flag.  When used in conjunction with
+@option{-fvtable-verify=std} or @option{-fvtable-verify=preinit}, this
+causes the compiler to keep track of the total number of virtual calls
+it encountered and the number of verifications it inserted.  It also
+counts the number of calls to certain runtime library functions
+that it inserts.  This information, for each compilation unit, is written
+to a file named ``vtv_count_data.log'', in the dump_file directory on
+the user's machine.   It also counts the size of the vtable pointer sets
+for each class, and writes this information to ``vtv_class_set_sizes.log''
+in the same directory.
+
+Note:  This feature APPENDS data to the log files.  To get a fresh log
+files, be sure to delete any existing ones.
 
 @item -fno-weak
 @opindex fno-weak
@@ -14611,6 +14666,24 @@ Expand into an inline loop.
 Always use a library call.
 @end table
 
+@item -mmemcpy-strategy=@var{strategy}
+@opindex mmemcpy-strategy=@var{strategy}
+Override the internal decision heuristic to decide if @code{__builtin_memcpy}
+should be inlined and what inline algorithm to use when the expected size
+of the copy operation is known. @var{strategy} 
+is a comma-separated list of @var{alg}:@var{max_size}:@var{dest_align} triplets. 
+@var{alg} is specified in @option{-mstringop-strategy}, @var{max_size} specifies
+the max byte size with which inline algorithm @var{alg} is allowed.  For the last
+triplet, the @var{max_size} must be @code{-1}. The @var{max_size} of the triplets
+in the list must be specified in increasing order.  The minimal byte size for 
+@var{alg} is @code{0} for the first triplet and @code{@var{max_size} + 1} of the 
+preceding range.
+
+@item -mmemset-strategy=@var{strategy}
+@opindex mmemset-strategy=@var{strategy}
+The option is similar to @option{-mmemcpy-strategy=} except that it is to control
+@code{__builtin_memset} expansion.
+
 @item -momit-leaf-frame-pointer
 @opindex momit-leaf-frame-pointer
 Don't keep the frame pointer in a register for leaf functions.  This
@@ -16337,6 +16410,48 @@ operations.
 @opindex mdouble-float
 Assume that the floating-point coprocessor supports double-precision
 operations.  This is the default.
+
+@item -mabs=2008
+@itemx -mabs=legacy
+@opindex mabs=2008
+@opindex mabs=legacy
+These options control the treatment of the special not-a-number (NaN)
+IEEE 754 floating-point data with the @code{abs.@i{fmt}} and
+@code{neg.@i{fmt}} machine instructions.
+
+By default or when the @option{-mabs=legacy} is used the legacy
+treatment is selected.  In this case these instructions are considered
+arithmetic and avoided where correct operation is required and the
+input operand might be a NaN.  A longer sequence of instructions that
+manipulate the sign bit of floating-point datum manually is used
+instead unless the @option{-ffinite-math-only} option has also been
+specified.
+
+The @option{-mabs=2008} option selects the IEEE 754-2008 treatment.  In
+this case these instructions are considered non-arithmetic and therefore
+operating correctly in all cases, including in particular where the
+input operand is a NaN.  These instructions are therefore always used
+for the respective operations.
+
+@item -mnan=2008
+@itemx -mnan=legacy
+@opindex mnan=2008
+@opindex mnan=legacy
+These options control the encoding of the special not-a-number (NaN)
+IEEE 754 floating-point data.
+
+The @option{-mnan=legacy} option selects the legacy encoding.  In this
+case quiet NaNs (qNaNs) are denoted by the first bit of their trailing
+significand field being 0, whereas signalling NaNs (sNaNs) are denoted
+by the first bit of their trailing significand field being 1.
+
+The @option{-mnan=2008} option selects the IEEE 754-2008 encoding.  In
+this case qNaNs are denoted by the first bit of their trailing
+significand field being 1, whereas sNaNs are denoted by the first bit of
+their trailing significand field being 0.
+
+The default is @option{-mnan=legacy} unless GCC has been configured with
+@option{--with-nan=2008}.
 
 @item -mllsc
 @itemx -mno-llsc
