@@ -677,8 +677,6 @@ FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -fomit-frame-pointer -funrol
 FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
 FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -g  execution test
 FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -Os  execution test
-FAIL: gfortran.dg/minlocval_3.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: gfortran.dg/minlocval_3.f90 -O3 -g  compilation failed to produce executable
 FAIL: gfortran.dg/namelist_14.f90 -O0  execution test
 FAIL: gfortran.dg/namelist_14.f90 -O1  execution test
 FAIL: gfortran.dg/namelist_14.f90 -O2  execution test
