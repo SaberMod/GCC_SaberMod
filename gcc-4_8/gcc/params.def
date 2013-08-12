@@ -903,6 +903,13 @@ DEFPARAM (PARAM_ALWAYS_INLINE_ICALL_TARGET,
 	  "force inline indirect call target when promoted",
           0, 0, 0)
 
+/* Do not check the icall target count distribution, but use
+   hotness info to decide if promotion should be done.  */
+DEFPARAM (PARAM_ICALL_USE_HOTNESS_HEUR,
+	  "icall-use-hotness-heur",
+	  "use hotness based heuristics to match inliner",
+          0, 0, 0)
+
 /* Force the compiler to be in LIPO mode even there is no
  profile data available. -fripa is also needed. */
 DEFPARAM (PARAM_FORCE_LIPO_MODE, 
