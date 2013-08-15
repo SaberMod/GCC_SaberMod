@@ -2955,6 +2955,81 @@ ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
     }
 }
 
+/* parse -mtune-ctrl= option. When DUMP is true,
+   print the features that are explicitly set.  */
+
+static void
+parse_mtune_ctrl_str (bool dump)
+{
+  if (!ix86_tune_ctrl_string)
+    return;
+
+  char *next_feature_string = NULL;
+  char *curr_feature_string = xstrdup (ix86_tune_ctrl_string);
+  char *orig = curr_feature_string;
+  int i;
+  do
+    {
+      bool clear = false;
+
+      next_feature_string = strchr (curr_feature_string, ',');
+      if (next_feature_string)
+        *next_feature_string++ = '\0';
+      if (*curr_feature_string == '^')
+        {
+          curr_feature_string++;
+          clear = true;
+        }
+      for (i = 0; i < X86_TUNE_LAST; i++)
+        {
+          if (!strcmp (curr_feature_string, ix86_tune_feature_names[i]))
+            {
+              ix86_tune_features[i] = !clear;
+              if (dump)
+                fprintf (stderr, "#####  Explicitly %s feature %s. New setting = %s\n",
+                         clear ? "clear" : "set", ix86_tune_feature_names[i],
+                         ix86_tune_features[i] ? "on" : "off");
+              break;
+            }
+        }
+      if (i == X86_TUNE_LAST)
+        error ("Unknown parameter to option -mtune-ctrl: %s",
+               clear ? curr_feature_string - 1 : curr_feature_string);
+      curr_feature_string = next_feature_string;
+    }
+  while (curr_feature_string);
+  free (orig);
+}
+
+/* Helper function to set ix86_tune_features. IX86_TUNE is the
+   processor type.  */
+
+static void
+set_ix86_tune_features (enum processor_type ix86_tune, bool dump)
+{
+  unsigned int ix86_tune_mask = 1u << ix86_tune;
+  int i;
+
+  for (i = 0; i < X86_TUNE_LAST; ++i)
+    {
+      if (ix86_tune_no_default)
+        ix86_tune_features[i] = 0;
+      else
+        ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+    }
+
+  if (dump)
+    {
+      fprintf (stderr, "List of x86 specific tuning parameter names:\n");
+      for (i = 0; i < X86_TUNE_LAST; i++)
+        fprintf (stderr, "%s : %s\n", ix86_tune_feature_names[i],
+                 ix86_tune_features[i] ? "on" : "off");
+    }
+
+  parse_mtune_ctrl_str (dump);
+}
+
+
 
 /* Override various settings based on options.  If MAIN_ARGS_P, the
    options are from the command line, otherwise they are from
@@ -3600,42 +3675,8 @@ ix86_option_override_internal (bool main_args_p)
 	   ix86_tune_string, prefix, suffix, sw);
 
   ix86_tune_mask = 1u << ix86_tune;
-  for (i = 0; i < X86_TUNE_LAST; ++i)
-    ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
 
-  if (ix86_tune_ctrl_string)
-    {
-      /* parse the tune ctrl string in the following form:
-         [^]tune_name1,[^]tune_name2,..a */
-      char *next_feature_string = NULL;
-      char *curr_feature_string = xstrdup (ix86_tune_ctrl_string);
-      char *orig = curr_feature_string;
-      do {
-        bool clear = false;
-
-        next_feature_string = strchr (curr_feature_string, ',');
-	if (next_feature_string)
-          *next_feature_string++ = '\0';
-        if (*curr_feature_string == '^')
-	  {
-	    curr_feature_string++;
-	    clear = true;
-	  }
-        for (i = 0; i < X86_TUNE_LAST; i++)
-	  {
-            if (!strcmp (curr_feature_string, ix86_tune_feature_names[i]))
-	      {
-                ix86_tune_features[i] = !clear;
-                break;
-              }
-	  }
-        if (i == X86_TUNE_LAST)
-	  warning (0, "Unknown parameter to option -mtune-ctrl: %s",
-	           clear ? curr_feature_string - 1 : curr_feature_string);
-	curr_feature_string = next_feature_string;    
-      } while (curr_feature_string);
-      free (orig);
-    }
+  set_ix86_tune_features (ix86_tune, ix86_dump_tunes);
 
 #ifndef USE_IX86_FRAME_POINTER
 #define USE_IX86_FRAME_POINTER 0
@@ -4232,7 +4273,7 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
 {
   enum processor_type old_tune = ix86_tune;
   enum processor_type old_arch = ix86_arch;
-  unsigned int ix86_arch_mask, ix86_tune_mask;
+  unsigned int ix86_arch_mask;
   int i;
 
   ix86_arch = (enum processor_type) ptr->arch;
@@ -4256,12 +4297,7 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
 
   /* Recreate the tune optimization tests */
   if (old_tune != ix86_tune)
-    {
-      ix86_tune_mask = 1u << ix86_tune;
-      for (i = 0; i < X86_TUNE_LAST; ++i)
-	ix86_tune_features[i]
-	  = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
-    }
+    set_ix86_tune_features (ix86_tune, false);
 }
 
 /* Print the current options */
