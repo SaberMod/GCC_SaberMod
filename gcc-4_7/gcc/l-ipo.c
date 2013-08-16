@@ -2151,6 +2151,19 @@ resolve_varpool_node (struct varpool_node **slot, struct varpool_node *node)
       return;
     }
 
+  if (DECL_INITIAL (decl1) && !DECL_INITIAL (decl2))
+    {
+      merge_addressable_attr (decl1, decl2);
+      return;
+    }
+
+  if (!DECL_INITIAL (decl1) && DECL_INITIAL (decl2))
+    {
+      *slot = node;
+      merge_addressable_attr (decl2, decl1);
+      return;
+    }
+
   /* Either all complete or neither's type is complete. Just
      pick the primary module's decl.  */
   if (!varpool_is_auxiliary (*slot))
