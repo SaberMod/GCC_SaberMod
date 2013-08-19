@@ -709,7 +709,7 @@ next_discriminator_for_locus (location_t locus)
   item.discriminator = 0;
   slot = (struct locus_discrim_map **)
       htab_find_slot_with_hash (discriminator_per_locus, (void *) &item,
-                                (hashval_t) locus, INSERT);
+                                locus_map_hash (&item), INSERT);
   gcc_assert (slot);
   if (*slot == HTAB_EMPTY_ENTRY)
     {
