@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <string.h>
 #include <map>
 #include <vector>
+#include <set>
 
 #include "config.h"
 #include "system.h"
@@ -100,6 +101,10 @@ typedef std::map<unsigned, gcov_type> icall_target_map;
    (execution_count, value_profile_histogram).  */
 typedef std::pair<gcov_type, icall_target_map> count_info;
 
+/* Set of inline_stack. Used to track if the profile is already used to
+   annotate the program.  */
+typedef std::set<inline_stack> location_set;
+
 struct string_compare
 {
   bool operator() (const char *a, const char *b) const
@@ -158,7 +163,8 @@ public:
   const function_instance *get_function_instance (const inline_stack &stack,
 						  unsigned level) const;
 
-  /* Return the profile info for LOC.  */
+  /* Store the profile info for LOC in INFO. Return TRUE if profile info
+     is found.  */
   bool get_count_info (location_t loc, count_info *info) const;
 
 private:
@@ -200,9 +206,11 @@ public:
   ~autofdo_source_profile ();
   /* For a given DECL, returns the top-level function_instance.  */
   const function_instance *get_function_instance_by_decl (tree decl) const;
-  /* Find profile info for a given gimple STMT. If found, store the profile
-     info in INFO, and return true; otherwise return false.  */
-  bool get_count_info (gimple stmt, count_info *info) const;
+  /* Find profile info for a given gimple STMT. If found, and if the location
+     of STMT does not exist in ANNOTATED, store the profile info in INFO, and
+     return true; otherwise return false.  */
+  bool get_count_info (gimple stmt, count_info *info,
+		       const location_set *annotated) const;
   /* Find total count of the callee of EDGE.  */
   gcov_type get_callsite_total_count (struct cgraph_edge *edge) const;
 
@@ -284,17 +292,13 @@ static const char *get_original_name (const char *name)
 
 /* Return the combined location, which is a 32bit integer in which
    higher 16 bits stores the line offset of LOC to the start lineno
-   of DECL, The lower 16 bits stores the discrimnator of LOC if
-   USE_DISCR is true, otherwise 0.  */
+   of DECL, The lower 16 bits stores the discrimnator.  */
 
 static unsigned
-get_combined_location (location_t loc, tree decl, bool use_discr)
+get_combined_location (location_t loc, tree decl)
 {
-  if (use_discr)
-    return ((LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl)) << 16)
-	   | get_discriminator_from_locus (loc);
-  else
-    return (LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl)) << 16;
+  return ((LOCATION_LINE (loc) - DECL_SOURCE_LINE (decl)) << 16)
+	 | get_discriminator_from_locus (loc);
 }
 
 /* Return the function decl of a given lexical BLOCK.  */
@@ -315,8 +319,10 @@ get_function_decl_from_block (tree block)
   return decl;
 }
 
+/* Store inline stack for STMT in STACK.  */
+
 static void
-get_inline_stack (gimple stmt, bool use_discr, inline_stack *stack)
+get_inline_stack (gimple stmt, inline_stack *stack)
 {
   location_t locus = gimple_location (stmt);
   if (LOCATION_LOCUS (locus) == UNKNOWN_LOCATION)
@@ -337,14 +343,13 @@ get_inline_stack (gimple stmt, bool use_discr, inline_stack *stack)
 
       tree decl = get_function_decl_from_block (block);
       stack->push_back (std::make_pair (
-	  decl, get_combined_location (locus, decl, level == 0 && use_discr)));
+	  decl, get_combined_location (locus, decl)));
       locus = tmp_locus;
       level++;
     }
   stack->push_back (std::make_pair (
       current_function_decl,
-      get_combined_location (locus, current_function_decl,
-			     level == 0 && use_discr)));
+      get_combined_location (locus, current_function_decl)));
 }
 
 
@@ -523,14 +528,16 @@ const function_instance *autofdo_source_profile::get_function_instance_by_decl (
   return ret == map_.end() ? NULL : ret->second;
 }
 
-bool autofdo_source_profile::get_count_info (gimple stmt,
-					     count_info *info) const
+bool autofdo_source_profile::get_count_info (
+    gimple stmt, count_info *info, const location_set *annotated) const
 {
   if (LOCATION_LOCUS (gimple_location (stmt)) == cfun->function_end_locus)
     return false;
 
   inline_stack stack;
-  get_inline_stack (stmt, true, &stack);
+  get_inline_stack (stmt, &stack);
+  if (annotated && annotated->find(stack) != annotated->end())
+    return false;
   if (stack.size () == 0)
     return false;
   const function_instance *s = get_function_instance_by_inline_stack (stack);
@@ -544,7 +551,7 @@ gcov_type autofdo_source_profile::get_callsite_total_count (
 {
   inline_stack stack;
   stack.push_back (std::make_pair(edge->callee->symbol.decl, 0));
-  get_inline_stack (edge->call_stmt, false, &stack);
+  get_inline_stack (edge->call_stmt, &stack);
 
   const function_instance *s = get_function_instance_by_inline_stack (stack);
   if (s == NULL)
@@ -818,10 +825,10 @@ afdo_vpt (gimple stmt, const icall_target_map &map)
 }
 
 /* For a given BB, return its execution count, and annotate value profile
-   on statements.  */
+   on statements. Add the location of annotated stmt to ANNOTATED.  */
 
 static gcov_type
-afdo_get_bb_count (basic_block bb)
+afdo_get_bb_count (basic_block bb, location_set *annotated)
 {
   gimple_stmt_iterator gsi;
   gcov_type max_count = 0;
@@ -831,7 +838,7 @@ afdo_get_bb_count (basic_block bb)
     {
       count_info info;
       gimple stmt = gsi_stmt (gsi);
-      if (afdo_source_profile->get_count_info (stmt, &info))
+      if (afdo_source_profile->get_count_info (stmt, &info, annotated))
 	{
 	  if (info.first > max_count)
 	    max_count = info.first;
@@ -839,6 +846,14 @@ afdo_get_bb_count (basic_block bb)
 	  if (info.second.size() > 0)
 	    afdo_vpt (stmt, info.second);
 	}
+    }
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      inline_stack stack;
+      get_inline_stack (gsi_stmt (gsi), &stack);
+      if (stack.size() > 0)
+	annotated->insert(stack);
     }
   if (has_annotated)
     {
@@ -1220,9 +1235,22 @@ afdo_annotate_cfg (void)
   ENTRY_BLOCK_PTR->count = s->head_count ();
   gcov_type max_count = ENTRY_BLOCK_PTR->count;
 
+  location_set annotated_loc_set;
+
   FOR_EACH_BB (bb)
     {
-      bb->count = afdo_get_bb_count (bb);
+      edge e;
+      edge_iterator ei;
+
+      bb->count = 0;
+      bb->flags &= (~BB_ANNOTATED);
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  e->count = 0;
+	  e->flags &= (~EDGE_ANNOTATED);
+	}
+
+      bb->count = afdo_get_bb_count (bb, &annotated_loc_set);
       if (bb->count > max_count)
 	max_count = bb->count;
     }
