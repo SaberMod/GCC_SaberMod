@@ -1903,7 +1903,7 @@ ipa_analyze_virtual_call_uses (struct cgraph_node *node,
   ii = cs->indirect_info;
   ii->offset = anc_offset;
   ii->otr_token = tree_low_cst (OBJ_TYPE_REF_TOKEN (target), 1);
-  ii->otr_type = TREE_TYPE (TREE_TYPE (OBJ_TYPE_REF_OBJECT (target)));
+  ii->otr_type = obj_type_ref_class (target);
   ii->polymorphic = 1;
 }
 
@@ -1922,7 +1922,7 @@ ipa_analyze_call_uses (struct cgraph_node *node,
     return;
   if (TREE_CODE (target) == SSA_NAME)
     ipa_analyze_indirect_call_uses (node, info, parms_ainfo, call, target);
-  else if (TREE_CODE (target) == OBJ_TYPE_REF)
+  else if (virtual_method_call_p (target))
     ipa_analyze_virtual_call_uses (node, info, call, target);
 }
 
@@ -2453,7 +2453,8 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 
   if (TREE_CODE (binfo) != TREE_BINFO)
     {
-      binfo = gimple_extract_devirt_binfo_from_cst (binfo);
+      binfo = gimple_extract_devirt_binfo_from_cst
+		 (binfo, ie->indirect_info->otr_type);
       if (!binfo)
         return NULL;
     }
@@ -3040,7 +3041,6 @@ void
 ipa_print_node_params (FILE *f, struct cgraph_node *node)
 {
   int i, count;
-  tree temp;
   struct ipa_node_params *info;
 
   if (!node->symbol.definition)
@@ -3053,12 +3053,7 @@ ipa_print_node_params (FILE *f, struct cgraph_node *node)
     {
       int c;
 
-      temp = ipa_get_param (info, i);
-      if (TREE_CODE (temp) == PARM_DECL)
-	fprintf (f, "    param %d : %s", i,
-                 (DECL_NAME (temp)
-                  ? (*lang_hooks.decl_printable_name) (temp, 2)
-                  : "(unnamed)"));
+      ipa_dump_param (f, info, i);
       if (ipa_is_param_used (info, i))
 	fprintf (f, " used");
       c = ipa_get_controlled_uses (info, i);

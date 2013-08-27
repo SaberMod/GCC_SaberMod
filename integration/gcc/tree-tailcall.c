@@ -305,7 +305,7 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
   if (rhs_class == GIMPLE_UNARY_RHS)
     ;
   else if (op0 == *ass_var
-      && (non_ass_var = independent_of_stmt_p (op1, stmt, call)))
+	   && (non_ass_var = independent_of_stmt_p (op1, stmt, call)))
     ;
   else if (op1 == *ass_var
 	   && (non_ass_var = independent_of_stmt_p (op0, stmt, call)))
@@ -320,17 +320,20 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
       *ass_var = dest;
       return true;
 
+    case POINTER_PLUS_EXPR:
+      if (op0 != *ass_var)
+	return false;
+      *a = non_ass_var;
+      *ass_var = dest;
+      return true;
+
     case MULT_EXPR:
       *m = non_ass_var;
       *ass_var = dest;
       return true;
 
     case NEGATE_EXPR:
-      if (FLOAT_TYPE_P (TREE_TYPE (op0)))
-        *m = build_real (TREE_TYPE (op0), dconstm1);
-      else
-        *m = build_int_cst (TREE_TYPE (op0), -1);
-
+      *m = build_minus_one_cst (TREE_TYPE (op0));
       *ass_var = dest;
       return true;
 
@@ -339,11 +342,7 @@ process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
         *a = fold_build1 (NEGATE_EXPR, TREE_TYPE (non_ass_var), non_ass_var);
       else
         {
-          if (FLOAT_TYPE_P (TREE_TYPE (non_ass_var)))
-            *m = build_real (TREE_TYPE (non_ass_var), dconstm1);
-          else
-            *m = build_int_cst (TREE_TYPE (non_ass_var), -1);
-
+	  *m = build_minus_one_cst (TREE_TYPE (non_ass_var));
           *a = fold_build1 (NEGATE_EXPR, TREE_TYPE (non_ass_var), non_ass_var);
         }
 
@@ -570,6 +569,10 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   if (!tail_recursion && (m || a))
     return;
 
+  /* For pointers only allow additions.  */
+  if (m && POINTER_TYPE_P (TREE_TYPE (DECL_RESULT (current_function_decl))))
+    return;
+
   nw = XNEW (struct tailcall);
 
   nw->call_gsi = gsi;
@@ -612,15 +615,23 @@ adjust_return_value_with_ops (enum tree_code code, const char *label,
   tree result = make_temp_ssa_name (ret_type, NULL, label);
   gimple stmt;
 
-  if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1)))
+  if (POINTER_TYPE_P (ret_type))
+    {
+      gcc_assert (code == PLUS_EXPR && TREE_TYPE (acc) == sizetype);
+      code = POINTER_PLUS_EXPR;
+    }
+  if (types_compatible_p (TREE_TYPE (acc), TREE_TYPE (op1))
+      && code != POINTER_PLUS_EXPR)
     stmt = gimple_build_assign_with_ops (code, result, acc, op1);
   else
     {
-      tree rhs = fold_convert (TREE_TYPE (acc),
-			       fold_build2 (code,
-					    TREE_TYPE (op1),
-					    fold_convert (TREE_TYPE (op1), acc),
-					    op1));
+      tree tem;
+      if (code == POINTER_PLUS_EXPR)
+	tem = fold_build2 (code, TREE_TYPE (op1), op1, acc);
+      else
+	tem = fold_build2 (code, TREE_TYPE (op1),
+			   fold_convert (TREE_TYPE (op1), acc), op1);
+      tree rhs = fold_convert (ret_type, tem);
       rhs = force_gimple_operand_gsi (&gsi, rhs,
 				      false, NULL, true, GSI_SAME_STMT);
       stmt = gimple_build_assign (result, rhs);
@@ -900,6 +911,9 @@ static tree
 create_tailcall_accumulator (const char *label, basic_block bb, tree init)
 {
   tree ret_type = TREE_TYPE (DECL_RESULT (current_function_decl));
+  if (POINTER_TYPE_P (ret_type))
+    ret_type = sizetype;
+
   tree tmp = make_temp_ssa_name (ret_type, NULL, label);
   gimple phi;
 
