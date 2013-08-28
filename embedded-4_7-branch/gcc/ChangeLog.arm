@@ -1,3 +1,11 @@
+2013-08-28  Terry Guo  <terry.guo@arm.com>
+
+	Backport from mainline r201237
+	2013-07-24  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (thumb1_size_rtx_costs): Assign proper cost for
+	shift_add/shift_sub0/shift_sub1 RTXs.
+
 2013-06-05  Bin Cheng  <bin.cheng@arm.com>
 
 	* config/arm/arm.c (arm_cortex_v7m_branch_cost): Remove assertion
