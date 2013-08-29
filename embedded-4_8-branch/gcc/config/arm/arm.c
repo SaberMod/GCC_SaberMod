@@ -2134,6 +2134,13 @@ arm_option_override (void)
                          global_options.x_param_values,
                          global_options_set.x_param_values);
 
+  /* Do not move invariants out of loops since it tends to increase register
+     pressure.  The heuristic to estimate register pressure does not fit for
+     ARM.  -fira-loop-pressure tends to get more precise estimation.  But it
+     still need more tuning.  */
+  if (optimize_function_for_size_p (cfun) && !flag_ira_loop_pressure)
+    flag_move_loop_invariants = 0;
+
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
 }

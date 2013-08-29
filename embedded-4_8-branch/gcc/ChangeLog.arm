@@ -1,3 +1,8 @@
+2013-08-29  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c (arm_option_override): Disable loop2_invariant
+	pass when optimize_size and ira-loop-pressure is not enabled.
+
 2013-08-05  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r197956
