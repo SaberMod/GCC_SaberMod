@@ -108,9 +108,26 @@ DEFPARAM (PARAM_INLINE_FUNCTION_OVERHEAD_SIZE,
 	  "Size estimate of function overhead (prologue/epilogue) for inlining purposes",
 	  7, 0, 0)
 
+/* Knob to control hot-caller heuristic. 0 means it is turned off, 1 means
+   it is always applied, and 2 means it is applied only if the footprint is
+   smaller than PARAM_HOT_CALLER_CODESIZE_THRESHOLD.  */
 DEFPARAM (PARAM_INLINE_HOT_CALLER,
 	  "inline-hot-caller",
 	  "Consider cold callsites for inlining if caller contains hot code",
+	  2, 0, 2)
+
+/* The maximum code size estimate under which hot caller heuristic is
+   applied.  */
+DEFPARAM(PARAM_HOT_CALLER_CODESIZE_THRESHOLD,
+	"hot-caller-codesize-threshold",
+	"Maximum profile-based code size footprint estimate for "
+	"hot caller heuristic  ",
+	10000, 0, 0)
+
+DEFPARAM (PARAM_INLINE_USEFUL_COLD_CALLEE,
+	  "inline-useful-cold-callee",
+	  "Only consider cold callsites for inlining if analysis estimates "
+	  "downstream optimization opportunities",
 	  1, 0, 1)
 
 /* Limit of iterations of early inliner.  This basically bounds number of
