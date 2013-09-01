@@ -1097,6 +1097,23 @@ tree_profiling (void)
 
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
+      if (L_IPO_COMP_MODE)
+        {
+          basic_block bb;
+          FOR_EACH_BB (bb)
+            {
+              gimple_stmt_iterator gsi;
+              for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+                {
+                  gimple stmt = gsi_stmt (gsi);
+                  if (is_gimple_call (stmt))
+                    lipo_fixup_cgraph_edge_call_target (stmt);
+                }
+	    }
+          update_ssa (TODO_update_ssa);
+	}
+
+
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
 	cleanup_tree_cfg ();
@@ -1160,22 +1177,13 @@ tree_profiling (void)
 	    {
 	      gimple stmt = gsi_stmt (gsi);
 	      if (is_gimple_call (stmt))
-		update_stmt (stmt);
+                update_stmt (stmt);
 	    }
 	}
 
       update_ssa (TODO_update_ssa);
 
       rebuild_cgraph_edges ();
-
-      /* Call graph build may change call statements which impacts
-         CFG (e.g. eh) and SSA (e.g. NORETURN and virtual operands)  */
-      if (L_IPO_COMP_MODE)
-        {
-          update_ssa (TODO_update_ssa);
-          if (execute_fixup_cfg () & TODO_cleanup_cfg)
-             cleanup_tree_cfg ();
-        }
       pop_cfun ();
     }
 

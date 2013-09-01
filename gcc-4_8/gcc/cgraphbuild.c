@@ -592,6 +592,39 @@ record_references_in_initializer (tree decl, bool only_vars)
   pointer_set_destroy (visited_nodes);
 }
 
+/* In LIPO mode, before tree_profiling, the call graph edge
+   needs to be built with the original target node to make
+   sure consistent early inline decisions between profile
+   generate and profile use. After tree-profiling, the target
+   needs to be set to the resolved node so that ipa-inline
+   sees the definitions.  */
+#include "gimple-pretty-print.h"
+void
+lipo_fixup_cgraph_edge_call_target (gimple stmt)
+{
+  tree decl;
+  gcc_assert (is_gimple_call (stmt));
+
+  decl = gimple_call_fndecl (stmt);
+  if (decl)
+    {
+      struct cgraph_node *real_callee;
+      real_callee = cgraph_lipo_get_resolved_node (decl);
+
+      if (decl != real_callee->symbol.decl)
+        {
+          int lp_nr;
+
+          gcc_assert (!real_callee->clone.combined_args_to_skip);
+          gimple_call_set_fndecl (stmt, real_callee->symbol.decl);
+          update_stmt (stmt);
+          lp_nr = lookup_stmt_eh_lp (stmt);
+          if (lp_nr != 0 && !stmt_could_throw_p (stmt))
+            remove_stmt_from_eh_lp (stmt);
+        }
+    }
+}
+
 /* Rebuild cgraph edges for current function node.  This needs to be run after
    passes that don't update the cgraph.  */
 
@@ -623,29 +656,12 @@ rebuild_cgraph_edges (void)
 							 bb);
 	      decl = gimple_call_fndecl (stmt);
 	      if (decl)
-	        {
-		  struct cgraph_node *callee;
-                  struct cgraph_edge *edge;
-		  /* In LIPO mode, before tree_profiling, the call graph edge
-		     needs to be built with the original target node to make
-		     sure consistent early inline decisions between profile
-                     generate and profile use. After tree-profiling, the target
-                     needs to be set to the resolved node so that ipa-inline
-                     sees the definitions.  */
-		  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
-                    {
-                      callee = cgraph_lipo_get_resolved_node (decl);
-                      record_reference_to_real_target_from_alias (callee);
-                    }
-                  else
-		    callee = cgraph_get_create_node (decl);
-
-                  edge = cgraph_create_edge (node, callee, stmt,
-                                             bb->count, freq);
-
-                  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done
-		      && decl != callee->symbol.decl)
-                    cgraph_redirect_edge_call_stmt_to_callee (edge);
+                {
+                  struct cgraph_node *callee = cgraph_get_create_node (decl);
+                  if (L_IPO_COMP_MODE)
+                    record_reference_to_real_target_from_alias (callee);
+                  cgraph_create_edge (node, callee, stmt,
+                                      bb->count, freq);
                 }
 	      else
 		cgraph_create_indirect_edge (node, stmt,
@@ -660,6 +676,7 @@ rebuild_cgraph_edges (void)
 	walk_stmt_load_store_addr_ops (gsi_stmt (gsi), node,
 				       mark_load, mark_store, mark_address);
     }
+
   add_fake_indirect_call_edges (node);
   record_eh_tables (node, cfun);
   gcc_assert (!node->global.inlined_to);

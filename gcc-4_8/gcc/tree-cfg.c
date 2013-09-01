@@ -1475,13 +1475,6 @@ gimple_can_merge_blocks_p (basic_block a, basic_block b)
   if (b == EXIT_BLOCK_PTR)
     return false;
 
-  /* Some functions may have long jumps but not marked
-     properly to be control flow alterring. FIXME
-     this is a kludge  */
-  if (L_IPO_COMP_MODE && profile_info
-      && b->count != a->count)
-    return false;
-
   /* If A ends by a statement causing exceptions or something similar, we
      cannot merge the blocks.  */
   stmt = last_stmt (a);
