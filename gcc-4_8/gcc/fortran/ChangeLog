@@ -1,3 +1,27 @@
+2013-08-11  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from trunk:
+	2013-08-09  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58058
+	* trans-intrinsic.c (gfc_conv_intrinsic_transfer): Free the temporary
+	string, if necessary.
+
+2013-07-28  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2013-05-28  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR fortran/57435
+	* module.c (check_for_ambiguous): Avoid null pointer deref.
+
+2013-07-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57785
+	* simplify.c (compute_dot_product): Complex conjugate for
+	dot_product.
+	(gfc_simplify_dot_product, gfc_simplify_matmul): Update call.
+
 2013-06-11  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/57508

@@ -5968,7 +5968,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       || TREE_CODE (t) == MODIFY_EXPR)
     {
       member = TREE_OPERAND (t, 0);
-      init = unshare_expr (TREE_OPERAND (t, 1));
+      init = break_out_target_exprs (TREE_OPERAND (t, 1));
     }
   else if (TREE_CODE (t) == CALL_EXPR)
     {
@@ -5976,7 +5976,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       /* We don't use build_cplus_new here because it complains about
 	 abstract bases.  Leaving the call unwrapped means that it has the
 	 wrong type, but cxx_eval_constant_expression doesn't care.  */
-      init = unshare_expr (t);
+      init = break_out_target_exprs (t);
     }
   else if (TREE_CODE (t) == DECL_EXPR)
     /* Declaring a temporary, don't add it to the CONSTRUCTOR.  */
@@ -6213,7 +6213,7 @@ constexpr_fn_retval (tree body)
       }
 
     case RETURN_EXPR:
-      return unshare_expr (TREE_OPERAND (body, 0));
+      return break_out_target_exprs (TREE_OPERAND (body, 0));
 
     case DECL_EXPR:
       if (TREE_CODE (DECL_EXPR_DECL (body)) == USING_DECL)
@@ -7667,11 +7667,6 @@ cxx_eval_indirect_ref (const constexpr_call *call, tree t,
     {
       tree sub = op0;
       STRIP_NOPS (sub);
-      if (TREE_CODE (sub) == POINTER_PLUS_EXPR)
-	{
-	  sub = TREE_OPERAND (sub, 0);
-	  STRIP_NOPS (sub);
-	}
       if (TREE_CODE (sub) == ADDR_EXPR)
 	{
 	  /* We couldn't fold to a constant value.  Make sure it's not
@@ -9104,7 +9099,8 @@ lambda_capture_field_type (tree expr)
 {
   tree type;
   if (type_dependent_expression_p (expr)
-      && !(TREE_TYPE (expr) && TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE))
+      && !(TREE_TYPE (expr) && TREE_CODE (TREE_TYPE (expr)) == POINTER_TYPE
+	   && !type_uses_auto (TREE_TYPE (expr))))
     {
       type = cxx_make_type (DECLTYPE_TYPE);
       DECLTYPE_TYPE_EXPR (type) = expr;

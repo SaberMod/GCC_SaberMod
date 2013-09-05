@@ -476,6 +476,10 @@ class Gogo
   void
   lower_constant(Named_object*);
 
+  // Create all necessary function descriptors.
+  void
+  create_function_descriptors();
+
   // Finalize the method lists and build stub methods for named types.
   void
   finalize_methods();
@@ -907,6 +911,14 @@ class Function
   result_variables()
   { return this->results_; }
 
+  bool
+  is_sink() const
+  { return this->is_sink_; }
+
+  void
+  set_is_sink()
+  { this->is_sink_ = true; }
+
   // Whether the result variables have names.
   bool
   results_are_named() const
@@ -1163,16 +1175,18 @@ class Function
   // distinguish the defer stack for one function from another.  This
   // is NULL unless we actually need a defer stack.
   Temporary_statement* defer_stack_;
+  // True if this function is sink-named.  No code is generated.
+  bool is_sink_ : 1;
   // True if the result variables are named.
-  bool results_are_named_;
+  bool results_are_named_ : 1;
   // True if this method should not be included in the type descriptor.
-  bool nointerface_;
+  bool nointerface_ : 1;
   // True if this function calls the predeclared recover function.
-  bool calls_recover_;
+  bool calls_recover_ : 1;
   // True if this a thunk built for a function which calls recover.
-  bool is_recover_thunk_;
+  bool is_recover_thunk_ : 1;
   // True if this function already has a recover thunk.
-  bool has_recover_thunk_;
+  bool has_recover_thunk_ : 1;
   // True if this function should be put in a unique section.  This is
   // turned on for field tracking.
   bool in_unique_section_ : 1;
@@ -1673,7 +1687,7 @@ class Named_constant
   Named_constant(Type* type, Expression* expr, int iota_value,
 		 Location location)
     : type_(type), expr_(expr), iota_value_(iota_value), location_(location),
-      lowering_(false)
+      lowering_(false), is_sink_(false)
   { }
 
   Type*
@@ -1706,6 +1720,14 @@ class Named_constant
   void
   clear_lowering()
   { this->lowering_ = false; }
+
+  bool
+  is_sink() const
+  { return this->is_sink_; }
+
+  void
+  set_is_sink()
+  { this->is_sink_ = true; }
 
   // Traverse the expression.
   int
@@ -1742,6 +1764,8 @@ class Named_constant
   Location location_;
   // Whether we are currently lowering this constant.
   bool lowering_;
+  // Whether this constant is blank named and needs only type checking.
+  bool is_sink_;
 };
 
 // A type declaration.

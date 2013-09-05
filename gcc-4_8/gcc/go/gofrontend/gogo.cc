@@ -819,7 +819,8 @@ Gogo::start_function(const std::string& name, Function_type* type,
       char buf[30];
       snprintf(buf, sizeof buf, ".$sink%d", sink_count);
       ++sink_count;
-      ret = Named_object::make_function(buf, NULL, function);
+      ret = this->package_->bindings()->add_function(buf, NULL, function);
+      ret->func_value()->set_is_sink();
     }
   else if (!type->is_method())
     {
@@ -1277,6 +1278,14 @@ Gogo::define_global_names()
 		   n.c_str());
 	  inform(pf->second, "%qs imported here", n.c_str());
 	}
+
+      // No package scope identifier may be named "init".
+      if (!p->second->is_function()
+	  && Gogo::unpack_hidden_name(p->second->name()) == "init")
+	{
+	  error_at(p->second->location(),
+	           "cannot declare init - must be func");
+	}
     }
 }
 
@@ -1608,14 +1617,6 @@ Lower_parse_tree::function(Named_object* no)
 {
   no->func_value()->set_closure_type();
 
-  // Make sure that every externally visible function has a
-  // descriptor, so that packages that import this one can refer to
-  // it.
-  if (!Gogo::is_hidden_name(no->name())
-      && !no->func_value()->is_method()
-      && !no->func_value()->is_descriptor_wrapper())
-    no->func_value()->descriptor(this->gogo_, no);
-
   go_assert(this->function_ == NULL);
   this->function_ = no;
   int t = no->func_value()->traverse(this);
@@ -1703,28 +1704,6 @@ Lower_parse_tree::expression(Expression** pexpr)
 void
 Gogo::lower_parse_tree()
 {
-  // Create a function descriptor for any function that is declared in
-  // this package.  This is so that we have a descriptor for functions
-  // written in assembly.  Gather the descriptors first so that we
-  // don't add declarations while looping over them.
-  std::vector<Named_object*> fndecls;
-  Bindings* b = this->package_->bindings();
-  for (Bindings::const_declarations_iterator p = b->begin_declarations();
-       p != b->end_declarations();
-       ++p)
-    {
-      Named_object* no = p->second;
-      if (no->is_function_declaration()
-	  && !no->func_declaration_value()->type()->is_method()
-	  && !Linemap::is_predeclared_location(no->location()))
-	fndecls.push_back(no);
-    }
-  for (std::vector<Named_object*>::const_iterator p = fndecls.begin();
-       p != fndecls.end();
-       ++p)
-    (*p)->func_declaration_value()->descriptor(this, *p);
-  fndecls.clear();
-
   Lower_parse_tree lower_parse_tree(this, NULL);
   this->traverse(&lower_parse_tree);
 }
@@ -1761,6 +1740,146 @@ Gogo::lower_constant(Named_object* no)
   go_assert(no->is_const());
   Lower_parse_tree lower(this, NULL);
   lower.constant(no, false);
+}
+
+// Traverse the tree to create function descriptors as needed.
+
+class Create_function_descriptors : public Traverse
+{
+ public:
+  Create_function_descriptors(Gogo* gogo)
+    : Traverse(traverse_functions | traverse_expressions),
+      gogo_(gogo)
+  { }
+
+  int
+  function(Named_object*);
+
+  int
+  expression(Expression**);
+
+ private:
+  Gogo* gogo_;
+};
+
+// Create a descriptor for every top-level exported function.
+
+int
+Create_function_descriptors::function(Named_object* no)
+{
+  if (no->is_function()
+      && no->func_value()->enclosing() == NULL
+      && !no->func_value()->is_method()
+      && !no->func_value()->is_descriptor_wrapper()
+      && !Gogo::is_hidden_name(no->name()))
+    no->func_value()->descriptor(this->gogo_, no);
+
+  return TRAVERSE_CONTINUE;
+}
+
+// If we see a function referenced in any way other than calling it,
+// create a descriptor for it.
+
+int
+Create_function_descriptors::expression(Expression** pexpr)
+{
+  Expression* expr = *pexpr;
+
+  Func_expression* fe = expr->func_expression();
+  if (fe != NULL)
+    {
+      // We would not get here for a call to this function, so this is
+      // a reference to a function other than calling it.  We need a
+      // descriptor.
+      if (fe->closure() != NULL)
+	return TRAVERSE_CONTINUE;
+      Named_object* no = fe->named_object();
+      if (no->is_function() && !no->func_value()->is_method())
+	no->func_value()->descriptor(this->gogo_, no);
+      else if (no->is_function_declaration()
+	       && !no->func_declaration_value()->type()->is_method()
+	       && !Linemap::is_predeclared_location(no->location()))
+	no->func_declaration_value()->descriptor(this->gogo_, no);
+      return TRAVERSE_CONTINUE;
+    }
+
+  Bound_method_expression* bme = expr->bound_method_expression();
+  if (bme != NULL)
+    {
+      // We would not get here for a call to this method, so this is a
+      // method value.  We need to create a thunk.
+      Bound_method_expression::create_thunk(this->gogo_, bme->method(),
+					    bme->function());
+      return TRAVERSE_CONTINUE;
+    }
+
+  Interface_field_reference_expression* ifre =
+    expr->interface_field_reference_expression();
+  if (ifre != NULL)
+    {
+      // We would not get here for a call to this interface method, so
+      // this is a method value.  We need to create a thunk.
+      Interface_type* type = ifre->expr()->type()->interface_type();
+      if (type != NULL)
+	Interface_field_reference_expression::create_thunk(this->gogo_, type,
+							   ifre->name());
+      return TRAVERSE_CONTINUE;
+    }
+
+  Call_expression* ce = expr->call_expression();
+  if (ce != NULL)
+    {
+      Expression* fn = ce->fn();
+      if (fn->func_expression() != NULL
+	  || fn->bound_method_expression() != NULL
+	  || fn->interface_field_reference_expression() != NULL)
+	{
+	  // Traverse the arguments but not the function.
+	  Expression_list* args = ce->args();
+	  if (args != NULL)
+	    {
+	      if (args->traverse(this) == TRAVERSE_EXIT)
+		return TRAVERSE_EXIT;
+	    }
+	  return TRAVERSE_SKIP_COMPONENTS;
+	}
+    }
+
+  return TRAVERSE_CONTINUE;
+}
+
+// Create function descriptors as needed.  We need a function
+// descriptor for all exported functions and for all functions that
+// are referenced without being called.
+
+void
+Gogo::create_function_descriptors()
+{
+  // Create a function descriptor for any exported function that is
+  // declared in this package.  This is so that we have a descriptor
+  // for functions written in assembly.  Gather the descriptors first
+  // so that we don't add declarations while looping over them.
+  std::vector<Named_object*> fndecls;
+  Bindings* b = this->package_->bindings();
+  for (Bindings::const_declarations_iterator p = b->begin_declarations();
+       p != b->end_declarations();
+       ++p)
+    {
+      Named_object* no = p->second;
+      if (no->is_function_declaration()
+	  && !no->func_declaration_value()->type()->is_method()
+	  && !Linemap::is_predeclared_location(no->location())
+	  && !Gogo::is_hidden_name(no->name()))
+	fndecls.push_back(no);
+    }
+  for (std::vector<Named_object*>::const_iterator p = fndecls.begin();
+       p != fndecls.end();
+       ++p)
+    (*p)->func_declaration_value()->descriptor(this, *p);
+  fndecls.clear();
+
+  Create_function_descriptors cfd(this);
+  this->traverse(&cfd);
 }
 
 // Look for interface types to finalize methods of inherited
@@ -2720,22 +2839,7 @@ Build_recover_thunks::function(Named_object* orig_no)
   // Any varargs call has already been lowered.
   call->set_varargs_are_lowered();
 
-  Statement* s;
-  if (orig_fntype->results() == NULL || orig_fntype->results()->empty())
-    s = Statement::make_statement(call, true);
-  else
-    {
-      Expression_list* vals = new Expression_list();
-      size_t rc = orig_fntype->results()->size();
-      if (rc == 1)
-	vals->push_back(call);
-      else
-	{
-	  for (size_t i = 0; i < rc; ++i)
-	    vals->push_back(Expression::make_call_result(call, i));
-	}
-      s = Statement::make_return_statement(vals, location);
-    }
+  Statement* s = Statement::make_return_from_call(call, location);
   s->determine_types();
   gogo->add_statement(s);
 
@@ -3029,7 +3133,8 @@ Check_return_statements_traverse::function(Named_object* no)
     return TRAVERSE_CONTINUE;
 
   if (func->block()->may_fall_through())
-    error_at(func->location(), "control reaches end of non-void function");
+    error_at(func->block()->end_location(),
+	     "missing return at end of function");
 
   return TRAVERSE_CONTINUE;
 }
@@ -3168,8 +3273,8 @@ Function::Function(Function_type* type, Function* enclosing, Block* block,
   : type_(type), enclosing_(enclosing), results_(NULL),
     closure_var_(NULL), block_(block), location_(location), labels_(),
     local_type_count_(0), descriptor_(NULL), fndecl_(NULL), defer_stack_(NULL),
-    results_are_named_(false), nointerface_(false), calls_recover_(false),
-    is_recover_thunk_(false), has_recover_thunk_(false),
+    is_sink_(false), results_are_named_(false), nointerface_(false),
+    calls_recover_(false), is_recover_thunk_(false), has_recover_thunk_(false),
     in_unique_section_(false), is_descriptor_wrapper_(false)
 {
 }
@@ -3276,7 +3381,7 @@ Function::set_closure_type()
   st->push_field(Struct_field(Typed_identifier(".$f", voidptr_type,
 					       this->location_)));
 
-  unsigned int index = 0;
+  unsigned int index = 1;
   for (Closure_fields::const_iterator p = this->closure_fields_.begin();
        p != this->closure_fields_.end();
        ++p, ++index)
@@ -3471,58 +3576,33 @@ Function::make_descriptor_wrapper(Gogo* gogo, Named_object* no,
 {
   Location loc = no->location();
 
-  Typed_identifier_list* new_params = new Typed_identifier_list();
-  const Typed_identifier_list* orig_params = orig_fntype->parameters();
-  if (orig_params != NULL && !orig_params->empty())
-    {
-      static int count;
-      char buf[50];
-      for (Typed_identifier_list::const_iterator p = orig_params->begin();
-	   p != orig_params->end();
-	   ++p)
-	{
-	  snprintf(buf, sizeof buf, "pt.%u", count);
-	  ++count;
-	  new_params->push_back(Typed_identifier(buf, p->type(),
-						 p->location()));
-	}
-    }
   Type* vt = Type::make_pointer_type(Type::make_void_type());
-  new_params->push_back(Typed_identifier("closure.0", vt, loc));
-
-  const Typed_identifier_list* orig_results = orig_fntype->results();
-  Typed_identifier_list* new_results;
-  if (orig_results == NULL || orig_results->empty())
-    new_results = NULL;
-  else
-    {
-      new_results = new Typed_identifier_list();
-      for (Typed_identifier_list::const_iterator p = orig_results->begin();
-	   p != orig_results->end();
-	   ++p)
-	new_results->push_back(Typed_identifier("", p->type(),
-						p->location()));
-    }
-
-  Function_type* new_fntype = Type::make_function_type(NULL, new_params,
-						       new_results,
-						       loc);
+  Function_type* new_fntype = orig_fntype->copy_with_closure(vt);
 
   std::string name = no->name() + "$descriptorfn";
   Named_object* dno = gogo->start_function(name, new_fntype, false, loc);
   dno->func_value()->is_descriptor_wrapper_ = true;
 
+  // Put the wrapper in a unique section so that it can be discarded
+  // by the linker if it is not needed.  Every top-level function will
+  // get a wrapper, in case there is a reference other than a call
+  // from some other package, but most will not need one.
+  dno->func_value()->set_in_unique_section();
+
   gogo->start_block(loc);
 
   Expression* fn = Expression::make_func_reference(no, NULL, loc);
 
-  // Call the wrapper function, passing all of the arguments except
-  // for the last one (the last argument is the ignored closure).
+  // Call the function begin wrapped, passing all of the arguments
+  // except for the last one (the last argument is the ignored
+  // closure).
+  const Typed_identifier_list* orig_params = orig_fntype->parameters();
   Expression_list* args;
   if (orig_params == NULL || orig_params->empty())
     args = NULL;
   else
     {
+      const Typed_identifier_list* new_params = new_fntype->parameters();
       args = new Expression_list();
       for (Typed_identifier_list::const_iterator p = new_params->begin();
 	   p + 1 != new_params->end();
@@ -3541,25 +3621,11 @@ Function::make_descriptor_wrapper(Gogo* gogo, Named_object* no,
 						loc);
   call->set_varargs_are_lowered();
 
-  Statement* s;
-  if (orig_results == NULL || orig_results->empty())
-    s = Statement::make_statement(call, true);
-  else
-    {
-      Expression_list* vals = new Expression_list();
-      size_t rc = orig_results->size();
-      if (rc == 1)
-	vals->push_back(call);
-      else
-	{
-	  for (size_t i = 0; i < rc; ++i)
-	    vals->push_back(Expression::make_call_result(call, i));
-	}
-      s = Statement::make_return_statement(vals, loc);
-    }
-
+  Statement* s = Statement::make_return_from_call(call, loc);
   gogo->add_statement(s);
-  gogo->add_block(gogo->finish_block(loc), loc);
+  Block* b = gogo->finish_block(loc);
+  gogo->add_block(b, loc);
+  gogo->lower_block(dno, b);
   gogo->finish_function(loc);
 
   return dno;
@@ -3576,13 +3642,18 @@ Function::descriptor(Gogo* gogo, Named_object* no)
   go_assert(!this->is_descriptor_wrapper_);
   if (this->descriptor_ == NULL)
     {
-      Named_object* dno;
-      if (no->package() != NULL
-	  || Linemap::is_predeclared_location(no->location()))
-	dno = NULL;
-      else
-	dno = Function::make_descriptor_wrapper(gogo, no, this->type_);
-      this->descriptor_ = Expression::make_func_descriptor(no, dno);
+      // Make and record the descriptor first, so that when we lower
+      // the descriptor wrapper we don't try to make it again.
+      Func_descriptor_expression* descriptor =
+	Expression::make_func_descriptor(no);
+      this->descriptor_ = descriptor;
+      if (no->package() == NULL
+	  && !Linemap::is_predeclared_location(no->location()))
+	{
+	  Named_object* dno = Function::make_descriptor_wrapper(gogo, no,
+								this->type_);
+	  descriptor->set_descriptor_wrapper(dno);
+	}
     }
   return this->descriptor_;
 }
@@ -4127,13 +4198,18 @@ Function_declaration::descriptor(Gogo* gogo, Named_object* no)
   go_assert(!this->fntype_->is_method());
   if (this->descriptor_ == NULL)
     {
-      Named_object* dno;
-      if (no->package() != NULL
-	  || Linemap::is_predeclared_location(no->location()))
-	dno = NULL;
-      else
-	dno = Function::make_descriptor_wrapper(gogo, no, this->fntype_);
-      this->descriptor_ = Expression::make_func_descriptor(no, dno);
+      // Make and record the descriptor first, so that when we lower
+      // the descriptor wrapper we don't try to make it again.
+      Func_descriptor_expression* descriptor =
+	Expression::make_func_descriptor(no);
+      this->descriptor_ = descriptor;
+      if (no->package() == NULL
+	  && !Linemap::is_predeclared_location(no->location()))
+	{
+	  Named_object* dno = Function::make_descriptor_wrapper(gogo, no,
+								this->fntype_);
+	  descriptor->set_descriptor_wrapper(dno);
+	}
     }
   return this->descriptor_;
 }
