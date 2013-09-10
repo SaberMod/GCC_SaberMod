@@ -1,3 +1,27 @@
+2013-09-09  Tobias Burnus  <burnus@net-b.de>
+
+	* invoke.texi (Error and Warning Options): Add hyphen.
+
+2013-09-02  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/PR56519
+	* gfortran.h:  Declare gfc_do_concurrent_flag as extern.
+	* resolve.c:  Rename do_concurrent_flag to gfc_do_concurrent_flag
+	and make non-static.
+	(resolve_function):  Use gfc_do_concurrent_flag instead of
+	do_concurrent_flag.
+	(pure_subroutine):  Likewise.
+	(resolve_code):  Likewise.
+	(resolve_types):  Likewise.
+	* intrinsic.c (gfc_intrinsic_sub_interface):  Raise error for
+	non-pure intrinsic subroutines within DO CONCURRENT.
+
+2013-08-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/52243
+	* trans-expr.c (is_runtime_conformable):  New function.
+	* gfc_trans_assignment_1:  Use it.
+
 2013-08-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/58146

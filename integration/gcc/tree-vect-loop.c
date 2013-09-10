@@ -957,7 +957,7 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
     }
 
   free (LOOP_VINFO_BBS (loop_vinfo));
-  free_data_refs (LOOP_VINFO_DATAREFS (loop_vinfo));
+  vect_destroy_datarefs (loop_vinfo, NULL);
   free_dependence_relations (LOOP_VINFO_DDRS (loop_vinfo));
   LOOP_VINFO_LOOP_NEST (loop_vinfo).release ();
   LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).release ();
@@ -1384,7 +1384,7 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
                     return false;
 
                   op_def_stmt = SSA_NAME_DEF_STMT (phi_op);
-		  if (!op_def_stmt
+		  if (gimple_nop_p (op_def_stmt)
 		      || !flow_bb_inside_loop_p (loop, gimple_bb (op_def_stmt))
 		      || !vinfo_for_stmt (op_def_stmt))
                     return false;
@@ -3133,7 +3133,6 @@ get_initial_def_for_induction (gimple iv_phi)
   stmt_vec_info stmt_vinfo = vinfo_for_stmt (iv_phi);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_vinfo);
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  tree scalar_type;
   tree vectype;
   int nunits;
   edge pe = loop_preheader_edge (loop);
@@ -3185,8 +3184,7 @@ get_initial_def_for_induction (gimple iv_phi)
   gcc_assert (ok);
   pe = loop_preheader_edge (iv_loop);
 
-  scalar_type = TREE_TYPE (init_expr);
-  vectype = get_vectype_for_scalar_type (scalar_type);
+  vectype = get_vectype_for_scalar_type (TREE_TYPE (init_expr));
   resvectype = get_vectype_for_scalar_type (TREE_TYPE (PHI_RESULT (iv_phi)));
   gcc_assert (vectype);
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
@@ -3229,8 +3227,11 @@ get_initial_def_for_induction (gimple iv_phi)
 
       /* iv_loop is the loop to be vectorized. Create:
 	 vec_init = [X, X+S, X+2*S, X+3*S] (S = step_expr, X = init_expr)  */
-      new_var = vect_get_new_vect_var (scalar_type, vect_scalar_var, "var_");
-      new_name = force_gimple_operand (init_expr, &stmts, false, new_var);
+      new_var = vect_get_new_vect_var (TREE_TYPE (vectype),
+				       vect_scalar_var, "var_");
+      new_name = force_gimple_operand (fold_convert (TREE_TYPE (vectype),
+						     init_expr),
+				       &stmts, false, new_var);
       if (stmts)
 	{
 	  new_bb = gsi_insert_seq_on_edge_immediate (pe, stmts);
@@ -3243,9 +3244,8 @@ get_initial_def_for_induction (gimple iv_phi)
       for (i = 1; i < nunits; i++)
 	{
 	  /* Create: new_name_i = new_name + step_expr  */
-	  enum tree_code code = POINTER_TYPE_P (scalar_type)
-				? POINTER_PLUS_EXPR : PLUS_EXPR;
-	  new_name = fold_build2 (code, scalar_type, new_name, step_expr);
+	  new_name = fold_build2 (PLUS_EXPR, TREE_TYPE (new_name),
+				  new_name, step_expr);
 	  if (!is_gimple_min_invariant (new_name))
 	    {
 	      init_stmt = gimple_build_assign (new_var, new_name);
@@ -4373,9 +4373,8 @@ vect_finalize_reduction:
         if (!flow_bb_inside_loop_p (loop, gimple_bb (USE_STMT (use_p))))
           phis.safe_push (USE_STMT (use_p));
 
-      /* We expect to have found an exit_phi because of loop-closed-ssa
-         form.  */
-      gcc_assert (!phis.is_empty ());
+      /* While we expect to have found an exit_phi because of loop-closed-ssa
+         form we can end up without one if the scalar cycle is dead.  */
 
       FOR_EACH_VEC_ELT (phis, i, exit_phi)
         {
@@ -5378,7 +5377,7 @@ vectorizable_induction (gimple phi, gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
 bool
 vectorizable_live_operation (gimple stmt,
 			     gimple_stmt_iterator *gsi ATTRIBUTE_UNUSED,
-			     gimple *vec_stmt ATTRIBUTE_UNUSED)
+			     gimple *vec_stmt)
 {
   stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
   loop_vec_info loop_vinfo = STMT_VINFO_LOOP_VINFO (stmt_info);
@@ -5398,7 +5397,41 @@ vectorizable_live_operation (gimple stmt,
     return false;
 
   if (!is_gimple_assign (stmt))
-    return false;
+    {
+      if (gimple_call_internal_p (stmt)
+	  && gimple_call_internal_fn (stmt) == IFN_GOMP_SIMD_LANE
+	  && gimple_call_lhs (stmt)
+	  && loop->simduid
+	  && TREE_CODE (gimple_call_arg (stmt, 0)) == SSA_NAME
+	  && loop->simduid
+	     == SSA_NAME_VAR (gimple_call_arg (stmt, 0)))
+	{
+	  edge e = single_exit (loop);
+	  basic_block merge_bb = e->dest;
+	  imm_use_iterator imm_iter;
+	  use_operand_p use_p;
+	  tree lhs = gimple_call_lhs (stmt);
+
+	  FOR_EACH_IMM_USE_FAST (use_p, imm_iter, lhs)
+	    {
+	      gimple use_stmt = USE_STMT (use_p);
+	      if (gimple_code (use_stmt) == GIMPLE_PHI
+		  || gimple_bb (use_stmt) == merge_bb)
+		{
+		  if (vec_stmt)
+		    {
+		      tree vfm1
+			= build_int_cst (unsigned_type_node,
+					 loop_vinfo->vectorization_factor - 1);
+		      SET_PHI_ARG_DEF (use_stmt, e->dest_idx, vfm1);
+		    }
+		  return true;
+		}
+	    }
+	}
+
+      return false;
+    }
 
   if (TREE_CODE (gimple_assign_lhs (stmt)) != SSA_NAME)
     return false;

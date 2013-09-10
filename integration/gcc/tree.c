@@ -236,6 +236,8 @@ unsigned const char omp_clause_num_ops[] =
   4, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
+  2, /* OMP_CLAUSE_LINEAR  */
+  1, /* OMP_CLAUSE_UNIFORM  */
   1, /* OMP_CLAUSE_IF  */
   1, /* OMP_CLAUSE_NUM_THREADS  */
   1, /* OMP_CLAUSE_SCHEDULE  */
@@ -245,7 +247,9 @@ unsigned const char omp_clause_num_ops[] =
   3, /* OMP_CLAUSE_COLLAPSE  */
   0, /* OMP_CLAUSE_UNTIED   */
   1, /* OMP_CLAUSE_FINAL  */
-  0  /* OMP_CLAUSE_MERGEABLE  */
+  0, /* OMP_CLAUSE_MERGEABLE  */
+  1, /* OMP_CLAUSE_SAFELEN  */
+  1, /* OMP_CLAUSE__SIMDUID_  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -258,6 +262,8 @@ const char * const omp_clause_code_name[] =
   "reduction",
   "copyin",
   "copyprivate",
+  "linear",
+  "uniform",
   "if",
   "num_threads",
   "schedule",
@@ -267,7 +273,9 @@ const char * const omp_clause_code_name[] =
   "collapse",
   "untied",
   "final",
-  "mergeable"
+  "mergeable",
+  "safelen",
+  "_simduid_"
 };
 
 
@@ -9669,6 +9677,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
     = build_pointer_type (build_type_variant (void_type_node, 1, 0));
   fileptr_type_node = ptr_type_node;
 
+  pointer_sized_int_node = build_nonstandard_integer_type (POINTER_SIZE, 1);
+
   float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = FLOAT_TYPE_SIZE;
   layout_type (float_type_node);
@@ -9786,7 +9796,10 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   }
 }
 
-/* Modify DECL for given flags.  */
+/* Modify DECL for given flags.
+   TM_PURE attribute is set only on types, so the function will modify
+   DECL's type when ECF_TM_PURE is used.  */
+
 void
 set_call_expr_flags (tree decl, int flags)
 {
@@ -9810,8 +9823,7 @@ set_call_expr_flags (tree decl, int flags)
     DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("leaf"),
 					NULL, DECL_ATTRIBUTES (decl));
   if ((flags & ECF_TM_PURE) && flag_tm)
-    DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("transaction_pure"),
-					NULL, DECL_ATTRIBUTES (decl));
+    apply_tm_attr (decl, get_identifier ("transaction_pure"));
   /* Looping const or pure is implied by noreturn.
      There is currently no way to declare looping const or looping pure alone.  */
   gcc_assert (!(flags & ECF_LOOPING_CONST_OR_PURE)
@@ -11064,6 +11076,9 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_SCHEDULE:
+	case OMP_CLAUSE_UNIFORM:
+	case OMP_CLAUSE_SAFELEN:
+	case OMP_CLAUSE__SIMDUID_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */
 
@@ -11086,6 +11101,11 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	      WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, i));
 	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 	  }
+
+	case OMP_CLAUSE_LINEAR:
+	  WALK_SUBTREE (OMP_CLAUSE_DECL (*tp));
+	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 1));
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_REDUCTION:
 	  {
@@ -11833,11 +11853,6 @@ types_same_for_odr (tree type1, tree type2)
   if (type1 == type2)
     return true;
 
-  /* If types are not structuraly same, do not bother to contnue.
-     Match in the remainder of code would mean ODR violation.  */
-  if (!types_compatible_p (type1, type2))
-    return false;
-
 #ifndef ENABLE_CHECKING
   if (!in_lto_p)
     return false;
@@ -11848,7 +11863,39 @@ types_same_for_odr (tree type1, tree type2)
   if (type_in_anonymous_namespace_p (type1)
       || type_in_anonymous_namespace_p (type2))
     return false;
+  /* When assembler name of virtual table is available, it is
+     easy to compare types for equivalence.  */
+  if (TYPE_BINFO (type1) && TYPE_BINFO (type2)
+      && BINFO_VTABLE (TYPE_BINFO (type1))
+      && BINFO_VTABLE (TYPE_BINFO (type2)))
+    {
+      tree v1 = BINFO_VTABLE (TYPE_BINFO (type1));
+      tree v2 = BINFO_VTABLE (TYPE_BINFO (type2));
 
+      if (TREE_CODE (v1) == POINTER_PLUS_EXPR)
+	{
+	  if (TREE_CODE (v2) != POINTER_PLUS_EXPR
+	      || !operand_equal_p (TREE_OPERAND (v1, 1),
+			     TREE_OPERAND (v2, 1), 0))
+	    return false;
+	  v1 = TREE_OPERAND (TREE_OPERAND (v1, 0), 0);
+	  v2 = TREE_OPERAND (TREE_OPERAND (v2, 0), 0);
+	}
+      v1 = DECL_ASSEMBLER_NAME (v1);
+      v2 = DECL_ASSEMBLER_NAME (v2);
+      return (v1 == v2);
+    }
+
+  /* FIXME: the code comparing type names consider all instantiations of the
+     same template to have same name.  This is because we have no access
+     to template parameters.  For types with no virtual method tables
+     we thus can return false positives.  At the moment we do not need
+     to compare types in other scenarios than devirtualization.  */
+
+  /* If types are not structuraly same, do not bother to contnue.
+     Match in the remainder of code would mean ODR violation.  */
+  if (!types_compatible_p (type1, type2))
+    return false;
   if (!TYPE_NAME (type1))
     return false;
   if (!decls_same_for_odr (TYPE_NAME (type1), TYPE_NAME (type2)))

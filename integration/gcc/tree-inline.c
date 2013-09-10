@@ -1298,7 +1298,8 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	case GIMPLE_OMP_FOR:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  s2 = remap_gimple_seq (gimple_omp_for_pre_body (stmt), id);
-	  copy = gimple_build_omp_for (s1, gimple_omp_for_clauses (stmt),
+	  copy = gimple_build_omp_for (s1, gimple_omp_for_kind (stmt),
+				       gimple_omp_for_clauses (stmt),
 				       gimple_omp_for_collapse (stmt), s2);
 	  {
 	    size_t i;
@@ -2399,6 +2400,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 		  get_loop (src_cfun, 0));
       /* Defer to cfgcleanup to update loop-father fields of basic-blocks.  */
       loops_state_set (LOOPS_NEED_FIXUP);
+      cfun->has_force_vect_loops |= src_cfun->has_force_vect_loops;
+      cfun->has_simduid_loops |= src_cfun->has_simduid_loops;
     }
 
   /* If the loop tree in the source function needed fixup, mark the
@@ -3741,7 +3744,14 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return 0;
 
     case GIMPLE_ASM:
-      return asm_str_count (gimple_asm_string (stmt));
+      {
+	int count = asm_str_count (gimple_asm_string (stmt));
+	/* 1000 means infinity. This avoids overflows later
+	   with very long asm statements.  */
+	if (count > 1000)
+	  count = 1000;
+	return count;
+      }
 
     case GIMPLE_RESX:
       /* This is either going to be an external function call with one

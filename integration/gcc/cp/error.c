@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "pointer-set.h"
 #include "c-family/c-objc.h"
+#include "ubsan.h"
 
 #include <new>                    // For placement-new.
 
@@ -1044,7 +1045,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     case NAMESPACE_DECL:
       if (flags & TFF_DECL_SPECIFIERS)
-	pp_cxx_declaration (pp, t);
+	pp->declaration (t);
       else
 	{
 	  if (! (flags & TFF_UNQUALIFIED_NAME))
@@ -1196,7 +1197,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case STATIC_ASSERT:
-      pp_cxx_declaration (pp, t);
+      pp->declaration (t);
       break;
 
     case BASELINK:
@@ -1209,9 +1210,9 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
 
     case TEMPLATE_TYPE_PARM:
       if (flags & TFF_DECL_SPECIFIERS)
-	pp_cxx_declaration (pp, t);
+	pp->declaration (t);
       else
-	pp_type_id (pp, t);
+	pp->type_id (t);
       break;
 
     case UNBOUND_CLASS_TEMPLATE:
@@ -1363,6 +1364,47 @@ find_typenames (tree t)
   return ft.typenames;
 }
 
+/* Output the "[with ...]" clause for a template instantiation T iff
+   TEMPLATE_PARMS, TEMPLATE_ARGS and FLAGS are suitable.  T may be NULL if
+   formatting a deduction/substitution diagnostic rather than an
+   instantiation.  */
+
+static void
+dump_substitution (cxx_pretty_printer *pp,
+                   tree t, tree template_parms, tree template_args,
+                   int flags)
+{
+  if (template_parms != NULL_TREE && template_args != NULL_TREE
+      && !(flags & TFF_NO_TEMPLATE_BINDINGS))
+    {
+      vec<tree, va_gc> *typenames = t ? find_typenames (t) : NULL;
+      pp_cxx_whitespace (pp);
+      pp_cxx_left_bracket (pp);
+      pp->translate_string ("with");
+      pp_cxx_whitespace (pp);
+      dump_template_bindings (pp, template_parms, template_args, typenames);
+      pp_cxx_right_bracket (pp);
+    }
+}
+
+/* Dump the lambda function FN including its 'mutable' qualifier and any
+   template bindings.  */
+
+static void
+dump_lambda_function (cxx_pretty_printer *pp,
+		      tree fn, tree template_parms, tree template_args,
+		      int flags)
+{
+  /* A lambda's signature is essentially its "type".  */
+  dump_type (pp, DECL_CONTEXT (fn), flags);
+  if (!(TYPE_QUALS (class_of_this_parm (TREE_TYPE (fn))) & TYPE_QUAL_CONST))
+    {
+      pp->padding = pp_before;
+      pp_c_ws_string (pp, "mutable");
+    }
+  dump_substitution (pp, fn, template_parms, template_args, flags);
+}
+
 /* Pretty print a function decl. There are several ways we want to print a
    function declaration. The TFF_ bits in FLAGS tells us how to behave.
    As error can only apply the '#' flag once to give 0 and 1 for V, there
@@ -1379,15 +1421,6 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
   int show_return = flags & TFF_RETURN_TYPE || flags & TFF_DECL_SPECIFIERS;
   int do_outer_scope = ! (flags & TFF_UNQUALIFIED_NAME);
   tree exceptions;
-  vec<tree, va_gc> *typenames = NULL;
-
-  if (DECL_NAME (t) && LAMBDA_FUNCTION_P (t))
-    {
-      /* A lambda's signature is essentially its "type", so defer.  */
-      gcc_assert (LAMBDA_TYPE_P (DECL_CONTEXT (t)));
-      dump_type (pp, DECL_CONTEXT (t), flags);
-      return;
-    }
 
   flags &= ~(TFF_UNQUALIFIED_NAME | TFF_TEMPLATE_NAME);
   if (TREE_CODE (t) == TEMPLATE_DECL)
@@ -1409,9 +1442,11 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
 	{
 	  template_parms = DECL_TEMPLATE_PARMS (tmpl);
 	  t = tmpl;
-	  typenames = find_typenames (t);
 	}
     }
+
+  if (DECL_NAME (t) && LAMBDA_FUNCTION_P (t))
+    return dump_lambda_function (pp, t, template_parms, template_args, flags);
 
   fntype = TREE_TYPE (t);
   parmtypes = FUNCTION_FIRST_USER_PARMTYPE (t);
@@ -1476,17 +1511,7 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
       if (show_return)
 	dump_type_suffix (pp, TREE_TYPE (fntype), flags);
 
-      /* If T is a template instantiation, dump the parameter binding.  */
-      if (template_parms != NULL_TREE && template_args != NULL_TREE
-	  && !(flags & TFF_NO_TEMPLATE_BINDINGS))
-	{
-	  pp_cxx_whitespace (pp);
-	  pp_cxx_left_bracket (pp);
-	  pp_cxx_ws_string (pp, M_("with"));
-	  pp_cxx_whitespace (pp);
-	  dump_template_bindings (pp, template_parms, template_args, typenames);
-	  pp_cxx_right_bracket (pp);
-	}
+      dump_substitution (pp, t, template_parms, template_args, flags);
     }
   else if (template_args)
     {
@@ -1883,7 +1908,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
-      pp_constant (pp, t);
+      pp->constant (t);
       break;
 
     case USERDEF_LITERAL:
@@ -1982,6 +2007,12 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 		pp_cxx_arrow (pp);
 	      }
 	    skipfirst = true;
+	  }
+	if (flag_sanitize & SANITIZE_UNDEFINED
+	    && is_ubsan_builtin_p (fn))
+	  {
+	    pp_string (cxx_pp, M_("<ubsan routine call>"));
+	    break;
 	  }
 	dump_expr (pp, fn, flags | TFF_EXPR_IN_PARENS);
 	dump_call_expr_args (pp, t, flags, skipfirst);
@@ -2441,12 +2472,15 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case PSEUDO_DTOR_EXPR:
-      dump_expr (pp, TREE_OPERAND (t, 2), flags);
+      dump_expr (pp, TREE_OPERAND (t, 0), flags);
       pp_cxx_dot (pp);
-      dump_type (pp, TREE_OPERAND (t, 0), flags);
-      pp_cxx_colon_colon (pp);
+      if (TREE_OPERAND (t, 1))
+	{
+	  dump_type (pp, TREE_OPERAND (t, 1), flags);
+	  pp_cxx_colon_colon (pp);
+	}
       pp_cxx_complement (pp);
-      dump_type (pp, TREE_OPERAND (t, 1), flags);
+      dump_type (pp, TREE_OPERAND (t, 2), flags);
       break;
 
     case TEMPLATE_ID_EXPR:
@@ -2507,7 +2541,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case TYPENAME_TYPE:
       /* We get here when we want to print a dependent type as an
          id-expression, without any disambiguator decoration.  */
-      pp_id_expression (pp, t);
+      pp->id_expression (t);
       break;
 
     case TEMPLATE_TYPE_PARM:
@@ -2557,7 +2591,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case BIT_FIELD_REF:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
-      pp_expression (pp, t);
+      pp->expression (t);
       break;
 
     case TRUTH_AND_EXPR:
@@ -2565,7 +2599,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case TRUTH_XOR_EXPR:
       if (flags & TFF_EXPR_IN_PARENS)
 	pp_cxx_left_paren (pp);
-      pp_expression (pp, t);
+      pp->expression (t);
       if (flags & TFF_EXPR_IN_PARENS)
 	pp_cxx_right_paren (pp);
       break;
@@ -2755,9 +2789,7 @@ lang_decl_name (tree decl, int v, bool translate)
 location_t
 location_of (tree t)
 {
-  if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    t = DECL_CONTEXT (t);
-  else if (TYPE_P (t))
+  if (TYPE_P (t))
     {
       t = TYPE_MAIN_DECL (t);
       if (t == NULL_TREE)
@@ -2950,12 +2982,7 @@ subst_to_string (tree p)
 
   reinit_cxx_pp ();
   dump_template_decl (cxx_pp, TREE_PURPOSE (p), flags);
-  pp_cxx_whitespace (cxx_pp);
-  pp_cxx_left_bracket (cxx_pp);
-  pp_cxx_ws_string (cxx_pp, M_("with"));
-  pp_cxx_whitespace (cxx_pp);
-  dump_template_bindings (cxx_pp, tparms, targs, NULL);
-  pp_cxx_right_bracket (cxx_pp);
+  dump_substitution (cxx_pp, NULL, tparms, targs, /*flags=*/0);
   return pp_ggc_formatted_text (cxx_pp);
 }
 

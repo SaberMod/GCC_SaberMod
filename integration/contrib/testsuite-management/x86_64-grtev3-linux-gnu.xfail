@@ -53,6 +53,9 @@ FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finli
 FAIL: gfortran.dg/round_4.f90 -O3 -g  execution test
 FAIL: gfortran.dg/round_4.f90 -Os  execution test
 FAIL: gcc.dg/tree-ssa/attr-alias.c scan-tree-dump-times optimized "  test4 " 1
+FAIL: g++.dg/template/cond2.C -std=gnu++98  (test for warnings, line 9)
+FAIL: g++.dg/template/cond2.C -std=gnu++11  (test for warnings, line 9)
+FAIL: gcc.dg/attr-ifunc-4.c execution test
 
 # These failures only occur when testing is distributed.  These tests
 # have dependencies that are not explicitly handled by the driver script.

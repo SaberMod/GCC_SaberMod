@@ -113,10 +113,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "sreal.h"
 
 /* Statistics we collect about inlining algorithm.  */
 static int overall_size;
 static gcov_type max_count;
+static sreal max_count_real, max_relbenefit_real, half_int_min_real;
 
 /* Return false when inlining edge E would lead to violating
    limits on function unit growth or stack usage growth.  
@@ -748,6 +750,15 @@ check_caller_edge (struct cgraph_node *node, void *edge)
           && node->callers != edge);
 }
 
+/* If NODE has a caller, return true.  */
+
+static bool
+has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+  if (node->callers)
+    return true;
+  return false;
+}
 
 /* Decide if inlining NODE would reduce unit size by eliminating
    the offline copy of function.  
@@ -761,7 +772,7 @@ want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
    bool has_hot_call = false;
 
    /* Does it have callers?  */
-   if (!node->callers)
+   if (!cgraph_for_node_and_aliases (node, has_caller_p, NULL, true))
      return false;
    /* Already inlined?  */
    if (function->global.inlined_to)
@@ -891,12 +902,26 @@ edge_badness (struct cgraph_edge *edge, bool dump)
 
   else if (max_count)
     {
+      sreal tmp, relbenefit_real, growth_real;
       int relbenefit = relative_time_benefit (callee_info, edge, edge_time);
-      badness =
-	((int)
-	 ((double) edge->count * INT_MIN / 2 / max_count / RELATIVE_TIME_BENEFIT_RANGE) *
-	 relbenefit) / growth;
-      
+
+      sreal_init(&relbenefit_real, relbenefit, 0);
+      sreal_init(&growth_real, growth, 0);
+
+      /* relative_edge_count.  */
+      sreal_init (&tmp, edge->count, 0);
+      sreal_div (&tmp, &tmp, &max_count_real);
+
+      /* relative_time_benefit.  */
+      sreal_mul (&tmp, &tmp, &relbenefit_real);
+      sreal_div (&tmp, &tmp, &max_relbenefit_real);
+
+      /* growth_f_caller.  */
+      sreal_mul (&tmp, &tmp, &half_int_min_real);
+      sreal_div (&tmp, &tmp, &growth_real);
+
+      badness = -1 * sreal_to_int (&tmp);
+ 
       /* Be sure that insanity of the profile won't lead to increasing counts
 	 in the scalling and thus to overflow in the computation above.  */
       gcc_assert (max_count >= edge->count);
@@ -1542,6 +1567,9 @@ inline_small_functions (void)
 	  if (max_count < edge->count)
 	    max_count = edge->count;
       }
+  sreal_init (&max_count_real, max_count, 0);
+  sreal_init (&max_relbenefit_real, RELATIVE_TIME_BENEFIT_RANGE, 0);
+  sreal_init (&half_int_min_real, INT_MAX / 2, 0);
   ipa_free_postorder_info ();
   initialize_growth_caches ();
 
@@ -1873,6 +1901,60 @@ flatten_function (struct cgraph_node *node, bool early)
     inline_update_overall_summary (node);
 }
 
+/* Count number of callers of NODE and store it into DATA (that
+   points to int.  Worker for cgraph_for_node_and_aliases.  */
+
+static bool
+sum_callers (struct cgraph_node *node, void *data)
+{
+  struct cgraph_edge *e;
+  int *num_calls = (int *)data;
+
+  for (e = node->callers; e; e = e->next_caller)
+    (*num_calls)++;
+  return false;
+}
+
+/* Inline NODE to all callers.  Worker for cgraph_for_node_and_aliases.
+   DATA points to number of calls originally found so we avoid infinite
+   recursion.  */
+
+static bool
+inline_to_all_callers (struct cgraph_node *node, void *data)
+{
+  int *num_calls = (int *)data;
+  while (node->callers && !node->global.inlined_to)
+    {
+      struct cgraph_node *caller = node->callers->caller;
+
+      if (dump_file)
+	{
+	  fprintf (dump_file,
+		   "\nInlining %s size %i.\n",
+		   cgraph_node_name (node),
+		   inline_summary (node)->size);
+	  fprintf (dump_file,
+		   " Called once from %s %i insns.\n",
+		   cgraph_node_name (node->callers->caller),
+		   inline_summary (node->callers->caller)->size);
+	}
+
+      inline_call (node->callers, true, NULL, NULL, true);
+      if (dump_file)
+	fprintf (dump_file,
+		 " Inlined into %s which now has %i size\n",
+		 cgraph_node_name (caller),
+		 inline_summary (caller)->size);
+      if (!(*num_calls)--)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "New calls found; giving up.\n");
+	  break;
+	}
+    }
+  return false;
+}
+
 /* Decide on the inlining.  We do so in the topological order to avoid
    expenses on updating data structures.  */
 
@@ -1885,6 +1967,10 @@ ipa_inline (void)
     XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   int i;
   int cold;
+  bool remove_functions = false;
+
+  if (!optimize)
+    return 0;
 
   if (in_lto_p && optimize)
     ipa_update_after_lto_read ();
@@ -1965,6 +2051,7 @@ ipa_inline (void)
 		{
 		  cgraph_resolve_speculation (edge, NULL);
 		  update = true;
+		  remove_functions = true;
 		}
 	    }
 	  if (update)
@@ -1979,38 +2066,11 @@ ipa_inline (void)
 	      && want_inline_function_to_all_callers_p (node, cold))
 	    {
 	      int num_calls = 0;
-	      struct cgraph_edge *e;
-	      for (e = node->callers; e; e = e->next_caller)
-		num_calls++;
-	      while (node->callers && !node->global.inlined_to)
-		{
-		  struct cgraph_node *caller = node->callers->caller;
-
-		  if (dump_file)
-		    {
-		      fprintf (dump_file,
-			       "\nInlining %s size %i.\n",
-			       cgraph_node_name (node),
-			       inline_summary (node)->size);
-		      fprintf (dump_file,
-			       " Called once from %s %i insns.\n",
-			       cgraph_node_name (node->callers->caller),
-			       inline_summary (node->callers->caller)->size);
-		    }
-
-		  inline_call (node->callers, true, NULL, NULL, true);
-		  if (dump_file)
-		    fprintf (dump_file,
-			     " Inlined into %s which now has %i size\n",
-			     cgraph_node_name (caller),
-			     inline_summary (caller)->size);
-		  if (!num_calls--)
-		    {
-		      if (dump_file)
-			fprintf (dump_file, "New calls found; giving up.\n");
-		      break;
-		    }
-		}
+	      cgraph_for_node_and_aliases (node, sum_callers,
+					   &num_calls, true);
+	      cgraph_for_node_and_aliases (node, inline_to_all_callers,
+					   &num_calls, true);
+	      remove_functions = true;
 	    }
 	}
     }
@@ -2029,7 +2089,7 @@ ipa_inline (void)
   /* In WPA we use inline summaries for partitioning process.  */
   if (!flag_wpa)
     inline_free_summary ();
-  return 0;
+  return remove_functions ? TODO_remove_functions : 0;
 }
 
 /* Inline always-inline function calls in NODE.  */
@@ -2273,13 +2333,13 @@ make_pass_early_inline (gcc::context *ctxt)
 /* When to run IPA inlining.  Inlining of always-inline functions
    happens during early inlining.
 
-   Enable inlining unconditoinally at -flto.  We need size estimates to
-   drive partitioning.  */
+   Enable inlining unconditoinally, because callgraph redirection
+   happens here.   */
 
 static bool
 gate_ipa_inline (void)
 {
-  return optimize || flag_lto || flag_wpa;
+  return true;
 }
 
 namespace {
@@ -2296,7 +2356,7 @@ const pass_data pass_data_ipa_inline =
   0, /* properties_provided */
   0, /* properties_destroyed */
   TODO_remove_functions, /* todo_flags_start */
-  ( TODO_dump_symtab | TODO_remove_functions ), /* todo_flags_finish */
+  ( TODO_dump_symtab ), /* todo_flags_finish */
 };
 
 class pass_ipa_inline : public ipa_opt_pass_d

@@ -4218,7 +4218,7 @@ ix86_conditional_register_usage (void)
 
   /* If AVX512F is disabled, squash the registers.  */
   if (! TARGET_AVX512F)
-    for (i = FIRST_EXT_REX_SSE_REG; i < LAST_EXT_REX_SSE_REG; i++)
+    for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
       fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 }
 
@@ -13046,6 +13046,14 @@ ix86_tls_get_addr (void)
 	   ? "___tls_get_addr" : "__tls_get_addr");
 
       ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode, sym);
+    }
+
+  if (ix86_cmodel == CM_LARGE_PIC && !TARGET_PECOFF)
+    {
+      rtx unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, ix86_tls_symbol),
+				   UNSPEC_PLTOFF);
+      return gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+			   gen_rtx_CONST (Pmode, unspec));
     }
 
   return ix86_tls_symbol;
@@ -34458,7 +34466,7 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
       /* OImode move is available only when AVX is enabled.  */
       return ((TARGET_AVX && mode == OImode)
-	      || VALID_AVX256_REG_MODE (mode)
+	      || (TARGET_AVX && VALID_AVX256_REG_MODE (mode))
 	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)

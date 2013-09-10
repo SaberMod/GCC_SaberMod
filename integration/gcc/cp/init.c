@@ -500,8 +500,9 @@ perform_target_ctor (tree init)
   tree decl = current_class_ref;
   tree type = current_class_type;
 
-  finish_expr_stmt (build_aggr_init (decl, init, LOOKUP_NORMAL,
-                                     tf_warning_or_error));
+  finish_expr_stmt (build_aggr_init (decl, init,
+				     LOOKUP_NORMAL|LOOKUP_DELEGATING_CONS,
+				     tf_warning_or_error));
   if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
     {
       tree expr = build_delete (type, decl, sfk_complete_destructor,
@@ -1464,7 +1465,8 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
   TREE_READONLY (exp) = 0;
   TREE_THIS_VOLATILE (exp) = 0;
 
-  if (init && TREE_CODE (init) != TREE_LIST
+  if (init && init != void_type_node
+      && TREE_CODE (init) != TREE_LIST
       && !(TREE_CODE (init) == TARGET_EXPR
 	   && TARGET_EXPR_DIRECT_INIT_P (init))
       && !(BRACE_ENCLOSED_INITIALIZER_P (init)
@@ -3076,7 +3078,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 {
   tree virtual_size;
   tree ptype = build_pointer_type (type = complete_type (type));
-  tree size_exp = size_in_bytes (type);
+  tree size_exp;
 
   /* Temporary variables used by the loop.  */
   tree tbase, tbase_init;
@@ -3103,6 +3105,23 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   if (base == error_mark_node || maxindex == error_mark_node)
     return error_mark_node;
+
+  if (!COMPLETE_TYPE_P (type))
+    {
+      if ((complain & tf_warning)
+	  && warning (OPT_Wdelete_incomplete,
+		      "possible problem detected in invocation of "
+		      "delete [] operator:"))
+       {
+         cxx_incomplete_type_diagnostic (base, type, DK_WARNING);
+         inform (input_location, "neither the destructor nor the "
+                 "class-specific operator delete [] will be called, "
+                 "even if they are declared when the class is defined");
+       }
+      return build_builtin_delete_call (base);
+    } 
+
+  size_exp = size_in_bytes (type);
 
   if (! MAYBE_CLASS_TYPE_P (type) || TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     goto no_destructor;
@@ -3818,11 +3837,13 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  if (!COMPLETE_TYPE_P (type))
 	    {
 	      if ((complain & tf_warning)
-		  && warning (0, "possible problem detected in invocation of "
+		  && warning (OPT_Wdelete_incomplete,
+			      "possible problem detected in invocation of "
 			      "delete operator:"))
 		{
 		  cxx_incomplete_type_diagnostic (addr, type, DK_WARNING);
-		  inform (input_location, "neither the destructor nor the class-specific "
+		  inform (input_location,
+			  "neither the destructor nor the class-specific "
 			  "operator delete will be called, even if they are "
 			  "declared when the class is defined");
 		}
@@ -4107,6 +4128,7 @@ build_vec_delete (tree base, tree maxindex,
       tree cookie_addr;
       tree size_ptr_type = build_pointer_type (sizetype);
 
+      base = mark_rvalue_use (base);
       if (TREE_SIDE_EFFECTS (base))
 	{
 	  base_init = get_target_expr (base);

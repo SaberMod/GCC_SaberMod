@@ -283,7 +283,8 @@ symtab_unregister_node (symtab_node node)
       else
 	*slot = replacement_node;
     }
-  unlink_from_assembler_name_hash (node, false);
+  if (!is_a <varpool_node> (node) || !DECL_HARD_REGISTER (node->symbol.decl))
+    unlink_from_assembler_name_hash (node, false);
 }
 
 /* Return symbol table node associated with DECL, if any,
@@ -390,6 +391,9 @@ change_decl_assembler_name (tree decl, tree name)
       if (name == DECL_ASSEMBLER_NAME (decl))
 	return;
 
+      tree alias = (IDENTIFIER_TRANSPARENT_ALIAS (DECL_ASSEMBLER_NAME (decl))
+		    ? TREE_CHAIN (DECL_ASSEMBLER_NAME (decl))
+		    : NULL);
       if (node)
 	unlink_from_assembler_name_hash (node, true);
       if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))
@@ -397,6 +401,11 @@ change_decl_assembler_name (tree decl, tree name)
 	warning (0, "%D renamed after being referenced in assembly", decl);
 
       SET_DECL_ASSEMBLER_NAME (decl, name);
+      if (alias)
+	{
+	  IDENTIFIER_TRANSPARENT_ALIAS (name) = 1;
+	  TREE_CHAIN (DECL_ASSEMBLER_NAME (name)) = alias;
+	}
       if (node)
 	insert_to_assembler_name_hash (node, true);
     }
@@ -1065,11 +1074,17 @@ symtab_nonoverwritable_alias (symtab_node node)
 {
   tree new_decl;
   symtab_node new_node = NULL;
+
+  /* First try to look up existing alias or base object
+     (if that is already non-overwritable).  */
+  node = symtab_alias_ultimate_target (node, NULL);
+  gcc_assert (!node->symbol.alias && !node->symbol.weakref);
   symtab_for_node_and_aliases (node, symtab_nonoverwritable_alias_1,
 		               (void *)&new_node, true);
   if (new_node)
     return new_node;
 
+  /* Otherwise create a new one.  */
   new_decl = copy_node (node->symbol.decl);
   DECL_NAME (new_decl) = clone_function_name (node->symbol.decl, "localalias");
   if (TREE_CODE (new_decl) == FUNCTION_DECL)
@@ -1091,11 +1106,48 @@ symtab_nonoverwritable_alias (symtab_node node)
     {
       DECL_STATIC_CONSTRUCTOR (new_decl) = 0;
       DECL_STATIC_DESTRUCTOR (new_decl) = 0;
-      new_node = (symtab_node) cgraph_create_function_alias (new_decl, node->symbol.decl);
+      new_node = (symtab_node) cgraph_create_function_alias
+				 (new_decl, node->symbol.decl);
     }
   else
-    new_node = (symtab_node) varpool_create_variable_alias (new_decl, node->symbol.decl);
+    new_node = (symtab_node) varpool_create_variable_alias (new_decl,
+							    node->symbol.decl);
   symtab_resolve_alias (new_node, node);  
+  gcc_assert (decl_binds_to_current_def_p (new_decl));
   return new_node;
+}
+
+/* Return true if A and B represents semantically equivalent symbols.  */
+
+bool
+symtab_semantically_equivalent_p (symtab_node a,
+				  symtab_node b)
+{
+  enum availability avail;
+  symtab_node ba, bb;
+
+  /* Equivalent functions are equivalent.  */
+  if (a->symbol.decl == b->symbol.decl)
+    return true;
+
+  /* If symbol is not overwritable by different implementation,
+     walk to the base object it defines.  */
+  ba = symtab_alias_ultimate_target (a, &avail);
+  if (avail >= AVAIL_AVAILABLE)
+    {
+      if (ba == b)
+	return true;
+    }
+  else
+    ba = a;
+  bb = symtab_alias_ultimate_target (b, &avail);
+  if (avail >= AVAIL_AVAILABLE)
+    {
+      if (a == bb)
+	return true;
+    }
+  else
+    bb = b;
+  return bb == ba;
 }
 #include "gt-symtab.h"

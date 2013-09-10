@@ -240,8 +240,8 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
--Wconversion  -Wcoverage-mismatch  -Wno-cpp  -Wno-deprecated  @gol
--Wno-deprecated-declarations -Wdisabled-optimization  @gol
+-Wconversion -Wcoverage-mismatch  -Wdelete-incomplete -Wno-cpp  @gol
+-Wno-deprecated -Wno-deprecated-declarations -Wdisabled-optimization  @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
 -Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
@@ -365,7 +365,7 @@ Objective-C and Objective-C++ Dialects}.
 -fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules @gol
 -fcx-limited-range @gol
 -fdata-sections -fdce -fdelayed-branch @gol
--fdelete-null-pointer-checks -fdevirtualize -fdse @gol
+-fdelete-null-pointer-checks -fdevirtualize -fdevirtualize-speculatively -fdse @gol
 -fearly-inlining -fipa-sra -fexpensive-optimizations -ffat-lto-objects @gol
 -ffast-math -ffinite-math-only -ffloat-store -fexcess-precision=@var{style} @gol
 -fforward-propagate -ffp-contract=@var{style} -ffunction-sections @gol
@@ -455,7 +455,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
 -s  -static -static-libgcc -static-libstdc++ @gol
--static-libasan -static-libtsan @gol
+-static-libasan -static-libtsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
 -u @var{symbol}}
@@ -4499,6 +4499,12 @@ types. @option{-Wconversion-null} is enabled by default.
 Warn when a literal '0' is used as null pointer constant.  This can
 be useful to facilitate the conversion to @code{nullptr} in C++11.
 
+@item -Wdelete-incomplete @r{(C++ and Objective-C++ only)}
+@opindex Wdelete-incomplete
+@opindex Wno-delete-incomplete
+Warn when deleting a pointer to incomplete type, which may cause
+undefined behavior at runtime.  This warning is enabled by default.
+
 @item -Wuseless-cast @r{(C++ and Objective-C++ only)}
 @opindex Wuseless-cast
 @opindex Wno-useless-cast
@@ -5216,6 +5222,14 @@ Enable ThreadSanitizer, a fast data race detector.
 Memory access instructions will be instrumented to detect
 data race bugs.
 See @uref{http://code.google.com/p/data-race-test/wiki/ThreadSanitizer} for more details.
+
+@item -fsanitize=undefined
+Enable UndefinedBehaviorSanitizer, a fast undefined behavior detector
+Various computations will be instrumented to detect undefined behavior
+at runtime, e.g.@: division by zero or various overflows.
+While @option{-ftrapv} causes traps for signed overflows to be emitted,
+@option{-fsanitize=undefined} gives a diagnostic message.
+This currently works only for the C family of languages.
 
 @item -fdump-final-insns@r{[}=@var{file}@r{]}
 @opindex fdump-final-insns
@@ -6302,6 +6316,9 @@ Enable dumps from all loop optimizations.
 Enable dumps from all inlining optimizations.
 @item vec
 Enable dumps from all vectorization optimizations.
+@item optall
+Enable dumps from all optimizations. This is a superset of
+the optimization groups listed above.
 @end table
 
 For example,
@@ -6710,7 +6727,7 @@ also turns on the following optimization flags:
 -fcrossjumping @gol
 -fcse-follow-jumps  -fcse-skip-blocks @gol
 -fdelete-null-pointer-checks @gol
--fdevirtualize @gol
+-fdevirtualize -fdevirtualize-speculatively @gol
 -fexpensive-optimizations @gol
 -fgcse  -fgcse-lm  @gol
 -fhoist-adjacent-loads @gol
@@ -7254,6 +7271,15 @@ is done both within a procedure and interprocedurally as part of
 indirect inlining (@code{-findirect-inlining}) and interprocedural constant
 propagation (@option{-fipa-cp}).
 Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fdevirtualize-speculatively
+@opindex fdevirtualize-speculatively
+Attempt to convert calls to virtual functions to speculative direct calls.
+Based on the analysis of the type inheritance graph, determine for a given call
+the set of likely targets. If the set is small, preferably of size 1, change
+the call into an conditional deciding on direct and indirect call.  The
+speculative calls enable more optimizations, such as inlining.  When they seem
+useless after further optimization, they are converted back into original form.
 
 @item -fexpensive-optimizations
 @opindex fexpensive-optimizations
@@ -10166,6 +10192,15 @@ option is not used, then this links against the shared version of
 driver to link @file{libtsan} statically, without necessarily linking
 other libraries statically.
 
+@item -static-libubsan
+When the @option{-fsanitize=undefined} option is used to link a program,
+the GCC driver automatically links against @option{libubsan}.  If
+@file{libubsan} is available as a shared library, and the @option{-static}
+option is not used, then this links against the shared version of
+@file{libubsan}.  The @option{-static-libubsan} option directs the GCC
+driver to link @file{libubsan} statically, without necessarily linking
+other libraries statically.
+
 @item -static-libstdc++
 When the @command{g++} program is used to link a C++ program, it
 normally automatically links against @option{libstdc++}.  If
@@ -11158,6 +11193,8 @@ Feature modifiers used with @option{-march} and @option{-mcpu} can be one
 the following:
 
 @table @samp
+@item crc
+Enable CRC extension.
 @item crypto
 Enable Crypto extension.  This implies Advanced SIMD is enabled.
 @item fp

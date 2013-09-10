@@ -101,6 +101,8 @@ along with GCC; see the file COPYING3.  If not see
 
   possible_polymorphic_call_targets returns, given an parameters found in
   indirect polymorphic edge all possible polymorphic call targets of the call.
+
+  pass_ipa_devirt performs simple speculative devirtualization.
 */
 
 #include "config.h"
@@ -116,6 +118,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "ipa-utils.h"
 #include "gimple.h"
+#include "ipa-inline.h"
+#include "diagnostic.h"
 
 /* Pointer set of all call targets appearing in the cache.  */
 static pointer_set_t *cached_polymorphic_call_targets;
@@ -132,6 +136,11 @@ struct GTY(()) odr_type_d
   vec<odr_type> GTY((skip)) bases;
   /* All derrived types with virtual methods seen in unit.  */
   vec<odr_type> GTY((skip)) derived_types;
+
+  /* All equivalent types, if more than one.  */
+  vec<tree, va_gc> *types;
+  /* Set of all equivalent types, if NON-NULL.  */
+  pointer_set_t * GTY((skip)) types_set;
 
   /* Unique ID indexing the type in odr_types array.  */
   int id;
@@ -182,6 +191,23 @@ hash_type_name (tree t)
   if (type_in_anonymous_namespace_p (t))
     return htab_hash_pointer (t);
 
+  /* For polymorphic types, we can simply hash the virtual table.  */
+  if (TYPE_BINFO (t) && BINFO_VTABLE (TYPE_BINFO (t)))
+    {
+      tree v = BINFO_VTABLE (TYPE_BINFO (t));
+      hashval_t hash = 0;
+
+      if (TREE_CODE (v) == POINTER_PLUS_EXPR)
+	{
+	  hash = TREE_INT_CST_LOW (TREE_OPERAND (v, 1));
+	  v = TREE_OPERAND (TREE_OPERAND (v, 0), 0);
+	}
+
+      v = DECL_ASSEMBLER_NAME (v);
+      hash = iterative_hash_hashval_t (hash, htab_hash_pointer (v));
+      return hash;
+    }
+
   /* Rest is not implemented yet.  */
   gcc_unreachable ();
 }
@@ -217,6 +243,8 @@ odr_hasher::remove (value_type *v)
 {
   v->bases.release ();
   v->derived_types.release ();
+  if (v->types_set)
+    pointer_set_destroy (v->types_set);
   ggc_free (v);
 }
 
@@ -231,6 +259,132 @@ static odr_hash_type odr_hash;
 
 static GTY(()) vec <odr_type, va_gc> *odr_types_ptr;
 #define odr_types (*odr_types_ptr)
+
+/* TYPE is equivalent to VAL by ODR, but its tree representation differs
+   from VAL->type.  This may happen in LTO where tree merging did not merge
+   all variants of the same type.  It may or may not mean the ODR violation.
+   Add it to the list of duplicates and warn on some violations.  */
+
+static void
+add_type_duplicate (odr_type val, tree type)
+{
+  if (!val->types_set)
+    val->types_set = pointer_set_create ();
+
+  /* See if this duplicate is new.  */
+  if (!pointer_set_insert (val->types_set, type))
+    {
+      bool merge = true;
+      bool base_mismatch = false;
+      gcc_assert (in_lto_p);
+      vec_safe_push (val->types, type);
+      unsigned int i,j;
+
+      /* First we compare memory layout.  */
+      if (!types_compatible_p (val->type, type))
+	{
+	  merge = false;
+	  if (BINFO_VTABLE (TYPE_BINFO (val->type))
+	      && warning_at (DECL_SOURCE_LOCATION (TYPE_NAME (type)), 0,
+			     "type %qD violates one definition rule  ",
+			     type))
+	    inform (DECL_SOURCE_LOCATION (TYPE_NAME (val->type)),
+		    "a type with the same name but different layout is "
+		    "defined in another translation unit");
+	    debug_tree (BINFO_VTABLE (TYPE_BINFO (type)));
+	    debug_tree (BINFO_VTABLE (TYPE_BINFO (val->type)));
+	  if (cgraph_dump_file)
+	    {
+	      fprintf (cgraph_dump_file, "ODR violation or merging or ODR type bug?\n");
+	    
+	      print_node (cgraph_dump_file, "", val->type, 0);
+	      putc ('\n',cgraph_dump_file);
+	      print_node (cgraph_dump_file, "", type, 0);
+	      putc ('\n',cgraph_dump_file);
+	    }
+	}
+
+      /* Next sanity check that bases are the same.  If not, we will end
+	 up producing wrong answers.  */
+      for (j = 0, i = 0; i < BINFO_N_BASE_BINFOS (TYPE_BINFO (type)); i++)
+	if (polymorphic_type_binfo_p (BINFO_BASE_BINFO (TYPE_BINFO (type), i)))
+	  {
+	    odr_type base = get_odr_type
+			       (BINFO_TYPE
+				  (BINFO_BASE_BINFO (TYPE_BINFO (type),
+						     i)),
+				true);
+	    if (val->bases.length () <= j || val->bases[j] != base)
+	      base_mismatch = true;
+	    j++;
+	  }
+      if (base_mismatch)
+	{
+	  merge = false;
+
+	  if (warning_at (DECL_SOURCE_LOCATION (TYPE_NAME (type)), 0,
+			  "type %qD violates one definition rule  ",
+			  type))
+	    inform (DECL_SOURCE_LOCATION (TYPE_NAME (val->type)),
+		    "a type with the same name but different bases is "
+		    "defined in another translation unit");
+	  if (cgraph_dump_file)
+	    {
+	      fprintf (cgraph_dump_file, "ODR bse violation or merging bug?\n");
+	    
+	      print_node (cgraph_dump_file, "", val->type, 0);
+	      putc ('\n',cgraph_dump_file);
+	      print_node (cgraph_dump_file, "", type, 0);
+	      putc ('\n',cgraph_dump_file);
+	    }
+	}
+
+      /* Regularize things a little.  During LTO same types may come with
+	 different BINFOs.  Either because their virtual table was
+	 not merged by tree merging and only later at decl merging or
+	 because one type comes with external vtable, while other
+	 with internal.  We want to merge equivalent binfos to conserve
+	 memory and streaming overhead.
+
+	 The external vtables are more harmful: they contain references
+	 to external declarations of methods that may be defined in the
+	 merged LTO unit.  For this reason we absolutely need to remove
+	 them and replace by internal variants. Not doing so will lead
+         to incomplete answers from possible_polymorphic_call_targets.  */
+      if (!flag_ltrans && merge)
+	{
+	  tree master_binfo = TYPE_BINFO (val->type);
+	  tree v1 = BINFO_VTABLE (master_binfo);
+	  tree v2 = BINFO_VTABLE (TYPE_BINFO (type));
+
+	  if (TREE_CODE (v1) == POINTER_PLUS_EXPR)
+	    {
+	      gcc_assert (TREE_CODE (v2) == POINTER_PLUS_EXPR
+			  && operand_equal_p (TREE_OPERAND (v1, 1),
+					      TREE_OPERAND (v2, 1), 0));
+	      v1 = TREE_OPERAND (TREE_OPERAND (v1, 0), 0);
+	      v2 = TREE_OPERAND (TREE_OPERAND (v2, 0), 0);
+	    }
+	  gcc_assert (DECL_ASSEMBLER_NAME (v1)
+		      == DECL_ASSEMBLER_NAME (v2));
+
+	  if (DECL_EXTERNAL (v1) && !DECL_EXTERNAL (v2))
+	    {
+	      unsigned int i;
+
+	      TYPE_BINFO (val->type) = TYPE_BINFO (type);
+	      for (i = 0; i < val->types->length(); i++)
+		{
+		  if (TYPE_BINFO ((*val->types)[i])
+		      == master_binfo)
+		    TYPE_BINFO ((*val->types)[i]) = TYPE_BINFO (type);
+		}
+	    }
+	  else
+	    TYPE_BINFO (type) = master_binfo;
+	}
+    }
+}
 
 /* Get ODR type hash entry for TYPE.  If INSERT is true, create
    possibly new entry.  */
@@ -254,11 +408,10 @@ get_odr_type (tree type, bool insert)
     {
       val = *slot;
 
-      /* With LTO we will need to support multiple tree representation of
-	 the same ODR type.  For now we ignore this.  */
-      if (val->type == type)
-	return val;
-      gcc_unreachable ();
+      /* With LTO we need to support multiple tree representation of
+	 the same ODR type.  */
+      if (val->type != type)
+        add_type_duplicate (val, type);
     }
   else
     {
@@ -337,6 +490,28 @@ dump_type_inheritance_graph (FILE *f)
       if (odr_types[i]->bases.length() == 0)
 	dump_odr_type (f, odr_types[i]);
     }
+  for (i = 0; i < odr_types.length(); i++)
+    {
+      if (odr_types[i]->types && odr_types[i]->types->length())
+	{
+	  unsigned int j;
+	  fprintf (f, "Duplicate tree types for odr type %i\n", i);
+	  print_node (f, "", odr_types[i]->type, 0);
+	  for (j = 0; j < odr_types[i]->types->length(); j++)
+	    {
+	      tree t;
+	      fprintf (f, "duplicate #%i\n", j);
+	      print_node (f, "", (*odr_types[i]->types)[j], 0);
+	      t = (*odr_types[i]->types)[j];
+	      while (TYPE_P (t) && TYPE_CONTEXT (t))
+		{
+		  t = TYPE_CONTEXT (t);
+	          print_node (f, "", t, 0);
+		}
+	      putc ('\n',f);
+	    }
+	}
+    }
 }
 
 /* Given method type T, return type of class it belongs to.
@@ -395,6 +570,8 @@ maybe_record_node (vec <cgraph_node *> &nodes,
       && fcode != BUILT_IN_TRAP
       && !pointer_set_insert (inserted, target)
       && (target_node = cgraph_get_node (target)) != NULL
+      && (TREE_PUBLIC (target)
+	  || target_node->symbol.definition)
       && symtab_real_symbol_p ((symtab_node)target_node))
     {
       pointer_set_insert (cached_polymorphic_call_targets,
@@ -416,6 +593,8 @@ maybe_record_node (vec <cgraph_node *> &nodes,
 
    MATCHED_VTABLES tracks virtual tables we already did lookup
    for virtual function in.
+
+   ANONYMOUS is true if BINFO is part of anonymous namespace.
   */
 
 static void
@@ -425,7 +604,8 @@ record_binfo (vec <cgraph_node *> &nodes,
 	      tree type_binfo,
 	      HOST_WIDE_INT otr_token,
 	      pointer_set_t *inserted,
-	      pointer_set_t *matched_vtables)
+	      pointer_set_t *matched_vtables,
+	      bool anonymous)
 {
   tree type = BINFO_TYPE (binfo);
   int i;
@@ -436,6 +616,19 @@ record_binfo (vec <cgraph_node *> &nodes,
   if (types_same_for_odr (type, otr_type)
       && !pointer_set_insert (matched_vtables, BINFO_VTABLE (type_binfo)))
     {
+      /* For types in anonymous namespace first check if the respective vtable
+	 is alive. If not, we know the type can't be called.  */
+      if (!flag_ltrans && anonymous)
+	{
+	  tree vtable = BINFO_VTABLE (type_binfo);
+	  struct varpool_node *vnode;
+
+	  if (TREE_CODE (vtable) == POINTER_PLUS_EXPR)
+	    vtable = TREE_OPERAND (TREE_OPERAND (vtable, 0), 0);
+	  vnode = varpool_get_node (vtable);
+	  if (!vnode || !vnode->symbol.definition)
+	    return;
+	}
       tree target = gimple_get_virt_method_for_binfo (otr_token, type_binfo);
       if (target)
 	maybe_record_node (nodes, target, inserted);
@@ -451,7 +644,7 @@ record_binfo (vec <cgraph_node *> &nodes,
 		       is shared with the outer type.  */
 		    BINFO_VTABLE (base_binfo) ? base_binfo : type_binfo,
 		    otr_token, inserted,
-		    matched_vtables);
+		    matched_vtables, anonymous);
 }
      
 /* Lookup virtual methods matching OTR_TYPE (with OFFSET and OTR_TOKEN)
@@ -471,7 +664,7 @@ possible_polymorphic_call_targets_1 (vec <cgraph_node *> &nodes,
   unsigned int i;
 
   record_binfo (nodes, binfo, otr_type, binfo, otr_token, inserted,
-	        matched_vtables);
+	        matched_vtables, type->anonymous_namespace);
   for (i = 0; i < type->derived_types.length(); i++)
     possible_polymorphic_call_targets_1 (nodes, inserted, 
 					 matched_vtables,
@@ -560,6 +753,18 @@ devirt_node_removal_hook (struct cgraph_node *n, void *d ATTRIBUTE_UNUSED)
     free_polymorphic_call_targets_hash ();
 }
 
+/* When virtual table is removed, we may need to flush the cache.  */
+
+static void
+devirt_variable_node_removal_hook (struct varpool_node *n,
+				   void *d ATTRIBUTE_UNUSED)
+{
+  if (cached_polymorphic_call_targets
+      && DECL_VIRTUAL_P (n->symbol.decl)
+      && type_in_anonymous_namespace_p (DECL_CONTEXT (n->symbol.decl)))
+    free_polymorphic_call_targets_hash ();
+}
+
 /* Return vector containing possible targets of polymorphic call of type
    OTR_TYPE caling method OTR_TOKEN with OFFSET.  If FINALp is non-NULL,
    store true if the list is complette. 
@@ -607,8 +812,12 @@ possible_polymorphic_call_targets (tree otr_type,
       cached_polymorphic_call_targets = pointer_set_create ();
       polymorphic_call_target_hash.create (23);
       if (!node_removal_hook_holder)
-	node_removal_hook_holder =
-	  cgraph_add_node_removal_hook (&devirt_node_removal_hook, NULL);
+	{
+	  node_removal_hook_holder =
+	    cgraph_add_node_removal_hook (&devirt_node_removal_hook, NULL);
+	  varpool_add_node_removal_hook (&devirt_variable_node_removal_hook,
+					 NULL);
+	}
     }
 
   /* Lookup cached answer.  */
@@ -728,4 +937,245 @@ update_type_inheritance_graph (void)
       get_odr_type (method_class_type (TREE_TYPE (n->symbol.decl)), true);
   timevar_pop (TV_IPA_INHERITANCE);
 }
+
+
+/* Return true if N looks like likely target of a polymorphic call.
+   Rule out cxa_pure_virtual, noreturns, function declared cold and
+   other obvious cases.  */
+
+bool
+likely_target_p (struct cgraph_node *n)
+{
+  int flags;
+  /* cxa_pure_virtual and similar things are not likely.  */
+  if (TREE_CODE (TREE_TYPE (n->symbol.decl)) != METHOD_TYPE)
+    return false;
+  flags = flags_from_decl_or_type (n->symbol.decl);
+  if (flags & ECF_NORETURN)
+    return false;
+  if (lookup_attribute ("cold",
+			DECL_ATTRIBUTES (n->symbol.decl)))
+    return false;
+  if (n->frequency < NODE_FREQUENCY_NORMAL)
+    return false;
+  return true;
+}
+
+/* The ipa-devirt pass.
+   When polymorphic call has only one likely target in the unit,
+   turn it into speculative call.  */
+
+static unsigned int
+ipa_devirt (void)
+{
+  struct cgraph_node *n;
+  struct pointer_set_t *bad_call_targets = pointer_set_create ();
+  struct cgraph_edge *e;
+
+  int npolymorphic = 0, nspeculated = 0, nconverted = 0, ncold = 0;
+  int nmultiple = 0, noverwritable = 0, ndevirtualized = 0, nnotdefined = 0;
+  int nwrong = 0, nok = 0, nexternal = 0;;
+
+  FOR_EACH_DEFINED_FUNCTION (n)
+    {	
+      bool update = false;
+      if (dump_file && n->indirect_calls)
+	fprintf (dump_file, "\n\nProcesing function %s/%i\n",
+		 cgraph_node_name (n), n->symbol.order);
+      for (e = n->indirect_calls; e; e = e->next_callee)
+	if (e->indirect_info->polymorphic)
+	  {
+	    struct cgraph_node *likely_target = NULL;
+	    void *cache_token;
+	    bool final;
+	    vec <cgraph_node *>targets
+	       = possible_polymorphic_call_targets
+		    (e, &final, &cache_token);
+	    unsigned int i;
+
+	    if (dump_file)
+	      dump_possible_polymorphic_call_targets 
+		(dump_file, e);
+
+	    npolymorphic++;
+
+	    if (!cgraph_maybe_hot_edge_p (e))
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Call is cold\n");
+		ncold++;
+		continue;
+	      }
+	    if (e->speculative)
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Call is aready speculated\n");
+		nspeculated++;
+
+		/* When dumping see if we agree with speculation.  */
+		if (!dump_file)
+		  continue;
+	      }
+	    if (pointer_set_contains (bad_call_targets,
+				      cache_token))
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Target list is known to be useless\n");
+		nmultiple++;
+		continue;
+	      }
+	    for (i = 0; i < targets.length(); i++)
+	      if (likely_target_p (targets[i]))
+		{
+		  if (likely_target)
+		    {
+		      likely_target = NULL;
+		      if (dump_file)
+			fprintf (dump_file, "More than one likely target\n");
+		      nmultiple++;
+		      break;
+		    }
+		  likely_target = targets[i];
+		}
+	    if (!likely_target)
+	      {
+		pointer_set_insert (bad_call_targets, cache_token);
+	        continue;
+	      }
+	    /* This is reached only when dumping; check if we agree or disagree
+ 	       with the speculation.  */
+	    if (e->speculative)
+	      {
+		struct cgraph_edge *e2;
+		struct ipa_ref *ref;
+		cgraph_speculative_call_info (e, e2, e, ref);
+		if (cgraph_function_or_thunk_node (e2->callee, NULL)
+		    == cgraph_function_or_thunk_node (likely_target, NULL))
+		  {
+		    fprintf (dump_file, "We agree with speculation\n");
+		    nok++;
+		  }
+		else
+		  {
+		    fprintf (dump_file, "We disagree with speculation\n");
+		    nwrong++;
+		  }
+		continue;
+	      }
+	    if (!likely_target->symbol.definition)
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Target is not an definition\n");
+		nnotdefined++;
+		continue;
+	      }
+	    /* Do not introduce new references to external symbols.  While we
+	       can handle these just well, it is common for programs to
+	       incorrectly with headers defining methods they are linked
+	       with.  */
+	    if (DECL_EXTERNAL (likely_target->symbol.decl))
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Target is external\n");
+		nexternal++;
+		continue;
+	      }
+	    if (cgraph_function_body_availability (likely_target)
+		<= AVAIL_OVERWRITABLE
+		&& symtab_can_be_discarded ((symtab_node) likely_target))
+	      {
+		if (dump_file)
+		  fprintf (dump_file, "Target is overwritable\n");
+		noverwritable++;
+		continue;
+	      }
+	    else
+	      {
+		if (dump_file)
+		  fprintf (dump_file,
+			   "Speculatively devirtualizing call in %s/%i to %s/%i\n",
+			   cgraph_node_name (n), n->symbol.order,
+			   cgraph_node_name (likely_target),
+			   likely_target->symbol.order);
+		if (!symtab_can_be_discarded ((symtab_node) likely_target))
+		  likely_target = cgraph (symtab_nonoverwritable_alias ((symtab_node)likely_target));
+		nconverted++;
+		update = true;
+		cgraph_turn_edge_to_speculative
+		  (e, likely_target, e->count * 8 / 10, e->frequency * 8 / 10);
+	      }
+	  }
+      if (update)
+	inline_update_overall_summary (n);
+    }
+  pointer_set_destroy (bad_call_targets);
+
+  if (dump_file)
+    fprintf (dump_file,
+	     "%i polymorphic calls, %i devirtualized,"
+	     " %i speculatively devirtualized, %i cold\n"
+	     "%i have multiple targets, %i overwritable,"
+	     " %i already speculated (%i agree, %i disagree),"
+	     " %i external, %i not defined\n",
+	     npolymorphic, ndevirtualized, nconverted, ncold,
+	     nmultiple, noverwritable, nspeculated, nok, nwrong,
+	     nexternal, nnotdefined);
+  return ndevirtualized ? TODO_remove_functions : 0;
+}
+
+/* Gate for IPCP optimization.  */
+
+static bool
+gate_ipa_devirt (void)
+{
+  return flag_devirtualize_speculatively && !in_lto_p && optimize;
+}
+
+namespace {
+
+const pass_data pass_data_ipa_devirt =
+{
+  IPA_PASS, /* type */
+  "devirt", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_DEVIRT, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_dump_symtab ), /* todo_flags_finish */
+};
+
+class pass_ipa_devirt : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_devirt(gcc::context *ctxt)
+    : ipa_opt_pass_d(pass_data_ipa_devirt, ctxt,
+		     NULL, /* generate_summary */
+		     NULL, /* write_summary */
+		     NULL, /* read_summary */
+		     NULL, /* write_optimization_summary */
+		     NULL, /* read_optimization_summary */
+		     NULL, /* stmt_fixup */
+		     0, /* function_transform_todo_flags_start */
+		     NULL, /* function_transform */
+		     NULL) /* variable_transform */
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_ipa_devirt (); }
+  unsigned int execute () { return ipa_devirt (); }
+
+}; // class pass_ipa_devirt
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_devirt (gcc::context *ctxt)
+{
+  return new pass_ipa_devirt (ctxt);
+}
+
 #include "gt-ipa-devirt.h"

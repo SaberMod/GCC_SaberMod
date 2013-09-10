@@ -1,3 +1,114 @@
+2013-09-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58341
+	* include/bits/stl_algobase.h (copy_backward): Fix documentation
+	per DR 1206.
+
+2013-09-05  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex_automaton.h: Add dummy node type. Rewrite
+	_StateSeq.
+	* include/bits/regex_automaton.tcc: Implement them.
+	* include/bits/regex_compiler.h: Rewrite _Compiler to use new
+	_StateSeq interfaces.
+	* include/bits/regex_compiler.tcc: Implement them.
+	* include/bits/regex_scanner.h: Add word boundry assertion token.
+	* include/bits/regex_scanner.tcc (_Scanner<>::_M_eat_escape_ecma):
+	Support word boundry.
+	* testsuite/28_regex/algorithms/regex_match/basic/
+	string_range_02_03.cc: Remove "xfail".
+	* testsuite/28_regex/algorithms/regex_match/extended/cstring_plus.cc:
+	Likewise.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_range_02_03.cc: Likewise.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	cstring_questionmark.cc: Remove xfail and get correct length of
+	c-string.
+	* testsuite/28_regex/algorithms/regex_match/extended/
+	string_range_00_03.cc: Likewise.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/quoted_char.cc:
+	New.
+	* testsuite/28_regex/algorithms/regex_match/extended/cstring_range.cc:
+	New.
+	* testsuite/28_regex/iterators/regex_iterator/wchar_t/string_02.cc: New.
+
+2013-09-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58302
+	* include/bits/random.tcc (negative_binomial_distribution<>::
+	operator()(_UniformRandomNumberGenerator&, const param_type&)):
+	Fix typo in template argument.
+	* testsuite/26_numerics/random/negative_binomial_distribution/
+	operators/58302.cc: New.
+
+2013-09-02  Tim Shen  <timshen91@gmail.com>
+
+	* regex_automaton.h: Rearrange _NFA's layout.
+	* include/bits/regex_compiler.h: Add _AnyMatcher and _CharMatcher.
+	  Rearrange _BracketMatcher's layout.
+	  (_BracketMatcher<>::_M_add_char): Use set instead of vector for
+	  _M_char_set.
+	  (_BracketMatcher<>::_M_add_collating_element): Likewise.
+	  (_BracketMatcher<>::_M_make_range): Likewise.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_M_atom): Use
+	  apropriate constructors of matchers above.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/anymatcher.cc:
+	  New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/backref.cc: New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/empty_range.cc:
+	  New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/emptygroup.cc:
+	  New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/hex.cc: New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/wchar_t/anymatcher.cc:
+	  New.
+	* testsuite/28_regex/algorithms/regex_match/ecma/wchar_t/hex.cc: New.
+
+2013-08-30  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/58148
+	* include/debug/functions.h (__foreign_iterator_aux4): Use
+	sequence const_pointer as common type to compare pointers. Add a
+	fallback overload in case pointers cannot be cast to sequence
+	const_pointer.
+	* testsuite/23_containers/vector/modifiers/insert/58148.cc: New.
+
+2013-08-30  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/58191
+	* include/debug/macros.h (__glibcxx_check_partitioned_lower): Add
+	__gnu_debug::__base calls on iterators passed to internal debug
+	check.
+	(__glibcxx_check_partitioned_lower_pred): Likewise.
+	(__glibcxx_check_partitioned_upper): Likewise.
+	(__glibcxx_check_partitioned_upper_pred): Likewise.
+	(__glibcxx_check_sorted): Likewise.
+	(__glibcxx_check_sorted_pred): Likewise.
+	(__glibcxx_check_sorted_set): Likewise.
+	(__glibcxx_check_sorted_set_pred): Likewise.
+	* include/debug/functions.h (__check_partitioned_lower):
+	Remove code to detect safe iterators.
+	(__check_partitioned_upper): Likewise.
+	(__check_sorted): Likewise.
+
+2013-08-29  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h (basic_regex<>::assign): Don't lose _M_traits.
+	  (regex_iterator<>::regex_iterator): Return nullptr when regex_search
+	     failed.
+	  (regex_token_iterator<>::_M_end_of_seq): Should be defined true when
+	    _M_result is(not isn't) nullptr.
+	* include/bits/regex_compiler.h: Store _Compiler::_M_traits by reference
+	  instead of by value.
+	* include/bits/regex_executor.h (_DFSExecutor<>::_DFSExecutor): Add
+	  _M_traits to _DFSExecutor.
+	* include/bits/regex_executor.tcc (__get_executor<>): Pass traits to
+	  _DFSExecutor too.
+	* testsuite/28_regex/algorithms/regex_match/extended/wstring_locale.cc:
+	  New.
+	* testsuite/28_regex/iterators/regex_token_iterator/wchar_t/
+	  wstring_02.cc: New.
+
 2013-08-26  Tim Shen  <timshen91@gmail.com>
 
 	* include/Makefile.am: Add regex_scanner.{h,tcc}.

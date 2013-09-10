@@ -573,10 +573,10 @@ compile_file (void)
 	mudflap_finish_file ();
 
       /* File-scope initialization for AddressSanitizer.  */
-      if (flag_asan)
+      if (flag_sanitize & SANITIZE_ADDRESS)
         asan_finish_file ();
 
-      if (flag_tsan)
+      if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
       output_shared_constant_pool ();
@@ -1017,22 +1017,35 @@ output_stack_usage (void)
     {
       expanded_location loc
 	= expand_location (DECL_SOURCE_LOCATION (current_function_decl));
-      const char *raw_id, *id;
-
-      /* Strip the scope prefix if any.  */
-      raw_id = lang_hooks.decl_printable_name (current_function_decl, 2);
-      id = strrchr (raw_id, '.');
-      if (id)
-	id++;
+      /* We don't want to print the full qualified name because it can be long,
+	 so we strip the scope prefix, but we may need to deal with the suffix
+	 created by the compiler.  */
+      const char *suffix
+	= strchr (IDENTIFIER_POINTER (DECL_NAME (current_function_decl)), '.');
+      const char *name
+	= lang_hooks.decl_printable_name (current_function_decl, 2);
+      if (suffix)
+	{
+	  const char *dot = strchr (name, '.');
+	  while (dot && strcasecmp (dot, suffix) != 0)
+	    {
+	      name = dot + 1;
+	      dot = strchr (name, '.');
+	    }
+	}
       else
-	id = raw_id;
+	{
+	  const char *dot = strrchr (name, '.');
+	  if (dot)
+	    name = dot + 1;
+	}
 
       fprintf (stack_usage_file,
 	       "%s:%d:%d:%s\t"HOST_WIDE_INT_PRINT_DEC"\t%s\n",
 	       lbasename (loc.file),
 	       loc.line,
 	       loc.column,
-	       id,
+	       name,
 	       stack_usage,
 	       stack_usage_kind_str[stack_usage_kind]);
     }
@@ -1542,12 +1555,12 @@ process_options (void)
     warn_stack_protect = 0;
 
   /* Address Sanitizer needs porting to each target architecture.  */
-  if (flag_asan
+  if ((flag_sanitize & SANITIZE_ADDRESS)
       && (targetm.asan_shadow_offset == NULL
 	  || !FRAME_GROWS_DOWNWARD))
     {
       warning (0, "-fsanitize=address not supported for this target");
-      flag_asan = 0;
+      flag_sanitize &= ~SANITIZE_ADDRESS;
     }
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
