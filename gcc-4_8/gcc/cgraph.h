@@ -727,6 +727,7 @@ void fixup_same_cpp_alias_visibility (symtab_node node, symtab_node target, tree
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
 basic_block init_lowered_empty_function (tree decl, bool in_ssa);
+void cgraph_enqueue_node (struct cgraph_node *);
 
 /* In cgraphclones.c  */
 

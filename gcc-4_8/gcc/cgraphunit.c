@@ -271,6 +271,12 @@ enqueue_node (symtab_node node)
   first = node;
 }
 
+void
+cgraph_enqueue_node (struct cgraph_node *node)
+{
+  enqueue_node ((symtab_node) node);
+}
+
 /* Process CGRAPH_NEW_FUNCTIONS and perform actions necessary to add these
    functions into callgraph in a way so they look like ordinary reachable
    functions inserted into callgraph already at construction time.  */

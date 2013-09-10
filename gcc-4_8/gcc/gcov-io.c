@@ -594,10 +594,11 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
   mod_info->lang  = gcov_read_unsigned ();
   mod_info->num_quote_paths = gcov_read_unsigned ();
   mod_info->num_bracket_paths = gcov_read_unsigned ();
+  mod_info->num_system_paths = gcov_read_unsigned ();
   mod_info->num_cpp_defines = gcov_read_unsigned ();
   mod_info->num_cpp_includes = gcov_read_unsigned ();
   mod_info->num_cl_args = gcov_read_unsigned ();
-  len -= 9;
+  len -= 10;
 
   filename_len = gcov_read_unsigned ();
   mod_info->da_filename = (char *) xmalloc (filename_len *
@@ -613,9 +614,10 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
     ((gcov_unsigned_t *) mod_info->source_filename)[i] = gcov_read_unsigned ();
   len -= (src_filename_len + 1);
 
-  num_strings = mod_info->num_quote_paths + mod_info->num_bracket_paths +
-    mod_info->num_cpp_defines + mod_info->num_cpp_includes +
-    mod_info->num_cl_args;
+  num_strings = mod_info->num_quote_paths + mod_info->num_bracket_paths
+    + mod_info->num_system_paths
+    + mod_info->num_cpp_defines + mod_info->num_cpp_includes
+    + mod_info->num_cl_args;
   for (j = 0; j < num_strings; j++)
    {
      gcov_unsigned_t string_len = gcov_read_unsigned ();

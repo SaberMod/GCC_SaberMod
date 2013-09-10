@@ -3890,10 +3890,12 @@ void
 cp_clear_deferred_fns (void)
 {
   vec_free (deferred_fns);
+  deferred_fns = NULL;
   keyed_classes = NULL;
   vec_free (no_linkage_decls);
   no_linkage_decls = NULL;
   cp_clear_constexpr_hashtable ();
+  clear_pending_templates ();
 }
 
 /* Collect declarations from all namespaces relevant to SOURCE_FILE.  */
@@ -4225,18 +4227,19 @@ cp_process_pending_declarations (location_t locus)
 
   if (L_IPO_IS_AUXILIARY_MODULE)
     {
+      tree fndecl;
+      int i;
+
       gcc_assert (flag_dyn_ipa && L_IPO_COMP_MODE);
 
       /* Do some cleanup -- we do not really need static init function
          to be created for auxiliary modules -- they are created to keep
          funcdef_no consistent between profile use and profile gen.  */
-#if FIXME_LIPO
-      for (i = 0; ssdf_decls->iterator (i, fndecl); ++i)
+      FOR_EACH_VEC_SAFE_ELT (ssdf_decls, i, fndecl)
         /* Such ssdf_decls are not called from GLOBAL ctor/dtor, mark
 	   them reachable to avoid being eliminated too early before
 	   gimplication.  */
-        cgraph_mark_reachable_node (cgraph_get_create_node (fndecl));
-#endif
+        cgraph_enqueue_node (cgraph_get_create_node (fndecl));
       ssdf_decls = NULL;
       timevar_stop (TV_PHASE_DEFERRED);
       return;

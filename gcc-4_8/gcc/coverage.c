@@ -264,6 +264,9 @@ static struct opt_desc force_matching_cg_opts[] =
     { "-fsized-delete", "-fno-sized-delete", false },
     { "-frtti", "-fno-rtti", true },
     { "-fstrict-aliasing", "-fno-strict-aliasing", true },
+    { "-fsigned-char", "-funsigned-char", true },
+    /* { "-fsigned-char", "-fno-signed-char", true },
+       { "-funsigned-char", "-fno-unsigned-char", false }, */
     { "-ansi", "", false },
     { NULL, NULL, false }
   };
@@ -319,12 +322,12 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
   hash_table <string_hasher> option_tab1, option_tab2;
-  unsigned int start_index1 = mod_info1->num_quote_paths +
-    mod_info1->num_bracket_paths + mod_info1->num_cpp_defines +
-    mod_info1->num_cpp_includes;
-  unsigned int start_index2 = mod_info2->num_quote_paths +
-    mod_info2->num_bracket_paths + mod_info2->num_cpp_defines +
-    mod_info2->num_cpp_includes;
+  unsigned int start_index1 = mod_info1->num_quote_paths 
+    + mod_info1->num_bracket_paths + mod_info1->num_system_paths 
+    + mod_info1->num_cpp_defines + mod_info1->num_cpp_includes;
+  unsigned int start_index2 = mod_info2->num_quote_paths
+    + mod_info2->num_bracket_paths + mod_info2->num_system_paths
+    + mod_info2->num_cpp_defines + mod_info2->num_cpp_includes;
 
   bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts, has_incompatible_std;
   unsigned int num_cg_opts = 0;
@@ -819,6 +822,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
           info_sz = (sizeof (struct gcov_module_info) +
 		     sizeof (void *) * (mod_info->num_quote_paths +
 					mod_info->num_bracket_paths +
+					mod_info->num_system_paths +
 					mod_info->num_cpp_defines +
 					mod_info->num_cpp_includes +
 					mod_info->num_cl_args));
@@ -1796,8 +1800,8 @@ build_gcov_module_info_type (void)
   tree type, field, fields = NULL_TREE;
   tree string_type, index_type, string_array_type;
 
-  cpp_dir *quote_paths, *bracket_paths, *pdir;
-  int num_quote_paths = 0, num_bracket_paths = 0;
+  cpp_dir *quote_paths, *bracket_paths, *system_paths, *pdir;
+  int num_quote_paths = 0, num_bracket_paths = 0, num_system_paths = 0;
 
   type = lang_hooks.types.make_type (RECORD_TYPE);
   string_type = build_pointer_type (
@@ -1863,6 +1867,12 @@ build_gcov_module_info_type (void)
   DECL_CHAIN (field) = fields;
   fields = field;
 
+  /* Num system paths  */
+  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+                      NULL_TREE, get_gcov_unsigned_t ());
+  DECL_CHAIN (field) = fields;
+  fields = field;
+
   /* Num -D/-U options.  */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
                       NULL_TREE, get_gcov_unsigned_t ());
@@ -1881,7 +1891,7 @@ build_gcov_module_info_type (void)
   DECL_CHAIN (field) = fields;
   fields = field;
 
-  get_include_chains (&quote_paths, &bracket_paths);
+  get_include_chains (&quote_paths, &bracket_paths, &system_paths);
   for (pdir = quote_paths; pdir; pdir = pdir->next)
     {
       if (pdir == bracket_paths)
@@ -1889,15 +1899,23 @@ build_gcov_module_info_type (void)
       num_quote_paths++;
     }
   for (pdir = bracket_paths; pdir; pdir = pdir->next)
-    num_bracket_paths++;
+    {
+      if (pdir == system_paths)
+        break;
+      num_bracket_paths++;
+    }
+  for (pdir = system_paths; pdir; pdir = pdir->next)
+    num_system_paths++;
 
   /* string array  */
   index_type = build_index_type (build_int_cst (NULL_TREE,
 						num_quote_paths	+
 						num_bracket_paths +
+                                                num_system_paths +
 						num_cpp_defines +
 						num_cpp_includes +
 						num_lipo_cl_args));
+
   string_array_type = build_array_type (string_type, index_type);
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
                       NULL_TREE, string_array_type);
@@ -1919,8 +1937,8 @@ build_gcov_module_info_value (tree mod_type)
   tree value = NULL_TREE;
   int file_name_len;
   tree filename_string, string_array_type,  string_type;
-  cpp_dir *quote_paths, *bracket_paths, *pdir;
-  int num_quote_paths = 0, num_bracket_paths = 0;
+  cpp_dir *quote_paths, *bracket_paths, *system_paths, *pdir;
+  int num_quote_paths = 0, num_bracket_paths = 0, num_system_paths = 0;
   unsigned lang;
   char name_buf[50];
   vec<constructor_elt,va_gc> *v = NULL, *path_v = NULL;
@@ -1991,7 +2009,7 @@ build_gcov_module_info_value (tree mod_type)
                           build1 (ADDR_EXPR, string_type, filename_string));
   info_fields = DECL_CHAIN (info_fields);
 
-  get_include_chains (&quote_paths, &bracket_paths);
+  get_include_chains (&quote_paths, &bracket_paths, &system_paths);
   for (pdir = quote_paths; pdir; pdir = pdir->next)
     {
       if (pdir == bracket_paths)
@@ -1999,7 +2017,13 @@ build_gcov_module_info_value (tree mod_type)
       num_quote_paths++;
     }
   for (pdir = bracket_paths; pdir; pdir = pdir->next)
-    num_bracket_paths++;
+    {
+      if (pdir == system_paths)
+        break;
+      num_bracket_paths++;
+    }
+  for (pdir = system_paths; pdir; pdir = pdir->next)
+    num_system_paths++;
 
   /* Num quote paths  */
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
@@ -2011,6 +2035,12 @@ build_gcov_module_info_value (tree mod_type)
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
                           build_int_cstu (get_gcov_unsigned_t (),
                                           num_bracket_paths));
+  info_fields = DECL_CHAIN (info_fields);
+
+  /* Num system paths  */
+  CONSTRUCTOR_APPEND_ELT (v, info_fields,
+                          build_int_cstu (get_gcov_unsigned_t (),
+                                          num_system_paths));
   info_fields = DECL_CHAIN (info_fields);
 
   /* Num -D/-U options.  */
@@ -2037,6 +2067,8 @@ build_gcov_module_info_value (tree mod_type)
                               quote_paths, num_quote_paths);
   build_inc_path_array_value (string_type, &path_v,
                               bracket_paths, num_bracket_paths);
+  build_inc_path_array_value (string_type, &path_v,
+                              system_paths, num_system_paths);
   build_str_array_value (string_type, &path_v,
                          cpp_defines_head);
   build_str_array_value (string_type, &path_v,
@@ -2536,21 +2568,21 @@ set_lipo_c_parsing_context (struct cpp_reader *parse_in, int i, bool verbose)
 	   i < mod_info->num_bracket_paths; i++, j++)
         add_path (xstrdup (mod_info->string_array[j]),
                   BRACKET, 0, 1);
+      for (i = 0; i < mod_info->num_system_paths; i++, j++)
+        add_path (xstrdup (mod_info->string_array[j]),
+                  SYSTEM, 0, 1);
       register_include_chains (parse_in, NULL, NULL, NULL,
                                0, 0, verbose);
 
       /* Setup defines/undefs.  */
-      for (i = 0, j = mod_info->num_quote_paths + mod_info->num_bracket_paths;
-	   i < mod_info->num_cpp_defines; i++, j++)
+      for (i = 0; i < mod_info->num_cpp_defines; i++, j++)
 	if (mod_info->string_array[j][0] == 'D')
 	  cpp_define (parse_in, mod_info->string_array[j] + 1);
 	else
 	  cpp_undef (parse_in, mod_info->string_array[j] + 1);
 
       /* Setup -imacro/-include.  */
-      for (i = 0, j = mod_info->num_quote_paths + mod_info->num_bracket_paths +
-	     mod_info->num_cpp_defines; i < mod_info->num_cpp_includes;
-	   i++, j++)
+      for (i = 0; i < mod_info->num_cpp_includes; i++, j++)
 	cpp_push_include (parse_in, mod_info->string_array[j]);
     }
 }
@@ -2751,12 +2783,13 @@ void
 write_compilation_flags_to_asm (void)
 {
   size_t i;
-  cpp_dir *quote_paths, *bracket_paths, *pdir;
+  cpp_dir *quote_paths, *bracket_paths, *system_paths, *pdir;
   struct str_list *pdef, *pinc;
   int num_quote_paths = 0;
   int num_bracket_paths = 0;
+  int num_system_paths = 0;
 
-  get_include_chains (&quote_paths, &bracket_paths);
+  get_include_chains (&quote_paths, &bracket_paths, &system_paths);
 
   /* Write quote_paths to ASM section.  */
   switch_to_section (get_section (".gnu.switches.text.quote_paths",
@@ -2780,10 +2813,28 @@ write_compilation_flags_to_asm (void)
   switch_to_section (get_section (".gnu.switches.text.bracket_paths",
 				  SECTION_DEBUG, NULL));
   for (pdir = bracket_paths; pdir; pdir = pdir->next)
-    num_bracket_paths++;
+    {
+      if (pdir == system_paths)
+	break;
+      num_bracket_paths++;
+    }
   dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
   dw2_asm_output_data_uleb128 (num_bracket_paths, NULL);
   for (pdir = bracket_paths; pdir; pdir = pdir->next)
+    {
+      if (pdir == system_paths)
+	break;
+      dw2_asm_output_nstring (pdir->name, (size_t)-1, NULL);
+    }
+
+  /* Write system_paths to ASM section.  */
+  switch_to_section (get_section (".gnu.switches.text.system_paths",
+				  SECTION_DEBUG, NULL));
+  for (pdir = system_paths; pdir; pdir = pdir->next)
+    num_system_paths++;
+  dw2_asm_output_nstring (in_fnames[0], (size_t)-1, NULL);
+  dw2_asm_output_data_uleb128 (num_system_paths, NULL);
+  for (pdir = system_paths; pdir; pdir = pdir->next)
     dw2_asm_output_nstring (pdir->name, (size_t)-1, NULL);
 
   /* Write cpp_defines to ASM section.  */

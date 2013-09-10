@@ -537,6 +537,7 @@ struct gcov_module_info
   char *source_filename;
   gcov_unsigned_t num_quote_paths;
   gcov_unsigned_t num_bracket_paths;
+  gcov_unsigned_t num_system_paths;
   gcov_unsigned_t num_cpp_defines;
   gcov_unsigned_t num_cpp_includes;
   gcov_unsigned_t num_cl_args;

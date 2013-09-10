@@ -59,6 +59,13 @@ struct GTY ((chain_next ("%h.next"))) pending_template {
 static GTY(()) struct pending_template *pending_templates;
 static GTY(()) struct pending_template *last_pending_template;
 
+void
+clear_pending_templates (void)
+{
+  pending_templates = NULL;
+  last_pending_template = NULL;
+}
+
 int processing_template_parmlist;
 static int template_header_count;
 
