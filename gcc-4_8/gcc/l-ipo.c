@@ -2006,7 +2006,9 @@ varpool_remove_duplicate_weak_decls (void)
       tree decl = node->symbol.decl;
 
       if (TREE_PUBLIC (decl) && DECL_WEAK (decl) && !DECL_EXTERNAL (decl)
-	  && get_name_seq_num (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))))
+          && ((DECL_ARTIFICIAL (decl) &&
+           get_name_seq_num (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))))
+          || (!DECL_ARTIFICIAL (decl) && real_varpool_node (decl) != node)))
         {
 	  DECL_EXTERNAL (decl) = 1;
 	  TREE_STATIC (decl) = 0;
