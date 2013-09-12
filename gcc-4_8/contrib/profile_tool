@@ -677,6 +677,7 @@ class ModuleInfo(DataObject):
     self.language = reader.ReadWord()
     self.num_quote_paths = reader.ReadWord()
     self.num_bracket_paths = reader.ReadWord()
+    self.num_system_paths = reader.ReadWord()
     self.num_cpp_defines = reader.ReadWord()
     self.num_cpp_includes = reader.ReadWord()
     self.num_cl_args = reader.ReadWord()
@@ -691,6 +692,7 @@ class ModuleInfo(DataObject):
     self.string_lens = []
     self.strings = []
     for _ in xrange(self.num_quote_paths + self.num_bracket_paths +
+                    self.num_system_paths +
                     self.num_cpp_defines + self.num_cpp_includes +
                     self.num_cl_args):
       string_len = reader.ReadWord()
@@ -710,6 +712,7 @@ class ModuleInfo(DataObject):
     writer.WriteWord(self.language)
     writer.WriteWord(self.num_quote_paths)
     writer.WriteWord(self.num_bracket_paths)
+    writer.WriteWord(self.num_system_paths)
     writer.WriteWord(self.num_cpp_defines)
     writer.WriteWord(self.num_cpp_includes)
     writer.WriteWord(self.num_cl_args)
