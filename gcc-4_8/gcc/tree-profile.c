@@ -470,8 +470,15 @@ tree_init_instrumentation (void)
                           DECL_ASSEMBLER_NAME (gcov_profile_prefix_decl));
       TREE_STATIC (gcov_profile_prefix_decl) = 1;
 
-      prefix_len = strlen (profile_data_prefix);
-      prefix_string = build_string (prefix_len + 1, profile_data_prefix);
+      const char null_prefix[] = "\0";
+      const char *prefix = null_prefix;
+      prefix_len = 0;
+      if (profile_data_prefix)
+        {
+          prefix_len = strlen (profile_data_prefix);
+          prefix = profile_data_prefix;
+        }
+      prefix_string = build_string (prefix_len + 1, prefix);
       TREE_TYPE (prefix_string) = build_array_type
           (char_type_node, build_index_type
            (build_int_cst (NULL_TREE, prefix_len)));
