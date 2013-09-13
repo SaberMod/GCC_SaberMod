@@ -52,7 +52,7 @@ extern void del_node_map (void);
    on 8 CPUs.  With sampling, the slowdown reduced to 2x.  */
 extern void add_sampling_to_edge_counters (void);
 
-extern void compute_working_sets (void);
+extern void get_working_sets (void);
 
 extern void add_working_set (gcov_working_set_t *);
 
