@@ -214,7 +214,7 @@ struct gimple_opt_pass pass_predcom =
 /* Loop autovectorization.  */
 
 static unsigned int
-tree_vectorize (void)
+tree_loop_vectorize (void)
 {
   if (number_of_loops () <= 1)
     return 0;
@@ -223,9 +223,9 @@ tree_vectorize (void)
 }
 
 static bool
-gate_tree_vectorize (void)
+gate_tree_loop_vectorize (void)
 {
-  return flag_tree_vectorize;
+  return flag_tree_loop_vectorize;
 }
 
 struct gimple_opt_pass pass_vectorize =
@@ -235,8 +235,8 @@ struct gimple_opt_pass pass_vectorize =
   "vect",                               /* name */
   OPTGROUP_LOOP
   | OPTGROUP_VEC,                       /* optinfo_flags */
-  gate_tree_vectorize,                  /* gate */
-  tree_vectorize,                       /* execute */
+  gate_tree_loop_vectorize,             /* gate */
+  tree_loop_vectorize,                  /* execute */
   NULL,                                 /* sub */
   NULL,                                 /* next */
   0,                                    /* static_pass_number */

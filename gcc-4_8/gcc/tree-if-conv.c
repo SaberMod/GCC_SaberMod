@@ -1848,7 +1848,7 @@ main_tree_if_conversion (void)
 static bool
 gate_tree_if_conversion (void)
 {
-  return ((flag_tree_vectorize && flag_tree_loop_if_convert != 0)
+  return ((flag_tree_loop_vectorize && flag_tree_loop_if_convert != 0)
 	  || flag_tree_loop_if_convert == 1
 	  || flag_tree_loop_if_convert_stores == 1);
 }

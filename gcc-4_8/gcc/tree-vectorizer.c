@@ -214,10 +214,7 @@ execute_vect_slp (void)
 static bool
 gate_vect_slp (void)
 {
-  /* Apply SLP either if the vectorizer is on and the user didn't specify
-     whether to run SLP or not, or if the SLP flag was set by the user.  */
-  return ((flag_tree_vectorize != 0 && flag_tree_slp_vectorize != 0)
-          || flag_tree_slp_vectorize == 1);
+  return flag_tree_slp_vectorize != 0;
 }
 
 struct gimple_opt_pass pass_slp_vectorize =
@@ -292,7 +289,7 @@ increase_alignment (void)
 static bool
 gate_increase_alignment (void)
 {
-  return flag_section_anchors && flag_tree_vectorize;
+  return flag_section_anchors && flag_tree_loop_vectorize;
 }
 
 
