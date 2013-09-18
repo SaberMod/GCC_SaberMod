@@ -1661,9 +1661,6 @@ common_handle_option (struct gcc_options *opts,
       if (!opts_set->x_flag_tree_loop_vectorize
           && !opts_set->x_flag_tree_vectorize)
 	opts->x_flag_tree_loop_vectorize = value;
-      if (!opts_set->x_flag_tree_slp_vectorize
-          && !opts_set->x_flag_tree_vectorize)
-	opts->x_flag_tree_slp_vectorize = value;
       if (!opts_set->x_flag_vect_cost_model)
 	opts->x_flag_vect_cost_model = value;
       if (!opts_set->x_flag_tree_loop_distribute_patterns)
