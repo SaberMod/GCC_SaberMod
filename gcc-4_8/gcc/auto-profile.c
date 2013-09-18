@@ -616,11 +616,11 @@ bool autofdo_module_profile::read ()
     {
       char *name = xstrdup (gcov_read_string ());
       unsigned total_num = 0;
-      unsigned num_array[6];
+      unsigned num_array[7];
       unsigned exported = gcov_read_unsigned ();
       unsigned lang = gcov_read_unsigned ();
       unsigned ggc_memory = gcov_read_unsigned ();
-      for (unsigned j = 0; j < 6; j++)
+      for (unsigned j = 0; j < 7; j++)
 	{
 	  num_array[j] = gcov_read_unsigned ();
 	  total_num += num_array[j];
@@ -638,9 +638,10 @@ bool autofdo_module_profile::read ()
       module->ggc_memory = ggc_memory;
       module->num_quote_paths = num_array[1];
       module->num_bracket_paths = num_array[2];
-      module->num_cpp_defines = num_array[3];
-      module->num_cpp_includes = num_array[4];
-      module->num_cl_args = num_array[5];
+      module->num_system_paths = num_array[3];
+      module->num_cpp_defines = num_array[4];
+      module->num_cpp_includes = num_array[5];
+      module->num_cl_args = num_array[6];
       module->source_filename = name;
       module->is_primary = strcmp (name, in_fnames[0]) == 0;
       module->flags = module->is_primary ? exported : 1;
