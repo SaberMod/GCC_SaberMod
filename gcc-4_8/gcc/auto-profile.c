@@ -1234,6 +1234,7 @@ afdo_annotate_cfg (void)
 
   if (s == NULL)
     return;
+  cgraph_get_node (current_function_decl)->count = s->head_count ();
   ENTRY_BLOCK_PTR->count = s->head_count ();
   gcov_type max_count = ENTRY_BLOCK_PTR->count;
 
