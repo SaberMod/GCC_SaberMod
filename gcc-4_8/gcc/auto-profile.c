@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "coverage.h"
 #include "params.h"
+#include "l-ipo.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -1290,6 +1291,13 @@ auto_profile (void)
   init_node_map ();
   profile_info = autofdo::afdo_profile_info;
 
+  cgraph_pre_profiling_inlining_done = true;
+  cgraph_process_module_scope_statics ();
+  /* Now perform link to allow cross module inlining.  */
+  cgraph_do_link ();
+  varpool_do_link ();
+  cgraph_unify_type_alias_sets ();
+
   FOR_EACH_FUNCTION (node)
     {
       if (!gimple_has_body_p (node->symbol.decl))
@@ -1301,20 +1309,32 @@ auto_profile (void)
 
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
+      if (L_IPO_COMP_MODE)
+        {
+	  basic_block bb;
+	  FOR_EACH_BB (bb)
+	    {
+	      gimple_stmt_iterator gsi;
+	      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+		{
+		  gimple stmt = gsi_stmt (gsi);
+		  if (is_gimple_call (stmt))
+		    lipo_fixup_cgraph_edge_call_target (stmt);
+		}
+	    }
+	}
+
       autofdo::afdo_annotate_cfg ();
       compute_function_frequency ();
       update_ssa (TODO_update_ssa);
 
+      /* Local pure-const may imply need to fixup the cfg.  */
+      if (execute_fixup_cfg () & TODO_cleanup_cfg)
+	cleanup_tree_cfg ();
+
       current_function_decl = NULL;
       pop_cfun ();
     }
-
-  cgraph_pre_profiling_inlining_done = true;
-  cgraph_process_module_scope_statics ();
-  /* Now perform link to allow cross module inlining.  */
-  cgraph_do_link ();
-  varpool_do_link ();
-  cgraph_unify_type_alias_sets ();
 
   return TODO_rebuild_cgraph_edges;
 }
