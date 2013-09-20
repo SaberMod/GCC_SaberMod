@@ -1292,6 +1292,22 @@ auto_profile (void)
   init_node_map ();
   profile_info = autofdo::afdo_profile_info;
 
+  FOR_EACH_FUNCTION (node)
+    {
+      if (!gimple_has_body_p (node->symbol.decl))
+	continue;
+
+      /* Don't profile functions produced for builtin stuff.  */
+      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
+	continue;
+
+      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+      autofdo::afdo_annotate_cfg ();
+      compute_function_frequency ();
+      update_ssa (TODO_update_ssa);
+      pop_cfun ();
+    }
+
   cgraph_pre_profiling_inlining_done = true;
   cgraph_process_module_scope_statics ();
   /* Now perform link to allow cross module inlining.  */
@@ -1324,19 +1340,12 @@ auto_profile (void)
 		}
 	    }
 	}
-
-      autofdo::afdo_annotate_cfg ();
-      compute_function_frequency ();
-      update_ssa (TODO_update_ssa);
-
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
 	cleanup_tree_cfg ();
 
-      current_function_decl = NULL;
       pop_cfun ();
     }
-
   return TODO_rebuild_cgraph_edges;
 }
 
