@@ -1,3 +1,12 @@
+2013-09-20  Cong Hou  <congh@google.com>
+
+	Backport from mainline:
+	2013-09-13  Cong Hou  <congh@google.com>
+
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Fix a bug
+	when checking the dot production pattern. The type of rhs operand
+	of multiply is now checked correctly.
+
 2013-09-03  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
