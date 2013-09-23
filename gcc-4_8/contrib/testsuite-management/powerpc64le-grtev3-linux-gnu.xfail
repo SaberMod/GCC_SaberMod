@@ -381,6 +381,8 @@ FAIL: gcc.dg/vect/vect-reduc-1char-big-array.c execution test
 FAIL: gcc.dg/vect/vect-reduc-1char-big-array.c -flto execution test
 FAIL: gcc.dg/vect/vect-reduc-1char.c execution test
 FAIL: gcc.dg/vect/vect-reduc-1char.c -flto execution test
+FAIL: gcc.dg/vect/vect-reduc-dot-s16c.c execution test
+FAIL: gcc.dg/vect/vect-reduc-dot-s16c.c -flto execution test
 FAIL: gcc.dg/vect/vect-reduc-pattern-1c-big-array.c execution test
 FAIL: gcc.dg/vect/vect-reduc-pattern-1c-big-array.c -flto execution test
 FAIL: gcc.dg/vect/vect-reduc-pattern-1c.c execution test
