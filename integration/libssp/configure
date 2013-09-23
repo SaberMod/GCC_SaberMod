@@ -4508,7 +4508,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether vsnprintf is usable" >&5
 $as_echo_n "checking whether vsnprintf is usable... " >&6; }
 if test "$cross_compiling" = yes; then :
-  ssp_have_usable_vsnprintf=undef
+  ssp_have_usable_vsnprintf=define
 else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
