@@ -1246,7 +1246,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       reference
       operator[](size_type __n)
-      { return this->_M_impl._M_start[difference_type(__n)]; }
+      {
+#if __google_stl_debug_deque
+	_M_range_check(__n);
+#endif
+	return this->_M_impl._M_start[difference_type(__n)];
+      }
 
       /**
        *  @brief Subscript access to the data contained in the %deque.
@@ -1261,7 +1266,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_reference
       operator[](size_type __n) const
-      { return this->_M_impl._M_start[difference_type(__n)]; }
+      {
+#if __google_stl_debug_deque
+	_M_range_check(__n);
+#endif
+	return this->_M_impl._M_start[difference_type(__n)];
+      }
 
     protected:
       /// Safety check used only from at().
@@ -1315,7 +1325,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       reference
       front()
-      { return *begin(); }
+      {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("front() on empty deque");
+#endif
+	return *begin();
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -1323,7 +1338,12 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       const_reference
       front() const
-      { return *begin(); }
+      {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("front() on empty deque");
+#endif
+	return *begin();
+      }
 
       /**
        *  Returns a read/write reference to the data at the last element of the
@@ -1332,6 +1352,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       reference
       back()
       {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("back() on empty deque");
+#endif
 	iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
@@ -1344,6 +1367,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       const_reference
       back() const
       {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("back() on empty deque");
+#endif
 	const_iterator __tmp = end();
 	--__tmp;
 	return *__tmp;
@@ -1424,6 +1450,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       void
       pop_front()
       {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("pop_front() on empty deque");
+#endif
 	if (this->_M_impl._M_start._M_cur
 	    != this->_M_impl._M_start._M_last - 1)
 	  {
@@ -1445,6 +1474,9 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       void
       pop_back()
       {
+#if __google_stl_debug_deque
+	if (empty()) __throw_logic_error("pop_back() on empty deque");
+#endif
 	if (this->_M_impl._M_finish._M_cur
 	    != this->_M_impl._M_finish._M_first)
 	  {
