@@ -1574,8 +1574,7 @@ decide_peel_simple (struct loop *loop, int flags)
      peeling it is not the case.  Also a function call inside loop is
      also branch from branch prediction POV (and probably better reason
      to not unroll/peel).  */
-  if (desc->num_branches > 1
-      && profile_status != PROFILE_READ)
+  if (desc->num_branches > 1)
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not peeling, contains branches\n");
