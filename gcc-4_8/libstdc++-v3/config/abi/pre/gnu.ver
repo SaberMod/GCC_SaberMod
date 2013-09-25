@@ -1357,6 +1357,13 @@ GLIBCXX_3.4.19 {
 
 } GLIBCXX_3.4.18;
 
+GLIBCXX_3.4.20 {
+
+   # std::__throw_out_of_range_fmt(char const*, ...)
+   _ZSt24__throw_out_of_range_fmtPKcz;
+
+} GLIBCXX_3.4.19;
+
 # Symbols in the support library (libsupc++) have their own tag.
 CXXABI_1.3 {
 
