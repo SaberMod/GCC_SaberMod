@@ -531,7 +531,7 @@ read_aux_modules (void)
 		    "assembler statements", aux_entry->name);
 	  continue;
 	}
-      if (max_group != 0 && curr_module == max_group)
+      if (max_group != 0 && curr_module >= max_group)
 	{
 	  if (flag_opt_info)
 	    inform (0, "Not importing %s: maximum group size reached",
