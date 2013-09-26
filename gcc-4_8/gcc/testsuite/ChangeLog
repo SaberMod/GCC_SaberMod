@@ -1,3 +1,11 @@
+2013-09-24  Cong Hou  <congh@google.com>
+
+	Backport from mainline:
+	2013-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58513
+	* g++.dg/vect/pr58513.cc: New testcase.
+
 2013-09-20  Cong Hou  <congh@google.com>
 
 	Backport from mainline:

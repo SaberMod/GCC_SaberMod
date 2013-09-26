@@ -4044,24 +4044,6 @@ mem_ref_offset (const_tree t)
   return tree_to_double_int (toff).sext (TYPE_PRECISION (TREE_TYPE (toff)));
 }
 
-/* Return the pointer-type relevant for TBAA purposes from the
-   gimple memory reference tree T.  This is the type to be used for
-   the offset operand of MEM_REF or TARGET_MEM_REF replacements of T.  */
-
-tree
-reference_alias_ptr_type (const_tree t)
-{
-  const_tree base = t;
-  while (handled_component_p (base))
-    base = TREE_OPERAND (base, 0);
-  if (TREE_CODE (base) == MEM_REF)
-    return TREE_TYPE (TREE_OPERAND (base, 1));
-  else if (TREE_CODE (base) == TARGET_MEM_REF)
-    return TREE_TYPE (TMR_OFFSET (base)); 
-  else
-    return build_pointer_type (TYPE_MAIN_VARIANT (TREE_TYPE (base)));
-}
-
 /* Return an invariant ADDR_EXPR of type TYPE taking the address of BASE
    offsetted by OFFSET units.  */
 
@@ -7035,21 +7017,6 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	    val = iterative_hash_expr (field, val);
 	    val = iterative_hash_expr (value, val);
 	  }
-	return val;
-      }
-    case MEM_REF:
-      {
-	/* The type of the second operand is relevant, except for
-	   its top-level qualifiers.  */
-	tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (t, 1)));
-
-	val = iterative_hash_object (TYPE_HASH (type), val);
-
-	/* We could use the standard hash computation from this point
-	   on.  */
-	val = iterative_hash_object (code, val);
-	val = iterative_hash_expr (TREE_OPERAND (t, 1), val);
-	val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
 	return val;
       }
     case FUNCTION_DECL:
