@@ -713,6 +713,7 @@ lipo_cmp_type (tree t1, tree t2)
               && lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2)));
     case VOID_TYPE:
     case BOOLEAN_TYPE:
+    case NULLPTR_TYPE:
       return 1;
     case TEMPLATE_TYPE_PARM:
       return 1;
