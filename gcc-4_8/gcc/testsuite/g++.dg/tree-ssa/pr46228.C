@@ -1,4 +1,4 @@
-// { dg-options "-fdump-tree-optimized -Os" }
+// { dg-options "-fdump-tree-optimized -Os --param=comdat-sharing-probability=20" }
 #include <set>
 #include <stdio.h>
 

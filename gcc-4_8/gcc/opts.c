@@ -609,9 +609,14 @@ default_options_optimization (struct gcc_options *opts,
      opts->x_param_values, opts_set->x_param_values);
 
   if (opts->x_optimize_size)
-    /* We want to crossjump as much as possible.  */
-    maybe_set_param_value (PARAM_MIN_CROSSJUMP_INSNS, 1,
-			   opts->x_param_values, opts_set->x_param_values);
+    {
+      /* We want to crossjump as much as possible.  */
+      maybe_set_param_value (PARAM_MIN_CROSSJUMP_INSNS, 1,
+			     opts->x_param_values, opts_set->x_param_values);
+      /* Don't be aggressive in inlining comdats.  */
+      maybe_set_param_value (PARAM_COMDAT_SHARING_PROBABILITY, 80,
+                             opts->x_param_values, opts_set->x_param_values);
+    }
   else
     maybe_set_param_value (PARAM_MIN_CROSSJUMP_INSNS,
 			   default_param_value (PARAM_MIN_CROSSJUMP_INSNS),
