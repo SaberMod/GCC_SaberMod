@@ -15938,11 +15938,14 @@ cp_parser_init_declarator (cp_parser* parser,
 	    decl = cp_parser_save_member_function_body (parser,
 							decl_specifiers,
 							declarator,
-							prefix_attributes);
+							chainon (
+                                                            prefix_attributes,
+                                                            attributes));
 	  else
 	    decl
 	      = (cp_parser_function_definition_from_specifiers_and_declarator
-		 (parser, decl_specifiers, prefix_attributes, declarator));
+		 (parser, decl_specifiers, chainon (prefix_attributes,
+                                                    attributes), declarator));
 
 	  if (decl != error_mark_node && DECL_STRUCT_FUNCTION (decl))
 	    {
@@ -16145,7 +16148,7 @@ cp_parser_init_declarator (cp_parser* parser,
       decl = grokfield (declarator, decl_specifiers,
 			initializer, !is_non_constant_init,
 			/*asmspec=*/NULL_TREE,
-			prefix_attributes);
+			chainon (attributes, prefix_attributes));
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
     }
