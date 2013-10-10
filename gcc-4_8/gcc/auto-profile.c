@@ -174,10 +174,9 @@ private:
   const function_instance *get_function_instance_by_decl (unsigned lineno,
 							  tree decl) const;
 
-  /* Callsite, represented as (decl_lineno, callee_function_name_index).  */
-  typedef std::pair<unsigned, unsigned> callsite;
-  /* Map from callsite to callee function_instance.  */
-  typedef std::map<callsite, const function_instance *> callsite_map;
+  /* Map from callsite decl_lineno (lineno in higher 16 bits, discriminator
+     in lower 16 bits) to callee function_instance.  */
+  typedef std::map<unsigned, const function_instance *> callsite_map;
   /* Map from source location (decl_lineno) to profile (count_info).  */
   typedef std::map<unsigned, count_info> position_count_map;
 
@@ -430,8 +429,7 @@ const function_instance *function_instance::get_function_instance_by_decl (
   int func_name_idx = afdo_function_name_map->get_index_by_decl (decl);
   if (func_name_idx != -1)
     {
-      callsite_map::const_iterator ret = callsites.find (
-	  std::make_pair (lineno, func_name_idx));
+      callsite_map::const_iterator ret = callsites.find (lineno);
       if (ret != callsites.end ())
 	return ret->second;
     }
@@ -439,8 +437,7 @@ const function_instance *function_instance::get_function_instance_by_decl (
       lang_hooks.dwarf_name (decl, 0));
   if (func_name_idx != -1)
     {
-      callsite_map::const_iterator ret = callsites.find (
-	  std::make_pair (lineno, func_name_idx));
+      callsite_map::const_iterator ret = callsites.find (lineno);
       if (ret != callsites.end ())
 	return ret->second;
     }
@@ -500,10 +497,7 @@ const function_instance *function_instance::read_function_instance (
     }
   for (unsigned i = 0; i < num_callsites; i++) {
     unsigned offset = gcov_read_unsigned ();
-    const function_instance *callee_function_instance =
-	read_function_instance (stack, 0);
-    s->callsites[std::make_pair (offset, callee_function_instance->name ())] =
-	callee_function_instance;
+    s->callsites[offset] = read_function_instance (stack, 0);
   }
   stack->pop_back();
   return s;
