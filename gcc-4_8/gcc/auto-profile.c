@@ -891,7 +891,7 @@ afdo_find_equiv_class (void)
       if (bb->aux != NULL)
 	continue;
       bb->aux = bb;
-      dom_bbs = get_dominated_by (CDI_DOMINATORS, bb);
+      dom_bbs = get_all_dominated_blocks (CDI_DOMINATORS, bb);
       FOR_EACH_VEC_ELT (dom_bbs, i, bb1)
 	if (bb1->aux == NULL
 	    && dominated_by_p (CDI_POST_DOMINATORS, bb, bb1)
@@ -904,7 +904,7 @@ afdo_find_equiv_class (void)
 		bb->flags |= BB_ANNOTATED;
 	      }
 	  }
-      dom_bbs = get_dominated_by (CDI_POST_DOMINATORS, bb);
+      dom_bbs = get_all_dominated_blocks (CDI_POST_DOMINATORS, bb);
       FOR_EACH_VEC_ELT (dom_bbs, i, bb1)
 	if (bb1->aux == NULL
 	    && dominated_by_p (CDI_DOMINATORS, bb, bb1)
