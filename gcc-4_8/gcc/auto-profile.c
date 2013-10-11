@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "params.h"
 #include "l-ipo.h"
+#include "ipa-utils.h"
+#include "ipa-inline.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -105,6 +107,10 @@ typedef std::pair<gcov_type, icall_target_map> count_info;
 /* Set of inline_stack. Used to track if the profile is already used to
    annotate the program.  */
 typedef std::set<inline_stack> location_set;
+
+/* Set of gimple stmts. Used to track if the stmt has already been promoted
+   to direct call.  */
+typedef std::set<gimple> stmt_set;
 
 struct string_compare
 {
@@ -168,9 +174,16 @@ public:
      is found.  */
   bool get_count_info (location_t loc, count_info *info) const;
 
+  /* Read the inlinied indirect call target profile for STMT and store it in
+  MAP, return the total count for all inlined indirect calls.  */
+  gcov_type find_icall_target_map (gimple stmt, icall_target_map *map) const;
+
 private:
   function_instance (unsigned name, gcov_type head_count)
       : name_(name), total_count_(0), head_count_(head_count) {}
+
+  /* Traverse callsites of the current function_instance to find one at the
+     location of LINENO and callee name represented in DECL.  */
   const function_instance *get_function_instance_by_decl (unsigned lineno,
 							  tree decl) const;
 
@@ -213,6 +226,10 @@ public:
 		       const location_set *annotated) const;
   /* Find total count of the callee of EDGE.  */
   gcov_type get_callsite_total_count (struct cgraph_edge *edge) const;
+
+  /* Update value profile INFO for STMT from the inlined indirect callsite.
+  Return true if INFO is updated.  */
+  bool update_inlined_ind_target (gimple stmt, count_info *info);
 
 private:
   /* Map from function_instance name index (in function_name_map) to
@@ -352,6 +369,42 @@ get_inline_stack (gimple stmt, inline_stack *stack)
       get_combined_location (locus, current_function_decl)));
 }
 
+/* Return STMT's combined location, which is a 32bit integer in which
+   higher 16 bits stores the line offset of LOC to the start lineno
+   of DECL, The lower 16 bits stores the discrimnator.  */
+
+static unsigned
+get_relative_location_for_stmt (gimple stmt)
+{
+  location_t locus = gimple_location (stmt);
+  if (LOCATION_LOCUS (locus) == UNKNOWN_LOCATION)
+    return UNKNOWN_LOCATION;
+
+  for (tree block = gimple_block (stmt);
+       block && (TREE_CODE (block) == BLOCK);
+       block = BLOCK_SUPERCONTEXT (block))
+    if (LOCATION_LOCUS (BLOCK_SOURCE_LOCATION (block)) != UNKNOWN_LOCATION)
+      return get_combined_location (
+	  locus, get_function_decl_from_block (block));
+  return get_combined_location (locus, current_function_decl);
+}
+
+/* Return true if BB contains indirect call.  */
+
+static bool
+has_indirect_call (basic_block bb)
+{
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) == GIMPLE_CALL
+	  && TREE_CODE (gimple_call_fn (stmt)) != FUNCTION_DECL)
+	return true;
+    }
+  return false;
+}
 
 /* Member functions for function_name_map.  */
 
@@ -423,6 +476,9 @@ function_instance::~function_instance ()
     delete iter->second;
 }
 
+/* Traverse callsites of the current function_instance to find one at the
+   location of LINENO and callee name represented in DECL.  */
+
 const function_instance *function_instance::get_function_instance_by_decl (
     unsigned lineno, tree decl) const
 {
@@ -447,6 +503,9 @@ const function_instance *function_instance::get_function_instance_by_decl (
     return NULL;
 }
 
+/* Recursively traverse STACK starting from LEVEL to find the corresponding
+   function_instance.  */
+
 const function_instance *function_instance::get_function_instance (
     const inline_stack &stack, unsigned level) const
 {
@@ -460,6 +519,9 @@ const function_instance *function_instance::get_function_instance (
     return NULL;
 }
 
+/* Store the profile info for LOC in INFO. Return TRUE if profile info
+   is found.  */
+
 bool function_instance::get_count_info (location_t loc, count_info *info) const
 {
   position_count_map::const_iterator iter = pos_counts.find (loc);
@@ -468,6 +530,39 @@ bool function_instance::get_count_info (location_t loc, count_info *info) const
   *info = iter->second;
   return true;
 }
+
+/* Read the inlinied indirect call target profile for STMT and store it in
+   MAP, return the total count for all inlined indirect calls.  */
+
+gcov_type
+function_instance::find_icall_target_map (
+    gimple stmt, icall_target_map *map) const
+{
+  gcov_type ret = 0;
+  unsigned stmt_offset = get_relative_location_for_stmt (stmt);
+
+  for (callsite_map::const_iterator iter = callsites.begin();
+       iter != callsites.end(); ++iter)
+    {
+      unsigned callee = iter->second->name();
+      /* Check if callsite location match the stmt.  */
+      if (iter->first != stmt_offset)
+	continue;
+      struct cgraph_node *node = find_func_by_global_id (
+	  (unsigned long long) afdo_function_name_map->get_name (callee), true);
+      if (node == NULL)
+	continue;
+      if (!check_ic_target (stmt, node))
+	continue;
+      (*map)[callee] = iter->second->total_count ();
+      ret += iter->second->total_count ();
+    }
+  return ret;
+}
+
+/* Read the profile and create a function_instance with head count as
+   HEAD_COUNT. Recursively read callsites to create nested function_instances
+   too. STACK is used to track the recursive creation process.  */
 
 const function_instance *function_instance::read_function_instance (
     function_instance_stack *stack, gcov_type head_count)
@@ -513,6 +608,8 @@ autofdo_source_profile::~autofdo_source_profile ()
     delete iter->second;
 }
 
+/* For a given DECL, returns the top-level function_instance.  */
+
 const function_instance *autofdo_source_profile::get_function_instance_by_decl (
     tree decl) const
 {
@@ -522,6 +619,10 @@ const function_instance *autofdo_source_profile::get_function_instance_by_decl (
   name_function_instance_map::const_iterator ret = map_.find (index);
   return ret == map_.end() ? NULL : ret->second;
 }
+
+/* Find profile info for a given gimple STMT. If found, and if the location
+   of STMT does not exist in ANNOTATED, store the profile info in INFO, and
+   return true; otherwise return false.  */
 
 bool autofdo_source_profile::get_count_info (
     gimple stmt, count_info *info, const location_set *annotated) const
@@ -541,6 +642,51 @@ bool autofdo_source_profile::get_count_info (
   return s->get_count_info (stack[0].second, info);
 }
 
+/* Update value profile INFO for STMT from the inlined indirect callsite.
+   Return true if INFO is updated.  */
+
+bool
+autofdo_source_profile::update_inlined_ind_target (
+    gimple stmt, count_info *info)
+{
+  if (LOCATION_LOCUS (gimple_location (stmt)) == cfun->function_end_locus)
+    return false;
+
+  count_info old_info;
+  get_count_info (stmt, &old_info, NULL);
+  gcov_type total = 0;
+  for (icall_target_map::const_iterator iter = old_info.second.begin();
+       iter != old_info.second.end(); ++iter)
+    total += iter->second;
+
+  /* Program behavior changed, original promoted (and inlined) target is not
+     hot any more. Will avoid promote the original target.
+
+     To check if original promoted target is still hot, we check the total
+     count of the unpromoted targets (stored in old_info). If it is no less
+     than half of the callsite count (stored in INFO), the original promoted
+     target is considered not hot any more.  */
+  if (total >= info->first * 0.5)
+    return false;
+
+  inline_stack stack;
+  get_inline_stack (stmt, &stack);
+  if (stack.size () == 0)
+    return false;
+  const function_instance *s = get_function_instance_by_inline_stack (stack);
+  if (s == NULL)
+    return false;
+  icall_target_map map;
+  if (s->find_icall_target_map (stmt, &map) == 0)
+    return false;
+  for (icall_target_map::const_iterator iter = map.begin();
+       iter != map.end(); ++iter)
+    info->second[iter->first] = iter->second;
+  return true;
+}
+
+/* Find total count of the callee of EDGE.  */
+
 gcov_type autofdo_source_profile::get_callsite_total_count (
     struct cgraph_edge *edge) const
 {
@@ -554,6 +700,8 @@ gcov_type autofdo_source_profile::get_callsite_total_count (
   else
     return s->total_count ();
 }
+
+/* Read source profile.  */
 
 bool autofdo_source_profile::read ()
 {
@@ -579,6 +727,9 @@ bool autofdo_source_profile::read ()
     }
   return true;
 }
+
+/* Return the function_instance in the profile that correspond to the
+   inline STACK.  */
 
 const function_instance *
 autofdo_source_profile::get_function_instance_by_inline_stack (
@@ -647,6 +798,8 @@ bool autofdo_module_profile::read ()
     }
   return true;
 }
+
+/* Read the profile from the profile file.  */
 
 static void
 read_profile (void)
@@ -820,11 +973,13 @@ afdo_vpt (gimple stmt, const icall_target_map &map)
   afdo_indirect_call (stmt, map);
 }
 
-/* For a given BB, return its execution count, and annotate value profile
-   on statements. Add the location of annotated stmt to ANNOTATED.  */
+/* For a given BB, return its execution count. Add the location of annotated
+   stmt to ANNOTATED. Attach value profile if a stmt is not in PROMOTED,
+   because we only want to promot an indirect call once.  */
 
 static gcov_type
-afdo_get_bb_count (basic_block bb, location_set *annotated)
+afdo_get_bb_count (basic_block bb, location_set *annotated,
+		   const stmt_set &promoted)
 {
   gimple_stmt_iterator gsi;
   gcov_type max_count = 0;
@@ -839,7 +994,7 @@ afdo_get_bb_count (basic_block bb, location_set *annotated)
 	  if (info.first > max_count)
 	    max_count = info.first;
 	  has_annotated = true;
-	  if (info.second.size() > 0)
+	  if (info.second.size() > 0 && promoted.find (stmt) == promoted.end ())
 	    afdo_vpt (stmt, info.second);
 	}
     }
@@ -1216,10 +1371,78 @@ afdo_calculate_branch_prob (void)
   free_dominance_info (CDI_POST_DOMINATORS);
 }
 
-/* Annotate auto profile to the control flow graph.  */
+/* Perform value profile transformation using AutoFDO profile. Add the
+   promoted stmts to PROMOTED_STMTS. Return TRUE if there is any
+   indirect call promoted.  */
+
+static bool
+afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
+{
+  basic_block bb;
+  if (afdo_source_profile->get_function_instance_by_decl (
+      current_function_decl) == NULL)
+    return false;
+
+  bool has_vpt = false;
+  FOR_EACH_BB (bb)
+    {
+      if (!has_indirect_call (bb))
+	continue;
+      gimple_stmt_iterator gsi;
+
+      gcov_type bb_count = 0;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  count_info info;
+	  gimple stmt = gsi_stmt (gsi);
+	  if (afdo_source_profile->get_count_info (stmt, &info, NULL))
+	    bb_count = MAX (bb_count, info.first);
+	}
+
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  /* IC_promotion and early_inline_2 is done in multiple iterations.
+	     No need to promoted the stmt if its in promoted_stmts (means
+	     it is already been promoted in the previous iterations).  */
+	  if (gimple_code (stmt) != GIMPLE_CALL
+	      || TREE_CODE (gimple_call_fn (stmt)) == FUNCTION_DECL
+	      || promoted_stmts->find (stmt) != promoted_stmts->end ())
+	    continue;
+
+	  count_info info;
+	  afdo_source_profile->get_count_info (stmt, &info, NULL);
+	  info.first = bb_count;
+	  if (afdo_source_profile->update_inlined_ind_target (stmt, &info))
+	    {
+	      /* Promote the indirect call and update the promoted_stmts.  */
+	      promoted_stmts->insert (stmt);
+	      afdo_vpt (stmt, info.second);
+	      has_vpt = true;
+	    }
+	}
+    }
+  if (has_vpt && gimple_value_profile_transformations ())
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+      calculate_dominance_info (CDI_POST_DOMINATORS);
+      calculate_dominance_info (CDI_DOMINATORS);
+      rebuild_cgraph_edges ();
+      update_ssa (TODO_update_ssa);
+      compute_inline_parameters (cgraph_get_node (current_function_decl),
+				 false);
+      return true;
+    }
+  else
+    return false;
+}
+
+/* Annotate auto profile to the control flow graph. Do not annotate value
+   profile for stmts in PROMOTED_STMTS.  */
 
 static void
-afdo_annotate_cfg (void)
+afdo_annotate_cfg (const stmt_set &promoted_stmts)
 {
   basic_block bb;
   const function_instance *s =
@@ -1232,7 +1455,7 @@ afdo_annotate_cfg (void)
   ENTRY_BLOCK_PTR->count = s->head_count ();
   gcov_type max_count = ENTRY_BLOCK_PTR->count;
 
-  location_set annotated_loc_set;
+  location_set annotated_locs;
 
   FOR_EACH_BB (bb)
     {
@@ -1247,7 +1470,7 @@ afdo_annotate_cfg (void)
 	  e->flags &= (~EDGE_ANNOTATED);
 	}
 
-      bb->count = afdo_get_bb_count (bb, &annotated_loc_set);
+      bb->count = afdo_get_bb_count (bb, &annotated_locs, promoted_stmts);
       if (bb->count > max_count)
 	max_count = bb->count;
     }
@@ -1296,7 +1519,44 @@ auto_profile (void)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-      autofdo::afdo_annotate_cfg ();
+
+      /* First do indirect call promotion and early inline to make the
+	 IR match the profiled binary before actual annotation.
+
+	 This is needed because an indirect call might have been promoted
+	 and inlined in the profiled binary. If we do not promote and
+	 inline these indirect calls before annotation, the profile for
+	 these promoted functions will be lost.
+
+	 e.g. foo() --indirect_call--> bar()
+	 In profiled binary, the callsite is promoted and inlined, making
+	 the profile look like:
+
+	 foo: {
+	   loc_foo_1: count_1
+	   bar@loc_foo_2: {
+	     loc_bar_1: count_2
+	     loc_bar_2: count_3
+	   }
+	 }
+
+	 Before AutoFDO pass, loc_foo_2 is not promoted thus not inlined.
+	 If we perform annotation on it, the profile inside bar@loc_foo2
+	 will be wasted.
+
+	 To avoid this, we promote loc_foo_2 and inline the promoted bar
+	 function before annotation, so the profile inside bar@loc_foo2
+	 will be useful.  */
+      autofdo::stmt_set promoted_stmts;
+      for (int i = 0; i < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS); i++)
+	{
+	  if (!flag_value_profile_transformations
+	      || !autofdo::afdo_vpt_for_early_inline (&promoted_stmts))
+	    break;
+	  early_inliner ();
+	}
+
+      autofdo::afdo_annotate_cfg (promoted_stmts);
       compute_function_frequency ();
       update_ssa (TODO_update_ssa);
       pop_cfun ();
@@ -1321,7 +1581,7 @@ auto_profile (void)
       push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
 
       if (L_IPO_COMP_MODE)
-        {
+	{
 	  basic_block bb;
 	  FOR_EACH_BB (bb)
 	    {

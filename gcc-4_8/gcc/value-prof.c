@@ -1327,7 +1327,7 @@ find_func_by_global_id (unsigned HOST_WIDE_INT gid, bool is_auto_fdo)
    may ICE. Here we only do very minimal sanity check just to make compiler happy.
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
-static bool
+bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;

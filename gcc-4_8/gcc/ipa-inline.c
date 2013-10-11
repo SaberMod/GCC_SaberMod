@@ -2203,7 +2203,7 @@ early_inline_small_functions (struct cgraph_node *node)
 /* Do inlining of small functions.  Doing so early helps profiling and other
    passes to be somewhat more effective and avoids some code duplication in
    later real inlining pass for testcases with very many function calls.  */
-static unsigned int
+unsigned int
 early_inliner (void)
 {
   struct cgraph_node *node = cgraph_get_node (current_function_decl);

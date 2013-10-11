@@ -201,6 +201,9 @@ typedef struct edge_growth_cache_entry
 extern vec<int> node_growth_cache;
 extern vec<edge_growth_cache_entry> edge_growth_cache;
 
+/* In ipa-inline.c  */
+unsigned int early_inliner (void);
+
 /* In ipa-inline-analysis.c  */
 void debug_inline_summary (struct cgraph_node *);
 void dump_inline_summaries (FILE *f);
