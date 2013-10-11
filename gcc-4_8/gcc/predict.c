@@ -1951,11 +1951,39 @@ tree_predict_by_opcode (basic_block bb)
   if (val)
     {
       int percent = PARAM_VALUE (BUILTIN_EXPECT_PROBABILITY);
+      void **preds;
+      int hitrate;
 
       gcc_assert (percent >= 0 && percent <= 100);
+      /* This handles the cases like
+           while (__builtin_expect (exp, 1)) { ... }
+         W/o builtin_expect, the default HITRATE is 91%.
+         It does not make sense to estimate a lower probability of 90%
+         (current default for builtin_expect) with the annotation.
+         So here, we bump the probability by a small amount.  */
+      preds = pointer_map_contains (bb_predictions, bb);
+      hitrate = HITRATE (percent);
+      if (preds)
+        {
+          struct edge_prediction *pred;
+          int exit_hitrate = predictor_info [(int) PRED_LOOP_EXIT].hitrate;
+
+          for (pred = (struct edge_prediction *) *preds; pred;
+               pred = pred->ep_next)
+            {
+              if (pred->ep_predictor == PRED_LOOP_EXIT
+                  && exit_hitrate > hitrate)
+                {
+                  hitrate = exit_hitrate + HITRATE (4);
+                  if (hitrate > REG_BR_PROB_BASE)
+                    hitrate = REG_BR_PROB_BASE;
+                  break;
+                }
+            }
+        }
       if (integer_zerop (val))
-        percent = 100 - percent;
-      predict_edge (then_edge, PRED_BUILTIN_EXPECT, HITRATE (percent));
+        hitrate = REG_BR_PROB_BASE - hitrate;
+      predict_edge (then_edge, PRED_BUILTIN_EXPECT, hitrate);
     }
   /* Try "pointer heuristic."
      A comparison ptr == 0 is predicted as false.
