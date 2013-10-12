@@ -81,10 +81,6 @@ FAIL: gcc.c-torture/execute/float-floor.c execution,  -O3 -g
 FAIL: gcc.c-torture/execute/float-floor.c execution,  -Os
 FAIL: gcc.c-torture/execute/float-floor.c execution,  -Og -g
 FAIL: gcc.c-torture/execute/float-floor.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.dg/cleanup-10.c execution test
-FAIL: gcc.dg/cleanup-11.c execution test
-FAIL: gcc.dg/cleanup-8.c execution test
-FAIL: gcc.dg/cleanup-9.c execution test
 FAIL: gcc.dg/dfp/fe-binop.c execution test
 FAIL: gcc.dg/pr43419.c execution test
 FAIL: gcc.dg/torture/tls/tls-test.c -O0  execution test
@@ -120,6 +116,12 @@ FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
 FAIL: gcc.dg/torture/tls/tls-test.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
 FAIL: gcc.dg/torture/tls/tls-test.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 
+# Execution failures common to Power targets running under QEMU.
+FAIL: gcc.dg/cleanup-10.c execution test
+FAIL: gcc.dg/cleanup-11.c execution test
+FAIL: gcc.dg/cleanup-8.c execution test
+FAIL: gcc.dg/cleanup-9.c execution test
+
 
 # *** g++:
 
@@ -131,6 +133,10 @@ FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "and turne
 FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
 
 # PPCle-specific execution failures.  Not yet analyzed.
+FAIL: g++.dg/tls/thread_local3.C -std=gnu++11 execution test
+FAIL: g++.dg/tls/thread_local3g.C -std=gnu++11 execution test
+
+# Execution failures common to Power targets running under QEMU.
 FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
 FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
 FAIL: g++.dg/cdce3.C -std=gnu++98 execution test
@@ -143,15 +149,12 @@ FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local3.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local3g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local5g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local6.C execution test
 FAIL: g++.dg/tls/thread_local6g.C execution test
-
 
 # PPCle-specific: There are known bugs in little-endian vector support.
 FAIL: gcc.dg/vect/bb-slp-24.c execution test

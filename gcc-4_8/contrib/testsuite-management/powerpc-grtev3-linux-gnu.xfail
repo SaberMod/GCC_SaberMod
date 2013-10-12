@@ -45,11 +45,20 @@ FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "goo"
 # the host.
 UNRESOLVED: gcc.dg/pr47793.c scan-file .
 
-# Power 32-bit specific.
+# Power 32-bit specific.  Internal compiler error, upstream PR54273.
+FAIL: gcc.target/powerpc/regnames-1.c (internal compiler error)
+FAIL: gcc.target/powerpc/regnames-1.c (test for excess errors)
+
+# Power 32-bit specific.  Testcase locally backported from trunk.
+FAIL: gcc.dg/pr57518.c scan-rtl-dump-not ira "REG_EQUIV.*mem.*"ip""
+
+# Power 32-bit specific.  "libgcc/libgcov.c 1591: undefined reference to `__atomic_fetch_add_8'"
+# (This reference is in Google-local code added as r200877.)
 FAIL: gcc.dg/pr47793.c (test for excess errors)
 UNRESOLVED: gcc.dg/pr47793.c compilation failed to produce executable
-FAIL: gcc.dg/pr57518.c scan-rtl-dump-not ira "REG_EQUIV.*mem.*"ip""
 FAIL: gcc.dg/profile-generate-3.c (test for excess errors)
+
+# Power 32-bit specific.  Not yet analyzed.
 FAIL: gcc.dg/tree-ssa/sra-12.c scan-tree-dump-times release_ssa "l;" 0
 FAIL: gcc.target/powerpc/405-dlmzb-strlen-1.c scan-assembler dlmzb\\.
 FAIL: gcc.target/powerpc/440-dlmzb-strlen-1.c scan-assembler dlmzb\\.
@@ -64,19 +73,19 @@ FAIL: gcc.target/powerpc/pr46728-2.c scan-assembler-times fsqrt|xssqrtdp 4
 FAIL: gcc.target/powerpc/pr46728-3.c scan-assembler-times sqrt 4
 FAIL: gcc.target/powerpc/pr46728-5.c scan-assembler-times cbrt 2
 FAIL: gcc.target/powerpc/pr52775.c scan-assembler-times fcfid 2
-FAIL: gcc.target/powerpc/regnames-1.c (internal compiler error)
-FAIL: gcc.target/powerpc/regnames-1.c (test for excess errors)
 FAIL: gcc.target/powerpc/tfmode_off.c object-size text == 544
 
 # Power 32-bit specific execution failures.  Not yet analyzed.
+FAIL: gcc.dg/torture/fp-int-convert-long-double.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.target/powerpc/ppc-get-timebase.c execution test
+FAIL: gcc.target/powerpc/ppc-mftb.c execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
+
+# Execution failures common to Power targets running under QEMU.
 FAIL: gcc.dg/cleanup-10.c execution test
 FAIL: gcc.dg/cleanup-11.c execution test
 FAIL: gcc.dg/cleanup-8.c execution test
 FAIL: gcc.dg/cleanup-9.c execution test
-FAIL: gcc.dg/torture/fp-int-convert-long-double.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
-FAIL: gcc.target/powerpc/ppc-get-timebase.c execution test
-FAIL: gcc.target/powerpc/ppc-mftb.c execution test
 
 
 # *** g++:
@@ -92,6 +101,10 @@ FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
 FAIL: g++.dg/tree-prof/lipo/vcall1_0.C scan-ipa-dump-times profile "Indirect call -> direct call" 2
 
 # Power 32-bit specific execution failures.  Not yet analyzed.
+FAIL: g++.dg/other/pr55650.C -std=gnu++98 (test for excess errors)
+FAIL: g++.dg/other/pr55650.C -std=gnu++11 (test for excess errors)
+
+# Execution failures common to Power targets running under QEMU.
 FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
 FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
 FAIL: g++.dg/cdce3.C -std=gnu++98 execution test
@@ -104,8 +117,6 @@ FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
-FAIL: g++.dg/other/pr55650.C -std=gnu++98 (test for excess errors)
-FAIL: g++.dg/other/pr55650.C -std=gnu++11 (test for excess errors)
 FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
