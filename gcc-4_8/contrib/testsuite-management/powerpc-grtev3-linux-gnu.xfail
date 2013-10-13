@@ -79,6 +79,13 @@ FAIL: gcc.target/powerpc/tfmode_off.c object-size text == 544
 FAIL: gcc.dg/torture/fp-int-convert-long-double.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 FAIL: gcc.target/powerpc/ppc-get-timebase.c execution test
 FAIL: gcc.target/powerpc/ppc-mftb.c execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O1  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O2  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -fpic  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fpie  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -pie -fpie  execution test
+FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fPIE  execution test
 FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
 
 # Execution failures common to Power targets running under QEMU.
@@ -117,6 +124,8 @@ FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
 FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
+FAIL: g++.dg/tls/thread_local3.C -std=gnu++11 execution test
+FAIL: g++.dg/tls/thread_local3g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
 FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
