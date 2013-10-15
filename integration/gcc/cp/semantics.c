@@ -1604,6 +1604,9 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       if (TREE_CODE (type) == REFERENCE_TYPE)
 	/* Quals on the object don't matter.  */;
+      else if (PACK_EXPANSION_P (type))
+	/* Don't bother trying to represent this.  */
+	type = NULL_TREE;
       else
 	{
 	  /* Set the cv qualifiers.  */
@@ -2361,7 +2364,8 @@ finish_this_expr (void)
    was of the form `OBJECT.SCOPE::~DESTRUCTOR'.  */
 
 tree
-finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
+finish_pseudo_destructor_expr (tree object, tree scope, tree destructor,
+			       location_t loc)
 {
   if (object == error_mark_node || destructor == error_mark_node)
     return error_mark_node;
@@ -2372,15 +2376,16 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
     {
       if (scope == error_mark_node)
 	{
-	  error ("invalid qualifying scope in pseudo-destructor name");
+	  error_at (loc, "invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
       if (is_auto (destructor))
 	destructor = TREE_TYPE (object);
       if (scope && TYPE_P (scope) && !check_dtor_name (scope, destructor))
 	{
-	  error ("qualified type %qT does not match destructor name ~%qT",
-		 scope, destructor);
+	  error_at (loc,
+		    "qualified type %qT does not match destructor name ~%qT",
+		    scope, destructor);
 	  return error_mark_node;
 	}
 
@@ -2401,12 +2406,13 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
       if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object),
 						      destructor))
 	{
-	  error ("%qE is not of type %qT", object, destructor);
+	  error_at (loc, "%qE is not of type %qT", object, destructor);
 	  return error_mark_node;
 	}
     }
 
-  return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope, destructor);
+  return build3_loc (loc, PSEUDO_DTOR_EXPR, void_type_node, object,
+		     scope, destructor);
 }
 
 /* Finish an expression of the form CODE EXPR.  */
@@ -5193,7 +5199,9 @@ finish_transaction_stmt (tree stmt, tree compound_stmt, int flags, tree noex)
     {
       tree body = build_must_not_throw_expr (TRANSACTION_EXPR_BODY (stmt),
 					     noex);
-      SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
+      /* This may not be true when the STATEMENT_LIST is empty.  */
+      if (EXPR_P (body))
+        SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
       TREE_SIDE_EFFECTS (body) = 1;
       TRANSACTION_EXPR_BODY (stmt) = body;
     }

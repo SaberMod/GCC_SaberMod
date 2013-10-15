@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
@@ -414,8 +414,8 @@ const pass_data pass_data_phiprop =
 class pass_phiprop : public gimple_opt_pass
 {
 public:
-  pass_phiprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_phiprop, ctxt)
+  pass_phiprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_phiprop, ctxt)
   {}
 
   /* opt_pass methods: */

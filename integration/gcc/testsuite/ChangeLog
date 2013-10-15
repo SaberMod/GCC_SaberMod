@@ -1,3 +1,443 @@
+2013-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58564
+	* gcc.c-torture/execute/pr58564.c: New test.
+
+2013-09-30  Teresa Johnson  <tejohnson@google.com>
+
+	* testsuite/gcc.dg/tree-ssa/ssa-dom-thread-3.c (expand_one_var):
+	Update for additional dump message.
+
+2013-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58554
+	* gcc.dg/torture/pr58554.c: New testcase.
+
+2013-09-30  Simon Cook  <simon.cook@embecosm.com>
+	    Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* gcc.target/arc/barrel-shifter-1.c: New test.
+	* gcc.target/arc/barrel-shifter-2.c: Likewise.
+	* gcc.target/arc/long-calls.c, gcc.target/arc/mA6.c: Likewise.
+	* gcc.target/arc/mA7.c, gcc.target/arc/mARC600.c: Likewise.
+	* gcc.target/arc/mARC601.c, gcc.target/arc/mARC700.c: Likewise.
+	* gcc.target/arc/mcpu-arc600.c, gcc.target/arc/mcpu-arc601.c: Likewise.
+	* gcc.target/arc/mcpu-arc700.c, gcc.target/arc/mcrc.c: Likewise.
+	* gcc.target/arc/mdpfp.c, gcc.target/arc/mdsp-packa.c: Likewise.
+	* gcc.target/arc/mdvbf.c, gcc.target/arc/mlock.c: Likewise.
+	* gcc.target/arc/mmac-24.c, gcc.target/arc/mmac-d16.c: Likewise.
+	* gcc.target/arc/mno-crc.c, gcc.target/arc/mno-dsp-packa.c: Likewise.
+	* gcc.target/arc/mno-dvbf.c, gcc.target/arc/mno-lock.c: Likewise.
+	* gcc.target/arc/mno-mac-24.c, gcc.target/arc/mno-mac-d16.c: Likewise.
+	* gcc.target/arc/mno-rtsc.c, gcc.target/arc/mno-swape.c: Likewise.
+	* gcc.target/arc/mno-xy.c, gcc.target/arc/mrtsc.c: Likewise.
+	* gcc.target/arc/mspfp.c, gcc.target/arc/mswape.c: Likewise.
+	* gcc.target/arc/mtune-ARC600.c: Likewise.
+	* gcc.target/arc/mtune-ARC601.c: Likewise.
+	* gcc.target/arc/mtune-ARC700-xmac: Likewise.
+	* gcc.target/arc/mtune-ARC700.c: Likewise.
+	* gcc.target/arc/mtune-ARC725D.c: Likewise.
+	* gcc.target/arc/mtune-ARC750D.c: Likewise.
+	* gcc.target/arc/mul64.c, gcc.target/arc/mxy.c: Likewise.
+	* gcc.target/arc/no-dpfp-lrsr.c: Likewise.
+
+2013-09-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58532
+	* g++.dg/torture/pr58552.C: New testcase.
+
+2013-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-ldst.c: New test for -mupper-regs-sf
+	and -mupper-regs-df.
+
+2013-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58551
+	* c-c++-common/gomp/pr58551.c: New test.
+
+2013-09-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58459
+	* gcc.dg/tree-ssa/ssa-pre-31.c: New testcase.
+
+2013-09-26  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/58113
+	* gfortran.dg/round_4.f90: Check for rounding support.
+
+2013-09-26  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* g++.dg/vect/pr58513.cc (op): Make static.
+
+2013-09-26  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/coalesce-2.c: New testcase.
+
+2013-09-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58539
+	* gcc.dg/torture/pr58539.c: New testcase.
+
+2013-09-25  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-3.c: Update expected output.
+
+2013-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58436
+	* gfortran.dg/finalize_21.f90: New.
+
+2013-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	PR fortran/58469
+	* gfortran.dg/defined_assignment_8.f90: New.
+	* gfortran.dg/defined_assignment_9.f90: New.
+
+2013-09-25  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/58413
+	* c-c++-common/ubsan/shift-5.c: New test.
+	* c-c++-common/ubsan/shift-6.c: New test.
+	* c-c++-common/ubsan/div-by-zero-5.c: New test.
+	* gcc.dg/ubsan/c-shift-1.c: New test.
+
+2013-09-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/58516
+	* g++.dg/tm/pr58516.C: New test.
+
+2013-09-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_arm_cond_exec):
+	New procedure.
+	* gcc.target/arm/minmax_minus.c: Check for cond_exec target.
+
+2013-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58513
+	* g++.dg/vect/pr58513.cc: New testcase.
+
+2013-09-24  Yvan Roux  <yvan.roux@linaro.org>
+
+	* gcc.target/arm/atomic-comp-swap-release-acquire.c: Adjust expected
+	output.
+
+2013-09-23  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/58500
+	* g++.dg/cpp1y/pr58500.C: New testcase.
+
+2013-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt28.ad[sb]: New test.
+	* gnat.dg/opt28_pkg.ads: New helper.
+
+2013-09-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58464
+	* g++.dg/torture/pr58464.C: New testcase.
+
+2013-09-23  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/58475
+	* gcc.target/sh/torture/pr58475.c: New test.
+
+2013-09-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58355
+	* gfortran.dg/extends_15.f90: New.
+
+2013-09-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58481
+	* g++.dg/cpp0x/lambda/lambda-this17.C: New.
+
+2013-09-20  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	PR target/56875
+	* gcc.target/vax/vax.exp: New.
+	* gcc.target/vax/pr56875.c: Ditto.
+
+2013-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58484
+	* gfortran.dg/pr58484.f: New testcase.
+
+2013-09-20  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-dom-thread-3.c: Add missing dg-final clause.
+
+2013-09-20  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/57748
+	* gcc.dg/torture/pr57748-1.c: New test.
+	* gcc.dg/torture/pr57748-2.c: New test.
+
+2013-09-20  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/58413
+	* c-c++-common/ubsan/shift-4.c: New test.
+
+2013-09-20  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58453
+	* gcc.dg/tree-ssa/ldist-23.c: New testcase.
+
+2013-09-20  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58099
+	* gfortran.dg/proc_ptr_43.f90: New.
+
+2013-09-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	* gfortran.dg/defined_assignment_11.f90: New.
+
+2013-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/58438
+	* g++.dg/pr58438.C: New test.
+
+2013-09-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/43366
+	* gfortran.dg/class_39.f03: Update dg-error.
+	* gfortran.dg/class_5.f03: Ditto.
+	* gfortran.dg/class_53.f90: Ditto.
+	* gfortran.dg/realloc_on_assign_20.f90: New.
+	* gfortran.dg/realloc_on_assign_21.f90: New.
+	* gfortran.dg/realloc_on_assign_22.f90: New.
+
+2013-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58457
+	* g++.dg/parse/using4.C: New.
+
+2013-09-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.c-torture/execute/pr58419.c (b): Change type to signed char.
+
+2013-09-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitize/58443
+	* g++.dg/ubsan/div-by-zero-1.C: Use the integer-divide-by-zero option
+	instead of the shift option.
+	* c-c++-common/ubsan/pr58443-1.c: New test.
+	* c-c++-common/ubsan/pr58443-3.c: New test.
+	* c-c++-common/ubsan/pr58443-2.c: New test.
+
+2013-09-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58417
+	* gcc.dg/torture/pr58417.c: New testcase.
+
+2013-09-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/array_bounds_test2.adb: New test.
+
+2013-09-18  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* g++.dg/debug/dwarf2/omp-fesdr.C: Check for fopenmp effective target.
+	* gcc.dg/debug/dwarf2/omp-fesdr.c: Likewise.
+
+2013-09-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/in_out_parameter4.adb: New test.
+
+2013-09-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/58411
+	* c-c++-common/ubsan/attrib-1.c: New test.
+
+2013-09-17  Cong Hou  <congh@google.com>
+
+	* gcc.dg/vect/vect-reduc-dot-s16c.c: Add a test case with dot product 
+	on two arrays with short and int types. This should not be recognized
+	as a dot product pattern.
+
+2013-09-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58435
+	* pt.c (tsubst, [BOUND_TEMPLATE_TEMPLATE_PARM]): Take into account
+	the cp_type_quals (r) too.
+
+2013-09-17  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/58332
+	* gcc.c-torture/compile/pr58332.c: New testcase.
+
+2013-09-17  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/pr58387.c: New test.
+
+2013-09-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR tree-optimization/58088
+	* gcc.c-torture/compile/pr58088.c: New test.
+
+2013-09-17  Nick Clifton  <nickc@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_trampolines):
+	Add MSP430 to the list of targets that do not support
+	trampolines.
+	(check_profiling_available): Add MSP430 to the list of targets
+	that do not support profiling.
+	(check_effective_target_tls_runtime): Add MSP430 to the list of
+	targets that do not support TLS.
+
+2013-09-17  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt27.adb: New test.
+	* gnat.dg/opt27_pkg.ad[sb]: New helper.
+
+2013-09-17  Andreas Schwab  <schwab@suse.de>
+
+	* gcc.dg/tree-ssa/ldist-22.c (main): Return zero.
+
+2013-09-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58432
+	* gcc.dg/pr58432.c: New testcase.
+
+2013-09-17  Bin Cheng  <bin.cheng@arm.com>
+
+	* gcc.dg/tree-ssa/slsr-39.c: New test.
+
+2013-09-16  Xinliang David Li  <davidxl@google.com>
+
+	* gcc.misc-tests/help.exp: Optimizer help change.
+
+2013-09-16  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/execute/pr58419.c: New test.
+	* gcc.c-torture/execute/pr58431.c: New test.
+
+2013-09-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58356
+	* gfortran.dg/finalize_19.f90: New.
+
+2013-09-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* gcc.target/i386/pr58418.c: New.
+
+2013-09-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/fmla-intrinsic.c: New.
+	* gcc.target/aarch64/mla-intrinsic.c: Likewise.
+	* gcc.target/aarch64/fmls-intrinsic.c: Likewise.
+	* gcc.target/aarch64/mls-intrinsic.c: Likewise.
+
+2013-09-16  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/mul_intrinsic_1.c: New.
+	* gcc.target/aarch64/fmul_intrinsic_1.c: Likewise.
+
+2013-09-16  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ldist-22.c: New testcase.
+
+2013-09-16  Adam Butcher  <adam@jessamine.co.uk>
+
+	* g++.dg/cpp0x/auto9.C: Downgrade two previously expected errors (now
+	interpreted as implicit templates) to be expected pedwarns instead.
+
+2013-09-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	* gfortran.dg/defined_assignment_10.f90: Comment print statement.
+
+2013-09-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	* gfortran.dg/defined_assignment_10.f90: New.
+
+2013-09-13  Evgeny Gavrin <e.gavrin@samsung.com>
+
+	* gcc.dg/debug/dwarf2/omp-fesdr.c: Add test.
+	* g++.dg/debug/dwarf2/omp-fesdr.C: Add test.
+
+2013-09-13  Jacek Caban  <jacek@codeweavers.com>
+
+	* g++.dg/abi/main.C: Added implicit C linkage tests
+
+2013-09-13  Kai Tietz  <ktietz@redhat.com>
+
+	gcc.target/i386/pr57848.c: New file.
+
+2013-09-13  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/58314
+	* gcc.target/sh/torture/pr58314.c: New test.
+
+2013-09-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/torture/pr58380.C: Suppress warnings with "-w".
+
+2013-09-12  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/58389
+	* g++.dg/pr58389.C: New test.
+
+2013-09-12  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/template/pseudodtor2.C: Add column number to dg-error
+	strings.
+	* g++.dg/template/pseudodtor3.C: Likewise.
+
+2013-09-12  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58404
+	* g++.dg/tree-ssa/pr58404.C: New testcase.
+
+2013-09-12  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/58371
+	* g++.dg/ipa/pr58371.C: New test.
+
+2013-09-12  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/tree-ssa/ldist-4.c: Remove undefined behavior.  Adjust
+	expected outcome and comment why that happens.
+
+2013-09-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58377
+	* g++.dg/uninit-pred-4.C: New testcase.
+
+2013-09-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58385
+	* gcc.c-torture/execute/pr58385.c: New test.
+
+2013-09-11  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/arm/thumb-ifcvt-2.c: New test.
+
+2013-09-10  Jeff Law  <law@redhat.com>
+
+	* g++.dg/torture/pr58380.C: New test.
+
+2013-09-10  Jan Hubicka  <jh@suse.cz>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/template/cond2.C: Tweak, do not expect a "required from".
+
+2013-09-10  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/pr58343.c: New test.
+
+2013-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58365
+	* gcc.c-torture/execute/pr58365.c: New test.
+
+2013-09-10  Michael Zolotukhin  <michael.v.zolotukhin@gmail.com>
+
+	* gcc.dg/torture/memcpy-1.c: New test.
+
 2013-09-10  Alan Modra  <amodra@gmail.com>
 
 	* gcc.target/powerpc/pr58330.c: New.

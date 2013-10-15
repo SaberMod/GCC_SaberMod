@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 
 /* This pass combines COND_EXPRs to simplify control flow.  It
@@ -668,8 +668,8 @@ const pass_data pass_data_tree_ifcombine =
 class pass_tree_ifcombine : public gimple_opt_pass
 {
 public:
-  pass_tree_ifcombine(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tree_ifcombine, ctxt)
+  pass_tree_ifcombine (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tree_ifcombine, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
@@ -273,8 +273,8 @@ const pass_data pass_data_build_cfg =
 class pass_build_cfg : public gimple_opt_pass
 {
 public:
-  pass_build_cfg(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_build_cfg, ctxt)
+  pass_build_cfg (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_build_cfg, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1013,6 +1013,9 @@ make_abnormal_goto_edges (basic_block bb, bool for_call)
 	      break;
 	    }
 	}
+      if (!gsi_end_p (gsi)
+	  && is_gimple_debug (gsi_stmt (gsi)))
+	gsi_next_nondebug (&gsi);
       if (!gsi_end_p (gsi))
 	{
 	  /* Make an edge to every setjmp-like call.  */
@@ -3360,7 +3363,7 @@ verify_gimple_assign_unary (gimple stmt)
       {
 	if ((!INTEGRAL_TYPE_P (rhs1_type) || !SCALAR_FLOAT_TYPE_P (lhs_type))
 	    && (!VECTOR_INTEGER_TYPE_P (rhs1_type)
-	        || !VECTOR_FLOAT_TYPE_P(lhs_type)))
+	        || !VECTOR_FLOAT_TYPE_P (lhs_type)))
 	  {
 	    error ("invalid types in conversion to floating point");
 	    debug_generic_expr (lhs_type);
@@ -3375,7 +3378,7 @@ verify_gimple_assign_unary (gimple stmt)
       {
         if ((!INTEGRAL_TYPE_P (lhs_type) || !SCALAR_FLOAT_TYPE_P (rhs1_type))
             && (!VECTOR_INTEGER_TYPE_P (lhs_type)
-                || !VECTOR_FLOAT_TYPE_P(rhs1_type)))
+                || !VECTOR_FLOAT_TYPE_P (rhs1_type)))
 	  {
 	    error ("invalid types in conversion to integer");
 	    debug_generic_expr (lhs_type);
@@ -5563,6 +5566,7 @@ gimple_duplicate_bb (basic_block bb)
       copy = create_phi_node (NULL_TREE, new_bb);
       create_new_def_for (gimple_phi_result (phi), copy,
 			  gimple_phi_result_ptr (copy));
+      gimple_set_uid (copy, gimple_uid (phi));
     }
 
   gsi_tgt = gsi_start_bb (new_bb);
@@ -6661,12 +6665,13 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   struct function *saved_cfun = cfun;
   int *entry_flag, *exit_flag;
   unsigned *entry_prob, *exit_prob;
-  unsigned i, num_entry_edges, num_exit_edges;
+  unsigned i, num_entry_edges, num_exit_edges, num_nodes;
   edge e;
   edge_iterator ei;
   htab_t new_label_map;
   struct pointer_map_t *vars_map, *eh_map;
   struct loop *loop = entry_bb->loop_father;
+  struct loop *loop0 = get_loop (saved_cfun, 0);
   struct move_stmt_d d;
 
   /* If ENTRY does not strictly dominate EXIT, this cannot be an SESE
@@ -6759,16 +6764,29 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   set_loops_for_fn (dest_cfun, loops);
 
   /* Move the outlined loop tree part.  */
+  num_nodes = bbs.length ();
   FOR_EACH_VEC_ELT (bbs, i, bb)
     {
-      if (bb->loop_father->header == bb
-	  && loop_outer (bb->loop_father) == loop)
+      if (bb->loop_father->header == bb)
 	{
-	  struct loop *loop = bb->loop_father;
-	  flow_loop_tree_node_remove (bb->loop_father);
-	  flow_loop_tree_node_add (get_loop (dest_cfun, 0), loop);
-	  fixup_loop_arrays_after_move (saved_cfun, cfun, loop);
+	  struct loop *this_loop = bb->loop_father;
+	  struct loop *outer = loop_outer (this_loop);
+	  if (outer == loop
+	      /* If the SESE region contains some bbs ending with
+		 a noreturn call, those are considered to belong
+		 to the outermost loop in saved_cfun, rather than
+		 the entry_bb's loop_father.  */
+	      || outer == loop0)
+	    {
+	      if (outer != loop)
+		num_nodes -= this_loop->num_nodes;
+	      flow_loop_tree_node_remove (bb->loop_father);
+	      flow_loop_tree_node_add (get_loop (dest_cfun, 0), this_loop);
+	      fixup_loop_arrays_after_move (saved_cfun, cfun, this_loop);
+	    }
 	}
+      else if (bb->loop_father == loop0 && loop0 != loop)
+	num_nodes--;
 
       /* Remove loop exits from the outlined region.  */
       if (loops_for_fn (saved_cfun)->exits)
@@ -6788,6 +6806,7 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
 
   /* Setup a mapping to be used by move_block_to_fn.  */
   loop->aux = current_loops->tree_root;
+  loop0->aux = current_loops->tree_root;
 
   pop_cfun ();
 
@@ -6816,11 +6835,30 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
     }
 
   loop->aux = NULL;
+  loop0->aux = NULL;
   /* Loop sizes are no longer correct, fix them up.  */
-  loop->num_nodes -= bbs.length ();
+  loop->num_nodes -= num_nodes;
   for (struct loop *outer = loop_outer (loop);
        outer; outer = loop_outer (outer))
-    outer->num_nodes -= bbs.length ();
+    outer->num_nodes -= num_nodes;
+  loop0->num_nodes -= bbs.length () - num_nodes;
+
+  if (saved_cfun->has_simduid_loops || saved_cfun->has_force_vect_loops)
+    {
+      struct loop *aloop;
+      for (i = 0; vec_safe_iterate (loops->larray, i, &aloop); i++)
+	if (aloop != NULL)
+	  {
+	    if (aloop->simduid)
+	      {
+		replace_by_duplicate_decl (&aloop->simduid, d.vars_map,
+					   d.to_context);
+		dest_cfun->has_simduid_loops = true;
+	      }
+	    if (aloop->force_vect)
+	      dest_cfun->has_force_vect_loops = true;
+	  }
+    }
 
   /* Rewire BLOCK_SUBBLOCKS of orig_block.  */
   if (orig_block)
@@ -7922,13 +7960,14 @@ const pass_data pass_data_split_crit_edges =
 class pass_split_crit_edges : public gimple_opt_pass
 {
 public:
-  pass_split_crit_edges(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_split_crit_edges, ctxt)
+  pass_split_crit_edges (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_split_crit_edges, ctxt)
   {}
 
   /* opt_pass methods: */
   unsigned int execute () { return split_critical_edges (); }
 
+  opt_pass * clone () { return new pass_split_crit_edges (m_ctxt); }
 }; // class pass_split_crit_edges
 
 } // anon namespace
@@ -8093,8 +8132,8 @@ const pass_data pass_data_warn_function_return =
 class pass_warn_function_return : public gimple_opt_pass
 {
 public:
-  pass_warn_function_return(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_warn_function_return, ctxt)
+  pass_warn_function_return (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_warn_function_return, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -8147,8 +8186,8 @@ const pass_data pass_data_warn_function_noreturn =
 class pass_warn_function_noreturn : public gimple_opt_pass
 {
 public:
-  pass_warn_function_noreturn(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_warn_function_noreturn, ctxt)
+  pass_warn_function_noreturn (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_warn_function_noreturn, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -8264,8 +8303,8 @@ const pass_data pass_data_warn_unused_result =
 class pass_warn_unused_result : public gimple_opt_pass
 {
 public:
-  pass_warn_unused_result(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_warn_unused_result, ctxt)
+  pass_warn_unused_result (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_warn_unused_result, ctxt)
   {}
 
   /* opt_pass methods: */

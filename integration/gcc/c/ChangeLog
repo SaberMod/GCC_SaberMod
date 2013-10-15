@@ -1,3 +1,34 @@
+2013-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (c/gccspec.o): Remove.
+	(CFLAGS-c/gccspec.o): New variable.
+	(cc1-checksum.o, C_TREE_H, c/c-aux-info.o, c/c-convert.o)
+	(c/c-decl.o, c/c-errors.o, c/c-lang.o, c/c-objc-common.o)
+	(c/c-parser.o, c/c-typeck.o, c/c-array-notation.o): Remove.
+
+2013-09-25  Tom Tromey  <tromey@redhat.com>
+
+	* Make-lang.in (c/gccspec.o): Don't use subshell.
+
+2013-09-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitize/58443
+	* c-typeck.c (build_binary_op): Properly honor -fsanitize options.
+	Remove unnecessary check.
+
+2013-09-18  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/58411
+	* c-typeck.c (build_binary_op): Don't sanitize function if it has the
+	no_sanitize_undefined attribute.
+
+2013-09-13  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/57848
+	* c-decl.c (c_builtin_function_ext_scope): Remove
+	wrong assumption that it is never called on prexisting
+	symbol.
+
 2013-09-08  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* c-typeck.c (build_binary_op): Use vector_types_compatible_elements_p.

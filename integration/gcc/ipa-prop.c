@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "ipa-inline.h"
@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "data-streamer.h"
 #include "tree-streamer.h"
 #include "params.h"
+#include "ipa-utils.h"
 
 /* Intermediate information about a parameter that is only useful during the
    run of ipa_analyze_node and is not kept afterwards.  */
@@ -1551,6 +1552,8 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
     return;
   vec_safe_grow_cleared (args->jump_functions, arg_num);
 
+  if (gimple_call_internal_p (call))
+    return;
   if (ipa_func_spec_opts_forbid_analysis_p (cs->caller))
     return;
 
@@ -2194,6 +2197,11 @@ ipa_intraprocedural_devirtualization (gimple call)
   token = OBJ_TYPE_REF_TOKEN (otr);
   fndecl = gimple_get_virt_method_for_binfo (tree_low_cst (token, 1),
 					     binfo);
+#ifdef ENABLE_CHECKING
+  if (fndecl)
+    gcc_assert (possible_polymorphic_call_target_p
+		  (otr, cgraph_get_node (fndecl)));
+#endif
   return fndecl;
 }
 
@@ -2506,6 +2514,8 @@ remove_described_reference (symtab_node symbol, struct ipa_cst_ref_desc *rdesc)
   struct cgraph_edge *origin;
 
   origin = rdesc->cs;
+  if (!origin)
+    return false;
   to_del = ipa_find_reference ((symtab_node) origin->caller, symbol,
 			       origin->call_stmt, origin->lto_stmt_uid);
   if (!to_del)
@@ -2601,7 +2611,8 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
     {
       bool ok;
       gcc_checking_assert (cs->callee
-			   && (jfunc->type != IPA_JF_CONST
+			   && (cs != ie
+			       || jfunc->type != IPA_JF_CONST
 			       || !cgraph_node_for_jfunc (jfunc)
 			       || cs->callee == cgraph_node_for_jfunc (jfunc)));
       ok = try_decrement_rdesc_refcount (jfunc);
@@ -2646,7 +2657,13 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
     return NULL;
 
   if (target)
-    return ipa_make_edge_direct_to_target (ie, target);
+    {
+#ifdef ENABLE_CHECKING
+      gcc_assert (possible_polymorphic_call_target_p
+	 (ie, cgraph_get_node (target)));
+#endif
+      return ipa_make_edge_direct_to_target (ie, target);
+    }
   else
     return NULL;
 }
@@ -3019,7 +3036,14 @@ ipa_edge_removal_hook (struct cgraph_edge *cs, void *data ATTRIBUTE_UNUSED)
       struct ipa_jump_func *jf;
       int i;
       FOR_EACH_VEC_ELT (*args->jump_functions, i, jf)
-	try_decrement_rdesc_refcount (jf);
+	{
+	  struct ipa_cst_ref_desc *rdesc;
+	  try_decrement_rdesc_refcount (jf);
+	  if (jf->type == IPA_JF_CONST
+	      && (rdesc = ipa_get_jf_constant_rdesc (jf))
+	      && rdesc->cs == cs)
+	    rdesc->cs = NULL;
+	}
     }
 
   ipa_free_edge_args_substructures (IPA_EDGE_REF (cs));

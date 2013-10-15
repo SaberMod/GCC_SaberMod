@@ -28,7 +28,7 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
-// TODO make comments doxygen format.
+// FIXME make comments doxygen format.
 
 // N3376 specified 6 regex styles: ECMAScript, basic, extended, grep, egrep
 // and awk
@@ -210,11 +210,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		{
 		  ++_M_current;
 		  _M_token = _S_token_subexpr_lookahead_begin;
+		  _M_value.assign(1, 'p');
 		}
 	      else if (*_M_current == '!')
 		{
 		  ++_M_current;
-		  _M_token = _S_token_subexpr_neg_lookahead_begin;
+		  _M_token = _S_token_subexpr_lookahead_begin;
+		  _M_value.assign(1, 'n');
 		}
 	      else
 		__throw_regex_error(regex_constants::error_paren);
@@ -343,7 +345,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      ++_M_current;
 	    }
 	  else
-	    __throw_regex_error(regex_constants::error_brace);
+	    __throw_regex_error(regex_constants::error_badbrace);
 	}
       else if (__c == '}')
 	{
@@ -351,7 +353,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _M_token = _S_token_interval_end;
 	}
       else
-	__throw_regex_error(regex_constants::error_brace);
+	__throw_regex_error(regex_constants::error_badbrace);
     }
 
   template<typename _FwdIter>
@@ -371,9 +373,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _M_value.assign(1, _M_escape_map.at(__c));
 	}
       else if (__c == 'b')
-	_M_token = _S_token_word_bound;
+	{
+	  _M_token = _S_token_word_bound;
+	  _M_value.assign(1, 'p');
+	}
       else if (__c == 'B')
-	_M_token = _S_token_neg_word_bound;
+	{
+	  _M_token = _S_token_word_bound;
+	  _M_value.assign(1, 'n');
+	}
       // N3376 28.13
       else if (__c == 'd'
 	       || __c == 'D'
@@ -420,6 +428,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     }
 
+  // Differences between styles:
+  // 1) Extended doesn't support backref, but basic does.
   template<typename _FwdIter>
     void
     _Scanner<_FwdIter>::
@@ -441,13 +451,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _M_eat_escape_awk();
 	  return;
 	}
-      else if (_M_ctype.is(_CtypeT::digit, __c) && __c != '0')
+      else if (_M_is_basic() && _M_ctype.is(_CtypeT::digit, __c) && __c != '0')
 	{
 	  _M_token = _S_token_backref;
 	  _M_value.assign(1, __c);
 	}
       else
-	__throw_regex_error(regex_constants::error_escape);
+	{
+#ifdef __STRICT_ANSI__
+	  __throw_regex_error(regex_constants::error_escape);
+#else
+	  _M_token = _S_token_ord_char;
+	  _M_value.assign(1, __c);
+#endif
+	}
       ++_M_current;
     }
 
@@ -580,9 +597,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	break;
       case _S_token_subexpr_lookahead_begin:
 	ostr << "lookahead subexpr begin\n";
-	break;
-      case _S_token_subexpr_neg_lookahead_begin:
-	ostr << "neg lookahead subexpr begin\n";
 	break;
       case _S_token_subexpr_end:
 	ostr << "subexpr end\n";

@@ -1427,6 +1427,12 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
   gfc_expr *ancestor_wrapper = NULL, *rank;
   gfc_iterator *iter;
 
+  if (derived->attr.unlimited_polymorphic)
+    {
+      vtab_final->initializer = gfc_get_null_expr (NULL);
+      return;
+    }
+
   /* Search for the ancestor's finalizers. */
   if (derived->attr.extension && derived->components
       && (!derived->components->ts.u.derived->attr.abstract
@@ -1881,6 +1887,8 @@ generate_finalization_wrapper (gfc_symbol *derived, gfc_namespace *ns,
 
       for (fini = derived->f2k_derived->finalizers; fini; fini = fini->next)
 	{
+	  if (!fini->proc_tree)
+	    fini->proc_tree = gfc_find_sym_in_symtree (fini->proc_sym);
 	  if (fini->proc_tree->n.sym->attr.elemental)
 	    {
 	      fini_elem = fini;

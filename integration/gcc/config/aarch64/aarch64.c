@@ -109,6 +109,7 @@ enum aarch64_code_model aarch64_cmodel;
 #define TARGET_HAVE_TLS 1
 #endif
 
+static bool aarch64_lra_p (void);
 static bool aarch64_composite_type_p (const_tree, enum machine_mode);
 static bool aarch64_vfp_is_call_or_return_candidate (enum machine_mode,
 						     const_tree,
@@ -3857,13 +3858,6 @@ aarch64_print_operand_address (FILE *f, rtx x)
   output_addr_const (f, x);
 }
 
-void
-aarch64_function_profiler (FILE *f ATTRIBUTE_UNUSED,
-			   int labelno ATTRIBUTE_UNUSED)
-{
-  sorry ("function profiling");
-}
-
 bool
 aarch64_label_mentioned_p (rtx x)
 {
@@ -6092,6 +6086,13 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
   return -1;
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+aarch64_lra_p (void)
+{
+  return aarch64_lra_flag;
+}
+
 /* Return TRUE if the type, as described by TYPE and MODE, is a composite
    type as described in AAPCS64 \S 4.3.  This includes aggregate, union and
    array types.  The C99 floating-point complex types are also considered
@@ -7162,10 +7163,10 @@ aarch64_emit_store_exclusive (enum machine_mode mode, rtx bval,
 static void
 aarch64_emit_unlikely_jump (rtx insn)
 {
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
   insn = emit_jump_insn (insn);
-  add_reg_note (insn, REG_BR_PROB, very_unlikely);
+  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
 }
 
 /* Expand a compare and swap pattern.  */
@@ -8267,6 +8268,9 @@ aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 
 #undef TARGET_LIBGCC_CMP_RETURN_MODE
 #define TARGET_LIBGCC_CMP_RETURN_MODE aarch64_libgcc_cmp_return_mode
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P aarch64_lra_p
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE aarch64_mangle_type

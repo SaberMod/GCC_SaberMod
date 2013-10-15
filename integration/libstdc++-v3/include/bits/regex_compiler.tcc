@@ -28,7 +28,7 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
-// TODO make comments doxygen format.
+// FIXME make comments doxygen format.
 
 // This compiler refers to "Regular Expression Matching Can Be Simple And Fast"
 // (http://swtch.com/~rsc/regexp/regexp1.html"),
@@ -63,9 +63,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Compiler<_FwdIter, _CharT, _TraitsT>::
     _Compiler(_FwdIter __b, _FwdIter __e,
 	      const _TraitsT& __traits, _FlagT __flags)
-    : _M_traits(__traits), _M_scanner(__b, __e, __flags, _M_traits.getloc()),
-      _M_ctype(std::use_facet<std::ctype<_CharT>>(_M_traits.getloc())),
-      _M_nfa(__flags), _M_flags(__flags)
+    : _M_flags((__flags
+		& (regex_constants::ECMAScript
+		   | regex_constants::basic
+		   | regex_constants::extended
+		   | regex_constants::grep
+		   | regex_constants::egrep
+		   | regex_constants::awk))
+	       ? __flags
+	       : __flags | regex_constants::ECMAScript),
+    _M_traits(__traits),
+    _M_scanner(__b, __e, _M_flags, _M_traits.getloc()),
+    _M_ctype(std::use_facet<std::ctype<_CharT>>(_M_traits.getloc())),
+    _M_nfa(_M_flags)
     {
       _StateSeqT __r(_M_nfa, _M_nfa._M_start());
       __r._M_append(_M_nfa._M_insert_subexpr_begin());
@@ -85,7 +95,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _M_disjunction()
     {
       this->_M_alternative();
-      // TODO empty alternative like, um, "(|asdf)"
       while (_M_match_token(_ScannerT::_S_token_or))
 	{
 	  _StateSeqT __alt1 = _M_pop();
@@ -96,7 +105,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  __alt2._M_append(__end);
 	  _M_stack.push(_StateSeqT(_M_nfa,
 				   _M_nfa._M_insert_alt(__alt1._M_start,
-						        __alt2._M_start),
+							__alt2._M_start, false),
 				   __end));
 	}
     }
@@ -132,25 +141,34 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return false;
     }
 
-  // TODO Implement it.
   template<typename _FwdIter, typename _CharT, typename _TraitsT>
     bool
     _Compiler<_FwdIter, _CharT, _TraitsT>::
     _M_assertion()
     {
-      // temporary place holders.
       if (_M_match_token(_ScannerT::_S_token_line_begin))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
+	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
+	      _M_insert_line_begin()));
       else if (_M_match_token(_ScannerT::_S_token_line_end))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
+	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
+	      _M_insert_line_end()));
       else if (_M_match_token(_ScannerT::_S_token_word_bound))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
-      else if (_M_match_token(_ScannerT::_S_token_neg_word_bound))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
+	// _M_value[0] == 'n' means it's negtive, say "not word boundary".
+	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
+	      _M_insert_word_bound(_M_value[0] == 'n')));
       else if (_M_match_token(_ScannerT::_S_token_subexpr_lookahead_begin))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
-      else if (_M_match_token(_ScannerT::_S_token_subexpr_neg_lookahead_begin))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
+	{
+	  auto __neg = _M_value[0] == 'n';
+	  this->_M_disjunction();
+	  if (!_M_match_token(_ScannerT::_S_token_subexpr_end))
+	    __throw_regex_error(regex_constants::error_paren);
+	  auto __tmp = _M_pop();
+	  __tmp._M_append(_M_nfa._M_insert_accept());
+	  _M_stack.push(
+	      _StateSeqT(
+		_M_nfa,
+		_M_nfa._M_insert_lookahead(__tmp._M_start, __neg)));
+	}
       else
 	return false;
       return true;
@@ -161,32 +179,37 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     _Compiler<_FwdIter, _CharT, _TraitsT>::
     _M_quantifier()
     {
-      if (_M_match_token(_ScannerT::_S_token_closure0))
+      bool __neg = (_M_flags & regex_constants::ECMAScript);
+      auto __init = [this, &__neg]()
 	{
 	  if (_M_stack.empty())
 	    __throw_regex_error(regex_constants::error_badrepeat);
+	  __neg = __neg && _M_match_token(_ScannerT::_S_token_opt);
+	};
+      if (_M_match_token(_ScannerT::_S_token_closure0))
+	{
+	  __init();
 	  auto __e = _M_pop();
 	  _StateSeqT __r(_M_nfa, _M_nfa._M_insert_alt(_S_invalid_state_id,
-						      __e._M_start));
+						      __e._M_start, __neg));
 	  __e._M_append(__r);
 	  _M_stack.push(__r);
 	}
       else if (_M_match_token(_ScannerT::_S_token_closure1))
 	{
-	  if (_M_stack.empty())
-	    __throw_regex_error(regex_constants::error_badrepeat);
+	  __init();
 	  auto __e = _M_pop();
-	  __e._M_append(_M_nfa._M_insert_alt(_S_invalid_state_id, __e._M_start));
+	  __e._M_append(_M_nfa._M_insert_alt(_S_invalid_state_id, __e._M_start,
+					     __neg));
 	  _M_stack.push(__e);
 	}
       else if (_M_match_token(_ScannerT::_S_token_opt))
 	{
-	  if (_M_stack.empty())
-	    __throw_regex_error(regex_constants::error_badrepeat);
+	  __init();
 	  auto __e = _M_pop();
 	  auto __end = _M_nfa._M_insert_dummy();
 	  _StateSeqT __r(_M_nfa, _M_nfa._M_insert_alt(_S_invalid_state_id,
-						      __e._M_start));
+						      __e._M_start, __neg));
 	  __e._M_append(__end);
 	  __r._M_append(__end);
 	  _M_stack.push(__r);
@@ -200,34 +223,59 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _StateSeqT __r(_M_pop());
 	  _StateSeqT __e(_M_nfa, _M_nfa._M_insert_dummy());
 	  int __min_rep = _M_cur_int_value(10);
+	  bool __infi = false;
+	  int __n;
+
 	  // {3
-	  for (int __i = 0; __i < __min_rep; ++__i)
-	    __e._M_append(__r._M_clone());
 	  if (_M_match_token(_ScannerT::_S_token_comma))
 	    if (_M_match_token(_ScannerT::_S_token_dup_count)) // {3,7}
-	      {
-	        int __n = _M_cur_int_value(10) - __min_rep;
-	        if (__n < 0)
-	          __throw_regex_error(regex_constants::error_badbrace);
-	        auto __end = _M_nfa._M_insert_dummy();
-	        for (int __i = 0; __i < __n; ++__i)
-	          {
-		    auto __tmp = __r._M_clone();
-		    __e._M_append(_StateSeqT(_M_nfa, _M_nfa.
-			_M_insert_alt(__tmp._M_start, __end), __tmp._M_end));
-	          }
-		__e._M_append(__end);
-	      }
-	    else // {3,}
-	      {
-		auto __tmp = __r._M_clone();
-		_StateSeqT __s(_M_nfa, _M_nfa._M_insert_alt(_S_invalid_state_id,
-							    __tmp._M_start));
-		__tmp._M_append(__s);
-		__e._M_append(__s);
-	      }
+	      __n = _M_cur_int_value(10) - __min_rep;
+	    else
+	      __infi = true;
+	  else
+	    __n = 0;
 	  if (!_M_match_token(_ScannerT::_S_token_interval_end))
 	    __throw_regex_error(regex_constants::error_brace);
+
+	  __neg = __neg && _M_match_token(_ScannerT::_S_token_opt);
+
+	  for (int __i = 0; __i < __min_rep; ++__i)
+	    __e._M_append(__r._M_clone());
+
+	  if (__infi)
+	    {
+	      auto __tmp = __r._M_clone();
+	      _StateSeqT __s(_M_nfa,
+			     _M_nfa._M_insert_alt(_S_invalid_state_id,
+						  __tmp._M_start, __neg));
+	      __tmp._M_append(__s);
+	      __e._M_append(__s);
+	    }
+	  else
+	    {
+	      if (__n < 0)
+		__throw_regex_error(regex_constants::error_badbrace);
+	      auto __end = _M_nfa._M_insert_dummy();
+	      // _M_alt is the "match more" branch, and _M_next is the
+	      // "match less" one. Switch _M_alt and _M_next of all created
+	      // nodes. This is a hacking but IMO works well.
+	      std::stack<_StateIdT> __stack;
+	      for (int __i = 0; __i < __n; ++__i)
+		{
+		  auto __tmp = __r._M_clone();
+		  auto __alt = _M_nfa._M_insert_alt(__tmp._M_start,
+						    __end, __neg);
+		  __stack.push(__alt);
+		  __e._M_append(_StateSeqT(_M_nfa, __alt, __tmp._M_end));
+		}
+	      __e._M_append(__end);
+	      while (!__stack.empty())
+		{
+		  auto& __tmp = _M_nfa[__stack.top()];
+		  __stack.pop();
+		  swap(__tmp._M_next, __tmp._M_alt);
+		}
+	    }
 	  _M_stack.push(__e);
 	}
     }

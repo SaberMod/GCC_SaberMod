@@ -1430,11 +1430,13 @@ func TestFunc(t *testing.T) {
 	}
 }
 
-/*
-
-Not yet implemented for gccgo.
-
 func TestMakeFunc(t *testing.T) {
+	switch runtime.GOARCH {
+	case "amd64", "386":
+	default:
+		t.Skip("MakeFunc not implemented for " + runtime.GOARCH)
+	}
+
 	f := dummy
 	fv := MakeFunc(TypeOf(f), func(in []Value) []Value { return in })
 	ValueOf(&f).Elem().Set(fv)
@@ -1451,8 +1453,6 @@ func TestMakeFunc(t *testing.T) {
 		t.Errorf("Call returned %d, %d, %d, %v, %d, %g, %d; want 10, 20, 30, [40, 50], 60, 70, 80", i, j, k, l, m, n, o)
 	}
 }
-
-*/
 
 type Point struct {
 	x, y int
@@ -2403,6 +2403,15 @@ func TestVariadic(t *testing.T) {
 	V(fmt.Fprintf).CallSlice([]Value{V(&b), V("%s, %d world"), V([]interface{}{"hello", 42})})
 	if b.String() != "hello, 42 world" {
 		t.Errorf("after Fprintf CallSlice: %q != %q", b.String(), "hello 42 world")
+	}
+}
+
+func TestFuncArg(t *testing.T) {
+	f1 := func(i int, f func(int) int) int { return f(i) }
+	f2 := func(i int) int { return i + 1 }
+	r := ValueOf(f1).Call([]Value{ValueOf(100), ValueOf(f2)})
+	if r[0].Int() != 101 {
+		t.Errorf("function returned %d, want 101", r[0].Int())
 	}
 }
 

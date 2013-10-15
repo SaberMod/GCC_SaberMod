@@ -50,7 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple-pretty-print.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -1560,12 +1560,12 @@ const pass_data pass_data_dce =
 class pass_dce : public gimple_opt_pass
 {
 public:
-  pass_dce(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dce, ctxt)
+  pass_dce (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dce, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce (ctxt_); }
+  opt_pass * clone () { return new pass_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce (); }
 
@@ -1599,12 +1599,12 @@ const pass_data pass_data_dce_loop =
 class pass_dce_loop : public gimple_opt_pass
 {
 public:
-  pass_dce_loop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dce_loop, ctxt)
+  pass_dce_loop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dce_loop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce_loop (ctxt_); }
+  opt_pass * clone () { return new pass_dce_loop (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce_loop (); }
 
@@ -1638,12 +1638,12 @@ const pass_data pass_data_cd_dce =
 class pass_cd_dce : public gimple_opt_pass
 {
 public:
-  pass_cd_dce(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cd_dce, ctxt)
+  pass_cd_dce (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cd_dce, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_cd_dce (ctxt_); }
+  opt_pass * clone () { return new pass_cd_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_cd_dce (); }
 

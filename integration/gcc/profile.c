@@ -61,7 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "dumpfile.h"
 
@@ -275,11 +275,11 @@ get_exec_counts (unsigned cfg_checksum, unsigned lineno_checksum)
   if (!counts)
     return NULL;
 
-  get_working_sets();
+  get_working_sets ();
 
   if (dump_file && profile_info)
-    fprintf(dump_file, "Merged %u profiles with maximal count %u.\n",
-	    profile_info->runs, (unsigned) profile_info->sum_max);
+    fprintf (dump_file, "Merged %u profiles with maximal count %u.\n",
+	     profile_info->runs, (unsigned) profile_info->sum_max);
 
   return counts;
 }
@@ -434,7 +434,8 @@ read_profile_edge_counts (gcov_type *exec_counts)
 			static bool informed = 0;
 			if (dump_enabled_p () && !informed)
 		          dump_printf_loc (MSG_NOTE, input_location,
-			          "corrupted profile info: edge count exceeds maximal count");
+                                           "corrupted profile info: edge count"
+                                           " exceeds maximal count\n");
 			informed = 1;
 		      }
 		    else
@@ -696,7 +697,7 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
            {
              informed = 1;
              dump_printf_loc (MSG_NOTE, input_location,
-                              "correcting inconsistent profile data");
+                              "correcting inconsistent profile data\n");
            }
          correct_negative_edge_counts ();
          /* Set bb counts to the sum of the outgoing edge counts */
@@ -975,7 +976,7 @@ branch_prob (void)
   unsigned num_edges, ignored_edges;
   unsigned num_instrumented;
   struct edge_list *el;
-  histogram_values values = histogram_values();
+  histogram_values values = histogram_values ();
   unsigned cfg_checksum, lineno_checksum;
 
   total_num_times_called++;

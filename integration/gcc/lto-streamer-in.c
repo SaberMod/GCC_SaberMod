@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "hashtab.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "cgraph.h"
 #include "function.h"
@@ -652,7 +652,7 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
       index = streamer_read_hwi (ib);
     }
 
-  p_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION(fn);
+  p_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION (fn);
   index = streamer_read_hwi (ib);
   while (index != -1)
     {

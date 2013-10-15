@@ -1,3 +1,34 @@
+2013-09-25 Caroline Tice  <cmtice@google.com>
+
+	* Makefile.am: Reinstate ENABLE_VTABLE_VERIFY checks, to make
+	sure testsuite is not run if libstdc++ and libgcc were not built
+	with vtable verification.
+	* Makefile.in: Regenerated.
+	* configure.ac: Reinstate checks for --enable-vtable-verify flag,
+	to make sure testsuite is not run if libstdc++ and libgcc were not
+	built with vtable verification.
+	* configure: Regenerated.
+
+2013-09-24  Caroline Tice  <cmtice@google.com>
+
+	* Makefile.am:  Change libvtv_includedir to the directory used by
+	the other libraries rather than the top include directory.
+	* Makefile.in: Regenerated.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
+2013-09-12  Alexander Ivchenko  <alexander.ivchenko@intel.com>
+
+	* configure.tgt: Remove *-*-*android* from supported targets.
+
+2013-09-09  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/58374
+	* configure.ac: Move VTV_SUPPORTED check after AC_CANONICAL_SYSTEM.
+	* configure: Regenerated.
+
 2013-09-08  Caroline Tice  <cmtice@google.com>
 
 	* testsuite/event-main.cc:  Move to libvtv.cc subdirectory.

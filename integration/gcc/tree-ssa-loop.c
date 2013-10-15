@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "flags.h"
@@ -61,8 +61,8 @@ const pass_data pass_data_tree_loop =
 class pass_tree_loop : public gimple_opt_pass
 {
 public:
-  pass_tree_loop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tree_loop, ctxt)
+  pass_tree_loop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tree_loop, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -117,8 +117,8 @@ const pass_data pass_data_tree_loop_init =
 class pass_tree_loop_init : public gimple_opt_pass
 {
 public:
-  pass_tree_loop_init(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tree_loop_init, ctxt)
+  pass_tree_loop_init (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tree_loop_init, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -171,12 +171,12 @@ const pass_data pass_data_lim =
 class pass_lim : public gimple_opt_pass
 {
 public:
-  pass_lim(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_lim, ctxt)
+  pass_lim (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lim, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_lim (ctxt_); }
+  opt_pass * clone () { return new pass_lim (m_ctxt); }
   bool gate () { return gate_tree_ssa_loop_im (); }
   unsigned int execute () { return tree_ssa_loop_im (); }
 
@@ -227,8 +227,8 @@ const pass_data pass_data_tree_unswitch =
 class pass_tree_unswitch : public gimple_opt_pass
 {
 public:
-  pass_tree_unswitch(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tree_unswitch, ctxt)
+  pass_tree_unswitch (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tree_unswitch, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -282,8 +282,8 @@ const pass_data pass_data_predcom =
 class pass_predcom : public gimple_opt_pass
 {
 public:
-  pass_predcom(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_predcom, ctxt)
+  pass_predcom (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_predcom, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -303,7 +303,7 @@ make_pass_predcom (gcc::context *ctxt)
 /* Loop autovectorization.  */
 
 static unsigned int
-tree_vectorize (void)
+tree_loop_vectorize (void)
 {
   if (number_of_loops (cfun) <= 1)
     return 0;
@@ -312,9 +312,9 @@ tree_vectorize (void)
 }
 
 static bool
-gate_tree_vectorize (void)
+gate_tree_loop_vectorize (void)
 {
-  return flag_tree_vectorize || cfun->has_force_vect_loops;
+  return flag_tree_loop_vectorize || cfun->has_force_vect_loops;
 }
 
 namespace {
@@ -337,13 +337,13 @@ const pass_data pass_data_vectorize =
 class pass_vectorize : public gimple_opt_pass
 {
 public:
-  pass_vectorize(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_vectorize, ctxt)
+  pass_vectorize (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_vectorize, ctxt)
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_tree_vectorize (); }
-  unsigned int execute () { return tree_vectorize (); }
+  bool gate () { return gate_tree_loop_vectorize (); }
+  unsigned int execute () { return tree_loop_vectorize (); }
 
 }; // class pass_vectorize
 
@@ -404,8 +404,8 @@ const pass_data pass_data_graphite =
 class pass_graphite : public gimple_opt_pass
 {
 public:
-  pass_graphite(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_graphite, ctxt)
+  pass_graphite (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_graphite, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -441,8 +441,8 @@ const pass_data pass_data_graphite_transforms =
 class pass_graphite_transforms : public gimple_opt_pass
 {
 public:
-  pass_graphite_transforms(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_graphite_transforms, ctxt)
+  pass_graphite_transforms (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_graphite_transforms, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -497,8 +497,8 @@ const pass_data pass_data_check_data_deps =
 class pass_check_data_deps : public gimple_opt_pass
 {
 public:
-  pass_check_data_deps(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_check_data_deps, ctxt)
+  pass_check_data_deps (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_check_data_deps, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -552,8 +552,8 @@ const pass_data pass_data_iv_canon =
 class pass_iv_canon : public gimple_opt_pass
 {
 public:
-  pass_iv_canon(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_iv_canon, ctxt)
+  pass_iv_canon (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_iv_canon, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -599,8 +599,8 @@ const pass_data pass_data_scev_cprop =
 class pass_scev_cprop : public gimple_opt_pass
 {
 public:
-  pass_scev_cprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_scev_cprop, ctxt)
+  pass_scev_cprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_scev_cprop, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -650,8 +650,8 @@ const pass_data pass_data_record_bounds =
 class pass_record_bounds : public gimple_opt_pass
 {
 public:
-  pass_record_bounds(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_record_bounds, ctxt)
+  pass_record_bounds (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_record_bounds, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -706,8 +706,8 @@ const pass_data pass_data_complete_unroll =
 class pass_complete_unroll : public gimple_opt_pass
 {
 public:
-  pass_complete_unroll(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_complete_unroll, ctxt)
+  pass_complete_unroll (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_complete_unroll, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -771,8 +771,8 @@ const pass_data pass_data_complete_unrolli =
 class pass_complete_unrolli : public gimple_opt_pass
 {
 public:
-  pass_complete_unrolli(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_complete_unrolli, ctxt)
+  pass_complete_unrolli (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_complete_unrolli, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -828,8 +828,8 @@ const pass_data pass_data_parallelize_loops =
 class pass_parallelize_loops : public gimple_opt_pass
 {
 public:
-  pass_parallelize_loops(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_parallelize_loops, ctxt)
+  pass_parallelize_loops (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_parallelize_loops, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -883,8 +883,8 @@ const pass_data pass_data_loop_prefetch =
 class pass_loop_prefetch : public gimple_opt_pass
 {
 public:
-  pass_loop_prefetch(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_loop_prefetch, ctxt)
+  pass_loop_prefetch (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_loop_prefetch, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -939,8 +939,8 @@ const pass_data pass_data_iv_optimize =
 class pass_iv_optimize : public gimple_opt_pass
 {
 public:
-  pass_iv_optimize(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_iv_optimize, ctxt)
+  pass_iv_optimize (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_iv_optimize, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -988,8 +988,8 @@ const pass_data pass_data_tree_loop_done =
 class pass_tree_loop_done : public gimple_opt_pass
 {
 public:
-  pass_tree_loop_done(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tree_loop_done, ctxt)
+  pass_tree_loop_done (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tree_loop_done, ctxt)
   {}
 
   /* opt_pass methods: */

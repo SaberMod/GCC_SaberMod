@@ -2288,9 +2288,7 @@ Type::is_backend_type_size_known(Gogo* gogo)
       }
 
     case TYPE_NAMED:
-      // Begin converting this type to the backend representation.
-      // This will create a placeholder if necessary.
-      this->get_backend(gogo);
+      this->named_type()->convert(gogo);
       return this->named_type()->is_named_backend_type_size_known();
 
     case TYPE_FORWARD:
@@ -4229,6 +4227,11 @@ Struct_field::is_embedded_builtin(Gogo* gogo) const
 
 Struct_type::Identical_structs Struct_type::identical_structs;
 
+// A hash table used to merge method sets for identical unnamed
+// structs.
+
+Struct_type::Struct_method_tables Struct_type::struct_method_tables;
+
 // Traversal.
 
 int
@@ -4693,9 +4696,24 @@ Struct_type::interface_method_table(Gogo* gogo,
 				    const Interface_type* interface,
 				    bool is_pointer)
 {
+  std::pair<Struct_type*, Struct_type::Struct_method_table_pair*>
+    val(this, NULL);
+  std::pair<Struct_type::Struct_method_tables::iterator, bool> ins =
+    Struct_type::struct_method_tables.insert(val);
+
+  Struct_method_table_pair* smtp;
+  if (!ins.second)
+    smtp = ins.first->second;
+  else
+    {
+      smtp = new Struct_method_table_pair();
+      smtp->first = NULL;
+      smtp->second = NULL;
+      ins.first->second = smtp;
+    }
+
   return Type::interface_method_table(gogo, this, interface, is_pointer,
-				      &this->interface_method_tables_,
-				      &this->pointer_interface_method_tables_);
+				      &smtp->first, &smtp->second);
 }
 
 // Convert struct fields to the backend representation.  This is not
@@ -9251,7 +9269,11 @@ Type::bind_field_or_method(Gogo* gogo, const Type* type, Expression* expr,
     }
   else
     {
-      if (!ambig1.empty())
+      if (Gogo::is_erroneous_name(name))
+	{
+	  // An error was already reported.
+	}
+      else if (!ambig1.empty())
 	error_at(location, "%qs is ambiguous via %qs and %qs",
 		 Gogo::message_name(name).c_str(), ambig1.c_str(),
 		 ambig2.c_str());

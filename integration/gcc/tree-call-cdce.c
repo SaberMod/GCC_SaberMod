@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "tree.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -946,8 +946,8 @@ const pass_data pass_data_call_cdce =
 class pass_call_cdce : public gimple_opt_pass
 {
 public:
-  pass_call_cdce(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_call_cdce, ctxt)
+  pass_call_cdce (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_call_cdce, ctxt)
   {}
 
   /* opt_pass methods: */

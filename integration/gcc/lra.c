@@ -2163,7 +2163,9 @@ update_inc_notes (void)
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
-	    if (REG_NOTE_KIND (*pnote) == REG_INC)
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD
+                || REG_NOTE_KIND (*pnote) == REG_UNUSED
+                || REG_NOTE_KIND (*pnote) == REG_INC)
 	      *pnote = XEXP (*pnote, 1);
 	    else
 	      pnote = &XEXP (*pnote, 1);
@@ -2365,8 +2367,10 @@ lra (FILE *f)
 	      if (! live_p)
 		lra_clear_live_ranges ();
 	    }
-	  bitmap_clear (&lra_optional_reload_pseudos);
 	}
+      /* Don't clear optional reloads bitmap until all constraints are
+	 satisfied as we need to differ them from regular reloads.  */
+      bitmap_clear (&lra_optional_reload_pseudos);
       bitmap_clear (&lra_subreg_reload_pseudos);
       bitmap_clear (&lra_inheritance_pseudos);
       bitmap_clear (&lra_split_regs);

@@ -169,7 +169,7 @@ base_of_path (const char *path, const char **base_out)
   char c = *p;
   while (c)
     {
-      if (IS_DIR_SEPARATOR(c))
+      if (IS_DIR_SEPARATOR (c))
         {
           base = p + 1;
           dot = 0;
@@ -486,6 +486,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_falign_labels, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_falign_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_tail_merge, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_CHEAP },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
 
@@ -498,8 +499,9 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_ftree_vectorize, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
+    { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_partial_pre, NULL, 1 },
 
@@ -824,9 +826,21 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	}
     }
 
+  /* Tune vectorization related parametees according to cost model.  */
+  if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
+    {
+      maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
+            6, opts->x_param_values, opts_set->x_param_values);
+      maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS,
+            0, opts->x_param_values, opts_set->x_param_values);
+      maybe_set_param_value (PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
+            0, opts->x_param_values, opts_set->x_param_values);
+    }
+
   /* Set PARAM_MAX_STORES_TO_SINK to 0 if either vectorization or if-conversion
      is disabled.  */
-  if (!opts->x_flag_tree_vectorize || !opts->x_flag_tree_loop_if_convert)
+  if ((!opts->x_flag_tree_loop_vectorize && !opts->x_flag_tree_slp_vectorize)
+       || !opts->x_flag_tree_loop_if_convert)
     maybe_set_param_value (PARAM_MAX_STORES_TO_SINK, 0,
                            opts->x_param_values, opts_set->x_param_values);
 
@@ -874,7 +888,7 @@ wrap_help (const char *help,
 	    }
 	}
 
-      printf( "  %-*.*s %.*s\n", col_width, item_width, item, len, help);
+      printf ("  %-*.*s %.*s\n", col_width, item_width, item, len, help);
       item_width = 0;
       while (help[len] == ' ')
 	len++;
@@ -1660,10 +1674,14 @@ common_handle_option (struct gcc_options *opts,
 	opts->x_flag_unswitch_loops = value;
       if (!opts_set->x_flag_gcse_after_reload)
 	opts->x_flag_gcse_after_reload = value;
-      if (!opts_set->x_flag_tree_vectorize)
-	opts->x_flag_tree_vectorize = value;
+      if (!opts_set->x_flag_tree_loop_vectorize
+          && !opts_set->x_flag_tree_vectorize)
+	opts->x_flag_tree_loop_vectorize = value;
+      if (!opts_set->x_flag_tree_slp_vectorize
+          && !opts_set->x_flag_tree_vectorize)
+	opts->x_flag_tree_slp_vectorize = value;
       if (!opts_set->x_flag_vect_cost_model)
-	opts->x_flag_vect_cost_model = value;
+	opts->x_flag_vect_cost_model = VECT_COST_MODEL_DYNAMIC;
       if (!opts_set->x_flag_tree_loop_distribute_patterns)
 	opts->x_flag_tree_loop_distribute_patterns = value;
       /* Indirect call profiling should do all useful transformations
@@ -1691,6 +1709,12 @@ common_handle_option (struct gcc_options *opts,
         opts->x_flag_ipa_reference = false;
       break;
 
+    case OPT_ftree_vectorize:
+      if (!opts_set->x_flag_tree_loop_vectorize)
+        opts->x_flag_tree_loop_vectorize = value;
+      if (!opts_set->x_flag_tree_slp_vectorize)
+        opts->x_flag_tree_slp_vectorize = value;
+      break;
     case OPT_fshow_column:
       dc->show_column = value;
       break;

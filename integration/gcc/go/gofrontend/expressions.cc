@@ -978,22 +978,19 @@ Var_expression::do_get_tree(Translate_context* context)
 {
   Bvariable* bvar = this->variable_->get_backend_variable(context->gogo(),
 							  context->function());
-  tree ret = var_to_tree(bvar);
-  if (ret == error_mark_node)
-    return error_mark_node;
   bool is_in_heap;
+  Location loc = this->location();
   if (this->variable_->is_variable())
     is_in_heap = this->variable_->var_value()->is_in_heap();
   else if (this->variable_->is_result_variable())
     is_in_heap = this->variable_->result_var_value()->is_in_heap();
   else
     go_unreachable();
+
+  Bexpression* ret = context->backend()->var_expression(bvar, loc);
   if (is_in_heap)
-    {
-      ret = build_fold_indirect_ref_loc(this->location().gcc_location(), ret);
-      TREE_THIS_NOTRAP(ret) = 1;
-    }
-  return ret;
+    ret = context->backend()->indirect_expression(ret, true, loc);
+  return expr_to_tree(ret);
 }
 
 // Ast dump for variable expression.
@@ -7752,8 +7749,6 @@ Builtin_call_expression::do_numeric_constant_value(Numeric_constant* nc) const
 	return false;
       if (arg_type->is_abstract())
 	return false;
-      if (arg_type->named_type() != NULL)
-	arg_type->named_type()->convert(this->gogo_);
 
       unsigned int ret;
       if (this->code_ == BUILTIN_SIZEOF)

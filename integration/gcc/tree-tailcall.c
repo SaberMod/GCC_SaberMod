@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -1083,12 +1083,12 @@ const pass_data pass_data_tail_recursion =
 class pass_tail_recursion : public gimple_opt_pass
 {
 public:
-  pass_tail_recursion(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tail_recursion, ctxt)
+  pass_tail_recursion (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tail_recursion, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_tail_recursion (ctxt_); }
+  opt_pass * clone () { return new pass_tail_recursion (m_ctxt); }
   bool gate () { return gate_tail_calls (); }
   unsigned int execute () { return execute_tail_recursion (); }
 
@@ -1122,8 +1122,8 @@ const pass_data pass_data_tail_calls =
 class pass_tail_calls : public gimple_opt_pass
 {
 public:
-  pass_tail_calls(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tail_calls, ctxt)
+  pass_tail_calls (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tail_calls, ctxt)
   {}
 
   /* opt_pass methods: */

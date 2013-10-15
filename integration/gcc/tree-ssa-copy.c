@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
@@ -767,11 +767,19 @@ fini_copy_prop (void)
 	 of the representative to the first solution we find if
 	 it doesn't have one already.  */
       if (copy_of[i].value != var
-	  && TREE_CODE (copy_of[i].value) == SSA_NAME
-	  && POINTER_TYPE_P (TREE_TYPE (var))
-	  && SSA_NAME_PTR_INFO (var)
-	  && !SSA_NAME_PTR_INFO (copy_of[i].value))
-	duplicate_ssa_name_ptr_info (copy_of[i].value, SSA_NAME_PTR_INFO (var));
+	  && TREE_CODE (copy_of[i].value) == SSA_NAME)
+	{
+	  if (POINTER_TYPE_P (TREE_TYPE (var))
+	      && SSA_NAME_PTR_INFO (var)
+	      && !SSA_NAME_PTR_INFO (copy_of[i].value))
+	    duplicate_ssa_name_ptr_info (copy_of[i].value,
+					 SSA_NAME_PTR_INFO (var));
+	  else if (!POINTER_TYPE_P (TREE_TYPE (var))
+		   && SSA_NAME_RANGE_INFO (var)
+		   && !SSA_NAME_RANGE_INFO (copy_of[i].value))
+	    duplicate_ssa_name_range_info (copy_of[i].value,
+					   SSA_NAME_RANGE_INFO (var));
+	}
     }
 
   /* Don't do DCE if SCEV is initialized.  It would destroy the scev cache.  */
@@ -850,12 +858,12 @@ const pass_data pass_data_copy_prop =
 class pass_copy_prop : public gimple_opt_pass
 {
 public:
-  pass_copy_prop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_copy_prop, ctxt)
+  pass_copy_prop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_copy_prop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_copy_prop (ctxt_); }
+  opt_pass * clone () { return new pass_copy_prop (m_ctxt); }
   bool gate () { return gate_copy_prop (); }
   unsigned int execute () { return execute_copy_prop (); }
 

@@ -804,14 +804,14 @@ const pass_data pass_data_mode_switching =
 class pass_mode_switching : public rtl_opt_pass
 {
 public:
-  pass_mode_switching(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_mode_switching, ctxt)
+  pass_mode_switching (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_mode_switching, ctxt)
   {}
 
   /* opt_pass methods: */
   /* The epiphany backend creates a second instance of this pass, so we need
      a clone method.  */
-  opt_pass * clone () { return new pass_mode_switching (ctxt_); }
+  opt_pass * clone () { return new pass_mode_switching (m_ctxt); }
   bool gate () { return gate_mode_switching (); }
   unsigned int execute () { return rest_of_handle_mode_switching (); }
 

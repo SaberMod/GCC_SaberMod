@@ -46,7 +46,7 @@
 #include "params.h"
 #include "coverage.h"
 #include "tree-pass.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "cfgloop.h"
 
@@ -417,8 +417,8 @@ const pass_data pass_data_tracer =
 class pass_tracer : public gimple_opt_pass
 {
 public:
-  pass_tracer(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tracer, ctxt)
+  pass_tracer (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tracer, ctxt)
   {}
 
   /* opt_pass methods: */

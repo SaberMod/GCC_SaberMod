@@ -29,7 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "except.h"
 #include "cfgloop.h"
@@ -1009,12 +1009,12 @@ const pass_data pass_data_merge_phi =
 class pass_merge_phi : public gimple_opt_pass
 {
 public:
-  pass_merge_phi(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_merge_phi, ctxt)
+  pass_merge_phi (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_merge_phi, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_merge_phi (ctxt_); }
+  opt_pass * clone () { return new pass_merge_phi (m_ctxt); }
   bool gate () { return gate_merge_phi (); }
   unsigned int execute () { return merge_phi_nodes (); }
 

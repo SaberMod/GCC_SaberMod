@@ -419,10 +419,11 @@ Objective-C and Objective-C++ Dialects}.
 -ftree-loop-if-convert-stores -ftree-loop-im @gol
 -ftree-phiprop -ftree-loop-distribution -ftree-loop-distribute-patterns @gol
 -ftree-loop-ivcanon -ftree-loop-linear -ftree-loop-optimize @gol
+-ftree-loop-vectorize @gol
 -ftree-parallelize-loops=@var{n} -ftree-pre -ftree-partial-pre -ftree-pta @gol
 -ftree-reassoc -ftree-sink -ftree-slsr -ftree-sra @gol
--ftree-switch-conversion -ftree-tail-merge @gol
--ftree-ter -ftree-vect-loop-version -ftree-vectorize -ftree-vrp @gol
+-ftree-switch-conversion -ftree-tail-merge -ftree-ter @gol
+-ftree-vectorize -ftree-vrp @gol
 -funit-at-a-time -funroll-all-loops -funroll-loops @gol
 -funsafe-loop-optimizations -funsafe-math-optimizations -funswitch-loops @gol
 -fvariable-expansion-in-unroller -fvect-cost-model -fvpt -fweb @gol
@@ -651,10 +652,10 @@ Objective-C and Objective-C++ Dialects}.
 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd @gol
 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
--mbmi2 -mrtm -mlwp -mthreads @gol
+-mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
--mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} 
+-mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy}
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
 -m96bit-long-double -mlong-double-64 -mlong-double-80 @gol
 -mregparm=@var{num}  -msseregparm @gol
@@ -803,6 +804,9 @@ Objective-C and Objective-C++ Dialects}.
 
 @emph{Moxie Options}
 @gccoptlist{-meb -mel -mno-crt0}
+
+@emph{MSP430 Options}
+@gccoptlist{-msim -masm-hex -mmcu= -mlarge -msmall -mrelax}
 
 @emph{PDP-11 Options}
 @gccoptlist{-mfpu  -msoft-float  -mac0  -mno-ac0  -m40  -m45  -m10 @gol
@@ -1865,6 +1869,8 @@ Some cases of unnamed fields in structures and unions are only
 accepted with this option.  @xref{Unnamed Fields,,Unnamed struct/union
 fields within structs/unions}, for details.
 
+Note that this option is off for all targets but i?86 and x86_64
+targets using ms-abi.
 @item -fplan9-extensions
 Accept some non-standard constructs used in Plan 9 code.
 
@@ -6755,8 +6761,8 @@ invoking @option{-O2} on programs that use computed gotos.
 Optimize yet more.  @option{-O3} turns on all optimizations specified
 by @option{-O2} and also turns on the @option{-finline-functions},
 @option{-funswitch-loops}, @option{-fpredictive-commoning},
-@option{-fgcse-after-reload}, @option{-ftree-vectorize},
-@option{-fvect-cost-model},
+@option{-fgcse-after-reload}, @option{-ftree-loop-vectorize},
+@option{-ftree-slp-vectorize}, @option{-fvect-cost-model},
 @option{-ftree-partial-pre} and @option{-fipa-cp-clone} options.
 
 @item -O0
@@ -6773,7 +6779,7 @@ optimizations designed to reduce code size.
 @option{-Os} disables the following optimization flags:
 @gccoptlist{-falign-functions  -falign-jumps  -falign-loops @gol
 -falign-labels  -freorder-blocks  -freorder-blocks-and-partition @gol
--fprefetch-loop-arrays  -ftree-vect-loop-version}
+-fprefetch-loop-arrays}
 
 @item -Ofast
 @opindex Ofast
@@ -8015,27 +8021,33 @@ higher.
 
 @item -ftree-vectorize
 @opindex ftree-vectorize
+Perform vectorization on trees. This flag enables @option{-ftree-loop-vectorize}
+and @option{-ftree-slp-vectorize} if not explicitly specified.
+
+@item -ftree-loop-vectorize
+@opindex ftree-loop-vectorize
 Perform loop vectorization on trees. This flag is enabled by default at
-@option{-O3}.
+@option{-O3} and when @option{-ftree-vectorize} is enabled.
 
 @item -ftree-slp-vectorize
 @opindex ftree-slp-vectorize
 Perform basic block vectorization on trees. This flag is enabled by default at
 @option{-O3} and when @option{-ftree-vectorize} is enabled.
 
-@item -ftree-vect-loop-version
-@opindex ftree-vect-loop-version
-Perform loop versioning when doing loop vectorization on trees.  When a loop
-appears to be vectorizable except that data alignment or data dependence cannot
-be determined at compile time, then vectorized and non-vectorized versions of
-the loop are generated along with run-time checks for alignment or dependence
-to control which version is executed.  This option is enabled by default
-except at level @option{-Os} where it is disabled.
-
-@item -fvect-cost-model
+@item -fvect-cost-model=@var{model}
 @opindex fvect-cost-model
-Enable cost model for vectorization.  This option is enabled by default at
-@option{-O3}.
+Alter the cost model used for vectorization.  The @var{model} argument
+should be one of @code{unlimited}, @code{dynamic} or @code{cheap}.
+With the @code{unlimited} model the vectorized code-path is assumed
+to be profitable while with the @code{dynamic} model a runtime check
+will guard the vectorized code-path to enable it only for iteration
+counts that will likely execute faster than when executing the original
+scalar loop.  The @code{cheap} model will disable vectorization of
+loops where doing so would be cost prohibitive for example due to
+required runtime checks for data dependence or alignment but otherwise
+is equal to the @code{dynamic} model.
+The default cost model depends on other optimization flags and is
+either @code{dynamic} or @code{cheap}.
 
 @item -ftree-vrp
 @opindex ftree-vrp
@@ -9441,13 +9453,15 @@ constraints.  The default value is 0.
 
 @item vect-max-version-for-alignment-checks
 The maximum number of run-time checks that can be performed when
-doing loop versioning for alignment in the vectorizer.  See option
-@option{-ftree-vect-loop-version} for more information.
+doing loop versioning for alignment in the vectorizer. 
 
 @item vect-max-version-for-alias-checks
 The maximum number of run-time checks that can be performed when
-doing loop versioning for alias in the vectorizer.  See option
-@option{-ftree-vect-loop-version} for more information.
+doing loop versioning for alias in the vectorizer. 
+
+@item vect-max-peeling-for-alignment
+The maximum number of loop peels to enhance access alignment
+for vectorizer. Value -1 means 'no limit'.
 
 @item max-iterations-to-track
 The maximum number of iterations of a loop the brute-force algorithm
@@ -11048,6 +11062,7 @@ platform.
 * MMIX Options::
 * MN10300 Options::
 * Moxie Options::
+* MSP430 Options::
 * PDP-11 Options::
 * picoChip Options::
 * PowerPC Options::
@@ -12046,7 +12061,7 @@ generic or @code{__flash} is used, then @code{RAMPZ} is set
 as needed before the operation.
 
 @item
-If the device supports RAM larger than 64@tie{KiB} and the compiler
+If the device supports RAM larger than 64@tie{}KiB and the compiler
 needs to change @code{RAMPZ} to accomplish an operation, @code{RAMPZ}
 is reset to zero after the operation.
 
@@ -12056,7 +12071,7 @@ prologue/epilogue saves/restores that SFR and initializes it with
 zero in case the ISR code might (implicitly) use it.
 
 @item
-RAM larger than 64@tie{KiB} is not supported by GCC for AVR targets.
+RAM larger than 64@tie{}KiB is not supported by GCC for AVR targets.
 If you use inline assembler to read from locations outside the
 16-bit address range and change one of the @code{RAMP} registers,
 you must reset it to zero after the access.
@@ -14463,6 +14478,9 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mno-bmi2
 @itemx -mlzcnt
 @itemx -mno-lzcnt
+@itemx -mfxsr
+@itemx -mxsave
+@itemx -mxsaveopt
 @itemx -mrtm
 @itemx -mtbm
 @itemx -mno-tbm
@@ -14475,7 +14493,7 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 These switches enable or disable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM, BMI, BMI2,
-LZCNT, RTM or 3DNow!@:
+FXSR, XSAVE, XSAVEOPT, LZCNT, RTM or 3DNow!@:
 extended instruction sets.
 These extensions are also available as built-in functions: see
 @ref{X86 Built-in Functions}, for details of the functions enabled and
@@ -16035,7 +16053,7 @@ Link the SDRAM-based runtime instead of the default ROM-based runtime.
 
 @item -msim
 @opindex msim
-Link the simulator runtime libraries.
+Link the simulator run-time libraries.
 
 @item -msimnovec
 @opindex msimnovec
@@ -17296,6 +17314,46 @@ Generate little-endian code.
 @item -mno-crt0
 @opindex mno-crt0
 Do not link in the C run-time initialization object file.
+
+@end table
+
+@node MSP430 Options
+@subsection MSP430 Options
+@cindex MSP430 Options
+
+These options are defined for the MSP430:
+
+@table @gcctabopt
+
+@item -msim
+@opindex msim
+Link the simulator runtime libraries.
+
+@item -masm-hex
+@opindex masm-hex
+Force assembly output to always use hex constants.  Normally such
+constants are signed decimals, but this option is available for
+testsuite and/or aesthetic purposes.
+
+@item -mmcu=
+@opindex mmcu=
+Select the MCU to target.  Note that there are two ``generic'' MCUs,
+@code{msp430} and @code{msp430x}, which should be used most of the
+time.  This option is also passed to the assembler.
+
+@item -mlarge
+@opindex mlarge
+Use large-model addressing (20-bit pointers, 32-bit @code{size_t}).
+
+@item -msmall
+@opindex msmall
+Use small-model addressing (16-bit pointers, 16-bit @code{size_t}).
+
+@item -mrelax
+@opindex mrelax
+This option is passed to the assembler and linker, and allows the
+linker to perform certain optimizations that cannot be done until
+the final link.
 
 @end table
 
@@ -21124,14 +21182,6 @@ instruction.  In the previous example, that might be a 32-bit load
 instruction, even though that accesses bytes that do not contain
 any portion of the bit-field, or memory-mapped registers unrelated to
 the one being updated.
-
-If the target requires strict alignment, and honoring the field
-type would require violating this alignment, a warning is issued.
-If the field has @code{packed} attribute, the access is done without
-honoring the field type.  If the field doesn't have @code{packed}
-attribute, the access is done honoring the field type.  In both cases,
-GCC assumes that the user knows something about the target hardware
-that it is unaware of.
 
 The default value of this option is determined by the application binary
 interface for the target processor.

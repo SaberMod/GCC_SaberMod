@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-inline.h"
@@ -277,8 +277,8 @@ const pass_data pass_data_ch =
 class pass_ch : public gimple_opt_pass
 {
 public:
-  pass_ch(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_ch, ctxt)
+  pass_ch (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ch, ctxt)
   {}
 
   /* opt_pass methods: */

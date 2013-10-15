@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
@@ -1657,12 +1657,12 @@ const pass_data pass_data_lower_complex =
 class pass_lower_complex : public gimple_opt_pass
 {
 public:
-  pass_lower_complex(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_lower_complex, ctxt)
+  pass_lower_complex (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_complex, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_lower_complex (ctxt_); }
+  opt_pass * clone () { return new pass_lower_complex (m_ctxt); }
   unsigned int execute () { return tree_lower_complex (); }
 
 }; // class pass_lower_complex
@@ -1704,8 +1704,8 @@ const pass_data pass_data_lower_complex_O0 =
 class pass_lower_complex_O0 : public gimple_opt_pass
 {
 public:
-  pass_lower_complex_O0(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_lower_complex_O0, ctxt)
+  pass_lower_complex_O0 (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_complex_O0, ctxt)
   {}
 
   /* opt_pass methods: */

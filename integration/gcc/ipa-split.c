@@ -81,7 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -1650,8 +1650,8 @@ const pass_data pass_data_split_functions =
 class pass_split_functions : public gimple_opt_pass
 {
 public:
-  pass_split_functions(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_split_functions, ctxt)
+  pass_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_split_functions, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1710,8 +1710,8 @@ const pass_data pass_data_feedback_split_functions =
 class pass_feedback_split_functions : public gimple_opt_pass
 {
 public:
-  pass_feedback_split_functions(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_feedback_split_functions, ctxt)
+  pass_feedback_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_feedback_split_functions, ctxt)
   {}
 
   /* opt_pass methods: */
