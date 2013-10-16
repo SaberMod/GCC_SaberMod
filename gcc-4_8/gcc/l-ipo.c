@@ -1621,6 +1621,7 @@ cgraph_do_link (void)
 struct promo_ent
 {
   char* assemb_name;
+  tree decl;
   int seq;
 };
 
@@ -1663,18 +1664,38 @@ promo_ent_del (void *ent)
 
 static htab_t promo_ent_hash_tab = NULL;
 
+/* Make the var decl for weak symbol as extern.  */
+ 
+static inline void
+externalize_weak_decl (tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl));
+
+  DECL_EXTERNAL (decl) = 1;
+  TREE_STATIC (decl) = 0;
+  DECL_INITIAL (decl) = NULL;
+  DECL_CONTEXT (decl) = NULL;
+}
+
 /* Return a unique sequence number for NAME. This is needed to avoid
    name conflict -- function scope statics may have identical names.
 
-   This function returns a zero sequence number if it is called with
+   When DECL is NULL, 
+   this function returns a zero sequence number if it is called with
    a particular NAME for the first time, and non-zero otherwise.
-   This fact is used to keep track of unseen weak variables.  */
+   This fact is used to keep track of unseen weak variables.  
+   
+   When DECL is not NULL, this function is supposed to be called by
+   varpool_remove_duplicate_weak_decls.  */
 
 static int
-get_name_seq_num (const char *name)
+get_name_seq_num (const char *name, tree decl)
 {
   struct promo_ent **slot;
   struct promo_ent ent;
+  int ret = 0;
+
+  gcc_assert (!decl || TREE_CODE (decl) == VAR_DECL);
   ent.assemb_name = xstrdup (name);
   ent.seq = 0;
 
@@ -1685,13 +1706,27 @@ get_name_seq_num (const char *name)
     {
       *slot = XCNEW (struct promo_ent);
       (*slot)->assemb_name = ent.assemb_name;
+      (*slot)->decl = decl;
     }
   else
     {
-      (*slot)->seq++;
+      /* During output, the previously selected weak decl may not be
+         referenced by any function that is expanded thus they do not have
+         DECL_RTL_SET_P to be true and therefore can be eliminated by
+         varpool_remove_unreferenced_decls later. To avoid that, logic is
+         added to replace previously selected decl when needed.  */ 
+      if (decl && DECL_RTL_SET_P (decl)
+          && !DECL_RTL_SET_P ((*slot)->decl))
+        {
+          externalize_weak_decl ((*slot)->decl);
+          (*slot)->decl = decl;
+          ret = 0;
+        }
+      else 
+        ret = ++(*slot)->seq;
       free (ent.assemb_name);
     }
-  return (*slot)->seq;
+  return ret;
 }
 
 /* Returns a unique assembler name for DECL.  */
@@ -1746,7 +1781,7 @@ create_unique_name (tree decl, unsigned module_id)
 
   assembler_name = (char*) alloca (strlen (name) + 30);
   sprintf (assembler_name, "%s.cmo.%u", name, module_id);
-  seq = get_name_seq_num (assembler_name);
+  seq = get_name_seq_num (assembler_name, NULL);
   if (seq)
     sprintf (assembler_name, "%s.%d", assembler_name, seq);
 
@@ -2016,15 +2051,8 @@ varpool_remove_duplicate_weak_decls (void)
       tree decl = node->symbol.decl;
 
       if (TREE_PUBLIC (decl) && DECL_WEAK (decl) && !DECL_EXTERNAL (decl)
-          && ((DECL_ARTIFICIAL (decl) &&
-           get_name_seq_num (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl))))
-          || (!DECL_ARTIFICIAL (decl) && real_varpool_node (decl) != node)))
-        {
-	  DECL_EXTERNAL (decl) = 1;
-	  TREE_STATIC (decl) = 0;
-	  DECL_INITIAL (decl) = NULL;
-	  DECL_CONTEXT (decl) = NULL;
-	}
+          && get_name_seq_num (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)), decl))
+        externalize_weak_decl (decl);
     }
 
   htab_delete (promo_ent_hash_tab);
