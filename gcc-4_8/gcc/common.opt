@@ -942,6 +942,10 @@ Common Joined RejectNegative Var(auto_profile_file)
 Use sample profile information for call graph node weights. The profile
 file is specified in the argument.
 
+fauto-profile-accurate
+Common Report Var(flag_auto_profile_accurate) Optimization
+Whether to assume the sample profile is accurate.
+
 ; -fcheck-bounds causes gcc to generate array bounds checks.
 ; For C, C++ and ObjC: defaults off.
 ; For Java: defaults to on.

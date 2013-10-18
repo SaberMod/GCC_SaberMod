@@ -2866,7 +2866,9 @@ compute_function_frequency (void)
       || (flag_auto_profile && profile_status == PROFILE_GUESSED))
     {
       int flags = flags_from_decl_or_type (current_function_decl);
-      if (lookup_attribute ("cold", DECL_ATTRIBUTES (current_function_decl))
+      if (profile_info && flag_auto_profile_accurate)
+	node->frequency = NODE_FREQUENCY_UNLIKELY_EXECUTED;
+      else if (lookup_attribute ("cold", DECL_ATTRIBUTES (current_function_decl))
 	  != NULL)
         node->frequency = NODE_FREQUENCY_UNLIKELY_EXECUTED;
       else if (lookup_attribute ("hot", DECL_ATTRIBUTES (current_function_decl))

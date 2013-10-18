@@ -1598,9 +1598,10 @@ auto_profile (void)
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
 	cleanup_tree_cfg ();
 
+      rebuild_cgraph_edges ();
       pop_cfun ();
     }
-  return TODO_rebuild_cgraph_edges;
+  return 0;
 }
 
 static bool
