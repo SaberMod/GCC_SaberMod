@@ -307,13 +307,15 @@ cmp_templ_arg (tree ta1, tree ta2)
       int n, i;
       if (!ARGUMENT_PACK_P (ta2))
         return 0;
-      n = TREE_VEC_LENGTH (ta1);
-      if (n != TREE_VEC_LENGTH (ta2))
+      tree pack1 = ARGUMENT_PACK_ARGS (ta1);
+      tree pack2 = ARGUMENT_PACK_ARGS (ta2);
+      n = TREE_VEC_LENGTH (pack1);
+      if (n != TREE_VEC_LENGTH (pack2))
         return 0;
       for (i = 0; i < n ; i++)
         {
-          if (!cmp_templ_arg (TREE_VEC_ELT (ta1, i),
-                              TREE_VEC_ELT (ta2, i)))
+          if (!cmp_templ_arg (TREE_VEC_ELT (pack1, i),
+                              TREE_VEC_ELT (pack2, i)))
             return 0;
         }
       return 1;

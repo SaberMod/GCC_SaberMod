@@ -2469,6 +2469,10 @@ finish_compound_literal (tree type, tree compound_literal,
       decl = pushdecl_top_level (decl);
       DECL_NAME (decl) = make_anon_name ();
       SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+      /* Capture the current module info for statics.  */
+      if (L_IPO_COMP_MODE)
+        varpool_node_for_decl (decl);
+
       return decl;
     }
   else

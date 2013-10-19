@@ -271,6 +271,12 @@ enqueue_node (symtab_node node)
   first = node;
 }
 
+void
+cgraph_enqueue_node (struct cgraph_node *node)
+{
+  enqueue_node ((symtab_node) node);
+}
+
 /* Process CGRAPH_NEW_FUNCTIONS and perform actions necessary to add these
    functions into callgraph in a way so they look like ordinary reachable
    functions inserted into callgraph already at construction time.  */
@@ -925,7 +931,7 @@ cgraph_analyze_functions (void)
 		fprintf (cgraph_dump_file, "Trivially needed symbols:");
 	      changed = true;
 	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file, " %s", symtab_node_asm_name (node));
+		fprintf (cgraph_dump_file, " %s/%d", symtab_node_asm_name (node), node->symbol.order);
 	    }
 	  if (node == (symtab_node)first_analyzed
 	      || node == (symtab_node)first_analyzed_var)
@@ -1022,7 +1028,7 @@ cgraph_analyze_functions (void)
       if (!node->symbol.aux && !referred_to_p (node))
 	{
 	  if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", symtab_node_name (node));
+	    fprintf (cgraph_dump_file, " %s/%d", symtab_node_name (node), node->symbol.order);
 	  symtab_remove_node (node);
 	  continue;
 	}

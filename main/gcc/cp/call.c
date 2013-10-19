@@ -9018,6 +9018,9 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       tree name;
 
       TREE_STATIC (var) = TREE_STATIC (decl);
+      /* Capture the current module info for statics.  */
+      if (L_IPO_COMP_MODE && TREE_STATIC (var))
+        varpool_node_for_decl (var);
       DECL_TLS_MODEL (var) = DECL_TLS_MODEL (decl);
       name = mangle_ref_init_variable (decl);
       DECL_NAME (var) = name;

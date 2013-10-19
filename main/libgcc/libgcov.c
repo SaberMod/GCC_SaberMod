@@ -94,6 +94,31 @@ extern int gcov_dump_complete ATTRIBUTE_HIDDEN;
 #ifdef L_gcov
 #include "gcov-io.c"
 
+/* Create a strong reference to these symbols so that they are
+   unconditionally pulled into the instrumented binary, even when
+   the only reference is a weak reference. This is necessary because
+   we are using weak references to handle older compilers that
+   pre-date these new functions. A subtlety of the linker is that
+   it will only resolve weak references defined within archive libraries
+   when there is a string reference to something else defined within
+   the same object file. Since these two functions are defined within
+   their own object files (using L_gcov_reset and L_gcov_dump), they
+   would not get resolved. Since there are symbols within the main L_gcov
+   section that are strongly referenced during -fprofile-generate builds,
+   these symbols will always need to be resolved.  */
+void (*__gcov_dummy_ref1)() = &__gcov_reset;
+void (*__gcov_dummy_ref2)() = &__gcov_dump;
+
+
+/* Default callback function for profile instrumentation callback.  */
+__attribute__((weak)) void
+__coverage_callback (gcov_type funcdef_no __attribute__ ((unused)),
+                     int edge_no __attribute__ ((unused)))
+{
+   /* nothing */
+}
+
+
 /* Utility function for outputing errors.  */
 static int
 gcov_error (const char *fmt, ...)
@@ -1558,6 +1583,22 @@ __gcov_one_value_profiler_body (gcov_type *counters, gcov_type value)
   counters[2]++;
 }
 
+/* Atomic update version of __gcov_one_value_profile_body().  */
+static inline void
+__gcov_one_value_profiler_body_atomic (gcov_type *counters, gcov_type value)
+{
+  if (value == counters[0])
+    GCOV_TYPE_ATOMIC_FETCH_ADD_FN (&counters[1], 1, MEMMODEL_RELAXED);
+  else if (counters[1] == 0)
+    {
+      counters[1] = 1;
+      counters[0] = value;
+    }
+  else
+    GCOV_TYPE_ATOMIC_FETCH_ADD_FN (&counters[1], -1, MEMMODEL_RELAXED);
+  GCOV_TYPE_ATOMIC_FETCH_ADD_FN (&counters[2], 1, MEMMODEL_RELAXED);
+}
+
 #ifdef L_gcov_indirect_call_topn_profiler
 /* Tries to keep track the most frequent N values in the counters where
    N is specified by parameter TOPN_VAL. To track top N values, 2*N counter
@@ -1666,6 +1707,13 @@ __gcov_one_value_profiler (gcov_type *counters, gcov_type value)
 {
   __gcov_one_value_profiler_body (counters, value);
 }
+
+void
+__gcov_one_value_profiler_atomic (gcov_type *counters, gcov_type value)
+{
+  __gcov_one_value_profiler_body_atomic (counters, value);
+}
+
 #endif
 
 #ifdef L_gcov_indirect_call_profiler
@@ -1699,6 +1747,17 @@ __gcov_indirect_call_profiler (gcov_type* counter, gcov_type value,
       || (VTABLE_USES_DESCRIPTORS && callee_func
 	  && *(void **) cur_func == *(void **) callee_func))
     __gcov_one_value_profiler_body (counter, value);
+}
+
+/* Atomic update version of __gcov_indirect_call_profiler().  */
+void
+__gcov_indirect_call_profiler_atomic (gcov_type* counter, gcov_type value,
+                                      void* cur_func, void* callee_func)
+{
+  if (cur_func == callee_func
+      || (VTABLE_USES_DESCRIPTORS && callee_func
+          && *(void **) cur_func == *(void **) callee_func))
+    __gcov_one_value_profiler_body_atomic (counter, value);
 }
 #endif
 

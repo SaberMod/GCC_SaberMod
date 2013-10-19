@@ -1549,6 +1549,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
   gimple modify1, modify2;
   struct cgraph_node *direct_call1 = 0, *direct_call2 = 0;
   int perc_threshold, count_threshold, always_inline;
+  int use_hotness_heur = false;
   location_t locus;
 
   val1 = histogram->hvalue.counters [1];
@@ -1566,9 +1567,18 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
   perc_threshold = PARAM_VALUE (PARAM_ICALL_PROMOTE_PERCENT_THRESHOLD);
   count_threshold = PARAM_VALUE (PARAM_ICALL_PROMOTE_COUNT_THRESHOLD);
   always_inline = PARAM_VALUE (PARAM_ALWAYS_INLINE_ICALL_TARGET);
+  use_hotness_heur = PARAM_VALUE (PARAM_ICALL_USE_HOTNESS_HEUR);
 
-  if (100 * count1 < all * perc_threshold || count1 < count_threshold)
-    return false;
+  if (!use_hotness_heur)
+    {
+      if (100 * count1 < all * perc_threshold || count1 < count_threshold)
+        return false;
+    }
+  else
+    {
+      if (!maybe_hot_count_p (cfun, count1))
+        return false;
+    }
 
   if (check_ic_counter (stmt, &count1, &count2, all))
     return false;

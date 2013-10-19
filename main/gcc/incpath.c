@@ -457,10 +457,11 @@ add_path (char *path, int chain, int cxx_aware, bool user_supplied_p)
    in *BRACKETS and *QUOTES respectively.  */
 
 void
-get_include_chains (cpp_dir **quotes, cpp_dir **brackets)
+get_include_chains (cpp_dir **quotes, cpp_dir **brackets, cpp_dir **systems)
 {
   *quotes = heads[QUOTE];
   *brackets = heads[BRACKET];
+  *systems = heads[SYSTEM];
 }
 
 /* Make HEAD and TAIL pointers to include paths resynchronized

@@ -4499,12 +4499,25 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	       when a tentative file-scope definition is seen.
 	       But at end of compilation, do output code for them.  */
 	    DECL_DEFER_OUTPUT (decl) = 1;
+
+          /* In LIPO mode, create  varpool_node early
+             enough so that module id of the current source file being
+             parsed is captured.  */
+          if (flag_dyn_ipa && TREE_CODE (decl) == VAR_DECL)
+            varpool_node_for_decl (decl);
+
 	  if (asmspec && C_DECL_REGISTER (decl))
 	    DECL_HARD_REGISTER (decl) = 1;
 	  rest_of_decl_compilation (decl, true, 0);
 	}
       else
 	{
+          /* LIPO: capture module id.  */
+          if (flag_dyn_ipa
+              && TREE_CODE (decl) == VAR_DECL
+              && TREE_STATIC (decl))
+            varpool_node_for_decl (decl);
+
 	  /* In conjunction with an ASMSPEC, the `register'
 	     keyword indicates that we should place the variable
 	     in a particular register.  */
