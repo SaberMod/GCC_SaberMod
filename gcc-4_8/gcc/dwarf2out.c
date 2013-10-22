@@ -9249,7 +9249,8 @@ output_pubname (dw_offset die_offset, pubname_entry *entry)
 	    GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
           break;
         default:
-          gcc_unreachable ();
+          /* An unusual tag.  Leave the flag-byte empty.  */
+          break;
       }
       dw2_asm_output_data (1, flags >> GDB_INDEX_CU_BITSIZE,
                            "GDB-index flags");
