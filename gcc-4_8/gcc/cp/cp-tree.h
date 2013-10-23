@@ -6064,6 +6064,7 @@ extern tree mangle_tls_init_fn			(tree);
 extern tree mangle_tls_wrapper_fn		(tree);
 extern bool decl_tls_wrapper_p			(tree);
 extern tree mangle_ref_init_variable		(tree);
+extern void reset_temp_count                    (void);
 
 /* in dump.c */
 extern bool cp_dump_tree			(void *, tree);
@@ -6111,6 +6112,7 @@ extern bool cxx_omp_privatize_by_reference	(const_tree);
 /* in name-lookup.c */
 extern void suggest_alternatives_for            (location_t, tree);
 extern tree strip_using_decl                    (tree);
+extern void reset_anon_name                     (void);
 
 /* -- end of C++ */
 
