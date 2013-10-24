@@ -232,7 +232,8 @@ decide_is_symbol_needed (symtab_node node)
   /* Double check that no one output the function into assembly file
      early.  */
   gcc_checking_assert (!DECL_ASSEMBLER_NAME_SET_P (decl)
-	               || !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)));
+	               || (L_IPO_COMP_MODE
+                           || !TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))));
 
   if (!node->symbol.definition)
     return false;

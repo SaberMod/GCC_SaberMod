@@ -1787,8 +1787,8 @@ cgraph_remove_node (struct cgraph_node *node)
 	cgraph_release_function_body (node);
     }
 
-  node->symbol.decl = NULL;
   cgraph_remove_link_node (node);
+  node->symbol.decl = NULL;
 
   if (node->call_site_hash)
     {
