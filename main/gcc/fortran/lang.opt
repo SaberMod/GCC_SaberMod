@@ -293,6 +293,10 @@ Wunused-dummy-argument
 Fortran Warning
 Warn about unused dummy arguments.
 
+Wzerotrip
+Fortran Warning
+Warn about zero-trip DO loops
+
 cpp
 Fortran Negative(nocpp)
 Enable preprocessing
@@ -440,6 +444,10 @@ Fortran RejectNegative Joined UInteger
 ffpe-trap=
 Fortran RejectNegative JoinedOrMissing
 -ffpe-trap=[...]	Stop on following floating point exceptions
+
+ffpe-summary=
+Fortran RejectNegative JoinedOrMissing
+-ffpe-summary=[...]	Print summary of floating point exceptions
 
 ffree-form
 Fortran RejectNegative
@@ -594,8 +602,8 @@ Fortran
 Append underscores to externally visible names
 
 fwhole-file
-Fortran
-Compile all program units at once and check all interfaces
+Fortran Ignore
+Does nothing.  Preserved for backward compatibility.
 
 fworking-directory
 Fortran

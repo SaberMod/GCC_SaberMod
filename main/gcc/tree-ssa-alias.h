@@ -116,10 +116,11 @@ extern void *walk_non_aliased_vuses (ao_ref *, tree,
 extern unsigned int walk_aliased_vdefs (ao_ref *, tree,
 					bool (*)(ao_ref *, tree, void *),
 					void *, bitmap *);
-extern struct ptr_info_def *get_ptr_info (tree);
 extern void dump_alias_info (FILE *);
 extern void debug_alias_info (void);
 extern void dump_points_to_solution (FILE *, struct pt_solution *);
+extern void debug (pt_solution &ref);
+extern void debug (pt_solution *ptr);
 extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern void dump_alias_stats (FILE *);

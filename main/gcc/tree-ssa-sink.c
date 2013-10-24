@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple.h"
 #include "hashtab.h"
 #include "tree-iterator.h"
@@ -331,11 +331,19 @@ statement_sink_location (gimple stmt, basic_block frombb,
 	  gimple use_stmt = USE_STMT (use_p);
 
 	  /* A killing definition is not a use.  */
-	  if (gimple_assign_single_p (use_stmt)
-	      && gimple_vdef (use_stmt)
-	      && operand_equal_p (gimple_assign_lhs (stmt),
-				  gimple_assign_lhs (use_stmt), 0))
-	    continue;
+	  if ((gimple_has_lhs (use_stmt)
+	       && operand_equal_p (gimple_assign_lhs (stmt),
+				   gimple_get_lhs (use_stmt), 0))
+	      || stmt_kills_ref_p (use_stmt, gimple_assign_lhs (stmt)))
+	    {
+	      /* If use_stmt is or might be a nop assignment then USE_STMT
+	         acts as a use as well as definition.  */
+	      if (stmt != use_stmt
+		  && ref_maybe_used_by_stmt_p (use_stmt,
+					       gimple_assign_lhs (stmt)))
+		return false;
+	      continue;
+	    }
 
 	  if (gimple_code (use_stmt) != GIMPLE_PHI)
 	    return false;
@@ -578,26 +586,41 @@ gate_sink (void)
   return flag_tree_sink != 0;
 }
 
-struct gimple_opt_pass pass_sink_code =
+namespace {
+
+const pass_data pass_data_sink_code =
 {
- {
-  GIMPLE_PASS,
-  "sink",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_sink,				/* gate */
-  do_sink,				/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_SINK,				/* tv_id */
-  PROP_no_crit_edges | PROP_cfg
-    | PROP_ssa,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_update_ssa
-    | TODO_verify_ssa
-    | TODO_verify_flow
-    | TODO_ggc_collect			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "sink", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_SINK, /* tv_id */
+  ( PROP_no_crit_edges | PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_ssa
+    | TODO_verify_flow ), /* todo_flags_finish */
 };
+
+class pass_sink_code : public gimple_opt_pass
+{
+public:
+  pass_sink_code (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sink_code, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_sink (); }
+  unsigned int execute () { return do_sink (); }
+
+}; // class pass_sink_code
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_sink_code (gcc::context *ctxt)
+{
+  return new pass_sink_code (ctxt);
+}

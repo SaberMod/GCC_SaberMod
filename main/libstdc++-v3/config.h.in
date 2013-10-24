@@ -400,7 +400,7 @@
 /* Define to 1 if you have the <sys/resource.h> header file. */
 #undef HAVE_SYS_RESOURCE_H
 
-/* Define to 1 if you have the <sys/sdt.h> header file. */
+/* Define to 1 if you have a suitable <sys/sdt.h> header file */
 #undef HAVE_SYS_SDT_H
 
 /* Define to 1 if you have the <sys/sem.h> header file. */
@@ -809,6 +809,10 @@
 /* Define if C99 types in <stdint.h> should be imported in <tr1/cstdint> in
    namespace std::tr1. */
 #undef _GLIBCXX_USE_C99_STDINT_TR1
+
+/* Defined if clock_gettime syscall has monotonic and realtime clock support.
+   */
+#undef _GLIBCXX_USE_CLOCK_GETTIME_SYSCALL
 
 /* Defined if clock_gettime has monotonic clock support. */
 #undef _GLIBCXX_USE_CLOCK_MONOTONIC

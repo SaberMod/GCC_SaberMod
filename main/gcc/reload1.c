@@ -435,7 +435,7 @@ init_reload (void)
 		   gen_rtx_PLUS (Pmode,
 				 gen_rtx_REG (Pmode,
 					      LAST_VIRTUAL_REGISTER + 1),
-				 GEN_INT (4)));
+				 gen_int_mode (4, Pmode)));
   spill_indirect_levels = 0;
 
   while (memory_address_p (QImode, tem))
@@ -1490,7 +1490,7 @@ calculate_needs_all_insns (int global)
 	 include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
 	 what effects this has on the known offsets at labels.  */
 
-      if (LABEL_P (insn) || JUMP_P (insn)
+      if (LABEL_P (insn) || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
 	  || (INSN_P (insn) && REG_NOTES (insn) != 0))
 	set_label_offsets (insn, insn, 0);
 
@@ -1620,7 +1620,7 @@ calculate_elim_costs_all_insns (void)
 	     include REG_LABEL_OPERAND and REG_LABEL_TARGET), we need to see
 	     what effects this has on the known offsets at labels.  */
 
-	  if (LABEL_P (insn) || JUMP_P (insn)
+	  if (LABEL_P (insn) || JUMP_P (insn) || JUMP_TABLE_DATA_P (insn)
 	      || (INSN_P (insn) && REG_NOTES (insn) != 0))
 	    set_label_offsets (insn, insn, 0);
 
@@ -2325,7 +2325,7 @@ mark_home_live_1 (int regno, enum machine_mode mode)
     return;
   lim = end_hard_regno (mode, i);
   while (i < lim)
-    df_set_regs_ever_live(i++, true);
+    df_set_regs_ever_live (i++, true);
 }
 
 /* Mark the slots in regs_ever_live for the hard regs
@@ -2402,6 +2402,10 @@ set_label_offsets (rtx x, rtx insn, int initial_p)
 		  : reg_eliminate[i].offset))
 	    reg_eliminate[i].can_eliminate = 0;
 
+      return;
+
+    case JUMP_TABLE_DATA:
+      set_label_offsets (PATTERN (insn), insn, initial_p);
       return;
 
     case JUMP_INSN:
@@ -2772,6 +2776,7 @@ eliminate_regs_1 (rtx x, enum machine_mode mem_mode, rtx insn,
       /* ... fall through ...  */
 
     case INSN_LIST:
+    case INT_LIST:
       /* Now do eliminations in the rest of the chain.  If this was
 	 an EXPR_LIST, this might result in allocating more memory than is
 	 strictly needed, but it simplifies the code.  */
@@ -3234,12 +3239,10 @@ eliminate_regs_in_insn (rtx insn, int replace)
 
   if (! insn_is_asm && icode < 0)
     {
-      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+      gcc_assert (DEBUG_INSN_P (insn)
+		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       if (DEBUG_INSN_P (insn))
 	INSN_VAR_LOCATION_LOC (insn)
 	  = eliminate_regs (INSN_VAR_LOCATION_LOC (insn), VOIDmode, insn);
@@ -3645,12 +3648,10 @@ elimination_costs_in_insn (rtx insn)
 
   if (! insn_is_asm && icode < 0)
     {
-      gcc_assert (GET_CODE (PATTERN (insn)) == USE
+      gcc_assert (DEBUG_INSN_P (insn)
+		  || GET_CODE (PATTERN (insn)) == USE
 		  || GET_CODE (PATTERN (insn)) == CLOBBER
-		  || GET_CODE (PATTERN (insn)) == ADDR_VEC
-		  || GET_CODE (PATTERN (insn)) == ADDR_DIFF_VEC
-		  || GET_CODE (PATTERN (insn)) == ASM_INPUT
-		  || DEBUG_INSN_P (insn));
+		  || GET_CODE (PATTERN (insn)) == ASM_INPUT);
       return;
     }
 
@@ -8868,8 +8869,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
 	     since if they are the only uses, they are dead.  */
 	  if (set != 0 && SET_DEST (set) == reg)
 	    continue;
-	  if (LABEL_P (i2)
-	      || JUMP_P (i2))
+	  if (LABEL_P (i2) || JUMP_P (i2))
 	    break;
 	  if ((NONJUMP_INSN_P (i2) || CALL_P (i2))
 	      && reg_mentioned_p (reg, PATTERN (i2)))
@@ -8893,8 +8893,7 @@ delete_output_reload (rtx insn, int j, int last_reload_reg, rtx new_reload_reg)
 	      delete_address_reloads (i2, insn);
 	      delete_insn (i2);
 	    }
-	  if (LABEL_P (i2)
-	      || JUMP_P (i2))
+	  if (LABEL_P (i2) || JUMP_P (i2))
 	    break;
 	}
 
@@ -9159,7 +9158,9 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
       emit_insn (gen_add2_insn (reloadreg, inc));
       emit_insn (gen_move_insn (incloc, reloadreg));
       if (CONST_INT_P (inc))
-	emit_insn (gen_add2_insn (reloadreg, GEN_INT (-INTVAL (inc))));
+	emit_insn (gen_add2_insn (reloadreg,
+				  gen_int_mode (-INTVAL (inc),
+						GET_MODE (reloadreg))));
       else
 	emit_insn (gen_sub2_insn (reloadreg, inc));
     }

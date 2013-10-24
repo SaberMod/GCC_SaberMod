@@ -1,1277 +1,394 @@
-# Known failures from trunk.
-FAIL: gfortran.dg/class_optional_2.f90 -Os  execution test
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
-FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
-UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
-UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
-XPASS: gcc.dg/inline_3.c (test for excess errors)
-XPASS: gcc.dg/inline_4.c (test for excess errors)
-XPASS: gcc.dg/unroll_2.c (test for excess errors)
-XPASS: gcc.dg/unroll_3.c (test for excess errors)
-XPASS: gcc.dg/unroll_4.c (test for excess errors)
-XPASS: gfortran.dg/do_1.f90 -O0  execution test
-XPASS: gfortran.dg/do_1.f90 -O1  execution test
-FAIL: gfortran.dg/class_optional_2.f90 -O1  execution test
-FAIL: 20_util/duration/cons/2.cc execution test
-FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
-FAIL: gcc.target/i386/memcpy-1.c scan-assembler-not test
-FAIL: 20_util/hash/chi2_quality.cc (test for excess errors)
-UNRESOLVED: 20_util/hash/chi2_quality.cc compilation failed to produce executable
-FAIL: 25_algorithms/copy_n/50119.cc (test for excess errors)
-UNRESOLVED: 25_algorithms/copy_n/50119.cc compilation failed to produce executable
-XPASS: gfortran.dg/do_1.f90 -O2  execution test
-XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer  execution test
-XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-XPASS: gfortran.dg/do_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-XPASS: gfortran.dg/do_1.f90 -O3 -g  execution test
-XPASS: gfortran.dg/do_1.f90 -Os  execution test
-FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
-FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
-
-# These failures only occur when testing is distributed.  These tests
-# have dependencies that are not explicitly handled by the driver script.
-# They assume that DejaGNU is proceeding sequentially through the whole
-# list.  See http://gcc.gnu.org/ml/fortran/2013-02/msg00106.html for
-# details.
-flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O   (test for errors, line 8)
-flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O   (test for errors, line 15)
-flaky | FAIL: gfortran.dg/binding_label_tests_11_main.f03 -O  (test for excess errors)
-
-
-# Mudflap is completely unreliable.  It should be disabled.
-flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-O2) execution test
-flaky|FAIL: libmudflap.c++/pass41-frag.cxx ( -O) execution test
-flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-O3) execution test
-flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-O2) execution test
-flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-O3) execution test
-flaky|FAIL: libmudflap.c++/pass55-frag.cxx ( -O) execution test
-flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) output pattern test
-flaky|FAIL: libmudflap.c/fail37-frag.c (-O2) crash test
-flaky|FAIL: libmudflap.c/fail37-frag.c (-O2) output pattern test
-flaky|FAIL: libmudflap.c++/pass41-frag.cxx (-static) execution test
-flaky|FAIL: libmudflap.c++/pass55-frag.cxx (-static) execution test
-flaky|FAIL: libmudflap.c/fail37-frag.c (-O3) crash test
-
-# libatomic is failing to find standard header files like stdlib.h.
-# Seems like an include path configuration issue.
-FAIL: libatomic.c/atomic-generic.c (test for excess errors)
-FAIL: libatomic.c/generic-2.c (test for excess errors)
-FAIL: libitm.c++/dropref.C (test for excess errors)
-FAIL: libitm.c++/eh-1.C (test for excess errors)
-FAIL: libitm.c++/throwdown.C (test for excess errors)
-FAIL: libitm.c/cancel.c (test for excess errors)
-FAIL: libitm.c/clone-1.c (test for excess errors)
-FAIL: libitm.c/dropref-2.c (test for excess errors)
-FAIL: libitm.c/dropref.c (test for excess errors)
-FAIL: libitm.c/memcpy-1.c (test for excess errors)
-FAIL: libitm.c/memset-1.c (test for excess errors)
-FAIL: libitm.c/notx.c (test for excess errors)
-FAIL: libitm.c/reentrant.c (test for excess errors)
-FAIL: libitm.c/simple-1.c (test for excess errors)
-FAIL: libitm.c/simple-2.c (test for excess errors)
-FAIL: libitm.c/stackundo.c (test for excess errors)
-FAIL: libitm.c/txrelease.c (test for excess errors)
-UNRESOLVED: libatomic.c/atomic-generic.c compilation failed to produce executable
-UNRESOLVED: libatomic.c/generic-2.c compilation failed to produce executable
-UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
-UNRESOLVED: libitm.c++/eh-1.C compilation failed to produce executable
-UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
-UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
-UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
-UNRESOLVED: libitm.c/dropref.c compilation failed to produce executable
-UNRESOLVED: libitm.c/memcpy-1.c compilation failed to produce executable
-UNRESOLVED: libitm.c/memset-1.c compilation failed to produce executable
-UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
-UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
-UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
-UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
-UNRESOLVED: libitm.c/stackundo.c compilation failed to produce executable
-UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
-
-# These failures are likely due to misconfiguration during the
-# build.  Leaving as expected for now.
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O1  compilation failed to produce executable
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O1  (test for excess errors)
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -Os  (test for excess errors)
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O0  compilation failed to produce executable
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2  compilation failed to produce executable
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O2  (test for excess errors)
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -Os  compilation failed to produce executable
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 | FAIL: c-c++-common/asan/memcmp-1.c -O3 -g  (test for excess errors)
-expire=20130315 | UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 | UNRESOLVED: libatomic.c/atomic-generic.c compilation failed to produce executable
-expire=20130315 | FAIL: libatomic.c/atomic-generic.c (test for excess errors)
-expire=20130315 | FAIL: libatomic.c/generic-2.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libatomic.c/generic-2.c compilation failed to produce executable
-expire=20130315 | UNRESOLVED: libitm.c++/dropref.C compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c++/dropref.C (test for excess errors)
-expire=20130315 | FAIL: libitm.c++/throwdown.C (test for excess errors)
-expire=20130315 | FAIL: libitm.c/cancel.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/cancel.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/clone-1.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/clone-1.c compilation failed to produce executable
-expire=20130315 | UNRESOLVED: libitm.c/dropref-2.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/dropref-2.c (test for excess errors)
-expire=20130315 | FAIL: libitm.c/dropref.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/dropref.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/memcpy-1.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/memcpy-1.c compilation failed to produce executable
-expire=20130315 | UNRESOLVED: libitm.c/memset-1.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/memset-1.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/notx.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/notx.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/reentrant.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/reentrant.c (test for excess errors)
-expire=20130315 | FAIL: libitm.c/simple-1.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/simple-1.c compilation failed to produce executable
-expire=20130315 | UNRESOLVED: libitm.c/simple-2.c compilation failed to produce executable
-expire=20130315 | FAIL: libitm.c/simple-2.c (test for excess errors)
-expire=20130315 | FAIL: libitm.c/txrelease.c (test for excess errors)
-expire=20130315 | UNRESOLVED: libitm.c/txrelease.c compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O1  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O3 -g  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/global-overflow-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O0  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/heap-overflow-1.c -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -Os  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O0  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/null-deref-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O0  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O1  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -Os  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -Os  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O0  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O0  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -Os  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/stack-overflow-1.c -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O1  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O1  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O2  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O0  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -Os  compilation failed to produce executable
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -Os  (test for excess errors)
-expire=20130315 |FAIL: c-c++-common/asan/use-after-free-1.c -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O1  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O0  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -Os  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O2  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O2  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -Os  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-stack-uaf-1.C -O0  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O1  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -Os  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O0  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-tail-call-1.C -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -g  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O0  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O0  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O1  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -Os  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/deep-thread-stack-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O1  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O2  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O0  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O0  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O3 -g  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/default-options-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O0  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -Os  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O0  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O1  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O0  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O0  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -Os  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O1  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-malloc-test-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O2  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O0  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -Os  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O1  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/interception-test-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/interception-test-1.C -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O1  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -Os  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -g  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O2  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O0  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -Os  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O1  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O0  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-expire=20130315 |UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/large-func-test-1.C -O3 -g  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-expire=20130315 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2  compilation failed to produce executable
-expire=20130315 |FAIL: g++.dg/asan/symbolize-callback-1.C -O2  (test for excess errors)
-expire=20130315 |UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-
-
-# GOOGLE-MAIN cleanup
-
-# ASAN specific
-FAIL: c-c++-common/asan/global-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O0  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O1  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -Os  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O0  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O1  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -Os  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C  -O2  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-
-# REAL bug in google/main
-FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 15)
-FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 19)
-FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 20)
-FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 21)
-FAIL: gcc.dg/wself-assign-1.c  (test for warnings, line 22)
-FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
-
-# REAL bug in google/main
-FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-ipa-dump-times cp "Clone of foo" 1
-FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-tree-dump-not optimized "->c;"
-
-
-
-# 32 bit only -- also failed in trunk
-FAIL: c-c++-common/torture/vector-compare-1.c -O2  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-loops  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -g  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/torture/vector-compare-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-FAIL: c-c++-common/torture/vector-compare-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/torture/vector-compare-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O1  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O1  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O2  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O2  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O3 -g  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -Os  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -Os  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v16qi.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O1  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O1  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O2  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O2  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O3 -g  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -Os  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -Os  (test for excess errors)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: c-c++-common/torture/vshuf-v8hi.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O1  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O1  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O2  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -O3 -g  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -Os  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -Os  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v16qi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O1  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O1  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O2  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O3 -g  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -Os  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -Os  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-FAIL: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/torture/vshuf-v8hi.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-
-FAIL: gcc.c-torture/unsorted/xopt.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xopt.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xopt.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xor.c, -O0
-FAIL: gcc.c-torture/unsorted/xor.c, -O1
-FAIL: gcc.c-torture/unsorted/xor.c, -O2
-FAIL: gcc.c-torture/unsorted/xor.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xor.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xor.c, -Os
-FAIL: gcc.c-torture/unsorted/xor.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xor.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xor.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xorn.c, -O0
-FAIL: gcc.c-torture/unsorted/xorn.c, -O1
-FAIL: gcc.c-torture/unsorted/xorn.c, -O2
-FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer -funroll-loops
-FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
-FAIL: gcc.c-torture/unsorted/xorn.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xorn.c, -Os
-FAIL: gcc.c-torture/unsorted/xorn.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xorn.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xorn.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xp.c, -O0
-FAIL: gcc.c-torture/unsorted/xp.c, -O1
-FAIL: gcc.c-torture/unsorted/xp.c, -O2
-FAIL: gcc.c-torture/unsorted/xp.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xp.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xp.c, -Os
-FAIL: gcc.c-torture/unsorted/xp.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xp.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xp.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xpp.c, -O0
-FAIL: gcc.c-torture/unsorted/xpp.c, -O1
-FAIL: gcc.c-torture/unsorted/xpp.c, -O2
-FAIL: gcc.c-torture/unsorted/xpp.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xpp.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xpp.c, -Os
-FAIL: gcc.c-torture/unsorted/xpp.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xpp.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xpp.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xs.c, -O0
-FAIL: gcc.c-torture/unsorted/xs.c, -O1
-FAIL: gcc.c-torture/unsorted/xs.c, -O2
-FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer -funroll-loops
-FAIL: gcc.c-torture/unsorted/xs.c, -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
-FAIL: gcc.c-torture/unsorted/xs.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xs.c, -Os
-FAIL: gcc.c-torture/unsorted/xs.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xs.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xs.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xsh.c, -O0
-FAIL: gcc.c-torture/unsorted/xsh.c, -O1
-FAIL: gcc.c-torture/unsorted/xsh.c, -O2
-FAIL: gcc.c-torture/unsorted/xsh.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xsh.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xsh.c, -Os
-FAIL: gcc.c-torture/unsorted/xsh.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xsh.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xsh.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xz.c, -O0
-FAIL: gcc.c-torture/unsorted/xz.c, -O1
-FAIL: gcc.c-torture/unsorted/xz.c, -O2
-FAIL: gcc.c-torture/unsorted/xz.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xz.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xz.c, -Os
-FAIL: gcc.c-torture/unsorted/xz.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xz.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xz.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.c-torture/unsorted/xzz.c, -O0
-FAIL: gcc.c-torture/unsorted/xzz.c, -O1
-FAIL: gcc.c-torture/unsorted/xzz.c, -O2
-FAIL: gcc.c-torture/unsorted/xzz.c, -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/unsorted/xzz.c, -O3 -g
-FAIL: gcc.c-torture/unsorted/xzz.c, -Os
-FAIL: gcc.c-torture/unsorted/xzz.c, -Og -g
-FAIL: gcc.c-torture/unsorted/xzz.c, -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/unsorted/xzz.c, -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.dg/torture/builtin-convert-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-convert-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-convert-2.c -O0  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-convert-2.c -O1  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-convert-2.c -O2  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-convert-2.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-ctype-1.c -O3 -g  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-ctype-1.c -Os  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-ctype-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: gcc.dg/torture/builtin-ctype-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O0 -mforce-drap -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O1  (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1  compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O1 -mforce-drap -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-3.c -O2  (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-3.c -O2  compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O1 -mforce-drap -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O2  (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2  compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-4.c -O2 -mforce-drap -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-5.c -O3 -g -mforce-drap -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -O3 -g -mforce-drap -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-5.c -Os  (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os  compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-5.c -Os -fpic (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os -fpic compilation failed to produce executable
-FAIL: gcc.dg/torture/stackalign/nested-5.c -Os -mforce-drap (test for excess errors)
-UNRESOLVED: gcc.dg/torture/stackalign/nested-5.c -Os -mforce-drap compilation failed to produce executable
-UNRESOLVED: gcc.dg/torture/vshuf-v8hi.c -O2  compilation failed to produce executable
-FAIL: gcc.dg/vect/pr18400.c (test for excess errors)
-UNRESOLVED: gcc.dg/vect/pr18400.c compilation failed to produce executable
-FAIL: gcc.dg/vect/pr18425.c (test for excess errors)
-UNRESOLVED: gcc.dg/vect/pr18425.c scan-tree-dump-times vect "vectorized 1 loops" 1
-FAIL: gcc.dg/vect/pr18536.c (test for excess errors)
-UNRESOLVED: gcc.dg/vect/pr18536.c compilation failed to produce executable
-UNRESOLVED: gcc.dg/vect/pr18536.c scan-tree-dump-times vect "vectorized 1 loops" 1
-FAIL: gcc.dg/vect/pr20122.c (test for excess errors)
-UNRESOLVED: gcc.dg/vect/pr20122.c compilation failed to produce executable
-UNRESOLVED: gcc.dg/vect/pr20122.c scan-tree-dump-times vect "vectorized 1 loops" 3
-
-# also failed in trunk
-
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O1  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O1
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O2  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O2
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O3 -fomit-frame-pointer  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O3 -fomit-frame-pointer -funroll-loops  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O3 -fomit-frame-pointer -funroll-loops
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O3 -g  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O3 -g
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -Og -g  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -Og -g
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O2 -flto -fno-use-linker-plugin -flto-partition=none  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/execute/scal-to-vec2.c compilation,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
-UNRESOLVED: gcc.c-torture/execute/scal-to-vec2.c execution,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer  (internal compiler error)
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer -funroll-loops  (internal compiler error)
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (internal compiler error)
-FAIL: gcc.dg/torture/pr53390.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-FAIL: gcc.dg/torture/pr53390.c -O3 -g  (internal compiler error)
-FAIL: gcc.dg/torture/pr53390.c -O3 -g  (test for excess errors)
-FAIL: gcc.dg/torture/vshuf-v16qi.c -O2  (internal compiler error)
-FAIL: gcc.dg/torture/vshuf-v16qi.c -O2  (test for excess errors)
-UNRESOLVED: gcc.dg/torture/vshuf-v16qi.c -O2  compilation failed to produce executable
-FAIL: gcc.dg/torture/vshuf-v8hi.c -O2  (internal compiler error)
-FAIL: gcc.dg/torture/vshuf-v8hi.c -O2  (test for excess errors)
-
-XPASS: gfortran.dg/do_1.f90  -O0  execution test
-XPASS: gfortran.dg/do_1.f90  -O1  execution test
-
+UNRESOLVED: /usr/local/google/davidxl/dev/gcc/v17_build_gmain/gcc-4.8.x-grtev3/crosstool_build/build/gmain_merge/gcc/testsuite/gcc.dg/lto/pr52634_0.c: can't read "name": no such variable for " dg-require-weak 1 "" "
 FAIL: c-c++-common/asan/global-overflow-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/global-overflow-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/heap-overflow-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/memcmp-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/null-deref-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/stack-overflow-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -Os  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O0  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O1  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O2  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -O3 -g  (test for excess errors)
-FAIL: c-c++-common/asan/use-after-free-1.c -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-tail-call-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/deep-thread-stack-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/default-options-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-failure-test-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-malloc-test-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/interception-test-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O0  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O1  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -O3 -g  (test for excess errors)
-FAIL: g++.dg/asan/large-func-test-1.C -Os  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/global-overflow-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/memcmp-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/null-deref-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O0  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O1  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O2  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O3 -g  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -Os  (test for excess errors)
 UNRESOLVED: c-c++-common/asan/use-after-free-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/div-by-zero-3.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/div-by-zero-3.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/shift-4.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/shift-4.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O0  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O0  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O1  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O1  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O2  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O2  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O3 -g  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O3 -g  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -Os  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -Os  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: c-c++-common/ubsan/unreachable-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: c-c++-common/ubsan/unreachable-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+UNRESOLVED: g++.dg/abi/mangle40.C -std=gnu++98
+UNRESOLVED: g++.dg/abi/mangle40.C -std=gnu++11
+UNRESOLVED: g++.dg/abi/rtti3.C -std=c++98
+UNRESOLVED: g++.dg/abi/rtti3.C -std=c++11
+UNRESOLVED: g++.dg/abi/thunk3.C -std=c++98
+UNRESOLVED: g++.dg/abi/thunk3.C -std=c++11
+UNRESOLVED: g++.dg/abi/thunk4.C -std=c++98
+UNRESOLVED: g++.dg/abi/thunk4.C -std=c++11
+UNRESOLVED: g++.dg/abi/thunk5.C -std=c++98
+UNRESOLVED: g++.dg/abi/thunk5.C -std=c++11
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-stack-uaf-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/default-options-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/interception-test-1.C -Os  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O1  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -O1  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O2  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O3 -g  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -Os  (test for excess errors)
 UNRESOLVED: g++.dg/asan/large-func-test-1.C -Os  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-
-
-# All of these failures are due to a Fortran FE bug.
-# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=56224
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.18.1.f90 -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.18.1.f90 -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.2.1.f90 -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.2.1.f90 -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.39.1.f90 -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.39.1.f90 -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.4.1.f90 -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.4.1.f90 -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/appendix-a/a.5.1.f90 -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/appendix-a/a.5.1.f90 -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/jacobi.f -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/jacobi.f -Os  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O0  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O0  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O1  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O1  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O2  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O2  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -O3 -g  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -O3 -g  compilation failed to produce executable
-FAIL: libgomp.fortran/lib3.f -Os  (test for excess errors)
-UNRESOLVED: libgomp.fortran/lib3.f -Os  compilation failed to produce executable
-
+FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
 FAIL: g++.dg/asan/pr55617.C -O0  (test for excess errors)
 UNRESOLVED: g++.dg/asan/pr55617.C -O0  compilation failed to produce executable
 FAIL: g++.dg/asan/pr55617.C -O1  (test for excess errors)
@@ -1288,11 +405,343 @@ FAIL: g++.dg/asan/pr55617.C -O2 -flto -fno-use-linker-plugin -flto-partition=non
 UNRESOLVED: g++.dg/asan/pr55617.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
 FAIL: g++.dg/asan/pr55617.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: g++.dg/asan/pr55617.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
-
-# Inline failures not seen outside of google/main.
-# These fail with excess errors:
-# gcc.dg/inline_3.c:4:37: warning: always_inline function might not be inlinable [-Wattributes]
+FAIL: g++.dg/asan/symbolize-callback-1.C -O2  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2  compilation failed to produce executable
+FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+UNRESOLVED: g++.dg/cpp0x/lambda/lambda-mangle.C 
+UNRESOLVED: g++.dg/eh/ia64-2.C -std=gnu++98
+UNRESOLVED: g++.dg/eh/ia64-2.C -std=gnu++11
+UNRESOLVED: g++.dg/eh/weak1.C -std=gnu++98
+UNRESOLVED: g++.dg/eh/weak1.C -std=gnu++11
+UNRESOLVED: g++.dg/ext/tmplattr9.C -std=gnu++98
+UNRESOLVED: g++.dg/ext/tmplattr9.C -std=gnu++11
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-2.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-2.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-3.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-3.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-4.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-inlines-hidden-4.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-override1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-override1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-override2.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/fvisibility-override2.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/guard1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/guard1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/ms-compat-1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/ms-compat-1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/namespace1.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/namespace1.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/new1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/new1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template10.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template10.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template11.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template11.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template12.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template12.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template2.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template2.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template3.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template3.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template4.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template4.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template6.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template6.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template9.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/template9.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo1.C -std=gnu++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo2.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo2.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo3.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/typeinfo3.C -std=c++11  scan-not-hidden
+FAIL: g++.dg/ext/visibility/warn3.C -std=c++98  scan-not-hidden
+FAIL: g++.dg/ext/visibility/warn3.C -std=c++11  scan-not-hidden
+UNRESOLVED: g++.dg/ext/weak1.C -std=gnu++98
+UNRESOLVED: g++.dg/ext/weak1.C -std=gnu++11
+UNRESOLVED: g++.dg/ext/weak2.C -std=gnu++98
+UNRESOLVED: g++.dg/ext/weak2.C -std=gnu++11
+UNRESOLVED: g++.dg/ext/weak3.C -std=gnu++98
+UNRESOLVED: g++.dg/ext/weak3.C -std=gnu++11
+UNRESOLVED: g++.dg/ext/weak4.C -std=gnu++98
+UNRESOLVED: g++.dg/ext/weak4.C -std=gnu++11
+UNRESOLVED: g++.dg/ext/weak5.C -std=c++98
+UNRESOLVED: g++.dg/ext/weak5.C -std=c++11
+UNRESOLVED: g++.dg/init/dso_handle1.C -std=gnu++98
+UNRESOLVED: g++.dg/init/dso_handle1.C -std=gnu++11
+UNRESOLVED: g++.dg/init/init-ref4.C -std=c++98
+UNRESOLVED: g++.dg/init/init-ref4.C -std=c++11
+FAIL: g++.dg/lto/20081118 cp_lto_20081118_0.o-cp_lto_20081118_1.o link, -fPIC -flto -flto-partition=1to1 -r -nostdlib (internal compiler error)
+UNRESOLVED: g++.dg/lto/20081118 cp_lto_20081118_0.o-cp_lto_20081118_1.o execute -fPIC -flto -flto-partition=1to1 -r -nostdlib
+FAIL: g++.dg/lto/20090302 cp_lto_20090302_0.o-cp_lto_20090302_1.o link, -fPIC -flto -flto-partition=1to1 -r -nostdlib (internal compiler error)
+UNRESOLVED: g++.dg/lto/20090302 cp_lto_20090302_0.o-cp_lto_20090302_1.o execute -fPIC -flto -flto-partition=1to1 -r -nostdlib
+FAIL: g++.dg/lto/20091002-1 cp_lto_20091002-1_0.o-cp_lto_20091002-1_0.o link, -fPIC -flto (internal compiler error)
+UNRESOLVED: g++.dg/lto/20091002-1 cp_lto_20091002-1_0.o-cp_lto_20091002-1_0.o execute -fPIC -flto
+UNRESOLVED: g++.dg/template/spec35.C -std=c++98
+UNRESOLVED: g++.dg/template/spec35.C -std=c++11
+FAIL: g++.dg/tree-prof/indir-call-prof-2.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof-2.C execution,    -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof-2.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof-2.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/indir-call-prof.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof.C execution,    -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/indir-call-prof.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/inline_mismatch_args.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/inline_mismatch_args.C execution,    -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/inline_mismatch_args.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/inline_mismatch_args.C execution,    -fprofile-use
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof-2_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/lipo/indir-call-prof_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/indir-call-prof_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/inline_mismatch_args_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/lipo/partition1_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/partition1_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/lipo/target_builtin_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/target_builtin_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/lipo/vcall1_0.C compilation,  -fprofile-use -fripa (internal compiler error)
+UNRESOLVED: g++.dg/tree-prof/lipo/vcall1_0.C execution,    -fprofile-use -fripa
+FAIL: g++.dg/tree-prof/pr51719.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr51719.C execution,    -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr51719.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/pr51719.C execution,    -fprofile-use
+FAIL: g++.dg/ubsan/cxx11-shift-1.C -O0  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-1.C -O0  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O0  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O0  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O1  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O1  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O2  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O2  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O3 -g  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O3 -g  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -Os  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -Os  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: g++.dg/ubsan/cxx11-shift-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: g++.dg/ubsan/cxx11-shift-2.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+UNRESOLVED: g++.dg/warn/Walways-true-2.C -std=gnu++98
+UNRESOLVED: g++.dg/warn/Walways-true-2.C -std=gnu++11
+FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++98 (internal compiler error)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++98  (test for warnings, line 21)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++98  (test for warnings, line 22)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++98  (test for warnings, line 23)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++98 (test for excess errors)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++11 (internal compiler error)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++11  (test for warnings, line 21)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++11  (test for warnings, line 22)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++11  (test for warnings, line 23)
+FAIL: g++.dg/warn/Wself-assign-non-pod-2.C -std=gnu++11 (test for excess errors)
+UNRESOLVED: g++.dg/warn/weak1.C -std=c++98
+UNRESOLVED: g++.dg/warn/weak1.C -std=c++11
+UNRESOLVED: g++.old-deja/g++.ext/attrib5.C -std=c++98
+UNRESOLVED: g++.old-deja/g++.ext/attrib5.C -std=c++11
+FAIL: g++.old-deja/g++.mike/visibility-1.C -std=gnu++98  scan-not-hidden
+FAIL: g++.old-deja/g++.mike/visibility-1.C -std=gnu++11  scan-not-hidden
+UNRESOLVED: g++.old-deja/g++.pt/static3.C -std=c++98
+UNRESOLVED: g++.old-deja/g++.pt/static3.C -std=c++11
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O0
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O1
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O2
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O3 -g
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -Os
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.c-torture/compile/20011119-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O0
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O1
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O2
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O3 -g
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -Os
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.c-torture/compile/20011119-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O0
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O1
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O2
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O3 -g
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -Os
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.c-torture/compile/981001-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.dg/Walways-true-2.c 
+UNRESOLVED: gcc.dg/attr-weak-hidden-1.c 
+UNRESOLVED: gcc.dg/attr-weak-hidden-1a.c 
+UNRESOLVED: gcc.dg/attr-weakref-1-darwin.c 
+UNRESOLVED: gcc.dg/attr-weakref-1.c 
+UNRESOLVED: gcc.dg/attr-weakref-2.c 
+UNRESOLVED: gcc.dg/attr-weakref-3.c 
+UNRESOLVED: gcc.dg/attr-weakref-4.c 
+UNRESOLVED: gcc.dg/darwin-weakimport-1.c 
+UNRESOLVED: gcc.dg/darwin-weakimport-2.c 
+UNRESOLVED: gcc.dg/darwin-weakimport-3.c 
+UNRESOLVED: gcc.dg/darwin-weakref-1.c 
 FAIL: gcc.dg/inline_3.c (test for excess errors)
 FAIL: gcc.dg/inline_4.c (test for excess errors)
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O2 -flto -flto-partition=none -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O2 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.dg/lto/pr52634 c_lto_pr52634_0.o-c_lto_pr52634_1.o execute -O2 -flto -fuse-linker-plugin
+UNRESOLVED: gcc.dg/special/weak-1.c 
+UNRESOLVED: gcc.dg/special/weak-2.c 
+UNRESOLVED: gcc.dg/special/wkali-1.c 
+UNRESOLVED: gcc.dg/special/wkali-2.c 
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O0
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O1
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O2
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O3 -g
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -Os
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.dg/torture/builtin-noret-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O0
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O1
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O2
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O3 -g
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -Os
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.dg/torture/builtin-noret-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.dg/torture/pr43560.c -O0
+UNRESOLVED: gcc.dg/torture/pr43560.c -O1
+UNRESOLVED: gcc.dg/torture/pr43560.c -O2
+UNRESOLVED: gcc.dg/torture/pr43560.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.dg/torture/pr43560.c -O3 -fomit-frame-pointer -funroll-loops
+UNRESOLVED: gcc.dg/torture/pr43560.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions
+UNRESOLVED: gcc.dg/torture/pr43560.c -O3 -g
+UNRESOLVED: gcc.dg/torture/pr43560.c -Os
+UNRESOLVED: gcc.dg/torture/pr43560.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.dg/torture/pr43560.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+UNRESOLVED: gcc.dg/torture/pr53922.c -O0
+UNRESOLVED: gcc.dg/torture/pr53922.c -O1
+UNRESOLVED: gcc.dg/torture/pr53922.c -O2
+UNRESOLVED: gcc.dg/torture/pr53922.c -O3 -fomit-frame-pointer
+UNRESOLVED: gcc.dg/torture/pr53922.c -O3 -g
+UNRESOLVED: gcc.dg/torture/pr53922.c -Os
+UNRESOLVED: gcc.dg/torture/pr53922.c -O2 -flto -fno-use-linker-plugin -flto-partition=none
+UNRESOLVED: gcc.dg/torture/pr53922.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.dg/tree-prof/crossmodule-indircall-1a.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/ic-misattribution-1.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/indir-call-prof.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/indir-call-prof.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/indir-call-prof.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/indir-call-prof.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
+UNRESOLVED: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof-single_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
+UNRESOLVED: gcc.dg/tree-prof/lipo/indir-call-prof_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/inliner-1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
+UNRESOLVED: gcc.dg/tree-prof/lipo/inliner-1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c compilation,  -fprofile-use -fripa -D_PROFILE_USE (internal compiler error)
+UNRESOLVED: gcc.dg/tree-prof/lipo/lipo_inline1_0.c execution,    -fprofile-use -fripa -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr49299-1.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-1.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/pr49299-2.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-2.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-2.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/pr49299-2.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-ssa/gen-vect-26.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/tree-ssa/gen-vect-26.c scan-tree-dump-times vect "Alignment of access forced using peeling" 1
+FAIL: gcc.dg/tree-ssa/gen-vect-28.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/tree-ssa/gen-vect-28.c scan-tree-dump-times vect "Alignment of access forced using peeling" 1
+UNRESOLVED: gcc.dg/tree-ssa/inline-11.c 
+UNRESOLVED: gcc.dg/tree-ssa/pr27781.c 
+FAIL: gcc.dg/tree-ssa/slsr-39.c scan-tree-dump-times slsr "MEM" 4
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O0  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O0  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O1  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O1  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O2  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O2  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O3 -g  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O3 -g  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -Os  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -Os  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O0  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O0  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O1  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O1  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O2  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O2  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O3 -fomit-frame-pointer  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O3 -fomit-frame-pointer  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O3 -g  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O3 -g  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -Os  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -Os  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
+FAIL: gcc.dg/ubsan/c99-shift-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
+UNRESOLVED: gcc.dg/ubsan/c99-shift-2.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+UNRESOLVED: gcc.dg/visibility-21.c 
+FAIL: gcc.dg/visibility-d.c scan-not-hidden
+UNRESOLVED: gcc.dg/warn-addr-cmp.c 
+UNRESOLVED: gcc.dg/weak/typeof-2.c 
+UNRESOLVED: gcc.dg/weak/weak-1.c 
+UNRESOLVED: gcc.dg/weak/weak-10.c 
+UNRESOLVED: gcc.dg/weak/weak-11.c 
+UNRESOLVED: gcc.dg/weak/weak-12.c 
+UNRESOLVED: gcc.dg/weak/weak-13.c 
+UNRESOLVED: gcc.dg/weak/weak-14.c 
+UNRESOLVED: gcc.dg/weak/weak-15.c 
+UNRESOLVED: gcc.dg/weak/weak-16.c 
+UNRESOLVED: gcc.dg/weak/weak-2.c 
+UNRESOLVED: gcc.dg/weak/weak-3.c 
+UNRESOLVED: gcc.dg/weak/weak-4.c 
+UNRESOLVED: gcc.dg/weak/weak-5.c 
+UNRESOLVED: gcc.dg/weak/weak-6.c 
+UNRESOLVED: gcc.dg/weak/weak-7.c 
+UNRESOLVED: gcc.dg/weak/weak-8.c 
+UNRESOLVED: gcc.dg/weak/weak-9.c 
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 15)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 19)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
+UNRESOLVED: gcc.misc-tests/gcov-12.c 
+UNRESOLVED: gcc.misc-tests/gcov-13.c 
+UNRESOLVED: gcc.misc-tests/gcov-14.c 
+FAIL: gfortran.dg/class_48.f90 -O2  (test for excess errors)
+FAIL: gfortran.dg/class_48.f90 -Os  (test for excess errors)
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586 f_lto_pr45586_0.o-f_lto_pr45586_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=none -fuse-linker-plugin (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=none -fuse-linker-plugin
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -flto-partition=1to1 -fno-use-linker-plugin
+FAIL: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o link, -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects  (internal compiler error)
+UNRESOLVED: gfortran.dg/lto/pr45586-2 f_lto_pr45586-2_0.o-f_lto_pr45586-2_0.o execute -O0 -flto -fuse-linker-plugin -fno-fat-lto-objects
+ERROR: src: can't read "name": no such variable for " dg-require-weak 1 "" "

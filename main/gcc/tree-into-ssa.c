@@ -30,10 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "gimple.h"
 #include "tree-inline.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
@@ -93,7 +93,7 @@ static sbitmap old_ssa_names;
    the operations done on them are presence tests.  */
 static sbitmap new_ssa_names;
 
-sbitmap interesting_blocks;
+static sbitmap interesting_blocks;
 
 /* Set of SSA names that have been marked to be released after they
    were registered in the replacement table.  They will be finally
@@ -160,9 +160,32 @@ struct var_info_d
 typedef struct var_info_d *var_info_p;
 
 
+/* VAR_INFOS hashtable helpers.  */
+
+struct var_info_hasher : typed_free_remove <var_info_d>
+{
+  typedef var_info_d value_type;
+  typedef var_info_d compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+var_info_hasher::hash (const value_type *p)
+{
+  return DECL_UID (p->var);
+}
+
+inline bool
+var_info_hasher::equal (const value_type *p1, const compare_type *p2)
+{
+  return p1->var == p2->var;
+}
+
+
 /* Each entry in VAR_INFOS contains an element of type STRUCT 
    VAR_INFO_D.  */
-static htab_t var_infos;
+static hash_table <var_info_hasher> var_infos;
 
 
 /* Information stored for SSA names.  */
@@ -340,17 +363,17 @@ static inline var_info_p
 get_var_info (tree decl)
 {
   struct var_info_d vi;
-  void **slot;
+  var_info_d **slot;
   vi.var = decl;
-  slot = htab_find_slot_with_hash (var_infos, &vi, DECL_UID (decl), INSERT);
+  slot = var_infos.find_slot_with_hash (&vi, DECL_UID (decl), INSERT);
   if (*slot == NULL)
     {
       var_info_p v = XCNEW (struct var_info_d);
       v->var = decl;
-      *slot = (void *)v;
+      *slot = v;
       return v;
     }
-  return (var_info_p) *slot;
+  return *slot;
 }
 
 
@@ -1044,15 +1067,15 @@ insert_phi_nodes_compare_var_infos (const void *a, const void *b)
 static void
 insert_phi_nodes (bitmap_head *dfs)
 {
-  htab_iterator hi;
+  hash_table <var_info_hasher>::iterator hi;
   unsigned i;
   var_info_p info;
   vec<var_info_p> vars;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  vars.create (htab_elements (var_infos));
-  FOR_EACH_HTAB_ELEMENT (var_infos, info, var_info_p, hi)
+  vars.create (var_infos.elements ());
+  FOR_EACH_HASH_TABLE_ELEMENT (var_infos, info, var_info_p, hi)
     if (info->info.need_phi_state != NEED_PHI_STATE_NO)
       vars.quick_push (info);
 
@@ -1376,14 +1399,22 @@ rewrite_add_phi_arguments (basic_block bb)
     }
 }
 
+class rewrite_dom_walker : public dom_walker
+{
+public:
+  rewrite_dom_walker (cdi_direction direction) : dom_walker (direction) {}
+
+  virtual void before_dom_children (basic_block);
+  virtual void after_dom_children (basic_block);
+};
+
 /* SSA Rewriting Step 1.  Initialization, create a block local stack
    of reaching definitions for new SSA names produced in this block
    (BLOCK_DEFS).  Register new definitions for every PHI node in the
    block.  */
 
-static void
-rewrite_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		     basic_block bb)
+void
+rewrite_dom_walker::before_dom_children (basic_block bb)
 {
   gimple_stmt_iterator gsi;
 
@@ -1421,9 +1452,8 @@ rewrite_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 /* Called after visiting all the statements in basic block BB and all
    of its dominator children.  Restore CURRDEFS to its original value.  */
 
-static void
-rewrite_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		     basic_block bb ATTRIBUTE_UNUSED)
+void
+rewrite_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 {
   /* Restore CURRDEFS to its original state.  */
   while (block_defs_stack.length () > 0)
@@ -1632,12 +1662,12 @@ debug_tree_ssa (void)
 /* Dump statistics for the hash table HTAB.  */
 
 static void
-htab_statistics (FILE *file, htab_t htab)
+htab_statistics (FILE *file, hash_table <var_info_hasher> htab)
 {
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
-	   (long) htab_size (htab),
-	   (long) htab_elements (htab),
-	   htab_collisions (htab));
+	   (long) htab.size (),
+	   (long) htab.elements (),
+	   htab.collisions ());
 }
 
 
@@ -1646,7 +1676,7 @@ htab_statistics (FILE *file, htab_t htab)
 void
 dump_tree_ssa_stats (FILE *file)
 {
-  if (var_infos)
+  if (var_infos.is_created ())
     {
       fprintf (file, "\nHash table statistics:\n");
       fprintf (file, "    var_infos:   ");
@@ -1665,29 +1695,12 @@ debug_tree_ssa_stats (void)
 }
 
 
-/* Hashing and equality functions for VAR_INFOS.  */
-
-static hashval_t
-var_info_hash (const void *p)
-{
-  return DECL_UID (((const struct var_info_d *)p)->var);
-}
-
-static int
-var_info_eq (const void *p1, const void *p2)
-{
-  return ((const struct var_info_d *)p1)->var
-	 == ((const struct var_info_d *)p2)->var;
-}
-
-
 /* Callback for htab_traverse to dump the VAR_INFOS hash table.  */
 
-static int
-debug_var_infos_r (void **slot, void *data)
+int
+debug_var_infos_r (var_info_d **slot, FILE *file)
 {
-  FILE *file = (FILE *) data;
-  struct var_info_d *info = (struct var_info_d *) *slot;
+  struct var_info_d *info = *slot;
 
   fprintf (file, "VAR: ");
   print_generic_expr (file, info->var, dump_flags);
@@ -1708,8 +1721,8 @@ void
 dump_var_infos (FILE *file)
 {
   fprintf (file, "\n\nDefinition and live-in blocks:\n\n");
-  if (var_infos)
-    htab_traverse (var_infos, debug_var_infos_r, file);
+  if (var_infos.is_created ())
+    var_infos.traverse <FILE *, debug_var_infos_r> (file);
 }
 
 
@@ -2059,15 +2072,22 @@ rewrite_update_phi_arguments (basic_block bb)
     }
 }
 
+class rewrite_update_dom_walker : public dom_walker
+{
+public:
+  rewrite_update_dom_walker (cdi_direction direction) : dom_walker (direction) {}
+
+  virtual void before_dom_children (basic_block);
+  virtual void after_dom_children (basic_block);
+};
 
 /* Initialization of block data structures for the incremental SSA
    update pass.  Create a block local stack of reaching definitions
    for new SSA names produced in this block (BLOCK_DEFS).  Register
    new definitions for every PHI node in the block.  */
 
-static void
-rewrite_update_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-		            basic_block bb)
+void
+rewrite_update_dom_walker::before_dom_children (basic_block bb)
 {
   bool is_abnormal_phi;
   gimple_stmt_iterator gsi;
@@ -2140,9 +2160,8 @@ rewrite_update_enter_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
    unwinding must be done in the opposite order to what is done in
    register_new_update_set.  */
 
-static void
-rewrite_update_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-			    basic_block bb ATTRIBUTE_UNUSED)
+void
+rewrite_update_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 {
   while (block_defs_stack.length () > 0)
     {
@@ -2177,46 +2196,25 @@ rewrite_update_leave_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
 static void
 rewrite_blocks (basic_block entry, enum rewrite_mode what)
 {
-  struct dom_walk_data walk_data;
-
   /* Rewrite all the basic blocks in the program.  */
   timevar_push (TV_TREE_SSA_REWRITE_BLOCKS);
 
-  /* Setup callbacks for the generic dominator tree walker.  */
-  memset (&walk_data, 0, sizeof (walk_data));
-
-  walk_data.dom_direction = CDI_DOMINATORS;
-
-  if (what == REWRITE_ALL)
-    {
-      walk_data.before_dom_children = rewrite_enter_block;
-      walk_data.after_dom_children = rewrite_leave_block;
-    }
-  else if (what == REWRITE_UPDATE)
-    {
-      walk_data.before_dom_children = rewrite_update_enter_block;
-      walk_data.after_dom_children = rewrite_update_leave_block;
-    }
-  else
-    gcc_unreachable ();
-
   block_defs_stack.create (10);
-
-  /* Initialize the dominator walker.  */
-  init_walk_dominator_tree (&walk_data);
 
   /* Recursively walk the dominator tree rewriting each statement in
      each basic block.  */
-  walk_dominator_tree (&walk_data, entry);
-
-  /* Finalize the dominator walker.  */
-  fini_walk_dominator_tree (&walk_data);
+  if (what == REWRITE_ALL)
+      rewrite_dom_walker (CDI_DOMINATORS).walk (entry);
+  else if (what == REWRITE_UPDATE)
+      rewrite_update_dom_walker (CDI_DOMINATORS).walk (entry);
+  else
+    gcc_unreachable ();
 
   /* Debugging dumps.  */
   if (dump_file && (dump_flags & TDF_STATS))
     {
       dump_dfa_stats (dump_file);
-      if (var_infos)
+      if (var_infos.is_created ())
 	dump_tree_ssa_stats (dump_file);
     }
 
@@ -2225,68 +2223,43 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
   timevar_pop (TV_TREE_SSA_REWRITE_BLOCKS);
 }
 
+class mark_def_dom_walker : public dom_walker
+{
+public:
+  mark_def_dom_walker (cdi_direction direction);
+  ~mark_def_dom_walker ();
+
+  virtual void before_dom_children (basic_block);
+
+private:
+  /* Notice that this bitmap is indexed using variable UIDs, so it must be
+     large enough to accommodate all the variables referenced in the
+     function, not just the ones we are renaming.  */
+  bitmap m_kills;
+};
+
+mark_def_dom_walker::mark_def_dom_walker (cdi_direction direction)
+  : dom_walker (direction), m_kills (BITMAP_ALLOC (NULL))
+{
+}
+
+mark_def_dom_walker::~mark_def_dom_walker ()
+{
+  BITMAP_FREE (m_kills);
+}
 
 /* Block processing routine for mark_def_sites.  Clear the KILLS bitmap
    at the start of each block, and call mark_def_sites for each statement.  */
 
-static void
-mark_def_sites_block (struct dom_walk_data *walk_data, basic_block bb)
+void
+mark_def_dom_walker::before_dom_children (basic_block bb)
 {
-  struct mark_def_sites_global_data *gd;
-  bitmap kills;
   gimple_stmt_iterator gsi;
 
-  gd = (struct mark_def_sites_global_data *) walk_data->global_data;
-  kills = gd->kills;
-
-  bitmap_clear (kills);
+  bitmap_clear (m_kills);
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_def_sites (bb, gsi_stmt (gsi), kills);
+    mark_def_sites (bb, gsi_stmt (gsi), m_kills);
 }
-
-
-/* Mark the definition site blocks for each variable, so that we know
-   where the variable is actually live.
-
-   The INTERESTING_BLOCKS global will be filled in with all the blocks
-   that should be processed by the renamer.  It is assumed that the
-   caller has already initialized and zeroed it.  */
-
-static void
-mark_def_site_blocks (void)
-{
-  struct dom_walk_data walk_data;
-  struct mark_def_sites_global_data mark_def_sites_global_data;
-
-  /* Setup callbacks for the generic dominator tree walker to find and
-     mark definition sites.  */
-  walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.initialize_block_local_data = NULL;
-  walk_data.before_dom_children = mark_def_sites_block;
-  walk_data.after_dom_children = NULL;
-
-  /* Notice that this bitmap is indexed using variable UIDs, so it must be
-     large enough to accommodate all the variables referenced in the
-     function, not just the ones we are renaming.  */
-  mark_def_sites_global_data.kills = BITMAP_ALLOC (NULL);
-  walk_data.global_data = &mark_def_sites_global_data;
-
-  /* We do not have any local data.  */
-  walk_data.block_local_data_size = 0;
-
-  /* Initialize the dominator walker.  */
-  init_walk_dominator_tree (&walk_data);
-
-  /* Recursively walk the dominator tree.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
-
-  /* Finalize the dominator walker.  */
-  fini_walk_dominator_tree (&walk_data);
-
-  /* We no longer need this bitmap, clear and free it.  */
-  BITMAP_FREE (mark_def_sites_global_data.kills);
-}
-
 
 /* Initialize internal data needed during renaming.  */
 
@@ -2296,9 +2269,8 @@ init_ssa_renamer (void)
   cfun->gimple_df->in_ssa_p = false;
 
   /* Allocate memory for the DEF_BLOCKS hash table.  */
-  gcc_assert (var_infos == NULL);
-  var_infos = htab_create (vec_safe_length (cfun->local_decls),
-			   var_info_hash, var_info_eq, free);
+  gcc_assert (!var_infos.is_created ());
+  var_infos.create (vec_safe_length (cfun->local_decls));
 
   bitmap_obstack_initialize (&update_ssa_obstack);
 }
@@ -2309,11 +2281,8 @@ init_ssa_renamer (void)
 static void
 fini_ssa_renamer (void)
 {
-  if (var_infos)
-    {
-      htab_delete (var_infos);
-      var_infos = NULL;
-    }
+  if (var_infos.is_created ())
+    var_infos.dispose ();
 
   bitmap_obstack_release (&update_ssa_obstack);
 
@@ -2329,8 +2298,7 @@ fini_ssa_renamer (void)
       insert PHI nodes and rename the function in dominator tree
       order.
 
-   2- Find and mark all the blocks that define variables
-      (mark_def_site_blocks).
+   2- Find and mark all the blocks that define variables.
 
    3- Insert PHI nodes at dominance frontiers (insert_phi_nodes).
 
@@ -2368,7 +2336,7 @@ rewrite_into_ssa (void)
   compute_dominance_frontiers (dfs);
 
   /* 2- Find and mark definition sites.  */
-  mark_def_site_blocks ();
+  mark_def_dom_walker (CDI_DOMINATORS).walk (cfun->cfg->x_entry_block_ptr);
 
   /* 3- Insert PHI nodes at dominance frontiers of definition blocks.  */
   insert_phi_nodes (dfs);
@@ -2398,36 +2366,59 @@ rewrite_into_ssa (void)
       if (decl
 	  && TREE_CODE (decl) == VAR_DECL
 	  && !VAR_DECL_IS_VIRTUAL_OPERAND (decl)
-	  && DECL_ARTIFICIAL (decl)
-	  && DECL_IGNORED_P (decl)
-	  && !DECL_NAME (decl))
-	SET_SSA_NAME_VAR_OR_IDENTIFIER (name, NULL_TREE);
+	  && DECL_IGNORED_P (decl))
+	SET_SSA_NAME_VAR_OR_IDENTIFIER (name, DECL_NAME (decl));
     }
 
   return 0;
 }
 
+/* Gate for IPCP optimization.  */
 
-struct gimple_opt_pass pass_build_ssa =
+static bool
+gate_into_ssa (void)
 {
- {
-  GIMPLE_PASS,
-  "ssa",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  rewrite_into_ssa,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_SSA_OTHER,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  PROP_ssa,				/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_ssa
-    | TODO_remove_unused_locals		/* todo_flags_finish */
- }
+  /* Do nothing for funcions that was produced already in SSA form.  */
+  return !(cfun->curr_properties & PROP_ssa);
+}
+
+namespace {
+
+const pass_data pass_data_build_ssa =
+{
+  GIMPLE_PASS, /* type */
+  "ssa", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_SSA_OTHER, /* tv_id */
+  PROP_cfg, /* properties_required */
+  PROP_ssa, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_verify_ssa | TODO_remove_unused_locals ), /* todo_flags_finish */
 };
+
+class pass_build_ssa : public gimple_opt_pass
+{
+public:
+  pass_build_ssa (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_build_ssa, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_into_ssa (); }
+  unsigned int execute () { return rewrite_into_ssa (); }
+
+}; // class pass_build_ssa
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_build_ssa (gcc::context *ctxt)
+{
+  return new pass_build_ssa (ctxt);
+}
 
 
 /* Mark the definition of VAR at STMT and BB as interesting for the
@@ -3189,7 +3180,7 @@ update_ssa (unsigned update_flags)
     {
       /* If we rename bare symbols initialize the mapping to
          auxiliar info we need to keep track of.  */
-      var_infos = htab_create (47, var_info_hash, var_info_eq, free);
+      var_infos.create (47);
 
       /* If we have to rename some symbols from scratch, we need to
 	 start the process at the root of the CFG.  FIXME, it should

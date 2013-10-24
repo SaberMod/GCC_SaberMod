@@ -68,8 +68,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "intl.h"
 #include "opts.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-ssa-alias.h"
+#include "insn-codes.h"
 
 
 bool
@@ -92,7 +93,7 @@ void
 default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 {
 #ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
-  ASM_OUTPUT_EXTERNAL_LIBCALL(asm_out_file, fun);
+  ASM_OUTPUT_EXTERNAL_LIBCALL (asm_out_file, fun);
 #endif
 }
 
@@ -450,6 +451,14 @@ default_fixed_point_supported_p (void)
   return ENABLE_FIXED_POINT;
 }
 
+/* True if the target supports GNU indirect functions.  */
+
+bool
+default_has_ifunc_p (void)
+{
+  return HAVE_GNU_INDIRECT_FUNCTION;
+}
+
 /* NULL if INSN insn is valid within a low-overhead loop, otherwise returns
    an error message.
 
@@ -466,7 +475,7 @@ default_invalid_within_doloop (const_rtx insn)
   if (CALL_P (insn))
     return "Function call in loop.";
 
-  if (JUMP_TABLE_DATA_P (insn))
+  if (tablejump_p (insn, NULL, NULL) || computed_jump_p (insn))
     return "Computed branch in the loop.";
 
   return NULL;
@@ -850,6 +859,12 @@ default_register_priority (int hard_regno ATTRIBUTE_UNUSED)
 }
 
 extern bool
+default_register_usage_leveling_p (void)
+{
+  return false;
+}
+
+extern bool
 default_different_addr_displacement_p (void)
 {
   return false;
@@ -1042,20 +1057,17 @@ default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned *cost = (unsigned *) data;
   unsigned retval = 0;
 
-  if (flag_vect_cost_model)
-    {
-      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-      int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
+  tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+  int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
 							  misalign);
-      /* Statements in an inner loop relative to the loop being
-	 vectorized are weighted more heavily.  The value here is
-	 arbitrary and could potentially be improved with analysis.  */
-      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
-	count *= 50;  /* FIXME.  */
+   /* Statements in an inner loop relative to the loop being
+      vectorized are weighted more heavily.  The value here is
+      arbitrary and could potentially be improved with analysis.  */
+  if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+    count *= 50;  /* FIXME.  */
 
-      retval = (unsigned) (count * stmt_cost);
-      cost[where] += retval;
-    }
+  retval = (unsigned) (count * stmt_cost);
+  cost[where] += retval;
 
   return retval;
 }
@@ -1415,7 +1427,7 @@ default_debug_unwind_info (void)
    mode for registers used in apply_builtin_return and apply_builtin_arg.  */
 
 enum machine_mode
-default_get_reg_raw_mode(int regno)
+default_get_reg_raw_mode (int regno)
 {
   return reg_raw_mode[regno];
 }
@@ -1527,6 +1539,14 @@ default_pch_valid_p (const void *data_p, size_t len)
       }
 
   return NULL;
+}
+
+/* Default version of cstore_mode.  */
+
+enum machine_mode
+default_cstore_mode (enum insn_code icode)
+{
+  return insn_data[(int) icode].operand[0].mode;
 }
 
 /* Default version of member_type_forces_blk.  */

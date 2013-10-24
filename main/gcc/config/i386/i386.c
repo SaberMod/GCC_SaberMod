@@ -63,8 +63,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tree-flow.h"
 #include "cfgloop.h"
+#include "context.h"
+#include "pass_manager.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
+static rtx legitimize_pe_coff_extern_decl (rtx, bool);
+static rtx legitimize_pe_coff_symbol (rtx, bool);
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -83,6 +87,13 @@ static rtx legitimize_dllimport_symbol (rtx, bool);
 #define COSTS_N_BYTES(N) ((N) * 2)
 
 #define DUMMY_STRINGOP_ALGS {libcall, {{-1, libcall, false}}}
+
+static stringop_algs ix86_size_memcpy[2] = {
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}}};
+static stringop_algs ix86_size_memset[2] = {
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}}};
 
 const
 struct processor_costs ix86_size_cost = {/* costs for tuning for size */
@@ -137,10 +148,8 @@ struct processor_costs ix86_size_cost = {/* costs for tuning for size */
   COSTS_N_BYTES (2),			/* cost of FABS instruction.  */
   COSTS_N_BYTES (2),			/* cost of FCHS instruction.  */
   COSTS_N_BYTES (2),			/* cost of FSQRT instruction.  */
-  {{rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
-   {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}}},
-  {{rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
-   {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}}},
+  ix86_size_memcpy,
+  ix86_size_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -155,6 +164,13 @@ struct processor_costs ix86_size_cost = {/* costs for tuning for size */
 };
 
 /* Processor costs (relative to an add) */
+static stringop_algs i386_memcpy[2] = {
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs i386_memset[2] = {
+  {rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
+
 static const
 struct processor_costs i386_cost = {	/* 386 specific costs */
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -208,10 +224,8 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   COSTS_N_INSNS (22),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (24),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (122),			/* cost of FSQRT instruction.  */
-  {{rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{rep_prefix_1_byte, {{-1, rep_prefix_1_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
+  i386_memcpy,
+  i386_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -224,6 +238,13 @@ struct processor_costs i386_cost = {	/* 386 specific costs */
   3,					/* cond_taken_branch_cost.  */
   1,					/* cond_not_taken_branch_cost.  */
 };
+
+static stringop_algs i486_memcpy[2] = {
+  {rep_prefix_4_byte, {{-1, rep_prefix_4_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs i486_memset[2] = {
+  {rep_prefix_4_byte, {{-1, rep_prefix_4_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
 
 static const
 struct processor_costs i486_cost = {	/* 486 specific costs */
@@ -280,10 +301,8 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (83),			/* cost of FSQRT instruction.  */
-  {{rep_prefix_4_byte, {{-1, rep_prefix_4_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{rep_prefix_4_byte, {{-1, rep_prefix_4_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
+  i486_memcpy,
+  i486_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -296,6 +315,13 @@ struct processor_costs i486_cost = {	/* 486 specific costs */
   3,					/* cond_taken_branch_cost.  */
   1,					/* cond_not_taken_branch_cost.  */
 };
+
+static stringop_algs pentium_memcpy[2] = {
+  {libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs pentium_memset[2] = {
+  {libcall, {{-1, rep_prefix_4_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
 
 static const
 struct processor_costs pentium_cost = {
@@ -350,10 +376,8 @@ struct processor_costs pentium_cost = {
   COSTS_N_INSNS (1),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (1),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (70),			/* cost of FSQRT instruction.  */
-  {{libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{-1, rep_prefix_4_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
+  pentium_memcpy,
+  pentium_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -367,6 +391,21 @@ struct processor_costs pentium_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+/* PentiumPro has optimized rep instructions for blocks aligned by 8 bytes
+   (we ensure the alignment).  For small blocks inline loop is still a
+   noticeable win, for bigger blocks either rep movsl or rep movsb is
+   way to go.  Rep movsb has apparently more expensive startup time in CPU,
+   but after 4K the difference is down in the noise.  */
+static stringop_algs pentiumpro_memcpy[2] = {
+  {rep_prefix_4_byte, {{128, loop, false}, {1024, unrolled_loop, false},
+                       {8192, rep_prefix_4_byte, false},
+                       {-1, rep_prefix_1_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs pentiumpro_memset[2] = {
+  {rep_prefix_4_byte, {{1024, unrolled_loop, false},
+                       {8192, rep_prefix_4_byte, false},
+                       {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
 static const
 struct processor_costs pentiumpro_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -420,19 +459,8 @@ struct processor_costs pentiumpro_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
-  /* PentiumPro has optimized rep instructions for blocks aligned by 8 bytes
-     (we ensure the alignment).  For small blocks inline loop is still a
-     noticeable win, for bigger blocks either rep movsl or rep movsb is
-     way to go.  Rep movsb has apparently more expensive startup time in CPU,
-     but after 4K the difference is down in the noise.  */
-  {{rep_prefix_4_byte, {{128, loop, false}, {1024, unrolled_loop, false},
-			{8192, rep_prefix_4_byte, false},
-		        {-1, rep_prefix_1_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{rep_prefix_4_byte, {{1024, unrolled_loop, false},
-  			{8192, rep_prefix_4_byte, false},
-			{-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
+  pentiumpro_memcpy,
+  pentiumpro_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -446,6 +474,12 @@ struct processor_costs pentiumpro_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+static stringop_algs geode_memcpy[2] = {
+  {libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs geode_memset[2] = {
+  {libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
 static const
 struct processor_costs geode_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -500,10 +534,8 @@ struct processor_costs geode_cost = {
   COSTS_N_INSNS (1),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (1),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (54),			/* cost of FSQRT instruction.  */
-  {{libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
+  geode_memcpy,
+  geode_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -517,6 +549,12 @@ struct processor_costs geode_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+static stringop_algs k6_memcpy[2] = {
+  {libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs k6_memset[2] = {
+  {libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
 static const
 struct processor_costs k6_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -573,10 +611,8 @@ struct processor_costs k6_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (56),			/* cost of FSQRT instruction.  */
-  {{libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{256, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
+  k6_memcpy,
+  k6_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -590,6 +626,15 @@ struct processor_costs k6_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+/* For some reason, Athlon deals better with REP prefix (relative to loops)
+   compared to K8. Alignment becomes important after 8 bytes for memcpy and
+   128 bytes for memset.  */
+static stringop_algs athlon_memcpy[2] = {
+  {libcall, {{2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs athlon_memset[2] = {
+  {libcall, {{2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
 static const
 struct processor_costs athlon_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -643,13 +688,8 @@ struct processor_costs athlon_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
-  /* For some reason, Athlon deals better with REP prefix (relative to loops)
-     compared to K8. Alignment becomes important after 8 bytes for memcpy and
-     128 bytes for memset.  */
-  {{libcall, {{2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
+  athlon_memcpy,
+  athlon_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -663,6 +703,19 @@ struct processor_costs athlon_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+/* K8 has optimized REP instruction for medium sized blocks, but for very
+   small blocks it is better to use loop. For large blocks, libcall can
+   do nontemporary accesses and beat inline considerably.  */
+static stringop_algs k8_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs k8_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
 static const
 struct processor_costs k8_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -721,17 +774,9 @@ struct processor_costs k8_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
-  /* K8 has optimized REP instruction for medium sized blocks, but for very
-     small blocks it is better to use loop. For large blocks, libcall can
-     do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false},
-	      {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}},
+
+  k8_memcpy,
+  k8_memset,
   4,					/* scalar_stmt_cost.  */
   2,					/* scalar load_cost.  */
   2,					/* scalar_store_cost.  */
@@ -745,6 +790,19 @@ struct processor_costs k8_cost = {
   2,					/* cond_not_taken_branch_cost.  */
 };
 
+/* AMDFAM10 has optimized REP instruction for medium sized blocks, but for
+   very small blocks it is better to use loop. For large blocks, libcall can
+   do nontemporary accesses and beat inline considerably.  */
+static stringop_algs amdfam10_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs amdfam10_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
 struct processor_costs amdfam10_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (2),			/* cost of a lea instruction */
@@ -811,17 +869,8 @@ struct processor_costs amdfam10_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 
-  /* AMDFAM10 has optimized REP instruction for medium sized blocks, but for
-     very small blocks it is better to use loop. For large blocks, libcall can
-     do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  amdfam10_memcpy,
+  amdfam10_memset,
   4,					/* scalar_stmt_cost.  */
   2,					/* scalar load_cost.  */
   2,					/* scalar_store_cost.  */
@@ -835,7 +884,21 @@ struct processor_costs amdfam10_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-struct processor_costs bdver1_cost = {
+/*  BDVER1 has optimized REP instruction for medium sized blocks, but for
+    very small blocks it is better to use loop. For large blocks, libcall
+    can do nontemporary accesses and beat inline considerably.  */
+static stringop_algs bdver1_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs bdver1_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+
+const struct processor_costs bdver1_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (1),			/* cost of a lea instruction */
   COSTS_N_INSNS (1),			/* variable shift costs */
@@ -901,17 +964,8 @@ struct processor_costs bdver1_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (52),			/* cost of FSQRT instruction.  */
 
-  /*  BDVER1 has optimized REP instruction for medium sized blocks, but for
-      very small blocks it is better to use loop. For large blocks, libcall
-      can do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  bdver1_memcpy,
+  bdver1_memset,
   6,					/* scalar_stmt_cost.  */
   4,					/* scalar load_cost.  */
   4,					/* scalar_store_cost.  */
@@ -925,7 +979,22 @@ struct processor_costs bdver1_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-struct processor_costs bdver2_cost = {
+/*  BDVER2 has optimized REP instruction for medium sized blocks, but for
+    very small blocks it is better to use loop. For large blocks, libcall
+    can do nontemporary accesses and beat inline considerably.  */
+
+static stringop_algs bdver2_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs bdver2_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+
+const struct processor_costs bdver2_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (1),			/* cost of a lea instruction */
   COSTS_N_INSNS (1),			/* variable shift costs */
@@ -991,17 +1060,8 @@ struct processor_costs bdver2_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (52),			/* cost of FSQRT instruction.  */
 
-  /*  BDVER2 has optimized REP instruction for medium sized blocks, but for
-      very small blocks it is better to use loop. For large blocks, libcall
-      can do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  bdver2_memcpy,
+  bdver2_memset,
   6,					/* scalar_stmt_cost.  */
   4,					/* scalar load_cost.  */
   4,					/* scalar_store_cost.  */
@@ -1015,6 +1075,20 @@ struct processor_costs bdver2_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+
+  /*  BDVER3 has optimized REP instruction for medium sized blocks, but for
+      very small blocks it is better to use loop. For large blocks, libcall
+      can do nontemporary accesses and beat inline considerably.  */
+static stringop_algs bdver3_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs bdver3_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
 struct processor_costs bdver3_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (1),			/* cost of a lea instruction */
@@ -1073,17 +1147,8 @@ struct processor_costs bdver3_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (52),			/* cost of FSQRT instruction.  */
 
-  /*  BDVER3 has optimized REP instruction for medium sized blocks, but for
-      very small blocks it is better to use loop. For large blocks, libcall
-      can do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  bdver3_memcpy,
+  bdver3_memset,
   6,					/* scalar_stmt_cost.  */
   4,					/* scalar load_cost.  */
   4,					/* scalar_store_cost.  */
@@ -1097,7 +1162,20 @@ struct processor_costs bdver3_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-struct processor_costs btver1_cost = {
+  /* BTVER1 has optimized REP instruction for medium sized blocks, but for
+     very small blocks it is better to use loop. For large blocks, libcall can
+     do nontemporary accesses and beat inline considerably.  */
+static stringop_algs btver1_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs btver1_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+const struct processor_costs btver1_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (2),			/* cost of a lea instruction */
   COSTS_N_INSNS (1),			/* variable shift costs */
@@ -1158,17 +1236,8 @@ struct processor_costs btver1_cost = {
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
 
-  /* BTVER1 has optimized REP instruction for medium sized blocks, but for
-     very small blocks it is better to use loop. For large blocks, libcall can
-     do nontemporary accesses and beat inline considerably.  */
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  btver1_memcpy,
+  btver1_memset,
   4,					/* scalar_stmt_cost.  */
   2,					/* scalar load_cost.  */
   2,					/* scalar_store_cost.  */
@@ -1182,7 +1251,17 @@ struct processor_costs btver1_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-struct processor_costs btver2_cost = {
+static stringop_algs btver2_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs btver2_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+const struct processor_costs btver2_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (2),			/* cost of a lea instruction */
   COSTS_N_INSNS (1),			/* variable shift costs */
@@ -1242,15 +1321,8 @@ struct processor_costs btver2_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (35),			/* cost of FSQRT instruction.  */
-
-  {{libcall, {{6, loop, false}, {14, unrolled_loop, false},
-	      {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {24, unrolled_loop, false},
-	      {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  btver2_memcpy,
+  btver2_memset,
   4,					/* scalar_stmt_cost.  */
   2,					/* scalar load_cost.  */
   2,					/* scalar_store_cost.  */
@@ -1263,6 +1335,14 @@ struct processor_costs btver2_cost = {
   2,					/* cond_taken_branch_cost.  */
   1,					/* cond_not_taken_branch_cost.  */
 };
+
+static stringop_algs pentium4_memcpy[2] = {
+  {libcall, {{12, loop_1_byte, false}, {-1, rep_prefix_4_byte, false}}},
+  DUMMY_STRINGOP_ALGS};
+static stringop_algs pentium4_memset[2] = {
+  {libcall, {{6, loop_1_byte, false}, {48, loop, false},
+             {20480, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  DUMMY_STRINGOP_ALGS};
 
 static const
 struct processor_costs pentium4_cost = {
@@ -1317,11 +1397,8 @@ struct processor_costs pentium4_cost = {
   COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (43),			/* cost of FSQRT instruction.  */
-  {{libcall, {{12, loop_1_byte, false}, {-1, rep_prefix_4_byte, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{6, loop_1_byte, false}, {48, loop, false},
-	      {20480, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
+  pentium4_memcpy,
+  pentium4_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1334,6 +1411,17 @@ struct processor_costs pentium4_cost = {
   3,					/* cond_taken_branch_cost.  */
   1,					/* cond_not_taken_branch_cost.  */
 };
+
+static stringop_algs nocona_memcpy[2] = {
+  {libcall, {{12, loop_1_byte, false}, {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{32, loop, false}, {20000, rep_prefix_8_byte, false},
+             {100000, unrolled_loop, false}, {-1, libcall, false}}}};
+
+static stringop_algs nocona_memset[2] = {
+  {libcall, {{6, loop_1_byte, false}, {48, loop, false},
+             {20480, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{24, loop, false}, {64, unrolled_loop, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
 
 static const
 struct processor_costs nocona_cost = {
@@ -1388,13 +1476,8 @@ struct processor_costs nocona_cost = {
   COSTS_N_INSNS (3),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (3),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (44),			/* cost of FSQRT instruction.  */
-  {{libcall, {{12, loop_1_byte, false}, {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{32, loop, false}, {20000, rep_prefix_8_byte, false},
-	      {100000, unrolled_loop, false}, {-1, libcall, false}}}},
-  {{libcall, {{6, loop_1_byte, false}, {48, loop, false},
-	      {20480, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{24, loop, false}, {64, unrolled_loop, false},
-	      {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}},
+  nocona_memcpy,
+  nocona_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1408,6 +1491,15 @@ struct processor_costs nocona_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+static stringop_algs atom_memcpy[2] = {
+  {libcall, {{11, loop, false}, {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{32, loop, false}, {64, rep_prefix_4_byte, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
+static stringop_algs atom_memset[2] = {
+  {libcall, {{8, loop, false}, {15, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{24, loop, false}, {32, unrolled_loop, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
 static const
 struct processor_costs atom_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -1461,13 +1553,8 @@ struct processor_costs atom_cost = {
   COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  {{libcall, {{11, loop, false}, {-1, rep_prefix_4_byte, false}}},
-   {libcall, {{32, loop, false}, {64, rep_prefix_4_byte, false},
-	  {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}},
-  {{libcall, {{8, loop, false}, {15, unrolled_loop, false},
-	  {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
-   {libcall, {{24, loop, false}, {32, unrolled_loop, false},
-	  {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}},
+  atom_memcpy,
+  atom_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1481,9 +1568,98 @@ struct processor_costs atom_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-/* Generic64 should produce code tuned for Nocona and K8.  */
+static stringop_algs slm_memcpy[2] = {
+  {libcall, {{11, loop, false}, {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{32, loop, false}, {64, rep_prefix_4_byte, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
+static stringop_algs slm_memset[2] = {
+  {libcall, {{8, loop, false}, {15, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{24, loop, false}, {32, unrolled_loop, false},
+             {8192, rep_prefix_8_byte, false}, {-1, libcall, false}}}};
 static const
-struct processor_costs generic64_cost = {
+struct processor_costs slm_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*				 HI */
+   COSTS_N_INSNS (3),			/*				 SI */
+   COSTS_N_INSNS (4),			/*				 DI */
+   COSTS_N_INSNS (2)},			/*			      other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (26),			/*			    HI */
+   COSTS_N_INSNS (42),			/*			    SI */
+   COSTS_N_INSNS (74),			/*			    DI */
+   COSTS_N_INSNS (74)},			/*			    other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  17,					/* MOVE_RATIO */
+  4,					/* cost for loading QImode using movzbl */
+  {4, 4, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  4,					/* cost of reg,reg fld/fst */
+  {12, 12, 12},				/* cost of loading fp registers
+					   in SFmode, DFmode and XFmode */
+  {6, 6, 8},				/* cost of storing fp registers
+					   in SFmode, DFmode and XFmode */
+  2,					/* cost of moving MMX register */
+  {8, 8},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {8, 8},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {8, 8, 8},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {8, 8, 8},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  5,					/* MMX or SSE register to integer */
+  32,					/* size of l1 cache.  */
+  256,					/* size of l2 cache.  */
+  64,					/* size of prefetch block */
+  6,					/* number of parallel prefetches */
+  3,					/* Branch cost */
+  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
+  slm_memcpy,
+  slm_memset,
+  1,					/* scalar_stmt_cost.  */
+  1,					/* scalar load_cost.  */
+  1,					/* scalar_store_cost.  */
+  1,					/* vec_stmt_cost.  */
+  1,					/* vec_to_scalar_cost.  */
+  1,					/* scalar_to_vec_cost.  */
+  1,					/* vec_align_load_cost.  */
+  2,					/* vec_unalign_load_cost.  */
+  1,					/* vec_store_cost.  */
+  3,					/* cond_taken_branch_cost.  */
+  1,					/* cond_not_taken_branch_cost.  */
+};
+
+/* Generic should produce code tuned for Core-i7 (and newer chips)
+   and btver1 (and newer chips).  */
+
+static stringop_algs generic_memcpy[2] = {
+  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
+             {-1, libcall, false}}},
+  {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs generic_memset[2] = {
+  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
+             {-1, libcall, false}}},
+  {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static const
+struct processor_costs generic_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   /* On all chips taken into consideration lea is 2 cycles and more.  With
      this cost however our current implementation of synth_mult results in
@@ -1541,12 +1717,8 @@ struct processor_costs generic64_cost = {
   COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  {DUMMY_STRINGOP_ALGS,
-   {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
-  {DUMMY_STRINGOP_ALGS,
-   {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
-	      {-1, libcall, false}}}},
+  generic_memcpy,
+  generic_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1561,6 +1733,18 @@ struct processor_costs generic64_cost = {
 };
 
 /* core_cost should produce code tuned for Core familly of CPUs.  */
+static stringop_algs core_memcpy[2] = {
+  {libcall, {{1024, rep_prefix_4_byte, true}, {-1, libcall, false}}},
+  {libcall, {{24, loop, true}, {128, rep_prefix_8_byte, true},
+             {-1, libcall, false}}}};
+static stringop_algs core_memset[2] = {
+  {libcall, {{6, loop_1_byte, true},
+             {24, loop, true},
+             {8192, rep_prefix_4_byte, true},
+             {-1, libcall, false}}},
+  {libcall, {{24, loop, true}, {512, rep_prefix_8_byte, true},
+             {-1, libcall, false}}}};
+
 static const
 struct processor_costs core_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
@@ -1619,15 +1803,8 @@ struct processor_costs core_cost = {
   COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  {{libcall, {{1024, rep_prefix_4_byte, true}, {-1, libcall, false}}},
-   {libcall, {{24, loop, true}, {128, rep_prefix_8_byte, true},
-              {-1, libcall, false}}}},
-  {{libcall, {{6, loop_1_byte, true},
-              {24, loop, true},
-              {8192, rep_prefix_4_byte, true},
-              {-1, libcall, false}}},
-   {libcall, {{24, loop, true}, {512, rep_prefix_8_byte, true},
-              {-1, libcall, false}}}},
+  core_memcpy,
+  core_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1641,79 +1818,6 @@ struct processor_costs core_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-/* Generic32 should produce code tuned for PPro, Pentium4, Nocona,
-   Athlon and K8.  */
-static const
-struct processor_costs generic32_cost = {
-  COSTS_N_INSNS (1),			/* cost of an add instruction */
-  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
-  COSTS_N_INSNS (1),			/* variable shift costs */
-  COSTS_N_INSNS (1),			/* constant shift costs */
-  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
-   COSTS_N_INSNS (4),			/*				 HI */
-   COSTS_N_INSNS (3),			/*				 SI */
-   COSTS_N_INSNS (4),			/*				 DI */
-   COSTS_N_INSNS (2)},			/*			      other */
-  0,					/* cost of multiply per each bit set */
-  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
-   COSTS_N_INSNS (26),			/*			    HI */
-   COSTS_N_INSNS (42),			/*			    SI */
-   COSTS_N_INSNS (74),			/*			    DI */
-   COSTS_N_INSNS (74)},			/*			    other */
-  COSTS_N_INSNS (1),			/* cost of movsx */
-  COSTS_N_INSNS (1),			/* cost of movzx */
-  8,					/* "large" insn */
-  17,					/* MOVE_RATIO */
-  4,				     /* cost for loading QImode using movzbl */
-  {4, 4, 4},				/* cost of loading integer registers
-					   in QImode, HImode and SImode.
-					   Relative to reg-reg move (2).  */
-  {4, 4, 4},				/* cost of storing integer registers */
-  4,					/* cost of reg,reg fld/fst */
-  {12, 12, 12},				/* cost of loading fp registers
-					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of storing fp registers
-					   in SFmode, DFmode and XFmode */
-  2,					/* cost of moving MMX register */
-  {8, 8},				/* cost of loading MMX registers
-					   in SImode and DImode */
-  {8, 8},				/* cost of storing MMX registers
-					   in SImode and DImode */
-  2,					/* cost of moving SSE register */
-  {8, 8, 8},				/* cost of loading SSE registers
-					   in SImode, DImode and TImode */
-  {8, 8, 8},				/* cost of storing SSE registers
-					   in SImode, DImode and TImode */
-  5,					/* MMX or SSE register to integer */
-  32,					/* size of l1 cache.  */
-  256,					/* size of l2 cache.  */
-  64,					/* size of prefetch block */
-  6,					/* number of parallel prefetches */
-  3,					/* Branch cost */
-  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
-  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
-  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
-  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
-  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
-  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  {{libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
-	      {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  {{libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
-	      {-1, libcall, false}}},
-   DUMMY_STRINGOP_ALGS},
-  1,					/* scalar_stmt_cost.  */
-  1,					/* scalar load_cost.  */
-  1,					/* scalar_store_cost.  */
-  1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
-  1,					/* scalar_to_vec_cost.  */
-  1,					/* vec_align_load_cost.  */
-  2,					/* vec_unalign_load_cost.  */
-  1,					/* vec_store_cost.  */
-  3,					/* cond_taken_branch_cost.  */
-  1,					/* cond_not_taken_branch_cost.  */
-};
 
 /* Set by -mtune.  */
 const struct processor_costs *ix86_tune_cost = &pentium_cost;
@@ -1734,6 +1838,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_HASWELL (1<<PROCESSOR_HASWELL)
 #define m_CORE_ALL (m_CORE2 | m_COREI7  | m_HASWELL)
 #define m_ATOM (1<<PROCESSOR_ATOM)
+#define m_SLM (1<<PROCESSOR_SLM)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
 #define m_K6 (1<<PROCESSOR_K6)
@@ -1751,12 +1856,14 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_AMD_MULTIPLE (m_ATHLON_K8 | m_AMDFAM10 | m_BDVER | m_BTVER)
 
-#define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
-#define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
+#define m_GENERIC (1<<PROCESSOR_GENERIC)
 
-/* Generic instruction choice should be common subset of supported CPUs
-   (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
-#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
+const char* ix86_tune_feature_names[X86_TUNE_LAST] = {
+#undef DEF_TUNE
+#define DEF_TUNE(tune, name, selector) name,
+#include "x86-tune.def"
+#undef DEF_TUNE
+};
 
 /* Feature tests against the various tunings.  */
 unsigned char ix86_tune_features[X86_TUNE_LAST];
@@ -1764,273 +1871,10 @@ unsigned char ix86_tune_features[X86_TUNE_LAST];
 /* Feature tests against the various tunings used to create ix86_tune_features
    based on the processor mask.  */
 static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
-  /* X86_TUNE_USE_LEAVE: Leave does not affect Nocona SPEC2000 results
-     negatively, so enabling for Generic64 seems like good code size
-     tradeoff.  We can't enable it for 32bit generic because it does not
-     work well with PPro base chips.  */
-  m_386 | m_CORE_ALL | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC64,
-
-  /* X86_TUNE_PUSH_MEMORY */
-  m_386 | m_P4_NOCONA | m_CORE_ALL | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_ZERO_EXTEND_WITH_AND */
-  m_486 | m_PENT,
-
-  /* X86_TUNE_UNROLL_STRLEN */
-  m_486 | m_PENT | m_PPRO | m_ATOM | m_CORE_ALL | m_K6 | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_BRANCH_PREDICTION_HINTS: Branch hints were put in P4 based
-     on simulation result. But after P4 was made, no performance benefit
-     was observed with branch hints.  It also increases the code size.
-     As a result, icc never generates branch hints.  */
-  0,
-
-  /* X86_TUNE_DOUBLE_WITH_ADD */
-  ~m_386,
-
-  /* X86_TUNE_USE_SAHF */
-  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC,
-
-  /* X86_TUNE_MOVX: Enable to zero extend integer registers to avoid
-     partial dependencies.  */
-  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GEODE | m_AMD_MULTIPLE  | m_GENERIC,
-
-  /* X86_TUNE_PARTIAL_REG_STALL: We probably ought to watch for partial
-     register stalls on Generic32 compilation setting as well.  However
-     in current implementation the partial register stalls are not eliminated
-     very well - they can be introduced via subregs synthesized by combine
-     and can happen in caller/callee saving sequences.  Because this option
-     pays back little on PPro based chips and is in conflict with partial reg
-     dependencies used by Athlon/P4 based chips, it is better to leave it off
-     for generic32 for now.  */
-  m_PPRO,
-
-  /* X86_TUNE_PARTIAL_FLAG_REG_STALL */
-  m_CORE_ALL | m_GENERIC,
-
-  /* X86_TUNE_LCP_STALL: Avoid an expensive length-changing prefix stall
-   * on 16-bit immediate moves into memory on Core2 and Corei7.  */
-  m_CORE_ALL | m_GENERIC,
-
-  /* X86_TUNE_USE_HIMODE_FIOP */
-  m_386 | m_486 | m_K6_GEODE,
-
-  /* X86_TUNE_USE_SIMODE_FIOP */
-  ~(m_PENT | m_PPRO | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC),
-
-  /* X86_TUNE_USE_MOV0 */
-  m_K6,
-
-  /* X86_TUNE_USE_CLTD */
-  ~(m_PENT | m_ATOM | m_K6),
-
-  /* X86_TUNE_USE_XCHGB: Use xchgb %rh,%rl instead of rolw/rorw $8,rx.  */
-  m_PENT4,
-
-  /* X86_TUNE_SPLIT_LONG_MOVES */
-  m_PPRO,
-
-  /* X86_TUNE_READ_MODIFY_WRITE */
-  ~m_PENT,
-
-  /* X86_TUNE_READ_MODIFY */
-  ~(m_PENT | m_PPRO),
-
-  /* X86_TUNE_PROMOTE_QIMODE */
-  m_386 | m_486 | m_PENT | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_FAST_PREFIX */
-  ~(m_386 | m_486 | m_PENT),
-
-  /* X86_TUNE_SINGLE_STRINGOP */
-  m_386 | m_P4_NOCONA,
-
-  /* X86_TUNE_QIMODE_MATH */
-  ~0,
-
-  /* X86_TUNE_HIMODE_MATH: On PPro this flag is meant to avoid partial
-     register stalls.  Just like X86_TUNE_PARTIAL_REG_STALL this option
-     might be considered for Generic32 if our scheme for avoiding partial
-     stalls was more effective.  */
-  ~m_PPRO,
-
-  /* X86_TUNE_PROMOTE_QI_REGS */
-  0,
-
-  /* X86_TUNE_PROMOTE_HI_REGS */
-  m_PPRO,
-
-  /* X86_TUNE_SINGLE_POP: Enable if single pop insn is preferred
-     over esp addition.  */
-  m_386 | m_486 | m_PENT | m_PPRO,
-
-  /* X86_TUNE_DOUBLE_POP: Enable if double pop insn is preferred
-     over esp addition.  */
-  m_PENT,
-
-  /* X86_TUNE_SINGLE_PUSH: Enable if single push insn is preferred
-     over esp subtraction.  */
-  m_386 | m_486 | m_PENT | m_K6_GEODE,
-
-  /* X86_TUNE_DOUBLE_PUSH. Enable if double push insn is preferred
-     over esp subtraction.  */
-  m_PENT | m_K6_GEODE,
-
-  /* X86_TUNE_INTEGER_DFMODE_MOVES: Enable if integer moves are preferred
-     for DFmode copies */
-  ~(m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GEODE | m_AMD_MULTIPLE | m_ATOM | m_GENERIC),
-
-  /* X86_TUNE_PARTIAL_REG_DEPENDENCY */
-  m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_SSE_PARTIAL_REG_DEPENDENCY: In the Generic model we have a
-     conflict here in between PPro/Pentium4 based chips that thread 128bit
-     SSE registers as single units versus K8 based chips that divide SSE
-     registers to two 64bit halves.  This knob promotes all store destinations
-     to be 128bit to allow register renaming on 128bit SSE units, but usually
-     results in one extra microop on 64bit SSE units.  Experimental results
-     shows that disabling this option on P4 brings over 20% SPECfp regression,
-     while enabling it on K8 brings roughly 2.4% regression that can be partly
-     masked by careful scheduling of moves.  */
-  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM  | m_AMDFAM10 | m_BDVER | m_GENERIC,
-
-  /* X86_TUNE_SSE_UNALIGNED_LOAD_OPTIMAL */
-  m_COREI7 | m_AMDFAM10 | m_BDVER | m_BTVER,
-
-  /* X86_TUNE_SSE_UNALIGNED_STORE_OPTIMAL */
-  m_COREI7 | m_BDVER,
-
-  /* X86_TUNE_SSE_PACKED_SINGLE_INSN_OPTIMAL */
-  m_BDVER ,
-
-  /* X86_TUNE_SSE_SPLIT_REGS: Set for machines where the type and dependencies
-     are resolved on SSE register parts instead of whole registers, so we may
-     maintain just lower part of scalar values in proper format leaving the
-     upper part undefined.  */
-  m_ATHLON_K8,
-
-  /* X86_TUNE_SSE_TYPELESS_STORES */
-  m_AMD_MULTIPLE,
-
-  /* X86_TUNE_SSE_LOAD0_BY_PXOR */
-  m_PPRO | m_P4_NOCONA,
-
-  /* X86_TUNE_MEMORY_MISMATCH_STALL */
-  m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_PROLOGUE_USING_MOVE */
-  m_PPRO | m_ATHLON_K8,
-
-  /* X86_TUNE_EPILOGUE_USING_MOVE */
-  m_PPRO | m_ATHLON_K8,
-
-  /* X86_TUNE_SHIFT1 */
-  ~m_486,
-
-  /* X86_TUNE_USE_FFREEP */
-  m_AMD_MULTIPLE,
-
-  /* X86_TUNE_INTER_UNIT_MOVES */
-  ~(m_AMD_MULTIPLE | m_GENERIC),
-
-  /* X86_TUNE_INTER_UNIT_CONVERSIONS */
-  ~(m_AMDFAM10 | m_BDVER ),
-
-  /* X86_TUNE_FOUR_JUMP_LIMIT: Some CPU cores are not able to predict more
-     than 4 branch instructions in the 16 byte window.  */
-  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_SCHEDULE */
-  m_PENT | m_PPRO | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_USE_BT */
-  m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_USE_INCDEC */
-  ~(m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_GENERIC),
-
-  /* X86_TUNE_PAD_RETURNS */
-  m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC,
-
-  /* X86_TUNE_PAD_SHORT_FUNCTION: Pad short funtion.  */
-  m_ATOM,
-
-  /* X86_TUNE_EXT_80387_CONSTANTS */
-  m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_K6_GEODE | m_ATHLON_K8 | m_GENERIC,
-
-  /* X86_TUNE_AVOID_VECTOR_DECODE */
-  m_CORE_ALL | m_K8 | m_GENERIC64,
-
-  /* X86_TUNE_PROMOTE_HIMODE_IMUL: Modern CPUs have same latency for HImode
-     and SImode multiply, but 386 and 486 do HImode multiply faster.  */
-  ~(m_386 | m_486),
-
-  /* X86_TUNE_SLOW_IMUL_IMM32_MEM: Imul of 32-bit constant and memory is
-     vector path on AMD machines.  */
-  m_CORE_ALL | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
-
-  /* X86_TUNE_SLOW_IMUL_IMM8: Imul of 8-bit constant is vector path on AMD
-     machines.  */
-  m_CORE_ALL | m_K8 | m_AMDFAM10 | m_BDVER | m_BTVER | m_GENERIC64,
-
-  /* X86_TUNE_MOVE_M1_VIA_OR: On pentiums, it is faster to load -1 via OR
-     than a MOV.  */
-  m_PENT,
-
-  /* X86_TUNE_NOT_UNPAIRABLE: NOT is not pairable on Pentium, while XOR is,
-     but one byte longer.  */
-  m_PENT,
-
-  /* X86_TUNE_NOT_VECTORMODE: On AMD K6, NOT is vector decoded with memory
-     operand that cannot be represented using a modRM byte.  The XOR
-     replacement is long decoded, so this split helps here as well.  */
-  m_K6,
-
-  /* X86_TUNE_USE_VECTOR_FP_CONVERTS: Prefer vector packed SSE conversion
-     from FP to FP. */
-  m_CORE_ALL | m_AMDFAM10 | m_GENERIC,
-
-  /* X86_TUNE_USE_VECTOR_CONVERTS: Prefer vector packed SSE conversion
-     from integer to FP. */
-  m_AMDFAM10,
-
-  /* X86_TUNE_FUSE_CMP_AND_BRANCH: Fuse a compare or test instruction
-     with a subsequent conditional jump instruction into a single
-     compare-and-branch uop.  */
-  m_BDVER,
-
-  /* X86_TUNE_OPT_AGU: Optimize for Address Generation Unit. This flag
-     will impact LEA instruction selection. */
-  m_ATOM,
-
-  /* X86_TUNE_VECTORIZE_DOUBLE: Enable double precision vector
-     instructions.  */
-  ~m_ATOM,
-
-  /* X86_SOFTARE_PREFETCHING_BENEFICIAL: Enable software prefetching
-     at -O3.  For the moment, the prefetching seems badly tuned for Intel
-     chips.  */
-  m_K6_GEODE | m_AMD_MULTIPLE,
-
-  /* X86_TUNE_AVX128_OPTIMAL: Enable 128-bit AVX instruction generation for
-     the auto-vectorizer.  */
-  m_BDVER | m_BTVER2,
-
-  /* X86_TUNE_REASSOC_INT_TO_PARALLEL: Try to produce parallel computations
-     during reassociation of integer computation.  */
-  m_ATOM,
-
-  /* X86_TUNE_REASSOC_FP_TO_PARALLEL: Try to produce parallel computations
-     during reassociation of fp computation.  */
-  m_ATOM | m_HASWELL,
-
-  /* X86_TUNE_GENERAL_REGS_SSE_SPILL: Try to spill general regs to SSE
-     regs instead of memory.  */
-  m_CORE_ALL,
-
-  /* X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE: Try to avoid memory operands for
-     a conditional move.  */
-  m_ATOM
+#undef DEF_TUNE
+#define DEF_TUNE(tune, name, selector) selector,
+#include "x86-tune.def"
+#undef DEF_TUNE
 };
 
 /* Feature tests against the various architecture variations.  */
@@ -2056,10 +1900,10 @@ static unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
 };
 
 static const unsigned int x86_accumulate_outgoing_args
-  = m_PPRO | m_P4_NOCONA | m_ATOM | m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC;
+  = m_PPRO | m_P4_NOCONA | m_ATOM | m_SLM | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_arch_always_fancy_math_387
-  = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC;
+  = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_SLM | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_avx256_split_unaligned_load
   = m_COREI7 | m_GENERIC;
@@ -2105,6 +1949,14 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   /* SSE REX registers */
   SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS, SSE_REGS,
   SSE_REGS, SSE_REGS,
+  /* AVX-512 SSE registers */
+  EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS,
+  EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS,
+  EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS,
+  EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS, EVEX_SSE_REGS,
+  /* Mask registers.  */
+  MASK_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS,
+  MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS,
 };
 
 /* The "default" register map used in 32bit mode.  */
@@ -2118,6 +1970,9 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,       /* MMX */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 16-23*/
+  -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 24-31*/
+  93, 94, 95, 96, 97, 98, 99, 100,      /* Mask registers */
 };
 
 /* The "default" register map used in 64bit mode.  */
@@ -2131,6 +1986,9 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   41, 42, 43, 44, 45, 46, 47, 48,       /* MMX */
   8,9,10,11,12,13,14,15,		/* extended integer registers */
   25, 26, 27, 28, 29, 30, 31, 32,	/* extended SSE registers */
+  67, 68, 69, 70, 71, 72, 73, 74,       /* AVX-512 registers 16-23 */
+  75, 76, 77, 78, 79, 80, 81, 82,       /* AVX-512 registers 24-31 */
+  118, 119, 120, 121, 122, 123, 124, 125, /* Mask registers */
 };
 
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -2196,6 +2054,9 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   29, 30, 31, 32, 33, 34, 35, 36,	/* MMX registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended integer registers */
   -1, -1, -1, -1, -1, -1, -1, -1,	/* extended SSE registers */
+  -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 16-23*/
+  -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 24-31*/
+  93, 94, 95, 96, 97, 98, 99, 100,      /* Mask registers */
 };
 
 /* Define parameter passing and return registers.  */
@@ -2213,6 +2074,16 @@ static int const x86_64_ms_abi_int_parameter_registers[4] =
 static int const x86_64_int_return_registers[4] =
 {
   AX_REG, DX_REG, DI_REG, SI_REG
+};
+
+/* Additional registers that are clobbered by SYSV calls.  */
+
+int const x86_64_ms_sysv_extra_clobbered_registers[12] =
+{
+  SI_REG, DI_REG,
+  XMM6_REG, XMM7_REG,
+  XMM8_REG, XMM9_REG, XMM10_REG, XMM11_REG,
+  XMM12_REG, XMM13_REG, XMM14_REG, XMM15_REG
 };
 
 /* Define the structure for the machine field in struct function.  */
@@ -2378,7 +2249,6 @@ enum ix86_function_specific_strings
 
 static char *ix86_target_string (HOST_WIDE_INT, int, const char *,
 				 const char *, enum fpmath_unit, bool);
-static void ix86_debug_options (void) ATTRIBUTE_UNUSED;
 static void ix86_function_specific_save (struct cl_target_option *);
 static void ix86_function_specific_restore (struct cl_target_option *);
 static void ix86_function_specific_print (FILE *, int,
@@ -2436,15 +2306,15 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&core_cost, 16, 10, 16, 10, 16},
   /* Core avx2  */
   {&core_cost, 16, 10, 16, 10, 16},
-  {&generic32_cost, 16, 7, 16, 7, 16},
-  {&generic64_cost, 16, 10, 16, 10, 16},
+  {&generic_cost, 16, 10, 16, 10, 16},
   {&amdfam10_cost, 32, 24, 32, 7, 32},
-  {&bdver1_cost, 32, 24, 32, 7, 32},
-  {&bdver2_cost, 32, 24, 32, 7, 32},
-  {&bdver3_cost, 32, 24, 32, 7, 32},
-  {&btver1_cost, 32, 24, 32, 7, 32},
-  {&btver2_cost, 32, 24, 32, 7, 32},
-  {&atom_cost, 16, 15, 16, 7, 16}
+  {&bdver1_cost, 16, 10, 16, 7, 11},
+  {&bdver2_cost, 16, 10, 16, 7, 11},
+  {&bdver3_cost, 16, 10, 16, 7, 11},
+  {&btver1_cost, 16, 10, 16, 7, 11},
+  {&btver2_cost, 16, 10, 16, 7, 11},
+  {&atom_cost, 16, 15, 16, 7, 16},
+  {&slm_cost, 16, 15, 16, 7, 16}
 };
 
 static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
@@ -2465,6 +2335,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "corei7",
   "core-avx2",
   "atom",
+  "slm",
   "geode",
   "k6",
   "k6-2",
@@ -2483,7 +2354,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
 static bool
 gate_insert_vzeroupper (void)
 {
-  return TARGET_VZEROUPPER;
+  return TARGET_AVX && !TARGET_AVX512F && TARGET_VZEROUPPER;
 }
 
 static unsigned int
@@ -2501,30 +2372,47 @@ rest_of_handle_insert_vzeroupper (void)
   ix86_optimize_mode_switching[AVX_U128] = 1;
 
   /* Call optimize_mode_switching.  */
-  pass_mode_switching.pass.execute ();
+  g->get_passes ()->execute_pass_mode_switching ();
   return 0;
 }
 
-struct rtl_opt_pass pass_insert_vzeroupper =
+namespace {
+
+const pass_data pass_data_insert_vzeroupper =
 {
- {
-  RTL_PASS,
-  "vzeroupper",				/* name */
-  OPTGROUP_NONE,			/* optinfo_flags */
-  gate_insert_vzeroupper,		/* gate */
-  rest_of_handle_insert_vzeroupper,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,					/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_df_finish | TODO_verify_rtl_sharing |
-  0,					/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "vzeroupper", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
 };
+
+class pass_insert_vzeroupper : public rtl_opt_pass
+{
+public:
+  pass_insert_vzeroupper(gcc::context *ctxt)
+    : rtl_opt_pass(pass_data_insert_vzeroupper, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_insert_vzeroupper (); }
+  unsigned int execute () { return rest_of_handle_insert_vzeroupper (); }
+
+}; // class pass_insert_vzeroupper
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_insert_vzeroupper (gcc::context *ctxt)
+{
+  return new pass_insert_vzeroupper (ctxt);
+}
 
 /* Return true if a red-zone is in use.  */
 
@@ -2556,6 +2444,10 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mfma",		OPTION_MASK_ISA_FMA },
     { "-mxop",		OPTION_MASK_ISA_XOP },
     { "-mlwp",		OPTION_MASK_ISA_LWP },
+    { "-mavx512f",	OPTION_MASK_ISA_AVX512F },
+    { "-mavx512er",	OPTION_MASK_ISA_AVX512ER },
+    { "-mavx512cd",	OPTION_MASK_ISA_AVX512CD },
+    { "-mavx512pf",	OPTION_MASK_ISA_AVX512PF },
     { "-msse4a",	OPTION_MASK_ISA_SSE4A },
     { "-msse4.2",	OPTION_MASK_ISA_SSE4_2 },
     { "-msse4.1",	OPTION_MASK_ISA_SSE4_1 },
@@ -2788,7 +2680,7 @@ ix86_profile_before_prologue (void)
 
 /* Function that is callable from the debugger to print the current
    options.  */
-void
+void ATTRIBUTE_UNUSED
 ix86_debug_options (void)
 {
   char *opts = ix86_target_string (ix86_isa_flags, target_flags,
@@ -2805,7 +2697,222 @@ ix86_debug_options (void)
 
   return;
 }
+
+static const char *stringop_alg_names[] = {
+#define DEF_ENUM
+#define DEF_ALG(alg, name) #name,
+#include "stringop.def"
+#undef DEF_ENUM
+#undef DEF_ALG
+};
+
+/* Parse parameter string passed to -mmemcpy-strategy= or -mmemset-strategy=.
+   The string is of the following form (or comma separated list of it):
+
+     strategy_alg:max_size:[align|noalign]
+
+   where the full size range for the strategy is either [0, max_size] or
+   [min_size, max_size], in which min_size is the max_size + 1 of the
+   preceding range.  The last size range must have max_size == -1.
+
+   Examples:
+
+    1.
+       -mmemcpy-strategy=libcall:-1:noalign
+
+      this is equivalent to (for known size memcpy) -mstringop-strategy=libcall
+
+
+   2.
+      -mmemset-strategy=rep_8byte:16:noalign,vector_loop:2048:align,libcall:-1:noalign
+
+      This is to tell the compiler to use the following strategy for memset
+      1) when the expected size is between [1, 16], use rep_8byte strategy;
+      2) when the size is between [17, 2048], use vector_loop;
+      3) when the size is > 2048, use libcall.  */
+
+struct stringop_size_range
+{
+  int max;
+  stringop_alg alg;
+  bool noalign;
+};
+
+static void
+ix86_parse_stringop_strategy_string (char *strategy_str, bool is_memset)
+{
+  const struct stringop_algs *default_algs;
+  stringop_size_range input_ranges[MAX_STRINGOP_ALGS];
+  char *curr_range_str, *next_range_str;
+  int i = 0, n = 0;
+
+  if (is_memset)
+    default_algs = &ix86_cost->memset[TARGET_64BIT != 0];
+  else
+    default_algs = &ix86_cost->memcpy[TARGET_64BIT != 0];
+
+  curr_range_str = strategy_str;
+
+  do
+    {
+      int maxs;
+      stringop_alg alg;
+      char alg_name[128];
+      char align[16];
+      next_range_str = strchr (curr_range_str, ',');
+      if (next_range_str)
+        *next_range_str++ = '\0';
+
+      if (3 != sscanf (curr_range_str, "%20[^:]:%d:%10s",
+                       alg_name, &maxs, align))
+        {
+          error ("wrong arg %s to option %s", curr_range_str,
+                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+          return;
+        }
+
+      if (n > 0 && (maxs < (input_ranges[n - 1].max + 1) && maxs != -1))
+        {
+          error ("size ranges of option %s should be increasing",
+                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+          return;
+        }
+
+      for (i = 0; i < last_alg; i++)
+        {
+          if (!strcmp (alg_name, stringop_alg_names[i]))
+            {
+              alg = (stringop_alg) i;
+              break;
+            }
+        }
+
+      if (i == last_alg)
+        {
+          error ("wrong stringop strategy name %s specified for option %s",
+                 alg_name,
+                 is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+          return;
+        }
+
+      input_ranges[n].max = maxs;
+      input_ranges[n].alg = alg;
+      if (!strcmp (align, "align"))
+        input_ranges[n].noalign = false;
+      else if (!strcmp (align, "noalign"))
+        input_ranges[n].noalign = true;
+      else
+        {
+          error ("unknown alignment %s specified for option %s",
+                 align, is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+          return;
+        }
+      n++;
+      curr_range_str = next_range_str;
+    }
+  while (curr_range_str);
+
+  if (input_ranges[n - 1].max != -1)
+    {
+      error ("the max value for the last size range should be -1"
+             " for option %s",
+             is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+      return;
+    }
+
+  if (n > MAX_STRINGOP_ALGS)
+    {
+      error ("too many size ranges specified in option %s",
+             is_memset ? "-mmemset_strategy=" : "-mmemcpy_strategy=");
+      return;
+    }
+
+  /* Now override the default algs array.  */
+  for (i = 0; i < n; i++)
+    {
+      *const_cast<int *>(&default_algs->size[i].max) = input_ranges[i].max;
+      *const_cast<stringop_alg *>(&default_algs->size[i].alg)
+          = input_ranges[i].alg;
+      *const_cast<int *>(&default_algs->size[i].noalign)
+          = input_ranges[i].noalign;
+    }
+}
+
 
+/* parse -mtune-ctrl= option. When DUMP is true,
+   print the features that are explicitly set.  */
+
+static void
+parse_mtune_ctrl_str (bool dump)
+{
+  if (!ix86_tune_ctrl_string)
+    return;
+
+  char *next_feature_string = NULL;
+  char *curr_feature_string = xstrdup (ix86_tune_ctrl_string);
+  char *orig = curr_feature_string;
+  int i;
+  do
+    {
+      bool clear = false;
+
+      next_feature_string = strchr (curr_feature_string, ',');
+      if (next_feature_string)
+        *next_feature_string++ = '\0';
+      if (*curr_feature_string == '^')
+        {
+          curr_feature_string++;
+          clear = true;
+        }
+      for (i = 0; i < X86_TUNE_LAST; i++)
+        {
+          if (!strcmp (curr_feature_string, ix86_tune_feature_names[i]))
+            {
+              ix86_tune_features[i] = !clear;
+              if (dump)
+                fprintf (stderr, "Explicitly %s feature %s\n",
+                         clear ? "clear" : "set", ix86_tune_feature_names[i]);
+              break;
+            }
+        }
+      if (i == X86_TUNE_LAST)
+        error ("Unknown parameter to option -mtune-ctrl: %s",
+               clear ? curr_feature_string - 1 : curr_feature_string);
+      curr_feature_string = next_feature_string;
+    }
+  while (curr_feature_string);
+  free (orig);
+}
+
+/* Helper function to set ix86_tune_features. IX86_TUNE is the
+   processor type.  */
+
+static void
+set_ix86_tune_features (enum processor_type ix86_tune, bool dump)
+{
+  unsigned int ix86_tune_mask = 1u << ix86_tune;
+  int i;
+
+  for (i = 0; i < X86_TUNE_LAST; ++i)
+    {
+      if (ix86_tune_no_default)
+        ix86_tune_features[i] = 0;
+      else
+        ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+    }
+
+  if (dump)
+    {
+      fprintf (stderr, "List of x86 specific tuning parameter names:\n");
+      for (i = 0; i < X86_TUNE_LAST; i++)
+        fprintf (stderr, "%s : %s\n", ix86_tune_feature_names[i],
+                 ix86_tune_features[i] ? "on" : "off");
+    }
+
+  parse_mtune_ctrl_str (dump);
+}
+
+
 /* Override various settings based on options.  If MAIN_ARGS_P, the
    options are from the command line, otherwise they are from
    attributes.  */
@@ -2860,6 +2967,10 @@ ix86_option_override_internal (bool main_args_p)
 #define PTA_FXSR		(HOST_WIDE_INT_1 << 37)
 #define PTA_XSAVE		(HOST_WIDE_INT_1 << 38)
 #define PTA_XSAVEOPT		(HOST_WIDE_INT_1 << 39)
+#define PTA_AVX512F		(HOST_WIDE_INT_1 << 40)
+#define PTA_AVX512ER		(HOST_WIDE_INT_1 << 41)
+#define PTA_AVX512PF		(HOST_WIDE_INT_1 << 42)
+#define PTA_AVX512CD		(HOST_WIDE_INT_1 << 43)
 
 /* if this reaches 64, need to widen struct pta flags below */
 
@@ -2878,9 +2989,10 @@ ix86_option_override_internal (bool main_args_p)
       {"pentium", PROCESSOR_PENTIUM, CPU_PENTIUM, 0},
       {"pentium-mmx", PROCESSOR_PENTIUM, CPU_PENTIUM, PTA_MMX},
       {"winchip-c6", PROCESSOR_I486, CPU_NONE, PTA_MMX},
-      {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
-      {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW},
-      {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_SSE},
+      {"winchip2", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"c3", PROCESSOR_I486, CPU_NONE, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"c3-2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO,
+	PTA_MMX | PTA_SSE | PTA_FXSR},
       {"i686", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentiumpro", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, 0},
       {"pentium2", PROCESSOR_PENTIUMPRO, CPU_PENTIUMPRO, PTA_MMX | PTA_FXSR},
@@ -2903,8 +3015,8 @@ ix86_option_override_internal (bool main_args_p)
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_FXSR},
       {"corei7", PROCESSOR_COREI7, CPU_COREI7,
-	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_FXSR},
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
+	| PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT | PTA_FXSR},
       {"corei7-avx", PROCESSOR_COREI7, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
@@ -2925,50 +3037,54 @@ ix86_option_override_internal (bool main_args_p)
       {"atom", PROCESSOR_ATOM, CPU_ATOM,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_CX16 | PTA_MOVBE | PTA_FXSR},
+      {"slm", PROCESSOR_SLM, CPU_SLM,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_MOVBE
+	| PTA_FXSR},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"k6", PROCESSOR_K6, CPU_K6, PTA_MMX},
-      {"k6-2", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
-      {"k6-3", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW},
+      {"k6-2", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
+      {"k6-3", PROCESSOR_K6, CPU_K6, PTA_MMX | PTA_3DNOW | PTA_PRFCHW},
       {"athlon", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"athlon-tbird", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"athlon-4", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"athlon-xp", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"athlon-mp", PROCESSOR_ATHLON, CPU_ATHLON,
-	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE},
+	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_PRFCHW | PTA_FXSR},
       {"x86-64", PROCESSOR_K8, CPU_K8,
-	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF},
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_NO_SAHF | PTA_FXSR},
       {"k8", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"k8-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"opteron", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"opteron-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon64", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon64-sse3", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_SSE3 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"athlon-fx", PROCESSOR_K8, CPU_K8,
 	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_NO_SAHF},
+	| PTA_SSE2 | PTA_NO_SAHF | PTA_PRFCHW | PTA_FXSR},
       {"amdfam10", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
-	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"barcelona", PROCESSOR_AMDFAM10, CPU_AMDFAM10,
-	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE
-	| PTA_SSE2 | PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM},
+	PTA_64BIT | PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_SSE | PTA_SSE2
+	| PTA_SSE3 | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_PRFCHW | PTA_FXSR},
       {"bdver1", PROCESSOR_BDVER1, CPU_BDVER1,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
@@ -2986,8 +3102,8 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX
 	| PTA_XOP | PTA_LWP | PTA_BMI | PTA_TBM | PTA_F16C
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
-	| PTA_XSAVEOPT},
-      {"btver1", PROCESSOR_BTVER1, CPU_GENERIC64,
+	| PTA_XSAVEOPT | PTA_FSGSBASE},
+      {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE},
@@ -2998,9 +3114,7 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_BMI | PTA_F16C | PTA_MOVBE | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE | PTA_XSAVEOPT},
 
-      {"generic32", PROCESSOR_GENERIC32, CPU_PENTIUMPRO,
-	PTA_HLE /* flags are only used for -march switch.  */ },
-      {"generic64", PROCESSOR_GENERIC64, CPU_GENERIC64,
+      {"generic", PROCESSOR_GENERIC, CPU_GENERIC,
 	PTA_64BIT
 	| PTA_HLE /* flags are only used for -march switch.  */ },
     };
@@ -3100,16 +3214,12 @@ ix86_option_override_internal (bool main_args_p)
 	     -mtune=native, as it was changed by the driver.  */
 	  || !strcmp (ix86_tune_string, "native"))
 	{
-	  if (TARGET_64BIT)
-	    ix86_tune_string = "generic64";
-	  else
-	    ix86_tune_string = "generic32";
+	  ix86_tune_string = "generic";
 	}
       /* If this call is for setting the option attribute, allow the
-	 generic32/generic64 that was previously set.  */
+	 generic that was previously set.  */
       else if (!main_args_p
-	       && (!strcmp (ix86_tune_string, "generic32")
-		   || !strcmp (ix86_tune_string, "generic64")))
+	       && !strcmp (ix86_tune_string, "generic"))
 	;
       else if (!strncmp (ix86_tune_string, "generic", 7))
         error ("bad value (%s) for %stune=%s %s",
@@ -3135,10 +3245,7 @@ ix86_option_override_internal (bool main_args_p)
 	  || !strcmp (ix86_tune_string, "x86-64")
 	  || !strcmp (ix86_tune_string, "i686"))
 	{
-	  if (TARGET_64BIT)
-	    ix86_tune_string = "generic64";
-	  else
-	    ix86_tune_string = "generic32";
+	  ix86_tune_string = "generic";
 	}
     }
 
@@ -3167,6 +3274,12 @@ ix86_option_override_internal (bool main_args_p)
 
   if (!global_options_set.x_ix86_abi)
     ix86_abi = DEFAULT_ABI;
+
+  /* For targets using ms ABI enable ms-extensions, if not
+     explicit turned off.  For non-ms ABI we turn off this
+     option.  */
+  if (!global_options_set.x_flag_ms_extensions)
+    flag_ms_extensions = (MS_ABI == DEFAULT_ABI);
 
   if (global_options_set.x_ix86_cmodel)
     {
@@ -3234,9 +3347,7 @@ ix86_option_override_internal (bool main_args_p)
 	 use of rip-relative addressing.  This eliminates fixups that
 	 would otherwise be needed if this object is to be placed in a
 	 DLL, and is essentially just as efficient as direct addressing.  */
-      if (TARGET_64BIT && DEFAULT_ABI == MS_ABI)
-	ix86_cmodel = CM_SMALL_PIC, flag_pic = 1;
-      else if (TARGET_64BIT && TARGET_RDOS)
+      if (TARGET_64BIT && (TARGET_RDOS || TARGET_PECOFF))
 	ix86_cmodel = CM_MEDIUM_PIC, flag_pic = 1;
       else if (TARGET_64BIT)
 	ix86_cmodel = flag_pic ? CM_SMALL_PIC : CM_SMALL;
@@ -3378,6 +3489,18 @@ ix86_option_override_internal (bool main_args_p)
 	if (processor_alias_table[i].flags & PTA_XSAVEOPT
 	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_XSAVEOPT))
 	  ix86_isa_flags |= OPTION_MASK_ISA_XSAVEOPT;
+	if (processor_alias_table[i].flags & PTA_AVX512F
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512F))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX512F;
+	if (processor_alias_table[i].flags & PTA_AVX512ER
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512ER))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX512ER;
+	if (processor_alias_table[i].flags & PTA_AVX512PF
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512PF))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX512PF;
+	if (processor_alias_table[i].flags & PTA_AVX512CD
+	    && !(ix86_isa_flags_explicit & OPTION_MASK_ISA_AVX512CD))
+	  ix86_isa_flags |= OPTION_MASK_ISA_AVX512CD;
 	if (processor_alias_table[i].flags & (PTA_PREFETCH_SSE | PTA_SSE))
 	  x86_prefetch_sse = true;
 
@@ -3419,20 +3542,6 @@ ix86_option_override_internal (bool main_args_p)
 			 "instruction set");
 	      }
 	  }
-	else
-	  {
-	    /* Adjust tuning when compiling for 32-bit ABI.  */
-	    switch (ix86_tune)
-	      {
-	      case PROCESSOR_GENERIC64:
-		ix86_tune = PROCESSOR_GENERIC32;
-		ix86_schedule = CPU_PENTIUMPRO;
-		break;
-
-	      default:
-		break;
-	      }
-	  }
 	/* Intel CPUs have always interpreted SSE prefetch instructions as
 	   NOPs; so, we can enable SSE prefetch instructions even when
 	   -mtune (rather than -march) points us to a processor that has them.
@@ -3448,9 +3557,7 @@ ix86_option_override_internal (bool main_args_p)
     error ("bad value (%s) for %stune=%s %s",
 	   ix86_tune_string, prefix, suffix, sw);
 
-  ix86_tune_mask = 1u << ix86_tune;
-  for (i = 0; i < X86_TUNE_LAST; ++i)
-    ix86_tune_features[i] = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
+  set_ix86_tune_features (ix86_tune, ix86_dump_tunes);
 
 #ifndef USE_IX86_FRAME_POINTER
 #define USE_IX86_FRAME_POINTER 0
@@ -3580,14 +3687,18 @@ ix86_option_override_internal (bool main_args_p)
     ix86_isa_flags |= OPTION_MASK_ISA_MMX & ~ix86_isa_flags_explicit;
 
   /* Enable SSE prefetch.  */
-  if (TARGET_SSE || TARGET_PRFCHW)
+  if (TARGET_SSE || (TARGET_PRFCHW && !TARGET_3DNOW))
     x86_prefetch_sse = true;
 
-  /* Turn on popcnt instruction for -msse4.2 or -mabm.  */
+  /* Enable prefetch{,w} instructions for -m3dnow.  */
+  if (TARGET_3DNOW)
+    ix86_isa_flags |= OPTION_MASK_ISA_PRFCHW & ~ix86_isa_flags_explicit;
+
+  /* Enable popcnt instruction for -msse4.2 or -mabm.  */
   if (TARGET_SSE4_2 || TARGET_ABM)
     ix86_isa_flags |= OPTION_MASK_ISA_POPCNT & ~ix86_isa_flags_explicit;
 
-  /* Turn on lzcnt instruction for -mabm.  */
+  /* Enable lzcnt instruction for -mabm.  */
   if (TARGET_ABM)
     ix86_isa_flags |= OPTION_MASK_ISA_LZCNT & ~ix86_isa_flags_explicit;
 
@@ -3682,6 +3793,7 @@ ix86_option_override_internal (bool main_args_p)
 	gcc_unreachable ();
       }
 
+  ix86_tune_mask = 1u << ix86_tune;
   if ((!USE_IX86_FRAME_POINTER
        || (x86_accumulate_outgoing_args & ix86_tune_mask))
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
@@ -3764,24 +3876,19 @@ ix86_option_override_internal (bool main_args_p)
       ix86_gen_leave = gen_leave_rex64;
       if (Pmode == DImode)
 	{
-	  ix86_gen_monitor = gen_sse3_monitor64_di;
 	  ix86_gen_tls_global_dynamic_64 = gen_tls_global_dynamic_64_di;
 	  ix86_gen_tls_local_dynamic_base_64
 	    = gen_tls_local_dynamic_base_64_di;
 	}
       else
 	{
-	  ix86_gen_monitor = gen_sse3_monitor64_si;
 	  ix86_gen_tls_global_dynamic_64 = gen_tls_global_dynamic_64_si;
 	  ix86_gen_tls_local_dynamic_base_64
 	    = gen_tls_local_dynamic_base_64_si;
 	}
     }
   else
-    {
-      ix86_gen_leave = gen_leave;
-      ix86_gen_monitor = gen_sse3_monitor;
-    }
+    ix86_gen_leave = gen_leave;
 
   if (Pmode == DImode)
     {
@@ -3793,6 +3900,7 @@ ix86_option_override_internal (bool main_args_p)
       ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_probe_di;
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probedi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangedi;
+      ix86_gen_monitor = gen_sse3_monitor_di;
     }
   else
     {
@@ -3804,6 +3912,7 @@ ix86_option_override_internal (bool main_args_p)
       ix86_gen_allocate_stack_worker = gen_allocate_stack_worker_probe_si;
       ix86_gen_adjust_stack_and_probe = gen_adjust_stack_and_probesi;
       ix86_gen_probe_stack_range = gen_probe_stack_rangesi;
+      ix86_gen_monitor = gen_sse3_monitor_si;
     }
 
 #ifdef USE_IX86_CLD
@@ -3834,33 +3943,25 @@ ix86_option_override_internal (bool main_args_p)
 #endif
    }
 
-  if (TARGET_AVX)
+  /* When not optimize for size, enable vzeroupper optimization for
+     TARGET_AVX with -fexpensive-optimizations and split 32-byte
+     AVX unaligned load/store.  */
+  if (!optimize_size)
     {
-      /* When not optimize for size, enable vzeroupper optimization for
-	 TARGET_AVX with -fexpensive-optimizations and split 32-byte
-	 AVX unaligned load/store.  */
-      if (!optimize_size)
-	{
-	  if (flag_expensive_optimizations
-	      && !(target_flags_explicit & MASK_VZEROUPPER))
-	    target_flags |= MASK_VZEROUPPER;
-	  if ((x86_avx256_split_unaligned_load & ix86_tune_mask)
-	      && !(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
-	    target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
-	  if ((x86_avx256_split_unaligned_store & ix86_tune_mask)
-	      && !(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_STORE))
-	    target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
-	  /* Enable 128-bit AVX instruction generation
-	     for the auto-vectorizer.  */
-	  if (TARGET_AVX128_OPTIMAL
-	      && !(target_flags_explicit & MASK_PREFER_AVX128))
-	    target_flags |= MASK_PREFER_AVX128;
-	}
-    }
-  else
-    {
-      /* Disable vzeroupper pass if TARGET_AVX is disabled.  */
-      target_flags &= ~MASK_VZEROUPPER;
+      if (flag_expensive_optimizations
+	  && !(target_flags_explicit & MASK_VZEROUPPER))
+	target_flags |= MASK_VZEROUPPER;
+      if ((x86_avx256_split_unaligned_load & ix86_tune_mask)
+	  && !(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_LOAD))
+	target_flags |= MASK_AVX256_SPLIT_UNALIGNED_LOAD;
+      if ((x86_avx256_split_unaligned_store & ix86_tune_mask)
+	  && !(target_flags_explicit & MASK_AVX256_SPLIT_UNALIGNED_STORE))
+	target_flags |= MASK_AVX256_SPLIT_UNALIGNED_STORE;
+      /* Enable 128-bit AVX instruction generation
+         for the auto-vectorizer.  */
+      if (TARGET_AVX128_OPTIMAL
+	  && !(target_flags_explicit & MASK_PREFER_AVX128))
+	target_flags |= MASK_PREFER_AVX128;
     }
 
   if (ix86_recip_name)
@@ -3923,6 +4024,25 @@ ix86_option_override_internal (bool main_args_p)
   if (main_args_p)
     target_option_default_node = target_option_current_node
       = build_target_option_node ();
+
+  /* Handle stack protector */
+  if (!global_options_set.x_ix86_stack_protector_guard)
+    ix86_stack_protector_guard = TARGET_HAS_BIONIC ? SSP_GLOBAL : SSP_TLS;
+
+  /* Handle -mmemcpy-strategy= and -mmemset-strategy=  */
+  if (ix86_tune_memcpy_strategy)
+    {
+      char *str = xstrdup (ix86_tune_memcpy_strategy);
+      ix86_parse_stringop_strategy_string (str, false);
+      free (str);
+    }
+
+  if (ix86_tune_memset_strategy)
+    {
+      char *str = xstrdup (ix86_tune_memset_strategy);
+      ix86_parse_stringop_strategy_string (str, true);
+      free (str);
+    }
 }
 
 /* Implement the TARGET_OPTION_OVERRIDE hook.  */
@@ -3930,8 +4050,9 @@ ix86_option_override_internal (bool main_args_p)
 static void
 ix86_option_override (void)
 {
+  opt_pass *pass_insert_vzeroupper = make_pass_insert_vzeroupper (g);
   static struct register_pass_info insert_vzeroupper_info
-    = { &pass_insert_vzeroupper.pass, "reload",
+    = { pass_insert_vzeroupper, "reload",
 	1, PASS_POS_INSERT_AFTER
       };
 
@@ -3961,6 +4082,8 @@ ix86_conditional_register_usage (void)
       for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
       for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+      for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
     }
 
@@ -4002,6 +4125,16 @@ ix86_conditional_register_usage (void)
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
       if (TEST_HARD_REG_BIT (reg_class_contents[(int)FLOAT_REGS], i))
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+
+  /* If AVX512F is disabled, squash the registers.  */
+  if (! TARGET_AVX512F)
+    {
+      for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+
+      for (i = FIRST_MASK_REG; i <= LAST_MASK_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+    }
 }
 
 
@@ -4035,7 +4168,7 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
 {
   enum processor_type old_tune = ix86_tune;
   enum processor_type old_arch = ix86_arch;
-  unsigned int ix86_arch_mask, ix86_tune_mask;
+  unsigned int ix86_arch_mask;
   int i;
 
   ix86_arch = (enum processor_type) ptr->arch;
@@ -4059,12 +4192,7 @@ ix86_function_specific_restore (struct cl_target_option *ptr)
 
   /* Recreate the tune optimization tests */
   if (old_tune != ix86_tune)
-    {
-      ix86_tune_mask = 1u << ix86_tune;
-      for (i = 0; i < X86_TUNE_LAST; ++i)
-	ix86_tune_features[i]
-	  = !!(initial_ix86_tune_features[i] & ix86_tune_mask);
-    }
+    set_ix86_tune_features (ix86_tune, false);
 }
 
 /* Print the current options */
@@ -4146,6 +4274,10 @@ ix86_valid_target_attribute_inner_p (tree args, char *p_strings[],
     IX86_ATTR_ISA ("aes",	OPT_maes),
     IX86_ATTR_ISA ("avx",	OPT_mavx),
     IX86_ATTR_ISA ("avx2",	OPT_mavx2),
+    IX86_ATTR_ISA ("avx512f",	OPT_mavx512f),
+    IX86_ATTR_ISA ("avx512pf",	OPT_mavx512pf),
+    IX86_ATTR_ISA ("avx512er",	OPT_mavx512er),
+    IX86_ATTR_ISA ("avx512cd",	OPT_mavx512cd),
     IX86_ATTR_ISA ("mmx",	OPT_mmmx),
     IX86_ATTR_ISA ("pclmul",	OPT_mpclmul),
     IX86_ATTR_ISA ("popcnt",	OPT_mpopcnt),
@@ -4543,6 +4675,13 @@ ix86_can_inline_p (tree caller, tree callee)
 /* Remember the last target of ix86_set_current_function.  */
 static GTY(()) tree ix86_previous_fndecl;
 
+/* Invalidate ix86_previous_fndecl cache.  */
+void
+ix86_reset_previous_fndecl (void)
+{
+  ix86_previous_fndecl = NULL_TREE;
+}
+
 /* Establish appropriate back-end context for processing the function
    FNDECL.  The argument might be NULL to indicate processing at top
    level, outside of any function scope.  */
@@ -4623,10 +4762,7 @@ ix86_in_large_data_p (tree exp)
    RELOC indicates whether forming the initial value of DECL requires
    link-time relocations.  */
 
-static section * x86_64_elf_select_section (tree, int, unsigned HOST_WIDE_INT)
-	ATTRIBUTE_UNUSED;
-
-static section *
+ATTRIBUTE_UNUSED static section *
 x86_64_elf_select_section (tree decl, int reloc,
 			   unsigned HOST_WIDE_INT align)
 {
@@ -4685,6 +4821,28 @@ x86_64_elf_select_section (tree decl, int reloc,
 	}
     }
   return default_elf_select_section (decl, reloc, align);
+}
+
+/* Select a set of attributes for section NAME based on the properties
+   of DECL and whether or not RELOC indicates that DECL's initializer
+   might contain runtime relocations.  */
+
+static unsigned int ATTRIBUTE_UNUSED
+x86_64_elf_section_type_flags (tree decl, const char *name, int reloc)
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (decl == NULL_TREE
+      && (strcmp (name, ".ldata.rel.ro") == 0
+	  || strcmp (name, ".ldata.rel.ro.local") == 0))
+    flags |= SECTION_RELRO;
+
+  if (strcmp (name, ".lbss") == 0
+      || strncmp (name, ".lbss.", 5) == 0
+      || strncmp (name, ".gnu.linkonce.lb.", 16) == 0)
+    flags |= SECTION_BSS;
+
+  return flags;
 }
 
 /* Build up a unique section name, expressed as a
@@ -5056,8 +5214,7 @@ ix86_handle_cconv_attribute (tree *node, tree name,
 static tree
 ix86_handle_tm_regparm_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
     				  tree args ATTRIBUTE_UNUSED,
-				  int flags ATTRIBUTE_UNUSED,
-				  bool *no_add_attrs)
+				  int flags, bool *no_add_attrs)
 {
   tree alt;
 
@@ -5464,17 +5621,9 @@ ix86_function_arg_regno_p (int regno)
 		    && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX)));
     }
 
-  if (TARGET_MACHO)
-    {
-      if (SSE_REGNO_P (regno) && TARGET_SSE)
-        return true;
-    }
-  else
-    {
-      if (TARGET_SSE && SSE_REGNO_P (regno)
-          && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX))
-        return true;
-    }
+  if (TARGET_SSE && SSE_REGNO_P (regno)
+      && (regno < FIRST_SSE_REG + SSE_REGPARM_MAX))
+    return true;
 
   /* TODO: The function should depend on current function ABI but
      builtins.c would need updating then. Therefore we use the
@@ -5544,6 +5693,14 @@ ix86_function_type_abi (const_tree fntype)
       return abi;
     }
   return ix86_abi;
+}
+
+/* We add this as a workaround in order to use libc_has_function
+   hook in i386.md.  */
+bool
+ix86_libc_has_function (enum function_class fn_class)
+{
+  return targetm.libc_has_function (fn_class);
 }
 
 static bool
@@ -6392,7 +6549,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
 
   /* Likewise, error if the ABI requires us to return values in the
      x87 registers and the user specified -mno-80387.  */
-  if (!TARGET_80387 && in_return)
+  if (!TARGET_FLOAT_RETURNS_IN_80387 && in_return)
     for (i = 0; i < n; i++)
       if (regclass[i] == X86_64_X87_CLASS
 	  || regclass[i] == X86_64_X87UP_CLASS
@@ -6973,8 +7130,7 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
    appropriate for passing a pointer to that type.  */
 
 static bool
-ix86_pass_by_reference (cumulative_args_t cum_v ATTRIBUTE_UNUSED,
-			enum machine_mode mode ATTRIBUTE_UNUSED,
+ix86_pass_by_reference (cumulative_args_t cum_v, enum machine_mode mode,
 			const_tree type, bool named ATTRIBUTE_UNUSED)
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
@@ -8457,6 +8613,10 @@ standard_sse_constant_opcode (rtx insn, rtx x)
 	}
 
     case 2:
+      if (get_attr_mode (insn) == MODE_XI
+	  || get_attr_mode (insn) == MODE_V8DF
+	  || get_attr_mode (insn) == MODE_V16SF)
+	return "vpternlogd\t{$0xFF, %g0, %g0, %g0|%g0, %g0, %g0, 0xFF}";
       if (TARGET_AVX)
 	return "vpcmpeqd\t%0, %0, %0";
       else
@@ -8691,7 +8851,7 @@ ix86_code_end (void)
 /* Emit code for the SET_GOT patterns.  */
 
 const char *
-output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
+output_set_got (rtx dest, rtx label)
 {
   rtx xops[3];
 
@@ -8717,17 +8877,12 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
 
   if (!flag_pic)
     {
+      if (TARGET_MACHO)
+	/* We don't need a pic base, we're not producing pic.  */
+	gcc_unreachable ();
+
       xops[2] = gen_rtx_LABEL_REF (Pmode, label ? label : gen_label_rtx ());
-
       output_asm_insn ("mov%z0\t{%2, %0|%0, %2}", xops);
-
-#if TARGET_MACHO
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
-      if (!label)
-	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-#endif
-
       targetm.asm_out.internal_label (asm_out_file, "L",
 				      CODE_LABEL_NUMBER (XEXP (xops[2], 0)));
     }
@@ -8740,12 +8895,18 @@ output_set_got (rtx dest, rtx label ATTRIBUTE_UNUSED)
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
       output_asm_insn ("call\t%X2", xops);
-      /* Output the Mach-O "canonical" label name ("Lxx$pb") here too.  This
-         is what will be referenced by the Mach-O PIC subsystem.  */
+
 #if TARGET_MACHO
-      if (!label)
+      /* Output the Mach-O "canonical" pic base label name ("Lxx$pb") here.
+         This is what will be referenced by the Mach-O PIC subsystem.  */
+      if (machopic_should_output_picbase_label () || !label)
 	ASM_OUTPUT_LABEL (asm_out_file, MACHOPIC_FUNCTION_BASE_NAME);
-      else
+
+      /* When we are restoring the pic base at the site of a nonlocal label,
+         and we decided to emit the pic base above, we will still output a
+         local label used for calculating the correction offset (even though
+         the offset will be 0 in that case).  */
+      if (label)
         targetm.asm_out.internal_label (asm_out_file, "L",
 					   CODE_LABEL_NUMBER (label));
 #endif
@@ -8827,7 +8988,8 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile
 	  || crtl->calls_eh_return
-	  || crtl->uses_const_pool))
+	  || crtl->uses_const_pool
+	  || cfun->has_nonlocal_label))
     return ix86_select_alt_pic_regnum () == INVALID_REGNUM;
 
   if (crtl->calls_eh_return && maybe_eh_return)
@@ -8987,7 +9149,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
      Recompute the value as needed.  Do not recompute when amount of registers
      didn't change as reload does multiple calls to the function and does not
      expect the decision to change within single iteration.  */
-  else if (!optimize_function_for_size_p (cfun)
+  else if (!optimize_bb_for_size_p (ENTRY_BLOCK_PTR)
            && cfun->machine->use_fast_prologue_epilogue_nregs != frame->nregs)
     {
       int count = frame->nregs;
@@ -10576,7 +10738,9 @@ ix86_expand_prologue (void)
     ix86_emit_save_sse_regs_using_mov (frame.sse_reg_save_offset);
 
   pic_reg_used = false;
+  /* We don't use pic-register for pe-coff target.  */
   if (pic_offset_table_rtx
+      && !TARGET_PECOFF
       && (df_regs_ever_live_p (REAL_PIC_OFFSET_TABLE_REGNUM)
 	  || crtl->profile))
     {
@@ -11053,7 +11217,7 @@ ix86_expand_epilogue (int style)
       /* Leave results in shorter dependency chains on CPUs that are
 	 able to grok it fast.  */
       else if (TARGET_USE_LEAVE
-	       || optimize_function_for_size_p (cfun)
+	       || optimize_bb_for_size_p (EXIT_BLOCK_PTR)
 	       || !cfun->machine->use_fast_prologue_epilogue)
 	ix86_emit_leave ();
       else
@@ -11588,8 +11752,8 @@ ix86_expand_split_stack_prologue (void)
   JUMP_LABEL (jump_insn) = label;
 
   /* Mark the jump as very likely to be taken.  */
-  add_reg_note (jump_insn, REG_BR_PROB,
-		GEN_INT (REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100));
+  add_int_reg_note (jump_insn, REG_BR_PROB,
+		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100);
 
   if (split_stack_fn == NULL_RTX)
     split_stack_fn = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
@@ -11621,7 +11785,8 @@ ix86_expand_split_stack_prologue (void)
 	  use_reg (&call_fusage, rax);
 	}
 
-      if (ix86_cmodel == CM_LARGE || ix86_cmodel == CM_LARGE_PIC)
+      if ((ix86_cmodel == CM_LARGE || ix86_cmodel == CM_LARGE_PIC)
+          && !TARGET_PECOFF)
 	{
 	  HOST_WIDE_INT argval;
 
@@ -11914,7 +12079,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	      if (XINT (op, 1) == UNSPEC_TP
 	          && TARGET_TLS_DIRECT_SEG_REFS
 	          && seg == SEG_DEFAULT)
-		seg = TARGET_64BIT ? SEG_FS : SEG_GS;
+		seg = DEFAULT_TLS_SEG_REG;
 	      else
 		return 0;
 	      break;
@@ -12239,6 +12404,19 @@ ix86_cannot_force_const_mem (enum machine_mode mode, rtx x)
   return !ix86_legitimate_constant_p (mode, x);
 }
 
+/*  Nonzero if the symbol is marked as dllimport, or as stub-variable,
+    otherwise zero.  */
+
+static bool
+is_imported_p (rtx x)
+{
+  if (!TARGET_DLLIMPORT_DECL_ATTRIBUTES
+      || GET_CODE (x) != SYMBOL_REF)
+    return false;
+
+  return SYMBOL_REF_DLLIMPORT_P (x) || SYMBOL_REF_STUBVAR_P (x);
+}
+
 
 /* Nonzero if the constant value X is a legitimate general operand
    when generating PIC code.  It is given that flag_pic is on and
@@ -12327,11 +12505,39 @@ legitimate_pic_address_disp_p (rtx disp)
 	  /* FALLTHRU */
 
 	case SYMBOL_REF:
-	  /* TLS references should always be enclosed in UNSPEC.  */
-	  if (SYMBOL_REF_TLS_MODEL (op0))
+	  /* TLS references should always be enclosed in UNSPEC.
+	     The dllimported symbol needs always to be resolved.  */
+	  if (SYMBOL_REF_TLS_MODEL (op0)
+	      || (TARGET_DLLIMPORT_DECL_ATTRIBUTES && SYMBOL_REF_DLLIMPORT_P (op0)))
 	    return false;
-	  if (!SYMBOL_REF_FAR_ADDR_P (op0) && SYMBOL_REF_LOCAL_P (op0)
-	      && ix86_cmodel != CM_LARGE_PIC)
+
+	  if (TARGET_PECOFF)
+	    {
+	      if (is_imported_p (op0))
+		return true;
+
+	      if (SYMBOL_REF_FAR_ADDR_P (op0)
+		  || !SYMBOL_REF_LOCAL_P (op0))
+		break;
+
+	      /* Function-symbols need to be resolved only for
+	         large-model.
+	         For the small-model we don't need to resolve anything
+	         here.  */
+	      if ((ix86_cmodel != CM_LARGE_PIC
+	           && SYMBOL_REF_FUNCTION_P (op0))
+		  || ix86_cmodel == CM_SMALL_PIC)
+		return true;
+	      /* Non-external symbols don't need to be resolved for
+	         large, and medium-model.  */
+	      if ((ix86_cmodel == CM_LARGE_PIC
+		   || ix86_cmodel == CM_MEDIUM_PIC)
+		  && !SYMBOL_REF_EXTERNAL_P (op0))
+		return true;
+	    }
+	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
+		   && SYMBOL_REF_LOCAL_P (op0)
+		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
 
@@ -12392,7 +12598,7 @@ legitimate_pic_address_disp_p (rtx disp)
       if ((GET_CODE (XVECEXP (disp, 0, 0)) == SYMBOL_REF
 	   || GET_CODE (XVECEXP (disp, 0, 0)) == LABEL_REF)
 	  && !TARGET_64BIT)
-        return gotoff_operand (XVECEXP (disp, 0, 0), Pmode);
+        return !TARGET_PECOFF && gotoff_operand (XVECEXP (disp, 0, 0), Pmode);
       return false;
     case UNSPEC_GOTTPOFF:
     case UNSPEC_GOTNTPOFF:
@@ -12727,11 +12933,17 @@ legitimize_pic_address (rtx orig, rtx reg)
     }
 #endif
 
+  if (TARGET_64BIT && TARGET_DLLIMPORT_DECL_ATTRIBUTES)
+    {
+      rtx tmp = legitimize_pe_coff_symbol (addr, true);
+      if (tmp)
+        return tmp;
+    }
+
   if (TARGET_64BIT && legitimate_pic_address_disp_p (addr))
     new_rtx = addr;
-  else if (TARGET_64BIT
-	   && ix86_cmodel != CM_SMALL_PIC
-	   && gotoff_operand (addr, Pmode))
+  else if (TARGET_64BIT && !TARGET_PECOFF
+	   && ix86_cmodel != CM_SMALL_PIC && gotoff_operand (addr, Pmode))
     {
       rtx tmpreg;
       /* This symbol may be referenced via a displacement from the PIC
@@ -12762,9 +12974,10 @@ legitimize_pic_address (rtx orig, rtx reg)
 					 tmpreg, 1, OPTAB_DIRECT);
 	  new_rtx = reg;
 	}
-      else new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmpreg);
+      else
+        new_rtx = gen_rtx_PLUS (Pmode, pic_offset_table_rtx, tmpreg);
     }
-  else if (!TARGET_64BIT && gotoff_operand (addr, Pmode))
+  else if (!TARGET_64BIT && !TARGET_PECOFF && gotoff_operand (addr, Pmode))
     {
       /* This symbol may be referenced via a displacement from the PIC
 	 base address (@GOTOFF).  */
@@ -12795,31 +13008,22 @@ legitimize_pic_address (rtx orig, rtx reg)
 	      see gotoff_operand.  */
 	   || (TARGET_VXWORKS_RTP && GET_CODE (addr) == LABEL_REF))
     {
-      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES)
-        {
-          if (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_DLLIMPORT_P (addr))
-            return legitimize_dllimport_symbol (addr, true);
-          if (GET_CODE (addr) == CONST && GET_CODE (XEXP (addr, 0)) == PLUS
-              && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
-              && SYMBOL_REF_DLLIMPORT_P (XEXP (XEXP (addr, 0), 0)))
-            {
-              rtx t = legitimize_dllimport_symbol (XEXP (XEXP (addr, 0), 0), true);
-              return gen_rtx_PLUS (Pmode, t, XEXP (XEXP (addr, 0), 1));
-            }
-        }
+      rtx tmp = legitimize_pe_coff_symbol (addr, true);
+      if (tmp)
+        return tmp;
 
       /* For x64 PE-COFF there is no GOT table.  So we use address
          directly.  */
-      if (TARGET_64BIT && DEFAULT_ABI == MS_ABI)
-      {
+      if (TARGET_64BIT && TARGET_PECOFF)
+	{
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_PCREL);
 	  new_rtx = gen_rtx_CONST (Pmode, new_rtx);
 
 	  if (reg == 0)
 	    reg = gen_reg_rtx (Pmode);
-  	  emit_move_insn (reg, new_rtx);
+	  emit_move_insn (reg, new_rtx);
 	  new_rtx = reg;
-      }
+	}
       else if (TARGET_64BIT && ix86_cmodel != CM_LARGE_PIC)
 	{
 	  new_rtx = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr), UNSPEC_GOTPCREL);
@@ -12888,7 +13092,7 @@ legitimize_pic_address (rtx orig, rtx reg)
 
 	  /* Check first to see if this is a constant offset from a @GOTOFF
 	     symbol reference.  */
-	  if (gotoff_operand (op0, Pmode)
+	  if (!TARGET_PECOFF && gotoff_operand (op0, Pmode)
 	      && CONST_INT_P (op1))
 	    {
 	      if (!TARGET_64BIT)
@@ -12991,6 +13195,14 @@ ix86_tls_get_addr (void)
       ix86_tls_symbol = gen_rtx_SYMBOL_REF (Pmode, sym);
     }
 
+  if (ix86_cmodel == CM_LARGE_PIC && !TARGET_PECOFF)
+    {
+      rtx unspec = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, ix86_tls_symbol),
+				   UNSPEC_PLTOFF);
+      return gen_rtx_PLUS (Pmode, pic_offset_table_rtx,
+			   gen_rtx_CONST (Pmode, unspec));
+    }
+
   return ix86_tls_symbol;
 }
 
@@ -13032,7 +13244,7 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 
       if (!TARGET_64BIT)
 	{
-	  if (flag_pic)
+	  if (flag_pic && !TARGET_PECOFF)
 	    pic = pic_offset_table_rtx;
 	  else
 	    {
@@ -13241,13 +13453,14 @@ legitimize_tls_address (rtx x, enum tls_model model, bool for_mov)
 }
 
 /* Create or return the unique __imp_DECL dllimport symbol corresponding
-   to symbol DECL.  */
+   to symbol DECL if BEIMPORT is true.  Otherwise create or return the
+   unique refptr-DECL symbol corresponding to symbol DECL.  */
 
 static GTY((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
   htab_t dllimport_map;
 
 static tree
-get_dllimport_decl (tree decl)
+get_dllimport_decl (tree decl, bool beimport)
 {
   struct tree_map *h, in;
   void **loc;
@@ -13280,8 +13493,11 @@ get_dllimport_decl (tree decl)
 
   name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   name = targetm.strip_name_encoding (name);
-  prefix = name[0] == FASTCALL_PREFIX || user_label_prefix[0] == 0
-    ? "*__imp_" : "*__imp__";
+  if (beimport)
+    prefix = name[0] == FASTCALL_PREFIX || user_label_prefix[0] == 0
+      ? "*__imp_" : "*__imp__";
+  else
+    prefix = user_label_prefix[0] == 0 ? "*.refptr." : "*refptr.";
   namelen = strlen (name);
   prefixlen = strlen (prefix);
   imp_name = (char *) alloca (namelen + prefixlen + 1);
@@ -13291,7 +13507,14 @@ get_dllimport_decl (tree decl)
   name = ggc_alloc_string (imp_name, namelen + prefixlen);
   rtl = gen_rtx_SYMBOL_REF (Pmode, name);
   SET_SYMBOL_REF_DECL (rtl, to);
-  SYMBOL_REF_FLAGS (rtl) = SYMBOL_FLAG_LOCAL;
+  SYMBOL_REF_FLAGS (rtl) = SYMBOL_FLAG_LOCAL | SYMBOL_FLAG_STUBVAR;
+  if (!beimport)
+    {
+      SYMBOL_REF_FLAGS (rtl) |= SYMBOL_FLAG_EXTERNAL;
+#ifdef SUB_TARGET_RECORD_STUB
+      SUB_TARGET_RECORD_STUB (name);
+#endif
+    }      
 
   rtl = gen_const_mem (Pmode, rtl);
   set_mem_alias_set (rtl, ix86_GOT_alias_set ());
@@ -13300,6 +13523,24 @@ get_dllimport_decl (tree decl)
   SET_DECL_ASSEMBLER_NAME (to, get_identifier (name));
 
   return to;
+}
+
+/* Expand SYMBOL into its corresponding far-addresse symbol.
+   WANT_REG is true if we require the result be a register.  */
+
+static rtx
+legitimize_pe_coff_extern_decl (rtx symbol, bool want_reg)
+{
+  tree imp_decl;
+  rtx x;
+
+  gcc_assert (SYMBOL_REF_DECL (symbol));
+  imp_decl = get_dllimport_decl (SYMBOL_REF_DECL (symbol), false);
+
+  x = DECL_RTL (imp_decl);
+  if (want_reg)
+    x = force_reg (Pmode, x);
+  return x;
 }
 
 /* Expand SYMBOL into its corresponding dllimport symbol.  WANT_REG is
@@ -13312,12 +13553,56 @@ legitimize_dllimport_symbol (rtx symbol, bool want_reg)
   rtx x;
 
   gcc_assert (SYMBOL_REF_DECL (symbol));
-  imp_decl = get_dllimport_decl (SYMBOL_REF_DECL (symbol));
+  imp_decl = get_dllimport_decl (SYMBOL_REF_DECL (symbol), true);
 
   x = DECL_RTL (imp_decl);
   if (want_reg)
     x = force_reg (Pmode, x);
   return x;
+}
+
+/* Expand SYMBOL into its corresponding dllimport or refptr symbol.  WANT_REG 
+   is true if we require the result be a register.  */
+
+static rtx
+legitimize_pe_coff_symbol (rtx addr, bool inreg)
+{
+  if (!TARGET_PECOFF)
+    return NULL_RTX;
+
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES)
+    {
+      if (GET_CODE (addr) == SYMBOL_REF && SYMBOL_REF_DLLIMPORT_P (addr))
+	return legitimize_dllimport_symbol (addr, inreg);
+      if (GET_CODE (addr) == CONST
+	  && GET_CODE (XEXP (addr, 0)) == PLUS
+	  && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+	  && SYMBOL_REF_DLLIMPORT_P (XEXP (XEXP (addr, 0), 0)))
+	{
+	  rtx t = legitimize_dllimport_symbol (XEXP (XEXP (addr, 0), 0), inreg);
+	  return gen_rtx_PLUS (Pmode, t, XEXP (XEXP (addr, 0), 1));
+	}
+    }
+
+  if (ix86_cmodel != CM_LARGE_PIC && ix86_cmodel != CM_MEDIUM_PIC)
+    return NULL_RTX;
+  if (GET_CODE (addr) == SYMBOL_REF
+      && !is_imported_p (addr)
+      && SYMBOL_REF_EXTERNAL_P (addr)
+      && SYMBOL_REF_DECL (addr))
+    return legitimize_pe_coff_extern_decl (addr, inreg);
+
+  if (GET_CODE (addr) == CONST
+      && GET_CODE (XEXP (addr, 0)) == PLUS
+      && GET_CODE (XEXP (XEXP (addr, 0), 0)) == SYMBOL_REF
+      && !is_imported_p (XEXP (XEXP (addr, 0), 0))
+      && SYMBOL_REF_EXTERNAL_P (XEXP (XEXP (addr, 0), 0))
+      && SYMBOL_REF_DECL (XEXP (XEXP (addr, 0), 0)))
+    {
+      rtx t = legitimize_pe_coff_extern_decl (XEXP (XEXP (addr, 0), 0), inreg);
+      return gen_rtx_PLUS (Pmode, t, XEXP (XEXP (addr, 0), 1));
+    }
+  return NULL_RTX;
 }
 
 /* Try machine-dependent ways of modifying an illegitimate address
@@ -13360,16 +13645,9 @@ ix86_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
 
   if (TARGET_DLLIMPORT_DECL_ATTRIBUTES)
     {
-      if (GET_CODE (x) == SYMBOL_REF && SYMBOL_REF_DLLIMPORT_P (x))
-	return legitimize_dllimport_symbol (x, true);
-      if (GET_CODE (x) == CONST
-	  && GET_CODE (XEXP (x, 0)) == PLUS
-	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
-	  && SYMBOL_REF_DLLIMPORT_P (XEXP (XEXP (x, 0), 0)))
-	{
-	  rtx t = legitimize_dllimport_symbol (XEXP (XEXP (x, 0), 0), true);
-	  return gen_rtx_PLUS (Pmode, t, XEXP (XEXP (x, 0), 1));
-	}
+      rtx tmp = legitimize_pe_coff_symbol (x, true);
+      if (tmp)
+        return tmp;
     }
 
   if (flag_pic && SYMBOLIC_CONST (x))
@@ -13571,7 +13849,7 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 #endif
 	  assemble_name (file, name);
 	}
-      if (!TARGET_MACHO && !(TARGET_64BIT && DEFAULT_ABI == MS_ABI)
+      if (!TARGET_MACHO && !(TARGET_64BIT && TARGET_PECOFF)
 	  && code == 'P' && ! SYMBOL_REF_LOCAL_P (x))
 	fputs ("@PLT", file);
       break;
@@ -13761,7 +14039,7 @@ ix86_delegitimize_tls_address (rtx orig_x)
   if (GET_CODE (x) != PLUS || GET_MODE (x) != Pmode)
     return orig_x;
   if (ix86_decompose_address (x, &addr) == 0
-      || addr.seg != (TARGET_64BIT ? SEG_FS : SEG_GS)
+      || addr.seg != DEFAULT_TLS_SEG_REG
       || addr.disp == NULL_RTX
       || GET_CODE (addr.disp) != CONST)
     return orig_x;
@@ -13832,21 +14110,29 @@ ix86_delegitimize_address (rtx x)
 	    x = replace_equiv_address_nv (orig_x, x);
 	  return x;
 	}
-      if (GET_CODE (x) != CONST
-	  || GET_CODE (XEXP (x, 0)) != UNSPEC
-	  || (XINT (XEXP (x, 0), 1) != UNSPEC_GOTPCREL
-	      && XINT (XEXP (x, 0), 1) != UNSPEC_PCREL)
-	  || (!MEM_P (orig_x) && XINT (XEXP (x, 0), 1) != UNSPEC_PCREL))
-	return ix86_delegitimize_tls_address (orig_x);
-      x = XVECEXP (XEXP (x, 0), 0, 0);
-      if (GET_MODE (orig_x) != GET_MODE (x) && MEM_P (orig_x))
+
+      if (GET_CODE (x) == CONST
+	  && GET_CODE (XEXP (x, 0)) == UNSPEC
+	  && (XINT (XEXP (x, 0), 1) == UNSPEC_GOTPCREL
+	      || XINT (XEXP (x, 0), 1) == UNSPEC_PCREL)
+	  && (MEM_P (orig_x) || XINT (XEXP (x, 0), 1) == UNSPEC_PCREL))
 	{
-	  x = simplify_gen_subreg (GET_MODE (orig_x), x,
-				   GET_MODE (x), 0);
-	  if (x == NULL_RTX)
-	    return orig_x;
+	  x = XVECEXP (XEXP (x, 0), 0, 0);
+	  if (GET_MODE (orig_x) != GET_MODE (x) && MEM_P (orig_x))
+	    {
+	      x = simplify_gen_subreg (GET_MODE (orig_x), x,
+				       GET_MODE (x), 0);
+	      if (x == NULL_RTX)
+		return orig_x;
+	    }
+	  return x;
 	}
-      return x;
+
+      if (ix86_cmodel != CM_MEDIUM_PIC && ix86_cmodel != CM_LARGE_PIC)
+	return ix86_delegitimize_tls_address (orig_x);
+
+      /* Fall thru into the code shared with -m32 for -mcmodel=large -fpic
+	 and -mcmodel=medium -fpic.  */
     }
 
   if (GET_CODE (x) != PLUS
@@ -13883,10 +14169,12 @@ ix86_delegitimize_address (rtx x)
 
   if (GET_CODE (x) == UNSPEC
       && ((XINT (x, 1) == UNSPEC_GOT && MEM_P (orig_x) && !addend)
-	  || (XINT (x, 1) == UNSPEC_GOTOFF && !MEM_P (orig_x))))
+	  || (XINT (x, 1) == UNSPEC_GOTOFF && !MEM_P (orig_x))
+	  || (XINT (x, 1) == UNSPEC_PLTOFF && ix86_cmodel == CM_LARGE_PIC
+	      && !MEM_P (orig_x) && !addend)))
     result = XVECEXP (x, 0, 0);
 
-  if (TARGET_MACHO && darwin_local_data_pic (x)
+  if (!TARGET_64BIT && TARGET_MACHO && darwin_local_data_pic (x)
       && !MEM_P (orig_x))
     result = XVECEXP (x, 0, 0);
 
@@ -14102,6 +14390,7 @@ put_condition_code (enum rtx_code code, enum machine_mode mode, bool reverse,
    If CODE is 'q', pretend the mode is DImode.
    If CODE is 'x', pretend the mode is V4SFmode.
    If CODE is 't', pretend the mode is V8SFmode.
+   If CODE is 'g', pretend the mode is V16SFmode.
    If CODE is 'h', pretend the reg is the 'high' byte register.
    If CODE is 'y', print "st(0)" instead of "st", if the reg is stack op.
    If CODE is 'd', duplicate the operand for AVX instruction.
@@ -14147,6 +14436,8 @@ print_reg (rtx x, int code, FILE *file)
     code = 16;
   else if (code == 't')
     code = 32;
+  else if (code == 'g')
+    code = 64;
   else
     code = GET_MODE_SIZE (GET_MODE (x));
 
@@ -14220,6 +14511,14 @@ print_reg (rtx x, int code, FILE *file)
 	  fputs (hi_reg_name[regno] + 1, file);
 	  return;
 	}
+    case 64:
+      if (SSE_REG_P (x))
+        {
+          gcc_assert (!duplicated);
+          putc ('z', file);
+          fputs (hi_reg_name[REGNO (x)] + 1, file);
+          return;
+        }
       break;
     default:
       gcc_unreachable ();
@@ -14293,6 +14592,7 @@ get_some_local_dynamic_name (void)
    q --  likewise, print the DImode name of the register.
    x --  likewise, print the V4SFmode name of the register.
    t --  likewise, print the V8SFmode name of the register.
+   g --  likewise, print the V16SFmode name of the register.
    h -- print the QImode name for a "high" register, either ah, bh, ch or dh.
    y -- print "st(0)" instead of "st" as a register.
    d -- print duplicated register operand for AVX instruction.
@@ -14522,6 +14822,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	case 'q':
 	case 'h':
 	case 't':
+	case 'g':
 	case 'y':
 	case 'x':
 	case 'X':
@@ -14697,6 +14998,9 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  /* It doesn't actually matter what mode we use here, as we're
 	     only going to use this for printing.  */
 	  x = adjust_address_nv (x, DImode, 8);
+	  /* Output 'qword ptr' for intel assembler dialect.  */
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    code = 'q';
 	  break;
 
 	case 'K':
@@ -14745,7 +15049,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
 	    if (x)
 	      {
-		int pred_val = INTVAL (XEXP (x, 0));
+		int pred_val = XINT (x, 0);
 
 		if (pred_val < REG_BR_PROB_BASE * 45 / 100
 		    || pred_val > REG_BR_PROB_BASE * 55 / 100)
@@ -14827,6 +15131,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 		size = "XMMWORD";
               break;
 	    case 32: size = "YMMWORD"; break;
+	    case 64: size = "ZMMWORD"; break;
 	    default:
 	      gcc_unreachable ();
 	    }
@@ -15784,7 +16089,7 @@ emit_i387_cw_initialization (int mode)
   emit_move_insn (reg, copy_rtx (stored_mode));
 
   if (TARGET_64BIT || TARGET_PARTIAL_REG_STALL
-      || optimize_function_for_size_p (cfun))
+      || optimize_insn_for_size_p ())
     {
       switch (mode)
 	{
@@ -16185,6 +16490,8 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 
   if (GET_CODE (op1) == SYMBOL_REF)
     {
+      rtx tmp;
+
       model = SYMBOL_REF_TLS_MODEL (op1);
       if (model)
 	{
@@ -16194,9 +16501,8 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
 	    return;
 	  op1 = convert_to_mode (mode, op1, 1);
 	}
-      else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	       && SYMBOL_REF_DLLIMPORT_P (op1))
-	op1 = legitimize_dllimport_symbol (op1, false);
+      else if ((tmp = legitimize_pe_coff_symbol (op1, false)) != NULL_RTX)
+	op1 = tmp;
     }
   else if (GET_CODE (op1) == CONST
 	   && GET_CODE (XEXP (op1, 0)) == PLUS
@@ -16204,14 +16510,13 @@ ix86_expand_move (enum machine_mode mode, rtx operands[])
     {
       rtx addend = XEXP (XEXP (op1, 0), 1);
       rtx symbol = XEXP (XEXP (op1, 0), 0);
-      rtx tmp = NULL;
+      rtx tmp;
 
       model = SYMBOL_REF_TLS_MODEL (symbol);
       if (model)
 	tmp = legitimize_tls_address (symbol, model, true);
-      else if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	       && SYMBOL_REF_DLLIMPORT_P (symbol))
-	tmp = legitimize_dllimport_symbol (symbol, true);
+      else
+        tmp = legitimize_pe_coff_symbol (symbol, true);
 
       if (tmp)
 	{
@@ -16393,8 +16698,8 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
       gcc_unreachable ();
     case V32QImode:
       extract = gen_avx_vextractf128v32qi;
-      load_unaligned = gen_avx_loaddqu256;
-      store_unaligned = gen_avx_storedqu256;
+      load_unaligned = gen_avx_loaddquv32qi;
+      store_unaligned = gen_avx_storedquv32qi;
       mode = V16QImode;
       break;
     case V8SFmode:
@@ -16497,9 +16802,55 @@ void
 ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 {
   rtx op0, op1, m;
+  rtx (*load_unaligned) (rtx, rtx);
+  rtx (*store_unaligned) (rtx, rtx);
 
   op0 = operands[0];
   op1 = operands[1];
+
+  if (GET_MODE_SIZE (mode) == 64)
+    {
+      switch (GET_MODE_CLASS (mode))
+	{
+	case MODE_VECTOR_INT:
+	case MODE_INT:
+	  op0 = gen_lowpart (V16SImode, op0);
+	  op1 = gen_lowpart (V16SImode, op1);
+	  /* FALLTHRU */
+
+	case MODE_VECTOR_FLOAT:
+	  switch (GET_MODE (op0))
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case V16SImode:
+	      load_unaligned = gen_avx512f_loaddquv16si;
+	      store_unaligned = gen_avx512f_storedquv16si;
+	      break;
+	    case V16SFmode:
+	      load_unaligned = gen_avx512f_loadups512;
+	      store_unaligned = gen_avx512f_storeups512;
+	      break;
+	    case V8DFmode:
+	      load_unaligned = gen_avx512f_loadupd512;
+	      store_unaligned = gen_avx512f_storeupd512;
+	      break;
+	    }
+
+	  if (MEM_P (op1))
+	    emit_insn (load_unaligned (op0, op1));
+	  else if (MEM_P (op0))
+	    emit_insn (store_unaligned (op0, op1));
+	  else
+	    gcc_unreachable ();
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      return;
+    }
 
   if (TARGET_AVX
       && GET_MODE_SIZE (mode) == 32)
@@ -16533,7 +16884,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  op0 = gen_lowpart (V16QImode, op0);
 	  op1 = gen_lowpart (V16QImode, op1);
 	  /* We will eventually emit movups based on insn attributes.  */
-	  emit_insn (gen_sse2_loaddqu (op0, op1));
+	  emit_insn (gen_sse2_loaddquv16qi (op0, op1));
 	}
       else if (TARGET_SSE2 && mode == V2DFmode)
         {
@@ -16542,7 +16893,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  if (TARGET_AVX
 	      || TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
 	      || TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
-	      || optimize_function_for_size_p (cfun))
+	      || optimize_insn_for_size_p ())
 	    {
 	      /* We will eventually emit movups based on insn attributes.  */
 	      emit_insn (gen_sse2_loadupd (op0, op1));
@@ -16579,7 +16930,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  if (TARGET_AVX
 	      || TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
 	      || TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
-	      || optimize_function_for_size_p (cfun))
+	      || optimize_insn_for_size_p ())
 	    {
 	      op0 = gen_lowpart (V4SFmode, op0);
 	      op1 = gen_lowpart (V4SFmode, op1);
@@ -16608,14 +16959,14 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  op0 = gen_lowpart (V16QImode, op0);
 	  op1 = gen_lowpart (V16QImode, op1);
 	  /* We will eventually emit movups based on insn attributes.  */
-	  emit_insn (gen_sse2_storedqu (op0, op1));
+	  emit_insn (gen_sse2_storedquv16qi (op0, op1));
 	}
       else if (TARGET_SSE2 && mode == V2DFmode)
 	{
 	  if (TARGET_AVX
 	      || TARGET_SSE_UNALIGNED_STORE_OPTIMAL
 	      || TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
-	      || optimize_function_for_size_p (cfun))
+	      || optimize_insn_for_size_p ())
 	    /* We will eventually emit movups based on insn attributes.  */
 	    emit_insn (gen_sse2_storeupd (op0, op1));
 	  else
@@ -16634,7 +16985,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  if (TARGET_AVX
 	      || TARGET_SSE_UNALIGNED_STORE_OPTIMAL
 	      || TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
-	      || optimize_function_for_size_p (cfun))
+	      || optimize_insn_for_size_p ())
 	    {
 	      op0 = gen_lowpart (V4SFmode, op0);
 	      emit_insn (gen_sse_storeups (op0, op1));
@@ -17302,12 +17653,22 @@ distance_agu_use_in_bb (unsigned int regno,
 			rtx insn, int distance, rtx start,
 			bool *found, bool *redefined)
 {
-  basic_block bb = start ? BLOCK_FOR_INSN (start) : NULL;
+  basic_block bb = NULL;
   rtx next = start;
   rtx prev = NULL;
 
   *found = false;
   *redefined = false;
+
+  if (start != NULL_RTX)
+    {
+      bb = BLOCK_FOR_INSN (start);
+      if (start != BB_HEAD (bb))
+	/* If insn and start belong to the same bb, set prev to insn,
+	   so the call to increase_distance will increase the distance
+	   between insns by 1.  */
+	prev = insn;
+    }
 
   while (next
 	 && next != insn
@@ -17423,9 +17784,23 @@ distance_agu_use (unsigned int regno0, rtx insn)
 
 static bool
 ix86_lea_outperforms (rtx insn, unsigned int regno0, unsigned int regno1,
-		      unsigned int regno2, int split_cost)
+		      unsigned int regno2, int split_cost, bool has_scale)
 {
   int dist_define, dist_use;
+
+  /* For Silvermont if using a 2-source or 3-source LEA for
+     non-destructive destination purposes, or due to wanting
+     ability to use SCALE, the use of LEA is justified.  */
+  if (ix86_tune == PROCESSOR_SLM)
+    {
+      if (has_scale)
+	return true;
+      if (split_cost < 1)
+	return false;
+      if (regno0 == regno1 || regno0 == regno2)
+	return false;
+      return true;
+    }
 
   dist_define = distance_non_agu_define (regno1, regno2, insn);
   dist_use = distance_agu_use (regno0, insn);
@@ -17515,7 +17890,7 @@ ix86_avoid_lea_for_add (rtx insn, rtx operands[])
   if (regno0 == regno1 || regno0 == regno2)
     return false;
   else
-    return !ix86_lea_outperforms (insn, regno0, regno1, regno2, 1);
+    return !ix86_lea_outperforms (insn, regno0, regno1, regno2, 1, false);
 }
 
 /* Return true if we should emit lea instruction instead of mov
@@ -17537,7 +17912,7 @@ ix86_use_lea_for_mov (rtx insn, rtx operands[])
   regno0 = true_regnum (operands[0]);
   regno1 = true_regnum (operands[1]);
 
-  return ix86_lea_outperforms (insn, regno0, regno1, INVALID_REGNUM, 0);
+  return ix86_lea_outperforms (insn, regno0, regno1, INVALID_REGNUM, 0, false);
 }
 
 /* Return true if we need to split lea into a sequence of
@@ -17616,7 +17991,8 @@ ix86_avoid_lea_for_addr (rtx insn, rtx operands[])
       split_cost -= 1;
     }
 
-  return !ix86_lea_outperforms (insn, regno0, regno1, regno2, split_cost);
+  return !ix86_lea_outperforms (insn, regno0, regno1, regno2, split_cost,
+				parts.scale > 1);
 }
 
 /* Emit x86 binary operand CODE in mode MODE, where the first operand
@@ -17801,7 +18177,7 @@ ix86_lea_for_add_ok (rtx insn, rtx operands[])
   if (!TARGET_OPT_AGU || optimize_function_for_size_p (cfun))
     return false;
 
-  return ix86_lea_outperforms (insn, regno0, regno1, regno2, 0);
+  return ix86_lea_outperforms (insn, regno0, regno1, regno2, 0, false);
 }
 
 /* Return true if destination reg of SET_BODY is shift count of
@@ -17889,7 +18265,7 @@ ix86_dep_by_shift_count (const_rtx set_insn, const_rtx use_insn)
 bool
 ix86_unary_operator_ok (enum rtx_code code ATTRIBUTE_UNUSED,
 			enum machine_mode mode ATTRIBUTE_UNUSED,
-			rtx operands[2] ATTRIBUTE_UNUSED)
+			rtx operands[2])
 {
   /* If one of operands is memory, source and destination must match.  */
   if ((MEM_P (operands[0])
@@ -17986,7 +18362,7 @@ ix86_expand_convert_uns_didf_sse (rtx target, rtx input)
   rtx x;
 
   int_xmm = gen_reg_rtx (V4SImode);
-  if (TARGET_INTER_UNIT_MOVES)
+  if (TARGET_INTER_UNIT_MOVES_TO_VEC)
     emit_insn (gen_movdi_to_sse (int_xmm, input));
   else if (TARGET_SSE_SPLIT_REGS)
     {
@@ -18880,7 +19256,7 @@ ix86_fp_comparison_strategy (enum rtx_code code ATTRIBUTE_UNUSED)
   if (TARGET_CMOVE)
     return IX86_FPCMP_COMI;
 
-  if (TARGET_SAHF && (TARGET_USE_SAHF || optimize_function_for_size_p (cfun)))
+  if (TARGET_SAHF && (TARGET_USE_SAHF || optimize_insn_for_size_p ()))
     return IX86_FPCMP_SAHF;
 
   return IX86_FPCMP_ARITH;
@@ -19365,7 +19741,7 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 		       gen_rtx_IF_THEN_ELSE (VOIDmode,
 					     condition, target1, target2)));
   if (split_branch_probability >= 0)
-    add_reg_note (i, REG_BR_PROB, GEN_INT (split_branch_probability));
+    add_int_reg_note (i, REG_BR_PROB, split_branch_probability);
 }
 
 void
@@ -20675,7 +21051,7 @@ ix86_expand_vec_perm (rtx operands[])
 	      vec[i * 2 + 1] = const1_rtx;
 	    }
 	  vt = gen_rtx_CONST_VECTOR (maskmode, gen_rtvec_v (w, vec));
-	  vt = force_const_mem (maskmode, vt);
+	  vt = validize_mem (force_const_mem (maskmode, vt));
 	  t1 = expand_simple_binop (maskmode, PLUS, t1, vt, t1, 1,
 				    OPTAB_DIRECT);
 
@@ -20872,7 +21248,7 @@ ix86_expand_vec_perm (rtx operands[])
       for (i = 0; i < 16; ++i)
 	vec[i] = GEN_INT (i/e * e);
       vt = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, vec));
-      vt = force_const_mem (V16QImode, vt);
+      vt = validize_mem (force_const_mem (V16QImode, vt));
       if (TARGET_XOP)
 	emit_insn (gen_xop_pperm (mask, mask, mask, vt));
       else
@@ -20883,7 +21259,7 @@ ix86_expand_vec_perm (rtx operands[])
       for (i = 0; i < 16; ++i)
 	vec[i] = GEN_INT (i % e);
       vt = gen_rtx_CONST_VECTOR (V16QImode, gen_rtvec_v (16, vec));
-      vt = force_const_mem (V16QImode, vt);
+      vt = validize_mem (force_const_mem (V16QImode, vt));
       emit_insn (gen_addv16qi3 (mask, mask, vt));
     }
 
@@ -21872,7 +22248,7 @@ predict_jump (int prob)
 {
   rtx insn = get_last_insn ();
   gcc_assert (JUMP_P (insn));
-  add_reg_note (insn, REG_BR_PROB, GEN_INT (prob));
+  add_int_reg_note (insn, REG_BR_PROB, prob);
 }
 
 /* Helper function for the string operations below.  Dest VARIABLE whether
@@ -21962,11 +22338,10 @@ expand_set_or_movmem_via_loop (rtx destmem, rtx srcmem,
 {
   rtx out_label, top_label, iter, tmp;
   enum machine_mode iter_mode = counter_mode (count);
-  rtx piece_size = GEN_INT (GET_MODE_SIZE (mode) * unroll);
+  int piece_size_n = GET_MODE_SIZE (mode) * unroll;
+  rtx piece_size = GEN_INT (piece_size_n);
   rtx piece_size_mask = GEN_INT (~((GET_MODE_SIZE (mode) * unroll) - 1));
   rtx size;
-  rtx x_addr;
-  rtx y_addr;
   int i;
 
   top_label = gen_label_rtx ();
@@ -21987,13 +22362,18 @@ expand_set_or_movmem_via_loop (rtx destmem, rtx srcmem,
   emit_label (top_label);
 
   tmp = convert_modes (Pmode, iter_mode, iter, true);
-  x_addr = gen_rtx_PLUS (Pmode, destptr, tmp);
-  destmem = change_address (destmem, mode, x_addr);
+
+  /* This assert could be relaxed - in this case we'll need to compute
+     smallest power of two, containing in PIECE_SIZE_N and pass it to
+     offset_address.  */
+  gcc_assert ((piece_size_n & (piece_size_n - 1)) == 0);
+  destmem = offset_address (destmem, tmp, piece_size_n);
+  destmem = adjust_address (destmem, mode, 0);
 
   if (srcmem)
     {
-      y_addr = gen_rtx_PLUS (Pmode, srcptr, copy_rtx (tmp));
-      srcmem = change_address (srcmem, mode, y_addr);
+      srcmem = offset_address (srcmem, copy_rtx (tmp), piece_size_n);
+      srcmem = adjust_address (srcmem, mode, 0);
 
       /* When unrolling for chips that reorder memory reads and writes,
 	 we can save registers by using single temporary.
@@ -22172,13 +22552,76 @@ expand_setmem_via_rep_stos (rtx destmem, rtx destptr, rtx value,
   emit_insn (gen_rep_stos (destptr, countreg, destmem, value, destexp));
 }
 
-static void
-emit_strmov (rtx destmem, rtx srcmem,
-	     rtx destptr, rtx srcptr, enum machine_mode mode, int offset)
+/* This function emits moves to copy SIZE_TO_MOVE bytes from SRCMEM to
+   DESTMEM.
+   SRC is passed by pointer to be updated on return.
+   Return value is updated DST.  */
+static rtx
+emit_memmov (rtx destmem, rtx *srcmem, rtx destptr, rtx srcptr,
+	     HOST_WIDE_INT size_to_move)
 {
-  rtx src = adjust_automodify_address_nv (srcmem, mode, srcptr, offset);
-  rtx dest = adjust_automodify_address_nv (destmem, mode, destptr, offset);
-  emit_insn (gen_strmov (destptr, dest, srcptr, src));
+  rtx dst = destmem, src = *srcmem, adjust, tempreg;
+  enum insn_code code;
+  enum machine_mode move_mode;
+  int piece_size, i;
+
+  /* Find the widest mode in which we could perform moves.
+     Start with the biggest power of 2 less than SIZE_TO_MOVE and half
+     it until move of such size is supported.  */
+  piece_size = 1 << floor_log2 (size_to_move);
+  move_mode = mode_for_size (piece_size * BITS_PER_UNIT, MODE_INT, 0);
+  code = optab_handler (mov_optab, move_mode);
+  while (code == CODE_FOR_nothing && piece_size > 1)
+    {
+      piece_size >>= 1;
+      move_mode = mode_for_size (piece_size * BITS_PER_UNIT, MODE_INT, 0);
+      code = optab_handler (mov_optab, move_mode);
+    }
+
+  /* Find the corresponding vector mode with the same size as MOVE_MODE.
+     MOVE_MODE is an integer mode at the moment (SI, DI, TI, etc.).  */
+  if (GET_MODE_SIZE (move_mode) > GET_MODE_SIZE (word_mode))
+    {
+      int nunits = GET_MODE_SIZE (move_mode) / GET_MODE_SIZE (word_mode);
+      move_mode = mode_for_vector (word_mode, nunits);
+      code = optab_handler (mov_optab, move_mode);
+      if (code == CODE_FOR_nothing)
+	{
+	  move_mode = word_mode;
+	  piece_size = GET_MODE_SIZE (move_mode);
+	  code = optab_handler (mov_optab, move_mode);
+	}
+    }
+  gcc_assert (code != CODE_FOR_nothing);
+
+  dst = adjust_automodify_address_nv (dst, move_mode, destptr, 0);
+  src = adjust_automodify_address_nv (src, move_mode, srcptr, 0);
+
+  /* Emit moves.  We'll need SIZE_TO_MOVE/PIECE_SIZES moves.  */
+  gcc_assert (size_to_move % piece_size == 0);
+  adjust = GEN_INT (piece_size);
+  for (i = 0; i < size_to_move; i += piece_size)
+    {
+      /* We move from memory to memory, so we'll need to do it via
+	 a temporary register.  */
+      tempreg = gen_reg_rtx (move_mode);
+      emit_insn (GEN_FCN (code) (tempreg, src));
+      emit_insn (GEN_FCN (code) (dst, tempreg));
+
+      emit_move_insn (destptr,
+		      gen_rtx_PLUS (Pmode, copy_rtx (destptr), adjust));
+      emit_move_insn (srcptr,
+		      gen_rtx_PLUS (Pmode, copy_rtx (srcptr), adjust));
+
+      dst = adjust_automodify_address_nv (dst, move_mode, destptr,
+					  piece_size);
+      src = adjust_automodify_address_nv (src, move_mode, srcptr,
+					  piece_size);
+    }
+
+  /* Update DST and SRC rtx.  */
+  *srcmem = src;
+  return dst;
 }
 
 /* Output code to copy at most count & (max_size - 1) bytes from SRC to DEST.  */
@@ -22190,44 +22633,17 @@ expand_movmem_epilogue (rtx destmem, rtx srcmem,
   if (CONST_INT_P (count))
     {
       HOST_WIDE_INT countval = INTVAL (count);
-      int offset = 0;
+      HOST_WIDE_INT epilogue_size = countval % max_size;
+      int i;
 
-      if ((countval & 0x10) && max_size > 16)
+      /* For now MAX_SIZE should be a power of 2.  This assert could be
+	 relaxed, but it'll require a bit more complicated epilogue
+	 expanding.  */
+      gcc_assert ((max_size & (max_size - 1)) == 0);
+      for (i = max_size; i >= 1; i >>= 1)
 	{
-	  if (TARGET_64BIT)
-	    {
-	      emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset);
-	      emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset + 8);
-	    }
-	  else
-	    gcc_unreachable ();
-	  offset += 16;
-	}
-      if ((countval & 0x08) && max_size > 8)
-	{
-	  if (TARGET_64BIT)
-	    emit_strmov (destmem, srcmem, destptr, srcptr, DImode, offset);
-	  else
-	    {
-	      emit_strmov (destmem, srcmem, destptr, srcptr, SImode, offset);
-	      emit_strmov (destmem, srcmem, destptr, srcptr, SImode, offset + 4);
-	    }
-	  offset += 8;
-	}
-      if ((countval & 0x04) && max_size > 4)
-	{
-          emit_strmov (destmem, srcmem, destptr, srcptr, SImode, offset);
-	  offset += 4;
-	}
-      if ((countval & 0x02) && max_size > 2)
-	{
-          emit_strmov (destmem, srcmem, destptr, srcptr, HImode, offset);
-	  offset += 2;
-	}
-      if ((countval & 0x01) && max_size > 1)
-	{
-          emit_strmov (destmem, srcmem, destptr, srcptr, QImode, offset);
-	  offset += 1;
+	  if (epilogue_size & i)
+	    destmem = emit_memmov (destmem, &srcmem, destptr, srcptr, i);
 	}
       return;
     }
@@ -22463,47 +22879,33 @@ expand_setmem_epilogue (rtx destmem, rtx destptr, rtx value, rtx count, int max_
 }
 
 /* Copy enough from DEST to SRC to align DEST known to by aligned by ALIGN to
-   DESIRED_ALIGNMENT.  */
-static void
+   DESIRED_ALIGNMENT.
+   Return value is updated DESTMEM.  */
+static rtx
 expand_movmem_prologue (rtx destmem, rtx srcmem,
 			rtx destptr, rtx srcptr, rtx count,
 			int align, int desired_alignment)
 {
-  if (align <= 1 && desired_alignment > 1)
+  int i;
+  for (i = 1; i < desired_alignment; i <<= 1)
     {
-      rtx label = ix86_expand_aligntest (destptr, 1, false);
-      srcmem = change_address (srcmem, QImode, srcptr);
-      destmem = change_address (destmem, QImode, destptr);
-      emit_insn (gen_strmov (destptr, destmem, srcptr, srcmem));
-      ix86_adjust_counter (count, 1);
-      emit_label (label);
-      LABEL_NUSES (label) = 1;
+      if (align <= i)
+	{
+	  rtx label = ix86_expand_aligntest (destptr, i, false);
+	  destmem = emit_memmov (destmem, &srcmem, destptr, srcptr, i);
+	  ix86_adjust_counter (count, i);
+	  emit_label (label);
+	  LABEL_NUSES (label) = 1;
+	  set_mem_align (destmem, i * 2 * BITS_PER_UNIT);
+	}
     }
-  if (align <= 2 && desired_alignment > 2)
-    {
-      rtx label = ix86_expand_aligntest (destptr, 2, false);
-      srcmem = change_address (srcmem, HImode, srcptr);
-      destmem = change_address (destmem, HImode, destptr);
-      emit_insn (gen_strmov (destptr, destmem, srcptr, srcmem));
-      ix86_adjust_counter (count, 2);
-      emit_label (label);
-      LABEL_NUSES (label) = 1;
-    }
-  if (align <= 4 && desired_alignment > 4)
-    {
-      rtx label = ix86_expand_aligntest (destptr, 4, false);
-      srcmem = change_address (srcmem, SImode, srcptr);
-      destmem = change_address (destmem, SImode, destptr);
-      emit_insn (gen_strmov (destptr, destmem, srcptr, srcmem));
-      ix86_adjust_counter (count, 4);
-      emit_label (label);
-      LABEL_NUSES (label) = 1;
-    }
-  gcc_assert (desired_alignment <= 8);
+  return destmem;
 }
 
 /* Copy enough from DST to SRC to align DST known to DESIRED_ALIGN.
-   ALIGN_BYTES is how many bytes need to be copied.  */
+   ALIGN_BYTES is how many bytes need to be copied.
+   The function updates DST and SRC, namely, it sets proper alignment.
+   DST is returned via return value, SRC is updated via pointer SRCP.  */
 static rtx
 expand_constant_movmem_prologue (rtx dst, rtx *srcp, rtx destreg, rtx srcreg,
 				 int desired_align, int align_bytes)
@@ -22511,62 +22913,34 @@ expand_constant_movmem_prologue (rtx dst, rtx *srcp, rtx destreg, rtx srcreg,
   rtx src = *srcp;
   rtx orig_dst = dst;
   rtx orig_src = src;
-  int off = 0;
+  int piece_size = 1;
+  int copied_bytes = 0;
   int src_align_bytes = get_mem_align_offset (src, desired_align * BITS_PER_UNIT);
   if (src_align_bytes >= 0)
     src_align_bytes = desired_align - src_align_bytes;
-  if (align_bytes & 1)
+
+  for (piece_size = 1;
+       piece_size <= desired_align && copied_bytes < align_bytes;
+       piece_size <<= 1)
     {
-      dst = adjust_automodify_address_nv (dst, QImode, destreg, 0);
-      src = adjust_automodify_address_nv (src, QImode, srcreg, 0);
-      off = 1;
-      emit_insn (gen_strmov (destreg, dst, srcreg, src));
-    }
-  if (align_bytes & 2)
-    {
-      dst = adjust_automodify_address_nv (dst, HImode, destreg, off);
-      src = adjust_automodify_address_nv (src, HImode, srcreg, off);
-      if (MEM_ALIGN (dst) < 2 * BITS_PER_UNIT)
-	set_mem_align (dst, 2 * BITS_PER_UNIT);
-      if (src_align_bytes >= 0
-	  && (src_align_bytes & 1) == (align_bytes & 1)
-	  && MEM_ALIGN (src) < 2 * BITS_PER_UNIT)
-	set_mem_align (src, 2 * BITS_PER_UNIT);
-      off = 2;
-      emit_insn (gen_strmov (destreg, dst, srcreg, src));
-    }
-  if (align_bytes & 4)
-    {
-      dst = adjust_automodify_address_nv (dst, SImode, destreg, off);
-      src = adjust_automodify_address_nv (src, SImode, srcreg, off);
-      if (MEM_ALIGN (dst) < 4 * BITS_PER_UNIT)
-	set_mem_align (dst, 4 * BITS_PER_UNIT);
-      if (src_align_bytes >= 0)
+      if (align_bytes & piece_size)
 	{
-	  unsigned int src_align = 0;
-	  if ((src_align_bytes & 3) == (align_bytes & 3))
-	    src_align = 4;
-	  else if ((src_align_bytes & 1) == (align_bytes & 1))
-	    src_align = 2;
-	  if (MEM_ALIGN (src) < src_align * BITS_PER_UNIT)
-	    set_mem_align (src, src_align * BITS_PER_UNIT);
+	  dst = emit_memmov (dst, &src, destreg, srcreg, piece_size);
+	  copied_bytes += piece_size;
 	}
-      off = 4;
-      emit_insn (gen_strmov (destreg, dst, srcreg, src));
     }
-  dst = adjust_automodify_address_nv (dst, BLKmode, destreg, off);
-  src = adjust_automodify_address_nv (src, BLKmode, srcreg, off);
+
   if (MEM_ALIGN (dst) < (unsigned int) desired_align * BITS_PER_UNIT)
     set_mem_align (dst, desired_align * BITS_PER_UNIT);
   if (src_align_bytes >= 0)
     {
-      unsigned int src_align = 0;
-      if ((src_align_bytes & 7) == (align_bytes & 7))
-	src_align = 8;
-      else if ((src_align_bytes & 3) == (align_bytes & 3))
-	src_align = 4;
-      else if ((src_align_bytes & 1) == (align_bytes & 1))
-	src_align = 2;
+      unsigned int src_align;
+      for (src_align = desired_align; src_align >= 2; src_align >>= 1)
+	{
+	  if ((src_align_bytes & (src_align - 1))
+	       == (align_bytes & (src_align - 1)))
+	    break;
+	}
       if (src_align > (unsigned int) desired_align)
 	src_align = desired_align;
       if (MEM_ALIGN (src) < src_align * BITS_PER_UNIT)
@@ -22799,42 +23173,24 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size, bool memset,
 static int
 decide_alignment (int align,
 		  enum stringop_alg alg,
-		  int expected_size)
+		  int expected_size,
+		  enum machine_mode move_mode)
 {
   int desired_align = 0;
-  switch (alg)
-    {
-      case no_stringop:
-	gcc_unreachable ();
-      case loop:
-      case unrolled_loop:
-	desired_align = GET_MODE_SIZE (Pmode);
-	break;
-      case rep_prefix_8_byte:
-	desired_align = 8;
-	break;
-      case rep_prefix_4_byte:
-	/* PentiumPro has special logic triggering for 8 byte aligned blocks.
-	   copying whole cacheline at once.  */
-	if (TARGET_PENTIUMPRO)
-	  desired_align = 8;
-	else
-	  desired_align = 4;
-	break;
-      case rep_prefix_1_byte:
-	/* PentiumPro has special logic triggering for 8 byte aligned blocks.
-	   copying whole cacheline at once.  */
-	if (TARGET_PENTIUMPRO)
-	  desired_align = 8;
-	else
-	  desired_align = 1;
-	break;
-      case loop_1_byte:
-	desired_align = 1;
-	break;
-      case libcall:
-	return 0;
-    }
+
+  gcc_assert (alg != no_stringop);
+
+  if (alg == libcall)
+    return 0;
+  if (move_mode == VOIDmode)
+    return 0;
+
+  desired_align = GET_MODE_SIZE (move_mode);
+  /* PentiumPro has special logic triggering for 8 byte aligned blocks.
+     copying whole cacheline at once.  */
+  if (TARGET_PENTIUMPRO
+      && (alg == rep_prefix_4_byte || alg == rep_prefix_1_byte))
+    desired_align = 8;
 
   if (optimize_size)
     desired_align = 1;
@@ -22842,17 +23198,8 @@ decide_alignment (int align,
     desired_align = align;
   if (expected_size != -1 && expected_size < 4)
     desired_align = align;
-  return desired_align;
-}
 
-/* Return the smallest power of 2 greater than VAL.  */
-static int
-smallest_pow2_greater_than (int val)
-{
-  int ret = 1;
-  while (ret <= val)
-    ret <<= 1;
-  return ret;
+  return desired_align;
 }
 
 /* Expand string move (memcpy) operation.  Use i386 string operations
@@ -22898,6 +23245,8 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
   int dynamic_check;
   bool need_zero_guard = false;
   bool noalign;
+  enum machine_mode move_mode = VOIDmode;
+  int unroll_factor = 1;
 
   if (CONST_INT_P (align_exp))
     align = INTVAL (align_exp);
@@ -22921,49 +23270,71 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 
   /* Step 0: Decide on preferred algorithm, desired alignment and
      size of chunks to be copied by main loop.  */
-
   alg = decide_alg (count, expected_size, false, &dynamic_check, &noalign);
-  desired_align = decide_alignment (align, alg, expected_size);
-
-  if (!TARGET_ALIGN_STRINGOPS || noalign)
-    align = desired_align;
-
   if (alg == libcall)
     return false;
   gcc_assert (alg != no_stringop);
+
   if (!count)
     count_exp = copy_to_mode_reg (GET_MODE (count_exp), count_exp);
   destreg = copy_addr_to_reg (XEXP (dst, 0));
   srcreg = copy_addr_to_reg (XEXP (src, 0));
+
+  unroll_factor = 1;
+  move_mode = word_mode;
   switch (alg)
     {
     case libcall:
     case no_stringop:
+    case last_alg:
       gcc_unreachable ();
+    case loop_1_byte:
+      need_zero_guard = true;
+      move_mode = QImode;
+      break;
     case loop:
       need_zero_guard = true;
-      size_needed = GET_MODE_SIZE (word_mode);
       break;
     case unrolled_loop:
       need_zero_guard = true;
-      size_needed = GET_MODE_SIZE (word_mode) * (TARGET_64BIT ? 4 : 2);
+      unroll_factor = (TARGET_64BIT ? 4 : 2);
+      break;
+    case vector_loop:
+      need_zero_guard = true;
+      unroll_factor = 4;
+      /* Find the widest supported mode.  */
+      move_mode = word_mode;
+      while (optab_handler (mov_optab, GET_MODE_WIDER_MODE (move_mode))
+	     != CODE_FOR_nothing)
+	  move_mode = GET_MODE_WIDER_MODE (move_mode);
+
+      /* Find the corresponding vector mode with the same size as MOVE_MODE.
+	 MOVE_MODE is an integer mode at the moment (SI, DI, TI, etc.).  */
+      if (GET_MODE_SIZE (move_mode) > GET_MODE_SIZE (word_mode))
+	{
+	  int nunits = GET_MODE_SIZE (move_mode) / GET_MODE_SIZE (word_mode);
+	  move_mode = mode_for_vector (word_mode, nunits);
+	  if (optab_handler (mov_optab, move_mode) == CODE_FOR_nothing)
+	    move_mode = word_mode;
+	}
+      gcc_assert (optab_handler (mov_optab, move_mode) != CODE_FOR_nothing);
       break;
     case rep_prefix_8_byte:
-      size_needed = 8;
+      move_mode = DImode;
       break;
     case rep_prefix_4_byte:
-      size_needed = 4;
+      move_mode = SImode;
       break;
     case rep_prefix_1_byte:
-      size_needed = 1;
-      break;
-    case loop_1_byte:
-      need_zero_guard = true;
-      size_needed = 1;
+      move_mode = QImode;
       break;
     }
-
+  size_needed = GET_MODE_SIZE (move_mode) * unroll_factor;
   epilogue_size_needed = size_needed;
+
+  desired_align = decide_alignment (align, alg, expected_size, move_mode);
+  if (!TARGET_ALIGN_STRINGOPS || noalign)
+    align = desired_align;
 
   /* Step 1: Prologue guard.  */
 
@@ -22991,7 +23362,7 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
       epilogue_size_needed = MAX (size_needed - 1, desired_align - align);
       /* Epilogue always copies COUNT_EXP & EPILOGUE_SIZE_NEEDED bytes.
 	 Make sure it is power of 2.  */
-      epilogue_size_needed = smallest_pow2_greater_than (epilogue_size_needed);
+      epilogue_size_needed = 1 << (floor_log2 (epilogue_size_needed) + 1);
 
       if (count)
 	{
@@ -23056,8 +23427,8 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 	     the info early.  */
 	  src = change_address (src, BLKmode, srcreg);
 	  dst = change_address (dst, BLKmode, destreg);
-	  expand_movmem_prologue (dst, src, destreg, srcreg, count_exp, align,
-				  desired_align);
+	  dst = expand_movmem_prologue (dst, src, destreg, srcreg, count_exp, align,
+					desired_align);
 	}
       else
 	{
@@ -23106,33 +23477,21 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
     {
     case libcall:
     case no_stringop:
+    case last_alg:
       gcc_unreachable ();
     case loop_1_byte:
-      expand_set_or_movmem_via_loop (dst, src, destreg, srcreg, NULL,
-				     count_exp, QImode, 1, expected_size);
-      break;
     case loop:
-      expand_set_or_movmem_via_loop (dst, src, destreg, srcreg, NULL,
-				     count_exp, word_mode, 1, expected_size);
-      break;
     case unrolled_loop:
-      /* Unroll only by factor of 2 in 32bit mode, since we don't have enough
-	 registers for 4 temporaries anyway.  */
+    case vector_loop:
       expand_set_or_movmem_via_loop (dst, src, destreg, srcreg, NULL,
-				     count_exp, word_mode, TARGET_64BIT ? 4 : 2,
+				     count_exp, move_mode, unroll_factor,
 				     expected_size);
       break;
     case rep_prefix_8_byte:
-      expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
-				 DImode);
-      break;
     case rep_prefix_4_byte:
-      expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
-				 SImode);
-      break;
     case rep_prefix_1_byte:
       expand_movmem_via_rep_mov (dst, src, destreg, srcreg, count_exp,
-				 QImode);
+				 move_mode);
       break;
     }
   /* Adjust properly the offset of src and dest memory for aliasing.  */
@@ -23294,6 +23653,8 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
   int dynamic_check;
   bool need_zero_guard = false;
   bool noalign;
+  enum machine_mode move_mode = VOIDmode;
+  int unroll_factor;
 
   if (CONST_INT_P (align_exp))
     align = INTVAL (align_exp);
@@ -23314,45 +23675,50 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
      size of chunks to be copied by main loop.  */
 
   alg = decide_alg (count, expected_size, true, &dynamic_check, &noalign);
-  desired_align = decide_alignment (align, alg, expected_size);
-
-  if (!TARGET_ALIGN_STRINGOPS || noalign)
-    align = desired_align;
-
   if (alg == libcall)
     return false;
   gcc_assert (alg != no_stringop);
+
   if (!count)
     count_exp = copy_to_mode_reg (counter_mode (count_exp), count_exp);
   destreg = copy_addr_to_reg (XEXP (dst, 0));
+
+  move_mode = word_mode;
+  unroll_factor = 1;
   switch (alg)
     {
     case libcall:
     case no_stringop:
+    case last_alg:
       gcc_unreachable ();
     case loop:
       need_zero_guard = true;
-      size_needed = GET_MODE_SIZE (word_mode);
       break;
+    case vector_loop:
     case unrolled_loop:
       need_zero_guard = true;
-      size_needed = GET_MODE_SIZE (word_mode) * 4;
+      unroll_factor = 4;
       break;
     case rep_prefix_8_byte:
-      size_needed = 8;
+      move_mode = DImode;
       break;
     case rep_prefix_4_byte:
-      size_needed = 4;
+      move_mode = SImode;
       break;
     case rep_prefix_1_byte:
-      size_needed = 1;
+      move_mode = QImode;
       break;
     case loop_1_byte:
       need_zero_guard = true;
-      size_needed = 1;
+      move_mode = QImode;
       break;
     }
+  size_needed = GET_MODE_SIZE (move_mode) * unroll_factor;
   epilogue_size_needed = size_needed;
+
+  desired_align = decide_alignment (align, alg, expected_size, move_mode);
+  if (!TARGET_ALIGN_STRINGOPS || noalign)
+    align = desired_align;
 
   /* Step 1: Prologue guard.  */
 
@@ -23389,7 +23755,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
       epilogue_size_needed = MAX (size_needed - 1, desired_align - align);
       /* Epilogue always copies COUNT_EXP & (EPILOGUE_SIZE_NEEDED - 1) bytes.
 	 Make sure it is power of 2.  */
-      epilogue_size_needed = smallest_pow2_greater_than (epilogue_size_needed);
+      epilogue_size_needed = 1 << (floor_log2 (epilogue_size_needed) + 1);
 
       /* To improve performance of small blocks, we jump around the VAL
 	 promoting mode.  This mean that if the promoted VAL is not constant,
@@ -23501,18 +23867,15 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
     {
     case libcall:
     case no_stringop:
+    case last_alg:
       gcc_unreachable ();
     case loop_1_byte:
-      expand_set_or_movmem_via_loop (dst, NULL, destreg, NULL, promoted_val,
-				     count_exp, QImode, 1, expected_size);
-      break;
     case loop:
-      expand_set_or_movmem_via_loop (dst, NULL, destreg, NULL, promoted_val,
-				     count_exp, word_mode, 1, expected_size);
-      break;
+    case vector_loop:
     case unrolled_loop:
       expand_set_or_movmem_via_loop (dst, NULL, destreg, NULL, promoted_val,
-				     count_exp, word_mode, 4, expected_size);
+				     count_exp, move_mode, unroll_factor,
+				     expected_size);
       break;
     case rep_prefix_8_byte:
       expand_setmem_via_rep_stos (dst, destreg, promoted_val, count_exp,
@@ -23817,7 +24180,7 @@ construct_plt_address (rtx symbol)
   rtx tmp, unspec;
 
   gcc_assert (GET_CODE (symbol) == SYMBOL_REF);
-  gcc_assert (ix86_cmodel == CM_LARGE_PIC);
+  gcc_assert (ix86_cmodel == CM_LARGE_PIC && !TARGET_PECOFF);
   gcc_assert (Pmode == DImode);
 
   tmp = gen_reg_rtx (Pmode);
@@ -23833,17 +24196,11 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 		  rtx callarg2,
 		  rtx pop, bool sibcall)
 {
-  /* We need to represent that SI and DI registers are clobbered
-     by SYSV calls.  */
-  static int clobbered_registers[] = {
-	XMM6_REG, XMM7_REG, XMM8_REG,
-	XMM9_REG, XMM10_REG, XMM11_REG,
-	XMM12_REG, XMM13_REG, XMM14_REG,
-	XMM15_REG, SI_REG, DI_REG
-  };
-  rtx vec[ARRAY_SIZE (clobbered_registers) + 3];
+  unsigned int const cregs_size
+    = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
+  rtx vec[3 + cregs_size];
   rtx use = NULL, call;
-  unsigned int vec_len;
+  unsigned int vec_len = 0;
 
   if (pop == const0_rtx)
     pop = NULL;
@@ -23859,7 +24216,10 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   else
     {
       /* Static functions and indirect calls don't need the pic register.  */
-      if (flag_pic && (!TARGET_64BIT || ix86_cmodel == CM_LARGE_PIC)
+      if (flag_pic
+	  && (!TARGET_64BIT
+	      || (ix86_cmodel == CM_LARGE_PIC
+		  && DEFAULT_ABI != MS_ABI))
 	  && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
 	  && ! SYMBOL_REF_LOCAL_P (XEXP (fnaddr, 0)))
 	use_reg (&use, pic_offset_table_rtx);
@@ -23873,6 +24233,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
     }
 
   if (ix86_cmodel == CM_LARGE_PIC
+      && !TARGET_PECOFF
       && MEM_P (fnaddr)
       && GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF
       && !local_symbolic_operand (XEXP (fnaddr, 0), VOIDmode))
@@ -23885,7 +24246,6 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       fnaddr = gen_rtx_MEM (QImode, copy_to_mode_reg (word_mode, fnaddr));
     }
 
-  vec_len = 0;
   call = gen_rtx_CALL (VOIDmode, fnaddr, callarg1);
   if (retval)
     call = gen_rtx_SET (VOIDmode, retval, call);
@@ -23906,12 +24266,14 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       vec[vec_len++] = gen_rtx_UNSPEC (VOIDmode, gen_rtvec (1, const0_rtx),
 				       UNSPEC_MS_TO_SYSV_CALL);
 
-      for (i = 0; i < ARRAY_SIZE (clobbered_registers); i++)
-	vec[vec_len++]
-	  = gen_rtx_CLOBBER (VOIDmode,
-			     gen_rtx_REG (SSE_REGNO_P (clobbered_registers[i])
-					  ? TImode : DImode,
-					  clobbered_registers[i]));
+      for (i = 0; i < cregs_size; i++)
+	{
+	  int regno = x86_64_ms_sysv_extra_clobbered_registers[i];
+	  enum machine_mode mode = SSE_REGNO_P (regno) ? TImode : DImode;
+
+	  vec[vec_len++]
+	    = gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (mode, regno));
+	}
     }
 
   if (vec_len > 1)
@@ -24320,6 +24682,7 @@ ix86_issue_rate (void)
     {
     case PROCESSOR_PENTIUM:
     case PROCESSOR_ATOM:
+    case PROCESSOR_SLM:
     case PROCESSOR_K6:
     case PROCESSOR_BTVER2:
       return 2;
@@ -24333,8 +24696,7 @@ ix86_issue_rate (void)
     case PROCESSOR_K8:
     case PROCESSOR_AMDFAM10:
     case PROCESSOR_NOCONA:
-    case PROCESSOR_GENERIC32:
-    case PROCESSOR_GENERIC64:
+    case PROCESSOR_GENERIC:
     case PROCESSOR_BDVER1:
     case PROCESSOR_BDVER2:
     case PROCESSOR_BDVER3:
@@ -24405,6 +24767,73 @@ ix86_agi_dependent (rtx set_insn, rtx use_insn)
 	rtx addr = XEXP (recog_data.operand[i], 0);
 	return modified_in_p (addr, set_insn) != 0;
       }
+  return false;
+}
+
+/* Helper function for exact_store_load_dependency.
+   Return true if addr is found in insn.  */
+static bool
+exact_dependency_1 (rtx addr, rtx insn)
+{
+  enum rtx_code code;
+  const char *format_ptr;
+  int i, j;
+
+  code = GET_CODE (insn);
+  switch (code)
+    {
+    case MEM:
+      if (rtx_equal_p (addr, insn))
+	return true;
+      break;
+    case REG:
+    CASE_CONST_ANY:
+    case SYMBOL_REF:
+    case CODE_LABEL:
+    case PC:
+    case CC0:
+    case EXPR_LIST:
+      return false;
+    default:
+      break;
+    }
+
+  format_ptr = GET_RTX_FORMAT (code);
+  for (i = 0; i < GET_RTX_LENGTH (code); i++)
+    {
+      switch (*format_ptr++)
+	{
+	case 'e':
+	  if (exact_dependency_1 (addr, XEXP (insn, i)))
+	    return true;
+	  break;
+	case 'E':
+	  for (j = 0; j < XVECLEN (insn, i); j++)
+	    if (exact_dependency_1 (addr, XVECEXP (insn, i, j)))
+	      return true;
+	    break;
+	}
+    }
+  return false;
+}
+
+/* Return true if there exists exact dependency for store & load, i.e.
+   the same memory address is used in them.  */
+static bool
+exact_store_load_dependency (rtx store, rtx load)
+{
+  rtx set1, set2;
+
+  set1 = single_set (store);
+  if (!set1)
+    return false;
+  if (!MEM_P (SET_DEST (set1)))
+    return false;
+  set2 = single_set (load);
+  if (!set2)
+    return false;
+  if (exact_dependency_1 (SET_DEST (set1), SET_SRC (set2)))
+    return true;
   return false;
 }
 
@@ -24531,8 +24960,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case PROCESSOR_BTVER1:
     case PROCESSOR_BTVER2:
     case PROCESSOR_ATOM:
-    case PROCESSOR_GENERIC32:
-    case PROCESSOR_GENERIC64:
+    case PROCESSOR_GENERIC:
       memory = get_attr_memory (insn);
 
       /* Show ability of reorder buffer to hide latency of load by executing
@@ -24558,6 +24986,39 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 	    cost -= loadcost;
 	  else
 	    cost = 0;
+	}
+      break;
+
+    case PROCESSOR_SLM:
+      if (!reload_completed)
+	return cost;
+
+      /* Increase cost of integer loads.  */
+      memory = get_attr_memory (dep_insn);
+      if (memory == MEMORY_LOAD || memory == MEMORY_BOTH)
+	{
+	  enum attr_unit unit = get_attr_unit (dep_insn);
+	  if (unit == UNIT_INTEGER && cost == 1)
+	    {
+	      if (memory == MEMORY_LOAD)
+		cost = 3;
+	      else
+		{
+		  /* Increase cost of ld/st for short int types only
+		     because of store forwarding issue.  */
+		  rtx set = single_set (dep_insn);
+		  if (set && (GET_MODE (SET_DEST (set)) == QImode
+			      || GET_MODE (SET_DEST (set)) == HImode))
+		    {
+		      /* Increase cost of store/load insn if exact
+			 dependence exists and it is load insn.  */
+		      enum attr_memory insn_memory = get_attr_memory (insn);
+		      if (insn_memory == MEMORY_LOAD
+			  && exact_store_load_dependency (dep_insn, insn))
+			cost = 3;
+		    }
+		}
+	    }
 	}
 
     default:
@@ -24587,6 +25048,7 @@ ia32_multipass_dfa_lookahead (void)
     case PROCESSOR_COREI7:
     case PROCESSOR_HASWELL:
     case PROCESSOR_ATOM:
+    case PROCESSOR_SLM:
       /* Generally, we want haifa-sched:max_issue() to look ahead as far
 	 as many instructions can be executed on a cycle, i.e.,
 	 issue_rate.  I wonder why tuning for many CPUs does not do this.  */
@@ -24604,110 +25066,204 @@ ia32_multipass_dfa_lookahead (void)
    execution. It is applied if
    (1) IMUL instruction is on the top of list;
    (2) There exists the only producer of independent IMUL instruction in
-       ready list;
-   (3) Put found producer on the top of ready list.
-   Returns issue rate.  */
-
+       ready list.
+   Return index of IMUL producer if it was found and -1 otherwise.  */
 static int
-ix86_sched_reorder(FILE *dump, int sched_verbose, rtx *ready, int *pn_ready,
-                   int clock_var ATTRIBUTE_UNUSED)
+do_reorder_for_imul (rtx *ready, int n_ready)
 {
-  static int issue_rate = -1;
-  int n_ready = *pn_ready;
-  rtx insn, insn1, insn2;
-  int i;
+  rtx insn, set, insn1, insn2;
   sd_iterator_def sd_it;
   dep_t dep;
   int index = -1;
+  int i;
+
+  if (ix86_tune != PROCESSOR_ATOM)
+    return index;
+
+  /* Check that IMUL instruction is on the top of ready list.  */
+  insn = ready[n_ready - 1];
+  set = single_set (insn);
+  if (!set)
+    return index;
+  if (!(GET_CODE (SET_SRC (set)) == MULT
+      && GET_MODE (SET_SRC (set)) == SImode))
+    return index;
+
+  /* Search for producer of independent IMUL instruction.  */
+  for (i = n_ready - 2; i >= 0; i--)
+    {
+      insn = ready[i];
+      if (!NONDEBUG_INSN_P (insn))
+	continue;
+      /* Skip IMUL instruction.  */
+      insn2 = PATTERN (insn);
+      if (GET_CODE (insn2) == PARALLEL)
+	insn2 = XVECEXP (insn2, 0, 0);
+      if (GET_CODE (insn2) == SET
+	  && GET_CODE (SET_SRC (insn2)) == MULT
+	  && GET_MODE (SET_SRC (insn2)) == SImode)
+	continue;
+
+      FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
+	{
+	  rtx con;
+	  con = DEP_CON (dep);
+	  if (!NONDEBUG_INSN_P (con))
+	    continue;
+	  insn1 = PATTERN (con);
+	  if (GET_CODE (insn1) == PARALLEL)
+	    insn1 = XVECEXP (insn1, 0, 0);
+
+	  if (GET_CODE (insn1) == SET
+	      && GET_CODE (SET_SRC (insn1)) == MULT
+	      && GET_MODE (SET_SRC (insn1)) == SImode)
+	    {
+	      sd_iterator_def sd_it1;
+	      dep_t dep1;
+	      /* Check if there is no other dependee for IMUL.  */
+	      index = i;
+	      FOR_EACH_DEP (con, SD_LIST_BACK, sd_it1, dep1)
+		{
+		  rtx pro;
+		  pro = DEP_PRO (dep1);
+		  if (!NONDEBUG_INSN_P (pro))
+		    continue;
+		  if (pro != insn)
+		    index = -1;
+		}
+	      if (index >= 0)
+		break;
+	    }
+	}
+      if (index >= 0)
+	break;
+    }
+  return index;
+}
+
+/* Try to find the best candidate on the top of ready list if two insns
+   have the same priority - candidate is best if its dependees were
+   scheduled earlier. Applied for Silvermont only.
+   Return true if top 2 insns must be interchanged.  */
+static bool
+swap_top_of_ready_list (rtx *ready, int n_ready)
+{
+  rtx top = ready[n_ready - 1];
+  rtx next = ready[n_ready - 2];
+  rtx set;
+  sd_iterator_def sd_it;
+  dep_t dep;
+  int clock1 = -1;
+  int clock2 = -1;
+  #define INSN_TICK(INSN) (HID (INSN)->tick)
+
+  if (ix86_tune != PROCESSOR_SLM)
+    return false;
+
+  if (!NONDEBUG_INSN_P (top))
+    return false;
+  if (!NONJUMP_INSN_P (top))
+    return false;
+  if (!NONDEBUG_INSN_P (next))
+    return false;
+  if (!NONJUMP_INSN_P (next))
+    return false;
+  set = single_set (top);
+  if (!set)
+    return false;
+  set = single_set (next);
+  if (!set)
+    return false;
+
+  if (INSN_PRIORITY_KNOWN (top) && INSN_PRIORITY_KNOWN (next))
+    {
+      if (INSN_PRIORITY (top) != INSN_PRIORITY (next))
+	return false;
+      /* Determine winner more precise.  */
+      FOR_EACH_DEP (top, SD_LIST_RES_BACK, sd_it, dep)
+	{
+	  rtx pro;
+	  pro = DEP_PRO (dep);
+	  if (!NONDEBUG_INSN_P (pro))
+	    continue;
+	  if (INSN_TICK (pro) > clock1)
+	    clock1 = INSN_TICK (pro);
+	}
+      FOR_EACH_DEP (next, SD_LIST_RES_BACK, sd_it, dep)
+	{
+	  rtx pro;
+	  pro = DEP_PRO (dep);
+	  if (!NONDEBUG_INSN_P (pro))
+	    continue;
+	  if (INSN_TICK (pro) > clock2)
+	    clock2 = INSN_TICK (pro);
+	}
+
+      if (clock1 == clock2)
+	{
+	  /* Determine winner - load must win. */
+	  enum attr_memory memory1, memory2;
+	  memory1 = get_attr_memory (top);
+	  memory2 = get_attr_memory (next);
+	  if (memory2 == MEMORY_LOAD && memory1 != MEMORY_LOAD)
+	    return true;
+	}
+	return (bool) (clock2 < clock1);
+    }
+  return false;
+  #undef INSN_TICK
+}
+
+/* Perform possible reodering of ready list for Atom/Silvermont only.
+   Return issue rate.  */
+static int
+ix86_sched_reorder (FILE *dump, int sched_verbose, rtx *ready, int *pn_ready,
+		   int clock_var)
+{
+  int issue_rate = -1;
+  int n_ready = *pn_ready;
+  int i;
+  rtx insn;
+  int index = -1;
 
   /* Set up issue rate.  */
-  issue_rate = ix86_issue_rate();
+  issue_rate = ix86_issue_rate ();
 
-  /* Do reodering for Atom only.  */
-  if (ix86_tune != PROCESSOR_ATOM)
+  /* Do reodering for Atom/SLM only.  */
+  if (ix86_tune != PROCESSOR_ATOM && ix86_tune != PROCESSOR_SLM)
     return issue_rate;
-  /* Do not perform ready list reodering for pre-reload schedule pass.  */
-  if (!reload_completed)
-    return issue_rate;
+
   /* Nothing to do if ready list contains only 1 instruction.  */
   if (n_ready <= 1)
     return issue_rate;
 
-  /* Check that IMUL instruction is on the top of ready list.  */
-  insn = ready[n_ready - 1];
-  if (!NONDEBUG_INSN_P (insn))
-    return issue_rate;
-  insn = PATTERN (insn);
-  if (GET_CODE (insn) == PARALLEL)
-    insn = XVECEXP (insn, 0, 0);
-  if (GET_CODE (insn) != SET)
-    return issue_rate;
-  if (!(GET_CODE (SET_SRC (insn)) == MULT
-      && GET_MODE (SET_SRC (insn)) == SImode))
+  /* Do reodering for post-reload scheduler only.  */
+  if (!reload_completed)
     return issue_rate;
 
-  /* Search for producer of independent IMUL instruction.  */
-  for (i = n_ready - 2; i>= 0; i--)
+  if ((index = do_reorder_for_imul (ready, n_ready)) >= 0)
     {
-      insn = ready[i];
-      if (!NONDEBUG_INSN_P (insn))
-        continue;
-      /* Skip IMUL instruction.  */
-      insn2 = PATTERN (insn);
-      if (GET_CODE (insn2) == PARALLEL)
-        insn2 = XVECEXP (insn2, 0, 0);
-      if (GET_CODE (insn2) == SET
-          && GET_CODE (SET_SRC (insn2)) == MULT
-          && GET_MODE (SET_SRC (insn2)) == SImode)
-        continue;
+      if (sched_verbose > 1)
+	fprintf (dump, ";;\tatom sched_reorder: put %d insn on top\n",
+		 INSN_UID (ready[index]));
 
-      FOR_EACH_DEP (insn, SD_LIST_FORW, sd_it, dep)
-        {
-          rtx con;
-	  con = DEP_CON (dep);
-	  if (!NONDEBUG_INSN_P (con))
-	    continue;
-          insn1 = PATTERN (con);
-          if (GET_CODE (insn1) == PARALLEL)
-            insn1 = XVECEXP (insn1, 0, 0);
-
-          if (GET_CODE (insn1) == SET
-              && GET_CODE (SET_SRC (insn1)) == MULT
-              && GET_MODE (SET_SRC (insn1)) == SImode)
-            {
-              sd_iterator_def sd_it1;
-              dep_t dep1;
-              /* Check if there is no other dependee for IMUL.  */
-              index = i;
-              FOR_EACH_DEP (con, SD_LIST_BACK, sd_it1, dep1)
-                {
-                  rtx pro;
-                  pro = DEP_PRO (dep1);
-		  if (!NONDEBUG_INSN_P (pro))
-		    continue;
-                  if (pro != insn)
-                    index = -1;
-	        }
-              if (index >= 0)
-                break;
-            }
-        }
-      if (index >= 0)
-        break;
+      /* Put IMUL producer (ready[index]) at the top of ready list.  */
+      insn = ready[index];
+      for (i = index; i < n_ready - 1; i++)
+	ready[i] = ready[i + 1];
+      ready[n_ready - 1] = insn;
+      return issue_rate;
     }
-  if (index < 0)
-    return issue_rate; /* Didn't find IMUL producer.  */
-
-  if (sched_verbose > 1)
-    fprintf(dump, ";;\tatom sched_reorder: swap %d and %d insns\n",
-            INSN_UID (ready[index]), INSN_UID (ready[n_ready - 1]));
-
-  /* Put IMUL producer (ready[index]) at the top of ready list.  */
-  insn1= ready[index];
-  for (i = index; i < n_ready - 1; i++)
-    ready[i] = ready[i + 1];
-  ready[n_ready - 1] = insn1;
-
+  if (clock_var != 0 && swap_top_of_ready_list (ready, n_ready))
+    {
+      if (sched_verbose > 1)
+	fprintf (dump, ";;\tslm sched_reorder: swap %d and %d insns\n",
+		 INSN_UID (ready[n_ready - 1]), INSN_UID (ready[n_ready - 2]));
+      /* Swap 2 top elements of ready list.  */
+      insn = ready[n_ready - 1];
+      ready[n_ready - 1] = ready[n_ready - 2];
+      ready[n_ready - 2] = insn;
+    }
   return issue_rate;
 }
 
@@ -24788,7 +25344,7 @@ add_parameter_dependencies (rtx call, rtx head)
 	  /* Add output depdendence between two function arguments if chain
 	     of output arguments contains likely spilled HW registers.  */
 	  if (is_spilled)
-	    add_dependence (last, insn, REG_DEP_OUTPUT);
+	    add_dependence (first_arg, insn, REG_DEP_OUTPUT);
 	  first_arg = last = insn;
 	}
       else
@@ -25200,11 +25756,12 @@ ix86_constant_alignment (tree exp, int align)
    instead of that alignment to align the object.  */
 
 int
-ix86_data_alignment (tree type, int align)
+ix86_data_alignment (tree type, int align, bool opt)
 {
   int max_align = optimize_size ? BITS_PER_WORD : MIN (256, MAX_OFILE_ALIGNMENT);
 
-  if (AGGREGATE_TYPE_P (type)
+  if (opt
+      && AGGREGATE_TYPE_P (type)
       && TYPE_SIZE (type)
       && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
       && (TREE_INT_CST_LOW (TYPE_SIZE (type)) >= (unsigned) max_align
@@ -25216,13 +25773,16 @@ ix86_data_alignment (tree type, int align)
      to 16byte boundary.  */
   if (TARGET_64BIT)
     {
-      if (AGGREGATE_TYPE_P (type)
-	   && TYPE_SIZE (type)
-	   && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	   && (TREE_INT_CST_LOW (TYPE_SIZE (type)) >= 128
-	       || TREE_INT_CST_HIGH (TYPE_SIZE (type))) && align < 128)
+      if ((opt ? AGGREGATE_TYPE_P (type) : TREE_CODE (type) == ARRAY_TYPE)
+	  && TYPE_SIZE (type)
+	  && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
+	  && (TREE_INT_CST_LOW (TYPE_SIZE (type)) >= 128
+	      || TREE_INT_CST_HIGH (TYPE_SIZE (type))) && align < 128)
 	return 128;
     }
+
+  if (!opt)
+    return align;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -25319,7 +25879,9 @@ ix86_local_alignment (tree exp, enum machine_mode mode,
      other unit can not rely on the alignment.
 
      Exclude va_list type.  It is the common case of local array where
-     we can not benefit from the alignment.  */
+     we can not benefit from the alignment.  
+
+     TODO: Probably one should optimize for size only when var is not escaping.  */
   if (TARGET_64BIT && optimize_function_for_speed_p (cfun)
       && TARGET_SSE)
     {
@@ -25733,8 +26295,6 @@ enum ix86_builtins
   IX86_BUILTIN_CMPNEQSS,
   IX86_BUILTIN_CMPNLTSS,
   IX86_BUILTIN_CMPNLESS,
-  IX86_BUILTIN_CMPNGTSS,
-  IX86_BUILTIN_CMPNGESS,
   IX86_BUILTIN_CMPORDSS,
   IX86_BUILTIN_CMPUNORDSS,
 
@@ -27137,13 +27697,13 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_lfence, "__builtin_ia32_lfence", IX86_BUILTIN_LFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_mfence, 0, IX86_BUILTIN_MFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storeupd, "__builtin_ia32_storeupd", IX86_BUILTIN_STOREUPD, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V2DF },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storedqu, "__builtin_ia32_storedqu", IX86_BUILTIN_STOREDQU, UNKNOWN, (int) VOID_FTYPE_PCHAR_V16QI },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storedquv16qi, "__builtin_ia32_storedqu", IX86_BUILTIN_STOREDQU, UNKNOWN, (int) VOID_FTYPE_PCHAR_V16QI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2df, "__builtin_ia32_movntpd", IX86_BUILTIN_MOVNTPD, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V2DF },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2di, "__builtin_ia32_movntdq", IX86_BUILTIN_MOVNTDQ, UNKNOWN, (int) VOID_FTYPE_PV2DI_V2DI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntisi, "__builtin_ia32_movnti", IX86_BUILTIN_MOVNTI, UNKNOWN, (int) VOID_FTYPE_PINT_INT },
   { OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_64BIT, CODE_FOR_sse2_movntidi, "__builtin_ia32_movnti64", IX86_BUILTIN_MOVNTI64, UNKNOWN, (int) VOID_FTYPE_PLONGLONG_LONGLONG },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadupd, "__builtin_ia32_loadupd", IX86_BUILTIN_LOADUPD, UNKNOWN, (int) V2DF_FTYPE_PCDOUBLE },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loaddqu, "__builtin_ia32_loaddqu", IX86_BUILTIN_LOADDQU, UNKNOWN, (int) V16QI_FTYPE_PCCHAR },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loaddquv16qi, "__builtin_ia32_loaddqu", IX86_BUILTIN_LOADDQU, UNKNOWN, (int) V16QI_FTYPE_PCCHAR },
 
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadhpd_exp, "__builtin_ia32_loadhpd", IX86_BUILTIN_LOADHPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_PCDOUBLE },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadlpd_exp, "__builtin_ia32_loadlpd", IX86_BUILTIN_LOADLPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_PCDOUBLE },
@@ -27172,8 +27732,8 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loadups256, "__builtin_ia32_loadups256", IX86_BUILTIN_LOADUPS256, UNKNOWN, (int) V8SF_FTYPE_PCFLOAT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storeupd256, "__builtin_ia32_storeupd256", IX86_BUILTIN_STOREUPD256, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storeups256, "__builtin_ia32_storeups256", IX86_BUILTIN_STOREUPS256, UNKNOWN, (int) VOID_FTYPE_PFLOAT_V8SF },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loaddqu256, "__builtin_ia32_loaddqu256", IX86_BUILTIN_LOADDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storedqu256, "__builtin_ia32_storedqu256", IX86_BUILTIN_STOREDQU256, UNKNOWN, (int) VOID_FTYPE_PCHAR_V32QI },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loaddquv32qi, "__builtin_ia32_loaddqu256", IX86_BUILTIN_LOADDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storedquv32qi, "__builtin_ia32_storedqu256", IX86_BUILTIN_STOREDQU256, UNKNOWN, (int) VOID_FTYPE_PCHAR_V32QI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_lddqu256, "__builtin_ia32_lddqu256", IX86_BUILTIN_LDDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movntv4di, "__builtin_ia32_movntdq256", IX86_BUILTIN_MOVNTDQ256, UNKNOWN, (int) VOID_FTYPE_PV4DI_V4DI },
@@ -27372,8 +27932,6 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpneqss", IX86_BUILTIN_CMPNEQSS, NE, (int) V4SF_FTYPE_V4SF_V4SF },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpnltss", IX86_BUILTIN_CMPNLTSS, UNGE, (int) V4SF_FTYPE_V4SF_V4SF },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpnless", IX86_BUILTIN_CMPNLESS, UNGT, (int) V4SF_FTYPE_V4SF_V4SF },
-  { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpngtss", IX86_BUILTIN_CMPNGTSS, UNGE, (int) V4SF_FTYPE_V4SF_V4SF_SWAP },
-  { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpngess", IX86_BUILTIN_CMPNGESS, UNGT, (int) V4SF_FTYPE_V4SF_V4SF_SWAP },
   { OPTION_MASK_ISA_SSE, CODE_FOR_sse_vmmaskcmpv4sf3, "__builtin_ia32_cmpordss", IX86_BUILTIN_CMPORDSS, ORDERED, (int) V4SF_FTYPE_V4SF_V4SF },
 
   { OPTION_MASK_ISA_SSE, CODE_FOR_sminv4sf3, "__builtin_ia32_minps", IX86_BUILTIN_MINPS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF },
@@ -29181,10 +29739,11 @@ dispatch_function_versions (tree dispatch_decl,
       if (predicate_chain == NULL_TREE)
 	continue;
 
+      function_version_info [actual_versions].version_decl = version_decl;
+      function_version_info [actual_versions].predicate_chain
+	 = predicate_chain;
+      function_version_info [actual_versions].dispatch_priority = priority;
       actual_versions++;
-      function_version_info [ix - 1].version_decl = version_decl;
-      function_version_info [ix - 1].predicate_chain = predicate_chain;
-      function_version_info [ix - 1].dispatch_priority = priority;
     }
 
   /* Sort the versions according to descending order of dispatch priority.  The
@@ -29382,8 +29941,8 @@ ix86_function_versions (tree fn1, tree fn2)
 	  error_at (DECL_SOURCE_LOCATION (fn2),
 		    "missing %<target%> attribute for multi-versioned %D",
 		    fn2);
-	  error_at (DECL_SOURCE_LOCATION (fn1),
-		    "previous declaration of %D", fn1);
+	  inform (DECL_SOURCE_LOCATION (fn1),
+		  "previous declaration of %D", fn1);
 	  /* Prevent diagnosing of the same error multiple times.  */
 	  DECL_ATTRIBUTES (fn2)
 	    = tree_cons (get_identifier ("target"),
@@ -29457,7 +30016,7 @@ make_name (tree decl, const char *suffix, bool make_unique)
   return global_var_name;
 }
 
-#if defined (ASM_OUTPUT_TYPE_DIRECTIVE) && HAVE_GNU_INDIRECT_FUNCTION
+#if defined (ASM_OUTPUT_TYPE_DIRECTIVE)
 
 /* Make a dispatcher declaration for the multi-versioned function DECL.
    Calls to DECL function will be replaced with calls to the dispatcher
@@ -29528,12 +30087,6 @@ ix86_get_function_versions_dispatcher (void *decl)
 
   tree dispatch_decl = NULL;
 
-#if defined (ASM_OUTPUT_TYPE_DIRECTIVE) && HAVE_GNU_INDIRECT_FUNCTION
-  struct cgraph_function_version_info *it_v = NULL;
-  struct cgraph_node *dispatcher_node = NULL;
-  struct cgraph_function_version_info *dispatcher_version_info = NULL;
-#endif
-
   struct cgraph_function_version_info *default_version_info = NULL;
  
   gcc_assert (fn != NULL && DECL_FUNCTION_VERSIONED (fn));
@@ -29549,7 +30102,7 @@ ix86_get_function_versions_dispatcher (void *decl)
 
   /* Find the default version and make it the first node.  */
   first_v = node_v;
-  /* Go to the beginnig of the chain.  */
+  /* Go to the beginning of the chain.  */
   while (first_v->prev != NULL)
     first_v = first_v->prev;
   default_version_info = first_v;
@@ -29578,30 +30131,40 @@ ix86_get_function_versions_dispatcher (void *decl)
 
   default_node = default_version_info->this_node;
 
-#if defined (ASM_OUTPUT_TYPE_DIRECTIVE) && HAVE_GNU_INDIRECT_FUNCTION
-  /* Right now, the dispatching is done via ifunc.  */
-  dispatch_decl = make_dispatcher_decl (default_node->symbol.decl); 
-
-  dispatcher_node = cgraph_get_create_node (dispatch_decl);
-  gcc_assert (dispatcher_node != NULL);
-  dispatcher_node->dispatcher_function = 1;
-  dispatcher_version_info
-    = insert_new_cgraph_node_version (dispatcher_node);
-  dispatcher_version_info->next = default_version_info;
-  dispatcher_node->local.finalized = 1;
- 
-  /* Set the dispatcher for all the versions.  */ 
-  it_v = default_version_info;
-  while (it_v != NULL)
+#if defined (ASM_OUTPUT_TYPE_DIRECTIVE)
+  if (targetm.has_ifunc_p ())
     {
-      it_v->dispatcher_resolver = dispatch_decl;
-      it_v = it_v->next;
+      struct cgraph_function_version_info *it_v = NULL;
+      struct cgraph_node *dispatcher_node = NULL;
+      struct cgraph_function_version_info *dispatcher_version_info = NULL;
+
+      /* Right now, the dispatching is done via ifunc.  */
+      dispatch_decl = make_dispatcher_decl (default_node->symbol.decl);
+
+      dispatcher_node = cgraph_get_create_node (dispatch_decl);
+      gcc_assert (dispatcher_node != NULL);
+      dispatcher_node->dispatcher_function = 1;
+      dispatcher_version_info
+	= insert_new_cgraph_node_version (dispatcher_node);
+      dispatcher_version_info->next = default_version_info;
+      dispatcher_node->symbol.definition = 1;
+
+      /* Set the dispatcher for all the versions.  */
+      it_v = default_version_info;
+      while (it_v != NULL)
+	{
+	  it_v->dispatcher_resolver = dispatch_decl;
+	  it_v = it_v->next;
+	}
     }
-#else
-  error_at (DECL_SOURCE_LOCATION (default_node->symbol.decl),
-	    "multiversioning needs ifunc which is not supported "
-	    "in this configuration");
+  else
 #endif
+    {
+      error_at (DECL_SOURCE_LOCATION (default_node->symbol.decl),
+		"multiversioning needs ifunc which is not supported "
+		"on this target");
+    }
+
   return dispatch_decl;
 }
 
@@ -29662,7 +30225,7 @@ make_resolver_func (const tree default_decl,
   DECL_IGNORED_P (decl) = 0;
   /* IFUNC resolvers have to be externally visible.  */
   TREE_PUBLIC (decl) = 1;
-  DECL_UNINLINABLE (decl) = 0;
+  DECL_UNINLINABLE (decl) = 1;
 
   /* Resolver is not external, body is generated.  */
   DECL_EXTERNAL (decl) = 0;
@@ -29739,7 +30302,7 @@ ix86_generate_version_dispatcher_body (void *node_p)
   default_ver_decl = node_version_info->next->this_node->symbol.decl;
 
   /* node is going to be an alias, so remove the finalized bit.  */
-  node->local.finalized = false;
+  node->symbol.definition = false;
 
   resolver_decl = make_resolver_func (default_ver_decl,
 				      node->symbol.decl, &empty_bb);
@@ -29872,6 +30435,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_INTEL_COREI7,
     M_AMDFAM10H,
     M_AMDFAM15H,
+    M_INTEL_SLM,
     M_CPU_SUBTYPE_START,
     M_INTEL_COREI7_NEHALEM,
     M_INTEL_COREI7_WESTMERE,
@@ -29894,6 +30458,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"amd", M_AMD},
       {"intel", M_INTEL},
       {"atom", M_INTEL_ATOM},
+      {"slm", M_INTEL_SLM},
       {"core2", M_INTEL_CORE2},
       {"corei7", M_INTEL_COREI7},
       {"nehalem", M_INTEL_COREI7_NEHALEM},
@@ -29932,6 +30497,9 @@ fold_builtin_cpu (tree fndecl, tree *args)
   tree __processor_model_type = build_processor_model_struct ();
   tree __cpu_model_var = make_var_decl (__processor_model_type,
 					"__cpu_model");
+
+
+  varpool_add_new_variable (__cpu_model_var);
 
   gcc_assert ((args != NULL) && (*args != NULL));
 
@@ -31799,9 +32367,8 @@ ix86_expand_vec_set_builtin (tree exp)
    IGNORE is nonzero if the value is to be ignored.  */
 
 static rtx
-ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
-		     enum machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
+ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
+		     enum machine_mode mode, int ignore)
 {
   const struct builtin_description *d;
   size_t i;
@@ -32026,7 +32593,13 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	}
 
       if (target == 0)
-	target = gen_reg_rtx (mode);
+	{
+	  /* mode is VOIDmode if __builtin_rd* has been called
+	     without lhs.  */
+	  if (mode == VOIDmode)
+	    return target;
+	  target = gen_reg_rtx (mode);
+	}
 
       if (TARGET_64BIT)
 	{
@@ -33550,10 +34123,12 @@ ix86_preferred_reload_class (rtx x, reg_class_t regclass)
     return regclass;
 
   /* Force constants into memory if we are loading a (nonzero) constant into
-     an MMX or SSE register.  This is because there are no MMX/SSE instructions
-     to load from a constant.  */
+     an MMX, SSE or MASK register.  This is because there are no MMX/SSE/MASK
+     instructions to load from a constant.  */
   if (CONSTANT_P (x)
-      && (MAYBE_MMX_CLASS_P (regclass) || MAYBE_SSE_CLASS_P (regclass)))
+      && (MAYBE_MMX_CLASS_P (regclass)
+	  || MAYBE_SSE_CLASS_P (regclass)
+	  || MAYBE_MASK_CLASS_P (regclass)))
     return NO_REGS;
 
   /* Prefer SSE regs only, if we can use them for math.  */
@@ -33619,7 +34194,7 @@ ix86_preferred_output_reload_class (rtx x, reg_class_t regclass)
      alternative: if reload cannot do this, it will still use its choice.  */
   mode = GET_MODE (x);
   if (TARGET_SSE_MATH && SSE_FLOAT_MODE_P (mode))
-    return MAYBE_SSE_CLASS_P (regclass) ? SSE_REGS : NO_REGS;
+    return MAYBE_SSE_CLASS_P (regclass) ? ALL_SSE_REGS : NO_REGS;
 
   if (X87_FLOAT_MODE_P (mode))
     {
@@ -33643,7 +34218,7 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
   if (TARGET_64BIT
       && MEM_P (x)
       && GET_MODE_SIZE (mode) > UNITS_PER_WORD
-      && rclass == GENERAL_REGS
+      && INTEGER_CLASS_P (rclass)
       && !offsettable_memref_p (x))
     {
       sri->icode = (in_p
@@ -33657,14 +34232,11 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
 
   /* QImode spills from non-QI registers require
      intermediate register on 32bit targets.  */
-  if (!TARGET_64BIT
-      && !in_p && mode == QImode
-      && (rclass == GENERAL_REGS
-	  || rclass == LEGACY_REGS
-	  || rclass == NON_Q_REGS
-	  || rclass == SIREG
-	  || rclass == DIREG
-	  || rclass == INDEX_REGS))
+  if (mode == QImode
+      && (MAYBE_MASK_CLASS_P (rclass)
+	  || (!TARGET_64BIT && !in_p
+	      && INTEGER_CLASS_P (rclass)
+	      && MAYBE_NON_Q_CLASS_P (rclass))))
     {
       int regno;
 
@@ -33766,6 +34338,8 @@ static inline bool
 inline_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
 				enum machine_mode mode, int strict)
 {
+  if (lra_in_progress && (class1 == NO_REGS || class2 == NO_REGS))
+    return false;
   if (MAYBE_FLOAT_CLASS_P (class1) != FLOAT_CLASS_P (class1)
       || MAYBE_FLOAT_CLASS_P (class2) != FLOAT_CLASS_P (class2)
       || MAYBE_SSE_CLASS_P (class1) != SSE_CLASS_P (class1)
@@ -33794,7 +34368,8 @@ inline_secondary_memory_needed (enum reg_class class1, enum reg_class class2,
 
       /* If the target says that inter-unit moves are more expensive
 	 than moving through memory, then don't generate them.  */
-      if (!TARGET_INTER_UNIT_MOVES)
+      if ((SSE_CLASS_P (class1) && !TARGET_INTER_UNIT_MOVES_FROM_VEC)
+	  || (SSE_CLASS_P (class2) && !TARGET_INTER_UNIT_MOVES_TO_VEC))
 	return true;
 
       /* Between SSE and general, we have moves no larger than word size.  */
@@ -34083,14 +34658,31 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return false;
   if (STACK_REGNO_P (regno))
     return VALID_FP_MODE_P (mode);
+  if (MASK_REGNO_P (regno))
+    return VALID_MASK_REG_MODE (mode);
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
 	 out of SSE registers, even when no operation instructions
-	 are available.  OImode move is available only when AVX is
-	 enabled.  */
+	 are available.  */
+
+      /* For AVX-512 we allow, regardless of regno:
+	  - XI mode
+	  - any of 512-bit wide vector mode
+	  - any scalar mode.  */
+      if (TARGET_AVX512F
+	  && (mode == XImode
+	      || VALID_AVX512F_REG_MODE (mode)
+	      || VALID_AVX512F_SCALAR_MODE (mode)))
+	return true;
+
+      /* xmm16-xmm31 are only available for AVX-512.  */
+      if (EXT_REX_SSE_REGNO_P (regno))
+	return false;
+
+      /* OImode move is available only when AVX is enabled.  */
       return ((TARGET_AVX && mode == OImode)
-	      || VALID_AVX256_REG_MODE (mode)
+	      || (TARGET_AVX && VALID_AVX256_REG_MODE (mode))
 	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)
@@ -34109,10 +34701,15 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
       /* Take care for QImode values - they can be in non-QI regs,
 	 but then they do cause partial register stalls.  */
-      if (TARGET_64BIT || QI_REGNO_P (regno))
+      if (ANY_QI_REGNO_P (regno))
 	return true;
       if (!TARGET_PARTIAL_REG_STALL)
 	return true;
+      /* LRA checks if the hard register is OK for the given mode.
+	 QImode values can live in non-QI regs, so we allow all
+	 registers here.  */
+      if (lra_in_progress)
+       return true;
       return !can_create_pseudo_p ();
     }
   /* We handle both integer and floats in the general purpose registers.  */
@@ -34235,7 +34832,8 @@ ix86_set_reg_reg_cost (enum machine_mode mode)
 
     case MODE_VECTOR_INT:
     case MODE_VECTOR_FLOAT:
-      if ((TARGET_AVX && VALID_AVX256_REG_MODE (mode))
+      if ((TARGET_AVX512F && VALID_AVX512F_REG_MODE (mode))
+	  || (TARGET_AVX && VALID_AVX256_REG_MODE (mode))
 	  || (TARGET_SSE2 && VALID_SSE2_REG_MODE (mode))
 	  || (TARGET_SSE && VALID_SSE_REG_MODE (mode))
 	  || (TARGET_MMX && VALID_MMX_REG_MODE (mode)))
@@ -34421,6 +35019,13 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    *total = cost->shift_const;
+	  else if (GET_CODE (XEXP (x, 1)) == SUBREG
+		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
+	    {
+	      /* Return the cost after shift-and truncation.  */
+	      *total = cost->shift_var;
+	      return true;
+	    }
 	  else
 	    *total = cost->shift_var;
 	}
@@ -34860,6 +35465,14 @@ x86_order_regs_for_local_alloc (void)
    for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
      reg_alloc_order [pos++] = i;
 
+   /* Extended REX SSE registers.  */
+   for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
+     reg_alloc_order [pos++] = i;
+
+   /* Mask register.  */
+   for (i = FIRST_MASK_REG; i <= LAST_MASK_REG; i++)
+     reg_alloc_order [pos++] = i;
+
    /* x87 registers.  */
    if (TARGET_SSE_MATH)
      for (i = FIRST_STACK_REG; i <= LAST_STACK_REG; i++)
@@ -35210,7 +35823,7 @@ x86_output_mi_thunk (FILE *file,
   if (TARGET_64BIT)
     {
       if (!flag_pic || targetm.binds_local_p (function)
-	  || cfun->machine->call_abi == MS_ABI)
+	  || TARGET_PECOFF)
 	;
       else
 	{
@@ -35323,7 +35936,7 @@ x86_function_profiler (FILE *file, int labelno ATTRIBUTE_UNUSED)
       fprintf (file, "\tleaq\t%sP%d(%%rip),%%r11\n", LPREFIX, labelno);
 #endif
 
-      if (DEFAULT_ABI == SYSV_ABI && flag_pic)
+      if (!TARGET_PECOFF && flag_pic)
 	fprintf (file, "\tcall\t*%s@GOTPCREL(%%rip)\n", mcount_name);
       else
 	fprintf (file, "\tcall\t%s\n", mcount_name);
@@ -35362,8 +35975,6 @@ min_insn_size (rtx insn)
   /* Discard alignments we've emit and jump instructions.  */
   if (GET_CODE (PATTERN (insn)) == UNSPEC_VOLATILE
       && XINT (PATTERN (insn), 1) == UNSPECV_ALIGN)
-    return 0;
-  if (JUMP_TABLE_DATA_P (insn))
     return 0;
 
   /* Important case - calls are always 5 bytes.
@@ -35455,10 +36066,7 @@ ix86_avoid_jump_mispredicts (void)
 	      while (nbytes + max_skip >= 16)
 		{
 		  start = NEXT_INSN (start);
-		  if ((JUMP_P (start)
-		       && GET_CODE (PATTERN (start)) != ADDR_VEC
-		       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
-		      || CALL_P (start))
+		  if (JUMP_P (start) || CALL_P (start))
 		    njumps--, isjump = 1;
 		  else
 		    isjump = 0;
@@ -35473,10 +36081,7 @@ ix86_avoid_jump_mispredicts (void)
       if (dump_file)
 	fprintf (dump_file, "Insn %i estimated to %i bytes\n",
 		 INSN_UID (insn), min_size);
-      if ((JUMP_P (insn)
-	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
-	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
-	  || CALL_P (insn))
+      if (JUMP_P (insn) || CALL_P (insn))
 	njumps++;
       else
 	continue;
@@ -35484,10 +36089,7 @@ ix86_avoid_jump_mispredicts (void)
       while (njumps > 3)
 	{
 	  start = NEXT_INSN (start);
-	  if ((JUMP_P (start)
-	       && GET_CODE (PATTERN (start)) != ADDR_VEC
-	       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
-	      || CALL_P (start))
+	  if (JUMP_P (start) || CALL_P (start))
 	    njumps--, isjump = 1;
 	  else
 	    isjump = 0;
@@ -35542,7 +36144,10 @@ ix86_pad_returns (void)
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (EDGE_FREQUENCY (e) && e->src->index >= 0
 		&& !(e->flags & EDGE_FALLTHRU))
-	      replace = true;
+	      {
+		replace = true;
+		break;
+	      }
 	}
       if (!replace)
 	{
@@ -35678,6 +36283,46 @@ ix86_pad_short_function (void)
     }
 }
 
+/* Fix up a Windows system unwinder issue.  If an EH region falls through into
+   the epilogue, the Windows system unwinder will apply epilogue logic and
+   produce incorrect offsets.  This can be avoided by adding a nop between
+   the last insn that can throw and the first insn of the epilogue.  */
+
+static void
+ix86_seh_fixup_eh_fallthru (void)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+    {
+      rtx insn, next;
+
+      /* Find the beginning of the epilogue.  */
+      for (insn = BB_END (e->src); insn != NULL; insn = PREV_INSN (insn))
+	if (NOTE_P (insn) && NOTE_KIND (insn) == NOTE_INSN_EPILOGUE_BEG)
+	  break;
+      if (insn == NULL)
+	continue;
+
+      /* We only care about preceding insns that can throw.  */
+      insn = prev_active_insn (insn);
+      if (insn == NULL || !can_throw_internal (insn))
+	continue;
+
+      /* Do not separate calls from their debug information.  */
+      for (next = NEXT_INSN (insn); next != NULL; next = NEXT_INSN (next))
+	if (NOTE_P (next)
+            && (NOTE_KIND (next) == NOTE_INSN_VAR_LOCATION
+                || NOTE_KIND (next) == NOTE_INSN_CALL_ARG_LOCATION))
+	  insn = next;
+	else
+	  break;
+
+      emit_insn_after (gen_nops (const1_rtx), insn);
+    }
+}
+
 /* Implement machine specific optimizations.  We implement padding of returns
    for K8 CPUs and pass to avoid 4 jumps in the single 16 byte window.  */
 static void
@@ -35686,6 +36331,9 @@ ix86_reorg (void)
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn ();
+
+  if (TARGET_SEH && current_function_has_exception_handlers ())
+    ix86_seh_fixup_eh_fallthru ();
 
   if (optimize && optimize_function_for_speed_p (cfun))
     {
@@ -35822,9 +36470,9 @@ x86_emit_floatuns (rtx operands[2])
   emit_label (donelab);
 }
 
-/* AVX2 does support 32-byte integer vector operations,
-   thus the longest vector we are faced with is V32QImode.  */
-#define MAX_VECT_LEN	32
+/* AVX512F does support 64-byte integer vector operations,
+   thus the longest vector we are faced with is V64QImode.  */
+#define MAX_VECT_LEN	64
 
 struct expand_vec_perm_d
 {
@@ -36016,9 +36664,8 @@ ix86_expand_vector_init_one_nonzero (bool mmx_ok, enum machine_mode mode,
       /* For SSE4.1, we normally use vector set.  But if the second
 	 element is zero and inter-unit moves are OK, we use movq
 	 instead.  */
-      use_vector_set = (TARGET_64BIT
-			&& TARGET_SSE4_1
-			&& !(TARGET_INTER_UNIT_MOVES
+      use_vector_set = (TARGET_64BIT && TARGET_SSE4_1
+			&& !(TARGET_INTER_UNIT_MOVES_TO_VEC
 			     && one_var == 0));
       break;
     case V16QImode:
@@ -36430,7 +37077,7 @@ ix86_expand_vector_init_interleave (enum machine_mode mode,
       op0 = gen_reg_rtx (mode);
       emit_move_insn (op0, gen_lowpart (mode, op1));
 
-      /* Load even elements into the second positon.  */
+      /* Load even elements into the second position.  */
       emit_insn (gen_load_even (op0,
 				force_reg (inner_mode,
 					   ops [i + i + 1]),
@@ -36553,7 +37200,7 @@ half:
 
       /* Don't use ix86_expand_vector_init_interleave if we can't
 	 move from GPR to SSE register directly.  */
-      if (!TARGET_INTER_UNIT_MOVES)
+      if (!TARGET_INTER_UNIT_MOVES_TO_VEC)
 	break;
 
       n = GET_MODE_NUNITS (mode);
@@ -40952,6 +41599,24 @@ ix86_expand_vecop_qihi (enum rtx_code code, rtx dest, rtx op1, rtx op2)
 		       gen_rtx_fmt_ee (code, qimode, op1, op2));
 }
 
+/* Helper function of ix86_expand_mul_widen_evenodd.  Return true
+   if op is CONST_VECTOR with all odd elements equal to their
+   preceding element.  */
+
+static bool
+const_vector_equal_evenodd_p (rtx op)
+{
+  enum machine_mode mode = GET_MODE (op);
+  int i, nunits = GET_MODE_NUNITS (mode);
+  if (GET_CODE (op) != CONST_VECTOR
+      || nunits != CONST_VECTOR_NUNITS (op))
+    return false;
+  for (i = 0; i < nunits; i += 2)
+    if (CONST_VECTOR_ELT (op, i) != CONST_VECTOR_ELT (op, i + 1))
+      return false;
+  return true;
+}
+
 void
 ix86_expand_mul_widen_evenodd (rtx dest, rtx op1, rtx op2,
 			       bool uns_p, bool odd_p)
@@ -40959,6 +41624,12 @@ ix86_expand_mul_widen_evenodd (rtx dest, rtx op1, rtx op2,
   enum machine_mode mode = GET_MODE (op1);
   enum machine_mode wmode = GET_MODE (dest);
   rtx x;
+  rtx orig_op1 = op1, orig_op2 = op2;
+
+  if (!nonimmediate_operand (op1, mode))
+    op1 = force_reg (mode, op1);
+  if (!nonimmediate_operand (op2, mode))
+    op2 = force_reg (mode, op2);
 
   /* We only play even/odd games with vectors of SImode.  */
   gcc_assert (mode == V4SImode || mode == V8SImode);
@@ -40967,7 +41638,9 @@ ix86_expand_mul_widen_evenodd (rtx dest, rtx op1, rtx op2,
      the even slots.  For some cpus this is faster than a PSHUFD.  */
   if (odd_p)
     {
-      if (TARGET_XOP && mode == V4SImode)
+      /* For XOP use vpmacsdqh, but only for smult, as it is only
+	 signed.  */
+      if (TARGET_XOP && mode == V4SImode && !uns_p)
 	{
 	  x = force_reg (wmode, CONST0_RTX (wmode));
 	  emit_insn (gen_xop_pmacsdqh (dest, op1, op2, x));
@@ -40975,10 +41648,12 @@ ix86_expand_mul_widen_evenodd (rtx dest, rtx op1, rtx op2,
 	}
 
       x = GEN_INT (GET_MODE_UNIT_BITSIZE (mode));
-      op1 = expand_binop (wmode, lshr_optab, gen_lowpart (wmode, op1),
-			  x, NULL, 1, OPTAB_DIRECT);
-      op2 = expand_binop (wmode, lshr_optab, gen_lowpart (wmode, op2),
-			  x, NULL, 1, OPTAB_DIRECT);
+      if (!const_vector_equal_evenodd_p (orig_op1))
+	op1 = expand_binop (wmode, lshr_optab, gen_lowpart (wmode, op1),
+			    x, NULL, 1, OPTAB_DIRECT);
+      if (!const_vector_equal_evenodd_p (orig_op2))
+	op2 = expand_binop (wmode, lshr_optab, gen_lowpart (wmode, op2),
+			    x, NULL, 1, OPTAB_DIRECT);
       op1 = gen_lowpart (mode, op1);
       op2 = gen_lowpart (mode, op2);
     }
@@ -41449,7 +42124,8 @@ ix86_enum_va_list (int idx, const char **pname, tree *ptree)
 #undef TARGET_SCHED_ADJUST_PRIORITY
 #define TARGET_SCHED_ADJUST_PRIORITY ix86_adjust_priority
 #undef TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
-#define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK ix86_dependencies_evaluation_hook
+#define TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK \
+  ix86_dependencies_evaluation_hook
 
 /* The size of the dispatch window is the total number of bytes of
    object code allowed in a window.  */
@@ -42333,7 +43009,7 @@ ix86_spill_class (reg_class_t rclass, enum machine_mode mode)
   if (TARGET_SSE && TARGET_GENERAL_REGS_SSE_SPILL && ! TARGET_MMX
       && (mode == SImode || (TARGET_64BIT && mode == DImode))
       && INTEGER_CLASS_P (rclass))
-    return SSE_REGS;
+    return ALL_SSE_REGS;
   return NO_REGS;
 }
 
@@ -42357,20 +43033,17 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned *cost = (unsigned *) data;
   unsigned retval = 0;
 
-  if (flag_vect_cost_model)
-    {
-      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-      int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
+  tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+  int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
-      /* Statements in an inner loop relative to the loop being
-	 vectorized are weighted more heavily.  The value here is
-	 arbitrary and could potentially be improved with analysis.  */
-      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
-	count *= 50;  /* FIXME.  */
+  /* Statements in an inner loop relative to the loop being
+     vectorized are weighted more heavily.  The value here is
+      arbitrary and could potentially be improved with analysis.  */
+  if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+    count *= 50;  /* FIXME.  */
 
-      retval = (unsigned) (count * stmt_cost);
-      cost[where] += retval;
-    }
+  retval = (unsigned) (count * stmt_cost);
+  cost[where] += retval;
 
   return retval;
 }
@@ -42436,6 +43109,8 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_ATTRIBUTE_TABLE
 #define TARGET_ATTRIBUTE_TABLE ix86_attribute_table
+#undef TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P
+#define TARGET_FUNCTION_ATTRIBUTE_INLINABLE_P hook_bool_const_tree_true
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
 #  undef TARGET_MERGE_DECL_ATTRIBUTES
 #  define TARGET_MERGE_DECL_ATTRIBUTES merge_dllimport_decl_attributes
@@ -42773,6 +43448,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_REGISTER_PRIORITY
 #define TARGET_REGISTER_PRIORITY ix86_register_priority
+
+#undef TARGET_REGISTER_USAGE_LEVELING_P
+#define TARGET_REGISTER_USAGE_LEVELING_P hook_bool_void_true
 
 #undef TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P ix86_legitimate_constant_p

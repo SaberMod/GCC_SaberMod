@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "diagnostic-core.h"
 #include "df.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "dumpfile.h"
 
 /* Possible return values of iv_get_reaching_def.  */
@@ -99,16 +99,42 @@ static unsigned int iv_ref_table_size = 0;
 static struct rtx_iv ** iv_ref_table;
 
 /* Induction variable stored at the reference.  */
-#define DF_REF_IV(REF) iv_ref_table[DF_REF_ID(REF)]
-#define DF_REF_IV_SET(REF, IV) iv_ref_table[DF_REF_ID(REF)] = (IV)
+#define DF_REF_IV(REF) iv_ref_table[DF_REF_ID (REF)]
+#define DF_REF_IV_SET(REF, IV) iv_ref_table[DF_REF_ID (REF)] = (IV)
 
 /* The current loop.  */
 
 static struct loop *current_loop;
 
+/* Hashtable helper.  */
+
+struct biv_entry_hasher : typed_free_remove <biv_entry>
+{
+  typedef biv_entry value_type;
+  typedef rtx_def compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+/* Returns hash value for biv B.  */
+
+inline hashval_t
+biv_entry_hasher::hash (const value_type *b)
+{
+  return b->regno;
+}
+
+/* Compares biv B and register R.  */
+
+inline bool
+biv_entry_hasher::equal (const value_type *b, const compare_type *r)
+{
+  return b->regno == REGNO (r);
+}
+
 /* Bivs of the current loop.  */
 
-static htab_t bivs;
+static hash_table <biv_entry_hasher> bivs;
 
 static bool iv_analyze_op (rtx, rtx, struct rtx_iv *);
 
@@ -186,7 +212,7 @@ lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 static void
 check_iv_ref_table_size (void)
 {
-  if (iv_ref_table_size < DF_DEFS_TABLE_SIZE())
+  if (iv_ref_table_size < DF_DEFS_TABLE_SIZE ())
     {
       unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       iv_ref_table = XRESIZEVEC (struct rtx_iv *, iv_ref_table, new_size);
@@ -243,24 +269,9 @@ clear_iv_info (void)
 	}
     }
 
-  htab_empty (bivs);
+  bivs.empty ();
 }
 
-/* Returns hash value for biv B.  */
-
-static hashval_t
-biv_hash (const void *b)
-{
-  return ((const struct biv_entry *) b)->regno;
-}
-
-/* Compares biv B and register R.  */
-
-static int
-biv_eq (const void *b, const void *r)
-{
-  return ((const struct biv_entry *) b)->regno == REGNO ((const_rtx) r);
-}
 
 /* Prepare the data for an induction variable analysis of a LOOP.  */
 
@@ -277,7 +288,7 @@ iv_analysis_loop_init (struct loop *loop)
   if (clean_slate)
     {
       df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
-      bivs = htab_create (10, biv_hash, biv_eq, free);
+      bivs.create (10);
       clean_slate = false;
     }
   else
@@ -837,8 +848,7 @@ record_iv (df_ref def, struct rtx_iv *iv)
 static bool
 analyzed_for_bivness_p (rtx def, struct rtx_iv *iv)
 {
-  struct biv_entry *biv =
-    (struct biv_entry *) htab_find_with_hash (bivs, def, REGNO (def));
+  struct biv_entry *biv = bivs.find_with_hash (def, REGNO (def));
 
   if (!biv)
     return false;
@@ -851,7 +861,7 @@ static void
 record_biv (rtx def, struct rtx_iv *iv)
 {
   struct biv_entry *biv = XNEW (struct biv_entry);
-  void **slot = htab_find_slot_with_hash (bivs, def, REGNO (def), INSERT);
+  biv_entry **slot = bivs.find_slot_with_hash (def, REGNO (def), INSERT);
 
   biv->regno = REGNO (def);
   biv->iv = *iv;
@@ -1293,11 +1303,10 @@ iv_analysis_done (void)
       clear_iv_info ();
       clean_slate = true;
       df_finish_pass (true);
-      htab_delete (bivs);
+      bivs.dispose ();
       free (iv_ref_table);
       iv_ref_table = NULL;
       iv_ref_table_size = 0;
-      bivs = NULL;
     }
 }
 
@@ -1496,19 +1505,26 @@ implies_p (rtx a, rtx b)
   rtx op0, op1, opb0, opb1, r;
   enum machine_mode mode;
 
+  if (rtx_equal_p (a, b))
+    return true;
+
   if (GET_CODE (a) == EQ)
     {
       op0 = XEXP (a, 0);
       op1 = XEXP (a, 1);
 
-      if (REG_P (op0))
+      if (REG_P (op0)
+	  || (GET_CODE (op0) == SUBREG
+	      && REG_P (SUBREG_REG (op0))))
 	{
 	  r = simplify_replace_rtx (b, op0, op1);
 	  if (r == const_true_rtx)
 	    return true;
 	}
 
-      if (REG_P (op1))
+      if (REG_P (op1)
+	  || (GET_CODE (op1) == SUBREG
+	      && REG_P (SUBREG_REG (op1))))
 	{
 	  r = simplify_replace_rtx (b, op1, op0);
 	  if (r == const_true_rtx)
@@ -2656,11 +2672,11 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1 ) << 1) - 1);
 
       tmp1 = lowpart_subreg (mode, iv1.base, comp_mode);
-      tmp = simplify_gen_binary (UMOD, mode, tmp1, GEN_INT (d));
+      tmp = simplify_gen_binary (UMOD, mode, tmp1, gen_int_mode (d, mode));
       assumption = simplify_gen_relational (NE, SImode, mode, tmp, const0_rtx);
       desc->infinite = alloc_EXPR_LIST (0, assumption, desc->infinite);
 
-      tmp = simplify_gen_binary (UDIV, mode, tmp1, GEN_INT (d));
+      tmp = simplify_gen_binary (UDIV, mode, tmp1, gen_int_mode (d, mode));
       inv = inverse (s, size);
       tmp = simplify_gen_binary (MULT, mode, tmp, gen_int_mode (inv, mode));
       desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
@@ -3009,14 +3025,14 @@ get_simple_loop_desc (struct loop *loop)
 
   /* At least desc->infinite is not always initialized by
      find_simple_loop_exit.  */
-  desc = XCNEW (struct niter_desc);
+  desc = ggc_alloc_cleared_niter_desc ();
   if (loop->latch != EXIT_BLOCK_PTR)
     {
       iv_analysis_loop_init (loop);
       find_simple_exit (loop, desc);
     }
   analyze_loop_insns (loop, desc);
-  loop->aux = desc;
+  loop->simple_loop_desc = desc;
 
   if (desc->simple_p && (desc->assumptions || desc->infinite))
     {
@@ -3066,6 +3082,6 @@ free_simple_loop_desc (struct loop *loop)
   if (!desc)
     return;
 
-  free (desc);
-  loop->aux = NULL;
+  ggc_free (desc);
+  loop->simple_loop_desc = NULL;
 }

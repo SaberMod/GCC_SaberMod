@@ -155,6 +155,17 @@ push_deferring_access_checks (deferring_kind deferring)
     }
 }
 
+/* Save the current deferred access states and start deferred access
+   checking, continuing the set of deferred checks in CHECKS.  */
+
+void
+reopen_deferring_access_checks (vec<deferred_access_check, va_gc> * checks)
+{
+  push_deferring_access_checks (dk_deferred);
+  if (!deferred_access_no_check)
+    deferred_access_stack->last().deferred_access_checks = checks;
+}
+
 /* Resume deferring access checks again after we stopped doing
    this previously.  */
 
@@ -536,7 +547,7 @@ simplify_loop_decl_cond (tree *cond_p, tree body)
 tree
 finish_goto_stmt (tree destination)
 {
-  if (TREE_CODE (destination) == IDENTIFIER_NODE)
+  if (identifier_p (destination))
     destination = lookup_label (destination);
 
   /* We warn about unused labels with -Wunused.  That means we have to
@@ -630,8 +641,6 @@ finish_expr_stmt (tree expr)
       r = add_stmt (expr);
     }
 
-  finish_stmt ();
-
   return r;
 }
 
@@ -696,7 +705,6 @@ finish_if_stmt (tree if_stmt)
   tree scope = IF_SCOPE (if_stmt);
   IF_SCOPE (if_stmt) = NULL;
   add_stmt (do_poplevel (scope));
-  finish_stmt ();
 }
 
 /* Begin a while-statement.  Returns a newly created WHILE_STMT if
@@ -729,7 +737,6 @@ void
 finish_while_stmt (tree while_stmt)
 {
   WHILE_BODY (while_stmt) = do_poplevel (WHILE_BODY (while_stmt));
-  finish_stmt ();
 }
 
 /* Begin a do-statement.  Returns a newly created DO_STMT if
@@ -767,7 +774,6 @@ finish_do_stmt (tree cond, tree do_stmt)
 {
   cond = maybe_convert_cond (cond);
   DO_COND (do_stmt) = cond;
-  finish_stmt ();
 }
 
 /* Finish a return-statement.  The EXPRESSION returned, if any, is as
@@ -804,7 +810,6 @@ finish_return_stmt (tree expr)
   TREE_NO_WARNING (r) |= no_warning;
   r = maybe_cleanup_point_expr_void (r);
   r = add_stmt (r);
-  finish_stmt ();
 
   return r;
 }
@@ -930,8 +935,6 @@ finish_for_stmt (tree for_stmt)
       *scope_ptr = NULL;
       add_stmt (do_poplevel (scope));
     }
-
-  finish_stmt ();
 }
 
 /* Begin a range-for-statement.  Returns a new RANGE_FOR_STMT.
@@ -1065,7 +1068,6 @@ finish_switch_stmt (tree switch_stmt)
   SWITCH_STMT_BODY (switch_stmt) =
     pop_stmt_list (SWITCH_STMT_BODY (switch_stmt));
   pop_switch ();
-  finish_stmt ();
 
   scope = SWITCH_STMT_SCOPE (switch_stmt);
   SWITCH_STMT_SCOPE (switch_stmt) = NULL;
@@ -1199,8 +1201,6 @@ finish_handler_parms (tree decl, tree handler)
   else
     type = expand_start_catch_block (decl);
   HANDLER_TYPE (handler) = type;
-  if (!processing_template_decl && type)
-    mark_used (eh_type_info (type));
 }
 
 /* Finish a handler, which may be given by HANDLER.  The BLOCKs are
@@ -1289,7 +1289,6 @@ finish_compound_stmt (tree stmt)
 
   /* ??? See c_end_compound_stmt wrt statement expressions.  */
   add_stmt (stmt);
-  finish_stmt ();
 }
 
 /* Finish an asm-statement, whose components are a STRING, some
@@ -1507,6 +1506,38 @@ finish_mem_initializers (tree mem_inits)
     emit_mem_initializers (mem_inits);
 }
 
+/* Obfuscate EXPR if it looks like an id-expression or member access so
+   that the call to finish_decltype in do_auto_deduction will give the
+   right result.  */
+
+tree
+force_paren_expr (tree expr)
+{
+  /* This is only needed for decltype(auto) in C++14.  */
+  if (cxx_dialect < cxx1y)
+    return expr;
+
+  if (!DECL_P (expr) && TREE_CODE (expr) != COMPONENT_REF
+      && TREE_CODE (expr) != SCOPE_REF)
+    return expr;
+
+  if (processing_template_decl)
+    expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
+  else
+    {
+      cp_lvalue_kind kind = lvalue_kind (expr);
+      if ((kind & ~clk_class) != clk_none)
+	{
+	  tree type = unlowered_expr_type (expr);
+	  bool rval = !!(kind & clk_rvalueref);
+	  type = cp_build_reference_type (type, rval);
+	  expr = build_static_cast (type, expr, tf_warning_or_error);
+	}
+    }
+
+  return expr;
+}
+
 /* Finish a parenthesized expression EXPR.  */
 
 tree
@@ -1524,6 +1555,8 @@ finish_parenthesized_expr (tree expr)
 
   if (TREE_CODE (expr) == STRING_CST)
     PAREN_STRING_LITERAL_P (expr) = 1;
+
+  expr = force_paren_expr (expr);
 
   return expr;
 }
@@ -1571,12 +1604,13 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
 
       if (TREE_CODE (type) == REFERENCE_TYPE)
 	/* Quals on the object don't matter.  */;
+      else if (PACK_EXPANSION_P (type))
+	/* Don't bother trying to represent this.  */
+	type = NULL_TREE;
       else
 	{
 	  /* Set the cv qualifiers.  */
-	  int quals = (current_class_ref
-		       ? cp_type_quals (TREE_TYPE (current_class_ref))
-		       : TYPE_UNQUALIFIED);
+	  int quals = cp_type_quals (TREE_TYPE (object));
 
 	  if (DECL_MUTABLE_P (decl))
 	    quals &= ~TYPE_QUAL_CONST;
@@ -1740,15 +1774,17 @@ finish_qualified_id_expr (tree qualifying_class,
 			  bool done,
 			  bool address_p,
 			  bool template_p,
-			  bool template_arg_p)
+			  bool template_arg_p,
+			  tsubst_flags_t complain)
 {
   gcc_assert (TYPE_P (qualifying_class));
 
   if (error_operand_p (expr))
     return error_mark_node;
 
-  if (DECL_P (expr) || BASELINK_P (expr))
-    mark_used (expr);
+  if ((DECL_P (expr) || BASELINK_P (expr))
+      && !mark_used (expr, complain))
+    return error_mark_node;
 
   if (template_p)
     check_template_keyword (expr);
@@ -1760,9 +1796,13 @@ finish_qualified_id_expr (tree qualifying_class,
       if (TREE_CODE (expr) == SCOPE_REF)
 	expr = TREE_OPERAND (expr, 1);
       expr = build_offset_ref (qualifying_class, expr,
-			       /*address_p=*/true);
+			       /*address_p=*/true, complain);
       return expr;
     }
+
+  /* No need to check access within an enum.  */
+  if (TREE_CODE (qualifying_class) == ENUMERAL_TYPE)
+    return expr;
 
   /* Within the scope of a class, turn references to non-static
      members into expression of the form "this->...".  */
@@ -1790,11 +1830,12 @@ finish_qualified_id_expr (tree qualifying_class,
 		 expr,
 		 BASELINK_ACCESS_BINFO (expr),
 		 /*preserve_reference=*/false,
-		 tf_warning_or_error));
+		 complain));
       else if (done)
 	/* The expression is a qualified name whose address is not
 	   being taken.  */
-	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false);
+	expr = build_offset_ref (qualifying_class, expr, /*address_p=*/false,
+				 complain);
     }
   else if (BASELINK_P (expr))
     ;
@@ -2001,7 +2042,7 @@ perform_koenig_lookup (tree fn, vec<tree, va_gc> *args, bool include_std,
     }
 
   /* Find the name of the overloaded function.  */
-  if (TREE_CODE (fn) == IDENTIFIER_NODE)
+  if (identifier_p (fn))
     identifier = fn;
   else if (is_overloaded_fn (fn))
     {
@@ -2238,7 +2279,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 
   if (processing_template_decl && result != error_mark_node)
     {
-      if (TREE_CODE (result) == INDIRECT_REF)
+      if (INDIRECT_REF_P (result))
 	result = TREE_OPERAND (result, 0);
       result = build_call_vec (TREE_TYPE (result), orig_fn, orig_args);
       SET_EXPR_LOCATION (result, input_location);
@@ -2295,7 +2336,6 @@ finish_this_expr (void)
         result = lambda_expr_this_capture (CLASSTYPE_LAMBDA_EXPR (type));
       else
         result = current_class_ptr;
-
     }
   else if (current_function_decl
 	   && DECL_STATIC_FUNCTION_P (current_function_decl))
@@ -2312,6 +2352,9 @@ finish_this_expr (void)
       result = error_mark_node;
     }
 
+  /* The keyword 'this' is a prvalue expression.  */
+  result = rvalue (result);
+
   return result;
 }
 
@@ -2321,7 +2364,8 @@ finish_this_expr (void)
    was of the form `OBJECT.SCOPE::~DESTRUCTOR'.  */
 
 tree
-finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
+finish_pseudo_destructor_expr (tree object, tree scope, tree destructor,
+			       location_t loc)
 {
   if (object == error_mark_node || destructor == error_mark_node)
     return error_mark_node;
@@ -2332,13 +2376,16 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
     {
       if (scope == error_mark_node)
 	{
-	  error ("invalid qualifying scope in pseudo-destructor name");
+	  error_at (loc, "invalid qualifying scope in pseudo-destructor name");
 	  return error_mark_node;
 	}
+      if (is_auto (destructor))
+	destructor = TREE_TYPE (object);
       if (scope && TYPE_P (scope) && !check_dtor_name (scope, destructor))
 	{
-	  error ("qualified type %qT does not match destructor name ~%qT",
-		 scope, destructor);
+	  error_at (loc,
+		    "qualified type %qT does not match destructor name ~%qT",
+		    scope, destructor);
 	  return error_mark_node;
 	}
 
@@ -2359,21 +2406,24 @@ finish_pseudo_destructor_expr (tree object, tree scope, tree destructor)
       if (!same_type_ignoring_top_level_qualifiers_p (TREE_TYPE (object),
 						      destructor))
 	{
-	  error ("%qE is not of type %qT", object, destructor);
+	  error_at (loc, "%qE is not of type %qT", object, destructor);
 	  return error_mark_node;
 	}
     }
 
-  return build3 (PSEUDO_DTOR_EXPR, void_type_node, object, scope, destructor);
+  return build3_loc (loc, PSEUDO_DTOR_EXPR, void_type_node, object,
+		     scope, destructor);
 }
 
 /* Finish an expression of the form CODE EXPR.  */
 
 tree
-finish_unary_op_expr (location_t loc, enum tree_code code, tree expr)
+finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
+		      tsubst_flags_t complain)
 {
-  tree result = build_x_unary_op (loc, code, expr, tf_warning_or_error);
-  if (TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
+  tree result = build_x_unary_op (loc, code, expr, complain);
+  if ((complain & tf_warning)
+      && TREE_OVERFLOW_P (result) && !TREE_OVERFLOW_P (expr))
     overflow_warning (input_location, result);
 
   return result;
@@ -2707,8 +2757,7 @@ finish_member_declaration (tree decl)
   /* Put functions on the TYPE_METHODS list and everything else on the
      TYPE_FIELDS list.  Note that these are built up in reverse order.
      We reverse them (to obtain declaration order) in finish_struct.  */
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      || DECL_FUNCTION_TEMPLATE_P (decl))
+  if (DECL_DECLARES_FUNCTION_P (decl))
     {
       /* We also need to add this function to the
 	 CLASSTYPE_METHOD_VEC.  */
@@ -2721,8 +2770,10 @@ finish_member_declaration (tree decl)
 					      /*friend_p=*/0);
 	}
     }
-  /* Enter the DECL into the scope of the class.  */
-  else if (pushdecl_class_level (decl))
+  /* Enter the DECL into the scope of the class, if the class
+     isn't a closure (whose fields are supposed to be unnamed).  */
+  else if (CLASSTYPE_LAMBDA_EXPR (current_class_type)
+	   || pushdecl_class_level (decl))
     {
       if (TREE_CODE (decl) == USING_DECL)
 	{
@@ -2777,8 +2828,7 @@ note_decl_for_pch (tree decl)
 
   /* There's a good chance that we'll have to mangle names at some
      point, even if only for emission in debugging information.  */
-  if ((TREE_CODE (decl) == VAR_DECL
-       || TREE_CODE (decl) == FUNCTION_DECL)
+  if (VAR_OR_FUNCTION_DECL_P (decl)
       && !processing_template_decl)
     mangle_decl (decl);
 }
@@ -2886,9 +2936,10 @@ baselink_for_fns (tree fns)
 static bool
 outer_var_p (tree decl)
 {
-  return ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL)
+  return ((VAR_P (decl) || TREE_CODE (decl) == PARM_DECL)
 	  && DECL_FUNCTION_SCOPE_P (decl)
-	  && DECL_CONTEXT (decl) != current_function_decl);
+	  && (DECL_CONTEXT (decl) != current_function_decl
+	      || parsing_nsdmi ()));
 }
 
 /* As above, but also checks that DECL is automatic.  */
@@ -2971,7 +3022,7 @@ finish_id_expression (tree id_expression,
 	  if (scope
 	      && (!TYPE_P (scope)
 		  || (!dependent_type_p (scope)
-		      && !(TREE_CODE (id_expression) == IDENTIFIER_NODE
+		      && !(identifier_p (id_expression)
 			   && IDENTIFIER_TYPENAME_P (id_expression)
 			   && dependent_type_p (TREE_TYPE (id_expression))))))
 	    {
@@ -3000,21 +3051,20 @@ finish_id_expression (tree id_expression,
 	 the current class so that we can check later to see if
 	 the meaning would have been different after the class
 	 was entirely defined.  */
-      if (!scope && decl != error_mark_node
-	  && TREE_CODE (id_expression) == IDENTIFIER_NODE)
+      if (!scope && decl != error_mark_node && identifier_p (id_expression))
 	maybe_note_name_used_in_class (id_expression, decl);
 
       /* Disallow uses of local variables from containing functions, except
 	 within lambda-expressions.  */
-      if (!outer_var_p (decl)
-	  /* It's not a use (3.2) if we're in an unevaluated context.  */
-	  || cp_unevaluated_operand)
-	/* OK.  */;
-      else if (TREE_STATIC (decl))
+      if (!outer_var_p (decl))
+	/* OK */;
+      else if (TREE_STATIC (decl)
+	       /* It's not a use (3.2) if we're in an unevaluated context.  */
+	       || cp_unevaluated_operand)
 	{
 	  if (processing_template_decl)
-	    /* For a use of an outer static var, return the identifier so
-	       that we'll look it up again in the instantiation.  */
+	    /* For a use of an outer static/unevaluated var, return the id
+	       so that we'll look it up again in the instantiation.  */
 	    return id_expression;
 	}
       else
@@ -3045,12 +3095,14 @@ finish_id_expression (tree id_expression,
 		return integral_constant_value (decl);
 	    }
 
+	  if (parsing_nsdmi ())
+	    containing_function = NULL_TREE;
 	  /* If we are in a lambda function, we can move out until we hit
 	     1. the context,
 	     2. a non-lambda function, or
 	     3. a non-default capturing lambda function.  */
-	  while (context != containing_function
-		 && LAMBDA_FUNCTION_P (containing_function))
+	  else while (context != containing_function
+		      && LAMBDA_FUNCTION_P (containing_function))
 	    {
 	      lambda_expr = CLASSTYPE_LAMBDA_EXPR
 		(DECL_CONTEXT (containing_function));
@@ -3067,6 +3119,12 @@ finish_id_expression (tree id_expression,
 		= decl_function_context (containing_function);
 	    }
 
+	  if (lambda_expr && TREE_CODE (decl) == VAR_DECL
+	      && DECL_ANON_UNION_VAR_P (decl))
+	    {
+	      error ("cannot capture member %qD of anonymous union", decl);
+	      return error_mark_node;
+	    }
 	  if (context == containing_function)
 	    {
 	      decl = add_default_capture (lambda_stack,
@@ -3080,10 +3138,10 @@ finish_id_expression (tree id_expression,
 	    }
 	  else
 	    {
-	      error (TREE_CODE (decl) == VAR_DECL
+	      error (VAR_P (decl)
 		     ? G_("use of local variable with automatic storage from containing function")
 		     : G_("use of parameter from containing function"));
-	      error ("  %q+#D declared here", decl);
+	      inform (input_location, "%q+#D declared here", decl);
 	      return error_mark_node;
 	    }
 	}
@@ -3172,8 +3230,7 @@ finish_id_expression (tree id_expression,
       /* A template-id where the name of the template was not resolved
 	 is definitely dependent.  */
       else if (TREE_CODE (decl) == TEMPLATE_ID_EXPR
-	       && (TREE_CODE (TREE_OPERAND (decl, 0))
-		   == IDENTIFIER_NODE))
+	       && (identifier_p (TREE_OPERAND (decl, 0))))
 	dependent_p = true;
       /* For anything except an overloaded function, just check its
 	 type.  */
@@ -3233,7 +3290,8 @@ finish_id_expression (tree id_expression,
 		    decl = finish_qualified_id_expr (scope, decl,
 						     done, address_p,
 						     template_p,
-						     template_arg_p);
+						     template_arg_p,
+						     tf_warning_or_error);
 		  else
 		    {
 		      tree type = NULL_TREE;
@@ -3257,7 +3315,7 @@ finish_id_expression (tree id_expression,
 	  /* If we found a variable, then name lookup during the
 	     instantiation will always resolve to the same VAR_DECL
 	     (or an instantiation thereof).  */
-	  if (TREE_CODE (decl) == VAR_DECL
+	  if (VAR_P (decl)
 	      || TREE_CODE (decl) == PARM_DECL)
 	    {
 	      mark_used (decl);
@@ -3301,7 +3359,7 @@ finish_id_expression (tree id_expression,
 
       /* Mark variable-like entities as used.  Functions are similarly
 	 marked either below or after overload resolution.  */
-      if ((TREE_CODE (decl) == VAR_DECL
+      if ((VAR_P (decl)
 	   || TREE_CODE (decl) == PARM_DECL
 	   || TREE_CODE (decl) == CONST_DECL
 	   || TREE_CODE (decl) == RESULT_DECL)
@@ -3326,7 +3384,7 @@ finish_id_expression (tree id_expression,
 	}
 
       tree wrap;
-      if (TREE_CODE (decl) == VAR_DECL
+      if (VAR_P (decl)
 	  && !cp_unevaluated_operand
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
@@ -3349,7 +3407,8 @@ finish_id_expression (tree id_expression,
 					     done,
 					     address_p,
 					     template_p,
-					     template_arg_p);
+					     template_arg_p,
+					     tf_warning_or_error);
 	  else
 	    decl = convert_from_reference (decl);
 	}
@@ -3408,8 +3467,10 @@ finish_id_expression (tree id_expression,
 	}
     }
 
-  if (TREE_DEPRECATED (decl))
-    warn_deprecated_use (decl, NULL_TREE);
+  /* Handle references (c++/56130).  */
+  tree t = REFERENCE_REF_P (decl) ? TREE_OPERAND (decl, 0) : decl;
+  if (TREE_DEPRECATED (t))
+    warn_deprecated_use (t, NULL_TREE);
 
   return decl;
 }
@@ -3642,10 +3703,17 @@ finish_offsetof (tree expr)
       || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
       || TREE_TYPE (expr) == unknown_type_node)
     {
-      if (TREE_CODE (expr) == COMPONENT_REF
-	  || TREE_CODE (expr) == COMPOUND_EXPR)
-	expr = TREE_OPERAND (expr, 1);
-      error ("cannot apply %<offsetof%> to member function %qD", expr);
+      if (INDIRECT_REF_P (expr))
+	error ("second operand of %<offsetof%> is neither a single "
+	       "identifier nor a sequence of member accesses and "
+	       "array references");
+      else
+	{
+	  if (TREE_CODE (expr) == COMPONENT_REF
+	      || TREE_CODE (expr) == COMPOUND_EXPR)
+	    expr = TREE_OPERAND (expr, 1);
+	  error ("cannot apply %<offsetof%> to member function %qD", expr);
+	}
       return error_mark_node;
     }
   if (REFERENCE_REF_P (expr))
@@ -4071,7 +4139,7 @@ finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 	check_dup_generic:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -4094,7 +4162,7 @@ finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -4116,7 +4184,7 @@ finish_omp_clauses (tree clauses)
 
 	case OMP_CLAUSE_LASTPRIVATE:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
 		break;
@@ -4268,7 +4336,7 @@ finish_omp_clauses (tree clauses)
 
       t = OMP_CLAUSE_DECL (c);
       if (processing_template_decl
-	  && TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
+	  && !VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
@@ -4308,7 +4376,7 @@ finish_omp_clauses (tree clauses)
 	  break;
 
 	case OMP_CLAUSE_COPYIN:
-	  if (TREE_CODE (t) != VAR_DECL || !DECL_THREAD_LOCAL_P (t))
+	  if (!VAR_P (t) || !DECL_THREAD_LOCAL_P (t))
 	    {
 	      error ("%qE must be %<threadprivate%> for %<copyin%>", t);
 	      remove = true;
@@ -4335,7 +4403,7 @@ finish_omp_clauses (tree clauses)
 	{
 	  const char *share_name = NULL;
 
-	  if (TREE_CODE (t) == VAR_DECL && DECL_THREAD_LOCAL_P (t))
+	  if (VAR_P (t) && DECL_THREAD_LOCAL_P (t))
 	    share_name = "threadprivate";
 	  else switch (cxx_omp_predetermined_sharing (t))
 	    {
@@ -4402,7 +4470,7 @@ finish_omp_threadprivate (tree vars)
 
       if (error_operand_p (v))
 	;
-      else if (TREE_CODE (v) != VAR_DECL)
+      else if (!VAR_P (v))
 	error ("%<threadprivate%> %qD is not file, namespace "
 	       "or block scope variable", v);
       /* If V had already been marked threadprivate, it doesn't matter
@@ -4891,7 +4959,7 @@ finish_omp_for (location_t locus, tree declv, tree initv, tree condv,
 	}
 
       if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
-	  && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
+	  && !TYPE_PTR_P (TREE_TYPE (decl)))
 	{
 	  error_at (elocus, "invalid type for iteration variable %qE", decl);
 	  return NULL;
@@ -5147,14 +5215,15 @@ finish_transaction_stmt (tree stmt, tree compound_stmt, int flags, tree noex)
     {
       tree body = build_must_not_throw_expr (TRANSACTION_EXPR_BODY (stmt),
 					     noex);
-      SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
+      /* This may not be true when the STATEMENT_LIST is empty.  */
+      if (EXPR_P (body))
+        SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
       TREE_SIDE_EFFECTS (body) = 1;
       TRANSACTION_EXPR_BODY (stmt) = body;
     }
 
   if (compound_stmt)
     finish_compound_stmt (compound_stmt);
-  finish_stmt ();
 }
 
 /* Build a __transaction_atomic or __transaction_relaxed expression.  If
@@ -5293,6 +5362,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 
   expr = resolve_nondeduced_context (expr);
 
+  if (invalid_nonstatic_memfn_p (expr, complain))
+    return error_mark_node;
+
   if (type_unknown_p (expr))
     {
       if (complain & tf_error)
@@ -5300,12 +5372,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
       return error_mark_node;
     }
 
-  if (invalid_nonstatic_memfn_p (expr, complain))
-    return error_mark_node;
-
   /* To get the size of a static data member declared as an array of
      unknown bound, we need to instantiate it.  */
-  if (TREE_CODE (expr) == VAR_DECL
+  if (VAR_P (expr)
       && VAR_HAD_UNKNOWN_BOUND (expr)
       && DECL_TEMPLATE_INSTANTIATION (expr))
     instantiate_decl (expr, /*defer_ok*/true, /*expl_inst_mem*/false);
@@ -5316,10 +5385,10 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
          [expr.ref]), decltype(e) is defined as the type of the entity
          named by e. If there is no such entity, or e names a set of
          overloaded functions, the program is ill-formed.  */
-      if (TREE_CODE (expr) == IDENTIFIER_NODE)
+      if (identifier_p (expr))
         expr = lookup_name (expr);
 
-      if (TREE_CODE (expr) == INDIRECT_REF)
+      if (INDIRECT_REF_P (expr))
         /* This can happen when the expression is, e.g., "a.b". Just
            look at the underlying operand.  */
         expr = TREE_OPERAND (expr, 0);
@@ -5361,6 +5430,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
           break;
 
         case COMPONENT_REF:
+	case COMPOUND_EXPR:
 	  mark_type_use (expr);
           type = is_bitfield_expr_with_lowered_type (expr);
           if (!type)
@@ -5378,8 +5448,9 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
           break;
 
         default:
-	  gcc_unreachable ();
-          return error_mark_node;
+	  /* Handle instantiated template non-type arguments.  */
+	  type = TREE_TYPE (expr);
+          break;
         }
     }
   else
@@ -5417,6 +5488,15 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	  if (clk != clk_none && !(clk & clk_class))
 	    type = cp_build_reference_type (type, (clk & clk_rvalueref));
 	}
+    }
+
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+    {
+      if (complain & tf_warning_or_error)
+	pedwarn (input_location, OPT_Wvla,
+		 "taking decltype of array of runtime bound");
+      else
+	return error_mark_node;
     }
 
   return type;
@@ -5737,7 +5817,7 @@ tree
 ensure_literal_type_for_constexpr_object (tree decl)
 {
   tree type = TREE_TYPE (decl);
-  if (TREE_CODE (decl) == VAR_DECL && DECL_DECLARED_CONSTEXPR_P (decl)
+  if (VAR_P (decl) && DECL_DECLARED_CONSTEXPR_P (decl)
       && !processing_template_decl)
     {
       if (CLASS_TYPE_P (type) && !COMPLETE_TYPE_P (complete_type (type)))
@@ -5951,7 +6031,7 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       || TREE_CODE (t) == MODIFY_EXPR)
     {
       member = TREE_OPERAND (t, 0);
-      init = unshare_expr (TREE_OPERAND (t, 1));
+      init = break_out_target_exprs (TREE_OPERAND (t, 1));
     }
   else if (TREE_CODE (t) == CALL_EXPR)
     {
@@ -5959,14 +6039,14 @@ build_data_member_initialization (tree t, vec<constructor_elt, va_gc> **vec)
       /* We don't use build_cplus_new here because it complains about
 	 abstract bases.  Leaving the call unwrapped means that it has the
 	 wrong type, but cxx_eval_constant_expression doesn't care.  */
-      init = unshare_expr (t);
+      init = break_out_target_exprs (t);
     }
   else if (TREE_CODE (t) == DECL_EXPR)
     /* Declaring a temporary, don't add it to the CONSTRUCTOR.  */
     return true;
   else
     gcc_unreachable ();
-  if (TREE_CODE (member) == INDIRECT_REF)
+  if (INDIRECT_REF_P (member))
     member = TREE_OPERAND (member, 0);
   if (TREE_CODE (member) == NOP_EXPR)
     {
@@ -6196,7 +6276,7 @@ constexpr_fn_retval (tree body)
       }
 
     case RETURN_EXPR:
-      return unshare_expr (TREE_OPERAND (body, 0));
+      return break_out_target_exprs (TREE_OPERAND (body, 0));
 
     case DECL_EXPR:
       if (TREE_CODE (DECL_EXPR_DECL (body)) == USING_DECL)
@@ -6422,7 +6502,7 @@ typedef struct GTY(()) constexpr_call {
   constexpr_fundef *fundef;
   /* Parameter bindings environment.  A TREE_LIST where each TREE_PURPOSE
      is a parameter _DECL and the TREE_VALUE is the value of the parameter.
-     Note: This arrangement is made to accomodate the use of
+     Note: This arrangement is made to accommodate the use of
      iterative_hash_template_arg (see pt.c).  If you change this
      representation, also change the hash calculation in
      cxx_eval_call_expression.  */
@@ -6628,7 +6708,7 @@ cxx_bind_parameters_in_call (const constexpr_call *old_call, tree t,
       tree x, arg;
       tree type = parms ? TREE_TYPE (parms) : void_type_node;
       /* For member function, the first argument is a pointer to the implied
-         object.  And for an object contruction, don't bind `this' before
+         object.  And for an object construction, don't bind `this' before
          it is fully constructed.  */
       if (i == 0 && DECL_CONSTRUCTOR_P (fun))
         goto next;
@@ -6844,7 +6924,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 	    {
 	      tree ob_arg = get_nth_callarg (t, 0);
 	      STRIP_NOPS (ob_arg);
-	      gcc_assert (TREE_CODE (TREE_TYPE (ob_arg)) == POINTER_TYPE
+	      gcc_assert (TYPE_PTR_P (TREE_TYPE (ob_arg))
 			  && CLASS_TYPE_P (TREE_TYPE (TREE_TYPE (ob_arg))));
 	      result = adjust_temp_type (TREE_TYPE (TREE_TYPE (ob_arg)),
 					 result);
@@ -6862,6 +6942,9 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 bool
 reduced_constant_expression_p (tree t)
 {
+  if (TREE_CODE (t) == PTRMEM_CST)
+    /* Even if we can't lower this yet, it's constant.  */
+    return true;
   /* FIXME are we calling this too much?  */
   return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
 }
@@ -7032,6 +7115,13 @@ cxx_eval_array_reference (const constexpr_call *call, tree t,
       *non_constant_p = true;
       return t;
     }
+  else if (tree_int_cst_lt (index, integer_zero_node))
+    {
+      if (!allow_non_constant)
+	error ("negative array subscript");
+      *non_constant_p = true;
+      return t;
+    }
   i = tree_low_cst (index, 0);
   if (TREE_CODE (ary) == CONSTRUCTOR)
     return (*CONSTRUCTOR_ELTS (ary))[i].value;
@@ -7131,7 +7221,9 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
     return t;
   /* Don't VERIFY_CONSTANT here; we only want to check that we got a
      CONSTRUCTOR.  */
-  if (!*non_constant_p && TREE_CODE (whole) != CONSTRUCTOR)
+  if (!*non_constant_p
+      && TREE_CODE (whole) != VECTOR_CST
+      && TREE_CODE (whole) != CONSTRUCTOR)
     {
       if (!allow_non_constant)
 	error ("%qE is not a constant expression", orig_whole);
@@ -7139,6 +7231,10 @@ cxx_eval_bit_field_ref (const constexpr_call *call, tree t,
     }
   if (*non_constant_p)
     return t;
+
+  if (TREE_CODE (whole) == VECTOR_CST)
+    return fold_ternary (BIT_FIELD_REF, TREE_TYPE (t), whole,
+			 TREE_OPERAND (t, 1), TREE_OPERAND (t, 2));
 
   start = TREE_OPERAND (t, 2);
   istart = tree_low_cst (start, 0);
@@ -7596,15 +7692,17 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	    }
 	}
     }
-  /* *(foo *)fooarrptreturn> (*fooarrptr)[0] */
+  /* *(foo *)fooarrptr => (*fooarrptr)[0] */
   else if (TREE_CODE (TREE_TYPE (subtype)) == ARRAY_TYPE
 	   && (same_type_ignoring_top_level_qualifiers_p
 	       (type, TREE_TYPE (TREE_TYPE (subtype)))))
     {
       tree type_domain;
       tree min_val = size_zero_node;
-      sub = cxx_fold_indirect_ref (loc, TREE_TYPE (subtype), sub, NULL);
-      if (!sub)
+      tree newsub = cxx_fold_indirect_ref (loc, TREE_TYPE (subtype), sub, NULL);
+      if (newsub)
+	sub = newsub;
+      else
 	sub = build1_loc (loc, INDIRECT_REF, TREE_TYPE (subtype), sub);
       type_domain = TYPE_DOMAIN (TREE_TYPE (sub));
       if (type_domain && TYPE_MIN_VALUE (type_domain))
@@ -7641,11 +7739,6 @@ cxx_eval_indirect_ref (const constexpr_call *call, tree t,
     {
       tree sub = op0;
       STRIP_NOPS (sub);
-      if (TREE_CODE (sub) == POINTER_PLUS_EXPR)
-	{
-	  sub = TREE_OPERAND (sub, 0);
-	  STRIP_NOPS (sub);
-	}
       if (TREE_CODE (sub) == ADDR_EXPR)
 	{
 	  /* We couldn't fold to a constant value.  Make sure it's not
@@ -7674,6 +7767,8 @@ cxx_eval_indirect_ref (const constexpr_call *call, tree t,
 
   if (r == NULL_TREE)
     {
+      if (addr && op0 != orig_op0)
+	return build1 (INDIRECT_REF, TREE_TYPE (t), op0);
       if (!addr)
 	VERIFY_CONSTANT (t);
       return t;
@@ -7715,7 +7810,7 @@ non_const_var_error (tree r)
     }
   else
     {
-      if (cxx_dialect >= cxx0x && !DECL_DECLARED_CONSTEXPR_P (r))
+      if (cxx_dialect >= cxx11 && !DECL_DECLARED_CONSTEXPR_P (r))
 	inform (DECL_SOURCE_LOCATION (r),
 		"%qD was not declared %<constexpr%>", r);
       else
@@ -7725,37 +7820,32 @@ non_const_var_error (tree r)
     }
 }
 
-/* Evaluate VEC_PERM_EXPR (v1, v2, mask).  */
+/* Subroutine of cxx_eval_constant_expression.
+   Like cxx_eval_unary_expression, except for trinary expressions.  */
+
 static tree
-cxx_eval_vec_perm_expr (const constexpr_call *call, tree t, 
-			bool allow_non_constant, bool addr,
-			bool *non_constant_p, bool *overflow_p)
+cxx_eval_trinary_expression (const constexpr_call *call, tree t,
+			     bool allow_non_constant, bool addr,
+			     bool *non_constant_p, bool *overflow_p)
 {
   int i;
   tree args[3];
   tree val;
-  tree elttype = TREE_TYPE (t);
 
   for (i = 0; i < 3; i++)
     {
       args[i] = cxx_eval_constant_expression (call, TREE_OPERAND (t, i),
 					      allow_non_constant, addr,
 					      non_constant_p, overflow_p);
-      if (*non_constant_p)
-      	goto fail;
+      VERIFY_CONSTANT (args[i]);
     }
 
-  gcc_assert (TREE_CODE (TREE_TYPE (args[0])) == VECTOR_TYPE);
-  gcc_assert (TREE_CODE (TREE_TYPE (args[1])) == VECTOR_TYPE);
-  gcc_assert (TREE_CODE (TREE_TYPE (args[2])) == VECTOR_TYPE);
-
-  val = fold_ternary_loc (EXPR_LOCATION (t), VEC_PERM_EXPR, elttype, 
+  val = fold_ternary_loc (EXPR_LOCATION (t), TREE_CODE (t), TREE_TYPE (t),
 			  args[0], args[1], args[2]);
-  if (val != NULL_TREE)
-    return val;
-
- fail:
-  return t;
+  if (val == NULL_TREE)
+    return t;
+  VERIFY_CONSTANT (val);
+  return val;
 }
 
 /* Attempt to reduce the expression T to a constant value.
@@ -7994,6 +8084,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
     case UNGT_EXPR:
     case UNGE_EXPR:
     case UNEQ_EXPR:
+    case LTGT_EXPR:
     case RANGE_EXPR:
     case COMPLEX_EXPR:
       r = cxx_eval_binary_expression (call, t, allow_non_constant, addr,
@@ -8054,9 +8145,10 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 			     non_constant_p, overflow_p);
       break;
 
+    case FMA_EXPR:
     case VEC_PERM_EXPR:
-      r = cxx_eval_vec_perm_expr (call, t, allow_non_constant, addr,
-				  non_constant_p, overflow_p);
+      r = cxx_eval_trinary_expression (call, t, allow_non_constant, addr,
+				       non_constant_p, overflow_p);
       break;
 
     case CONVERT_EXPR:
@@ -8069,6 +8161,16 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 						non_constant_p, overflow_p);
 	if (*non_constant_p)
 	  return t;
+	if (POINTER_TYPE_P (TREE_TYPE (t))
+	    && TREE_CODE (op) == INTEGER_CST
+	    && !integer_zerop (op))
+	  {
+	    if (!allow_non_constant)
+	      error_at (EXPR_LOC_OR_HERE (t),
+			"reinterpret_cast from integer to pointer");
+	    *non_constant_p = true;
+	    return t;
+	  }
 	if (op == oldop)
 	  /* We didn't fold at the top so we could check for ptr-int
 	     conversion.  */
@@ -8234,11 +8336,10 @@ maybe_constant_value (tree t)
 {
   tree r;
 
-  if (type_dependent_expression_p (t)
+  if (instantiation_dependent_expression_p (t)
       || type_unknown_p (t)
       || BRACE_ENCLOSED_INITIALIZER_P (t)
-      || !potential_constant_expression (t)
-      || value_dependent_expression_p (t))
+      || !potential_constant_expression (t))
     {
       if (TREE_OVERFLOW_P (t))
 	{
@@ -8308,7 +8409,7 @@ check_automatic_or_tls (tree ref)
    C++0x [expr.const] used to say
 
    6 An expression is a potential constant expression if it is
-     a constant expression where all occurences of function
+     a constant expression where all occurrences of function
      parameters are replaced by arbitrary constant expressions
      of the appropriate type.
 
@@ -8399,7 +8500,8 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		    tree x = get_nth_callarg (t, 0);
 		    if (is_this_parameter (x))
 		      {
-			if (DECL_CONSTRUCTOR_P (DECL_CONTEXT (x)))
+			if (DECL_CONTEXT (x) == NULL_TREE
+			    || DECL_CONSTRUCTOR_P (DECL_CONTEXT (x)))
 			  {
 			    if (flags & tf_error)
 			      sorry ("calling a member function of the "
@@ -8415,7 +8517,11 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		  }
 	      }
 	    else
-	      fun = get_first_fn (fun);
+	      {
+		if (!potential_constant_expression_1 (fun, true, flags))
+		  return false;
+		fun = get_first_fn (fun);
+	      }
 	    /* Skip initial arguments to base constructors.  */
 	    if (DECL_BASE_CONSTRUCTOR_P (fun))
 	      i = num_artificial_parms_for (fun);
@@ -8465,6 +8571,15 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	 may change to something more specific to type-punning (DR 1312).  */
       {
         tree from = TREE_OPERAND (t, 0);
+	if (POINTER_TYPE_P (TREE_TYPE (t))
+	    && TREE_CODE (from) == INTEGER_CST
+	    && !integer_zerop (from))
+	  {
+	    if (flags & tf_error)
+	      error_at (EXPR_LOC_OR_HERE (t),
+			"reinterpret_cast from integer to pointer");
+	    return false;
+	  }
         return (potential_constant_expression_1
 		(from, TREE_CODE (t) != VIEW_CONVERT_EXPR, flags));
       }
@@ -8512,6 +8627,13 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
         STRIP_NOPS (x);
         if (is_this_parameter (x))
 	  {
+	    if (DECL_CONTEXT (x)
+		&& !DECL_DECLARED_CONSTEXPR_P (DECL_CONTEXT (x)))
+	      {
+		if (flags & tf_error)
+		  error ("use of %<this%> in a constant expression");
+		return false;
+	      }
 	    if (want_rval && DECL_CONTEXT (x)
 		&& DECL_CONSTRUCTOR_P (DECL_CONTEXT (x)))
 	      {
@@ -8539,6 +8661,10 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case THROW_EXPR:
     case MODIFY_EXPR:
     case MODOP_EXPR:
+    case OMP_ATOMIC:
+    case OMP_ATOMIC_READ:
+    case OMP_ATOMIC_CAPTURE_OLD:
+    case OMP_ATOMIC_CAPTURE_NEW:
       /* GCC internal stuff.  */
     case VA_ARG_EXPR:
     case OBJ_TYPE_REF:
@@ -8634,7 +8760,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case STATIC_CAST_EXPR:
     case REINTERPRET_CAST_EXPR:
     case IMPLICIT_CONV_EXPR:
-      if (cxx_dialect < cxx0x
+      if (cxx_dialect < cxx11
 	  && !dependent_type_p (TREE_TYPE (t))
 	  && !INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (t)))
 	/* In C++98, a conversion to non-integral type can't be part of a
@@ -8804,6 +8930,9 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	  return false;
       return true;
 
+    case ARRAY_NOTATION_REF:
+      return false;
+
     case FMA_EXPR:
     case VEC_PERM_EXPR:
      for (i = 0; i < 3; ++i)
@@ -8888,194 +9017,6 @@ require_potential_rvalue_constant_expression (tree t)
   return potential_constant_expression_1 (t, true, tf_warning_or_error);
 }
 
-/* Constructor for a lambda expression.  */
-
-tree
-build_lambda_expr (void)
-{
-  tree lambda = make_node (LAMBDA_EXPR);
-  LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda) = CPLD_NONE;
-  LAMBDA_EXPR_CAPTURE_LIST         (lambda) = NULL_TREE;
-  LAMBDA_EXPR_THIS_CAPTURE         (lambda) = NULL_TREE;
-  LAMBDA_EXPR_PENDING_PROXIES      (lambda) = NULL;
-  LAMBDA_EXPR_RETURN_TYPE          (lambda) = NULL_TREE;
-  LAMBDA_EXPR_MUTABLE_P            (lambda) = false;
-  return lambda;
-}
-
-/* Create the closure object for a LAMBDA_EXPR.  */
-
-tree
-build_lambda_object (tree lambda_expr)
-{
-  /* Build aggregate constructor call.
-     - cp_parser_braced_list
-     - cp_parser_functional_cast  */
-  vec<constructor_elt, va_gc> *elts = NULL;
-  tree node, expr, type;
-  location_t saved_loc;
-
-  if (processing_template_decl)
-    return lambda_expr;
-
-  /* Make sure any error messages refer to the lambda-introducer.  */
-  saved_loc = input_location;
-  input_location = LAMBDA_EXPR_LOCATION (lambda_expr);
-
-  for (node = LAMBDA_EXPR_CAPTURE_LIST (lambda_expr);
-       node;
-       node = TREE_CHAIN (node))
-    {
-      tree field = TREE_PURPOSE (node);
-      tree val = TREE_VALUE (node);
-
-      if (field == error_mark_node)
-	{
-	  expr = error_mark_node;
-	  goto out;
-	}
-
-      if (DECL_P (val))
-	mark_used (val);
-
-      /* Mere mortals can't copy arrays with aggregate initialization, so
-	 do some magic to make it work here.  */
-      if (TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
-	val = build_array_copy (val);
-      else if (DECL_NORMAL_CAPTURE_P (field)
-	       && TREE_CODE (TREE_TYPE (field)) != REFERENCE_TYPE)
-	{
-	  /* "the entities that are captured by copy are used to
-	     direct-initialize each corresponding non-static data
-	     member of the resulting closure object."
-
-	     There's normally no way to express direct-initialization
-	     from an element of a CONSTRUCTOR, so we build up a special
-	     TARGET_EXPR to bypass the usual copy-initialization.  */
-	  val = force_rvalue (val, tf_warning_or_error);
-	  if (TREE_CODE (val) == TARGET_EXPR)
-	    TARGET_EXPR_DIRECT_INIT_P (val) = true;
-	}
-
-      CONSTRUCTOR_APPEND_ELT (elts, DECL_NAME (field), val);
-    }
-
-  expr = build_constructor (init_list_type_node, elts);
-  CONSTRUCTOR_IS_DIRECT_INIT (expr) = 1;
-
-  /* N2927: "[The closure] class type is not an aggregate."
-     But we briefly treat it as an aggregate to make this simpler.  */
-  type = LAMBDA_EXPR_CLOSURE (lambda_expr);
-  CLASSTYPE_NON_AGGREGATE (type) = 0;
-  expr = finish_compound_literal (type, expr, tf_warning_or_error);
-  CLASSTYPE_NON_AGGREGATE (type) = 1;
-
- out:
-  input_location = saved_loc;
-  return expr;
-}
-
-/* Return an initialized RECORD_TYPE for LAMBDA.
-   LAMBDA must have its explicit captures already.  */
-
-tree
-begin_lambda_type (tree lambda)
-{
-  tree type;
-
-  {
-    /* Unique name.  This is just like an unnamed class, but we cannot use
-       make_anon_name because of certain checks against TYPE_ANONYMOUS_P.  */
-    tree name;
-    name = make_lambda_name ();
-
-    /* Create the new RECORD_TYPE for this lambda.  */
-    type = xref_tag (/*tag_code=*/record_type,
-                     name,
-                     /*scope=*/ts_within_enclosing_non_class,
-                     /*template_header_p=*/false);
-  }
-
-  /* Designate it as a struct so that we can use aggregate initialization.  */
-  CLASSTYPE_DECLARED_CLASS (type) = false;
-
-  /* Cross-reference the expression and the type.  */
-  LAMBDA_EXPR_CLOSURE (lambda) = type;
-  CLASSTYPE_LAMBDA_EXPR (type) = lambda;
-
-  /* Clear base types.  */
-  xref_basetypes (type, /*bases=*/NULL_TREE);
-
-  /* Start the class.  */
-  type = begin_class_definition (type);
-  if (type == error_mark_node)
-    return error_mark_node;
-
-  return type;
-}
-
-/* Returns the type to use for the return type of the operator() of a
-   closure class.  */
-
-tree
-lambda_return_type (tree expr)
-{
-  if (expr == NULL_TREE)
-    return void_type_node;
-  if (type_unknown_p (expr)
-      || BRACE_ENCLOSED_INITIALIZER_P (expr))
-    {
-      cxx_incomplete_type_error (expr, TREE_TYPE (expr));
-      return void_type_node;
-    }
-  gcc_checking_assert (!type_dependent_expression_p (expr));
-  return cv_unqualified (type_decays_to (unlowered_expr_type (expr)));
-}
-
-/* Given a LAMBDA_EXPR or closure type LAMBDA, return the op() of the
-   closure type.  */
-
-tree
-lambda_function (tree lambda)
-{
-  tree type;
-  if (TREE_CODE (lambda) == LAMBDA_EXPR)
-    type = LAMBDA_EXPR_CLOSURE (lambda);
-  else
-    type = lambda;
-  gcc_assert (LAMBDA_TYPE_P (type));
-  /* Don't let debug_tree cause instantiation.  */
-  if (CLASSTYPE_TEMPLATE_INSTANTIATION (type)
-      && !COMPLETE_OR_OPEN_TYPE_P (type))
-    return NULL_TREE;
-  lambda = lookup_member (type, ansi_opname (CALL_EXPR),
-			  /*protect=*/0, /*want_type=*/false,
-			  tf_warning_or_error);
-  if (lambda)
-    lambda = BASELINK_FUNCTIONS (lambda);
-  return lambda;
-}
-
-/* Returns the type to use for the FIELD_DECL corresponding to the
-   capture of EXPR.
-   The caller should add REFERENCE_TYPE for capture by reference.  */
-
-tree
-lambda_capture_field_type (tree expr)
-{
-  tree type;
-  if (type_dependent_expression_p (expr))
-    {
-      type = cxx_make_type (DECLTYPE_TYPE);
-      DECLTYPE_TYPE_EXPR (type) = expr;
-      DECLTYPE_FOR_LAMBDA_CAPTURE (type) = true;
-      SET_TYPE_STRUCTURAL_EQUALITY (type);
-    }
-  else
-    type = non_reference (unlowered_expr_type (expr));
-  return type;
-}
-
 /* Insert the deduced return type for an auto function.  */
 
 void
@@ -9173,610 +9114,6 @@ capture_decltype (tree decl)
       type = build_reference_type (type);
     }
   return type;
-}
-
-/* Returns true iff DECL is a lambda capture proxy variable created by
-   build_capture_proxy.  */
-
-bool
-is_capture_proxy (tree decl)
-{
-  return (TREE_CODE (decl) == VAR_DECL
-	  && DECL_HAS_VALUE_EXPR_P (decl)
-	  && !DECL_ANON_UNION_VAR_P (decl)
-	  && LAMBDA_FUNCTION_P (DECL_CONTEXT (decl)));
-}
-
-/* Returns true iff DECL is a capture proxy for a normal capture
-   (i.e. without explicit initializer).  */
-
-bool
-is_normal_capture_proxy (tree decl)
-{
-  if (!is_capture_proxy (decl))
-    /* It's not a capture proxy.  */
-    return false;
-
-  /* It is a capture proxy, is it a normal capture?  */
-  tree val = DECL_VALUE_EXPR (decl);
-  if (val == error_mark_node)
-    return true;
-
-  gcc_assert (TREE_CODE (val) == COMPONENT_REF);
-  val = TREE_OPERAND (val, 1);
-  return DECL_NORMAL_CAPTURE_P (val);
-}
-
-/* VAR is a capture proxy created by build_capture_proxy; add it to the
-   current function, which is the operator() for the appropriate lambda.  */
-
-void
-insert_capture_proxy (tree var)
-{
-  cp_binding_level *b;
-  int skip;
-  tree stmt_list;
-
-  /* Put the capture proxy in the extra body block so that it won't clash
-     with a later local variable.  */
-  b = current_binding_level;
-  for (skip = 0; ; ++skip)
-    {
-      cp_binding_level *n = b->level_chain;
-      if (n->kind == sk_function_parms)
-	break;
-      b = n;
-    }
-  pushdecl_with_scope (var, b, false);
-
-  /* And put a DECL_EXPR in the STATEMENT_LIST for the same block.  */
-  var = build_stmt (DECL_SOURCE_LOCATION (var), DECL_EXPR, var);
-  stmt_list = (*stmt_list_stack)[stmt_list_stack->length () - 1 - skip];
-  gcc_assert (stmt_list);
-  append_to_statement_list_force (var, &stmt_list);
-}
-
-/* We've just finished processing a lambda; if the containing scope is also
-   a lambda, insert any capture proxies that were created while processing
-   the nested lambda.  */
-
-void
-insert_pending_capture_proxies (void)
-{
-  tree lam;
-  vec<tree, va_gc> *proxies;
-  unsigned i;
-
-  if (!current_function_decl || !LAMBDA_FUNCTION_P (current_function_decl))
-    return;
-
-  lam = CLASSTYPE_LAMBDA_EXPR (DECL_CONTEXT (current_function_decl));
-  proxies = LAMBDA_EXPR_PENDING_PROXIES (lam);
-  for (i = 0; i < vec_safe_length (proxies); ++i)
-    {
-      tree var = (*proxies)[i];
-      insert_capture_proxy (var);
-    }
-  release_tree_vector (LAMBDA_EXPR_PENDING_PROXIES (lam));
-  LAMBDA_EXPR_PENDING_PROXIES (lam) = NULL;
-}
-
-/* Given REF, a COMPONENT_REF designating a field in the lambda closure,
-   return the type we want the proxy to have: the type of the field itself,
-   with added const-qualification if the lambda isn't mutable and the
-   capture is by value.  */
-
-tree
-lambda_proxy_type (tree ref)
-{
-  tree type;
-  if (REFERENCE_REF_P (ref))
-    ref = TREE_OPERAND (ref, 0);
-  type = TREE_TYPE (ref);
-  if (!dependent_type_p (type))
-    return type;
-  type = cxx_make_type (DECLTYPE_TYPE);
-  DECLTYPE_TYPE_EXPR (type) = ref;
-  DECLTYPE_FOR_LAMBDA_PROXY (type) = true;
-  SET_TYPE_STRUCTURAL_EQUALITY (type);
-  return type;
-}
-
-/* MEMBER is a capture field in a lambda closure class.  Now that we're
-   inside the operator(), build a placeholder var for future lookups and
-   debugging.  */
-
-tree
-build_capture_proxy (tree member)
-{
-  tree var, object, fn, closure, name, lam, type;
-
-  closure = DECL_CONTEXT (member);
-  fn = lambda_function (closure);
-  lam = CLASSTYPE_LAMBDA_EXPR (closure);
-
-  /* The proxy variable forwards to the capture field.  */
-  object = build_fold_indirect_ref (DECL_ARGUMENTS (fn));
-  object = finish_non_static_data_member (member, object, NULL_TREE);
-  if (REFERENCE_REF_P (object))
-    object = TREE_OPERAND (object, 0);
-
-  /* Remove the __ inserted by add_capture.  */
-  name = get_identifier (IDENTIFIER_POINTER (DECL_NAME (member)) + 2);
-
-  type = lambda_proxy_type (object);
-  var = build_decl (input_location, VAR_DECL, name, type);
-  SET_DECL_VALUE_EXPR (var, object);
-  DECL_HAS_VALUE_EXPR_P (var) = 1;
-  DECL_ARTIFICIAL (var) = 1;
-  TREE_USED (var) = 1;
-  DECL_CONTEXT (var) = fn;
-
-  if (name == this_identifier)
-    {
-      gcc_assert (LAMBDA_EXPR_THIS_CAPTURE (lam) == member);
-      LAMBDA_EXPR_THIS_CAPTURE (lam) = var;
-    }
-
-  if (fn == current_function_decl)
-    insert_capture_proxy (var);
-  else
-    vec_safe_push (LAMBDA_EXPR_PENDING_PROXIES (lam), var);
-
-  return var;
-}
-
-/* From an ID and INITIALIZER, create a capture (by reference if
-   BY_REFERENCE_P is true), add it to the capture-list for LAMBDA,
-   and return it.  */
-
-tree
-add_capture (tree lambda, tree id, tree initializer, bool by_reference_p,
-	     bool explicit_init_p)
-{
-  char *buf;
-  tree type, member, name;
-
-  type = lambda_capture_field_type (initializer);
-  if (by_reference_p)
-    {
-      type = build_reference_type (type);
-      if (!real_lvalue_p (initializer))
-	error ("cannot capture %qE by reference", initializer);
-    }
-  else
-    /* Capture by copy requires a complete type.  */
-    type = complete_type (type);
-
-  /* Add __ to the beginning of the field name so that user code
-     won't find the field with name lookup.  We can't just leave the name
-     unset because template instantiation uses the name to find
-     instantiated fields.  */
-  buf = (char *) alloca (IDENTIFIER_LENGTH (id) + 3);
-  buf[1] = buf[0] = '_';
-  memcpy (buf + 2, IDENTIFIER_POINTER (id),
-	  IDENTIFIER_LENGTH (id) + 1);
-  name = get_identifier (buf);
-
-  /* If TREE_TYPE isn't set, we're still in the introducer, so check
-     for duplicates.  */
-  if (!LAMBDA_EXPR_CLOSURE (lambda))
-    {
-      if (IDENTIFIER_MARKED (name))
-	{
-	  pedwarn (input_location, 0,
-		   "already captured %qD in lambda expression", id);
-	  return NULL_TREE;
-	}
-      IDENTIFIER_MARKED (name) = true;
-    }
-
-  /* Make member variable.  */
-  member = build_lang_decl (FIELD_DECL, name, type);
-
-  if (!explicit_init_p)
-    /* Normal captures are invisible to name lookup but uses are replaced
-       with references to the capture field; we implement this by only
-       really making them invisible in unevaluated context; see
-       qualify_lookup.  For now, let's make explicitly initialized captures
-       always visible.  */
-    DECL_NORMAL_CAPTURE_P (member) = true;
-
-  if (id == this_identifier)
-    LAMBDA_EXPR_THIS_CAPTURE (lambda) = member;
-
-  /* Add it to the appropriate closure class if we've started it.  */
-  if (current_class_type
-      && current_class_type == LAMBDA_EXPR_CLOSURE (lambda))
-    finish_member_declaration (member);
-
-  LAMBDA_EXPR_CAPTURE_LIST (lambda)
-    = tree_cons (member, initializer, LAMBDA_EXPR_CAPTURE_LIST (lambda));
-
-  if (LAMBDA_EXPR_CLOSURE (lambda))
-    return build_capture_proxy (member);
-  /* For explicit captures we haven't started the function yet, so we wait
-     and build the proxy from cp_parser_lambda_body.  */
-  return NULL_TREE;
-}
-
-/* Register all the capture members on the list CAPTURES, which is the
-   LAMBDA_EXPR_CAPTURE_LIST for the lambda after the introducer.  */
-
-void
-register_capture_members (tree captures)
-{
-  if (captures == NULL_TREE)
-    return;
-
-  register_capture_members (TREE_CHAIN (captures));
-  /* We set this in add_capture to avoid duplicates.  */
-  IDENTIFIER_MARKED (DECL_NAME (TREE_PURPOSE (captures))) = false;
-  finish_member_declaration (TREE_PURPOSE (captures));
-}
-
-/* Similar to add_capture, except this works on a stack of nested lambdas.
-   BY_REFERENCE_P in this case is derived from the default capture mode.
-   Returns the capture for the lambda at the bottom of the stack.  */
-
-tree
-add_default_capture (tree lambda_stack, tree id, tree initializer)
-{
-  bool this_capture_p = (id == this_identifier);
-
-  tree var = NULL_TREE;
-
-  tree saved_class_type = current_class_type;
-
-  tree node;
-
-  for (node = lambda_stack;
-       node;
-       node = TREE_CHAIN (node))
-    {
-      tree lambda = TREE_VALUE (node);
-
-      current_class_type = LAMBDA_EXPR_CLOSURE (lambda);
-      var = add_capture (lambda,
-                            id,
-                            initializer,
-                            /*by_reference_p=*/
-			    (!this_capture_p
-			     && (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda)
-				 == CPLD_REFERENCE)),
-			    /*explicit_init_p=*/false);
-      initializer = convert_from_reference (var);
-    }
-
-  current_class_type = saved_class_type;
-
-  return var;
-}
-
-/* Return the capture pertaining to a use of 'this' in LAMBDA, in the form of an
-   INDIRECT_REF, possibly adding it through default capturing.  */
-
-tree
-lambda_expr_this_capture (tree lambda)
-{
-  tree result;
-
-  tree this_capture = LAMBDA_EXPR_THIS_CAPTURE (lambda);
-
-  /* Try to default capture 'this' if we can.  */
-  if (!this_capture
-      && LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (lambda) != CPLD_NONE)
-    {
-      tree lambda_stack = NULL_TREE;
-      tree init = NULL_TREE;
-
-      /* If we are in a lambda function, we can move out until we hit:
-           1. a non-lambda function or NSDMI,
-           2. a lambda function capturing 'this', or
-           3. a non-default capturing lambda function.  */
-      for (tree tlambda = lambda; ;)
-	{
-          lambda_stack = tree_cons (NULL_TREE,
-                                    tlambda,
-                                    lambda_stack);
-
-	  if (LAMBDA_EXPR_EXTRA_SCOPE (tlambda)
-	      && TREE_CODE (LAMBDA_EXPR_EXTRA_SCOPE (tlambda)) == FIELD_DECL)
-	    {
-	      /* In an NSDMI, we don't have a function to look up the decl in,
-		 but the fake 'this' pointer that we're using for parsing is
-		 in scope_chain.  */
-	      init = scope_chain->x_current_class_ptr;
-	      gcc_checking_assert
-		(init && (TREE_TYPE (TREE_TYPE (init))
-			  == current_nonlambda_class_type ()));
-	      break;
-	    }
-
-	  tree closure_decl = TYPE_NAME (LAMBDA_EXPR_CLOSURE (tlambda));
-	  tree containing_function = decl_function_context (closure_decl);
-
-	  if (containing_function == NULL_TREE)
-	    /* We ran out of scopes; there's no 'this' to capture.  */
-	    break;
-
-	  if (!LAMBDA_FUNCTION_P (containing_function))
-	    {
-	      /* We found a non-lambda function.  */
-	      if (DECL_NONSTATIC_MEMBER_FUNCTION_P (containing_function))
-		/* First parameter is 'this'.  */
-		init = DECL_ARGUMENTS (containing_function);
-	      break;
-	    }
-
-	  tlambda
-            = CLASSTYPE_LAMBDA_EXPR (DECL_CONTEXT (containing_function));
-
-          if (LAMBDA_EXPR_THIS_CAPTURE (tlambda))
-	    {
-	      /* An outer lambda has already captured 'this'.  */
-	      init = LAMBDA_EXPR_THIS_CAPTURE (tlambda);
-	      break;
-	    }
-
-	  if (LAMBDA_EXPR_DEFAULT_CAPTURE_MODE (tlambda) == CPLD_NONE)
-	    /* An outer lambda won't let us capture 'this'.  */
-	    break;
-	}
-
-      if (init)
-	this_capture = add_default_capture (lambda_stack,
-					    /*id=*/this_identifier,
-					    init);
-    }
-
-  if (!this_capture)
-    {
-      /* In unevaluated context this isn't an odr-use, so just return the
-	 nearest 'this'.  */
-      if (cp_unevaluated_operand)
-	return lookup_name (this_identifier);
-
-      error ("%<this%> was not captured for this lambda function");
-      result = error_mark_node;
-    }
-  else
-    {
-      /* To make sure that current_class_ref is for the lambda.  */
-      gcc_assert (TYPE_MAIN_VARIANT (TREE_TYPE (current_class_ref))
-		  == LAMBDA_EXPR_CLOSURE (lambda));
-
-      result = this_capture;
-
-      /* If 'this' is captured, each use of 'this' is transformed into an
-	 access to the corresponding unnamed data member of the closure
-	 type cast (_expr.cast_ 5.4) to the type of 'this'. [ The cast
-	 ensures that the transformed expression is an rvalue. ] */
-      result = rvalue (result);
-    }
-
-  return result;
-}
-
-/* We don't want to capture 'this' until we know we need it, i.e. after
-   overload resolution has chosen a non-static member function.  At that
-   point we call this function to turn a dummy object into a use of the
-   'this' capture.  */
-
-tree
-maybe_resolve_dummy (tree object)
-{
-  if (!is_dummy_object (object))
-    return object;
-
-  tree type = TYPE_MAIN_VARIANT (TREE_TYPE (object));
-  gcc_assert (TREE_CODE (type) != POINTER_TYPE);
-
-  if (type != current_class_type
-      && current_class_type
-      && LAMBDA_TYPE_P (current_class_type))
-    {
-      /* In a lambda, need to go through 'this' capture.  */
-      tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);
-      tree cap = lambda_expr_this_capture (lam);
-      object = build_x_indirect_ref (EXPR_LOCATION (object), cap,
-				     RO_NULL, tf_warning_or_error);
-    }
-
-  return object;
-}
-
-/* Returns the method basetype of the innermost non-lambda function, or
-   NULL_TREE if none.  */
-
-tree
-nonlambda_method_basetype (void)
-{
-  tree fn, type;
-  if (!current_class_ref)
-    return NULL_TREE;
-
-  type = current_class_type;
-  if (!LAMBDA_TYPE_P (type))
-    return type;
-
-  /* Find the nearest enclosing non-lambda function.  */
-  fn = TYPE_NAME (type);
-  do
-    fn = decl_function_context (fn);
-  while (fn && LAMBDA_FUNCTION_P (fn));
-
-  if (!fn || !DECL_NONSTATIC_MEMBER_FUNCTION_P (fn))
-    return NULL_TREE;
-
-  return TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
-}
-
-/* If the closure TYPE has a static op(), also add a conversion to function
-   pointer.  */
-
-void
-maybe_add_lambda_conv_op (tree type)
-{
-  bool nested = (current_function_decl != NULL_TREE);
-  tree callop = lambda_function (type);
-  tree rettype, name, fntype, fn, body, compound_stmt;
-  tree thistype, stattype, statfn, convfn, call, arg;
-  vec<tree, va_gc> *argvec;
-
-  if (LAMBDA_EXPR_CAPTURE_LIST (CLASSTYPE_LAMBDA_EXPR (type)) != NULL_TREE)
-    return;
-
-  if (processing_template_decl)
-    return;
-
-  stattype = build_function_type (TREE_TYPE (TREE_TYPE (callop)),
-				  FUNCTION_ARG_CHAIN (callop));
-
-  /* First build up the conversion op.  */
-
-  rettype = build_pointer_type (stattype);
-  name = mangle_conv_op_name_for_type (rettype);
-  thistype = cp_build_qualified_type (type, TYPE_QUAL_CONST);
-  fntype = build_method_type_directly (thistype, rettype, void_list_node);
-  fn = convfn = build_lang_decl (FUNCTION_DECL, name, fntype);
-  DECL_SOURCE_LOCATION (fn) = DECL_SOURCE_LOCATION (callop);
-
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && DECL_ALIGN (fn) < 2 * BITS_PER_UNIT)
-    DECL_ALIGN (fn) = 2 * BITS_PER_UNIT;
-
-  SET_OVERLOADED_OPERATOR_CODE (fn, TYPE_EXPR);
-  grokclassfn (type, fn, NO_SPECIAL);
-  set_linkage_according_to_type (type, fn);
-  rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
-  DECL_IN_AGGR_P (fn) = 1;
-  DECL_ARTIFICIAL (fn) = 1;
-  DECL_NOT_REALLY_EXTERN (fn) = 1;
-  DECL_DECLARED_INLINE_P (fn) = 1;
-  DECL_ARGUMENTS (fn) = build_this_parm (fntype, TYPE_QUAL_CONST);
-  if (nested)
-    DECL_INTERFACE_KNOWN (fn) = 1;
-
-  add_method (type, fn, NULL_TREE);
-
-  /* Generic thunk code fails for varargs; we'll complain in mark_used if
-     the conversion op is used.  */
-  if (varargs_function_p (callop))
-    {
-      DECL_DELETED_FN (fn) = 1;
-      return;
-    }
-
-  /* Now build up the thunk to be returned.  */
-
-  name = get_identifier ("_FUN");
-  fn = statfn = build_lang_decl (FUNCTION_DECL, name, stattype);
-  DECL_SOURCE_LOCATION (fn) = DECL_SOURCE_LOCATION (callop);
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && DECL_ALIGN (fn) < 2 * BITS_PER_UNIT)
-    DECL_ALIGN (fn) = 2 * BITS_PER_UNIT;
-  grokclassfn (type, fn, NO_SPECIAL);
-  set_linkage_according_to_type (type, fn);
-  rest_of_decl_compilation (fn, toplevel_bindings_p (), at_eof);
-  DECL_IN_AGGR_P (fn) = 1;
-  DECL_ARTIFICIAL (fn) = 1;
-  DECL_NOT_REALLY_EXTERN (fn) = 1;
-  DECL_DECLARED_INLINE_P (fn) = 1;
-  DECL_STATIC_FUNCTION_P (fn) = 1;
-  DECL_ARGUMENTS (fn) = copy_list (DECL_CHAIN (DECL_ARGUMENTS (callop)));
-  for (arg = DECL_ARGUMENTS (fn); arg; arg = DECL_CHAIN (arg))
-    DECL_CONTEXT (arg) = fn;
-  if (nested)
-    DECL_INTERFACE_KNOWN (fn) = 1;
-
-  add_method (type, fn, NULL_TREE);
-
-  if (nested)
-    push_function_context ();
-  else
-    /* Still increment function_depth so that we don't GC in the
-       middle of an expression.  */
-    ++function_depth;
-
-  /* Generate the body of the thunk.  */
-
-  start_preparsed_function (statfn, NULL_TREE,
-			    SF_PRE_PARSED | SF_INCLASS_INLINE);
-  if (DECL_ONE_ONLY (statfn))
-    {
-      /* Put the thunk in the same comdat group as the call op.  */
-      symtab_add_to_same_comdat_group
-	 ((symtab_node) cgraph_get_create_node (statfn),
-          (symtab_node) cgraph_get_create_node (callop));
-    }
-  body = begin_function_body ();
-  compound_stmt = begin_compound_stmt (0);
-
-  arg = build1 (NOP_EXPR, TREE_TYPE (DECL_ARGUMENTS (callop)),
-		null_pointer_node);
-  argvec = make_tree_vector ();
-  argvec->quick_push (arg);
-  for (arg = DECL_ARGUMENTS (statfn); arg; arg = DECL_CHAIN (arg))
-    {
-      mark_exp_read (arg);
-      vec_safe_push (argvec, arg);
-    }
-  call = build_call_a (callop, argvec->length (), argvec->address ());
-  CALL_FROM_THUNK_P (call) = 1;
-  if (MAYBE_CLASS_TYPE_P (TREE_TYPE (call)))
-    call = build_cplus_new (TREE_TYPE (call), call, tf_warning_or_error);
-  call = convert_from_reference (call);
-  finish_return_stmt (call);
-
-  finish_compound_stmt (compound_stmt);
-  finish_function_body (body);
-
-  expand_or_defer_fn (finish_function (2));
-
-  /* Generate the body of the conversion op.  */
-
-  start_preparsed_function (convfn, NULL_TREE,
-			    SF_PRE_PARSED | SF_INCLASS_INLINE);
-  body = begin_function_body ();
-  compound_stmt = begin_compound_stmt (0);
-
-  /* decl_needed_p needs to see that it's used.  */
-  TREE_USED (statfn) = 1;
-  finish_return_stmt (decay_conversion (statfn, tf_warning_or_error));
-
-  finish_compound_stmt (compound_stmt);
-  finish_function_body (body);
-
-  expand_or_defer_fn (finish_function (2));
-
-  if (nested)
-    pop_function_context ();
-  else
-    --function_depth;
-}
-
-/* Returns true iff VAL is a lambda-related declaration which should
-   be ignored by unqualified lookup.  */
-
-bool
-is_lambda_ignored_entity (tree val)
-{
-  /* In unevaluated context, look past normal capture proxies.  */
-  if (cp_unevaluated_operand && is_normal_capture_proxy (val))
-    return true;
-
-  /* Always ignore lambda fields, their names are only for debugging.  */
-  if (TREE_CODE (val) == FIELD_DECL
-      && CLASSTYPE_LAMBDA_EXPR (DECL_CONTEXT (val)))
-    return true;
-
-  /* None of the lookups that use qualify_lookup want the op() from the
-     lambda; they want the one from the enclosing class.  */
-  if (TREE_CODE (val) == FUNCTION_DECL && LAMBDA_FUNCTION_P (val))
-    return true;
-
-  return false;
 }
 
 #include "gt-cp-semantics.h"

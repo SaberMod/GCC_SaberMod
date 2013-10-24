@@ -26,10 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "dumpfile.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
 #include "gimple-fold.h"
+#include "ipa-utils.h"
+#include "gimple-pretty-print.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.
@@ -60,6 +62,24 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   struct cgraph_node *node;
   symtab_node snode;
 
+  if (DECL_ABSTRACT (decl))
+    return false;
+
+  /* We are concerned only about static/external vars and functions.  */
+  if ((!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+      || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL))
+    return true;
+
+  /* Static objects can be referred only if they was not optimized out yet.  */
+  if (!TREE_PUBLIC (decl) && !DECL_EXTERNAL (decl))
+    {
+      snode = symtab_get_node (decl);
+      if (!snode)
+	return false;
+      node = dyn_cast <cgraph_node> (snode);
+      return !node || !node->global.inlined_to;
+    }
+
   /* We will later output the initializer, so we can refer to it.
      So we are concerned only when DECL comes from initializer of
      external var.  */
@@ -68,15 +88,6 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
       || !DECL_EXTERNAL (from_decl)
       || (flag_ltrans
 	  && symtab_get_node (from_decl)->symbol.in_other_partition))
-    return true;
-  /* We are concerned only about static/external vars and functions.  */
-  if ((!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
-      || (TREE_CODE (decl) != VAR_DECL && TREE_CODE (decl) != FUNCTION_DECL))
-    return true;
-  /* Weakrefs have somewhat confusing DECL_EXTERNAL flag set; they
-     are always safe.  */
-  if (DECL_EXTERNAL (decl)
-      && lookup_attribute ("weakref", DECL_ATTRIBUTES (decl)))
     return true;
   /* We are folding reference from external vtable.  The vtable may reffer
      to a symbol keyed to other compilation unit.  The other compilation
@@ -114,7 +125,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
          The second is important when devirtualization happens during final
          compilation stage when making a new reference no longer makes callee
          to be compiled.  */
-      if (!node || !node->analyzed || node->global.inlined_to)
+      if (!node || !node->symbol.definition || node->global.inlined_to)
 	{
 	  gcc_checking_assert (!TREE_ASM_WRITTEN (decl));
 	  return false;
@@ -123,7 +134,7 @@ can_refer_decl_in_current_unit_p (tree decl, tree from_decl)
   else if (TREE_CODE (decl) == VAR_DECL)
     {
       vnode = varpool_get_node (decl);
-      if (!vnode || !vnode->analyzed)
+      if (!vnode || !vnode->symbol.definition)
 	{
 	  gcc_checking_assert (!TREE_ASM_WRITTEN (decl));
 	  return false;
@@ -178,7 +189,7 @@ canonicalize_constructor_val (tree cval, tree from_decl)
 	  /* Make sure we create a cgraph node for functions we'll reference.
 	     They can be non-existent if the reference comes from an entry
 	     of an external vtable for example.  */
-	  cgraph_get_create_node (base);
+	  cgraph_get_create_real_symbol_node (base);
 	}
       /* Fixup types in global initializers.  */
       if (TREE_TYPE (TREE_TYPE (cval)) != TREE_TYPE (TREE_OPERAND (cval, 0)))
@@ -197,9 +208,9 @@ canonicalize_constructor_val (tree cval, tree from_decl)
 tree
 get_symbol_constant_value (tree sym)
 {
-  if (const_value_known_p (sym))
+  tree val = ctor_for_folding (sym);
+  if (val != error_mark_node)
     {
-      tree val = DECL_INITIAL (sym);
       if (val)
 	{
 	  val = canonicalize_constructor_val (unshare_expr (val), sym);
@@ -1012,13 +1023,14 @@ gimple_fold_builtin (gimple stmt)
    represented by a declaration (i.e. a global or automatically allocated one)
    or NULL if it cannot be found or is not safe.  CST is expected to be an
    ADDR_EXPR of such object or the function will return NULL.  Currently it is
-   safe to use such binfo only if it has no base binfo (i.e. no ancestors).  */
+   safe to use such binfo only if it has no base binfo (i.e. no ancestors)
+   EXPECTED_TYPE is type of the class virtual belongs to.  */
 
 tree
-gimple_extract_devirt_binfo_from_cst (tree cst)
+gimple_extract_devirt_binfo_from_cst (tree cst, tree expected_type)
 {
   HOST_WIDE_INT offset, size, max_size;
-  tree base, type, expected_type, binfo;
+  tree base, type, binfo;
   bool last_artificial = false;
 
   if (!flag_devirtualize
@@ -1027,7 +1039,6 @@ gimple_extract_devirt_binfo_from_cst (tree cst)
     return NULL_TREE;
 
   cst = TREE_OPERAND (cst, 0);
-  expected_type = TREE_TYPE (cst);
   base = get_ref_base_and_extent (cst, &offset, &size, &max_size);
   type = TREE_TYPE (base);
   if (!DECL_P (base)
@@ -1043,7 +1054,7 @@ gimple_extract_devirt_binfo_from_cst (tree cst)
       HOST_WIDE_INT pos, size;
       tree fld;
 
-      if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (expected_type))
+      if (types_same_for_odr (type, expected_type))
 	break;
       if (offset < 0)
 	return NULL_TREE;
@@ -1107,13 +1118,27 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
     {
       if (gimple_call_addr_fndecl (OBJ_TYPE_REF_EXPR (callee)) != NULL_TREE)
 	{
+          if (dump_file && virtual_method_call_p (callee)
+	      && !possible_polymorphic_call_target_p
+		    (callee, cgraph_get_node (gimple_call_addr_fndecl
+                                                 (OBJ_TYPE_REF_EXPR (callee)))))
+	    {
+	      fprintf (dump_file,
+		       "Type inheritnace inconsistent devirtualization of ");
+	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+	      fprintf (dump_file, " to ");
+	      print_generic_expr (dump_file, callee, TDF_SLIM);
+	      fprintf (dump_file, "\n");
+	    }
+
 	  gimple_call_set_fn (stmt, OBJ_TYPE_REF_EXPR (callee));
 	  changed = true;
 	}
-      else
+      else if (virtual_method_call_p (callee))
 	{
 	  tree obj = OBJ_TYPE_REF_OBJECT (callee);
-	  tree binfo = gimple_extract_devirt_binfo_from_cst (obj);
+	  tree binfo = gimple_extract_devirt_binfo_from_cst
+		 (obj, obj_type_ref_class (callee));
 	  if (binfo)
 	    {
 	      HOST_WIDE_INT token
@@ -1121,6 +1146,11 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	      tree fndecl = gimple_get_virt_method_for_binfo (token, binfo);
 	      if (fndecl)
 		{
+#ifdef ENABLE_CHECKING
+		  gcc_assert (possible_polymorphic_call_target_p
+				 (callee, cgraph_get_node (fndecl)));
+
+#endif
 		  gimple_call_set_fndecl (stmt, fndecl);
 		  changed = true;
 		}
@@ -1143,6 +1173,8 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	    gimplify_and_update_call_from_tree (gsi, result);
 	  changed = true;
 	}
+      else if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_MD)
+	changed |= targetm.gimple_fold_builtin (gsi);
     }
 
   return changed;
@@ -2698,19 +2730,18 @@ get_base_constructor (tree base, HOST_WIDE_INT *bit_offset,
   switch (TREE_CODE (base))
     {
     case VAR_DECL:
-      if (!const_value_known_p (base))
-	return NULL_TREE;
-
-      /* Fallthru.  */
     case CONST_DECL:
-      if (!DECL_INITIAL (base)
-	  && (TREE_STATIC (base) || DECL_EXTERNAL (base)))
-        return error_mark_node;
-      /* Do not return an error_mark_node DECL_INITIAL.  LTO uses this
-         as special marker (_not_ zero ...) for its own purposes.  */
-      if (DECL_INITIAL (base) == error_mark_node)
-	return NULL_TREE;
-      return DECL_INITIAL (base);
+      {
+	tree init = ctor_for_folding (base);
+
+	/* Our semantic is exact opposite of ctor_for_folding;
+	   NULL means unknown, while error_mark_node is 0.  */
+	if (init == error_mark_node)
+	  return NULL_TREE;
+	if (!init)
+	  return error_mark_node;
+	return init;
+      }
 
     case ARRAY_REF:
     case COMPONENT_REF:
@@ -2794,7 +2825,7 @@ fold_array_ctor_reference (tree type, tree ctor,
   else
     low_bound = double_int_zero;
   /* Static constructors for variably sized objects makes no sense.  */
-  gcc_assert (TREE_CODE(TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))))
+  gcc_assert (TREE_CODE (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))))
 	      == INTEGER_CST);
   elt_size =
     tree_to_double_int (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ctor))));
@@ -3100,7 +3131,7 @@ tree
 gimple_get_virt_method_for_binfo (HOST_WIDE_INT token, tree known_binfo)
 {
   unsigned HOST_WIDE_INT offset, size;
-  tree v, fn, vtable;
+  tree v, fn, vtable, init;
 
   vtable = v = BINFO_VTABLE (known_binfo);
   /* If there is no virtual methods table, leave the OBJ_TYPE_REF alone.  */
@@ -3120,15 +3151,25 @@ gimple_get_virt_method_for_binfo (HOST_WIDE_INT token, tree known_binfo)
   v = TREE_OPERAND (v, 0);
 
   if (TREE_CODE (v) != VAR_DECL
-      || !DECL_VIRTUAL_P (v)
-      || !DECL_INITIAL (v)
-      || DECL_INITIAL (v) == error_mark_node)
+      || !DECL_VIRTUAL_P (v))
     return NULL_TREE;
+  init = ctor_for_folding (v);
+
+  /* The virtual tables should always be born with constructors.
+     and we always should assume that they are avaialble for
+     folding.  At the moment we do not stream them in all cases,
+     but it should never happen that ctor seem unreachable.  */
+  gcc_assert (init);
+  if (init == error_mark_node)
+    {
+      gcc_assert (in_lto_p);
+      return NULL_TREE;
+    }
   gcc_checking_assert (TREE_CODE (TREE_TYPE (v)) == ARRAY_TYPE);
   size = tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (v))), 1);
   offset += token * size;
-  fn = fold_ctor_reference (TREE_TYPE (TREE_TYPE (v)), DECL_INITIAL (v),
-			    offset, size, vtable);
+  fn = fold_ctor_reference (TREE_TYPE (TREE_TYPE (v)), init,
+			    offset, size, v);
   if (!fn || integer_zerop (fn))
     return NULL_TREE;
   gcc_assert (TREE_CODE (fn) == ADDR_EXPR

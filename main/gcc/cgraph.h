@@ -30,7 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-ref.h"
 
 /* Symbol table consists of functions and variables.
-   TODO: add labels, constant pool and aliases.  */
+   TODO: add labels and CONST_DECLs.  */
 enum symtab_type
 {
   SYMTAB_SYMBOL,
@@ -48,44 +48,97 @@ struct GTY(()) symtab_node_base
   /* The symbols resolution.  */
   ENUM_BITFIELD (ld_plugin_symbol_resolution) resolution : 8;
 
-  /* Set when function has address taken.
-     In current implementation it imply needed flag. */
-  unsigned address_taken : 1;
+  /*** Flags representing the symbol type.  ***/
+
+  /* True when symbol corresponds to a definition in current unit.
+     set via cgraph_finalize_function or varpool_finalize_decl  */
+  unsigned definition : 1;
+  /* True when symbol is an alias.  
+     Set by assemble_alias.  */
+  unsigned alias : 1;
+  /* True when alias is a weakref.  */
+  unsigned weakref : 1;
+  /* C++ frontend produce same body aliases and extra name aliases for
+     virtual functions and vtables that are obviously equivalent.
+     Those aliases are bit special, especially because C++ frontend
+     visibility code is so ugly it can not get them right at first time
+     and their visibility needs to be copied from their "masters" at
+     the end of parsing.  */
+  unsigned cpp_implicit_alias : 1;
+  /* Set once the definition was analyzed.  The list of references and
+     other properties are built during analysis.  */
+  unsigned analyzed : 1;
+
+
+  /*** Visibility and linkage flags.  ***/
+
+  /* Set when function is visible by other units.  */
+  unsigned externally_visible : 1;
+  /* The symbol will be assumed to be used in an invisiable way (like 
+     by an toplevel asm statement).  */
+  unsigned force_output : 1;
+  /* Like FORCE_OUTPUT, but in the case it is ABI requiring the symbol to be
+     exported.  Unlike FORCE_OUTPUT this flag gets cleared to symbols promoted
+     to static and it does not inhibit optimization.  */
+  unsigned forced_by_abi : 1;
+  /* True when the name is known to be unique and thus it does not need mangling.  */
+  unsigned unique_name : 1;
+
+
+  /*** WHOPR Partitioning flags.
+       These flags are used at ltrans stage when only part of the callgraph is
+       available. ***/
+
   /* Set when variable is used from other LTRANS partition.  */
   unsigned used_from_other_partition : 1;
   /* Set when function is available in the other LTRANS partition.  
      During WPA output it is used to mark nodes that are present in
      multiple partitions.  */
   unsigned in_other_partition : 1;
-  /* Set when function is visible by other units.  */
-  unsigned externally_visible : 1;
-  /* Needed variables might become dead by optimization.  This flag
-     forces the variable to be output even if it appears dead otherwise.  */
-  unsigned force_output : 1;
+
+
+
+  /*** other flags.  ***/
+
+  /* Set when symbol has address taken. */
+  unsigned address_taken : 1;
+
 
   /* Ordering of all symtab entries.  */
   int order;
 
+  /* Declaration representing the symbol.  */
   tree decl;
-
-  /* Vectors of referring and referenced entities.  */
-  struct ipa_ref_list ref_list;
-
-  /* Circular list of nodes in the same comdat group if non-NULL.  */
-  symtab_node same_comdat_group;
-
-  /* File stream where this node is being written to.  */
-  struct lto_file_decl_data * lto_file_data;
 
   /* Linked list of symbol table entries starting with symtab_nodes.  */
   symtab_node next;
   symtab_node previous;
+
   /* Linked list of symbols with the same asm name.  There may be multiple
-     entries for single symbol name in the case of LTO resolutions,
-     existence of inline clones, or duplicated declaration. The last case
-     is a long standing bug frontends and builtin handling. */
+     entries for single symbol name during LTO, because symbols are renamed
+     only after partitioning.
+
+     Because inline clones are kept in the assembler name has, they also produce
+     duplicate entries.
+
+     There are also several long standing bugs where frontends and builtin
+     code produce duplicated decls.  */
   symtab_node next_sharing_asm_name;
   symtab_node previous_sharing_asm_name;
+
+  /* Circular list of nodes in the same comdat group if non-NULL.  */
+  symtab_node same_comdat_group;
+
+  /* Vectors of referring and referenced entities.  */
+  struct ipa_ref_list ref_list;
+
+  /* Alias target. May be either DECL pointer or ASSEMBLER_NAME pointer
+     depending to what was known to frontend on the creation time.
+     Once alias is resolved, this pointer become NULL.  */
+  tree alias_target;
+
+  /* File stream where this node is being written to.  */
+  struct lto_file_decl_data * lto_file_data;
 
   PTR GTY ((skip)) aux;
 };
@@ -139,9 +192,6 @@ struct GTY(()) cgraph_local_info {
   /* Set when function function is visible in current compilation unit only
      and its address is never taken.  */
   unsigned local : 1;
-
-  /* Set once it has been finalized so we consider it to be output.  */
-  unsigned finalized : 1;
 
   /* False when there is something makes versioning impossible.  */
   unsigned versionable : 1;
@@ -255,25 +305,19 @@ struct GTY(()) cgraph_node {
   int count_materialization_scale;
   /* Unique id of the node.  */
   int uid;
+  /* ID assigned by the profiling.  */
+  unsigned int profile_id;
 
   /* Set when decl is an abstract function pointed to by the
      ABSTRACT_DECL_ORIGIN of a reachable function.  */
-  unsigned abstract_and_needed : 1;
+  unsigned used_as_abstract_origin : 1;
   /* Set once the function is lowered (i.e. its CFG is built).  */
   unsigned lowered : 1;
   /* Set once the function has been instantiated and its callee
      lists created.  */
-  unsigned analyzed : 1;
-  /* Set when function is scheduled to be processed by local passes.  */
   unsigned process : 1;
-  /* Set for aliases once they got through assemble_alias.  */
-  unsigned alias : 1;
-  /* Set for nodes that was constructed and finalized by frontend.  */
-  unsigned finalized_by_frontend : 1;
   /* Is this function cloned during versioning ?  */
   unsigned is_versioned_clone : 1;
-  /* Set for aliases created as C++ same body aliases.  */
-  unsigned same_body_alias : 1;
   /* How commonly executed the node is.  Initialized during branch
      probabilities pass.  */
   ENUM_BITFIELD (node_frequency) frequency : 2;
@@ -398,6 +442,10 @@ struct GTY(()) cgraph_indirect_call_info
   int param_index;
   /* ECF flags determined from the caller.  */
   int ecf_flags;
+  /* Profile_id of common target obtrained from profile.  */
+  int common_target_id;
+  /* Probability that call will land in function with COMMON_TARGET_ID.  */
+  int common_target_probability;
 
   /* Set when the call is a virtual call with the parameter being the
      associated object pointer rather than a simple direct call.  */
@@ -405,6 +453,8 @@ struct GTY(()) cgraph_indirect_call_info
   /* Set when the call is a call of a pointer loaded from contents of an
      aggregate at offset.  */
   unsigned agg_contents : 1;
+  /* Set when this is a call through a member pointer.  */
+  unsigned member_ptr : 1;
   /* When the previous bit is set, this one determines whether the destination
      is loaded from a parameter passed by reference. */
   unsigned by_ref : 1;
@@ -446,6 +496,24 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
   unsigned int call_stmt_cannot_inline_p : 1;
   /* Can this call throw externally?  */
   unsigned int can_throw_external : 1;
+  /* Edges with SPECULATIVE flag represents indirect calls that was
+     speculatively turned into direct (i.e. by profile feedback).
+     The final code sequence will have form:
+
+     if (call_target == expected_fn)
+       expected_fn ();
+     else
+       call_target ();
+
+     Every speculative call is represented by three components attached
+     to a same call statement:
+     1) a direct call (to expected_fn)
+     2) an indirect call (to call_target)
+     3) a IPA_REF_ADDR refrence to expected_fn.
+
+     Optimizers may later redirect direct call to clone, so 1) and 3)
+     do not need to necesarily agree with destination.  */
+  unsigned int speculative : 1;
 };
 
 #define CGRAPH_FREQ_BASE 1000
@@ -459,22 +527,11 @@ typedef struct cgraph_edge *cgraph_edge_p;
 
 struct GTY(()) varpool_node {
   struct symtab_node_base symbol;
-  /* For aliases points to declaration DECL is alias of.  */
-  tree alias_of;
 
   /* The module in which it is first declared.  */
   unsigned module_id;
-  /* Set once the variable has been instantiated and its callee
-     lists created.  */
-  unsigned analyzed : 1;
-  /* Set once it has been finalized so we consider it to be output.  */
-  unsigned finalized : 1;
   /* Set when variable is scheduled to be assembled.  */
   unsigned output : 1;
-  /* Set for aliases once they got through assemble_alias.  Also set for
-     extra name aliases in varpool_extra_name_alias.  */
-  unsigned alias : 1;
-  unsigned extra_name_alias : 1;
 };
 
 /* Every top level asm statement is put into a asm_node.  */
@@ -529,6 +586,8 @@ enum cgraph_state
   CGRAPH_STATE_PARSING,
   /* Callgraph is being constructed.  It is safe to add new functions.  */
   CGRAPH_STATE_CONSTRUCTION,
+  /* Callgraph is being at LTO time.  */
+  CGRAPH_LTO_STREAMING,
   /* Callgraph is built and IPA passes are being run.  */
   CGRAPH_STATE_IPA,
   /* Callgraph is built and all functions are transformed to SSA form.  */
@@ -544,7 +603,7 @@ extern cgraph_node_set cgraph_new_nodes;
 
 extern GTY(()) struct asm_node *asm_nodes;
 extern GTY(()) int symtab_order;
-extern bool same_body_aliases_done;
+extern bool cpp_implicit_aliases_done;
 
 /* In symtab.c  */
 void symtab_register_node (symtab_node);
@@ -567,8 +626,19 @@ void verify_symtab_node (symtab_node);
 bool verify_symtab_base (symtab_node);
 bool symtab_used_from_object_file_p (symtab_node);
 void symtab_make_decl_local (tree);
-void unlink_from_assembler_name_hash (symtab_node);
-void insert_to_assembler_name_hash (symtab_node);
+void unlink_from_assembler_name_hash (symtab_node, bool);
+void insert_to_assembler_name_hash (symtab_node, bool);
+symtab_node symtab_alias_ultimate_target (symtab_node,
+					  enum availability *avail = NULL);
+bool symtab_resolve_alias (symtab_node node, symtab_node target);
+void fixup_same_cpp_alias_visibility (symtab_node node, symtab_node target);
+bool symtab_for_node_and_aliases (symtab_node,
+				  bool (*) (symtab_node, void *),
+				  void *,
+				  bool);
+symtab_node symtab_nonoverwritable_alias (symtab_node);
+enum availability symtab_node_availability (symtab_node);
+bool symtab_semantically_equivalent_p (symtab_node, symtab_node);
 
 /* In cgraph.c  */
 void dump_cgraph (FILE *);
@@ -583,6 +653,7 @@ extern bool cgraph_is_fake_indirect_call_edge (struct cgraph_edge *e);
 void cgraph_add_to_same_comdat_group (struct cgraph_node *, struct cgraph_node *);
 void cgraph_remove_node_and_inline_clones (struct cgraph_node *);
 void cgraph_release_function_body (struct cgraph_node *);
+void release_function_body (tree);
 void cgraph_node_remove_callees (struct cgraph_node *node);
 struct cgraph_edge *cgraph_create_edge (struct cgraph_node *,
 					struct cgraph_node *,
@@ -593,12 +664,13 @@ struct cgraph_indirect_call_info *cgraph_allocate_init_indirect_info (void);
 struct cgraph_node * cgraph_create_node (tree);
 struct cgraph_node * cgraph_create_empty_node (void);
 struct cgraph_node * cgraph_get_create_node (tree);
+struct cgraph_node * cgraph_get_create_real_symbol_node (tree);
 struct cgraph_node * cgraph_same_body_alias (struct cgraph_node *, tree, tree);
 struct cgraph_node * cgraph_add_thunk (struct cgraph_node *, tree, tree, bool, HOST_WIDE_INT,
 				       HOST_WIDE_INT, tree, tree);
 struct cgraph_node *cgraph_node_for_asm (tree);
 struct cgraph_edge *cgraph_edge (struct cgraph_node *, gimple);
-void cgraph_set_call_stmt (struct cgraph_edge *, gimple);
+void cgraph_set_call_stmt (struct cgraph_edge *, gimple, bool update_speculative = true);
 void cgraph_update_edges_for_call_stmt (gimple, tree, gimple);
 struct cgraph_local_info *cgraph_local_info (tree);
 struct cgraph_global_info *cgraph_global_info (tree);
@@ -610,7 +682,7 @@ void cgraph_call_edge_duplication_hooks (struct cgraph_edge *,
 				         struct cgraph_edge *);
 
 void cgraph_redirect_edge_callee (struct cgraph_edge *, struct cgraph_node *);
-void cgraph_make_edge_direct (struct cgraph_edge *, struct cgraph_node *);
+struct cgraph_edge *cgraph_make_edge_direct (struct cgraph_edge *, struct cgraph_node *);
 bool cgraph_only_called_directly_p (struct cgraph_node *);
 
 bool cgraph_function_possibly_inlined_p (tree);
@@ -689,12 +761,14 @@ bool cgraph_decide_is_function_needed (struct cgraph_node *, tree);
 
 typedef void (*cgraph_edge_hook)(struct cgraph_edge *, void *);
 typedef void (*cgraph_node_hook)(struct cgraph_node *, void *);
+typedef void (*varpool_node_hook)(struct varpool_node *, void *);
 typedef void (*cgraph_2edge_hook)(struct cgraph_edge *, struct cgraph_edge *,
 				  void *);
 typedef void (*cgraph_2node_hook)(struct cgraph_node *, struct cgraph_node *,
 				  void *);
 struct cgraph_edge_hook_list;
 struct cgraph_node_hook_list;
+struct varpool_node_hook_list;
 struct cgraph_2edge_hook_list;
 struct cgraph_2node_hook_list;
 struct cgraph_edge_hook_list *cgraph_add_edge_removal_hook (cgraph_edge_hook, void *);
@@ -702,16 +776,32 @@ void cgraph_remove_edge_removal_hook (struct cgraph_edge_hook_list *);
 struct cgraph_node_hook_list *cgraph_add_node_removal_hook (cgraph_node_hook,
 							    void *);
 void cgraph_remove_node_removal_hook (struct cgraph_node_hook_list *);
+struct varpool_node_hook_list *varpool_add_node_removal_hook (varpool_node_hook,
+							      void *);
+void varpool_remove_node_removal_hook (struct varpool_node_hook_list *);
 struct cgraph_node_hook_list *cgraph_add_function_insertion_hook (cgraph_node_hook,
 							          void *);
 void cgraph_remove_function_insertion_hook (struct cgraph_node_hook_list *);
+struct varpool_node_hook_list *varpool_add_variable_insertion_hook (varpool_node_hook,
+							            void *);
+void varpool_remove_variable_insertion_hook (struct varpool_node_hook_list *);
 void cgraph_call_function_insertion_hooks (struct cgraph_node *node);
 struct cgraph_2edge_hook_list *cgraph_add_edge_duplication_hook (cgraph_2edge_hook, void *);
 void cgraph_remove_edge_duplication_hook (struct cgraph_2edge_hook_list *);
 struct cgraph_2node_hook_list *cgraph_add_node_duplication_hook (cgraph_2node_hook, void *);
 void cgraph_remove_node_duplication_hook (struct cgraph_2node_hook_list *);
 gimple cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *);
-bool cgraph_propagate_frequency (struct cgraph_node *node);
+struct cgraph_node * cgraph_function_node (struct cgraph_node *,
+					   enum availability *avail = NULL);
+bool cgraph_get_body (struct cgraph_node *node);
+struct cgraph_edge *
+cgraph_turn_edge_to_speculative (struct cgraph_edge *,
+				 struct cgraph_node *,
+				 gcov_type, int);
+void cgraph_speculative_call_info (struct cgraph_edge *,
+				   struct cgraph_edge *&,
+				   struct cgraph_edge *&,
+				   struct ipa_ref *&);
 
 /* In cgraphunit.c  */
 struct asm_node *add_asm_node (tree);
@@ -722,11 +812,13 @@ void compile (void);
 void init_cgraph (void);
 bool cgraph_process_new_functions (void);
 void cgraph_process_same_body_aliases (void);
-void fixup_same_cpp_alias_visibility (symtab_node node, symtab_node target, tree alias);
+void fixup_same_cpp_alias_visibility (symtab_node, symtab_node target, tree);
 /*  Initialize datastructures so DECL is a function in lowered gimple form.
     IN_SSA is true if the gimple is in SSA.  */
-basic_block init_lowered_empty_function (tree decl, bool in_ssa);
+basic_block init_lowered_empty_function (tree, bool);
+void cgraph_reset_node (struct cgraph_node *);
 void cgraph_enqueue_node (struct cgraph_node *);
+bool expand_thunk (struct cgraph_node *, bool);
 
 /* In cgraphclones.c  */
 
@@ -735,7 +827,7 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
 					unsigned, gcov_type, int, bool);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, tree, gcov_type,
 					int, bool, vec<cgraph_edge_p>,
-					bool);
+					bool, struct cgraph_node *);
 tree clone_function_name (tree decl, const char *);
 struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			                          vec<cgraph_edge_p>,
@@ -744,7 +836,8 @@ struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 						  const char *clone_name);
 struct cgraph_node *cgraph_find_replacement_node (struct cgraph_node *);
 bool cgraph_remove_node_and_inline_clones (struct cgraph_node *, struct cgraph_node *);
-void cgraph_set_call_stmt_including_clones (struct cgraph_node *, gimple, gimple);
+void cgraph_set_call_stmt_including_clones (struct cgraph_node *, gimple, gimple,
+					    bool update_speculative = true);
 void cgraph_create_edge_including_clones (struct cgraph_node *,
 					  struct cgraph_node *,
 					  gimple, gimple, gcov_type, int,
@@ -759,12 +852,14 @@ struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
 						basic_block, const char *);
 void tree_function_versioning (tree, tree, vec<ipa_replace_map_p, va_gc> *,
 			       bool, bitmap, bool, bitmap, basic_block);
+struct cgraph_edge *cgraph_resolve_speculation (struct cgraph_edge *, tree);
 
 /* In cgraphbuild.c  */
 unsigned int rebuild_cgraph_edges (void);
 void cgraph_rebuild_references (void);
 int compute_call_stmt_bb_frequency (tree, basic_block bb);
 void record_references_in_initializer (tree, bool);
+void ipa_record_stmt_references (struct cgraph_node *, gimple);
 
 /* In ipa.c  */
 bool symtab_remove_unreachable_nodes (bool, FILE *);
@@ -787,14 +882,14 @@ void dump_varpool_node_set (FILE *, varpool_node_set);
 void debug_varpool_node_set (varpool_node_set);
 void free_varpool_node_set (varpool_node_set);
 void ipa_discover_readonly_nonaddressable_vars (void);
-bool cgraph_comdat_can_be_unshared_p (struct cgraph_node *);
-bool varpool_externally_visible_p (struct varpool_node *, bool);
+bool varpool_externally_visible_p (struct varpool_node *);
 
 /* In predict.c  */
 bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 bool cgraph_optimize_for_size_p (struct cgraph_node *);
 
 /* In varpool.c  */
+struct varpool_node *varpool_create_empty_node (void);
 struct varpool_node *varpool_node_for_decl (tree);
 struct varpool_node *varpool_node_for_asm (tree asmname);
 void varpool_mark_needed_node (struct varpool_node *);
@@ -803,7 +898,6 @@ void dump_varpool (FILE *);
 void dump_varpool_node (FILE *, struct varpool_node *);
 
 void varpool_finalize_decl (tree);
-bool decide_is_variable_needed (struct varpool_node *, tree);
 enum availability cgraph_variable_initializer_availability (struct varpool_node *);
 void cgraph_make_node_local (struct cgraph_node *);
 bool cgraph_node_can_be_local_p (struct cgraph_node *);
@@ -817,13 +911,14 @@ void varpool_analyze_node (struct varpool_node *);
 struct varpool_node * varpool_extra_name_alias (tree, tree);
 struct varpool_node * varpool_create_variable_alias (tree, tree);
 void varpool_reset_queue (void);
-bool const_value_known_p (tree);
+tree ctor_for_folding (tree);
 bool varpool_for_node_and_aliases (struct varpool_node *,
 		                   bool (*) (struct varpool_node *, void *),
 			           void *, bool);
 void varpool_add_new_variable (tree);
 void symtab_initialize_asm_name_hash (void);
 void symtab_prevail_in_asm_name_hash (symtab_node node);
+void varpool_remove_initializer (struct varpool_node *);
 
 
 /* Return callgraph node for given symbol and check it is a function. */
@@ -860,28 +955,28 @@ varpool_get_node (const_tree decl)
 
 /* Return asm name of cgraph node.  */
 static inline const char *
-cgraph_node_asm_name(struct cgraph_node *node)
+cgraph_node_asm_name (struct cgraph_node *node)
 {
   return symtab_node_asm_name ((symtab_node)node);
 }
 
 /* Return asm name of varpool node.  */
 static inline const char *
-varpool_node_asm_name(struct varpool_node *node)
+varpool_node_asm_name (struct varpool_node *node)
 {
   return symtab_node_asm_name ((symtab_node)node);
 }
 
 /* Return name of cgraph node.  */
 static inline const char *
-cgraph_node_name(struct cgraph_node *node)
+cgraph_node_name (struct cgraph_node *node)
 {
   return symtab_node_name ((symtab_node)node);
 }
 
 /* Return name of varpool node.  */
 static inline const char *
-varpool_node_name(struct varpool_node *node)
+varpool_node_name (struct varpool_node *node)
 {
   return symtab_node_name ((symtab_node)node);
 }
@@ -959,7 +1054,7 @@ varpool_first_defined_variable (void)
   for (node = symtab_nodes; node; node = node->symbol.next)
     {
       varpool_node *vnode = dyn_cast <varpool_node> (node);
-      if (vnode && vnode->analyzed)
+      if (vnode && vnode->symbol.definition)
 	return vnode;
     }
   return NULL;
@@ -973,7 +1068,7 @@ varpool_next_defined_variable (struct varpool_node *node)
   for (; node1; node1 = node1->symbol.next)
     {
       varpool_node *vnode1 = dyn_cast <varpool_node> (node1);
-      if (vnode1 && vnode1->analyzed)
+      if (vnode1 && vnode1->symbol.definition)
 	return vnode1;
     }
   return NULL;
@@ -991,7 +1086,7 @@ cgraph_first_defined_function (void)
   for (node = symtab_nodes; node; node = node->symbol.next)
     {
       cgraph_node *cn = dyn_cast <cgraph_node> (node);
-      if (cn && cn->analyzed)
+      if (cn && cn->symbol.definition)
 	return cn;
     }
   return NULL;
@@ -1005,7 +1100,7 @@ cgraph_next_defined_function (struct cgraph_node *node)
   for (; node1; node1 = node1->symbol.next)
     {
       cgraph_node *cn1 = dyn_cast <cgraph_node> (node1);
-      if (cn1 && cn1->analyzed)
+      if (cn1 && cn1->symbol.definition)
 	return cn1;
     }
   return NULL;
@@ -1051,7 +1146,7 @@ cgraph_next_function (struct cgraph_node *node)
 static inline bool
 cgraph_function_with_gimple_body_p (struct cgraph_node *node)
 {
-  return node->analyzed && !node->thunk.thunk_p && !node->alias;
+  return node->symbol.definition && !node->thunk.thunk_p && !node->symbol.alias;
 }
 
 /* Return first function with body defined.  */
@@ -1243,6 +1338,7 @@ varpool_can_remove_if_no_refs (struct varpool_node *node)
     return true;
   return (!node->symbol.force_output && !node->symbol.used_from_other_partition
   	  && ((DECL_COMDAT (node->symbol.decl)
+	       && !node->symbol.forced_by_abi
 	       && !symtab_used_from_object_file_p ((symtab_node) node))
 	      || !node->symbol.externally_visible
 	      || DECL_HAS_VALUE_EXPR_P (node->symbol.decl)));
@@ -1256,7 +1352,7 @@ varpool_can_remove_if_no_refs (struct varpool_node *node)
 static inline bool
 varpool_all_refs_explicit_p (struct varpool_node *vnode)
 {
-  return (vnode->analyzed
+  return (vnode->symbol.definition
 	  && !vnode->symbol.externally_visible
 	  && !vnode->symbol.used_from_other_partition
 	  && !vnode->symbol.force_output);
@@ -1270,60 +1366,25 @@ htab_t constant_pool_htab (void);
 
 /* Return node that alias N is aliasing.  */
 
-static inline struct cgraph_node *
-cgraph_alias_aliased_node (struct cgraph_node *n)
+static inline symtab_node
+symtab_alias_target (symtab_node n)
 {
   struct ipa_ref *ref;
-
   ipa_ref_list_reference_iterate (&n->symbol.ref_list, 0, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
-  if (is_a <cgraph_node> (ref->referred))
-    return ipa_ref_node (ref);
-  return NULL;
+  return ref->referred;
 }
 
-/* Return node that alias N is aliasing.  */
+static inline struct cgraph_node *
+cgraph_alias_target (struct cgraph_node *n)
+{
+  return dyn_cast <cgraph_node> (symtab_alias_target ((symtab_node) n));
+}
 
 static inline struct varpool_node *
-varpool_alias_aliased_node (struct varpool_node *n)
+varpool_alias_target (struct varpool_node *n)
 {
-  struct ipa_ref *ref;
-
-  ipa_ref_list_reference_iterate (&n->symbol.ref_list, 0, ref);
-  gcc_checking_assert (ref->use == IPA_REF_ALIAS);
-  if (is_a <varpool_node> (ref->referred))
-    return ipa_ref_varpool_node (ref);
-  return NULL;
-}
-
-/* Given NODE, walk the alias chain to return the function NODE is alias of.
-   Walk through thunk, too.
-   When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
-
-static inline struct cgraph_node *
-cgraph_function_node (struct cgraph_node *node, enum availability *availability)
-{
-  if (availability)
-    *availability = cgraph_function_body_availability (node);
-  while (node)
-    {
-      if (node->alias && node->analyzed)
-	node = cgraph_alias_aliased_node (node);
-      else if (node->thunk.thunk_p)
-	node = node->callees->callee;
-      else
-	return node;
-      if (node && availability)
-	{
-	  enum availability a;
-	  a = cgraph_function_body_availability (node);
-	  if (a < *availability)
-	    *availability = a;
-	}
-    }
-  if (availability)
-    *availability = AVAIL_NOT_AVAILABLE;
-  return NULL;
+  return dyn_cast <varpool_node> (symtab_alias_target ((symtab_node) n));
 }
 
 /* Given NODE, walk the alias chain to return the function NODE is alias of.
@@ -1331,55 +1392,32 @@ cgraph_function_node (struct cgraph_node *node, enum availability *availability)
    When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
 
 static inline struct cgraph_node *
-cgraph_function_or_thunk_node (struct cgraph_node *node, enum availability *availability)
+cgraph_function_or_thunk_node (struct cgraph_node *node,
+			       enum availability *availability = NULL)
 {
-  if (availability)
-    *availability = cgraph_function_body_availability (node);
-  while (node)
-    {
-      if (node->alias && node->analyzed)
-	node = cgraph_alias_aliased_node (node);
-      else
-	return node;
-      if (node && availability)
-	{
-	  enum availability a;
-	  a = cgraph_function_body_availability (node);
-	  if (a < *availability)
-	    *availability = a;
-	}
-    }
-  if (availability)
-    *availability = AVAIL_NOT_AVAILABLE;
-  return NULL;
-}
+  struct cgraph_node *n;
 
+  n = dyn_cast <cgraph_node> (symtab_alias_ultimate_target ((symtab_node)node,
+							    availability));
+  if (!n && availability)
+    *availability = AVAIL_NOT_AVAILABLE;
+  return n;
+}
 /* Given NODE, walk the alias chain to return the function NODE is alias of.
    Do not walk through thunks.
    When AVAILABILITY is non-NULL, get minimal availability in the chain.  */
 
 static inline struct varpool_node *
-varpool_variable_node (struct varpool_node *node, enum availability *availability)
+varpool_variable_node (struct varpool_node *node,
+		       enum availability *availability = NULL)
 {
-  if (availability)
-    *availability = cgraph_variable_initializer_availability (node);
-  while (node)
-    {
-      if (node->alias && node->analyzed)
-	node = varpool_alias_aliased_node (node);
-      else
-	return node;
-      if (node && availability)
-	{
-	  enum availability a;
-	  a = cgraph_variable_initializer_availability (node);
-	  if (a < *availability)
-	    *availability = a;
-	}
-    }
-  if (availability)
+  struct varpool_node *n;
+
+  n = dyn_cast <varpool_node> (symtab_alias_ultimate_target ((symtab_node)node,
+							     availability));
+  if (!n && availability)
     *availability = AVAIL_NOT_AVAILABLE;
-  return NULL;
+  return n;
 }
 
 /* Return true when the edge E represents a direct recursion.  */
@@ -1414,20 +1452,32 @@ cgraph_mark_force_output_node (struct cgraph_node *node)
 }
 
 /* Return true when the symbol is real symbol, i.e. it is not inline clone
-   or extern function kept around just for inlining.  */
+   or abstract function kept for debug info purposes only.  */
 
 static inline bool
 symtab_real_symbol_p (symtab_node node)
 {
   struct cgraph_node *cnode;
 
+  if (DECL_ABSTRACT (node->symbol.decl))
+    return false;
   if (!is_a <cgraph_node> (node))
     return true;
   cnode = cgraph (node);
   if (cnode->global.inlined_to)
     return false;
-  if (cnode->abstract_and_needed)
-    return false;
   return true;
+}
+
+/* Return true if NODE can be discarded by linker from the binary.  */
+
+static inline bool
+symtab_can_be_discarded (symtab_node node)
+{
+  return (DECL_EXTERNAL (node->symbol.decl)
+	  || (DECL_ONE_ONLY (node->symbol.decl)
+	      && node->symbol.resolution != LDPR_PREVAILING_DEF
+	      && node->symbol.resolution != LDPR_PREVAILING_DEF_IRONLY
+	      && node->symbol.resolution != LDPR_PREVAILING_DEF_IRONLY_EXP));
 }
 #endif  /* GCC_CGRAPH_H  */

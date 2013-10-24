@@ -19,7 +19,7 @@
 
 ;;; Unused letters:
 ;;;     B     H           T
-;;;           h jk          v
+;;;           h j
 
 ;; Integer register constraints.
 ;; It is not necessary to define 'r' here.
@@ -78,6 +78,12 @@
  "TARGET_80387 || TARGET_FLOAT_RETURNS_IN_80387 ? FP_SECOND_REG : NO_REGS"
  "Second from top of 80387 floating-point stack (@code{%st(1)}).")
 
+(define_register_constraint "k" "TARGET_AVX512F ? MASK_EVEX_REGS : NO_REGS"
+"@internal Any mask register that can be used as predicate, i.e. k1-k7.")
+
+(define_register_constraint "Yk" "TARGET_AVX512F ? MASK_REGS : NO_REGS"
+"@internal Any mask register.")
+
 ;; Vector registers (also used for plain floating point nowadays).
 (define_register_constraint "y" "TARGET_MMX ? MMX_REGS : NO_REGS"
  "Any MMX register.")
@@ -87,8 +93,10 @@
 
 ;; We use the Y prefix to denote any number of conditional register sets:
 ;;  z	First SSE register.
-;;  i	SSE2 inter-unit moves enabled
-;;  m	MMX inter-unit moves enabled
+;;  i	SSE2 inter-unit moves to SSE register enabled
+;;  j	SSE2 inter-unit moves from SSE register enabled
+;;  m	MMX inter-unit moves to MMX register enabled
+;;  n	MMX inter-unit moves from MMX register enabled
 ;;  a	Integer register when zero extensions with AND are disabled
 ;;  p	Integer register when TARGET_PARTIAL_REG_STALL is disabled
 ;;  d	Integer register when integer DFmode moves are enabled
@@ -99,12 +107,20 @@
  "First SSE register (@code{%xmm0}).")
 
 (define_register_constraint "Yi"
- "TARGET_SSE2 && TARGET_INTER_UNIT_MOVES ? SSE_REGS : NO_REGS"
- "@internal Any SSE register, when SSE2 and inter-unit moves are enabled.")
+ "TARGET_SSE2 && TARGET_INTER_UNIT_MOVES_TO_VEC ? ALL_SSE_REGS : NO_REGS"
+ "@internal Any SSE register, when SSE2 and inter-unit moves to vector registers are enabled.")
+
+(define_register_constraint "Yj"
+ "TARGET_SSE2 && TARGET_INTER_UNIT_MOVES_FROM_VEC ? ALL_SSE_REGS : NO_REGS"
+ "@internal Any SSE register, when SSE2 and inter-unit moves from vector registers are enabled.")
 
 (define_register_constraint "Ym"
- "TARGET_MMX && TARGET_INTER_UNIT_MOVES ? MMX_REGS : NO_REGS"
- "@internal Any MMX register, when inter-unit moves are enabled.")
+ "TARGET_MMX && TARGET_INTER_UNIT_MOVES_TO_VEC ? MMX_REGS : NO_REGS"
+ "@internal Any MMX register, when inter-unit moves to vector registers are enabled.")
+
+(define_register_constraint "Yn"
+ "TARGET_MMX && TARGET_INTER_UNIT_MOVES_FROM_VEC ? MMX_REGS : NO_REGS"
+ "@internal Any MMX register, when inter-unit moves from vector registers are enabled.")
 
 (define_register_constraint "Yp"
  "TARGET_PARTIAL_REG_STALL ? NO_REGS : GENERAL_REGS"
@@ -116,8 +132,7 @@
  "@internal Any integer register when zero extensions with AND are disabled.")
 
 (define_register_constraint "Yd"
- "(TARGET_64BIT
-   || (TARGET_INTEGER_DFMODE_MOVES && optimize_function_for_speed_p (cfun)))
+ "TARGET_INTEGER_DFMODE_MOVES && optimize_function_for_speed_p (cfun)
   ? GENERAL_REGS : NO_REGS"
  "@internal Any integer register when integer DFmode moves are enabled.")
 
@@ -128,6 +143,9 @@
 (define_register_constraint "Yf"
  "(ix86_fpmath & FPMATH_387) ? FLOAT_REGS : NO_REGS"
  "@internal Any x87 register when 80387 FP arithmetic is enabled.")
+
+(define_register_constraint "v" "TARGET_SSE ? ALL_SSE_REGS : NO_REGS"
+ "Any EVEX encodable SSE register (@code{%xmm0-%xmm31}).")
 
 (define_constraint "z"
   "@internal Constant call address operand."

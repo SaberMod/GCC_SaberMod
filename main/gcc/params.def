@@ -420,7 +420,7 @@ DEFPARAM(HOT_BB_FREQUENCY_FRACTION,
 DEFPARAM (PARAM_ALIGN_THRESHOLD,
 	  "align-threshold",
 	  "Select fraction of the maximal frequency of executions of basic block in function given basic block get alignment",
-	  100, 0, 0)
+	  100, 1, 0)
 
 DEFPARAM (PARAM_ALIGN_LOOP_ITERATIONS,
 	  "align-loop-iterations",
@@ -477,7 +477,7 @@ DEFPARAM(PARAM_MAX_CROSSJUMP_EDGES,
 DEFPARAM(PARAM_MIN_CROSSJUMP_INSNS,
      "min-crossjump-insns",
      "The minimum number of matching instructions to consider for crossjumping",
-     5, 0, 0)
+     5, 1, 0)
 
 /* The maximum number expansion factor when copying basic blocks.  */
 DEFPARAM(PARAM_MAX_GROW_COPY_BB_INSNS,
@@ -495,7 +495,7 @@ DEFPARAM(PARAM_MAX_GOTO_DUPLICATION_INSNS,
 DEFPARAM(PARAM_MAX_CSE_PATH_LENGTH,
 	 "max-cse-path-length",
 	 "The maximum length of path considered in cse",
-	 10, 0, 0)
+	 10, 1, 0)
 DEFPARAM(PARAM_MAX_CSE_INSNS,
 	 "max-cse-insns",
 	 "The maximum instructions CSE process before flushing",
@@ -587,6 +587,11 @@ DEFPARAM(PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
          "vect-max-version-for-alias-checks",
          "Bound on number of runtime checks inserted by the vectorizer's loop versioning for alias check",
          10, 0, 0)
+
+DEFPARAM(PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
+         "vect-max-peeling-for-alignment",
+         "Max number of loop peels to enhancement alignment of data references in a loop",
+         -1, -1, 64)
 
 DEFPARAM(PARAM_MAX_CSELIB_MEMORY_LOCATIONS,
 	 "max-cselib-memory-locations",
@@ -1111,6 +1116,12 @@ DEFPARAM (PARAM_IPA_CP_LOOP_HINT_BONUS,
 	  "Compile-time bonus IPA-CP assigns to candidates which make loop "
 	  "bounds or strides known.",
 	  64, 0, 0)
+
+DEFPARAM (PARAM_IPA_CP_ARRAY_INDEX_HINT_BONUS,
+	  "ipa-cp-array-index-hint-bonus",
+	  "Compile-time bonus IPA-CP assigns to candidates which make an array "
+	  "index known.",
+	  48, 0, 0)
 
 /* WHOPR partitioning configuration.  */
 

@@ -40,8 +40,10 @@ struct GTY(()) ipa_ref
   symtab_node referring;
   symtab_node referred;
   gimple stmt;
+  unsigned int lto_stmt_uid;
   unsigned int referred_index;
   ENUM_BITFIELD (ipa_ref_use) use:2;
+  unsigned int speculative:1;
 };
 
 typedef struct ipa_ref ipa_ref_t;
@@ -61,6 +63,8 @@ struct GTY(()) ipa_ref_list
 struct ipa_ref * ipa_record_reference (symtab_node,
 				       symtab_node,
 				       enum ipa_ref_use, gimple);
+struct ipa_ref * ipa_maybe_record_reference (symtab_node, tree,
+					     enum ipa_ref_use, gimple);
 
 void ipa_remove_reference (struct ipa_ref *);
 void ipa_remove_all_references (struct ipa_ref_list *);
@@ -69,5 +73,9 @@ void ipa_dump_references (FILE *, struct ipa_ref_list *);
 void ipa_dump_referring (FILE *, struct ipa_ref_list *);
 void ipa_clone_references (symtab_node, struct ipa_ref_list *);
 void ipa_clone_referring (symtab_node, struct ipa_ref_list *);
+struct ipa_ref * ipa_clone_ref (struct ipa_ref *, symtab_node, gimple);
 bool ipa_ref_cannot_lead_to_return (struct ipa_ref *);
 bool ipa_ref_has_aliases_p (struct ipa_ref_list *);
+struct ipa_ref * ipa_find_reference (symtab_node, symtab_node, gimple, unsigned int);
+void ipa_remove_stmt_references (symtab_node, gimple);
+void ipa_clear_stmts_in_references (symtab_node);

@@ -43,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "hash-table.h"
 #include "tree-iterator.h"
+#include "context.h"
+#include "pass_manager.h"
+#include "tree-pass.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "opts.h"
@@ -971,11 +974,13 @@ get_coverage_counts (unsigned counter, unsigned expected,
     {
       static int warned = 0;
 
-      if (!warned++)
-	inform (input_location, (flag_guess_branch_prob
-		 ? "file %s not found, execution counts estimated"
-		 : "file %s not found, execution counts assumed to be zero"),
-		da_file_name);
+      if (!warned++ && dump_enabled_p ())
+	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                         (flag_guess_branch_prob
+                          ? "file %s not found, execution counts estimated\n"
+                          : "file %s not found, execution counts assumed to "
+                            "be zero\n"),
+                         da_file_name);
       return NULL;
     }
 
@@ -1000,21 +1005,25 @@ get_coverage_counts (unsigned counter, unsigned expected,
 	warning_at (input_location, OPT_Wcoverage_mismatch,
 		    "the control flow of function %qE does not match "
 		    "its profile data (counter %qs)", id, ctr_names[counter]);
-      if (warning_printed)
+      if (warning_printed && dump_enabled_p ())
 	{
-	 inform (input_location, "use -Wno-error=coverage-mismatch to tolerate "
-	 	 "the mismatch but performance may drop if the function is hot");
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                           "use -Wno-error=coverage-mismatch to tolerate "
+                           "the mismatch but performance may drop if the "
+                           "function is hot\n");
 	  
 	  if (!seen_error ()
 	      && !warned++)
 	    {
-	      inform (input_location, "coverage mismatch ignored");
-	      inform (input_location, flag_guess_branch_prob
-		      ? G_("execution counts estimated")
-		      : G_("execution counts assumed to be zero"));
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                               "coverage mismatch ignored\n");
+	      dump_printf (MSG_OPTIMIZED_LOCATIONS,
+                           flag_guess_branch_prob
+                           ? G_("execution counts estimated\n")
+                           : G_("execution counts assumed to be zero\n"));
 	      if (!flag_guess_branch_prob)
-		inform (input_location,
-			"this can result in poorly optimized code");
+		dump_printf (MSG_OPTIMIZED_LOCATIONS,
+                             "this can result in poorly optimized code\n");
 	    }
 	}
 
@@ -1249,6 +1258,28 @@ coverage_compute_lineno_checksum (void)
       (chksum, IDENTIFIER_POINTER (name));
 
   return chksum;
+}
+
+/* Compute profile ID.  This is better to be unique in whole program.  */
+
+unsigned
+coverage_compute_profile_id (struct cgraph_node *n)
+{
+  expanded_location xloc
+    = expand_location (DECL_SOURCE_LOCATION (n->symbol.decl));
+  unsigned chksum = xloc.line;
+
+  chksum = coverage_checksum_string (chksum, xloc.file);
+  chksum = coverage_checksum_string
+    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->symbol.decl)));
+  if (first_global_object_name)
+    chksum = coverage_checksum_string
+      (chksum, first_global_object_name);
+  chksum = coverage_checksum_string
+    (chksum, aux_base_name);
+
+  /* Non-negative integers are hopefully small enough to fit in all targets.  */
+  return chksum & 0x7fffffff;
 }
 
 /* Compute cfg checksum for the current function.
@@ -2183,7 +2214,8 @@ build_init_ctor (tree gcov_info_type)
   cgraph_build_static_cdtor ('I', ctor, DEFAULT_INIT_PRIORITY);
 }
 
-/* Create the gcov_info types and object. Does not generate the initializer
+/* Create the gcov_info types and object.  Generate the constructor
+   function to call __gcov_init.  Does not generate the initializer
    for the object.  Returns TRUE if coverage data is being emitted.  */
 
 static bool
@@ -2303,6 +2335,10 @@ get_da_file_name (const char *base_file_name)
       profile_data_prefix = getpwd ();
       prefix = profile_data_prefix;
     }
+  /* Since coverage_init is invoked very early, before the pass
+     manager, we need to set up the dumping explicitly. This is
+     similar to the handling in finish_optimization_passes.  */
+  dump_start (g->get_passes ()->get_pass_profile ()->static_pass_number, NULL);
 
   prefix_len = (prefix) ? strlen (prefix) + 1 : 0;
 
@@ -2626,6 +2662,8 @@ coverage_init (const char *filename, const char* source_name)
 	  gcov_write_unsigned (bbg_file_stamp);
 	}
     }
+
+  dump_finish (g->get_passes ()->get_pass_profile ()->static_pass_number);
 }
 
 /* Return True if any type of profiling is enabled which requires linking

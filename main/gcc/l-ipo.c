@@ -1412,7 +1412,7 @@ cgraph_lipo_get_resolved_node_1 (tree decl, bool do_assert)
              in the first place -- this will allow inlining to happen.  */
 
           struct cgraph_node *n = cgraph_get_create_node (decl);
-          if (!n->analyzed)
+          if (!n->symbol.analyzed)
             {
               gcc_assert (DECL_EXTERNAL (decl)
                           || cgraph_is_aux_decl_external (n)
@@ -1812,9 +1812,10 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
   if (DECL_ASSEMBLER_NAME_SET_P (decl))
     {
       if (TREE_CODE (decl) == FUNCTION_DECL)
-        unlink_from_assembler_name_hash ((symtab_node) cgraph_get_create_node (decl));
+        unlink_from_assembler_name_hash ((symtab_node) cgraph_get_create_node (decl),
+                                         false);
       else
-        unlink_from_assembler_name_hash ((symtab_node) varpool_get_node (decl));
+        unlink_from_assembler_name_hash ((symtab_node) varpool_get_node (decl), false);
     }
 
   SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
@@ -1827,7 +1828,7 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
       struct cgraph_node *node = cgraph_get_create_node (decl);
 
       node->symbol.resolution = LDPR_UNKNOWN;
-      insert_to_assembler_name_hash ((symtab_node) node);
+      insert_to_assembler_name_hash ((symtab_node) node, false);
     }
   else
     {
@@ -1844,7 +1845,7 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
           node->symbol.externally_visible = true;
         }
       varpool_link_node (node);
-      insert_to_assembler_name_hash ((symtab_node) node);
+      insert_to_assembler_name_hash ((symtab_node) node, false);
     }
 
   if (is_extern)
@@ -1972,9 +1973,9 @@ process_module_scope_static_func (struct cgraph_node *cnode)
       tree assemb_id = create_unique_name (decl, cgraph_get_module_id (decl));
 
       if (DECL_ASSEMBLER_NAME_SET_P (decl))
-        unlink_from_assembler_name_hash ((symtab_node) cnode);
+        unlink_from_assembler_name_hash ((symtab_node) cnode, false);
       SET_DECL_ASSEMBLER_NAME (decl, assemb_id);
-      insert_to_assembler_name_hash ((symtab_node) cnode);
+      insert_to_assembler_name_hash ((symtab_node) cnode, false);
       return;
     }
 

@@ -414,7 +414,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
       const char *old_prefix = context->printer->prefix;
       tree abstract_origin = diagnostic_abstract_origin (diagnostic);
       char *new_prefix = (file && abstract_origin == NULL)
-			 ? file_name_as_prefix (file) : NULL;
+			 ? file_name_as_prefix (context, file) : NULL;
 
       pp_set_prefix (context->printer, new_prefix);
 
@@ -488,20 +488,20 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 	      if (fndecl)
 		{
 		  expanded_location s = expand_location (*locus);
-		  pp_character (context->printer, ',');
+		  pp_comma (context->printer);
 		  pp_newline (context->printer);
 		  if (s.file != NULL)
 		    {
 		      if (context->show_column)
 			pp_printf (context->printer,
-				   _("    inlined from %qs at %s:%d:%d"),
+				   _("    inlined from %qs at %r%s:%d:%d%R"),
 				   identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)),
-				   s.file, s.line, s.column);
+				   "locus", s.file, s.line, s.column);
 		      else
 			pp_printf (context->printer,
-				   _("    inlined from %qs at %s:%d"),
+				   _("    inlined from %qs at %r%s:%d%R"),
 				   identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)),
-				   s.file, s.line);
+				   "locus", s.file, s.line);
 
 		    }
 		  else
@@ -509,7 +509,7 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
 			       identifier_to_locale (lang_hooks.decl_printable_name (fndecl, 2)));
 		}
 	    }
-	  pp_character (context->printer, ':');
+	  pp_colon (context->printer);
 	}
 
       diagnostic_set_last_function (context, diagnostic);

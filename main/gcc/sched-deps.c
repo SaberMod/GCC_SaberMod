@@ -2690,8 +2690,15 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx insn)
 
 	/* Always add these dependencies to pending_reads, since
 	   this insn may be followed by a write.  */
-        if (!deps->readonly)
-          add_insn_mem_dependence (deps, true, insn, x);
+	if (!deps->readonly)
+	  {
+	    if ((deps->pending_read_list_length
+		 + deps->pending_write_list_length)
+		> MAX_PENDING_LIST_LENGTH
+		&& !DEBUG_INSN_P (insn))
+	      flush_pending_lists (deps, insn, true, true);
+	    add_insn_mem_dependence (deps, true, insn, x);
+	  }
 
 	sched_analyze_2 (deps, XEXP (x, 0), insn);
 
@@ -3680,12 +3687,6 @@ deps_analyze_insn (struct deps_desc *deps, rtx insn)
   if (sched_deps_info->use_cselib)
     cselib_process_insn (insn);
 
-  /* EH_REGION insn notes can not appear until well after we complete
-     scheduling.  */
-  if (NOTE_P (insn))
-    gcc_assert (NOTE_KIND (insn) != NOTE_INSN_EH_REGION_BEG
-		&& NOTE_KIND (insn) != NOTE_INSN_EH_REGION_END);
-
   if (sched_deps_info->finish_insn)
     sched_deps_info->finish_insn ();
 
@@ -4176,8 +4177,9 @@ add_dependence_1 (rtx insn, rtx elem, enum reg_note dep_type)
     cur_insn = NULL;
 }
 
-/* Return weakness of speculative type TYPE in the dep_status DS.  */
-dw_t
+/* Return weakness of speculative type TYPE in the dep_status DS,
+   without checking to prevent ICEs on malformed input.  */
+static dw_t
 get_dep_weak_1 (ds_t ds, ds_t type)
 {
   ds = ds & type;
@@ -4194,6 +4196,7 @@ get_dep_weak_1 (ds_t ds, ds_t type)
   return (dw_t) ds;
 }
 
+/* Return weakness of speculative type TYPE in the dep_status DS.  */
 dw_t
 get_dep_weak (ds_t ds, ds_t type)
 {
@@ -4571,7 +4574,7 @@ attempt_change (struct mem_inc_info *mii, rtx new_addr)
   rtx mem = *mii->mem_loc;
   rtx new_mem;
 
-  /* Jump thru a lot of hoops to keep the attributes up to date.  We
+  /* Jump through a lot of hoops to keep the attributes up to date.  We
      do not want to call one of the change address variants that take
      an offset even though we know the offset in many cases.  These
      assume you are changing where the address is pointing by the

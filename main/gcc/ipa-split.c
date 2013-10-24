@@ -81,7 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -90,6 +90,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
+#include "cfgloop.h"
 
 /* Per basic block info.  */
 
@@ -366,23 +367,46 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   unsigned int i;
   int incoming_freq = 0;
   tree retval;
+  bool back_edge = false;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_split_point (dump_file, current);
 
   FOR_EACH_EDGE (e, ei, current->entry_bb->preds)
-    if (!bitmap_bit_p (current->split_bbs, e->src->index))
-      incoming_freq += EDGE_FREQUENCY (e);
+    {
+      if (e->flags & EDGE_DFS_BACK)
+	back_edge = true;
+      if (!bitmap_bit_p (current->split_bbs, e->src->index))
+        incoming_freq += EDGE_FREQUENCY (e);
+    }
 
   /* Do not split when we would end up calling function anyway.  */
   if (incoming_freq
       >= (ENTRY_BLOCK_PTR->frequency
 	  * PARAM_VALUE (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY) / 100))
     {
-      if (dump_file && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file,
-		 "  Refused: incoming frequency is too large.\n");
-      return;
+      /* When profile is guessed, we can not expect it to give us
+	 realistic estimate on likelyness of function taking the
+	 complex path.  As a special case, when tail of the function is
+	 a loop, enable splitting since inlining code skipping the loop
+	 is likely noticeable win.  */
+      if (back_edge
+	  && profile_status != PROFILE_READ
+	  && incoming_freq < ENTRY_BLOCK_PTR->frequency)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Split before loop, accepting despite low frequencies %i %i.\n",
+		     incoming_freq,
+		     ENTRY_BLOCK_PTR->frequency);
+	}
+      else
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Refused: incoming frequency is too large.\n");
+	  return;
+	}
     }
 
   if (!current->header_size)
@@ -1131,6 +1155,8 @@ split_function (struct split_point *split_point)
       e = make_edge (new_return_bb, EXIT_BLOCK_PTR, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = new_return_bb->count;
+      if (current_loops)
+	add_bb_to_loop (new_return_bb, current_loops->tree_root);
       bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
     }
   /* When we pass around the value, use existing return block.  */
@@ -1196,7 +1222,11 @@ split_function (struct split_point *split_point)
       DECL_BUILT_IN_CLASS (node->symbol.decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (node->symbol.decl) = (enum built_in_function) 0;
     }
+  /* If the original function is declared inline, there is no point in issuing
+     a warning for the non-inlinable part.  */
+  DECL_NO_INLINE_WARNING_P (node->symbol.decl) = 1;
   cgraph_node_remove_callees (cur_node);
+  ipa_remove_all_references (&cur_node->symbol.ref_list);
   if (!split_part_return_p)
     TREE_THIS_VOLATILE (node->symbol.decl) = 1;
   if (dump_file)
@@ -1510,7 +1540,9 @@ execute_split_functions (void)
      Note that we are not completely conservative about disqualifying functions
      called once.  It is possible that the caller is called more then once and
      then inlining would still benefit.  */
-  if ((!node->callers || !node->callers->next_caller)
+  if ((!node->callers
+       /* Local functions called once will be completely inlined most of time.  */
+       || (!node->callers->next_caller && node->local.local))
       && !node->symbol.address_taken
       && (!flag_lto || !node->symbol.externally_visible))
     {
@@ -1529,6 +1561,11 @@ execute_split_functions (void)
 		 " is not inline.\n");
       return 0;
     }
+
+  /* We enforce splitting after loop headers when profile info is not
+     available.  */
+  if (profile_status != PROFILE_READ)
+    mark_dfs_back_edges ();
 
   /* Initialize bitmap to track forbidden calls.  */
   forbidden_dominators = BITMAP_ALLOC (NULL);
@@ -1593,25 +1630,43 @@ gate_split_functions (void)
 	  && !profile_arc_flag && !flag_branch_probabilities);
 }
 
-struct gimple_opt_pass pass_split_functions =
+namespace {
+
+const pass_data pass_data_split_functions =
 {
- {
-  GIMPLE_PASS,
-  "fnsplit",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_split_functions,			/* gate */
-  execute_split_functions,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FNSPLIT,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_all      			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "fnsplit", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FNSPLIT, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_all, /* todo_flags_finish */
 };
+
+class pass_split_functions : public gimple_opt_pass
+{
+public:
+  pass_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_split_functions, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_split_functions (); }
+  unsigned int execute () { return execute_split_functions (); }
+
+}; // class pass_split_functions
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_split_functions (gcc::context *ctxt)
+{
+  return new pass_split_functions (ctxt);
+}
 
 /* Gate feedback driven function splitting pass.
    We don't need to split when profiling at all, we are producing
@@ -1635,22 +1690,40 @@ execute_feedback_split_functions (void)
   return retval;
 }
 
-struct gimple_opt_pass pass_feedback_split_functions =
+namespace {
+
+const pass_data pass_data_feedback_split_functions =
 {
- {
-  GIMPLE_PASS,
-  "feedback_fnsplit",			/* name */
-  OPTGROUP_NONE,                      /* optinfo_flags */
-  gate_feedback_split_functions,	/* gate */
-  execute_feedback_split_functions,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FNSPLIT,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_all      			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "feedback_fnsplit", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FNSPLIT, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_all, /* todo_flags_finish */
 };
+
+class pass_feedback_split_functions : public gimple_opt_pass
+{
+public:
+  pass_feedback_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_feedback_split_functions, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_feedback_split_functions (); }
+  unsigned int execute () { return execute_feedback_split_functions (); }
+
+}; // class pass_feedback_split_functions
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_feedback_split_functions (gcc::context *ctxt)
+{
+  return new pass_feedback_split_functions (ctxt);
+}

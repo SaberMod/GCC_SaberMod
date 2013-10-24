@@ -23,7 +23,7 @@ target_alias=${target_alias-$host_alias}
 AC_SUBST(target_alias)
 GCC_LIBSTDCXX_RAW_CXX_FLAGS
 
-AM_INIT_AUTOMAKE(foreign)
+AM_INIT_AUTOMAKE(foreign no-dist)
 AM_ENABLE_MULTILIB(, ..)
 AM_MAINTAINER_MODE
 
@@ -89,7 +89,7 @@ AM_CONDITIONAL(USING_MAC_INTERPOSE, $MAC_INTERPOSE)
 
 AC_CONFIG_FILES([Makefile])
 
-AC_CONFIG_FILES(AC_FOREACH([DIR], [interception sanitizer_common asan], [DIR/Makefile ]),
+AC_CONFIG_FILES(AC_FOREACH([DIR], [interception sanitizer_common asan ubsan], [DIR/Makefile ]),
   [cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF

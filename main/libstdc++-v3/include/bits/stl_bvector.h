@@ -222,6 +222,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     _Bit_iterator(_Bit_type * __x, unsigned int __y)
     : _Bit_iterator_base(__x, __y) { }
 
+    iterator
+    _M_const_cast() const
+    { return *this; }
+
     reference
     operator*() const
     { return reference(_M_p, 1UL << _M_offset); }
@@ -307,6 +311,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
     _Bit_const_iterator(const _Bit_iterator& __x)
     : _Bit_iterator_base(__x._M_p, __x._M_offset) { }
+
+    _Bit_iterator
+    _M_const_cast() const
+    { return _Bit_iterator(_M_p, _M_offset); }
 
     const_reference
     operator*() const
@@ -463,10 +471,30 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 #endif
 
       ~_Bvector_base()
-      { this->_M_deallocate(); }
+      {
+        this->_M_deallocate();
+#if __google_stl_debug_bvector
+        __builtin_memset(this, 0xcd, sizeof(*this));
+#endif
+      }
 
     protected:
       _Bvector_impl _M_impl;
+
+#if __google_stl_debug_bvector
+      bool _M_is_valid() const
+      {
+	return (this->_M_impl._M_start._M_p == 0
+		&& this->_M_impl._M_finish._M_p == 0
+		&& this->_M_impl._M_end_of_storage == 0)
+	  || (this->_M_impl._M_start._M_p <= this->_M_impl._M_finish._M_p
+	      && this->_M_impl._M_finish._M_p <= this->_M_impl._M_end_of_storage
+	      && (this->_M_impl._M_start._M_p < this->_M_impl._M_end_of_storage
+                  || (this->_M_impl._M_start._M_p == this->_M_impl._M_end_of_storage
+                      && this->_M_impl._M_start._M_offset == 0
+                      && this->_M_impl._M_finish._M_offset == 0)));
+      }
+#endif
 
       _Bit_type*
       _M_allocate(size_t __n)
@@ -520,7 +548,7 @@ template<typename _Alloc>
     typedef _Bvector_base<_Alloc>			 _Base;
 
 #if __cplusplus >= 201103L
-    template<typename> friend class hash;
+    template<typename> friend struct hash;
 #endif
 
   public:
@@ -623,6 +651,10 @@ template<typename _Alloc>
     vector&
     operator=(const vector& __x)
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("op=() on corrupt (dangling?) vector");
+#endif
       if (&__x == this)
 	return *this;
       if (__x.size() > capacity())
@@ -639,6 +671,10 @@ template<typename _Alloc>
     vector&
     operator=(vector&& __x)
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("op=() on corrupt (dangling?) vector");
+#endif
       // NB: DR 1204.
       // NB: DR 675.
       this->clear();
@@ -660,19 +696,35 @@ template<typename _Alloc>
     // or not the type is an integer.
     void
     assign(size_type __n, const bool& __x)
-    { _M_fill_assign(__n, __x); }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("assign() on corrupt (dangling?) vector");
+#endif
+      _M_fill_assign(__n, __x);
+    }
 
 #if __cplusplus >= 201103L
     template<typename _InputIterator,
 	     typename = std::_RequireInputIter<_InputIterator>>
       void
       assign(_InputIterator __first, _InputIterator __last)
-      { _M_assign_dispatch(__first, __last, __false_type()); }
+      {
+#if __google_stl_debug_bvector
+	if (!this->_M_is_valid())
+	  __throw_logic_error("assign() on corrupt (dangling?) vector");
+#endif
+	_M_assign_dispatch(__first, __last, __false_type());
+      }
 #else
     template<typename _InputIterator>
       void
       assign(_InputIterator __first, _InputIterator __last)
       {
+#if __google_stl_debug_bvector
+	if (!this->_M_is_valid())
+	  __throw_logic_error("assign() on corrupt (dangling?) vector");
+#endif
 	typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	_M_assign_dispatch(__first, __last, _Integral());
       }
@@ -686,19 +738,43 @@ template<typename _Alloc>
 
     iterator
     begin() _GLIBCXX_NOEXCEPT
-    { return this->_M_impl._M_start; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("begin() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_start;
+    }
 
     const_iterator
     begin() const _GLIBCXX_NOEXCEPT
-    { return this->_M_impl._M_start; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("begin() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_start;
+    }
 
     iterator
     end() _GLIBCXX_NOEXCEPT
-    { return this->_M_impl._M_finish; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("end() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_finish;
+    }
 
     const_iterator
     end() const _GLIBCXX_NOEXCEPT
-    { return this->_M_impl._M_finish; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("end() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_finish;
+    }
 
     reverse_iterator
     rbegin() _GLIBCXX_NOEXCEPT
@@ -719,11 +795,23 @@ template<typename _Alloc>
 #if __cplusplus >= 201103L
     const_iterator
     cbegin() const noexcept
-    { return this->_M_impl._M_start; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("cbegin() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_start;
+    }
 
     const_iterator
     cend() const noexcept
-    { return this->_M_impl._M_finish; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("cend() on corrupt (dangling?) vector");
+#endif
+      return this->_M_impl._M_finish;
+    }
 
     const_reverse_iterator
     crbegin() const noexcept
@@ -741,6 +829,10 @@ template<typename _Alloc>
     size_type
     max_size() const _GLIBCXX_NOEXCEPT
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("max_size() on corrupt (dangling?) vector");
+#endif
       const size_type __isize =
 	__gnu_cxx::__numeric_traits<difference_type>::__max
 	- int(_S_word_bit) + 1;
@@ -761,6 +853,9 @@ template<typename _Alloc>
     reference
     operator[](size_type __n)
     {
+#if __google_stl_debug_bvector
+      _M_range_check(__n);
+#endif
       return *iterator(this->_M_impl._M_start._M_p
 		       + __n / int(_S_word_bit), __n % int(_S_word_bit));
     }
@@ -768,6 +863,9 @@ template<typename _Alloc>
     const_reference
     operator[](size_type __n) const
     {
+#if __google_stl_debug_bvector
+      _M_range_check(__n);
+#endif
       return *const_iterator(this->_M_impl._M_start._M_p
 			     + __n / int(_S_word_bit), __n % int(_S_word_bit));
     }
@@ -777,7 +875,10 @@ template<typename _Alloc>
     _M_range_check(size_type __n) const
     {
       if (__n >= this->size())
-        __throw_out_of_range(__N("vector<bool>::_M_range_check"));
+	__throw_out_of_range_fmt(__N("vector<bool>::_M_range_check: __n "
+				     "(which is %zu) >= this->size() "
+				     "(which is %zu)"),
+				 __n, this->size());
     }
 
   public:
@@ -800,19 +901,39 @@ template<typename _Alloc>
 
     reference
     front()
-    { return *begin(); }
+    {
+#if __google_stl_debug_bvector
+      _M_range_check(0);
+#endif
+      return *begin();
+    }
 
     const_reference
     front() const
-    { return *begin(); }
+    {
+#if __google_stl_debug_bvector
+      _M_range_check(0);
+#endif
+      return *begin();
+    }
 
     reference
     back()
-    { return *(end() - 1); }
+    {
+#if __google_stl_debug_bvector
+      _M_range_check(0);
+#endif
+      return *(end() - 1);
+    }
 
     const_reference
     back() const
-    { return *(end() - 1); }
+    {
+#if __google_stl_debug_bvector
+      _M_range_check(0);
+#endif
+      return *(end() - 1);
+    }
 
     // _GLIBCXX_RESOLVE_LIB_DEFECTS
     // DR 464. Suggestion for new member functions in standard containers.
@@ -825,6 +946,10 @@ template<typename _Alloc>
     void
     push_back(bool __x)
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("push_back() on corrupt (dangling?) vector");
+#endif
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage)
         *this->_M_impl._M_finish++ = __x;
       else
@@ -834,6 +959,10 @@ template<typename _Alloc>
     void
     swap(vector& __x)
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid() || !__x._M_is_valid())
+	__throw_logic_error("swap() on corrupt (dangling?) vector");
+#endif
       std::swap(this->_M_impl._M_start, __x._M_impl._M_start);
       std::swap(this->_M_impl._M_finish, __x._M_impl._M_finish);
       std::swap(this->_M_impl._M_end_of_storage, 
@@ -855,63 +984,112 @@ template<typename _Alloc>
     }
 
     iterator
+#if __cplusplus >= 201103L
+    insert(const_iterator __position, const bool& __x = bool())
+#else
     insert(iterator __position, const bool& __x = bool())
+#endif
     {
       const difference_type __n = __position - begin();
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage
 	  && __position == end())
         *this->_M_impl._M_finish++ = __x;
       else
-        _M_insert_aux(__position, __x);
+        _M_insert_aux(__position._M_const_cast(), __x);
       return begin() + __n;
     }
 
 #if __cplusplus >= 201103L
     template<typename _InputIterator,
 	     typename = std::_RequireInputIter<_InputIterator>>
-      void
-      insert(iterator __position,
+      iterator
+      insert(const_iterator __position,
 	     _InputIterator __first, _InputIterator __last)
-      { _M_insert_dispatch(__position, __first, __last, __false_type()); }
+      {
+#if __google_stl_debug_bvector
+	if (!this->_M_is_valid())
+	  __throw_logic_error("insert() on corrupt (dangling?) vector");
+#endif
+	difference_type __offset = __position - cbegin();
+	_M_insert_dispatch(__position._M_const_cast(),
+			   __first, __last, __false_type());
+	return begin() + __offset;
+      }
 #else
     template<typename _InputIterator>
       void
       insert(iterator __position,
 	     _InputIterator __first, _InputIterator __last)
       {
+#if __google_stl_debug_bvector
+	if (!this->_M_is_valid())
+	  __throw_logic_error("insert() on corrupt (dangling?) vector");
+#endif
 	typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	_M_insert_dispatch(__position, __first, __last, _Integral());
       }
 #endif
 
+#if __cplusplus >= 201103L
+    iterator
+    insert(const_iterator __position, size_type __n, const bool& __x)
+    {
+      difference_type __offset = __position - cbegin();
+      _M_fill_insert(__position._M_const_cast(), __n, __x);
+      return begin() + __offset;
+    }
+#else
     void
     insert(iterator __position, size_type __n, const bool& __x)
-    { _M_fill_insert(__position, __n, __x); }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("insert() on corrupt (dangling?) vector");
+#endif
+      _M_fill_insert(__position, __n, __x);
+    }
+#endif
 
 #if __cplusplus >= 201103L
-    void insert(iterator __p, initializer_list<bool> __l)
-    { this->insert(__p, __l.begin(), __l.end()); }
+    iterator
+    insert(const_iterator __p, initializer_list<bool> __l)
+    { return this->insert(__p, __l.begin(), __l.end()); }
 #endif
 
     void
     pop_back()
-    { --this->_M_impl._M_finish; }
-
-    iterator
-    erase(iterator __position)
     {
-      if (__position + 1 != end())
-        std::copy(__position + 1, end(), __position);
+#if __google_stl_debug_bvector
+      _M_range_check(0);
+#endif
       --this->_M_impl._M_finish;
-      return __position;
     }
 
     iterator
-    erase(iterator __first, iterator __last)
+#if __cplusplus >= 201103L
+    erase(const_iterator __position)
+#else
+    erase(iterator __position)
+#endif
     {
-      if (__first != __last)
-	_M_erase_at_end(std::copy(__last, end(), __first));
-      return __first;
+#if __google_stl_debug_bvector
+      _M_range_check(__position - begin());
+#endif
+      return _M_erase(__position._M_const_cast());
+    }
+
+    iterator
+#if __cplusplus >= 201103L
+    erase(const_iterator __first, const_iterator __last)
+#else
+    erase(iterator __first, iterator __last)
+#endif
+    { 
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("erase() on corrupt (dangling?) vector");
+#endif
+      return _M_erase(__first._M_const_cast(), __last._M_const_cast());
     }
 
     void
@@ -926,12 +1104,22 @@ template<typename _Alloc>
 #if __cplusplus >= 201103L
     void
     shrink_to_fit()
-    { _M_shrink_to_fit(); }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("shrink_to_fit() on corrupt (dangling?) vector");
+#endif
+      _M_shrink_to_fit();
+    }
 #endif
 
     void
     flip() _GLIBCXX_NOEXCEPT
     {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("flip() on corrupt (dangling?) vector");
+#endif
       for (_Bit_type * __p = this->_M_impl._M_start._M_p;
 	   __p != this->_M_impl._M_end_of_storage; ++__p)
         *__p = ~*__p;
@@ -1124,6 +1312,12 @@ template<typename _Alloc>
     void
     _M_erase_at_end(iterator __pos)
     { this->_M_impl._M_finish = __pos; }
+
+    iterator
+    _M_erase(iterator __pos);
+
+    iterator
+    _M_erase(iterator __first, iterator __last);
   };
 
 _GLIBCXX_END_NAMESPACE_CONTAINER

@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "pointer-set.h"
@@ -578,8 +578,7 @@ generate_summary (void)
 	    EXECUTE_IF_SET_IN_BITMAP (l->statics_written,
 				      0, index, bi)
 	      {
-	        fprintf(dump_file, "%s ",
-		        get_static_name (index));
+	        fprintf (dump_file, "%s ", get_static_name (index));
 	      }
 	}
 }
@@ -684,7 +683,7 @@ propagate (void)
 	|| TREE_ADDRESSABLE (vnode->symbol.decl)
 	|| TREE_READONLY (vnode->symbol.decl)
 	|| !is_proper_for_analysis (vnode->symbol.decl)
-	|| !vnode->analyzed)
+	|| !vnode->symbol.definition)
       bitmap_clear_bit (all_module_statics, DECL_UID (vnode->symbol.decl));
 
   /* Forget info we collected "just for fun" on variables that turned out to be
@@ -716,7 +715,7 @@ propagate (void)
       bool write_all = false;
 
       node = order[i];
-      if (node->alias)
+      if (node->symbol.alias)
 	continue;
 
       node_info = get_reference_vars_info (node);
@@ -794,7 +793,7 @@ propagate (void)
 	  struct cgraph_node *w;
 
 	  node = order[i];
-	  if (node->alias)
+	  if (node->symbol.alias)
 	    continue;
 
 	  fprintf (dump_file,
@@ -835,7 +834,7 @@ propagate (void)
       ipa_reference_optimization_summary_t opt;
 
       node_info = get_reference_vars_info (node);
-      if (!node->alias
+      if (!node->symbol.alias
 	  && (cgraph_function_body_availability (node) > AVAIL_OVERWRITABLE
 	      || (flags_from_decl_or_type (node->symbol.decl) & ECF_LEAF)))
 	{
@@ -894,7 +893,7 @@ write_node_summary_p (struct cgraph_node *node,
   ipa_reference_optimization_summary_t info;
 
   /* See if we have (non-empty) info.  */
-  if (!node->analyzed || node->global.inlined_to)
+  if (!node->symbol.definition || node->global.inlined_to)
     return false;
   info = get_reference_optimization_summary (node);
   if (!info || (bitmap_empty_p (info->statics_not_read)
@@ -949,7 +948,7 @@ stream_out_bitmap (struct lto_simple_output_block *ob,
   EXECUTE_IF_AND_IN_BITMAP (bits, ltrans_statics, 0, index, bi)
     {
       tree decl = (tree)splay_tree_lookup (reference_vars_to_consider, index)->value;
-      lto_output_var_decl_index(ob->decl_state, ob->main_stream, decl);
+      lto_output_var_decl_index (ob->decl_state, ob->main_stream, decl);
     }
 }
 
@@ -1155,31 +1154,51 @@ gate_reference (void)
 	  && !seen_error ());
 }
 
-struct ipa_opt_pass_d pass_ipa_reference =
+namespace {
+
+const pass_data pass_data_ipa_reference =
 {
- {
-  IPA_PASS,
-  "static-var",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_reference,			/* gate */
-  propagate,			        /* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_REFERENCE,		        /* tv_id */
-  0,	                                /* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- },
- NULL,				        /* generate_summary */
- NULL,					/* write_summary */
- NULL,				 	/* read_summary */
- ipa_reference_write_optimization_summary,/* write_optimization_summary */
- ipa_reference_read_optimization_summary,/* read_optimization_summary */
- NULL,					/* stmt_fixup */
- 0,					/* TODOs */
- NULL,			                /* function_transform */
- NULL					/* variable_transform */
+  IPA_PASS, /* type */
+  "static-var", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_REFERENCE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_reference : public ipa_opt_pass_d
+{
+public:
+  pass_ipa_reference (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_reference, ctxt,
+		      NULL, /* generate_summary */
+		      NULL, /* write_summary */
+		      NULL, /* read_summary */
+		      ipa_reference_write_optimization_summary, /*
+		      write_optimization_summary */
+		      ipa_reference_read_optimization_summary, /*
+		      read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
+    {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_reference (); }
+  unsigned int execute () { return propagate (); }
+
+}; // class pass_ipa_reference
+
+} // anon namespace
+
+ipa_opt_pass_d *
+make_pass_ipa_reference (gcc::context *ctxt)
+{
+  return new pass_ipa_reference (ctxt);
+}

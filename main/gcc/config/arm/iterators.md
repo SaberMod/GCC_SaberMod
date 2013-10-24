@@ -314,6 +314,12 @@
                                 (V2SF "V2SI") (V4SF  "V4SI")
                                 (DI   "DI")   (V2DI  "V2DI")])
 
+(define_mode_attr v_cmp_result [(V8QI "v8qi") (V16QI "v16qi")
+				(V4HI "v4hi") (V8HI  "v8hi")
+				(V2SI "v2si") (V4SI  "v4si")
+				(DI   "di")   (V2DI  "v2di")
+				(V2SF "v2si") (V4SF  "v4si")])
+
 ;; Get element type from double-width mode, for operations where we 
 ;; don't care about signedness.
 (define_mode_attr V_if_elem [(V8QI "i8")  (V16QI "i8")
@@ -385,7 +391,7 @@
 (define_mode_attr scalar_mul_constraint [(V4HI "x") (V2SI "t") (V2SF "t")
                                          (V8HI "x") (V4SI "t") (V4SF "t")])
 
-;; Predicates used for setting neon_type
+;; Predicates used for setting type for neon instructions
 
 (define_mode_attr Is_float_mode [(V8QI "false") (V16QI "false")
                  (V4HI "false") (V8HI "false")
@@ -490,3 +496,11 @@
 (define_int_attr nvrint_variant [(UNSPEC_NVRINTZ "z") (UNSPEC_NVRINTP "p")
                                 (UNSPEC_NVRINTA "a") (UNSPEC_NVRINTM "m")
                                 (UNSPEC_NVRINTX "x") (UNSPEC_NVRINTN "n")])
+;; Both kinds of return insn.
+(define_code_iterator returns [return simple_return])
+(define_code_attr return_str [(return "") (simple_return "simple_")])
+(define_code_attr return_simple_p [(return "false") (simple_return "true")])
+(define_code_attr return_cond_false [(return " && USE_RETURN_INSN (FALSE)")
+                               (simple_return " && use_simple_return_p ()")])
+(define_code_attr return_cond_true [(return " && USE_RETURN_INSN (TRUE)")
+                               (simple_return " && use_simple_return_p ()")])

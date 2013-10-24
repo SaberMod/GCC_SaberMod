@@ -79,7 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "coverage.h"
 #include "ggc.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "ipa-prop.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
@@ -87,8 +87,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "alloc-pool.h"
 #include "cfgloop.h"
-#include "cfgloop.h"
 #include "tree-scalar-evolution.h"
+#include "ipa-utils.h"
 
 /* Estimate runtime of function can easilly run into huge numbers with many
    nested loops.  Be sure we can compute time * INLINE_SIZE_SCALE * 2 in an
@@ -337,7 +337,7 @@ add_clause (conditions conditions, struct predicate *p, clause_t clause)
          and thus there is no point for looking for them.  */
       if (cc1->code == CHANGED || cc1->code == IS_NOT_CONSTANT)
 	continue;
-      for (c2 = c1 + 1; c2 <= NUM_CONDITIONS; c2++)
+      for (c2 = c1 + 1; c2 < NUM_CONDITIONS; c2++)
 	if (clause & (1 << c2))
 	  {
 	    condition *cc1 =
@@ -1100,12 +1100,13 @@ inline_node_duplication_hook (struct cgraph_node *src,
       known_vals.safe_grow_cleared (count);
       for (i = 0; i < count; i++)
 	{
-	  tree t = ipa_get_param (parms_info, i);
 	  struct ipa_replace_map *r;
 
 	  for (j = 0; vec_safe_iterate (dst->clone.tree_map, j, &r); j++)
 	    {
-	      if (r->old_tree == t && r->replace_p && !r->ref_p)
+	      if (((!r->old_tree && r->parm_num == i)
+		   || (r->old_tree && r->old_tree == ipa_get_param (parms_info, i)))
+		   && r->replace_p && !r->ref_p)
 		{
 		  known_vals[i] = r->new_tree;
 		  break;
@@ -1290,7 +1291,7 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
       fprintf (f,
 	       "%*s%s/%i %s\n%*s  loop depth:%2i freq:%4i size:%2i"
 	       " time: %2i callee size:%2i stack:%2i",
-	       indent, "", cgraph_node_name (callee), callee->uid,
+	       indent, "", cgraph_node_name (callee), callee->symbol.order,
 	       !edge->inline_failed
 	       ? "inlined" : cgraph_inline_failed_string (edge-> inline_failed),
 	       indent, "", es->loop_depth, edge->frequency,
@@ -1349,13 +1350,13 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
 void
 dump_inline_summary (FILE *f, struct cgraph_node *node)
 {
-  if (node->analyzed)
+  if (node->symbol.definition)
     {
       struct inline_summary *s = inline_summary (node);
       size_time_entry *e;
       int i;
       fprintf (f, "Inline summary for %s/%i", cgraph_node_name (node),
-	       node->uid);
+	       node->symbol.order);
       if (DECL_DISREGARD_INLINE_LIMITS (node->symbol.decl))
 	fprintf (f, " always_inline");
       if (s->inlinable)
@@ -1425,7 +1426,7 @@ initialize_inline_failed (struct cgraph_edge *e)
 
   if (e->indirect_unknown_callee)
     e->inline_failed = CIF_INDIRECT_UNKNOWN_CALL;
-  else if (!callee->analyzed)
+  else if (!callee->symbol.definition)
     e->inline_failed = CIF_BODY_NOT_AVAILABLE;
   else if (callee->local.redefined_extern_inline)
     e->inline_failed = CIF_REDEFINED_EXTERN_INLINE;
@@ -2091,8 +2092,7 @@ param_change_prob (gimple stmt, int i)
       if (!init_freq)
 	init_freq = 1;
       if (init_freq < bb->frequency)
-	return MAX ((init_freq * REG_BR_PROB_BASE +
-		     bb->frequency / 2) / bb->frequency, 1);
+	return MAX (GCOV_COMPUTE_SCALE (init_freq, bb->frequency), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -2105,8 +2105,9 @@ param_change_prob (gimple stmt, int i)
       struct record_modified_bb_info info;
       bitmap_iterator bi;
       unsigned index;
+      tree init = ctor_for_folding (base);
 
-      if (const_value_known_p (base))
+      if (init != error_mark_node)
 	return 0;
       if (!bb->frequency)
 	return REG_BR_PROB_BASE;
@@ -2134,8 +2135,7 @@ param_change_prob (gimple stmt, int i)
 
       BITMAP_FREE (info.bb_set);
       if (max < bb->frequency)
-	return MAX ((max * REG_BR_PROB_BASE +
-		     bb->frequency / 2) / bb->frequency, 1);
+	return MAX (GCOV_COMPUTE_SCALE (max, bb->frequency), 1);
       else
 	return REG_BR_PROB_BASE;
     }
@@ -2662,7 +2662,11 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   info->estimated_stack_size = self_stack_size;
 
   /* Can this function be inlined at all?  */
-  info->inlinable = tree_inlinable_function_p (node->symbol.decl);
+  if (!optimize && !lookup_attribute ("always_inline",
+				      DECL_ATTRIBUTES (node->symbol.decl)))
+    info->inlinable = false;
+  else
+    info->inlinable = tree_inlinable_function_p (node->symbol.decl);
 
   /* Type attributes can use parameter indices to describe them.  */
   if (TYPE_ATTRIBUTES (TREE_TYPE (node->symbol.decl)))
@@ -2712,25 +2716,45 @@ compute_inline_parameters_for_current (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_inline_parameters = 
+namespace {
+
+const pass_data pass_data_inline_parameters =
 {
- {
-  GIMPLE_PASS,
-  "inline_param",		/* name */
-  OPTGROUP_INLINE,		/* optinfo_flags */
-  NULL,			/* gate */
-  compute_inline_parameters_for_current,	/* execute */
-  NULL,			/* sub */
-  NULL,			/* next */
-  0,				/* static_pass_number */
-  TV_INLINE_PARAMETERS,	/* tv_id */
-  0,				/* properties_required */
-  0,				/* properties_provided */
-  0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
-  0				/* todo_flags_finish */
-  }
+  GIMPLE_PASS, /* type */
+  "inline_param", /* name */
+  OPTGROUP_INLINE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_INLINE_PARAMETERS, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_inline_parameters : public gimple_opt_pass
+{
+public:
+  pass_inline_parameters (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_inline_parameters, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_inline_parameters (m_ctxt); }
+  unsigned int execute () {
+    return compute_inline_parameters_for_current ();
+  }
+
+}; // class pass_inline_parameters
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_inline_parameters (gcc::context *ctxt)
+{
+  return new pass_inline_parameters (ctxt);
+}
 
 
 /* Estimate benefit devirtualizing indirect edge IE, provided KNOWN_VALS and
@@ -2764,7 +2788,7 @@ estimate_edge_devirt_benefit (struct cgraph_edge *ie,
   gcc_checking_assert (*size >= 0);
 
   callee = cgraph_get_node (target);
-  if (!callee || !callee->analyzed)
+  if (!callee || !callee->symbol.definition)
     return false;
   isummary = inline_summary (callee);
   return isummary->inlinable;
@@ -2789,7 +2813,7 @@ estimate_edge_size_and_time (struct cgraph_edge *e, int *size, int *time,
       && hints && cgraph_maybe_hot_edge_p (e))
     *hints |= INLINE_HINT_indirect_call;
   *size += call_size * INLINE_SIZE_SCALE;
-  *time += call_time * prob / REG_BR_PROB_BASE
+  *time += apply_probability ((gcov_type) call_time, prob)
     * e->frequency * (INLINE_TIME_SCALE / CGRAPH_FREQ_BASE);
   if (*time > MAX_TIME * INLINE_TIME_SCALE)
     *time = MAX_TIME * INLINE_TIME_SCALE;
@@ -2869,7 +2893,8 @@ estimate_node_size_and_time (struct cgraph_node *node,
     {
       bool found = false;
       fprintf (dump_file, "   Estimating body: %s/%i\n"
-	       "   Known to be false: ", cgraph_node_name (node), node->uid);
+	       "   Known to be false: ", cgraph_node_name (node),
+	       node->symbol.order);
 
       for (i = predicate_not_inlined_condition;
 	   i < (predicate_first_dynamic_condition
@@ -2899,7 +2924,7 @@ estimate_node_size_and_time (struct cgraph_node *node,
 					      inline_param_summary);
 	    gcc_checking_assert (prob >= 0);
 	    gcc_checking_assert (prob <= REG_BR_PROB_BASE);
-	    time += ((gcov_type) e->time * prob) / REG_BR_PROB_BASE;
+	    time += apply_probability ((gcov_type) e->time, prob);
 	  }
 	if (time > MAX_TIME * INLINE_TIME_SCALE)
 	  time = MAX_TIME * INLINE_TIME_SCALE;
@@ -3074,7 +3099,7 @@ inline_update_callee_summaries (struct cgraph_node *node, int depth)
     plus the sum of the frame sizes of all inlined callees.  */
   inline_summary (node->global.inlined_to)->estimated_stack_size +=
       callee_info->estimated_self_stack_size;
-  cgraph_propagate_frequency (node);
+  ipa_propagate_frequency (node);
   for (e = node->callees; e; e = e->next_callee)
     {
       if (!e->inline_failed)
@@ -3113,8 +3138,7 @@ remap_edge_change_prob (struct cgraph_edge *inlined_edge,
 	      int jf_formal_id = ipa_get_jf_pass_through_formal_id (jfunc);
 	      int prob1 = es->param[i].change_prob;
 	      int prob2 = inlined_es->param[jf_formal_id].change_prob;
-	      int prob = ((prob1 * prob2 + REG_BR_PROB_BASE / 2)
-			  / REG_BR_PROB_BASE);
+	      int prob = combine_probabilities (prob1, prob2);
 
 	      if (prob1 && prob2 && !prob)
 		prob = 1;
@@ -3305,7 +3329,7 @@ inline_merge_summary (struct cgraph_edge *edge)
 	  int prob = predicate_probability (callee_info->conds,
 					    &e->predicate,
 					    clause, es->param);
-	  add_time = ((gcov_type) add_time * prob) / REG_BR_PROB_BASE;
+	  add_time = apply_probability ((gcov_type) add_time, prob);
 	  if (add_time > MAX_TIME * INLINE_TIME_SCALE)
 	    add_time = MAX_TIME * INLINE_TIME_SCALE;
 	  if (prob != REG_BR_PROB_BASE
@@ -3553,6 +3577,7 @@ estimate_size_after_inlining (struct cgraph_node *node,
 
 struct growth_data
 {
+  struct cgraph_node *node;
   bool self_recursive;
   int growth;
 };
@@ -3570,9 +3595,9 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
     {
       gcc_checking_assert (e->inline_failed);
 
-      if (e->caller == node
+      if (e->caller == d->node
 	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == node))
+	      && e->caller->global.inlined_to == d->node))
 	d->self_recursive = true;
       d->growth += estimate_edge_growth (e);
     }
@@ -3585,7 +3610,7 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 int
 do_estimate_growth (struct cgraph_node *node)
 {
-  struct growth_data d = { 0, false };
+  struct growth_data d = { node, 0, false };
   struct inline_summary *info = inline_summary (node);
 
   cgraph_for_node_and_aliases (node, do_estimate_growth_1, &d, true);
@@ -3646,10 +3671,26 @@ inline_analyze_function (struct cgraph_node *node)
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function: %s/%u\n",
-	     cgraph_node_name (node), node->uid);
+	     cgraph_node_name (node), node->symbol.order);
   if (optimize && !node->thunk.thunk_p)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
+  if (!optimize)
+    {
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	{
+	  if (e->inline_failed == CIF_FUNCTION_NOT_CONSIDERED)
+	    e->inline_failed = CIF_FUNCTION_NOT_OPTIMIZED;
+	  e->call_stmt_cannot_inline_p = true;
+	}
+      for (e = node->indirect_calls; e; e = e->next_callee)
+	{
+	  if (e->inline_failed == CIF_FUNCTION_NOT_CONSIDERED)
+	    e->inline_failed = CIF_FUNCTION_NOT_OPTIMIZED;
+	  e->call_stmt_cannot_inline_p = true;
+	}
+    }
 
   pop_cfun ();
 }
@@ -3671,6 +3712,11 @@ inline_generate_summary (void)
 {
   struct cgraph_node *node;
 
+  /* When not optimizing, do not bother to analyze.  Inlining is still done
+     because edge redirection needs to happen there.  */
+  if (!optimize && !flag_lto && !flag_wpa)
+    return;
+
   function_insertion_hook_holder =
     cgraph_add_function_insertion_hook (&add_new_function, NULL);
 
@@ -3678,7 +3724,7 @@ inline_generate_summary (void)
   inline_free_summary ();
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (!node->alias)
+    if (!node->symbol.alias)
       inline_analyze_function (node);
 }
 
@@ -3912,7 +3958,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && cnode->analyzed)
+      if (cnode && cnode->symbol.definition && !cnode->symbol.alias)
 	count++;
     }
   streamer_write_uhwi (ob, count);
@@ -3921,7 +3967,7 @@ inline_write_summary (void)
     {
       symtab_node snode = lto_symtab_encoder_deref (encoder, i);
       cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-      if (cnode && (node = cnode)->analyzed)
+      if (cnode && (node = cnode)->symbol.definition && !node->symbol.alias)
 	{
 	  struct inline_summary *info = inline_summary (node);
 	  struct bitpack_d bp;

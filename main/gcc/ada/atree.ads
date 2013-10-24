@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -939,12 +939,15 @@ package Atree is
    function Original_Node (Node : Node_Id) return Node_Id;
    pragma Inline (Original_Node);
    --  If Node has not been rewritten, then returns its input argument
-   --  unchanged, else returns the Node for the original subtree.
+   --  unchanged, else returns the Node for the original subtree. Note that
+   --  this is used extensively by ASIS on the trees constructed in ASIS mode
+   --  to reconstruct the original semantic tree. See section in sinfo.ads
+   --  for requirements on original nodes returned by this function.
    --
    --  Note: Parents are not preserved in original tree nodes that are
    --  retrieved in this way (i.e. their children may have children whose
-   --  pointers which reference some other node).
-
+   --  pointers which reference some other node). This needs more details???
+   --
    --  Note: there is no direct mechanism for deleting an original node (in
    --  a manner that can be reversed later). One possible approach is to use
    --  Rewrite to substitute a null statement for the node to be deleted.
@@ -1170,6 +1173,12 @@ package Atree is
 
       function Node30 (N : Node_Id) return Node_Id;
       pragma Inline (Node30);
+
+      function Node31 (N : Node_Id) return Node_Id;
+      pragma Inline (Node31);
+
+      function Node32 (N : Node_Id) return Node_Id;
+      pragma Inline (Node32);
 
       function List1 (N : Node_Id) return List_Id;
       pragma Inline (List1);
@@ -2452,6 +2461,12 @@ package Atree is
 
       procedure Set_Node30 (N : Node_Id; Val : Node_Id);
       pragma Inline (Set_Node30);
+
+      procedure Set_Node31 (N : Node_Id; Val : Node_Id);
+      pragma Inline (Set_Node31);
+
+      procedure Set_Node32 (N : Node_Id; Val : Node_Id);
+      pragma Inline (Set_Node32);
 
       procedure Set_List1 (N : Node_Id; Val : List_Id);
       pragma Inline (Set_List1);

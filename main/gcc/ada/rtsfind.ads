@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -278,6 +278,7 @@ package Rtsfind is
       System_Machine_Code,
       System_Mantissa,
       System_Memcop,
+      System_Memory,
       System_Multiprocessors,
       System_Pack_03,
       System_Pack_05,
@@ -585,8 +586,8 @@ package Rtsfind is
      RO_RT_Delay_Until,                  -- Ada.Real_Time.Delays
      RO_RT_To_Duration,                  -- Ada.Real_Time.Delays
 
-     RE_Set_Handler,                     -- Ada_Real_Time.Timing_Events
-     RE_Timing_Event,                    -- Ada_Real_Time.Timing_Events
+     RE_Set_Handler,                     -- Ada.Real_Time.Timing_Events
+     RE_Timing_Event,                    -- Ada.Real_Time.Timing_Events
 
      RE_Root_Stream_Type,                -- Ada.Streams
      RE_Stream_Element,                  -- Ada.Streams
@@ -788,13 +789,13 @@ package Rtsfind is
      RE_Bit_Or,                          -- System.Bit_Ops
      RE_Bit_Xor,                         -- System.Bit_Ops
 
-     RE_Vector_Not,                      -- System_Boolean_Array_Operations,
-     RE_Vector_And,                      -- System_Boolean_Array_Operations,
-     RE_Vector_Or,                       -- System_Boolean_Array_Operations,
-     RE_Vector_Nand,                     -- System_Boolean_Array_Operations,
-     RE_Vector_Nor,                      -- System_Boolean_Array_Operations,
-     RE_Vector_Nxor,                     -- System_Boolean_Array_Operations,
-     RE_Vector_Xor,                      -- System_Boolean_Array_Operations,
+     RE_Vector_Not,                      -- System.Boolean_Array_Operations,
+     RE_Vector_And,                      -- System.Boolean_Array_Operations,
+     RE_Vector_Or,                       -- System.Boolean_Array_Operations,
+     RE_Vector_Nand,                     -- System.Boolean_Array_Operations,
+     RE_Vector_Nor,                      -- System.Boolean_Array_Operations,
+     RE_Vector_Nxor,                     -- System.Boolean_Array_Operations,
+     RE_Vector_Xor,                      -- System.Boolean_Array_Operations,
 
      RE_Bswap_16,                        -- System.Byte_Swapping
      RE_Bswap_32,                        -- System.Byte_Swapping
@@ -940,7 +941,9 @@ package Rtsfind is
      RE_Asm_Input_Operand,               -- System.Machine_Code
      RE_Asm_Output_Operand,              -- System.Machine_Code
 
-     RE_Mantissa_Value,                  -- System_Mantissa
+     RE_Mantissa_Value,                  -- System.Mantissa
+
+     RE_Free,                            -- System.Memory
 
      RE_CPU_Range,                       -- System.Multiprocessors
 
@@ -1224,7 +1227,7 @@ package Rtsfind is
      RE_Get_63,                          -- System.Pack_63
      RE_Set_63,                          -- System.Pack_63
 
-     RE_Adjust_Storage_Size,             -- System_Parameters
+     RE_Adjust_Storage_Size,             -- System.Parameters
      RE_Default_Stack_Size,              -- System.Parameters
      RE_Garbage_Collected,               -- System.Parameters
      RE_Size_Type,                       -- System.Parameters
@@ -1307,6 +1310,9 @@ package Rtsfind is
      RE_Release_Buffer,                  -- System.Partition_Interface
      RE_BS_To_Any,                       -- System.Partition_Interface
      RE_Any_To_BS,                       -- System.Partition_Interface
+     RE_Build_Complex_TC,                -- System.Partition_Interface
+     RE_Get_TC,                          -- System.Partition_Interface
+     RE_Set_TC,                          -- System.Partition_Interface
 
      RE_FA_A,                            -- System.Partition_Interface
      RE_FA_B,                            -- System.Partition_Interface
@@ -1350,10 +1356,6 @@ package Rtsfind is
      RE_TA_Std_String,                   -- System.Partition_Interface
      RE_TA_TC,                           -- System.Partition_Interface
 
-     RE_TC_Alias,                        -- System.Partition_Interface
-     RE_TC_Build,                        -- System.Partition_Interface
-     RE_Get_TC,                          -- System.Partition_Interface
-     RE_Set_TC,                          -- System.Partition_Interface
      RE_TC_A,                            -- System.Partition_Interface
      RE_TC_B,                            -- System.Partition_Interface
      RE_TC_C,                            -- System.Partition_Interface
@@ -1373,12 +1375,14 @@ package Rtsfind is
      RE_TC_Opaque,                       -- System.Partition_Interface
      RE_TC_WC,                           -- System.Partition_Interface
      RE_TC_WWC,                          -- System.Partition_Interface
-     RE_TC_Array,                        -- System.Partition_Interface
-     RE_TC_Sequence,                     -- System.Partition_Interface
      RE_TC_String,                       -- System.Partition_Interface
-     RE_TC_Struct,                       -- System.Partition_Interface
-     RE_TC_Union,                        -- System.Partition_Interface
-     RE_TC_Object,                       -- System.Partition_Interface
+
+     RE_Tk_Alias,                        -- System.Partition_Interface
+     RE_Tk_Array,                        -- System.Partition_Interface
+     RE_Tk_Sequence,                     -- System.Partition_Interface
+     RE_Tk_Struct,                       -- System.Partition_Interface
+     RE_Tk_Objref,                       -- System.Partition_Interface
+     RE_Tk_Union,                        -- System.Partition_Interface
 
      RE_IS_Is1,                          -- System.Scalar_Values
      RE_IS_Is2,                          -- System.Scalar_Values
@@ -1688,7 +1692,7 @@ package Rtsfind is
      RE_Width_Wide_Character,            -- System.Wid_WChar
      RE_Width_Wide_Wide_Character,       -- System.Wid_WChar
 
-     RE_Dispatching_Domain,              -- Dispatching_Domains
+     RE_Dispatching_Domain,              -- Multiprocessors.Dispatching_Domains
 
      RE_Protected_Entry_Body_Array,      -- Tasking.Protected_Objects.Entries
      RE_Protected_Entry_Names_Array,     -- Tasking.Protected_Objects.Entries
@@ -1776,7 +1780,7 @@ package Rtsfind is
      RE_Complete_Task,                   -- System.Tasking.Stages
      RE_Free_Task,                       -- System.Tasking.Stages
      RE_Expunge_Unactivated_Tasks,       -- System.Tasking.Stages
-     RE_Move_Activation_Chain,           -- System_Tasking_Stages
+     RE_Move_Activation_Chain,           -- System.Tasking_Stages
      RE_Terminated);                     -- System.Tasking.Stages
 
    --  The following declarations build a table that is indexed by the RTE
@@ -2196,6 +2200,8 @@ package Rtsfind is
 
      RE_Mantissa_Value                   => System_Mantissa,
 
+     RE_Free                             => System_Memory,
+
      RE_CPU_Range                        => System_Multiprocessors,
 
      RE_Bits_03                          => System_Pack_03,
@@ -2550,6 +2556,9 @@ package Rtsfind is
      RE_Release_Buffer                   => System_Partition_Interface,
      RE_BS_To_Any                        => System_Partition_Interface,
      RE_Any_To_BS                        => System_Partition_Interface,
+     RE_Build_Complex_TC                 => System_Partition_Interface,
+     RE_Get_TC                           => System_Partition_Interface,
+     RE_Set_TC                           => System_Partition_Interface,
 
      RE_FA_A                             => System_Partition_Interface,
      RE_FA_B                             => System_Partition_Interface,
@@ -2593,10 +2602,6 @@ package Rtsfind is
      RE_TA_Std_String                    => System_Partition_Interface,
      RE_TA_TC                            => System_Partition_Interface,
 
-     RE_TC_Alias                         => System_Partition_Interface,
-     RE_TC_Build                         => System_Partition_Interface,
-     RE_Get_TC                           => System_Partition_Interface,
-     RE_Set_TC                           => System_Partition_Interface,
      RE_TC_A                             => System_Partition_Interface,
      RE_TC_B                             => System_Partition_Interface,
      RE_TC_C                             => System_Partition_Interface,
@@ -2616,12 +2621,14 @@ package Rtsfind is
      RE_TC_Opaque                        => System_Partition_Interface,
      RE_TC_WC                            => System_Partition_Interface,
      RE_TC_WWC                           => System_Partition_Interface,
-     RE_TC_Array                         => System_Partition_Interface,
-     RE_TC_Sequence                      => System_Partition_Interface,
      RE_TC_String                        => System_Partition_Interface,
-     RE_TC_Struct                        => System_Partition_Interface,
-     RE_TC_Union                         => System_Partition_Interface,
-     RE_TC_Object                        => System_Partition_Interface,
+
+     RE_Tk_Alias                         => System_Partition_Interface,
+     RE_Tk_Array                         => System_Partition_Interface,
+     RE_Tk_Sequence                      => System_Partition_Interface,
+     RE_Tk_Struct                        => System_Partition_Interface,
+     RE_Tk_Objref                        => System_Partition_Interface,
+     RE_Tk_Union                         => System_Partition_Interface,
 
      RE_Global_Pool_Object               => System_Pool_Global,
 

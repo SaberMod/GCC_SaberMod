@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_CP_PARSER_H
 
 #include "tree.h"
+#include "cp/cp-tree.h"
 #include "c-family/c-pragma.h"
 
 /* A token's value and its associated deferred access checks and
@@ -350,19 +351,21 @@ typedef struct GTY(()) cp_parser {
      current declaration.  */
   unsigned num_template_parameter_lists;
 
-  /* Record the paramter list of the function declaration that is being parsed
-     so that it can be looked up when later parsing the lock attributes which
-     might refer to a function parameter.  */
-  tree current_func_declarator_params;
+  /* TRUE if the function being declared was made a template due to its
+     parameter list containing generic type specifiers (`auto' or concept
+     identifiers) rather than an explicit template parameter list.  */
+  bool fully_implicit_function_template_p;
 
-  /* Record the scope of the current declarator as we might need to use it
-     parsing the lock attributes with arguments that should be considered in
-     the declarator's scope.  */
-  tree current_declarator_scope;
 } cp_parser;
 
 /* In parser.c  */
+extern void debug (cp_token &ref);
+extern void debug (cp_token *ptr);
 extern void cp_lexer_debug_tokens (vec<cp_token, va_gc> *);
+extern void debug (vec<cp_token, va_gc> &ref);
+extern void debug (vec<cp_token, va_gc> *ptr);
 extern void cp_debug_parser (FILE *, cp_parser *);
+extern void debug (cp_parser &ref);
+extern void debug (cp_parser *ptr);
 
 #endif  /* GCC_CP_PARSER_H  */

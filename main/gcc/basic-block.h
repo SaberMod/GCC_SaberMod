@@ -87,16 +87,6 @@ enum cfg_edge_flags {
    profile.c.  */
 extern const struct gcov_ctr_summary *profile_info;
 
-/* Working set size statistics for a given percentage of the entire
-   profile (sum_all from the counter summary).  */
-typedef struct gcov_working_set_info
-{
-  /* Number of hot counters included in this working set.  */
-  unsigned num_counters;
-  /* Smallest counter included in this working set.  */
-  gcov_type min_counter;
-} gcov_working_set_t;
-
 /* Structure to gather statistic about profile consistency, per pass.
    An array of this structure, indexed by pass static number, is allocated
    in passes.c.  The structure is defined here so that different CFG modes
@@ -224,8 +214,8 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
    struct rtl_bb_info, so that inlining the former into basic_block_def
    is the better choice.  */
 typedef int __assert_gimple_bb_smaller_rtl_bb
-              [(int)sizeof(struct rtl_bb_info)
-               - (int)sizeof (struct gimple_bb_info)];
+              [(int) sizeof (struct rtl_bb_info)
+               - (int) sizeof (struct gimple_bb_info)];
 
 
 #define BB_FREQ_MAX 10000
@@ -334,9 +324,9 @@ struct GTY(()) control_flow_graph {
 #define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
-  ((*basic_block_info_for_function(FN))[(N)])
+  ((*basic_block_info_for_function (FN))[(N)])
 #define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
-  ((*basic_block_info_for_function(FN))[(N)] = (BB))
+  ((*basic_block_info_for_function (FN))[(N)] = (BB))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -363,7 +353,7 @@ struct GTY(()) control_flow_graph {
 #define FOR_EACH_BB_REVERSE_FN(BB, FN) \
   FOR_BB_BETWEEN (BB, (FN)->cfg->x_exit_block_ptr->prev_bb, (FN)->cfg->x_entry_block_ptr, prev_bb)
 
-#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN(BB, cfun)
+#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN (BB, cfun)
 
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
@@ -437,6 +427,8 @@ extern basic_block create_basic_block_structure (rtx, rtx, rtx, basic_block);
 extern void clear_bb_flags (void);
 extern void dump_bb_info (FILE *, basic_block, int, int, bool, bool);
 extern void dump_edge_info (FILE *, edge, int, int);
+extern void debug (edge_def &ref);
+extern void debug (edge_def *ptr);
 extern void brief_dump_cfg (FILE *, int);
 extern void clear_edges (void);
 extern void scale_bbs_frequencies_int (basic_block *, int, int, int);
@@ -473,6 +465,23 @@ struct edge_list
   edge *index_to_edge;
 };
 
+/* Class to compute and manage control dependences on an edge-list.  */
+class control_dependences
+{
+public:
+  control_dependences (edge_list *);
+  ~control_dependences ();
+  bitmap get_edges_dependent_on (int);
+  edge get_edge (int);
+
+private:
+  void set_control_dependence_map_bit (basic_block, int);
+  void clear_control_dependence_bitmap (basic_block);
+  void find_control_dependence (int);
+  vec<bitmap> control_dependence_map;
+  edge_list *m_el;
+};
+
 /* The base value for branch probability notes and edge probabilities.  */
 #define REG_BR_PROB_BASE  10000
 
@@ -506,6 +515,11 @@ struct edge_list
 /* Return expected execution frequency of the edge E.  */
 #define EDGE_FREQUENCY(e)		RDIV ((e)->src->frequency * (e)->probability, \
 					      REG_BR_PROB_BASE)
+
+/* Compute a scale factor (or probability) suitable for scaling of
+   gcov_type values via apply_probability() and apply_scale().  */
+#define GCOV_COMPUTE_SCALE(num,den) \
+  ((den) ? RDIV ((num) * REG_BR_PROB_BASE, (den)) : REG_BR_PROB_BASE)
 
 /* Return nonzero if edge is critical.  */
 #define EDGE_CRITICAL_P(e)		(EDGE_COUNT ((e)->src->succs) >= 2 \
@@ -730,6 +744,7 @@ extern bool maybe_hot_count_p (struct function *, gcov_type);
 extern bool maybe_hot_bb_p (struct function *, const_basic_block);
 extern bool maybe_hot_edge_p (edge);
 extern bool probably_never_executed_bb_p (struct function *, const_basic_block);
+extern bool probably_never_executed_edge_p (struct function *, edge);
 extern bool optimize_bb_for_size_p (const_basic_block);
 extern bool optimize_bb_for_speed_p (const_basic_block);
 extern bool optimize_edge_for_size_p (edge);
@@ -800,6 +815,8 @@ extern basic_block force_nonfallthru_and_redirect (edge, basic_block, rtx);
 extern bool contains_no_active_insn_p (const_basic_block);
 extern bool forwarder_block_p (const_basic_block);
 extern bool can_fallthru (basic_block, basic_block);
+extern void emit_barrier_after_bb (basic_block bb);
+extern void fixup_partitions (void);
 
 /* In cfgbuild.c.  */
 extern void find_many_sub_basic_blocks (sbitmap);
@@ -934,7 +951,8 @@ extern void rtl_profile_for_edge (edge);
 extern void default_rtl_profile (void);
 
 /* In profile.c.  */
-extern gcov_working_set_t *find_working_set(unsigned pct_times_10);
+typedef struct gcov_working_set_info gcov_working_set_t;
+extern gcov_working_set_t *find_working_set (unsigned pct_times_10);
 
 /* Check tha probability is sane.  */
 
@@ -955,13 +973,23 @@ combine_probabilities (int prob1, int prob2)
   return RDIV (prob1 * prob2, REG_BR_PROB_BASE);
 }
 
+/* Apply scale factor SCALE on frequency or count FREQ. Use this
+   interface when potentially scaling up, so that SCALE is not
+   constrained to be < REG_BR_PROB_BASE.  */
+
+static inline gcov_type
+apply_scale (gcov_type freq, gcov_type scale)
+{
+  return RDIV (freq * scale, REG_BR_PROB_BASE);
+}
+
 /* Apply probability PROB on frequency or count FREQ.  */
 
 static inline gcov_type
 apply_probability (gcov_type freq, int prob)
 {
   check_probability (prob);
-  return RDIV (freq * prob, REG_BR_PROB_BASE);
+  return apply_scale (freq, prob);
 }
 
 /* Return inverse probability for PROB.  */

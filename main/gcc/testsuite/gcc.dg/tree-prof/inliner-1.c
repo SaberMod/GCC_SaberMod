@@ -36,7 +36,7 @@ main ()
 
 /* cold function should be not inlined, while hot function should be.
    Look for "cold_function () [tail call];" call statement not for the
-   declaration or other apperances of the string in dump.  */
+   declaration or other appearances of the string in dump.  */
 /* { dg-final-use { scan-tree-dump "cold_function ..;" "optimized"} } */
 /* { dg-final-use { scan-tree-dump-not "hot_function ..;" "optimized"} } */
 /* { dg-final-use { cleanup-tree-dump "optimized" } } */

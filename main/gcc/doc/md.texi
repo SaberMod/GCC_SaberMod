@@ -1711,9 +1711,6 @@ Floating point constant zero
 @item Z
 Integer constant zero
 
-@item Usa
-An absolute symbolic address
-
 @item Ush
 The high part (bits 12 and upwards) of the pc-relative address of a symbol
 within 4GB of the instruction
@@ -2055,7 +2052,7 @@ Any constant whose absolute value is no greater than 4-bits.
 
 @end table
 
-@item PowerPC and IBM RS6000---@file{config/rs6000/rs6000.h}
+@item PowerPC and IBM RS6000---@file{config/rs6000/constraints.md}
 @table @code
 @item b
 Address base register
@@ -2069,17 +2066,57 @@ Floating point register (containing 32-bit value)
 @item v
 Altivec vector register
 
+@item wa
+Any VSX register if the -mvsx option was used or NO_REGS.
+
 @item wd
-VSX vector register to hold vector double data
+VSX vector register to hold vector double data or NO_REGS.
 
 @item wf
-VSX vector register to hold vector float data
+VSX vector register to hold vector float data or NO_REGS.
+
+@item wg
+If @option{-mmfpgpr} was used, a floating point register or NO_REGS.
+
+@item wl
+Floating point register if the LFIWAX instruction is enabled or NO_REGS.
+
+@item wm
+VSX register if direct move instructions are enabled, or NO_REGS.
+
+@item wn
+No register (NO_REGS).
+
+@item wr
+General purpose register if 64-bit instructions are enabled or NO_REGS.
 
 @item ws
-VSX vector register to hold scalar float data
+VSX vector register to hold scalar double values or NO_REGS.
 
-@item wa
-Any VSX register
+@item wt
+VSX vector register to hold 128 bit integer or NO_REGS.
+
+@item wu
+Altivec register to use for float/32-bit int loads/stores  or NO_REGS.
+
+@item wv
+Altivec register to use for double loads/stores  or NO_REGS.
+
+@item ww
+FP or VSX register to perform float operations under @option{-mvsx} or NO_REGS.
+
+@item wx
+Floating point register if the STFIWX instruction is enabled or NO_REGS.
+
+@item wy
+VSX vector register to hold scalar float values or NO_REGS.
+
+@item wz
+Floating point register if the LFIWZX instruction is enabled or NO_REGS.
+
+@item wQ
+A memory address that will work with the @code{lq} and @code{stq}
+instructions.
 
 @item h
 @samp{MQ}, @samp{CTR}, or @samp{LINK} register
@@ -2916,6 +2953,19 @@ Floating-point zero.
 
 @item R
 An address that can be used in a non-macro load or store.
+
+@item ZC
+When compiling microMIPS code, this constraint matches a memory operand
+whose address is formed from a base register and a 12-bit offset.  These
+operands can be used for microMIPS instructions such as @code{ll} and
+@code{sc}.  When not compiling for microMIPS code, @code{ZC} is
+equivalent to @code{R}.
+
+@item ZD
+When compiling microMIPS code, this constraint matches an address operand
+that is formed from a base register and a 12-bit offset.  These operands
+can be used for microMIPS instructions such as @code{prefetch}.  When
+not compiling for microMIPS code, @code{ZD} is equivalent to @code{p}.
 @end table
 
 @item Motorola 680x0---@file{config/m68k/constraints.md}
@@ -3022,6 +3072,35 @@ A constant in the range of 0 to 255.
 
 @item N
 A constant in the range of 0 to @minus{}255.
+
+@end table
+
+@item MSP430--@file{config/msp430/constraints.md}
+@table @code
+
+@item R12
+Register R12.
+
+@item R13
+Register R13.
+
+@item K
+Integer constant 1.
+
+@item L
+Integer constant -1^20..1^19.
+
+@item M
+Integer constant 1-4.
+
+@item Ya
+Memory references which do not require an extended MOVX instruction.
+
+@item Yl
+Memory reference, labels only.
+
+@item Ys
+Memory reference, stack only.
 
 @end table
 
@@ -5613,7 +5692,7 @@ A label to jump to if the index has a value outside the bounds.
 @end enumerate
 
 The table is an @code{addr_vec} or @code{addr_diff_vec} inside of a
-@code{jump_insn}.  The number of elements in the table is one plus the
+@code{jump_table_data}.  The number of elements in the table is one plus the
 difference between the upper bound and the lower bound.
 
 @cindex @code{tablejump} instruction pattern
@@ -7540,7 +7619,7 @@ so here's a silly made-up example:
   "/* @r{determine 1 does not overlap 0 and 2} */"
   [(set (match_dup 4) (match_dup 1))
    (set (match_dup 0) (match_dup 4))
-   (set (match_dup 2) (match_dup 4))]
+   (set (match_dup 2) (match_dup 4))
    (set (match_dup 3) (match_dup 4))]
   "")
 @end smallexample
@@ -8828,7 +8907,8 @@ can be quite tedious to describe these forms directly in the
 (define_cond_exec
   [@var{predicate-pattern}]
   "@var{condition}"
-  "@var{output-template}")
+  "@var{output-template}"
+  "@var{optional-insn-attribues}")
 @end smallexample
 
 @var{predicate-pattern} is the condition that must be true for the
@@ -8848,6 +8928,13 @@ assembly text for the predicate is a simple prefix to the main insn.
 In order to handle the general case, there is a global variable
 @code{current_insn_predicate} that will contain the entire predicate
 if the current insn is predicated, and will otherwise be @code{NULL}.
+
+@var{optional-insn-attributes} is an optional vector of attributes that gets
+appended to the insn attributes of the produced cond_exec rtx. It can
+be used to add some distinguishing attribute to cond_exec rtxs produced
+that way. An example usage would be to use this attribute in conjunction
+with attributes on the main pattern to disable particular alternatives under
+certain conditions.
 
 When @code{define_cond_exec} is used, an implicit reference to
 the @code{predicable} instruction attribute is made.
@@ -9605,7 +9692,7 @@ Here's an example of int iterators in action, taken from the ARM port:
 		      QABSNEG))]
   "TARGET_NEON"
   "vq<absneg>.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
+  [(set_attr "type" "neon_vqneg_vqabs")]
 )
 
 @end smallexample
@@ -9620,7 +9707,7 @@ This is equivalent to:
 		      UNSPEC_VQABS))]
   "TARGET_NEON"
   "vqabs.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
+  [(set_attr "type" "neon_vqneg_vqabs")]
 )
 
 (define_insn "neon_vqneg<mode>"
@@ -9630,7 +9717,7 @@ This is equivalent to:
 		      UNSPEC_VQNEG))]
   "TARGET_NEON"
   "vqneg.<V_s_elem>\t%<V_reg>0, %<V_reg>1"
-  [(set_attr "neon_type" "neon_vqneg_vqabs")]
+  [(set_attr "type" "neon_vqneg_vqabs")]
 )
 
 @end smallexample

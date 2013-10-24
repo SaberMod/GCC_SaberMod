@@ -98,32 +98,6 @@ variable_size (tree size)
 /* An array of functions used for self-referential size computation.  */
 static GTY(()) vec<tree, va_gc> *size_functions;
 
-/* Look inside EXPR into simple arithmetic operations involving constants.
-   Return the outermost non-arithmetic or non-constant node.  */
-
-static tree
-skip_simple_constant_arithmetic (tree expr)
-{
-  while (true)
-    {
-      if (UNARY_CLASS_P (expr))
-	expr = TREE_OPERAND (expr, 0);
-      else if (BINARY_CLASS_P (expr))
-	{
-	  if (TREE_CONSTANT (TREE_OPERAND (expr, 1)))
-	    expr = TREE_OPERAND (expr, 0);
-	  else if (TREE_CONSTANT (TREE_OPERAND (expr, 0)))
-	    expr = TREE_OPERAND (expr, 1);
-	  else
-	    break;
-	}
-      else
-	break;
-    }
-
-  return expr;
-}
-
 /* Similar to copy_tree_r but do not copy component references involving
    PLACEHOLDER_EXPRs.  These nodes are spotted in find_placeholder_in_expr
    and substituted in substitute_in_expr.  */
@@ -316,6 +290,8 @@ finalize_size_functions (void)
 
   for (i = 0; size_functions && size_functions->iterate (i, &fndecl); i++)
     {
+      allocate_struct_function (fndecl, false);
+      set_cfun (NULL);
       dump_function (TDI_original, fndecl);
       gimplify_function_tree (fndecl);
       dump_function (TDI_generic, fndecl);
@@ -475,6 +451,18 @@ unsigned int
 get_mode_alignment (enum machine_mode mode)
 {
   return MIN (BIGGEST_ALIGNMENT, MAX (1, mode_base_align[mode]*BITS_PER_UNIT));
+}
+
+/* Return the precision of the mode, or for a complex or vector mode the
+   precision of the mode of its elements.  */
+
+unsigned int
+element_precision (enum machine_mode mode)
+{
+  if (COMPLEX_MODE_P (mode) || VECTOR_MODE_P (mode))
+    mode = GET_MODE_INNER (mode);
+
+  return GET_MODE_PRECISION (mode);
 }
 
 /* Return the natural mode of an array, given that it is SIZE bytes in
@@ -1364,7 +1352,7 @@ place_field (record_layout_info rli, tree field)
 
 	      /* Cause a new bitfield to be captured, either this time (if
 		 currently a bitfield) or next time we see one.  */
-	      if (!DECL_BIT_FIELD_TYPE(field)
+	      if (!DECL_BIT_FIELD_TYPE (field)
 		  || integer_zerop (DECL_SIZE (field)))
 		rli->prev_field = NULL;
 	    }
@@ -2639,12 +2627,12 @@ bit_field_mode_iterator
 			   HOST_WIDE_INT bitregion_start,
 			   HOST_WIDE_INT bitregion_end,
 			   unsigned int align, bool volatilep)
-: mode_ (GET_CLASS_NARROWEST_MODE (MODE_INT)), bitsize_ (bitsize),
-  bitpos_ (bitpos), bitregion_start_ (bitregion_start),
-  bitregion_end_ (bitregion_end), align_ (align),
-  volatilep_ (volatilep), count_ (0)
+: m_mode (GET_CLASS_NARROWEST_MODE (MODE_INT)), m_bitsize (bitsize),
+  m_bitpos (bitpos), m_bitregion_start (bitregion_start),
+  m_bitregion_end (bitregion_end), m_align (align),
+  m_volatilep (volatilep), m_count (0)
 {
-  if (!bitregion_end_)
+  if (!m_bitregion_end)
     {
       /* We can assume that any aligned chunk of ALIGN bits that overlaps
 	 the bitfield is mapped and won't trap, provided that ALIGN isn't
@@ -2654,8 +2642,8 @@ bit_field_mode_iterator
 	= MIN (align, MAX (BIGGEST_ALIGNMENT, BITS_PER_WORD));
       if (bitsize <= 0)
 	bitsize = 1;
-      bitregion_end_ = bitpos + bitsize + units - 1;
-      bitregion_end_ -= bitregion_end_ % units + 1;
+      m_bitregion_end = bitpos + bitsize + units - 1;
+      m_bitregion_end -= m_bitregion_end % units + 1;
     }
 }
 
@@ -2666,12 +2654,12 @@ bit_field_mode_iterator
 bool
 bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 {
-  for (; mode_ != VOIDmode; mode_ = GET_MODE_WIDER_MODE (mode_))
+  for (; m_mode != VOIDmode; m_mode = GET_MODE_WIDER_MODE (m_mode))
     {
-      unsigned int unit = GET_MODE_BITSIZE (mode_);
+      unsigned int unit = GET_MODE_BITSIZE (m_mode);
 
       /* Skip modes that don't have full precision.  */
-      if (unit != GET_MODE_PRECISION (mode_))
+      if (unit != GET_MODE_PRECISION (m_mode))
 	continue;
 
       /* Stop if the mode is too wide to handle efficiently.  */
@@ -2680,31 +2668,31 @@ bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 
       /* Don't deliver more than one multiword mode; the smallest one
 	 should be used.  */
-      if (count_ > 0 && unit > BITS_PER_WORD)
+      if (m_count > 0 && unit > BITS_PER_WORD)
 	break;
 
       /* Skip modes that are too small.  */
-      unsigned HOST_WIDE_INT substart = (unsigned HOST_WIDE_INT) bitpos_ % unit;
-      unsigned HOST_WIDE_INT subend = substart + bitsize_;
+      unsigned HOST_WIDE_INT substart = (unsigned HOST_WIDE_INT) m_bitpos % unit;
+      unsigned HOST_WIDE_INT subend = substart + m_bitsize;
       if (subend > unit)
 	continue;
 
       /* Stop if the mode goes outside the bitregion.  */
-      HOST_WIDE_INT start = bitpos_ - substart;
-      if (bitregion_start_ && start < bitregion_start_)
+      HOST_WIDE_INT start = m_bitpos - substart;
+      if (m_bitregion_start && start < m_bitregion_start)
 	break;
       HOST_WIDE_INT end = start + unit;
-      if (end > bitregion_end_ + 1)
+      if (end > m_bitregion_end + 1)
 	break;
 
       /* Stop if the mode requires too much alignment.  */
-      if (GET_MODE_ALIGNMENT (mode_) > align_
-	  && SLOW_UNALIGNED_ACCESS (mode_, align_))
+      if (GET_MODE_ALIGNMENT (m_mode) > m_align
+	  && SLOW_UNALIGNED_ACCESS (m_mode, m_align))
 	break;
 
-      *out_mode = mode_;
-      mode_ = GET_MODE_WIDER_MODE (mode_);
-      count_++;
+      *out_mode = m_mode;
+      m_mode = GET_MODE_WIDER_MODE (m_mode);
+      m_count++;
       return true;
     }
   return false;
@@ -2716,7 +2704,7 @@ bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 bool
 bit_field_mode_iterator::prefer_smaller_modes ()
 {
-  return (volatilep_
+  return (m_volatilep
 	  ? targetm.narrow_volatile_bitfield ()
 	  : !SLOW_BYTE_ACCESS);
 }

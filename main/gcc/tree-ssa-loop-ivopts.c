@@ -69,13 +69,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "ggc.h"
 #include "insn-config.h"
 #include "pointer-set.h"
-#include "hashtab.h"
+#include "hash-table.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
@@ -236,6 +236,33 @@ typedef struct iv_use *iv_use_p;
 
 typedef struct iv_cand *iv_cand_p;
 
+/* Hashtable helpers.  */
+
+struct iv_inv_expr_hasher : typed_free_remove <iv_inv_expr_ent>
+{
+  typedef iv_inv_expr_ent value_type;
+  typedef iv_inv_expr_ent compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+/* Hash function for loop invariant expressions.  */
+
+inline hashval_t
+iv_inv_expr_hasher::hash (const value_type *expr)
+{
+  return expr->hash;
+}
+
+/* Hash table equality function for expressions.  */
+
+inline bool
+iv_inv_expr_hasher::equal (const value_type *expr1, const compare_type *expr2)
+{
+  return expr1->hash == expr2->hash
+	 && operand_equal_p (expr1->expr, expr2->expr, 0);
+}
+
 struct ivopts_data
 {
   /* The currently optimized loop.  */
@@ -255,7 +282,7 @@ struct ivopts_data
 
   /* The hashtable of loop invariant expressions created
      by ivopt.  */
-  htab_t inv_expr_tab;
+  hash_table <iv_inv_expr_hasher> inv_expr_tab;
 
   /* Loop invariant expression id.  */
   int inv_expr_id;
@@ -814,30 +841,6 @@ niter_for_single_dom_exit (struct ivopts_data *data)
   return niter_for_exit (data, exit);
 }
 
-/* Hash table equality function for expressions.  */
-
-static int
-htab_inv_expr_eq (const void *ent1, const void *ent2)
-{
-  const struct iv_inv_expr_ent *expr1 =
-      (const struct iv_inv_expr_ent *)ent1;
-  const struct iv_inv_expr_ent *expr2 =
-      (const struct iv_inv_expr_ent *)ent2;
-
-  return expr1->hash == expr2->hash
-	 && operand_equal_p (expr1->expr, expr2->expr, 0);
-}
-
-/* Hash function for loop invariant expressions.  */
-
-static hashval_t
-htab_inv_expr_hash (const void *ent)
-{
-  const struct iv_inv_expr_ent *expr =
-      (const struct iv_inv_expr_ent *)ent;
-  return expr->hash;
-}
-
 /* Initializes data structures used by the iv optimization pass, stored
    in DATA.  */
 
@@ -852,8 +855,7 @@ tree_ssa_iv_optimize_init (struct ivopts_data *data)
   data->niters = NULL;
   data->iv_uses.create (20);
   data->iv_candidates.create (20);
-  data->inv_expr_tab = htab_create (10, htab_inv_expr_hash,
-                                    htab_inv_expr_eq, free);
+  data->inv_expr_tab.create (10);
   data->inv_expr_id = 0;
   decl_rtl_to_reset.create (20);
 }
@@ -1365,6 +1367,54 @@ find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
   civ = XNEW (struct iv);
   *civ = *var_iv;
   record_use (data, NULL, civ, stmt, USE_COMPARE);
+}
+
+/* Returns the outermost loop EXPR is obviously invariant in
+   relative to the loop LOOP, i.e. if all its operands are defined
+   outside of the returned loop.  Returns NULL if EXPR is not
+   even obviously invariant in LOOP.  */
+
+struct loop *
+outermost_invariant_loop_for_expr (struct loop *loop, tree expr)
+{
+  basic_block def_bb;
+  unsigned i, len;
+
+  if (is_gimple_min_invariant (expr))
+    return current_loops->tree_root;
+
+  if (TREE_CODE (expr) == SSA_NAME)
+    {
+      def_bb = gimple_bb (SSA_NAME_DEF_STMT (expr));
+      if (def_bb)
+	{
+	  if (flow_bb_inside_loop_p (loop, def_bb))
+	    return NULL;
+	  return superloop_at_depth (loop,
+				     loop_depth (def_bb->loop_father) + 1);
+	}
+
+      return current_loops->tree_root;
+    }
+
+  if (!EXPR_P (expr))
+    return NULL;
+
+  unsigned maxdepth = 0;
+  len = TREE_OPERAND_LENGTH (expr);
+  for (i = 0; i < len; i++)
+    {
+      struct loop *ivloop;
+      if (!TREE_OPERAND (expr, i))
+	continue;
+
+      ivloop = outermost_invariant_loop_for_expr (loop, TREE_OPERAND (expr, i));
+      if (!ivloop)
+	return NULL;
+      maxdepth = MAX (maxdepth, loop_depth (ivloop));
+    }
+
+  return superloop_at_depth (loop, maxdepth);
 }
 
 /* Returns true if expression EXPR is obviously invariant in LOOP,
@@ -3802,8 +3852,7 @@ get_expr_id (struct ivopts_data *data, tree expr)
 
   ent.expr = expr;
   ent.hash = iterative_hash_expr (expr, 0);
-  slot = (struct iv_inv_expr_ent **) htab_find_slot (data->inv_expr_tab,
-                                                     &ent, INSERT);
+  slot = data->inv_expr_tab.find_slot (&ent, INSERT);
   if (*slot)
     return (*slot)->id;
 
@@ -3871,7 +3920,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
 
   if (ratio == 1)
     {
-      if(operand_equal_p (ubase, cbase, 0))
+      if (operand_equal_p (ubase, cbase, 0))
         return -1;
 
       if (TREE_CODE (ubase) == ADDR_EXPR
@@ -4827,22 +4876,36 @@ set_autoinc_for_original_candidates (struct ivopts_data *data)
   for (i = 0; i < n_iv_cands (data); i++)
     {
       struct iv_cand *cand = iv_cand (data, i);
-      struct iv_use *closest = NULL;
+      struct iv_use *closest_before = NULL;
+      struct iv_use *closest_after = NULL;
       if (cand->pos != IP_ORIGINAL)
 	continue;
+
       for (j = 0; j < n_iv_uses (data); j++)
 	{
 	  struct iv_use *use = iv_use (data, j);
 	  unsigned uid = gimple_uid (use->stmt);
-	  if (gimple_bb (use->stmt) != gimple_bb (cand->incremented_at)
-	      || uid > gimple_uid (cand->incremented_at))
+
+	  if (gimple_bb (use->stmt) != gimple_bb (cand->incremented_at))
 	    continue;
-	  if (closest == NULL || uid > gimple_uid (closest->stmt))
-	    closest = use;
+
+	  if (uid < gimple_uid (cand->incremented_at)
+	      && (closest_before == NULL
+		  || uid > gimple_uid (closest_before->stmt)))
+	    closest_before = use;
+
+	  if (uid > gimple_uid (cand->incremented_at)
+	      && (closest_after == NULL
+		  || uid < gimple_uid (closest_after->stmt)))
+	    closest_after = use;
 	}
-      if (closest == NULL || !autoinc_possible_for_pair (data, closest, cand))
-	continue;
-      cand->ainc_use = closest;
+
+      if (closest_before != NULL
+	  && autoinc_possible_for_pair (data, closest_before, cand))
+	cand->ainc_use = closest_before;
+      else if (closest_after != NULL
+	       && autoinc_possible_for_pair (data, closest_after, cand))
+	cand->ainc_use = closest_after;
     }
 }
 
@@ -6605,7 +6668,7 @@ free_loop_data (struct ivopts_data *data)
 
   decl_rtl_to_reset.truncate (0);
 
-  htab_empty (data->inv_expr_tab);
+  data->inv_expr_tab.empty ();
   data->inv_expr_id = 0;
 }
 
@@ -6623,7 +6686,7 @@ tree_ssa_iv_optimize_finalize (struct ivopts_data *data)
   decl_rtl_to_reset.release ();
   data->iv_uses.release ();
   data->iv_candidates.release ();
-  htab_delete (data->inv_expr_tab);
+  data->inv_expr_tab.dispose ();
 }
 
 /* Returns true if the loop body BODY includes any function calls.  */

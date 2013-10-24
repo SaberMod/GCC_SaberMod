@@ -40,7 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "tree-chrec.h"
@@ -174,7 +174,7 @@ constant_after_peeling (tree op, gimple stmt, struct loop *loop)
       while (handled_component_p (base))
 	base = TREE_OPERAND (base, 0);
       if ((DECL_P (base)
-	   && const_value_known_p (base))
+	   && ctor_for_folding (base) != error_mark_node)
 	  || CONSTANT_CLASS_P (base))
 	{
 	  /* If so, see if we understand all the indices.  */
@@ -257,8 +257,10 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 
 	  /* Look for reasons why we might optimize this stmt away. */
 
+	  if (gimple_has_side_effects (stmt))
+	    ;
 	  /* Exit conditional.  */
-	  if (exit && body[i] == exit->src
+	  else if (exit && body[i] == exit->src
 		   && stmt == last_stmt (exit->src))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -374,7 +376,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
    is dead and that some instructions will be eliminated after
    peeling.
 
-   Loop body is likely going to simplify futher, this is difficult
+   Loop body is likely going to simplify further, this is difficult
    to guess, we just decrease the result by 1/3.  */
 
 static unsigned HOST_WIDE_INT
@@ -780,7 +782,7 @@ try_unroll_loop_completely (struct loop *loop,
 	 storing or cumulating the return value.  */
       else if (size.num_pure_calls_on_hot_path
 	       /* One IV increment, one test, one ivtmp store
-		  and one usefull stmt.  That is about minimal loop
+		  and one useful stmt.  That is about minimal loop
 		  doing pure call.  */
 	       && (size.non_call_stmts_on_hot_path
 		   <= 3 + size.num_pure_calls_on_hot_path))
@@ -868,11 +870,12 @@ try_unroll_loop_completely (struct loop *loop,
     {
       if (!n_unroll)
         dump_printf_loc (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS, locus,
-                         "Turned loop into non-loop; it never loops.\n");
+                         "loop turned into non-loop; it never loops\n");
       else
         {
           dump_printf_loc (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS, locus,
-                           "Completely unroll loop %d times", (int)n_unroll);
+                           "loop with %d iterations completely unrolled",
+			   (int) (n_unroll + 1));
           if (profile_info)
             dump_printf (MSG_OPTIMIZED_LOCATIONS | TDF_DETAILS,
                          " (header execution count %d)",
@@ -1085,8 +1088,9 @@ propagate_constants_for_unrolling (basic_block bb)
       tree lhs;
 
       if (is_gimple_assign (stmt)
+	  && gimple_assign_rhs_code (stmt) == INTEGER_CST
 	  && (lhs = gimple_assign_lhs (stmt), TREE_CODE (lhs) == SSA_NAME)
-	  && gimple_assign_rhs_code (stmt) == INTEGER_CST)
+	  && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
 	{
 	  propagate_into_all_uses (lhs, gimple_assign_rhs1 (stmt));
 	  gsi_remove (&gsi, true);
@@ -1097,6 +1101,68 @@ propagate_constants_for_unrolling (basic_block bb)
     }
 }
 
+/* Process loops from innermost to outer, stopping at the innermost
+   loop we unrolled.  */
+
+static bool
+tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
+				vec<loop_p, va_stack>& father_stack,
+				struct loop *loop)
+{
+  struct loop *loop_father;
+  bool changed = false;
+  struct loop *inner;
+  enum unroll_level ul;
+
+  /* Process inner loops first.  */
+  for (inner = loop->inner; inner != NULL; inner = inner->next)
+    changed |= tree_unroll_loops_completely_1 (may_increase_size,
+					       unroll_outer, father_stack,
+					       inner);
+ 
+  /* If we changed an inner loop we cannot process outer loops in this
+     iteration because SSA form is not up-to-date.  Continue with
+     siblings of outer loops instead.  */
+  if (changed)
+    return true;
+
+  /* Don't unroll #pragma omp simd loops until the vectorizer
+     attempts to vectorize those.  */
+  if (loop->force_vect)
+    return false;
+
+  /* Try to unroll this loop.  */
+  loop_father = loop_outer (loop);
+  if (!loop_father)
+    return false;
+
+  if (may_increase_size && optimize_loop_nest_for_speed_p (loop)
+      /* Unroll outermost loops only if asked to do so or they do
+	 not cause code growth.  */
+      && (unroll_outer || loop_outer (loop_father)))
+    ul = UL_ALL;
+  else
+    ul = UL_NO_GROWTH;
+
+  if (canonicalize_loop_induction_variables
+        (loop, false, ul, !flag_tree_loop_ivcanon))
+    {
+      /* If we'll continue unrolling, we need to propagate constants
+	 within the new basic blocks to fold away induction variable
+	 computations; otherwise, the size might blow up before the
+	 iteration is complete and the IR eventually cleaned up.  */
+      if (loop_outer (loop_father) && !loop_father->aux)
+	{
+	  father_stack.safe_push (loop_father);
+	  loop_father->aux = loop_father;
+	}
+
+      return true;
+    }
+
+  return false;
+}
+
 /* Unroll LOOPS completely if they iterate just few times.  Unless
    MAY_INCREASE_SIZE is true, perform the unrolling only if the
    size of the code does not increase.  */
@@ -1105,10 +1171,7 @@ unsigned int
 tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 {
   vec<loop_p, va_stack> father_stack;
-  loop_iterator li;
-  struct loop *loop;
   bool changed;
-  enum unroll_level ul;
   int iteration = 0;
   bool irred_invalidated = false;
 
@@ -1124,34 +1187,9 @@ tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
       free_numbers_of_iterations_estimates ();
       estimate_numbers_of_iterations ();
 
-      FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
-	{
-	  struct loop *loop_father = loop_outer (loop);
-
-	  if (may_increase_size && optimize_loop_nest_for_speed_p (loop)
-	      /* Unroll outermost loops only if asked to do so or they do
-		 not cause code growth.  */
-	      && (unroll_outer || loop_outer (loop_father)))
-	    ul = UL_ALL;
-	  else
-	    ul = UL_NO_GROWTH;
-
-	  if (canonicalize_loop_induction_variables
-		 (loop, false, ul, !flag_tree_loop_ivcanon))
-	    {
-	      changed = true;
-	      /* If we'll continue unrolling, we need to propagate constants
-		 within the new basic blocks to fold away induction variable
-		 computations; otherwise, the size might blow up before the
-		 iteration is complete and the IR eventually cleaned up.  */
-	      if (loop_outer (loop_father) && !loop_father->aux)
-	        {
-		  father_stack.safe_push (loop_father);
-		  loop_father->aux = loop_father;
-		}
-	    }
-	}
-
+      changed = tree_unroll_loops_completely_1 (may_increase_size,
+						unroll_outer, father_stack,
+						current_loops->tree_root);
       if (changed)
 	{
 	  struct loop **iter;

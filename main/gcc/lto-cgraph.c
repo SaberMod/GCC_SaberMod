@@ -32,7 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "langhooks.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cgraph.h"
 #include "function.h"
 #include "ggc.h"
@@ -47,6 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcov-io.h"
 #include "tree-pass.h"
 #include "profile.h"
+#include "context.h"
+#include "pass_manager.h"
+#include "ipa-utils.h"
 
 static void output_cgraph_opt_summary (void);
 static void input_cgraph_opt_summary (vec<symtab_node>  nodes);
@@ -267,16 +270,17 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
       streamer_write_hwi_stream (ob->main_stream, ref);
     }
 
-  streamer_write_hwi_stream (ob->main_stream, edge->count);
+  streamer_write_gcov_count_stream (ob->main_stream, edge->count);
 
   bp = bitpack_create (ob->main_stream);
   uid = (!gimple_has_body_p (edge->caller->symbol.decl)
-	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt));
+	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt) + 1);
   bp_pack_enum (&bp, cgraph_inline_failed_enum,
 	        CIF_N_REASONS, edge->inline_failed);
   bp_pack_var_len_unsigned (&bp, uid);
   bp_pack_var_len_unsigned (&bp, edge->frequency);
   bp_pack_value (&bp, edge->indirect_inlining_edge, 1);
+  bp_pack_value (&bp, edge->speculative, 1);
   bp_pack_value (&bp, edge->call_stmt_cannot_inline_p, 1);
   bp_pack_value (&bp, edge->can_throw_external, 1);
   if (edge->indirect_unknown_callee)
@@ -296,6 +300,14 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
 			     | ECF_NOVOPS)));
     }
   streamer_write_bitpack (&bp);
+  if (edge->indirect_unknown_callee)
+    {
+      streamer_write_hwi_stream (ob->main_stream,
+			         edge->indirect_info->common_target_id);
+      if (edge->indirect_info->common_target_id)
+	streamer_write_hwi_stream
+	   (ob->main_stream, edge->indirect_info->common_target_probability);
+    }
 }
 
 /* Return if LIST contain references from other partitions.  */
@@ -320,7 +332,7 @@ bool
 reachable_from_other_partition_p (struct cgraph_node *node, lto_symtab_encoder_t encoder)
 {
   struct cgraph_edge *e;
-  if (!node->analyzed)
+  if (!node->symbol.definition)
     return false;
   if (node->global.inlined_to)
     return false;
@@ -374,13 +386,14 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bool boundary_p;
   intptr_t ref;
   bool in_other_partition = false;
-  struct cgraph_node *clone_of;
+  struct cgraph_node *clone_of, *ultimate_clone_of;
   struct ipa_opt_pass_d *pass;
   int i;
+  bool alias_p;
 
   boundary_p = !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node);
 
-  if (node->analyzed && !boundary_p)
+  if (node->symbol.analyzed && !boundary_p)
     tag = LTO_symtab_analyzed_node;
   else
     tag = LTO_symtab_unavail_node;
@@ -399,7 +412,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      Cherry-picked nodes:  These are nodes we pulled from other
      translation units into SET during IPA-inlining.  We make them as
      local static nodes to prevent clashes with other local statics.  */
-  if (boundary_p && node->analyzed && !DECL_EXTERNAL (node->symbol.decl))
+  if (boundary_p && node->symbol.analyzed && !DECL_EXTERNAL (node->symbol.decl))
     {
       /* Inline clones can not be part of boundary.  
          gcc_assert (!node->global.inlined_to);  
@@ -420,7 +433,16 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
     else
       clone_of = clone_of->clone_of;
 
-  if (LTO_symtab_analyzed_node)
+  /* See if body of the master function is output.  If not, we are seeing only
+     an declaration and we do not need to pass down clone tree. */
+  ultimate_clone_of = clone_of;
+  while (ultimate_clone_of && ultimate_clone_of->clone_of)
+    ultimate_clone_of = ultimate_clone_of->clone_of;
+
+  if (clone_of && !lto_symtab_encoder_encode_body_p (encoder, ultimate_clone_of))
+    clone_of = NULL;
+
+  if (tag == LTO_symtab_analyzed_node)
     gcc_assert (clone_of || !node->clone_of);
   if (!clone_of)
     streamer_write_hwi_stream (ob->main_stream, LCC_NOT_FOUND);
@@ -429,13 +451,13 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
 
 
   lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->symbol.decl);
-  streamer_write_hwi_stream (ob->main_stream, node->count);
+  streamer_write_gcov_count_stream (ob->main_stream, node->count);
   streamer_write_hwi_stream (ob->main_stream, node->count_materialization_scale);
 
   streamer_write_hwi_stream (ob->main_stream,
 			     node->ipa_transforms_to_apply.length ());
   FOR_EACH_VEC_ELT (node->ipa_transforms_to_apply, i, pass)
-    streamer_write_hwi_stream (ob->main_stream, pass->pass.static_pass_number);
+    streamer_write_hwi_stream (ob->main_stream, pass->static_pass_number);
 
   if (tag == LTO_symtab_analyzed_node)
     {
@@ -463,13 +485,14 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->local.local, 1);
   bp_pack_value (&bp, node->symbol.externally_visible, 1);
-  bp_pack_value (&bp, node->local.finalized, 1);
+  bp_pack_value (&bp, node->symbol.definition, 1);
   bp_pack_value (&bp, node->local.versionable, 1);
   bp_pack_value (&bp, node->local.can_change_signature, 1);
   bp_pack_value (&bp, node->local.redefined_extern_inline, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
+  bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
+  bp_pack_value (&bp, node->symbol.unique_name, 1);
   bp_pack_value (&bp, node->symbol.address_taken, 1);
-  bp_pack_value (&bp, node->abstract_and_needed, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
 		 && !DECL_EXTERNAL (node->symbol.decl)
 		 && !DECL_COMDAT (node->symbol.decl)
@@ -484,7 +507,9 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      defined in other unit, we may use the info on aliases to resolve 
      symbol1 != symbol2 type tests that we can do only for locally defined objects
      otherwise.  */
-  bp_pack_value (&bp, node->alias && (!boundary_p || DECL_EXTERNAL (node->symbol.decl)), 1);
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
+  bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
   bp_pack_value (&bp, node->frequency, 2);
   bp_pack_value (&bp, node->only_called_at_startup, 1);
   bp_pack_value (&bp, node->only_called_at_exit, 1);
@@ -503,15 +528,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.fixed_offset);
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.virtual_value);
     }
-  if ((node->alias || node->thunk.thunk_p)
-      && (!boundary_p || (node->alias && DECL_EXTERNAL (node->symbol.decl))))
-    {
-      streamer_write_hwi_in_range (ob->main_stream, 0, 1,
-					node->thunk.alias != NULL);
-      if (node->thunk.alias != NULL)
-        lto_output_fn_decl_index (ob->decl_state, ob->main_stream,
-			          node->thunk.alias);
-    }
+  streamer_write_hwi_stream (ob->main_stream, node->profile_id);
 }
 
 /* Output the varpool NODE to OB. 
@@ -521,10 +538,10 @@ static void
 lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node *node,
 			 lto_symtab_encoder_t encoder)
 {
-  bool boundary_p = (node->analyzed
-		     && !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node));
+  bool boundary_p = !lto_symtab_encoder_in_partition_p (encoder, (symtab_node)node);
   struct bitpack_d bp;
   int ref;
+  bool alias_p;
 
   streamer_write_enum (ob->main_stream, LTO_symtab_tags, LTO_symtab_last_tag,
 		       LTO_symtab_variable);
@@ -533,10 +550,14 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, node->symbol.externally_visible, 1);
   bp_pack_value (&bp, node->symbol.force_output, 1);
-  bp_pack_value (&bp, node->finalized, 1);
-  bp_pack_value (&bp, node->alias, 1);
-  bp_pack_value (&bp, node->alias_of != NULL, 1);
-  gcc_assert (node->finalized || !node->analyzed);
+  bp_pack_value (&bp, node->symbol.forced_by_abi, 1);
+  bp_pack_value (&bp, node->symbol.unique_name, 1);
+  bp_pack_value (&bp, node->symbol.definition, 1);
+  alias_p = node->symbol.alias && (!boundary_p || node->symbol.weakref);
+  bp_pack_value (&bp, alias_p, 1);
+  bp_pack_value (&bp, node->symbol.weakref, 1);
+  bp_pack_value (&bp, node->symbol.analyzed && !boundary_p, 1);
+  gcc_assert (node->symbol.definition || !node->symbol.analyzed);
   /* Constant pool initializers can be de-unified into individual ltrans units.
      FIXME: Alternatively at -Os we may want to avoid generating for them the local
      labels and share them across LTRANS partitions.  */
@@ -549,15 +570,14 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
     }
   else
     {
-      bp_pack_value (&bp, node->analyzed
+      bp_pack_value (&bp, node->symbol.definition
 		     && referenced_from_other_partition_p (&node->symbol.ref_list,
 							   encoder), 1);
-      bp_pack_value (&bp, boundary_p && !DECL_EXTERNAL (node->symbol.decl), 1);
+      bp_pack_value (&bp, node->symbol.analyzed
+		     && boundary_p && !DECL_EXTERNAL (node->symbol.decl), 1);
 	  /* in_other_partition.  */
     }
   streamer_write_bitpack (&bp);
-  if (node->alias_of)
-    lto_output_var_decl_index (ob->decl_state, ob->main_stream, node->alias_of);
   if (node->symbol.same_comdat_group && !boundary_p)
     {
       ref = lto_symtab_encoder_lookup (encoder,
@@ -580,13 +600,24 @@ lto_output_ref (struct lto_simple_output_block *ob, struct ipa_ref *ref,
 {
   struct bitpack_d bp;
   int nref;
+  int uid = ref->lto_stmt_uid;
+  struct cgraph_node *node;
 
   bp = bitpack_create (ob->main_stream);
   bp_pack_value (&bp, ref->use, 2);
+  bp_pack_value (&bp, ref->speculative, 1);
   streamer_write_bitpack (&bp);
   nref = lto_symtab_encoder_lookup (encoder, ref->referred);
   gcc_assert (nref != LCC_NOT_FOUND);
   streamer_write_hwi_stream (ob->main_stream, nref);
+  
+  node = dyn_cast <cgraph_node> (ref->referring);
+  if (node)
+    {
+      if (ref->stmt)
+	uid = gimple_uid (ref->stmt) + 1;
+      streamer_write_hwi_stream (ob->main_stream, uid);
+    }
 }
 
 /* Stream out profile_summary to OB.  */
@@ -604,11 +635,11 @@ output_profile_summary (struct lto_simple_output_block *ob)
          units.  */
       gcc_assert (profile_info->runs);
       streamer_write_uhwi_stream (ob->main_stream, profile_info->runs);
-      streamer_write_uhwi_stream (ob->main_stream, profile_info->sum_max);
+      streamer_write_gcov_count_stream (ob->main_stream, profile_info->sum_max);
 
       /* sum_all is needed for computing the working set with the
          histogram.  */
-      streamer_write_uhwi_stream (ob->main_stream, profile_info->sum_all);
+      streamer_write_gcov_count_stream (ob->main_stream, profile_info->sum_all);
 
       /* Create and output a bitpack of non-zero histogram entries indices.  */
       bp = bitpack_create (ob->main_stream);
@@ -620,13 +651,18 @@ output_profile_summary (struct lto_simple_output_block *ob)
         {
           if (!profile_info->histogram[h_ix].num_counters)
             continue;
-          streamer_write_uhwi_stream (ob->main_stream,
+          streamer_write_gcov_count_stream (ob->main_stream,
                                       profile_info->histogram[h_ix].num_counters);
-          streamer_write_uhwi_stream (ob->main_stream,
+          streamer_write_gcov_count_stream (ob->main_stream,
                                       profile_info->histogram[h_ix].min_value);
-          streamer_write_uhwi_stream (ob->main_stream,
+          streamer_write_gcov_count_stream (ob->main_stream,
                                       profile_info->histogram[h_ix].cum_value);
-        }
+         }
+      /* IPA-profile computes hot bb threshold based on cumulated
+	 whole program profile.  We need to stream it down to ltrans.  */
+       if (flag_wpa)
+         streamer_write_gcov_count_stream (ob->main_stream,
+					   get_hot_bb_threshold ());
     }
   else
     streamer_write_uhwi_stream (ob->main_stream, 0);
@@ -672,7 +708,7 @@ output_refs (lto_symtab_encoder_t encoder)
       count = ipa_ref_list_nreferences (&node->symbol.ref_list);
       if (count)
 	{
-	  streamer_write_uhwi_stream (ob->main_stream, count);
+	  streamer_write_gcov_count_stream (ob->main_stream, count);
 	  streamer_write_uhwi_stream (ob->main_stream,
 				     lto_symtab_encoder_lookup (encoder, node));
 	  for (i = 0; ipa_ref_list_reference_iterate (&node->symbol.ref_list,
@@ -731,6 +767,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
   int i;
   lto_symtab_encoder_t encoder;
   lto_symtab_encoder_iterator lsei;
+  struct pointer_set_t *reachable_call_targets = pointer_set_create ();
 
   encoder = lto_symtab_encoder_new (false);
 
@@ -744,15 +781,29 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
       add_references (encoder, &node->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (node->symbol.decl))
+	{
+	  struct cgraph_node *origin_node
+	  = cgraph_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  add_node_to (encoder, origin_node, true);
+	}
     }
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
     {
       struct varpool_node *vnode = lsei_varpool_node (lsei);
-      gcc_assert (!vnode->alias || vnode->alias_of);
+
       lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       add_references (encoder, &vnode->symbol.ref_list);
+      /* For proper debug info, we need to ship the origins, too.  */
+      if (DECL_ABSTRACT_ORIGIN (vnode->symbol.decl))
+	{
+	  struct varpool_node *origin_node
+	  = varpool_get_node (DECL_ABSTRACT_ORIGIN (node->symbol.decl));
+	  lto_set_symtab_encoder_in_partition (encoder, (symtab_node)origin_node);
+	}
     }
   /* Pickle in also the initializer of all referenced readonly variables
      to help folding.  Constant pool variables are not shared, so we must
@@ -762,10 +813,9 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       symtab_node node = lto_symtab_encoder_deref (encoder, i);
       if (varpool_node *vnode = dyn_cast <varpool_node> (node))
 	{
-	  if (DECL_INITIAL (vnode->symbol.decl)
-	      && !lto_symtab_encoder_encode_initializer_p (encoder,
-							   vnode)
-	      && const_value_known_p (vnode->symbol.decl))
+	  if (!lto_symtab_encoder_encode_initializer_p (encoder,
+							vnode)
+	      && ctor_for_folding (vnode->symbol.decl) != error_mark_node)
 	    {
 	      lto_set_symtab_encoder_encode_initializer (encoder, vnode);
 	      add_references (encoder, &vnode->symbol.ref_list);
@@ -789,9 +839,40 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
 	      add_node_to (encoder, callee, false);
 	    }
 	}
+      /* Add all possible targets for late devirtualization.  */
+      if (flag_devirtualize)
+	for (edge = node->indirect_calls; edge; edge = edge->next_callee)
+	  if (edge->indirect_info->polymorphic)
+	    {
+	      unsigned int i;
+	      void *cache_token;
+	      bool final;
+	      vec <cgraph_node *>targets
+		= possible_polymorphic_call_targets
+		    (edge, &final, &cache_token);
+	      if (!pointer_set_insert (reachable_call_targets,
+				       cache_token))
+		{
+		  for (i = 0; i < targets.length (); i++)
+		    {
+		      struct cgraph_node *callee = targets[i];
+
+		      /* Adding an external declarations into the unit serves
+			 no purpose and just increases its boundary.  */
+		      if (callee->symbol.definition
+			  && !lto_symtab_encoder_in_partition_p
+			       (encoder, (symtab_node)callee))
+			{
+			  gcc_assert (!callee->global.inlined_to);
+			  add_node_to (encoder, callee, false);
+			}
+		    }
+		}
+	    }
     }
- lto_symtab_encoder_delete (in_encoder);
- return encoder;
+  lto_symtab_encoder_delete (in_encoder);
+  pointer_set_destroy (reachable_call_targets);
+  return encoder;
 }
 
 /* Output the part of the symtab in SET and VSET.  */
@@ -876,16 +957,17 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 
   node->local.local = bp_unpack_value (bp, 1);
   node->symbol.externally_visible = bp_unpack_value (bp, 1);
-  node->local.finalized = bp_unpack_value (bp, 1);
+  node->symbol.definition = bp_unpack_value (bp, 1);
   node->local.versionable = bp_unpack_value (bp, 1);
   node->local.can_change_signature = bp_unpack_value (bp, 1);
   node->local.redefined_extern_inline = bp_unpack_value (bp, 1);
   node->symbol.force_output = bp_unpack_value (bp, 1);
+  node->symbol.forced_by_abi = bp_unpack_value (bp, 1);
+  node->symbol.unique_name = bp_unpack_value (bp, 1);
   node->symbol.address_taken = bp_unpack_value (bp, 1);
-  node->abstract_and_needed = bp_unpack_value (bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (bp, 1);
   node->lowered = bp_unpack_value (bp, 1);
-  node->analyzed = tag == LTO_symtab_analyzed_node;
+  node->symbol.analyzed = tag == LTO_symtab_analyzed_node;
   node->symbol.in_other_partition = bp_unpack_value (bp, 1);
   if (node->symbol.in_other_partition
       /* Avoid updating decl when we are seeing just inline clone.
@@ -901,7 +983,8 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
       DECL_EXTERNAL (node->symbol.decl) = 1;
       TREE_STATIC (node->symbol.decl) = 0;
     }
-  node->alias = bp_unpack_value (bp, 1);
+  node->symbol.alias = bp_unpack_value (bp, 1);
+  node->symbol.weakref = bp_unpack_value (bp, 1);
   node->frequency = (enum node_frequency)bp_unpack_value (bp, 2);
   node->only_called_at_startup = bp_unpack_value (bp, 1);
   node->only_called_at_exit = bp_unpack_value (bp, 1);
@@ -909,6 +992,16 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->symbol.resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
+}
+
+/* Return string alias is alias of.  */
+
+static tree
+get_alias_symbol (tree decl)
+{
+  tree alias = lookup_attribute ("alias", DECL_ATTRIBUTES (decl));
+  return get_identifier (TREE_STRING_POINTER
+			  (TREE_VALUE (TREE_VALUE (alias))));
 }
 
 /* Read a node from input_block IB.  TAG is the node's tag just read.
@@ -920,6 +1013,7 @@ input_node (struct lto_file_decl_data *file_data,
 	    enum LTO_symtab_tags tag,
 	    vec<symtab_node> nodes)
 {
+  gcc::pass_manager *passes = g->get_passes ();
   tree fn_decl;
   struct cgraph_node *node;
   struct bitpack_d bp;
@@ -939,16 +1033,23 @@ input_node (struct lto_file_decl_data *file_data,
     {
       node = cgraph_clone_node (cgraph (nodes[clone_ref]), fn_decl,
 				0, CGRAPH_FREQ_BASE, false,
-				vNULL, false);
+				vNULL, false, NULL);
     }
   else
-    node = cgraph_get_create_node (fn_decl);
+    {
+      /* Declaration of functions can be already merged with a declaration
+	 from other input file.  We keep cgraph unmerged until after streaming
+	 of ipa passes is done.  Alays forcingly create a fresh node.  */
+      node = cgraph_create_empty_node ();
+      node->symbol.decl = fn_decl;
+      symtab_register_node ((symtab_node)node);
+    }
 
   node->symbol.order = order;
   if (order >= symtab_order)
     symtab_order = order + 1;
 
-  node->count = streamer_read_hwi (ib);
+  node->count = streamer_read_gcov_count (ib);
   node->count_materialization_scale = streamer_read_hwi (ib);
 
   count = streamer_read_hwi (ib);
@@ -958,8 +1059,8 @@ input_node (struct lto_file_decl_data *file_data,
       struct opt_pass *pass;
       int pid = streamer_read_hwi (ib);
 
-      gcc_assert (pid < passes_by_id_size);
-      pass = passes_by_id[pid];
+      gcc_assert (pid < passes->passes_by_id_size);
+      pass = passes->passes_by_id[pid];
       node->ipa_transforms_to_apply.safe_push ((struct ipa_opt_pass_d *) pass);
     }
 
@@ -974,7 +1075,7 @@ input_node (struct lto_file_decl_data *file_data,
      functions, they are expected to be read more than once.  */
   if (node->symbol.aux && !DECL_BUILT_IN (node->symbol.decl))
     internal_error ("bytecode stream: found multiple instances of cgraph "
-		    "node %d", node->uid);
+		    "node with uid %d", node->uid);
 
   bp = streamer_read_bitpack (ib);
   input_overwrite_node (file_data, node, tag, &bp);
@@ -996,15 +1097,9 @@ input_node (struct lto_file_decl_data *file_data,
       node->thunk.virtual_value = virtual_value;
       node->thunk.virtual_offset_p = (type & 4);
     }
-  if (node->thunk.thunk_p || node->alias)
-    {
-      if (streamer_read_hwi_in_range (ib, "alias nonzero flag", 0, 1))
-	{
-          decl_index = streamer_read_uhwi (ib);
-          node->thunk.alias = lto_file_decl_data_get_fn_decl (file_data,
-							      decl_index);
-	}
-    }
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
+    node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
+  node->profile_id = streamer_read_hwi (ib);
   return node;
 }
 
@@ -1020,13 +1115,19 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   struct varpool_node *node;
   struct bitpack_d bp;
   int ref = LCC_NOT_FOUND;
-  bool non_null_aliasof;
   int order;
 
   order = streamer_read_hwi (ib) + order_base;
   decl_index = streamer_read_uhwi (ib);
   var_decl = lto_file_decl_data_get_var_decl (file_data, decl_index);
-  node = varpool_node_for_decl (var_decl);
+
+  /* Declaration of functions can be already merged with a declaration
+     from other input file.  We keep cgraph unmerged until after streaming
+     of ipa passes is done.  Alays forcingly create a fresh node.  */
+  node = varpool_create_empty_node ();
+  node->symbol.decl = var_decl;
+  symtab_register_node ((symtab_node)node);
+
   node->symbol.order = order;
   if (order >= symtab_order)
     symtab_order = order + 1;
@@ -1035,22 +1136,21 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   bp = streamer_read_bitpack (ib);
   node->symbol.externally_visible = bp_unpack_value (&bp, 1);
   node->symbol.force_output = bp_unpack_value (&bp, 1);
-  node->finalized = bp_unpack_value (&bp, 1);
-  node->alias = bp_unpack_value (&bp, 1);
-  non_null_aliasof = bp_unpack_value (&bp, 1);
+  node->symbol.forced_by_abi = bp_unpack_value (&bp, 1);
+  node->symbol.unique_name = bp_unpack_value (&bp, 1);
+  node->symbol.definition = bp_unpack_value (&bp, 1);
+  node->symbol.alias = bp_unpack_value (&bp, 1);
+  node->symbol.weakref = bp_unpack_value (&bp, 1);
+  node->symbol.analyzed = bp_unpack_value (&bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (&bp, 1);
   node->symbol.in_other_partition = bp_unpack_value (&bp, 1);
-  node->analyzed = (node->finalized && (!node->alias || !node->symbol.in_other_partition)); 
   if (node->symbol.in_other_partition)
     {
       DECL_EXTERNAL (node->symbol.decl) = 1;
       TREE_STATIC (node->symbol.decl) = 0;
     }
-  if (non_null_aliasof)
-    {
-      decl_index = streamer_read_uhwi (ib);
-      node->alias_of = lto_file_decl_data_get_var_decl (file_data, decl_index);
-    }
+  if (node->symbol.alias && !node->symbol.analyzed && node->symbol.weakref)
+    node->symbol.alias_target = get_alias_symbol (node->symbol.decl);
   ref = streamer_read_hwi (ib);
   /* Store a reference for now, and fix up later to be a pointer.  */
   node->symbol.same_comdat_group = (symtab_node) (intptr_t) ref;
@@ -1071,11 +1171,17 @@ input_ref (struct lto_input_block *ib,
   symtab_node node = NULL;
   struct bitpack_d bp;
   enum ipa_ref_use use;
+  bool speculative;
+  struct ipa_ref *ref;
 
   bp = streamer_read_bitpack (ib);
   use = (enum ipa_ref_use) bp_unpack_value (&bp, 2);
+  speculative = (enum ipa_ref_use) bp_unpack_value (&bp, 1);
   node = nodes[streamer_read_hwi (ib)];
-  ipa_record_reference (referring_node, node, use, NULL);
+  ref = ipa_record_reference (referring_node, node, use, NULL);
+  ref->speculative = speculative;
+  if (is_a <cgraph_node> (referring_node))
+    ref->lto_stmt_uid = streamer_read_hwi (ib);
 }
 
 /* Read an edge from IB.  NODES points to a vector of previously read nodes for
@@ -1109,7 +1215,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node> nodes,
   else
     callee = NULL;
 
-  count = (gcov_type) streamer_read_hwi (ib);
+  count = streamer_read_gcov_count (ib);
 
   bp = streamer_read_bitpack (ib);
   inline_failed = bp_unpack_enum (&bp, cgraph_inline_failed_enum, CIF_N_REASONS);
@@ -1122,6 +1228,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node> nodes,
     edge = cgraph_create_edge (caller, callee, NULL, count, freq);
 
   edge->indirect_inlining_edge = bp_unpack_value (&bp, 1);
+  edge->speculative = bp_unpack_value (&bp, 1);
   edge->lto_stmt_uid = stmt_id;
   edge->inline_failed = inline_failed;
   edge->call_stmt_cannot_inline_p = bp_unpack_value (&bp, 1);
@@ -1141,6 +1248,9 @@ input_edge (struct lto_input_block *ib, vec<symtab_node> nodes,
       if (bp_unpack_value (&bp, 1))
 	ecf_flags |= ECF_RETURNS_TWICE;
       edge->indirect_info->ecf_flags = ecf_flags;
+      edge->indirect_info->common_target_id = streamer_read_hwi (ib);
+      if (edge->indirect_info->common_target_id)
+        edge->indirect_info->common_target_probability = streamer_read_hwi (ib);
     }
 }
 
@@ -1259,8 +1369,8 @@ input_profile_summary (struct lto_input_block *ib,
   if (runs)
     {
       file_data->profile_info.runs = runs;
-      file_data->profile_info.sum_max = streamer_read_uhwi (ib);
-      file_data->profile_info.sum_all = streamer_read_uhwi (ib);
+      file_data->profile_info.sum_max = streamer_read_gcov_count (ib);
+      file_data->profile_info.sum_all = streamer_read_gcov_count (ib);
 
       memset (file_data->profile_info.histogram, 0,
               sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
@@ -1279,12 +1389,16 @@ input_profile_summary (struct lto_input_block *ib,
             continue;
 
           file_data->profile_info.histogram[h_ix].num_counters
-              = streamer_read_uhwi (ib);
+              = streamer_read_gcov_count (ib);
           file_data->profile_info.histogram[h_ix].min_value
-              = streamer_read_uhwi (ib);
+              = streamer_read_gcov_count (ib);
           file_data->profile_info.histogram[h_ix].cum_value
-              = streamer_read_uhwi (ib);
+              = streamer_read_gcov_count (ib);
         }
+      /* IPA-profile computes hot bb threshold based on cumulated
+	 whole program profile.  We need to stream it down to ltrans.  */
+      if (flag_ltrans)
+	set_hot_bb_threshold (streamer_read_gcov_count (ib));
     }
 
 }
@@ -1334,14 +1448,14 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
   for (j = 0; (file_data = file_data_vec[j]) != NULL; j++)
     if (file_data->profile_info.runs)
       {
-	int scale = RDIV (REG_BR_PROB_BASE * max_runs,
-                          file_data->profile_info.runs);
-	lto_gcov_summary.sum_max = MAX (lto_gcov_summary.sum_max,
-					RDIV (file_data->profile_info.sum_max
-                                              * scale, REG_BR_PROB_BASE));
-	lto_gcov_summary.sum_all = MAX (lto_gcov_summary.sum_all,
-					RDIV (file_data->profile_info.sum_all
-                                              * scale, REG_BR_PROB_BASE));
+	int scale = GCOV_COMPUTE_SCALE (max_runs,
+                                        file_data->profile_info.runs);
+	lto_gcov_summary.sum_max
+            = MAX (lto_gcov_summary.sum_max,
+                   apply_scale (file_data->profile_info.sum_max, scale));
+	lto_gcov_summary.sum_all
+            = MAX (lto_gcov_summary.sum_all,
+                   apply_scale (file_data->profile_info.sum_all, scale));
         /* Save a pointer to the profile_info with the largest
            scaled sum_all and the scale for use in merging the
            histogram.  */
@@ -1362,8 +1476,9 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
     {
       /* Scale up the min value as we did the corresponding sum_all
          above. Use that to find the new histogram index.  */
-      int scaled_min = RDIV (saved_profile_info->histogram[h_ix].min_value
-                             * saved_scale, REG_BR_PROB_BASE);
+      gcov_type scaled_min
+          = apply_scale (saved_profile_info->histogram[h_ix].min_value,
+                         saved_scale);
       /* The new index may be shared with another scaled histogram entry,
          so we need to account for a non-zero histogram entry at new_ix.  */
       unsigned new_ix = gcov_histo_index (scaled_min);
@@ -1376,8 +1491,8 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
          here and place the scaled cumulative counter value in the bucket
          corresponding to the scaled minimum counter value.  */
       lto_gcov_summary.histogram[new_ix].cum_value
-          += RDIV (saved_profile_info->histogram[h_ix].cum_value
-                   * saved_scale, REG_BR_PROB_BASE);
+          += apply_scale (saved_profile_info->histogram[h_ix].cum_value,
+                          saved_scale);
       lto_gcov_summary.histogram[new_ix].num_counters
           += saved_profile_info->histogram[h_ix].num_counters;
     }
@@ -1409,8 +1524,8 @@ merge_profile_summaries (struct lto_file_decl_data **file_data_vec)
 	if (scale == REG_BR_PROB_BASE)
 	  continue;
 	for (edge = node->callees; edge; edge = edge->next_callee)
-	  edge->count = RDIV (edge->count * scale, REG_BR_PROB_BASE);
-	node->count = RDIV (node->count * scale, REG_BR_PROB_BASE);
+	  edge->count = apply_scale (edge->count, scale);
+	node->count = apply_scale (node->count, scale);
       }
 }
 
@@ -1424,8 +1539,6 @@ input_symtab (void)
   struct lto_file_decl_data *file_data;
   unsigned int j = 0;
   struct cgraph_node *node;
-
-  cgraph_state = CGRAPH_STATE_IPA_SSA;
 
   while ((file_data = file_data_vec[j++]))
     {
@@ -1447,7 +1560,8 @@ input_symtab (void)
       ib = lto_create_simple_input_block (file_data, LTO_section_refs,
 					  &data, &len);
       if (!ib)
-	fatal_error("cannot find LTO section refs in %s", file_data->file_name);
+	fatal_error ("cannot find LTO section refs in %s",
+		     file_data->file_name);
       input_refs (ib, nodes);
       lto_destroy_simple_input_block (file_data, LTO_section_refs,
 				      ib, data, len);
@@ -1457,7 +1571,7 @@ input_symtab (void)
     }
 
   merge_profile_summaries (file_data_vec);
-  compute_working_sets ();
+  get_working_sets ();
 
 
   /* Clear out the aux field that was used to store enough state to
@@ -1525,17 +1639,10 @@ output_node_opt_summary (struct output_block *ob,
   streamer_write_uhwi (ob, vec_safe_length (node->clone.tree_map));
   FOR_EACH_VEC_SAFE_ELT (node->clone.tree_map, i, map)
     {
-      int parm_num;
-      tree parm;
-
-      for (parm_num = 0, parm = DECL_ARGUMENTS (node->symbol.decl); parm;
-	   parm = DECL_CHAIN (parm), parm_num++)
-	if (map->old_tree == parm)
-	  break;
       /* At the moment we assume all old trees to be PARM_DECLs, because we have no
          mechanism to store function local declarations into summaries.  */
-      gcc_assert (parm);
-      streamer_write_uhwi (ob, parm_num);
+      gcc_assert (!map->old_tree);
+      streamer_write_uhwi (ob, map->parm_num);
       gcc_assert (EXPR_LOCATION (map->new_tree) == UNKNOWN_LOCATION);
       stream_write_tree (ob, map->new_tree, true);
       bp = bitpack_create (ob->main_stream);

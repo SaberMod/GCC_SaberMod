@@ -871,7 +871,8 @@ dnl    (FEATURE, DEFAULT, HELP-ARG, HELP-STRING)
 dnl    (FEATURE, DEFAULT, HELP-ARG, HELP-STRING, permit a|b|c)
 dnl    (FEATURE, DEFAULT, HELP-ARG, HELP-STRING, SHELL-CODE-HANDLER)
 dnl
-dnl See docs/html/17_intro/configury.html#enable for documentation.
+dnl See manual/appendix_porting.html#appendix.porting.build_hacking for
+dnl documentation.
 dnl
 m4_define([GLIBCXX_ENABLE],[dnl
 m4_define([_g_switch],[--enable-$1])dnl
@@ -1161,8 +1162,9 @@ dnl        nanosleep and sched_yield in libc and libposix4 and, if needed,
 dnl        links in the latter.
 dnl --enable-libstdcxx-time=rt
 dnl        also searches (and, if needed, links) librt.  Note that this is
-dnl        not always desirable because, in glibc, for example, in turn it
-dnl        triggers the linking of libpthread too, which activates locking,
+dnl        not always desirable because, in glibc 2.16 and earlier, for
+dnl        example, in turn it triggers the linking of libpthread too,
+dnl        which activates locking,
 dnl        a large overhead for single-thread programs.
 dnl --enable-libstdcxx-time=no
 dnl --disable-libstdcxx-time
@@ -1175,8 +1177,7 @@ dnl os_defines.h and also defines _GLIBCXX_USE_SCHED_YIELD.
 dnl
 AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
 
-  AC_MSG_CHECKING([for clock_gettime, nanosleep and sched_yield])
-  GLIBCXX_ENABLE(libstdcxx-time,$1,[[[=KIND]]],
+  GLIBCXX_ENABLE(libstdcxx-time,auto,[[[=KIND]]],
     [use KIND for check type],
     [permit yes|no|rt])
 
@@ -1188,9 +1189,59 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
 
   ac_has_clock_monotonic=no
   ac_has_clock_realtime=no
-  AC_MSG_RESULT($enable_libstdcxx_time)
+  ac_has_nanosleep=no
+  ac_has_sched_yield=no
 
-  if test x"$enable_libstdcxx_time" != x"no"; then
+  if test x"$enable_libstdcxx_time" = x"auto"; then
+
+    case "${target_os}" in
+      cygwin*)
+        ac_has_nanosleep=yes
+        ;;
+      darwin*)
+        ac_has_nanosleep=yes
+        ac_has_sched_yield=yes
+        ;;
+      gnu* | linux* | kfreebsd*-gnu | knetbsd*-gnu)
+        AC_MSG_CHECKING([for at least GNU libc 2.17])
+        AC_TRY_COMPILE(
+          [#include <features.h>],
+          [
+          #if ! __GLIBC_PREREQ(2, 17)
+          #error 
+          #endif
+          ],
+          [glibcxx_glibc217=yes], [glibcxx_glibc217=no])
+        AC_MSG_RESULT($glibcxx_glibc217)
+
+        if test x"$glibcxx_glibc217" = x"yes"; then
+          ac_has_clock_monotonic=yes
+          ac_has_clock_realtime=yes
+        fi
+        ac_has_nanosleep=yes
+        ac_has_sched_yield=yes
+        ;;
+      freebsd*|netbsd*)
+        ac_has_clock_monotonic=yes
+        ac_has_clock_realtime=yes
+        ac_has_nanosleep=yes
+        ac_has_sched_yield=yes
+        ;;
+      openbsd*)
+        ac_has_clock_monotonic=yes
+        ac_has_clock_realtime=yes
+        ac_has_nanosleep=yes
+        ;;
+      solaris*)
+        GLIBCXX_LIBS="$GLIBCXX_LIBS -lrt"
+        ac_has_clock_monotonic=yes
+        ac_has_clock_realtime=yes
+        ac_has_nanosleep=yes
+        ac_has_sched_yield=yes
+        ;;
+    esac
+
+  elif test x"$enable_libstdcxx_time" != x"no"; then
 
     if test x"$enable_libstdcxx_time" = x"rt"; then
       AC_SEARCH_LIBS(clock_gettime, [rt posix4])
@@ -1214,19 +1265,16 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
     case "$ac_cv_search_sched_yield" in
       -lposix4*)
       GLIBCXX_LIBS="$GLIBCXX_LIBS $ac_cv_search_sched_yield"
-      AC_DEFINE(_GLIBCXX_USE_SCHED_YIELD, 1,
-		[ Defined if sched_yield is available. ])
+      ac_has_sched_yield=yes
       ;;
       -lrt*)
       if test x"$enable_libstdcxx_time" = x"rt"; then
 	GLIBCXX_LIBS="$GLIBCXX_LIBS $ac_cv_search_sched_yield"
-	AC_DEFINE(_GLIBCXX_USE_SCHED_YIELD, 1,
-		  [ Defined if sched_yield is available. ])
+        ac_has_sched_yield=yes
       fi
       ;;
       *)
-      AC_DEFINE(_GLIBCXX_USE_SCHED_YIELD, 1,
-		[ Defined if sched_yield is available. ])
+      ac_has_sched_yield=yes
       ;;
     esac
 
@@ -1274,6 +1322,31 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
     fi
   fi
 
+  if test x"$ac_has_clock_monotonic" != x"yes"; then
+    case ${target_os} in
+      linux*)
+	AC_MSG_CHECKING([for clock_gettime syscall])
+	AC_TRY_COMPILE(
+	  [#include <unistd.h>
+	   #include <time.h>
+	   #include <sys/syscall.h>
+	  ],
+	  [#if _POSIX_TIMERS > 0 && defined(_POSIX_MONOTONIC_CLOCK)
+	    timespec tp;
+	   #endif
+	   syscall(SYS_clock_gettime, CLOCK_MONOTONIC, &tp);
+	   syscall(SYS_clock_gettime, CLOCK_REALTIME, &tp);
+	  ], [ac_has_clock_monotonic_syscall=yes], [ac_has_clock_monotonic_syscall=no])
+	AC_MSG_RESULT($ac_has_clock_monotonic_syscall)
+	if test x"$ac_has_clock_monotonic_syscall" = x"yes"; then
+	  AC_DEFINE(_GLIBCXX_USE_CLOCK_GETTIME_SYSCALL, 1,
+	  [ Defined if clock_gettime syscall has monotonic and realtime clock support. ])
+	  ac_has_clock_monotonic=yes
+	  ac_has_clock_realtime=yes
+	fi;;
+    esac
+  fi
+
   if test x"$ac_has_clock_monotonic" = x"yes"; then
     AC_DEFINE(_GLIBCXX_USE_CLOCK_MONOTONIC, 1,
       [ Defined if clock_gettime has monotonic clock support. ])
@@ -1282,6 +1355,11 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_TIME], [
   if test x"$ac_has_clock_realtime" = x"yes"; then
     AC_DEFINE(_GLIBCXX_USE_CLOCK_REALTIME, 1,
       [ Defined if clock_gettime has realtime clock support. ])
+  fi
+
+  if test x"$ac_has_sched_yield" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_SCHED_YIELD, 1,
+              [ Defined if sched_yield is available. ])
   fi
 
   if test x"$ac_has_nanosleep" = x"yes"; then
@@ -2204,6 +2282,38 @@ AC_DEFUN([GLIBCXX_ENABLE_EXTERN_TEMPLATE], [
   AC_MSG_RESULT([$enable_extern_template])
 
   GLIBCXX_CONDITIONAL(ENABLE_EXTERN_TEMPLATE, test $enable_extern_template = yes)
+])
+
+dnl
+dnl Use vtable verification.
+dnl
+dnl --enable-vtable-verify defines _GLIBCXX_VTABLE_VERIFY to 1
+dnl --disable-vtable-verify defines _GLIBCXX_VTABLE_VERIFY to 0
+
+dnl  +  Usage:  GLIBCXX_ENABLE_VTABLE_VERIFY[(DEFAULT)]
+dnl       Where DEFAULT is `yes' or `no'.
+dnl
+AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
+
+  GLIBCXX_ENABLE(vtable-verify,$1,,[enable vtable verify])
+
+  AC_MSG_CHECKING([for vtable verify support])
+  AC_MSG_RESULT([$enable_vtable_verify])
+
+  if test $enable_vtable_verify = yes; then
+    VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+    VTV_PCH_CXXFLAGS="-fvtable-verify=std"
+    VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
+  else
+    VTV_CXXFLAGS= 
+    VTV_PCH_CXXFLAGS=
+    VTV_CXXLINKFLAGS= 
+  fi
+
+  AC_SUBST(VTV_CXXFLAGS)
+  AC_SUBST(VTV_PCH_CXXFLAGS)
+  AC_SUBST(VTV_CXXLINKFLAGS)
+  GLIBCXX_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $enable_vtable_verify = yes)
 ])
 
 dnl
@@ -3247,7 +3357,7 @@ changequote([,])dnl
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:18:0
+libtool_VERSION=6:19:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in
@@ -3671,6 +3781,36 @@ AC_DEFUN([GLIBCXX_ENABLE_WERROR], [
   GLIBCXX_CONDITIONAL(ENABLE_WERROR, test $enable_werror = yes)
 ])
 
+
+dnl
+dnl Check to see if sys/sdt.h exists and that it is suitable for use.
+dnl Some versions of sdt.h were not compatible with C++11.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_SDT_H], [
+  AC_MSG_RESULT([for suitable sys/sdt.h])
+  # Note that this test has to be run with the C language.
+  # Otherwise, sdt.h will try to include some headers from
+  # libstdc++ itself.
+  AC_LANG_SAVE
+  AC_LANG_C
+  AC_CACHE_VAL(glibcxx_cv_sys_sdt_h, [
+    # Because we have to run the test in C, we use grep rather
+    # than the compiler to check for the bug.  The bug is that
+    # were strings without trailing whitespace, causing g++
+    # to look for operator"".  The pattern searches for the fixed
+    # output.
+    AC_EGREP_CPP([ \",\" ], [
+      #include <sys/sdt.h>
+      int f() { STAP_PROBE(hi, bob); }
+    ], [glibcxx_cv_sys_sdt_h=yes], [glibcxx_cv_sys_sdt_h=no])
+  ])
+  AC_LANG_RESTORE
+  if test $glibcxx_cv_sys_sdt_h = yes; then
+    AC_DEFINE(HAVE_SYS_SDT_H, 1,
+              [Define to 1 if you have a suitable <sys/sdt.h> header file])
+  fi
+  AC_MSG_RESULT($glibcxx_cv_sys_sdt_h)
+])
 
 # Macros from the top-level gcc directory.
 m4_include([../config/gc++filt.m4])

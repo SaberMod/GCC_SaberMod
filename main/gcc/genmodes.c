@@ -418,7 +418,7 @@ complete_all_modes (void)
 }
 
 /* For each mode in class CLASS, construct a corresponding complex mode.  */
-#define COMPLEX_MODES(C) make_complex_modes(MODE_##C, __FILE__, __LINE__)
+#define COMPLEX_MODES(C) make_complex_modes (MODE_##C, __FILE__, __LINE__)
 static void
 make_complex_modes (enum mode_class cl,
 		    const char *file, unsigned int line)
@@ -474,7 +474,7 @@ make_complex_modes (enum mode_class cl,
 
 /* For all modes in class CL, construct vector modes of width
    WIDTH, having as many components as necessary.  */
-#define VECTOR_MODES(C, W) make_vector_modes(MODE_##C, W, __FILE__, __LINE__)
+#define VECTOR_MODES(C, W) make_vector_modes (MODE_##C, W, __FILE__, __LINE__)
 static void ATTRIBUTE_UNUSED
 make_vector_modes (enum mode_class cl, unsigned int width,
 		   const char *file, unsigned int line)
@@ -522,7 +522,8 @@ make_vector_modes (enum mode_class cl, unsigned int width,
 
 /* Input.  */
 
-#define _SPECIAL_MODE(C, N) make_special_mode(MODE_##C, #N, __FILE__, __LINE__)
+#define _SPECIAL_MODE(C, N) \
+  make_special_mode (MODE_##C, #N, __FILE__, __LINE__)
 #define RANDOM_MODE(N) _SPECIAL_MODE (RANDOM, N)
 #define CC_MODE(N) _SPECIAL_MODE (CC, N)
 
@@ -704,11 +705,11 @@ make_vector_mode (enum mode_class bclass,
 #define _ADD_ADJUST(A, M, X, C1, C2) \
   new_adjust (#M, &adj_##A, #A, #X, MODE_##C1, MODE_##C2, __FILE__, __LINE__)
 
-#define ADJUST_BYTESIZE(M, X)  _ADD_ADJUST(bytesize, M, X, RANDOM, RANDOM)
-#define ADJUST_ALIGNMENT(M, X) _ADD_ADJUST(alignment, M, X, RANDOM, RANDOM)
-#define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST(format, M, X, FLOAT, FLOAT)
-#define ADJUST_IBIT(M, X)  _ADD_ADJUST(ibit, M, X, ACCUM, UACCUM)
-#define ADJUST_FBIT(M, X)  _ADD_ADJUST(fbit, M, X, FRACT, UACCUM)
+#define ADJUST_BYTESIZE(M, X)  _ADD_ADJUST (bytesize, M, X, RANDOM, RANDOM)
+#define ADJUST_ALIGNMENT(M, X) _ADD_ADJUST (alignment, M, X, RANDOM, RANDOM)
+#define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST (format, M, X, FLOAT, FLOAT)
+#define ADJUST_IBIT(M, X)  _ADD_ADJUST (ibit, M, X, ACCUM, UACCUM)
+#define ADJUST_FBIT(M, X)  _ADD_ADJUST (fbit, M, X, FRACT, UACCUM)
 
 static void
 create_modes (void)
@@ -848,6 +849,36 @@ calc_wider_mode (void)
 
 #define print_closer() puts ("};")
 
+/* Compute the max bitsize of some of the classes of integers.  It may
+   be that there are needs for the other integer classes, and this
+   code is easy to extend.  */
+static void
+emit_max_int (void)
+{
+  unsigned int max, mmax;
+  struct mode_data *i;
+  int j;
+
+  puts ("");
+  for (max = 1, i = modes[MODE_INT]; i; i = i->next)
+    if (max < i->bytesize)
+	max = i->bytesize;
+  mmax = max;
+  for (max = 1, i = modes[MODE_PARTIAL_INT]; i; i = i->next)
+    if (max < i->bytesize)
+	max = i->bytesize;
+  if (max > mmax)
+    mmax = max;
+  printf ("#define MAX_BITSIZE_MODE_ANY_INT %d*BITS_PER_UNIT\n", mmax);
+
+  mmax = 0;
+  for (j = 0; j < MAX_MODE_CLASS; j++)
+    for (i = modes[j]; i; i = i->next)
+      if (mmax < i->bytesize)
+	mmax = i->bytesize;
+  printf ("#define MAX_BITSIZE_MODE_ANY_MODE %d*BITS_PER_UNIT\n", mmax);
+}
+
 static void
 emit_insn_modes_h (void)
 {
@@ -912,6 +943,7 @@ enum machine_mode\n{");
 #endif
   printf ("#define CONST_MODE_IBIT%s\n", adj_ibit ? "" : " const");
   printf ("#define CONST_MODE_FBIT%s\n", adj_fbit ? "" : " const");
+  emit_max_int ();
   puts ("\
 \n\
 #endif /* insn-modes.h */");

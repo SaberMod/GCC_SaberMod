@@ -1015,6 +1015,13 @@ copyprop_hardreg_forward_1 (basic_block bb, struct value_data *vd)
 	  EXECUTE_IF_SET_IN_HARD_REG_SET (regs_invalidated_by_call, 0, regno, hrsi)
 	    if (regno < set_regno || regno >= set_regno + set_nregs)
 	      kill_value_regno (regno, 1, vd);
+
+	  /* If SET was seen in CALL_INSN_FUNCTION_USAGE, and SET_SRC
+	     of the SET isn't in regs_invalidated_by_call hard reg set,
+	     but instead among CLOBBERs on the CALL_INSN, we could wrongly
+	     assume the value in it is still live.  */
+	  if (ksvd.ignore_set_reg)
+	    note_stores (PATTERN (insn), kill_clobbered_value, vd);
 	}
 
       /* Notice stores.  */
@@ -1229,23 +1236,40 @@ gate_handle_cprop (void)
 }
 
 
-struct rtl_opt_pass pass_cprop_hardreg =
+namespace {
+
+const pass_data pass_data_cprop_hardreg =
 {
- {
-  RTL_PASS,
-  "cprop_hardreg",                      /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_handle_cprop,                    /* gate */
-  copyprop_hardreg_forward,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CPROP_REGISTERS,                   /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  TODO_df_finish
-  | TODO_verify_rtl_sharing		/* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "cprop_hardreg", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_CPROP_REGISTERS, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_cprop_hardreg : public rtl_opt_pass
+{
+public:
+  pass_cprop_hardreg (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_cprop_hardreg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_handle_cprop (); }
+  unsigned int execute () { return copyprop_hardreg_forward (); }
+
+}; // class pass_cprop_hardreg
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_cprop_hardreg (gcc::context *ctxt)
+{
+  return new pass_cprop_hardreg (ctxt);
+}

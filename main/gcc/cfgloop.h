@@ -97,7 +97,8 @@ enum loop_estimation
   /* Estimate was not computed yet.  */
   EST_NOT_COMPUTED,
   /* Estimate is ready.  */
-  EST_AVAILABLE
+  EST_AVAILABLE,
+  EST_LAST
 };
 
 /* Structure to hold information for each natural loop.  */
@@ -167,11 +168,28 @@ struct GTY ((chain_next ("%h.next"))) loop {
      describes what is the state of the estimation.  */
   enum loop_estimation estimate_state;
 
+  /* If > 0, an integer, where the user asserted that for any
+     I in [ 0, nb_iterations ) and for any J in
+     [ I, min ( I + safelen, nb_iterations ) ), the Ith and Jth iterations
+     of the loop can be safely evaluated concurrently.  */
+  int safelen;
+
+  /* True if we should try harder to vectorize this loop.  */
+  bool force_vect;
+
+  /* For SIMD loops, this is a unique identifier of the loop, referenced
+     by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE
+     builtins.  */
+  tree simduid;
+
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
   /* Head of the cyclic list of the exits of the loop.  */
   struct loop_exit *exits;
+
+  /* Number of iteration analysis data for RTL.  */
+  struct niter_desc *simple_loop_desc;
 };
 
 /* Flags for state of loop structure.  */
@@ -210,6 +228,7 @@ struct GTY (()) loops {
 
 /* Loop recognition.  */
 bool bb_loop_header_p (basic_block);
+void init_loops_structure (struct function *, struct loops *, unsigned);
 extern struct loops *flow_loops_find (struct loops *);
 extern void disambiguate_loops_with_multiple_latches (void);
 extern void flow_loops_free (struct loops *);
@@ -229,6 +248,7 @@ void rescan_loop_exit (edge, bool, bool);
 /* Loop data structure manipulation/querying.  */
 extern void flow_loop_tree_node_add (struct loop *, struct loop *);
 extern void flow_loop_tree_node_remove (struct loop *);
+extern void place_new_loop (struct function *, struct loop *);
 extern void add_loop (struct loop *, struct loop *);
 extern bool flow_loop_nested_p	(const struct loop *, const struct loop *);
 extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
@@ -372,7 +392,7 @@ struct rtx_iv
    till we take the exit. Also includes other information used primarily
    by the loop unroller.  */
 
-struct niter_desc
+struct GTY(()) niter_desc
 {
   /* The edge out of the loop.  */
   edge out_edge;
@@ -438,17 +458,17 @@ void analyze_loop_insns (const struct loop *, struct niter_desc *desc);
 static inline struct niter_desc *
 simple_loop_desc (struct loop *loop)
 {
-  return (struct niter_desc *) loop->aux;
+  return loop->simple_loop_desc;
 }
 
 /* Accessors for the loop structures.  */
 
-/* Returns the loop with index NUM from current_loops.  */
+/* Returns the loop with index NUM from FNs loop tree.  */
 
 static inline struct loop *
-get_loop (unsigned num)
+get_loop (struct function *fn, unsigned num)
 {
-  return (*current_loops->larray)[num];
+  return (*loops_for_fn (fn)->larray)[num];
 }
 
 /* Returns the number of superloops of LOOP.  */
@@ -489,27 +509,29 @@ loop_has_exit_edges (const struct loop *loop)
   return loop->exits->next->e != NULL;
 }
 
-/* Returns the list of loops in current_loops.  */
+/* Returns the list of loops in FN.  */
 
-static inline vec<loop_p, va_gc> *
-get_loops (void)
+inline vec<loop_p, va_gc> *
+get_loops (struct function *fn)
 {
-  if (!current_loops)
+  struct loops *loops = loops_for_fn (fn);
+  if (!loops)
     return NULL;
 
-  return current_loops->larray;
+  return loops->larray;
 }
 
-/* Returns the number of loops in current_loops (including the removed
+/* Returns the number of loops in FN (including the removed
    ones and the fake loop that forms the root of the loop tree).  */
 
 static inline unsigned
-number_of_loops (void)
+number_of_loops (struct function *fn)
 {
-  if (!current_loops)
+  struct loops *loops = loops_for_fn (fn);
+  if (!loops)
     return 0;
 
-  return vec_safe_length (current_loops->larray);
+  return vec_safe_length (loops->larray);
 }
 
 /* Returns true if state of the loops satisfies all properties
@@ -570,7 +592,7 @@ fel_next (loop_iterator *li, loop_p *loop)
   while (li->to_visit.iterate (li->idx, &anum))
     {
       li->idx++;
-      *loop = get_loop (anum);
+      *loop = get_loop (cfun, anum);
       if (*loop)
 	return;
     }
@@ -594,7 +616,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
       return;
     }
 
-  li->to_visit.create (number_of_loops ());
+  li->to_visit.create (number_of_loops (cfun));
   mn = (flags & LI_INCLUDE_ROOT) ? 0 : 1;
 
   if (flags & LI_ONLY_INNERMOST)

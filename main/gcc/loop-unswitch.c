@@ -126,7 +126,7 @@ compare_and_jump_seq (rtx op0, rtx op1, enum rtx_code comp, rtx label, int prob,
       JUMP_LABEL (jump) = label;
       LABEL_NUSES (label)++;
     }
-  add_reg_note (jump, REG_BR_PROB, GEN_INT (prob));
+  add_int_reg_note (jump, REG_BR_PROB, prob);
 
   seq = get_insns ();
   end_sequence ();
@@ -436,10 +436,10 @@ unswitch_loop (struct loop *loop, basic_block unswitch_on, rtx cond, rtx cinsn)
   emit_insn_after (seq, BB_END (switch_bb));
   e = make_edge (switch_bb, true_edge->dest, 0);
   e->probability = prob;
-  e->count = latch_edge->count * prob / REG_BR_PROB_BASE;
+  e->count = apply_probability (latch_edge->count, prob);
   e = make_edge (switch_bb, FALLTHRU_EDGE (unswitch_on)->dest, EDGE_FALLTHRU);
   e->probability = false_edge->probability;
-  e->count = latch_edge->count * (false_edge->probability) / REG_BR_PROB_BASE;
+  e->count = apply_probability (latch_edge->count, false_edge->probability);
 
   if (irred_flag)
     {

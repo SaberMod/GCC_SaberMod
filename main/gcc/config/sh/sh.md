@@ -687,9 +687,9 @@
   [(set_attr "type" "mt_group")])
 
 ;; Extract contiguous bits and compare them against zero.
-(define_insn "tstsi_t_zero_extract_eq"
+(define_insn "tst<mode>_t_zero_extract_eq"
   [(set (reg:SI T_REG)
-	(eq:SI (zero_extract:SI (match_operand 0 "logical_operand" "z")
+	(eq:SI (zero_extract:SI (match_operand:QIHISIDI 0 "logical_operand" "z")
 				(match_operand:SI 1 "const_int_operand")
 				(match_operand:SI 2 "const_int_operand"))
 	       (const_int 0)))]
@@ -783,7 +783,7 @@
 	tst	%0,%0
 	cmp/eq	%1,%0
 	cmp/eq	%1,%0"
-   [(set_attr "type" "mt_group")])
+  [(set_attr "type" "mt_group")])
 
 ;; FIXME: For some reason, on SH4A and SH2A combine fails to simplify this
 ;; pattern by itself.  What this actually does is:
@@ -809,7 +809,7 @@
   "@
 	cmp/pl	%0
 	cmp/gt	%1,%0"
-   [(set_attr "type" "mt_group")])
+  [(set_attr "type" "mt_group")])
 
 (define_insn "cmpgesi_t"
   [(set (reg:SI T_REG)
@@ -819,7 +819,7 @@
   "@
 	cmp/pz	%0
 	cmp/ge	%1,%0"
-   [(set_attr "type" "mt_group")])
+  [(set_attr "type" "mt_group")])
 
 ;; FIXME: This is actually wrong.  There is no way to literally move a
 ;; general reg to t reg.  Luckily, it seems that this pattern will be only
@@ -831,7 +831,7 @@
   [(set (reg:SI T_REG) (match_operand:SI 0 "arith_reg_operand" "r"))]
   "TARGET_SH1"
   "cmp/pl	%0"
-   [(set_attr "type" "mt_group")])
+  [(set_attr "type" "mt_group")])
 
 ;; Some integer sign comparison patterns can be realized with the div0s insn.
 ;;	div0s	Rm,Rn		T = (Rm >> 31) ^ (Rn >> 31)
@@ -866,6 +866,16 @@
 	(lshiftrt:SI (xor:SI (match_dup 1) (match_dup 2)) (const_int 31)))
    (set (match_dup 0) (reg:SI T_REG))])
 
+(define_insn "*cmp_div0s_0"
+  [(set (reg:SI T_REG)
+	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand")
+			    (const_int 31))
+	       (ge:SI (match_operand:SI 1 "arith_reg_operand")
+		      (const_int 0))))]
+  "TARGET_SH1"
+  "div0s	%0,%1"
+  [(set_attr "type" "arith")])
+
 (define_insn_and_split "*cmp_div0s_1"
   [(set (match_operand:SI 0 "arith_reg_dest" "")
 	(ge:SI (xor:SI (match_operand:SI 1 "arith_reg_operand" "")
@@ -889,6 +899,19 @@
 	(ge:SI (xor:SI (match_operand:SI 0 "arith_reg_operand" "")
 		       (match_operand:SI 1 "arith_reg_operand" ""))
 	       (const_int 0)))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(set (reg:SI T_REG) (lt:SI (xor:SI (match_dup 0) (match_dup 1))
+			      (const_int 0)))
+   (set (reg:SI T_REG) (xor:SI (reg:SI T_REG) (const_int 1)))])
+
+(define_insn_and_split "*cmp_div0s_1"
+  [(set (reg:SI T_REG)
+	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand")
+			    (const_int 31))
+	       (lshiftrt:SI (match_operand:SI 1 "arith_reg_operand")
+			    (const_int 31))))]
   "TARGET_SH1"
   "#"
   "&& can_create_pseudo_p ()"
@@ -1062,6 +1085,27 @@
   "TARGET_PRETEND_CMOVE"
   "#"
   "&& 1"
+  [(set (reg:SI T_REG) (lt:SI (xor:SI (match_dup 1) (match_dup 2))
+			      (const_int 0)))
+   (set (match_dup 0)
+	(if_then_else (ne (reg:SI T_REG) (const_int 0))
+		      (match_dup 4)
+		      (match_dup 3)))])
+
+(define_insn_and_split "*movsicc_div0s"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(if_then_else:SI (eq (lshiftrt:SI
+				(match_operand:SI 1 "arith_reg_operand")
+				(const_int 31))
+			     (lshiftrt:SI
+				(match_operand:SI 2 "arith_reg_operand")
+				(const_int 31)))
+			 (match_operand:SI 3 "arith_reg_operand")
+			 (match_operand:SI 4 "general_movsrc_operand")))
+   (clobber (reg:SI T_REG))]
+   "TARGET_PRETEND_CMOVE"
+   "#"
+   "&& 1"
   [(set (reg:SI T_REG) (lt:SI (xor:SI (match_dup 1) (match_dup 2))
 			      (const_int 0)))
    (set (match_dup 0)
@@ -6834,10 +6878,11 @@ label:
 ;; If movqi_reg_reg is specified as an alternative of movqi, movqi will be
 ;; selected to copy QImode regs.  If one of them happens to be allocated
 ;; on the stack, reload will stick to movqi insn and generate wrong
-;; displacement addressing because of the generic m alternatives.  
-;; With the movqi_reg_reg being specified before movqi it will be initially 
-;; picked to load/store regs.  If the regs regs are on the stack reload will
-;; try other insns and not stick to movqi_reg_reg.
+;; displacement addressing because of the generic m alternatives.
+;; With the movqi_reg_reg being specified before movqi it will be initially
+;; picked to load/store regs.  If the regs regs are on the stack reload
+;; try other insns and not stick to movqi_reg_reg, unless there were spilled
+;; pseudos in which case 'm' constraints pertain.
 ;; The same applies to the movhi variants.
 ;;
 ;; Notice, that T bit is not allowed as a mov src operand here.  This is to
@@ -6849,11 +6894,14 @@ label:
 ;; reloading MAC subregs otherwise.  For that probably special patterns
 ;; would be required.
 (define_insn "*mov<mode>_reg_reg"
-  [(set (match_operand:QIHI 0 "arith_reg_dest" "=r")
-	(match_operand:QIHI 1 "register_operand" "r"))]
+  [(set (match_operand:QIHI 0 "arith_reg_dest" "=r,m,*z")
+	(match_operand:QIHI 1 "register_operand" "r,*z,m"))]
   "TARGET_SH1 && !t_reg_operand (operands[1], VOIDmode)"
-  "mov	%1,%0"
-  [(set_attr "type" "move")])
+  "@
+	mov	%1,%0
+	mov.<bw>	%1,%0
+	mov.<bw>	%1,%0"
+  [(set_attr "type" "move,store,load")])
 
 ;; FIXME: The non-SH2A and SH2A variants should be combined by adding
 ;; "enabled" attribute as it is done in other targets.
@@ -8155,15 +8203,9 @@ label:
    (use (match_operand:PSI 2 "fpscr_operand" "c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c,c"))
    (clobber (match_scratch:SI 3 "=X,X,Bsc,Bsc,&z,X,X,X,X,X,X,X,X,y,X,X,X,X,X"))]
   "TARGET_SH2E
-   && (arith_reg_operand (operands[0], SFmode)
-       || arith_reg_operand (operands[1], SFmode)
-       || arith_reg_operand (operands[3], SImode)
-       || (fpul_operand (operands[0], SFmode)
-	   && memory_operand (operands[1], SFmode)
-	   && GET_CODE (XEXP (operands[1], 0)) == POST_INC)
-       || (fpul_operand (operands[1], SFmode)
-	   && memory_operand (operands[0], SFmode)
-	   && GET_CODE (XEXP (operands[0], 0)) == PRE_DEC))"
+   && (arith_reg_operand (operands[0], SFmode) || fpul_operand (operands[0], SFmode)
+       || arith_reg_operand (operands[1], SFmode) || fpul_operand (operands[1], SFmode)
+       || arith_reg_operand (operands[3], SImode))"
   "@
 	fmov	%1,%0
 	mov	%1,%0
@@ -10725,7 +10767,7 @@ label:
    (clobber (match_scratch:SI 3 "=X,1"))]
   "TARGET_SH1"
 {
-  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_active_insn (operands[2]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10759,7 +10801,7 @@ label:
    (clobber (match_operand:SI 4 "" "=X,1"))]
   "TARGET_SH2 && reload_completed && flag_pic"
 {
-  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_active_insn (operands[2]));
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
   switch (GET_MODE (diff_vec))
@@ -10797,7 +10839,7 @@ label:
 		    UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (next_real_insn (operands[2]));
+  rtx diff_vec = PATTERN (next_active_insn (operands[2]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -10824,7 +10866,7 @@ label:
 		      (label_ref:DI (match_operand 3 "" ""))] UNSPEC_CASESI)))]
   "TARGET_SHMEDIA"
 {
-  rtx diff_vec = PATTERN (next_real_insn (operands[3]));
+  rtx diff_vec = PATTERN (next_active_insn (operands[3]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
 
@@ -11711,6 +11753,140 @@ label:
    (set_attr "in_delay_slot" "no")])
 
 ;; -------------------------------------------------------------------------
+;; Minimum / maximum operations.
+;; -------------------------------------------------------------------------
+
+;; The SH2A clips.b and clips.w insns do a signed min-max function.  If smin
+;; and smax standard name patterns are defined, they will be used during
+;; initial expansion and combine will then be able to form the actual min-max
+;; pattern.
+;; The clips.b and clips.w set the SR.CS bit if the value in the register is
+;; clipped, but there is currently no way of making use of this information.
+;; The only way to read or reset the SR.CS bit is by accessing the SR.
+(define_expand "<code>si3"
+  [(parallel [(set (match_operand:SI 0 "arith_reg_dest")
+		   (SMIN_SMAX:SI (match_operand:SI 1 "arith_reg_operand")
+				 (match_operand 2 "const_int_operand")))
+	      (clobber (reg:SI T_REG))])]
+  "TARGET_SH2A"
+{
+  /* Force the comparison value into a register, because greater-than
+     comparisons can work only on registers.  Combine will be able to pick up
+     the constant value from the REG_EQUAL note when trying to form a min-max
+     pattern.  */
+  operands[2] = force_reg (SImode, operands[2]);
+})
+
+;; Convert
+;;	smax (smin (...))
+;; to
+;;	smin (smax (...))
+(define_insn_and_split "*clips"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(smax:SI (smin:SI (match_operand:SI 1 "arith_reg_operand")
+			  (match_operand 2 "clips_max_const_int"))
+		 (match_operand 3 "clips_min_const_int")))]
+  "TARGET_SH2A"
+  "#"
+  "&& 1"
+  [(set (match_dup 0)
+	(smin:SI (smax:SI (match_dup 1) (match_dup 3)) (match_dup 2)))])
+
+(define_insn "*clips"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
+	(smin:SI (smax:SI (match_operand:SI 1 "arith_reg_operand" "0")
+			  (match_operand 2 "clips_min_const_int"))
+		 (match_operand 3 "clips_max_const_int")))]
+  "TARGET_SH2A"
+{
+  if (INTVAL (operands[3]) == 127)
+    return "clips.b	%0";
+  else if (INTVAL (operands[3]) == 32767)
+    return "clips.w	%0";
+  else
+    gcc_unreachable ();
+}
+  [(set_attr "type" "arith")])
+
+;; If the expanded smin or smax patterns were not combined, split them into
+;; a compare and branch sequence, because there are no real smin or smax
+;; insns.
+(define_insn_and_split "*<code>si3"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(SMIN_SMAX:SI (match_operand:SI 1 "arith_reg_operand")
+		      (match_operand:SI 2 "arith_reg_or_0_or_1_operand")))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH2A && can_create_pseudo_p ()"
+  "#"
+  "&& 1"
+  [(const_int 0)]
+{
+  rtx skip_label = gen_label_rtx ();
+  emit_move_insn (operands[0], operands[1]);
+
+  rtx cmp_val = operands[2];
+  if (satisfies_constraint_M (cmp_val))
+    cmp_val = const0_rtx;
+
+  emit_insn (gen_cmpgtsi_t (operands[0], cmp_val));
+  emit_jump_insn (<CODE> == SMIN
+			    ? gen_branch_false (skip_label)
+			    : gen_branch_true (skip_label));
+
+  emit_label_after (skip_label, emit_move_insn (operands[0], operands[2]));
+  DONE;
+})
+
+;; The SH2A clipu.b and clipu.w insns can be used to implement a min function
+;; with a register and a constant.
+;; The clipu.b and clipu.w set the SR.CS bit if the value in the register is
+;; clipped, but there is currently no way of making use of this information.
+;; The only way to read or reset the SR.CS bit is by accessing the SR.
+(define_expand "uminsi3"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(umin:SI (match_operand:SI 1 "arith_reg_operand")
+		 (match_operand 2 "const_int_operand")))]
+  "TARGET_SH2A"
+{
+  if (INTVAL (operands[2]) == 1)
+    {
+      emit_insn (gen_clipu_one (operands[0], operands[1]));
+      DONE;
+    }
+  else if (! clipu_max_const_int (operands[2], VOIDmode))
+    FAIL;
+})
+
+(define_insn "*clipu"
+  [(set (match_operand:SI 0 "arith_reg_dest" "=r")
+	(umin:SI (match_operand:SI 1 "arith_reg_operand" "0")
+		 (match_operand 2 "clipu_max_const_int")))]
+  "TARGET_SH2A"
+{
+  if (INTVAL (operands[2]) == 255)
+    return "clipu.b	%0";
+  else if (INTVAL (operands[2]) == 65535)
+    return "clipu.w	%0";
+  else
+    gcc_unreachable ();
+}
+  [(set_attr "type" "arith")])
+
+(define_insn_and_split "clipu_one"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(umin:SI (match_operand:SI 1 "arith_reg_operand") (const_int 1)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH2A"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(const_int 0)]
+{
+  emit_insn (gen_cmpeqsi_t (operands[1], const0_rtx));
+  emit_insn (gen_movnegt (operands[0], get_t_reg_rtx ()));
+  DONE;
+})
+
+;; -------------------------------------------------------------------------
 ;; Misc
 ;; -------------------------------------------------------------------------
 
@@ -12073,10 +12249,10 @@ label:
 
 ;; FMA (fused multiply-add) patterns
 (define_expand "fmasf4"
-  [(set (match_operand:SF 0 "fp_arith_reg_operand" "")
-	(fma:SF (match_operand:SF 1 "fp_arith_reg_operand" "")
-		(match_operand:SF 2 "fp_arith_reg_operand" "")
-		(match_operand:SF 3 "fp_arith_reg_operand" "")))]
+  [(set (match_operand:SF 0 "fp_arith_reg_operand")
+	(fma:SF (match_operand:SF 1 "fp_arith_reg_operand")
+		(match_operand:SF 2 "fp_arith_reg_operand")
+		(match_operand:SF 3 "fp_arith_reg_operand")))]
   "TARGET_SH2E || TARGET_SHMEDIA_FPU"
 {
   if (TARGET_SH2E)
@@ -12104,6 +12280,43 @@ label:
 		(match_operand:SF 2 "fp_arith_reg_operand" "f")
 		(match_operand:SF 3 "fp_arith_reg_operand" "0")))]
   "TARGET_SHMEDIA_FPU"
+  "fmac.s %1, %2, %0"
+  [(set_attr "type" "fparith_media")])
+
+;; For some cases such as 'a * b + a' the FMA pattern is not generated by
+;; previous transformations.  If FMA is generally allowed, let the combine
+;; pass utilize it.
+(define_insn_and_split "*fmasf4"
+  [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
+	(plus:SF (mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%w")
+			  (match_operand:SF 2 "fp_arith_reg_operand" "f"))
+		 (match_operand:SF 3 "arith_reg_operand" "0")))
+   (use (match_operand:PSI 4 "fpscr_operand"))]
+  "TARGET_SH2E && flag_fp_contract_mode != FP_CONTRACT_OFF"
+  "fmac	%1,%2,%0"
+  "&& can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (fma:SF (match_dup 1) (match_dup 2) (match_dup 3)))
+	      (use (match_dup 4))])]
+{
+  /* Change 'b * a + a' into 'a * b + a'.
+     This is better for register allocation.  */
+  if (REGNO (operands[2]) == REGNO (operands[3]))
+    {
+      rtx tmp = operands[1];
+      operands[1] = operands[2];
+      operands[2] = tmp;
+    }
+}
+  [(set_attr "type" "fp")
+   (set_attr "fp_mode" "single")])
+
+(define_insn "*fmasf4_media"
+  [(set (match_operand:SF 0 "fp_arith_reg_operand" "=f")
+	(plus:SF (mult:SF (match_operand:SF 1 "fp_arith_reg_operand" "%f")
+			  (match_operand:SF 2 "fp_arith_reg_operand" "f"))
+		 (match_operand:SF 3 "fp_arith_reg_operand" "0")))]
+  "TARGET_SHMEDIA_FPU && flag_fp_contract_mode != FP_CONTRACT_OFF"
   "fmac.s %1, %2, %0"
   [(set_attr "type" "fparith_media")])
 

@@ -1,3 +1,24 @@
+2013-08-20  Alan Modra  <amodra@gmail.com>
+
+	* floatformat.h (floatformat_ibm_long_double): Delete.
+	(floatformat_ibm_long_double_big): Declare.
+	(floatformat_ibm_long_double_little): Declare.
+
+2013-08-19  Dehao Chen  <dehao@google.com>
+
+	* dwarf2.def (DW_AT_GNU_discriminator): New attribute.
+
+2013-08-02  Caroline Tice  <cmtice@google.com>
+
+	* vtv-change-permission.h: New file.
+
+2013-04-03  Jason Merrill  <jason@redhat.com>
+
+	Demangle C++11 ref-qualifier.
+	* demangle.h (enum demangle_component_type): Add
+	DEMANGLE_COMPONENT_REFERENCE_THIS,
+	DEMANGLE_COMPONENT_RVALUE_REFERENCE_THIS.
+
 2013-03-01  Cary Coutant  <ccoutant@google.com>
 
 	* dwarf2.h (enum dwarf_sect): New enum type.

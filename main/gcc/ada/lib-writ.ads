@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -402,7 +402,9 @@ package Lib.Writ is
 
    --    No restriction pragma is present for the named boolean restriction.
    --    However, the compiler did detect one or more violations of this
-   --    restriction, which may require a binder consistency check.
+   --    restriction, which may require a binder consistency check. Note that
+   --    one case of a violation is the use of a Restriction_Set attribute for
+   --    the restriction that yielded False.
 
    --  For the case of restrictions that take a parameter, we need both the
    --  information from pragma if present, and the actual information about
@@ -618,9 +620,9 @@ package Lib.Writ is
    --  Following each U line, is a series of lines of the form
 
    --    W unit-name [source-name lib-name] [E] [EA] [ED] [AD]
-   --    or
+   --      or
    --    Y unit-name [source-name lib-name] [E] [EA] [ED] [AD]
-   --    or
+   --      or
    --    Z unit-name [source-name lib-name] [E] [EA] [ED] [AD]
    --
    --      One W line is present for each unit that is mentioned in an explicit
@@ -655,6 +657,14 @@ package Lib.Writ is
    --      The parameter source-name and lib-name are omitted for the case of a
    --      generic unit compiled with earlier versions of GNAT which did not
    --      generate object or ali files for generics.
+   --
+   --      The parameter source-name and lib-name are also omitted for the W
+   --      lines that result from use of a Restriction_Set attribute which gets
+   --      a result of False from a No_Dependence check, in the case where the
+   --      unit is not in the semantic closure. In such a case, the bare W
+   --      line is generated, but no D (dependency) line. This will make the
+   --      binder do the consistency check, but not include the unit in the
+   --      partition closure (unless it is properly With'ed somewhere).
 
    --  -----------------------
    --  -- L  Linker_Options --
@@ -811,30 +821,13 @@ package Lib.Writ is
    --  reference data. See the spec of Par_SCO in file par_sco.ads for full
    --  details of the format.
 
-   ----------------------
-   -- Alfa Information --
-   ----------------------
+   ---------------------------------------
+   -- SPARK Cross-Reference Information --
+   ---------------------------------------
 
-   --  The Alfa information follows the SCO information. See the spec of Alfa
-   --  in file alfa.ads for full details of the format.
-
-   -------------------------------------
-   -- T  Target Dependent Information --
-   -------------------------------------
-
-   --  This section is present if the option to generate target dependent
-   --  information is present (this flag is set by the -gnatT switch). The
-   --  format of T lines is:
-
-   --    T key val
-
-   --  There is one line for each constant declared in the Ttypes package
-
-   --    key   is the four letter code (which can be found as a comment on each
-   --          of the constant declarations in Ttypes).
-
-   --    val   is the value of the constant, which is either a non-negative
-   --          decimal constant, or TRUE or FALSE for a Boolean value.
+   --  The SPARK cross-reference information follows the SCO information. See
+   --  the spec of SPARK_Xrefs in file spark_xrefs.ads for full details of the
+   --  format.
 
    ----------------------
    -- Global Variables --

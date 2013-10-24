@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "convert.h"
 #include "diagnostic-core.h"
+#include "target.h"
 #include "langhooks.h"
 
 /* Convert EXPR to some pointer or reference type TYPE.
@@ -213,11 +214,12 @@ convert_to_real (tree type, tree expr)
     switch (TREE_CODE (expr))
       {
 	/* Convert (float)-x into -(float)x.  This is safe for
-	   round-to-nearest rounding mode.  */
+	   round-to-nearest rounding mode when the inner type is float.  */
 	case ABS_EXPR:
 	case NEGATE_EXPR:
 	  if (!flag_rounding_math
-	      && TYPE_PRECISION (type) < TYPE_PRECISION (TREE_TYPE (expr)))
+	      && FLOAT_TYPE_P (itype)
+	      && TYPE_PRECISION (type) < TYPE_PRECISION (itype))
 	    return build1 (TREE_CODE (expr), type,
 			   fold (convert_to_real (type,
 						  TREE_OPERAND (expr, 0))));
@@ -355,8 +357,8 @@ convert_to_integer (tree type, tree expr)
 {
   enum tree_code ex_form = TREE_CODE (expr);
   tree intype = TREE_TYPE (expr);
-  unsigned int inprec = TYPE_PRECISION (intype);
-  unsigned int outprec = TYPE_PRECISION (type);
+  unsigned int inprec = element_precision (intype);
+  unsigned int outprec = element_precision (type);
 
   /* An INTEGER_TYPE cannot be incomplete, but an ENUMERAL_TYPE can
      be.  Consider `enum E = { a, b = (enum E) 3 };'.  */
@@ -385,7 +387,7 @@ convert_to_integer (tree type, tree expr)
         {
 	CASE_FLT_FN (BUILT_IN_CEIL):
 	  /* Only convert in ISO C99 mode.  */
-	  if (!TARGET_C99_FUNCTIONS)
+	  if (!targetm.libc_has_function (function_c99_misc))
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)
@@ -401,7 +403,7 @@ convert_to_integer (tree type, tree expr)
 
 	CASE_FLT_FN (BUILT_IN_FLOOR):
 	  /* Only convert in ISO C99 mode.  */
-	  if (!TARGET_C99_FUNCTIONS)
+	  if (!targetm.libc_has_function (function_c99_misc))
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)
@@ -417,7 +419,7 @@ convert_to_integer (tree type, tree expr)
 
 	CASE_FLT_FN (BUILT_IN_ROUND):
 	  /* Only convert in ISO C99 mode.  */
-	  if (!TARGET_C99_FUNCTIONS)
+	  if (!targetm.libc_has_function (function_c99_misc))
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)
@@ -438,7 +440,7 @@ convert_to_integer (tree type, tree expr)
 	  /* ... Fall through ...  */
 	CASE_FLT_FN (BUILT_IN_RINT):
 	  /* Only convert in ISO C99 mode.  */
-	  if (!TARGET_C99_FUNCTIONS)
+	  if (!targetm.libc_has_function (function_c99_misc))
 	    break;
 	  if (outprec < TYPE_PRECISION (integer_type_node)
 	      || (outprec == TYPE_PRECISION (integer_type_node)

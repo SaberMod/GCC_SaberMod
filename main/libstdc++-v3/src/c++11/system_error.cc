@@ -62,15 +62,13 @@ namespace
     }
   };
 
-  const generic_error_category generic_category_instance;
-  const system_error_category system_category_instance;
+  const generic_error_category generic_category_instance{};
+  const system_error_category system_category_instance{};
 }
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
-
-  error_category::error_category() noexcept = default;
 
   error_category::~error_category() noexcept = default;
 

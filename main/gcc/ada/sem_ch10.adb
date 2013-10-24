@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Debug;    use Debug;
 with Einfo;    use Einfo;
@@ -79,8 +80,8 @@ package body Sem_Ch10 is
    --  Build and decorate the list of shadow entities for a package mentioned
    --  in a limited_with clause. If the package was not previously analyzed
    --  then it also performs a basic decoration of the real entities. This is
-   --  required to do not pass non-decorated entities to the back-end.
-   --  Implements Ada 2005 (AI-50217).
+   --  required in order to avoid passing non-decorated entities to the
+   --  back-end. Implements Ada 2005 (AI-50217).
 
    procedure Check_Body_Needed_For_SAL (Unit_Name : Entity_Id);
    --  Check whether the source for the body of a compilation unit must be
@@ -401,9 +402,8 @@ package body Sem_Ch10 is
 
                elsif Nkind (Cont_Item) = N_Pragma
                  and then
-                   (Pragma_Name (Cont_Item) = Name_Elaborate
-                      or else
-                    Pragma_Name (Cont_Item) = Name_Elaborate_All)
+                   Nam_In (Pragma_Name (Cont_Item), Name_Elaborate,
+                                                     Name_Elaborate_All)
                  and then not Used_Type_Or_Elab
                then
                   Prag_Unit :=
@@ -1556,8 +1556,8 @@ package body Sem_Ch10 is
    -------------------------------
 
    procedure Analyze_Package_Body_Stub (N : Node_Id) is
-      Id   : constant Entity_Id := Defining_Identifier (N);
-      Nam  : Entity_Id;
+      Id  : constant Entity_Id := Defining_Identifier (N);
+      Nam : Entity_Id;
 
    begin
       --  The package declaration must be in the current declarative part
@@ -1844,6 +1844,12 @@ package body Sem_Ch10 is
                      then
                         SCO_Record (Unum);
                      end if;
+
+                     --  Propagate any aspect specifications associated with
+                     --  with the stub to the proper body.
+
+                     Move_Or_Merge_Aspects
+                       (From => N, To => Proper_Body (Unit (Comp_Unit)));
 
                      --  Analyze the unit if semantics active
 
@@ -2328,8 +2334,8 @@ package body Sem_Ch10 is
    ----------------------------
 
    procedure Analyze_Task_Body_Stub (N : Node_Id) is
-      Nam : Entity_Id := Current_Entity_In_Scope (Defining_Identifier (N));
       Loc : constant Source_Ptr := Sloc (N);
+      Nam : Entity_Id := Current_Entity_In_Scope (Defining_Identifier (N));
 
    begin
       Check_Stub_Level (N);
@@ -2457,14 +2463,6 @@ package body Sem_Ch10 is
          return;
       end if;
 
-      --  We reset ordinary style checking during the analysis of a with'ed
-      --  unit, but we do NOT reset GNAT special analysis mode (the latter
-      --  definitely *does* apply to with'ed units).
-
-      if not GNAT_Mode then
-         Style_Check := False;
-      end if;
-
       --  If the library unit is a predefined unit, and we are in high
       --  integrity mode, then temporarily reset Configurable_Run_Time_Mode
       --  for the analysis of the with'ed unit. This mode does not prevent
@@ -2501,9 +2499,9 @@ package body Sem_Ch10 is
          if Nkind (Nam) = N_Selected_Component
            and then Nkind (Prefix (Nam)) = N_Identifier
            and then Chars (Prefix (Nam)) = Name_Gnat
-           and then (Chars (Selector_Name (Nam)) = Name_Most_Recent_Exception
-                       or else
-                     Chars (Selector_Name (Nam)) = Name_Exception_Traces)
+           and then Nam_In (Chars (Selector_Name (Nam)),
+                            Name_Most_Recent_Exception,
+                            Name_Exception_Traces)
          then
             Check_Restriction (No_Exception_Propagation, N);
             Special_Exception_Package_Used := True;
@@ -3009,7 +3007,7 @@ package body Sem_Ch10 is
       Set_First_Name         (Withn, True);
       Set_Implicit_With      (Withn, True);
 
-      --  If the unit is a package or generic package  declaration, a private_
+      --  If the unit is a package or generic package declaration, a private_
       --  with_clause on a child unit implies that the implicit with on the
       --  parent is also private.
 

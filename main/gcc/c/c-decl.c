@@ -3703,9 +3703,6 @@ c_builtin_function_ext_scope (tree decl)
   const char *name = IDENTIFIER_POINTER (id);
   C_DECL_BUILTIN_PROTOTYPE (decl) = prototype_p (type);
 
-  /* Should never be called on a symbol with a preexisting meaning.  */
-  gcc_assert (!I_SYMBOL_BINDING (id));
-
   bind (id, decl, external_scope, /*invisible=*/false, /*nested=*/false,
 	UNKNOWN_LOCATION);
 
@@ -7297,6 +7294,12 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 
   layout_type (t);
 
+  if (TYPE_SIZE_UNIT (t)
+      && TREE_CODE (TYPE_SIZE_UNIT (t)) == INTEGER_CST
+      && !TREE_OVERFLOW (TYPE_SIZE_UNIT (t))
+      && !valid_constant_size_p (TYPE_SIZE_UNIT (t)))
+    error ("type %qT is too large", t);
+
   /* Give bit-fields their proper types.  */
   {
     tree *fieldlistp = &fieldlist;
@@ -8590,11 +8593,12 @@ check_for_loop_decls (location_t loc, bool turn_off_iso_c99_error)
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
       error_at (loc, "%<for%> loop initial declarations "
-		"are only allowed in C99 mode");
+		"are only allowed in C99 or C11 mode");
       if (hint)
 	{
 	  inform (loc,
-		  "use option -std=c99 or -std=gnu99 to compile your code");
+		  "use option -std=c99, -std=gnu99, -std=c11 or -std=gnu11 "
+		  "to compile your code");
 	  hint = false;
 	}
       return NULL_TREE;

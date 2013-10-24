@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "tree-pass.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "target.h"
@@ -606,7 +606,7 @@ static inline void
 clear_access_vars (void)
 {
   memset (access_vars.address (), 0,
-          access_vars.length () * sizeof(tree));
+          access_vars.length () * sizeof (tree));
 }
 
 /* Lower the entire function NODE.  */
@@ -699,20 +699,22 @@ create_emultls_var (struct varpool_node *var, void *data)
   tree cdecl;
   struct varpool_node *cvar;
 
-  cdecl = new_emutls_decl (var->symbol.decl, var->alias_of);
+  cdecl = new_emutls_decl (var->symbol.decl,
+			   var->symbol.alias && var->symbol.analyzed
+			   ? varpool_alias_target (var)->symbol.decl : NULL);
 
   cvar = varpool_get_node (cdecl);
   control_vars.quick_push (cvar);
 
-  if (!var->alias)
+  if (!var->symbol.alias)
     {
       /* Make sure the COMMON block control variable gets initialized.
 	 Note that there's no point in doing this for aliases; we only
 	 need to do this once for the main variable.  */
       emutls_common_1 (var->symbol.decl, cdecl, (tree *)data);
     }
-  if (var->alias && !var->alias_of)
-    cvar->alias = true;
+  if (var->symbol.alias && !var->symbol.analyzed)
+    cvar->symbol.alias = true;
 
   /* Indicate that the value of the TLS variable may be found elsewhere,
      preventing the variable from re-appearing in the GIMPLE.  We cheat
@@ -743,7 +745,7 @@ ipa_lower_emutls (void)
 	gcc_checking_assert (TREE_STATIC (var->symbol.decl)
 			     || DECL_EXTERNAL (var->symbol.decl));
 	varpool_node_set_add (tls_vars, var);
-	if (var->alias && var->analyzed)
+	if (var->symbol.alias && var->symbol.definition)
 	  varpool_node_set_add (tls_vars, varpool_variable_node (var, NULL));
       }
 
@@ -767,9 +769,9 @@ ipa_lower_emutls (void)
     {
       var = tls_vars->nodes[i];
 
-      if (var->alias && !var->alias_of)
+      if (var->symbol.alias && !var->symbol.analyzed)
 	any_aliases = true;
-      else if (!var->alias)
+      else if (!var->symbol.alias)
 	varpool_for_node_and_aliases (var, create_emultls_var, &ctor_body, true);
     }
 
@@ -798,7 +800,7 @@ ipa_lower_emutls (void)
   access_vars.release ();
   free_varpool_node_set (tls_vars);
 
-  return TODO_ggc_collect | TODO_verify_all;
+  return TODO_verify_all;
 }
 
 /* If the target supports TLS natively, we need do nothing here.  */
@@ -809,22 +811,40 @@ gate_emutls (void)
   return !targetm.have_tls;
 }
 
-struct simple_ipa_opt_pass pass_ipa_lower_emutls =
+namespace {
+
+const pass_data pass_data_ipa_lower_emutls =
 {
- {
-  SIMPLE_IPA_PASS,
-  "emutls",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_emutls,				/* gate */
-  ipa_lower_emutls,			/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_IPA_OPT,				/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,					/* todo_flags_finish */
- }
+  SIMPLE_IPA_PASS, /* type */
+  "emutls", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_OPT, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_ipa_lower_emutls : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_lower_emutls (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_lower_emutls, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_emutls (); }
+  unsigned int execute () { return ipa_lower_emutls (); }
+
+}; // class pass_ipa_lower_emutls
+
+} // anon namespace
+
+simple_ipa_opt_pass *
+make_pass_ipa_lower_emutls (gcc::context *ctxt)
+{
+  return new pass_ipa_lower_emutls (ctxt);
+}

@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "flags.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "function.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
@@ -90,25 +90,44 @@ execute_cleanup_cfg_post_optimizing (void)
   return todo;
 }
 
-struct gimple_opt_pass pass_cleanup_cfg_post_optimizing =
+namespace {
+
+const pass_data pass_data_cleanup_cfg_post_optimizing =
 {
- {
-  GIMPLE_PASS,
-  "optimized",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  execute_cleanup_cfg_post_optimizing,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_TREE_CLEANUP_CFG,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_remove_unused_locals             /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "optimized", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_CLEANUP_CFG, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_remove_unused_locals, /* todo_flags_finish */
 };
+
+class pass_cleanup_cfg_post_optimizing : public gimple_opt_pass
+{
+public:
+  pass_cleanup_cfg_post_optimizing (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cleanup_cfg_post_optimizing, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () {
+    return execute_cleanup_cfg_post_optimizing ();
+  }
+
+}; // class pass_cleanup_cfg_post_optimizing
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_cleanup_cfg_post_optimizing (gcc::context *ctxt)
+{
+  return new pass_cleanup_cfg_post_optimizing (ctxt);
+}
 
 /* IPA passes, compilation of earlier functions or inlining
    might have changed some properties, such as marked functions nothrow,
@@ -128,25 +147,20 @@ execute_fixup_cfg (void)
   edge e;
   edge_iterator ei;
 
-  if (ENTRY_BLOCK_PTR->count)
-    count_scale = ((cgraph_get_node (current_function_decl)->count
-		    * (double) REG_BR_PROB_BASE + ENTRY_BLOCK_PTR->count / 2)
-		   / ENTRY_BLOCK_PTR->count);
-  else
-    count_scale = REG_BR_PROB_BASE;
+  count_scale
+      = GCOV_COMPUTE_SCALE (cgraph_get_node (current_function_decl)->count,
+                            ENTRY_BLOCK_PTR->count);
 
   ENTRY_BLOCK_PTR->count = cgraph_get_node (current_function_decl)->count;
-  EXIT_BLOCK_PTR->count = (EXIT_BLOCK_PTR->count * (double) count_scale
-  			   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+  EXIT_BLOCK_PTR->count = apply_scale (EXIT_BLOCK_PTR->count,
+                                       count_scale);
 
   FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
-    e->count = (e->count * (double) count_scale
-       + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+    e->count = apply_scale (e->count, count_scale);
 
   FOR_EACH_BB (bb)
     {
-      bb->count = (bb->count * (double) count_scale
-		   + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+      bb->count = apply_scale (bb->count, count_scale);
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
@@ -179,8 +193,7 @@ execute_fixup_cfg (void)
 	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-          e->count = (e->count * (double) count_scale
-		    + REG_BR_PROB_BASE / 2) / REG_BR_PROB_BASE;
+        e->count = apply_scale (e->count, count_scale);
 
       /* If we have a basic block with no successors that does not
 	 end with a control statement or a noreturn call end it with
@@ -212,25 +225,47 @@ execute_fixup_cfg (void)
   if (dump_file)
     gimple_dump_cfg (dump_file, dump_flags);
 
+  if (current_loops
+      && (todo & TODO_cleanup_cfg))
+    loops_state_set (LOOPS_NEED_FIXUP);
+
   return todo;
 }
 
-struct gimple_opt_pass pass_fixup_cfg =
+namespace {
+
+const pass_data pass_data_fixup_cfg =
 {
- {
-  GIMPLE_PASS,
-  "*free_cfg_annotations",		/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  execute_fixup_cfg,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  0					/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "*free_cfg_annotations", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_fixup_cfg : public gimple_opt_pass
+{
+public:
+  pass_fixup_cfg (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_fixup_cfg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_fixup_cfg (m_ctxt); }
+  unsigned int execute () { return execute_fixup_cfg (); }
+
+}; // class pass_fixup_cfg
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_fixup_cfg (gcc::context *ctxt)
+{
+  return new pass_fixup_cfg (ctxt);
+}

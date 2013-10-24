@@ -3883,7 +3883,7 @@
 
 	  <para>Consider the two trees in the graphic below, labels A and B. The first
 	  is a tree of floats; the second is a tree of pairs, each
-	  signifying a geometric line interval. Each element in a tree is refered to as a node of the tree. Of course, each of
+	  signifying a geometric line interval. Each element in a tree is referred to as a node of the tree. Of course, each of
 	  these trees can support the usual queries: the first can easily
 	  search for <classname>0.4</classname>; the second can easily search for
 	  <classname>std::make_pair(10, 41)</classname>.</para>
@@ -5061,8 +5061,7 @@
     </para>
 
     <para>
-      This library was partially written at
-      <link xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="http://www.haifa.il.ibm.com/">IBM's Haifa Research Labs</link>.
+      This library was partially written at IBM's Haifa Research Labs.
       It is based heavily on policy-based design and uses many useful
       techniques from Modern C++ Design: Generic Programming and Design
       Patterns Applied by Andrei Alexandrescu.

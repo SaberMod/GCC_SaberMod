@@ -2026,20 +2026,8 @@ transfer_expr (gfc_se * se, gfc_typespec * ts, tree addr_expr, gfc_code * code)
       && ts->u.derived != NULL
       && (ts->is_iso_c == 1 || ts->u.derived->ts.is_iso_c == 1))
     {
-      /* C_PTR and C_FUNPTR have private components which means they can not
-         be printed.  However, if -std=gnu and not -pedantic, allow
-         the component to be printed to help debugging.  */
-      if (gfc_notification_std (GFC_STD_GNU) != SILENT)
-	{
-	  gfc_error_now ("Derived type '%s' at %L has PRIVATE components",
-			 ts->u.derived->name, code != NULL ? &(code->loc) : 
-			 &gfc_current_locus);
-	  return;
-	}
-
-      ts->type = ts->u.derived->ts.type;
-      ts->kind = ts->u.derived->ts.kind;
-      ts->f90_type = ts->u.derived->ts.f90_type;
+      ts->type = BT_INTEGER;
+      ts->kind = gfc_index_integer_kind;
     }
   
   kind = ts->kind;
@@ -2272,7 +2260,10 @@ gfc_trans_transfer (gfc_code * code)
 	    {
 	      for (n = 0; n < ref->u.ar.dimen; n++)
 		if (ref->u.ar.dimen_type[n] == DIMEN_VECTOR)
-		  seen_vector = true;
+		  {
+		    seen_vector = true;
+		    break;
+		  }
 	    }
 
 	  if (seen_vector && last_dt == READ)

@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree-pretty-print.h"
 #include "cfgloop.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-chrec.h"
 #include "dumpfile.h"
 #include "params.h"
@@ -268,9 +268,14 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
   switch (TREE_CODE (op0))
     {
     case POLYNOMIAL_CHREC:
+      gcc_checking_assert
+	(!chrec_contains_symbols_defined_in_loop (op0, CHREC_VARIABLE (op0)));
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return chrec_fold_plus_poly_poly (code, type, op0, op1);
 
 	CASE_CONVERT:
@@ -298,6 +303,9 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
 	    return build_polynomial_chrec
 	      (CHREC_VARIABLE (op1),
@@ -396,9 +404,14 @@ chrec_fold_multiply (tree type,
   switch (TREE_CODE (op0))
     {
     case POLYNOMIAL_CHREC:
+      gcc_checking_assert
+	(!chrec_contains_symbols_defined_in_loop (op0, CHREC_VARIABLE (op0)));
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return chrec_fold_multiply_poly_poly (type, op0, op1);
 
 	CASE_CONVERT:
@@ -431,6 +444,9 @@ chrec_fold_multiply (tree type,
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return build_polynomial_chrec
 	    (CHREC_VARIABLE (op1),
 	     chrec_fold_multiply (type, CHREC_LEFT (op1), op0),
@@ -517,7 +533,7 @@ chrec_evaluate (unsigned var, tree chrec, tree n, unsigned int k)
 {
   tree arg0, arg1, binomial_n_k;
   tree type = TREE_TYPE (chrec);
-  struct loop *var_loop = get_loop (var);
+  struct loop *var_loop = get_loop (cfun, var);
 
   while (TREE_CODE (chrec) == POLYNOMIAL_CHREC
 	 && flow_loop_nested_p (var_loop, get_chrec_loop (chrec)))
@@ -690,7 +706,7 @@ tree
 hide_evolution_in_other_loops_than_loop (tree chrec,
 					 unsigned loop_num)
 {
-  struct loop *loop = get_loop (loop_num), *chloop;
+  struct loop *loop = get_loop (cfun, loop_num), *chloop;
   if (automatically_generated_chrec_p (chrec))
     return chrec;
 
@@ -731,7 +747,7 @@ chrec_component_in_loop_num (tree chrec,
 			     bool right)
 {
   tree component;
-  struct loop *loop = get_loop (loop_num), *chloop;
+  struct loop *loop = get_loop (cfun, loop_num), *chloop;
 
   if (automatically_generated_chrec_p (chrec))
     return chrec;
@@ -813,7 +829,7 @@ reset_evolution_in_loop (unsigned loop_num,
 			 tree chrec,
 			 tree new_evol)
 {
-  struct loop *loop = get_loop (loop_num);
+  struct loop *loop = get_loop (cfun, loop_num);
 
   if (POINTER_TYPE_P (chrec_type (chrec)))
     gcc_assert (ptrofftype_p (chrec_type (new_evol)));
@@ -986,14 +1002,14 @@ evolution_function_is_invariant_rec_p (tree chrec, int loopnum)
 
   if (TREE_CODE (chrec) == SSA_NAME
       && (loopnum == 0
-	  || expr_invariant_in_loop_p (get_loop (loopnum), chrec)))
+	  || expr_invariant_in_loop_p (get_loop (cfun, loopnum), chrec)))
     return true;
 
   if (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
     {
       if (CHREC_VARIABLE (chrec) == (unsigned) loopnum
-	  || flow_loop_nested_p (get_loop (loopnum),
-				 get_loop (CHREC_VARIABLE (chrec)))
+	  || flow_loop_nested_p (get_loop (cfun, loopnum),
+				 get_chrec_loop (chrec))
 	  || !evolution_function_is_invariant_rec_p (CHREC_RIGHT (chrec),
 						     loopnum)
 	  || !evolution_function_is_invariant_rec_p (CHREC_LEFT (chrec),
