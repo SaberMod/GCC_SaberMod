@@ -750,7 +750,8 @@ initialize_node_lattices (struct cgraph_node *node)
       }
 
   for (ie = node->indirect_calls; ie; ie = ie->next_callee)
-    if (ie->indirect_info->polymorphic)
+    if (ie->indirect_info->polymorphic
+        && ie->indirect_info->param_index >= 0)
       {
 	gcc_checking_assert (ie->indirect_info->param_index >= 0);
 	ipa_get_parm_lattices (info,
@@ -1557,7 +1558,8 @@ ipa_get_indirect_edge_target (struct cgraph_edge *ie,
   if (TREE_CODE (t) != TREE_BINFO)
     {
       tree binfo;
-      binfo = gimple_extract_devirt_binfo_from_cst (t);
+      binfo = gimple_extract_devirt_binfo_from_cst
+		 (t, ie->indirect_info->otr_type);
       if (!binfo)
 	return NULL_TREE;
       binfo = get_binfo_at_offset (binfo, anc_offset, otr_type);
