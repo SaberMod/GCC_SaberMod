@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "debug.h"
 #include "intl.h"
+#include "l-ipo.h"
 
 /* Tree code classes.  */
 
@@ -11873,7 +11874,7 @@ types_same_for_odr (tree type1, tree type2)
   if (!same_for_odr (TYPE_CONTEXT (type1), TYPE_CONTEXT (type2)))
     return false;
   /* When not in LTO the MAIN_VARIANT check should be the same.  */
-  gcc_assert (in_lto_p);
+  gcc_assert (in_lto_p || L_IPO_COMP_MODE);
     
   return true;
 }

@@ -1673,7 +1673,6 @@ externalize_weak_decl (tree decl)
   DECL_EXTERNAL (decl) = 1;
   TREE_STATIC (decl) = 0;
   DECL_INITIAL (decl) = NULL;
-  DECL_CONTEXT (decl) = NULL;
 }
 
 /* Return a unique sequence number for NAME. This is needed to avoid
@@ -1891,7 +1890,6 @@ process_module_scope_static_var (struct varpool_node *vnode)
                 {
                   DECL_ASSEMBLER_NAME (decl);
                 }
-	      DECL_CONTEXT (decl) = NULL;
 	    }
         }
       else
