@@ -137,7 +137,7 @@ bool same_body_aliases_done;
    The cgraph_function_version_info has a THIS_NODE field that is the
    corresponding cgraph_node..  */
 
-static htab_t GTY((param_is (struct cgraph_function_version_info *)))
+static GTY((param_is (struct cgraph_function_version_info))) htab_t
   cgraph_fnver_htab = NULL;
 
 /* Hash function for cgraph_fnver_htab.  */
