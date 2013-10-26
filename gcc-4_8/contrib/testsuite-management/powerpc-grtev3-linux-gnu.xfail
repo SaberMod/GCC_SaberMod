@@ -79,14 +79,38 @@ FAIL: gcc.target/powerpc/tfmode_off.c object-size text == 544
 FAIL: gcc.dg/torture/fp-int-convert-long-double.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 FAIL: gcc.target/powerpc/ppc-get-timebase.c execution test
 FAIL: gcc.target/powerpc/ppc-mftb.c execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O0  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O1  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O2  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -fomit-frame-pointer  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -O3 -g  -pie -fPIE  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -fpic  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -fPIC  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -pie -fpie  execution test
+flaky | FAIL: gcc.dg/torture/tls/tls-test.c  -Os  -pie -fPIE  execution test
 
 # Execution failures common to Power targets running under QEMU.
 FAIL: gcc.dg/cleanup-10.c execution test
