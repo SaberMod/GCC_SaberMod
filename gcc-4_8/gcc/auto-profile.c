@@ -1287,6 +1287,7 @@ afdo_propagate (void)
 {
   basic_block bb;
   bool changed = true;
+  int i = 0;
 
   FOR_ALL_BB (bb)
     {
@@ -1295,7 +1296,7 @@ afdo_propagate (void)
 	bb->flags |= BB_ANNOTATED;
     }
 
-  while (changed)
+  while (changed && i++ < PARAM_VALUE (PARAM_AUTOFDO_MAX_PROPAGATE_ITERATIONS))
     {
       changed = false;
 
