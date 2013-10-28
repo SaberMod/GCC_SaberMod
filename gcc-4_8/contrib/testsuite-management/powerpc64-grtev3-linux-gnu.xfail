@@ -106,6 +106,9 @@ XPASS: gfortran.dg/nint_2.f90  -O0  execution test
 
 
 # *** libstdc++:
+# PPC-specific.  This test occasionally times out.
+flaky | UNRESOLVED: 20_util/hash/quality.cc execution test
+
 # PPC-specific.  TODO: Needs investigation.
 FAIL: libstdc++-abi/abi_check
 
