@@ -169,6 +169,15 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       else
 	{
 	  struct cgraph_node *n;
+	  if (flag_auto_profile && L_IPO_COMP_MODE
+	      && cgraph_pre_profiling_inlining_done)
+	    {
+	      struct cgraph_node *caller = e->caller;
+	      if (caller->global.inlined_to)
+		caller = caller->global.inlined_to;
+	      if (cgraph_lipo_get_resolved_node (caller->symbol.decl) != caller)
+		update_original = false;
+	    }
 	  n = cgraph_clone_node (e->callee, e->callee->symbol.decl,
 				 e->count, e->frequency,
 				 update_original, vNULL, true);
