@@ -1,6 +1,16 @@
 2013-10-30  Cong Hou  <congh@google.com>
 
 	Backport from mainline:
+	2013-10-30  Cong Hou  <congh@google.com>
+
+	PR target/58762
+	* config/i386/i386-protos.h (ix86_expand_sse2_abs): New function.
+	* config/i386/i386.c (ix86_expand_sse2_abs): New function.
+	* config/i386/sse.md: Add SSE2 support to abs (8/16/32-bit-int).
+
+2013-10-30  Cong Hou  <congh@google.com>
+
+	Backport from mainline:
 	2013-03-26  Richard Biener  <rguenther@suse.de>
 
 	* tree-cfg.c (execute_build_cfg): Build the loop tree.

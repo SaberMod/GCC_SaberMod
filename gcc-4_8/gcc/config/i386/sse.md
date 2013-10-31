@@ -8394,7 +8394,7 @@
    (set (attr "prefix_rex") (symbol_ref "x86_extended_reg_mentioned_p (insn)"))
    (set_attr "mode" "DI")])
 
-(define_insn "abs<mode>2"
+(define_insn "*abs<mode>2"
   [(set (match_operand:VI124_AVX2 0 "register_operand" "=x")
 	(abs:VI124_AVX2
 	  (match_operand:VI124_AVX2 1 "nonimmediate_operand" "xm")))]
@@ -8405,6 +8405,19 @@
    (set_attr "prefix_extra" "1")
    (set_attr "prefix" "maybe_vex")
    (set_attr "mode" "<sseinsnmode>")])
+
+(define_expand "abs<mode>2"
+  [(set (match_operand:VI124_AVX2 0 "register_operand")
+	(abs:VI124_AVX2
+	  (match_operand:VI124_AVX2 1 "nonimmediate_operand")))]
+  "TARGET_SSE2"
+{
+  if (!TARGET_SSSE3)
+    {
+      ix86_expand_sse2_abs (operands[0], operands[1]);
+      DONE;
+    }
+})
 
 (define_insn "abs<mode>2"
   [(set (match_operand:MMXMODEI 0 "register_operand" "=y")
