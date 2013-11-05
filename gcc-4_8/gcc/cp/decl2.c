@@ -3977,6 +3977,22 @@ handle_tls_init (void)
   expand_or_defer_fn (finish_function (0));
 }
 
+/* The entire file is now complete.  If requested, dump everything
+   to a file.  */
+
+static void
+dump_tu (void)
+{
+  int flags;
+  FILE *stream = dump_begin (TDI_tu, &flags);
+
+  if (stream)
+    {
+      dump_node (global_namespace, flags & ~TDF_SLIM, stream);
+      dump_end (TDI_tu, stream);
+    }
+}
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -4336,9 +4352,12 @@ cp_write_global_declarations (void)
       || !vec_safe_is_empty (decl_namespace_list))
     return;
 
+  /* This is the point to write out a PCH if we're doing that.
+     In that case we do not want to do anything else.  */
   if (pch_file)
     {
       c_common_write_pch ();
+      dump_tu ();
       return;
     }
 
@@ -4383,7 +4402,6 @@ cp_write_global_declarations (void)
   /* Collect candidates for Java hidden aliases.  */
   candidates = collect_candidates_for_java_method_aliases ();
 
-
   timevar_start (TV_PHASE_OPT_GEN);
 
   finalize_compilation_unit ();
@@ -4415,16 +4433,7 @@ cp_write_global_declarations (void)
 
   /* The entire file is now complete.  If requested, dump everything
      to a file.  */
-  {
-    int flags;
-    FILE *stream = dump_begin (TDI_tu, &flags);
-
-    if (stream)
-      {
-	dump_node (global_namespace, flags & ~TDF_SLIM, stream);
-	dump_end (TDI_tu, stream);
-      }
-  }
+  dump_tu ();
 
   if (flag_detailed_statistics)
     {

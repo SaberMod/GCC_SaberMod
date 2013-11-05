@@ -1,3 +1,26 @@
+2013-11-02  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from mainline
+	2013-09-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58355
+	* decl.c (check_extended_derived_type): Prevent segfault, modify error
+	message.
+
+2013-10-16  Release Manager
+
+	* GCC 4.8.2 released.
+
+2013-10-04  Tobias Burnus  <burnus@net-b.de>
+
+	Backport from mainline
+	2013-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/57697
+	PR fortran/58469
+	* resolve.c (generate_component_assignments): Avoid double free
+	at runtime and freeing a still-being used expr.
+
 2013-08-24  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/57798

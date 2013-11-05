@@ -6421,10 +6421,6 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
   /* Look for the `~'.  */
   cp_parser_require (parser, CPP_COMPL, RT_COMPL);
 
-  /* Once we see the ~, this has to be a pseudo-destructor.  */
-  if (!processing_template_decl && !cp_parser_error_occurred (parser))
-    cp_parser_commit_to_tentative_parse (parser);
-
   /* Look for the type-name again.  We are not responsible for
      checking that it matches the first type-name.  */
   *type = cp_parser_nonclass_name (parser);
@@ -11159,7 +11155,8 @@ cp_parser_function_specifier_opt (cp_parser* parser,
 	 A member function template shall not be virtual.  */
       if (PROCESSING_REAL_TEMPLATE_DECL_P ())
 	error_at (token->location, "templates may not be %<virtual%>");
-      set_and_check_decl_spec_loc (decl_specs, ds_virtual, token);
+      else
+	set_and_check_decl_spec_loc (decl_specs, ds_virtual, token);
       break;
 
     case RID_EXPLICIT:

@@ -1,3 +1,59 @@
+2013-10-25  Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/58282
+	* except.c (build_must_not_throw_expr): Handle
+	flag_exceptions.
+
+2013-10-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58596
+	* semantics.c (lambda_expr_this_capture): Handle NSDMIs in the
+	cp_unevaluated_operand case.
+
+2013-10-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58633
+	* parser.c (cp_parser_pseudo_destructor_name): Revert r174385 changes.
+
+2013-10-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57850
+	* decl2.c (dump_tu): Split out from...
+	(cp_write_global_declarations): ...here.  Call it in PCH mode.
+
+2013-10-16  Release Manager
+
+	* GCC 4.8.2 released.
+
+2013-10-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58568
+	* semantics.c (begin_lambda_type): Check return value of xref_tag
+	for error_mark_node; tidy.
+	* decl.c (grokdeclarator): Tweak error message.
+
+2013-10-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58535
+	* parser.c (cp_parser_function_specifier_opt): Upon error about
+	virtual templates don't set ds_virtual.
+
+2013-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58457
+	* class.c (instantiate_type): Loosen a bit the gcc_assert.
+
+2013-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58273
+	* pt.c (any_type_dependent_elements_p): Actually check for
+	type-dependence, not value-dependence.
+
+2013-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/58325
+	* init.c (build_vec_delete): Call mark_rvalue_use on base.
+
 2013-08-20  Jason Merrill  <jason@redhat.com>
 
 	PR c++/58119

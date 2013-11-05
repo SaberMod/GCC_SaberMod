@@ -383,7 +383,7 @@ mark_address (gimple stmt, tree addr, void *data)
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
     {
-      struct cgraph_node *node = cgraph_get_create_node (addr);
+      struct cgraph_node *node = cgraph_get_create_real_symbol_node (addr);
       if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
         node = cgraph_lipo_get_resolved_node (addr);
 

@@ -9032,6 +9032,8 @@ begin_lambda_type (tree lambda)
                      name,
                      /*scope=*/ts_lambda,
                      /*template_header_p=*/false);
+    if (type == error_mark_node)
+      return error_mark_node;
   }
 
   /* Designate it as a struct so that we can use aggregate initialization.  */
@@ -9046,8 +9048,6 @@ begin_lambda_type (tree lambda)
 
   /* Start the class.  */
   type = begin_class_definition (type);
-  if (type == error_mark_node)
-    return error_mark_node;
 
   return type;
 }
@@ -9506,7 +9506,14 @@ lambda_expr_this_capture (tree lambda)
   /* In unevaluated context this isn't an odr-use, so just return the
      nearest 'this'.  */
   if (cp_unevaluated_operand)
-    return lookup_name (this_identifier);
+    {
+      /* In an NSDMI the fake 'this' pointer that we're using for
+	 parsing is in scope_chain.  */
+      if (LAMBDA_EXPR_EXTRA_SCOPE (lambda)
+	  && TREE_CODE (LAMBDA_EXPR_EXTRA_SCOPE (lambda)) == FIELD_DECL)
+	return scope_chain->x_current_class_ptr;
+      return lookup_name (this_identifier);
+    }
 
   /* Try to default capture 'this' if we can.  */
   if (!this_capture
