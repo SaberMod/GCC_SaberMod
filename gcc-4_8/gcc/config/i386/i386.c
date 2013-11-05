@@ -1731,8 +1731,9 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_P4_NOCONA (m_PENT4 | m_NOCONA)
 #define m_CORE2 (1<<PROCESSOR_CORE2)
 #define m_COREI7 (1<<PROCESSOR_COREI7)
+#define m_COREI7_AVX (1<<PROCESSOR_COREI7_AVX)
 #define m_HASWELL (1<<PROCESSOR_HASWELL)
-#define m_CORE_ALL (m_CORE2 | m_COREI7  | m_HASWELL)
+#define m_CORE_ALL (m_CORE2 | m_COREI7  | m_COREI7_AVX | m_HASWELL)
 #define m_ATOM (1<<PROCESSOR_ATOM)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -1902,10 +1903,10 @@ static unsigned int initial_ix86_tune_features[X86_TUNE_LAST] = {
   m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM  | m_AMDFAM10 | m_BDVER | m_GENERIC,
 
   /* X86_TUNE_SSE_UNALIGNED_LOAD_OPTIMAL */
-  m_COREI7 | m_AMDFAM10 | m_BDVER | m_BTVER,
+  m_COREI7 | m_COREI7_AVX | m_AMDFAM10 | m_BDVER | m_BTVER,
 
   /* X86_TUNE_SSE_UNALIGNED_STORE_OPTIMAL */
-  m_COREI7 | m_BDVER,
+  m_COREI7 | m_COREI7_AVX | m_BDVER,
 
   /* X86_TUNE_SSE_PACKED_SINGLE_INSN_OPTIMAL */
   m_BDVER ,
@@ -2069,10 +2070,10 @@ static const unsigned int x86_arch_always_fancy_math_387
   = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_avx256_split_unaligned_load
-  = m_COREI7 | m_GENERIC;
+  = m_COREI7 | m_COREI7_AVX | m_GENERIC;
 
 static const unsigned int x86_avx256_split_unaligned_store
-  = m_COREI7 | m_BDVER | m_GENERIC;
+  = m_COREI7 | m_COREI7_AVX | m_BDVER | m_GENERIC;
 
 /* In case the average insn count for single function invocation is
    lower than this constant, emit fast (but longer) prologue and
@@ -2441,6 +2442,8 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&core_cost, 16, 10, 16, 10, 16},
   /* Core i7  */
   {&core_cost, 16, 10, 16, 10, 16},
+  /* Core i7 avx  */
+  {&core_cost, 16, 10, 16, 10, 16},
   /* Core avx2  */
   {&core_cost, 16, 10, 16, 10, 16},
   {&generic32_cost, 16, 7, 16, 7, 16},
@@ -2470,6 +2473,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "nocona",
   "core2",
   "corei7",
+  "corei7-avx",
   "core-avx2",
   "atom",
   "geode",
@@ -3131,12 +3135,12 @@ ix86_option_override_internal (bool main_args_p)
       {"corei7", PROCESSOR_COREI7, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
 	| PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT | PTA_FXSR},
-      {"corei7-avx", PROCESSOR_COREI7, CPU_COREI7,
+      {"corei7-avx", PROCESSOR_COREI7_AVX, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL
 	| PTA_FXSR | PTA_XSAVE | PTA_XSAVEOPT},
-      {"core-avx-i", PROCESSOR_COREI7, CPU_COREI7,
+      {"core-avx-i", PROCESSOR_COREI7_AVX, CPU_COREI7,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4_1 | PTA_SSE4_2 | PTA_AVX
 	| PTA_CX16 | PTA_POPCNT | PTA_AES | PTA_PCLMUL | PTA_FSGSBASE
@@ -24604,6 +24608,7 @@ ix86_issue_rate (void)
     case PROCESSOR_PENTIUM4:
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_COREI7_AVX:
     case PROCESSOR_HASWELL:
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
@@ -24861,6 +24866,7 @@ ia32_multipass_dfa_lookahead (void)
 
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_COREI7_AVX:
     case PROCESSOR_HASWELL:
     case PROCESSOR_ATOM:
       /* Generally, we want haifa-sched:max_issue() to look ahead as far
@@ -25406,6 +25412,7 @@ ix86_sched_init_global (FILE *dump ATTRIBUTE_UNUSED,
     {
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
+    case PROCESSOR_COREI7_AVX:
     case PROCESSOR_HASWELL:
       /* Do not perform multipass scheduling for pre-reload schedule
          to save compile time.  */
@@ -29255,6 +29262,10 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      arg_str = "corei7";
 	      priority = P_PROC_SSE4_2;
 	      break;
+            case PROCESSOR_COREI7_AVX:
+              arg_str = "corei7-avx";
+              priority = P_PROC_SSE4_2;
+              break;
 	    case PROCESSOR_ATOM:
 	      arg_str = "atom";
 	      priority = P_PROC_SSSE3;
