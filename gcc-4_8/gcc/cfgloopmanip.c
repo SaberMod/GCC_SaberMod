@@ -1262,6 +1262,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
       for (i = 0; i < ndupl; i++)
 	gcc_assert (scale_step[i] >= 0 && scale_step[i] <= REG_BR_PROB_BASE);
+      if (flag_auto_profile && scale_main == 0)
+	scale_main = REG_BR_PROB_BASE;
       gcc_assert (scale_main >= 0 && scale_main <= REG_BR_PROB_BASE
 		  && scale_act >= 0  && scale_act <= REG_BR_PROB_BASE);
     }
