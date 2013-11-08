@@ -29,13 +29,6 @@
 	PR fortran/58355
 	* gfortran.dg/extends_15.f90: New.
 
-2013-10-31  Cong Hou  <congh@google.com>
-
-	Backport from mainline:
-	2013-10-24  Cong Hou  <congh@google.com>
-
-	* gcc.c-torture/execute/20030125-1.c: Update.
-
 2013-10-29  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline

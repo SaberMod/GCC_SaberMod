@@ -44,11 +44,11 @@ __attribute__ ((noinline))
 double
 sin(double a)
 {
-	return a;
+	abort ();
 }
 __attribute__ ((noinline))
 float
 sinf(float a)
 {
-	abort ();
+	return a;
 }
