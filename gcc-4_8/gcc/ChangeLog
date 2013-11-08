@@ -1,3 +1,7 @@
+2013-11-08  Cong Hou  <congh@google.com>
+
+	* tree-vect-data-refs.c (comp_dr_addr_with_seg_len_pair): Bug fix.
+
 2013-11-07  Cong Hou  <congh@google.com>
 
 	Backport from mainline

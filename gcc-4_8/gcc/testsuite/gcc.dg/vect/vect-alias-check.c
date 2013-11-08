@@ -1,4 +1,4 @@
-/* { dg-require-effective-target vect_int } */
+/* { dg-require-effective-target sse2 } */
 /* { dg-do compile } */
 /* { dg-options "-O2 -ftree-vectorize --param=vect-max-version-for-alias-checks=2 -fdump-tree-vect-details" } */
 
