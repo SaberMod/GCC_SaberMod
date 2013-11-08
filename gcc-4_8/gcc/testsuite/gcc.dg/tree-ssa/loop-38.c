@@ -13,5 +13,6 @@ t(int n)
 	sum+=b[i];
   return sum;
 }
+/* { dg-final { scan-tree-dump "Found better loop bound 11" "cunrolli" } } */
 /* { dg-final { scan-tree-dump "Loop 1 iterates at most 11 times" "cunrolli" } } */
 /* { dg-final { cleanup-tree-dump "cunrolli" } } */

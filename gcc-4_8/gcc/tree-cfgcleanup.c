@@ -748,10 +748,9 @@ cleanup_tree_cfg (void)
   return changed;
 }
 
-/* Tries to merge the PHI nodes at BB into those at BB's sole successor.
-   Returns true if successful.  */
+/* Merge the PHI nodes at BB into those at BB's sole successor.  */
 
-static bool
+static void
 remove_forwarder_block_with_phi (basic_block bb)
 {
   edge succ = single_succ_edge (bb);
@@ -763,7 +762,7 @@ remove_forwarder_block_with_phi (basic_block bb)
      However it may happen that the infinite loop is created
      afterwards due to removal of forwarders.  */
   if (dest == bb)
-    return false;
+    return;
 
   /* If the destination block consists of a nonlocal label, do not
      merge it.  */
@@ -771,7 +770,7 @@ remove_forwarder_block_with_phi (basic_block bb)
   if (label
       && gimple_code (label) == GIMPLE_LABEL
       && DECL_NONLOCAL (gimple_label_label (label)))
-    return false;
+    return;
 
   /* Redirect each incoming edge to BB to DEST.  */
   while (EDGE_COUNT (bb->preds) > 0)
@@ -860,8 +859,6 @@ remove_forwarder_block_with_phi (basic_block bb)
   /* Remove BB since all of BB's incoming edges have been redirected
      to DEST.  */
   delete_basic_block (bb);
-
-  return true;
 }
 
 /* This pass merges PHI nodes if one feeds into another.  For example,
@@ -963,21 +960,13 @@ merge_phi_nodes (void)
     }
 
   /* Now let's drain WORKLIST.  */
-  bool changed = false;  
   while (current != worklist)
     {
       bb = *--current;
-      changed |= remove_forwarder_block_with_phi (bb);
+      remove_forwarder_block_with_phi (bb);
     }
 
   free (worklist);
-
-  /* Removing forwarder blocks can cause formerly irreducible loops
-     to become reducible if we merged two entry blocks.  */
-  if (changed
-      && current_loops)
-    loops_state_set (LOOPS_NEED_FIXUP);
-
   return 0;
 }
 

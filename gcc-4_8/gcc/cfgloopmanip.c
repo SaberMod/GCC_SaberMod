@@ -410,7 +410,7 @@ remove_path (edge e)
 
 /* Creates place for a new LOOP in loops structure.  */
 
-void
+static void
 place_new_loop (struct loop *loop)
 {
   loop->num = number_of_loops ();

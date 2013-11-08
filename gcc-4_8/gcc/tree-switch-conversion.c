@@ -36,7 +36,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
-#include "cfgloop.h"
 
 /* ??? For lang_hooks.types.type_for_mode, but is there a word_mode
    type in the GIMPLE type system that is language-independent?  */
@@ -1352,8 +1351,6 @@ process_switch (gimple swtch)
 	    fputs ("  expanding as bit test is preferable\n", dump_file);
 	  emit_case_bit_tests (swtch, info.index_expr,
 			       info.range_min, info.range_size);
-	  if (current_loops)
-	    loops_state_set (LOOPS_NEED_FIXUP);
 	  return NULL;
 	}
 
