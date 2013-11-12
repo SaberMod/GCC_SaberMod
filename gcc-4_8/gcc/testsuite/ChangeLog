@@ -1,14 +1,3 @@
-2013-11-08  Cong Hou  <congh@google.com>
-
-	* gcc.dg/vect/vect-alias-check.c: Update.
-
-2013-11-07  Cong Hou  <congh@google.com>
-
-	Backport from mainline
-	2013-11-07  Cong Hou  <congh@google.com>
-
-	* gcc.dg/vect/vect-alias-check.c: New.
-
 2013-11-04  Marek Polacek  <polacek@redhat.com>
 
 	Backport from mainline
