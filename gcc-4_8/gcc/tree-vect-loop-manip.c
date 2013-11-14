@@ -2282,17 +2282,12 @@ vect_vfa_segment_size (struct data_reference *dr, tree length_factor)
 static void
 vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
 				   tree * cond_expr,
-				   gimple_seq * cond_expr_stmt_list)
+				   gimple_seq *)
 {
-  struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  vec<ddr_p>  may_alias_ddrs =
-    LOOP_VINFO_MAY_ALIAS_DDRS (loop_vinfo);
-  int vect_factor = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  tree scalar_loop_iters = LOOP_VINFO_NITERS (loop_vinfo);
+  vec<dr_with_seg_len_pair_t> comp_alias_ddrs =
+    LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
 
-  ddr_p ddr;
-  unsigned int i;
-  tree part_cond_expr, length_factor;
+  tree part_cond_expr;
 
   /* Create expression
      ((store_ptr_0 + store_segment_length_0) <= load_ptr_0)
@@ -2303,67 +2298,39 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
      ((store_ptr_n + store_segment_length_n) <= load_ptr_n)
      || (load_ptr_n + load_segment_length_n) <= store_ptr_n))  */
 
-  if (may_alias_ddrs.is_empty ())
+  if (comp_alias_ddrs.is_empty ())
     return;
 
-  FOR_EACH_VEC_ELT (may_alias_ddrs, i, ddr)
+  for (size_t i = 0, s = comp_alias_ddrs.length (); i < s; ++i)
     {
-      struct data_reference *dr_a, *dr_b;
-      gimple dr_group_first_a, dr_group_first_b;
-      tree addr_base_a, addr_base_b;
-      tree segment_length_a, segment_length_b;
-      gimple stmt_a, stmt_b;
-      tree seg_a_min, seg_a_max, seg_b_min, seg_b_max;
+      const dr_with_seg_len& dr_a = comp_alias_ddrs[i].first;
+      const dr_with_seg_len& dr_b = comp_alias_ddrs[i].second;
+      tree segment_length_a = dr_a.seg_len;
+      tree segment_length_b = dr_b.seg_len;
 
-      dr_a = DDR_A (ddr);
-      stmt_a = DR_STMT (DDR_A (ddr));
-      dr_group_first_a = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_a));
-      if (dr_group_first_a)
-        {
-	  stmt_a = dr_group_first_a;
-	  dr_a = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_a));
-	}
-
-      dr_b = DDR_B (ddr);
-      stmt_b = DR_STMT (DDR_B (ddr));
-      dr_group_first_b = GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt_b));
-      if (dr_group_first_b)
-        {
-	  stmt_b = dr_group_first_b;
-	  dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt_b));
-	}
-
-      addr_base_a =
-        vect_create_addr_base_for_vector_ref (stmt_a, cond_expr_stmt_list,
-					      NULL_TREE, loop);
-      addr_base_b =
-        vect_create_addr_base_for_vector_ref (stmt_b, cond_expr_stmt_list,
-					      NULL_TREE, loop);
-
-      if (!operand_equal_p (DR_STEP (dr_a), DR_STEP (dr_b), 0))
-	length_factor = scalar_loop_iters;
-      else
-	length_factor = size_int (vect_factor);
-      segment_length_a = vect_vfa_segment_size (dr_a, length_factor);
-      segment_length_b = vect_vfa_segment_size (dr_b, length_factor);
+      tree addr_base_a
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_a.dr), dr_a.offset);
+      tree addr_base_b
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_b.dr), dr_b.offset);
 
       if (dump_enabled_p ())
 	{
-	  dump_printf_loc (MSG_NOTE, vect_location, 
-                           "create runtime check for data references ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a));
+	  dump_printf_loc (MSG_NOTE, vect_location,
+			   "create runtime check for data references ");
+	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_a.dr));
 	  dump_printf (MSG_NOTE, " and ");
-	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b));
+	  dump_generic_expr (MSG_NOTE, TDF_SLIM, DR_REF (dr_b.dr));
+	  dump_printf (MSG_NOTE, "\n");
 	}
 
-      seg_a_min = addr_base_a;
-      seg_a_max = fold_build_pointer_plus (addr_base_a, segment_length_a);
-      if (tree_int_cst_compare (DR_STEP (dr_a), size_zero_node) < 0)
+      tree seg_a_min = addr_base_a;
+      tree seg_a_max = fold_build_pointer_plus (addr_base_a, segment_length_a);
+      if (tree_int_cst_compare (DR_STEP (dr_a.dr), size_zero_node) < 0)
 	seg_a_min = seg_a_max, seg_a_max = addr_base_a;
 
-      seg_b_min = addr_base_b;
-      seg_b_max = fold_build_pointer_plus (addr_base_b, segment_length_b);
-      if (tree_int_cst_compare (DR_STEP (dr_b), size_zero_node) < 0)
+      tree seg_b_min = addr_base_b;
+      tree seg_b_max = fold_build_pointer_plus (addr_base_b, segment_length_b);
+      if (tree_int_cst_compare (DR_STEP (dr_b.dr), size_zero_node) < 0)
 	seg_b_min = seg_b_max, seg_b_max = addr_base_b;
 
       part_cond_expr =
@@ -2381,7 +2348,9 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo,
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
 		     "created %u versioning for alias checks.\n",
-		     may_alias_ddrs.length ());
+		     comp_alias_ddrs.length ());
+
+  comp_alias_ddrs.release ();
 }
 
 

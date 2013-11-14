@@ -1,3 +1,27 @@
+2013-11-14  Cong Hou  <congh@google.com>
+
+	Backport from mainline
+	2013-11-14  Cong Hou  <congh@google.com>
+
+	* tree-vectorizer.h (struct dr_with_seg_len): Remove the base
+	address field as it can be obtained from dr.  Rename the struct.
+	* tree-vect-data-refs.c (comp_dr_with_seg_len_pair): Consider
+	steps of data references during sort.
+	(vect_prune_runtime_alias_test_list): Adjust with the change to
+	struct dr_with_seg_len.
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
+	Adjust with the change to struct dr_with_seg_len.
+
+	2013-11-07  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/56764
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
+	Combine alias checks if it is possible to amortize the runtime
+	overhead.  Return the number of alias checks after merging.
+	* tree-vect-data-refs.c (vect_prune_runtime_alias_test_list):
+	Use the function vect_create_cond_for_alias_checks () to check
+	the number of alias checks.
+
 2013-11-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline
