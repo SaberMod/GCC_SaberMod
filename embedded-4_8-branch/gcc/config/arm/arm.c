@@ -265,6 +265,7 @@ static reg_class_t arm_preferred_rename_class (reg_class_t rclass);
 static unsigned int arm_autovectorize_vector_sizes (void);
 static int arm_default_branch_cost (bool, bool);
 static int arm_cortex_a5_branch_cost (bool, bool);
+static int arm_cortex_m_branch_cost (bool, bool);
 
 static bool arm_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 					     const unsigned char *sel);
@@ -1069,6 +1070,27 @@ const struct tune_params arm_cortex_a9_tune =
   false,					/* Prefer LDRD/STRD.  */
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
+};
+
+/* armv7m tuning.  On Cortex-M4 cores for example, MOVW/MOVT take a single
+   cycle to execute each.  An LDR from the constant pool also takes two cycles
+   to execute, but mildly increases pipelining opportunity (consecutive
+   loads/stores can be pipelined together, saving one cycle), and may also
+   improve icache utilisation.  Hence we prefer the constant pool for such
+   processors.  */
+
+const struct tune_params arm_v7m_tune =
+{
+  arm_9e_rtx_costs,
+  NULL,						/* Sched adj cost.  */
+  1,						/* Constant limit.  */
+  5,						/* Max cond insns.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  true,						/* Prefer constant pool.  */
+  arm_cortex_m_branch_cost,
+  false,					/* Prefer LDRD/STRD.  */
+  {false, false},				/* Prefer non short circuit.  */
+  &arm_default_vec_cost,			/* Vectorizer costs.  */
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
@@ -9088,6 +9110,20 @@ static int
 arm_cortex_a5_branch_cost (bool speed_p, bool predictable_p)
 {
   return speed_p ? 0 : arm_default_branch_cost (speed_p, predictable_p);
+}
+
+/* Thumb-2 branches are relatively cheap on Cortex-M processors ("1 + P cycles"
+   on Cortex-M4, where P varies from 1 to 3 according to some criteria), since
+   sequences of non-executed instructions in IT blocks probably take the same
+   amount of time as executed instructions (and the IT instruction itself takes
+   space in icache).  This function was experimentally determined to give good
+   results on a popular embedded benchmark.  */
+
+static int
+arm_cortex_m_branch_cost (bool speed_p, bool predictable_p)
+{
+  return (TARGET_32BIT && speed_p) ? 1
+         : arm_default_branch_cost (speed_p, predictable_p);
 }
 
 static bool fp_consts_inited = false;

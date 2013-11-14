@@ -1,3 +1,9 @@
+2013-11-14  Joey Ye  <joey.ye@arm.com>
+
+	Backport mainline r204778
+	* gcc.dg/tree-ssa/vrp47.c: Disable for cortex_m.
+
+
 2013-08-05  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r197956
