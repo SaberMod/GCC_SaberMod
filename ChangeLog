@@ -1,7 +1,10 @@
-2013-07-10  Jack Howarth  <howarth@bromo.med.uc.edu>
+2013-10-16  Release Manager
 
-	PR target/57792
-	* configure.ac: Use --with-sysroot=\"`xcrun --show-sdk-path`\" on darwin13 and later.
+	* GCC 4.8.2 released.
+
+2013-09-03  Richard Biener  <rguenther@suse.de>
+
+	* configure.ac: Also allow ISL 0.12.
 	* configure: Regenerated.
 
 2013-05-31  Release Manager
