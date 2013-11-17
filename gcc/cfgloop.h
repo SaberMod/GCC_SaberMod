@@ -20,11 +20,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGLOOP_H
 #define GCC_CFGLOOP_H
 
-#include "basic-block.h"
 #include "double-int.h"
-
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "function.h"
 
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
@@ -168,6 +167,20 @@ struct GTY ((chain_next ("%h.next"))) loop {
      describes what is the state of the estimation.  */
   enum loop_estimation estimate_state;
 
+  /* If > 0, an integer, where the user asserted that for any
+     I in [ 0, nb_iterations ) and for any J in
+     [ I, min ( I + safelen, nb_iterations ) ), the Ith and Jth iterations
+     of the loop can be safely evaluated concurrently.  */
+  int safelen;
+
+  /* True if we should try harder to vectorize this loop.  */
+  bool force_vect;
+
+  /* For SIMD loops, this is a unique identifier of the loop, referenced
+     by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE
+     builtins.  */
+  tree simduid;
+
   /* Upper bound on number of iterations of a loop.  */
   struct nb_iter_bound *bounds;
 
@@ -241,7 +254,6 @@ extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
 struct eni_weights_d;
-extern unsigned tree_num_loop_insns (struct loop *, struct eni_weights_d *);
 extern int num_loop_insns (const struct loop *);
 extern int average_num_loop_insns (const struct loop *);
 extern unsigned get_loop_level (const struct loop *);
@@ -292,16 +304,6 @@ gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
-void estimate_numbers_of_iterations_loop (struct loop *);
-void record_niter_bound (struct loop *, double_int, bool, bool);
-bool estimated_loop_iterations (struct loop *, double_int *);
-bool max_loop_iterations (struct loop *, double_int *);
-HOST_WIDE_INT estimated_loop_iterations_int (struct loop *);
-HOST_WIDE_INT max_loop_iterations_int (struct loop *);
-bool max_stmt_executions (struct loop *, double_int *);
-bool estimated_stmt_executions (struct loop *, double_int *);
-HOST_WIDE_INT max_stmt_executions_int (struct loop *);
-HOST_WIDE_INT estimated_stmt_executions_int (struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (const struct loop *loop);
@@ -452,14 +454,6 @@ loop_depth (const struct loop *loop)
   return vec_safe_length (loop->superloops);
 }
 
-/* Returns the loop depth of the loop BB belongs to.  */
-
-static inline int
-bb_loop_depth (const_basic_block bb)
-{
-  return bb->loop_father ? loop_depth (bb->loop_father) : 0;
-}
-
 /* Returns the immediate superloop of LOOP, or NULL if LOOP is the outermost
    loop.  */
 
@@ -501,7 +495,7 @@ static inline unsigned
 number_of_loops (struct function *fn)
 {
   struct loops *loops = loops_for_fn (fn);
-  if (!fn)
+  if (!loops)
     return 0;
 
   return vec_safe_length (loops->larray);
@@ -721,7 +715,6 @@ enum
 extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
-extern bool finite_loop_p (struct loop *);
 extern void scale_loop_profile (struct loop *loop, int scale, gcov_type iteration_bound);
 extern vec<basic_block> get_loop_hot_path (const struct loop *loop);
 
@@ -737,5 +730,27 @@ loop_outermost (struct loop *loop)
   return (*loop->superloops)[1];
 }
 
+extern void record_niter_bound (struct loop *, double_int, bool, bool);
+extern HOST_WIDE_INT get_estimated_loop_iterations_int (struct loop *);
+extern HOST_WIDE_INT get_max_loop_iterations_int (struct loop *);
+extern bool get_estimated_loop_iterations (struct loop *loop, double_int *nit);
+extern bool get_max_loop_iterations (struct loop *loop, double_int *nit);
+extern int bb_loop_depth (const_basic_block);
 
+/* Converts VAL to double_int.  */
+
+static inline double_int
+gcov_type_to_double_int (gcov_type val)
+{
+  double_int ret;
+
+  ret.low = (unsigned HOST_WIDE_INT) val;
+  /* If HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_WIDEST_INT, avoid shifting by
+     the size of type.  */
+  val >>= HOST_BITS_PER_WIDE_INT - 1;
+  val >>= 1;
+  ret.high = (unsigned HOST_WIDE_INT) val;
+
+  return ret;
+}
 #endif /* GCC_CFGLOOP_H */

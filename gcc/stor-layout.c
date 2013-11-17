@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "gimple.h"
+#include "gimplify.h"
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
@@ -383,6 +384,7 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_VECTOR_ACCUM:
     case MODE_VECTOR_UFRACT:
     case MODE_VECTOR_UACCUM:
+    case MODE_POINTER_BOUNDS:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
       break;
 
@@ -606,14 +608,10 @@ layout_decl (tree decl, unsigned int known_align)
 
 	  /* See if we can use an ordinary integer mode for a bit-field.
 	     Conditions are: a fixed size that is correct for another mode,
-	     occupying a complete byte or bytes on proper boundary,
-	     and not -fstrict-volatile-bitfields.  If the latter is set,
-	     we unfortunately can't check TREE_THIS_VOLATILE, as a cast
-	     may make a volatile object later.  */
+	     occupying a complete byte or bytes on proper boundary.  */
 	  if (TYPE_SIZE (type) != 0
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	      && flag_strict_volatile_bitfields <= 0)
+	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT)
 	    {
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
@@ -1352,7 +1350,7 @@ place_field (record_layout_info rli, tree field)
 
 	      /* Cause a new bitfield to be captured, either this time (if
 		 currently a bitfield) or next time we see one.  */
-	      if (!DECL_BIT_FIELD_TYPE(field)
+	      if (!DECL_BIT_FIELD_TYPE (field)
 		  || integer_zerop (DECL_SIZE (field)))
 		rli->prev_field = NULL;
 	    }
@@ -2052,18 +2050,9 @@ layout_type (tree type)
 	 of the language-specific code.  */
       gcc_unreachable ();
 
-    case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill.  */
-      if (TYPE_PRECISION (type) == 0)
-	TYPE_PRECISION (type) = 1; /* default to one byte/boolean.  */
-
-      /* ... fall through ...  */
-
+    case BOOLEAN_TYPE:
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
-      if (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
-	  && tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0)
-	TYPE_UNSIGNED (type) = 1;
-
       SET_TYPE_MODE (type,
 		     smallest_mode_for_size (TYPE_PRECISION (type), MODE_INT));
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
@@ -2133,6 +2122,14 @@ layout_type (tree type)
       TYPE_ALIGN (type) = 1;
       TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type, VOIDmode);
+      break;
+
+    case POINTER_BOUNDS_TYPE:
+      SET_TYPE_MODE (type,
+                     mode_for_size (TYPE_PRECISION (type),
+				    MODE_POINTER_BOUNDS, 0));
+      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case OFFSET_TYPE:
@@ -2520,6 +2517,12 @@ set_min_and_max_values_for_integral_type (tree type,
   tree min_value;
   tree max_value;
 
+  /* For bitfields with zero width we end up creating integer types
+     with zero precision.  Don't assign any minimum/maximum values
+     to those types, they don't have any valid value.  */
+  if (precision < 1)
+    return;
+
   if (is_unsigned)
     {
       min_value = build_int_cst (type, 0);
@@ -2627,12 +2630,12 @@ bit_field_mode_iterator
 			   HOST_WIDE_INT bitregion_start,
 			   HOST_WIDE_INT bitregion_end,
 			   unsigned int align, bool volatilep)
-: mode_ (GET_CLASS_NARROWEST_MODE (MODE_INT)), bitsize_ (bitsize),
-  bitpos_ (bitpos), bitregion_start_ (bitregion_start),
-  bitregion_end_ (bitregion_end), align_ (align),
-  volatilep_ (volatilep), count_ (0)
+: m_mode (GET_CLASS_NARROWEST_MODE (MODE_INT)), m_bitsize (bitsize),
+  m_bitpos (bitpos), m_bitregion_start (bitregion_start),
+  m_bitregion_end (bitregion_end), m_align (align),
+  m_volatilep (volatilep), m_count (0)
 {
-  if (!bitregion_end_)
+  if (!m_bitregion_end)
     {
       /* We can assume that any aligned chunk of ALIGN bits that overlaps
 	 the bitfield is mapped and won't trap, provided that ALIGN isn't
@@ -2642,8 +2645,8 @@ bit_field_mode_iterator
 	= MIN (align, MAX (BIGGEST_ALIGNMENT, BITS_PER_WORD));
       if (bitsize <= 0)
 	bitsize = 1;
-      bitregion_end_ = bitpos + bitsize + units - 1;
-      bitregion_end_ -= bitregion_end_ % units + 1;
+      m_bitregion_end = bitpos + bitsize + units - 1;
+      m_bitregion_end -= m_bitregion_end % units + 1;
     }
 }
 
@@ -2654,12 +2657,12 @@ bit_field_mode_iterator
 bool
 bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 {
-  for (; mode_ != VOIDmode; mode_ = GET_MODE_WIDER_MODE (mode_))
+  for (; m_mode != VOIDmode; m_mode = GET_MODE_WIDER_MODE (m_mode))
     {
-      unsigned int unit = GET_MODE_BITSIZE (mode_);
+      unsigned int unit = GET_MODE_BITSIZE (m_mode);
 
       /* Skip modes that don't have full precision.  */
-      if (unit != GET_MODE_PRECISION (mode_))
+      if (unit != GET_MODE_PRECISION (m_mode))
 	continue;
 
       /* Stop if the mode is too wide to handle efficiently.  */
@@ -2668,31 +2671,31 @@ bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 
       /* Don't deliver more than one multiword mode; the smallest one
 	 should be used.  */
-      if (count_ > 0 && unit > BITS_PER_WORD)
+      if (m_count > 0 && unit > BITS_PER_WORD)
 	break;
 
       /* Skip modes that are too small.  */
-      unsigned HOST_WIDE_INT substart = (unsigned HOST_WIDE_INT) bitpos_ % unit;
-      unsigned HOST_WIDE_INT subend = substart + bitsize_;
+      unsigned HOST_WIDE_INT substart = (unsigned HOST_WIDE_INT) m_bitpos % unit;
+      unsigned HOST_WIDE_INT subend = substart + m_bitsize;
       if (subend > unit)
 	continue;
 
       /* Stop if the mode goes outside the bitregion.  */
-      HOST_WIDE_INT start = bitpos_ - substart;
-      if (bitregion_start_ && start < bitregion_start_)
+      HOST_WIDE_INT start = m_bitpos - substart;
+      if (m_bitregion_start && start < m_bitregion_start)
 	break;
       HOST_WIDE_INT end = start + unit;
-      if (end > bitregion_end_ + 1)
+      if (end > m_bitregion_end + 1)
 	break;
 
       /* Stop if the mode requires too much alignment.  */
-      if (GET_MODE_ALIGNMENT (mode_) > align_
-	  && SLOW_UNALIGNED_ACCESS (mode_, align_))
+      if (GET_MODE_ALIGNMENT (m_mode) > m_align
+	  && SLOW_UNALIGNED_ACCESS (m_mode, m_align))
 	break;
 
-      *out_mode = mode_;
-      mode_ = GET_MODE_WIDER_MODE (mode_);
-      count_++;
+      *out_mode = m_mode;
+      m_mode = GET_MODE_WIDER_MODE (m_mode);
+      m_count++;
       return true;
     }
   return false;
@@ -2704,7 +2707,7 @@ bit_field_mode_iterator::next_mode (enum machine_mode *out_mode)
 bool
 bit_field_mode_iterator::prefer_smaller_modes ()
 {
-  return (volatilep_
+  return (m_volatilep
 	  ? targetm.narrow_volatile_bitfield ()
 	  : !SLOW_BYTE_ACCESS);
 }

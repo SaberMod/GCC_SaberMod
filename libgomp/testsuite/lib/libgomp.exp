@@ -167,8 +167,8 @@ proc libgomp_init { args } {
     # Disable caret
     lappend ALWAYS_CFLAGS "additional_flags=-fno-diagnostics-show-caret"
 
-    # And, gee, turn on OpenMP.
-    lappend ALWAYS_CFLAGS "additional_flags=-fopenmp"
+    # Disable color diagnostics
+    lappend ALWAYS_CFLAGS "additional_flags=-fdiagnostics-color=never"
 }
 
 #

@@ -251,6 +251,11 @@ begin
    Write_Switch_Char ("eT=?");
    Write_Line ("Read target dependent information file ?, e.g. gnateT=tdf");
 
+   --  Line for -gnateu switch
+
+   Write_Switch_Char ("eu");
+   Write_Line ("Ignore unrecognized style/validity/warning switches");
+
    --  Line for -gnateV switch
 
    Write_Switch_Char ("eV");
@@ -381,7 +386,8 @@ begin
    --  Lines for -gnatR switch
 
    Write_Switch_Char ("R?");
-   Write_Line ("List rep info (?=0/1/2/3 for none/types/all/variable)");
+   Write_Line
+     ("List rep info (?=0/1/2/3/m for none/types/all/variable/mechanisms)");
    Write_Switch_Char ("R?s");
    Write_Line ("List rep info to file.rep instead of standard output");
 
@@ -570,6 +576,8 @@ begin
    Write_Line ("        .X*  turn off warnings for non-local exception");
    Write_Line ("        y*+  turn on warnings for Ada compatibility issues");
    Write_Line ("        Y    turn off warnings for Ada compatibility issues");
+   Write_Line ("        .y   turn on info messages for why pkg body needed");
+   Write_Line ("        .Y*  turn off info messages for why pkg body needed");
    Write_Line ("        z*+  turn on warnings for suspicious " &
                                                   "unchecked conversion");
    Write_Line ("        Z    turn off warnings for suspicious " &
@@ -626,8 +634,8 @@ begin
    Write_Line ("        l    check reference manual layout");
    Write_Line ("        Lnn  check max nest level < nn ");
    Write_Line ("        m    check line length <= 79 characters");
-   Write_Line ("        n    check casing of package Standard identifiers");
    Write_Line ("        Mnn  check line length <= nn characters");
+   Write_Line ("        n    check casing of package Standard identifiers");
    Write_Line ("        N    turn off all checks");
    Write_Line ("        o    check subprogram bodies in alphabetical order");
    Write_Line ("        O    check overriding indicators");

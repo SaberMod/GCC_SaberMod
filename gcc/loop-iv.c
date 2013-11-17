@@ -99,8 +99,8 @@ static unsigned int iv_ref_table_size = 0;
 static struct rtx_iv ** iv_ref_table;
 
 /* Induction variable stored at the reference.  */
-#define DF_REF_IV(REF) iv_ref_table[DF_REF_ID(REF)]
-#define DF_REF_IV_SET(REF, IV) iv_ref_table[DF_REF_ID(REF)] = (IV)
+#define DF_REF_IV(REF) iv_ref_table[DF_REF_ID (REF)]
+#define DF_REF_IV_SET(REF, IV) iv_ref_table[DF_REF_ID (REF)] = (IV)
 
 /* The current loop.  */
 
@@ -212,7 +212,7 @@ lowpart_subreg (enum machine_mode outer_mode, rtx expr,
 static void
 check_iv_ref_table_size (void)
 {
-  if (iv_ref_table_size < DF_DEFS_TABLE_SIZE())
+  if (iv_ref_table_size < DF_DEFS_TABLE_SIZE ())
     {
       unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       iv_ref_table = XRESIZEVEC (struct rtx_iv *, iv_ref_table, new_size);
@@ -436,7 +436,9 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
-      val = lowpart_subreg (mode, val, iv->extend_mode);
+      val = lowpart_subreg (mode, val,
+			    iv->extend == IV_UNKNOWN_EXTEND
+			    ? iv->mode : iv->extend_mode);
 
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
@@ -476,8 +478,14 @@ iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, enum machine_mode mode
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
+      if (iv->extend_mode != iv->mode
+	  && iv->extend != IV_UNKNOWN_EXTEND
+	  && iv->extend != extend)
+	val = lowpart_subreg (iv->mode, val, iv->extend_mode);
       val = simplify_gen_unary (iv_extend_to_rtx_code (extend), mode,
-				val, iv->extend_mode);
+				val,
+				iv->extend == extend
+				? iv->extend_mode : iv->mode);
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
       iv->mode = iv->extend_mode = mode;
@@ -2672,11 +2680,11 @@ iv_number_of_iterations (struct loop *loop, rtx insn, rtx condition,
       bound = GEN_INT (((unsigned HOST_WIDEST_INT) 1 << (size - 1 ) << 1) - 1);
 
       tmp1 = lowpart_subreg (mode, iv1.base, comp_mode);
-      tmp = simplify_gen_binary (UMOD, mode, tmp1, GEN_INT (d));
+      tmp = simplify_gen_binary (UMOD, mode, tmp1, gen_int_mode (d, mode));
       assumption = simplify_gen_relational (NE, SImode, mode, tmp, const0_rtx);
       desc->infinite = alloc_EXPR_LIST (0, assumption, desc->infinite);
 
-      tmp = simplify_gen_binary (UDIV, mode, tmp1, GEN_INT (d));
+      tmp = simplify_gen_binary (UDIV, mode, tmp1, gen_int_mode (d, mode));
       inv = inverse (s, size);
       tmp = simplify_gen_binary (MULT, mode, tmp, gen_int_mode (inv, mode));
       desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
@@ -3001,9 +3009,9 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
       	  fprintf (dump_file, "\n");
 
 	  fprintf (dump_file, "  upper bound: %li\n",
-		   (long)max_loop_iterations_int (loop));
+		   (long)get_max_loop_iterations_int (loop));
 	  fprintf (dump_file, "  realistic bound: %li\n",
-		   (long)estimated_loop_iterations_int (loop));
+		   (long)get_estimated_loop_iterations_int (loop));
 	}
       else
 	fprintf (dump_file, "Loop %d is not simple.\n", loop->num);

@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_warn_unused_result);
   NEXT_PASS (pass_diagnose_omp_blocks);
   NEXT_PASS (pass_diagnose_tm_blocks);
-  NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_tm);
@@ -104,6 +103,7 @@ along with GCC; see the file COPYING3.  If not see
   INSERT_PASSES_AFTER (all_regular_ipa_passes)
   NEXT_PASS (pass_ipa_whole_program_visibility);
   NEXT_PASS (pass_ipa_profile);
+  NEXT_PASS (pass_ipa_devirt);
   NEXT_PASS (pass_ipa_cp);
   NEXT_PASS (pass_ipa_cdtor_merge);
   NEXT_PASS (pass_ipa_inline);
@@ -167,9 +167,16 @@ along with GCC; see the file COPYING3.  If not see
 	 is removed, and this place fits nicely.  Remember this when
 	 trying to move or duplicate pass_dominator somewhere earlier.  */
       NEXT_PASS (pass_dominator);
+      /* At this point the majority of const/copy propagations
+	 are exposed.  Go ahead and identify paths that should never
+	 be executed in a conforming program and isolate those paths.
+
+	 This will expose more degenerate PHIs in the main path and
+	 expose more PRE/DOM optimization opportunities.  */
+      NEXT_PASS (pass_isolate_erroneous_paths);
       /* The only const/copy propagation opportunities left after
-	 DOM should be due to degenerate PHI nodes.  So rather than
-	 run the full propagators, run a specialized pass which
+	 DOM and erroneous path isolation should be due to degenerate PHI nodes.
+	 So rather than run the full propagators, run a specialized pass which
 	 only examines PHIs to discover const/copy propagation
 	 opportunities.  */
       NEXT_PASS (pass_phi_only_cprop);
@@ -239,7 +246,13 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_vrp);
       NEXT_PASS (pass_cd_dce);
       NEXT_PASS (pass_tracer);
-
+      NEXT_PASS (pass_dse);
+      NEXT_PASS (pass_forwprop);
+      NEXT_PASS (pass_phiopt);
+      NEXT_PASS (pass_fold_builtins);
+      NEXT_PASS (pass_optimize_widening_mul);
+      NEXT_PASS (pass_tail_calls);
+      NEXT_PASS (pass_rename_ssa_copies);
       /* FIXME: If DCE is not run before checking for uninitialized uses,
 	 we may get false warnings (e.g., testsuite/gcc.dg/uninit-5.c).
 	 However, this also causes us to misdiagnose cases that should be
@@ -249,14 +262,10 @@ along with GCC; see the file COPYING3.  If not see
 	 account for the predicates protecting the set and the use of each
 	 variable.  Using a representation like Gated Single Assignment
 	 may help.  */
+      /* Split critical edges before late uninit warning to reduce the
+         number of false positives from it.  */
+      NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_late_warn_uninitialized);
-      NEXT_PASS (pass_dse);
-      NEXT_PASS (pass_forwprop);
-      NEXT_PASS (pass_phiopt);
-      NEXT_PASS (pass_fold_builtins);
-      NEXT_PASS (pass_optimize_widening_mul);
-      NEXT_PASS (pass_tail_calls);
-      NEXT_PASS (pass_rename_ssa_copies);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
   POP_INSERT_PASSES ()
@@ -282,6 +291,9 @@ along with GCC; see the file COPYING3.  If not see
       /* ???  We do want some kind of loop invariant motion, but we possibly
          need to adjust LIM to be more friendly towards preserving accurate
 	 debug information here.  */
+      /* Split critical edges before late uninit warning to reduce the
+         number of false positives from it.  */
+      NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_late_warn_uninitialized);
       NEXT_PASS (pass_uncprop);
       NEXT_PASS (pass_local_pure_const);
@@ -292,6 +304,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_tm_memopt);
       NEXT_PASS (pass_tm_edges);
   POP_INSERT_PASSES ()
+  NEXT_PASS (pass_vtable_verify);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_asan_O0);
@@ -299,7 +312,6 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_cleanup_eh);
   NEXT_PASS (pass_lower_resx);
   NEXT_PASS (pass_nrv);
-  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   NEXT_PASS (pass_warn_function_noreturn);
 
@@ -346,7 +358,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_combine);
       NEXT_PASS (pass_if_after_combine);
       NEXT_PASS (pass_partition_blocks);
-      NEXT_PASS (pass_regmove);
       NEXT_PASS (pass_outof_cfg_layout_mode);
       NEXT_PASS (pass_split_all_insns);
       NEXT_PASS (pass_lower_subreg2);
@@ -355,6 +366,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_mode_switching);
       NEXT_PASS (pass_match_asm_constraints);
       NEXT_PASS (pass_sms);
+      NEXT_PASS (pass_live_range_shrinkage);
       NEXT_PASS (pass_sched);
       NEXT_PASS (pass_ira);
       NEXT_PASS (pass_reload);

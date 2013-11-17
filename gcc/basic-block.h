@@ -24,13 +24,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "function.h"
 
-/* Type we use to hold basic block counters.  Should be at least
+/* Use gcov_type to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
    flow graph is manipulated by various optimizations.  A signed type
    makes those easy to detect.  */
-typedef HOST_WIDEST_INT gcov_type;
-typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 
 /* Control flow edge information.  */
 struct GTY((user)) edge_def {
@@ -214,8 +212,8 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
    struct rtl_bb_info, so that inlining the former into basic_block_def
    is the better choice.  */
 typedef int __assert_gimple_bb_smaller_rtl_bb
-              [(int)sizeof(struct rtl_bb_info)
-               - (int)sizeof (struct gimple_bb_info)];
+              [(int) sizeof (struct rtl_bb_info)
+               - (int) sizeof (struct gimple_bb_info)];
 
 
 #define BB_FREQ_MAX 10000
@@ -324,9 +322,9 @@ struct GTY(()) control_flow_graph {
 #define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
 
 #define BASIC_BLOCK_FOR_FUNCTION(FN,N) \
-  ((*basic_block_info_for_function(FN))[(N)])
+  ((*basic_block_info_for_function (FN))[(N)])
 #define SET_BASIC_BLOCK_FOR_FUNCTION(FN,N,BB) \
-  ((*basic_block_info_for_function(FN))[(N)] = (BB))
+  ((*basic_block_info_for_function (FN))[(N)] = (BB))
 
 /* Defines for textual backward source compatibility.  */
 #define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
@@ -353,7 +351,7 @@ struct GTY(()) control_flow_graph {
 #define FOR_EACH_BB_REVERSE_FN(BB, FN) \
   FOR_BB_BETWEEN (BB, (FN)->cfg->x_exit_block_ptr->prev_bb, (FN)->cfg->x_entry_block_ptr, prev_bb)
 
-#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN(BB, cfun)
+#define FOR_EACH_BB_REVERSE(BB) FOR_EACH_BB_REVERSE_FN (BB, cfun)
 
 /* For iterating over insns in basic block.  */
 #define FOR_BB_INSNS(BB, INSN)			\
@@ -463,6 +461,23 @@ struct edge_list
 {
   int num_edges;
   edge *index_to_edge;
+};
+
+/* Class to compute and manage control dependences on an edge-list.  */
+class control_dependences
+{
+public:
+  control_dependences (edge_list *);
+  ~control_dependences ();
+  bitmap get_edges_dependent_on (int);
+  edge get_edge (int);
+
+private:
+  void set_control_dependence_map_bit (basic_block, int);
+  void clear_control_dependence_bitmap (basic_block);
+  void find_control_dependence (int);
+  vec<bitmap> control_dependence_map;
+  edge_list *m_el;
 };
 
 /* The base value for branch probability notes and edge probabilities.  */
@@ -726,6 +741,7 @@ extern void compute_available (sbitmap *, sbitmap *, sbitmap *, sbitmap *);
 extern bool maybe_hot_bb_p (struct function *, const_basic_block);
 extern bool maybe_hot_edge_p (edge);
 extern bool probably_never_executed_bb_p (struct function *, const_basic_block);
+extern bool probably_never_executed_edge_p (struct function *, edge);
 extern bool optimize_bb_for_size_p (const_basic_block);
 extern bool optimize_bb_for_speed_p (const_basic_block);
 extern bool optimize_edge_for_size_p (edge);
@@ -779,12 +795,15 @@ extern void connect_infinite_loops_to_exit (void);
 extern int post_order_compute (int *, bool, bool);
 extern basic_block dfs_find_deadend (basic_block);
 extern int inverted_post_order_compute (int *);
+extern int pre_and_rev_post_order_compute_fn (struct function *,
+					      int *, int *, bool);
 extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
 			       basic_block *, int, const void *);
 extern void compute_dominance_frontiers (struct bitmap_head_def *);
 extern bitmap compute_idf (bitmap, struct bitmap_head_def *);
+extern basic_block * single_pred_before_succ_order (void);
 
 /* In cfgrtl.c  */
 extern rtx block_label (basic_block);
@@ -797,6 +816,7 @@ extern bool contains_no_active_insn_p (const_basic_block);
 extern bool forwarder_block_p (const_basic_block);
 extern bool can_fallthru (basic_block, basic_block);
 extern void emit_barrier_after_bb (basic_block bb);
+extern void fixup_partitions (void);
 
 /* In cfgbuild.c.  */
 extern void find_many_sub_basic_blocks (sbitmap);
@@ -877,6 +897,14 @@ struct loop *get_loop_copy (struct loop *);
 
 #include "cfghooks.h"
 
+/* Return true if BB is in a transaction.  */
+
+static inline bool
+bb_in_transaction (basic_block bb)
+{
+  return bb->flags & BB_IN_TRANSACTION;
+}
+
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
 static inline bool
 bb_has_eh_pred (basic_block bb)
@@ -932,7 +960,7 @@ extern void default_rtl_profile (void);
 
 /* In profile.c.  */
 typedef struct gcov_working_set_info gcov_working_set_t;
-extern gcov_working_set_t *find_working_set(unsigned pct_times_10);
+extern gcov_working_set_t *find_working_set (unsigned pct_times_10);
 
 /* Check tha probability is sane.  */
 
@@ -958,7 +986,7 @@ combine_probabilities (int prob1, int prob2)
    constrained to be < REG_BR_PROB_BASE.  */
 
 static inline gcov_type
-apply_scale (gcov_type freq, int scale)
+apply_scale (gcov_type freq, gcov_type scale)
 {
   return RDIV (freq * scale, REG_BR_PROB_BASE);
 }
@@ -979,5 +1007,20 @@ inverse_probability (int prob1)
 {
   check_probability (prob1);
   return REG_BR_PROB_BASE - prob1;
+}
+
+/* Return true if BB has at least one abnormal outgoing edge.  */
+
+static inline bool
+has_abnormal_or_eh_outgoing_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
+      return true;
+
+  return false;
 }
 #endif /* GCC_BASIC_BLOCK_H */

@@ -480,13 +480,13 @@ init_insn_regs (void)
     = create_alloc_pool ("insn regs", sizeof (struct lra_insn_reg), 100);
 }
 
-/* Create LRA insn related info about referenced REGNO with TYPE
-   (in/out/inout), biggest reference mode MODE, flag that it is
+/* Create LRA insn related info about a reference to REGNO in INSN with
+   TYPE (in/out/inout), biggest reference mode MODE, flag that it is
    reference through subreg (SUBREG_P), flag that is early clobbered
    in the insn (EARLY_CLOBBER), and reference to the next insn reg
    info (NEXT).	 */
 static struct lra_insn_reg *
-new_insn_reg (int regno, enum op_type type, enum machine_mode mode,
+new_insn_reg (rtx insn, int regno, enum op_type type, enum machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
 {
   struct lra_insn_reg *ir;
@@ -494,7 +494,8 @@ new_insn_reg (int regno, enum op_type type, enum machine_mode mode,
   ir = (struct lra_insn_reg *) pool_alloc (insn_reg_pool);
   ir->type = type;
   ir->biggest_mode = mode;
-  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (lra_reg_info[regno].biggest_mode))
+  if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (lra_reg_info[regno].biggest_mode)
+      && NONDEBUG_INSN_P (insn))
     lra_reg_info[regno].biggest_mode = mode;
   ir->subreg_p = subreg_p;
   ir->early_clobber = early_clobber;
@@ -976,7 +977,7 @@ collect_non_operand_hard_regs (rtx *x, lra_insn_recog_data_t data,
 		     && ! (FIRST_STACK_REG <= regno
 			   && regno <= LAST_STACK_REG));
 #endif
-		list = new_insn_reg (regno, type, mode, subreg_p,
+		list = new_insn_reg (data->insn, regno, type, mode, subreg_p,
 				     early_clobber, list);
 	      }
 	  }
@@ -1575,7 +1576,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
       expand_reg_info ();
       if (bitmap_set_bit (&lra_reg_info[regno].insn_bitmap, uid))
 	{
-	  data->regs = new_insn_reg (regno, type, mode, subreg_p,
+	  data->regs = new_insn_reg (data->insn, regno, type, mode, subreg_p,
 				     early_clobber, data->regs);
 	  return;
 	}
@@ -1587,8 +1588,9 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 		if (curr->subreg_p != subreg_p || curr->biggest_mode != mode)
 		  /* The info can not be integrated into the found
 		     structure.  */
-		  data->regs = new_insn_reg (regno, type, mode, subreg_p,
-					     early_clobber, data->regs);
+		  data->regs = new_insn_reg (data->insn, regno, type, mode,
+					     subreg_p, early_clobber,
+					     data->regs);
 		else
 		  {
 		    if (curr->type != type)
@@ -2015,10 +2017,8 @@ restore_scratches (void)
 static void
 check_rtl (bool final_p)
 {
-  int i;
   basic_block bb;
   rtx insn;
-  lra_insn_recog_data_t id;
 
   lra_assert (! final_p || reload_completed);
   FOR_EACH_BB (bb)
@@ -2034,31 +2034,13 @@ check_rtl (bool final_p)
 	    lra_assert (constrain_operands (1));
 	    continue;
 	  }
+	/* LRA code is based on assumption that all addresses can be
+	   correctly decomposed.  LRA can generate reloads for
+	   decomposable addresses.  The decomposition code checks the
+	   correctness of the addresses.  So we don't need to check
+	   the addresses here.  */
 	if (insn_invalid_p (insn, false))
 	  fatal_insn_not_found (insn);
-	if (asm_noperands (PATTERN (insn)) >= 0)
-	  continue;
-	id = lra_get_insn_recog_data (insn);
-	/* The code is based on assumption that all addresses in
-	   regular instruction are legitimate before LRA.  The code in
-	   lra-constraints.c is based on assumption that there is no
-	   subreg of memory as an insn operand.	 */
-	for (i = 0; i < id->insn_static_data->n_operands; i++)
-	  {
-	    rtx op = *id->operand_loc[i];
-
-	    if (MEM_P (op)
-		&& (GET_MODE (op) != BLKmode
-		    || GET_CODE (XEXP (op, 0)) != SCRATCH)
-		&& ! memory_address_p (GET_MODE (op), XEXP (op, 0))
-		/* Some ports don't recognize the following addresses
-		   as legitimate.  Although they are legitimate if
-		   they satisfies the constraints and will be checked
-		   by insn constraints which we ignore here.  */
-		&& GET_CODE (XEXP (op, 0)) != UNSPEC
-		&& GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC)
-	      fatal_insn_not_found (insn);
-	  }
       }
 }
 #endif /* #ifdef ENABLE_CHECKING */
@@ -2161,7 +2143,9 @@ update_inc_notes (void)
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
-	    if (REG_NOTE_KIND (*pnote) == REG_INC)
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD
+                || REG_NOTE_KIND (*pnote) == REG_UNUSED
+                || REG_NOTE_KIND (*pnote) == REG_INC)
 	      *pnote = XEXP (*pnote, 1);
 	    else
 	      pnote = &XEXP (*pnote, 1);
@@ -2363,8 +2347,10 @@ lra (FILE *f)
 	      if (! live_p)
 		lra_clear_live_ranges ();
 	    }
-	  bitmap_clear (&lra_optional_reload_pseudos);
 	}
+      /* Don't clear optional reloads bitmap until all constraints are
+	 satisfied as we need to differ them from regular reloads.  */
+      bitmap_clear (&lra_optional_reload_pseudos);
       bitmap_clear (&lra_subreg_reload_pseudos);
       bitmap_clear (&lra_inheritance_pseudos);
       bitmap_clear (&lra_split_regs);

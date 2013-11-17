@@ -36,6 +36,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "pointer-set.h"
 #include "hash-table.h"
+#include "gimple.h"
+#include "gimplify.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -1517,6 +1519,12 @@ check_bases (tree t,
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
       TYPE_HAS_COMPLEX_DFLT (t) |= (!TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
 				    || TYPE_HAS_COMPLEX_DFLT (basetype));
+      SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT
+	(t, CLASSTYPE_READONLY_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_READONLY_FIELDS_NEED_INIT (basetype));
+      SET_CLASSTYPE_REF_FIELDS_NEED_INIT
+	(t, CLASSTYPE_REF_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_REF_FIELDS_NEED_INIT (basetype));
 
       /*  A standard-layout class is a class that:
 	  ...
@@ -2773,15 +2781,93 @@ warn_hidden (tree t)
     }
 }
 
+/* Recursive helper for finish_struct_anon.  */
+
+static void
+finish_struct_anon_r (tree field, bool complain)
+{
+  bool is_union = TREE_CODE (TREE_TYPE (field)) == UNION_TYPE;
+  tree elt = TYPE_FIELDS (TREE_TYPE (field));
+  for (; elt; elt = DECL_CHAIN (elt))
+    {
+      /* We're generally only interested in entities the user
+	 declared, but we also find nested classes by noticing
+	 the TYPE_DECL that we create implicitly.  You're
+	 allowed to put one anonymous union inside another,
+	 though, so we explicitly tolerate that.  We use
+	 TYPE_ANONYMOUS_P rather than ANON_AGGR_TYPE_P so that
+	 we also allow unnamed types used for defining fields.  */
+      if (DECL_ARTIFICIAL (elt)
+	  && (!DECL_IMPLICIT_TYPEDEF_P (elt)
+	      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
+	continue;
+
+      if (TREE_CODE (elt) != FIELD_DECL)
+	{
+	  if (complain)
+	    {
+	      if (is_union)
+		permerror (input_location,
+			   "%q+#D invalid; an anonymous union can "
+			   "only have non-static data members", elt);
+	      else
+		permerror (input_location,
+			   "%q+#D invalid; an anonymous struct can "
+			   "only have non-static data members", elt);
+	    }
+	  continue;
+	}
+
+      if (complain)
+	{
+	  if (TREE_PRIVATE (elt))
+	    {
+	      if (is_union)
+		permerror (input_location,
+			   "private member %q+#D in anonymous union", elt);
+	      else
+		permerror (input_location,
+			   "private member %q+#D in anonymous struct", elt);
+	    }
+	  else if (TREE_PROTECTED (elt))
+	    {
+	      if (is_union)
+		permerror (input_location,
+			   "protected member %q+#D in anonymous union", elt);
+	      else
+		permerror (input_location,
+			   "protected member %q+#D in anonymous struct", elt);
+	    }
+	}
+
+      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
+      TREE_PROTECTED (elt) = TREE_PROTECTED (field);
+
+      /* Recurse into the anonymous aggregates to handle correctly
+	 access control (c++/24926):
+
+	 class A {
+	   union {
+	     union {
+	       int i;
+	     };
+	   };
+	 };
+
+	 int j=A().i;  */
+      if (DECL_NAME (elt) == NULL_TREE
+	  && ANON_AGGR_TYPE_P (TREE_TYPE (elt)))
+	finish_struct_anon_r (elt, /*complain=*/false);
+    }
+}
+
 /* Check for things that are invalid.  There are probably plenty of other
    things we should check for also.  */
 
 static void
 finish_struct_anon (tree t)
 {
-  tree field;
-
-  for (field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
+  for (tree field = TYPE_FIELDS (t); field; field = DECL_CHAIN (field))
     {
       if (TREE_STATIC (field))
 	continue;
@@ -2790,53 +2876,7 @@ finish_struct_anon (tree t)
 
       if (DECL_NAME (field) == NULL_TREE
 	  && ANON_AGGR_TYPE_P (TREE_TYPE (field)))
-	{
-	  bool is_union = TREE_CODE (TREE_TYPE (field)) == UNION_TYPE;
-	  tree elt = TYPE_FIELDS (TREE_TYPE (field));
-	  for (; elt; elt = DECL_CHAIN (elt))
-	    {
-	      /* We're generally only interested in entities the user
-		 declared, but we also find nested classes by noticing
-		 the TYPE_DECL that we create implicitly.  You're
-		 allowed to put one anonymous union inside another,
-		 though, so we explicitly tolerate that.  We use
-		 TYPE_ANONYMOUS_P rather than ANON_AGGR_TYPE_P so that
-		 we also allow unnamed types used for defining fields.  */
-	      if (DECL_ARTIFICIAL (elt)
-		  && (!DECL_IMPLICIT_TYPEDEF_P (elt)
-		      || TYPE_ANONYMOUS_P (TREE_TYPE (elt))))
-		continue;
-
-	      if (TREE_CODE (elt) != FIELD_DECL)
-		{
-		  if (is_union)
-		    permerror (input_location, "%q+#D invalid; an anonymous union can "
-			       "only have non-static data members", elt);
-		  else
-		    permerror (input_location, "%q+#D invalid; an anonymous struct can "
-			       "only have non-static data members", elt);
-		  continue;
-		}
-
-	      if (TREE_PRIVATE (elt))
-		{
-		  if (is_union)
-		    permerror (input_location, "private member %q+#D in anonymous union", elt);
-		  else
-		    permerror (input_location, "private member %q+#D in anonymous struct", elt);
-		}
-	      else if (TREE_PROTECTED (elt))
-		{
-		  if (is_union)
-		    permerror (input_location, "protected member %q+#D in anonymous union", elt);
-		  else
-		    permerror (input_location, "protected member %q+#D in anonymous struct", elt);
-		}
-
-	      TREE_PRIVATE (elt) = TREE_PRIVATE (field);
-	      TREE_PROTECTED (elt) = TREE_PROTECTED (field);
-	    }
-	}
+	finish_struct_anon_r (field, /*complain=*/true);
     }
 }
 
@@ -3499,6 +3539,22 @@ check_field_decls (tree t, tree *access_decls,
 
       if (DECL_MUTABLE_P (x) || TYPE_HAS_MUTABLE_P (type))
 	CLASSTYPE_HAS_MUTABLE (t) = 1;
+
+      if (DECL_MUTABLE_P (x))
+	{
+	  if (CP_TYPE_CONST_P (type))
+	    {
+	      error ("member %q+D cannot be declared both %<const%> "
+		     "and %<mutable%>", x);
+	      continue;
+	    }
+	  if (TREE_CODE (type) == REFERENCE_TYPE)
+	    {
+	      error ("member %q+D cannot be declared as a %<mutable%> "
+		     "reference", x);
+	      continue;
+	    }
+	}
 
       if (! layout_pod_type_p (type))
 	/* DR 148 now allows pointers to members (which are POD themselves),
@@ -4620,15 +4676,8 @@ deduce_noexcept_on_destructors (tree t)
   if (!CLASSTYPE_METHOD_VEC (t))
     return;
 
-  bool saved_nontrivial_dtor = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t);
-
-  /* Avoid early exit from synthesized_method_walk (c++/57645).  */
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = true;
-
   for (tree fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     deduce_noexcept_on_destructor (OVL_CURRENT (fns));
-
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = saved_nontrivial_dtor;
 }
 
 /* Subroutine of set_one_vmethod_tm_attributes.  Search base classes
@@ -4830,7 +4879,8 @@ user_provided_p (tree fn)
     return true;
   else
     return (!DECL_ARTIFICIAL (fn)
-	    && !DECL_DEFAULTED_IN_CLASS_P (fn));
+	    && !(DECL_INITIALIZED_IN_CLASS_P (fn)
+		 && (DECL_DEFAULTED_FN (fn) || DECL_DELETED_FN (fn))));
 }
 
 /* Returns true iff class T has a user-provided constructor.  */
@@ -5095,7 +5145,7 @@ type_has_user_declared_move_assign (tree t)
 }
 
 /* Nonzero if we need to build up a constructor call when initializing an
-   object of this class, either because it has a user-provided constructor
+   object of this class, either because it has a user-declared constructor
    or because it doesn't have a default constructor (so we need to give an
    error if no initializer is provided).  Use TYPE_NEEDS_CONSTRUCTING when
    what you care about is whether or not an object can be produced by a
@@ -5111,8 +5161,50 @@ type_build_ctor_call (tree t)
   if (TYPE_NEEDS_CONSTRUCTING (t))
     return true;
   inner = strip_array_types (t);
-  return (CLASS_TYPE_P (inner) && !TYPE_HAS_DEFAULT_CONSTRUCTOR (inner)
-	  && !ANON_AGGR_TYPE_P (inner));
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner))
+    return false;
+  if (!TYPE_HAS_DEFAULT_CONSTRUCTOR (inner))
+    return true;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared constructor might be private, and a constructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_ctor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
+}
+
+/* Like type_build_ctor_call, but for destructors.  */
+
+bool
+type_build_dtor_call (tree t)
+{
+  tree inner;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
+    return true;
+  inner = strip_array_types (t);
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner)
+      || !COMPLETE_TYPE_P (inner))
+    return false;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared destructor might be private, and a destructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_dtor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
 }
 
 /* Remove all zero-width bit-fields from T.  */
@@ -6485,6 +6577,9 @@ finish_struct_1 (tree t)
 
   maybe_suppress_debug_info (t);
 
+  if (flag_vtable_verify)
+    vtv_save_class_info (t);
+
   dump_class_hierarchy (t);
 
   /* Finish debugging output for this type.  */
@@ -7576,7 +7671,7 @@ instantiate_type (tree lhstype, tree rhs, tsubst_flags_t flags)
      dependent on overload resolution.  */
   gcc_assert (TREE_CODE (rhs) == ADDR_EXPR
 	      || TREE_CODE (rhs) == COMPONENT_REF
-	      || really_overloaded_fn (rhs)
+	      || is_overloaded_fn (rhs)
 	      || (flag_ms_extensions && TREE_CODE (rhs) == FUNCTION_DECL));
 
   /* This should really only be used when attempting to distinguish
@@ -8854,7 +8949,7 @@ build_vtbl_initializer (tree binfo,
 	      if (!get_global_value_if_present (fn, &fn))
 		fn = push_library_fn (fn, (build_function_type_list
 					   (void_type_node, NULL_TREE)),
-				      NULL_TREE);
+				      NULL_TREE, ECF_NORETURN);
 	      if (!TARGET_VTABLE_USES_DESCRIPTORS)
 		init = fold_convert (vfunc_ptr_type_node,
 				     build_fold_addr_expr (fn));

@@ -98,7 +98,7 @@ struct incomplete
 static int defer_incomplete_level = 0;
 static struct incomplete *defer_incomplete_list;
 
-/* This variable is used to delay expanding From_With_Type types until the
+/* This variable is used to delay expanding From_Limited_With types until the
    end of the spec.  */
 static struct incomplete *defer_limited_with;
 
@@ -1497,7 +1497,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* If we are defining an Out parameter and optimization isn't enabled,
 	   create a fake PARM_DECL for debugging purposes and make it point to
 	   the VAR_DECL.  Suppress debug info for the latter but make sure it
-	   will live on the stack so that it can be accessed from within the
+	   will live in memory so that it can be accessed from within the
 	   debugger through the PARM_DECL.  */
 	if (kind == E_Out_Parameter
 	    && definition
@@ -1520,7 +1520,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* If this is a renaming pointer, attach the renamed object to it and
 	   register it if we are at the global level.  Note that an external
 	   constant is at the global level.  */
-	else if (TREE_CODE (gnu_decl) == VAR_DECL && renamed_obj)
+	if (TREE_CODE (gnu_decl) == VAR_DECL && renamed_obj)
 	  {
 	    SET_DECL_RENAMED_OBJECT (gnu_decl, renamed_obj);
 	    if ((!definition && kind == E_Constant) || global_bindings_p ())
@@ -1577,6 +1577,19 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   optimization.  */
 	if (Exception_Mechanism != Back_End_Exceptions
 	    && Has_Nested_Block_With_Handler (Scope (gnat_entity)))
+	  TREE_ADDRESSABLE (gnu_decl) = 1;
+
+	/* If this is a local variable with non-BLKmode and aggregate type,
+	   and optimization isn't enabled, then force it in memory so that
+	   a register won't be allocated to it with possible subparts left
+	   uninitialized and reaching the register allocator.  */
+	else if (TREE_CODE (gnu_decl) == VAR_DECL
+		 && !DECL_EXTERNAL (gnu_decl)
+		 && !TREE_STATIC (gnu_decl)
+		 && DECL_MODE (gnu_decl) != BLKmode
+		 && AGGREGATE_TYPE_P (TREE_TYPE (gnu_decl))
+		 && !TYPE_IS_FAT_POINTER_P (TREE_TYPE (gnu_decl))
+		 && !optimize)
 	  TREE_ADDRESSABLE (gnu_decl) = 1;
 
 	/* If we are defining an object with variable size or an object with
@@ -3725,7 +3738,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* Whether it comes from a limited with.  */
 	bool is_from_limited_with
 	  = (IN (Ekind (gnat_desig_equiv), Incomplete_Kind)
-	     && From_With_Type (gnat_desig_equiv));
+	     && From_Limited_With (gnat_desig_equiv));
 	/* The "full view" of the designated type.  If this is an incomplete
 	   entity from a limited with, treat its non-limited view as the full
 	   view.  Otherwise, if this is an incomplete or private type, use the
@@ -4217,7 +4230,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
 		&& IN (Ekind (gnat_return_type), Incomplete_Kind)
-	        && From_With_Type (gnat_return_type)
+	        && From_Limited_With (gnat_return_type)
 		&& In_Extended_Main_Code_Unit
 		   (Non_Limited_View (gnat_return_type))
 		&& !present_gnu_tree (Non_Limited_View (gnat_return_type)))
@@ -4330,7 +4343,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
 		&& IN (Ekind (gnat_param_type), Incomplete_Kind)
-	        && From_With_Type (Etype (gnat_param_type))
+	        && From_Limited_With (Etype (gnat_param_type))
 		&& In_Extended_Main_Code_Unit
 		   (Non_Limited_View (gnat_param_type))
 		&& !present_gnu_tree (Non_Limited_View (gnat_param_type)))
@@ -4725,7 +4738,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   full view, whichever is present.  This is used in all the tests
 	   below.  */
 	Entity_Id full_view
-	  = (IN (kind, Incomplete_Kind) && From_With_Type (gnat_entity))
+	  = (IN (kind, Incomplete_Kind) && From_Limited_With (gnat_entity))
 	    ? Non_Limited_View (gnat_entity)
 	    : Present (Full_View (gnat_entity))
 	      ? Full_View (gnat_entity)
@@ -4812,6 +4825,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
       saved = true;
       break;
 
+    case E_Abstract_State:
+      /* This is a SPARK annotation that only reaches here when compiling in
+	 ASIS mode and has no characteristics to annotate.  */
+      gcc_assert (type_annotate_only);
+      return error_mark_node;
+
     default:
       gcc_unreachable ();
     }
@@ -4830,7 +4849,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
   if (is_type && (!gnu_decl || this_made_decl))
     {
       /* Process the attributes, if not already done.  Note that the type is
-	 already defined so we cannot pass True for IN_PLACE here.  */
+	 already defined so we cannot pass true for IN_PLACE here.  */
       process_attributes (&gnu_type, &attr_list, false, gnat_entity);
 
       /* Tell the middle-end that objects of tagged types are guaranteed to
@@ -5153,7 +5172,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	 to conflict with Comp2 and an alias set copy is required.
 
 	 The language rules ensure the parent type is already frozen here.  */
-      if (Is_Derived_Type (gnat_entity))
+      if (Is_Derived_Type (gnat_entity) && !type_annotate_only)
 	{
 	  tree gnu_parent_type = gnat_to_gnu_type (Etype (gnat_entity));
 	  relate_alias_sets (gnu_type, gnu_parent_type,
@@ -5449,32 +5468,32 @@ bool
 is_cplusplus_method (Entity_Id gnat_entity)
 {
   if (Convention (gnat_entity) != Convention_CPP)
-    return False;
+    return false;
 
   /* This is the main case: C++ method imported as a primitive operation.  */
   if (Is_Dispatching_Operation (gnat_entity))
-    return True;
+    return true;
 
   /* A thunk needs to be handled like its associated primitive operation.  */
   if (Is_Subprogram (gnat_entity) && Is_Thunk (gnat_entity))
-    return True;
+    return true;
 
   /* C++ classes with no virtual functions can be imported as limited
      record types, but we need to return true for the constructors.  */
   if (Is_Constructor (gnat_entity))
-    return True;
+    return true;
 
   /* This is set on the E_Subprogram_Type built for a dispatching call.  */
   if (Is_Dispatch_Table_Entity (gnat_entity))
-    return True;
+    return true;
 
-  return False;
+  return false;
 }
 
-/* Finalize the processing of From_With_Type incomplete types.  */
+/* Finalize the processing of From_Limited_With incomplete types.  */
 
 void
-finalize_from_with_types (void)
+finalize_from_limited_with (void)
 {
   struct incomplete *p, *next;
 
@@ -5818,12 +5837,8 @@ gnat_to_gnu_param (Entity_Id gnat_param, Mechanism_Type mech,
 				 ro_param || by_ref || by_component_ptr);
   DECL_BY_REF_P (gnu_param) = by_ref;
   DECL_BY_COMPONENT_PTR_P (gnu_param) = by_component_ptr;
-  DECL_BY_DESCRIPTOR_P (gnu_param) = (mech == By_Descriptor ||
-                                      mech == By_Short_Descriptor);
-  /* Note that, in case of a parameter passed by double reference, the
-     DECL_POINTS_TO_READONLY_P flag is meant for the second reference.
-     The first reference always points to read-only, as it points to
-     the second reference, i.e. the reference to the actual parameter.  */
+  DECL_BY_DESCRIPTOR_P (gnu_param)
+    = (mech == By_Descriptor || mech == By_Short_Descriptor);
   DECL_POINTS_TO_READONLY_P (gnu_param)
     = (ro_param && (by_ref || by_component_ptr));
   DECL_CAN_NEVER_BE_NULL_P (gnu_param) = Can_Never_Be_Null (gnat_param);
@@ -6727,13 +6742,13 @@ components_need_strict_alignment (Node_Id component_list)
       Entity_Id gnat_field = Defining_Entity (component_decl);
 
       if (Is_Aliased (gnat_field))
-	return True;
+	return true;
 
       if (Strict_Alignment (Etype (gnat_field)))
-	return True;
+	return true;
     }
 
-  return False;
+  return false;
 }
 
 /* Return true if TYPE is a type with variable size or a padding type with a
@@ -6988,12 +7003,10 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
       tree gnu_union_type, gnu_union_name;
       tree this_first_free_pos, gnu_variant_list = NULL_TREE;
       bool union_field_needs_strict_alignment = false;
-      vec <vinfo_t, va_stack> variant_types;
+      stack_vec <vinfo_t, 16> variant_types;
       vinfo_t *gnu_variant;
       unsigned int variants_align = 0;
       unsigned int i;
-
-      vec_stack_alloc (vinfo_t, variant_types, 16);
 
       if (TREE_CODE (gnu_name) == TYPE_DECL)
 	gnu_name = DECL_NAME (gnu_name);
@@ -7189,9 +7202,6 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	  DECL_CHAIN (gnu_field) = gnu_variant_list;
 	  gnu_variant_list = gnu_field;
 	}
-
-      /* We are done with the variants.  */
-      variant_types.release ();
 
       /* Only make the QUAL_UNION_TYPE if there are non-empty variants.  */
       if (gnu_variant_list)

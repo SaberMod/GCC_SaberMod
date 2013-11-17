@@ -143,6 +143,7 @@ extern void ix86_split_lshr (rtx *, rtx, enum machine_mode);
 extern rtx ix86_find_base_term (rtx);
 extern bool ix86_check_movabs (rtx, int);
 extern void ix86_split_idivmod (enum machine_mode, rtx[], bool);
+extern bool ix86_emit_cfi ();
 
 extern rtx assign_386_stack_local (enum machine_mode, enum ix86_stack_slot);
 extern int ix86_attr_length_immediate_default (rtx, bool);
@@ -172,6 +173,8 @@ extern int ix86_mode_needed (int, rtx);
 extern int ix86_mode_after (int, int, rtx);
 extern int ix86_mode_entry (int);
 extern int ix86_mode_exit (int);
+
+extern bool ix86_libc_has_function (enum function_class fn_class);
 
 #ifdef HARD_CONST
 extern void ix86_emit_mode_set (int, int, HARD_REG_SET);
@@ -218,7 +221,9 @@ extern int ix86_constant_alignment (tree, int);
 extern tree ix86_handle_shared_attribute (tree *, tree, tree, int, bool *);
 extern tree ix86_handle_selectany_attribute (tree *, tree, tree, int, bool *);
 extern int x86_field_alignment (tree, int);
-extern tree ix86_valid_target_attribute_tree (tree);
+extern tree ix86_valid_target_attribute_tree (tree,
+					      struct gcc_options *,
+					      struct gcc_options *);
 extern unsigned int ix86_get_callcvt (const_tree);
 
 #endif
@@ -236,6 +241,9 @@ extern void ix86_expand_mul_widen_evenodd (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_mul_widen_hilo (rtx, rtx, rtx, bool, bool);
 extern void ix86_expand_sse2_mulv4si3 (rtx, rtx, rtx);
 extern void ix86_expand_sse2_mulvxdi3 (rtx, rtx, rtx);
+extern void ix86_expand_sse2_abs (rtx, rtx);
+
+extern bool ix86_bnd_prefixed_insn_p (rtx);
 
 /* In i386-c.c  */
 extern void ix86_target_macros (void);

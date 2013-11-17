@@ -9,6 +9,8 @@
 
 #if defined(__aarch64__)
 #  define SIZE 256 /* No frame pointer for leaf functions (default) */
+#elif defined(__arc__)
+#  define SIZE (256-4)
 #elif defined(__i386__)
 #  define SIZE 248
 #elif defined(__x86_64__)
@@ -38,7 +40,11 @@
 #  endif
 #elif defined (__powerpc64__) || defined (__ppc64__) || defined (__POWERPC64__) \
       || defined (__PPC64__)
-#  define SIZE 180
+#  if _CALL_ELF == 2
+#     define SIZE 208
+#  else
+#     define SIZE 180
+#  endif
 #elif defined (__powerpc__) || defined (__PPC__) || defined (__ppc__) \
       || defined (__POWERPC__) || defined (PPC) || defined (_IBMR2)
 #  if defined (__ALTIVEC__)

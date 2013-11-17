@@ -131,6 +131,10 @@ package Opt is
    --  compiler switches, or implicitly (to Ada_Version_Runtime) when a
    --  predefined or internal file is compiled.
 
+   Ada_Version_Pragma : Node_Id := Empty;
+   --  Reflects the Ada_xxx pragma that resulted in setting Ada_Version. Used
+   --  to specialize error messages complaining about the Ada version in use.
+
    Ada_Version_Explicit : Ada_Version_Type := Ada_Version_Default;
    --  GNAT
    --  Like Ada_Version, but does not get set implicitly for predefined
@@ -512,6 +516,13 @@ package Opt is
    --  to make a single long message, and then this message is split up into
    --  multiple lines not exceeding the specified length. Set by -gnatj=nn.
 
+   Error_To_Warning : Boolean := False;
+   --  GNAT
+   --  If True, then certain error messages (e.g. parameter overlap messages
+   --  for procedure calls in Ada 2012 mode) are treated as warnings instead
+   --  of errors. Set by debug flag -gnatd.E. A search for Error_To_Warning
+   --  will identify affected messages.
+
    Exception_Handler_Encountered : Boolean := False;
    --  GNAT
    --  This flag is set true if the parser encounters an exception handler.
@@ -715,6 +726,12 @@ package Opt is
    --  Set True to ignore all Style_Checks pragmas. Can be set True by use
    --  of -gnateY.
 
+   Ignore_Unrecognized_VWY_Switches : Boolean := False;
+   --  GNAT
+   --  Set True to ignore unrecognized y, V, w switches. Can be set True
+   --  by use of -gnateu, causing subsequent unrecognized switches to result
+   --  in a warning rather than an error.
+
    Implementation_Unit_Warnings : Boolean := True;
    --  GNAT
    --  Set True to active warnings for use of implementation internal units.
@@ -824,6 +841,11 @@ package Opt is
    --  Set to True to skip compile and bind steps (except when Bind_Only is
    --  set to True).
 
+   List_Body_Required_Info : Boolean := False;
+   --  GNATMAKE
+   --  List info messages about why a package requires a body. Modified by use
+   --  of -gnatw.y/.Y.
+
    List_Inherited_Aspects : Boolean := False;
    --  GNAT
    --  List inherited invariants, preconditions, and postconditions from
@@ -861,7 +883,7 @@ package Opt is
 
    List_Representation_Info_To_File : Boolean := False;
    --  GNAT
-   --  Set true by -gnatRs switch. Causes information from -gnatR/1/2/3 to be
+   --  Set true by -gnatRs switch. Causes information from -gnatR/1/2/3/m to be
    --  written to file.rep (where file is the name of the source file) instead
    --  of stdout. For example, if file x.adb is compiled using -gnatR2s then
    --  representation info is written to x.adb.ref.
@@ -1730,12 +1752,15 @@ package Opt is
    Ada_Version_Config : Ada_Version_Type;
    --  GNAT
    --  This is the value of the configuration switch for the Ada 83 mode, as
-   --  set by the command line switches -gnat83/95/05, and possibly modified by
-   --  the use of configuration pragmas Ada_*. This switch is used to set the
-   --  initial value for Ada_Version mode at the start of analysis of a unit.
-   --  Note however that the setting of this flag is ignored for internal and
-   --  predefined units (which are always compiled in the most up to date
-   --  version of Ada).
+   --  set by the command line switches -gnat83/95/2005/2012, and possibly
+   --  modified by the use of configuration pragmas Ada_*. This switch is used
+   --  to set the initial value for Ada_Version mode at the start of analysis
+   --  of a unit.  Note however that the setting of this flag is ignored for
+   --  internal and predefined units (which are always compiled in the most up
+   --  to date version of Ada).
+
+   Ada_Version_Pragma_Config : Node_Id;
+   --  This will be set non empty if it is set by a configuration pragma
 
    Ada_Version_Explicit_Config : Ada_Version_Type;
    --  GNAT
@@ -2019,6 +2044,7 @@ private
    type Config_Switches_Type is record
       Ada_Version                    : Ada_Version_Type;
       Ada_Version_Explicit           : Ada_Version_Type;
+      Ada_Version_Pragma             : Node_Id;
       Assertions_Enabled             : Boolean;
       Assume_No_Invalid_Values       : Boolean;
       Check_Float_Overflow           : Boolean;

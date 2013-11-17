@@ -29,7 +29,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "langhooks.h"
-#include "tree-flow.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "except.h"
 #include "cfgloop.h"
@@ -989,22 +999,128 @@ gate_merge_phi (void)
   return 1;
 }
 
-struct gimple_opt_pass pass_merge_phi =
+namespace {
+
+const pass_data pass_data_merge_phi =
 {
- {
-  GIMPLE_PASS,
-  "mergephi",			/* name */
-  OPTGROUP_NONE,                /* optinfo_flags */
-  gate_merge_phi,		/* gate */
-  merge_phi_nodes,		/* execute */
-  NULL,				/* sub */
-  NULL,				/* next */
-  0,				/* static_pass_number */
-  TV_TREE_MERGE_PHI,		/* tv_id */
-  PROP_cfg | PROP_ssa,		/* properties_required */
-  0,				/* properties_provided */
-  0,				/* properties_destroyed */
-  0,				/* todo_flags_start */
-  TODO_verify_ssa               /* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "mergephi", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_MERGE_PHI, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_merge_phi : public gimple_opt_pass
+{
+public:
+  pass_merge_phi (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_merge_phi, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_merge_phi (m_ctxt); }
+  bool gate () { return gate_merge_phi (); }
+  unsigned int execute () { return merge_phi_nodes (); }
+
+}; // class pass_merge_phi
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_merge_phi (gcc::context *ctxt)
+{
+  return new pass_merge_phi (ctxt);
+}
+
+/* Pass: cleanup the CFG just before expanding trees to RTL.
+   This is just a round of label cleanups and case node grouping
+   because after the tree optimizers have run such cleanups may
+   be necessary.  */
+
+static unsigned int
+execute_cleanup_cfg_post_optimizing (void)
+{
+  unsigned int todo = 0;
+  if (cleanup_tree_cfg ())
+    todo |= TODO_update_ssa;
+  maybe_remove_unreachable_handlers ();
+  cleanup_dead_labels ();
+  group_case_labels ();
+  if ((flag_compare_debug_opt || flag_compare_debug)
+      && flag_dump_final_insns)
+    {
+      FILE *final_output = fopen (flag_dump_final_insns, "a");
+
+      if (!final_output)
+	{
+	  error ("could not open final insn dump file %qs: %m",
+		 flag_dump_final_insns);
+	  flag_dump_final_insns = NULL;
+	}
+      else
+	{
+	  int save_unnumbered = flag_dump_unnumbered;
+	  int save_noaddr = flag_dump_noaddr;
+
+	  flag_dump_noaddr = flag_dump_unnumbered = 1;
+	  fprintf (final_output, "\n");
+	  dump_enumerated_decls (final_output, dump_flags | TDF_NOUID);
+	  flag_dump_noaddr = save_noaddr;
+	  flag_dump_unnumbered = save_unnumbered;
+	  if (fclose (final_output))
+	    {
+	      error ("could not close final insn dump file %qs: %m",
+		     flag_dump_final_insns);
+	      flag_dump_final_insns = NULL;
+	    }
+	}
+    }
+  return todo;
+}
+
+namespace {
+
+const pass_data pass_data_cleanup_cfg_post_optimizing =
+{
+  GIMPLE_PASS, /* type */
+  "optimized", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_CLEANUP_CFG, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_remove_unused_locals, /* todo_flags_finish */
+};
+
+class pass_cleanup_cfg_post_optimizing : public gimple_opt_pass
+{
+public:
+  pass_cleanup_cfg_post_optimizing (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cleanup_cfg_post_optimizing, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () {
+    return execute_cleanup_cfg_post_optimizing ();
+  }
+
+}; // class pass_cleanup_cfg_post_optimizing
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_cleanup_cfg_post_optimizing (gcc::context *ctxt)
+{
+  return new pass_cleanup_cfg_post_optimizing (ctxt);
+}
+
+

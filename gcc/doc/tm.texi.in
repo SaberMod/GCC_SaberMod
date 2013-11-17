@@ -744,6 +744,8 @@ Define this macro to 1 if your target needs this facility.  The default
 is 0.
 @end defmac
 
+@hook TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
+
 @node Per-Function Data
 @section Defining data structures for per-function information.
 @cindex per-function data
@@ -3694,6 +3696,8 @@ stack.
 
 @hook TARGET_FN_ABI_VA_LIST
 
+@hook TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+
 @hook TARGET_CANONICAL_VA_LIST_TYPE
 
 @hook TARGET_GIMPLIFY_VA_ARG_EXPR
@@ -4064,6 +4068,10 @@ These machine description macros help implement varargs:
 
 @hook TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 
+@hook TARGET_LOAD_BOUNDS_FOR_ARG
+
+@hook TARGET_STORE_BOUNDS_FOR_ARG
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions
@@ -4221,26 +4229,7 @@ refers to the global ``variable'' @code{errno}.  (On certain systems,
 macro, a reasonable default is used.
 @end defmac
 
-@cindex C99 math functions, implicit usage
-@defmac TARGET_C99_FUNCTIONS
-When this macro is nonzero, GCC will implicitly optimize @code{sin} calls into
-@code{sinf} and similarly for other functions defined by C99 standard.  The
-default is zero because a number of existing systems lack support for these
-functions in their runtime so this macro needs to be redefined to one on
-systems that do support the C99 runtime.
-@end defmac
-
-@cindex sincos math function, implicit usage
-@defmac TARGET_HAS_SINCOS
-When this macro is nonzero, GCC will implicitly optimize calls to @code{sin}
-and @code{cos} with the same argument to a call to @code{sincos}.  The
-default is zero.  The target has to provide the following functions:
-@smallexample
-void sincos(double x, double *sin, double *cos);
-void sincosf(float x, float *sin, float *cos);
-void sincosl(long double x, long double *sin, long double *cos);
-@end smallexample
-@end defmac
+@hook TARGET_LIBC_HAS_FUNCTION
 
 @defmac NEXT_OBJC_RUNTIME
 Set this macro to 1 to use the "NeXT" Objective-C message sending conventions
@@ -4515,7 +4504,6 @@ interested in most macros in this section.
 @menu
 * CC0 Condition Codes::      Old style representation of condition codes.
 * MODE_CC Condition Codes::  Modern representation of condition codes.
-* Cond Exec Macros::         Macros to control conditional execution.
 @end menu
 
 @node CC0 Condition Codes
@@ -4680,15 +4668,6 @@ like:
 @hook TARGET_FIXED_CONDITION_CODE_REGS
 
 @hook TARGET_CC_MODES_COMPATIBLE
-
-@node Cond Exec Macros
-@subsection Macros to control conditional execution
-@findex conditional execution
-@findex predication
-
-There is one macro that may need to be defined for targets
-supporting conditional execution, independent of how they
-represent conditional branches.
 
 @node Costs
 @section Describing Relative Costs of Operations
@@ -4958,6 +4937,10 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_REORDER
 
 @hook TARGET_SCHED_REORDER2
+
+@hook TARGET_SCHED_MACRO_FUSION_P
+
+@hook TARGET_SCHED_MACRO_FUSION_PAIR_P
 
 @hook TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
 
@@ -8004,6 +7987,8 @@ files @code{__STDC__} will always expand to 1.
 
 @hook TARGET_C_PREINCLUDE
 
+@hook TARGET_CXX_IMPLICIT_EXTERN_C
+
 @defmac NO_IMPLICIT_EXTERN_C
 Define this macro if the system header files support C++ as well as C@.
 This macro inhibits the usual method of using system header files in
@@ -8211,6 +8196,10 @@ to by @var{ce_info}.
 
 @hook TARGET_EXPAND_BUILTIN
 
+@hook TARGET_BUILTIN_CHKP_FUNCTION
+@hook TARGET_CHKP_BOUND_TYPE
+@hook TARGET_CHKP_BOUND_MODE
+
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 
 @hook TARGET_FOLD_BUILTIN
@@ -8222,6 +8211,8 @@ to by @var{ce_info}.
 @hook TARGET_GET_FUNCTION_VERSIONS_DISPATCHER
 
 @hook TARGET_GENERATE_VERSION_DISPATCHER_BODY
+
+@hook TARGET_CAN_USE_DOLOOP_P
 
 @hook TARGET_INVALID_WITHIN_DOLOOP
 
@@ -8415,3 +8406,5 @@ and the associated definitions of those functions.
 @hook TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 
 @hook TARGET_HAS_IFUNC_P
+
+@hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV

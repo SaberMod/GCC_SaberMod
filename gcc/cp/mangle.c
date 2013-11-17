@@ -69,7 +69,7 @@ along with GCC; see the file COPYING3.  If not see
   fprintf (stderr, "  %-24s: %-24s\n", (FN), (INPUT))
 # define MANGLE_TRACE_TREE(FN, NODE) \
   fprintf (stderr, "  %-24s: %-24s (%p)\n", \
-	   (FN), tree_code_name[TREE_CODE (NODE)], (void *) (NODE))
+	   (FN), get_tree_code_name (TREE_CODE (NODE)), (void *) (NODE))
 #else
 # define MANGLE_TRACE(FN, INPUT)
 # define MANGLE_TRACE_TREE(FN, NODE)
@@ -329,7 +329,7 @@ dump_substitution_candidates (void)
 	   || CP_TYPE_CONST_P (el)))
 	fprintf (stderr, "CV-");
       fprintf (stderr, "%s (%s at %p)\n",
-	       name, tree_code_name[TREE_CODE (el)], (void *) el);
+	       name, get_tree_code_name (TREE_CODE (el)), (void *) el);
     }
 }
 
@@ -379,13 +379,13 @@ add_substitution (tree node)
 
   if (DEBUG_MANGLE)
     fprintf (stderr, "  ++ add_substitution (%s at %10p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
 
   /* Get the canonicalized substitution candidate for NODE.  */
   c = canonicalize_for_substitution (node);
   if (DEBUG_MANGLE && c != node)
     fprintf (stderr, "  ++ using candidate (%s at %10p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
   node = c;
 
 #if ENABLE_CHECKING
@@ -513,7 +513,7 @@ find_substitution (tree node)
 
   if (DEBUG_MANGLE)
     fprintf (stderr, "  ++ find_substitution (%s at %p)\n",
-	     tree_code_name[TREE_CODE (node)], (void *) node);
+	     get_tree_code_name (TREE_CODE (node)), (void *) node);
 
   /* Obtain the canonicalized substitution representation for NODE.
      This is what we'll compare against.  */
@@ -3886,6 +3886,36 @@ write_java_integer_type_codes (const tree type)
     write_char ('b');
   else
     gcc_unreachable ();
+}
+
+/* Given a CLASS_TYPE, such as a record for std::bad_exception this
+   function generates a mangled name for the vtable map variable of
+   the class type.  For example, if the class type is
+   "std::bad_exception", the mangled name for the class is
+   "St13bad_exception".  This function would generate the name
+   "_ZN4_VTVISt13bad_exceptionE12__vtable_mapE", which unmangles as:
+   "_VTV<std::bad_exception>::__vtable_map".  */
+
+
+char *
+get_mangled_vtable_map_var_name (tree class_type)
+{
+  char *var_name = NULL;
+  const char *prefix = "_ZN4_VTVI";
+  const char *postfix = "E12__vtable_mapE";
+
+  gcc_assert (TREE_CODE (class_type) == RECORD_TYPE);
+
+  tree class_id = DECL_ASSEMBLER_NAME (TYPE_NAME (class_type));
+  unsigned int len = strlen (IDENTIFIER_POINTER (class_id)) +
+                     strlen (prefix) +
+                     strlen (postfix) + 1;
+
+  var_name = (char *) xmalloc (len);
+
+  sprintf (var_name, "%s%s%s", prefix, IDENTIFIER_POINTER (class_id), postfix);
+
+  return var_name;
 }
 
 #include "gt-cp-mangle.h"

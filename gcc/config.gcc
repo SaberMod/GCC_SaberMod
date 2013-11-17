@@ -324,6 +324,9 @@ alpha*-*-*)
 am33_2.0-*-linux*)
 	cpu_type=mn10300
 	;;
+arc*-*-*)
+	cpu_type=arc
+	;;
 arm*-*-*)
 	cpu_type=arm
 	extra_headers="mmintrin.h arm_neon.h"
@@ -418,6 +421,10 @@ mips*-*-*)
 	extra_headers="loongson.h"
 	extra_options="${extra_options} g.opt mips/mips-tables.opt"
 	;;
+nds32*)
+	cpu_type=nds32
+	extra_headers="nds32_intrinsic.h"
+	;;
 picochip-*-*)
         cpu_type=picochip
         ;;
@@ -462,6 +469,7 @@ sh[123456789lbe]*-*-* | sh-*-*)
 	cpu_type=sh
 	need_64bit_hwint=yes
 	extra_options="${extra_options} fused-madd.opt"
+	extra_objs="${extra_objs} sh_treg_combine.o sh-mem.o"
 	;;
 v850*-*-*)
 	cpu_type=v850
@@ -831,14 +839,14 @@ case ${target} in
   tmake_file=t-vxworks
   xm_defines=POSIX
   extra_options="${extra_options} vxworks.opt"
-  extra_objs=vxworks.o
+  extra_objs="$extra_objs vxworks.o"
   case ${enable_threads} in
     no) ;;
     "" | yes | vxworks) thread_file='vxworks' ;;
     *) echo 'Unknown thread configuration for VxWorks'; exit 1 ;;
   esac
   ;;
-*-*-elf)
+*-*-elf|arc*-*-elf*)
   # Assume that newlib is being used and so __cxa_atexit is provided.
   default_use_cxa_atexit=yes
   use_gcc_stdint=wrap
@@ -925,6 +933,54 @@ alpha*-dec-*vms*)
 	tm_file="${tm_file} vms/vms.h alpha/vms.h"
 	tmake_file="${tmake_file} alpha/t-vms"
 	;;
+arc*-*-elf*)
+	extra_headers="arc-simd.h"
+	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
+	tmake_file="arc/t-arc-newlib arc/t-arc"
+	case x"${with_cpu}" in
+	  xarc600|xarc601|xarc700)
+		target_cpu_default="TARGET_CPU_$with_cpu"
+		;;
+	esac
+	if test x${with_endian} = x; then
+		case ${target} in
+		arc*be-*-* | arc*eb-*-*)	with_endian=big ;;
+		*)				with_endian=little ;;
+		esac
+	fi
+	case ${with_endian} in
+	big|little)		;;
+	*)	echo "with_endian=${with_endian} not supported."; exit 1 ;;
+	esac
+	case ${with_endian} in
+	big*)	tm_defines="DRIVER_ENDIAN_SELF_SPECS=\\\"%{!EL:%{!mlittle-endian:-mbig-endian}}\\\" ${tm_defines}"
+	esac
+	;;
+arc*-*-linux-uclibc*)
+	extra_headers="arc-simd.h"
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file}"
+	tmake_file="${tmake_file} arc/t-arc-uClibc arc/t-arc"
+	tm_defines="${tm_defines} TARGET_SDATA_DEFAULT=0"
+	tm_defines="${tm_defines} TARGET_MMEDIUM_CALLS_DEFAULT=1"
+	case x"${with_cpu}" in
+	  xarc600|xarc601|xarc700)
+		target_cpu_default="TARGET_CPU_$with_cpu"
+		;;
+	esac
+	if test x${with_endian} = x; then
+		case ${target} in
+		arc*be-*-* | arc*eb-*-*)	with_endian=big ;;
+		*)				with_endian=little ;;
+		esac
+	fi
+	case ${with_endian} in
+	big|little)		;;
+	*)	echo "with_endian=${with_endian} not supported."; exit 1 ;;
+	esac
+	case ${with_endian} in
+	big*)	tm_defines="DRIVER_ENDIAN_SELF_SPECS=\\\"%{!EL:%{!mlittle-endian:-mbig-endian}}\\\" ${tm_defines}"
+	esac
+        ;;
 arm-wrs-vxworks)
 	tm_file="elfos.h arm/elf.h arm/aout.h ${tm_file} vx-common.h vxworks.h arm/vxworks.h"
 	extra_options="${extra_options} arm/vxworks.opt"
@@ -1001,7 +1057,7 @@ avr-*-*)
 	    tm_file="${tm_file} ${cpu_type}/avrlibc.h"
 	    tm_defines="${tm_defines} WITH_AVRLIBC"
 	fi
-	tmake_file="avr/t-avr avr/t-multilib"
+	tmake_file="${tmake_file} avr/t-avr avr/t-multilib"
 	use_gcc_stdint=wrap
 	extra_gcc_objs="driver-avr.o avr-devices.o"
 	extra_objs="avr-devices.o avr-log.o"
@@ -1018,7 +1074,7 @@ bfin*-uclinux*)
 	;;
 bfin*-linux-uclibc*)
 	tm_file="${tm_file} dbxelf.h elfos.h bfin/elf.h gnu-user.h linux.h glibc-stdint.h bfin/linux.h ./linux-sysroot-suffix.h"
-	tmake_file="bfin/t-bfin-linux t-slibgcc"
+	tmake_file="bfin/t-bfin-linux t-slibgcc t-linux-android"
 	use_collect2=no
 	;;
 bfin*-rtems*)
@@ -1053,7 +1109,7 @@ cris-*-elf | cris-*-none)
 crisv32-*-linux* | cris-*-linux*)
 	tm_file="dbxelf.h elfos.h ${tm_file} gnu-user.h linux.h glibc-stdint.h cris/linux.h"
 	# We need to avoid using t-linux, so override default tmake_file
-	tmake_file="cris/t-cris cris/t-linux t-slibgcc"
+	tmake_file="cris/t-cris cris/t-linux t-slibgcc t-linux-android"
 	extra_options="${extra_options} cris/linux.opt"
 	case $target in
 	  cris-*-*)
@@ -1113,7 +1169,6 @@ hppa*64*-*-linux*)
 	tm_file="pa/pa64-start.h ${tm_file} dbxelf.h elfos.h gnu-user.h linux.h \
 		 glibc-stdint.h pa/pa-linux.h pa/pa64-regs.h pa/pa-64.h \
 		 pa/pa64-linux.h"
-	tmake_file="${tmake_file} pa/t-linux"
 	gas=yes gnu_ld=yes
 	need_64bit_hwint=yes
 	;;
@@ -1526,6 +1581,9 @@ x86_64-*-cygwin*)
 i[34567]86-*-mingw* | x86_64-*-mingw*)
 	tm_file="${tm_file} i386/unix.h i386/bsd.h i386/gas.h dbxcoff.h i386/cygming.h"
 	xm_file=i386/xm-mingw32.h
+	c_target_objs="${c_target_objs} winnt-c.o"
+	cxx_target_objs="${cxx_target_objs} winnt-c.o"
+	target_has_targetcm="yes"
 	case ${target} in
 		x86_64-*-* | *-w64-*)
 			need_64bit_isa=yes
@@ -1565,7 +1623,7 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
 			;;
 	esac
 	tm_file="${tm_file} i386/mingw-stdint.h"
-	tmake_file="${tmake_file} i386/t-cygming t-slibgcc"
+	tmake_file="${tmake_file} t-winnt i386/t-cygming t-slibgcc"
         case ${target} in
                x86_64-w64-*)
                		tmake_file="${tmake_file} i386/t-mingw-w64"
@@ -1705,8 +1763,7 @@ m32r-*-rtems*)
  	;;
 m32r-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h ${tm_file} m32r/linux.h"
-	# We override the tmake_file for linux -- why?
-	tmake_file="m32r/t-linux t-slibgcc"
+	tmake_file="${tmake_file} m32r/t-linux t-slibgcc"
 	gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
@@ -1714,8 +1771,7 @@ m32r-*-linux*)
  	;;
 m32rle-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h m32r/little.h ${tm_file} m32r/linux.h"
-	# We override the tmake_file for linux -- why?
-	tmake_file="m32r/t-linux t-slibgcc"
+	tmake_file="${tmake_file} m32r/t-linux t-slibgcc"
 	gnu_ld=yes
 	if test x$enable_threads = xyes; then
 		thread_file='posix'
@@ -2032,6 +2088,25 @@ mn10300-*-*)
 	use_collect2=no
 	use_gcc_stdint=wrap
 	;;
+msp430*-*-*)
+	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
+	c_target_objs="msp430-c.o"
+	cxx_target_objs="msp430-c.o"
+	target_has_targetm_common=no
+	tmake_file="${tmake_file} msp430/t-msp430"
+	;;
+nds32le-*-*)
+	target_cpu_default="0"
+	tm_defines="${tm_defines}"
+	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
+	tmake_file="nds32/t-mlibs"
+	;;
+nds32be-*-*)
+	target_cpu_default="0|MASK_BIG_ENDIAN"
+	tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
+	tm_file="dbxelf.h elfos.h newlib-stdint.h ${tm_file}"
+	tmake_file="nds32/t-mlibs"
+	;;
 pdp11-*-*)
 	tm_file="${tm_file} newlib-stdint.h"
 	use_gcc_stdint=wrap
@@ -2139,9 +2214,10 @@ powerpc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
+	extra_objs="$extra_objs rs6000-linux.o"
 	case ${target} in
 	    powerpc*le-*-*)
-	    tm_file="${tm_file} rs6000/sysv4le.h" ;;
+		tm_file="${tm_file} rs6000/sysv4le.h" ;;
 	esac
 	maybe_biarch=yes
 	case ${target} in
@@ -2164,6 +2240,19 @@ powerpc*-*-linux*)
 		fi
 		tm_file="rs6000/biarch64.h ${tm_file} rs6000/linux64.h glibc-stdint.h"
 		tmake_file="$tmake_file rs6000/t-linux64"
+		case ${target} in
+		    powerpc*le-*-*)
+			tmake_file="$tmake_file rs6000/t-linux64le"
+			case ${enable_targets} in
+			    all | *powerpc64-* | *powerpc-*)
+				tmake_file="$tmake_file rs6000/t-linux64lebe" ;;
+			esac ;;
+		    *)
+			case ${enable_targets} in
+			    all | *powerpc64le-* | *powerpcle-*)
+				tmake_file="$tmake_file rs6000/t-linux64bele" ;;
+			esac ;;
+		esac
 		extra_options="${extra_options} rs6000/linux64.opt"
 		;;
 	    *)
@@ -3036,11 +3125,18 @@ if test x$with_cpu = x ; then
          with_cpu=8540
       fi       
       ;;
-    sparc-leon*-*)
-      with_cpu=v8;
-      ;;
     sparc*-*-*)
-      with_cpu="`echo ${target} | sed 's/-.*$//'`"
+      case ${target} in
+	*-leon-*)
+	  with_cpu=leon
+	  ;;
+	*-leon[3-9]*)
+	  with_cpu=leon3
+	  ;;
+	*)
+	  with_cpu="`echo ${target} | sed 's/-.*$//'`"
+	  ;;
+      esac
       ;;
   esac
 
@@ -3310,6 +3406,17 @@ case "${target}" in
 		done
 		;;
 
+	arc*-*-*) # was:	arc*-*-linux-uclibc)
+		supported_defaults="cpu"
+		case $with_cpu in
+		  arc600|arc601|arc700)
+			;;
+		  *) echo "Unknown cpu type"
+			exit 1
+			;;
+		esac
+		;;
+
 	arm*-*-*)
 		supported_defaults="arch cpu float tune fpu abi mode tls"
 		for which in cpu tune; do
@@ -3408,6 +3515,43 @@ case "${target}" in
 
 		if test "x$with_arch" != x && test "x$with_cpu" != x; then
 			echo "Warning: --with-arch overrides --with-cpu=$with_cpu" 1>&2
+		fi
+
+		# Add extra multilibs
+		if test "x$with_multilib_list" != x; then
+			arm_multilibs=`echo $with_multilib_list | sed -e 's/,/ /g'`
+			for arm_multilib in ${arm_multilibs}; do
+				case ${arm_multilib} in
+				aprofile)
+				# Note that arm/t-aprofile is a
+				# stand-alone make file fragment to be
+				# used only with itself.  We do not
+				# specifically use the
+				# TM_MULTILIB_OPTION framework because
+				# this shorthand is more
+				# pragmatic. Additionally it is only
+				# designed to work without any
+				# with-cpu, with-arch with-mode
+				# with-fpu or with-float options.
+					if test "x$with_arch" != x \
+					    || test "x$with_cpu" != x \
+					    || test "x$with_float" != x \
+					    || test "x$with_fpu" != x \
+					    || test "x$with_mode" != x ; then
+					    echo "Error: You cannot use any of --with-arch/cpu/fpu/float/mode with --with-multilib-list=aprofile" 1>&2
+					    exit 1
+					fi
+					tmake_file="${tmake_file} arm/t-aprofile"
+					break
+					;;
+				default)
+					;;
+				*)
+					echo "Error: --with-multilib-list=${with_multilib_list} not supported." 1>&2
+					exit 1
+					;;
+				esac
+			done
 		fi
 		;;
 
@@ -3627,8 +3771,41 @@ case "${target}" in
 		esac
 		;;
 
+	nds32*-*-*)
+		supported_defaults="arch nds32_lib"
+
+		# process --with-arch
+		case "${with_arch}" in
+		"" | v2 | v3 | v3m)
+			# OK
+			;;
+		*)
+			echo "Cannot accept --with-arch=$with_arch, available values are: v2 v3 v3m" 1>&2
+			exit 1
+			;;
+		esac
+
+		# process --with-nds32-lib
+		case "${with_nds32_lib}" in
+		"")
+			# the default library is newlib
+			with_nds32_lib=newlib
+			;;
+		newlib)
+			# OK
+			;;
+		mculib)
+			# OK
+			;;
+		*)
+			echo "Cannot accept --with-nds32-lib=$with_nds32_lib, available values are: newlib mculib" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+
 	powerpc*-*-* | rs6000-*-*)
-		supported_defaults="cpu cpu_32 cpu_64 float tune tune_32 tune_64"
+		supported_defaults="abi cpu cpu_32 cpu_64 float tune tune_32 tune_64"
 
 		for which in cpu cpu_32 cpu_64 tune tune_32 tune_64; do
 			eval "val=\$with_$which"
@@ -3665,6 +3842,16 @@ case "${target}" in
 				;;
 			esac
 		done
+
+		case "$with_abi" in
+		"" | elfv1 | elfv2 )
+			#OK
+			;;
+		*)
+			echo "Unknown ABI used in --with-abi=$with_abi"
+			exit 1
+			;;
+		esac
 		;;
 
 	s390*-*-*)
@@ -3840,7 +4027,9 @@ case ${target} in
 		;;
 	i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
 		;;
-	i[34567]86-*-cygwin* | i[34567]86-*-mingw* | x86_64-*-mingw*)
+	i[34567]86-*-cygwin* | x86_64-*-cygwin*)
+		;;
+	i[34567]86-*-mingw* | x86_64-*-mingw*)
 		;;
 	i[34567]86-*-freebsd* | x86_64-*-freebsd*)
 		;;

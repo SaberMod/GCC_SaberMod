@@ -785,7 +785,10 @@ template<typename _Alloc>
     _M_range_check(size_type __n) const
     {
       if (__n >= this->size())
-        __throw_out_of_range(__N("vector<bool>::_M_range_check"));
+	__throw_out_of_range_fmt(__N("vector<bool>::_M_range_check: __n "
+				     "(which is %zu) >= this->size() "
+				     "(which is %zu)"),
+				 __n, this->size());
     }
 
   public:
@@ -968,7 +971,18 @@ template<typename _Alloc>
     clear() _GLIBCXX_NOEXCEPT
     { _M_erase_at_end(begin()); }
 
-   
+#if __cplusplus >= 201103L
+    template<typename... _Args>
+      void
+      emplace_back(_Args&&... __args)
+      { push_back(bool(__args...)); }
+
+    template<typename... _Args>
+      iterator
+      emplace(const_iterator __pos, _Args&&... __args)
+      { return insert(__pos, bool(__args...)); }
+#endif
+
   protected:
     // Precondition: __first._M_offset == 0 && __result._M_offset == 0.
     iterator

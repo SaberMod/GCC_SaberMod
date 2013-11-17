@@ -4927,9 +4927,6 @@ case "${host}" in
     i[34567]86-*-* | x86_64-*-*)
 	PICFLAG=-fpic
 	;;
-    m68k-*-*)
-	PICFLAG=-fpic
-	;;
     # FIXME: Override -fPIC default in libgcc only?
     sh-*-linux* | sh[2346lbe]*-*-linux*)
 	PICFLAG=-fpic
@@ -4963,6 +4960,12 @@ case "${enable_shared}" in
   "") shared=no ;;
   *) shared=yes ;;
 esac
+
+# ...unless --enable-host-shared was passed from top-level config:
+if [ "${enable_host_shared}" = "yes" ]; then
+  shared=yes
+fi
+
 if [ "${shared}" != "yes" ]; then
   PICFLAG=
 fi

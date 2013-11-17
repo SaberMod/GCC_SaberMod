@@ -376,12 +376,18 @@
   (ior (match_code "const_int")
        (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if op is a constant integer valid for addition with addis, addi.
+(define_predicate "add_cint_operand"
+  (and (match_code "const_int")
+       (match_test "(unsigned HOST_WIDE_INT)
+		      (INTVAL (op) + (mode == SImode ? 0x80000000 : 0x80008000))
+		    < (unsigned HOST_WIDE_INT) 0x100000000ll")))
+
 ;; Return 1 if op is a constant integer valid for addition
 ;; or non-special register.
 (define_predicate "reg_or_add_cint_operand"
   (if_then_else (match_code "const_int")
-    (match_test "(unsigned HOST_WIDE_INT) (INTVAL (op) + 0x80008000)
-		 < (unsigned HOST_WIDE_INT) 0x100000000ll")
+    (match_operand 0 "add_cint_operand")
     (match_operand 0 "gpc_reg_operand")))
 
 ;; Return 1 if op is a constant integer valid for subtraction
@@ -1044,7 +1050,8 @@
   (and (match_code "symbol_ref")
        (match_test "(DEFAULT_ABI != ABI_AIX || SYMBOL_REF_FUNCTION_P (op))
 		    && ((SYMBOL_REF_LOCAL_P (op)
-			 && (DEFAULT_ABI != ABI_AIX
+			 && ((DEFAULT_ABI != ABI_AIX
+			      && DEFAULT_ABI != ABI_ELFv2)
 			     || !SYMBOL_REF_EXTERNAL_P (op)))
 		        || (op == XEXP (DECL_RTL (current_function_decl),
 						  0)))")))
@@ -1532,6 +1539,26 @@
   return 1;
 })
 
+;; Return 1 if OP is valid for crsave insn, known to be a PARALLEL.
+(define_predicate "crsave_operation"
+  (match_code "parallel")
+{
+  int count = XVECLEN (op, 0);
+  int i;
+
+  for (i = 1; i < count; i++)
+    {
+      rtx exp = XVECEXP (op, 0, i);
+
+      if (GET_CODE (exp) != USE
+	  || GET_CODE (XEXP (exp, 0)) != REG
+	  || GET_MODE (XEXP (exp, 0)) != CCmode
+	  || ! CR_REGNO_P (REGNO (XEXP (exp, 0))))
+	return 0;
+    }
+  return 1;
+})
+
 ;; Return 1 if OP is valid for lmw insn, known to be a PARALLEL.
 (define_predicate "lmw_operation"
   (match_code "parallel")
@@ -1697,7 +1724,7 @@
 (define_predicate "small_toc_ref"
   (match_code "unspec,plus")
 {
-  if (GET_CODE (op) == PLUS && CONST_INT_P (XEXP (op, 1)))
+  if (GET_CODE (op) == PLUS && add_cint_operand (XEXP (op, 1), mode))
     op = XEXP (op, 0);
 
   return GET_CODE (op) == UNSPEC && XINT (op, 1) == UNSPEC_TOCREL;
@@ -1740,9 +1767,17 @@
 ;; Match the second insn (lbz, lhz, lwz, ld) in fusing the combination of addis
 ;; and loads to GPR registers on power8.
 (define_predicate "fusion_gpr_mem_load"
-  (match_code "mem")
+  (match_code "mem,sign_extend,zero_extend")
 {
   rtx addr;
+
+  /* Handle sign/zero extend.  */
+  if (GET_CODE (op) == ZERO_EXTEND
+      || (TARGET_P8_FUSION_SIGN && GET_CODE (op) == SIGN_EXTEND))
+    {
+      op = XEXP (op, 0);
+      mode = GET_MODE (op);
+    }
 
   if (!MEM_P (op))
     return 0;

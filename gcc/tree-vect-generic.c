@@ -23,8 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm.h"
 #include "langhooks.h"
-#include "tree-flow.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -428,7 +432,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
       tree cst = VECTOR_CST_ELT (op1, i);
       unsigned HOST_WIDE_INT ml;
 
-      if (!host_integerp (cst, unsignedp) || integer_zerop (cst))
+      if (TREE_CODE (cst) != INTEGER_CST || integer_zerop (cst))
 	return NULL_TREE;
       pre_shifts[i] = 0;
       post_shifts[i] = 0;
@@ -449,7 +453,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
       if (unsignedp)
 	{
 	  unsigned HOST_WIDE_INT mh;
-	  unsigned HOST_WIDE_INT d = tree_low_cst (cst, 1) & mask;
+	  unsigned HOST_WIDE_INT d = TREE_INT_CST_LOW (cst) & mask;
 
 	  if (d >= ((unsigned HOST_WIDE_INT) 1 << (prec - 1)))
 	    /* FIXME: Can transform this into op0 >= op1 ? 1 : 0.  */
@@ -519,7 +523,7 @@ expand_vector_divmod (gimple_stmt_iterator *gsi, tree type, tree op0,
 	}
       else
 	{
-	  HOST_WIDE_INT d = tree_low_cst (cst, 0);
+	  HOST_WIDE_INT d = TREE_INT_CST_LOW (cst);
 	  unsigned HOST_WIDE_INT abs_d;
 
 	  if (d == -1)
@@ -1454,50 +1458,86 @@ expand_vector_operations (void)
   return cfg_changed ? TODO_cleanup_cfg : 0;
 }
 
-struct gimple_opt_pass pass_lower_vector =
+namespace {
+
+const pass_data pass_data_lower_vector =
 {
- {
-  GIMPLE_PASS,
-  "veclower",				/* name */
-  OPTGROUP_VEC,                         /* optinfo_flags */
-  gate_expand_vector_operations_ssa,    /* gate */
-  expand_vector_operations,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  PROP_gimple_lvec,			/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_update_ssa	                /* todo_flags_finish */
-    | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_verify_flow
-    | TODO_cleanup_cfg
- }
+  GIMPLE_PASS, /* type */
+  "veclower", /* name */
+  OPTGROUP_VEC, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  PROP_gimple_lvec, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_verify_flow
+    | TODO_cleanup_cfg ), /* todo_flags_finish */
 };
 
-struct gimple_opt_pass pass_lower_vector_ssa =
+class pass_lower_vector : public gimple_opt_pass
 {
- {
-  GIMPLE_PASS,
-  "veclower2",				/* name */
-  OPTGROUP_VEC,                         /* optinfo_flags */
-  0,	                                /* gate */
-  expand_vector_operations,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  PROP_gimple_lvec,			/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_update_ssa	                /* todo_flags_finish */
-    | TODO_verify_ssa
-    | TODO_verify_stmts | TODO_verify_flow
-    | TODO_cleanup_cfg
- }
+public:
+  pass_lower_vector (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_vector, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_expand_vector_operations_ssa (); }
+  unsigned int execute () { return expand_vector_operations (); }
+
+}; // class pass_lower_vector
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_lower_vector (gcc::context *ctxt)
+{
+  return new pass_lower_vector (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_lower_vector_ssa =
+{
+  GIMPLE_PASS, /* type */
+  "veclower2", /* name */
+  OPTGROUP_VEC, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  PROP_gimple_lvec, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_ssa
+    | TODO_verify_stmts
+    | TODO_verify_flow
+    | TODO_cleanup_cfg ), /* todo_flags_finish */
 };
+
+class pass_lower_vector_ssa : public gimple_opt_pass
+{
+public:
+  pass_lower_vector_ssa (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_vector_ssa, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_lower_vector_ssa (m_ctxt); }
+  unsigned int execute () { return expand_vector_operations (); }
+
+}; // class pass_lower_vector_ssa
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_lower_vector_ssa (gcc::context *ctxt)
+{
+  return new pass_lower_vector_ssa (ctxt);
+}
 
 #include "gt-tree-vect-generic.h"

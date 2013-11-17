@@ -23,8 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
-#include "tree-flow.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -1637,26 +1646,43 @@ tree_lower_complex (void)
   return 0;
 }
 
-struct gimple_opt_pass pass_lower_complex =
+namespace {
+
+const pass_data pass_data_lower_complex =
 {
- {
-  GIMPLE_PASS,
-  "cplxlower",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  0,					/* gate */
-  tree_lower_complex,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_ssa,				/* properties_required */
-  PROP_gimple_lcx,			/* properties_provided */
-  0,                       		/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_update_ssa
-  | TODO_verify_stmts	 		/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "cplxlower", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_ssa, /* properties_required */
+  PROP_gimple_lcx, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_stmts ), /* todo_flags_finish */
 };
+
+class pass_lower_complex : public gimple_opt_pass
+{
+public:
+  pass_lower_complex (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_complex, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_lower_complex (m_ctxt); }
+  unsigned int execute () { return tree_lower_complex (); }
+
+}; // class pass_lower_complex
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_lower_complex (gcc::context *ctxt)
+{
+  return new pass_lower_complex (ctxt);
+}
 
 
 static bool
@@ -1667,23 +1693,40 @@ gate_no_optimization (void)
   return !(cfun->curr_properties & PROP_gimple_lcx);
 }
 
-struct gimple_opt_pass pass_lower_complex_O0 =
+namespace {
+
+const pass_data pass_data_lower_complex_O0 =
 {
- {
-  GIMPLE_PASS,
-  "cplxlower0",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_no_optimization,			/* gate */
-  tree_lower_complex,			/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_NONE,				/* tv_id */
-  PROP_cfg,				/* properties_required */
-  PROP_gimple_lcx,			/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_update_ssa
-  | TODO_verify_stmts	 		/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "cplxlower0", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  PROP_gimple_lcx, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_update_ssa | TODO_verify_stmts ), /* todo_flags_finish */
 };
+
+class pass_lower_complex_O0 : public gimple_opt_pass
+{
+public:
+  pass_lower_complex_O0 (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_complex_O0, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_no_optimization (); }
+  unsigned int execute () { return tree_lower_complex (); }
+
+}; // class pass_lower_complex_O0
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_lower_complex_O0 (gcc::context *ctxt)
+{
+  return new pass_lower_complex_O0 (ctxt);
+}

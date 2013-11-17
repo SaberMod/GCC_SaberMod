@@ -25,8 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "plugin-api.h"
 #include "hash-table.h"
-#include "tree.h"
-#include "gimple.h"
 #include "target.h"
 #include "cgraph.h"
 #include "vec.h"
@@ -432,7 +430,7 @@ struct lto_stats_d
 /* Entry of LTO symtab encoder.  */
 typedef struct
 {
-  symtab_node node;
+  symtab_node *node;
   /* Is the node in this partition (i.e. ltrans of this partition will
      be responsible for outputting it)? */
   unsigned int in_partition:1;
@@ -774,6 +772,8 @@ extern hashval_t lto_hash_in_decl_state (const void *);
 extern int lto_eq_in_decl_state (const void *, const void *);
 extern struct lto_in_decl_state *lto_get_function_in_decl_state (
 				      struct lto_file_decl_data *, tree);
+extern void lto_free_function_in_decl_state (struct lto_in_decl_state *);
+extern void lto_free_function_in_decl_state_for_node (symtab_node *);
 extern void lto_section_overrun (struct lto_input_block *) ATTRIBUTE_NORETURN;
 extern void lto_value_range_error (const char *,
 				   HOST_WIDE_INT, HOST_WIDE_INT,
@@ -832,7 +832,8 @@ extern void lto_streamer_hooks_init (void);
 /* In lto-streamer-in.c */
 extern void lto_input_cgraph (struct lto_file_decl_data *, const char *);
 extern void lto_reader_init (void);
-extern void lto_input_function_body (struct lto_file_decl_data *, tree,
+extern void lto_input_function_body (struct lto_file_decl_data *,
+				     struct cgraph_node *,
 				     const char *);
 extern void lto_input_constructors_and_inits (struct lto_file_decl_data *,
 					      const char *);
@@ -871,15 +872,15 @@ void lto_output_location (struct output_block *, struct bitpack_d *, location_t)
 
 /* In lto-cgraph.c  */
 lto_symtab_encoder_t lto_symtab_encoder_new (bool);
-int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node);
+int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node *);
 void lto_symtab_encoder_delete (lto_symtab_encoder_t);
-bool lto_symtab_encoder_delete_node (lto_symtab_encoder_t, symtab_node);
+bool lto_symtab_encoder_delete_node (lto_symtab_encoder_t, symtab_node *);
 bool lto_symtab_encoder_encode_body_p (lto_symtab_encoder_t,
 				       struct cgraph_node *);
 bool lto_symtab_encoder_in_partition_p (lto_symtab_encoder_t,
-					symtab_node);
+					symtab_node *);
 void lto_set_symtab_encoder_in_partition (lto_symtab_encoder_t,
-					  symtab_node);
+					  symtab_node *);
 
 bool lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t,
 					      struct varpool_node *);
@@ -900,7 +901,6 @@ lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
 extern void lto_symtab_merge_decls (void);
 extern void lto_symtab_merge_symbols (void);
 extern tree lto_symtab_prevailing_decl (tree decl);
-extern GTY(()) vec<tree, va_gc> *lto_global_var_decls;
 
 
 /* In lto-opts.c.  */
@@ -1028,14 +1028,6 @@ lto_tree_ref_encoder_get_tree (struct lto_tree_ref_encoder *encoder,
   return encoder->trees[idx];
 }
 
-
-/* Return true if LABEL should be emitted in the global context.  */
-static inline bool
-emit_label_in_global_context_p (tree label)
-{
-  return DECL_NONLOCAL (label) || FORCED_LABEL (label);
-}
-
 /* Return number of encoded nodes in ENCODER.  */
 static inline int
 lto_symtab_encoder_size (lto_symtab_encoder_t encoder)
@@ -1051,7 +1043,7 @@ lto_symtab_encoder_size (lto_symtab_encoder_t encoder)
 
 static inline int
 lto_symtab_encoder_lookup (lto_symtab_encoder_t encoder,
-			   symtab_node node)
+			   symtab_node *node)
 {
   void **slot = pointer_map_contains (encoder->map, node);
   return (slot && *slot ? (size_t) *(slot) - 1 : LCC_NOT_FOUND);
@@ -1072,7 +1064,7 @@ lsei_next (lto_symtab_encoder_iterator *lsei)
 }
 
 /* Return the node pointed to by LSI.  */
-static inline symtab_node
+static inline symtab_node *
 lsei_node (lto_symtab_encoder_iterator lsei)
 {
   return lsei.encoder->nodes[lsei.index].node;
@@ -1094,7 +1086,7 @@ lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */
 
-static inline symtab_node
+static inline symtab_node *
 lto_symtab_encoder_deref (lto_symtab_encoder_t encoder, int ref)
 {
   if (ref == LCC_NOT_FOUND)

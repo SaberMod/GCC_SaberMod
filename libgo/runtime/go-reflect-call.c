@@ -271,7 +271,21 @@ go_func_return_ffi (const struct __go_func_type *func)
   types = (const struct __go_type_descriptor **) func->__out.__values;
 
   if (count == 1)
-    return go_type_to_ffi (types[0]);
+    {
+
+#if defined (__i386__) && !defined (__x86_64__)
+      /* FFI does not support complex types.  On 32-bit x86, a
+	 complex64 will be returned in %eax/%edx.  We normally tell
+	 FFI that a complex64 is a struct of two floats.  On 32-bit
+	 x86 a struct of two floats is returned via a hidden first
+	 pointer parameter.  Fortunately we can make everything work
+	 by pretending that complex64 is int64.  */
+      if ((types[0]->__code & GO_CODE_MASK) == GO_COMPLEX64)
+	return &ffi_type_sint64;
+#endif
+
+      return go_type_to_ffi (types[0]);
+    }
 
   ret = (ffi_type *) __go_alloc (sizeof (ffi_type));
   ret->type = FFI_TYPE_STRUCT;
@@ -302,9 +316,7 @@ go_func_to_cif (const struct __go_func_type *func, _Bool is_interface,
   in_types = ((const struct __go_type_descriptor **)
 	      func->__in.__values);
 
-  num_args = (num_params
-	      + (is_interface ? 1 : 0)
-	      + (!is_interface && !is_method ? 1 : 0));
+  num_args = num_params + (is_interface ? 1 : 0);
   args = (ffi_type **) __go_alloc (num_args * sizeof (ffi_type *));
   i = 0;
   off = 0;
@@ -320,12 +332,6 @@ go_func_to_cif (const struct __go_func_type *func, _Bool is_interface,
     }
   for (; i < num_params; ++i)
     args[i + off] = go_type_to_ffi (in_types[i]);
-
-  if (!is_interface && !is_method)
-    {
-      // There is a closure argument, a pointer.
-      args[i + off] = &ffi_type_pointer;
-    }
 
   rettype = go_func_return_ffi (func);
 
@@ -511,9 +517,8 @@ go_set_results (const struct __go_func_type *func, unsigned char *call_result,
    regardless of FUNC_TYPE, it is passed as a pointer.
 
    If neither IS_INTERFACE nor IS_METHOD is true then we are calling a
-   function indirectly, and the caller is responsible for passing a
-   trailing closure argument, a pointer, which is not described in
-   FUNC_TYPE.  */
+   function indirectly, and we must pass a closure pointer via
+   __go_set_closure.  The pointer to pass is simply FUNC_VAL.  */
 
 void
 reflect_call (const struct __go_func_type *func_type, FuncVal *func_val,
@@ -528,6 +533,8 @@ reflect_call (const struct __go_func_type *func_type, FuncVal *func_val,
 
   call_result = (unsigned char *) malloc (go_results_size (func_type));
 
+  if (!is_interface && !is_method)
+    __go_set_closure (func_val);
   ffi_call (&cif, func_val->fn, call_result, params);
 
   /* Some day we may need to free result values if RESULTS is

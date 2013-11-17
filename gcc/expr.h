@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 /* For host_integerp, tree_low_cst, fold_convert, size_binop, ssize_int,
    TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
-#include "tree.h"
+#include "tree-core.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
 
@@ -521,8 +521,8 @@ extern rtx expand_divmod (int, enum tree_code, enum machine_mode, rtx, rtx,
 			  rtx, int);
 #endif
 
-extern void locate_and_pad_parm (enum machine_mode, tree, int, int, tree,
-				 struct args_size *,
+extern void locate_and_pad_parm (enum machine_mode, tree, int, int, int,
+				 tree, struct args_size *,
 				 struct locate_and_pad_arg_data *);
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */
@@ -704,7 +704,7 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 			     unsigned HOST_WIDE_INT,
 			     enum machine_mode, rtx);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
-			      unsigned HOST_WIDE_INT, int, bool, rtx,
+			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode);
 extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);

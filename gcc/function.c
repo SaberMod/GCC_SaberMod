@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tree-pass.h"
 #include "predict.h"
 #include "df.h"
@@ -70,14 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 #define STACK_BYTES (STACK_BOUNDARY / BITS_PER_UNIT)
-
-/* Some systems use __main in a way incompatible with its use in gcc, in these
-   cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
-   give the same symbol without quotes for an alternative entry point.  You
-   must define both, or neither.  */
-#ifndef NAME__MAIN
-#define NAME__MAIN "__main"
-#endif
 
 /* Round a value to the lowest integer less than it that is a multiple of
    the required alignment.  Avoid using division in case the value is
@@ -130,7 +123,6 @@ static bool contains (const_rtx, htab_t);
 static void prepare_function_start (void);
 static void do_clobber_return_reg (rtx, void *);
 static void do_use_return_reg (rtx, void *);
-static void set_insn_locations (rtx, int) ATTRIBUTE_UNUSED;
 
 /* Stack of nested functions.  */
 /* Keep track of the cfun stack.  */
@@ -1520,7 +1512,7 @@ instantiate_virtual_regs_in_insn (rtx insn)
 
 	  for_each_rtx (&SET_SRC (set), instantiate_virtual_regs_in_rtx, NULL);
 	  x = simplify_gen_binary (PLUS, GET_MODE (new_rtx), SET_SRC (set),
-				   GEN_INT (-offset));
+				   gen_int_mode (-offset, GET_MODE (new_rtx)));
 	  x = force_operand (x, new_rtx);
 	  if (x != new_rtx)
 	    emit_move_insn (new_rtx, x);
@@ -1544,9 +1536,10 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	{
 	  start_sequence ();
 
-	  x = expand_simple_binop (GET_MODE (SET_DEST (set)), PLUS,
-				   new_rtx, GEN_INT (offset), SET_DEST (set),
-				   1, OPTAB_LIB_WIDEN);
+	  x = expand_simple_binop (GET_MODE (SET_DEST (set)), PLUS, new_rtx,
+				   gen_int_mode (offset,
+						 GET_MODE (SET_DEST (set))),
+				   SET_DEST (set), 1, OPTAB_LIB_WIDEN);
 	  if (x != SET_DEST (set))
 	    emit_move_insn (SET_DEST (set), x);
 
@@ -1666,8 +1659,8 @@ instantiate_virtual_regs_in_insn (rtx insn)
 		 to see if (plus new offset) is a valid before we put
 		 this through expand_simple_binop.  */
 	      x = expand_simple_binop (GET_MODE (x), PLUS, new_rtx,
-				       GEN_INT (offset), NULL_RTX,
-				       1, OPTAB_LIB_WIDEN);
+				       gen_int_mode (offset, GET_MODE (x)),
+				       NULL_RTX, 1, OPTAB_LIB_WIDEN);
 	      seq = get_insns ();
 	      end_sequence ();
 	      emit_insn_before (seq, insn);
@@ -1681,9 +1674,10 @@ instantiate_virtual_regs_in_insn (rtx insn)
 	  if (offset != 0)
 	    {
 	      start_sequence ();
-	      new_rtx = expand_simple_binop (GET_MODE (new_rtx), PLUS, new_rtx,
-					 GEN_INT (offset), NULL_RTX,
-					 1, OPTAB_LIB_WIDEN);
+	      new_rtx = expand_simple_binop
+		(GET_MODE (new_rtx), PLUS, new_rtx,
+		 gen_int_mode (offset, GET_MODE (new_rtx)),
+		 NULL_RTX, 1, OPTAB_LIB_WIDEN);
 	      seq = get_insns ();
 	      end_sequence ();
 	      emit_insn_before (seq, insn);
@@ -1948,25 +1942,42 @@ instantiate_virtual_regs (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_instantiate_virtual_regs =
+namespace {
+
+const pass_data pass_data_instantiate_virtual_regs =
 {
- {
-  RTL_PASS,
-  "vregs",                              /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  instantiate_virtual_regs,             /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "vregs", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_instantiate_virtual_regs : public rtl_opt_pass
+{
+public:
+  pass_instantiate_virtual_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_instantiate_virtual_regs, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return instantiate_virtual_regs (); }
+
+}; // class pass_instantiate_virtual_regs
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_instantiate_virtual_regs (gcc::context *ctxt)
+{
+  return new pass_instantiate_virtual_regs (ctxt);
+}
 
 
 /* Return 1 if EXP is an aggregate type (or a value with aggregate type).
@@ -2059,7 +2070,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 bool
 use_register_for_decl (const_tree decl)
 {
-  if (!targetm.calls.allocate_stack_slots_for_args())
+  if (!targetm.calls.allocate_stack_slots_for_args ())
     return true;
 
   /* Honor volatile.  */
@@ -2369,7 +2380,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
     {
       passed_type = nominal_type = build_pointer_type (passed_type);
       data->passed_pointer = true;
-      passed_mode = nominal_mode = Pmode;
+      passed_mode = nominal_mode = TYPE_MODE (nominal_type);
     }
 
   /* Find mode as it is passed by the ABI.  */
@@ -2505,6 +2516,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
     }
 
   locate_and_pad_parm (data->promoted_mode, data->passed_type, in_regs,
+		       all->reg_parm_stack_space,
 		       entry_parm ? data->partial : 0, current_function_decl,
 		       &all->stack_args_size, &data->locate);
 
@@ -3084,17 +3096,27 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
     emit_move_insn (parmreg, validated_mem);
 
   /* If we were passed a pointer but the actual value can safely live
-     in a register, put it in one.  */
-  if (data->passed_pointer
-      && TYPE_MODE (TREE_TYPE (parm)) != BLKmode
-      /* If by-reference argument was promoted, demote it.  */
-      && (TYPE_MODE (TREE_TYPE (parm)) != GET_MODE (DECL_RTL (parm))
-	  || use_register_for_decl (parm)))
+     in a register, retrieve it and use it directly.  */
+  if (data->passed_pointer && TYPE_MODE (TREE_TYPE (parm)) != BLKmode)
     {
       /* We can't use nominal_mode, because it will have been set to
 	 Pmode above.  We must use the actual mode of the parm.  */
-      parmreg = gen_reg_rtx (TYPE_MODE (TREE_TYPE (parm)));
-      mark_user_reg (parmreg);
+      if (use_register_for_decl (parm))
+	{
+	  parmreg = gen_reg_rtx (TYPE_MODE (TREE_TYPE (parm)));
+	  mark_user_reg (parmreg);
+	}
+      else
+	{
+	  int align = STACK_SLOT_ALIGNMENT (TREE_TYPE (parm),
+					    TYPE_MODE (TREE_TYPE (parm)),
+					    TYPE_ALIGN (TREE_TYPE (parm)));
+	  parmreg
+	    = assign_stack_local (TYPE_MODE (TREE_TYPE (parm)),
+				  GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (parm))),
+				  align);
+	  set_mem_attributes (parmreg, parm, 1);
+	}
 
       if (GET_MODE (parmreg) != GET_MODE (DECL_RTL (parm)))
 	{
@@ -3483,11 +3505,7 @@ assign_parms (tree fndecl)
   /* Adjust function incoming argument size for alignment and
      minimum length.  */
 
-#ifdef REG_PARM_STACK_SPACE
-  crtl->args.size = MAX (crtl->args.size,
-				    REG_PARM_STACK_SPACE (fndecl));
-#endif
-
+  crtl->args.size = MAX (crtl->args.size, all.reg_parm_stack_space);
   crtl->args.size = CEIL_ROUND (crtl->args.size,
 					   PARM_BOUNDARY / BITS_PER_UNIT);
 
@@ -3691,6 +3709,9 @@ gimplify_parameters (void)
    IN_REGS is nonzero if the argument will be passed in registers.  It will
    never be set if REG_PARM_STACK_SPACE is not defined.
 
+   REG_PARM_STACK_SPACE is the number of bytes of stack space reserved
+   for arguments which are passed in registers.
+
    FNDECL is the function in which the argument was defined.
 
    There are two types of rounding that are done.  The first, controlled by
@@ -3711,18 +3732,15 @@ gimplify_parameters (void)
 
 void
 locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
-		     int partial, tree fndecl ATTRIBUTE_UNUSED,
+		     int reg_parm_stack_space, int partial,
+		     tree fndecl ATTRIBUTE_UNUSED,
 		     struct args_size *initial_offset_ptr,
 		     struct locate_and_pad_arg_data *locate)
 {
   tree sizetree;
   enum direction where_pad;
   unsigned int boundary, round_boundary;
-  int reg_parm_stack_space = 0;
   int part_size_in_regs;
-
-#ifdef REG_PARM_STACK_SPACE
-  reg_parm_stack_space = REG_PARM_STACK_SPACE (fndecl);
 
   /* If we have found a stack parm before we reach the end of the
      area reserved for registers, skip that area.  */
@@ -3741,7 +3759,6 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 	    initial_offset_ptr->constant = reg_parm_stack_space;
 	}
     }
-#endif /* REG_PARM_STACK_SPACE */
 
   part_size_in_regs = (reg_parm_stack_space == 0 ? partial : 0);
 
@@ -3804,11 +3821,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
 
   locate->slot_offset.constant += part_size_in_regs;
 
-  if (!in_regs
-#ifdef REG_PARM_STACK_SPACE
-      || REG_PARM_STACK_SPACE (fndecl) > 0
-#endif
-     )
+  if (!in_regs || reg_parm_stack_space > 0)
     pad_to_arg_alignment (&locate->slot_offset, boundary,
 			  &locate->alignment_pad);
 
@@ -3828,11 +3841,7 @@ locate_and_pad_parm (enum machine_mode passed_mode, tree type, int in_regs,
     pad_below (&locate->offset, passed_mode, sizetree);
 
 #else /* !ARGS_GROW_DOWNWARD */
-  if (!in_regs
-#ifdef REG_PARM_STACK_SPACE
-      || REG_PARM_STACK_SPACE (fndecl) > 0
-#endif
-      )
+  if (!in_regs || reg_parm_stack_space > 0)
     pad_to_arg_alignment (initial_offset_ptr, boundary,
 			  &locate->alignment_pad);
   locate->slot_offset = *initial_offset_ptr;
@@ -4099,12 +4108,11 @@ void
 reorder_blocks (void)
 {
   tree block = DECL_INITIAL (current_function_decl);
-  vec<tree> block_stack;
 
   if (block == NULL_TREE)
     return;
 
-  block_stack.create (10);
+  stack_vec<tree, 10> block_stack;
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
   clear_block_marks (block);
@@ -4116,8 +4124,6 @@ reorder_blocks (void)
   /* Recreate the block tree from the note nesting.  */
   reorder_blocks_1 (get_insns (), block, &block_stack);
   BLOCK_SUBBLOCKS (block) = blocks_nreverse_all (BLOCK_SUBBLOCKS (block));
-
-  block_stack.release ();
 }
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
@@ -4618,51 +4624,6 @@ init_function_start (tree subr)
     warning (OPT_Waggregate_return, "function returns an aggregate");
 }
 
-
-void
-expand_main_function (void)
-{
-#if (defined(INVOKE__main)				\
-     || (!defined(HAS_INIT_SECTION)			\
-	 && !defined(INIT_SECTION_ASM_OP)		\
-	 && !defined(INIT_ARRAY_SECTION_ASM_OP)))
-  emit_library_call (init_one_libfunc (NAME__MAIN), LCT_NORMAL, VOIDmode, 0);
-#endif
-}
-
-/* Expand code to initialize the stack_protect_guard.  This is invoked at
-   the beginning of a function to be protected.  */
-
-#ifndef HAVE_stack_protect_set
-# define HAVE_stack_protect_set		0
-# define gen_stack_protect_set(x,y)	(gcc_unreachable (), NULL_RTX)
-#endif
-
-void
-stack_protect_prologue (void)
-{
-  tree guard_decl = targetm.stack_protect_guard ();
-  rtx x, y;
-
-  x = expand_normal (crtl->stack_protect_guard);
-  y = expand_normal (guard_decl);
-
-  /* Allow the target to copy from Y to X without leaking Y into a
-     register.  */
-  if (HAVE_stack_protect_set)
-    {
-      rtx insn = gen_stack_protect_set (x, y);
-      if (insn)
-	{
-	  emit_insn (insn);
-	  return;
-	}
-    }
-
-  /* Otherwise do a straight move.  */
-  emit_move_insn (x, y);
-}
-
 /* Expand code to verify the stack_protect_guard.  This is invoked at
    the end of a function to be protected.  */
 
@@ -4978,6 +4939,19 @@ do_warn_unused_parameter (tree fn)
 	&& DECL_NAME (decl) && !DECL_ARTIFICIAL (decl)
 	&& !TREE_NO_WARNING (decl))
       warning (OPT_Wunused_parameter, "unused parameter %q+D", decl);
+}
+
+/* Set the location of the insn chain starting at INSN to LOC.  */
+
+static void
+set_insn_locations (rtx insn, int loc)
+{
+  while (insn != NULL_RTX)
+    {
+      if (INSN_P (insn))
+	INSN_LOCATION (insn) = loc;
+      insn = NEXT_INSN (insn);
+    }
 }
 
 /* Generate RTL for the end of the current function.  */
@@ -5307,18 +5281,6 @@ maybe_copy_prologue_epilogue_insn (rtx insn, rtx copy)
   slot = htab_find_slot (hash, copy, INSERT);
   gcc_assert (*slot == NULL);
   *slot = copy;
-}
-
-/* Set the location of the insn chain starting at INSN to LOC.  */
-static void
-set_insn_locations (rtx insn, int loc)
-{
-  while (insn != NULL_RTX)
-    {
-      if (INSN_P (insn))
-	INSN_LOCATION (insn) = loc;
-      insn = NEXT_INSN (insn);
-    }
 }
 
 /* Determine if any INSNs in HASH are, or are part of, INSN.  Because
@@ -6973,25 +6935,42 @@ types_used_by_var_decl_insert (tree type, tree var_decl)
     }
 }
 
-struct rtl_opt_pass pass_leaf_regs =
+namespace {
+
+const pass_data pass_data_leaf_regs =
 {
- {
-  RTL_PASS,
-  "*leaf_regs",                         /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_check_leaf_regs,       /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "*leaf_regs", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_leaf_regs : public rtl_opt_pass
+{
+public:
+  pass_leaf_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_leaf_regs, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_handle_check_leaf_regs (); }
+
+}; // class pass_leaf_regs
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_leaf_regs (gcc::context *ctxt)
+{
+  return new pass_leaf_regs (ctxt);
+}
 
 static unsigned int
 rest_of_handle_thread_prologue_and_epilogue (void)
@@ -7012,26 +6991,45 @@ rest_of_handle_thread_prologue_and_epilogue (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_thread_prologue_and_epilogue =
+namespace {
+
+const pass_data pass_data_thread_prologue_and_epilogue =
 {
- {
-  RTL_PASS,
-  "pro_and_epilogue",                   /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_handle_thread_prologue_and_epilogue, /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_THREAD_PROLOGUE_AND_EPILOGUE,      /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  TODO_verify_flow,                     /* todo_flags_start */
-  TODO_df_verify | TODO_df_finish
-  | TODO_verify_rtl_sharing             /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "pro_and_epilogue", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_THREAD_PROLOGUE_AND_EPILOGUE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  TODO_verify_flow, /* todo_flags_start */
+  ( TODO_df_verify | TODO_df_finish
+    | TODO_verify_rtl_sharing ), /* todo_flags_finish */
 };
+
+class pass_thread_prologue_and_epilogue : public rtl_opt_pass
+{
+public:
+  pass_thread_prologue_and_epilogue (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_thread_prologue_and_epilogue, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () {
+    return rest_of_handle_thread_prologue_and_epilogue ();
+  }
+
+}; // class pass_thread_prologue_and_epilogue
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_thread_prologue_and_epilogue (gcc::context *ctxt)
+{
+  return new pass_thread_prologue_and_epilogue (ctxt);
+}
 
 
 /* This mini-pass fixes fall-out from SSA in asm statements that have
@@ -7213,25 +7211,42 @@ rest_of_match_asm_constraints (void)
   return TODO_df_finish;
 }
 
-struct rtl_opt_pass pass_match_asm_constraints =
+namespace {
+
+const pass_data pass_data_match_asm_constraints =
 {
- {
-  RTL_PASS,
-  "asmcons",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,					/* gate */
-  rest_of_match_asm_constraints,	/* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,				/* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,					/* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "asmcons", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_match_asm_constraints : public rtl_opt_pass
+{
+public:
+  pass_match_asm_constraints (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_match_asm_constraints, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_match_asm_constraints (); }
+
+}; // class pass_match_asm_constraints
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_match_asm_constraints (gcc::context *ctxt)
+{
+  return new pass_match_asm_constraints (ctxt);
+}
 
 
 #include "gt-function.h"

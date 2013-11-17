@@ -1037,6 +1037,9 @@ package body Sem_Ch4 is
          --  function that returns a pointer_to_procedure which is the entity
          --  being called. Finally, F (X) may be a call to a parameterless
          --  function that returns a pointer to a function with parameters.
+         --  Note that if F returns an access-to-subprogram whose designated
+         --  type is an array, F (X) cannot be interpreted as an indirect call
+         --  through the result of the call to F.
 
          elsif Is_Access_Type (Etype (Nam))
            and then Ekind (Designated_Type (Etype (Nam))) = E_Subprogram_Type
@@ -1047,6 +1050,8 @@ package body Sem_Ch4 is
                   (Nkind (Parent (N)) /= N_Explicit_Dereference
                      and then Is_Entity_Name (Nam)
                      and then No (First_Formal (Entity (Nam)))
+                     and then not
+                       Is_Array_Type (Etype (Designated_Type (Etype (Nam))))
                      and then Present (Actuals)))
          then
             Nam_Ent := Designated_Type (Etype (Nam));
@@ -1310,14 +1315,17 @@ package body Sem_Ch4 is
       --  Error routine invoked by the generic instantiation below when
       --  the case expression has a non static choice.
 
-      package Case_Choices_Processing is new
-        Generic_Choices_Processing
-          (Get_Alternatives          => Alternatives,
-           Get_Choices               => Discrete_Choices,
-           Process_Empty_Choice      => No_OP,
+      package Case_Choices_Analysis is new
+        Generic_Analyze_Choices
+          (Process_Associated_Node => No_OP);
+      use Case_Choices_Analysis;
+
+      package Case_Choices_Checking is new
+        Generic_Check_Choices
+          (Process_Empty_Choice      => No_OP,
            Process_Non_Static_Choice => Non_Static_Choice_Error,
            Process_Associated_Node   => No_OP);
-      use Case_Choices_Processing;
+      use Case_Choices_Checking;
 
       --------------------------
       -- Has_Static_Predicate --
@@ -1359,8 +1367,8 @@ package body Sem_Ch4 is
       Exp_Type  : Entity_Id;
       Exp_Btype : Entity_Id;
 
-      Dont_Care      : Boolean;
       Others_Present : Boolean;
+      --  Indicates if Others was present
 
    --  Start of processing for Analyze_Case_Expression
 
@@ -1423,9 +1431,7 @@ package body Sem_Ch4 is
 
       --  If error already reported by Resolve, nothing more to do
 
-      if Exp_Btype = Any_Discrete
-        or else Exp_Btype = Any_Type
-      then
+      if Exp_Btype = Any_Discrete or else Exp_Btype = Any_Type then
          return;
 
       elsif Exp_Btype = Any_Character then
@@ -1457,10 +1463,11 @@ package body Sem_Ch4 is
       then
          null;
 
-      --  Call instantiated Analyze_Choices which does the rest of the work
+      --  Call Analyze_Choices and Check_Choices to do the rest of the work
 
       else
-         Analyze_Choices (N, Exp_Type, Dont_Care, Others_Present);
+         Analyze_Choices (Alternatives (N), Exp_Type);
+         Check_Choices (N, Alternatives (N), Exp_Type, Others_Present);
       end if;
 
       if Exp_Type = Universal_Integer and then not Others_Present then
@@ -1854,8 +1861,8 @@ package body Sem_Ch4 is
                --  incomplete type imported through a limited_with clause,
                --  if the full view is visible.
 
-               if From_With_Type (DT)
-                 and then not From_With_Type (Scope (DT))
+               if From_Limited_With (DT)
+                 and then not From_Limited_With (Scope (DT))
                  and then
                    (Is_Immediately_Visible (Scope (DT))
                      or else
@@ -2026,7 +2033,9 @@ package body Sem_Ch4 is
          return;
       end if;
 
-      Check_SPARK_Restriction ("if expression is not allowed", N);
+      if Comes_From_Source (N) then
+         Check_SPARK_Restriction ("if expression is not allowed", N);
+      end if;
 
       Else_Expr := Next (Then_Expr);
 
@@ -2998,7 +3007,9 @@ package body Sem_Ch4 is
          return;
       end if;
 
-      --  An indexing requires at least one actual
+      --  An indexing requires at least one actual. The name of the call cannot
+      --  be an implicit indirect call, so it cannot be a generated explicit
+      --  dereference.
 
       if not Is_Empty_List (Actuals)
         and then
@@ -3007,7 +3018,11 @@ package body Sem_Ch4 is
               (Needs_One_Actual (Nam)
                  and then Present (Next_Actual (First (Actuals)))))
       then
-         if Is_Array_Type (Subp_Type) then
+         if Is_Array_Type (Subp_Type)
+           and then
+            (Nkind (Name (N)) /= N_Explicit_Dereference
+              or else Comes_From_Source (Name (N)))
+         then
             Is_Indexed := Try_Indexed_Call (N, Nam, Subp_Type, Must_Skip);
 
          elsif Is_Access_Type (Subp_Type)
@@ -3046,9 +3061,14 @@ package body Sem_Ch4 is
       if not Norm_OK then
 
          --  If an indirect call is a possible interpretation, indicate
-         --  success to the caller.
+         --  success to the caller. This may be an indexing of an explicit
+         --  dereference of a call that returns an access type (see above).
 
-         if Is_Indirect then
+         if Is_Indirect
+           or else (Is_Indexed
+                     and then Nkind (Name (N)) = N_Explicit_Dereference
+                     and then Comes_From_Source (Name (N)))
+         then
             Success := True;
             return;
 
@@ -3946,10 +3966,24 @@ package body Sem_Ch4 is
             Next (Param);
          end loop;
 
-         --  One of the specs has additional formals
+         --  One of the specs has additional formals; there is no match, unless
+         --  this may be an indexing of a parameterless call.
+
+         --  Note that when expansion is disabled, the corresponding record
+         --  type of synchronized types is not constructed, so that there is
+         --  no point is attempting an interpretation as a prefixed call, as
+         --  this is bound to fail because the primitive operations will not
+         --  be properly located.
 
          if Present (Comp_Param) or else Present (Param) then
-            return False;
+            if Needs_No_Actuals (Comp)
+              and then Is_Array_Type (Etype (Comp))
+              and then not Expander_Active
+            then
+               return True;
+            else
+               return False;
+            end if;
          end if;
 
          return True;
@@ -4039,7 +4073,7 @@ package body Sem_Ch4 is
       --  full view if available.
 
       if Is_Incomplete_Type (Prefix_Type)
-        and then From_With_Type (Prefix_Type)
+        and then From_Limited_With (Prefix_Type)
         and then Present (Non_Limited_View (Prefix_Type))
       then
          Prefix_Type := Get_Full_View (Non_Limited_View (Prefix_Type));
@@ -4049,7 +4083,7 @@ package body Sem_Ch4 is
          end if;
 
       elsif Ekind (Prefix_Type) = E_Class_Wide_Type
-        and then From_With_Type (Prefix_Type)
+        and then From_Limited_With (Prefix_Type)
         and then Present (Non_Limited_View (Etype (Prefix_Type)))
       then
          Prefix_Type :=
@@ -4157,7 +4191,7 @@ package body Sem_Ch4 is
                --    end Pkg;                       --  Comp is not visible
 
                if Nkind (Name) = N_Explicit_Dereference
-                 and then From_With_Type (Etype (Prefix (Name)))
+                 and then From_Limited_With (Etype (Prefix (Name)))
                  and then not Is_Potentially_Use_Visible (Etype (Name))
                  and then Nkind (Parent (Cunit_Entity (Current_Sem_Unit))) =
                             N_Package_Specification
@@ -4610,7 +4644,7 @@ package body Sem_Ch4 is
                   Inc : constant Entity_Id := First_Subtype (Type_To_Use);
 
                begin
-                  if From_With_Type (Scope (Type_To_Use)) then
+                  if From_Limited_With (Scope (Type_To_Use)) then
                      Error_Msg_NE
                        ("\limited view of& has no components", N, Inc);
 
@@ -5330,7 +5364,7 @@ package body Sem_Ch4 is
             --  usage of an entity from the limited view.
 
             if not Analyzed (Etype (Actual))
-             and then From_With_Type (Etype (Actual))
+             and then From_Limited_With (Etype (Actual))
             then
                Error_Msg_Qual_Level := 1;
                Error_Msg_NE
@@ -6491,8 +6525,8 @@ package body Sem_Ch4 is
       --  incomplete type imported through a limited_with clause,
       --  if the full view is visible.
 
-      if From_With_Type (Typ)
-        and then not From_With_Type (Scope (Typ))
+      if From_Limited_With (Typ)
+        and then not From_Limited_With (Scope (Typ))
         and then
           (Is_Immediately_Visible (Scope (Typ))
             or else
@@ -7719,7 +7753,7 @@ package body Sem_Ch4 is
          --  non-limited view. If still incomplete, retrieve full view.
 
          if Ekind (Obj_Type) = E_Incomplete_Type
-           and then From_With_Type (Obj_Type)
+           and then From_Limited_With (Obj_Type)
          then
             Obj_Type := Get_Full_View (Non_Limited_View (Obj_Type));
          end if;

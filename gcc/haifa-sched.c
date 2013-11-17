@@ -150,6 +150,24 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifdef INSN_SCHEDULING
 
+/* True if we do register pressure relief through live-range
+   shrinkage.  */
+static bool live_range_shrinkage_p;
+
+/* Switch on live range shrinkage.  */
+void
+initialize_live_range_shrinkage (void)
+{
+  live_range_shrinkage_p = true;
+}
+
+/* Switch off live range shrinkage.  */
+void
+finish_live_range_shrinkage (void)
+{
+  live_range_shrinkage_p = false;
+}
+
 /* issue_rate is the number of insns that can be scheduled in the same
    machine cycle.  It can be defined in the config/mach/mach.h file,
    otherwise we set it to 1.  */
@@ -2519,7 +2537,7 @@ rank_for_schedule (const void *x, const void *y)
   rtx tmp = *(const rtx *) y;
   rtx tmp2 = *(const rtx *) x;
   int tmp_class, tmp2_class;
-  int val, priority_val, info_val;
+  int val, priority_val, info_val, diff;
 
   if (MAY_HAVE_DEBUG_INSNS)
     {
@@ -2532,6 +2550,22 @@ rank_for_schedule (const void *x, const void *y)
 	return INSN_LUID (tmp) - INSN_LUID (tmp2);
     }
 
+  if (live_range_shrinkage_p)
+    {
+      /* Don't use SCHED_PRESSURE_MODEL -- it results in much worse
+	 code.  */
+      gcc_assert (sched_pressure == SCHED_PRESSURE_WEIGHTED);
+      if ((INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp) < 0
+	   || INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp2) < 0)
+	  && (diff = (INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp)
+		      - INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp2))) != 0)
+	return diff;
+      /* Sort by INSN_LUID (original insn order), so that we make the
+	 sort stable.  This minimizes instruction movement, thus
+	 minimizing sched's effect on debugging and cross-jumping.  */
+      return INSN_LUID (tmp) - INSN_LUID (tmp2);
+    }
+
   /* The insn in a schedule group should be issued the first.  */
   if (flag_sched_group_heuristic &&
       SCHED_GROUP_P (tmp) != SCHED_GROUP_P (tmp2))
@@ -2542,8 +2576,6 @@ rank_for_schedule (const void *x, const void *y)
 
   if (sched_pressure != SCHED_PRESSURE_NONE)
     {
-      int diff;
-
       /* Prefer insn whose scheduling results in the smallest register
 	 pressure excess.  */
       if ((diff = (INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp)
@@ -2605,7 +2637,7 @@ rank_for_schedule (const void *x, const void *y)
     }
 
   info_val = (*current_sched_info->rank) (tmp, tmp2);
-  if(flag_sched_rank_heuristic && info_val)
+  if (flag_sched_rank_heuristic && info_val)
     return info_val;
 
   /* Compare insns based on their relation to the last scheduled
@@ -3731,7 +3763,10 @@ schedule_insn (rtx insn)
 	{
 	  fputc (':', sched_dump);
 	  for (i = 0; i < ira_pressure_classes_num; i++)
-	    fprintf (sched_dump, "%s%+d(%d)",
+	    fprintf (sched_dump, "%s%s%+d(%d)",
+		     scheduled_insns.length () > 1
+		     && INSN_LUID (insn)
+		     < INSN_LUID (scheduled_insns[scheduled_insns.length () - 2]) ? "@" : "",
 		     reg_class_names[ira_pressure_classes[i]],
 		     pressure_info[i].set_increase, pressure_info[i].change);
 	}
@@ -6519,6 +6554,50 @@ setup_sched_dump (void)
 		? stderr : dump_file);
 }
 
+/* Try to group comparison and the following conditional jump INSN if
+   they're already adjacent. This is to prevent scheduler from scheduling
+   them apart.  */
+
+static void
+try_group_insn (rtx insn)
+{
+  unsigned int condreg1, condreg2;
+  rtx cc_reg_1;
+  rtx prev;
+
+  if (!any_condjump_p (insn))
+    return;
+
+  targetm.fixed_condition_code_regs (&condreg1, &condreg2);
+  cc_reg_1 = gen_rtx_REG (CCmode, condreg1);
+  prev = prev_nonnote_nondebug_insn (insn);
+  if (!reg_referenced_p (cc_reg_1, PATTERN (insn))
+      || !prev
+      || !modified_in_p (cc_reg_1, prev))
+    return;
+
+  /* Different microarchitectures support macro fusions for different
+     combinations of insn pairs.  */
+  if (!targetm.sched.macro_fusion_pair_p
+      || !targetm.sched.macro_fusion_pair_p (prev, insn))
+    return;
+
+  SCHED_GROUP_P (insn) = 1;
+}
+
+/* If the last cond jump and the cond register defining insn are consecutive
+   before scheduling, we want them to be in a schedule group. This is good
+   for performance on microarchitectures supporting macro-fusion.  */
+
+static void
+group_insns_for_macro_fusion ()
+{
+  basic_block bb;
+
+  FOR_EACH_BB (bb)
+    try_group_insn (BB_END (bb));
+}
+
 /* Initialize some global state for the scheduler.  This function works
    with the common data shared between all the schedulers.  It is called
    from the scheduler specific initialization routine.  */
@@ -6534,9 +6613,11 @@ sched_init (void)
   if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
     targetm.sched.dispatch_do (NULL_RTX, DISPATCH_INIT);
 
-  if (flag_sched_pressure
-      && !reload_completed
-      && common_sched_info->sched_pass_id == SCHED_RGN_PASS)
+  if (live_range_shrinkage_p)
+    sched_pressure = SCHED_PRESSURE_WEIGHTED;
+  else if (flag_sched_pressure
+	   && !reload_completed
+	   && common_sched_info->sched_pass_id == SCHED_RGN_PASS)
     sched_pressure = ((enum sched_pressure_algorithm)
 		      PARAM_VALUE (PARAM_SCHED_PRESSURE_ALGORITHM));
   else
@@ -6645,6 +6726,11 @@ sched_init (void)
     }
 
   curr_state = xmalloc (dfa_state_size);
+
+  /* Group compare and branch insns for macro-fusion.  */
+  if (targetm.sched.macro_fusion_p
+      && targetm.sched.macro_fusion_p ())
+    group_insns_for_macro_fusion ();
 }
 
 static void haifa_init_only_bb (basic_block, basic_block);
@@ -7879,7 +7965,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
     /* Fix priorities.  If MUTATE_P is nonzero, this is not necessary,
        because it'll be done later in add_to_speculative_block.  */
     {
-      rtx_vec_t priorities_roots = rtx_vec_t();
+      rtx_vec_t priorities_roots = rtx_vec_t ();
 
       clear_priorities (twin, &priorities_roots);
       calc_priorities (priorities_roots);
@@ -8503,8 +8589,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
   rtx insn = ready_element (ready, 0);
 
   if (ready->n_ready == 1
-      || INSN_CODE (insn) < 0
       || !INSN_P (insn)
+      || INSN_CODE (insn) < 0
       || !active_insn_p (insn)
       || targetm.sched.dispatch (insn, FITS_DISPATCH_WINDOW))
     return ready_remove_first (ready);
@@ -8513,8 +8599,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
     {
       insn = ready_element (ready, i);
 
-      if (INSN_CODE (insn) < 0
-	  || !INSN_P (insn)
+      if (!INSN_P (insn)
+	  || INSN_CODE (insn) < 0
 	  || !active_insn_p (insn))
 	continue;
 
@@ -8533,8 +8619,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
     {
       insn = ready_element (ready, i);
 
-      if (INSN_CODE (insn) < 0
-	  || !INSN_P (insn)
+      if (!INSN_P (insn)
+	  || INSN_CODE (insn) < 0
 	  || !active_insn_p (insn))
 	continue;
 

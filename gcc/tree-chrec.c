@@ -26,9 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "tree-pretty-print.h"
 #include "cfgloop.h"
-#include "tree-flow.h"
+#include "gimple.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-chrec.h"
 #include "dumpfile.h"
 #include "params.h"
@@ -268,9 +271,14 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
   switch (TREE_CODE (op0))
     {
     case POLYNOMIAL_CHREC:
+      gcc_checking_assert
+	(!chrec_contains_symbols_defined_in_loop (op0, CHREC_VARIABLE (op0)));
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return chrec_fold_plus_poly_poly (code, type, op0, op1);
 
 	CASE_CONVERT:
@@ -298,6 +306,9 @@ chrec_fold_plus_1 (enum tree_code code, tree type,
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  if (code == PLUS_EXPR || code == POINTER_PLUS_EXPR)
 	    return build_polynomial_chrec
 	      (CHREC_VARIABLE (op1),
@@ -396,9 +407,14 @@ chrec_fold_multiply (tree type,
   switch (TREE_CODE (op0))
     {
     case POLYNOMIAL_CHREC:
+      gcc_checking_assert
+	(!chrec_contains_symbols_defined_in_loop (op0, CHREC_VARIABLE (op0)));
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return chrec_fold_multiply_poly_poly (type, op0, op1);
 
 	CASE_CONVERT:
@@ -431,6 +447,9 @@ chrec_fold_multiply (tree type,
       switch (TREE_CODE (op1))
 	{
 	case POLYNOMIAL_CHREC:
+	  gcc_checking_assert
+	    (!chrec_contains_symbols_defined_in_loop (op1,
+						      CHREC_VARIABLE (op1)));
 	  return build_polynomial_chrec
 	    (CHREC_VARIABLE (op1),
 	     chrec_fold_multiply (type, CHREC_LEFT (op1), op0),

@@ -459,25 +459,42 @@ rest_of_pass_free_cfg (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_free_cfg =
+namespace {
+
+const pass_data pass_data_free_cfg =
 {
- {
-  RTL_PASS,
-  "*free_cfg",                          /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  rest_of_pass_free_cfg,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_NONE,                              /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  PROP_cfg,                             /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0,                                    /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "*free_cfg", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  PROP_cfg, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_free_cfg : public rtl_opt_pass
+{
+public:
+  pass_free_cfg (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_free_cfg, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return rest_of_pass_free_cfg (); }
+
+}; // class pass_free_cfg
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_free_cfg (gcc::context *ctxt)
+{
+  return new pass_free_cfg (ctxt);
+}
 
 /* Return RTX to emit after when we want to emit code on the entry of function.  */
 rtx
@@ -593,7 +610,7 @@ forwarder_block_p (const_basic_block bb)
 }
 
 /* Return nonzero if we can reach target from src by falling through.  */
-/* FIXME: Make this a cfg hook.  */
+/* FIXME: Make this a cfg hook, the result is only valid in cfgrtl mode.  */
 
 bool
 can_fallthru (basic_block src, basic_block target)
@@ -606,17 +623,21 @@ can_fallthru (basic_block src, basic_block target)
   if (target == EXIT_BLOCK_PTR)
     return true;
   if (src->next_bb != target)
-    return 0;
+    return false;
+
+  /* ??? Later we may add code to move jump tables offline.  */
+  if (tablejump_p (insn, NULL, NULL))
+    return false;
+
   FOR_EACH_EDGE (e, ei, src->succs)
     if (e->dest == EXIT_BLOCK_PTR
 	&& e->flags & EDGE_FALLTHRU)
-      return 0;
+      return false;
 
   insn2 = BB_HEAD (target);
-  if (insn2 && !active_insn_p (insn2))
+  if (!active_insn_p (insn2))
     insn2 = next_active_insn (insn2);
 
-  /* ??? Later we may add code to move jump tables offline.  */
   return next_active_insn (insn) == insn2;
 }
 
@@ -1341,6 +1362,43 @@ fixup_partition_crossing (edge e)
     }
 }
 
+/* Called when block BB has been reassigned to the cold partition,
+   because it is now dominated by another cold block,
+   to ensure that the region crossing attributes are updated.  */
+
+static void
+fixup_new_cold_bb (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  /* This is called when a hot bb is found to now be dominated
+     by a cold bb and therefore needs to become cold. Therefore,
+     its preds will no longer be region crossing. Any non-dominating
+     preds that were previously hot would also have become cold
+     in the caller for the same region. Any preds that were previously
+     region-crossing will be adjusted in fixup_partition_crossing.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    {
+      fixup_partition_crossing (e);
+    }
+
+  /* Possibly need to make bb's successor edges region crossing,
+     or remove stale region crossing.  */
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      /* We can't have fall-through edges across partition boundaries.
+         Note that force_nonfallthru will do any necessary partition
+         boundary fixup by calling fixup_partition_crossing itself.  */
+      if ((e->flags & EDGE_FALLTHRU)
+          && BB_PARTITION (bb) != BB_PARTITION (e->dest)
+          && e->dest != EXIT_BLOCK_PTR)
+        force_nonfallthru (e);
+      else
+        fixup_partition_crossing (e);
+    }
+}
+
 /* Attempt to change code to redirect edge E to TARGET.  Don't do that on
    expense of adding new instructions or reordering basic blocks.
 
@@ -1387,7 +1445,7 @@ void
 emit_barrier_after_bb (basic_block bb)
 {
   rtx barrier = emit_barrier_after (BB_END (bb));
-  gcc_assert (current_ir_type() == IR_RTL_CFGRTL
+  gcc_assert (current_ir_type () == IR_RTL_CFGRTL
               || current_ir_type () == IR_RTL_CFGLAYOUT);
   if (current_ir_type () == IR_RTL_CFGLAYOUT)
     BB_FOOTER (bb) = unlink_insn_chain (barrier, barrier);
@@ -1426,7 +1484,7 @@ force_nonfallthru_and_redirect (edge e, basic_block target, rtx jump_label)
       note = find_reg_note (BB_END (e->src), REG_BR_PROB, NULL_RTX);
       if (note)
 	{
-	  int prob = INTVAL (XEXP (note, 0));
+	  int prob = XINT (note, 0);
 
 	  b->probability = prob;
           /* Update this to use GCOV_COMPUTE_SCALE.  */
@@ -1905,10 +1963,18 @@ commit_one_edge_insertion (edge e)
     }
 
   /* If the source has one successor and the edge is not abnormal,
-     insert there.  Except for the entry block.  */
+     insert there.  Except for the entry block.
+     Don't do this if the predecessor ends in a jump other than
+     unconditional simple jump.  E.g. for asm goto that points all
+     its labels at the fallthru basic block, we can't insert instructions
+     before the asm goto, as the asm goto can have various of side effects,
+     and can't emit instructions after the asm goto, as it must end
+     the basic block.  */
   else if ((e->flags & EDGE_ABNORMAL) == 0
 	   && single_succ_p (e->src)
-	   && e->src != ENTRY_BLOCK_PTR)
+	   && e->src != ENTRY_BLOCK_PTR
+	   && (!JUMP_P (BB_END (e->src))
+	       || simplejump_p (BB_END (e->src))))
     {
       bb = e->src;
 
@@ -1978,6 +2044,14 @@ void
 commit_edge_insertions (void)
 {
   basic_block bb;
+
+  /* Optimization passes that invoke this routine can cause hot blocks
+     previously reached by both hot and cold blocks to become dominated only
+     by cold blocks. This will cause the verification below to fail,
+     and lead to now cold code in the hot section. In some cases this
+     may only be visible after newly unreachable blocks are deleted,
+     which will be done by fixup_partitions.  */
+  fixup_partitions ();
 
 #ifdef ENABLE_CHECKING
   verify_flow_info ();
@@ -2145,9 +2219,9 @@ update_br_prob_note (basic_block bb)
   if (!JUMP_P (BB_END (bb)))
     return;
   note = find_reg_note (BB_END (bb), REG_BR_PROB, NULL_RTX);
-  if (!note || INTVAL (XEXP (note, 0)) == BRANCH_EDGE (bb)->probability)
+  if (!note || XINT (note, 0) == BRANCH_EDGE (bb)->probability)
     return;
-  XEXP (note, 0) = GEN_INT (BRANCH_EDGE (bb)->probability);
+  XINT (note, 0) = BRANCH_EDGE (bb)->probability;
 }
 
 /* Get the last insn associated with block BB (that includes barriers and
@@ -2173,6 +2247,101 @@ get_last_bb_insn (basic_block bb)
   return end;
 }
 
+/* Sanity check partition hotness to ensure that basic blocks in
+   the cold partition don't dominate basic blocks in the hot partition.
+   If FLAG_ONLY is true, report violations as errors. Otherwise
+   re-mark the dominated blocks as cold, since this is run after
+   cfg optimizations that may make hot blocks previously reached
+   by both hot and cold blocks now only reachable along cold paths.  */
+
+static vec<basic_block>
+find_partition_fixes (bool flag_only)
+{
+  basic_block bb;
+  vec<basic_block> bbs_in_cold_partition = vNULL;
+  vec<basic_block> bbs_to_fix = vNULL;
+
+  /* Callers check this.  */
+  gcc_checking_assert (crtl->has_bb_partition);
+
+  FOR_EACH_BB (bb)
+    if ((BB_PARTITION (bb) == BB_COLD_PARTITION))
+      bbs_in_cold_partition.safe_push (bb);
+
+  if (bbs_in_cold_partition.is_empty ())
+    return vNULL;
+
+  bool dom_calculated_here = !dom_info_available_p (CDI_DOMINATORS);
+
+  if (dom_calculated_here)
+    calculate_dominance_info (CDI_DOMINATORS);
+
+  while (! bbs_in_cold_partition.is_empty  ())
+    {
+      bb = bbs_in_cold_partition.pop ();
+      /* Any blocks dominated by a block in the cold section
+         must also be cold.  */
+      basic_block son;
+      for (son = first_dom_son (CDI_DOMINATORS, bb);
+           son;
+           son = next_dom_son (CDI_DOMINATORS, son))
+        {
+          /* If son is not yet cold, then mark it cold here and
+             enqueue it for further processing.  */
+          if ((BB_PARTITION (son) != BB_COLD_PARTITION))
+            {
+              if (flag_only)
+                error ("non-cold basic block %d dominated "
+                       "by a block in the cold partition (%d)", son->index, bb->index);
+              else
+                BB_SET_PARTITION (son, BB_COLD_PARTITION);
+              bbs_to_fix.safe_push (son);
+              bbs_in_cold_partition.safe_push (son);
+            }
+        }
+    }
+
+  if (dom_calculated_here)
+    free_dominance_info (CDI_DOMINATORS);
+
+  return bbs_to_fix;
+}
+
+/* Perform cleanup on the hot/cold bb partitioning after optimization
+   passes that modify the cfg.  */
+
+void
+fixup_partitions (void)
+{
+  basic_block bb;
+
+  if (!crtl->has_bb_partition)
+    return;
+
+  /* Delete any blocks that became unreachable and weren't
+     already cleaned up, for example during edge forwarding
+     and convert_jumps_to_returns. This will expose more
+     opportunities for fixing the partition boundaries here.
+     Also, the calculation of the dominance graph during verification
+     will assert if there are unreachable nodes.  */
+  delete_unreachable_blocks ();
+
+  /* If there are partitions, do a sanity check on them: A basic block in
+     a cold partition cannot dominate a basic block in a hot partition.
+     Fixup any that now violate this requirement, as a result of edge
+     forwarding and unreachable block deletion.  */
+  vec<basic_block> bbs_to_fix = find_partition_fixes (false);
+
+  /* Do the partition fixup after all necessary blocks have been converted to
+     cold, so that we only update the region crossings the minimum number of
+     places, which can require forcing edges to be non fallthru.  */
+  while (! bbs_to_fix.is_empty ())
+    {
+      bb = bbs_to_fix.pop ();
+      fixup_new_cold_bb (bb);
+    }
+}
+
 /* Verify, in the basic block chain, that there is at most one switch
    between hot/cold partitions. This condition will not be true until
    after reorder_basic_blocks is called.  */
@@ -2189,7 +2358,7 @@ verify_hot_cold_block_grouping (void)
      again (in compgoto). Ensure we don't call this before going back
      into linearized RTL when any layout fixes would have been committed.  */
   if (!crtl->bb_reorder_complete
-      || current_ir_type() != IR_RTL_CFGRTL)
+      || current_ir_type () != IR_RTL_CFGRTL)
     return err;
 
   FOR_EACH_BB (bb)
@@ -2219,7 +2388,8 @@ verify_hot_cold_block_grouping (void)
 /* Perform several checks on the edges out of each block, such as
    the consistency of the branch probabilities, the correctness
    of hot/cold partition crossing edges, and the number of expected
-   successor edges.  */
+   successor edges.  Also verify that the dominance relationship
+   between hot/cold blocks is sane.  */
 
 static int
 rtl_verify_edges (void)
@@ -2241,11 +2411,11 @@ rtl_verify_edges (void)
 	  && EDGE_COUNT (bb->succs) >= 2
 	  && any_condjump_p (BB_END (bb)))
 	{
-	  if (INTVAL (XEXP (note, 0)) != BRANCH_EDGE (bb)->probability
+	  if (XINT (note, 0) != BRANCH_EDGE (bb)->probability
 	      && profile_status != PROFILE_ABSENT)
 	    {
-	      error ("verify_flow_info: REG_BR_PROB does not match cfg %wi %i",
-		     INTVAL (XEXP (note, 0)), BRANCH_EDGE (bb)->probability);
+	      error ("verify_flow_info: REG_BR_PROB does not match cfg %i %i",
+		     XINT (note, 0), BRANCH_EDGE (bb)->probability);
 	      err = 1;
 	    }
 	}
@@ -2382,6 +2552,14 @@ rtl_verify_edges (void)
 	}
     }
 
+  /* If there are partitions, do a sanity check on them: A basic block in
+     a cold partition cannot dominate a basic block in a hot partition.  */
+  if (crtl->has_bb_partition && !err)
+    {
+      vec<basic_block> bbs_to_fix = find_partition_fixes (true);
+      err = !bbs_to_fix.is_empty ();
+    }
+
   /* Clean up.  */
   return err;
 }
@@ -2515,7 +2693,7 @@ rtl_verify_bb_pointers (void)
      and NOTE_INSN_BASIC_BLOCK
    - verify that no fall_thru edge crosses hot/cold partition boundaries
    - verify that there are no pending RTL branch predictions
-   - verify that there is a single hot/cold partition boundary after bbro
+   - verify that hot blocks are not dominated by cold blocks
 
    In future it can be extended check a lot of other stuff as well
    (reachability of basic blocks, life information, etc. etc.).  */
@@ -2761,7 +2939,8 @@ rtl_verify_bb_layout (void)
    - check that all insns are in the basic blocks
      (except the switch handling code, barriers and notes)
    - check that all returns are followed by barriers
-   - check that all fallthru edge points to the adjacent blocks.  */
+   - check that all fallthru edge points to the adjacent blocks
+   - verify that there is a single hot/cold partition boundary after bbro  */
 
 static int
 rtl_verify_flow_info (void)
@@ -2937,7 +3116,7 @@ purge_dead_edges (basic_block bb)
 
 	  b = BRANCH_EDGE (bb);
 	  f = FALLTHRU_EDGE (bb);
-	  b->probability = INTVAL (XEXP (note, 0));
+	  b->probability = XINT (note, 0);
 	  f->probability = REG_BR_PROB_BASE - b->probability;
           /* Update these to use GCOV_COMPUTE_SCALE.  */
 	  b->count = bb->count * b->probability / REG_BR_PROB_BASE;
@@ -3297,45 +3476,79 @@ outof_cfg_layout_mode (void)
   return 0;
 }
 
-struct rtl_opt_pass pass_into_cfg_layout_mode =
+namespace {
+
+const pass_data pass_data_into_cfg_layout_mode =
 {
- {
-  RTL_PASS,
-  "into_cfglayout",                     /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  into_cfg_layout_mode,                 /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CFG,                               /* tv_id */
-  0,                                    /* properties_required */
-  PROP_cfglayout,                       /* properties_provided */
-  0,                                    /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+  RTL_PASS, /* type */
+  "into_cfglayout", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_CFG, /* tv_id */
+  0, /* properties_required */
+  PROP_cfglayout, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
 
-struct rtl_opt_pass pass_outof_cfg_layout_mode =
+class pass_into_cfg_layout_mode : public rtl_opt_pass
 {
- {
-  RTL_PASS,
-  "outof_cfglayout",                    /* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  NULL,                                 /* gate */
-  outof_cfg_layout_mode,                /* execute */
-  NULL,                                 /* sub */
-  NULL,                                 /* next */
-  0,                                    /* static_pass_number */
-  TV_CFG,                               /* tv_id */
-  0,                                    /* properties_required */
-  0,                                    /* properties_provided */
-  PROP_cfglayout,                       /* properties_destroyed */
-  0,                                    /* todo_flags_start */
-  0                                     /* todo_flags_finish */
- }
+public:
+  pass_into_cfg_layout_mode (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_into_cfg_layout_mode, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return into_cfg_layout_mode (); }
+
+}; // class pass_into_cfg_layout_mode
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_into_cfg_layout_mode (gcc::context *ctxt)
+{
+  return new pass_into_cfg_layout_mode (ctxt);
+}
+
+namespace {
+
+const pass_data pass_data_outof_cfg_layout_mode =
+{
+  RTL_PASS, /* type */
+  "outof_cfglayout", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  true, /* has_execute */
+  TV_CFG, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  PROP_cfglayout, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
 };
+
+class pass_outof_cfg_layout_mode : public rtl_opt_pass
+{
+public:
+  pass_outof_cfg_layout_mode (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_outof_cfg_layout_mode, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  unsigned int execute () { return outof_cfg_layout_mode (); }
+
+}; // class pass_outof_cfg_layout_mode
+
+} // anon namespace
+
+rtl_opt_pass *
+make_pass_outof_cfg_layout_mode (gcc::context *ctxt)
+{
+  return new pass_outof_cfg_layout_mode (ctxt);
+}
 
 
 /* Link the basic blocks in the correct order, compacting the basic
@@ -3534,7 +3747,7 @@ fixup_reorder_chain (void)
 		  rtx note = find_reg_note (bb_end_insn, REG_BR_PROB, 0);
 
 		  if (note
-		      && INTVAL (XEXP (note, 0)) < REG_BR_PROB_BASE / 2
+		      && XINT (note, 0) < REG_BR_PROB_BASE / 2
 		      && invert_jump (bb_end_insn,
 				      (e_fall->dest == EXIT_BLOCK_PTR
 				       ? NULL_RTX
@@ -4686,7 +4899,7 @@ rtl_lv_add_condition_to_bb (basic_block first_head ,
   end_sequence ();
 
   /* Add the new cond , in the new head.  */
-  emit_insn_after(seq, BB_END(cond_bb));
+  emit_insn_after (seq, BB_END (cond_bb));
 }
 
 

@@ -3581,14 +3581,6 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
 	  return false;
 	}
 
-      if (!gfc_compare_interfaces (s2, s1, name, 0, 1,
-				   err, sizeof(err), NULL, NULL))
-	{
-	  gfc_error ("Interface mismatch in procedure pointer assignment "
-		     "at %L: %s", &rvalue->where, err);
-	  return false;
-	}
-
       return true;
     }
 
@@ -3824,6 +3816,7 @@ gfc_check_assign_symbol (gfc_symbol *sym, gfc_component *comp, gfc_expr *rvalue)
     r = gfc_check_assign (&lvalue, rvalue, 1);
 
   free (lvalue.symtree);
+  free (lvalue.ref);
 
   if (!r)
     return r;
@@ -4700,7 +4693,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   bool is_pointer;
   bool check_intentin;
   bool ptr_component;
-  bool unlimited;
   symbol_attribute attr;
   gfc_ref* ref;
   int i;
@@ -4715,8 +4707,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       gcc_assert (e->symtree);
       sym = e->value.function.esym ? e->value.function.esym : e->symtree->n.sym;
     }
-
-  unlimited = e->ts.type == BT_CLASS && UNLIMITED_POLY (sym);
 
   attr = gfc_expr_attr (e);
   if (!pointer && e->expr_type == EXPR_FUNCTION && attr.pointer)
@@ -4757,7 +4747,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   /* Find out whether the expr is a pointer; this also means following
      component references to the last one.  */
   is_pointer = (attr.pointer || attr.proc_pointer);
-  if (pointer && !is_pointer && !unlimited)
+  if (pointer && !is_pointer)
     {
       if (context)
 	gfc_error ("Non-POINTER in pointer association context (%s)"

@@ -38,16 +38,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "basic-block.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "domwalk.h"
 #include "pointer-set.h"
 #include "expmed.h"
 #include "params.h"
 #include "hash-table.h"
+#include "tree-ssa-address.h"
 
 /* Information about a strength reduction candidate.  Each statement
    in the candidate table represents an expression of one of the
@@ -379,6 +386,7 @@ static bool address_arithmetic_p;
 /* Forward function declarations.  */
 static slsr_cand_t base_cand_from_table (tree);
 static tree introduce_cast_before_cand (slsr_cand_t, tree, tree);
+static bool legal_cast_p_1 (tree, tree);
 
 /* Produce a pointer to the IDX'th candidate in the candidate vector.  */
 
@@ -750,6 +758,65 @@ slsr_process_phi (gimple phi, bool speed)
   add_cand_for_stmt (phi, c);
 }
 
+/* Given PBASE which is a pointer to tree, look up the defining
+   statement for it and check whether the candidate is in the
+   form of:
+
+     X = B + (1 * S), S is integer constant
+     X = B + (i * S), S is integer one
+
+   If so, set PBASE to the candidate's base_expr and return double
+   int (i * S).
+   Otherwise, just return double int zero.  */
+
+static double_int
+backtrace_base_for_ref (tree *pbase)
+{
+  tree base_in = *pbase;
+  slsr_cand_t base_cand;
+
+  STRIP_NOPS (base_in);
+
+  /* Strip off widening conversion(s) to handle cases where
+     e.g. 'B' is widened from an 'int' in order to calculate
+     a 64-bit address.  */
+  if (CONVERT_EXPR_P (base_in)
+      && legal_cast_p_1 (base_in, TREE_OPERAND (base_in, 0)))
+    base_in = get_unwidened (base_in, NULL_TREE);
+
+  if (TREE_CODE (base_in) != SSA_NAME)
+    return tree_to_double_int (integer_zero_node);
+
+  base_cand = base_cand_from_table (base_in);
+
+  while (base_cand && base_cand->kind != CAND_PHI)
+    {
+      if (base_cand->kind == CAND_ADD
+	  && base_cand->index.is_one ()
+	  && TREE_CODE (base_cand->stride) == INTEGER_CST)
+	{
+	  /* X = B + (1 * S), S is integer constant.  */
+	  *pbase = base_cand->base_expr;
+	  return tree_to_double_int (base_cand->stride);
+	}
+      else if (base_cand->kind == CAND_ADD
+	       && TREE_CODE (base_cand->stride) == INTEGER_CST
+	       && integer_onep (base_cand->stride))
+	{
+	  /* X = B + (i * S), S is integer one.  */
+	  *pbase = base_cand->base_expr;
+	  return base_cand->index;
+	}
+
+      if (base_cand->next_interp)
+	base_cand = lookup_cand (base_cand->next_interp);
+      else
+	base_cand = NULL;
+    }
+
+  return tree_to_double_int (integer_zero_node);
+}
+
 /* Look for the following pattern:
 
     *PBASE:    MEM_REF (T1, C1)
@@ -767,7 +834,14 @@ slsr_process_phi (gimple phi, bool speed)
 
     *PBASE:    T1
     *POFFSET:  MULT_EXPR (T2, C3)
-    *PINDEX:   C1 + (C2 * C3) + C4  */
+    *PINDEX:   C1 + (C2 * C3) + C4
+
+   When T2 is recorded by a CAND_ADD in the form of (T2' + C5), it
+   will be further restructured to:
+
+    *PBASE:    T1
+    *POFFSET:  MULT_EXPR (T2', C3)
+    *PINDEX:   C1 + (C2 * C3) + C4 + (C5 * C3)  */
 
 static bool
 restructure_reference (tree *pbase, tree *poffset, double_int *pindex,
@@ -777,7 +851,7 @@ restructure_reference (tree *pbase, tree *poffset, double_int *pindex,
   double_int index = *pindex;
   double_int bpu = double_int::from_uhwi (BITS_PER_UNIT);
   tree mult_op0, mult_op1, t1, t2, type;
-  double_int c1, c2, c3, c4;
+  double_int c1, c2, c3, c4, c5;
 
   if (!base
       || !offset
@@ -823,11 +897,12 @@ restructure_reference (tree *pbase, tree *poffset, double_int *pindex,
     }
 
   c4 = index.udiv (bpu, FLOOR_DIV_EXPR);
+  c5 = backtrace_base_for_ref (&t2);
 
   *pbase = t1;
-  *poffset = fold_build2 (MULT_EXPR, sizetype, t2,
+  *poffset = fold_build2 (MULT_EXPR, sizetype, fold_convert (sizetype, t2),
 			  double_int_to_tree (sizetype, c3));
-  *pindex = c1 + c2 * c3 + c4;
+  *pindex = c1 + c2 * c3 + c4 + c5 * c3;
   *ptype = type;
 
   return true;
@@ -1512,11 +1587,18 @@ slsr_process_copy (gimple gs, tree rhs1, bool speed)
   add_cand_for_stmt (gs, c);
 }
 
+class find_candidates_dom_walker : public dom_walker
+{
+public:
+  find_candidates_dom_walker (cdi_direction direction)
+    : dom_walker (direction) {}
+  virtual void before_dom_children (basic_block);
+};
+
 /* Find strength-reduction candidates in block BB.  */
 
-static void
-find_candidates_in_block (struct dom_walk_data *walk_data ATTRIBUTE_UNUSED,
-			  basic_block bb)
+void
+find_candidates_dom_walker::before_dom_children (basic_block bb)
 {
   bool speed = optimize_bb_for_speed_p (bb);
   gimple_stmt_iterator gsi;
@@ -1728,11 +1810,23 @@ dump_incr_vec (void)
 static void
 replace_ref (tree *expr, slsr_cand_t c)
 {
-  tree add_expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (c->base_expr),
-			       c->base_expr, c->stride);
-  tree mem_ref = fold_build2 (MEM_REF, TREE_TYPE (*expr), add_expr,
-			      double_int_to_tree (c->cand_type, c->index));
-  
+  tree add_expr, mem_ref, acc_type = TREE_TYPE (*expr);
+  unsigned HOST_WIDE_INT misalign;
+  unsigned align;
+
+  /* Ensure the memory reference carries the minimum alignment
+     requirement for the data type.  See PR58041.  */
+  get_object_alignment_1 (*expr, &align, &misalign);
+  if (misalign != 0)
+    align = (misalign & -misalign);
+  if (align < TYPE_ALIGN (acc_type))
+    acc_type = build_aligned_type (acc_type, align);
+
+  add_expr = fold_build2 (POINTER_PLUS_EXPR, TREE_TYPE (c->base_expr),
+			  c->base_expr, c->stride);
+  mem_ref = fold_build2 (MEM_REF, acc_type, add_expr,
+			 double_int_to_tree (c->cand_type, c->index));
+
   /* Gimplify the base addressing expression for the new MEM_REF tree.  */
   gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
   TREE_OPERAND (mem_ref, 0)
@@ -1911,6 +2005,7 @@ replace_mult_candidate (slsr_cand_t c, tree basis_name, double_int bump)
 	      gimple_assign_set_rhs_with_ops (&gsi, code,
 					      basis_name, bump_tree);
 	      update_stmt (gsi_stmt (gsi));
+              c->cand_stmt = gsi_stmt (gsi);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		stmt_to_print = gsi_stmt (gsi);
 	    }
@@ -3114,6 +3209,7 @@ replace_rhs_if_not_dup (enum tree_code new_code, tree new_rhs1, tree new_rhs2,
       gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
       gimple_assign_set_rhs_with_ops (&gsi, new_code, new_rhs1, new_rhs2);
       update_stmt (gsi_stmt (gsi));
+      c->cand_stmt = gsi_stmt (gsi);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	return gsi_stmt (gsi);
@@ -3219,6 +3315,7 @@ replace_one_candidate (slsr_cand_t c, unsigned i, tree basis_name)
 	  gimple_stmt_iterator gsi = gsi_for_stmt (c->cand_stmt);
 	  gimple_assign_set_rhs_with_ops (&gsi, MINUS_EXPR, basis_name, rhs2);
 	  update_stmt (gsi_stmt (gsi));
+          c->cand_stmt = gsi_stmt (gsi);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    stmt_to_print = gsi_stmt (gsi);
@@ -3414,8 +3511,6 @@ analyze_candidates_and_replace (void)
 static unsigned
 execute_strength_reduction (void)
 {
-  struct dom_walk_data walk_data;
-
   /* Create the obstack where candidates will reside.  */
   gcc_obstack_init (&cand_obstack);
 
@@ -3435,18 +3530,10 @@ execute_strength_reduction (void)
      back edges, and this gives us dominator information as well.  */
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
 
-  /* Set up callbacks for the generic dominator tree walker.  */
-  walk_data.dom_direction = CDI_DOMINATORS;
-  walk_data.initialize_block_local_data = NULL;
-  walk_data.before_dom_children = find_candidates_in_block;
-  walk_data.after_dom_children = NULL;
-  walk_data.global_data = NULL;
-  walk_data.block_local_data_size = 0;
-  init_walk_dominator_tree (&walk_data);
-
   /* Walk the CFG in predominator order looking for strength reduction
      candidates.  */
-  walk_dominator_tree (&walk_data, ENTRY_BLOCK_PTR);
+  find_candidates_dom_walker (CDI_DOMINATORS)
+    .walk (cfun->cfg->x_entry_block_ptr);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -3457,8 +3544,6 @@ execute_strength_reduction (void)
   /* Analyze costs and make appropriate replacements.  */
   analyze_candidates_and_replace ();
 
-  /* Free resources.  */
-  fini_walk_dominator_tree (&walk_data);
   loop_optimizer_finalize ();
   base_cand_map.dispose ();
   obstack_free (&chain_obstack, NULL);
@@ -3475,22 +3560,40 @@ gate_strength_reduction (void)
   return flag_tree_slsr;
 }
 
-struct gimple_opt_pass pass_strength_reduction =
+namespace {
+
+const pass_data pass_data_strength_reduction =
 {
- {
-  GIMPLE_PASS,
-  "slsr",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_strength_reduction,		/* gate */
-  execute_strength_reduction,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_GIMPLE_SLSR,			/* tv_id */
-  PROP_cfg | PROP_ssa,			/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_ssa			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "slsr", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_GIMPLE_SLSR, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_ssa, /* todo_flags_finish */
 };
+
+class pass_strength_reduction : public gimple_opt_pass
+{
+public:
+  pass_strength_reduction (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_strength_reduction, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_strength_reduction (); }
+  unsigned int execute () { return execute_strength_reduction (); }
+
+}; // class pass_strength_reduction
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_strength_reduction (gcc::context *ctxt)
+{
+  return new pass_strength_reduction (ctxt);
+}

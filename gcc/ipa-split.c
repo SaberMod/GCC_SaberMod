@@ -78,10 +78,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "target.h"
-#include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-flow.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -1217,16 +1227,20 @@ split_function (struct split_point *split_point)
   /* For usual cloning it is enough to clear builtin only when signature
      changes.  For partial inlining we however can not expect the part
      of builtin implementation to have same semantic as the whole.  */
-  if (DECL_BUILT_IN (node->symbol.decl))
+  if (DECL_BUILT_IN (node->decl))
     {
-      DECL_BUILT_IN_CLASS (node->symbol.decl) = NOT_BUILT_IN;
-      DECL_FUNCTION_CODE (node->symbol.decl) = (enum built_in_function) 0;
+      DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
+      DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
     }
+  /* If the original function is declared inline, there is no point in issuing
+     a warning for the non-inlinable part.  */
+  DECL_NO_INLINE_WARNING_P (node->decl) = 1;
   cgraph_node_remove_callees (cur_node);
+  ipa_remove_all_references (&cur_node->ref_list);
   if (!split_part_return_p)
-    TREE_THIS_VOLATILE (node->symbol.decl) = 1;
+    TREE_THIS_VOLATILE (node->decl) = 1;
   if (dump_file)
-    dump_function_to_file (node->symbol.decl, dump_file, dump_flags);
+    dump_function_to_file (node->decl, dump_file, dump_flags);
 
   /* Create the basic block we place call into.  It is the entry basic block
      split after last label.  */
@@ -1251,7 +1265,7 @@ split_function (struct split_point *split_point)
 					false, GSI_CONTINUE_LINKING);
 	args_to_pass[i] = arg;
       }
-  call = gimple_build_call_vec (node->symbol.decl, args_to_pass);
+  call = gimple_build_call_vec (node->decl, args_to_pass);
   gimple_set_block (call, DECL_INITIAL (current_function_decl));
   args_to_pass.release ();
 
@@ -1278,7 +1292,7 @@ split_function (struct split_point *split_point)
 	    continue;
 
 	  if (debug_args == NULL)
-	    debug_args = decl_debug_args_insert (node->symbol.decl);
+	    debug_args = decl_debug_args_insert (node->decl);
 	  ddecl = make_node (DEBUG_EXPR_DECL);
 	  DECL_ARTIFICIAL (ddecl) = 1;
 	  TREE_TYPE (ddecl) = TREE_TYPE (parm);
@@ -1304,8 +1318,8 @@ split_function (struct split_point *split_point)
       gimple_stmt_iterator cgsi;
       gimple def_temp;
 
-      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-      var = BLOCK_VARS (DECL_INITIAL (node->symbol.decl));
+      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+      var = BLOCK_VARS (DECL_INITIAL (node->decl));
       i = vec_safe_length (*debug_args);
       cgsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
       do
@@ -1505,7 +1519,7 @@ execute_split_functions (void)
 	fprintf (dump_file, "Not splitting: not inlinable.\n");
       return 0;
     }
-  if (DECL_DISREGARD_INLINE_LIMITS (node->symbol.decl))
+  if (DECL_DISREGARD_INLINE_LIMITS (node->decl))
     {
       if (dump_file)
 	fprintf (dump_file, "Not splitting: disregarding inline limits.\n");
@@ -1536,9 +1550,11 @@ execute_split_functions (void)
      Note that we are not completely conservative about disqualifying functions
      called once.  It is possible that the caller is called more then once and
      then inlining would still benefit.  */
-  if ((!node->callers || !node->callers->next_caller)
-      && !node->symbol.address_taken
-      && (!flag_lto || !node->symbol.externally_visible))
+  if ((!node->callers
+       /* Local functions called once will be completely inlined most of time.  */
+       || (!node->callers->next_caller && node->local.local))
+      && !node->address_taken
+      && (!flag_lto || !node->externally_visible))
     {
       if (dump_file)
 	fprintf (dump_file, "Not splitting: not called directly "
@@ -1624,25 +1640,43 @@ gate_split_functions (void)
 	  && !profile_arc_flag && !flag_branch_probabilities);
 }
 
-struct gimple_opt_pass pass_split_functions =
+namespace {
+
+const pass_data pass_data_split_functions =
 {
- {
-  GIMPLE_PASS,
-  "fnsplit",				/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
-  gate_split_functions,			/* gate */
-  execute_split_functions,		/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FNSPLIT,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_all      			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "fnsplit", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FNSPLIT, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_all, /* todo_flags_finish */
 };
+
+class pass_split_functions : public gimple_opt_pass
+{
+public:
+  pass_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_split_functions, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_split_functions (); }
+  unsigned int execute () { return execute_split_functions (); }
+
+}; // class pass_split_functions
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_split_functions (gcc::context *ctxt)
+{
+  return new pass_split_functions (ctxt);
+}
 
 /* Gate feedback driven function splitting pass.
    We don't need to split when profiling at all, we are producing
@@ -1666,22 +1700,40 @@ execute_feedback_split_functions (void)
   return retval;
 }
 
-struct gimple_opt_pass pass_feedback_split_functions =
+namespace {
+
+const pass_data pass_data_feedback_split_functions =
 {
- {
-  GIMPLE_PASS,
-  "feedback_fnsplit",			/* name */
-  OPTGROUP_NONE,                      /* optinfo_flags */
-  gate_feedback_split_functions,	/* gate */
-  execute_feedback_split_functions,	/* execute */
-  NULL,					/* sub */
-  NULL,					/* next */
-  0,					/* static_pass_number */
-  TV_IPA_FNSPLIT,			/* tv_id */
-  PROP_cfg,				/* properties_required */
-  0,					/* properties_provided */
-  0,					/* properties_destroyed */
-  0,					/* todo_flags_start */
-  TODO_verify_all      			/* todo_flags_finish */
- }
+  GIMPLE_PASS, /* type */
+  "feedback_fnsplit", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_IPA_FNSPLIT, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_all, /* todo_flags_finish */
 };
+
+class pass_feedback_split_functions : public gimple_opt_pass
+{
+public:
+  pass_feedback_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_feedback_split_functions, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_feedback_split_functions (); }
+  unsigned int execute () { return execute_feedback_split_functions (); }
+
+}; // class pass_feedback_split_functions
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_feedback_split_functions (gcc::context *ctxt)
+{
+  return new pass_feedback_split_functions (ctxt);
+}
