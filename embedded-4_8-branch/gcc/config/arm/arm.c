@@ -2054,6 +2054,10 @@ arm_option_override (void)
 	arm_pic_register = pic_register;
     }
 
+  if (TARGET_VXWORKS_RTP
+      && !global_options_set.x_arm_pic_data_is_text_relative)
+    arm_pic_data_is_text_relative = 0;
+
   /* Enable -mfix-cortex-m3-ldrd by default for Cortex-M3 cores.  */
   if (fix_cm3_ldrd == 2)
     {
@@ -5521,7 +5525,7 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	   || (GET_CODE (orig) == SYMBOL_REF &&
 	       SYMBOL_REF_LOCAL_P (orig)))
 	  && NEED_GOT_RELOC
-	  && !TARGET_VXWORKS_RTP)
+	  && arm_pic_data_is_text_relative)
 	insn = arm_pic_static_addr (orig, reg);
       else
 	{
@@ -18495,7 +18499,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
 	{
 	  /* See legitimize_pic_address for an explanation of the
 	     TARGET_VXWORKS_RTP check.  */
-	  if (TARGET_VXWORKS_RTP
+	  if (!arm_pic_data_is_text_relative
 	      || (GET_CODE (x) == SYMBOL_REF && !SYMBOL_REF_LOCAL_P (x)))
 	    fputs ("(GOT)", asm_out_file);
 	  else

@@ -553,6 +553,10 @@ extern int arm_arch_thumb_hwdiv;
 #define NEED_PLT_RELOC	0
 #endif
 
+#ifndef TARGET_DEFAULT_PIC_DATA_IS_TEXT_RELATIVE
+#define TARGET_DEFAULT_PIC_DATA_IS_TEXT_RELATIVE 1
+#endif
+
 /* Nonzero if we need to refer to the GOT with a PC-relative
    offset.  In other words, generate
 
