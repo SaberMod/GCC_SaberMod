@@ -1122,41 +1122,22 @@ afdo_propagate_multi_edge (bool is_succ)
 
   FOR_EACH_BB (bb)
     {
-      edge e, unknown_edge = NULL, zero_edge = NULL;
+      edge e, unknown_edge = NULL;
       edge_iterator ei;
       int num_unknown_edge = 0;
       gcov_type total_known_count = 0;
 
-      if (is_succ)
-	{
-	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if ((e->flags & EDGE_ANNOTATED) == 0)
-	      num_unknown_edge ++, unknown_edge = e;
-	    else if (e->count == 0)
-	      zero_edge = e;
-	    else
-	      total_known_count += e->count;
-	}
-      else
-	{
-	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    if ((e->flags & EDGE_ANNOTATED) == 0)
-	      num_unknown_edge ++, unknown_edge = e;
-	    else
-	      total_known_count += e->count;
-	}
+      FOR_EACH_EDGE (e, ei, is_succ ? bb->succs : bb->preds)
+	if ((e->flags & EDGE_ANNOTATED) == 0)
+	  num_unknown_edge ++, unknown_edge = e;
+	else
+	  total_known_count += e->count;
 
       if (num_unknown_edge == 0)
 	{
 	  if (total_known_count > bb->count)
 	    {
 	      bb->count = total_known_count;
-	      changed = true;
-	    }
-	  else if (zero_edge != NULL && total_known_count < bb->count
-		   && bb->loop_father && bb->loop_father->header == bb)
-	    {
-	      zero_edge->count = bb->count - total_known_count;
 	      changed = true;
 	    }
 	  if ((bb->flags & BB_ANNOTATED) == 0)
