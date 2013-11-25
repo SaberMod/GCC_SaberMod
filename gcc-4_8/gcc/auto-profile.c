@@ -1069,44 +1069,6 @@ afdo_find_equiv_class (void)
     }
 }
 
-/* If a baisk block only has one in/out edge, then the bb count and he
-   edge count should be the same.
-   IS_SUCC is true if the out edge of the basic block is examined.
-   Return TRUE if any basic block/edge count is changed.  */
-
-static bool
-afdo_propagate_single_edge (bool is_succ)
-{
-  basic_block bb;
-  bool changed = false;
-
-  FOR_EACH_BB (bb)
-    if (is_succ ? single_succ_p (bb) : single_pred_p (bb))
-      {
-	edge e = is_succ ? single_succ_edge (bb) : single_pred_edge (bb);
-	if (((e->flags & EDGE_ANNOTATED) == 0)
-	    && ((bb->flags & BB_ANNOTATED) != 0))
-	  {
-	    e->count = bb->count;
-	    e->flags |= EDGE_ANNOTATED;
-	    changed = true;
-	  }
-	else if (((e->flags & EDGE_ANNOTATED) != 0)
-	    && ((bb->flags & BB_ANNOTATED) == 0))
-	  {
-	    bb->count = e->count;
-	    bb->flags |= BB_ANNOTATED;
-	    changed = true;
-	  }
-	else if (bb->count != e->count)
-	  {
-	    e->count = bb->count = MAX (bb->count, e->count);
-	    changed = true;
-	  }
-      }
-  return changed;
-}
-
 /* If a basic block's count is known, and only one of its in/out edges' count
    is unknown, its count can be calculated.
    Meanwhile, if all of the in/out edges' counts are known, then the basic
@@ -1115,7 +1077,7 @@ afdo_propagate_single_edge (bool is_succ)
    Return TRUE if any basic block/edge count is changed.  */
 
 static bool
-afdo_propagate_multi_edge (bool is_succ)
+afdo_propagate_edge (bool is_succ)
 {
   basic_block bb;
   bool changed = false;
@@ -1281,13 +1243,9 @@ afdo_propagate (void)
     {
       changed = false;
 
-      if (afdo_propagate_single_edge (true))
+      if (afdo_propagate_edge (true))
 	changed = true;
-      if (afdo_propagate_single_edge (false))
-	changed = true;
-      if (afdo_propagate_multi_edge (true))
-	changed = true;
-      if (afdo_propagate_multi_edge (false))
+      if (afdo_propagate_edge (false))
 	changed = true;
       afdo_propagate_circuit ();
     }
