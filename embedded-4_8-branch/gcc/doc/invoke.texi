@@ -510,6 +510,7 @@ Objective-C and Objective-C++ Dialects}.
 -mtp=@var{name} -mtls-dialect=@var{dialect} @gol
 -mword-relocations @gol
 -mfix-cortex-m3-ldrd @gol
+-mslow-flash-data @gol
 -munaligned-access}
 
 @emph{AVR Options}
@@ -11515,6 +11516,13 @@ Some Cortex-M3 cores can cause data corruption when @code{ldrd} instructions
 with overlapping destination and base registers are used.  This option avoids
 generating these instructions.  This option is enabled by default when
 @option{-mcpu=cortex-m3} is specified.
+
+@item -mslow-flash-data
+@opindex mslow-flash-data
+Assume loading data from flash is slower than fetching instruction.
+Therefore literal load is minimized for better performance.
+This option is only supported when compiling for ARMv7 M-profile and
+off by default.
 
 @item -munaligned-access
 @itemx -mno-unaligned-access

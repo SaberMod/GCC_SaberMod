@@ -63,157 +63,6 @@
 ;; Processor type.  This is created automatically from arm-cores.def.
 (include "arm-tune.md")
 
-; IS_THUMB is set to 'yes' when we are generating Thumb code, and 'no' when
-; generating ARM code.  This is used to control the length of some insn
-; patterns that share the same RTL in both ARM and Thumb code.
-(define_attr "is_thumb" "no,yes" (const (symbol_ref "thumb_code")))
-
-; IS_ARCH6 is set to 'yes' when we are generating code form ARMv6.
-(define_attr "is_arch6" "no,yes" (const (symbol_ref "arm_arch6")))
-
-; IS_THUMB1 is set to 'yes' iff we are generating Thumb-1 code.
-(define_attr "is_thumb1" "no,yes" (const (symbol_ref "thumb1_code")))
-
-;; Operand number of an input operand that is shifted.  Zero if the
-;; given instruction does not shift one of its input operands.
-(define_attr "shift" "" (const_int 0))
-
-; Floating Point Unit.  If we only have floating point emulation, then there
-; is no point in scheduling the floating point insns.  (Well, for best
-; performance we should try and group them together).
-(define_attr "fpu" "none,vfp"
-  (const (symbol_ref "arm_fpu_attr")))
-
-; LENGTH of an instruction (in bytes)
-(define_attr "length" ""
-  (const_int 4))
-
-; The architecture which supports the instruction (or alternative).
-; This can be "a" for ARM, "t" for either of the Thumbs, "32" for
-; TARGET_32BIT, "t1" or "t2" to specify a specific Thumb mode.  "v6"
-; for ARM or Thumb-2 with arm_arch6, and nov6 for ARM without
-; arm_arch6.  This attribute is used to compute attribute "enabled",
-; use type "any" to enable an alternative in all cases.
-(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,onlya8,neon_onlya8,nota8,neon_nota8,iwmmxt,iwmmxt2"
-  (const_string "any"))
-
-(define_attr "arch_enabled" "no,yes"
-  (cond [(eq_attr "arch" "any")
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "a")
-	      (match_test "TARGET_ARM"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "t")
-	      (match_test "TARGET_THUMB"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "t1")
-	      (match_test "TARGET_THUMB1"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "t2")
-	      (match_test "TARGET_THUMB2"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "32")
-	      (match_test "TARGET_32BIT"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "v6")
-	      (match_test "TARGET_32BIT && arm_arch6"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "nov6")
-	      (match_test "TARGET_32BIT && !arm_arch6"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "onlya8")
-	      (eq_attr "tune" "cortexa8"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "neon_onlya8")
-	      (eq_attr "tune" "cortexa8")
-	      (match_test "TARGET_NEON"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "nota8")
-	      (not (eq_attr "tune" "cortexa8")))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "neon_nota8")
-	      (not (eq_attr "tune" "cortexa8"))
-	      (match_test "TARGET_NEON"))
-	 (const_string "yes")
-
-	 (and (eq_attr "arch" "iwmmxt2")
-	      (match_test "TARGET_REALLY_IWMMXT2"))
-	 (const_string "yes")]
-
-	(const_string "no")))
-
-(define_attr "opt" "any,speed,size"
-  (const_string "any"))
-
-(define_attr "opt_enabled" "no,yes"
-  (cond [(eq_attr "opt" "any")
-         (const_string "yes")
-
-	 (and (eq_attr "opt" "speed")
-	      (match_test "optimize_function_for_speed_p (cfun)"))
-	 (const_string "yes")
-
-	 (and (eq_attr "opt" "size")
-	      (match_test "optimize_function_for_size_p (cfun)"))
-	 (const_string "yes")]
-	(const_string "no")))
-
-; Allows an insn to disable certain alternatives for reasons other than
-; arch support.
-(define_attr "insn_enabled" "no,yes"
-  (const_string "yes"))
-
-; Enable all alternatives that are both arch_enabled and insn_enabled.
- (define_attr "enabled" "no,yes"
-   (cond [(eq_attr "insn_enabled" "no")
-	  (const_string "no")
-
-	  (eq_attr "arch_enabled" "no")
-	  (const_string "no")
-
-	  (eq_attr "opt_enabled" "no")
-	  (const_string "no")]
-	 (const_string "yes")))
-
-; POOL_RANGE is how far away from a constant pool entry that this insn
-; can be placed.  If the distance is zero, then this insn will never
-; reference the pool.
-; Note that for Thumb constant pools the PC value is rounded down to the
-; nearest multiple of four.  Therefore, THUMB2_POOL_RANGE (and POOL_RANGE for
-; Thumb insns) should be set to <max_range> - 2.
-; NEG_POOL_RANGE is nonzero for insns that can reference a constant pool entry
-; before its address.  It is set to <max_range> - (8 + <data_size>).
-(define_attr "arm_pool_range" "" (const_int 0))
-(define_attr "thumb2_pool_range" "" (const_int 0))
-(define_attr "arm_neg_pool_range" "" (const_int 0))
-(define_attr "thumb2_neg_pool_range" "" (const_int 0))
-
-(define_attr "pool_range" ""
-  (cond [(eq_attr "is_thumb" "yes") (attr "thumb2_pool_range")]
-	(attr "arm_pool_range")))
-(define_attr "neg_pool_range" ""
-  (cond [(eq_attr "is_thumb" "yes") (attr "thumb2_neg_pool_range")]
-	(attr "arm_neg_pool_range")))
-
-; An assembler sequence may clobber the condition codes without us knowing.
-; If such an insn references the pool, then we have no way of knowing how,
-; so use the most conservative value for pool_range.
-(define_asm_attributes
- [(set_attr "conds" "clob")
-  (set_attr "length" "4")
-  (set_attr "pool_range" "250")])
-
 ;; The instruction used to implement a particular pattern.  This
 ;; information is used by pipeline descriptions to provide accurate
 ;; scheduling information.
@@ -329,6 +178,167 @@
      "smlalxy,umull,umulls,umlal,umlals,smull,smulls,smlal,smlals")
     (const_string "yes")
     (const_string "no")))
+
+; IS_THUMB is set to 'yes' when we are generating Thumb code, and 'no' when
+; generating ARM code.  This is used to control the length of some insn
+; patterns that share the same RTL in both ARM and Thumb code.
+(define_attr "is_thumb" "no,yes" (const (symbol_ref "thumb_code")))
+
+; IS_ARCH6 is set to 'yes' when we are generating code form ARMv6.
+(define_attr "is_arch6" "no,yes" (const (symbol_ref "arm_arch6")))
+
+; IS_THUMB1 is set to 'yes' iff we are generating Thumb-1 code.
+(define_attr "is_thumb1" "no,yes" (const (symbol_ref "thumb1_code")))
+
+;; Operand number of an input operand that is shifted.  Zero if the
+;; given instruction does not shift one of its input operands.
+(define_attr "shift" "" (const_int 0))
+
+; Floating Point Unit.  If we only have floating point emulation, then there
+; is no point in scheduling the floating point insns.  (Well, for best
+; performance we should try and group them together).
+(define_attr "fpu" "none,vfp"
+  (const (symbol_ref "arm_fpu_attr")))
+
+; LENGTH of an instruction (in bytes)
+(define_attr "length" ""
+  (const_int 4))
+
+; The architecture which supports the instruction (or alternative).
+; This can be "a" for ARM, "t" for either of the Thumbs, "32" for
+; TARGET_32BIT, "t1" or "t2" to specify a specific Thumb mode.  "v6"
+; for ARM or Thumb-2 with arm_arch6, and nov6 for ARM without
+; arm_arch6.  This attribute is used to compute attribute "enabled",
+; use type "any" to enable an alternative in all cases.
+(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,onlya8,neon_onlya8,nota8,neon_nota8,iwmmxt,iwmmxt2"
+  (const_string "any"))
+
+(define_attr "arch_enabled" "no,yes"
+  (cond [(eq_attr "arch" "any")
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "a")
+	      (match_test "TARGET_ARM"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "t")
+	      (match_test "TARGET_THUMB"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "t1")
+	      (match_test "TARGET_THUMB1"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "t2")
+	      (match_test "TARGET_THUMB2"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "32")
+	      (match_test "TARGET_32BIT"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "v6")
+	      (match_test "TARGET_32BIT && arm_arch6"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "nov6")
+	      (match_test "TARGET_32BIT && !arm_arch6"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "onlya8")
+	      (eq_attr "tune" "cortexa8"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "neon_onlya8")
+	      (eq_attr "tune" "cortexa8")
+	      (match_test "TARGET_NEON"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "nota8")
+	      (not (eq_attr "tune" "cortexa8")))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "neon_nota8")
+	      (not (eq_attr "tune" "cortexa8"))
+	      (match_test "TARGET_NEON"))
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "iwmmxt2")
+	      (match_test "TARGET_REALLY_IWMMXT2"))
+	 (const_string "yes")]
+
+	(const_string "no")))
+
+(define_attr "opt" "any,speed,size"
+  (const_string "any"))
+
+(define_attr "opt_enabled" "no,yes"
+  (cond [(eq_attr "opt" "any")
+         (const_string "yes")
+
+	 (and (eq_attr "opt" "speed")
+	      (match_test "optimize_function_for_speed_p (cfun)"))
+	 (const_string "yes")
+
+	 (and (eq_attr "opt" "size")
+	      (match_test "optimize_function_for_size_p (cfun)"))
+	 (const_string "yes")]
+	(const_string "no")))
+
+(define_attr "use_literal_pool" "no,yes"
+   (cond [(and (eq_attr "type" "f_loads,f_loadd")
+	       (match_test "CONSTANT_P (operands[1])"))
+	  (const_string "yes")]
+	 (const_string "no")))
+
+; Allows an insn to disable certain alternatives for reasons other than
+; arch support.
+(define_attr "insn_enabled" "no,yes"
+  (const_string "yes"))
+
+; Enable all alternatives that are both arch_enabled and insn_enabled.
+ (define_attr "enabled" "no,yes"
+   (cond [(eq_attr "insn_enabled" "no")
+	  (const_string "no")
+
+	  (and (eq_attr "use_literal_pool" "yes")
+	       (match_test "arm_disable_literal_pool"))
+	  (const_string "no")
+
+	  (eq_attr "arch_enabled" "no")
+	  (const_string "no")
+
+	  (eq_attr "opt_enabled" "no")
+	  (const_string "no")]
+	 (const_string "yes")))
+
+; POOL_RANGE is how far away from a constant pool entry that this insn
+; can be placed.  If the distance is zero, then this insn will never
+; reference the pool.
+; Note that for Thumb constant pools the PC value is rounded down to the
+; nearest multiple of four.  Therefore, THUMB2_POOL_RANGE (and POOL_RANGE for
+; Thumb insns) should be set to <max_range> - 2.
+; NEG_POOL_RANGE is nonzero for insns that can reference a constant pool entry
+; before its address.  It is set to <max_range> - (8 + <data_size>).
+(define_attr "arm_pool_range" "" (const_int 0))
+(define_attr "thumb2_pool_range" "" (const_int 0))
+(define_attr "arm_neg_pool_range" "" (const_int 0))
+(define_attr "thumb2_neg_pool_range" "" (const_int 0))
+
+(define_attr "pool_range" ""
+  (cond [(eq_attr "is_thumb" "yes") (attr "thumb2_pool_range")]
+	(attr "arm_pool_range")))
+(define_attr "neg_pool_range" ""
+  (cond [(eq_attr "is_thumb" "yes") (attr "thumb2_neg_pool_range")]
+	(attr "arm_neg_pool_range")))
+
+; An assembler sequence may clobber the condition codes without us knowing.
+; If such an insn references the pool, then we have no way of knowing how,
+; so use the most conservative value for pool_range.
+(define_asm_attributes
+ [(set_attr "conds" "clob")
+  (set_attr "length" "4")
+  (set_attr "pool_range" "250")])
 
 ; wtype for WMMX insn scheduling purposes.
 (define_attr "wtype"
@@ -5345,7 +5355,7 @@
   "TARGET_32BIT
    && reload_completed
    && (arm_const_double_inline_cost (operands[1])
-       <= ((optimize_size || arm_ld_sched) ? 3 : 4))"
+       <= arm_max_const_double_inline_cost ())"
   [(const_int 0)]
   "
   arm_split_constant (SET, SImode, curr_insn,
@@ -5605,6 +5615,47 @@
   arm_split_constant (SET, SImode, NULL_RTX, 
                       INTVAL (operands[1]), operands[0], NULL_RTX, 0);
   DONE;
+  "
+)
+
+;; A normal way to do (symbol + offset) requires three instructions at least
+;; (depends on how big the offset is) as below:
+;; movw r0, #:lower16:g
+;; movw r0, #:upper16:g
+;; adds r0, #4
+;;
+;; A better way would be:
+;; movw r0, #:lower16:g+4
+;; movw r0, #:upper16:g+4
+;;
+;; The limitation of this way is that the length of offset should be a 16-bit
+;; signed value, because current assembler only supports REL type relocation for
+;; such case.  If the more powerful RELA type is supported in future, we should
+;; update this pattern to go with better way.
+(define_split
+  [(set (match_operand:SI 0 "arm_general_register_operand" "")
+	(const:SI (plus:SI (match_operand:SI 1 "general_operand" "")
+			   (match_operand:SI 2 "const_int_operand" ""))))]
+  "TARGET_THUMB2
+   && arm_disable_literal_pool
+   && reload_completed
+   && GET_CODE (operands[1]) == SYMBOL_REF"
+  [(clobber (const_int 0))]
+  "
+    int offset = INTVAL (operands[2]);
+
+    if (offset < -0x8000 || offset > 0x7fff)
+      {
+	arm_emit_movpair (operands[0], operands[1]);
+	emit_insn (gen_rtx_SET (SImode, operands[0],
+				gen_rtx_PLUS (SImode, operands[0], operands[2])));
+      }
+    else
+      {
+	rtx op = gen_rtx_CONST (SImode,
+				gen_rtx_PLUS (SImode, operands[1], operands[2]));
+	arm_emit_movpair (operands[0], op);
+      }
   "
 )
 

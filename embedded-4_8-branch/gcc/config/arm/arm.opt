@@ -248,6 +248,10 @@ Target Report Var(fix_cm3_ldrd) Init(2)
 Avoid overlapping destination and address registers on LDRD instructions
 that may trigger Cortex-M3 errata.
 
+mslow-flash-data
+Target Report Var(target_slow_flash_data) Init(0)
+Assume loading data from flash is slower than fetching instructions.
+
 munaligned-access
 Target Report Var(unaligned_access) Init(2)
 Enable unaligned word and halfword accesses to packed data.
