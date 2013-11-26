@@ -1232,6 +1232,8 @@ tree_profiling (void)
       pop_cfun ();
     }
 
+  handle_missing_profiles ();
+
   del_node_map();
   cleanup_instrumentation_sampling();
   return 0;

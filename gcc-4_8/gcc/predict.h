@@ -37,7 +37,8 @@ enum prediction
 
 extern void predict_insn_def (rtx, enum br_predictor, enum prediction);
 extern int counts_to_freqs (void);
-extern void estimate_bb_frequencies (void);
+extern void handle_missing_profiles (void);
+extern void estimate_bb_frequencies (bool);
 extern const char *predictor_name (enum br_predictor);
 extern tree build_predict_expr (enum br_predictor, enum prediction);
 extern void tree_estimate_probability (void);
