@@ -4471,7 +4471,7 @@ rest_of_handle_final (void)
   /* With -fcallgraph-profiles-sections and -freorder-functions=,
      add ".gnu.callgraph.text" section for storing profiling information. */
   if ((flag_reorder_functions > 1)
-      && flag_profile_use
+      && (flag_profile_use || flag_auto_profile)
       && cgraph_get_node (current_function_decl) != NULL
       && ((cgraph_get_node (current_function_decl))->callees != NULL
 	  || (cgraph_get_node (current_function_decl))->count > 0))
