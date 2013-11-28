@@ -1,3 +1,109 @@
+2013-11-23  Easwaran Raman  <eraman@google.com>
+
+	PR c++/59031
+	* call.c (build_new_method_call_1): Comnpare function context
+	with BASELINK_BINFO type rather than instance type before
+	marking the call with LOOKUP_NONVIRTUAL.
+
+2013-10-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58162
+	* parser.c (cp_parser_late_parse_one_default_arg): Set
+	TARGET_EXPR_DIRECT_INIT_P.
+
+2013-11-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* cvt.c (cp_convert_to_pointer): Call build_ptrmemfunc before
+	maybe_warn_zero_as_null_pointer_constant to avoid duplicate
+	-Wzero-as-null-pointer-constant diagnostics.
+
+	* typeck.c (build_ptrmemfunc): Use cp_build_c_cast.
+
+2013-10-25  Tom de Vries  <tom@codesourcery.com>
+
+	PR c++/58282
+	* except.c (build_must_not_throw_expr): Handle
+	flag_exceptions.
+
+2013-10-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58596
+	* semantics.c (lambda_expr_this_capture): Handle NSDMIs in the
+	cp_unevaluated_operand case.
+
+2013-10-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58633
+	* parser.c (cp_parser_pseudo_destructor_name): Revert r174385 changes.
+
+2013-10-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57850
+	* decl2.c (dump_tu): Split out from...
+	(cp_write_global_declarations): ...here.  Call it in PCH mode.
+
+2013-10-16  Release Manager
+
+	* GCC 4.8.2 released.
+
+2013-10-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58568
+	* semantics.c (begin_lambda_type): Check return value of xref_tag
+	for error_mark_node; tidy.
+	* decl.c (grokdeclarator): Tweak error message.
+
+2013-10-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58535
+	* parser.c (cp_parser_function_specifier_opt): Upon error about
+	virtual templates don't set ds_virtual.
+
+2013-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58457
+	* class.c (instantiate_type): Loosen a bit the gcc_assert.
+
+2013-09-13  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58273
+	* pt.c (any_type_dependent_elements_p): Actually check for
+	type-dependence, not value-dependence.
+
+2013-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/58325
+	* init.c (build_vec_delete): Call mark_rvalue_use on base.
+
+2013-08-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58119
+	* cp-tree.h (WILDCARD_TYPE_P): Split out from...
+	(MAYBE_CLASS_TYPE_P): ...here.
+	* cvt.c (build_expr_type_conversion): Don't complain about a
+	template that can't match the desired type category.
+
+2013-08-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58083
+	* name-lookup.c (push_class_level_binding_1): It's OK to push a
+	lambda type after the enclosing type is complete.
+
+2013-08-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57825
+	* tree.c (strip_typedefs) [METHOD_TYPE]: Preserve ref-qualifier.
+
+2013-07-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57901
+	* semantics.c (build_data_member_initialization, constexpr_fn_retval):
+	Use break_out_target_exprs instead of unshare_expr.
+
+	PR c++/58022
+	* typeck2.c (abstract_virtuals_error_sfinae): Don't remember
+	lookup in SFINAE context.
+
 2013-07-25  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/57981

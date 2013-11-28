@@ -424,6 +424,7 @@ runtime_files = \
 	runtime/go-caller.c \
 	runtime/go-callers.c \
 	runtime/go-can-convert-interface.c \
+	runtime/go-cdiv.c \
 	runtime/go-cgo.c \
 	runtime/go-check-interface.c \
 	runtime/go-construct-map.c \
@@ -895,9 +896,28 @@ go_path_files = \
 	go/path/match.go \
 	go/path/path.go
 
+if LIBGO_IS_X86_64
+go_reflect_makefunc_file = \
+	go/reflect/makefuncgo_amd64.go
+go_reflect_makefunc_s_file = \
+	go/reflect/makefunc_amd64.S
+else
+if LIBGO_IS_386
+go_reflect_makefunc_file = \
+	go/reflect/makefuncgo_386.go
+go_reflect_makefunc_s_file = \
+	go/reflect/makefunc_386.S
+else
+go_reflect_makefunc_file =
+go_reflect_makefunc_s_file = \
+	go/reflect/makefunc_dummy.c
+endif
+endif
+
 go_reflect_files = \
 	go/reflect/deepequal.go \
 	go/reflect/makefunc.go \
+	$(go_reflect_makefunc_file) \
 	go/reflect/type.go \
 	go/reflect/value.go
 
@@ -1235,7 +1255,7 @@ go_go_build_files = \
 	go/go/build/build.go \
 	go/go/build/doc.go \
 	go/go/build/read.go \
-	syslist.go
+	go/go/build/syslist.go
 go_go_doc_files = \
 	go/go/doc/comment.go \
 	go/go/doc/doc.go \
@@ -1761,6 +1781,7 @@ libgo_go_objs = \
 	os.lo \
 	path.lo \
 	reflect-go.lo \
+	reflect/makefunc.lo \
 	regexp.lo \
 	runtime-go.lo \
 	sort.lo \
@@ -2147,6 +2168,9 @@ reflect-go.lo: $(go_reflect_files)
 	$(BUILDPACKAGE)
 reflect/check: $(CHECK_DEPS)
 	@$(CHECK)
+reflect/makefunc.lo: $(go_reflect_makefunc_s_file)
+	@$(MKDIR_P) reflect
+	$(LTCOMPILE) -c -o $@ $<
 .PHONY: reflect/check
 
 @go_include@ regexp.lo.dep
@@ -2688,15 +2712,6 @@ go/build.lo: $(go_go_build_files)
 go/build/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: go/build/check
-
-syslist.go: s-syslist; @true
-s-syslist: Makefile
-	echo '// Generated automatically by make.' >syslist.go.tmp
-	echo 'package build' >>syslist.go.tmp
-	echo 'const goosList = "$(GOOS)"' >>syslist.go.tmp
-	echo 'const goarchList = "$(GOARCH)"' >>syslist.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change syslist.go.tmp syslist.go
-	$(STAMP) $@
 
 @go_include@ go/doc.lo.dep
 go/doc.lo.dep: $(go_go_doc_files)

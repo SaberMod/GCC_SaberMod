@@ -344,7 +344,8 @@ struct GTY(()) tree_overload {
 /* Returns true iff NODE is a BASELINK.  */
 #define BASELINK_P(NODE) \
   (TREE_CODE (NODE) == BASELINK)
-/* The BINFO indicating the base from which the BASELINK_FUNCTIONS came.  */
+/* The BINFO indicating the base in which lookup found the
+   BASELINK_FUNCTIONS.  */
 #define BASELINK_BINFO(NODE) \
   (((struct tree_baselink*) BASELINK_CHECK (NODE))->binfo)
 /* The functions referred to by the BASELINK; either a FUNCTION_DECL,
@@ -1211,17 +1212,20 @@ enum languages { lang_c, lang_cplusplus, lang_java };
 /* The _DECL for this _TYPE.  */
 #define TYPE_MAIN_DECL(NODE) (TYPE_STUB_DECL (TYPE_MAIN_VARIANT (NODE)))
 
-/* Nonzero if T is a class (or struct or union) type.  Also nonzero
-   for template type parameters, typename types, and instantiated
-   template template parameters.  Keep these checks in ascending code
-   order.  */
-#define MAYBE_CLASS_TYPE_P(T)					\
+/* Nonzero if T is a type that could resolve to any kind of concrete type
+   at instantiation time.  */
+#define WILDCARD_TYPE_P(T)				\
   (TREE_CODE (T) == TEMPLATE_TYPE_PARM			\
    || TREE_CODE (T) == TYPENAME_TYPE			\
    || TREE_CODE (T) == TYPEOF_TYPE			\
    || TREE_CODE (T) == BOUND_TEMPLATE_TEMPLATE_PARM	\
-   || TREE_CODE (T) == DECLTYPE_TYPE			\
-   || CLASS_TYPE_P (T))
+   || TREE_CODE (T) == DECLTYPE_TYPE)
+
+/* Nonzero if T is a class (or struct or union) type.  Also nonzero
+   for template type parameters, typename types, and instantiated
+   template template parameters.  Keep these checks in ascending code
+   order.  */
+#define MAYBE_CLASS_TYPE_P(T) (WILDCARD_TYPE_P (T) || CLASS_TYPE_P (T))
 
 /* Set CLASS_TYPE_P for T to VAL.  T must be a class, struct, or
    union type.  */
