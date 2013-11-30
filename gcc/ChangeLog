@@ -1,3 +1,157 @@
+2013-11-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2013-11-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/iterators.md (vrint_conds): New int attribute.
+	* config/arm/vfp.md (<vrint_pattern><SDF:mode>2): Set conds attribute.
+	(smax<mode>3): Likewise.
+	(smin<mode>3): Likewise.
+
+2013-11-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-11-27  Uros Bizjak  <ubizjak@gmail.com>
+		    Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+	PR target/56788
+	* gcc.target/i386/xop-frczX.c: New test.
+
+2013-11-28  Terry Guo  <terry.guo@arm.com>
+
+	Backport mainline r205391
+	2013-11-26  Terry Guo  <terry.guo@arm.com>
+
+	* config/arm/arm.c (require_pic_register): Handle high pic base
+	register for thumb-1.
+	(arm_load_pic_register): Also initialize high pic base register.
+	* doc/invoke.texi: Update documentation for option -mpic-register.
+
+2013-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59014
+	* tree-vrp.c (register_edge_assert_for_1): Don't look
+	through conversions from non-integral types or through
+	narrowing conversions.
+
+2013-11-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/59138
+	* expr.c (emit_group_store): Don't write past the end of the structure.
+	(store_bit_field): Fix formatting.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-09-17  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/sparc/t-rtems: Add leon3 multilibs.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-08-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* configure.ac: Add GAS check for LEON instructions on SPARC.
+	* configure: Regenerate.
+	* config.in: Likewise.
+	* config.gcc (with_cpu): Remove sparc-leon*-* and deal with LEON in the
+	sparc*-*-* block.
+	* config/sparc/sparc.opt (LEON, LEON3): New masks.
+	* config/sparc/sparc.h (ASM_CPU32_DEFAULT_SPEC): Set to AS_LEON_FLAG
+	for LEON or LEON3.
+	(ASM_CPU_SPEC): Pass AS_LEON_FLAG if -mcpu=leon or -mcpu=leon3.
+	(AS_LEON_FLAG): New macro.
+	* config/sparc/sparc.c (sparc_option_override): Set MASK_LEON for leon
+	and MASK_LEON3 for leon3 and unset them if HAVE_AS_LEON is not defined.
+	Deal with LEON and LEON3 for the memory model.
+	* config/sparc/sync.md (atomic_compare_and_swap<mode>): Enable if LEON3
+	(atomic_compare_and_swap<mode>_1): Likewise.
+	(*atomic_compare_and_swap<mode>_1): Likewise.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-07-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC Options): Document new leon3 processor value.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-07-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config.gcc (sparc*-*-*): Accept leon3 processor.
+	(sparc-leon*-*): Merge with sparc*-*-* and add leon3 support.
+	* doc/invoke.texi (SPARC Options): Adjust -mfix-ut699 entry.
+	* config/sparc/sparc-opts.h (enum processor_type): Add PROCESSOR_LEON3.
+	* config/sparc/sparc.opt (enum processor_type): Add leon3.
+	(mfix-ut699): Adjust comment.
+	* config/sparc/sparc.h (TARGET_CPU_leon3): New define.
+	(CPP_CPU32_DEFAULT_SPEC): Add leon3 support.
+	(CPP_CPU_SPEC): Likewise.
+	(ASM_CPU_SPEC): Likewise.
+	* config/sparc/sparc.c (leon3_cost): New constant.
+	(sparc_option_override): Add leon3 support.
+	(mem_ref): New function.
+	(sparc_gate_work_around_errata): Return true if -mfix-ut699 is enabled.
+	(sparc_do_work_around_errata): Look into the instruction in the delay
+	slot and adjust accordingly.  Add fix for the data cache nullify issues
+	of the UT699.  Change insertion position for the NOP.
+	* config/sparc/leon.md (leon_fpalu, leon_fpmds, write_buf): Delete.
+	(leon3_load): New reservation.
+	(leon_store): Bump latency to 2.
+	(grfpu): New automaton.
+	(grfpu_alu): New unit.
+	(grfpu_ds): Likewise.
+	(leon_fp_alu): Adjust.
+	(leon_fp_mult): Delete.
+	(leon_fp_div): Split into leon_fp_divs and leon_fp_divd.
+	(leon_fp_sqrt): Split into leon_fp_sqrts and leon_fp_sqrtd.
+	* config/sparc/sparc.md (cpu): Add leon3.
+	* config/sparc/sync.md (atomic_exchangesi): Disable if -mfix-ut699.
+	(swapsi): Likewise.
+	(atomic_test_and_set): Likewise.
+	(ldstub): Likewise.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-04-10  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* config/sparc/sparc.c: Include tree-pass.h.
+	(TARGET_MACHINE_DEPENDENT_REORG): Do not redefine.
+	(sparc_reorg): Rename to sparc_do_work_around_errata.  Move to
+	head of file.  Change return type.  Split off gate function.
+	(sparc_gate_work_around_errata): New function.
+	(pass_work_around_errata): New pass definition.
+	(insert_pass_work_around_errata) New pass insert definition to
+	insert pass_work_around_errata just after delayed-branch scheduling.
+	(sparc_option_override): Insert the pass.
+	* config/sparc/t-sparc (sparc.o): Add TREE_PASS_H dependence.
+
+2013-11-24  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	Backport from mainline
+	2013-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (SPARC Options): Document -mfix-ut699.
+	* builtins.c (expand_builtin_mathfn) <BUILT_IN_SQRT>: Try to widen the
+	mode if the instruction isn't available in the original mode.
+	* config/sparc/sparc.opt (mfix-ut699): New option.
+	* config/sparc/sparc.md (muldf3_extend): Disable if -mfix-ut699.
+	(divdf3): Turn into expander.
+	(divdf3_nofix): New insn.
+	(divdf3_fix): Likewise.
+	(divsf3): Disable if -mfix-ut699.
+	(sqrtdf2): Turn into expander.
+	(sqrtdf2_nofix): New insn.
+	(sqrtdf2_fix): Likewise.
+	(sqrtsf2): Disable if -mfix-ut699.
+
 2013-11-22  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* print-rtl.c (print_rtx) <case MEM>: Output a space if no MEM_EXPR.
