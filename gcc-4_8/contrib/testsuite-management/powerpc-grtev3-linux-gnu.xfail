@@ -385,6 +385,26 @@ FAIL: gcc.dg/tree-prof/wcoverage-mismatch.c compilation,  -fprofile-generate -D_
 UNRESOLVED: gcc.dg/tree-prof/wcoverage-mismatch.c execution,    -fprofile-generate -D_PROFILE_GENERATE
 UNRESOLVED: gcc.dg/tree-prof/wcoverage-mismatch.c compilation,  -fprofile-use -D_PROFILE_USE
 UNRESOLVED: gcc.dg/tree-prof/wcoverage-mismatch.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: g++.dg/tree-prof/pr57451.C compilation,  -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr57451.C execution,    -fprofile-generate
+UNRESOLVED: g++.dg/tree-prof/pr57451.C compilation,  -fprofile-use
+UNRESOLVED: g++.dg/tree-prof/pr57451.C execution,    -fprofile-use
+FAIL: gcc.dg/tree-prof/20041218-1.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/20041218-1.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/20041218-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/20041218-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/cold_partition_label.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/cold_partition_label.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/cold_partition_label.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/cold_partition_label.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/comp-goto-1.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/comp-goto-1.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/comp-goto-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/comp-goto-1.c execution,    -fprofile-use -D_PROFILE_USE
+FAIL: gcc.dg/tree-prof/va-arg-pack-1.c compilation,  -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/va-arg-pack-1.c execution,    -fprofile-generate -D_PROFILE_GENERATE
+UNRESOLVED: gcc.dg/tree-prof/va-arg-pack-1.c compilation,  -fprofile-use -D_PROFILE_USE
+UNRESOLVED: gcc.dg/tree-prof/va-arg-pack-1.c execution,    -fprofile-use -D_PROFILE_USE
 
 
 
