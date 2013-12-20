@@ -897,6 +897,7 @@ read_aux_modules (void)
 	{
 	  if (flag_opt_info)
 	    inform (0, "Not importing %s: maximum group size reached", *iter);
+	  continue;
 	}
       if (incompatible_cl_args (module, aux_module))
 	{
