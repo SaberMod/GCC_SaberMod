@@ -193,6 +193,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     deque<_Tp, _Alloc>::
     erase(iterator __position)
     {
+#if __google_stl_debug_deque
+      if (__position < this->begin() || __position >= this->end())
+	__throw_logic_error("erase() at invalid position");
+#endif
       iterator __next = __position;
       ++__next;
       const difference_type __index = __position - begin();
@@ -216,6 +220,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     deque<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
+#if __google_stl_debug_deque
+      if (__first < this->begin() || __first > __last || __last > this->end())
+	  __throw_logic_error("erase() invalid range");
+#endif
       if (__first == __last)
 	return __first;
       else if (__first == begin() && __last == end())

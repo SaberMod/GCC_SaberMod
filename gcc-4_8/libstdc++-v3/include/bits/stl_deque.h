@@ -1552,7 +1552,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       void
       insert(iterator __position, size_type __n, const value_type& __x)
-      { _M_fill_insert(__position, __n, __x); }
+      {
+#if __google_stl_debug_deque
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
+#endif
+	_M_fill_insert(__position, __n, __x);
+      }
 
       /**
        *  @brief  Inserts a range into the %deque.
@@ -1570,7 +1576,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
         void
         insert(iterator __position, _InputIterator __first,
 	       _InputIterator __last)
-        { _M_insert_dispatch(__position, __first, __last, __false_type()); }
+        {
+#if __google_stl_debug_deque
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
+#endif
+	  _M_insert_dispatch(__position, __first, __last, __false_type());
+	}
 #else
       template<typename _InputIterator>
         void
