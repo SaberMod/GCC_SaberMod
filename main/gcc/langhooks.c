@@ -25,15 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "tree-inline.h"
-#include "gimple.h"
+#include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "target.h"
 #include "langhooks-def.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "cgraph.h"
@@ -563,6 +564,15 @@ void
 lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 				   tree t ATTRIBUTE_UNUSED)
 {
+}
+
+/* Return true if TYPE is an OpenMP mappable type.  By default return true
+   if type is complete.  */
+
+bool
+lhd_omp_mappable_type (tree type)
+{
+  return COMPLETE_TYPE_P (type);
 }
 
 /* Common function for add_builtin_function and

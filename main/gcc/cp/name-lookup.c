@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "print-tree.h"
+#include "attribs.h"
 #include "cp-tree.h"
 #include "name-lookup.h"
 #include "timevar.h"
@@ -1524,7 +1527,8 @@ push_binding_level (cp_binding_level *scope)
     {
       scope->binding_depth = binding_depth;
       indent (binding_depth);
-      cp_binding_level_debug (scope, input_line, "push");
+      cp_binding_level_debug (scope, LOCATION_LINE (input_location),
+			      "push");
       binding_depth++;
     }
 }
@@ -1610,7 +1614,8 @@ leave_scope (void)
   if (ENABLE_SCOPE_CHECKING)
     {
       indent (--binding_depth);
-      cp_binding_level_debug (scope, input_line, "leave");
+      cp_binding_level_debug (scope, LOCATION_LINE (input_location),
+			      "leave");
     }
 
   /* Move one nesting level up.  */
@@ -1659,7 +1664,7 @@ resume_scope (cp_binding_level* b)
     {
       b->binding_depth = binding_depth;
       indent (binding_depth);
-      cp_binding_level_debug (b, input_line, "resume");
+      cp_binding_level_debug (b, LOCATION_LINE (input_location), "resume");
       binding_depth++;
     }
 }
@@ -3594,7 +3599,7 @@ handle_namespace_attrs (tree ns, tree attributes)
 
   for (d = attributes; d; d = TREE_CHAIN (d))
     {
-      tree name = TREE_PURPOSE (d);
+      tree name = get_attribute_name (d);
       tree args = TREE_VALUE (d);
 
       if (is_attribute_p ("visibility", name))

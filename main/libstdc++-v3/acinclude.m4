@@ -3145,6 +3145,8 @@ EOF
     if AC_TRY_EVAL(ac_compile); then
       if grep _Unwind_SjLj_Resume conftest.s >/dev/null 2>&1 ; then
 	enable_sjlj_exceptions=yes
+      elif grep _Unwind_SjLj_Register conftest.s >/dev/null 2>&1 ; then
+	enable_sjlj_exceptions=yes
       elif grep _Unwind_Resume conftest.s >/dev/null 2>&1 ; then
 	enable_sjlj_exceptions=no
       elif grep __cxa_end_cleanup conftest.s >/dev/null 2>&1 ; then
@@ -3357,7 +3359,7 @@ changequote([,])dnl
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:19:0
+libtool_VERSION=6:20:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in

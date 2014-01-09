@@ -40,7 +40,24 @@
 #include "function.h"
 #include "dwarf2.h"
 #include "timevar.h"
+#include "tree.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
+#include "gimplify.h"
 #include "cfgloop.h"
 #include "tilepro-builtins.h"
 #include "tilepro-multiply.h"
@@ -3971,7 +3988,7 @@ static void
 tilepro_gen_bundles (void)
 {
   basic_block bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
   {
     rtx insn, next;
     rtx end = NEXT_INSN (BB_END (bb));
@@ -4242,7 +4259,7 @@ static void
 reorder_var_tracking_notes (void)
 {
   basic_block bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
   {
     rtx insn, next;
     rtx queue = NULL_RTX;
@@ -5066,6 +5083,8 @@ tilepro_file_end (void)
 #undef  TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END tilepro_file_end
 
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

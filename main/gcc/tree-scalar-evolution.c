@@ -256,14 +256,36 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "hash-table.h"
+#include "tree.h"
+#include "expr.h"
 #include "gimple-pretty-print.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
+#include "pointer-set.h"
+#include "tree-affine.h"
 #include "tree-scalar-evolution.h"
 #include "dumpfile.h"
 #include "params.h"
+#include "tree-ssa-propagate.h"
 
 static tree analyze_scalar_evolution_1 (struct loop *, tree, tree);
 static tree analyze_scalar_evolution_for_address_of (struct loop *loop,
@@ -1360,6 +1382,64 @@ follow_ssa_edge (struct loop *loop, gimple def, gimple halting_phi,
 }
 
 
+/* Simplify PEELED_CHREC represented by (init_cond, arg) in LOOP.
+   Handle below case and return the corresponding POLYNOMIAL_CHREC:
+
+   # i_17 = PHI <i_13(5), 0(3)>
+   # _20 = PHI <_5(5), start_4(D)(3)>
+   ...
+   i_13 = i_17 + 1;
+   _5 = start_4(D) + i_13;
+
+   Though variable _20 appears as a PEELED_CHREC in the form of
+   (start_4, _5)_LOOP, it's a POLYNOMIAL_CHREC like {start_4, 1}_LOOP.
+
+   See PR41488.  */
+
+static tree
+simplify_peeled_chrec (struct loop *loop, tree arg, tree init_cond)
+{
+  aff_tree aff1, aff2;
+  tree ev, left, right, type, step_val;
+  pointer_map_t *peeled_chrec_map = NULL;
+
+  ev = instantiate_parameters (loop, analyze_scalar_evolution (loop, arg));
+  if (ev == NULL_TREE || TREE_CODE (ev) != POLYNOMIAL_CHREC)
+    return chrec_dont_know;
+
+  left = CHREC_LEFT (ev);
+  right = CHREC_RIGHT (ev);
+  type = TREE_TYPE (left);
+  step_val = chrec_fold_plus (type, init_cond, right);
+
+  /* Transform (init, {left, right}_LOOP)_LOOP to {init, right}_LOOP
+     if "left" equals to "init + right".  */
+  if (operand_equal_p (left, step_val, 0))
+    {
+      if (dump_file && (dump_flags & TDF_SCEV))
+	fprintf (dump_file, "Simplify PEELED_CHREC into POLYNOMIAL_CHREC.\n");
+
+      return build_polynomial_chrec (loop->num, init_cond, right);
+    }
+
+  /* Try harder to check if they are equal.  */
+  tree_to_aff_combination_expand (left, type, &aff1, &peeled_chrec_map);
+  tree_to_aff_combination_expand (step_val, type, &aff2, &peeled_chrec_map);
+  free_affine_expand_cache (&peeled_chrec_map);
+  aff_combination_scale (&aff2, double_int_minus_one);
+  aff_combination_add (&aff1, &aff2);
+
+  /* Transform (init, {left, right}_LOOP)_LOOP to {init, right}_LOOP
+     if "left" equals to "init + right".  */
+  if (aff_combination_zero_p (&aff1))
+    {
+      if (dump_file && (dump_flags & TDF_SCEV))
+	fprintf (dump_file, "Simplify PEELED_CHREC into POLYNOMIAL_CHREC.\n");
+
+      return build_polynomial_chrec (loop->num, init_cond, right);
+    }
+  return chrec_dont_know;
+}
 
 /* Given a LOOP_PHI_NODE, this function determines the evolution
    function from LOOP_PHI_NODE to LOOP_PHI_NODE in the loop.  */
@@ -1372,6 +1452,7 @@ analyze_evolution_in_loop (gimple loop_phi_node,
   tree evolution_function = chrec_not_analyzed_yet;
   struct loop *loop = loop_containing_stmt (loop_phi_node);
   basic_block bb;
+  static bool simplify_peeled_chrec_p = true;
 
   if (dump_file && (dump_flags & TDF_SCEV))
     {
@@ -1422,7 +1503,19 @@ analyze_evolution_in_loop (gimple loop_phi_node,
 	 all the other iterations it has the value of ARG.
 	 For the moment, PEELED_CHREC nodes are not built.  */
       if (res != t_true)
-	ev_fn = chrec_dont_know;
+	{
+	  ev_fn = chrec_dont_know;
+	  /* Try to recognize POLYNOMIAL_CHREC which appears in
+	     the form of PEELED_CHREC, but guard the process with
+	     a bool variable to keep the analyzer from infinite
+	     recurrence for real PEELED_RECs.  */
+	  if (simplify_peeled_chrec_p && TREE_CODE (arg) == SSA_NAME)
+	    {
+	      simplify_peeled_chrec_p = false;
+	      ev_fn = simplify_peeled_chrec (loop, arg, init_cond);
+	      simplify_peeled_chrec_p = true;
+	    }
+	}
 
       /* When there are multiple back edges of the loop (which in fact never
 	 happens currently, but nevertheless), merge their evolutions.  */
@@ -2894,34 +2987,6 @@ number_of_latch_executions (struct loop *loop)
   loop->nb_iterations = res;
   return res;
 }
-
-/* Returns the number of executions of the exit condition of LOOP,
-   i.e., the number by one higher than number_of_latch_executions.
-   Note that unlike number_of_latch_executions, this number does
-   not necessarily fit in the unsigned variant of the type of
-   the control variable -- if the number of iterations is a constant,
-   we return chrec_dont_know if adding one to number_of_latch_executions
-   overflows; however, in case the number of iterations is symbolic
-   expression, the caller is responsible for dealing with this
-   the possible overflow.  */
-
-tree
-number_of_exit_cond_executions (struct loop *loop)
-{
-  tree ret = number_of_latch_executions (loop);
-  tree type = chrec_type (ret);
-
-  if (chrec_contains_undetermined (ret))
-    return ret;
-
-  ret = chrec_fold_plus (type, ret, build_int_cst (type, 1));
-  if (TREE_CODE (ret) == INTEGER_CST
-      && TREE_OVERFLOW (ret))
-    return chrec_dont_know;
-
-  return ret;
-}
-
 
 
 /* Counters for the stats.  */
@@ -3087,16 +3152,14 @@ initialize_scalar_evolutions_analyzer (void)
 void
 scev_initialize (void)
 {
-  loop_iterator li;
   struct loop *loop;
-
 
   scalar_evolution_info = htab_create_ggc (100, hash_scev_info, eq_scev_info,
 					   del_scev_info);
 
   initialize_scalar_evolutions_analyzer ();
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       loop->nb_iterations = NULL_TREE;
     }
@@ -3128,7 +3191,6 @@ scev_reset_htab (void)
 void
 scev_reset (void)
 {
-  loop_iterator li;
   struct loop *loop;
 
   scev_reset_htab ();
@@ -3136,7 +3198,7 @@ scev_reset (void)
   if (!current_loops)
     return;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       loop->nb_iterations = NULL_TREE;
     }
@@ -3282,13 +3344,12 @@ scev_const_prop (void)
   struct loop *loop, *ex_loop;
   bitmap ssa_names_to_remove = NULL;
   unsigned i;
-  loop_iterator li;
   gimple_stmt_iterator psi;
 
   if (number_of_loops (cfun) <= 1)
     return 0;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       loop = bb->loop_father;
 
@@ -3344,7 +3405,7 @@ scev_const_prop (void)
     }
 
   /* Now the regular final value replacement.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       edge exit;
       tree def, rslt, niter;

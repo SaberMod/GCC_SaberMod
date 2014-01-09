@@ -1,3 +1,353 @@
+2013-12-18  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59493
+	* gfortran.h (gfc_find_intrinsic_vtab): Removed prototype.
+	(gfc_find_vtab): New prototype.
+	* class.c (gfc_find_intrinsic_vtab): Rename to 'find_intrinsic_vtab' and
+	make static. Minor modifications.
+	(gfc_find_vtab): New function.
+	(gfc_class_initializer): Use new function 'gfc_find_vtab'.
+	* check.c (gfc_check_move_alloc): Ditto.
+	* expr.c (gfc_check_pointer_assign): Ditto.
+	* interface.c (compare_actual_formal): Ditto.
+	* resolve.c (resolve_allocate_expr, resolve_select_type): Ditto.
+	* trans-expr.c (gfc_conv_intrinsic_to_class, gfc_trans_class_assign):
+	Ditto.
+	* trans-intrinsic.c (conv_intrinsic_move_alloc): Ditto.
+	* trans-stmt.c (gfc_trans_allocate): Ditto.
+
+2013-12-16  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/54949
+	* symbol.c (check_conflict): Forbid abstract procedure pointers.
+	(gfc_add_abstract): Check for attribute conflicts.
+
+2013-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/59337
+	* openmp.c (resolve_omp_atomic): Adjust error message.
+
+2013-12-15  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59493
+	* class.c (gfc_find_intrinsic_vtab): Handle BT_CLASS.
+
+2013-12-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59502
+	* primary.c (gfc_match_varspec): Check for 'class_ok'.
+
+2013-12-14  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59450
+	* module.c (mio_expr): Handle type-bound function expressions.
+
+2013-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/59440
+	* trans-decl.c (generate_namelist_decl): Ensure debug DIE
+	is created by setting DECL_IGNORED_P to 0.
+
+2013-12-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58916
+	* resolve.c (conformable_arrays): Treat scalar 'e2'.
+	(resolve_allocate_expr): Check rank also for unlimited-polymorphic
+	variables.
+
+2013-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/35831
+	* interface.c (check_dummy_characteristics): Add checks for several
+	attributes.
+
+2013-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	* gfortran.texi: Add possible kind values (and default) for
+	DOUBLE PRECISION.
+	* invoke.texi: Correct documentation of -fdefault-integer-8,
+	-fdefault-real-8 and -fdefault-double-8.
+
+2013-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	* gfortran.texi: Modify documentation of kind type parameters.
+	* invoke.texi: Extend documentation of -fdefault-integer-8 and
+	-fdefault-real-8.
+
+2013-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	* invoke.texi: Add -freal-4-real-16. Rearrange kind promotion options.
+
+2013-12-08  Tobias Burnus  <burnus@net-b.de>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58099
+	PR fortran/58676
+	PR fortran/41724
+	* resolve.c (gfc_resolve_intrinsic): Set elemental/pure.
+	(resolve_fl_procedure): Reject pure dummy procedures/procedure
+	pointers.
+	(gfc_explicit_interface_required): Don't require a
+	match of ELEMENTAL for intrinsics.
+
+2013-12-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59414
+	* resolve.c (resolve_specific_f0): Handle CLASS-valued functions.
+
+2013-12-04  Tobias Burnus  <burnus@net-b.de>
+
+	PR debug/37132
+	* trans-decl.c (generate_namelist_decl, create_module_nml_decl):
+	New static functions.
+	(gfc_generate_module_vars, generate_local_vars): Call them.
+	(gfc_trans_use_stmts): Handle namelists for debug genertion.
+
+2013-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/57354
+	* trans-array.c (gfc_conv_resolve_dependencies): For other than
+	SS_SECTION, do a dependency check if the lhs is liable to be
+	reallocated.
+
+2013-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58410
+	* trans-array.c (gfc_alloc_allocatable_for_assignment): Do not
+	use the array bounds of an unallocated array but set its size
+	to zero instead.
+
+2013-12-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/34547
+	* resolve.c (resolve_transfer): EXPR_NULL is always in an
+	invalid context in a transfer statement.
+
+2013-11-28  Sergey Ostanevich  <sergos.gnu@gmail.com>
+
+	* lang.opt (Wopenmp-simd): New.
+
+2013-11-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59143
+	* interface.c (get_expr_storage_size): Handle array-valued type-bound
+	procedures.
+
+2013-11-24  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* scanner.c (gfc_open_intrinsic_module): Remove function.
+	* gfortran.h (gfc_open_intrinsic_module): Remove prototype.
+
+2013-11-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59228
+	* interface.c (compare_parameter): Check for array spec.
+
+2013-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* trans.c: Add required include files from gimple.h.
+	* trans-expr.c: Likewise
+	* trans-openmp.c: Likewise
+
+2013-11-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* trans.c (trans_runtime_error_vararg): Remove use of input_line
+	macro.
+
+2013-11-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* fortran/trans-intrinsic.c: Include tree-nested.h.
+
+2013-11-14  Andrew MacLeod  <amacleod@redhat.com>
+
+	* trans-expr.c: Include only gimplify.h and gimple.h as needed.
+	* trans-openmp.c: Likewise.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* decl.c: Include stringpool.h.
+	* iresolve.c: Include stringpool.h.
+	* match.c: Include stringpool.h.
+	* module.c: Include stringpool.h.
+	* target-memory.c: Include stor-layout.h.
+	* trans-common.c: Include stringpool.h.
+	Include stor-layout.h.
+	Include varasm.h.
+	* trans-const.c: Include stor-layout.h.
+	* trans-decl.c: Include stringpool.h.
+	Include stor-layout.h.
+	Include varasm.h.
+	Include attribs.h.
+	* trans-expr.c: Include stringpool.h.
+	* trans-intrinsic.c: Include stringpool.h.
+	Include tree-nested.h.
+	Include stor-layout.h.
+	* trans-io.c: Include stringpool.h.
+	Include stor-layout.h.
+	* trans-openmp.c: Include stringpool.h.
+	* trans-stmt.c: Include stringpool.h.
+	* trans-types.c: Include stor-layout.h.
+	Include stringpool.h.
+	* trans.c: Include stringpool.h.
+
+2013-11-12  Andrew MacLeod  <amacleod@redhat.com>
+
+	* f95-lang.c: Don't include gimple.h.
+	* trans-array.c: Include gimple-expr.h instead of gimple.h.
+	* trans.c: Likewise.
+	* trans-decl.c: Likewise.
+	* trans-expr.c: Include gimplify.h.
+	* trans-openmp.c: Likewise.
+
+2013-11-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58471
+	* primary.c (gfc_expr_attr): Check for result symbol.
+
+2013-11-06  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* gfortran.texi: Fix typo.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* lang.opt (-Wdate-time): New option
+	* cpp.c (gfc_cpp_option_data): Add warn_date_time.
+	(gfc_cpp_init_options, gfc_cpp_handle_option,
+	gfc_cpp_post_options): Handle it and pass on to libcpp.
+
+2013-11-05  Steven G. Kargl <kargl@gcc.gnu.org>
+
+	PR fortran/58989
+	* check.c (gfc_check_reshape): ensure that shape is a constant
+	expression.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* lang.opt (fopenmp-simd): New option.
+	* gfortran.h (gfc_option_t): Add gfc_flag_openmp_simd.
+	* options.c (gfc_handle_option): Handle it.
+
+2013-11-04  Ian Lance Taylor  <iant@google.com>
+
+	* f95-lang.c (ATTR_LEAF_LIST): Define.
+
+2013-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58771
+	* trans-io.c (transfer_expr): If the backend_decl for a derived
+	type is missing, build it with gfc_typenode_for_spec.
+
+2013-11-04  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/57445
+	* trans-expr.c (gfc_conv_class_to_class): Remove spurious
+	assert.
+
+2013-10-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44350
+	* parse.c (parse_spec): Add C1116 constraint
+	check for BLOCK DATA.
+
+2013-10-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58793
+	* trans-types.c (gfc_typenode_for_spec): Add typenode for
+	BT_HOLLERITH. Note that the length is incorrect but unusable.
+
+	PR fortran/58858
+	* target-memory.c (gfc_element_size): Add element sizes for
+	BT_VOID and BT_ASSUMED, using gfc_typenode_for_spec.
+
+2013-10-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44646
+	* trans-stmt.c (struct forall_info): Add do_concurrent field.
+	(gfc_trans_forall_1): Set it for do concurrent.
+	(gfc_trans_forall_loop): Mark those as annot_expr_ivdep_kind.
+
+2013-10-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58793
+	* interface.c (compare_parameter): Reject passing TYPE(*)
+	to CLASS(*).
+
+2013-10-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran 57893
+	* class.c : Include target-memory.h.
+	(gfc_find_intrinsic_vtab) Build a minimal expression so that
+	gfc_element_size can be used to obtain the storage size, rather
+	that the kind value.
+
+2013-10-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58803
+	* decl.c (match_ppc_decl): Prevent later
+	double free.
+
+2013-10-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* trans-openmp.c: Include omp-low.h.
+
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* interface.c (compare_parameter): Accept passing CLASS(*)
+	to CLASS(*).
+
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (OpenMP Modules): Update to OpenMPv4.
+	Document omp_proc_bind_kind.
+
+2013-10-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* trans-intrinsic.c (conv_intrinsic_move_alloc): Fix handling
+	of CLASS(*) variables.
+
+2013-10-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58658
+	* expr.c (gfc_check_vardef_context): Fix pointer diagnostic
+	for CLASS(*).
+
+2013-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_omp_clause_default_ctor,
+	gfc_omp_clause_dtor): Return NULL for OMP_CLAUSE_REDUCTION.
+	* f95-lang.c (ATTR_NULL, DEF_FUNCTION_TYPE_8): Define.
+	* types.def (DEF_FUNCTION_TYPE_8): Document.
+	(BT_FN_VOID_OMPFN_PTR_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): Remove.
+	(BT_FN_VOID_OMPFN_PTR_UINT_UINT_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG_UINT,
+	BT_FN_BOOL_INT, BT_FN_BOOL_INT_BOOL, BT_FN_VOID_UINT_UINT,
+	BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): New.
+
+2013-10-10  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58226
+	* options.c (gfc_get_option_string): Handle zero arg case.
+
+2013-10-02  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58593
+	* trans-expr.c (gfc_conv_string_tmp): Fix obtaining
+	the byte size of a single character.
+
+2013-10-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58579
+	* trans-expr.c (gfc_conv_string_tmp): Correctly obtain
+	the byte size of a single character.
+
 2013-09-27  Janne Blomqvist  <jb@gcc.gnu.org>
 
 	* intrinsic.texi (DATE_AND_TIME): Fix example.
@@ -1362,7 +1712,7 @@
 	(TS 29113 Status): Add TYPE(*) and DIMENSION(..).
 	(C Interop): Update the section about TS29113.
 
-2013-02-06 Paul Thomas  <pault@gcc.gnu.org>
+2013-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55789
 	* trans-array.c (trans_array_constructor): Remove condition
@@ -1459,7 +1809,7 @@
 	(variable_decl): Remove undeclared type error.
 	(gfc_match_import): Use renamed instead of original name.
 
-2013-01-27 Paul Thomas  <pault@gcc.gnu.org>
+2013-01-27  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55984
 	PR fortran/56047

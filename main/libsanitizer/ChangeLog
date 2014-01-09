@@ -1,3 +1,180 @@
+2013-12-19  Kostya Serebryany  <kcc@google.com>
+
+        * sanitizer_common/sanitizer_platform_limits_posix.cc:
+	workaround for missing definition of EOWNERDEAD, backport
+	from upstream r196779.
+
+2013-12-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* sanitizer_common/sanitizer_platform_limits_posix.h
+	(__sanitizer_shmid_ds): Use u64 on time fields for x32.
+	(__sanitizer_clock_t): Use long long for x32.
+
+2013-12-06  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* sanitizer_common/sanitizer_platform_limits_linux.cc: Include
+	<sys/stat.h>, instead of <asm/stat.h>, if __x86_64__ is defined.
+	(struct___old_kernel_stat_sz): Don't check if __x86_64__ is defined.
+
+2013-12-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac (link_sanitizer_common): Add -lm.
+	* configure: Regenerated.
+
+2013-12-05  Kostya Serebryany  <kcc@google.com>
+
+	* All source files: Merge from upstream r196489.
+	* merge.sh: Add *.S to the list of merged files.
+
+2013-12-05  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59368
+	* Makefile.am (gcc_version): Added gcc_version.
+	* Makefile.in: Regenerate.
+
+2013-12-05  Kostya Serebryany  <kcc@google.com>
+
+	* All source files: Merge from upstream r196090.
+	* tsan/Makefile.am (tsan_files): Added new files.
+	* tsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.am (sanitizer_common_files): Added new fles.
+	* sanitizer_common/Makefile.in: Regenerate.
+	* lsan/Makefile.am (lsan_files): Added new files.
+	* lsan/Makefile.in: Regenerate.
+
+2013-11-29  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59063
+	* libsanitizer.spec.in: Add spec file to hold link flags for
+	various sanitizer libs.
+	* configure.ac: Check whether clock_* routines come from librt.
+	* asan/Makefile.am (libasan_la_LDFLAGS): Libs now come from
+	configure.ac.
+	* tsan/Makefile.am (libtsan_la_LDFLAGS): Likewise.
+	* ubsan/Makefile.am (libubsan_la_LDFLAGS): Likewise.
+	* lsan/Makefile.am (liblsan_la_LDFLAGS): Likewise.
+	* asan/Makefile.in: Regenerate.
+	* interception/Makefile.in: Regenerate.
+	* lsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.in: Regenerate.
+	* tsan/Makefile.in: Regenerate.
+	* ubsan/Makefile.in: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+
+2013-11-28  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59106
+	* ubsan/Makefile.am (AM_CXXFLAGS): Disable -frtti for files that
+	don't need it.
+	* ubsan/Makefile.in: Regenerated.
+
+2013-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/59061
+	* configure.tgt: Set LSAN_SUPPORTED=yes for x86_64-linux.
+	* configure.ac (LSAN_SUPPORTED): New AM_CONDITIONAL.
+	* configure: Regenerated.
+	* lsan/Makefile.am (toolexeclib_LTLIBRARIES, lsan_files,
+	liblsan_la_SOURCES, liblsan_la_LIBADD, liblsan_la_LDFLAGS): Add.
+	* lsan/Makefile.in: Regenerated.
+
+2013-11-22  Mike Stump  <mikestump@comcast.net>
+
+	* sanitizer_common/sanitizer_linux.cc (__sanitizer): Grab one
+	change from upstream to fix build.
+
+2013-11-18  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59106
+	* asan/Makefile.am (AM_CXXFLAGS): Add -fno-rtti.
+	* interception/Makefile.am (AM_CXXFLAGS): Likewise.
+	* lsan/Makefile.am (AM_CXXFLAGS): Likewise.
+	* sanitizer_common/Makefile.am (AM_CXXFLAGS): Likewise.
+	* tsan/Makefile.am (AM_CXXFLAGS): Likewise.
+	* asan/Makefile.in: Regenerate.
+	* interception/Makefile.in: Regenerate.
+	* tsan/Makefile.in: Regenerate.
+	* lsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.in: Regenerate.
+
+2013-11-15  Kostya Serebryany  <kcc@google.com>
+
+	PR sanitizer/58994
+        Backport from upstream revision 194573
+        * asan/asan_interceptors.cc (COMMON_INTERCEPTOR_ENTER): Fall
+        back to the original functions in the common libsanitizer
+        interceptors and the __cxa_atexit() interceptor on Darwin.
+
+2013-11-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR sanitizer/59009
+	* sanitizer_common/sanitizer_platform_limits_posix.cc: Temporarily
+	ifdef out more source.
+
+2013-11-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* sanitizer_common/sanitizer_platform_limits_linux.cc: Temporarily
+	ifdef out almost the whole source.
+	* sanitizer_common/sanitizer_common_syscalls.inc: Likewise.
+
+2013-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR sanitizer/59018
+	* sanitizer_common/sanitizer_platform_limits_posix.cc
+	(struct_user_fpxregs_struct_sz): Initialize to 0 if __x86_64__ is
+	defined.
+
+2013-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR sanitizer/59018
+	* sanitizer_common/sanitizer_platform_limits_linux.cc
+	(struct_kernel_stat64_sz): Initialize to 0 if __x86_64__ is
+	defined.
+	* sanitizer_common/sanitizer_platform_limits_posix.h
+	(__sanitizer_dirent): Use 64-bit d_ino/d_off if __x86_64__ is
+	defined.
+	(__sanitizer___kernel_uid_t): Typedef as unsigned if __x86_64__
+	is defined.
+	(__sanitizer___kernel_gid_t): Likewise.
+	(__sanitizer___kernel_off_t): Typedef as long long if __x86_64__
+	is defined.
+
+2013-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR sanitizer/59018
+	* sanitizer_common/sanitizer_linux.cc (internal_clone): Allocate
+	2 64-bit integers to save and restore fn and arg.  Properly load
+	newtls/child_tidptr into r8/r10.
+
+2013-11-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR sanitizer/59018
+	* sanitizer_common/sanitizer_linux.cc (internal_mmap,
+	internal_munmap, internal_open, internal_read, internal_write,
+	internal_stat, internal_lstat, internal_fstat, internal_readlink,
+	internal_unlink, internal_execve, NanoTime, BlockingMutex::Lock,
+	BlockingMutex::Unlock, internal_ptrace, internal_getdents,
+	internal_sigaltstack): Cast pointers to uptr for 64-bit syscalls.
+
+2013-11-04  Kostya Serebryany  <kcc@google.com>
+
+	* All source files: Merge from upstream r191666.
+	* merge.sh: Added lsan.
+	* configure.ac (AC_CONFIG_FILES): Added lsan.
+	* Makefile.am (SUBDIRS): Added lsan.
+	* sanitizer_common/Makefile.am (sanitizer_common_files): Added new fles.
+	* asan/Makefile.am (asan_files): Added new files.
+	(libasan_la_LIBADD): Added a dependency on lsan.
+	* lsan/Makefile.am: New file.
+	* asan/Makefile.in: Regenerate.
+	* lsan/Makefile.in: Regenerate.
+	* Makefile.in: Regenerate.
+	* configure: Regenerate.
+	* sanitizer_common/Makefile.in: Regenerate.
+
 2013-09-20  Alan Modra  <amodra@gmail.com>
 
 	* configure: Regenerate.
@@ -53,7 +230,7 @@
 	* asan/asan_preinit.cc: New file, synced from upstream.
 	* asan/asan_rtl.cc: Remove preinit stuff, synced from upstream.
 
-2013-02-21  Jack Howarth <howarth@bromo.med.uc.edu>
+2013-02-21  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	* asan/Makefile.am (libasan_la_SOURCES): Remove deprecated
 	dynamic/asan_interceptors_dynamic.cc.
@@ -209,7 +386,7 @@
 
 	* configure.tgt: Enable build on powerpc*-linux.
 
-2012-12-06  Jack Howarth <howarth@bromo.med.uc.edu>
+2012-12-06  Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR 55599/sanitizer
 	* configure.ac: Set enable_static=no on darwin.
@@ -224,7 +401,7 @@
 	* All files: Merge from upstream r169371.
 
 2012-12-04  Kostya Serebryany  <kcc@google.com>
-	    Jack Howarth <howarth@bromo.med.uc.edu>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	PR 55521/sanitizer
 	* configure.ac: Define USING_MAC_INTERPOSE when on darwin.
@@ -290,7 +467,7 @@
 	* All files: Merge from upstream r168699.
 
 2012-11-24  Kostya Serebryany  <kcc@google.com>
-	    Jack Howarth <howarth@bromo.med.uc.edu>
+	    Jack Howarth  <howarth@bromo.med.uc.edu>
 
 	* interception/mach_override/mach_override.c: Migrate from llvm.
 	* interception/mach_override/mach_override.h: Likewise.

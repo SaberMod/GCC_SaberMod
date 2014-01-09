@@ -28,12 +28,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "stmt.h"
+#include "varasm.h"
 #include "flags.h"
-#include "ggc.h"
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "gimple.h"
+#include "pointer-set.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 #include "bitmap.h"
 #include "cgraph.h"
 #include "diagnostic.h"
@@ -63,12 +68,6 @@
    for fear of running out of stack space.  If we need more, we use xmalloc
    instead.  */
 #define ALLOCA_THRESHOLD 1000
-
-/* Let code below know whether we are targeting VMS without need of
-   intrusive preprocessor directives.  */
-#ifndef TARGET_ABI_OPEN_VMS
-#define TARGET_ABI_OPEN_VMS 0
-#endif
 
 /* In configurations where blocks have no end_locus attached, just
    sink assignments into a dummy global.  */
@@ -565,6 +564,15 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
      NULL_TREE, is_disabled, true, true, true, NULL, Empty);
   DECL_IGNORED_P (get_excptr_decl) = 1;
 
+  set_exception_parameter_decl
+    = create_subprog_decl
+      (get_identifier ("__gnat_set_exception_parameter"), NULL_TREE,
+       build_function_type_list (void_type_node,
+				 ptr_void_type_node,
+				 ptr_void_type_node,
+				 NULL_TREE),
+       NULL_TREE, is_disabled, true, true, true, NULL, Empty);
+
   raise_nodefer_decl
     = create_subprog_decl
       (get_identifier ("__gnat_raise_nodefer_with_msg"), NULL_TREE,
@@ -632,20 +640,20 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
   others_decl
     = create_var_decl (get_identifier ("OTHERS"),
 		       get_identifier ("__gnat_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   all_others_decl
     = create_var_decl (get_identifier ("ALL_OTHERS"),
 		       get_identifier ("__gnat_all_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   unhandled_others_decl
     = create_var_decl (get_identifier ("UNHANDLED_OTHERS"),
 		       get_identifier ("__gnat_unhandled_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   main_identifier_node = get_identifier ("main");
 
@@ -2340,12 +2348,17 @@ Case_Statement_to_gnu (Node_Id gnat_node)
 	    }
 	}
 
-      /* Push a binding level here in case variables are declared as we want
-	 them to be local to this set of statements instead of to the block
-	 containing the Case statement.  */
+      /* This construct doesn't define a scope so we shouldn't push a binding
+	 level around the statement list.  Except that we have always done so
+	 historically and this makes it possible to reduce stack usage.  As a
+	 compromise, we keep doing it for case statements, for which this has
+	 never been problematic, but not for case expressions in Ada 2012.  */
       if (choices_added_p)
 	{
-	  tree group = build_stmt_group (Statements (gnat_when), true);
+	  const bool is_case_expression
+	    = (Nkind (Parent (gnat_node)) == N_Expression_With_Actions);
+	  tree group
+	    = build_stmt_group (Statements (gnat_when), !is_case_expression);
 	  bool group_may_fallthru = block_may_fallthru (group);
 	  add_stmt (group);
 	  if (group_may_fallthru)
@@ -2800,8 +2813,8 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
   if (gnu_cond_expr)
     {
       COND_EXPR_THEN (gnu_cond_expr) = gnu_loop_stmt;
+      TREE_SIDE_EFFECTS (gnu_cond_expr) = 1;
       gnu_result = gnu_cond_expr;
-      recalculate_side_effects (gnu_cond_expr);
     }
   else
     gnu_result = gnu_loop_stmt;
@@ -3237,7 +3250,7 @@ finalize_nrv (tree fndecl, bitmap nrv, vec<tree, va_gc> *other, Node_Id gnat_ret
   /* Prune also the candidates that are referenced by nested functions.  */
   node = cgraph_get_create_node (fndecl);
   for (node = node->nested; node; node = node->next_nested)
-    walk_tree_without_duplicates (&DECL_SAVED_TREE (node->symbol.decl), prune_nrv_r,
+    walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl), prune_nrv_r,
 				  &data);
   if (bitmap_empty_p (nrv))
     return;
@@ -4119,9 +4132,7 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	gnu_name
 	  = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_name))), gnu_name);
 
-      /* If we have not saved a GCC object for the formal, it means it is an
-	 Out parameter not passed by reference and that need not be copied in.
-	 Otherwise, first see if the parameter is passed by reference.  */
+      /* First see if the parameter is passed by reference.  */
       if (is_true_formal_parm && DECL_BY_REF_P (gnu_formal))
 	{
 	  if (Ekind (gnat_formal) != E_In_Parameter)
@@ -4167,6 +4178,9 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	  gnu_formal_type = TREE_TYPE (gnu_formal);
 	  gnu_actual = build_unary_op (ADDR_EXPR, gnu_formal_type, gnu_actual);
 	}
+
+      /* Then see if the parameter is an array passed to a foreign convention
+	 subprogram.  */
       else if (is_true_formal_parm && DECL_BY_COMPONENT_PTR_P (gnu_formal))
 	{
 	  gnu_formal_type = TREE_TYPE (gnu_formal);
@@ -4187,6 +4201,8 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	     but this is the most likely to work in all cases.  */
 	  gnu_actual = build_unary_op (ADDR_EXPR, gnu_formal_type, gnu_actual);
 	}
+
+      /* Then see if the parameter is passed by descriptor.  */
       else if (is_true_formal_parm && DECL_BY_DESCRIPTOR_P (gnu_formal))
 	{
 	  gnu_actual = convert (gnu_formal_type, gnu_actual);
@@ -4203,6 +4219,8 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 					 (TREE_TYPE (TREE_TYPE (gnu_formal)),
 					  gnu_actual, gnat_actual));
 	}
+
+      /* Otherwise the parameter is passed by copy.  */
       else
 	{
 	  tree gnu_size;
@@ -4210,11 +4228,18 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	  if (Ekind (gnat_formal) != E_In_Parameter)
 	    gnu_name_list = tree_cons (NULL_TREE, gnu_name, gnu_name_list);
 
+	  /* If we didn't create a PARM_DECL for the formal, this means that
+	     it is an Out parameter not passed by reference and that need not
+	     be copied in.  In this case, the value of the actual need not be
+	     read.  However, we still need to make sure that its side-effects
+	     are evaluated before the call, so we evaluate its address.  */
 	  if (!is_true_formal_parm)
 	    {
-	      /* Make sure side-effects are evaluated before the call.  */
 	      if (TREE_SIDE_EFFECTS (gnu_name))
-		append_to_statement_list (gnu_name, &gnu_stmt_list);
+		{
+		  tree addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_name);
+		  append_to_statement_list (addr, &gnu_stmt_list);
+		}
 	      continue;
 	    }
 
@@ -4885,6 +4910,19 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
   add_stmt_with_node (build_call_n_expr (begin_handler_decl, 1,
 					 gnu_incoming_exc_ptr),
 		      gnat_node);
+
+  /* Declare and initialize the choice parameter, if present.  */
+  if (Present (Choice_Parameter (gnat_node)))
+    {
+      tree gnu_param = gnat_to_gnu_entity
+	(Choice_Parameter (gnat_node), NULL_TREE, 1);
+
+      add_stmt (build_call_n_expr
+		(set_exception_parameter_decl, 2,
+		 build_unary_op (ADDR_EXPR, NULL_TREE, gnu_param),
+		 gnu_incoming_exc_ptr));
+    }
+
   /* We don't have an End_Label at hand to set the location of the cleanup
      actions, so we use that of the exception handler itself instead.  */
   add_cleanup (build_call_n_expr (end_handler_decl, 1, gnu_incoming_exc_ptr),
@@ -4987,7 +5025,7 @@ Compilation_Unit_to_gnu (Node_Id gnat_node)
   /* Process any pragmas and actions following the unit.  */
   add_stmt_list (Pragmas_After (Aux_Decls_Node (gnat_node)));
   add_stmt_list (Actions (Aux_Decls_Node (gnat_node)));
-  finalize_from_with_types ();
+  finalize_from_limited_with ();
 
   /* Save away what we've made so far and record this potential elaboration
      procedure.  */
@@ -6607,7 +6645,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	   Present (gnat_temp);
 	   gnat_temp = Next_Formal_With_Extras (gnat_temp))
 	if (Is_Itype (Etype (gnat_temp))
-	    && !From_With_Type (Etype (gnat_temp)))
+	    && !From_Limited_With (Etype (gnat_temp)))
 	  gnat_to_gnu_entity (Etype (gnat_temp), NULL_TREE, 0);
 
       /* Then the result type, set to Standard_Void_Type for procedures.  */
@@ -6615,7 +6653,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	Entity_Id gnat_temp_type
 	  = Etype (Defining_Entity (Specification (gnat_node)));
 
-	if (Is_Itype (gnat_temp_type) && !From_With_Type (gnat_temp_type))
+	if (Is_Itype (gnat_temp_type) && !From_Limited_With (gnat_temp_type))
 	  gnat_to_gnu_entity (Etype (gnat_temp_type), NULL_TREE, 0);
       }
 
@@ -6969,8 +7007,8 @@ gnat_to_gnu (Node_Id gnat_node)
     /****************/
 
     case N_Expression_With_Actions:
-      /* This construct doesn't define a scope so we don't wrap the statement
-	 list in a BIND_EXPR; however, we wrap it in a SAVE_EXPR to protect it
+      /* This construct doesn't define a scope so we don't push a binding level
+	 around the statement list; but we wrap it in a SAVE_EXPR to protect it
 	 from unsharing.  */
       gnu_result = build_stmt_group (Actions (gnat_node), false);
       gnu_result = build1 (SAVE_EXPR, void_type_node, gnu_result);
@@ -6986,6 +7024,10 @@ gnat_to_gnu (Node_Id gnat_node)
       process_freeze_entity (gnat_node);
       process_decls (Actions (gnat_node), Empty, Empty, true, true);
       gnu_result = end_stmt_group ();
+      break;
+
+    case N_Freeze_Generic_Entity:
+      gnu_result = alloc_stmt_list ();
       break;
 
     case N_Itype_Reference:
@@ -9195,10 +9237,14 @@ post_error (const char *msg, Node_Id node)
   String_Template temp;
   Fat_Pointer fp;
 
-  temp.Low_Bound = 1, temp.High_Bound = strlen (msg);
-  fp.Array = msg, fp.Bounds = &temp;
-  if (Present (node))
-    Error_Msg_N (fp, node);
+  if (No (node))
+    return;
+
+  temp.Low_Bound = 1;
+  temp.High_Bound = strlen (msg);
+  fp.Bounds = &temp;
+  fp.Array = msg;
+  Error_Msg_N (fp, node);
 }
 
 /* Similar to post_error, but NODE is the node at which to post the error and
@@ -9210,10 +9256,14 @@ post_error_ne (const char *msg, Node_Id node, Entity_Id ent)
   String_Template temp;
   Fat_Pointer fp;
 
-  temp.Low_Bound = 1, temp.High_Bound = strlen (msg);
-  fp.Array = msg, fp.Bounds = &temp;
-  if (Present (node))
-    Error_Msg_NE (fp, node, ent);
+  if (No (node))
+    return;
+
+  temp.Low_Bound = 1;
+  temp.High_Bound = strlen (msg);
+  fp.Bounds = &temp;
+  fp.Array = msg;
+  Error_Msg_NE (fp, node, ent);
 }
 
 /* Similar to post_error_ne, but NUM is the number to use for the '^'.  */

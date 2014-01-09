@@ -48,15 +48,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
 #include "cgraph.h"
 #include "tree-pass.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
 #include "gimple.h"
-#include "ggc.h"
+#include "gimple-iterator.h"
 #include "flags.h"
 #include "target.h"
 #include "tree-iterator.h"
 #include "ipa-utils.h"
-#include "hash-table.h"
 #include "profile.h"
 #include "params.h"
 #include "value-prof.h"
@@ -184,7 +187,7 @@ ipa_profile_generate_summary (void)
 				      10);
   
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-    FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->symbol.decl))
+    FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
       {
 	int time = 0;
 	int size = 0;
@@ -196,7 +199,7 @@ ipa_profile_generate_summary (void)
 	      {
 		histogram_value h;
 		h = gimple_histogram_value_of_type
-		      (DECL_STRUCT_FUNCTION (node->symbol.decl),
+		      (DECL_STRUCT_FUNCTION (node->decl),
 		       stmt, HIST_TYPE_INDIR_CALL);
 		/* No need to do sanity check: gimple_ic_transform already
 		   takes away bad histograms.  */
@@ -207,6 +210,8 @@ ipa_profile_generate_summary (void)
 		    if (h->hvalue.counters[2])
 		      {
 			struct cgraph_edge * e = cgraph_edge (node, stmt);
+			if (e && !e->indirect_unknown_callee)
+			  continue;
 			e->indirect_info->common_target_id
 			  = h->hvalue.counters [0];
 			e->indirect_info->common_target_probability
@@ -218,7 +223,7 @@ ipa_profile_generate_summary (void)
 			    e->indirect_info->common_target_probability = REG_BR_PROB_BASE;
 			  }
 		      }
-		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->symbol.decl),
+		    gimple_remove_histogram_value (DECL_STRUCT_FUNCTION (node->decl),
 						    stmt, h);
 		  }
 	      }
@@ -324,7 +329,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	  /* It makes sense to put main() together with the static constructors.
 	     It will be executed for sure, but rest of functions called from
 	     main are definitely not at startup only.  */
-	  if (MAIN_NAME_P (DECL_NAME (edge->caller->symbol.decl)))
+	  if (MAIN_NAME_P (DECL_NAME (edge->caller->decl)))
 	    d->only_called_at_startup = 0;
           d->only_called_at_exit &= edge->caller->only_called_at_exit;
 	}
@@ -349,7 +354,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	case NODE_FREQUENCY_EXECUTED_ONCE:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Called by %s that is executed once\n",
-		     cgraph_node_name (edge->caller));
+		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
 	  if (inline_edge_summary (edge)->loop_depth)
 	    {
@@ -362,7 +367,7 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	case NODE_FREQUENCY_NORMAL:
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Called by %s that is normal or hot\n",
-		     cgraph_node_name (edge->caller));
+		     edge->caller->name ());
 	  d->maybe_unlikely_executed = false;
 	  d->maybe_executed_once = false;
 	  break;
@@ -400,12 +405,12 @@ ipa_propagate_frequency (struct cgraph_node *node)
   /* We can not propagate anything useful about externally visible functions
      nor about virtuals.  */
   if (!node->local.local
-      || node->symbol.alias
-      || (flag_devirtualize && DECL_VIRTUAL_P (node->symbol.decl)))
+      || node->alias
+      || (flag_devirtualize && DECL_VIRTUAL_P (node->decl)))
     return false;
-  gcc_assert (node->symbol.analyzed);
+  gcc_assert (node->analyzed);
   if (dump_file && (dump_flags & TDF_DETAILS))
-    fprintf (dump_file, "Processing frequency %s\n", cgraph_node_name (node));
+    fprintf (dump_file, "Processing frequency %s\n", node->name ());
 
   cgraph_for_node_and_aliases (node, ipa_propagate_frequency_1, &d, true);
 
@@ -415,7 +420,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
        node->only_called_at_startup = true;
        if (dump_file)
          fprintf (dump_file, "Node %s promoted to only called at startup.\n",
-		  cgraph_node_name (node));
+		  node->name ());
        changed = true;
     }
   if ((d.only_called_at_exit && !d.only_called_at_startup)
@@ -424,7 +429,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
        node->only_called_at_exit = true;
        if (dump_file)
          fprintf (dump_file, "Node %s promoted to only called at exit.\n",
-		  cgraph_node_name (node));
+		  node->name ());
        changed = true;
     }
 
@@ -442,7 +447,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
 	    {
 	      if (dump_file)
 		fprintf (dump_file, "Node %s promoted to hot.\n",
-			 cgraph_node_name (node));
+			 node->name ());
 	      node->frequency = NODE_FREQUENCY_HOT;
 	      return true;
 	    }
@@ -452,7 +457,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "Node %s reduced to normal.\n",
-		     cgraph_node_name (node));
+		     node->name ());
 	  node->frequency = NODE_FREQUENCY_NORMAL;
 	  changed = true;
 	}
@@ -466,7 +471,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
       node->frequency = NODE_FREQUENCY_UNLIKELY_EXECUTED;
       if (dump_file)
 	fprintf (dump_file, "Node %s promoted to unlikely executed.\n",
-		 cgraph_node_name (node));
+		 node->name ());
       changed = true;
     }
   else if (d.maybe_executed_once && node->frequency != NODE_FREQUENCY_EXECUTED_ONCE)
@@ -474,7 +479,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
       node->frequency = NODE_FREQUENCY_EXECUTED_ONCE;
       if (dump_file)
 	fprintf (dump_file, "Node %s promoted to executed once.\n",
-		 cgraph_node_name (node));
+		 node->name ());
       changed = true;
     }
   return changed;
@@ -588,8 +593,8 @@ ipa_profile (void)
 		    {
 		      fprintf (dump_file, "Indirect call -> direct call from"
 			       " other module %s/%i => %s/%i, prob %3.2f\n",
-			       xstrdup (cgraph_node_name (n)), n->symbol.order,
-			       xstrdup (cgraph_node_name (n2)), n2->symbol.order,
+			       xstrdup (n->name ()), n->order,
+			       xstrdup (n2->name ()), n2->order,
 			       e->indirect_info->common_target_probability
 			       / (float)REG_BR_PROB_BASE);
 		    }
@@ -610,7 +615,7 @@ ipa_profile (void)
 		    }
 		  else if (cgraph_function_body_availability (n2)
 			   <= AVAIL_OVERWRITABLE
-			   && symtab_can_be_discarded ((symtab_node) n2))
+			   && symtab_can_be_discarded (n2))
 		    {
 		      nuseless++;
 		      if (dump_file)
@@ -624,11 +629,11 @@ ipa_profile (void)
 			 control flow goes to this particular implementation
 			 of N2.  Speculate on the local alias to allow inlining.
 		       */
-		      if (!symtab_can_be_discarded ((symtab_node) n2))
+		      if (!symtab_can_be_discarded (n2))
 			{
 			  cgraph_node *alias;
 			  alias = cgraph (symtab_nonoverwritable_alias
-					   ((symtab_node)n2));
+					   (n2));
 			  if (alias)
 			    n2 = alias;
 			}
@@ -676,13 +681,13 @@ ipa_profile (void)
       if (order[i]->local.local && ipa_propagate_frequency (order[i]))
 	{
 	  for (e = order[i]->callees; e; e = e->next_callee)
-	    if (e->callee->local.local && !e->callee->symbol.aux)
+	    if (e->callee->local.local && !e->callee->aux)
 	      {
 	        something_changed = true;
-	        e->callee->symbol.aux = (void *)1;
+	        e->callee->aux = (void *)1;
 	      }
 	}
-      order[i]->symbol.aux = NULL;
+      order[i]->aux = NULL;
     }
 
   while (something_changed)
@@ -690,16 +695,16 @@ ipa_profile (void)
       something_changed = false;
       for (i = order_pos - 1; i >= 0; i--)
 	{
-	  if (order[i]->symbol.aux && ipa_propagate_frequency (order[i]))
+	  if (order[i]->aux && ipa_propagate_frequency (order[i]))
 	    {
 	      for (e = order[i]->callees; e; e = e->next_callee)
-		if (e->callee->local.local && !e->callee->symbol.aux)
+		if (e->callee->local.local && !e->callee->aux)
 		  {
 		    something_changed = true;
-		    e->callee->symbol.aux = (void *)1;
+		    e->callee->aux = (void *)1;
 		  }
 	    }
-	  order[i]->symbol.aux = NULL;
+	  order[i]->aux = NULL;
 	}
     }
   free (order);

@@ -23,6 +23,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -1301,7 +1304,8 @@ rl78_function_arg_boundary (enum machine_mode mode ATTRIBUTE_UNUSED,
    S - SADDR form of a real register
    v - real register corresponding to a virtual register
    m - minus - negative of CONST_INT value.
-   c - inverse of a conditional (NE vs EQ for example)
+   C - inverse of a conditional (NE vs EQ for example)
+   C - complement of an integer
    z - collapsed conditional
    s - shift count mod 8
    S - shift count mod 16
@@ -1555,37 +1559,37 @@ rl78_print_operand_1 (FILE * file, rtx op, int letter)
       if (letter == 'z')
 	fprintf (file, "#comparison eliminated");
       else
-	fprintf (file, letter == 'c' ? "nc" : "c");
+	fprintf (file, letter == 'C' ? "nc" : "c");
       break;
     case LEU:
       if (letter == 'z')
 	fprintf (file, "br");
       else
-	fprintf (file, letter == 'c' ? "h" : "nh");
+	fprintf (file, letter == 'C' ? "h" : "nh");
       break;
     case GEU:
       if (letter == 'z')
 	fprintf (file, "br");
       else
-	fprintf (file, letter == 'c' ? "c" : "nc");
+	fprintf (file, letter == 'C' ? "c" : "nc");
       break;
     case GTU:
       if (letter == 'z')
 	fprintf (file, "#comparison eliminated");
       else
-	fprintf (file, letter == 'c' ? "nh" : "h");
+	fprintf (file, letter == 'C' ? "nh" : "h");
       break;
     case EQ:
       if (letter == 'z')
 	fprintf (file, "br");
       else
-	fprintf (file, letter == 'c' ? "nz" : "z");
+	fprintf (file, letter == 'C' ? "nz" : "z");
       break;
     case NE:
       if (letter == 'z')
 	fprintf (file, "#comparison eliminated");
       else
-	fprintf (file, letter == 'c' ? "z" : "nz");
+	fprintf (file, letter == 'C' ? "z" : "nz");
       break;
 
     /* Note: these assume appropriate adjustments were made so that
@@ -1595,25 +1599,25 @@ rl78_print_operand_1 (FILE * file, rtx op, int letter)
       if (letter == 'z')
 	fprintf (file, "#comparison eliminated");
       else
-	fprintf (file, letter == 'c' ? "nc" : "c");
+	fprintf (file, letter == 'C' ? "nc" : "c");
       break;
     case LE:
       if (letter == 'z')
 	fprintf (file, "br");
       else
-        fprintf (file, letter == 'c' ? "h" : "nh");
+        fprintf (file, letter == 'C' ? "h" : "nh");
       break;
     case GE:
       if (letter == 'z')
 	fprintf (file, "br");
       else
-	fprintf (file, letter == 'c' ? "c" : "nc");
+	fprintf (file, letter == 'C' ? "c" : "nc");
       break;
     case GT:
       if (letter == 'z')
 	fprintf (file, "#comparison eliminated");
       else
-	fprintf (file, letter == 'c' ? "nh" : "h");
+	fprintf (file, letter == 'C' ? "nh" : "h");
       break;
 
     default:
@@ -1893,8 +1897,8 @@ post-reload optimizers could operate on the real registers, but when I
 tried that there were some issues building the target libraries.
 
 During devirtualization, a simple register move optimizer is run.  It
-would be better to run a full CSE/propogation pass on it through, or
-re-run regmove, but that has not yet been attempted.
+would be better to run a full CSE/propogation pass on it though, but
+that has not yet been attempted.
 
  */
 #define DEBUG_ALLOC 0
@@ -3049,7 +3053,8 @@ rl78_alloc_address_registers_macax (rtx insn)
 	      OP (op) = transcode_memory_rtx (OP (op), HL, insn);
 	      if (op == 2
 		  && MEM_P (OP (op))
-		  && (REGNO (XEXP (OP (op), 0)) == SP_REG
+		  && ((GET_CODE (XEXP (OP (op), 0)) == REG
+		       && REGNO (XEXP (OP (op), 0)) == SP_REG)
 		      || (GET_CODE (XEXP (OP (op), 0)) == PLUS
 			  && REGNO (XEXP (XEXP (OP (op), 0), 0)) == SP_REG)))
 		{
@@ -3139,7 +3144,8 @@ rl78_alloc_physical_registers (void)
       if (GET_CODE (pattern) != SET
 	  && GET_CODE (pattern) != CALL)
 	continue;
-      if (GET_CODE (SET_SRC (pattern)) == ASM_OPERANDS)
+      if (GET_CODE (pattern) == SET
+	  && GET_CODE (SET_SRC (pattern)) == ASM_OPERANDS)
 	continue;
 
       valloc_method = get_attr_valloc (insn);

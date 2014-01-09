@@ -2039,9 +2039,8 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	  if (m != MATCH_YES)
 	    return m;
 	}
-      else if (component->ts.type == BT_CLASS
-	       && CLASS_DATA (component)->as != NULL
-	       && !component->attr.proc_pointer)
+      else if (component->ts.type == BT_CLASS && component->attr.class_ok
+	       && CLASS_DATA (component)->as && !component->attr.proc_pointer)
 	{
 	  tail = extend_ref (primary, tail);
 	  tail->type = REF_ARRAY;
@@ -2258,7 +2257,7 @@ gfc_expr_attr (gfc_expr *e)
     case EXPR_FUNCTION:
       gfc_clear_attr (&attr);
 
-      if (e->value.function.esym != NULL)
+      if (e->value.function.esym && e->value.function.esym->result)
 	{
 	  gfc_symbol *sym = e->value.function.esym->result;
 	  attr = sym->attr;

@@ -117,6 +117,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__bdver3");
       def_or_undef (parse_in, "__bdver3__");
       break;
+    case PROCESSOR_BDVER4:
+      def_or_undef (parse_in, "__bdver4");
+      def_or_undef (parse_in, "__bdver4__");
+      break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__btver1");
       def_or_undef (parse_in, "__btver1__");
@@ -140,6 +144,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__corei7");
       def_or_undef (parse_in, "__corei7__");
+      break;
+    case PROCESSOR_COREI7_AVX:
+      def_or_undef (parse_in, "__corei7_avx");
+      def_or_undef (parse_in, "__corei7_avx__");
       break;
     case PROCESSOR_HASWELL:
       def_or_undef (parse_in, "__core_avx2");
@@ -220,6 +228,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_BDVER3:
       def_or_undef (parse_in, "__tune_bdver3__");
       break;
+    case PROCESSOR_BDVER4:
+      def_or_undef (parse_in, "__tune_bdver4__");
+      break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__tune_btver1__");
       break;
@@ -237,6 +248,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       break;
     case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__tune_corei7__");
+      break;
+    case PROCESSOR_COREI7_AVX:
+      def_or_undef (parse_in, "__tune_corei7_avx__");
       break;
     case PROCESSOR_HASWELL:
       def_or_undef (parse_in, "__tune_core_avx2__");
@@ -368,7 +382,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
 static bool
 ix86_pragma_target_parse (tree args, tree pop_target)
 {
-  tree prev_tree = build_target_option_node ();
+  tree prev_tree = build_target_option_node (&global_options);
   tree cur_tree;
   struct cl_target_option *prev_opt;
   struct cl_target_option *cur_opt;
@@ -388,7 +402,8 @@ ix86_pragma_target_parse (tree args, tree pop_target)
     }
   else
     {
-      cur_tree = ix86_valid_target_attribute_tree (args);
+      cur_tree = ix86_valid_target_attribute_tree (args, &global_options,
+						   &global_options_set);
       if (!cur_tree || cur_tree == error_mark_node)
        {
          cl_target_option_restore (&global_options,
@@ -463,6 +478,9 @@ ix86_target_macros (void)
       cpp_assert (parse_in, "machine=i386");
       builtin_define_std ("i386");
     }
+
+  if (!TARGET_80387)
+    cpp_define (parse_in, "_SOFT_FLOAT");
 
   if (TARGET_LONG_DOUBLE_64)
     cpp_define (parse_in, "__LONG_DOUBLE_64__");

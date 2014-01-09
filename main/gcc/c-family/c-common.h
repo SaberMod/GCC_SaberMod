@@ -66,7 +66,7 @@ enum rid
   RID_UNSIGNED, RID_LONG,    RID_CONST, RID_EXTERN,
   RID_REGISTER, RID_TYPEDEF, RID_SHORT, RID_INLINE,
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
-  RID_NORETURN,
+  RID_NORETURN, RID_ATOMIC,
 
   /* C extensions */
   RID_COMPLEX, RID_THREAD, RID_SAT,
@@ -102,7 +102,7 @@ enum rid
   RID_EXTENSION, RID_IMAGPART, RID_REALPART, RID_LABEL,      RID_CHOOSE_EXPR,
   RID_TYPES_COMPATIBLE_P,      RID_BUILTIN_COMPLEX,	     RID_BUILTIN_SHUFFLE,
   RID_DFLOAT32, RID_DFLOAT64, RID_DFLOAT128,
-  RID_FRACT, RID_ACCUM,
+  RID_FRACT, RID_ACCUM, RID_AUTO_TYPE,
 
   /* C11 */
   RID_ALIGNAS, RID_GENERIC,
@@ -148,6 +148,9 @@ enum rid
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
+  /* Cilk Plus keywords.  */
+  RID_CILK_SPAWN, RID_CILK_SYNC,
+  
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */
   RID_AT_ENCODE,   RID_AT_END,
@@ -278,7 +281,6 @@ enum c_tree_index
     CTI_CHAR16_ARRAY_TYPE,
     CTI_CHAR32_ARRAY_TYPE,
     CTI_WCHAR_ARRAY_TYPE,
-    CTI_INT_ARRAY_TYPE,
     CTI_STRING_TYPE,
     CTI_CONST_STRING_TYPE,
 
@@ -418,7 +420,6 @@ extern const unsigned int num_c_common_reswords;
 #define char16_array_type_node		c_global_trees[CTI_CHAR16_ARRAY_TYPE]
 #define char32_array_type_node		c_global_trees[CTI_CHAR32_ARRAY_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
-#define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
 #define string_type_node		c_global_trees[CTI_STRING_TYPE]
 #define const_string_type_node		c_global_trees[CTI_CONST_STRING_TYPE]
 
@@ -685,6 +686,16 @@ struct visibility_flags
   unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
 };
 
+/* These enumerators are possible types of unsafe conversions.
+   SAFE_CONVERSION The conversion is safe
+   UNSAFE_OTHER Another type of conversion with problems
+   UNSAFE_SIGN Conversion between signed and unsigned integers
+    which are all warned about immediately, so this is unused
+   UNSAFE_REAL Conversions that reduce the precision of reals
+    including conversions from reals to integers
+ */
+enum conversion_safety { SAFE_CONVERSION = 0, UNSAFE_OTHER, UNSAFE_SIGN, UNSAFE_REAL };
+
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
 
@@ -738,7 +749,7 @@ extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
-extern bool unsafe_conversion_p (tree, tree, bool);
+extern enum conversion_safety unsafe_conversion_p (tree, tree, bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
 extern tree decl_constant_value_for_optimization (tree);
@@ -746,7 +757,7 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (location_t, tree, bool, int);
+extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
@@ -779,8 +790,8 @@ extern bool keyword_is_type_qualifier (enum rid);
 extern bool keyword_is_decl_specifier (enum rid);
 extern bool cxx_fundamental_alignment_p (unsigned);
 
-#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, 1)
-#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, 1)
+#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
+#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
 
 /* Subroutine of build_binary_op, used for certain operations.  */
 extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
@@ -967,7 +978,7 @@ enum lvalue_use {
   lv_asm
 };
 
-extern void readonly_error (tree, enum lvalue_use);
+extern void readonly_error (location_t, tree, enum lvalue_use);
 extern void lvalue_error (location_t, enum lvalue_use);
 extern void invalid_indirection_error (location_t, tree, ref_operator);
 
@@ -1035,17 +1046,166 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
+#if HOST_BITS_PER_WIDE_INT >= 64
+typedef unsigned HOST_WIDE_INT omp_clause_mask;
+# define OMP_CLAUSE_MASK_1 ((omp_clause_mask) 1)
+#else
+struct omp_clause_mask
+{
+  inline omp_clause_mask ();
+  inline omp_clause_mask (unsigned HOST_WIDE_INT l);
+  inline omp_clause_mask (unsigned HOST_WIDE_INT l,
+			  unsigned HOST_WIDE_INT h);
+  inline omp_clause_mask &operator &= (omp_clause_mask);
+  inline omp_clause_mask &operator |= (omp_clause_mask);
+  inline omp_clause_mask operator ~ () const;
+  inline omp_clause_mask operator & (omp_clause_mask) const;
+  inline omp_clause_mask operator | (omp_clause_mask) const;
+  inline omp_clause_mask operator >> (int);
+  inline omp_clause_mask operator << (int);
+  inline bool operator == (omp_clause_mask) const;
+  inline bool operator != (omp_clause_mask) const;
+  unsigned HOST_WIDE_INT low, high;
+};
+
+inline
+omp_clause_mask::omp_clause_mask ()
+{
+}
+
+inline
+omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l)
+: low (l), high (0)
+{
+}
+
+inline
+omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l,
+				  unsigned HOST_WIDE_INT h)
+: low (l), high (h)
+{
+}
+
+inline omp_clause_mask &
+omp_clause_mask::operator &= (omp_clause_mask b)
+{
+  low &= b.low;
+  high &= b.high;
+  return *this;
+}
+
+inline omp_clause_mask &
+omp_clause_mask::operator |= (omp_clause_mask b)
+{
+  low |= b.low;
+  high |= b.high;
+  return *this;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator ~ () const
+{
+  omp_clause_mask ret (~low, ~high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator | (omp_clause_mask b) const
+{
+  omp_clause_mask ret (low | b.low, high | b.high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator & (omp_clause_mask b) const
+{
+  omp_clause_mask ret (low & b.low, high & b.high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator << (int amount)
+{
+  omp_clause_mask ret;
+  if (amount >= HOST_BITS_PER_WIDE_INT)
+    {
+      ret.low = 0;
+      ret.high = low << (amount - HOST_BITS_PER_WIDE_INT);
+    }
+  else if (amount == 0)
+    ret = *this;
+  else
+    {
+      ret.low = low << amount;
+      ret.high = (low >> (HOST_BITS_PER_WIDE_INT - amount))
+		 | (high << amount);
+    }
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator >> (int amount)
+{
+  omp_clause_mask ret;
+  if (amount >= HOST_BITS_PER_WIDE_INT)
+    {
+      ret.low = high >> (amount - HOST_BITS_PER_WIDE_INT);
+      ret.high = 0;
+    }
+  else if (amount == 0)
+    ret = *this;
+  else
+    {
+      ret.low = (high << (HOST_BITS_PER_WIDE_INT - amount))
+		 | (low >> amount);
+      ret.high = high >> amount;
+    }
+  return ret;
+}
+
+inline bool
+omp_clause_mask::operator == (omp_clause_mask b) const
+{
+  return low == b.low && high == b.high;
+}
+
+inline bool
+omp_clause_mask::operator != (omp_clause_mask b) const
+{
+  return low != b.low || high != b.high;
+}
+
+# define OMP_CLAUSE_MASK_1 omp_clause_mask (1)
+#endif
+
+enum c_omp_clause_split
+{
+  C_OMP_CLAUSE_SPLIT_TARGET = 0,
+  C_OMP_CLAUSE_SPLIT_TEAMS,
+  C_OMP_CLAUSE_SPLIT_DISTRIBUTE,
+  C_OMP_CLAUSE_SPLIT_PARALLEL,
+  C_OMP_CLAUSE_SPLIT_FOR,
+  C_OMP_CLAUSE_SPLIT_SIMD,
+  C_OMP_CLAUSE_SPLIT_COUNT,
+  C_OMP_CLAUSE_SPLIT_SECTIONS = C_OMP_CLAUSE_SPLIT_FOR
+};
+
 extern tree c_finish_omp_master (location_t, tree);
+extern tree c_finish_omp_taskgroup (location_t, tree);
 extern tree c_finish_omp_critical (location_t, tree, tree);
 extern tree c_finish_omp_ordered (location_t, tree);
 extern void c_finish_omp_barrier (location_t);
 extern tree c_finish_omp_atomic (location_t, enum tree_code, enum tree_code,
-				 tree, tree, tree, tree, tree);
+				 tree, tree, tree, tree, tree, bool, bool);
 extern void c_finish_omp_flush (location_t);
 extern void c_finish_omp_taskwait (location_t);
 extern void c_finish_omp_taskyield (location_t);
-extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
-extern void c_split_parallel_clauses (location_t, tree, tree *, tree *);
+extern tree c_finish_omp_for (location_t, enum tree_code, tree, tree, tree,
+			      tree, tree, tree);
+extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
+				 tree, tree *);
+extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
+extern void c_omp_declare_simd_clauses_to_decls (tree, tree);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
 
 /* Not in c-omp.c; provided by the front end.  */
@@ -1138,6 +1298,11 @@ enum stv_conv {
 extern enum stv_conv scalar_to_vector (location_t loc, enum tree_code code,
 				       tree op0, tree op1, bool);
 
+/* In c-cilkplus.c  */
+extern tree c_finish_cilk_clauses (tree);
+extern tree c_validate_cilk_plus_loop (tree *, int *, void *);
+extern bool c_check_cilk_loop (location_t, tree);
+
 /* These #defines allow users to access different operands of the
    array notation tree.  */
 
@@ -1208,4 +1373,18 @@ extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
   (location_t, vec <tree, va_gc> *, vec<an_loop_parts>, size_t, tree);
+
+/* In cilk.c.  */
+extern tree insert_cilk_frame (tree);
+extern void cilk_init_builtins (void);
+extern int gimplify_cilk_spawn (tree *);
+extern void cilk_install_body_with_frame_cleanup (tree, tree, void *);
+extern bool cilk_detect_spawn_and_unwrap (tree *);
+extern bool cilk_set_spawn_marker (location_t, tree);
+extern tree build_cilk_sync (void);
+extern tree build_cilk_spawn (location_t, tree);
+extern tree make_cilk_frame (tree);
+extern tree create_cilk_function_exit (tree, bool, bool);
+extern tree cilk_install_body_pedigree_operations (tree);
+extern void cilk_outline (tree, tree *, void *);
 #endif /* ! GCC_C_COMMON_H */

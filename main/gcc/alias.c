@@ -24,27 +24,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "expr.h"
 #include "tm_p.h"
 #include "function.h"
 #include "alias.h"
 #include "emit-rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "cselib.h"
 #include "splay-tree.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "timevar.h"
 #include "dumpfile.h"
 #include "target.h"
-#include "cgraph.h"
 #include "df.h"
 #include "tree-ssa-alias.h"
 #include "pointer-set.h"
-#include "tree-ssa.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -338,9 +341,9 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
   if (MEM_EXPR (mem) != get_spill_slot_decl (false)
       && (ref->offset < 0
 	  || (DECL_P (ref->base)
-	      && (!host_integerp (DECL_SIZE (ref->base), 1)
-		  || (TREE_INT_CST_LOW (DECL_SIZE ((ref->base)))
-		      < (unsigned HOST_WIDE_INT)(ref->offset + ref->size))))))
+	      && (!tree_fits_uhwi_p (DECL_SIZE (ref->base))
+		  || (tree_to_uhwi (DECL_SIZE (ref->base))
+		      < (unsigned HOST_WIDE_INT) (ref->offset + ref->size))))))
     return false;
 
   return true;
@@ -2347,13 +2350,13 @@ adjust_offset_for_component_ref (tree x, bool *known_p,
       tree xoffset = component_ref_field_offset (x);
       tree field = TREE_OPERAND (x, 1);
 
-      if (! host_integerp (xoffset, 1))
+      if (! tree_fits_uhwi_p (xoffset))
 	{
 	  *known_p = false;
 	  return;
 	}
-      *offset += (tree_low_cst (xoffset, 1)
-		  + (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+      *offset += (tree_to_uhwi (xoffset)
+		  + (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
 		     / BITS_PER_UNIT));
 
       x = TREE_OPERAND (x, 0);
@@ -2952,7 +2955,7 @@ init_alias_analysis (void)
      The state of the arrays for the set chain in question does not matter
      since the program has undefined behavior.  */
 
-  rpo = XNEWVEC (int, n_basic_blocks);
+  rpo = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   rpo_cnt = pre_and_rev_post_order_compute (NULL, rpo, false);
 
   pass = 0;
@@ -2975,21 +2978,18 @@ init_alias_analysis (void)
       /* Wipe the reg_seen array clean.  */
       bitmap_clear (reg_seen);
 
-      /* Mark all hard registers which may contain an address.
-	 The stack, frame and argument pointers may contain an address.
-	 An argument register which can hold a Pmode value may contain
-	 an address even if it is not in BASE_REGS.
-
-	 The address expression is VOIDmode for an argument and
-	 Pmode for other registers.  */
-
-      memcpy (new_reg_base_value, static_reg_base_value,
-	      FIRST_PSEUDO_REGISTER * sizeof (rtx));
+      /* Initialize the alias information for this pass.  */
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (static_reg_base_value[i])
+	  {
+	    new_reg_base_value[i] = static_reg_base_value[i];
+	    bitmap_set_bit (reg_seen, i);
+	  }
 
       /* Walk the insns adding values to the new_reg_base_value array.  */
       for (i = 0; i < rpo_cnt; i++)
 	{
-	  basic_block bb = BASIC_BLOCK (rpo[i]);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      if (NONDEBUG_INSN_P (insn))

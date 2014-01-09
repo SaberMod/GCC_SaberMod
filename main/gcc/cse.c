@@ -3288,8 +3288,8 @@ fold_rtx (rtx x, rtx insn)
 	  break;
 
 	new_rtx = simplify_unary_operation (code, mode,
-					const_arg0 ? const_arg0 : folded_arg0,
-					mode_arg0);
+					    const_arg0 ? const_arg0 : folded_arg0,
+					    mode_arg0);
       }
       break;
 
@@ -6200,7 +6200,7 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 	      && e == BRANCH_EDGE (previous_bb_in_path))
 	    {
 	      bb = FALLTHRU_EDGE (previous_bb_in_path)->dest;
-	      if (bb != EXIT_BLOCK_PTR
+	      if (bb != EXIT_BLOCK_PTR_FOR_FN (cfun)
 		  && single_pred_p (bb)
 		  /* We used to assert here that we would only see blocks
 		     that we have not visited yet.  But we may end up
@@ -6254,7 +6254,7 @@ cse_find_path (basic_block first_bb, struct cse_basic_block_data *data,
 
 	  if (e
 	      && !((e->flags & EDGE_ABNORMAL_CALL) && cfun->has_nonlocal_label)
-	      && e->dest != EXIT_BLOCK_PTR
+	      && e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	      && single_pred_p (e->dest)
 	      /* Avoid visiting basic blocks twice.  The large comment
 		 above explains why this can happen.  */
@@ -6522,7 +6522,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 {
   struct cse_basic_block_data ebb_data;
   basic_block bb;
-  int *rc_order = XNEWVEC (int, last_basic_block);
+  int *rc_order = XNEWVEC (int, last_basic_block_for_fn (cfun));
   int i, n_blocks;
 
   df_set_flags (DF_LR_RUN_DCE);
@@ -6551,7 +6551,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
   reg_eqv_table = XNEWVEC (struct reg_eqv_elem, nregs);
 
   /* Set up the table of already visited basic blocks.  */
-  cse_visited_basic_blocks = sbitmap_alloc (last_basic_block);
+  cse_visited_basic_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (cse_visited_basic_blocks);
 
   /* Loop over basic blocks in reverse completion order (RPO),
@@ -6564,7 +6564,7 @@ cse_main (rtx f ATTRIBUTE_UNUSED, int nregs)
 	 processed before.  */
       do
 	{
-	  bb = BASIC_BLOCK (rc_order[i++]);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, rc_order[i++]);
 	}
       while (bitmap_bit_p (cse_visited_basic_blocks, bb->index)
 	     && i < n_blocks);
@@ -7166,7 +7166,7 @@ cse_cc_succs (basic_block bb, basic_block orig_bb, rtx cc_reg, rtx cc_src,
 	continue;
 
       if (EDGE_COUNT (e->dest->preds) != 1
-	  || e->dest == EXIT_BLOCK_PTR
+	  || e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  /* Avoid endless recursion on unreachable blocks.  */
 	  || e->dest == orig_bb)
 	continue;
@@ -7335,7 +7335,7 @@ cse_condition_code_reg (void)
   else
     cc_reg_2 = NULL_RTX;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx last_insn;
       rtx cc_reg;

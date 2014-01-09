@@ -32,6 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "expr.h"
 #include "reload.h"
 #include "function.h"
@@ -45,6 +48,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "debug.h"
 #include "obstack.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
 #include "lto-streamer.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
@@ -1507,7 +1522,7 @@ machopic_select_section (tree decl,
 
   zsize = (DECL_P (decl) 
 	   && (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == CONST_DECL) 
-	   && tree_low_cst (DECL_SIZE_UNIT (decl), 1) == 0);
+	   && tree_to_uhwi (DECL_SIZE_UNIT (decl)) == 0);
 
   one = DECL_P (decl) 
 	&& TREE_CODE (decl) == VAR_DECL 
@@ -1648,7 +1663,7 @@ machopic_select_section (tree decl,
       static bool warned_objc_46 = false;
       /* We shall assert that zero-sized objects are an error in ObjC 
          meta-data.  */
-      gcc_assert (tree_low_cst (DECL_SIZE_UNIT (decl), 1) != 0);
+      gcc_assert (tree_to_uhwi (DECL_SIZE_UNIT (decl)) != 0);
       
       /* ??? This mechanism for determining the metadata section is
 	 broken when LTO is in use, since the frontend that generated
@@ -2185,7 +2200,7 @@ darwin_asm_declare_object_name (FILE *file,
 	machopic_define_symbol (DECL_RTL (decl));
     }
 
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
 
 #ifdef DEBUG_DARWIN_MEM_ALLOCATORS
 fprintf (file, "# dadon: %s %s (%llu, %u) local %d weak %d"
@@ -3606,9 +3621,16 @@ darwin_function_section (tree decl, enum node_frequency freq,
      unlikely executed (this happens especially with function splitting
      where we can split away unnecessary parts of static constructors).  */
   if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return (weak)
-	    ? darwin_sections[text_startup_coal_section]
-	    : darwin_sections[text_startup_section];
+  {
+    /* If we do have a profile or(and) LTO phase is executed, we do not need
+       these ELF section.  */
+    if (!in_lto_p || !flag_profile_values)
+      return (weak)
+	      ? darwin_sections[text_startup_coal_section]
+	      : darwin_sections[text_startup_section];
+    else
+      return text_section;
+  }
 
   /* Similarly for exit.  */
   if (exit && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
@@ -3625,10 +3647,15 @@ darwin_function_section (tree decl, enum node_frequency freq,
 		: darwin_sections[text_cold_section];
 	break;
       case NODE_FREQUENCY_HOT:
-	return (weak)
-		? darwin_sections[text_hot_coal_section]
-		: darwin_sections[text_hot_section];
-	break;
+      {
+        /* If we do have a profile or(and) LTO phase is executed, we do not need
+           these ELF section.  */
+        if (!in_lto_p || !flag_profile_values)
+          return (weak)
+                  ? darwin_sections[text_hot_coal_section]
+                  : darwin_sections[text_hot_section];
+        break;
+      }
       default:
 	return (weak)
 		? darwin_sections[text_coal_section]

@@ -27,11 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "flags.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
-#include "tree-ssa.h"
-#include "diagnostic-core.h"
 #include "bitmap.h"
-#include "vec.h"
+#include "diagnostic-core.h"
 #include "tree-streamer.h"
 #include "lto-streamer.h"
 #include "streamer-hooks.h"
@@ -54,7 +57,7 @@ lto_tag_name (enum LTO_tags tag)
     {
       /* For tags representing tree nodes, return the name of the
 	 associated tree code.  */
-      return tree_code_name[lto_tag_to_tree_code (tag)];
+      return get_tree_code_name (lto_tag_to_tree_code (tag));
     }
 
   if (lto_tag_is_gimple_code_p (tag))
@@ -199,7 +202,7 @@ print_lto_report (const char *s)
     if (lto_stats.num_trees[i])
       fprintf (stderr, "[%s] # of '%s' objects read: "
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
-	       tree_code_name[i], lto_stats.num_trees[i]);
+	       get_tree_code_name ((enum tree_code) i), lto_stats.num_trees[i]);
 
   if (flag_lto)
     {

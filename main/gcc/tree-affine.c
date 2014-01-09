@@ -21,12 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "expr.h"
 #include "tree-pretty-print.h"
 #include "pointer-set.h"
 #include "tree-affine.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "flags.h"
 #include "dumpfile.h"
+#include "cfgexpand.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 
@@ -874,10 +882,11 @@ debug_aff (aff_tree *val)
   fprintf (stderr, "\n");
 }
 
-/* Returns address of the reference REF in ADDR.  The size of the accessed
-   location is stored to SIZE.  */
+/* Computes address of the reference REF in ADDR.  The size of the accessed
+   location is stored to SIZE.  Returns the ultimate containing object to
+   which REF refers.  */
 
-void
+tree
 get_inner_reference_aff (tree ref, aff_tree *addr, double_int *size)
 {
   HOST_WIDE_INT bitsize, bitpos;
@@ -904,6 +913,8 @@ get_inner_reference_aff (tree ref, aff_tree *addr, double_int *size)
   aff_combination_add (addr, &tmp);
 
   *size = double_int::from_shwi ((bitsize + BITS_PER_UNIT - 1) / BITS_PER_UNIT);
+
+  return base;
 }
 
 /* Returns true if a region of size SIZE1 at position 0 and a region of

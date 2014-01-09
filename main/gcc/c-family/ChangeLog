@@ -1,3 +1,473 @@
+2013-12-18  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-common.c (c_common_attribute_table): Added "cilk simd function"
+	attribute.
+	* c-pragma.h (enum pragma_cilk_clause): Remove.
+	(enum pragma_omp_clause):  Added the following fields:
+	PRAGMA_CILK_CLAUSE_NOMASK, PRAGMA_CILK_CLAUSE_MASK,
+	PRAGMA_CILK_CLAUSE_VECTORLENGTH, PRAGMA_CILK_CLAUSE_NONE,
+	PRAGMA_CILK_CLAUSE_LINEAR, PRAGMA_CILK_CLAUSE_PRIVATE,
+	PRAGMA_CILK_CLAUSE_FIRSTPRIVATE, PRAGMA_CILK_CLAUSE_LASTPRIVATE,
+	PRAGMA_CILK_CLAUSE_UNIFORM.
+
+	
+2013-12-11  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cilk.c (cilk_outline): Made this function non-static.
+	(gimplify_cilk_spawn): Removed pre_p and post_p arguments.
+	(create_cilk_wrapper): Added a new parameter: a function pointer.
+	(c_install_body_w_frame_cleanup): Remove
+	(extract_free_variables): Added VEC_INIT_EXPR and CONSTRUCTOR case.
+	* c-common.h (cilk_outline): New prototype.
+	(gimplify_cilk_spawn): Removed two parameters.
+	(cilk_install_body_with_frame_cleanup): New prototype.
+	* c-gimplify.c (c_gimplify_expr): Added MODIFY_EXPR, CALL_EXPR and
+	CILK_SPAWN_STMT case.
+
+2013-12-11  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* c-common.c (c_fully_fold_internal): Handle ADDR_SPACE_CONVERT_EXPR.
+
+	* c-common.h (enum c_tree_index): Remove CTI_INT_ARRAY_TYPE.
+	(int_array_type_node): Remove.
+	* c-common.c (c_common_nodes_and_builtins): Don't build it.
+
+2013-12-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/52023
+	* c-common.c (c_sizeof_or_alignof_type): Move a declaration into
+	[ADJUST_FIELD_ALIGN].
+
+2013-12-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/52023
+	* c-common.c (c_sizeof_or_alignof_type): Add parameter min_alignof
+	and check field alignment if set.
+	* c-common.h (c_sizeof_or_alignof_type): Update prototype.
+	(c_sizeof, c_alignof): Update calls to c_sizeof_or_alignof_type.
+
+2013-12-04  Jakub Jelinek  <jakub@redhat.com>  
+	    Marek Polacek  <polacek@redhat.com>
+
+	* c-gimplify.c (c_gimplify_expr): If doing the integer-overflow
+	sanitization, call unsigned_type_for only when !TYPE_OVERFLOW_WRAPS.
+
+2013-11-29   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/59309
+	* cilk.c (gimplify_cilk_spawn): Properly handle function without
+	arguments.
+
+2013-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59280
+	* c-common.c (get_priority): If TREE_VALUE (args) is IDENTIFIER_NODE,
+	goto invalid.  If it is error_mark_node, don't issue further
+	diagnostics.
+
+2013-11-28  Sergey Ostanevich  <sergos.gnu@gmail.com>
+
+	* c.opt (Wopenmp-simd): New.
+
+2013-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.h (ubsan_instrument_return): New prototype.
+	* c-ubsan.c (ubsan_instrument_return): New function.
+
+2013-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-common.c: Add required include files from gimple.h.
+	* c-gimplify.c: Likewise
+	* cilk.c: Likewise
+
+2013-11-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (unsafe_conversion_p): Remove use of
+	EXPR_LOC_OR_HERE macro.
+	(conversion_warning): Likewise.
+	(warnings_for_convert_and_check): Likewise.
+	(warn_for_collisions_1): Likewise.
+	(shorten_compare): Likewise, and remove use of in_system_header
+	macro, using the location from the former.
+	* c-lex.c (dump_one_header): Remove use of input_filename macro.
+	(cb_def_pragma): Remove use of in_system_header macro.
+	(lex_string): Likewise.
+	* c-pragma.c (handle_pragma_float_const_decimal64): Likewise.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c (is_simple_enum): Use tree_to_shwi and tree_to_uhwi
+	instead of TREE_INT_CST_LOW, in cases where there is a protecting
+	tree_fits_shwi_p or tree_fits_uhwi_p.
+	(dump_generic_ada_node): Likewise.
+	* c-format.c (check_format_arg): Likewise.
+	* c-pretty-print.c (pp_c_integer_constant): Likewise.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* c-common.c (check_function_arguments_recurse): Use tree_to_uhwi.
+
+2013-11-19  Joshua J Cogliati  <jrincayc@yahoo.com>
+
+	PR c/53001
+	* c-common.c (unsafe_conversion_p): Make this function
+	return an enumeration with more detail.
+	(conversion_warning): Use the new return type of
+	unsafe_conversion_p to separately warn either about conversions
+	that lower floating point number precision or about the other
+	kinds of conversions.
+	* c-common.h (enum conversion_safety): New enumeration.
+ 	(unsafe_conversion_p): switching return type to
+ 	conversion_safety enumeration.
+	* c.opt: Adding new warning -Wfloat-conversion and
+	enabling it with -Wconversion.
+
+2013-11-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        * c-opts.c: Include plugin.h.
+        (cb_file_change): Invoke plugin event PLUGIN_INCLUDE_FILE.
+
+2013-11-19  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_division): Adjust ubsan_create_data
+	call.
+	(ubsan_instrument_shift): Likewise.
+	(ubsan_instrument_vla): Likewise.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c (convert_vector_to_pointer_for_subscript): Remove
+	cast to unsigned type.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c (fold_offsetof_1): Use tree_to_uhwi rather than
+	tree_low_cst.
+	(complete_array_type): Update comment to refer to tree_to_[su]hwi
+	rather than tree_low_cst.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c, c-cppbuiltin.c: Replace tree_low_cst (..., 1) with
+	tree_to_uhwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c, c-format.c, c-omp.c, c-pretty-print.c: Replace
+	tree_low_cst (..., 0) with tree_to_shwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c, c-common.c, c-pretty-print.c: Replace
+	host_integerp (..., 1) with tree_fits_uhwi_p throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c, c-common.c, c-format.c, c-pretty-print.c: Replace
+	host_integerp (..., 0) with tree_fits_shwi_p throughout.
+
+2013-11-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-cilkplus.c: New file.
+	* c-common.c (readonly_error): Add location argument.
+	* c-common.h (readonly_error): Same.
+	(c_finish_cilk_clauses): Protoize.
+	(c_check_cilk_loop): Same.
+	c-omp.c (c_finish_omp_for): Handle CILK_SIMD nodes.
+	Do not fail on error_mark_node.
+	Abstract increment canonicalization to here...
+	(c_omp_for_incr_canonicalize_ptr): New.
+	c-pragma.c (init_pragma): Register "simd" pragma.
+	c-pragma.h (enum pragma_kind): Add PRAGMA_CILK_SIMD.
+	(enum pragma_cilk_clause): New.
+
+2013-11-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-pretty-print.c (pp_c_character_constant): Remove unnecessary
+	wchar_type and host_integerp checks.
+
+2013-11-14  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-common.c: Likewise.
+	* c-gimplify.c: Likewise.
+	* cilk.c: Likewise.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* c-common.c: Include fold-const.h.
+	Include stor-layout.h.
+	Include calls.h.
+	Include stringpool.h.
+	Include attribs.h.
+	Include varasm.h.
+	Include trans-mem.h.
+	* c-cppbuiltin.c: Include stor-layout.h.
+	Include stringpool.h.
+	* c-format.c: Include stringpool.h.
+	* c-lex.c: Include stringpool.h.
+	Include stor-layout.h.
+	* c-pragma.c: Include stringpool.h.
+	Include attribs.h.
+	Include varasm.h.
+	Include gcc-symtab.h.
+	* c-pretty-print.c: Include stor-layout.h.
+	Include attribs.h.
+	* cilk.c: Include stringpool.h.
+	Include calls.h.
+
+2013-11-13  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.h (enum rid): Add RID_AUTO_TYPE.
+	* c-common.c (c_common_reswords): Add __auto_type.
+	(keyword_begins_type_specifier): Handle RID_AUTO_TYPE.
+
+2013-11-12  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-common.c: Include gimplify.h.
+	* c-gimplify.c: Likewise.
+	* cilk.c: Likewise.
+	* c-omp.c: Include gimple-expr.h instead of gimple.h.
+	* c-ubsan.c: Don't include gimple.h.
+
+2013-11-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (c_common_reswords): Add _Thread_local.
+
+2013-11-09  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.c (atomic_size_supported_p): New function.
+	(resolve_overloaded_atomic_exchange)
+	(resolve_overloaded_atomic_compare_exchange)
+	(resolve_overloaded_atomic_load, resolve_overloaded_atomic_store):
+	Use it instead of comparing size with a local list of sizes.
+
+2013-11-07  Andrew MacLeod  <amacleod@redhat.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.h (enum rid): Add RID_ATOMIC.
+	* c-common.c (c_common_reswords): Add _Atomic.
+	(sync_resolve_params): Use TYPE_MAIN_VARIANT on pointer argument.
+	(keyword_is_type_qualifier): Accept RID_ATOMIC.
+	* c-format.c (check_format_types): Check for extra _Atomic
+	qualifiers in format argument.
+	* c-pretty-print.c (pp_c_cv_qualifiers): Handle atomic qualifier.
+	(pp_c_type_qualifier_list): Mention _Atomic in comment.
+
+2013-11-06  Tobias Burnus  <burnus@net-b.de>
+
+	* c-common.c (reason_option_codes_t): Add CPP_W_DATE_TIME.
+
+2013-11-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-opts.c (c_common_post_options): Set -ffp-contract=off in C
+	standards modes.
+	* c-cppbuiltin.c (cpp_iec_559_value): Consider -ffp-contract=fast
+	to mean lack of IEEE 754 support.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* c.opt (-Wdate-time): New option
+	* c-opts.c (sanitize_cpp_opts): Pass on to libcpp.
+
+2013-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (cpp_iec_559_value): Test
+	flag_excess_precision_cmdline not flag_excess_precision.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* c.opt (fopenmp-simd): New option.
+	* c-pragma.c (omp_pragmas): Move pragmas which can contain simd to ...
+	(omp_pragmas): ... this new struct.
+	(c_pp_lookup_pragma): Also walk omp_pragmas.
+	(init_pragma): Init pragmas for -fopenmp-simd.
+
+2013-11-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/58979
+	* c-common.c (invalid_indirection_error): Handle RO_ARROW_STAR case.
+
+2013-11-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (cpp_iec_559_value, cpp_iec_559_complex_value):
+	New functions.
+	(c_cpp_builtins): Define __GCC_IEC_559 and __GCC_IEC_559_COMPLEX.
+
+2013-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.h (cpp_operation): Add IS_TRIVIAL.
+	(dump_ada_specs): Adjust prototype of second callback.
+	* c-ada-spec.c (cpp_check): New global variable.
+	(dump_ada_nodes): Remove cpp_check parameter and do not pass it down.
+	(print_generic_ada_decl): Likewise.
+	(has_static_fields): Change return type to bool and add guard.
+	(has_nontrivial_methods): New predicate.
+	(is_tagged_type): Change return type to bool.
+	(separate_class_package): Call has_nontrivial_methods.
+	(pp_ada_tree_identifier): Minor tweaks.
+	(dump_ada_function_declaration): Adjust calls to dump_generic_ada_node.
+	(dump_ada_array_domains): Likewise.
+	(dump_ada_array_type): Likewise.
+	(dump_template_types): Remove cpp_check parameter and do not pass it to
+	dump_generic_ada_node.
+	(dump_ada_template): Likewise.
+	(dump_generic_ada_node): Remove cpp_check parameter and do not pass it
+	recursively.
+	(print_ada_methods): Change return type to integer.  Remove cpp_check
+	parameter and do not pass it down.
+	(dump_nested_types): Remove cpp_check parameter and do not pass it to
+	dump_generic_ada_node.
+	(print_ada_declaration): Likewise.  Test RECORD_OR_UNION_TYPE_P before
+	accessing methods.
+	(print_ada_struct_decl): Remove cpp_check parameter and do not pass it
+	down.  Use has_nontrivial_methods to recognize C++ classes.  Use return
+	value of print_ada_methods.
+	(dump_ads): Rename cpp_check parameter to check and adjust prototype.
+	Set cpp_check to it before invoking dump_ada_nodes.
+	(dump_ada_specs): Likewise.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c: Don't include hash-table.h.
+	(ubsan_instrument_vla): New function.
+	* c-ubsan.h: Declare it.
+
+2013-10-31  David Malcolm  <dmalcolm@redhat.com>
+
+	Automated part of renaming of symtab_node_base to symtab_node.
+
+	Patch autogenerated by rename_symtab.py from
+	https://github.com/davidmalcolm/gcc-refactoring-scripts
+	revision 58bb219cc090b2f4516a9297d868c245495ee622
+
+	* c-pragma.c (maybe_apply_pending_pragma_weaks): Rename
+	symtab_node_base to symtab_node.
+
+2013-10-31  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+        Implement C++14 digit separators.
+	* c-lex.c (interpret_float): Remove digit separators from scratch string
+	before building real literal.
+
+2013-10-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* cilk.c (create_cilk_helper_decl): Use HOST_WIDE_INT_PRINT_DEC.
+
+2013-10-29  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-common.c (c_common_reswords[]): Added _Cilk_spawn and _Cilk_sync
+	fields.
+	(c_define_builtins): Called cilk_init_builtins if Cilk Plus is
+	enabled.
+	* c-common.h (enum rid): Added RID_CILK_SPAWN and RID_CILK_SYNC.
+	(insert_cilk_frame): New prototype.
+	(cilk_init_builtins): Likewise.
+	(gimplify_cilk_spawn): Likewise.
+	(c_cilk_install_body_w_frame_cleanup): Likewise.
+	(cilk_detect_spawn_and_unwrap): Likewise.
+	(cilk_set_spawn_marker): Likewise.
+	(build_cilk_sync): Likewise.
+	(build_cilk_spawn): Likewise.
+	* cilk.c: New file.
+
+2013-10-29  David Malcolm  <dmalcolm@redhat.com>
+
+	Patch autogenerated by refactor_symtab.py from
+	https://github.com/davidmalcolm/gcc-refactoring-scripts
+	revision 58bb219cc090b2f4516a9297d868c245495ee622
+
+	* c-gimplify.c (c_genericize): Update for conversion of symtab types
+	to a true class hierarchy.
+	* c-pragma.c (maybe_apply_pending_pragma_weaks): Likewise.
+
+2013-10-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-lex.c (interpret_integer): Remove call to cpp_num_sign_extend.
+
+2013-10-26  Jeff Law  <law@redhat.com>
+
+	* c-family/c-common.c (c_define_builtins): Remove mudflap support.
+	* c-family/c.opt: Ignore and warn for mudflap options.
+
+2013-10-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR other/33426
+	* c-pragma.c (init_pragma) Add #pragma ivdep handling.
+	* c-pragma.h (pragma_kind): Add PRAGMA_IVDEP.
+
+2013-10-23  Jason Merrill  <jason@redhat.com>
+
+	* c-format.c (gcc_cxxdiag_char_table): Add %X.
+
+2013-10-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (omp_clause_mask::operator !=): New method.
+	* c-omp.c (c_omp_split_clauses): Use if ((mask & something) != 0)
+	instead of if (mask & something) tests everywhere.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Predefine _OPENMP to
+	201307 instead of 201107.
+	* c-common.c (DEF_FUNCTION_TYPE_8): Define.
+	(c_common_attribute_table): Add "omp declare target" and
+	"omp declare simd" attributes.
+	(handle_omp_declare_target_attribute,
+	handle_omp_declare_simd_attribute): New functions.
+	* c-omp.c: Include c-pragma.h.
+	(c_finish_omp_taskgroup): New function.
+	(c_finish_omp_atomic): Add swapped argument, if true,
+	build the operation first with rhs, lhs arguments and use NOP_EXPR
+	build_modify_expr.
+	(c_finish_omp_for): Add code argument, pass it down to make_code.
+	(c_omp_split_clauses): New function.
+	(c_split_parallel_clauses): Removed.
+	(c_omp_declare_simd_clause_cmp, c_omp_declare_simd_clauses_to_numbers,
+	c_omp_declare_simd_clauses_to_decls): New functions.
+	* c-common.h (omp_clause_mask): New type.
+	(OMP_CLAUSE_MASK_1): Define.
+	(omp_clause_mask::omp_clause_mask, omp_clause_mask::operator &=,
+	omp_clause_mask::operator |=, omp_clause_mask::operator ~,
+	omp_clause_mask::operator |, omp_clause_mask::operator &,
+	omp_clause_mask::operator <<, omp_clause_mask::operator >>,
+	omp_clause_mask::operator ==): New methods.
+	(enum c_omp_clause_split): New.
+	(c_finish_omp_taskgroup): New prototype.
+	(c_finish_omp_atomic): Add swapped argument.
+	(c_finish_omp_for): Add code argument.
+	(c_omp_split_clauses): New prototype.
+	(c_split_parallel_clauses): Removed.
+	(c_omp_declare_simd_clauses_to_numbers,
+	c_omp_declare_simd_clauses_to_decls): New prototypes.
+	* c-pragma.c (omp_pragmas): Add new OpenMP 4.0 constructs.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OMP_CANCEL,
+	PRAGMA_OMP_CANCELLATION_POINT, PRAGMA_OMP_DECLARE_REDUCTION,
+	PRAGMA_OMP_DISTRIBUTE, PRAGMA_OMP_END_DECLARE_TARGET, PRAGMA_OMP_SIMD,
+	PRAGMA_OMP_TARGET, PRAGMA_OMP_TASKGROUP and PRAGMA_OMP_TEAMS.
+	Remove PRAGMA_OMP_PARALLEL_FOR and PRAGMA_OMP_PARALLEL_SECTIONS.
+	(enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_ALIGNED,
+	PRAGMA_OMP_CLAUSE_DEPEND, PRAGMA_OMP_CLAUSE_DEVICE,
+	PRAGMA_OMP_CLAUSE_DIST_SCHEDULE, PRAGMA_OMP_CLAUSE_FOR,
+	PRAGMA_OMP_CLAUSE_FROM, PRAGMA_OMP_CLAUSE_INBRANCH,
+	PRAGMA_OMP_CLAUSE_LINEAR, PRAGMA_OMP_CLAUSE_MAP,
+	PRAGMA_OMP_CLAUSE_NOTINBRANCH, PRAGMA_OMP_CLAUSE_NUM_TEAMS,
+	PRAGMA_OMP_CLAUSE_PARALLEL, PRAGMA_OMP_CLAUSE_PROC_BIND,
+	PRAGMA_OMP_CLAUSE_SAFELEN, PRAGMA_OMP_CLAUSE_SECTIONS,
+	PRAGMA_OMP_CLAUSE_SIMDLEN, PRAGMA_OMP_CLAUSE_TASKGROUP,
+	PRAGMA_OMP_CLAUSE_THREAD_LIMIT, PRAGMA_OMP_CLAUSE_TO and
+	PRAGMA_OMP_CLAUSE_UNIFORM.
+
+2013-10-09  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/20318
+	* c-common.c (handle_returns_nonnull_attribute): New function.
+	(c_common_attribute_table): Add returns_nonnull.
+
+2013-10-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/19476
+	* c.opt (fcheck-new): Move to common.opt.
+
 2013-09-25  Marek Polacek  <polacek@redhat.com>
 	    Jakub Jelinek  <jakub@redhat.com>
 
@@ -323,7 +793,7 @@
 	* c-family/array-notation-common.c (length_mismatch_in_expr_p): Delete
 	unused variables l_length and l_node.
 
-2013-07-04  Joern Rennecke <joern.rennecke@embecosm.com>
+2013-07-04  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	PR c/57821
 	* c-common.c (complete_array_type): Delay folding first index

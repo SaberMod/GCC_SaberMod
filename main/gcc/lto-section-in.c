@@ -24,23 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "expr.h"
 #include "flags.h"
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
-#include "basic-block.h"
-#include "tree-ssa.h"
-#include "cgraph.h"
 #include "function.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "except.h"
-#include "vec.h"
 #include "timevar.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
-#include "ggc.h"
 
 /* Section names.  These must correspond to the values of
    enum lto_section_type.  */
@@ -429,24 +429,24 @@ lto_free_function_in_decl_state (struct lto_in_decl_state *state)
    release trees needed by the NODE's body.  */
 
 void
-lto_free_function_in_decl_state_for_node (symtab_node node)
+lto_free_function_in_decl_state_for_node (symtab_node *node)
 {
   struct lto_in_decl_state temp;
   void **slot;
 
-  if (!node->symbol.lto_file_data)
+  if (!node->lto_file_data)
     return;
 
-  temp.fn_decl = node->symbol.decl;
-  slot = htab_find_slot (node->symbol.lto_file_data->function_decl_states,
+  temp.fn_decl = node->decl;
+  slot = htab_find_slot (node->lto_file_data->function_decl_states,
 			 &temp, NO_INSERT);
   if (slot && *slot)
     {
       lto_free_function_in_decl_state ((struct lto_in_decl_state*) *slot);
-      htab_clear_slot (node->symbol.lto_file_data->function_decl_states,
+      htab_clear_slot (node->lto_file_data->function_decl_states,
 		       slot);
     }
-  node->symbol.lto_file_data = NULL;
+  node->lto_file_data = NULL;
 }
 
 

@@ -147,6 +147,13 @@ along with GCC; see the file COPYING3.  If not see
                false, true, true, ATTRS, false, \
 	       (flag_openmp || flag_tree_parallelize_loops))
 
+/* Builtin used by implementation of Cilk Plus.  Most of these are decomposed
+   by the compiler but a few are implemented in libcilkrts.  */ 
+#undef DEF_CILK_BUILTIN_STUB
+#define DEF_CILK_BUILTIN_STUB(ENUM, NAME) \
+  DEF_BUILTIN (ENUM, NAME, BUILT_IN_NORMAL, BT_LAST, BT_LAST, false, false, \
+	       false, ATTR_LAST, false, false)
+
 /* Builtin used by the implementation of GNU TM.  These
    functions are mapped to the actual implementation of the STM library. */
 #undef DEF_TM_BUILTIN
@@ -199,6 +206,12 @@ along with GCC; see the file COPYING3.  If not see
    maintenance purposes.  */
 #undef ATTR_MATHFN_FPROUNDING_STORE
 #define ATTR_MATHFN_FPROUNDING_STORE ATTR_NOTHROW_LEAF_LIST
+
+/* Define an attribute list for leaf functions that do not throw
+   exceptions normally, but may throw exceptions when using
+   -fnon-call-exceptions.  */
+#define ATTR_NOTHROWCALL_LEAF_LIST (flag_non_call_exceptions ? \
+	ATTR_LEAF_LIST : ATTR_NOTHROW_LEAF_LIST)
 
 /* Make sure 0 is not a legitimate builtin.  */
 DEF_BUILTIN_STUB(BUILT_IN_NONE, (const char *)0)
@@ -845,6 +858,9 @@ DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
+
+/* Cilk keywords builtins.  */
+#include "cilk-builtins.def"
 
 /* GTM builtins. */
 #include "gtm-builtins.def"

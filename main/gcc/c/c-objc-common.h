@@ -104,5 +104,4 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P
 #define LANG_HOOKS_TREE_INLINING_VAR_MOD_TYPE_P c_vla_unspec_p
-
 #endif /* GCC_C_OBJC_COMMON */

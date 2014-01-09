@@ -23,6 +23,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -3268,6 +3272,9 @@ v850_gen_movdi (rtx * operands)
 
 #undef  TARGET_LEGITIMATE_CONSTANT_P
 #define TARGET_LEGITIMATE_CONSTANT_P v850_legitimate_constant_p
+
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

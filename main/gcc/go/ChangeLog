@@ -1,8 +1,100 @@
+2013-12-16  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc (Gcc_backend::struct_field_expression): New function.
+
+2013-12-11  Ian Lance Taylor  <iant@google.com>
+
+	* go-lang.c (go_langhook_post_options): Disable sibling calls by
+	default.
+
+2013-12-10  Ian Lance Taylor  <iant@google.com>
+
+	* Make-lang.in (check_go_parallelize): Test go-test.exp r* tests
+	separately.
+
+2013-12-05  Ian Lance Taylor  <iant@google.com>
+
+	Revert this change; no longer required.
+	2013-11-06  Ian Lance Taylor  <iant@google.com>
+
+	* go-lang.c (go_langhook_post_options): If
+	-fisolate-erroneous-paths was turned on by an optimization option,
+	turn it off.
+
+2013-11-23  Ian Lance Taylor  <iant@google.com>
+
+	* go-gcc.cc (Gcc_backend::function_type): Add result_struct
+	parameter.
+
+2013-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-gcc.cc: Add required include files from gimple.h.
+	* go-lang.c: Likewise
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gofrontend/expressions.cc: Replace tree_low_cst (..., 0) with
+	tree_to_shwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gofrontend/expressions.cc: Replace host_integerp (..., 0) with
+	tree_fits_shwi_p throughout.
+
+2013-11-14  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-lang.c: Include only gimplify.h and gimple.h as needed.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* go-backend.c: Include stor-layout.h.
+	* go-gcc.cc: Include stringpool.h.
+	Include stor-layout.h.
+	Include varasm.h.
+	* go-lang.c: Include stor-layout.h.
+
+2013-11-12  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-lang.c: Include gimplify.h.
+
+2013-11-06  Ian Lance Taylor  <iant@google.com>
+
+	* go-lang.c (go_langhook_post_options): If
+	-fisolate-erroneous-paths was turned on by an optimization option,
+	turn it off.
+
+2013-10-14  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc (Gcc_backend::address_expression): New function.
+
+2013-10-11  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc (Gcc_backend::function_code_expression): New
+	function.
+
+2013-10-10  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc (Gcc_backend::error_function): New function.
+	(Gcc_backend::function): New function.
+	(Gcc_backend::make_function): New function.
+	(function_to_tree): New function.
+
+2013-10-04  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc (Gcc_backend::convert_expression): New function.
+
+2013-10-02  Chris Manghane  <cmang@google.com>
+
+	* go-gcc.cc: Include "real.h" and "realmpfr.h".
+	(Gcc_backend::integer_constant_expression): New function.
+	(Gcc_backend::float_constant_expression): New function.
+	(Gcc_backend::complex_constant_expression): New function.
+
 2013-09-30  Chris Manghane  <cmang@google.com>
 
-	* go-gcc.cc (Backend::error_expression): New function.
-	(Backend::var_expression): New function.
-	(Backend::indirect_expression): New function.
+	* go-gcc.cc (Gcc_backend::error_expression): New function.
+	(Gcc_backend::var_expression): New function.
+	(Gcc_backend::indirect_expression): New function.
 
 2013-09-25  Tom Tromey  <tromey@redhat.com>
 
@@ -497,7 +589,7 @@
 
 2011-04-14  Ian Lance Taylor  <iant@google.com>
 
-	* go-gcc.cc (Backend::error_statement): New function.
+	* go-gcc.cc (Gcc_backend::error_statement): New function.
 
 2011-04-13  Ian Lance Taylor  <iant@google.com>
 

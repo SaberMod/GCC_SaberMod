@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
 
 #ifdef OBJCPLUS
 #include "cp/cp-tree.h"
@@ -42,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "debug.h"
 #include "c-family/c-target.h"
 #include "diagnostic-core.h"
@@ -60,7 +62,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 
 /* For enum gimplify_status */
-#include "gimple.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 
 /* For encode_method_prototype().  */
 #include "objc-encoding.h"
@@ -7270,6 +7273,7 @@ objc_synthesize_getter (tree klass, tree class_methods ATTRIBUTE_UNUSED, tree pr
 	     the same type, there is no need to lookup the ivar.  */
 	  size_of = c_sizeof_or_alignof_type (location, TREE_TYPE (property),
 					      true /* is_sizeof */,
+					      false /* min_alignof */,
 					      false /* complain */);
 
 	  if (PROPERTY_NONATOMIC (property))
@@ -7471,6 +7475,7 @@ objc_synthesize_setter (tree klass, tree class_methods ATTRIBUTE_UNUSED, tree pr
 	     the same type, there is no need to lookup the ivar.  */
 	  size_of = c_sizeof_or_alignof_type (location, TREE_TYPE (property),
 					      true /* is_sizeof */,
+					      false /* min_alignof */,
 					      false /* complain */);
 
 	  if (PROPERTY_NONATOMIC (property))
@@ -8244,6 +8249,7 @@ objc_push_parm (tree parm)
   c_apply_type_quals_to_decl
   ((TYPE_READONLY (TREE_TYPE (parm)) ? TYPE_QUAL_CONST : 0)
    | (TYPE_RESTRICT (TREE_TYPE (parm)) ? TYPE_QUAL_RESTRICT : 0)
+   | (TYPE_ATOMIC (TREE_TYPE (parm)) ? TYPE_QUAL_ATOMIC : 0)
    | (TYPE_VOLATILE (TREE_TYPE (parm)) ? TYPE_QUAL_VOLATILE : 0), parm);
 
   objc_parmlist = chainon (objc_parmlist, parm);

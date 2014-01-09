@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -3094,7 +3097,7 @@ frv_init_cumulative_args (CUMULATIVE_ARGS *cum,
 	{
 	  tree ret_type = TREE_TYPE (fntype);
 	  fprintf (stderr, " return=%s,",
-		   tree_code_name[ (int)TREE_CODE (ret_type) ]);
+		   get_tree_code_name (TREE_CODE (ret_type)));
 	}
 
       if (libname && GET_CODE (libname) == SYMBOL_REF)
@@ -5269,7 +5272,7 @@ frv_ifcvt_add_insn (rtx pattern, rtx insn, int before_p)
    tests cannot be converted.  */
 
 void
-frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
+frv_ifcvt_modify_tests (ce_if_block *ce_info, rtx *p_true, rtx *p_false)
 {
   basic_block test_bb = ce_info->test_bb;	/* test basic block */
   basic_block then_bb = ce_info->then_bb;	/* THEN */
@@ -5626,7 +5629,7 @@ frv_ifcvt_modify_tests (ce_if_block_t *ce_info, rtx *p_true, rtx *p_false)
 		    (const_int 0))) */
 
 void
-frv_ifcvt_modify_multiple_tests (ce_if_block_t *ce_info,
+frv_ifcvt_modify_multiple_tests (ce_if_block *ce_info,
                                  basic_block bb,
                                  rtx *p_true,
                                  rtx *p_false)
@@ -5920,7 +5923,7 @@ single_set_pattern (rtx pattern)
    insn cannot be converted to be executed conditionally.  */
 
 rtx
-frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
+frv_ifcvt_modify_insn (ce_if_block *ce_info,
                        rtx pattern,
                        rtx insn)
 {
@@ -6185,7 +6188,7 @@ frv_ifcvt_modify_insn (ce_if_block_t *ce_info,
    conditional if information CE_INFO.  */
 
 void
-frv_ifcvt_modify_final (ce_if_block_t *ce_info ATTRIBUTE_UNUSED)
+frv_ifcvt_modify_final (ce_if_block *ce_info ATTRIBUTE_UNUSED)
 {
   rtx existing_insn;
   rtx check_insn;
@@ -6240,7 +6243,7 @@ frv_ifcvt_modify_final (ce_if_block_t *ce_info ATTRIBUTE_UNUSED)
    information CE_INFO.  */
 
 void
-frv_ifcvt_modify_cancel (ce_if_block_t *ce_info ATTRIBUTE_UNUSED)
+frv_ifcvt_modify_cancel (ce_if_block *ce_info ATTRIBUTE_UNUSED)
 {
   int i;
   rtx p = frv_ifcvt.added_insns_list;
@@ -8024,7 +8027,7 @@ frv_optimize_membar_global (basic_block bb, struct frv_io *first_io,
   /* We need to keep the membar if there is an edge to the exit block.  */
   FOR_EACH_EDGE (succ, ei, bb->succs)
   /* for (succ = bb->succ; succ != 0; succ = succ->succ_next) */
-    if (succ->dest == EXIT_BLOCK_PTR)
+    if (succ->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
       return;
 
   /* Work out the union of all successor blocks.  */
@@ -8064,14 +8067,14 @@ frv_optimize_membar (void)
   rtx *last_membar;
 
   compute_bb_for_insn ();
-  first_io = XCNEWVEC (struct frv_io, last_basic_block);
-  last_membar = XCNEWVEC (rtx, last_basic_block);
+  first_io = XCNEWVEC (struct frv_io, last_basic_block_for_fn (cfun));
+  last_membar = XCNEWVEC (rtx, last_basic_block_for_fn (cfun));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     frv_optimize_membar_local (bb, &first_io[bb->index],
 			       &last_membar[bb->index]);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (last_membar[bb->index] != 0)
       frv_optimize_membar_global (bb, first_io, last_membar[bb->index]);
 

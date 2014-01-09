@@ -163,6 +163,9 @@ along with GCC; see the file COPYING3.  If not see
 #undef LINK_ARCH_SPEC
 #define LINK_ARCH_SPEC LINK_ARCH32_SPEC
 
+/* C++11 programs need -lrt for nanosleep.  */
+#define TIME_LIBRARY "rt"
+
 #ifndef USE_GLD
 /* With Sun ld, -rdynamic is a no-op.  */
 #define RDYNAMIC_SPEC ""
@@ -192,11 +195,6 @@ along with GCC; see the file COPYING3.  If not see
 #if defined(HAVE_LD_EH_FRAME_HDR) && defined(TARGET_DL_ITERATE_PHDR)
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
 #endif /* HAVE_LD_EH_FRAME && TARGET_DL_ITERATE_PHDR */
-#endif
-
-#ifndef USE_GLD
-/* The default MFLIB_SPEC is GNU ld specific.  */
-#define MFLIB_SPEC ""
 #endif
 
 /* collect2.c can only parse GNU nm -n output.  Solaris nm needs -png to

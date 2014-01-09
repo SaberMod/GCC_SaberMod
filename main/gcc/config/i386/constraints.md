@@ -18,7 +18,7 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H           T
+;;;     B     H
 ;;;           h j
 
 ;; Integer register constraints.
@@ -232,3 +232,15 @@
    to fit that range (for immediate operands in zero-extending x86-64
    instructions)."
   (match_operand 0 "x86_64_zext_immediate_operand"))
+
+;; T prefix is used for different address constraints
+;;   v - VSIB address
+;;   s - address with no segment register
+
+(define_address_constraint "Tv"
+  "VSIB address operand"
+  (match_operand 0 "vsib_address_operand"))
+
+(define_address_constraint "Ts"
+  "Address operand without segment register"
+  (match_operand 0 "address_no_seg_operand"))

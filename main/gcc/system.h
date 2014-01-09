@@ -264,16 +264,14 @@ extern int errno;
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
-/* We use this identifier later and it appears in some vendor param.h's.  */
+/* We use these identifiers later and they appear in some vendor param.h's.  */
 # undef PREFETCH
+# undef m_slot
 #endif
 
 #if HAVE_LIMITS_H
 # include <limits.h>
 #endif
-
-/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
-#include "hwint.h"
 
 /* A macro to determine whether a VALUE lies inclusively within a
    certain range without evaluating the VALUE more than once.  This
@@ -1015,7 +1013,7 @@ helper_const_non_const_cast (const char *p)
 #define CONST_CAST_TREE(X) CONST_CAST (union tree_node *, (X))
 #define CONST_CAST_RTX(X) CONST_CAST (struct rtx_def *, (X))
 #define CONST_CAST_BB(X) CONST_CAST (struct basic_block_def *, (X))
-#define CONST_CAST_GIMPLE(X) CONST_CAST (union gimple_statement_d *, (X))
+#define CONST_CAST_GIMPLE(X) CONST_CAST (struct gimple_statement_base *, (X))
 
 /* Activate certain diagnostics as warnings (not errors via the
    -Werror flag).  */
@@ -1061,5 +1059,8 @@ helper_const_non_const_cast (const char *p)
 #define DEBUG_FUNCTION
 #define DEBUG_VARIABLE
 #endif
+
+/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
+#include "hwint.h"
 
 #endif /* ! GCC_SYSTEM_H */

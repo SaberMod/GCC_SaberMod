@@ -29,6 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "line-map.h"
 #include "input.h"
 #include "tree.h"
+#include "varasm.h"
+#include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
 #include "version.h"
 #include "rtl.h"
@@ -44,9 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "toplev.h"
 #include "expr.h"
-#include "basic-block.h"
 #include "intl.h"
-#include "ggc.h"
 #include "regs.h"
 #include "timevar.h"
 #include "diagnostic.h"
@@ -68,11 +68,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
-#include "tree-mudflap.h"
 #include "asan.h"
 #include "tsan.h"
-#include "gimple.h"
 #include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "gimple.h"
 #include "plugin.h"
 #include "diagnostic-color.h"
 #include "context.h"
@@ -402,21 +403,21 @@ wrapup_global_declaration_2 (tree decl)
 
   if (TREE_CODE (decl) == VAR_DECL && TREE_STATIC (decl))
     {
-      struct varpool_node *node;
+      varpool_node *node;
       bool needed = true;
       node = varpool_get_node (decl);
 
       if (!node && flag_ltrans)
 	needed = false;
-      else if (node && node->symbol.definition)
+      else if (node && node->definition)
 	needed = false;
-      else if (node && node->symbol.alias)
+      else if (node && node->alias)
 	needed = false;
       else if (!cgraph_global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
-      else if (node && node->symbol.analyzed)
+      else if (node && node->analyzed)
 	/* needed */;
       else if (DECL_COMDAT (decl))
 	needed = false;
@@ -584,10 +585,6 @@ compile_file (void)
      basically finished.  */
   if (in_lto_p || !flag_lto || flag_fat_lto_objects)
     {
-      /* Likewise for mudflap static object registrations.  */
-      if (flag_mudflap)
-	mudflap_finish_file ();
-
       /* File-scope initialization for AddressSanitizer.  */
       if (flag_sanitize & SANITIZE_ADDRESS)
         asan_finish_file ();
@@ -1303,9 +1300,6 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
-  if (flag_mudflap && flag_lto)
-    sorry ("mudflap cannot be used together with link-time optimization");
-
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
     flag_ira_region
@@ -1591,7 +1585,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 
@@ -1986,10 +1980,12 @@ toplev_main (int argc, char **argv)
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
-  diagnostic_finish (global_dc);
 
-  /* Invoke registered plugin callbacks if any.  */
+  /* Invoke registered plugin callbacks if any.  Some plugins could
+     emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+  diagnostic_finish (global_dc);
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);

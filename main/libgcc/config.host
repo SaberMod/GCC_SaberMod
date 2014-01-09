@@ -91,6 +91,9 @@ alpha*-*-*)
 am33_2.0-*-linux*)
 	cpu_type=mn10300
 	;;
+arc*-*-*)
+	cpu_type=arc
+	;;
 arm*-*-*)
 	cpu_type=arm
 	;;
@@ -101,6 +104,9 @@ bfin*-*)
 	cpu_type=bfin
 	;;
 cr16-*-*)
+	;;
+crisv32-*-*)
+	cpu_type=cris
 	;;
 fido-*-*)
 	cpu_type=m68k
@@ -136,6 +142,9 @@ microblaze*-*-*)
 mips*-*-*)
 	cpu_type=mips
 	tmake_file=mips/t-mips
+	;;
+nds32*-*)
+	cpu_type=nds32
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
@@ -197,7 +206,8 @@ case ${host} in
   ;;
 *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu)
   tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic t-eh-dw2-dip t-slibgcc t-slibgcc-gld t-slibgcc-elf-ver t-linux"
-  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o vtv_start.o vtv_end.o vtv_start_preinit.o vtv_end_preinit.o"
+  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+  vtv_extra_parts="vtv_start.o vtv_end.o vtv_start_preinit.o vtv_end_preinit.o"
   ;;
 *-*-lynxos*)
   tmake_file="$tmake_file t-lynx $cpu_type/t-crtstuff t-crtstuff-pic t-libgcc-pic"
@@ -315,8 +325,16 @@ alpha*-dec-*vms*)
 	extra_parts="$extra_parts vms-dwarf2.o vms-dwarf2eh.o"
 	md_unwind_header=alpha/vms-unwind.h
 	;;
+arc*-*-elf*)
+	tmake_file="arc/t-arc-newlib arc/t-arc"
+	extra_parts="crti.o crtn.o crtend.o crtbegin.o crtendS.o crtbeginS.o libgmon.a crtg.o crtgend.o"
+	;;
+arc*-*-linux-uclibc*)
+	tmake_file="${tmake_file} t-slibgcc-libgcc t-slibgcc-nolc-override arc/t-arc700-uClibc arc/t-arc"
+	extra_parts="crti.o crtn.o crtend.o crtbegin.o crtendS.o crtbeginS.o libgmon.a crtg.o crtgend.o"
+	;;
 arm-wrs-vxworks)
-	tmake_file="$tmake_file arm/t-arm arm/t-vxworks t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
+	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 arm*-*-netbsdelf*)
@@ -331,10 +349,10 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
 	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix"
+	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	tmake_file="${tmake_file} arm/t-bpabi"
 	tm_file="$tm_file arm/bpabi-lib.h"
 	unwind_header=config/arm/unwind-arm.h
-	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
@@ -397,13 +415,13 @@ cr16-*-elf)
 	extra_parts="$extra_parts crti.o crtn.o crtlibid.o"
         ;;
 crisv32-*-elf)
-	tmake_file="$tmake_file cris/t-cris t-fdpbit"
+	tmake_file="$tmake_file cris/t-cris t-softfp-sfdf t-softfp"
  	;;
 cris-*-elf)
-	tmake_file="$tmake_file cris/t-cris t-fdpbit cris/t-elfmulti"
+	tmake_file="$tmake_file cris/t-cris t-softfp-sfdf t-softfp cris/t-elfmulti"
 	;;
 cris-*-linux* | crisv32-*-linux*)
-	tmake_file="$tmake_file cris/t-cris t-fdpbit cris/t-linux"
+	tmake_file="$tmake_file cris/t-cris t-softfp-sfdf t-softfp cris/t-linux"
 	;;
 epiphany-*-elf*)
 	tmake_file="epiphany/t-epiphany t-fdpbit epiphany/t-custom-eqsf"
@@ -435,6 +453,7 @@ h8300-*-elf*)
 	;;
 hppa*64*-*-linux*)
 	tmake_file="$tmake_file pa/t-linux pa/t-linux64"
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	;;
 hppa*-*-linux*)
 	tmake_file="$tmake_file pa/t-linux t-slibgcc-libgcc"
@@ -444,6 +463,7 @@ hppa*-*-linux*)
 	else
 	    tmake_file="$tmake_file pa/t-slibgcc-dwarf-ver"
 	fi
+	extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
 	md_unwind_header=pa/linux-unwind.h
 	;;
 hppa[12]*-*-hpux10*)
@@ -545,7 +565,7 @@ i[34567]86-*-nto-qnx*)
 	extra_parts=crtbegin.o
 	;;
 i[34567]86-*-rtems*)
-	tmake_file="$tmake_file i386/t-softfp i386/t-crtstuff"
+	tmake_file="$tmake_file i386/t-crtstuff t-softfp-sfdf t-softfp"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*)
@@ -735,6 +755,10 @@ microblaze*-*-elf)
 	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
 	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
 	;;
+microblaze*-*-rtems*)
+	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
+	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
+	;;
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
@@ -833,6 +857,29 @@ moxie-*-rtems*)
 	;;
 msp430*-*-elf)
 	tmake_file="$tm_file t-crtstuff t-fdpbit msp430/t-msp430"
+	;;
+nds32*-elf*)
+	# Basic makefile fragment and extra_parts for crt stuff.
+	# We also append c-isr library implementation.
+	tmake_file="${tmake_file} nds32/t-nds32 nds32/t-nds32-isr"
+	extra_parts="crtbegin1.o crtend1.o libnds32_isr.a"
+	# Append library definition makefile fragment according to --with-nds32-lib=X setting.
+	case "${with_nds32_lib}" in
+	"" | newlib)
+		# Append library definition makefile fragment t-nds32-newlib.
+		# Append 'soft-fp' software floating point make rule fragment provided by gcc.
+		tmake_file="${tmake_file} nds32/t-nds32-newlib t-softfp-sfdf t-softfp"
+		;;
+	mculib)
+		# Append library definition makefile fragment t-nds32-mculib.
+		# The software floating point library is included in mculib.
+		tmake_file="${tmake_file} nds32/t-nds32-mculib"
+		;;
+	*)
+		echo "Cannot accept --with-nds32-lib=$with_nds32_lib, available values are: newlib mculib" 1>&2
+		exit 1
+		;;
+	esac
 	;;
 pdp11-*-*)
 	tmake_file="pdp11/t-pdp11 t-fdpbit"

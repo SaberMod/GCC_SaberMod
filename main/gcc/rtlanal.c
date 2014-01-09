@@ -279,8 +279,8 @@ rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 	  if (!decl)
 	    decl_size = -1;
 	  else if (DECL_P (decl) && DECL_SIZE_UNIT (decl))
-	    decl_size = (host_integerp (DECL_SIZE_UNIT (decl), 0)
-			 ? tree_low_cst (DECL_SIZE_UNIT (decl), 0)
+	    decl_size = (tree_fits_shwi_p (DECL_SIZE_UNIT (decl))
+			 ? tree_to_shwi (DECL_SIZE_UNIT (decl))
 			 : -1);
 	  else if (TREE_CODE (decl) == STRING_CST)
 	    decl_size = TREE_STRING_LENGTH (decl);
@@ -1178,6 +1178,27 @@ set_noop_p (const_rtx set)
 	return 0;
       src = SUBREG_REG (src);
       dst = SUBREG_REG (dst);
+    }
+
+  /* It is a NOOP if destination overlaps with selected src vector
+     elements.  */
+  if (GET_CODE (src) == VEC_SELECT
+      && REG_P (XEXP (src, 0)) && REG_P (dst)
+      && HARD_REGISTER_P (XEXP (src, 0))
+      && HARD_REGISTER_P (dst))
+    {
+      int i;
+      rtx par = XEXP (src, 1);
+      rtx src0 = XEXP (src, 0);
+      int c0 = INTVAL (XVECEXP (par, 0, 0));
+      HOST_WIDE_INT offset = GET_MODE_UNIT_SIZE (GET_MODE (src0)) * c0;
+
+      for (i = 1; i < XVECLEN (par, 0); i++)
+	if (INTVAL (XVECEXP (par, 0, i)) != c0 + i)
+	  return 0;
+      return
+	simplify_subreg_regno (REGNO (src0), GET_MODE (src0),
+			       offset, GET_MODE (dst)) == (int) REGNO (dst);
     }
 
   return (REG_P (src) && REG_P (dst)
@@ -2742,10 +2763,9 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
 
   label = JUMP_LABEL (insn);
   if (label != NULL_RTX && !ANY_RETURN_P (label)
-      && (table = next_active_insn (label)) != NULL_RTX
+      && (table = NEXT_INSN (label)) != NULL_RTX
       && JUMP_TABLE_DATA_P (table))
     {
-      gcc_assert (table == NEXT_INSN (label));
       if (labelp)
 	*labelp = label;
       if (tablep)

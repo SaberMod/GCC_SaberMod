@@ -1,5 +1,11 @@
 /* Test functions for direct move support.  */
 
+#include <math.h>
+extern void abort (void);
+
+#ifndef VSX_REG_ATTR
+#define VSX_REG_ATTR "wa"
+#endif
 
 void __attribute__((__noinline__))
 copy (TYPE *a, TYPE *b)
@@ -42,7 +48,7 @@ void __attribute__((__noinline__))
 load_vsx (TYPE *a, TYPE *b)
 {
   TYPE c = *a;
-  __asm__ ("# vsx, reg = %x0" : "+wa" (c));
+  __asm__ ("# vsx, reg = %x0" : "+" VSX_REG_ATTR (c));
   *b = c;
 }
 #endif
@@ -55,7 +61,7 @@ load_gpr_to_vsx (TYPE *a, TYPE *b)
   TYPE d;
   __asm__ ("# gpr, reg = %0" : "+b" (c));
   d = c;
-  __asm__ ("# vsx, reg = %x0" : "+wa" (d));
+  __asm__ ("# vsx, reg = %x0" : "+" VSX_REG_ATTR (d));
   *b = d;
 }
 #endif
@@ -66,7 +72,7 @@ load_vsx_to_gpr (TYPE *a, TYPE *b)
 {
   TYPE c = *a;
   TYPE d;
-  __asm__ ("# vsx, reg = %x0" : "+wa" (c));
+  __asm__ ("# vsx, reg = %x0" : "+" VSX_REG_ATTR (c));
   d = c;
   __asm__ ("# gpr, reg = %0" : "+b" (d));
   *b = d;
@@ -107,7 +113,7 @@ const struct test_struct test_functions[] = {
 void __attribute__((__noinline__))
 test_value (TYPE a)
 {
-  size_t i;
+  long i;
 
   for (i = 0; i < sizeof (test_functions) / sizeof (test_functions[0]); i++)
     {
@@ -123,8 +129,7 @@ test_value (TYPE a)
 int
 main (void)
 {
-  size_t i;
-  long j;
+  long i,j;
   union {
     TYPE value;
     unsigned char bytes[sizeof (TYPE)];

@@ -22,12 +22,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "target.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "cfgloop.h"
 #include "expr.h"
 #include "optabs.h"
@@ -777,8 +789,8 @@ vect_recog_pow_pattern (vec<gimple> *stmts, tree *type_in,
   *type_out = NULL_TREE;
 
   /* Catch squaring.  */
-  if ((host_integerp (exp, 0)
-       && tree_low_cst (exp, 0) == 2)
+  if ((tree_fits_shwi_p (exp)
+       && tree_to_shwi (exp) == 2)
       || (TREE_CODE (exp) == REAL_CST
           && REAL_VALUES_EQUAL (TREE_REAL_CST (exp), dconst2)))
     {
@@ -1629,14 +1641,13 @@ vect_recog_rotate_pattern (vec<gimple> *stmts, tree *type_in, tree *type_out)
 
   if (TREE_CODE (def) == INTEGER_CST)
     {
-      if (!host_integerp (def, 1)
-	  || (unsigned HOST_WIDE_INT) tree_low_cst (def, 1)
-	     >= GET_MODE_PRECISION (TYPE_MODE (type))
+      if (!tree_fits_uhwi_p (def)
+	  || tree_to_uhwi (def) >= GET_MODE_PRECISION (TYPE_MODE (type))
 	  || integer_zerop (def))
 	return NULL;
       def2 = build_int_cst (stype,
 			    GET_MODE_PRECISION (TYPE_MODE (type))
-			    - tree_low_cst (def, 1));
+			    - tree_to_uhwi (def));
     }
   else
     {
@@ -2059,9 +2070,8 @@ vect_recog_divmod_pattern (vec<gimple> *stmts,
       return pattern_stmt;
     }
 
-  if (!host_integerp (oprnd1, TYPE_UNSIGNED (itype))
-      || integer_zerop (oprnd1)
-      || prec > HOST_BITS_PER_WIDE_INT)
+  if (prec > HOST_BITS_PER_WIDE_INT
+      || integer_zerop (oprnd1))
     return NULL;
 
   if (!can_mult_highpart_p (TYPE_MODE (vectype), TYPE_UNSIGNED (itype)))
@@ -2073,8 +2083,8 @@ vect_recog_divmod_pattern (vec<gimple> *stmts,
     {
       unsigned HOST_WIDE_INT mh, ml;
       int pre_shift, post_shift;
-      unsigned HOST_WIDE_INT d = tree_low_cst (oprnd1, 1)
-				 & GET_MODE_MASK (TYPE_MODE (itype));
+      unsigned HOST_WIDE_INT d = (TREE_INT_CST_LOW (oprnd1)
+				  & GET_MODE_MASK (TYPE_MODE (itype)));
       tree t1, t2, t3, t4;
 
       if (d >= ((unsigned HOST_WIDE_INT) 1 << (prec - 1)))
@@ -2190,7 +2200,7 @@ vect_recog_divmod_pattern (vec<gimple> *stmts,
     {
       unsigned HOST_WIDE_INT ml;
       int post_shift;
-      HOST_WIDE_INT d = tree_low_cst (oprnd1, 0);
+      HOST_WIDE_INT d = TREE_INT_CST_LOW (oprnd1);
       unsigned HOST_WIDE_INT abs_d;
       bool add = false;
       tree t1, t2, t3, t4;
@@ -2226,20 +2236,19 @@ vect_recog_divmod_pattern (vec<gimple> *stmts,
       if (post_shift >= prec)
 	return NULL;
 
-      /* t1 = oprnd1 h* ml;  */
+      /* t1 = oprnd0 h* ml;  */
       t1 = vect_recog_temp_ssa_var (itype, NULL);
       def_stmt
 	= gimple_build_assign_with_ops (MULT_HIGHPART_EXPR, t1, oprnd0,
 					build_int_cst (itype, ml));
-      append_pattern_def_seq (stmt_vinfo, def_stmt);
 
       if (add)
 	{
 	  /* t2 = t1 + oprnd0;  */
+	  append_pattern_def_seq (stmt_vinfo, def_stmt);
 	  t2 = vect_recog_temp_ssa_var (itype, NULL);
 	  def_stmt
 	    = gimple_build_assign_with_ops (PLUS_EXPR, t2, t1, oprnd0);
-	  append_pattern_def_seq (stmt_vinfo, def_stmt);
 	}
       else
 	t2 = t1;
@@ -2247,27 +2256,57 @@ vect_recog_divmod_pattern (vec<gimple> *stmts,
       if (post_shift)
 	{
 	  /* t3 = t2 >> post_shift;  */
+	  append_pattern_def_seq (stmt_vinfo, def_stmt);
 	  t3 = vect_recog_temp_ssa_var (itype, NULL);
 	  def_stmt
 	    = gimple_build_assign_with_ops (RSHIFT_EXPR, t3, t2,
 					    build_int_cst (itype, post_shift));
-	  append_pattern_def_seq (stmt_vinfo, def_stmt);
 	}
       else
 	t3 = t2;
 
-      /* t4 = oprnd0 >> (prec - 1);  */
-      t4 = vect_recog_temp_ssa_var (itype, NULL);
-      def_stmt
-	= gimple_build_assign_with_ops (RSHIFT_EXPR, t4, oprnd0,
-					build_int_cst (itype, prec - 1));
-      append_pattern_def_seq (stmt_vinfo, def_stmt);
+      double_int oprnd0_min, oprnd0_max;
+      int msb = 1;
+      if (get_range_info (oprnd0, &oprnd0_min, &oprnd0_max) == VR_RANGE)
+	{
+	  if (!oprnd0_min.is_negative ())
+	    msb = 0;
+	  else if (oprnd0_max.is_negative ())
+	    msb = -1;
+	}
 
-      /* q = t3 - t4;  or q = t4 - t3;  */
-      q = vect_recog_temp_ssa_var (itype, NULL);
-      pattern_stmt
-	= gimple_build_assign_with_ops (MINUS_EXPR, q, d < 0 ? t4 : t3,
-					d < 0 ? t3 : t4);
+      if (msb == 0 && d >= 0)
+	{
+	  /* q = t3;  */
+	  q = t3;
+	  pattern_stmt = def_stmt;
+	}
+      else
+	{
+	  /* t4 = oprnd0 >> (prec - 1);
+	     or if we know from VRP that oprnd0 >= 0
+	     t4 = 0;
+	     or if we know from VRP that oprnd0 < 0
+	     t4 = -1;  */
+	  append_pattern_def_seq (stmt_vinfo, def_stmt);
+	  t4 = vect_recog_temp_ssa_var (itype, NULL);
+	  if (msb != 1)
+	    def_stmt
+	      = gimple_build_assign_with_ops (INTEGER_CST,
+					      t4, build_int_cst (itype, msb),
+					      NULL_TREE);
+	  else
+	    def_stmt
+	      = gimple_build_assign_with_ops (RSHIFT_EXPR, t4, oprnd0,
+					      build_int_cst (itype, prec - 1));
+	  append_pattern_def_seq (stmt_vinfo, def_stmt);
+
+	  /* q = t3 - t4;  or q = t4 - t3;  */
+	  q = vect_recog_temp_ssa_var (itype, NULL);
+	  pattern_stmt
+	    = gimple_build_assign_with_ops (MINUS_EXPR, q, d < 0 ? t4 : t3,
+					    d < 0 ? t3 : t4);
+	}
     }
 
   if (rhs_code == TRUNC_MOD_EXPR)
@@ -3174,8 +3213,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
   gimple_stmt_iterator si;
   unsigned int i, j;
   vect_recog_func_ptr vect_recog_func;
-  vec<gimple> stmts_to_replace;
-  stmts_to_replace.create (1);
+  auto_vec<gimple, 1> stmts_to_replace;
   gimple stmt;
 
   if (dump_enabled_p ())
@@ -3215,6 +3253,4 @@ vect_pattern_recog (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
             }
         }
     }
-
-  stmts_to_replace.release ();
 }

@@ -31,6 +31,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "ggc.h"
 #include "flags.h"
 #include "langhooks.h"
@@ -579,7 +581,9 @@ initialize_builtins (void)
   define_builtin (BUILT_IN_RETURN_ADDRESS, "__builtin_return_address",
 		  build_function_type_list (ptr_type_node, int_type_node, NULL_TREE),
 		  "__builtin_return_address", ECF_NOTHROW | ECF_LEAF);
-
+  define_builtin (BUILT_IN_TRAP, "__builtin_trap",
+		  build_function_type_list (void_type_node, NULL_TREE),
+		  "__builtin_trap", ECF_NOTHROW | ECF_LEAF | ECF_NORETURN);
   build_common_builtin_nodes ();
 }
 

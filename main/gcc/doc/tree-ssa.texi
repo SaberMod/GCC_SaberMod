@@ -265,15 +265,15 @@ those you are interested in.  They are documented in
 #define SSA_OP_USE              0x01    /* @r{Real USE operands.}  */
 #define SSA_OP_DEF              0x02    /* @r{Real DEF operands.}  */
 #define SSA_OP_VUSE             0x04    /* @r{VUSE operands.}  */
-#define SSA_OP_VMAYUSE          0x08    /* @r{USE portion of VDEFS.}  */
-#define SSA_OP_VDEF             0x10    /* @r{DEF portion of VDEFS.}  */
+#define SSA_OP_VDEF             0x08    /* @r{VDEF operands.}  */
 
 /* @r{These are commonly grouped operand flags.}  */
-#define SSA_OP_VIRTUAL_USES     (SSA_OP_VUSE | SSA_OP_VMAYUSE)
-#define SSA_OP_VIRTUAL_DEFS     (SSA_OP_VDEF)
-#define SSA_OP_ALL_USES         (SSA_OP_VIRTUAL_USES | SSA_OP_USE)
-#define SSA_OP_ALL_DEFS         (SSA_OP_VIRTUAL_DEFS | SSA_OP_DEF)
-#define SSA_OP_ALL_OPERANDS     (SSA_OP_ALL_USES | SSA_OP_ALL_DEFS)
+#define SSA_OP_VIRTUAL_USES	(SSA_OP_VUSE)
+#define SSA_OP_VIRTUAL_DEFS	(SSA_OP_VDEF)
+#define SSA_OP_ALL_VIRTUALS     (SSA_OP_VIRTUAL_USES | SSA_OP_VIRTUAL_DEFS)
+#define SSA_OP_ALL_USES		(SSA_OP_VIRTUAL_USES | SSA_OP_USE)
+#define SSA_OP_ALL_DEFS		(SSA_OP_VIRTUAL_DEFS | SSA_OP_DEF)
+#define SSA_OP_ALL_OPERANDS	(SSA_OP_ALL_USES | SSA_OP_ALL_DEFS)
 @end smallexample
 @end enumerate
 
@@ -307,25 +307,10 @@ aren't using operand pointers, use and defs flags can be mixed.
 
 @code{VDEF}s are broken into two flags, one for the
 @code{DEF} portion (@code{SSA_OP_VDEF}) and one for the USE portion
-(@code{SSA_OP_VMAYUSE}).  If all you want to look at are the
-@code{VDEF}s together, there is a fourth iterator macro for this,
-which returns both a def_operand_p and a use_operand_p for each
-@code{VDEF} in the statement.  Note that you don't need any flags for
-this one.
+(@code{SSA_OP_VUSE}).
 
-@smallexample
-  use_operand_p use_p;
-  def_operand_p def_p;
-  ssa_op_iter iter;
-
-  FOR_EACH_SSA_MAYDEF_OPERAND (def_p, use_p, stmt, iter)
-    @{
-      my_code;
-    @}
-@end smallexample
-
-There are many examples in the code as well, as well as the
-documentation in @file{tree-ssa-operands.h}.
+There are many examples in the code, in addition to the documentation
+in @file{tree-ssa-operands.h} and @file{ssa-iterators.h}.
 
 There are also a couple of variants on the stmt iterators regarding PHI
 nodes.
@@ -526,31 +511,29 @@ the result of ``merging'' @code{a_1}, @code{a_2} and @code{a_3}.
 Hence, PHI nodes mean ``one of these operands.  I don't know
 which''.
 
-The following macros can be used to examine PHI nodes
+The following functions can be used to examine PHI nodes
 
-@defmac PHI_RESULT (@var{phi})
+@defun gimple_phi_result (@var{phi})
 Returns the @code{SSA_NAME} created by PHI node @var{phi} (i.e.,
 @var{phi}'s LHS)@.
-@end defmac
+@end defun
 
-@defmac PHI_NUM_ARGS (@var{phi})
+@defun gimple_phi_num_args (@var{phi})
 Returns the number of arguments in @var{phi}.  This number is exactly
 the number of incoming edges to the basic block holding @var{phi}@.
-@end defmac
+@end defun
 
-@defmac PHI_ARG_ELT (@var{phi}, @var{i})
-Returns a tuple representing the @var{i}th argument of @var{phi}@.
-Each element of this tuple contains an @code{SSA_NAME} @var{var} and
-the incoming edge through which @var{var} flows.
-@end defmac
+@defun gimple_phi_arg (@var{phi}, @var{i})
+Returns @var{i}th argument of @var{phi}@.
+@end defun
 
-@defmac PHI_ARG_EDGE (@var{phi}, @var{i})
+@defun gimple_phi_arg_edge (@var{phi}, @var{i})
 Returns the incoming edge for the @var{i}th argument of @var{phi}.
-@end defmac
+@end defun
 
-@defmac PHI_ARG_DEF (@var{phi}, @var{i})
+@defun gimple_phi_arg_def (@var{phi}, @var{i})
 Returns the @code{SSA_NAME} for the @var{i}th argument of @var{phi}.
-@end defmac
+@end defun
 
 
 @subsection Preserving the SSA form

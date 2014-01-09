@@ -135,6 +135,9 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 
+# Should we build position-independent host code?
+PICFLAG = @PICFLAG@
+
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage
 # without optimization.
@@ -193,7 +196,6 @@ GCC_WARN_CXXFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 # flex output may yield harmless "no previous prototype" warnings
 build/gengtype-lex.o-warn = -Wno-error
 gengtype-lex.o-warn = -Wno-error
-expmed.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -309,7 +311,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) \
 # --------
 
 # Dependency tracking stuff.
-CCDEPMODE = @CCDEPMODE@
+CXXDEPMODE = @CXXDEPMODE@
 DEPDIR = @DEPDIR@
 depcomp = $(SHELL) $(srcdir)/../depcomp
 
@@ -347,6 +349,8 @@ PLUGINLIBS = @pluginlibs@
 
 enable_plugin = @enable_plugin@
 
+enable_host_shared = @enable_host_shared@
+
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
 
@@ -377,6 +381,7 @@ USER_H = $(srcdir)/ginclude/float.h \
 	 $(srcdir)/ginclude/stdfix.h \
 	 $(srcdir)/ginclude/stdnoreturn.h \
 	 $(srcdir)/ginclude/stdalign.h \
+	 $(srcdir)/ginclude/stdatomic.h \
 	 $(EXTRA_HEADERS)
 
 USER_H_INC_NEXT_PRE = @user_headers_inc_next_pre@
@@ -869,7 +874,7 @@ RTL_H = $(RTL_BASE_H) $(FLAGS_H) genrtl.h
 READ_MD_H = $(OBSTACK_H) $(HASHTAB_H) read-md.h
 PARAMS_H = params.h params.def
 BUILTINS_DEF = builtins.def sync-builtins.def omp-builtins.def \
-	gtm-builtins.def sanitizer.def cilkplus.def
+	gtm-builtins.def sanitizer.def cilkplus.def cilk-builtins.def
 INTERNAL_FN_DEF = internal-fn.def
 INTERNAL_FN_H = internal-fn.h $(INTERNAL_FN_DEF)
 TREE_CORE_H = tree-core.h coretypes.h all-tree.def tree.def \
@@ -884,7 +889,7 @@ BASIC_BLOCK_H = basic-block.h $(PREDICT_H) $(VEC_H) $(FUNCTION_H) \
 	cfg-flags.def cfghooks.h
 GIMPLE_H = gimple.h gimple.def gsstruct.def pointer-set.h $(VEC_H) \
 	$(GGC_H) $(BASIC_BLOCK_H) $(TREE_H) tree-ssa-operands.h \
-	tree-ssa-alias.h $(INTERNAL_FN_H) $(HASH_TABLE_H)
+	tree-ssa-alias.h $(INTERNAL_FN_H) $(HASH_TABLE_H) is-a.h
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
 RECOG_H = recog.h
 EMIT_RTL_H = emit-rtl.h
@@ -957,7 +962,7 @@ CONTEXT_H = context.h
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_DIRECTORY_STRUCTURE if we are building a
 # cross compiler which does not use the native headers and libraries.
-INTERNAL_CFLAGS = -DIN_GCC @CROSS@
+INTERNAL_CFLAGS = -DIN_GCC $(PICFLAG) @CROSS@
 
 # This is the variable actually used when we compile. If you change this,
 # you probably want to update BUILD_CFLAGS in configure.ac
@@ -980,8 +985,15 @@ ALL_COMPILERFLAGS = $(ALL_CXXFLAGS)
 ALL_LINKERFLAGS = $(ALL_CXXFLAGS)
 
 # Build and host support libraries.
+
+# Use the "pic" build of libiberty if --enable-host-shared.
+ifeq ($(enable_host_shared),yes)
+LIBIBERTY = ../libiberty/pic/libiberty.a
+BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/pic/libiberty.a
+else
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/libiberty.a
+endif
 
 # Dependencies on the intl and portability libraries.
 LIBDEPS= libcommon.a $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP) \
@@ -1030,7 +1042,7 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   $(CLOOGINC) $(ISLINC)
 
 COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -o $@
-ifeq ($(CCDEPMODE),depmode=gcc3)
+ifeq ($(CXXDEPMODE),depmode=gcc3)
 # Note a subtlety here: we use $(@D) for the directory part, to make
 # things like the go/%.o rule work properly; but we use $(*F) for the
 # file part, as we just want the file part of the stem, not the entire
@@ -1039,7 +1051,7 @@ COMPILE = $(COMPILE.base) -MT $@ -MMD -MP -MF $(@D)/$(DEPDIR)/$(*F).TPo
 POSTCOMPILE = @mv $(@D)/$(DEPDIR)/$(*F).TPo $(@D)/$(DEPDIR)/$(*F).Po
 else
 COMPILE = source='$<' object='$@' libtool=no \
-    DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) $(COMPILE.base)
+    DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) $(COMPILE.base)
 POSTCOMPILE =
 endif
 
@@ -1122,15 +1134,13 @@ GCC_OBJS = gcc.o ggc-none.o
 c-family-warn = $(STRICT_WARN)
 
 # Language-specific object files shared by all C-family front ends.
-# FIXME: tree-mudflap is C-family only, but it is also part of the middle-end.
-# The mudflap machinery should be properly separated from the front ends, and
-# perhaps turned into a plugin.
 C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-format.o c-family/c-gimplify.o c-family/c-lex.o \
   c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
-  c-family/c-semantics.o c-family/c-ada-spec.o tree-mudflap.o \
-  c-family/array-notation-common.o c-family/c-ubsan.o
+  c-family/c-semantics.o c-family/c-ada-spec.o \
+  c-family/c-cilkplus.o \
+  c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o
 
 # Language-independent object files.
 # We put the insn-*.o files first so that a parallel make will build
@@ -1175,6 +1185,7 @@ OBJS = \
 	cgraphbuild.o \
 	cgraphunit.o \
 	cgraphclones.o \
+	cilk-common.o \
 	combine.o \
 	combine-stack-adj.o \
 	compare-elim.o \
@@ -1222,14 +1233,18 @@ OBJS = \
 	ggc-common.o \
 	gimple.o \
 	gimple-builder.o \
+	gimple-expr.o \
 	gimple-iterator.o \
 	gimple-fold.o \
 	gimple-low.o \
 	gimple-pretty-print.o \
+	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
+	gimple-walk.o \
 	gimplify.o \
+	gimplify-me.o \
 	godump.o \
 	graph.o \
 	graphds.o \
@@ -1321,7 +1336,6 @@ OBJS = \
 	reg-stack.o \
 	regcprop.o \
 	reginfo.o \
-	regmove.o \
 	regrename.o \
 	regstat.o \
 	reload.o \
@@ -1379,10 +1393,8 @@ OBJS = \
 	tree-iterator.o \
 	tree-loop-distribution.o \
 	tree-nested.o \
-	tree-nomudflap.o \
 	tree-nrv.o \
 	tree-object-size.o \
-	tree-optimize.o \
 	tree-outof-ssa.o \
 	tree-parloops.o \
 	tree-phinodes.o \
@@ -1929,7 +1941,7 @@ DRIVER_DEFINES = \
   @RUNTIME_ROOT_PREFIX_DEFINE@ \
   @TARGET_SYSTEM_ROOT_DEFINE@ \
   $(VALGRIND_DRIVER_DEFINES) \
-  $(and $(SHLIB),$(filter yes,@enable_shared@),-DENABLE_SHARED_LIBGCC) \
+  $(if $(SHLIB),$(if $(filter yes,@enable_shared@),-DENABLE_SHARED_LIBGCC)) \
   -DCONFIGURE_SPECS="\"@CONFIGURE_SPECS@\""
 
 CFLAGS-gcc.o += $(DRIVER_DEFINES)
@@ -1975,6 +1987,7 @@ CFLAGS-version.o += -DBASEVER=$(BASEVER_s) -DDATESTAMP=$(DATESTAMP_s) \
 	-DREVISION=$(REVISION_s) \
 	-DDEVPHASE=$(DEVPHASE_s) -DPKGVERSION=$(PKGVERSION_s) \
 	-DBUGURL=$(BUGURL_s)
+version.o: $(REVISION) $(DATESTAMP) $(BASEVER) $(DEVPHASE)
 
 # lto-compress.o needs $(ZLIBINC) added to the include flags.
 CFLAGS-lto-compress.o += $(ZLIBINC)
@@ -2245,12 +2258,12 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/reg-stack.c $(srcdir)/cfgrtl.c \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/gimple.h $(srcdir)/gimple.c \
-  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
+  $(srcdir)/gimple.h \
+  $(srcdir)/gimple-ssa.h \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c \
-  $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
+  $(srcdir)/tree-iterator.c $(srcdir)/gimple-expr.c \
   $(srcdir)/tree-chrec.h \
   $(srcdir)/tree-scalar-evolution.c \
   $(srcdir)/tree-ssa-operands.h \
@@ -2785,7 +2798,8 @@ TEXI_GCC_FILES = gcc.texi gcc-common.texi gcc-vers.texi frontends.texi	\
 	 gcov.texi trouble.texi bugreport.texi service.texi		\
 	 contribute.texi compat.texi funding.texi gnu.texi gpl_v3.texi	\
 	 fdl.texi contrib.texi cppenv.texi cppopts.texi avr-mmcu.texi	\
-	 implement-c.texi implement-cxx.texi arm-neon-intrinsics.texi
+	 implement-c.texi implement-cxx.texi arm-neon-intrinsics.texi	\
+	 arm-acle-intrinsics.texi
 
 # we explicitly use $(srcdir)/doc/tm.texi here to avoid confusion with
 # the generated tm.texi; the latter might have a more recent timestamp,
@@ -2798,7 +2812,7 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 configfiles.texi collect2.texi headerdirs.texi funding.texi	\
 	 gnu.texi gpl_v3.texi fdl.texi contrib.texi languages.texi	\
 	 sourcebuild.texi gty.texi libgcc.texi cfg.texi tree-ssa.texi	\
-	 loop.texi generic.texi gimple.texi plugins.texi
+	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi
 
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi		\
 	 gcc-common.texi gcc-vers.texi
@@ -2966,7 +2980,7 @@ gpl.pod: gpl_v3.texi
 
 mostlyclean: lang.mostlyclean
 	-rm -f $(MOSTLYCLEANFILES)
-	-rm -f *$(objext)
+	-rm -f *$(objext) c-family/*$(objext)
 	-rm -f *$(coverageexts)
 # Delete build programs
 	-rm -f build/*
@@ -3095,7 +3109,9 @@ installdirs:
 	$(mkinstalldirs) $(DESTDIR)$(man7dir)
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
-  toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(TREE_PASS_H) $(GCC_PLUGIN_H) \
+  toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) pointer-set.h $(HASH_TABLE_H) \
+  tree-ssa-alias.h $(INTERNAL_FN_H) gimple-fold.h tree-eh.h gimple-expr.h \
+  gimple.h is-a.h $(TREE_PASS_H) $(GCC_PLUGIN_H) \
   $(GGC_H) $(TREE_DUMP_H) $(PRETTY_PRINT_H) $(OPTS_H) $(PARAMS_H) \
   $(tm_file_list) $(tm_include_list) $(tm_p_file_list) $(tm_p_include_list) \
   $(host_xm_file_list) $(host_xm_include_list) $(xm_include_list) \
@@ -3107,7 +3123,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   cppdefault.h flags.h $(MD5_H) params.def params.h prefix.h tree-inline.h \
   $(GIMPLE_PRETTY_PRINT_H) realmpfr.h \
   $(IPA_PROP_H) $(TARGET_H) $(RTL_H) $(TM_P_H) $(CFGLOOP_H) $(EMIT_RTL_H) \
-  version.h
+  version.h stringpool.h
 
 # generate the 'build fragment' b-header-vars
 s-header-vars: Makefile

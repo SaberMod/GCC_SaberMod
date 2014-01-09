@@ -7,9 +7,23 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
+#include "stringpool.h"
 #include "toplev.h"
 #include "basic-block.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "tree.h"
 #include "tree-pass.h"
 #include "intl.h"
@@ -247,7 +261,7 @@ execute_warn_self_assign (void)
   gimple_stmt_iterator gsi;
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         check_self_assign (gsi_stmt (gsi));

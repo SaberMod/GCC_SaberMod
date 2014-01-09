@@ -436,7 +436,9 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
-      val = lowpart_subreg (mode, val, iv->extend_mode);
+      val = lowpart_subreg (mode, val,
+			    iv->extend == IV_UNKNOWN_EXTEND
+			    ? iv->mode : iv->extend_mode);
 
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
@@ -476,8 +478,14 @@ iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, enum machine_mode mode
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
+      if (iv->extend_mode != iv->mode
+	  && iv->extend != IV_UNKNOWN_EXTEND
+	  && iv->extend != extend)
+	val = lowpart_subreg (iv->mode, val, iv->extend_mode);
       val = simplify_gen_unary (iv_extend_to_rtx_code (extend), mode,
-				val, iv->extend_mode);
+				val,
+				iv->extend == extend
+				? iv->extend_mode : iv->mode);
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
       iv->mode = iv->extend_mode = mode;
@@ -1929,7 +1937,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
     return;
 
   e = loop_preheader_edge (loop);
-  if (e->src == ENTRY_BLOCK_PTR)
+  if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   altered = ALLOC_REG_SET (&reg_obstack);
@@ -2060,7 +2068,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	}
 
       if (!single_pred_p (e->src)
-	  || single_pred (e->src) == ENTRY_BLOCK_PTR)
+	  || single_pred (e->src) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	break;
       e = single_pred_edge (e->src);
     }
@@ -3001,9 +3009,9 @@ find_simple_exit (struct loop *loop, struct niter_desc *desc)
       	  fprintf (dump_file, "\n");
 
 	  fprintf (dump_file, "  upper bound: %li\n",
-		   (long)max_loop_iterations_int (loop));
+		   (long)get_max_loop_iterations_int (loop));
 	  fprintf (dump_file, "  realistic bound: %li\n",
-		   (long)estimated_loop_iterations_int (loop));
+		   (long)get_estimated_loop_iterations_int (loop));
 	}
       else
 	fprintf (dump_file, "Loop %d is not simple.\n", loop->num);
@@ -3026,7 +3034,7 @@ get_simple_loop_desc (struct loop *loop)
   /* At least desc->infinite is not always initialized by
      find_simple_loop_exit.  */
   desc = ggc_alloc_cleared_niter_desc ();
-  if (loop->latch != EXIT_BLOCK_PTR)
+  if (loop->latch != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       iv_analysis_loop_init (loop);
       find_simple_exit (loop, desc);

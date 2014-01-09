@@ -23,8 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "tree.h"
-#include "gimple.h"
-#include "ggc.h"
+#include "basic-block.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
+#include "stor-layout.h"
 #include "toplev.h"
 #include "debug.h"
 #include "options.h"
@@ -267,6 +269,10 @@ go_langhook_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 
   if (flag_excess_precision_cmdline == EXCESS_PRECISION_DEFAULT)
     flag_excess_precision_cmdline = EXCESS_PRECISION_STANDARD;
+
+  /* Tail call optimizations can confuse uses of runtime.Callers.  */
+  if (!global_options_set.x_flag_optimize_sibling_calls)
+    global_options.x_flag_optimize_sibling_calls = 0;
 
   /* Returning false means that the backend should be used.  */
   return false;

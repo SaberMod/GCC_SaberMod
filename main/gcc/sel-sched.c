@@ -4551,7 +4551,8 @@ find_block_for_bookkeeping (edge e1, edge e2, bool lax)
   edge e;
 
   /* Loop over edges from E1 to E2, inclusive.  */
-  for (e = e1; !lax || e->dest != EXIT_BLOCK_PTR; e = EDGE_SUCC (e->dest, 0))
+  for (e = e1; !lax || e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun); e =
+       EDGE_SUCC (e->dest, 0))
     {
       if (EDGE_COUNT (e->dest->preds) == 2)
 	{
@@ -4642,7 +4643,7 @@ create_block_for_bookkeeping (edge e1, edge e2)
       if (DEBUG_INSN_P (insn)
 	  && single_succ_p (new_bb)
 	  && (succ = single_succ (new_bb))
-	  && succ != EXIT_BLOCK_PTR
+	  && succ != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  && DEBUG_INSN_P ((last = sel_bb_end (new_bb))))
 	{
 	  while (insn != last && (DEBUG_INSN_P (insn) || NOTE_P (insn)))
@@ -4662,8 +4663,8 @@ create_block_for_bookkeeping (edge e1, edge e2)
 	      new_bb->index = succ->index;
 	      succ->index = i;
 
-	      SET_BASIC_BLOCK (new_bb->index, new_bb);
-	      SET_BASIC_BLOCK (succ->index, succ);
+	      SET_BASIC_BLOCK_FOR_FN (cfun, new_bb->index, new_bb);
+	      SET_BASIC_BLOCK_FOR_FN (cfun, succ->index, succ);
 
 	      memcpy (&gbi, SEL_GLOBAL_BB_INFO (new_bb), sizeof (gbi));
 	      memcpy (SEL_GLOBAL_BB_INFO (new_bb), SEL_GLOBAL_BB_INFO (succ),
@@ -4902,7 +4903,8 @@ remove_insns_that_need_bookkeeping (fence_t fence, av_set_t *av_ptr)
 	  && (EXPR_SPEC (expr)
 	      || !EXPR_ORIG_BB_INDEX (expr)
 	      || !dominated_by_p (CDI_DOMINATORS,
-				  BASIC_BLOCK (EXPR_ORIG_BB_INDEX (expr)),
+				  BASIC_BLOCK_FOR_FN (cfun,
+						      EXPR_ORIG_BB_INDEX (expr)),
 				  BLOCK_FOR_INSN (FENCE_INSN (fence)))))
 	{
           if (sched_verbose >= 4)
@@ -6885,7 +6887,7 @@ current_region_empty_p (void)
 {
   int i;
   for (i = 0; i < current_nr_blocks; i++)
-    if (! sel_bb_empty_p (BASIC_BLOCK (BB_TO_BLOCK (i))))
+    if (! sel_bb_empty_p (BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (i))))
       return false;
 
   return true;
@@ -6944,7 +6946,7 @@ sel_region_init (int rgn)
   bbs.create (current_nr_blocks);
 
   for (i = 0; i < current_nr_blocks; i++)
-    bbs.quick_push (BASIC_BLOCK (BB_TO_BLOCK (i)));
+    bbs.quick_push (BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (i)));
 
   sel_init_bbs (bbs);
 
@@ -6979,13 +6981,14 @@ sel_region_init (int rgn)
      compute_live for the first insn of the loop.  */
   if (current_loop_nest)
     {
-      int header = (sel_is_loop_preheader_p (BASIC_BLOCK (BB_TO_BLOCK (0)))
-                    ? 1
-                    : 0);
+      int header =
+	(sel_is_loop_preheader_p (BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (0)))
+	 ? 1
+	 : 0);
 
       if (current_nr_blocks == header + 1)
         update_liveness_on_insn
-          (sel_bb_head (BASIC_BLOCK (BB_TO_BLOCK (header))));
+          (sel_bb_head (BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (header))));
     }
 
   /* Set hooks so that no newly generated insn will go out unnoticed.  */
@@ -7023,7 +7026,7 @@ simplify_changed_insns (void)
 
   for (i = 0; i < current_nr_blocks; i++)
     {
-      basic_block bb = BASIC_BLOCK (BB_TO_BLOCK (i));
+      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (i));
       rtx insn;
 
       FOR_BB_INSNS (bb, insn)
@@ -7764,7 +7767,7 @@ run_selective_scheduling (void)
 {
   int rgn;
 
-  if (n_basic_blocks == NUM_FIXED_BLOCKS)
+  if (n_basic_blocks_for_fn (cfun) == NUM_FIXED_BLOCKS)
     return;
 
   sel_global_init ();

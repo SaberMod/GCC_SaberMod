@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "print-tree.h"
+#include "tree-iterator.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -30,8 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "gimple.h" /* gimple_has_body_p */
 #include "hash-table.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -3983,8 +3987,8 @@ cp_fix_function_decl_p (tree decl)
 
       /* Don't fix same_body aliases.  Although they don't have their own
 	 CFG, they share it with what they alias to.  */
-      if (!node || !node->symbol.alias
-	  || !vec_safe_length (node->symbol.ref_list.references))
+      if (!node || !node->alias
+	  || !vec_safe_length (node->ref_list.references))
 	return true;
     }
 

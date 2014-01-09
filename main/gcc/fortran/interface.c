@@ -1114,8 +1114,37 @@ check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
       return false;
     }
 
-  /* FIXME: Do more comprehensive testing of attributes, like e.g.
-	    ASYNCHRONOUS, CONTIGUOUS, VALUE, VOLATILE, etc.  */
+  /* Check ASYNCHRONOUS attribute.  */
+  if (s1->attr.asynchronous != s2->attr.asynchronous)
+    {
+      snprintf (errmsg, err_len, "ASYNCHRONOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check CONTIGUOUS attribute.  */
+  if (s1->attr.contiguous != s2->attr.contiguous)
+    {
+      snprintf (errmsg, err_len, "CONTIGUOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VALUE attribute.  */
+  if (s1->attr.value != s2->attr.value)
+    {
+      snprintf (errmsg, err_len, "VALUE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VOLATILE attribute.  */
+  if (s1->attr.volatile_ != s2->attr.volatile_)
+    {
+      snprintf (errmsg, err_len, "VOLATILE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
 
   /* Check interface of dummy procedures.  */
   if (s1->attr.flavor == FL_PROCEDURE)
@@ -1972,6 +2001,15 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       return 0;
     }
 
+  if (actual->ts.type == BT_ASSUMED && formal->ts.type != BT_ASSUMED)
+    {
+      if (where)
+	gfc_error ("Assumed-type actual argument at %L requires that dummy "
+		   "argument '%s' is of assumed type", &actual->where,
+		   formal->name);
+      return 0;
+    }
+
   /* F2008, 12.5.2.5; IR F08/0073.  */
   if (formal->ts.type == BT_CLASS && formal->attr.class_ok
       && actual->expr_type != EXPR_NULL
@@ -1990,8 +2028,9 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       if (!gfc_expr_attr (actual).class_ok)
 	return 0;
 
-      if (!gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
-				      CLASS_DATA (formal)->ts.u.derived))
+      if ((!UNLIMITED_POLY (formal) || !UNLIMITED_POLY(actual))
+	  && !gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
+					 CLASS_DATA (formal)->ts.u.derived))
 	{
 	  if (where)
 	    gfc_error ("Actual argument to '%s' at %L must have the same "
@@ -2082,7 +2121,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       && (actual->symtree->n.sym->attr.asynchronous
          || actual->symtree->n.sym->attr.volatile_)
       &&  (formal->attr.asynchronous || formal->attr.volatile_)
-      && actual->rank && !gfc_is_simply_contiguous (actual, true)
+      && actual->rank && formal->as && !gfc_is_simply_contiguous (actual, true)
       && ((formal->as->type != AS_ASSUMED_SHAPE
 	   && formal->as->type != AS_ASSUMED_RANK && !formal->attr.pointer)
 	  || formal->attr.contiguous))
@@ -2416,6 +2455,24 @@ get_expr_storage_size (gfc_expr *e)
 			- mpz_get_si (ref->u.ar.as->lower[i]->value.integer));
 	    }
         }
+      else if (ref->type == REF_COMPONENT && ref->u.c.component->attr.function
+	       && ref->u.c.component->attr.proc_pointer
+	       && ref->u.c.component->attr.dimension)
+	{
+	  /* Array-valued procedure-pointer components.  */
+	  gfc_array_spec *as = ref->u.c.component->as;
+	  for (i = 0; i < as->rank; i++)
+	    {
+	      if (!as->upper[i] || !as->lower[i]
+		  || as->upper[i]->expr_type != EXPR_CONSTANT
+		  || as->lower[i]->expr_type != EXPR_CONSTANT)
+		return 0;
+
+	      elements = elements
+			 * (mpz_get_si (as->upper[i]->value.integer)
+			    - mpz_get_si (as->lower[i]->value.integer) + 1L);
+	    }
+	}
     }
 
   if (substrlen)
@@ -2549,7 +2606,7 @@ compare_actual_formal (gfc_actual_arglist **ap, gfc_formal_arglist *formal,
       if (UNLIMITED_POLY (f->sym)
 	  && a->expr->ts.type != BT_DERIVED
 	  && a->expr->ts.type != BT_CLASS)
-	gfc_find_intrinsic_vtab (&a->expr->ts);
+	gfc_find_vtab (&a->expr->ts);
 
       if (a->expr->expr_type == EXPR_NULL
 	  && ((f->sym->ts.type != BT_CLASS && !f->sym->attr.pointer

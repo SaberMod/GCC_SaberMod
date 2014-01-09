@@ -152,7 +152,7 @@ the value of an enumeration constant, the width of a bit-field, or
 the initial value of a static variable.
 
 If you don't know the type of the operand, you can still do this, but you
-must use @code{typeof} (@pxref{Typeof}).
+must use @code{typeof} or @code{__auto_type} (@pxref{Typeof}).
 
 In G++, the result value of a statement expression undergoes array and
 function pointer decay, and is returned by value to the enclosing
@@ -752,6 +752,35 @@ array (pointer (char), 4) y;
 @noindent
 Thus, @code{array (pointer (char), 4)} is the type of arrays of 4
 pointers to @code{char}.
+@end itemize
+
+In GNU C, but not GNU C++, you may also declare the type of a variable
+as @code{__auto_type}.  In that case, the declaration must declare
+only one variable, whose declarator must just be an identifier, the
+declaration must be initialized, and the type of the variable is
+determined by the initializer; the name of the variable is not in
+scope until after the initializer.  (In C++, you should use C++11
+@code{auto} for this purpose.)  Using @code{__auto_type}, the
+``maximum'' macro above could be written as:
+
+@smallexample
+#define max(a,b) \
+  (@{ __auto_type _a = (a); \
+      __auto_type _b = (b); \
+    _a > _b ? _a : _b; @})
+@end smallexample
+
+Using @code{__auto_type} instead of @code{typeof} has two advantages:
+
+@itemize @bullet
+@item Each argument to the macro appears only once in the expansion of
+the macro.  This prevents the size of the macro expansion growing
+exponentially when calls to such macros are nested inside arguments of
+such macros.
+
+@item If the argument to the macro has variably modified type, it is
+evaluated only once when using @code{__auto_type}, but twice if
+@code{typeof} is used.
 @end itemize
 
 @emph{Compatibility Note:} In addition to @code{typeof}, GCC 2 supported
@@ -2133,7 +2162,8 @@ attributes are currently defined for functions on all targets:
 @code{section}, @code{constructor},
 @code{destructor}, @code{used}, @code{unused}, @code{deprecated},
 @code{weak}, @code{malloc}, @code{alias}, @code{ifunc},
-@code{warn_unused_result}, @code{nonnull}, @code{gnu_inline},
+@code{warn_unused_result}, @code{nonnull},
+@code{returns_nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
 @code{no_sanitize_address}, @code{no_address_safety_analysis},
 @code{no_sanitize_undefined},
@@ -2503,6 +2533,12 @@ on data in the eight-bit data area.  Note the eight-bit data area is limited to
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
 
+@item exception
+@cindex exception handler functions
+Use this attribute on the NDS32 target to indicate that the specified function
+is an exception handler.  The compiler will generate corresponding sections
+for use in an exception handler.
+
 @item exception_handler
 @cindex exception handler functions on the Blackfin processor
 Use this attribute on the Blackfin to indicate that the specified function
@@ -2813,8 +2849,9 @@ least version 2.20.1), and GNU C library (at least version 2.11.1).
 
 @item interrupt
 @cindex interrupt handler functions
-Use this attribute on the ARM, AVR, CR16, Epiphany, M32C, M32R/D, m68k, MeP, MIPS,
-MSP430, RL78, RX and Xstormy16 ports to indicate that the specified function is an
+Use this attribute on the ARC, ARM, AVR, CR16, Epiphany, M32C, M32R/D,
+m68k, MeP, MIPS, MSP430, RL78, RX and Xstormy16 ports to indicate that
+the specified function is an
 interrupt handler.  The compiler generates function entry and exit
 sequences suitable for use in an interrupt handler when this attribute
 is present.  With Epiphany targets it may also generate a special section with
@@ -2822,6 +2859,16 @@ code to initialize the interrupt vector table.
 
 Note, interrupt handlers for the Blackfin, H8/300, H8/300H, H8S, MicroBlaze,
 and SH processors can be specified via the @code{interrupt_handler} attribute.
+
+Note, on the ARC, you must specify the kind of interrupt to be handled
+in a parameter to the interrupt attribute like this:
+
+@smallexample
+void f () __attribute__ ((interrupt ("ilink1")));
+@end smallexample
+
+Permissible values for this parameter are: @w{@code{ilink1}} and
+@w{@code{ilink2}}.
 
 Note, on the AVR, the hardware globally disables interrupts when an
 interrupt is executed.  The first instruction of an interrupt handler
@@ -2871,6 +2918,13 @@ Reentrant functions disable interrupts upon entry and enable them
 upon exit.  Reentrant functions cannot also have the @code{naked}
 or @code{critical} attributes.  They can have the @code{interrupt}
 attribute.
+
+@item wakeup
+@cindex @code{wakeup} attribute
+This attribute only applies to interrupt functions.  It is silently
+ignored if applied to a non-interrupt function.  A wakeup interrupt
+function will rouse the processor from any low-power state that it
+might be in when the function exits.
 
 @end table
 
@@ -2952,6 +3006,32 @@ void __attribute__ ((interrupt, use_shadow_register_set,
                      use_debug_exception_return)) v7 ();
 @end smallexample
 
+On NDS32 target, this attribute is to indicate that the specified function
+is an interrupt handler.  The compiler will generate corresponding sections
+for use in an interrupt handler.  You can use the following attributes
+to modify the behavior:
+@table @code
+@item nested
+@cindex @code{nested} attribute
+This interrupt service routine is interruptible.
+@item not_nested
+@cindex @code{not_nested} attribute
+This interrupt service routine is not interruptible.
+@item nested_ready
+@cindex @code{nested_ready} attribute
+This interrupt service routine is interruptible after @code{PSW.GIE}
+(global interrupt enable) is set.  This allows interrupt service routine to
+finish some short critical code before enabling interrupts.
+@item save_all
+@cindex @code{save_all} attribute
+The system will help save all registers into stack before entering
+interrupt handler.
+@item partial_save
+@cindex @code{partial_save} attribute
+The system will help save caller registers into stack before entering
+interrupt handler.
+@end table
+
 On RL78, use @code{brk_interrupt} instead of @code{interrupt} for
 handlers intended to be used with the @code{BRK} opcode (i.e.@: those
 that must end with @code{RETB} instead of @code{RETI}).
@@ -3021,17 +3101,32 @@ unit.  This is to allow easy merging of multiple compilation units into one,
 for example, by using the link-time optimization.  For this reason the
 attribute is not allowed on types to annotate indirect calls.
 
-@item long_call/short_call
+@item long_call/medium_call/short_call
+@cindex indirect calls on ARC
 @cindex indirect calls on ARM
-This attribute specifies how a particular function is called on
-ARM and Epiphany.  Both attributes override the
-@option{-mlong-calls} (@pxref{ARM Options})
-command-line switch and @code{#pragma long_calls} settings.  The
+@cindex indirect calls on Epiphany
+These attributes specify how a particular function is called on
+ARC, ARM and Epiphany - with @code{medium_call} being specific to ARC.
+These attributes override the
+@option{-mlong-calls} (@pxref{ARM Options} and @ref{ARC Options})
+and @option{-mmedium-calls} (@pxref{ARC Options})
+command-line switches and @code{#pragma long_calls} settings.  For ARM, the
 @code{long_call} attribute indicates that the function might be far
 away from the call site and require a different (more expensive)
 calling sequence.   The @code{short_call} attribute always places
 the offset to the function from the call site into the @samp{BL}
 instruction directly.
+
+For ARC, a function marked with the @code{long_call} attribute is
+always called using register-indirect jump-and-link instructions,
+thereby enabling the called function to be placed anywhere within the
+32-bit address space.  A function marked with the @code{medium_call}
+attribute will always be close enough to be called with an unconditional
+branch-and-link instruction, which has a 25-bit offset from
+the call site.  A function marked with the @code{short_call}
+attribute will always be close enough to be called with a conditional
+branch-and-link instruction, which has a 21-bit offset from
+the call site.
 
 @item longcall/shortcall
 @cindex functions called via pointer on the RS/6000 and PowerPC
@@ -3171,11 +3266,23 @@ this function attribute to make GCC generate the ``hot-patching'' function
 prologue used in Win32 API functions in Microsoft Windows XP Service Pack 2
 and newer.
 
+@item hotpatch [(@var{prologue-halfwords})]
+@cindex @code{hotpatch} attribute
+
+On S/390 System z targets, you can use this function attribute to
+make GCC generate a ``hot-patching'' function prologue.  The
+@code{hotpatch} has no effect on funtions that are explicitly
+inline.  If the @option{-mhotpatch} or @option{-mno-hotpatch}
+command-line option is used at the same time, the @code{hotpatch}
+attribute takes precedence.  If an argument is given, the maximum
+allowed value is 1000000.
+
 @item naked
 @cindex function without a prologue/epilogue code
-Use this attribute on the ARM, AVR, MCORE, MSP430, RL78, RX and SPU ports to indicate that
-the specified function does not need prologue/epilogue sequences generated by
-the compiler.  It is up to the programmer to provide these sequences. The
+Use this attribute on the ARM, AVR, MCORE, MSP430, NDS32, RL78, RX and SPU
+ports to indicate that the specified function does not need prologue/epilogue
+sequences generated by the compiler.
+It is up to the programmer to provide these sequences. The
 only statements that can be safely included in naked functions are
 @code{asm} statements that do not have operands.  All other statements,
 including declarations of local variables, @code{if} statements, and so
@@ -3282,6 +3389,20 @@ extern void *
 my_memcpy (void *dest, const void *src, size_t len)
         __attribute__((nonnull));
 @end smallexample
+
+@item returns_nonnull
+@cindex @code{returns_nonnull} function attribute
+The @code{returns_nonnull} attribute specifies that the function
+return value should be a non-null pointer.  For instance, the declaration:
+
+@smallexample
+extern void *
+mymalloc (size_t len) __attribute__((returns_nonnull));
+@end smallexample
+
+@noindent
+lets the compiler optimize callers based on the knowledge
+that the return value will never be null.
 
 @item noreturn
 @cindex @code{noreturn} function attribute
@@ -3526,6 +3647,21 @@ and FreeBSD are believed to be
 safe since the loaders there save EAX, EDX and ECX.  (Lazy binding can be
 disabled with the linker or the loader if desired, to avoid the
 problem.)
+
+@item reset
+@cindex reset handler functions
+Use this attribute on the NDS32 target to indicate that the specified function
+is a reset handler.  The compiler will generate corresponding sections
+for use in a reset handler.  You can use the following attributes
+to provide extra exception handling:
+@table @code
+@item nmi
+@cindex @code{nmi} attribute
+Provide a user-defined function to handle NMI exception.
+@item warm
+@cindex @code{warm} attribute
+Provide a user-defined function to handle warm reset exception.
+@end table
 
 @item sseregparm
 @cindex @code{sseregparm} attribute
@@ -4179,6 +4315,12 @@ the One Definition Rule; for example, it is usually not useful to mark
 an inline method as hidden without marking the whole class as hidden.
 
 A C++ namespace declaration can also have the visibility attribute.
+
+@smallexample
+namespace nspace1 __attribute__ ((visibility ("protected")))
+@{ /* @r{Do something.} */; @}
+@end smallexample
+
 This attribute applies only to the particular namespace body, not to
 other definitions of the same namespace; it is equivalent to using
 @samp{#pragma GCC visibility} before and after the namespace
@@ -7711,6 +7853,32 @@ format string @var{fmt}.  If the compiler is able to optimize them to
 @code{fputc} etc.@: functions, it does, otherwise the checking function
 is called and the @var{flag} argument passed to it.
 
+@node Cilk Plus Builtins
+@section Cilk Plus C/C++ language extension Built-in Functions.
+
+GCC provides support for the following built-in reduction funtions if Cilk Plus
+is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
+
+@itemize @bullet
+@item __sec_implicit_index
+@item __sec_reduce
+@item __sec_reduce_add
+@item __sec_reduce_all_nonzero
+@item __sec_reduce_all_zero
+@item __sec_reduce_any_nonzero
+@item __sec_reduce_any_zero
+@item __sec_reduce_max
+@item __sec_reduce_min
+@item __sec_reduce_max_ind
+@item __sec_reduce_min_ind
+@item __sec_reduce_mul
+@item __sec_reduce_mutating
+@end itemize
+
+Further details and examples about these built-in functions are described 
+in the Cilk Plus language manual which can be found at 
+@uref{http://www.cilkplus.org}.
+
 @node Other Builtins
 @section Other Built-in Functions Provided by GCC
 @cindex built-in functions
@@ -8835,32 +9003,6 @@ Similar to @code{__builtin_bswap32}, except the argument and return types
 are 64 bit.
 @end deftypefn
 
-@node Cilk Plus Builtins
-@section Cilk Plus C/C++ language extension Built-in Functions.
-
-GCC provides support for the following built-in reduction funtions if Cilk Plus
-is enabled. Cilk Plus can be enabled using the @option{-fcilkplus} flag.
-
-@itemize @bullet
-@item __sec_implicit_index
-@item __sec_reduce
-@item __sec_reduce_add
-@item __sec_reduce_all_nonzero
-@item __sec_reduce_all_zero
-@item __sec_reduce_any_nonzero
-@item __sec_reduce_any_zero
-@item __sec_reduce_max
-@item __sec_reduce_min
-@item __sec_reduce_max_ind
-@item __sec_reduce_min_ind
-@item __sec_reduce_mul
-@item __sec_reduce_mutating
-@end itemize
-
-Further details and examples about these built-in functions are described 
-in the Cilk Plus language manual which can be found at 
-@uref{http://www.cilkplus.org}.
-
 @node Target Builtins
 @section Built-in Functions Specific to Particular Target Machines
 
@@ -8870,8 +9012,11 @@ instructions, but allow the compiler to schedule those calls.
 
 @menu
 * Alpha Built-in Functions::
+* ARC Built-in Functions::
+* ARC SIMD Built-in Functions::
 * ARM iWMMXt Built-in Functions::
 * ARM NEON Intrinsics::
+* ARM ACLE Intrinsics::
 * AVR Built-in Functions::
 * Blackfin Built-in Functions::
 * FR-V Built-in Functions::
@@ -8882,9 +9027,11 @@ instructions, but allow the compiler to schedule those calls.
 * MIPS Loongson Built-in Functions::
 * Other MIPS Built-in Functions::
 * MSP430 Built-in Functions::
+* NDS32 Built-in Functions::
 * picoChip Built-in Functions::
 * PowerPC Built-in Functions::
 * PowerPC AltiVec/VSX Built-in Functions::
+* PowerPC Hardware Transactional Memory Built-in Functions::
 * RX Built-in Functions::
 * S/390 System z Built-in Functions::
 * SH Built-in Functions::
@@ -8976,6 +9123,430 @@ PAL calls, but when invoked with @option{-mtls-kernel}, they invoke
 void *__builtin_thread_pointer (void)
 void __builtin_set_thread_pointer (void *)
 @end smallexample
+
+@node ARC Built-in Functions
+@subsection ARC Built-in Functions
+
+The following built-in functions are provided for ARC targets.  The
+built-ins generate the corresponding assembly instructions.  In the
+examples given below, the generated code often requires an operand or
+result to be in a register.  Where necessary further code will be
+generated to ensure this is true, but for brevity this is not
+described in each case.
+
+@emph{Note:} Using a built-in to generate an instruction not supported
+by a target may cause problems. At present the compiler is not
+guaranteed to detect such misuse, and as a result an internal compiler
+error may be generated.
+
+@deftypefn {Built-in Function} int __builtin_arc_aligned (void *@var{val}, int @var{alignval})
+Return 1 if @var{val} is known to have the byte alignment given
+by @var{alignval}, otherwise return 0.
+Note that this is different from
+@smallexample
+__alignof__(*(char *)@var{val}) >= alignval
+@end smallexample
+because __alignof__ sees only the type of the dereference, whereas
+__builtin_arc_align uses alignment information from the pointer
+as well as from the pointed-to type.
+The information available will depend on optimization level.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_brk (void)
+Generates
+@example
+brk
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} {unsigned int} __builtin_arc_core_read (unsigned int @var{regno})
+The operand is the number of a register to be read.  Generates:
+@example
+mov  @var{dest}, r@var{regno}
+@end example
+where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_core_write (unsigned int @var{regno}, unsigned int @var{val})
+The first operand is the number of a register to be written, the
+second operand is a compile time constant to write into that
+register.  Generates:
+@example
+mov  r@var{regno}, @var{val}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_arc_divaw (int @var{a}, int @var{b})
+Only available if either @option{-mcpu=ARC700} or @option{-meA} is set.
+Generates:
+@example
+divaw  @var{dest}, @var{a}, @var{b}
+@end example
+where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_flag (unsigned int @var{a})
+Generates
+@example
+flag  @var{a}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} {unsigned int} __builtin_arc_lr (unsigned int @var{auxr})
+The operand, @var{auxv}, is the address of an auxiliary register and
+must be a compile time constant.  Generates:
+@example
+lr  @var{dest}, [@var{auxr}]
+@end example
+Where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_mul64 (int @var{a}, int @var{b})
+Only available with @option{-mmul64}.  Generates:
+@example
+mul64  @var{a}, @var{b}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_mulu64 (unsigned int @var{a}, unsigned int @var{b})
+Only available with @option{-mmul64}.  Generates:
+@example
+mulu64  @var{a}, @var{b}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_arc_nop (void)
+Generates:
+@example
+nop
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_arc_norm (int @var{src})
+Only valid if the @samp{norm} instruction is available through the
+@option{-mnorm} option or by default with @option{-mcpu=ARC700}.
+Generates:
+@example
+norm  @var{dest}, @var{src}
+@end example
+Where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function}  {short int} __builtin_arc_normw (short int @var{src})
+Only valid if the @samp{normw} instruction is available through the
+@option{-mnorm} option or by default with @option{-mcpu=ARC700}.
+Generates:
+@example
+normw  @var{dest}, @var{src}
+@end example
+Where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_rtie (void)
+Generates:
+@example
+rtie
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_sleep (int @var{a}
+Generates:
+@example
+sleep  @var{a}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_sr (unsigned int @var{auxr}, unsigned int @var{val})
+The first argument, @var{auxv}, is the address of an auxiliary
+register, the second argument, @var{val}, is a compile time constant
+to be written to the register.  Generates:
+@example
+sr  @var{auxr}, [@var{val}]
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  int __builtin_arc_swap (int @var{src})
+Only valid with @option{-mswap}.  Generates:
+@example
+swap  @var{dest}, @var{src}
+@end example
+Where the value in @var{dest} will be the result returned from the
+built-in.
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_swi (void)
+Generates:
+@example
+swi
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_sync (void)
+Only available with @option{-mcpu=ARC700}.  Generates:
+@example
+sync
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_trap_s (unsigned int @var{c})
+Only available with @option{-mcpu=ARC700}.  Generates:
+@example
+trap_s  @var{c}
+@end example
+@end deftypefn
+
+@deftypefn {Built-in Function}  void __builtin_arc_unimp_s (void)
+Only available with @option{-mcpu=ARC700}.  Generates:
+@example
+unimp_s
+@end example
+@end deftypefn
+
+The instructions generated by the following builtins are not
+considered as candidates for scheduling.  They are not moved around by
+the compiler during scheduling, and thus can be expected to appear
+where they are put in the C code:
+@example
+__builtin_arc_brk()
+__builtin_arc_core_read()
+__builtin_arc_core_write()
+__builtin_arc_flag()
+__builtin_arc_lr()
+__builtin_arc_sleep()
+__builtin_arc_sr()
+__builtin_arc_swi()
+@end example
+
+@node ARC SIMD Built-in Functions
+@subsection ARC SIMD Built-in Functions
+
+SIMD builtins provided by the compiler can be used to generate the
+vector instructions.  This section describes the available builtins
+and their usage in programs.  With the @option{-msimd} option, the
+compiler provides 128-bit vector types, which can be specified using
+the @code{vector_size} attribute.  The header file @file{arc-simd.h}
+can be included to use the following predefined types:
+@example
+typedef int __v4si   __attribute__((vector_size(16)));
+typedef short __v8hi __attribute__((vector_size(16)));
+@end example
+
+These types can be used to define 128-bit variables.  The built-in
+functions listed in the following section can be used on these
+variables to generate the vector operations.
+
+For all builtins, @code{__builtin_arc_@var{someinsn}}, the header file
+@file{arc-simd.h} also provides equivalent macros called
+@code{_@var{someinsn}} that can be used for programming ease and
+improved readability.  The following macros for DMA control are also
+provided:
+@example
+#define _setup_dma_in_channel_reg _vdiwr
+#define _setup_dma_out_channel_reg _vdowr
+@end example
+
+The following is a complete list of all the SIMD built-ins provided
+for ARC, grouped by calling signature.
+
+The following take two @code{__v8hi} arguments and return a
+@code{__v8hi} result:
+@example
+__v8hi __builtin_arc_vaddaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vaddw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vand (__v8hi, __v8hi)
+__v8hi __builtin_arc_vandaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vavb (__v8hi, __v8hi)
+__v8hi __builtin_arc_vavrb (__v8hi, __v8hi)
+__v8hi __builtin_arc_vbic (__v8hi, __v8hi)
+__v8hi __builtin_arc_vbicaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vdifaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vdifw (__v8hi, __v8hi)
+__v8hi __builtin_arc_veqw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vh264f (__v8hi, __v8hi)
+__v8hi __builtin_arc_vh264ft (__v8hi, __v8hi)
+__v8hi __builtin_arc_vh264fw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vlew (__v8hi, __v8hi)
+__v8hi __builtin_arc_vltw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmaxaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmaxw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vminaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vminw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr1aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr1w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr2aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr2w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr3aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr3w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr4aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr4w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr5aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr5w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr6aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr6w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr7aw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmr7w (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmrb (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmulaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmulfaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmulfw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vmulw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vnew (__v8hi, __v8hi)
+__v8hi __builtin_arc_vor (__v8hi, __v8hi)
+__v8hi __builtin_arc_vsubaw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vsubw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vsummw (__v8hi, __v8hi)
+__v8hi __builtin_arc_vvc1f (__v8hi, __v8hi)
+__v8hi __builtin_arc_vvc1ft (__v8hi, __v8hi)
+__v8hi __builtin_arc_vxor (__v8hi, __v8hi)
+__v8hi __builtin_arc_vxoraw (__v8hi, __v8hi)
+@end example
+
+The following take one @code{__v8hi} and one @code{int} argument and return a
+@code{__v8hi} result:
+
+@example
+__v8hi __builtin_arc_vbaddw (__v8hi, int)
+__v8hi __builtin_arc_vbmaxw (__v8hi, int)
+__v8hi __builtin_arc_vbminw (__v8hi, int)
+__v8hi __builtin_arc_vbmulaw (__v8hi, int)
+__v8hi __builtin_arc_vbmulfw (__v8hi, int)
+__v8hi __builtin_arc_vbmulw (__v8hi, int)
+__v8hi __builtin_arc_vbrsubw (__v8hi, int)
+__v8hi __builtin_arc_vbsubw (__v8hi, int)
+@end example
+
+The following take one @code{__v8hi} argument and one @code{int} argument which
+must be a 3-bit compile time constant indicating a register number
+I0-I7.  They return a @code{__v8hi} result.
+@example
+__v8hi __builtin_arc_vasrw (__v8hi, const int)
+__v8hi __builtin_arc_vsr8 (__v8hi, const int)
+__v8hi __builtin_arc_vsr8aw (__v8hi, const int)
+@end example
+
+The following take one @code{__v8hi} argument and one @code{int}
+argument which must be a 6-bit compile time constant.  They return a
+@code{__v8hi} result.
+@example
+__v8hi __builtin_arc_vasrpwbi (__v8hi, const int)
+__v8hi __builtin_arc_vasrrpwbi (__v8hi, const int)
+__v8hi __builtin_arc_vasrrwi (__v8hi, const int)
+__v8hi __builtin_arc_vasrsrwi (__v8hi, const int)
+__v8hi __builtin_arc_vasrwi (__v8hi, const int)
+__v8hi __builtin_arc_vsr8awi (__v8hi, const int)
+__v8hi __builtin_arc_vsr8i (__v8hi, const int)
+@end example
+
+The following take one @code{__v8hi} argument and one @code{int} argument which
+must be a 8-bit compile time constant.  They return a @code{__v8hi}
+result.
+@example
+__v8hi __builtin_arc_vd6tapf (__v8hi, const int)
+__v8hi __builtin_arc_vmvaw (__v8hi, const int)
+__v8hi __builtin_arc_vmvw (__v8hi, const int)
+__v8hi __builtin_arc_vmvzw (__v8hi, const int)
+@end example
+
+The following take two @code{int} arguments, the second of which which
+must be a 8-bit compile time constant.  They return a @code{__v8hi}
+result:
+@example
+__v8hi __builtin_arc_vmovaw (int, const int)
+__v8hi __builtin_arc_vmovw (int, const int)
+__v8hi __builtin_arc_vmovzw (int, const int)
+@end example
+
+The following take a single @code{__v8hi} argument and return a
+@code{__v8hi} result:
+@example
+__v8hi __builtin_arc_vabsaw (__v8hi)
+__v8hi __builtin_arc_vabsw (__v8hi)
+__v8hi __builtin_arc_vaddsuw (__v8hi)
+__v8hi __builtin_arc_vexch1 (__v8hi)
+__v8hi __builtin_arc_vexch2 (__v8hi)
+__v8hi __builtin_arc_vexch4 (__v8hi)
+__v8hi __builtin_arc_vsignw (__v8hi)
+__v8hi __builtin_arc_vupbaw (__v8hi)
+__v8hi __builtin_arc_vupbw (__v8hi)
+__v8hi __builtin_arc_vupsbaw (__v8hi)
+__v8hi __builtin_arc_vupsbw (__v8hi)
+@end example
+
+The followign take two @code{int} arguments and return no result:
+@example
+void __builtin_arc_vdirun (int, int)
+void __builtin_arc_vdorun (int, int)
+@end example
+
+The following take two @code{int} arguments and return no result.  The
+first argument must a 3-bit compile time constant indicating one of
+the DR0-DR7 DMA setup channels:
+@example
+void __builtin_arc_vdiwr (const int, int)
+void __builtin_arc_vdowr (const int, int)
+@end example
+
+The following take an @code{int} argument and return no result:
+@example
+void __builtin_arc_vendrec (int)
+void __builtin_arc_vrec (int)
+void __builtin_arc_vrecrun (int)
+void __builtin_arc_vrun (int)
+@end example
+
+The following take a @code{__v8hi} argument and two @code{int}
+arguments and return a @code{__v8hi} result.  The second argument must
+be a 3-bit compile time constants, indicating one the registers I0-I7,
+and the third argument must be an 8-bit compile time constant.
+
+@emph{Note:} Although the equivalent hardware instructions do not take
+an SIMD register as an operand, these builtins overwrite the relevant
+bits of the @code{__v8hi} register provided as the first argument with
+the value loaded from the @code{[Ib, u8]} location in the SDM.
+
+@example
+__v8hi __builtin_arc_vld32 (__v8hi, const int, const int)
+__v8hi __builtin_arc_vld32wh (__v8hi, const int, const int)
+__v8hi __builtin_arc_vld32wl (__v8hi, const int, const int)
+__v8hi __builtin_arc_vld64 (__v8hi, const int, const int)
+@end example
+
+The following take two @code{int} arguments and return a @code{__v8hi}
+result.  The first argument must be a 3-bit compile time constants,
+indicating one the registers I0-I7, and the second argument must be an
+8-bit compile time constant.
+
+@example
+__v8hi __builtin_arc_vld128 (const int, const int)
+__v8hi __builtin_arc_vld64w (const int, const int)
+@end example
+
+The following take a @code{__v8hi} argument and two @code{int}
+arguments and return no result.  The second argument must be a 3-bit
+compile time constants, indicating one the registers I0-I7, and the
+third argument must be an 8-bit compile time constant.
+
+@example
+void __builtin_arc_vst128 (__v8hi, const int, const int)
+void __builtin_arc_vst64 (__v8hi, const int, const int)
+@end example
+
+The following take a @code{__v8hi} argument and three @code{int}
+arguments and return no result.  The second argument must be a 3-bit
+compile-time constant, identifying the 16-bit sub-register to be
+stored, the third argument must be a 3-bit compile time constants,
+indicating one the registers I0-I7, and the fourth argument must be an
+8-bit compile time constant.
+
+@example
+void __builtin_arc_vst16_n (__v8hi, const int, const int, const int)
+void __builtin_arc_vst32_n (__v8hi, const int, const int, const int)
+@end example
 
 @node ARM iWMMXt Built-in Functions
 @subsection ARM iWMMXt Built-in Functions
@@ -9137,6 +9708,14 @@ These built-in intrinsics for the ARM Advanced SIMD extension are available
 when the @option{-mfpu=neon} switch is used:
 
 @include arm-neon-intrinsics.texi
+
+@node ARM ACLE Intrinsics
+@subsection ARM ACLE Intrinsics
+
+These built-in intrinsics for the ARMv8-A CRC32 extension are available when
+the @option{-march=armv8-a+crc} switch is used:
+
+@include arm-acle-intrinsics.texi
 
 @node AVR Built-in Functions
 @subsection AVR Built-in Functions
@@ -9829,6 +10408,9 @@ AMD Family 15h Bulldozer version 2.
 
 @item bdver3
 AMD Family 15h Bulldozer version 3.
+
+@item bdver4
+AMD Family 15h Bulldozer version 4.
 
 @item btver2
 AMD Family 16h CPU.
@@ -11910,6 +12492,44 @@ currently residing on the stack.  This only works inside interrupt
 handlers and the changes to the status register will only take affect
 once the handler returns.
 @end table
+
+@node NDS32 Built-in Functions
+@subsection NDS32 Built-in Functions
+
+These built-in functions are available for the NDS32 target:
+
+@deftypefn {Built-in Function} void __builtin_nds32_isync (int *@var{addr})
+Insert an ISYNC instruction into the instruction stream where
+@var{addr} is an instruction address for serialization.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_nds32_isb (void)
+Insert an ISB instruction into the instruction stream.
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_nds32_mfsr (int @var{sr})
+Return the content of a system register which is mapped by @var{sr}.
+@end deftypefn
+
+@deftypefn {Built-in Function} int __builtin_nds32_mfusr (int @var{usr})
+Return the content of a user space register which is mapped by @var{usr}.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_nds32_mtsr (int @var{value}, int @var{sr})
+Move the @var{value} to a system register which is mapped by @var{sr}.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_nds32_mtusr (int @var{value}, int @var{usr})
+Move the @var{value} to a user space register which is mapped by @var{usr}.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_nds32_setgie_en (void)
+Enable global interrupt.
+@end deftypefn
+
+@deftypefn {Built-in Function} void __builtin_nds32_setgie_dis (void)
+Disable global interrupt.
+@end deftypefn
 
 @node picoChip Built-in Functions
 @subsection picoChip Built-in Functions
@@ -14372,6 +14992,196 @@ The second argument to the @var{__builtin_crypto_vshasigmad} and
 integer that is 0 or 1.  The third argument to these builtin functions
 must be a constant integer in the range of 0 to 15.
 
+@node PowerPC Hardware Transactional Memory Built-in Functions
+@subsection PowerPC Hardware Transactional Memory Built-in Functions
+GCC provides two interfaces for accessing the Hardware Transactional
+Memory (HTM) instructions available on some of the PowerPC family
+of prcoessors (eg, POWER8).  The two interfaces come in a low level
+interface, consisting of built-in functions specific to PowerPC and a
+higher level interface consisting of inline functions that are common
+between PowerPC and S/390.
+
+@subsubsection PowerPC HTM Low Level Built-in Functions
+
+The following low level built-in functions are available with
+@option{-mhtm} or @option{-mcpu=CPU} where CPU is `power8' or later.
+They all generate the machine instruction that is part of the name.
+
+The HTM built-ins return true or false depending on their success and
+their arguments match exactly the type and order of the associated
+hardware instruction's operands.  Refer to the ISA manual for a
+description of each instruction's operands.
+
+@smallexample
+unsigned int __builtin_tbegin (unsigned int)
+unsigned int __builtin_tend (unsigned int)
+
+unsigned int __builtin_tabort (unsigned int)
+unsigned int __builtin_tabortdc (unsigned int, unsigned int, unsigned int)
+unsigned int __builtin_tabortdci (unsigned int, unsigned int, int)
+unsigned int __builtin_tabortwc (unsigned int, unsigned int, unsigned int)
+unsigned int __builtin_tabortwci (unsigned int, unsigned int, int)
+
+unsigned int __builtin_tcheck (unsigned int)
+unsigned int __builtin_treclaim (unsigned int)
+unsigned int __builtin_trechkpt (void)
+unsigned int __builtin_tsr (unsigned int)
+@end smallexample
+
+In addition to the above HTM built-ins, we have added built-ins for
+some common extended mnemonics of the HTM instructions:
+
+@smallexample
+unsigned int __builtin_tendall (void)
+unsigned int __builtin_tresume (void)
+unsigned int __builtin_tsuspend (void)
+@end smallexample
+
+The following set of built-in functions are available to gain access
+to the HTM specific special purpose registers.
+
+@smallexample
+unsigned long __builtin_get_texasr (void)
+unsigned long __builtin_get_texasru (void)
+unsigned long __builtin_get_tfhar (void)
+unsigned long __builtin_get_tfiar (void)
+
+void __builtin_set_texasr (unsigned long);
+void __builtin_set_texasru (unsigned long);
+void __builtin_set_tfhar (unsigned long);
+void __builtin_set_tfiar (unsigned long);
+@end smallexample
+
+Example usage of these low level built-in functions may look like:
+
+@smallexample
+#include <htmintrin.h>
+
+int num_retries = 10;
+
+while (1)
+  @{
+    if (__builtin_tbegin (0))
+      @{
+        /* Transaction State Initiated.  */
+        if (is_locked (lock))
+          __builtin_tabort (0);
+        ... transaction code...
+        __builtin_tend (0);
+        break;
+      @}
+    else
+      @{
+        /* Transaction State Failed.  Use locks if the transaction
+           failure is "persistent" or we've tried too many times.  */
+        if (num_retries-- <= 0
+            || _TEXASRU_FAILURE_PERSISTENT (__builtin_get_texasru ()))
+          @{
+            acquire_lock (lock);
+            ... non transactional fallback path...
+            release_lock (lock);
+            break;
+          @}
+      @}
+  @}
+@end smallexample
+
+One final built-in function has been added that returns the value of
+the 2-bit Transaction State field of the Machine Status Register (MSR)
+as stored in @code{CR0}.
+
+@smallexample
+unsigned long __builtin_ttest (void)
+@end smallexample
+
+This built-in can be used to determine the current transaction state
+using the following code example:
+
+@smallexample
+#include <htmintrin.h>
+
+unsigned char tx_state = _HTM_STATE (__builtin_ttest ());
+
+if (tx_state == _HTM_TRANSACTIONAL)
+  @{
+    /* Code to use in transactional state.  */
+  @}
+else if (tx_state == _HTM_NONTRANSACTIONAL)
+  @{
+    /* Code to use in non-transactional state.  */
+  @}
+else if (tx_state == _HTM_SUSPENDED)
+  @{
+    /* Code to use in transaction suspended state.  */
+  @}
+@end smallexample
+
+@subsubsection PowerPC HTM High Level Inline Functions
+
+The following high level HTM interface is made available by including
+@code{<htmxlintrin.h>} and using @option{-mhtm} or @option{-mcpu=CPU}
+where CPU is `power8' or later.  This interface is common between PowerPC
+and S/390, allowing users to write one HTM source implementation that
+can be compiled and executed on either system.
+
+@smallexample
+long __TM_simple_begin (void)
+long __TM_begin (void* const TM_buff)
+long __TM_end (void)
+void __TM_abort (void)
+void __TM_named_abort (unsigned char const code)
+void __TM_resume (void)
+void __TM_suspend (void)
+
+long __TM_is_user_abort (void* const TM_buff)
+long __TM_is_named_user_abort (void* const TM_buff, unsigned char *code)
+long __TM_is_illegal (void* const TM_buff)
+long __TM_is_footprint_exceeded (void* const TM_buff)
+long __TM_nesting_depth (void* const TM_buff)
+long __TM_is_nested_too_deep(void* const TM_buff)
+long __TM_is_conflict(void* const TM_buff)
+long __TM_is_failure_persistent(void* const TM_buff)
+long __TM_failure_address(void* const TM_buff)
+long long __TM_failure_code(void* const TM_buff)
+@end smallexample
+
+Using these common set of HTM inline functions, we can create
+a more portable version of the HTM example in the previous
+section that will work on either PowerPC or S/390:
+
+@smallexample
+#include <htmxlintrin.h>
+
+int num_retries = 10;
+TM_buff_type TM_buff;
+
+while (1)
+  @{
+    if (__TM_begin (TM_buff))
+      @{
+        /* Transaction State Initiated.  */
+        if (is_locked (lock))
+          __TM_abort ();
+        ... transaction code...
+        __TM_end ();
+        break;
+      @}
+    else
+      @{
+        /* Transaction State Failed.  Use locks if the transaction
+           failure is "persistent" or we've tried too many times.  */
+        if (num_retries-- <= 0
+            || __TM_is_failure_persistent (TM_buff))
+          @{
+            acquire_lock (lock);
+            ... non transactional fallback path...
+            release_lock (lock);
+            break;
+          @}
+      @}
+  @}
+@end smallexample
+
 @node RX Built-in Functions
 @subsection RX Built-in Functions
 GCC supports some of the RX instructions which cannot be expressed in
@@ -14594,7 +15404,7 @@ depth is returned as integer value.  For a nesting depth of 0 the code
 is not executed as part of an transaction.
 @end deftypefn
 
-@deftypefn {Built-in Function} void __builtin_non_tx_store (unsigned long long *, unsigned long long)
+@deftypefn {Built-in Function} void __builtin_non_tx_store (uint64_t *, uint64_t)
 
 Generates the @code{ntstg} machine instruction.  The second argument
 is written to the first arguments location.  The store operation will
@@ -15006,6 +15816,7 @@ for further explanation.
 * Visibility Pragmas::
 * Push/Pop Macro Pragmas::
 * Function Specific Option Pragmas::
+* Loop-Specific Pragmas::
 @end menu
 
 @node ARM Pragmas
@@ -15527,6 +16338,48 @@ on the command line.
 The @samp{#pragma GCC reset_options} pragma is not implemented in GCC
 versions earlier than 4.4.
 @end table
+
+@node Loop-Specific Pragmas
+@subsection Loop-Specific Pragmas
+
+@table @code
+@item #pragma GCC ivdep
+@cindex pragma GCC ivdep
+@end table
+
+With this pragma, the programmer asserts that there are no loop-carried
+dependencies which would prevent that consecutive iterations of
+the following loop can be executed concurrently with SIMD
+(single instruction multiple data) instructions.
+
+For example, the compiler can only unconditionally vectorize the following
+loop with the pragma:
+
+@smallexample
+void foo (int n, int *a, int *b, int *c)
+@{
+  int i, j;
+#pragma GCC ivdep
+  for (i = 0; i < n; ++i)
+    a[i] = b[i] + c[i];
+@}
+@end smallexample
+
+@noindent
+In this example, using the @code{restrict} qualifier had the same
+effect. In the following example, that would not be possible. Assume
+@math{k < -m} or @math{k >= m}. Only with the pragma, the compiler knows
+that it can unconditionally vectorize the following loop:
+
+@smallexample
+void ignore_vec_dep (int *a, int k, int c, int m)
+@{
+#pragma GCC ivdep
+  for (int i = 0; i < m; i++)
+    a[i] = a[i + k] * c;
+@}
+@end smallexample
+
 
 @node Unnamed Fields
 @section Unnamed struct/union fields within structs/unions
@@ -16831,3 +17684,6 @@ implicitly scoped inside a C language scope.  Also, an empty prototype
 @code{()} is treated as an unspecified number of arguments, rather
 than no arguments, as C++ demands.
 @end table
+
+@c  LocalWords:  emph deftypefn builtin ARCv2EM SIMD builtins msimd
+@c  LocalWords:  typedef v4si v8hi DMA dma vdiwr vdowr followign

@@ -25,9 +25,6 @@
 
 #ifndef RS6000_BI_ARCH
 
-#undef	DEFAULT_ABI
-#define	DEFAULT_ABI ABI_AIX
-
 #undef	TARGET_64BIT
 #define	TARGET_64BIT 1
 
@@ -74,7 +71,11 @@ extern int dot_symbols;
 #undef  PROCESSOR_DEFAULT
 #define PROCESSOR_DEFAULT PROCESSOR_POWER7
 #undef  PROCESSOR_DEFAULT64
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define PROCESSOR_DEFAULT64 PROCESSOR_POWER8
+#else
 #define PROCESSOR_DEFAULT64 PROCESSOR_POWER7
+#endif
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -87,6 +88,12 @@ extern int dot_symbols;
 
 #define INVALID_64BIT "-m%s not supported in this configuration"
 #define INVALID_32BIT INVALID_64BIT
+
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define ELFv2_ABI_CHECK (rs6000_elf_abi != 1)
+#else
+#define ELFv2_ABI_CHECK (rs6000_elf_abi == 2)
+#endif
 
 #undef	SUBSUBTARGET_OVERRIDE_OPTIONS
 #define	SUBSUBTARGET_OVERRIDE_OPTIONS				\
@@ -102,6 +109,12 @@ extern int dot_symbols;
 	      error (INVALID_64BIT, "call");			\
 	    }							\
 	  dot_symbols = !strcmp (rs6000_abi_name, "aixdesc");	\
+	  if (ELFv2_ABI_CHECK)					\
+	    {							\
+	      rs6000_current_abi = ABI_ELFv2;			\
+	      if (dot_symbols)					\
+		error ("-mcall-aixdesc incompatible with -mabi=elfv2"); \
+	    }							\
 	  if (rs6000_isa_flags & OPTION_MASK_RELOCATABLE)	\
 	    {							\
 	      rs6000_isa_flags &= ~OPTION_MASK_RELOCATABLE;	\
@@ -299,7 +312,7 @@ extern int dot_symbols;
 /* Determine what functions are present at the runtime;
    this includes full c99 runtime and sincos.  */
 #undef TARGET_LIBC_HAS_FUNCTION
-#define TARGET_LIBC_HAS_FUNCTION linux_android_libc_has_function
+#define TARGET_LIBC_HAS_FUNCTION linux_libc_has_function
 
 #undef  TARGET_OS_CPP_BUILTINS
 #define TARGET_OS_CPP_BUILTINS()			\
@@ -355,7 +368,11 @@ extern int dot_symbols;
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
 #define GLIBC_DYNAMIC_LINKER32 RUNTIME_ROOT_PREFIX "/lib/ld.so.1"
-#define GLIBC_DYNAMIC_LINKER64 RUNTIME_ROOT_PREFIX "/lib64/ld64.so.1"
+#ifdef LINUX64_DEFAULT_ABI_ELFv2
+#define GLIBC_DYNAMIC_LINKER64 "%{mabi=elfv1:" RUNTIME_ROOT_PREFIX  "/lib64/ld64.so.1;:" RUNTIME_ROOT_PREFIX "/lib64/ld64.so.2}"
+#else
+#define GLIBC_DYNAMIC_LINKER64 RUNTIME_ROOT_PREFIX "%{mabi=elfv2:"RUNTIME_ROOT_PREFIX  "/lib64/ld64.so.2;:" RUNTIME_ROOT_PREFIX "/lib64/ld64.so.1}"
+#endif
 #define UCLIBC_DYNAMIC_LINKER32 "/lib/ld-uClibc.so.0"
 #define UCLIBC_DYNAMIC_LINKER64 "/lib/ld64-uClibc.so.0"
 #if DEFAULT_LIBC == LIBC_UCLIBC
@@ -558,3 +575,9 @@ extern int dot_symbols;
 
 /* The default value isn't sufficient in 64-bit mode.  */
 #define STACK_CHECK_PROTECT (TARGET_64BIT ? 16 * 1024 : 12 * 1024)
+
+/* Software floating point support for exceptions and rounding modes
+   depends on the C library in use.  */
+#undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
+#define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
+  rs6000_linux_float_exceptions_rounding_supported_p

@@ -69,6 +69,7 @@ extern tree default_mangle_assembler_name (const char *);
 extern bool default_scalar_mode_supported_p (enum machine_mode);
 extern bool targhook_words_big_endian (void);
 extern bool targhook_float_words_big_endian (void);
+extern bool default_float_exceptions_rounding_supported_p (void);
 extern bool default_decimal_float_supported_p (void);
 extern bool default_fixed_point_supported_p (void);
 
@@ -152,7 +153,7 @@ extern bool default_target_option_valid_attribute_p (tree, tree, tree, int);
 extern bool default_target_option_pragma_parse (tree, tree);
 extern bool default_target_can_inline_p (tree, tree);
 extern bool default_valid_pointer_mode (enum machine_mode);
-extern bool default_ref_may_alias_errno (struct ao_ref_s *);
+extern bool default_ref_may_alias_errno (struct ao_ref *);
 extern enum machine_mode default_addr_space_pointer_mode (addr_space_t);
 extern enum machine_mode default_addr_space_address_mode (addr_space_t);
 extern bool default_addr_space_valid_pointer_mode (enum machine_mode,
@@ -202,3 +203,8 @@ extern void default_asm_output_ident_directive (const char*);
 
 extern enum machine_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
+extern void default_atomic_assign_expand_fenv (tree *, tree *, tree *);
+extern tree build_va_arg_indirect_ref (tree);
+extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
+extern bool can_use_doloop_if_innermost (double_int, double_int,
+					 unsigned int, bool);

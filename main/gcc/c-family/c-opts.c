@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"		/* For debug_hooks.  */
 #include "opts.h"
 #include "options.h"
+#include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "c-target.h"
 #include "tm.h"			/* For BYTES_BIG_ENDIAN,
@@ -832,6 +833,15 @@ c_common_post_options (const char **pfilename)
 				     ? EXCESS_PRECISION_STANDARD
 				     : EXCESS_PRECISION_FAST);
 
+  /* ISO C restricts floating-point expression contraction to within
+     source-language expressions (-ffp-contract=on, currently an alias
+     for -ffp-contract=off).  */
+  if (flag_iso
+      && !c_dialect_cxx ()
+      && (global_options_set.x_flag_fp_contract_mode
+	  == (enum fp_contract_mode) 0))
+    flag_fp_contract_mode = FP_CONTRACT_OFF;
+
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
      inline semantics are not supported in GNU89 or C89 mode.  */
   if (flag_gnu89_inline == -1)
@@ -1255,6 +1265,7 @@ sanitize_cpp_opts (void)
 
   cpp_opts->unsigned_char = !flag_signed_char;
   cpp_opts->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
+  cpp_opts->warn_date_time = cpp_warn_date_time;
 
   /* Wlong-long is disabled by default. It is enabled by:
       [-Wpedantic | -Wtraditional] -std=[gnu|c]++98 ; or
@@ -1453,6 +1464,17 @@ cb_file_change (cpp_reader * ARG_UNUSED (pfile),
     pp_file_change (new_map);
   else
     fe_file_change (new_map);
+
+  if (new_map 
+      && (new_map->reason == LC_ENTER || new_map->reason == LC_RENAME))
+    {
+      /* Signal to plugins that a file is included.  This could happen
+	 several times with the same file path, e.g. because of
+	 several '#include' or '#line' directives...  */
+      invoke_plugin_callbacks 
+	(PLUGIN_INCLUDE_FILE,
+	 const_cast<char*> (ORDINARY_MAP_FILE_NAME (new_map)));
+    }
 
   if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
     {

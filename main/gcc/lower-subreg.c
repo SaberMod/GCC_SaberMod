@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "machmode.h"
 #include "tm.h"
+#include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -966,7 +967,20 @@ resolve_simple_move (rtx set, rtx insn)
       rtx reg;
 
       reg = gen_reg_rtx (orig_mode);
+
+#ifdef AUTO_INC_DEC
+      {
+	rtx move = emit_move_insn (reg, src);
+	if (MEM_P (src))
+	  {
+	    rtx note = find_reg_note (insn, REG_INC, NULL_RTX);
+	    if (note)
+	      add_reg_note (move, REG_INC, XEXP (note, 0));
+	  }
+      }
+#else
       emit_move_insn (reg, src);
+#endif
       src = reg;
     }
 
@@ -1056,6 +1070,16 @@ resolve_simple_move (rtx set, rtx insn)
 	mdest = simplify_gen_subreg (orig_mode, dest, GET_MODE (dest), 0);
       minsn = emit_move_insn (real_dest, mdest);
 
+#ifdef AUTO_INC_DEC
+  if (MEM_P (real_dest)
+      && !(resolve_reg_p (real_dest) || resolve_subreg_p (real_dest)))
+    {
+      rtx note = find_reg_note (insn, REG_INC, NULL_RTX);
+      if (note)
+	add_reg_note (minsn, REG_INC, XEXP (note, 0));
+    }
+#endif
+
       smove = single_set (minsn);
       gcc_assert (smove != NULL_RTX);
 
@@ -1069,7 +1093,7 @@ resolve_simple_move (rtx set, rtx insn)
 
   emit_insn_before (insns, insn);
 
-  /* If we get here via self-recutsion, then INSN is not yet in the insns
+  /* If we get here via self-recursion, then INSN is not yet in the insns
      chain and delete_insn will fail.  We only want to remove INSN from the
      current sequence.  See PR56738.  */
   if (in_sequence_p ())
@@ -1439,7 +1463,7 @@ decompose_multiword_subregs (bool decompose_copies)
   memset (reg_copy_graph.address (), 0, sizeof (bitmap) * max);
 
   speed_p = optimize_function_for_speed_p (cfun);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
 
@@ -1513,13 +1537,13 @@ decompose_multiword_subregs (bool decompose_copies)
 
       propagate_pseudo_copies ();
 
-      sub_blocks = sbitmap_alloc (last_basic_block);
+      sub_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (sub_blocks);
 
       EXECUTE_IF_SET_IN_BITMAP (decomposable_context, 0, regno, iter)
 	decompose_register (regno);
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  rtx insn;
 
@@ -1623,7 +1647,7 @@ decompose_multiword_subregs (bool decompose_copies)
 	  rtx insn, end;
 	  edge fallthru;
 
-	  bb = BASIC_BLOCK (i);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, i);
 	  insn = BB_HEAD (bb);
 	  end = BB_END (bb);
 

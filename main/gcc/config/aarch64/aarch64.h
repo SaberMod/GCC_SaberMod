@@ -54,6 +54,8 @@
 	  cpp_define (parse_in, "_ILP32");		\
 	  cpp_define (parse_in, "__ILP32__");		\
 	}						\
+      if (TARGET_CRYPTO)				\
+	builtin_define ("__ARM_FEATURE_CRYPTO");	\
     } while (0)
 
 
@@ -180,6 +182,8 @@ extern unsigned long aarch64_isa_flags;
 extern unsigned long aarch64_tune_flags;
 #define AARCH64_TUNE_SLOWMUL       (aarch64_tune_flags & AARCH64_FL_SLOWMUL)
 
+/* Crypto is an optional feature.  */
+#define TARGET_CRYPTO AARCH64_ISA_CRYPTO
 
 /* Standard register usage.  */
 
@@ -443,7 +447,7 @@ enum reg_class
 #define INDEX_REG_CLASS	CORE_REGS
 #define BASE_REG_CLASS  POINTER_REGS
 
-/* Register pairs used to eliminate unneeded registers that point intoi
+/* Register pairs used to eliminate unneeded registers that point into
    the stack frame.  */
 #define ELIMINABLE_REGS							\
 {									\
@@ -461,17 +465,17 @@ enum reg_class
 
 enum target_cpus
 {
-#define AARCH64_CORE(NAME, IDENT, ARCH, FLAGS, COSTS) \
-  TARGET_CPU_##IDENT,
+#define AARCH64_CORE(NAME, INTERNAL_IDENT, IDENT, ARCH, FLAGS, COSTS) \
+  TARGET_CPU_##INTERNAL_IDENT,
 #include "aarch64-cores.def"
 #undef AARCH64_CORE
   TARGET_CPU_generic
 };
 
-/* If there is no CPU defined at configure, use "generic" as default.  */
+/* If there is no CPU defined at configure, use "cortex-a53" as default.  */
 #ifndef TARGET_CPU_DEFAULT
 #define TARGET_CPU_DEFAULT \
-  (TARGET_CPU_generic | (AARCH64_CPU_DEFAULT_FLAGS << 6))
+  (TARGET_CPU_cortexa53 | (AARCH64_CPU_DEFAULT_FLAGS << 6))
 #endif
 
 /* The processor for which instructions should be scheduled.  */
@@ -484,7 +488,7 @@ extern enum aarch64_processor aarch64_tune;
 /* Stack layout; function entry, exit and calling.  */
 #define STACK_GROWS_DOWNWARD	1
 
-#define FRAME_GROWS_DOWNWARD	0
+#define FRAME_GROWS_DOWNWARD	1
 
 #define STARTING_FRAME_OFFSET	0
 
@@ -739,7 +743,7 @@ do {									     \
    : reverse_condition (CODE))
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
-  ((VALUE) = ((MODE) == SImode ? 32 : 64), 2)
+  ((VALUE) = GET_MODE_UNIT_BITSIZE (MODE))
 #define CTZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
   ((VALUE) = ((MODE) == SImode ? 32 : 64), 2)
 
@@ -789,13 +793,13 @@ do {									     \
 
 /* Emit rtl for profiling.  Output assembler code to FILE
    to call "_mcount" for profiling a function entry.  */
-#define PROFILE_HOOK(LABEL)                                    \
-{                                                              \
-  rtx fun,lr;                                                  \
-  lr = get_hard_reg_initial_val (Pmode, LR_REGNUM);            \
-  fun = gen_rtx_SYMBOL_REF (Pmode, MCOUNT_NAME);               \
-  emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lr, Pmode); \
-}
+#define PROFILE_HOOK(LABEL)						\
+  {									\
+    rtx fun, lr;							\
+    lr = get_hard_reg_initial_val (Pmode, LR_REGNUM);			\
+    fun = gen_rtx_SYMBOL_REF (Pmode, MCOUNT_NAME);			\
+    emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lr, Pmode);	\
+  }
 
 /* All the work done in PROFILE_HOOK, but still required.  */
 #define FUNCTION_PROFILER(STREAM, LABELNO) do { } while (0)
@@ -853,5 +857,23 @@ extern enum aarch64_code_model aarch64_cmodel;
 #define AARCH64_VALID_SIMD_QREG_MODE(MODE) \
   ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
    || (MODE) == V4SFmode || (MODE) == V2DImode || mode == V2DFmode)
+
+#define ENDIAN_LANE_N(mode, n)  \
+  (BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (mode) - 1 - n : n)
+
+#define BIG_LITTLE_SPEC \
+   " %{mcpu=*:%<mcpu=* -mcpu=%:rewrite_mcpu(%{mcpu=*:%*})}"
+
+extern const char *aarch64_rewrite_mcpu (int argc, const char **argv);
+#define BIG_LITTLE_CPU_SPEC_FUNCTIONS \
+  { "rewrite_mcpu", aarch64_rewrite_mcpu },
+
+#define ASM_CPU_SPEC \
+   BIG_LITTLE_SPEC
+
+#define EXTRA_SPEC_FUNCTIONS BIG_LITTLE_CPU_SPEC_FUNCTIONS
+
+#define EXTRA_SPECS						\
+  { "asm_cpu_spec",		ASM_CPU_SPEC }
 
 #endif /* GCC_AARCH64_H */

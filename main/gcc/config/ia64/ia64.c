@@ -25,6 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -49,7 +53,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hash-table.h"
 #include "langhooks.h"
+#include "pointer-set.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "intl.h"
 #include "df.h"
 #include "debug.h"
@@ -620,6 +634,8 @@ static const struct attribute_spec ia64_attribute_table[] =
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT ia64_trampoline_init
 
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 #undef TARGET_INVALID_WITHIN_DOLOOP
 #define TARGET_INVALID_WITHIN_DOLOOP hook_constcharptr_const_rtx_null
 
@@ -1522,7 +1538,9 @@ ia64_split_tmode_move (rtx operands[])
      the value it points to.  In that case we have to do the loads in
      the appropriate order so that the pointer is not destroyed too
      early.  Also we must not generate a postmodify for that second
-     load, or rws_access_regno will die.  */
+     load, or rws_access_regno will die.  And we must not generate a
+     postmodify for the second load if the destination register 
+     overlaps with the base register.  */
   if (GET_CODE (operands[1]) == MEM
       && reg_overlap_mentioned_p (operands[0], operands[1]))
     {
@@ -1532,7 +1550,11 @@ ia64_split_tmode_move (rtx operands[])
 
       if (REGNO (base) == REGNO (operands[0]))
 	reversed = true;
-      dead = true;
+
+      if (refers_to_regno_p (REGNO (operands[0]),
+			     REGNO (operands[0])+2,
+			     base, 0))
+	dead = true;
     }
   /* Another reason to do the moves in reversed order is if the first
      element of the target register pair is also the second element of
@@ -3206,61 +3228,54 @@ gen_fr_restore_x (rtx dest, rtx src, rtx offset ATTRIBUTE_UNUSED)
 #define BACKING_STORE_SIZE(N) ((N) > 0 ? ((N) + (N)/63 + 1) * 8 : 0)
 
 /* Emit code to probe a range of stack addresses from FIRST to FIRST+SIZE,
-   inclusive.  These are offsets from the current stack pointer.  SOL is the
-   size of local registers.  ??? This clobbers r2 and r3.  */
+   inclusive.  These are offsets from the current stack pointer.  BS_SIZE
+   is the size of the backing store.  ??? This clobbers r2 and r3.  */
 
 static void
-ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size, int sol)
+ia64_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
+			     int bs_size)
 {
- /* On the IA-64 there is a second stack in memory, namely the Backing Store
-    of the Register Stack Engine.  We also need to probe it after checking
-    that the 2 stacks don't overlap.  */
-  const int bs_size = BACKING_STORE_SIZE (sol);
   rtx r2 = gen_rtx_REG (Pmode, GR_REG (2));
   rtx r3 = gen_rtx_REG (Pmode, GR_REG (3));
+  rtx p6 = gen_rtx_REG (BImode, PR_REG (6));
 
-  /* Detect collision of the 2 stacks if necessary.  */
-  if (bs_size > 0 || size > 0)
-    {
-      rtx p6 = gen_rtx_REG (BImode, PR_REG (6));
+  /* On the IA-64 there is a second stack in memory, namely the Backing Store
+     of the Register Stack Engine.  We also need to probe it after checking
+     that the 2 stacks don't overlap.  */
+  emit_insn (gen_bsp_value (r3));
+  emit_move_insn (r2, GEN_INT (-(first + size)));
 
-      emit_insn (gen_bsp_value (r3));
-      emit_move_insn (r2, GEN_INT (-(first + size)));
+  /* Compare current value of BSP and SP registers.  */
+  emit_insn (gen_rtx_SET (VOIDmode, p6,
+			  gen_rtx_fmt_ee (LTU, BImode,
+					  r3, stack_pointer_rtx)));
 
-      /* Compare current value of BSP and SP registers.  */
-      emit_insn (gen_rtx_SET (VOIDmode, p6,
-			      gen_rtx_fmt_ee (LTU, BImode,
-					      r3, stack_pointer_rtx)));
+  /* Compute the address of the probe for the Backing Store (which grows
+     towards higher addresses).  We probe only at the first offset of
+     the next page because some OS (eg Linux/ia64) only extend the
+     backing store when this specific address is hit (but generate a SEGV
+     on other address).  Page size is the worst case (4KB).  The reserve
+     size is at least 4096 - (96 + 2) * 8 = 3312 bytes, which is enough.
+     Also compute the address of the last probe for the memory stack
+     (which grows towards lower addresses).  */
+  emit_insn (gen_rtx_SET (VOIDmode, r3, plus_constant (Pmode, r3, 4095)));
+  emit_insn (gen_rtx_SET (VOIDmode, r2,
+			  gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
 
-      /* Compute the address of the probe for the Backing Store (which grows
-	 towards higher addresses).  We probe only at the first offset of
-	 the next page because some OS (eg Linux/ia64) only extend the
-	 backing store when this specific address is hit (but generate a SEGV
-	 on other address).  Page size is the worst case (4KB).  The reserve
-	 size is at least 4096 - (96 + 2) * 8 = 3312 bytes, which is enough.
-	 Also compute the address of the last probe for the memory stack
-	 (which grows towards lower addresses).  */
-      emit_insn (gen_rtx_SET (VOIDmode, r3, plus_constant (Pmode, r3, 4095)));
-      emit_insn (gen_rtx_SET (VOIDmode, r2,
-			      gen_rtx_PLUS (Pmode, stack_pointer_rtx, r2)));
-
-      /* Compare them and raise SEGV if the former has topped the latter.  */
-      emit_insn (gen_rtx_COND_EXEC (VOIDmode,
-				    gen_rtx_fmt_ee (NE, VOIDmode, p6,
-						    const0_rtx),
-				    gen_rtx_SET (VOIDmode, p6,
-						 gen_rtx_fmt_ee (GEU, BImode,
-								 r3, r2))));
-      emit_insn (gen_rtx_SET (VOIDmode,
-			      gen_rtx_ZERO_EXTRACT (DImode, r3, GEN_INT (12),
-						    const0_rtx),
-			      const0_rtx));
-      emit_insn (gen_rtx_COND_EXEC (VOIDmode,
-				    gen_rtx_fmt_ee (NE, VOIDmode, p6,
-						    const0_rtx),
-				    gen_rtx_TRAP_IF (VOIDmode, const1_rtx,
-						     GEN_INT (11))));
-    }
+  /* Compare them and raise SEGV if the former has topped the latter.  */
+  emit_insn (gen_rtx_COND_EXEC (VOIDmode,
+				gen_rtx_fmt_ee (NE, VOIDmode, p6, const0_rtx),
+				gen_rtx_SET (VOIDmode, p6,
+					     gen_rtx_fmt_ee (GEU, BImode,
+							     r3, r2))));
+  emit_insn (gen_rtx_SET (VOIDmode,
+			  gen_rtx_ZERO_EXTRACT (DImode, r3, GEN_INT (12),
+						const0_rtx),
+			  const0_rtx));
+  emit_insn (gen_rtx_COND_EXEC (VOIDmode,
+				gen_rtx_fmt_ee (NE, VOIDmode, p6, const0_rtx),
+				gen_rtx_TRAP_IF (VOIDmode, const1_rtx,
+						 GEN_INT (11))));
 
   /* Probe the Backing Store if necessary.  */
   if (bs_size > 0)
@@ -3444,10 +3459,23 @@ ia64_expand_prologue (void)
     current_function_static_stack_size = current_frame_info.total_size;
 
   if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
-    ia64_emit_probe_stack_range (STACK_CHECK_PROTECT,
-				 current_frame_info.total_size,
-				 current_frame_info.n_input_regs
-				   + current_frame_info.n_local_regs);
+    {
+      HOST_WIDE_INT size = current_frame_info.total_size;
+      int bs_size = BACKING_STORE_SIZE (current_frame_info.n_input_regs
+					  + current_frame_info.n_local_regs);
+
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    ia64_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					 size - STACK_CHECK_PROTECT,
+					 bs_size);
+	  else if (size + bs_size > STACK_CHECK_PROTECT)
+	    ia64_emit_probe_stack_range (STACK_CHECK_PROTECT, 0, bs_size);
+	}
+      else if (size + bs_size > 0)
+	ia64_emit_probe_stack_range (STACK_CHECK_PROTECT, size, bs_size);
+    }
 
   if (dump_file) 
     {
@@ -3473,7 +3501,7 @@ ia64_expand_prologue (void)
       edge e;
       edge_iterator ei;
 
-      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	if ((e->flags & EDGE_FAKE) == 0
 	    && (e->flags & EDGE_FALLTHRU) != 0)
 	  break;
@@ -7131,7 +7159,9 @@ ia64_single_set (rtx insn)
   switch (recog_memoized (insn))
     {
     case CODE_FOR_prologue_allocate_stack:
+    case CODE_FOR_prologue_allocate_stack_pr:
     case CODE_FOR_epilogue_deallocate_stack:
+    case CODE_FOR_epilogue_deallocate_stack_pr:
       ret = XVECEXP (x, 0, 0);
       break;
 
@@ -9583,7 +9613,7 @@ emit_predicate_relation_info (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       int r;
       rtx head = BB_HEAD (bb);
@@ -9611,7 +9641,7 @@ emit_predicate_relation_info (void)
      relations around them.  Otherwise the assembler will assume the call
      returns, and complain about uses of call-clobbered predicates after
      the call.  */
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       rtx insn = BB_HEAD (bb);
 
@@ -9658,7 +9688,7 @@ ia64_reorg (void)
 
       /* We can't let modulo-sched prevent us from scheduling any bbs,
 	 since we need the final schedule to produce bundle information.  */
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	bb->flags &= ~BB_DISABLE_SCHEDULE;
 
       initiate_bundle_states ();
@@ -10168,7 +10198,8 @@ ia64_asm_unwind_emit (FILE *asm_out_file, rtx insn)
 
   if (NOTE_INSN_BASIC_BLOCK_P (insn))
     {
-      last_block = NOTE_BASIC_BLOCK (insn)->next_bb == EXIT_BLOCK_PTR;
+      last_block = NOTE_BASIC_BLOCK (insn)->next_bb
+     == EXIT_BLOCK_PTR_FOR_FN (cfun);
 
       /* Restore unwind state from immediately before the epilogue.  */
       if (need_copy_state)

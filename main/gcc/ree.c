@@ -835,7 +835,7 @@ find_removable_extensions (void)
   rtx insn, set;
   unsigned *def_map = XCNEWVEC (unsigned, max_insn_uid);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       {
 	if (!NONDEBUG_INSN_P (insn))
@@ -862,7 +862,7 @@ find_and_remove_re (void)
   rtx curr_insn = NULL_RTX;
   int num_re_opportunities = 0, num_realized = 0, i;
   vec<ext_cand> reinsn_list;
-  vec<rtx> reinsn_del_list;
+  auto_vec<rtx> reinsn_del_list;
   ext_state state;
 
   /* Construct DU chain to get all reaching definitions of each
@@ -873,7 +873,6 @@ find_and_remove_re (void)
   df_set_flags (DF_DEFER_INSN_RESCAN);
 
   max_insn_uid = get_max_uid ();
-  reinsn_del_list.create (0);
   reinsn_list = find_removable_extensions ();
   state.defs_list.create (0);
   state.copies_list.create (0);
@@ -910,7 +909,6 @@ find_and_remove_re (void)
     delete_insn (curr_insn);
 
   reinsn_list.release ();
-  reinsn_del_list.release ();
   state.defs_list.release ();
   state.copies_list.release ();
   state.modified_list.release ();

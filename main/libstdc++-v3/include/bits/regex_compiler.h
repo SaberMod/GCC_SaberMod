@@ -39,32 +39,32 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @{
    */
 
-  template<typename _CharT, typename _TraitsT>
+  template<typename _TraitsT>
     struct _BracketMatcher;
 
   /// Builds an NFA from an input iterator interval.
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     class _Compiler
     {
     public:
       typedef typename _TraitsT::string_type      _StringT;
-      typedef _NFA<_CharT, _TraitsT>              _RegexT;
+      typedef _NFA<_TraitsT>              	  _RegexT;
       typedef regex_constants::syntax_option_type _FlagT;
 
       _Compiler(_FwdIter __b, _FwdIter __e,
 		const _TraitsT& __traits, _FlagT __flags);
 
       std::shared_ptr<_RegexT>
-      _M_get_nfa() const
-      { return make_shared<_RegexT>(_M_nfa); }
+      _M_get_nfa()
+      { return make_shared<_RegexT>(std::move(_M_nfa)); }
 
     private:
       typedef _Scanner<_FwdIter>                              _ScannerT;
       typedef typename _ScannerT::_TokenT                     _TokenT;
-      typedef _StateSeq<_CharT, _TraitsT>                     _StateSeqT;
+      typedef _StateSeq<_TraitsT>                     	      _StateSeqT;
       typedef std::stack<_StateSeqT, std::vector<_StateSeqT>> _StackT;
-      typedef _BracketMatcher<_CharT, _TraitsT>               _BMatcherT;
-      typedef std::ctype<_CharT>                              _CtypeT;
+      typedef _BracketMatcher<_TraitsT>			      _BMatcherT;
+      typedef std::ctype<typename _TraitsT::char_type>        _CtypeT;
 
       // accepts a specific token or returns false.
       bool
@@ -129,9 +129,67 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _StackT         _M_stack;
     };
 
-  template<typename _CharT, typename _TraitsT>
+  template<typename _Tp>
+    struct __has_contiguous_iter : std::false_type { };
+
+  template<typename _Ch, typename _Tr, typename _Alloc>
+    struct __has_contiguous_iter<std::basic_string<_Ch, _Tr, _Alloc>>
+    : std::true_type  // string<Ch> storage is contiguous
+    { };
+
+  template<typename _Tp, typename _Alloc>
+    struct __has_contiguous_iter<std::vector<_Tp, _Alloc>>
+    : std::true_type  // vector<Tp> storage is contiguous
+    { };
+
+  template<typename _Alloc>
+    struct __has_contiguous_iter<std::vector<bool, _Alloc>>
+    : std::false_type // vector<bool> storage is not contiguous
+    { };
+
+  template<typename _Tp>
+    struct __is_contiguous_normal_iter : std::false_type { };
+
+  template<typename _Tp, typename _Cont>
+    struct
+    __is_contiguous_normal_iter<__gnu_cxx::__normal_iterator<_Tp, _Cont>>
+    : __has_contiguous_iter<_Cont>::type
+    { };
+
+  template<typename _Iter, typename _TraitsT>
+    using __enable_if_contiguous_normal_iter
+      = typename enable_if< __is_contiguous_normal_iter<_Iter>::value,
+			    std::shared_ptr<_NFA<_TraitsT>> >::type;
+
+  template<typename _Iter, typename _TraitsT>
+    using __disable_if_contiguous_normal_iter
+      = typename enable_if< !__is_contiguous_normal_iter<_Iter>::value,
+			    std::shared_ptr<_NFA<_TraitsT>> >::type;
+
+  template<typename _FwdIter, typename _TraitsT>
+    inline __disable_if_contiguous_normal_iter<_FwdIter, _TraitsT>
+    __compile_nfa(_FwdIter __first, _FwdIter __last, const _TraitsT& __traits,
+		  regex_constants::syntax_option_type __flags)
+    {
+      using _Cmplr = _Compiler<_FwdIter, _TraitsT>;
+      return _Cmplr(__first, __last, __traits, __flags)._M_get_nfa();
+    }
+
+  template<typename _Iter, typename _TraitsT>
+    inline __enable_if_contiguous_normal_iter<_Iter, _TraitsT>
+    __compile_nfa(_Iter __first, _Iter __last, const _TraitsT& __traits,
+		  regex_constants::syntax_option_type __flags)
+    {
+      size_t __len = __last - __first;
+      const auto* __cfirst = __len ? std::__addressof(*__first) : nullptr;
+      return __compile_nfa(__cfirst, __cfirst + __len, __traits, __flags);
+    }
+
+  template<typename _TraitsT>
     struct _AnyMatcher
     {
+      typedef typename _TraitsT::char_type	  _CharT;
+
       explicit
       _AnyMatcher(const _TraitsT& __traits)
       : _M_traits(__traits)
@@ -149,14 +207,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const _TraitsT& _M_traits;
     };
 
-  template<typename _CharT, typename _TraitsT>
+  template<typename _TraitsT>
     struct _CharMatcher
     {
+      typedef typename _TraitsT::char_type	  _CharT;
       typedef regex_constants::syntax_option_type _FlagT;
 
       explicit
       _CharMatcher(_CharT __ch, const _TraitsT& __traits, _FlagT __flags)
-      : _M_ch(_M_translate(__ch)), _M_traits(__traits), _M_flags(__flags)
+      : _M_traits(__traits), _M_flags(__flags), _M_ch(_M_translate(__ch))
       { }
 
       bool
@@ -178,9 +237,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
 
   /// Matches a character range (bracket expression)
-  template<typename _CharT, typename _TraitsT>
+  // TODO: Convert used _M_flags fields to template parameters, including
+  // collate and icase. Avoid using std::set, could use flat_set
+  // (sorted vector and binary search) instead; use an fixed sized (256)
+  // vector<bool> for char specialization if necessary.
+  template<typename _TraitsT>
     struct _BracketMatcher
     {
+      typedef typename _TraitsT::char_type	  _CharT;
       typedef typename _TraitsT::char_class_type  _CharClassT;
       typedef typename _TraitsT::string_type      _StringT;
       typedef regex_constants::syntax_option_type _FlagT;
@@ -189,8 +253,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _BracketMatcher(bool __is_non_matching,
 		      const _TraitsT& __traits,
 		      _FlagT __flags)
-      : _M_is_non_matching(__is_non_matching), _M_traits(__traits),
-	_M_flags(__flags), _M_class_set(0)
+      : _M_traits(__traits), _M_class_set(0), _M_flags(__flags),
+      _M_is_non_matching(__is_non_matching)
       { }
 
       bool
@@ -213,19 +277,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_add_equivalence_class(const _StringT& __s)
       {
-	_M_add_character_class(
-	  _M_traits.transform_primary(__s.data(),
-				      __s.data() + __s.size()));
+	auto __st = _M_traits.lookup_collatename(__s.data(),
+						 __s.data() + __s.size());
+	if (__st.empty())
+	  __throw_regex_error(regex_constants::error_collate);
+	__st = _M_traits.transform_primary(__st.data(),
+					   __st.data() + __st.size());
+	_M_equiv_set.insert(__st);
       }
 
       void
       _M_add_character_class(const _StringT& __s)
       {
-	auto __st = _M_traits.
-	  lookup_classname(__s.data(), __s.data() + __s.size(), _M_is_icase());
-	if (__st == 0)
+	auto __mask = _M_traits.lookup_classname(__s.data(),
+						 __s.data() + __s.size(),
+						 _M_is_icase());
+	if (__mask == 0)
 	  __throw_regex_error(regex_constants::error_ctype);
-	_M_class_set |= __st;
+	_M_class_set |= __mask;
       }
 
       void
@@ -260,6 +329,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       std::set<_CharT>                   _M_char_set;
+      std::set<_StringT>                 _M_equiv_set;
       std::set<pair<_StringT, _StringT>> _M_range_set;
       const _TraitsT&                    _M_traits;
       _CharClassT                        _M_class_set;

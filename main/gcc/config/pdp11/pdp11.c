@@ -33,6 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "recog.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
@@ -40,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "df.h"
 #include "opts.h"
+#include "dbxout.h"
 
 /* this is the current value returned by the macro FIRST_PARM_OFFSET 
    defined in tm.h */

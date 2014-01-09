@@ -118,7 +118,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "vtable-verify.h"
-#include "gimple.h"
+#include "gimplify.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 
 static int num_calls_to_regset = 0;
 static int num_calls_to_regpair = 0;
@@ -256,6 +258,7 @@ init_functions (void)
   DECL_ATTRIBUTES (vlt_register_set_fndecl) =
                     tree_cons (get_identifier ("leaf"), NULL,
                                DECL_ATTRIBUTES (vlt_register_set_fndecl));
+  DECL_EXTERNAL(vlt_register_set_fndecl) = 1;
   TREE_PUBLIC (vlt_register_set_fndecl) = 1;
   DECL_PRESERVE_P (vlt_register_set_fndecl) = 1;
   SET_DECL_LANGUAGE (vlt_register_set_fndecl, lang_cplusplus);
@@ -299,6 +302,7 @@ init_functions (void)
   DECL_ATTRIBUTES (vlt_register_pairs_fndecl) =
                     tree_cons (get_identifier ("leaf"), NULL,
                                DECL_ATTRIBUTES (vlt_register_pairs_fndecl));
+  DECL_EXTERNAL(vlt_register_pairs_fndecl) = 1;
   TREE_PUBLIC (vlt_register_pairs_fndecl) = 1;
   DECL_PRESERVE_P (vlt_register_pairs_fndecl) = 1;
   SET_DECL_LANGUAGE (vlt_register_pairs_fndecl, lang_cplusplus);

@@ -74,6 +74,11 @@
   UNSPEC_STORE_LEFT
   UNSPEC_STORE_RIGHT
 
+  ;; Integer operations that are too cumbersome to describe directly.
+  UNSPEC_WSBH
+  UNSPEC_DSBH
+  UNSPEC_DSHD
+
   ;; Floating-point moves.
   UNSPEC_LOAD_LOW
   UNSPEC_LOAD_HIGH
@@ -875,15 +880,6 @@
 ;; can be used.
 (define_mode_attr sqrt_condition
   [(SF "!ISA_MIPS1") (DF "!ISA_MIPS1") (V2SF "TARGET_SB1")])
-
-;; This attribute gives the conditions under which RECIP.fmt and RSQRT.fmt
-;; instructions can be used.  The MIPS32 and MIPS64 ISAs say that RECIP.D
-;; and RSQRT.D are unpredictable when doubles are stored in pairs of FPRs,
-;; so for safety's sake, we apply this restriction to all targets.
-(define_mode_attr recip_condition
-  [(SF "ISA_HAS_FP4")
-   (DF "ISA_HAS_FP4 && TARGET_FLOAT64")
-   (V2SF "TARGET_SB1")])
 
 ;; This code iterator allows signed and unsigned widening multiplications
 ;; to use the same template.
@@ -2496,7 +2492,8 @@
   "<divide_condition>"
 {
   if (const_1_operand (operands[1], <MODE>mode))
-    if (!(<recip_condition> && flag_unsafe_math_optimizations))
+    if (!(ISA_HAS_FP_RECIP_RSQRT (<MODE>mode)
+	  && flag_unsafe_math_optimizations))
       operands[1] = force_reg (<MODE>mode, operands[1]);
 })
 
@@ -2534,7 +2531,7 @@
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(div:ANYF (match_operand:ANYF 1 "const_1_operand" "")
 		  (match_operand:ANYF 2 "register_operand" "f")))]
-  "<recip_condition> && flag_unsafe_math_optimizations"
+  "ISA_HAS_FP_RECIP_RSQRT (<MODE>mode) && flag_unsafe_math_optimizations"
 {
   if (TARGET_FIX_SB1)
     return "recip.<fmt>\t%0,%2\;mov.<fmt>\t%0,%0";
@@ -2669,7 +2666,7 @@
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(div:ANYF (match_operand:ANYF 1 "const_1_operand" "")
 		  (sqrt:ANYF (match_operand:ANYF 2 "register_operand" "f"))))]
-  "<recip_condition> && flag_unsafe_math_optimizations"
+  "ISA_HAS_FP_RECIP_RSQRT (<MODE>mode) && flag_unsafe_math_optimizations"
 {
   if (TARGET_FIX_SB1)
     return "rsqrt.<fmt>\t%0,%2\;mov.<fmt>\t%0,%0";
@@ -2687,7 +2684,7 @@
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(sqrt:ANYF (div:ANYF (match_operand:ANYF 1 "const_1_operand" "")
 			     (match_operand:ANYF 2 "register_operand" "f"))))]
-  "<recip_condition> && flag_unsafe_math_optimizations"
+  "ISA_HAS_FP_RECIP_RSQRT (<MODE>mode) && flag_unsafe_math_optimizations"
 {
   if (TARGET_FIX_SB1)
     return "rsqrt.<fmt>\t%0,%2\;mov.<fmt>\t%0,%0";
@@ -4443,7 +4440,7 @@
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(mem:ANYF (plus:P (match_operand:P 1 "register_operand" "d")
 			  (match_operand:P 2 "register_operand" "d"))))]
-  "ISA_HAS_FP4"
+  "ISA_HAS_LXC1_SXC1"
   "<ANYF:loadx>\t%0,%1(%2)"
   [(set_attr "type" "fpidxload")
    (set_attr "mode" "<ANYF:UNITMODE>")])
@@ -4452,7 +4449,7 @@
   [(set (mem:ANYF (plus:P (match_operand:P 1 "register_operand" "d")
 			  (match_operand:P 2 "register_operand" "d")))
 	(match_operand:ANYF 0 "register_operand" "f"))]
-  "ISA_HAS_FP4"
+  "ISA_HAS_LXC1_SXC1"
   "<ANYF:storex>\t%0,%1(%2)"
   [(set_attr "type" "fpidxstore")
    (set_attr "mode" "<ANYF:UNITMODE>")])
@@ -5358,6 +5355,56 @@
 }
   [(set_attr "type" "shift")
    (set_attr "mode" "<MODE>")])
+
+(define_insn "bswaphi2"
+  [(set (match_operand:HI 0 "register_operand" "=d")
+	(bswap:HI (match_operand:HI 1 "register_operand" "d")))]
+  "ISA_HAS_WSBH"
+  "wsbh\t%0,%1"
+  [(set_attr "type" "shift")])
+
+(define_insn_and_split "bswapsi2"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(bswap:SI (match_operand:SI 1 "register_operand" "d")))]
+  "ISA_HAS_WSBH && ISA_HAS_ROR"
+  "#"
+  ""
+  [(set (match_dup 0) (unspec:SI [(match_dup 1)] UNSPEC_WSBH))
+   (set (match_dup 0) (rotatert:SI (match_dup 0) (const_int 16)))]
+  ""
+  [(set_attr "insn_count" "2")])
+
+(define_insn_and_split "bswapdi2"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(bswap:DI (match_operand:DI 1 "register_operand" "d")))]
+  "TARGET_64BIT && ISA_HAS_WSBH"
+  "#"
+  ""
+  [(set (match_dup 0) (unspec:DI [(match_dup 1)] UNSPEC_DSBH))
+   (set (match_dup 0) (unspec:DI [(match_dup 0)] UNSPEC_DSHD))]
+  ""
+  [(set_attr "insn_count" "2")])
+
+(define_insn "wsbh"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:SI 1 "register_operand" "d")] UNSPEC_WSBH))]
+  "ISA_HAS_WSBH"
+  "wsbh\t%0,%1"
+  [(set_attr "type" "shift")])
+
+(define_insn "dsbh"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "d")] UNSPEC_DSBH))]
+  "TARGET_64BIT && ISA_HAS_WSBH"
+  "dsbh\t%0,%1"
+  [(set_attr "type" "shift")])
+
+(define_insn "dshd"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(unspec:DI [(match_operand:DI 1 "register_operand" "d")] UNSPEC_DSHD))]
+  "TARGET_64BIT && ISA_HAS_WSBH"
+  "dshd\t%0,%1"
+  [(set_attr "type" "shift")])
 
 ;;
 ;;  ....................
@@ -6721,7 +6768,7 @@
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(if_then_else:GPR
-	 (match_operator:MOVECC 4 "equality_operator"
+	 (match_operator 4 "equality_operator"
 		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>")
 		 (const_int 0)])
 	 (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
@@ -6733,10 +6780,23 @@
   [(set_attr "type" "condmove")
    (set_attr "mode" "<GPR:MODE>")])
 
+(define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+       (if_then_else:GPR
+        (match_operand:GPR2 1 "register_operand" "<GPR2:reg>,<GPR2:reg>")
+        (match_operand:GPR 2 "reg_or_0_operand" "dJ,0")
+        (match_operand:GPR 3 "reg_or_0_operand" "0,dJ")))]
+  "ISA_HAS_CONDMOVE"
+  "@
+    movn\t%0,%z2,%1
+    movz\t%0,%z3,%1"
+  [(set_attr "type" "condmove")
+   (set_attr "mode" "<GPR:MODE>")])
+
 (define_insn "*mov<SCALARF:mode>_on_<MOVECC:mode>"
   [(set (match_operand:SCALARF 0 "register_operand" "=f,f")
 	(if_then_else:SCALARF
-	 (match_operator:MOVECC 4 "equality_operator"
+	 (match_operator 4 "equality_operator"
 		[(match_operand:MOVECC 1 "register_operand" "<MOVECC:reg>,<MOVECC:reg>")
 		 (const_int 0)])
 	 (match_operand:SCALARF 2 "register_operand" "f,0")

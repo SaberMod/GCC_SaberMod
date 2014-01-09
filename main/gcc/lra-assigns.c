@@ -612,7 +612,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 		&& ! df_regs_ever_live_p (hard_regno + j))
 	      /* It needs save restore.	 */
 	      hard_regno_costs[hard_regno]
-		+= 2 * ENTRY_BLOCK_PTR->next_bb->frequency + 1;
+		+= 2 * ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->frequency + 1;
 	  priority = targetm.register_priority (hard_regno);
 	  if (best_hard_regno < 0 || hard_regno_costs[hard_regno] < best_cost
 	      || (hard_regno_costs[hard_regno] == best_cost
@@ -1302,7 +1302,7 @@ assign_by_spills (void)
 
       /* FIXME: Look up the changed insns in the cached LRA insn data using
 	 an EXECUTE_IF_SET_IN_BITMAP over changed_insns.  */
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	FOR_BB_INSNS (bb, insn)
 	if (bitmap_bit_p (&changed_insns, INSN_UID (insn)))
 	  {

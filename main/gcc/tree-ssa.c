@@ -22,24 +22,39 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "target.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "bitmap.h"
 #include "pointer-set.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "l-ipo.h"
 #include "cfgloop.h"
+#include "cfgexpand.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
 static struct pointer_map_t *edge_var_maps;
@@ -231,100 +246,6 @@ flush_pending_stmts (edge e)
 
   redirect_edge_var_map_clear (e);
 }
-
-
-/* Data structure used to count the number of dereferences to PTR
-   inside an expression.  */
-struct count_ptr_d
-{
-  tree ptr;
-  unsigned num_stores;
-  unsigned num_loads;
-};
-
-
-/* Helper for count_uses_and_derefs.  Called by walk_tree to look for
-   (ALIGN/MISALIGNED_)INDIRECT_REF nodes for the pointer passed in DATA.  */
-
-static tree
-count_ptr_derefs (tree *tp, int *walk_subtrees, void *data)
-{
-  struct walk_stmt_info *wi_p = (struct walk_stmt_info *) data;
-  struct count_ptr_d *count_p = (struct count_ptr_d *) wi_p->info;
-
-  /* Do not walk inside ADDR_EXPR nodes.  In the expression &ptr->fld,
-     pointer 'ptr' is *not* dereferenced, it is simply used to compute
-     the address of 'fld' as 'ptr + offsetof(fld)'.  */
-  if (TREE_CODE (*tp) == ADDR_EXPR)
-    {
-      *walk_subtrees = 0;
-      return NULL_TREE;
-    }
-
-  if (TREE_CODE (*tp) == MEM_REF && TREE_OPERAND (*tp, 0) == count_p->ptr)
-    {
-      if (wi_p->is_lhs)
-	count_p->num_stores++;
-      else
-	count_p->num_loads++;
-    }
-
-  return NULL_TREE;
-}
-
-
-/* Count the number of direct and indirect uses for pointer PTR in
-   statement STMT.  The number of direct uses is stored in
-   *NUM_USES_P.  Indirect references are counted separately depending
-   on whether they are store or load operations.  The counts are
-   stored in *NUM_STORES_P and *NUM_LOADS_P.  */
-
-void
-count_uses_and_derefs (tree ptr, gimple stmt, unsigned *num_uses_p,
-		       unsigned *num_loads_p, unsigned *num_stores_p)
-{
-  ssa_op_iter i;
-  tree use;
-
-  *num_uses_p = 0;
-  *num_loads_p = 0;
-  *num_stores_p = 0;
-
-  /* Find out the total number of uses of PTR in STMT.  */
-  FOR_EACH_SSA_TREE_OPERAND (use, stmt, i, SSA_OP_USE)
-    if (use == ptr)
-      (*num_uses_p)++;
-
-  /* Now count the number of indirect references to PTR.  This is
-     truly awful, but we don't have much choice.  There are no parent
-     pointers inside INDIRECT_REFs, so an expression like
-     '*x_1 = foo (x_1, *x_1)' needs to be traversed piece by piece to
-     find all the indirect and direct uses of x_1 inside.  The only
-     shortcut we can take is the fact that GIMPLE only allows
-     INDIRECT_REFs inside the expressions below.  */
-  if (is_gimple_assign (stmt)
-      || gimple_code (stmt) == GIMPLE_RETURN
-      || gimple_code (stmt) == GIMPLE_ASM
-      || is_gimple_call (stmt))
-    {
-      struct walk_stmt_info wi;
-      struct count_ptr_d count;
-
-      count.ptr = ptr;
-      count.num_stores = 0;
-      count.num_loads = 0;
-
-      memset (&wi, 0, sizeof (wi));
-      wi.info = &count;
-      walk_gimple_op (stmt, count_ptr_derefs, &wi);
-
-      *num_stores_p = count.num_stores;
-      *num_loads_p = count.num_loads;
-    }
-
-  gcc_assert (*num_uses_p >= *num_loads_p + *num_stores_p);
-}
-
 
 /* Replace the LHS of STMT, an assignment, either a GIMPLE_ASSIGN or a
    GIMPLE_CALL, with NLHS, in preparation for modifying the RHS to an
@@ -1079,7 +1000,7 @@ verify_ssa (bool check_modified_stmt)
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       gimple phi;
@@ -1122,7 +1043,7 @@ verify_ssa (bool check_modified_stmt)
 	      goto err;
 	    }
 
-	  if (verify_ssa_operands (stmt))
+	  if (verify_ssa_operands (cfun, stmt))
 	    {
 	      print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
 	      goto err;
@@ -1275,7 +1196,7 @@ delete_tree_ssa (void)
 
   /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active (cfun))
-    fini_ssa_operands ();
+    fini_ssa_operands (cfun);
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
@@ -1536,7 +1457,7 @@ execute_update_addresses_taken (void)
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
      the function body.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -1638,7 +1559,7 @@ execute_update_addresses_taken (void)
      variables and operands need to be rewritten to expose bare symbols.  */
   if (!bitmap_empty_p (suitable_for_renaming))
     {
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
 	    gimple stmt = gsi_stmt (gsi);

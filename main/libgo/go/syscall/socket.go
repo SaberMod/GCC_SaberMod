@@ -25,7 +25,7 @@ type RawSockaddrAny struct {
 	Pad  [96]int8
 }
 
-const SizeofSockaddrAny = 0x1c
+const SizeofSockaddrAny = 0x6c
 
 type SockaddrInet4 struct {
 	Port int
@@ -270,6 +270,10 @@ func SetsockoptInet4Addr(fd, level, opt int, value [4]byte) (err error) {
 
 func SetsockoptTimeval(fd, level, opt int, tv *Timeval) (err error) {
 	return setsockopt(fd, level, opt, (*byte)(unsafe.Pointer(tv)), Socklen_t(unsafe.Sizeof(*tv)))
+}
+
+func SetsockoptICMPv6Filter(fd, level, opt int, filter *ICMPv6Filter) error {
+	return setsockopt(fd, level, opt, (*byte)(unsafe.Pointer(filter)), SizeofICMPv6Filter)
 }
 
 type Linger struct {

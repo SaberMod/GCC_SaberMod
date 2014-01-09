@@ -744,6 +744,8 @@ Parse::signature(Typed_identifier* receiver, Location location)
     return NULL;
 
   Parse::Names names;
+  if (receiver != NULL)
+    names[receiver->name()] = receiver;
   if (params != NULL)
     this->check_signature_names(params, &names);
   if (results != NULL)
@@ -2690,15 +2692,17 @@ Parse::composite_lit(Type* type, int depth, Location location)
     {
       this->advance_token();
       return Expression::make_composite_literal(type, depth, false, NULL,
-						location);
+						false, location);
     }
 
   bool has_keys = false;
+  bool all_are_names = true;
   Expression_list* vals = new Expression_list;
   while (true)
     {
       Expression* val;
       bool is_type_omitted = false;
+      bool is_name = false;
 
       const Token* token = this->peek_token();
 
@@ -2719,6 +2723,7 @@ Parse::composite_lit(Type* type, int depth, Location location)
 	      val = this->id_to_expression(gogo->pack_hidden_name(identifier,
 								  is_exported),
 					   location);
+	      is_name = true;
 	    }
 	  else
 	    {
@@ -2744,6 +2749,7 @@ Parse::composite_lit(Type* type, int depth, Location location)
 	{
 	  if (has_keys)
 	    vals->push_back(NULL);
+	  is_name = false;
 	}
       else
 	{
@@ -2790,6 +2796,9 @@ Parse::composite_lit(Type* type, int depth, Location location)
 
       vals->push_back(val);
 
+      if (!is_name)
+	all_are_names = false;
+
       if (token->is_op(OPERATOR_COMMA))
 	{
 	  if (this->advance_token()->is_op(OPERATOR_RCURLY))
@@ -2830,7 +2839,7 @@ Parse::composite_lit(Type* type, int depth, Location location)
     }
 
   return Expression::make_composite_literal(type, depth, has_keys, vals,
-					    location);
+					    all_are_names, location);
 }
 
 // FunctionLit = "func" Signature Block .
@@ -3143,7 +3152,7 @@ Parse::selector(Expression* left, bool* is_type_switch)
 }
 
 // Index          = "[" Expression "]" .
-// Slice          = "[" Expression ":" [ Expression ] "]" .
+// Slice          = "[" Expression ":" [ Expression ] [ ":" Expression ] "]" .
 
 Expression*
 Parse::index(Expression* expr)
@@ -3169,14 +3178,31 @@ Parse::index(Expression* expr)
       // We use nil to indicate a missing high expression.
       if (this->advance_token()->is_op(OPERATOR_RSQUARE))
 	end = Expression::make_nil(this->location());
+      else if (this->peek_token()->is_op(OPERATOR_COLON))
+	{
+	  error_at(this->location(), "middle index required in 3-index slice");
+	  end = Expression::make_error(this->location());
+	}
       else
 	end = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
+    }
+
+  Expression* cap = NULL;
+  if (this->peek_token()->is_op(OPERATOR_COLON))
+    {
+      if (this->advance_token()->is_op(OPERATOR_RSQUARE))
+	{
+	  error_at(this->location(), "final index required in 3-index slice");
+	  cap = Expression::make_error(this->location());
+	}
+      else
+        cap = this->expression(PRECEDENCE_NORMAL, false, true, NULL, NULL);
     }
   if (!this->peek_token()->is_op(OPERATOR_RSQUARE))
     error_at(this->location(), "missing %<]%>");
   else
     this->advance_token();
-  return Expression::make_index(expr, start, end, location);
+  return Expression::make_index(expr, start, end, cap, location);
 }
 
 // Call           = "(" [ ArgumentList [ "," ] ] ")" .
@@ -4261,6 +4287,16 @@ Parse::if_stat()
 	cond = this->expression(PRECEDENCE_NORMAL, false, false, NULL, NULL);
     }
 
+  // Check for the easy error of a newline before starting the block.
+  if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
+    {
+      Location semi_loc = this->location();
+      if (this->advance_token()->is_op(OPERATOR_LCURLY))
+	error_at(semi_loc, "missing %<{%> after if clause");
+      // Otherwise we will get an error when we call this->block
+      // below.
+    }
+
   this->gogo_->start_block(this->location());
   Location end_loc = this->block();
   Block* then_block = this->gogo_->finish_block(end_loc);
@@ -4405,7 +4441,7 @@ Parse::switch_stat(Label* label)
       Location token_loc = this->location();
       if (this->peek_token()->is_op(OPERATOR_SEMICOLON)
 	  && this->advance_token()->is_op(OPERATOR_LCURLY))
-	error_at(token_loc, "unexpected semicolon or newline before %<{%>");
+	error_at(token_loc, "missing %<{%> after switch clause");
       else if (this->peek_token()->is_op(OPERATOR_COLONEQ))
 	{
 	  error_at(token_loc, "invalid variable name");
@@ -5132,6 +5168,16 @@ Parse::for_stat(Label* label)
 	}
     }
 
+  // Check for the easy error of a newline before starting the block.
+  if (this->peek_token()->is_op(OPERATOR_SEMICOLON))
+    {
+      Location semi_loc = this->location();
+      if (this->advance_token()->is_op(OPERATOR_LCURLY))
+	error_at(semi_loc, "missing %<{%> after for clause");
+      // Otherwise we will get an error when we call this->block
+      // below.
+    }
+
   // Build the For_statement and note that it is the current target
   // for break and continue statements.
 
@@ -5198,8 +5244,7 @@ Parse::for_clause(Expression** cond, Block** post)
     *cond = NULL;
   else if (this->peek_token()->is_op(OPERATOR_LCURLY))
     {
-      error_at(this->location(),
-	       "unexpected semicolon or newline before %<{%>");
+      error_at(this->location(), "missing %<{%> after for clause");
       *cond = NULL;
       *post = NULL;
       return;

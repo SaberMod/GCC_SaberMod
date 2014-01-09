@@ -26,6 +26,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
+#include "pointer-set.h"
+#include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
@@ -34,8 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
-#include "pointer-set.h"
-#include "hash-table.h"
+#include "gimplify.h"
 
 /* The number of nested classes being processed.  If we are not in the
    scope of any class, this is zero.  */
@@ -1517,6 +1521,12 @@ check_bases (tree t,
 	|= CLASSTYPE_CONTAINS_EMPTY_CLASS_P (basetype);
       TYPE_HAS_COMPLEX_DFLT (t) |= (!TYPE_HAS_DEFAULT_CONSTRUCTOR (basetype)
 				    || TYPE_HAS_COMPLEX_DFLT (basetype));
+      SET_CLASSTYPE_READONLY_FIELDS_NEED_INIT
+	(t, CLASSTYPE_READONLY_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_READONLY_FIELDS_NEED_INIT (basetype));
+      SET_CLASSTYPE_REF_FIELDS_NEED_INIT
+	(t, CLASSTYPE_REF_FIELDS_NEED_INIT (t)
+	 | CLASSTYPE_REF_FIELDS_NEED_INIT (basetype));
 
       /*  A standard-layout class is a class that:
 	  ...
@@ -4668,15 +4678,8 @@ deduce_noexcept_on_destructors (tree t)
   if (!CLASSTYPE_METHOD_VEC (t))
     return;
 
-  bool saved_nontrivial_dtor = TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t);
-
-  /* Avoid early exit from synthesized_method_walk (c++/57645).  */
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = true;
-
   for (tree fns = CLASSTYPE_DESTRUCTORS (t); fns; fns = OVL_NEXT (fns))
     deduce_noexcept_on_destructor (OVL_CURRENT (fns));
-
-  TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = saved_nontrivial_dtor;
 }
 
 /* Subroutine of set_one_vmethod_tm_attributes.  Search base classes
@@ -4878,7 +4881,8 @@ user_provided_p (tree fn)
     return true;
   else
     return (!DECL_ARTIFICIAL (fn)
-	    && !DECL_DEFAULTED_IN_CLASS_P (fn));
+	    && !(DECL_INITIALIZED_IN_CLASS_P (fn)
+		 && (DECL_DEFAULTED_FN (fn) || DECL_DELETED_FN (fn))));
 }
 
 /* Returns true iff class T has a user-provided constructor.  */
@@ -5143,7 +5147,7 @@ type_has_user_declared_move_assign (tree t)
 }
 
 /* Nonzero if we need to build up a constructor call when initializing an
-   object of this class, either because it has a user-provided constructor
+   object of this class, either because it has a user-declared constructor
    or because it doesn't have a default constructor (so we need to give an
    error if no initializer is provided).  Use TYPE_NEEDS_CONSTRUCTING when
    what you care about is whether or not an object can be produced by a
@@ -5159,8 +5163,50 @@ type_build_ctor_call (tree t)
   if (TYPE_NEEDS_CONSTRUCTING (t))
     return true;
   inner = strip_array_types (t);
-  return (CLASS_TYPE_P (inner) && !TYPE_HAS_DEFAULT_CONSTRUCTOR (inner)
-	  && !ANON_AGGR_TYPE_P (inner));
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner))
+    return false;
+  if (!TYPE_HAS_DEFAULT_CONSTRUCTOR (inner))
+    return true;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared constructor might be private, and a constructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_ctor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
+}
+
+/* Like type_build_ctor_call, but for destructors.  */
+
+bool
+type_build_dtor_call (tree t)
+{
+  tree inner;
+  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t))
+    return true;
+  inner = strip_array_types (t);
+  if (!CLASS_TYPE_P (inner) || ANON_AGGR_TYPE_P (inner)
+      || !COMPLETE_TYPE_P (inner))
+    return false;
+  if (cxx_dialect < cxx11)
+    return false;
+  /* A user-declared destructor might be private, and a destructor might
+     be trivial but deleted.  */
+  for (tree fns = lookup_fnfields_slot (inner, complete_dtor_identifier);
+       fns; fns = OVL_NEXT (fns))
+    {
+      tree fn = OVL_CURRENT (fns);
+      if (!DECL_ARTIFICIAL (fn)
+	  || DECL_DELETED_FN (fn))
+	return true;
+    }
+  return false;
 }
 
 /* Remove all zero-width bit-fields from T.  */
@@ -6125,7 +6171,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	{
 	  unsigned HOST_WIDE_INT width;
 	  tree ftype = TREE_TYPE (field);
-	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
+	  width = tree_to_uhwi (DECL_SIZE (field));
 	  if (width != TYPE_PRECISION (ftype))
 	    {
 	      TREE_TYPE (field)
@@ -7429,8 +7475,6 @@ resolve_address_of_overloaded_function (tree target_type,
 	  /* See if there's a match.  */
 	  if (same_type_p (target_fn_type, static_fn_type (instantiation)))
 	    matches = tree_cons (instantiation, fn, matches);
-
-	  ggc_free (targs);
 	}
 
       /* Now, remove all but the most specialized of the matches.  */
@@ -7997,7 +8041,7 @@ dump_class_hierarchy_r (FILE *stream,
   igo = TREE_CHAIN (binfo);
 
   fprintf (stream, HOST_WIDE_INT_PRINT_DEC,
-	   tree_low_cst (BINFO_OFFSET (binfo), 0));
+	   tree_to_shwi (BINFO_OFFSET (binfo)));
   if (is_empty_class (BINFO_TYPE (binfo)))
     fprintf (stream, " empty");
   else if (CLASSTYPE_NEARLY_EMPTY_P (BINFO_TYPE (binfo)))
@@ -8073,10 +8117,10 @@ dump_class_hierarchy_1 (FILE *stream, int flags, tree t)
 {
   fprintf (stream, "Class %s\n", type_as_string (t, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "   size=%lu align=%lu\n",
-	   (unsigned long)(tree_low_cst (TYPE_SIZE (t), 0) / BITS_PER_UNIT),
+	   (unsigned long)(tree_to_shwi (TYPE_SIZE (t)) / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (t) / BITS_PER_UNIT));
   fprintf (stream, "   base size=%lu base align=%lu\n",
-	   (unsigned long)(tree_low_cst (TYPE_SIZE (CLASSTYPE_AS_BASE (t)), 0)
+	   (unsigned long)(tree_to_shwi (TYPE_SIZE (CLASSTYPE_AS_BASE (t)))
 			   / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (CLASSTYPE_AS_BASE (t))
 			   / BITS_PER_UNIT));
@@ -8113,7 +8157,7 @@ dump_array (FILE * stream, tree decl)
   HOST_WIDE_INT elt;
   tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
 
-  elt = (tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))), 0)
+  elt = (tree_to_shwi (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))))
 	 / BITS_PER_UNIT);
   fprintf (stream, "%s:", decl_as_string (decl, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, " %s entries",
@@ -8202,10 +8246,10 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 	/*NOP*/;
       else if (DECL_THIS_THUNK_P (thunk))
 	fprintf (stream, " vcall="  HOST_WIDE_INT_PRINT_DEC,
-		 tree_low_cst (virtual_adjust, 0));
+		 tree_to_shwi (virtual_adjust));
       else
 	fprintf (stream, " vbase=" HOST_WIDE_INT_PRINT_DEC "(%s)",
-		 tree_low_cst (BINFO_VPTR_FIELD (virtual_adjust), 0),
+		 tree_to_shwi (BINFO_VPTR_FIELD (virtual_adjust)),
 		 type_as_string (BINFO_TYPE (virtual_adjust), TFF_SCOPE));
       if (THUNK_ALIAS (thunk))
 	fprintf (stream, " alias to %p", (void *)THUNK_ALIAS (thunk));

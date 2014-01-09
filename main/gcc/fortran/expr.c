@@ -3618,11 +3618,9 @@ gfc_check_pointer_assign (gfc_expr *lvalue, gfc_expr *rvalue)
       return false;
     }
 
-    /* Make sure the vtab is present.  */
-  if (lvalue->ts.type == BT_CLASS && rvalue->ts.type == BT_DERIVED)
-    gfc_find_derived_vtab (rvalue->ts.u.derived);
-  else if (UNLIMITED_POLY (lvalue) && !UNLIMITED_POLY (rvalue))
-    gfc_find_intrinsic_vtab (&rvalue->ts);
+  /* Make sure the vtab is present.  */
+  if (lvalue->ts.type == BT_CLASS && !UNLIMITED_POLY (rvalue))
+    gfc_find_vtab (&rvalue->ts);
 
   /* Check rank remapping.  */
   if (rank_remap)
@@ -4693,7 +4691,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   bool is_pointer;
   bool check_intentin;
   bool ptr_component;
-  bool unlimited;
   symbol_attribute attr;
   gfc_ref* ref;
   int i;
@@ -4708,8 +4705,6 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       gcc_assert (e->symtree);
       sym = e->value.function.esym ? e->value.function.esym : e->symtree->n.sym;
     }
-
-  unlimited = e->ts.type == BT_CLASS && UNLIMITED_POLY (sym);
 
   attr = gfc_expr_attr (e);
   if (!pointer && e->expr_type == EXPR_FUNCTION && attr.pointer)
@@ -4750,7 +4745,7 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
   /* Find out whether the expr is a pointer; this also means following
      component references to the last one.  */
   is_pointer = (attr.pointer || attr.proc_pointer);
-  if (pointer && !is_pointer && !unlimited)
+  if (pointer && !is_pointer)
     {
       if (context)
 	gfc_error ("Non-POINTER in pointer association context (%s)"

@@ -27,9 +27,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "bitmap.h"
 #include "dumpfile.h"
-#include "tree-ssa.h"
 #include "hash-table.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-ssa-live.h"
+#include "tree-ssa-coalesce.h"
 #include "diagnostic-core.h"
 
 
@@ -809,7 +821,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
   live = new_live_track (map);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -917,7 +929,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
   map = init_var_map (num_ssa_names);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       tree arg;
 
@@ -1071,7 +1083,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  v2 = SSA_NAME_VERSION (var);
 		  bitmap_set_bit (used_in_copy, v1);
 		  bitmap_set_bit (used_in_copy, v2);
-		  cost = coalesce_cost_bb (EXIT_BLOCK_PTR);
+		  cost = coalesce_cost_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 		  add_coalesce (cl, v1, v2, cost);
 		}
 	    }
@@ -1171,7 +1183,7 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
      in the coalesce list because they do not need to be sorted, and simply
      consume extra memory/compilation time in large programs.  */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
@@ -1251,8 +1263,8 @@ coalesce_ssa_name (void)
   cl = create_coalesce_list ();
   map = create_outofssa_var_map (cl, used_in_copies);
 
-  /* We need to coalesce all names originating same SSA_NAME_VAR
-     so debug info remains undisturbed.  */
+  /* If optimization is disabled, we need to coalesce all the names originating
+     from the same SSA_NAME_VAR so debug info remains undisturbed.  */
   if (!optimize)
     {
       hash_table <ssa_name_var_hash> ssa_name_hash;
@@ -1273,8 +1285,16 @@ coalesce_ssa_name (void)
 		*slot = a;
 	      else
 		{
-		  add_coalesce (cl, SSA_NAME_VERSION (a), SSA_NAME_VERSION (*slot),
-				MUST_COALESCE_COST - 1);
+		  /* If the variable is a PARM_DECL or a RESULT_DECL, we
+		     _require_ that all the names originating from it be
+		     coalesced, because there must be a single partition
+		     containing all the names so that it can be assigned
+		     the canonical RTL location of the DECL safely.  */
+		  const int cost
+		    = TREE_CODE (SSA_NAME_VAR (a)) == VAR_DECL
+		      ? MUST_COALESCE_COST - 1 : MUST_COALESCE_COST;
+		  add_coalesce (cl, SSA_NAME_VERSION (a),
+				SSA_NAME_VERSION (*slot), cost);
 		  bitmap_set_bit (used_in_copies, SSA_NAME_VERSION (a));
 		  bitmap_set_bit (used_in_copies, SSA_NAME_VERSION (*slot));
 		}
@@ -1332,43 +1352,4 @@ coalesce_ssa_name (void)
   ssa_conflicts_delete (graph);
 
   return map;
-}
-
-/* Given SSA_NAMEs NAME1 and NAME2, return true if they are candidates for
-   coalescing together, false otherwise.
-
-   This must stay consistent with var_map_base_init in tree-ssa-live.c.  */
-
-bool
-gimple_can_coalesce_p (tree name1, tree name2)
-{
-  /* First check the SSA_NAME's associated DECL.  We only want to
-     coalesce if they have the same DECL or both have no associated DECL.  */
-  tree var1 = SSA_NAME_VAR (name1);
-  tree var2 = SSA_NAME_VAR (name2);
-  var1 = (var1 && (!VAR_P (var1) || !DECL_IGNORED_P (var1))) ? var1 : NULL_TREE;
-  var2 = (var2 && (!VAR_P (var2) || !DECL_IGNORED_P (var2))) ? var2 : NULL_TREE;
-  if (var1 != var2)
-    return false;
-
-  /* Now check the types.  If the types are the same, then we should
-     try to coalesce V1 and V2.  */
-  tree t1 = TREE_TYPE (name1);
-  tree t2 = TREE_TYPE (name2);
-  if (t1 == t2)
-    return true;
-
-  /* If the types are not the same, check for a canonical type match.  This
-     (for example) allows coalescing when the types are fundamentally the
-     same, but just have different names. 
-
-     Note pointer types with different address spaces may have the same
-     canonical type.  Those are rejected for coalescing by the
-     types_compatible_p check.  */
-  if (TYPE_CANONICAL (t1)
-      && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2)
-      && types_compatible_p (t1, t2))
-    return true;
-
-  return false;
 }

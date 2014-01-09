@@ -22,11 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-ssa.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -54,7 +65,7 @@ associate_equivalences_with_edges (void)
 
   /* Walk over each block.  If the block ends with a control statement,
      then it might create a useful equivalence.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi = gsi_last_bb (bb);
       gimple stmt;
@@ -168,7 +179,7 @@ associate_equivalences_with_edges (void)
 	      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (cond))
 	    {
 	      int i, n_labels = gimple_switch_num_labels (stmt);
-	      tree *info = XCNEWVEC (tree, last_basic_block);
+	      tree *info = XCNEWVEC (tree, last_basic_block_for_fn (cfun));
 
 	      /* Walk over the case label vector.  Record blocks
 		 which are reached by a single case label which represents
@@ -188,7 +199,7 @@ associate_equivalences_with_edges (void)
 
 	      /* Now walk over the blocks to determine which ones were
 		 marked as being reached by a useful case label.  */
-	      for (i = 0; i < n_basic_blocks; i++)
+	      for (i = 0; i < n_basic_blocks_for_fn (cfun); i++)
 		{
 		  tree node = info[i];
 
@@ -203,7 +214,8 @@ associate_equivalences_with_edges (void)
 		      equivalency = XNEW (struct edge_equivalency);
 		      equivalency->rhs = x;
 		      equivalency->lhs = cond;
-		      find_edge (bb, BASIC_BLOCK (i))->aux = equivalency;
+		      find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, i))->aux =
+			equivalency;
 		    }
 		}
 	      free (info);
@@ -357,15 +369,7 @@ record_equiv (tree value, tree equivalence)
 class uncprop_dom_walker : public dom_walker
 {
 public:
-  uncprop_dom_walker (cdi_direction direction)
-    : dom_walker (direction)
-  {
-    m_equiv_stack.create (2);
-  }
-  ~uncprop_dom_walker ()
-  {
-    m_equiv_stack.release ();
-  }
+  uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -376,7 +380,7 @@ private:
      leading to this block.  If no such edge equivalency exists, then we
      record NULL.  These equivalences are live until we leave the dominator
      subtree rooted at the block where we record the equivalency.  */
-  vec<tree> m_equiv_stack;
+  auto_vec<tree, 2> m_equiv_stack;
 };
 
 /* Main driver for un-cprop.  */
@@ -402,7 +406,7 @@ tree_ssa_uncprop (void)
   /* we just need to empty elements out of the hash table, and cleanup the
     AUX field on the edges.  */
   val_ssa_equiv.dispose ();
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       edge_iterator ei;

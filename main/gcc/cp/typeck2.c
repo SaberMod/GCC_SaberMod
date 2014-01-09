@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "intl.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -125,7 +127,7 @@ cxx_readonly_error (tree arg, enum lvalue_use errstring)
                              "read-only reference %qD"),
                           TREE_OPERAND (arg, 0));
   else
-    readonly_error (arg, errstring);
+    readonly_error (input_location, arg, errstring);
 }
 
 
@@ -640,12 +642,13 @@ split_nonconstant_init_1 (tree dest, tree init)
 	      code = build_stmt (input_location, EXPR_STMT, code);
 	      code = maybe_cleanup_point_expr_void (code);
 	      add_stmt (code);
-	      if (!TYPE_HAS_TRIVIAL_DESTRUCTOR (inner_type))
+	      if (type_build_dtor_call (inner_type))
 		{
 		  code = (build_special_member_call
 			  (sub, complete_dtor_identifier, NULL, inner_type,
 			   LOOKUP_NORMAL, tf_warning_or_error));
-		  finish_eh_cleanup (code);
+		  if (!TYPE_HAS_TRIVIAL_DESTRUCTOR (inner_type))
+		    finish_eh_cleanup (code);
 		}
 
 	      num_split_elts++;
@@ -774,7 +777,6 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
     {
       bool const_init;
       value = fold_non_dependent_expr (value);
-      value = maybe_constant_init (value);
       if (DECL_DECLARED_CONSTEXPR_P (decl)
 	  || DECL_IN_AGGR_P (decl))
 	{
@@ -785,6 +787,7 @@ store_init_value (tree decl, tree init, vec<tree, va_gc>** cleanups, int flags)
 	  else
 	    value = cxx_constant_value (value);
 	}
+      value = maybe_constant_init (value);
       const_init = (reduced_constant_expression_p (value)
 		    || error_operand_p (value));
       DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = const_init;
@@ -833,7 +836,8 @@ check_narrowing (tree type, tree init)
       && TREE_CODE (type) == COMPLEX_TYPE)
     {
       tree elttype = TREE_TYPE (type);
-      check_narrowing (elttype, CONSTRUCTOR_ELT (init, 0)->value);
+      if (CONSTRUCTOR_NELTS (init) > 0)
+        check_narrowing (elttype, CONSTRUCTOR_ELT (init, 0)->value);
       if (CONSTRUCTOR_NELTS (init) > 1)
 	check_narrowing (elttype, CONSTRUCTOR_ELT (init, 1)->value);
       return;
@@ -892,11 +896,11 @@ check_narrowing (tree type, tree init)
   if (!ok)
     {
       if (cxx_dialect >= cxx11)
-	pedwarn (EXPR_LOC_OR_HERE (init), OPT_Wnarrowing,
+	pedwarn (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
 		 "narrowing conversion of %qE from %qT to %qT inside { }",
 		 init, ftype, type);
       else
-	warning_at (EXPR_LOC_OR_HERE (init), OPT_Wnarrowing,
+	warning_at (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
 		    "narrowing conversion of %qE from %qT to %qT inside { } "
 		    "is ill-formed in C++11", init, ftype, type);
     }
@@ -1757,7 +1761,7 @@ build_functional_cast (tree exp, tree parms, tsubst_flags_t complain)
   tree type;
   vec<tree, va_gc> *parmvec;
 
-  if (exp == error_mark_node || parms == error_mark_node)
+  if (error_operand_p (exp) || parms == error_mark_node)
     return error_mark_node;
 
   if (TREE_CODE (exp) == TYPE_DECL)

@@ -593,9 +593,6 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
-/* Explicit ISA options that were set.  */
-#define rs6000_isa_flags_explicit	global_options_set.x_rs6000_isa_flags
-
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
    of #pragma GCC target or the target attribute to change the code level for a
@@ -616,6 +613,25 @@ extern int rs6000_vector_align[];
 #define TARGET_NO_LWSYNC (rs6000_cpu == PROCESSOR_PPC8540 \
 			  || rs6000_cpu == PROCESSOR_PPC8548)
 
+
+/* Whether SF/DF operations are supported on the E500.  */
+#define TARGET_SF_SPE	(TARGET_HARD_FLOAT && TARGET_SINGLE_FLOAT	\
+			 && !TARGET_FPRS)
+
+#define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
+			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
+
+/* Whether SF/DF operations are supported by by the normal floating point unit
+   (or the vector/scalar unit).  */
+#define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_SINGLE_FLOAT)
+
+#define TARGET_DF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_DOUBLE_FLOAT)
+
+/* Whether SF/DF operations are supported by any hardware.  */
+#define TARGET_SF_INSN	(TARGET_SF_FPR || TARGET_SF_SPE)
+#define TARGET_DF_INSN	(TARGET_DF_FPR || TARGET_DF_SPE)
 
 /* Which machine supports the various reciprocal estimate instructions.  */
 #define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
@@ -1472,6 +1488,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
   rs6000_secondary_memory_needed_rtx (MODE)
 
+/* Specify the mode to be used for memory when a secondary memory
+   location is needed.  For cpus that cannot load/store SDmode values
+   from the 64-bit FP registers without using a full 64-bit
+   load/store, we need a wider mode.  */
+#define SECONDARY_MEMORY_NEEDED_MODE(MODE)		\
+  rs6000_secondary_memory_needed_mode (MODE)
+
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
@@ -1504,21 +1527,14 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define FRAME_GROWS_DOWNWARD (flag_stack_protect != 0			\
 			      || (flag_sanitize & SANITIZE_ADDRESS) != 0)
 
-/* Size of the outgoing register save area */
-#define RS6000_REG_SAVE ((DEFAULT_ABI == ABI_AIX			\
-			  || DEFAULT_ABI == ABI_DARWIN)			\
-			 ? (TARGET_64BIT ? 64 : 32)			\
-			 : 0)
-
 /* Size of the fixed area on the stack */
 #define RS6000_SAVE_AREA \
-  (((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_DARWIN) ? 24 : 8)	\
+  ((DEFAULT_ABI == ABI_V4 ? 8 : DEFAULT_ABI == ABI_ELFv2 ? 16 : 24)	\
    << (TARGET_64BIT ? 1 : 0))
 
-/* MEM representing address to save the TOC register */
-#define RS6000_SAVE_TOC gen_rtx_MEM (Pmode, \
-				     plus_constant (Pmode, stack_pointer_rtx, \
-						    (TARGET_32BIT ? 20 : 40)))
+/* Stack offset for toc save slot.  */
+#define RS6000_TOC_SAVE_SLOT \
+  ((DEFAULT_ABI == ABI_ELFv2 ? 12 : 20) << (TARGET_64BIT ? 1 : 0))
 
 /* Align an address */
 #define RS6000_ALIGN(n,a) (((n) + (a) - 1) & ~((a) - 1))
@@ -1568,7 +1584,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 /* Define this if stack space is still allocated for a parameter passed
    in a register.  The value is the number of bytes allocated to this
    area.  */
-#define REG_PARM_STACK_SPACE(FNDECL)	RS6000_REG_SAVE
+#define REG_PARM_STACK_SPACE(FNDECL) rs6000_reg_parm_stack_space((FNDECL))
 
 /* Define this if the above stack space is to be considered part of the
    space allocated by the caller.  */
@@ -1612,9 +1628,8 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define FP_ARG_MIN_REG 33
 #define	FP_ARG_AIX_MAX_REG 45
 #define	FP_ARG_V4_MAX_REG  40
-#define	FP_ARG_MAX_REG ((DEFAULT_ABI == ABI_AIX				\
-			 || DEFAULT_ABI == ABI_DARWIN)			\
-			? FP_ARG_AIX_MAX_REG : FP_ARG_V4_MAX_REG)
+#define	FP_ARG_MAX_REG (DEFAULT_ABI == ABI_V4				\
+			? FP_ARG_V4_MAX_REG : FP_ARG_AIX_MAX_REG)
 #define FP_ARG_NUM_REG (FP_ARG_MAX_REG - FP_ARG_MIN_REG + 1)
 
 /* Minimum and maximum AltiVec registers used to hold arguments.  */
@@ -1622,10 +1637,17 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define ALTIVEC_ARG_MAX_REG (ALTIVEC_ARG_MIN_REG + 11)
 #define ALTIVEC_ARG_NUM_REG (ALTIVEC_ARG_MAX_REG - ALTIVEC_ARG_MIN_REG + 1)
 
+/* Maximum number of registers per ELFv2 homogeneous aggregate argument.  */
+#define AGGR_ARG_NUM_REG 8
+
 /* Return registers */
 #define GP_ARG_RETURN GP_ARG_MIN_REG
 #define FP_ARG_RETURN FP_ARG_MIN_REG
 #define ALTIVEC_ARG_RETURN (FIRST_ALTIVEC_REGNO + 2)
+#define FP_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? FP_ARG_RETURN	\
+			   : (FP_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
+#define ALTIVEC_ARG_MAX_RETURN (DEFAULT_ABI != ABI_ELFv2 ? ALTIVEC_ARG_RETURN \
+			        : (ALTIVEC_ARG_RETURN + AGGR_ARG_NUM_REG - 1))
 
 /* Flags for the call/call_value rtl operations set up by function_arg */
 #define CALL_NORMAL		0x00000000	/* no special processing */
@@ -1645,8 +1667,10 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
    On RS/6000, this is r3, fp1, and v2 (for AltiVec).  */
 #define FUNCTION_VALUE_REGNO_P(N)					\
   ((N) == GP_ARG_RETURN							\
-   || ((N) == FP_ARG_RETURN && TARGET_HARD_FLOAT && TARGET_FPRS)	\
-   || ((N) == ALTIVEC_ARG_RETURN && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
+   || ((N) >= FP_ARG_RETURN && (N) <= FP_ARG_MAX_RETURN			\
+       && TARGET_HARD_FLOAT && TARGET_FPRS)				\
+   || ((N) >= ALTIVEC_ARG_RETURN && (N) <= ALTIVEC_ARG_MAX_RETURN	\
+       && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI))
 
 /* 1 if N is a possible register number for function argument passing.
    On RS/6000, these are r3-r10 and fp1-fp13.
@@ -1770,11 +1794,8 @@ typedef struct rs6000_args
 /* Number of bytes into the frame return addresses can be found.  See
    rs6000_stack_info in rs6000.c for more information on how the different
    abi's store the return address.  */
-#define RETURN_ADDRESS_OFFSET						\
- ((DEFAULT_ABI == ABI_AIX						\
-   || DEFAULT_ABI == ABI_DARWIN)	? (TARGET_32BIT ? 8 : 16) :	\
-  (DEFAULT_ABI == ABI_V4)		? 4 :				\
-  (internal_error ("RETURN_ADDRESS_OFFSET not supported"), 0))
+#define RETURN_ADDRESS_OFFSET \
+  ((DEFAULT_ABI == ABI_V4 ? 4 : 8) << (TARGET_64BIT ? 1 : 0))
 
 /* The current return address is in link register (65).  The return address
    of anything farther back is accessed normally at an offset of 8 from the

@@ -23,17 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-ssa.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
 #include "tree-inline.h"
 #include "dumpfile.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "splay-tree.h"
-#include "ggc.h"
 #include "ipa-utils.h"
 #include "ipa-reference.h"
-#include "gimple.h"
-#include "cgraph.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "langhooks.h"
@@ -87,7 +88,7 @@ searchc (struct searchc_env* env, struct cgraph_node *v,
 	 bool (*ignore_edge) (struct cgraph_edge *))
 {
   struct cgraph_edge *edge;
-  struct ipa_dfs_info *v_info = (struct ipa_dfs_info *) v->symbol.aux;
+  struct ipa_dfs_info *v_info = (struct ipa_dfs_info *) v->aux;
 
   /* mark node as old */
   v_info->new_node = false;
@@ -108,11 +109,11 @@ searchc (struct searchc_env* env, struct cgraph_node *v,
       if (!w || (ignore_edge && ignore_edge (edge)))
         continue;
 
-      if (w->symbol.aux
+      if (w->aux
 	  && (avail > AVAIL_OVERWRITABLE
 	      || (env->allow_overwritable && avail == AVAIL_OVERWRITABLE)))
 	{
-	  w_info = (struct ipa_dfs_info *) w->symbol.aux;
+	  w_info = (struct ipa_dfs_info *) w->aux;
 	  if (w_info->new_node)
 	    {
 	      searchc (env, w, ignore_edge);
@@ -137,7 +138,7 @@ searchc (struct searchc_env* env, struct cgraph_node *v,
       struct ipa_dfs_info *x_info;
       do {
 	x = env->stack[--(env->stack_size)];
-	x_info = (struct ipa_dfs_info *) x->symbol.aux;
+	x_info = (struct ipa_dfs_info *) x->aux;
 	x_info->on_stack = false;
 	x_info->scc_no = v_info->dfn_number;
 
@@ -191,20 +192,20 @@ ipa_reduced_postorder (struct cgraph_node **order,
 	      && (avail == AVAIL_OVERWRITABLE)))
 	{
 	  /* Reuse the info if it is already there.  */
-	  struct ipa_dfs_info *info = (struct ipa_dfs_info *) node->symbol.aux;
+	  struct ipa_dfs_info *info = (struct ipa_dfs_info *) node->aux;
 	  if (!info)
 	    info = XCNEW (struct ipa_dfs_info);
 	  info->new_node = true;
 	  info->on_stack = false;
 	  info->next_cycle = NULL;
-	  node->symbol.aux = info;
+	  node->aux = info;
 
 	  splay_tree_insert (env.nodes_marked_new,
 			     (splay_tree_key)node->uid,
 			     (splay_tree_value)node);
 	}
       else
-	node->symbol.aux = NULL;
+	node->aux = NULL;
     }
   result = splay_tree_min (env.nodes_marked_new);
   while (result)
@@ -229,10 +230,10 @@ ipa_free_postorder_info (void)
   FOR_EACH_DEFINED_FUNCTION (node)
     {
       /* Get rid of the aux information.  */
-      if (node->symbol.aux)
+      if (node->aux)
 	{
-	  free (node->symbol.aux);
-	  node->symbol.aux = NULL;
+	  free (node->aux);
+	  node->aux = NULL;
 	}
     }
 }
@@ -248,10 +249,26 @@ ipa_get_nodes_in_cycle (struct cgraph_node *node)
   while (node)
     {
       v.safe_push (node);
-      node_dfs_info = (struct ipa_dfs_info *) node->symbol.aux;
+      node_dfs_info = (struct ipa_dfs_info *) node->aux;
       node = node_dfs_info->next_cycle;
     }
   return v;
+}
+
+/* Return true iff the CS is an edge within a strongly connected component as
+   computed by ipa_reduced_postorder.  */
+
+bool
+ipa_edge_within_scc (struct cgraph_edge *cs)
+{
+  struct ipa_dfs_info *caller_dfs = (struct ipa_dfs_info *) cs->caller->aux;
+  struct ipa_dfs_info *callee_dfs;
+  struct cgraph_node *callee = cgraph_function_node (cs->callee, NULL);
+
+  callee_dfs = (struct ipa_dfs_info *) callee->aux;
+  return (caller_dfs
+	  && callee_dfs
+	  && caller_dfs->scc_no == callee_dfs->scc_no);
 }
 
 struct postorder_stack
@@ -283,21 +300,21 @@ ipa_reverse_postorder (struct cgraph_node **order)
      to be output and put them into order as well, so we get dependencies
      right through inline functions.  */
   FOR_EACH_FUNCTION (node)
-    node->symbol.aux = NULL;
+    node->aux = NULL;
   for (pass = 0; pass < 2; pass++)
     FOR_EACH_FUNCTION (node)
-      if (!node->symbol.aux
+      if (!node->aux
 	  && (pass
-	      || (!node->symbol.address_taken
+	      || (!node->address_taken
 		  && !node->global.inlined_to
-		  && !node->symbol.alias && !node->thunk.thunk_p
+		  && !node->alias && !node->thunk.thunk_p
 		  && !cgraph_only_called_directly_p (node))))
 	{
 	  stack_size = 0;
           stack[stack_size].node = node;
 	  stack[stack_size].edge = node->callers;
 	  stack[stack_size].ref = 0;
-	  node->symbol.aux = (void *)(size_t)1;
+	  node->aux = (void *)(size_t)1;
 	  while (stack_size >= 0)
 	    {
 	      while (true)
@@ -311,15 +328,15 @@ ipa_reverse_postorder (struct cgraph_node **order)
 		      /* Break possible cycles involving always-inline
 			 functions by ignoring edges from always-inline
 			 functions to non-always-inline functions.  */
-		      if (DECL_DISREGARD_INLINE_LIMITS (edge->caller->symbol.decl)
+		      if (DECL_DISREGARD_INLINE_LIMITS (edge->caller->decl)
 			  && !DECL_DISREGARD_INLINE_LIMITS
-			    (cgraph_function_node (edge->callee, NULL)->symbol.decl))
+			    (cgraph_function_node (edge->callee, NULL)->decl))
 			node2 = NULL;
                       if (L_IPO_COMP_MODE
 		          && cgraph_is_fake_indirect_call_edge (edge))
 			node2 = NULL;
 		    }
-		  for (;ipa_ref_list_referring_iterate (&stack[stack_size].node->symbol.ref_list,
+		  for (;ipa_ref_list_referring_iterate (&stack[stack_size].node->ref_list,
 						       stack[stack_size].ref,
 						       ref) && !node2;
 		       stack[stack_size].ref++)
@@ -329,12 +346,12 @@ ipa_reverse_postorder (struct cgraph_node **order)
 		    }
 		  if (!node2)
 		    break;
-		  if (!node2->symbol.aux)
+		  if (!node2->aux)
 		    {
 		      stack[++stack_size].node = node2;
 		      stack[stack_size].edge = node2->callers;
 		      stack[stack_size].ref = 0;
-		      node2->symbol.aux = (void *)(size_t)1;
+		      node2->aux = (void *)(size_t)1;
 		    }
 		}
 	      order[order_pos++] = stack[stack_size--].node;
@@ -342,7 +359,7 @@ ipa_reverse_postorder (struct cgraph_node **order)
 	}
   free (stack);
   FOR_EACH_FUNCTION (node)
-    node->symbol.aux = NULL;
+    node->aux = NULL;
   return order_pos;
 }
 
@@ -471,7 +488,7 @@ dump_cgraph_node_set (FILE *f, cgraph_node_set set)
   for (iter = csi_start (set); !csi_end_p (iter); csi_next (&iter))
     {
       struct cgraph_node *node = csi_node (iter);
-      fprintf (f, " %s/%i", cgraph_node_name (node), node->symbol.order);
+      fprintf (f, " %s/%i", node->name (), node->order);
     }
   fprintf (f, "\n");
 }
@@ -514,7 +531,7 @@ varpool_node_set_new (void)
 /* Add varpool_node NODE to varpool_node_set SET.  */
 
 void
-varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_add (varpool_node_set set, varpool_node *node)
 {
   void **slot;
 
@@ -538,11 +555,11 @@ varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
 /* Remove varpool_node NODE from varpool_node_set SET.  */
 
 void
-varpool_node_set_remove (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_remove (varpool_node_set set, varpool_node *node)
 {
   void **slot, **last_slot;
   int index;
-  struct varpool_node *last_node;
+  varpool_node *last_node;
 
   slot = pointer_map_contains (set->map, node);
   if (slot == NULL || !*slot)
@@ -574,7 +591,7 @@ varpool_node_set_remove (varpool_node_set set, struct varpool_node *node)
    is returned if NODE is not in SET.  */
 
 varpool_node_set_iterator
-varpool_node_set_find (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_find (varpool_node_set set, varpool_node *node)
 {
   void **slot;
   varpool_node_set_iterator vsi;
@@ -599,8 +616,8 @@ dump_varpool_node_set (FILE *f, varpool_node_set set)
 
   for (iter = vsi_start (set); !vsi_end_p (iter); vsi_next (&iter))
     {
-      struct varpool_node *node = vsi_node (iter);
-      fprintf (f, " %s", varpool_node_name (node));
+      varpool_node *node = vsi_node (iter);
+      fprintf (f, " %s", node->name ());
     }
   fprintf (f, "\n");
 }
@@ -633,22 +650,27 @@ void
 ipa_merge_profiles (struct cgraph_node *dst,
 		    struct cgraph_node *src)
 {
-  tree oldsrcdecl = src->symbol.decl;
+  tree oldsrcdecl = src->decl;
   struct function *srccfun, *dstcfun;
   bool match = true;
 
-  if (!src->symbol.definition
-      || !dst->symbol.definition)
+  if (!src->definition
+      || !dst->definition)
     return;
   if (src->frequency < dst->frequency)
     src->frequency = dst->frequency;
+
+  /* Time profiles are merged.  */
+  if (dst->tp_first_run > src->tp_first_run && src->tp_first_run)
+    dst->tp_first_run = src->tp_first_run;
+
   if (!dst->count)
     return;
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Merging profiles of %s/%i to %s/%i\n",
-	       xstrdup (cgraph_node_name (src)), src->symbol.order,
-	       xstrdup (cgraph_node_name (dst)), dst->symbol.order);
+	       xstrdup (src->name ()), src->order,
+	       xstrdup (dst->name ()), dst->order);
     }
   dst->count += src->count;
 
@@ -656,7 +678,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
      If declaration is merged, we need to duplicate it to be able
      to load body that is being replaced.  This makes symbol table
      temporarily inconsistent.  */
-  if (src->symbol.decl == dst->symbol.decl)
+  if (src->decl == dst->decl)
     {
       void **slot;
       struct lto_in_decl_state temp;
@@ -664,42 +686,42 @@ ipa_merge_profiles (struct cgraph_node *dst,
 
       /* We are going to move the decl, we want to remove its file decl data.
 	 and link these with the new decl. */
-      temp.fn_decl = src->symbol.decl;
-      slot = htab_find_slot (src->symbol.lto_file_data->function_decl_states,
+      temp.fn_decl = src->decl;
+      slot = htab_find_slot (src->lto_file_data->function_decl_states,
 			     &temp, NO_INSERT);
       state = (lto_in_decl_state *)*slot;
-      htab_clear_slot (src->symbol.lto_file_data->function_decl_states, slot);
+      htab_clear_slot (src->lto_file_data->function_decl_states, slot);
       gcc_assert (state);
 
       /* Duplicate the decl and be sure it does not link into body of DST.  */
-      src->symbol.decl = copy_node (src->symbol.decl);
-      DECL_STRUCT_FUNCTION (src->symbol.decl) = NULL;
-      DECL_ARGUMENTS (src->symbol.decl) = NULL;
-      DECL_INITIAL (src->symbol.decl) = NULL;
-      DECL_RESULT (src->symbol.decl) = NULL;
+      src->decl = copy_node (src->decl);
+      DECL_STRUCT_FUNCTION (src->decl) = NULL;
+      DECL_ARGUMENTS (src->decl) = NULL;
+      DECL_INITIAL (src->decl) = NULL;
+      DECL_RESULT (src->decl) = NULL;
 
       /* Associate the decl state with new declaration, so LTO streamer
  	 can look it up.  */
-      state->fn_decl = src->symbol.decl;
-      slot = htab_find_slot (src->symbol.lto_file_data->function_decl_states,
+      state->fn_decl = src->decl;
+      slot = htab_find_slot (src->lto_file_data->function_decl_states,
 			     state, INSERT);
       gcc_assert (!*slot);
       *slot = state;
     }
   cgraph_get_body (src);
   cgraph_get_body (dst);
-  srccfun = DECL_STRUCT_FUNCTION (src->symbol.decl);
-  dstcfun = DECL_STRUCT_FUNCTION (dst->symbol.decl);
-  if (n_basic_blocks_for_function (srccfun)
-      != n_basic_blocks_for_function (dstcfun))
+  srccfun = DECL_STRUCT_FUNCTION (src->decl);
+  dstcfun = DECL_STRUCT_FUNCTION (dst->decl);
+  if (n_basic_blocks_for_fn (srccfun)
+      != n_basic_blocks_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
 		 "Giving up; number of basic block mismatch.\n");
       match = false;
     }
-  else if (last_basic_block_for_function (srccfun)
-	   != last_basic_block_for_function (dstcfun))
+  else if (last_basic_block_for_fn (srccfun)
+	   != last_basic_block_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
@@ -714,7 +736,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  if (dstbb == NULL)
 	    {
 	      if (cgraph_dump_file)
@@ -759,7 +781,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  dstbb->count += srcbb->count;
 	  for (i = 0; i < EDGE_COUNT (srcbb->succs); i++)
 	    {
@@ -777,7 +799,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	  gcc_assert (!e->speculative);
 	  e->count = gimple_bb (e->call_stmt)->count;
 	  e->frequency = compute_call_stmt_bb_frequency
-			     (dst->symbol.decl,
+			     (dst->decl,
 			      gimple_bb (e->call_stmt));
 	}
       for (e = dst->indirect_calls; e; e = e->next_callee)
@@ -785,14 +807,14 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	  gcc_assert (!e->speculative);
 	  e->count = gimple_bb (e->call_stmt)->count;
 	  e->frequency = compute_call_stmt_bb_frequency
-			     (dst->symbol.decl,
+			     (dst->decl,
 			      gimple_bb (e->call_stmt));
 	}
       cgraph_release_function_body (src);
       inline_update_overall_summary (dst);
     }
   /* TODO: if there is no match, we can scale up.  */
-  src->symbol.decl = oldsrcdecl;
+  src->decl = oldsrcdecl;
 }
 
 /* Return true if call to DEST is known to be self-recusive call withing FUNC.   */
@@ -803,6 +825,6 @@ recursive_call_p (tree func, tree dest)
   struct cgraph_node *dest_node = cgraph_get_create_node (dest);
   struct cgraph_node *cnode = cgraph_get_create_node (func);
 
-  return symtab_semantically_equivalent_p ((symtab_node)dest_node,
-					   (symtab_node)cnode);
+  return symtab_semantically_equivalent_p (dest_node,
+					   cnode);
 }

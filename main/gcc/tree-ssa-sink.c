@@ -23,17 +23,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "cfgloop.h"
 #include "params.h"
 
@@ -166,7 +174,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	    }
 
 	  /* Short circuit. Nothing dominates the entry block.  */
-	  if (useblock == ENTRY_BLOCK_PTR)
+	  if (useblock == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      BITMAP_FREE (blocks);
 	      return NULL;
@@ -174,10 +182,10 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	  bitmap_set_bit (blocks, useblock->index);
 	}
     }
-  commondom = BASIC_BLOCK (bitmap_first_set_bit (blocks));
+  commondom = BASIC_BLOCK_FOR_FN (cfun, bitmap_first_set_bit (blocks));
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, j, bi)
     commondom = nearest_common_dominator (CDI_DOMINATORS, commondom,
-					  BASIC_BLOCK (j));
+					  BASIC_BLOCK_FOR_FN (cfun, j));
   BITMAP_FREE (blocks);
   return commondom;
 }
@@ -564,7 +572,7 @@ execute_sink_code (void)
   memset (&sink_stats, 0, sizeof (sink_stats));
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
-  sink_code_in_bb (EXIT_BLOCK_PTR);
+  sink_code_in_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
   statistics_counter_event (cfun, "Sunk statements", sink_stats.sunk);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();

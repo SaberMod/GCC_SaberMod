@@ -49,10 +49,12 @@ set tests [prune $tests $srcdir/$subdir/tree-prof/*]
 set tests [prune $tests $srcdir/$subdir/torture/*]
 set tests [prune $tests $srcdir/$subdir/graphite/*]
 set tests [prune $tests $srcdir/$subdir/tm/*]
+set tests [prune $tests $srcdir/$subdir/cilk-plus/*]
 set tests [prune $tests $srcdir/$subdir/guality/*]
 set tests [prune $tests $srcdir/$subdir/simulate-thread/*]
 set tests [prune $tests $srcdir/$subdir/asan/*]
 set tests [prune $tests $srcdir/$subdir/ubsan/*]
+set tests [prune $tests $srcdir/$subdir/tsan/*]
 
 # Main loop.
 g++-dg-runtest $tests $DEFAULT_CXXFLAGS

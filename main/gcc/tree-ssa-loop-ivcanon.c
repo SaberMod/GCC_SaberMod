@@ -40,7 +40,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "tree-chrec.h"
@@ -49,6 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree-inline.h"
 #include "target.h"
+#include "tree-cfgcleanup.h"
 
 /* Specifies types of loops that may be unrolled.  */
 
@@ -105,23 +124,6 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
   gimple_cond_set_lhs (cond, var);
   gimple_cond_set_rhs (cond, build_int_cst (type, 0));
   update_stmt (cond);
-}
-
-/* Computes an estimated number of insns in LOOP, weighted by WEIGHTS.  */
-
-unsigned
-tree_num_loop_insns (struct loop *loop, eni_weights *weights)
-{
-  basic_block *body = get_loop_body (loop);
-  gimple_stmt_iterator gsi;
-  unsigned size = 0, i;
-
-  for (i = 0; i < loop->num_nodes; i++)
-    for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
-      size += estimate_num_insns (gsi_stmt (gsi), weights);
-  free (body);
-
-  return size;
 }
 
 /* Describe size of loop as detected by tree_estimate_loop_size.  */
@@ -422,7 +424,7 @@ estimated_unrolled_size (struct loop_size *size,
    loop-niter identified as having undefined effect in the last iteration.
    The other cases are hopefully rare and will be cleaned up later.  */
 
-edge
+static edge
 loop_edge_to_cancel (struct loop *loop)
 {
   vec<edge> exits;
@@ -598,7 +600,7 @@ static vec<int> loops_to_unloop_nunroll;
    LOOP_CLOSED_SSA_INVALIDATED is used to bookkepp the case
    when we need to go into loop closed SSA form.  */
 
-void
+static void
 unloop_loops (bitmap loop_closed_ssa_invalidated,
 	      bool *irred_invalidated)
 {
@@ -672,9 +674,9 @@ try_unroll_loop_completely (struct loop *loop,
      If the number of execution of loop is determined by standard induction
      variable test, then EXIT and EDGE_TO_CANCEL are the two edges leaving
      from the iv test.  */
-  if (host_integerp (niter, 1))
+  if (tree_fits_uhwi_p (niter))
     {
-      n_unroll = tree_low_cst (niter, 1);
+      n_unroll = tree_to_uhwi (niter);
       n_unroll_found = true;
       edge_to_cancel = EDGE_SUCC (exit->src, 0);
       if (edge_to_cancel == exit)
@@ -987,7 +989,6 @@ canonicalize_loop_induction_variables (struct loop *loop,
 unsigned int
 canonicalize_induction_variables (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   bool irred_invalidated = false;
@@ -996,7 +997,7 @@ canonicalize_induction_variables (void)
   free_numbers_of_iterations_estimates ();
   estimate_numbers_of_iterations ();
 
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       changed |= canonicalize_loop_induction_variables (loop,
 							true, UL_SINGLE_ITER,
@@ -1106,7 +1107,7 @@ propagate_constants_for_unrolling (basic_block bb)
 
 static bool
 tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
-				vec<loop_p, va_stack>& father_stack,
+				vec<loop_p, va_heap>& father_stack,
 				struct loop *loop)
 {
   struct loop *loop_father;
@@ -1170,12 +1171,11 @@ tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
 unsigned int
 tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 {
-  vec<loop_p, va_stack> father_stack;
+  auto_vec<loop_p, 16> father_stack;
   bool changed;
   int iteration = 0;
   bool irred_invalidated = false;
 
-  vec_stack_alloc (loop_p, father_stack, 16);
   do
     {
       changed = false;
@@ -1253,3 +1253,182 @@ tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 
   return 0;
 }
+
+/* Canonical induction variable creation pass.  */
+
+static unsigned int
+tree_ssa_loop_ivcanon (void)
+{
+  if (number_of_loops (cfun) <= 1)
+    return 0;
+
+  return canonicalize_induction_variables ();
+}
+
+static bool
+gate_tree_ssa_loop_ivcanon (void)
+{
+  return flag_tree_loop_ivcanon != 0;
+}
+
+namespace {
+
+const pass_data pass_data_iv_canon =
+{
+  GIMPLE_PASS, /* type */
+  "ivcanon", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_LOOP_IVCANON, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_iv_canon : public gimple_opt_pass
+{
+public:
+  pass_iv_canon (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_iv_canon, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_tree_ssa_loop_ivcanon (); }
+  unsigned int execute () { return tree_ssa_loop_ivcanon (); }
+
+}; // class pass_iv_canon
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_iv_canon (gcc::context *ctxt)
+{
+  return new pass_iv_canon (ctxt);
+}
+
+/* Complete unrolling of loops.  */
+
+static unsigned int
+tree_complete_unroll (void)
+{
+  if (number_of_loops (cfun) <= 1)
+    return 0;
+
+  return tree_unroll_loops_completely (flag_unroll_loops
+				       || flag_peel_loops
+				       || optimize >= 3, true);
+}
+
+static bool
+gate_tree_complete_unroll (void)
+{
+  return true;
+}
+
+namespace {
+
+const pass_data pass_data_complete_unroll =
+{
+  GIMPLE_PASS, /* type */
+  "cunroll", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_COMPLETE_UNROLL, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_complete_unroll : public gimple_opt_pass
+{
+public:
+  pass_complete_unroll (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_complete_unroll, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_tree_complete_unroll (); }
+  unsigned int execute () { return tree_complete_unroll (); }
+
+}; // class pass_complete_unroll
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_complete_unroll (gcc::context *ctxt)
+{
+  return new pass_complete_unroll (ctxt);
+}
+
+/* Complete unrolling of inner loops.  */
+
+static unsigned int
+tree_complete_unroll_inner (void)
+{
+  unsigned ret = 0;
+
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (number_of_loops (cfun) > 1)
+    {
+      scev_initialize ();
+      ret = tree_unroll_loops_completely (optimize >= 3, false);
+      free_numbers_of_iterations_estimates ();
+      scev_finalize ();
+    }
+  loop_optimizer_finalize ();
+
+  return ret;
+}
+
+static bool
+gate_tree_complete_unroll_inner (void)
+{
+  return optimize >= 2;
+}
+
+namespace {
+
+const pass_data pass_data_complete_unrolli =
+{
+  GIMPLE_PASS, /* type */
+  "cunrolli", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_COMPLETE_UNROLL, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_flow, /* todo_flags_finish */
+};
+
+class pass_complete_unrolli : public gimple_opt_pass
+{
+public:
+  pass_complete_unrolli (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_complete_unrolli, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_tree_complete_unroll_inner (); }
+  unsigned int execute () { return tree_complete_unroll_inner (); }
+
+}; // class pass_complete_unrolli
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_complete_unrolli (gcc::context *ctxt)
+{
+  return new pass_complete_unrolli (ctxt);
+}
+
+

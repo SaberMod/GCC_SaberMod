@@ -232,19 +232,21 @@ class Expression
 		    Named_object* function, Location);
 
   // Make an index or slice expression.  This is a parser expression
-  // which represents LEFT[START:END].  END may be NULL, meaning an
-  // index rather than a slice.  At parse time we may not know the
-  // type of LEFT.  After parsing this is lowered to an array index, a
-  // string index, or a map index.
+  // which represents LEFT[START:END:CAP].  END may be NULL, meaning an
+  // index rather than a slice.  CAP may be NULL, meaning we use the default
+  // capacity of LEFT. At parse time we may not know the type of LEFT.
+  // After parsing this is lowered to an array index, a string index,
+  // or a map index.
   static Expression*
   make_index(Expression* left, Expression* start, Expression* end,
-	     Location);
+             Expression* cap, Location);
 
   // Make an array index expression.  END may be NULL, in which case
-  // this is an lvalue.
+  // this is an lvalue.  CAP may be NULL, in which case it defaults
+  // to cap(ARRAY).
   static Expression*
   make_array_index(Expression* array, Expression* start, Expression* end,
-		   Location);
+                   Expression* cap, Location);
 
   // Make a string index expression.  END may be NULL.  This is never
   // an lvalue.
@@ -291,10 +293,13 @@ class Expression
   make_unsafe_cast(Type*, Expression*, Location);
 
   // Make a composite literal.  The DEPTH parameter is how far down we
-  // are in a list of composite literals with omitted types.
+  // are in a list of composite literals with omitted types.  HAS_KEYS
+  // is true if the expression list has keys alternating with values.
+  // ALL_ARE_NAMES is true if all the keys could be struct field
+  // names.
   static Expression*
   make_composite_literal(Type*, int depth, bool has_keys, Expression_list*,
-			 Location);
+			 bool all_are_names, Location);
 
   // Make a struct composite literal.
   static Expression*
@@ -608,6 +613,11 @@ class Expression
   address_taken(bool escapes)
   { this->do_address_taken(escapes); }
 
+  // Note that a nil check must be issued for this expression.
+  void
+  issue_nil_check()
+  { this->do_issue_nil_check(); }
+
   // Return whether this expression must be evaluated in order
   // according to the order of evaluation rules.  This is basically
   // true of all expressions with side-effects.
@@ -645,24 +655,16 @@ class Expression
 				 Type* rhs_type, tree rhs_tree,
 				 bool for_type_guard, Location);
 
-  // Return a tree implementing the comparison LHS_TREE OP RHS_TREE.
+  // Return a tree implementing the comparison LHS_EXPR OP RHS_EXPR.
   // TYPE is the type of both sides.
   static tree
   comparison_tree(Translate_context*, Type* result_type, Operator op,
-		  Type* left_type, tree left_tree, Type* right_type,
-		  tree right_tree, Location);
+		  Expression* left_expr, Expression* right_expr, Location);
 
-  // Return a tree for the multi-precision integer VAL in TYPE.
-  static tree
-  integer_constant_tree(mpz_t val, tree type);
-
-  // Return a tree for the floating point value VAL in TYPE.
-  static tree
-  float_constant_tree(mpfr_t val, tree type);
-
-  // Return a tree for the complex value REAL/IMAG in TYPE.
-  static tree
-  complex_constant_tree(mpfr_t real, mpfr_t imag, tree type);
+  // Return the backend expression for the numeric constant VAL.
+  static Bexpression*
+  backend_numeric_constant_expression(Translate_context*,
+                                      Numeric_constant* val);
 
   // Export the expression.  This is only used for constants.  It will
   // be used for things like values of named constants and sizes of
@@ -742,6 +744,11 @@ class Expression
   // Child class implements taking the address of an expression.
   virtual void
   do_address_taken(bool)
+  { }
+
+  // Child class implements issuing a nil check if the address is taken.
+  virtual void
+  do_issue_nil_check()
   { }
 
   // Child class implements whether this expression must be evaluated
@@ -1298,6 +1305,9 @@ class Binary_expression : public Expression
   lower_array_comparison(Gogo*, Statement_inserter*);
 
   Expression*
+  lower_interface_value_comparison(Gogo*, Statement_inserter*);
+
+  Expression*
   lower_compare_to_memcmp(Gogo*, Statement_inserter*);
 
   Expression*
@@ -1518,8 +1528,8 @@ class Func_expression : public Expression
   closure()
   { return this->closure_; }
 
-  // Return a tree for the code for a function.
-  static tree
+  // Return a backend expression for the code of a function.
+  static Bexpression*
   get_code_pointer(Gogo*, Named_object* function, Location loc);
 
  protected:
@@ -1676,9 +1686,9 @@ class Index_expression : public Parser_expression
 {
  public:
   Index_expression(Expression* left, Expression* start, Expression* end,
-		   Location location)
+                   Expression* cap, Location location)
     : Parser_expression(EXPRESSION_INDEX, location),
-      left_(left), start_(start), end_(end), is_lvalue_(false)
+      left_(left), start_(start), end_(end), cap_(cap), is_lvalue_(false)
   { }
 
   // Record that this expression is an lvalue.
@@ -1687,10 +1697,11 @@ class Index_expression : public Parser_expression
   { this->is_lvalue_ = true; }
 
   // Dump an index expression, i.e. an expression of the form
-  // expr[expr] or expr[expr:expr], to a dump context.
+  // expr[expr], expr[expr:expr], or expr[expr:expr:expr] to a dump context.
   static void
   dump_index_expression(Ast_dump_context*, const Expression* expr, 
-                        const Expression* start, const Expression* end);
+                        const Expression* start, const Expression* end,
+                        const Expression* cap);
 
  protected:
   int
@@ -1706,6 +1717,9 @@ class Index_expression : public Parser_expression
 				(this->end_ == NULL
 				 ? NULL
 				 : this->end_->copy()),
+				(this->cap_ == NULL
+				 ? NULL
+				 : this->cap_->copy()),
 				this->location());
   }
 
@@ -1719,6 +1733,9 @@ class Index_expression : public Parser_expression
   void
   do_dump_expression(Ast_dump_context*) const;
 
+  void
+  do_issue_nil_check()
+  { this->left_->issue_nil_check(); }
  private:
   // The expression being indexed.
   Expression* left_;
@@ -1727,6 +1744,10 @@ class Index_expression : public Parser_expression
   // The second index.  This is NULL for an index, non-NULL for a
   // slice.
   Expression* end_;
+  // The capacity argument.  This is NULL for indices and slices that use the
+  // default capacity, non-NULL for indices and slices that specify the
+  // capacity.
+  Expression* cap_;
   // Whether this is being used as an l-value.  We set this during the
   // parse because map index expressions need to know.
   bool is_lvalue_;
@@ -2004,6 +2025,10 @@ class Field_reference_expression : public Expression
   void
   do_address_taken(bool escapes)
   { this->expr_->address_taken(escapes); }
+
+  void
+  do_issue_nil_check()
+  { this->expr_->issue_nil_check(); }
 
   tree
   do_get_tree(Translate_context*);

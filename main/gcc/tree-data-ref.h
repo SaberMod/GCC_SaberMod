@@ -239,11 +239,11 @@ enum data_dependence_direction {
 
 typedef vec<tree> affine_fn;
 
-typedef struct
+struct conflict_function
 {
   unsigned n;
   affine_fn fns[MAX_DIM];
-} conflict_function;
+};
 
 /* What is a subscript?  Given two array accesses a subscript is the
    tuple composed of the access functions for a given dimension.
@@ -406,6 +406,7 @@ extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
+extern void tree_check_data_deps (void);
 
 
 /* Return true when the base objects of data references A and B are

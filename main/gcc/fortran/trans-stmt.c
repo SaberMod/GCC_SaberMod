@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "gfortran.h"
 #include "flags.h"
 #include "trans.h"
@@ -53,6 +54,7 @@ typedef struct forall_info
   int nvar;
   tree size;
   struct forall_info  *prev_nest;
+  bool do_concurrent;
 }
 forall_info;
 
@@ -2759,6 +2761,11 @@ gfc_trans_forall_loop (forall_info *forall_tmp, tree body,
       /* The exit condition.  */
       cond = fold_build2_loc (input_location, LE_EXPR, boolean_type_node,
 			      count, build_int_cst (TREE_TYPE (count), 0));
+      if (forall_tmp->do_concurrent)
+	cond = build2 (ANNOTATE_EXPR, TREE_TYPE (cond), cond,
+		       build_int_cst (integer_type_node,
+				      annot_expr_ivdep_kind));
+
       tmp = build1_v (GOTO_EXPR, exit_label);
       tmp = fold_build3_loc (input_location, COND_EXPR, void_type_node,
 			     cond, tmp, build_empty_stmt (input_location));
@@ -3842,6 +3849,7 @@ gfc_trans_forall_1 (gfc_code * code, forall_info * nested_forall_info)
 	}
 
       tmp = gfc_finish_block (&body);
+      nested_forall_info->do_concurrent = true;
       tmp = gfc_trans_nested_forall_loop (nested_forall_info, tmp, 1);
       gfc_add_expr_to_block (&block, tmp);
       goto done;
@@ -5136,10 +5144,7 @@ gfc_trans_allocate (gfc_code * code)
 
 	      if (ts->type == BT_DERIVED || UNLIMITED_POLY (e))
 		{
-		  if (ts->type == BT_DERIVED)
-		  vtab = gfc_find_derived_vtab (ts->u.derived);
-		  else
-		    vtab = gfc_find_intrinsic_vtab (ts);
+		  vtab = gfc_find_vtab (ts);
 		  gcc_assert (vtab);
 		  gfc_init_se (&lse, NULL);
 		  lse.want_pointer = 1;
@@ -5224,12 +5229,8 @@ gfc_trans_allocate (gfc_code * code)
 		  ppc = gfc_copy_expr (rhs);
 		  gfc_add_vptr_component (ppc);
 		}
-	      else if (rhs->ts.type == BT_DERIVED)
-		ppc = gfc_lval_expr_from_sym
-				(gfc_find_derived_vtab (rhs->ts.u.derived));
 	      else
-		ppc = gfc_lval_expr_from_sym
-				(gfc_find_intrinsic_vtab (&rhs->ts));
+		ppc = gfc_lval_expr_from_sym (gfc_find_vtab (&rhs->ts));
 	      gfc_add_component_ref (ppc, "_copy");
 
 	      ppc_code = gfc_get_code (EXEC_CALL);

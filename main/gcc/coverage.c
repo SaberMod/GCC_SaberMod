@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "output.h"
 #include "regs.h"
@@ -50,7 +52,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "dumpfile.h"
 #include "opts.h"
 #include "gcov-io.h"
-#include "tree-flow.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
 #include "cpplib.h"
 #include "incpath.h"
 #include "diagnostic-core.h"
@@ -65,6 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "input.h"
+#include "pointer-set.h"
 
 struct GTY((chain_next ("%h.next"))) coverage_data
 {
@@ -1266,12 +1276,12 @@ unsigned
 coverage_compute_profile_id (struct cgraph_node *n)
 {
   expanded_location xloc
-    = expand_location (DECL_SOURCE_LOCATION (n->symbol.decl));
+    = expand_location (DECL_SOURCE_LOCATION (n->decl));
   unsigned chksum = xloc.line;
 
   chksum = coverage_checksum_string (chksum, xloc.file);
   chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->symbol.decl)));
+    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
   if (first_global_object_name)
     chksum = coverage_checksum_string
       (chksum, first_global_object_name);
@@ -1296,9 +1306,9 @@ unsigned
 coverage_compute_cfg_checksum (void)
 {
   basic_block bb;
-  unsigned chksum = n_basic_blocks;
+  unsigned chksum = n_basic_blocks_for_fn (cfun);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       edge_iterator ei;
@@ -1606,7 +1616,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
 
 	if (var)
 	  count
-	    = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))), 0)
+	    = tree_to_shwi (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))))
 	    + 1;
 
 	CONSTRUCTOR_APPEND_ELT (ctr, TYPE_FIELDS (ctr_type),
@@ -2338,7 +2348,9 @@ get_da_file_name (const char *base_file_name)
   /* Since coverage_init is invoked very early, before the pass
      manager, we need to set up the dumping explicitly. This is
      similar to the handling in finish_optimization_passes.  */
-  dump_start (g->get_passes ()->get_pass_profile ()->static_pass_number, NULL);
+  int profile_pass_num =
+    g->get_passes ()->get_pass_profile ()->static_pass_number;
+  g->get_dumps ()->dump_start (profile_pass_num, NULL);
 
   prefix_len = (prefix) ? strlen (prefix) + 1 : 0;
 
@@ -2663,7 +2675,9 @@ coverage_init (const char *filename, const char* source_name)
 	}
     }
 
-  dump_finish (g->get_passes ()->get_pass_profile ()->static_pass_number);
+  int profile_pass_num =
+    g->get_passes ()->get_pass_profile ()->static_pass_number;
+  g->get_dumps ()->dump_finish (profile_pass_num);
 }
 
 /* Return True if any type of profiling is enabled which requires linking
@@ -2700,6 +2714,9 @@ coverage_finish (void)
 	fn_ctor = coverage_obj_fn (fn_ctor, fn->fn_decl, fn);
       coverage_obj_finish (fn_ctor);
     }
+
+  XDELETEVEC (da_file_name);
+  da_file_name = NULL;
 }
 
 /* Add S to the end of the string-list, the head and tail of which are

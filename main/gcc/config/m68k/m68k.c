@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "calls.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "function.h"
 #include "regs.h"
@@ -514,7 +517,7 @@ m68k_option_override (void)
     {
       enum target_device dev;
       dev = all_microarchs[M68K_DEFAULT_TUNE].device;
-      m68k_tune_flags = all_devices[dev]->flags;
+      m68k_tune_flags = all_devices[dev].flags;
     }
 #endif
   else
@@ -4208,6 +4211,13 @@ notice_update_cc (rtx exp, rtx insn)
   if (cc_status.value1 && GET_CODE (cc_status.value1) == REG
       && cc_status.value2
       && reg_overlap_mentioned_p (cc_status.value1, cc_status.value2))
+    cc_status.value2 = 0;
+  /* Check for PRE_DEC in dest modifying a register used in src.  */
+  if (cc_status.value1 && GET_CODE (cc_status.value1) == MEM
+      && GET_CODE (XEXP (cc_status.value1, 0)) == PRE_DEC
+      && cc_status.value2
+      && reg_overlap_mentioned_p (XEXP (XEXP (cc_status.value1, 0), 0),
+				  cc_status.value2))
     cc_status.value2 = 0;
   if (((cc_status.value1 && FP_REG_P (cc_status.value1))
        || (cc_status.value2 && FP_REG_P (cc_status.value2))))

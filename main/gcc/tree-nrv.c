@@ -25,7 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
+#include "gimple-ssa.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"	/* For "optimize" in gate_pass_return_slot.
@@ -135,7 +144,7 @@ tree_nrv (void)
     return 0;
 
   /* Look through each block for assignments to the RESULT_DECL.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -229,7 +238,7 @@ tree_nrv (void)
      RESULT.  */
   data.var = found;
   data.result = result;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
 	{
@@ -349,7 +358,7 @@ execute_return_slot_opt (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))

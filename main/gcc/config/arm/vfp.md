@@ -260,7 +260,7 @@
     }
   "
   [(set_attr "conds" "unconditional")
-   (set_attr "type" "neon_vld1_1_2_regs,neon_vst1_1_2_regs_vst2_2_regs,\
+   (set_attr "type" "neon_load1_1reg,neon_store1_1reg,\
                      load1,store1,fmov,mov_reg,f_mcr,f_mrc,multiple")
    (set_attr "length" "4,4,4,4,4,4,4,4,8")]
 )
@@ -1277,7 +1277,8 @@
   "vrint<vrint_variant>%?.<V_if_elem>\\t%<V_reg>0, %<V_reg>1"
   [(set_attr "predicable" "<vrint_predicable>")
    (set_attr "predicable_short_it" "no")
-   (set_attr "type" "f_rint<vfp_type>")]
+   (set_attr "type" "f_rint<vfp_type>")
+   (set_attr "conds" "<vrint_conds>")]
 )
 
 ;; MIN_EXPR and MAX_EXPR eventually map to 'smin' and 'smax' in RTL.
@@ -1293,7 +1294,8 @@
 		  (match_operand:SDF 2 "register_operand" "<F_constraint>")))]
   "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
   "vmaxnm.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
-  [(set_attr "type" "f_minmax<vfp_type>")]
+  [(set_attr "type" "f_minmax<vfp_type>")
+   (set_attr "conds" "unconditional")]
 )
 
 (define_insn "smin<mode>3"
@@ -1302,7 +1304,8 @@
 		  (match_operand:SDF 2 "register_operand" "<F_constraint>")))]
   "TARGET_HARD_FLOAT && TARGET_FPU_ARMV8 <vfp_double_cond>"
   "vminnm.<V_if_elem>\\t%<V_reg>0, %<V_reg>1, %<V_reg>2"
-  [(set_attr "type" "f_minmax<vfp_type>")]
+  [(set_attr "type" "f_minmax<vfp_type>")
+   (set_attr "conds" "unconditional")]
 )
 
 ;; Unimplemented insns:

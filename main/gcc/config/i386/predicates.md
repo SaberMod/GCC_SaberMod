@@ -687,6 +687,16 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 3)")))
 
+;; Match 0 to 4.
+(define_predicate "const_0_to_4_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 4)")))
+
+;; Match 0 to 5.
+(define_predicate "const_0_to_5_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 5)")))
+
 ;; Match 0 to 7.
 (define_predicate "const_0_to_7_operand"
   (and (match_code "const_int")
@@ -752,15 +762,65 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 6, 7)")))
 
+;; Match 8 to 9.
+(define_predicate "const_8_to_9_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 8, 9)")))
+
 ;; Match 8 to 11.
 (define_predicate "const_8_to_11_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 8, 11)")))
 
+;; Match 8 to 15.
+(define_predicate "const_8_to_15_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 8, 15)")))
+
+;; Match 10 to 11.
+(define_predicate "const_10_to_11_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 10, 11)")))
+
+;; Match 12 to 13.
+(define_predicate "const_12_to_13_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 12, 13)")))
+
 ;; Match 12 to 15.
 (define_predicate "const_12_to_15_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 12, 15)")))
+
+;; Match 14 to 15.
+(define_predicate "const_14_to_15_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 14, 15)")))
+
+;; Match 16 to 19.
+(define_predicate "const_16_to_19_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 16, 19)")))
+
+;; Match 16 to 31.
+(define_predicate "const_16_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 16, 31)")))
+
+;; Match 20 to 23.
+(define_predicate "const_20_to_23_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 20, 23)")))
+
+;; Match 24 to 27.
+(define_predicate "const_24_to_27_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 24, 27)")))
+
+;; Match 28 to 31.
+(define_predicate "const_28_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 28, 31)")))
 
 ;; True if this is a constant appropriate for an increment or decrement.
 (define_predicate "incdec_operand"
@@ -862,10 +922,14 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const0_operand")))
 
+;; Return true for RTX codes that force SImode address.
+(define_predicate "SImode_address_operand"
+  (match_code "subreg,zero_extend,and"))
+
 ;; Return true if op if a valid address for LEA, and does not contain
 ;; a segment override.  Defined as a special predicate to allow
 ;; mode-less const_int operands pass to address_operand.
-(define_special_predicate "lea_address_operand"
+(define_special_predicate "address_no_seg_operand"
   (match_operand 0 "address_operand")
 {
   struct ix86_address parts;
@@ -875,10 +939,6 @@
   gcc_assert (ok);
   return parts.seg == SEG_DEFAULT;
 })
-
-;; Return true for RTX codes that force SImode address.
-(define_predicate "SImode_address_operand"
-  (match_code "subreg,zero_extend,and"))
 
 ;; Return true if op if a valid base register, displacement or
 ;; sum of base register and displacement for VSIB addressing.
@@ -1332,3 +1392,9 @@
 (define_predicate "general_vector_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_code "const_vector")))
+
+;; Return true if OP is either -1 constant or stored in register.
+(define_predicate "register_or_constm1_operand"
+  (ior (match_operand 0 "register_operand")
+       (and (match_code "const_int")
+	    (match_test "op == constm1_rtx"))))

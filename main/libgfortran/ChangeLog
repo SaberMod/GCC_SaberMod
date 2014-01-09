@@ -1,3 +1,88 @@
+2013-12-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	* io/read.c (read_f): Convert assert to runtime error.
+
+2013-12-17  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* io/unix.c (tempfile_open): Only use the needed flag O_CLOEXEC.
+
+2013-12-16  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	PR libfortran/59419
+	* io/file_pos.c (st_rewind): Do proper return after
+	generate_error.
+	* io/open.c (edit_modes): Move action code inside block that
+	checks for library ok. (new_unit): Do cleanup after error.
+	(st_open): Do proper return after error.
+	* io/transfer.c (data_transfer_init): Likewise.
+	
+2013-12-11  Tobias Burnus  <burnus@net-b.de>
+
+	* config/fpu-387.h (sigill_hdlr, get_fpu_rounding_mode): Emit SSE
+	instructions when __SSE_MATH__ is defined.
+
+2013-12-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* intrinsics/erfc_scaled.c (_M_2_SQRTPI): Define if missing.
+
+2013-12-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libfortran/59313
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): Also provide for
+	quadruple precision long double variant.
+
+2013-11-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): Don't define if
+	__float128 is not available.
+
+2013-11-20  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/49024
+	* intrinsics/erfc_scaled.c (erfc_scaled_r16): New function.
+	* intrinsics/erfc_scaled_inc.c: Do not provide quadruple
+	precision variant.
+
+2013-11-18  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/51828
+	* intrinsics/unpack_generic.c (unpack_internal): Let the compiler
+	know that dim > 0 to avoid warnings.
+
+2013-11-15  Janne Blomqvist  <jb@gcc.gnu.org>
+	    Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/59108
+	* io/unix.c (regular_file): Don't set O_CREAT when opening a file
+	read-only with unknown status. Mask out O_CREAT when falling back
+	to opening read-only if ACTION= is not set and read-write fails.
+
+2013-11-15  Steve Ellcey  <sellcey@mips.com>
+
+	* configure.ac: Do not define HAVE_STRTOLD.
+	* configure: Regenerate.
+
+2013-11-10  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* configure.ac: Check presence of mkostemp.
+	* io/unix.c (set_close_on_exec): New function.
+	(tempfile_open): Use mkostemp and O_CLOEXEC if available, fallback
+	to calling set_close_on_exec.
+	(regular_file): Add O_CLOEXEC to flags if defined.
+	(open_external): Call set_close_on_exec if O_CLOEXEC is not
+	defined.
+	* config.h.in: Regenerated.
+	* configure: Regenerated.
+	* Makefile.in: Regenerated.
+	* aclocal.m4: Regenerated.
+
+2013-10-01  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/55469
+	* io/list_read (parse_repeat, read_integer, read_character,
+	parse_real, read_real, check_type, list_formatted_read_scalar,
+	finish_list_read): Call list_free.
+
 2013-09-20  Alan Modra  <amodra@gmail.com>
 
 	* configure: Regenerate.

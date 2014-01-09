@@ -630,10 +630,10 @@ reset_float_format (const char *name, const char *format,
   m->format = format;
 }
 
-/* Partial integer modes are specified by relation to a full integer mode.
-   For now, we do not attempt to narrow down their bit sizes.  */
-#define PARTIAL_INT_MODE(M) \
-  make_partial_integer_mode (#M, "P" #M, -1U, __FILE__, __LINE__)
+/* Partial integer modes are specified by relation to a full integer
+   mode.  */
+#define PARTIAL_INT_MODE(M,PREC,NAME)				\
+  make_partial_integer_mode (#M, #NAME, PREC, __FILE__, __LINE__)
 static void ATTRIBUTE_UNUSED
 make_partial_integer_mode (const char *base, const char *name,
 			   unsigned int precision,
@@ -670,7 +670,7 @@ make_vector_mode (enum mode_class bclass,
   struct mode_data *v;
   enum mode_class vclass = vector_class (bclass);
   struct mode_data *component = find_mode (base);
-  char namebuf[8];
+  char namebuf[16];
 
   if (vclass == MODE_RANDOM)
     return;
@@ -711,10 +711,27 @@ make_vector_mode (enum mode_class bclass,
 #define ADJUST_IBIT(M, X)  _ADD_ADJUST (ibit, M, X, ACCUM, UACCUM)
 #define ADJUST_FBIT(M, X)  _ADD_ADJUST (fbit, M, X, FRACT, UACCUM)
 
+static int bits_per_unit;
+static int max_bitsize_mode_any_int;
+
 static void
 create_modes (void)
 {
 #include "machmode.def"
+
+  /* So put the default value unless the target needs a non standard
+     value. */
+#ifdef BITS_PER_UNIT
+  bits_per_unit = BITS_PER_UNIT;
+#else
+  bits_per_unit = 8;
+#endif
+
+#ifdef MAX_BITSIZE_MODE_ANY_INT
+  max_bitsize_mode_any_int = MAX_BITSIZE_MODE_ANY_INT;
+#else
+  max_bitsize_mode_any_int = 0;
+#endif
 }
 
 /* Processing.  */
@@ -860,23 +877,31 @@ emit_max_int (void)
   int j;
 
   puts ("");
-  for (max = 1, i = modes[MODE_INT]; i; i = i->next)
-    if (max < i->bytesize)
-	max = i->bytesize;
-  mmax = max;
-  for (max = 1, i = modes[MODE_PARTIAL_INT]; i; i = i->next)
-    if (max < i->bytesize)
-	max = i->bytesize;
-  if (max > mmax)
-    mmax = max;
-  printf ("#define MAX_BITSIZE_MODE_ANY_INT %d*BITS_PER_UNIT\n", mmax);
+
+  printf ("#define BITS_PER_UNIT (%d)\n", bits_per_unit); 
+ 
+  if (max_bitsize_mode_any_int == 0)
+    {
+      for (max = 1, i = modes[MODE_INT]; i; i = i->next)
+	if (max < i->bytesize)
+	  max = i->bytesize;
+      mmax = max;
+      for (max = 1, i = modes[MODE_PARTIAL_INT]; i; i = i->next)
+	if (max < i->bytesize)
+	  max = i->bytesize;
+      if (max > mmax)
+	mmax = max;
+      printf ("#define MAX_BITSIZE_MODE_ANY_INT (%d*BITS_PER_UNIT)\n", mmax);
+    }
+  else
+    printf ("#define MAX_BITSIZE_MODE_ANY_INT %d\n", max_bitsize_mode_any_int);
 
   mmax = 0;
   for (j = 0; j < MAX_MODE_CLASS; j++)
     for (i = modes[j]; i; i = i->next)
       if (mmax < i->bytesize)
 	mmax = i->bytesize;
-  printf ("#define MAX_BITSIZE_MODE_ANY_MODE %d*BITS_PER_UNIT\n", mmax);
+  printf ("#define MAX_BITSIZE_MODE_ANY_MODE (%d*BITS_PER_UNIT)\n", mmax);
 }
 
 static void
@@ -918,7 +943,7 @@ enum machine_mode\n{");
 	 end will try to use it for bitfields in structures and the
 	 like, which we do not want.  Only the target md file should
 	 generate BImode widgets.  */
-      if (first && first->precision == 1)
+      if (first && first->precision == 1 && c == MODE_INT)
 	first = first->next;
 
       if (first && last)
@@ -1188,7 +1213,7 @@ emit_class_narrowest_mode (void)
     /* Bleah, all this to get the comment right for MIN_MODE_INT.  */
     tagged_printf ("MIN_%s", mode_class_names[c],
 		   modes[c]
-		   ? (modes[c]->precision != 1
+		   ? ((c != MODE_INT || modes[c]->precision != 1)
 		      ? modes[c]->name
 		      : (modes[c]->next
 			 ? modes[c]->next->name

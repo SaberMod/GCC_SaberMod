@@ -37,7 +37,8 @@ AM_CPPFLAGS = -I $(srcdir)/runtime $(LIBFFIINCS) $(PTHREAD_CFLAGS)
 
 ACLOCAL_AMFLAGS = -I ./config -I ../config
 
-AM_CFLAGS = -fexceptions -fplan9-extensions $(SPLIT_STACK) $(WARN_CFLAGS) \
+AM_CFLAGS = -fexceptions -fnon-call-exceptions -fplan9-extensions \
+	$(SPLIT_STACK) $(WARN_CFLAGS) \
 	$(STRINGOPS_FLAG) $(OSCFLAGS) \
 	-I $(srcdir)/../libgcc -I $(srcdir)/../libbacktrace \
 	-I $(MULTIBUILDTOP)../../gcc/include
@@ -103,6 +104,7 @@ toolexeclibgo_DATA = \
 	bufio.gox \
 	bytes.gox \
 	crypto.gox \
+	encoding.gox \
 	errors.gox \
 	expvar.gox \
 	flag.gox \
@@ -250,6 +252,11 @@ toolexeclibgoimage_DATA = \
 	image/gif.gox \
 	image/jpeg.gox \
 	image/png.gox
+
+toolexeclibgoimagecolordir = $(toolexeclibgoimagedir)/color
+
+toolexeclibgoimagecolor_DATA = \
+	image/color/palette.gox
 
 toolexeclibgoindexdir = $(toolexeclibgodir)/index
 
@@ -406,12 +413,12 @@ endif
 endif
 
 if LIBGO_IS_LINUX
-runtime_netpoll_files = netpoll.c runtime/netpoll_epoll.c
+runtime_netpoll_files = runtime/netpoll_epoll.c
 else
-if LIBGO_IS_DARWIN
-runtime_netpoll_files = netpoll.c runtime/netpoll_kqueue.c
+if LIBGO_IS_SOLARIS
+runtime_netpoll_files = runtime/netpoll_select.c
 else
-runtime_netpoll_files = runtime/netpoll_stub.c
+runtime_netpoll_files = runtime/netpoll_kqueue.c
 endif
 endif
 
@@ -424,6 +431,7 @@ runtime_files = \
 	runtime/go-caller.c \
 	runtime/go-callers.c \
 	runtime/go-can-convert-interface.c \
+	runtime/go-cdiv.c \
 	runtime/go-cgo.c \
 	runtime/go-check-interface.c \
 	runtime/go-construct-map.c \
@@ -480,6 +488,7 @@ runtime_files = \
 	runtime/go-unsafe-newarray.c \
 	runtime/go-unsafe-pointer.c \
 	runtime/go-unwind.c \
+	runtime/go-varargs.c \
 	runtime/chan.c \
 	runtime/cpuprof.c \
 	runtime/env_posix.c \
@@ -507,6 +516,7 @@ runtime_files = \
 	malloc.c \
 	map.c \
 	mprof.c \
+	netpoll.c \
 	reflect.c \
 	runtime1.c \
 	sema.c \
@@ -571,6 +581,9 @@ go_bytes_c_files = \
 
 go_crypto_files = \
 	go/crypto/crypto.go
+
+go_encoding_files = \
+	go/encoding/encoding.go
 
 go_errors_files = \
 	go/errors/errors.go
@@ -659,26 +672,6 @@ go_mime_files = \
 	go/mime/type.go \
 	go/mime/type_unix.go
 
-if LIBGO_IS_RTEMS
-go_net_fd_os_file = go/net/fd_select.go
-go_net_newpollserver_file = go/net/newpollserver_rtems.go
-else # !LIBGO_IS_RTEMS
-if LIBGO_IS_LINUX
-go_net_fd_os_file =
-go_net_newpollserver_file =
-else # !LIBGO_IS_LINUX && !LIBGO_IS_RTEMS
-if LIBGO_IS_NETBSD
-go_net_fd_os_file = go/net/fd_bsd.go
-go_net_newpollserver_file =
-else # !LIBGO_IS_NETBSD && !LIBGO_IS_LINUX && !LIBGO_IS_RTEMS
-# By default use select with pipes.  Most systems should have
-# something better.
-go_net_fd_os_file = go/net/fd_select.go
-go_net_newpollserver_file =
-endif # !LIBGO_IS_NETBSD
-endif # !LIBGO_IS_LINUX
-endif # !LIBGO_IS_RTEMS
-
 if LIBGO_IS_LINUX
 go_net_cgo_file = go/net/cgo_linux.go
 go_net_sock_file = go/net/sock_linux.go
@@ -725,7 +718,11 @@ else
 if LIBGO_IS_FREEBSD
 go_net_sendfile_file = go/net/sendfile_freebsd.go
 else
+if LIBGO_IS_DRAGONFLY
+go_net_sendfile_file = go/net/sendfile_dragonfly.go
+else
 go_net_sendfile_file = go/net/sendfile_stub.go
+endif
 endif
 endif
 
@@ -735,7 +732,11 @@ else
 if LIBGO_IS_NETBSD
 go_net_interface_file = go/net/interface_netbsd.go
 else
+if LIBGO_IS_DRAGONFLY
+go_net_interface_file = go/net/interface_dragonfly.go
+else
 go_net_interface_file = go/net/interface_stub.go
+endif
 endif
 endif
 
@@ -745,13 +746,17 @@ else
 go_net_cloexec_file = go/net/sys_cloexec.go
 endif
 
-if LIBGO_IS_LINUX
-go_net_poll_file = go/net/fd_poll_runtime.go
+if LIBGO_IS_OPENBSD
+go_net_tcpsockopt_file = go/net/tcpsockopt_openbsd.go
 else
 if LIBGO_IS_DARWIN
-go_net_poll_file = go/net/fd_poll_runtime.go
+go_net_tcpsockopt_file = go/net/tcpsockopt_darwin.go
 else
-go_net_poll_file = go/net/fd_poll_unix.go
+if LIBGO_IS_SOLARIS
+go_net_tcpsockopt_file = go/net/tcpsockopt_darwin.go
+else
+go_net_tcpsockopt_file =  go/net/tcpsockopt_unix.go
+endif
 endif
 endif
 
@@ -764,9 +769,8 @@ go_net_files = \
 	go/net/dnsclient_unix.go \
 	go/net/dnsconfig_unix.go \
 	go/net/dnsmsg.go \
-	$(go_net_newpollserver_file) \
+	go/net/fd_mutex.go \
 	go/net/fd_unix.go \
-	$(go_net_fd_os_file) \
 	go/net/file_unix.go \
 	go/net/hosts.go \
 	go/net/interface.go \
@@ -782,18 +786,21 @@ go_net_files = \
 	go/net/net.go \
 	go/net/parse.go \
 	go/net/pipe.go \
-	$(go_net_poll_file) \
+	go/net/fd_poll_runtime.go \
 	go/net/port.go \
 	go/net/port_unix.go \
+	go/net/race0.go \
 	$(go_net_sendfile_file) \
+	go/net/singleflight.go \
 	go/net/sock_posix.go \
-	go/net/sock_unix.go \
 	$(go_net_sock_file) \
 	go/net/sockopt_posix.go \
 	$(go_net_sockopt_file) \
 	$(go_net_sockoptip_file) \
 	go/net/tcpsock.go \
 	go/net/tcpsock_posix.go \
+	go/net/tcpsockopt_posix.go \
+	$(go_net_tcpsockopt_file) \
 	go/net/udpsock.go \
 	go/net/udpsock_posix.go \
 	go/net/unixsock.go \
@@ -815,6 +822,12 @@ go_os_dir_file = go/os/dir_largefile.go
 else
 go_os_dir_file = go/os/dir_regfile.go
 endif
+endif
+
+if LIBGO_IS_DARWIN
+go_os_getwd_file = go/os/getwd_darwin.go
+else
+go_os_getwd_file =
 endif
 
 if LIBGO_IS_LINUX
@@ -853,7 +866,11 @@ else
 if LIBGO_IS_NETBSD
 go_os_stat_file = go/os/stat_atimespec.go
 else
+if LIBGO_IS_DRAGONFLY
+go_os_stat_file = go/os/stat_dragonfly.go
+else
 go_os_stat_file = go/os/stat.go
+endif
 endif
 endif
 endif
@@ -873,7 +890,7 @@ go_os_files = \
 	go/os/doc.go \
 	go/os/env.go \
 	go/os/error.go \
-	go/os/error_posix.go \
+	go/os/error_unix.go \
 	go/os/exec.go \
 	go/os/exec_posix.go \
 	go/os/exec_unix.go \
@@ -881,6 +898,7 @@ go_os_files = \
 	go/os/file_posix.go \
 	go/os/file_unix.go \
 	go/os/getwd.go \
+	$(go_os_getwd_file) \
 	go/os/path.go \
 	go/os/path_unix.go \
 	$(go_os_pipe_file) \
@@ -969,7 +987,10 @@ go_strings_files = \
 	go/strings/reader.go \
 	go/strings/replace.go \
 	go/strings/search.go \
-	go/strings/strings.go
+	go/strings/strings.go \
+	go/strings/strings_decl.go
+go_strings_c_files = \
+	go/strings/indexbyte.c
 
 go_sync_files = \
 	go/sync/cond.go \
@@ -999,6 +1020,7 @@ go_syslog_c_files = \
 go_testing_files = \
 	go/testing/allocs.go \
 	go/testing/benchmark.go \
+	go/testing/cover.go \
 	go/testing/example.go \
 	go/testing/testing.go
 
@@ -1047,6 +1069,7 @@ go_archive_tar_files = \
 
 go_archive_zip_files = \
 	go/archive/zip/reader.go \
+	go/archive/zip/register.go \
 	go/archive/zip/struct.go \
 	go/archive/zip/writer.go
 
@@ -1097,6 +1120,7 @@ go_crypto_cipher_files = \
 	go/crypto/cipher/cfb.go \
 	go/crypto/cipher/cipher.go \
 	go/crypto/cipher/ctr.go \
+	go/crypto/cipher/gcm.go \
 	go/crypto/cipher/io.go \
 	go/crypto/cipher/ofb.go
 go_crypto_des_files = \
@@ -1109,7 +1133,8 @@ go_crypto_ecdsa_files = \
 	go/crypto/ecdsa/ecdsa.go
 go_crypto_elliptic_files = \
 	go/crypto/elliptic/elliptic.go \
-	go/crypto/elliptic/p224.go
+	go/crypto/elliptic/p224.go \
+	go/crypto/elliptic/p256.go
 go_crypto_hmac_files = \
 	go/crypto/hmac/hmac.go
 go_crypto_md5_files = \
@@ -1124,6 +1149,7 @@ go_crypto_rc4_files = \
 	go/crypto/rc4/rc4_ref.go
 go_crypto_rsa_files = \
 	go/crypto/rsa/pkcs1v15.go \
+	go/crypto/rsa/pss.go \
 	go/crypto/rsa/rsa.go
 go_crypto_sha1_files = \
 	go/crypto/sha1/sha1.go \
@@ -1254,7 +1280,7 @@ go_go_build_files = \
 	go/go/build/build.go \
 	go/go/build/doc.go \
 	go/go/build/read.go \
-	syslist.go
+	go/go/build/syslist.go
 go_go_doc_files = \
 	go/go/doc/comment.go \
 	go/go/doc/doc.go \
@@ -1307,11 +1333,15 @@ go_image_color_files = \
 	go/image/color/color.go \
 	go/image/color/ycbcr.go
 
+go_image_color_palette_files = \
+	go/image/color/palette/palette.go
+
 go_image_draw_files = \
 	go/image/draw/draw.go
 
 go_image_gif_files = \
-	go/image/gif/reader.go
+	go/image/gif/reader.go \
+	go/image/gif/writer.go
 
 go_image_jpeg_files = \
 	go/image/jpeg/fdct.go \
@@ -1765,6 +1795,7 @@ libgo_go_objs = \
 	bytes.lo \
 	bytes/index.lo \
 	crypto.lo \
+	encoding.lo \
 	errors.lo \
 	expvar.lo \
 	flag.lo \
@@ -1786,6 +1817,7 @@ libgo_go_objs = \
 	sort.lo \
 	strconv.lo \
 	strings.lo \
+	strings/index.lo \
 	sync.lo \
 	syscall.lo \
 	syscall/errno.lo \
@@ -1862,6 +1894,7 @@ libgo_go_objs = \
 	net/http/httputil.lo \
 	net/http/pprof.lo \
 	image/color.lo \
+	image/color/palette.lo \
 	image/draw.lo \
 	image/gif.lo \
 	image/jpeg.lo \
@@ -2031,6 +2064,15 @@ crypto.lo: $(go_crypto_files)
 crypto/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: crypto/check
+
+@go_include@ encoding.lo.dep
+encoding.lo.dep: $(go_encoding_files)
+	$(BUILDDEPS)
+encoding.lo: $(go_encoding_files)
+	$(BUILDPACKAGE)
+encoding/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: encoding/check
 
 @go_include@ errors.lo.dep
 errors.lo.dep: $(go_errors_files)
@@ -2213,6 +2255,9 @@ strings.lo.dep: $(go_strings_files)
 	$(BUILDDEPS)
 strings.lo: $(go_strings_files)
 	$(BUILDPACKAGE)
+strings/index.lo: $(go_strings_c_files)
+	@$(MKDIR_P) strings
+	$(LTCOMPILE) -c -o strings/index.lo $(srcdir)/go/strings/indexbyte.c
 strings/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: strings/check
@@ -2712,15 +2757,6 @@ go/build/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: go/build/check
 
-syslist.go: s-syslist; @true
-s-syslist: Makefile
-	echo '// Generated automatically by make.' >syslist.go.tmp
-	echo 'package build' >>syslist.go.tmp
-	echo 'const goosList = "$(GOOS)"' >>syslist.go.tmp
-	echo 'const goarchList = "$(GOARCH)"' >>syslist.go.tmp
-	$(SHELL) $(srcdir)/../move-if-change syslist.go.tmp syslist.go
-	$(STAMP) $@
-
 @go_include@ go/doc.lo.dep
 go/doc.lo.dep: $(go_go_doc_files)
 	$(BUILDDEPS)
@@ -2819,6 +2855,15 @@ image/color.lo: $(go_image_color_files)
 image/color/check: $(CHECK_DEPS)
 	@$(CHECK)
 .PHONY: image/color/check
+
+@go_include@ image/color/palette.lo.dep
+image/color/palette.lo.dep: $(go_image_color_palette_files)
+	$(BUILDDEPS)
+image/color/palette.lo: $(go_image_color_palette_files)
+	$(BUILDPACKAGE)
+image/color/palette/check: $(CHECK_DEPS)
+	@$(CHECK)
+.PHONY: image/color/palette/check
 
 @go_include@ image/draw.lo.dep
 image/draw.lo.dep: $(go_image_draw_files)
@@ -3235,6 +3280,8 @@ bytes.gox: bytes.lo
 	$(BUILDGOX)
 crypto.gox: crypto.lo
 	$(BUILDGOX)
+encoding.gox: encoding.lo
+	$(BUILDGOX)
 errors.gox: errors.lo
 	$(BUILDGOX)
 expvar.gox: expvar.lo
@@ -3430,6 +3477,9 @@ image/gif.gox: image/gif.lo
 image/jpeg.gox: image/jpeg.lo
 	$(BUILDGOX)
 image/png.gox: image/png.lo
+	$(BUILDGOX)
+
+image/color/palette.gox: image/color/palette.lo
 	$(BUILDGOX)
 
 index/suffixarray.gox: index/suffixarray.lo

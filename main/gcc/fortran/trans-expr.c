@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "langhooks.h"
 #include "flags.h"
@@ -38,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Only for gfc_trans_assign and gfc_trans_pointer_assign.  */
 #include "trans-stmt.h"
 #include "dependency.h"
+#include "gimplify.h"
 
 
 /* Convert a scalar to an array descriptor. To be used for assumed-rank
@@ -556,7 +558,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   /* Set the vptr.  */
   ctree =  gfc_class_vptr_get (var);
 
-  vtab = gfc_find_intrinsic_vtab (&e->ts);
+  vtab = gfc_find_vtab (&e->ts);
   gcc_assert (vtab);
   tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
   gfc_add_modify (&parmse->pre, ctree,
@@ -737,7 +739,6 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
     gfc_add_modify (&parmse->post, vptr,
 		    fold_convert (TREE_TYPE (vptr), ctree));
 
-  gcc_assert (!optional || (optional && !copyback));
   if (optional)
     {
       tree tmp2;
@@ -1014,12 +1015,10 @@ gfc_trans_class_assign (gfc_expr *expr1, gfc_expr *expr2, gfc_exec_op op)
  	  goto assign_vptr;
 	}
 
-      if (expr2->ts.type == BT_DERIVED)
-	vtab = gfc_find_derived_vtab (expr2->ts.u.derived);
-      else if (expr2->expr_type == EXPR_NULL)
-	vtab = gfc_find_derived_vtab (expr1->ts.u.derived);
+      if (expr2->expr_type == EXPR_NULL)
+	vtab = gfc_find_vtab (&expr1->ts);
       else
-	vtab = gfc_find_intrinsic_vtab (&expr2->ts);
+	vtab = gfc_find_vtab (&expr2->ts);
       gcc_assert (vtab);
 
       rhs = gfc_get_expr ();
@@ -2355,11 +2354,15 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     {
       /* Allocate a temporary to hold the result.  */
       var = gfc_create_var (type, "pstr");
-      tmp = gfc_call_malloc (&se->pre, type,
-			     fold_build2_loc (input_location, MULT_EXPR,
-					      TREE_TYPE (len), len,
-					      fold_convert (TREE_TYPE (len),
-							    TYPE_SIZE (type))));
+      gcc_assert (POINTER_TYPE_P (type));
+      tmp = TREE_TYPE (type);
+      if (TREE_CODE (tmp) == ARRAY_TYPE)
+        tmp = TREE_TYPE (tmp);
+      tmp = TYPE_SIZE_UNIT (tmp);
+      tmp = fold_build2_loc (input_location, MULT_EXPR, size_type_node,
+			    fold_convert (size_type_node, len),
+			    fold_convert (size_type_node, tmp));
+      tmp = gfc_call_malloc (&se->pre, type, tmp);
       gfc_add_modify (&se->pre, var, tmp);
 
       /* Free the temporary afterwards.  */
@@ -7765,7 +7768,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	      e1 = a->expr;
 	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
-	    }	 
+	    }
 	  return true;
 	}
       else if (expr2->value.function.isym

@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "cp-tree.h"
 #include "input.h"
 #include "params.h"
@@ -34,7 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
-#include "gimple.h"
+#include "pointer-set.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
 
@@ -339,7 +340,7 @@ maybe_clone_body (tree fn)
 	     virtual, it goes into the same comdat group as well.  */
 	  if (comdat_group)
 	    symtab_add_to_same_comdat_group
-	       ((symtab_node) cgraph_get_create_node (clone),
+	       (cgraph_get_create_node (clone),
 	        symtab_get_node (fns[0]));
 	}
       else if (alias)

@@ -34,6 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
@@ -50,7 +54,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "sched-int.h"
+#include "pointer-set.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "bitmap.h"
 #include "diagnostic.h"
 #include "target-globals.h"
@@ -3796,6 +3810,18 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      return true;
 	    }
 	}
+      /* (AND (NOT op0) (NOT op1) is a nor operation that can be done in
+	 a single instruction.  */
+      if (!TARGET_MIPS16
+	  && GET_CODE (XEXP (x, 0)) == NOT
+	  && GET_CODE (XEXP (x, 1)) == NOT)
+	{
+	  cost = GET_MODE_SIZE (mode) > UNITS_PER_WORD ? 2 : 1;
+          *total = (COSTS_N_INSNS (cost)
+		    + set_src_cost (XEXP (XEXP (x, 0), 0), speed)
+		    + set_src_cost (XEXP (XEXP (x, 1), 0), speed));
+	  return true;
+	}
 	    
       /* Fall through.  */
 
@@ -3955,7 +3981,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case DIV:
       /* Check for a reciprocal.  */
       if (float_mode_p
-	  && ISA_HAS_FP4
+	  && ISA_HAS_FP_RECIP_RSQRT (mode)
 	  && flag_unsafe_math_optimizations
 	  && XEXP (x, 0) == CONST1_RTX (mode))
 	{
@@ -5136,7 +5162,7 @@ mips_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
       && type != 0
       && TREE_CODE (type) == RECORD_TYPE
       && TYPE_SIZE_UNIT (type)
-      && host_integerp (TYPE_SIZE_UNIT (type), 1))
+      && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
       tree field;
 
@@ -5145,7 +5171,7 @@ mips_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	if (TREE_CODE (field) == FIELD_DECL
 	    && SCALAR_FLOAT_TYPE_P (TREE_TYPE (field))
 	    && TYPE_PRECISION (TREE_TYPE (field)) == BITS_PER_WORD
-	    && host_integerp (bit_position (field), 0)
+	    && tree_fits_shwi_p (bit_position (field))
 	    && int_bit_position (field) % BITS_PER_WORD == 0)
 	  break;
 
@@ -10982,8 +11008,17 @@ mips_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    mips_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    mips_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					 size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	mips_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   /* Save the registers.  Allocate up to MIPS_MAX_FIRST_STACK_STEP
      bytes beforehand; this is enough to cover the register save area
@@ -14816,7 +14851,7 @@ r10k_simplify_address (rtx x, rtx insn)
 	      /* Replace the incoming value of $sp with
 		 virtual_incoming_args_rtx.  */
 	      if (x == stack_pointer_rtx
-		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR)
+		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		newx = virtual_incoming_args_rtx;
 	    }
 	  else if (dominated_by_p (CDI_DOMINATORS, DF_REF_BB (use),
@@ -14905,7 +14940,7 @@ r10k_safe_address_p (rtx x, rtx insn)
    a link-time-constant address.  */
 
 static bool
-r10k_safe_mem_expr_p (tree expr, HOST_WIDE_INT offset)
+r10k_safe_mem_expr_p (tree expr, unsigned HOST_WIDE_INT offset)
 {
   HOST_WIDE_INT bitoffset, bitsize;
   tree inner, var_offset;
@@ -14918,7 +14953,7 @@ r10k_safe_mem_expr_p (tree expr, HOST_WIDE_INT offset)
     return false;
 
   offset += bitoffset / BITS_PER_UNIT;
-  return offset >= 0 && offset < tree_low_cst (DECL_SIZE_UNIT (inner), 1);
+  return offset < tree_to_uhwi (DECL_SIZE_UNIT (inner));
 }
 
 /* A for_each_rtx callback for which DATA points to the instruction
@@ -15036,15 +15071,15 @@ r10k_insert_cache_barriers (void)
 
   /* Bit X of PROTECTED_BBS is set if the last operation in basic block
      X is protected by a cache barrier.  */
-  protected_bbs = sbitmap_alloc (last_basic_block);
+  protected_bbs = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (protected_bbs);
 
   /* Iterate over the basic blocks in reverse post-order.  */
-  rev_post_order = XNEWVEC (int, last_basic_block);
+  rev_post_order = XNEWVEC (int, last_basic_block_for_fn (cfun));
   n = pre_and_rev_post_order_compute (NULL, rev_post_order, false);
   for (i = 0; i < n; i++)
     {
-      bb = BASIC_BLOCK (rev_post_order[i]);
+      bb = BASIC_BLOCK_FOR_FN (cfun, rev_post_order[i]);
 
       /* If this block is only reached by unconditional edges, and if the
 	 source of every edge is protected, the beginning of the block is
@@ -15297,7 +15332,7 @@ mips_annotate_pic_calls (void)
   basic_block bb;
   rtx insn;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
     {
       rtx call, reg, symbol, second_call;
@@ -16050,10 +16085,13 @@ mips_reorg_process_insns (void)
   if (crtl->profile)
     cfun->machine->all_noreorder_p = false;
 
-  /* Code compiled with -mfix-vr4120 or -mfix-24k can't be all noreorder
-     because we rely on the assembler to work around some errata.
-     The r5900 too has several bugs.  */
-  if (TARGET_FIX_VR4120 || TARGET_FIX_24K || TARGET_MIPS5900)
+  /* Code compiled with -mfix-vr4120, -mfix-rm7000 or -mfix-24k can't be
+     all noreorder because we rely on the assembler to work around some
+     errata.  The R5900 too has several bugs.  */
+  if (TARGET_FIX_VR4120
+      || TARGET_FIX_RM7000
+      || TARGET_FIX_24K
+      || TARGET_MIPS5900)
     cfun->machine->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or

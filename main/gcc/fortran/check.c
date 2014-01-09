@@ -2858,12 +2858,7 @@ gfc_check_move_alloc (gfc_expr *from, gfc_expr *to)
 
   /* CLASS arguments: Make sure the vtab of from is present.  */
   if (to->ts.type == BT_CLASS && !UNLIMITED_POLY (from))
-    {
-      if (from->ts.type == BT_CLASS || from->ts.type == BT_DERIVED)
-	gfc_find_derived_vtab (from->ts.u.derived);
-      else
-	gfc_find_intrinsic_vtab (&from->ts);
-    }
+    gfc_find_vtab (&from->ts);
 
   return true;
 }
@@ -3277,7 +3272,7 @@ gfc_check_reshape (gfc_expr *source, gfc_expr *shape,
 		 "than %d elements", &shape->where, GFC_MAX_DIMENSIONS);
       return false;
     }
-  else if (shape->expr_type == EXPR_ARRAY)
+  else if (shape->expr_type == EXPR_ARRAY && gfc_is_constant_expr (shape))
     {
       gfc_expr *e;
       int i, extent;

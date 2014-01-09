@@ -68,24 +68,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
 #include "rtl.h"
-#include "tree-ssa.h"
+#include "tree.h"
+#include "stringpool.h"
+#include "function.h"
+#include "emit-rtl.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "bitmap.h"
+#include "tree-cfg.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "toplev.h"
 #include "flags.h"
-#include "ggc.h"
 #include "debug.h"
 #include "target.h"
-#include "cgraph.h"
 #include "diagnostic.h"
 #include "params.h"
 #include "intl.h"
 #include "function.h"
 #include "ipa-prop.h"
-#include "gimple.h"
 #include "tree-iterator.h"
 #include "tree-dump.h"
 #include "gimple-pretty-print.h"
@@ -116,7 +123,10 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
     {
       tree decl;
 
-      if (call_stmt && (decl = gimple_call_fndecl (call_stmt)))
+      if (call_stmt && (decl = gimple_call_fndecl (call_stmt))
+	  /* When the call is speculative, we need to resolve it 
+	     via cgraph_resolve_speculation and not here.  */
+	  && !e->speculative)
 	{
 	  struct cgraph_node *callee = cgraph_get_node (decl);
 	  gcc_checking_assert (callee);
@@ -187,19 +197,19 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   gcov_type count_scale;
   unsigned i;
 
-  new_node->symbol.decl = decl;
-  symtab_register_node ((symtab_node)new_node);
+  new_node->decl = decl;
+  symtab_register_node (new_node);
   new_node->origin = n->origin;
-  new_node->symbol.lto_file_data = n->symbol.lto_file_data;
+  new_node->lto_file_data = n->lto_file_data;
   if (new_node->origin)
     {
       new_node->next_nested = new_node->origin->nested;
       new_node->origin->nested = new_node;
     }
-  new_node->symbol.analyzed = n->symbol.analyzed;
-  new_node->symbol.definition = n->symbol.definition;
+  new_node->analyzed = n->analyzed;
+  new_node->definition = n->definition;
   new_node->local = n->local;
-  new_node->symbol.externally_visible = false;
+  new_node->externally_visible = false;
   new_node->local.local = true;
   new_node->global = n->global;
   new_node->global.inlined_to = new_inlined_to;
@@ -212,6 +222,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   new_node->frequency = n->frequency;
   new_node->clone = n->clone;
   new_node->clone.tree_map = NULL;
+  new_node->tp_first_run = n->tp_first_run;
   if (n->count)
     {
       if (new_node->count > n->count)
@@ -246,7 +257,7 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
   for (e = n->indirect_calls; e; e = e->next_callee)
     cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
 		       count_scale, freq, update_original);
-  ipa_clone_references ((symtab_node)new_node, &n->symbol.ref_list);
+  ipa_clone_references (new_node, &n->ref_list);
 
   new_node->next_sibling_clone = n->clones;
   if (n->clones)
@@ -284,6 +295,111 @@ clone_function_name (tree decl, const char *suffix)
   return get_identifier (tmp_name);
 }
 
+/* Build variant of function type ORIG_TYPE skipping ARGS_TO_SKIP and the
+   return value if SKIP_RETURN is true.  */
+
+static tree
+build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
+			       bool skip_return)
+{
+  tree new_type = NULL;
+  tree args, new_args = NULL, t;
+  tree new_reversed;
+  int i = 0;
+
+  for (args = TYPE_ARG_TYPES (orig_type); args && args != void_list_node;
+       args = TREE_CHAIN (args), i++)
+    if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
+      new_args = tree_cons (NULL_TREE, TREE_VALUE (args), new_args);
+
+  new_reversed = nreverse (new_args);
+  if (args)
+    {
+      if (new_reversed)
+        TREE_CHAIN (new_args) = void_list_node;
+      else
+	new_reversed = void_list_node;
+    }
+
+  /* Use copy_node to preserve as much as possible from original type
+     (debug info, attribute lists etc.)
+     Exception is METHOD_TYPEs must have THIS argument.
+     When we are asked to remove it, we need to build new FUNCTION_TYPE
+     instead.  */
+  if (TREE_CODE (orig_type) != METHOD_TYPE
+      || !args_to_skip
+      || !bitmap_bit_p (args_to_skip, 0))
+    {
+      new_type = build_distinct_type_copy (orig_type);
+      TYPE_ARG_TYPES (new_type) = new_reversed;
+    }
+  else
+    {
+      new_type
+        = build_distinct_type_copy (build_function_type (TREE_TYPE (orig_type),
+							 new_reversed));
+      TYPE_CONTEXT (new_type) = TYPE_CONTEXT (orig_type);
+    }
+
+  if (skip_return)
+    TREE_TYPE (new_type) = void_type_node;
+
+  /* This is a new type, not a copy of an old type.  Need to reassociate
+     variants.  We can handle everything except the main variant lazily.  */
+  t = TYPE_MAIN_VARIANT (orig_type);
+  if (t != orig_type)
+    {
+      t = build_function_type_skip_args (t, args_to_skip, skip_return);
+      TYPE_MAIN_VARIANT (new_type) = t;
+      TYPE_NEXT_VARIANT (new_type) = TYPE_NEXT_VARIANT (t);
+      TYPE_NEXT_VARIANT (t) = new_type;
+    }
+  else
+    {
+      TYPE_MAIN_VARIANT (new_type) = new_type;
+      TYPE_NEXT_VARIANT (new_type) = NULL;
+    }
+
+  return new_type;
+}
+
+/* Build variant of function decl ORIG_DECL skipping ARGS_TO_SKIP and the
+   return value if SKIP_RETURN is true.
+
+   Arguments from DECL_ARGUMENTS list can't be removed now, since they are
+   linked by TREE_CHAIN directly.  The caller is responsible for eliminating
+   them when they are being duplicated (i.e. copy_arguments_for_versioning).  */
+
+static tree
+build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
+			       bool skip_return)
+{
+  tree new_decl = copy_node (orig_decl);
+  tree new_type;
+
+  new_type = TREE_TYPE (orig_decl);
+  if (prototype_p (new_type)
+      || (skip_return && !VOID_TYPE_P (TREE_TYPE (new_type))))
+    new_type
+      = build_function_type_skip_args (new_type, args_to_skip, skip_return);
+  TREE_TYPE (new_decl) = new_type;
+
+  /* For declarations setting DECL_VINDEX (i.e. methods)
+     we expect first argument to be THIS pointer.   */
+  if (args_to_skip && bitmap_bit_p (args_to_skip, 0))
+    DECL_VINDEX (new_decl) = NULL_TREE;
+
+  /* When signature changes, we need to clear builtin info.  */
+  if (DECL_BUILT_IN (new_decl)
+      && args_to_skip
+      && !bitmap_empty_p (args_to_skip))
+    {
+      DECL_BUILT_IN_CLASS (new_decl) = NOT_BUILT_IN;
+      DECL_FUNCTION_CODE (new_decl) = (enum built_in_function) 0;
+    }
+  return new_decl;
+}
+
 /* Create callgraph node clone with new declaration.  The actual body will
    be copied later at compilation stage.
 
@@ -297,7 +413,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			     bitmap args_to_skip,
 			     const char * suffix)
 {
-  tree old_decl = old_node->symbol.decl;
+  tree old_decl = old_node->decl;
   struct cgraph_node *new_node = NULL;
   tree new_decl;
   size_t len, i;
@@ -343,16 +459,16 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
      that is not weak also.
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
-  DECL_EXTERNAL (new_node->symbol.decl) = 0;
+  DECL_EXTERNAL (new_node->decl) = 0;
   if (DECL_ONE_ONLY (old_decl))
-    DECL_SECTION_NAME (new_node->symbol.decl) = NULL;
-  DECL_COMDAT_GROUP (new_node->symbol.decl) = 0;
-  TREE_PUBLIC (new_node->symbol.decl) = 0;
-  DECL_COMDAT (new_node->symbol.decl) = 0;
-  DECL_WEAK (new_node->symbol.decl) = 0;
-  DECL_VIRTUAL_P (new_node->symbol.decl) = 0;
-  DECL_STATIC_CONSTRUCTOR (new_node->symbol.decl) = 0;
-  DECL_STATIC_DESTRUCTOR (new_node->symbol.decl) = 0;
+    DECL_SECTION_NAME (new_node->decl) = NULL;
+  DECL_COMDAT_GROUP (new_node->decl) = 0;
+  TREE_PUBLIC (new_node->decl) = 0;
+  DECL_COMDAT (new_node->decl) = 0;
+  DECL_WEAK (new_node->decl) = 0;
+  DECL_VIRTUAL_P (new_node->decl) = 0;
+  DECL_STATIC_CONSTRUCTOR (new_node->decl) = 0;
+  DECL_STATIC_DESTRUCTOR (new_node->decl) = 0;
   new_node->clone.tree_map = tree_map;
   new_node->clone.args_to_skip = args_to_skip;
 
@@ -362,9 +478,9 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
        && !DECL_WEAK (old_decl)
        && !DECL_COMDAT (old_decl))
       || in_lto_p)
-    new_node->symbol.unique_name = true;
+    new_node->unique_name = true;
   FOR_EACH_VEC_SAFE_ELT (tree_map, i, map)
-    ipa_maybe_record_reference ((symtab_node) new_node, map->new_tree,
+    ipa_maybe_record_reference (new_node, map->new_tree,
 				IPA_REF_ADDR, NULL);
   if (!args_to_skip)
     new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
@@ -376,7 +492,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
       struct cgraph_node *orig_node;
       for (orig_node = old_node; orig_node->clone_of; orig_node = orig_node->clone_of)
         ;
-      for (arg = DECL_ARGUMENTS (orig_node->symbol.decl);
+      for (arg = DECL_ARGUMENTS (orig_node->decl);
 	   arg; arg = DECL_CHAIN (arg), oldi++)
 	{
 	  if (bitmap_bit_p (old_node->clone.combined_args_to_skip, oldi))
@@ -392,7 +508,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     }
   else
     new_node->clone.combined_args_to_skip = args_to_skip;
-  new_node->symbol.externally_visible = 0;
+  new_node->externally_visible = 0;
   new_node->local.local = 1;
   new_node->lowered = true;
 
@@ -411,7 +527,7 @@ cgraph_find_replacement_node (struct cgraph_node *node)
 
   for (next_inline_clone = node->clones;
        next_inline_clone
-       && next_inline_clone->symbol.decl != node->symbol.decl;
+       && next_inline_clone->decl != node->decl;
        next_inline_clone = next_inline_clone->next_sibling_clone)
     ;
 
@@ -638,8 +754,8 @@ update_call_expr (struct cgraph_node *new_version)
   /* Update the call expr on the edges to call the new version.  */
   for (e = new_version->callers; e; e = e->next_caller)
     {
-      struct function *inner_function = DECL_STRUCT_FUNCTION (e->caller->symbol.decl);
-      gimple_call_set_fndecl (e->call_stmt, new_version->symbol.decl);
+      struct function *inner_function = DECL_STRUCT_FUNCTION (e->caller->decl);
+      gimple_call_set_fndecl (e->call_stmt, new_version->decl);
       maybe_clean_eh_stmt_fn (inner_function, e->call_stmt);
     }
 }
@@ -670,11 +786,11 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    new_version = cgraph_create_node (new_decl);
 
-   new_version->symbol.analyzed = old_version->symbol.analyzed;
-   new_version->symbol.definition = old_version->symbol.definition;
+   new_version->analyzed = old_version->analyzed;
+   new_version->definition = old_version->definition;
    new_version->local = old_version->local;
-   new_version->symbol.externally_visible = false;
-   new_version->local.local = new_version->symbol.definition;
+   new_version->externally_visible = false;
+   new_version->local.local = new_version->definition;
    new_version->global = old_version->global;
    new_version->rtl = old_version->rtl;
    new_version->count = old_version->count;
@@ -736,7 +852,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
 			    basic_block new_entry_block,
 			    const char *clone_name)
 {
-  tree old_decl = old_version_node->symbol.decl;
+  tree old_decl = old_version_node->decl;
   struct cgraph_node *new_version_node = NULL;
   tree new_decl;
 
@@ -776,9 +892,9 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
      that is not weak also.
      ??? We cannot use COMDAT linkage because there is no
      ABI support for this.  */
-  symtab_make_decl_local (new_version_node->symbol.decl);
-  DECL_VIRTUAL_P (new_version_node->symbol.decl) = 0;
-  new_version_node->symbol.externally_visible = 0;
+  symtab_make_decl_local (new_version_node->decl);
+  DECL_VIRTUAL_P (new_version_node->decl) = 0;
+  new_version_node->externally_visible = 0;
   new_version_node->local.local = 1;
   new_version_node->lowered = true;
   /* Clones of global symbols or symbols with unique names are unique.  */
@@ -787,7 +903,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
        && !DECL_WEAK (old_decl)
        && !DECL_COMDAT (old_decl))
       || in_lto_p)
-    new_version_node->symbol.unique_name = true;
+    new_version_node->unique_name = true;
 
   /* Update the call_expr on the edges to call the new version node. */
   update_call_expr (new_version_node);
@@ -802,18 +918,18 @@ static void
 cgraph_materialize_clone (struct cgraph_node *node)
 {
   bitmap_obstack_initialize (NULL);
-  node->former_clone_of = node->clone_of->symbol.decl;
+  node->former_clone_of = node->clone_of->decl;
   if (node->clone_of->former_clone_of)
     node->former_clone_of = node->clone_of->former_clone_of;
   /* Copy the OLD_VERSION_NODE function tree to the new version.  */
-  tree_function_versioning (node->clone_of->symbol.decl, node->symbol.decl,
+  tree_function_versioning (node->clone_of->decl, node->decl,
   			    node->clone.tree_map, true,
 			    node->clone.args_to_skip, false,
 			    NULL, NULL);
   if (cgraph_dump_file)
     {
-      dump_function_to_file (node->clone_of->symbol.decl, cgraph_dump_file, dump_flags);
-      dump_function_to_file (node->symbol.decl, cgraph_dump_file, dump_flags);
+      dump_function_to_file (node->clone_of->decl, cgraph_dump_file, dump_flags);
+      dump_function_to_file (node->decl, cgraph_dump_file, dump_flags);
     }
 
   /* Function is no longer clone.  */
@@ -825,11 +941,11 @@ cgraph_materialize_clone (struct cgraph_node *node)
     node->clone_of->clones = node->next_sibling_clone;
   node->next_sibling_clone = NULL;
   node->prev_sibling_clone = NULL;
-  if (!node->clone_of->symbol.analyzed && !node->clone_of->clones)
+  if (!node->clone_of->analyzed && !node->clone_of->clones)
     {
       cgraph_release_function_body (node->clone_of);
       cgraph_node_remove_callees (node->clone_of);
-      ipa_remove_all_references (&node->clone_of->symbol.ref_list);
+      ipa_remove_all_references (&node->clone_of->ref_list);
     }
   node->clone_of = NULL;
   bitmap_obstack_release (NULL);
@@ -862,18 +978,18 @@ cgraph_materialize_all_clones (void)
       stabilized = true;
       FOR_EACH_FUNCTION (node)
         {
-	  if (node->clone_of && node->symbol.decl != node->clone_of->symbol.decl
-	      && !gimple_has_body_p (node->symbol.decl))
+	  if (node->clone_of && node->decl != node->clone_of->decl
+	      && !gimple_has_body_p (node->decl))
 	    {
 	      if (!node->clone_of->clone_of)
 		cgraph_get_body (node->clone_of);
-	      if (gimple_has_body_p (node->clone_of->symbol.decl))
+	      if (gimple_has_body_p (node->clone_of->decl))
 	        {
 		  if (cgraph_dump_file)
 		    {
 		      fprintf (cgraph_dump_file, "cloning %s to %s\n",
-			       xstrdup (cgraph_node_name (node->clone_of)),
-			       xstrdup (cgraph_node_name (node)));
+			       xstrdup (node->clone_of->name ()),
+			       xstrdup (node->name ()));
 		      if (node->clone.tree_map)
 		        {
 			  unsigned int i;
@@ -911,13 +1027,13 @@ cgraph_materialize_all_clones (void)
 	}
     }
   FOR_EACH_FUNCTION (node)
-    if (!node->symbol.analyzed && node->callees)
+    if (!node->analyzed && node->callees)
       {
         cgraph_node_remove_callees (node);
-	ipa_remove_all_references (&node->symbol.ref_list);
+	ipa_remove_all_references (&node->ref_list);
       }
     else
-      ipa_clear_stmts_in_references ((symtab_node)node);
+      ipa_clear_stmts_in_references (node);
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "Materialization Call site updates done.\n");
 #ifdef ENABLE_CHECKING

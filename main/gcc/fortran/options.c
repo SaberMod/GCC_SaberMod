@@ -836,6 +836,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.gfc_flag_openmp = value;
       break;
 
+    case OPT_fopenmp_simd:
+      gfc_option.gfc_flag_openmp_simd = value;
+      break;
+
     case OPT_ffree_line_length_none:
       gfc_option.free_line_length = 0;
       break;
@@ -1165,6 +1169,10 @@ gfc_get_option_string (void)
   unsigned j;
   size_t len, pos;
   char *result;
+
+  /* Allocate and return a one-character string with '\0'.  */
+  if (!save_decoded_options_count)
+    return XCNEWVEC (char, 1);
 
   /* Determine required string length.  */
 

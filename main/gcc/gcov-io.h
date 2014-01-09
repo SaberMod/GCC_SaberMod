@@ -401,10 +401,11 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #define GCOV_COUNTER_IOR	7  /* IOR of the all values passed to
 				      counter.  */
 #define GCOV_COUNTER_ICALL_TOPNV 8 /* Top N value tracking for indirect calls */
-#define GCOV_LAST_VALUE_COUNTER 8  /* The last of counters used for value
+#define GCOV_TIME_PROFILER  9 /* Time profile collecting first run of a function */
+#define GCOV_LAST_VALUE_COUNTER 9  /* The last of counters used for value
 				      profiling.  */
-#define GCOV_COUNTER_DIRECT_CALL 9 /* Direct call counts.  */
-#define GCOV_COUNTERS		10
+#define GCOV_COUNTER_DIRECT_CALL 10 /* Direct call counts.  */
+#define GCOV_COUNTERS		11
 
 /* Number of counters used for value profiling.  */
 #define GCOV_N_VALUE_COUNTERS \
@@ -413,7 +414,7 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
   /* A list of human readable names of the counters */
 #define GCOV_COUNTER_NAMES	{"arcs", "interval", "pow2", "single", \
 				 "delta","indirect_call", "average", "ior", \
-				 "indirect_call_topn", "direct_call"}
+				 "indirect_call_topn", "time_profiler", "direct_call"}
 
 #define GCOV_ICALL_TOPN_VAL  2   /* Track two hottest callees */
 #define GCOV_ICALL_TOPN_NCOUNTS  9 /* The number of counter entries per icall callsite */
@@ -427,6 +428,7 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 				 "__gcov_merge_add",	\
 				 "__gcov_merge_ior",	\
 				 "__gcov_merge_icall_topn",\
+                                 "__gcov_merge_time_profile",\
                                  "__gcov_merge_dc" }
 
 /* Convert a counter index to a tag.  */
@@ -640,16 +642,21 @@ extern void __gcov_merge_dc (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 /* The merge function used for indirect call counters.  */
 extern void __gcov_merge_icall_topn (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
 
+extern void __gcov_merge_time_profile (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
+
 /* The profiler functions.  */
 extern void __gcov_interval_profiler (gcov_type *, gcov_type, int, unsigned);
 extern void __gcov_pow2_profiler (gcov_type *, gcov_type);
 extern void __gcov_one_value_profiler (gcov_type *, gcov_type);
+extern void __gcov_indirect_call_profiler (gcov_type*, gcov_type,
+                                           void*, void*);
 extern void __gcov_indirect_call_profiler_v2 (gcov_type, void *);
 extern void __gcov_indirect_call_topn_profiler (void *, void *, gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 extern void __gcov_direct_call_profiler (void *, void *, gcov_unsigned_t) ATTRIBUTE_HIDDEN;
 extern void __gcov_average_profiler (gcov_type *, gcov_type);
 extern void __gcov_ior_profiler (gcov_type *, gcov_type);
 extern void __gcov_sort_n_vals (gcov_type *value_array, int n);
+extern void __gcov_time_profiler (gcov_type *);
 
 #ifndef inhibit_libc
 /* The wrappers around some library functions..  */

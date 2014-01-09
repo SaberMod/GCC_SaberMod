@@ -20,11 +20,10 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGLOOP_H
 #define GCC_CFGLOOP_H
 
-#include "basic-block.h"
 #include "double-int.h"
-
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "function.h"
 
 /* Structure to hold decision about unrolling/peeling.  */
 enum lpt_dec
@@ -177,6 +176,9 @@ struct GTY ((chain_next ("%h.next"))) loop {
   /* True if we should try harder to vectorize this loop.  */
   bool force_vect;
 
+  /* True if this loop should never be vectorized.  */
+  bool dont_vectorize;
+
   /* For SIMD loops, this is a unique identifier of the loop, referenced
      by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE
      builtins.  */
@@ -255,7 +257,6 @@ extern bool flow_bb_inside_loop_p (const struct loop *, const_basic_block);
 extern struct loop * find_common_loop (struct loop *, struct loop *);
 struct loop *superloop_at_depth (struct loop *, unsigned);
 struct eni_weights_d;
-extern unsigned tree_num_loop_insns (struct loop *, struct eni_weights_d *);
 extern int num_loop_insns (const struct loop *);
 extern int average_num_loop_insns (const struct loop *);
 extern unsigned get_loop_level (const struct loop *);
@@ -305,16 +306,6 @@ gcov_type expected_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 
-void estimate_numbers_of_iterations_loop (struct loop *);
-void record_niter_bound (struct loop *, double_int, bool, bool);
-bool estimated_loop_iterations (struct loop *, double_int *);
-bool max_loop_iterations (struct loop *, double_int *);
-HOST_WIDE_INT estimated_loop_iterations_int (struct loop *);
-HOST_WIDE_INT max_loop_iterations_int (struct loop *);
-bool max_stmt_executions (struct loop *, double_int *);
-bool estimated_stmt_executions (struct loop *, double_int *);
-HOST_WIDE_INT max_stmt_executions_int (struct loop *);
-HOST_WIDE_INT estimated_stmt_executions_int (struct loop *);
 
 /* Loop manipulation.  */
 extern bool can_duplicate_loop_p (const struct loop *loop);
@@ -479,14 +470,6 @@ loop_depth (const struct loop *loop)
   return vec_safe_length (loop->superloops);
 }
 
-/* Returns the loop depth of the loop BB belongs to.  */
-
-static inline int
-bb_loop_depth (const_basic_block bb)
-{
-  return bb->loop_father ? loop_depth (bb->loop_father) : 0;
-}
-
 /* Returns the immediate superloop of LOOP, or NULL if LOOP is the outermost
    loop.  */
 
@@ -575,48 +558,52 @@ enum li_flags
 
 /* The iterator for loops.  */
 
-typedef struct
+struct loop_iterator
 {
+  loop_iterator (loop_p *loop, unsigned flags);
+  ~loop_iterator ();
+
+  inline loop_p next ();
+
   /* The list of loops to visit.  */
   vec<int> to_visit;
 
   /* The index of the actual loop.  */
   unsigned idx;
-} loop_iterator;
+};
 
-static inline void
-fel_next (loop_iterator *li, loop_p *loop)
+inline loop_p
+loop_iterator::next ()
 {
   int anum;
 
-  while (li->to_visit.iterate (li->idx, &anum))
+  while (this->to_visit.iterate (this->idx, &anum))
     {
-      li->idx++;
-      *loop = get_loop (cfun, anum);
-      if (*loop)
-	return;
+      this->idx++;
+      loop_p loop = get_loop (cfun, anum);
+      if (loop)
+	return loop;
     }
 
-  li->to_visit.release ();
-  *loop = NULL;
+  return NULL;
 }
 
-static inline void
-fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
+inline
+loop_iterator::loop_iterator (loop_p *loop, unsigned flags)
 {
   struct loop *aloop;
   unsigned i;
   int mn;
 
-  li->idx = 0;
+  this->idx = 0;
   if (!current_loops)
     {
-      li->to_visit.create (0);
+      this->to_visit.create (0);
       *loop = NULL;
       return;
     }
 
-  li->to_visit.create (number_of_loops (cfun));
+  this->to_visit.create (number_of_loops (cfun));
   mn = (flags & LI_INCLUDE_ROOT) ? 0 : 1;
 
   if (flags & LI_ONLY_INNERMOST)
@@ -625,7 +612,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 	if (aloop != NULL
 	    && aloop->inner == NULL
 	    && aloop->num >= mn)
-	  li->to_visit.quick_push (aloop->num);
+	  this->to_visit.quick_push (aloop->num);
     }
   else if (flags & LI_FROM_INNERMOST)
     {
@@ -638,7 +625,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
       while (1)
 	{
 	  if (aloop->num >= mn)
-	    li->to_visit.quick_push (aloop->num);
+	    this->to_visit.quick_push (aloop->num);
 
 	  if (aloop->next)
 	    {
@@ -660,7 +647,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
       while (1)
 	{
 	  if (aloop->num >= mn)
-	    li->to_visit.quick_push (aloop->num);
+	    this->to_visit.quick_push (aloop->num);
 
 	  if (aloop->inner != NULL)
 	    aloop = aloop->inner;
@@ -675,19 +662,19 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 	}
     }
 
-  fel_next (li, loop);
+  *loop = this->next ();
 }
 
-#define FOR_EACH_LOOP(LI, LOOP, FLAGS) \
-  for (fel_init (&(LI), &(LOOP), FLAGS); \
-       (LOOP); \
-       fel_next (&(LI), &(LOOP)))
+inline
+loop_iterator::~loop_iterator ()
+{
+  this->to_visit.release ();
+}
 
-#define FOR_EACH_LOOP_BREAK(LI) \
-  { \
-    (LI).to_visit.release (); \
-    break; \
-  }
+#define FOR_EACH_LOOP(LOOP, FLAGS) \
+  for (loop_iterator li(&(LOOP), FLAGS); \
+       (LOOP); \
+       (LOOP) = li.next ())
 
 /* The properties of the target.  */
 struct target_cfgloop {
@@ -748,7 +735,6 @@ enum
 extern void unroll_and_peel_loops (int);
 extern void doloop_optimize_loops (void);
 extern void move_loop_invariants (void);
-extern bool finite_loop_p (struct loop *);
 extern void scale_loop_profile (struct loop *loop, int scale, gcov_type iteration_bound);
 extern vec<basic_block> get_loop_hot_path (const struct loop *loop);
 
@@ -764,5 +750,27 @@ loop_outermost (struct loop *loop)
   return (*loop->superloops)[1];
 }
 
+extern void record_niter_bound (struct loop *, double_int, bool, bool);
+extern HOST_WIDE_INT get_estimated_loop_iterations_int (struct loop *);
+extern HOST_WIDE_INT get_max_loop_iterations_int (struct loop *);
+extern bool get_estimated_loop_iterations (struct loop *loop, double_int *nit);
+extern bool get_max_loop_iterations (struct loop *loop, double_int *nit);
+extern int bb_loop_depth (const_basic_block);
 
+/* Converts VAL to double_int.  */
+
+static inline double_int
+gcov_type_to_double_int (gcov_type val)
+{
+  double_int ret;
+
+  ret.low = (unsigned HOST_WIDE_INT) val;
+  /* If HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_WIDEST_INT, avoid shifting by
+     the size of type.  */
+  val >>= HOST_BITS_PER_WIDE_INT - 1;
+  val >>= 1;
+  ret.high = (unsigned HOST_WIDE_INT) val;
+
+  return ret;
+}
 #endif /* GCC_CFGLOOP_H */

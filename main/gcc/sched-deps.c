@@ -1938,8 +1938,8 @@ create_insn_reg_use (int regno, rtx insn)
   return use;
 }
 
-/* Allocate and return reg_set_data structure for REGNO and INSN.  */
-static struct reg_set_data *
+/* Allocate reg_set_data structure for REGNO and INSN.  */
+static void
 create_insn_reg_set (int regno, rtx insn)
 {
   struct reg_set_data *set;
@@ -1949,7 +1949,6 @@ create_insn_reg_set (int regno, rtx insn)
   set->insn = insn;
   set->next_insn_set = INSN_REG_SET_LIST (insn);
   INSN_REG_SET_LIST (insn) = set;
-  return set;
 }
 
 /* Set up insn register uses for INSN and dependency context DEPS.  */
@@ -2821,6 +2820,37 @@ sched_analyze_2 (struct deps_desc *deps, rtx x, rtx insn)
     sched_deps_info->finish_rhs ();
 }
 
+/* Try to group comparison and the following conditional jump INSN if
+   they're already adjacent. This is to prevent scheduler from scheduling
+   them apart.  */
+
+static void
+try_group_insn (rtx insn)
+{
+  unsigned int condreg1, condreg2;
+  rtx cc_reg_1;
+  rtx prev;
+
+  if (!any_condjump_p (insn))
+    return;
+
+  targetm.fixed_condition_code_regs (&condreg1, &condreg2);
+  cc_reg_1 = gen_rtx_REG (CCmode, condreg1);
+  prev = prev_nonnote_nondebug_insn (insn);
+  if (!reg_referenced_p (cc_reg_1, PATTERN (insn))
+      || !prev
+      || !modified_in_p (cc_reg_1, prev))
+    return;
+
+  /* Different microarchitectures support macro fusions for different
+     combinations of insn pairs.  */
+  if (!targetm.sched.macro_fusion_pair_p
+      || !targetm.sched.macro_fusion_pair_p (prev, insn))
+    return;
+
+  SCHED_GROUP_P (insn) = 1;
+}
+
 /* Analyze an INSN with pattern X to find all dependencies.  */
 static void
 sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
@@ -2843,6 +2873,11 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx insn)
 
   can_start_lhs_rhs_p = (NONJUMP_INSN_P (insn)
 			 && code == SET);
+
+  /* Group compare and branch insns for macro-fusion.  */
+  if (targetm.sched.macro_fusion_p
+      && targetm.sched.macro_fusion_p ())
+    try_group_insn (insn);
 
   if (may_trap_p (x))
     /* Avoid moving trapping instructions across function calls that might
@@ -3734,6 +3769,10 @@ sched_analyze (struct deps_desc *deps, rtx head, rtx tail)
 	{
 	  /* And initialize deps_lists.  */
 	  sd_init_insn (insn);
+	  /* Clean up SCHED_GROUP_P which may be set by last
+	     scheduler pass.  */
+	  if (SCHED_GROUP_P (insn))
+	    SCHED_GROUP_P (insn) = 0;
 	}
 
       deps_analyze_insn (deps, insn);
@@ -3964,7 +4003,7 @@ sched_deps_init (bool global_p)
 {
   /* Average number of insns in the basic block.
      '+ 1' is used to make it nonzero.  */
-  int insns_in_block = sched_max_luid / n_basic_blocks + 1;
+  int insns_in_block = sched_max_luid / n_basic_blocks_for_fn (cfun) + 1;
 
   init_deps_data_vector ();
 

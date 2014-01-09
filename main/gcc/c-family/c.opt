@@ -391,6 +391,10 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative Warning Alias(Werror=, implicit-function-declaration)
 This switch is deprecated; use -Werror=implicit-function-declaration instead
 
+Wfloat-conversion
+C ObjC C++ ObjC++ Var(warn_float_conversion) LangEnabledBy(C ObjC C++ ObjC++,Wconversion)
+Warn for implicit type conversions that cause loss of floating point precision
+
 Wfloat-equal
 C ObjC C++ ObjC++ Var(warn_float_equal) Warning
 Warn if testing floating point numbers for equality
@@ -542,8 +546,7 @@ C ObjC Var(warn_missing_prototypes) Warning
 Warn about global functions without prototypes
 
 Wmudflap
-C ObjC C++ ObjC++ Var(warn_mudflap) Init(1) Warning
-Warn about constructs not instrumented by -fmudflap
+C ObjC C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
 Wmultichar
 C ObjC C++ ObjC++ Warning
@@ -597,6 +600,10 @@ Wold-style-definition
 C ObjC Var(warn_old_style_definition) Warning
 Warn if an old-style parameter definition is used
 
+Wopenmp-simd
+C C++ Var(warn_openmp_simd) Warning LangEnabledBy(C C++,Wall)
+Warn if a simd directive is overridden by the vectorizer cost model
+
 Woverlength-strings
 C ObjC C++ ObjC++ Var(warn_overlength_strings) Warning LangEnabledBy(C ObjC C++ ObjC++,Wpedantic)
 Warn if a string is longer than the maximum portable length specified by the standard
@@ -644,6 +651,10 @@ Warn when a pointer is cast to an integer of a different size
 Wpragmas
 C ObjC C++ ObjC++ Var(warn_pragmas) Init(1) Warning
 Warn about misuses of pragmas
+
+Wdate-time
+Common Var(cpp_warn_date_time) Warning
+Warn about __TIME__, __DATE__ and __TIMESTAMP__ usage
 
 Wproperty-assign-default
 ObjC ObjC++ Var(warn_property_assign_default) Init(1) Warning
@@ -859,10 +870,6 @@ fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_enable_cilkplus) Init(0)
 Enable Cilk Plus
 
-fcheck-new
-C++ ObjC++ Var(flag_check_new)
-Check the return value of new
-
 fcond-mismatch
 C ObjC C++ ObjC++
 Allow the arguments of the '?' operator to have different types
@@ -1005,16 +1012,13 @@ C ObjC C++ ObjC++ Var(flag_ms_extensions)
 Don't warn about uses of Microsoft extensions
 
 fmudflap
-C ObjC C++ ObjC++ RejectNegative Report Var(flag_mudflap)
-Add mudflap bounds-checking instrumentation for single-threaded program
+C ObjC C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
 fmudflapth
-C ObjC C++ ObjC++ RejectNegative Report Var(flag_mudflap,2)
-Add mudflap bounds-checking instrumentation for multi-threaded program
+C ObjC C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
 fmudflapir
-C ObjC C++ ObjC++ RejectNegative Report Var(flag_mudflap_ignore_reads)
-Ignore read operations when inserting mudflap instrumentation
+C ObjC C++ ObjC++ Ignore Warn(switch %qs is no longer supported)
 
 fname-mangling-version-
 C++ ObjC++ Joined Ignore Warn(switch %qs is no longer supported)
@@ -1080,6 +1084,10 @@ Conform to the Objective-C 1.0 language as implemented in GCC 4.0
 fopenmp
 C ObjC C++ ObjC++ Var(flag_openmp)
 Enable OpenMP (implies -frecursive in Fortran)
+
+fopenmp-simd
+C ObjC C++ ObjC++ Var(flag_openmp_simd)
+Enable OpenMP's SIMD directives
 
 foperator-names
 C++ ObjC++

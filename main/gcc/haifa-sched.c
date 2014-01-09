@@ -150,6 +150,24 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifdef INSN_SCHEDULING
 
+/* True if we do register pressure relief through live-range
+   shrinkage.  */
+static bool live_range_shrinkage_p;
+
+/* Switch on live range shrinkage.  */
+void
+initialize_live_range_shrinkage (void)
+{
+  live_range_shrinkage_p = true;
+}
+
+/* Switch off live range shrinkage.  */
+void
+finish_live_range_shrinkage (void)
+{
+  live_range_shrinkage_p = false;
+}
+
 /* issue_rate is the number of insns that can be scheduled in the same
    machine cycle.  It can be defined in the config/mach/mach.h file,
    otherwise we set it to 1.  */
@@ -1597,7 +1615,7 @@ priority (rtx insn)
 
           /* Selective scheduling does not define RECOVERY_BLOCK macro.  */
 	  rec = sel_sched_p () ? NULL : RECOVERY_BLOCK (insn);
-	  if (!rec || rec == EXIT_BLOCK_PTR)
+	  if (!rec || rec == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      prev_first = PREV_INSN (insn);
 	      twin = insn;
@@ -2519,7 +2537,7 @@ rank_for_schedule (const void *x, const void *y)
   rtx tmp = *(const rtx *) y;
   rtx tmp2 = *(const rtx *) x;
   int tmp_class, tmp2_class;
-  int val, priority_val, info_val;
+  int val, priority_val, info_val, diff;
 
   if (MAY_HAVE_DEBUG_INSNS)
     {
@@ -2532,6 +2550,22 @@ rank_for_schedule (const void *x, const void *y)
 	return INSN_LUID (tmp) - INSN_LUID (tmp2);
     }
 
+  if (live_range_shrinkage_p)
+    {
+      /* Don't use SCHED_PRESSURE_MODEL -- it results in much worse
+	 code.  */
+      gcc_assert (sched_pressure == SCHED_PRESSURE_WEIGHTED);
+      if ((INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp) < 0
+	   || INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp2) < 0)
+	  && (diff = (INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp)
+		      - INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp2))) != 0)
+	return diff;
+      /* Sort by INSN_LUID (original insn order), so that we make the
+	 sort stable.  This minimizes instruction movement, thus
+	 minimizing sched's effect on debugging and cross-jumping.  */
+      return INSN_LUID (tmp) - INSN_LUID (tmp2);
+    }
+
   /* The insn in a schedule group should be issued the first.  */
   if (flag_sched_group_heuristic &&
       SCHED_GROUP_P (tmp) != SCHED_GROUP_P (tmp2))
@@ -2542,8 +2576,6 @@ rank_for_schedule (const void *x, const void *y)
 
   if (sched_pressure != SCHED_PRESSURE_NONE)
     {
-      int diff;
-
       /* Prefer insn whose scheduling results in the smallest register
 	 pressure excess.  */
       if ((diff = (INSN_REG_PRESSURE_EXCESS_COST_CHANGE (tmp)
@@ -3731,7 +3763,10 @@ schedule_insn (rtx insn)
 	{
 	  fputc (':', sched_dump);
 	  for (i = 0; i < ira_pressure_classes_num; i++)
-	    fprintf (sched_dump, "%s%+d(%d)",
+	    fprintf (sched_dump, "%s%s%+d(%d)",
+		     scheduled_insns.length () > 1
+		     && INSN_LUID (insn)
+		     < INSN_LUID (scheduled_insns[scheduled_insns.length () - 2]) ? "@" : "",
 		     reg_class_names[ira_pressure_classes[i]],
 		     pressure_info[i].set_increase, pressure_info[i].change);
 	}
@@ -4188,7 +4223,7 @@ undo_replacements_for_backtrack (struct haifa_saved_data *save)
 static void
 unschedule_insns_until (rtx insn)
 {
-  vec<rtx> recompute_vec = vNULL;
+  auto_vec<rtx> recompute_vec;
 
   /* Make two passes over the insns to be unscheduled.  First, we clear out
      dependencies and other trivial bookkeeping.  */
@@ -4246,7 +4281,6 @@ unschedule_insns_until (rtx insn)
       else if (QUEUE_INDEX (con) != QUEUE_SCHEDULED)
 	TODO_SPEC (con) = recompute_todo_spec (con, true);
     }
-  recompute_vec.release ();
 }
 
 /* Restore scheduler state from the topmost entry on the backtracking queue.
@@ -6534,16 +6568,18 @@ sched_init (void)
   if (targetm.sched.dispatch (NULL_RTX, IS_DISPATCH_ON))
     targetm.sched.dispatch_do (NULL_RTX, DISPATCH_INIT);
 
-  if (flag_sched_pressure
-      && !reload_completed
-      && common_sched_info->sched_pass_id == SCHED_RGN_PASS)
+  if (live_range_shrinkage_p)
+    sched_pressure = SCHED_PRESSURE_WEIGHTED;
+  else if (flag_sched_pressure
+	   && !reload_completed
+	   && common_sched_info->sched_pass_id == SCHED_RGN_PASS)
     sched_pressure = ((enum sched_pressure_algorithm)
 		      PARAM_VALUE (PARAM_SCHED_PRESSURE_ALGORITHM));
   else
     sched_pressure = SCHED_PRESSURE_NONE;
 
   if (sched_pressure != SCHED_PRESSURE_NONE)
-    ira_setup_eliminable_regset (false);
+    ira_setup_eliminable_regset ();
 
   /* Initialize SPEC_INFO.  */
   if (targetm.sched.set_sched_flags)
@@ -6668,12 +6704,12 @@ haifa_sched_init (void)
      whole function.  */
   {
     bb_vec_t bbs;
-    bbs.create (n_basic_blocks);
+    bbs.create (n_basic_blocks_for_fn (cfun));
     basic_block bb;
 
     sched_init_bbs ();
 
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       bbs.quick_push (bb);
     sched_init_luids (bbs);
     sched_deps_init (true);
@@ -7436,7 +7472,7 @@ static void
 sched_extend_bb (void)
 {
   /* The following is done to keep current_sched_info->next_tail non null.  */
-  rtx end = BB_END (EXIT_BLOCK_PTR->prev_bb);
+  rtx end = BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
   rtx insn = DEBUG_INSN_P (end) ? prev_nondebug_insn (end) : end;
   if (NEXT_INSN (end) == 0
       || (!NOTE_P (insn)
@@ -7447,7 +7483,7 @@ sched_extend_bb (void)
       rtx note = emit_note_after (NOTE_INSN_DELETED, end);
       /* Make note appear outside BB.  */
       set_block_for_insn (note, NULL);
-      BB_END (EXIT_BLOCK_PTR->prev_bb) = end;
+      BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb) = end;
     }
 }
 
@@ -7465,7 +7501,7 @@ init_before_recovery (basic_block *before_recovery_ptr)
   basic_block last;
   edge e;
 
-  last = EXIT_BLOCK_PTR->prev_bb;
+  last = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
   e = find_fallthru_edge_from (last);
 
   if (e)
@@ -7505,7 +7541,8 @@ init_before_recovery (basic_block *before_recovery_ptr)
 
       redirect_edge_succ (e, single);
       make_single_succ_edge (single, empty, 0);
-      make_single_succ_edge (empty, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+      make_single_succ_edge (empty, EXIT_BLOCK_PTR_FOR_FN (cfun),
+			     EDGE_FALLTHRU);
 
       label = block_label (empty);
       x = emit_jump_insn_after (gen_jump (label), BB_END (single));
@@ -7648,14 +7685,14 @@ create_check_block_twin (rtx insn, bool mutate_p)
     }
   else
     {
-      rec = EXIT_BLOCK_PTR;
+      rec = EXIT_BLOCK_PTR_FOR_FN (cfun);
       label = NULL_RTX;
     }
 
   /* Emit CHECK.  */
   check = targetm.sched.gen_spec_check (insn, label, todo_spec);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       /* To have mem_reg alive at the beginning of second_bb,
 	 we emit check BEFORE insn, so insn after splitting
@@ -7688,7 +7725,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
 
   /* Initialize TWIN (twin is a duplicate of original instruction
      in the recovery block).  */
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       sd_iterator_def sd_it;
       dep_t dep;
@@ -7725,7 +7762,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
      provide correct value for INSN_TICK (TWIN).  */
   sd_copy_back_deps (twin, insn, true);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     /* In case of branchy check, fix CFG.  */
     {
       basic_block first_bb, second_bb;
@@ -7737,7 +7774,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       sched_create_recovery_edges (first_bb, rec, second_bb);
 
       sched_init_only_bb (second_bb, first_bb);
-      sched_init_only_bb (rec, EXIT_BLOCK_PTR);
+      sched_init_only_bb (rec, EXIT_BLOCK_PTR_FOR_FN (cfun));
 
       jump = BB_END (rec);
       haifa_init_insn (jump);
@@ -7778,7 +7815,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       init_dep_1 (new_dep, pro, check, DEP_TYPE (dep), ds);
       sd_add_dep (new_dep, false);
 
-      if (rec != EXIT_BLOCK_PTR)
+      if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  DEP_CON (new_dep) = twin;
 	  sd_add_dep (new_dep, false);
@@ -7827,7 +7864,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   /* Future speculations: call the helper.  */
   process_insn_forw_deps_be_in_spec (insn, twin, fs);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       /* Which types of dependencies should we use here is,
 	 generally, machine-dependent question...  But, for now,
@@ -8038,10 +8075,10 @@ unlink_bb_notes (basic_block first, basic_block last)
   if (first == last)
     return;
 
-  bb_header = XNEWVEC (rtx, last_basic_block);
+  bb_header = XNEWVEC (rtx, last_basic_block_for_fn (cfun));
 
   /* Make a sentinel.  */
-  if (last->next_bb != EXIT_BLOCK_PTR)
+  if (last->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
     bb_header[last->next_bb->index] = 0;
 
   first = first->next_bb;
@@ -8085,7 +8122,7 @@ restore_bb_notes (basic_block first)
   first = first->next_bb;
   /* Remember: FIRST is actually a second basic block in the ebb.  */
 
-  while (first != EXIT_BLOCK_PTR
+  while (first != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	 && bb_header[first->index])
     {
       rtx prev, label, note, next;
@@ -8503,8 +8540,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
   rtx insn = ready_element (ready, 0);
 
   if (ready->n_ready == 1
-      || INSN_CODE (insn) < 0
       || !INSN_P (insn)
+      || INSN_CODE (insn) < 0
       || !active_insn_p (insn)
       || targetm.sched.dispatch (insn, FITS_DISPATCH_WINDOW))
     return ready_remove_first (ready);
@@ -8513,8 +8550,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
     {
       insn = ready_element (ready, i);
 
-      if (INSN_CODE (insn) < 0
-	  || !INSN_P (insn)
+      if (!INSN_P (insn)
+	  || INSN_CODE (insn) < 0
 	  || !active_insn_p (insn))
 	continue;
 
@@ -8533,8 +8570,8 @@ ready_remove_first_dispatch (struct ready_list *ready)
     {
       insn = ready_element (ready, i);
 
-      if (INSN_CODE (insn) < 0
-	  || !INSN_P (insn)
+      if (!INSN_P (insn)
+	  || INSN_CODE (insn) < 0
 	  || !active_insn_p (insn))
 	continue;
 

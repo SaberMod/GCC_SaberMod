@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -851,8 +852,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	  tree max = TYPE_MAX_VALUE (dtype);
 	  if (integer_all_onesp (max))
 	    pp_character (pp, '0');
-	  else if (host_integerp (max, 0))
-	    pp_wide_integer (pp, tree_low_cst (max, 0) + 1);
+	  else if (tree_fits_shwi_p (max))
+	    pp_wide_integer (pp, tree_to_shwi (max) + 1);
 	  else
 	    {
 	      STRIP_NOPS (max);
@@ -923,7 +924,7 @@ dump_global_iord (cxx_pretty_printer *pp, tree t)
   else
     gcc_unreachable ();
 
-  pp_printf (pp, p, input_filename);
+  pp_printf (pp, p, LOCATION_FILE (input_location));
 }
 
 static void
@@ -1595,13 +1596,16 @@ dump_exception_spec (cxx_pretty_printer *pp, tree t, int flags)
   if (t && TREE_PURPOSE (t))
     {
       pp_cxx_ws_string (pp, "noexcept");
-      pp_cxx_whitespace (pp);
-      pp_cxx_left_paren (pp);
-      if (DEFERRED_NOEXCEPT_SPEC_P (t))
-	pp_cxx_ws_string (pp, "<uninstantiated>");
-      else
-	dump_expr (pp, TREE_PURPOSE (t), flags);
-      pp_cxx_right_paren (pp);
+      if (!integer_onep (TREE_PURPOSE (t)))
+	{
+	  pp_cxx_whitespace (pp);
+	  pp_cxx_left_paren (pp);
+	  if (DEFERRED_NOEXCEPT_SPEC_P (t))
+	    pp_cxx_ws_string (pp, "<uninstantiated>");
+	  else
+	    dump_expr (pp, TREE_PURPOSE (t), flags);
+	  pp_cxx_right_paren (pp);
+	}
     }
   else if (t)
     {
@@ -1850,7 +1854,7 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT index = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (ref));
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
   while (index)
     {
@@ -2282,7 +2286,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      pp_cxx_right_paren (pp);
 	      break;
 	    }
-	  else if (host_integerp (idx, 0))
+	  else if (tree_fits_shwi_p (idx))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -2291,7 +2295,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = BINFO_VIRTUALS (TYPE_BINFO (TYPE_MAIN_VARIANT (t)));
 
-	      n = tree_low_cst (idx, 0);
+	      n = tree_to_shwi (idx);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */
@@ -2800,7 +2804,7 @@ location_of (tree t)
 
   if (DECL_P (t))
     return DECL_SOURCE_LOCATION (t);
-  return EXPR_LOC_OR_HERE (t);
+  return EXPR_LOC_OR_LOC (t, input_location);
 }
 
 /* Now the interfaces from error et al to dump_type et al. Each takes an
@@ -2852,7 +2856,7 @@ fndecl_to_string (tree fndecl, int verbose)
 static const char *
 code_to_string (enum tree_code c)
 {
-  return tree_code_name [c];
+  return get_tree_code_name (c);
 }
 
 const char *
@@ -2992,6 +2996,15 @@ cv_to_string (tree p, int v)
   reinit_cxx_pp ();
   cxx_pp->padding = v ? pp_before : pp_none;
   pp_cxx_cv_qualifier_seq (cxx_pp, p);
+  return pp_ggc_formatted_text (cxx_pp);
+}
+
+static const char *
+eh_spec_to_string (tree p, int /*v*/)
+{
+  int flags = 0;
+  reinit_cxx_pp ();
+  dump_exception_spec (cxx_pp, p, flags);
   return pp_ggc_formatted_text (cxx_pp);
 }
 
@@ -3376,8 +3389,10 @@ maybe_print_constexpr_context (diagnostic_context *context)
    %O	binary operator.
    %P   function parameter whose position is indicated by an integer.
    %Q	assignment operator.
+   %S   substitution (template + args)
    %T   type.
-   %V   cv-qualifier.  */
+   %V   cv-qualifier.
+   %X   exception-specification.  */
 static bool
 cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 	    int precision, bool wide, bool set_locus, bool verbose)
@@ -3424,6 +3439,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'S': result = subst_to_string (next_tree);		break;
     case 'T': result = type_to_string (next_tree, verbose);	break;
     case 'V': result = cv_to_string (next_tree, verbose);	break;
+    case 'X': result = eh_spec_to_string (next_tree, verbose);  break;
 
     case 'K':
       percent_K_format (text);
@@ -3447,7 +3463,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 void
 maybe_warn_cpp0x (cpp0x_warn_str str)
 {
-  if ((cxx_dialect == cxx98) && !in_system_header)
+  if ((cxx_dialect == cxx98) && !in_system_header_at (input_location))
     /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */

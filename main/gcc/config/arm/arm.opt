@@ -143,6 +143,10 @@ mfpu=
 Target RejectNegative Joined Enum(arm_fpu) Var(arm_fpu_index)
 Specify the name of the target floating point hardware/format
 
+mlra
+Target Report Var(arm_lra_flag) Init(1) Save
+Use LRA instead of reload (transitional)
+
 mhard-float
 Target RejectNegative Alias(mfloat-abi=, hard) Undocumented
 
@@ -153,6 +157,10 @@ Assume target CPU is configured as little endian
 mlong-calls
 Target Report Mask(LONG_CALLS)
 Generate call insns as indirect calls, if necessary
+
+mpic-data-is-text-relative
+Target Report Var(arm_pic_data_is_text_relative) Init(TARGET_DEFAULT_PIC_DATA_IS_TEXT_RELATIVE)
+Assume data segments are relative to text segment.
 
 mpic-register=
 Target RejectNegative Joined Var(arm_pic_register_string)
@@ -243,6 +251,14 @@ mrestrict-it
 Target Report Var(arm_restrict_it) Init(2)
 Generate IT blocks appropriate for ARMv8.
 
+mold-rtx-costs
+Target Report Mask(OLD_RTX_COSTS)
+Use the old RTX costing tables (transitional).
+
+mnew-generic-costs
+Target Report Mask(NEW_GENERIC_COSTS)
+Use the new generic RTX cost tables if new core-specific cost table not available (transitional).
+
 mfix-cortex-m3-ldrd
 Target Report Var(fix_cm3_ldrd) Init(2)
 Avoid overlapping destination and address registers on LDRD instructions
@@ -255,3 +271,7 @@ Enable unaligned word and halfword accesses to packed data.
 mneon-for-64bits
 Target Report RejectNegative Var(use_neon_for_64bits) Init(0)
 Use Neon to perform 64-bits operations rather than core registers.
+
+mslow-flash-data
+Target Report Var(target_slow_flash_data) Init(0)
+Assume loading data from flash is slower than fetching instructions.

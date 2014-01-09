@@ -38,9 +38,16 @@
 #  else
 #    define SIZE 248
 #  endif
+#elif defined (__nds32__)
+#  define SIZE 248 /* 256 - 8 bytes, only $fp and padding bytes are saved in
+                      the register save area under O0 optimization level.  */
 #elif defined (__powerpc64__) || defined (__ppc64__) || defined (__POWERPC64__) \
       || defined (__PPC64__)
-#  define SIZE 180
+#  if _CALL_ELF == 2
+#     define SIZE 208
+#  else
+#     define SIZE 180
+#  endif
 #elif defined (__powerpc__) || defined (__PPC__) || defined (__ppc__) \
       || defined (__POWERPC__) || defined (PPC) || defined (_IBMR2)
 #  if defined (__ALTIVEC__)

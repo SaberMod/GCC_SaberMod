@@ -121,6 +121,7 @@ extern rtx arm_gen_compare_reg (RTX_CODE, rtx, rtx, rtx);
 extern rtx arm_gen_return_addr_mask (void);
 extern void arm_reload_in_hi (rtx *);
 extern void arm_reload_out_hi (rtx *);
+extern int arm_max_const_double_inline_cost (void);
 extern int arm_const_double_inline_cost (rtx);
 extern bool arm_const_double_by_parts (rtx);
 extern bool arm_const_double_by_immediates (rtx);
@@ -246,9 +247,12 @@ struct cpu_vec_costs {
 #ifdef RTX_CODE
 /* This needs to be here because we need RTX_CODE and similar.  */
 
+struct cpu_cost_table;
+
 struct tune_params
 {
   bool (*rtx_costs) (rtx, RTX_CODE, RTX_CODE, int *, bool);
+  const struct cpu_cost_table *insn_extra_cost;
   bool (*sched_adjust_cost) (rtx, rtx, rtx, int *);
   int constant_limit;
   /* Maximum number of instructions to conditionalise.  */
@@ -284,5 +288,8 @@ extern bool arm_expand_vec_perm_const (rtx target, rtx op0, rtx op1, rtx sel);
 extern bool arm_autoinc_modes_ok_p (enum machine_mode, enum arm_auto_incmodes);
 
 extern void arm_emit_eabi_attribute (const char *, int, int);
+
+/* Defined in gcc/common/config/arm-common.c.  */
+extern const char *arm_rewrite_selected_cpu (const char *name);
 
 #endif /* ! GCC_ARM_PROTOS_H */

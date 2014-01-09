@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -5055,7 +5056,14 @@ match_ppc_decl (void)
       if (!gfc_add_proc (&c->attr, name, NULL))
 	return MATCH_ERROR;
 
-      c->tb = tb;
+      if (num == 1)
+	c->tb = tb;
+      else
+	{
+	  c->tb = XCNEW (gfc_typebound_proc);
+	  c->tb->where = gfc_current_locus;
+	  *c->tb = *tb;
+	}
 
       /* Set interface.  */
       if (proc_if != NULL)

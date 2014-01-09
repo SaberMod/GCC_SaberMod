@@ -94,6 +94,15 @@ Print the expression that is $ in C syntax.
 Works only when an inferior is executing.
 end
 
+define pmz
+set mpz_out_str(stderr, 10, $)
+end
+
+document pmz
+Print the mpz value that is $
+Works only when an inferior is executing.
+end
+
 define ptc
 output (enum tree_code) $.common.code
 echo \n
@@ -204,6 +213,11 @@ set complaints 0
 # USE_SYSTEM_ABORT is defined, so gdb may complain and bail out.
 b exit
 b abort
+
+# Disable strict type checking.  This allows developers to (for example)
+# make inferior calls without casting absolute address to a suitable
+# pointer type.
+set check type off
 
 # Skip all inline functions in tree.h.
 # These are used in accessor macros.

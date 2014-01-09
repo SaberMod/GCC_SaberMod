@@ -36,6 +36,7 @@ enum hist_type
   HIST_TYPE_IOR,	/* Used to compute expected alignment.  */
   HIST_TYPE_INDIR_CALL_TOPN,  /* Tries to identify the top N most frequently
 				called functions in indirect call.  */
+  HIST_TYPE_TIME_PROFILE, /* Used for time profile */
   HIST_TYPE_MAX
 };
 
@@ -56,6 +57,7 @@ struct histogram_value_t
     } hvalue;
   enum hist_type type;			/* Type of information to measure.  */
   unsigned n_counters;			/* Number of required counters.  */
+  struct function *fun;
   union
     {
       struct
@@ -99,6 +101,8 @@ extern void gimple_gen_pow2_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_one_value_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_ic_profiler (histogram_value, unsigned, unsigned);
 extern void gimple_gen_ic_func_profiler (void);
+extern void gimple_gen_time_profiler (unsigned, unsigned,
+                                      gimple_stmt_iterator &);
 extern void gimple_gen_const_delta_profiler (histogram_value,
 					     unsigned, unsigned);
 extern void gimple_gen_average_profiler (histogram_value, unsigned, unsigned);

@@ -7,6 +7,9 @@
 #ifndef GO_BACKEND_H
 #define GO_BACKEND_H
 
+#include <gmp.h>
+#include <mpfr.h>
+
 // Pointers to these types are created by the backend, passed to the
 // frontend, and passed back to the backend.  The types must be
 // defined by the backend using these names.
@@ -20,7 +23,7 @@ class Bexpression;
 // The backend representation of a statement.
 class Bstatement;
 
-// The backend representation of a function definition.
+// The backend representation of a function definition or declaration.
 class Bfunction;
 
 // The backend representation of a block.
@@ -98,11 +101,15 @@ class Backend
   // is provided so that the names are available.  This should return
   // not the type of a Go function (which is a pointer to a struct)
   // but the type of a C function pointer (which will be used as the
-  // type of the first field of the struct).
+  // type of the first field of the struct).  If there is more than
+  // one result, RESULT_STRUCT is a struct type to hold the results,
+  // and RESULTS may be ignored; if there are zero or one results,
+  // RESULT_STRUCT is NULL.
   virtual Btype*
   function_type(const Btyped_identifier& receiver,
 		const std::vector<Btyped_identifier>& parameters,
 		const std::vector<Btyped_identifier>& results,
+		Btype* result_struct,
 		Location location) = 0;
 
   // Get a struct type.
@@ -118,10 +125,11 @@ class Backend
   // NAME is the name of the type, and the location is where the named
   // type is defined.  This function is also used for unnamed function
   // types with multiple results, in which case the type has no name
-  // and NAME will be empty.  FOR_FUNCTION is true if this is for a Go
-  // function type, which corresponds to a C/C++ pointer to function
-  // type.  The return value will later be passed as the first
-  // parameter to set_placeholder_pointer_type or
+  // and NAME will be empty.  FOR_FUNCTION is true if this is for a C
+  // pointer to function type.  A Go func type is represented as a
+  // pointer to a struct, and the first field of the struct is a C
+  // pointer to function.  The return value will later be passed as
+  // the first parameter to set_placeholder_pointer_type or
   // set_placeholder_function_type.
   virtual Btype*
   placeholder_pointer_type(const std::string& name, Location,
@@ -246,6 +254,35 @@ class Backend
   // is known to point to a valid memory location.
   virtual Bexpression*
   indirect_expression(Bexpression* expr, bool known_valid, Location) = 0;
+
+  // Return an expression for the multi-precision integer VAL in BTYPE.
+  virtual Bexpression*
+  integer_constant_expression(Btype* btype, mpz_t val) = 0;
+
+  // Return an expression for the floating point value VAL in BTYPE.
+  virtual Bexpression*
+  float_constant_expression(Btype* btype, mpfr_t val) = 0;
+
+  // Return an expression for the complex value REAL/IMAG in BTYPE.
+  virtual Bexpression*
+  complex_constant_expression(Btype* btype, mpfr_t real, mpfr_t imag) = 0;
+
+  // Return an expression that converts EXPR to TYPE.
+  virtual Bexpression*
+  convert_expression(Btype* type, Bexpression* expr, Location) = 0;
+
+  // Create an expression for the address of a function.  This is used to
+  // get the address of the code for a function.
+  virtual Bexpression*
+  function_code_expression(Bfunction*, Location) = 0;
+
+  // Create an expression that takes the address of an expression.
+  virtual Bexpression*
+  address_expression(Bexpression*, Location) = 0;
+
+  // Return an expression for the field at INDEX in BSTRUCT.
+  virtual Bexpression*
+  struct_field_expression(Bexpression* bstruct, size_t index, Location) = 0;
 
   // Statements.
 
@@ -479,6 +516,32 @@ class Backend
   // recover.
   virtual Bexpression*
   label_address(Blabel*, Location) = 0;
+
+  // Functions.
+
+  // Create an error function.  This is used for cases which should
+  // not occur in a correct program, in order to keep the compilation
+  // going without crashing.
+  virtual Bfunction*
+  error_function() = 0;
+
+  // Declare or define a function of FNTYPE.
+  // NAME is the Go name of the function. ASM_NAME, if not the empty string, is
+  // the name that should be used in the symbol table; this will be non-empty if
+  // a magic extern comment is used.
+  // IS_VISIBLE is true if this function should be visible outside of the
+  // current compilation unit. IS_DECLARATION is true if this is a function
+  // declaration rather than a definition; the function definition will be in
+  // another compilation unit.
+  // IS_INLINABLE is true if the function can be inlined.
+  // DISABLE_SPLIT_STACK is true if this function may not split the stack; this
+  // is used for the implementation of recover.
+  // IN_UNIQUE_SECTION is true if this function should be put into a unique
+  // location if possible; this is used for field tracking.
+  virtual Bfunction*
+  function(Btype* fntype, const std::string& name, const std::string& asm_name,
+           bool is_visible, bool is_declaration, bool is_inlinable,
+           bool disable_split_stack, bool in_unique_section, Location) = 0;
 };
 
 // The backend interface has to define this function.
@@ -498,5 +561,6 @@ extern tree expr_to_tree(Bexpression*);
 extern tree stat_to_tree(Bstatement*);
 extern tree block_to_tree(Bblock*);
 extern tree var_to_tree(Bvariable*);
+extern tree function_to_tree(Bfunction*);
 
 #endif // !defined(GO_BACKEND_H)

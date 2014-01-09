@@ -26,12 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "trans-mem.h"
+#include "attribs.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "target.h"
-#include "gimple.h"
 
 static void push_eh_cleanup (tree);
 static tree prepare_eh_type (tree);
@@ -868,17 +870,21 @@ build_throw (tree exp)
 
       throw_type = build_eh_type_type (prepare_eh_type (TREE_TYPE (object)));
 
-      if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (object)))
+      cleanup = NULL_TREE;
+      if (type_build_dtor_call (TREE_TYPE (object)))
 	{
-	  cleanup = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
+	  tree fn = lookup_fnfields (TYPE_BINFO (TREE_TYPE (object)),
 				     complete_dtor_identifier, 0);
-	  cleanup = BASELINK_FUNCTIONS (cleanup);
-	  mark_used (cleanup);
-	  cxx_mark_addressable (cleanup);
-	  /* Pretend it's a normal function.  */
-	  cleanup = build1 (ADDR_EXPR, cleanup_type, cleanup);
+	  fn = BASELINK_FUNCTIONS (fn);
+	  mark_used (fn);
+	  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (object)))
+	    {
+	      cxx_mark_addressable (fn);
+	      /* Pretend it's a normal function.  */
+	      cleanup = build1 (ADDR_EXPR, cleanup_type, fn);
+	    }
 	}
-      else
+      if (cleanup == NULL_TREE)
 	cleanup = build_int_cst (cleanup_type, 0);
 
       /* ??? Indicate that this function call throws throw_type.  */
@@ -1334,6 +1340,24 @@ build_noexcept_spec (tree expr, int complain)
 		  || TREE_CODE (expr) == DEFERRED_NOEXCEPT);
       return build_tree_list (expr, NULL_TREE);
     }
+}
+
+/* Returns a TRY_CATCH_EXPR that will put TRY_LIST and CATCH_LIST in the
+   TRY and CATCH locations.  CATCH_LIST must be a STATEMENT_LIST */
+
+tree
+create_try_catch_expr (tree try_expr, tree catch_list)
+{
+  location_t loc = EXPR_LOCATION (try_expr);
+ 
+  append_to_statement_list (do_begin_catch (), &catch_list);
+  append_to_statement_list (build_throw (NULL_TREE), &catch_list);
+  tree catch_tf_expr = build_stmt (loc, TRY_FINALLY_EXPR, catch_list, 
+				   do_end_catch (NULL_TREE));
+  catch_list = build2 (CATCH_EXPR, void_type_node, NULL_TREE,
+		       catch_tf_expr);
+  tree try_catch_expr = build_stmt (loc, TRY_CATCH_EXPR, try_expr, catch_list);
+  return try_catch_expr;
 }
 
 #include "gt-cp-except.h"

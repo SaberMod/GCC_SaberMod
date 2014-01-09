@@ -70,7 +70,7 @@ struct common_sched_info_def
   /* Called to notify frontend, that new basic block is being added.
      The first parameter - new basic block.
      The second parameter - block, after which new basic block is being added,
-     or EXIT_BLOCK_PTR, if recovery block is being added,
+     or the exit block, if recovery block is being added,
      or NULL, if standalone block is being added.  */
   void (*add_block) (basic_block, basic_block);
 
@@ -945,14 +945,15 @@ extern vec<haifa_deps_insn_data_def> h_d_i_d;
 /* INSN is a speculation check that will simply reexecute the speculatively
    scheduled instruction if the speculation fails.  */
 #define IS_SPECULATION_SIMPLE_CHECK_P(INSN) \
-  (RECOVERY_BLOCK (INSN) == EXIT_BLOCK_PTR)
+  (RECOVERY_BLOCK (INSN) == EXIT_BLOCK_PTR_FOR_FN (cfun))
 
 /* INSN is a speculation check that will branch to RECOVERY_BLOCK if the
    speculation fails.  Insns in that block will reexecute the speculatively
    scheduled code and then will return immediately after INSN thus preserving
    semantics of the program.  */
 #define IS_SPECULATION_BRANCHY_CHECK_P(INSN) \
-  (RECOVERY_BLOCK (INSN) != NULL && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR)
+  (RECOVERY_BLOCK (INSN) != NULL             \
+   && RECOVERY_BLOCK (INSN) != EXIT_BLOCK_PTR_FOR_FN (cfun))
 
 
 /* Dep status (aka ds_t) of the link encapsulates all information for a given
@@ -1333,6 +1334,8 @@ extern void debug_ds (ds_t);
 
 
 /* Functions in haifa-sched.c.  */
+extern void initialize_live_range_shrinkage (void);
+extern void finish_live_range_shrinkage (void);
 extern void sched_init_region_reg_pressure_info (void);
 extern int haifa_classify_insn (const_rtx);
 extern void get_ebb_head_tail (basic_block, basic_block, rtx *, rtx *);
@@ -1378,7 +1381,7 @@ extern void schedule_ebbs_finish (void);
 /* A region is the main entity for interblock scheduling: insns
    are allowed to move between blocks in the same region, along
    control flow graph edges, in the 'up' direction.  */
-typedef struct
+struct region
 {
   /* Number of extended basic blocks in region.  */
   int rgn_nr_blocks;
@@ -1389,8 +1392,7 @@ typedef struct
   unsigned int dont_calc_deps : 1;
   /* This region has at least one non-trivial ebb.  */
   unsigned int has_real_ebb : 1;
-}
-region;
+};
 
 extern int nr_regions;
 extern region *rgn_table;
@@ -1413,8 +1415,9 @@ extern int *containing_rgn;
 /* The mapping from ebb to block.  */
 extern int *ebb_head;
 #define BB_TO_BLOCK(ebb) (rgn_bb_table[ebb_head[ebb]])
-#define EBB_FIRST_BB(ebb) BASIC_BLOCK (BB_TO_BLOCK (ebb))
-#define EBB_LAST_BB(ebb) BASIC_BLOCK (rgn_bb_table[ebb_head[ebb + 1] - 1])
+#define EBB_FIRST_BB(ebb) BASIC_BLOCK_FOR_FN (cfun, BB_TO_BLOCK (ebb))
+#define EBB_LAST_BB(ebb) \
+  BASIC_BLOCK_FOR_FN (cfun, rgn_bb_table[ebb_head[ebb + 1] - 1])
 #define INSN_BB(INSN) (BLOCK_TO_BB (BLOCK_NUM (INSN)))
 
 extern int current_nr_blocks;

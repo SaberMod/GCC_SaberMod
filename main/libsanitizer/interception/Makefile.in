@@ -181,6 +181,10 @@ infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+link_libasan = @link_libasan@
+link_liblsan = @link_liblsan@
+link_libtsan = @link_libtsan@
+link_libubsan = @link_libubsan@
 localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
@@ -211,7 +215,7 @@ AM_CPPFLAGS = -I $(top_srcdir)/include -I $(top_srcdir)
 # May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 AM_CXXFLAGS = -Wall -W -Wno-unused-parameter -Wwrite-strings -pedantic \
-	-Wno-long-long -fPIC -fno-builtin -fno-exceptions \
+	-Wno-long-long -fPIC -fno-builtin -fno-exceptions -fno-rtti \
 	-fomit-frame-pointer -funwind-tables -fvisibility=hidden \
 	-Wno-variadic-macros $(LIBSTDCXX_RAW_CXX_CXXFLAGS)
 ACLOCAL_AMFLAGS = -I m4

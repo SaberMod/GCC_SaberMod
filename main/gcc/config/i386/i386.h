@@ -40,53 +40,99 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Redefines for option macros.  */
 
 #define TARGET_64BIT	TARGET_ISA_64BIT
+#define TARGET_64BIT_P(x)	TARGET_ISA_64BIT_P(x)
 #define TARGET_MMX	TARGET_ISA_MMX
+#define TARGET_MMX_P(x)	TARGET_ISA_MMX_P(x)
 #define TARGET_3DNOW	TARGET_ISA_3DNOW
+#define TARGET_3DNOW_P(x)	TARGET_ISA_3DNOW_P(x)
 #define TARGET_3DNOW_A	TARGET_ISA_3DNOW_A
+#define TARGET_3DNOW_A_P(x)	TARGET_ISA_3DNOW_A_P(x)
 #define TARGET_SSE	TARGET_ISA_SSE
+#define TARGET_SSE_P(x)	TARGET_ISA_SSE_P(x)
 #define TARGET_SSE2	TARGET_ISA_SSE2
+#define TARGET_SSE2_P(x)	TARGET_ISA_SSE2_P(x)
 #define TARGET_SSE3	TARGET_ISA_SSE3
+#define TARGET_SSE3_P(x)	TARGET_ISA_SSE3_P(x)
 #define TARGET_SSSE3	TARGET_ISA_SSSE3
+#define TARGET_SSSE3_P(x)	TARGET_ISA_SSSE3_P(x)
 #define TARGET_SSE4_1	TARGET_ISA_SSE4_1
+#define TARGET_SSE4_1_P(x)	TARGET_ISA_SSE4_1_P(x)
 #define TARGET_SSE4_2	TARGET_ISA_SSE4_2
+#define TARGET_SSE4_2_P(x)	TARGET_ISA_SSE4_2_P(x)
 #define TARGET_AVX	TARGET_ISA_AVX
+#define TARGET_AVX_P(x)	TARGET_ISA_AVX_P(x)
 #define TARGET_AVX2	TARGET_ISA_AVX2
-#define TARGET_AVX512F  TARGET_ISA_AVX512F
-#define TARGET_AVX512PF TARGET_ISA_AVX512PF
-#define TARGET_AVX512ER TARGET_ISA_AVX512ER
-#define TARGET_AVX512CD TARGET_ISA_AVX512CD
+#define TARGET_AVX2_P(x)	TARGET_ISA_AVX2_P(x)
+#define TARGET_AVX512F	TARGET_ISA_AVX512F
+#define TARGET_AVX512F_P(x)	TARGET_ISA_AVX512F_P(x)
+#define TARGET_AVX512PF	TARGET_ISA_AVX512PF
+#define TARGET_AVX512PF_P(x)	TARGET_ISA_AVX512PF_P(x)
+#define TARGET_AVX512ER	TARGET_ISA_AVX512ER
+#define TARGET_AVX512ER_P(x)	TARGET_ISA_AVX512ER_P(x)
+#define TARGET_AVX512CD	TARGET_ISA_AVX512CD
+#define TARGET_AVX512CD_P(x)	TARGET_ISA_AVX512CD_P(x)
 #define TARGET_FMA	TARGET_ISA_FMA
+#define TARGET_FMA_P(x)	TARGET_ISA_FMA_P(x)
 #define TARGET_SSE4A	TARGET_ISA_SSE4A
+#define TARGET_SSE4A_P(x)	TARGET_ISA_SSE4A_P(x)
 #define TARGET_FMA4	TARGET_ISA_FMA4
+#define TARGET_FMA4_P(x)	TARGET_ISA_FMA4_P(x)
 #define TARGET_XOP	TARGET_ISA_XOP
+#define TARGET_XOP_P(x)	TARGET_ISA_XOP_P(x)
 #define TARGET_LWP	TARGET_ISA_LWP
+#define TARGET_LWP_P(x)	TARGET_ISA_LWP_P(x)
 #define TARGET_ROUND	TARGET_ISA_ROUND
 #define TARGET_ABM	TARGET_ISA_ABM
+#define TARGET_ABM_P(x)	TARGET_ISA_ABM_P(x)
 #define TARGET_BMI	TARGET_ISA_BMI
+#define TARGET_BMI_P(x)	TARGET_ISA_BMI_P(x)
 #define TARGET_BMI2	TARGET_ISA_BMI2
+#define TARGET_BMI2_P(x)	TARGET_ISA_BMI2_P(x)
 #define TARGET_LZCNT	TARGET_ISA_LZCNT
+#define TARGET_LZCNT_P(x)	TARGET_ISA_LZCNT_P(x)
 #define TARGET_TBM	TARGET_ISA_TBM
+#define TARGET_TBM_P(x)	TARGET_ISA_TBM_P(x)
 #define TARGET_POPCNT	TARGET_ISA_POPCNT
+#define TARGET_POPCNT_P(x)	TARGET_ISA_POPCNT_P(x)
 #define TARGET_SAHF	TARGET_ISA_SAHF
+#define TARGET_SAHF_P(x)	TARGET_ISA_SAHF_P(x)
 #define TARGET_MOVBE	TARGET_ISA_MOVBE
+#define TARGET_MOVBE_P(x)	TARGET_ISA_MOVBE_P(x)
 #define TARGET_CRC32	TARGET_ISA_CRC32
+#define TARGET_CRC32_P(x)	TARGET_ISA_CRC32_P(x)
 #define TARGET_AES	TARGET_ISA_AES
+#define TARGET_AES_P(x)	TARGET_ISA_AES_P(x)
 #define TARGET_PCLMUL	TARGET_ISA_PCLMUL
-#define TARGET_CMPXCHG16B TARGET_ISA_CX16
+#define TARGET_PCLMUL_P(x)	TARGET_ISA_PCLMUL_P(x)
+#define TARGET_CMPXCHG16B	TARGET_ISA_CX16
+#define TARGET_CMPXCHG16B_P(x)	TARGET_ISA_CX16_P(x)
 #define TARGET_FSGSBASE	TARGET_ISA_FSGSBASE
+#define TARGET_FSGSBASE_P(x)	TARGET_ISA_FSGSBASE_P(x)
 #define TARGET_RDRND	TARGET_ISA_RDRND
+#define TARGET_RDRND_P(x)	TARGET_ISA_RDRND_P(x)
 #define TARGET_F16C	TARGET_ISA_F16C
-#define TARGET_RTM      TARGET_ISA_RTM
+#define TARGET_F16C_P(x)	TARGET_ISA_F16C_P(x)
+#define TARGET_RTM	TARGET_ISA_RTM
+#define TARGET_RTM_P(x)	TARGET_ISA_RTM_P(x)
 #define TARGET_HLE	TARGET_ISA_HLE
+#define TARGET_HLE_P(x)	TARGET_ISA_HLE_P(x)
 #define TARGET_RDSEED	TARGET_ISA_RDSEED
+#define TARGET_RDSEED_P(x)	TARGET_ISA_RDSEED_P(x)
 #define TARGET_PRFCHW	TARGET_ISA_PRFCHW
+#define TARGET_PRFCHW_P(x)	TARGET_ISA_PRFCHW_P(x)
 #define TARGET_ADX	TARGET_ISA_ADX
+#define TARGET_ADX_P(x)	TARGET_ISA_ADX_P(x)
 #define TARGET_FXSR	TARGET_ISA_FXSR
+#define TARGET_FXSR_P(x)	TARGET_ISA_FXSR_P(x)
 #define TARGET_XSAVE	TARGET_ISA_XSAVE
+#define TARGET_XSAVE_P(x)	TARGET_ISA_XSAVE_P(x)
 #define TARGET_XSAVEOPT	TARGET_ISA_XSAVEOPT
+#define TARGET_XSAVEOPT_P(x)	TARGET_ISA_XSAVEOPT_P(x)
 
 #define TARGET_LP64	TARGET_ABI_64
+#define TARGET_LP64_P(x)	TARGET_ABI_64_P(x)
 #define TARGET_X32	TARGET_ABI_X32
+#define TARGET_X32_P(x)	TARGET_ABI_X32_P(x)
 
 /* SSE4.1 defines round instructions */
 #define	OPTION_MASK_ISA_ROUND	OPTION_MASK_ISA_SSE4_1
@@ -212,7 +258,13 @@ extern const struct processor_costs ix86_size_cost;
   (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
 #endif
 
+#ifndef TARGET_FPMATH_DEFAULT_P
+#define TARGET_FPMATH_DEFAULT_P(x) \
+  (TARGET_64BIT_P(x) && TARGET_SSE_P(x) ? FPMATH_SSE : FPMATH_387)
+#endif
+
 #define TARGET_FLOAT_RETURNS_IN_80387 TARGET_FLOAT_RETURNS
+#define TARGET_FLOAT_RETURNS_IN_80387_P(x) TARGET_FLOAT_RETURNS_P(x)
 
 /* 64bit Sledgehammer mode.  For libgcc2 we make sure this is a
    compile-time constant.  */
@@ -250,12 +302,14 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
 #define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
 #define TARGET_COREI7 (ix86_tune == PROCESSOR_COREI7)
+#define TARGET_COREI7_AVX (ix86_tune == PROCESSOR_COREI7_AVX)
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
 #define TARGET_BDVER1 (ix86_tune == PROCESSOR_BDVER1)
 #define TARGET_BDVER2 (ix86_tune == PROCESSOR_BDVER2)
 #define TARGET_BDVER3 (ix86_tune == PROCESSOR_BDVER3)
+#define TARGET_BDVER4 (ix86_tune == PROCESSOR_BDVER4)
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
 #define TARGET_ATOM (ix86_tune == PROCESSOR_ATOM)
@@ -298,6 +352,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_PROMOTE_QImode	ix86_tune_features[X86_TUNE_PROMOTE_QIMODE]
 #define TARGET_FAST_PREFIX	ix86_tune_features[X86_TUNE_FAST_PREFIX]
 #define TARGET_SINGLE_STRINGOP	ix86_tune_features[X86_TUNE_SINGLE_STRINGOP]
+#define TARGET_MISALIGNED_MOVE_STRING_PRO_EPILOGUES \
+	ix86_tune_features[X86_TUNE_MISALIGNED_MOVE_STRING_PRO_EPILOGUES]
 #define TARGET_QIMODE_MATH	ix86_tune_features[X86_TUNE_QIMODE_MATH]
 #define TARGET_HIMODE_MATH	ix86_tune_features[X86_TUNE_HIMODE_MATH]
 #define TARGET_PROMOTE_QI_REGS	ix86_tune_features[X86_TUNE_PROMOTE_QI_REGS]
@@ -359,8 +415,17 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_USE_VECTOR_FP_CONVERTS]
 #define TARGET_USE_VECTOR_CONVERTS \
 	ix86_tune_features[X86_TUNE_USE_VECTOR_CONVERTS]
+#define TARGET_FUSE_CMP_AND_BRANCH_32 \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_32]
+#define TARGET_FUSE_CMP_AND_BRANCH_64 \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_64]
 #define TARGET_FUSE_CMP_AND_BRANCH \
-	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH]
+	(TARGET_64BIT ? TARGET_FUSE_CMP_AND_BRANCH_64 \
+	 : TARGET_FUSE_CMP_AND_BRANCH_32)
+#define TARGET_FUSE_CMP_AND_BRANCH_SOFLAGS \
+	ix86_tune_features[X86_TUNE_FUSE_CMP_AND_BRANCH_SOFLAGS]
+#define TARGET_FUSE_ALU_AND_BRANCH \
+	ix86_tune_features[X86_TUNE_FUSE_ALU_AND_BRANCH]
 #define TARGET_OPT_AGU ix86_tune_features[X86_TUNE_OPT_AGU]
 #define TARGET_VECTORIZE_DOUBLE \
 	ix86_tune_features[X86_TUNE_VECTORIZE_DOUBLE]
@@ -378,6 +443,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 	ix86_tune_features[X86_TUNE_AVOID_MEM_OPND_FOR_CMOVE]
 #define TARGET_SPLIT_MEM_OPND_FOR_FP_CONVERTS \
 	ix86_tune_features[X86_TUNE_SPLIT_MEM_OPND_FOR_FP_CONVERTS]
+#define TARGET_ADJUST_UNROLL \
+    ix86_tune_features[X86_TUNE_ADJUST_UNROLL]
 
 /* Feature tests against the various architecture variations.  */
 enum ix86_arch_indices {
@@ -557,9 +624,11 @@ enum target_cpu_default
   TARGET_CPU_DEFAULT_nocona,
   TARGET_CPU_DEFAULT_core2,
   TARGET_CPU_DEFAULT_corei7,
+  TARGET_CPU_DEFAULT_corei7_avx,
   TARGET_CPU_DEFAULT_haswell,
   TARGET_CPU_DEFAULT_atom,
   TARGET_CPU_DEFAULT_slm,
+  TARGET_CPU_DEFAULT_intel,
 
   TARGET_CPU_DEFAULT_geode,
   TARGET_CPU_DEFAULT_k6,
@@ -572,6 +641,7 @@ enum target_cpu_default
   TARGET_CPU_DEFAULT_bdver1,
   TARGET_CPU_DEFAULT_bdver2,
   TARGET_CPU_DEFAULT_bdver3,
+  TARGET_CPU_DEFAULT_bdver4,
   TARGET_CPU_DEFAULT_btver1,
   TARGET_CPU_DEFAULT_btver2,
 
@@ -1492,13 +1562,26 @@ enum reg_class
    will be computed and placed into the variable `crtl->outgoing_args_size'.
    No space will be pushed onto the stack for each call; instead, the
    function prologue should increase the stack frame size by this amount.  
+
+   In 32bit mode enabling argument accumulation results in about 5% code size
+   growth becuase move instructions are less compact than push.  In 64bit
+   mode the difference is less drastic but visible.  
+
+   FIXME: Unlike earlier implementations, the size of unwind info seems to
+   actually grouw with accumulation.  Is that because accumulated args
+   unwind info became unnecesarily bloated?
    
    64-bit MS ABI seem to require 16 byte alignment everywhere except for
-   function prologue and apilogue.  This is not possible without
-   ACCUMULATE_OUTGOING_ARGS.  */
+   function prologue and epilogue.  This is not possible without
+   ACCUMULATE_OUTGOING_ARGS.  
+
+   If stack probes are required, the space used for large function
+   arguments on the stack must also be probed, so enable
+   -maccumulate-outgoing-args so this happens in the prologue.  */
 
 #define ACCUMULATE_OUTGOING_ARGS \
-  (TARGET_ACCUMULATE_OUTGOING_ARGS || TARGET_64BIT_MS_ABI)
+  ((TARGET_ACCUMULATE_OUTGOING_ARGS && optimize_function_for_speed_p (cfun)) \
+   || TARGET_STACK_PROBE || TARGET_64BIT_MS_ABI)
 
 /* If defined, a C expression whose value is nonzero when we want to use PUSH
    instructions to pass outgoing arguments.  */
@@ -2138,12 +2221,14 @@ enum processor_type
   PROCESSOR_NOCONA,
   PROCESSOR_CORE2,
   PROCESSOR_COREI7,
+  PROCESSOR_COREI7_AVX,
   PROCESSOR_HASWELL,
   PROCESSOR_GENERIC,
   PROCESSOR_AMDFAM10,
   PROCESSOR_BDVER1,
   PROCESSOR_BDVER2,
   PROCESSOR_BDVER3,
+  PROCESSOR_BDVER4,
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
   PROCESSOR_ATOM,
