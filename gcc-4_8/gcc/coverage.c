@@ -615,37 +615,17 @@ reorder_module_groups (const char *imports_file, unsigned max_group)
   module_name_tab.dispose ();
 }
 
-typedef struct {
-  unsigned int mod_id;
-  const char *mod_name;
-} mod_id_to_name_t;
-
-static vec<mod_id_to_name_t> *mod_names;
-
-static void
-record_module_name (unsigned int mod_id, const char *name)
-{
-  mod_id_to_name_t t;
-
-  t.mod_id = mod_id;
-  t.mod_name = xstrdup (name);
-  if (!mod_names)
-    vec_alloc (mod_names, 10);
-  mod_names->safe_push (t);
-}
-
 /* Return the module name for module with MOD_ID.  */
 
 const char *
 get_module_name (unsigned int mod_id)
 {
   size_t i;
-  mod_id_to_name_t *elt;
 
-  for (i = 0; mod_names->iterate (i, &elt); i++)
+  for (i = 0; i < num_in_fnames; i++)
     {
-      if (elt->mod_id == mod_id)
-        return elt->mod_name;
+      if (module_infos[i]->ident == mod_id)
+        return lbasename (module_infos[i]->source_filename);
     }
 
   gcc_assert (0);
@@ -926,9 +906,6 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 			  info_sz);
 		}
             }
-
-          record_module_name (mod_info->ident,
-                              lbasename (mod_info->source_filename));
 
           if (dump_enabled_p ())
             {
