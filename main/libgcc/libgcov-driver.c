@@ -670,7 +670,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
         goto read_error;
     }
 
-  if (tag)
+  if (tag && tag != GCOV_TAG_MODULE_INFO)
     {
     read_mismatch:;
       gcov_error ("profiling:%s:Merge mismatch for %s %u\n",
