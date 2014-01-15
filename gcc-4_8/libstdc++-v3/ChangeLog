@@ -22,6 +22,14 @@
 	pointer.
 	* testsuite/20_util/shared_ptr/cons/58839.cc: New.
 
+2013-10-20  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58800
+	* include/bits/stl_algo.h (__unguarded_partition_pivot): Change
+	__last - 2 to __last - 1.
+	* testsuite/25_algorithms/nth_element/58800.cc: New
+
 2013-10-16  François Dumont  <fdumont@gcc.gnu.org>
 
 	PR libstdc++/58191
@@ -80,6 +88,16 @@
 	* include/std/functional (function::_CheckResult): Move to namespace
 	scope and rename to __check_func_return_type.
 	* testsuite/20_util/function/58569.cc: New.
+
+2013-09-30  Chris Jefferson  <chris@bubblescope.net>
+
+	PR libstdc++/58437
+	* include/bits/stl_algo.h (__move_median_first): Rename to
+	__move_median_to_first, change to take an addition argument.
+	(__unguarded_partition_pivot): Adjust.
+	* testsuite/performance/25_algorithms/sort.cc: New.
+	* testsuite/performance/25_algorithms/sort_heap.cc: Likewise.
+	* testsuite/performance/25_algorithms/stable_sort.cc: Likewise.
 
 2013-09-19  Mitsuru Kariya  <kariya_mitsuru@hotmail.com>
 	    Chris Jefferson  <chris@bubblescope.net>
