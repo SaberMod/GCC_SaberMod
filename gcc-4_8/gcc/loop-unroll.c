@@ -315,6 +315,7 @@ code_size_limit_factor(struct loop *loop)
   struct niter_desc *desc = get_simple_loop_desc (loop);
   gcov_type sum_to_header_ratio;
   int hotness_ratio_threshold;
+  gcov_type limit;
   int limit_factor;
   gcov_working_set_t *ws;
 
@@ -361,8 +362,12 @@ code_size_limit_factor(struct loop *loop)
          factor to zero as the loop's hotness reduces.  */
       if (sum_to_header_ratio > hotness_ratio_threshold)
         {
-          limit_factor = sum_to_header_ratio / hotness_ratio_threshold;
-          gcc_assert (limit_factor >= 1);
+          limit = sum_to_header_ratio / hotness_ratio_threshold;
+          gcc_assert (limit >= 1);
+          if (limit > INT_MAX)
+            limit_factor = INT_MAX;
+          else
+            limit_factor = (int) limit;
         }
       else
         limit_factor = 1;
