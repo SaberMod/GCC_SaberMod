@@ -296,91 +296,6 @@ gcov_version (struct gcov_info *ptr, gcov_unsigned_t version,
   return 1;
 }
 
-/* Sort N entries in VALUE_ARRAY in descending order.
-   Each entry in VALUE_ARRAY has two values. The sorting
-   is based on the second value.  */
-
-GCOV_LINKAGE  void
-gcov_sort_n_vals (gcov_type *value_array, int n)
-{
-  int j, k;
-  for (j = 2; j < n; j += 2)
-    {
-      gcov_type cur_ent[2];
-      cur_ent[0] = value_array[j];
-      cur_ent[1] = value_array[j + 1];
-      k = j - 2;
-      while (k >= 0 && value_array[k + 1] < cur_ent[1])
-        {
-          value_array[k + 2] = value_array[k];
-          value_array[k + 3] = value_array[k+1];
-          k -= 2;
-        }
-      value_array[k + 2] = cur_ent[0];
-      value_array[k + 3] = cur_ent[1];
-    }
-}
-
-/* Sort the profile counters for all indirect call sites. Counters
-   for each call site are allocated in array COUNTERS.  */
-
-static void
-gcov_sort_icall_topn_counter (const struct gcov_ctr_info *counters)
-{
-  int i;
-  gcov_type *values;
-  int n = counters->num;
-  gcc_assert (!(n % GCOV_ICALL_TOPN_NCOUNTS));
-
-  values = counters->values;
-
-  for (i = 0; i < n; i += GCOV_ICALL_TOPN_NCOUNTS)
-    {
-      gcov_type *value_array = &values[i + 1];
-      gcov_sort_n_vals (value_array, GCOV_ICALL_TOPN_NCOUNTS - 1);
-    }
-}
-/* Write imported files (auxiliary modules) for primary module GI_PTR
-   into file GI_FILENAME.  */
-
-static void
-gcov_write_import_file (char *gi_filename, struct gcov_info *gi_ptr)
-{
-  char  *gi_imports_filename;
-  const char *gcov_suffix;
-  FILE *imports_file;
-  size_t prefix_length, suffix_length;
-
-  gcov_suffix = getenv ("GCOV_IMPORTS_SUFFIX");
-  if (!gcov_suffix || !strlen (gcov_suffix))
-    gcov_suffix = ".imports";
-  suffix_length = strlen (gcov_suffix);
-  prefix_length = strlen (gi_filename);
-  gi_imports_filename = (char *) alloca (prefix_length + suffix_length + 1);
-  memset (gi_imports_filename, 0, prefix_length + suffix_length + 1);
-  memcpy (gi_imports_filename, gi_filename, prefix_length);
-  memcpy (gi_imports_filename + prefix_length, gcov_suffix, suffix_length);
-  imports_file = fopen (gi_imports_filename, "w");
-  if (imports_file)
-    {
-      const struct dyn_imp_mod **imp_mods;
-      unsigned i, imp_len;
-      imp_mods = gcov_get_sorted_import_module_array (gi_ptr, &imp_len);
-      if (imp_mods)
-        {
-          for (i = 0; i < imp_len; i++)
-            {
-              fprintf (imports_file, "%s\n",
-                       imp_mods[i]->imp_mod->mod_info->source_filename);
-              fprintf (imports_file, "%s%s\n",
-                       imp_mods[i]->imp_mod->mod_info->da_filename, GCOV_DATA_SUFFIX);
-            }
-          free (imp_mods);
-        }
-      fclose (imports_file);
-    }
-}
-
 /* Insert counter VALUE into HISTOGRAM.  */
 
 static void
@@ -465,10 +380,10 @@ static struct gcov_summary_buffer *sum_buffer;
 static int run_accounted = 0;
 
 /* This funtions computes the program level summary and the histo-gram.
-   It computes and returns CRC32  and stored summari in THIS_PRG.  */
+   It computes and returns CRC32  and stored summary in THIS_PRG.  */
 
 static gcov_unsigned_t
-gcov_exit_compute_summary (int *dump_module_info)
+gcov_exit_compute_summary (void)
 {
   struct gcov_info *gi_ptr;
   const struct gcov_fn_info *gfi_ptr;
@@ -518,9 +433,6 @@ gcov_exit_compute_summary (int *dump_module_info)
               ci_ptr++;
             }
         }
-      /* The IS_PRIMARY field is overloaded to indicate if this module
-       is FDO/LIPO.  */
-      *dump_module_info |= gi_ptr->mod_info->is_primary;
     }
   gcov_compute_histogram (&this_prg);
   return crc32;
@@ -862,6 +774,50 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
   return 0;
 }
 
+/* Sort N entries in VALUE_ARRAY in descending order.
+   Each entry in VALUE_ARRAY has two values. The sorting
+   is based on the second value.  */
+
+GCOV_LINKAGE  void
+gcov_sort_n_vals (gcov_type *value_array, int n)
+{
+  int j, k;
+  for (j = 2; j < n; j += 2)
+    {
+      gcov_type cur_ent[2];
+      cur_ent[0] = value_array[j];
+      cur_ent[1] = value_array[j + 1];
+      k = j - 2;
+      while (k >= 0 && value_array[k + 1] < cur_ent[1])
+        {
+          value_array[k + 2] = value_array[k];
+          value_array[k + 3] = value_array[k+1];
+          k -= 2;
+        }
+      value_array[k + 2] = cur_ent[0];
+      value_array[k + 3] = cur_ent[1];
+    }
+}
+
+/* Sort the profile counters for all indirect call sites. Counters
+   for each call site are allocated in array COUNTERS.  */
+
+static void
+gcov_sort_icall_topn_counter (const struct gcov_ctr_info *counters)
+{
+  int i;
+  gcov_type *values;
+  int n = counters->num;
+  gcc_assert (!(n % GCOV_ICALL_TOPN_NCOUNTS));
+
+  values = counters->values;
+
+  for (i = 0; i < n; i += GCOV_ICALL_TOPN_NCOUNTS)
+    {
+      gcov_type *value_array = &values[i + 1];
+      gcov_sort_n_vals (value_array, GCOV_ICALL_TOPN_NCOUNTS - 1);
+    }
+}
 
 static void
 gcov_sort_topn_counter_arrays (const struct gcov_info *gi_ptr)
@@ -898,7 +854,7 @@ gcov_sort_topn_counter_arrays (const struct gcov_info *gi_ptr)
 
 static void
 gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
-            		     gcov_unsigned_t crc32, struct gcov_summary *all_prg)
+		     gcov_unsigned_t crc32, struct gcov_summary *all_prg)
 {
   struct gcov_summary prg; /* summary for this object over all program.  */
   int error;
@@ -956,6 +912,46 @@ read_fatal:;
                 gi_filename);
 }
 
+/* Write imported files (auxiliary modules) for primary module GI_PTR
+   into file GI_FILENAME.  */
+
+static void
+gcov_write_import_file (char *gi_filename, struct gcov_info *gi_ptr)
+{
+  char  *gi_imports_filename;
+  const char *gcov_suffix;
+  FILE *imports_file;
+  size_t prefix_length, suffix_length;
+
+  gcov_suffix = getenv ("GCOV_IMPORTS_SUFFIX");
+  if (!gcov_suffix || !strlen (gcov_suffix))
+    gcov_suffix = ".imports";
+  suffix_length = strlen (gcov_suffix);
+  prefix_length = strlen (gi_filename);
+  gi_imports_filename = (char *) alloca (prefix_length + suffix_length + 1);
+  memset (gi_imports_filename, 0, prefix_length + suffix_length + 1);
+  memcpy (gi_imports_filename, gi_filename, prefix_length);
+  memcpy (gi_imports_filename + prefix_length, gcov_suffix, suffix_length);
+  imports_file = fopen (gi_imports_filename, "w");
+  if (imports_file)
+    {
+      const struct dyn_imp_mod **imp_mods;
+      unsigned i, imp_len;
+      imp_mods = gcov_get_sorted_import_module_array (gi_ptr, &imp_len);
+      if (imp_mods)
+        {
+          for (i = 0; i < imp_len; i++)
+            {
+              fprintf (imports_file, "%s\n",
+                       imp_mods[i]->imp_mod->mod_info->source_filename);
+              fprintf (imports_file, "%s%s\n",
+                       imp_mods[i]->imp_mod->mod_info->da_filename, GCOV_DATA_SUFFIX);
+            }
+          free (imp_mods);
+        }
+      fclose (imports_file);
+    }
+}
 
 static void
 gcov_dump_module_info (struct gcov_filename_aux *gf)
@@ -966,31 +962,27 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
 
   /* Now write out module group info.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
-  {
-    int error;
+    {
+      int error; 
 
-    GCOV_GET_FILENAME (gf->prefix_length, gf->gcov_prefix_strip,
-                       gi_ptr->filename,
-                       gf->gi_filename_up);
-    error = gcov_open_by_filename (gi_filename);
-    if (error != 0)
-      continue;
+      if (gcov_exit_open_gcda_file (gi_ptr, gf) == -1)
+	continue;
 
-    /* Overwrite the zero word at the of the file.  */
-    gcov_rewrite ();
-    gcov_seek (gi_ptr->eof_pos);
+      /* Overwrite the zero word at the of the file.  */
+      gcov_rewrite ();
+      gcov_seek (gi_ptr->eof_pos);
 
-    gcov_write_module_infos (gi_ptr);
-    /* Write the end marker  */
-    gcov_write_unsigned (0);
-    gcov_truncate ();
-
-    if ((error = gcov_close ()))
-         gcov_error (error  < 0 ?  "profiling:%s:Overflow writing\n" :
-                                   "profiling:%s:Error writing\n",
-                                   gi_filename);
-    gcov_write_import_file (gi_filename, gi_ptr);
-  }
+      gcov_write_module_infos (gi_ptr);
+      /* Write the end marker  */
+      gcov_write_unsigned (0);
+      gcov_truncate (); 
+      
+      if ((error = gcov_close ()))
+        gcov_error (error  < 0 ?  "profiling:%s:Overflow writing\n" :
+                                  "profiling:%s:Error writing\n",
+                                  gi_filename);
+      gcov_write_import_file (gi_filename, gi_ptr);
+    }
   __gcov_finalize_dyn_callgraph ();
 }
 
@@ -1012,7 +1004,7 @@ gcov_exit (void)
   if (gcov_dump_complete)
     return;
 
-  crc32 = gcov_exit_compute_summary (&dump_module_info);
+  crc32 = gcov_exit_compute_summary ();
 
   allocate_filename_struct (&gf);
 #if !GCOV_LOCKED
@@ -1021,7 +1013,13 @@ gcov_exit (void)
 
   /* Now merge each file.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
-    gcov_exit_dump_gcov (gi_ptr, &gf, crc32, &all_prg);
+    {
+      gcov_exit_dump_gcov (gi_ptr, &gf, crc32, &all_prg);
+
+      /* The IS_PRIMARY field is overloaded to indicate if this module
+       is FDO/LIPO.  */
+      dump_module_info |= gi_ptr->mod_info->is_primary;
+    }
   run_accounted = 1;
 
   if (dump_module_info)
