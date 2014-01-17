@@ -34,6 +34,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef xcalloc
 #define xcalloc calloc
 #endif
+#ifndef xrealloc
+#define xrealloc realloc
+#endif
+
+#ifndef IN_GCOV_TOOL
+/* About the target.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -46,6 +52,25 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #else
 #define THREAD_PREFIX
 #endif
+
+#else /* IN_GCOV_TOOL */
+/* About the host.  */
+
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+
+typedef unsigned gcov_unsigned_t;
+typedef unsigned gcov_position_t;
+/* gcov_type is typedef'd elsewhere for the compiler */
+#if defined (HOST_HAS_F_SETLKW)
+#define GCOV_LOCKED 1
+#else
+#define GCOV_LOCKED 0
+#endif
+
+#endif /* !IN_GCOV_TOOL */
 
 #if defined(inhibit_libc)
 #define IN_LIBGCOV (-1)
@@ -203,8 +228,13 @@ struct gcov_info
 					  unused) */
 
   unsigned n_functions;		/* number of functions */
+
+#ifndef IN_GCOV_TOOL
   const struct gcov_fn_info *const *functions; /* pointer to pointers
-					          to function information  */
+                                                  to function information  */
+#else
+  const struct gcov_fn_info **functions;
+#endif /* !IN_GCOV_TOOL */
 };
 
 /* Information about a single imported module.  */

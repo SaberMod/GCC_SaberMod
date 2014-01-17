@@ -555,7 +555,7 @@ gcov_read_counter (void)
    buffer, or NULL on empty string. You must copy the string before
    calling another gcov function.  */
 
-#if !IN_LIBGCOV
+#if !IN_LIBGCOV || IN_GCOV_TOOL
 GCOV_LINKAGE const char *
 gcov_read_string (void)
 {
@@ -632,7 +632,7 @@ gcov_read_summary (struct gcov_summary *summary)
     }
 }
 
-#if !IN_LIBGCOV && IN_GCOV != 1
+#if IN_GCOV_TOOL || !IN_LIBGCOV && IN_GCOV != 1
 /* Read LEN words (unsigned type) and construct MOD_INFO.  */
 
 GCOV_LINKAGE void
@@ -685,7 +685,7 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
 }
 #endif
 
-#if !IN_LIBGCOV
+#if !IN_LIBGCOV || IN_GCOV_TOOL
 /* Reset to a known position.  BASE should have been obtained from
    gcov_position, LENGTH should be a record length.  */
 

@@ -53,6 +53,7 @@ extern int get_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern void set_gcov_list (struct gcov_info *) ATTRIBUTE_HIDDEN;
 extern struct gcov_info *get_gcov_list (void) ATTRIBUTE_HIDDEN;
 
+#ifndef IN_GCOV_TOOL
 /* Create a strong reference to these symbols so that they are
    unconditionally pulled into the instrumented binary, even when
    the only reference is a weak reference. This is necessary because
@@ -76,6 +77,7 @@ __coverage_callback (gcov_type funcdef_no __attribute__ ((unused)),
 {
    /* nothing */
 }
+#endif
 
 /* Flag when the profile has already been dumped via __gcov_dump().  */
 static int gcov_dump_complete;
@@ -135,8 +137,11 @@ get_gcov_list (void)
 /* Size of the longest file name. */
 static size_t gcov_max_filename = 0;
 
+#ifndef IN_GCOV_TOOL
+/* Emitted in coverage.c.  */
 extern gcov_unsigned_t __gcov_sampling_period;
 static int gcov_sampling_period_initialized = 0;
+#endif
 
 /* Unique identifier assigned to each module (object file).  */
 static gcov_unsigned_t gcov_cur_module_id = 0;
@@ -384,7 +389,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
              histogram entries that will be emitted, and thus the
              size of the merged summary.  */
           (*sum_tail) = (struct gcov_summary_buffer *)
-              malloc (sizeof(struct gcov_summary_buffer));
+              xmalloc (sizeof(struct gcov_summary_buffer));
           (*sum_tail)->summary = tmp;
           (*sum_tail)->next = 0;
           sum_tail = &((*sum_tail)->next);
@@ -852,7 +857,8 @@ gcov_exit (void)
 
       /* The IS_PRIMARY field is overloaded to indicate if this module
          is FDO/LIPO.  */
-      dump_module_info |= gi_ptr->mod_info->is_primary;
+      if (gi_ptr->mod_info)
+        dump_module_info |= gi_ptr->mod_info->is_primary;
     }
 
   if (dump_module_info)
@@ -898,6 +904,7 @@ gcov_clear (void)
 void
 __gcov_init (struct gcov_info *info)
 {
+#ifndef IN_GCOV_TOOL
   if (!gcov_sampling_period_initialized)
     {
       const char* env_value_str = getenv ("GCOV_SAMPLING_PERIOD");
@@ -909,6 +916,7 @@ __gcov_init (struct gcov_info *info)
         }
       gcov_sampling_period_initialized = 1;
     }
+#endif /* IN_GCOV_TOOL */
 
   if (!info->version || !info->n_functions)
     return;

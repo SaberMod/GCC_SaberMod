@@ -123,7 +123,8 @@ SUBDIRS =@subdirs@ build
 
 # Selection of languages to be made.
 CONFIG_LANGUAGES = @all_selected_languages@
-LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) $(CONFIG_LANGUAGES)
+LANGUAGES = c gcov$(exeext) gcov-dump$(exeext) gcov-tool$(exeext) \
+            $(CONFIG_LANGUAGES)
 
 # Default values for variables overridden in Makefile fragments.
 # CFLAGS is for the user to override to, e.g., do a cross build with -O2.
@@ -194,6 +195,7 @@ GCC_WARN_CXXFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 build/gengtype-lex.o-warn = -Wno-error
 gengtype-lex.o-warn = -Wno-error
 expmed.o-warn = -Wno-error
+libgcov-util.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -755,6 +757,7 @@ GCC_TARGET_INSTALL_NAME := $(target_noncanonical)-$(shell echo gcc|sed '$(progra
 CPP_INSTALL_NAME := $(shell echo cpp|sed '$(program_transform_name)')
 GCOV_INSTALL_NAME := $(shell echo gcov|sed '$(program_transform_name)')
 PROFILE_TOOL_INSTALL_NAME := $(shell echo profile_tool|sed '$(program_transform_name)')
+GCOV_TOOL_INSTALL_NAME := $(shell echo gcov-tool|sed '$(program_transform_name)')
 
 # Setup the testing framework, if you have one
 EXPECT = `if [ -f $${rootme}/../expect/expect ] ; then \
@@ -1480,7 +1483,8 @@ ALL_HOST_FRONTEND_OBJS = $(foreach v,$(CONFIG_LANGUAGES),$($(v)_OBJS))
 
 ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
   $(OBJS-libcommon-target) @TREEBROWSER@ main.o c-family/cppspec.o \
-  $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS)
+  $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS) \
+  $(GCOV_TOOL_OBJS)
 
 # This lists all host object files, whether they are included in this
 # compilation or not.
@@ -1505,6 +1509,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  $(SPECS) collect2$(exeext) gcc-ar$(exeext) gcc-nm$(exeext) \
  gcc-ranlib$(exeext) \
  gcov-iov$(build_exeext) gcov$(exeext) gcov-dump$(exeext) \
+ gcov-tool$(exeect) \
  gengtype$(exeext) *.[0-9][0-9].* *.[si] *-checksum.c libbackend.a \
  libcommon-target.a libcommon.a libgcc.mk
 
@@ -4070,6 +4075,27 @@ GCOV_DUMP_OBJS = gcov-dump.o vec.o ggc-none.o
 gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) \
 		$(LIBS) -o $@
+
+libgcov-util.o: $(srcdir)/../libgcc/libgcov-util.c gcov-io.c $(GCOV_IO_H) \
+  $(srcdir)/../libgcc/libgcov-driver.c $(srcdir)/../libgcc/libgcov-driver-system.c \
+  $(srcdir)/../libgcc/libgcov-merge.c $(srcdir)/../libgcc/libgcov.h \
+  $(SYSTEM_H) coretypes.h $(TM_H) $(CONFIG_H) version.h intl.h $(DIAGNOSTIC_H)
+	+$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) -o $@ $<
+dyn-ipa.o: $(srcdir)/../libgcc/dyn-ipa.c gcov-io.c $(srcdir)/../libgcc/libgcov.h \
+   $(GCOV_IO_H) $(SYSTEM_H) coretypes.h \
+   $(TM_H) $(CONFIG_H) version.h intl.h $(DIAGNOSTIC_H)
+	+$(COMPILER) -DIN_GCOV_TOOL -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
+	  $(INCLUDES) -o $@ $<
+
+GCOV_TOOL_OBJS = gcov-tool.o libgcov-util.o dyn-ipa.o gcov-params.o
+gcov-tool.o: gcov-tool.c $(GCOV_IO_H) intl.h $(SYSTEM_H) coretypes.h $(TM_H) \
+   $(CONFIG_H) version.h $(DIAGNOSTIC_H)
+gcov-params.o: params.c $(PARAMS_H)
+	+$(COMPILER) -DIN_GCOV_TOOL -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
+	  $(INCLUDES) -o $@ $<
+gcov-tool$(exeext): $(GCOV_TOOL_OBJS) $(LIBDEPS)
+	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_TOOL_OBJS) \
+	  $(LIBS) -o $@
 #
 # Build the include directories.  The stamp files are stmp-* rather than
 # s-* so that mostlyclean does not force the include directory to
@@ -4696,6 +4722,13 @@ install-common: native lang.install-common installdirs
 	    rm -f $(DESTDIR)$(bindir)/$(PROFILE_TOOL_INSTALL_NAME)$(exeext); \
 	    $(INSTALL_PROGRAM) $(srcdir)/../contrib/profile_tool \
 	    $(DESTDIR)$(bindir)/$(PROFILE_TOOL_INSTALL_NAME)$(exeext); \
+	fi
+# Install gcov-tool if it was compiled.
+	-if [ -f gcov-tool$(exeext) ]; \
+	then \
+	    rm -f $(DESTDIR)$(bindir)/$(GCOV_TOOL_INSTALL_NAME)$(exeext); \
+	    $(INSTALL_PROGRAM) \
+	    gcov-tool$(exeext) $(DESTDIR)$(bindir)/$(GCOV_TOOL_INSTALL_NAME)$(exeext); \
 	fi
 
 # Install the driver program as $(target_noncanonical)-gcc,

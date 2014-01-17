@@ -70,7 +70,9 @@ void
 global_init_params (void)
 {
   add_params (lang_independent_params, LAST_PARAM);
+#ifndef IN_GCOV_TOOL
   targetm_common.option_default_params ();
+#endif
 }
 
 /* Note that all parameters have been added and all default values

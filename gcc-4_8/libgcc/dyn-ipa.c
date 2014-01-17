@@ -28,11 +28,13 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 struct dyn_pointer_set;
 
+#ifndef IN_GCOV_TOOL
 #define XNEWVEC(type,ne) (type *)malloc(sizeof(type) * (ne))
 #define XCNEWVEC(type,ne) (type *)calloc(1, sizeof(type) * (ne))
 #define XNEW(type) (type *)malloc(sizeof(type))
 #define XDELETEVEC(p) free(p)
 #define XDELETE(p) free(p)
+#endif
 
 struct dyn_cgraph_node
 {
@@ -262,7 +264,7 @@ get_cgraph_node (gcov_type func_guid)
   if (func_id > the_dyn_call_graph.sup_modules[mod_idx].max_func_ident)
     return 0;
 
-  return *(pointer_set_find_or_insert
+  return (struct dyn_cgraph_node*) *(pointer_set_find_or_insert
 	   (the_dyn_call_graph.call_graph_nodes[mod_idx], func_id));
 }
 
@@ -486,7 +488,7 @@ __gcov_finalize_dyn_callgraph (void)
           struct dyn_cgraph_node *node;
           struct dyn_cgraph_edge *callees, *next_callee;
           fi_ptr = gi_ptr->functions[f_ix];
-          node = *(pointer_set_find_or_insert
+          node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
                    (the_dyn_call_graph.call_graph_nodes[i], fi_ptr->ident));
           gcc_assert (node);
           callees = node->callees;
@@ -658,7 +660,7 @@ gcov_build_callgraph (void)
           fi_ptr = gi_ptr->functions[f_ix];
           ci_ptr = fi_ptr->ctrs;
 
-          caller = *(pointer_set_find_or_insert
+          caller = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
                     (the_dyn_call_graph.call_graph_nodes[m_ix],
                      fi_ptr->ident));
           gcc_assert (caller);
@@ -907,7 +909,7 @@ gcov_compute_cutoff_count (void)
 
 	  fi_ptr = gi_ptr->functions[f_ix];
 
-	  node = *(pointer_set_find_or_insert
+	  node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
 		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
 	  gcc_assert (node);
 
@@ -920,7 +922,7 @@ gcov_compute_cutoff_count (void)
               else
                 {
                   capacity = capacity + (capacity >> 1);
-                  edges = (struct dyn_cgraph_edge **)realloc (edges, sizeof (void*) * capacity);
+                  edges = (struct dyn_cgraph_edge **)xrealloc (edges, sizeof (void*) * capacity);
                   edges[num_edges - 1] = callees;
                 }
               callees = callees->next_callee;
@@ -1267,7 +1269,7 @@ static fibnode_t fibnode_remove (fibnode_t);
 static dyn_fibheap_t
 dyn_fibheap_new (void)
 {
-  return (dyn_fibheap_t) calloc (1, sizeof (struct dyn_fibheap));
+  return (dyn_fibheap_t) xcalloc (1, sizeof (struct dyn_fibheap));
 }
 
 /* Create a new fibonacci heap node.  */
@@ -1276,7 +1278,7 @@ fibnode_new (void)
 {
   fibnode_t node;
 
-  node = (fibnode_t) calloc (1, sizeof *node);
+  node = (fibnode_t) xcalloc (1, sizeof *node);
   node->left = node;
   node->right = node;
 
@@ -1634,7 +1636,7 @@ build_modu_graph (gcov_type cutoff_count)
 	  struct dyn_cgraph_node *node;
 
 	  fi_ptr = gi_ptr->functions[f_ix];
-	  node = *(pointer_set_find_or_insert
+	  node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
 		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
 	  if (!node)
             {
@@ -1954,7 +1956,7 @@ gcov_compute_module_groups_eager_propagation (gcov_type cutoff_count)
 	  struct dyn_cgraph_node *node;
 
 	  fi_ptr = gi_ptr->functions[f_ix];
-	  node = *(pointer_set_find_or_insert
+	  node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
 		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
 	  gcc_assert (node);
           if (node->visited)
@@ -1978,7 +1980,7 @@ gcov_compute_module_groups_eager_propagation (gcov_type cutoff_count)
           struct dyn_pointer_set *imp_modules;
 
 	  fi_ptr = gi_ptr->functions[f_ix];
-	  node = *(pointer_set_find_or_insert
+	  node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
 		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
 	  gcc_assert (node);
 
@@ -2337,7 +2339,7 @@ gcov_dump_callgraph (gcov_type cutoff_count)
 	  struct dyn_cgraph_node *node;
 
 	  fi_ptr = gi_ptr->functions[f_ix];
-	  node = *(pointer_set_find_or_insert
+	  node = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
 		   (the_dyn_call_graph.call_graph_nodes[m_ix], fi_ptr->ident));
 	  gcc_assert (node);
 

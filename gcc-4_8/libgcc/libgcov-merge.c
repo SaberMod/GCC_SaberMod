@@ -45,6 +45,26 @@ void __gcov_merge_delta (gcov_type *counters  __attribute__ ((unused)),
 
 #else
 
+static inline gcov_type
+gcov_get_counter (void)
+{
+#ifndef IN_GCOV_TOOL
+  return gcov_read_counter ();
+#else
+  return gcov_read_counter_mem () * gcov_get_merge_weight ();
+#endif
+}
+
+static inline gcov_type
+gcov_get_counter_target (void)
+{
+#ifndef IN_GCOV_TOOL
+  return gcov_read_counter ();
+#else
+  return gcov_read_counter_mem ();
+#endif
+}
+
 #ifdef L_gcov_merge_add
 /* The profile merging function that just adds the counters.  It is given
    an array COUNTERS of N_COUNTERS old counters and it reads the same number
@@ -53,7 +73,7 @@ void
 __gcov_merge_add (gcov_type *counters, unsigned n_counters)
 {
   for (; n_counters; counters++, n_counters--)
-    *counters += gcov_read_counter ();
+    *counters += gcov_get_counter ();
 }
 #endif /* L_gcov_merge_add */
 
@@ -65,7 +85,7 @@ void
 __gcov_merge_ior (gcov_type *counters, unsigned n_counters)
 {
   for (; n_counters; counters++, n_counters--)
-    *counters |= gcov_read_counter ();
+    *counters |= gcov_get_counter ();
 }
 #endif
 
@@ -94,8 +114,8 @@ __gcov_merge_dc (gcov_type *counters, unsigned n_counters)
   gcc_assert (!(n_counters % 2));
   for (i = 0; i < n_counters; i += 2)
     {
-      gcov_type global_id = gcov_read_counter ();
-      gcov_type call_count = gcov_read_counter ();
+      gcov_type global_id = gcov_get_counter_target ();
+      gcov_type call_count = gcov_get_counter ();
 
       /* Note that global id counter may never have been set if no calls were
 	 made from this call-site.  */
@@ -156,12 +176,12 @@ __gcov_merge_icall_topn (gcov_type *counters, unsigned n_counters)
         }
 
       /* Skip the number_of_eviction entry.  */
-      gcov_read_counter ();
+      gcov_get_counter ();
       for (k = 0; k < GCOV_ICALL_TOPN_NCOUNTS - 1; k += 2)
         {
           int found = 0;
-          gcov_type global_id = gcov_read_counter ();
-          gcov_type call_count = gcov_read_counter ();
+          gcov_type global_id = gcov_get_counter_target ();
+          gcov_type call_count = gcov_get_counter ();
           for (m = 0; m < j; m += 2)
             {
               if (tmp_array[m] == global_id)
@@ -212,9 +232,9 @@ __gcov_merge_single (gcov_type *counters, unsigned n_counters)
   n_measures = n_counters / 3;
   for (i = 0; i < n_measures; i++, counters += 3)
     {
-      value = gcov_read_counter ();
-      counter = gcov_read_counter ();
-      all = gcov_read_counter ();
+      value = gcov_get_counter_target ();
+      counter = gcov_get_counter ();
+      all = gcov_get_counter ();
 
       if (counters[0] == value)
 	counters[1] += counter;
@@ -251,10 +271,10 @@ __gcov_merge_delta (gcov_type *counters, unsigned n_counters)
   n_measures = n_counters / 4;
   for (i = 0; i < n_measures; i++, counters += 4)
     {
-      /* last = */ gcov_read_counter ();
-      value = gcov_read_counter ();
-      counter = gcov_read_counter ();
-      all = gcov_read_counter ();
+      /* last = */ gcov_get_counter ();
+      value = gcov_get_counter_target  ();
+      counter = gcov_get_counter ();
+      all = gcov_get_counter ();
 
       if (counters[1] == value)
 	counters[2] += counter;
