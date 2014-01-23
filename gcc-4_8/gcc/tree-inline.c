@@ -2262,6 +2262,9 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   else
     count_scale = REG_BR_PROB_BASE;
 
+  if (flag_auto_profile && count_scale > REG_BR_PROB_BASE)
+    count_scale = REG_BR_PROB_BASE;
+
   /* Register specific tree functions.  */
   gimple_register_cfg_hooks ();
 
