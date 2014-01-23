@@ -96,8 +96,6 @@ along with GCC; see the file COPYING3.  If not see
 /* The infinite cost.  */
 #define INFTY 10000000
 
-#define AVG_LOOP_NITER(LOOP) 50
-
 /* Returns the expected number of loop iterations for LOOP.
    The average trip count is computed from profile data if it
    exists. */
@@ -107,7 +105,7 @@ avg_loop_niter (struct loop *loop)
 {
   HOST_WIDE_INT niter = estimated_stmt_executions_int (loop);
   if (niter == -1)
-    return AVG_LOOP_NITER (loop);
+    return PARAM_VALUE (PARAM_IVOPT_AVG_LOOP_NITER);
 
   return niter;
 }

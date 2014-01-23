@@ -1286,6 +1286,13 @@ DEFPARAM (PARAM_FUNCTION_PATCH_MIN_INSTRUCTIONS,
           "with -mpatch-functions-for-instrumentation)",
           200, 0, 0)
 
+/* Static predefined average loop iteration num used in IVOPT.  */
+DEFPARAM (PARAM_IVOPT_AVG_LOOP_NITER,
+          "ivopt-avg-loop-niter",
+          "Static predefined average loop iteration num used in IVOPT, it is "
+          "used when loop iterations number estimation return -1",
+          50, 0, 0)
+
 /*
 Local variables:
 mode:c
