@@ -29204,6 +29204,50 @@ ix86_init_mmx_sse_builtins (void)
     }
 }
 
+/* Return whether the Ith param of the BUILTIN_FUNCTION
+   is a memory reference. If I == -1, return whether the
+   BUILTIN_FUNCTION contains any memory reference param.  */
+
+static bool
+ix86_builtin_has_mem_ref_p (int builtin_function, int i)
+{
+  switch ((enum ix86_builtins) builtin_function)
+    {
+    /* LOAD.  */
+    case IX86_BUILTIN_LOADHPS:
+    case IX86_BUILTIN_LOADLPS:
+    case IX86_BUILTIN_LOADHPD:
+    case IX86_BUILTIN_LOADLPD:
+      if (i == -1 || i == 1)
+	return true;
+      break;
+    case IX86_BUILTIN_LOADUPS:
+    case IX86_BUILTIN_LOADUPD:
+    case IX86_BUILTIN_LOADDQU:
+    case IX86_BUILTIN_LOADUPD256:
+    case IX86_BUILTIN_LOADUPS256:
+    case IX86_BUILTIN_LOADDQU256:
+    case IX86_BUILTIN_LDDQU256:
+      if (i == -1 || i == 0)
+	return true;
+      break;
+    /* STORE.  */
+    case IX86_BUILTIN_STOREHPS:
+    case IX86_BUILTIN_STORELPS:
+    case IX86_BUILTIN_STOREUPS:
+    case IX86_BUILTIN_STOREUPD:
+    case IX86_BUILTIN_STOREDQU:
+    case IX86_BUILTIN_STOREUPD256:
+    case IX86_BUILTIN_STOREUPS256:
+    case IX86_BUILTIN_STOREDQU256:
+      if (i == -1 || i == 0)
+	return true;
+    default:
+      break;
+    }
+  return false;
+}
+
 /* This adds a condition to the basic_block NEW_BB in function FUNCTION_DECL
    to return a pointer to VERSION_DECL if the outcome of the expression
    formed by PREDICATE_CHAIN is true.  This function will be called during
@@ -32080,7 +32124,13 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	  if (i == memory)
 	    {
 	      /* This must be the memory operand.  */
-	      op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
+
+	      /* We expect the builtin could be expanded to rtl with memory
+		 operand and proper addressing mode will be kept as specified
+		 in TARGET_MEM_REF.  */
+	      if (!(TREE_CODE (arg) == ADDR_EXPR
+		    && TREE_CODE (TREE_OPERAND (arg, 0)) == TARGET_MEM_REF))
+		op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
 	      op = gen_rtx_MEM (mode, op);
 	      gcc_assert (GET_MODE (op) == mode
 			  || GET_MODE (op) == VOIDmode);
@@ -43034,6 +43084,9 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE ix86_output_function_prologue
+
+#undef TARGET_BUILTIN_HAS_MEM_REF_P
+#define TARGET_BUILTIN_HAS_MEM_REF_P ix86_builtin_has_mem_ref_p
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE ix86_output_function_epilogue

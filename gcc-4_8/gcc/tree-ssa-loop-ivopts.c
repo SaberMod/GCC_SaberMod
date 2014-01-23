@@ -96,7 +96,7 @@ along with GCC; see the file COPYING3.  If not see
 /* The infinite cost.  */
 #define INFTY 10000000
 
-#define AVG_LOOP_NITER(LOOP) 5
+#define AVG_LOOP_NITER(LOOP) 50
 
 /* Returns the expected number of loop iterations for LOOP.
    The average trip count is computed from profile data if it
@@ -1785,7 +1785,8 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 
       /* Check that the base expression is addressable.  This needs
 	 to be done after substituting bases of IVs into it.  */
-      if (may_be_nonaddressable_p (base))
+      if (may_be_nonaddressable_p (base)
+	  && REFERENCE_CLASS_P (base))
 	goto fail;
 
       /* Moreover, on strict alignment platforms, check that it is
@@ -1793,7 +1794,11 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
       if (STRICT_ALIGNMENT && may_be_unaligned_p (base, step))
 	goto fail;
 
-      base = build_fold_addr_expr (base);
+      /* If base is of reference class, build its addr expr here. If
+	 base is already an address, then don't need to build addr
+	 expr.  */
+      if (REFERENCE_CLASS_P (base))
+	base = build_fold_addr_expr (base);
 
       /* Substituting bases of IVs into the base expression might
 	 have caused folding opportunities.  */
@@ -1837,13 +1842,36 @@ find_invariants_stmt (struct ivopts_data *data, gimple stmt)
     }
 }
 
+/* Find whether the Ith param of the BUILTIN is a mem
+   reference. If I is -1, it returns whether the BUILTIN
+   contains any mem reference type param.  */
+
+static bool
+builtin_has_mem_ref_p (gimple builtin, int i)
+{
+  tree fndecl = gimple_call_fndecl (builtin);
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+    {
+      switch (DECL_FUNCTION_CODE (fndecl))
+	{
+	case BUILT_IN_PREFETCH:
+	  if (i == -1 || i == 0)
+	    return true;
+	}
+    }
+  else if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return targetm.builtin_has_mem_ref_p ((int) DECL_FUNCTION_CODE (fndecl), i);
+
+  return false;
+}
+
 /* Finds interesting uses of induction variables in the statement STMT.  */
 
 static void
 find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 {
   struct iv *iv;
-  tree op, *lhs, *rhs;
+  tree op, *lhs, *rhs, callee;
   ssa_op_iter iter;
   use_operand_p use_p;
   enum tree_code code;
@@ -1891,14 +1919,36 @@ find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
 	  find_interesting_uses_cond (data, stmt);
 	  return;
 	}
+    }
+  /* Handle builtin call which could be expanded to insn
+     with memory access operands. Generate USE_ADDRESS type
+     use for address expr which is used for memory access of
+     such builtin.  */
+  else if (is_gimple_call (stmt)
+	   && (callee = gimple_call_fndecl (stmt))
+	   && is_builtin_fn (callee)
+	   && builtin_has_mem_ref_p (stmt, -1))
+    {
+      size_t i;
+      for (i = 0; i < gimple_call_num_args (stmt); i++)
+	{
+	  if (builtin_has_mem_ref_p (stmt, i))
+	    {
+	      tree *arg = gimple_call_arg_ptr (stmt, i);
 
-      /* TODO -- we should also handle address uses of type
+	      if (TREE_CODE (*arg) != SSA_NAME)
+		continue;
 
-	 memory = call (whatever);
-
-	 and
-
-	 call (memory).  */
+	      gcc_assert (POINTER_TYPE_P (TREE_TYPE (*arg)));
+	      find_interesting_uses_address (data, stmt, arg);
+	    }
+	  else
+	    {
+	      tree arg = gimple_call_arg (stmt, i);
+	      find_interesting_uses_op (data, arg);
+	    }
+	}
+      return;
     }
 
   if (gimple_code (stmt) == GIMPLE_PHI
@@ -3845,9 +3895,12 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
 {
   aff_tree ubase_aff, cbase_aff;
   tree expr, ub, cb;
+  unsigned HOST_WIDE_INT uoffset, coffset;
 
   STRIP_NOPS (ubase);
   STRIP_NOPS (cbase);
+  ubase = strip_offset (ubase, &uoffset);
+  cbase = strip_offset (cbase, &coffset);
   ub = ubase;
   cb = cbase;
 
@@ -6282,7 +6335,7 @@ rewrite_use_address (struct ivopts_data *data,
   aff_tree aff;
   gimple_stmt_iterator bsi = gsi_for_stmt (use->stmt);
   tree base_hint = NULL_TREE;
-  tree ref, iv;
+  tree ref, iv, callee;
   bool ok;
 
   adjust_iv_update_pos (cand, use);
@@ -6305,10 +6358,41 @@ rewrite_use_address (struct ivopts_data *data,
     base_hint = var_at_stmt (data->current_loop, cand, use->stmt);
 
   iv = var_at_stmt (data->current_loop, cand, use->stmt);
-  ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff,
-			reference_alias_ptr_type (*use->op_p),
-			iv, base_hint, data->speed);
-  copy_ref_info (ref, *use->op_p);
+
+  /*  For builtin_call(addr_expr), change it to:
+	tmp = ADDR_EXPR(TMR(...));
+	call (tmp);  */
+  if (is_gimple_call (use->stmt)
+      && (callee = gimple_call_fndecl (use->stmt))
+      && is_builtin_fn (callee))
+    {
+      gimple g;
+      gimple_seq seq = NULL;
+      tree addr;
+      tree type = TREE_TYPE (TREE_TYPE (*use->op_p));
+      location_t loc = gimple_location (use->stmt);
+      gimple_stmt_iterator gsi = gsi_for_stmt (use->stmt);
+
+      ref = create_mem_ref (&bsi, type, &aff,
+			    TREE_TYPE (*use->op_p),
+			    iv, base_hint, data->speed);
+      addr = build1 (ADDR_EXPR, TREE_TYPE (*use->op_p), ref);
+      g = gimple_build_assign_with_ops (ADDR_EXPR,
+				make_ssa_name (TREE_TYPE (*use->op_p), NULL),
+				addr, NULL);
+      gimple_set_location (g, loc);
+      gimple_seq_add_stmt_without_update (&seq, g);
+      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
+
+      ref = gimple_assign_lhs (g);
+    }
+  else
+    {
+      ref = create_mem_ref (&bsi, TREE_TYPE (*use->op_p), &aff,
+			    reference_alias_ptr_type (*use->op_p),
+			    iv, base_hint, data->speed);
+      copy_ref_info (ref, *use->op_p);
+    }
   *use->op_p = ref;
 }
 

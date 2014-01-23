@@ -1119,6 +1119,14 @@ HOOK_VECTOR_END (vectorize)
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_"
 
+DEFHOOK
+(builtin_has_mem_ref_p,
+ "This hook return whether the @var{i}th param of the @var{builtin_function}\n\
+is a memory reference. If @var{i} is -1, return whether the @var{builtin_function}\n\
+contains any memory reference type param.",
+ bool, (int builtin_function, int i),
+ default_builtin_has_mem_ref_p)
+
 /* Allow target specific overriding of option settings after options have
   been changed by an attribute or pragma or when it is reset at the
   end of the code affected by an attribute or pragma.  */

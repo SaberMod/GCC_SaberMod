@@ -2574,7 +2574,8 @@ bool
 is_gimple_addressable (tree t)
 {
   return (is_gimple_id (t) || handled_component_p (t)
-	  || TREE_CODE (t) == MEM_REF);
+	  || TREE_CODE (t) == MEM_REF
+	  || TREE_CODE (t) == TARGET_MEM_REF);
 }
 
 /* Return true if T is a valid gimple constant.  */
@@ -2625,7 +2626,8 @@ is_gimple_address (const_tree t)
       op = TREE_OPERAND (op, 0);
     }
 
-  if (CONSTANT_CLASS_P (op) || TREE_CODE (op) == MEM_REF)
+  if (CONSTANT_CLASS_P (op) || TREE_CODE (op) == MEM_REF
+      || TREE_CODE (op) == TARGET_MEM_REF)
     return true;
 
   switch (TREE_CODE (op))

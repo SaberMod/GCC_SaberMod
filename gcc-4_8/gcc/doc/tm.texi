@@ -708,6 +708,12 @@ If a target implements string objects then this hook should return @code{true} i
 If a target implements string objects then this hook should should  provide a facility to check the function arguments in @var{args_list}  against the format specifiers in @var{format_arg} where the type of  @var{format_arg} is one recognized as a valid string reference type.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_BUILTIN_HAS_MEM_REF_P (int @var{builtin_function}, int @var{i})
+This hook return whether the @var{i}th param of the @var{builtin_function}
+is a memory reference. If @var{i} is -1, return whether the @var{builtin_function}
+contains any memory reference type param.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE (void)
 This target function is similar to the hook @code{TARGET_OPTION_OVERRIDE}
 but is called when the optimize level is changed via an attribute or

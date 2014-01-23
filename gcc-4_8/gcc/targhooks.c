@@ -543,6 +543,13 @@ default_builtin_reciprocal (unsigned int fn ATTRIBUTE_UNUSED,
 }
 
 bool
+default_builtin_has_mem_ref_p (int built_in_function ATTRIBUTE_UNUSED,
+			       int i ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+bool
 hook_bool_CUMULATIVE_ARGS_mode_tree_bool_false (
 	cumulative_args_t ca ATTRIBUTE_UNUSED,
 	enum machine_mode mode ATTRIBUTE_UNUSED,

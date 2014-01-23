@@ -14,7 +14,13 @@ void foo(int n)
 /* There should be 64 MEMs in the unrolled loop and one more in the copy of the loop
    for the rest of the iterations.  */
 
-/* { dg-final { scan-tree-dump-times "MEM" 65 "optimized" } } */
+/* We generate prefetch(addr) as:
+   tmp = &MEM(addr);
+   prefetch(tmp);
+   to let ivopt understand the memory access mode better, so there is another MEM in
+   unrolled loop.  */
+
+/* { dg-final { scan-tree-dump-times "MEM" 66 "optimized" } } */
 
 /* There should be no i_a = i_b assignments.  */
 /* { dg-final { scan-tree-dump-times "i_.*= i_\[0-9\]*;" 0 "aprefetch" } } */

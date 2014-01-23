@@ -7537,7 +7537,25 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	  tem = fold_build_pointer_plus (tem, TREE_OPERAND (exp, 1));
 	return expand_expr (tem, target, tmode, modifier);
       }
+    case TARGET_MEM_REF:
+      {
+	/* For TARGET_MEM_REF node, it expects to keep the memory access mode
+	   instead of linearizing the addr expr during expand, so
+	   cse_not_expected will be set to 1 temporarily before expanding addr
+	   expr, and then set back after it.  */
+	struct mem_address addr;
+	int old_cse_not_expected;
+	addr_space_t as
+	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
 
+	get_address_description (exp, &addr);
+	result = addr_for_mem_ref (&addr, as, true);
+	old_cse_not_expected = cse_not_expected;
+	cse_not_expected = 1;
+	result = memory_address_addr_space (tmode, result, as);
+	cse_not_expected = old_cse_not_expected;
+	return result;
+      }
     case CONST_DECL:
       /* Expand the initializer like constants above.  */
       result = XEXP (expand_expr_constant (DECL_INITIAL (exp),
@@ -9579,10 +9597,18 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	struct mem_address addr;
 	enum insn_code icode;
 	unsigned int align;
+	int old_cse_not_expected;
 
 	get_address_description (exp, &addr);
 	op0 = addr_for_mem_ref (&addr, as, true);
+	/* For TARGET_MEM_REF node, it expects to keep the memory access mode
+	   instead of linearizing the addr expr during expand, so
+	   cse_not_expected will be set to 1 temporarily before expanding addr
+	   expr, and then set back after it.  */
+	old_cse_not_expected = cse_not_expected;
+	cse_not_expected = 1;
 	op0 = memory_address_addr_space (mode, op0, as);
+	cse_not_expected = old_cse_not_expected;
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, exp, 0);
 	set_mem_addr_space (temp, as);
