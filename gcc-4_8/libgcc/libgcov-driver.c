@@ -68,6 +68,8 @@ extern struct gcov_info *get_gcov_list (void) ATTRIBUTE_HIDDEN;
    these symbols will always need to be resolved.  */
 void (*__gcov_dummy_ref1)(void) = &__gcov_reset;
 void (*__gcov_dummy_ref2)(void) = &__gcov_dump;
+extern char *__gcov_get_profile_prefix (void);
+char *(*__gcov_dummy_ref3)(void) = &__gcov_get_profile_prefix;
 
 /* Default callback function for profile instrumentation callback.  */
 extern void __coverage_callback (gcov_type, int);
