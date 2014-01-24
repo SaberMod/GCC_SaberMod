@@ -58,6 +58,9 @@ FAIL: gcc.dg/pr47793.c (test for excess errors)
 UNRESOLVED: gcc.dg/pr47793.c compilation failed to produce executable
 FAIL: gcc.dg/profile-generate-3.c (test for excess errors)
 
+# Power (32- and 64-bit) specific, introduced 2014-01-23.  Fallout from vectorizer changes.
+FAIL: gcc.target/powerpc/20050830-1.c scan-assembler bdn
+
 # Power 32-bit specific.  Not yet analyzed.
 FAIL: gcc.dg/tree-ssa/sra-12.c scan-tree-dump-times release_ssa "l;" 0
 FAIL: gcc.target/powerpc/405-dlmzb-strlen-1.c scan-assembler dlmzb\\.
