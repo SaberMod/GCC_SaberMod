@@ -4291,7 +4291,8 @@ finish_omp_clauses (tree clauses)
 	      error ("%qE has invalid type for %<reduction%>", t);
 	      remove = true;
 	    }
-	  else if (FLOAT_TYPE_P (TREE_TYPE (t)))
+	  else if (FLOAT_TYPE_P (TREE_TYPE (t))
+		   || TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
 	    {
 	      enum tree_code r_code = OMP_CLAUSE_REDUCTION_CODE (c);
 	      switch (r_code)
@@ -4299,10 +4300,26 @@ finish_omp_clauses (tree clauses)
 		case PLUS_EXPR:
 		case MULT_EXPR:
 		case MINUS_EXPR:
+		  break;
 		case MIN_EXPR:
 		case MAX_EXPR:
+		  if (TREE_CODE (TREE_TYPE (t)) == COMPLEX_TYPE)
+		    r_code = ERROR_MARK;
 		  break;
+		case BIT_AND_EXPR:
+		case BIT_XOR_EXPR:
+		case BIT_IOR_EXPR:
 		default:
+		  r_code = ERROR_MARK;
+		  break;
+		case TRUTH_ANDIF_EXPR:
+		case TRUTH_ORIF_EXPR:
+		  if (FLOAT_TYPE_P (TREE_TYPE (t)))
+		    r_code = ERROR_MARK;
+		  break;
+		}
+	      if (r_code == ERROR_MARK)
+		{
 		  error ("%qE has invalid type for %<reduction(%s)%>",
 			 t, operator_name_info[r_code].name);
 		  remove = true;
@@ -5059,7 +5076,7 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
 	}
       stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node, stmt);
     }
-  add_stmt (stmt);
+  finish_expr_stmt (stmt);
 }
 
 void
@@ -7543,7 +7560,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	      unsigned HOST_WIDE_INT indexi = offset * BITS_PER_UNIT;
 	      tree index = bitsize_int (indexi);
 
-	      if (offset/part_widthi <= TYPE_VECTOR_SUBPARTS (op00type))
+	      if (offset / part_widthi < TYPE_VECTOR_SUBPARTS (op00type))
 		return fold_build3_loc (loc,
 					BIT_FIELD_REF, type, op00,
 					part_width, index);

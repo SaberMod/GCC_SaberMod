@@ -1378,7 +1378,7 @@ struct processor_costs nocona_cost = {
   8,					/* MMX or SSE register to integer */
   8,					/* size of l1 cache.  */
   1024,					/* size of l2 cache.  */
-  128,					/* size of prefetch block */
+  64,					/* size of prefetch block */
   8,					/* number of parallel prefetches */
   1,					/* Branch cost */
   COSTS_N_INSNS (6),			/* cost of FADD and FSUB insns.  */
@@ -2409,6 +2409,7 @@ static tree ix86_veclibabi_acml (enum built_in_function, tree, tree);
 /* Processor target table, indexed by processor number */
 struct ptt
 {
+  const char *const name;			/* processor name  */
   const struct processor_costs *cost;		/* Processor costs */
   const int align_loop;				/* Default alignments.  */
   const int align_loop_max_skip;
@@ -2417,66 +2418,31 @@ struct ptt
   const int align_func;
 };
 
+/* This table must be in sync with enum processor_type in i386.h.  */ 
 static const struct ptt processor_target_table[PROCESSOR_max] =
 {
-  {&i386_cost, 4, 3, 4, 3, 4},
-  {&i486_cost, 16, 15, 16, 15, 16},
-  {&pentium_cost, 16, 7, 16, 7, 16},
-  {&pentiumpro_cost, 16, 15, 16, 10, 16},
-  {&geode_cost, 0, 0, 0, 0, 0},
-  {&k6_cost, 32, 7, 32, 7, 32},
-  {&athlon_cost, 16, 7, 16, 7, 16},
-  {&pentium4_cost, 0, 0, 0, 0, 0},
-  {&k8_cost, 16, 7, 16, 7, 16},
-  {&nocona_cost, 0, 0, 0, 0, 0},
-  /* Core 2  */
-  {&core_cost, 16, 10, 16, 10, 16},
-  /* Core i7  */
-  {&core_cost, 16, 10, 16, 10, 16},
-  /* Core avx2  */
-  {&core_cost, 16, 10, 16, 10, 16},
-  {&generic32_cost, 16, 7, 16, 7, 16},
-  {&generic64_cost, 16, 10, 16, 10, 16},
-  {&amdfam10_cost, 32, 24, 32, 7, 32},
-  {&bdver1_cost, 16, 10, 16, 7, 11},
-  {&bdver2_cost, 16, 10, 16, 7, 11},
-  {&bdver3_cost, 16, 10, 16, 7, 11},
-  {&btver1_cost, 16, 10, 16, 7, 11},
-  {&btver2_cost, 16, 10, 16, 7, 11},
-  {&atom_cost, 16, 15, 16, 7, 16}
-};
-
-static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
-{
-  "generic",
-  "i386",
-  "i486",
-  "pentium",
-  "pentium-mmx",
-  "pentiumpro",
-  "pentium2",
-  "pentium3",
-  "pentium4",
-  "pentium-m",
-  "prescott",
-  "nocona",
-  "core2",
-  "corei7",
-  "core-avx2",
-  "atom",
-  "geode",
-  "k6",
-  "k6-2",
-  "k6-3",
-  "athlon",
-  "athlon-4",
-  "k8",
-  "amdfam10",
-  "bdver1",
-  "bdver2",
-  "bdver3",
-  "btver1",
-  "btver2"
+  {"generic", &generic32_cost, 16, 7, 16, 7, 16},
+  {"generic", &generic64_cost, 16, 10, 16, 10, 16},
+  {"i386", &i386_cost, 4, 3, 4, 3, 4},
+  {"i486", &i486_cost, 16, 15, 16, 15, 16},
+  {"pentium", &pentium_cost, 16, 7, 16, 7, 16},
+  {"pentiumpro", &pentiumpro_cost, 16, 15, 16, 10, 16},
+  {"pentium4", &pentium4_cost, 0, 0, 0, 0, 0},
+  {"nocona", &nocona_cost, 0, 0, 0, 0, 0},
+  {"core2", &core_cost, 16, 10, 16, 10, 16},
+  {"corei7", &core_cost, 16, 10, 16, 10, 16},
+  {"core-avx2", &core_cost, 16, 10, 16, 10, 16},
+  {"atom", &atom_cost, 16, 15, 16, 7, 16},
+  {"geode", &geode_cost, 0, 0, 0, 0, 0},
+  {"k6", &k6_cost, 32, 7, 32, 7, 32},
+  {"athlon", &athlon_cost, 16, 7, 16, 7, 16},
+  {"k8", &k8_cost, 16, 7, 16, 7, 16},
+  {"amdfam10", &amdfam10_cost, 32, 24, 32, 7, 32},
+  {"bdver1", &bdver1_cost, 16, 10, 16, 7, 11},
+  {"bdver2", &bdver2_cost, 16, 10, 16, 7, 11},
+  {"bdver3", &bdver3_cost, 16, 10, 16, 7, 11},
+  {"btver1", &btver1_cost, 16, 10, 16, 7, 11},
+  {"btver2", &btver2_cost, 16, 10, 16, 7, 11}
 };
 
 static bool
@@ -3125,7 +3091,8 @@ ix86_option_override_internal (bool main_args_p)
 	ix86_tune_string = ix86_arch_string;
       if (!ix86_tune_string)
 	{
-	  ix86_tune_string = cpu_names[TARGET_CPU_DEFAULT];
+	  ix86_tune_string
+	    = processor_target_table[TARGET_CPU_DEFAULT].name;
 	  ix86_tune_defaulted = 1;
 	}
 
@@ -4078,19 +4045,15 @@ ix86_function_specific_print (FILE *file, int indent,
     = ix86_target_string (ptr->x_ix86_isa_flags, ptr->x_target_flags,
 			  NULL, NULL, ptr->x_ix86_fpmath, false);
 
+  gcc_assert (ptr->arch < PROCESSOR_max);
   fprintf (file, "%*sarch = %d (%s)\n",
 	   indent, "",
-	   ptr->arch,
-	   ((ptr->arch < TARGET_CPU_DEFAULT_max)
-	    ? cpu_names[ptr->arch]
-	    : "<unknown>"));
+	   ptr->arch, processor_target_table[ptr->arch].name);
 
+  gcc_assert (ptr->tune < PROCESSOR_max);
   fprintf (file, "%*stune = %d (%s)\n",
 	   indent, "",
-	   ptr->tune,
-	   ((ptr->tune < TARGET_CPU_DEFAULT_max)
-	    ? cpu_names[ptr->tune]
-	    : "<unknown>"));
+	   ptr->tune, processor_target_table[ptr->tune].name);
 
   fprintf (file, "%*sbranch_cost = %d\n", indent, "", ptr->branch_cost);
 
@@ -5409,6 +5372,17 @@ ix86_legitimate_combined_insn (rtx insn)
 	  bool win;
 	  int j;
 
+	  /* For pre-AVX disallow unaligned loads/stores where the
+	     instructions don't support it.  */
+	  if (!TARGET_AVX
+	      && VECTOR_MODE_P (GET_MODE (op))
+	      && misaligned_operand (op, GET_MODE (op)))
+	    {
+	      int min_align = get_attr_ssememalign (insn);
+	      if (min_align == 0)
+		return false;
+	    }
+
 	  /* A unary operator may be accepted by the predicate, but it
 	     is irrelevant for matching constraints.  */
 	  if (UNARY_P (op))
@@ -5790,10 +5764,14 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 
    The midde-end can't deal with the vector types > 16 bytes.  In this
    case, we return the original mode and warn ABI change if CUM isn't
-   NULL.  */
+   NULL. 
+
+   If INT_RETURN is true, warn ABI change if the vector mode isn't
+   available for function return value.  */
 
 static enum machine_mode
-type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum)
+type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
+		   bool in_return)
 {
   enum machine_mode mode = TYPE_MODE (type);
 
@@ -5819,6 +5797,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum)
 		if (size == 32 && !TARGET_AVX)
 		  {
 		    static bool warnedavx;
+		    static bool warnedavx_ret;
 
 		    if (cum
 			&& !warnedavx
@@ -5828,11 +5807,20 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum)
 			warning (0, "AVX vector argument without AVX "
 				 "enabled changes the ABI");
 		      }
+		    else if (in_return & !warnedavx_ret)
+		      {
+			warnedavx_ret = true;
+			warning (0, "AVX vector return without AVX "
+				 "enabled changes the ABI");
+		      }
+
 		    return TYPE_MODE (type);
 		  }
-		else if ((size == 8 || size == 16) && !TARGET_SSE)
+		else if (((size == 8 && TARGET_64BIT) || size == 16)
+			 && !TARGET_SSE)
 		  {
 		    static bool warnedsse;
+		    static bool warnedsse_ret;
 
 		    if (cum
 			&& !warnedsse
@@ -5842,10 +5830,36 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum)
 			warning (0, "SSE vector argument without SSE "
 				 "enabled changes the ABI");
 		      }
-		    return mode;
+		    else if (!TARGET_64BIT
+			     && in_return
+			     & !warnedsse_ret)
+		      {
+			warnedsse_ret = true;
+			warning (0, "SSE vector return without SSE "
+				 "enabled changes the ABI");
+		      }
 		  }
-		else
-		  return mode;
+		else if ((size == 8 && !TARGET_64BIT) && !TARGET_MMX)
+		  {
+		    static bool warnedmmx;
+		    static bool warnedmmx_ret;
+
+		    if (cum
+			&& !warnedmmx
+			&& cum->warn_mmx)
+		      {
+			warnedmmx = true;
+			warning (0, "MMX vector argument without MMX "
+				 "enabled changes the ABI");
+		      }
+		    else if (in_return & !warnedmmx_ret)
+		      {
+			warnedmmx_ret = true;
+			warning (0, "MMX vector return without MMX "
+				 "enabled changes the ABI");
+		      }
+		  }
+		return mode;
 	      }
 
 	  gcc_unreachable ();
@@ -6725,7 +6739,7 @@ ix86_function_arg_advance (cumulative_args_t cum_v, enum machine_mode mode,
   words = (bytes + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
   if (type)
-    mode = type_natural_mode (type, NULL);
+    mode = type_natural_mode (type, NULL, false);
 
   if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
     function_arg_advance_ms_64 (cum, bytes, words);
@@ -6753,8 +6767,6 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		 enum machine_mode orig_mode, const_tree type,
 		 HOST_WIDE_INT bytes, HOST_WIDE_INT words)
 {
-  static bool warnedsse, warnedmmx;
-
   /* Avoid the AL settings for the Unix64 ABI.  */
   if (mode == VOIDmode)
     return constm1_rtx;
@@ -6811,12 +6823,6 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     case V2DFmode:
       if (!type || !AGGREGATE_TYPE_P (type))
 	{
-	  if (!TARGET_SSE && !warnedsse && cum->warn_sse)
-	    {
-	      warnedsse = true;
-	      warning (0, "SSE vector argument without SSE enabled "
-		       "changes the ABI");
-	    }
 	  if (cum->sse_nregs)
 	    return gen_reg_or_parallel (mode, orig_mode,
 				        cum->sse_regno + FIRST_SSE_REG);
@@ -6849,12 +6855,6 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
     case V1DImode:
       if (!type || !AGGREGATE_TYPE_P (type))
 	{
-	  if (!TARGET_MMX && !warnedmmx && cum->warn_mmx)
-	    {
-	      warnedmmx = true;
-	      warning (0, "MMX vector argument without MMX enabled "
-		       "changes the ABI");
-	    }
 	  if (cum->mmx_nregs)
 	    return gen_reg_or_parallel (mode, orig_mode,
 				        cum->mmx_regno + FIRST_MMX_REG);
@@ -6977,7 +6977,7 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
   /* To simplify the code below, represent vector types with a vector mode
      even if MMX/SSE are not active.  */
   if (type && TREE_CODE (type) == VECTOR_TYPE)
-    mode = type_natural_mode (type, cum);
+    mode = type_natural_mode (type, cum, false);
 
   if (TARGET_64BIT && (cum ? cum->call_abi : ix86_abi) == MS_ABI)
     arg = function_arg_ms_64 (cum, mode, omode, named, bytes);
@@ -7428,7 +7428,7 @@ ix86_function_value (const_tree valtype, const_tree fntype_or_decl,
   enum machine_mode mode, orig_mode;
 
   orig_mode = TYPE_MODE (valtype);
-  mode = type_natural_mode (valtype, NULL);
+  mode = type_natural_mode (valtype, NULL, true);
   return ix86_function_value_1 (valtype, fntype_or_decl, orig_mode, mode);
 }
 
@@ -7543,7 +7543,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 #ifdef SUBTARGET_RETURN_IN_MEMORY
   return SUBTARGET_RETURN_IN_MEMORY (type, fntype);
 #else
-  const enum machine_mode mode = type_natural_mode (type, NULL);
+  const enum machine_mode mode = type_natural_mode (type, NULL, true);
 
   if (TARGET_64BIT)
     {
@@ -7555,52 +7555,6 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   else
     return return_in_memory_32 (type, mode);
 #endif
-}
-
-/* When returning SSE vector types, we have a choice of either
-     (1) being abi incompatible with a -march switch, or
-     (2) generating an error.
-   Given no good solution, I think the safest thing is one warning.
-   The user won't be able to use -Werror, but....
-
-   Choose the STRUCT_VALUE_RTX hook because that's (at present) only
-   called in response to actually generating a caller or callee that
-   uses such a type.  As opposed to TARGET_RETURN_IN_MEMORY, which is called
-   via aggregate_value_p for general type probing from tree-ssa.  */
-
-static rtx
-ix86_struct_value_rtx (tree type, int incoming ATTRIBUTE_UNUSED)
-{
-  static bool warnedsse, warnedmmx;
-
-  if (!TARGET_64BIT && type)
-    {
-      /* Look at the return type of the function, not the function type.  */
-      enum machine_mode mode = TYPE_MODE (TREE_TYPE (type));
-
-      if (!TARGET_SSE && !warnedsse)
-	{
-	  if (mode == TImode
-	      || (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 16))
-	    {
-	      warnedsse = true;
-	      warning (0, "SSE vector return without SSE enabled "
-		       "changes the ABI");
-	    }
-	}
-
-      if (!TARGET_MMX && !warnedmmx)
-	{
-	  if (VECTOR_MODE_P (mode) && GET_MODE_SIZE (mode) == 8)
-	    {
-	      warnedmmx = true;
-	      warning (0, "MMX vector return without MMX enabled "
-		       "changes the ABI");
-	    }
-	}
-    }
-
-  return NULL;
 }
 
 
@@ -8027,7 +7981,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   size = int_size_in_bytes (type);
   rsize = (size + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
 
-  nat_mode = type_natural_mode (type, NULL);
+  nat_mode = type_natural_mode (type, NULL, false);
   switch (nat_mode)
     {
     case V8SFmode:
@@ -10568,18 +10522,21 @@ ix86_expand_prologue (void)
 	}
       m->fs.sp_offset += allocate;
 
+      /* Use stack_pointer_rtx for relative addressing so that code
+	 works for realigned stack, too.  */
       if (r10_live && eax_live)
         {
-	  t = choose_baseaddr (m->fs.sp_offset - allocate);
+	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
 	  emit_move_insn (gen_rtx_REG (word_mode, R10_REG),
 			  gen_frame_mem (word_mode, t));
-	  t = choose_baseaddr (m->fs.sp_offset - allocate - UNITS_PER_WORD);
+	  t = plus_constant (Pmode, stack_pointer_rtx,
+			     allocate - UNITS_PER_WORD);
 	  emit_move_insn (gen_rtx_REG (word_mode, AX_REG),
 			  gen_frame_mem (word_mode, t));
 	}
       else if (eax_live || r10_live)
 	{
-	  t = choose_baseaddr (m->fs.sp_offset - allocate);
+	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
 	  emit_move_insn (gen_rtx_REG (word_mode,
 				       (eax_live ? AX_REG : R10_REG)),
 			  gen_frame_mem (word_mode, t));
@@ -17354,8 +17311,18 @@ ix86_avoid_lea_for_addr (rtx insn, rtx operands[])
   if (!TARGET_OPT_AGU || optimize_function_for_size_p (cfun))
     return false;
 
-  /* Check it is correct to split here.  */
-  if (!ix86_ok_to_clobber_flags(insn))
+  /* The "at least two components" test below might not catch simple
+     move or zero extension insns if parts.base is non-NULL and parts.disp
+     is const0_rtx as the only components in the address, e.g. if the
+     register is %rbp or %r13.  As this test is much cheaper and moves or
+     zero extensions are the common case, do this check first.  */
+  if (REG_P (operands[1])
+      || (SImode_address_operand (operands[1], VOIDmode)
+	  && REG_P (XEXP (operands[1], 0))))
+    return false;
+
+  /* Check if it is OK to split here.  */
+  if (!ix86_ok_to_clobber_flags (insn))
     return false;
 
   ok = ix86_decompose_address (operands[1], &parts);
@@ -25002,7 +24969,8 @@ ix86_constant_alignment (tree exp, int align)
 int
 ix86_data_alignment (tree type, int align)
 {
-  int max_align = optimize_size ? BITS_PER_WORD : MIN (256, MAX_OFILE_ALIGNMENT);
+  int max_align
+    = optimize_size ? BITS_PER_WORD : MIN (256, MAX_OFILE_ALIGNMENT);
 
   if (AGGREGATE_TYPE_P (type)
       && TYPE_SIZE (type)
@@ -27998,8 +27966,8 @@ static const struct builtin_description bdesc_multi_arg[] =
   { OPTION_MASK_ISA_XOP, CODE_FOR_xop_shlv8hi3,         "__builtin_ia32_vpshlw",      IX86_BUILTIN_VPSHLW,      UNKNOWN,      (int)MULTI_ARG_2_HI },
   { OPTION_MASK_ISA_XOP, CODE_FOR_xop_shlv16qi3,        "__builtin_ia32_vpshlb",      IX86_BUILTIN_VPSHLB,      UNKNOWN,      (int)MULTI_ARG_2_QI },
 
-  { OPTION_MASK_ISA_XOP, CODE_FOR_xop_vmfrczv4sf2,       "__builtin_ia32_vfrczss",     IX86_BUILTIN_VFRCZSS,     UNKNOWN,      (int)MULTI_ARG_2_SF },
-  { OPTION_MASK_ISA_XOP, CODE_FOR_xop_vmfrczv2df2,       "__builtin_ia32_vfrczsd",     IX86_BUILTIN_VFRCZSD,     UNKNOWN,      (int)MULTI_ARG_2_DF },
+  { OPTION_MASK_ISA_XOP, CODE_FOR_xop_vmfrczv4sf2,       "__builtin_ia32_vfrczss",     IX86_BUILTIN_VFRCZSS,     UNKNOWN,      (int)MULTI_ARG_1_SF },
+  { OPTION_MASK_ISA_XOP, CODE_FOR_xop_vmfrczv2df2,       "__builtin_ia32_vfrczsd",     IX86_BUILTIN_VFRCZSD,     UNKNOWN,      (int)MULTI_ARG_1_DF },
   { OPTION_MASK_ISA_XOP, CODE_FOR_xop_frczv4sf2,         "__builtin_ia32_vfrczps",     IX86_BUILTIN_VFRCZPS,     UNKNOWN,      (int)MULTI_ARG_1_SF },
   { OPTION_MASK_ISA_XOP, CODE_FOR_xop_frczv2df2,         "__builtin_ia32_vfrczpd",     IX86_BUILTIN_VFRCZPD,     UNKNOWN,      (int)MULTI_ARG_1_DF },
   { OPTION_MASK_ISA_XOP, CODE_FOR_xop_frczv8sf2,         "__builtin_ia32_vfrczps256",  IX86_BUILTIN_VFRCZPS256,  UNKNOWN,      (int)MULTI_ARG_1_SF2 },
@@ -31259,11 +31227,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 
 static rtx
 ix86_expand_special_args_builtin (const struct builtin_description *d,
-				    tree exp, rtx target)
+				  tree exp, rtx target)
 {
   tree arg;
   rtx pat, op;
   unsigned int i, nargs, arg_adjust, memory;
+  bool aligned_mem = false;
   struct
     {
       rtx op;
@@ -31309,6 +31278,15 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       nargs = 1;
       klass = load;
       memory = 0;
+      switch (icode)
+	{
+	case CODE_FOR_sse4_1_movntdqa:
+	case CODE_FOR_avx2_movntdqa:
+	  aligned_mem = true;
+	  break;
+	default:
+	  break;
+	}
       break;
     case VOID_FTYPE_PV2SF_V4SF:
     case VOID_FTYPE_PV4DI_V4DI:
@@ -31326,6 +31304,26 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       klass = store;
       /* Reserve memory operand for target.  */
       memory = ARRAY_SIZE (args);
+      switch (icode)
+	{
+	/* These builtins and instructions require the memory
+	   to be properly aligned.  */
+	case CODE_FOR_avx_movntv4di:
+	case CODE_FOR_sse2_movntv2di:
+	case CODE_FOR_avx_movntv8sf:
+	case CODE_FOR_sse_movntv4sf:
+	case CODE_FOR_sse4a_vmmovntv4sf:
+	case CODE_FOR_avx_movntv4df:
+	case CODE_FOR_sse2_movntv2df:
+	case CODE_FOR_sse4a_vmmovntv2df:
+	case CODE_FOR_sse2_movntidi:
+	case CODE_FOR_sse_movntq:
+	case CODE_FOR_sse2_movntisi:
+	  aligned_mem = true;
+	  break;
+	default:
+	  break;
+	}
       break;
     case V4SF_FTYPE_V4SF_PCV2SF:
     case V2DF_FTYPE_V2DF_PCDOUBLE:
@@ -31382,6 +31380,17 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	{
 	  op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
 	  target = gen_rtx_MEM (tmode, op);
+	  /* target at this point has just BITS_PER_UNIT MEM_ALIGN
+	     on it.  Try to improve it using get_pointer_alignment,
+	     and if the special builtin is one that requires strict
+	     mode alignment, also from it's GET_MODE_ALIGNMENT.
+	     Failure to do so could lead to ix86_legitimate_combined_insn
+	     rejecting all changes to such insns.  */
+	  unsigned int align = get_pointer_alignment (arg);
+	  if (aligned_mem && align < GET_MODE_ALIGNMENT (tmode))
+	    align = GET_MODE_ALIGNMENT (tmode);
+	  if (MEM_ALIGN (target) < align)
+	    set_mem_align (target, align);
 	}
       else
 	target = force_reg (tmode, op);
@@ -31427,8 +31436,17 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	      /* This must be the memory operand.  */
 	      op = force_reg (Pmode, convert_to_mode (Pmode, op, 1));
 	      op = gen_rtx_MEM (mode, op);
-	      gcc_assert (GET_MODE (op) == mode
-			  || GET_MODE (op) == VOIDmode);
+	      /* op at this point has just BITS_PER_UNIT MEM_ALIGN
+		 on it.  Try to improve it using get_pointer_alignment,
+		 and if the special builtin is one that requires strict
+		 mode alignment, also from it's GET_MODE_ALIGNMENT.
+		 Failure to do so could lead to ix86_legitimate_combined_insn
+		 rejecting all changes to such insns.  */
+	      unsigned int align = get_pointer_alignment (arg);
+	      if (aligned_mem && align < GET_MODE_ALIGNMENT (mode))
+		align = GET_MODE_ALIGNMENT (mode);
+	      if (MEM_ALIGN (op) < align)
+		set_mem_align (op, align);
 	    }
 	  else
 	    {
@@ -32222,7 +32240,9 @@ addcarryx:
       mode4 = insn_data[icode].operand[5].mode;
 
       if (target == NULL_RTX
-	  || GET_MODE (target) != insn_data[icode].operand[0].mode)
+	  || GET_MODE (target) != insn_data[icode].operand[0].mode
+	  || !insn_data[icode].operand[0].predicate (target,
+						     GET_MODE (target)))
 	subtarget = gen_reg_rtx (insn_data[icode].operand[0].mode);
       else
 	subtarget = target;
@@ -33893,10 +33913,10 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     {
       /* We implement the move patterns for all vector modes into and
 	 out of SSE registers, even when no operation instructions
-	 are available.  OImode move is available only when AVX is
-	 enabled.  */
-      return ((TARGET_AVX && mode == OImode)
-	      || VALID_AVX256_REG_MODE (mode)
+	 are available.  OImode and AVX modes are available only when
+	 AVX is enabled.  */
+      return ((TARGET_AVX
+	       && VALID_AVX256_REG_OR_OI_MODE (mode))
 	      || VALID_SSE_REG_MODE (mode)
 	      || VALID_SSE2_REG_MODE (mode)
 	      || VALID_MMX_REG_MODE (mode)
@@ -35246,7 +35266,10 @@ ix86_avoid_jump_mispredicts (void)
      The smallest offset in the page INSN can start is the case where START
      ends on the offset 0.  Offset of INSN is then NBYTES - sizeof (INSN).
      We add p2align to 16byte window with maxskip 15 - NBYTES + sizeof (INSN).
-     */
+
+     Don't consider asm goto as jump, while it can contain a jump, it doesn't
+     have to, control transfer to label(s) can be performed through other
+     means, and also we estimate minimum length of all asm stmts as 0.  */
   for (insn = start; insn; insn = NEXT_INSN (insn))
     {
       int min_size;
@@ -35274,6 +35297,7 @@ ix86_avoid_jump_mispredicts (void)
 		{
 		  start = NEXT_INSN (start);
 		  if ((JUMP_P (start)
+		       && asm_noperands (PATTERN (start)) < 0
 		       && GET_CODE (PATTERN (start)) != ADDR_VEC
 		       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
 		      || CALL_P (start))
@@ -35292,6 +35316,7 @@ ix86_avoid_jump_mispredicts (void)
 	fprintf (dump_file, "Insn %i estimated to %i bytes\n",
 		 INSN_UID (insn), min_size);
       if ((JUMP_P (insn)
+	   && asm_noperands (PATTERN (insn)) < 0
 	   && GET_CODE (PATTERN (insn)) != ADDR_VEC
 	   && GET_CODE (PATTERN (insn)) != ADDR_DIFF_VEC)
 	  || CALL_P (insn))
@@ -35303,6 +35328,7 @@ ix86_avoid_jump_mispredicts (void)
 	{
 	  start = NEXT_INSN (start);
 	  if ((JUMP_P (start)
+	       && asm_noperands (PATTERN (start)) < 0
 	       && GET_CODE (PATTERN (start)) != ADDR_VEC
 	       && GET_CODE (PATTERN (start)) != ADDR_DIFF_VEC)
 	      || CALL_P (start))
@@ -42487,8 +42513,6 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_PROMOTE_PROTOTYPES
 #define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
-#undef TARGET_STRUCT_VALUE_RTX
-#define TARGET_STRUCT_VALUE_RTX ix86_struct_value_rtx
 #undef TARGET_SETUP_INCOMING_VARARGS
 #define TARGET_SETUP_INCOMING_VARARGS ix86_setup_incoming_varargs
 #undef TARGET_MUST_PASS_IN_STACK

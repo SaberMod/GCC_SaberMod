@@ -1,3 +1,60 @@
+2014-01-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58809
+	* semantics.c (finish_omp_clauses): Reject MIN_EXPR, MAX_EXPR,
+	BIT_AND_EXPR, BIT_IOR_EXPR and BIT_XOR_EXPR on COMPLEX_TYPEs.
+
+2014-01-20  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/59838
+	* cvt.c (ocp_convert): Don't segfault on non-existing
+	ENUM_UNDERLYING_TYPE.
+
+2014-01-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56060
+	PR c++/59730
+	* pt.c (type_dependent_expression_p): Handle EXPR_PACK_EXPANSION.
+
+2013-12-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58954
+	* pt.c (resolve_overloaded_unification): Discard access checks.
+
+2013-12-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59044
+	PR c++/59052
+	* pt.c (most_specialized_class): Use the partially instantiated
+	template for deduction.  Drop the TMPL parameter.
+
+2013-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59268
+	* pt.c (tsubst_copy_and_build): Handle POINTER_PLUS_EXPR.
+
+2013-11-27  Tom de Vries  <tom@codesourcery.com>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/59032
+	* typeck.c (cp_build_unary_op): Allow vector increment and decrement.
+
+2013-11-27  Tom de Vries  <tom@codesourcery.com>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	PR middle-end/59037
+	* semantics.c (cxx_fold_indirect_ref): Don't create out-of-bounds
+	BIT_FIELD_REF.
+
+2013-11-28  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59297
+	* semantics.c (finish_omp_atomic): Call finish_expr_stmt
+	rather than add_stmt.
+
 2013-11-23  Easwaran Raman  <eraman@google.com>
 
 	PR c++/59031
