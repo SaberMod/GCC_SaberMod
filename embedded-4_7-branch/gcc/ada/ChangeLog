@@ -1,3 +1,24 @@
+2014-01-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/59772
+	* gcc-interface/cuintp.c (build_cst_from_int): Use 32-bit integer type
+	as intermediate type.
+	(UI_To_gnu): Likewise.
+
+2013-12-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/Make-lang.in (ada/doctools/xgnatugn): Use gnatmake.
+
+2013-10-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils.c (gnat_set_type_context): New function.
+	(gnat_pushdecl): Use it to set the context of the type.
+
+2013-09-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Subprogram_Body_to_gnu): Pop the stack of
+	return variables for subprograms using the CICO mechanism.
+
 2013-08-13  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc-interface/trans.c (can_equal_min_or_max_val_p): Be prepared for

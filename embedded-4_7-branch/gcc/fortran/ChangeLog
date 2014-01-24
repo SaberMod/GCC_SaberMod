@@ -1,3 +1,29 @@
+2014-01-11  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from mainline
+	2013-12-29  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59612
+	PR fortran/57042
+	* dump-parse-tree.c (show_typespec): Check for charlen.
+	* invoke.texi: Fix documentation of -fdump-fortran-optimized and
+	-fdump-parse-tree.
+
+2013-11-17  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58771
+	* trans-io.c (transfer_expr): If the backend_decl for a derived
+	type is missing, build it with gfc_typenode_for_spec.
+
+2013-11-02  Janus Weil  <janus@gcc.gnu.org>
+
+	Backport from mainline
+	2013-09-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58355
+	* decl.c (check_extended_derived_type): Prevent segfault, modify error
+	message.
+
 2013-08-11  Janus Weil  <janus@gcc.gnu.org>
 
 	Backport from trunk:
