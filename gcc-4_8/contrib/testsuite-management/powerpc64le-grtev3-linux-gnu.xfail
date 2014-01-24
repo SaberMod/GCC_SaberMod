@@ -39,6 +39,10 @@ FAIL: gcc.dg/di-sync-multithread.c execution test
 # PPC-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 
+# PPC-specific, introduced 2014-01-23.  Fallout from vectorizer changes.
+FAIL: gcc.dg/sms-4.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.target/powerpc/20050830-1.c scan-assembler bdn
+
 # PPCle-specific execution failures.  Not yet analyzed.
 FAIL: c-c++-common/dfp/cast.c execution test
 FAIL: c-c++-common/dfp/cast.c -std=c++98 execution test
@@ -167,7 +171,6 @@ FAIL: gcc.dg/vect/bb-slp-pattern-1.c -flto execution test
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-slp-12.c execution test
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-vect-reduc-1char.c execution test
-FAIL: gcc.dg/vect/fast-math-vect-complex-3.c execution test
 FAIL: gcc.dg/vect/if-cvt-stores-vect-ifcvt-18.c execution test
 FAIL: gcc.dg/vect/no-scevccp-outer-10a.c execution test
 FAIL: gcc.dg/vect/no-scevccp-outer-10b.c execution test
@@ -254,8 +257,6 @@ FAIL: gcc.dg/vect/slp-perm-6.c execution test
 FAIL: gcc.dg/vect/slp-perm-6.c -flto execution test
 FAIL: gcc.dg/vect/slp-perm-7.c execution test
 FAIL: gcc.dg/vect/slp-perm-7.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-8.c execution test
-FAIL: gcc.dg/vect/slp-perm-8.c -flto execution test
 FAIL: gcc.dg/vect/slp-reduc-3.c execution test
 FAIL: gcc.dg/vect/slp-reduc-3.c -flto execution test
 FAIL: gcc.dg/vect/slp-reduc-6.c execution test
@@ -418,8 +419,6 @@ FAIL: gcc.dg/vect/vect-strided-mult-char-ls.c execution test
 FAIL: gcc.dg/vect/vect-strided-mult-char-ls.c -flto execution test
 FAIL: gcc.dg/vect/vect-strided-mult.c execution test
 FAIL: gcc.dg/vect/vect-strided-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-same-dr.c execution test
-FAIL: gcc.dg/vect/vect-strided-same-dr.c -flto execution test
 FAIL: gcc.dg/vect/vect-strided-store-a-u8-i2.c execution test
 FAIL: gcc.dg/vect/vect-strided-store-a-u8-i2.c -flto execution test
 FAIL: gcc.dg/vect/vect-strided-store-u16-i4.c execution test
@@ -452,8 +451,6 @@ FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7.c execution test
 FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7.c -flto execution test
 FAIL: gcc.dg/vect/vect-strided-u8-i8.c execution test
 FAIL: gcc.dg/vect/vect-strided-u8-i8.c -flto execution test
-FAIL: gcc.dg/vect/vect-vfa-03.c execution test
-FAIL: gcc.dg/vect/vect-vfa-03.c -flto execution test
 FAIL: gcc.dg/vect/vect-widen-mult-const-s16.c execution test
 FAIL: gcc.dg/vect/vect-widen-mult-const-s16.c -flto execution test
 FAIL: gcc.dg/vect/vect-widen-mult-const-u16.c execution test
@@ -526,8 +523,6 @@ FAIL: gcc.dg/vmx/gcc-bug-i.c -O3 -g  execution test
 FAIL: gcc.dg/vmx/gcc-bug-i.c -Os  execution test
 FAIL: gcc.dg/vmx/gcc-bug-i.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
 FAIL: gcc.dg/vmx/gcc-bug-i.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.target/powerpc/altivec-consts.c (internal compiler error)
-FAIL: gcc.target/powerpc/altivec-consts.c (test for excess errors)
 FAIL: gcc.target/powerpc/darwin-longlong.c execution test
 FAIL: gcc.target/powerpc/lhs-3.c (test for excess errors)
 FAIL: gcc.target/powerpc/loop_align.c (test for excess errors)
@@ -740,7 +735,6 @@ FAIL: gfortran.dg/specifics_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -f
 FAIL: gfortran.dg/specifics_1.f90 -O3 -g  execution test
 FAIL: gfortran.dg/specifics_1.f90 -Os  execution test
 FAIL: gfortran.dg/vect/pr45714-b.f -O  (test for excess errors)
-FAIL: gfortran.fortran-torture/execute/forall_4.f90 execution, -O2 -ftree-vectorize -maltivec
 FAIL: gfortran.fortran-torture/execute/in-pack.f90 execution, -O2 -ftree-vectorize -maltivec
 FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O0
 FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O1

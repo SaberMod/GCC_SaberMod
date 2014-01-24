@@ -25,8 +25,8 @@ FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O3 -fomit-frame-pointer
 FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O3 -g
 FAIL: gcc.c-torture/execute/20101011-1.c execution,  -Os
 FAIL: gcc.c-torture/execute/20101011-1.c execution,  -Og -g
-FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O2 -flto -flto-partition=none
+FAIL: gcc.c-torture/execute/20101011-1.c execution,  -O2 -flto
 
 # AArch64-specific, discussed upstream: http://gcc.gnu.org/ml/gcc-patches/2012-11/msg02345.html
 FAIL: gcc.dg/torture/asm-subreg-1.c -O1  (internal compiler error)
@@ -50,8 +50,8 @@ UNRESOLVED: gcc.target/aarch64/vect-abs.c compilation failed to produce executab
 
 # AArch64-specific test optimization and execution failures (not yet analyzed)
 FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2
-FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects
+FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto -flto-partition=none
+FAIL: gcc.c-torture/execute/ieee/pr50310.c execution,  -O2 -flto
 FAIL: gcc.dg/cleanup-10.c execution test
 FAIL: gcc.dg/cleanup-11.c execution test
 FAIL: gcc.dg/debug/dwarf2/asm-line1.c scan-assembler is_stmt 1

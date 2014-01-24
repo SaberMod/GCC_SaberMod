@@ -41,13 +41,15 @@ FAIL: gcc.dg/di-sync-multithread.c execution test
 # not PR52614)
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 
+# PPC-specific, introduced 2014-01-23.  Fallout from vectorizer changes.
+FAIL: gcc.dg/sms-4.c scan-rtl-dump-times sms "SMS succeeded" 1
+FAIL: gcc.target/powerpc/20050830-1.c scan-assembler bdn
+
 # PPC-specific, profile-driven-optimization issues.
 FAIL: gcc.dg/tree-prof/lipo/ic-misattribution-1_0.c scan-ipa-dump-times profile "Indirect call -> direct call" 2
 FAIL: gcc.dg/tree-prof/lipo/indir-call-prof_0.c scan-ipa-dump profile "Indirect call -> direct call.* a1"
 FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "foo"
 FAIL: gcc.dg/tree-prof/lipo/lipo_inline1_0.c scan-tree-dump-not optimized "goo"
-FAIL: gcc.dg/tree-prof/ic-misattribution-1.c compilation,  -fprofile-use -D_PROFILE_USE
-UNRESOLVED: gcc.dg/tree-prof/ic-misattribution-1.c execution,    -fprofile-use -D_PROFILE_USE
 
 # Remote-target-specific.  The output file is not getting copied back to
 # the host.
