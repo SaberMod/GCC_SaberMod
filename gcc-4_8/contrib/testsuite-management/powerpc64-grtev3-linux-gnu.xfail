@@ -41,7 +41,7 @@ FAIL: gcc.dg/di-sync-multithread.c execution test
 # not PR52614)
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 
-# PPC-specific, introduced 2014-01-23.  Fallout from vectorizer changes.
+# PPC-specific, introduced 2014-01-23.  Fallout from IVOPT changes.
 FAIL: gcc.dg/sms-4.c scan-rtl-dump-times sms "SMS succeeded" 1
 FAIL: gcc.target/powerpc/20050830-1.c scan-assembler bdn
 
