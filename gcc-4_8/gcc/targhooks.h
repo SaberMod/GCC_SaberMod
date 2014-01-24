@@ -82,6 +82,8 @@ extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt, tree, in
 
 extern tree default_builtin_reciprocal (unsigned int, bool, bool);
 
+extern bool default_builtin_has_mem_ref_p (int, int);
+
 extern HOST_WIDE_INT default_vector_alignment (const_tree);
 
 extern bool default_builtin_vector_alignment_reachable (const_tree, bool);
