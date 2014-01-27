@@ -2902,7 +2902,7 @@ counts_to_freqs (void)
   /* Don't overwrite the estimated frequencies when the profile for
      the function is missing.  We may drop this function PROFILE_GUESSED
      later in drop_profile ().  */
-  if (!ENTRY_BLOCK_PTR->count)
+  if (!flag_auto_profile && !ENTRY_BLOCK_PTR->count)
     return 0;
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, NULL, next_bb)
@@ -3161,7 +3161,8 @@ rebuild_frequencies (void)
     count_max = MAX (bb->count, count_max);
 
   if (profile_status == PROFILE_GUESSED
-      || (profile_status == PROFILE_READ && count_max < REG_BR_PROB_BASE/10))
+      || (!flag_auto_profile && profile_status == PROFILE_READ
+	  && count_max < REG_BR_PROB_BASE/10))
     {
       loop_optimizer_init (0);
       add_noreturn_fake_exit_edges ();
