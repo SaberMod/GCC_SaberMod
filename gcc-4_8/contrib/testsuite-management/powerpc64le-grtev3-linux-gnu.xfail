@@ -544,6 +544,9 @@ FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmsub.sp 1
 FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmulsp 4
 FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvnmsub.sp 2
 
+# PPCle-specific, new 2014-01-28.
+FAIL: gcc.dg/vect/fast-math-vect-complex-3.c execution test
+
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
