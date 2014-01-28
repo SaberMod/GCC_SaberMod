@@ -387,7 +387,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  _M_capacity(__rcs._M_allocated_capacity);
 	}
 
-      _M_set_length(__rcs._M_length());
+      _M_set_length_no_wipe(__rcs._M_length());
       __rcs._M_data(__rcs._M_local_data);
       __rcs._M_set_length(0);
     }
