@@ -29,18 +29,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "coretypes.h"
 #include "tm.h"
 
-#if defined(inhibit_libc)
-#define IN_LIBGCOV (-1)
-#else
-#undef NULL /* Avoid errors if stdio.h and our stddef.h mismatch.  */
-#include <stdio.h>
-#include <stdlib.h>
-#define IN_LIBGCOV 1
-#if defined(L_gcov)
-#define GCOV_LINKAGE /* nothing */
-#endif
-#endif
-#include "gcov-io.h"
+#include "libgcov.h"
 
 struct dyn_pointer_set;
 
@@ -160,7 +149,7 @@ extern gcov_unsigned_t __gcov_lipo_merge_modu_edges;
 extern gcov_unsigned_t __gcov_lipo_weak_inclusion;
 
 #if defined(inhibit_libc)
-__gcov_build_callgraph (void) {}
+void __gcov_build_callgraph (void) {}
 #else
 
 void __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;

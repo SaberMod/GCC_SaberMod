@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -244,7 +244,7 @@ report_inline_failed_reason (struct cgraph_edge *e)
 
    if REPORT is true, output reason to the dump file.  
 
-   if DISREGARD_LIMITES is true, ignore size limits.*/
+   if DISREGARD_LIMITS is true, ignore size limits.*/
 
 static bool
 can_inline_edge_p (struct cgraph_edge *e, bool report,
@@ -272,6 +272,11 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   if (!callee || !callee->definition)
     {
       e->inline_failed = CIF_BODY_NOT_AVAILABLE;
+      inlinable = false;
+    }
+  else if (callee->calls_comdat_local)
+    {
+      e->inline_failed = CIF_USES_COMDAT_LOCAL;
       inlinable = false;
     }
   else if (!inline_summary (callee)->inlinable 
@@ -1771,7 +1776,7 @@ inline_small_functions (void)
   max_size = compute_max_insns (overall_size);
   min_size = overall_size;
 
-  /* Populate the heeap with all edges we might inline.  */
+  /* Populate the heap with all edges we might inline.  */
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {

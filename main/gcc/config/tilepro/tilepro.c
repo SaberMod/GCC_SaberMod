@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Tilera TILEPro.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -3184,6 +3184,12 @@ tilepro_expand_builtin (tree exp,
     }
   if (!pat)
     return NULL_RTX;
+
+  /* If we are generating a prefetch, tell the scheduler not to move
+     it around.  */
+  if (GET_CODE (pat) == PREFETCH)
+    PREFETCH_SCHEDULE_BARRIER_P (pat) = true;
+
   emit_insn (pat);
 
   if (nonvoid)

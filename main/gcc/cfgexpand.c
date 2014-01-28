@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -801,7 +801,7 @@ partition_stack_vars (void)
 	     sizes, as the shorter vars wouldn't be adequately protected.
 	     Don't do that for "large" (unsupported) alignment objects,
 	     those aren't protected anyway.  */
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && isize != jsize
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && isize != jsize
 	      && ialign * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
 
@@ -984,7 +984,7 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	{
 	  base = virtual_stack_vars_rtx;
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && pred)
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
 	    {
 	      HOST_WIDE_INT prev_offset = frame_offset;
 	      tree repr_decl = NULL_TREE;
@@ -1163,7 +1163,7 @@ defer_stack_allocation (tree var, bool toplevel)
   /* If stack protection is enabled, *all* stack variables must be deferred,
      so that we can re-order the strings to the top of the frame.
      Similarly for Address Sanitizer.  */
-  if (flag_stack_protect || (flag_sanitize & SANITIZE_ADDRESS))
+  if (flag_stack_protect || ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK))
     return true;
 
   /* We handle "large" alignment via dynamic allocation.  We want to handle
@@ -1218,8 +1218,11 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 	 we conservatively assume it will be on stack even if VAR is
 	 eventually put into register after RA pass.  For non-automatic
 	 variables, which won't be on stack, we collect alignment of
-	 type and ignore user specified alignment.  */
-      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+	 type and ignore user specified alignment.  Similarly for
+	 SSA_NAMEs for which use_register_for_decl returns true.  */
+      if (TREE_STATIC (var)
+	  || DECL_EXTERNAL (var)
+	  || (TREE_CODE (origvar) == SSA_NAME && use_register_for_decl (var)))
 	align = MINIMUM_ALIGNMENT (TREE_TYPE (var),
 				   TYPE_MODE (TREE_TYPE (var)),
 				   TYPE_ALIGN (TREE_TYPE (var)));
@@ -1823,7 +1826,7 @@ expand_used_vars (void)
 	    expand_stack_vars (stack_protect_decl_phase_2, &data);
 	}
 
-      if (flag_sanitize & SANITIZE_ADDRESS)
+      if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK)
 	/* Phase 3, any partitions that need asan protection
 	   in addition to phase 1 and 2.  */
 	expand_stack_vars (asan_decl_phase_3, &data);
@@ -2256,7 +2259,7 @@ expand_call_stmt (gimple stmt)
   if (lhs)
     expand_assignment (lhs, exp, false);
   else
-    expand_expr_real_1 (exp, const0_rtx, VOIDmode, EXPAND_NORMAL, NULL);
+    expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   mark_transaction_restart_calls (stmt);
 }
