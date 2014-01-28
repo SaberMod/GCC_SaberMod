@@ -467,7 +467,7 @@ tree_complete_unroll (void)
 
   return tree_unroll_loops_completely (flag_unroll_loops
 				       || flag_peel_loops
-				       || optimize >= 3, true);
+				       || optimize >= 2, true);
 }
 
 static bool
