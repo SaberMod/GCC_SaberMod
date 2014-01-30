@@ -1171,7 +1171,7 @@ package body Sem_Ch10 is
                Set_Elaboration_Entity_Required (Spec_Id, False);
 
             --  Case of elaboration entity is required for access before
-            --  elaboration checking (so certainly we must build it!)
+            --  elaboration checking (so certainly we must build it).
 
             else
                Set_Elaboration_Entity_Required (Spec_Id, True);
@@ -5532,8 +5532,9 @@ package body Sem_Ch10 is
          Set_Ekind                   (Ent, E_Abstract_State);
          Set_Etype                   (Ent, Standard_Void_Type);
          Set_Scope                   (Ent, Scop);
-         Set_Refined_State           (Ent, Empty);
+         Set_Encapsulating_State     (Ent, Empty);
          Set_Refinement_Constituents (Ent, New_Elmt_List);
+         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
       end Decorate_State;
 
       -------------------

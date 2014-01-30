@@ -1,3 +1,84 @@
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58561
+	* g++.dg/cpp1y/auto-fn23.C: New.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58846
+	* g++.dg/init/dso_handle2.C: New.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58674
+	* g++.dg/cpp0x/pr58674.C: New.
+
+2014-01-28  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+        PR target/59617
+	* gcc.target/i386/avx512f-gather-2.c: Remove XPASS.
+	* gcc.target/i386/avx512f-gather-5.c: Ditto.
+
+2014-01-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/merge-be-order.c: New.
+	* gcc.dg/vmx/merge.c: New.
+	* gcc.dg/vmx/merge-vsx-be-order.c: New.
+	* gcc.dg/vmx/merge-vsx.c: New.
+
+2014-01-29  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58742
+	* gcc.dg/pr58742-1.c: New testcase.
+	* gcc.dg/pr58742-2.c: Likewise.
+	* gcc.dg/pr58742-3.c: Likewise.
+
+2014-01-29  Renlin Li  <Renlin.Li@arm.com>
+
+	* gcc.target/arm/ftest-armv7ve-arm.c: New.
+	* gcc.target/arm/ftest-armv7ve-thumb.c: New.
+	* lib/target-supports.exp: New armfunc, armflag and armdef for armv7ve.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58702
+	* g++.dg/gomp/pr58702.C: New.
+
+2014-01-29  Dodji Seketeli  <dodji@redhat.com>
+
+	* c-c++-common/cpp/warning-zero-location-2.c: Fix error message
+	selector.
+
+2014-01-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59917
+	PR tree-optimization/59920
+	* gcc.dg/pr59920-1.c: New test.
+	* gcc.dg/pr59920-2.c: New test.
+	* gcc.dg/pr59920-3.c: New test.
+	* c-c++-common/gomp/pr59917-1.c: New test.
+	* c-c++-common/gomp/pr59917-2.c: New test.
+
+	PR tree-optimization/59594
+	* gcc.dg/vect/no-vfa-vect-depend-2.c: New test.
+	* gcc.dg/vect/no-vfa-vect-depend-3.c: New test.
+	* gcc.dg/vect/pr59594.c: New test.
+
+2014-01-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59414
+	* gfortran.dg/allocate_class_3.f90: New test.
+
+2014-01-28  Dodji Seketeli  <dodji@redhat.com>
+
+	PR preprocessor/59935
+	* c-c++-common/cpp/warning-zero-location.c: New test.
+	* c-c++-common/cpp/warning-zero-location-2.c: Likewise.
+
+2014-01-27  Steve Ellcey  <sellcey@mips.com>
+
+	* gcc.target/mips/pr52125.c: Add -mno-optgp option.
+
 2014-01-27  Allan Sandfeld Jensen  <sandfeld@kde.org>
 
 	* g++.dg/ext/mv16.C: New tests.
@@ -693,7 +774,7 @@
 
 	PR ipa/58252
 	PR ipa/59226
-	* g++.dg/ipa/devirt-20.C: New testcase.	
+	* g++.dg/ipa/devirt-20.C: New testcase.
 	* g++.dg/torture/pr58252.C: Likewise.
 	* g++.dg/torture/pr59226.C: Likewise.
 

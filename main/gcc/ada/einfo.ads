@@ -127,7 +127,7 @@ package Einfo is
 -- Handling of Type'Size Values --
 ----------------------------------
 
---  The Ada 95 RM contains some rather peculiar (to us!) rules on the value
+--  The Ada 95 RM contains some rather peculiar (to us) rules on the value
 --  of type'Size (see RM 13.3(55)). We have found that attempting to use
 --  these RM Size values generally, and in particular for determining the
 --  default size of objects, creates chaos, and major incompatibilities in
@@ -494,10 +494,10 @@ package Einfo is
 --       when the unit is part of a standalone library.
 
 --    Body_References (Elist16)
---       Defined in abstract state entities. Only set if Has_Body_References
---       flag is set True, in which case it contains an element list of global
---       references (identifiers) in the current package body to this abstract
---       state that are illegal if the abstract state has a visible refinement.
+--       Defined in abstract state entities. Contains an element list of
+--       references (identifiers) that appear in a package body whose spec
+--       defines the related state. If the body refines the said state, all
+--       references on this list are illegal due to the visible refinement.
 
 --    C_Pass_By_Copy (Flag125) [implementation base type only]
 --       Defined in record types. Set if a pragma Convention for the record
@@ -976,6 +976,10 @@ package Einfo is
 --       then if there is no other elaboration code, obviously there is no
 --       need to set the flag.
 
+--    Encapsulating_State (Node10)
+--       Defined in abstract states and variables. Contains the entity of an
+--       ancestor state whose refinement utilizes this item as a constituent.
+
 --    Enclosing_Scope (Node18)
 --       Defined in labels. Denotes the innermost enclosing construct that
 --       contains the label. Identical to the scope of the label, except for
@@ -1402,10 +1406,6 @@ package Einfo is
 --       the type is unbiased, but the object specifies a smaller size than the
 --       size of the type, forcing biased representation for the object, but
 --       the subtype is still an unbiased type.
-
---    Has_Body_References (Flag264)
---       Defined in entities for abstract states. Set if Body_References has
---       at least one entry.
 
 --    Has_Completion (Flag26)
 --       Defined in all entities that require a completion (functions,
@@ -3435,6 +3435,10 @@ package Einfo is
 --       case it points to the subtype of the parent type. This is the type
 --       that is used as the Etype of the _parent field.
 
+--    Part_Of_Constituents (Elist9)
+--       Present in abstract state entities. Contains all constituents that are
+--       subject to indicator Part_Of (both aspect and option variants).
+
 --    Postcondition_Proc (Node8)
 --       Defined only in procedure entities, saves the entity of the generated
 --       postcondition proc if one is present, otherwise is set to Empty. Used
@@ -3548,10 +3552,6 @@ package Einfo is
 --       formal. The reason we distinguish this kind of reference is that
 --       we have a separate warning for variables that are only assigned and
 --       never read, and out parameters are a special case.
-
---    Refined_State (Node10)
---       Defined in abstract states and variables. Contains the entity of an
---       ancestor state whose refinement mentions this item.
 
 --    Refinement_Constituents (Elist8)
 --       Present in abstract state entities. Contains all the constituents that
@@ -3738,7 +3738,7 @@ package Einfo is
 --    Scope_Depth_Set (synthesized)
 --       Applies to a special predicate function that returns a Boolean value
 --       indicating whether or not the Scope_Depth field has been set. It is
---       needed, since returns an invalid value in this case!
+--       needed, since returns an invalid value in this case.
 
 --    Sec_Stack_Needed_For_Return (Flag167)
 --       Defined in scope entities (blocks, functions, procedures, tasks,
@@ -4570,7 +4570,7 @@ package Einfo is
    );
 
    for Entity_Kind'Size use 8;
-   --  The data structures in Atree assume this!
+   --  The data structures in Atree assume this
 
    --------------------------
    -- Subtype Declarations --
@@ -5146,11 +5146,11 @@ package Einfo is
 
    --  E_Abstract_State
    --    Refinement_Constituents             (Elist8)
-   --    Refined_State                       (Node10)
+   --    Part_Of_Constituents                (Elist9)
+   --    Encapsulating_State                 (Node10)
    --    Body_References                     (Elist16)
    --    Non_Limited_View                    (Node17)
    --    From_Limited_With                   (Flag159)
-   --    Has_Body_References                 (Flag264)
    --    Has_Visible_Refinement              (Flag263)
    --    Has_Non_Null_Refinement             (synth)
    --    Has_Null_Refinement                 (synth)
@@ -5982,7 +5982,7 @@ package Einfo is
    --  E_Variable
    --    Hiding_Loop_Variable                (Node8)
    --    Current_Value                       (Node9)
-   --    Refined_State                       (Node10)
+   --    Encapsulating_State                 (Node10)
    --    Esize                               (Uint12)
    --    Extra_Accessibility                 (Node13)
    --    Alignment                           (Uint14)
@@ -6076,7 +6076,7 @@ package Einfo is
    --  computation. Of course, from the point of view of a user of this
    --  package, the distinction is not visible (even the field information
    --  provided below should be disregarded, as it is subject to  change
-   --  without notice!). A number of  attributes appear as lists: lists of
+   --  without notice). A number of  attributes appear as lists: lists of
    --  formals,  lists of actuals, of discriminants, etc. For these, pairs
    --  of functions are defined, which take the form:
 
@@ -6328,6 +6328,7 @@ package Einfo is
    function Elaborate_Body_Desirable            (Id : E) return B;
    function Elaboration_Entity                  (Id : E) return E;
    function Elaboration_Entity_Required         (Id : E) return B;
+   function Encapsulating_State                 (Id : E) return E;
    function Enclosing_Scope                     (Id : E) return E;
    function Entry_Accepted                      (Id : E) return B;
    function Entry_Bodies_Array                  (Id : E) return E;
@@ -6372,7 +6373,6 @@ package Einfo is
    function Has_Anonymous_Master                (Id : E) return B;
    function Has_Atomic_Components               (Id : E) return B;
    function Has_Biased_Representation           (Id : E) return B;
-   function Has_Body_References                 (Id : E) return B;
    function Has_Completion                      (Id : E) return B;
    function Has_Completion_In_Body              (Id : E) return B;
    function Has_Complex_Representation          (Id : E) return B;
@@ -6604,6 +6604,7 @@ package Einfo is
    function Package_Instantiation               (Id : E) return N;
    function Packed_Array_Type                   (Id : E) return E;
    function Parent_Subtype                      (Id : E) return E;
+   function Part_Of_Constituents                (Id : E) return L;
    function Postcondition_Proc                  (Id : E) return E;
    function Prival                              (Id : E) return E;
    function Prival_Link                         (Id : E) return E;
@@ -6617,7 +6618,6 @@ package Einfo is
    function Referenced                          (Id : E) return B;
    function Referenced_As_LHS                   (Id : E) return B;
    function Referenced_As_Out_Parameter         (Id : E) return B;
-   function Refined_State                       (Id : E) return E;
    function Refinement_Constituents             (Id : E) return L;
    function Register_Exception_Call             (Id : E) return N;
    function Related_Array_Object                (Id : E) return E;
@@ -6949,6 +6949,7 @@ package Einfo is
    procedure Set_Elaborate_Body_Desirable        (Id : E; V : B := True);
    procedure Set_Elaboration_Entity              (Id : E; V : E);
    procedure Set_Elaboration_Entity_Required     (Id : E; V : B := True);
+   procedure Set_Encapsulating_State             (Id : E; V : E);
    procedure Set_Enclosing_Scope                 (Id : E; V : E);
    procedure Set_Entry_Accepted                  (Id : E; V : B := True);
    procedure Set_Entry_Bodies_Array              (Id : E; V : E);
@@ -6992,7 +6993,6 @@ package Einfo is
    procedure Set_Has_Anonymous_Master            (Id : E; V : B := True);
    procedure Set_Has_Atomic_Components           (Id : E; V : B := True);
    procedure Set_Has_Biased_Representation       (Id : E; V : B := True);
-   procedure Set_Has_Body_References             (Id : E; V : B := True);
    procedure Set_Has_Completion                  (Id : E; V : B := True);
    procedure Set_Has_Completion_In_Body          (Id : E; V : B := True);
    procedure Set_Has_Complex_Representation      (Id : E; V : B := True);
@@ -7228,6 +7228,7 @@ package Einfo is
    procedure Set_Package_Instantiation           (Id : E; V : N);
    procedure Set_Packed_Array_Type               (Id : E; V : E);
    procedure Set_Parent_Subtype                  (Id : E; V : E);
+   procedure Set_Part_Of_Constituents            (Id : E; V : L);
    procedure Set_Postcondition_Proc              (Id : E; V : E);
    procedure Set_Prival                          (Id : E; V : E);
    procedure Set_Prival_Link                     (Id : E; V : E);
@@ -7241,7 +7242,6 @@ package Einfo is
    procedure Set_Referenced                      (Id : E; V : B := True);
    procedure Set_Referenced_As_LHS               (Id : E; V : B := True);
    procedure Set_Referenced_As_Out_Parameter     (Id : E; V : B := True);
-   procedure Set_Refined_State                   (Id : E; V : E);
    procedure Set_Refinement_Constituents         (Id : E; V : L);
    procedure Set_Register_Exception_Call         (Id : E; V : N);
    procedure Set_Related_Array_Object            (Id : E; V : E);
@@ -7504,11 +7504,14 @@ package Einfo is
    --    Global
    --    Initial_Condition
    --    Initializes
+   --    Part_Of
    --    Precondition
    --    Postcondition
    --    Refined_Depends
    --    Refined_Global
+   --    Refined_Post
    --    Refined_State
+   --    Test_Case
 
    function Get_Record_Representation_Clause (E : Entity_Id) return Node_Id;
    --  Searches the Rep_Item chain for a given entity E, for a record
@@ -7680,6 +7683,7 @@ package Einfo is
    pragma Inline (Elaborate_Body_Desirable);
    pragma Inline (Elaboration_Entity);
    pragma Inline (Elaboration_Entity_Required);
+   pragma Inline (Encapsulating_State);
    pragma Inline (Enclosing_Scope);
    pragma Inline (Entry_Accepted);
    pragma Inline (Entry_Bodies_Array);
@@ -7722,7 +7726,6 @@ package Einfo is
    pragma Inline (Has_Anonymous_Master);
    pragma Inline (Has_Atomic_Components);
    pragma Inline (Has_Biased_Representation);
-   pragma Inline (Has_Body_References);
    pragma Inline (Has_Completion);
    pragma Inline (Has_Completion_In_Body);
    pragma Inline (Has_Complex_Representation);
@@ -8000,6 +8003,7 @@ package Einfo is
    pragma Inline (Packed_Array_Type);
    pragma Inline (Parameter_Mode);
    pragma Inline (Parent_Subtype);
+   pragma Inline (Part_Of_Constituents);
    pragma Inline (Postcondition_Proc);
    pragma Inline (Prival);
    pragma Inline (Prival_Link);
@@ -8013,7 +8017,6 @@ package Einfo is
    pragma Inline (Referenced);
    pragma Inline (Referenced_As_LHS);
    pragma Inline (Referenced_As_Out_Parameter);
-   pragma Inline (Refined_State);
    pragma Inline (Refinement_Constituents);
    pragma Inline (Register_Exception_Call);
    pragma Inline (Related_Array_Object);
@@ -8149,6 +8152,7 @@ package Einfo is
    pragma Inline (Set_Elaborate_Body_Desirable);
    pragma Inline (Set_Elaboration_Entity);
    pragma Inline (Set_Elaboration_Entity_Required);
+   pragma Inline (Set_Encapsulating_State);
    pragma Inline (Set_Enclosing_Scope);
    pragma Inline (Set_Entry_Accepted);
    pragma Inline (Set_Entry_Bodies_Array);
@@ -8189,7 +8193,6 @@ package Einfo is
    pragma Inline (Set_Has_Anonymous_Master);
    pragma Inline (Set_Has_Atomic_Components);
    pragma Inline (Set_Has_Biased_Representation);
-   pragma Inline (Set_Has_Body_References);
    pragma Inline (Set_Has_Completion);
    pragma Inline (Set_Has_Completion_In_Body);
    pragma Inline (Set_Has_Complex_Representation);
@@ -8424,6 +8427,7 @@ package Einfo is
    pragma Inline (Set_Package_Instantiation);
    pragma Inline (Set_Packed_Array_Type);
    pragma Inline (Set_Parent_Subtype);
+   pragma Inline (Set_Part_Of_Constituents);
    pragma Inline (Set_Postcondition_Proc);
    pragma Inline (Set_Prival);
    pragma Inline (Set_Prival_Link);
@@ -8437,7 +8441,6 @@ package Einfo is
    pragma Inline (Set_Referenced);
    pragma Inline (Set_Referenced_As_LHS);
    pragma Inline (Set_Referenced_As_Out_Parameter);
-   pragma Inline (Set_Refined_State);
    pragma Inline (Set_Refinement_Constituents);
    pragma Inline (Set_Register_Exception_Call);
    pragma Inline (Set_Related_Array_Object);

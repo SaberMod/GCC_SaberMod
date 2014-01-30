@@ -5039,7 +5039,9 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
   tree type = TREE_TYPE (t);
   if (TREE_CODE (type) == REFERENCE_TYPE)
     type = TREE_TYPE (type);
-  if (ARITHMETIC_TYPE_P (type))
+  if (type == error_mark_node)
+    return true;
+  else if (ARITHMETIC_TYPE_P (type))
     switch (OMP_CLAUSE_REDUCTION_CODE (c))
       {
       case PLUS_EXPR:
@@ -7533,7 +7535,8 @@ build_anon_member_initialization (tree member, tree init,
       fields.safe_push (TREE_OPERAND (member, 1));
       member = TREE_OPERAND (member, 0);
     }
-  while (ANON_AGGR_TYPE_P (TREE_TYPE (member)));
+  while (ANON_AGGR_TYPE_P (TREE_TYPE (member))
+	 && TREE_CODE (member) == COMPONENT_REF);
 
   /* VEC has the constructor elements vector for the context of FIELD.
      If FIELD is an anonymous aggregate, we will push inside it.  */

@@ -1,3 +1,115 @@
+2014-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59989
+	* pt.c (expand_template_argument_pack): Correct
+	non_default_args_count calculation.
+
+	PR c++/58466
+	* pt.c (unify_pack_expansion): Call expand_template_argument_pack.
+
+	PR c++/59956
+	* friend.c (do_friend): Pass the TEMPLATE_DECL to add_friend if we
+	have a friend template in a class template.
+	* pt.c (tsubst_friend_function): Look through it.
+	(push_template_decl_real): A friend member template is
+	primary.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58846
+	* decl.c (get_dso_handle_node): Don't crash if dso_handle_node
+	== error_mark_node.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58674
+	* pt.c (instantiate_template_1): Check for error_mark_node the second
+	argument too.
+
+2014-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59916
+	* optimize.c (maybe_thunk_body): Build a RETURN_EXPR for
+	cdtor_returns_this case.
+
+	PR c++/59315
+	* decl.c (cxx_maybe_build_cleanup): Call mark_used.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58702
+	* semantics.c (finish_omp_reduction_clause): Check type for
+	error_mark_node.
+
+2014-01-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59791
+	* pt.c (tsubst_decl) [VAR_DECL]: Allow in unevaluated context.
+	(tsubst_copy): Use it if lookup fails.
+
+	PR c++/59818
+	* pt.c (tsubst_function_type): Make sure we keep the same function
+	quals.
+
+	PR c++/58701
+	* semantics.c (build_anon_member_initialization): Stop walking
+	when we run out of COMPONENT_REFs.
+
+	PR c++/58632
+	* decl.c (lookup_and_check_tag): Ignore template parameters if
+	scope == ts_current.
+	* pt.c (check_template_shadow): Don't complain about the injected
+	class name.
+
+	* decl.c (duplicate_decls): Tweak.
+
+	PR c++/53756
+	* mangle.c (write_unqualified_name): Handle operator auto.
+
+2014-01-27  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59823
+	Core DR 1138
+	* call.c (reference_binding): Pass LOOKUP_NO_TEMP_BIND for
+	list-initialization.  A conversion to rvalue ref that involves
+	an lvalue-rvalue conversion is bad.
+	(convert_like_real): Give helpful error message.
+
+	PR c++/54652
+	* decl.c (duplicate_decls): Always use oldtype for TYPE_DECL.
+
+	PR c++/58504
+	* pt.c (tsubst_copy_and_build) [TRAIT_EXPR]: Use tsubst for
+	types.
+
+	PR c++/58606
+	* pt.c (template_parm_to_arg): Call convert_from_reference.
+	(tsubst_template_arg): Don't strip reference refs.
+
+	PR c++/58639
+	* call.c (build_aggr_conv): Reject value-initialization of reference.
+
+	PR c++/58812
+	PR c++/58651
+	* call.c (convert_like_real): Give helpful error about excess braces
+	for ck_rvalue of scalar type.
+
+	Core DR 1288
+	* call.c (reference_binding): Only elide braces if the single
+	element is reference-related.
+
+	PR c++/58814
+	* typeck.c (cp_build_modify_expr): Make the RHS an rvalue before
+	stabilizing.
+
+	PR c++/58837
+	* typeck.c (cp_truthvalue_conversion): Use explicit comparison for
+	FUNCTION_DECL.
+
+	PR c++/59097
+	* decl.c (compute_array_index_type): Don't call
+	maybe_constant_value for a non-integral expression.
+
 2014-01-24  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* call.c (magic_varargs_p): Replaced flag_enable_cilkplus with

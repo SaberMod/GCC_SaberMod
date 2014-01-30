@@ -1,3 +1,69 @@
+2014-01-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/alloc_traits.h (allocator_traits::_S_allocate): Do
+	not use varargs when argument could be non-POD.
+	(__alloctr_rebind_helper): Eliminate static const bool member by
+	using true_type and false_type.
+	(allocator_traits::__allocate_helper): Likewise.
+	(allocator_traits::__construct_helper): Likewise.
+	(allocator_traits::__destroy_helper): Likewise.
+	(allocator_traits::__maxsize_helper): Likewise.
+	(allocator_traits::__select_helper): Likewise.
+	* include/bits/ptr_traits.h (__ptrtr_rebind_helper): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree::operator=(const _Rb_tree&)):
+	Remove redundant condition.
+	* include/bits/stl_vector.h (vector::operator=(const vector&)):
+	Likewise.
+	(_Vector_impl::_M_allocate, _Vector_impl::_M_deallocate): Use
+	indirection through __alloc_traits.
+	* include/ext/alloc_traits.h (__allocator_always_compares_equal):
+	Eliminate static const bool members by using true_type and false_type.
+	(__gnu_cxx::__alloc_traits::__is_custom_pointer): Optimize.
+	* testsuite/util/testsuite_allocator.h (PointerBase): Define.
+	* testsuite/20_util/allocator_traits/members/allocate_hint_nonpod.cc:
+	New.
+	* testsuite/20_util/allocator_traits/requirements/typedefs2.cc: New.
+
+	PR libstdc++/59829
+	* include/bits/stl_vector.h (vector::data()): Call _M_data_ptr.
+	(vector::_M_data_ptr): New overloaded functions to ensure empty
+	vectors do not dereference the pointer.
+	* testsuite/23_containers/vector/59829.cc: New.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+	PR libstdc++/21609
+	* include/ext/array_allocator.h: Add deprecated attribute.
+
+	PR libstdc++/57226
+	* doc/xml/manual/debug.xml (debug.gdb): Update documentation for
+	installation and use of python printers.
+	* doc/xml/manual/status_cxx2011.xml: Update.
+	* doc/html/*: Regenerate.
+
+2014-01-28  Jonathan Wakely  <jwakely@redhat.com>
+	    Kyle Lippincott  <spectral@google.com>
+
+	PR libstdc++/59656
+	* include/bits/shared_ptr.h (shared_ptr): Add new non-throwing
+	constructor and grant friendship to weak_ptr.
+	(weak_ptr::lock()): Use new constructor.
+	* include/bits/shared_ptr_base.h
+	(_Sp_counted_base::_M_add_ref_lock_nothrow()): Declare new function
+	and define specializations.
+	(__shared_count): Add new non-throwing constructor.
+	(__shared_ptr): Add new non-throwing constructor and grant friendship
+	to __weak_ptr.
+	(__weak_ptr::lock()): Use new constructor.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust dg-error.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: Likewise.
+
 2014-01-27  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/59215

@@ -589,8 +589,8 @@ package body Sem_Ch4 is
                                N_Index_Or_Discriminant_Constraint
                   then
                      Error_Msg_N -- CODEFIX
-                       ("if qualified expression was meant, " &
-                           "use apostrophe!", Constraint (E));
+                       ("if qualified expression was meant, "
+                        & "use apostrophe!", Constraint (E));
                   end if;
 
                   E := New_Occurrence_Of (Def_Id, Loc);
@@ -1247,33 +1247,33 @@ package body Sem_Ch4 is
 
                   if Is_Signed_Integer_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Integer_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Integer_'I'O!", Nam);
 
                   elsif Is_Modular_Integer_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Modular_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Modular_'I'O!", Nam);
 
                   elsif Is_Floating_Point_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Float_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Float_'I'O!", Nam);
 
                   elsif Is_Ordinary_Fixed_Point_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Fixed_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Fixed_'I'O!", Nam);
 
                   elsif Is_Decimal_Fixed_Point_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Decimal_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Decimal_'I'O!", Nam);
 
                   elsif Is_Enumeration_Type (Typ) then
                      Error_Msg_N
-                       ("possible missing instantiation of " &
-                          "'Text_'I'O.'Enumeration_'I'O!", Nam);
+                       ("possible missing instantiation of "
+                        & "'Text_'I'O.'Enumeration_'I'O!", Nam);
                   end if;
                end;
             end if;
@@ -3273,9 +3273,9 @@ package body Sem_Ch4 is
                                   Defining_Identifier
                                     (Associated_Node_For_Itype (Nam));
                            begin
-                              Error_Msg_NE (
-                                "\\  =='> in call to dereference of &#!",
-                                Actual, Access_To_Subprogram_Typ);
+                              Error_Msg_NE
+                                ("\\  =='> in call to dereference of &#!",
+                                 Actual, Access_To_Subprogram_Typ);
                            end;
 
                         else
@@ -3940,10 +3940,10 @@ package body Sem_Ch4 is
       --  In an instance, a component of a private extension may not be visible
       --  while it was visible in the generic. Search candidate scope for a
       --  component with the proper identifier. This is only done if all other
-      --  searches have failed. When the match is found (it always will be),
-      --  the Etype of both N and Sel are set from this component, and the
-      --  entity of Sel is set to reference this component.
-      --  ??? no longer true that a match is found ???
+      --  searches have failed. If a match is found, the Etype of both N and
+      --  Sel are set from this component, and the entity of Sel is set to
+      --  reference this component. If no match is found, Entity (Sel) remains
+      --  unset.
 
       function Has_Mode_Conformant_Spec (Comp : Entity_Id) return Boolean;
       --  It is known that the parent of N denotes a subprogram call. Comp
@@ -3972,7 +3972,9 @@ package body Sem_Ch4 is
             Next_Component (Comp);
          end loop;
 
-         --  Need comment on what is going on when we fall through ???
+         --  If we fall through, no match, so no changes made
+
+         return;
       end Find_Component_In_Instance;
 
       ------------------------------
@@ -5345,7 +5347,7 @@ package body Sem_Ch4 is
    begin
       --  All the components of the prefix of selector Sel are matched against
       --  Sel and a count is maintained of possible misspellings. When at
-      --  the end of the analysis there are one or two (not more!) possible
+      --  the end of the analysis there are one or two (not more) possible
       --  misspellings, these misspellings will be suggested as possible
       --  correction.
 
@@ -5890,6 +5892,9 @@ package body Sem_Ch4 is
 
          --  In Ada 2005, the equality on anonymous access types is declared
          --  in Standard, and is always visible.
+         --  In an instance, the type may have been immediately visible.
+         --  Either the types are compatible, or one operand is universal
+         --  (numeric or null).
 
          elsif In_Open_Scopes (Scope (Bas))
            or else Is_Potentially_Use_Visible (Bas)
@@ -5898,6 +5903,7 @@ package body Sem_Ch4 is
            or else (In_Instance
                      and then
                        (First_Subtype (T1) = First_Subtype (Etype (R))
+                         or else Nkind (R) = N_Null
                          or else
                            (Is_Numeric_Type (T1)
                              and then Is_Universal_Numeric_Type (Etype (R)))))

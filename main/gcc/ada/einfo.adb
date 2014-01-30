@@ -86,14 +86,15 @@ package body Einfo is
 
    --    Class_Wide_Type                 Node9
    --    Current_Value                   Node9
+   --    Part_Of_Constituents            Elist9
    --    Renaming_Map                    Uint9
 
+   --    Encapsulating_State             Node10
    --    Direct_Primitive_Operations     Elist10
    --    Discriminal_Link                Node10
    --    Float_Rep                       Uint10 (but returns Float_Rep_Kind)
    --    Handler_Records                 List10
    --    Normalized_Position_Max         Uint10
-   --    Refined_State                   Node10
 
    --    Component_Bit_Offset            Uint11
    --    Full_View                       Node11
@@ -551,7 +552,6 @@ package body Einfo is
    --    Has_Delayed_Rep_Aspects         Flag261
    --    May_Inherit_Delayed_Rep_Aspects Flag262
    --    Has_Visible_Refinement          Flag263
-   --    Has_Body_References             Flag264
    --    SPARK_Pragma_Inherited          Flag265
    --    SPARK_Aux_Pragma_Inherited      Flag266
 
@@ -559,6 +559,7 @@ package body Einfo is
    --    (unused)                        Flag2
    --    (unused)                        Flag3
 
+   --    (unused)                        Flag264
    --    (unused)                        Flag267
    --    (unused)                        Flag268
    --    (unused)                        Flag269
@@ -1059,6 +1060,12 @@ package body Einfo is
       return Flag174 (Id);
    end Elaboration_Entity_Required;
 
+   function Encapsulating_State (Id : E) return N is
+   begin
+      pragma Assert (Ekind_In (Id, E_Abstract_State, E_Variable));
+      return Node10 (Id);
+   end Encapsulating_State;
+
    function Enclosing_Scope (Id : E) return E is
    begin
       return Node18 (Id);
@@ -1326,12 +1333,6 @@ package body Einfo is
    begin
       return Flag139 (Id);
    end Has_Biased_Representation;
-
-   function Has_Body_References (Id : E) return B is
-   begin
-      pragma Assert (Ekind (Id) = E_Abstract_State);
-      return Flag264 (Id);
-   end Has_Body_References;
 
    function Has_Completion (Id : E) return B is
    begin
@@ -2630,6 +2631,12 @@ package body Einfo is
       return Node19 (Base_Type (Id));
    end Parent_Subtype;
 
+   function Part_Of_Constituents (Id : E) return L is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      return Elist9 (Id);
+   end Part_Of_Constituents;
+
    function Postcondition_Proc (Id : E) return E is
    begin
       pragma Assert (Ekind (Id) = E_Procedure);
@@ -2704,12 +2711,6 @@ package body Einfo is
    begin
       return Flag227 (Id);
    end Referenced_As_Out_Parameter;
-
-   function Refined_State (Id : E) return N is
-   begin
-      pragma Assert (Ekind_In (Id, E_Abstract_State, E_Variable));
-      return Node10 (Id);
-   end Refined_State;
 
    function Refinement_Constituents (Id : E) return L is
    begin
@@ -3714,6 +3715,12 @@ package body Einfo is
       Set_Flag174 (Id, V);
    end Set_Elaboration_Entity_Required;
 
+   procedure Set_Encapsulating_State (Id : E; V : E) is
+   begin
+      pragma Assert (Ekind_In (Id, E_Abstract_State, E_Variable));
+      Set_Node10 (Id, V);
+   end Set_Encapsulating_State;
+
    procedure Set_Enclosing_Scope (Id : E; V : E) is
    begin
       Set_Node18 (Id, V);
@@ -3993,12 +4000,6 @@ package body Einfo is
         ((V = False) or else (Is_Discrete_Type (Id) or else Is_Object (Id)));
       Set_Flag139 (Id, V);
    end Set_Has_Biased_Representation;
-
-   procedure Set_Has_Body_References (Id : E; V : B := True) is
-   begin
-      pragma Assert (Ekind (Id) = E_Abstract_State);
-      Set_Flag264 (Id, V);
-   end Set_Has_Body_References;
 
    procedure Set_Has_Completion (Id : E; V : B := True) is
    begin
@@ -5352,6 +5353,12 @@ package body Einfo is
       Set_Node19 (Id, V);
    end Set_Parent_Subtype;
 
+   procedure Set_Part_Of_Constituents (Id : E; V : L) is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      Set_Elist9 (Id, V);
+   end Set_Part_Of_Constituents;
+
    procedure Set_Postcondition_Proc (Id : E; V : E) is
    begin
       pragma Assert (Ekind (Id) = E_Procedure);
@@ -5434,12 +5441,6 @@ package body Einfo is
    begin
       Set_Flag227 (Id, V);
    end Set_Referenced_As_Out_Parameter;
-
-   procedure Set_Refined_State (Id : E; V : E) is
-   begin
-      pragma Assert (Ekind_In (Id, E_Abstract_State, E_Variable));
-      Set_Node10 (Id, V);
-   end Set_Refined_State;
 
    procedure Set_Refinement_Constituents (Id : E; V : L) is
    begin
@@ -6445,6 +6446,7 @@ package body Einfo is
                   Id = Pragma_Global            or else
                   Id = Pragma_Initial_Condition or else
                   Id = Pragma_Initializes       or else
+                  Id = Pragma_Part_Of           or else
                   Id = Pragma_Refined_Depends   or else
                   Id = Pragma_Refined_Global    or else
                   Id = Pragma_Refined_State;
@@ -6453,7 +6455,8 @@ package body Einfo is
                   Id = Pragma_Test_Case;
       Is_PPC : constant Boolean :=
                   Id = Pragma_Precondition      or else
-                  Id = Pragma_Postcondition;
+                  Id = Pragma_Postcondition     or else
+                  Id = Pragma_Refined_Post;
 
       In_Contract : constant Boolean := Is_CDG or Is_CTC or Is_PPC;
 
@@ -8095,7 +8098,6 @@ package body Einfo is
       W ("Has_Anonymous_Master",            Flag253 (Id));
       W ("Has_Atomic_Components",           Flag86  (Id));
       W ("Has_Biased_Representation",       Flag139 (Id));
-      W ("Has_Body_References",             Flag264 (Id));
       W ("Has_Completion",                  Flag26  (Id));
       W ("Has_Completion_In_Body",          Flag71  (Id));
       W ("Has_Complex_Representation",      Flag140 (Id));
@@ -8535,6 +8537,9 @@ package body Einfo is
          when Object_Kind                                  =>
             Write_Str ("Current_Value");
 
+         when E_Abstract_State                             =>
+            Write_Str ("Part_Of_Constituents");
+
          when E_Function                                   |
               E_Generic_Function                           |
               E_Generic_Package                            |
@@ -8555,6 +8560,10 @@ package body Einfo is
    procedure Write_Field10_Name (Id : Entity_Id) is
    begin
       case Ekind (Id) is
+         when E_Abstract_State                             |
+              E_Variable                                   =>
+            Write_Str ("Encapsulating_State");
+
          when Class_Wide_Kind                              |
               Incomplete_Kind                              |
               E_Record_Type                                |
@@ -8579,10 +8588,6 @@ package body Einfo is
          when E_Component                                  |
               E_Discriminant                               =>
             Write_Str ("Normalized_Position_Max");
-
-         when E_Abstract_State                             |
-              E_Variable                                   =>
-            Write_Str ("Refined_State");
 
          when others                                       =>
             Write_Str ("Field10??");
