@@ -990,6 +990,10 @@ template<typename _Alloc>
     insert(iterator __position, const bool& __x = bool())
 #endif
     {
+#if __google_stl_debug_bvector
+      if (__position < this->begin() || __position > this->end())
+	__throw_logic_error("insert() at invalid position");
+#endif
       const difference_type __n = __position - begin();
       if (this->_M_impl._M_finish._M_p != this->_M_impl._M_end_of_storage
 	  && __position == end())
@@ -1009,6 +1013,8 @@ template<typename _Alloc>
 #if __google_stl_debug_bvector
 	if (!this->_M_is_valid())
 	  __throw_logic_error("insert() on corrupt (dangling?) vector");
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
 #endif
 	difference_type __offset = __position - cbegin();
 	_M_insert_dispatch(__position._M_const_cast(),
@@ -1024,6 +1030,8 @@ template<typename _Alloc>
 #if __google_stl_debug_bvector
 	if (!this->_M_is_valid())
 	  __throw_logic_error("insert() on corrupt (dangling?) vector");
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
 #endif
 	typedef typename std::__is_integer<_InputIterator>::__type _Integral;
 	_M_insert_dispatch(__position, __first, __last, _Integral());
@@ -1045,6 +1053,8 @@ template<typename _Alloc>
 #if __google_stl_debug_bvector
       if (!this->_M_is_valid())
 	__throw_logic_error("insert() on corrupt (dangling?) vector");
+      if (__position < this->begin() || __position > this->end())
+	__throw_logic_error("insert() at invalid position");
 #endif
       _M_fill_insert(__position, __n, __x);
     }
@@ -1073,7 +1083,8 @@ template<typename _Alloc>
 #endif
     {
 #if __google_stl_debug_bvector
-      _M_range_check(__position - begin());
+      if (__position < this->begin() || __position >= this->end())
+	__throw_logic_error("erase() at invalid position");
 #endif
       return _M_erase(__position._M_const_cast());
     }
@@ -1088,6 +1099,8 @@ template<typename _Alloc>
 #if __google_stl_debug_bvector
       if (!this->_M_is_valid())
 	__throw_logic_error("erase() on corrupt (dangling?) vector");
+      if (__first < this->begin() || __first > __last || __last > this->end())
+	__throw_logic_error("erase() invalid range");
 #endif
       return _M_erase(__first._M_const_cast(), __last._M_const_cast());
     }

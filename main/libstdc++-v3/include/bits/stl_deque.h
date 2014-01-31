@@ -1572,6 +1572,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       iterator
       insert(const_iterator __position, size_type __n, const value_type& __x)
       {
+#if __google_stl_debug_deque
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
+#endif
 	difference_type __offset = __position - cbegin();
 	_M_fill_insert(__position._M_const_cast(), __n, __x);
 	return begin() + __offset;
@@ -1588,7 +1592,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
        */
       void
       insert(iterator __position, size_type __n, const value_type& __x)
-      { _M_fill_insert(__position, __n, __x); }
+      {
+#if __google_stl_debug_deque
+	if (__position < this->begin() || __position > this->end())
+	  __throw_logic_error("insert() at invalid position");
+#endif
+	_M_fill_insert(__position, __n, __x);
+      }
 #endif
 
 #if __cplusplus >= 201103L
@@ -1609,6 +1619,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
         insert(const_iterator __position, _InputIterator __first,
 	       _InputIterator __last)
         {
+#if __google_stl_debug_vector
+	  if (__position < this->begin() || __position > this->end())
+	    __throw_out_of_range(__N("insert() at invalid position"));
+#endif
 	  difference_type __offset = __position - cbegin();
 	  _M_insert_dispatch(__position._M_const_cast(),
 			     __first, __last, __false_type());
