@@ -559,10 +559,6 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
 {
   struct gcov_ctr_summary *cs_prg, *cs_tprg, *cs_all;
   unsigned t_ix;
-#if !GCOV_LOCKED
-  /* summary for all instances of program.  */
-  struct gcov_ctr_summary *cs_all;
-#endif
 
   /* Merge the summaries.  */
   for (t_ix = 0; t_ix < GCOV_COUNTERS_SUMMABLE; t_ix++)
