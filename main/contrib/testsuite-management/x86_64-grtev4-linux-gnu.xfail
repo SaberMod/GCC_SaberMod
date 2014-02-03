@@ -1301,3 +1301,8 @@ FAIL: gcc.dg/inline_3.c (test for excess errors)
 FAIL: gcc.dg/inline_4.c (test for excess errors)
 
 XPASS: gcc.dg/binop-xor1.c scan-tree-dump-times optimized "\\^" 1
+
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60037
+# SIGFPE when the test is built without optimization.
+FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
+
