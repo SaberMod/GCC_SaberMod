@@ -1,3 +1,11 @@
+2014-02-03  Cong Hou  <congh@google.com>
+
+	Backport from mainline
+	2014-02-03  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/60000
+	* g++.dg/vect/pr60000.cc: New test.
+
 2014-01-13  Cong Hou  <congh@google.com>
 
 	* gcc.dg/tree-ssa/predcom-1.c: Add -fno-tree-loop-vectorize.
