@@ -267,6 +267,114 @@ read_gcda_finalize (struct gcov_info *obj_info)
 extern void gcov_read_module_info (struct gcov_module_info *mod_info,
     gcov_unsigned_t len);
 
+/* Substitute string is of this format:
+     old_sub1:new_sub1[,old_sub2:new_sub2]
+   Note that we only apply the substutution ONE time, for the first match.  */
+
+static const char *substitute_string;
+
+/* A global function to set the substitute string.  */
+
+void
+lipo_set_substitute_string (const char *str)
+{
+  char *sub_dup = xstrdup (str);
+  char *cur_sub = sub_dup;
+
+  /* First check if the str is in the right form.
+     Dup the string and split it into tokens with
+     ',' and ':' as the delimiters.  */
+  do
+    {
+      char *new_str;
+      char *next = strchr (cur_sub, ',');
+      if (next)
+        *next++ = '\0';
+      new_str = strchr (cur_sub, ':');
+      if (!new_str)
+        {
+          fprintf (stderr, "Warning: Skip invalid substibution string:%s\n",
+                   str);
+          free (sub_dup);
+          return;
+        }
+      *new_str++ = '\0';
+      cur_sub = next;
+    } while (cur_sub);
+
+  free (sub_dup);
+  substitute_string = str;
+}
+
+/* Replace the first occurance of CUT_STR to NEW_STR in INPUT_STR.  */
+
+static char *
+lipo_process_substitute_string_1 (char *input_str,
+                                  const char *cur_str,
+                                  const char *new_str)
+{
+  char *p;
+
+  if (!input_str || !cur_str || !new_str)
+    return input_str;
+
+  if ((p = strstr (input_str, cur_str)) != NULL)
+    {
+      char *t;
+
+      if (verbose)
+        printf ("Substitute: %s \n", input_str);
+      t = (char*) xmalloc (strlen (input_str) + 1
+          + strlen (new_str) - strlen (cur_str));
+      *p = 0;
+
+      strcpy (t, input_str);
+      strcat (t, new_str);
+      strcat (t, p + strlen (cur_str));
+      if (verbose)
+        printf ("       -->  %s\n", t);
+      return t;
+    }
+
+  return input_str;
+}
+
+/* Parse the substitute string and apply to the INPUT_STR.  */
+
+static char *
+lipo_process_substitute_string (char *input_str)
+{
+  char *sub_dup, *cur_sub, *ret;
+
+  if (substitute_string == NULL)
+    return input_str;
+
+  sub_dup = xstrdup (substitute_string);
+  cur_sub = sub_dup;
+  ret = input_str;
+
+  /* Dup the string and split it into tokens with
+     ',' and ':' as the delimiters.  */
+  do
+    {
+      char *new_str, *new_input;
+      char *next = strchr (cur_sub, ',');
+      if (next)
+        *next++ = '\0';
+      new_str = strchr (cur_sub, ':');
+      gcc_assert (new_str);
+      *new_str++ = '\0';
+      new_input = ret;
+      ret = lipo_process_substitute_string_1 (new_input, cur_sub, new_str);
+      if (ret != new_input)
+        free (new_input);
+      cur_sub = next;
+    } while (cur_sub);
+
+  free (sub_dup);
+  return ret;
+}
+
 /* This function reads module_info from a gcda file.  */
 
 static void
@@ -280,7 +388,11 @@ tag_module_info (unsigned tag ATTRIBUTE_UNUSED, unsigned length)
   gcov_read_module_info (mod_info, length);
 
   if (mod_info->is_primary)
-    curr_module_info = mod_info;
+    {
+      mod_info->da_filename =
+          lipo_process_substitute_string (mod_info->da_filename);
+      curr_module_info = mod_info;
+    }
   else
     free (mod_info);
 }
@@ -295,7 +407,8 @@ read_gcda_file (const char *filename)
   unsigned depth = 0;
   unsigned magic, version;
   struct gcov_info *obj_info;
-  int i;
+  int i, len;
+  char *str_dup;
 
   for (i=0; i< GCOV_COUNTERS; i++)
     k_ctrs_mask[i] = 0;
@@ -335,15 +448,11 @@ read_gcda_file (const char *filename)
   curr_fn_info = 0;
   curr_module_info = 0;
 
-  {
-    char *str_dup = (char*) xmalloc (strlen (filename) + 1);
-    int len;
+  str_dup = lipo_process_substitute_string (xstrdup (filename));
+  obj_info->filename = str_dup;
 
-    strcpy (str_dup, filename);
-    obj_info->filename = str_dup;
-    if ((len = strlen (filename)) > max_filename_len)
-      max_filename_len = len;
-  }
+  if ((len = strlen (str_dup)) > max_filename_len)
+    max_filename_len = len;
 
   /* Read stamp.  */
   obj_info->stamp = gcov_read_unsigned ();
@@ -420,6 +529,21 @@ read_gcda_file (const char *filename)
   return obj_info;
 }
 
+extern int is_module_available (const char *, unsigned *, int);
+
+/* If only use the modules in the modu_list.  */
+
+static int flag_use_modu_list;
+
+/* Set to use only the modules in the modu_list file.  */
+
+void
+set_use_modu_list (void)
+{
+  flag_use_modu_list = 1;
+}
+
+
 /* This will be called by ftw(). It opens and read a gcda file FILENAME.
    Return a non-zero value to stop the tree walk.  */
 
@@ -450,10 +574,37 @@ ftw_read_file (const char *filename,
 
   obj_info = read_gcda_file (filename);
 
+  if (obj_info->mod_info)
+    {
+      unsigned mod_id = obj_info->mod_info->ident;
+      int create = (flag_use_modu_list ? 0 : 1);
+
+      if (!is_module_available (obj_info->mod_info->source_filename,
+                                &mod_id, create))
+        {
+          if (verbose)
+            fprintf (stderr, "warning: module %s (%d) is not avail\n",
+                     obj_info->mod_info->source_filename, mod_id);
+          return 0;
+        }
+    }
+
   obj_info->next = gcov_info_head;
   gcov_info_head = obj_info;
 
   return 0;
+}
+
+/* Source profile directory name.  */
+
+static const char *source_profile_dir;
+
+/* Return Source profile directory name.  */
+
+const char *
+get_source_profile_dir (void)
+{
+  return source_profile_dir;
 }
 
 /* Initializer for reading a profile dir.  */
@@ -490,6 +641,8 @@ gcov_read_profile_dir (const char* dir_name, int recompute_summary ATTRIBUTE_UNU
       fprintf (stderr, "%s is not a directory\n", dir_name);
       return NULL;
     }
+  source_profile_dir = getcwd (NULL, 0);
+
   ftw (".", ftw_read_file, 50);
   ret = chdir (pwd);
   free (pwd);

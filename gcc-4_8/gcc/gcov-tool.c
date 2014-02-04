@@ -29,6 +29,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include "coretypes.h"
 #include "tm.h"
 #include "intl.h"
+#include "hashtab.h"
 #include "diagnostic.h"
 #include "version.h"
 #include "gcov-io.h"
@@ -38,6 +39,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <ftw.h>
 #include <getopt.h>
 #include "params.h"
+#include <string.h>
 
 extern int gcov_profile_merge (struct gcov_info*, struct gcov_info*, int, int);
 extern int gcov_profile_normalize (struct gcov_info*, gcov_type);
@@ -47,9 +49,11 @@ extern struct gcov_info* gcov_read_profile_dir (const char*, int);
 extern void gcov_exit (void);
 extern void set_gcov_list (struct gcov_info *);
 extern void gcov_set_verbose (void);
+extern void set_use_existing_grouping (void);
+extern void set_use_modu_list (void);
+extern void lipo_set_substitute_string (const char *);
 
-static int verbose;
-
+/* The following defines are needed by dyn-ipa.c.  */
 gcov_unsigned_t __gcov_lipo_grouping_algorithm;
 gcov_unsigned_t __gcov_lipo_merge_modu_edges;
 gcov_unsigned_t __gcov_lipo_weak_inclusion;
@@ -59,6 +63,8 @@ gcov_unsigned_t __gcov_lipo_cutoff;
 gcov_unsigned_t __gcov_lipo_random_seed;
 gcov_unsigned_t __gcov_lipo_dump_cgraph;
 gcov_unsigned_t __gcov_lipo_propagate_scale;
+
+static int verbose;
 
 /* Remove file NAME if it has a gcda suffix. */
 
@@ -285,6 +291,189 @@ profile_rewrite (const char *d1, const char *out, long long n_val, float scale)
   return 0;
 }
 
+/* This is the hashtab entry to store a name and mod_id pair. */
+typedef struct {
+  const char *name;
+  unsigned id;
+} mod_name_id;
+
+/* Hash and comparison functions for strings.  */
+
+static unsigned
+mod_name_id_htab_hash (const void *s_p)
+{
+  const char *s = ((const mod_name_id *) s_p)->name;
+  return (*htab_hash_string) (s);
+}
+
+static int
+mod_name_id_hash_eq (const void *s1_p, const void *s2_p)
+{
+  return strcmp (((const mod_name_id *) s1_p)->name,
+                 ((const mod_name_id *) s2_p)->name) == 0;
+}
+
+static htab_t mod_name_id_hash_table;
+
+/* Look up an entry in the hash table. STRING is the module name.
+   CREATE controls to insert to htab or not.
+   If (*ID_P != 0), we write (*ID_P) to htab.
+   If (*ID_P == 0), we write module_id to (*ID_P).
+   return 1 if an entry is found and otherwise 0.  */
+
+static int
+module_name_hash_lookup (const char *string, unsigned *id_p, int create)
+{
+  void **e;
+  mod_name_id t;
+
+  t.name = string;
+  e = htab_find_slot (mod_name_id_hash_table, &t,
+                      create ? INSERT : NO_INSERT);
+  if (e == NULL)
+    return 0;
+  if (*e == NULL)
+    {
+      *e = XNEW (mod_name_id *);
+      (*(mod_name_id **)e)->name = xstrdup (string);
+    }
+  if (id_p)
+    {
+      if (*id_p != 0)
+        (*(mod_name_id **)e)->id = *id_p;
+      else
+        *id_p = (*(mod_name_id **)e)->id;
+    }
+  return 1;
+}
+
+/* Return 1 if NAME is of a source type that LIPO targets.
+   Return 0 otherwise.  */
+
+static int
+is_lipo_source_type (char *name)
+{
+  char *p;
+
+  if (strcasestr (name, ".c") ||
+      strcasestr (name, ".cc") ||
+      strcasestr (name, ".cpp") ||
+      strcasestr (name, ".c++"))
+    return 1;
+
+  /* Replace ".proto" with ".pb.cc". Since the two strings have the same
+     length, we simplfy do a strcpy.  */
+  if ((p = strcasestr (name, ".proto")) != NULL)
+    {
+      strcpy (p, ".pb.cc");
+      return 1;
+    }
+
+  return 0;
+}
+
+/* Convert/process the names from dependence query to a
+   stardard format. Return NULL if this is not a lipo
+   target source. */
+
+static char *
+lipo_process_name_string (char *name)
+{
+  char *p;
+
+  if (name == NULL)
+    return NULL;
+  if (strlen (name) == 0)
+    return NULL;
+
+  if (!is_lipo_source_type (name))
+    return NULL;
+
+  /* Overwrite ':' with '/'.  */
+  if ((p = strchr (name, ':')) != NULL)
+    *p = '/';
+
+  /* Remove "//".  */
+  if (name[0] == '/' && name[1] =='/')
+    name += 2;
+
+  return name;
+}
+
+/* Store the list of source modules in INPUT_FILE to internal hashtab.  */
+
+static int
+lipo_process_modu_list (const char *input_file)
+{
+  FILE *fd;
+  char *line = NULL;
+  size_t linecap = 0;
+  char *name;
+
+  set_use_modu_list ();
+
+  if ((fd = fopen (input_file, "r")) == NULL)
+    {
+      fnotice (stderr, "Cannot open %s\n", input_file);
+      return -1;
+    }
+
+  /* Read all the modules */
+  while (getline (&line, &linecap, fd) != -1)
+    {
+      name = strtok (line, " \t\n");
+      name = lipo_process_name_string (name);
+      if (name)
+        module_name_hash_lookup (name, 0, 1);
+
+      free (line);
+      line = NULL;
+    }
+
+  return 0;
+}
+
+#define GENFILE_PREFIX "/genfiles/"
+
+/* Return 1 if module NAME is available to be used in the target
+   profile.  CREATE controls to insert to htab or not.
+   If (*ID_P != 0), we write (*ID_P) to htab.
+   If (*ID_P == 0), we write module_id to (*ID_P).
+   return 1 if an entry is found and otherwise 0.  */
+
+int
+is_module_available (const char *name, unsigned *id_p, int create)
+{
+  char *buf, *p;
+  int ret;
+
+  if (mod_name_id_hash_table == NULL)
+    return 1;
+
+  buf = xstrdup (name);
+  /* Remove genfile string.  */
+  if ((p = strstr (buf, GENFILE_PREFIX)) != NULL)
+    p += strlen (GENFILE_PREFIX);
+  else
+    p = buf;
+
+   ret = module_name_hash_lookup (p, id_p, create);
+   free (buf);
+   return ret;
+}
+
+/* Return module_ident for module NAME.
+   return 0 if the module NAME is not available.  */
+
+int
+get_module_id_from_name (const char *name)
+{
+  unsigned mod_id = 0;
+  if (is_module_available (name, &mod_id, 0) == 1)
+    return mod_id;
+  return 0;
+}
+
 /* Usage function for profile rewrite.  */
 
 static void
@@ -295,7 +484,10 @@ print_rewrite_usage_message (int error_p)
   fnotice (file, "  rewrite [options] <dir>               Rewrite coverage file contents\n");
   fnotice (file, "    -v, --verbose                       Verbose mode\n");
   fnotice (file, "    -o, --output <dir>                  Output directory\n");
+  fnotice (file, "    -l, --modu_list <file>              Only use the modules in this file\n");
+  fnotice (file, "    -r, --path_substr_replace <str>     Replace string in path\n");
   fnotice (file, "    -s, --scale <float or simple-frac>  Scale the profile counters\n");
+  fnotice (file, "    -u, --use_imports_file <file>       Use the grouping in import files.\n");
   fnotice (file, "    -n, --normalize <long long>         Normalize the profile\n");
 }
 
@@ -303,7 +495,10 @@ static const struct option rewrite_options[] =
 {
   { "verbose",                no_argument,       NULL, 'v' },
   { "output",                 required_argument, NULL, 'o' },
+  { "modu_list",              required_argument, NULL, 'l' },
+  { "string",                 required_argument, NULL, 'r' },
   { "scale",                  required_argument, NULL, 's' },
+  { "use_imports_file",       no_argument,       NULL, 'u' },
   { "normalize",              required_argument, NULL, 'n' },
   { 0, 0, 0, 0 }
 };
@@ -331,8 +526,11 @@ do_rewrite (int argc, char **argv)
   int numerator = -1;
   int denominator = -1;
 
+  mod_name_id_hash_table = htab_create (500, mod_name_id_htab_hash,
+                                        mod_name_id_hash_eq, NULL);
+
   optind = 0;
-  while ((opt = getopt_long (argc, argv, "vo:s:n:", rewrite_options, NULL)) != -1)
+  while ((opt = getopt_long (argc, argv, "vo:l:r:s:un:", rewrite_options, NULL)) != -1)
     {
       switch (opt)
         {
@@ -342,6 +540,15 @@ do_rewrite (int argc, char **argv)
           break;
         case 'o':
           output_dir = optarg;
+          break;
+        case 'l':
+          lipo_process_modu_list (optarg);
+          break;
+        case 'r':
+          lipo_set_substitute_string (optarg);
+          break;
+        case 'u':
+          set_use_existing_grouping ();
           break;
         case 'n':
           if (scale != 1.0)
@@ -437,7 +644,7 @@ static void
 print_version (void)
 {
   fnotice (stdout, "%s %s%s\n", progname, pkgversion_string, version_string);
-  fprintf (stdout, "Copyright %s 2014 Free Software Foundation, Inc.\n",
+  fnotice (stdout, "Copyright %s 2014 Free Software Foundation, Inc.\n",
            _("(C)"));
   fnotice (stdout,
            _("This is free software; see the source for copying conditions.\n"
@@ -496,7 +703,7 @@ process_args (int argc, char **argv)
           sscanf (optarg, "%d", &ret);
           if (ret != 0 && ret != 1)
             {
-              fprintf (stderr, "LIPO grouping algorithm can only be 0 or 1. \n");
+              fnotice (stderr, "LIPO grouping algorithm can only be 0 or 1\n");
               exit (-1);
             }
           __gcov_lipo_grouping_algorithm = ret;
@@ -505,7 +712,7 @@ process_args (int argc, char **argv)
           sscanf (optarg, "%d", &ret);
           if (ret < 1)
             {
-              fprintf (stderr, "LIPO random group size needs to be positive.\n");
+              fnotice (stderr, "LIPO random group size needs to be positive\n");
               exit (-1);
             }
           __gcov_lipo_random_group_size = ret;
@@ -518,7 +725,7 @@ process_args (int argc, char **argv)
           sscanf (optarg, "%d", &ret);
           if (ret < 0)
             {
-              fprintf (stderr, "LIPO max-memory size needs to be positive. \n");
+              fnotice (stderr, "LIPO max-memory size needs to be positive\n");
               exit (-1);
             }
           __gcov_lipo_max_mem = ret;
@@ -527,7 +734,7 @@ process_args (int argc, char **argv)
           sscanf (optarg, "%d", &ret);
           if (ret < 0 || ret > 100)
             {
-              fprintf (stderr, "LIPO cutoff value range is [0, 100]. \n");
+              fnotice (stderr, "LIPO cutoff value range is [0, 100]\n");
               exit (-1);
             }
           __gcov_lipo_cutoff = ret;;
