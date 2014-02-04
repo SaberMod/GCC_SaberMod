@@ -53,16 +53,22 @@ extern void set_use_existing_grouping (void);
 extern void set_use_modu_list (void);
 extern void lipo_set_substitute_string (const char *);
 
-/* The following defines are needed by dyn-ipa.c.  */
-gcov_unsigned_t __gcov_lipo_grouping_algorithm;
-gcov_unsigned_t __gcov_lipo_merge_modu_edges;
-gcov_unsigned_t __gcov_lipo_weak_inclusion;
-gcov_unsigned_t __gcov_lipo_max_mem;
-gcov_unsigned_t __gcov_lipo_random_group_size;
-gcov_unsigned_t __gcov_lipo_cutoff;
-gcov_unsigned_t __gcov_lipo_random_seed;
-gcov_unsigned_t __gcov_lipo_dump_cgraph;
-gcov_unsigned_t __gcov_lipo_propagate_scale;
+/* The following defines are needed by dyn-ipa.c.
+   They will also be emitted by the compiler with -fprofile-generate,
+   which means this file cannot be compiled with -fprofile-generate
+   -- otherwise we get duplicated defintions.
+   Make the defines weak to link with other objects/libraries
+   that potentially compiled with -fprofile-generate.  */
+
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_grouping_algorithm;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_merge_modu_edges;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_weak_inclusion;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_max_mem;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_random_group_size;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_cutoff;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_random_seed;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_dump_cgraph;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_propagate_scale;
 
 static int verbose;
 

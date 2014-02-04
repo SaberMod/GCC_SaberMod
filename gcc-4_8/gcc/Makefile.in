@@ -4090,6 +4090,9 @@ dyn-ipa.o: $(srcdir)/../libgcc/dyn-ipa.c gcov-io.c $(srcdir)/../libgcc/libgcov.h
 GCOV_TOOL_OBJS = gcov-tool.o libgcov-util.o dyn-ipa.o gcov-params.o
 gcov-tool.o: gcov-tool.c $(GCOV_IO_H) intl.h $(SYSTEM_H) coretypes.h $(TM_H) \
    $(CONFIG_H) version.h $(DIAGNOSTIC_H)
+	+$(COMPILER) -c $(ALL_CPPFLAGS) \
+	  $(filter-out -fprofile-generate -fprofile-use,$(ALL_COMPILERFLAGS)) \
+	  $(INCLUDES) -o $@ $<
 gcov-params.o: params.c $(PARAMS_H)
 	+$(COMPILER) -DIN_GCOV_TOOL -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
 	  $(INCLUDES) -o $@ $<
