@@ -1316,3 +1316,7 @@ FAIL: g++.dg/opt/pr52727.C -std=gnu++11 (test for excess errors)
 # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35767
 # Currently failing on trunk.
 FAIL: gcc.target/i386/pr35767-5.c scan-assembler-not movups
+
+# Fails when linked with gold:
+# http://gcc.gnu.org/ml/gcc-patches/2014-02/msg00239.html
+FAIL: gcc.dg/vect/no-vfa-vect-depend-2.c execution test
