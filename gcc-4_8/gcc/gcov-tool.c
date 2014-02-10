@@ -43,8 +43,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 extern int gcov_profile_merge (struct gcov_info*, struct gcov_info*, int, int);
 extern int gcov_profile_normalize (struct gcov_info*, gcov_type);
-extern int gcov_profile_scale (struct gcov_info*, float);
-extern int gcov_profile_scale2 (struct gcov_info*, int, int);
+extern int gcov_profile_scale (struct gcov_info*, float, int, int);
 extern struct gcov_info* gcov_read_profile_dir (const char*, int);
 extern void gcov_exit (void);
 extern void set_gcov_list (struct gcov_info *);
@@ -227,45 +226,13 @@ do_merge (int argc, char **argv)
   return ret;
 }
 
-/* Scale the counters in profile DIR by a factor of N/D.
-   Result is written to dir OUT. Return 0 on success.  */
-
-static int
-profile_rewrite2 (const char *dir, const char *out, int n, int d)
-{
-  char *pwd;
-  int ret;
-  struct gcov_info * profile;
-
-
-  profile = gcov_read_profile_dir (dir, 0);
-  if (!profile)
-    return 1;
-
-  /* Output new profile.  */
-  unlink_profile_dir (out);
-  mkdir (out, 0755);
-  pwd = getcwd (NULL, 0);
-  gcc_assert (pwd);
-  ret = chdir (out);
-  gcc_assert (ret == 0);
-
-  gcov_profile_scale2 (profile, n, d);
-
-  set_gcov_list (profile);
-  gcov_exit ();
-
-  ret = chdir (pwd);
-  free (pwd);
-  return 0;
-}
-
 /* If N_VAL is no-zero, normalize the profile by setting the largest counter
    counter value to N_VAL and scale others counters proportionally.
    Otherwise, multiply the all counters by SCALE.  */
 
 static int
-profile_rewrite (const char *d1, const char *out, long long n_val, float scale)
+profile_rewrite (const char *d1, const char *out, long long n_val,
+                 float scale, int n, int d)
 {
   char *pwd;
   int ret;
@@ -287,7 +254,7 @@ profile_rewrite (const char *d1, const char *out, long long n_val, float scale)
   if (n_val)
     gcov_profile_normalize (d1_profile, (gcov_type) n_val);
   else
-    gcov_profile_scale (d1_profile, scale);
+    gcov_profile_scale (d1_profile, scale, n, d);
 
   set_gcov_list (d1_profile);
   gcov_exit ();
@@ -604,9 +571,9 @@ do_rewrite (int argc, char **argv)
   if (argc - optind == 1)
     {
       if (denominator > 0)
-        ret = profile_rewrite2 (argv[optind],  output_dir, numerator, denominator);
+        ret = profile_rewrite (argv[optind],  output_dir, 0, 0.0, numerator, denominator);
       else
-        ret = profile_rewrite (argv[optind],  output_dir, normalize_val, scale);
+        ret = profile_rewrite (argv[optind],  output_dir, normalize_val, scale, 0, 0);
     }
   else
     rewrite_usage ();
