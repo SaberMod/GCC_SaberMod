@@ -1,5 +1,10 @@
 2014-02-11  Cong Hou  <congh@google.com>
 
+	* c-family/c-opts.c (c_common_init_options_struct): 
+	Don't set x_flag_complex_method to 2 for C++.
+
+2014-02-11  Cong Hou  <congh@google.com>
+
 	* config/i386/i386.c: Add m_GENERIC to
 	X86_TUNE_SSE_UNALIGNED_LOAD_OPTIMAL and
 	X86_TUNE_SSE_UNALIGNED_STORE_OPTIMAL.
