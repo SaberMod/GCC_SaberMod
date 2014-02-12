@@ -8918,7 +8918,6 @@ add_top_level_skeleton_die_attrs (dw_die_ref die)
   if (comp_dir != NULL)
     add_skeleton_AT_string (die, DW_AT_comp_dir, comp_dir);
   add_AT_pubnames (die);
-  add_AT_lineptr (die, DW_AT_GNU_addr_base, debug_addr_section_label);
 }
 
 /* Return the single type-unit die for skeleton type units.  */
@@ -23929,6 +23928,8 @@ dwarf2out_finish (const char *filename)
          skeleton die attrs are added when the skeleton type unit is
          created, so ensure it is created by this point.  */
       add_top_level_skeleton_die_attrs (main_comp_unit_die);
+      add_AT_lineptr (main_comp_unit_die, DW_AT_GNU_addr_base,
+                      debug_addr_section_label);
       (void) get_skeleton_type_unit ();
       htab_traverse_noresize (debug_str_hash, index_string, &index);
     }
