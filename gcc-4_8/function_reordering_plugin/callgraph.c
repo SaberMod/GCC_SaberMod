@@ -550,6 +550,27 @@ static void set_node_type (Node *n)
       s->computed_weight = n->computed_weight; 
       s->max_count = n->max_count;
 
+      /* If s is split into a cold section, assign the split weight to the
+         max count of the split section.   Use this also for the weight of the
+         split section.  */
+      if (s->split_section)
+        {
+          s->split_section->max_count = s->split_section->weight = n->split_weight;
+          /* If split_section is comdat, update all the comdat
+    	     candidates for weight.  */
+          s_comdat = s->split_section->comdat_group;
+          while (s_comdat != NULL)
+            {
+	      /* Set the different weights for comdat candidates.  No need to se
+		 computed_weight as it is zero for split sections.  A split cold
+		 section is never called, it is only jumped into from the parent
+		 section.  */
+              s_comdat->weight = s->split_section->weight;
+              s_comdat->max_count = s->split_section->max_count;
+              s_comdat = s_comdat->comdat_group;
+            }
+	}
+
       /* If s is comdat, update all the comdat candidates for weight.  */
       s_comdat = s->comdat_group;
       while (s_comdat != NULL)
@@ -699,26 +720,131 @@ map_section_name_to_index (char *section_name, void *handle, int shndx)
     }
   else
     {
-      /* The function already exists, it must be a COMDAT.  Only one section
-	 in the comdat group will be kept, we don't know which.  Chain all the
-         comdat sections in the same comdat group to be emitted together later.
-         Keep one section as representative (kept) and update its section_type
-         to be equal to the type of the highest priority section in the
-         group.  */
+      /* Handle function splitting here.  With function splitting, the split
+         function sections have the same name and they are in the same module.
+	 Here, we only care about the section that is marked with prefix
+	 like ".text.hot".  The other section is cold.  The plugin should not
+	 be adding this cold section to the section_map.  In get_layout it will
+	 later be picked up when processing the non-callgraph sections and it
+	 will laid out appropriately.  */
       Section_id *kept = (Section_id *)(*slot);
       Section_id *section = make_section_id (function_name, section_name,
                                              section_type, handle, shndx);
+      int is_split_function = 0;
+      Section_id *split_comdat = NULL;
+      /* Check if this is a split function. The modules are the same means this
+	 is not comdat and we assume it is split.  It can be split and comdat
+	 too, in which case we have to search the comdat list of kept.  */
+      if (kept->handle == handle)
+	is_split_function = 1;
+      else if (kept->comdat_group != NULL)
+	{
+	  split_comdat = kept;
+	  do
+	    {
+	      if (split_comdat->comdat_group->handle == handle)
+		break;
+	      split_comdat = split_comdat->comdat_group;
+	    }
+	  while (split_comdat->comdat_group != NULL);
+	}
 
-      /* Two comdats in the same group can have different priorities.  This
-	 ensures that the "kept" comdat section has the priority of the higest
-  	 section in that comdat group.   This is necessary because the plugin
-	 does not know which section will be kept.  */
-      if (section_priority[kept->section_type]
-	  > section_priority[section_type])
-        kept->section_type = section_type;
+      /* It is split and it is comdat.  */
+      if (split_comdat != NULL
+	  && split_comdat->comdat_group != NULL)
+	{
+	  /* The comdat_section that is split.  */
+	  Section_id *comdat_section = split_comdat->comdat_group;
+	  Section_id *cold_section = NULL;
+	  /* If the existing section is cold, the newly detected split must 
+	     be hot.  */
+	  if (is_prefix_of (".text.unlikely", comdat_section->full_name))
+	    {
+	      assert (!is_prefix_of (".text.unlikely", section_name));
+	      cold_section = comdat_section;
+	      /* Replace the comdat_section in the kept section list with the
+		 new section.  */
+	      split_comdat->comdat_group = section;
+	      section->comdat_group = comdat_section->comdat_group;
+	      comdat_section->comdat_group = NULL;
+	    }
+	  else
+	    {
+	      assert (is_prefix_of (".text.unlikely", section_name));
+	      cold_section = section;
+	    }
+	  assert (cold_section != NULL && cold_section->comdat_group == NULL);
+	  cold_section->is_split_cold_section = 1;
+	  /* The cold section must be added to the unlikely chain of comdat
+	     groups.  */
+	  if (kept->split_section == NULL)
+	    {	
+	      /* This happens if no comdat function in this group so far has
+		 been split.  */
+	      kept->split_section = cold_section;
+	    }
+	  else
+	    {
+	      /* Add the cold_section to the unlikely chain of comdats.  */
+	      cold_section->comdat_group = kept->split_section->comdat_group;
+	      kept->split_section->comdat_group = cold_section;
+	    }
+	}
+      /* It is split and it is not comdat.  */
+      else if (is_split_function)
+	{
+	  Section_id *cold_section = NULL;
+	  /* Function splitting means that the "hot" part is really the
+	     relevant section and the other section is unlikely executed and
+	     should not be part of the callgraph.  */
 
-      section->comdat_group = kept->comdat_group;
-      kept->comdat_group = section;
+	  /* Store the new section in the section list.  */
+	  section->next = first_section;
+	  first_section = section;
+	  /* If the existing section is cold, the newly detected split must 
+	     be hot.  */
+          if (is_prefix_of (".text.unlikely", kept->full_name))
+	    {
+	      assert (!is_prefix_of (".text.unlikely", section_name));
+	      /* The kept section was the unlikely section.  Change the section
+		 in section_map to be the new section which is the hot one.  */
+	      *slot = section;
+	      /* Record the split cold section in the hot section.  */
+	      section->split_section = kept;
+	      /* Comdats and function splitting are already handled.  */
+	      assert (kept->comdat_group == NULL);
+	      cold_section = kept;
+	    }
+	  else
+	    {
+	      /* Record the split cold section in the hot section.  */
+	      assert (is_prefix_of (".text.unlikely", section_name));
+	      kept->split_section = section;
+	      cold_section = section;
+	    }
+	  assert (cold_section != NULL && cold_section->comdat_group == NULL);
+	  cold_section->is_split_cold_section = 1;
+	}
+      else
+	{
+          /* The function already exists, it must be a COMDAT.  Only one section
+	     in the comdat group will be kept, we don't know which.  Chain all
+	     the comdat sections in the same comdat group to be emitted
+	     together later.  Keep one section as representative (kept) and
+	     update its section_type to be equal to the type of the highest
+	     priority section in the group.  */
+
+          /* Two comdats in the same group can have different priorities.  This
+	     ensures that the "kept" comdat section has the priority of the
+	     highest section in that comdat group.   This is necessary because
+	     the plugin does not know which section will be kept.  */
+          if (section_priority[kept->section_type]
+	      > section_priority[section_type])
+            kept->section_type = section_type;
+
+          section->comdat_group = kept->comdat_group;
+          kept->comdat_group = section;
+	}
     }
 }
 
@@ -1012,8 +1138,10 @@ get_layout (FILE *fp, void*** handles,
 	  if (fp != NULL)
 	    {
 	      fprintf (fp, "%s entry count = %llu computed = %llu "
-		       "max count = %llu\n", s_it->full_name, s_it->weight,
-		       s_it->computed_weight, s_it->max_count);
+		       "max count = %llu split = %d\n", 
+		       s_it->full_name, s_it->weight,
+		       s_it->computed_weight, s_it->max_count,
+		       s_it->is_split_cold_section);
 	    }
 	  s_it = s_it->group;
         }

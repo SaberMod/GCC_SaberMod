@@ -15,5 +15,5 @@ int main()
 }
 
 /* { dg-final-use { scan-file-not linker.dump "Callgraph group" } }  */
-/* { dg-final-use { scan-file linker.dump "=== Unlikely sections start ===\n.*\.text\.hot\._Z3foov.* entry count = 1 computed = 1 max count = 1\n.*=== Unlikely sections end ===" } }  */
+/* { dg-final-use { scan-file linker.dump "=== Unlikely sections start ===\n.*\.text\.hot\._Z3foov.* entry count = 1 computed = 1 max count = 1 split = 0\n.*=== Unlikely sections end ===" } }  */
 /* { dg-final-use { remove-build-file "linker.dump" } }  */

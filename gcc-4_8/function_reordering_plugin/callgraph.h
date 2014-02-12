@@ -236,6 +236,8 @@ typedef struct section_id_
      is comdat hot and kept, pointer to the kept cold split
      section.  */
   struct section_id_ *split_section;
+  /* If this is the cold part of a split section.  */
+  char is_split_cold_section;
   /* Check if this section has been considered for output.  */
   char processed;
 } Section_id;
@@ -260,6 +262,7 @@ make_section_id (char *name, char *full_name,
   s->computed_weight = 0;
   s->max_count = 0;
   s->split_section = NULL;
+  s->is_split_cold_section = 0;
 
   return s;
 }
