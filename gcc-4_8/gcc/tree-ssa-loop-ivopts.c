@@ -705,6 +705,115 @@ idx_contains_abnormal_ssa_name_p (tree base, tree *index,
   return !abnormal_ssa_name_p (*index);
 }
 
+/* Return true if the use is defined by a gcov counter var.
+   It is used to check if an iv candidate is generated for
+   profiling. For profile generated ssa name, we should not
+   use it as IV because gcov counter may have data-race for
+   multithread program, it is compiler's responsibility to
+   avoid connecting profile counter related vars with program
+   correctness.
+
+   Without the check, the following bug could happen in
+   following case:
+   * original loop
+
+     int i;
+     for (i = 0; i < N; i++) {
+       t = *(void **)t;
+     }
+
+   * after profile-gen and IVOPT, loop condition is replaced and
+     pretmp_1 is involved in loop boundary computation.
+
+     pretmp_1 = __gcov0.foo[0];
+     _22 = pretmp_1 + 1;
+     ...
+     _31 = (unsigned long) pretmp_1;
+     _32 = _30 + _31;
+     _33 = _32 + 2;
+  label:
+     ivtmp.8_9 = PHI <ivtmp.8_5(5), ivtmp.8_2(3)>
+     PROF_edge_counter_10 = (long int) ivtmp.8_9;
+     __gcov0.foo[0] = PROF_edge_counter_10;
+       ...
+     ivtmp.8_5 = ivtmp.8_9 + 1;
+     if (ivtmp.8_5 != _33)
+       goto label
+
+   * after register allocation, pretmp_1 may be marked as REG_EQUIV in IRA
+     with __gcov0.foo[0] and some references are replaced by __gcov0.foo in LRA.
+
+     _22 = __gcov0.foo[0] + 1;
+     ...
+     _31 = (unsigned long) __gcov0.foo[0];
+     _32 = _30 + _31;
+     _33 = _32 + 2;
+  label:
+     ....
+
+   * Bug happens when __gcov0.foo[0] is updated asynchronously by other thread
+     between the above __gcov0.foo[0] references statements.
+
+   We don't choose to mark gcov counter as volatile because it may greatly
+   degrade profile-gen performance.
+
+   To limit patterns to be checked, we list the possible cases
+   here:
+   Before PRE, the ssa name used to set __gcov counter is as
+   follows:
+   for () {
+     PROF_edge_counter_1 = __gcov.foo[i];
+     PROF_edge_counter_2 = PROF_edge_counter_1 + 1;
+     __gcov.foo[i] = PROF_edge_counter_2;
+   }
+   If PRE works, the loop may be transformed to:
+   pretmp_1 = __gcov.foo[i];
+   for () {
+     prephitmp_1 = PHI (PROF_edge_counter_2, pretmp_1);
+     PROF_edge_counter_1 = prephitmp_1;
+     PROF_edge_counter_2 = PROF_edge_counter_1 + 1;
+     __gcov.foo[i] = PROF_edge_counter_2;
+   }
+   So there are two cases:
+   case1: If PRE doesn't work, PROF_edge_counter_1 and PROF_edge_counter_2
+   are neither induction variables candidates. We don't have to worry
+   about this case.
+   case2: If PRE works, the iv candidate base of PROF_edge_counter_1 and
+   PROF_edge_counter_2 are pretmp_1 or pretmp_1 + 1. pretmp_1 is defined
+   by __gcov var.
+
+   So this func only has to check case2. For a ssa name which is an iv
+   candidate, check its base USE and see if it is defined by __gcov var.
+   Returning true means the ssa name is generated for profiling.  */
+
+bool
+defined_by_gcov_counter (tree use)
+{
+  gimple stmt;
+  tree rhs, decl;
+  const char *name;
+
+  stmt = SSA_NAME_DEF_STMT (use);
+  if (!is_gimple_assign (stmt))
+    return false;
+
+  rhs = gimple_assign_rhs1 (stmt);
+  if (TREE_CODE (rhs) != ARRAY_REF)
+    return false;
+
+  decl = TREE_OPERAND (rhs, 0);
+  if (TREE_CODE (decl) != VAR_DECL
+      || !TREE_STATIC (decl)
+      || !DECL_ARTIFICIAL (decl))
+    return false;
+
+  name = IDENTIFIER_POINTER (DECL_NAME (decl));
+  if (strncmp (name, "__gcov", 6))
+    return false;
+
+  return true;
+}
+
 /* Returns true if EXPR contains a ssa name that occurs in an
    abnormal phi node.  */
 
@@ -721,7 +830,8 @@ contains_abnormal_ssa_name_p (tree expr)
   codeclass = TREE_CODE_CLASS (code);
 
   if (code == SSA_NAME)
-    return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0;
+    return SSA_NAME_OCCURS_IN_ABNORMAL_PHI (expr) != 0
+	   || defined_by_gcov_counter (expr);
 
   if (code == INTEGER_CST
       || is_gimple_min_invariant (expr))

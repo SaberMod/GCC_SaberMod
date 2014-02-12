@@ -1485,6 +1485,7 @@ build_var (tree fn_decl, tree type, int counter)
   TREE_STATIC (var) = 1;
   TREE_ADDRESSABLE (var) = 1;
   DECL_ALIGN (var) = TYPE_ALIGN (type);
+  DECL_ARTIFICIAL (var) = 1;
 
   return var;
 }
