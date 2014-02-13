@@ -2277,7 +2277,6 @@ void
 insert_section_boundary_note (void)
 {
   basic_block bb;
-  rtx new_note;
   bool switched_sections = false;
   int current_partition = 0;
 
