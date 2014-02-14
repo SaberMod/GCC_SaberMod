@@ -4093,7 +4093,8 @@ gcov-tool.o: gcov-tool.c $(GCOV_IO_H) intl.h $(SYSTEM_H) coretypes.h $(TM_H) \
 	+$(COMPILER) -c $(ALL_CPPFLAGS) \
 	  $(filter-out -fprofile-generate -fprofile-use,$(ALL_COMPILERFLAGS)) \
 	  $(INCLUDES) -o $@ $<
-gcov-params.o: params.c $(PARAMS_H)
+gcov-params.o: params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(COMMON_TARGET_H) \
+   $(PARAMS_H) $(DIAGNOSTIC_CORE_H)
 	+$(COMPILER) -DIN_GCOV_TOOL -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) \
 	  $(INCLUDES) -o $@ $<
 gcov-tool$(exeext): $(GCOV_TOOL_OBJS) $(LIBDEPS)
