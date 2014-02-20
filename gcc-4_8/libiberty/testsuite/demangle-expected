@@ -4291,3 +4291,23 @@ void m<void () &&>(void (A::*)() &&)
 --format=gnu-v3
 _Z1nIM1AKFvvREEvT_
 void n<void (A::*)() const &>(void (A::*)() const &)
+#
+--format=gnu-v3 --no-params
+_ZNK7strings8internal8SplitterINS_9delimiter5AnyOfENS_9SkipEmptyEEcvT_ISt6vectorI12basic_stringIcSt11char_traitsIcESaIcEESaISD_EEvEEv
+strings::internal::Splitter<strings::delimiter::AnyOf, strings::SkipEmpty>::operator std::vector<basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<basic_string<char, std::char_traits<char>, std::allocator<char> > > ><std::vector<basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<basic_string<char, std::char_traits<char>, std::allocator<char> > > >, void>() const
+strings::internal::Splitter<strings::delimiter::AnyOf, strings::SkipEmpty>::operator std::vector<basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<basic_string<char, std::char_traits<char>, std::allocator<char> > > ><std::vector<basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<basic_string<char, std::char_traits<char>, std::allocator<char> > > >, void>
+#
+--format=gnu-v3 --no-params
+_ZN1AcvT_I1CEEv
+A::operator C<C>()
+A::operator C<C>
+#
+--format=gnu-v3 --no-params
+_ZN1AcvPT_I1CEEv
+A::operator C*<C>()
+A::operator C*<C>
+#
+--format=gnu-v3 --no-params
+_ZN1AcvT_IiEI1CEEv
+A::operator C<int><C>()
+A::operator C<int><C>
