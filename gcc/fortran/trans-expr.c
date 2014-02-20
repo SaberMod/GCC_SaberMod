@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "langhooks.h"
 #include "flags.h"
@@ -38,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Only for gfc_trans_assign and gfc_trans_pointer_assign.  */
 #include "trans-stmt.h"
 #include "dependency.h"
-#include "gimple.h"
 #include "gimplify.h"
 
 
@@ -558,7 +558,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   /* Set the vptr.  */
   ctree =  gfc_class_vptr_get (var);
 
-  vtab = gfc_find_intrinsic_vtab (&e->ts);
+  vtab = gfc_find_vtab (&e->ts);
   gcc_assert (vtab);
   tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
   gfc_add_modify (&parmse->pre, ctree,
@@ -1015,12 +1015,10 @@ gfc_trans_class_assign (gfc_expr *expr1, gfc_expr *expr2, gfc_exec_op op)
  	  goto assign_vptr;
 	}
 
-      if (expr2->ts.type == BT_DERIVED)
-	vtab = gfc_find_derived_vtab (expr2->ts.u.derived);
-      else if (expr2->expr_type == EXPR_NULL)
-	vtab = gfc_find_derived_vtab (expr1->ts.u.derived);
+      if (expr2->expr_type == EXPR_NULL)
+	vtab = gfc_find_vtab (&expr1->ts);
       else
-	vtab = gfc_find_intrinsic_vtab (&expr2->ts);
+	vtab = gfc_find_vtab (&expr2->ts);
       gcc_assert (vtab);
 
       rhs = gfc_get_expr ();
@@ -4049,7 +4047,11 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
-	  gfc_conv_expr_reference (&parmse, e);
+	  if (fsym && fsym->attr.value)
+	    gfc_conv_expr (&parmse, e);
+	  else
+	    gfc_conv_expr_reference (&parmse, e);
+
 	  if (e->ts.type == BT_CHARACTER && !e->rank
 	      && e->expr_type == EXPR_FUNCTION)
 	    parmse.expr = build_fold_indirect_ref_loc (input_location,
@@ -6352,7 +6354,13 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       /* Returns a reference to the scalar evaluated outside the loop
 	 for this case.  */
       gfc_conv_expr (se, expr);
-      se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
+      if (expr->ts.type == BT_CHARACTER
+	  && expr->expr_type != EXPR_FUNCTION)
+	gfc_conv_string_parameter (se);
+      else
+	se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
       return;
     }
 

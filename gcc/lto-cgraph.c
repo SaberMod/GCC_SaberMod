@@ -1,7 +1,7 @@
 /* Write and read the cgraph to the memory mapped representation of a
    .o file.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -25,6 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "expr.h"
 #include "flags.h"
@@ -32,15 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "hashtab.h"
 #include "langhooks.h"
-#include "basic-block.h"
 #include "bitmap.h"
 #include "function.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "except.h"
-#include "vec.h"
 #include "timevar.h"
-#include "pointer-set.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
 #include "tree-streamer.h"
@@ -50,6 +52,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "ipa-utils.h"
+
+/* True when asm nodes has been output.  */
+bool asm_nodes_output = false;
 
 static void output_cgraph_opt_summary (void);
 static void input_cgraph_opt_summary (vec<symtab_node *>  nodes);
@@ -202,7 +207,7 @@ lto_set_symtab_encoder_encode_body (lto_symtab_encoder_t encoder,
 
 bool
 lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t encoder,
-					 struct varpool_node *node)
+					 varpool_node *node)
 {
   int index = lto_symtab_encoder_lookup (encoder, node);
   if (index == LCC_NOT_FOUND)
@@ -214,7 +219,7 @@ lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t encoder,
 
 static void
 lto_set_symtab_encoder_encode_initializer (lto_symtab_encoder_t encoder,
-					   struct varpool_node *node)
+					   varpool_node *node)
 {
   int index = lto_symtab_encoder_lookup (encoder, node);
   encoder->nodes[index].initializer = true;
@@ -275,7 +280,7 @@ lto_output_edge (struct lto_simple_output_block *ob, struct cgraph_edge *edge,
   bp = bitpack_create (ob->main_stream);
   uid = (!gimple_has_body_p (edge->caller->decl)
 	 ? edge->lto_stmt_uid : gimple_uid (edge->call_stmt) + 1);
-  bp_pack_enum (&bp, cgraph_inline_failed_enum,
+  bp_pack_enum (&bp, cgraph_inline_failed_t,
 	        CIF_N_REASONS, edge->inline_failed);
   bp_pack_var_len_unsigned (&bp, uid);
   bp_pack_var_len_unsigned (&bp, edge->frequency);
@@ -387,7 +392,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   intptr_t ref;
   bool in_other_partition = false;
   struct cgraph_node *clone_of, *ultimate_clone_of;
-  struct ipa_opt_pass_d *pass;
+  ipa_opt_pass_d *pass;
   int i;
   bool alias_p;
 
@@ -412,7 +417,8 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
      Cherry-picked nodes:  These are nodes we pulled from other
      translation units into SET during IPA-inlining.  We make them as
      local static nodes to prevent clashes with other local statics.  */
-  if (boundary_p && node->analyzed && !DECL_EXTERNAL (node->decl))
+  if (boundary_p && node->analyzed
+      && symtab_get_symbol_partitioning_class (node) == SYMBOL_PARTITION)
     {
       /* Inline clones can not be part of boundary.  
          gcc_assert (!node->global.inlined_to);  
@@ -496,8 +502,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->unique_name, 1);
   bp_pack_value (&bp, node->address_taken, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
-		 && !DECL_EXTERNAL (node->decl)
-		 && !DECL_COMDAT (node->decl)
+		 && symtab_get_symbol_partitioning_class (node) == SYMBOL_PARTITION
 		 && (reachable_from_other_partition_p (node, encoder)
 		     || referenced_from_other_partition_p (&node->ref_list,
 							   encoder)), 1);
@@ -516,6 +521,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->only_called_at_startup, 1);
   bp_pack_value (&bp, node->only_called_at_exit, 1);
   bp_pack_value (&bp, node->tm_clone, 1);
+  bp_pack_value (&bp, node->calls_comdat_local, 1);
   bp_pack_value (&bp, node->thunk.thunk_p && !boundary_p, 1);
   bp_pack_enum (&bp, ld_plugin_symbol_resolution,
 	        LDPR_NUM_KNOWN, node->resolution);
@@ -537,7 +543,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
    If NODE is not in SET, then NODE is a boundary.  */
 
 static void
-lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node *node,
+lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
 			 lto_symtab_encoder_t encoder)
 {
   bool boundary_p = !lto_symtab_encoder_in_partition_p (encoder, node);
@@ -563,9 +569,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
   /* Constant pool initializers can be de-unified into individual ltrans units.
      FIXME: Alternatively at -Os we may want to avoid generating for them the local
      labels and share them across LTRANS partitions.  */
-  if (DECL_IN_CONSTANT_POOL (node->decl)
-      && !DECL_EXTERNAL (node->decl)
-      && !DECL_COMDAT (node->decl))
+  if (symtab_get_symbol_partitioning_class (node) != SYMBOL_PARTITION)
     {
       bp_pack_value (&bp, 0, 1);  /* used_from_other_parition.  */
       bp_pack_value (&bp, 0, 1);  /* in_other_partition.  */
@@ -794,7 +798,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
     {
-      struct varpool_node *vnode = lsei_varpool_node (lsei);
+      varpool_node *vnode = lsei_varpool_node (lsei);
 
       lto_set_symtab_encoder_in_partition (encoder, vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
@@ -802,7 +806,7 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       /* For proper debug info, we need to ship the origins, too.  */
       if (DECL_ABSTRACT_ORIGIN (vnode->decl))
 	{
-	  struct varpool_node *origin_node
+	  varpool_node *origin_node
 	  = varpool_get_node (DECL_ABSTRACT_ORIGIN (node->decl));
 	  lto_set_symtab_encoder_in_partition (encoder, origin_node);
 	}
@@ -887,7 +891,6 @@ output_symtab (void)
   lto_symtab_encoder_iterator lsei;
   int i, n_nodes;
   lto_symtab_encoder_t encoder;
-  static bool asm_nodes_output = false;
 
   if (flag_wpa)
     output_cgraph_opt_summary ();
@@ -991,6 +994,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->only_called_at_startup = bp_unpack_value (bp, 1);
   node->only_called_at_exit = bp_unpack_value (bp, 1);
   node->tm_clone = bp_unpack_value (bp, 1);
+  node->calls_comdat_local = bp_unpack_value (bp, 1);
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
@@ -1058,12 +1062,12 @@ input_node (struct lto_file_decl_data *file_data,
   node->ipa_transforms_to_apply = vNULL;
   for (i = 0; i < count; i++)
     {
-      struct opt_pass *pass;
+      opt_pass *pass;
       int pid = streamer_read_hwi (ib);
 
       gcc_assert (pid < passes->passes_by_id_size);
       pass = passes->passes_by_id[pid];
-      node->ipa_transforms_to_apply.safe_push ((struct ipa_opt_pass_d *) pass);
+      node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *) pass);
     }
 
   if (tag == LTO_symtab_analyzed_node)
@@ -1111,13 +1115,13 @@ input_node (struct lto_file_decl_data *file_data,
 /* Read a node from input_block IB.  TAG is the node's tag just read.
    Return the node read or overwriten.  */
 
-static struct varpool_node *
+static varpool_node *
 input_varpool_node (struct lto_file_decl_data *file_data,
 		    struct lto_input_block *ib)
 {
   int decl_index;
   tree var_decl;
-  struct varpool_node *node;
+  varpool_node *node;
   struct bitpack_d bp;
   int ref = LCC_NOT_FOUND;
   int order;
@@ -1223,7 +1227,7 @@ input_edge (struct lto_input_block *ib, vec<symtab_node *> nodes,
   count = streamer_read_gcov_count (ib);
 
   bp = streamer_read_bitpack (ib);
-  inline_failed = bp_unpack_enum (&bp, cgraph_inline_failed_enum, CIF_N_REASONS);
+  inline_failed = bp_unpack_enum (&bp, cgraph_inline_failed_t, CIF_N_REASONS);
   stmt_id = bp_unpack_var_len_unsigned (&bp);
   freq = (int) bp_unpack_var_len_unsigned (&bp);
 

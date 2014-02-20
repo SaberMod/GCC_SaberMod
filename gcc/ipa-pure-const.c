@@ -1,5 +1,5 @@
 /* Callgraph based analysis of static variables.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -36,6 +36,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "print-tree.h"
+#include "calls.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -44,8 +52,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "pointer-set.h"
-#include "ggc.h"
 #include "ipa-utils.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -583,7 +589,7 @@ check_call (funct_state local, gimple call, bool ipa)
 /* Wrapper around check_decl for loads in local more.  */
 
 static bool
-check_load (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+check_load (gimple, tree op, tree, void *data)
 {
   if (DECL_P (op))
     check_decl ((funct_state)data, op, false, false);
@@ -595,7 +601,7 @@ check_load (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
 /* Wrapper around check_decl for stores in local more.  */
 
 static bool
-check_store (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+check_store (gimple, tree op, tree, void *data)
 {
   if (DECL_P (op))
     check_decl ((funct_state)data, op, true, false);
@@ -607,7 +613,7 @@ check_store (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
 /* Wrapper around check_decl for loads in ipa mode.  */
 
 static bool
-check_ipa_load (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+check_ipa_load (gimple, tree op, tree, void *data)
 {
   if (DECL_P (op))
     check_decl ((funct_state)data, op, false, true);
@@ -619,7 +625,7 @@ check_ipa_load (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
 /* Wrapper around check_decl for stores in ipa mode.  */
 
 static bool
-check_ipa_store (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+check_ipa_store (gimple, tree op, tree, void *data)
 {
   if (DECL_P (op))
     check_decl ((funct_state)data, op, true, true);
@@ -743,12 +749,12 @@ analyze_function (struct cgraph_node *fn, bool ipa)
   if (dump_file)
     {
       fprintf (dump_file, "\n\n local analysis of %s\n ",
-	       cgraph_node_name (fn));
+	       fn->name ());
     }
 
   push_cfun (DECL_STRUCT_FUNCTION (decl));
 
-  FOR_EACH_BB (this_block)
+  FOR_EACH_BB_FN (this_block, cfun)
     {
       gimple_stmt_iterator gsi;
       struct walk_stmt_info wi;
@@ -789,17 +795,16 @@ end:
 	    }
 	  else
 	    {
-	      loop_iterator li;
 	      struct loop *loop;
 	      scev_initialize ();
-	      FOR_EACH_LOOP (li, loop, 0)
+	      FOR_EACH_LOOP (loop, 0)
 		if (!finite_loop_p (loop))
 		  {
 		    if (dump_file)
 		      fprintf (dump_file, "    can not prove finiteness of "
 			       "loop %i\n", loop->num);
 		    l->looping =true;
-		    FOR_EACH_LOOP_BREAK (li);
+		    break;
 		  }
 	      scev_finalize ();
 	    }
@@ -1038,7 +1043,7 @@ pure_const_read_summary (void)
 		{
 		  int flags = flags_from_decl_or_type (node->decl);
 		  fprintf (dump_file, "Read info for %s/%i ",
-			   cgraph_node_name (node),
+			   node->name (),
 			   node->order);
 		  if (flags & ECF_CONST)
 		    fprintf (dump_file, " const");
@@ -1138,7 +1143,7 @@ propagate_pure_const (void)
 	  funct_state w_l = get_function_state (w);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Visiting %s/%i state:%s looping %i\n",
-		     cgraph_node_name (w),
+		     w->name (),
 		     w->order,
 		     pure_const_names[w_l->pure_const_state],
 		     w_l->looping);
@@ -1185,7 +1190,7 @@ propagate_pure_const (void)
 		{
 		  fprintf (dump_file,
 			   "    Call to %s/%i",
-			   cgraph_node_name (e->callee),
+			   e->callee->name (),
 			   e->callee->order);
 		}
 	      if (avail > AVAIL_OVERWRITABLE)
@@ -1331,7 +1336,7 @@ propagate_pure_const (void)
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %sconst: %s\n",
 			     this_looping ? "looping " : "",
-			     cgraph_node_name (w));
+			     w->name ());
 		}
 	      cgraph_set_const_flag (w, true, this_looping);
 	      break;
@@ -1343,7 +1348,7 @@ propagate_pure_const (void)
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %spure: %s\n",
 			     this_looping ? "looping " : "",
-			     cgraph_node_name (w));
+			     w->name ());
 		}
 	      cgraph_set_pure_flag (w, true, this_looping);
 	      break;
@@ -1446,7 +1451,7 @@ propagate_nothrow (void)
 	      cgraph_set_nothrow_flag (w, true);
 	      if (dump_file)
 		fprintf (dump_file, "Function found to be nothrow: %s\n",
-			 cgraph_node_name (w));
+			 w->name ());
 	    }
 	  else if (can_throw && !TREE_NOTHROW (w->decl))
 	    w_l->can_throw = true;
@@ -1586,7 +1591,7 @@ local_pure_const (void)
 
   /* Do NORETURN discovery.  */
   if (!skip && !TREE_THIS_VOLATILE (current_function_decl)
-      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0)
+      && EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds) == 0)
     {
       warn_function_noreturn (cfun->decl);
       if (dump_file)
@@ -1722,7 +1727,7 @@ static unsigned int
 execute_warn_function_noreturn (void)
 {
   if (!TREE_THIS_VOLATILE (current_function_decl)
-      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0)
+      && EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds) == 0)
     warn_function_noreturn (current_function_decl);
   return 0;
 }

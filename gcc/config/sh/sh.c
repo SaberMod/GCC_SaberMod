@@ -1,5 +1,5 @@
 /* Output routines for GCC for Renesas / SuperH SH.
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
@@ -26,6 +26,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "flags.h"
 #include "expr.h"
 #include "optabs.h"
@@ -48,6 +52,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "sched-int.h"
 #include "params.h"
 #include "ggc.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "cfgloop.h"
@@ -304,9 +316,7 @@ static rtx sh_trampoline_adjust_address (rtx);
 static void sh_conditional_register_usage (void);
 static bool sh_legitimate_constant_p (enum machine_mode, rtx);
 static int mov_insn_size (enum machine_mode, bool);
-static int max_mov_insn_displacement (enum machine_mode, bool);
 static int mov_insn_alignment_mask (enum machine_mode, bool);
-static HOST_WIDE_INT disp_addr_displacement (rtx);
 static bool sequence_insn_p (rtx);
 static void sh_canonicalize_comparison (int *, rtx *, rtx *, bool);
 static void sh_canonicalize_comparison (enum rtx_code&, rtx&, rtx&,
@@ -716,7 +726,9 @@ got_mode_name:;
 
 /* Register SH specific RTL passes.  */
 extern opt_pass* make_pass_sh_treg_combine (gcc::context* ctx, bool split_insns,
-				     const char* name);
+					    const char* name);
+extern opt_pass* make_pass_sh_optimize_sett_clrt (gcc::context* ctx,
+						  const char* name);
 static void
 register_sh_passes (void)
 {
@@ -740,6 +752,13 @@ register_sh_passes (void)
      reordering as this sometimes creates new opportunities.  */
   register_pass (make_pass_sh_treg_combine (g, true, "sh_treg_combine3"),
 		 PASS_POS_INSERT_AFTER, "split4", 1);
+
+  /* Optimize sett and clrt insns, by e.g. removing them if the T bit value
+     is known after a conditional branch.
+     This must be done after basic blocks and branch conditions have
+     stabilized and won't be changed by further passes.  */
+  register_pass (make_pass_sh_optimize_sett_clrt (g, "sh_optimize_sett_clrt"),
+		 PASS_POS_INSERT_BEFORE, "sched2", 1);
 }
 
 /* Implement TARGET_OPTION_OVERRIDE macro.  Validate and override 
@@ -752,6 +771,11 @@ sh_option_override (void)
   SUBTARGET_OVERRIDE_OPTIONS;
   if (optimize > 1 && !optimize_size)
     target_flags |= MASK_SAVE_ALL_TARGET_REGS;
+
+  /* Set default values of TARGET_CBRANCHDI4 and TARGET_CMPEQDI_T.  */
+  TARGET_CBRANCHDI4 = 1;
+  TARGET_CMPEQDI_T = 0;
+
   sh_cpu = PROCESSOR_SH1;
   assembler_dialect = 0;
   if (TARGET_SH2)
@@ -3561,8 +3585,8 @@ mov_insn_size (enum machine_mode mode, bool consider_sh2a)
 
 /* Determine the maximum possible displacement for a move insn for the
    specified mode.  */
-static int
-max_mov_insn_displacement (enum machine_mode mode, bool consider_sh2a)
+int
+sh_max_mov_insn_displacement (machine_mode mode, bool consider_sh2a)
 {
   /* The 4 byte displacement move insns are the same as the 2 byte
      versions but take a 12 bit displacement.  All we need to do is to
@@ -3598,8 +3622,8 @@ mov_insn_alignment_mask (enum machine_mode mode, bool consider_sh2a)
 }
 
 /* Return the displacement value of a displacement address.  */
-static inline HOST_WIDE_INT
-disp_addr_displacement (rtx x)
+HOST_WIDE_INT
+sh_disp_addr_displacement (rtx x)
 {
   gcc_assert (satisfies_constraint_Sdd (x));
   return INTVAL (XEXP (XEXP (x, 0), 1));
@@ -3636,12 +3660,12 @@ sh_address_cost (rtx x, enum machine_mode mode,
 	 HImode and QImode loads/stores with displacement put pressure on
 	 R0 which will most likely require another reg copy.  Thus account
 	 a higher cost for that.  */
-      if (offset > 0 && offset <= max_mov_insn_displacement (mode, false))
+      if (offset > 0 && offset <= sh_max_mov_insn_displacement (mode, false))
 	return (mode == HImode || mode == QImode) ? 2 : 1;
 
       /* The displacement would fit into a 4 byte move insn (SH2A).  */
       if (TARGET_SH2A
-	  && offset > 0 && offset <= max_mov_insn_displacement (mode, true))
+	  && offset > 0 && offset <= sh_max_mov_insn_displacement (mode, true))
 	return 2;
 
       /* The displacement is probably out of range and will require extra
@@ -10154,7 +10178,7 @@ sh_legitimate_index_p (enum machine_mode mode, rtx op, bool consider_sh2a,
   else
     {
       const HOST_WIDE_INT offset = INTVAL (op);
-      const int max_disp = max_mov_insn_displacement (mode, consider_sh2a);
+      const int max_disp = sh_max_mov_insn_displacement (mode, consider_sh2a);
       const int align_mask = mov_insn_alignment_mask (mode, consider_sh2a);
 
       /* If the mode does not support any displacement always return false.
@@ -10340,7 +10364,7 @@ sh_find_mov_disp_adjust (enum machine_mode mode, HOST_WIDE_INT offset)
      effectively disable the small displacement insns.  */
   const int mode_sz = GET_MODE_SIZE (mode);
   const int mov_insn_sz = mov_insn_size (mode, false);
-  const int max_disp = max_mov_insn_displacement (mode, false);
+  const int max_disp = sh_max_mov_insn_displacement (mode, false);
   const int max_disp_next = max_disp + mov_insn_sz;
   HOST_WIDE_INT align_modifier = offset > 127 ? mov_insn_sz : 0;
   HOST_WIDE_INT offset_adjust;
@@ -11091,7 +11115,7 @@ sh_md_init_global (FILE *dump ATTRIBUTE_UNUSED,
   regmode_weight[1] = (short *) xcalloc (old_max_uid, sizeof (short));
   r0_life_regions = 0;
 
-  FOR_EACH_BB_REVERSE (b)
+  FOR_EACH_BB_REVERSE_FN (b, cfun)
   {
     find_regmode_weight (b, SImode);
     find_regmode_weight (b, SFmode);
@@ -13100,7 +13124,8 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
      the insns must have the appropriate alternatives.  */
   if ((mode == QImode || mode == HImode) && rclass != R0_REGS
       && satisfies_constraint_Sdd (x)
-      && disp_addr_displacement (x) <= max_mov_insn_displacement (mode, false))
+      && sh_disp_addr_displacement (x)
+	 <= sh_max_mov_insn_displacement (mode, false))
     return R0_REGS;
 
   /* When reload is trying to address a QImode or HImode subreg on the stack, 

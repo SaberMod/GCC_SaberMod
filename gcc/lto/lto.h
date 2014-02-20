@@ -1,5 +1,5 @@
 /* LTO declarations.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -40,9 +40,6 @@ extern const char *resolution_file_name;
 extern tree lto_eh_personality (void);
 extern void lto_main (void);
 extern void lto_read_all_file_options (void);
-
-/* In lto-symtab.c  */
-extern GTY(()) vec<tree, va_gc> *lto_global_var_decls;
 
 /* In lto-elf.c or lto-coff.c  */
 extern lto_file *lto_obj_file_open (const char *filename, bool writable);

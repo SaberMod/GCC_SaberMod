@@ -1,5 +1,5 @@
 /* AddressSanitizer, a fast memory error detector.
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Kostya Serebryany <kcc@google.com>
 
 This file is part of GCC.
@@ -23,11 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "hash-table.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
+#include "calls.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "asan.h"
@@ -38,10 +48,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "hash-table.h"
 #include "alloc-pool.h"
 #include "cfgloop.h"
 #include "gimple-builder.h"
+#include "ubsan.h"
+#include "predict.h"
+#include "params.h"
 
 /* AddressSanitizer finds out-of-bounds and use-after-free bugs
    with <2x slowdown on average.
@@ -214,7 +226,7 @@ along with GCC; see the file COPYING3.  If not see
        // Name of the module where the global variable is declared.
        const void *__module_name;
 
-       // This is always set to NULL for now.
+       // 1 if it has dynamic initialization, 0 otherwise.
        uptr __has_dynamic_init;
      }
 
@@ -226,6 +238,9 @@ alias_set_type asan_shadow_set = -1;
 /* Pointer types to 1 resp. 2 byte integers in shadow memory.  A separate
    alias set is used for all shadow memory accesses.  */
 static GTY(()) tree shadow_ptr_types[2];
+
+/* Decl for __asan_option_detect_stack_use_after_return.  */
+static GTY(()) tree asan_detect_stack_use_after_return;
 
 /* Hashtable support for memory references used by gimple
    statements.  */
@@ -940,20 +955,26 @@ asan_function_start (void)
    and DECLS is an array of representative decls for each var partition.
    LENGTH is the length of the OFFSETS array, DECLS array is LENGTH / 2 - 1
    elements long (OFFSETS include gap before the first variable as well
-   as gaps after each stack variable).  */
+   as gaps after each stack variable).  PBASE is, if non-NULL, some pseudo
+   register which stack vars DECL_RTLs are based on.  Either BASE should be
+   assigned to PBASE, when not doing use after return protection, or
+   corresponding address based on __asan_stack_malloc* return value.  */
 
 rtx
-asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
-			    int length)
+asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
+			    HOST_WIDE_INT *offsets, tree *decls, int length)
 {
-  rtx shadow_base, shadow_mem, ret, mem;
+  rtx shadow_base, shadow_mem, ret, mem, orig_base, lab;
   char buf[30];
   unsigned char shadow_bytes[4];
-  HOST_WIDE_INT base_offset = offsets[length - 1], offset, prev_offset;
+  HOST_WIDE_INT base_offset = offsets[length - 1];
+  HOST_WIDE_INT base_align_bias = 0, offset, prev_offset;
+  HOST_WIDE_INT asan_frame_size = offsets[0] - base_offset;
   HOST_WIDE_INT last_offset, last_size;
   int l;
   unsigned char cur_shadow_byte = ASAN_STACK_MAGIC_LEFT;
   tree str_cst, decl, id;
+  int use_after_return_class = -1;
 
   if (shadow_ptr_types[0] == NULL_TREE)
     asan_init_shadow_ptr_types ();
@@ -983,10 +1004,68 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
   str_cst = asan_pp_string (&asan_pp);
 
   /* Emit the prologue sequence.  */
+  if (asan_frame_size > 32 && asan_frame_size <= 65536 && pbase
+      && ASAN_USE_AFTER_RETURN)
+    {
+      use_after_return_class = floor_log2 (asan_frame_size - 1) - 5;
+      /* __asan_stack_malloc_N guarantees alignment
+         N < 6 ? (64 << N) : 4096 bytes.  */
+      if (alignb > (use_after_return_class < 6
+		    ? (64U << use_after_return_class) : 4096U))
+	use_after_return_class = -1;
+      else if (alignb > ASAN_RED_ZONE_SIZE && (asan_frame_size & (alignb - 1)))
+	base_align_bias = ((asan_frame_size + alignb - 1)
+			   & ~(alignb - HOST_WIDE_INT_1)) - asan_frame_size;
+    }
+  if (use_after_return_class == -1 && pbase)
+    emit_move_insn (pbase, base);
   base = expand_binop (Pmode, add_optab, base,
-		       gen_int_mode (base_offset, Pmode),
+		       gen_int_mode (base_offset - base_align_bias, Pmode),
 		       NULL_RTX, 1, OPTAB_DIRECT);
+  orig_base = NULL_RTX;
+  if (use_after_return_class != -1)
+    {
+      if (asan_detect_stack_use_after_return == NULL_TREE)
+	{
+	  id = get_identifier ("__asan_option_detect_stack_use_after_return");
+	  decl = build_decl (BUILTINS_LOCATION, VAR_DECL, id,
+			     integer_type_node);
+	  SET_DECL_ASSEMBLER_NAME (decl, id);
+	  TREE_ADDRESSABLE (decl) = 1;
+	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_IGNORED_P (decl) = 1;
+	  DECL_EXTERNAL (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_USED (decl) = 1;
+	  asan_detect_stack_use_after_return = decl;
+	}
+      orig_base = gen_reg_rtx (Pmode);
+      emit_move_insn (orig_base, base);
+      ret = expand_normal (asan_detect_stack_use_after_return);
+      lab = gen_label_rtx ();
+      int very_likely = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / 2000 - 1);
+      emit_cmp_and_jump_insns (ret, const0_rtx, EQ, NULL_RTX,
+			       VOIDmode, 0, lab, very_likely);
+      snprintf (buf, sizeof buf, "__asan_stack_malloc_%d",
+		use_after_return_class);
+      ret = init_one_libfunc (buf);
+      rtx addr = convert_memory_address (ptr_mode, base);
+      ret = emit_library_call_value (ret, NULL_RTX, LCT_NORMAL, ptr_mode, 2,
+				     GEN_INT (asan_frame_size
+					      + base_align_bias),
+				     TYPE_MODE (pointer_sized_int_node),
+				     addr, ptr_mode);
+      ret = convert_memory_address (Pmode, ret);
+      emit_move_insn (base, ret);
+      emit_label (lab);
+      emit_move_insn (pbase, expand_binop (Pmode, add_optab, base,
+					   gen_int_mode (base_align_bias
+							 - base_offset, Pmode),
+					   NULL_RTX, 1, OPTAB_DIRECT));
+    }
   mem = gen_rtx_MEM (ptr_mode, base);
+  mem = adjust_address (mem, VOIDmode, base_align_bias);
   emit_move_insn (mem, gen_int_mode (ASAN_STACK_FRAME_MAGIC, ptr_mode));
   mem = adjust_address (mem, VOIDmode, GET_MODE_SIZE (ptr_mode));
   emit_move_insn (mem, expand_normal (str_cst));
@@ -1010,10 +1089,10 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
   shadow_base = expand_binop (Pmode, lshr_optab, base,
 			      GEN_INT (ASAN_SHADOW_SHIFT),
 			      NULL_RTX, 1, OPTAB_DIRECT);
-  shadow_base = expand_binop (Pmode, add_optab, shadow_base,
-			      gen_int_mode (targetm.asan_shadow_offset (),
-					    Pmode),
-			      NULL_RTX, 1, OPTAB_DIRECT);
+  shadow_base
+    = plus_constant (Pmode, shadow_base,
+		     targetm.asan_shadow_offset ()
+		     + (base_align_bias >> ASAN_SHADOW_SHIFT));
   gcc_assert (asan_shadow_set != -1
 	      && (ASAN_RED_ZONE_SIZE >> ASAN_SHADOW_SHIFT) == 4);
   shadow_mem = gen_rtx_MEM (SImode, shadow_base);
@@ -1064,6 +1143,47 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
   /* Construct epilogue sequence.  */
   start_sequence ();
 
+  lab = NULL_RTX;  
+  if (use_after_return_class != -1)
+    {
+      rtx lab2 = gen_label_rtx ();
+      char c = (char) ASAN_STACK_MAGIC_USE_AFTER_RET;
+      int very_likely = REG_BR_PROB_BASE - (REG_BR_PROB_BASE / 2000 - 1);
+      emit_cmp_and_jump_insns (orig_base, base, EQ, NULL_RTX,
+			       VOIDmode, 0, lab2, very_likely);
+      shadow_mem = gen_rtx_MEM (BLKmode, shadow_base);
+      set_mem_alias_set (shadow_mem, asan_shadow_set);
+      mem = gen_rtx_MEM (ptr_mode, base);
+      mem = adjust_address (mem, VOIDmode, base_align_bias);
+      emit_move_insn (mem, gen_int_mode (ASAN_STACK_RETIRED_MAGIC, ptr_mode));
+      unsigned HOST_WIDE_INT sz = asan_frame_size >> ASAN_SHADOW_SHIFT;
+      if (use_after_return_class < 5
+	  && can_store_by_pieces (sz, builtin_memset_read_str, &c,
+				  BITS_PER_UNIT, true))
+	store_by_pieces (shadow_mem, sz, builtin_memset_read_str, &c,
+			 BITS_PER_UNIT, true, 0);
+      else if (use_after_return_class >= 5
+	       || !set_storage_via_setmem (shadow_mem,
+					   GEN_INT (sz),
+					   gen_int_mode (c, QImode),
+					   BITS_PER_UNIT, BITS_PER_UNIT,
+					   -1, sz, sz, sz))
+	{
+	  snprintf (buf, sizeof buf, "__asan_stack_free_%d",
+		    use_after_return_class);
+	  ret = init_one_libfunc (buf);
+	  rtx addr = convert_memory_address (ptr_mode, base);
+	  rtx orig_addr = convert_memory_address (ptr_mode, orig_base);
+	  emit_library_call (ret, LCT_NORMAL, ptr_mode, 3, addr, ptr_mode,
+			     GEN_INT (asan_frame_size + base_align_bias),
+			     TYPE_MODE (pointer_sized_int_node),
+			     orig_addr, ptr_mode);
+	}
+      lab = gen_label_rtx ();
+      emit_jump (lab);
+      emit_label (lab2);
+    }
+
   shadow_mem = gen_rtx_MEM (BLKmode, shadow_base);
   set_mem_alias_set (shadow_mem, asan_shadow_set);
   prev_offset = base_offset;
@@ -1096,6 +1216,8 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
     }
 
   do_pending_stack_adjust ();
+  if (lab)
+    emit_label (lab);
 
   ret = get_insns ();
   end_sequence ();
@@ -1119,6 +1241,9 @@ asan_needs_local_alias (tree decl)
 bool
 asan_protect_global (tree decl)
 {
+  if (!ASAN_GLOBALS)
+    return false;
+
   rtx rtl, symbol;
 
   if (TREE_CODE (decl) == STRING_CST)
@@ -1192,9 +1317,6 @@ report_error_func (bool is_store, int size_in_bytes)
   return builtin_decl_implicit (report[is_store][exact_log2 (size_in_bytes)]);
 }
 
-#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 2000 - 1)
-#define PROB_ALWAYS		(REG_BR_PROB_BASE)
-
 /* Split the current basic block and create a condition statement
    insertion point right before or after the statement pointed to by
    ITER.  Return an iterator to the point at which the caller might
@@ -1220,7 +1342,7 @@ report_error_func (bool is_store, int size_in_bytes)
     same as what ITER was pointing to prior to calling this function,
     if BEFORE_P is true; otherwise, it is its following statement.  */
 
-static gimple_stmt_iterator
+gimple_stmt_iterator
 create_cond_insert_point (gimple_stmt_iterator *iter,
 			  bool before_p,
 			  bool then_more_likely_p,
@@ -1451,6 +1573,11 @@ static void
 instrument_derefs (gimple_stmt_iterator *iter, tree t,
 		   location_t location, bool is_store)
 {
+  if (is_store && !ASAN_INSTRUMENT_WRITES)
+    return;
+  if (!is_store && !ASAN_INSTRUMENT_READS)
+    return;
+
   tree type, base;
   HOST_WIDE_INT size_in_bytes;
 
@@ -1461,7 +1588,9 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
     case COMPONENT_REF:
     case INDIRECT_REF:
     case MEM_REF:
+    case VAR_DECL:
       break;
+      /* FALLTHRU */
     default:
       return;
     }
@@ -1475,8 +1604,8 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
   tree offset;
   enum machine_mode mode;
   int volatilep = 0, unsignedp = 0;
-  get_inner_reference (t, &bitsize, &bitpos, &offset,
-		       &mode, &unsignedp, &volatilep, false);
+  tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset,
+				    &mode, &unsignedp, &volatilep, false);
   if (bitpos % (size_in_bytes * BITS_PER_UNIT)
       || bitsize != size_in_bytes * BITS_PER_UNIT)
     {
@@ -1489,6 +1618,34 @@ instrument_derefs (gimple_stmt_iterator *iter, tree t,
 					   NULL_TREE), location, is_store);
 	}
       return;
+    }
+
+  if (TREE_CODE (inner) == VAR_DECL
+      && offset == NULL_TREE
+      && bitpos >= 0
+      && DECL_SIZE (inner)
+      && tree_fits_shwi_p (DECL_SIZE (inner))
+      && bitpos + bitsize <= tree_to_shwi (DECL_SIZE (inner)))
+    {
+      if (DECL_THREAD_LOCAL_P (inner))
+	return;
+      if (!TREE_STATIC (inner))
+	{
+	  /* Automatic vars in the current function will be always
+	     accessible.  */
+	  if (decl_function_context (inner) == current_function_decl)
+	    return;
+	}
+      /* Always instrument external vars, they might be dynamically
+	 initialized.  */
+      else if (!DECL_EXTERNAL (inner))
+	{
+	  /* For static vars if they are known not to be dynamically
+	     initialized, they will be always accessible.  */
+	  varpool_node *vnode = varpool_get_node (inner);
+	  if (vnode && !vnode->dynamically_initialized)
+	    return;
+	}
     }
 
   base = build_fold_addr_expr (t);
@@ -1750,6 +1907,9 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 static bool
 instrument_builtin_call (gimple_stmt_iterator *iter)
 {
+  if (!ASAN_MEMINTRIN)
+    return false;
+
   bool iter_advanced_p = false;
   gimple call = gsi_stmt (*iter);
 
@@ -1894,9 +2054,9 @@ transform_statements (void)
 {
   basic_block bb, last_bb = NULL;
   gimple_stmt_iterator i;
-  int saved_last_basic_block = last_basic_block;
+  int saved_last_basic_block = last_basic_block_for_fn (cfun);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       basic_block prev_bb = bb;
 
@@ -1946,6 +2106,34 @@ transform_statements (void)
 	}
     }
   free_mem_ref_resources ();
+}
+
+/* Build
+   __asan_before_dynamic_init (module_name)
+   or
+   __asan_after_dynamic_init ()
+   call.  */
+
+tree
+asan_dynamic_init_call (bool after_p)
+{
+  tree fn = builtin_decl_implicit (after_p
+				   ? BUILT_IN_ASAN_AFTER_DYNAMIC_INIT
+				   : BUILT_IN_ASAN_BEFORE_DYNAMIC_INIT);
+  tree module_name_cst = NULL_TREE;
+  if (!after_p)
+    {
+      pretty_printer module_name_pp;
+      pp_string (&module_name_pp, main_input_filename);
+
+      if (shadow_ptr_types[0] == NULL_TREE)
+	asan_init_shadow_ptr_types ();
+      module_name_cst = asan_pp_string (&module_name_pp);
+      module_name_cst = fold_convert (const_ptr_type_node,
+				      module_name_cst);
+    }
+
+  return build_call_expr (fn, after_p ? 0 : 1, module_name_cst);
 }
 
 /* Build
@@ -2029,7 +2217,7 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node,
 					build_fold_addr_expr (refdecl)));
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, size));
   size += asan_red_zone_size (size);
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, size));
@@ -2037,7 +2225,10 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
 			  fold_convert (const_ptr_type_node, str_cst));
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node, module_name_cst));
-  CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, 0));
+  varpool_node *vnode = varpool_get_node (decl);
+  int has_dynamic_init = vnode ? vnode->dynamically_initialized : 0;
+  CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
+			  build_int_cst (uptr, has_dynamic_init));
   init = build_constructor (type, vinner);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
 }
@@ -2054,6 +2245,8 @@ initialize_sanitizer_builtins (void)
   tree BT_FN_VOID = build_function_type_list (void_type_node, NULL_TREE);
   tree BT_FN_VOID_PTR
     = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
+  tree BT_FN_VOID_CONST_PTR
+    = build_function_type_list (void_type_node, const_ptr_type_node, NULL_TREE);
   tree BT_FN_VOID_PTR_PTR
     = build_function_type_list (void_type_node, ptr_type_node,
 				ptr_type_node, NULL_TREE);
@@ -2198,7 +2391,7 @@ static GTY(()) tree asan_ctor_statements;
 void
 asan_finish_file (void)
 {
-  struct varpool_node *vnode;
+  varpool_node *vnode;
   unsigned HOST_WIDE_INT gcount = 0;
 
   if (shadow_ptr_types[0] == NULL_TREE)
@@ -2368,6 +2561,89 @@ gimple_opt_pass *
 make_pass_asan_O0 (gcc::context *ctxt)
 {
   return new pass_asan_O0 (ctxt);
+}
+
+/* Perform optimization of sanitize functions.  */
+
+static unsigned int
+execute_sanopt (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+
+	  if (!is_gimple_call (stmt))
+	    continue;
+
+	  if (gimple_call_internal_p (stmt))
+	    switch (gimple_call_internal_fn (stmt))
+	      {
+	      case IFN_UBSAN_NULL:
+		ubsan_expand_null_ifn (gsi);
+		break;
+	      default:
+		break;
+	      }
+
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    {
+	      fprintf (dump_file, "Optimized\n  ");
+	      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
+	      fprintf (dump_file, "\n");
+	    }
+	}
+    }
+  return 0;
+}
+
+static bool
+gate_sanopt (void)
+{
+  return flag_sanitize;
+}
+
+namespace {
+
+const pass_data pass_data_sanopt =
+{
+  GIMPLE_PASS, /* type */
+  "sanopt", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_verify_flow | TODO_verify_stmts
+    | TODO_update_ssa ), /* todo_flags_finish */
+};
+
+class pass_sanopt : public gimple_opt_pass
+{
+public:
+  pass_sanopt (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sanopt, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_sanopt (); }
+  unsigned int execute () { return execute_sanopt (); }
+
+}; // class pass_sanopt
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_sanopt (gcc::context *ctxt)
+{
+  return new pass_sanopt (ctxt);
 }
 
 #include "gt-asan.h"

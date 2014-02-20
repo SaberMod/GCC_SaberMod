@@ -44,7 +44,7 @@
 @settitle Installing GCC: GNU Free Documentation License
 @end ifset
 
-@c Copyright (C) 1988-2013 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
 @c *** Converted to texinfo by Dean Wakerley, dean@wakerley.com
 
 @c IMPORTANT: whenever you modify this file, run `install.texi2html' to
@@ -69,7 +69,7 @@
 
 @c Part 2 Summary Description and Copyright
 @copying
-Copyright @copyright{} 1988-2013 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2014 Free Software Foundation, Inc.
 @sp 1
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -255,6 +255,22 @@ may need to use @option{--disable-stage1-checking}, though
 bootstrapping the compiler with such earlier compilers is strongly
 discouraged.
 
+@item C standard library and headers
+
+In order to build GCC, the C standard library and headers must be present
+for all target variants for which target libraries will be built (and not
+only the variant of the host C++ compiler).
+
+This affects the popular @samp{x86_64-unknown-linux-gnu} platform (among
+other multilib targets), for which 64-bit (@samp{x86_64}) and 32-bit
+(@samp{i386}) libc headers are usually packaged separately. If you do a
+build of a native compiler on @samp{x86_64-unknown-linux-gnu}, make sure you
+either have the 32-bit libc developer package properly installed (the exact
+name of the package depends on your distro) or you must build GCC as a
+64-bit only compiler by configuring with the option
+@option{--disable-multilib}.  Otherwise, you may encounter an error such as
+@samp{fatal error: gnu/stubs-32.h: No such file}
+
 @item GNAT
 
 In order to build the Ada compiler (GNAT) you must already have GNAT
@@ -367,25 +383,30 @@ installed but it is not in your default library search path, the
 @option{--with-mpc} configure option should be used.  See also
 @option{--with-mpc-lib} and @option{--with-mpc-include}.
 
-@item ISL Library version 0.11.1
+@item ISL Library version 0.12.2
 
 Necessary to build GCC with the Graphite loop optimizations.
 It can be downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/}
-as @file{isl-0.11.1.tar.bz2}.
+as @file{isl-0.12.2.tar.bz2}.  If an ISL source distribution is found
+in a subdirectory of your GCC sources named @file{isl}, it will be
+built together with GCC.  Alternatively, the @option{--with-isl} configure
+option should be used if ISL is not installed in your default library
+search path.
 
-The @option{--with-isl} configure option should be used if ISL is not
-installed in your default library search path.
-
-@item CLooG 0.18.0
+@item CLooG 0.18.1
 
 Necessary to build GCC with the Graphite loop optimizations.  It can be
 downloaded from @uref{ftp://gcc.gnu.org/pub/gcc/infrastructure/} as
-@file{cloog-0.18.0.tar.gz}.  The @option{--with-cloog} configure option should
-be used if CLooG is not installed in your default library search path.
-CLooG needs to be built against ISL 0.11.1.  Use @option{--with-isl=system}
-to direct CLooG to pick up an already installed ISL, otherwise it will use
-ISL 0.11.1 as bundled with CLooG.  CLooG needs to be configured to use GMP
-internally, use @option{--with-bits=gmp} to direct it to do that.
+@file{cloog-0.18.1.tar.gz}.  If a CLooG source distribution is found
+in a subdirectory of your GCC sources named @file{cloog}, it will be
+built together with GCC.  Alternatively, the @option{--with-cloog} configure
+option should be used if CLooG is not installed in your default library search
+path.
+
+If you want to install CLooG separately it needs to be built against
+ISL 0.12.2 by using the @option{--with-isl=system} to direct CLooG to pick
+up an already installed ISL.  Using the ISL library as bundled with CLooG
+is not supported.
 
 @end table
 
@@ -3732,6 +3753,15 @@ GCC versions 3.2.3 and earlier, @option{--enable-libunwind-exceptions}
 is required to build GCC@.  For GCC 3.3 and later, this is the default.
 For gcc 3.4.3 and later, @option{--enable-libunwind-exceptions} is
 removed and the system libunwind library will always be used.
+
+@html
+<hr />
+@end html
+@anchor{aarch64-x-x}
+@heading aarch64*-*-*
+Pre 2.24 binutils does not have support for selecting -mabi and does not
+support ILP32.  If GCC 4.9 or later is built with pre 2.24, GCC will not
+support option -mabi=ilp32.
 
 @html
 <hr />

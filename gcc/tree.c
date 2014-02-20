@@ -1,5 +1,5 @@
 /* Language-independent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,11 +33,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "attribs.h"
+#include "varasm.h"
 #include "tm_p.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h" /* get_random_seed */
-#include "ggc.h"
 #include "hashtab.h"
 #include "filenames.h"
 #include "output.h"
@@ -48,16 +51,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "basic-block.h"
 #include "bitmap.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
-#include "pointer-set.h"
 #include "tree-pass.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
@@ -542,6 +551,8 @@ initialize_tree_contains_struct (void)
   gcc_assert (tree_contains_struct[FUNCTION_DECL][TS_FUNCTION_DECL]);
   gcc_assert (tree_contains_struct[IMPORTED_DECL][TS_DECL_MINIMAL]);
   gcc_assert (tree_contains_struct[IMPORTED_DECL][TS_DECL_COMMON]);
+  gcc_assert (tree_contains_struct[NAMELIST_DECL][TS_DECL_MINIMAL]);
+  gcc_assert (tree_contains_struct[NAMELIST_DECL][TS_DECL_COMMON]);
 }
 
 
@@ -1147,8 +1158,7 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-    case POINTER_BOUNDS_TYPE:
-      /* Cache NULL pointer and zero bounds.  */
+      /* Cache NULL pointer.  */
       if (!hi && !low)
 	{
 	  limit = 1;
@@ -2210,21 +2220,19 @@ tree_ctz (const_tree expr)
       return MIN (ret1 + ret2, prec);
     case LSHIFT_EXPR:
       ret1 = tree_ctz (TREE_OPERAND (expr, 0));
-      if (host_integerp (TREE_OPERAND (expr, 1), 1)
-	  && ((unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (expr, 1), 1)
-	      < (unsigned HOST_WIDE_INT) prec))
+      if (tree_fits_uhwi_p (TREE_OPERAND (expr, 1))
+	  && (tree_to_uhwi (TREE_OPERAND (expr, 1)) < prec))
 	{
-	  ret2 = tree_low_cst (TREE_OPERAND (expr, 1), 1);
+	  ret2 = tree_to_uhwi (TREE_OPERAND (expr, 1));
 	  return MIN (ret1 + ret2, prec);
 	}
       return ret1;
     case RSHIFT_EXPR:
-      if (host_integerp (TREE_OPERAND (expr, 1), 1)
-	  && ((unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (expr, 1), 1)
-	      < (unsigned HOST_WIDE_INT) prec))
+      if (tree_fits_uhwi_p (TREE_OPERAND (expr, 1))
+	  && (tree_to_uhwi (TREE_OPERAND (expr, 1)) < prec))
 	{
 	  ret1 = tree_ctz (TREE_OPERAND (expr, 0));
-	  ret2 = tree_low_cst (TREE_OPERAND (expr, 1), 1);
+	  ret2 = tree_to_uhwi (TREE_OPERAND (expr, 1));
 	  if (ret1 > ret2)
 	    return ret1 - ret2;
 	}
@@ -2674,8 +2682,8 @@ max_int_size_in_bytes (const_tree type)
     {
       size_tree = TYPE_ARRAY_MAX_SIZE (type);
 
-      if (size_tree && host_integerp (size_tree, 1))
-	size = tree_low_cst (size_tree, 1);
+      if (size_tree && tree_fits_uhwi_p (size_tree))
+	size = tree_to_uhwi (size_tree);
     }
 
   /* If we still haven't been able to get a size, see if the language
@@ -2685,8 +2693,8 @@ max_int_size_in_bytes (const_tree type)
     {
       size_tree = lang_hooks.types.max_size (type);
 
-      if (size_tree && host_integerp (size_tree, 1))
-	size = tree_low_cst (size_tree, 1);
+      if (size_tree && tree_fits_uhwi_p (size_tree))
+	size = tree_to_uhwi (size_tree);
     }
 
   return size;
@@ -2709,7 +2717,7 @@ bit_position (const_tree field)
 HOST_WIDE_INT
 int_bit_position (const_tree field)
 {
-  return tree_low_cst (bit_position (field), 0);
+  return tree_to_shwi (bit_position (field));
 }
 
 /* Return the byte position of FIELD, in bytes from the start of the record.
@@ -2729,7 +2737,7 @@ byte_position (const_tree field)
 HOST_WIDE_INT
 int_byte_position (const_tree field)
 {
-  return tree_low_cst (byte_position (field), 0);
+  return tree_to_shwi (byte_position (field));
 }
 
 /* Return the strictest alignment, in bits, that T is known to have.  */
@@ -3279,7 +3287,6 @@ type_contains_placeholder_1 (const_tree type)
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:
-    case POINTER_BOUNDS_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -5040,7 +5047,7 @@ free_lang_data_in_decl (tree decl)
          DECL_VINDEX referring to itself into a vtable slot number as it
 	 should.  Happens with functions that are copied and then forgotten
 	 about.  Just clear it, it won't matter anymore.  */
-      if (DECL_VINDEX (decl) && !host_integerp (DECL_VINDEX (decl), 0))
+      if (DECL_VINDEX (decl) && !tree_fits_shwi_p (DECL_VINDEX (decl)))
 	DECL_VINDEX (decl) = NULL_TREE;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
@@ -5469,7 +5476,7 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
    NAMESPACE_DECLs, etc).  */
 
 static void
-find_decls_types_in_var (struct varpool_node *v, struct free_lang_data_d *fld)
+find_decls_types_in_var (varpool_node *v, struct free_lang_data_d *fld)
 {
   find_decls_types (v->decl, fld);
 }
@@ -5523,7 +5530,7 @@ static void
 free_lang_data_in_cgraph (void)
 {
   struct cgraph_node *n;
-  struct varpool_node *v;
+  varpool_node *v;
   struct free_lang_data_d fld;
   tree t;
   unsigned i;
@@ -6120,7 +6127,7 @@ find_atomic_core_type (tree type)
   if (TYPE_SIZE (type) == NULL_TREE)
     return NULL_TREE;
 
-  HOST_WIDE_INT type_size = tree_low_cst (TYPE_SIZE (type), 1);
+  HOST_WIDE_INT type_size = tree_to_uhwi (TYPE_SIZE (type));
   switch (type_size)
     {
     case 8:
@@ -6970,34 +6977,51 @@ tree_int_cst_compare (const_tree t1, const_tree t2)
     return 0;
 }
 
-/* Return 1 if T is an INTEGER_CST that can be manipulated efficiently on
-   the host.  If POS is zero, the value can be represented in a single
-   HOST_WIDE_INT.  If POS is nonzero, the value must be non-negative and can
-   be represented in a single unsigned HOST_WIDE_INT.  */
+/* Return true if T is an INTEGER_CST whose numerical value (extended
+   according to TYPE_UNSIGNED) fits in a signed HOST_WIDE_INT.  */
 
-int
-host_integerp (const_tree t, int pos)
+bool
+tree_fits_shwi_p (const_tree t)
 {
-  if (t == NULL_TREE)
-    return 0;
-
-  return (TREE_CODE (t) == INTEGER_CST
+  return (t != NULL_TREE
+	  && TREE_CODE (t) == INTEGER_CST
 	  && ((TREE_INT_CST_HIGH (t) == 0
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
-	      || (! pos && TREE_INT_CST_HIGH (t) == -1
+	      || (TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
-		  && !TYPE_UNSIGNED (TREE_TYPE (t)))
-	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
+		  && !TYPE_UNSIGNED (TREE_TYPE (t)))));
 }
 
-/* Return the HOST_WIDE_INT least significant bits of T if it is an
-   INTEGER_CST and there is no overflow.  POS is nonzero if the result must
-   be non-negative.  We must be able to satisfy the above conditions.  */
+/* Return true if T is an INTEGER_CST whose numerical value (extended
+   according to TYPE_UNSIGNED) fits in an unsigned HOST_WIDE_INT.  */
+
+bool
+tree_fits_uhwi_p (const_tree t)
+{
+  return (t != NULL_TREE
+	  && TREE_CODE (t) == INTEGER_CST
+	  && TREE_INT_CST_HIGH (t) == 0);
+}
+
+/* T is an INTEGER_CST whose numerical value (extended according to
+   TYPE_UNSIGNED) fits in a signed HOST_WIDE_INT.  Return that
+   HOST_WIDE_INT.  */
 
 HOST_WIDE_INT
-tree_low_cst (const_tree t, int pos)
+tree_to_shwi (const_tree t)
 {
-  gcc_assert (host_integerp (t, pos));
+  gcc_assert (tree_fits_shwi_p (t));
+  return TREE_INT_CST_LOW (t);
+}
+
+/* T is an INTEGER_CST whose numerical value (extended according to
+   TYPE_UNSIGNED) fits in an unsigned HOST_WIDE_INT.  Return that
+   HOST_WIDE_INT.  */
+
+unsigned HOST_WIDE_INT
+tree_to_uhwi (const_tree t)
+{
+  gcc_assert (tree_fits_uhwi_p (t));
   return TREE_INT_CST_LOW (t);
 }
 
@@ -7256,7 +7280,7 @@ compare_tree_int (const_tree t, unsigned HOST_WIDE_INT u)
 bool
 valid_constant_size_p (const_tree size)
 {
-  if (! host_integerp (size, 1)
+  if (! tree_fits_uhwi_p (size)
       || TREE_OVERFLOW (size)
       || tree_int_cst_sign_bit (size) != 0)
     return false;
@@ -7660,8 +7684,8 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
     fixup_signed_type (itype);
 
   ret = itype;
-  if (host_integerp (TYPE_MAX_VALUE (itype), 1))
-    ret = type_hash_canon (tree_low_cst (TYPE_MAX_VALUE (itype), 1), itype);
+  if (tree_fits_uhwi_p (TYPE_MAX_VALUE (itype)))
+    ret = type_hash_canon (tree_to_uhwi (TYPE_MAX_VALUE (itype)), itype);
   if (precision <= MAX_INT_CACHED_PREC)
     nonstandard_integer_type_cache[precision + unsignedp] = ret;
 
@@ -8497,10 +8521,10 @@ get_narrower (tree op, int *unsignedp_ptr)
       && TREE_CODE (TREE_TYPE (op)) != FIXED_POINT_TYPE
       /* Ensure field is laid out already.  */
       && DECL_SIZE (TREE_OPERAND (op, 1)) != 0
-      && host_integerp (DECL_SIZE (TREE_OPERAND (op, 1)), 1))
+      && tree_fits_uhwi_p (DECL_SIZE (TREE_OPERAND (op, 1))))
     {
       unsigned HOST_WIDE_INT innerprec
-	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
+	= tree_to_uhwi (DECL_SIZE (TREE_OPERAND (op, 1)));
       int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
 		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
       tree type = lang_hooks.types.type_for_size (innerprec, unsignedp);
@@ -8614,7 +8638,7 @@ retry:
   /* Third, unsigned integers with top bit set never fit signed types.  */
   if (! TYPE_UNSIGNED (type) && unsc)
     {
-      int prec = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (c))) - 1;
+      int prec = GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (c))) - 1;
       if (prec < HOST_BITS_PER_WIDE_INT)
 	{
 	  if (((((unsigned HOST_WIDE_INT) 1) << prec) & dc.low) != 0)
@@ -9080,7 +9104,7 @@ get_file_function_name (const char *type)
     {
       const char *file = main_input_filename;
       if (! file)
-	file = input_filename;
+	file = LOCATION_FILE (input_location);
       /* Just use the file's basename, because the full pathname
 	 might be quite long.  */
       p = q = ASTRDUP (lbasename (file));
@@ -9097,7 +9121,7 @@ get_file_function_name (const char *type)
       if (! name)
 	name = "";
       if (! file)
-	file = input_filename;
+	file = LOCATION_FILE (input_location);
 
       len = strlen (file);
       q = (char *) alloca (9 + 17 + len + 1);
@@ -9526,10 +9550,11 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
    during initialization of data types to create the 5 basic atomic
    types. The generic build_variant_type function requires these to
    already be set up in order to function properly, so cannot be
-   called from there.  */
+   called from there.  If ALIGN is non-zero, then ensure alignment is
+   overridden to this value.  */
 
 static tree
-build_atomic_base (tree type)
+build_atomic_base (tree type, unsigned int align)
 {
   tree t;
 
@@ -9539,6 +9564,9 @@ build_atomic_base (tree type)
   
   t = build_variant_type_copy (type);
   set_type_quals (t, TYPE_QUAL_ATOMIC);
+
+  if (align)
+    TYPE_ALIGN (t) = align;
 
   return t;
 }
@@ -9627,14 +9655,21 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   /* Don't call build_qualified type for atomics.  That routine does
      special processing for atomics, and until they are initialized
-     it's better not to make that call.  */
+     it's better not to make that call.
+     
+     Check to see if there is a target override for atomic types.  */
 
-  atomicQI_type_node = build_atomic_base (unsigned_intQI_type_node);
-  atomicHI_type_node = build_atomic_base (unsigned_intHI_type_node);
-  atomicSI_type_node = build_atomic_base (unsigned_intSI_type_node);
-  atomicDI_type_node = build_atomic_base (unsigned_intDI_type_node);
-  atomicTI_type_node = build_atomic_base (unsigned_intTI_type_node);
-
+  atomicQI_type_node = build_atomic_base (unsigned_intQI_type_node,
+					targetm.atomic_align_for_mode (QImode));
+  atomicHI_type_node = build_atomic_base (unsigned_intHI_type_node,
+					targetm.atomic_align_for_mode (HImode));
+  atomicSI_type_node = build_atomic_base (unsigned_intSI_type_node,
+					targetm.atomic_align_for_mode (SImode));
+  atomicDI_type_node = build_atomic_base (unsigned_intDI_type_node,
+					targetm.atomic_align_for_mode (DImode));
+  atomicTI_type_node = build_atomic_base (unsigned_intTI_type_node,
+					targetm.atomic_align_for_mode (TImode));
+  	
   access_public_node = get_identifier ("public");
   access_protected_node = get_identifier ("protected");
   access_private_node = get_identifier ("private");
@@ -9656,8 +9691,6 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
-
-  pointer_bounds_type_node = targetm.chkp_bound_type ();
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
@@ -9944,16 +9977,10 @@ build_common_builtin_nodes (void)
 			BUILT_IN_SETJMP_SETUP,
 			"__builtin_setjmp_setup", ECF_NOTHROW);
 
-  ftype = build_function_type_list (ptr_type_node, ptr_type_node, NULL_TREE);
-  local_define_builtin ("__builtin_setjmp_dispatcher", ftype,
-			BUILT_IN_SETJMP_DISPATCHER,
-			"__builtin_setjmp_dispatcher",
-			ECF_PURE | ECF_NOTHROW);
-
   ftype = build_function_type_list (void_type_node, ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_setjmp_receiver", ftype,
 			BUILT_IN_SETJMP_RECEIVER,
-			"__builtin_setjmp_receiver", ECF_NOTHROW);
+			"__builtin_setjmp_receiver", ECF_NOTHROW | ECF_LEAF);
 
   ftype = build_function_type_list (ptr_type_node, NULL_TREE);
   local_define_builtin ("__builtin_stack_save", ftype, BUILT_IN_STACK_SAVE,
@@ -10790,6 +10817,7 @@ walk_type_fields (tree type, walk_tree_fn func, void *data,
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
+    case VECTOR_TYPE:
       /* We have to worry about mutually recursive pointers.  These can't
 	 be written in C.  They can in Ada.  It's pathological, but
 	 there's an ACATS test (c38102a) that checks it.  Deal with this
@@ -11494,6 +11522,28 @@ build_target_option_node (struct gcc_options *opts)
   return t;
 }
 
+/* Reset TREE_TARGET_GLOBALS cache for TARGET_OPTION_NODE.
+   Called through htab_traverse.  */
+
+static int
+prepare_target_option_node_for_pch (void **slot, void *)
+{
+  tree node = (tree) *slot;
+  if (TREE_CODE (node) == TARGET_OPTION_NODE)
+    TREE_TARGET_GLOBALS (node) = NULL;
+  return 1;
+}
+
+/* Clear TREE_TARGET_GLOBALS of all TARGET_OPTION_NODE trees,
+   so that they aren't saved during PCH writing.  */
+
+void
+prepare_target_option_nodes_for_pch (void)
+{
+  htab_traverse (cl_option_hash_table, prepare_target_option_node_for_pch,
+		 NULL);
+}
+
 /* Determine the "ultimate origin" of a block.  The block may be an inlined
    instance of an inlined instance of a block which is local to an inline
    function, so we have to trace all of the way back through the origin chain
@@ -11923,7 +11973,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	    continue;
 
 	  pos = int_bit_position (fld);
-	  size = tree_low_cst (DECL_SIZE (fld), 1);
+	  size = tree_to_uhwi (DECL_SIZE (fld));
 	  if (pos <= offset && (pos + size) > offset)
 	    break;
 	}
@@ -11940,16 +11990,40 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	 represented in the binfo for the derived class.  */
       else if (offset != 0)
 	{
-	  tree base_binfo, found_binfo = NULL_TREE;
-	  for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); i++)
-	    if (types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
-	      {
-		found_binfo = base_binfo;
-		break;
-	      }
-	  if (!found_binfo)
-	    return NULL_TREE;
-	  binfo = found_binfo;
+	  tree base_binfo, binfo2 = binfo;
+
+	  /* Find BINFO corresponding to FLD.  This is bit harder
+	     by a fact that in virtual inheritance we may need to walk down
+	     the non-virtual inheritance chain.  */
+	  while (true)
+	    {
+	      tree containing_binfo = NULL, found_binfo = NULL;
+	      for (i = 0; BINFO_BASE_ITERATE (binfo2, i, base_binfo); i++)
+		if (types_same_for_odr (TREE_TYPE (base_binfo), TREE_TYPE (fld)))
+		  {
+		    found_binfo = base_binfo;
+		    break;
+		  }
+		else
+		  if ((tree_to_shwi (BINFO_OFFSET (base_binfo)) 
+		       - tree_to_shwi (BINFO_OFFSET (binfo)))
+		      * BITS_PER_UNIT < pos
+		      /* Rule out types with no virtual methods or we can get confused
+			 here by zero sized bases.  */
+		      && BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (base_binfo)))
+		      && (!containing_binfo
+			  || (tree_to_shwi (BINFO_OFFSET (containing_binfo))
+			      < tree_to_shwi (BINFO_OFFSET (base_binfo)))))
+		    containing_binfo = base_binfo;
+	      if (found_binfo)
+		{
+		  binfo = found_binfo;
+		  break;
+		}
+	      if (!containing_binfo)
+		return NULL_TREE;
+	      binfo2 = containing_binfo;
+	    }
 	}
 
       type = TREE_TYPE (fld);
@@ -12264,6 +12338,34 @@ drop_tree_overflow (tree t)
      and drop the flag.  */
   t = copy_node (t);
   TREE_OVERFLOW (t) = 0;
+  return t;
+}
+
+/* Given a memory reference expression T, return its base address.
+   The base address of a memory reference expression is the main
+   object being referenced.  For instance, the base address for
+   'array[i].fld[j]' is 'array'.  You can think of this as stripping
+   away the offset part from a memory address.
+
+   This function calls handled_component_p to strip away all the inner
+   parts of the memory reference until it reaches the base object.  */
+
+tree
+get_base_address (tree t)
+{
+  while (handled_component_p (t))
+    t = TREE_OPERAND (t, 0);
+
+  if ((TREE_CODE (t) == MEM_REF
+       || TREE_CODE (t) == TARGET_MEM_REF)
+      && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
+    t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
+
+  /* ???  Either the alias oracle or all callers need to properly deal
+     with WITH_SIZE_EXPRs before we can look through those.  */
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
+    return NULL_TREE;
+
   return t;
 }
 

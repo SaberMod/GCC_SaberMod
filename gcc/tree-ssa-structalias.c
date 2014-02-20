@@ -1,5 +1,5 @@
 /* Tree based points-to analysis
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dberlin@dberlin.org>
 
    This file is part of GCC.
@@ -22,30 +22,37 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "ggc.h"
 #include "obstack.h"
 #include "bitmap.h"
 #include "sbitmap.h"
 #include "flags.h"
 #include "basic-block.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stmt.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
-#include "hash-table.h"
 #include "function.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
 #include "alias.h"
-#include "pointer-set.h"
 
 /* The idea behind this analyzer is to generate set constraints from the
    program, then solve the resulting constraints in order to generate the
@@ -885,14 +892,16 @@ constraint_vec_find (vec<constraint_t> vec,
   return found;
 }
 
-/* Union two constraint vectors, TO and FROM.  Put the result in TO.  */
+/* Union two constraint vectors, TO and FROM.  Put the result in TO. 
+   Returns true of TO set is changed.  */
 
-static void
+static bool
 constraint_set_union (vec<constraint_t> *to,
 		      vec<constraint_t> *from)
 {
   int i;
   constraint_t c;
+  bool any_change = false;
 
   FOR_EACH_VEC_ELT (*from, i, c)
     {
@@ -900,17 +909,24 @@ constraint_set_union (vec<constraint_t> *to,
 	{
 	  unsigned int place = to->lower_bound (c, constraint_less);
 	  to->safe_insert (place, c);
+          any_change = true;
 	}
     }
+  return any_change;
 }
 
 /* Expands the solution in SET to all sub-fields of variables included.  */
 
-static void
-solution_set_expand (bitmap set)
+static bitmap
+solution_set_expand (bitmap set, bitmap *expanded)
 {
   bitmap_iterator bi;
   unsigned j;
+
+  if (*expanded)
+    return *expanded;
+
+  *expanded = BITMAP_ALLOC (&iteration_obstack);
 
   /* In a first pass expand to the head of the variables we need to
      add all sub-fields off.  This avoids quadratic behavior.  */
@@ -920,55 +936,52 @@ solution_set_expand (bitmap set)
       if (v->is_artificial_var
 	  || v->is_full_var)
 	continue;
-      bitmap_set_bit (set, v->head);
+      bitmap_set_bit (*expanded, v->head);
     }
 
   /* In the second pass now expand all head variables with subfields.  */
-  EXECUTE_IF_SET_IN_BITMAP (set, 0, j, bi)
+  EXECUTE_IF_SET_IN_BITMAP (*expanded, 0, j, bi)
     {
       varinfo_t v = get_varinfo (j);
-      if (v->is_artificial_var
-	  || v->is_full_var
-	  || v->head != j)
+      if (v->head != j)
 	continue;
       for (v = vi_next (v); v != NULL; v = vi_next (v))
-	bitmap_set_bit (set, v->id);
+	bitmap_set_bit (*expanded, v->id);
     }
+
+  /* And finally set the rest of the bits from SET.  */
+  bitmap_ior_into (*expanded, set);
+
+  return *expanded;
 }
 
-/* Union solution sets TO and FROM, and add INC to each member of FROM in the
+/* Union solution sets TO and DELTA, and add INC to each member of DELTA in the
    process.  */
 
 static bool
-set_union_with_increment  (bitmap to, bitmap from, HOST_WIDE_INT inc)
+set_union_with_increment  (bitmap to, bitmap delta, HOST_WIDE_INT inc,
+			   bitmap *expanded_delta)
 {
   bool changed = false;
   bitmap_iterator bi;
   unsigned int i;
 
-  /* If the solution of FROM contains anything it is good enough to transfer
+  /* If the solution of DELTA contains anything it is good enough to transfer
      this to TO.  */
-  if (bitmap_bit_p (from, anything_id))
+  if (bitmap_bit_p (delta, anything_id))
     return bitmap_set_bit (to, anything_id);
-
-  /* For zero offset simply union the solution into the destination.  */
-  if (inc == 0)
-    return bitmap_ior_into (to, from);
 
   /* If the offset is unknown we have to expand the solution to
      all subfields.  */
   if (inc == UNKNOWN_OFFSET)
     {
-      bitmap tmp = BITMAP_ALLOC (&iteration_obstack);
-      bitmap_copy (tmp, from);
-      solution_set_expand (tmp);
-      changed |= bitmap_ior_into (to, tmp);
-      BITMAP_FREE (tmp);
+      delta = solution_set_expand (delta, expanded_delta);
+      changed |= bitmap_ior_into (to, delta);
       return changed;
     }
 
   /* For non-zero offset union the offsetted solution into the destination.  */
-  EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (delta, 0, i, bi)
     {
       varinfo_t vi = get_varinfo (i);
 
@@ -1021,22 +1034,24 @@ insert_into_complex (constraint_graph_t graph,
 
 
 /* Condense two variable nodes into a single variable node, by moving
-   all associated info from SRC to TO.  */
+   all associated info from FROM to TO. Returns true if TO node's 
+   constraint set changes after the merge.  */
 
-static void
+static bool
 merge_node_constraints (constraint_graph_t graph, unsigned int to,
 			unsigned int from)
 {
   unsigned int i;
   constraint_t c;
+  bool any_change = false;
 
   gcc_checking_assert (find (from) == to);
 
   /* Move all complex constraints from src node into to node  */
   FOR_EACH_VEC_ELT (graph->complex[from], i, c)
     {
-      /* In complex constraints for node src, we may have either
-	 a = *src, and *src = a, or an offseted constraint which are
+      /* In complex constraints for node FROM, we may have either
+	 a = *FROM, and *FROM = a, or an offseted constraint which are
 	 always added to the rhs node's constraints.  */
 
       if (c->rhs.type == DEREF)
@@ -1045,9 +1060,12 @@ merge_node_constraints (constraint_graph_t graph, unsigned int to,
 	c->lhs.var = to;
       else
 	c->rhs.var = to;
+
     }
-  constraint_set_union (&graph->complex[to], &graph->complex[from]);
+  any_change = constraint_set_union (&graph->complex[to],
+				     &graph->complex[from]);
   graph->complex[from].release ();
+  return any_change;
 }
 
 
@@ -1465,7 +1483,11 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
     stats.unified_vars_static++;
 
   merge_graph_nodes (graph, to, from);
-  merge_node_constraints (graph, to, from);
+  if (merge_node_constraints (graph, to, from))
+    {
+      if (update_changed)
+	bitmap_set_bit (changed, to);
+    }
 
   /* Mark TO as changed if FROM was changed. If TO was already marked
      as changed, decrease the changed count.  */
@@ -1560,7 +1582,7 @@ topo_visit (constraint_graph_t graph, struct topo_info *ti,
 
 static void
 do_sd_constraint (constraint_graph_t graph, constraint_t c,
-		  bitmap delta)
+		  bitmap delta, bitmap *expanded_delta)
 {
   unsigned int lhs = c->lhs.var;
   bool flag = false;
@@ -1585,7 +1607,7 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
      dereferenced at all valid offsets.  */
   if (roffset == UNKNOWN_OFFSET)
     {
-      solution_set_expand (delta);
+      delta = solution_set_expand (delta, expanded_delta);
       /* No further offset processing is necessary.  */
       roffset = 0;
     }
@@ -1647,7 +1669,7 @@ done:
    as the starting solution for x.  */
 
 static void
-do_ds_constraint (constraint_t c, bitmap delta)
+do_ds_constraint (constraint_t c, bitmap delta, bitmap *expanded_delta)
 {
   unsigned int rhs = c->rhs.var;
   bitmap sol = get_varinfo (rhs)->solution;
@@ -1683,7 +1705,7 @@ do_ds_constraint (constraint_t c, bitmap delta)
      dereferenced at all valid offsets.  */
   if (loff == UNKNOWN_OFFSET)
     {
-      solution_set_expand (delta);
+      delta = solution_set_expand (delta, expanded_delta);
       loff = 0;
     }
 
@@ -1745,7 +1767,8 @@ do_ds_constraint (constraint_t c, bitmap delta)
    constraint (IE *x = &y, x = *y, *x = y, and x = y with offsets involved).  */
 
 static void
-do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
+do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta,
+		       bitmap *expanded_delta)
 {
   if (c->lhs.type == DEREF)
     {
@@ -1756,26 +1779,26 @@ do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
       else
 	{
 	  /* *x = y */
-	  do_ds_constraint (c, delta);
+	  do_ds_constraint (c, delta, expanded_delta);
 	}
     }
   else if (c->rhs.type == DEREF)
     {
       /* x = *y */
       if (!(get_varinfo (c->lhs.var)->is_special_var))
-	do_sd_constraint (graph, c, delta);
+	do_sd_constraint (graph, c, delta, expanded_delta);
     }
   else
     {
       bitmap tmp;
-      bitmap solution;
       bool flag = false;
 
-      gcc_checking_assert (c->rhs.type == SCALAR && c->lhs.type == SCALAR);
-      solution = get_varinfo (c->rhs.var)->solution;
+      gcc_checking_assert (c->rhs.type == SCALAR && c->lhs.type == SCALAR
+			   && c->rhs.offset != 0 && c->lhs.offset == 0);
       tmp = get_varinfo (c->lhs.var)->solution;
 
-      flag = set_union_with_increment (tmp, solution, c->rhs.offset);
+      flag = set_union_with_increment (tmp, delta, c->rhs.offset,
+				       expanded_delta);
 
       if (flag)
 	bitmap_set_bit (changed, c->lhs.var);
@@ -2569,7 +2592,7 @@ eliminate_indirect_cycles (unsigned int node)
       && !bitmap_empty_p (get_varinfo (node)->solution))
     {
       unsigned int i;
-      vec<unsigned> queue = vNULL;
+      auto_vec<unsigned> queue;
       int queuepos;
       unsigned int to = find (graph->indirect_cycles[node]);
       bitmap_iterator bi;
@@ -2593,7 +2616,6 @@ eliminate_indirect_cycles (unsigned int node)
 	{
 	  unify_nodes (graph, to, i, true);
 	}
-      queue.release ();
       return true;
     }
   return false;
@@ -2695,6 +2717,7 @@ solve_graph (constraint_graph_t graph)
 	      solution_empty = bitmap_empty_p (solution);
 
 	      /* Process the complex constraints */
+	      bitmap expanded_pts = NULL;
 	      FOR_EACH_VEC_ELT (complex, j, c)
 		{
 		  /* XXX: This is going to unsort the constraints in
@@ -2709,8 +2732,9 @@ solve_graph (constraint_graph_t graph)
 		     is a constraint where the lhs side is receiving
 		     some set from elsewhere.  */
 		  if (!solution_empty || c->lhs.type != DEREF)
-		    do_complex_constraint (graph, c, pts);
+		    do_complex_constraint (graph, c, pts, &expanded_pts);
 		}
+	      BITMAP_FREE (expanded_pts);
 
 	      solution_empty = bitmap_empty_p (solution);
 
@@ -2894,7 +2918,7 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
   if (TREE_CODE (t) == VAR_DECL
       && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
-      struct varpool_node *node = varpool_get_node (t);
+      varpool_node *node = varpool_get_node (t);
       if (node && node->alias && node->analyzed)
 	{
 	  node = varpool_variable_node (node, NULL);
@@ -2994,12 +3018,12 @@ process_constraint (constraint_t t)
 static HOST_WIDE_INT
 bitpos_of_field (const tree fdecl)
 {
-  if (!host_integerp (DECL_FIELD_OFFSET (fdecl), 0)
-      || !host_integerp (DECL_FIELD_BIT_OFFSET (fdecl), 0))
+  if (!tree_fits_shwi_p (DECL_FIELD_OFFSET (fdecl))
+      || !tree_fits_shwi_p (DECL_FIELD_BIT_OFFSET (fdecl)))
     return -1;
 
-  return (TREE_INT_CST_LOW (DECL_FIELD_OFFSET (fdecl)) * BITS_PER_UNIT
-	  + TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (fdecl)));
+  return (tree_to_shwi (DECL_FIELD_OFFSET (fdecl)) * BITS_PER_UNIT
+	  + tree_to_shwi (DECL_FIELD_BIT_OFFSET (fdecl)));
 }
 
 
@@ -3155,29 +3179,6 @@ get_constraint_for_component_ref (tree t, vec<ce_s> *results,
       temp.type = SCALAR;
       results->safe_push (temp);
       return;
-    }
-
-  /* Handle type-punning through unions.  If we are extracting a pointer
-     from a union via a possibly type-punning access that pointer
-     points to anything, similar to a conversion of an integer to
-     a pointer.  */
-  if (!lhs_p)
-    {
-      tree u;
-      for (u = t;
-	   TREE_CODE (u) == COMPONENT_REF || TREE_CODE (u) == ARRAY_REF;
-	   u = TREE_OPERAND (u, 0))
-	if (TREE_CODE (u) == COMPONENT_REF
-	    && TREE_CODE (TREE_TYPE (TREE_OPERAND (u, 0))) == UNION_TYPE)
-	  {
-	    struct constraint_expr temp;
-
-	    temp.offset = 0;
-	    temp.var = anything_id;
-	    temp.type = ADDRESSOF;
-	    results->safe_push (temp);
-	    return;
-	  }
     }
 
   t = get_ref_base_and_extent (t, &bitpos, &bitsize, &bitmaxsize);
@@ -3429,8 +3430,8 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 		  && curr)
 		{
 		  unsigned HOST_WIDE_INT size;
-		  if (host_integerp (TYPE_SIZE (TREE_TYPE (t)), 1))
-		    size = TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (t)));
+		  if (tree_fits_uhwi_p (TYPE_SIZE (TREE_TYPE (t))))
+		    size = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (t)));
 		  else
 		    size = -1;
 		  for (; curr; curr = vi_next (curr))
@@ -3473,7 +3474,7 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 	    {
 	      unsigned int i;
 	      tree val;
-	      vec<ce_s> tmp = vNULL;
+	      auto_vec<ce_s> tmp;
 	      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), i, val)
 		{
 		  struct constraint_expr *rhsp;
@@ -3483,7 +3484,6 @@ get_constraint_for_1 (tree t, vec<ce_s> *results, bool address_p,
 		    results->safe_push (*rhsp);
 		  tmp.truncate (0);
 		}
-	      tmp.release ();
 	      /* We do not know whether the constructor was complete,
 	         so technically we have to add &NOTHING or &ANYTHING
 		 like we do for an empty constructor as well.  */
@@ -3573,8 +3573,8 @@ static void
 do_structure_copy (tree lhsop, tree rhsop)
 {
   struct constraint_expr *lhsp, *rhsp;
-  vec<ce_s> lhsc = vNULL;
-  vec<ce_s> rhsc = vNULL;
+  auto_vec<ce_s> lhsc;
+  auto_vec<ce_s> rhsc;
   unsigned j;
 
   get_constraint_for (lhsop, &lhsc);
@@ -3633,9 +3633,6 @@ do_structure_copy (tree lhsop, tree rhsop)
     }
   else
     gcc_unreachable ();
-
-  lhsc.release ();
-  rhsc.release ();
 }
 
 /* Create constraints ID = { rhsc }.  */
@@ -3660,10 +3657,9 @@ make_constraints_to (unsigned id, vec<ce_s> rhsc)
 static void
 make_constraint_to (unsigned id, tree op)
 {
-  vec<ce_s> rhsc = vNULL;
+  auto_vec<ce_s> rhsc;
   get_constraint_for_rhs (op, &rhsc);
   make_constraints_to (id, rhsc);
-  rhsc.release ();
 }
 
 /* Create a constraint ID = &FROM.  */
@@ -3720,15 +3716,6 @@ make_transitive_closure_constraints (varinfo_t vi)
   lhs.var = vi->id;
   lhs.offset = 0;
   rhs.type = DEREF;
-  rhs.var = vi->id;
-  rhs.offset = 0;
-  process_constraint (new_constraint (lhs, rhs));
-
-  /* VAR = VAR + UNKNOWN;  */
-  lhs.type = SCALAR;
-  lhs.var = vi->id;
-  lhs.offset = 0;
-  rhs.type = SCALAR;
   rhs.var = vi->id;
   rhs.offset = UNKNOWN_OFFSET;
   process_constraint (new_constraint (lhs, rhs));
@@ -3934,7 +3921,7 @@ handle_rhs_call (gimple stmt, vec<ce_s> *results)
       && gimple_call_lhs (stmt) != NULL_TREE
       && TREE_ADDRESSABLE (TREE_TYPE (gimple_call_lhs (stmt))))
     {
-      vec<ce_s> tmpc = vNULL;
+      auto_vec<ce_s> tmpc;
       struct constraint_expr lhsc, *c;
       get_constraint_for_address_of (gimple_call_lhs (stmt), &tmpc);
       lhsc.var = escaped_id;
@@ -3942,7 +3929,6 @@ handle_rhs_call (gimple stmt, vec<ce_s> *results)
       lhsc.type = SCALAR;
       FOR_EACH_VEC_ELT (tmpc, i, c)
 	process_constraint (new_constraint (lhsc, *c));
-      tmpc.release ();
     }
 
   /* Regular functions return nonlocal memory.  */
@@ -3960,7 +3946,7 @@ static void
 handle_lhs_call (gimple stmt, tree lhs, int flags, vec<ce_s> rhsc,
 		 tree fndecl)
 {
-  vec<ce_s> lhsc = vNULL;
+  auto_vec<ce_s> lhsc;
 
   get_constraint_for (lhs, &lhsc);
   /* If the store is to a global decl make sure to
@@ -3996,7 +3982,7 @@ handle_lhs_call (gimple stmt, tree lhs, int flags, vec<ce_s> rhsc,
       struct constraint_expr tmpc;
       rhsc.create (0);
       vi = make_heapvar ("HEAP");
-      /* We marking allocated storage local, we deal with it becoming
+      /* We are marking allocated storage local, we deal with it becoming
          global by escaping and setting of vars_contains_escaped_heap.  */
       DECL_EXTERNAL (vi->decl) = 0;
       vi->is_global_var = 0;
@@ -4015,8 +4001,6 @@ handle_lhs_call (gimple stmt, tree lhs, int flags, vec<ce_s> rhsc,
     }
   else
     process_all_all_constraints (lhsc, rhsc);
-
-  lhsc.release ();
 }
 
 /* For non-IPA mode, generate constraints necessary for a call of a
@@ -4045,13 +4029,12 @@ handle_const_call (gimple stmt, vec<ce_s> *results)
   for (k = 0; k < gimple_call_num_args (stmt); ++k)
     {
       tree arg = gimple_call_arg (stmt, k);
-      vec<ce_s> argc = vNULL;
+      auto_vec<ce_s> argc;
       unsigned i;
       struct constraint_expr *argp;
       get_constraint_for_rhs (arg, &argc);
       FOR_EACH_VEC_ELT (argc, i, argp)
 	results->safe_push (*argp);
-      argc.release ();
     }
 
   /* May return addresses of globals.  */
@@ -4246,6 +4229,26 @@ find_func_aliases_for_builtin_call (gimple t)
 	  FOR_EACH_VEC_ELT (lhsc, i, lhsp)
 	      process_constraint (new_constraint (*lhsp, ac));
 	  lhsc.release ();
+	  return true;
+	}
+      case BUILT_IN_POSIX_MEMALIGN:
+        {
+	  tree ptrptr = gimple_call_arg (t, 0);
+	  get_constraint_for (ptrptr, &lhsc);
+	  do_deref (&lhsc);
+	  varinfo_t vi = make_heapvar ("HEAP");
+	  /* We are marking allocated storage local, we deal with it becoming
+	     global by escaping and setting of vars_contains_escaped_heap.  */
+	  DECL_EXTERNAL (vi->decl) = 0;
+	  vi->is_global_var = 0;
+	  struct constraint_expr tmpc;
+	  tmpc.var = vi->id;
+	  tmpc.offset = 0;
+	  tmpc.type = ADDRESSOF;
+	  rhsc.safe_push (tmpc);
+	  process_all_all_constraints (lhsc, rhsc);
+	  lhsc.release ();
+	  rhsc.release ();
 	  return true;
 	}
       case BUILT_IN_ASSUME_ALIGNED:
@@ -4850,7 +4853,7 @@ find_func_clobbers (gimple origt)
 {
   gimple t = origt;
   vec<ce_s> lhsc = vNULL;
-  vec<ce_s> rhsc = vNULL;
+  auto_vec<ce_s> rhsc;
   varinfo_t fi;
 
   /* Add constraints for clobbered/used in IPA mode.
@@ -4977,6 +4980,7 @@ find_func_clobbers (gimple origt)
 	     its argument.  */
 	  case BUILT_IN_MEMSET:
 	  case BUILT_IN_MEMSET_CHK:
+	  case BUILT_IN_POSIX_MEMALIGN:
 	    {
 	      tree dest = gimple_call_arg (t, 0);
 	      unsigned i;
@@ -5115,8 +5119,6 @@ find_func_clobbers (gimple origt)
       make_constraint_from (first_vi_for_offset (fi, fi_uses),
 			    anything_id);
     }
-
-  rhsc.release ();
 }
 
 
@@ -5348,7 +5350,7 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 	      }
 
 	    if (!DECL_SIZE (field)
-		|| !host_integerp (DECL_SIZE (field), 1))
+		|| !tree_fits_uhwi_p (DECL_SIZE (field)))
 	      has_unknown_size = true;
 
 	    /* If adjacent fields do not contain pointers merge them.  */
@@ -5360,7 +5362,7 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 		&& !pair->has_unknown_size
 		&& pair->offset + (HOST_WIDE_INT)pair->size == offset + foff)
 	      {
-		pair->size += TREE_INT_CST_LOW (DECL_SIZE (field));
+		pair->size += tree_to_uhwi (DECL_SIZE (field));
 	      }
 	    else
 	      {
@@ -5368,7 +5370,7 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 		e.offset = offset + foff;
 		e.has_unknown_size = has_unknown_size;
 		if (!has_unknown_size)
-		  e.size = TREE_INT_CST_LOW (DECL_SIZE (field));
+		  e.size = tree_to_uhwi (DECL_SIZE (field));
 		else
 		  e.size = -1;
 		e.must_have_pointers = must_have_pointers_p;
@@ -5619,12 +5621,12 @@ create_variable_info_for_1 (tree decl, const char *name)
   varinfo_t vi, newvi;
   tree decl_type = TREE_TYPE (decl);
   tree declsize = DECL_P (decl) ? DECL_SIZE (decl) : TYPE_SIZE (decl_type);
-  vec<fieldoff_s> fieldstack = vNULL;
+  auto_vec<fieldoff_s> fieldstack;
   fieldoff_s *fo;
   unsigned int i;
 
   if (!declsize
-      || !host_integerp (declsize, 1))
+      || !tree_fits_uhwi_p (declsize))
     {
       vi = new_var_info (decl, name);
       vi->offset = 0;
@@ -5685,7 +5687,7 @@ create_variable_info_for_1 (tree decl, const char *name)
       vi = new_var_info (decl, name);
       vi->offset = 0;
       vi->may_have_pointers = true;
-      vi->fullsize = TREE_INT_CST_LOW (declsize);
+      vi->fullsize = tree_to_uhwi (declsize);
       vi->size = vi->fullsize;
       vi->is_full_var = true;
       fieldstack.release ();
@@ -5693,7 +5695,7 @@ create_variable_info_for_1 (tree decl, const char *name)
     }
 
   vi = new_var_info (decl, name);
-  vi->fullsize = TREE_INT_CST_LOW (declsize);
+  vi->fullsize = tree_to_uhwi (declsize);
   for (i = 0, newvi = vi;
        fieldstack.iterate (i, &fo);
        ++i, newvi = vi_next (newvi))
@@ -5721,8 +5723,6 @@ create_variable_info_for_1 (tree decl, const char *name)
 	  tem->head = vi->id;
 	}
     }
-
-  fieldstack.release ();
 
   return vi;
 }
@@ -5763,7 +5763,7 @@ create_variable_info_for (tree decl, const char *name)
 	 for it.  */
       else
 	{
-	  struct varpool_node *vnode = varpool_get_node (decl);
+	  varpool_node *vnode = varpool_get_node (decl);
 
 	  /* For escaped variables initialize them from nonlocal.  */
 	  if (!varpool_all_refs_explicit_p (vnode))
@@ -5774,7 +5774,7 @@ create_variable_info_for (tree decl, const char *name)
 	  if (DECL_INITIAL (decl)
 	      && vnode->definition)
 	    {
-	      vec<ce_s> rhsc = vNULL;
+	      auto_vec<ce_s> rhsc;
 	      struct constraint_expr lhs, *rhsp;
 	      unsigned i;
 	      get_constraint_for_rhs (DECL_INITIAL (decl), &rhsc);
@@ -5793,7 +5793,6 @@ create_variable_info_for (tree decl, const char *name)
 		  FOR_EACH_VEC_ELT (rhsc, i, rhsp)
 		    process_constraint (new_constraint (lhs, *rhsp));
 		}
-	      rhsc.release ();
 	    }
 	}
     }
@@ -6796,7 +6795,7 @@ compute_points_to_sets (void)
   intra_create_variable_infos ();
 
   /* Now walk all statements and build the constraint set.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -6843,7 +6842,7 @@ compute_points_to_sets (void)
     }
 
   /* Compute the call-used/clobbered sets.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -7097,7 +7096,7 @@ static unsigned int
 ipa_pta_execute (void)
 {
   struct cgraph_node *node;
-  struct varpool_node *var;
+  varpool_node *var;
   int from;
 
   in_ipa_mode = 1;
@@ -7158,7 +7157,7 @@ ipa_pta_execute (void)
       if (dump_file)
 	{
 	  fprintf (dump_file,
-		   "Generating constraints for %s", cgraph_node_name (node));
+		   "Generating constraints for %s", node->name ());
 	  if (DECL_ASSEMBLER_NAME_SET_P (node->decl))
 	    fprintf (dump_file, " (%s)",
 		     IDENTIFIER_POINTER

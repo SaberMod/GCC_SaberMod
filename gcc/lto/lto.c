@@ -1,5 +1,5 @@
 /* Top-level LTO routines.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -24,19 +24,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "diagnostic-core.h"
 #include "tm.h"
 #include "cgraph.h"
-#include "ggc.h"
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "vec.h"
 #include "bitmap.h"
-#include "pointer-set.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
@@ -48,8 +50,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 
-/* Vector to keep track of external variables we've seen so far.  */
-vec<tree, va_gc> *lto_global_var_decls;
+
+/* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
+static int lto_parallelism;
 
 static GTY(()) tree first_personality_decl;
 
@@ -278,8 +281,6 @@ hash_canonical_type (tree type)
      only existing types having the same features as the new type will be
      checked.  */
   v = iterative_hash_hashval_t (TREE_CODE (type), 0);
-  v = iterative_hash_hashval_t (TREE_ADDRESSABLE (type), v);
-  v = iterative_hash_hashval_t (TYPE_ALIGN (type), v);
   v = iterative_hash_hashval_t (TYPE_MODE (type), v);
 
   /* Incorporate common features of numerical types.  */
@@ -306,9 +307,7 @@ hash_canonical_type (tree type)
      pointed to but do not recurse to the pointed-to type.  */
   if (POINTER_TYPE_P (type))
     {
-      v = iterative_hash_hashval_t (TYPE_REF_CAN_ALIAS_ALL (type), v);
       v = iterative_hash_hashval_t (TYPE_ADDR_SPACE (TREE_TYPE (type)), v);
-      v = iterative_hash_hashval_t (TYPE_RESTRICT (type), v);
       v = iterative_hash_hashval_t (TREE_CODE (TREE_TYPE (type)), v);
     }
 
@@ -445,9 +444,6 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
   if (TREE_CODE (t1) != TREE_CODE (t2))
     return false;
 
-  if (TREE_ADDRESSABLE (t1) != TREE_ADDRESSABLE (t2))
-    return false;
-
   /* Qualifiers do not matter for canonical type comparison purposes.  */
 
   /* Void types and nullptr types are always the same.  */
@@ -455,9 +451,8 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
       || TREE_CODE (t1) == NULLPTR_TYPE)
     return true;
 
-  /* Can't be the same type if they have different alignment, or mode.  */
-  if (TYPE_ALIGN (t1) != TYPE_ALIGN (t2)
-      || TYPE_MODE (t1) != TYPE_MODE (t2))
+  /* Can't be the same type if they have different mode.  */
+  if (TYPE_MODE (t1) != TYPE_MODE (t2))
     return false;
 
   /* Non-aggregate types can be handled cheaply.  */
@@ -484,16 +479,8 @@ gimple_canonical_types_compatible_p (tree t1, tree t2)
 	 useless_type_conversion_p would do.  */
       if (POINTER_TYPE_P (t1))
 	{
-	  /* If the two pointers have different ref-all attributes,
-	     they can't be the same type.  */
-	  if (TYPE_REF_CAN_ALIAS_ALL (t1) != TYPE_REF_CAN_ALIAS_ALL (t2))
-	    return false;
-
 	  if (TYPE_ADDR_SPACE (TREE_TYPE (t1))
 	      != TYPE_ADDR_SPACE (TREE_TYPE (t2)))
-	    return false;
-
-	  if (TYPE_RESTRICT (t1) != TYPE_RESTRICT (t2))
 	    return false;
 
 	  if (TREE_CODE (TREE_TYPE (t1)) != TREE_CODE (TREE_TYPE (t2)))
@@ -902,6 +889,19 @@ mentions_vars_p_expr (tree t)
   return false;
 }
 
+/* Check presence of pointers to decls in fields of an OMP_CLAUSE T.  */
+
+static bool
+mentions_vars_p_omp_clause (tree t)
+{
+  int i;
+  if (mentions_vars_p_common (t))
+    return true;
+  for (i = omp_clause_num_ops[OMP_CLAUSE_CODE (t)] - 1; i >= 0; --i)
+    CHECK_VAR (OMP_CLAUSE_OPERAND (t, i));
+  return false;
+}
+
 /* Check presence of pointers to decls that needs later fixup in T.  */
 
 static bool
@@ -920,7 +920,6 @@ mentions_vars_p (tree t)
 
     case FIELD_DECL:
       return mentions_vars_p_field_decl (t);
-      break;
 
     case LABEL_DECL:
     case CONST_DECL:
@@ -928,28 +927,23 @@ mentions_vars_p (tree t)
     case RESULT_DECL:
     case IMPORTED_DECL:
     case NAMESPACE_DECL:
+    case NAMELIST_DECL:
       return mentions_vars_p_decl_common (t);
-      break;
 
     case VAR_DECL:
       return mentions_vars_p_decl_with_vis (t);
-      break;
 
     case TYPE_DECL:
       return mentions_vars_p_decl_non_common (t);
-      break;
 
     case FUNCTION_DECL:
       return mentions_vars_p_function (t);
-      break;
 
     case TREE_BINFO:
       return mentions_vars_p_binfo (t);
-      break;
 
     case PLACEHOLDER_EXPR:
       return mentions_vars_p_common (t);
-      break;
 
     case BLOCK:
     case TRANSLATION_UNIT_DECL:
@@ -959,7 +953,9 @@ mentions_vars_p (tree t)
 
     case CONSTRUCTOR:
       return mentions_vars_p_constructor (t);
-      break;
+
+    case OMP_CLAUSE:
+      return mentions_vars_p_omp_clause (t);
 
     default:
       if (TYPE_P (t))
@@ -1371,9 +1367,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    if (memcmp (TREE_TARGET_OPTION (t1), TREE_TARGET_OPTION (t2),
-		sizeof (struct cl_target_option)) != 0)
-      return false;
+    gcc_unreachable ();
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     if (memcmp (TREE_OPTIMIZATION (t1), TREE_OPTIMIZATION (t2),
@@ -1399,6 +1393,36 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	|| memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 		   TREE_STRING_LENGTH (t1)) != 0)
       return false;
+
+  if (code == OMP_CLAUSE)
+    {
+      compare_values (OMP_CLAUSE_CODE);
+      switch (OMP_CLAUSE_CODE (t1))
+	{
+	case OMP_CLAUSE_DEFAULT:
+	  compare_values (OMP_CLAUSE_DEFAULT_KIND);
+	  break;
+	case OMP_CLAUSE_SCHEDULE:
+	  compare_values (OMP_CLAUSE_SCHEDULE_KIND);
+	  break;
+	case OMP_CLAUSE_DEPEND:
+	  compare_values (OMP_CLAUSE_DEPEND_KIND);
+	  break;
+	case OMP_CLAUSE_MAP:
+	  compare_values (OMP_CLAUSE_MAP_KIND);
+	  break;
+	case OMP_CLAUSE_PROC_BIND:
+	  compare_values (OMP_CLAUSE_PROC_BIND_KIND);
+	  break;
+	case OMP_CLAUSE_REDUCTION:
+	  compare_values (OMP_CLAUSE_REDUCTION_CODE);
+	  compare_values (OMP_CLAUSE_REDUCTION_GIMPLE_INIT);
+	  compare_values (OMP_CLAUSE_REDUCTION_GIMPLE_MERGE);
+	  break;
+	default:
+	  break;
+	}
+    }
 
 #undef compare_values
 
@@ -1521,8 +1545,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
     {
       compare_tree_edges (DECL_FUNCTION_PERSONALITY (t1),
 			  DECL_FUNCTION_PERSONALITY (t2));
-      compare_tree_edges (DECL_FUNCTION_SPECIFIC_TARGET (t1),
-			  DECL_FUNCTION_SPECIFIC_TARGET (t2));
+      /* DECL_FUNCTION_SPECIFIC_TARGET is not yet created.  We compare
+         the attribute list instead.  */
       compare_tree_edges (DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t1),
 			  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (t2));
     }
@@ -1621,6 +1645,16 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
 	  compare_tree_edges (index, CONSTRUCTOR_ELT (t2, i)->index);
 	  compare_tree_edges (value, CONSTRUCTOR_ELT (t2, i)->value);
 	}
+    }
+
+  if (code == OMP_CLAUSE)
+    {
+      int i;
+
+      for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (t1)]; i++)
+	compare_tree_edges (OMP_CLAUSE_OPERAND (t1, i),
+			    OMP_CLAUSE_OPERAND (t2, i));
+      compare_tree_edges (OMP_CLAUSE_CHAIN (t1), OMP_CLAUSE_CHAIN (t2));
     }
 
 #undef compare_tree_edges
@@ -1771,8 +1805,12 @@ unify_scc (struct streamer_tree_cache_d *cache, unsigned from,
 	  /* Free the tree nodes from the read SCC.  */
 	  for (unsigned i = 0; i < len; ++i)
 	    {
+	      enum tree_code code;
 	      if (TYPE_P (scc->entries[i]))
 		num_merged_types++;
+	      code = TREE_CODE (scc->entries[i]);
+	      if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
+		vec_free (CONSTRUCTOR_ELTS (scc->entries[i]));
 	      ggc_free (scc->entries[i]);
 	    }
 
@@ -1886,6 +1924,15 @@ lto_read_decls (struct lto_file_decl_data *decl_data, const void *data,
 	      if (TREE_CODE (t) == INTEGER_CST
 		  && !TREE_OVERFLOW (t))
 		cache_integer_cst (t);
+	      /* Re-build DECL_FUNCTION_SPECIFIC_TARGET, we need that
+	         for both WPA and LTRANS stage.  */
+	      if (TREE_CODE (t) == FUNCTION_DECL)
+		{
+		  tree attr = lookup_attribute ("target", DECL_ATTRIBUTES (t));
+		  if (attr)
+		    targetm.target_option.valid_attribute_p
+			(t, NULL_TREE, TREE_VALUE (attr), 0);
+		}
 	      /* Register TYPE_DECLs with the debuginfo machinery.  */
 	      if (!flag_wpa
 		  && TREE_CODE (t) == TYPE_DECL)
@@ -2404,6 +2451,98 @@ cmp_partitions_order (const void *a, const void *b)
   return orderb - ordera;
 }
 
+/* Actually stream out ENCODER into TEMP_FILENAME.  */
+
+static void
+do_stream_out (char *temp_filename, lto_symtab_encoder_t encoder)
+{
+  lto_file *file = lto_obj_file_open (temp_filename, true);
+  if (!file)
+    fatal_error ("lto_obj_file_open() failed");
+  lto_set_current_out_file (file);
+
+  ipa_write_optimization_summaries (encoder);
+
+  lto_set_current_out_file (NULL);
+  lto_obj_file_close (file);
+  free (file);
+}
+
+/* Wait for forked process and signal errors.  */
+#ifdef HAVE_WORKING_FORK
+static void
+wait_for_child ()
+{
+  int status;
+  do
+    {
+      int w = waitpid(0, &status, WUNTRACED | WCONTINUED);
+      if (w == -1)
+	fatal_error ("waitpid failed");
+
+      if (WIFEXITED (status) && WEXITSTATUS (status))
+	fatal_error ("streaming subprocess failed");
+      else if (WIFSIGNALED (status))
+	fatal_error ("streaming subprocess was killed by signal");
+    }
+  while (!WIFEXITED(status) && !WIFSIGNALED(status));
+}
+#endif
+
+/* Stream out ENCODER into TEMP_FILENAME
+   Fork if that seems to help.  */
+
+static void
+stream_out (char *temp_filename, lto_symtab_encoder_t encoder, bool last)
+{
+#ifdef HAVE_WORKING_FORK
+  static int nruns;
+
+  if (!lto_parallelism || lto_parallelism == 1)
+    {
+      do_stream_out (temp_filename, encoder);
+      return;
+    }
+
+  /* Do not run more than LTO_PARALLELISM streamings
+     FIXME: we ignore limits on jobserver.  */
+  if (lto_parallelism > 0 && nruns >= lto_parallelism)
+    {
+      wait_for_child ();
+      nruns --;
+    }
+  /* If this is not the last parallel partition, execute new
+     streaming process.  */
+  if (!last)
+    {
+      pid_t cpid = fork ();
+
+      if (!cpid)
+	{
+	  setproctitle ("lto1-wpa-streaming");
+	  do_stream_out (temp_filename, encoder);
+	  exit (0);
+	}
+      /* Fork failed; lets do the job ourseleves.  */
+      else if (cpid == -1)
+        do_stream_out (temp_filename, encoder);
+      else
+	nruns++;
+    }
+  /* Last partition; stream it and wait for all children to die.  */
+  else
+    {
+      int i;
+      do_stream_out (temp_filename, encoder);
+      for (i = 0; i < nruns; i++)
+	wait_for_child ();
+    }
+  asm_nodes_output = true;
+#else
+  do_stream_out (temp_filename, encoder);
+#endif
+}
+
 /* Write all output files in WPA mode and the file with the list of
    LTRANS units.  */
 
@@ -2411,18 +2550,15 @@ static void
 lto_wpa_write_files (void)
 {
   unsigned i, n_sets;
-  lto_file *file;
   ltrans_partition part;
   FILE *ltrans_output_list_stream;
   char *temp_filename;
+  vec <char *>temp_filenames = vNULL;
   size_t blen;
 
   /* Open the LTRANS output list.  */
   if (!ltrans_output_list)
     fatal_error ("no LTRANS output list filename provided");
-  ltrans_output_list_stream = fopen (ltrans_output_list, "w");
-  if (ltrans_output_list_stream == NULL)
-    fatal_error ("opening LTRANS output list %s: %m", ltrans_output_list);
 
   timevar_push (TV_WHOPR_WPA);
 
@@ -2453,19 +2589,18 @@ lto_wpa_write_files (void)
   /* Sort partitions by size so small ones are compiled last.
      FIXME: Even when not reordering we may want to output one list for parallel make
      and other for final link command.  */
-  ltrans_partitions.qsort (flag_toplevel_reorder
+
+  if (!flag_profile_reorder_functions || !flag_profile_use)
+    ltrans_partitions.qsort (flag_toplevel_reorder
 			   ? cmp_partitions_size
 			   : cmp_partitions_order);
+
   for (i = 0; i < n_sets; i++)
     {
-      size_t len;
       ltrans_partition part = ltrans_partitions[i];
 
       /* Write all the nodes in SET.  */
       sprintf (temp_filename + blen, "%u.o", i);
-      file = lto_obj_file_open (temp_filename, true);
-      if (!file)
-	fatal_error ("lto_obj_file_open() failed");
 
       if (!quiet_flag)
 	fprintf (stderr, " %s (%s %i insns)", temp_filename, part->name, part->insns);
@@ -2480,7 +2615,7 @@ lto_wpa_write_files (void)
 	       lsei_next_in_partition (&lsei))
 	    {
 	      symtab_node *node = lsei_node (lsei);
-	      fprintf (cgraph_dump_file, "%s ", symtab_node_asm_name (node));
+	      fprintf (cgraph_dump_file, "%s ", node->asm_name ());
 	    }
 	  fprintf (cgraph_dump_file, "\n  Symbols in boundary: ");
 	  for (lsei = lsei_start (part->encoder); !lsei_end_p (lsei);
@@ -2489,7 +2624,7 @@ lto_wpa_write_files (void)
 	      symtab_node *node = lsei_node (lsei);
 	      if (!lto_symtab_encoder_in_partition_p (part->encoder, node))
 		{
-	          fprintf (cgraph_dump_file, "%s ", symtab_node_asm_name (node));
+	          fprintf (cgraph_dump_file, "%s ", node->asm_name ());
 		  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
 		  if (cnode
 		      && lto_symtab_encoder_encode_body_p (part->encoder, cnode))
@@ -2507,21 +2642,25 @@ lto_wpa_write_files (void)
 	}
       gcc_checking_assert (lto_symtab_encoder_size (part->encoder) || !i);
 
-      lto_set_current_out_file (file);
+      stream_out (temp_filename, part->encoder, i == n_sets - 1);
 
-      ipa_write_optimization_summaries (part->encoder);
-
-      lto_set_current_out_file (NULL);
-      lto_obj_file_close (file);
-      free (file);
       part->encoder = NULL;
 
-      len = strlen (temp_filename);
-      if (fwrite (temp_filename, 1, len, ltrans_output_list_stream) < len
+      temp_filenames.safe_push (xstrdup (temp_filename));
+    }
+  ltrans_output_list_stream = fopen (ltrans_output_list, "w");
+  if (ltrans_output_list_stream == NULL)
+    fatal_error ("opening LTRANS output list %s: %m", ltrans_output_list);
+  for (i = 0; i < n_sets; i++)
+    {
+      unsigned int len = strlen (temp_filenames[i]);
+      if (fwrite (temp_filenames[i], 1, len, ltrans_output_list_stream) < len
 	  || fwrite ("\n", 1, 1, ltrans_output_list_stream) < 1)
 	fatal_error ("writing to LTRANS output list %s: %m",
 		     ltrans_output_list);
+     free (temp_filenames[i]);
     }
+  temp_filenames.release();
 
   lto_stats.num_output_files += n_sets;
 
@@ -2560,7 +2699,7 @@ lto_fixup_prevailing_decls (tree t)
   enum tree_code code = TREE_CODE (t);
   bool fixed = false;
 
-  gcc_checking_assert (code != CONSTRUCTOR && code != TREE_BINFO);
+  gcc_checking_assert (code != TREE_BINFO);
   LTO_NO_PREVAIL (TREE_TYPE (t));
   if (CODE_CONTAINS_STRUCT (code, TS_COMMON))
     LTO_NO_PREVAIL (TREE_CHAIN (t));
@@ -2621,6 +2760,13 @@ lto_fixup_prevailing_decls (tree t)
       int i;
       for (i = TREE_OPERAND_LENGTH (t) - 1; i >= 0; --i)
 	LTO_SET_PREVAIL (TREE_OPERAND (t, i));
+    }
+  else if (TREE_CODE (t) == CONSTRUCTOR)
+    {
+      unsigned i;
+      tree val;
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), i, val)
+	LTO_SET_PREVAIL (val);
     }
   else
     {
@@ -2964,9 +3110,7 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 static void
 materialize_cgraph (void)
 {
-  tree decl;
   struct cgraph_node *node; 
-  unsigned i;
   timevar_id_t lto_timer;
 
   if (!quiet_flag)
@@ -2997,10 +3141,6 @@ materialize_cgraph (void)
 
   current_function_decl = NULL;
   set_cfun (NULL);
-
-  /* Inform the middle end about the global variables we have seen.  */
-  FOR_EACH_VEC_ELT (*lto_global_var_decls, i, decl)
-    rest_of_decl_compilation (decl, 1, 0);
 
   if (!quiet_flag)
     fprintf (stderr, "\n");
@@ -3075,6 +3215,18 @@ static void
 do_whole_program_analysis (void)
 {
   symtab_node *node;
+
+  lto_parallelism = 1;
+
+  /* TODO: jobserver communicatoin is not supported, yet.  */
+  if (!strcmp (flag_wpa, "jobserver"))
+    lto_parallelism = -1;
+  else
+    {
+      lto_parallelism = atoi (flag_wpa);
+      if (lto_parallelism <= 0)
+	lto_parallelism = 0;
+    }
 
   timevar_start (TV_PHASE_OPT_GEN);
 
@@ -3264,8 +3416,6 @@ lto_main (void)
 	do_whole_program_analysis ();
       else
 	{
-	  struct varpool_node *vnode;
-
 	  timevar_start (TV_PHASE_OPT_GEN);
 
 	  materialize_cgraph ();
@@ -3285,10 +3435,6 @@ lto_main (void)
 	     this.  */
 	  if (flag_lto_report || (flag_wpa && flag_lto_report_wpa))
 	    print_lto_report_1 ();
-
-	  /* Record the global variables.  */
-	  FOR_EACH_DEFINED_VARIABLE (vnode)
-	    vec_safe_push (lto_global_var_decls, vnode->decl);
 	}
     }
 

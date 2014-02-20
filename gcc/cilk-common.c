@@ -1,6 +1,6 @@
 /* This file is part of the Intel(R) Cilk(TM) Plus support
    This file contains the CilkPlus Intrinsics
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Balaji V. Iyer <balaji.v.iyer@intel.com>,
    Intel Corporation
 
@@ -24,12 +24,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "langhooks.h"
 #include "expr.h"
 #include "optabs.h"
 #include "recog.h"
 #include "tree-iterator.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "cilk.h"
 
@@ -65,8 +66,7 @@ cilk_dot (tree frame, int field_number, bool volatil)
 tree
 cilk_arrow (tree frame_ptr, int field_number, bool volatil)
 {
-  return cilk_dot (fold_build1 (INDIRECT_REF, 
-				TREE_TYPE (TREE_TYPE (frame_ptr)), frame_ptr), 
+  return cilk_dot (build_simple_mem_ref (frame_ptr), 
 		   field_number, volatil);
 }
 
@@ -263,6 +263,7 @@ cilk_init_builtins (void)
   /* __cilkrts_rethrow (struct stack_frame *);  */
   cilk_rethrow_fndecl = install_builtin ("__cilkrts_rethrow", fptr_fun, 
 					 BUILT_IN_CILK_RETHROW, false);
+  TREE_NOTHROW (cilk_rethrow_fndecl) = 0;
 
   /* __cilkrts_save_fp_ctrl_state (__cilkrts_stack_frame *);  */
   cilk_save_fp_fndecl = install_builtin ("__cilkrts_save_fp_ctrl_state", 
@@ -285,12 +286,9 @@ get_frame_arg (tree call)
 
   argtype = TREE_TYPE (argtype);
   
-  gcc_assert (!lang_hooks.types_compatible_p
-	      || lang_hooks.types_compatible_p (argtype, cilk_frame_type_decl));
-
   /* If it is passed in as an address, then just use the value directly 
      since the function is inlined.  */
-  if (TREE_CODE (arg) == INDIRECT_REF || TREE_CODE (arg) == ADDR_EXPR)
+  if (TREE_CODE (arg) == ADDR_EXPR)
     return TREE_OPERAND (arg, 0);
   return arg;
 }
@@ -327,7 +325,7 @@ expand_builtin_cilk_detach (tree exp)
 
   tree parent = cilk_dot (fptr, CILK_TI_FRAME_PARENT, 0);
   tree worker = cilk_dot (fptr, CILK_TI_FRAME_WORKER, 0);
-  tree tail = cilk_dot (worker, CILK_TI_WORKER_TAIL, 1);
+  tree tail = cilk_arrow (worker, CILK_TI_WORKER_TAIL, 1);
 
   rtx wreg = expand_expr (worker, NULL_RTX, Pmode, EXPAND_NORMAL);
   if (GET_CODE (wreg) != REG)
@@ -340,8 +338,8 @@ expand_builtin_cilk_detach (tree exp)
      WORKER.TAIL <- TMP   */
 
   HOST_WIDE_INT worker_tail_offset =
-    tree_low_cst (DECL_FIELD_OFFSET (cilk_trees[CILK_TI_WORKER_TAIL]), 0) +
-    tree_low_cst (DECL_FIELD_BIT_OFFSET (cilk_trees[CILK_TI_WORKER_TAIL]), 0) /
+    tree_to_shwi (DECL_FIELD_OFFSET (cilk_trees[CILK_TI_WORKER_TAIL])) +
+    tree_to_shwi (DECL_FIELD_BIT_OFFSET (cilk_trees[CILK_TI_WORKER_TAIL])) /
     BITS_PER_UNIT;
   rtx tmem0 = gen_rtx_MEM (Pmode,
 			   plus_constant (Pmode, wreg, worker_tail_offset));

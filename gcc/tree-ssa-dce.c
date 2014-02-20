@@ -1,5 +1,5 @@
 /* Dead code elimination pass for the GNU compiler.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Ben Elliston <bje@redhat.com>
    and Andrew MacLeod <amacleod@redhat.com>
    Adapted to use control dependence by Steven Bosscher, SUSE Labs.
@@ -48,8 +48,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "calls.h"
 #include "gimple-pretty-print.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -57,9 +63,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -325,9 +333,9 @@ mark_control_dependent_edges_necessary (basic_block bb, bool ignore_self)
   unsigned edge_number;
   bool skipped = false;
 
-  gcc_assert (bb != EXIT_BLOCK_PTR);
+  gcc_assert (bb != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
-  if (bb == ENTRY_BLOCK_PTR)
+  if (bb == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   EXECUTE_IF_SET_IN_BITMAP (cd->get_edges_dependent_on (bb->index),
@@ -366,7 +374,7 @@ find_obviously_necessary_stmts (bool aggressive)
   gimple phi, stmt;
   int flags;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* PHI nodes are never inherently necessary.  */
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -393,11 +401,10 @@ find_obviously_necessary_stmts (bool aggressive)
   /* Prevent the empty possibly infinite loops from being removed.  */
   if (aggressive)
     {
-      loop_iterator li;
       struct loop *loop;
       scev_initialize ();
       if (mark_irreducible_loops ())
-	FOR_EACH_BB (bb)
+	FOR_EACH_BB_FN (bb, cfun)
 	  {
 	    edge_iterator ei;
 	    FOR_EACH_EDGE (e, ei, bb->succs)
@@ -411,7 +418,7 @@ find_obviously_necessary_stmts (bool aggressive)
 		}
 	  }
 
-      FOR_EACH_LOOP (li, loop, 0)
+      FOR_EACH_LOOP (loop, 0)
 	if (!finite_loop_p (loop))
 	  {
 	    if (dump_file)
@@ -634,7 +641,7 @@ propagate_necessity (bool aggressive)
 	     containing STMT is control dependent, but only if we haven't
 	     already done so.  */
 	  basic_block bb = gimple_bb (stmt);
-	  if (bb != ENTRY_BLOCK_PTR
+	  if (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	      && !bitmap_bit_p (visited_control_parents, bb->index))
 	    mark_control_dependent_edges_necessary (bb, false);
 	}
@@ -740,7 +747,7 @@ propagate_necessity (bool aggressive)
 		      if (!bitmap_bit_p (last_stmt_necessary, arg_bb->index))
 			mark_last_stmt_necessary (arg_bb);
 		    }
-		  else if (arg_bb != ENTRY_BLOCK_PTR
+		  else if (arg_bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 		           && !bitmap_bit_p (visited_control_parents,
 					 arg_bb->index))
 		    mark_control_dependent_edges_necessary (arg_bb, true);
@@ -1074,7 +1081,7 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 	 fake edges in the dominator tree.  */
       if (e)
         ;
-      else if (! post_dom_bb || post_dom_bb == EXIT_BLOCK_PTR)
+      else if (! post_dom_bb || post_dom_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	e = EDGE_SUCC (bb, 0);
       else
         e = forward_edge_to_pdom (EDGE_SUCC (bb, 0), post_dom_bb);
@@ -1166,7 +1173,8 @@ eliminate_unnecessary_stmts (void)
 
      as desired.  */
   gcc_assert (dom_info_available_p (CDI_DOMINATORS));
-  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+  h = get_all_dominated_blocks (CDI_DOMINATORS,
+				single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
   while (h.length ())
     {
@@ -1183,26 +1191,19 @@ eliminate_unnecessary_stmts (void)
 	  stats.total++;
 
 	  /* We can mark a call to free as not necessary if the
-	     defining statement of its argument is an allocation
-	     function and that is not necessary itself.  */
-	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE))
+	     defining statement of its argument is not necessary
+	     (and thus is getting removed).  */
+	  if (gimple_plf (stmt, STMT_NECESSARY)
+	      && gimple_call_builtin_p (stmt, BUILT_IN_FREE))
 	    {
 	      tree ptr = gimple_call_arg (stmt, 0);
-	      tree callee2;
-	      gimple def_stmt;
-	      if (TREE_CODE (ptr) != SSA_NAME)
-		continue;
-	      def_stmt = SSA_NAME_DEF_STMT (ptr);
-	      if (!is_gimple_call (def_stmt)
-		  || gimple_plf (def_stmt, STMT_NECESSARY))
-		continue;
-	      callee2 = gimple_call_fndecl (def_stmt);
-	      if (callee2 == NULL_TREE
-		  || DECL_BUILT_IN_CLASS (callee2) != BUILT_IN_NORMAL
-		  || (DECL_FUNCTION_CODE (callee2) != BUILT_IN_MALLOC
-		      && DECL_FUNCTION_CODE (callee2) != BUILT_IN_CALLOC))
-		continue;
-	      gimple_set_plf (stmt, STMT_NECESSARY, false);
+	      if (TREE_CODE (ptr) == SSA_NAME)
+		{
+		  gimple def_stmt = SSA_NAME_DEF_STMT (ptr);
+		  if (!gimple_nop_p (def_stmt)
+		      && !gimple_plf (def_stmt, STMT_NECESSARY))
+		    gimple_set_plf (stmt, STMT_NECESSARY, false);
+		}
 	    }
 
 	  /* If GSI is not necessary then remove it.  */
@@ -1263,7 +1264,8 @@ eliminate_unnecessary_stmts (void)
       find_unreachable_blocks ();
 
       /* Delete all unreachable basic blocks in reverse dominator order.  */
-      for (bb = EXIT_BLOCK_PTR->prev_bb; bb != ENTRY_BLOCK_PTR; bb = prev_bb)
+      for (bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
+	   bb != ENTRY_BLOCK_PTR_FOR_FN (cfun); bb = prev_bb)
 	{
 	  prev_bb = bb->prev_bb;
 
@@ -1323,7 +1325,7 @@ eliminate_unnecessary_stmts (void)
 	    }
 	}
     }
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Remove dead PHI nodes.  */
       something_changed |= remove_dead_phis (bb);
@@ -1362,9 +1364,9 @@ tree_dce_init (bool aggressive)
 
   if (aggressive)
     {
-      last_stmt_necessary = sbitmap_alloc (last_basic_block);
+      last_stmt_necessary = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (last_stmt_necessary);
-      bb_contains_live_stmts = sbitmap_alloc (last_basic_block);
+      bb_contains_live_stmts = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (bb_contains_live_stmts);
     }
 
@@ -1430,7 +1432,8 @@ perform_tree_ssa_dce (bool aggressive)
       calculate_dominance_info (CDI_POST_DOMINATORS);
       cd = new control_dependences (create_edge_list ());
 
-      visited_control_parents = sbitmap_alloc (last_basic_block);
+      visited_control_parents =
+	sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (visited_control_parents);
 
       mark_dfs_back_edges ();

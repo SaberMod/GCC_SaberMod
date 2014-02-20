@@ -1,5 +1,5 @@
 /* Building internal representation for IRA.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -138,9 +138,10 @@ create_loop_tree_nodes (void)
 
   ira_bb_nodes
     = ((struct ira_loop_tree_node *)
-       ira_allocate (sizeof (struct ira_loop_tree_node) * last_basic_block));
-  last_basic_block_before_change = last_basic_block;
-  for (i = 0; i < (unsigned int) last_basic_block; i++)
+       ira_allocate (sizeof (struct ira_loop_tree_node)
+		     * last_basic_block_for_fn (cfun)));
+  last_basic_block_before_change = last_basic_block_for_fn (cfun);
+  for (i = 0; i < (unsigned int) last_basic_block_for_fn (cfun); i++)
     {
       ira_bb_nodes[i].regno_allocno_map = NULL;
       memset (ira_bb_nodes[i].reg_pressure, 0,
@@ -340,7 +341,7 @@ form_loop_tree (void)
   /* We can not use loop/bb node access macros because of potential
      checking and because the nodes are not initialized enough
      yet.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       bb_node = &ira_bb_nodes[bb->index];
       bb_node->bb = bb;
@@ -1711,7 +1712,7 @@ ira_loop_tree_body_rev_postorder (ira_loop_tree_node_t loop_node ATTRIBUTE_UNUSE
     {
       ira_loop_tree_node_t subloop_node;
       unsigned int i;
-      vec<ira_loop_tree_node_t> dfs_stack;
+      auto_vec<ira_loop_tree_node_t> dfs_stack;
 
       /* This is a bit of strange abuse of the BB_VISITED flag:  We use
 	 the flag to mark blocks we still have to visit to add them to
@@ -1745,7 +1746,7 @@ ira_loop_tree_body_rev_postorder (ira_loop_tree_node_t loop_node ATTRIBUTE_UNUSE
 		  ira_loop_tree_node_t pred_node;
 		  basic_block pred_bb = e->src;
 
-		  if (e->src == ENTRY_BLOCK_PTR)
+		  if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		    continue;
 
 		  pred_node = IRA_BB_NODE_BY_INDEX (pred_bb->index);
@@ -1765,7 +1766,6 @@ ira_loop_tree_body_rev_postorder (ira_loop_tree_node_t loop_node ATTRIBUTE_UNUSE
 	}
 
 #undef BB_TO_VISIT
-      dfs_stack.release ();
     }
 
   gcc_assert (topsort_nodes.length () == n_loop_preorder);
@@ -1807,8 +1807,7 @@ ira_traverse_loop_tree (bool bb_p, ira_loop_tree_node_t loop_node,
 
   if (bb_p)
     {
-      vec<ira_loop_tree_node_t>
-	  loop_preorder = vNULL;
+      auto_vec<ira_loop_tree_node_t> loop_preorder;
       unsigned int i;
 
       /* Add all nodes to the set of nodes to visit.  The IRA loop tree
@@ -1832,8 +1831,6 @@ ira_traverse_loop_tree (bool bb_p, ira_loop_tree_node_t loop_node,
 	    (*postorder_func) (subloop_node);
 	  loop_rev_postorder.release ();
 	}
-
-      loop_preorder.release ();
     }
 
   for (subloop_node = loop_node->subloops;
@@ -2609,8 +2606,10 @@ remove_unnecessary_regions (bool all_p)
     mark_all_loops_for_removal ();
   else
     mark_loops_for_removal ();
-  children_vec.create (last_basic_block + number_of_loops (cfun));
-  removed_loop_vec.create (last_basic_block + number_of_loops (cfun));
+  children_vec.create (last_basic_block_for_fn (cfun)
+		       + number_of_loops (cfun));
+  removed_loop_vec.create (last_basic_block_for_fn (cfun)
+			   + number_of_loops (cfun));
   remove_uneccesary_loop_nodes_from_loop_tree (ira_loop_tree_root);
   children_vec.release ();
   if (all_p)
@@ -3496,7 +3495,7 @@ ira_build (void)
 	}
       fprintf (ira_dump_file, "  regions=%d, blocks=%d, points=%d\n",
 	       current_loops == NULL ? 1 : number_of_loops (cfun),
-	       n_basic_blocks, ira_max_point);
+	       n_basic_blocks_for_fn (cfun), ira_max_point);
       fprintf (ira_dump_file,
 	       "    allocnos=%d (big %d), copies=%d, conflicts=%d, ranges=%d\n",
 	       ira_allocnos_num, nr_big, ira_copies_num, n, nr);

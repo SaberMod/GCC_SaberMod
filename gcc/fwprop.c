@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -289,7 +289,7 @@ build_single_def_use_links (void)
   reg_defs.create (max_reg_num ());
   reg_defs.safe_grow_cleared (max_reg_num ());
 
-  reg_defs_stack.create (n_basic_blocks * 10);
+  reg_defs_stack.create (n_basic_blocks_for_fn (cfun) * 10);
   local_md = BITMAP_ALLOC (NULL);
   local_lr = BITMAP_ALLOC (NULL);
 

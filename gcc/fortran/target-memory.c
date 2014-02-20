@@ -1,5 +1,5 @@
 /* Simulate storage of variables into target memory.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Paul Thomas and Brooks Moses
 
 This file is part of GCC.
@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "machmode.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "constructor.h"

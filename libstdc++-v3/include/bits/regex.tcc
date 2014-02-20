@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -37,8 +37,6 @@
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
-_GLIBCXX_BEGIN_NAMESPACE_VERSION
-
 namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -128,14 +126,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      __suf.second = __e;
 	      __suf.matched = (__suf.first != __suf.second);
 	    }
-	  if (__re.flags() & regex_constants::nosubs)
-	    __res.resize(3);
 	}
       return __ret;
     }
 
 _GLIBCXX_END_NAMESPACE_VERSION
 }
+
+_GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _Ch_type>
   template<typename _Fwd_iter>

@@ -1,6 +1,6 @@
 /* Functions and structures shared between arm and aarch64.
 
-   Copyright (C) 1991-2013 Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -31,6 +31,7 @@ extern int arm_no_early_alu_shift_dep (rtx, rtx);
 extern int arm_no_early_alu_shift_value_dep (rtx, rtx);
 extern int arm_no_early_mul_dep (rtx, rtx);
 extern int arm_no_early_store_addr_dep (rtx, rtx);
+extern bool arm_rtx_shift_left_p (rtx);
 
 /* RTX cost table definitions.  These are used when tuning for speed rather
    than for size and should reflect the _additional_ cost over the cost

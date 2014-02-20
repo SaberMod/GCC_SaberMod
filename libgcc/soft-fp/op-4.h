@@ -1,6 +1,6 @@
 /* Software floating-point emulation.
    Basic four-word fraction declaration and manipulation.
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Contributed by Richard Henderson (rth@cygnus.com),
 		  Jakub Jelinek (jj@ultra.linux.cz),
@@ -709,7 +709,7 @@
       else if (rsize <= 2*_FP_W_TYPE_SIZE)				\
 	{								\
 	  r = X##_f[1];							\
-	  r <<= _FP_W_TYPE_SIZE;					\
+	  r = (rsize <= _FP_W_TYPE_SIZE ? 0 : r << _FP_W_TYPE_SIZE);	\
 	  r += X##_f[0];						\
 	}								\
       else								\
@@ -717,11 +717,11 @@
 	  /* I'm feeling lazy so we deal with int == 3words (implausible)*/ \
 	  /* and int == 4words as a single case.			 */ \
 	  r = X##_f[3];							\
-	  r <<= _FP_W_TYPE_SIZE;					\
+	  r = (rsize <= _FP_W_TYPE_SIZE ? 0 : r << _FP_W_TYPE_SIZE);	\
 	  r += X##_f[2];						\
-	  r <<= _FP_W_TYPE_SIZE;					\
+	  r = (rsize <= _FP_W_TYPE_SIZE ? 0 : r << _FP_W_TYPE_SIZE);	\
 	  r += X##_f[1];						\
-	  r <<= _FP_W_TYPE_SIZE;					\
+	  r = (rsize <= _FP_W_TYPE_SIZE ? 0 : r << _FP_W_TYPE_SIZE);	\
 	  r += X##_f[0];						\
 	}								\
     }									\

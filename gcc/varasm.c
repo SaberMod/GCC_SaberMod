@@ -1,5 +1,5 @@
 /* Output variables, constants and external declarations, for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -31,6 +31,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "gcc-symtab.h"
+#include "varasm.h"
 #include "flags.h"
 #include "function.h"
 #include "expr.h"
@@ -113,8 +117,8 @@ static int compare_constant (const tree, const tree);
 static tree copy_constant (tree);
 static void output_constant_def_contents (rtx);
 static void output_addressed_constants (tree);
-static unsigned HOST_WIDE_INT array_size_for_constructor (tree);
-static unsigned min_align (unsigned, unsigned);
+static unsigned HOST_WIDE_INT output_constant (tree, unsigned HOST_WIDE_INT,
+					       unsigned int);
 static void globalize_decl (tree);
 static bool decl_readonly_section_1 (enum section_category);
 #ifdef BSS_SECTION_ASM_OP
@@ -548,7 +552,14 @@ default_function_section (tree decl, enum node_frequency freq,
      unlikely executed (this happens especially with function splitting
      where we can split away unnecessary parts of static constructors.  */
   if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return get_named_text_section (decl, ".text.startup", NULL);
+  {
+    /* If we do have a profile or(and) LTO phase is executed, we do not need
+       these ELF section.  */
+    if (!in_lto_p || !flag_profile_values)
+      return get_named_text_section (decl, ".text.startup", NULL);
+    else
+      return NULL;
+  }
 
   /* Similarly for exit.  */
   if (exit && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
@@ -560,7 +571,10 @@ default_function_section (tree decl, enum node_frequency freq,
       case NODE_FREQUENCY_UNLIKELY_EXECUTED:
 	return get_named_text_section (decl, ".text.unlikely", NULL);
       case NODE_FREQUENCY_HOT:
-	return get_named_text_section (decl, ".text.hot", NULL);
+        /* If we do have a profile or(and) LTO phase is executed, we do not need
+           these ELF section.  */
+        if (!in_lto_p || !flag_profile_values)
+          return get_named_text_section (decl, ".text.hot", NULL);
       default:
 	return NULL;
     }
@@ -960,9 +974,9 @@ align_variable (tree decl, bool dont_output_data)
      In particular, a.out format supports a maximum alignment of 4.  */
   if (align > MAX_OFILE_ALIGNMENT)
     {
-      warning (0, "alignment of %q+D is greater than maximum object "
-               "file alignment.  Using %d", decl,
-	       MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+      error ("alignment of %q+D is greater than maximum object "
+	     "file alignment %d", decl,
+	     MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
 
@@ -1136,7 +1150,7 @@ get_block_for_decl (tree decl)
      constant size.  */
   if (DECL_SIZE_UNIT (decl) == NULL)
     return NULL;
-  if (!host_integerp (DECL_SIZE_UNIT (decl), 1))
+  if (!tree_fits_uhwi_p (DECL_SIZE_UNIT (decl)))
     return NULL;
 
   /* Find out which section should contain DECL.  We cannot put it into
@@ -1635,7 +1649,7 @@ assemble_start_function (tree decl, const char *fnname)
 	 align the hot section and write out the hot section label.
 	 But if the current function is a thunk, we do not have a CFG.  */
       if (!cfun->is_thunk
-	  && BB_PARTITION (ENTRY_BLOCK_PTR->next_bb) == BB_COLD_PARTITION)
+	  && BB_PARTITION (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb) == BB_COLD_PARTITION)
 	{
 	  switch_to_section (text_section);
 	  assemble_align (DECL_ALIGN (decl));
@@ -1889,7 +1903,7 @@ assemble_noswitch_variable (tree decl, const char *name, section *sect,
 {
   unsigned HOST_WIDE_INT size, rounded;
 
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
   rounded = size;
 
   if ((flag_sanitize & SANITIZE_ADDRESS) && asan_protect_global (decl))
@@ -1908,8 +1922,8 @@ assemble_noswitch_variable (tree decl, const char *name, section *sect,
 
   if (!sect->noswitch.callback (decl, name, size, rounded)
       && (unsigned HOST_WIDE_INT) (align / BITS_PER_UNIT) > rounded)
-    warning (0, "requested alignment for %q+D is greater than "
-	     "implemented alignment of %wu", decl, rounded);
+    error ("requested alignment for %q+D is greater than "
+	   "implemented alignment of %wu", decl, rounded);
 }
 
 /* A subroutine of assemble_variable.  Output the label and contents of
@@ -1936,11 +1950,11 @@ assemble_variable_contents (tree decl, const char *name,
 	  && !initializer_zerop (DECL_INITIAL (decl)))
 	/* Output the actual data.  */
 	output_constant (DECL_INITIAL (decl),
-			 tree_low_cst (DECL_SIZE_UNIT (decl), 1),
+			 tree_to_uhwi (DECL_SIZE_UNIT (decl)),
 			 get_variable_align (decl));
       else
 	/* Leave space for it.  */
-	assemble_zeros (tree_low_cst (DECL_SIZE_UNIT (decl), 1));
+	assemble_zeros (tree_to_uhwi (DECL_SIZE_UNIT (decl)));
     }
 }
 
@@ -2126,7 +2140,7 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
       if (asan_protected)
 	{
 	  unsigned HOST_WIDE_INT int size
-	    = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	    = tree_to_uhwi (DECL_SIZE_UNIT (decl));
 	  assemble_zeros (asan_red_zone_size (size));
 	}
     }
@@ -2362,7 +2376,7 @@ mark_decl_referenced (tree decl)
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
-      struct varpool_node *node = varpool_node_for_decl (decl);
+      varpool_node *node = varpool_node_for_decl (decl);
       /* C++ frontend use mark_decl_references to force COMDAT variables
          to be output that might appear dead otherwise.  */
       node->force_output = true;
@@ -2709,7 +2723,7 @@ decode_addr_const (tree exp, struct addr_const *value)
   while (1)
     {
       if (TREE_CODE (target) == COMPONENT_REF
-	  && host_integerp (byte_position (TREE_OPERAND (target, 1)), 0))
+	  && tree_fits_shwi_p (byte_position (TREE_OPERAND (target, 1))))
 	{
 	  offset += int_byte_position (TREE_OPERAND (target, 1));
 	  target = TREE_OPERAND (target, 0);
@@ -2717,8 +2731,8 @@ decode_addr_const (tree exp, struct addr_const *value)
       else if (TREE_CODE (target) == ARRAY_REF
 	       || TREE_CODE (target) == ARRAY_RANGE_REF)
 	{
-	  offset += (tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (target)), 1)
-		     * tree_low_cst (TREE_OPERAND (target, 1), 0));
+	  offset += (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (target)))
+		     * tree_to_shwi (TREE_OPERAND (target, 1)));
 	  target = TREE_OPERAND (target, 0);
 	}
       else if (TREE_CODE (target) == MEM_REF
@@ -4046,7 +4060,7 @@ compute_reloc_for_constant (tree exp)
 	  break;
 	}
 
-      if (TREE_PUBLIC (tem))
+      if (!targetm.binds_local_p (tem))
 	reloc |= 2;
       else
 	reloc |= 1;
@@ -4570,8 +4584,10 @@ static unsigned HOST_WIDE_INT
    This includes the pseudo-op such as ".int" or ".byte", and a newline.
    Assumes output_addressed_constants has been done on EXP already.
 
-   Generate exactly SIZE bytes of assembler data, padding at the end
-   with zeros if necessary.  SIZE must always be specified.
+   Generate at least SIZE bytes of assembler data, padding at the end
+   with zeros if necessary.  SIZE must always be specified.  The returned
+   value is the actual number of bytes of assembler data generated, which
+   may be bigger than SIZE if the object contains a variable length field.
 
    SIZE is important for structure constructors,
    since trailing members may have been omitted from the constructor.
@@ -4586,14 +4602,14 @@ static unsigned HOST_WIDE_INT
 
    ALIGN is the alignment of the data in bits.  */
 
-void
+static unsigned HOST_WIDE_INT
 output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 {
   enum tree_code code;
   unsigned HOST_WIDE_INT thissize;
 
   if (size == 0 || flag_syntax_only)
-    return;
+    return size;
 
   /* See if we're trying to initialize a pointer in a non-default mode
      to the address of some declaration somewhere.  If the target says
@@ -4658,19 +4674,19 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       && vec_safe_is_empty (CONSTRUCTOR_ELTS (exp)))
     {
       assemble_zeros (size);
-      return;
+      return size;
     }
 
   if (TREE_CODE (exp) == FDESC_EXPR)
     {
 #ifdef ASM_OUTPUT_FDESC
-      HOST_WIDE_INT part = tree_low_cst (TREE_OPERAND (exp, 1), 0);
+      HOST_WIDE_INT part = tree_to_shwi (TREE_OPERAND (exp, 1));
       tree decl = TREE_OPERAND (exp, 0);
       ASM_OUTPUT_FDESC (asm_out_file, decl, part);
 #else
       gcc_unreachable ();
 #endif
-      return;
+      return size;
     }
 
   /* Now output the underlying data.  If we've handling the padding, return.
@@ -4684,7 +4700,6 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case REFERENCE_TYPE:
     case OFFSET_TYPE:
     case FIXED_POINT_TYPE:
-    case POINTER_BOUNDS_TYPE:
     case NULLPTR_TYPE:
       if (! assemble_integer (expand_expr (exp, NULL_RTX, VOIDmode,
 					   EXPAND_INITIALIZER),
@@ -4710,8 +4725,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
       switch (TREE_CODE (exp))
 	{
 	case CONSTRUCTOR:
-	  output_constructor (exp, size, align, NULL);
-	  return;
+	  return output_constructor (exp, size, align, NULL);
 	case STRING_CST:
 	  thissize
 	    = MIN ((unsigned HOST_WIDE_INT)TREE_STRING_LENGTH (exp), size);
@@ -4739,11 +4753,10 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
     case RECORD_TYPE:
     case UNION_TYPE:
       gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
-      output_constructor (exp, size, align, NULL);
-      return;
+      return output_constructor (exp, size, align, NULL);
 
     case ERROR_MARK:
-      return;
+      return 0;
 
     default:
       gcc_unreachable ();
@@ -4751,6 +4764,8 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 
   if (size > thissize)
     assemble_zeros (size - thissize);
+
+  return size;
 }
 
 
@@ -4833,9 +4848,9 @@ output_constructor_array_range (oc_local_state *local)
     = int_size_in_bytes (TREE_TYPE (local->type));
 
   HOST_WIDE_INT lo_index
-    = tree_low_cst (TREE_OPERAND (local->index, 0), 0);
+    = tree_to_shwi (TREE_OPERAND (local->index, 0));
   HOST_WIDE_INT hi_index
-    = tree_low_cst (TREE_OPERAND (local->index, 1), 0);
+    = tree_to_shwi (TREE_OPERAND (local->index, 1));
   HOST_WIDE_INT index;
 
   unsigned int align2
@@ -4847,7 +4862,7 @@ output_constructor_array_range (oc_local_state *local)
       if (local->val == NULL_TREE)
 	assemble_zeros (fieldsize);
       else
-	output_constant (local->val, fieldsize, align2);
+	fieldsize = output_constant (local->val, fieldsize, align2);
 
       /* Count its size.  */
       local->total_bytes += fieldsize;
@@ -4876,7 +4891,7 @@ output_constructor_regular_field (oc_local_state *local)
       double_int idx = tree_to_double_int (local->index)
 		       - tree_to_double_int (local->min_index);
       idx = idx.sext (prec);
-      fieldpos = (tree_low_cst (TYPE_SIZE_UNIT (TREE_TYPE (local->val)), 1)
+      fieldpos = (tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (local->val)))
 		  * idx.low);
     }
   else if (local->field != NULL_TREE)
@@ -4896,9 +4911,8 @@ output_constructor_regular_field (oc_local_state *local)
      Note no alignment needed in an array, since that is guaranteed
      if each element has the proper size.  */
   if ((local->field != NULL_TREE || local->index != NULL_TREE)
-      && fieldpos != local->total_bytes)
+      && fieldpos > local->total_bytes)
     {
-      gcc_assert (fieldpos >= local->total_bytes);
       assemble_zeros (fieldpos - local->total_bytes);
       local->total_bytes = fieldpos;
     }
@@ -4926,7 +4940,7 @@ output_constructor_regular_field (oc_local_state *local)
 	  gcc_assert (!fieldsize || !DECL_CHAIN (local->field));
 	}
       else
-	fieldsize = tree_low_cst (DECL_SIZE_UNIT (local->field), 1);
+	fieldsize = tree_to_uhwi (DECL_SIZE_UNIT (local->field));
     }
   else
     fieldsize = int_size_in_bytes (TREE_TYPE (local->type));
@@ -4935,7 +4949,7 @@ output_constructor_regular_field (oc_local_state *local)
   if (local->val == NULL_TREE)
     assemble_zeros (fieldsize);
   else
-    output_constant (local->val, fieldsize, align2);
+    fieldsize = output_constant (local->val, fieldsize, align2);
 
   /* Count its size.  */
   local->total_bytes += fieldsize;
@@ -4951,15 +4965,15 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
   /* Bit size of this element.  */
   HOST_WIDE_INT ebitsize
     = (local->field
-       ? tree_low_cst (DECL_SIZE (local->field), 1)
-       : tree_low_cst (TYPE_SIZE (TREE_TYPE (local->type)), 1));
+       ? tree_to_uhwi (DECL_SIZE (local->field))
+       : tree_to_uhwi (TYPE_SIZE (TREE_TYPE (local->type))));
 
   /* Relative index of this element if this is an array component.  */
   HOST_WIDE_INT relative_index
     = (!local->field
        ? (local->index
-	  ? (tree_low_cst (local->index, 0)
-	     - tree_low_cst (local->min_index, 0))
+	  ? (tree_to_shwi (local->index)
+	     - tree_to_shwi (local->min_index))
 	  : local->last_relative_index + 1)
        : 0);
 
@@ -6724,8 +6738,8 @@ default_binds_local_p_1 (const_tree exp, int shlib)
   if (TREE_CODE (exp) == VAR_DECL && TREE_PUBLIC (exp)
       && (TREE_STATIC (exp) || DECL_EXTERNAL (exp)))
     {
-      struct varpool_node *vnode = varpool_get_node (exp);
-      if (vnode && resolution_local_p (vnode->resolution))
+      varpool_node *vnode = varpool_get_node (exp);
+      if (vnode && (resolution_local_p (vnode->resolution) || vnode->in_other_partition))
 	resolved_locally = true;
       if (vnode
 	  && resolution_to_local_definition_p (vnode->resolution))
@@ -6735,7 +6749,7 @@ default_binds_local_p_1 (const_tree exp, int shlib)
     {
       struct cgraph_node *node = cgraph_get_node (exp);
       if (node
-	  && resolution_local_p (node->resolution))
+	  && (resolution_local_p (node->resolution) || node->in_other_partition))
 	resolved_locally = true;
       if (node
 	  && resolution_to_local_definition_p (node->resolution))
@@ -6817,7 +6831,7 @@ decl_binds_to_current_def_p (tree decl)
   if (TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
     {
-      struct varpool_node *vnode = varpool_get_node (decl);
+      varpool_node *vnode = varpool_get_node (decl);
       if (vnode
 	  && vnode->resolution != LDPR_UNKNOWN)
 	return resolution_to_local_definition_p (vnode->resolution);
@@ -7070,7 +7084,7 @@ place_block_symbol (rtx symbol)
     {
       decl = SYMBOL_REF_DECL (symbol);
       alignment = get_variable_align (decl);
-      size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+      size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
       if ((flag_sanitize & SANITIZE_ADDRESS)
 	  && asan_protect_global (decl))
 	{
@@ -7236,7 +7250,7 @@ output_object_block (struct object_block *block)
 	  HOST_WIDE_INT size;
 	  decl = SYMBOL_REF_DECL (symbol);
 	  assemble_variable_contents (decl, XSTR (symbol, 0), false);
-	  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
 	  offset += size;
 	  if ((flag_sanitize & SANITIZE_ADDRESS)
 	      && asan_protect_global (decl))

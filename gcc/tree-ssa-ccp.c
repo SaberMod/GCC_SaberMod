@@ -1,5 +1,5 @@
 /* Conditional constant propagation pass for the GNU compiler.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Adapted from original RTL SSA-CCP by Daniel Berlin <dberlin@dberlin.org>
    Adapted to GIMPLE trees by Diego Novillo <dnovillo@redhat.com>
 
@@ -114,11 +114,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -126,6 +134,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -135,7 +144,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dbgcnt.h"
 #include "params.h"
-#include "hash-table.h"
 
 
 /* Possible lattice values.  */
@@ -730,13 +738,18 @@ surely_varying_stmt_p (gimple stmt)
     return true;
 
   /* If it is a call and does not return a value or is not a
-     builtin and not an indirect call, it is varying.  */
+     builtin and not an indirect call or a call to function with
+     assume_aligned/alloc_align attribute, it is varying.  */
   if (is_gimple_call (stmt))
     {
-      tree fndecl;
+      tree fndecl, fntype = gimple_call_fntype (stmt);
       if (!gimple_call_lhs (stmt)
 	  || ((fndecl = gimple_call_fndecl (stmt)) != NULL_TREE
-	      && !DECL_BUILT_IN (fndecl)))
+	      && !DECL_BUILT_IN (fndecl)
+	      && !lookup_attribute ("assume_aligned",
+				    TYPE_ATTRIBUTES (fntype))
+	      && !lookup_attribute ("alloc_align",
+				    TYPE_ATTRIBUTES (fntype))))
 	return true;
     }
 
@@ -766,7 +779,7 @@ ccp_initialize (void)
   const_val = XCNEWVEC (prop_value_t, n_const_val);
 
   /* Initialize simulation flags for PHI nodes and statements.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 
@@ -800,7 +813,7 @@ ccp_initialize (void)
   /* Now process PHI nodes.  We never clear the simulate_again flag on
      phi nodes, since we do not know which edges are executable yet,
      except for phi nodes for virtual operands when we do not do store ccp.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 
@@ -1468,40 +1481,86 @@ bit_value_binop (enum tree_code code, tree type, tree rhs1, tree rhs2)
   return val;
 }
 
-/* Return the propagation value when applying __builtin_assume_aligned to
-   its arguments.  */
+/* Return the propagation value for __builtin_assume_aligned
+   and functions with assume_aligned or alloc_aligned attribute.
+   For __builtin_assume_aligned, ATTR is NULL_TREE,
+   for assume_aligned attribute ATTR is non-NULL and ALLOC_ALIGNED
+   is false, for alloc_aligned attribute ATTR is non-NULL and
+   ALLOC_ALIGNED is true.  */
 
 static prop_value_t
-bit_value_assume_aligned (gimple stmt)
+bit_value_assume_aligned (gimple stmt, tree attr, prop_value_t ptrval,
+			  bool alloc_aligned)
 {
-  tree ptr = gimple_call_arg (stmt, 0), align, misalign = NULL_TREE;
-  tree type = TREE_TYPE (ptr);
+  tree align, misalign = NULL_TREE, type;
   unsigned HOST_WIDE_INT aligni, misaligni = 0;
-  prop_value_t ptrval = get_value_for_expr (ptr, true);
   prop_value_t alignval;
   double_int value, mask;
   prop_value_t val;
+
+  if (attr == NULL_TREE)
+    {
+      tree ptr = gimple_call_arg (stmt, 0);
+      type = TREE_TYPE (ptr);
+      ptrval = get_value_for_expr (ptr, true);
+    }
+  else
+    {
+      tree lhs = gimple_call_lhs (stmt);
+      type = TREE_TYPE (lhs);
+    }
+
   if (ptrval.lattice_val == UNDEFINED)
     return ptrval;
   gcc_assert ((ptrval.lattice_val == CONSTANT
 	       && TREE_CODE (ptrval.value) == INTEGER_CST)
 	      || ptrval.mask.is_minus_one ());
-  align = gimple_call_arg (stmt, 1);
-  if (!host_integerp (align, 1))
-    return ptrval;
-  aligni = tree_low_cst (align, 1);
-  if (aligni <= 1
-      || (aligni & (aligni - 1)) != 0)
-    return ptrval;
-  if (gimple_call_num_args (stmt) > 2)
+  if (attr == NULL_TREE)
     {
-      misalign = gimple_call_arg (stmt, 2);
-      if (!host_integerp (misalign, 1))
+      /* Get aligni and misaligni from __builtin_assume_aligned.  */
+      align = gimple_call_arg (stmt, 1);
+      if (!tree_fits_uhwi_p (align))
 	return ptrval;
-      misaligni = tree_low_cst (misalign, 1);
-      if (misaligni >= aligni)
-	return ptrval;
+      aligni = tree_to_uhwi (align);
+      if (gimple_call_num_args (stmt) > 2)
+	{
+	  misalign = gimple_call_arg (stmt, 2);
+	  if (!tree_fits_uhwi_p (misalign))
+	    return ptrval;
+	  misaligni = tree_to_uhwi (misalign);
+	}
     }
+  else
+    {
+      /* Get aligni and misaligni from assume_aligned or
+	 alloc_align attributes.  */
+      if (TREE_VALUE (attr) == NULL_TREE)
+	return ptrval;
+      attr = TREE_VALUE (attr);
+      align = TREE_VALUE (attr);
+      if (!tree_fits_uhwi_p (align))
+	return ptrval;
+      aligni = tree_to_uhwi (align);
+      if (alloc_aligned)
+	{
+	  if (aligni == 0 || aligni > gimple_call_num_args (stmt))
+	    return ptrval;
+	  align = gimple_call_arg (stmt, aligni - 1);
+	  if (!tree_fits_uhwi_p (align))
+	    return ptrval;
+	  aligni = tree_to_uhwi (align);
+	}
+      else if (TREE_CHAIN (attr) && TREE_VALUE (TREE_CHAIN (attr)))
+	{
+	  misalign = TREE_VALUE (TREE_CHAIN (attr));
+	  if (!tree_fits_uhwi_p (misalign))
+	    return ptrval;
+	  misaligni = tree_to_uhwi (misalign);
+	}
+    }
+  if (aligni <= 1 || (aligni & (aligni - 1)) != 0 || misaligni >= aligni)
+    return ptrval;
+
   align = build_int_cst_type (type, -aligni);
   alignval = get_value_for_expr (align, true);
   bit_value_binop_1 (BIT_AND_EXPR, type, &value, &mask,
@@ -1700,10 +1759,25 @@ evaluate_stmt (gimple stmt)
 	      break;
 
 	    case BUILT_IN_ASSUME_ALIGNED:
-	      val = bit_value_assume_aligned (stmt);
+	      val = bit_value_assume_aligned (stmt, NULL_TREE, val, false);
 	      break;
 
 	    default:;
+	    }
+	}
+      if (is_gimple_call (stmt) && gimple_call_lhs (stmt))
+	{
+	  tree fntype = gimple_call_fntype (stmt);
+	  if (fntype)
+	    {
+	      tree attrs = lookup_attribute ("assume_aligned",
+					     TYPE_ATTRIBUTES (fntype));
+	      if (attrs)
+		val = bit_value_assume_aligned (stmt, attrs, val, false);
+	      attrs = lookup_attribute ("alloc_align",
+					TYPE_ATTRIBUTES (fntype));
+	      if (attrs)
+		val = bit_value_assume_aligned (stmt, attrs, val, true);
 	    }
 	}
       is_constant = (val.lattice_val == CONSTANT);
@@ -1764,7 +1838,7 @@ evaluate_stmt (gimple stmt)
   return val;
 }
 
-typedef hash_table <pointer_hash <gimple_statement_d> > gimple_htab;
+typedef hash_table <pointer_hash <gimple_statement_base> > gimple_htab;
 
 /* Given a BUILT_IN_STACK_SAVE value SAVED_VAL, insert a clobber of VAR before
    each matching BUILT_IN_STACK_RESTORE.  Mark visited phis in VISITED.  */
@@ -1822,7 +1896,7 @@ gsi_prev_dom_bb_nondebug (gimple_stmt_iterator *i)
   while (gsi_end_p (*i))
     {
       dom = get_immediate_dominator (CDI_DOMINATORS, i->bb);
-      if (dom == NULL || dom == ENTRY_BLOCK_PTR)
+      if (dom == NULL || dom == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	return;
 
       *i = gsi_last_bb (dom);
@@ -1881,10 +1955,10 @@ fold_builtin_alloca_with_align (gimple stmt)
   arg = get_constant_value (gimple_call_arg (stmt, 0));
   if (arg == NULL_TREE
       || TREE_CODE (arg) != INTEGER_CST
-      || !host_integerp (arg, 1))
+      || !tree_fits_uhwi_p (arg))
     return NULL_TREE;
 
-  size = TREE_INT_CST_LOW (arg);
+  size = tree_to_uhwi (arg);
 
   /* Heuristic: don't fold large allocas.  */
   threshold = (unsigned HOST_WIDE_INT)PARAM_VALUE (PARAM_LARGE_STACK_FRAME);
@@ -2312,7 +2386,7 @@ optimize_stack_restore (gimple_stmt_iterator i)
     case 0:
       break;
     case 1:
-      if (single_succ_edge (bb)->dest != EXIT_BLOCK_PTR)
+      if (single_succ_edge (bb)->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	return NULL_TREE;
       break;
     default:
@@ -2500,7 +2574,7 @@ execute_fold_all_builtins (void)
   basic_block bb;
   unsigned int todoflags = 0;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
       for (i = gsi_start_bb (bb); !gsi_end_p (i); )

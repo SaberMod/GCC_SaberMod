@@ -1,5 +1,5 @@
 /* Convert RTL to assembler code and output it, for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "regs.h"
@@ -699,14 +700,14 @@ compute_alignments (void)
       flow_loops_dump (dump_file, NULL, 1);
     }
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->frequency > freq_max)
       freq_max = bb->frequency;
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
     fprintf (dump_file, "freq_max: %i\n",freq_max);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx label = BB_HEAD (bb);
       int fallthru_frequency = 0, branch_frequency = 0, has_fallthru = 0;
@@ -761,7 +762,7 @@ compute_alignments (void)
 	  && (branch_frequency > freq_threshold
 	      || (bb->frequency > bb->prev_bb->frequency * 10
 		  && (bb->prev_bb->frequency
-		      <= ENTRY_BLOCK_PTR->frequency / 2))))
+		      <= ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency / 2))))
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
@@ -1995,7 +1996,7 @@ final (rtx first, FILE *file, int optimize_p)
 
       /* There is no cfg for a thunk.  */
       if (!cfun->is_thunk)
-	FOR_EACH_BB_REVERSE (bb)
+	FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	  {
 	    start_to_bb[INSN_UID (BB_HEAD (bb))] = bb;
 	    end_to_bb[INSN_UID (BB_END (bb))] = bb;
@@ -2167,6 +2168,15 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  targetm.asm_out.function_switched_text_sections (asm_out_file,
 							   current_function_decl,
 							   in_cold_section_p);
+	  /* Emit a label for the split cold section.  Form label name by
+	     suffixing "cold" to the original function's name.  */
+	  if (in_cold_section_p)
+	    {
+	      tree cold_function_name
+		= clone_function_name (current_function_decl, "cold");
+	      ASM_OUTPUT_LABEL (asm_out_file,
+				IDENTIFIER_POINTER (cold_function_name));
+	    }
 	  break;
 
 	case NOTE_INSN_BASIC_BLOCK:

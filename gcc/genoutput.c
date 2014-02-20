@@ -1,5 +1,5 @@
 /* Generate code from to output assembler insns as recognized from rtl.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -239,6 +239,9 @@ output_prologue (void)
   printf ("#include \"flags.h\"\n");
   printf ("#include \"ggc.h\"\n");
   printf ("#include \"tree.h\"\n");
+  printf ("#include \"varasm.h\"\n");
+  printf ("#include \"stor-layout.h\"\n");
+  printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"insn-codes.h\"\n");

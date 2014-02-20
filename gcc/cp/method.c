@@ -1,6 +1,6 @@
 /* Handle the hair of processing (but not expanding) inline functions.
    Also manage function and variable name overloading.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -26,6 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
@@ -95,7 +97,7 @@ make_thunk (tree function, bool this_adjusting,
 		    convert (ssizetype,
 			     TYPE_SIZE_UNIT (vtable_entry_type)));
 
-  d = tree_low_cst (fixed_offset, 0);
+  d = tree_to_shwi (fixed_offset);
 
   /* See if we already have the thunk in question.  For this_adjusting
      thunks VIRTUAL_OFFSET will be an INTEGER_CST, for covariant thunks it
@@ -323,7 +325,7 @@ use_thunk (tree thunk_fndecl, bool emit_p)
     {
       if (!this_adjusting)
 	virtual_offset = BINFO_VPTR_FIELD (virtual_offset);
-      virtual_value = tree_low_cst (virtual_offset, /*pos=*/0);
+      virtual_value = tree_to_shwi (virtual_offset);
       gcc_assert (virtual_value);
     }
   else
@@ -475,7 +477,8 @@ trivial_fn_p (tree fn)
     return false;
 
   /* If fn is a clone, get the primary variant.  */
-  fn = DECL_ORIGIN (fn);
+  if (tree prim = DECL_CLONED_FUNCTION (fn))
+    fn = prim;
   return type_has_trivial_fn (DECL_CONTEXT (fn), special_function_p (fn));
 }
 
@@ -1363,7 +1366,7 @@ synthesized_method_walk (tree ctype, special_function_kind sfk, bool const_p,
     }
 
   vbases = CLASSTYPE_VBASECLASSES (ctype);
-  if (vbases == NULL)
+  if (vec_safe_is_empty (vbases))
     /* No virtual bases to worry about.  */;
   else if (!assign_p)
     {
@@ -1653,10 +1656,12 @@ implicitly_declare_fn (special_function_kind kind, tree type,
   /* Don't bother marking a deleted constructor as constexpr.  */
   if (deleted_p)
     constexpr_p = false;
-  /* A trivial copy/move constructor is also a constexpr constructor.  */
+  /* A trivial copy/move constructor is also a constexpr constructor,
+     unless the class has virtual bases (7.1.5p4).  */
   else if (trivial_p && cxx_dialect >= cxx11
 	   && (kind == sfk_copy_constructor
-	       || kind == sfk_move_constructor))
+	       || kind == sfk_move_constructor)
+	   && !CLASSTYPE_VBASECLASSES (type))
     gcc_assert (constexpr_p);
 
   if (!trivial_p && type_has_trivial_fn (type, kind))

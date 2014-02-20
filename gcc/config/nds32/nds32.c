@@ -1,5 +1,5 @@
 /* Subroutines used for code generation of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GCC.
@@ -25,6 +25,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -1435,14 +1438,15 @@ nds32_needs_double_word_align (enum machine_mode mode, const_tree type)
 {
   unsigned int align;
 
-  /* When 'type' is nonnull, there is no need to look at 'mode'.  */
-  align = (type ? TYPE_ALIGN (type) : GET_MODE_ALIGNMENT (mode));
+  /* Pick up the alignment according to the mode or type.  */
+  align = NDS32_MODE_TYPE_ALIGN (mode, type);
 
   return (align > PARM_BOUNDARY);
 }
 
 /* Return true if FUNC is a naked function.  */
-static bool nds32_naked_function_p (tree func)
+static bool
+nds32_naked_function_p (tree func)
 {
   tree t;
 
@@ -1850,10 +1854,10 @@ nds32_function_arg (cumulative_args_t ca, enum machine_mode mode,
   if (NDS32_ARG_PASS_IN_REG_P (cum->reg_offset, mode, type))
     {
       /* Pick up the next available register number.  */
-      return gen_rtx_REG (mode,
-			  NDS32_AVAILABLE_REGNUM_FOR_ARG (cum->reg_offset,
-							  mode,
-							  type));
+      unsigned int regno;
+
+      regno = NDS32_AVAILABLE_REGNUM_FOR_ARG (cum->reg_offset, mode, type);
+      return gen_rtx_REG (mode, regno);
     }
   else
     {
@@ -1956,10 +1960,9 @@ nds32_asm_function_prologue (FILE *file,
 
   /* Display the attributes of this function.  */
   fprintf (file, "\t! function attributes: ");
-  /* GCC build attributes list with reverse order,
-     so we use nreverse() to make it looks like
-     the order that user specifies.  */
-  attrs = nreverse (DECL_ATTRIBUTES (current_function_decl));
+  /* Get the attributes tree list.
+     Note that GCC builds attributes list with reverse order.  */
+  attrs = DECL_ATTRIBUTES (current_function_decl);
 
   /* If there is no any attribute, print out "None".  */
   if (!attrs)
@@ -2468,7 +2471,7 @@ performance_cost:
       break;
 
     case MULT:
-      *total = COSTS_N_INSNS (5);
+      *total = COSTS_N_INSNS (1);
       break;
 
     case DIV:
@@ -3080,7 +3083,7 @@ nds32_merge_decl_attributes (tree olddecl, tree newdecl)
   combined_attrs = merge_attributes (DECL_ATTRIBUTES (olddecl),
 				     DECL_ATTRIBUTES (newdecl));
 
-  /* Sinc newdecl is acutally a duplicate of olddecl,
+  /* Since newdecl is acutally a duplicate of olddecl,
      we can take olddecl for some operations.  */
   if (TREE_CODE (olddecl) == FUNCTION_DECL)
     {
@@ -4563,7 +4566,7 @@ nds32_fp_as_gp_check_available (void)
       || frame_pointer_needed
       || NDS32_REQUIRED_CALLEE_SAVED_P (FP_REGNUM)
       || (cfun->stdarg == 1)
-      || (find_fallthru_edge (EXIT_BLOCK_PTR->preds) == NULL))
+      || (find_fallthru_edge (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds) == NULL))
     return 0;
 
   /* Now we can check the possibility of using fp_as_gp optimization.  */

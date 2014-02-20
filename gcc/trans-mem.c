@@ -1,5 +1,5 @@
 /* Passes for transactional memory support.
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,7 +22,17 @@
 #include "coretypes.h"
 #include "hash-table.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "calls.h"
+#include "function.h"
+#include "rtl.h"
+#include "emit-rtl.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -30,6 +40,7 @@
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
@@ -44,13 +55,8 @@
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "tree-ssa-address.h"
+#include "predict.h"
 
-
-#define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 2000 - 1)
-#define PROB_VERY_LIKELY	(PROB_ALWAYS - PROB_VERY_UNLIKELY)
-#define PROB_UNLIKELY		(REG_BR_PROB_BASE / 5 - 1)
-#define PROB_LIKELY		(PROB_ALWAYS - PROB_VERY_LIKELY)
-#define PROB_ALWAYS		(REG_BR_PROB_BASE)
 
 #define A_RUNINSTRUMENTEDCODE	0x0001
 #define A_RUNUNINSTRUMENTEDCODE	0x0002
@@ -671,7 +677,8 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	      }
 	    else if (direct_call_p)
 	      {
-		if (flags_from_decl_or_type (fn) & ECF_TM_BUILTIN)
+		if (IS_TYPE_OR_DECL_P (fn)
+		    && flags_from_decl_or_type (fn) & ECF_TM_BUILTIN)
 		  is_safe = true;
 		else if (replacement)
 		  {
@@ -1103,8 +1110,8 @@ tm_log_add (basic_block entry_block, tree addr, gimple stmt)
       if (entry_block
 	  && transaction_invariant_address_p (lp->addr, entry_block)
 	  && TYPE_SIZE_UNIT (type) != NULL
-	  && host_integerp (TYPE_SIZE_UNIT (type), 1)
-	  && (tree_low_cst (TYPE_SIZE_UNIT (type), 1)
+	  && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
+	  && ((HOST_WIDE_INT) tree_to_uhwi (TYPE_SIZE_UNIT (type))
 	      < PARAM_VALUE (PARAM_TM_MAX_AGGREGATE_SIZE))
 	  /* We must be able to copy this type normally.  I.e., no
 	     special constructors and the like.  */
@@ -1187,9 +1194,9 @@ tm_log_emit_stmt (tree addr, gimple stmt)
     code = BUILT_IN_TM_LOG_DOUBLE;
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_LOG_LDOUBLE;
-  else if (host_integerp (size, 1))
+  else if (tree_fits_uhwi_p (size))
     {
-      unsigned int n = tree_low_cst (size, 1);
+      unsigned int n = tree_to_uhwi (size);
       switch (n)
 	{
 	case 1:
@@ -1939,18 +1946,18 @@ tm_region_init (struct tm_region *region)
   edge_iterator ei;
   edge e;
   basic_block bb;
-  vec<basic_block> queue = vNULL;
+  auto_vec<basic_block> queue;
   bitmap visited_blocks = BITMAP_ALLOC (NULL);
   struct tm_region *old_region;
-  vec<tm_region_p> bb_regions = vNULL;
+  auto_vec<tm_region_p> bb_regions;
 
   all_tm_regions = region;
-  bb = single_succ (ENTRY_BLOCK_PTR);
+  bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   /* We could store this information in bb->aux, but we may get called
      through get_all_tm_blocks() from another pass that may be already
      using bb->aux.  */
-  bb_regions.safe_grow_cleared (last_basic_block);
+  bb_regions.safe_grow_cleared (last_basic_block_for_fn (cfun));
 
   queue.safe_push (bb);
   bb_regions[bb->index] = region;
@@ -1986,9 +1993,7 @@ tm_region_init (struct tm_region *region)
 	  }
     }
   while (!queue.is_empty ());
-  queue.release ();
   BITMAP_FREE (visited_blocks);
-  bb_regions.release ();
 }
 
 /* The "gate" function for all transactional memory expansion and optimization
@@ -2011,7 +2016,7 @@ gate_tm_init (void)
       struct tm_region *region = (struct tm_region *)
 	obstack_alloc (&tm_obstack.obstack, sizeof (struct tm_region));
       memset (region, 0, sizeof (*region));
-      region->entry_block = single_succ (ENTRY_BLOCK_PTR);
+      region->entry_block = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
       /* For a clone, the entire function is the region.  But even if
 	 we don't need to record any exit blocks, we may need to
 	 record irrevocable blocks.  */
@@ -2105,9 +2110,9 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_LOAD_LDOUBLE;
   else if (TYPE_SIZE_UNIT (type) != NULL
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	   && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
-      switch (tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE_UNIT (type)))
 	{
 	case 1:
 	  code = BUILT_IN_TM_LOAD_1;
@@ -2177,9 +2182,9 @@ build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_STORE_LDOUBLE;
   else if (TYPE_SIZE_UNIT (type) != NULL
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	   && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
-      switch (tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE_UNIT (type)))
 	{
 	case 1:
 	  code = BUILT_IN_TM_STORE_1;
@@ -2624,7 +2629,7 @@ static vec<tm_region_p>
 get_bb_regions_instrumented (bool traverse_clones,
 			     bool include_uninstrumented_p)
 {
-  unsigned n = last_basic_block;
+  unsigned n = last_basic_block_for_fn (cfun);
   struct bb2reg_stuff stuff;
   vec<tm_region_p> ret;
 
@@ -2652,7 +2657,7 @@ compute_transaction_bits (void)
      certainly don't need it to calculate CDI_DOMINATOR info.  */
   gate_tm_init ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     bb->flags &= ~BB_IN_TRANSACTION;
 
   for (region = all_tm_regions; region; region = region->next)
@@ -2989,7 +2994,7 @@ execute_tm_mark (void)
 		  && sub & GTMA_MAY_ENTER_IRREVOCABLE)
 		continue;
 	    }
-	  expand_block_tm (r, BASIC_BLOCK (i));
+	  expand_block_tm (r, BASIC_BLOCK_FOR_FN (cfun, i));
 	}
     }
 
@@ -3180,7 +3185,7 @@ execute_tm_edges (void)
 
   FOR_EACH_VEC_ELT (bb_regions, i, r)
     if (r != NULL)
-      expand_block_edges (r, BASIC_BLOCK (i));
+      expand_block_edges (r, BASIC_BLOCK_FOR_FN (cfun, i));
 
   bb_regions.release ();
 
@@ -3628,7 +3633,8 @@ tm_memopt_compute_available (struct tm_region *region,
 	/* If the out state of this block changed, then we need to add
 	   its successors to the worklist if they are not already in.  */
 	FOR_EACH_EDGE (e, ei, bb->succs)
-	  if (!AVAIL_IN_WORKLIST_P (e->dest) && e->dest != EXIT_BLOCK_PTR)
+	  if (!AVAIL_IN_WORKLIST_P (e->dest)
+	      && e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      *qin++ = e->dest;
 	      AVAIL_IN_WORKLIST_P (e->dest) = true;
@@ -3695,7 +3701,7 @@ tm_memopt_compute_antic (struct tm_region *region,
       unsigned int i;
       bitmap_iterator bi;
       EXECUTE_IF_SET_IN_BITMAP (region->exit_blocks, 0, i, bi)
-	BB_VISITED_P (BASIC_BLOCK (i)) = true;
+	BB_VISITED_P (BASIC_BLOCK_FOR_FN (cfun, i)) = true;
     }
 
   qin = worklist;
@@ -4515,7 +4521,6 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
 {
   struct tm_ipa_cg_data *d;
   bitmap new_irr, old_irr;
-  vec<basic_block> queue;
   bool ret = false;
 
   /* Builtin operators (operator new, and such).  */
@@ -4527,19 +4532,21 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
   calculate_dominance_info (CDI_DOMINATORS);
 
   d = get_cg_data (&node, true);
-  queue.create (10);
+  auto_vec<basic_block, 10> queue;
   new_irr = BITMAP_ALLOC (&tm_obstack);
 
   /* Scan each tm region, propagating irrevocable status through the tree.  */
   if (for_clone)
     {
       old_irr = d->irrevocable_blocks_clone;
-      queue.quick_push (single_succ (ENTRY_BLOCK_PTR));
+      queue.quick_push (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
       if (ipa_tm_scan_irr_blocks (&queue, new_irr, old_irr, NULL))
 	{
-	  ipa_tm_propagate_irr (single_succ (ENTRY_BLOCK_PTR), new_irr,
+	  ipa_tm_propagate_irr (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
+				new_irr,
 				old_irr, NULL);
-	  ret = bitmap_bit_p (new_irr, single_succ (ENTRY_BLOCK_PTR)->index);
+	  ret = bitmap_bit_p (new_irr,
+			      single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun))->index);
 	}
     }
   else
@@ -4566,7 +4573,8 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
       unsigned i;
 
       EXECUTE_IF_SET_IN_BITMAP (new_irr, 0, i, bmi)
-	ipa_tm_decrement_clone_counts (BASIC_BLOCK (i), for_clone);
+	ipa_tm_decrement_clone_counts (BASIC_BLOCK_FOR_FN (cfun, i),
+				       for_clone);
 
       if (old_irr)
 	{
@@ -4592,7 +4600,6 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
   else
     BITMAP_FREE (new_irr);
 
-  queue.release ();
   pop_cfun ();
 
   return ret;
@@ -5199,7 +5206,7 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
   bool need_ssa_rename = false;
   edge e;
   edge_iterator ei;
-  vec<basic_block> queue = vNULL;
+  auto_vec<basic_block> queue;
   bitmap visited_blocks = BITMAP_ALLOC (NULL);
 
   queue.safe_push (bb);
@@ -5225,7 +5232,6 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
     }
   while (!queue.is_empty ());
 
-  queue.release ();
   BITMAP_FREE (visited_blocks);
 
   return need_ssa_rename;
@@ -5289,7 +5295,8 @@ ipa_tm_transform_clone (struct cgraph_node *node)
   calculate_dominance_info (CDI_DOMINATORS);
 
   need_ssa_rename =
-    ipa_tm_transform_calls (d->clone, NULL, single_succ (ENTRY_BLOCK_PTR),
+    ipa_tm_transform_calls (d->clone, NULL,
+			    single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 			    d->irrevocable_blocks_clone);
 
   if (need_ssa_rename)

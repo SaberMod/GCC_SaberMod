@@ -1,5 +1,5 @@
 /* Description of pass structure
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_init_datastructures);
 
       NEXT_PASS (pass_build_ssa);
+      NEXT_PASS (pass_ubsan);
       NEXT_PASS (pass_early_warn_uninitialized);
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
@@ -111,16 +112,12 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_ipa_reference);
   TERMINATE_PASS_LIST ()
 
-  INSERT_PASSES_AFTER (all_lto_gen_passes)
-  NEXT_PASS (pass_ipa_lto_gimple_out);
-  NEXT_PASS (pass_ipa_lto_finish_out);  /* This must be the last LTO pass.  */
-  TERMINATE_PASS_LIST ()
-
   /* Simple IPA passes executed after the regular passes.  In WHOPR mode the
      passes are executed after partitioning and thus see just parts of the
      compiled unit.  */
   INSERT_PASSES_AFTER (all_late_ipa_passes)
   NEXT_PASS (pass_ipa_pta);
+  NEXT_PASS (pass_omp_simd_clone);
   TERMINATE_PASS_LIST ()
 
   /* These passes are run after IPA passes on every function that is being
@@ -135,13 +132,14 @@ along with GCC; see the file COPYING3.  If not see
 	 They ensure memory accesses are not indirect wherever possible.  */
       NEXT_PASS (pass_strip_predict_hints);
       NEXT_PASS (pass_rename_ssa_copies);
-      NEXT_PASS (pass_copy_prop);
-      NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
 	 form if possible.  */
+      NEXT_PASS (pass_copy_prop);
+      NEXT_PASS (pass_complete_unrolli);
       NEXT_PASS (pass_phiprop);
       NEXT_PASS (pass_forwprop);
+      NEXT_PASS (pass_object_sizes);
       /* pass_build_alias is a dummy pass that ensures that we
 	 execute TODO_rebuild_alias at this point.  */
       NEXT_PASS (pass_build_alias);
@@ -185,7 +183,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_forwprop);
       NEXT_PASS (pass_phiopt);
-      NEXT_PASS (pass_object_sizes);
       NEXT_PASS (pass_strlen);
       NEXT_PASS (pass_ccp);
       /* After CCP we rewrite no longer addressed locals into SSA
@@ -220,6 +217,8 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_iv_canon);
 	  NEXT_PASS (pass_parallelize_loops);
 	  NEXT_PASS (pass_if_conversion);
+	  /* pass_vectorize must immediately follow pass_if_conversion.
+	     Please do not add any other passes in between.  */
 	  NEXT_PASS (pass_vectorize);
           PUSH_INSERT_PASSES_WITHIN (pass_vectorize)
 	      NEXT_PASS (pass_dce_loop);
@@ -309,6 +308,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_lower_complex_O0);
   NEXT_PASS (pass_asan_O0);
   NEXT_PASS (pass_tsan_O0);
+  NEXT_PASS (pass_sanopt);
   NEXT_PASS (pass_cleanup_eh);
   NEXT_PASS (pass_lower_resx);
   NEXT_PASS (pass_nrv);
@@ -387,6 +387,7 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_regrename);
 	  NEXT_PASS (pass_cprop_hardreg);
 	  NEXT_PASS (pass_fast_rtl_dce);
+	  NEXT_PASS (pass_duplicate_computed_gotos);
 	  NEXT_PASS (pass_reorder_blocks);
 	  NEXT_PASS (pass_branch_target_load_optimize2);
 	  NEXT_PASS (pass_leaf_regs);
@@ -398,7 +399,6 @@ along with GCC; see the file COPYING3.  If not see
 	      NEXT_PASS (pass_stack_regs_run);
 	  POP_INSERT_PASSES ()
 	  NEXT_PASS (pass_compute_alignments);
-	  NEXT_PASS (pass_duplicate_computed_gotos);
 	  NEXT_PASS (pass_variable_tracking);
 	  NEXT_PASS (pass_free_cfg);
 	  NEXT_PASS (pass_machine_reorg);

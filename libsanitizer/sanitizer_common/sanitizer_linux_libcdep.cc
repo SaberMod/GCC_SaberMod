@@ -14,10 +14,12 @@
 #if SANITIZER_LINUX
 
 #include "sanitizer_common.h"
+#include "sanitizer_flags.h"
 #include "sanitizer_linux.h"
 #include "sanitizer_placement_new.h"
 #include "sanitizer_procmaps.h"
 #include "sanitizer_stacktrace.h"
+#include "sanitizer_atomic.h"
 
 #include <dlfcn.h>
 #include <pthread.h>
@@ -28,7 +30,14 @@
 #if !SANITIZER_ANDROID
 #include <elf.h>
 #include <link.h>
+#include <unistd.h>
 #endif
+
+// This function is defined elsewhere if we intercepted pthread_attr_getstack.
+SANITIZER_WEAK_ATTRIBUTE
+int __sanitizer_pthread_attr_getstack(void *attr, void **addr, size_t *size) {
+  return pthread_attr_getstack((pthread_attr_t*)attr, addr, size);
+}
 
 namespace __sanitizer {
 
@@ -71,7 +80,7 @@ void GetThreadStackTopAndBottom(bool at_initialization, uptr *stack_top,
   CHECK_EQ(pthread_getattr_np(pthread_self(), &attr), 0);
   uptr stacksize = 0;
   void *stackaddr = 0;
-  pthread_attr_getstack(&attr, &stackaddr, (size_t*)&stacksize);
+  __sanitizer_pthread_attr_getstack(&attr, &stackaddr, (size_t*)&stacksize);
   pthread_attr_destroy(&attr);
 
   CHECK_LE(stacksize, kMaxThreadStackSize);  // Sanity check.
@@ -137,35 +146,33 @@ uptr Unwind_GetIP(struct _Unwind_Context *ctx) {
 #endif
 }
 
+struct UnwindTraceArg {
+  StackTrace *stack;
+  uptr max_depth;
+};
+
 _Unwind_Reason_Code Unwind_Trace(struct _Unwind_Context *ctx, void *param) {
-  StackTrace *b = (StackTrace*)param;
-  CHECK(b->size < b->max_size);
+  UnwindTraceArg *arg = (UnwindTraceArg*)param;
+  CHECK_LT(arg->stack->size, arg->max_depth);
   uptr pc = Unwind_GetIP(ctx);
-  b->trace[b->size++] = pc;
-  if (b->size == b->max_size) return UNWIND_STOP;
+  arg->stack->trace[arg->stack->size++] = pc;
+  if (arg->stack->size == arg->max_depth) return UNWIND_STOP;
   return UNWIND_CONTINUE;
 }
 
-static bool MatchPc(uptr cur_pc, uptr trace_pc) {
-  return cur_pc - trace_pc <= 64 || trace_pc - cur_pc <= 64;
-}
-
 void StackTrace::SlowUnwindStack(uptr pc, uptr max_depth) {
-  this->size = 0;
-  this->max_size = max_depth;
-  if (max_depth > 1) {
-    _Unwind_Backtrace(Unwind_Trace, this);
-    // We need to pop a few frames so that pc is on top.
-    // trace[0] belongs to the current function so we always pop it.
-    int to_pop = 1;
-    /**/ if (size > 1 && MatchPc(pc, trace[1])) to_pop = 1;
-    else if (size > 2 && MatchPc(pc, trace[2])) to_pop = 2;
-    else if (size > 3 && MatchPc(pc, trace[3])) to_pop = 3;
-    else if (size > 4 && MatchPc(pc, trace[4])) to_pop = 4;
-    else if (size > 5 && MatchPc(pc, trace[5])) to_pop = 5;
-    this->PopStackFrames(to_pop);
-  }
-  this->trace[0] = pc;
+  size = 0;
+  if (max_depth == 0)
+    return;
+  UnwindTraceArg arg = {this, Min(max_depth + 1, kStackTraceMax)};
+  _Unwind_Backtrace(Unwind_Trace, &arg);
+  // We need to pop a few frames so that pc is on top.
+  uptr to_pop = LocatePcInTrace(pc);
+  // trace[0] belongs to the current function so we always pop it.
+  if (to_pop == 0)
+    to_pop = 1;
+  PopStackFrames(to_pop);
+  trace[0] = pc;
 }
 
 #endif  // !SANITIZER_GO
@@ -200,16 +207,41 @@ uptr GetTlsSize() {
 
 #if defined(__x86_64__) || defined(__i386__)
 // sizeof(struct thread) from glibc.
-// There has been a report of this being different on glibc 2.11 and 2.13. We
-// don't know when this change happened, so 2.14 is a conservative estimate.
-#if __GLIBC_PREREQ(2, 14)
-const uptr kThreadDescriptorSize = FIRST_32_SECOND_64(1216, 2304);
-#else
-const uptr kThreadDescriptorSize = FIRST_32_SECOND_64(1168, 2304);
-#endif
+static atomic_uintptr_t kThreadDescriptorSize;
 
 uptr ThreadDescriptorSize() {
-  return kThreadDescriptorSize;
+  char buf[64];
+  uptr val = atomic_load(&kThreadDescriptorSize, memory_order_relaxed);
+  if (val)
+    return val;
+#ifdef _CS_GNU_LIBC_VERSION
+  uptr len = confstr(_CS_GNU_LIBC_VERSION, buf, sizeof(buf));
+  if (len < sizeof(buf) && internal_strncmp(buf, "glibc 2.", 8) == 0) {
+    char *end;
+    int minor = internal_simple_strtoll(buf + 8, &end, 10);
+    if (end != buf + 8 && (*end == '\0' || *end == '.')) {
+      /* sizeof(struct thread) values from various glibc versions.  */
+      if (minor <= 3)
+        val = FIRST_32_SECOND_64(1104, 1696);
+      else if (minor == 4)
+        val = FIRST_32_SECOND_64(1120, 1728);
+      else if (minor == 5)
+        val = FIRST_32_SECOND_64(1136, 1728);
+      else if (minor <= 9)
+        val = FIRST_32_SECOND_64(1136, 1712);
+      else if (minor == 10)
+        val = FIRST_32_SECOND_64(1168, 1776);
+      else if (minor <= 12)
+        val = FIRST_32_SECOND_64(1168, 2288);
+      else
+        val = FIRST_32_SECOND_64(1216, 2304);
+    }
+    if (val)
+      atomic_store(&kThreadDescriptorSize, val, memory_order_relaxed);
+    return val;
+  }
+#endif
+  return 0;
 }
 
 // The offset at which pointer to self is located in the thread descriptor.
@@ -237,7 +269,7 @@ void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
   *tls_addr = ThreadSelf();
   *tls_size = GetTlsSize();
   *tls_addr -= *tls_size;
-  *tls_addr += kThreadDescriptorSize;
+  *tls_addr += ThreadDescriptorSize();
 #else
   *tls_addr = 0;
   *tls_size = 0;
@@ -265,11 +297,11 @@ void GetThreadStackAndTls(bool main, uptr *stk_addr, uptr *stk_size,
 #endif  // SANITIZER_GO
 }
 
-void AdjustStackSizeLinux(void *attr_, int verbosity) {
+void AdjustStackSizeLinux(void *attr_) {
   pthread_attr_t *attr = (pthread_attr_t *)attr_;
   uptr stackaddr = 0;
   size_t stacksize = 0;
-  pthread_attr_getstack(attr, (void**)&stackaddr, &stacksize);
+  __sanitizer_pthread_attr_getstack(attr, (void**)&stackaddr, &stacksize);
   // GLibC will return (0 - stacksize) as the stack address in the case when
   // stacksize is set, but stackaddr is not.
   bool stack_set = (stackaddr != 0) && (stackaddr + stacksize != 0);
@@ -277,7 +309,7 @@ void AdjustStackSizeLinux(void *attr_, int verbosity) {
   const uptr minstacksize = GetTlsSize() + 128*1024;
   if (stacksize < minstacksize) {
     if (!stack_set) {
-      if (verbosity && stacksize != 0)
+      if (common_flags()->verbosity && stacksize != 0)
         Printf("Sanitizer: increasing stacksize %zu->%zu\n", stacksize,
                minstacksize);
       pthread_attr_setstacksize(attr, minstacksize);

@@ -1,6 +1,6 @@
 /* Routines for reading GIMPLE from a file stream.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -24,10 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "data-streamer.h"
 #include "tree-streamer.h"
@@ -60,7 +67,7 @@ input_phi (struct lto_input_block *ib, basic_block bb, struct data_in *data_in,
       int src_index = streamer_read_uhwi (ib);
       bitpack_d bp = streamer_read_bitpack (ib);
       location_t arg_loc = stream_input_location (&bp, data_in);
-      basic_block sbb = BASIC_BLOCK_FOR_FUNCTION (fn, src_index);
+      basic_block sbb = BASIC_BLOCK_FOR_FN (fn, src_index);
 
       edge e = NULL;
       int j;
@@ -99,12 +106,12 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   bp = streamer_read_bitpack (ib);
   num_ops = bp_unpack_var_len_unsigned (&bp);
   stmt = gimple_alloc (code, num_ops);
-  stmt->gsbase.no_warning = bp_unpack_value (&bp, 1);
+  stmt->no_warning = bp_unpack_value (&bp, 1);
   if (is_gimple_assign (stmt))
-    stmt->gsbase.nontemporal_move = bp_unpack_value (&bp, 1);
-  stmt->gsbase.has_volatile_ops = bp_unpack_value (&bp, 1);
+    stmt->nontemporal_move = bp_unpack_value (&bp, 1);
+  stmt->has_volatile_ops = bp_unpack_value (&bp, 1);
   has_hist = bp_unpack_value (&bp, 1);
-  stmt->gsbase.subcode = bp_unpack_var_len_unsigned (&bp);
+  stmt->subcode = bp_unpack_var_len_unsigned (&bp);
 
   /* Read location information.  */
   gimple_set_location (stmt, stream_input_location (&bp, data_in));
@@ -130,13 +137,14 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     case GIMPLE_ASM:
       {
 	/* FIXME lto.  Move most of this into a new gimple_asm_set_string().  */
+	gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm> (stmt);
 	tree str;
-	stmt->gimple_asm.ni = streamer_read_uhwi (ib);
-	stmt->gimple_asm.no = streamer_read_uhwi (ib);
-	stmt->gimple_asm.nc = streamer_read_uhwi (ib);
-	stmt->gimple_asm.nl = streamer_read_uhwi (ib);
+	asm_stmt->ni = streamer_read_uhwi (ib);
+	asm_stmt->no = streamer_read_uhwi (ib);
+	asm_stmt->nc = streamer_read_uhwi (ib);
+	asm_stmt->nl = streamer_read_uhwi (ib);
 	str = streamer_read_string_cst (data_in, ib);
-	stmt->gimple_asm.string = TREE_STRING_POINTER (str);
+	asm_stmt->string = TREE_STRING_POINTER (str);
       }
       /* Fallthru  */
 
@@ -250,7 +258,7 @@ input_bb (struct lto_input_block *ib, enum LTO_tags tag,
   gcc_assert (cfun == fn);
 
   index = streamer_read_uhwi (ib);
-  bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
+  bb = BASIC_BLOCK_FOR_FN (fn, index);
 
   bb->count = apply_scale (streamer_read_gcov_count (ib),
                            count_materialization_scale);

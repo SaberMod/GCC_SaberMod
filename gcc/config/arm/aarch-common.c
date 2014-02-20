@@ -1,7 +1,7 @@
 /* Dependency checks for instruction scheduling, shared between ARM and
    AARCH64.
 
-   Copyright (C) 1991-2013 Free Software Foundation, Inc.
+   Copyright (C) 1991-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -40,7 +40,7 @@ typedef struct
 
 /* Return TRUE if X is either an arithmetic shift left, or
    is a multiplication by a power of two.  */
-static bool
+bool
 arm_rtx_shift_left_p (rtx x)
 {
   enum rtx_code code = GET_CODE (x);

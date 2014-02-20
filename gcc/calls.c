@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "flags.h"
 #include "expr.h"
@@ -760,6 +769,8 @@ flags_from_decl_or_type (const_tree exp)
 	      || lookup_attribute ("transaction_pure", TYPE_ATTRIBUTES (exp))))
 	flags |= ECF_TM_PURE;
     }
+  else
+    gcc_unreachable ();
 
   if (TREE_THIS_VOLATILE (exp))
     {
@@ -2584,7 +2595,7 @@ expand_call (tree exp, rtx target, int ignore)
       /* If outgoing reg parm stack space changes, we can not do sibcall.  */
       || (OUTGOING_REG_PARM_STACK_SPACE (funtype)
 	  != OUTGOING_REG_PARM_STACK_SPACE (TREE_TYPE (current_function_decl)))
-      || (reg_parm_stack_space != REG_PARM_STACK_SPACE (fndecl))
+      || (reg_parm_stack_space != REG_PARM_STACK_SPACE (current_function_decl))
 #endif
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */
@@ -2663,8 +2674,7 @@ expand_call (tree exp, rtx target, int ignore)
 	 recursion "call".  That way we know any adjustment after the tail
 	 recursion call can be ignored if we indeed use the tail
 	 call expansion.  */
-      int save_pending_stack_adjust = 0;
-      int save_stack_pointer_delta = 0;
+      saved_pending_stack_adjust save;
       rtx insns;
       rtx before_call, next_arg_reg, after_args;
 
@@ -2672,8 +2682,7 @@ expand_call (tree exp, rtx target, int ignore)
 	{
 	  /* State variables we need to save and restore between
 	     iterations.  */
-	  save_pending_stack_adjust = pending_stack_adjust;
-	  save_stack_pointer_delta = stack_pointer_delta;
+	  save_pending_stack_adjust (&save);
 	}
       if (pass)
 	flags &= ~ECF_SIBCALL;
@@ -2946,6 +2955,7 @@ expand_call (tree exp, rtx target, int ignore)
       /* If we push args individually in reverse order, perform stack alignment
 	 before the first push (the last arg).  */
       if (PUSH_ARGS_REVERSED && argblock == 0
+          && adjusted_args_size.constant > reg_parm_stack_space
 	  && adjusted_args_size.constant != unadjusted_args_size)
 	{
 	  /* When the stack adjustment is pending, we get better code
@@ -3037,6 +3047,15 @@ expand_call (tree exp, rtx target, int ignore)
 	  if (args[i].reg == 0 || args[i].pass_on_stack)
 	    {
 	      rtx before_arg = get_last_insn ();
+
+	      /* We don't allow passing huge (> 2^30 B) arguments
+	         by value.  It would cause an overflow later on.  */
+	      if (adjusted_args_size.constant
+		  >= (1 << (HOST_BITS_PER_INT - 2)))
+	        {
+	          sorry ("passing too large argument on stack");
+		  continue;
+		}
 
 	      if (store_one_arg (&args[i], argblock, flags,
 				 adjusted_args_size.var != 0,
@@ -3429,8 +3448,7 @@ expand_call (tree exp, rtx target, int ignore)
 	  /* Restore the pending stack adjustment now that we have
 	     finished generating the sibling call sequence.  */
 
-	  pending_stack_adjust = save_pending_stack_adjust;
-	  stack_pointer_delta = save_stack_pointer_delta;
+	  restore_pending_stack_adjust (&save);
 
 	  /* Prepare arg structure for next iteration.  */
 	  for (i = 0; i < num_actuals; i++)

@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,15 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "target.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -38,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
@@ -47,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
+#include "cfgexpand.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
 static struct pointer_map_t *edge_var_maps;
@@ -992,7 +999,7 @@ verify_ssa (bool check_modified_stmt)
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       gimple phi;
@@ -1035,7 +1042,7 @@ verify_ssa (bool check_modified_stmt)
 	      goto err;
 	    }
 
-	  if (verify_ssa_operands (stmt))
+	  if (verify_ssa_operands (cfun, stmt))
 	    {
 	      print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
 	      goto err;
@@ -1188,7 +1195,7 @@ delete_tree_ssa (void)
 
   /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active (cfun))
-    fini_ssa_operands ();
+    fini_ssa_operands (cfun);
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
@@ -1449,7 +1456,7 @@ execute_update_addresses_taken (void)
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
      the function body.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -1551,7 +1558,7 @@ execute_update_addresses_taken (void)
      variables and operands need to be rewritten to expose bare symbols.  */
   if (!bitmap_empty_p (suitable_for_renaming))
     {
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
 	    gimple stmt = gsi_stmt (gsi);

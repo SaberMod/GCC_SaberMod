@@ -1,5 +1,5 @@
 /* Define builtin-in macros for all front ends that perform preprocessing
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -105,7 +105,7 @@ define_builtin_macros_for_compilation_flags (cpp_reader *pfile)
 
   cpp_define_formatted (pfile, "__FINITE_MATH_ONLY__=%d",
 			flag_finite_math_only);
-  if (flag_enable_cilkplus)
+  if (flag_cilkplus)
     cpp_define (pfile, "__cilk=200");
 }
 
@@ -130,7 +130,7 @@ define_builtin_macros_for_type_sizes (cpp_reader *pfile)
 {
 #define define_type_sizeof(NAME, TYPE)                             \
     cpp_define_formatted (pfile, NAME"="HOST_WIDE_INT_PRINT_DEC,   \
-                          tree_low_cst (TYPE_SIZE_UNIT (TYPE), 1))
+                          tree_to_uhwi (TYPE_SIZE_UNIT (TYPE)))
 
   define_type_sizeof ("__SIZEOF_INT__", integer_type_node);
   define_type_sizeof ("__SIZEOF_LONG__", long_integer_type_node);

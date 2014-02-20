@@ -1,5 +1,5 @@
 /* Functions for generic Darwin as target machine for GNU C compiler.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by Apple Computer Inc.
 
 This file is part of GCC.
@@ -32,6 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "expr.h"
 #include "reload.h"
 #include "function.h"
@@ -45,6 +48,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "debug.h"
 #include "obstack.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "lto-streamer.h"
@@ -1509,7 +1522,7 @@ machopic_select_section (tree decl,
 
   zsize = (DECL_P (decl) 
 	   && (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == CONST_DECL) 
-	   && tree_low_cst (DECL_SIZE_UNIT (decl), 1) == 0);
+	   && tree_to_uhwi (DECL_SIZE_UNIT (decl)) == 0);
 
   one = DECL_P (decl) 
 	&& TREE_CODE (decl) == VAR_DECL 
@@ -1650,7 +1663,7 @@ machopic_select_section (tree decl,
       static bool warned_objc_46 = false;
       /* We shall assert that zero-sized objects are an error in ObjC 
          meta-data.  */
-      gcc_assert (tree_low_cst (DECL_SIZE_UNIT (decl), 1) != 0);
+      gcc_assert (tree_to_uhwi (DECL_SIZE_UNIT (decl)) != 0);
       
       /* ??? This mechanism for determining the metadata section is
 	 broken when LTO is in use, since the frontend that generated
@@ -2187,7 +2200,7 @@ darwin_asm_declare_object_name (FILE *file,
 	machopic_define_symbol (DECL_RTL (decl));
     }
 
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
 
 #ifdef DEBUG_DARWIN_MEM_ALLOCATORS
 fprintf (file, "# dadon: %s %s (%llu, %u) local %d weak %d"
@@ -3598,45 +3611,36 @@ darwin_function_section (tree decl, enum node_frequency freq,
   if (decl && DECL_SECTION_NAME (decl) != NULL_TREE)
     return get_named_section (decl, NULL, 0);
 
-  /* Default when there is no function re-ordering.  */
-  if (!flag_reorder_functions)
-    return (weak)
-	    ? darwin_sections[text_coal_section]
-	    : text_section;
+  /* We always put unlikely executed stuff in the cold section.  */
+  if (freq == NODE_FREQUENCY_UNLIKELY_EXECUTED)
+    return (weak) ? darwin_sections[text_cold_coal_section]
+		  : darwin_sections[text_cold_section];
 
-  /* Startup code should go to startup subsection unless it is
-     unlikely executed (this happens especially with function splitting
-     where we can split away unnecessary parts of static constructors).  */
-  if (startup && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return (weak)
-	    ? darwin_sections[text_startup_coal_section]
-	    : darwin_sections[text_startup_section];
+  /* If we have LTO *and* feedback information, then let LTO handle
+     the function ordering, it makes a better job (for normal, hot,
+     startup and exit - hence the bailout for cold above).  */
+  if (in_lto_p && flag_profile_values)
+    goto default_function_sections;
+
+  /* Non-cold startup code should go to startup subsection.  */
+  if (startup)
+    return (weak) ? darwin_sections[text_startup_coal_section]
+		  : darwin_sections[text_startup_section];
 
   /* Similarly for exit.  */
-  if (exit && freq != NODE_FREQUENCY_UNLIKELY_EXECUTED)
-    return (weak)
-	    ? darwin_sections[text_exit_coal_section]
-	    : darwin_sections[text_exit_section];
+  if (exit)
+    return (weak) ? darwin_sections[text_exit_coal_section]
+		  : darwin_sections[text_exit_section];
 
-  /* Group cold functions together, similarly for hot code.  */
-  switch (freq)
-    {
-      case NODE_FREQUENCY_UNLIKELY_EXECUTED:
-	return (weak)
-		? darwin_sections[text_cold_coal_section]
-		: darwin_sections[text_cold_section];
-	break;
-      case NODE_FREQUENCY_HOT:
-	return (weak)
-		? darwin_sections[text_hot_coal_section]
-		: darwin_sections[text_hot_section];
-	break;
-      default:
-	return (weak)
-		? darwin_sections[text_coal_section]
+  /* Place hot code.  */
+  if (freq == NODE_FREQUENCY_HOT)
+    return (weak) ? darwin_sections[text_hot_coal_section]
+		  : darwin_sections[text_hot_section];
+
+  /* Otherwise, default to the 'normal' non-reordered sections.  */
+default_function_sections:
+  return (weak) ? darwin_sections[text_coal_section]
 		: text_section;
-	break;
-    }
 }
 
 /* When a function is partitioned between sections, we need to insert a label

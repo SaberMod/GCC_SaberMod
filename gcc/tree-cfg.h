@@ -1,5 +1,5 @@
 /* Data and Control Flow Analysis for Trees.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -31,7 +31,6 @@ extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
 extern basic_block label_to_block_fn (struct function *, tree);
 #define label_to_block(t) (label_to_block_fn (cfun, t))
-extern void make_abnormal_goto_edges (basic_block, bool);
 extern void cleanup_dead_labels (void);
 extern void group_case_labels_stmt (gimple);
 extern void group_case_labels (void);
@@ -46,7 +45,9 @@ extern void gimple_debug_cfg (int);
 extern void gimple_dump_cfg (FILE *, int);
 extern void dump_cfg_stats (FILE *);
 extern void debug_cfg_stats (void);
+extern bool computed_goto_p (gimple);
 extern bool stmt_can_make_abnormal_goto (gimple);
+extern basic_block get_abnormal_succ_dispatcher (basic_block);
 extern bool is_ctrl_stmt (gimple);
 extern bool is_ctrl_altering_stmt (gimple);
 extern bool simple_goto_p (gimple);
@@ -93,5 +94,6 @@ extern tree gimplify_build1 (gimple_stmt_iterator *, enum tree_code,
 			     tree, tree);
 extern void extract_true_false_edges_from_block (basic_block, edge *, edge *);
 extern unsigned int execute_fixup_cfg (void);
+extern unsigned int split_critical_edges (void);
 
 #endif /* _TREE_CFG_H  */

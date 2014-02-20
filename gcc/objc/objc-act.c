@@ -1,5 +1,5 @@
 /* Implement classes and message passing for Objective C.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Steve Naroff.
 
 This file is part of GCC.
@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
 
 #ifdef OBJCPLUS
 #include "cp/cp-tree.h"
@@ -42,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "function.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "debug.h"
 #include "c-family/c-target.h"
 #include "diagnostic-core.h"
@@ -60,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 
 /* For enum gimplify_status */
-#include "gimple.h"
+#include "gimple-expr.h"
 #include "gimplify.h"
 
 /* For encode_method_prototype().  */
@@ -7271,6 +7273,7 @@ objc_synthesize_getter (tree klass, tree class_methods ATTRIBUTE_UNUSED, tree pr
 	     the same type, there is no need to lookup the ivar.  */
 	  size_of = c_sizeof_or_alignof_type (location, TREE_TYPE (property),
 					      true /* is_sizeof */,
+					      false /* min_alignof */,
 					      false /* complain */);
 
 	  if (PROPERTY_NONATOMIC (property))
@@ -7472,6 +7475,7 @@ objc_synthesize_setter (tree klass, tree class_methods ATTRIBUTE_UNUSED, tree pr
 	     the same type, there is no need to lookup the ivar.  */
 	  size_of = c_sizeof_or_alignof_type (location, TREE_TYPE (property),
 					      true /* is_sizeof */,
+					      false /* min_alignof */,
 					      false /* complain */);
 
 	  if (PROPERTY_NONATOMIC (property))

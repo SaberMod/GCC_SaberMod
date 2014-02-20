@@ -1,5 +1,5 @@
 /* Output VMS debug format symbol table information from GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Douglas B. Rupp (rupp@gnat.com).
    Updated by Bernard W. Giroud (bgiroud@users.sourceforge.net).
 
@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifdef VMS_DEBUGGING_INFO
 #include "tree.h"
+#include "varasm.h"
 #include "version.h"
 #include "flags.h"
 #include "rtl.h"

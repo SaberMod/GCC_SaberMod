@@ -1,5 +1,5 @@
 /* Language-level data type conversion for GNU C++.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "intl.h"
@@ -77,7 +78,7 @@ cp_convert_to_pointer (tree type, tree expr, tsubst_flags_t complain)
   tree intype = TREE_TYPE (expr);
   enum tree_code form;
   tree rval;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (intype == error_mark_node)
     return error_mark_node;
@@ -412,7 +413,7 @@ convert_to_reference (tree reftype, tree expr, int convtype,
   tree rval = NULL_TREE;
   tree rval_as_conversion = NULL_TREE;
   bool can_convert_intype_to_type;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (TREE_CODE (type) == FUNCTION_TYPE
       && TREE_TYPE (expr) == unknown_type_node)
@@ -629,7 +630,8 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
     {
       tree folded = maybe_constant_value (expr);
       tree stripped = folded;
-      tree folded_result = cp_convert (type, folded, complain);
+      tree folded_result
+	= folded != expr ? cp_convert (type, folded, complain) : result;
 
       /* maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW in a
 	 NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
@@ -637,7 +639,8 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
 
       if (!TREE_OVERFLOW_P (stripped)
 	  && folded_result != error_mark_node)
-	warnings_for_convert_and_check (type, folded, folded_result);
+	warnings_for_convert_and_check (input_location, type, folded,
+					folded_result);
     }
 
   return result;
@@ -655,7 +658,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
   enum tree_code code = TREE_CODE (type);
   const char *invalid_conv_diag;
   tree e1;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (error_operand_p (e) || type == error_mark_node)
     return error_mark_node;
@@ -751,6 +754,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	     unspecified.  */
 	  if ((complain & tf_warning)
 	      && TREE_CODE (e) == INTEGER_CST
+	      && ENUM_UNDERLYING_TYPE (type)
 	      && !int_fits_type_p (e, ENUM_UNDERLYING_TYPE (type)))
 	    warning_at (loc, OPT_Wconversion, 
 			"the result of the conversion is unspecified because "
@@ -911,7 +915,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 tree
 convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
 {
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (expr == error_mark_node
       || TREE_TYPE (expr) == error_mark_node)
@@ -1401,7 +1405,9 @@ convert_to_void (tree expr, impl_conv_void implicit, tsubst_flags_t complain)
 			    || code == PREDECREMENT_EXPR
 			    || code == PREINCREMENT_EXPR
 			    || code == POSTDECREMENT_EXPR
-			    || code == POSTINCREMENT_EXPR)))
+			    || code == POSTINCREMENT_EXPR))
+		   || code == VEC_PERM_EXPR
+		   || code == VEC_COND_EXPR)
                   && (complain & tf_warning))
 		warning_at (loc, OPT_Wunused_value, "value computed is not used");
 	    }

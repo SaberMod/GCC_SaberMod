@@ -1,6 +1,6 @@
 /* This file contains the definitions for timing variables used to
    measure run-time performance of the compiler.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Alex Samuel <samuel@codesourcery.com>
 
    This file is part of GCC.
@@ -261,6 +261,7 @@ DEFTIMEVAR (TV_PLUGIN_INIT           , "plugin initialization")
 DEFTIMEVAR (TV_PLUGIN_RUN            , "plugin execution")
 DEFTIMEVAR (TV_GIMPLE_SLSR           , "straight-line strength reduction")
 DEFTIMEVAR (TV_VTABLE_VERIFICATION   , "vtable verification")
+DEFTIMEVAR (TV_TREE_UBSAN            , "tree ubsan")
 
 /* Everything else in rest_of_compilation not included above.  */
 DEFTIMEVAR (TV_EARLY_LOCAL	     , "early local passes")

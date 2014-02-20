@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -23,17 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "timevar.h"
 #include "debug.h"
 #include "target.h"
 #include "output.h"
-#include "gimple.h"
+#include "gimple-expr.h"
 #include "flags.h"
+#include "pointer-set.h"
 
 /* List of hooks triggered on varpool_node events.  */
 struct varpool_node_hook_list {
@@ -78,7 +79,7 @@ varpool_remove_node_removal_hook (struct varpool_node_hook_list *entry)
 
 /* Call all node removal hooks.  */
 static void
-varpool_call_node_removal_hooks (struct varpool_node *node)
+varpool_call_node_removal_hooks (varpool_node *node)
 {
   struct varpool_node_hook_list *entry = first_varpool_node_removal_hook;
   while (entry)
@@ -119,7 +120,7 @@ varpool_remove_variable_insertion_hook (struct varpool_node_hook_list *entry)
 
 /* Call all node insertion hooks.  */
 void
-varpool_call_variable_insertion_hooks (struct varpool_node *node)
+varpool_call_variable_insertion_hooks (varpool_node *node)
 {
   struct varpool_node_hook_list *entry = first_varpool_variable_insertion_hook;
   while (entry)
@@ -131,19 +132,19 @@ varpool_call_variable_insertion_hooks (struct varpool_node *node)
 
 /* Allocate new callgraph node and insert it into basic data structures.  */
 
-struct varpool_node *
+varpool_node *
 varpool_create_empty_node (void)
 {   
-  struct varpool_node *node = ggc_alloc_cleared_varpool_node ();
+  varpool_node *node = ggc_alloc_cleared_varpool_node ();
   node->type = SYMTAB_VARIABLE;
   return node;
 }   
 
 /* Return varpool node assigned to DECL.  Create new one when needed.  */
-struct varpool_node *
+varpool_node *
 varpool_node_for_decl (tree decl)
 {
-  struct varpool_node *node = varpool_get_node (decl);
+  varpool_node *node = varpool_get_node (decl);
   gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
   if (node)
     return node;
@@ -156,7 +157,7 @@ varpool_node_for_decl (tree decl)
 
 /* Remove node from the varpool.  */
 void
-varpool_remove_node (struct varpool_node *node)
+varpool_remove_node (varpool_node *node)
 {
   tree init;
   varpool_call_node_removal_hooks (node);
@@ -174,7 +175,7 @@ varpool_remove_node (struct varpool_node *node)
 
 /* Renove node initializer when it is no longer needed.  */
 void
-varpool_remove_initializer (struct varpool_node *node)
+varpool_remove_initializer (varpool_node *node)
 {
   if (DECL_INITIAL (node->decl)
       && !DECL_IN_CONSTANT_POOL (node->decl)
@@ -192,7 +193,7 @@ varpool_remove_initializer (struct varpool_node *node)
 
 /* Dump given cgraph node.  */
 void
-dump_varpool_node (FILE *f, struct varpool_node *node)
+dump_varpool_node (FILE *f, varpool_node *node)
 {
   dump_symtab_base (f, node);
   fprintf (f, "  Availability: %s\n",
@@ -215,7 +216,7 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
 void
 dump_varpool (FILE *f)
 {
-  struct varpool_node *node;
+  varpool_node *node;
 
   fprintf (f, "variable pool:\n\n");
   FOR_EACH_VARIABLE (node)
@@ -231,7 +232,7 @@ debug_varpool (void)
 }
 
 /* Given an assembler name, lookup node.  */
-struct varpool_node *
+varpool_node *
 varpool_node_for_asm (tree asmname)
 {
   if (symtab_node *node = symtab_node_for_asm (asmname))
@@ -247,7 +248,7 @@ varpool_node_for_asm (tree asmname)
 tree
 ctor_for_folding (tree decl)
 {
-  struct varpool_node *node, *real_node;
+  varpool_node *node, *real_node;
   tree real_decl;
 
   if (TREE_CODE (decl) != VAR_DECL
@@ -262,7 +263,7 @@ ctor_for_folding (tree decl)
     return error_mark_node;
 
   /* Do not care about automatic variables.  Those are never initialized
-     anyway, because gimplifier exapnds the code*/
+     anyway, because gimplifier exapnds the code.  */
   if (!TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
     {
       gcc_assert (!TREE_PUBLIC (decl));
@@ -337,7 +338,7 @@ ctor_for_folding (tree decl)
 void
 varpool_add_new_variable (tree decl)
 {
-  struct varpool_node *node;
+  varpool_node *node;
   varpool_finalize_decl (decl);
   node = varpool_node_for_decl (decl);
   varpool_call_variable_insertion_hooks (node);
@@ -348,7 +349,7 @@ varpool_add_new_variable (tree decl)
 /* Return variable availability.  See cgraph.h for description of individual
    return values.  */
 enum availability
-cgraph_variable_initializer_availability (struct varpool_node *node)
+cgraph_variable_initializer_availability (varpool_node *node)
 {
   gcc_assert (cgraph_function_flags_ready);
   if (!node->definition)
@@ -376,7 +377,7 @@ cgraph_variable_initializer_availability (struct varpool_node *node)
 }
 
 void
-varpool_analyze_node (struct varpool_node *node)
+varpool_analyze_node (varpool_node *node)
 {
   tree decl = node->decl;
 
@@ -401,14 +402,14 @@ varpool_analyze_node (struct varpool_node *node)
 /* Assemble thunks and aliases associated to NODE.  */
 
 static void
-assemble_aliases (struct varpool_node *node)
+assemble_aliases (varpool_node *node)
 {
   int i;
   struct ipa_ref *ref;
   for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	struct varpool_node *alias = ipa_ref_referring_varpool_node (ref);
+	varpool_node *alias = ipa_ref_referring_varpool_node (ref);
 	do_assemble_alias (alias->decl,
 			   DECL_ASSEMBLER_NAME (node->decl));
 	assemble_aliases (alias);
@@ -418,7 +419,7 @@ assemble_aliases (struct varpool_node *node)
 /* Output one variable, if necessary.  Return whether we output it.  */
 
 bool
-varpool_assemble_decl (struct varpool_node *node)
+varpool_assemble_decl (varpool_node *node)
 {
   tree decl = node->decl;
 
@@ -465,7 +466,7 @@ varpool_assemble_decl (struct varpool_node *node)
    The queue is linked via AUX pointers and terminated by pointer to 1.  */
 
 static void
-enqueue_node (struct varpool_node *node, struct varpool_node **first)
+enqueue_node (varpool_node *node, varpool_node **first)
 {
   if (node->aux)
     return;
@@ -482,10 +483,11 @@ enqueue_node (struct varpool_node *node, struct varpool_node **first)
 static void
 varpool_remove_unreferenced_decls (void)
 {
-  struct varpool_node *next, *node;
-  struct varpool_node *first = (struct varpool_node *)(void *)1;
+  varpool_node *next, *node;
+  varpool_node *first = (varpool_node *)(void *)1;
   int i;
   struct ipa_ref *ref;
+  struct pointer_set_t *referenced = pointer_set_create ();
 
   if (seen_error ())
     return;
@@ -502,13 +504,13 @@ varpool_remove_unreferenced_decls (void)
 	{
 	  enqueue_node (node, &first);
           if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", varpool_node_asm_name (node));
+	    fprintf (cgraph_dump_file, " %s", node->asm_name ());
 	}
     }
-  while (first != (struct varpool_node *)(void *)1)
+  while (first != (varpool_node *)(void *)1)
     {
       node = first;
-      first = (struct varpool_node *)first->aux;
+      first = (varpool_node *)first->aux;
 
       if (node->same_comdat_group)
 	{
@@ -518,7 +520,7 @@ varpool_remove_unreferenced_decls (void)
 	       next = next->same_comdat_group)
 	    {
 	      varpool_node *vnext = dyn_cast <varpool_node> (next);
-	      if (vnext && vnext->analyzed)
+	      if (vnext && vnext->analyzed && !symtab_comdat_local_p (next))
 		enqueue_node (vnext, &first);
 	    }
 	}
@@ -526,10 +528,13 @@ varpool_remove_unreferenced_decls (void)
 	{
 	  varpool_node *vnode = dyn_cast <varpool_node> (ref->referred);
 	  if (vnode
+	      && !vnode->in_other_partition
 	      && (!DECL_EXTERNAL (ref->referred->decl)
 		  || vnode->alias)
 	      && vnode->analyzed)
 	    enqueue_node (vnode, &first);
+	  else
+	    pointer_set_insert (referenced, node);
 	}
     }
   if (cgraph_dump_file)
@@ -540,10 +545,14 @@ varpool_remove_unreferenced_decls (void)
       if (!node->aux)
 	{
           if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", varpool_node_asm_name (node));
-	  varpool_remove_node (node);
+	    fprintf (cgraph_dump_file, " %s", node->asm_name ());
+	  if (pointer_set_contains (referenced, node))
+	    varpool_remove_initializer (node);
+	  else
+	    varpool_remove_node (node);
 	}
     }
+  pointer_set_destroy (referenced);
   if (cgraph_dump_file)
     fprintf (cgraph_dump_file, "\n");
 }
@@ -553,7 +562,7 @@ varpool_remove_unreferenced_decls (void)
    conflicts between read-only and read-only requiring relocations
    sections can be resolved.  */
 void
-varpool_finalize_named_section_flags (struct varpool_node *node)
+varpool_finalize_named_section_flags (varpool_node *node)
 {
   if (!TREE_ASM_WRITTEN (node->decl)
       && !node->alias
@@ -570,7 +579,7 @@ bool
 varpool_output_variables (void)
 {
   bool changed = false;
-  struct varpool_node *node;
+  varpool_node *node;
 
   if (seen_error ())
     return false;
@@ -594,7 +603,7 @@ tree
 add_new_static_var (tree type)
 {
   tree new_decl;
-  struct varpool_node *new_node;
+  varpool_node *new_node;
 
   new_decl = create_tmp_var_raw (type, NULL);
   DECL_NAME (new_decl) = create_tmp_var_name (NULL);
@@ -613,10 +622,10 @@ add_new_static_var (tree type)
 /* Attempt to mark ALIAS as an alias to DECL.  Return TRUE if successful.
    Extra name aliases are output whenever DECL is output.  */
 
-struct varpool_node *
+varpool_node *
 varpool_create_variable_alias (tree alias, tree decl)
 {
-  struct varpool_node *alias_node;
+  varpool_node *alias_node;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL);
   gcc_assert (TREE_CODE (alias) == VAR_DECL);
@@ -632,10 +641,10 @@ varpool_create_variable_alias (tree alias, tree decl)
 /* Attempt to mark ALIAS as an alias to DECL.  Return TRUE if successful.
    Extra name aliases are output whenever DECL is output.  */
 
-struct varpool_node *
+varpool_node *
 varpool_extra_name_alias (tree alias, tree decl)
 {
-  struct varpool_node *alias_node;
+  varpool_node *alias_node;
 
 #ifndef ASM_OUTPUT_DEF
   /* If aliases aren't supported by the assembler, fail.  */
@@ -659,8 +668,8 @@ varpool_extra_name_alias (tree alias, tree decl)
    skipped. */
 
 bool
-varpool_for_node_and_aliases (struct varpool_node *node,
-			      bool (*callback) (struct varpool_node *, void *),
+varpool_for_node_and_aliases (varpool_node *node,
+			      bool (*callback) (varpool_node *, void *),
 			      void *data,
 			      bool include_overwritable)
 {
@@ -672,7 +681,7 @@ varpool_for_node_and_aliases (struct varpool_node *node,
   for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
     if (ref->use == IPA_REF_ALIAS)
       {
-	struct varpool_node *alias = ipa_ref_referring_varpool_node (ref);
+	varpool_node *alias = ipa_ref_referring_varpool_node (ref);
 	if (include_overwritable
 	    || cgraph_variable_initializer_availability (alias) > AVAIL_OVERWRITABLE)
           if (varpool_for_node_and_aliases (alias, callback, data,

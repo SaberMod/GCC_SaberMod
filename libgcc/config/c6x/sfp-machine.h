@@ -1,5 +1,5 @@
 /* Soft-FP definitions for TI C6X.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
    This files is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
@@ -77,6 +77,9 @@
 #else
 # define __BYTE_ORDER __LITTLE_ENDIAN
 #endif
+
+/* Not checked.  */
+#define _FP_TININESS_AFTER_ROUNDING 0
 
 
 /* Define ALIASNAME as a strong alias for NAME.  */

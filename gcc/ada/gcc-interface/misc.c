@@ -30,6 +30,8 @@
 #include "options.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "print-tree.h"
 #include "diagnostic.h"
 #include "target.h"
 #include "ggc.h"
@@ -149,6 +151,10 @@ gnat_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value,
       /* These are handled by the front-end.  */
       break;
 
+    case OPT_fshort_enums:
+      /* This is handled by the middle-end.  */
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -222,10 +228,12 @@ gnat_init_options (unsigned int decoded_options_count,
 #undef optimize
 #undef optimize_size
 #undef flag_compare_debug
+#undef flag_short_enums
 #undef flag_stack_check
 int optimize;
 int optimize_size;
 int flag_compare_debug;
+int flag_short_enums;
 enum stack_check_type flag_stack_check = NO_STACK_CHECK;
 
 /* Settings adjustments after switches processing by the back-end.
@@ -255,6 +263,13 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   optimize_size = global_options.x_optimize_size;
   flag_compare_debug = global_options.x_flag_compare_debug;
   flag_stack_check = global_options.x_flag_stack_check;
+  flag_short_enums = global_options.x_flag_short_enums;
+
+  /* Unfortunately the post_options hook is called before the value of
+     flag_short_enums is autodetected, if need be.  Mimic the process
+     for our private flag_short_enums.  */
+  if (flag_short_enums == 2)
+    flag_short_enums = targetm.default_short_enums ();
 
   return false;
 }
@@ -591,7 +606,7 @@ gnat_type_max_size (const_tree gnu_type)
 
   /* If we don't have a constant, see what we can get from TYPE_ADA_SIZE,
      which should stay untouched.  */
-  if (!host_integerp (max_unitsize, 1)
+  if (!tree_fits_uhwi_p (max_unitsize)
       && RECORD_OR_UNION_TYPE_P (gnu_type)
       && !TYPE_FAT_POINTER_P (gnu_type)
       && TYPE_ADA_SIZE (gnu_type))
@@ -600,7 +615,7 @@ gnat_type_max_size (const_tree gnu_type)
 
       /* If we have succeeded in finding a constant, round it up to the
 	 type's alignment and return the result in units.  */
-      if (host_integerp (max_adasize, 1))
+      if (tree_fits_uhwi_p (max_adasize))
 	max_unitsize
 	  = size_binop (CEIL_DIV_EXPR,
 			round_up (max_adasize, TYPE_ALIGN (gnu_type)),

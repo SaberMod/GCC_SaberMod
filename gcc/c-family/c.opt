@@ -1,5 +1,5 @@
 ; Options for the C, ObjC, C++ and ObjC++ front ends.
-; Copyright (C) 2003-2013 Free Software Foundation, Inc.
+; Copyright (C) 2003-2014 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -387,6 +387,10 @@ Werror-implicit-function-declaration
 C ObjC RejectNegative Warning Alias(Werror=, implicit-function-declaration)
 This switch is deprecated; use -Werror=implicit-function-declaration instead
 
+Wfloat-conversion
+C ObjC C++ ObjC++ Var(warn_float_conversion) LangEnabledBy(C ObjC C++ ObjC++,Wconversion)
+Warn for implicit type conversions that cause loss of floating point precision
+
 Wfloat-equal
 C ObjC C++ ObjC++ Var(warn_float_equal) Warning
 Warn if testing floating point numbers for equality
@@ -591,6 +595,10 @@ Warn for obsolescent usage in a declaration
 Wold-style-definition
 C ObjC Var(warn_old_style_definition) Warning
 Warn if an old-style parameter definition is used
+
+Wopenmp-simd
+C C++ Var(warn_openmp_simd) Warning LangEnabledBy(C C++,Wall)
+Warn if a simd directive is overridden by the vectorizer cost model
 
 Woverlength-strings
 C ObjC C++ ObjC++ Var(warn_overlength_strings) Warning LangEnabledBy(C ObjC C++ ObjC++,Wpedantic)
@@ -854,13 +862,8 @@ fcanonical-system-headers
 C ObjC C++ ObjC++
 Where shorter, use canonicalized paths to systems headers.
 
-fcheck-pointer-bounds
-C ObjC C++ ObjC++ LTO Report Var(flag_check_pointer_bounds)
-Add Pointer Bounds Checker instrumentation.  fchkp-* flags are used to
-control instrumentation.
-
 fcilkplus
-C ObjC C++ ObjC++ LTO Report Var(flag_enable_cilkplus) Init(0)
+C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
 Enable Cilk Plus
 
 fcond-mismatch
@@ -886,6 +889,10 @@ Emit debug annotations during preprocessing
 fdeduce-init-list
 C++ ObjC++ Var(flag_deduce_init_list) Init(0)
 -fdeduce-init-list	enable deduction of std::initializer_list for a template type parameter from a brace-enclosed initializer-list
+
+fdeclone-ctor-dtor
+C++ ObjC++ Var(flag_declone_ctor_dtor) Init(-1)
+Factor complex constructors and destructors to favor space over speed
 
 fdefault-inline
 C++ ObjC++ Ignore

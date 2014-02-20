@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2013 Free Software Foundation, Inc.
+# Copyright (C) 2001-2014 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -94,6 +94,15 @@ Print the expression that is $ in C syntax.
 Works only when an inferior is executing.
 end
 
+define pmz
+set mpz_out_str(stderr, 10, $)
+end
+
+document pmz
+Print the mpz value that is $
+Works only when an inferior is executing.
+end
+
 define ptc
 output (enum tree_code) $.common.code
 echo \n
@@ -181,11 +190,22 @@ document pbm
 Dump the bitmap that is in $ as a comma-separated list of numbers.
 end
 
+define pel
+output expand_location ($)
+echo \n
+end
+
+document pel
+Print expanded location of $.
+end
+
 # Define some macros helpful to gdb when it is expanding macros.
 macro define __FILE__ "gdb"
 macro define __LINE__ 1
 macro define __FUNCTION__ "gdb"
 macro define __null 0
+macro define input_line expand_location(input_location).line
+macro define input_filename expand_location(input_location).file
 
 # Gracefully handle aborts in functions used from gdb.
 set unwindonsignal on

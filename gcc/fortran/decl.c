@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -4286,12 +4287,10 @@ gfc_match_data_decl (void)
 	      || current_ts.u.derived->attr.zero_comp))
 	goto ok;
 
-      /* Now we have an error, which we signal, and then fix up
-	 because the knock-on is plain and simple confusing.  */
-      gfc_error_now ("Derived type at %C has not been previously defined "
-		     "and so cannot appear in a derived type definition");
-      current_attr.pointer = 1;
-      goto ok;
+      gfc_error ("Derived type at %C has not been previously defined "
+		 "and so cannot appear in a derived type definition");
+      m = MATCH_ERROR;
+      goto cleanup;
     }
 
 ok:

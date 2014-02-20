@@ -1,5 +1,5 @@
 /* Store motion via Lazy Code Motion on the reverse CFG.
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -656,7 +656,7 @@ compute_store_table (void)
   already_set = XNEWVEC (int, max_gcse_regno);
 
   /* Find all the stores we care about.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* First compute the registers set in this block.  */
       FOR_BB_INSNS (bb, insn)
@@ -805,7 +805,7 @@ insert_store (struct st_expr * expr, edge e)
 
   /* If tmp is NULL, we found an insertion on every edge, blank the
      insertion vector for these edges, and insert at the start of the BB.  */
-  if (!tmp && bb != EXIT_BLOCK_PTR)
+  if (!tmp && bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       FOR_EACH_EDGE (tmp, ei, e->dest->preds)
 	{
@@ -844,11 +844,11 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
   edge_iterator *stack, ei;
   int sp;
   edge act;
-  sbitmap visited = sbitmap_alloc (last_basic_block);
+  sbitmap visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
   rtx last, insn, note;
   rtx mem = smexpr->pattern;
 
-  stack = XNEWVEC (edge_iterator, n_basic_blocks);
+  stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun));
   sp = 0;
   ei = ei_start (bb->succs);
 
@@ -869,7 +869,7 @@ remove_reachable_equiv_notes (basic_block bb, struct st_expr *smexpr)
 	}
       bb = act->dest;
 
-      if (bb == EXIT_BLOCK_PTR
+      if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  || bitmap_bit_p (visited, bb->index))
 	{
 	  if (!ei_end_p (ei))
@@ -1016,11 +1016,13 @@ build_store_vectors (void)
 
   /* Build the gen_vector. This is any store in the table which is not killed
      by aliasing later in its block.  */
-  st_avloc = sbitmap_vector_alloc (last_basic_block, num_stores);
-  bitmap_vector_clear (st_avloc, last_basic_block);
+  st_avloc = sbitmap_vector_alloc (last_basic_block_for_fn (cfun),
+				   num_stores);
+  bitmap_vector_clear (st_avloc, last_basic_block_for_fn (cfun));
 
-  st_antloc = sbitmap_vector_alloc (last_basic_block, num_stores);
-  bitmap_vector_clear (st_antloc, last_basic_block);
+  st_antloc = sbitmap_vector_alloc (last_basic_block_for_fn (cfun),
+				    num_stores);
+  bitmap_vector_clear (st_antloc, last_basic_block_for_fn (cfun));
 
   for (ptr = first_st_expr (); ptr != NULL; ptr = next_st_expr (ptr))
     {
@@ -1052,14 +1054,14 @@ build_store_vectors (void)
 	}
     }
 
-  st_kill = sbitmap_vector_alloc (last_basic_block, num_stores);
-  bitmap_vector_clear (st_kill, last_basic_block);
+  st_kill = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), num_stores);
+  bitmap_vector_clear (st_kill, last_basic_block_for_fn (cfun));
 
-  st_transp = sbitmap_vector_alloc (last_basic_block, num_stores);
-  bitmap_vector_clear (st_transp, last_basic_block);
+  st_transp = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), num_stores);
+  bitmap_vector_clear (st_transp, last_basic_block_for_fn (cfun));
   regs_set_in_block = XNEWVEC (int, max_gcse_regno);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       memset (regs_set_in_block, 0, sizeof (int) * max_gcse_regno);
 
@@ -1095,10 +1097,14 @@ build_store_vectors (void)
 
   if (dump_file)
     {
-      dump_bitmap_vector (dump_file, "st_antloc", "", st_antloc, last_basic_block);
-      dump_bitmap_vector (dump_file, "st_kill", "", st_kill, last_basic_block);
-      dump_bitmap_vector (dump_file, "st_transp", "", st_transp, last_basic_block);
-      dump_bitmap_vector (dump_file, "st_avloc", "", st_avloc, last_basic_block);
+      dump_bitmap_vector (dump_file, "st_antloc", "", st_antloc,
+			  last_basic_block_for_fn (cfun));
+      dump_bitmap_vector (dump_file, "st_kill", "", st_kill,
+			  last_basic_block_for_fn (cfun));
+      dump_bitmap_vector (dump_file, "st_transp", "", st_transp,
+			  last_basic_block_for_fn (cfun));
+      dump_bitmap_vector (dump_file, "st_avloc", "", st_avloc,
+			  last_basic_block_for_fn (cfun));
     }
 }
 
@@ -1182,7 +1188,7 @@ one_store_motion_pass (void)
 
       /* Now we want to insert the new stores which are going to be needed.  */
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	if (bitmap_bit_p (st_delete_map[bb->index], ptr->index))
 	  {
 	    delete_store (ptr, bb);
@@ -1208,7 +1214,7 @@ one_store_motion_pass (void)
   if (dump_file)
     {
       fprintf (dump_file, "STORE_MOTION of %s, %d basic blocks, ",
-	       current_function_name (), n_basic_blocks);
+	       current_function_name (), n_basic_blocks_for_fn (cfun));
       fprintf (dump_file, "%d insns deleted, %d insns created\n",
 	       n_stores_deleted, n_stores_created);
     }

@@ -1,5 +1,5 @@
 /* Post reload partially redundant load elimination
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -266,7 +266,7 @@ alloc_mem (void)
   /* Find the largest UID and create a mapping from UIDs to CUIDs.  */
   uid_cuid = XCNEWVEC (int, get_max_uid () + 1);
   i = 1;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       {
         if (INSN_P (insn))
@@ -828,7 +828,7 @@ compute_hash_table (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
 
@@ -1158,12 +1158,12 @@ eliminate_partially_redundant_loads (void)
 
   /* Note we start at block 1.  */
 
-  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+  if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   FOR_BB_BETWEEN (bb,
-		  ENTRY_BLOCK_PTR->next_bb->next_bb,
-		  EXIT_BLOCK_PTR,
+		  ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun),
 		  next_bb)
     {
       /* Don't try anything on basic blocks with strange predecessors.  */

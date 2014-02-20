@@ -1,5 +1,5 @@
 /* Convert tree expression to rtl instructions, for GNU compiler.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "function.h"
 #include "insn-config.h"
@@ -93,6 +94,29 @@ do_pending_stack_adjust (void)
       if (pending_stack_adjust != 0)
         adjust_stack (GEN_INT (pending_stack_adjust));
       pending_stack_adjust = 0;
+    }
+}
+
+/* Remember pending_stack_adjust/stack_pointer_delta.
+   To be used around code that may call do_pending_stack_adjust (),
+   but the generated code could be discarded e.g. using delete_insns_since.  */
+
+void
+save_pending_stack_adjust (saved_pending_stack_adjust *save)
+{
+  save->x_pending_stack_adjust = pending_stack_adjust;
+  save->x_stack_pointer_delta = stack_pointer_delta;
+}
+
+/* Restore the saved pending_stack_adjust/stack_pointer_delta.  */
+
+void
+restore_pending_stack_adjust (saved_pending_stack_adjust *save)
+{
+  if (inhibit_defer_pop == 0)
+    {
+      pending_stack_adjust = save->x_pending_stack_adjust;
+      stack_pointer_delta = save->x_stack_pointer_delta;
     }
 }
 

@@ -1,5 +1,5 @@
 /* Definitions for C++ parsing and type checking.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -65,6 +65,7 @@ c-common.h, not after.
       TARGET_EXPR_IMPLICIT_P (in TARGET_EXPR)
       TEMPLATE_PARM_PARAMETER_PACK (in TEMPLATE_PARM_INDEX)
       ATTR_IS_DEPENDENT (in the TREE_LIST for an attribute)
+      ABI_TAG_IMPLICIT (in the TREE_LIST for the argument of abi_tag)
       CONSTRUCTOR_IS_DIRECT_INIT (in CONSTRUCTOR)
       LAMBDA_EXPR_CAPTURES_THIS_P (in LAMBDA_EXPR)
       DECLTYPE_FOR_LAMBDA_CAPTURE (in DECLTYPE_TYPE)
@@ -359,7 +360,8 @@ struct GTY(()) tree_overload {
 /* Returns true iff NODE is a BASELINK.  */
 #define BASELINK_P(NODE) \
   (TREE_CODE (NODE) == BASELINK)
-/* The BINFO indicating the base from which the BASELINK_FUNCTIONS came.  */
+/* The BINFO indicating the base in which lookup found the
+   BASELINK_FUNCTIONS.  */
 #define BASELINK_BINFO(NODE) \
   (((struct tree_baselink*) BASELINK_CHECK (NODE))->binfo)
 /* The functions referred to by the BASELINK; either a FUNCTION_DECL,
@@ -1047,6 +1049,8 @@ struct GTY(()) saved_scope {
   cp_binding_level *class_bindings;
   cp_binding_level *bindings;
 
+  struct pointer_map_t *x_local_specializations;
+
   struct saved_scope *prev;
 };
 
@@ -1096,6 +1100,12 @@ struct GTY(()) saved_scope {
 
 #define previous_class_level scope_chain->x_previous_class_level
 
+/* A map from local variable declarations in the body of the template
+   presently being instantiated to the corresponding instantiated
+   local variables.  */
+
+#define local_specializations scope_chain->x_local_specializations
+
 /* A list of private types mentioned, for deferred access checking.  */
 
 extern GTY(()) struct saved_scope *scope_chain;
@@ -1125,6 +1135,7 @@ struct GTY(()) language_function {
   BOOL_BITFIELD returns_value : 1;
   BOOL_BITFIELD returns_null : 1;
   BOOL_BITFIELD returns_abnormally : 1;
+  BOOL_BITFIELD infinite_loop: 1;
   BOOL_BITFIELD x_in_function_try_handler : 1;
   BOOL_BITFIELD x_in_base_initializer : 1;
 
@@ -1134,6 +1145,9 @@ struct GTY(()) language_function {
   htab_t GTY((param_is(struct named_label_entry))) x_named_labels;
   cp_binding_level *bindings;
   vec<tree, va_gc> *x_local_names;
+  /* Tracking possibly infinite loops.  This is a vec<tree> only because
+     vec<bool> doesn't work with gtype.  */
+  vec<tree, va_gc> *infinite_loops;
   htab_t GTY((param_is (struct cxx_int_tree_map))) extern_decl_map;
 };
 
@@ -1191,6 +1205,12 @@ struct GTY(()) language_function {
 
 #define current_function_returns_abnormally \
   cp_function_chain->returns_abnormally
+
+/* Set to 0 at beginning of a function definition, set to 1 if we see an
+   obvious infinite loop.  This can have false positives and false
+   negatives, so it should only be used as a heuristic.  */
+
+#define current_function_infinite_loop cp_function_chain->infinite_loop
 
 /* Nonzero if we are processing a base initializer.  Zero elsewhere.  */
 #define in_base_initializer cp_function_chain->x_in_base_initializer
@@ -2587,6 +2607,10 @@ struct GTY((variable_size)) lang_decl {
 /* In a TREE_LIST in an attribute list, indicates that the attribute
    must be applied at instantiation time.  */
 #define ATTR_IS_DEPENDENT(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
+
+/* In a TREE_LIST in the argument of attribute abi_tag, indicates that the tag
+   was inherited from a template parameter, not explicitly indicated.  */
+#define ABI_TAG_IMPLICIT(NODE) TREE_LANG_FLAG_0 (TREE_LIST_CHECK (NODE))
 
 extern tree decl_shadowed_for_var_lookup (tree);
 extern void decl_shadowed_for_var_insert (tree, tree);
@@ -5280,6 +5304,7 @@ extern tree grokfield (const cp_declarator *, cp_decl_specifier_seq *,
 extern tree grokbitfield (const cp_declarator *, cp_decl_specifier_seq *,
 			  tree, tree);
 extern tree cp_reconstruct_complex_type		(tree, tree);
+extern bool attributes_naming_typedef_ok	(tree);
 extern void cplus_decl_attributes		(tree *, tree, int);
 extern void finish_anon_union			(tree);
 extern void cp_write_global_declarations	(void);
@@ -5355,6 +5380,7 @@ extern tree begin_eh_spec_block			(void);
 extern void finish_eh_spec_block		(tree, tree);
 extern tree build_eh_type_type			(tree);
 extern tree cp_protect_cleanup_actions		(void);
+extern tree create_try_catch_expr               (tree, tree);
 
 /* in expr.c */
 extern tree cplus_expand_constant		(tree);
@@ -5664,6 +5690,7 @@ extern bool perform_or_defer_access_check	(tree, tree, tree,
 extern int stmts_are_full_exprs_p		(void);
 extern void init_cp_semantics			(void);
 extern tree do_poplevel				(tree);
+extern void break_maybe_infinite_loop		(void);
 extern void add_decl_expr			(tree);
 extern tree maybe_cleanup_point_expr_void	(tree);
 extern tree finish_expr_stmt			(tree);
@@ -5742,7 +5769,7 @@ extern tree finish_stmt_expr_expr		(tree, tree);
 extern tree finish_stmt_expr			(tree, bool);
 extern tree stmt_expr_value_expr		(tree);
 bool empty_expr_stmt_p				(tree);
-extern tree perform_koenig_lookup		(tree, vec<tree, va_gc> *, bool,
+extern tree perform_koenig_lookup		(tree, vec<tree, va_gc> *,
 						 tsubst_flags_t);
 extern tree finish_call_expr			(tree, vec<tree, va_gc> **, bool,
 						 bool, tsubst_flags_t);
@@ -6184,6 +6211,9 @@ extern bool cpp_validate_cilk_plus_loop		(tree);
 extern tree expand_array_notation_exprs         (tree);
 bool cilkplus_an_triplet_types_ok_p             (location_t, tree, tree, tree,
 						 tree);
+/* In c-family/cilk.c */
+extern bool cilk_valid_spawn                    (tree);
+
 /* -- end of C++ */
 
 #endif /* ! GCC_CP_TREE_H */

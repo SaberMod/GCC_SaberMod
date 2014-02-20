@@ -1,5 +1,5 @@
 /* Forward propagation of expressions for single use variables.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,9 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -33,7 +40,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -1278,8 +1287,7 @@ static void
 simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
-  vec<tree> labels;
-  labels.create (branch_num);
+  auto_vec<tree> labels (branch_num);
   unsigned int i, len;
 
   /* Collect the existing case labels in a VEC, and preprocess it as if
@@ -1340,8 +1348,6 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	} 
       BITMAP_FREE (target_blocks);
     }
-
-  labels.release ();
 }
 
 /* STMT is a SWITCH_EXPR for which we attempt to find equivalent forms of
@@ -1527,8 +1533,8 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  char *src_buf;
 	  use_operand_p use_p;
 
-	  if (!host_integerp (val2, 0)
-	      || !host_integerp (len2, 1))
+	  if (!tree_fits_shwi_p (val2)
+	      || !tree_fits_uhwi_p (len2))
 	    break;
 	  if (is_gimple_call (stmt1))
 	    {
@@ -1547,15 +1553,15 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_call_arg (stmt1, 1);
 	      len1 = gimple_call_arg (stmt1, 2);
 	      lhs1 = gimple_call_lhs (stmt1);
-	      if (!host_integerp (len1, 1))
+	      if (!tree_fits_uhwi_p (len1))
 		break;
 	      str1 = string_constant (src1, &off1);
 	      if (str1 == NULL_TREE)
 		break;
-	      if (!host_integerp (off1, 1)
+	      if (!tree_fits_uhwi_p (off1)
 		  || compare_tree_int (off1, TREE_STRING_LENGTH (str1) - 1) > 0
 		  || compare_tree_int (len1, TREE_STRING_LENGTH (str1)
-					     - tree_low_cst (off1, 1)) > 0
+					     - tree_to_uhwi (off1)) > 0
 		  || TREE_CODE (TREE_TYPE (str1)) != ARRAY_TYPE
 		  || TYPE_MODE (TREE_TYPE (TREE_TYPE (str1)))
 		     != TYPE_MODE (char_type_node))
@@ -1569,7 +1575,7 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_assign_rhs1 (stmt1);
 	      if (TREE_CODE (ptr1) != MEM_REF
 		  || TYPE_MODE (TREE_TYPE (ptr1)) != TYPE_MODE (char_type_node)
-		  || !host_integerp (src1, 0))
+		  || !tree_fits_shwi_p (src1))
 		break;
 	      ptr1 = build_fold_addr_expr (ptr1);
 	      callee1 = NULL_TREE;
@@ -1593,16 +1599,16 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  /* If the difference between the second and first destination pointer
 	     is not constant, or is bigger than memcpy length, bail out.  */
 	  if (diff == NULL
-	      || !host_integerp (diff, 1)
+	      || !tree_fits_uhwi_p (diff)
 	      || tree_int_cst_lt (len1, diff))
 	    break;
 
 	  /* Use maximum of difference plus memset length and memcpy length
 	     as the new memcpy length, if it is too big, bail out.  */
-	  src_len = tree_low_cst (diff, 1);
-	  src_len += tree_low_cst (len2, 1);
-	  if (src_len < (unsigned HOST_WIDE_INT) tree_low_cst (len1, 1))
-	    src_len = tree_low_cst (len1, 1);
+	  src_len = tree_to_uhwi (diff);
+	  src_len += tree_to_uhwi (len2);
+	  if (src_len < tree_to_uhwi (len1))
+	    src_len = tree_to_uhwi (len1);
 	  if (src_len > 1024)
 	    break;
 
@@ -1628,12 +1634,12 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  src_buf = XALLOCAVEC (char, src_len + 1);
 	  if (callee1)
 	    memcpy (src_buf,
-		    TREE_STRING_POINTER (str1) + tree_low_cst (off1, 1),
-		    tree_low_cst (len1, 1));
+		    TREE_STRING_POINTER (str1) + tree_to_uhwi (off1),
+		    tree_to_uhwi (len1));
 	  else
-	    src_buf[0] = tree_low_cst (src1, 0);
-	  memset (src_buf + tree_low_cst (diff, 1),
-		  tree_low_cst (val2, 0), tree_low_cst (len2, 1));
+	    src_buf[0] = tree_to_shwi (src1);
+	  memset (src_buf + tree_to_uhwi (diff),
+		  tree_to_shwi (val2), tree_to_uhwi (len2));
 	  src_buf[src_len] = '\0';
 	  /* Neither builtin_strncpy_read_str nor builtin_memcpy_read_str
 	     handle embedded '\0's.  */
@@ -2317,10 +2323,10 @@ simplify_rotate (gimple_stmt_iterator *gsi)
     return false;
 
   /* CNT1 + CNT2 == B case above.  */
-  if (host_integerp (def_arg2[0], 1)
-      && host_integerp (def_arg2[1], 1)
-      && (unsigned HOST_WIDE_INT) tree_low_cst (def_arg2[0], 1)
-	 + tree_low_cst (def_arg2[1], 1) == TYPE_PRECISION (rtype))
+  if (tree_fits_uhwi_p (def_arg2[0])
+      && tree_fits_uhwi_p (def_arg2[1])
+      && tree_to_uhwi (def_arg2[0])
+	 + tree_to_uhwi (def_arg2[1]) == TYPE_PRECISION (rtype))
     rotcnt = def_arg2[0];
   else if (TREE_CODE (def_arg2[0]) != SSA_NAME
 	   || TREE_CODE (def_arg2[1]) != SSA_NAME)
@@ -2354,8 +2360,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	/* Check for one shift count being Y and the other B - Y,
 	   with optional casts.  */
 	if (cdef_code[i] == MINUS_EXPR
-	    && host_integerp (cdef_arg1[i], 0)
-	    && tree_low_cst (cdef_arg1[i], 0) == TYPE_PRECISION (rtype)
+	    && tree_fits_shwi_p (cdef_arg1[i])
+	    && tree_to_shwi (cdef_arg1[i]) == TYPE_PRECISION (rtype)
 	    && TREE_CODE (cdef_arg2[i]) == SSA_NAME)
 	  {
 	    tree tem;
@@ -2386,8 +2392,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	   This alternative is safe even for rotation count of 0.
 	   One shift count is Y and the other (-Y) & (B - 1).  */
 	else if (cdef_code[i] == BIT_AND_EXPR
-		 && host_integerp (cdef_arg2[i], 0)
-		 && tree_low_cst (cdef_arg2[i], 0)
+		 && tree_fits_shwi_p (cdef_arg2[i])
+		 && tree_to_shwi (cdef_arg2[i])
 		    == TYPE_PRECISION (rtype) - 1
 		 && TREE_CODE (cdef_arg1[i]) == SSA_NAME
 		 && gimple_assign_rhs_code (stmt) == BIT_IOR_EXPR)
@@ -2537,6 +2543,7 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 	CST +- (CST +- A)  ->  CST +- A
 	CST +- (A +- CST)  ->  CST +- A
 	A + ~A             ->  -1
+	(T)(P + A) - (T)P  -> (T)A
 
      via commutating the addition and contracting operations to zero
      by reassociation.  */
@@ -2640,6 +2647,55 @@ associate_plusminus (gimple_stmt_iterator *gsi)
 		  gimple_set_modified (stmt, true);
 		}
 	    }
+	  else if (CONVERT_EXPR_CODE_P (def_code) && code == MINUS_EXPR
+		   && TREE_CODE (rhs2) == SSA_NAME)
+	    {
+	      /* (T)(ptr + adj) - (T)ptr -> (T)adj.  */
+	      gimple def_stmt2 = SSA_NAME_DEF_STMT (rhs2);
+	      if (TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME
+		  && is_gimple_assign (def_stmt2)
+		  && can_propagate_from (def_stmt2)
+		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt2))
+		  && TREE_CODE (gimple_assign_rhs1 (def_stmt2)) == SSA_NAME)
+		{
+		  /* Now we have (T)A - (T)ptr.  */
+		  tree ptr = gimple_assign_rhs1 (def_stmt2);
+		  def_stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
+		  if (is_gimple_assign (def_stmt2)
+		      && gimple_assign_rhs_code (def_stmt2) == POINTER_PLUS_EXPR
+		      && gimple_assign_rhs1 (def_stmt2) == ptr)
+		    {
+		      /* And finally (T)(ptr + X) - (T)ptr.  */
+		      tree adj = gimple_assign_rhs2 (def_stmt2);
+		      /* If the conversion of the pointer adjustment to the
+		         final type requires a sign- or zero-extension we
+			 have to punt - it is not defined which one is
+			 correct.  */
+		      if (TYPE_PRECISION (TREE_TYPE (rhs1))
+			  <= TYPE_PRECISION (TREE_TYPE (adj))
+			  || (TREE_CODE (adj) == INTEGER_CST
+			      && tree_int_cst_sign_bit (adj) == 0))
+			{
+			  if (useless_type_conversion_p (TREE_TYPE (rhs1),
+							 TREE_TYPE (adj)))
+			    {
+			      code = TREE_CODE (adj);
+			      rhs1 = adj;
+			    }
+			  else
+			    {
+			      code = NOP_EXPR;
+			      rhs1 = adj;
+			    }
+			  rhs2 = NULL_TREE;
+			  gimple_assign_set_rhs_with_ops (gsi, code, rhs1,
+							  NULL_TREE);
+			  gcc_assert (gsi_stmt (*gsi) == stmt);
+			  gimple_set_modified (stmt, true);
+			}
+		    }
+		}
+	    }
 	}
     }
 
@@ -2736,9 +2792,7 @@ out:
     {
       fold_stmt_inplace (gsi);
       update_stmt (stmt);
-      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
-	  && gimple_purge_dead_eh_edges (gimple_bb (stmt)))
-	return true;
+      return true;
     }
 
   return false;
@@ -2748,7 +2802,7 @@ out:
    true if anything changed, false otherwise.  */
 
 static bool
-associate_pointerplus (gimple_stmt_iterator *gsi)
+associate_pointerplus_align (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
   gimple def_stmt;
@@ -2791,6 +2845,105 @@ associate_pointerplus (gimple_stmt_iterator *gsi)
   algn = double_int_to_tree (TREE_TYPE (ptr), ~tree_to_double_int (algn));
   gimple_assign_set_rhs_with_ops (gsi, BIT_AND_EXPR, ptr, algn);
   fold_stmt_inplace (gsi);
+  update_stmt (stmt);
+
+  return true;
+}
+
+/* Associate operands of a POINTER_PLUS_EXPR assignmen at *GSI.  Returns
+   true if anything changed, false otherwise.  */
+
+static bool
+associate_pointerplus_diff (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  gimple def_stmt;
+  tree ptr1, rhs;
+
+  /* Pattern match
+       tem1 = (long) ptr1;
+       tem2 = (long) ptr2;
+       tem3 = tem2 - tem1;
+       tem4 = (unsigned long) tem3;
+       tem5 = ptr1 + tem4;
+     and produce
+       tem5 = ptr2;  */
+  ptr1 = gimple_assign_rhs1 (stmt);
+  rhs = gimple_assign_rhs2 (stmt);
+  if (TREE_CODE (rhs) != SSA_NAME)
+    return false;
+  gimple minus = SSA_NAME_DEF_STMT (rhs);
+  /* Conditionally look through a sign-changing conversion.  */
+  if (is_gimple_assign (minus)
+      && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (minus))
+      && (TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (minus)))
+	  == TYPE_PRECISION (TREE_TYPE (rhs)))
+      && TREE_CODE (gimple_assign_rhs1 (minus)) == SSA_NAME)
+    minus = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (minus));
+  if (!is_gimple_assign (minus))
+    return false;
+  if (gimple_assign_rhs_code (minus) != MINUS_EXPR)
+    return false;
+  rhs = gimple_assign_rhs2 (minus);
+  if (TREE_CODE (rhs) != SSA_NAME)
+    return false;
+  def_stmt = SSA_NAME_DEF_STMT (rhs);
+  if (!is_gimple_assign (def_stmt)
+      || ! CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt))
+      || gimple_assign_rhs1 (def_stmt) != ptr1)
+    return false;
+  rhs = gimple_assign_rhs1 (minus);
+  if (TREE_CODE (rhs) != SSA_NAME)
+    return false;
+  def_stmt = SSA_NAME_DEF_STMT (rhs);
+  if (!is_gimple_assign (def_stmt)
+      || ! CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
+    return false;
+  rhs = gimple_assign_rhs1 (def_stmt);
+  if (! useless_type_conversion_p (TREE_TYPE (ptr1), TREE_TYPE (rhs)))
+    return false;
+
+  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (rhs), rhs, NULL_TREE);
+  update_stmt (stmt);
+
+  return true;
+}
+
+/* Associate operands of a POINTER_PLUS_EXPR assignmen at *GSI.  Returns
+   true if anything changed, false otherwise.  */
+
+static bool
+associate_pointerplus (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  gimple def_stmt;
+  tree ptr, off1, off2;
+
+  if (associate_pointerplus_align (gsi)
+      || associate_pointerplus_diff (gsi))
+    return true;
+
+  /* Associate (p +p off1) +p off2 as (p +p (off1 + off2)).  */
+  ptr = gimple_assign_rhs1 (stmt);
+  off1 = gimple_assign_rhs2 (stmt);
+  if (TREE_CODE (ptr) != SSA_NAME
+      || !has_single_use (ptr))
+    return false;
+  def_stmt = SSA_NAME_DEF_STMT (ptr);
+  if (!is_gimple_assign (def_stmt)
+      || gimple_assign_rhs_code (def_stmt) != POINTER_PLUS_EXPR
+      || !can_propagate_from (def_stmt))
+    return false;
+  ptr = gimple_assign_rhs1 (def_stmt);
+  off2 = gimple_assign_rhs2 (def_stmt);
+  if (!types_compatible_p (TREE_TYPE (off1), TREE_TYPE (off2)))
+    return false;
+
+  tree off = make_ssa_name (TREE_TYPE (off1), NULL);
+  gimple ostmt = gimple_build_assign_with_ops (PLUS_EXPR, off, off1, off2);
+  gsi_insert_before (gsi, ostmt, GSI_SAME_STMT);
+
+  gimple_assign_set_rhs_with_ops (gsi, POINTER_PLUS_EXPR, ptr, off);
   update_stmt (stmt);
 
   return true;
@@ -2989,6 +3142,69 @@ combine_conversions (gimple_stmt_iterator *gsi)
     }
 
   return 0;
+}
+
+/* Combine VIEW_CONVERT_EXPRs with their defining statement.  */
+
+static bool
+simplify_vce (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree type = TREE_TYPE (gimple_assign_lhs (stmt));
+
+  /* Drop useless VIEW_CONVERT_EXPRs.  */
+  tree op = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    {
+      gimple_assign_set_rhs1 (stmt, op);
+      update_stmt (stmt);
+      return true;
+    }
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return false;
+
+  gimple def_stmt = SSA_NAME_DEF_STMT (op);
+  if (!is_gimple_assign (def_stmt))
+    return false;
+
+  tree def_op = gimple_assign_rhs1 (def_stmt);
+  switch (gimple_assign_rhs_code (def_stmt))
+    {
+    CASE_CONVERT:
+      /* Strip integral conversions that do not change the precision.  */
+      if ((INTEGRAL_TYPE_P (TREE_TYPE (op))
+	   || POINTER_TYPE_P (TREE_TYPE (op)))
+	  && (INTEGRAL_TYPE_P (TREE_TYPE (def_op))
+	      || POINTER_TYPE_P (TREE_TYPE (def_op)))
+	  && (TYPE_PRECISION (TREE_TYPE (op))
+	      == TYPE_PRECISION (TREE_TYPE (def_op))))
+	{
+	  TREE_OPERAND (gimple_assign_rhs1 (stmt), 0) = def_op;
+	  update_stmt (stmt);
+	  return true;
+	}
+      break;
+
+    case VIEW_CONVERT_EXPR:
+      /* Series of VIEW_CONVERT_EXPRs on register operands can
+	 be contracted.  */
+      if (TREE_CODE (TREE_OPERAND (def_op, 0)) == SSA_NAME)
+	{
+	  if (useless_type_conversion_p (type,
+					 TREE_TYPE (TREE_OPERAND (def_op, 0))))
+	    gimple_assign_set_rhs1 (stmt, TREE_OPERAND (def_op, 0));
+	  else
+	    TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
+		= TREE_OPERAND (def_op, 0);
+	  update_stmt (stmt);
+	  return true;
+	}
+
+    default:;
+    }
+
+  return false;
 }
 
 /* Combine an element access with a shuffle.  Returns true if there were
@@ -3306,6 +3522,53 @@ simplify_vector_constructor (gimple_stmt_iterator *gsi)
   return true;
 }
 
+/* Simplify multiplications.
+   Return true if a transformation applied, otherwise return false.  */
+
+static bool
+simplify_mult (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree arg1 = gimple_assign_rhs1 (stmt);
+  tree arg2 = gimple_assign_rhs2 (stmt);
+
+  if (TREE_CODE (arg1) != SSA_NAME)
+    return false;
+
+  gimple def_stmt = SSA_NAME_DEF_STMT (arg1);
+  if (!is_gimple_assign (def_stmt))
+    return false;
+
+  /* Look through a sign-changing conversion.  */
+  if (CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (def_stmt)))
+    {
+      if (TYPE_PRECISION (TREE_TYPE (gimple_assign_lhs (def_stmt)))
+	  != TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (def_stmt)))
+	  || TREE_CODE (gimple_assign_rhs1 (def_stmt)) != SSA_NAME)
+	return false;
+      def_stmt = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (def_stmt));
+      if (!is_gimple_assign (def_stmt))
+	return false;
+    }
+
+  if (gimple_assign_rhs_code (def_stmt) == EXACT_DIV_EXPR)
+    {
+      if (operand_equal_p (gimple_assign_rhs2 (def_stmt), arg2, 0))
+	{
+	  tree res = gimple_assign_rhs1 (def_stmt);
+	  if (useless_type_conversion_p (TREE_TYPE (arg1), TREE_TYPE (res)))
+	    gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (res), res,
+					    NULL_TREE);
+	  else
+	    gimple_assign_set_rhs_with_ops (gsi, NOP_EXPR, res, NULL_TREE);
+	  gcc_assert (gsi_stmt (*gsi) == stmt);
+	  update_stmt (stmt);
+	  return true;
+	}
+    }
+
+  return false;
+}
 /* Main entry point for the forward propagation and statement combine
    optimizer.  */
 
@@ -3317,7 +3580,7 @@ ssa_forward_propagate_and_combine (void)
 
   cfg_changed = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -3457,9 +3720,23 @@ ssa_forward_propagate_and_combine (void)
 			 || code == BIT_IOR_EXPR
 			 || code == BIT_XOR_EXPR)
 		  changed = simplify_bitwise_binary (&gsi);
+		else if (code == MULT_EXPR)
+		  {
+		    changed = simplify_mult (&gsi);
+		    if (changed
+			&& maybe_clean_or_replace_eh_stmt (stmt, stmt)
+			&& gimple_purge_dead_eh_edges (bb))
+		      cfg_changed = true;
+		  }
 		else if (code == PLUS_EXPR
 			 || code == MINUS_EXPR)
-		  changed = associate_plusminus (&gsi);
+		  {
+		    changed = associate_plusminus (&gsi);
+		    if (changed
+			&& maybe_clean_or_replace_eh_stmt (stmt, stmt)
+			&& gimple_purge_dead_eh_edges (bb))
+		      cfg_changed = true;
+		  }
 		else if (code == POINTER_PLUS_EXPR)
 		  changed = associate_pointerplus (&gsi);
 		else if (CONVERT_EXPR_CODE_P (code)
@@ -3479,7 +3756,8 @@ ssa_forward_propagate_and_combine (void)
 		      {
 			tree outer_type = TREE_TYPE (gimple_assign_lhs (stmt));
 			tree inner_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-			if (INTEGRAL_TYPE_P (outer_type)
+			if (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+			    && INTEGRAL_TYPE_P (outer_type)
 			    && INTEGRAL_TYPE_P (inner_type)
 			    && (TYPE_PRECISION (outer_type)
 				<= TYPE_PRECISION (inner_type)))
@@ -3488,6 +3766,8 @@ ssa_forward_propagate_and_combine (void)
 		      
 		    changed = did_something != 0;
 		  }
+		else if (code == VIEW_CONVERT_EXPR)
+		  changed = simplify_vce (&gsi);
 		else if (code == VEC_PERM_EXPR)
 		  {
 		    int did_something = simplify_permutation (&gsi);

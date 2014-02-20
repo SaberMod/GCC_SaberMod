@@ -1,6 +1,6 @@
 /* Routines for reading trees from a file stream.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -24,6 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "tree-streamer.h"
 #include "data-streamer.h"
@@ -388,21 +394,6 @@ unpack_ts_translation_unit_decl_value_fields (struct data_in *data_in,
   vec_safe_push (all_translation_units, expr);
 }
 
-/* Unpack a TS_TARGET_OPTION tree from BP into EXPR.  */
-
-static void
-unpack_ts_target_option (struct bitpack_d *bp, tree expr)
-{
-  unsigned i, len;
-  struct cl_target_option *t = TREE_TARGET_OPTION (expr);
-
-  len = sizeof (struct cl_target_option);
-  for (i = 0; i < len; i++)
-    ((unsigned char *)t)[i] = bp_unpack_value (bp, 8);
-  if (bp_unpack_value (bp, 32) != 0x12345678)
-    fatal_error ("cl_target_option size mismatch in LTO reader and writer");
-}
-
 /* Unpack a TS_OPTIMIZATION tree from BP into EXPR.  */
 
 static void
@@ -418,6 +409,48 @@ unpack_ts_optimization (struct bitpack_d *bp, tree expr)
     fatal_error ("cl_optimization size mismatch in LTO reader and writer");
 }
 
+
+/* Unpack all the non-pointer fields of the TS_OMP_CLAUSE
+   structure of expression EXPR from bitpack BP.  */
+
+static void
+unpack_ts_omp_clause_value_fields (struct data_in *data_in,
+				   struct bitpack_d *bp, tree expr)
+{
+  OMP_CLAUSE_LOCATION (expr) = stream_input_location (bp, data_in);
+  switch (OMP_CLAUSE_CODE (expr))
+    {
+    case OMP_CLAUSE_DEFAULT:
+      OMP_CLAUSE_DEFAULT_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_default_kind,
+			  OMP_CLAUSE_DEFAULT_LAST);
+      break;
+    case OMP_CLAUSE_SCHEDULE:
+      OMP_CLAUSE_SCHEDULE_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_schedule_kind,
+			  OMP_CLAUSE_SCHEDULE_LAST);
+      break;
+    case OMP_CLAUSE_DEPEND:
+      OMP_CLAUSE_DEPEND_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_depend_kind, OMP_CLAUSE_DEPEND_LAST);
+      break;
+    case OMP_CLAUSE_MAP:
+      OMP_CLAUSE_MAP_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_map_kind, OMP_CLAUSE_MAP_LAST);
+      break;
+    case OMP_CLAUSE_PROC_BIND:
+      OMP_CLAUSE_PROC_BIND_KIND (expr)
+	= bp_unpack_enum (bp, omp_clause_proc_bind_kind,
+			  OMP_CLAUSE_PROC_BIND_LAST);
+      break;
+    case OMP_CLAUSE_REDUCTION:
+      OMP_CLAUSE_REDUCTION_CODE (expr)
+	= bp_unpack_enum (bp, tree_code, MAX_TREE_CODES);
+      break;
+    default:
+      break;
+    }
+}
 
 /* Unpack all the non-pointer fields in EXPR into a bit pack.  */
 
@@ -469,7 +502,7 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
     unpack_ts_translation_unit_decl_value_fields (data_in, bp, expr);
 
   if (CODE_CONTAINS_STRUCT (code, TS_TARGET_OPTION))
-    unpack_ts_target_option (bp, expr);
+    gcc_unreachable ();
 
   if (CODE_CONTAINS_STRUCT (code, TS_OPTIMIZATION))
     unpack_ts_optimization (bp, expr);
@@ -487,6 +520,9 @@ unpack_value_fields (struct data_in *data_in, struct bitpack_d *bp, tree expr)
       if (length > 0)
 	vec_safe_grow (CONSTRUCTOR_ELTS (expr), length);
     }
+
+  if (code == OMP_CLAUSE)
+    unpack_ts_omp_clause_value_fields (data_in, bp, expr);
 }
 
 
@@ -571,6 +607,12 @@ streamer_alloc_tree (struct lto_input_block *ib, struct data_in *data_in,
     {
       unsigned HOST_WIDE_INT nargs = streamer_read_uhwi (ib);
       return build_vl_exp (CALL_EXPR, nargs + 3);
+    }
+  else if (code == OMP_CLAUSE)
+    {
+      enum omp_clause_code subcode
+	= (enum omp_clause_code) streamer_read_uhwi (ib);
+      return build_omp_clause (UNKNOWN_LOCATION, subcode);
     }
   else
     {
@@ -739,7 +781,7 @@ lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
   /* DECL_STRUCT_FUNCTION is handled by lto_input_function.  FIXME lto,
      maybe it should be handled here?  */
   DECL_FUNCTION_PERSONALITY (expr) = stream_read_tree (ib, data_in);
-  DECL_FUNCTION_SPECIFIC_TARGET (expr) = stream_read_tree (ib, data_in);
+  /* DECL_FUNCTION_SPECIFIC_TARGET is regenerated from attributes.  */
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);
 
   /* If the file contains a function with an EH personality set,
@@ -954,6 +996,22 @@ lto_input_ts_constructor_tree_pointers (struct lto_input_block *ib,
 }
 
 
+/* Read all pointer fields in the TS_OMP_CLAUSE structure of EXPR from
+   input block IB.  DATA_IN contains tables and descriptors for the
+   file being read.  */
+
+static void
+lto_input_ts_omp_clause_tree_pointers (struct lto_input_block *ib,
+				       struct data_in *data_in, tree expr)
+{
+  int i;
+
+  for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (expr)]; i++)
+    OMP_CLAUSE_OPERAND (expr, i) = stream_read_tree (ib, data_in);
+  OMP_CLAUSE_CHAIN (expr) = stream_read_tree (ib, data_in);
+}
+
+
 /* Read all pointer fields in EXPR from input block IB.  DATA_IN
    contains tables and descriptors for the file being read.  */
 
@@ -1015,6 +1073,9 @@ streamer_read_tree_body (struct lto_input_block *ib, struct data_in *data_in,
 
   if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
     lto_input_ts_constructor_tree_pointers (ib, data_in, expr);
+
+  if (code == OMP_CLAUSE)
+    lto_input_ts_omp_clause_tree_pointers (ib, data_in, expr);
 }
 
 

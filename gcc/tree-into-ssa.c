@@ -1,5 +1,5 @@
 /* Rewrite a program in Normal form into SSA.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -29,18 +29,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
-#include "hash-table.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
@@ -48,6 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-into-ssa.h"
 
+#define PERCENT(x,y) ((float)(x) * 100.0 / (float)(y))
 
 /* This file builds the SSA form for a function as described in:
    R. Cytron, J. Ferrante, B. Rosen, M. Wegman, and K. Zadeck. Efficiently
@@ -551,7 +558,7 @@ set_livein_block (tree var, basic_block bb)
 
       if (def_block_index == -1
 	  || ! dominated_by_p (CDI_DOMINATORS, bb,
-	                       BASIC_BLOCK (def_block_index)))
+	                       BASIC_BLOCK_FOR_FN (cfun, def_block_index)))
 	info->need_phi_state = NEED_PHI_STATE_MAYBE;
     }
   else
@@ -761,7 +768,6 @@ find_dfsnum_interval (struct dom_dfsnum *defs, unsigned n, unsigned s)
 static void
 prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 {
-  vec<int> worklist;
   bitmap_iterator bi;
   unsigned i, b, p, u, top;
   bitmap live_phis;
@@ -815,7 +821,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
   adef = 1;
   EXECUTE_IF_SET_IN_BITMAP (to_remove, 0, i, bi)
     {
-      def_bb = BASIC_BLOCK (i);
+      def_bb = BASIC_BLOCK_FOR_FN (cfun, i);
       defs[adef].bb_index = i;
       defs[adef].dfs_num = bb_dom_dfs_in (CDI_DOMINATORS, def_bb);
       defs[adef + 1].bb_index = i;
@@ -833,7 +839,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
      dfs_out numbers, increase the dfs number by one (so that it corresponds
      to the start of the following interval, not to the end of the current
      one).  We use WORKLIST as a stack.  */
-  worklist.create (n_defs + 1);
+  auto_vec<int> worklist (n_defs + 1);
   worklist.quick_push (1);
   top = 1;
   n_defs = 1;
@@ -889,7 +895,8 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	p = b;
       else
 	{
-	  use_bb = get_immediate_dominator (CDI_DOMINATORS, BASIC_BLOCK (b));
+	  use_bb = get_immediate_dominator (CDI_DOMINATORS,
+					    BASIC_BLOCK_FOR_FN (cfun, b));
 	  p = find_dfsnum_interval (defs, n_defs,
 				    bb_dom_dfs_in (CDI_DOMINATORS, use_bb));
 	  if (!bitmap_bit_p (phis, p))
@@ -901,7 +908,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	continue;
 
       /* Add the new uses to the worklist.  */
-      def_bb = BASIC_BLOCK (p);
+      def_bb = BASIC_BLOCK_FOR_FN (cfun, p);
       FOR_EACH_EDGE (e, ei, def_bb->preds)
 	{
 	  u = e->src->index;
@@ -920,7 +927,6 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
     }
 
-  worklist.release ();
   bitmap_copy (phis, live_phis);
   BITMAP_FREE (live_phis);
   free (defs);
@@ -958,7 +964,7 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
 
   bitmap_set_bit (blocks_with_phis_to_rewrite, idx);
 
-  n = (unsigned) last_basic_block + 1;
+  n = (unsigned) last_basic_block_for_fn (cfun) + 1;
   if (phis_to_rewrite.length () < n)
     phis_to_rewrite.safe_grow_cleared (n);
 
@@ -999,7 +1005,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
   /* And insert the PHI nodes.  */
   EXECUTE_IF_SET_IN_BITMAP (phi_insertion_points, 0, bb_index, bi)
     {
-      bb = BASIC_BLOCK (bb_index);
+      bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
       if (update_p)
 	mark_block_for_update (bb);
 
@@ -1081,11 +1087,10 @@ insert_phi_nodes (bitmap_head *dfs)
   hash_table <var_info_hasher>::iterator hi;
   unsigned i;
   var_info_p info;
-  vec<var_info_p> vars;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  vars.create (var_infos.elements ());
+  auto_vec<var_info_p> vars (var_infos.elements ());
   FOR_EACH_HASH_TABLE_ELEMENT (var_infos, info, var_info_p, hi)
     if (info->info.need_phi_state != NEED_PHI_STATE_NO)
       vars.quick_push (info);
@@ -1100,8 +1105,6 @@ insert_phi_nodes (bitmap_head *dfs)
       insert_phi_nodes_for (info->var, idf, false);
       BITMAP_FREE (idf);
     }
-
-  vars.release ();
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }
@@ -1218,10 +1221,12 @@ rewrite_debug_stmt_uses (gimple stmt)
       def = info->current_def;
       if (!def)
 	{
-	  if (TREE_CODE (var) == PARM_DECL && single_succ_p (ENTRY_BLOCK_PTR))
+	  if (TREE_CODE (var) == PARM_DECL
+	      && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (cfun)))
 	    {
 	      gimple_stmt_iterator gsi
-		= gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+		=
+	     gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	      int lim;
 	      /* Search a few source bind stmts at the start of first bb to
 		 see if a DEBUG_EXPR_DECL can't be reused.  */
@@ -1250,7 +1255,8 @@ rewrite_debug_stmt_uses (gimple stmt)
 		  DECL_ARTIFICIAL (def) = 1;
 		  TREE_TYPE (def) = TREE_TYPE (var);
 		  DECL_MODE (def) = DECL_MODE (var);
-		  gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+		  gsi =
+		 gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 		  gsi_insert_before (&gsi, def_temp, GSI_SAME_STMT);
 		}
 	      update = true;
@@ -1865,7 +1871,7 @@ maybe_register_def (def_operand_p def_p, gimple stmt,
 		     bind stmts, but there wouldn't be a PC to bind
 		     them to either, so avoid diverging the CFG.  */
 		  if (ef && single_pred_p (ef->dest)
-		      && ef->dest != EXIT_BLOCK_PTR)
+		      && ef->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 		    {
 		      /* If there were PHI nodes in the node, we'd
 			 have to make sure the value we're binding
@@ -2309,12 +2315,12 @@ rewrite_into_ssa (void)
   /* Initialize the set of interesting blocks.  The callback
      mark_def_sites will add to this set those blocks that the renamer
      should process.  */
-  interesting_blocks = sbitmap_alloc (last_basic_block);
+  interesting_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (interesting_blocks);
 
   /* Initialize dominance frontier.  */
-  dfs = XNEWVEC (bitmap_head, last_basic_block);
-  FOR_EACH_BB (bb)
+  dfs = XNEWVEC (bitmap_head, last_basic_block_for_fn (cfun));
+  FOR_EACH_BB_FN (bb, cfun)
     bitmap_initialize (&dfs[bb->index], &bitmap_default_obstack);
 
   /* 1- Compute dominance frontiers.  */
@@ -2328,10 +2334,10 @@ rewrite_into_ssa (void)
   insert_phi_nodes (dfs);
 
   /* 4- Rename all the blocks.  */
-  rewrite_blocks (ENTRY_BLOCK_PTR, REWRITE_ALL);
+  rewrite_blocks (ENTRY_BLOCK_PTR_FOR_FN (cfun), REWRITE_ALL);
 
   /* Free allocated memory.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     bitmap_clear (&dfs[bb->index]);
   free (dfs);
 
@@ -2629,7 +2635,7 @@ prepare_def_site_for (tree name, bool insert_phi_p)
   bb = gimple_bb (stmt);
   if (bb)
     {
-      gcc_checking_assert (bb->index < last_basic_block);
+      gcc_checking_assert (bb->index < last_basic_block_for_fn (cfun));
       mark_block_for_update (bb);
       mark_def_interesting (name, stmt, bb, insert_phi_p);
     }
@@ -3014,10 +3020,11 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	     common dominator of all the definition blocks.  */
 	  entry = nearest_common_dominator_for_set (CDI_DOMINATORS,
 						    db->def_blocks);
-	  if (entry != ENTRY_BLOCK_PTR)
+	  if (entry != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	    EXECUTE_IF_SET_IN_BITMAP (idf, 0, i, bi)
-	      if (BASIC_BLOCK (i) != entry
-		  && dominated_by_p (CDI_DOMINATORS, BASIC_BLOCK (i), entry))
+	      if (BASIC_BLOCK_FOR_FN (cfun, i) != entry
+		  && dominated_by_p (CDI_DOMINATORS,
+				     BASIC_BLOCK_FOR_FN (cfun, i), entry))
 		bitmap_set_bit (pruned_idf, i);
 	}
       else
@@ -3049,7 +3056,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	{
 	  edge e;
 	  edge_iterator ei;
-	  basic_block bb = BASIC_BLOCK (i);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
 
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (e->src->index >= 0)
@@ -3178,7 +3185,7 @@ update_ssa (unsigned update_flags)
 
   blocks_with_phis_to_rewrite = BITMAP_ALLOC (NULL);
   if (!phis_to_rewrite.exists ())
-    phis_to_rewrite.create (last_basic_block + 1);
+    phis_to_rewrite.create (last_basic_block_for_fn (cfun) + 1);
   blocks_to_update = BITMAP_ALLOC (NULL);
 
   /* Ensure that the dominance information is up-to-date.  */
@@ -3213,7 +3220,7 @@ update_ssa (unsigned update_flags)
 	 be possible to determine the nearest block that had a
 	 definition for each of the symbols that are marked for
 	 updating.  For now this seems more work than it's worth.  */
-      start_bb = ENTRY_BLOCK_PTR;
+      start_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
       /* Traverse the CFG looking for existing definitions and uses of
 	 symbols in SSA operands.  Mark interesting blocks and
@@ -3262,8 +3269,8 @@ update_ssa (unsigned update_flags)
 
       /* If the caller requested PHI nodes to be added, compute
 	 dominance frontiers.  */
-      dfs = XNEWVEC (bitmap_head, last_basic_block);
-      FOR_EACH_BB (bb)
+      dfs = XNEWVEC (bitmap_head, last_basic_block_for_fn (cfun));
+      FOR_EACH_BB_FN (bb, cfun)
 	bitmap_initialize (&dfs[bb->index], &bitmap_default_obstack);
       compute_dominance_frontiers (dfs);
 
@@ -3289,14 +3296,14 @@ update_ssa (unsigned update_flags)
 	insert_updated_phi_nodes_for (sym, dfs, blocks_to_update,
 	                              update_flags);
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	bitmap_clear (&dfs[bb->index]);
       free (dfs);
 
       /* Insertion of PHI nodes may have added blocks to the region.
 	 We need to re-compute START_BB to include the newly added
 	 blocks.  */
-      if (start_bb != ENTRY_BLOCK_PTR)
+      if (start_bb != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	start_bb = nearest_common_dominator_for_set (CDI_DOMINATORS,
 						     blocks_to_update);
     }
@@ -3310,7 +3317,7 @@ update_ssa (unsigned update_flags)
     get_var_info (sym)->info.current_def = NULL_TREE;
 
   /* Now start the renaming process at START_BB.  */
-  interesting_blocks = sbitmap_alloc (last_basic_block);
+  interesting_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (interesting_blocks);
   EXECUTE_IF_SET_IN_BITMAP (blocks_to_update, 0, i, bi)
     bitmap_set_bit (interesting_blocks, i);
@@ -3333,9 +3340,10 @@ update_ssa (unsigned update_flags)
       c = 0;
       EXECUTE_IF_SET_IN_BITMAP (blocks_to_update, 0, i, bi)
 	c++;
-      fprintf (dump_file, "Number of blocks in CFG: %d\n", last_basic_block);
+      fprintf (dump_file, "Number of blocks in CFG: %d\n",
+	       last_basic_block_for_fn (cfun));
       fprintf (dump_file, "Number of blocks to update: %d (%3.0f%%)\n",
-	       c, PERCENT (c, last_basic_block));
+	       c, PERCENT (c, last_basic_block_for_fn (cfun)));
 
       if (dump_flags & TDF_DETAILS)
 	{

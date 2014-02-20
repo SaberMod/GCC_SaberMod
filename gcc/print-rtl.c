@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
    generator programs.  */
 #ifndef GENERATOR_FILE
 #include "tree.h"
+#include "print-tree.h"
 #include "flags.h"
 #include "hard-reg-set.h"
 #include "basic-block.h"
@@ -49,6 +50,8 @@ static FILE *outfile;
 static int sawclose = 0;
 
 static int indent;
+
+static bool in_call_function_usage;
 
 static void print_rtx (const_rtx);
 
@@ -152,7 +155,8 @@ print_rtx (const_rtx in_rtx)
       if ((GET_CODE (in_rtx) == EXPR_LIST
 	   || GET_CODE (in_rtx) == INSN_LIST
 	   || GET_CODE (in_rtx) == INT_LIST)
-	  && (int)GET_MODE (in_rtx) < REG_NOTE_MAX)
+	  && (int)GET_MODE (in_rtx) < REG_NOTE_MAX
+	  && !in_call_function_usage)
 	fprintf (outfile, ":%s",
 		 GET_REG_NOTE_NAME (GET_MODE (in_rtx)));
 
@@ -349,7 +353,14 @@ print_rtx (const_rtx in_rtx)
 		   print_rtx_head, indent * 2, "");
 	if (!sawclose)
 	  fprintf (outfile, " ");
-	print_rtx (XEXP (in_rtx, i));
+	if (i == 8 && CALL_P (in_rtx))
+	  {
+	    in_call_function_usage = true;
+	    print_rtx (XEXP (in_rtx, i));
+	    in_call_function_usage = false;
+	  }
+	else
+	  print_rtx (XEXP (in_rtx, i));
 	indent -= 2;
 	break;
 
@@ -406,17 +417,19 @@ print_rtx (const_rtx in_rtx)
 	else if (i == 6 && GET_CODE (in_rtx) == ASM_OPERANDS)
 	  {
 #ifndef GENERATOR_FILE
-	    fprintf (outfile, " %s:%i",
-		     LOCATION_FILE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)),
-		     LOCATION_LINE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)));
+	    if (ASM_OPERANDS_SOURCE_LOCATION (in_rtx) != UNKNOWN_LOCATION)
+	      fprintf (outfile, " %s:%i",
+		       LOCATION_FILE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)),
+		       LOCATION_LINE (ASM_OPERANDS_SOURCE_LOCATION (in_rtx)));
 #endif
 	  }
 	else if (i == 1 && GET_CODE (in_rtx) == ASM_INPUT)
 	  {
 #ifndef GENERATOR_FILE
-	    fprintf (outfile, " %s:%i",
-		     LOCATION_FILE (ASM_INPUT_SOURCE_LOCATION (in_rtx)),
-		     LOCATION_LINE (ASM_INPUT_SOURCE_LOCATION (in_rtx)));
+	    if (ASM_INPUT_SOURCE_LOCATION (in_rtx) != UNKNOWN_LOCATION)
+	      fprintf (outfile, " %s:%i",
+		       LOCATION_FILE (ASM_INPUT_SOURCE_LOCATION (in_rtx)),
+		       LOCATION_LINE (ASM_INPUT_SOURCE_LOCATION (in_rtx)));
 #endif
 	  }
 	else if (i == 6 && NOTE_P (in_rtx))
@@ -584,6 +597,8 @@ print_rtx (const_rtx in_rtx)
 
       if (MEM_EXPR (in_rtx))
 	print_mem_expr (outfile, MEM_EXPR (in_rtx));
+      else
+	fputc (' ', outfile);
 
       if (MEM_OFFSET_KNOWN_P (in_rtx))
 	fprintf (outfile, "+" HOST_WIDE_INT_PRINT_DEC, MEM_OFFSET (in_rtx));

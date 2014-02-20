@@ -1,5 +1,5 @@
 /* Reload pseudo regs into hard regs for insns that require hard regs.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -611,14 +611,14 @@ has_nonexceptional_receiver (void)
     return true;
 
   /* First determine which blocks can reach exit via normal paths.  */
-  tos = worklist = XNEWVEC (basic_block, n_basic_blocks + 1);
+  tos = worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun) + 1);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     bb->flags &= ~BB_REACHABLE;
 
   /* Place the exit block on our worklist.  */
-  EXIT_BLOCK_PTR->flags |= BB_REACHABLE;
-  *tos++ = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR_FOR_FN (cfun)->flags |= BB_REACHABLE;
+  *tos++ = EXIT_BLOCK_PTR_FOR_FN (cfun);
 
   /* Iterate: find everything reachable from what we've already seen.  */
   while (tos != worklist)
@@ -641,7 +641,7 @@ has_nonexceptional_receiver (void)
 
   /* Now see if there's a reachable block with an exceptional incoming
      edge.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->flags & BB_REACHABLE && bb_has_abnormal_pred (bb))
       return true;
 
@@ -1048,7 +1048,7 @@ reload (rtx first, int global)
      pseudo.  */
 
   if (! frame_pointer_needed)
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
 
   /* Come here (with failure set nonzero) if we can't get enough spill
@@ -1283,7 +1283,7 @@ reload (rtx first, int global)
   if (cfun->can_throw_non_call_exceptions)
     {
       sbitmap blocks;
-      blocks = sbitmap_alloc (last_basic_block);
+      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
       sbitmap_free (blocks);
@@ -1592,7 +1592,7 @@ calculate_elim_costs_all_insns (void)
   set_initial_elim_offsets ();
   set_initial_label_offsets ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
       elim_bb = bb;
@@ -7362,9 +7362,18 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 	  /* Store into the reload register instead of the pseudo.  */
 	  SET_DEST (PATTERN (temp)) = reloadreg;
 
-	  /* Verify that resulting insn is valid.  */
+	  /* Verify that resulting insn is valid. 
+
+	     Note that we have replaced the destination of TEMP with
+	     RELOADREG.  If TEMP references RELOADREG within an
+	     autoincrement addressing mode, then the resulting insn
+	     is ill-formed and we must reject this optimization.  */
 	  extract_insn (temp);
-	  if (constrain_operands (1))
+	  if (constrain_operands (1)
+#ifdef AUTO_INC_DEC
+	      && ! find_reg_note (temp, REG_INC, reloadreg)
+#endif
+	      )
 	    {
 	      /* If the previous insn is an output reload, the source is
 		 a reload register, and its spill_reg_store entry will

@@ -1,5 +1,5 @@
 /* RTL-level loop invariant motion.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -652,14 +652,8 @@ may_assign_reg_p (rtx x)
    BODY.  */
 
 static void
-find_defs (struct loop *loop, basic_block *body)
+find_defs (struct loop *loop)
 {
-  unsigned i;
-  bitmap blocks = BITMAP_ALLOC (NULL);
-
-  for (i = 0; i < loop->num_nodes; i++)
-    bitmap_set_bit (blocks, body[i]->index);
-
   if (dump_file)
     {
       fprintf (dump_file,
@@ -670,9 +664,8 @@ find_defs (struct loop *loop, basic_block *body)
   df_remove_problem (df_chain);
   df_process_deferred_rescans ();
   df_chain_add_problem (DF_UD_CHAIN);
-  df_set_blocks (blocks);
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
-  df_analyze ();
+  df_analyze_loop (loop);
   check_invariant_table_size ();
 
   if (dump_file)
@@ -682,8 +675,6 @@ find_defs (struct loop *loop, basic_block *body)
 	       "*****ending processing of loop %d ******\n",
 	       loop->num);
     }
-
-  BITMAP_FREE (blocks);
 }
 
 /* Creates a new invariant for definition DEF in INSN, depending on invariants
@@ -1005,7 +996,7 @@ find_invariants (struct loop *loop)
   compute_always_reached (loop, body, may_exit, always_reached);
   compute_always_reached (loop, body, has_exit, always_executed);
 
-  find_defs (loop, body);
+  find_defs (loop);
   find_invariants_body (loop, body, always_reached, always_executed);
   merge_identical_invariants ();
 
@@ -1815,18 +1806,17 @@ calculate_loop_reg_pressure (void)
   basic_block bb;
   rtx insn, link;
   struct loop *loop, *parent;
-  loop_iterator li;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     if (loop->aux == NULL)
       {
 	loop->aux = xcalloc (1, sizeof (struct loop_data));
 	bitmap_initialize (&LOOP_DATA (loop)->regs_ref, &reg_obstack);
 	bitmap_initialize (&LOOP_DATA (loop)->regs_live, &reg_obstack);
       }
-  ira_setup_eliminable_regset (false);
+  ira_setup_eliminable_regset ();
   bitmap_initialize (&curr_regs_live, &reg_obstack);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       curr_loop = bb->loop_father;
       if (curr_loop == current_loops->tree_root)
@@ -1884,7 +1874,7 @@ calculate_loop_reg_pressure (void)
   bitmap_clear (&curr_regs_live);
   if (flag_ira_region == IRA_REGION_MIXED
       || flag_ira_region == IRA_REGION_ALL)
-    FOR_EACH_LOOP (li, loop, 0)
+    FOR_EACH_LOOP (loop, 0)
       {
 	EXECUTE_IF_SET_IN_BITMAP (&LOOP_DATA (loop)->regs_live, 0, j, bi)
 	  if (! bitmap_bit_p (&LOOP_DATA (loop)->regs_ref, j))
@@ -1898,7 +1888,7 @@ calculate_loop_reg_pressure (void)
       }
   if (dump_file == NULL)
     return;
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       parent = loop_outer (loop);
       fprintf (dump_file, "\n  Loop %d (parent %d, header bb%d, depth %d)\n",
@@ -1933,7 +1923,6 @@ void
 move_loop_invariants (void)
 {
   struct loop *loop;
-  loop_iterator li;
 
   if (flag_ira_loop_pressure)
     {
@@ -1945,7 +1934,7 @@ move_loop_invariants (void)
     }
   df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
   /* Process the loops, innermost first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       curr_loop = loop;
       /* move_single_loop_invariants for very large loops
@@ -1954,7 +1943,7 @@ move_loop_invariants (void)
 	move_single_loop_invariants (loop);
     }
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       free_loop_data (loop);
     }

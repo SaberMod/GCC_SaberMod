@@ -1,5 +1,5 @@
 /* Handle #pragma, system V.4 style.  Supports #pragma weak and #pragma pack.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "varasm.h"
+#include "gcc-symtab.h"
 #include "function.h"		/* For cfun.  FIXME: Does the parser know
 				   when it is inside a function, so that
 				   we don't have to look at cfun?  */
@@ -1117,7 +1121,7 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 {
   if (c_dialect_cxx ())
     {
-      if (warn_unknown_pragmas > in_system_header)
+      if (warn_unknown_pragmas > in_system_header_at (input_location))
 	warning (OPT_Wunknown_pragmas,
 		 "%<#pragma STDC FLOAT_CONST_DECIMAL64%> is not supported"
 		 " for C++");
@@ -1126,7 +1130,7 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 
   if (!targetm.decimal_float_supported_p ())
     {
-      if (warn_unknown_pragmas > in_system_header)
+      if (warn_unknown_pragmas > in_system_header_at (input_location))
 	warning (OPT_Wunknown_pragmas,
 		 "%<#pragma STDC FLOAT_CONST_DECIMAL64%> is not supported"
 		 " on this target");
@@ -1380,7 +1384,7 @@ init_pragma (void)
 				      omp_pragmas_simd[i].id, true, true);
     }
 
-  if (flag_enable_cilkplus && !flag_preprocess_only)
+  if (flag_cilkplus && !flag_preprocess_only)
     cpp_register_deferred_pragma (parse_in, NULL, "simd", PRAGMA_CILK_SIMD,
 				  true, false);
 

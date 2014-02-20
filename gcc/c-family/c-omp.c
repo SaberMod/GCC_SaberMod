@@ -1,7 +1,7 @@
 /* This file contains routines to construct GNU OpenMP constructs,
    called from parsing in the C and C++ front ends.
 
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>,
 		  Diego Novillo <dnovillo@redhat.com>.
 
@@ -136,7 +136,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 		     enum tree_code opcode, tree lhs, tree rhs,
 		     tree v, tree lhs1, tree rhs1, bool swapped, bool seq_cst)
 {
-  tree x, type, addr;
+  tree x, type, addr, pre = NULL_TREE;
 
   if (lhs == error_mark_node || rhs == error_mark_node
       || v == error_mark_node || lhs1 == error_mark_node
@@ -183,7 +183,6 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
       OMP_ATOMIC_SEQ_CST (x) = seq_cst;
       return build_modify_expr (loc, v, NULL_TREE, NOP_EXPR,
 				loc, x, NULL_TREE);
-      return x;
     }
 
   /* There are lots of warnings, errors, and conversions that need to happen
@@ -194,9 +193,18 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
       rhs = build2_loc (loc, opcode, TREE_TYPE (lhs), rhs, lhs);
       opcode = NOP_EXPR;
     }
+  bool save = in_late_binary_op;
+  in_late_binary_op = true;
   x = build_modify_expr (loc, lhs, NULL_TREE, opcode, loc, rhs, NULL_TREE);
+  in_late_binary_op = save;
   if (x == error_mark_node)
     return error_mark_node;
+  if (TREE_CODE (x) == COMPOUND_EXPR)
+    {
+      pre = TREE_OPERAND (x, 0);
+      gcc_assert (TREE_CODE (pre) == SAVE_EXPR);
+      x = TREE_OPERAND (x, 1);
+    }
   gcc_assert (TREE_CODE (x) == MODIFY_EXPR);
   rhs = TREE_OPERAND (x, 1);
 
@@ -264,6 +272,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
       x = omit_one_operand_loc (loc, type, x, rhs1addr);
     }
 
+  if (pre)
+    x = omit_one_operand_loc (loc, type, x, pre);
   return x;
 }
 
@@ -555,6 +565,12 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	      incr = c_omp_for_incr_canonicalize_ptr (elocus, decl, incr);
 	      break;
 
+	    case COMPOUND_EXPR:
+	      if (TREE_CODE (TREE_OPERAND (incr, 0)) != SAVE_EXPR
+		  || TREE_CODE (TREE_OPERAND (incr, 1)) != MODIFY_EXPR)
+		break;
+	      incr = TREE_OPERAND (incr, 1);
+	      /* FALLTHRU */
 	    case MODIFY_EXPR:
 	      if (TREE_OPERAND (incr, 0) != decl)
 		break;
@@ -921,8 +937,8 @@ c_omp_declare_simd_clause_cmp (const void *p, const void *q)
       && OMP_CLAUSE_CODE (a) != OMP_CLAUSE_INBRANCH
       && OMP_CLAUSE_CODE (a) != OMP_CLAUSE_NOTINBRANCH)
     {
-      int c = tree_low_cst (OMP_CLAUSE_DECL (a), 0);
-      int d = tree_low_cst (OMP_CLAUSE_DECL (b), 0);
+      int c = tree_to_shwi (OMP_CLAUSE_DECL (a));
+      int d = tree_to_shwi (OMP_CLAUSE_DECL (b));
       if (c < d)
 	return 1;
       if (c > d)
@@ -987,7 +1003,7 @@ c_omp_declare_simd_clauses_to_decls (tree fndecl, tree clauses)
 	&& OMP_CLAUSE_CODE (c) != OMP_CLAUSE_INBRANCH
 	&& OMP_CLAUSE_CODE (c) != OMP_CLAUSE_NOTINBRANCH)
       {
-	int idx = tree_low_cst (OMP_CLAUSE_DECL (c), 0), i;
+	int idx = tree_to_shwi (OMP_CLAUSE_DECL (c)), i;
 	tree arg;
 	for (arg = DECL_ARGUMENTS (fndecl), i = 0; arg;
 	     arg = TREE_CHAIN (arg), i++)

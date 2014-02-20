@@ -1,6 +1,6 @@
 /* Machine settings for software floating-point emulation
    of Andes NDS32 cpu for GNU compiler
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Andes Technology Corporation.
 
    This file is part of GNU C Library.
@@ -75,6 +75,9 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
       }								\
     R##_c = FP_CLS_NAN;						\
   } while (0)
+
+/* Not checked.  */
+#define _FP_TININESS_AFTER_ROUNDING 0
 
 #define	__LITTLE_ENDIAN	1234
 #define	__BIG_ENDIAN	4321

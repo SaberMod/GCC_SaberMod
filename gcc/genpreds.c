@@ -2,7 +2,7 @@
    - prototype declarations for operand predicates (tm-preds.h)
    - function definitions of operand predicates, if defined new-style
      (insn-preds.c)
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1302,6 +1302,9 @@ write_insn_preds_c (void)
 #include \"tm.h\"\n\
 #include \"rtl.h\"\n\
 #include \"tree.h\"\n\
+#include \"varasm.h\"\n\
+#include \"stor-layout.h\"\n\
+#include \"calls.h\"\n\
 #include \"tm_p.h\"\n\
 #include \"function.h\"\n\
 #include \"insn-config.h\"\n\

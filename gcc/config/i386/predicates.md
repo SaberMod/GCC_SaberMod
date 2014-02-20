@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -660,6 +660,14 @@
   return i == 2 || i == 4 || i == 8;
 })
 
+;; Match 1, 2, 5, or 6
+(define_predicate "const1256_operand"
+  (match_code "const_int")
+{
+  HOST_WIDE_INT i = INTVAL (op);
+  return i == 1 || i == 2 || i == 5 || i == 6;
+})
+
 ;; Match 1, 2, 4, or 8
 (define_predicate "const1248_operand"
   (match_code "const_int")
@@ -674,6 +682,22 @@
 {
   HOST_WIDE_INT i = INTVAL (op);
   return i == 3 || i == 5 || i == 9;
+})
+
+;; Match 4 or 8 to 11.  Used for embeded rounding.
+(define_predicate "const_4_or_8_to_11_operand"
+  (match_code "const_int")
+{
+  HOST_WIDE_INT i = INTVAL (op);
+  return i == 4 || (i >= 8 && i <= 11);
+})
+
+;; Match 4 or 8. Used for SAE.
+(define_predicate "const48_operand"
+  (match_code "const_int")
+{
+  HOST_WIDE_INT i = INTVAL (op);
+  return i == 4 || i == 8;
 })
 
 ;; Match 0 or 1.
@@ -729,6 +753,11 @@
   unsigned HOST_WIDE_INT val = INTVAL (op);
   return val <= 255*8 && val % 8 == 0;
 })
+
+;; Match 1 to 2.
+(define_predicate "const_1_to_2_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 2)")))
 
 ;; Return true if OP is CONST_INT >= 1 and <= 31 (a valid operand
 ;; for shift & compare patterns, as shifting by 0 does not change flags).
@@ -982,72 +1011,7 @@
   return true;
 })
 
-;; Return true if op is valid MPX address operand without base
-(define_predicate "address_mpx_no_base_operand"
-  (match_operand 0 "address_operand")
-{
-  struct ix86_address parts;
-  int ok;
-
-  ok = ix86_decompose_address (op, &parts);
-  gcc_assert (ok);
-
-  if (parts.index && parts.base)
-    return false;
-
-  if (parts.seg != SEG_DEFAULT)
-    return false;
-
-  /* Do not support (%rip).  */
-  if (parts.disp && flag_pic && TARGET_64BIT
-      && SYMBOLIC_CONST (parts.disp))
-    {
-      if (GET_CODE (parts.disp) != CONST
-	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
-	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
-	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
-	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
-	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF))
-	return false;
-    }
-
-  return true;
-})
-
-;; Return true if op is valid MPX address operand without index
-(define_predicate "address_mpx_no_index_operand"
-  (match_operand 0 "address_operand")
-{
-  struct ix86_address parts;
-  int ok;
-
-  ok = ix86_decompose_address (op, &parts);
-  gcc_assert (ok);
-
-  if (parts.index)
-    return false;
-
-  if (parts.seg != SEG_DEFAULT)
-    return false;
-
-  /* Do not support (%rip).  */
-  if (parts.disp && flag_pic && TARGET_64BIT
-      && SYMBOLIC_CONST (parts.disp)
-      && (GET_CODE (parts.disp) != CONST
-	  || GET_CODE (XEXP (parts.disp, 0)) != PLUS
-	  || GET_CODE (XEXP (XEXP (parts.disp, 0), 0)) != UNSPEC
-	  || !CONST_INT_P (XEXP (XEXP (parts.disp, 0), 1))
-	  || (XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_DTPOFF
-	      && XINT (XEXP (XEXP (parts.disp, 0), 0), 1) != UNSPEC_NTPOFF)))
-    return false;
-
-  return true;
-})
-
 (define_predicate "vsib_mem_operator"
-  (match_code "mem"))
-
-(define_predicate "bnd_mem_operator"
   (match_code "mem"))
 
 ;; Return true if the rtx is known to be at least 32 bits aligned.

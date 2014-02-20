@@ -1,4 +1,4 @@
-# Copyright (C) 1993-2013 Free Software Foundation, Inc.
+# Copyright (C) 1993-2014 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -26,6 +26,10 @@ sh-c.o: $(srcdir)/config/sh/sh-c.c \
 		$(srcdir)/config/sh/sh-c.c
 
 sh_treg_combine.o: $(srcdir)/config/sh/sh_treg_combine.cc \
+  $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) $(TM_P_H) coretypes.h
+	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
+
+sh_optimize_sett_clrt.o: $(srcdir)/config/sh/sh_optimize_sett_clrt.cc \
   $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(TM_H) $(TM_P_H) coretypes.h
 	$(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(INCLUDES) $<
 

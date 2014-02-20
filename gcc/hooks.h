@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -92,6 +92,7 @@ extern tree hook_tree_tree_tree_tree_3rd_identity (tree, tree, tree);
 extern tree hook_tree_tree_int_treep_bool_null (tree, int, tree *, bool);
 
 extern unsigned hook_uint_void_0 (void);
+extern unsigned int hook_uint_mode_0 (enum machine_mode);
 
 extern bool default_can_output_mi_thunk_no_vcall (const_tree, HOST_WIDE_INT,
 						  HOST_WIDE_INT, const_tree);

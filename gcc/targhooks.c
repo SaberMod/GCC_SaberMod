@@ -1,5 +1,5 @@
 /* Default target hook functions.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -53,6 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "expr.h"
 #include "output.h"
 #include "diagnostic-core.h"
@@ -60,7 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tm_p.h"
 #include "target-def.h"
-#include "ggc.h"
 #include "hard-reg-set.h"
 #include "regs.h"
 #include "reload.h"
@@ -68,10 +69,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "intl.h"
 #include "opts.h"
-#include "gimple.h"
-#include "gimplify.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-alias.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "insn-codes.h"
 
 
@@ -138,7 +140,6 @@ default_promote_function_mode_always_promote (const_tree type,
 {
   return promote_mode (type, mode, punsignedp);
 }
-
 
 enum machine_mode
 default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
@@ -272,7 +273,6 @@ default_cxx_guard_type (void)
 {
   return long_long_integer_type_node;
 }
-
 
 /* Returns the size of the cookie to use when allocating an array
    whose elements have the indicated TYPE.  Assumes that it is already
@@ -994,7 +994,7 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_low_cst (TYPE_SIZE (type), 0);
+  return tree_to_shwi (TYPE_SIZE (type));
 }
 
 bool
@@ -1571,28 +1571,6 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 {
   return false;
 }
-rtx
-default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
-			     rtx ptr ATTRIBUTE_UNUSED,
-			     rtx bnd ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-void
-default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
-			      rtx addr ATTRIBUTE_UNUSED,
-			      rtx bounds ATTRIBUTE_UNUSED,
-			      rtx to ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
-tree
-default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
-{
-  return integer_zero_node;
-}
 
 /* Default version of canonicalize_comparison.  */
 
@@ -1716,27 +1694,6 @@ std_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     addr = build_va_arg_indirect_ref (addr);
 
   return build_va_arg_indirect_ref (addr);
-}
-
-tree
-default_chkp_bound_type (void)
-{
-  tree res = make_node (POINTER_BOUNDS_TYPE);
-  TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
-  layout_type (res);
-  return res;
-}
-
-enum machine_mode
-default_chkp_bound_mode (void)
-{
-  return VOIDmode;
-}
-
-tree
-default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
-{
-  return NULL_TREE;
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do

@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on picoChip processors.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Picochip Ltd. (http://www.picochip.com)
    Maintained by Daniel Towner (daniel.towner@picochip.com) and
    Hariharan Sandanagobalane (hariharan@picochip.com)
@@ -34,6 +34,10 @@ along with GCC; see the file COPYING3.  If not, see
 #include "recog.h"
 #include "obstack.h"
 #include "tree.h"
+#include "calls.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "expr.h"
 #include "optabs.h"
 #include "except.h"
@@ -810,7 +814,7 @@ picochip_compute_arg_size (const_tree type, enum machine_mode mode)
   int type_size_in_units = 0;
 
   if (type)
-    type_size_in_units = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+    type_size_in_units = tree_to_uhwi (TYPE_SIZE_UNIT (type));
   else
     type_size_in_units = GET_MODE_SIZE (mode);
 
@@ -3170,7 +3174,7 @@ reorder_var_tracking_notes (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn, next, last_insn = NULL_RTX;
       rtx queue = NULL_RTX;

@@ -1,6 +1,6 @@
 // Components for manipulating non-owning sequences of characters -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,7 +43,7 @@
 #include <string>
 #include <limits>
 
-namespace std //_GLIBCXX_VISIBILITY(default)
+namespace std _GLIBCXX_VISIBILITY(default)
 {
 namespace experimental
 {
@@ -65,6 +65,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @code
    *    _CharT*    _M_str
    *    size_t     _M_len
+   *  @endcode
+   *
+   *  A basic_string_view represents an empty string with a static constexpr
+   *  length one string:
+   *
+   *  @code
+   *    static constexpr value_type _S_empty_str[1]{0};
    *  @endcode
    */
   template<typename _CharT, typename _Traits = char_traits<_CharT>>
@@ -92,22 +99,25 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       constexpr
       basic_string_view() noexcept
-      : _M_len{0}, _M_str{nullptr}
+      : _M_len{0}, _M_str{_S_empty_str}
       { }
 
       constexpr basic_string_view(const basic_string_view&) noexcept = default;
 
       template<typename _Allocator>
-        basic_string_view(const basic_string<_CharT, _Traits, _Allocator>& __str) noexcept
+        basic_string_view(const basic_string<_CharT, _Traits,
+			  _Allocator>& __str) noexcept
         : _M_len{__str.length()}, _M_str{__str.data()}
         { }
 
       constexpr basic_string_view(const _CharT* __str)
-      : _M_len{__str == nullptr ? 0 : traits_type::length(__str)}, _M_str{__str}
+      : _M_len{__str == nullptr ? 0 : traits_type::length(__str)},
+	_M_str{__str == nullptr ? _S_empty_str : __str}
       { }
 
       constexpr basic_string_view(const _CharT* __str, size_type __len)
-      : _M_len{__len}, _M_str{__str}
+      : _M_len{__str == nullptr ? 0 :__len},
+        _M_str{__str == nullptr ? _S_empty_str : __str}
       { }
 
       basic_string_view&
@@ -159,7 +169,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       constexpr size_type
       max_size() const noexcept
-      { return _S_max_size; }
+      { return ((npos - sizeof(size_type) - sizeof(void*))
+		/ sizeof(value_type) / 4); }
 
       constexpr bool
       empty() const noexcept
@@ -170,7 +181,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       constexpr const _CharT&
       operator[](size_type __pos) const
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos <= this->_M_len);
+	// TODO: Assert to restore in a way compatible with the constexpr.
+	// _GLIBCXX_DEBUG_ASSERT(__pos < this->_M_len);
 	return *(this->_M_str + __pos);
       }
 
@@ -183,20 +195,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 					     "(which is %zu) >= this->size() "
 					     "(which is %zu)"),
 					 __pos, this->size()),
-		*static_cast<pointer>(nullptr));
+		_S_empty_str[0]);
       }
 
       constexpr const _CharT&
       front() const
       {
-	_GLIBCXX_DEBUG_ASSERT(this->_M_len > 0);
+	// TODO: Assert to restore in a way compatible with the constexpr.
+	// _GLIBCXX_DEBUG_ASSERT(this->_M_len > 0);
 	return *this->_M_str;
       }
 
       constexpr const _CharT&
       back() const
       {
-	_GLIBCXX_DEBUG_ASSERT(this->_M_len > 0);
+	// TODO: Assert to restore in a way compatible with the constexpr.
+	// _GLIBCXX_DEBUG_ASSERT(this->_M_len > 0);
 	return *(this->_M_str + this->_M_len - 1);
       }
 
@@ -209,7 +223,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       clear() noexcept
       {
 	this->_M_len = 0;
-	this->_M_str = nullptr;
+	this->_M_str = _S_empty_str;
       }
 
       void
@@ -245,14 +259,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       copy(_CharT* __str, size_type __n, size_type __pos = 0) const
       {
 	__glibcxx_requires_string_len(__str, __n);
-	if (__pos >= this->_M_len)
-	  __throw_out_of_range_fmt(__N("basic_string_view::at: __pos "
-				       "(which is %zu) >= this->size() "
+	if (__pos > this->_M_len)
+	  __throw_out_of_range_fmt(__N("basic_string_view::copy: __pos "
+				       "(which is %zu) > this->size() "
 				       "(which is %zu)"),
 				   __pos, this->size());
 	size_type __rlen{std::min(__n, size_type{this->_M_len  - __pos})};
 	for (auto __begin = this->_M_str + __pos,
-	     __end = this->_M_str + __rlen; __begin != __end;)
+	     __end = __begin + __rlen; __begin != __end;)
 	  *__str++ = *__begin++;
 	return __rlen;
       }
@@ -263,11 +277,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       constexpr basic_string_view
       substr(size_type __pos, size_type __n=npos) const
       {
-	return __pos < this->_M_len
+	return __pos <= this->_M_len
 	     ? basic_string_view{this->_M_str + __pos,
 				std::min(__n, size_type{this->_M_len  - __pos})}
-	     : (__throw_out_of_range_fmt(__N("basic_string_view::at: __pos "
-					     "(which is %zu) >= this->size() "
+	     : (__throw_out_of_range_fmt(__N("basic_string_view::substr: __pos "
+					     "(which is %zu) > this->size() "
 					     "(which is %zu)"),
 				     __pos, this->size()), basic_string_view{});
       }
@@ -407,11 +421,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     private:
 
-      //  Compute max_size similarly to how string does it.
-      static const size_type _S_max_size = (npos
-					  - sizeof(size_type) - sizeof(void*))
-					 / sizeof(value_type) / 4;
-
       static constexpr const int
       _S_compare(size_type __n1, size_type __n2) noexcept
       {
@@ -421,6 +430,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	     ? std::numeric_limits<int>::min()
 	     : static_cast<int>(difference_type{__n1 - __n2});
       }
+
+      static constexpr value_type _S_empty_str[1]{};
 
       size_t	    _M_len;
       const _CharT* _M_str;

@@ -1,6 +1,6 @@
 ; Options for the language- and target-independent parts of the compiler.
 
-; Copyright (C) 2003-2013 Free Software Foundation, Inc.
+; Copyright (C) 2003-2014 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -875,7 +875,7 @@ Common Report Var(flag_bounds_check)
 Generate code to check bounds before indexing arrays
 
 fbranch-count-reg
-Common Report Var(flag_branch_on_count_reg) Init(1) Optimization
+Common Report Var(flag_branch_on_count_reg) Optimization
 Replace add, compare, branch with branch on count register
 
 fbranch-probabilities
@@ -1156,7 +1156,7 @@ ffast-math
 Common
 
 ffat-lto-objects
-Common Var(flag_fat_lto_objects) Init(1)
+Common Var(flag_fat_lto_objects)
 Output lto objects containing both the intermediate language and binary output.
 
 ffinite-math-only
@@ -1392,6 +1392,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0) Optimization
 Discover pure and const functions
 
+fipa-sem-equality
+Common Report Var(flag_ipa_sem_equality) Iinit(1) Optimization
+Perform Semantic function equality
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
@@ -1560,7 +1564,7 @@ Common Report Var(flag_modulo_sched_allow_regmoves)
 Perform SMS based modulo scheduling with register moves allowed
 
 fmove-loop-invariants
-Common Report Var(flag_move_loop_invariants) Init(1) Optimization
+Common Report Var(flag_move_loop_invariants) Optimization
 Move loop invariant computations out of loops
 
 fdce
@@ -1707,6 +1711,10 @@ Insert code to profile values of expressions
 fprofile-report
 Common Report Var(profile_report)
 Report on consistency of profile
+
+fprofile-reorder-functions
+Common Report Var(flag_profile_reorder_functions)
+Enable function reordering that improves code placement
 
 frandom-seed
 Common Var(common_deferred_options) Defer
@@ -2108,11 +2116,18 @@ foptimize-strlen
 Common Report Var(flag_optimize_strlen) Optimization
 Enable string length optimizations on trees
 
-fisolate-erroneous-paths
-Common Report Var(flag_isolate_erroneous_paths) Optimization
-Detect paths which trigger erroneous or undefined behaviour.  Isolate those
-paths from the main control flow and turn the statement with erroneous or
-undefined behaviour into a trap.
+fisolate-erroneous-paths-dereference
+Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
+Detect paths which trigger erroneous or undefined behaviour due to
+dereferencing a NULL pointer.  Isolate those paths from the main control
+flow and turn the statement with erroneous or undefined behaviour into a trap.
+
+fisolate-erroneous-paths-attribute
+Common Report Var(flag_isolate_erroneous_paths_attribute) Optimization
+Detect paths which trigger erroneous or undefined behaviour due a NULL value
+being used in a way which is forbidden by a returns_nonnull or nonnull
+attribute.  Isolate those paths from the main control flow and turn the
+statement with erroneous or undefined behaviour into a trap. 
 
 ftree-loop-distribution
 Common Report Var(flag_tree_loop_distribution) Optimization
@@ -2155,7 +2170,7 @@ Common Report Var(flag_tree_partial_pre) Optimization
 In SSA-PRE optimization on trees, enable partial-partial redundancy elimination
 
 ftree-pta
-Common Report Var(flag_tree_pta) Init(1) Optimization
+Common Report Var(flag_tree_pta) Optimization
 Perform function-local points-to analysis on trees.
 
 ftree-reassoc
@@ -2235,11 +2250,11 @@ Common Report Var(flag_unwind_tables) Optimization
 Just generate unwind tables for exception handling
 
 fuse-ld=bfd
-Common Negative(fuse-ld=gold)
+Common Driver Negative(fuse-ld=gold)
 Use the bfd linker instead of the default linker
 
 fuse-ld=gold
-Common Negative(fuse-ld=mcld)
+Common Driver Negative(fuse-ld=bfd)
 Use the gold linker instead of the default linker
 
 fuse-ld=mcld
@@ -2247,7 +2262,7 @@ Common Negative(fuse-ld=bfd)
 Use the mcld linker instead of the default linker
 
 fuse-linker-plugin
-Common Undocumented
+Common Undocumented Var(flag_use_linker_plugin)
 
 ; Positive if we should track variables, negative if we should run
 ; the var-tracking pass only to discard debug annotations, zero if
@@ -2300,6 +2315,10 @@ fvect-cost-model=
 Common Joined RejectNegative Enum(vect_cost_model) Var(flag_vect_cost_model) Init(VECT_COST_MODEL_DEFAULT)
 Specifies the cost model for vectorization
  
+fsimd-cost-model=
+Common Joined RejectNegative Enum(vect_cost_model) Var(flag_simd_cost_model) Init(VECT_COST_MODEL_UNLIMITED)
+Specifies the vectorization cost model for code marked with a simd directive
+
 Enum
 Name(vect_cost_model) Type(enum vect_cost_model) UnknownError(unknown vectorizer cost model %qs)
 
@@ -2652,6 +2671,9 @@ static-libasan
 Driver
 
 static-libtsan
+Driver
+
+static-liblsan
 Driver
 
 static-libubsan

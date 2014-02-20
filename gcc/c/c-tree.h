@@ -1,5 +1,5 @@
 /* Definitions for C parsing and type checking.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -131,15 +131,6 @@ struct c_expr
 /* Type alias for struct c_expr. This allows to use the structure
    inside the VEC types.  */
 typedef struct c_expr c_expr_t;
-
-/* A varray of c_expr_t.  */
-
-/* Append a new c_expr_t element to V.  */
-#define C_EXPR_APPEND(V, ELEM) \
-  do { \
-    c_expr_t __elem = (ELEM); \
-    vec_safe_push (V, __elem); \
-  } while (0)
 
 /* A kind of type specifier.  Note that this information is currently
    only used to distinguish tag definitions, tag references and typeof

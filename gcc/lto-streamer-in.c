@@ -1,6 +1,6 @@
 /* Read the GIMPLE representation from a file stream.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
    Re-implemented by Diego Novillo <dnovillo@google.com>
 
@@ -26,12 +26,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "expr.h"
 #include "flags.h"
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -42,11 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "function.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "except.h"
 #include "debug.h"
-#include "vec.h"
 #include "ipa-utils.h"
 #include "data-streamer.h"
 #include "gimple-streamer.h"
@@ -201,7 +204,7 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
   unsigned HOST_WIDE_INT ix_u;
   tree result = NULL_TREE;
 
-  lto_tag_check_range (tag, LTO_field_decl_ref, LTO_global_decl_ref);
+  lto_tag_check_range (tag, LTO_field_decl_ref, LTO_namelist_decl_ref);
 
   switch (tag)
     {
@@ -241,6 +244,7 @@ lto_input_tree_ref (struct lto_input_block *ib, struct data_in *data_in,
     case LTO_imported_decl_ref:
     case LTO_label_decl_ref:
     case LTO_translation_unit_decl_ref:
+    case LTO_namelist_decl_ref:
       ix_u = streamer_read_uhwi (ib);
       result = lto_file_decl_data_get_var_decl (data_in->file_data, ix_u);
       break;
@@ -586,8 +590,8 @@ make_new_block (struct function *fn, unsigned int index)
 {
   basic_block bb = alloc_block ();
   bb->index = index;
-  SET_BASIC_BLOCK_FOR_FUNCTION (fn, index, bb);
-  n_basic_blocks_for_function (fn)++;
+  SET_BASIC_BLOCK_FOR_FN (fn, index, bb);
+  n_basic_blocks_for_fn (fn)++;
   return bb;
 }
 
@@ -595,7 +599,8 @@ make_new_block (struct function *fn, unsigned int index)
 /* Read the CFG for function FN from input block IB.  */
 
 static void
-input_cfg (struct lto_input_block *ib, struct function *fn,
+input_cfg (struct lto_input_block *ib, struct data_in *data_in,
+	   struct function *fn,
 	   int count_materialization_scale)
 {
   unsigned int bb_count;
@@ -606,22 +611,22 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
   init_empty_tree_cfg_for_function (fn);
   init_ssa_operands (fn);
 
-  profile_status_for_function (fn) = streamer_read_enum (ib, profile_status_d,
-							 PROFILE_LAST);
+  profile_status_for_fn (fn) = streamer_read_enum (ib, profile_status_d,
+						   PROFILE_LAST);
 
   bb_count = streamer_read_uhwi (ib);
 
-  last_basic_block_for_function (fn) = bb_count;
-  if (bb_count > basic_block_info_for_function (fn)->length ())
-    vec_safe_grow_cleared (basic_block_info_for_function (fn), bb_count);
+  last_basic_block_for_fn (fn) = bb_count;
+  if (bb_count > basic_block_info_for_fn (fn)->length ())
+    vec_safe_grow_cleared (basic_block_info_for_fn (fn), bb_count);
 
-  if (bb_count > label_to_block_map_for_function (fn)->length ())
-    vec_safe_grow_cleared (label_to_block_map_for_function (fn), bb_count);
+  if (bb_count > label_to_block_map_for_fn (fn)->length ())
+    vec_safe_grow_cleared (label_to_block_map_for_fn (fn), bb_count);
 
   index = streamer_read_hwi (ib);
   while (index != -1)
     {
-      basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
+      basic_block bb = BASIC_BLOCK_FOR_FN (fn, index);
       unsigned int edge_count;
 
       if (bb == NULL)
@@ -645,7 +650,7 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
                                count_materialization_scale);
 	  edge_flags = streamer_read_uhwi (ib);
 
-	  dest = BASIC_BLOCK_FOR_FUNCTION (fn, dest_index);
+	  dest = BASIC_BLOCK_FOR_FN (fn, dest_index);
 
 	  if (dest == NULL)
 	    dest = make_new_block (fn, dest_index);
@@ -658,11 +663,11 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
       index = streamer_read_hwi (ib);
     }
 
-  p_bb = ENTRY_BLOCK_PTR_FOR_FUNCTION (fn);
+  p_bb = ENTRY_BLOCK_PTR_FOR_FN (fn);
   index = streamer_read_hwi (ib);
   while (index != -1)
     {
-      basic_block bb = BASIC_BLOCK_FOR_FUNCTION (fn, index);
+      basic_block bb = BASIC_BLOCK_FOR_FN (fn, index);
       bb->prev_bb = p_bb;
       p_bb->next_bb = bb;
       p_bb = bb;
@@ -693,7 +698,7 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
 	}
 
       struct loop *loop = alloc_loop ();
-      loop->header = BASIC_BLOCK_FOR_FUNCTION (fn, header_index);
+      loop->header = BASIC_BLOCK_FOR_FN (fn, header_index);
       loop->header->loop_father = loop;
 
       /* Read everything copy_loop_info copies.  */
@@ -710,6 +715,11 @@ input_cfg (struct lto_input_block *ib, struct function *fn,
 	  loop->nb_iterations_estimate.low = streamer_read_uhwi (ib);
 	  loop->nb_iterations_estimate.high = streamer_read_hwi (ib);
 	}
+
+      /* Read OMP SIMD related info.  */
+      loop->safelen = streamer_read_hwi (ib);
+      loop->force_vect = streamer_read_hwi (ib);
+      loop->simduid = stream_read_tree (ib, data_in);
 
       place_new_loop (fn, loop);
 
@@ -874,6 +884,8 @@ input_struct_function_base (struct function *fn, struct data_in *data_in,
   fn->has_nonlocal_label = bp_unpack_value (&bp, 1);
   fn->calls_alloca = bp_unpack_value (&bp, 1);
   fn->calls_setjmp = bp_unpack_value (&bp, 1);
+  fn->has_force_vect_loops = bp_unpack_value (&bp, 1);
+  fn->has_simduid_loops = bp_unpack_value (&bp, 1);
   fn->va_list_fpr_size = bp_unpack_value (&bp, 8);
   fn->va_list_gpr_size = bp_unpack_value (&bp, 8);
 
@@ -920,7 +932,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   if (!node)
     node = cgraph_create_node (fn_decl);
   input_struct_function_base (fn, data_in, ib);
-  input_cfg (ib_cfg, fn, node->count_materialization_scale);
+  input_cfg (ib_cfg, data_in, fn, node->count_materialization_scale);
 
   /* Read all the SSA names.  */
   input_ssa_names (ib, data_in, fn);
@@ -943,7 +955,7 @@ input_function (tree fn_decl, struct data_in *data_in,
   /* Fix up the call statements that are mentioned in the callgraph
      edges.  */
   set_gimple_stmt_max_uid (cfun, 0);
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -958,7 +970,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 	}
     }
   stmts = (gimple *) xcalloc (gimple_stmt_max_uid (fn), sizeof (gimple));
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator bsi = gsi_start_phis (bb);
       while (!gsi_end_p (bsi))
@@ -995,7 +1007,7 @@ input_function (tree fn_decl, struct data_in *data_in,
      of a gimple body is used by the cgraph routines, but we should
      really use the presence of the CFG.  */
   {
-    edge_iterator ei = ei_start (ENTRY_BLOCK_PTR->succs);
+    edge_iterator ei = ei_start (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs);
     gimple_set_body (fn_decl, bb_seq (ei_edge (ei)->dest));
   }
 
@@ -1237,7 +1249,7 @@ lto_input_tree_1 (struct lto_input_block *ib, struct data_in *data_in,
 
   if (tag == LTO_null)
     result = NULL_TREE;
-  else if (tag >= LTO_field_decl_ref && tag <= LTO_global_decl_ref)
+  else if (tag >= LTO_field_decl_ref && tag <= LTO_namelist_decl_ref)
     {
       /* If TAG is a reference to an indexable tree, the next value
 	 in IB is the index into the table where we expect to find

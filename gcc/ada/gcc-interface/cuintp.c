@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -55,7 +55,7 @@ static tree
 build_cst_from_int (tree type, HOST_WIDE_INT low)
 {
   if (SCALAR_FLOAT_TYPE_P (type))
-    return convert (type, build_int_cst (NULL_TREE, low));
+    return convert (type, build_int_cst (gnat_type_for_size (32, 0), low));
   else
     return build_int_cst_type (type, low);
 }
@@ -89,19 +89,12 @@ UI_To_gnu (Uint Input, tree type)
       gcc_assert (Length > 0);
 
       /* The computations we perform below always require a type at least as
-	 large as an integer not to overflow.  REAL types are always fine, but
+	 large as an integer not to overflow.  FP types are always fine, but
 	 INTEGER or ENUMERAL types we are handed may be too short.  We use a
 	 base integer type node for the computations in this case and will
-	 convert the final result back to the incoming type later on.
-	 The base integer precision must be superior than 16.  */
-
-      if (TREE_CODE (comp_type) != REAL_TYPE
-	  && TYPE_PRECISION (comp_type)
-	     < TYPE_PRECISION (long_integer_type_node))
-	{
-	  comp_type = long_integer_type_node;
-	  gcc_assert (TYPE_PRECISION (comp_type) > 16);
-	}
+	 convert the final result back to the incoming type later on.  */
+      if (!SCALAR_FLOAT_TYPE_P (comp_type) && TYPE_PRECISION (comp_type) < 32)
+	comp_type = gnat_type_for_size (32, 0);
 
       gnu_base = build_cst_from_int (comp_type, Base);
 
@@ -150,23 +143,23 @@ UI_From_gnu (tree Input)
   Int_Vector vec;
 
 #if HOST_BITS_PER_WIDE_INT == 64
-  /* On 64-bit hosts, host_integerp tells whether the input fits in a
+  /* On 64-bit hosts, tree_fits_shwi_p tells whether the input fits in a
      signed 64-bit integer.  Then a truncation tells whether it fits
      in a signed 32-bit integer.  */
-  if (host_integerp (Input, 0))
+  if (tree_fits_shwi_p (Input))
     {
-      HOST_WIDE_INT hw_input = TREE_INT_CST_LOW (Input);
+      HOST_WIDE_INT hw_input = tree_to_shwi (Input);
       if (hw_input == (int) hw_input)
 	return UI_From_Int (hw_input);
     }
   else
     return No_Uint;
 #else
-  /* On 32-bit hosts, host_integerp tells whether the input fits in a
+  /* On 32-bit hosts, tree_fits_shwi_p tells whether the input fits in a
      signed 32-bit integer.  Then a sign test tells whether it fits
      in a signed 64-bit integer.  */
-  if (host_integerp (Input, 0))
-    return UI_From_Int (TREE_INT_CST_LOW (Input));
+  if (tree_fits_shwi_p (Input))
+    return UI_From_Int (tree_to_shwi (Input));
   else if (TREE_INT_CST_HIGH (Input) < 0 && TYPE_UNSIGNED (gnu_type))
     return No_Uint;
 #endif
@@ -176,9 +169,9 @@ UI_From_gnu (tree Input)
 
   for (i = Max_For_Dint - 1; i >= 0; i--)
     {
-      v[i] = tree_low_cst (fold_build1 (ABS_EXPR, gnu_type,
+      v[i] = tree_to_shwi (fold_build1 (ABS_EXPR, gnu_type,
 					fold_build2 (TRUNC_MOD_EXPR, gnu_type,
-						     gnu_temp, gnu_base)), 0);
+						     gnu_temp, gnu_base)));
       gnu_temp = fold_build2 (TRUNC_DIV_EXPR, gnu_type, gnu_temp, gnu_base);
     }
 

@@ -1,6 +1,6 @@
 /* Declarations for variables relating to reading the source file.
    Used by parsers, lexical analyzers, and error message routines.
-   Copyright (C) 1993-2013 Free Software Foundation, Inc.
+   Copyright (C) 1993-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,7 +37,8 @@ extern char builtins_location_check[(BUILTINS_LOCATION
 				     < RESERVED_LOCATION_COUNT) ? 1 : -1];
 
 extern expanded_location expand_location (source_location);
-extern const char *location_get_source_line (expanded_location xloc);
+extern const char *location_get_source_line (expanded_location xloc,
+					     int *line_size);
 extern expanded_location expand_location_to_spelling_point (source_location);
 extern source_location expansion_point_location_if_in_system_header (source_location);
 
@@ -57,12 +58,11 @@ extern location_t input_location;
   ((tree) ((IS_ADHOC_LOC (LOC)) ? get_data_from_adhoc_loc (line_table, (LOC)) \
    : NULL))
 
-#define input_line LOCATION_LINE (input_location)
-#define input_filename LOCATION_FILE (input_location)
 #define in_system_header_at(LOC) \
   ((linemap_location_in_system_header_p (line_table, LOC)))
-#define in_system_header (in_system_header_at (input_location))
 
 void dump_line_table_statistics (void);
+
+void diagnostics_file_cache_fini (void);
 
 #endif

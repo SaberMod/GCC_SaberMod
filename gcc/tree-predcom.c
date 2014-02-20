@@ -1,5 +1,5 @@
 /* Predictive commoning.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -191,6 +191,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "cfgloop.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -198,15 +204,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "ggc.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-chrec.h"
@@ -725,6 +732,9 @@ split_data_refs_to_components (struct loop *loop,
 	     just fail.  */
 	  goto end;
 	}
+      /* predcom pass isn't prepared to handle calls with data references.  */
+      if (is_gimple_call (DR_STMT (dr)))
+	goto end;
       dr->aux = (void *) (size_t) i;
       comp_father[i] = i;
       comp_size[i] = 1;
@@ -762,10 +772,37 @@ split_data_refs_to_components (struct loop *loop,
       bad = component_of (comp_father, n);
 
       /* If both A and B are reads, we may ignore unsuitable dependences.  */
-      if (DR_IS_READ (dra) && DR_IS_READ (drb)
-	  && (ia == bad || ib == bad
-	      || !determine_offset (dra, drb, &dummy_off)))
-	continue;
+      if (DR_IS_READ (dra) && DR_IS_READ (drb))
+	{
+	  if (ia == bad || ib == bad
+	      || !determine_offset (dra, drb, &dummy_off))
+	    continue;
+	}
+      /* If A is read and B write or vice versa and there is unsuitable
+	 dependence, instead of merging both components into a component
+	 that will certainly not pass suitable_component_p, just put the
+	 read into bad component, perhaps at least the write together with
+	 all the other data refs in it's component will be optimizable.  */
+      else if (DR_IS_READ (dra) && ib != bad)
+	{
+	  if (ia == bad)
+	    continue;
+	  else if (!determine_offset (dra, drb, &dummy_off))
+	    {
+	      merge_comps (comp_father, comp_size, bad, ia);
+	      continue;
+	    }
+	}
+      else if (DR_IS_READ (drb) && ia != bad)
+	{
+	  if (ib == bad)
+	    continue;
+	  else if (!determine_offset (dra, drb, &dummy_off))
+	    {
+	      merge_comps (comp_father, comp_size, bad, ib);
+	      continue;
+	    }
+	}
 
       merge_comps (comp_father, comp_size, ia, ib);
     }
@@ -1536,7 +1573,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
 static void
 execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
 {
-  vec<tree> vars;
+  auto_vec<tree> vars;
   dref a;
   unsigned n_writes = 0, ridx, i;
   tree var;
@@ -1575,8 +1612,6 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
       replace_ref_with (a->stmt, vars[ridx],
 			!is_read, !is_read);
     }
-
-  vars.release ();
 }
 
 /* Returns the single statement in that NAME is used, excepting
@@ -2035,7 +2070,11 @@ combinable_refs_p (dref r1, dref r2,
 
   stmt = find_common_use_stmt (&name1, &name2);
 
-  if (!stmt)
+  if (!stmt
+      /* A simple post-dominance check - make sure the combination
+         is executed under the same condition as the references.  */
+      || (gimple_bb (stmt) != gimple_bb (r1->stmt)
+	  && gimple_bb (stmt) != gimple_bb (r2->stmt)))
     return false;
 
   acode = gimple_assign_rhs_code (stmt);
@@ -2266,7 +2305,7 @@ try_combine_chains (vec<chain_p> *chains)
 {
   unsigned i, j;
   chain_p ch1, ch2, cch;
-  vec<chain_p> worklist = vNULL;
+  auto_vec<chain_p> worklist;
 
   FOR_EACH_VEC_ELT (*chains, i, ch1)
     if (chain_can_be_combined_p (ch1))
@@ -2292,8 +2331,6 @@ try_combine_chains (vec<chain_p> *chains)
 	    }
 	}
     }
-
-  worklist.release ();
 }
 
 /* Prepare initializers for CHAIN in LOOP.  Returns false if this is
@@ -2388,7 +2425,7 @@ tree_predictive_commoning_loop (struct loop *loop)
 
   /* Find the data references and split them into components according to their
      dependence relations.  */
-  stack_vec<loop_p, 3> loop_nest;
+  auto_vec<loop_p, 3> loop_nest;
   dependences.create (10);
   datarefs.create (10);
   if (! compute_data_dependences_for_loop (loop, true, &loop_nest, &datarefs,
@@ -2410,6 +2447,7 @@ tree_predictive_commoning_loop (struct loop *loop)
   if (!components)
     {
       free_data_refs (datarefs);
+      free_affine_expand_cache (&name_expansions);
       return false;
     }
 
@@ -2505,11 +2543,10 @@ tree_predictive_commoning (void)
 {
   bool unrolled = false;
   struct loop *loop;
-  loop_iterator li;
   unsigned ret = 0;
 
   initialize_original_copy_tables ();
-  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     if (optimize_loop_for_speed_p (loop))
       {
 	unrolled |= tree_predictive_commoning_loop (loop);

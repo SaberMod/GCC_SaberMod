@@ -1,5 +1,5 @@
 /* Generate code from machine description to perform peephole optimizations.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -360,6 +360,9 @@ from the machine description file `md'.  */\n\n");
   printf ("#include \"tm.h\"\n");
   printf ("#include \"insn-config.h\"\n");
   printf ("#include \"tree.h\"\n");
+  printf ("#include \"varasm.h\"\n");
+  printf ("#include \"stor-layout.h\"\n");
+  printf ("#include \"calls.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"tm_p.h\"\n");
   printf ("#include \"regs.h\"\n");

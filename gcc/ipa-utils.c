@@ -1,5 +1,5 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -23,13 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "tree-inline.h"
 #include "dumpfile.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "splay-tree.h"
-#include "ggc.h"
 #include "ipa-utils.h"
 #include "ipa-reference.h"
 #include "flags.h"
@@ -481,7 +484,7 @@ dump_cgraph_node_set (FILE *f, cgraph_node_set set)
   for (iter = csi_start (set); !csi_end_p (iter); csi_next (&iter))
     {
       struct cgraph_node *node = csi_node (iter);
-      fprintf (f, " %s/%i", cgraph_node_name (node), node->order);
+      fprintf (f, " %s/%i", node->name (), node->order);
     }
   fprintf (f, "\n");
 }
@@ -524,7 +527,7 @@ varpool_node_set_new (void)
 /* Add varpool_node NODE to varpool_node_set SET.  */
 
 void
-varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_add (varpool_node_set set, varpool_node *node)
 {
   void **slot;
 
@@ -548,11 +551,11 @@ varpool_node_set_add (varpool_node_set set, struct varpool_node *node)
 /* Remove varpool_node NODE from varpool_node_set SET.  */
 
 void
-varpool_node_set_remove (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_remove (varpool_node_set set, varpool_node *node)
 {
   void **slot, **last_slot;
   int index;
-  struct varpool_node *last_node;
+  varpool_node *last_node;
 
   slot = pointer_map_contains (set->map, node);
   if (slot == NULL || !*slot)
@@ -584,7 +587,7 @@ varpool_node_set_remove (varpool_node_set set, struct varpool_node *node)
    is returned if NODE is not in SET.  */
 
 varpool_node_set_iterator
-varpool_node_set_find (varpool_node_set set, struct varpool_node *node)
+varpool_node_set_find (varpool_node_set set, varpool_node *node)
 {
   void **slot;
   varpool_node_set_iterator vsi;
@@ -609,8 +612,8 @@ dump_varpool_node_set (FILE *f, varpool_node_set set)
 
   for (iter = vsi_start (set); !vsi_end_p (iter); vsi_next (&iter))
     {
-      struct varpool_node *node = vsi_node (iter);
-      fprintf (f, " %s", varpool_node_name (node));
+      varpool_node *node = vsi_node (iter);
+      fprintf (f, " %s", node->name ());
     }
   fprintf (f, "\n");
 }
@@ -652,13 +655,18 @@ ipa_merge_profiles (struct cgraph_node *dst,
     return;
   if (src->frequency < dst->frequency)
     src->frequency = dst->frequency;
+
+  /* Time profiles are merged.  */
+  if (dst->tp_first_run > src->tp_first_run && src->tp_first_run)
+    dst->tp_first_run = src->tp_first_run;
+
   if (!dst->count)
     return;
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Merging profiles of %s/%i to %s/%i\n",
-	       xstrdup (cgraph_node_name (src)), src->order,
-	       xstrdup (cgraph_node_name (dst)), dst->order);
+	       xstrdup (src->name ()), src->order,
+	       xstrdup (dst->name ()), dst->order);
     }
   dst->count += src->count;
 
@@ -700,16 +708,16 @@ ipa_merge_profiles (struct cgraph_node *dst,
   cgraph_get_body (dst);
   srccfun = DECL_STRUCT_FUNCTION (src->decl);
   dstcfun = DECL_STRUCT_FUNCTION (dst->decl);
-  if (n_basic_blocks_for_function (srccfun)
-      != n_basic_blocks_for_function (dstcfun))
+  if (n_basic_blocks_for_fn (srccfun)
+      != n_basic_blocks_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
 		 "Giving up; number of basic block mismatch.\n");
       match = false;
     }
-  else if (last_basic_block_for_function (srccfun)
-	   != last_basic_block_for_function (dstcfun))
+  else if (last_basic_block_for_fn (srccfun)
+	   != last_basic_block_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
@@ -724,7 +732,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  if (dstbb == NULL)
 	    {
 	      if (cgraph_dump_file)
@@ -769,7 +777,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  dstbb->count += srcbb->count;
 	  for (i = 0; i < EDGE_COUNT (srcbb->succs); i++)
 	    {

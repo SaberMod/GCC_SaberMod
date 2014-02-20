@@ -1,5 +1,5 @@
 ;; VSX patterns.
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;; Contributed by Michael Meissner <meissner@linux.vnet.ibm.com>
 
 ;; This file is part of GCC.
@@ -213,6 +213,7 @@
    UNSPEC_VSX_ROUND_I
    UNSPEC_VSX_ROUND_IC
    UNSPEC_VSX_SLDWI
+   UNSPEC_VSX_XXSPLTW
   ])
 
 ;; VSX moves
@@ -1497,9 +1498,10 @@
 		      UNSPEC_VSX_SET))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  if (INTVAL (operands[3]) == 0)
+  int idx_first = BYTES_BIG_ENDIAN ? 0 : 1;
+  if (INTVAL (operands[3]) == idx_first)
     return \"xxpermdi %x0,%x2,%x1,1\";
-  else if (INTVAL (operands[3]) == 1)
+  else if (INTVAL (operands[3]) == 1 - idx_first)
     return \"xxpermdi %x0,%x1,%x2,0\";
   else
     gcc_unreachable ();
@@ -1514,8 +1516,12 @@
 			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
+  int fldDM;
   gcc_assert (UINTVAL (operands[2]) <= 1);
-  operands[3] = GEN_INT (INTVAL (operands[2]) << 1);
+  fldDM = INTVAL (operands[2]) << 1;
+  if (!BYTES_BIG_ENDIAN)
+    fldDM = 3 - fldDM;
+  operands[3] = GEN_INT (fldDM);
   return \"xxpermdi %x0,%x1,%x1,%3\";
 }
   [(set_attr "type" "vecperm")])
@@ -1527,6 +1533,21 @@
 	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
 	 (parallel [(const_int 0)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
+  "lxsd%U1x %x0,%y1"
+  [(set (attr "type")
+      (if_then_else
+	(match_test "update_indexed_address_mem (operands[1], VOIDmode)")
+	(const_string "fpload_ux")
+	(const_string "fpload")))
+   (set_attr "length" "4")])  
+
+;; Optimize extracting element 1 from memory for little endian
+(define_insn "*vsx_extract_<mode>_one_le"
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
+	 (parallel [(const_int 1)])))]
+  "VECTOR_MEM_VSX_P (<MODE>mode) && !WORDS_BIG_ENDIAN"
   "lxsd%U1x %x0,%y1"
   [(set (attr "type")
       (if_then_else
@@ -1555,7 +1576,7 @@
   rtx op2 = operands[2];
   rtx op3 = operands[3];
   rtx tmp;
-  HOST_WIDE_INT ele = INTVAL (op2);
+  HOST_WIDE_INT ele = BYTES_BIG_ENDIAN ? INTVAL (op2) : 3 - INTVAL (op2);
 
   if (ele == 0)
     tmp = op1;
@@ -1600,7 +1621,18 @@
 	  op1 = gen_lowpart (V2DImode, op1);
 	}
     }
-  emit_insn (gen (target, op0, op1, perm0, perm1));
+  /* In little endian mode, vsx_xxpermdi2_<mode>_1 will perform a
+     transformation we don't want; it is necessary for
+     rs6000_expand_vec_perm_const_1 but not for this use.  So we
+     prepare for that by reversing the transformation here.  */
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen (target, op0, op1, perm0, perm1));
+  else
+    {
+      rtx p0 = GEN_INT (3 - INTVAL (perm1));
+      rtx p1 = GEN_INT (3 - INTVAL (perm0));
+      emit_insn (gen (target, op1, op0, p0, p1));
+    }
   DONE;
 })
 
@@ -1614,9 +1646,32 @@
 		     (match_operand 4 "const_2_to_3_operand" "")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
-  int mask = (INTVAL (operands[3]) << 1) | (INTVAL (operands[4]) - 2);
+  int op3, op4, mask;
+
+  /* For little endian, swap operands and invert/swap selectors
+     to get the correct xxpermdi.  The operand swap sets up the
+     inputs as a little endian array.  The selectors are swapped
+     because they are defined to use big endian ordering.  The
+     selectors are inverted to get the correct doublewords for
+     little endian ordering.  */
+  if (BYTES_BIG_ENDIAN)
+    {
+      op3 = INTVAL (operands[3]);
+      op4 = INTVAL (operands[4]);
+    }
+  else
+    {
+      op3 = 3 - INTVAL (operands[4]);
+      op4 = 3 - INTVAL (operands[3]);
+    }
+
+  mask = (op3 << 1) | (op4 - 2);
   operands[3] = GEN_INT (mask);
-  return "xxpermdi %x0,%x1,%x2,%3";
+
+  if (BYTES_BIG_ENDIAN)
+    return "xxpermdi %x0,%x1,%x2,%3";
+  else
+    return "xxpermdi %x0,%x2,%x1,%3";
 }
   [(set_attr "type" "vecperm")])
 
@@ -1635,24 +1690,56 @@
 
 ;; Expanders for builtins
 (define_expand "vsx_mergel_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "")
-	(vec_select:VSX_D
-	  (vec_concat:<VS_double>
-	    (match_operand:VSX_D 1 "vsx_register_operand" "")
-	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
-	  (parallel [(const_int 1) (const_int 3)])))]
+  [(use (match_operand:VSX_D 0 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 1 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 2 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    {
+      v = gen_rtvec (2, GEN_INT (0), GEN_INT (2));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[2], operands[1]);
+    }
+  else
+    {
+      v = gen_rtvec (2, GEN_INT (1), GEN_INT (3));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[1], operands[2]);
+    }
+
+  x = gen_rtx_VEC_SELECT (<MODE>mode, x, gen_rtx_PARALLEL (VOIDmode, v));
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
 
 (define_expand "vsx_mergeh_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "")
-	(vec_select:VSX_D
-	  (vec_concat:<VS_double>
-	    (match_operand:VSX_D 1 "vsx_register_operand" "")
-	    (match_operand:VSX_D 2 "vsx_register_operand" ""))
-	  (parallel [(const_int 0) (const_int 2)])))]
+  [(use (match_operand:VSX_D 0 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 1 "vsx_register_operand" ""))
+   (use (match_operand:VSX_D 2 "vsx_register_operand" ""))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
-  "")
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    {
+      v = gen_rtvec (2, GEN_INT (1), GEN_INT (3));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[2], operands[1]);
+    }
+  else
+    {
+      v = gen_rtvec (2, GEN_INT (0), GEN_INT (2));
+      x = gen_rtx_VEC_CONCAT (<VS_double>mode, operands[1], operands[2]);
+    }
+
+  x = gen_rtx_VEC_SELECT (<MODE>mode, x, gen_rtx_PARALLEL (VOIDmode, v));
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
 
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
@@ -1677,6 +1764,20 @@
 	  (match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
 	  (parallel
 	   [(match_operand:QI 2 "u5bit_cint_operand" "i,i")]))))]
+  "VECTOR_MEM_VSX_P (<MODE>mode)"
+{
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  return "xxspltw %x0,%x1,%2";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "vsx_xxspltw_<mode>_direct"
+  [(set (match_operand:VSX_W 0 "vsx_register_operand" "=wf,?wa")
+        (unspec:VSX_W [(match_operand:VSX_W 1 "vsx_register_operand" "wf,wa")
+                       (match_operand:QI 2 "u5bit_cint_operand" "i,i")]
+                      UNSPEC_VSX_XXSPLTW))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxspltw %x0,%x1,%2"
   [(set_attr "type" "vecperm")])
@@ -1875,7 +1976,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_dup 0)
 			    (match_operand:P 3 "int_reg_operand" ""))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])
@@ -1886,7 +1987,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_operand:P 3 "int_reg_operand" "")
 			    (match_dup 0))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])

@@ -1,5 +1,5 @@
 ;; GCC machine description for MMX and 3dNOW! instructions
-;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -212,14 +212,6 @@
    && !(MMX_REG_P (operands[1]) || SSE_REG_P (operands[1]))"
   [(const_int 0)]
   "ix86_split_long_move (operands); DONE;")
-
-(define_expand "push<mode>1"
-  [(match_operand:MMXMODE 0 "register_operand")]
-  "TARGET_MMX"
-{
-  ix86_expand_push (<MODE>mode, operands[0]);
-  DONE;
-})
 
 (define_expand "movmisalign<mode>"
   [(set (match_operand:MMXMODE 0 "nonimmediate_operand")

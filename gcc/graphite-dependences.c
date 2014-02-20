@@ -1,5 +1,5 @@
 /* Data dependence analysis for Graphite.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Konrad Trifunovic <konrad.trifunovic@inria.fr>.
 
@@ -34,6 +34,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
@@ -588,7 +593,7 @@ loop_is_parallel_p (loop_p loop, bb_pbb_htab_type bb_pbb_mapping, int depth)
   scop_p scop;
 
   timevar_push (TV_GRAPHITE_DATA_DEPS);
-  stack_vec<poly_bb_p, 3> body;
+  auto_vec<poly_bb_p, 3> body;
   scop = get_loop_body_pbbs (loop, bb_pbb_mapping, &body);
   dependences = loop_level_carries_dependences (scop, body, depth);
   timevar_pop (TV_GRAPHITE_DATA_DEPS);

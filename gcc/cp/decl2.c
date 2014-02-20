@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -31,6 +31,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "attribs.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "pointer-set.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "decl.h"
@@ -45,10 +51,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-pragma.h"
 #include "dumpfile.h"
 #include "intl.h"
-#include "pointer-set.h"
 #include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
+#include "asan.h"
 
 extern cpp_reader *parse_in;
 
@@ -1237,6 +1243,22 @@ save_template_attributes (tree *attr_p, tree *decl_p)
     }
 }
 
+/* Return true iff ATTRS are acceptable attributes to be applied in-place
+   to a typedef which gives a previously anonymous class or enum a name for
+   linkage purposes.  */
+
+bool
+attributes_naming_typedef_ok (tree attrs)
+{
+  for (; attrs; attrs = TREE_CHAIN (attrs))
+    {
+      tree name = get_attribute_name (attrs);
+      if (is_attribute_p ("vector_size", name))
+	return false;
+    }
+  return true;
+}
+
 /* Like reconstruct_complex_type, but handle also template trees.  */
 
 tree
@@ -1743,7 +1765,7 @@ maybe_make_one_only (tree decl)
 
       if (VAR_P (decl))
 	{
-          struct varpool_node *node = varpool_node_for_decl (decl);
+          varpool_node *node = varpool_node_for_decl (decl);
 	  DECL_COMDAT (decl) = 1;
 	  /* Mark it needed so we don't forget to emit it.  */
           node->forced_by_abi = true;
@@ -1865,7 +1887,7 @@ mark_needed (tree decl)
     }
   else if (TREE_CODE (decl) == VAR_DECL)
     {
-      struct varpool_node *node = varpool_node_for_decl (decl);
+      varpool_node *node = varpool_node_for_decl (decl);
       /* C++ frontend use mark_decl_references to force COMDAT variables
          to be output that might appear dead otherwise.  */
       node->forced_by_abi = true;
@@ -1914,7 +1936,7 @@ maybe_emit_vtables (tree ctype)
   tree vtbl;
   tree primary_vtbl;
   int needed = 0;
-  struct varpool_node *current = NULL, *last = NULL;
+  varpool_node *current = NULL, *last = NULL;
 
   /* If the vtables for this class have already been emitted there is
      nothing more to do.  */
@@ -2638,7 +2660,6 @@ import_export_decl (tree decl)
 		  comdat_p = (targetm.cxx.class_data_always_comdat ()
 			      || (CLASSTYPE_KEY_METHOD (type)
 				  && DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (type))));
-		  mark_needed (decl);
 		  if (!flag_weak)
 		    {
 		      comdat_p = false;
@@ -2927,7 +2948,7 @@ get_tls_init_fn (tree var)
       TREE_PUBLIC (fn) = TREE_PUBLIC (var);
       DECL_ARTIFICIAL (fn) = true;
       DECL_COMDAT (fn) = DECL_COMDAT (var);
-      DECL_EXTERNAL (fn) = true;
+      DECL_EXTERNAL (fn) = DECL_EXTERNAL (var);
       if (DECL_ONE_ONLY (var))
 	make_decl_one_only (fn, cxx_comdat_group (fn));
       if (TREE_PUBLIC (var))
@@ -3456,7 +3477,15 @@ one_static_initialization_or_destruction (tree decl, tree init, bool initp)
   if (initp)
     {
       if (init)
-	finish_expr_stmt (init);
+	{
+	  finish_expr_stmt (init);
+	  if (flag_sanitize & SANITIZE_ADDRESS)
+	    {
+	      varpool_node *vnode = varpool_get_node (decl);
+	      if (vnode)
+		vnode->dynamically_initialized = 1;
+	    }
+	}
 
       /* If we're using __cxa_atexit, register a function that calls the
 	 destructor for the object.  */
@@ -3497,6 +3526,16 @@ do_static_initialization_or_destruction (tree vars, bool initp)
 			     cond,
 			     tf_warning_or_error);
   finish_if_stmt_cond (cond, init_if_stmt);
+
+  /* To make sure dynamic construction doesn't access globals from other
+     compilation units where they might not be yet constructed, for
+     -fsanitize=address insert __asan_before_dynamic_init call that
+     prevents access to either all global variables that need construction
+     in other compilation units, or at least those that haven't been
+     initialized yet.  Variables that need dynamic construction in
+     the current compilation unit are kept accessible.  */
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    finish_expr_stmt (asan_dynamic_init_call (/*after_p=*/false));
 
   node = vars;
   do {
@@ -3545,6 +3584,11 @@ do_static_initialization_or_destruction (tree vars, bool initp)
     finish_if_stmt (priority_if_stmt);
 
   } while (node);
+
+  /* Revert what __asan_before_dynamic_init did by calling
+     __asan_after_dynamic_init.  */
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    finish_expr_stmt (asan_dynamic_init_call (/*after_p=*/true));
 
   /* Finish up the init/destruct if-stmt body.  */
   finish_then_clause (init_if_stmt);
@@ -3788,7 +3832,7 @@ build_java_method_aliases (struct pointer_set_t *candidates)
 /* Return C++ property of T, based on given operation OP.  */
 
 static int
-cpp_check (const_tree t, cpp_operation op)
+cpp_check (tree t, cpp_operation op)
 {
   switch (op)
     {
@@ -3991,6 +4035,8 @@ handle_tls_init (void)
       if (TREE_PUBLIC (var))
 	{
           tree single_init_fn = get_tls_init_fn (var);
+	  if (single_init_fn == NULL_TREE)
+	    continue;
 	  cgraph_node *alias
 	    = cgraph_same_body_alias (cgraph_get_create_node (fn),
 				      single_init_fn, fn);

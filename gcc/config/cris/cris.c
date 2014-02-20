@@ -1,5 +1,5 @@
 /* Definitions for GCC.  Part of the machine description for CRIS.
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
    Contributed by Axis Communications.  Written by Hans-Peter Nilsson.
 
 This file is part of GCC.
@@ -30,6 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "stmt.h"
 #include "expr.h"
 #include "except.h"
 #include "function.h"
@@ -88,6 +92,8 @@ static int cris_reg_overlap_mentioned_p (rtx, rtx);
 
 static enum machine_mode cris_promote_function_mode (const_tree, enum machine_mode,
 						     int *, const_tree, int);
+
+static unsigned int cris_atomic_align_for_mode (enum machine_mode);
 
 static void cris_print_base (rtx, FILE *);
 
@@ -222,6 +228,9 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 
 #undef TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE cris_promote_function_mode
+
+#undef TARGET_ATOMIC_ALIGN_FOR_MODE
+#define TARGET_ATOMIC_ALIGN_FOR_MODE cris_atomic_align_for_mode
 
 #undef TARGET_STRUCT_VALUE_RTX
 #define TARGET_STRUCT_VALUE_RTX cris_struct_value_rtx
@@ -2484,7 +2493,7 @@ cris_pic_symbol_type_of (const_rtx x)
 
 	gcc_assert (t1 == cris_no_symbol || t2 == cris_no_symbol);
 
-	if (t1 == cris_got_symbol || t1 == cris_got_symbol)
+	if (t1 == cris_got_symbol || t2 == cris_got_symbol)
 	  return cris_got_symbol_needing_fixup;
 
 	return t1 != cris_no_symbol ? t1 : t2;
@@ -4014,6 +4023,14 @@ cris_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
     return mode;
   return CRIS_PROMOTED_MODE (mode, *punsignedp, type);
 } 
+
+/* Atomic types require alignment to be at least their "natural" size.  */
+
+static unsigned int
+cris_atomic_align_for_mode (enum machine_mode mode)
+{
+  return GET_MODE_BITSIZE (mode);
+}
 
 /* Let's assume all functions return in r[CRIS_FIRST_ARG_REG] for the
    time being.  */

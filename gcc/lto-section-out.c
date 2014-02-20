@@ -1,6 +1,6 @@
 /* Functions for writing LTO sections.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -24,17 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "expr.h"
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
-#include "basic-block.h"
 #include "function.h"
-#include "ggc.h"
 #include "except.h"
-#include "vec.h"
-#include "pointer-set.h"
 #include "langhooks.h"
 #include "data-streamer.h"
 #include "lto-streamer.h"

@@ -39,20 +39,31 @@ AC_PREREQ([2.64])
 AC_CANONICAL_SYSTEM
 target_alias=${target_alias-$host_alias}
 AC_SUBST(target_alias)
-GCC_LIBSTDCXX_RAW_CXX_FLAGS
 AM_INIT_AUTOMAKE(foreign no-dist)
 
 AM_MAINTAINER_MODE
 
 # Build a DLL on Windows
 # AC_LIBTOOL_WIN32_DLL
-AC_PROG_CXX
 AC_PROG_CC
+AC_PROG_CXX
 # AC_PROG_LIBTOOL
 # AC_CONFIG_MACRO_DIR([..])
 AC_CONFIG_FILES([Makefile])
 AM_ENABLE_MULTILIB(, ..)
 AC_FUNC_ALLOCA
+
+# Check whether the target supports protected visibility.
+save_CFLAGS="$CFLAGS"
+CFLAGS="$CFLAGS -Werror"
+AC_TRY_COMPILE([void __attribute__((visibility("protected"))) foo(void) { }],
+	       [], libcilkrts_cv_have_attribute_visibility=yes,
+	       libcilkrts_cv_have_attribute_visibility=no)
+CFLAGS="$save_CFLAGS"
+if test $libcilkrts_cv_have_attribute_visibility = yes; then
+  AC_DEFINE(HAVE_ATTRIBUTE_VISIBILITY, 1,
+    [Define to 1 if the target supports __attribute__((visibility(...))).])
+fi
 
 # Get target configury.
 . ${srcdir}/configure.tgt
@@ -152,6 +163,26 @@ AC_SUBST(toolexecdir)
 AC_SUBST(toolexeclibdir)
 
 AC_SUBST(lt_cv_dlopen_libs)
+
+# Check for pthread_{,attr_}[sg]etaffinity_np.
+AC_LINK_IFELSE(
+ [AC_LANG_PROGRAM(
+  [#define _GNU_SOURCE
+   #include <pthread.h>],
+  [cpu_set_t cpuset;
+   pthread_attr_t attr;
+   pthread_getaffinity_np (pthread_self (), sizeof (cpu_set_t), &cpuset);
+   if (CPU_ISSET (0, &cpuset))
+     CPU_SET (1, &cpuset);
+   else
+     CPU_ZERO (&cpuset);
+   pthread_setaffinity_np (pthread_self (), sizeof (cpu_set_t), &cpuset);
+   pthread_attr_init (&attr);
+   pthread_attr_getaffinity_np (&attr, sizeof (cpu_set_t), &cpuset);
+   pthread_attr_setaffinity_np (&attr, sizeof (cpu_set_t), &cpuset);])],
+  AC_DEFINE(HAVE_PTHREAD_AFFINITY_NP, 1,
+[       Define if pthread_{,attr_}{g,s}etaffinity_np is supported.]))
+
 
 # Must be last
 AC_OUTPUT

@@ -1,5 +1,5 @@
 /* Natural loop functions
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -175,6 +175,9 @@ struct GTY ((chain_next ("%h.next"))) loop {
 
   /* True if we should try harder to vectorize this loop.  */
   bool force_vect;
+
+  /* True if this loop should never be vectorized.  */
+  bool dont_vectorize;
 
   /* For SIMD loops, this is a unique identifier of the loop, referenced
      by IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LANE and IFN_GOMP_SIMD_LAST_LANE
@@ -542,48 +545,52 @@ enum li_flags
 
 /* The iterator for loops.  */
 
-typedef struct
+struct loop_iterator
 {
+  loop_iterator (loop_p *loop, unsigned flags);
+  ~loop_iterator ();
+
+  inline loop_p next ();
+
   /* The list of loops to visit.  */
   vec<int> to_visit;
 
   /* The index of the actual loop.  */
   unsigned idx;
-} loop_iterator;
+};
 
-static inline void
-fel_next (loop_iterator *li, loop_p *loop)
+inline loop_p
+loop_iterator::next ()
 {
   int anum;
 
-  while (li->to_visit.iterate (li->idx, &anum))
+  while (this->to_visit.iterate (this->idx, &anum))
     {
-      li->idx++;
-      *loop = get_loop (cfun, anum);
-      if (*loop)
-	return;
+      this->idx++;
+      loop_p loop = get_loop (cfun, anum);
+      if (loop)
+	return loop;
     }
 
-  li->to_visit.release ();
-  *loop = NULL;
+  return NULL;
 }
 
-static inline void
-fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
+inline
+loop_iterator::loop_iterator (loop_p *loop, unsigned flags)
 {
   struct loop *aloop;
   unsigned i;
   int mn;
 
-  li->idx = 0;
+  this->idx = 0;
   if (!current_loops)
     {
-      li->to_visit.create (0);
+      this->to_visit.create (0);
       *loop = NULL;
       return;
     }
 
-  li->to_visit.create (number_of_loops (cfun));
+  this->to_visit.create (number_of_loops (cfun));
   mn = (flags & LI_INCLUDE_ROOT) ? 0 : 1;
 
   if (flags & LI_ONLY_INNERMOST)
@@ -592,7 +599,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 	if (aloop != NULL
 	    && aloop->inner == NULL
 	    && aloop->num >= mn)
-	  li->to_visit.quick_push (aloop->num);
+	  this->to_visit.quick_push (aloop->num);
     }
   else if (flags & LI_FROM_INNERMOST)
     {
@@ -605,7 +612,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
       while (1)
 	{
 	  if (aloop->num >= mn)
-	    li->to_visit.quick_push (aloop->num);
+	    this->to_visit.quick_push (aloop->num);
 
 	  if (aloop->next)
 	    {
@@ -627,7 +634,7 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
       while (1)
 	{
 	  if (aloop->num >= mn)
-	    li->to_visit.quick_push (aloop->num);
+	    this->to_visit.quick_push (aloop->num);
 
 	  if (aloop->inner != NULL)
 	    aloop = aloop->inner;
@@ -642,19 +649,19 @@ fel_init (loop_iterator *li, loop_p *loop, unsigned flags)
 	}
     }
 
-  fel_next (li, loop);
+  *loop = this->next ();
 }
 
-#define FOR_EACH_LOOP(LI, LOOP, FLAGS) \
-  for (fel_init (&(LI), &(LOOP), FLAGS); \
-       (LOOP); \
-       fel_next (&(LI), &(LOOP)))
+inline
+loop_iterator::~loop_iterator ()
+{
+  this->to_visit.release ();
+}
 
-#define FOR_EACH_LOOP_BREAK(LI) \
-  { \
-    (LI).to_visit.release (); \
-    break; \
-  }
+#define FOR_EACH_LOOP(LOOP, FLAGS) \
+  for (loop_iterator li(&(LOOP), FLAGS); \
+       (LOOP); \
+       (LOOP) = li.next ())
 
 /* The properties of the target.  */
 struct target_cfgloop {

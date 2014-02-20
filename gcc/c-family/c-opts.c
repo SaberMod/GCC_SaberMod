@@ -1,5 +1,5 @@
 /* C/ObjC/C++ command line option handling.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Neil Booth.
 
 This file is part of GCC.
@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"		/* For debug_hooks.  */
 #include "opts.h"
 #include "options.h"
+#include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "c-target.h"
 #include "tm.h"			/* For BYTES_BIG_ENDIAN,
@@ -898,6 +899,10 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_function_declaration == -1)
     warn_implicit_function_declaration = flag_isoc99;
 
+  /* Declone C++ 'structors if -Os.  */
+  if (flag_declone_ctor_dtor == -1)
+    flag_declone_ctor_dtor = optimize_size;
+
   if (cxx_dialect >= cxx11)
     {
       /* If we're allowing C++0x constructs, don't warn about C++98
@@ -1396,6 +1401,17 @@ cb_file_change (cpp_reader * ARG_UNUSED (pfile),
     pp_file_change (new_map);
   else
     fe_file_change (new_map);
+
+  if (new_map 
+      && (new_map->reason == LC_ENTER || new_map->reason == LC_RENAME))
+    {
+      /* Signal to plugins that a file is included.  This could happen
+	 several times with the same file path, e.g. because of
+	 several '#include' or '#line' directives...  */
+      invoke_plugin_callbacks 
+	(PLUGIN_INCLUDE_FILE,
+	 const_cast<char*> (ORDINARY_MAP_FILE_NAME (new_map)));
+    }
 
   if (new_map == 0 || (new_map->reason == LC_LEAVE && MAIN_FILE_P (new_map)))
     {

@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,10 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "expr.h"
+#include "calls.h"
 #include "flags.h"
 #include "function.h"
 #include "except.h"
 #include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -34,13 +42,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
 #include "cfgloop.h"
@@ -1380,9 +1388,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   x = gimple_seq_last_stmt (finally);
   finally_loc = x ? gimple_location (x) : tf_loc;
 
-  /* Lower the finally block itself.  */
-  lower_eh_constructs_1 (state, &finally);
-
   /* Prepare for switch statement generation.  */
   nlabels = tf->dest_array.length ();
   return_index = nlabels;
@@ -1468,6 +1473,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   x = gimple_build_label (finally_label);
   gimple_seq_add_stmt (&tf->top_p_seq, x);
 
+  lower_eh_constructs_1 (state, &finally);
   gimple_seq_add_seq (&tf->top_p_seq, finally);
 
   /* Redirect each incoming goto edge.  */
@@ -2604,12 +2610,6 @@ tree_could_trap_p (tree expr)
  restart:
   switch (code)
     {
-    case TARGET_MEM_REF:
-      if (TREE_CODE (TMR_BASE (expr)) == ADDR_EXPR
-	  && !TMR_INDEX (expr) && !TMR_INDEX2 (expr))
-	return false;
-      return !TREE_THIS_NOTRAP (expr);
-
     case COMPONENT_REF:
     case REALPART_EXPR:
     case IMAGPART_EXPR:
@@ -2636,10 +2636,36 @@ tree_could_trap_p (tree expr)
 	return false;
       return !in_array_bounds_p (expr);
 
+    case TARGET_MEM_REF:
     case MEM_REF:
-      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR
+	  && tree_could_trap_p (TREE_OPERAND (TREE_OPERAND (expr, 0), 0)))
+	return true;
+      if (TREE_THIS_NOTRAP (expr))
 	return false;
-      /* Fallthru.  */
+      /* We cannot prove that the access is in-bounds when we have
+         variable-index TARGET_MEM_REFs.  */
+      if (code == TARGET_MEM_REF
+	  && (TMR_INDEX (expr) || TMR_INDEX2 (expr)))
+	return true;
+      if (TREE_CODE (TREE_OPERAND (expr, 0)) == ADDR_EXPR)
+	{
+	  tree base = TREE_OPERAND (TREE_OPERAND (expr, 0), 0);
+	  double_int off = mem_ref_offset (expr);
+	  if (off.is_negative ())
+	    return true;
+	  if (TREE_CODE (base) == STRING_CST)
+	    return double_int::from_uhwi (TREE_STRING_LENGTH (base)).ule (off);
+	  else if (DECL_SIZE_UNIT (base) == NULL_TREE
+		   || TREE_CODE (DECL_SIZE_UNIT (base)) != INTEGER_CST
+		   || tree_to_double_int (DECL_SIZE_UNIT (base)).ule (off))
+	    return true;
+	  /* Now we are sure the first byte of the access is inside
+	     the object.  */
+	  return false;
+	}
+      return true;
+
     case INDIRECT_REF:
       return !TREE_THIS_NOTRAP (expr);
 
@@ -2677,7 +2703,7 @@ tree_could_trap_p (tree expr)
 	 LTO partition.  */
       if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
 	{
-	  struct varpool_node *node;
+	  varpool_node *node;
 	  if (!DECL_EXTERNAL (expr))
 	    return false;
 	  node = varpool_variable_node (varpool_get_node (expr), NULL);
@@ -3296,7 +3322,7 @@ execute_lower_resx (void)
 
   mnt_map = pointer_map_create ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple last = last_stmt (bb);
       if (last && is_gimple_resx (last))
@@ -3566,7 +3592,7 @@ lower_eh_dispatch (basic_block src, gimple stmt)
     {
     case ERT_TRY:
       {
-	vec<tree> labels = vNULL;
+	auto_vec<tree> labels;
 	tree default_label = NULL;
 	eh_catch c;
 	edge_iterator ei;
@@ -3654,8 +3680,6 @@ lower_eh_dispatch (basic_block src, gimple stmt)
 
 	    x = gimple_build_switch (filter, default_label, labels);
 	    gsi_insert_before (&gsi, x, GSI_SAME_STMT);
-
-	    labels.release ();
 	  }
 	pointer_set_destroy (seen_values);
       }
@@ -3704,7 +3728,7 @@ execute_lower_eh_dispatch (void)
 
   assign_filter_values ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple last = last_stmt (bb);
       if (last == NULL)
@@ -3804,7 +3828,7 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
   else
     lp_reachable = NULL;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -4392,8 +4416,11 @@ cleanup_empty_eh (eh_landing_pad lp)
   /* If the block is totally empty, look for more unsplitting cases.  */
   if (gsi_end_p (gsi))
     {
-      /* For the degenerate case of an infinite loop bail out.  */
-      if (infinite_empty_loop_p (e_out))
+      /* For the degenerate case of an infinite loop bail out.
+	 If bb has no successors and is totally empty, which can happen e.g.
+	 because of incorrect noreturn attribute, bail out too.  */
+      if (e_out == NULL
+	  || infinite_empty_loop_p (e_out))
 	return ret;
 
       return ret | cleanup_empty_eh_unsplit (bb, e_out, lp);

@@ -1,5 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,10 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "calls.h"
+#include "expr.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -38,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
-#include "ggc.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
@@ -47,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 
 
@@ -166,7 +173,15 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 		{
 		  minv = minv.max (minc, TYPE_UNSIGNED (type));
 		  maxv = maxv.min (maxc, TYPE_UNSIGNED (type));
-		  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+		  /* If the PHI result range are inconsistent with
+		     the VAR range, give up on looking at the PHI
+		     results.  This can happen if VR_UNDEFINED is
+		     involved.  */
+		  if (minv.cmp (maxv, TYPE_UNSIGNED (type)) > 0)
+		    {
+		      rtype = get_range_info (var, &minv, &maxv);
+		      break;
+		    }
 		}
 	    }
 	}
@@ -493,7 +508,7 @@ bound_difference (struct loop *loop, tree x, tree y, bounds *bnds)
   /* Now walk the dominators of the loop header and use the entry
      guards to refine the estimates.  */
   for (bb = loop->header;
-       bb != ENTRY_BLOCK_PTR && cnt < MAX_DOMINATORS_TO_WALK;
+       bb != ENTRY_BLOCK_PTR_FOR_FN (cfun) && cnt < MAX_DOMINATORS_TO_WALK;
        bb = get_immediate_dominator (CDI_DOMINATORS, bb))
     {
       if (!single_pred_p (bb))
@@ -659,7 +674,7 @@ number_of_iterations_ne_max (mpz_t bnd, bool no_overflow, tree c, tree s,
   if (!no_overflow)
     {
       max = double_int::mask (TYPE_PRECISION (type)
-			      - tree_low_cst (num_ending_zeros (s), 1));
+			      - tree_to_uhwi (num_ending_zeros (s)));
       mpz_set_double_int (bnd, max, true);
       return;
     }
@@ -748,7 +763,7 @@ number_of_iterations_ne (tree type, affine_iv *iv, tree final,
   bits = num_ending_zeros (s);
   bound = build_low_bits_mask (niter_type,
 			       (TYPE_PRECISION (niter_type)
-				- tree_low_cst (bits, 1)));
+				- tree_to_uhwi (bits)));
 
   d = fold_binary_to_constant (LSHIFT_EXPR, niter_type,
 			       build_int_cst (niter_type, 1), bits);
@@ -1296,7 +1311,7 @@ dump_affine_iv (FILE *file, affine_iv *iv)
    if EVERY_ITERATION is true, we know the test is executed on every iteration.
 
    The results (number of iterations and assumptions as described in
-   comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
+   comments at struct tree_niter_desc in tree-ssa-loop.h) are stored to NITER.
    Returns false if it fails to determine number of iterations, true if it
    was determined (possibly with some assumptions).  */
 
@@ -1778,7 +1793,7 @@ simplify_using_initial_conditions (struct loop *loop, tree expr)
      the number of BBs times the number of loops in degenerate
      cases.  */
   for (bb = loop->header;
-       bb != ENTRY_BLOCK_PTR && cnt < MAX_DOMINATORS_TO_WALK;
+       bb != ENTRY_BLOCK_PTR_FOR_FN (cfun) && cnt < MAX_DOMINATORS_TO_WALK;
        bb = get_immediate_dominator (CDI_DOMINATORS, bb))
     {
       if (!single_pred_p (bb))
@@ -2160,7 +2175,8 @@ chain_of_csts_start (struct loop *loop, tree x)
       return NULL;
     }
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN
+      || gimple_assign_rhs_class (stmt) == GIMPLE_TERNARY_RHS)
     return NULL;
 
   code = gimple_assign_rhs_code (stmt);
@@ -2228,7 +2244,7 @@ get_val_for (tree x, tree base)
 {
   gimple stmt;
 
-  gcc_assert (is_gimple_min_invariant (base));
+  gcc_checking_assert (is_gimple_min_invariant (base));
 
   if (!x)
     return base;
@@ -2237,7 +2253,7 @@ get_val_for (tree x, tree base)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return base;
 
-  gcc_assert (is_gimple_assign (stmt));
+  gcc_checking_assert (is_gimple_assign (stmt));
 
   /* STMT must be either an assignment of a single SSA name or an
      expression involving an SSA name and a constant.  Try to fold that
@@ -3583,14 +3599,13 @@ estimated_stmt_executions (struct loop *loop, double_int *nit)
 void
 estimate_numbers_of_iterations (void)
 {
-  loop_iterator li;
   struct loop *loop;
 
   /* We don't want to issue signed overflow warnings while getting
      loop iteration estimates.  */
   fold_defer_overflow_warnings ();
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       estimate_numbers_of_iterations_loop (loop);
     }
@@ -3860,10 +3875,9 @@ free_numbers_of_iterations_estimates_loop (struct loop *loop)
 void
 free_numbers_of_iterations_estimates (void)
 {
-  loop_iterator li;
   struct loop *loop;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       free_numbers_of_iterations_estimates_loop (loop);
     }

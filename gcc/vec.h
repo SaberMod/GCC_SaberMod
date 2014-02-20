@@ -1,5 +1,5 @@
 /* Vector API for GNU compiler.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
    Re-implemented in C++ by Diego Novillo <dnovillo@google.com>
 
@@ -218,6 +218,7 @@ struct vec_prefix
   void register_overhead (size_t, const char *, int, const char *);
   void release_overhead (void);
   static unsigned calculate_allocation (vec_prefix *, unsigned, bool);
+  static unsigned calculate_allocation_1 (unsigned, unsigned);
 
   /* Note that vec_prefix should be a base class for vec, but we use
      offsetof() on vector fields of tree structures (e.g.,
@@ -233,9 +234,24 @@ struct vec_prefix
   friend struct va_heap;
 
   unsigned m_alloc : 31;
-  unsigned m_has_auto_buf : 1;
+  unsigned m_using_auto_storage : 1;
   unsigned m_num;
 };
+
+/* Calculate the number of slots to reserve a vector, making sure that
+   RESERVE slots are free.  If EXACT grow exactly, otherwise grow
+   exponentially.  PFX is the control data for the vector.  */
+
+inline unsigned
+vec_prefix::calculate_allocation (vec_prefix *pfx, unsigned reserve,
+				  bool exact)
+{
+  if (exact)
+    return (pfx ? pfx->m_num : 0) + reserve;
+  else if (!pfx)
+    return MAX (4, reserve);
+  return calculate_allocation_1 (pfx->m_alloc, pfx->m_num + reserve);
+}
 
 template<typename, typename, typename> struct vec;
 
@@ -283,7 +299,7 @@ va_heap::reserve (vec<T, va_heap, vl_embed> *&v, unsigned reserve, bool exact
 {
   unsigned alloc
     = vec_prefix::calculate_allocation (v ? &v->m_vecpfx : 0, reserve, exact);
-  gcc_assert (alloc);
+  gcc_checking_assert (alloc);
 
   if (GATHER_STATISTICS && v)
     v->m_vecpfx.release_overhead ();
@@ -476,9 +492,10 @@ public:
   void unordered_remove (unsigned);
   void block_remove (unsigned, unsigned);
   void qsort (int (*) (const void *, const void *));
+  T *bsearch (const void *key, int (*compar)(const void *, const void *));
   unsigned lower_bound (T, bool (*)(const T &, const T &)) const;
   static size_t embedded_size (unsigned);
-  void embedded_init (unsigned, unsigned = 0);
+  void embedded_init (unsigned, unsigned = 0, unsigned = 0);
   void quick_grow (unsigned len);
   void quick_grow_cleared (unsigned len);
 
@@ -678,9 +695,9 @@ vec_safe_truncate (vec<T, A, vl_embed> *v, unsigned size)
 /* If SRC is not NULL, return a pointer to a copy of it.  */
 template<typename T, typename A>
 inline vec<T, A, vl_embed> *
-vec_safe_copy (vec<T, A, vl_embed> *src)
+vec_safe_copy (vec<T, A, vl_embed> *src CXX_MEM_STAT_INFO)
 {
-  return src ? src->copy () : NULL;
+  return src ? src->copy (ALONE_PASS_MEM_STAT) : NULL;
 }
 
 /* Copy the elements from SRC to the end of DST as if by memcpy.
@@ -938,7 +955,43 @@ template<typename T, typename A>
 inline void
 vec<T, A, vl_embed>::qsort (int (*cmp) (const void *, const void *))
 {
-  ::qsort (address (), length (), sizeof (T), cmp);
+  if (length () > 1)
+    ::qsort (address (), length (), sizeof (T), cmp);
+}
+
+
+/* Search the contents of the sorted vector with a binary search.
+   CMP is the comparison function to pass to bsearch.  */
+
+template<typename T, typename A>
+inline T *
+vec<T, A, vl_embed>::bsearch (const void *key,
+			      int (*compar) (const void *, const void *))
+{
+  const void *base = this->address ();
+  size_t nmemb = this->length ();
+  size_t size = sizeof (T);
+  /* The following is a copy of glibc stdlib-bsearch.h.  */
+  size_t l, u, idx;
+  const void *p;
+  int comparison;
+
+  l = 0;
+  u = nmemb;
+  while (l < u)
+    {
+      idx = (l + u) / 2;
+      p = (const void *) (((const char *) base) + (idx * size));
+      comparison = (*compar) (key, p);
+      if (comparison < 0)
+	u = idx;
+      else if (comparison > 0)
+	l = idx + 1;
+      else
+	return (T *)const_cast<void *>(p);
+    }
+
+  return NULL;
 }
 
 
@@ -1000,10 +1053,10 @@ vec<T, A, vl_embed>::embedded_size (unsigned alloc)
 
 template<typename T, typename A>
 inline void
-vec<T, A, vl_embed>::embedded_init (unsigned alloc, unsigned num)
+vec<T, A, vl_embed>::embedded_init (unsigned alloc, unsigned num, unsigned aut)
 {
   m_vecpfx.m_alloc = alloc;
-  m_vecpfx.m_has_auto_buf = 0;
+  m_vecpfx.m_using_auto_storage = aut;
   m_vecpfx.m_num = num;
 }
 
@@ -1174,6 +1227,7 @@ public:
   void unordered_remove (unsigned);
   void block_remove (unsigned, unsigned);
   void qsort (int (*) (const void *, const void *));
+  T *bsearch (const void *key, int (*compar)(const void *, const void *));
   unsigned lower_bound (T, bool (*)(const T &, const T &)) const;
 
   bool using_auto_storage () const;
@@ -1184,31 +1238,41 @@ public:
 };
 
 
-/* stack_vec is a subclass of vec containing N elements of internal storage.
-  You probably only want to allocate this on the stack because if the array
-  ends up being larger or much smaller than N it will be wasting space. */
-template<typename T, size_t N>
-class stack_vec : public vec<T, va_heap>
+/* auto_vec is a subclass of vec that automatically manages creating and
+   releasing the internal vector. If N is non zero then it has N elements of
+   internal storage.  The default is no internal storage, and you probably only
+   want to ask for internal storage for vectors on the stack because if the
+   size of the vector is larger than the internal storage that space is wasted.
+   */
+template<typename T, size_t N = 0>
+class auto_vec : public vec<T, va_heap>
 {
 public:
-  stack_vec ()
+  auto_vec ()
   {
-    m_header.m_alloc = N;
-    m_header.m_has_auto_buf = 1;
-    m_header.m_num = 0;
-    this->m_vec = reinterpret_cast<vec<T, va_heap, vl_embed> *> (&m_header);
+    m_auto.embedded_init (MAX (N, 2), 0, 1);
+    this->m_vec = &m_auto;
   }
 
-  ~stack_vec ()
+  ~auto_vec ()
   {
     this->release ();
   }
 
 private:
-  friend class vec<T, va_heap, vl_ptr>;
+  vec<T, va_heap, vl_embed> m_auto;
+  T m_data[MAX (N - 1, 1)];
+};
 
-  vec_prefix m_header;
-  T m_data[N];
+/* auto_vec is a sub class of vec whose storage is released when it is
+  destroyed. */
+template<typename T>
+class auto_vec<T, 0> : public vec<T, va_heap>
+{
+public:
+  auto_vec () { this->m_vec = NULL; }
+  auto_vec (size_t n) { this->create (n); }
+  ~auto_vec () { this->release (); }
 };
 
 
@@ -1344,7 +1408,7 @@ template<typename T>
 inline bool
 vec<T, va_heap, vl_ptr>::reserve (unsigned nelems, bool exact MEM_STAT_DECL)
 {
-  if (!nelems || space (nelems))
+  if (space (nelems))
     return false;
 
   /* For now play a game with va_heap::reserve to hide our auto storage if any,
@@ -1410,7 +1474,7 @@ vec<T, va_heap, vl_ptr>::release (void)
 
   if (using_auto_storage ())
     {
-      static_cast<stack_vec<T, 1> *> (this)->m_header.m_num = 0;
+      m_vec->m_vecpfx.m_num = 0;
       return;
     }
 
@@ -1621,6 +1685,20 @@ vec<T, va_heap, vl_ptr>::qsort (int (*cmp) (const void *, const void *))
 }
 
 
+/* Search the contents of the sorted vector with a binary search.
+   CMP is the comparison function to pass to bsearch.  */
+
+template<typename T>
+inline T *
+vec<T, va_heap, vl_ptr>::bsearch (const void *key,
+				  int (*cmp) (const void *, const void *))
+{
+  if (m_vec)
+    return m_vec->bsearch (key, cmp);
+  return NULL;
+}
+
+
 /* Find and return the first position in which OBJ could be inserted
    without changing the ordering of this vector.  LESSTHAN is a
    function that returns true if the first argument is strictly less
@@ -1639,12 +1717,7 @@ template<typename T>
 inline bool
 vec<T, va_heap, vl_ptr>::using_auto_storage () const
 {
-  if (!m_vec->m_vecpfx.m_has_auto_buf)
-    return false;
-
-  const vec_prefix *auto_header
-    = &static_cast<const stack_vec<T, 1> *> (this)->m_header;
-  return reinterpret_cast<vec_prefix *> (m_vec) == auto_header;
+  return m_vec->m_vecpfx.m_using_auto_storage;
 }
 
 #if (GCC_VERSION >= 3000)

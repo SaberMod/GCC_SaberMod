@@ -1,5 +1,5 @@
 /* Gimple Represented as Polyhedra.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@inria.fr>.
 
 This file is part of GCC.
@@ -48,6 +48,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
@@ -89,7 +94,7 @@ print_global_statistics (FILE* file)
 
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator psi;
 
@@ -145,7 +150,7 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator psi;
       loop_p loop = bb->loop_father;
@@ -208,7 +213,8 @@ graphite_initialize (isl_ctx *ctx)
   if (number_of_loops (cfun) <= 1
       /* FIXME: This limit on the number of basic blocks of a function
 	 should be removed when the SCOP detection is faster.  */
-      || n_basic_blocks > PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION))
+      || (n_basic_blocks_for_fn (cfun) >
+	  PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION)))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	print_global_statistics (dump_file);
@@ -239,7 +245,7 @@ graphite_finalize (bool need_cfg_cleanup_p)
     {
       scev_reset ();
       cleanup_tree_cfg ();
-      profile_status = PROFILE_ABSENT;
+      profile_status_for_fn (cfun) = PROFILE_ABSENT;
       release_recorded_exits ();
       tree_estimate_probability ();
     }

@@ -1,5 +1,5 @@
 /* SSA Dominator optimizations for trees
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -24,18 +24,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "domwalk.h"
@@ -787,7 +795,7 @@ free_all_edge_infos (void)
   edge_iterator ei;
   edge e;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
         {
@@ -858,7 +866,7 @@ tree_ssa_dominator_optimize (void)
   {
     gimple_stmt_iterator gsi;
     basic_block bb;
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       {
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  update_stmt_if_modified (gsi_stmt (gsi));
@@ -894,13 +902,13 @@ tree_ssa_dominator_optimize (void)
 	 iterator.  */
       EXECUTE_IF_SET_IN_BITMAP (need_eh_cleanup, 0, i, bi)
 	{
-	  basic_block bb = BASIC_BLOCK (i);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
 	  if (bb == NULL)
 	    continue;
 	  while (single_succ_p (bb)
 		 && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
 	    bb = single_succ (bb);
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 	  if ((unsigned) bb->index != i)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
@@ -1785,7 +1793,7 @@ record_edge_info (basic_block bb)
 	    {
 	      int i;
               int n_labels = gimple_switch_num_labels (stmt);
-	      tree *info = XCNEWVEC (tree, last_basic_block);
+	      tree *info = XCNEWVEC (tree, last_basic_block_for_fn (cfun));
 	      edge e;
 	      edge_iterator ei;
 
@@ -3052,7 +3060,8 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
+  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (cfun),
+			       interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by

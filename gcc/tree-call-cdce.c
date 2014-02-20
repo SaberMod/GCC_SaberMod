@@ -1,5 +1,5 @@
 /* Conditional Dead Call Elimination pass for the GNU compiler.
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Xinliang David Li <davidxl@google.com>
 
 This file is part of GCC.
@@ -24,11 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "basic-block.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
@@ -721,7 +727,7 @@ shrink_wrap_one_built_in_call (gimple bi_call)
   tree bi_call_label_decl;
   gimple bi_call_label;
 
-  stack_vec<gimple, 12> conds;
+  auto_vec<gimple, 12> conds;
   gen_shrink_wrap_conditions (bi_call, conds, &nconds);
 
   /* This can happen if the condition generator decides
@@ -869,8 +875,8 @@ tree_call_cdce (void)
   basic_block bb;
   gimple_stmt_iterator i;
   bool something_changed = false;
-  vec<gimple> cond_dead_built_in_calls = vNULL;
-  FOR_EACH_BB (bb)
+  auto_vec<gimple> cond_dead_built_in_calls;
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* Collect dead call candidates.  */
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
@@ -897,8 +903,6 @@ tree_call_cdce (void)
 
   something_changed
     = shrink_wrap_conditional_dead_built_in_calls (cond_dead_built_in_calls);
-
-  cond_dead_built_in_calls.release ();
 
   if (something_changed)
     {

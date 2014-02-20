@@ -1,5 +1,5 @@
 /* Nested function decomposition for GIMPLE.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -22,10 +22,18 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -36,7 +44,6 @@
 #include "tree-cfg.h"
 #include "expr.h"	/* FIXME: For STACK_SAVEAREA_MODE and SAVE_NONLOCAL.  */
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "gimple-low.h"
 
 
@@ -1324,6 +1331,25 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       if (!optimize && gimple_bind_block (stmt))
 	note_nonlocal_block_vlas (info, gimple_bind_block (stmt));
 
+      for (tree var = gimple_bind_vars (stmt); var; var = DECL_CHAIN (var))
+	if (TREE_CODE (var) == NAMELIST_DECL)
+	  {
+	    /* Adjust decls mentioned in NAMELIST_DECL.  */
+	    tree decls = NAMELIST_DECL_ASSOCIATED_DECL (var);
+	    tree decl;
+	    unsigned int i;
+
+	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (decls), i, decl)
+	      {
+		if (TREE_CODE (decl) == VAR_DECL
+		    && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+		  continue;
+		if (decl_function_context (decl) != info->context)
+		  CONSTRUCTOR_ELT (decls, i)->value
+		    = get_nonlocal_debug_decl (info, decl);
+	      }
+	  }
+
       *handled_ops_p = false;
       return NULL_TREE;
 
@@ -1777,6 +1803,36 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	      break;
 	    }
 	}
+      *handled_ops_p = false;
+      return NULL_TREE;
+
+    case GIMPLE_BIND:
+      for (tree var = gimple_bind_vars (stmt); var; var = DECL_CHAIN (var))
+	if (TREE_CODE (var) == NAMELIST_DECL)
+	  {
+	    /* Adjust decls mentioned in NAMELIST_DECL.  */
+	    tree decls = NAMELIST_DECL_ASSOCIATED_DECL (var);
+	    tree decl;
+	    unsigned int i;
+
+	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (decls), i, decl)
+	      {
+		if (TREE_CODE (decl) == VAR_DECL
+		    && (TREE_STATIC (decl) || DECL_EXTERNAL (decl)))
+		  continue;
+		if (decl_function_context (decl) == info->context
+		    && !use_pointer_in_frame (decl))
+		  {
+		    tree field = lookup_field_for_decl (info, decl, NO_INSERT);
+		    if (field)
+		      {
+			CONSTRUCTOR_ELT (decls, i)->value
+			  = get_local_debug_decl (info, decl, field);
+		      }
+		  }
+	      }
+	  }
+
       *handled_ops_p = false;
       return NULL_TREE;
 

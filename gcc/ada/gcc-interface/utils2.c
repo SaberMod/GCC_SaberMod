@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,6 +28,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -626,7 +629,7 @@ nonbinary_modular_operation (enum tree_code op_code, tree type, tree lhs,
 static unsigned int
 resolve_atomic_size (tree type)
 {
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+  unsigned HOST_WIDE_INT size = tree_to_uhwi (TYPE_SIZE_UNIT (type));
 
   if (size == 1 || size == 2 || size == 4 || size == 8 || size == 16)
     return size;
@@ -1712,7 +1715,8 @@ build_call_raise (int msg, Node_Id gnat_node, char kind)
   filename = build_string (len, str);
   line_number
     = (gnat_node != Empty && Sloc (gnat_node) != No_Location)
-      ? Get_Logical_Line_Number (Sloc(gnat_node)) : input_line;
+      ? Get_Logical_Line_Number (Sloc(gnat_node))
+      : LOCATION_LINE (input_location);
 
   TREE_TYPE (filename) = build_array_type (unsigned_char_type_node,
 					   build_index_type (size_int (len)));
@@ -1758,7 +1762,7 @@ build_call_raise_range (int msg, Node_Id gnat_node,
     }
   else
     {
-      line_number = input_line;
+      line_number = LOCATION_LINE (input_location);
       column_number = 0;
     }
 
@@ -1808,7 +1812,7 @@ build_call_raise_column (int msg, Node_Id gnat_node)
     }
   else
     {
-      line_number = input_line;
+      line_number = LOCATION_LINE (input_location);
       column_number = 0;
     }
 
@@ -1846,6 +1850,7 @@ tree
 gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
 {
   bool allconstant = (TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST);
+  bool read_only = true;
   bool side_effects = false;
   tree result, obj, val;
   unsigned int n_elmts;
@@ -1863,6 +1868,9 @@ gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
 	  || !initializer_constant_valid_p (val, TREE_TYPE (val)))
 	allconstant = false;
 
+      if (!TREE_READONLY (val))
+	read_only = false;
+
       if (TREE_SIDE_EFFECTS (val))
 	side_effects = true;
     }
@@ -1877,7 +1885,7 @@ gnat_build_constructor (tree type, vec<constructor_elt, va_gc> *v)
   CONSTRUCTOR_NO_CLEARING (result) = 1;
   TREE_CONSTANT (result) = TREE_STATIC (result) = allconstant;
   TREE_SIDE_EFFECTS (result) = side_effects;
-  TREE_READONLY (result) = TYPE_READONLY (type) || allconstant;
+  TREE_READONLY (result) = TYPE_READONLY (type) || read_only || allconstant;
   return result;
 }
 
@@ -2810,7 +2818,7 @@ object:
   if (!TREE_READONLY (t))
     return NULL_TREE;
 
-  if (TREE_CODE (t) == PARM_DECL)
+  if (TREE_CODE (t) == CONSTRUCTOR || TREE_CODE (t) == PARM_DECL)
     return fold_convert (type, expr);
 
   if (TREE_CODE (t) == VAR_DECL

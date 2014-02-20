@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "target.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -31,6 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -742,6 +749,10 @@ lto_handle_option (size_t scode, const char *arg,
       warn_psabi = value;
       break;
 
+    case OPT_fwpa:
+      flag_wpa = value ? "" : NULL;
+      break;
+
     default:
       break;
     }
@@ -1068,11 +1079,14 @@ lto_getdecls (void)
 static void
 lto_write_globals (void)
 {
-  tree *vec = lto_global_var_decls->address ();
-  int len = lto_global_var_decls->length ();
-  wrapup_global_declarations (vec, len);
-  emit_debug_global_declarations (vec, len);
-  vec_free (lto_global_var_decls);
+  if (flag_wpa)
+    return;
+
+  /* Output debug info for global variables.  */  
+  varpool_node *vnode;
+  FOR_EACH_DEFINED_VARIABLE (vnode)
+    if (!decl_function_context (vnode->decl))
+      debug_hooks->global_decl (vnode->decl);
 }
 
 static tree
@@ -1141,7 +1155,7 @@ static bool
 lto_init (void)
 {
   /* We need to generate LTO if running in WPA mode.  */
-  flag_generate_lto = flag_wpa;
+  flag_generate_lto = (flag_wpa != NULL);
 
   /* Create the basic integer types.  */
   build_common_tree_nodes (flag_signed_char, /*short_double=*/false);
@@ -1176,7 +1190,7 @@ lto_init (void)
 			   build_reference_type (va_list_type_node));
     }
   
-  if (flag_enable_cilkplus)
+  if (flag_cilkplus)
     cilk_init_builtins ();
 
   targetm.init_builtins ();
@@ -1211,7 +1225,6 @@ lto_init (void)
 #undef NAME_TYPE
 
   /* Initialize LTO-specific data structures.  */
-  vec_alloc (lto_global_var_decls, 256);
   in_lto_p = true;
 
   return true;
@@ -1301,6 +1314,5 @@ lto_tree_node_structure (union lang_tree_node *t ATTRIBUTE_UNUSED)
   return TS_LTO_GENERIC;
 }
 
-#include "ggc.h"
 #include "gtype-lto.h"
 #include "gt-lto-lto-lang.h"

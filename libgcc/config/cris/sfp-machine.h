@@ -1,5 +1,5 @@
 /* Soft-FP definitions for CRIS.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -66,6 +66,9 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
       }								\
     R##_c = FP_CLS_NAN;						\
   } while (0)
+
+/* Not checked.  */
+#define _FP_TININESS_AFTER_ROUNDING 0
 
 #define	__LITTLE_ENDIAN	1234
 #define	__BIG_ENDIAN	4321

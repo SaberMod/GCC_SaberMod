@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -154,13 +154,6 @@ test01()
   sz04 = str02.size();  
   VERIFY( sz03 >= sz04 );
 }
-
-#if !__GXX_WEAK__
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template 
-  const std::experimental::basic_string_view<A<B>>::size_type 
-  std::experimental::basic_string_view<A<B>>::_S_max_size;
-#endif
 
 int
 main()

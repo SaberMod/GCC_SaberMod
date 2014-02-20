@@ -1,3 +1,311 @@
+2014-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/60101
+	* c-common.c (merge_tlist): If copy is true, call new_tlist,
+	if false, add ADD itself, rather than vice versa.
+	(verify_tree): For COND_EXPR, don't call merge_tlist with non-zero
+	copy.  For SAVE_EXPR, only call merge_tlist once.
+
+2014-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/60092
+	* c-common.c (handle_alloc_size_attribute): Use tree_fits_uhwi_p
+	and tree_to_uhwi.
+	(handle_alloc_align_attribute, handle_assume_aligned_attribute): New
+	functions.
+	(c_common_attribute_table): Add alloc_align and assume_aligned
+	attributes.
+
+2014-02-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60087
+	* c-common.c (warn_for_sign_compare): Call warning_at with location
+	instead of warning.
+
+2014-02-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/53123
+	* c-omp.c (c_finish_omp_atomic): Remove unreachable return
+	statement.
+
+2014-02-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60036
+	* c-common.c (conversion_warning): Unwrap C_MAYBE_CONST_EXPR and/or
+	SAVE_EXPR.
+
+2014-02-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53017
+	PR c++/59211
+	* c-common.c (handle_aligned_attribute, handle_alloc_size_attribute,
+	handle_vector_size_attribute, handle_nonnull_attribute): Call
+	default_conversion on the attribute argument.
+	(handle_nonnull_attribute): Increment the argument number.
+
+2014-01-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59963
+	* c-common.c (add_atomic_size_parameter): Pass vNULL to
+	build_function_call_vec.
+	(resolve_overloaded_builtin): Likewise.
+	* c-common.h (build_function_call_vec): Adjust declaration.
+
+2014-01-30  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59940
+	* c-common.h (unsafe_conversion_p): Adjust declaration.
+	(warnings_for_convert_and_check): Likewise.
+	(convert_and_check): Likewise.
+	* c-common.c (unsafe_conversion_p): Add location parameter.  Call
+	expansion_point_location_if_in_system_header on it.
+	(warnings_for_convert_and_check): Add location parameter.  Call
+	expansion_point_location_if_in_system_header on it.  Use it.
+	(convert_and_check): Add location parameter.  Use it.
+	(conversion_warning): Likewise.
+	(c_add_case_label): Adjust convert_and_check calls.
+	(scalar_to_vector): Adjust unsafe_conversion_p calls.
+
+2014-01-24  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-common.c (c_define_builtins): Replaced flag_enable_cilkplus with
+	flag_cilkplus.
+	* c-pragma.c (init_pragma): Likewise.
+	* c.opt: Likewise.
+
+2014-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59846
+	* c-common.c (shorten_compare): Add location_t parameter.
+	* c-common.h (shorten_binary_op): Adjust declaration.
+
+2014-01-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58346
+	* c-common.c (pointer_to_zero_sized_aggr_p): New function.
+	* c-common.h: Declare it.
+
+2014-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.h (dump_ada_specs): Revert prototype change.
+	* c-ada-spec.c (dump_ads): Likewise.
+	(cpp_check): Likewise.
+	(dump_ada_specs): Likewise.
+
+2014-01-15  Laurent Alfonsi  <laurent.alfonsi@st.com>
+
+	PR c++/49718
+	* c-common.c (handle_no_instrument_function_attribute): Allow
+	no_instrument_function attribute in class member
+	definition/declaration.
+
+2014-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/58943
+	* c-omp.c (c_finish_omp_atomic): Set in_late_binary_op around
+	build_modify_expr with non-NOP_EXPR opcode.  Handle return from it
+	being COMPOUND_EXPR.
+	(c_finish_omp_for): Handle incr being COMPOUND_EXPR with first
+	operand a SAVE_EXPR and second MODIFY_EXPR.
+
+2014-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58115
+	* c-pch.c (c_common_write_pch): Call
+	prepare_target_option_nodes_for_pch.
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Update copyright years
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* array-notation-common.c, c-cilkplus.c: Use the standard form for
+	the copyright notice.
+
+2013-12-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.c (print_constructor): New function.
+	(print_destructor): Retrieve the origin of the destructor.
+	(print_ada_declaration): Revamp handling of constructors/destructors.
+
+2013-12-23  Stuart Hastings <stuart@apple.com>
+	    Bill Maddox  <maddox@google.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	* c.opt: Add -fdeclone-ctor-dtor.
+	* c-opts.c (c_common_post_options): Default to on iff -Os.
+
+2013-12-18  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* c-common.c (c_common_attribute_table): Added "cilk simd function"
+	attribute.
+	* c-pragma.h (enum pragma_cilk_clause): Remove.
+	(enum pragma_omp_clause):  Added the following fields:
+	PRAGMA_CILK_CLAUSE_NOMASK, PRAGMA_CILK_CLAUSE_MASK,
+	PRAGMA_CILK_CLAUSE_VECTORLENGTH, PRAGMA_CILK_CLAUSE_NONE,
+	PRAGMA_CILK_CLAUSE_LINEAR, PRAGMA_CILK_CLAUSE_PRIVATE,
+	PRAGMA_CILK_CLAUSE_FIRSTPRIVATE, PRAGMA_CILK_CLAUSE_LASTPRIVATE,
+	PRAGMA_CILK_CLAUSE_UNIFORM.
+
+	
+2013-12-11  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* cilk.c (cilk_outline): Made this function non-static.
+	(gimplify_cilk_spawn): Removed pre_p and post_p arguments.
+	(create_cilk_wrapper): Added a new parameter: a function pointer.
+	(c_install_body_w_frame_cleanup): Remove
+	(extract_free_variables): Added VEC_INIT_EXPR and CONSTRUCTOR case.
+	* c-common.h (cilk_outline): New prototype.
+	(gimplify_cilk_spawn): Removed two parameters.
+	(cilk_install_body_with_frame_cleanup): New prototype.
+	* c-gimplify.c (c_gimplify_expr): Added MODIFY_EXPR, CALL_EXPR and
+	CILK_SPAWN_STMT case.
+
+2013-12-11  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* c-common.c (c_fully_fold_internal): Handle ADDR_SPACE_CONVERT_EXPR.
+
+	* c-common.h (enum c_tree_index): Remove CTI_INT_ARRAY_TYPE.
+	(int_array_type_node): Remove.
+	* c-common.c (c_common_nodes_and_builtins): Don't build it.
+
+2013-12-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/52023
+	* c-common.c (c_sizeof_or_alignof_type): Move a declaration into
+	[ADJUST_FIELD_ALIGN].
+
+2013-12-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/52023
+	* c-common.c (c_sizeof_or_alignof_type): Add parameter min_alignof
+	and check field alignment if set.
+	* c-common.h (c_sizeof_or_alignof_type): Update prototype.
+	(c_sizeof, c_alignof): Update calls to c_sizeof_or_alignof_type.
+
+2013-12-04  Jakub Jelinek  <jakub@redhat.com>  
+	    Marek Polacek  <polacek@redhat.com>
+
+	* c-gimplify.c (c_gimplify_expr): If doing the integer-overflow
+	sanitization, call unsigned_type_for only when !TYPE_OVERFLOW_WRAPS.
+
+2013-11-29   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR c/59309
+	* cilk.c (gimplify_cilk_spawn): Properly handle function without
+	arguments.
+
+2013-11-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/59280
+	* c-common.c (get_priority): If TREE_VALUE (args) is IDENTIFIER_NODE,
+	goto invalid.  If it is error_mark_node, don't issue further
+	diagnostics.
+
+2013-11-28  Sergey Ostanevich  <sergos.gnu@gmail.com>
+
+	* c.opt (Wopenmp-simd): New.
+
+2013-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-ubsan.h (ubsan_instrument_return): New prototype.
+	* c-ubsan.c (ubsan_instrument_return): New function.
+
+2013-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* c-common.c: Add required include files from gimple.h.
+	* c-gimplify.c: Likewise
+	* cilk.c: Likewise
+
+2013-11-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (unsafe_conversion_p): Remove use of
+	EXPR_LOC_OR_HERE macro.
+	(conversion_warning): Likewise.
+	(warnings_for_convert_and_check): Likewise.
+	(warn_for_collisions_1): Likewise.
+	(shorten_compare): Likewise, and remove use of in_system_header
+	macro, using the location from the former.
+	* c-lex.c (dump_one_header): Remove use of input_filename macro.
+	(cb_def_pragma): Remove use of in_system_header macro.
+	(lex_string): Likewise.
+	* c-pragma.c (handle_pragma_float_const_decimal64): Likewise.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c (is_simple_enum): Use tree_to_shwi and tree_to_uhwi
+	instead of TREE_INT_CST_LOW, in cases where there is a protecting
+	tree_fits_shwi_p or tree_fits_uhwi_p.
+	(dump_generic_ada_node): Likewise.
+	* c-format.c (check_format_arg): Likewise.
+	* c-pretty-print.c (pp_c_integer_constant): Likewise.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* c-common.c (check_function_arguments_recurse): Use tree_to_uhwi.
+
+2013-11-19  Joshua J Cogliati  <jrincayc@yahoo.com>
+
+	PR c/53001
+	* c-common.c (unsafe_conversion_p): Make this function
+	return an enumeration with more detail.
+	(conversion_warning): Use the new return type of
+	unsafe_conversion_p to separately warn either about conversions
+	that lower floating point number precision or about the other
+	kinds of conversions.
+	* c-common.h (enum conversion_safety): New enumeration.
+ 	(unsafe_conversion_p): switching return type to
+ 	conversion_safety enumeration.
+	* c.opt: Adding new warning -Wfloat-conversion and
+	enabling it with -Wconversion.
+
+2013-11-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+        * c-opts.c: Include plugin.h.
+        (cb_file_change): Invoke plugin event PLUGIN_INCLUDE_FILE.
+
+2013-11-19  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_division): Adjust ubsan_create_data
+	call.
+	(ubsan_instrument_shift): Likewise.
+	(ubsan_instrument_vla): Likewise.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c (convert_vector_to_pointer_for_subscript): Remove
+	cast to unsigned type.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c (fold_offsetof_1): Use tree_to_uhwi rather than
+	tree_low_cst.
+	(complete_array_type): Update comment to refer to tree_to_[su]hwi
+	rather than tree_low_cst.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c, c-cppbuiltin.c: Replace tree_low_cst (..., 1) with
+	tree_to_uhwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-common.c, c-format.c, c-omp.c, c-pretty-print.c: Replace
+	tree_low_cst (..., 0) with tree_to_shwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c, c-common.c, c-pretty-print.c: Replace
+	host_integerp (..., 1) with tree_fits_uhwi_p throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-ada-spec.c, c-common.c, c-format.c, c-pretty-print.c: Replace
+	host_integerp (..., 0) with tree_fits_shwi_p throughout.
+
 2013-11-15  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-cilkplus.c: New file.
@@ -23,6 +331,29 @@
 	* c-common.c: Likewise.
 	* c-gimplify.c: Likewise.
 	* cilk.c: Likewise.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* c-common.c: Include fold-const.h.
+	Include stor-layout.h.
+	Include calls.h.
+	Include stringpool.h.
+	Include attribs.h.
+	Include varasm.h.
+	Include trans-mem.h.
+	* c-cppbuiltin.c: Include stor-layout.h.
+	Include stringpool.h.
+	* c-format.c: Include stringpool.h.
+	* c-lex.c: Include stringpool.h.
+	Include stor-layout.h.
+	* c-pragma.c: Include stringpool.h.
+	Include attribs.h.
+	Include varasm.h.
+	Include gcc-symtab.h.
+	* c-pretty-print.c: Include stor-layout.h.
+	Include attribs.h.
+	* cilk.c: Include stringpool.h.
+	Include calls.h.
 
 2013-11-13  Joseph Myers  <joseph@codesourcery.com>
 
@@ -3162,7 +3493,7 @@
 	* c-common.c: Include gt-c-family-c-common.h.
 	* c-pragma.c: Include gt-c-family-c-pragma.h.
 
-Copyright (C) 2010-2013 Free Software Foundation, Inc.
+Copyright (C) 2010-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

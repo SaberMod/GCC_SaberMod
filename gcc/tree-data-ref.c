@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -77,7 +77,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "expr.h"
 #include "gimple-pretty-print.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop-niter.h"
@@ -2838,16 +2844,16 @@ gcd_of_steps_may_divide_p (const_tree chrec, const_tree cst)
   HOST_WIDE_INT cd = 0, val;
   tree step;
 
-  if (!host_integerp (cst, 0))
+  if (!tree_fits_shwi_p (cst))
     return true;
-  val = tree_low_cst (cst, 0);
+  val = tree_to_shwi (cst);
 
   while (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
     {
       step = CHREC_RIGHT (chrec);
-      if (!host_integerp (step, 0))
+      if (!tree_fits_shwi_p (step))
 	return true;
-      cd = gcd (cd, tree_low_cst (step, 0));
+      cd = gcd (cd, tree_to_shwi (step));
       chrec = CHREC_LEFT (chrec);
     }
 
@@ -4314,8 +4320,8 @@ compute_all_dependences (vec<data_reference_p> datarefs,
 
 typedef struct data_ref_loc_d
 {
-  /* Position of the memory reference.  */
-  tree *pos;
+  /* The memory reference.  */
+  tree ref;
 
   /* True if the memory reference is read.  */
   bool is_read;
@@ -4330,7 +4336,7 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
 {
   bool clobbers_memory = false;
   data_ref_loc ref;
-  tree *op0, *op1;
+  tree op0, op1;
   enum gimple_code stmt_code = gimple_code (stmt);
 
   /* ASM_EXPR and CALL_EXPR may embed arbitrary side effects.
@@ -4340,16 +4346,26 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
       && !(gimple_call_flags (stmt) & ECF_CONST))
     {
       /* Allow IFN_GOMP_SIMD_LANE in their own loops.  */
-      if (gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_GOMP_SIMD_LANE)
-	{
-	  struct loop *loop = gimple_bb (stmt)->loop_father;
-	  tree uid = gimple_call_arg (stmt, 0);
-	  gcc_assert (TREE_CODE (uid) == SSA_NAME);
-	  if (loop == NULL
-	      || loop->simduid != SSA_NAME_VAR (uid))
+      if (gimple_call_internal_p (stmt))
+	switch (gimple_call_internal_fn (stmt))
+	  {
+	  case IFN_GOMP_SIMD_LANE:
+	    {
+	      struct loop *loop = gimple_bb (stmt)->loop_father;
+	      tree uid = gimple_call_arg (stmt, 0);
+	      gcc_assert (TREE_CODE (uid) == SSA_NAME);
+	      if (loop == NULL
+		  || loop->simduid != SSA_NAME_VAR (uid))
+		clobbers_memory = true;
+	      break;
+	    }
+	  case IFN_MASK_LOAD:
+	  case IFN_MASK_STORE:
+	    break;
+	  default:
 	    clobbers_memory = true;
-	}
+	    break;
+	  }
       else
 	clobbers_memory = true;
     }
@@ -4363,15 +4379,15 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
   if (stmt_code == GIMPLE_ASSIGN)
     {
       tree base;
-      op0 = gimple_assign_lhs_ptr (stmt);
-      op1 = gimple_assign_rhs1_ptr (stmt);
+      op0 = gimple_assign_lhs (stmt);
+      op1 = gimple_assign_rhs1 (stmt);
 
-      if (DECL_P (*op1)
-	  || (REFERENCE_CLASS_P (*op1)
-	      && (base = get_base_address (*op1))
+      if (DECL_P (op1)
+	  || (REFERENCE_CLASS_P (op1)
+	      && (base = get_base_address (op1))
 	      && TREE_CODE (base) != SSA_NAME))
 	{
-	  ref.pos = op1;
+	  ref.ref = op1;
 	  ref.is_read = true;
 	  references->safe_push (ref);
 	}
@@ -4380,16 +4396,37 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
     {
       unsigned i, n;
 
-      op0 = gimple_call_lhs_ptr (stmt);
+      ref.is_read = false;
+      if (gimple_call_internal_p (stmt))
+	switch (gimple_call_internal_fn (stmt))
+	  {
+	  case IFN_MASK_LOAD:
+	    if (gimple_call_lhs (stmt) == NULL_TREE)
+	      break;
+	    ref.is_read = true;
+	  case IFN_MASK_STORE:
+	    ref.ref = fold_build2 (MEM_REF,
+				   ref.is_read
+				   ? TREE_TYPE (gimple_call_lhs (stmt))
+				   : TREE_TYPE (gimple_call_arg (stmt, 3)),
+				   gimple_call_arg (stmt, 0),
+				   gimple_call_arg (stmt, 1));
+	    references->safe_push (ref);
+	    return false;
+	  default:
+	    break;
+	  }
+
+      op0 = gimple_call_lhs (stmt);
       n = gimple_call_num_args (stmt);
       for (i = 0; i < n; i++)
 	{
-	  op1 = gimple_call_arg_ptr (stmt, i);
+	  op1 = gimple_call_arg (stmt, i);
 
-	  if (DECL_P (*op1)
-	      || (REFERENCE_CLASS_P (*op1) && get_base_address (*op1)))
+	  if (DECL_P (op1)
+	      || (REFERENCE_CLASS_P (op1) && get_base_address (op1)))
 	    {
-	      ref.pos = op1;
+	      ref.ref = op1;
 	      ref.is_read = true;
 	      references->safe_push (ref);
 	    }
@@ -4398,11 +4435,11 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
   else
     return clobbers_memory;
 
-  if (*op0
-      && (DECL_P (*op0)
-	  || (REFERENCE_CLASS_P (*op0) && get_base_address (*op0))))
+  if (op0
+      && (DECL_P (op0)
+	  || (REFERENCE_CLASS_P (op0) && get_base_address (op0))))
     {
-      ref.pos = op0;
+      ref.ref = op0;
       ref.is_read = false;
       references->safe_push (ref);
     }
@@ -4418,7 +4455,7 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
@@ -4429,7 +4466,7 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
   FOR_EACH_VEC_ELT (references, i, ref)
     {
       dr = create_data_ref (nest, loop_containing_stmt (stmt),
-			    *ref->pos, stmt, ref->is_read);
+			    ref->ref, stmt, ref->is_read);
       gcc_assert (dr != NULL);
       datarefs->safe_push (dr);
     }
@@ -4448,7 +4485,7 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
@@ -4458,7 +4495,7 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
-      dr = create_data_ref (nest, loop, *ref->pos, stmt, ref->is_read);
+      dr = create_data_ref (nest, loop, ref->ref, stmt, ref->is_read);
       gcc_assert (dr != NULL);
       datarefs->safe_push (dr);
     }
@@ -4744,10 +4781,9 @@ analyze_all_data_dependences (struct loop *loop)
 void
 tree_check_data_deps (void)
 {
-  loop_iterator li;
   struct loop *loop_nest;
 
-  FOR_EACH_LOOP (li, loop_nest, 0)
+  FOR_EACH_LOOP (loop_nest, 0)
     analyze_all_data_dependences (loop_nest);
 }
 

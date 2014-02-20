@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,14 +28,17 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "stmt.h"
+#include "varasm.h"
 #include "flags.h"
-#include "ggc.h"
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "gimple.h"
-#include "gimplify.h"
 #include "pointer-set.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 #include "bitmap.h"
 #include "cgraph.h"
 #include "diagnostic.h"
@@ -66,12 +69,6 @@
    instead.  */
 #define ALLOCA_THRESHOLD 1000
 
-/* Let code below know whether we are targeting VMS without need of
-   intrusive preprocessor directives.  */
-#ifndef TARGET_ABI_OPEN_VMS
-#define TARGET_ABI_OPEN_VMS 0
-#endif
-
 /* In configurations where blocks have no end_locus attached, just
    sink assignments into a dummy global.  */
 #ifndef BLOCK_SOURCE_END_LOCATION
@@ -93,6 +90,7 @@ static location_t block_end_locus_sink;
 
 /* Pointers to front-end tables accessed through macros.  */
 struct Node *Nodes_Ptr;
+struct Flags *Flags_Ptr;
 Node_Id *Next_Node_Ptr;
 Node_Id *Prev_Node_Ptr;
 struct Elist_Header *Elists_Ptr;
@@ -276,15 +274,26 @@ static const char *decode_name (const char *) ATTRIBUTE_UNUSED;
    structures and then generates code.  */
 
 void
-gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
-      struct Node *nodes_ptr, Node_Id *next_node_ptr, Node_Id *prev_node_ptr,
-      struct Elist_Header *elists_ptr, struct Elmt_Item *elmts_ptr,
-      struct String_Entry *strings_ptr, Char_Code *string_chars_ptr,
-      struct List_Header *list_headers_ptr, Nat number_file,
+gigi (Node_Id gnat_root,
+      int max_gnat_node,
+      int number_name ATTRIBUTE_UNUSED,
+      struct Node *nodes_ptr,
+      struct Flags *flags_ptr,
+      Node_Id *next_node_ptr,
+      Node_Id *prev_node_ptr,
+      struct Elist_Header *elists_ptr,
+      struct Elmt_Item *elmts_ptr,
+      struct String_Entry *strings_ptr,
+      Char_Code *string_chars_ptr,
+      struct List_Header *list_headers_ptr,
+      Nat number_file,
       struct File_Info_Type *file_info_ptr,
-      Entity_Id standard_boolean, Entity_Id standard_integer,
-      Entity_Id standard_character, Entity_Id standard_long_long_float,
-      Entity_Id standard_exception_type, Int gigi_operating_mode)
+      Entity_Id standard_boolean,
+      Entity_Id standard_integer,
+      Entity_Id standard_character,
+      Entity_Id standard_long_long_float,
+      Entity_Id standard_exception_type,
+      Int gigi_operating_mode)
 {
   Node_Id gnat_iter;
   Entity_Id gnat_literal;
@@ -296,6 +305,7 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
   max_gnat_nodes = max_gnat_node;
 
   Nodes_Ptr = nodes_ptr;
+  Flags_Ptr = flags_ptr;
   Next_Node_Ptr = next_node_ptr;
   Prev_Node_Ptr = prev_node_ptr;
   Elists_Ptr = elists_ptr;
@@ -2351,12 +2361,17 @@ Case_Statement_to_gnu (Node_Id gnat_node)
 	    }
 	}
 
-      /* Push a binding level here in case variables are declared as we want
-	 them to be local to this set of statements instead of to the block
-	 containing the Case statement.  */
+      /* This construct doesn't define a scope so we shouldn't push a binding
+	 level around the statement list.  Except that we have always done so
+	 historically and this makes it possible to reduce stack usage.  As a
+	 compromise, we keep doing it for case statements, for which this has
+	 never been problematic, but not for case expressions in Ada 2012.  */
       if (choices_added_p)
 	{
-	  tree group = build_stmt_group (Statements (gnat_when), true);
+	  const bool is_case_expression
+	    = (Nkind (Parent (gnat_node)) == N_Expression_With_Actions);
+	  tree group
+	    = build_stmt_group (Statements (gnat_when), !is_case_expression);
 	  bool group_may_fallthru = block_may_fallthru (group);
 	  add_stmt (group);
 	  if (group_may_fallthru)
@@ -2811,8 +2826,8 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
   if (gnu_cond_expr)
     {
       COND_EXPR_THEN (gnu_cond_expr) = gnu_loop_stmt;
+      TREE_SIDE_EFFECTS (gnu_cond_expr) = 1;
       gnu_result = gnu_cond_expr;
-      recalculate_side_effects (gnu_cond_expr);
     }
   else
     gnu_result = gnu_loop_stmt;
@@ -4130,9 +4145,7 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	gnu_name
 	  = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (gnu_name))), gnu_name);
 
-      /* If we have not saved a GCC object for the formal, it means it is an
-	 Out parameter not passed by reference and that need not be copied in.
-	 Otherwise, first see if the parameter is passed by reference.  */
+      /* First see if the parameter is passed by reference.  */
       if (is_true_formal_parm && DECL_BY_REF_P (gnu_formal))
 	{
 	  if (Ekind (gnat_formal) != E_In_Parameter)
@@ -4156,7 +4169,9 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	      if (TREE_CODE (TREE_TYPE (gnu_actual)) == RECORD_TYPE
 		  && TYPE_CONTAINS_TEMPLATE_P (TREE_TYPE (gnu_actual))
 		  && Is_Constr_Subt_For_UN_Aliased (Etype (gnat_actual))
-		  && Is_Array_Type (Etype (gnat_actual)))
+		  && (Is_Array_Type (Etype (gnat_actual))
+		      || (Is_Private_Type (Etype (gnat_actual))
+			  && Is_Array_Type (Full_View (Etype (gnat_actual))))))
 		gnu_actual = convert (gnat_to_gnu_type (Etype (gnat_actual)),
 				      gnu_actual);
 	    }
@@ -4178,6 +4193,9 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	  gnu_formal_type = TREE_TYPE (gnu_formal);
 	  gnu_actual = build_unary_op (ADDR_EXPR, gnu_formal_type, gnu_actual);
 	}
+
+      /* Then see if the parameter is an array passed to a foreign convention
+	 subprogram.  */
       else if (is_true_formal_parm && DECL_BY_COMPONENT_PTR_P (gnu_formal))
 	{
 	  gnu_formal_type = TREE_TYPE (gnu_formal);
@@ -4198,6 +4216,8 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	     but this is the most likely to work in all cases.  */
 	  gnu_actual = build_unary_op (ADDR_EXPR, gnu_formal_type, gnu_actual);
 	}
+
+      /* Then see if the parameter is passed by descriptor.  */
       else if (is_true_formal_parm && DECL_BY_DESCRIPTOR_P (gnu_formal))
 	{
 	  gnu_actual = convert (gnu_formal_type, gnu_actual);
@@ -4214,6 +4234,8 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 					 (TREE_TYPE (TREE_TYPE (gnu_formal)),
 					  gnu_actual, gnat_actual));
 	}
+
+      /* Otherwise the parameter is passed by copy.  */
       else
 	{
 	  tree gnu_size;
@@ -4221,11 +4243,18 @@ Call_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, tree gnu_target,
 	  if (Ekind (gnat_formal) != E_In_Parameter)
 	    gnu_name_list = tree_cons (NULL_TREE, gnu_name, gnu_name_list);
 
+	  /* If we didn't create a PARM_DECL for the formal, this means that
+	     it is an Out parameter not passed by reference and that need not
+	     be copied in.  In this case, the value of the actual need not be
+	     read.  However, we still need to make sure that its side-effects
+	     are evaluated before the call, so we evaluate its address.  */
 	  if (!is_true_formal_parm)
 	    {
-	      /* Make sure side-effects are evaluated before the call.  */
 	      if (TREE_SIDE_EFFECTS (gnu_name))
-		append_to_statement_list (gnu_name, &gnu_stmt_list);
+		{
+		  tree addr = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_name);
+		  append_to_statement_list (addr, &gnu_stmt_list);
+		}
 	      continue;
 	    }
 
@@ -4812,10 +4841,7 @@ static tree
 Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
 {
   tree gnu_etypes_list = NULL_TREE;
-  tree gnu_expr;
-  tree gnu_etype;
-  tree gnu_current_exc_ptr;
-  tree prev_gnu_incoming_exc_ptr;
+  tree gnu_current_exc_ptr, prev_gnu_incoming_exc_ptr;
   Node_Id gnat_temp;
 
   /* We build a TREE_LIST of nodes representing what exception types this
@@ -4826,20 +4852,19 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
   for (gnat_temp = First (Exception_Choices (gnat_node));
        gnat_temp; gnat_temp = Next (gnat_temp))
     {
+      tree gnu_expr, gnu_etype;
+
       if (Nkind (gnat_temp) == N_Others_Choice)
 	{
-	  tree gnu_expr
-	    = All_Others (gnat_temp) ? all_others_decl : others_decl;
-
-	  gnu_etype
-	    = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr);
+	  gnu_expr = All_Others (gnat_temp) ? all_others_decl : others_decl;
+	  gnu_etype = build_unary_op (ADDR_EXPR, NULL_TREE, gnu_expr);
 	}
       else if (Nkind (gnat_temp) == N_Identifier
 	       || Nkind (gnat_temp) == N_Expanded_Name)
 	{
 	  Entity_Id gnat_ex_id = Entity (gnat_temp);
 
-	  /* Exception may be a renaming. Recover original exception which is
+	  /* Exception may be a renaming.  Recover original exception which is
 	     the one elaborated and registered.  */
 	  if (Present (Renamed_Object (gnat_ex_id)))
 	    gnat_ex_id = Renamed_Object (gnat_ex_id);
@@ -4900,8 +4925,8 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
   /* Declare and initialize the choice parameter, if present.  */
   if (Present (Choice_Parameter (gnat_node)))
     {
-      tree gnu_param = gnat_to_gnu_entity
-	(Choice_Parameter (gnat_node), NULL_TREE, 1);
+      tree gnu_param
+	= gnat_to_gnu_entity (Choice_Parameter (gnat_node), NULL_TREE, 1);
 
       add_stmt (build_call_n_expr
 		(set_exception_parameter_decl, 2,
@@ -4918,8 +4943,8 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
 
   gnu_incoming_exc_ptr = prev_gnu_incoming_exc_ptr;
 
-  return build2 (CATCH_EXPR, void_type_node, gnu_etypes_list,
-		 end_stmt_group ());
+  return
+    build2 (CATCH_EXPR, void_type_node, gnu_etypes_list, end_stmt_group ());
 }
 
 /* Subroutine of gnat_to_gnu to generate code for an N_Compilation unit.  */
@@ -6236,7 +6261,7 @@ gnat_to_gnu (Node_Id gnat_node)
 	 Fall through for a boolean operand since GNU_CODES is set
 	 up to handle this.  */
       if (Is_Modular_Integer_Type (Etype (gnat_node))
-	  || (Ekind (Etype (gnat_node)) == E_Private_Type
+	  || (Is_Private_Type (Etype (gnat_node))
 	      && Is_Modular_Integer_Type (Full_View (Etype (gnat_node)))))
 	{
 	  gnu_expr = gnat_to_gnu (Right_Opnd (gnat_node));
@@ -6250,12 +6275,7 @@ gnat_to_gnu (Node_Id gnat_node)
 
     case N_Op_Minus:  case N_Op_Abs:
       gnu_expr = gnat_to_gnu (Right_Opnd (gnat_node));
-
-      if (Ekind (Etype (gnat_node)) != E_Private_Type)
-	gnu_result_type = get_unpadded_type (Etype (gnat_node));
-      else
-	gnu_result_type = get_unpadded_type (Base_Type
-					     (Full_View (Etype (gnat_node))));
+      gnu_result_type = get_unpadded_type (Etype (gnat_node));
 
       if (Do_Overflow_Check (gnat_node)
 	  && !TYPE_UNSIGNED (gnu_result_type)
@@ -6993,8 +7013,8 @@ gnat_to_gnu (Node_Id gnat_node)
     /****************/
 
     case N_Expression_With_Actions:
-      /* This construct doesn't define a scope so we don't wrap the statement
-	 list in a BIND_EXPR; however, we wrap it in a SAVE_EXPR to protect it
+      /* This construct doesn't define a scope so we don't push a binding level
+	 around the statement list; but we wrap it in a SAVE_EXPR to protect it
 	 from unsharing.  */
       gnu_result = build_stmt_group (Actions (gnat_node), false);
       gnu_result = build1 (SAVE_EXPR, void_type_node, gnu_result);

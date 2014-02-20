@@ -1,5 +1,5 @@
 /* Definitions for c-common.c.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -281,7 +281,6 @@ enum c_tree_index
     CTI_CHAR16_ARRAY_TYPE,
     CTI_CHAR32_ARRAY_TYPE,
     CTI_WCHAR_ARRAY_TYPE,
-    CTI_INT_ARRAY_TYPE,
     CTI_STRING_TYPE,
     CTI_CONST_STRING_TYPE,
 
@@ -421,7 +420,6 @@ extern const unsigned int num_c_common_reswords;
 #define char16_array_type_node		c_global_trees[CTI_CHAR16_ARRAY_TYPE]
 #define char32_array_type_node		c_global_trees[CTI_CHAR32_ARRAY_TYPE]
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
-#define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
 #define string_type_node		c_global_trees[CTI_STRING_TYPE]
 #define const_string_type_node		c_global_trees[CTI_CONST_STRING_TYPE]
 
@@ -688,6 +686,16 @@ struct visibility_flags
   unsigned inlines_hidden : 1;	/* True when -finlineshidden in effect.  */
 };
 
+/* These enumerators are possible types of unsafe conversions.
+   SAFE_CONVERSION The conversion is safe
+   UNSAFE_OTHER Another type of conversion with problems
+   UNSAFE_SIGN Conversion between signed and unsigned integers
+    which are all warned about immediately, so this is unused
+   UNSAFE_REAL Conversions that reduce the precision of reals
+    including conversions from reals to integers
+ */
+enum conversion_safety { SAFE_CONVERSION = 0, UNSAFE_OTHER, UNSAFE_SIGN, UNSAFE_REAL };
+
 /* Global visibility options.  */
 extern struct visibility_flags visibility_options;
 
@@ -741,7 +749,8 @@ extern tree c_common_signed_type (tree);
 extern tree c_common_signed_or_unsigned_type (int, tree);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
-extern bool unsafe_conversion_p (tree, tree, bool);
+extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree,
+						   bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
 extern tree decl_constant_value_for_optimization (tree);
@@ -749,7 +758,7 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
-extern tree c_sizeof_or_alignof_type (location_t, tree, bool, int);
+extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
@@ -761,8 +770,8 @@ extern bool strict_aliasing_warning (tree, tree, tree);
 extern void sizeof_pointer_memaccess_warning (location_t *, tree,
 					      vec<tree, va_gc> *, tree *,
 					      bool (*) (tree, tree));
-extern void warnings_for_convert_and_check (tree, tree, tree);
-extern tree convert_and_check (tree, tree);
+extern void warnings_for_convert_and_check (location_t, tree, tree, tree);
+extern tree convert_and_check (location_t, tree, tree);
 extern void overflow_warning (location_t, tree);
 extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
@@ -781,9 +790,10 @@ extern bool keyword_is_storage_class_specifier (enum rid);
 extern bool keyword_is_type_qualifier (enum rid);
 extern bool keyword_is_decl_specifier (enum rid);
 extern bool cxx_fundamental_alignment_p (unsigned);
+extern bool pointer_to_zero_sized_aggr_p (tree);
 
-#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, 1)
-#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, 1)
+#define c_sizeof(LOC, T)  c_sizeof_or_alignof_type (LOC, T, true, false, 1)
+#define c_alignof(LOC, T) c_sizeof_or_alignof_type (LOC, T, false, false, 1)
 
 /* Subroutine of build_binary_op, used for certain operations.  */
 extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwise);
@@ -791,7 +801,8 @@ extern tree shorten_binary_op (tree result_type, tree op0, tree op1, bool bitwis
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
    and, if so, perhaps change them both back to their original type.  */
-extern tree shorten_compare (tree *, tree *, tree *, enum tree_code *);
+extern tree shorten_compare (location_t, tree *, tree *, tree *,
+			     enum tree_code *);
 
 extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
@@ -900,8 +911,8 @@ extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
 
 extern tree build_function_call (location_t, tree, tree);
 
-extern tree build_function_call_vec (location_t, tree, vec<tree, va_gc> *,
-				     vec<tree, va_gc> *);
+extern tree build_function_call_vec (location_t, vec<location_t>, tree,
+				     vec<tree, va_gc> *, vec<tree, va_gc> *);
 
 extern tree resolve_overloaded_builtin (location_t, tree, vec<tree, va_gc> *);
 
@@ -1368,8 +1379,8 @@ extern vec <tree, va_gc> *fix_sec_implicit_args
 /* In cilk.c.  */
 extern tree insert_cilk_frame (tree);
 extern void cilk_init_builtins (void);
-extern int gimplify_cilk_spawn (tree *, gimple_seq *, gimple_seq *);
-extern void c_cilk_install_body_w_frame_cleanup (tree, tree);
+extern int gimplify_cilk_spawn (tree *);
+extern void cilk_install_body_with_frame_cleanup (tree, tree, void *);
 extern bool cilk_detect_spawn_and_unwrap (tree *);
 extern bool cilk_set_spawn_marker (location_t, tree);
 extern tree build_cilk_sync (void);
@@ -1377,5 +1388,5 @@ extern tree build_cilk_spawn (location_t, tree);
 extern tree make_cilk_frame (tree);
 extern tree create_cilk_function_exit (tree, bool, bool);
 extern tree cilk_install_body_pedigree_operations (tree);
-
+extern void cilk_outline (tree, tree *, void *);
 #endif /* ! GCC_C_COMMON_H */

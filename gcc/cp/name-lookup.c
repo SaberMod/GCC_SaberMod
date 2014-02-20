@@ -1,5 +1,5 @@
 /* Definitions for C++ name lookup routines.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "print-tree.h"
+#include "attribs.h"
 #include "cp-tree.h"
 #include "name-lookup.h"
 #include "timevar.h"
@@ -403,7 +406,8 @@ pop_bindings_and_leave_scope (void)
   leave_scope ();
 }
 
-/* Strip non dependent using declarations.  */
+/* Strip non dependent using declarations. If DECL is dependent,
+   surreptitiously create a typename_type and return it.  */
 
 tree
 strip_using_decl (tree decl)
@@ -413,6 +417,23 @@ strip_using_decl (tree decl)
 
   while (TREE_CODE (decl) == USING_DECL && !DECL_DEPENDENT_P (decl))
     decl = USING_DECL_DECLS (decl);
+
+  if (TREE_CODE (decl) == USING_DECL && DECL_DEPENDENT_P (decl)
+      && USING_DECL_TYPENAME_P (decl))
+    {
+      /* We have found a type introduced by a using
+	 declaration at class scope that refers to a dependent
+	 type.
+	     
+	 using typename :: [opt] nested-name-specifier unqualified-id ;
+      */
+      decl = make_typename_type (TREE_TYPE (decl),
+				 DECL_NAME (decl),
+				 typename_type, tf_error);
+      if (decl != error_mark_node)
+	decl = TYPE_NAME (decl);
+    }
+
   return decl;
 }
 
@@ -1501,7 +1522,8 @@ push_binding_level (cp_binding_level *scope)
     {
       scope->binding_depth = binding_depth;
       indent (binding_depth);
-      cp_binding_level_debug (scope, input_line, "push");
+      cp_binding_level_debug (scope, LOCATION_LINE (input_location),
+			      "push");
       binding_depth++;
     }
 }
@@ -1587,7 +1609,8 @@ leave_scope (void)
   if (ENABLE_SCOPE_CHECKING)
     {
       indent (--binding_depth);
-      cp_binding_level_debug (scope, input_line, "leave");
+      cp_binding_level_debug (scope, LOCATION_LINE (input_location),
+			      "leave");
     }
 
   /* Move one nesting level up.  */
@@ -1636,7 +1659,7 @@ resume_scope (cp_binding_level* b)
     {
       b->binding_depth = binding_depth;
       indent (binding_depth);
-      cp_binding_level_debug (b, input_line, "resume");
+      cp_binding_level_debug (b, LOCATION_LINE (input_location), "resume");
       binding_depth++;
     }
 }
@@ -4874,7 +4897,7 @@ lookup_function_nonclass (tree name, vec<tree, va_gc> *args, bool block_p)
   return
     lookup_arg_dependent (name,
 			  lookup_name_real (name, 0, 1, block_p, 0, 0),
-			  args, false);
+			  args);
 }
 
 tree
@@ -5573,8 +5596,7 @@ arg_assoc (struct arg_lookup *k, tree n)
    are the functions found in normal lookup.  */
 
 static tree
-lookup_arg_dependent_1 (tree name, tree fns, vec<tree, va_gc> *args,
-			bool include_std)
+lookup_arg_dependent_1 (tree name, tree fns, vec<tree, va_gc> *args)
 {
   struct arg_lookup k;
 
@@ -5612,8 +5634,6 @@ lookup_arg_dependent_1 (tree name, tree fns, vec<tree, va_gc> *args,
   else
     k.fn_set = NULL;
 
-  if (include_std)
-    arg_assoc_namespace (&k, std_node);
   arg_assoc_args_vec (&k, args);
 
   fns = k.functions;
@@ -5638,13 +5658,12 @@ lookup_arg_dependent_1 (tree name, tree fns, vec<tree, va_gc> *args,
 /* Wrapper for lookup_arg_dependent_1.  */
 
 tree
-lookup_arg_dependent (tree name, tree fns, vec<tree, va_gc> *args,
-                      bool include_std)
+lookup_arg_dependent (tree name, tree fns, vec<tree, va_gc> *args)
 {
   tree ret;
   bool subtime;
   subtime = timevar_cond_start (TV_NAME_LOOKUP);
-  ret = lookup_arg_dependent_1 (name, fns, args, include_std);
+  ret = lookup_arg_dependent_1 (name, fns, args);
   timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return ret;
 }
@@ -5682,9 +5701,9 @@ static tree
 push_using_directive (tree used)
 {
   tree ret;
-  timevar_start (TV_NAME_LOOKUP);
+  bool subtime = timevar_cond_start (TV_NAME_LOOKUP);
   ret = push_using_directive_1 (used);
-  timevar_stop (TV_NAME_LOOKUP);
+  timevar_cond_stop (TV_NAME_LOOKUP, subtime);
   return ret;
 }
 

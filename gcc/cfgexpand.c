@@ -1,5 +1,5 @@
 /* A pass for lowering trees to RTL.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,12 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "hard-reg-set.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "stmt.h"
+#include "print-tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
 #include "expr.h"
 #include "langhooks.h"
 #include "bitmap.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -293,7 +304,7 @@ add_stack_var (tree decl)
   * (size_t *)pointer_map_insert (decl_to_stack_part, decl) = stack_vars_num;
 
   v->decl = decl;
-  v->size = tree_low_cst (DECL_SIZE_UNIT (SSAVAR (decl)), 1);
+  v->size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (decl)));
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
   if (v->size == 0)
@@ -354,7 +365,7 @@ stack_var_conflict_p (size_t x, size_t y)
    enter its partition number into bitmap DATA.  */
 
 static bool
-visit_op (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+visit_op (gimple, tree op, tree, void *data)
 {
   bitmap active = (bitmap)data;
   op = get_base_address (op);
@@ -374,7 +385,7 @@ visit_op (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
    from bitmap DATA.  */
 
 static bool
-visit_conflict (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
+visit_conflict (gimple, tree op, tree, void *data)
 {
   bitmap active = (bitmap)data;
   op = get_base_address (op);
@@ -408,7 +419,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
   edge e;
   edge_iterator ei;
   gimple_stmt_iterator gsi;
-  bool (*visit)(gimple, tree, void *);
+  walk_stmt_load_store_addr_fn visit;
 
   bitmap_clear (work);
   FOR_EACH_EDGE (e, ei, bb->preds)
@@ -487,10 +498,10 @@ add_scope_conflicts (void)
 
      We then do a mostly classical bitmap liveness algorithm.  */
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     bb->aux = BITMAP_ALLOC (&stack_var_bitmap_obstack);
 
-  rpo = XNEWVEC (int, last_basic_block);
+  rpo = XNEWVEC (int, last_basic_block_for_fn (cfun));
   n_bbs = pre_and_rev_post_order_compute (NULL, rpo, false);
 
   changed = true;
@@ -501,7 +512,7 @@ add_scope_conflicts (void)
       for (i = 0; i < n_bbs; i++)
 	{
 	  bitmap active;
-	  bb = BASIC_BLOCK (rpo[i]);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
 	  active = (bitmap)bb->aux;
 	  add_scope_conflicts_1 (bb, work, false);
 	  if (bitmap_ior_into (active, work))
@@ -509,12 +520,12 @@ add_scope_conflicts (void)
 	}
     }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     add_scope_conflicts_1 (bb, work, true);
 
   free (rpo);
   BITMAP_FREE (work);
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     BITMAP_FREE (bb->aux);
 }
 
@@ -787,7 +798,7 @@ partition_stack_vars (void)
 	     sizes, as the shorter vars wouldn't be adequately protected.
 	     Don't do that for "large" (unsupported) alignment objects,
 	     those aren't protected anyway.  */
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && isize != jsize
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && isize != jsize
 	      && ialign * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	    break;
 
@@ -879,6 +890,12 @@ struct stack_vars_data
 
   /* Vector of partition representative decls in between the paddings.  */
   vec<tree> asan_decl_vec;
+
+  /* Base pseudo register for Address Sanitizer protected automatic vars.  */
+  rtx asan_base;
+
+  /* Alignment needed for the Address Sanitizer protected automatic vars.  */
+  unsigned int asan_alignb;
 };
 
 /* A subroutine of expand_used_vars.  Give each partition representative
@@ -963,7 +980,8 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       alignb = stack_vars[i].alignb;
       if (alignb * BITS_PER_UNIT <= MAX_SUPPORTED_STACK_ALIGNMENT)
 	{
-	  if ((flag_sanitize & SANITIZE_ADDRESS) && pred)
+	  base = virtual_stack_vars_rtx;
+	  if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK && pred)
 	    {
 	      HOST_WIDE_INT prev_offset = frame_offset;
 	      tree repr_decl = NULL_TREE;
@@ -991,10 +1009,13 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      if (repr_decl == NULL_TREE)
 		repr_decl = stack_vars[i].decl;
 	      data->asan_decl_vec.safe_push (repr_decl);
+	      data->asan_alignb = MAX (data->asan_alignb, alignb);
+	      if (data->asan_base == NULL)
+		data->asan_base = gen_reg_rtx (Pmode);
+	      base = data->asan_base;
 	    }
 	  else
 	    offset = alloc_stack_frame_space (stack_vars[i].size, alignb);
-	  base = virtual_stack_vars_rtx;
 	  base_align = crtl->max_used_stack_slot_alignment;
 	}
       else
@@ -1057,7 +1078,7 @@ expand_one_stack_var (tree var)
   HOST_WIDE_INT size, offset;
   unsigned byte_align;
 
-  size = tree_low_cst (DECL_SIZE_UNIT (SSAVAR (var)), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (var)));
   byte_align = align_local_variable (SSAVAR (var));
 
   /* We handle highly aligned variables in expand_stack_vars.  */
@@ -1133,13 +1154,13 @@ defer_stack_allocation (tree var, bool toplevel)
   /* Whether the variable is small enough for immediate allocation not to be
      a problem with regard to the frame size.  */
   bool smallish
-    = (tree_low_cst (DECL_SIZE_UNIT (var), 1)
+    = ((HOST_WIDE_INT) tree_to_uhwi (DECL_SIZE_UNIT (var))
        < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING));
 
   /* If stack protection is enabled, *all* stack variables must be deferred,
      so that we can re-order the strings to the top of the frame.
      Similarly for Address Sanitizer.  */
-  if (flag_stack_protect || (flag_sanitize & SANITIZE_ADDRESS))
+  if (flag_stack_protect || ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK))
     return true;
 
   /* We handle "large" alignment via dynamic allocation.  We want to handle
@@ -1194,8 +1215,11 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
 	 we conservatively assume it will be on stack even if VAR is
 	 eventually put into register after RA pass.  For non-automatic
 	 variables, which won't be on stack, we collect alignment of
-	 type and ignore user specified alignment.  */
-      if (TREE_STATIC (var) || DECL_EXTERNAL (var))
+	 type and ignore user specified alignment.  Similarly for
+	 SSA_NAMEs for which use_register_for_decl returns true.  */
+      if (TREE_STATIC (var)
+	  || DECL_EXTERNAL (var)
+	  || (TREE_CODE (origvar) == SSA_NAME && use_register_for_decl (var)))
 	align = MINIMUM_ALIGNMENT (TREE_TYPE (var),
 				   TYPE_MODE (TREE_TYPE (var)),
 				   TYPE_ALIGN (TREE_TYPE (var)));
@@ -1281,7 +1305,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     {
       if (really_expand)
         expand_one_stack_var (origvar);
-      return tree_low_cst (DECL_SIZE_UNIT (var), 1);
+      return tree_to_uhwi (DECL_SIZE_UNIT (var));
     }
   return 0;
 }
@@ -1358,10 +1382,10 @@ stack_protect_classify_type (tree type)
 	  unsigned HOST_WIDE_INT len;
 
 	  if (!TYPE_SIZE_UNIT (type)
-	      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+	      || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
 	    len = max;
 	  else
-	    len = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+	    len = tree_to_uhwi (TYPE_SIZE_UNIT (type));
 
 	  if (len < max)
 	    ret = SPCT_HAS_SMALL_CHAR_ARRAY | SPCT_HAS_ARRAY;
@@ -1781,6 +1805,8 @@ expand_used_vars (void)
 
       data.asan_vec = vNULL;
       data.asan_decl_vec = vNULL;
+      data.asan_base = NULL_RTX;
+      data.asan_alignb = 0;
 
       /* Reorder decls to be protected by iterating over the variables
 	 array multiple times, and allocating out of each phase in turn.  */
@@ -1797,7 +1823,7 @@ expand_used_vars (void)
 	    expand_stack_vars (stack_protect_decl_phase_2, &data);
 	}
 
-      if (flag_sanitize & SANITIZE_ADDRESS)
+      if ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK)
 	/* Phase 3, any partitions that need asan protection
 	   in addition to phase 1 and 2.  */
 	expand_stack_vars (asan_decl_phase_3, &data);
@@ -1805,16 +1831,25 @@ expand_used_vars (void)
       if (!data.asan_vec.is_empty ())
 	{
 	  HOST_WIDE_INT prev_offset = frame_offset;
-	  HOST_WIDE_INT offset
-	    = alloc_stack_frame_space (ASAN_RED_ZONE_SIZE,
-				       ASAN_RED_ZONE_SIZE);
+	  HOST_WIDE_INT offset, sz, redzonesz;
+	  redzonesz = ASAN_RED_ZONE_SIZE;
+	  sz = data.asan_vec[0] - prev_offset;
+	  if (data.asan_alignb > ASAN_RED_ZONE_SIZE
+	      && data.asan_alignb <= 4096
+	      && sz + ASAN_RED_ZONE_SIZE >= (int) data.asan_alignb)
+	    redzonesz = ((sz + ASAN_RED_ZONE_SIZE + data.asan_alignb - 1)
+			 & ~(data.asan_alignb - HOST_WIDE_INT_1)) - sz;
+	  offset
+	    = alloc_stack_frame_space (redzonesz, ASAN_RED_ZONE_SIZE);
 	  data.asan_vec.safe_push (prev_offset);
 	  data.asan_vec.safe_push (offset);
 
 	  var_end_seq
 	    = asan_emit_stack_protection (virtual_stack_vars_rtx,
+					  data.asan_base,
+					  data.asan_alignb,
 					  data.asan_vec.address (),
-					  data.asan_decl_vec. address (),
+					  data.asan_decl_vec.address (),
 					  data.asan_vec.length ());
 	}
 
@@ -2221,7 +2256,7 @@ expand_call_stmt (gimple stmt)
   if (lhs)
     expand_assignment (lhs, exp, false);
   else
-    expand_expr_real_1 (exp, const0_rtx, VOIDmode, EXPAND_NORMAL, NULL);
+    expand_expr (exp, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   mark_transaction_restart_calls (stmt);
 }
@@ -2643,8 +2678,9 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
       ASM_OPERANDS_INPUT (body, i) = op;
 
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, i)
-	= gen_rtx_ASM_INPUT (TYPE_MODE (type),
-			     ggc_strdup (constraints[i + noutputs]));
+	= gen_rtx_ASM_INPUT_loc (TYPE_MODE (type),
+				 ggc_strdup (constraints[i + noutputs]),
+				 locus);
 
       if (tree_conflicts_with_clobbers_p (val, &clobbered_regs))
 	clobber_conflict_found = 1;
@@ -2666,7 +2702,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
       sprintf (buffer, "%d", j);
       ASM_OPERANDS_INPUT_CONSTRAINT_EXP (body, ninputs - ninout + i)
-	= gen_rtx_ASM_INPUT (inout_mode[i], ggc_strdup (buffer));
+	= gen_rtx_ASM_INPUT_loc (inout_mode[i], ggc_strdup (buffer), locus);
     }
 
   /* Copy labels to the vector.  */
@@ -3348,7 +3384,7 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
     {
       if (!(e->flags & (EDGE_ABNORMAL | EDGE_EH)))
 	{
-	  if (e->dest != EXIT_BLOCK_PTR)
+	  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      e->dest->count -= e->count;
 	      e->dest->frequency -= EDGE_FREQUENCY (e);
@@ -3384,7 +3420,8 @@ expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
       delete_insn (NEXT_INSN (last));
     }
 
-  e = make_edge (bb, EXIT_BLOCK_PTR, EDGE_ABNORMAL | EDGE_SIBCALL);
+  e = make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_ABNORMAL
+		 | EDGE_SIBCALL);
   e->probability += probability;
   e->count += count;
   BB_END (bb) = last;
@@ -4825,9 +4862,9 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
       gimple ret_stmt = gsi_stmt (gsi);
 
       gcc_assert (single_succ_p (bb));
-      gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR);
+      gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun));
 
-      if (bb->next_bb == EXIT_BLOCK_PTR
+      if (bb->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  && !gimple_return_retval (ret_stmt))
 	{
 	  gsi_remove (&gsi, false);
@@ -5169,17 +5206,17 @@ construct_init_block (void)
   int flags;
 
   /* Multiple entry points not supported yet.  */
-  gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR->succs) == 1);
-  init_rtl_bb_info (ENTRY_BLOCK_PTR);
-  init_rtl_bb_info (EXIT_BLOCK_PTR);
-  ENTRY_BLOCK_PTR->flags |= BB_RTL;
-  EXIT_BLOCK_PTR->flags |= BB_RTL;
+  gcc_assert (EDGE_COUNT (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs) == 1);
+  init_rtl_bb_info (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  init_rtl_bb_info (EXIT_BLOCK_PTR_FOR_FN (cfun));
+  ENTRY_BLOCK_PTR_FOR_FN (cfun)->flags |= BB_RTL;
+  EXIT_BLOCK_PTR_FOR_FN (cfun)->flags |= BB_RTL;
 
-  e = EDGE_SUCC (ENTRY_BLOCK_PTR, 0);
+  e = EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0);
 
   /* When entry edge points to first basic block, we don't need jump,
      otherwise we have to jump into proper target.  */
-  if (e && e->dest != ENTRY_BLOCK_PTR->next_bb)
+  if (e && e->dest != ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb)
     {
       tree label = gimple_block_label (e->dest);
 
@@ -5191,11 +5228,11 @@ construct_init_block (void)
 
   init_block = create_basic_block (NEXT_INSN (get_insns ()),
 				   get_last_insn (),
-				   ENTRY_BLOCK_PTR);
-  init_block->frequency = ENTRY_BLOCK_PTR->frequency;
-  init_block->count = ENTRY_BLOCK_PTR->count;
-  if (current_loops && ENTRY_BLOCK_PTR->loop_father)
-    add_bb_to_loop (init_block, ENTRY_BLOCK_PTR->loop_father);
+				   ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  init_block->frequency = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
+  init_block->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
+  if (current_loops && ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father)
+    add_bb_to_loop (init_block, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
   if (e)
     {
       first_block = e->dest;
@@ -5203,9 +5240,9 @@ construct_init_block (void)
       e = make_edge (init_block, first_block, flags);
     }
   else
-    e = make_edge (init_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+    e = make_edge (init_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
-  e->count = ENTRY_BLOCK_PTR->count;
+  e->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
 
   update_bb_for_insn (init_block);
   return init_block;
@@ -5236,9 +5273,9 @@ construct_exit_block (void)
   edge e, e2;
   unsigned ix;
   edge_iterator ei;
-  rtx orig_end = BB_END (EXIT_BLOCK_PTR->prev_bb);
+  rtx orig_end = BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
 
-  rtl_profile_for_bb (EXIT_BLOCK_PTR);
+  rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   /* Make sure the locus is set to the end of the function, so that
      epilogue line numbers and warnings are set properly.  */
@@ -5253,30 +5290,30 @@ construct_exit_block (void)
     return;
   /* While emitting the function end we could move end of the last basic block.
    */
-  BB_END (EXIT_BLOCK_PTR->prev_bb) = orig_end;
+  BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb) = orig_end;
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
   exit_block = create_basic_block (NEXT_INSN (head), end,
-				   EXIT_BLOCK_PTR->prev_bb);
-  exit_block->frequency = EXIT_BLOCK_PTR->frequency;
-  exit_block->count = EXIT_BLOCK_PTR->count;
-  if (current_loops && EXIT_BLOCK_PTR->loop_father)
-    add_bb_to_loop (exit_block, EXIT_BLOCK_PTR->loop_father);
+				   EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
+  exit_block->frequency = EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency;
+  exit_block->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
+  if (current_loops && EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father)
+    add_bb_to_loop (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father);
 
   ix = 0;
-  while (ix < EDGE_COUNT (EXIT_BLOCK_PTR->preds))
+  while (ix < EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds))
     {
-      e = EDGE_PRED (EXIT_BLOCK_PTR, ix);
+      e = EDGE_PRED (EXIT_BLOCK_PTR_FOR_FN (cfun), ix);
       if (!(e->flags & EDGE_ABNORMAL))
 	redirect_edge_succ (e, exit_block);
       else
 	ix++;
     }
 
-  e = make_edge (exit_block, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+  e = make_edge (exit_block, EXIT_BLOCK_PTR_FOR_FN (cfun), EDGE_FALLTHRU);
   e->probability = REG_BR_PROB_BASE;
-  e->count = EXIT_BLOCK_PTR->count;
-  FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR->preds)
+  e->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
+  FOR_EACH_EDGE (e2, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     if (e2 != e)
       {
 	e->count -= e2->count;
@@ -5345,7 +5382,7 @@ discover_nonconstant_array_refs (void)
   basic_block bb;
   gimple_stmt_iterator gsi;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple stmt = gsi_stmt (gsi);
@@ -5506,7 +5543,7 @@ gimple_expand_cfg (void)
   /* Dominators are not kept up-to-date as we may create new basic-blocks.  */
   free_dominance_info (CDI_DOMINATORS);
 
-  rtl_profile_for_bb (ENTRY_BLOCK_PTR);
+  rtl_profile_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   insn_locations_init ();
   if (!DECL_IS_BUILTIN (current_function_decl))
@@ -5670,11 +5707,12 @@ gimple_expand_cfg (void)
 
   /* Clear EDGE_EXECUTABLE on the entry edge(s).  It is cleaned from the
      remaining edges later.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
     e->flags &= ~EDGE_EXECUTABLE;
 
   lab_rtx_for_bb = pointer_map_create ();
-  FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, init_block->next_bb, EXIT_BLOCK_PTR_FOR_FN (cfun),
+		  next_bb)
     bb = expand_gimple_basic_block (bb, var_ret_seq != NULL_RTX);
 
   if (MAY_HAVE_DEBUG_INSNS)
@@ -5719,7 +5757,8 @@ gimple_expand_cfg (void)
      split edges which edge insertions might do.  */
   rebuild_jump_labels (get_insns ());
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       edge e;
       edge_iterator ei;
@@ -5730,8 +5769,8 @@ gimple_expand_cfg (void)
 	      rebuild_jump_labels_chain (e->insns.r);
 	      /* Put insns after parm birth, but before
 		 NOTE_INSNS_FUNCTION_BEG.  */
-	      if (e->src == ENTRY_BLOCK_PTR
-		  && single_succ_p (ENTRY_BLOCK_PTR))
+	      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun)
+		  && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (cfun)))
 		{
 		  rtx insns = e->insns.r;
 		  e->insns.r = NULL_RTX;
@@ -5752,7 +5791,8 @@ gimple_expand_cfg (void)
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       edge e;
       edge_iterator ei;
@@ -5773,7 +5813,7 @@ gimple_expand_cfg (void)
 	}
     }
 
-  blocks = sbitmap_alloc (last_basic_block);
+  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_ones (blocks);
   find_many_sub_basic_blocks (blocks);
   sbitmap_free (blocks);

@@ -1,5 +1,5 @@
 /* Help friends in C++.
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -501,7 +501,13 @@ do_friend (tree ctype, tree declarator, tree decl,
 				  ? current_template_parms
 				  : NULL_TREE);
 
-	  if (template_member_p && decl && TREE_CODE (decl) == FUNCTION_DECL)
+	  if ((template_member_p
+	       /* Always pull out the TEMPLATE_DECL if we have a friend
+		  template in a class template so that it gets tsubsted
+		  properly later on (59956).  tsubst_friend_function knows
+		  how to tell this apart from a member template.  */
+	       || (class_template_depth && friend_depth))
+	      && decl && TREE_CODE (decl) == FUNCTION_DECL)
 	    decl = DECL_TI_TEMPLATE (decl);
 
 	  if (decl)

@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -23,8 +23,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic-core.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
-#include "ggc.h"
 #include "hashtab.h"
 #include "plugin-api.h"
 #include "lto-streamer.h"
@@ -45,8 +49,8 @@ lto_cgraph_replace_node (struct cgraph_node *node,
     {
       fprintf (cgraph_dump_file, "Replacing cgraph node %s/%i by %s/%i"
  	       " for symbol %s\n",
-	       cgraph_node_name (node), node->order,
-	       cgraph_node_name (prevailing_node),
+	       node->name (), node->order,
+	       prevailing_node->name (),
 	       prevailing_node->order,
 	       IDENTIFIER_POINTER ((*targetm.asm_out.mangle_assembler_name)
 		 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl)))));
@@ -55,6 +59,8 @@ lto_cgraph_replace_node (struct cgraph_node *node,
   /* Merge node flags.  */
   if (node->force_output)
     cgraph_mark_force_output_node (prevailing_node);
+  if (node->forced_by_abi)
+    prevailing_node->forced_by_abi = true;
   if (node->address_taken)
     {
       gcc_assert (!prevailing_node->global.inlined_to);
@@ -99,13 +105,17 @@ lto_cgraph_replace_node (struct cgraph_node *node,
    all edges and removing the old node.  */
 
 static void
-lto_varpool_replace_node (struct varpool_node *vnode,
-			  struct varpool_node *prevailing_node)
+lto_varpool_replace_node (varpool_node *vnode,
+			  varpool_node *prevailing_node)
 {
   gcc_assert (!vnode->definition || prevailing_node->definition);
   gcc_assert (!vnode->analyzed || prevailing_node->analyzed);
 
   ipa_clone_referring (prevailing_node, &vnode->ref_list);
+  if (vnode->force_output)
+    prevailing_node->force_output = true;
+  if (vnode->forced_by_abi)
+    prevailing_node->forced_by_abi = true;
 
   /* Be sure we can garbage collect the initializer.  */
   if (DECL_INITIAL (vnode->decl)
@@ -428,7 +438,7 @@ lto_symtab_merge_decls_1 (symtab_node *first)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Merging nodes for %s. Candidates:\n",
-	       symtab_node_asm_name (first));
+	       first->asm_name ());
       for (e = first; e; e = e->next_sharing_asm_name)
 	if (TREE_PUBLIC (e->decl))
 	  dump_symtab_node (cgraph_dump_file, e);

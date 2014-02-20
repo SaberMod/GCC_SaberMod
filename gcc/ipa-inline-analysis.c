@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -69,6 +69,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "print-tree.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "flags.h"
@@ -77,7 +80,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-pass.h"
 #include "coverage.h"
-#include "ggc.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -97,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "ipa-utils.h"
 #include "cilk.h"
+#include "cfgexpand.h"
 
 /* Estimate runtime of function can easilly run into huge numbers with many
    nested loops.  Be sure we can compute time * INLINE_SIZE_SCALE * 2 in an
@@ -181,7 +189,7 @@ false_predicate (void)
 }
 
 
-/* Return true if P is (false).  */
+/* Return true if P is (true).  */
 
 static inline bool
 true_predicate_p (struct predicate *p)
@@ -302,7 +310,7 @@ add_clause (conditions conditions, struct predicate *p, clause_t clause)
   if (false_predicate_p (p))
     return;
 
-  /* No one should be sily enough to add false into nontrivial clauses.  */
+  /* No one should be silly enough to add false into nontrivial clauses.  */
   gcc_checking_assert (!(clause & (1 << predicate_false_condition)));
 
   /* Look where to insert the clause.  At the same time prune out
@@ -486,7 +494,7 @@ evaluate_predicate (struct predicate *p, clause_t possible_truths)
 static int
 predicate_probability (conditions conds,
 		       struct predicate *p, clause_t possible_truths,
-		       vec<inline_param_summary_t> inline_param_summary)
+		       vec<inline_param_summary> inline_param_summary)
 {
   int i;
   int combined_prob = REG_BR_PROB_BASE;
@@ -1027,7 +1035,7 @@ inline_node_removal_hook (struct cgraph_node *node,
   memset (info, 0, sizeof (inline_summary_t));
 }
 
-/* Remap predicate P of former function to be predicate of duplicated functoin.
+/* Remap predicate P of former function to be predicate of duplicated function.
    POSSIBLE_TRUTHS is clause of possible truths in the duplicated node,
    INFO is inline summary of the duplicated node.  */
 
@@ -1300,7 +1308,7 @@ dump_inline_edge_summary (FILE *f, int indent, struct cgraph_node *node,
       fprintf (f,
 	       "%*s%s/%i %s\n%*s  loop depth:%2i freq:%4i size:%2i"
 	       " time: %2i callee size:%2i stack:%2i",
-	       indent, "", cgraph_node_name (callee), callee->order,
+	       indent, "", callee->name (), callee->order,
 	       !edge->inline_failed
 	       ? "inlined" : cgraph_inline_failed_string (edge-> inline_failed),
 	       indent, "", es->loop_depth, edge->frequency,
@@ -1365,7 +1373,7 @@ dump_inline_summary (FILE *f, struct cgraph_node *node)
       struct inline_summary *s = inline_summary (node);
       size_time_entry *e;
       int i;
-      fprintf (f, "Inline summary for %s/%i", cgraph_node_name (node),
+      fprintf (f, "Inline summary for %s/%i", node->name (),
 	       node->order);
       if (DECL_DISREGARD_INLINE_LIMITS (node->decl))
 	fprintf (f, " always_inline");
@@ -1837,9 +1845,9 @@ compute_bb_predicates (struct cgraph_node *node,
     }
 
   /* Entry block is always executable.  */
-  ENTRY_BLOCK_PTR_FOR_FUNCTION (my_function)->aux
+  ENTRY_BLOCK_PTR_FOR_FN (my_function)->aux
     = pool_alloc (edge_predicate_pool);
-  *(struct predicate *) ENTRY_BLOCK_PTR_FOR_FUNCTION (my_function)->aux
+  *(struct predicate *) ENTRY_BLOCK_PTR_FOR_FN (my_function)->aux
     = true_predicate ();
 
   /* A simple dataflow propagation of predicates forward in the CFG.
@@ -1879,8 +1887,15 @@ compute_bb_predicates (struct cgraph_node *node,
 		}
 	      else if (!predicates_equal_p (&p, (struct predicate *) bb->aux))
 		{
-		  done = false;
-		  *((struct predicate *) bb->aux) = p;
+		  /* This OR operation is needed to ensure monotonous data flow
+		     in the case we hit the limit on number of clauses and the
+		     and/or operations above give approximate answers.  */
+		  p = or_predicates (summary->conds, &p, (struct predicate *)bb->aux);
+	          if (!predicates_equal_p (&p, (struct predicate *) bb->aux))
+		    {
+		      done = false;
+		      *((struct predicate *) bb->aux) = p;
+		    }
 		}
 	    }
 	}
@@ -2062,7 +2077,7 @@ record_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
     return false;
   bitmap_set_bit (info->bb_set,
 		  SSA_NAME_IS_DEFAULT_DEF (vdef)
-		  ? ENTRY_BLOCK_PTR->index
+		  ? ENTRY_BLOCK_PTR_FOR_FN (cfun)->index
 		  : gimple_bb (SSA_NAME_DEF_STMT (vdef))->index);
   return false;
 }
@@ -2098,7 +2113,7 @@ param_change_prob (gimple stmt, int i)
 	return REG_BR_PROB_BASE;
 
       if (SSA_NAME_IS_DEFAULT_DEF (op))
-	init_freq = ENTRY_BLOCK_PTR->frequency;
+	init_freq = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
       else
 	init_freq = gimple_bb (SSA_NAME_DEF_STMT (op))->frequency;
 
@@ -2138,13 +2153,13 @@ param_change_prob (gimple stmt, int i)
       /* Assume that every memory is initialized at entry.
          TODO: Can we easilly determine if value is always defined
          and thus we may skip entry block?  */
-      if (ENTRY_BLOCK_PTR->frequency)
-	max = ENTRY_BLOCK_PTR->frequency;
+      if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency)
+	max = ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency;
       else
 	max = 1;
 
       EXECUTE_IF_SET_IN_BITMAP (info.bb_set, 0, index, bi)
-	max = MIN (max, BASIC_BLOCK (index)->frequency);
+	max = MIN (max, BASIC_BLOCK_FOR_FN (cfun, index)->frequency);
 
       BITMAP_FREE (info.bb_set);
       if (max < bb->frequency)
@@ -2339,6 +2354,54 @@ find_foldable_builtin_expect (basic_block bb)
   return NULL;
 }
 
+/* Return true when the basic blocks contains only clobbers followed by RESX.
+   Such BBs are kept around to make removal of dead stores possible with
+   presence of EH and will be optimized out by optimize_clobbers later in the
+   game. 
+
+   NEED_EH is used to recurse in case the clobber has non-EH predecestors
+   that can be clobber only, too.. When it is false, the RESX is not necessary
+   on the end of basic block.  */
+
+static bool
+clobber_only_eh_bb_p (basic_block bb, bool need_eh = true)
+{
+  gimple_stmt_iterator gsi = gsi_last_bb (bb);
+  edge_iterator ei;
+  edge e;
+
+  if (need_eh)
+    {
+      if (gsi_end_p (gsi))
+	return false;
+      if (gimple_code (gsi_stmt (gsi)) != GIMPLE_RESX)
+        return false;
+      gsi_prev (&gsi);
+    }
+  else if (!single_succ_p (bb))
+    return false;
+
+  for (; !gsi_end_p (gsi); gsi_prev (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      if (is_gimple_debug (stmt))
+	continue;
+      if (gimple_clobber_p (stmt))
+	continue;
+      if (gimple_code (stmt) == GIMPLE_LABEL)
+	break;
+      return false;
+    }
+
+  /* See if all predecestors are either throws or clobber only BBs.  */
+  FOR_EACH_EDGE (e, ei, bb->preds)
+    if (!(e->flags & EDGE_EH)
+	&& !clobber_only_eh_bb_p (e->src, false))
+      return false;
+
+  return true;
+}
+
 /* Compute function body size parameters for NODE.
    When EARLY is true, we compute only simple summaries without
    non-trivial predicates to drive the early inliner.  */
@@ -2382,7 +2445,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function body size: %s\n",
-	     cgraph_node_name (node));
+	     node->name ());
 
   /* When we run into maximal number of entries, we assign everything to the
      constant truth case.  Be sure to have it in list. */
@@ -2396,12 +2459,20 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   if (parms_info)
     compute_bb_predicates (node, parms_info, info);
   gcc_assert (cfun == my_function);
-  order = XNEWVEC (int, n_basic_blocks);
+  order = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   nblocks = pre_and_rev_post_order_compute (NULL, order, false);
   for (n = 0; n < nblocks; n++)
     {
-      bb = BASIC_BLOCK (order[n]);
+      bb = BASIC_BLOCK_FOR_FN (cfun, order[n]);
       freq = compute_call_stmt_bb_frequency (node->decl, bb);
+      if (clobber_only_eh_bb_p (bb))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "\n Ignoring BB %i;"
+		     " it will be optimized away by cleanup_clobbers\n",
+		     bb->index);
+	  continue;
+	}
 
       /* TODO: Obviously predicates can be propagated down across CFG.  */
       if (parms_info)
@@ -2494,7 +2565,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	    }
 
 
-	  if (is_gimple_call (stmt))
+	  if (is_gimple_call (stmt)
+	      && !gimple_call_internal_p (stmt))
 	    {
 	      struct cgraph_edge *edge = cgraph_edge (node, stmt);
 	      struct inline_edge_summary *es = inline_edge_summary (edge);
@@ -2597,14 +2669,13 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   if (!early && nonconstant_names.exists ())
     {
       struct loop *loop;
-      loop_iterator li;
       predicate loop_iterations = true_predicate ();
       predicate loop_stride = true_predicate ();
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	flow_loops_dump (dump_file, NULL, 0);
       scev_initialize ();
-      FOR_EACH_LOOP (li, loop, 0)
+      FOR_EACH_LOOP (loop, 0)
 	{
 	  vec<edge> exits;
 	  edge ex;
@@ -2787,6 +2858,11 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
 	}
     }
   estimate_function_body_sizes (node, early);
+
+  for (e = node->callees; e; e = e->next_callee)
+    if (symtab_comdat_local_p (e->callee))
+      break;
+  node->calls_comdat_local = (e != NULL);
 
   /* Inlining characteristics are maintained by the cgraph_mark_inline.  */
   info->time = info->self_time;
@@ -2975,7 +3051,7 @@ estimate_node_size_and_time (struct cgraph_node *node,
 			     vec<ipa_agg_jump_function_p> known_aggs,
 			     int *ret_size, int *ret_time,
 			     inline_hints *ret_hints,
-			     vec<inline_param_summary_t>
+			     vec<inline_param_summary>
 			     inline_param_summary)
 {
   struct inline_summary *info = inline_summary (node);
@@ -2989,7 +3065,7 @@ estimate_node_size_and_time (struct cgraph_node *node,
     {
       bool found = false;
       fprintf (dump_file, "   Estimating body: %s/%i\n"
-	       "   Known to be false: ", cgraph_node_name (node),
+	       "   Known to be false: ", node->name (),
 	       node->order);
 
       for (i = predicate_not_inlined_condition;
@@ -3771,7 +3847,7 @@ inline_analyze_function (struct cgraph_node *node)
 
   if (dump_file)
     fprintf (dump_file, "\nAnalyzing function: %s/%u\n",
-	     cgraph_node_name (node), node->order);
+	     node->name (), node->order);
   if (optimize && !node->thunk.thunk_p)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
@@ -4133,7 +4209,8 @@ inline_free_summary (void)
   if (!inline_edge_summary_vec.exists ())
     return;
   FOR_EACH_DEFINED_FUNCTION (node)
-    reset_inline_summary (node);
+    if (!node->alias)
+      reset_inline_summary (node);
   if (function_insertion_hook_holder)
     cgraph_remove_function_insertion_hook (function_insertion_hook_holder);
   function_insertion_hook_holder = NULL;

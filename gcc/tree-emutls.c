@@ -1,5 +1,5 @@
 /* Lower TLS operations to emulation functions.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -29,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "langhooks.h"
 #include "target.h"
@@ -365,7 +373,7 @@ emutls_index (tree decl)
 static tree
 emutls_decl (tree decl)
 {
-  struct varpool_node *var;
+  varpool_node *var;
   unsigned int i;
 
   i = emutls_index (decl);
@@ -427,7 +435,7 @@ gen_emutls_addr (tree decl, struct lower_emutls_data *d)
   addr = access_vars[index];
   if (addr == NULL)
     {
-      struct varpool_node *cvar;
+      varpool_node *cvar;
       tree cdecl;
       gimple x;
 
@@ -630,7 +638,7 @@ lower_emutls_function_body (struct cgraph_node *node)
      create a node for it.  */
   d.builtin_node = cgraph_get_create_node (d.builtin_decl);
 
-  FOR_EACH_BB (d.bb)
+  FOR_EACH_BB_FN (d.bb, cfun)
     {
       gimple_stmt_iterator gsi;
       unsigned int i, nedge;
@@ -699,10 +707,10 @@ lower_emutls_function_body (struct cgraph_node *node)
    Callback for varpool_for_variable_and_aliases.  */
 
 static bool
-create_emultls_var (struct varpool_node *var, void *data)
+create_emultls_var (varpool_node *var, void *data)
 {
   tree cdecl;
-  struct varpool_node *cvar;
+  varpool_node *cvar;
 
   cdecl = new_emutls_decl (var->decl,
 			   var->alias && var->analyzed
@@ -735,7 +743,7 @@ create_emultls_var (struct varpool_node *var, void *data)
 static unsigned int
 ipa_lower_emutls (void)
 {
-  struct varpool_node *var;
+  varpool_node *var;
   struct cgraph_node *func;
   bool any_aliases = false;
   tree ctor_body = NULL;

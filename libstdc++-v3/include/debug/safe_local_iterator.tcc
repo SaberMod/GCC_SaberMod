@@ -1,6 +1,6 @@
 // Debugging iterator implementation (out of line) -*- C++ -*-
 
-// Copyright (C) 2011-2013 Free Software Foundation, Inc.
+// Copyright (C) 2011-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -38,7 +38,7 @@ namespace __gnu_debug
     {
       if (!_M_can_compare(__rhs))
 	return false;
-      if (_M_bucket != __rhs._M_bucket)
+      if (bucket() != __rhs.bucket())
 	return false;
 
       /* Determine if we can order the iterators without the help of
