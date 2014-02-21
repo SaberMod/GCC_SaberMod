@@ -1254,6 +1254,9 @@ the search stops:
   @item @file{<prefix>/<target>/lib/gnat}
   (for @command{gnatmake} in all cases, and for @command{gprbuild} if option
   @option{--target} is specified)
+  @item @file{<prefix>/<target>/share/gpr}
+  (for @command{gnatmake} in all cases, and for @command{gprbuild} if option
+  @option{--target} is specified)
   @item @file{<prefix>/share/gpr/}
   (for @command{gnatmake} and @command{gprbuild})
   @item @file{<prefix>/lib/gnat/}
@@ -3806,6 +3809,9 @@ depending on the platform.
 For an indexed attribute, if it is allowed to use @b{others} as the index,
 this is indicated by the words "others allowed".
 
+When @b{others} is used as the index of an indexed attribute, the value of
+the attribute indexed by @b{others} is used when no other index would apply.
+
 @end itemize
 
 @node Project Level Attributes
@@ -4983,6 +4989,19 @@ invoking @code{gnatpp} for the source.
 @subsubsection Package Remote Attributes
 
 @itemize @bullet
+
+@item @b{Included_Patterns}: list
+
+If this attribute is defined it sets the patterns to
+synchronized from the master to the slaves. It is exclusive
+with Excluded_Patterns, that is it is an error to define
+both.
+
+@item @b{Included_Artifact_Patterns}: list
+
+If this attribute is defined it sets the patterns of compilation
+artifacts to synchronized from the slaves to the build master.
+This attribute replace the default hard-coded patterns.
 
 @item @b{Excluded_Patterns}: list
 

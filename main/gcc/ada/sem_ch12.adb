@@ -1931,13 +1931,13 @@ package body Sem_Ch12 is
       Lo :=
         Make_Attribute_Reference (Loc,
           Attribute_Name => Name_First,
-          Prefix         => New_Reference_To (T, Loc));
+          Prefix         => New_Occurrence_Of (T, Loc));
       Set_Etype (Lo, T);
 
       Hi :=
         Make_Attribute_Reference (Loc,
           Attribute_Name => Name_Last,
-          Prefix         => New_Reference_To (T, Loc));
+          Prefix         => New_Occurrence_Of (T, Loc));
       Set_Etype (Hi, T);
 
       Set_Scalar_Range (T,
@@ -2143,7 +2143,7 @@ package body Sem_Ch12 is
          then
             declare
                Non_Freezing_Ref : constant Node_Id :=
-                                    New_Reference_To (Id, Sloc (Id));
+                                    New_Occurrence_Of (Id, Sloc (Id));
                Decl : Node_Id;
 
             begin
@@ -3019,6 +3019,11 @@ package body Sem_Ch12 is
       New_N := Copy_Generic_Node (N, Empty, Instantiating => False);
       Set_Parent_Spec (New_N, Save_Parent);
       Rewrite (N, New_N);
+
+      --  Once the contents of the generic copy and the template are swapped,
+      --  do the same for their respective aspect specifications.
+
+      Exchange_Aspects (N, New_N);
       Id := Defining_Entity (N);
       Generate_Definition (Id);
 
@@ -3088,7 +3093,6 @@ package body Sem_Ch12 is
             Check_References (Id);
          end if;
       end if;
-
    end Analyze_Generic_Package_Declaration;
 
    --------------------------------------------
@@ -3117,6 +3121,8 @@ package body Sem_Ch12 is
       New_N := Copy_Generic_Node (N, Empty, Instantiating => False);
       Set_Parent_Spec (New_N, Save_Parent);
       Rewrite (N, New_N);
+
+      Check_SPARK_Mode_In_Generic (N);
 
       --  The aspect specifications are not attached to the tree, and must
       --  be copied and attached to the generic copy explicitly.
@@ -3251,7 +3257,9 @@ package body Sem_Ch12 is
          begin
             Aspect := First (Aspect_Specifications (N));
             while Present (Aspect) loop
-               if Get_Aspect_Id (Aspect) /= Aspect_Warnings then
+               if Get_Aspect_Id (Aspect) /= Aspect_Warnings
+                 and then Present (Expression (Aspect))
+               then
                   Analyze (Expression (Aspect));
                end if;
 
@@ -3260,7 +3268,10 @@ package body Sem_Ch12 is
 
             Aspect := First (Aspect_Specifications (Original_Node (N)));
             while Present (Aspect) loop
-               Save_Global_References (Expression (Aspect));
+               if Present (Expression (Aspect)) then
+                  Save_Global_References (Expression (Aspect));
+               end if;
+
                Next (Aspect);
             end loop;
          end;
@@ -3591,7 +3602,7 @@ package body Sem_Ch12 is
            Make_Package_Renaming_Declaration (Loc,
              Defining_Unit_Name =>
                Make_Defining_Identifier (Loc, Chars (Gen_Unit)),
-             Name => New_Reference_To (Act_Decl_Id, Loc));
+             Name               => New_Occurrence_Of (Act_Decl_Id, Loc));
 
          Append (Unit_Renaming, Renaming_List);
 
@@ -3608,6 +3619,14 @@ package body Sem_Ch12 is
          Act_Decl :=
            Make_Package_Declaration (Loc,
              Specification => Act_Spec);
+
+         --  Propagate the aspect specifications from the package declaration
+         --  template to the instantiated version of the package declaration.
+
+         if Has_Aspects (Act_Tree) then
+            Set_Aspect_Specifications (Act_Decl,
+              New_Copy_List_Tree (Aspect_Specifications (Act_Tree)));
+         end if;
 
          --  Save the instantiation node, for subsequent instantiation of the
          --  body, if there is one and we are generating code for the current
@@ -5000,7 +5019,7 @@ package body Sem_Ch12 is
           Unit           => Act_Decl,
           Aux_Decls_Node => Make_Compilation_Unit_Aux (Sloc (N)));
 
-      Set_Parent_Spec   (Act_Decl, Parent_Spec (N));
+      Set_Parent_Spec (Act_Decl, Parent_Spec (N));
 
       --  The new compilation unit is linked to its body, but both share the
       --  same file, so we do not set Body_Required on the new unit so as not
@@ -5011,6 +5030,15 @@ package body Sem_Ch12 is
       --  compilation unit of the instance, since this is the main unit.
 
       Rewrite (N, Act_Body);
+
+      --  Propagate the aspect specifications from the package body template to
+      --  the instantiated version of the package body.
+
+      if Has_Aspects (Act_Body) then
+         Set_Aspect_Specifications
+           (N, New_Copy_List_Tree (Aspect_Specifications (Act_Body)));
+      end if;
+
       Body_Cunit := Parent (N);
 
       --  The two compilation unit nodes are linked by the Library_Unit field
@@ -9041,7 +9069,7 @@ package body Sem_Ch12 is
          Nod :=
            Make_Package_Renaming_Declaration (Loc,
              Defining_Unit_Name => New_Copy (Defining_Identifier (Formal)),
-             Name               => New_Reference_To (Actual_Pack, Loc));
+             Name               => New_Occurrence_Of (Actual_Pack, Loc));
 
          Set_Associated_Formal_Package (Defining_Unit_Name (Nod),
            Defining_Identifier (Formal));
@@ -10631,21 +10659,30 @@ package body Sem_Ch12 is
             Desig_Act := Available_View (Desig_Act);
          end if;
 
-         if not Subtypes_Match
-           (Desig_Type, Desig_Act) then
+         if not Subtypes_Match (Desig_Type, Desig_Act) then
             Error_Msg_NE
               ("designated type of actual does not match that of formal &",
-                 Actual, Gen_T);
+               Actual, Gen_T);
+
+            if not Predicates_Match (Desig_Type, Desig_Act) then
+               Error_Msg_N ("\predicates do not match", Actual);
+            end if;
+
             Abandon_Instantiation (Actual);
 
          elsif Is_Access_Type (Designated_Type (Act_T))
            and then Is_Constrained (Designated_Type (Designated_Type (Act_T)))
                       /=
-                  Is_Constrained (Designated_Type (Desig_Type))
+                    Is_Constrained (Designated_Type (Desig_Type))
          then
             Error_Msg_NE
               ("designated type of actual does not match that of formal &",
-                 Actual, Gen_T);
+               Actual, Gen_T);
+
+            if not Predicates_Match (Desig_Type, Desig_Act) then
+               Error_Msg_N ("\predicates do not match", Actual);
+            end if;
+
             Abandon_Instantiation (Actual);
          end if;
 
@@ -11737,7 +11774,7 @@ package body Sem_Ch12 is
       Decl_Node :=
         Make_Subtype_Declaration (Loc,
           Defining_Identifier => Subt,
-          Subtype_Indication  => New_Reference_To (Act_T, Loc));
+          Subtype_Indication  => New_Occurrence_Of (Act_T, Loc));
 
       if Is_Private_Type (Act_T) then
          Set_Has_Private_View (Subtype_Indication (Decl_Node));
@@ -11800,7 +11837,7 @@ package body Sem_Ch12 is
               Make_Subtype_Declaration (Loc,
                 Defining_Identifier => New_Corr,
                 Subtype_Indication  =>
-                  New_Reference_To (Corr_Rec, Loc));
+                  New_Occurrence_Of (Corr_Rec, Loc));
             Append_To (Decl_Nodes, Corr_Decl);
 
             if Ekind (Act_T) = E_Task_Type then
@@ -13729,16 +13766,19 @@ package body Sem_Ch12 is
          end if;
 
          --  If a node has aspects, references within their expressions must
-         --  be saved separately, given that they are not directly in the
-         --  tree.
+         --  be saved separately, given they are not directly in the tree.
 
          if Has_Aspects (N) then
             declare
                Aspect : Node_Id;
+
             begin
                Aspect := First (Aspect_Specifications (N));
                while Present (Aspect) loop
-                  Save_Global_References (Expression (Aspect));
+                  if Present (Expression (Aspect)) then
+                     Save_Global_References (Expression (Aspect));
+                  end if;
+
                   Next (Aspect);
                end loop;
             end;

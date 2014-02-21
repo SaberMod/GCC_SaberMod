@@ -517,12 +517,6 @@ pa_option_override (void)
       write_symbols = NO_DEBUG;
     }
 
-#ifdef AUTO_INC_DEC
-  /* FIXME: Disable auto increment and decrement processing until reload
-     is completed.  See PR middle-end 56791.  */
-  flag_auto_inc_dec = reload_completed;
-#endif
-
   /* We only support the "big PIC" model now.  And we always generate PIC
      code when in 64bit mode.  */
   if (flag_pic == 1 || TARGET_64BIT)
@@ -916,9 +910,12 @@ static rtx
 legitimize_tls_address (rtx addr)
 {
   rtx ret, insn, tmp, t1, t2, tp;
-  enum tls_model model = SYMBOL_REF_TLS_MODEL (addr);
 
-  switch (model) 
+  /* Currently, we can't handle anything but a SYMBOL_REF.  */
+  if (GET_CODE (addr) != SYMBOL_REF)
+    return addr;
+
+  switch (SYMBOL_REF_TLS_MODEL (addr)) 
     {
       case TLS_MODEL_GLOBAL_DYNAMIC:
 	tmp = gen_reg_rtx (Pmode);
@@ -1039,7 +1036,7 @@ hppa_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
       && !REG_POINTER (XEXP (x, 1)))
     return gen_rtx_PLUS (Pmode, XEXP (x, 1), XEXP (x, 0));
 
-  if (PA_SYMBOL_REF_TLS_P (x))
+  if (pa_tls_referenced_p (x))
     return legitimize_tls_address (x);
   else if (flag_pic)
     return legitimize_pic_address (x, mode, gen_reg_rtx (Pmode));
@@ -1920,9 +1917,10 @@ pa_emit_move_sequence (rtx *operands, enum machine_mode mode, rtx scratch_reg)
      not consider them legitimate constants.  Loop optimizations can
      call the emit_move_xxx with one as a source.  */
   if ((GET_CODE (operand1) != HIGH && immediate_operand (operand1, mode))
-      || function_label_operand (operand1, VOIDmode)
       || (GET_CODE (operand1) == HIGH
-	  && symbolic_operand (XEXP (operand1, 0), mode)))
+	  && symbolic_operand (XEXP (operand1, 0), mode))
+      || function_label_operand (operand1, VOIDmode)
+      || pa_tls_referenced_p (operand1))
     {
       int ishighonly = 0;
 
@@ -10300,7 +10298,7 @@ pa_legitimate_constant_p (enum machine_mode mode, rtx x)
   /* TLS_MODEL_GLOBAL_DYNAMIC and TLS_MODEL_LOCAL_DYNAMIC are not
      legitimate constants.  The other variants can't be handled by
      the move patterns after reload starts.  */
-  if (PA_SYMBOL_REF_TLS_P (x))
+  if (pa_tls_referenced_p (x))
     return false;
 
   if (TARGET_64BIT && GET_CODE (x) == CONST_DOUBLE)

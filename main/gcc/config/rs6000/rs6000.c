@@ -5020,7 +5020,7 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
 
   val = const_vector_elt_as_int (op, BYTES_BIG_ENDIAN ? nunits - 1 : 0);
   splat_val = val;
-  msb_val = val > 0 ? 0 : -1;
+  msb_val = val >= 0 ? 0 : -1;
 
   /* Construct the value to be splatted, if possible.  If not, return 0.  */
   for (i = 2; i <= copies; i *= 2)
@@ -5485,7 +5485,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 		      : gen_vsx_xscvdpsp_scalar (freg, sreg));
 
 	  emit_insn (cvt);
-	  emit_insn (gen_vsx_xxspltw_v4sf (target, freg, const0_rtx));
+	  emit_insn (gen_vsx_xxspltw_v4sf_direct (target, freg, const0_rtx));
 	}
       else
 	{
@@ -5511,7 +5511,6 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      of 64-bit items is not supported on Altivec.  */
   if (all_same && GET_MODE_SIZE (inner_mode) <= 4)
     {
-      rtx field;
       mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode));
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
 		      XVECEXP (vals, 0, 0));
@@ -5522,11 +5521,9 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 					      gen_rtx_SET (VOIDmode,
 							   target, mem),
 					      x)));
-      field = (BYTES_BIG_ENDIAN ? const0_rtx
-	       : GEN_INT (GET_MODE_NUNITS (mode) - 1));
       x = gen_rtx_VEC_SELECT (inner_mode, target,
 			      gen_rtx_PARALLEL (VOIDmode,
-						gen_rtvec (1, field)));
+						gen_rtvec (1, const0_rtx)));
       emit_insn (gen_rtx_SET (VOIDmode, target,
 			      gen_rtx_VEC_DUPLICATE (mode, x)));
       return;
@@ -15584,7 +15581,7 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
 enum machine_mode
 rs6000_secondary_memory_needed_mode (enum machine_mode mode)
 {
-  if (mode == SDmode)
+  if (lra_in_progress && mode == SDmode)
     return DDmode;
   return mode;
 }
@@ -16173,7 +16170,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
     rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
   rclass = REGNO_REG_CLASS (regno);
-  addr = XEXP (mem, 0);
+  addr = find_replacement (&XEXP (mem, 0));
 
   switch (rclass)
     {
@@ -16184,19 +16181,18 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       if (GET_CODE (addr) == AND)
 	{
 	  and_op2 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
+	  addr = find_replacement (&XEXP (addr, 0));
 	}
 
       if (GET_CODE (addr) == PRE_MODIFY)
 	{
-	  scratch_or_premodify = XEXP (addr, 0);
+	  scratch_or_premodify = find_replacement (&XEXP (addr, 0));
 	  if (!REG_P (scratch_or_premodify))
 	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	  addr = find_replacement (&XEXP (addr, 1));
+	  if (GET_CODE (addr) != PLUS)
 	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  addr = XEXP (addr, 1);
 	}
 
       if (GET_CODE (addr) == PLUS
@@ -16204,6 +16200,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      || !rs6000_legitimate_offset_address_p (PTImode, addr,
 						      false, true)))
 	{
+	  /* find_replacement already recurses into both operands of
+	     PLUS so we don't need to call it here.  */
 	  addr_op1 = XEXP (addr, 0);
 	  addr_op2 = XEXP (addr, 1);
 	  if (!legitimate_indirect_address_p (addr_op1, false))
@@ -16279,7 +16277,7 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      || !VECTOR_MEM_ALTIVEC_P (mode)))
 	{
 	  and_op2 = XEXP (addr, 1);
-	  addr = XEXP (addr, 0);
+	  addr = find_replacement (&XEXP (addr, 0));
 	}
 
       /* If we aren't using a VSX load, save the PRE_MODIFY register and use it
@@ -16291,14 +16289,13 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
 	      || and_op2 != NULL_RTX
 	      || !legitimate_indexed_address_p (XEXP (addr, 1), false)))
 	{
-	  scratch_or_premodify = XEXP (addr, 0);
+	  scratch_or_premodify = find_replacement (&XEXP (addr, 0));
 	  if (!legitimate_indirect_address_p (scratch_or_premodify, false))
 	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
 
-	  if (GET_CODE (XEXP (addr, 1)) != PLUS)
+	  addr = find_replacement (&XEXP (addr, 1));
+	  if (GET_CODE (addr) != PLUS)
 	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
-
-	  addr = XEXP (addr, 1);
 	}
 
       if (legitimate_indirect_address_p (addr, false)	/* reg */
@@ -29843,16 +29840,18 @@ altivec_expand_vec_perm_le (rtx operands[4])
   rtx op1 = operands[2];
   rtx sel = operands[3];
   rtx tmp = target;
+  rtx splatreg = gen_reg_rtx (V16QImode);
+  enum machine_mode mode = GET_MODE (target);
 
   /* Get everything in regs so the pattern matches.  */
   if (!REG_P (op0))
-    op0 = force_reg (V16QImode, op0);
+    op0 = force_reg (mode, op0);
   if (!REG_P (op1))
-    op1 = force_reg (V16QImode, op1);
+    op1 = force_reg (mode, op1);
   if (!REG_P (sel))
     sel = force_reg (V16QImode, sel);
   if (!REG_P (target))
-    tmp = gen_reg_rtx (V16QImode);
+    tmp = gen_reg_rtx (mode);
 
   /* SEL = splat(31) - SEL.  */
   /* We want to subtract from 31, but we can't vspltisb 31 since
@@ -29860,13 +29859,12 @@ altivec_expand_vec_perm_le (rtx operands[4])
      five bits of the permute control vector elements are used.  */
   splat = gen_rtx_VEC_DUPLICATE (V16QImode,
 				 gen_rtx_CONST_INT (QImode, -1));
-  emit_move_insn (tmp, splat);
-  sel = gen_rtx_MINUS (V16QImode, tmp, sel);
-  emit_move_insn (tmp, sel);
+  emit_move_insn (splatreg, splat);
+  sel = gen_rtx_MINUS (V16QImode, splatreg, sel);
+  emit_move_insn (splatreg, sel);
 
   /* Permute with operands reversed and adjusted selector.  */
-  unspec = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, op1, op0, tmp),
-			   UNSPEC_VPERM);
+  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, splatreg), UNSPEC_VPERM);
 
   /* Copy into target, possibly by way of a register.  */
   if (!REG_P (target))
@@ -29890,9 +29888,9 @@ altivec_expand_vec_perm_const (rtx operands[4])
     unsigned char perm[16];
   };
   static const struct altivec_perm_insn patterns[] = {
-    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum_direct,
       {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 } },
-    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum_direct,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
     { OPTION_MASK_ALTIVEC, 
       (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghb_direct
@@ -29980,7 +29978,7 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	{
           if (!BYTES_BIG_ENDIAN)
             elt = 15 - elt;
-	  emit_insn (gen_altivec_vspltb (target, op0, GEN_INT (elt)));
+	  emit_insn (gen_altivec_vspltb_direct (target, op0, GEN_INT (elt)));
 	  return true;
 	}
 
@@ -29993,8 +29991,8 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	    {
 	      int field = BYTES_BIG_ENDIAN ? elt / 2 : 7 - elt / 2;
 	      x = gen_reg_rtx (V8HImode);
-	      emit_insn (gen_altivec_vsplth (x, gen_lowpart (V8HImode, op0),
-					     GEN_INT (field)));
+	      emit_insn (gen_altivec_vsplth_direct (x, gen_lowpart (V8HImode, op0),
+						    GEN_INT (field)));
 	      emit_move_insn (target, gen_lowpart (V16QImode, x));
 	      return true;
 	    }
@@ -30012,8 +30010,8 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	    {
 	      int field = BYTES_BIG_ENDIAN ? elt / 4 : 3 - elt / 4;
 	      x = gen_reg_rtx (V4SImode);
-	      emit_insn (gen_altivec_vspltw (x, gen_lowpart (V4SImode, op0),
-					     GEN_INT (field)));
+	      emit_insn (gen_altivec_vspltw_direct (x, gen_lowpart (V4SImode, op0),
+						    GEN_INT (field)));
 	      emit_move_insn (target, gen_lowpart (V16QImode, x));
 	      return true;
 	    }
@@ -30057,14 +30055,14 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	     halfwords (BE numbering) when the even halfwords (LE
 	     numbering) are what we need.  */
 	  if (!BYTES_BIG_ENDIAN
-	      && icode == CODE_FOR_altivec_vpkuwum
+	      && icode == CODE_FOR_altivec_vpkuwum_direct
 	      && ((GET_CODE (op0) == REG
 		   && GET_MODE (op0) != V4SImode)
 		  || (GET_CODE (op0) == SUBREG
 		      && GET_MODE (XEXP (op0, 0)) != V4SImode)))
 	    continue;
 	  if (!BYTES_BIG_ENDIAN
-	      && icode == CODE_FOR_altivec_vpkuhum
+	      && icode == CODE_FOR_altivec_vpkuhum_direct
 	      && ((GET_CODE (op0) == REG
 		   && GET_MODE (op0) != V8HImode)
 		  || (GET_CODE (op0) == SUBREG

@@ -1678,6 +1678,11 @@ replace_uses_by (tree name, tree val)
 
   FOR_EACH_IMM_USE_STMT (stmt, imm_iter, name)
     {
+      /* Mark the block if we change the last stmt in it.  */
+      if (cfgcleanup_altered_bbs
+	  && stmt_ends_bb_p (stmt))
+	bitmap_set_bit (cfgcleanup_altered_bbs, gimple_bb (stmt)->index);
+
       FOR_EACH_IMM_USE_ON_STMT (use, imm_iter)
         {
 	  replace_exp (use, val);
@@ -1701,11 +1706,6 @@ replace_uses_by (tree name, tree val)
 	  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
 	  gimple orig_stmt = stmt;
 	  size_t i;
-
-	  /* Mark the block if we changed the last stmt in it.  */
-	  if (cfgcleanup_altered_bbs
-	      && stmt_ends_bb_p (stmt))
-	    bitmap_set_bit (cfgcleanup_altered_bbs, gimple_bb (stmt)->index);
 
 	  /* FIXME.  It shouldn't be required to keep TREE_CONSTANT
 	     on ADDR_EXPRs up-to-date on GIMPLE.  Propagation will
@@ -3991,7 +3991,9 @@ verify_gimple_assign_single (gimple stmt)
       return true;
     }
 
-  if (handled_component_p (lhs))
+  if (handled_component_p (lhs)
+      || TREE_CODE (lhs) == MEM_REF
+      || TREE_CODE (lhs) == TARGET_MEM_REF)
     res |= verify_types_in_gimple_reference (lhs, true);
 
   /* Special codes we cannot handle via their class.  */
@@ -5891,14 +5893,11 @@ gimple_duplicate_sese_region (edge entry, edge exit,
 	return false;
     }
 
-  set_loop_copy (loop, loop);
-
   /* In case the function is used for loop header copying (which is the primary
      use), ensure that EXIT and its copy will be new latch and entry edges.  */
   if (loop->header == entry->dest)
     {
       copying_header = true;
-      set_loop_copy (loop, loop_outer (loop));
 
       if (!dominated_by_p (CDI_DOMINATORS, loop->latch, exit->src))
 	return false;
@@ -5909,13 +5908,18 @@ gimple_duplicate_sese_region (edge entry, edge exit,
 	  return false;
     }
 
+  initialize_original_copy_tables ();
+
+  if (copying_header)
+    set_loop_copy (loop, loop_outer (loop));
+  else
+    set_loop_copy (loop, loop);
+
   if (!region_copy)
     {
       region_copy = XNEWVEC (basic_block, n_region);
       free_region_copy = true;
     }
-
-  initialize_original_copy_tables ();
 
   /* Record blocks outside the region that are dominated by something
      inside.  */

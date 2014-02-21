@@ -1119,6 +1119,18 @@
   }
 )
 
+;;Load and store reverse
+(define_insn "movsi4_rev"
+  [(set (match_operand:SI 0 "reg_or_mem_operand" "=r,Q")
+        (bswap:SI (match_operand:SF 1 "reg_or_mem_operand" "Q,r")))]
+  "TARGET_REORDER"
+  "@
+   lwr\t%0,%y1,r0
+   swr\t%1,%y0,r0"
+  [(set_attr "type"     "load,store")
+  (set_attr "mode"      "SI")
+  (set_attr "length"    "4,4")])
+
 ;; 32-bit floating point moves
 
 (define_expand "movsf"
@@ -1650,7 +1662,7 @@
 ;;----------------------------------------------------------------
 (define_insn "cstoresf4"
    [(set (match_operand:SI 0 "register_operand" "=r")
-        (match_operator 1 "comparison_operator"
+        (match_operator:SI 1 "ordered_comparison_operator"
 	      [(match_operand:SF 2 "register_operand" "r")
 	       (match_operand:SF 3 "register_operand" "r")]))]
   "TARGET_HARD_FLOAT"
@@ -1679,7 +1691,7 @@
 
 (define_expand "cbranchsf4"
   [(set (pc)
-	(if_then_else (match_operator 0 "comparison_operator"
+	(if_then_else (match_operator 0 "ordered_comparison_operator"
 		       [(match_operand:SF 1 "register_operand")
 		        (match_operand:SF 2 "register_operand")])
 		      (label_ref (match_operand 3 ""))

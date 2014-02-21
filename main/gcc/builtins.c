@@ -5292,7 +5292,7 @@ static rtx
 expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp, 
 					rtx target)
 {
-  rtx expect, desired, mem, oldval;
+  rtx expect, desired, mem, oldval, label;
   enum memmodel success, failure;
   tree weak;
   bool is_weak;
@@ -5330,14 +5330,26 @@ expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp,
   if (tree_fits_shwi_p (weak) && tree_to_shwi (weak) != 0)
     is_weak = true;
 
-  oldval = expect;
-  if (!expand_atomic_compare_and_swap ((target == const0_rtx ? NULL : &target),
-				       &oldval, mem, oldval, desired,
+  if (target == const0_rtx)
+    target = NULL;
+
+  /* Lest the rtl backend create a race condition with an imporoper store
+     to memory, always create a new pseudo for OLDVAL.  */
+  oldval = NULL;
+
+  if (!expand_atomic_compare_and_swap (&target, &oldval, mem, expect, desired,
 				       is_weak, success, failure))
     return NULL_RTX;
 
-  if (oldval != expect)
-    emit_move_insn (expect, oldval);
+  /* Conditionally store back to EXPECT, lest we create a race condition
+     with an improper store to memory.  */
+  /* ??? With a rearrangement of atomics at the gimple level, we can handle
+     the normal case where EXPECT is totally private, i.e. a register.  At
+     which point the store can be unconditional.  */
+  label = gen_label_rtx ();
+  emit_cmp_and_jump_insns (target, const0_rtx, NE, NULL, VOIDmode, 1, label);
+  emit_move_insn (expect, oldval);
+  emit_label (label);
 
   return target;
 }
@@ -8851,6 +8863,12 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
       if (!POINTER_TYPE_P (TREE_TYPE (src))
 	  || !POINTER_TYPE_P (TREE_TYPE (dest)))
 	return NULL_TREE;
+      /* In the following try to find a type that is most natural to be
+	 used for the memcpy source and destination and that allows
+	 the most optimization when memcpy is turned into a plain assignment
+	 using that type.  In theory we could always use a char[len] type
+	 but that only gains us that the destination and source possibly
+	 no longer will have their address taken.  */
       /* As we fold (void *)(p + CST) to (void *)p + CST undo this here.  */
       if (TREE_CODE (src) == POINTER_PLUS_EXPR)
 	{
@@ -8886,6 +8904,41 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 	  || TREE_ADDRESSABLE (desttype))
 	return NULL_TREE;
 
+      /* Make sure we are not copying using a floating-point mode or
+         a type whose size possibly does not match its precision.  */
+      if (FLOAT_MODE_P (TYPE_MODE (desttype))
+	  || TREE_CODE (desttype) == BOOLEAN_TYPE
+	  || TREE_CODE (desttype) == ENUMERAL_TYPE)
+	{
+	  /* A more suitable int_mode_for_mode would return a vector
+	     integer mode for a vector float mode or a integer complex
+	     mode for a float complex mode if there isn't a regular
+	     integer mode covering the mode of desttype.  */
+	  enum machine_mode mode = int_mode_for_mode (TYPE_MODE (desttype));
+	  if (mode == BLKmode)
+	    desttype = NULL_TREE;
+	  else
+	    desttype = build_nonstandard_integer_type (GET_MODE_BITSIZE (mode),
+						       1);
+	}
+      if (FLOAT_MODE_P (TYPE_MODE (srctype))
+	  || TREE_CODE (srctype) == BOOLEAN_TYPE
+	  || TREE_CODE (srctype) == ENUMERAL_TYPE)
+	{
+	  enum machine_mode mode = int_mode_for_mode (TYPE_MODE (srctype));
+	  if (mode == BLKmode)
+	    srctype = NULL_TREE;
+	  else
+	    srctype = build_nonstandard_integer_type (GET_MODE_BITSIZE (mode),
+						      1);
+	}
+      if (!srctype)
+	srctype = desttype;
+      if (!desttype)
+	desttype = srctype;
+      if (!srctype)
+	return NULL_TREE;
+
       src_align = get_pointer_alignment (src);
       dest_align = get_pointer_alignment (dest);
       if (dest_align < TYPE_ALIGN (desttype)
@@ -8898,29 +8951,6 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
       /* Build accesses at offset zero with a ref-all character type.  */
       off0 = build_int_cst (build_pointer_type_for_mode (char_type_node,
 							 ptr_mode, true), 0);
-
-      /* For -fsanitize={bool,enum} make sure the load isn't performed in
-	 the bool or enum type.  */
-      if (((flag_sanitize & SANITIZE_BOOL)
-	   && TREE_CODE (desttype) == BOOLEAN_TYPE)
-	  || ((flag_sanitize & SANITIZE_ENUM)
-	      && TREE_CODE (desttype) == ENUMERAL_TYPE))
-	{
-	  tree destitype
-	    = lang_hooks.types.type_for_mode (TYPE_MODE (desttype),
-					      TYPE_UNSIGNED (desttype));
-	  desttype = build_aligned_type (destitype, TYPE_ALIGN (desttype));
-	}
-      if (((flag_sanitize & SANITIZE_BOOL)
-	   && TREE_CODE (srctype) == BOOLEAN_TYPE)
-	  || ((flag_sanitize & SANITIZE_ENUM)
-	      && TREE_CODE (srctype) == ENUMERAL_TYPE))
-	{
-	  tree srcitype
-	    = lang_hooks.types.type_for_mode (TYPE_MODE (srctype),
-					      TYPE_UNSIGNED (srctype));
-	  srctype = build_aligned_type (srcitype, TYPE_ALIGN (srctype));
-	}
 
       destvar = dest;
       STRIP_NOPS (destvar);

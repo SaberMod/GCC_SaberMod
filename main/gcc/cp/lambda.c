@@ -250,6 +250,10 @@ is_normal_capture_proxy (tree decl)
     /* It's not a capture proxy.  */
     return false;
 
+  if (variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
+    /* VLA capture.  */
+    return true;
+
   /* It is a capture proxy, is it a normal capture?  */
   tree val = DECL_VALUE_EXPR (decl);
   if (val == error_mark_node)
@@ -745,7 +749,10 @@ maybe_resolve_dummy (tree object)
   if (type != current_class_type
       && current_class_type
       && LAMBDA_TYPE_P (current_class_type)
-      && DERIVED_FROM_P (type, current_nonlambda_class_type ()))
+      && DERIVED_FROM_P (type, current_nonlambda_class_type ())
+      /* If we get here while parsing the parameter list of a lambda, it
+	 will fail, so don't even try (c++/60252).  */
+      && current_binding_level->kind != sk_function_parms)
     {
       /* In a lambda, need to go through 'this' capture.  */
       tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);

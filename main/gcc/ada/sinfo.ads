@@ -549,6 +549,13 @@ package Sinfo is
    --  not make sense from a user point-of-view, and that cross-references that
    --  do not lead to data dependences for subprograms can be safely ignored.
 
+   --  In addition pragma Debug statements are removed from the tree (rewritten
+   --  to NULL stmt), since they should be ignored in formal verification.
+
+   --  An error is also issued for missing subunits, similar to the warning
+   --  issued when generating code, to avoid formal verification of a partial
+   --  unit.
+
    -----------------------
    -- Check Flag Fields --
    -----------------------
@@ -613,6 +620,37 @@ package Sinfo is
    --    referring to the same node. This flag is set if an error message
    --    refers to a node or is posted on its source location, and has the
    --    effect of inhibiting further messages involving this same node.
+
+   -----------------------
+   -- Modify_Tree_For_C --
+   -----------------------
+
+   --  If the flag Opt.Modify_Tree_For_C is set True, then the tree is modified
+   --  in ways that help match the semantics better with C, easing the task of
+   --  interfacing to C code generators (other than GCC, where the work is done
+   --  in gigi, and there is no point in changing that), and also making life
+   --  easier for Cprint in generating C source code.
+
+   --  The current modifications implemented are as follows:
+
+   --    N_Op_Rotate_Left, N_Op_Rotate_Right, N_Shift_Right_Arithmetic nodes
+   --    are eliminated from the tree (since these operations do not exist in
+   --    C), and the operations are rewritten in terms of logical shifts and
+   --    other logical operations that do exist in C. See Exp_Ch4 expansion
+   --    routines for these operators for details of the transformations made.
+
+   --    The right operand of N_Op_Shift_Right and N_Op_Shift_Left is always
+   --    less than the word size (since other values are not well-defined in
+   --    C). This is done using an explicit test if necessary.
+
+   --    Min and Max attributes are expanded into equivalent if expressions,
+   --    dealing properly with side effect issues.
+
+   --    Mod for signed integer types is expanded into equivalent expressions
+   --    using Rem (which is % in C) and other C-available operators.
+
+   --    The Actions list of an Expression_With_Actions node does not contain
+   --    any declarations,(so that DO X, .. Y IN Z becomes (X, .. Y, Z) in C).
 
    ------------------------------------
    -- Description of Semantic Fields --
@@ -1373,11 +1411,6 @@ package Sinfo is
    --     This flag is set in an Interface or Import pragma if a matching
    --     pragma of the other kind is also present. This is used to avoid
    --     generating some unwanted error messages.
-
-   --  In_Assertion_Expression (Flag4-Sem)
-   --     This flag is present in N_Function_Call nodes. It is set if the
-   --     function is called from within an assertion expression. This is
-   --     used to avoid some bogus warnings about early elaboration.
 
    --  Includes_Infinities (Flag11-Sem)
    --    This flag is present in N_Range nodes. It is set for the range of
@@ -2895,6 +2928,10 @@ package Sinfo is
       --  Discrete_Subtype_Definitions (List2)
       --  Component_Definition (Node4)
 
+      --  Note: although the language allows the full syntax for discrete
+      --  subtype definitions (i.e. a discrete subtype indication or a range),
+      --  in the generated tree, we always rewrite these as N_Range nodes.
+
       --------------------------------------
       -- 3.6  Discrete Subtype Definition --
       --------------------------------------
@@ -3567,6 +3604,9 @@ package Sinfo is
       --  Must_Be_Byte_Aligned (Flag14)
       --  plus fields for expression
 
+      --  Note: in Modify_Tree_For_C mode, Max and Min attributes are expanded
+      --  into equivalent if expressions, properly taking care of side effects.
+
       ---------------------------------
       -- 4.1.4  Attribute Designator --
       ---------------------------------
@@ -4100,6 +4140,11 @@ package Sinfo is
       --  the case where the computed range exceeds that of Long_Long_Integer,
       --  and we are running in ELIMINATED mode, the operator node will be
       --  changed to be a call to the appropriate routine in System.Bignums.
+
+      --  Note: In Modify_Tree_For_C mode, we do not generate an N_Op_Mod node
+      --  for signed integer types (since there is no equivalent operator in
+      --  C). Instead we rewrite such an operation in terms of REM (which is
+      --  % in C) and other C-available operators.
 
       ------------------------------------
       -- 4.5.7  Conditional Expressions --
@@ -5005,7 +5050,6 @@ package Sinfo is
       --   actual parameter part)
       --  First_Named_Actual (Node4-Sem)
       --  Controlling_Argument (Node1-Sem) (set to Empty if not dispatching)
-      --  In_Assertion_Expression (Flag4-Sem)
       --  Is_Expanded_Build_In_Place_Call (Flag11-Sem)
       --  Do_Tag_Check (Flag13-Sem)
       --  No_Elaboration_Check (Flag14-Sem)
@@ -7145,6 +7189,12 @@ package Sinfo is
       --  plus fields for expression
       --  Shift_Count_OK (Flag4-Sem)
 
+      --  Note: N_Op_Rotate_Left, N_Op_Rotate_Right, N_Shift_Right_Arithmetic
+      --  never appear in the expanded tree if Modify_Tree_For_C mode is set.
+
+      --  Note: For N_Op_Shift_Left and N_Op_Shift_Right, the right operand is
+      --  always less than the word size if Modify_Tree_For_C mode is set.
+
    --------------------------
    -- Obsolescent Features --
    --------------------------
@@ -7355,8 +7405,15 @@ package Sinfo is
       --  Expression (Node3)
       --  plus fields for expression
 
-      --  Note: the actions list is always non-null, since we would never have
-      --  created this node if there weren't some actions.
+      --  Note: In the final generated tree presented to the code generator,
+      --  the actions list is always non-null, since there is no point in this
+      --  node if the actions are Empty. During semantic analysis there are
+      --  cases where it is convenient to temporarily generate an empty actions
+      --  list. This arises in cases where we create such an empty actions
+      --  list, and it may or may not end up being a place where additional
+      --  actions are inserted. The expander removes such empty cases after
+      --  the expression of the node is fully analyzed and expanded, at which
+      --  point it is safe to remove it, since no more actions can be inserted.
 
       --  Note: Expression may be a Null_Statement, in which case the
       --  N_Expression_With_Actions has type Standard_Void_Type. However some
@@ -7367,6 +7424,9 @@ package Sinfo is
       --  are not interchangeable, and in particular an N_Null_Statement is
       --  not a proper expression), and in the long term all cases of this
       --  idiom should instead use a new node kind N_Compound_Statement.
+
+      --  Note: In Modify_Tree_For_C, we never generate any declarations in
+      --  the action list, which can contain only non-declarative statements.
 
       --------------------
       -- Free Statement --
@@ -8942,9 +9002,6 @@ package Sinfo is
    function Import_Interface_Present
      (N : Node_Id) return Boolean;    -- Flag16
 
-   function In_Assertion_Expression
-     (N : Node_Id) return Boolean;    -- Flag4
-
    function In_Present
      (N : Node_Id) return Boolean;    -- Flag15
 
@@ -9940,9 +9997,6 @@ package Sinfo is
 
    procedure Set_Import_Interface_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag16
-
-   procedure Set_In_Assertion_Expression
-     (N : Node_Id; Val : Boolean := True);    -- Flag4
 
    procedure Set_In_Present
      (N : Node_Id; Val : Boolean := True);    -- Flag15
@@ -12349,7 +12403,6 @@ package Sinfo is
    pragma Inline (Interface_Present);
    pragma Inline (Includes_Infinities);
    pragma Inline (Import_Interface_Present);
-   pragma Inline (In_Assertion_Expression);
    pragma Inline (In_Present);
    pragma Inline (Inherited_Discriminant);
    pragma Inline (Instance_Spec);
@@ -12675,7 +12728,6 @@ package Sinfo is
    pragma Inline (Set_Identifier);
    pragma Inline (Set_Implicit_With);
    pragma Inline (Set_Import_Interface_Present);
-   pragma Inline (Set_In_Assertion_Expression);
    pragma Inline (Set_In_Present);
    pragma Inline (Set_Includes_Infinities);
    pragma Inline (Set_Inherited_Discriminant);

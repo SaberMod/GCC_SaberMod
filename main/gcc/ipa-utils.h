@@ -80,7 +80,8 @@ vec <cgraph_node *>
 possible_polymorphic_call_targets (tree, HOST_WIDE_INT,
 				   ipa_polymorphic_call_context,
 				   bool *final = NULL,
-				   void **cache_token = NULL);
+				   void **cache_token = NULL,
+				   int *nonconstruction_targets = NULL);
 odr_type get_odr_type (tree, bool insert = false);
 void dump_possible_polymorphic_call_targets (FILE *, tree, HOST_WIDE_INT,
 					     const ipa_polymorphic_call_context &);
@@ -91,6 +92,10 @@ tree method_class_type (tree);
 tree get_polymorphic_call_info (tree, tree, tree *,
 				HOST_WIDE_INT *,
 				ipa_polymorphic_call_context *);
+bool get_polymorphic_call_info_from_invariant (ipa_polymorphic_call_context *,
+					       tree, tree, HOST_WIDE_INT);
+tree vtable_pointer_value_to_binfo (tree t);
+bool vtable_pointer_value_to_vtable (tree, tree *, unsigned HOST_WIDE_INT *);
 
 /* Return vector containing possible targets of polymorphic call E.
    If FINALP is non-NULL, store true if the list is complette. 
@@ -105,7 +110,8 @@ tree get_polymorphic_call_info (tree, tree, tree *,
 inline vec <cgraph_node *>
 possible_polymorphic_call_targets (struct cgraph_edge *e,
 				   bool *final = NULL,
-				   void **cache_token = NULL)
+				   void **cache_token = NULL,
+				   int *nonconstruction_targets = NULL)
 {
   gcc_checking_assert (e->indirect_info->polymorphic);
   ipa_polymorphic_call_context context = {e->indirect_info->offset,
@@ -115,7 +121,8 @@ possible_polymorphic_call_targets (struct cgraph_edge *e,
   return possible_polymorphic_call_targets (e->indirect_info->otr_type,
 					    e->indirect_info->otr_token,
 					    context,
-					    final, cache_token);
+					    final, cache_token,
+					    nonconstruction_targets);
 }
 
 /* Same as above but taking OBJ_TYPE_REF as an parameter.  */

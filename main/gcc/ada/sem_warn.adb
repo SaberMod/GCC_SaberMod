@@ -30,6 +30,7 @@ with Errout;   use Errout;
 with Exp_Code; use Exp_Code;
 with Fname;    use Fname;
 with Lib;      use Lib;
+with Lib.Xref; use Lib.Xref;
 with Namet;    use Namet;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
@@ -998,6 +999,8 @@ package body Sem_Warn is
    --  Start of processing for Check_References
 
    begin
+      Process_Deferred_References;
+
       --  No messages if warnings are suppressed, or if we have detected any
       --  real errors so far (this last check avoids junk messages resulting
       --  from errors, e.g. a subunit that is not loaded).
@@ -1262,6 +1265,7 @@ package body Sem_Warn is
                      if Referenced (E1) then
                         if not Has_Unmodified (E1)
                           and then not Warnings_Off_E1
+                          and then not Is_Junk_Name (Chars (E1))
                         then
                            Output_Reference_Error
                              ("?v?variable& is read but never assigned!");
@@ -1269,6 +1273,7 @@ package body Sem_Warn is
 
                      elsif not Has_Unreferenced (E1)
                        and then not Warnings_Off_E1
+                       and then not Is_Junk_Name (Chars (E1))
                      then
                         Output_Reference_Error -- CODEFIX
                           ("?v?variable& is never read and never assigned!");
@@ -2565,6 +2570,8 @@ package body Sem_Warn is
       if not Opt.Check_Withs or else Operating_Mode = Check_Syntax then
          return;
       end if;
+
+      Process_Deferred_References;
 
       --  Flag any unused with clauses. For a subunit, check only the units
       --  in its context, not those of the parent, which may be needed by other
@@ -3894,6 +3901,7 @@ package body Sem_Warn is
       if not Referenced_Check_Spec (E)
         and then not Has_Pragma_Unreferenced_Check_Spec (E)
         and then not Warnings_Off_Check_Spec (E)
+        and then not Is_Junk_Name (Chars (Spec_E))
       then
          case Ekind (E) is
             when E_Variable =>
@@ -4100,6 +4108,7 @@ package body Sem_Warn is
         and then not Is_Exported (Ent)
         and then Safe_To_Capture_Value (N, Ent)
         and then not Has_Pragma_Unreferenced_Check_Spec (Ent)
+        and then not Is_Junk_Name (Chars (Ent))
       then
          --  Before we issue the message, check covering exception handlers.
          --  Search up tree for enclosing statement sequences and handlers.
@@ -4239,7 +4248,10 @@ package body Sem_Warn is
 
    procedure Warn_On_Useless_Assignments (E : Entity_Id) is
       Ent : Entity_Id;
+
    begin
+      Process_Deferred_References;
+
       if Warn_On_Modified_Unread
         and then In_Extended_Main_Source_Unit (E)
       then

@@ -2119,8 +2119,8 @@ package body Sem_Ch3 is
          --  spec analysis.
 
       begin
-         --  Consider only procedure bodies whose name matches one of type
-         --  [Limited_]Controlled's primitives.
+         --  Consider only procedure bodies whose name matches one of the three
+         --  controlled primitives.
 
          if Nkind (Body_Spec) /= N_Procedure_Specification
            or else not Nam_In (Chars (Body_Id), Name_Adjust,
@@ -2129,14 +2129,15 @@ package body Sem_Ch3 is
          then
             return;
 
-         --  A controlled primitive must have exactly one formal whose type
-         --  derives from [Limited_]Controlled.
+         --  A controlled primitive must have exactly one formal
 
          elsif List_Length (Params) /= 1 then
             return;
          end if;
 
          Dummy := Analyze_Subprogram_Specification (Body_Spec);
+
+         --  The type of the formal must be derived from [Limited_]Controlled
 
          if not Is_Controlled (Etype (Defining_Entity (First (Params)))) then
             return;
@@ -2152,12 +2153,16 @@ package body Sem_Ch3 is
          end if;
 
          --  At this point the body is known to be a late controlled primitive.
-         --  Generate a matching spec and insert it before the body.
+         --  Generate a matching spec and insert it before the body. Note the
+         --  use of Copy_Separate_Tree - we want an entirely separate semantic
+         --  tree in this case.
 
-         Spec := New_Copy_Tree (Body_Spec);
+         Spec := Copy_Separate_Tree (Body_Spec);
 
-         Set_Defining_Unit_Name
-           (Spec, Make_Defining_Identifier (Loc, Chars (Body_Id)));
+         --  Ensure that the subprogram declaration does not inherit the null
+         --  indicator from the body as we now have a proper spec/body pair.
+
+         Set_Null_Present (Spec, False);
 
          Insert_Before_And_Analyze (Body_Decl,
            Make_Subprogram_Declaration (Loc,
@@ -2337,10 +2342,24 @@ package body Sem_Ch3 is
       if Present (L) then
          Context := Parent (L);
 
-         if Nkind (Context) = N_Package_Specification
-           and then L = Visible_Declarations (Context)
-         then
-            Analyze_Package_Contract (Defining_Entity (Context));
+         if Nkind (Context) = N_Package_Specification then
+
+            --  When a package has private declarations, its contract must be
+            --  analyzed at the end of the said declarations. This way both the
+            --  analysis and freeze actions are properly synchronized in case
+            --  of private type use within the contract.
+
+            if L = Private_Declarations (Context) then
+               Analyze_Package_Contract (Defining_Entity (Context));
+
+            --  Otherwise the contract is analyzed at the end of the visible
+            --  declarations.
+
+            elsif L = Visible_Declarations (Context)
+              and then No (Private_Declarations (Context))
+            then
+               Analyze_Package_Contract (Defining_Entity (Context));
+            end if;
 
          elsif Nkind (Context) = N_Package_Body then
             In_Package_Body := True;
@@ -3546,10 +3565,13 @@ package body Sem_Ch3 is
 
       --  We need a predicate check if the type has predicates, and if either
       --  there is an initializing expression, or for default initialization
-      --  when we have at least one case of an explicit default initial value.
+      --  when we have at least one case of an explicit default initial value
+      --  and then this is not an internal declaration whose initialization
+      --  comes later (as for an aggregate expansion).
 
       if not Suppress_Assignment_Checks (N)
         and then Present (Predicate_Function (T))
+        and then not No_Initialization (N)
         and then
           (Present (E)
             or else
@@ -5629,7 +5651,7 @@ package body Sem_Ch3 is
                 Defining_Identifier => Derived_Type,
                 Subtype_Indication  =>
                   Make_Subtype_Indication (Loc,
-                    Subtype_Mark => New_Reference_To (Implicit_Base, Loc),
+                    Subtype_Mark => New_Occurrence_Of (Implicit_Base, Loc),
                     Constraint => Constraint (Indic)));
 
             Rewrite (N, New_Indic);
@@ -6004,13 +6026,13 @@ package body Sem_Ch3 is
                Lo :=
                   Make_Attribute_Reference (Loc,
                     Attribute_Name => Name_First,
-                    Prefix         => New_Reference_To (Derived_Type, Loc));
+                    Prefix         => New_Occurrence_Of (Derived_Type, Loc));
                Set_Etype (Lo, Derived_Type);
 
                Hi :=
                   Make_Attribute_Reference (Loc,
                     Attribute_Name => Name_Last,
-                    Prefix         => New_Reference_To (Derived_Type, Loc));
+                    Prefix         => New_Occurrence_Of (Derived_Type, Loc));
                Set_Etype (Hi, Derived_Type);
 
                Set_Scalar_Range (Derived_Type,
@@ -9254,7 +9276,7 @@ package body Sem_Ch3 is
           Defining_Identifier => Subt,
           Subtype_Indication  =>
             Make_Subtype_Indication (Loc,
-              Subtype_Mark => New_Reference_To (Par, Loc),
+              Subtype_Mark => New_Occurrence_Of (Par, Loc),
               Constraint   => New_Copy_Tree (Constr)));
 
       --  If this is a component subtype for an outer itype, it is not
@@ -9369,7 +9391,26 @@ package body Sem_Ch3 is
                Error_Msg_NE
                  ("type & must implement abstract subprogram & with a " &
                   "procedure", Subp_Alias, Contr_Typ);
+
+            elsif Present (Get_Rep_Pragma (Impl_Subp, Name_Implemented))
+              and then Implementation_Kind (Impl_Subp) /= Impl_Kind
+            then
+               Error_Msg_Name_1 := Impl_Kind;
+               Error_Msg_N
+                ("overriding operation& must have synchronization%",
+                 Subp_Alias);
             end if;
+
+         --  If primitive has Optional synchronization, overriding operation
+         --  must match if it has an explicit synchronization..
+
+         elsif Present (Get_Rep_Pragma (Impl_Subp, Name_Implemented))
+           and then Implementation_Kind (Impl_Subp) /= Impl_Kind
+         then
+               Error_Msg_Name_1 := Impl_Kind;
+               Error_Msg_N
+                ("overriding operation& must have syncrhonization%",
+                 Subp_Alias);
          end if;
       end Check_Pragma_Implemented;
 
@@ -9427,7 +9468,7 @@ package body Sem_Ch3 is
              Chars                        => Name_Implemented,
              Pragma_Argument_Associations => New_List (
                Make_Pragma_Argument_Association (Loc,
-                 Expression => New_Reference_To (Subp, Loc)),
+                 Expression => New_Occurrence_Of (Subp, Loc)),
 
                Make_Pragma_Argument_Association (Loc,
                  Expression => Make_Identifier (Loc, Iface_Kind))));
@@ -15772,8 +15813,12 @@ package body Sem_Ch3 is
            and then No (Expression (P))
          then
             null;
+
+         --  Here we freeze the base type of object type to catch premature use
+         --  of discriminated private type without a full view.
+
          else
-            Insert_Actions (Obj_Def, Freeze_Entity (T, P));
+            Insert_Actions (Obj_Def, Freeze_Entity (Base_Type (T), P));
          end if;
 
       --  Ada 2005 AI-406: the object definition in an object declaration
@@ -16619,7 +16664,7 @@ package body Sem_Ch3 is
       then
          D := First_Discriminant (Derived_Base);
          while Present (D) loop
-            Append_Elmt (New_Reference_To (D, Loc), Discs);
+            Append_Elmt (New_Occurrence_Of (D, Loc), Discs);
             Next_Discriminant (D);
          end loop;
       end if;
@@ -18675,7 +18720,7 @@ package body Sem_Ch3 is
          end;
       end if;
 
-      --  Ada 2005 AI 161: Check preelaboratable initialization consistency
+      --  Ada 2005 AI 161: Check preelaborable initialization consistency
 
       if Known_To_Have_Preelab_Init (Priv_T) then
 
@@ -18737,10 +18782,16 @@ package body Sem_Ch3 is
          Set_Has_Inheritable_Invariants (Full_T);
       end if;
 
-      --  Propagate predicates to full type
+      --  Propagate predicates to full type, and predicate function if already
+      --  defined. It is not clear that this can actually happen? the partial
+      --  view cannot be frozen yet, and the predicate function has not been
+      --  built. Still it is a cheap check and seems safer to make it.
 
       if Has_Predicates (Priv_T) then
-         Set_Predicate_Function (Priv_T, Predicate_Function (Full_T));
+         if Present (Predicate_Function (Priv_T)) then
+            Set_Predicate_Function (Full_T, Predicate_Function (Priv_T));
+         end if;
+
          Set_Has_Predicates (Full_T);
       end if;
    end Process_Full_View;
@@ -18826,7 +18877,7 @@ package body Sem_Ch3 is
 
          elsif Ekind (Priv_Dep) = E_Incomplete_Subtype then
             Set_Subtype_Indication
-              (Parent (Priv_Dep), New_Reference_To (Full_T, Sloc (Priv_Dep)));
+              (Parent (Priv_Dep), New_Occurrence_Of (Full_T, Sloc (Priv_Dep)));
             Set_Etype (Priv_Dep, Full_T);
             Set_Ekind (Priv_Dep, Subtype_Kind (Ekind (Full_T)));
             Set_Analyzed (Parent (Priv_Dep), False);
@@ -18945,7 +18996,7 @@ package body Sem_Ch3 is
             Rewrite (Lo,
               Make_Attribute_Reference (Sloc (Lo),
                 Attribute_Name => Name_First,
-                Prefix => New_Reference_To (T, Sloc (Lo))));
+                Prefix => New_Occurrence_Of (T, Sloc (Lo))));
             Analyze_And_Resolve (Lo);
          end if;
 
@@ -18953,7 +19004,7 @@ package body Sem_Ch3 is
             Rewrite (Hi,
               Make_Attribute_Reference (Sloc (Hi),
                 Attribute_Name => Name_First,
-                Prefix => New_Reference_To (T, Sloc (Hi))));
+                Prefix => New_Occurrence_Of (T, Sloc (Hi))));
             Analyze_And_Resolve (Hi);
          end if;
 

@@ -32,7 +32,6 @@ with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch4;  use Exp_Ch4;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Pakd; use Exp_Pakd;
-with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Elists;   use Elists;
 with Expander; use Expander;
@@ -1032,7 +1031,7 @@ package body Checks is
             Rewrite (N,
               OK_Convert_To (Typ,
                 Make_Function_Call (Loc,
-                  Name => New_Reference_To (RTE (Cent), Loc),
+                  Name => New_Occurrence_Of (RTE (Cent), Loc),
                   Parameter_Associations => New_List (
                     OK_Convert_To (RTE (RE_Integer_64), Left_Opnd  (N)),
                     OK_Convert_To (RTE (RE_Integer_64), Right_Opnd (N))))));
@@ -2259,7 +2258,7 @@ package body Checks is
                 Then_Statements => New_List (
                   Make_Raise_Statement (Loc,
                     Name       =>
-                      New_Reference_To (Standard_Program_Error, Loc),
+                      New_Occurrence_Of (Standard_Program_Error, Loc),
                     Expression => Make_String_Literal (Loc, End_String)))));
 
          --  Create a sequence of overlapping checks by and-ing them all
@@ -2389,7 +2388,7 @@ package body Checks is
          --  Step 1: Create the expression to verify the validity of the
          --  context.
 
-         Check := New_Reference_To (Context, Loc);
+         Check := New_Occurrence_Of (Context, Loc);
 
          --  When processing a function result, use 'Result. Generate
          --    Context'Result
@@ -2574,15 +2573,15 @@ package body Checks is
    begin
       if Present (Predicate_Function (Typ)) then
 
-         --  A predicate check does not apply within internally generated
-         --  subprograms, such as TSS functions.
-
          S := Current_Scope;
          while Present (S) and then not Is_Subprogram (S) loop
             S := Scope (S);
          end loop;
 
-         if Present (S) and then Get_TSS_Name (S) /= TSS_Null then
+         --  A predicate check does not apply within internally generated
+         --  subprograms, such as TSS functions.
+
+         if Within_Internal_Subprogram then
             return;
 
          --  If the check appears within the predicate function itself, it
@@ -2590,7 +2589,7 @@ package body Checks is
          --  predicated subtype itself, rather than some covering type. This
          --  is likely to be a common error, and thus deserves a warning.
 
-         elsif S = Predicate_Function (Typ) then
+         elsif Present (S) and then S = Predicate_Function (Typ) then
             Error_Msg_N
               ("predicate check includes a function call that "
                & "requires a predicate check??", Parent (N));
@@ -3208,6 +3207,13 @@ package body Checks is
       elsif Serious_Errors_Detected > 0 then
          return;
 
+      --  Never generate discriminant checks for Unchecked_Union types
+
+      elsif Present (Expr_Type)
+        and then Is_Unchecked_Union (Expr_Type)
+      then
+         return;
+
       --  Scalar type conversions of the form Target_Type (Expr) require a
       --  range check if we cannot be sure that Expr is in the base type of
       --  Target_Typ and also that Expr is in the range of Target_Typ. These
@@ -3218,8 +3224,8 @@ package body Checks is
          declare
             Conv_OK  : constant Boolean := Conversion_OK (N);
             --  If the Conversion_OK flag on the type conversion is set and no
-            --  floating point type is involved in the type conversion then
-            --  fixed point values must be read as integral values.
+            --  floating-point type is involved in the type conversion then
+            --  fixed-point values must be read as integral values.
 
             Float_To_Int : constant Boolean :=
               Is_Floating_Point_Type (Expr_Type)
@@ -3245,9 +3251,9 @@ package body Checks is
                     (Expr, Target_Type, Fixed_Int => Conv_OK);
 
                   --  If the target type has predicates, we need to indicate
-                  --  the need for a check, even if Determine_Range finds
-                  --  that the value is within bounds. This may be the case
-                  --  e.g for a division with a constant denominator.
+                  --  the need for a check, even if Determine_Range finds that
+                  --  the value is within bounds. This may be the case e.g for
+                  --  a division with a constant denominator.
 
                   if Has_Predicates (Target_Type) then
                      Enable_Range_Check (Expr);
@@ -3267,9 +3273,9 @@ package body Checks is
          --  An unconstrained derived type may have inherited discriminant.
          --  Build an actual discriminant constraint list using the stored
          --  constraint, to verify that the expression of the parent type
-         --  satisfies the constraints imposed by the (unconstrained)
-         --  derived type. This applies to value conversions, not to view
-         --  conversions of tagged types.
+         --  satisfies the constraints imposed by the (unconstrained) derived
+         --  type. This applies to value conversions, not to view conversions
+         --  of tagged types.
 
          declare
             Loc         : constant Source_Ptr := Sloc (N);
@@ -3794,11 +3800,11 @@ package body Checks is
 
    begin
       pragma Assert
-        (K = N_Component_Declaration
-           or else K = N_Discriminant_Specification
-           or else K = N_Function_Specification
-           or else K = N_Object_Declaration
-           or else K = N_Parameter_Specification);
+        (Nkind_In (K, N_Component_Declaration,
+                      N_Discriminant_Specification,
+                      N_Function_Specification,
+                      N_Object_Declaration,
+                      N_Parameter_Specification));
 
       if K = N_Function_Specification then
          Typ := Etype (Defining_Entity (N));
@@ -5728,7 +5734,7 @@ package body Checks is
                          Duplicate_Subexpr_Move_Checks (Sub)),
                      Right_Opnd =>
                        Make_Attribute_Reference (Loc,
-                         Prefix         => New_Reference_To (Etype (A), Loc),
+                         Prefix         => New_Occurrence_Of (Etype (A), Loc),
                          Attribute_Name => Name_Range)),
                 Reason => CE_Index_Check_Failed));
          end if;
@@ -5782,7 +5788,7 @@ package body Checks is
                      Range_N :=
                        Make_Attribute_Reference (Loc,
                          Prefix         =>
-                           New_Reference_To (Etype (A_Idx), Loc),
+                           New_Occurrence_Of (Etype (A_Idx), Loc),
                          Attribute_Name => Name_Range);
 
                   --  For arrays with non-constant bounds we cannot generate
@@ -6930,7 +6936,7 @@ package body Checks is
                 New_Occurrence_Of (RTE (RE_Mark_Id), Loc),
               Expression          =>
                 Make_Function_Call (Loc,
-                  Name => New_Reference_To (RTE (RE_SS_Mark), Loc)))),
+                  Name => New_Occurrence_Of (RTE (RE_SS_Mark), Loc)))),
 
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
@@ -6938,7 +6944,7 @@ package body Checks is
                 Make_Procedure_Call_Statement (Loc,
                   Name => New_Occurrence_Of (RTE (RE_SS_Release), Loc),
                   Parameter_Associations => New_List (
-                    New_Reference_To (M, Loc))))));
+                    New_Occurrence_Of (M, Loc))))));
    end Make_Bignum_Block;
 
    ----------------------------------

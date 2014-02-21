@@ -670,6 +670,9 @@ struct GTY(()) function {
   /* Nonzero if the current function contains any loops with
      nonzero value in loop->simduid.  */
   unsigned int has_simduid_loops : 1;
+
+  /* Set when the tail call has been identified.  */
+  unsigned int tail_call_marked : 1;
 };
 
 #if 0

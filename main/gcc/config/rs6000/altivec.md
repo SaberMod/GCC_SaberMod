@@ -46,6 +46,7 @@
    UNSPEC_VPACK_SIGN_UNS_SAT
    UNSPEC_VPACK_UNS_UNS_SAT
    UNSPEC_VPACK_UNS_UNS_MOD
+   UNSPEC_VPACK_UNS_UNS_MOD_DIRECT
    UNSPEC_VSLV4SI
    UNSPEC_VSLO
    UNSPEC_VSR
@@ -69,6 +70,8 @@
    UNSPEC_VLSDOI
    UNSPEC_VUNPACK_HI_SIGN
    UNSPEC_VUNPACK_LO_SIGN
+   UNSPEC_VUNPACK_HI_SIGN_DIRECT
+   UNSPEC_VUNPACK_LO_SIGN_DIRECT
    UNSPEC_VUPKHPX
    UNSPEC_VUPKLPX
    UNSPEC_DST
@@ -132,6 +135,7 @@
    UNSPEC_VMRGH_DIRECT
    UNSPEC_VMRGL_DIRECT
    UNSPEC_VSPLT_DIRECT
+   UNSPEC_VSUMSWS_DIRECT
 ])
 
 (define_c_enum "unspecv"
@@ -682,7 +686,7 @@
        emit_insn (gen_altivec_vmulosh (odd, operands[1], operands[2]));
        emit_insn (gen_altivec_vmrghw_direct (high, even, odd));
        emit_insn (gen_altivec_vmrglw_direct (low, even, odd));
-       emit_insn (gen_altivec_vpkuwum (operands[0], high, low));
+       emit_insn (gen_altivec_vpkuwum_direct (operands[0], high, low));
      }
    else
      {
@@ -690,7 +694,7 @@
        emit_insn (gen_altivec_vmulesh (odd, operands[1], operands[2]));
        emit_insn (gen_altivec_vmrghw_direct (high, odd, even));
        emit_insn (gen_altivec_vmrglw_direct (low, odd, even));
-       emit_insn (gen_altivec_vpkuwum (operands[0], low, high));
+       emit_insn (gen_altivec_vpkuwum_direct (operands[0], low, high));
      } 
 
    DONE;
@@ -871,6 +875,7 @@
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrghb_internal"
@@ -930,6 +935,7 @@
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrghh_internal"
@@ -983,6 +989,7 @@
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrghw_internal"
@@ -1057,6 +1064,7 @@
 
   x = gen_rtx_VEC_SELECT (V16QImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrglb_internal"
@@ -1116,6 +1124,7 @@
 
   x = gen_rtx_VEC_SELECT (V8HImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrglh_internal"
@@ -1169,6 +1178,7 @@
 
   x = gen_rtx_VEC_SELECT (V4SImode, x, gen_rtx_PARALLEL (VOIDmode, v));
   emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
 })
 
 (define_insn "*altivec_vmrglw_internal"
@@ -1224,7 +1234,12 @@
 	  (parallel [(const_int 0) (const_int 4)
 		     (const_int 2) (const_int 6)])))]
   "TARGET_P8_VECTOR"
-  "vmrgew %0,%1,%2"
+{
+  if (BYTES_BIG_ENDIAN)
+    return "vmrgew %0,%1,%2";
+  else
+    return "vmrgow %0,%2,%1";
+}
   [(set_attr "type" "vecperm")])
 
 (define_insn "p8_vmrgow"
@@ -1236,7 +1251,12 @@
 	  (parallel [(const_int 1) (const_int 5)
 		     (const_int 3) (const_int 7)])))]
   "TARGET_P8_VECTOR"
-  "vmrgow %0,%1,%2"
+{
+  if (BYTES_BIG_ENDIAN)
+    return "vmrgow %0,%1,%2";
+  else
+    return "vmrgew %0,%2,%1";
+}
   [(set_attr "type" "vecperm")])
 
 (define_expand "vec_widen_umult_even_v16qi"
@@ -1425,7 +1445,7 @@
   "TARGET_ALTIVEC"
   "*
   {
-    if (BYTES_BIG_ENDIAN)
+    if (VECTOR_ELT_ORDER_BIG)
       return \"vpkpx %0,%1,%2\";
     else
       return \"vpkpx %0,%2,%1\";
@@ -1440,7 +1460,7 @@
   "<VI_unit>"
   "*
   {
-    if (BYTES_BIG_ENDIAN)
+    if (VECTOR_ELT_ORDER_BIG)
       return \"vpks<VI_char>ss %0,%1,%2\";
     else
       return \"vpks<VI_char>ss %0,%2,%1\";
@@ -1455,7 +1475,7 @@
   "<VI_unit>"
   "*
   {
-    if (BYTES_BIG_ENDIAN)
+    if (VECTOR_ELT_ORDER_BIG)
       return \"vpks<VI_char>us %0,%1,%2\";
     else
       return \"vpks<VI_char>us %0,%2,%1\";
@@ -1470,7 +1490,7 @@
   "<VI_unit>"
   "*
   {
-    if (BYTES_BIG_ENDIAN)
+    if (VECTOR_ELT_ORDER_BIG)
       return \"vpku<VI_char>us %0,%1,%2\";
     else
       return \"vpku<VI_char>us %0,%2,%1\";
@@ -1482,6 +1502,21 @@
 	(unspec:<VP_small> [(match_operand:VP 1 "register_operand" "v")
 			    (match_operand:VP 2 "register_operand" "v")]
 			   UNSPEC_VPACK_UNS_UNS_MOD))]
+  "<VI_unit>"
+  "*
+  {
+    if (VECTOR_ELT_ORDER_BIG)
+      return \"vpku<VI_char>um %0,%1,%2\";
+    else
+      return \"vpku<VI_char>um %0,%2,%1\";
+  }"
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vpku<VI_char>um_direct"
+  [(set (match_operand:<VP_small> 0 "register_operand" "=v")
+	(unspec:<VP_small> [(match_operand:VP 1 "register_operand" "v")
+			    (match_operand:VP 2 "register_operand" "v")]
+			   UNSPEC_VPACK_UNS_UNS_MOD_DIRECT))]
   "<VI_unit>"
   "*
   {
@@ -1580,64 +1615,242 @@
   "vsum4s<VI_char>s %0,%1,%2"
   [(set_attr "type" "veccomplex")])
 
+;; FIXME: For the following two patterns, the scratch should only be
+;; allocated for !VECTOR_ELT_ORDER_BIG, and the instructions should
+;; be emitted separately.
 (define_insn "altivec_vsum2sws"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
                       (match_operand:V4SI 2 "register_operand" "v")]
 		     UNSPEC_VSUM2SWS))
-   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))
+   (clobber (match_scratch:V4SI 3 "=v"))]
   "TARGET_ALTIVEC"
-  "vsum2sws %0,%1,%2"
-  [(set_attr "type" "veccomplex")])
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vsum2sws %0,%1,%2";
+  else
+    return "vsldoi %3,%2,%2,12\n\tvsum2sws %3,%1,%3\n\tvsldoi %0,%3,%3,4";
+}
+  [(set_attr "type" "veccomplex")
+   (set (attr "length")
+     (if_then_else
+       (match_test "VECTOR_ELT_ORDER_BIG")
+       (const_string "4")
+       (const_string "12")))])
 
 (define_insn "altivec_vsumsws"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
         (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
                       (match_operand:V4SI 2 "register_operand" "v")]
 		     UNSPEC_VSUMSWS))
+   (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))
+   (clobber (match_scratch:V4SI 3 "=v"))]
+  "TARGET_ALTIVEC"
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vsumsws %0,%1,%2";
+  else
+    return "vspltw %3,%2,0\n\tvsumsws %3,%1,%3\n\tvspltw %0,%3,3";
+}
+  [(set_attr "type" "veccomplex")
+   (set (attr "length")
+     (if_then_else
+       (match_test "(VECTOR_ELT_ORDER_BIG)")
+       (const_string "4")
+       (const_string "12")))])
+
+(define_insn "altivec_vsumsws_direct"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+                      (match_operand:V4SI 2 "register_operand" "v")]
+		     UNSPEC_VSUMSWS_DIRECT))
    (set (reg:SI 110) (unspec:SI [(const_int 0)] UNSPEC_SET_VSCR))]
   "TARGET_ALTIVEC"
   "vsumsws %0,%1,%2"
   [(set_attr "type" "veccomplex")])
 
-(define_insn "altivec_vspltb"
+(define_expand "altivec_vspltb"
+  [(use (match_operand:V16QI 0 "register_operand" ""))
+   (use (match_operand:V16QI 1 "register_operand" ""))
+   (use (match_operand:QI 2 "u5bit_cint_operand" ""))]
+  "TARGET_ALTIVEC"
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  We have to reflect
+     the actual selected index for the splat in the RTL.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    operands[2] = GEN_INT (15 - INTVAL (operands[2]));
+
+  v = gen_rtvec (1, operands[2]);
+  x = gen_rtx_VEC_SELECT (QImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
+  x = gen_rtx_VEC_DUPLICATE (V16QImode, x);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
+
+(define_insn "*altivec_vspltb_internal"
   [(set (match_operand:V16QI 0 "register_operand" "=v")
         (vec_duplicate:V16QI
 	 (vec_select:QI (match_operand:V16QI 1 "register_operand" "v")
 			(parallel
 			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
+{
+  /* For true LE, this adjusts the selected index.  For LE with 
+     -maltivec=be, this reverses what was done in the define_expand
+     because the instruction already has big-endian bias.  */
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (15 - INTVAL (operands[2]));
+
+  return "vspltb %0,%1,%2";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vspltb_direct"
+  [(set (match_operand:V16QI 0 "register_operand" "=v")
+        (unspec:V16QI [(match_operand:V16QI 1 "register_operand" "v")
+	               (match_operand:QI 2 "u5bit_cint_operand" "i")]
+                      UNSPEC_VSPLT_DIRECT))]
+  "TARGET_ALTIVEC"
   "vspltb %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vsplth"
+(define_expand "altivec_vsplth"
+  [(use (match_operand:V8HI 0 "register_operand" ""))
+   (use (match_operand:V8HI 1 "register_operand" ""))
+   (use (match_operand:QI 2 "u5bit_cint_operand" ""))]
+  "TARGET_ALTIVEC"
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  We have to reflect
+     the actual selected index for the splat in the RTL.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    operands[2] = GEN_INT (7 - INTVAL (operands[2]));
+
+  v = gen_rtvec (1, operands[2]);
+  x = gen_rtx_VEC_SELECT (HImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
+  x = gen_rtx_VEC_DUPLICATE (V8HImode, x);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
+
+(define_insn "*altivec_vsplth_internal"
   [(set (match_operand:V8HI 0 "register_operand" "=v")
 	(vec_duplicate:V8HI
 	 (vec_select:HI (match_operand:V8HI 1 "register_operand" "v")
 			(parallel
 			 [(match_operand:QI 2 "u5bit_cint_operand" "")]))))]
   "TARGET_ALTIVEC"
+{
+  /* For true LE, this adjusts the selected index.  For LE with 
+     -maltivec=be, this reverses what was done in the define_expand
+     because the instruction already has big-endian bias.  */
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (7 - INTVAL (operands[2]));
+
+  return "vsplth %0,%1,%2";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vsplth_direct"
+  [(set (match_operand:V8HI 0 "register_operand" "=v")
+        (unspec:V8HI [(match_operand:V8HI 1 "register_operand" "v")
+                      (match_operand:QI 2 "u5bit_cint_operand" "i")]
+                     UNSPEC_VSPLT_DIRECT))]
+  "TARGET_ALTIVEC"
   "vsplth %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vspltw"
+(define_expand "altivec_vspltw"
+  [(use (match_operand:V4SI 0 "register_operand" ""))
+   (use (match_operand:V4SI 1 "register_operand" ""))
+   (use (match_operand:QI 2 "u5bit_cint_operand" ""))]
+  "TARGET_ALTIVEC"
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  We have to reflect
+     the actual selected index for the splat in the RTL.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  v = gen_rtvec (1, operands[2]);
+  x = gen_rtx_VEC_SELECT (SImode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
+  x = gen_rtx_VEC_DUPLICATE (V4SImode, x);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
+
+(define_insn "*altivec_vspltw_internal"
   [(set (match_operand:V4SI 0 "register_operand" "=v")
 	(vec_duplicate:V4SI
 	 (vec_select:SI (match_operand:V4SI 1 "register_operand" "v")
 			(parallel
 			 [(match_operand:QI 2 "u5bit_cint_operand" "i")]))))]
   "TARGET_ALTIVEC"
+{
+  /* For true LE, this adjusts the selected index.  For LE with 
+     -maltivec=be, this reverses what was done in the define_expand
+     because the instruction already has big-endian bias.  */
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  return "vspltw %0,%1,%2";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "altivec_vspltw_direct"
+  [(set (match_operand:V4SI 0 "register_operand" "=v")
+        (unspec:V4SI [(match_operand:V4SI 1 "register_operand" "v")
+                      (match_operand:QI 2 "u5bit_cint_operand" "i")]
+                     UNSPEC_VSPLT_DIRECT))]
+  "TARGET_ALTIVEC"
   "vspltw %0,%1,%2"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vspltsf"
+(define_expand "altivec_vspltsf"
+  [(use (match_operand:V4SF 0 "register_operand" ""))
+   (use (match_operand:V4SF 1 "register_operand" ""))
+   (use (match_operand:QI 2 "u5bit_cint_operand" ""))]
+  "TARGET_ALTIVEC"
+{
+  rtvec v;
+  rtx x;
+
+  /* Special handling for LE with -maltivec=be.  We have to reflect
+     the actual selected index for the splat in the RTL.  */
+  if (!BYTES_BIG_ENDIAN && VECTOR_ELT_ORDER_BIG)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  v = gen_rtvec (1, operands[2]);
+  x = gen_rtx_VEC_SELECT (SFmode, operands[1], gen_rtx_PARALLEL (VOIDmode, v));
+  x = gen_rtx_VEC_DUPLICATE (V4SFmode, x);
+  emit_insn (gen_rtx_SET (VOIDmode, operands[0], x));
+  DONE;
+})
+
+(define_insn "*altivec_vspltsf_internal"
   [(set (match_operand:V4SF 0 "register_operand" "=v")
 	(vec_duplicate:V4SF
 	 (vec_select:SF (match_operand:V4SF 1 "register_operand" "v")
 			(parallel
 			 [(match_operand:QI 2 "u5bit_cint_operand" "i")]))))]
   "VECTOR_UNIT_ALTIVEC_P (V4SFmode)"
-  "vspltw %0,%1,%2"
+{
+  /* For true LE, this adjusts the selected index.  For LE with 
+     -maltivec=be, this reverses what was done in the define_expand
+     because the instruction already has big-endian bias.  */
+  if (!BYTES_BIG_ENDIAN)
+    operands[2] = GEN_INT (3 - INTVAL (operands[2]));
+
+  return "vspltw %0,%1,%2";
+}
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vspltis<VI_char>"
@@ -1655,7 +1868,22 @@
   "vrfiz %0,%1"
   [(set_attr "type" "vecfloat")])
 
-(define_insn "altivec_vperm_<mode>"
+(define_expand "altivec_vperm_<mode>"
+  [(set (match_operand:VM 0 "register_operand" "=v")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
+		    (match_operand:VM 2 "register_operand" "v")
+		    (match_operand:V16QI 3 "register_operand" "v")]
+		   UNSPEC_VPERM))]
+  "TARGET_ALTIVEC"
+{
+  if (!VECTOR_ELT_ORDER_BIG)
+    {
+      altivec_expand_vec_perm_le (operands);
+      DONE;
+    }
+})
+
+(define_insn "*altivec_vperm_<mode>_internal"
   [(set (match_operand:VM 0 "register_operand" "=v")
 	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
 		    (match_operand:VM 2 "register_operand" "v")
@@ -1665,7 +1893,22 @@
   "vperm %0,%1,%2,%3"
   [(set_attr "type" "vecperm")])
 
-(define_insn "altivec_vperm_<mode>_uns"
+(define_expand "altivec_vperm_<mode>_uns"
+  [(set (match_operand:VM 0 "register_operand" "=v")
+	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
+		    (match_operand:VM 2 "register_operand" "v")
+		    (match_operand:V16QI 3 "register_operand" "v")]
+		   UNSPEC_VPERM_UNS))]
+  "TARGET_ALTIVEC"
+{
+  if (!VECTOR_ELT_ORDER_BIG)
+    {
+      altivec_expand_vec_perm_le (operands);
+      DONE;
+    }
+})
+
+(define_insn "*altivec_vperm_<mode>_uns_internal"
   [(set (match_operand:VM 0 "register_operand" "=v")
 	(unspec:VM [(match_operand:VM 1 "register_operand" "v")
 		    (match_operand:VM 2 "register_operand" "v")
@@ -1833,6 +2076,19 @@
 	(unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
 		     UNSPEC_VUNPACK_HI_SIGN))]
   "<VI_unit>"
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vupkhs<VU_char> %0,%1";
+  else
+    return "vupkls<VU_char> %0,%1";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*altivec_vupkhs<VU_char>_direct"
+  [(set (match_operand:VP 0 "register_operand" "=v")
+	(unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
+		     UNSPEC_VUNPACK_HI_SIGN_DIRECT))]
+  "<VI_unit>"
   "vupkhs<VU_char> %0,%1"
   [(set_attr "type" "vecperm")])
 
@@ -1840,6 +2096,19 @@
   [(set (match_operand:VP 0 "register_operand" "=v")
 	(unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
 		     UNSPEC_VUNPACK_LO_SIGN))]
+  "<VI_unit>"
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vupkls<VU_char> %0,%1";
+  else
+    return "vupkhs<VU_char> %0,%1";
+}
+  [(set_attr "type" "vecperm")])
+
+(define_insn "*altivec_vupkls<VU_char>_direct"
+  [(set (match_operand:VP 0 "register_operand" "=v")
+	(unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
+		     UNSPEC_VUNPACK_LO_SIGN_DIRECT))]
   "<VI_unit>"
   "vupkls<VU_char> %0,%1"
   [(set_attr "type" "vecperm")])
@@ -1849,7 +2118,12 @@
 	(unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]
 		     UNSPEC_VUPKHPX))]
   "TARGET_ALTIVEC"
-  "vupkhpx %0,%1"
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vupkhpx %0,%1";
+  else
+    return "vupklpx %0,%1";
+}
   [(set_attr "type" "vecperm")])
 
 (define_insn "altivec_vupklpx"
@@ -1857,7 +2131,12 @@
 	(unspec:V4SI [(match_operand:V8HI 1 "register_operand" "v")]
 		     UNSPEC_VUPKLPX))]
   "TARGET_ALTIVEC"
-  "vupklpx %0,%1"
+{
+  if (VECTOR_ELT_ORDER_BIG)
+    return "vupklpx %0,%1";
+  else
+    return "vupkhpx %0,%1";
+}
   [(set_attr "type" "vecperm")])
 
 ;; Compare vectors producing a vector result and a predicate, setting CR6 to
@@ -2188,7 +2467,7 @@
 
   emit_insn (gen_altivec_vspltisw (vzero, const0_rtx));
   emit_insn (gen_altivec_vsum4s<VI_char>s (vtmp1, operands[1], vzero));
-  emit_insn (gen_altivec_vsumsws (dest, vtmp1, vzero));
+  emit_insn (gen_altivec_vsumsws_direct (dest, vtmp1, vzero));
   DONE;
 })
 
@@ -2297,14 +2576,14 @@
 (define_expand "vec_unpacks_hi_<VP_small_lc>"
   [(set (match_operand:VP 0 "register_operand" "=v")
         (unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
-		   UNSPEC_VUNPACK_HI_SIGN))]
+		   UNSPEC_VUNPACK_HI_SIGN_DIRECT))]
   "<VI_unit>"
   "")
 
 (define_expand "vec_unpacks_lo_<VP_small_lc>"
   [(set (match_operand:VP 0 "register_operand" "=v")
         (unspec:VP [(match_operand:<VP_small> 1 "register_operand" "v")]
-		   UNSPEC_VUNPACK_LO_SIGN))]
+		   UNSPEC_VUNPACK_LO_SIGN_DIRECT))]
   "<VI_unit>"
   "")
 
