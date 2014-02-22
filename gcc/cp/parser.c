@@ -14738,7 +14738,8 @@ cp_parser_enum_specifier (cp_parser* parser)
         {
           underlying_type = grokdeclarator (NULL, &type_specifiers, TYPENAME,
                                             /*initialized=*/0, NULL);
-          if (underlying_type == error_mark_node)
+          if (underlying_type == error_mark_node
+	      || check_for_bare_parameter_packs (underlying_type))
             underlying_type = NULL_TREE;
         }
     }
@@ -22204,6 +22205,9 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
   tree expression_list;
   tree cast;
   bool nonconst_p;
+
+  if (!type)
+    type = error_mark_node;
 
   if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
     {

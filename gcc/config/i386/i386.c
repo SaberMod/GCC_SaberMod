@@ -5725,9 +5725,9 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->nregs = 0;
 	  cum->sse_nregs = 0;
 	  cum->mmx_nregs = 0;
-	  cum->warn_avx = 0;
-	  cum->warn_sse = 0;
-	  cum->warn_mmx = 0;
+	  cum->warn_avx = false;
+	  cum->warn_sse = false;
+	  cum->warn_mmx = false;
 	  return;
 	}
 
@@ -5803,19 +5803,17 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		    static bool warnedavx;
 		    static bool warnedavx_ret;
 
-		    if (cum
-			&& !warnedavx
-			&& cum->warn_avx)
+		    if (cum && cum->warn_avx && !warnedavx)
 		      {
-			warnedavx = true;
-			warning (0, "AVX vector argument without AVX "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "AVX vector argument "
+				     "without AVX enabled changes the ABI"))
+			  warnedavx = true;
 		      }
-		    else if (in_return & !warnedavx_ret)
+		    else if (in_return && !warnedavx_ret)
 		      {
-			warnedavx_ret = true;
-			warning (0, "AVX vector return without AVX "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "AVX vector return "
+				     "without AVX enabled changes the ABI"))
+			  warnedavx_ret = true;
 		      }
 
 		    return TYPE_MODE (type);
@@ -5826,21 +5824,17 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		    static bool warnedsse;
 		    static bool warnedsse_ret;
 
-		    if (cum
-			&& !warnedsse
-			&& cum->warn_sse)
+		    if (cum && cum->warn_sse && !warnedsse)
 		      {
-			warnedsse = true;
-			warning (0, "SSE vector argument without SSE "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "SSE vector argument "
+				     "without SSE enabled changes the ABI"))
+			  warnedsse = true;
 		      }
-		    else if (!TARGET_64BIT
-			     && in_return
-			     & !warnedsse_ret)
+		    else if (!TARGET_64BIT && in_return && !warnedsse_ret)
 		      {
-			warnedsse_ret = true;
-			warning (0, "SSE vector return without SSE "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "SSE vector return "
+				     "without SSE enabled changes the ABI"))
+			  warnedsse_ret = true;
 		      }
 		  }
 		else if ((size == 8 && !TARGET_64BIT) && !TARGET_MMX)
@@ -5848,19 +5842,17 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		    static bool warnedmmx;
 		    static bool warnedmmx_ret;
 
-		    if (cum
-			&& !warnedmmx
-			&& cum->warn_mmx)
+		    if (cum && cum->warn_mmx && !warnedmmx)
 		      {
-			warnedmmx = true;
-			warning (0, "MMX vector argument without MMX "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "MMX vector argument "
+				     "without MMX enabled changes the ABI"))
+			  warnedmmx = true;
 		      }
-		    else if (in_return & !warnedmmx_ret)
+		    else if (in_return && !warnedmmx_ret)
 		      {
-			warnedmmx_ret = true;
-			warning (0, "MMX vector return without MMX "
-				 "enabled changes the ABI");
+			if (warning (OPT_Wpsabi, "MMX vector return "
+				     "without MMX enabled changes the ABI"))
+			  warnedmmx_ret = true;
 		      }
 		  }
 		return mode;
@@ -6496,7 +6488,7 @@ construct_container (enum machine_mode mode, enum machine_mode orig_mode,
   if (n == 2
       && regclass[0] == X86_64_INTEGER_CLASS
       && regclass[1] == X86_64_INTEGER_CLASS
-      && (mode == CDImode || mode == TImode || mode == TFmode)
+      && (mode == CDImode || mode == TImode)
       && intreg[0] + 1 == intreg[1])
     return gen_rtx_REG (mode, intreg[0]);
 
@@ -10533,17 +10525,16 @@ ix86_expand_prologue (void)
 	 works for realigned stack, too.  */
       if (r10_live && eax_live)
         {
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode, R10_REG),
 			  gen_frame_mem (word_mode, t));
-	  t = plus_constant (Pmode, stack_pointer_rtx,
-			     allocate - UNITS_PER_WORD);
+	  t = plus_constant (Pmode, t, UNITS_PER_WORD);
 	  emit_move_insn (gen_rtx_REG (word_mode, AX_REG),
 			  gen_frame_mem (word_mode, t));
 	}
       else if (eax_live || r10_live)
 	{
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode,
 				       (eax_live ? AX_REG : R10_REG)),
 			  gen_frame_mem (word_mode, t));
@@ -20473,7 +20464,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  return;
 
 	case V8SFmode:
-	  mask = gen_lowpart (V8SFmode, mask);
+	  mask = gen_lowpart (V8SImode, mask);
 	  if (one_operand_shuffle)
 	    emit_insn (gen_avx2_permvarv8sf (target, op0, mask));
 	  else
@@ -39418,7 +39409,9 @@ expand_vec_perm_interleave2 (struct expand_vec_perm_d *d)
       else
 	dfinal.perm[i] = e;
     }
-  dfinal.op0 = gen_reg_rtx (dfinal.vmode);
+
+  if (!d->testing_p)
+    dfinal.op0 = gen_reg_rtx (dfinal.vmode);
   dfinal.op1 = dfinal.op0;
   dfinal.one_operand_p = true;
   dremap.target = dfinal.op0;
@@ -39853,6 +39846,9 @@ expand_vec_perm_pshufb2 (struct expand_vec_perm_d *d)
     return false;
   gcc_assert (!d->one_operand_p);
 
+  if (d->testing_p)
+    return true;
+
   nelt = d->nelt;
   eltsz = GET_MODE_SIZE (GET_MODE_INNER (d->vmode));
 
@@ -40052,6 +40048,8 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
   switch (d->vmode)
     {
     case V4DFmode:
+      if (d->testing_p)
+	break;
       t1 = gen_reg_rtx (V4DFmode);
       t2 = gen_reg_rtx (V4DFmode);
 
@@ -40071,6 +40069,8 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
       {
 	int mask = odd ? 0xdd : 0x88;
 
+	if (d->testing_p)
+	  break;
 	t1 = gen_reg_rtx (V8SFmode);
 	t2 = gen_reg_rtx (V8SFmode);
 	t3 = gen_reg_rtx (V8SFmode);
@@ -40112,6 +40112,8 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
+	  if (d->testing_p)
+	    break;
 	  /* We need 2*log2(N)-1 operations to achieve odd/even
 	     with interleave. */
 	  t1 = gen_reg_rtx (V8HImode);
@@ -40133,6 +40135,8 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
 	return expand_vec_perm_pshufb2 (d);
       else
 	{
+	  if (d->testing_p)
+	    break;
 	  t1 = gen_reg_rtx (V16QImode);
 	  t2 = gen_reg_rtx (V16QImode);
 	  t3 = gen_reg_rtx (V16QImode);
@@ -40165,6 +40169,9 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
 	  return expand_vec_perm_even_odd_1 (&d_copy, odd);
 	}
 
+      if (d->testing_p)
+	break;
+
       t1 = gen_reg_rtx (V4DImode);
       t2 = gen_reg_rtx (V4DImode);
 
@@ -40190,6 +40197,9 @@ expand_vec_perm_even_odd_1 (struct expand_vec_perm_d *d, unsigned odd)
 	  d_copy.op1 = gen_lowpart (V8SFmode, d->op1);
 	  return expand_vec_perm_even_odd_1 (&d_copy, odd);
 	}
+
+      if (d->testing_p)
+	break;
 
       t1 = gen_reg_rtx (V8SImode);
       t2 = gen_reg_rtx (V8SImode);
@@ -40283,6 +40293,8 @@ expand_vec_perm_broadcast_1 (struct expand_vec_perm_d *d)
     case V16QImode:
       /* These can be implemented via interleave.  We save one insn by
 	 stopping once we have promoted to V4SImode and then use pshufd.  */
+      if (d->testing_p)
+	return true;
       do
 	{
 	  rtx dest;

@@ -1419,6 +1419,8 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
 		    = DECL_DECLARED_INLINE_P (fn);
 		  DECL_SOURCE_LOCATION (clone)
 		    = DECL_SOURCE_LOCATION (fn);
+		  DECL_DELETED_FN (clone)
+		    = DECL_DELETED_FN (fn);
 		}
 	      check_specialization_namespace (tmpl);
 
@@ -3823,7 +3825,6 @@ template_parm_to_arg (tree t)
 	  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
 	    (vec, TREE_VEC_LENGTH (vec));
 #endif
-	  t = convert_from_reference (t);
 	  TREE_VEC_ELT (vec, 0) = make_pack_expansion (t);
 
 	  t  = make_node (NONTYPE_ARGUMENT_PACK);
@@ -6678,6 +6679,8 @@ coerce_template_parms (tree parms,
           /* Store this argument.  */
           if (arg == error_mark_node)
             lost++;
+	  if (lost)
+	    break;
           TREE_VEC_ELT (new_inner_args, parm_idx) = arg;
 
 	  /* We are done with all of the arguments.  */
@@ -9113,6 +9116,10 @@ tsubst_template_arg (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		       /*integral_constant_expression_p=*/true);
       if (!(complain & tf_warning))
 	--c_inhibit_evaluation_warnings;
+      /* Preserve the raw-reference nature of T.  */
+      if (TREE_TYPE (t) && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
+	  && REFERENCE_REF_P (r))
+	r = TREE_OPERAND (r, 0);
     }
   return r;
 }
@@ -18566,6 +18573,10 @@ void
 maybe_instantiate_noexcept (tree fn)
 {
   tree fntype, spec, noex, clone;
+
+  /* Don't instantiate a noexcept-specification from template context.  */
+  if (processing_template_decl)
+    return;
 
   if (DECL_CLONED_FUNCTION_P (fn))
     fn = DECL_CLONED_FUNCTION (fn);

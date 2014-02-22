@@ -1,3 +1,58 @@
+2014-02-22  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/59599
+	* gfortran.dg/ichar_3.f90: New test.
+
+2014-02-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/59700
+	* gfortran.dg/pr59700.f90: New test.
+
+2014-02-21  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/55260
+	* gcc.dg/ipa/pr55260.c: New test.
+
+2014-02-19  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/49397
+	* gfortran.dg/proc_ptr_45.f90: New.
+	* gfortran.dg/proc_ptr_46.f90: New.
+
+2014-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-02-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59794
+	* gcc.target/i386/pr39162.c: Add dg-prune-output.
+	(dg-options): Remove -Wno-psabi.
+	* gcc.target/i386/pr59794-2.c: Ditto.
+	* gcc.target/i386/sse-5.c: Ditto.
+
+2014-02-19  Janus Weil  <janus@gcc.gnu.org>
+
+	Backports from mainline:
+	2014-02-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55907
+	* gfortran.dg/init_flag_12.f90: New.
+
+	2014-02-18  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60231
+	* gfortran.dg/typebound_generic_15.f90: New.
+
+2014-02-18  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/60193
+	* gcc.target/i386/nest-1.c: New testcase.
+
+2014-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt32.adb: New test.
+
 2014-02-15  Jerry DeLisle  <jvdelisle@gcc.gnu>
 	    Dominique d'Humieres  <dominiq@lps.ens.fr>
 
