@@ -841,6 +841,8 @@ gimple_gen_edge_profiler (int edgeno, edge e)
                                  3, ref, one,
                                  build_int_cst (integer_type_node,
                                    MEMMODEL_RELAXED));
+      /* Suppress "'stmt1' may be used uninitialized" warning.  */
+      stmt1 = stmt2 = 0;
     }
   else
     {
