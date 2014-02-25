@@ -1317,10 +1317,6 @@ FAIL: g++.dg/opt/pr52727.C -std=gnu++11 (test for excess errors)
 # Currently failing on trunk.
 FAIL: gcc.target/i386/pr35767-5.c scan-assembler-not movups
 
-# Fails when linked with gold:
-# http://gcc.gnu.org/ml/gcc-patches/2014-02/msg00239.html
-FAIL: gcc.dg/vect/no-vfa-vect-depend-2.c execution test
-
 # Google b/13171749
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
