@@ -1306,13 +1306,6 @@ XPASS: gcc.dg/binop-xor1.c scan-tree-dump-times optimized "\\^" 1
 # SIGFPE when the test is built without optimization.
 FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
 
-# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52727
-# Currently failing on trunk.
-FAIL: g++.dg/opt/pr52727.C -std=gnu++98 (internal compiler error)
-FAIL: g++.dg/opt/pr52727.C -std=gnu++98 (test for excess errors)
-FAIL: g++.dg/opt/pr52727.C -std=gnu++11 (internal compiler error)
-FAIL: g++.dg/opt/pr52727.C -std=gnu++11 (test for excess errors)
-
 # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35767
 # Currently failing on trunk.
 FAIL: gcc.target/i386/pr35767-5.c scan-assembler-not movups
