@@ -1371,8 +1371,7 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
       calculate_dominance_info (CDI_DOMINATORS);
       rebuild_cgraph_edges ();
       update_ssa (TODO_update_ssa);
-      compute_inline_parameters (cgraph_get_node (current_function_decl),
-				 false);
+      compute_inline_parameters (cgraph_get_node (current_function_decl), true);
       return true;
     }
   else
@@ -1533,6 +1532,7 @@ auto_profile (void)
 	  early_inliner ();
 	}
 
+      compute_inline_parameters (cgraph_get_node (current_function_decl), true);
       early_inliner ();
       autofdo::afdo_annotate_cfg (promoted_stmts);
       compute_function_frequency ();
