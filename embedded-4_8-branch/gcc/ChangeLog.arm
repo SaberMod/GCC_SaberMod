@@ -1,3 +1,97 @@
+2014-02-27  Joey Ye  <joey.ye@arm.com>
+
+	Backport mainline strict-volatile-bitfields fixes
+	2013-09-28  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* expr.h (extract_bit_field): Remove packedp parameter.
+	* expmed.c (extract_fixed_bit_field): Remove packedp parameter
+	from forward declaration.
+	(store_split_bit_field): Remove packedp arg from calls to
+	extract_fixed_bit_field.
+	(extract_bit_field_1): Remove packedp parameter and packedp
+	argument from recursive calls and calls to extract_fixed_bit_field.
+	(extract_bit_field): Remove packedp parameter and corresponding
+	arg to extract_bit_field_1.
+	(extract_fixed_bit_field): Remove packedp parameter.  Remove code
+	to issue warnings.
+	(extract_split_bit_field): Remove packedp arg from call to
+	extract_fixed_bit_field.
+	* expr.c (emit_group_load_1): Adjust calls to extract_bit_field.
+	(copy_blkmode_from_reg): Likewise.
+	(copy_blkmode_to_reg): Likewise.
+	(read_complex_part): Likewise.
+	(store_field): Likewise.
+	(expand_expr_real_1): Likewise.
+	* calls.c (store_unaligned_arguments_into_pseudos): Adjust call
+	to extract_bit_field.
+	* config/tilegx/tilegx.c (tilegx_expand_unaligned_load): Adjust
+	call to extract_bit_field.
+	* config/tilepro/tilepro.c (tilepro_expand_unaligned_load): Adjust
+	call to extract_bit_field.
+	* doc/invoke.texi (Code Gen Options): Remove mention of warnings
+	and special packedp behavior from -fstrict-volatile-bitfields
+	documentation.
+
+	2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* expr.c (expand_assignment): Remove dependency on 
+	flag_strict_volatile_bitfields. Always set the memory
+	access mode.
+	(expand_expr_real_1): Likewise.
+
+	2013-12-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+
+	* expmed.c (strict_volatile_bitfield_p): New function.
+	(store_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(store_bit_field): Handle strict volatile bitfields here instead.
+	(store_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field): Handle strict volatile bitfields here instead.
+	(extract_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.  Simplify surrounding code to resemble that in
+	store_fixed_bit_field.
+	* doc/invoke.texi (Code Gen Options): Update
+	-fstrict-volatile-bitfields description.
+
+	2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	Sandra Loosemore  <sandra@codesourcery.com>
+	
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* expmed.c (strict_volatile_bitfield_p): Add bitregion_start
+	and bitregion_end parameters.  Test for compliance with C++
+	memory model.
+	(store_bit_field): Adjust call to strict_volatile_bitfield_p.
+	Add fallback logic for cases where -fstrict-volatile-bitfields
+	is supposed to apply, but cannot.
+	(extract_bit_field): Likewise. Use narrow_bit_field_mem and
+	extract_fixed_bit_field_1 to do the extraction.
+	(extract_fixed_bit_field): Revert to previous mode selection
+	algorithm.
+	Call extract_fixed_bit_field_1 to do the real work.
+	(extract_fixed_bit_field_1): New function.
+	
+	2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	
+	PR middle-end/59134
+	* expmed.c (store_bit_field): Use narrow_bit_field_mem and
+	store_fixed_bit_field_1 for -fstrict-volatile-bitfields.
+	(store_fixed_bit_field): Split up.  Call store_fixed_bit_field_1
+	to do the real work.
+	(store_fixed_bit_field_1): New function. 
+	(store_split_bit_field): Limit the unit size to the memory mode
+	size, to prevent recursion.
+	
 2013-11-29  Terry Guo  <terry.guo@arm.com>
 
 	Backport mainline r205484
