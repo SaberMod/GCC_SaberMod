@@ -1,3 +1,11 @@
+2014-02-28  Joey Ye  <joey.ye@arm.com>
+
+	Backport mainline r208217
+	2014-02-28  Joey Ye  <joey.ye@arm.com>
+
+	PR target/PR60169
+	* gcc.target/arm/thumb1-far-jump-3.c: New case.
+
 2014-02-27  Joey Ye  <joey.ye@arm.com>
 
 	Backport mainline strict-volatile-bitfields fixes
