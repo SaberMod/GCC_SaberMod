@@ -21,7 +21,10 @@
 #ifndef GCC_AARCH64_LINUX_H
 #define GCC_AARCH64_LINUX_H
 
-#define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-aarch64%{mbig-endian:_be}.so.1"
+#ifndef RUNTIME_ROOT_PREFIX
+#define RUNTIME_ROOT_PREFIX ""
+#endif
+#define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux-aarch64%{mbig-endian:_be}.so.1"
 
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
