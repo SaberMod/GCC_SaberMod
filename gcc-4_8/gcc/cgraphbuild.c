@@ -378,7 +378,7 @@ record_reference_to_real_target_from_alias (struct cgraph_node *alias)
 /* Mark address taken in STMT.  */
 
 static bool
-mark_address (gimple stmt, tree addr, void *data)
+mark_address (gimple stmt, tree addr, tree, void *data)
 {
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
@@ -417,7 +417,7 @@ mark_address (gimple stmt, tree addr, void *data)
 /* Mark load of T.  */
 
 static bool
-mark_load (gimple stmt, tree t, void *data)
+mark_load (gimple stmt, tree t, tree, void *data)
 {
   t = get_base_address (t);
   if (t && TREE_CODE (t) == FUNCTION_DECL)
@@ -454,7 +454,7 @@ mark_load (gimple stmt, tree t, void *data)
 /* Mark store of T.  */
 
 static bool
-mark_store (gimple stmt, tree t, void *data)
+mark_store (gimple stmt, tree t, tree, void *data)
 {
   t = get_base_address (t);
   if (t && TREE_CODE (t) == VAR_DECL

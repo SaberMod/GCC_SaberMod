@@ -1794,6 +1794,14 @@ microblaze*-linux*)
 	tmake_file="${tmake_file} microblaze/t-microblaze-linux"
 	;;
 microblaze*-*-rtems*)
+	case $target in
+		microblazeel-*)
+			tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=0"
+			;;
+		microblaze-*)
+			tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=4321"
+			;;
+	esac
 	tm_file="${tm_file} dbxelf.h"
 	tm_file="${tm_file} microblaze/rtems.h rtems.h newlib-stdint.h"
 	c_target_objs="${c_target_objs} microblaze-c.o"
@@ -3002,11 +3010,18 @@ if test x$with_cpu = x ; then
          with_cpu=8540
       fi       
       ;;
-    sparc-leon*-*)
-      with_cpu=v8;
-      ;;
     sparc*-*-*)
-      with_cpu="`echo ${target} | sed 's/-.*$//'`"
+      case ${target} in
+	*-leon-*)
+	  with_cpu=leon
+	  ;;
+	*-leon[3-9]*)
+	  with_cpu=leon3
+	  ;;
+	*)
+	  with_cpu="`echo ${target} | sed 's/-.*$//'`"
+	  ;;
+      esac
       ;;
   esac
 
@@ -3626,7 +3641,7 @@ case "${target}" in
 			case ${val} in
 			"" | sparc | sparcv9 | sparc64 \
 			| v7 | cypress \
-			| v8 | supersparc | hypersparc | leon \
+			| v8 | supersparc | hypersparc | leon | leon3 \
 			| sparclite | f930 | f934 | sparclite86x \
 			| sparclet | tsc701 \
 			| v9 | ultrasparc | ultrasparc3 | niagara | niagara2 \
@@ -3784,15 +3799,6 @@ case ${target} in
 		cxx_target_objs="${cxx_target_objs} sh-c.o"
 		;;
 
-	sparc-leon*-*)
-		if test x$with_tune = x ; then
-		  with_tune=leon;
-		fi
-
-		# The SPARC port checks this value at compile-time.
-		target_cpu_default2="TARGET_CPU_$with_cpu"
-		;;
-
 	sparc*-*-*)
 		# Some standard aliases.
 		case x$with_cpu in
@@ -3803,6 +3809,17 @@ case ${target} in
 			with_cpu=v9
 			;;
 		esac
+
+		if test x$with_tune = x ; then
+		      case ${target} in
+		      *-leon-*)
+			  with_tune=leon
+			  ;;
+		      *-leon[3-9]*)
+			  with_tune=leon3
+			  ;;
+		      esac
+		fi
 
 		# The SPARC port checks this value at compile-time.
 		target_cpu_default2="TARGET_CPU_$with_cpu"

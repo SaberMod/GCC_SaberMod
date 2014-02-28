@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -8705,10 +8705,11 @@ resolve_transfer (gfc_code *code)
 	 && exp->value.op.op == INTRINSIC_PARENTHESES)
     exp = exp->value.op.op1;
 
-  if (exp && exp->expr_type == EXPR_NULL && exp->ts.type == BT_UNKNOWN)
+  if (exp && exp->expr_type == EXPR_NULL
+      && code->ext.dt)
     {
-      gfc_error ("NULL intrinsic at %L in data transfer statement requires "
-		 "MOLD=", &exp->where);
+      gfc_error ("Invalid context for NULL () intrinsic at %L",
+		 &exp->where);
       return;
     }
 
@@ -11057,7 +11058,7 @@ build_default_init_expr (gfc_symbol *sym)
 	  init_expr = NULL;
 	}
       if (!init_expr && gfc_option.flag_init_character == GFC_INIT_CHARACTER_ON
-	  && sym->ts.u.cl->length)
+	  && sym->ts.u.cl->length && gfc_option.flag_max_stack_var_size != 0)
 	{
 	  gfc_actual_arglist *arg;
 	  init_expr = gfc_get_expr ();
@@ -11877,6 +11878,7 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
 {
   gfc_symbol *sym1, *sym2;
   const char *pass1, *pass2;
+  gfc_formal_arglist *dummy_args;
 
   gcc_assert (t1->specific && t2->specific);
   gcc_assert (!t1->specific->is_generic);
@@ -11899,19 +11901,33 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
       return FAILURE;
     }
 
-  /* Compare the interfaces.  */
+  /* Determine PASS arguments.  */
   if (t1->specific->nopass)
     pass1 = NULL;
   else if (t1->specific->pass_arg)
     pass1 = t1->specific->pass_arg;
   else
-    pass1 = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass1 = dummy_args->sym->name;
+      else
+	pass1 = NULL;
+    }
   if (t2->specific->nopass)
     pass2 = NULL;
   else if (t2->specific->pass_arg)
     pass2 = t2->specific->pass_arg;
   else
-    pass2 = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass2 = dummy_args->sym->name;
+      else
+	pass2 = NULL;
+    }
+
+  /* Compare the interfaces.  */
   if (gfc_compare_interfaces (sym1, sym2, sym2->name, !t1->is_operator, 0,
 			      NULL, 0, pass1, pass2))
     {
@@ -12424,9 +12440,6 @@ resolve_typebound_procedures (gfc_symbol* derived)
 
   resolve_bindings_derived = derived;
   resolve_bindings_result = SUCCESS;
-
-  /* Make sure the vtab has been generated.  */
-  gfc_find_derived_vtab (derived);
 
   if (derived->f2k_derived->tb_sym_root)
     gfc_traverse_symtree (derived->f2k_derived->tb_sym_root,
@@ -13256,7 +13269,8 @@ resolve_symbol (gfc_symbol *sym)
   if (sym->attr.flavor == FL_UNKNOWN
       || (sym->attr.flavor == FL_PROCEDURE && !sym->attr.intrinsic
 	  && !sym->attr.generic && !sym->attr.external
-	  && sym->attr.if_source == IFSRC_UNKNOWN))
+	  && sym->attr.if_source == IFSRC_UNKNOWN
+	  && sym->ts.type == BT_UNKNOWN))
     {
 
     /* If we find that a flavorless symbol is an interface in one of the

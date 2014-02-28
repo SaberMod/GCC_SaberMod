@@ -867,7 +867,7 @@ libgcov-driver-objects = $(patsubst %,%$(objext),$(LIBGCOV_DRIVER))
 libgcov-objects = $(libgcov-merge-objects) $(libgcov-profiler-objects) \
                  $(libgcov-interface-objects) $(libgcov-driver-objects)
 
-dyn-ipa.o: %$(objext): $(srcdir)/dyn-ipa.c $(srcdir)/libgcov.h
+dyn-ipa.o: %$(objext): $(srcdir)/dyn-ipa.c $(srcdir)/libgcov.h libgcc_tm.h
 	$(gcc_compile) -c $(srcdir)/dyn-ipa.c
 $(libgcov-merge-objects): %$(objext): $(srcdir)/libgcov-merge.c $(srcdir)/libgcov.h
 	$(gcc_compile) -DL$* -c $(srcdir)/libgcov-merge.c

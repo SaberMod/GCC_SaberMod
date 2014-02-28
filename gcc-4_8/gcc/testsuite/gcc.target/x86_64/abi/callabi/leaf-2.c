@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fno-tree-loop-vectorize -mabi=sysv" } */
+/* { dg-options "-O2 -fno-tree-loop-vectorize -mabi=sysv -maccumulate-outgoing-args" } */
 
 extern int glb1, gbl2, gbl3;
 

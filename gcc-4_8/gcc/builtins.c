@@ -181,7 +181,6 @@ static tree fold_builtin_varargs (location_t, tree, tree, bool);
 static tree fold_builtin_strpbrk (location_t, tree, tree, tree);
 static tree fold_builtin_strstr (location_t, tree, tree, tree);
 static tree fold_builtin_strrchr (location_t, tree, tree, tree);
-static tree fold_builtin_strcat (location_t, tree, tree);
 static tree fold_builtin_strncat (location_t, tree, tree, tree);
 static tree fold_builtin_strspn (location_t, tree, tree);
 static tree fold_builtin_strcspn (location_t, tree, tree);
@@ -1959,6 +1958,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   tree fndecl = get_callee_fndecl (exp);
   enum machine_mode mode;
   bool errno_set = false;
+  bool try_widening = false;
   tree arg;
 
   if (!validate_arglist (exp, REAL_TYPE, VOID_TYPE))
@@ -1970,6 +1970,7 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
     {
     CASE_FLT_FN (BUILT_IN_SQRT):
       errno_set = ! tree_expr_nonnegative_p (arg);
+      try_widening = true;
       builtin_optab = sqrt_optab;
       break;
     CASE_FLT_FN (BUILT_IN_EXP):
@@ -2026,8 +2027,10 @@ expand_builtin_mathfn (tree exp, rtx target, rtx subtarget)
   if (! flag_errno_math || ! HONOR_NANS (mode))
     errno_set = false;
 
-  /* Before working hard, check whether the instruction is available.  */
-  if (optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+  /* Before working hard, check whether the instruction is available, but try
+     to widen the mode for specific operations.  */
+  if ((optab_handler (builtin_optab, mode) != CODE_FOR_nothing
+       || (try_widening && !excess_precision_type (TREE_TYPE (exp))))
       && (!errno_set || !optimize_insn_for_size_p ()))
     {
       rtx result = gen_reg_rtx (mode);
@@ -5348,7 +5351,7 @@ static rtx
 expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp, 
 					rtx target)
 {
-  rtx expect, desired, mem, oldval;
+  rtx expect, desired, mem, oldval, label;
   enum memmodel success, failure;
   tree weak;
   bool is_weak;
@@ -5386,14 +5389,26 @@ expand_builtin_atomic_compare_exchange (enum machine_mode mode, tree exp,
   if (host_integerp (weak, 0) && tree_low_cst (weak, 0) != 0)
     is_weak = true;
 
-  oldval = expect;
-  if (!expand_atomic_compare_and_swap ((target == const0_rtx ? NULL : &target),
-				       &oldval, mem, oldval, desired,
+  if (target == const0_rtx)
+    target = NULL;
+
+  /* Lest the rtl backend create a race condition with an imporoper store
+     to memory, always create a new pseudo for OLDVAL.  */
+  oldval = NULL;
+
+  if (!expand_atomic_compare_and_swap (&target, &oldval, mem, expect, desired,
 				       is_weak, success, failure))
     return NULL_RTX;
 
-  if (oldval != expect)
-    emit_move_insn (expect, oldval);
+  /* Conditionally store back to EXPECT, lest we create a race condition
+     with an improper store to memory.  */
+  /* ??? With a rearrangement of atomics at the gimple level, we can handle
+     the normal case where EXPECT is totally private, i.e. a register.  At
+     which point the store can be unconditional.  */
+  label = gen_label_rtx ();
+  emit_cmp_and_jump_insns (target, const0_rtx, NE, NULL, VOIDmode, 1, label);
+  emit_move_insn (expect, oldval);
+  emit_label (label);
 
   return target;
 }
@@ -10767,7 +10782,7 @@ fold_builtin_2 (location_t loc, tree fndecl, tree arg0, tree arg1, bool ignore)
       return fold_builtin_strstr (loc, arg0, arg1, type);
 
     case BUILT_IN_STRCAT:
-      return fold_builtin_strcat (loc, arg0, arg1);
+      return fold_builtin_strcat (loc, arg0, arg1, NULL_TREE);
 
     case BUILT_IN_STRSPN:
       return fold_builtin_strspn (loc, arg0, arg1);
@@ -11810,8 +11825,9 @@ fold_builtin_strpbrk (location_t loc, tree s1, tree s2, tree type)
    COMPOUND_EXPR in the chain will contain the tree for the simplified
    form of the builtin function call.  */
 
-static tree
-fold_builtin_strcat (location_t loc ATTRIBUTE_UNUSED, tree dst, tree src)
+tree
+fold_builtin_strcat (location_t loc ATTRIBUTE_UNUSED, tree dst, tree src,
+		     tree len)
 {
   if (!validate_arg (dst, POINTER_TYPE)
       || !validate_arg (src, POINTER_TYPE))
@@ -11829,22 +11845,17 @@ fold_builtin_strcat (location_t loc ATTRIBUTE_UNUSED, tree dst, tree src)
 	  /* See if we can store by pieces into (dst + strlen(dst)).  */
 	  tree newdst, call;
 	  tree strlen_fn = builtin_decl_implicit (BUILT_IN_STRLEN);
-	  tree strcpy_fn = builtin_decl_implicit (BUILT_IN_STRCPY);
+	  tree memcpy_fn = builtin_decl_implicit (BUILT_IN_MEMCPY);
 
-	  if (!strlen_fn || !strcpy_fn)
+	  if (!strlen_fn || !memcpy_fn)
 	    return NULL_TREE;
 
-	  /* If we don't have a movstr we don't want to emit an strcpy
-	     call.  We have to do that if the length of the source string
-	     isn't computable (in that case we can use memcpy probably
-	     later expanding to a sequence of mov instructions).  If we
-	     have movstr instructions we can emit strcpy calls.  */
-	  if (!HAVE_movstr)
-	    {
-	      tree len = c_strlen (src, 1);
-	      if (! len || TREE_SIDE_EFFECTS (len))
-		return NULL_TREE;
-	    }
+	  /* If the length of the source string isn't computable don't
+	     split strcat into strlen and memcpy.  */
+	  if (! len)
+	    len = c_strlen (src, 1);
+	  if (! len || TREE_SIDE_EFFECTS (len))
+	    return NULL_TREE;
 
 	  /* Stabilize the argument list.  */
 	  dst = builtin_save_expr (dst);
@@ -11856,7 +11867,11 @@ fold_builtin_strcat (location_t loc ATTRIBUTE_UNUSED, tree dst, tree src)
 	  newdst = fold_build_pointer_plus_loc (loc, dst, newdst);
 	  newdst = builtin_save_expr (newdst);
 
-	  call = build_call_expr_loc (loc, strcpy_fn, 2, newdst, src);
+	  len = fold_convert_loc (loc, size_type_node, len);
+	  len = size_binop_loc (loc, PLUS_EXPR, len,
+				build_int_cst (size_type_node, 1));
+
+	  call = build_call_expr_loc (loc, memcpy_fn, 3, newdst, src, len);
 	  return build2 (COMPOUND_EXPR, TREE_TYPE (dst), call, dst);
 	}
       return NULL_TREE;
