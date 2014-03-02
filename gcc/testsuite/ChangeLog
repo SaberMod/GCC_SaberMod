@@ -1,3 +1,30 @@
+2014-02-25  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-02-21  Richard Biener  <rguenther@suse.de>
+
+        PR tree-optimization/60276
+        * gcc.dg/vect/pr60276.c: New testcase.
+
+2014-02-25  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-02-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60183
+	* gcc.dg/torture/pr60183.c: New testcase.
+
+2014-02-24  Fabien Chêne  <fabien@gcc.gnu.org>
+
+        PR c++/37140
+        * g++.dg/template/using27.C: New.
+        * g++.dg/template/using28.C: New.
+        * g++.dg/template/using29.C: New.
+
+2014-02-23  David Holsgrove <david.holsgrove@xilinx.com>
+
+	* gcc/testsuite/gcc.target/microblaze/others/mem_reload.c: New test.
+
 2014-02-22  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/59599
