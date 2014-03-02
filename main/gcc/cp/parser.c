@@ -12859,6 +12859,9 @@ cp_parser_operator (cp_parser* parser)
 static void
 cp_parser_template_declaration (cp_parser* parser, bool member_p)
 {
+  /* A hack to disable -Wself-assign warning in template parsing.  */
+  int old_warn_self_assign = warn_self_assign;
+  warn_self_assign = 0;
   /* Check for `export'.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_EXPORT))
     {
@@ -12869,6 +12872,7 @@ cp_parser_template_declaration (cp_parser* parser, bool member_p)
     }
 
   cp_parser_template_declaration_after_export (parser, member_p);
+  warn_self_assign = old_warn_self_assign;
 }
 
 /* Parse a template-parameter-list.

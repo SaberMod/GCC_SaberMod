@@ -11803,10 +11803,6 @@ check_for_self_assign (location_t location, tree lhs, tree rhs)
   /* Only emit a warning if RHS is not a folded expression so that we don't
      warn on something like x = x / 1.  */
   if (!EXPR_FOLDED (rhs)
-      /* TODO -- check the correctness of the fix to avoid ICE
-         of Wself-assign-non-pod-1.C. */
-      /* During parsing of template, type can be null  */
-      && TREE_TYPE (rhs) && TREE_TYPE (lhs)
       && operand_equal_p (lhs, rhs,
                           OEP_PURE_SAME | OEP_ALLOW_NULL | OEP_ALLOW_NO_TYPE))
     warning_at (location, OPT_Wself_assign, G_("%qE is assigned to itself"),
