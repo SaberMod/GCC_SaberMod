@@ -1,3 +1,20 @@
+2014-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58845
+	* typeck.c (cp_build_binary_op): Sorry on vector&&vector.
+
+2014-02-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60182
+	* pt.c (unify): Ignore alias templates when deducing a template
+	template parameter.
+
+2014-02-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60146
+	* pt.c (tsubst_omp_for_iterator): Don't let substitution of the
+	DECL_EXPR initialize a non-class iterator.
+
 2014-02-24  Fabien Chêne  <fabien@gcc.gnu.org>
         PR c++/37140
         * parser.c (cp_parser_nonclass_name): Call strip_using_decl and

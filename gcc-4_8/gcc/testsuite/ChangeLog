@@ -1,10 +1,79 @@
+2014-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	Backport from mainline
+	2014-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37743
+	* g++.dg/ext/builtin-bswap1.C: New test.
+	* c-c++-common/pr37743.c: New test.
+
+	PR preprocessor/58844
+	* c-c++-common/cpp/pr58844-1.c: New test.
+	* c-c++-common/cpp/pr58844-2.c: New test.
+
+	2014-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43546
+	* gcc.target/i386/pr43546.c: New test.
+
+	2014-02-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/60101
+	* c-c++-common/pr60101.c: New test.
+
+	2014-02-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/52370
+	* gfortran.dg/pr52370.f90: New test.
+
+	PR debug/59776
+	* gcc.dg/guality/pr59776.c: New test.
+
+	2014-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/56824
+	* gcc.dg/pr56824.c: New test.
+
+	2014-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/60062
+	* gcc.c-torture/execute/pr60062.c: New test.
+	* gcc.c-torture/execute/pr60072.c: New test.
+
+	2014-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/60026
+	* c-c++-common/torture/pr60026.c: New test.
+
+	2014-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/57499
+	* g++.dg/torture/pr57499.C: New test.
+
+	2014-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/60400
+	* c-c++-common/cpp/pr60400.c: New test.
+	* c-c++-common/cpp/pr60400-1.h: New file.
+	* c-c++-common/cpp/pr60400-2.h: New file.
+
+2014-03-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60382
+	* gcc.dg/vect/pr60382.c: New testcase.
+
+2014-03-02  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/60341
+	* gfortran.dg/str_comp_optimize_1.f90: New test.
+
 2014-02-25  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
 	2014-02-21  Richard Biener  <rguenther@suse.de>
 
-        PR tree-optimization/60276
-        * gcc.dg/vect/pr60276.c: New testcase.
+	PR tree-optimization/60276
+	* gcc.dg/vect/pr60276.c: New testcase.
 
 2014-02-25  Richard Biener  <rguenther@suse.de>
 
@@ -16,10 +85,10 @@
 
 2014-02-24  Fabien Chêne  <fabien@gcc.gnu.org>
 
-        PR c++/37140
-        * g++.dg/template/using27.C: New.
-        * g++.dg/template/using28.C: New.
-        * g++.dg/template/using29.C: New.
+	PR c++/37140
+	* g++.dg/template/using27.C: New.
+	* g++.dg/template/using28.C: New.
+	* g++.dg/template/using29.C: New.
 
 2014-02-23  David Holsgrove <david.holsgrove@xilinx.com>
 

@@ -1298,6 +1298,12 @@ DEFPARAM (PARAM_IVOPT_AVG_LOOP_NITER,
           "used when loop iterations number estimation return -1",
           50, 0, 0)
 
+DEFPARAM (PARAM_UNINIT_CONTROL_DEP_ATTEMPTS,
+	  "uninit-control-dep-attempts",
+	  "Maximum number of nested calls to search for control dependencies "
+	  "during uninitialized variable analysis",
+	  1000, 1, 0)
+
 /*
 Local variables:
 mode:c
