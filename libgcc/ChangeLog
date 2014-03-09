@@ -1,3 +1,42 @@
+2014-03-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libgcc/59339
+	* config.host (*-*-linux*, frv-*-*linux*, *-*-kfreebsd*-gnu)
+	(*-*-knetbsd*-gnu, *-*-gnu*, *-*-kopensolaris*-gnu): Only add
+	vtv_*.o to extra_parts if enable_vtable_verify.
+
+2014-03-06  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/t-msp430 (LIB2ADD): Add lib2hw_mul.S
+	* config/msp430/lib2hw_mul.S: New: Hardware multiply routines.
+
+2014-02-28  Joey Ye  <joey.ye@arm.com>
+
+	PR libgcc/60166
+	* config/arm/sfp-machine.h (_FP_NANFRAC_H,
+	_FP_NANFRAC_S, _FP_NANFRAC_D, _FP_NANFRAC_Q):
+	Set to zero.
+
+2014-02-24  Walter Lee  <walt@tilera.com>
+
+	* config.host: Support "tilegx*" and "tilepro*" triplets.
+	* config/tilegx/sfp-machine32.h (__BYTE_ORDER): Handle big endian.
+	* config/tilegx/sfp-machine64.h (__BYTE_ORDER): Handle big endian.
+
+2014-02-20  Sandra Loosemore  <sandra@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nios2/t-nios2 (CRTSTUFF_T_CFLAGS): Add -mno-gpopt.
+	* config/nios2/crti.S: Remove .file directive.
+	* config/nios2/crtn.S: Likewise.
+
+2014-02-18  Kai Tietz  <ktietz@redhat.com>
+	Jonathan Schleifer  <js@webkeks.org>
+
+	PR objc/56870
+	* unwind-seh.c (_GCC_specific_handler): Pass proper
+	value to unwind-handler.
+
 2014-02-12  Joseph Myers  <joseph@codesourcery.com>
 
 	* soft-fp/adddf3.c: Update from glibc.

@@ -10530,7 +10530,7 @@ build_default_init_expr (gfc_symbol *sym)
 	  init_expr = NULL;
 	}
       if (!init_expr && gfc_option.flag_init_character == GFC_INIT_CHARACTER_ON
-	  && sym->ts.u.cl->length)
+	  && sym->ts.u.cl->length && gfc_option.flag_max_stack_var_size != 0)
 	{
 	  gfc_actual_arglist *arg;
 	  init_expr = gfc_get_expr ();
@@ -11362,6 +11362,7 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
 {
   gfc_symbol *sym1, *sym2;
   const char *pass1, *pass2;
+  gfc_formal_arglist *dummy_args;
 
   gcc_assert (t1->specific && t2->specific);
   gcc_assert (!t1->specific->is_generic);
@@ -11384,19 +11385,33 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
       return false;
     }
 
-  /* Compare the interfaces.  */
+  /* Determine PASS arguments.  */
   if (t1->specific->nopass)
     pass1 = NULL;
   else if (t1->specific->pass_arg)
     pass1 = t1->specific->pass_arg;
   else
-    pass1 = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass1 = dummy_args->sym->name;
+      else
+	pass1 = NULL;
+    }
   if (t2->specific->nopass)
     pass2 = NULL;
   else if (t2->specific->pass_arg)
     pass2 = t2->specific->pass_arg;
   else
-    pass2 = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym)->sym->name;
+    {
+      dummy_args = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym);
+      if (dummy_args)
+	pass2 = dummy_args->sym->name;
+      else
+	pass2 = NULL;
+    }
+
+  /* Compare the interfaces.  */
   if (gfc_compare_interfaces (sym1, sym2, sym2->name, !t1->is_operator, 0,
 			      NULL, 0, pass1, pass2))
     {
@@ -12090,14 +12105,6 @@ resolve_fl_derived0 (gfc_symbol *sym)
       if (c->attr.artificial)
 	continue;
 
-      /* See PRs 51550, 47545, 48654, 49050, 51075 - and 45170.  */
-      if (c->ts.type == BT_CHARACTER && c->ts.deferred && !c->attr.function)
-	{
-	  gfc_error ("Deferred-length character component '%s' at %L is not "
-		     "yet supported", c->name, &c->loc);
-	  return false;
-	}
-
       /* F2008, C442.  */
       if ((!sym->attr.is_class || c != sym->components)
 	  && c->attr.codimension
@@ -12347,6 +12354,25 @@ resolve_fl_derived0 (gfc_symbol *sym)
 		     "length must be a POINTER or ALLOCATABLE",
 		     c->name, sym->name, &c->loc);
 	  return false;
+	}
+
+      /* Add the hidden deferred length field.  */
+      if (c->ts.type == BT_CHARACTER && c->ts.deferred && !c->attr.function
+	  && !sym->attr.is_class)
+	{
+	  char name[GFC_MAX_SYMBOL_LEN+9];
+	  gfc_component *strlen;
+	  sprintf (name, "_%s_length", c->name);
+	  strlen = gfc_find_component (sym, name, true, true);
+	  if (strlen == NULL)
+	    {
+	      if (!gfc_add_component (sym, name, &strlen))
+		return false;
+	      strlen->ts.type = BT_INTEGER;
+	      strlen->ts.kind = gfc_charlen_int_kind;
+	      strlen->attr.access = ACCESS_PRIVATE;
+	      strlen->attr.deferred_parameter = 1;
+	    }
 	}
 
       if (c->ts.type == BT_DERIVED

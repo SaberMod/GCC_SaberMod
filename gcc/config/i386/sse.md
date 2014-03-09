@@ -1551,13 +1551,12 @@
   [(set (match_operand:VF_128 0 "register_operand" "=v")
 	(vec_merge:VF_128
 	  (unspec:VF_128
-	    [(match_operand:VF_128 1 "register_operand" "v")
-	     (match_operand:VF_128 2 "nonimmediate_operand" "vm")]
+	    [(match_operand:VF_128 1 "nonimmediate_operand" "vm")]
 	    UNSPEC_RSQRT14)
-	  (match_dup 1)
+	  (match_operand:VF_128 2 "register_operand" "v")
 	  (const_int 1)))]
   "TARGET_AVX512F"
-  "vrsqrt14<ssescalarmodesuffix>\t{%2, %1, %0|%0, %1, %2}"
+  "vrsqrt14<ssescalarmodesuffix>\t{%1, %2, %0|%0, %2, %1}"
   [(set_attr "type" "sse")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<MODE>")])
@@ -6567,7 +6566,7 @@
 	  (match_dup 1)
 	  (const_int 1)))]
   "TARGET_AVX512F"
-  "%vscalef<ssescalarmodesuffix>\t{<round_op3>%2, %1, %0|%0, %1, %2<round_op3>}"
+  "vscalef<ssescalarmodesuffix>\t{<round_op3>%2, %1, %0|%0, %1, %2<round_op3>}"
   [(set_attr "prefix" "evex")
    (set_attr "mode"  "<ssescalarmode>")])
 
@@ -6578,7 +6577,7 @@
 	   (match_operand:VF_512 2 "<round_nimm_predicate>" "<round_constraint>")]
 	  UNSPEC_SCALEF))]
   "TARGET_AVX512F"
-  "%vscalef<ssemodesuffix>\t{<round_mask_op3>%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2<round_mask_op3>}"
+  "vscalef<ssemodesuffix>\t{<round_mask_op3>%2, %1, %0<mask_operand3>|%0<mask_operand3>, %1, %2<round_mask_op3>}"
   [(set_attr "prefix" "evex")
    (set_attr "mode"  "<MODE>")])
 
@@ -9072,8 +9071,8 @@
 	 [(match_operand:VI48_512 1 "register_operand" "v")
 	  (match_operand:VI48_512 2 "nonimmediate_operand" "vm")]
 	 UNSPEC_TESTNM))]
-  "TARGET_AVX512CD"
-  "%vptestnm<ssemodesuffix>\t{%2, %1, %0<mask_scalar_merge_operand3>|%0<mask_scalar_merge_operand3>, %1, %2}"
+  "TARGET_AVX512F"
+  "vptestnm<ssemodesuffix>\t{%2, %1, %0<mask_scalar_merge_operand3>|%0<mask_scalar_merge_operand3>, %1, %2}"
   [(set_attr "prefix" "evex")
    (set_attr "mode"  "<sseinsnmode>")])
 
@@ -12509,7 +12508,7 @@
 	  [(match_operand 2 "vsib_address_operand")
 	   (match_operand:VI48_512 1 "register_operand")
 	   (match_operand:SI 3 "const1248_operand")]))
-      (match_operand:SI 4 "const_1_to_2_operand")]
+      (match_operand:SI 4 "const_2_to_3_operand")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
@@ -12527,13 +12526,13 @@
 	    (match_operand:VI48_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 4 "const_1_to_2_operand" "n")]
+      (match_operand:SI 4 "const_2_to_3_operand" "n")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[4]))
     {
-    case 1:
+    case 3:
       return "vgatherpf0<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
     case 2:
       return "vgatherpf1<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
@@ -12554,13 +12553,13 @@
 	    (match_operand:VI48_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 3 "const_1_to_2_operand" "n")]
+      (match_operand:SI 3 "const_2_to_3_operand" "n")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[3]))
     {
-    case 1:
+    case 3:
       return "vgatherpf0<ssemodesuffix>ps\t{%4|%4}";
     case 2:
       return "vgatherpf1<ssemodesuffix>ps\t{%4|%4}";
@@ -12581,7 +12580,7 @@
 	  [(match_operand 2 "vsib_address_operand")
 	   (match_operand:VI4_256_8_512 1 "register_operand")
 	   (match_operand:SI 3 "const1248_operand")]))
-      (match_operand:SI 4 "const_1_to_2_operand")]
+      (match_operand:SI 4 "const_2_to_3_operand")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
@@ -12599,13 +12598,13 @@
 	    (match_operand:VI4_256_8_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 4 "const_1_to_2_operand" "n")]
+      (match_operand:SI 4 "const_2_to_3_operand" "n")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[4]))
     {
-    case 1:
+    case 3:
       return "vgatherpf0<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
     case 2:
       return "vgatherpf1<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
@@ -12626,13 +12625,13 @@
 	    (match_operand:VI4_256_8_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 3 "const_1_to_2_operand" "n")]
+      (match_operand:SI 3 "const_2_to_3_operand" "n")]
      UNSPEC_GATHER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[3]))
     {
-    case 1:
+    case 3:
       return "vgatherpf0<ssemodesuffix>pd\t{%4|%4}";
     case 2:
       return "vgatherpf1<ssemodesuffix>pd\t{%4|%4}";
@@ -12653,7 +12652,7 @@
 	  [(match_operand 2 "vsib_address_operand")
 	   (match_operand:VI48_512 1 "register_operand")
 	   (match_operand:SI 3 "const1248_operand")]))
-      (match_operand:SI 4 "const1256_operand")]
+      (match_operand:SI 4 "const2367_operand")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
@@ -12671,14 +12670,14 @@
 	    (match_operand:VI48_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 4 "const1256_operand" "n")]
+      (match_operand:SI 4 "const2367_operand" "n")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[4]))
     {
-    case 1:
-    case 5:
+    case 3:
+    case 7:
       return "vscatterpf0<ssemodesuffix>ps\t{%5%{%0%}|%5%{%0%}}";
     case 2:
     case 6:
@@ -12700,14 +12699,14 @@
 	    (match_operand:VI48_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 3 "const1256_operand" "n")]
+      (match_operand:SI 3 "const2367_operand" "n")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[3]))
     {
-    case 1:
-    case 5:
+    case 3:
+    case 7:
       return "vscatterpf0<ssemodesuffix>ps\t{%4|%4}";
     case 2:
     case 6:
@@ -12729,7 +12728,7 @@
 	  [(match_operand 2 "vsib_address_operand")
 	   (match_operand:VI4_256_8_512 1 "register_operand")
 	   (match_operand:SI 3 "const1248_operand")]))
-      (match_operand:SI 4 "const1256_operand")]
+      (match_operand:SI 4 "const2367_operand")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
@@ -12747,14 +12746,14 @@
 	    (match_operand:VI4_256_8_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 4 "const1256_operand" "n")]
+      (match_operand:SI 4 "const2367_operand" "n")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[4]))
     {
-    case 1:
-    case 5:
+    case 3:
+    case 7:
       return "vscatterpf0<ssemodesuffix>pd\t{%5%{%0%}|%5%{%0%}}";
     case 2:
     case 6:
@@ -12776,14 +12775,14 @@
 	    (match_operand:VI4_256_8_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
-      (match_operand:SI 3 "const1256_operand" "n")]
+      (match_operand:SI 3 "const2367_operand" "n")]
      UNSPEC_SCATTER_PREFETCH)]
   "TARGET_AVX512PF"
 {
   switch (INTVAL (operands[3]))
     {
-    case 1:
-    case 5:
+    case 3:
+    case 7:
       return "vscatterpf0<ssemodesuffix>pd\t{%4|%4}";
     case 2:
     case 6:
@@ -12804,6 +12803,7 @@
   "TARGET_AVX512ER"
   "vexp2<ssemodesuffix>\t{<round_saeonly_mask_op2>%1, %0<mask_operand2>|%0<mask_operand2>, %1<round_saeonly_mask_op2>}"
   [(set_attr "prefix" "evex")
+   (set_attr "type" "sse")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "<mask_codefor>avx512er_rcp28<mode><mask_name><round_saeonly_name>"
@@ -12814,6 +12814,7 @@
   "TARGET_AVX512ER"
   "vrcp28<ssemodesuffix>\t{<round_saeonly_mask_op2>%1, %0<mask_operand2>|%0<mask_operand2>, %1<round_saeonly_mask_op2>}"
   [(set_attr "prefix" "evex")
+   (set_attr "type" "sse")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "avx512er_vmrcp28<mode><round_saeonly_name>"
@@ -12825,9 +12826,10 @@
 	  (match_operand:VF_128 2 "register_operand" "v")
 	  (const_int 1)))]
   "TARGET_AVX512ER"
-  "vrcp28<ssescalarmodesuffix>\t{<round_saeonly_op3>%2, %1, %0|%0, %1, %2<round_saeonly_op3>}"
+  "vrcp28<ssescalarmodesuffix>\t{<round_saeonly_op3>%1, %2, %0|%0, %2, %1<round_saeonly_op3>}"
   [(set_attr "length_immediate" "1")
    (set_attr "prefix" "evex")
+   (set_attr "type" "sse")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "<mask_codefor>avx512er_rsqrt28<mode><mask_name><round_saeonly_name>"
@@ -12838,6 +12840,7 @@
   "TARGET_AVX512ER"
   "vrsqrt28<ssemodesuffix>\t{<round_saeonly_mask_op2>%1, %0<mask_operand2>|%0<mask_operand2>, %1<round_saeonly_mask_op2>}"
   [(set_attr "prefix" "evex")
+   (set_attr "type" "sse")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "avx512er_vmrsqrt28<mode><round_saeonly_name>"
@@ -12849,8 +12852,9 @@
 	  (match_operand:VF_128 2 "register_operand" "v")
 	  (const_int 1)))]
   "TARGET_AVX512ER"
-  "vrsqrt28<ssescalarmodesuffix>\t{<round_saeonly_op3>%2, %1, %0|%0, %1, %2<round_saeonly_op3>}"
+  "vrsqrt28<ssescalarmodesuffix>\t{<round_saeonly_op3>%1, %2, %0|%0, %2, %1<round_saeonly_op3>}"
   [(set_attr "length_immediate" "1")
+   (set_attr "type" "sse")
    (set_attr "prefix" "evex")
    (set_attr "mode" "<MODE>")])
 

@@ -1,3 +1,111 @@
+2014-03-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/60447
+	* f95-lang.c (gfc_init): Return false when only
+	preprocessing.
+	* options.c (gfc_post_options): Ditto.
+
+2014-03-08  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.texi (Fortran 2003 Status): Mention finalization,
+	deferred-length character support and input rounding.
+	(Fortran 2008 Status): Mention that at termination
+	signalling exceptions are shown.
+
+2014-03-06  Paul Thomas  <pault@gcc.gnu.org>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/51976
+	* gfortran.h (symbol_attribute): Add deferred_parameter attribute.
+	* primary.c (build_actual_constructor): It is not an error if
+	a missing component has the deferred_parameter attribute;
+	equally, if one is given a value, it is an error.
+	* resolve.c (resolve_fl_derived0): Remove error for deferred
+	character length components.  Add the hidden string length
+	field to the structure. Give it the deferred_parameter
+	attribute.
+	* trans-array.c (duplicate_allocatable): Add a strlen field
+	which is used as the element size if it is non-null.
+	(gfc_duplicate_allocatable, gfc_copy_allocatable_data): Pass a
+	NULL to the new argument in duplicate_allocatable.
+	(structure_alloc_comps): Set the hidden string length as
+	appropriate. Use it in calls to duplicate_allocatable.
+	(gfc_alloc_allocatable_for_assignment): When a deferred length
+	backend declaration is variable, use that; otherwise use the
+	string length from the expression evaluation.
+	* trans-expr.c (gfc_conv_component_ref): If this is a deferred
+	character length component, the string length should have the
+	value of the hidden string length field.
+	(gfc_trans_subcomponent_assign): Set the hidden string length
+	field for deferred character length components.  Allocate the
+	necessary memory for the string.
+	(alloc_scalar_allocatable_for_assignment): Same change as in
+	gfc_alloc_allocatable_for_assignment above.
+	* trans-stmt.c (gfc_trans_allocate): Likewise.
+	* trans-intrinsic (size_of_string_in_bytes): Make non-static.
+	* trans-types.c (gfc_get_derived_type): Set the tree type for
+	a deferred character length component.
+	* trans.c (gfc_deferred_strlen): New function.
+	* trans.h (size_of_string_in_bytes,gfc_deferred_strlen): New prototypes.
+
+2014-03-01  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/60341
+	* frontend-passes.c (optimize_comparison): Guard two union accesses
+	with the corresponding tag checks.
+
+2014-02-28  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60359
+	* class.c (find_intrinsic_vtab): Prevent duplicate creation of copy
+	procedure for characters.
+
+2014-02-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60302
+	* check.c (gfc_check_c_f_pointer): Only clear 'size' if 'gfc_array_size'
+	is successful.
+
+2014-02-21  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60234
+	* gfortran.h (gfc_build_class_symbol): Removed argument.
+	* class.c (gfc_add_component_ref): Fix up missing vtype if necessary.
+	(gfc_build_class_symbol): Remove argument 'delayed_vtab'. vtab is always
+	delayed now, except for unlimited polymorphics.
+	(comp_is_finalizable): Procedure pointer components are not finalizable.
+	* decl. (build_sym, build_struct, attr_decl1): Removed argument of
+	'gfc_build_class_symbol'.
+	* match.c (copy_ts_from_selector_to_associate, select_type_set_tmp):
+	Ditto.
+	* symbol.c (gfc_set_default_type): Ditto.
+
+2014-02-19  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60232
+	* expr.c (gfc_get_variable_expr): Don't add REF_ARRAY for dimensionful
+	functions, which are used as procedure pointer target.
+
+2014-02-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/49397
+	* expr.c (gfc_check_pointer_assign): Add check for
+	F2008Cor2, C729.
+	* trans-decl.c (gfc_get_symbol_decl): Correctly generate external
+	decl in a corner case.
+
+2014-02-18  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60231
+	* resolve.c (check_generic_tbp_ambiguity): Check for presence of dummy
+	arguments to prevent ICE.
+
+2014-02-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55907
+	* resolve.c (build_default_init_expr): Don't initialize character
+	variable if -fno-automatic is given.
+
 2014-02-15  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/59599

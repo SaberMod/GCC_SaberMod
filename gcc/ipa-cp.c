@@ -798,7 +798,9 @@ ipa_get_jf_ancestor_result (struct ipa_jump_func *jfunc, tree input)
       tree t = TREE_OPERAND (input, 0);
       t = build_ref_for_offset (EXPR_LOCATION (t), t,
 				ipa_get_jf_ancestor_offset (jfunc),
-				ipa_get_jf_ancestor_type (jfunc), NULL, false);
+				ipa_get_jf_ancestor_type (jfunc)
+				? ipa_get_jf_ancestor_type (jfunc)
+				: ptr_type_node, NULL, false);
       return build_fold_addr_expr (t);
     }
   else
@@ -1428,6 +1430,8 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   args = IPA_EDGE_REF (cs);
   args_count = ipa_get_cs_argument_count (args);
   parms_count = ipa_get_param_count (callee_info);
+  if (parms_count == 0)
+    return false;
 
   /* If this call goes through a thunk we must not propagate to the first (0th)
      parameter.  However, we might need to uncover a thunk from below a series
@@ -3254,6 +3258,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 					  struct cgraph_node *node)
 {
   struct ipa_node_params *orig_caller_info = IPA_NODE_REF (cs->caller);
+  struct ipa_node_params *orig_node_info;
   struct ipa_agg_replacement_value *aggval;
   int i, ec, count;
 
@@ -3268,6 +3273,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
       if (aggval->index >= ec)
 	return false;
 
+  orig_node_info = IPA_NODE_REF (IPA_NODE_REF (node)->ipcp_orig_node);
   if (orig_caller_info->ipcp_orig_node)
     orig_caller_info = IPA_NODE_REF (orig_caller_info->ipcp_orig_node);
 
@@ -3285,7 +3291,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
       if (!interesting)
 	continue;
 
-      plats = ipa_get_parm_lattices (orig_caller_info, aggval->index);
+      plats = ipa_get_parm_lattices (orig_node_info, aggval->index);
       if (plats->aggs_bottom)
 	return false;
 

@@ -1,3 +1,43 @@
+2014-03-08  Paulo Matos  <paulo@matos-sorge.com>
+
+    * c.opt: Enable LTO FE for fshort-double.
+
+2014-03-07  Jason Merrill  <jason@redhat.com>
+
+	* c.opt: Add -std=c++14.
+
+2014-03-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60197
+	* cilk.c (contains_cilk_spawn_stmt): New function.
+	(contains_cilk_spawn_stmt_walker): Likewise.
+	(recognize_spawn): Give error on invalid use of _Cilk_spawn.
+	* c-common.h (contains_cilk_spawn_stmt): Add declaration.
+
+2014-03-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.c (c_pp_lookup_pragma): Handle PRAGMA_CILK_SIMD.
+	(init_pragma): Call cpp_register_deferred_pragma for PRAGMA_CILK_SIMD
+	even when flag_preprocess_only.
+
+2014-02-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59231
+	PR c++/11586
+	* c-common.c (shorten_compare): Don't check
+	c_inhibit_evaluation_warnings.
+
+2014-02-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/37743
+	* c-common.c (c_common_nodes_and_builtins): When initializing
+	c_uint{16,32,64}_type_node, also set corresponding
+	uint{16,32,64}_type_node to the same value.
+
+	PR c++/60267
+	* c-pragma.c (init_pragma): Don't call cpp_register_deferred_pragma
+	for PRAGMA_IVDEP if flag_preprocess_only.
+
 2014-02-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c/60101
