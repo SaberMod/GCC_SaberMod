@@ -37,7 +37,5 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define LINUX_GRTE_EXTRA_SPECS \
   { "libc", "%{static:%(libc_static);:-lc}" }, \
   { "libc_p", "%{static:%(libc_p_static);:-lc_p}" }, \
-  { "libc_static", \
-    "-lc -lnss_borg -lnss_cache -lnss_dns -lnss_files -lresolv" }, \
-  { "libc_p_static", \
-    "-lc_p -lnss_borg_p -lnss_cache_p -lnss_dns_p -lnss_files_p -lresolv_p" },
+  { "libc_static", "-lc -lresolv" }, \
+  { "libc_p_static", "-lc_p -lresolv_p" },
