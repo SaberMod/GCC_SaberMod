@@ -29,3 +29,15 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
   "%{pthread:-lpthread} \
    %{shared:-lc} \
    %{!shared:%{mieee-fp:-lieee} %{profile:%(libc_p)}%{!profile:%(libc)}}"
+
+/* When GRTE links statically, it needs its NSS and resolver libraries
+   linked in as well.  Note that when linking statically, these are
+   enclosed in a group by LINK_GCC_C_SEQUENCE_SPEC.  */
+#undef LINUX_GRTE_EXTRA_SPECS
+#define LINUX_GRTE_EXTRA_SPECS \
+  { "libc", "%{static:%(libc_static);:-lc}" }, \
+  { "libc_p", "%{static:%(libc_p_static);:-lc_p}" }, \
+  { "libc_static", \
+    "-lc -lnss_borg -lnss_cache -lnss_dns -lnss_files -lresolv" }, \
+  { "libc_p_static", \
+    "-lc_p -lnss_borg_p -lnss_cache_p -lnss_dns_p -lnss_files_p -lresolv_p" },
