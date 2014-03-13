@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "l-ipo.h"
 #include "ipa-utils.h"
 #include "ipa-inline.h"
+#include "output.h"
+#include "dwarf2asm.h"
 #include "auto-profile.h"
 
 /* The following routines implements AutoFDO optimization.
@@ -100,9 +102,6 @@ typedef std::vector<const char *> string_vector;
 /* Map from function name's index in function_name_map to target's
    execution count.  */
 typedef std::map<unsigned, gcov_type> icall_target_map;
-/* Represent profile count of an inline stack,  profile count is represented as
-   (execution_count, value_profile_histogram).  */
-typedef std::pair<gcov_type, icall_target_map> count_info;
 
 /* Set of inline_stack. Used to track if the profile is already used to
    annotate the program.  */
@@ -111,6 +110,13 @@ typedef std::set<inline_stack> location_set;
 /* Set of gimple stmts. Used to track if the stmt has already been promoted
    to direct call.  */
 typedef std::set<gimple> stmt_set;
+
+struct count_info
+{
+  gcov_type count;
+  icall_target_map targets;
+  bool annotated;
+};
 
 struct string_compare
 {
@@ -154,7 +160,7 @@ public:
   /* Read the profile and create a function_instance with head count as
      HEAD_COUNT. Recursively read callsites to create nested function_instances
      too. STACK is used to track the recursive creation process.  */
-  static const function_instance *read_function_instance (
+  static function_instance *read_function_instance (
       function_instance_stack *stack, gcov_type head_count);
 
   /* Recursively deallocate all callsites (nested function_instances).  */
@@ -167,8 +173,8 @@ public:
 
   /* Recursively traverse STACK starting from LEVEL to find the corresponding
      function_instance.  */
-  const function_instance *get_function_instance (const inline_stack &stack,
-						  unsigned level) const;
+  function_instance *get_function_instance (const inline_stack &stack,
+					    unsigned level);
 
   /* Store the profile info for LOC in INFO. Return TRUE if profile info
      is found.  */
@@ -178,18 +184,23 @@ public:
   MAP, return the total count for all inlined indirect calls.  */
   gcov_type find_icall_target_map (gimple stmt, icall_target_map *map) const;
 
+  /* Total number of counts that is used during annotation.  */
+  gcov_type total_annotated_count () const;
+
+  /* Mark LOC as annotated.  */
+  void mark_annotated (location_t loc);
+
 private:
   function_instance (unsigned name, gcov_type head_count)
       : name_(name), total_count_(0), head_count_(head_count) {}
 
   /* Traverse callsites of the current function_instance to find one at the
      location of LINENO and callee name represented in DECL.  */
-  const function_instance *get_function_instance_by_decl (unsigned lineno,
-							  tree decl) const;
+  function_instance *get_function_instance_by_decl (unsigned lineno, tree decl);
 
   /* Map from callsite decl_lineno (lineno in higher 16 bits, discriminator
      in lower 16 bits) to callee function_instance.  */
-  typedef std::map<unsigned, const function_instance *> callsite_map;
+  typedef std::map<unsigned, function_instance *> callsite_map;
   /* Map from source location (decl_lineno) to profile (count_info).  */
   typedef std::map<unsigned, count_info> position_count_map;
 
@@ -218,30 +229,36 @@ public:
     }
   ~autofdo_source_profile ();
   /* For a given DECL, returns the top-level function_instance.  */
-  const function_instance *get_function_instance_by_decl (tree decl) const;
+  function_instance *get_function_instance_by_decl (tree decl);
   /* Find profile info for a given gimple STMT. If found, and if the location
      of STMT does not exist in ANNOTATED, store the profile info in INFO, and
      return true; otherwise return false.  */
-  bool get_count_info (gimple stmt, count_info *info,
-		       const location_set *annotated) const;
+  bool get_count_info (gimple stmt, count_info *info) const;
   /* Find total count of the callee of EDGE.  */
   gcov_type get_callsite_total_count (struct cgraph_edge *edge) const;
 
   /* Update value profile INFO for STMT from the inlined indirect callsite.
-  Return true if INFO is updated.  */
+     Return true if INFO is updated.  */
   bool update_inlined_ind_target (gimple stmt, count_info *info);
+
+  /* Mark LOCUS as annotated.  */
+  void mark_annotated (location_t locus);
+
+  /* Writes the profile annotation status for each function in an elf
+     section.  */
+  void write_annotated_count () const;
 
 private:
   /* Map from function_instance name index (in function_name_map) to
      function_instance.  */
-  typedef std::map<unsigned, const function_instance *>
+  typedef std::map<unsigned, function_instance *>
       name_function_instance_map;
 
   autofdo_source_profile () {}
   bool read ();
   /* Return the function_instance in the profile that correspond to the
      inline STACK.  */
-  const function_instance *get_function_instance_by_inline_stack (
+  function_instance *get_function_instance_by_inline_stack (
       const inline_stack &stack) const;
 
   name_function_instance_map map_;
@@ -339,30 +356,29 @@ get_function_decl_from_block (tree block)
 /* Store inline stack for STMT in STACK.  */
 
 static void
-get_inline_stack (gimple stmt, inline_stack *stack)
+get_inline_stack (location_t locus, inline_stack *stack)
 {
-  location_t locus = gimple_location (stmt);
   if (LOCATION_LOCUS (locus) == UNKNOWN_LOCATION)
     return;
 
-  tree block = gimple_block (stmt);
-  if (!block || TREE_CODE (block) != BLOCK)
-    return;
-
-  int level = 0;
-  for (block = BLOCK_SUPERCONTEXT (block);
-       block && (TREE_CODE (block) == BLOCK);
-       block = BLOCK_SUPERCONTEXT (block))
+  tree block = LOCATION_BLOCK (locus);
+  if (block && TREE_CODE (block) == BLOCK)
     {
-      location_t tmp_locus = BLOCK_SOURCE_LOCATION (block);
-      if (LOCATION_LOCUS (tmp_locus) == UNKNOWN_LOCATION)
-	continue;
+      int level = 0;
+      for (block = BLOCK_SUPERCONTEXT (block);
+	   block && (TREE_CODE (block) == BLOCK);
+	   block = BLOCK_SUPERCONTEXT (block))
+	{
+	  location_t tmp_locus = BLOCK_SOURCE_LOCATION (block);
+	  if (LOCATION_LOCUS (tmp_locus) == UNKNOWN_LOCATION)
+	    continue;
 
-      tree decl = get_function_decl_from_block (block);
-      stack->push_back (std::make_pair (
-	  decl, get_combined_location (locus, decl)));
-      locus = tmp_locus;
-      level++;
+	  tree decl = get_function_decl_from_block (block);
+	  stack->push_back (std::make_pair (
+	      decl, get_combined_location (locus, decl)));
+	  locus = tmp_locus;
+	  level++;
+	}
     }
   stack->push_back (std::make_pair (
       current_function_decl,
@@ -479,13 +495,13 @@ function_instance::~function_instance ()
 /* Traverse callsites of the current function_instance to find one at the
    location of LINENO and callee name represented in DECL.  */
 
-const function_instance *function_instance::get_function_instance_by_decl (
-    unsigned lineno, tree decl) const
+function_instance *function_instance::get_function_instance_by_decl (
+    unsigned lineno, tree decl)
 {
   int func_name_idx = afdo_function_name_map->get_index_by_decl (decl);
   if (func_name_idx != -1)
     {
-      callsite_map::const_iterator ret = callsites.find (lineno);
+      callsite_map::iterator ret = callsites.find (lineno);
       if (ret != callsites.end ())
 	return ret->second;
     }
@@ -493,7 +509,7 @@ const function_instance *function_instance::get_function_instance_by_decl (
       lang_hooks.dwarf_name (decl, 0));
   if (func_name_idx != -1)
     {
-      callsite_map::const_iterator ret = callsites.find (lineno);
+      callsite_map::iterator ret = callsites.find (lineno);
       if (ret != callsites.end ())
 	return ret->second;
     }
@@ -506,12 +522,12 @@ const function_instance *function_instance::get_function_instance_by_decl (
 /* Recursively traverse STACK starting from LEVEL to find the corresponding
    function_instance.  */
 
-const function_instance *function_instance::get_function_instance (
-    const inline_stack &stack, unsigned level) const
+function_instance *function_instance::get_function_instance (
+    const inline_stack &stack, unsigned level)
 {
   if (level == 0)
     return this;
-  const function_instance *s =
+  function_instance *s =
       get_function_instance_by_decl (stack[level].second, stack[level - 1].first);
   if (s)
     return s->get_function_instance (stack, level - 1);
@@ -529,6 +545,14 @@ bool function_instance::get_count_info (location_t loc, count_info *info) const
     return false;
   *info = iter->second;
   return true;
+}
+
+void function_instance::mark_annotated (location_t loc)
+{
+  position_count_map::iterator iter = pos_counts.find (loc);
+  if (iter == pos_counts.end ())
+    return;
+  iter->second.annotated = true;
 }
 
 /* Read the inlinied indirect call target profile for STMT and store it in
@@ -564,7 +588,7 @@ function_instance::find_icall_target_map (
    HEAD_COUNT. Recursively read callsites to create nested function_instances
    too. STACK is used to track the recursive creation process.  */
 
-const function_instance *function_instance::read_function_instance (
+function_instance *function_instance::read_function_instance (
     function_instance_stack *stack, gcov_type head_count)
 {
   unsigned name = gcov_read_unsigned ();
@@ -578,7 +602,7 @@ const function_instance *function_instance::read_function_instance (
       unsigned offset = gcov_read_unsigned ();
       unsigned num_targets = gcov_read_unsigned ();
       gcov_type count = gcov_read_counter ();
-      s->pos_counts[offset].first = count;
+      s->pos_counts[offset].count = count;
       for (unsigned j = 0; j < stack->size(); j++)
 	(*stack)[j]->total_count_ += count;
       for (unsigned j = 0; j < num_targets; j++)
@@ -586,7 +610,7 @@ const function_instance *function_instance::read_function_instance (
 	  /* Only indirect call target histogram is supported now.  */
 	  gcov_read_unsigned ();
 	  gcov_type target_idx = gcov_read_counter ();
-	  s->pos_counts[offset].second[target_idx] =
+	  s->pos_counts[offset].targets[target_idx] =
 	      gcov_read_counter ();
 	}
     }
@@ -596,6 +620,46 @@ const function_instance *function_instance::read_function_instance (
   }
   stack->pop_back();
   return s;
+}
+
+gcov_type function_instance::total_annotated_count () const
+{
+  gcov_type ret = 0;
+  for (callsite_map::const_iterator iter = callsites.begin();
+       iter != callsites.end(); ++iter)
+    ret += iter->second->total_annotated_count ();
+  for (position_count_map::const_iterator iter = pos_counts.begin();
+       iter != pos_counts.end(); ++iter)
+    if (iter->second.annotated)
+      ret += iter->second.count;
+  return ret;
+}
+
+void autofdo_source_profile::write_annotated_count () const
+{
+  /* We store the annotation info as a string in the format of:
+
+       function_name:total_count:annotated_count
+
+     Because different modules may output the annotation info for a same
+     function, we set the section as SECTION_MERGE so that we don't have
+     replicated info in the final binary.  */
+  switch_to_section (get_section (
+      ".gnu.switches.text.annotation",
+      SECTION_DEBUG | SECTION_MERGE | SECTION_STRINGS | (SECTION_ENTSIZE & 1),
+      NULL));
+  for (name_function_instance_map::const_iterator iter = map_.begin ();
+       iter != map_.end (); ++iter)
+    if (iter->second->total_count () > 0)
+      {
+	char buf[1024];
+	snprintf (buf, 1024,
+		  "%s:"HOST_WIDEST_INT_PRINT_DEC":"HOST_WIDEST_INT_PRINT_DEC,
+		  afdo_function_name_map->get_name (iter->first),
+		  iter->second->total_count (),
+		  iter->second->total_annotated_count ());
+	dw2_asm_output_nstring (buf, (size_t)-1, NULL);
+      }
 }
 
 
@@ -610,8 +674,8 @@ autofdo_source_profile::~autofdo_source_profile ()
 
 /* For a given DECL, returns the top-level function_instance.  */
 
-const function_instance *autofdo_source_profile::get_function_instance_by_decl (
-    tree decl) const
+function_instance *autofdo_source_profile::get_function_instance_by_decl (
+    tree decl)
 {
   int index = afdo_function_name_map->get_index_by_decl (decl);
   if (index == -1)
@@ -625,21 +689,30 @@ const function_instance *autofdo_source_profile::get_function_instance_by_decl (
    return true; otherwise return false.  */
 
 bool autofdo_source_profile::get_count_info (
-    gimple stmt, count_info *info, const location_set *annotated) const
+    gimple stmt, count_info *info) const
 {
   if (LOCATION_LOCUS (gimple_location (stmt)) == cfun->function_end_locus)
     return false;
 
   inline_stack stack;
-  get_inline_stack (stmt, &stack);
-  if (annotated && annotated->find(stack) != annotated->end())
-    return false;
+  get_inline_stack (gimple_location (stmt), &stack);
   if (stack.size () == 0)
     return false;
   const function_instance *s = get_function_instance_by_inline_stack (stack);
   if (s == NULL)
     return false;
   return s->get_count_info (stack[0].second, info);
+}
+
+void autofdo_source_profile::mark_annotated (location_t locus) {
+  inline_stack stack;
+  get_inline_stack (locus, &stack);
+  if (stack.size () == 0)
+    return;
+  function_instance *s = get_function_instance_by_inline_stack (stack);
+  if (s == NULL)
+    return;
+  s->mark_annotated (stack[0].second);
 }
 
 /* Update value profile INFO for STMT from the inlined indirect callsite.
@@ -653,10 +726,10 @@ autofdo_source_profile::update_inlined_ind_target (
     return false;
 
   count_info old_info;
-  get_count_info (stmt, &old_info, NULL);
+  get_count_info (stmt, &old_info);
   gcov_type total = 0;
-  for (icall_target_map::const_iterator iter = old_info.second.begin();
-       iter != old_info.second.end(); ++iter)
+  for (icall_target_map::const_iterator iter = old_info.targets.begin();
+       iter != old_info.targets.end(); ++iter)
     total += iter->second;
 
   /* Program behavior changed, original promoted (and inlined) target is not
@@ -666,11 +739,11 @@ autofdo_source_profile::update_inlined_ind_target (
      count of the unpromoted targets (stored in old_info). If it is no less
      than half of the callsite count (stored in INFO), the original promoted
      target is considered not hot any more.  */
-  if (total >= info->first * 0.5)
+  if (total >= info->count * 0.5)
     return false;
 
   inline_stack stack;
-  get_inline_stack (stmt, &stack);
+  get_inline_stack (gimple_location (stmt), &stack);
   if (stack.size () == 0)
     return false;
   const function_instance *s = get_function_instance_by_inline_stack (stack);
@@ -681,7 +754,7 @@ autofdo_source_profile::update_inlined_ind_target (
     return false;
   for (icall_target_map::const_iterator iter = map.begin();
        iter != map.end(); ++iter)
-    info->second[iter->first] = iter->second;
+    info->targets[iter->first] = iter->second;
   return true;
 }
 
@@ -692,7 +765,7 @@ gcov_type autofdo_source_profile::get_callsite_total_count (
 {
   inline_stack stack;
   stack.push_back (std::make_pair(edge->callee->symbol.decl, 0));
-  get_inline_stack (edge->call_stmt, &stack);
+  get_inline_stack (gimple_location (edge->call_stmt), &stack);
 
   const function_instance *s = get_function_instance_by_inline_stack (stack);
   if (s == NULL)
@@ -720,7 +793,7 @@ bool autofdo_source_profile::read ()
   for (unsigned i = 0; i < function_num; i++)
     {
       function_instance::function_instance_stack stack;
-      const function_instance *s = function_instance::read_function_instance (
+      function_instance *s = function_instance::read_function_instance (
 	  &stack, gcov_read_counter ());
       afdo_profile_info->sum_all += s->total_count ();
       map_[s->name ()] = s;
@@ -731,7 +804,7 @@ bool autofdo_source_profile::read ()
 /* Return the function_instance in the profile that correspond to the
    inline STACK.  */
 
-const function_instance *
+function_instance *
 autofdo_source_profile::get_function_instance_by_inline_stack (
     const inline_stack &stack) const
 {
@@ -979,10 +1052,11 @@ afdo_vpt (gimple stmt, const icall_target_map &map)
    because we only want to promot an indirect call once.  */
 
 static gcov_type
-afdo_get_bb_count (basic_block bb, location_set *annotated,
-		   const stmt_set &promoted)
+afdo_get_bb_count (basic_block bb, const stmt_set &promoted)
 {
   gimple_stmt_iterator gsi;
+  edge e;
+  edge_iterator ei;
   gcov_type max_count = 0;
   bool has_annotated = false;
 
@@ -990,30 +1064,35 @@ afdo_get_bb_count (basic_block bb, location_set *annotated,
     {
       count_info info;
       gimple stmt = gsi_stmt (gsi);
-      if (afdo_source_profile->get_count_info (stmt, &info, annotated))
+      if (afdo_source_profile->get_count_info (stmt, &info))
 	{
-	  if (info.first > max_count)
-	    max_count = info.first;
+	  if (info.annotated)
+	    continue;
+	  if (info.count > max_count)
+	    max_count = info.count;
 	  has_annotated = true;
-	  if (info.second.size() > 0 && promoted.find (stmt) == promoted.end ())
-	    afdo_vpt (stmt, info.second);
+	  if (info.targets.size() > 0 && promoted.find (stmt) == promoted.end ())
+	    afdo_vpt (stmt, info.targets);
 	}
     }
 
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      inline_stack stack;
-      get_inline_stack (gsi_stmt (gsi), &stack);
-      if (stack.size() > 0)
-	annotated->insert(stack);
-    }
-  if (has_annotated)
-    {
-      bb->flags |= BB_ANNOTATED;
-      return max_count;
-    }
-  else
+  if (!has_annotated)
     return 0;
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    afdo_source_profile->mark_annotated (gimple_location (gsi_stmt (gsi)));
+  for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple phi = gsi_stmt (gsi);
+      size_t i;
+      for (i = 0; i < gimple_phi_num_args (phi); i++)
+	afdo_source_profile->mark_annotated (gimple_phi_arg_location (phi, i));
+    }
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    afdo_source_profile->mark_annotated (e->goto_locus);
+
+  bb->flags |= BB_ANNOTATED;
+    return max_count;
 }
 
 /* BB1 and BB2 are in an equivalent class iff:
@@ -1336,8 +1415,8 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
 	{
 	  count_info info;
 	  gimple stmt = gsi_stmt (gsi);
-	  if (afdo_source_profile->get_count_info (stmt, &info, NULL))
-	    bb_count = MAX (bb_count, info.first);
+	  if (afdo_source_profile->get_count_info (stmt, &info))
+	    bb_count = MAX (bb_count, info.count);
 	}
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1352,13 +1431,13 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
 	    continue;
 
 	  count_info info;
-	  afdo_source_profile->get_count_info (stmt, &info, NULL);
-	  info.first = bb_count;
+	  afdo_source_profile->get_count_info (stmt, &info);
+	  info.count = bb_count;
 	  if (afdo_source_profile->update_inlined_ind_target (stmt, &info))
 	    {
 	      /* Promote the indirect call and update the promoted_stmts.  */
 	      promoted_stmts->insert (stmt);
-	      afdo_vpt (stmt, info.second);
+	      afdo_vpt (stmt, info.targets);
 	      has_vpt = true;
 	    }
 	}
@@ -1395,8 +1474,6 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
   ENTRY_BLOCK_PTR->count = s->head_count ();
   gcov_type max_count = ENTRY_BLOCK_PTR->count;
 
-  location_set annotated_locs;
-
   FOR_EACH_BB (bb)
     {
       edge e;
@@ -1410,7 +1487,7 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
 	  e->flags &= (~EDGE_ANNOTATED);
 	}
 
-      bb->count = afdo_get_bb_count (bb, &annotated_locs, promoted_stmts);
+      bb->count = afdo_get_bb_count (bb, promoted_stmts);
       if (bb->count > max_count)
 	max_count = bb->count;
     }
@@ -1424,6 +1501,10 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
       EXIT_BLOCK_PTR->prev_bb->count = ENTRY_BLOCK_PTR->count;
       EXIT_BLOCK_PTR->prev_bb->flags |= BB_ANNOTATED;
     }
+  afdo_source_profile->mark_annotated (
+      DECL_SOURCE_LOCATION (current_function_decl));
+  afdo_source_profile->mark_annotated (cfun->function_start_locus);
+  afdo_source_profile->mark_annotated (cfun->function_end_locus);
   if (max_count > 0)
     {
       afdo_calculate_branch_prob ();
@@ -1547,6 +1628,8 @@ auto_profile (void)
       rebuild_cgraph_edges ();
       pop_cfun ();
     }
+
+  autofdo::afdo_source_profile->write_annotated_count ();
   return 0;
 }
 
