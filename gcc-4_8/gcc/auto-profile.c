@@ -1449,8 +1449,6 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
       calculate_dominance_info (CDI_POST_DOMINATORS);
       calculate_dominance_info (CDI_DOMINATORS);
       rebuild_cgraph_edges ();
-      update_ssa (TODO_update_ssa);
-      compute_inline_parameters (cgraph_get_node (current_function_decl), true);
       return true;
     }
   else
@@ -1515,6 +1513,14 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
     gimple_value_profile_transformations ();
 }
 }  /* namespace autofdo.  */
+
+static void early_inline ()
+{
+  compute_inline_parameters (cgraph_get_node (current_function_decl), true);
+  unsigned todo = early_inliner ();
+  if (todo & TODO_update_ssa_any)
+    update_ssa (TODO_update_ssa);
+}
 
 /* Use AutoFDO profile to annoate the control flow graph.
    Return the todo flag.  */
@@ -1610,11 +1616,10 @@ auto_profile (void)
 	  if (!flag_value_profile_transformations
 	      || !autofdo::afdo_vpt_for_early_inline (&promoted_stmts))
 	    break;
-	  early_inliner ();
+	  early_inline ();
 	}
 
-      compute_inline_parameters (cgraph_get_node (current_function_decl), true);
-      early_inliner ();
+      early_inline ();
       autofdo::afdo_annotate_cfg (promoted_stmts);
       compute_function_frequency ();
       update_ssa (TODO_update_ssa);
