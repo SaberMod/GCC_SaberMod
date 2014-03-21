@@ -1634,7 +1634,8 @@ auto_profile (void)
       pop_cfun ();
     }
 
-  autofdo::afdo_source_profile->write_annotated_count ();
+  if (flag_auto_profile_record_coverage_in_elf)
+    autofdo::afdo_source_profile->write_annotated_count ();
   return 0;
 }
 

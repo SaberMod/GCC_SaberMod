@@ -946,6 +946,10 @@ fauto-profile-accurate
 Common Report Var(flag_auto_profile_accurate) Optimization
 Whether to assume the sample profile is accurate.
 
+fauto-profile-record-coverage-in-elf
+Common Report Var(flag_auto_profile_record_coverage_in_elf) Optimization
+Whether to record annotation coverage info in elf.
+
 ; -fcheck-bounds causes gcc to generate array bounds checks.
 ; For C, C++ and ObjC: defaults off.
 ; For Java: defaults to on.
