@@ -1,3 +1,43 @@
+2014-03-20  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/60543
+	PR fortran/60283
+	* gfortran.dg/implicit_pure_4.f90: New.
+
+2014-03-17  Mikael Pettersson  <mikpelinux@gmail.com>
+	    Committed by Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline:
+
+	2013-06-16  Joern Rennecke <joern.rennecke@embecosm.com>
+
+	PR rtl-optimization/57425
+	PR rtl-optimization/57569
+	* gcc.dg/torture/pr57425-1.c, gcc.dg/torture/pr57425-2.c: New files.
+	* gcc.dg/torture/pr57425-3.c, gcc.dg/torture/pr57569.c: Likewise.
+
+2014-03-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-03-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60429
+	PR tree-optimization/60485
+	* gcc.dg/pr60485-1.c: New testcase.
+	* gcc.dg/pr60485-2.c: Likewise.
+
+2014-03-15  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	Backport from mainline
+	PR libfortran/60128
+	* gfortran.dg/fmt_en.f90: New test.
+
+2014-03-15  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	Backport from mainline
+	PR libfortran/58324
+	* gfortran.dg/list_read_12.f90: New test.
+
 2014-03-13  Joey Ye  <joey.ye@arm.com>
 
 	Backport from mainline
