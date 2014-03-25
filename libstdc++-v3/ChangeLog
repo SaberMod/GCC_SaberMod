@@ -1,3 +1,36 @@
+2014-03-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/abi/post/powerpc64-linux-gnu/32/baseline_symbols.txt: Update.
+	* config/abi/post/powerpc64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/s390x-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i486-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/32/baseline_symbols.txt: Likewise.
+	* config/abi/post/x86_64-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/powerpc-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/i386-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Remove TLS
+	entries.
+
+2014-03-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	* testsuite/23_containers/bitset/45713.cc: Skip compile on hppa*64*-*-*.
+
+2014-03-23  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/bits/hashtable.h (_Hashtable(allocator_type)): Fix call
+	to delegated constructor.
+	(_Hashtable(size_type, _H1, key_equal, allocator_type)): Likewise.
+	(_Hashtable<_It>(_It, _It, size_type, _H1, key_equal, allocator_type)):
+	Likewise.
+	(_Hashtable(
+	initializer_list, size_type, _H1, key_equal, allocator_type)): Likewise.
+
+2014-03-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR libstdc++/60623
+	* config/abi/post/hppa-linux-gnu/baseline_symbols.txt: Update.
+
 2014-03-21  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/60587

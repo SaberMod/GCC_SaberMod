@@ -1,3 +1,75 @@
+2014-03-24  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60627
+	* g++.dg/cpp1y/pr60627.C: New testcase.
+
+2014-03-24  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.target/aarch64/ushr64_1.c: New.
+
+2014-03-24  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/vect-abs.c (dg-options): Add -std=c99.
+	(LONG_LONG): Use LLONG.
+	(set_rvector_long): Explicitly return void.
+	(set_vector_long): Likewise.
+	(check_vector_long): Likewise.
+
+2014-03-24  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/div-by-zero-4.c: Don't include limits.h.  Define
+	INT_MIN.
+	* c-c++-common/ubsan/overflow-1.c: Check for unwanted output.
+	* c-c++-common/ubsan/overflow-add-1.c: Likewise.
+	* c-c++-common/ubsan/overflow-mul-1.c: Likewise.
+	* c-c++-common/ubsan/overflow-mul-3.c: Likewise.
+	* c-c++-common/ubsan/overflow-negate-2.c: Likewise.
+	* c-c++-common/ubsan/overflow-sub-1.c: Likewise.
+	* c-c++-common/ubsan/pr59503.c: Likewise.
+	* c-c++-common/ubsan/pr60613-1.c: Likewise.
+	* c-c++-common/ubsan/save-expr-1.c: Likewise.
+	* c-c++-common/ubsan/shift-3.c: Likewise.
+	* c-c++-common/ubsan/shift-6.c: Likewise.
+	* c-c++-common/ubsan/undefined-1.c: Likewise.
+	* c-c++-common/ubsan/vla-2.c: Likewise.
+	* c-c++-common/ubsan/vla-3.c: Likewise.
+	* c-c++-common/ubsan/vla-4.c: Likewise.
+	* g++.dg/ubsan/cxx11-shift-1.C: Likewise.
+	* g++.dg/ubsan/return-2.C: Likewise.
+
+2014-03-23  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/tree-prof/pr59003.c: Add -fno-common to dg-options on
+	hppa*-*-hpux*.
+
+	* gcc.dg/torture/pr60092.c: Skip on 32-bit hpux.
+
+	PR libfortran/59313
+	PR libfortran/58015
+	* gfortran.dg/erf_3.F90: Skip on hppa*-*-hpux*.
+	* gfortran.dg/round_4.f90: Likewise.
+
+2014-03-23  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/60128
+	* gfortran.dg/fmt_en.f90: Update test. XFAIL for
+	i?86-*-solaris2.9*.
+
+2014-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60613
+	* c-c++-common/ubsan/pr60613-1.c: New test.
+	* c-c++-common/ubsan/pr60613-2.c: New test.
+
+2014-03-22  Matthias Klose  <doko@ubuntu.com>
+
+	* g++.dg/cpp0x/regress: Remove empty directory.
+
+2014-03-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/60603
+	* gcc.dg/debug/dwarf2/dwarf2-macro2.c: New test.
+
 2014-03-21  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* g++.dg/cpp1y/pr60033.C: Use target c++1y.
@@ -16,7 +88,7 @@
 2014-03-21  Martin Jambor  <mjambor@suse.cz>
 
 	PR ipa/59176
-        * g++.dg/torture/pr59176.C: New test.
+	* g++.dg/torture/pr59176.C: New test.
 
 2014-03-21  Martin Jambor  <mjambor@suse.cz>
 
