@@ -1,3 +1,16 @@
+2014-03-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60429
+	* tree-ssa-structalias.c (get_constraint_for_ptr_offset): Remove
+	duplicated line.
+
+2014-03-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/60601
+	* bb-reorder.c (fix_up_fall_thru_edges): Test EDGE_FALLTHRU everywhere.
+
+	* gcc.c (eval_spec_function): Initialize save_growing_value.
+
 2014-03-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR target/60568
