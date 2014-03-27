@@ -1,3 +1,60 @@
+2014-03-27  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	PR target/60580
+	* gcc.target/aarch64/pr60580_1.c: New.
+	* gcc.target/aarch64/test_fp_attribute_1.c: New.
+	* gcc.target/aarch64/test_fp_attribute_2.c: New.
+
+2014-03-26  Dehao Chen  <dehao@google.com>
+
+	* gcc.dg/predict-8.c: New test.
+
+2014-03-26  Fabien Chêne  <fabien@gcc.gnu.org>
+
+        PR c++/52369
+        * g++.dg/init/const10.C: New.
+	* g++.dg/init/const11.C: New.
+	* g++.dg/init/pr25811.C: Adjust.
+	* g++.dg/init/pr29043.C: Likewise.
+	* g++.dg/init/pr43719.C: Likewise.
+	* g++.dg/init/pr44086.C: Likewise.
+	* g++.dg/init/ctor8.C: Likewise.
+	* g++.dg/init/uninitialized1.C: Likewise.
+
+2014-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60636
+	* c-c++-common/ubsan/pr60636.c: New test.
+
+2014-03-26  Andreas Schwab  <schwab@suse.de>
+
+	* g++.dg/torture/pr60315.C: Remove duplication.
+
+2014-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20140326-1.c: New test.
+
+2014-03-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60315
+	* g++.dg/torture/pr60315.C: New testcase.
+
+2014-03-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60600
+	* g++.dg/ipa/pr60600.C: New test.
+
+2014-03-25  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR testsuite/58013
+	* g++.dg/opt/pr56999.C: Pop hidden visibility.
+
+2014-03-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60635
+	* gfortran.dg/lto/pr60635_0.f90: New testcase.
+	* gfortran.dg/lto/pr60635_1.c: Likewise.
+
 2014-03-24  Adam Butcher  <adam@jessamine.co.uk>
 
 	PR c++/60627

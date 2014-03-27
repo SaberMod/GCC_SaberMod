@@ -1,3 +1,179 @@
+2014-03-27  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	PR target/60580
+	* config/aarch64/aarch64.c (faked_omit_frame_pointer): Remove.
+	(aarch64_frame_pointer_required): Adjust logic.
+	(aarch64_can_eliminate): Adjust logic.
+	(aarch64_override_options_after_change): Adjust logic.
+
+2014-03-27  Dehao Chen  <dehao@google.com>
+
+	* ipa-inline.c (early_inliner): Update node's inline info.
+
+2014-03-26  Dehao Chen  <dehao@google.com>
+
+	* dojump.c (do_compare_rtx_and_jump): Sets correct probability for
+	compiler inserted conditional jumps for NAN float check.
+
+2014-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* ubsan.h (ubsan_create_data): Change second argument's type
+	to const location_t *.
+	* ubsan.c (ubsan_source_location): If xloc.file is NULL, set it to
+	_("<unknown>").
+	(ubsan_create_data): Change second argument to const location_t *PLOC.
+	Create Loc field whenever PLOC is non-NULL.
+	(ubsan_instrument_unreachable, ubsan_expand_null_ifn,
+	ubsan_build_overflow_builtin, instrument_bool_enum_load): Adjust
+	callers.
+
+	PR other/59545
+	* real.c (real_to_integer2): Change type of low to UHWI.
+
+2014-03-26  Tobias Burnus  <burnus@net-b.de>
+
+	* gcc.c (LINK_COMMAND_SPEC): Use libcilkrts.spec for -fcilkplus.
+	(CILK_SELF_SPECS): New define.
+	(driver_self_specs): Use it.
+
+2014-03-26  Richard Biener  <rguenther@suse.de>
+
+	* tree-pretty-print.c (percent_K_format): Implement special
+	case for LTO and its stripped down BLOCK tree.
+
+2014-03-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR sanitizer/60636
+	* ubsan.c (instrument_si_overflow): Instrument ABS_EXPR.
+
+	* tree-vrp.c (simplify_internal_call_using_ranges): If only
+	one range is range_int_cst_p, but not both, at least optimize
+	addition/subtraction of 0 and multiplication by 0 or 1.
+	* gimple-fold.c (gimple_fold_call): Fold
+	IFN_UBSAN_CHECK_{ADD,SUB,MUL}.
+	(gimple_fold_stmt_to_constant_1): If both op0 and op1 aren't
+	INTEGER_CSTs, try to fold at least x * 0 and y - y.
+
+2014-03-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/60452
+	* rtlanal.c (rtx_addr_can_trap_p_1): Fix head comment.
+	<case REG>: Return 1 for invalid offsets from the frame pointer.
+
+2014-03-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/37428
+	* doc/extend.texi (C Extensions): Mention variable-length arrays in
+	a structure/union.
+
+2014-03-26  Marek Polacek  <polacek@redhat.com>
+
+	PR c/39525
+	* doc/extend.texi (Designated Inits): Describe what happens to omitted
+	field members.
+
+2014-03-26  Marek Polacek  <polacek@redhat.com>
+
+	PR other/59545
+	* ira-color.c (update_conflict_hard_regno_costs): Perform the
+	multiplication in unsigned type.
+
+2014-03-26  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* doc/install.texi: Document nds32le-*-elf and nds32be-*-elf.
+
+2014-03-26  Chung-Ju Wu  <jasonwucj@gmail.com>
+
+	* doc/contrib.texi: Add myself as Andes nds32 port contributor.
+
+2014-03-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60315
+	* cif-code.def (UNREACHABLE) New code.
+	* ipa-inline.c (inline_small_functions): Skip edges to __builtlin_unreachable.
+	(estimate_edge_growth): Allow edges to __builtlin_unreachable.
+	* ipa-inline-analysis.c (edge_set_predicate): Redirect edges with false
+	predicate to __bulitin_unreachable.
+	(set_cond_stmt_execution_predicate): Fix issue when invert_tree_comparison
+	returns ERROR_MARK.
+	* ipa-pure-const.c (propagate_pure_const, propagate_nothrow): Do not
+	propagate to inline clones.
+	* cgraph.c (verify_edge_corresponds_to_fndecl): Allow redirection
+	to unreachable.
+	* ipa-cp.c (create_specialized_node): Be ready for new node to appear.
+	* cgraphclones.c (cgraph_clone_node): If call destination is already
+	ureachable, do not redirect it back.
+	* tree-inline.c (fold_marked_statements): Hanlde calls becoming
+	unreachable.
+
+2014-03-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-pure-const.c (propagate_pure_const, propagate_nothrow):
+	Do not modify inline clones.
+
+2014-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.md (general_sext_operand): New mode attr.
+	(addv<mode>4, subv<mode>4, mulv<mode>4): If operands[2] is CONST_INT,
+	don't generate (sign_extend (const_int)).
+	(*addv<mode>4, *subv<mode>4, *mulv<mode>4): Disallow CONST_INT_P
+	operands[2].  Use We constraint instead of <i> and <general_sext_operand>
+	predicate instead of <general_operand>.
+	(*addv<mode>4_1, *subv<mode>4_1, *mulv<mode>4_1): New insns.
+	* config/i386/constraints.md (We): New constraint.
+	* config/i386/predicates.md (x86_64_sext_operand,
+	sext_operand): New predicates.
+
+2014-03-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60600
+	* ipa-cp.c (ipa_get_indirect_edge_target_1): Redirect type
+	inconsistent devirtualizations to __builtin_unreachable.
+
+2014-03-25  Marek Polacek  <polacek@redhat.com>
+
+	PR c/35449
+	* doc/extend.texi (Example of asm with clobbered asm reg): Fix typo.
+
+2014-03-25  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_simd_valid_immediate): Reverse
+	order of elements for big-endian.
+
+2014-03-25  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60635
+	* gimplify-me.c (gimple_regimplify_operands): Update the
+	re-gimplifed stmt.
+
+2014-03-25  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59176
+	* lto-cgraph.c (lto_output_node): Stream body_removed flag.
+	(lto_output_varpool_node): Likewise.
+	(input_overwrite_node): Likewise.
+	(input_varpool_node): Likewise.
+
+2014-03-25  Richard Biener  <rguenther@suse.de>
+
+	* lto-wrapper.c (merge_and_complain): Handle OPT_fPIE like
+	OPT_fpie.
+	(run_gcc): Likewise.
+
+2014-03-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* combine.c (simplify_compare_const): Add MODE argument.
+	Handle mode_width 0 as very large mode_width.
+	(try_combine, simplify_comparison): Adjust callers.
+
+	* cselib.c (cselib_hash_rtx): Perform addition in unsigned
+	type to avoid signed integer overflow.
+	* explow.c (plus_constant): Likewise.
+
+2014-03-25  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* doc/generic.texi: Correct typos.
+
 2014-03-24  Tobias Burnus  <burnus@net-b.de>
 
 	* doc/invoke.texi (-flto): Expand section about

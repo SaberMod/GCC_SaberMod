@@ -1685,7 +1685,7 @@ inline_small_functions (void)
       edge = (struct cgraph_edge *) fibheap_extract_min (edge_heap);
       gcc_assert (edge->aux);
       edge->aux = NULL;
-      if (!edge->inline_failed)
+      if (!edge->inline_failed || !edge->callee->analyzed)
 	continue;
 
       /* Be sure that caches are maintained consistent.  
@@ -2318,6 +2318,8 @@ early_inliner (void)
 		      edge->call_stmt, edge->callee->decl, false))
 		edge->call_stmt_cannot_inline_p = true;
 	    }
+	  if (iterations < PARAM_VALUE (PARAM_EARLY_INLINER_MAX_ITERATIONS) - 1)
+	    inline_update_overall_summary (node);
 	  timevar_pop (TV_INTEGRATION);
 	  iterations++;
 	  inlined = false;
