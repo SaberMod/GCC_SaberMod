@@ -1533,44 +1533,10 @@ auto_profile (void)
   if (cgraph_state == CGRAPH_STATE_FINISHED)
     return 0;
 
-  init_node_map ();
   profile_info = autofdo::afdo_profile_info;
-
-  cgraph_pre_profiling_inlining_done = true;
-  cgraph_process_module_scope_statics ();
-  /* Now perform link to allow cross module inlining.  */
-  cgraph_do_link ();
-  varpool_do_link ();
-  cgraph_unify_type_alias_sets ();
-
-  FOR_EACH_FUNCTION (node)
-    {
-      if (!gimple_has_body_p (node->symbol.decl))
-	continue;
-
-      /* Don't profile functions produced for builtin stuff.  */
-      if (DECL_SOURCE_LOCATION (node->symbol.decl) == BUILTINS_LOCATION)
-	continue;
-
-      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
-
-      if (L_IPO_COMP_MODE)
-	{
-	  basic_block bb;
-	  FOR_EACH_BB (bb)
-	    {
-	      gimple_stmt_iterator gsi;
-	      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-		{
-		  gimple stmt = gsi_stmt (gsi);
-		  if (is_gimple_call (stmt))
-		    lipo_fixup_cgraph_edge_call_target (stmt);
-		}
-	    }
-	}
-      rebuild_cgraph_edges ();
-      pop_cfun ();
-    }
+  if (L_IPO_COMP_MODE)
+    lipo_link_and_fixup ();
+  init_node_map ();
 
   FOR_EACH_FUNCTION (node)
     {
