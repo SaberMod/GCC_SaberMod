@@ -861,7 +861,7 @@ check_narrowing (tree type, tree init)
       return;
     }
 
-  init = maybe_constant_value (init);
+  init = maybe_constant_value (fold_non_dependent_expr_sfinae (init, tf_none));
 
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (ftype) == REAL_TYPE)
@@ -1131,7 +1131,10 @@ massage_init_elt (tree type, tree init, tsubst_flags_t complain)
     init = TARGET_EXPR_INITIAL (init);
   /* When we defer constant folding within a statement, we may want to
      defer this folding as well.  */
-  init = maybe_constant_init (init);
+  tree t = fold_non_dependent_expr_sfinae (init, complain);
+  t = maybe_constant_value (t);
+  if (TREE_CONSTANT (t))
+    init = t;
   return init;
 }
 
@@ -1309,6 +1312,9 @@ process_init_constructor_record (tree type, tree init,
 	     for us, so build up TARGET_EXPRs.  If the type in question is
 	     a class, just build one up; if it's an array, recurse.  */
 	  next = build_constructor (init_list_type_node, NULL);
+	  /* Call this direct-initialization pending DR 1518 resolution so
+	     that explicit default ctors don't break valid C++03 code.  */
+	  CONSTRUCTOR_IS_DIRECT_INIT (next) = true;
 	  next = massage_init_elt (TREE_TYPE (field), next, complain);
 
 	  /* Warn when some struct elements are implicitly initialized.  */

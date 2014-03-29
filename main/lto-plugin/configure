@@ -622,6 +622,7 @@ EGREP
 GREP
 SED
 LIBTOOL
+ac_lto_plugin_ldflags
 ac_lto_plugin_warn_cflags
 am__fastdepCC_FALSE
 am__fastdepCC_TRUE
@@ -4085,6 +4086,9 @@ $as_echo "$ac_res" >&6; }
 fi
   done
 CFLAGS="$save_CFLAGS"
+
+# Need -Wc to get it through libtool.
+if test "x$GCC" = xyes; then ac_lto_plugin_ldflags="-Wc,-static-libgcc"; fi
 
 case `pwd` in
   *\ * | *\	*)

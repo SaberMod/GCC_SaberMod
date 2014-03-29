@@ -192,6 +192,9 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
 	  if (TREE_CODE (field) != FIELD_DECL)
 	    continue;
 
+	  if (TREE_TYPE (field) == error_mark_node)
+	    continue;
+
 	  /* Don't add virtual bases for base classes if they are beyond
 	     the size of the current field, that means it is present
 	     somewhere else in the object.  */
@@ -1128,7 +1131,13 @@ build_vtbl_address (tree binfo)
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
   vtbl = get_vtbl_decl_for_binfo (binfo_for);
-  TREE_USED (vtbl) = 1;
+  if (tree dtor = CLASSTYPE_DESTRUCTORS (DECL_CONTEXT (vtbl)))
+    if (!TREE_USED (vtbl) && DECL_VIRTUAL_P (dtor) && DECL_DEFAULTED_FN (dtor))
+      /* Make sure the destructor gets synthesized so that it can be
+	 inlined after devirtualization even if the vtable is never
+	 emitted.  */
+      note_vague_linkage_fn (dtor);
+  TREE_USED (vtbl) = true;
 
   /* Now compute the address to use when initializing the vptr.  */
   vtbl = unshare_expr (BINFO_VTABLE (binfo_for));
@@ -2153,7 +2162,7 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 			   "of %q#T", DECL_CONTEXT (field), origin);
 		}
 	      inform (DECL_SOURCE_LOCATION (field),
-		      "%qD should be initialized", field);
+		      "%q#D should be initialized", field);
 	    }
 	}
 
@@ -2181,7 +2190,7 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 			   "of %q#T", DECL_CONTEXT (field), origin);
 		}
 	      inform (DECL_SOURCE_LOCATION (field),
-		      "%qD should be initialized", field);
+		      "%q#D should be initialized", field);
 	    }
 	}
 
@@ -2284,6 +2293,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
      is therefore reusable.  */
   tree data_addr;
   tree init_preeval_expr = NULL_TREE;
+  tree orig_type = type;
 
   if (nelts)
     {
@@ -2329,7 +2339,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	  if (complain & tf_error)
 	    {
 	      error_at (EXPR_LOC_OR_LOC (inner_nelts, input_location),
-			"array size in operator new must be constant");
+			"array size in new-expression must be constant");
 	      cxx_constant_value(inner_nelts);
 	    }
 	  nelts = error_mark_node;
@@ -2343,7 +2353,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 
   if (variably_modified_type_p (elt_type, NULL_TREE) && (complain & tf_error))
     {
-      error ("variably modified type not allowed in operator new");
+      error ("variably modified type not allowed in new-expression");
       return error_mark_node;
     }
 
@@ -2356,8 +2366,17 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       && !TREE_CONSTANT (maybe_constant_value (outer_nelts)))
     {
       if (complain & tf_warning_or_error)
-	pedwarn(EXPR_LOC_OR_LOC (outer_nelts, input_location), OPT_Wvla,
-		"ISO C++ does not support variable-length array types");
+	{
+	  const char *msg;
+	  if (typedef_variant_p (orig_type))
+	    msg = ("non-constant array new length must be specified "
+		   "directly, not by typedef");
+	  else
+	    msg = ("non-constant array new length must be specified "
+		   "without parentheses around the type-id");
+	  pedwarn (EXPR_LOC_OR_LOC (outer_nelts, input_location),
+		   OPT_Wvla, msg);
+	}
       else
 	return error_mark_node;
     }

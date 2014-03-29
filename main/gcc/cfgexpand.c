@@ -1655,10 +1655,12 @@ expand_used_vars (void)
 	 debug info, there is no need to do so if optimization is disabled
 	 because all the SSA_NAMEs based on these DECLs have been coalesced
 	 into a single partition, which is thus assigned the canonical RTL
-	 location of the DECLs.  */
+	 location of the DECLs.  If in_lto_p, we can't rely on optimize,
+	 a function could be compiled with -O1 -flto first and only the
+	 link performed at -O0.  */
       if (TREE_CODE (SSA_NAME_VAR (var)) == VAR_DECL)
 	expand_one_var (var, true, true);
-      else if (DECL_IGNORED_P (SSA_NAME_VAR (var)) || optimize)
+      else if (DECL_IGNORED_P (SSA_NAME_VAR (var)) || optimize || in_lto_p)
 	{
 	  /* This is a PARM_DECL or RESULT_DECL.  For those partitions that
 	     contain the default def (representing the parm or result itself)
@@ -3107,15 +3109,11 @@ expand_return (tree retval)
 	   && (REG_P (result_rtl)
 	       || (GET_CODE (result_rtl) == PARALLEL)))
     {
-      /* Calculate the return value into a temporary (usually a pseudo
-         reg).  */
-      tree ot = TREE_TYPE (DECL_RESULT (current_function_decl));
-      tree nt = build_qualified_type (ot, TYPE_QUALS (ot) | TYPE_QUAL_CONST);
-
-      val = assign_temp (nt, 0, 1);
+      /* Compute the return value into a temporary (usually a pseudo reg).  */
+      val
+	= assign_temp (TREE_TYPE (DECL_RESULT (current_function_decl)), 0, 1);
       val = expand_expr (retval_rhs, val, GET_MODE (val), EXPAND_NORMAL);
       val = force_not_mem (val);
-      /* Return the calculated value.  */
       expand_value_return (val);
     }
   else
@@ -5277,7 +5275,8 @@ construct_exit_block (void)
   edge e, e2;
   unsigned ix;
   edge_iterator ei;
-  rtx orig_end = BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
+  basic_block prev_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
+  rtx orig_end = BB_END (prev_bb);
 
   rtl_profile_for_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 
@@ -5292,13 +5291,25 @@ construct_exit_block (void)
   end = get_last_insn ();
   if (head == end)
     return;
-  /* While emitting the function end we could move end of the last basic block.
-   */
-  BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb) = orig_end;
+  /* While emitting the function end we could move end of the last basic
+     block.  */
+  BB_END (prev_bb) = orig_end;
   while (NEXT_INSN (head) && NOTE_P (NEXT_INSN (head)))
     head = NEXT_INSN (head);
-  exit_block = create_basic_block (NEXT_INSN (head), end,
-				   EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
+  /* But make sure exit_block starts with RETURN_LABEL, otherwise the
+     bb frequency counting will be confused.  Any instructions before that
+     label are emitted for the case where PREV_BB falls through into the
+     exit block, so append those instructions to prev_bb in that case.  */
+  if (NEXT_INSN (head) != return_label)
+    {
+      while (NEXT_INSN (head) != return_label)
+	{
+	  if (!NOTE_P (NEXT_INSN (head)))
+	    BB_END (prev_bb) = NEXT_INSN (head);
+	  head = NEXT_INSN (head);
+	}
+    }
+  exit_block = create_basic_block (NEXT_INSN (head), end, prev_bb);
   exit_block->frequency = EXIT_BLOCK_PTR_FOR_FN (cfun)->frequency;
   exit_block->count = EXIT_BLOCK_PTR_FOR_FN (cfun)->count;
   if (current_loops && EXIT_BLOCK_PTR_FOR_FN (cfun)->loop_father)

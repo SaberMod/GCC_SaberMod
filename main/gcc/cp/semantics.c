@@ -503,7 +503,7 @@ begin_maybe_infinite_loop (tree cond)
   bool maybe_infinite = true;
   if (cond)
     {
-      cond = fold_non_dependent_expr (cond);
+      cond = fold_non_dependent_expr_sfinae (cond, tf_none);
       cond = maybe_constant_value (cond);
       maybe_infinite = integer_nonzerop (cond);
     }
@@ -1605,11 +1605,18 @@ force_paren_expr (tree expr)
   if (cxx_dialect < cxx1y)
     return expr;
 
+  /* If we're in unevaluated context, we can't be deducing a
+     return/initializer type, so we don't need to mess with this.  */
+  if (cp_unevaluated_operand)
+    return expr;
+
   if (!DECL_P (expr) && TREE_CODE (expr) != COMPONENT_REF
       && TREE_CODE (expr) != SCOPE_REF)
     return expr;
 
-  if (processing_template_decl)
+  if (TREE_CODE (expr) == COMPONENT_REF)
+    REF_PARENTHESIZED_P (expr) = true;
+  else if (type_dependent_expression_p (expr))
     expr = build1 (PAREN_EXPR, TREE_TYPE (expr), expr);
   else
     {
@@ -1619,7 +1626,7 @@ force_paren_expr (tree expr)
 	  tree type = unlowered_expr_type (expr);
 	  bool rval = !!(kind & clk_rvalueref);
 	  type = cp_build_reference_type (type, rval);
-	  expr = build_static_cast (type, expr, tf_warning_or_error);
+	  expr = build_static_cast (type, expr, tf_error);
 	}
     }
 
@@ -2776,6 +2783,7 @@ begin_class_definition (tree t)
   maybe_process_partial_specialization (t);
   pushclass (t);
   TYPE_BEING_DEFINED (t) = 1;
+  class_binding_level->defining_class_p = 1;
 
   if (flag_pack_struct)
     {
@@ -3252,7 +3260,7 @@ finish_id_expression (tree id_expression,
 	  && DECL_CONTEXT (decl) == NULL_TREE
 	  && !cp_unevaluated_operand)
 	{
-	  error ("use of parameter %qD outside function body", decl);
+	  *error_msg = "use of parameter outside function body";
 	  return error_mark_node;
 	}
     }
@@ -3959,8 +3967,7 @@ static inline bool
 is_instantiation_of_constexpr (tree fun)
 {
   return (DECL_TEMPLOID_INSTANTIATION (fun)
-	  && DECL_DECLARED_CONSTEXPR_P (DECL_TEMPLATE_RESULT
-					(DECL_TI_TEMPLATE (fun))));
+	  && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)));
 }
 
 /* Generate RTL for FN.  */
@@ -3995,25 +4002,7 @@ expand_or_defer_fn_1 (tree fn)
 	/* We've already made a decision as to how this function will
 	   be handled.  */;
       else if (!at_eof)
-	{
-	  DECL_EXTERNAL (fn) = 1;
-	  DECL_NOT_REALLY_EXTERN (fn) = 1;
-	  note_vague_linkage_fn (fn);
-	  /* A non-template inline function with external linkage will
-	     always be COMDAT.  As we must eventually determine the
-	     linkage of all functions, and as that causes writes to
-	     the data mapped in from the PCH file, it's advantageous
-	     to mark the functions at this point.  */
-	  if (!DECL_IMPLICIT_INSTANTIATION (fn))
-	    {
-	      /* This function must have external linkage, as
-		 otherwise DECL_INTERFACE_KNOWN would have been
-		 set.  */
-	      gcc_assert (TREE_PUBLIC (fn));
-	      comdat_linkage (fn);
-	      DECL_INTERFACE_KNOWN (fn) = 1;
-	    }
-	}
+	tentative_decl_linkage (fn);
       else
 	import_export_decl (fn);
 
@@ -6890,7 +6879,8 @@ finish_static_assert (tree condition, tree message, location_t location,
       else if (condition && condition != error_mark_node)
 	{
 	  error ("non-constant condition for static assertion");
-	  cxx_constant_value (condition);
+	  if (require_potential_rvalue_constant_expression (condition))
+	    cxx_constant_value (condition);
 	}
       input_location = saved_loc;
     }
@@ -7068,7 +7058,8 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	}
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
+  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+      && (flag_iso || warn_vla > 0))
     {
       if (complain & tf_warning_or_error)
 	pedwarn (input_location, OPT_Wvla,
@@ -7467,19 +7458,31 @@ retrieve_constexpr_fundef (tree fun)
 static bool
 is_valid_constexpr_fn (tree fun, bool complain)
 {
-  tree parm = FUNCTION_FIRST_USER_PARM (fun);
   bool ret = true;
-  for (; parm != NULL; parm = TREE_CHAIN (parm))
-    if (!literal_type_p (TREE_TYPE (parm)))
-      {
-	ret = false;
-	if (complain)
+
+  if (DECL_INHERITED_CTOR_BASE (fun)
+      && TREE_CODE (fun) == TEMPLATE_DECL)
+    {
+      ret = false;
+      if (complain)
+	error ("inherited constructor %qD is not constexpr",
+	       get_inherited_ctor (fun));
+    }
+  else
+    {
+      for (tree parm = FUNCTION_FIRST_USER_PARM (fun);
+	   parm != NULL_TREE; parm = TREE_CHAIN (parm))
+	if (!literal_type_p (TREE_TYPE (parm)))
 	  {
-	    error ("invalid type for parameter %d of constexpr "
-		   "function %q+#D", DECL_PARM_INDEX (parm), fun);
-	    explain_non_literal_class (TREE_TYPE (parm));
+	    ret = false;
+	    if (complain)
+	      {
+		error ("invalid type for parameter %d of constexpr "
+		       "function %q+#D", DECL_PARM_INDEX (parm), fun);
+		explain_non_literal_class (TREE_TYPE (parm));
+	      }
 	  }
-      }
+    }
 
   if (!DECL_CONSTRUCTOR_P (fun))
     {
@@ -10278,6 +10281,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case DO_STMT:
     case FOR_STMT:
     case WHILE_STMT:
+    case DECL_EXPR:
       if (flags & tf_error)
         error ("expression %qE is not a constant-expression", t);
       return false;

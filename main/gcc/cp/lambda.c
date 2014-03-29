@@ -749,10 +749,8 @@ maybe_resolve_dummy (tree object)
   if (type != current_class_type
       && current_class_type
       && LAMBDA_TYPE_P (current_class_type)
-      && DERIVED_FROM_P (type, current_nonlambda_class_type ())
-      /* If we get here while parsing the parameter list of a lambda, it
-	 will fail, so don't even try (c++/60252).  */
-      && current_binding_level->kind != sk_function_parms)
+      && lambda_function (current_class_type)
+      && DERIVED_FROM_P (type, current_nonlambda_class_type ()))
     {
       /* In a lambda, need to go through 'this' capture.  */
       tree lam = CLASSTYPE_LAMBDA_EXPR (current_class_type);
@@ -977,7 +975,7 @@ maybe_add_lambda_conv_op (tree type)
      the conversion op is used.  */
   if (varargs_function_p (callop))
     {
-      DECL_DELETED_FN (STRIP_TEMPLATE (fn)) = 1;
+      DECL_DELETED_FN (fn) = 1;
       return;
     }
 

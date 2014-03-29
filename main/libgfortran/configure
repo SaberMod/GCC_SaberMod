@@ -2572,6 +2572,7 @@ as_fn_append ac_func_list " execve"
 as_fn_append ac_func_list " pipe"
 as_fn_append ac_func_list " dup2"
 as_fn_append ac_func_list " close"
+as_fn_append ac_func_list " fcntl"
 as_fn_append ac_func_list " strcasestr"
 as_fn_append ac_func_list " getrlimit"
 as_fn_append ac_func_list " gettimeofday"
@@ -16511,6 +16512,8 @@ _ACEOF
 
 fi
 done
+
+
 
 
 

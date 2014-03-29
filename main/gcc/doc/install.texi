@@ -3170,6 +3170,10 @@ information have to.
 @item
 @uref{#mips-sgi-irix6,,mips-sgi-irix6}
 @item
+@uref{#nds32le-x-elf,,nds32le-*-elf}
+@item
+@uref{#nds32be-x-elf,,nds32be-*-elf}
+@item
 @uref{#powerpc-x-x,,powerpc*-*-*}
 @item
 @uref{#powerpc-x-darwin,,powerpc-*-darwin*}
@@ -3213,6 +3217,8 @@ information have to.
 @uref{#c6x-x-x,,c6x-*-*}
 @item
 @uref{#tilegx-x-linux,,tilegx-*-linux*}
+@item
+@uref{#tilegxbe-x-linux,,tilegxbe-*-linux*}
 @item
 @uref{#tilepro-x-linux,,tilepro-*-linux*}
 @item
@@ -4124,6 +4130,20 @@ This configuration is intended for embedded systems.
 @html
 <hr />
 @end html
+@anchor{nds32le-x-elf}
+@heading nds32le-*-elf
+Andes NDS32 target in little endian mode.
+
+@html
+<hr />
+@end html
+@anchor{nds32be-x-elf}
+@heading nds32be-*-elf
+Andes NDS32 target in big endian mode.
+
+@html
+<hr />
+@end html
 @anchor{powerpc-x-x}
 @heading powerpc-*-*
 You can specify a default version for the @option{-mcpu=@var{cpu_type}}
@@ -4506,8 +4526,16 @@ The C6X family of processors. This port requires binutils-2.22 or newer.
 @end html
 @anchor{tilegx-*-linux}
 @heading tilegx-*-linux*
-The TILE-Gx processor running GNU/Linux.  This port requires
-binutils-2.22 or newer.
+The TILE-Gx processor in little endian mode, running GNU/Linux.  This
+port requires binutils-2.22 or newer.
+
+@html
+<hr />
+@end html
+@anchor{tilegxbe-*-linux}
+@heading tilegxbe-*-linux*
+The TILE-Gx processor in big endian mode, running GNU/Linux.  This
+port requires binutils-2.23 or newer.
 
 @html
 <hr />
