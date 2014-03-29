@@ -1727,6 +1727,10 @@ fpcc-struct-return
 Common Report Var(flag_pcc_struct_return,1) Init(DEFAULT_PCC_STRUCT_RETURN)
 Return small aggregates in memory, not registers
 
+fpeel-codesize-limit
+Common Report Var(flag_peel_codesize_limit) Init(1) Optimization
+Limit non-const non-FP loop peeling under profile estimates of large code footprint
+
 fpeel-loops
 Common Report Var(flag_peel_loops) Optimization
 Perform loop peeling
@@ -2357,6 +2361,10 @@ Perform loop unrolling when iteration count is known
 funroll-all-loops
 Common Report Var(flag_unroll_all_loops) Optimization
 Perform loop unrolling for all loops
+
+funroll-codesize-limit
+Common Report Var(flag_unroll_codesize_limit) Init(1) Optimization
+Limit non-const non-FP loop unrolling under profile estimates of large code footprint
 
 ; Nonzero means that loop optimizer may assume that the induction variables
 ; that control loops do not overflow and that the loops with nontrivial
