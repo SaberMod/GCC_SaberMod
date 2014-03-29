@@ -68,18 +68,28 @@ __attribute__((weak)) void __coverage_callback (gcov_type, int);
 /* Create a strong reference to these symbols so that they are
    unconditionally pulled into the instrumented binary, even when
    the only reference is a weak reference. This is necessary because
-   we are using weak references to handle older compilers that
-   pre-date these new functions. A subtlety of the linker is that
-   it will only resolve weak references defined within archive libraries
-   when there is a string reference to something else defined within
-   the same object file. Since these two functions are defined within
-   their own object files (using L_gcov_reset and L_gcov_dump), they
-   would not get resolved. Since there are symbols within the main L_gcov
-   section that are strongly referenced during -fprofile-generate builds,
-   these symbols will always need to be resolved.  */
+   we are using weak references to enable references from code that
+   may not be linked with libgcov. These are the only symbols that
+   should be accessed via link references from application code!
+
+   A subtlety of the linker is that it will only resolve weak references
+   defined within archive libraries when there is a strong reference to
+   something else defined within the same object file. Since these functions
+   are defined within their own object files, they would not automatically
+   get resolved. Since there are symbols within the main L_gcov
+   section that are strongly referenced during -fprofile-generate and
+   -ftest-coverage builds, these dummy symbols will always need to be
+   resolved.  */
 void (*__gcov_dummy_ref1)(void) = &__gcov_reset;
 void (*__gcov_dummy_ref2)(void) = &__gcov_dump;
-
+extern char *__gcov_get_profile_prefix (void);
+char *(*__gcov_dummy_ref3)(void) = &__gcov_get_profile_prefix;
+extern void __gcov_set_sampling_period (unsigned int period);
+char *(*__gcov_dummy_ref4)(void) = &__gcov_set_sampling_period;
+extern unsigned int __gcov_sampling_enabled (void);
+char *(*__gcov_dummy_ref5)(void) = &__gcov_sampling_enabled;
+extern void __gcov_flush (void);
+char *(*__gcov_dummy_ref6)(void) = &__gcov_flush;
 
 /* Default callback function for profile instrumentation callback.  */
 __attribute__((weak)) void
