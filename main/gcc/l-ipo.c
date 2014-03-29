@@ -2020,7 +2020,15 @@ cgraph_process_module_scope_statics (void)
   struct cgraph_node *pf;
   struct varpool_node *pv;
 
-  if (!L_IPO_COMP_MODE)
+  /* Only need to do type unification when we are in LIPO mode
+     and have a non-trivial module group (size is >1). However,
+     override the size check under non-zero PARAM_LIPO_RANDOM_GROUP_SIZE,
+     which indicates that we are stress-testing LIPO. In that case
+     try to flush out problems with type unification by always
+     performing it.  */
+  if (!L_IPO_COMP_MODE
+      || (num_in_fnames == 1
+          && PARAM_VALUE (PARAM_LIPO_RANDOM_GROUP_SIZE) == 0))
     return;
 
   promo_ent_hash_tab = htab_create (10, promo_ent_hash,
