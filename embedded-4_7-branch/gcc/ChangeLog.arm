@@ -1,3 +1,12 @@
+2014-03-31  Joey Ye  <joey.ye@arm.com>
+
+	Backport mainline r208217
+	2014-02-28  Joey Ye  <joey.ye@arm.com>
+
+	PR target/PR60169
+	* config/arm/arm.c (thumb_far_jump_used_p): Don't change
+	if reload in progress or completed.
+
 2013-08-28  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r201237
