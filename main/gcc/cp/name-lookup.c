@@ -2091,6 +2091,14 @@ constructor_name_p (tree name, tree type)
 
 static GTY(()) int anon_cnt;
 
+/* Reset static variable anon_cnt to 0.  */
+
+void
+reset_anon_name (void)
+{
+  anon_cnt = 0;
+}
+
 /* Return an IDENTIFIER which can be used as a name for
    anonymous structs and unions.  */
 

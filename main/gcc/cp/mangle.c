@@ -3859,6 +3859,14 @@ decl_tls_wrapper_p (const tree fn)
 
 static GTY(()) int temp_count;
 
+/* Reset static variable temp_count to 0.  */
+
+void
+reset_temp_count (void)
+{
+  temp_count = 0;
+}
+
 tree
 mangle_ref_init_variable (const tree variable)
 {

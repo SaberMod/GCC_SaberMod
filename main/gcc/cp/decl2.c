@@ -4139,6 +4139,7 @@ no_linkage_error (tree decl)
 }
 
 /* Clear the list of deferred functions.  */
+
 void
 cp_clear_deferred_fns (void)
 {
@@ -4149,6 +4150,8 @@ cp_clear_deferred_fns (void)
   no_linkage_decls = NULL;
   cp_clear_constexpr_hashtable ();
   clear_pending_templates ();
+  reset_anon_name ();
+  reset_temp_count ();
 }
 
 /* Collect declarations from all namespaces relevant to SOURCE_FILE.  */
