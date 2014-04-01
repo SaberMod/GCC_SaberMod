@@ -1552,7 +1552,7 @@ notice_global_symbol (tree decl)
   if (L_IPO_COMP_MODE
       && ((TREE_CODE (decl) == FUNCTION_DECL
            && cgraph_is_auxiliary (decl))
-          || (TREE_CODE (decl) == VAR_DECL
+          || (TREE_CODE (decl) == VAR_DECL && varpool_get_node (decl)
               && varpool_is_auxiliary (varpool_get_node (decl)))))
     return;
 
