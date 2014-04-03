@@ -113,7 +113,7 @@ GCC_SHLIB_SUBDIR = @GCC_SHLIB_SUBDIR@
 BUILD_SUBDIR = @build_subdir@
 # This is set by the configure script to the arguments to use when configuring
 # directories built for the build system.
-BUILD_CONFIGARGS = @build_configargs@ --with-build-subdir="$(BUILD_SUBDIR)" --with-pkgversion="SaberMod-4.8.3-Graphite"
+BUILD_CONFIGARGS = @build_configargs@ --with-build-subdir="$(BUILD_SUBDIR)"
 
 # Linker flags to use on the host, for stage1 or when not
 # bootstrapping.
