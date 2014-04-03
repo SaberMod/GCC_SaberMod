@@ -14,7 +14,7 @@ struct intermediate: top {
 };
 
 struct child1: top {
-    void childf()
+    __attribute__((noinline)) void childf()
     {
         data d(topf());
     }
