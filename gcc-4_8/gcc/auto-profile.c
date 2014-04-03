@@ -1448,6 +1448,7 @@ afdo_vpt_for_early_inline (stmt_set *promoted_stmts)
       free_dominance_info (CDI_POST_DOMINATORS);
       calculate_dominance_info (CDI_POST_DOMINATORS);
       calculate_dominance_info (CDI_DOMINATORS);
+      update_ssa (TODO_update_ssa);
       rebuild_cgraph_edges ();
       return true;
     }
