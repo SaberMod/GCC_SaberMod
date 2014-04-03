@@ -1,3 +1,35 @@
+2014-04-02  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_expand_insv): Use GET_MODE_BITSIZE.
+
+2014-04-01  Richard Biener  <rguenther@suse.de>
+
+	* gimple.h (struct gimple_statement_base): Align subcode to
+	16 bits.
+
+2014-04-01  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* doc/invoke.texi (mapp-regs): Clarify.
+
+2014-03-31  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR rtl-optimization/60700
+	Backport from mainline
+	2013-07-30  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR rtl-optimization/57637
+	* function.c (move_insn_for_shrink_wrap): Also check the
+	GEN set of the LIVE problem for the liveness analysis
+	if it exists, otherwise give up.
+
+2014-03-30  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	Backport from mainline
+	2014-03-19  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/60039
+	* config/sh/sh.md (udivsi3_i1): Clobber R1 register.
+
 2014-03-26  Martin Jambor  <mjambor@suse.cz>
 
       PR ipa/60419
