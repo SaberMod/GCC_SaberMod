@@ -1,5 +1,3 @@
-/* { dg-require-effective-target lto } */
-/* { dg-options "-O3 -flto -DDOJOB=1" } */
 /* It seems there is no way to avoid the other source of mulitple
    source testcase from being compiled independently.  Just avoid
    error.  */
