@@ -1,3 +1,68 @@
+2014-04-05  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	* gfortran.dg/warn_conversion_4.f90: Adjust test.
+
+2014-05-04 Pitchumani Sivanupandi  <Pitchumani.S@atmel.com>
+
+	* gcc.target/avr/dev-specific-rmw.c: New test.
+
+2014-04-04  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/60656
+	* gcc.dg/vect/pr60656.c: New test.
+
+2014-04-04  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.dg/builtin-bswap-6.c: Adjust return value to disable GCC
+	optimization.
+	* gcc.dg/builtin-bswap-7.c: Likewise.
+
+2014-04-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58207
+	* g++.dg/cpp0x/constexpr-ice15.C: New.
+
+2014-04-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/59626
+	testcase by Richard Biener
+	* gcc.dg/lto/pr59626_0.c: New testcase.
+	* gcc.dg/lto/pr59626_1.c: New testcase.
+
+2014-04-04  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR debug/60655
+	* gcc.c-torture/compile/pr60655-1.c: New test.
+
+2014-04-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60640
+        * g++.dg/ipa/pr60640-1.C: New test.
+        * g++.dg/ipa/pr60640-2.C: Likewise.
+        * g++.dg/ipa/pr60640-3.C: Likewise.
+        * g++.dg/ipa/pr60640-4.C: Likewise.
+
+2014-04-04  Jeff Law  <law@redhat.com>
+
+	PR target/60657
+	* gcc.target/arm/pr60657.c: New test.
+
+2014-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/60746
+	* g++.dg/torture/pr60746.C: New testcase.
+
+2014-04-04  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	* g++.old-deja/g++.robertl/eb121.C: Adjust.
+	* g++.old-deja/g++.jason/overload21.C: Likewise.
+	* g++.old-deja/g++.law/init5.C: Likewise.
+
+2014-04-03  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/60505
+	* gcc.dg/vect/pr60505.c: New test.
+
 2014-04-03  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/60740
@@ -17,7 +82,7 @@
 
 	PR ipa/60659
 	* testsuite/g++.dg/torture/pr60659.C: New testcase.
-	
+
 2014-04-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/60733

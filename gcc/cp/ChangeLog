@@ -1,3 +1,36 @@
+2014-04-04  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	* decl.c (duplicate_decls): Check for the return of warning_at
+	before emitting a note.
+	(warn_misplaced_attr_for_class_type): Likewise.
+	(check_tag_decl): Likewise.
+
+2014-04-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58207
+	* semantics.c (sort_constexpr_mem_initializers): Robustify loop.
+
+2014-04-04  Patrick Palka  <patrick@parcs.ath.cx>
+
+	PR c++/44613
+	* semantics.c (add_stmt): Set STATEMENT_LIST_HAS_LABEL.
+	* decl.c (cp_finish_decl): Create a new BIND_EXPR before
+	instantiating a variable-sized type.
+
+	PR c++/21113
+	* decl.c (decl_jump_unsafe): Consider variably-modified decls.
+
+2014-04-04  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	* class.c (find_abi_tags_r): Check for the return of warning
+	before emitting a note.
+	(one_inherited_ctor): Likewise.
+
+2014-04-04  Fabien Chêne  <fabien@gcc.gnu.org>
+
+	* decl.c (duplicate_decls): Check for the return of permerror
+	before emitting a note.
+
 2014-04-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* class.c (accessible_nvdtor_p): New.
@@ -66,9 +99,9 @@
 2014-03-26  Fabien Chêne  <fabien@gcc.gnu.org>
 
 	PR c++/52369
-	* cp/method.c (walk_field_subobs): Improve the diagnostic
+	* method.c (walk_field_subobs): Improve the diagnostic
 	locations for both REFERENCE_TYPEs and non-static const members.
-	* cp/init.c (diagnose_uninitialized_cst_or_ref_member): Use %q#D
+	* init.c (diagnose_uninitialized_cst_or_ref_member): Use %q#D
 	instead of %qD to be consistent with the c++11 diagnostic.
 
 2014-03-25  Jason Merrill  <jason@redhat.com>

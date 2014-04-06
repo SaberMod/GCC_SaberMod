@@ -1,3 +1,145 @@
+2014-04-05  Pitchumani Sivanupandi  <Pitchumani.S@atmel.com>
+
+	* config/avr/avr-arch.h (avr_mcu_t): Add dev_attribute field to have device
+	specific ISA/ feature information. Remove short_sp and errata_skip ds.
+	Add avr_device_specific_features enum to have device specific info.
+	* config/avr/avr-c.c (avr_cpu_cpp_builtins): use dev_attribute to check
+	errata_skip. Add __AVR_ISA_RMW__ builtin macro if RMW ISA available.
+	* config/avr/avr-devices.c (avr_mcu_types): Update AVR_MCU macro for
+	updated device specific info.
+	* config/avr/avr-mcus.def: Merge device specific details to
+	dev_attribute field.
+	* config/avr/avr.c (avr_2word_insn_p): use dev_attribute field to check
+	errata_skip.
+	* config/avr/avr.h (AVR_HAVE_8BIT_SP): same for short sp info.
+	* config/avr/driver-avr.c (avr_device_to_as): Pass -mrmw option to
+	assembler if RMW isa supported by current device.
+	* config/avr/genmultilib.awk: Update as device info structure changed.
+	* doc/invoke.texi: Add info for __AVR_ISA_RMW__ builtin macro
+
+2014-04-04  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/60656
+	* tree-vect-stmts.c (supportable_widening_operation):
+	Fix a bug that elements in a vector with vect_used_by_reduction
+	property are incorrectly reordered when the operation on it is not
+	consistant with the one in reduction operation.
+
+2014-04-04  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR rtl-optimization/60155
+	* gcse.c (record_set_data): New function.
+	(single_set_gcse): New function.
+	(gcse_emit_move_after): Use single_set_gcse instead of single_set.
+	(hoist_code): Likewise.
+	(get_pressure_class_and_nregs): Likewise.
+
+2014-04-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* explow.c (probe_stack_range): Emit a final optimization blockage.
+
+2014-04-04  Anthony Green  <green@moxielogic.com>
+
+	* config/moxie/moxie.md (zero_extendqisi2, zero_extendhisi2): Fix
+	typos.
+
+2014-04-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/59626
+	* lto-cgraph.c (input_overwrite_node): Check that partitioning
+	flags are set only during streaming.
+	* ipa.c (process_references, walk_polymorphic_call_targets,
+	symtab_remove_unreachable_nodes): Drop bodies of always inline
+	after early inlining.
+	(symtab_remove_unreachable_nodes): Remove always_inline attribute.
+
+2014-04-04  Jakub Jelinek  <jakub@redhat.com>
+	Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR debug/60655
+	* dwarf2out.c (const_ok_for_output_1): Reject expressions
+	containing a NOT.
+
+2014-04-04  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR bootstrap/60743
+	* config/arm/cortex-a53.md (cortex_a53_fdivs): Reduce reservation
+	duration.
+	(cortex_a53_fdivd): Likewise.
+
+2014-04-04  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/60640
+        * cgraph.h (cgraph_clone_node): New parameter added to declaration.
+        Adjust all callers.
+	* cgraph.c (clone_of_p): Also return true if thunks match.
+	(verify_edge_corresponds_to_fndecl): Removed extraneous call to
+	cgraph_function_or_thunk_node and an obsolete comment.
+        * cgraphclones.c (build_function_type_skip_args): Moved upwards in the
+        file.
+        (build_function_decl_skip_args): Likewise.
+	(set_new_clone_decl_and_node_flags): New function.
+        (duplicate_thunk_for_node): Likewise.
+        (redirect_edge_duplicating_thunks): Likewise.
+        (cgraph_clone_node): New parameter args_to_skip, pass it to
+        redirect_edge_duplicating_thunks which is called instead of
+        cgraph_redirect_edge_callee.
+        (cgraph_create_virtual_clone): Pass args_to_skip to cgraph_clone_node,
+	moved setting of a lot of flags to set_new_clone_decl_and_node_flags.
+
+2014-04-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR fortran/60191
+	* fortran/trans-types.c (gfc_get_function_type): In case of recursion
+	build a variadic function type with empty argument list instead of a
+	stdarg-like function type with incomplete argument list.
+
+2014-04-04  Jeff Law  <law@redhat.com>
+
+	PR target/60657
+	* config/arm/predicates.md (const_int_I_operand): New predicate.
+	(const_int_M_operand): Similarly.
+	* config/arm/arm.md (insv_zero): Use const_int_M_operand instead of
+	const_int_operand.
+	(insv_t2, extv_reg, extzv_t2): Likewise.
+	(load_multiple_with_writeback): Similarly for const_int_I_operand.
+	(pop_multiple_with_writeback_and_return): Likewise.
+	(vfp_pop_multiple_with_writeback): Likewise
+
+2014-04-04  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/60746
+	* tree-ssanames.c (make_ssa_name_fn): Fix assert.
+	* gimple.c (gimple_set_bb): Avoid ICEing for NULL cfun for
+	non-GIMPLE_LABELs.
+	* gimplify.h (gimple_add_tmp_var_fn): Declare.
+	* gimplify.c (gimple_add_tmp_var_fn): New function.
+	* gimple-expr.h (create_tmp_reg_fn): Declare.
+	* gimple-expr.c (create_tmp_reg_fn): New function.
+	* gimple-low.c (record_vars_into): Don't change cfun.
+	* cgraph.c (cgraph_redirect_edge_call_stmt_to_callee): Fix
+	code generation without cfun.
+
+2014-04-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR bootstrap/60719
+	* Makefile.in (install-driver): Fix shell scripting.
+
+2014-04-03  Cong Hou  <congh@google.com>
+
+	PR tree-optimization/60505
+	* tree-vectorizer.h (struct _stmt_vec_info): Add th field as the
+	threshold of number of iterations below which no vectorization will be
+	done.
+	* tree-vect-loop.c (new_loop_vec_info):
+	Initialize LOOP_VINFO_COST_MODEL_THRESHOLD.
+	* tree-vect-loop.c (vect_analyze_loop_operations):
+	Set LOOP_VINFO_COST_MODEL_THRESHOLD.
+	* tree-vect-loop.c (vect_transform_loop):
+	Use LOOP_VINFO_COST_MODEL_THRESHOLD.
+	* tree-vect-loop.c (vect_analyze_loop_2): Check the maximum number
+	of iterations of the loop and see if we should build the epilogue.
+
 2014-04-03  Richard Biener  <rguenther@suse.de>
 
 	* tree-streamer.h (struct streamer_tree_cache_d): Add next_idx
