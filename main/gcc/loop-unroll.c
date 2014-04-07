@@ -405,11 +405,9 @@ code_size_limit_factor(struct loop *loop)
   /* Next, set the value of the codesize-based unroll factor divisor which in
      most loops will need to be set to a value that will reduce or eliminate
      unrolling/peeling.  */
-  if (num_hot_counters < size_threshold * 2
-      && loop->header->count > 0)
+  if (loop->header->count > 0)
     {
-      /* For applications that are less than twice the codesize limit, allow
-         limited unrolling for very hot loops.  */
+      /* Allow limited unrolling for very hot loops.  */
       sum_to_header_ratio = profile_info->sum_all / loop->header->count;
       hotness_ratio_threshold = PARAM_VALUE (PARAM_UNROLLPEEL_HOTNESS_THRESHOLD);
       /* When the profile count sum to loop entry header ratio is smaller than
