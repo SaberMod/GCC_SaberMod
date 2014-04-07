@@ -190,6 +190,9 @@ public:
   /* Mark LOC as annotated.  */
   void mark_annotated (location_t loc);
 
+  /* Save all call targets under this function_instance in RET.  */
+  void get_all_possible_call_targets (std::set<unsigned> *ret) const;
+
 private:
   function_instance (unsigned name, gcov_type head_count)
       : name_(name), total_count_(0), head_count_(head_count) {}
@@ -424,7 +427,8 @@ has_indirect_call (basic_block bb)
 
 /* Member functions for function_name_map.  */
 
-function_name_map *function_name_map::create ()
+function_name_map *
+function_name_map::create ()
 {
   function_name_map *map = new function_name_map();
   if (map->read ())
@@ -433,7 +437,8 @@ function_name_map *function_name_map::create ()
   return NULL;
 }
 
-int function_name_map::get_index (const char *name) const
+int
+function_name_map::get_index (const char *name) const
 {
   if (name == NULL)
     return -1;
@@ -444,7 +449,8 @@ int function_name_map::get_index (const char *name) const
     return iter->second;
 }
 
-int function_name_map::get_index_by_decl (tree decl) const
+int
+function_name_map::get_index_by_decl (tree decl) const
 {
   const char *name = get_original_name (
       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
@@ -460,13 +466,15 @@ int function_name_map::get_index_by_decl (tree decl) const
     return -1;
 }
 
-const char *function_name_map::get_name (int index) const
+const char *
+function_name_map::get_name (int index) const
 {
   gcc_assert (index > 0 && index < (int) vector_.size());
   return vector_[index];
 }
 
-bool function_name_map::read ()
+bool
+function_name_map::read ()
 {
   if (gcov_read_unsigned () != GCOV_TAG_AFDO_FILE_NAMES)
     return false;
@@ -495,8 +503,8 @@ function_instance::~function_instance ()
 /* Traverse callsites of the current function_instance to find one at the
    location of LINENO and callee name represented in DECL.  */
 
-function_instance *function_instance::get_function_instance_by_decl (
-    unsigned lineno, tree decl)
+function_instance *
+function_instance::get_function_instance_by_decl (unsigned lineno, tree decl)
 {
   int func_name_idx = afdo_function_name_map->get_index_by_decl (decl);
   if (func_name_idx != -1)
@@ -522,7 +530,8 @@ function_instance *function_instance::get_function_instance_by_decl (
 /* Recursively traverse STACK starting from LEVEL to find the corresponding
    function_instance.  */
 
-function_instance *function_instance::get_function_instance (
+function_instance *
+function_instance::get_function_instance (
     const inline_stack &stack, unsigned level)
 {
   if (level == 0)
@@ -538,7 +547,8 @@ function_instance *function_instance::get_function_instance (
 /* Store the profile info for LOC in INFO. Return TRUE if profile info
    is found.  */
 
-bool function_instance::get_count_info (location_t loc, count_info *info) const
+bool
+function_instance::get_count_info (location_t loc, count_info *info) const
 {
   position_count_map::const_iterator iter = pos_counts.find (loc);
   if (iter == pos_counts.end ())
@@ -547,12 +557,30 @@ bool function_instance::get_count_info (location_t loc, count_info *info) const
   return true;
 }
 
-void function_instance::mark_annotated (location_t loc)
+void
+function_instance::mark_annotated (location_t loc)
 {
   position_count_map::iterator iter = pos_counts.find (loc);
   if (iter == pos_counts.end ())
     return;
   iter->second.annotated = true;
+}
+
+void
+function_instance::get_all_possible_call_targets (
+    std::set<unsigned> *ret) const
+{
+  for (callsite_map::const_iterator iter = callsites.begin();
+       iter != callsites.end(); ++iter)
+    {
+      ret->insert (iter->second->name());
+      iter->second->get_all_possible_call_targets (ret);
+    }
+  for (position_count_map::const_iterator iter = pos_counts.begin();
+       iter != pos_counts.end(); ++iter)
+    for (icall_target_map::const_iterator t_iter = iter->second.targets.begin();
+	 t_iter != iter->second.targets.end(); ++t_iter)
+      ret->insert (t_iter->first);
 }
 
 /* Read the inlinied indirect call target profile for STMT and store it in
@@ -588,7 +616,8 @@ function_instance::find_icall_target_map (
    HEAD_COUNT. Recursively read callsites to create nested function_instances
    too. STACK is used to track the recursive creation process.  */
 
-function_instance *function_instance::read_function_instance (
+function_instance *
+function_instance::read_function_instance (
     function_instance_stack *stack, gcov_type head_count)
 {
   unsigned name = gcov_read_unsigned ();
@@ -622,7 +651,8 @@ function_instance *function_instance::read_function_instance (
   return s;
 }
 
-gcov_type function_instance::total_annotated_count () const
+gcov_type
+function_instance::total_annotated_count () const
 {
   gcov_type ret = 0;
   for (callsite_map::const_iterator iter = callsites.begin();
@@ -635,7 +665,8 @@ gcov_type function_instance::total_annotated_count () const
   return ret;
 }
 
-void autofdo_source_profile::write_annotated_count () const
+void
+autofdo_source_profile::write_annotated_count () const
 {
   /* We store the annotation info as a string in the format of:
 
@@ -674,8 +705,8 @@ autofdo_source_profile::~autofdo_source_profile ()
 
 /* For a given DECL, returns the top-level function_instance.  */
 
-function_instance *autofdo_source_profile::get_function_instance_by_decl (
-    tree decl)
+function_instance *
+autofdo_source_profile::get_function_instance_by_decl (tree decl)
 {
   int index = afdo_function_name_map->get_index_by_decl (decl);
   if (index == -1)
@@ -688,8 +719,8 @@ function_instance *autofdo_source_profile::get_function_instance_by_decl (
    of STMT does not exist in ANNOTATED, store the profile info in INFO, and
    return true; otherwise return false.  */
 
-bool autofdo_source_profile::get_count_info (
-    gimple stmt, count_info *info) const
+bool
+autofdo_source_profile::get_count_info (gimple stmt, count_info *info) const
 {
   if (LOCATION_LOCUS (gimple_location (stmt)) == cfun->function_end_locus)
     return false;
@@ -704,7 +735,8 @@ bool autofdo_source_profile::get_count_info (
   return s->get_count_info (stack[0].second, info);
 }
 
-void autofdo_source_profile::mark_annotated (location_t locus) {
+void
+autofdo_source_profile::mark_annotated (location_t locus) {
   inline_stack stack;
   get_inline_stack (locus, &stack);
   if (stack.size () == 0)
@@ -760,7 +792,8 @@ autofdo_source_profile::update_inlined_ind_target (
 
 /* Find total count of the callee of EDGE.  */
 
-gcov_type autofdo_source_profile::get_callsite_total_count (
+gcov_type
+autofdo_source_profile::get_callsite_total_count (
     struct cgraph_edge *edge) const
 {
   inline_stack stack;
@@ -776,7 +809,8 @@ gcov_type autofdo_source_profile::get_callsite_total_count (
 
 /* Read source profile.  */
 
-bool autofdo_source_profile::read ()
+bool
+autofdo_source_profile::read ()
 {
   if (gcov_read_unsigned () != GCOV_TAG_AFDO_FUNCTION)
     {
@@ -818,7 +852,8 @@ autofdo_source_profile::get_function_instance_by_inline_stack (
 
 /* Member functions for autofdo_module_profile.  */
 
-bool autofdo_module_profile::read ()
+bool
+autofdo_module_profile::read ()
 {
   /* Read in the module info.  */
   if (gcov_read_unsigned () != GCOV_TAG_AFDO_MODULE_GROUPING)
@@ -1664,6 +1699,24 @@ afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *edge)
     }
   else
     return false;
+}
+
+/* Stores all possible call targets for NODE to RET.  */
+
+void
+get_all_possible_call_targets (struct cgraph_node *node,
+			       std::vector<const char *> *ret)
+{
+  std::set<unsigned> index_set;
+  const autofdo::function_instance *func =
+      autofdo::afdo_source_profile->get_function_instance_by_decl (
+	  node->symbol.decl);
+  if (func == NULL)
+    return;
+  func->get_all_possible_call_targets (&index_set);
+  for (std::set<unsigned>::const_iterator iter = index_set.begin();
+       iter != index_set.end(); ++iter)
+    ret->push_back (autofdo::afdo_function_name_map->get_name (*iter));
 }
 
 struct simple_ipa_opt_pass pass_ipa_auto_profile =

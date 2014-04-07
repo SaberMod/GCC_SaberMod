@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "except.h"
 #include "l-ipo.h"
 #include "ipa-inline.h"
+#include "auto-profile.h"
 
 /* Context of record_reference.  */
 struct record_reference_ctx
@@ -243,6 +244,25 @@ add_fake_indirect_call_edges (struct cgraph_node *node)
   /* Enable this only for LIPO for now.  */
   if (!L_IPO_COMP_MODE)
     return;
+
+  if (flag_auto_profile)
+    {
+      std::vector<const char *> targets;
+      get_all_possible_call_targets (node, &targets);
+      for (std::vector<const char *>::const_iterator iter = targets.begin();
+	   iter != targets.end(); ++iter)
+	{
+	  struct cgraph_node * callee = (
+	      cgraph_node_for_asm (get_identifier (*iter)));
+	  if (!callee)
+	    continue;
+	  if (cgraph_pre_profiling_inlining_done)
+	    callee = cgraph_lipo_get_resolved_node (callee->symbol.decl);
+	  if (callee)
+	    cgraph_create_edge (node, callee, NULL, 1, 0);
+	}
+      return;
+    }
 
   ic_counts
       = get_coverage_counts_no_warn (DECL_STRUCT_FUNCTION (node->symbol.decl),

@@ -21,6 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef AUTO_PROFILE_H
 #define AUTO_PROFILE_H
 
+#include <vector>
+
 /* Read, process, finalize AutoFDO data structures.  */
 extern void init_auto_profile (void);
 extern void end_auto_profile (void);
@@ -28,4 +30,7 @@ extern void end_auto_profile (void);
 /* Returns TRUE if EDGE is hot enough to be inlined early.  */
 extern bool afdo_callsite_hot_enough_for_early_inline (struct cgraph_edge *);
 
+/* Stores all possible call targets for NODE to RET.  */
+extern void get_all_possible_call_targets (struct cgraph_node *,
+					   std::vector<const char *> *);
 #endif /* AUTO_PROFILE_H */
