@@ -866,7 +866,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
     {
       maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
-            6, opts->x_param_values, opts_set->x_param_values);
+            8, opts->x_param_values, opts_set->x_param_values);
       maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS,
             0, opts->x_param_values, opts_set->x_param_values);
       maybe_set_param_value (PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
@@ -1739,8 +1739,6 @@ common_handle_option (struct gcc_options *opts,
       if (!opts_set->x_flag_tree_loop_vectorize
           && !opts_set->x_flag_tree_vectorize)
 	opts->x_flag_tree_loop_vectorize = value;
-      if (!opts_set->x_flag_vect_cost_model)
-	opts->x_flag_vect_cost_model = VECT_COST_MODEL_DYNAMIC;
       if (!opts_set->x_flag_tree_loop_distribute_patterns)
 	opts->x_flag_tree_loop_distribute_patterns = value;
       if (!opts_set->x_flag_profile_reorder_functions)
