@@ -205,8 +205,10 @@ c_common_init_options_struct (struct gcc_options *opts)
   opts->x_warn_write_strings = c_dialect_cxx ();
   opts->x_flag_warn_unused_result = true;
 
-  /* By default, C99-like requirements for complex multiply and divide.  */
-  opts->x_flag_complex_method = 2;
+  /* By default, C99-like requirements for complex multiply and divide.
+     But for C++ this should not be required.  */
+  if (c_language != clk_cxx)
+    opts->x_flag_complex_method = 2;
 }
 
 /* Common initialization before calling option handlers.  */
