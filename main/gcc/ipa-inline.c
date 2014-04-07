@@ -132,6 +132,9 @@ static int overall_size;
 static gcov_type max_count;
 static sreal max_count_real, max_relbenefit_real, half_int_min_real;
 
+/* Global variable to denote if it is in ipa-inline pass. */
+bool is_in_ipa_inline = false;
+
 /* Return false when inlining edge E would lead to violating
    limits on function unit growth or stack usage growth.  
 
@@ -1738,6 +1741,8 @@ inline_small_functions (void)
   int initial_size = 0;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   struct cgraph_edge_hook_list *edge_removal_hook_holder;
+
+  is_in_ipa_inline = true;
 
   if (flag_indirect_inlining)
     new_indirect_edges.create (8);

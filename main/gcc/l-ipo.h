@@ -63,5 +63,6 @@ int equivalent_struct_types_for_tbaa (const_tree t1, const_tree t2);
 void lipo_fixup_cgraph_edge_call_target (gimple);
 extern void copy_defined_module_set (tree, tree);
 extern bool is_parsing_done_p (void);
+extern const char* get_module_name (unsigned int);
 
 #endif
