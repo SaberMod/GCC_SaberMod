@@ -1410,10 +1410,8 @@ init_gid_map (void)
 {
   struct cgraph_node *n;
 
-  gcc_assert (!gid_map);
-
-  gid_map
-      = htab_create (10, htab_gid_hash, htab_gid_eq, htab_gid_del);
+  if (!gid_map)
+    gid_map = htab_create (10, htab_gid_hash, htab_gid_eq, htab_gid_del);
 
   FOR_EACH_FUNCTION (n)
     {
@@ -1441,6 +1439,15 @@ init_gid_map (void)
           entp->node = n;
           entp->gid = ent.gid;
         }
+      else if (cgraph_pre_profiling_inlining_done)
+	{
+	  (*slot)->node = cgraph_lipo_get_resolved_node (n->decl);
+	  (*slot)->gid = ent.gid;
+	}
+      else
+	{
+	  gcc_assert ((*slot)->gid == ent.gid && (*slot)->node == n);
+	}
     }
 }
 
