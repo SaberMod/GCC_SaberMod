@@ -1,6 +1,5 @@
 # 2014/03/29 merge from trunk
 FAIL: 23_containers/map/pthread6.cc execution test
-FAIL: gcc.dg/tree-prof/lipo/update-loopch_0.c scan-tree-dump-not optimized "Invalid sum"
 
 # Google b/13171749
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
