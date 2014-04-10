@@ -832,6 +832,9 @@ public:
 
 } // anon namespace
 
+/* Defined in passes.c  */
+extern bool cgraph_callee_edges_final_cleanup; 
+
 gimple_opt_pass *
 make_pass_rebuild_cgraph_edges (gcc::context *ctxt)
 {
@@ -842,6 +845,12 @@ make_pass_rebuild_cgraph_edges (gcc::context *ctxt)
 static unsigned int
 remove_cgraph_callee_edges (void)
 {
+  /* The -freorder-functions=* needs the call-graph preserved till
+     pass_final.  */
+  if (cgraph_callee_edges_final_cleanup
+      && (flag_reorder_functions > 1))
+      return 0;
+
   struct cgraph_node *node = cgraph_get_node (current_function_decl);
   cgraph_node_remove_callees (node);
   ipa_remove_all_references (&node->ref_list);
