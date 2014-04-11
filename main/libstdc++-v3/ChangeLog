@@ -1,3 +1,56 @@
+2014-04-10  Andreas Schwab  <schwab@suse.de>
+
+	* config/abi/post/alpha-linux-gnu/baseline_symbols.txt: Remove TLS
+	symbols.
+	* config/abi/post/m68k-linux-gnu/baseline_symbols.txt: Likewise.
+	* config/abi/post/mips64-linux-gnu/baseline_symbols.txt: Likewise.
+
+	* config/abi/post/ia64-linux-gnu/baseline_symbols.txt: Update.
+
+2014-04-07  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/20_util/exchange/1.cc: Add missing return statements.
+	* testsuite/20_util/pair/40925.cc: Avoid most vexing parse.
+	* testsuite/22_locale/codecvt_byname/50714.cc: Add missing exception
+	specifications.
+
+2014-04-02  Dominique d'Humieres  <dominiq@lps.ens.fr>
+	    Jack Howarth <howarth@bromo.med.uc.edu>
+
+	PR target/54407
+	* testsuite/30_threads/condition_variable/54185.cc: Skip for
+	darwin < 11.
+
+2014-04-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/backwards_compatibility.xml (backwards.third.headers):
+	Update link.
+	* doc/xml/manual/policy_data_structures_biblio.xml (bibliography):
+	Fix broken links.
+	* doc/xml/manual/shared_ptr.xml (shared_ptr.impl): Likewise.
+	* doc/xml/manual/using_exceptions.xml (bibliography): Likewise.
+	* doc/xml/manual/concurrency_extensions.xml
+	(manual.ext.concurrency.impl.atomic_fallbacks): Likewise.
+	* doc/html/*: Regenerate.
+
+2014-03-31  Lars Gullik Bjønnes  <larsbj@gullik.org>
+	    Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60270
+	* include/std/iomanip (_Quoted_string operator>>): Do not clear
+	string if input is not quoted.
+	* testsuite/27_io/manipulators/standard/char/60270.cc: New.
+
+2014-03-31  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/eh_ptr.cc: Improve static_assert messages.
+
+2014-03-31  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* testsuite/18_support/exception_ptr/60612-terminate.cc
+	(terminate, f): Wrap in _GLIBCXX_USE_C99.
+	* testsuite/18_support/exception_ptr/60612-unexpected.cc: Likewise.
+
 2014-03-27  Jonathan Wakely  <jwakely@redhat.com>
 
 	* doc/xml/manual/io.xml (std.io.objects): Additional markup.

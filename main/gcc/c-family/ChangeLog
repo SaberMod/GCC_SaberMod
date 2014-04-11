@@ -1,3 +1,17 @@
+2014-04-08  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/60745
+	* c-ubsan.c: Include asan.h.
+	(ubsan_instrument_return): Call initialize_sanitizer_builtins.
+
+2014-04-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c.opt (Wnon-virtual-dtor): Auto set when Weffc++.
+
+2014-04-02  Marek Polacek  <polacek@redhat.com>
+
+	* c-common.h (c_expand_expr): Remove declaration.
+
 2014-03-28  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/60689
