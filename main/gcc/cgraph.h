@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "ipa-ref.h"
+#include "l-ipo.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -1529,10 +1530,16 @@ static inline bool
 cgraph_edge_recursive_p (struct cgraph_edge *e)
 {
   struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
-  if (e->caller->global.inlined_to)
-    return e->caller->global.inlined_to->decl == callee->decl;
-  else
-    return e->caller->decl == callee->decl;
+  struct cgraph_node *caller = e->caller;
+  if (caller->global.inlined_to)
+   caller = caller->global.inlined_to;
+
+  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+    {
+      callee = cgraph_lipo_get_resolved_node (callee->decl);
+      caller = cgraph_lipo_get_resolved_node (caller->decl);
+    }
+  return caller->decl == callee->decl;
 }
 
 /* Return true if the TM_CLONE bit is set for a given FNDECL.  */

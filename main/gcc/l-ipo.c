@@ -1562,6 +1562,18 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
         }
       return;
     }
+
+  /* Handle aliases properly. Make sure the alias symbol resolution
+     is consistent with alias target  */
+  if (node->alias && !node->thunk.thunk_p)
+    {
+      struct cgraph_node *decl2_tgt = cgraph_function_or_thunk_node (node, NULL);
+      if (cgraph_lipo_get_resolved_node_1 (decl2_tgt->decl, false) == decl2_tgt)
+        {
+          (*slot)->rep_node = node;
+          (*slot)->rep_decl = decl2;
+        }
+    }
   return;
 }
 
@@ -1624,7 +1636,17 @@ cgraph_do_link (void)
   FOR_EACH_FUNCTION (node)
     {
       gcc_assert (!node->global.inlined_to);
+      /* Delay aliases  */
+      if (node->alias && !node->thunk.thunk_p)
+        continue;
       cgraph_link_node (node);
+    }
+
+  /* Now handle aliases   */
+  FOR_EACH_FUNCTION (node)
+    {
+      if (node->alias && !node->thunk.thunk_p)
+        cgraph_link_node (node);
     }
 }
 
