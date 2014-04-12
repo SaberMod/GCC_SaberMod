@@ -2084,7 +2084,7 @@ gcov_write_module_info (const struct gcov_info *mod_info,
       len += 1; /* Each string is lead by a length.  */
     }
 
-  len += 10; /* 9 more fields */
+  len += 11; /* 11 more fields */
 
   gcov_write_tag_length (GCOV_TAG_MODULE_INFO, len);
   gcov_write_unsigned (module_info->ident);
@@ -2093,6 +2093,7 @@ gcov_write_module_info (const struct gcov_info *mod_info,
     SET_MODULE_INCLUDE_ALL_AUX (module_info);
   gcov_write_unsigned (module_info->flags);
   gcov_write_unsigned (module_info->lang);
+  gcov_write_unsigned (module_info->ggc_memory);
   gcov_write_unsigned (module_info->num_quote_paths);
   gcov_write_unsigned (module_info->num_bracket_paths);
   gcov_write_unsigned (module_info->num_system_paths);

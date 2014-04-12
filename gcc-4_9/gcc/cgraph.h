@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "ipa-ref.h"
+#include "l-ipo.h"
 
 /* Symbol table consists of functions and variables.
    TODO: add labels and CONST_DECLs.  */
@@ -91,7 +92,9 @@ public:
   unsigned forced_by_abi : 1;
   /* True when the name is known to be unique and thus it does not need mangling.  */
   unsigned unique_name : 1;
-
+  /* True when body and other characteristics have been removed by
+     symtab_remove_unreachable_nodes. */
+  unsigned body_removed : 1;
 
   /*** WHOPR Partitioning flags.
        These flags are used at ltrans stage when only part of the callgraph is
@@ -951,7 +954,7 @@ struct cgraph_edge * cgraph_clone_edge (struct cgraph_edge *,
 					unsigned, gcov_type, int, bool);
 struct cgraph_node * cgraph_clone_node (struct cgraph_node *, tree, gcov_type,
 					int, bool, vec<cgraph_edge_p>,
-					bool, struct cgraph_node *);
+					bool, struct cgraph_node *, bitmap);
 tree clone_function_name (tree decl, const char *);
 struct cgraph_node * cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			                          vec<cgraph_edge_p>,
@@ -1527,10 +1530,16 @@ static inline bool
 cgraph_edge_recursive_p (struct cgraph_edge *e)
 {
   struct cgraph_node *callee = cgraph_function_or_thunk_node (e->callee, NULL);
-  if (e->caller->global.inlined_to)
-    return e->caller->global.inlined_to->decl == callee->decl;
-  else
-    return e->caller->decl == callee->decl;
+  struct cgraph_node *caller = e->caller;
+  if (caller->global.inlined_to)
+   caller = caller->global.inlined_to;
+
+  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+    {
+      callee = cgraph_lipo_get_resolved_node (callee->decl);
+      caller = cgraph_lipo_get_resolved_node (caller->decl);
+    }
+  return caller->decl == callee->decl;
 }
 
 /* Return true if the TM_CLONE bit is set for a given FNDECL.  */

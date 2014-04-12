@@ -1562,6 +1562,18 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
         }
       return;
     }
+
+  /* Handle aliases properly. Make sure the alias symbol resolution
+     is consistent with alias target  */
+  if (node->alias && !node->thunk.thunk_p)
+    {
+      struct cgraph_node *decl2_tgt = cgraph_function_or_thunk_node (node, NULL);
+      if (cgraph_lipo_get_resolved_node_1 (decl2_tgt->decl, false) == decl2_tgt)
+        {
+          (*slot)->rep_node = node;
+          (*slot)->rep_decl = decl2;
+        }
+    }
   return;
 }
 
@@ -1624,7 +1636,17 @@ cgraph_do_link (void)
   FOR_EACH_FUNCTION (node)
     {
       gcc_assert (!node->global.inlined_to);
+      /* Delay aliases  */
+      if (node->alias && !node->thunk.thunk_p)
+        continue;
       cgraph_link_node (node);
+    }
+
+  /* Now handle aliases   */
+  FOR_EACH_FUNCTION (node)
+    {
+      if (node->alias && !node->thunk.thunk_p)
+        cgraph_link_node (node);
     }
 }
 
@@ -2020,7 +2042,15 @@ cgraph_process_module_scope_statics (void)
   struct cgraph_node *pf;
   struct varpool_node *pv;
 
-  if (!L_IPO_COMP_MODE)
+  /* Only need to do type unification when we are in LIPO mode
+     and have a non-trivial module group (size is >1). However,
+     override the size check under non-zero PARAM_LIPO_RANDOM_GROUP_SIZE,
+     which indicates that we are stress-testing LIPO. In that case
+     try to flush out problems with type unification by always
+     performing it.  */
+  if (!L_IPO_COMP_MODE
+      || (num_in_fnames == 1
+          && PARAM_VALUE (PARAM_LIPO_RANDOM_GROUP_SIZE) == 0))
     return;
 
   promo_ent_hash_tab = htab_create (10, promo_ent_hash,

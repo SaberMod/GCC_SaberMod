@@ -411,9 +411,9 @@ assert_unreachable_fallthru_edge_p (edge e)
 	  if (gsi_end_p (gsi))
 	    return false;
 	  stmt = gsi_stmt (gsi);
-	  if (is_gimple_debug (stmt))
+	  while (is_gimple_debug (stmt) || gimple_clobber_p (stmt))
 	    {
-	      gsi_next_nondebug (&gsi);
+	      gsi_next (&gsi);
 	      if (gsi_end_p (gsi))
 		return false;
 	      stmt = gsi_stmt (gsi);
@@ -7488,7 +7488,8 @@ need_fake_edge_p (gimple t)
   if (is_gimple_call (t)
       && fndecl
       && DECL_BUILT_IN (fndecl)
-      && (call_flags & ECF_NOTHROW)
+      && ((call_flags & ECF_NOTHROW)
+          || DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
       && !(call_flags & ECF_RETURNS_TWICE)
       /* fork() doesn't really return twice, but the effect of
          wrapping it in __gcov_fork() which calls __gcov_flush()

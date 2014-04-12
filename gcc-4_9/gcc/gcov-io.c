@@ -651,14 +651,15 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
   mod_info->ident = gcov_read_unsigned ();
   mod_info->is_primary = gcov_read_unsigned ();
   mod_info->flags = gcov_read_unsigned ();
-  mod_info->lang  = gcov_read_unsigned ();
+  mod_info->lang = gcov_read_unsigned ();
+  mod_info->ggc_memory = gcov_read_unsigned ();
   mod_info->num_quote_paths = gcov_read_unsigned ();
   mod_info->num_bracket_paths = gcov_read_unsigned ();
   mod_info->num_system_paths = gcov_read_unsigned ();
   mod_info->num_cpp_defines = gcov_read_unsigned ();
   mod_info->num_cpp_includes = gcov_read_unsigned ();
   mod_info->num_cl_args = gcov_read_unsigned ();
-  len -= 10;
+  len -= 11;
 
   filename_len = gcov_read_unsigned ();
   mod_info->da_filename = (char *) xmalloc (filename_len *

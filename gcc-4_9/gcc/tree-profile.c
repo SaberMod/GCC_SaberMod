@@ -1238,15 +1238,10 @@ tree_profiling (void)
 
   /* After value profile transformation, artificial edges (that keep
      function body from being deleted) won't be needed.  */
-
-  cgraph_pre_profiling_inlining_done = true;
-  cgraph_process_module_scope_statics ();
-  /* Now perform link to allow cross module inlining.  */
-  cgraph_do_link ();
-  varpool_do_link ();
-  cgraph_unify_type_alias_sets ();
-
+  if (L_IPO_COMP_MODE) 
+    lipo_link_and_fixup ();
   init_node_map (true);
+
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {
@@ -1258,23 +1253,6 @@ tree_profiling (void)
 	continue;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-
-      if (L_IPO_COMP_MODE)
-        {
-          basic_block bb;
-          FOR_EACH_BB_FN (bb, cfun)
-            {
-              gimple_stmt_iterator gsi;
-              for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-                {
-                  gimple stmt = gsi_stmt (gsi);
-                  if (is_gimple_call (stmt))
-                    lipo_fixup_cgraph_edge_call_target (stmt);
-                }
-	    }
-          update_ssa (TODO_update_ssa);
-	}
-
 
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)

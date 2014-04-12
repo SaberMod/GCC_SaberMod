@@ -1552,7 +1552,7 @@ notice_global_symbol (tree decl)
   if (L_IPO_COMP_MODE
       && ((TREE_CODE (decl) == FUNCTION_DECL
            && cgraph_is_auxiliary (decl))
-          || (TREE_CODE (decl) == VAR_DECL
+          || (TREE_CODE (decl) == VAR_DECL && varpool_get_node (decl)
               && varpool_is_auxiliary (varpool_get_node (decl)))))
     return;
 
@@ -5691,6 +5691,7 @@ assemble_alias (tree decl, tree target)
 # if !defined(ASM_OUTPUT_WEAK_ALIAS) && !defined (ASM_WEAKEN_DECL)
       error_at (DECL_SOURCE_LOCATION (decl),
 		"alias definitions not supported in this configuration");
+      TREE_ASM_WRITTEN (decl) = 1;
       return;
 # else
       if (!DECL_WEAK (decl))
@@ -5701,6 +5702,7 @@ assemble_alias (tree decl, tree target)
 	  else
 	    error_at (DECL_SOURCE_LOCATION (decl),
 		      "only weak aliases are supported in this configuration");
+	  TREE_ASM_WRITTEN (decl) = 1;
 	  return;
 	}
 # endif

@@ -16,6 +16,5 @@ main ()
    edge.  */
 /* { dg-final-use { scan-ipa-dump "count:33333" "profile"} } */
 /* { dg-final-use { scan-tree-dump "count:33332" "optimized"} } */
-/* { dg-final-use { scan-tree-dump-not "Invalid sum" "optimized"} } */
 /* { dg-final-use { cleanup-ipa-dump "profile" } } */
 /* { dg-final-use { cleanup-tree-dump "optimized" } } */

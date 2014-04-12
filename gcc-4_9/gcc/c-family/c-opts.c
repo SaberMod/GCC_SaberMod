@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "params.h"
 #include "l-ipo.h"
+#include "dumpfile.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
 # define DOLLARS_IN_IDENTIFIERS true
@@ -204,8 +205,10 @@ c_common_init_options_struct (struct gcc_options *opts)
   opts->x_warn_write_strings = c_dialect_cxx ();
   opts->x_flag_warn_unused_result = true;
 
-  /* By default, C99-like requirements for complex multiply and divide.  */
-  opts->x_flag_complex_method = 2;
+  /* By default, C99-like requirements for complex multiply and divide.
+     But for C++ this should not be required.  */
+  if (c_language != clk_cxx)
+    opts->x_flag_complex_method = 2;
 }
 
 /* Common initialization before calling option handlers.  */
@@ -839,7 +842,8 @@ c_common_post_options (const char **pfilename)
   if (flag_iso
       && !c_dialect_cxx ()
       && (global_options_set.x_flag_fp_contract_mode
-	  == (enum fp_contract_mode) 0))
+	  == (enum fp_contract_mode) 0)
+      && flag_unsafe_math_optimizations == 0)
     flag_fp_contract_mode = FP_CONTRACT_OFF;
 
   /* By default we use C99 inline semantics in GNU99 or C99 mode.  C99
@@ -1065,12 +1069,16 @@ lipo_max_mem_reached (unsigned int i)
          by the optimizer.  */
       && ((ggc_total_allocated () >> 10) * 1.25
           > (size_t) PARAM_VALUE (PARAM_MAX_LIPO_MEMORY))) {
-    i++;
-    do {
-      inform (input_location, "Not importing %s: maximum memory "
-	      "consumption reached", in_fnames[i]);
-      i++;
-    } while (i < num_in_fnames);
+    if (dump_enabled_p ())
+      {
+        i++;
+        do {
+          dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                           "Not importing %s: maximum memory "
+                           "consumption reached", in_fnames[i]);
+          i++;
+        } while (i < num_in_fnames);
+      }
     return true;
   }
   return false;
@@ -1330,17 +1338,18 @@ c_finish_options (void)
     {
       size_t i;
 
-      {
-	/* Make sure all of the builtins about to be declared have
-	  BUILTINS_LOCATION has their source_location.  */
-	source_location builtins_loc = BUILTINS_LOCATION;
-	cpp_force_token_locations (parse_in, &builtins_loc);
+      cb_file_change (parse_in,
+		      linemap_add (line_table, LC_RENAME, 0,
+				   _("<built-in>"), 0));
+      /* Make sure all of the builtins about to be declared have
+	 BUILTINS_LOCATION has their source_location.  */
+      source_location builtins_loc = BUILTINS_LOCATION;
+      cpp_force_token_locations (parse_in, &builtins_loc);
 
-	cpp_init_builtins (parse_in, flag_hosted);
-	c_cpp_builtins (parse_in);
+      cpp_init_builtins (parse_in, flag_hosted);
+      c_cpp_builtins (parse_in);
 
-	cpp_stop_forcing_token_locations (parse_in);
-      }
+      cpp_stop_forcing_token_locations (parse_in);
 
       /* We're about to send user input to cpplib, so make it warn for
 	 things that we previously (when we sent it internal definitions)

@@ -496,7 +496,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_CHEAP },
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_foptimize_strlen, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fhoist_adjacent_loads, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_fipa_sem_equality, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fisolate_erroneous_paths_dereference, NULL, 1 },
 
     /* -O3 optimizations.  */
@@ -508,7 +507,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_finline_functions_called_once, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_funswitch_loops, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fgcse_after_reload, NULL, 1 },
-    { OPT_LEVELS_3_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
+    { OPT_LEVELS_2_PLUS, OPT_ftree_loop_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_ftree_slp_vectorize, NULL, 1 },
     { OPT_LEVELS_3_PLUS, OPT_fvect_cost_model_, NULL, VECT_COST_MODEL_DYNAMIC },
     { OPT_LEVELS_3_PLUS, OPT_fipa_cp_clone, NULL, 1 },
@@ -645,7 +644,9 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 {
   enum unwind_info_type ui_except;
 
-  if (opts->x_dump_base_name && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name))
+  if (opts->x_dump_base_name
+      && ! IS_ABSOLUTE_PATH (opts->x_dump_base_name)
+      && ! opts->x_dump_base_name_prefixed)
     {
       /* First try to make OPTS->X_DUMP_BASE_NAME relative to the
 	 OPTS->X_DUMP_DIR_NAME directory.  Then try to make
@@ -675,6 +676,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	      opts->x_dump_base_name = new_dump_base_name;
 	    }
 	}
+	opts->x_dump_base_name_prefixed = true;
     }
 
   /* Handle related options for unit-at-a-time, toplevel-reorder, and
@@ -864,7 +866,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
     {
       maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIAS_CHECKS,
-            6, opts->x_param_values, opts_set->x_param_values);
+            8, opts->x_param_values, opts_set->x_param_values);
       maybe_set_param_value (PARAM_VECT_MAX_VERSION_FOR_ALIGNMENT_CHECKS,
             0, opts->x_param_values, opts_set->x_param_values);
       maybe_set_param_value (PARAM_VECT_MAX_PEELING_FOR_ALIGNMENT,
@@ -881,6 +883,10 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   /* The -gsplit-dwarf option requires -gpubnames.  */
   if (opts->x_dwarf_split_debug_info)
     opts->x_debug_generate_pub_sections = 1;
+
+  /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
+  if (opts->x_flag_reorder_functions > 1)
+    opts->x_flag_function_sections = 1;
 }
 
 #define LEFT_COLUMN	27
@@ -1737,8 +1743,6 @@ common_handle_option (struct gcc_options *opts,
       if (!opts_set->x_flag_tree_loop_vectorize
           && !opts_set->x_flag_tree_vectorize)
 	opts->x_flag_tree_loop_vectorize = value;
-      if (!opts_set->x_flag_vect_cost_model)
-	opts->x_flag_vect_cost_model = VECT_COST_MODEL_DYNAMIC;
       if (!opts_set->x_flag_tree_loop_distribute_patterns)
 	opts->x_flag_tree_loop_distribute_patterns = value;
       if (!opts_set->x_flag_profile_reorder_functions)

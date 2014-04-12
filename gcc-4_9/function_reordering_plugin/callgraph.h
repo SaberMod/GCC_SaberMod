@@ -1,5 +1,3 @@
-#if 0
-
 /* Callgraph implementation.
    Copyright (C) 2011 Free Software Foundation, Inc.
    Contributed by Sriraman Tallam (tmsriram@google.com)
@@ -63,6 +61,15 @@ typedef struct node_d
 {
   unsigned int id;
   char *name;
+  /* Node weight, execution count of entry bb.  */
+  unsigned long long weight;
+  /* Weight computed by adding weights of incoming edges to
+     this node.  */
+  unsigned long long computed_weight;
+  /* Max count of any bb executed.  */
+  unsigned long long max_count;
+  /* Stores the max count of any bb in the split cold section.  */
+  unsigned long long split_weight;
   /* Chain all the Nodes created.  */
   struct node_d *next;
   /* Pointer to the next node in the chain of merged nodes.  */
@@ -83,6 +90,10 @@ make_node (unsigned int id, char *name)
   XNEW_ALLOC (node, Node);
   node->id = id;
   node->name = name;
+  node->weight = 0;
+  node->computed_weight = 0;
+  node->max_count = 0;
+  node->split_weight = 0;
   node->is_real_node = 0;
   node->next = NULL;
   node->edge_list = NULL;
@@ -135,7 +146,7 @@ struct edge_d
 {
   Node *first_function;
   Node *second_function;
-  unsigned int weight;
+  unsigned long long weight;
   Edge_type type;
   /* 1 if the nodes corresponding to this edge have been merged.  */
   unsigned int is_merged;
@@ -145,7 +156,7 @@ struct edge_d
 };
 
 inline static Edge *
-make_edge (Node *first, Node *second, unsigned int weight)
+make_edge (Node *first, Node *second, unsigned long long weight)
 {
   Edge *edge;
   XNEW_ALLOC (edge, Edge);
@@ -207,6 +218,12 @@ typedef struct section_id_
   char *full_name;
   void *handle;
   int shndx;
+  /* Corresponds to node weight.  */
+  unsigned long long weight;
+  /* Corresponds to node's computed weight.  */
+  unsigned long long computed_weight;
+  /* Max count of bb executed in this function.  */
+  unsigned long long max_count;
   /* Type of prefix in section name.  */
   int section_type;
   /* Pointer to the next section in the same comdat_group.  */
@@ -215,6 +232,12 @@ typedef struct section_id_
   struct section_id_ *next;
   /* Used for grouping sections.  */
   struct section_id_ *group;
+  /* Pointer to the cold split section if any.   If this function
+     is comdat hot and kept, pointer to the kept cold split
+     section.  */
+  struct section_id_ *split_section;
+  /* If this is the cold part of a split section.  */
+  char is_split_cold_section;
   /* Check if this section has been considered for output.  */
   char processed;
 } Section_id;
@@ -235,6 +258,11 @@ make_section_id (char *name, char *full_name,
   s->next = NULL;
   s->group = NULL;
   s->processed = 0;
+  s->weight = 0;
+  s->computed_weight = 0;
+  s->max_count = 0;
+  s->split_section = NULL;
+  s->is_split_cold_section = 0;
 
   return s;
 }
@@ -287,6 +315,4 @@ unsigned int get_layout (FILE *fp, void*** handles,
 void cleanup ();
 /* Returns 1 if callgraph is empty.  */
 unsigned int is_callgraph_empty ();
-#endif
-
 #endif

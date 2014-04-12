@@ -6,7 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---         Copyright (C) 1992-2012, Free Software Foundation, Inc.          --
+--         Copyright (C) 1992-2014, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -627,8 +627,6 @@ package body System.Task_Primitives.Operations is
    function Monotonic_Clock return Duration is
       use Interfaces;
 
-      type timeval is array (1 .. 2) of System.OS_Interface.time_t;
-
       procedure timeval_to_duration
         (T    : not null access timeval;
          sec  : not null access C.long;
@@ -1078,13 +1076,16 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
       Result : Interfaces.C.int;
+      ESRCH  : constant := 3; -- No such process
+      --  It can happen that T has already vanished, in which case pthread_kill
+      --  returns ESRCH, so we don't consider that to be an error.
    begin
       if Abort_Handler_Installed then
          Result :=
            pthread_kill
              (T.Common.LL.Thread,
               Signal (System.Interrupt_Management.Abort_Task_Interrupt));
-         pragma Assert (Result = 0);
+         pragma Assert (Result = 0 or else Result = ESRCH);
       end if;
    end Abort_Task;
 

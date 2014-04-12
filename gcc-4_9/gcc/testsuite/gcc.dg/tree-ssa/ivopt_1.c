@@ -1,5 +1,5 @@
 /* { dg-do compile { target {{ i?86-*-* x86_64-*-* } && lp64 } } } */
-/* { dg-options "-O2 -m64 -fdump-tree-ivopts" } */
+/* { dg-options "-O2 -fno-tree-loop-vectorize -m64 -fdump-tree-ivopts" } */
 #define TYPE char*
 
 /* Testing that only one induction variable is selected after IVOPT on
@@ -14,5 +14,5 @@ void foo (int i_width, TYPE dst, TYPE src1, TYPE src2)
 }
 
 
-/* { dg-final { scan-tree-dump-times "PHI <ivtmp" 1 "ivopts"} } */
+/* { dg-final { scan-tree-dump-times "ivtmp.\[0-9_\]* = PHI <" 1 "ivopts"} } */
 /* { dg-final { cleanup-tree-dump "ivopts" } } */

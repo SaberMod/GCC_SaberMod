@@ -354,6 +354,23 @@ DEFPARAM(PARAM_MAX_UNROLL_ITERATIONS,
 	 "max-completely-peel-loop-nest-depth",
 	 "The maximum depth of a loop nest we completely peel",
 	 8, 0, 0)
+/* The maximum code size estimate under which loop unrolling and peeling
+ * is allowed in a profile feedback compile. This currently applies to loops
+ * with non-constant iteration counts and no floating point computations.  */
+DEFPARAM(PARAM_UNROLLPEEL_CODESIZE_THRESHOLD,
+	"unrollpeel-codesize-threshold",
+	"Maximum profile-based code size footprint estimate for loop unrolling "
+	"and peeling",
+	15000, 0, 0)
+/* The maximum ratio of total profiled execution counts to loop entry block
+   count that must be exceeded to ignore most code size limits when unrolling
+   and peeling.  */
+DEFPARAM(PARAM_UNROLLPEEL_HOTNESS_THRESHOLD,
+        "unrollpeel-hotness-threshold",
+        "Maximum ratio of total profiled execution count to loop entry "
+        "block count under which most codesize limits for unrolling and "
+        "peeling will be ignored",
+        100, 1, 0)
 
 DEFPARAM(PARAM_MIN_ITER_UNROLL_WITH_BRANCHES,
 	"min-iter-unroll-with-branches",
@@ -865,6 +882,11 @@ DEFPARAM (PARAM_IRA_LOOP_RESERVED_REGS,
 	  "The number of registers in each class kept unused by loop invariant motion",
 	  2, 0, 0)
 
+DEFPARAM (PARAM_LRA_MAX_CONSIDERED_RELOAD_PSEUDOS,
+	  "lra-max-considered-reload-pseudos",
+	  "The max number of reload pseudos which are considered during spilling a non-reload pseudo",
+	  500, 0, 0)
+
 /* Switch initialization conversion will refuse to create arrays that are
    bigger than this parameter times the number of switch branches.  */
 
@@ -958,7 +980,7 @@ DEFPARAM (PARAM_MAX_LIPO_GROUP,
 DEFPARAM (PARAM_MAX_LIPO_MEMORY,
 	  "max-lipo-mem",
 	  "don't import aux files if memory consumption exceeds this value",
-	  3000000, 0, 0)
+	  4000000, 0, 0)
 
 /* In LIPO profile-gen, use this parameter to record the cutoff value used at
    profile collection runtime.  */
@@ -1027,6 +1049,13 @@ DEFPARAM (PARAM_LIPO_WEAK_INCLUSION,
 	  "0: force strict inclusion; 1: weak inclusion."
 	  "Default is 0.",
 	  0, 0, 1)
+
+/* In LIPO profile-use, use this parameter to enable the dumping of module id
+   in inline message.   */
+DEFPARAM (PARAM_INLINE_DUMP_MODULE_ID,
+	  "inline-dump-module-id",
+	  "Default is 1. If the value is 0, dumping is disabled.",
+	  1, 0, 1)
 
 /* In LIPO profile-gen, use this parameter to enable cgraph dumping.   */
 DEFPARAM (PARAM_LIPO_DUMP_CGRAPH,
@@ -1174,12 +1203,12 @@ DEFPARAM (CXX_MAX_NAMESPACES_FOR_DIAGNOSTIC_HELP,
 	  1000, 0, 0)
 
 
-/* Only output those call graph edges in .note.callgraph.text sections
+/* Only output those call graph edges in .gnu.callgraph.text sections
    whose count is greater than this value. */
-DEFPARAM (PARAM_NOTE_CGRAPH_SECTION_EDGE_THRESHOLD,
-	  "note-cgraph-section-edge-threshold",
+DEFPARAM (PARAM_GNU_CGRAPH_SECTION_EDGE_THRESHOLD,
+	  "gnu-cgraph-section-edge-threshold",
 	  "minimum call graph edge count for inclusion in "
-          ".note.callgraph.text section",
+          ".gnu.callgraph.text section",
 	  0, 0, 0)
 
 /* Maximum number of conditional store pairs that can be sunk.  */

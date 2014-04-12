@@ -846,8 +846,7 @@ varpool_finalize_decl (tree decl)
   /* Some frontends produce various interface variables after compilation
      finished.  */
   if (cgraph_state == CGRAPH_STATE_FINISHED
-      || (!flag_toplevel_reorder
-          && flag_dyn_ipa && cgraph_state == CGRAPH_STATE_EXPANSION))
+      || (!flag_toplevel_reorder && cgraph_state == CGRAPH_STATE_EXPANSION))
     varpool_assemble_decl (node);
 }
 

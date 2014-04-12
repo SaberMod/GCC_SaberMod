@@ -211,6 +211,10 @@ bool flag_opts_finished
 Variable
 unsigned int flag_sanitize
 
+; Flag whether a prefix has been added to dump_base_name
+Variable
+bool dump_base_name_prefixed = false
+
 ###
 Driver
 
@@ -980,10 +984,6 @@ fcaller-saves
 Common Report Var(flag_caller_saves) Optimization
 Save registers around function calls
 
-fcallgraph-profiles-sections
-Common Report Var(flag_callgraph_profiles_sections) Init(0)
-Generate .note.callgraph.text sections listing callees and edge counts.
-
 fcheck-data-deps
 Common Report Var(flag_check_data_deps)
 Compare the results of several data dependence analyzers.
@@ -1203,10 +1203,6 @@ fripa-inc-path-sub=
 Common Joined RejectNegative Var(lipo_inc_path_pattern)
 Substitute substring in include paths with a new string to allow reuse profile data
 
-fripa-verbose
-Common Report Var(flag_ripa_verbose)
-Enable verbose informational messages for LIPO compilation
-
 fearly-inlining
 Common Report Var(flag_early_inlining) Init(1) Optimization
 Perform early inlining
@@ -1363,6 +1359,10 @@ fgnu-tm
 Common Report Var(flag_tm)
 Enable support for GNU transactional memory
 
+fgnu-unique
+Common Report Var(flag_gnu_unique) Init(1)
+Use STB_GNU_UNIQUE if supported by the assembler
+
 floop-flatten
 Common Ignore
 Does nothing. Preserved for backward compatibility.
@@ -1492,10 +1492,6 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0) Optimization
 Discover pure and const functions
 
-fipa-sem-equality
-Common Report Var(flag_ipa_sem_equality) Iinit(1) Optimization
-Perform Semantic function equality
-
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
@@ -1543,7 +1539,7 @@ Use IRA based register pressure calculation
 in RTL hoist optimizations.
 
 fira-loop-pressure
-Common Report Var(flag_ira_loop_pressure)
+Common Report Var(flag_ira_loop_pressure) Optimization
 Use IRA based register pressure calculation
 in RTL loop optimizations.
 
@@ -1727,6 +1723,10 @@ fpcc-struct-return
 Common Report Var(flag_pcc_struct_return,1) Init(DEFAULT_PCC_STRUCT_RETURN)
 Return small aggregates in memory, not registers
 
+fpeel-codesize-limit
+Common Report Var(flag_peel_codesize_limit) Init(1) Optimization
+Limit non-const non-FP loop peeling under profile estimates of large code footprint
+
 fpeel-loops
 Common Report Var(flag_peel_loops) Optimization
 Perform loop peeling
@@ -1889,6 +1889,16 @@ Reorder basic blocks and partition into hot and cold sections
 freorder-functions
 Common Report Var(flag_reorder_functions) Optimization
 Reorder functions to improve code placement
+
+freorder-functions=
+Common Joined RejectNegative Enum(function_reorder) Var(flag_reorder_functions) Init(0) Optimization
+-freorder-functions=[callgraph]	Select the scheme for function reordering. This invokes a linker plugin.  Generate .gnu.callgraph.text sections listing callees and edge counts.
+
+Enum
+Name(function_reorder) Type(int) UnknownError(unrecognized function reorder value %qs)
+ 
+EnumValue
+Enum(function_reorder) String(callgraph) Value(2)
 
 frerun-cse-after-loop
 Common Report Var(flag_rerun_cse_after_loop) Optimization
@@ -2357,6 +2367,10 @@ Perform loop unrolling when iteration count is known
 funroll-all-loops
 Common Report Var(flag_unroll_all_loops) Optimization
 Perform loop unrolling for all loops
+
+funroll-codesize-limit
+Common Report Var(flag_unroll_codesize_limit) Init(1) Optimization
+Limit non-const non-FP loop unrolling under profile estimates of large code footprint
 
 ; Nonzero means that loop optimizer may assume that the induction variables
 ; that control loops do not overflow and that the loops with nontrivial

@@ -4232,8 +4232,7 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST
-	  && c_inhibit_evaluation_warnings == 0)
+      if (TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
@@ -4313,7 +4312,6 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	     warning.  */
 	  bool warn = 
 	    warn_type_limits && !in_system_header_at (loc)
-	    && c_inhibit_evaluation_warnings == 0
 	    && !(TREE_CODE (primop0) == INTEGER_CST
 		 && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 					     primop0)))
@@ -10511,6 +10509,7 @@ add_atomic_size_parameter (unsigned n, location_t loc, tree function,
 
       len = params->length ();
       vec_alloc (v, len + 1);
+      v->quick_push (build_int_cst (size_type_node, n));
       for (z = 0; z < len; z++)
 	v->quick_push ((*params)[z]);
       f = build_function_call_vec (loc, vNULL, function, v, NULL);
