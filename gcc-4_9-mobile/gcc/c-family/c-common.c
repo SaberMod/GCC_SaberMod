@@ -11559,13 +11559,6 @@ maybe_record_typedef_use (tree t)
 void
 maybe_warn_unused_local_typedefs (void)
 {
-  int i;
-  tree decl;
-  /* The number of times we have emitted -Wunused-local-typedefs
-     warnings.  If this is different from errorcount, that means some
-     unrelated errors have been issued.  In which case, we'll avoid
-     emitting "unused-local-typedefs" warnings.  */
-  static int unused_local_typedefs_warn_count;
   struct c_language_function *l;
 
   if (cfun == NULL)
@@ -11573,17 +11566,6 @@ maybe_warn_unused_local_typedefs (void)
 
   if ((l = (struct c_language_function *) cfun->language) == NULL)
     return;
-
-  if (warn_unused_local_typedefs
-      && errorcount == unused_local_typedefs_warn_count)
-    {
-      FOR_EACH_VEC_SAFE_ELT (l->local_typedefs, i, decl)
-	if (!TREE_USED (decl))
-	  warning_at (DECL_SOURCE_LOCATION (decl),
-		      OPT_Wunused_local_typedefs,
-		      "typedef %qD locally defined but not used", decl);
-      unused_local_typedefs_warn_count = errorcount;
-    }
 
   vec_free (l->local_typedefs);
 }
