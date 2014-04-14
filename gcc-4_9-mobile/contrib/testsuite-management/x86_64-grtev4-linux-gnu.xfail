@@ -1,0 +1,25 @@
+# 2014/03/29 merge from trunk
+FAIL: 23_containers/map/pthread6.cc execution test
+
+# Google b/13171749
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+
+# Google b/13175515 -- r208255 disabled self-assign in templates.
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++98  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++11  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++1y  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++98  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++98  (test for warnings, line 26)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++11  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++11  (test for warnings, line 26)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++1y  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++1y  (test for warnings, line 26)
+
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 15)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 19)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
+FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
+
