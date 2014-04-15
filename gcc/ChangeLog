@@ -1,3 +1,165 @@
+2014-04-14  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* doc/invoke.texi (free): Document AArch64.
+
+2013-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* DEV-PHASE: Set to prerelease.
+
+2014-04-11  Tobias Burnus  <burnus@net-b.de>
+
+	PR other/59055
+	* doc/bugreport.texi (Bugs): Remove nodes pointing to the
+	nirvana.
+	* doc/gcc.texi (Service): Update description in the @menu
+	* doc/invoke.texi (Option Summary): Remove misplaced and
+	duplicated @menu.
+
+2014-04-11  Steve Ellcey  <sellcey@mips.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/60556
+	* expr.c (convert_move): Use emit_store_flag_force instead of
+	emit_store_flag.  Pass lowpart_mode instead of VOIDmode as 5th
+	argument to it.
+
+2014-04-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60797
+	* varasm.c (assemble_alias): Avoid endless error reporting
+	recursion by setting TREE_ASM_WRITTEN.
+
+2014-04-11  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md: Add a splitter for NOT rtx.
+
+2014-04-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/60663
+	* cse.c (cse_insn): Set src_volatile on ASM_OPERANDS in
+	PARALLEL.
+
+2014-04-10  Jan Hubicka  <hubicka@ucw.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR lto/60567
+	* ipa.c (function_and_variable_visibility): Copy forced_by_abi flag from
+	decl_node to node.
+
+2014-04-10  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR debug/60655
+	* config/arm/arm.c (TARGET_CONST_NOT_OK_FOR_DEBUG_P): Define
+	(arm_const_not_ok_for_debug_p): Reject MINUS with SYM_REF's
+	ameliorating the cases where it can be.
+
+2014-04-09  David Edelsohn  <dje.gcc@gmail.com>
+
+	Revert
+	2014-04-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/sync.md (AINT mode_iterator): Move definition.
+	(loadsync_<mode>): Change mode.
+	(load_quadpti, store_quadpti): New.
+	(atomic_load<mode>, atomic_store<mode>): Add support for TI mode.
+	* config/rs6000/rs6000.md (unspec enum): Add UNSPEC_LSQ.
+	* config/rs6000/predicates.md (quad_memory_operand): !TARGET_SYNC_TI.
+
+2014-04-09  Cong Hou  <congh@google.com>
+
+	PR testsuite/60773
+	* doc/sourcebuild.texi (vect_widen_mult_si_to_di_pattern): Add
+	documentation.
+
+2014-04-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Use vnand
+	instead of vnor to exploit possible fusion opportunity in the
+	future.
+	(altivec_expand_vec_perm_const_le): Likewise.
+
+2014-04-08  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/sync.md (AINT mode_iterator): Move definition.
+	(loadsync_<mode>): Change mode.
+	(load_quadpti, store_quadpti): New.
+	(atomic_load<mode>, atomic_store<mode>): Add support for TI mode.
+	* config/rs6000/rs6000.md (unspec enum): Add UNSPEC_LSQ.
+
+2014-04-08  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/60763
+	* config/rs6000/vsx.md (vsx_xscvdpspn_scalar): Change input to DImode.
+	* config/rs6000/rs6000.md (reload_vsx_from_gprsf): Update accordingly.
+	Use gen_rtx_REG rather than simplify_gen_subreg for op0_di.
+
+2014-04-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60706
+	* tree-pretty-print.c (pp_double_int): For HWI32 hosts with
+	a 64bit widest int print double-int similar to on HWI64 hosts.
+
+2014-04-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60785
+	* graphite-sese-to-poly.c (rewrite_phi_out_of_ssa): Treat
+	default defs properly.
+
+2014-04-08  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* doc/invoke (Wnon-virtual-dtor): Update to match implementation.
+	(Weffc++): Likewise.
+
+2014-04-07  Jan Hubicka  <hubcika@ucw.cz>
+
+	* ipa-devirt.c (maybe_record_node): When node is not recorded,
+	set completep to false rather than true.
+
+2014-04-07  Douglas B Rupp  <rupp@adacore.com>
+
+	PR target/60504
+	* config/arm/arm.h (ASM_PREFERRED_EH_DATA_FORMAT): Expose from
+	ARM_TARGET2_DWARF_FORMAT.
+
+2014-04-07  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/60609
+	* config/arm/arm.h (ASM_OUTPUT_CASE_END): Remove.
+	(LABEL_ALIGN_AFTER_BARRIER): Align barriers which occur after
+	ADDR_DIFF_VEC.
+
+2014-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60766
+	* tree-ssa-loop-ivopts.c (cand_value_at): Compute in an unsigned type.
+	(may_eliminate_iv): Convert cand_value_at result to desired type.
+
+2014-04-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60731
+	* common.opt (-fno-gnu-unique): Add.
+	* config/elfos.h (USE_GNU_UNIQUE_OBJECT): Check it.
+
+2014-04-07  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* haifa-sched.c: Fix outdated function reference and minor
+	grammar errors in introductory comment.
+
+2014-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60750
+	* tree-ssa-operands.c (maybe_add_call_vops): Also add VDEFs
+	for noreturn calls.
+	* tree-cfgcleanup.c (fixup_noreturn_call): Do not remove VDEFs.
+
+2014-04-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR debug/55794
+	* config/pa/pa.c (pa_output_function_epilogue): Skip address and code
+	size accounting for thunks.
+	(pa_asm_output_mi_thunk): Use final_start_function() and
+	final_end_function() to output function start and end directives.
+
 2014-04-05  Pitchumani Sivanupandi  <Pitchumani.S@atmel.com>
 
 	* config/avr/avr-arch.h (avr_mcu_t): Add dev_attribute field to have device
@@ -86,13 +248,6 @@
         cgraph_redirect_edge_callee.
         (cgraph_create_virtual_clone): Pass args_to_skip to cgraph_clone_node,
 	moved setting of a lot of flags to set_new_clone_decl_and_node_flags.
-
-2014-04-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
-
-	PR fortran/60191
-	* fortran/trans-types.c (gfc_get_function_type): In case of recursion
-	build a variadic function type with empty argument list instead of a
-	stdarg-like function type with incomplete argument list.
 
 2014-04-04  Jeff Law  <law@redhat.com>
 
