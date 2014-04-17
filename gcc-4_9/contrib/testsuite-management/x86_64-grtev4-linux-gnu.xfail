@@ -38,6 +38,3 @@ FAIL: gcc.dg/tree-prof/crossmodule-indircall-1a.c compilation,  -fprofile-genera
 UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c execution,    -fprofile-generate -D_PROFILE_GENERATE
 UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c compilation,  -fprofile-use -D_PROFILE_USE
 UNRESOLVED: gcc.dg/tree-prof/crossmodule-indircall-1a.c execution,    -fprofile-use -D_PROFILE_USE
-
-# Google b/14141774
-FAIL: g++.dg/tree-prof/func_reorder_gold_plugin_1.C scan-file Moving . section\\(s\\) to new segment
