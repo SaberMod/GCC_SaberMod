@@ -28,3 +28,8 @@ FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
 
 # Google b/14137212
 FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
+
+# Google b/14140971
+FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
+FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
+
