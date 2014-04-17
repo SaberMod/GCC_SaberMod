@@ -23,3 +23,5 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
+# http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60037
+FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
