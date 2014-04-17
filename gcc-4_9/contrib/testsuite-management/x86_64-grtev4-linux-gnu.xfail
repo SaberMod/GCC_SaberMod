@@ -25,3 +25,6 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
 # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60037
 FAIL: ext/random/hypergeometric_distribution/operators/values.cc execution test
+
+# Google b/14137212
+FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
