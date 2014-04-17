@@ -4642,6 +4642,13 @@ cse_insn (rtx insn)
 	  && REGNO (dest) >= FIRST_PSEUDO_REGISTER)
 	sets[i].src_volatile = 1;
 
+      /* Also do not record result of a non-volatile inline asm with
+	 more than one result or with clobbers, we do not want CSE to
+	 break the inline asm apart.  */
+      else if (GET_CODE (src) == ASM_OPERANDS
+	       && GET_CODE (x) == PARALLEL)
+	sets[i].src_volatile = 1;
+
 #if 0
       /* It is no longer clear why we used to do this, but it doesn't
 	 appear to still be needed.  So let's try without it since this
@@ -7450,12 +7457,6 @@ cse_condition_code_reg (void)
 /* Perform common subexpression elimination.  Nonzero value from
    `cse_main' means that jumps were simplified and some code may now
    be unreachable, so do jump optimization again.  */
-static bool
-gate_handle_cse (void)
-{
-  return optimize > 0;
-}
-
 static unsigned int
 rest_of_handle_cse (void)
 {
@@ -7490,7 +7491,6 @@ const pass_data pass_data_cse =
   RTL_PASS, /* type */
   "cse1", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CSE, /* tv_id */
   0, /* properties_required */
@@ -7509,8 +7509,8 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_cse (); }
-  unsigned int execute () { return rest_of_handle_cse (); }
+  virtual bool gate (function *) { return optimize > 0; }
+  virtual unsigned int execute (function *) { return rest_of_handle_cse (); }
 
 }; // class pass_cse
 
@@ -7522,12 +7522,6 @@ make_pass_cse (gcc::context *ctxt)
   return new pass_cse (ctxt);
 }
 
-
-static bool
-gate_handle_cse2 (void)
-{
-  return optimize > 0 && flag_rerun_cse_after_loop;
-}
 
 /* Run second CSE pass after loop optimizations.  */
 static unsigned int
@@ -7570,7 +7564,6 @@ const pass_data pass_data_cse2 =
   RTL_PASS, /* type */
   "cse2", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CSE2, /* tv_id */
   0, /* properties_required */
@@ -7589,8 +7582,12 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_cse2 (); }
-  unsigned int execute () { return rest_of_handle_cse2 (); }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_rerun_cse_after_loop;
+    }
+
+  virtual unsigned int execute (function *) { return rest_of_handle_cse2 (); }
 
 }; // class pass_cse2
 
@@ -7600,12 +7597,6 @@ rtl_opt_pass *
 make_pass_cse2 (gcc::context *ctxt)
 {
   return new pass_cse2 (ctxt);
-}
-
-static bool
-gate_handle_cse_after_global_opts (void)
-{
-  return optimize > 0 && flag_rerun_cse_after_global_opts;
 }
 
 /* Run second CSE pass after loop optimizations.  */
@@ -7648,7 +7639,6 @@ const pass_data pass_data_cse_after_global_opts =
   RTL_PASS, /* type */
   "cse_local", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_gate */
   true, /* has_execute */
   TV_CSE, /* tv_id */
   0, /* properties_required */
@@ -7667,10 +7657,15 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_handle_cse_after_global_opts (); }
-  unsigned int execute () {
-    return rest_of_handle_cse_after_global_opts ();
-  }
+  virtual bool gate (function *)
+    {
+      return optimize > 0 && flag_rerun_cse_after_global_opts;
+    }
+
+  virtual unsigned int execute (function *)
+    {
+      return rest_of_handle_cse_after_global_opts ();
+    }
 
 }; // class pass_cse_after_global_opts
 

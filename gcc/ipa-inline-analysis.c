@@ -2920,7 +2920,6 @@ const pass_data pass_data_inline_parameters =
   GIMPLE_PASS, /* type */
   "inline_param", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  false, /* has_gate */
   true, /* has_execute */
   TV_INLINE_PARAMETERS, /* tv_id */
   0, /* properties_required */
@@ -2939,9 +2938,10 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_inline_parameters (m_ctxt); }
-  unsigned int execute () {
-    return compute_inline_parameters_for_current ();
-  }
+  virtual unsigned int execute (function *)
+    {
+      return compute_inline_parameters_for_current ();
+    }
 
 }; // class pass_inline_parameters
 
