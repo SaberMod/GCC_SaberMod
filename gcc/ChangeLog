@@ -1,7 +1,49 @@
-2013-07-11  Teresa Johnson  <tejohnson@google.com>
+2014-04-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* vec.h (struct va_gc): Move release out-of-line.
-	(va_gc::release): Call ggc_free on released vec.
+	Back port from the trunk, subversion id 209546.
+
+	2014-04-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60735
+	* config/rs6000/rs6000.md (mov<mode>_softfloat32, FMOVE64 case):
+	If mode is DDmode and TARGET_E500_DOUBLE allow move.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print some
+	more debug information for E500 if -mdebug=reg.
+
+2014-04-18  Richard Henderson  <rth@redhat.com>
+
+	* config/aarch64/aarch64.c (aarch64_register_move_cost): Pass a mode
+	to GET_MODE_SIZE, not a reg_class_t.
+
+2014-04-17  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_xxmrghw_<mode>): Adjust for
+	little-endian.
+	(vsx_xxmrglw_<mode>): Likewise.
+
+2014-04-15  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/60839
+	Revert the following patch
+
+	2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Back port mainline subversion id 209025.
+	2014-04-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60735
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): If we have
+	software floating point or no floating point registers, do not
+	allow any type in the FPRs.  Eliminate a test for SPE SIMD types
+	in GPRs that occurs after we tested for GPRs that would never be
+	true.
+
+	* config/rs6000/rs6000.md (mov<mode>_softfloat32, FMOVE64):
+	Rewrite tests to use TARGET_DOUBLE_FLOAT and TARGET_E500_DOUBLE,
+	since the FMOVE64 type is DFmode/DDmode.  If TARGET_E500_DOUBLE,
+	specifically allow DDmode, since that does not use the SPE SIMD
+	instructions.
 
 2014-04-10  Vladimir Makarov  <vmakarov@redhat.com>
 
