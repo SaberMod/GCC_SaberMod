@@ -1790,6 +1790,13 @@ fprofile-generate-sampling
 Common Var(flag_profile_generate_sampling)
 Turn on instrumentation sampling with -fprofile-generate with rate set by --param profile-generate-sampling-rate or environment variable GCOV_SAMPLING_RATE
 
+femit-function-names
+Common Var(flag_emit_function_names)
+Print to stderr the mapping from module name and function id to assembler
+function name when -ftest-coverage, -fprofile-generate or -fprofile-use are
+active, for use in correlating function ids in gcda files with the function
+name.
+
 fprofile-strip=
 Common Joined RejectNegative Var(profile_base_name_suffix_to_strip)
 Specify a substring to be stripped from the profile base file name
