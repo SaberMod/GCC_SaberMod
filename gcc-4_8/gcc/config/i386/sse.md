@@ -11542,3 +11542,37 @@
   [(set_attr "type" "ssemov")
    (set_attr "prefix" "vex")
    (set_attr "mode" "<sseinsnmode>")])
+
+;; merge movsd/movhpd to movupd when TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
+;; is true.
+(define_peephole2
+  [(set (match_operand:DF 0 "register_operand")
+	(match_operand:DF 1 "memory_operand"))
+   (set (match_operand:V2DF 2 "register_operand")
+	(vec_concat:V2DF (match_dup 0)
+	 (match_operand:DF 3 "memory_operand")))]
+  "TARGET_SSE_UNALIGNED_LOAD_OPTIMAL
+   && REGNO (operands[0]) == REGNO (operands[2])
+   && adjacent_mem_locations (operands[1], operands[3])"
+  [(set (match_dup 2)
+	(unspec:V2DF [(match_dup 4)] UNSPEC_LOADU))]
+{
+  operands[4] = gen_rtx_MEM (V2DFmode, XEXP(operands[1], 0));
+})
+
+;; merge movsd/movhpd to movupd when TARGET_SSE_UNALIGNED_STORE_OPTIMAL
+;; is true.
+(define_peephole2
+  [(set (match_operand:DF 0 "memory_operand")
+        (vec_select:DF (match_operand:V2DF 1 "register_operand")
+		       (parallel [(const_int 0)])))
+   (set (match_operand:DF 2 "memory_operand")
+        (vec_select:DF (match_dup 1)
+                       (parallel [(const_int 1)])))]
+  "TARGET_SSE_UNALIGNED_STORE_OPTIMAL
+   && adjacent_mem_locations (operands[0], operands[2])"
+  [(set (match_dup 3)
+        (unspec:V2DF [(match_dup 1)] UNSPEC_STOREU))]
+{
+  operands[3] = gen_rtx_MEM (V2DFmode, XEXP(operands[0], 0));
+})

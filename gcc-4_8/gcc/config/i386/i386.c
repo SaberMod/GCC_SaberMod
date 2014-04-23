@@ -43088,6 +43088,70 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
+/* Try to determine BASE/OFFSET/SIZE parts of the given MEM.
+   Return true if successful, false if all the values couldn't
+   be determined.
+
+   This function only looks for REG/SYMBOL or REG/SYMBOL+CONST
+   address forms. */
+
+static bool
+get_memref_parts (rtx mem, rtx *base, HOST_WIDE_INT *offset,
+		  HOST_WIDE_INT *size)
+{
+  rtx addr_rtx;
+  if MEM_SIZE_KNOWN_P (mem)
+    *size = MEM_SIZE (mem);
+  else
+    return false;
+
+  if (GET_CODE (XEXP (mem, 0)) == CONST)
+    addr_rtx = XEXP (XEXP (mem, 0), 0);
+  else
+    addr_rtx = (XEXP (mem, 0));
+
+  if (GET_CODE (addr_rtx) == REG
+      || GET_CODE (addr_rtx) == SYMBOL_REF)
+    {
+      *base = addr_rtx;
+      *offset = 0;
+    }
+  else if (GET_CODE (addr_rtx) == PLUS
+	   && CONST_INT_P (XEXP (addr_rtx, 1)))
+    {
+      *base = XEXP (addr_rtx, 0);
+      *offset = INTVAL (XEXP (addr_rtx, 1));
+    }
+  else
+    return false;
+
+  return true;
+}
+
+/* If MEM1 is adjacent to MEM2 and MEM1 has lower address,
+   return true.  */
+
+extern bool
+adjacent_mem_locations (rtx mem1, rtx mem2)
+{
+  rtx base1, base2;
+  HOST_WIDE_INT off1, size1, off2, size2;
+
+  if (get_memref_parts (mem1, &base1, &off1, &size1)
+      && get_memref_parts (mem2, &base2, &off2, &size2))
+    {
+      if (GET_CODE (base1) == SYMBOL_REF
+	  && GET_CODE (base2) == SYMBOL_REF
+	  && SYMBOL_REF_DECL (base1) == SYMBOL_REF_DECL (base2))
+        return (off1 + size1 == off2);
+      else if (REG_P (base1)
+	       && REG_P (base2)
+	       && REGNO (base1) == REGNO (base2))
+        return (off1 + size1 == off2);
+    }
+  return false;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
