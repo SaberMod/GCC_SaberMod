@@ -1752,9 +1752,6 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
      modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
-      if (TARGET_SOFT_FLOAT || !TARGET_FPRS)
-	return 0;
-
       if (SCALAR_FLOAT_MODE_P (mode)
 	  && (mode != TDmode || (regno % 2) == 0)
 	  && FP_REGNO_P (last_regno))
@@ -1782,6 +1779,10 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
   if (ALTIVEC_REGNO_P (regno))
     return (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode)
 	    || mode == V1TImode);
+
+  /* ...but GPRs can hold SIMD data on the SPE in one register.  */
+  if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
+    return 1;
 
   /* We cannot put non-VSX TImode or PTImode anywhere except general register
      and it must be able to fit within the register set.  */
@@ -2281,6 +2282,24 @@ rs6000_debug_reg_global (void)
 
   if (rs6000_float_gprs)
     fprintf (stderr, DEBUG_FMT_S, "float_gprs", "true");
+
+  fprintf (stderr, DEBUG_FMT_S, "fprs",
+	   (TARGET_FPRS ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "single_float",
+	   (TARGET_SINGLE_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "double_float",
+	   (TARGET_DOUBLE_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "soft_float",
+	   (TARGET_SOFT_FLOAT ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "e500_single",
+	   (TARGET_E500_SINGLE ? "true" : "false"));
+
+  fprintf (stderr, DEBUG_FMT_S, "e500_double",
+	   (TARGET_E500_DOUBLE ? "true" : "false"));
 
   if (TARGET_LINK_STACK)
     fprintf (stderr, DEBUG_FMT_S, "link_stack", "true");
