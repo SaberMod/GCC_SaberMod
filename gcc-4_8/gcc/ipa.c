@@ -376,6 +376,8 @@ error " Check the following code "
 #endif
               if (!cgraph_is_aux_decl_external (node))
                 {
+	          node->alias = false;
+                  node->thunk.thunk_p = false;
 	          cgraph_node_remove_callees (node);
 	          ipa_remove_all_references (&node->symbol.ref_list);
                 }
