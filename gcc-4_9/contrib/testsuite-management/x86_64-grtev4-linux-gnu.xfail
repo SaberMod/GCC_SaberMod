@@ -32,3 +32,13 @@ FAIL: 29_atomics/atomic/cons/user_pod.cc (test for excess errors)
 # Google b/14140971
 FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xacquire|.byte[^\n\r]*0xf2 14
 FAIL: 29_atomics/atomic_flag/test_and_set/explicit-hle.cc scan-assembler-times xrelease|.byte[^\n\r]*0xf3 14
+
+# Google b/4094190: we disable libquadmath support, causing these failures:
+FAIL: gfortran.dg/erf_3.F90 -O0  execution test
+FAIL: gfortran.dg/erf_3.F90 -O1  execution test
+FAIL: gfortran.dg/erf_3.F90 -O2  execution test
+FAIL: gfortran.dg/erf_3.F90 -O3 -fomit-frame-pointer  execution test
+FAIL: gfortran.dg/erf_3.F90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gfortran.dg/erf_3.F90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gfortran.dg/erf_3.F90 -O3 -g  execution test
+FAIL: gfortran.dg/erf_3.F90 -Os  execution test
