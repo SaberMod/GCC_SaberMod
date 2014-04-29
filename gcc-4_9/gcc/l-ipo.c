@@ -725,6 +725,7 @@ lipo_cmp_type (tree t1, tree t2)
               && lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2)));
     case VOID_TYPE:
     case BOOLEAN_TYPE:
+    case NULLPTR_TYPE:
       return 1;
     case TEMPLATE_TYPE_PARM:
       return 1;
@@ -1706,6 +1707,7 @@ externalize_weak_decl (tree decl)
   DECL_EXTERNAL (decl) = 1;
   TREE_STATIC (decl) = 0;
   DECL_INITIAL (decl) = NULL;
+  DECL_CONTEXT (decl) = NULL;
 }
 
 /* Return a unique sequence number for NAME. This is needed to avoid
@@ -1923,6 +1925,7 @@ process_module_scope_static_var (struct varpool_node *vnode)
                 {
                   DECL_ASSEMBLER_NAME (decl);
                 }
+              DECL_CONTEXT (decl) = NULL;
 	    }
         }
       else
@@ -2042,15 +2045,7 @@ cgraph_process_module_scope_statics (void)
   struct cgraph_node *pf;
   struct varpool_node *pv;
 
-  /* Only need to do type unification when we are in LIPO mode
-     and have a non-trivial module group (size is >1). However,
-     override the size check under non-zero PARAM_LIPO_RANDOM_GROUP_SIZE,
-     which indicates that we are stress-testing LIPO. In that case
-     try to flush out problems with type unification by always
-     performing it.  */
-  if (!L_IPO_COMP_MODE
-      || (num_in_fnames == 1
-          && PARAM_VALUE (PARAM_LIPO_RANDOM_GROUP_SIZE) == 0))
+  if (!L_IPO_COMP_MODE)
     return;
 
   promo_ent_hash_tab = htab_create (10, promo_ent_hash,
