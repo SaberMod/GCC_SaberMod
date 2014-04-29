@@ -1707,7 +1707,10 @@ externalize_weak_decl (tree decl)
   DECL_EXTERNAL (decl) = 1;
   TREE_STATIC (decl) = 0;
   DECL_INITIAL (decl) = NULL;
-  DECL_CONTEXT (decl) = NULL;
+
+  /* Keep the context so that devirt_variable_node_removal_hook
+     can do cleanup properly for vtables.
+  DECL_CONTEXT (decl) = NULL; */
 }
 
 /* Return a unique sequence number for NAME. This is needed to avoid
@@ -1890,7 +1893,9 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
           DECL_EXTERNAL (decl) = 1;
           /* Keep the initializer to allow const prop.  */
           /* DECL_INITIAL (decl) = 0; */
-          DECL_CONTEXT (decl) = 0;
+          /* Keep the context so that devirt_variable_node_removal_hook
+             can do cleanup properly for vtables.
+          DECL_CONTEXT (decl) = 0; */
         }
       /* else
          Function body will be deleted later before expansion.  */
@@ -1925,7 +1930,9 @@ process_module_scope_static_var (struct varpool_node *vnode)
                 {
                   DECL_ASSEMBLER_NAME (decl);
                 }
-              DECL_CONTEXT (decl) = NULL;
+              /* Keep the context so that devirt_variable_node_removal_hook
+                 can do cleanup properly for vtables.
+              DECL_CONTEXT (decl) = NULL; */
 	    }
         }
       else
