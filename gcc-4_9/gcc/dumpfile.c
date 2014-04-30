@@ -266,6 +266,8 @@ dump_loc (int dump_kind, FILE *dfile, source_location loc)
 {
   if (dump_kind)
     {
+      /* Ensure dump message starts on a new line.  */
+       fprintf (dfile, "\n");
       if (LOCATION_LOCUS (loc) > BUILTINS_LOCATION)
         fprintf (dfile, "%s:%d:%d: note: ", LOCATION_FILE (loc),
                  LOCATION_LINE (loc), LOCATION_COLUMN (loc));
