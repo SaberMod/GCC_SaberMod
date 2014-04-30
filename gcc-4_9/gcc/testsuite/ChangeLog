@@ -1,3 +1,71 @@
+2014-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2014-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pack01.c: New test to test the new pack and
+	unpack builtin functionss for 128-bit types.
+	* gcc.target/powerpc/pack02.c: Likewise.
+	* gcc.target/powerpc/pack03.c: Likewise.
+	* gcc.target/powerpc/extend-divide-1.c: New test to test extended
+	divide builtin functionss.
+	* gcc.target/powerpc/extend-divide-2.c: Likewise.
+	* gcc.target/powerpc/bcd-1.c: New test for the new BCD builtin
+	functions.
+	* gcc.target/powerpc/bcd-2.c: Likewise.
+	* gcc.target/powerpc/bcd-3.c: Likewise.
+	* gcc.target/powerpc/dfp-builtin-1.c: New test for the new DFP
+	builtin functionss.
+	* gcc.target/powerpc/dfp-builtin-2.c: Likewise.
+
+2014-04-29  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2014-04-17  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/ti_math1.c: New.
+	* gcc.target/powerpc/ti_math2.c: New.
+
+2014-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60971
+	* c-c++-common/turtore/pr60971.c: New test.
+
+2014-04-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/tree-ssa/alias-30.c (dg-options): Dump only fre1 details.
+	* gcc.dg/vect/pr60505.c: Cleanup vect tree dump.
+	* g++.dg/ipa/devirt-27.C (dg-options): Remove -fdump-ipa-devirt.
+
+2014-04-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* c-c++-common/gomp/pr60823-2.c: Require effective target
+	vect_simd_clones.
+
+2014-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60960
+	* gcc.c-torture/execute/pr60960.c: New test.
+
+2014-04-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20140425-1.c: New test.
+
+2014-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/60912
+	* g++.dg/opt/pr60912.C: New testcase.
+
+2014-04-25  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/60911
+	* gcc.dg/lto/pr60911_0.c: New testcase.
+
+2014-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/atomic-16.c: Remove all dg-error directives.
+	Replace load with read and store with write.
+
 2014-04-23  Uros Bizjak  <ubizjak@gmail.com>
 
 	Backport from mainline
@@ -1670,8 +1738,7 @@
 
 2014-02-19  Paul Pluzhnikov  <ppluzhnikov@google.com>
 
-	* gcc.dg/vect/no-vfa-vect-depend-2.c (main1): Fix buffer
-	overflow.
+	* gcc.dg/vect/no-vfa-vect-depend-2.c (main1): Fix buffer overflow.
 
 2014-02-19  Jakub Jelinek  <jakub@redhat.com>
 
@@ -1980,8 +2047,7 @@
 
 2014-02-10  Jakub Jelinek  <jakub@redhat.com>
 
-	* gcc.dg/vect/pr59984.c: Require effective target
-	vect_simd_clones.
+	* gcc.dg/vect/pr59984.c: Require effective target vect_simd_clones.
 
 2014-02-09  Paul Thomas  <pault@gcc.gnu.org>
 
@@ -3228,8 +3294,8 @@
 	* gfortran.dg/vect/fast-math-mgrid-resid.f: Change
 	-fdump-tree-optimized to -fdump-tree-pcom-details in dg-options and
 	cleanup-tree-dump from optimized to pcom.  Remove scan-tree-dump-times
-	for vect_\[^\\n\]*\\+, add scan-tree-dump-times for no suitable chains and
-	Executing predictive commoning without unrolling.
+	for vect_\[^\\n\]*\\+, add scan-tree-dump-times for no suitable
+	chains and Executing predictive commoning without unrolling.
 
 2014-01-14  Kirill Yukhin  <kirill.yukhin@intel.com>
 
