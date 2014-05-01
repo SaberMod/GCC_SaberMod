@@ -873,11 +873,6 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                 }
 	      else if (incompatible_cl_args (module_infos[0], mod_info))
                 {
-                  // David
-                  fprintf (stderr, "Not importing %s: command-line"
-                                     " arguments not compatible with primary"
-                                     " module",
-                                     mod_info->source_filename);
                   if (dump_enabled_p ())
                     dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
                                      "Not importing %s: command-line"
