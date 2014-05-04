@@ -1,3 +1,76 @@
+2014-05-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/60930
+	* gcc.dg/torture/pr60930.c:  New test.
+
+2014-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from mainline
+	2014-04-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pack01.c: New test to test the new pack and
+	unpack builtin functionss for 128-bit types.
+	* gcc.target/powerpc/pack02.c: Likewise.
+	* gcc.target/powerpc/pack03.c: Likewise.
+	* gcc.target/powerpc/extend-divide-1.c: New test to test extended
+	divide builtin functionss.
+	* gcc.target/powerpc/extend-divide-2.c: Likewise.
+	* gcc.target/powerpc/bcd-1.c: New test for the new BCD builtin
+	functions.
+	* gcc.target/powerpc/bcd-2.c: Likewise.
+	* gcc.target/powerpc/bcd-3.c: Likewise.
+	* gcc.target/powerpc/dfp-builtin-1.c: New test for the new DFP
+	builtin functionss.
+	* gcc.target/powerpc/dfp-builtin-2.c: Likewise.
+
+2014-04-29  Pat Haugen  <pthaugen@us.ibm.com>
+
+	Backport from mainline
+	2014-04-17  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/ti_math1.c: New.
+	* gcc.target/powerpc/ti_math2.c: New.
+
+2014-04-25  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.c-torture/execute/20140425-1.c: New test.
+
+2014-04-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from main line:
+	2014-03-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-vbpermq.c: New test to test the
+	vbpermq builtin.
+
+2014-04-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-04-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/60909
+	* gcc.target/i386/pr60909-1.c: New test.
+	* gcc.target/i386/pr60909-2.c: Ditto.
+
+2014-04-23  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-04-02  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60729
+	* g++.dg/vect/pr60729.cc: New testcase.
+
+	2014-04-03  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60740
+	* gcc.dg/graphite/pr60740.c: New testcase.
+
+2014-04-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60635
+	* gfortran.dg/lto/pr60635_0.f90: New testcase.
+	* gfortran.dg/lto/pr60635_1.c: Likewise.
+
 2014-04-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from the trunk, subversion id 209546.
