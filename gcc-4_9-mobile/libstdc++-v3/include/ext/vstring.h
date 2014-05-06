@@ -551,7 +551,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const_reference
       operator[] (size_type __pos) const _GLIBCXX_NOEXCEPT
       {
+#if __google_stl_debug_string && !defined(_GLIBCXX_DEBUG)
+	if (__pos > this->size())
+	  std::__throw_out_of_range_fmt(__N("__versa_string::operator[]: __pos "
+					    "(which is %zu) > this->size() "
+					    "(which is %zu)"),
+					__pos, this->size());
+#else
 	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+#endif
 	return this->_M_data()[__pos];
       }
 
@@ -570,7 +578,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
         // Allow pos == size() both in C++98 mode, as v3 extension,
 	// and in C++11 mode.
+#if __google_stl_debug_string && !defined(_GLIBCXX_DEBUG)
+	if (__pos > this->size())
+	  std::__throw_out_of_range_fmt(__N("__versa_string::operator[]: __pos "
+					    "(which is %zu) > this->size() "
+					    "(which is %zu)"),
+					__pos, this->size());
+#else
 	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+#endif
         // In pedantic mode be strict in C++98 mode.
 	_GLIBCXX_DEBUG_PEDASSERT(__cplusplus >= 201103L
 				 || __pos < this->size());

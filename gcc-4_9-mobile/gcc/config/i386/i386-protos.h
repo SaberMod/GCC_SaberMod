@@ -322,6 +322,7 @@ extern enum attr_cpu ix86_schedule;
 #endif
 
 extern const char * ix86_output_call_insn (rtx insn, rtx call_op);
+extern bool adjacent_mem_locations (rtx mem1, rtx mem2);
 
 #ifdef RTX_CODE
 /* Target data for multipass lookahead scheduling.

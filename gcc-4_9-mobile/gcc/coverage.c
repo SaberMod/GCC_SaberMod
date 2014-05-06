@@ -337,6 +337,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   char **non_warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
   char **non_warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
   char *std_opts1 = NULL, *std_opts2 = NULL;
+  unsigned arch_isa1 = 0, arch_isa2 = 0;
   unsigned int i, num_warning_opts1 = 0, num_warning_opts2 = 0;
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
@@ -350,6 +351,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
     + mod_info2->num_cpp_defines + mod_info2->num_cpp_includes;
 
   bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts, has_incompatible_std;
+  bool has_incompatible_arch_isa;
   unsigned int num_cg_opts = 0;
 
   for (i = 0; force_matching_cg_opts[i].opt_str; i++)
@@ -382,6 +384,9 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
 	if (strstr (option_string, "-std="))
 	  std_opts1 = option_string;
 
+        if (!strncmp (option_string, "-m",2))
+          arch_isa1 = crc32_string (arch_isa1, option_string);
+
         slot = option_tab1.find_slot (option_string, INSERT);
         if (!*slot)
           {
@@ -403,6 +408,9 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
 	if (strstr (option_string, "-std="))
 	  std_opts2 = option_string;
 
+        if (!strncmp (option_string, "-m",2))
+          arch_isa2 = crc32_string (arch_isa2, option_string);
+
         slot = option_tab2.find_slot (option_string, INSERT);
         if (!*slot)
           {
@@ -415,6 +423,7 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
       std_opts1 != std_opts2 && (std_opts1 == NULL || std_opts2 == NULL
 				 || strcmp (std_opts1, std_opts2));
 
+  has_incompatible_arch_isa = (arch_isa1 != arch_isa2);
   /* Compare warning options. If these mismatch, we emit a warning.  */
   if (num_warning_opts1 != num_warning_opts2)
     warning_mismatch = true;
@@ -462,7 +471,8 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
    option_tab1.dispose ();
    option_tab2.dispose ();
    return ((flag_ripa_disallow_opt_mismatch && non_warning_mismatch)
-           || has_any_incompatible_cg_opts || has_incompatible_std);
+           || has_any_incompatible_cg_opts || has_incompatible_std
+           || has_incompatible_arch_isa);
 }
 
 
@@ -1832,6 +1842,19 @@ build_cl_args_array_value (tree string_type, vec<constructor_elt, va_gc> **v)
 			       build1 (ADDR_EXPR, string_type, arg_string));
     }
   return;
+}
+
+/* Emit mapping between module name and function id to the function's
+   assembler name, for use in correlating function idents in the gcda file
+   with the function name.  */
+
+void
+emit_function_name (void)
+{
+  fprintf (stderr, "Module %s FuncId %u Name %s\n",
+           main_input_file_name,
+           FUNC_DECL_FUNC_ID (cfun),
+           IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
 }
 
 /* Returns the type of the module info associated with the
