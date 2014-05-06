@@ -676,6 +676,7 @@ lipo_cmp_type (tree t1, tree t2)
     case POINTER_TYPE:
     case REFERENCE_TYPE:
     case COMPLEX_TYPE:
+    case TYPE_PACK_EXPANSION:
       return lipo_cmp_type (TREE_TYPE (t1), TREE_TYPE (t2));
     case ARRAY_TYPE:
       return (TYPE_DOMAIN (t1) == NULL || TYPE_DOMAIN (t2) == NULL
