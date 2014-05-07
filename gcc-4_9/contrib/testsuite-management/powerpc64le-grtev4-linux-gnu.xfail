@@ -1,1051 +1,115 @@
-# Marked test failures for v17-powerpc64le toolchain.
+# Marked test failures for v18-powerpc64le toolchain.
 
 # *** gcc:
 
-# Also xfailed in x86; REAL bug in google/main
+# Also xfailed in x86; Google b/13175515 -- r208255 disabled self-assign in templates.
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++98  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++11  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++1y  (test for warnings, line 30)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++98  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++98  (test for warnings, line 26)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++11  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++11  (test for warnings, line 26)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++1y  (test for warnings, line 11)
+FAIL: g++.dg/warn/Wself-assign-non-pod-5.C -std=gnu++1y  (test for warnings, line 26)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 15)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 19)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 20)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 21)
 FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 
-# Also xfailed in x86; Inline failures not seen outside of google/main.
-FAIL: gcc.dg/inline_3.c (test for excess errors)
-FAIL: gcc.dg/inline_4.c (test for excess errors)
+# Also xfailed in x86; Google b/13171749
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-24.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 
-# Also xfailed in x86; REAL bug in google/main
-FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-ipa-dump-times cp "Clone of foo" 1
-FAIL: gcc.dg/ipa/ipcp-agg-7.c scan-tree-dump-not optimized "->c;"
-
-# PPC-specific.  From PR33512, still failing in truck despite resolved PR.
+# PPCle-specific.  From PR33512, still failing in truck despite resolved PR.
 FAIL: gcc.dg/and-1.c scan-assembler-not nand
 
-# PPC-specific.  Appears to affect many 64-bit non-x86 archs; see PR49414.
-FAIL: gcc.dg/pr44194-1.c scan-rtl-dump dse1 "global deletions = (2|3)"
-
-# PPC-specific.  Test error; Power should be handled like MIPS for same reason.
+# PPCle-specific.  Test error; Power should be handled like MIPS for same reason.
 FAIL: gcc.dg/tree-ssa/ssa-dom-thread-4.c scan-tree-dump-times dom1 "Threaded" 3
 
-# PPC-specific.  Also failing in trunk.
+# PPCle-specific.  Also failing in trunk.
 FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times vrp1 "[xy][^ ]* !=" 0
-FAIL: gcc.dg/tree-ssa/vrp47.c scan-tree-dump-times dom2 "x[^ ]* & y" 1
 
-# PPC-specific.  Also failing in trunk.  (PPC64 is using ld, not lvx.)
-FAIL: gcc.target/powerpc/ppc-vector-memcpy.c scan-assembler lvx
-
-# PPC-specific.  Artifact of Google test environment.
+# PPCle-specific.  Artifact of Google test environment.
 FAIL: gcc.dg/di-sync-multithread.c execution test
 
-# PPC-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
+# PPCle-specific, recent.  TODO: Needs investigation.  (This is not PR52614)
 FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
 
-# PPCle-specific execution failures.  Not yet analyzed.
-FAIL: c-c++-common/dfp/cast.c execution test
-FAIL: c-c++-common/dfp/cast.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/cast.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-10.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-10.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-10.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-11.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-11.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-11.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-2.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-2.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-2.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-3.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-3.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-3.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-4.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-4.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-4.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-5.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-5.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-5.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-6.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-6.c -std=gnu++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-6.c -std=gnu++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp-9.c execution test
-FAIL: c-c++-common/dfp/convert-bfp-9.c -std=gnu++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp-9.c -std=gnu++11 execution test
-FAIL: c-c++-common/dfp/convert-bfp.c execution test
-FAIL: c-c++-common/dfp/convert-bfp.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/convert-bfp.c -std=c++11 execution test
-FAIL: c-c++-common/dfp/operator-unary.c execution test
-FAIL: c-c++-common/dfp/operator-unary.c -std=c++98 execution test
-FAIL: c-c++-common/dfp/operator-unary.c -std=c++11 execution test
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O0
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O1
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O2
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O3 -fomit-frame-pointer
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O3 -g
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -Os
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -Og -g
-FAIL: gcc.c-torture/execute/float-floor.c execution,  -O2 -flto -fno-use-linker-plugin -flto-partition=none
-FAIL: gcc.dg/dfp/fe-binop.c execution test
-FAIL: gcc.dg/pr43419.c execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O0  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O0  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O0  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O0  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fpie  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O0  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O1  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -fomit-frame-pointer  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O3 -g  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -Os  -pie -fPIE  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/torture/tls/tls-test.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+# PPCle-specific, test bug fixed on trunk: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=60173
+FAIL: gcc.dg/binop-xor1.c scan-tree-dump-times optimized "\\^" 1
 
-# Execution failures common to Power targets running under QEMU.
-FAIL: gcc.dg/cleanup-10.c execution test
-FAIL: gcc.dg/cleanup-11.c execution test
-FAIL: gcc.dg/cleanup-8.c execution test
-FAIL: gcc.dg/cleanup-9.c execution test
+# PPCle- and Gold-specific, patch proposed: http://gcc.gnu.org/ml/gcc-patches/2014-02/msg00237.html
+FAIL: gcc.dg/vect/no-vfa-vect-depend-2.c scan-tree-dump-times vect "vectorized 1 loops" 1
+FAIL: gcc.dg/vect/no-vfa-vect-depend-3.c scan-tree-dump-times vect "vectorized 1 loops" 4
+
+# PPCle-specific, not yet analyzed.
+FAIL: gcc.dg/tree-ssa/loop-19.c scan-tree-dump-times optimized "MEM.(base: &|symbol: )a," 2
+FAIL: gcc.dg/tree-ssa/loop-19.c scan-tree-dump-times optimized "MEM.(base: &|symbol: )c," 2
+FAIL: gcc.target/powerpc/pack02.c (internal compiler error)
+FAIL: gcc.target/powerpc/pack02.c (test for excess errors)
+FAIL: gcc.target/powerpc/pack03.c (test for excess errors)
+
+# Downloading of output from target is not currently supported in our dejagnu board file.
+UNRESOLVED: gcc.dg/pr47793.c scan-file .
+
+# PPCle-specific execution failures.  Not yet analyzed.
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+FAIL: gcc.dg/vect/vect-nop-move.c execution test
 
 
 # *** g++:
 
-# Also xfailed in x86; explanation unknown.
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "and turned into root of the clone tree" 1
-
-# Also xfailed in x86; REAL bug in google/main
-FAIL: g++.dg/warn/Wself-assign-2.C -std=gnu++11  (test for warnings, line 12)
-
-# PPCle-specific execution failures.  Not yet analyzed.
-FAIL: g++.dg/tls/thread_local3.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local3g.C -std=gnu++11 execution test
-
-# Execution failures common to Power targets running under QEMU.
-FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
-FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
-FAIL: g++.dg/cdce3.C -std=gnu++98 execution test
-FAIL: g++.dg/cdce3.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-10.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-10.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-11.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-11.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
-FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
-FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local5g.C -std=gnu++11 execution test
-FAIL: g++.dg/tls/thread_local6.C execution test
-FAIL: g++.dg/tls/thread_local6g.C execution test
-
-# PPCle-specific: There are known bugs in little-endian vector support.
-FAIL: gcc.dg/vect/bb-slp-24.c execution test
-FAIL: gcc.dg/vect/bb-slp-24.c -flto execution test
-FAIL: gcc.dg/vect/bb-slp-25.c execution test
-FAIL: gcc.dg/vect/bb-slp-25.c -flto execution test
-FAIL: gcc.dg/vect/bb-slp-28.c execution test
-FAIL: gcc.dg/vect/bb-slp-pattern-1.c execution test
-FAIL: gcc.dg/vect/bb-slp-pattern-1.c -flto execution test
-FAIL: gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c scan-tree-dump-times slp "basic block vectorized using SLP" 1
-FAIL: gcc.dg/vect/costmodel/ppc/costmodel-slp-12.c execution test
-FAIL: gcc.dg/vect/costmodel/ppc/costmodel-vect-reduc-1char.c execution test
-FAIL: gcc.dg/vect/fast-math-vect-complex-3.c execution test
-FAIL: gcc.dg/vect/if-cvt-stores-vect-ifcvt-18.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-10a.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-10b.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-16.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-17.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-18.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-19.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-20.c execution test
-FAIL: gcc.dg/vect/no-scevccp-outer-21.c execution test
-FAIL: gcc.dg/vect/no-tree-pre-slp-29.c execution test
-FAIL: gcc.dg/vect/no-vfa-vect-49.c execution test
-FAIL: gcc.dg/vect/no-vfa-vect-53.c execution test
-FAIL: gcc.dg/vect/no-vfa-vect-57.c execution test
-FAIL: gcc.dg/vect/no-vfa-vect-61.c execution test
-FAIL: gcc.dg/vect/no-vfa-vect-depend-1.c execution test
-FAIL: gcc.dg/vect/pr37539.c execution test
-FAIL: gcc.dg/vect/pr37539.c -flto execution test
-FAIL: gcc.dg/vect/pr43430-1.c execution test
-FAIL: gcc.dg/vect/pr51581-4.c execution test
-FAIL: gcc.dg/vect/pr51581-4.c -flto execution test
-FAIL: gcc.dg/vect/slp-11a.c execution test
-FAIL: gcc.dg/vect/slp-11a.c -flto execution test
-FAIL: gcc.dg/vect/slp-11b.c execution test
-FAIL: gcc.dg/vect/slp-11b.c -flto execution test
-FAIL: gcc.dg/vect/slp-11c.c execution test
-FAIL: gcc.dg/vect/slp-11c.c -flto execution test
-FAIL: gcc.dg/vect/slp-12a.c execution test
-FAIL: gcc.dg/vect/slp-12a.c -flto execution test
-FAIL: gcc.dg/vect/slp-12b.c execution test
-FAIL: gcc.dg/vect/slp-12b.c -flto execution test
-FAIL: gcc.dg/vect/slp-13-big-array.c execution test
-FAIL: gcc.dg/vect/slp-13-big-array.c -flto execution test
-FAIL: gcc.dg/vect/slp-13.c execution test
-FAIL: gcc.dg/vect/slp-13.c -flto execution test
-FAIL: gcc.dg/vect/slp-19a.c execution test
-FAIL: gcc.dg/vect/slp-19a.c -flto execution test
-FAIL: gcc.dg/vect/slp-19b.c execution test
-FAIL: gcc.dg/vect/slp-19b.c -flto execution test
-FAIL: gcc.dg/vect/slp-21.c execution test
-FAIL: gcc.dg/vect/slp-21.c -flto execution test
-FAIL: gcc.dg/vect/slp-23.c execution test
-FAIL: gcc.dg/vect/slp-23.c -flto execution test
-FAIL: gcc.dg/vect/slp-24-big-array.c execution test
-FAIL: gcc.dg/vect/slp-24-big-array.c -flto execution test
-FAIL: gcc.dg/vect/slp-24.c execution test
-FAIL: gcc.dg/vect/slp-24.c -flto execution test
-FAIL: gcc.dg/vect/slp-9.c execution test
-FAIL: gcc.dg/vect/slp-9.c -flto execution test
-FAIL: gcc.dg/vect/slp-cond-2-big-array.c execution test
-FAIL: gcc.dg/vect/slp-cond-2-big-array.c -flto execution test
-FAIL: gcc.dg/vect/slp-cond-2.c execution test
-FAIL: gcc.dg/vect/slp-cond-2.c -flto execution test
-FAIL: gcc.dg/vect/slp-cond-3.c execution test
-FAIL: gcc.dg/vect/slp-cond-3.c -flto execution test
-FAIL: gcc.dg/vect/slp-cond-4.c execution test
-FAIL: gcc.dg/vect/slp-cond-4.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-10.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-10.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-11-big-array.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-11-big-array.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-11.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-11.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-4.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-4.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-5.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-5.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-6.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-6.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-7.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-7.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-8.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-8.c -flto execution test
-FAIL: gcc.dg/vect/slp-multitypes-9.c execution test
-FAIL: gcc.dg/vect/slp-multitypes-9.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-1.c execution test
-FAIL: gcc.dg/vect/slp-perm-1.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-2.c execution test
-FAIL: gcc.dg/vect/slp-perm-2.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-3.c execution test
-FAIL: gcc.dg/vect/slp-perm-3.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-5.c execution test
-FAIL: gcc.dg/vect/slp-perm-5.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-6.c execution test
-FAIL: gcc.dg/vect/slp-perm-6.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-7.c execution test
-FAIL: gcc.dg/vect/slp-perm-7.c -flto execution test
-FAIL: gcc.dg/vect/slp-perm-8.c execution test
-FAIL: gcc.dg/vect/slp-perm-8.c -flto execution test
-FAIL: gcc.dg/vect/slp-reduc-3.c execution test
-FAIL: gcc.dg/vect/slp-reduc-3.c -flto execution test
-FAIL: gcc.dg/vect/slp-reduc-6.c execution test
-FAIL: gcc.dg/vect/slp-reduc-6.c -flto execution test
-FAIL: gcc.dg/vect/slp-widen-mult-half.c execution test
-FAIL: gcc.dg/vect/slp-widen-mult-half.c -flto execution test
-FAIL: gcc.dg/vect/slp-widen-mult-s16.c execution test
-FAIL: gcc.dg/vect/slp-widen-mult-s16.c -flto execution test
-FAIL: gcc.dg/vect/slp-widen-mult-u8.c execution test
-FAIL: gcc.dg/vect/slp-widen-mult-u8.c -flto execution test
-FAIL: gcc.dg/vect/vect-105-big-array.c execution test
-FAIL: gcc.dg/vect/vect-105-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-107.c execution test
-FAIL: gcc.dg/vect/vect-107.c -flto execution test
-FAIL: gcc.dg/vect/vect-112-big-array.c execution test
-FAIL: gcc.dg/vect/vect-112-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-112.c execution test
-FAIL: gcc.dg/vect/vect-112.c -flto execution test
-FAIL: gcc.dg/vect/vect-114.c execution test
-FAIL: gcc.dg/vect/vect-114.c -flto execution test
-FAIL: gcc.dg/vect/vect-116.c execution test
-FAIL: gcc.dg/vect/vect-116.c -flto execution test
-FAIL: gcc.dg/vect/vect-122.c execution test
-FAIL: gcc.dg/vect/vect-122.c -flto execution test
-FAIL: gcc.dg/vect/vect-15-big-array.c execution test
-FAIL: gcc.dg/vect/vect-15-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-15.c execution test
-FAIL: gcc.dg/vect/vect-15.c -flto execution test
-FAIL: gcc.dg/vect/vect-27.c execution test
-FAIL: gcc.dg/vect/vect-27.c -flto execution test
-FAIL: gcc.dg/vect/vect-29.c execution test
-FAIL: gcc.dg/vect/vect-29.c -flto execution test
-FAIL: gcc.dg/vect/vect-34-big-array.c execution test
-FAIL: gcc.dg/vect/vect-34-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-35-big-array.c execution test
-FAIL: gcc.dg/vect/vect-35-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-44.c execution test
-FAIL: gcc.dg/vect/vect-44.c -flto execution test
-FAIL: gcc.dg/vect/vect-48.c execution test
-FAIL: gcc.dg/vect/vect-48.c -flto execution test
-FAIL: gcc.dg/vect/vect-52.c execution test
-FAIL: gcc.dg/vect/vect-52.c -flto execution test
-FAIL: gcc.dg/vect/vect-56.c execution test
-FAIL: gcc.dg/vect/vect-56.c -flto execution test
-FAIL: gcc.dg/vect/vect-60.c execution test
-FAIL: gcc.dg/vect/vect-60.c -flto execution test
-FAIL: gcc.dg/vect/vect-72.c execution test
-FAIL: gcc.dg/vect/vect-72.c -flto execution test
-FAIL: gcc.dg/vect/vect-9.c execution test
-FAIL: gcc.dg/vect/vect-9.c -flto execution test
-FAIL: gcc.dg/vect/vect-93.c execution test
-FAIL: gcc.dg/vect/vect-93.c -flto execution test
-FAIL: gcc.dg/vect/vect-96.c execution test
-FAIL: gcc.dg/vect/vect-96.c -flto execution test
-FAIL: gcc.dg/vect/vect-98-big-array.c execution test
-FAIL: gcc.dg/vect/vect-98-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-cond-10.c execution test
-FAIL: gcc.dg/vect/vect-cond-10.c -flto execution test
-FAIL: gcc.dg/vect/vect-cond-8.c execution test
-FAIL: gcc.dg/vect/vect-cond-8.c -flto execution test
-FAIL: gcc.dg/vect/vect-cond-9.c execution test
-FAIL: gcc.dg/vect/vect-cond-9.c -flto execution test
-FAIL: gcc.dg/vect/vect-cselim-1.c execution test
-FAIL: gcc.dg/vect/vect-cselim-1.c -flto execution test
-FAIL: gcc.dg/vect/vect-double-reduc-5.c execution test
-FAIL: gcc.dg/vect/vect-double-reduc-5.c -flto execution test
-FAIL: gcc.dg/vect/vect-intfloat-conversion-4a.c execution test
-FAIL: gcc.dg/vect/vect-intfloat-conversion-4a.c -flto execution test
-FAIL: gcc.dg/vect/vect-intfloat-conversion-4b.c execution test
-FAIL: gcc.dg/vect/vect-intfloat-conversion-4b.c -flto execution test
-FAIL: gcc.dg/vect/vect-iv-4.c execution test
-FAIL: gcc.dg/vect/vect-iv-4.c -flto execution test
-FAIL: gcc.dg/vect/vect-iv-8-big-array.c execution test
-FAIL: gcc.dg/vect/vect-iv-8-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-iv-8.c execution test
-FAIL: gcc.dg/vect/vect-iv-8a-big-array.c execution test
-FAIL: gcc.dg/vect/vect-iv-8a-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-iv-8a.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-1.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-1.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-11.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-12.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-13.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-13.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-14.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-14.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-3.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-3.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-4.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-4.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-6.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-6.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-8.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-8.c -flto execution test
-FAIL: gcc.dg/vect/vect-multitypes-9.c execution test
-FAIL: gcc.dg/vect/vect-multitypes-9.c -flto execution test
-FAIL: gcc.dg/vect/vect-nest-cycle-1.c execution test
-FAIL: gcc.dg/vect/vect-nest-cycle-1.c -flto execution test
-FAIL: gcc.dg/vect/vect-nest-cycle-2.c execution test
-FAIL: gcc.dg/vect/vect-nest-cycle-2.c -flto execution test
-FAIL: gcc.dg/vect/vect-outer-3a-big-array.c execution test
-FAIL: gcc.dg/vect/vect-outer-3a-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-outer-3a.c execution test
-FAIL: gcc.dg/vect/vect-outer-3a.c -flto execution test
-FAIL: gcc.dg/vect/vect-outer-4i.c execution test
-FAIL: gcc.dg/vect/vect-outer-4i.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-1-big-array.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-1-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-1.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-1.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-2-big-array.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-2-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-2.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-2.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-3-big-array.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-3-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-3.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-3.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-4-big-array.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-4-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-over-widen-4.c execution test
-FAIL: gcc.dg/vect/vect-over-widen-4.c -flto execution test
-FAIL: gcc.dg/vect/vect-peel-4.c execution test
-FAIL: gcc.dg/vect/vect-peel-4.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-1char-big-array.c execution test
-FAIL: gcc.dg/vect/vect-reduc-1char-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-1char.c execution test
-FAIL: gcc.dg/vect/vect-reduc-1char.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-dot-s16c.c execution test
-FAIL: gcc.dg/vect/vect-reduc-dot-s16c.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-pattern-1c-big-array.c execution test
-FAIL: gcc.dg/vect/vect-reduc-pattern-1c-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-reduc-pattern-1c.c execution test
-FAIL: gcc.dg/vect/vect-reduc-pattern-1c.c -flto execution test
-FAIL: gcc.dg/vect/vect-shift-2-big-array.c execution test
-FAIL: gcc.dg/vect/vect-shift-2-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-shift-2.c execution test
-FAIL: gcc.dg/vect/vect-shift-2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-mult.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-i2.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-i2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-i4.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-i4.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-mult.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u16-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u32-mult.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u32-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i2-gap.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i2-gap.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap2-big-array.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap2-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap7-big-array.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap7-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap7.c execution test
-FAIL: gcc.dg/vect/vect-strided-a-u8-i8-gap7.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-float.c execution test
-FAIL: gcc.dg/vect/vect-strided-float.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-mult-char-ls.c execution test
-FAIL: gcc.dg/vect/vect-strided-mult-char-ls.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-mult.c execution test
-FAIL: gcc.dg/vect/vect-strided-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-same-dr.c execution test
-FAIL: gcc.dg/vect/vect-strided-same-dr.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-store-a-u8-i2.c execution test
-FAIL: gcc.dg/vect/vect-strided-store-a-u8-i2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-store-u16-i4.c execution test
-FAIL: gcc.dg/vect/vect-strided-store-u16-i4.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-store-u32-i2.c execution test
-FAIL: gcc.dg/vect/vect-strided-store-u32-i2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u16-i2.c execution test
-FAIL: gcc.dg/vect/vect-strided-u16-i2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u16-i4.c execution test
-FAIL: gcc.dg/vect/vect-strided-u16-i4.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u32-i4.c execution test
-FAIL: gcc.dg/vect/vect-strided-u32-i4.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u32-i8.c execution test
-FAIL: gcc.dg/vect/vect-strided-u32-i8.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u32-mult.c execution test
-FAIL: gcc.dg/vect/vect-strided-u32-mult.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i2-gap.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i2-gap.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i2.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i2.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap2-big-array.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap2-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap4-big-array.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap4-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap4-unknown.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap4-unknown.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7-big-array.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7-big-array.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8-gap7.c -flto execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8.c execution test
-FAIL: gcc.dg/vect/vect-strided-u8-i8.c -flto execution test
-FAIL: gcc.dg/vect/vect-vfa-03.c execution test
-FAIL: gcc.dg/vect/vect-vfa-03.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-const-s16.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-const-s16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-const-u16.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-const-u16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-half-u8.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-half-u8.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-half.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-half.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-s16.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-s16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-s8.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-s8.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-sum.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-sum.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-u16.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-u16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-mult-u8.c execution test
-FAIL: gcc.dg/vect/vect-widen-mult-u8.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-shift-s16.c execution test
-FAIL: gcc.dg/vect/vect-widen-shift-s16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-shift-s8.c execution test
-FAIL: gcc.dg/vect/vect-widen-shift-s8.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-shift-u16.c execution test
-FAIL: gcc.dg/vect/vect-widen-shift-u16.c -flto execution test
-FAIL: gcc.dg/vect/vect-widen-shift-u8.c execution test
-FAIL: gcc.dg/vect/vect-widen-shift-u8.c -flto execution test
-FAIL: gcc.dg/vect/wrapv-vect-reduc-2char.c execution test
-FAIL: gcc.dg/vect/wrapv-vect-reduc-2short.c execution test
-FAIL: gcc.dg/vect/wrapv-vect-reduc-dot-s8b.c execution test
-FAIL: gcc.dg/vect/wrapv-vect-reduc-pattern-2c.c execution test
-FAIL: gcc.dg/vmx/3a-03.c -O0  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O1  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O2  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O3 -g  execution test
-FAIL: gcc.dg/vmx/3a-03.c -Os  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/3a-03.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O0  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O1  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O2  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O3 -g  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -Os  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/3a-03m.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O0  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O1  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O2  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O3 -g  execution test
-FAIL: gcc.dg/vmx/3b-15.c -Os  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/3b-15.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O0  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O1  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O2  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O3 -g  execution test
-FAIL: gcc.dg/vmx/eg-5.c -Os  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/eg-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O0  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O1  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O2  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O3 -fomit-frame-pointer  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O3 -g  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -Os  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
-FAIL: gcc.dg/vmx/gcc-bug-i.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
-FAIL: gcc.target/powerpc/altivec-consts.c (internal compiler error)
-FAIL: gcc.target/powerpc/altivec-consts.c (test for excess errors)
-FAIL: gcc.target/powerpc/darwin-longlong.c execution test
-FAIL: gcc.target/powerpc/lhs-3.c (test for excess errors)
-FAIL: gcc.target/powerpc/loop_align.c (test for excess errors)
-FAIL: gcc.target/powerpc/optimize-bswapdi-3.c (test for excess errors)
-FAIL: gcc.target/powerpc/popcount-3.c (test for excess errors)
-FAIL: gcc.target/powerpc/ppc-get-timebase.c execution test
-FAIL: gcc.target/powerpc/ppc-mftb.c execution test
-FAIL: gcc.target/powerpc/ppc64-abi-2.c execution test
-FAIL: gcc.target/powerpc/recip-3.c (test for excess errors)
-FAIL: gcc.target/powerpc/recip-3.c scan-assembler-times xsrsqrtedp 1
-FAIL: gcc.target/powerpc/recip-3.c scan-assembler-times xsmuldp 4
-FAIL: gcc.target/powerpc/recip-4.c (test for excess errors)
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvrsqrtedp 1
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmsub.dp 1
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmuldp 4
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvnmsub.dp 2
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvrsqrtesp 1
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmsub.sp 1
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvmulsp 4
-FAIL: gcc.target/powerpc/recip-4.c scan-assembler-times xvnmsub.sp 2
+# PPCle-specific.  Known failure, "This is an invalid assumption in the test case"
+# http://gcc.gnu.org/ml/gcc-patches/2013-11/msg01144.html
+FAIL: g++.dg/cpp1y/vla-initlist1.C -std=c++1y execution test
 
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
-FAIL: gfortran.dg/anint_1.f90 -O0  execution test
-FAIL: gfortran.dg/anint_1.f90 -O1  execution test
-FAIL: gfortran.dg/anint_1.f90 -O2  execution test
-FAIL: gfortran.dg/anint_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/anint_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/anint_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/anint_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/anint_1.f90 -Os  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O0  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O1  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O2  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/bessel_6.f90 -O3 -g  execution test
-FAIL: gfortran.dg/bessel_6.f90 -Os  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O0  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O1  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O2  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -O3 -g  execution test
-FAIL: gfortran.dg/char4_iunit_1.f03 -Os  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O0  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O1  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O2  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -O3 -g  execution test
-FAIL: gfortran.dg/char4_iunit_2.f03 -Os  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O0  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O1  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O2  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/coarray_15.f90 -O3 -g  execution test
-FAIL: gfortran.dg/coarray_15.f90 -Os  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O0  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O1  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O2  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -O3 -g  execution test
-FAIL: gfortran.dg/complex_intrinsic_5.f90 -Os  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O0  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O1  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O2  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/default_format_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/default_format_1.f90 -Os  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O0  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O1  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O2  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/default_format_denormal_1.f90 -Os  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O0  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O1  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O2  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/edit_real_1.f90 -Os  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O0  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O1  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O2  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -O3 -g  execution test
-FAIL: gfortran.dg/f2003_io_1.f03 -Os  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O0  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O1  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O2  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -O3 -g  execution test
-FAIL: gfortran.dg/f2003_io_4.f03 -Os  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O0  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O1  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O2  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -O3 -g  execution test
-FAIL: gfortran.dg/f2003_io_5.f03 -Os  execution test
-FAIL: gfortran.dg/fmt_float.f90 -O0  output pattern test, is             0.10E+01            0.10E+00            0.99E-02
-FAIL: gfortran.dg/interface_19.f90 -O0  execution test
-FAIL: gfortran.dg/interface_19.f90 -O1  execution test
-FAIL: gfortran.dg/interface_19.f90 -O2  execution test
-FAIL: gfortran.dg/interface_19.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/interface_19.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/interface_19.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/interface_19.f90 -O3 -g  execution test
-FAIL: gfortran.dg/interface_19.f90 -Os  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O0  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O1  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O2  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/large_real_kind_1.f90 -Os  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O0  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O1  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O2  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -O3 -g  execution test
-FAIL: gfortran.dg/large_real_kind_2.F90 -Os  execution test
-FAIL: gfortran.dg/large_real_kind_3.F90 -O0  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O0  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O1  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O2  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/large_real_kind_form_io_1.f90 -Os  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O0  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O1  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O2  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/namelist_14.f90 -O3 -g  execution test
-FAIL: gfortran.dg/namelist_14.f90 -Os  execution test
-FAIL: gfortran.dg/nan_7.f90 -O0  execution test
-FAIL: gfortran.dg/nan_7.f90 -O1  execution test
-FAIL: gfortran.dg/nan_7.f90 -O2  execution test
-FAIL: gfortran.dg/nan_7.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/nan_7.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/nan_7.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/nan_7.f90 -O3 -g  execution test
-FAIL: gfortran.dg/nan_7.f90 -Os  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O0  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O1  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O2  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gfortran.dg/bessel_7.f90 -O3 -g  execution test
+FAIL: gfortran.dg/bessel_7.f90 -Os  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O0  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O1  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O2  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -g  execution test
+XPASS: gfortran.dg/default_format_denormal_2.f90 -Os  execution test
 XPASS: gfortran.dg/nint_2.f90 -O0  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O0  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O1  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O2  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/norm2_3.f90 -O3 -g  execution test
-FAIL: gfortran.dg/norm2_3.f90 -Os  execution test
-FAIL: gfortran.dg/pr20755.f -O0  execution test
-FAIL: gfortran.dg/pr20755.f -O1  execution test
-FAIL: gfortran.dg/pr20755.f -O2  execution test
-FAIL: gfortran.dg/pr20755.f -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/pr20755.f -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/pr20755.f -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/pr20755.f -O3 -g  execution test
-FAIL: gfortran.dg/pr20755.f -Os  execution test
-FAIL: gfortran.dg/quad_2.f90 -O0  execution test
-FAIL: gfortran.dg/quad_2.f90 -O1  execution test
-FAIL: gfortran.dg/quad_2.f90 -O2  execution test
-FAIL: gfortran.dg/quad_2.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/quad_2.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/quad_2.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/quad_2.f90 -O3 -g  execution test
-FAIL: gfortran.dg/quad_2.f90 -Os  execution test
-FAIL: gfortran.dg/round_2.f03 -O0  execution test
-FAIL: gfortran.dg/round_2.f03 -O1  execution test
-FAIL: gfortran.dg/round_2.f03 -O2  execution test
-FAIL: gfortran.dg/round_2.f03 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/round_2.f03 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/round_2.f03 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/round_2.f03 -O3 -g  execution test
-FAIL: gfortran.dg/round_2.f03 -Os  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O0  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O1  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O2  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/specifics_1.f90 -O3 -g  execution test
-FAIL: gfortran.dg/specifics_1.f90 -Os  execution test
-FAIL: gfortran.dg/vect/pr45714-b.f -O  (test for excess errors)
-FAIL: gfortran.fortran-torture/execute/forall_4.f90 execution, -O2 -ftree-vectorize -maltivec
-FAIL: gfortran.fortran-torture/execute/in-pack.f90 execution, -O2 -ftree-vectorize -maltivec
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O0
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O1
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O2
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O2 -fomit-frame-pointer -finline-functions
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O2 -fomit-frame-pointer -finline-functions -funroll-loops
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O2 -fbounds-check
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -O3 -g
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution,  -Os
-FAIL: gfortran.fortran-torture/execute/intrinsic_aint_anint.f90 execution, -O2 -ftree-vectorize -maltivec
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O0
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O1
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O2
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O2 -fomit-frame-pointer -finline-functions
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O2 -fomit-frame-pointer -finline-functions -funroll-loops
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O2 -fbounds-check
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -O3 -g
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution,  -Os
-FAIL: gfortran.fortran-torture/execute/specifics.f90 execution, -O2 -ftree-vectorize -maltivec
+FAIL: gfortran.dg/round_4.f90 -O0  execution test
+FAIL: gfortran.dg/round_4.f90 -O1  execution test
+FAIL: gfortran.dg/round_4.f90 -O2  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+FAIL: gfortran.dg/round_4.f90 -O3 -g  execution test
+FAIL: gfortran.dg/round_4.f90 -Os  execution test
 
-
-# ASAN-specific.
-FAIL: c-c++-common/asan/global-overflow-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/global-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/heap-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/memcmp-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/null-deref-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sanity-check-pure-c-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/sleep-before-dying-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/stack-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strip-path-prefix-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/strncpy-overflow-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O0  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O0  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O1  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O1  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O2  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O3 -g  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O3 -g  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -Os  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -Os  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: c-c++-common/asan/use-after-free-1.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-stack-uaf-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-stack-uaf-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-tail-call-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/deep-thread-stack-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/default-options-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-failure-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-malloc-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/interception-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/large-func-test-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O0  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O0  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O1  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O1  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O3 -fomit-frame-pointer  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O3 -fomit-frame-pointer  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O3 -g  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O3 -g  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -Os  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -Os  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/pr55617.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/pr55617.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2  (test for excess errors)
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2  compilation failed to produce executable
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  (test for excess errors)
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
-FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
-UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+# Downloading of output from target is not currently supported in our dejagnu board file.
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O0   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O1   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O2   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer -funroll-loops   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -g   scan-file All kinds rounded to nearest
+UNRESOLVED: gfortran.dg/fmt_en.f90 -Os   scan-file All kinds rounded to nearest
