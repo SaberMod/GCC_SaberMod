@@ -1,3 +1,76 @@
+2014-05-05  Marek Polacek  <polacek@redhat.com>
+
+	Back port from mainline
+	2014-05-05  Marek Polacek  <polacek@redhat.com>
+
+	PR driver/61065
+	* opts.c (common_handle_option): Call error_at instead of warning_at.
+
+2014-05-04  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/60965
+	* ipa-devirt.c (get_class_context): Allow POD to change to non-POD.
+
+2014-05-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (RS6000_BTM_HARD_FLOAT): New define.
+	(RS6000_BTM_COMMON): Add RS6000_BTM_HARD_FLOAT.
+	(TARGET_EXTRA_BUILTINS): Add TARGET_HARD_FLOAT.
+	* config/rs6000/rs6000-builtin.def (BU_MISC_1):
+	Use RS6000_BTM_HARD_FLOAT.
+	(BU_MISC_2): Likewise.
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Handle
+	RS6000_BTM_HARD_FLOAT.
+	(rs6000_option_override_internal): Enforce -mhard-float if -mhard-dfp
+	is explicitly used.
+	(rs6000_invalid_builtin): Add hard floating builtin support.
+	(rs6000_expand_builtin): Relax the gcc_assert to allow the new
+	hard float builtins.
+	(rs6000_builtin_mask_names): Add RS6000_BTM_HARD_FLOAT.
+
+2014-05-03  Joey Ye  <joey.ye@arm.com>
+
+	Backport from mainline r209463
+	2014-04-17  Joey Ye  <joey.ye@arm.com>
+
+	* opts.c (OPT_fif_conversion, OPT_fif_conversion2): Disable for Og.
+
+2014-05-03  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Back port from mainline
+	PR target/61026
+	* config/sh/sh.c: Include stdlib headers before everything else.
+
+2014-05-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR tree-optimization/60930
+	* gimple-ssa-strength-reduction.c (create_mul_imm_cand):  Reject
+	creating a multiply candidate by folding two constant
+	multiplicands when the result overflows.
+
+2014-05-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses_1): Handle
+	GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE.
+	(gimplify_adjust_omp_clauses): Simd region is never
+	directly nested in combined parallel.  Instead, for linear
+	with copyin/copyout, if in combined for simd loop, make decl
+	firstprivate/lastprivate on OMP_FOR.
+	* omp-low.c (expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk): When setting endvar, also set
+	fd->loop.v to the same value.
+
+2014-05-02  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Back port from mainline
+	2014-04-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Check
+	TARGET_SIMD rather than TARGET_GENERAL_REGS_ONLY.
+	(TARGET_SIMD): Take AARCH64_ISA_SIMD into account.
+	(TARGET_FLOAT): Take AARCH64_ISA_FP into account.
+	(TARGET_CRYPTO): Take TARGET_SIMD into account.
+
 2014-04-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from mainline

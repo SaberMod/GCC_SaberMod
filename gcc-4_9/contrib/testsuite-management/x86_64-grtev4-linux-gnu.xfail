@@ -5,6 +5,9 @@ FAIL: 23_containers/map/pthread6.cc execution test
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 
 # Google b/13175515 -- r208255 disabled self-assign in templates.
 FAIL: g++.dg/warn/Wself-assign-non-pod-3.C -std=gnu++98  (test for warnings, line 30)

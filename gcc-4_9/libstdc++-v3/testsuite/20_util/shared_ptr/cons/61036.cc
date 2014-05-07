@@ -1,6 +1,7 @@
-// 2007-04-27  Paolo Carlini  <pcarlini@suse.de>
+// { dg-options "-std=gnu++11" }
+// { dg-do compile }
 
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,18 +18,11 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do compile }
-// { dg-error "no matching" "" { target *-*-* } 1510 }
+// 20.8.2.2 Template class shared_ptr [util.smartptr.shared]
 
-#include <vector>
+#include <memory>
 
-struct A
+void test01()
 {
-  explicit A(int) { }
-};
-
-void f()
-{
-  std::vector<A> v;
-  v.insert(v.begin(), 10, 1);
+  std::shared_ptr<void> p(new int);
 }
