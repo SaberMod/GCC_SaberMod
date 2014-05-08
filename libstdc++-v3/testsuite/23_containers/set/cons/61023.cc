@@ -1,6 +1,6 @@
-// 2007-04-27  Paolo Carlini  <pcarlini@suse.de>
+// { dg-options "-std=gnu++11" }
 
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -17,18 +17,40 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-do compile }
-// { dg-error "no matching" "" { target *-*-* } 1367 }
+#include <set>
+#include <stdexcept>
 
-#include <vector>
-
-struct A
+struct Comparator
 {
-  explicit A(int) { }
+  Comparator() : valid(false) { }
+  explicit Comparator(bool) : valid(true) { }
+
+  bool operator()(int i, int j) const
+  {
+    if (!valid)
+      throw std::logic_error("Comparator is invalid");
+    return i < j;
+  }
+
+private:
+  bool valid;
 };
 
-void f()
+int main()
 {
-  std::vector<A> v;
-  v.insert(v.begin(), 10, 1);
+  using test_type = std::set<int, Comparator>;
+
+  Comparator cmp{true};
+
+  test_type good{cmp};
+
+  test_type s1;
+  s1 = good;             // copy-assign
+  s1.insert(1);
+  s1.insert(2);
+
+  test_type s2;
+  s2 = std::move(good);  // move-assign
+  s2.insert(1);
+  s2.insert(2);
 }
