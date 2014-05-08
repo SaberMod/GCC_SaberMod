@@ -22,6 +22,9 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
+FAIL: g++.dg/ipa/devirt-11.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 
 # AArch64-specific; appear to be missing "loop turned into non-loop; it never loops" output.
 FAIL: gcc.dg/unroll_1.c (test for warnings, line 14)
