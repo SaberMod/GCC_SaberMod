@@ -3842,7 +3842,7 @@ add_local_variables (struct function *callee, struct function *caller,
                of varpool node does not check the reference
                from debug expressions.
                Set it to 0 for all global vars.  */
-            if (L_IPO_COMP_MODE && tem && is_global_var (tem))
+            if (L_IPO_COMP_MODE && tem && DECL_P (tem) && is_global_var (tem))
               tem = NULL;
 
 	    id->remapping_type_depth++;
