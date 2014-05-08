@@ -1,3 +1,76 @@
+2014-05-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57864
+	* gcc.dg/torture/pr57864.c: New testcase.
+
+2014-05-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/55022
+	* gcc.dg/graphite/pr55022.c: New testcase.
+
+2014-05-06  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-04-17  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60849
+	* g++.dg/opt/pr60849.C: New testcase.
+
+	2014-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60766
+	* gcc.dg/torture/pr60766.c: New testcase.
+
+	2014-04-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60903
+	* gcc.dg/torture/pr60903.c: New testcase.
+
+2014-05-05  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-04-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60895
+	* g++.dg/torture/pr60895.C: New testcase.
+
+	2014-04-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60750
+	* g++.dg/torture/pr60750.C: New testcase.
+	* gcc.dg/tree-ssa/20040517-1.c: Adjust.
+
+	2014-04-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59817
+	PR tree-optimization/60453
+	* gfortran.dg/graphite/pr59817.f: New testcase.
+	* gcc.dg/graphite/pr59817-1.c: Likewise.
+	* gcc.dg/graphite/pr59817-2.c: Likewise.
+
+	2014-04-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60836
+	* g++.dg/vect/pr60836.cc: New testcase.
+
+2014-05-05  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-04-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60960
+	* gcc.c-torture/execute/pr60960.c: New test.
+
+2014-05-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/pack02.c (dg-options): Add -mhard-float.
+	(dg-require-effective-target): Change target to powerpc_fprs.
+	* gcc.target/powerpc/pack03.c (dg-options): Add -mhard-dfp.
+	(dg-require-effective-target): Change target to dfprt.
+
 2014-05-02  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	PR tree-optimization/60930
