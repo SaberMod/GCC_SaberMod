@@ -155,3 +155,5 @@ fn12 (void)
   fn11 (1);
   fn11 (1);
 }
+
+/* { dg-prune-output "array subscript is above array bounds" } */

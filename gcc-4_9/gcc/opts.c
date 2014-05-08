@@ -873,6 +873,18 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
             0, opts->x_param_values, opts_set->x_param_values);
     }
 
+  /* Set PARAM_MAX_COMPLETELY_PEELED_INSNS to the default original value during
+     -O2 when -funroll-loops and -fpeel-loops are not set.   */
+  if (optimize == 2 && !opts->x_flag_unroll_loops && !opts->x_flag_peel_loops
+      && !opts->x_flag_unroll_all_loops)
+
+    {
+      maybe_set_param_value
+       (PARAM_MAX_COMPLETELY_PEELED_INSNS,
+        PARAM_VALUE (PARAM_MAX_DEFAULT_COMPLETELY_PEELED_INSNS),
+	opts->x_param_values, opts_set->x_param_values);
+    }
+
   /* Set PARAM_MAX_STORES_TO_SINK to 0 if either vectorization or if-conversion
      is disabled.  */
   if ((!opts->x_flag_tree_loop_vectorize && !opts->x_flag_tree_slp_vectorize)
