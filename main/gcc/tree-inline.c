@@ -2643,8 +2643,20 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
       gimple_debug_bind_set_var (stmt, t);
 
       if (gimple_debug_bind_has_value_p (stmt))
-	walk_tree (gimple_debug_bind_get_value_ptr (stmt),
-		   remap_gimple_op_r, &wi, NULL);
+        {
+          tree v = gimple_debug_bind_get_value (stmt);
+          if (TREE_CODE (v) == ADDR_EXPR)
+            v = TREE_OPERAND (v, 0);
+
+          /* The global var may be deleted  */
+          if (L_IPO_COMP_MODE &&
+              ((TREE_CODE (v) != VAR_DECL)
+               || is_global_var (v)))
+            processing_debug_stmt = -1;
+          else
+            walk_tree (gimple_debug_bind_get_value_ptr (stmt),
+                       remap_gimple_op_r, &wi, NULL);
+        }
 
       /* Punt if any decl couldn't be remapped.  */
       if (processing_debug_stmt < 0)

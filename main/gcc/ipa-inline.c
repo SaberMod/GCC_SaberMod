@@ -1937,6 +1937,9 @@ inline_small_functions (void)
 	  continue;
 	}
 
+      if (!dbg_cnt (inl))
+         continue;
+
       /* Heuristics for inlining small functions work poorly for
 	 recursive calls where we do effects similar to loop unrolling.
 	 When inlining such edge seems profitable, leave decision on
