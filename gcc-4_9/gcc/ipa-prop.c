@@ -1623,8 +1623,13 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
           if (L_IPO_COMP_MODE && TREE_CODE (arg) == ADDR_EXPR
               && TREE_CODE (TREE_OPERAND (arg, 0)) == FUNCTION_DECL)
             {
-              arg = TREE_OPERAND (arg, 0);
-	      arg = cgraph_lipo_get_resolved_node (arg)->decl;
+              tree fdecl = TREE_OPERAND (arg, 0);
+	      tree real_fdecl = cgraph_lipo_get_resolved_node (fdecl)->decl;
+              if (fdecl != real_fdecl)
+                {
+                  arg = unshare_expr (arg);
+		  TREE_OPERAND (arg, 0) = real_fdecl;
+		}
             }
           ipa_set_jf_constant (jfunc, arg, cs);
         }
