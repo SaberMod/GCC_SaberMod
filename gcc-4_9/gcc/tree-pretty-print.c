@@ -668,6 +668,7 @@ static void
 dump_location (pretty_printer *buffer, location_t loc)
 {
   expanded_location xloc = expand_location (loc);
+  int discriminator = get_discriminator_from_locus (loc);
 
   pp_left_bracket (buffer);
   if (xloc.file)
@@ -676,6 +677,11 @@ dump_location (pretty_printer *buffer, location_t loc)
       pp_string (buffer, " : ");
     }
   pp_decimal_int (buffer, xloc.line);
+  if (discriminator)
+    {
+      pp_string (buffer, " discrim ");
+      pp_decimal_int (buffer, discriminator);
+    }
   pp_string (buffer, "] ");
 }
 

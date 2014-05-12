@@ -201,11 +201,6 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
 
   /* Expected frequency.  Normalized to be in range 0 to BB_FREQ_MAX.  */
   int frequency;
-
-  /* The discriminator for this block.  The discriminator distinguishes
-     among several basic blocks that share a common locus, allowing for
-     more accurate sample-based profiling.  */
-  int discriminator;
 };
 
 /* This ensures that struct gimple_bb_info is smaller than

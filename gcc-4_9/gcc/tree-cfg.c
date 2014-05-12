@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "flags.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "pointer-set.h"
@@ -959,6 +960,32 @@ same_line_p (location_t locus1, location_t locus2)
           && filename_cmp (from.file, to.file) == 0);
 }
 
+/* Assign a unique discriminator value to instructions in block BB that
+   have the same LOCUS as its predecessor block.  */
+
+static void
+assign_discriminator (location_t locus, basic_block bb)
+{
+  gimple_stmt_iterator gsi;
+  int discriminator;
+
+  locus = map_discriminator_location (locus);
+
+  if (locus == UNKNOWN_LOCATION)
+    return;
+
+  discriminator = next_discriminator_for_locus (locus);
+
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple stmt = gsi_stmt (gsi);
+      location_t stmt_locus = gimple_location (stmt);
+      if (same_line_p (locus, stmt_locus))
+	gimple_set_location (stmt,
+	    location_with_discriminator (stmt_locus, discriminator));
+    }
+}
+
 /* Assign discriminators to each basic block.  */
 
 static void
@@ -970,8 +997,36 @@ assign_discriminators (void)
     {
       edge e;
       edge_iterator ei;
+      gimple_stmt_iterator gsi;
       gimple last = last_stmt (bb);
       location_t locus = last ? gimple_location (last) : UNKNOWN_LOCATION;
+      location_t curr_locus = UNKNOWN_LOCATION;
+      int curr_discr = 0;
+
+      /* Traverse the basic block, if two function calls within a basic block
+	 are mapped to a same line, assign a new discriminator because a call
+	 stmt could be a split point of a basic block.  */
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  if (curr_locus == UNKNOWN_LOCATION)
+	    {
+	      curr_locus = gimple_location (stmt);
+	    }
+	  else if (!same_line_p (curr_locus, gimple_location (stmt)))
+	    {
+	      curr_locus = gimple_location (stmt);
+	      curr_discr = 0;
+	    }
+	  else if (curr_discr != 0)
+	    {
+	      gimple_set_location (stmt, location_with_discriminator (
+		  gimple_location (stmt), curr_discr));
+	    }
+	  /* Allocate a new discriminator for CALL stmt.  */
+	  if (gimple_code (stmt) == GIMPLE_CALL)
+	    curr_discr = next_discriminator_for_locus (curr_locus);
+	}
 
       if (locus == UNKNOWN_LOCATION)
 	continue;
@@ -983,10 +1038,12 @@ assign_discriminators (void)
 	  if ((first && same_line_p (locus, gimple_location (first)))
 	      || (last && same_line_p (locus, gimple_location (last))))
 	    {
-	      if (e->dest->discriminator != 0 && bb->discriminator == 0)
-		bb->discriminator = next_discriminator_for_locus (locus);
+	      if (((first && has_discriminator (gimple_location (first)))
+		   || (last && has_discriminator (gimple_location (last))))
+		  && !has_discriminator (locus))
+		assign_discriminator (locus, bb);
 	      else
-		e->dest->discriminator = next_discriminator_for_locus (locus);
+		assign_discriminator (locus, e->dest);
 	    }
 	}
     }
