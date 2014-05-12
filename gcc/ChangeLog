@@ -1,3 +1,57 @@
+2014-05-12  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	Backport from mainline
+	2014-05-12  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	PR target/60991
+	* config/avr/avr.c (avr_out_store_psi): Use correct constant
+	to restore Y.
+
+2014-05-09  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-05-09 trunk r210267
+
+	PR target/61055
+	* config/avr/avr.md (cc): Add new attribute set_vzn.
+	(addqi3, addqq3, adduqq3, subqi3, subqq3, subuqq3, negqi2) [cc]:
+	Set cc insn attribute to set_vzn instead of set_zn for alternatives
+	with INC, DEC or NEG.
+	* config/avr/avr.c (avr_notice_update_cc): Handle SET_VZN.
+	(avr_out_plus_1): ADIW sets cc0 to CC_SET_CZN.
+	INC, DEC and ADD+ADC set cc0 to CC_CLOBBER.
+
+2014-05-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* builtins.c (expand_builtin_setjmp_receiver): Emit a use of
+	the hard frame pointer.  Synchronize commentary with mainline.
+	* cse.c (cse_insn): Only check for volatile asms.
+	* cselib.c (cselib_process_insn): Likewise.
+	* dse.c (scan_insn): Likewise.
+	* stmt.c (expand_nl_goto_receiver): Emit a use and a clobber of
+	the hard frame pointer.
+
+2014-05-08  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Matthias Klose  <doko@ubuntu.com>
+
+	PR driver/61106
+	* optc-gen.awk: Fix option handling for -Wunused-parameter.
+
+2014-05-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59952
+	* config/i386/i386.c (ix86_option_override_internal): Remove PTA_RTM
+	from core-avx2.
+
+2014-05-08  Charles Baylis  <charles.baylis@linaro.org>
+
+	Backport from mainline
+	2014-04-07  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/60609
+	* config/arm/arm.h (ASM_OUTPUT_CASE_END): Remove.
+	(LABEL_ALIGN_AFTER_BARRIER): Align barriers which occur after
+	ADDR_DIFF_VEC.
+
 2014-05-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	* config.gcc (aarch64*-*-*): Use ISA flags from aarch64-arches.def.
@@ -1202,19 +1256,19 @@
 	(altivec_expand_stvex_be): New function.
 
 	Backport from mainline
-        2014-02-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2014-02-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_move): Relax assert
 	to permit subregs.
 
 	Backport from mainline
-        2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+	2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 	* config/rs6000/vector.md (*vector_unordered<mode>): Change split
 	to use canonical form for nor<mode>3.
 
 2014-04-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
-        2014-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	2014-02-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mlra): Add switch to enable the LRA
 	register allocator.
@@ -3592,9 +3646,9 @@
 
 2014-03-26  Martin Jambor  <mjambor@suse.cz>
 
-      PR ipa/60419
-      * ipa.c (symtab_remove_unreachable_nodes): Clear thunk and
-      alias flags of nodes in the border.
+	PR ipa/60419
+	* ipa.c (symtab_remove_unreachable_nodes): Clear thunk and
+	alias flags of nodes in the border.
 
 2014-03-26  Eric Botcazou  <ebotcazou@adacore.com>
 
@@ -3803,13 +3857,13 @@
 	Backport from mainline
 	2014-02-21  Richard Biener  <rguenther@suse.de>
 
-        PR tree-optimization/60276
-        * tree-vectorizer.h (struct _stmt_vec_info): Add min_neg_dist field.
-        (STMT_VINFO_MIN_NEG_DIST): New macro.
-        * tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Record
-        STMT_VINFO_MIN_NEG_DIST.
-        * tree-vect-stmts.c (vectorizable_load): Verify if assumptions
-        made for negative dependence distances still hold.
+	PR tree-optimization/60276
+	* tree-vectorizer.h (struct _stmt_vec_info): Add min_neg_dist field.
+	(STMT_VINFO_MIN_NEG_DIST): New macro.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Record
+	STMT_VINFO_MIN_NEG_DIST.
+	* tree-vect-stmts.c (vectorizable_load): Verify if assumptions
+	made for negative dependence distances still hold.
 
 2014-02-25  Richard Biener  <rguenther@suse.de>
 
