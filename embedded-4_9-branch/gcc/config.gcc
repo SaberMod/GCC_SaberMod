@@ -3610,6 +3610,18 @@ case "${target}" in
 					tmake_file="${tmake_file} arm/t-aprofile"
 					break
 					;;
+				armv6-m | armv7-m | armv7e-m | armv7-r | armv7-a)
+					if test "x$with_arch" != x \
+					    || test "x$with_cpu" != x \
+					    || test "x$with_float" != x \
+					    || test "x$with_fpu" != x \
+					    || test "x$with_mode" != x ; then
+					    echo "Error: You cannot use any of --with-arch/cpu/fpu/float/mode with --with-multilib-list=${with_multilib_list}" 1>&2
+					    exit 1
+					fi
+					tmake_file="${tmake_file} arm/t-rmprofile"
+					break
+					;;
 				default)
 					;;
 				*)

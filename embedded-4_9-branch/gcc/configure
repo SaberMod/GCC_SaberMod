@@ -761,6 +761,7 @@ LN
 LN_S
 AWK
 SET_MAKE
+with_multilib_list
 REPORT_BUGS_TEXI
 REPORT_BUGS_TO
 PKGVERSION
@@ -1679,7 +1680,7 @@ Optional Packages:
   --with-specs=SPECS      add SPECS to driver command-line processing
   --with-pkgversion=PKG   Use PKG in the version string in place of "GCC"
   --with-bugurl=URL       Direct users to URL to report a bug
-  --with-multilib-list    select multilibs (AArch64, SH and x86-64 only)
+  --with-multilib-list    select multilibs (ARM, SH and x86-64 only)
   --with-gnu-ld           assume the C compiler uses GNU ld default=no
   --with-libiconv-prefix[=DIR]  search for libiconv in DIR/include and DIR/lib
   --without-libiconv-prefix     don't search for libiconv in includedir and libdir
@@ -7290,6 +7291,7 @@ if test "${with_multilib_list+set}" = set; then :
 else
   with_multilib_list=default
 fi
+
 
 
 # -------------------------
@@ -17927,7 +17929,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17930 "configure"
+#line 17932 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18033,7 +18035,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18036 "configure"
+#line 18038 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

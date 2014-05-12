@@ -540,6 +540,7 @@ lang_opt_files=@lang_opt_files@ $(srcdir)/c-family/c.opt $(srcdir)/common.opt
 lang_specs_files=@lang_specs_files@
 lang_tree_files=@lang_tree_files@
 target_cpu_default=@target_cpu_default@
+with_multilib_list=@with_multilib_list@
 OBJC_BOEHM_GC=@objc_boehm_gc@
 extra_modes_file=@extra_modes_file@
 extra_opt_files=@extra_opt_files@

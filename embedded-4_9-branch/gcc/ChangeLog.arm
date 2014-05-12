@@ -1,0 +1,10 @@
+2014-05-12  Terry Guo  <terry.guo@arm.com>
+
+	* config.gcc (--with-multilib-list): Accept arm embedded cores.
+	* configure.ac (with_multilib_list): Export for being used in arm
+	embedded multilib fragment.
+	* configure: Regenerated.
+	* Makefile.in (with_multilib_list): Import for being used in
+	multilib fragment.
+	* config/arm/t-rmprofile: New multilib fragment for arm embedded
+	cores.
