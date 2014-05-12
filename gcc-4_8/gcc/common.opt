@@ -1352,6 +1352,10 @@ floop-nest-optimize
 Common Report Var(flag_loop_optimize_isl) Optimization
 Enable the ISL based loop nest optimizer
 
+fskeleton-type-units
+Common Report Var(flag_skeleton_type_units) Init(1)
+Output skeleton .debug_types sections when using -gsplit-dwarf.
+
 fstrict-volatile-bitfields
 Common Report Var(flag_strict_volatile_bitfields) Init(-1)
 Force bitfield accesses to match their type width

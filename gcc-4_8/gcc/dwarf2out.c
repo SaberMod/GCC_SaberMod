@@ -8978,7 +8978,7 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
   ASM_OUTPUT_LABEL (asm_out_file, debug_skeleton_abbrev_section_label);
 
   output_die_abbrevs (SKELETON_COMP_DIE_ABBREV, comp_unit);
-  if (use_debug_types)
+  if (use_debug_types && flag_skeleton_type_units)
     output_die_abbrevs (SKELETON_TYPE_DIE_ABBREV, get_skeleton_type_unit ());
 
   dw2_asm_output_data (1, 0, "end of skeleton .debug_abbrev");
@@ -9043,7 +9043,7 @@ output_comdat_type_unit (comdat_type_node *node)
   unmark_dies (node->root_die);
 
 #if defined (OBJECT_FORMAT_ELF)
-  if (dwarf_split_debug_info)
+  if (dwarf_split_debug_info && flag_skeleton_type_units)
     {
       /* Produce the skeleton type-unit header.  */
       const char *secname = ".debug_types";
@@ -23930,7 +23930,8 @@ dwarf2out_finish (const char *filename)
       add_top_level_skeleton_die_attrs (main_comp_unit_die);
       add_AT_lineptr (main_comp_unit_die, DW_AT_GNU_addr_base,
                       debug_addr_section_label);
-      (void) get_skeleton_type_unit ();
+      if (flag_skeleton_type_units)
+        (void) get_skeleton_type_unit ();
       htab_traverse_noresize (debug_str_hash, index_string, &index);
     }
 
