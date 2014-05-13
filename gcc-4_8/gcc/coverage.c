@@ -237,8 +237,8 @@ is_last_module (unsigned mod_id)
 struct string_hasher
 {
   /* hash_table support.  */
-  typedef  char value_type;
-  typedef  char compare_type;
+  typedef const char value_type;
+  typedef char compare_type;
   static inline hashval_t hash (const value_type *);
   static int equal (const value_type *, const compare_type *);
   static void remove (value_type *) {};
@@ -272,6 +272,10 @@ static struct opt_desc force_matching_cg_opts[] =
     { "-fexceptions", "-fno-exceptions", true },
     { "-fsized-delete", "-fno-sized-delete", false },
     { "-frtti", "-fno-rtti", true },
+    { "-fPIC", "-fno-PIC", false },
+    { "-fpic", "-fno-pic", false },
+    { "-fPIE", "-fno-PIE", false },
+    { "-fpie", "-fno-pie", false },
     { "-fstrict-aliasing", "-fno-strict-aliasing", true },
     { "-fsigned-char", "-funsigned-char", true },
     /* { "-fsigned-char", "-fno-signed-char", true },
@@ -315,29 +319,26 @@ has_incompatible_cg_opts (bool *cg_opts1, bool *cg_opts2, unsigned num_cg_opts)
   return false;
 }
 
-/* Returns true if the command-line arguments stored in the given module-infos
-   are incompatible.  */
-bool
-incompatible_cl_args (struct gcov_module_info* mod_info1,
-		      struct gcov_module_info* mod_info2)
+/* Returns true if the command-line arguments stored ARGS_1 and
+   ARGS_2 are incompatible. N_ARGS_1 and N_ARGS_2 are the number
+   of string in ARGS_1 and ARGS_2, respectively.  */
+
+static bool
+incompatible_cl_arg_strs (const char* const* args_1, const unsigned int n_args_1,
+                          const char *filename1, const char* const* args_2,
+                          const unsigned int n_args_2, const char *filename2)
 {
-  char **warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
-  char **warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
-  char **non_warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
-  char **non_warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
-  char *std_opts1 = NULL, *std_opts2 = NULL;
+  const char **warning_opts1 = XNEWVEC (const char *, n_args_1);
+  const char **warning_opts2 = XNEWVEC (const char *, n_args_2);
+  const char **non_warning_opts1 = XNEWVEC (const char *, n_args_1);
+  const char **non_warning_opts2 = XNEWVEC (const char *, n_args_2);
+  const char *std_opts1 = NULL, *std_opts2 = NULL;
   unsigned arch_isa1 = 0, arch_isa2 = 0;
   unsigned int i, num_warning_opts1 = 0, num_warning_opts2 = 0;
   unsigned int num_non_warning_opts1 = 0, num_non_warning_opts2 = 0;
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
   hash_table <string_hasher> option_tab1, option_tab2;
-  unsigned int start_index1 = mod_info1->num_quote_paths 
-    + mod_info1->num_bracket_paths + mod_info1->num_system_paths 
-    + mod_info1->num_cpp_defines + mod_info1->num_cpp_includes;
-  unsigned int start_index2 = mod_info2->num_quote_paths
-    + mod_info2->num_bracket_paths + mod_info2->num_system_paths
-    + mod_info2->num_cpp_defines + mod_info2->num_cpp_includes;
 
   bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts, has_incompatible_std;
   bool has_incompatible_arch_isa;
@@ -360,14 +361,13 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   option_tab2.create (10);
 
   /* First, separate the warning and non-warning options.  */
-  for (i = 0; i < mod_info1->num_cl_args; i++)
-    if (mod_info1->string_array[start_index1 + i][1] == 'W')
-      warning_opts1[num_warning_opts1++] =
-	mod_info1->string_array[start_index1 + i];
+  for (i = 0; i < n_args_1; i++)
+    if (args_1[i][1] == 'W')
+      warning_opts1[num_warning_opts1++] = args_1[i];
     else
       {
-        char **slot;
-        char *option_string = mod_info1->string_array[start_index1 + i];
+        const char **slot;
+        const char *option_string = args_1[i];
 
         check_cg_opts (cg_opts1, option_string);
 	if (strstr (option_string, "-std="))
@@ -384,14 +384,14 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
           }
       }
 
-  for (i = 0; i < mod_info2->num_cl_args; i++)
-    if (mod_info2->string_array[start_index2 + i][1] == 'W')
+  for (i = 0; i < n_args_2; i++)
+    if (args_2[i][1] == 'W')
       warning_opts2[num_warning_opts2++] =
-	mod_info2->string_array[start_index2 + i];
+	args_2[i];
     else
       {
-        char **slot;
-        char *option_string = mod_info2->string_array[start_index2 + i];
+        const char **slot;
+        const char *option_string = args_2[i];
 
         check_cg_opts (cg_opts2, option_string);
 	if (strstr (option_string, "-std="))
@@ -433,17 +433,17 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
 
   if (warn_ripa_opt_mismatch && (warning_mismatch || non_warning_mismatch))
     warning (OPT_Wripa_opt_mismatch, "command line arguments mismatch for %s "
-	     "and %s", mod_info1->source_filename, mod_info2->source_filename);
+	     "and %s", filename1, filename2);
 
    if (warn_ripa_opt_mismatch && non_warning_mismatch && dump_enabled_p ())
      {
        dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
-                        "Options for %s", mod_info1->source_filename);
+                        "Options for %s", filename1);
        for (i = 0; i < num_non_warning_opts1; i++)
          dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
                           non_warning_opts1[i]);
        dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
-                        "Options for %s", mod_info2->source_filename);
+                        "Options for %s", filename2);
        for (i = 0; i < num_non_warning_opts2; i++)
          dump_printf_loc (MSG_MISSED_OPTIMIZATION, UNKNOWN_LOCATION,
                           non_warning_opts2[i]);
@@ -465,6 +465,44 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
            || has_incompatible_arch_isa);
 }
 
+/* Returns true if the command-line arguments stored in the given module-infos
+   are incompatible.  When MOD_INFO2==NULL, compare the cl_args from MOD_INFO1
+   with current profile-use command line.  */
+
+bool
+incompatible_cl_args (struct gcov_module_info* mod_info1,
+		      struct gcov_module_info* mod_info2)
+{
+  const char * const * args_2;
+  int num_args_2;
+  const char *filename_2;
+  int ret;
+  unsigned int start_index1 = mod_info1->num_quote_paths
+    + mod_info1->num_bracket_paths + mod_info1->num_system_paths
+    + mod_info1->num_cpp_defines + mod_info1->num_cpp_includes;
+
+  if (mod_info2)
+    {
+      unsigned int start_index2 = mod_info2->num_quote_paths
+        + mod_info2->num_bracket_paths + mod_info2->num_system_paths
+        + mod_info2->num_cpp_defines + mod_info2->num_cpp_includes;
+      args_2 = &(mod_info2->string_array[start_index2]);
+      num_args_2 = mod_info2->num_cl_args;
+      filename_2 = mod_info2->source_filename;
+    }
+  else
+    {
+      args_2 = lipo_cl_args;
+      num_args_2 = num_lipo_cl_args;
+      filename_2 = mod_info1->source_filename;
+    }
+
+  ret = incompatible_cl_arg_strs (
+          &(mod_info1->string_array[start_index1]),
+          mod_info1->num_cl_args, mod_info1->source_filename,
+          args_2, num_args_2, filename_2);
+  return ret;
+}
 
 /* Support for module sorting based on user specfication.  */
 struct module_name_entry
@@ -838,6 +876,14 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
               module_infos[0] = XCNEWVAR (struct gcov_module_info, info_sz);
               memcpy (module_infos[0], mod_info, info_sz);
+
+              /* check gen and use command lines.  */
+	      if (incompatible_cl_args (module_infos[0], NULL))
+                {
+                  warning (0, "Mismatched options for the primary module."
+                              " Skipping all aux modules.");
+                  break;
+                }
 	    }
 	  else
             {

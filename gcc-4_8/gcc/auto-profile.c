@@ -967,6 +967,14 @@ read_aux_modules (void)
       afdo_module_profile->get_aux_modules (in_fnames[0]);
   unsigned num_aux_modules = aux_modules ? aux_modules->size() : 0;
 
+  if (incompatible_cl_args (module, NULL))
+  {
+    if (flag_opt_info)
+      inform (0, "Mismatched options for the primary module."
+                 " Skipping all aux modules.");
+    return;
+  }
+
   module_infos = XCNEWVEC (gcov_module_info *, num_aux_modules + 1);
   module_infos[0] = module;
   primary_module_id = module->ident;
