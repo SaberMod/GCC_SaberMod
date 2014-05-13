@@ -207,3 +207,6 @@ FAIL: gfortran.fortran-torture/execute/intrinsic_dotprod.f90 execution,  -O2 -fo
 FAIL: gfortran.fortran-torture/execute/intrinsic_dotprod.f90 execution,  -O2 -fbounds-check
 FAIL: gfortran.fortran-torture/execute/intrinsic_dotprod.f90 execution,  -O3 -g
 
+# Missing warning with -Wextra in Fortran
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61126
+FAIL: gfortran.dg/wextra_1.f -O   (test for warnings, line 4)

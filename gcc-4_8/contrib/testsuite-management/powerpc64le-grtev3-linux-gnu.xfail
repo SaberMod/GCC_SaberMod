@@ -1046,3 +1046,7 @@ FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-
 UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fno-use-linker-plugin -flto-partition=none  compilation failed to produce executable
 FAIL: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  (test for excess errors)
 UNRESOLVED: g++.dg/asan/symbolize-callback-1.C -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  compilation failed to produce executable
+
+# Missing warning with -Wextra in Fortran
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61126
+FAIL: gfortran.dg/wextra_1.f -O   (test for warnings, line 4)

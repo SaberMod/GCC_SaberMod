@@ -1299,3 +1299,7 @@ FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "and turne
 # gcc.dg/inline_3.c:4:37: warning: always_inline function might not be inlinable [-Wattributes]
 FAIL: gcc.dg/inline_3.c (test for excess errors)
 FAIL: gcc.dg/inline_4.c (test for excess errors)
+
+# Missing warning with -Wextra in Fortran
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61126
+FAIL: gfortran.dg/wextra_1.f -O   (test for warnings, line 4)
