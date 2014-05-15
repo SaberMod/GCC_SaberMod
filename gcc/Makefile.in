@@ -1355,6 +1355,7 @@ OBJS = \
 	sel-sched-dump.o \
 	sel-sched.o \
 	sese.o \
+	simplify-got.o \
 	simplify-rtx.o \
 	sparseset.o \
 	sreal.o \
