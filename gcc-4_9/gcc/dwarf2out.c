@@ -18914,12 +18914,16 @@ gen_label_die (tree decl, dw_die_ref context_die)
 static inline void
 add_call_src_coords_attributes (tree stmt, dw_die_ref die)
 {
-  expanded_location s = expand_location (BLOCK_SOURCE_LOCATION (stmt));
+  location_t locus = BLOCK_SOURCE_LOCATION (stmt);
+  expanded_location s = expand_location (locus);
 
   if (dwarf_version >= 3 || !dwarf_strict)
     {
       add_AT_file (die, DW_AT_call_file, lookup_filename (s.file));
       add_AT_unsigned (die, DW_AT_call_line, s.line);
+      unsigned discr = get_discriminator_from_locus (locus);
+      if (discr != 0)
+	add_AT_unsigned (die, DW_AT_GNU_discriminator, discr);
     }
 }
 
