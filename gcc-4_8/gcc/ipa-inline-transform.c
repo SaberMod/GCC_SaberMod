@@ -169,8 +169,14 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       else
 	{
 	  struct cgraph_node *n;
-	  if (flag_auto_profile && L_IPO_COMP_MODE
-	      && cgraph_pre_profiling_inlining_done)
+	  /* Disable updating of callee count if caller is not the resolved node
+             to avoid multiple updates of the callee's profile when inlining
+             into COMDAT copies.  Both AutoFDO and regular FDO will have the
+             same edge counts for all unresolved nodes.  In AutoFDO this is due
+             to profile correlation by function name and source position.  In
+             regular FDO this is due to COMDAT profile merging performed on the
+             dynamic callgraph at the end of LIPO profiling.  */
+	  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
 	    {
 	      struct cgraph_node *caller = e->caller;
 	      if (caller->global.inlined_to)

@@ -63,6 +63,7 @@ __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_grouping_algorithm;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_merge_modu_edges;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_weak_inclusion;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_max_mem;
+__attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_comdat_algorithm;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_random_group_size;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_cutoff;
 __attribute__ ((weak)) gcov_unsigned_t __gcov_lipo_random_seed;
@@ -599,6 +600,7 @@ print_usage (int error_p)
   fnotice (file, "  -W, --lipo_weak_inclusion             Don't force strict inclusion in grouping\n");
   fnotice (file, "  -C, --lipo_cutoff <0..100>            Set LIPO module grouping cutoff\n");
   fnotice (file, "  -M, --lipo_max_memory <int>           Set the max memory in LIPO module grouping\n");
+  fnotice (file, "  -F, --lipo_comdat_algorithm <0|1|2|3> Set the COMDAT fixup algorithm\n");
   fnotice (file, "  -R, --lipo_random_group_size <int>    Set LIPO random grouping size\n");
   fnotice (file, "  -S, --lipo_random_group_seed <int>    Set LIPO random grouping seed\n");
   fnotice (file, "  -D, --lipo_dump_cgraph                Dump dynamic call graph\n");
@@ -635,6 +637,7 @@ static const struct option options[] =
   { "lipo_weak_inclusion",    no_argument,       NULL, 'W' },
   { "lipo_cutoff",            required_argument, NULL, 'C' },
   { "lipo_max_memory",        required_argument, NULL, 'M' },
+  { "lipo_comdat_algorithm",  required_argument, NULL, 'F' },
   { "lipo_random_group_size", required_argument, NULL, 'R' },
   { "lipo_random_group_seed", required_argument, NULL, 'S' },
   { "lipo_dump_cgraph",       no_argument,       NULL, 'D' },
@@ -703,6 +706,16 @@ process_args (int argc, char **argv)
             }
           __gcov_lipo_max_mem = ret;
           break;
+        case 'F':
+          sscanf (optarg, "%d", &ret);
+          if (ret < 0)
+            {
+              fnotice (stderr,
+                       "LIPO COMDAT fixup algorithm needs to be positive\n");
+              exit (-1);
+            }
+          __gcov_lipo_comdat_algorithm = ret;
+          break;
         case 'C':
           sscanf (optarg, "%d", &ret);
           if (ret < 0 || ret > 100)
@@ -731,6 +744,7 @@ set_lipo_default_params (void)
   __gcov_lipo_merge_modu_edges   = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_MERGE_MODU_EDGES);
   __gcov_lipo_weak_inclusion     = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_WEAK_INCLUSION);
   __gcov_lipo_max_mem            = GET_DEFAULT_PARAM_VALUE (PARAM_MAX_LIPO_MEMORY);
+  __gcov_lipo_comdat_algorithm   = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_COMDAT_ALGORITHM);
   __gcov_lipo_random_group_size  = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_RANDOM_GROUP_SIZE);
   __gcov_lipo_cutoff             = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_CUTOFF);
   __gcov_lipo_random_seed        = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_RANDOM_SEED);

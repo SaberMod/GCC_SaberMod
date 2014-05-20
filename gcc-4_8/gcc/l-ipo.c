@@ -1543,7 +1543,11 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
       add_define_module (*slot, decl2);
 
       has_prof1 = has_profile_info (decl1);
-      if (has_prof1)
+      bool is_aux1 = cgraph_is_auxiliary (decl1);
+      bool is_aux2 = cgraph_is_auxiliary (decl2);
+      /* Pick the copy from the primary module if multiple copies
+         have profile.  */
+      if (has_prof1 && (!is_aux1 || is_aux2))
         return;
       has_prof2 = has_profile_info (decl2);
       if (has_prof2)

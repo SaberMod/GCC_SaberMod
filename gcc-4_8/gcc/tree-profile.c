@@ -197,6 +197,9 @@ static tree GTY(()) gcov_lipo_merge_modu_edges = NULL_TREE;
 /* extern gcov_unsigned_t __gcov_lipo_strict_inclusion  */
 static tree GTY(()) gcov_lipo_strict_inclusion = NULL_TREE;
 
+/* extern gcov_unsigned_t __gcov_lipo_comdat_algorithm  */
+static tree GTY(()) gcov_lipo_comdat_algorithm = NULL_TREE;
+
 /* Insert STMT_IF around given sequence of consecutive statements in the
    same basic block starting with STMT_START, ending with STMT_END.
    PROB is the probability of the taken branch.  */
@@ -434,6 +437,13 @@ tree_init_dyn_ipa_parameters (void)
           get_gcov_unsigned_t ());
       init_comdat_decl (gcov_lipo_strict_inclusion,
                         PARAM_LIPO_WEAK_INCLUSION);
+      gcov_lipo_comdat_algorithm = build_decl (
+          UNKNOWN_LOCATION,
+          VAR_DECL,
+          get_identifier ("__gcov_lipo_comdat_algorithm"),
+          get_gcov_unsigned_t ());
+      init_comdat_decl (gcov_lipo_comdat_algorithm,
+                        PARAM_LIPO_COMDAT_ALGORITHM);
     }
 }
 

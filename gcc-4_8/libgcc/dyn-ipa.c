@@ -54,6 +54,7 @@ struct dyn_cgraph_edge
   struct dyn_cgraph_edge *next_caller;
   struct dyn_cgraph_edge *next_callee;
   gcov_type count;
+  int indirect;
 };
 
 struct dyn_module_info
@@ -78,6 +79,36 @@ struct dyn_cgraph
   unsigned num_nodes_executed;
   /* used by new algorithm  */
   struct modu_node *modu_nodes;
+  /* Set indexed by lineno_checksum, returns another dyn_pointer_set*,
+     indexed by cfg_checksum.  That returns a checksum_alias_info struct.  */
+  struct dyn_pointer_set *lineno_pointer_sets;
+};
+
+/* Struct holding information for functions with the same lineno_checksum.  */
+struct lineno_checksum_alias
+{
+  /* Set indexed by cfg_checksum, holding a checksum_alias_info struct.  */
+  struct dyn_pointer_set *cfg_pointer_set;
+  unsigned lineno_checksum;
+};
+
+/* Struct holding information about functions with the same lineno and cfg
+   checksums.  */
+struct checksum_alias_info
+{
+  struct checksum_alias *alias_list;
+  unsigned cfg_checksum;
+};
+
+/* Implements list of guid and corresponding fi_ptr for functions with matching
+   checksums.  */
+struct checksum_alias
+{
+  struct checksum_alias *next_alias;
+  gcov_type guid;
+  const struct gcov_fn_info *fi_ptr;
+  /* Does this function have all-zero arc counts?  */
+  int zero_counts;
 };
 
 /* Module info is stored in dyn_caph->sup_modules
@@ -141,6 +172,7 @@ extern gcov_unsigned_t __gcov_lipo_random_group_size;
 extern gcov_unsigned_t __gcov_lipo_propagate_scale;
 extern gcov_unsigned_t __gcov_lipo_dump_cgraph;
 extern gcov_unsigned_t __gcov_lipo_max_mem;
+extern gcov_unsigned_t __gcov_lipo_comdat_algorithm;
 extern gcov_unsigned_t __gcov_lipo_grouping_algorithm;
 extern gcov_unsigned_t __gcov_lipo_merge_modu_edges;
 extern gcov_unsigned_t __gcov_lipo_weak_inclusion;
@@ -149,7 +181,7 @@ extern gcov_unsigned_t __gcov_lipo_weak_inclusion;
 __gcov_build_callgraph (void) {}
 #else
 
-void __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;
+int __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;
 void __gcov_finalize_dyn_callgraph (void) ATTRIBUTE_HIDDEN;
 static void gcov_dump_callgraph (gcov_type);
 static void gcov_dump_cgraph_node_short (struct dyn_cgraph_node *node);
@@ -184,6 +216,24 @@ static int flag_modu_merge_edges;
 static int flag_weak_inclusion;
 static int flag_use_existing_grouping;
 static gcov_unsigned_t mem_threshold;
+
+gcov_type
+gcov_find_new_ic_target (gcov_type caller_guid, gcov_type callee_guid);
+void
+__gcov_dyn_ipa_merge_add (gcov_type *dest, gcov_type *src, unsigned n_counters);
+void
+__gcov_dyn_ipa_merge_ior (gcov_type *dest, gcov_type *src, unsigned n_counters);
+void
+__gcov_dyn_ipa_merge_dc (gcov_type *dest, gcov_type *src, unsigned n_counters);
+void
+__gcov_dyn_ipa_merge_icall_topn (gcov_type *dest, gcov_type *src,
+                                 unsigned n_counters);
+void
+__gcov_dyn_ipa_merge_single (gcov_type *dest, gcov_type *src,
+                             unsigned n_counters);
+void
+__gcov_dyn_ipa_merge_delta (gcov_type *dest, gcov_type *src,
+                            unsigned n_counters);
 
 /* Returns 0 if no dump is enabled. Returns 1 if text form graph
    dump is enabled. Returns 2 if .dot form dump is enabled.  */
@@ -316,6 +366,94 @@ gcov_info_get_key (const void *p)
   return get_module_ident ((const struct gcov_info *)p);
 }
 
+/* The lineno_checksum value in P is the key for lineno_pointer_sets.  */
+
+static inline unsigned
+lineno_checksum_get_key (const void *p)
+{
+  return ((const struct lineno_checksum_alias *) p)->lineno_checksum;
+}
+
+/* The cfg_checksum value in P is the key for a cfg_pointer_set.  */
+
+static inline unsigned
+cfg_checksum_get_key (const void *p)
+{
+  return ((const struct checksum_alias_info *) p)->cfg_checksum;
+}
+
+/* Create a new checksum_alias struct for function with GUID, FI_PTR,
+   and ZERO_COUNTS flag.  Prepends to list NEXT and returns new struct.  */
+
+static struct checksum_alias *
+new_checksum_alias (gcov_type guid, const struct gcov_fn_info *fi_ptr,
+                    int zero_counts,
+                    struct checksum_alias *next)
+{
+  struct checksum_alias *alias = XNEW (struct checksum_alias);
+  alias->next_alias = next;
+  alias->fi_ptr = fi_ptr;
+  alias->guid = guid;
+  alias->zero_counts = zero_counts;
+  return alias;
+}
+
+/* Insert a new checksum_alias struct into pointer set P for function with
+   CFG_CHECKSUM and associated GUID, FI_PTR, and ZERO_COUNTS flag.  */
+
+static void
+cfg_checksum_set_insert (struct dyn_pointer_set *p, unsigned cfg_checksum,
+                         gcov_type guid, const struct gcov_fn_info *fi_ptr,
+                         int zero_counts)
+{
+  struct checksum_alias_info **m = (struct checksum_alias_info **)
+    pointer_set_find_or_insert (p, cfg_checksum);
+  if (*m)
+    {
+      gcc_assert ((*m)->alias_list);
+      (*m)->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts,
+                                             (*m)->alias_list);
+    }
+  else
+    {
+      *m = XNEW (struct checksum_alias_info);
+      (*m)->cfg_checksum = cfg_checksum;
+      (*m)->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts, NULL);
+      p->n_elements++;
+    }
+}
+
+/* Insert a new checksum_alias struct into lineno_pointer_sets for function with
+   LINENO_CHECKSUM and CFG_CHECKSUM with associated GUID, FI_PTR, and
+   ZERO_COUNTS flag.  */
+
+static void
+checksum_set_insert (unsigned lineno_checksum, unsigned cfg_checksum,
+                     gcov_type guid, const struct gcov_fn_info *fi_ptr,
+                     int zero_counts)
+{
+  struct dyn_pointer_set *p = the_dyn_call_graph.lineno_pointer_sets;
+  if (!p)
+    the_dyn_call_graph.lineno_pointer_sets = p =
+        pointer_set_create (lineno_checksum_get_key);
+  struct lineno_checksum_alias **m = (struct lineno_checksum_alias **)
+    pointer_set_find_or_insert (p, lineno_checksum);
+  if (*m)
+    {
+      cfg_checksum_set_insert ((*m)->cfg_pointer_set, cfg_checksum, guid,
+                               fi_ptr, zero_counts);
+    }
+  else
+    {
+      *m = XNEW (struct lineno_checksum_alias);
+      (*m)->lineno_checksum = lineno_checksum;
+      (*m)->cfg_pointer_set = pointer_set_create (cfg_checksum_get_key);
+      cfg_checksum_set_insert ((*m)->cfg_pointer_set, cfg_checksum, guid,
+                               fi_ptr, zero_counts);
+      p->n_elements++;
+    }
+}
+
 static struct dyn_pointer_set *
 get_exported_to (unsigned module_ident)
 {
@@ -429,6 +567,10 @@ init_dyn_call_graph (void)
   if (do_dump)
     fprintf (stderr, "Group mem limit: %u KB \n",
              __gcov_lipo_max_mem);
+
+  if (do_dump)
+    fprintf (stderr, "COMDAT fixup algorithm: %u\n",
+             __gcov_lipo_comdat_algorithm);
 
   for (; gi_ptr; gi_ptr = gi_ptr->next)
     {
@@ -565,12 +707,13 @@ gcov_add_in_edge (struct dyn_cgraph_node *callee,
 }
 
 /* Add a call graph edge between caller CALLER and callee CALLEE.
-   The edge count is COUNT.  */
+   The edge count is COUNT and INDIRECT flags whether the call was
+   direct or indirect.  */
 
 static void
 gcov_add_cgraph_edge (struct dyn_cgraph_node *caller,
 		      struct dyn_cgraph_node *callee,
-		      gcov_type count)
+		      gcov_type count, int indirect)
 {
   struct dyn_cgraph_edge *new_edge = XNEW (struct dyn_cgraph_edge);
   new_edge->caller = caller;
@@ -578,6 +721,7 @@ gcov_add_cgraph_edge (struct dyn_cgraph_node *caller,
   new_edge->count = count;
   new_edge->next_caller = 0;
   new_edge->next_callee = 0;
+  new_edge->indirect = indirect;
 
   gcov_add_out_edge (caller, new_edge);
   gcov_add_in_edge (callee, new_edge);
@@ -611,7 +755,7 @@ gcov_build_callgraph_dc_fn (struct dyn_cgraph_node *caller,
           total_insane_count++;
           continue;
         }
-      gcov_add_cgraph_edge (caller, callee, count);
+      gcov_add_cgraph_edge (caller, callee, count, 0);
     }
 }
 
@@ -645,7 +789,7 @@ gcov_build_callgraph_ic_fn (struct dyn_cgraph_node *caller,
               total_insane_count++;
               continue;
 	    }
-          gcov_add_cgraph_edge (caller, callee, count);
+          gcov_add_cgraph_edge (caller, callee, count, 1);
         }
     }
 }
@@ -692,7 +836,7 @@ gcov_build_callgraph (void)
               if (i == GCOV_COUNTER_ICALL_TOPNV)
                 gcov_build_callgraph_ic_fn (caller, ci_ptr->values, ci_ptr->num);
 
-              if (i == GCOV_COUNTER_ARCS && 0)
+              if (i == GCOV_COUNTER_ARCS)
                 {
                   gcov_type total_arc_count = 0;
                   unsigned arc;
@@ -700,6 +844,9 @@ gcov_build_callgraph (void)
                     total_arc_count += ci_ptr->values[arc];
                   if (total_arc_count != 0)
                     the_dyn_call_graph.num_nodes_executed++;
+                  checksum_set_insert (fi_ptr->lineno_checksum,
+                                       fi_ptr->cfg_checksum, caller->guid,
+                                       fi_ptr, total_arc_count == 0);
                 }
               ci_ptr++;
             }
@@ -2288,9 +2435,596 @@ read_modu_groups_from_imports_files (void)
 #endif /* IN_GCOV_TOOL */
 }
 
-/* Compute module groups needed for L-IPO compilation.  */
+/* Scan functions in MOD_INFO and return gcov_fn_info for matching
+   FUNC_ID.  */
+
+static const struct gcov_fn_info *
+find_fn_info_from_func_id (struct gcov_info *mod_info, unsigned func_id)
+{
+  unsigned j;
+  for (j = 0; j < mod_info->n_functions; j++)
+    {
+      const struct gcov_fn_info *fi_ptr = mod_info->functions[j];
+      if (fi_ptr->ident == func_id)
+        return fi_ptr;
+    }
+  gcc_assert (0);
+  return NULL;
+}
+
+/* Look for a function in the same module as CALLER_GUID that has
+   the same lineno and cfg checksums as CALLEE_GUID.  Return the
+   guid of the matching function if exactly one is found, 0 otherwise.  */
+
+gcov_type
+gcov_find_new_ic_target (gcov_type caller_guid, gcov_type callee_guid)
+{
+  /* Obtain the callee's function info.  */
+  unsigned callee_mod_id = get_module_ident_from_func_glob_uid (callee_guid);
+  struct gcov_info *callee_mod_info = get_module_info (callee_mod_id);
+  unsigned callee_func_id = get_intra_module_func_id (callee_guid);
+  const struct gcov_fn_info *callee_fi_ptr
+      = find_fn_info_from_func_id (callee_mod_info, callee_func_id);
+
+  /* Obtain the list of checksum_alias structures for functions with
+     the same lineno and cfg checksum as callee.  */
+  struct dyn_pointer_set *p = the_dyn_call_graph.lineno_pointer_sets;
+  gcc_assert (p);
+  struct lineno_checksum_alias **line_alias = (struct lineno_checksum_alias **)
+    pointer_set_find_or_insert (p, callee_fi_ptr->lineno_checksum);
+  gcc_assert (*line_alias);
+  struct checksum_alias_info **cfg_alias = (struct checksum_alias_info **)
+    pointer_set_find_or_insert ((*line_alias)->cfg_pointer_set,
+                                callee_fi_ptr->cfg_checksum);
+  gcc_assert (*cfg_alias);
+
+
+  /* Scan the list of checksum aliases for one that is located in caller's
+     module.  */
+  gcov_type new_guid = 0;
+  unsigned caller_mod_id = get_module_ident_from_func_glob_uid (caller_guid);
+  struct checksum_alias *alias;
+  for (alias = (*cfg_alias)->alias_list; alias;
+       alias = alias->next_alias)
+    {
+      if (get_module_ident_from_func_glob_uid (alias->guid)
+          == caller_mod_id)
+        {
+          /* Give up if we found multiple matches.  */
+          if (new_guid)
+            return 0;
+          new_guid = alias->guid;
+        }
+    }
+
+  /* We found exactly one match, return it.  */
+  return new_guid;
+}
+
+/* If any of CALLER's indirect call counters in CI_PTR has a target that is
+   not in CALLER's module group, see if we can find a copy of the function in
+   CALLER's module.  If so, replace the target to point to that copy.  See
+   comments for gcov_fixup_icall_profile on why we would want to do this.
+   Return 1 if any icall profiles were updated, 0 otherwise.  */
+
+static int
+gcov_fixup_ic_fn (struct dyn_cgraph_node *caller,
+                  const struct gcov_ctr_info *ci_ptr)
+{
+  unsigned i, j;
+  int changed = 0;
+  gcov_type *icall_counters = ci_ptr->values;
+  unsigned n_counts = ci_ptr->num;
+  int do_dump = (do_cgraph_dump () != 0);
+
+  unsigned caller_mod_id = get_module_ident_from_func_glob_uid (caller->guid);
+  struct dyn_pointer_set *imported_mods = get_imported_modus (caller_mod_id);
+  for (i = 0; i < n_counts; i += GCOV_ICALL_TOPN_NCOUNTS)
+    {
+      gcov_type *value_array = &icall_counters[i + 1];
+      for (j = 0; j < GCOV_ICALL_TOPN_NCOUNTS - 1; j += 2)
+        {
+          struct dyn_cgraph_node *callee;
+          gcov_type count;
+          gcov_type callee_guid = value_array[j];
+
+          count = value_array[j + 1];
+          if (count == 0)
+            continue;
+
+          callee = get_cgraph_node (callee_guid);
+          if (!callee)
+            continue;
+
+          /* Now check if callee is in the module group of caller.  If so,
+             no need for any fixup.  */
+          unsigned callee_mod_id
+              = get_module_ident_from_func_glob_uid (callee_guid);
+          if (pointer_set_contains (imported_mods, callee_mod_id))
+            continue;
+
+          /* Attempt to find a copy of callee in caller's module.  */
+          gcov_type new_callee_guid
+              = gcov_find_new_ic_target (caller->guid, callee_guid);
+
+          if (do_dump == 1)
+            {
+              struct gcov_info *caller_mod_info
+                  = the_dyn_call_graph.modules[caller_mod_id - 1];
+              struct gcov_info *callee_mod_info
+                  = the_dyn_call_graph.modules[callee_mod_id - 1];
+              fprintf (stderr,
+                       "Fixup icall %u:%u -> %u:%u with count %lld "
+                       "(%s -> %s): ",
+                       caller_mod_id, get_intra_module_func_id (caller->guid),
+                       callee_mod_id, get_intra_module_func_id (callee_guid),
+                       (long long) count,
+                       caller_mod_info->mod_info->source_filename,
+                       callee_mod_info->mod_info->source_filename);
+              if (!new_callee_guid)
+                fprintf (stderr,"No target found\n");
+              else
+                fprintf (stderr,"Found new target %u:%u (%llx)\n",
+                         get_module_ident_from_func_glob_uid (new_callee_guid),
+                         get_intra_module_func_id (new_callee_guid),
+                         (long long) new_callee_guid);
+            }
+
+          if (new_callee_guid)
+            {
+              /* Update the profile info and note the need for a profile
+                 counter rewrite.  */
+              value_array[j] = new_callee_guid;
+              changed = 1;
+            }
+        }
+    }
+  return changed;
+}
+
+/* Look for indirect call profiles that target callee's outside of the caller's
+   module group, and see if we can find a copy of the function in caller's own
+   module.  If so, replace the profile target to point to that copy.  This is
+   useful when the callee is a COMDAT, in which case there should be a copy
+   within CALLER's module.  The linker would have selected a single copy of
+   COMDAT and all indirect call profiles would target that copy of the callee,
+   which might not end up in the module group of CALLER.
+   Return 1 if any icall profiles were updated, 0 otherwise.  */
+
+static int
+gcov_fixup_icall_profile (void)
+{
+  struct gcov_info *gi_ptr;
+  unsigned m_ix;
+  int changed = 0;
+
+  for (m_ix = 0; m_ix < the_dyn_call_graph.num_modules; m_ix++)
+    {
+      const struct gcov_fn_info *fi_ptr;
+      unsigned f_ix, i;
+
+      gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
+
+      for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
+        {
+          struct dyn_cgraph_node *caller;
+          const struct gcov_ctr_info *ci_ptr = 0;
+
+          fi_ptr = gi_ptr->functions[f_ix];
+          ci_ptr = fi_ptr->ctrs;
+
+          caller = (struct dyn_cgraph_node *) *(pointer_set_find_or_insert
+                    (the_dyn_call_graph.call_graph_nodes[m_ix],
+                     fi_ptr->ident));
+          gcc_assert (caller);
+
+          for (i = 0; i < GCOV_COUNTERS; i++)
+            {
+              if (!gi_ptr->merge[i])
+                continue;
+
+              if (i == GCOV_COUNTER_ICALL_TOPNV)
+                changed |= gcov_fixup_ic_fn (caller, ci_ptr);
+
+              ci_ptr++;
+            }
+        }
+    }
+  return changed;
+}
+
+/* Create, zero-initialize and return an array to hold merged counter
+   values.  */
+
+static struct gcov_ctr_info *
+init_merged_ctrs (void)
+{
+  struct gcov_ctr_info *merged_ctrs = XNEWVEC (struct gcov_ctr_info,
+                                               GCOV_COUNTERS);
+  int i;
+  for (i = 0; i < GCOV_COUNTERS; i++)
+    {
+      merged_ctrs[i].num = 0;
+      merged_ctrs[i].values = NULL;
+    }
+  return merged_ctrs;
+}
+
+/* The profile merging function that just adds N_COUNTERS counters from array
+   SRC to those in DEST.  Adapted from __gcov_merge_add.  */
 
 void
+__gcov_dyn_ipa_merge_add (gcov_type *dest, gcov_type *src, unsigned n_counters)
+{
+  for (; n_counters; dest++, src++, n_counters--)
+    *dest += *src;
+}
+
+/* The profile merging function that just ors N_COUNTERS counters from array
+   SRC to those in DEST.  Adapted from __gcov_merge_ior.  */
+
+void
+__gcov_dyn_ipa_merge_ior (gcov_type *dest, gcov_type *src, unsigned n_counters)
+{
+  for (; n_counters; dest++, src++, n_counters--)
+    *dest |= *src;
+}
+
+
+/* The profile merging function that just merges N_COUNTERS direct call counters
+   from array SRC to those in DEST.  Adapted from __gcov_merge_dc.  */
+
+void
+__gcov_dyn_ipa_merge_dc (gcov_type *dest, gcov_type *src, unsigned n_counters)
+{
+  unsigned i;
+
+  gcc_assert (!(n_counters % 2));
+  for (i = 0; i < n_counters; i += 2)
+    {
+      gcov_type global_id = src[i];
+      if (!global_id)
+        continue;
+
+      /* Simply skip non-matching call targets.  */
+      if (dest[i] && dest[i] != global_id)
+        {
+          continue;
+        }
+      dest[i] = global_id;
+
+      dest[i + 1] += src[i + 1];
+    }
+}
+
+/* The profile merging function that just merges N_COUNTERS indirect call
+   counters from array SRC to those in DEST.  Adapted from
+   __gcov_merge_icall_topn.  */
+
+void
+__gcov_dyn_ipa_merge_icall_topn (gcov_type *dest, gcov_type *src,
+                                 unsigned n_counters)
+{
+  unsigned i, j, k, m;
+
+  gcc_assert (!(n_counters % GCOV_ICALL_TOPN_NCOUNTS));
+  for (i = 0; i < n_counters; i += GCOV_ICALL_TOPN_NCOUNTS)
+    {
+      /* Skip the number_of_eviction entry (in dest[i]).  */
+      gcov_type *value_array = &dest[i + 1];
+      unsigned tmp_size = 2 * (GCOV_ICALL_TOPN_NCOUNTS - 1);
+      gcov_type *tmp_array
+          = (gcov_type *) alloca (tmp_size * sizeof (gcov_type));
+
+      for (j = 0; j < tmp_size; j++)
+        tmp_array[j] = 0;
+
+      for (j = 0; j < GCOV_ICALL_TOPN_NCOUNTS - 1; j += 2)
+        {
+          tmp_array[j] = value_array[j];
+          tmp_array[j + 1] = value_array [j + 1];
+        }
+
+      /* Skip the number_of_eviction entry (in src[i]).  */
+      gcov_type *src_value_array = &src[i + 1];
+      for (k = 0; k < GCOV_ICALL_TOPN_NCOUNTS - 1; k += 2)
+        {
+          int found = 0;
+          gcov_type global_id = src_value_array[k];
+          gcov_type call_count = src_value_array[k + 1];
+          for (m = 0; m < j; m += 2)
+            {
+              if (tmp_array[m] == global_id)
+                {
+                  found = 1;
+                  tmp_array[m + 1] += call_count;
+                  break;
+                }
+            }
+          if (!found)
+            {
+              tmp_array[j] = global_id;
+              tmp_array[j + 1] = call_count;
+              j += 2;
+            }
+        }
+      /* Now sort the temp array.  */
+      gcov_sort_n_vals (tmp_array, j);
+
+      /* Now copy back the top half of the temp array.  */
+      for (k = 0; k < GCOV_ICALL_TOPN_NCOUNTS - 1; k += 2)
+        {
+          value_array[k] = tmp_array[k];
+          value_array[k + 1] = tmp_array[k + 1];
+        }
+    }
+}
+
+
+/* The profile merging function that just merges N_COUNTERS most common value
+   counters from array SRC to those in DEST.  Adapted from
+   __gcov_merge_single.  */
+
+void
+__gcov_dyn_ipa_merge_single (gcov_type *dest, gcov_type *src,
+                             unsigned n_counters)
+{
+  unsigned i, n_measures;
+  gcov_type value, counter, all;
+
+  gcc_assert (!(n_counters % 3));
+  n_measures = n_counters / 3;
+  for (i = 0; i < n_measures; i++, dest += 3, src += 3)
+    {
+      value = src[0];
+      counter = src[1];
+      all = src[2];
+
+      if (dest[0] == value)
+	dest[1] += counter;
+      else if (counter > dest[1])
+	{
+	  dest[0] = value;
+	  dest[1] = counter - dest[1];
+	}
+      else
+	dest[1] -= counter;
+      dest[2] += all;
+    }
+}
+
+/* The profile merging function that just merges N_COUNTERS most common
+   difference counters from array SRC to those in DEST.  Adapted from
+   __gcov_merge_delta.  */
+
+void
+__gcov_dyn_ipa_merge_delta (gcov_type *dest, gcov_type *src,
+                            unsigned n_counters)
+{
+  unsigned i, n_measures;
+  gcov_type value, counter, all;
+
+  gcc_assert (!(n_counters % 4));
+  n_measures = n_counters / 4;
+  for (i = 0; i < n_measures; i++, dest += 4, src += 4)
+    {
+      value = src[1];
+      counter = src[2];
+      all = src[3];
+
+      if (dest[1] == value)
+	dest[2] += counter;
+      else if (counter > dest[2])
+	{
+	  dest[1] = value;
+	  dest[2] = counter - dest[2];
+	}
+      else
+	dest[2] -= counter;
+      dest[3] += all;
+    }
+}
+
+/* Type of function used to merge counters.  */
+typedef void (*gcov_dyn_ipa_merge_fn) (gcov_type *, gcov_type *,
+                                       gcov_unsigned_t);
+
+/* Merge functions for counters.  */
+static gcov_dyn_ipa_merge_fn ctr_merge_functions[GCOV_COUNTERS] = {
+    __gcov_dyn_ipa_merge_add,
+    __gcov_dyn_ipa_merge_add,
+    __gcov_dyn_ipa_merge_add,
+    __gcov_dyn_ipa_merge_single,
+    __gcov_dyn_ipa_merge_delta,
+    __gcov_dyn_ipa_merge_single,
+    __gcov_dyn_ipa_merge_add,
+    __gcov_dyn_ipa_merge_ior,
+    __gcov_dyn_ipa_merge_icall_topn,
+    __gcov_dyn_ipa_merge_dc,
+};
+
+/* Copy counters from SRC_CTRS array to DEST_CTRS array, where SRC_CTRS is
+   indexed by the GCOV_COUNTER type, and DEST_CTRS is an array holding only
+   the mergable counters to emit to the gcda file for DEST_GUID.  */
+
+static void
+copy_ctrs (const struct gcov_ctr_info *dest_ctrs, gcov_type dest_guid,
+           const struct gcov_ctr_info *src_ctrs)
+{
+  unsigned dest_mod_id
+      = get_module_ident_from_func_glob_uid (dest_guid);
+  struct gcov_info *dest_mod_info = the_dyn_call_graph.modules[dest_mod_id - 1];
+  int i;
+  for (i = 0; i < GCOV_COUNTERS; i++)
+    {
+      if (!dest_mod_info->merge[i])
+        continue;
+
+      gcov_unsigned_t num = dest_ctrs->num;
+      // This could be different if code was optimized differently
+      // (e.g. early-inlined in some modules but not others).
+      // If they are different then just punt on merge of this counter
+      // (what about other counters?).
+      //gcc_assert (dest_ctrs[i].num == num);
+      if (num && src_ctrs[i].num == num)
+        (*ctr_merge_functions[i]) (dest_ctrs->values,
+                                   src_ctrs[i].values, num);
+      dest_ctrs++;
+    }
+}
+
+/* Merge counters from SRC_CTRS array to DEST_CTRS array, where DEST_CTRS is
+   indexed by the GCOV_COUNTER type, and SRC_CTRS is an array holding only
+   the mergable counters from the gcda file for SRC_GUID.  */
+
+static void
+merge_ctrs (struct gcov_ctr_info *dest_ctrs,
+            const struct gcov_ctr_info *src_ctrs, gcov_type src_guid)
+{
+  unsigned src_mod_id
+      = get_module_ident_from_func_glob_uid (src_guid);
+  struct gcov_info *src_mod_info = the_dyn_call_graph.modules[src_mod_id - 1];
+  unsigned i, j;
+
+  for (i = 0; i < GCOV_COUNTERS; i++)
+    {
+      if (!src_mod_info->merge[i])
+        continue;
+
+      gcov_unsigned_t num = src_ctrs->num;
+      // This could be different if code was optimized differently
+      // (e.g. call counters when ipa-inlined in some modules but not others?).
+      // If they are different then just punt on merge of this counter
+      // (what about other counters?).
+      //gcc_assert (dest_ctrs[i].num == num);
+      if (num)
+        {
+          /* If this is the first source counter array containing counters for
+             this counter type, allocate the associated number of counter values
+             in the dest counter array.  */
+          if (!dest_ctrs[i].num)
+            {
+              dest_ctrs[i].values = XNEWVEC (gcov_type, num);
+              for (j = 0; j < num; j++)
+                dest_ctrs[i].values[j] = 0;
+              dest_ctrs[i].num = num;
+            }
+          if (dest_ctrs[i].num == num)
+            (*ctr_merge_functions[i]) (dest_ctrs[i].values,
+                                       src_ctrs->values, num);
+        }
+      src_ctrs++;
+    }
+}
+
+/* Walks the set of functions that have the same lineno and cfg checksum, and
+   performs counter merging.  VALUE contains the checksum_alias_info structure
+   for a given lineno and cfg checksum combination, and DATA1 contains a pointer
+   to a flag that should be set to 1 if any fixups were applied.  */
+
+static int
+gcov_fixup_counters_checksum (const void *value,
+                              void *data1,
+                              void *data2 ATTRIBUTE_UNUSED,
+                              void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct checksum_alias_info *a
+      = (const struct checksum_alias_info*) value;
+  int *changed = (int *) data1;
+
+  /* See if there are any zero count functions to fix.  */
+  int found = 0;
+  struct checksum_alias *alias;
+  for (alias = a->alias_list; alias;
+       alias = alias->next_alias)
+    {
+      if (alias->zero_counts)
+        {
+          found = 1;
+          break;
+        }
+    }
+  if (!found)
+    return 1;
+
+  /* Walk the aliases and merge the non-zero counters into a dummy copy.  */
+  struct gcov_ctr_info *merged_ctrs = init_merged_ctrs ();
+  found = 0;
+  for (alias = a->alias_list; alias;
+       alias = alias->next_alias)
+    {
+      if (alias->zero_counts)
+        continue;
+      merge_ctrs (merged_ctrs, alias->fi_ptr->ctrs, alias->guid);
+      found = 1;
+    }
+
+  /* Check if we found a non-zero count function to fix up from.  */
+  if (!found)
+    return 1;
+
+  /* At this point we know we have a zero count function to fixup, and data
+     from which to fix it up.  */
+  *changed = 1;
+
+  /* Walk them again and copy the merged counters into 0-count copies.  */
+  for (alias = a->alias_list; alias;
+       alias = alias->next_alias)
+    {
+      if (!alias->zero_counts)
+        continue;
+      copy_ctrs (alias->fi_ptr->ctrs, alias->guid, merged_ctrs);
+    }
+
+  return 1;
+}
+
+/* Walks the set of functions that have the same lineno_checksum, and
+   performs counter merging for functions that have the same cfg_checksum
+   as well.  VALUE contains the lineno_checksum_alias structure for a
+   given lineno_checksum, and DATA1 contains a pointer to a flag that
+   should be set to 1 if any fixups were applied.  */
+
+static int
+gcov_fixup_counters_lineno (const void *value,
+                            void *data1,
+                            void *data2 ATTRIBUTE_UNUSED,
+                            void *data3 ATTRIBUTE_UNUSED)
+{
+  const struct lineno_checksum_alias *a
+      = (const struct lineno_checksum_alias*) value;
+  int *changed = (int *) data1;
+  pointer_set_traverse (a->cfg_pointer_set,
+                        gcov_fixup_counters_checksum,
+                        changed, 0, 0);
+  return 1;
+}
+
+/* Routine to perform counter fixup for COMDAT functions with missing counters.
+   Returns 1 if any updates were performed, 0 otherwise.  Walks the sets of
+   functions having the same lineno and cfg checksums and merges all non-zero
+   counters, copying the merged counters into any copies with all-zero counts.
+   This is done because the linker will chose one out-of-line copy of a COMDAT,
+   and only that copy will get non-zero counters.  Other copies that were IPA
+   inlined may have non-zero counts, which we don't overwrite as they contain
+   more context-sensitive data.  */
+
+static int
+gcov_fixup_zero_counters (void)
+{
+  int changed = 0;
+  pointer_set_traverse (the_dyn_call_graph.lineno_pointer_sets,
+                        gcov_fixup_counters_lineno,
+                        &changed, 0, 0);
+  return changed;
+}
+
+/* Compute module groups needed for L-IPO compilation.  Returns 1 if any
+   counter fixups were applied, requiring a profile rewrite, 0 otherwise.  */
+
+int
 __gcov_compute_module_groups (void)
 {
   gcov_type cut_off_count;
@@ -2308,7 +3042,7 @@ __gcov_compute_module_groups (void)
           fprintf (stderr, " Creating random grouping with %u:%u\n",
                    __gcov_lipo_random_seed, __gcov_lipo_random_group_size);
         }
-      return;
+      return 0;
     }
   else if (seed && max_group_size)
     {
@@ -2322,13 +3056,13 @@ __gcov_compute_module_groups (void)
           fprintf (stderr, " Creating random grouping with %s:%s\n",
                    seed, max_group_size);
         }
-      return;
+      return 0;
     }
 
   if (flag_use_existing_grouping)
     {
       read_modu_groups_from_imports_files ();
-      return;
+      return 0;
     }
 
   /* First compute dynamic call graph.  */
@@ -2340,6 +3074,19 @@ __gcov_compute_module_groups (void)
 
   gcov_dump_callgraph (cut_off_count);
 
+  const char *do_fixup = 0;
+  int fixup_type = __gcov_lipo_comdat_algorithm;
+  do_fixup = getenv ("GCOV_DYN_DO_FIXUP");
+  if (do_fixup)
+    fixup_type = atoi (do_fixup);
+
+  int changed = 0;
+  if (fixup_type & 0x2)
+    changed |= gcov_fixup_zero_counters ();
+  if (fixup_type & 0x1)
+    changed |= gcov_fixup_icall_profile ();
+
+  return changed;
 }
 
 /* Dumper function for NODE.  */

@@ -1052,6 +1052,17 @@ DEFPARAM (PARAM_LIPO_WEAK_INCLUSION,
 	  "Default is 0.",
 	  0, 0, 1)
 
+/* Choose different COMDAT profile fixup algorithm.  This only affects
+   LIPO profile-gen.  */
+DEFPARAM (PARAM_LIPO_COMDAT_ALGORITHM,
+	  "lipo-comdat-algorithm",
+	  "Algorithm 0 performs no fixup."
+	  "Algorithm 1 fixes up only indirect call profile targets."
+	  "Algorithm 2 fixes up only missing counters."
+	  "Algorithm 3 (1|2) fixes up both."
+	  "The default algorithm is 3.",
+	  3, 0, 3)
+
 /* In LIPO profile-use, use this parameter to enable the dumping of module id
    in inline message.   */
 DEFPARAM (PARAM_INLINE_DUMP_MODULE_ID,

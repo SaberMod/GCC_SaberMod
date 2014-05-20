@@ -1316,8 +1316,15 @@ coverage_compute_lineno_checksum (void)
   /* Note: it is a bad design that C++ FE associate the convertion function type
      with the name of the decl. This leads to cross contamination between different
      conversion operators in different modules (If conv_type_names map is cleared
-     at the end of parsing of each module).  */
-  if (flag_dyn_ipa && lang_hooks.user_conv_function_p (current_function_decl))
+     at the end of parsing of each module).
+
+     For LIPO always use the full mangled name to help disambiguate different
+     template instantiations.  This is important for LIPO because we use the
+     checksums to identify matching copies of the same COMDAT to handle
+     missing profiles in the copies not selected by the linker, and to update
+     indirect call profiles when the target COMDAT is a copy that is not
+     in the module group.  */
+  if (flag_dyn_ipa)
     name = DECL_ASSEMBLER_NAME (current_function_decl);
   else
     name = DECL_NAME (current_function_decl);

@@ -158,7 +158,7 @@ static int gcov_sampling_period_initialized = 0;
 static gcov_unsigned_t gcov_cur_module_id = 0;
 
 /* Dynamic call graph build and form module groups.  */
-void __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;
+int __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;
 void __gcov_finalize_dyn_callgraph (void) ATTRIBUTE_HIDDEN;
 
 /* Add an unsigned value to the current crc */
@@ -352,6 +352,49 @@ struct gcov_filename_aux{
 /* Including system dependent components. */
 #include "libgcov-driver-system.c"
 
+/* Scan through the current open gcda file corresponding to GI_PTR
+   to locate the end position of the last summary, returned in
+   SUMMARY_END_POS_P.  Return 0 on success, -1 on error.  */
+static int
+gcov_scan_summary_end (struct gcov_info *gi_ptr,
+                       gcov_position_t *summary_end_pos_p)
+{
+  gcov_unsigned_t tag, version, stamp;
+  tag = gcov_read_unsigned ();
+  if (tag != GCOV_DATA_MAGIC)
+    {
+      gcov_error ("profiling:%s:Not a gcov data file\n", gi_filename);
+      return -1;
+    }
+
+  version = gcov_read_unsigned ();
+  if (!gcov_version (gi_ptr, version, gi_filename))
+    return -1;
+
+  stamp = gcov_read_unsigned ();
+  if (stamp != gi_ptr->stamp)
+    /* Read from a different compilation.  Overwrite the file.  */
+    return -1;
+
+  /* Look for program summary.  */
+  while (1)
+    {
+      struct gcov_summary tmp;
+
+      *summary_end_pos_p = gcov_position ();
+      tag = gcov_read_unsigned ();
+      if (tag != GCOV_TAG_PROGRAM_SUMMARY)
+        break;
+
+      gcov_read_unsigned ();
+      gcov_read_summary (&tmp);
+      if (gcov_is_error ())
+        return -1;
+    }
+
+  return 0;
+}
+
 /* This function merges counters in GI_PTR to an existing gcda file.
    Return 0 on success.
    Return -1 on error. In this case, caller will goto read_fatal.  */
@@ -480,48 +523,16 @@ read_error:;
   return -1;
 }
 
-/* Write counters in GI_PTR and the summary in PRG to a gcda file. In
-   the case of appending to an existing file, SUMMARY_POS will be non-zero.
-   We will write the file starting from SUMMAY_POS.  */
+
+/* Write counters in GI_PTR to a gcda file starting from its current
+   location.  */
 
 static void
-gcov_exit_write_gcda (struct gcov_info *gi_ptr,
-                      const struct gcov_summary *prg_p,
-                      const gcov_position_t eof_pos,
-                      const gcov_position_t summary_pos)
-
+gcov_write_func_counters (struct gcov_info *gi_ptr)
 {
   const struct gcov_ctr_info *ci_ptr;
   unsigned t_ix, f_ix, n_counts, length;
   gcov_position_t eof_pos1 = 0;
-  struct gcov_summary_buffer *next_sum_buffer;
-
-  /* Write out the data.  */
-  if (!eof_pos)
-    {
-      gcov_write_tag_length (GCOV_DATA_MAGIC, GCOV_VERSION);
-      gcov_write_unsigned (gi_ptr->stamp);
-    }
-
-  if (summary_pos)
-     gcov_seek (summary_pos);
-  gcc_assert (!summary_pos || summary_pos == gcov_position ());
-
-  /* Generate whole program statistics.  */
-  gcov_write_summary (GCOV_TAG_PROGRAM_SUMMARY, prg_p);
-
-  /* Rewrite all the summaries that were after the summary we merged
-     into. This is necessary as the merged summary may have a different
-     size due to the number of non-zero histogram entries changing after
-     merging.  */
-
-  while (sum_buffer)
-    {
-      gcov_write_summary (GCOV_TAG_PROGRAM_SUMMARY, &sum_buffer->summary);
-      next_sum_buffer = sum_buffer->next;
-      free (sum_buffer);
-      sum_buffer = next_sum_buffer;
-    }
 
   /* Write execution counts for each function.  */
   for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
@@ -556,6 +567,50 @@ gcov_exit_write_gcda (struct gcov_info *gi_ptr,
     /* Write the end marker  */
     gcov_write_unsigned (0);
     gi_ptr->eof_pos = eof_pos1;
+}
+
+/* Write counters in GI_PTR and the summary in PRG to a gcda file.  In
+   the case of appending to an existing file, SUMMARY_POS will be non-zero.
+   We will write the file starting from SUMMAY_POS.  */
+
+static void
+gcov_exit_write_gcda (struct gcov_info *gi_ptr,
+                      const struct gcov_summary *prg_p,
+                      const gcov_position_t eof_pos,
+                      const gcov_position_t summary_pos)
+
+{
+  struct gcov_summary_buffer *next_sum_buffer;
+
+  /* Write out the data.  */
+  if (!eof_pos)
+    {
+      gcov_write_tag_length (GCOV_DATA_MAGIC, GCOV_VERSION);
+      gcov_write_unsigned (gi_ptr->stamp);
+    }
+
+  if (summary_pos)
+     gcov_seek (summary_pos);
+  gcc_assert (!summary_pos || summary_pos == gcov_position ());
+
+  /* Generate whole program statistics.  */
+  gcov_write_summary (GCOV_TAG_PROGRAM_SUMMARY, prg_p);
+
+  /* Rewrite all the summaries that were after the summary we merged
+     into.  This is necessary as the merged summary may have a different
+     size due to the number of non-zero histogram entries changing after
+     merging.  */
+
+  while (sum_buffer)
+    {
+      gcov_write_summary (GCOV_TAG_PROGRAM_SUMMARY, &sum_buffer->summary);
+      next_sum_buffer = sum_buffer->next;
+      free (sum_buffer);
+      sum_buffer = next_sum_buffer;
+    }
+
+  /* Write the counters.  */
+  gcov_write_func_counters (gi_ptr);
 }
 
 /* Helper function for merging summary.
@@ -800,7 +855,9 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
 {
   struct gcov_info *gi_ptr;
 
-  __gcov_compute_module_groups ();
+  /* Compute the module groups and record whether there were any
+     counter fixups applied that require rewriting the counters.  */
+  int changed = __gcov_compute_module_groups ();
 
   /* Now write out module group info.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
@@ -810,8 +867,27 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
       if (gcov_exit_open_gcda_file (gi_ptr, gf) == -1)
         continue;
 
+      if (changed)
+        {
+          /* Scan file to find the end of the summary section, which is
+             where we will start re-writing the counters.  */
+          gcov_position_t summary_end_pos;
+          if (gcov_scan_summary_end (gi_ptr, &summary_end_pos) == -1)
+            gcov_error ("profiling:%s:Error scanning summaries\n",
+                        gi_filename);
+          else
+            {
+              gcov_position_t eof_pos = gi_ptr->eof_pos;
+              gcov_rewrite ();
+              gcov_seek (summary_end_pos);
+              gcov_write_func_counters (gi_ptr);
+              gcc_assert (eof_pos == gi_ptr->eof_pos);
+            }
+        }
+      else
+        gcov_rewrite ();
+
       /* Overwrite the zero word at the of the file.  */
-      gcov_rewrite ();
       gcov_seek (gi_ptr->eof_pos);
 
       gcov_write_module_infos (gi_ptr);
