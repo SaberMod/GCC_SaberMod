@@ -1396,7 +1396,11 @@ comptypes (tree t1, tree t2, int strict)
 	{
 	  bool result = structural_comptypes (t1, t2, strict);
 	  
-	  if (result && TYPE_CANONICAL (t1) != TYPE_CANONICAL (t2))
+	  if (result && (TYPE_CANONICAL (t1) != TYPE_CANONICAL (t2)
+	    /* In LIPO mode, the builtin functions are shared across
+ 	       different TUs. The parameter type of the builtin may
+	       not be the same instance as the arg type.  */
+                         && !L_IPO_COMP_MODE))
 	    /* The two types are structurally equivalent, but their
 	       canonical types were different. This is a failure of the
 	       canonical type propagation code.*/

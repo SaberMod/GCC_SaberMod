@@ -140,10 +140,10 @@ process_references (struct ipa_ref_list *list,
       symtab_node *node = ref->referred;
 
       if (node->definition && !node->in_other_partition
-	  && ((!DECL_EXTERNAL (node->decl) 
-               || (is_a <cgraph_node> (node) 
-                   && cgraph_is_aux_decl_external (dyn_cast<cgraph_node> (node))) 
-               || node->alias)
+	  && ((!(DECL_EXTERNAL (node->decl)
+               || (is_a <cgraph_node> (node)
+                   && cgraph_is_aux_decl_external (dyn_cast<cgraph_node> (node))))
+              || node->alias)
 	      || (((before_inlining_p
 		    && (cgraph_state < CGRAPH_STATE_IPA_SSA
 		        || !lookup_attribute ("always_inline",
@@ -156,6 +156,13 @@ process_references (struct ipa_ref_list *list,
 		      && ctor_for_folding (node->decl)
 		         != error_mark_node))))
 	pointer_set_insert (reachable, node);
+      else if (L_IPO_COMP_MODE
+               && cgraph_pre_profiling_inlining_done
+               && is_a <varpool_node> (node)
+               && ctor_for_folding (real_varpool_node (node->decl)->decl)
+               != error_mark_node)
+	pointer_set_insert (reachable, node);
+
       enqueue_node (node, first, reachable);
     }
 }
