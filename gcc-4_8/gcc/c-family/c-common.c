@@ -316,6 +316,7 @@ static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
+static tree handle_profile_init_attribute (tree *, tree, tree, int, bool *);
 static tree handle_gnu_inline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_artificial_attribute (tree *, tree, tree, int, bool *);
 static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
@@ -629,6 +630,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_always_inline_attribute, false },
   { "gnu_inline",             0, 0, true,  false, false,
 			      handle_gnu_inline_attribute, false },
+  { "profile_init",           0, 0, true,  false, false,
+			      handle_profile_init_attribute, false },
   { "artificial",             0, 0, true,  false, false,
 			      handle_artificial_attribute, false },
   { "flatten",                0, 0, true,  false, false,
@@ -6573,6 +6576,40 @@ handle_noinline_attribute (tree *node, tree name,
 {
   if (TREE_CODE (*node) == FUNCTION_DECL)
     DECL_UNINLINABLE (*node) = 1;
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "profile_init" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_profile_init_attribute (tree *node, tree name,
+                               tree ARG_UNUSED (args),
+                               int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+  tree type = TREE_TYPE (decl);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && TREE_CODE (type) == FUNCTION_TYPE
+      && decl_function_context (decl) == 0)
+    {
+      /* Profile init function is a static initialization routine
+         in -fprofile-generate compiles, and discarded otherwise.  */
+      if (profile_arc_flag)
+        {
+          DECL_STATIC_CONSTRUCTOR (decl) = 1;
+          SET_DECL_INIT_PRIORITY (decl, DEFAULT_INIT_PRIORITY);
+          TREE_USED (decl) = 1;
+          DECL_PRESERVE_P (decl) = 1;
+        }
+    }
   else
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);

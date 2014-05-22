@@ -171,12 +171,14 @@ typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define gcov_read_unsigned __gcov_read_unsigned
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
+#define gcov_read_parameters __gcov_read_parameters
+#define gcov_read_string __gcov_read_string
 #define gcov_read_module_info __gcov_read_module_info
 #define gcov_sort_n_vals __gcov_sort_n_vals
 
 /* Poison these, so they don't accidentally slip in.  */
-#pragma GCC poison gcov_write_string gcov_write_tag gcov_write_length
-#pragma GCC poison /*gcov_read_string gcov_sync*/ gcov_time gcov_magic
+#pragma GCC poison gcov_write_tag gcov_write_length
+#pragma GCC poison /*gcov_sync*/ gcov_time gcov_magic
 
 #ifdef HAVE_GAS_HIDDEN
 #define ATTRIBUTE_HIDDEN  __attribute__ ((__visibility__ ("hidden")))
@@ -250,6 +252,13 @@ extern void __gcov_init (struct gcov_info *) ATTRIBUTE_HIDDEN;
 /* Set sampling rate to RATE.  */
 extern void __gcov_set_sampling_rate (unsigned int rate);
 
+/* Register a handler to be called atexit.  */
+extern void __gcov_register_profile_handler (void (*) (void)) ATTRIBUTE_HIDDEN;
+
+/* Record a parameter and associated value in profile.  */
+extern void __gcov_record_parameter_value (const char *, gcov_type)
+  ATTRIBUTE_HIDDEN;
+
 /* Called before fork, to avoid double counting.  */
 extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
@@ -310,6 +319,8 @@ GCOV_LINKAGE void gcov_write_tag_length (gcov_unsigned_t, gcov_unsigned_t)
 GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
 				      const struct gcov_summary *)
     ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_write_parameters (struct gcov_parameter_value *)
+  ATTRIBUTE_HIDDEN;
 
 GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
     ATTRIBUTE_HIDDEN;

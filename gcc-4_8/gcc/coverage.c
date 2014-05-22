@@ -157,6 +157,9 @@ static unsigned num_cpp_includes = 0;
 /* True if the current module has any asm statements.  */
 static bool has_asm_statement;
 
+/* List of parameter values read in from the gcda file.  */
+static struct gcov_parameter_value *gcov_parameter_values = NULL;
+
 /* Forward declarations.  */
 static void read_counts_file (const char *, unsigned);
 static tree build_var (tree, tree, int);
@@ -787,6 +790,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                                   sum.ctrs[GCOV_COUNTER_ARCS].histogram);
 	  new_summary = 0;
 	}
+      else if (tag == GCOV_TAG_PARAMETERS)
+        gcov_parameter_values = gcov_read_parameters (length);
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
 	{
 	  counts_entry_t **slot, *entry, elt;
@@ -2769,6 +2774,42 @@ coverage_finish (void)
 	fn_ctor = coverage_obj_fn (fn_ctor, fn->fn_decl, fn);
       coverage_obj_finish (fn_ctor);
     }
+}
+
+/* Add the parameters recorded in the GCOV_TAG_PARAMETERS section
+   as preprocessor macro defines.  */
+void
+set_profile_parameters (struct cpp_reader *parse_in)
+{
+  struct gcov_parameter_value *curr_parm;
+
+  if (!flag_profile_use_parameters)
+    return;
+
+  if (!gcov_parameter_values)
+    return;
+
+  /* Since set_profile_parameters is invoked very early, before the pass
+     manager, we need to set up the dumping explicitly. This is
+     similar to the handling in finish_optimization_passes.  */
+  dump_start (pass_profile.pass.static_pass_number, NULL);
+
+  for (curr_parm = gcov_parameter_values; curr_parm;
+       curr_parm = curr_parm->next)
+    {
+      /* Enough for macro name, plus the gcov_type value, equal sign and null
+         termination.  */
+      char *parameter = XNEWVEC (char, strlen (curr_parm->macro_name) + 25);
+      sprintf (parameter, "%s=%ld",
+               curr_parm->macro_name, curr_parm->value);
+      cpp_define (parse_in, parameter);
+      if (dump_enabled_p ())
+        dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
+                         "Add -D%s from profile\n", parameter);
+      XDELETEVEC (parameter);
+    }
+
+  dump_finish (pass_profile.pass.static_pass_number);
 }
 
 /* Add S to the end of the string-list, the head and tail of which are

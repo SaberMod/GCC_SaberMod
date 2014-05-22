@@ -1813,6 +1813,10 @@ fprofile-use=
 Common Joined RejectNegative
 Enable common options for performing profile feedback directed optimizations, and set -fprofile-dir=
 
+fprofile-use-parameters
+Common Var(flag_profile_use_parameters)
+Use parameters section of profile data
+
 fprofile-values
 Common Report Var(flag_profile_values)
 Insert code to profile values of expressions

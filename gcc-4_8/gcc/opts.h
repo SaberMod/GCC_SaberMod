@@ -378,6 +378,7 @@ extern void control_warning_option (unsigned int opt_index, int kind,
 				    struct gcc_options *opts_set,
 				    diagnostic_context *dc);
 extern void print_ignored_options (void);
+extern void set_profile_parameters (struct cpp_reader *parse_in);
 extern void add_input_filename (const char *filename);
 extern void add_module_info (unsigned mod_id, bool is_primary, int index);
 extern void set_lipo_c_parsing_context (struct cpp_reader *parse_in, int i, bool verbose);

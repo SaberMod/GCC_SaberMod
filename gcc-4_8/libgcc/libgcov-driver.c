@@ -128,6 +128,19 @@ struct gcov_summary_buffer
   struct gcov_summary summary;
 };
 
+struct gcov_handler_list
+{
+  struct gcov_handler_list *next;
+  void (*handler) (void);
+};
+
+/* List of user-specified handlers to invoke atexit.  */
+static struct gcov_handler_list *gcov_registered_handlers = NULL;
+
+/* List of paramter values recorded by __gcov_record_parameter_value
+   invocations that should be emitted to parameter section of profile.  */
+static struct gcov_parameter_value *gcov_parameter_values = NULL;
+
 /* Chain of per-object gcov structures.  */
 static struct gcov_info *__gcov_list;
 
@@ -277,6 +290,66 @@ gcov_compute_histogram (struct gcov_summary *sum)
     }
 }
 
+/* Find and return parameter in LIST with name matching MACRO_NAME,
+   or NULL if no match found.  */
+
+static struct gcov_parameter_value *
+find_parameter (struct gcov_parameter_value *list, const char *macro_name)
+{
+  struct gcov_parameter_value *cur_parm = list;
+
+  while (cur_parm)
+    {
+      if (!strcmp(cur_parm->macro_name, macro_name))
+        return cur_parm;
+      cur_parm = cur_parm->next;
+    }
+
+  return NULL;
+}
+
+/* Merge parameters from NEW_PARMS list into SAVED_PARMS.  Any parameters
+   with matching names will have their values merged.  Returns merged list.  */
+
+static struct gcov_parameter_value *
+merge_parameters (struct gcov_parameter_value *saved_parms,
+                  struct gcov_parameter_value *new_parms)
+
+{
+  struct gcov_parameter_value *cur_new_parm, *cur_merge_parm, *merged_parms;
+
+  merged_parms = saved_parms;
+
+  for (cur_new_parm = new_parms; cur_new_parm;
+       cur_new_parm = cur_new_parm->next)
+    {
+      cur_merge_parm = find_parameter (saved_parms, cur_new_parm->macro_name);
+
+      if (cur_merge_parm)
+        {
+          /* Simply average them for now. The best merge strategy will
+             depend on how they were computed in the first place.
+             In the future this can be handled by recording a parameter
+             type along with the parameter, that tells how to merge.  */
+          cur_merge_parm->value
+              = (cur_merge_parm->value + cur_new_parm->value) / 2;
+        }
+      else
+        {
+          cur_merge_parm = (struct gcov_parameter_value *)
+              xmalloc (sizeof (struct gcov_parameter_value));
+          cur_merge_parm->macro_name = (char *)
+              xmalloc (strlen(cur_new_parm->macro_name) + 1);
+          strcpy (cur_merge_parm->macro_name, cur_new_parm->macro_name);
+          cur_merge_parm->value = cur_new_parm->value;
+
+          cur_merge_parm->next = merged_parms;
+          merged_parms = cur_merge_parm;
+        }
+    }
+  return merged_parms;
+}
+
 /* This funtions computes the program level summary and the histo-gram.
    It computes and returns CRC32 and stored summary in THIS_PRG.  */
 
@@ -405,7 +478,8 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
                       struct gcov_summary *this_prg,
                       gcov_position_t *summary_pos_p,
                       gcov_position_t *eof_pos_p,
-                      gcov_unsigned_t crc32)
+                      gcov_unsigned_t crc32,
+                      struct gcov_parameter_value **merged_parameters)
 {
   gcov_unsigned_t tag, length, version, stamp;
   unsigned t_ix, f_ix;
@@ -459,6 +533,15 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
       *summary_pos_p = *eof_pos_p;
 
     next_summary:;
+    }
+
+  if (tag == GCOV_TAG_PARAMETERS)
+    {
+      length = gcov_read_unsigned ();
+      *merged_parameters = gcov_read_parameters (length);
+      *merged_parameters = merge_parameters (*merged_parameters,
+                                             gcov_parameter_values);
+      tag = gcov_read_unsigned ();
     }
 
   /* Merge execution counts for each function.  */
@@ -577,7 +660,8 @@ static void
 gcov_exit_write_gcda (struct gcov_info *gi_ptr,
                       const struct gcov_summary *prg_p,
                       const gcov_position_t eof_pos,
-                      const gcov_position_t summary_pos)
+                      const gcov_position_t summary_pos,
+                      struct gcov_parameter_value *merged_parameters)
 
 {
   struct gcov_summary_buffer *next_sum_buffer;
@@ -607,6 +691,18 @@ gcov_exit_write_gcda (struct gcov_info *gi_ptr,
       next_sum_buffer = sum_buffer->next;
       free (sum_buffer);
       sum_buffer = next_sum_buffer;
+    }
+
+  if (merged_parameters)
+    {
+      gcov_write_parameters (merged_parameters);
+
+      while (merged_parameters)
+        {
+          struct gcov_parameter_value *cur_parameter = merged_parameters;
+          merged_parameters = merged_parameters->next;
+          free (cur_parameter);
+        }
     }
 
   /* Write the counters.  */
@@ -757,6 +853,7 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
                      struct gcov_summary *this_prg)
 {
   struct gcov_summary prg; /* summary for this object over all program.  */
+  struct gcov_parameter_value *merged_parameters = NULL;
   int error;
   gcov_unsigned_t tag;
   gcov_position_t summary_pos = 0;
@@ -778,8 +875,8 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
           gcov_error ("profiling:%s:Not a gcov data file\n", gi_filename);
           goto read_fatal;
         }
-      error = gcov_exit_merge_gcda (gi_ptr, &prg, this_prg, &summary_pos, &eof_pos,
-				    crc32);
+      error = gcov_exit_merge_gcda (gi_ptr, &prg, this_prg, &summary_pos,
+                                    &eof_pos, crc32, &merged_parameters);
       if (error == -1)
         goto read_fatal;
     }
@@ -796,7 +893,10 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
   if (error == -1)
     goto read_fatal;
 
-  gcov_exit_write_gcda (gi_ptr, &prg, eof_pos, summary_pos);
+  if (!merged_parameters)
+      merged_parameters = merge_parameters (NULL, gcov_parameter_values);
+
+  gcov_exit_write_gcda (gi_ptr, &prg, eof_pos, summary_pos, merged_parameters);
   /* fall through */
 
 read_fatal:;
@@ -927,6 +1027,12 @@ gcov_exit (void)
   if (gcov_dump_complete)
     return;
 
+  struct gcov_handler_list *curr_handler;
+  for (curr_handler = gcov_registered_handlers;
+       curr_handler != NULL;
+       curr_handler = curr_handler->next)
+    curr_handler->handler ();
+
   crc32 = gcov_exit_compute_summary (&this_prg);
 
   allocate_filename_struct (&gf);
@@ -942,6 +1048,14 @@ gcov_exit (void)
          is FDO/LIPO.  */
       if (gi_ptr->mod_info)
         dump_module_info |= gi_ptr->mod_info->is_primary;
+    }
+
+  struct gcov_parameter_value *cur_parameter = 0;
+  while (gcov_parameter_values)
+    {
+      cur_parameter = gcov_parameter_values;
+      gcov_parameter_values = gcov_parameter_values->next;
+      free (cur_parameter);
     }
 
   if (dump_module_info)
@@ -1082,6 +1196,40 @@ gcov_gcda_file_size (const struct gcov_info *gi_ptr,
   size += 1;
 
   return size*4;
+}
+
+/* Register a handler routine to execute atexit.  */
+
+void
+__gcov_register_profile_handler (void (*handler) (void))
+{
+  struct gcov_handler_list *new_handler
+      = (struct gcov_handler_list *) xmalloc (sizeof (struct gcov_handler_list));
+
+  new_handler->handler = handler;
+  new_handler->next = gcov_registered_handlers;
+  gcov_registered_handlers = new_handler;
+}
+
+/* Record a parameter MACRO_NAME and VALUE to save in the profile to apply
+   via -DMACRO=VALUE on profile use compiles.  */
+
+void
+__gcov_record_parameter_value (const char *macro_name, gcov_type value)
+{
+  struct gcov_parameter_value *new_parm;
+
+  if (find_parameter (gcov_parameter_values, macro_name))
+    return;
+
+  new_parm
+      = (struct gcov_parameter_value *) xmalloc (sizeof (struct gcov_parameter_value));
+  new_parm->macro_name = (char *) xmalloc (strlen(macro_name) + 1);
+  strcpy (new_parm->macro_name, macro_name);
+  new_parm->value = value;
+
+  new_parm->next = gcov_parameter_values;
+  gcov_parameter_values = new_parm;
 }
 
 #endif /* L_gcov */

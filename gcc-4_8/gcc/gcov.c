@@ -1430,6 +1430,8 @@ read_count_file (function_t *fns)
 	  object_runs += summary.ctrs[GCOV_COUNTER_ARCS].runs;
 	  program_count++;
 	}
+      else if (tag == GCOV_TAG_PARAMETERS)
+        gcov_read_parameters (length);
       else if (tag == GCOV_TAG_FUNCTION && !length)
 	; /* placeholder  */
       else if (tag == GCOV_TAG_FUNCTION && length == GCOV_TAG_FUNCTION_LENGTH)

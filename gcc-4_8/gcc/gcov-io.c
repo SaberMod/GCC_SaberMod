@@ -52,7 +52,8 @@ GCOV_LINKAGE struct gcov_var
   /* Holds one block plus 4 bytes, thus all coverage reads & writes
      fit within this buffer and we always can transfer GCOV_BLOCK_SIZE
      to and from the disk. libgcov never backtracks and only writes 4
-     or 8 byte objects.  */
+     or 8 byte objects, except for strings, which are handled specially
+     by gcov_write_string.  */
   gcov_unsigned_t buffer[GCOV_BLOCK_SIZE + 1];
 #else
   int endian;                   /* Swap endianness.  */
@@ -268,6 +269,26 @@ gcov_allocate (unsigned length)
 }
 #endif
 
+/* Return the number of words STRING would need including the length
+   field in the output stream itself.  This should be identical to
+   "alloc" calculation in gcov_write_string().  */
+
+static gcov_unsigned_t
+gcov_string_length (const char *string)
+{
+  gcov_unsigned_t len = (string) ? strlen (string) : 0;
+  /* + 1 because of the length field.  */
+  gcov_unsigned_t alloc = 1 + ((len + 4) >> 2);
+
+#if IN_LIBGCOV
+  /* Currently, libgcov cannot write strings larger than
+     GCOV_BLOCK_SIZE, due to the static buffer size.  */
+  gcc_assert (alloc < GCOV_BLOCK_SIZE);
+#endif
+
+  return alloc;
+}
+
 #if !IN_GCOV
 /* Write out the current block, if needs be.  */
 
@@ -337,7 +358,6 @@ gcov_write_counter (gcov_type value)
 }
 #endif /* IN_LIBGCOV */
 
-#if !IN_LIBGCOV
 /* Write STRING to coverage file.  Sets error flag on file
    error, overflow flag on overflow */
 
@@ -352,6 +372,28 @@ gcov_write_string (const char *string)
     {
       length = strlen (string);
       alloc = (length + 4) >> 2;
+#if IN_LIBGCOV
+      /* Currently, libgcov cannot write strings larger than
+         GCOV_BLOCK_SIZE, due to the static buffer size.  */
+      gcc_assert (alloc + 1 < GCOV_BLOCK_SIZE);
+      /* Ensure we do not overflow buffer, which is statically
+         allocated to GCOV_BLOCK_SIZE + 1 in libgcov. Since
+         gcov_write_words will write out a GCOV_BLOCK_SIZE at
+         a time and expects to only exceed this by at most 1,
+         we need to check whether the offset is large enough to
+         cause a block to be written on entry to gcov_write_words and if
+         not, whether the new string would cause the buffer to
+         overflow. If so, write out the current buffer contents
+         to make space for string and the subsequent call
+         to gcov_write_words (which is otherwise called with
+         1 or 2 words).  */
+      if (gcov_var.offset < GCOV_BLOCK_SIZE
+          && gcov_var.offset + alloc + 1 >= GCOV_BLOCK_SIZE)
+        {
+          gcov_write_block (gcov_var.offset);
+          gcc_assert (!gcov_var.offset);
+        }
+#endif
     }
 
   buffer = gcov_write_words (1 + alloc);
@@ -360,7 +402,6 @@ gcov_write_string (const char *string)
   buffer[alloc] = 0;
   memcpy (&buffer[1], string, length);
 }
-#endif
 
 #if !IN_LIBGCOV
 /* Write a tag TAG and reserve space for the record length. Return a
@@ -465,6 +506,36 @@ gcov_write_summary (gcov_unsigned_t tag, const struct gcov_summary *summary)
         }
     }
 }
+
+/* Write parameter values to the gcov file. These should be applied
+   to profile-use compiles as macro definitions by the compiler.  */
+
+GCOV_LINKAGE void
+gcov_write_parameters (struct gcov_parameter_value *parameters)
+{
+  gcov_unsigned_t len = 0;
+  struct gcov_parameter_value *curr_parm;
+
+  if (!parameters)
+    return;
+
+  for (curr_parm = parameters; curr_parm;
+       curr_parm = curr_parm->next)
+    {
+      /* Each parameter contains a string followed by a 2-word
+         counter value.  */
+      len += gcov_string_length (curr_parm->macro_name) + 2;
+    }
+
+  gcov_write_tag_length (GCOV_TAG_PARAMETERS, len);
+
+  for (curr_parm = parameters; curr_parm;
+       curr_parm = curr_parm->next)
+    {
+      gcov_write_string (curr_parm->macro_name);
+      gcov_write_counter (curr_parm->value);
+    }
+}
 #endif /* IN_LIBGCOV */
 
 #endif /*!IN_GCOV */
@@ -555,7 +626,6 @@ gcov_read_counter (void)
    buffer, or NULL on empty string. You must copy the string before
    calling another gcov function.  */
 
-#if !IN_LIBGCOV || IN_GCOV_TOOL
 GCOV_LINKAGE const char *
 gcov_read_string (void)
 {
@@ -566,7 +636,6 @@ gcov_read_string (void)
 
   return (const char *) gcov_read_words (length);
 }
-#endif
 
 GCOV_LINKAGE void
 gcov_read_summary (struct gcov_summary *summary)
@@ -684,6 +753,42 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
   gcc_assert (!len);
 }
 #endif
+
+/* Read LENGTH words as parameter values. These should be applied
+   to profile-use compiles as macro definitions by the compiler.
+   Return linked list of parameters.  */
+
+GCOV_LINKAGE struct gcov_parameter_value *
+gcov_read_parameters (gcov_unsigned_t length)
+{
+  unsigned len = length;
+  struct gcov_parameter_value *curr_parm, *parameters = 0;
+  const char *str;
+
+  while (len > 0)
+    {
+      unsigned cur_len;
+      str = gcov_read_string ();
+#if IN_LIBGCOV
+      curr_parm = (struct gcov_parameter_value *)
+          xmalloc (sizeof (struct gcov_parameter_value));
+      curr_parm->macro_name = (char *) xmalloc (strlen (str) + 1);
+      strcpy (curr_parm->macro_name, str);
+#else
+      curr_parm = (struct gcov_parameter_value *)
+          xmalloc (sizeof (struct gcov_parameter_value));
+      curr_parm->macro_name = str ? xstrdup (str) : 0;
+#endif
+      curr_parm->next = parameters;
+      parameters = curr_parm;
+      curr_parm->value = gcov_read_counter ();
+      cur_len = gcov_string_length (str) + 2;
+      gcc_assert (len >= cur_len);
+      len -= cur_len;
+    }
+
+  return parameters;
+}
 
 #if !IN_LIBGCOV || IN_GCOV_TOOL
 /* Reset to a known position.  BASE should have been obtained from

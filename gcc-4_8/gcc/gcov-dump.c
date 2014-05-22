@@ -39,6 +39,7 @@ static void tag_arcs (const char *, unsigned, unsigned);
 static void tag_lines (const char *, unsigned, unsigned);
 static void tag_counters (const char *, unsigned, unsigned);
 static void tag_summary (const char *, unsigned, unsigned);
+static void tag_parameters (const char *, unsigned, unsigned);
 static void dump_working_sets (const char *filename ATTRIBUTE_UNUSED,
                                const struct gcov_ctr_summary *summary);
 static void tag_module_info (const char *, unsigned, unsigned);
@@ -77,6 +78,7 @@ static const tag_format_t tag_table[] =
   {GCOV_TAG_LINES, "LINES", tag_lines},
   {GCOV_TAG_OBJECT_SUMMARY, "OBJECT_SUMMARY", tag_summary},
   {GCOV_TAG_PROGRAM_SUMMARY, "PROGRAM_SUMMARY", tag_summary},
+  {GCOV_TAG_PARAMETERS, "PARAMETERS", tag_parameters},
   {GCOV_TAG_MODULE_INFO, "MODULE INFO", tag_module_info},
   {0, NULL, NULL}
 };
@@ -622,5 +624,24 @@ dump_working_sets (const char *filename ATTRIBUTE_UNUSED,
                pct / 100, pct - (pct / 100 * 100),
                ws_info->num_counters,
                (HOST_WIDEST_INT)ws_info->min_counter);
+    }
+}
+
+static void
+tag_parameters (const char *filename ATTRIBUTE_UNUSED,
+                unsigned tag ATTRIBUTE_UNUSED, unsigned length)
+{
+  struct gcov_parameter_value *parameters;
+
+  parameters = gcov_read_parameters (length);
+
+  while (parameters)
+    {
+      printf ("\n");
+      print_prefix (filename, 0, 0);
+      printf ("\t\t%s = ", parameters->macro_name);
+      printf (HOST_WIDEST_INT_PRINT_DEC,
+	      (HOST_WIDEST_INT)parameters->value);
+      parameters = parameters->next;
     }
 }

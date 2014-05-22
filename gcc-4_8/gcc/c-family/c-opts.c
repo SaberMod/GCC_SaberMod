@@ -1088,6 +1088,7 @@ c_common_parse_file (void)
     {
       c_finish_options ();
       pch_init ();
+      set_profile_parameters (parse_in);
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
 

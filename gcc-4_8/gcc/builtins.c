@@ -87,6 +87,9 @@ static rtx result_vector (int, rtx);
 #endif
 static void expand_builtin_update_setjmp_buf (rtx);
 static void expand_builtin_prefetch (tree);
+static rtx expand_builtin_profile_invoke (tree);
+static rtx expand_builtin_profile_register_handler (tree);
+static rtx expand_builtin_profile_record_parameter (tree);
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
 static rtx expand_builtin_apply (rtx, rtx, rtx);
@@ -222,6 +225,7 @@ static tree do_mpfr_bessel_n (tree, tree, tree,
 static tree do_mpfr_remquo (tree, tree, tree);
 static tree do_mpfr_lgamma_r (tree, tree, tree);
 static void expand_builtin_sync_synchronize (void);
+static tree build_call_nofold_loc (location_t loc, tree fndecl, int n, ...);
 
 /* Return true if NAME starts with __builtin_ or __sync_.  */
 
@@ -1221,6 +1225,94 @@ expand_builtin_prefetch (tree exp)
      generate code to handle other side effects.  */
   if (!MEM_P (op0) && side_effects_p (op0))
     emit_insn (op0);
+}
+
+/* Expand a call to __builtin_profile_invoke.  Passed a pointer to
+   a routine that should be called on -fprofile-generate compiles
+   and the profile counter address and data to pass to the routine.  */
+
+static rtx
+expand_builtin_profile_invoke (tree exp)
+{
+  tree func, ctr, data, fndecl;
+  tree call;
+  location_t loc = EXPR_LOCATION (exp);
+
+  /* This is only relevent to -fprofile-generate compiles.  */
+  if (! profile_arc_flag)
+    return const0_rtx;
+
+  if (!validate_arglist (exp, POINTER_TYPE,
+ 			 POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
+    return NULL_RTX;
+
+  /* Argument 0 is the profile update function to call.  */
+  func = CALL_EXPR_ARG (exp, 0);
+  gcc_assert (TREE_CODE (func) == ADDR_EXPR);
+  gcc_assert (TREE_CODE (TREE_OPERAND (func, 0)) == FUNCTION_DECL);
+  fndecl = TREE_OPERAND (func, 0);
+
+  /* Argument 1 is the counter address to pass to the profile
+     update function.  */
+  ctr = CALL_EXPR_ARG (exp, 1);
+
+  /* Argument 1 is the data being profiled to pass to the profile
+     update function.  */
+  data = CALL_EXPR_ARG (exp, 2);
+
+  call = build_call_expr_loc (loc, fndecl, 2, ctr, data);
+
+  return expand_normal (call);
+}
+
+/* Expand a call to __builtin_profile_register_handler.  Passed a pointer to
+   a routine that should be called atexit in -fprofile-generate binaries.  */
+
+static rtx
+expand_builtin_profile_register_handler (tree exp)
+{
+  tree fn, fndecl;
+
+  /* This is only relevent to -fprofile-generate compiles.  */
+  if (! profile_arc_flag)
+    return const0_rtx;
+
+  /* Argument 0 is the function to call atexit.  */
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  tree fntype = build_function_type_list (void_type_node, ptr_type_node,
+                                          NULL_TREE);
+  fndecl = build_fn_decl ("__gcov_register_profile_handler", fntype);
+  fn = build_call_nofold_loc (EXPR_LOCATION (exp), fndecl, 1, arg0);
+  gcc_assert (TREE_CODE (fn) == CALL_EXPR);
+  CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+  return expand_call (fn, const0_rtx, 1);
+}
+
+/* Expand a call to __builtin_profile_record_parameter.  Passed a pointer to
+   the string holding the parameter name and an integer value to associate
+   with it. These are passed to a synthesized call to
+   __gcov_record_parameter_value.  */
+
+static rtx
+expand_builtin_profile_record_parameter (tree exp)
+{
+  tree fn, fndecl;
+
+  /* This is only relevent to -fprofile-generate compiles.  */
+  if (! profile_arc_flag)
+    return const0_rtx;
+
+  /* Argument 0 is the parameter name.  */
+  tree arg0 = CALL_EXPR_ARG (exp, 0);
+  /* Argument 0 is the value to associate with the parameter name.  */
+  tree arg1 = CALL_EXPR_ARG (exp, 1);
+  tree fntype = build_function_type_list (void_type_node, const_ptr_type_node,
+                                          integer_type_node, NULL_TREE);
+  fndecl = build_fn_decl ("__gcov_record_parameter_value", fntype);
+  fn = build_call_nofold_loc (EXPR_LOCATION (exp), fndecl, 2, arg0, arg1);
+  gcc_assert (TREE_CODE (fn) == CALL_EXPR);
+  CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
+  return expand_call (fn, const0_rtx, 1);
 }
 
 /* Get a MEM rtx for expression EXP which is the address of an operand
@@ -6375,6 +6467,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       return expand_builtin_expect (exp, target);
     case BUILT_IN_ASSUME_ALIGNED:
       return expand_builtin_assume_aligned (exp, target);
+    case BUILT_IN_PROFILE_INVOKE:
+      return expand_builtin_profile_invoke (exp);
+    case BUILT_IN_PROFILE_REGISTER_HANDLER:
+      return expand_builtin_profile_register_handler (exp);
+    case BUILT_IN_PROFILE_RECORD_PARAMETER:
+      return expand_builtin_profile_record_parameter (exp);
     case BUILT_IN_PREFETCH:
       expand_builtin_prefetch (exp);
       return const0_rtx;
