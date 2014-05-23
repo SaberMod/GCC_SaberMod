@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "profile.h"
 #include "params.h"
+#include "l-ipo.h"
 
 /* Return true when NODE can not be local. Worker for cgraph_local_node_p.  */
 
@@ -194,6 +195,9 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
       for (i = 0; i < targets.length (); i++)
 	{
 	  struct cgraph_node *n = targets[i];
+
+	  if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+	    n = cgraph_lipo_get_resolved_node (n->decl);
 
 	  /* Do not bother to mark virtual methods in anonymous namespace;
 	     either we will find use of virtual table defining it, or it is
