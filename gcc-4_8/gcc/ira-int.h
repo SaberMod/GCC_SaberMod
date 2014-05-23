@@ -136,6 +136,10 @@ struct ira_loop_tree_node
 
   /* Numbers of copies referred in the corresponding loop.  */
   bitmap local_copies;
+
+  /* The flag only valid for flag_shrink_wrap_frame_pointer.
+     It is true when the loop could use fp as a free register.  */
+  bool fp_is_free;
 };
 
 /* The root of the loop tree corresponding to the all function.  */

@@ -11177,6 +11177,8 @@ is zero, which disables this optimization.
 
 @hook TARGET_ASAN_SHADOW_OFFSET
 
+@hook TARGET_SET_FP_INSN
+
 @hook TARGET_MEMMODEL_CHECK
 Validate target specific memory model mask bits. When NULL no target specific
 memory model bits are allowed.

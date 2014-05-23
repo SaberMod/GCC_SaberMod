@@ -2093,6 +2093,16 @@ supported by the target.",
  unsigned HOST_WIDE_INT, (void),
  NULL)
 
+/* Get frame pointer setting insn when flag_shrink_wrap_frame_pointer
+   is true.  */
+DEFHOOK
+(set_fp_insn,
+ "When flag_shrink_wrap_frame_pointer is true, fp setting insn should\n\
+be generated inside function body. The insertion is done after CFA\n\
+information is known.",
+ rtx, (void),
+ default_set_fp_insn)
+
 /* Functions relating to calls - argument passing, returns, etc.  */
 /* Members of struct call have no special macro prefix.  */
 HOOK_VECTOR (TARGET_CALLS, calls)

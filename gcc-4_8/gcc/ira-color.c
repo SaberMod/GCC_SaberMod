@@ -1024,6 +1024,10 @@ setup_profitable_hard_regs (void)
 				      OBJECT_TOTAL_CONFLICT_HARD_REGS (obj));
 	    }
 	}
+      /* If loop region is marked as !fp_is_free, all the allocnos inside it will
+	 not use fp as a free register.  */
+      if (frame_pointer_partially_needed && !a->loop_tree_node->fp_is_free)
+	CLEAR_HARD_REG_BIT (data->profitable_hard_regs, HARD_FRAME_POINTER_REGNUM);
     }
   /* Exclude hard regs already assigned for conflicting objects.  */
   EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, i, bi)
@@ -1464,7 +1468,9 @@ calculate_saved_nregs (int hard_regno, enum machine_mode mode)
   ira_assert (hard_regno >= 0);
   for (i = hard_regno_nregs[hard_regno][mode] - 1; i >= 0; i--)
     if (!allocated_hardreg_p[hard_regno + i]
-	&& !TEST_HARD_REG_BIT (call_used_reg_set, hard_regno + i)
+	&& (!TEST_HARD_REG_BIT (call_used_reg_set, hard_regno + i)
+	    || (frame_pointer_partially_needed
+		&& (hard_regno + i == HARD_FRAME_POINTER_REGNUM)))
 	&& !LOCAL_REGNO (hard_regno + i))
       nregs++;
   return nregs;

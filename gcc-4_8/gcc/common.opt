@@ -1664,6 +1664,10 @@ fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames
 
+fshrink-wrap-frame-pointer
+Common Report Var(flag_shrink_wrap_frame_pointer) Optimization
+Framepointer shrinkwrapping optimization.
+
 fopt-info
 Common Report Var(flag_opt_info) Optimization
 Enable all optimization info dumps on stderr

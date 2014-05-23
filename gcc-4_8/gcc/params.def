@@ -1315,6 +1315,21 @@ DEFPARAM (PARAM_UNINIT_CONTROL_DEP_ATTEMPTS,
 	  "during uninitialized variable analysis",
 	  1000, 1, 0)
 
+/* Fraction of adjusting fp setting cost in framepointer shrinkwrapping.  */
+DEFPARAM (PARAM_FPSET_COST_FRACTION,
+	  "fpset-cost-fraction",
+	  "Adjust the estimation of fp setting insn cost with this fraction in"
+	  "framepointer shrinkwrapping",
+	  10, 1, 100)
+
+/* Fraction of promoting when choose to promote or not to promote fpset in
+   framepointer shrinkwrapping.  */
+DEFPARAM (PARAM_FPSET_PROMOTE_FRACTION,
+	  "fpset-promote-fraction",
+	  "Adjust the estimation of fpset promotion cost with this fraction in"
+	  "framepointer shrinkwrapping",
+	  1, 1, 100)
+
 /*
 Local variables:
 mode:c

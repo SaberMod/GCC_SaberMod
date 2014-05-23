@@ -11350,6 +11350,12 @@ Address Sanitizer shadow memory address.  NULL if Address Sanitizer is not
 supported by the target.
 @end deftypefn
 
+@deftypefn {Target Hook} rtx TARGET_SET_FP_INSN (void)
+When flag_shrink_wrap_frame_pointer is true, fp setting insn should
+be generated inside function body. The insertion is done after CFA
+information is known.
+@end deftypefn
+
 @deftypefn {Target Hook} {unsigned HOST_WIDE_INT} TARGET_MEMMODEL_CHECK (unsigned HOST_WIDE_INT @var{val})
 Validate target specific memory model mask bits. When NULL no target specific
 memory model bits are allowed.

@@ -3770,6 +3770,19 @@ ix86_option_override_internal (bool main_args_p)
   else if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
 
+  if (!global_options_set.x_flag_omit_frame_pointer)
+    flag_shrink_wrap_frame_pointer = 0;
+
+  /* -fshrink-wrap-frame-pointer is an optimization based on
+     -fno-omit-frame-pointer mode, so it is only effective when
+     flag_omit_frame_pointer is false.
+     Frame pointer shrinkwrap may increase code size, so disable
+     it when optimize_size is true.  */
+  if (flag_omit_frame_pointer
+      || optimize == 0
+      || optimize_size)
+    flag_shrink_wrap_frame_pointer = 0;
+
   /* If we're doing fast math, we don't care about comparison order
      wrt NaNs.  This lets us use a shorter comparison sequence.  */
   if (flag_finite_math_only)
@@ -9280,7 +9293,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
     offset += UNITS_PER_WORD;
 
   /* Skip saved base pointer.  */
-  if (frame_pointer_needed)
+  if (frame_pointer_needed || frame_pointer_partially_needed)
     offset += UNITS_PER_WORD;
   frame->hfp_save_offset = offset;
 
@@ -10588,6 +10601,13 @@ ix86_expand_prologue (void)
 	  m->fs.fp_valid = true;
 	}
     }
+  else if (frame_pointer_partially_needed)
+    {
+      insn = emit_insn (gen_push (hard_frame_pointer_rtx));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      if (fpset_needed_in_prologue)
+        insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+    }
 
   if (!int_registers_saved)
     {
@@ -10908,6 +10928,34 @@ ix86_expand_prologue (void)
     emit_insn (gen_prologue_use (stack_pointer_rtx));
 }
 
+/* Get frame pointer setting insn based on frame state.  */
+static rtx
+ix86_set_fp_insn ()
+{
+  rtx r, seq;
+  struct ix86_frame frame;
+  HOST_WIDE_INT offset;
+
+  ix86_compute_frame_layout (&frame);
+  gcc_assert (frame_pointer_partially_needed);
+  offset = frame.stack_pointer_offset - frame.hard_frame_pointer_offset; 
+
+  if (TARGET_64BIT && (offset > 0x7fffffff))
+    {
+      r = gen_rtx_SET (DImode, hard_frame_pointer_rtx, GEN_INT (offset));
+      emit_insn (r);
+      r = gen_rtx_PLUS (Pmode, hard_frame_pointer_rtx, stack_pointer_rtx);
+      r = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, r);
+    }
+  else
+    {
+      r = gen_rtx_PLUS (Pmode, stack_pointer_rtx, GEN_INT (offset));
+      r = gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx, r);
+    }
+  emit_insn (r);
+  return r;
+}
+
 /* Emit code to restore REG using a POP insn.  */
 
 static void
@@ -11101,6 +11149,9 @@ ix86_expand_epilogue (int style)
 
   /* The DRAP is never valid at this point.  */
   gcc_assert (!m->fs.drap_valid);
+
+  /* If frame_pointer_partially_needed is true,  FP must not be valid.  */
+  gcc_assert (!(frame_pointer_partially_needed && m->fs.fp_valid));
 
   /* See the comment about red zone and frame
      pointer usage in ix86_expand_prologue.  */
@@ -11296,7 +11347,7 @@ ix86_expand_epilogue (int style)
 
   /* If we used a stack pointer and haven't already got rid of it,
      then do so now.  */
-  if (m->fs.fp_valid)
+  if (m->fs.fp_valid || frame_pointer_partially_needed)
     {
       /* If the stack pointer is valid and pointing at the frame
 	 pointer store address, then we only need a pop.  */
@@ -11310,9 +11361,13 @@ ix86_expand_epilogue (int style)
 	ix86_emit_leave ();
       else
         {
+	  rtx dest, offset;
+	  dest = (m->fs.fp_valid) ? hard_frame_pointer_rtx : stack_pointer_rtx;
+	  offset = (m->fs.fp_valid) ? const0_rtx :
+			GEN_INT (m->fs.sp_offset - frame.hfp_save_offset);
 	  pro_epilogue_adjust_stack (stack_pointer_rtx,
-				     hard_frame_pointer_rtx,
-				     const0_rtx, style, !using_drap);
+				     dest,
+				     offset, style, !using_drap);
 	  ix86_emit_restore_reg_using_pop (hard_frame_pointer_rtx);
         }
     }
@@ -43236,6 +43291,9 @@ adjacent_mem_locations (rtx mem1, rtx mem2)
 
 #undef TARGET_PROFILE_BEFORE_PROLOGUE
 #define TARGET_PROFILE_BEFORE_PROLOGUE ix86_profile_before_prologue
+
+#undef TARGET_SET_FP_INSN
+#define TARGET_SET_FP_INSN ix86_set_fp_insn
 
 #undef TARGET_MANGLE_DECL_ASSEMBLER_NAME
 #define TARGET_MANGLE_DECL_ASSEMBLER_NAME ix86_mangle_decl_assembler_name

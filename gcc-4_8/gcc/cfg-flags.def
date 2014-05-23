@@ -96,6 +96,9 @@ DEF_BASIC_BLOCK_FLAG(IN_TRANSACTION, 14)
 /* Set on blocks that has been annotated during AutoFDO profile
    attribution.  */
 DEF_BASIC_BLOCK_FLAG(ANNOTATED, 15)
+
+/* Set on blocks that fp could be used freely.  */
+DEF_BASIC_BLOCK_FLAG(FP_IS_FREE, 16)
 #endif
 
 #ifdef DEF_EDGE_FLAG

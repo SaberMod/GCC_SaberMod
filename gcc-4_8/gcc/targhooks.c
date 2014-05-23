@@ -1344,6 +1344,12 @@ default_profile_before_prologue (void)
 #endif
 }
 
+rtx
+default_set_fp_insn (void)
+{
+  return NULL;
+}
+
 /* The default implementation of TARGET_PREFERRED_RELOAD_CLASS.  */
 
 reg_class_t

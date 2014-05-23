@@ -737,6 +737,44 @@ mark_hard_reg_early_clobbers (rtx insn, bool live_p)
   return set_p;
 }
 
+/* If frame_pointer_partially_needed is on, and a pseudo reg is
+   refered in call insn directly, like "call *pseudo_reg", the
+   pseudo_reg cannot be given frame pointer, or else after frame
+   pointer shrinkwrapping transformation, the value of call target
+   register will be wrongly changed by fp setting of frame address.
+   Mark such pseudos conflicting with frame pointer register.  */
+
+static void
+mark_ref_conflict_with_fp (rtx insn)
+{
+  df_ref *use_rec;
+  for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
+    {
+      int i, n;
+      unsigned regno;
+      rtx reg;
+      ira_allocno_t a;
+
+      reg = DF_REF_REG (*use_rec);
+      if (GET_CODE (reg) == SUBREG)
+	reg = SUBREG_REG (reg);
+      regno = REGNO (reg);
+      if (REGNO (reg) < FIRST_PSEUDO_REGISTER)
+        continue;
+
+      a = ira_curr_regno_allocno_map[regno];
+      n = ALLOCNO_NUM_OBJECTS (a);
+      for (i = 0; i < n; i++)
+	{
+	  ira_object_t obj = ALLOCNO_OBJECT (a, i);
+	  SET_HARD_REG_BIT (OBJECT_CONFLICT_HARD_REGS (obj),
+			    HARD_FRAME_POINTER_REGNUM);
+	  SET_HARD_REG_BIT (OBJECT_TOTAL_CONFLICT_HARD_REGS (obj),
+			    HARD_FRAME_POINTER_REGNUM);
+	}
+    }
+}
+
 /* Checks that CONSTRAINTS permits to use only one hard register.  If
    it is so, the function returns the class of the hard register.
    Otherwise it returns NO_REGS.  */
@@ -1258,6 +1296,9 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 
 	  if (call_p)
 	    {
+	      if (frame_pointer_partially_needed)
+		mark_ref_conflict_with_fp (insn);
+
 	      /* Try to find a SET in the CALL_INSN_FUNCTION_USAGE, and from
 		 there, try to find a pseudo that is live across the call but
 		 can be cheaply reconstructed from the return value.  */

@@ -172,6 +172,7 @@ extern int default_register_move_cost (enum machine_mode, reg_class_t,
 				       reg_class_t);
 
 extern bool default_profile_before_prologue (void);
+extern rtx default_set_fp_insn (void);
 extern reg_class_t default_preferred_reload_class (rtx, reg_class_t);
 extern reg_class_t default_preferred_output_reload_class (rtx, reg_class_t);
 extern reg_class_t default_preferred_rename_class (reg_class_t rclass);
