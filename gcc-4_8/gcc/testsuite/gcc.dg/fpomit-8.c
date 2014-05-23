@@ -1,6 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-O2 -fno-omit-frame-pointer -fshrink-wrap-frame-pointer" } */
-/* { dg-output "stack_depth = 9" } */
+/* { dg-output "stack_depth = 8" } */
 
 #include <stdio.h>
 
@@ -16,9 +16,9 @@ get_stack_traces (void **result)
    void **sp = (void**) __builtin_frame_address (0);
    int n = 0;
    while (sp) {
-       if (*(sp+1) == 0 
-	   || (*(char **)(sp+1) == main_ret_address))
-          return n; 
+       if ((*(char **)(sp+1)) == main_ret_address)
+          return n;
+
        void **next_sp = (void**) *sp;
        result[n] = *(sp+1);
        if (next_sp > sp)
@@ -66,10 +66,10 @@ __attribute__((noinline)) int foo()
 
 int main()
 {
-  int i;
-  int n = foo();
+  int i, n;
 
   main_ret_address = __builtin_return_address (0);
+  n = foo();
 
    fprintf (stderr, "return value = %d, stack_depth = %d\n", n, N);
 
