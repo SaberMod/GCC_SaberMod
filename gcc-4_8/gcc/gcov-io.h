@@ -129,7 +129,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    blocks they are for.
 
    The data file contains the following records.
-        data: {unit summary:program* parameter-data function-data*}*
+        data: {unit summary:program* build_info parameter-data function-data*}*
 	unit: header int32:checksum
         function-data:	announce_function present counts
 	announce_function: header int32:ident
@@ -143,6 +143,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
         histogram-buckets: int32:num int64:min int64:sum
         parameter-data: header parm-value*
         parm-value: string:macro_name int64:value
+        build_info: string:info*
 
    The ANNOUNCE_FUNCTION record is the same as that in the note file,
    but without the source location.  The COUNTS gives the
@@ -152,6 +153,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    instrumented object file.  There may be several program summaries,
    each with a unique checksum.  Note that the data file might contain
    information from several runs concatenated, or the data might be merged.
+
+   BUILD_INFO record contains a list of strings that is used
+   to include in the data file information about the profile generate
+   build.  For example, it can be used to include source revision
+   information that is useful in diagnosing profile mis-matches.
 
    This file is included by both the compiler, gcov tools and the
    runtime support library libgcov. IN_LIBGCOV and IN_GCOV are used to
@@ -259,6 +265,7 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
         (1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
 #define GCOV_TAG_PARAMETERS    ((gcov_unsigned_t)0xa5000000)
+#define GCOV_TAG_BUILD_INFO ((gcov_unsigned_t)0xa7000000)
 #define GCOV_TAG_MODULE_INFO ((gcov_unsigned_t)0xab000000)
 #define GCOV_TAG_AFDO_FILE_NAMES ((gcov_unsigned_t)0xaa000000)
 #define GCOV_TAG_AFDO_FUNCTION ((gcov_unsigned_t)0xac000000)
@@ -468,11 +475,15 @@ GCOV_LINKAGE int gcov_close (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE gcov_unsigned_t gcov_read_unsigned (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE gcov_type gcov_read_counter (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_read_summary (struct gcov_summary *) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE char **gcov_read_build_info (gcov_unsigned_t, gcov_unsigned_t *)
+  ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE struct gcov_parameter_value *gcov_read_parameters (gcov_unsigned_t)
   ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const char *gcov_read_string (void);
 GCOV_LINKAGE void gcov_sync (gcov_position_t /*base*/,
 			     gcov_unsigned_t /*length */);
+GCOV_LINKAGE gcov_unsigned_t gcov_read_string_array (char **, gcov_unsigned_t)
+  ATTRIBUTE_HIDDEN;
 
 #if !IN_LIBGCOV && IN_GCOV != 1
 GCOV_LINKAGE void gcov_read_module_info (struct gcov_module_info *mod_info,
@@ -482,6 +493,11 @@ GCOV_LINKAGE void gcov_read_module_info (struct gcov_module_info *mod_info,
 #if !IN_GCOV
 /* Available outside gcov */
 GCOV_LINKAGE void gcov_write_unsigned (gcov_unsigned_t) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE gcov_unsigned_t gcov_compute_string_array_len (char **,
+                                                            gcov_unsigned_t)
+  ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE void gcov_write_string_array (char **, gcov_unsigned_t)
+  ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_write_string (const char *);
 #endif
 

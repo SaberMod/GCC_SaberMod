@@ -482,7 +482,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
                       struct gcov_parameter_value **merged_parameters)
 {
   gcov_unsigned_t tag, length, version, stamp;
-  unsigned t_ix, f_ix;
+  unsigned t_ix, f_ix, i;
   int error = 0;
   struct gcov_summary_buffer **sum_tail = &sum_buffer;
 
@@ -533,6 +533,42 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
       *summary_pos_p = *eof_pos_p;
 
     next_summary:;
+    }
+
+  if (tag == GCOV_TAG_BUILD_INFO)
+    {
+      length = gcov_read_unsigned ();
+      gcov_unsigned_t num_strings = 0;
+      char **build_info_strings = gcov_read_build_info (length, &num_strings);
+      if (!build_info_strings)
+        {
+          gcov_error ("profiling:%s:Error reading build info\n", gi_filename);
+          return -1;
+        }
+      if (!gi_ptr->build_info)
+        {
+          gcov_error ("profiling:%s:Mismatched build info sections, expected "
+                      "none, found %u strings)\n", num_strings, gi_filename);
+          return -1;
+        }
+
+      for (i = 0; i < num_strings; i++)
+        {
+          if (strcmp (build_info_strings[i], gi_ptr->build_info[i]))
+            {
+              gcov_error ("profiling:%s:Mismatched build info string "
+                          "(expected %s, read %s)\n",
+                          gi_filename, gi_ptr->build_info[i],
+                          build_info_strings[i]);
+              return -1;
+            }
+          free (build_info_strings[i]);
+        }
+      free (build_info_strings);
+
+      /* Since the stamps matched if we got here, this should be from
+         the same compilation and the build info strings should match.  */
+      tag = gcov_read_unsigned ();
     }
 
   if (tag == GCOV_TAG_PARAMETERS)
@@ -606,6 +642,28 @@ read_error:;
   return -1;
 }
 
+
+/* Write build_info strings from GI_PTR to a gcda file starting from its current
+   location.  */
+
+static void
+gcov_write_build_info (struct gcov_info *gi_ptr)
+{
+  gcov_unsigned_t num = 0;
+  gcov_unsigned_t len = 1;
+
+  if (!gi_ptr->build_info)
+    return;
+
+  /* Count the number of strings, which is terminated with an empty string.  */
+  while (gi_ptr->build_info[num][0])
+    num++;
+
+  len += gcov_compute_string_array_len (gi_ptr->build_info, num);
+  gcov_write_tag_length (GCOV_TAG_BUILD_INFO, len);
+  gcov_write_unsigned (num);
+  gcov_write_string_array (gi_ptr->build_info, num);
+}
 
 /* Write counters in GI_PTR to a gcda file starting from its current
    location.  */
@@ -692,6 +750,8 @@ gcov_exit_write_gcda (struct gcov_info *gi_ptr,
       free (sum_buffer);
       sum_buffer = next_sum_buffer;
     }
+
+  gcov_write_build_info (gi_ptr);
 
   if (merged_parameters)
     {

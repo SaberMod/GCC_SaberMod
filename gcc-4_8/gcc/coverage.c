@@ -154,6 +154,10 @@ static unsigned num_cpp_defines = 0;
 static struct str_list *cpp_includes_head = NULL, *cpp_includes_tail = NULL;
 static unsigned num_cpp_includes = 0;
 
+/* List of lines read from -fprofile-generate-buildinfo=filename.  */
+struct str_list *build_info_array_head = NULL, *build_info_array_tail = NULL;
+static unsigned num_build_info = 0;
+
 /* True if the current module has any asm statements.  */
 static bool has_asm_statement;
 
@@ -792,6 +796,17 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	}
       else if (tag == GCOV_TAG_PARAMETERS)
         gcov_parameter_values = gcov_read_parameters (length);
+      else if (tag == GCOV_TAG_BUILD_INFO)
+        {
+          /* Build info strings are not used by the compiler, read and
+             ignore.  */
+          gcov_unsigned_t num_strings;
+          char **build_info_strings = gcov_read_build_info (length,
+                                                            &num_strings);
+          for (unsigned i = 0; i < num_strings; i++)
+            free (build_info_strings[i]);
+          free (build_info_strings);
+        }
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
 	{
 	  counts_entry_t **slot, *entry, elt;
@@ -1699,6 +1714,7 @@ build_info_type (tree type, tree fn_info_ptr_type)
 {
   tree field, fields = NULL_TREE;
   tree merge_fn_type, mod_type;
+  tree string_type, string_ptr_type;
 
   /* Version ident */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
@@ -1763,6 +1779,17 @@ build_info_type (tree type, tree fn_info_ptr_type)
     (build_qualified_type (fn_info_ptr_type, TYPE_QUAL_CONST));
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
 		      fn_info_ptr_type);
+  DECL_CHAIN (field) = fields;
+  fields = field;
+
+  /* build_info string array */
+  string_type = build_pointer_type (
+      build_qualified_type (char_type_node,
+                            TYPE_QUAL_CONST));
+  string_ptr_type = build_pointer_type
+    (build_qualified_type (string_type, TYPE_QUAL_CONST));
+  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+                      NULL_TREE, string_ptr_type);
   DECL_CHAIN (field) = fields;
   fields = field;
 
@@ -2163,6 +2190,96 @@ build_gcov_module_info_value (tree mod_type)
   return mod_info;
 }
 
+/* Returns the value of the build info string read earlier.  */
+
+static tree
+build_gcov_build_info_value (void)
+{
+  tree build_info;
+  tree value = NULL_TREE;
+  tree string_type, index_type, string_array_type;
+  vec<constructor_elt,va_gc> *v = NULL;
+  char name_buf[50];
+
+  string_type = build_pointer_type (
+      build_qualified_type (char_type_node,
+                            TYPE_QUAL_CONST));
+  index_type = build_index_type (build_int_cst (NULL_TREE, num_build_info));
+  string_array_type = build_array_type (string_type, index_type);
+
+  build_str_array_value (string_type, &v,
+                         build_info_array_head);
+  value = build_constructor (string_array_type, v);
+
+  build_info = build_decl (BUILTINS_LOCATION, VAR_DECL,
+                         NULL_TREE, TREE_TYPE (value));
+  TREE_STATIC (build_info) = 1;
+  ASM_GENERATE_INTERNAL_LABEL (name_buf, "BUILDINFO", 0);
+  DECL_NAME (build_info) = get_identifier (name_buf);
+  DECL_INITIAL (build_info) = value;
+
+  /* Build structure.  */
+  varpool_finalize_decl (build_info);
+
+  return build_info;
+}
+
+/* Add S to the end of the string-list, the head and tail of which are
+   pointed-to by HEAD and TAIL, respectively.  */
+
+static void
+str_list_append (struct str_list **head, struct str_list **tail, const char *s)
+{
+  struct str_list *e = XNEW (struct str_list);
+  e->str = XNEWVEC (char, strlen (s) + 1);
+  strcpy (e->str, s);
+  e->next = NULL;
+  if (*tail)
+    (*tail)->next = e;
+  else
+    *head = e;
+  *tail = e;
+}
+
+/* Read file specified to -fprofile-generate-buildinfo=filename option and
+   create a list of strings to include in build_info array.  */
+
+static void
+read_buildinfo (void)
+{
+  char buf[1024];
+  FILE *buildinfo = fopen (flag_profile_generate_buildinfo, "r");
+  if (!buildinfo)
+    {
+      error ("could not open -fprofile-generate-buildinfo file %qs: %m",
+             flag_profile_generate_buildinfo);
+    }
+
+  while (fgets (buf, sizeof buf, buildinfo) != NULL)
+    {
+      /* Remove end of line.  */
+      int len = strlen (buf);
+      if (len >= 1 && buf[len - 1] =='\n')
+        buf[len - 1] = '\0';
+      str_list_append (&build_info_array_head, &build_info_array_tail, buf);
+      num_build_info++;
+    }
+  /* Terminate with an empty string.  */
+  str_list_append (&build_info_array_head, &build_info_array_tail, "");
+  num_build_info++;
+  if (ferror (buildinfo))
+    {
+      error ("error reading -fprofile-generate-buildinfo file %qs: %m",
+             flag_profile_generate_buildinfo);
+    }
+
+  if (fclose (buildinfo))
+    {
+      error ("could not close -fprofile-generate-buildinfo file %qs: %m",
+             flag_profile_generate_buildinfo);
+    }
+}
+
 /* Returns a CONSTRUCTOR for the gcov_info object.  INFO_TYPE is the
    gcov_info structure type, FN_ARY is the array of pointers to
    function info objects.  */
@@ -2174,6 +2291,7 @@ build_info (tree info_type, tree fn_ary)
   tree merge_fn_type, n_funcs;
   unsigned ix;
   tree mod_value = NULL_TREE;
+  tree buildinfo_value = NULL_TREE;
   tree filename_string;
   int da_file_name_len;
   vec<constructor_elt, va_gc> *v1 = NULL;
@@ -2254,6 +2372,20 @@ build_info (tree info_type, tree fn_ary)
   /* functions */
   CONSTRUCTOR_APPEND_ELT (v1, info_fields,
 			  build1 (ADDR_EXPR, TREE_TYPE (info_fields), fn_ary));
+  info_fields = DECL_CHAIN (info_fields);
+
+  /* build_info string array */
+  if (flag_profile_generate_buildinfo)
+    read_buildinfo ();
+  if (num_build_info)
+    {
+      buildinfo_value = build_gcov_build_info_value ();
+      CONSTRUCTOR_APPEND_ELT (v1, info_fields,
+                              build1 (ADDR_EXPR, TREE_TYPE (info_fields),
+                                      buildinfo_value));
+    }
+  else
+    CONSTRUCTOR_APPEND_ELT (v1, info_fields, null_pointer_node);
   info_fields = DECL_CHAIN (info_fields);
 
   gcc_assert (!info_fields);
@@ -2810,23 +2942,6 @@ set_profile_parameters (struct cpp_reader *parse_in)
     }
 
   dump_finish (pass_profile.pass.static_pass_number);
-}
-
-/* Add S to the end of the string-list, the head and tail of which are
-   pointed-to by HEAD and TAIL, respectively.  */
-
-static void
-str_list_append (struct str_list **head, struct str_list **tail, const char *s)
-{
-  struct str_list *e = XNEW (struct str_list);
-  e->str = XNEWVEC (char, strlen (s) + 1);
-  strcpy (e->str, s);
-  e->next = NULL;
-  if (*tail)
-    (*tail)->next = e;
-  else
-    *head = e;
-  *tail = e;
 }
 
 /* Copies the macro def or undef CPP_DEF and saves the copy

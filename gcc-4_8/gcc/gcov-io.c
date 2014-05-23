@@ -341,6 +341,47 @@ gcov_write_unsigned (gcov_unsigned_t value)
   buffer[0] = value;
 }
 
+/* Compute the total length in words required to write NUM_STRINGS
+   in STRING_ARRAY as unsigned.  */
+
+GCOV_LINKAGE gcov_unsigned_t
+gcov_compute_string_array_len (char **string_array,
+                               gcov_unsigned_t num_strings)
+{
+  gcov_unsigned_t len = 0, i;
+  for (i = 0; i < num_strings; i++)
+    {
+      gcov_unsigned_t string_len
+          = (strlen (string_array[i]) + sizeof (gcov_unsigned_t))
+          / sizeof (gcov_unsigned_t);
+      len += string_len;
+      len += 1; /* Each string is lead by a length.  */
+    }
+  return len;
+}
+
+/* Write NUM_STRINGS in STRING_ARRAY as unsigned.  */
+
+GCOV_LINKAGE void
+gcov_write_string_array (char **string_array, gcov_unsigned_t num_strings)
+{
+  gcov_unsigned_t i, j;
+  for (j = 0; j < num_strings; j++)
+    {
+      gcov_unsigned_t *aligned_string;
+      gcov_unsigned_t string_len =
+	(strlen (string_array[j]) + sizeof (gcov_unsigned_t)) /
+	sizeof (gcov_unsigned_t);
+      aligned_string = (gcov_unsigned_t *)
+	alloca ((string_len + 1) * sizeof (gcov_unsigned_t));
+      memset (aligned_string, 0, (string_len + 1) * sizeof (gcov_unsigned_t));
+      aligned_string[0] = string_len;
+      strcpy ((char*) (aligned_string + 1), string_array[j]);
+      for (i = 0; i < (string_len + 1); i++)
+        gcov_write_unsigned (aligned_string[i]);
+    }
+}
+
 /* Write counter VALUE to coverage file.  Sets error flag
    appropriately.  */
 
@@ -701,6 +742,44 @@ gcov_read_summary (struct gcov_summary *summary)
     }
 }
 
+/* Read NUM_STRINGS strings (as an unsigned array) in STRING_ARRAY, and return
+   the number of words read.  */
+
+GCOV_LINKAGE gcov_unsigned_t
+gcov_read_string_array (char **string_array, gcov_unsigned_t num_strings)
+{
+  gcov_unsigned_t i, j, len = 0;
+
+  for (j = 0; j < num_strings; j++)
+   {
+     gcov_unsigned_t string_len = gcov_read_unsigned ();
+     string_array[j] =
+       (char *) xmalloc (string_len * sizeof (gcov_unsigned_t));
+     for (i = 0; i < string_len; i++)
+       ((gcov_unsigned_t *) string_array[j])[i] = gcov_read_unsigned ();
+     len += (string_len + 1);
+   }
+  return len;
+}
+
+/* Read LENGTH words (unsigned type) from a build info record with the number
+   of strings read saved in NUM_STRINGS.  Returns the string array, which
+   should be deallocated by caller, or NULL on error.  */
+
+GCOV_LINKAGE char **
+gcov_read_build_info (gcov_unsigned_t length, gcov_unsigned_t *num_strings)
+{
+  gcov_unsigned_t num = gcov_read_unsigned ();
+  char **build_info_strings = (char **)
+      xmalloc (sizeof (char *) * num);
+  gcov_unsigned_t len = gcov_read_string_array (build_info_strings,
+                                                num);
+  if (len != length - 1)
+    return NULL;
+  *num_strings = num;
+  return build_info_strings;
+}
+
 #if IN_GCOV_TOOL || !IN_LIBGCOV && IN_GCOV != 1
 /* Read LEN words (unsigned type) and construct MOD_INFO.  */
 
@@ -708,7 +787,7 @@ GCOV_LINKAGE void
 gcov_read_module_info (struct gcov_module_info *mod_info,
                        gcov_unsigned_t len)
 {
-  gcov_unsigned_t src_filename_len, filename_len, i, j, num_strings;
+  gcov_unsigned_t src_filename_len, filename_len, i, num_strings;
   mod_info->ident = gcov_read_unsigned ();
   mod_info->is_primary = gcov_read_unsigned ();
   mod_info->flags = gcov_read_unsigned ();
@@ -740,16 +819,7 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
     + mod_info->num_system_paths
     + mod_info->num_cpp_defines + mod_info->num_cpp_includes
     + mod_info->num_cl_args;
-  for (j = 0; j < num_strings; j++)
-   {
-     gcov_unsigned_t string_len = gcov_read_unsigned ();
-     mod_info->string_array[j] =
-       (char *) xmalloc (string_len * sizeof (gcov_unsigned_t));
-     for (i = 0; i < string_len; i++)
-       ((gcov_unsigned_t *) mod_info->string_array[j])[i] =
-	 gcov_read_unsigned ();
-     len -= (string_len + 1);
-   }
+  len -= gcov_read_string_array (mod_info->string_array, num_strings);
   gcc_assert (!len);
 }
 #endif

@@ -40,6 +40,7 @@ static void tag_lines (const char *, unsigned, unsigned);
 static void tag_counters (const char *, unsigned, unsigned);
 static void tag_summary (const char *, unsigned, unsigned);
 static void tag_parameters (const char *, unsigned, unsigned);
+static void tag_build_info (const char *, unsigned, unsigned);
 static void dump_working_sets (const char *filename ATTRIBUTE_UNUSED,
                                const struct gcov_ctr_summary *summary);
 static void tag_module_info (const char *, unsigned, unsigned);
@@ -80,6 +81,7 @@ static const tag_format_t tag_table[] =
   {GCOV_TAG_PROGRAM_SUMMARY, "PROGRAM_SUMMARY", tag_summary},
   {GCOV_TAG_PARAMETERS, "PARAMETERS", tag_parameters},
   {GCOV_TAG_MODULE_INFO, "MODULE INFO", tag_module_info},
+  {GCOV_TAG_BUILD_INFO, "BUILD INFO", tag_build_info},
   {0, NULL, NULL}
 };
 
@@ -593,6 +595,28 @@ tag_module_info (const char *filename ATTRIBUTE_UNUSED,
               mod_info->ident, primary_suffix, export_suffix,
               include_all_suffix);
     }
+}
+
+static void
+tag_build_info (const char *filename,
+		unsigned tag ATTRIBUTE_UNUSED, unsigned length)
+{
+  gcov_unsigned_t num_strings = 0;
+  char **build_info_strings = gcov_read_build_info (length, &num_strings);
+  if (!build_info_strings)
+    {
+      printf ("%s:error reading build info\n", filename);
+      return;
+    }
+  printf (" num_strings=%u", num_strings);
+  for (unsigned i = 0; i < num_strings; i++)
+    {
+      printf ("\n");
+      print_prefix (filename, 0, 0);
+      printf ("\t\t%s", build_info_strings[i]);
+      free (build_info_strings[i]);
+    }
+  free (build_info_strings);
 }
 
 static void

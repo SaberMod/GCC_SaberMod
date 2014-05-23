@@ -2233,7 +2233,7 @@ static void
 gcov_write_module_info (const struct gcov_info *mod_info,
                         unsigned is_primary)
 {
-  gcov_unsigned_t len = 0, filename_len = 0, src_filename_len = 0, i, j;
+  gcov_unsigned_t len = 0, filename_len = 0, src_filename_len = 0, i;
   gcov_unsigned_t num_strings;
   gcov_unsigned_t *aligned_fname;
   struct gcov_module_info  *module_info = mod_info->mod_info;
@@ -2248,14 +2248,8 @@ gcov_write_module_info (const struct gcov_info *mod_info,
     + module_info->num_system_paths
     + module_info->num_cpp_defines + module_info->num_cpp_includes
     + module_info->num_cl_args;
-  for (i = 0; i < num_strings; i++)
-    {
-      gcov_unsigned_t string_len
-          = (strlen (module_info->string_array[i]) + sizeof (gcov_unsigned_t))
-          / sizeof (gcov_unsigned_t);
-      len += string_len;
-      len += 1; /* Each string is lead by a length.  */
-    }
+  len += gcov_compute_string_array_len (module_info->string_array,
+                                        num_strings);
 
   len += 11; /* 11 more fields */
 
@@ -2288,20 +2282,7 @@ gcov_write_module_info (const struct gcov_info *mod_info,
     gcov_write_unsigned (aligned_fname[i]);
 
   /* Now write the string array.  */
-  for (j = 0; j < num_strings; j++)
-    {
-      gcov_unsigned_t *aligned_string;
-      gcov_unsigned_t string_len =
-	(strlen (module_info->string_array[j]) + sizeof (gcov_unsigned_t)) /
-	sizeof (gcov_unsigned_t);
-      aligned_string = (gcov_unsigned_t *)
-	alloca ((string_len + 1) * sizeof (gcov_unsigned_t));
-      memset (aligned_string, 0, (string_len + 1) * sizeof (gcov_unsigned_t));
-      aligned_string[0] = string_len;
-      strcpy ((char*) (aligned_string + 1), module_info->string_array[j]);
-      for (i = 0; i < (string_len + 1); i++)
-        gcov_write_unsigned (aligned_string[i]);
-    }
+  gcov_write_string_array (module_info->string_array, num_strings);
 }
 
 /* Write out MOD_INFO and its imported modules into gcda file.  */

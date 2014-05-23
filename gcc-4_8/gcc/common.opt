@@ -1798,6 +1798,10 @@ fprofile-generate-sampling
 Common Var(flag_profile_generate_sampling)
 Turn on instrumentation sampling with -fprofile-generate with rate set by --param profile-generate-sampling-rate or environment variable GCOV_SAMPLING_RATE
 
+fprofile-generate-buildinfo=
+Common RejectNegative Joined Var(flag_profile_generate_buildinfo)
+-fprofile-generate-buildinfo=filename	Read build info to include in gcda file from filename
+
 femit-function-names
 Common Var(flag_emit_function_names)
 Print to stderr the mapping from module name and function id to assembler
