@@ -1,3 +1,22 @@
+2014-05-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61215
+	* lra-elelimination.c (lra_eliminate_regs_1): Don't use
+	simplify_gen_subreg until final substitution.
+
+2014-05-23  Alan Modra  <amodra@gmail.com>
+
+	PR target/61231
+	* config/rs6000/rs6000.c (mem_operand_gpr): Handle SImode.
+	* config/rs6000/rs6000.md (extendsidi2_lfiwax, extendsidi2_nocell):
+	Use "Y" constraint rather than "m".
+
+2014-05-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/60969
+	* ira-costs.c (record_reg_classes): Process NO_REGS for matching
+	constraints.  Set up mem cost for NO_REGS case.
+
 2014-05-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* config/rs6000/htm.md (ttest): Use correct shift value to get CR0.
