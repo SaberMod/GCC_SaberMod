@@ -643,6 +643,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-mtune=@var{cpu-type}  -march=@var{cpu-type} @gol
 -mfpmath=@var{unit} @gol
 -masm=@var{dialect}  -mno-fancy-math-387 @gol
+-mcopyrelocs @gol
 -mno-fp-ret-in-387  -msoft-float @gol
 -mno-wide-multiply  -mrtd  -malign-double @gol
 -mpreferred-stack-boundary=@var{num} @gol
@@ -14261,6 +14262,15 @@ not support @samp{intel}.
 Control whether or not the compiler uses IEEE floating-point
 comparisons.  These correctly handle the case where the result of a
 comparison is unordered.
+
+@item -mcopyrelocs
+@itemx -mno-copyrelocs
+@opindex mcopyrelocs
+@opindex mno-copyrelocs
+With @option{-fpie} and @option{fPIE}, copy relocations support allows the
+compiler to assume that all symbol references are local.  This allows the
+compiler to skip the GOT for global accesses and this applies only to the
+x86-64 architecture.
 
 @item -msoft-float
 @opindex msoft-float
