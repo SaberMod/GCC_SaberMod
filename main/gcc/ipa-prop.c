@@ -2728,7 +2728,10 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 {
   tree binfo, target;
 
-  if (!flag_devirtualize)
+  if (!flag_devirtualize
+      /* FIXME_LIPO -- LIPO is not yet compatible
+         with ipa devirt. */
+      || flag_dyn_ipa)
     return NULL;
 
   /* First try to do lookup via known virtual table pointer value.  */

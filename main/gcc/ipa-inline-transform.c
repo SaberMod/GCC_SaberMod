@@ -444,7 +444,10 @@ inline_call (struct cgraph_edge *e, bool update_original,
 	      || speculation_removed
 	      /* FIXME: a hack.  Edges with false predicate are accounted
 		 wrong, we should remove them from callgraph.  */
-	      || predicated);
+	      || predicated
+              /* FIXME_LIPO -- LIPO is not yet compatible
+                 with ipa devirt. */
+              || flag_dyn_ipa);
 #endif
 
   /* Account the change of overall unit size; external functions will be
