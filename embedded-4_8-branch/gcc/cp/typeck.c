@@ -4103,6 +4103,11 @@ cp_build_binary_op (location_t location,
     case TRUTH_ORIF_EXPR:
     case TRUTH_AND_EXPR:
     case TRUTH_OR_EXPR:
+      if (TREE_CODE (type0) == VECTOR_TYPE || TREE_CODE (type1) == VECTOR_TYPE)
+	{
+	  sorry ("logical operation on vector type");
+	  return error_mark_node;
+	}
       result_type = boolean_type_node;
       break;
 
@@ -6644,7 +6649,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
 	   where possible, and it is necessary in some cases.  DR 195
 	   addresses this issue, but as of 2004/10/26 is still in
 	   drafting.  */
-	warning (0, "ISO C++ forbids casting between pointer-to-function and pointer-to-object");
+	warning (OPT_Wpedantic, "ISO C++ forbids casting between pointer-to-function and pointer-to-object");
       return fold_if_not_in_template (build_nop (type, expr));
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
