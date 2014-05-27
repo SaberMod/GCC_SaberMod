@@ -110,6 +110,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     vector<_Tp, _Alloc>::
     insert(iterator __position, const value_type& __x)
     {
+#if __google_stl_debug_vector
+      if (__position < this->begin() || __position > this->end())
+	__throw_out_of_range(__N("insert() at invalid position"));
+#endif
       const size_type __n = __position - begin();
       if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage
 	  && __position == end())
@@ -138,6 +142,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     vector<_Tp, _Alloc>::
     erase(iterator __position)
     {
+#if __google_stl_debug_vector
+      if (__position < this->begin() || __position >= this->end())
+	__throw_out_of_range(__N("erase() at invalid position"));
+#endif
       if (__position + 1 != end())
 	_GLIBCXX_MOVE3(__position + 1, end(), __position);
       --this->_M_impl._M_finish;
@@ -151,6 +159,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     vector<_Tp, _Alloc>::
     erase(iterator __first, iterator __last)
     {
+#if __google_stl_debug_vector
+      if (__first < this->begin() || __first > __last || __last > this->end())
+	__throw_out_of_range("erase() invalid range");
+#endif
       if (__first != __last)
 	{
 	  if (__last != end())
@@ -310,6 +322,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       vector<_Tp, _Alloc>::
       emplace(iterator __position, _Args&&... __args)
       {
+#if __google_stl_debug_vector
+	if (__position < this->begin() || __position > this->end())
+	  __throw_out_of_range(__N("emplace() at invalid position"));
+#endif
 	const size_type __n = __position - begin();
 	if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage
 	    && __position == end())
