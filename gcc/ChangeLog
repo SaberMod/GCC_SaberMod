@@ -1,3 +1,111 @@
+2014-05-28  Guozhi Wei  <carrot@google.com>
+
+	PR target/61202
+	* config/aarch64/arm_neon.h (vqdmulh_n_s16): Change the last operand's
+	constraint.
+	(vqdmulhq_n_s16): Likewise.
+
+2014-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2014-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* double-int.c (div_and_round_double) <ROUND_DIV_EXPR>: Use the proper
+	predicate to detect a negative quotient.
+
+2014-05-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/61044
+	* doc/extend.texi (Local Labels): Note that label differences are
+	not supported for AVR.
+
+2014-05-26  Michael Tautschnig  <mt@debian.org>
+
+	PR target/61249
+	* doc/extend.texi (X86 Built-in Functions): Fix parameter lists of
+	__builtin_ia32_vfrczs[sd] and __builtin_ia32_mpsadbw256.
+
+2014-05-23  Alan Modra  <amodra@gmail.com>
+
+	PR target/61231
+	* config/rs6000/rs6000.c (mem_operand_gpr): Handle SImode.
+	* config/rs6000/rs6000.md (extendsidi2_lfiwax, extendsidi2_nocell):
+	Use "Y" constraint rather than "m".
+
+2014-05-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2014-05-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/htm.md (ttest): Use correct shift value to get CR0.
+
+2014-05-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/61208
+	* arm.md (arm_cmpdi_unsigned): Fix length calculation for Thumb2.
+
+2013-05-22  Richard Biener  <rguenther@suse.de>
+
+	* BASE-VER: Set to 4.8.4.
+	* DEV-PHASE: Set to prerelease.
+
+2014-05-22  Release Manager
+
+	* GCC 4.8.3 released.
+
+2014-05-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2014-05-15  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/61193
+	* config/rs6000/htmxlintrin.h (_HTM_TBEGIN_STARTED): New define.
+	(__TM_simple_begin): Use it.
+	(__TM_begin): Likewise.
+
+2014-05-14  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc-protos.h (sparc_absnegfloat_split_legitimate):
+	Delete.
+	* config/sparc/sparc.c (sparc_absnegfloat_split_legitimate): Likewise.
+	* config/sparc/sparc.md (fptype_ut699): New attribute.
+	(in_branch_delay): Return false if -mfix-ut699 is specified and
+	fptype_ut699 is set to single.
+	(truncdfsf2): Add fptype_ut699 attribute.
+	(fix_truncdfsi2): Likewise.
+	(floatsisf2): Change fptype attribute.
+	(fix_truncsfsi2): Likewise.
+	(negtf2_notv9): Delete.
+	(negtf2_v9): Likewise.
+	(negtf2_hq): New instruction.
+	(negtf2): New instruction and splitter.
+	(negdf2_notv9): Rewrite.
+	(abstf2_notv9): Delete.
+	(abstf2_hq_v9): Likewise.
+	(abstf2_v9): Likewise.
+	(abstf2_hq): New instruction.
+	(abstf2): New instruction and splitter.
+	(absdf2_notv9): Rewrite.
+
+2014-05-14  Matthias Klose  <doko@ubuntu.com>
+
+	Revert:
+	2014-05-08  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+		    Matthias Klose  <doko@ubuntu.com>
+
+	PR driver/61106
+	* optc-gen.awk: Fix option handling for -Wunused-parameter.
+
+2014-05-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/sourcebuild.texi: (dfp_hw): Document.
+	(p8vector_hw): Likewise.
+	(powerpc_eabi_ok): Likewise.
+	(powerpc_elfv2): Likewise.
+	(powerpc_htm_ok): Likewise.
+	(ppc_recip_hw): Likewise.
+	(vsx_hw): Likewise.
+
 2014-05-12  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
 
 	Backport from mainline
