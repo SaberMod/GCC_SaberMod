@@ -941,6 +941,24 @@ fauto-inc-dec
 Common Report Var(flag_auto_inc_dec) Init(1)
 Generate auto-inc/dec instructions
 
+fauto-profile
+Common Report Var(flag_auto_profile) Optimization
+Use sample profile information for call graph node weights. The default
+profile file is fbdata.afdo in 'pwd'.
+
+fauto-profile=
+Common Joined RejectNegative Var(auto_profile_file)
+Use sample profile information for call graph node weights. The profile
+file is specified in the argument.
+
+fauto-profile-accurate
+Common Report Var(flag_auto_profile_accurate) Optimization
+Whether to assume the sample profile is accurate.
+
+fauto-profile-record-coverage-in-elf
+Common Report Var(flag_auto_profile_record_coverage_in_elf) Optimization
+Whether to record annotation coverage info in elf.
+
 ; -fcheck-bounds causes gcc to generate array bounds checks.
 ; For C, C++ and ObjC: defaults off.
 ; For Java: defaults to on.
@@ -1865,8 +1883,8 @@ Record gcc command line switches in the object file.
 ; divide the command line options into several categories. And the
 ; section is not mergable so that linker can save gcc switches for
 ; each module.
-frecord-gcc-switches-in-elf
-Common Report Var(flag_record_gcc_switches_in_elf)
+frecord-compilation-info-in-elf
+Common Report Var(flag_record_compilation_info_in_elf)
 Record the compiler optimizations in a .gnu.switches.text section.
 
 freg-struct-return

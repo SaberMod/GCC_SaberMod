@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "optabs.h"
+#include "auto-profile.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -675,6 +676,10 @@ compile_file (void)
       ident_str = ACONCAT (("GCC: ", pkg_version, version_string, NULL));
       targetm.asm_out.output_ident (ident_str);
     }
+
+  /* Auto profile finalization. */
+  if (flag_auto_profile)
+    end_auto_profile ();
 
   /* Invoke registered plugin callbacks.  */
   invoke_plugin_callbacks (PLUGIN_FINISH_UNIT, NULL);
@@ -1434,6 +1439,9 @@ process_options (void)
     error ("target system does not support the \"%s\" debug format",
 	   debug_type_names[write_symbols]);
 
+  if (flag_auto_profile && debug_info_level == DINFO_LEVEL_NONE)
+    debug_hooks = &auto_profile_debug_hooks;
+
   /* We know which debug output will be used so we can set flag_var_tracking
      and flag_var_tracking_uninit if the user has not specified them.  */
   if (debug_info_level < DINFO_LEVEL_NORMAL
@@ -1928,6 +1936,8 @@ do_compile (void)
           timevar_stop (TV_PHASE_SETUP);
 
           compile_file ();
+	  if (flag_record_compilation_info_in_elf)
+	    write_compilation_info_to_asm ();
         }
       else
         {

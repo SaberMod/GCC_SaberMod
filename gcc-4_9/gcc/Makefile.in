@@ -1165,6 +1165,7 @@ OBJS = \
 	alias.o \
 	alloc-pool.o \
 	auto-inc-dec.o \
+	auto-profile.o \
 	bb-reorder.o \
 	bitmap.o \
 	bt-load.o \

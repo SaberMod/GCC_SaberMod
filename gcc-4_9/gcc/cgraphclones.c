@@ -439,6 +439,11 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
     }
   else
     count_scale = 0;
+  /* In AutoFDO, if edge count is larger than callee's entry block
+     count, we will not update the original callee because it may
+     mistakenly mark some hot function as cold.  */
+  if (flag_auto_profile && count >= n->count)
+    update_original = false;
   if (update_original)
     {
       n->count -= count;
