@@ -846,6 +846,8 @@ template<typename _Alloc>
     operator[](size_type __n)
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("operator[] on corrupt (dangling?) vector");
       _M_range_check(__n);
 #endif
       return *iterator(this->_M_impl._M_start._M_p
@@ -856,6 +858,8 @@ template<typename _Alloc>
     operator[](size_type __n) const
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("operator[] on corrupt (dangling?) vector");
       _M_range_check(__n);
 #endif
       return *const_iterator(this->_M_impl._M_start._M_p
@@ -876,11 +880,21 @@ template<typename _Alloc>
   public:
     reference
     at(size_type __n)
-    { _M_range_check(__n); return (*this)[__n]; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("at() on corrupt (dangling?) vector");
+#endif
+      _M_range_check(__n); return (*this)[__n]; }
 
     const_reference
     at(size_type __n) const
-    { _M_range_check(__n); return (*this)[__n]; }
+    {
+#if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("at() on corrupt (dangling?) vector");
+#endif
+      _M_range_check(__n); return (*this)[__n]; }
 
     void
     reserve(size_type __n)
@@ -895,6 +909,8 @@ template<typename _Alloc>
     front()
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("front() on corrupt (dangling?) vector");
       _M_range_check(0);
 #endif
       return *begin();
@@ -904,6 +920,8 @@ template<typename _Alloc>
     front() const
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("front() on corrupt (dangling?) vector");
       _M_range_check(0);
 #endif
       return *begin();
@@ -913,6 +931,8 @@ template<typename _Alloc>
     back()
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("back() on corrupt (dangling?) vector");
       _M_range_check(0);
 #endif
       return *(end() - 1);
@@ -922,6 +942,8 @@ template<typename _Alloc>
     back() const
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("back() on corrupt (dangling?) vector");
       _M_range_check(0);
 #endif
       return *(end() - 1);
@@ -979,6 +1001,8 @@ template<typename _Alloc>
     insert(iterator __position, const bool& __x = bool())
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("insert() on corrupt (dangling?) vector");
       if (__position < this->begin() || __position > this->end())
 	__throw_logic_error("insert() at invalid position");
 #endif
@@ -1044,6 +1068,8 @@ template<typename _Alloc>
     pop_back()
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("pop_back() on corrupt (dangling?) vector");
       _M_range_check(0);
 #endif
       --this->_M_impl._M_finish;
@@ -1053,6 +1079,8 @@ template<typename _Alloc>
     erase(iterator __position)
     {
 #if __google_stl_debug_bvector
+      if (!this->_M_is_valid())
+	__throw_logic_error("erase() on corrupt (dangling?) vector");
       if (__position < this->begin() || __position >= this->end())
 	__throw_logic_error("erase() at invalid position");
 #endif
