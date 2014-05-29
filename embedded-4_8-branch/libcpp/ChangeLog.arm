@@ -1,0 +1,8 @@
+2014-05-29  Terry Guo  <terry.guo@arm.com>
+
+	Backport trunk patch at r210264
+	2014-05-09  Joey Ye  <joey.ye@arm.com>
+
+	* files.c (find_file_in_dir): Always try to shorten for DOS
+	non-system headers.
+	* init.c (ENABLE_CANONICAL_SYSTEM_HEADERS): Default enabled for DOS.
