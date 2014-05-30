@@ -77,6 +77,7 @@ struct value_data
 };
 
 static alloc_pool debug_insn_changes_pool;
+static bool skip_debug_insn_p;
 
 static void kill_value_one_regno (unsigned, struct value_data *);
 static void kill_value_regno (unsigned, unsigned, struct value_data *);
@@ -485,7 +486,7 @@ replace_oldest_value_reg (rtx *loc, enum reg_class cl, rtx insn,
 			  struct value_data *vd)
 {
   rtx new_rtx = find_oldest_value_reg (cl, *loc, vd);
-  if (new_rtx)
+  if (new_rtx && (!DEBUG_INSN_P (insn) || !skip_debug_insn_p))
     {
       if (DEBUG_INSN_P (insn))
 	{
@@ -1112,6 +1113,26 @@ debug_value_data (struct value_data *vd)
 	       vd->e[i].next_regno);
 }
 
+/* Do copyprop_hardreg_forward_1 for a single basic block BB.
+   DEBUG_INSN is skipped since we do not want to involve DF related
+   staff as how it is handled in function pass_cprop_hardreg::execute.
+
+   NOTE: Currently it is only used for shrink-wrap.  Maybe extend it
+   to handle DEBUG_INSN for other uses.  */
+
+void
+copyprop_hardreg_forward_bb_without_debug_insn (basic_block bb)
+{
+  struct value_data *vd;
+  vd = XNEWVEC (struct value_data, 1);
+  init_value_data (vd);
+
+  skip_debug_insn_p = true;
+  copyprop_hardreg_forward_1 (bb, vd);
+  free (vd);
+  skip_debug_insn_p = false;
+}
+
 #ifdef ENABLE_CHECKING
 static void
 validate_value_data (struct value_data *vd)
@@ -1173,7 +1194,7 @@ const pass_data pass_data_cprop_hardreg =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_cprop_hardreg : public rtl_opt_pass

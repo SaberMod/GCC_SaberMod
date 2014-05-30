@@ -68,6 +68,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-live.h"
 #include "omp-low.h"
 #include "tree-cfgcleanup.h"
+#include "wide-int.h"
+#include "wide-int-print.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -357,7 +359,7 @@ const pass_data pass_data_build_cfg =
   ( PROP_cfg | PROP_loops ), /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_stmts, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_build_cfg : public gimple_opt_pass
@@ -1542,12 +1544,12 @@ group_case_labels_stmt (gimple stmt)
 	{
 	  tree merge_case = gimple_switch_label (stmt, i);
 	  basic_block merge_bb = label_to_block (CASE_LABEL (merge_case));
-	  double_int bhp1 = tree_to_double_int (base_high) + double_int_one;
+	  wide_int bhp1 = wi::add (base_high, 1);
 
 	  /* Merge the cases if they jump to the same place,
 	     and their ranges are consecutive.  */
 	  if (merge_bb == base_bb
-	      && tree_to_double_int (CASE_LOW (merge_case)) == bhp1)
+	      && wi::eq_p (CASE_LOW (merge_case), bhp1))
 	    {
 	      base_high = CASE_HIGH (merge_case) ?
 		  CASE_HIGH (merge_case) : CASE_LOW (merge_case);
@@ -1874,6 +1876,12 @@ gimple_merge_blocks (basic_block a, basic_block b)
 	  gsi_next (&gsi);
 	}
     }
+
+  /* When merging two BBs, if their counts are different, the larger count
+     is selected as the new bb count. This is to handle inconsistent
+     profiles.  */
+  a->count = MAX (a->count, b->count);
+  a->frequency = MAX (a->frequency, b->frequency);
 
   /* Merge the sequences.  */
   last = gsi_last_bb (a);
@@ -3651,7 +3659,7 @@ verify_gimple_assign_binary (gimple stmt)
 	   only allow shifting by a constant multiple of the element size.  */
 	if (!INTEGRAL_TYPE_P (TREE_TYPE (rhs1_type))
 	    && (TREE_CODE (rhs2) != INTEGER_CST
-		|| !div_if_zero_remainder (EXACT_DIV_EXPR, rhs2,
+		|| !div_if_zero_remainder (rhs2,
 					   TYPE_SIZE (TREE_TYPE (rhs1_type)))))
 	  {
 	    error ("non-element sized vector shift of floating point vector");
@@ -4785,7 +4793,7 @@ collect_subblocks (pointer_set_t *blocks, tree block)
 /* Verify the GIMPLE statements in the CFG of FN.  */
 
 DEBUG_FUNCTION void
-verify_gimple_in_cfg (struct function *fn)
+verify_gimple_in_cfg (struct function *fn, bool verify_nothrow)
 {
   basic_block bb;
   bool err = false;
@@ -4921,16 +4929,17 @@ verify_gimple_in_cfg (struct function *fn)
 	     that they cannot throw, that we update other data structures
 	     to match.  */
 	  lp_nr = lookup_stmt_eh_lp (stmt);
-	  if (lp_nr != 0)
+	  if (lp_nr > 0)
 	    {
 	      if (!stmt_could_throw_p (stmt))
 		{
-		  error ("statement marked for throw, but doesn%'t");
-		  err2 |= true;
+		  if (verify_nothrow)
+		    {
+		      error ("statement marked for throw, but doesn%'t");
+		      err2 |= true;
+		    }
 		}
-	      else if (lp_nr > 0
-		       && !gsi_one_before_end_p (gsi)
-		       && stmt_can_throw_internal (stmt))
+	      else if (!gsi_one_before_end_p (gsi))
 		{
 		  error ("statement marked for throw in middle of block");
 		  err2 |= true;
@@ -6893,7 +6902,7 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
     }
 
   /* Initialize an empty loop tree.  */
-  struct loops *loops = ggc_alloc_cleared_loops ();
+  struct loops *loops = ggc_cleared_alloc<struct loops> ();
   init_loops_structure (dest_cfun, loops, 1);
   loops->state = LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
   set_loops_for_fn (dest_cfun, loops);
@@ -7328,13 +7337,13 @@ print_loop (FILE *file, struct loop *loop, int indent, int verbosity)
   if (loop->any_upper_bound)
     {
       fprintf (file, ", upper_bound = ");
-      dump_double_int (file, loop->nb_iterations_upper_bound, true);
+      print_decu (loop->nb_iterations_upper_bound, file);
     }
 
   if (loop->any_estimate)
     {
       fprintf (file, ", estimate = ");
-      dump_double_int (file, loop->nb_iterations_estimate, true);
+      print_decu (loop->nb_iterations_estimate, file);
     }
   fprintf (file, ")\n");
 
@@ -8089,7 +8098,7 @@ const pass_data pass_data_split_crit_edges =
   PROP_no_crit_edges, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_flow, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_split_crit_edges : public gimple_opt_pass
@@ -8401,7 +8410,7 @@ execute_fixup_cfg (void)
 {
   basic_block bb;
   gimple_stmt_iterator gsi;
-  int todo = gimple_in_ssa_p (cfun) ? TODO_verify_ssa : 0;
+  int todo = 0;
   gcov_type count_scale;
   edge e;
   edge_iterator ei;
@@ -8422,7 +8431,7 @@ execute_fixup_cfg (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       bb->count = apply_scale (bb->count, count_scale);
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 	  tree decl = is_gimple_call (stmt)
@@ -8448,9 +8457,46 @@ execute_fixup_cfg (void)
 		todo |= TODO_cleanup_cfg;
 	     }
 
+	  /* Remove stores to variables we marked write-only.
+	     Keep access when store has side effect, i.e. in case when source
+	     is volatile.  */
+	  if (gimple_store_p (stmt)
+	      && !gimple_has_side_effects (stmt))
+	    {
+	      tree lhs = get_base_address (gimple_get_lhs (stmt));
+
+	      if (TREE_CODE (lhs) == VAR_DECL
+		  && (TREE_STATIC (lhs) || DECL_EXTERNAL (lhs))
+		  && varpool_get_node (lhs)->writeonly)
+		{
+		  unlink_stmt_vdef (stmt);
+		  gsi_remove (&gsi, true);
+		  release_defs (stmt);
+	          todo |= TODO_update_ssa | TODO_cleanup_cfg;
+	          continue;
+		}
+	    }
+	  /* For calls we can simply remove LHS when it is known
+	     to be write-only.  */
+	  if (is_gimple_call (stmt)
+	      && gimple_get_lhs (stmt))
+	    {
+	      tree lhs = get_base_address (gimple_get_lhs (stmt));
+
+	      if (TREE_CODE (lhs) == VAR_DECL
+		  && (TREE_STATIC (lhs) || DECL_EXTERNAL (lhs))
+		  && varpool_get_node (lhs)->writeonly)
+		{
+		  gimple_call_set_lhs (stmt, NULL);
+		  update_stmt (stmt);
+	          todo |= TODO_update_ssa | TODO_cleanup_cfg;
+		}
+	    }
+
 	  if (maybe_clean_eh_stmt (stmt)
 	      && gimple_purge_dead_eh_edges (bb))
 	    todo |= TODO_cleanup_cfg;
+	  gsi_next (&gsi);
 	}
 
       FOR_EACH_EDGE (e, ei, bb->succs)

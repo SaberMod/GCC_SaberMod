@@ -1557,19 +1557,16 @@ process_alt_operands (int only_alternative)
      together, the second alternatives go together, etc.
 
      First loop over alternatives.  */
+  alternative_mask enabled = curr_id->enabled_alternatives;
+  if (only_alternative >= 0)
+    enabled &= ALTERNATIVE_BIT (only_alternative);
+
   for (nalt = 0; nalt < n_alternatives; nalt++)
     {
       /* Loop over operands for one constraint alternative.  */
-#if HAVE_ATTR_enabled
-      if (curr_id->alternative_enabled_p != NULL
-	  && ! curr_id->alternative_enabled_p[nalt])
-	continue;
-#endif
-
-      if (only_alternative >= 0 && nalt != only_alternative)
+      if (!TEST_BIT (enabled, nalt))
 	continue;
 
-            
       overall = losers = reject = reload_nregs = reload_sum = 0;
       for (nop = 0; nop < n_operands; nop++)
 	{
@@ -4608,7 +4605,10 @@ need_for_call_save_p (int regno)
   lra_assert (regno >= FIRST_PSEUDO_REGISTER && reg_renumber[regno] >= 0);
   return (usage_insns[regno].calls_num < calls_num
 	  && (overlaps_hard_reg_set_p
-	      (call_used_reg_set,
+	      ((flag_use_caller_save &&
+		! hard_reg_set_empty_p (lra_reg_info[regno].actual_call_used_reg_set))
+	       ? lra_reg_info[regno].actual_call_used_reg_set
+	       : call_used_reg_set,
 	       PSEUDO_REGNO_MODE (regno), reg_renumber[regno])
 	      || HARD_REGNO_CALL_PART_CLOBBERED (reg_renumber[regno],
 						 PSEUDO_REGNO_MODE (regno))));

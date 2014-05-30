@@ -99,6 +99,7 @@
 #include "tree-pass.h"
 #include "df.h"
 #include "bb-reorder.h"
+#include "cgraph.h"
 #include "except.h"
 
 /* The number of rounds.  In most cases there will only be 4 rounds, but
@@ -425,8 +426,7 @@ rotate_loop (edge back_edge, struct trace *trace, int trace_n)
 	      /* Duplicate HEADER if it is a small block containing cond jump
 		 in the end.  */
 	      if (any_condjump_p (BB_END (header)) && copy_bb_p (header, 0)
-		  && !find_reg_note (BB_END (header), REG_CROSSING_JUMP,
-				     NULL_RTX))
+		  && !CROSSING_JUMP_P (BB_END (header)))
 		copy_bb (header, single_succ_edge (prev_bb), prev_bb, trace_n);
 	    }
 	}
@@ -2194,10 +2194,10 @@ fix_crossing_unconditional_branches (void)
     }
 }
 
-/* Add REG_CROSSING_JUMP note to all crossing jump insns.  */
+/* Update CROSSING_JUMP_P flags on all jump insns.  */
 
 static void
-add_reg_crossing_jump_notes (void)
+update_crossing_jump_flags (void)
 {
   basic_block bb;
   edge e;
@@ -2205,12 +2205,15 @@ add_reg_crossing_jump_notes (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     FOR_EACH_EDGE (e, ei, bb->succs)
-      if ((e->flags & EDGE_CROSSING)
-	  && JUMP_P (BB_END (e->src))
-          /* Some notes were added during fix_up_fall_thru_edges, via
-             force_nonfallthru_and_redirect.  */
-          && !find_reg_note (BB_END (e->src), REG_CROSSING_JUMP, NULL_RTX))
-	add_reg_note (BB_END (e->src), REG_CROSSING_JUMP, NULL_RTX);
+      if (e->flags & EDGE_CROSSING)
+	{
+	  if (JUMP_P (BB_END (bb))
+	      /* Some flags were added during fix_up_fall_thru_edges, via
+		 force_nonfallthru_and_redirect.  */
+	      && !CROSSING_JUMP_P (BB_END (bb)))
+	    CROSSING_JUMP_P (BB_END (bb)) = 1;
+	  break;
+	}
 }
 
 /* Reorder basic blocks.  The main entry point to this file.  FLAGS is
@@ -2315,7 +2318,7 @@ const pass_data pass_data_reorder_blocks =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_reorder_blocks : public rtl_opt_pass
@@ -2385,7 +2388,7 @@ const pass_data pass_data_duplicate_computed_gotos =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_duplicate_computed_gotos : public rtl_opt_pass
@@ -2454,7 +2457,7 @@ pass_duplicate_computed_gotos::execute (function *fun)
 	continue;
 
       /* Only consider blocks that can be duplicated.  */
-      if (find_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX)
+      if (CROSSING_JUMP_P (BB_END (bb))
 	  || !can_duplicate_block_p (bb))
 	continue;
 
@@ -2507,7 +2510,7 @@ pass_duplicate_computed_gotos::execute (function *fun)
 
       /* Don't duplicate a partition crossing edge, which requires difficult
          fixup.  */
-      if (find_reg_note (BB_END (bb), REG_CROSSING_JUMP, NULL_RTX))
+      if (JUMP_P (BB_END (bb)) && CROSSING_JUMP_P (BB_END (bb)))
 	continue;
 
       new_bb = duplicate_block (single_succ (bb), single_succ_edge (bb), bb);
@@ -2667,7 +2670,7 @@ pass_partition_blocks::gate (function *fun)
 	  /* See gate_handle_reorder_blocks.  We should not partition if
 	     we are going to omit the reordering.  */
 	  && optimize_function_for_speed_p (fun)
-	  && !DECL_ONE_ONLY (current_function_decl)
+	  && !DECL_COMDAT_GROUP (current_function_decl)
 	  && !user_defined_section_attribute);
 }
 
@@ -2710,7 +2713,7 @@ pass_partition_blocks::execute (function *fun)
   if (!HAS_LONG_UNCOND_BRANCH)
     fix_crossing_unconditional_branches ();
 
-  add_reg_crossing_jump_notes ();
+  update_crossing_jump_flags ();
 
   /* Clear bb->aux fields that the above routines were using.  */
   clear_aux_for_blocks ();
@@ -2749,7 +2752,7 @@ pass_partition_blocks::execute (function *fun)
       df_analyze ();
     }
 
-  return TODO_verify_flow | TODO_verify_rtl_sharing;
+  return 0;
 }
 
 } // anon namespace

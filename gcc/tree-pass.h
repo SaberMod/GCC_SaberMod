@@ -230,14 +230,11 @@ protected:
 
 /* To-do flags.  */
 #define TODO_do_not_ggc_collect		(1 << 1)
-#define TODO_verify_ssa			(1 << 2)
-#define TODO_verify_flow		(1 << 3)
-#define TODO_verify_stmts		(1 << 4)
 #define TODO_cleanup_cfg        	(1 << 5)
+#define TODO_verify_il			(1 << 6)
 #define TODO_dump_symtab		(1 << 7)
 #define TODO_remove_functions		(1 << 8)
 #define TODO_rebuild_frequencies	(1 << 9)
-#define TODO_verify_rtl_sharing         (1 << 10)
 
 /* To-do flags for calls to update_ssa.  */
 
@@ -308,8 +305,7 @@ protected:
      | TODO_update_ssa_full_phi		\
      | TODO_update_ssa_only_virtuals)
 
-#define TODO_verify_all \
-  (TODO_verify_ssa | TODO_verify_flow | TODO_verify_stmts)
+#define TODO_verify_all TODO_verify_il
 
 
 /* Register pass info. */
@@ -476,6 +472,7 @@ extern simple_ipa_opt_pass *make_pass_ipa_tm (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_omp_simd_clone (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_profile (gcc::context *ctxt);
 extern ipa_opt_pass_d *make_pass_ipa_cdtor_merge (gcc::context *ctxt);
+extern ipa_opt_pass_d *make_pass_ipa_comdats (gcc::context *ctxt);
 
 extern gimple_opt_pass *make_pass_cleanup_cfg_post_optimizing (gcc::context
 							       *ctxt);
@@ -509,7 +506,6 @@ extern rtl_opt_pass *make_pass_outof_cfg_layout_mode (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_loop2 (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_loop_init (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_move_loop_invariants (gcc::context *ctxt);
-extern rtl_opt_pass *make_pass_rtl_unswitch (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_unroll_and_peel_loops (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_doloop (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_loop_done (gcc::context *ctxt);
@@ -587,7 +583,7 @@ extern gimple_opt_pass *make_pass_convert_switch (gcc::context *ctxt);
 extern opt_pass *current_pass;
 
 extern bool execute_one_pass (opt_pass *);
-extern void execute_pass_list (opt_pass *);
+extern void execute_pass_list (function *, opt_pass *);
 extern void execute_ipa_pass_list (opt_pass *);
 extern void execute_ipa_summary_passes (ipa_opt_pass_d *);
 extern void execute_all_ipa_transforms (void);
@@ -615,7 +611,7 @@ extern bool function_called_by_processed_nodes_p (void);
 extern bool first_pass_instance;
 
 /* Declare for plugins.  */
-extern void do_per_function_toporder (void (*) (void *), void *);
+extern void do_per_function_toporder (void (*) (function *, void *), void *);
 
 extern void disable_pass (const char *);
 extern void enable_pass (const char *);

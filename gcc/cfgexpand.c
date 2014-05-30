@@ -1013,10 +1013,19 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	      if (data->asan_base == NULL)
 		data->asan_base = gen_reg_rtx (Pmode);
 	      base = data->asan_base;
+
+	      if (!STRICT_ALIGNMENT)
+		base_align = crtl->max_used_stack_slot_alignment;
+	      else
+		base_align = MAX (crtl->max_used_stack_slot_alignment,
+				  GET_MODE_ALIGNMENT (SImode)
+				  << ASAN_SHADOW_SHIFT);
 	    }
 	  else
-	    offset = alloc_stack_frame_space (stack_vars[i].size, alignb);
-	  base_align = crtl->max_used_stack_slot_alignment;
+	    {
+	      offset = alloc_stack_frame_space (stack_vars[i].size, alignb);
+	      base_align = crtl->max_used_stack_slot_alignment;
+	    }
 	}
       else
 	{
@@ -1602,6 +1611,52 @@ record_or_union_type_has_array_p (const_tree tree_type)
   return 0;
 }
 
+/* Check if the current function has local referenced variables that
+   have their addresses taken, contain an array, or are arrays.  */
+
+static bool
+stack_protect_decl_p ()
+{
+  unsigned i;
+  tree var;
+
+  FOR_EACH_LOCAL_DECL (cfun, i, var)
+    if (!is_global_var (var))
+      {
+	tree var_type = TREE_TYPE (var);
+	if (TREE_CODE (var) == VAR_DECL
+	    && (TREE_CODE (var_type) == ARRAY_TYPE
+		|| TREE_ADDRESSABLE (var)
+		|| (RECORD_OR_UNION_TYPE_P (var_type)
+		    && record_or_union_type_has_array_p (var_type))))
+	  return true;
+      }
+  return false;
+}
+
+/* Check if the current function has calls that use a return slot.  */
+
+static bool
+stack_protect_return_slot_p ()
+{
+  basic_block bb;
+  
+  FOR_ALL_BB_FN (bb, cfun)
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	 !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gimple stmt = gsi_stmt (gsi);
+	/* This assumes that calls to internal-only functions never
+	   use a return slot.  */
+	if (is_gimple_call (stmt)
+	    && !gimple_call_internal_p (stmt)
+	    && aggregate_value_p (TREE_TYPE (gimple_call_fntype (stmt)),
+				  gimple_call_fndecl (stmt)))
+	  return true;
+      }
+  return false;
+}
+
 /* Expand all variables used in the function.  */
 
 static rtx
@@ -1674,22 +1729,8 @@ expand_used_vars (void)
   pointer_map_destroy (ssa_name_decls);
 
   if (flag_stack_protect == SPCT_FLAG_STRONG)
-    FOR_EACH_LOCAL_DECL (cfun, i, var)
-      if (!is_global_var (var))
-	{
-	  tree var_type = TREE_TYPE (var);
-	  /* Examine local referenced variables that have their addresses taken,
-	     contain an array, or are arrays.  */
-	  if (TREE_CODE (var) == VAR_DECL
-	      && (TREE_CODE (var_type) == ARRAY_TYPE
-		  || TREE_ADDRESSABLE (var)
-		  || (RECORD_OR_UNION_TYPE_P (var_type)
-		      && record_or_union_type_has_array_p (var_type))))
-	    {
-	      gen_stack_protect_signal = true;
-	      break;
-	    }
-	}
+      gen_stack_protect_signal
+	= stack_protect_decl_p () || stack_protect_return_slot_p ();
 
   /* At this point all variables on the local_decls with TREE_USED
      set are not associated with any block scope.  Lay them out.  */
@@ -1845,6 +1886,11 @@ expand_used_vars (void)
 	    = alloc_stack_frame_space (redzonesz, ASAN_RED_ZONE_SIZE);
 	  data.asan_vec.safe_push (prev_offset);
 	  data.asan_vec.safe_push (offset);
+	  /* Leave space for alignment if STRICT_ALIGNMENT.  */
+	  if (STRICT_ALIGNMENT)
+	    alloc_stack_frame_space ((GET_MODE_ALIGNMENT (SImode)
+				      << ASAN_SHADOW_SHIFT)
+				     / BITS_PER_UNIT, 1);
 
 	  var_end_seq
 	    = asan_emit_stack_protection (virtual_stack_vars_rtx,
@@ -5544,8 +5590,7 @@ const pass_data pass_data_expand =
     | PROP_gimple_lvec ), /* properties_required */
   PROP_rtl, /* properties_provided */
   ( PROP_ssa | PROP_trees ), /* properties_destroyed */
-  ( TODO_verify_ssa | TODO_verify_flow
-    | TODO_verify_stmts ), /* todo_flags_start */
+  0, /* todo_flags_start */
   0, /* todo_flags_finish */
 };
 

@@ -1017,8 +1017,17 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
 	base_align_bias = ((asan_frame_size + alignb - 1)
 			   & ~(alignb - HOST_WIDE_INT_1)) - asan_frame_size;
     }
+  /* Align base if target is STRICT_ALIGNMENT.  */
+  if (STRICT_ALIGNMENT)
+    base = expand_binop (Pmode, and_optab, base,
+			 gen_int_mode (-((GET_MODE_ALIGNMENT (SImode)
+					  << ASAN_SHADOW_SHIFT)
+					 / BITS_PER_UNIT), Pmode), NULL_RTX,
+			 1, OPTAB_DIRECT);
+
   if (use_after_return_class == -1 && pbase)
     emit_move_insn (pbase, base);
+
   base = expand_binop (Pmode, add_optab, base,
 		       gen_int_mode (base_offset - base_align_bias, Pmode),
 		       NULL_RTX, 1, OPTAB_DIRECT);
@@ -1097,6 +1106,8 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
 	      && (ASAN_RED_ZONE_SIZE >> ASAN_SHADOW_SHIFT) == 4);
   shadow_mem = gen_rtx_MEM (SImode, shadow_base);
   set_mem_alias_set (shadow_mem, asan_shadow_set);
+  if (STRICT_ALIGNMENT)
+    set_mem_align (shadow_mem, (GET_MODE_ALIGNMENT (SImode)));
   prev_offset = base_offset;
   for (l = length; l; l -= 2)
     {
@@ -1186,6 +1197,10 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
 
   shadow_mem = gen_rtx_MEM (BLKmode, shadow_base);
   set_mem_alias_set (shadow_mem, asan_shadow_set);
+
+  if (STRICT_ALIGNMENT)
+    set_mem_align (shadow_mem, (GET_MODE_ALIGNMENT (SImode)));
+
   prev_offset = base_offset;
   last_offset = base_offset;
   last_size = 0;
@@ -2491,8 +2506,7 @@ const pass_data pass_data_asan =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_flow | TODO_verify_stmts
-    | TODO_update_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_asan : public gimple_opt_pass
@@ -2530,8 +2544,7 @@ const pass_data pass_data_asan_O0 =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_flow | TODO_verify_stmts
-    | TODO_update_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_asan_O0 : public gimple_opt_pass
@@ -2570,8 +2583,7 @@ const pass_data pass_data_sanopt =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_verify_flow | TODO_verify_stmts
-    | TODO_update_ssa ), /* todo_flags_finish */
+  TODO_update_ssa, /* todo_flags_finish */
 };
 
 class pass_sanopt : public gimple_opt_pass

@@ -71,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
+#include "cgraph.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -584,6 +585,10 @@ const struct mips_cpu_info *mips_tune_info;
 
 /* The ISA level associated with mips_arch.  */
 int mips_isa;
+
+/* The ISA revision level.  This is 0 for MIPS I to V and N for
+   MIPS{32,64}rN.  */
+int mips_isa_rev;
 
 /* The architecture selected by -mipsN, or null if -mipsN wasn't used.  */
 static const struct mips_cpu_info *mips_isa_option_info;
@@ -1237,7 +1242,7 @@ mflip_mips16_use_mips16_p (tree decl)
   if (!entry)
     {
       mips16_flipper = !mips16_flipper;
-      entry = ggc_alloc_mflip_mips16_entry ();
+      entry = ggc_alloc<mflip_mips16_entry> ();
       entry->name = name;
       entry->mips16_p = mips16_flipper ? !base_is_mips16 : base_is_mips16;
       *slot = entry;
@@ -6271,7 +6276,7 @@ mips_start_unique_function (const char *name)
   TREE_PUBLIC (decl) = 1;
   TREE_STATIC (decl) = 1;
 
-  DECL_COMDAT_GROUP (decl) = DECL_ASSEMBLER_NAME (decl);
+  cgraph_create_node (decl)->set_comdat_group (DECL_ASSEMBLER_NAME (decl));
 
   targetm.asm_out.unique_section (decl, 0);
   switch_to_section (get_named_section (decl, NULL, 0));
@@ -6447,7 +6452,7 @@ mips16_local_alias (rtx func)
       SYMBOL_REF_FLAGS (local) = SYMBOL_REF_FLAGS (func) | SYMBOL_FLAG_LOCAL;
 
       /* Create a new structure to represent the mapping.  */
-      alias = ggc_alloc_mips16_local_alias ();
+      alias = ggc_alloc<struct mips16_local_alias> ();
       alias->func = func;
       alias->local = local;
       *slot = alias;
@@ -8465,7 +8470,7 @@ mips_function_rodata_section (tree decl)
   if (decl && DECL_SECTION_NAME (decl))
     {
       const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      if (DECL_ONE_ONLY (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
+      if (DECL_COMDAT_GROUP (decl) && strncmp (name, ".gnu.linkonce.t.", 16) == 0)
 	{
 	  char *rname = ASTRDUP (name);
 	  rname[14] = 'd';
@@ -16539,7 +16544,7 @@ const pass_data pass_data_mips_machine_reorg2 =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_mips_machine_reorg2 : public rtl_opt_pass
@@ -16825,7 +16830,7 @@ mips_set_current_function (tree fndecl)
 static struct machine_function *
 mips_init_machine_status (void)
 {
-  return ggc_alloc_cleared_machine_function ();
+  return ggc_cleared_alloc<machine_function> ();
 }
 
 /* Return the processor associated with the given ISA level, or null
@@ -16900,6 +16905,10 @@ mips_set_architecture (const struct mips_cpu_info *info)
       mips_arch_info = info;
       mips_arch = info->cpu;
       mips_isa = info->isa;
+      if (mips_isa < 32)
+	mips_isa_rev = 0;
+      else
+	mips_isa_rev = (mips_isa & 31) + 1;
     }
 }
 

@@ -132,7 +132,7 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (pass_early_local_passes_1->sub);
+  execute_pass_list (cfun, pass_early_local_passes_1->sub);
 }
 
 unsigned int
@@ -549,7 +549,7 @@ const pass_data pass_data_postreload =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_verify_rtl_sharing, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_postreload : public rtl_opt_pass
@@ -1498,27 +1498,17 @@ pass_manager::pass_manager (context *ctxt)
    call CALLBACK on the current function.  */
 
 static void
-do_per_function (void (*callback) (void *data), void *data)
+do_per_function (void (*callback) (function *, void *data), void *data)
 {
   if (current_function_decl)
-    callback (data);
+    callback (cfun, data);
   else
     {
       struct cgraph_node *node;
       FOR_EACH_DEFINED_FUNCTION (node)
 	if (node->analyzed && gimple_has_body_p (node->decl)
 	    && (!node->clone_of || node->decl != node->clone_of->decl))
-	  {
-	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-	    callback (data);
-	    if (!flag_wpa)
-	      {
-	        free_dominance_info (CDI_DOMINATORS);
-	        free_dominance_info (CDI_POST_DOMINATORS);
-	      }
-	    pop_cfun ();
-	    ggc_collect ();
-	  }
+	  callback (DECL_STRUCT_FUNCTION (node->decl), data);
     }
 }
 
@@ -1533,16 +1523,16 @@ static GTY ((length ("nnodes"))) cgraph_node_ptr *order;
    call CALLBACK on the current function.
    This function is global so that plugins can use it.  */
 void
-do_per_function_toporder (void (*callback) (void *data), void *data)
+do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 {
   int i;
 
   if (current_function_decl)
-    callback (data);
+    callback (cfun, data);
   else
     {
       gcc_assert (!order);
-      order = ggc_alloc_vec_cgraph_node_ptr (cgraph_n_nodes);
+      order = ggc_vec_alloc<cgraph_node_ptr> (cgraph_n_nodes);
       nnodes = ipa_reverse_postorder (order);
       for (i = nnodes - 1; i >= 0; i--)
         order[i]->process = 1;
@@ -1554,15 +1544,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  order[i] = NULL;
 	  node->process = 0;
 	  if (cgraph_function_with_gimple_body_p (node))
-	    {
-	      cgraph_get_body (node);
-	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
-	      callback (data);
-	      free_dominance_info (CDI_DOMINATORS);
-	      free_dominance_info (CDI_POST_DOMINATORS);
-	      pop_cfun ();
-	      ggc_collect ();
-	    }
+	    callback (DECL_STRUCT_FUNCTION (node->decl), data);
 	}
     }
   ggc_free (order);
@@ -1573,14 +1555,16 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 /* Helper function to perform function body dump.  */
 
 static void
-execute_function_dump (void *data)
+execute_function_dump (function *fn, void *data)
 {
   opt_pass *pass = (opt_pass *)data;
 
-  if (dump_file && current_function_decl)
+  if (dump_file)
     {
-      if (cfun->curr_properties & PROP_trees)
-        dump_function_to_file (current_function_decl, dump_file, dump_flags);
+      push_cfun (fn);
+
+      if (fn->curr_properties & PROP_trees)
+        dump_function_to_file (fn->decl, dump_file, dump_flags);
       else
 	print_rtl_with_bb (dump_file, get_insns (), dump_flags);
 
@@ -1588,7 +1572,7 @@ execute_function_dump (void *data)
 	 close the file before aborting.  */
       fflush (dump_file);
 
-      if ((cfun->curr_properties & PROP_cfg)
+      if ((fn->curr_properties & PROP_cfg)
 	  && (dump_flags & TDF_GRAPH))
 	{
 	  if (!pass->graph_dump_initialized)
@@ -1596,8 +1580,10 @@ execute_function_dump (void *data)
 	      clean_graph_dump_file (dump_file_name);
 	      pass->graph_dump_initialized = true;
 	    }
-	  print_graph_cfg (dump_file_name, cfun);
+	  print_graph_cfg (dump_file_name, fn);
 	}
+
+      pop_cfun ();
     }
 }
 
@@ -1728,12 +1714,15 @@ pass_manager::dump_profile_report () const
 /* Perform all TODO actions that ought to be done on each function.  */
 
 static void
-execute_function_todo (void *data)
+execute_function_todo (function *fn, void *data)
 {
+  bool from_ipa_pass = (cfun == NULL);
   unsigned int flags = (size_t)data;
-  flags &= ~cfun->last_verified;
+  flags &= ~fn->last_verified;
   if (!flags)
     return;
+
+  push_cfun (fn);
 
   /* Always cleanup the CFG before trying to update SSA.  */
   if (flags & TODO_cleanup_cfg)
@@ -1754,7 +1743,6 @@ execute_function_todo (void *data)
     {
       unsigned update_flags = flags & TODO_update_ssa_any;
       update_ssa (update_flags);
-      cfun->last_verified &= ~TODO_verify_ssa;
     }
 
   if (flag_tree_pta && (flags & TODO_rebuild_alias))
@@ -1773,27 +1761,56 @@ execute_function_todo (void *data)
     rebuild_cgraph_edges ();
 
   /* If we've seen errors do not bother running any verifiers.  */
-  if (seen_error ())
-    return;
-
-#if defined ENABLE_CHECKING
-  if (flags & TODO_verify_ssa
-      || (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA)))
+  if (!seen_error ())
     {
-      verify_gimple_in_cfg (cfun);
-      verify_ssa (true);
-    }
-  else if (flags & TODO_verify_stmts)
-    verify_gimple_in_cfg (cfun);
-  if (flags & TODO_verify_flow)
-    verify_flow_info ();
-  if (current_loops && loops_state_satisfies_p (LOOP_CLOSED_SSA))
-    verify_loop_closed_ssa (false);
-  if (flags & TODO_verify_rtl_sharing)
-    verify_rtl_sharing ();
-#endif
+#if defined ENABLE_CHECKING
+      dom_state pre_verify_state = dom_info_state (fn, CDI_DOMINATORS);
+      dom_state pre_verify_pstate = dom_info_state (fn, CDI_POST_DOMINATORS);
 
-  cfun->last_verified = flags & TODO_verify_all;
+      if (flags & TODO_verify_il)
+	{
+	  if (cfun->curr_properties & PROP_trees)
+	    {
+	      if (cfun->curr_properties & PROP_cfg)
+		/* IPA passes leave stmts to be fixed up, so make sure to
+		   not verify stmts really throw.  */
+		verify_gimple_in_cfg (cfun, !from_ipa_pass);
+	      else
+		verify_gimple_in_seq (gimple_body (cfun->decl));
+	    }
+	  if (cfun->curr_properties & PROP_ssa)
+	    /* IPA passes leave stmts to be fixed up, so make sure to
+	       not verify SSA operands whose verifier will choke on that.  */
+	    verify_ssa (true, !from_ipa_pass);
+	  /* IPA passes leave basic-blocks unsplit, so make sure to
+	     not trip on that.  */
+	  if ((cfun->curr_properties & PROP_cfg)
+	      && !from_ipa_pass)
+	    verify_flow_info ();
+	  if (current_loops
+	      && loops_state_satisfies_p (LOOP_CLOSED_SSA))
+	    verify_loop_closed_ssa (false);
+	  if (cfun->curr_properties & PROP_rtl)
+	    verify_rtl_sharing ();
+	}
+
+      /* Make sure verifiers don't change dominator state.  */
+      gcc_assert (dom_info_state (fn, CDI_DOMINATORS) == pre_verify_state);
+      gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == pre_verify_pstate);
+#endif
+    }
+
+  fn->last_verified = flags & TODO_verify_all;
+
+  pop_cfun ();
+
+  /* For IPA passes make sure to release dominator info, it can be
+     computed by non-verifying TODOs.  */
+  if (from_ipa_pass)
+    {
+      free_dominance_info (fn, CDI_DOMINATORS);
+      free_dominance_info (fn, CDI_POST_DOMINATORS);
+    }
 }
 
 /* Perform all TODO actions.  */
@@ -1855,9 +1872,9 @@ verify_interpass_invariants (void)
 /* Clear the last verified flag.  */
 
 static void
-clear_last_verified (void *data ATTRIBUTE_UNUSED)
+clear_last_verified (function *fn, void *data ATTRIBUTE_UNUSED)
 {
-  cfun->last_verified = 0;
+  fn->last_verified = 0;
 }
 
 /* Helper function. Verify that the properties has been turn into the
@@ -1865,10 +1882,10 @@ clear_last_verified (void *data ATTRIBUTE_UNUSED)
 
 #ifdef ENABLE_CHECKING
 static void
-verify_curr_properties (void *data)
+verify_curr_properties (function *fn, void *data)
 {
   unsigned int props = (size_t)data;
-  gcc_assert ((cfun->curr_properties & props) == props);
+  gcc_assert ((fn->curr_properties & props) == props);
 }
 #endif
 
@@ -1927,11 +1944,11 @@ pass_fini_dump_file (opt_pass *pass)
    properties. */
 
 static void
-update_properties_after_pass (void *data)
+update_properties_after_pass (function *fn, void *data)
 {
   opt_pass *pass = (opt_pass *) data;
-  cfun->curr_properties = (cfun->curr_properties | pass->properties_provided)
-		           & ~pass->properties_destroyed;
+  fn->curr_properties = (fn->curr_properties | pass->properties_provided)
+		         & ~pass->properties_destroyed;
 }
 
 /* Execute summary generation for all of the passes in IPA_PASS.  */
@@ -2039,20 +2056,6 @@ execute_all_ipa_transforms (void)
     }
 }
 
-/* Callback for do_per_function to apply all IPA transforms.  */
-
-static void
-apply_ipa_transforms (void *data)
-{
-  struct cgraph_node *node = cgraph_get_node (current_function_decl);
-  if (!node->global.inlined_to && node->ipa_transforms_to_apply.exists ())
-    {
-      *(bool *)data = true;
-      execute_all_ipa_transforms ();
-      rebuild_cgraph_edges ();
-    }
-}
-
 /* Check if PASS is explicitly disabled or enabled and return
    the gate status.  FUNC is the function to be processed, and
    GATE_STATUS is the gate status determined by pass manager by
@@ -2124,8 +2127,26 @@ execute_one_pass (opt_pass *pass)
      Apply all trnasforms first.  */
   if (pass->type == SIMPLE_IPA_PASS)
     {
+      struct cgraph_node *node;
       bool applied = false;
-      do_per_function (apply_ipa_transforms, (void *)&applied);
+      FOR_EACH_DEFINED_FUNCTION (node)
+	if (node->analyzed
+	    && cgraph_function_with_gimple_body_p (node)
+	    && (!node->clone_of || node->decl != node->clone_of->decl))
+	  {
+	    if (!node->global.inlined_to
+		&& node->ipa_transforms_to_apply.exists ())
+	      {
+		cgraph_get_body (node);
+		push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+		execute_all_ipa_transforms ();
+		rebuild_cgraph_edges ();
+		free_dominance_info (CDI_DOMINATORS);
+		free_dominance_info (CDI_POST_DOMINATORS);
+		pop_cfun ();
+		applied = true;
+	      }
+	  }
       if (applied)
         symtab_remove_unreachable_nodes (true, dump_file);
       /* Restore current_pass.  */
@@ -2170,7 +2191,7 @@ execute_one_pass (opt_pass *pass)
     check_profile_consistency (pass->static_pass_number, 0, true);
 
   /* Run post-pass cleanup and verification.  */
-  execute_todo (todo_after | pass->todo_flags_finish);
+  execute_todo (todo_after | pass->todo_flags_finish | TODO_verify_il);
   if (profile_report && cfun && (cfun->curr_properties & PROP_cfg))
     check_profile_consistency (pass->static_pass_number, 1, true);
 
@@ -2202,18 +2223,31 @@ execute_one_pass (opt_pass *pass)
   return true;
 }
 
-void
-execute_pass_list (opt_pass *pass)
+static void
+execute_pass_list_1 (opt_pass *pass)
 {
   do
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
       if (execute_one_pass (pass) && pass->sub)
-        execute_pass_list (pass->sub);
+        execute_pass_list_1 (pass->sub);
       pass = pass->next;
     }
   while (pass);
+}
+
+void
+execute_pass_list (function *fn, opt_pass *pass)
+{
+  push_cfun (fn);
+  execute_pass_list_1 (pass);
+  if (fn->cfg)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+    }
+  pop_cfun ();
 }
 
 /* Write out all LTO data.  */
@@ -2539,7 +2573,8 @@ execute_ipa_pass_list (opt_pass *pass)
 	  if (pass->sub->type == GIMPLE_PASS)
 	    {
 	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_START, NULL);
-	      do_per_function_toporder ((void (*)(void *))execute_pass_list,
+	      do_per_function_toporder ((void (*)(function *, void *))
+					  execute_pass_list,
 					pass->sub);
 	      invoke_plugin_callbacks (PLUGIN_EARLY_GIMPLE_PASSES_END, NULL);
 	    }

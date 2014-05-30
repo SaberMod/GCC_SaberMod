@@ -129,6 +129,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-dfa.h"
 #include "demangle.h"
+#include "dbgcnt.h"
 
 static bool odr_violation_reported = false;
 
@@ -491,7 +492,7 @@ get_odr_type (tree type, bool insert)
       tree binfo = TYPE_BINFO (type);
       unsigned int i;
 
-      val = ggc_alloc_cleared_odr_type_d ();
+      val = ggc_cleared_alloc<odr_type_d> ();
       val->type = type;
       val->bases = vNULL;
       val->derived_types = vNULL;
@@ -619,7 +620,7 @@ build_type_inheritance_graph (void)
   /* We reconstruct the graph starting of types of all methods seen in the
      the unit.  */
   FOR_EACH_SYMBOL (n)
-    if (is_a <cgraph_node> (n)
+    if (is_a <cgraph_node *> (n)
 	&& DECL_VIRTUAL_P (n->decl)
 	&& symtab_real_symbol_p (n))
       get_odr_type (method_class_type (TREE_TYPE (n->decl)), true);
@@ -643,7 +644,7 @@ build_type_inheritance_graph (void)
        assume it is called externally or C is in anonymous namespace and
        thus we will see the vtable.  */
 
-    else if (is_a <varpool_node> (n)
+    else if (is_a <varpool_node *> (n)
 	     && DECL_VIRTUAL_P (n->decl)
 	     && TREE_CODE (DECL_CONTEXT (n->decl)) == RECORD_TYPE
 	     && TYPE_BINFO (DECL_CONTEXT (n->decl))
@@ -1137,6 +1138,17 @@ give_up:
   context->outer_type = expected_type;
   context->offset = 0;
   context->maybe_derived_type = true;
+  context->maybe_in_construction = true;
+  /* POD can be changed to an instance of a polymorphic type by
+     placement new.  Here we play safe and assume that any
+     non-polymorphic type is POD.  */
+  if ((TREE_CODE (type) != RECORD_TYPE
+       || !TYPE_BINFO (type)
+       || !polymorphic_type_binfo_p (TYPE_BINFO (type)))
+      && (TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
+	  || (offset + tree_to_uhwi (TYPE_SIZE (expected_type)) <=
+	      tree_to_uhwi (TYPE_SIZE (type)))))
+    return true;
   return false;
 }
 
@@ -1351,7 +1363,7 @@ get_polymorphic_call_info (tree fndecl,
 		{
 		  base_pointer = TREE_OPERAND (base, 0);
 		  context->offset
-		     += offset2 + mem_ref_offset (base).low * BITS_PER_UNIT;
+		    += offset2 + mem_ref_offset (base).to_short_addr () * BITS_PER_UNIT;
 		  context->outer_type = NULL;
 		}
 	      /* We found base object.  In this case the outer_type
@@ -2056,14 +2068,17 @@ ipa_devirt (void)
 		noverwritable++;
 		continue;
 	      }
-	    else
+	    else if (dbg_cnt (devirt))
 	      {
-		if (dump_file)
-		  fprintf (dump_file,
-			   "Speculatively devirtualizing call in %s/%i to %s/%i\n\n",
-			   n->name (), n->order,
-			   likely_target->name (),
-			   likely_target->order);
+		if (dump_enabled_p ())
+                  {
+                    location_t locus = gimple_location (e->call_stmt);
+                    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, locus,
+                                     "speculatively devirtualizing call in %s/%i to %s/%i\n",
+                                     n->name (), n->order,
+                                     likely_target->name (),
+                                     likely_target->order);
+                  }
 		if (!symtab_can_be_discarded (likely_target))
 		  {
 		    cgraph_node *alias;

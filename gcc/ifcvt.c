@@ -3877,12 +3877,14 @@ find_if_case_1 (basic_block test_bb, edge then_edge, edge else_edge)
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if ((BB_END (then_bb)
-       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+       && JUMP_P (BB_END (then_bb))
+       && CROSSING_JUMP_P (BB_END (then_bb)))
       || (BB_END (test_bb)
-	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+	  && JUMP_P (BB_END (test_bb))
+	  && CROSSING_JUMP_P (BB_END (test_bb)))
       || (BB_END (else_bb)
-	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP,
-			    NULL_RTX)))
+	  && JUMP_P (BB_END (else_bb))
+	  && CROSSING_JUMP_P (BB_END (else_bb))))
     return FALSE;
 
   /* THEN has one successor.  */
@@ -4000,12 +4002,14 @@ find_if_case_2 (basic_block test_bb, edge then_edge, edge else_edge)
      bb-reorder.c:partition_hot_cold_basic_blocks for complete details.  */
 
   if ((BB_END (then_bb)
-       && find_reg_note (BB_END (then_bb), REG_CROSSING_JUMP, NULL_RTX))
+       && JUMP_P (BB_END (then_bb))
+       && CROSSING_JUMP_P (BB_END (then_bb)))
       || (BB_END (test_bb)
-	  && find_reg_note (BB_END (test_bb), REG_CROSSING_JUMP, NULL_RTX))
+	  && JUMP_P (BB_END (test_bb))
+	  && CROSSING_JUMP_P (BB_END (test_bb)))
       || (BB_END (else_bb)
-	  && find_reg_note (BB_END (else_bb), REG_CROSSING_JUMP,
-			    NULL_RTX)))
+	  && JUMP_P (BB_END (else_bb))
+	  && CROSSING_JUMP_P (BB_END (else_bb))))
     return FALSE;
 
   /* ELSE has one successor.  */
@@ -4544,7 +4548,7 @@ const pass_data pass_data_rtl_ifcvt =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing | 0 ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_rtl_ifcvt : public rtl_opt_pass
@@ -4592,7 +4596,7 @@ const pass_data pass_data_if_after_combine =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_if_after_combine : public rtl_opt_pass
@@ -4639,7 +4643,7 @@ const pass_data pass_data_if_after_reload =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  ( TODO_df_finish | TODO_verify_rtl_sharing ), /* todo_flags_finish */
+  TODO_df_finish, /* todo_flags_finish */
 };
 
 class pass_if_after_reload : public rtl_opt_pass
