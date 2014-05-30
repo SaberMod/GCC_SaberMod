@@ -1844,6 +1844,19 @@ build_cl_args_array_value (tree string_type, vec<constructor_elt, va_gc> **v)
   return;
 }
 
+/* Emit mapping between module name and function id to the function's
+   assembler name, for use in correlating function idents in the gcda file
+   with the function name.  */
+
+void
+emit_function_name (void)
+{
+  fprintf (stderr, "Module %s FuncId %u Name %s\n",
+           main_input_file_name,
+           FUNC_DECL_FUNC_ID (cfun),
+           IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
+}
+
 /* Returns the type of the module info associated with the
    current source module being compiled.  */
 
