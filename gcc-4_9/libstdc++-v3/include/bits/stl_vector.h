@@ -63,6 +63,20 @@
 #include <initializer_list>
 #endif
 
+#ifdef _GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS
+extern "C" void
+__sanitizer_annotate_contiguous_container(const void *, const void *,
+					  const void *, const void *);
+#else
+// When sanitizer annotataions are off, avoid bazillion of no-op
+// functions that blow up debug binary size.
+#define __sanitizer_vector_annotate_new()
+#define __sanitizer_vector_annotate_delete()
+#define __sanitizer_vector_annotate_increase(a)
+#define __sanitizer_vector_annotate_shrink(a)
+#endif  // _GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS
+
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
@@ -1025,6 +1039,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       {
 	if (this->_M_impl._M_finish != this->_M_impl._M_end_of_storage)
 	  {
+	    __sanitizer_vector_annotate_increase(1);
 	    _Alloc_traits::construct(this->_M_impl, this->_M_impl._M_finish,
 	                             __x);
 	    ++this->_M_impl._M_finish;
@@ -1063,8 +1078,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	if (this->empty())
 	  __throw_logic_error(__N("pop_back() on empty vector"));
 #endif
+	size_type __old_size = size();
 	--this->_M_impl._M_finish;
 	_Alloc_traits::destroy(this->_M_impl, this->_M_impl._M_finish);
+	__sanitizer_vector_annotate_shrink(__old_size);
       }
 
 #if __cplusplus >= 201103L
@@ -1578,8 +1595,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       void
       _M_erase_at_end(pointer __pos) _GLIBCXX_NOEXCEPT
       {
+	size_type __old_size = size();
 	std::_Destroy(__pos, this->_M_impl._M_finish, _M_get_Tp_allocator());
 	this->_M_impl._M_finish = __pos;
+	__sanitizer_vector_annotate_shrink(__old_size);
       }
 
       iterator
@@ -1636,6 +1655,72 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 	_M_data_ptr(_Ptr __ptr) const
 	{ return __ptr; }
 #endif
+
+#ifdef _GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS
+    private:
+      template<class T, class U>
+      struct __is_same_allocator {
+	static void __annotate_contiguous_container(pointer __beg,
+						    pointer __end,
+						    pointer __old_mid,
+						    pointer __new_mid) { }
+      };
+      // The following functions are no-ops outside of AddressSanitizer mode.
+      // We call annotatations only for the default Allocator because
+      // other allocators may not meet the AddressSanitizer alignment
+      // constraints.
+      // See the documentation for __sanitizer_annotate_contiguous_container
+      // for more details.
+      template <class T> struct __is_same_allocator<T, T> {
+	static void __annotate_contiguous_container(pointer __beg,
+						    pointer __end,
+						    pointer __old_mid,
+						    pointer __new_mid) {
+	  if (__beg)
+	    __sanitizer_annotate_contiguous_container(__beg,
+						      __end,
+						      __old_mid,
+						      __new_mid);
+	}
+      };
+
+      void __annotate_contiguous_container(pointer __beg,
+					   pointer __end,
+					   pointer __old_mid,
+					   pointer __new_mid)
+      {
+	__is_same_allocator<_Alloc, std::allocator<_Tp> >::
+	  __annotate_contiguous_container(__beg, __end, __old_mid, __new_mid);
+      }
+      void __sanitizer_vector_annotate_new()
+      {
+	__annotate_contiguous_container(_M_impl._M_start,
+					_M_impl._M_end_of_storage,
+					_M_impl._M_end_of_storage,
+					_M_impl._M_finish);
+      }
+      void __sanitizer_vector_annotate_delete()
+      {
+	__annotate_contiguous_container(_M_impl._M_start,
+					_M_impl._M_end_of_storage,
+					_M_impl._M_finish,
+					_M_impl._M_end_of_storage);
+      }
+      void __sanitizer_vector_annotate_increase(size_type __n)
+      {
+	__annotate_contiguous_container(_M_impl._M_start,
+					_M_impl._M_end_of_storage,
+					_M_impl._M_finish,
+					_M_impl._M_finish + __n);
+      }
+      void __sanitizer_vector_annotate_shrink(size_type __old_size)
+      {
+	__annotate_contiguous_container(_M_impl._M_start,
+					_M_impl._M_end_of_storage,
+					_M_impl._M_start + __old_size,
+					_M_impl._M_finish);
+      }
+#endif	// _GLIBCXX_ADDRESS_SANITIZER_ANNOTATIONS
     };
 
 
