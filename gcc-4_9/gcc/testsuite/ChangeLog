@@ -1,3 +1,66 @@
+2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* gcc.target/aarch64/pr61325.c: New.
+
+2014-05-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60834
+	Backport from mainline
+	* gfortran.dg/associate_16.f90:  New test.
+
+2014-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2014-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/overflow_fixed.adb: New test.
+
+2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61045
+	* gcc.dg/pr61045.c: New testcase.
+
+	2014-05-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61010
+	* gcc.dg/torture/pr61010.c: New testcase.
+
+	2014-04-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60979
+	* gcc.dg/graphite/pr60979.c: New testcase.
+
+2014-05-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/clearcap.exp: New file.
+	* gcc.dg/vect/vect.exp: Load clearcap.exp.
+	Remove clearcap_ldflags handling.
+	Call clearcap-init, clearcap-finish.
+	* gcc.target/i386/i386.exp: Likewise.
+	* gcc.target/i386/clearcap.map: Move to ../config/sol2-clearcap.map.
+	* gcc.target/i386/clearcapv2.map: Move to
+	../config/sol2-clearcapv2.map.
+	* gcc.target/x86_64/abi/avx/abi-avx.exp: Likewise.
+	* gcc.target/x86_64/abi/avx512f/abi-avx512f.exp: Likewise.
+
+2014-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/aliasing1.adb (dg-final): Robustify pattern matching.
+
+2014-05-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* c-c++-common/cilk-plus/AN/pr61191.c: Fix dg-error directives.
+
+2014-05-26  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/61191
+	* c-c++-common/cilk-plus/AN/pr61191.c: Check for correct handling of
+	the case with syntax error.
+
 2014-05-22  Peter Bergner  <bergner@vnet.ibm.com>
 
 	* gcc.target/powerpc/htm-ttest.c: New test.

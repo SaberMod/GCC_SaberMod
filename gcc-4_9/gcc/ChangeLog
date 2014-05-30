@@ -1,3 +1,110 @@
+2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* lra-constraints.c (process_address): Rename to
+	process_address_1.
+	(process_address): New function.
+
+2014-05-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-05-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61271
+	* config/i386/i386.c (ix86_rtx_costs)
+	<case CONST_INT, case CONST, case LABEL_REF, case SYMBOL_REF>:
+	Fix condition.
+
+2014-05-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	Backport from mainline
+	2014-05-27  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* double-int.c (div_and_round_double) <ROUND_DIV_EXPR>: Use the proper
+	predicate to detect a negative quotient.
+
+2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61045
+	* fold-const.c (fold_comparison): When folding
+	X +- C1 CMP Y +- C2 to X CMP Y +- C2 +- C1 also ensure
+	the sign of the remaining constant operand stays the same.
+
+	2014-05-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61010
+	* fold-const.c (fold_binary_loc): Consistently avoid
+	canonicalizing X & CST away from a CST that is the mask
+	of a mode.
+
+	2014-04-28  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60979
+	* graphite-scop-detection.c (scopdet_basic_block_info): Reject
+	SCOPs that end in a block with a successor with abnormal
+	predecessors.
+
+2014-05-28  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* configure.ac ($gcc_cv_ld_clearcap): New test.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/sol2.opt (mclear-hwcap): New option.
+	* config/sol2.h (LINK_CLEARCAP_SPEC): Define.
+	* config/sol2-clearcap.map: Moved here from
+	testsuite/gcc.target/i386/clearcap.map.
+	* config/sol2-clearcapv2.map: Move here from
+	gcc.target/i386/clearcapv2.map.
+	* config/t-sol2 (install): Depend on install-clearcap-map.
+	(install-clearcap-map): New target.
+	* doc/invoke.texi (Option Summary, Solaris 2 Options): Document
+	-mclear-hwcap.
+
+2014-05-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR libgcc/61152
+	* config/dbx.h (License): Add Runtime Library Exception.
+	* config/newlib-stdint.h (License): Same.
+	* config/rtems.h (License): Same
+	* config/initfini-array.h (License): Same
+	* config/v850/v850.h (License): Same.
+	* config/v850/v850-opts.h (License): Same
+	* config/v850/rtems.h (License): Same.
+
+2014-05-28  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/61044
+	* doc/extend.texi (Local Labels): Note that label differences are
+	not supported for AVR.
+
+2014-05-27  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-05-12 mainline r210322.
+	Backport from 2014-05-27 mainline r210959, r210969.
+
+	PR libgcc/61152
+	* config/arm/arm.h (License): Add GCC Runtime Library Exception.
+	* config/arm/arm-cores.def (License): Same.
+	* config/arm/arm-opts.h (License): Same.
+	* config/arm/aout.h (License): Same.
+	* config/arm/bpabi.h (License): Same.
+	* config/arm/elf.h (License): Same.
+	* config/arm/linux-elf.h (License): Same.
+	* config/arm/linux-gas.h (License): Same.
+	* config/arm/netbsd-elf.h (License): Same.
+	* config/arm/uclinux-eabi.h (License): Same.
+	* config/arm/uclinux-elf.h (License): Same.
+	* config/arm/vxworks.h (License): Same.
+
+2014-05-26  Michael Tautschnig  <mt@debian.org>
+
+	PR target/61249
+	* doc/extend.texi (X86 Built-in Functions): Fix parameter lists of
+	__builtin_ia32_vfrczs[sd] and __builtin_ia32_mpsadbw256.
+
 2014-05-22  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/61215
@@ -28,8 +135,7 @@
 
 2014-05-22  Nick Clifton  <nickc@redhat.com>
 
-	* config/msp430/msp430.h (ASM_SPEC): Add spaces after inserted
-	options.
+	* config/msp430/msp430.h (ASM_SPEC): Add spaces after inserted options.
 
 2014-05-22  Jakub Jelinek  <jakub@redhat.com>
 
@@ -60,9 +166,11 @@
 2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
 
 	PR bootstrap/60984
-	* ipa-inline-transform.c (inline_call): Use add CALLEE_REMOVED parameter.
+	* ipa-inline-transform.c (inline_call): Use add CALLEE_REMOVED
+	parameter.
 	* ipa-inline.c (inline_to_all_callers): If callee was removed; return.
-	(ipa_inline): Loop inline_to_all_callers until no more aliases are removed.
+	(ipa_inline): Loop inline_to_all_callers until no more aliases
+	are removed.
 
 2014-05-20  Jan Hubicka  <hubicka@ucw.cz>
 
@@ -100,10 +208,8 @@
 
 	* ipa.c (symtab_remove_unreachable_nodes): Remove
 	symbol from comdat group if its body was eliminated.
-	(comdat_can_be_unshared_p_1): Static symbols can always
-	be privatized.
-	* symtab.c (symtab_remove_from_same_comdat_group): Break out
-	from ...
+	(comdat_can_be_unshared_p_1): Static symbols can always be privatized.
+	* symtab.c (symtab_remove_from_same_comdat_group): Break out from ...
 	(symtab_unregister_node): ... this one.
 	(verify_symtab_base): More strict checking of comdats.
 	* cgraph.h (symtab_remove_from_same_comdat_group): Declare.
@@ -165,7 +271,7 @@
 
 2014-05-14  Cary Coutant  <ccoutant@google.com>
 
-        PR debug/61013
+	PR debug/61013
 	* opts.c (common_handle_option): Don't special-case "-g".
 	(set_debug_level): Default to at least level 2 with "-g".
 
