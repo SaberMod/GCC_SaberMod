@@ -1,3 +1,187 @@
+2014-05-31  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/m68k/m68k.md (beq0_di, bne0_di): Make the "o" constraint
+	a separate alternative where the scratch operand 2 is marked as
+	early clobber.
+
+2014-05-31  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (TARGET_ATOMIC_ASSIGN_EXPAND_FENV): New define.
+	(arm_builtins) : Add ARM_BUILTIN_GET_FPSCR and ARM_BUILTIN_SET_FPSCR.
+	(bdesc_2arg) : Add description for builtins __builtins_arm_set_fpscr
+	and __builtins_arm_get_fpscr.
+	(arm_init_builtins) : Initialize builtins __builtins_arm_set_fpscr and
+	__builtins_arm_get_fpscr.
+	(arm_expand_builtin) : Expand builtins __builtins_arm_set_fpscr and
+	__builtins_arm_ldfpscr.
+	(arm_atomic_assign_expand_fenv): New function.
+	* config/arm/vfp.md (set_fpscr): New pattern.
+	(get_fpscr) : Likewise.
+	* config/arm/unspecs.md (unspecv): Add VUNSPEC_GET_FPSCR and
+	VUNSPEC_SET_FPSCR.
+	* doc/extend.texi (AARCH64 Built-in Functions) : Document
+	__builtins_arm_set_fpscr, __builtins_arm_get_fpscr.
+
+2014-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* asan.c (report_error_func): Add SLOW_P argument, use
+	BUILT_IN_ASAN_*_N if set.
+	(build_check_stmt): Likewise.
+	(instrument_derefs): If T has insufficient alignment,
+	force same handling as for odd sizes.
+
+	* sanitizer.def (BUILT_IN_ASAN_REPORT_LOAD_N,
+	BUILT_IN_ASAN_REPORT_STORE_N): New.
+	* asan.c (struct asan_mem_ref): Change access_size type to
+	HOST_WIDE_INT.
+	(asan_mem_ref_init, asan_mem_ref_new, get_mem_refs_of_builtin_call,
+	update_mem_ref_hash_table): Likewise.
+	(asan_mem_ref_hasher::hash): Hash in a HWI.
+	(report_error_func): Change size_in_bytes argument to HWI.
+	Use *_N builtins if size_in_bytes is larger than 16 or not power of
+	two.
+	(build_shadow_mem_access): New function.
+	(build_check_stmt): Use it.  Change size_in_bytes argument to HWI.
+	Handle size_in_bytes not power of two or larger than 16.
+	(instrument_derefs): Don't give up if size_in_bytes is not
+	power of two or is larger than 16.
+
+2014-05-30  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/60104
+	* config/i386/i386.c (x86_output_mi_thunk): Add memory case
+	for sibling-tail-calls.
+	* config/i386/i386.md (sibcall_insn_operand): Add memory-constrain
+	to its use.
+	* config/i386/predicates.md (sibcall_memory_operand): New predicate.
+	(sibcall_insn_operand): Add check for sibcall_memory_operand.
+
+2014-05-30  Pitchumani Sivanupandi <pitchumani.s@atmel.com>
+
+	* config/avr/avr-mcus.def: Change ATA6289 ISA to AVR4
+	* config/avr/avr-tables.opt: Regenerate.
+	* config/avr/t-multilib: Regenerate.
+	* doc/avr-mmcu.texi: Regenerate.
+
+2014-05-30  Ian Lance Taylor  <iant@google.com>
+
+	* config/i386/xmmintrin.h (_mm_pause): Move out of scope of pragma
+	target("sse").
+
+2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* config/i386/i386.c (TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS):
+	Redefine as true.
+
+2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* lra-int.h (struct lra_reg): Add field actual_call_used_reg_set.
+	* lra.c (initialize_lra_reg_info_element): Add init of
+	actual_call_used_reg_set field.
+	(lra): Call lra_create_live_ranges before lra_inheritance for
+	-fuse-caller-save.
+	* lra-assigns.c (lra_assign): Allow call_used_regs to cross calls for
+	-fuse-caller-save.
+	* lra-constraints.c (need_for_call_save_p): Use actual_call_used_reg_set
+	instead of call_used_reg_set for -fuse-caller-save.
+	* lra-lives.c (process_bb_lives): Calculate actual_call_used_reg_set.
+
+2014-05-30  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/thumb2.md (*thumb2_movhi_insn): Set type of movw
+	to mov_imm.
+	* config/arm/vfp.md (*thumb2_movsi_vfp): Likewise.
+
+2014-05-30  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* ira.c (ira_get_dup_out_num): Check for output operands at
+	the start of the loop.  Handle cases where an included alternative
+	follows an excluded one.
+
+2014-05-29  Mike Stump  <mikestump@comcast.net>
+
+	PR debug/61352
+	* collect2.c (maybe_run_lto_and_relink): Be sure to always run
+	post ld passes when lto is used.
+
+2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* lra-constraints.c (process_address): Rename to
+	process_address_1.
+	(process_address): New function.
+
+2014-05-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_types_binopv_qualifiers,
+	TYPES_BINOPV): New static data.
+	* config/aarch64/aarch64-simd-builtins.def (im_lane_bound): New builtin.
+	* config/aarch64/aarch64-simd.md (aarch64_ext, aarch64_im_lane_boundsi):
+	New patterns.
+	* config/aarch64/aarch64.c (aarch64_expand_vec_perm_const_1): Match
+	patterns for EXT.
+	(aarch64_evpc_ext): New function.
+
+	* config/aarch64/iterators.md (UNSPEC_EXT): New enum element.
+
+	* config/aarch64/arm_neon.h (vext_f32, vext_f64, vext_p8, vext_p16,
+	vext_s8, vext_s16, vext_s32, vext_s64, vext_u8, vext_u16, vext_u32,
+	vext_u64, vextq_f32, vextq_f64, vextq_p8, vextq_p16, vextq_s8,
+	vextq_s16, vextq_s32, vextq_s64, vextq_u8, vextq_u16, vextq_u32,
+	vextq_u64): Replace __asm with __builtin_shuffle and im_lane_boundsi.
+
+2014-05-29  Tom de Vries  <tom@codesourcery.com>
+
+	* rtl.h (BLOCK_SYMBOL_CHECK): Use SYMBOL_REF_FLAGS.
+
+2014-05-29  Richard Earnshaw <rearnsha@arm.com>
+	Richard Sandiford  <rdsandiford@googlemail.com>
+
+        * arm/iterators.md (shiftable_ops): New code iterator.
+        (t2_binop0, arith_shift_insn): New code attributes.
+	* arm/predicates.md (shift_nomul_operator): New predicate.
+        * arm/arm.md (insn_enabled): Delete.
+        (enabled): Remove insn_enabled test.
+        (*arith_shiftsi): Delete.  Replace with ...
+        (*<arith_shift_insn>_multsi): ... new pattern.
+	(*<arith_shift_insn>_shiftsi): ... new pattern.
+	* config/arm/arm.c (arm_print_operand): Handle operand format 'b'.
+
+2014-05-29  Radovan Obradovic  <robradovic@mips.com>
+            Tom de Vries  <tom@codesourcery.com>
+
+	* config/mips/mips.h (POST_CALL_TMP_REG): Define.
+	* config/mips/mips.c (mips_emit_call_insn): Add POST_CALL_TMP_REG
+	clobber.
+	(mips_split_call): Use POST_CALL_TMP_REG.
+	(TARGET_CALL_FUSAGE_CONTAINS_NON_CALLEE_CLOBBERS): Redefine to true.
+
+2014-05-29  Tom de Vries  <tom@codesourcery.com>
+
+	* final.c (collect_fn_hard_reg_usage): Guard variable declaration
+	with #ifdef STACK_REGS.
+
+2014-05-28  Jan Hubicka  <hubicka@ucw.cz>
+
+	* varasm.c (get_variable_section): Walk aliases.
+	(place_block_symbol): Walk aliases.
+
+2014-05-28  Tom de Vries  <tom@codesourcery.com>
+
+	Revert:
+	2014-05-28  Tom de Vries  <tom@codesourcery.com>
+
+	* lra-int.h (struct lra_reg): Add field actual_call_used_reg_set.
+	* lra.c (initialize_lra_reg_info_element): Add init of
+	actual_call_used_reg_set field.
+	(lra): Call lra_create_live_ranges before lra_inheritance for
+	-fuse-caller-save.
+	* lra-assigns.c (lra_assign): Allow call_used_regs to cross calls for
+	-fuse-caller-save.
+	* lra-constraints.c (need_for_call_save_p): Use actual_call_used_reg_set
+	instead of call_used_reg_set for -fuse-caller-save.
+	* lra-lives.c (process_bb_lives): Calculate actual_call_used_reg_set.
+
 2014-05-28  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* doc/md.texi: Document that the % constraint character must
@@ -2625,6 +2809,13 @@
 	(stack_protect_return_slot_p): New function.
 	(expand_used_vars): Call stack_protect_decl_p and
 	stack_protect_return_slot_p for -fstack-protector-strong.
+
+2014-05-09  David Wohlferd <LimeGreenSocks@yahoo.com>
+	Andrew Haley <aph@redhat.com>
+	Richard Sandiford <rdsandiford@googlemail.com>
+
+	* doc/extend.texi: Rewrite inline asm page / re-org asm-related
+	pages.
 
 2014-05-09  Kenneth Zadeck  <zadeck@naturalbridge.com>
 

@@ -634,7 +634,7 @@ process_bb_lives (basic_block bb, int &curr_point)
 		IOR_HARD_REG_SET (lra_reg_info[j].actual_call_used_reg_set,
 				  this_call_used_reg_set);
 	    }
- 
+
 	  sparseset_ior (pseudos_live_through_calls,
 			 pseudos_live_through_calls, pseudos_live);
 	  if (cfun->has_nonlocal_label

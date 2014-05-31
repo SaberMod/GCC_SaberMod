@@ -1,3 +1,144 @@
+2014-05-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	DR 1227
+	PR c++/57543
+	* g++.dg/cpp0x/pr57543-1.C: New.
+	* g++.dg/cpp0x/pr57543-2.C: Likewise.
+	* g++.dg/cpp0x/pr57543-3.C: Likewise.
+	* g++.dg/cpp0x/decltype59.C: Likewise.
+
+2014-05-31  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/sibcall-4.c: Add missing closing brace.
+
+2014-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* lib/target-libpath.exp (set_gcc_exec_prefix_env_var,
+	restore_gcc_exec_prefix_env_var): New procedures.
+	(set_ld_library_path_env_vars,
+	restore_ld_library_path_env_vars): Use them.
+	* lib/c-compat.exp: Load target-libpath.exp.
+	(compat-use-alt-compiler): Call restore_gcc_exec_prefix_env_var.
+	(compat-use-tst-compiler): Call set_gcc_exec_prefix_env_var.
+	* g++.dg/compat/compat.exp (compat-use-alt-compiler): Call
+	restore_gcc_exec_prefix_env_var.
+	* g++.dg/compat/struct-layout-1.exp (compat-use-alt-compiler):
+	Likewise.
+
+	* c-c++-common/asan/misalign-1.c: New test.
+	* c-c++-common/asan/misalign-2.c: New test.
+
+	* g++.dg/asan/asan_test.C: Add -std=c++11 and
+	-DSANITIZER_USE_DEJAGNU_GTEST=1 to dg-options, remove
+	-DASAN_USE_DEJAGNU_GTEST=1.
+	* g++.dg/asan/asan_mem_test.cc: Updated from upstream
+	r209283.
+	* g++.dg/asan/asan_oob_test.cc: Likewise.
+	* g++.dg/asan/sanitizer_test_utils.h: Likewise.
+	* g++.dg/asan/asan_str_test.cc: Likewise.
+	* g++.dg/asan/asan_test_utils.h: Likewise.
+	* g++.dg/asan/sanitizer_test_config.h: Likewise.
+	* g++.dg/asan/asan_test.cc: Likewise.  Allow size 12
+	for long double.
+	* g++.dg/asan/sanitizer_pthread_wrappers.h: New file.
+	Imported from upstream r209283.
+	* g++.dg/asan/asan_test_config.h: Likewise.
+
+2014-05-30  Ian Lance Taylor  <iant@google.com>
+
+	* gcc.target/i386/pause-2.c: New test.
+
+2014-05-30  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/i386/fuse-caller-save.c: New test.
+	* gcc.dg/ira-shrinkwrap-prep-1.c: Run with -fno-use-caller-save.
+	* gcc.dg/ira-shrinkwrap-prep-2.c: Same.
+
+2014-04-30  Alan Lawrence  <alan.lawrence@arm.com>
+
+	gcc.target/arm/simd/vrev16p8_1.c: New file.
+	gcc.target/arm/simd/vrev16qp8_1.c: New file.
+	gcc.target/arm/simd/vrev16qs8_1.c: New file.
+	gcc.target/arm/simd/vrev16qu8_1.c: New file.
+	gcc.target/arm/simd/vrev16s8_1.c: New file.
+	gcc.target/arm/simd/vrev16u8_1.c: New file.
+	gcc.target/arm/simd/vrev32p16_1.c: New file.
+	gcc.target/arm/simd/vrev32p8_1.c: New file.
+	gcc.target/arm/simd/vrev32qp16_1.c: New file.
+	gcc.target/arm/simd/vrev32qp8_1.c: New file.
+	gcc.target/arm/simd/vrev32qs16_1.c: New file.
+	gcc.target/arm/simd/vrev32qs8_1.c: New file.
+	gcc.target/arm/simd/vrev32qu16_1.c: New file.
+	gcc.target/arm/simd/vrev32qu8_1.c: New file.
+	gcc.target/arm/simd/vrev32s16_1.c: New file.
+	gcc.target/arm/simd/vrev32s8_1.c: New file.
+	gcc.target/arm/simd/vrev32u16_1.c: New file.
+	gcc.target/arm/simd/vrev32u8_1.c: New file.
+	gcc.target/arm/simd/vrev64f32_1.c: New file.
+	gcc.target/arm/simd/vrev64p16_1.c: New file.
+	gcc.target/arm/simd/vrev64p8_1.c: New file.
+	gcc.target/arm/simd/vrev64qf32_1.c: New file.
+	gcc.target/arm/simd/vrev64qp16_1.c: New file.
+	gcc.target/arm/simd/vrev64qp8_1.c: New file.
+	gcc.target/arm/simd/vrev64qs16_1.c: New file.
+	gcc.target/arm/simd/vrev64qs32_1.c: New file.
+	gcc.target/arm/simd/vrev64qs8_1.c: New file.
+	gcc.target/arm/simd/vrev64qu16_1.c: New file.
+	gcc.target/arm/simd/vrev64qu32_1.c: New file.
+	gcc.target/arm/simd/vrev64qu8_1.c: New file.
+	gcc.target/arm/simd/vrev64s16_1.c: New file.
+	gcc.target/arm/simd/vrev64s32_1.c: New file.
+	gcc.target/arm/simd/vrev64s8_1.c: New file.
+	gcc.target/arm/simd/vrev64u16_1.c: New file.
+	gcc.target/arm/simd/vrev64u32_1.c: New file.
+	gcc.target/arm/simd/vrev64u8_1.c: New file.
+
+2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* gcc.target/aarch64/pr61325.c: New.
+
+2014-05-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	gcc.target/arm/simd/vextQf32_1.c: New file.
+	gcc.target/arm/simd/vextQp16_1.c: New file.
+	gcc.target/arm/simd/vextQp8_1.c: New file.
+	gcc.target/arm/simd/vextQs16_1.c: New file.
+	gcc.target/arm/simd/vextQs32_1.c: New file.
+	gcc.target/arm/simd/vextQs64_1.c: New file.
+	gcc.target/arm/simd/vextQs8_1.c: New file.
+	gcc.target/arm/simd/vextQu16_1.c: New file.
+	gcc.target/arm/simd/vextQu32_1.c: New file.
+	gcc.target/arm/simd/vextQu64_1.c: New file.
+	gcc.target/arm/simd/vextQu8_1.c: New file.
+	gcc.target/arm/simd/vextQp64_1.c: New file.
+	gcc.target/arm/simd/vextf32_1.c: New file.
+	gcc.target/arm/simd/vextp16_1.c: New file.
+	gcc.target/arm/simd/vextp8_1.c: New file.
+	gcc.target/arm/simd/vexts16_1.c: New file.
+	gcc.target/arm/simd/vexts32_1.c: New file.
+	gcc.target/arm/simd/vexts64_1.c: New file.
+	gcc.target/arm/simd/vexts8_1.c: New file.
+	gcc.target/arm/simd/vextu16_1.c: New file.
+	gcc.target/arm/simd/vextu32_1.c: New file.
+	gcc.target/arm/simd/vextu64_1.c: New file.
+	gcc.target/arm/simd/vextu8_1.c: New file.
+	gcc.target/arm/simd/vextp64_1.c: New file.
+
+2014-05-29  Radovan Obradovic  <robradovic@mips.com>
+            Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.target/mips/mips.exp: Add use-caller-save to -ffoo/-fno-foo
+	options.
+	* gcc.target/mips/fuse-caller-save.h: New include file.
+	* gcc.target/mips/fuse-caller-save.c: New test.
+	* gcc.target/mips/fuse-caller-save-mips16.c: Same.
+	* gcc.target/mips/fuse-caller-save-micromips.c: Same.
+
+2014-05-29  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* gcc.dg/vect/pr52252-ld.c: Fix target and options for the test.
+
 2014-05-28  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/61045
