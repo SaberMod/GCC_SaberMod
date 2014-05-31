@@ -1,3 +1,14 @@
+2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* gcc.target/aarch64/pr61325.c: New.
+
+2014-05-29  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/60834
+	Backport from mainline
+	* gfortran.dg/associate_16.f90:  New test.
+
 2014-05-28  Eric Botcazou  <ebotcazou@adacore.com>
 
 	Backport from mainline
