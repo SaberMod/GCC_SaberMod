@@ -865,7 +865,6 @@ void cgraph_do_link (void);
 struct cgraph_sym *cgraph_link_node (struct cgraph_node *);
 tree cgraph_find_decl (tree asm_name);
 void cgraph_remove_link_node (struct cgraph_node *node);
-bool cgraph_lipo_has_resolved_node (tree decl);
 struct cgraph_node *cgraph_lipo_get_resolved_node (tree decl);
 struct cgraph_node *cgraph_lipo_get_resolved_node_1 (tree decl, bool);
 unsigned  cgraph_get_module_id (tree fndecl);

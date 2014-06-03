@@ -389,11 +389,8 @@ mark_address (gimple stmt, tree addr, tree, void *data)
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
     {
-      //struct cgraph_node *first_clone = cgraph_get_node (addr);
       struct cgraph_node *node = cgraph_get_create_node (addr);
-      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done
-          && cgraph_lipo_has_resolved_node (addr))
-          //&& (first_clone && !first_clone->global.inlined_to))
+      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
         node = cgraph_lipo_get_resolved_node (addr);
 
       cgraph_mark_address_taken_node (node);
