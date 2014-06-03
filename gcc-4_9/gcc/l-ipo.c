@@ -1472,6 +1472,27 @@ cgraph_lipo_get_resolved_node (tree decl)
   return node;
 }
 
+bool
+cgraph_lipo_has_resolved_node (tree decl)
+{
+  struct cgraph_node *node = NULL;
+
+  gcc_assert (L_IPO_COMP_MODE && global_link_performed);
+  gcc_assert (cgraph_symtab);
+
+  /* Never merged.  */
+  if (!TREE_PUBLIC (decl) || DECL_ARTIFICIAL (decl)
+      /* builtin function decls are shared across modules, but 'linking'
+         is still performed for them to keep track of the set of defining
+         modules. Skip the real resolution here to avoid merging '__builtin_xxx'
+         with 'xxx'.  */
+      || DECL_BUILT_IN (decl))
+    return true;
+
+  node = cgraph_lipo_get_resolved_node_1 (decl, false);
+  return node != NULL;
+}
+
 /* When NODE->decl is dead function eliminated,
    remove the entry in the link table.  */
 
