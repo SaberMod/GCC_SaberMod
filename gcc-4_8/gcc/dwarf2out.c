@@ -23901,18 +23901,23 @@ dwarf2out_finish (const char *filename)
 		   dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
 		   macinfo_section_label);
 
-  if (dwarf_split_debug_info && addr_index_table != NULL)
+  if (dwarf_split_debug_info)
     {
       /* optimize_location_lists calculates the size of the lists,
          so index them first, and assign indices to the entries.
          Although optimize_location_lists will remove entries from
          the table, it only does so for duplicates, and therefore
          only reduces ref_counts to 1.  */
-      unsigned int index = 0;
       index_location_lists (comp_unit_die ());
-      htab_traverse_noresize (addr_index_table,
-                              index_addr_table_entry, &index);
+
+      if (addr_index_table != NULL)
+        {
+          unsigned int index = 0;
+          htab_traverse_noresize (addr_index_table,
+                                  index_addr_table_entry, &index);
+        }
     }
+
   if (have_location_lists)
     optimize_location_lists (comp_unit_die ());
 
