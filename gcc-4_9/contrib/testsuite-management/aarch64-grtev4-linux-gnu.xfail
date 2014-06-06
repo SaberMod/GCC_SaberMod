@@ -108,6 +108,7 @@ flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++98 execution test
 flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++11 execution test
 flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++1y execution test
 flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++1y execution test
 flaky | FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
 flaky | FAIL: g++.dg/tls/thread_local5.C -std=gnu++1y execution test
 flaky | FAIL: g++.dg/tls/thread_local5g.C -std=gnu++11 execution test
