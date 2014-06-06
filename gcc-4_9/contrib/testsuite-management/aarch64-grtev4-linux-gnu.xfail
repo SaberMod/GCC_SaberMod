@@ -29,16 +29,33 @@ FAIL: gcc.dg/unroll_1.c (test for warnings, line 24)
 
 # AArch64-specific test optimization and execution failures (not yet analyzed)
 XPASS: gcc.dg/tree-ssa/20040204-1.c scan-tree-dump-times optimized "link_error" 0
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
-FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
 FAIL: gcc.dg/di-sync-multithread.c execution test
-FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 0" 2
-FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 2" 1
-FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 3" 1
 FAIL: gcc.dg/unroll_2.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
 FAIL: gcc.dg/unroll_3.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
 FAIL: gcc.dg/unroll_4.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
+
+# Aarch64-specific failures: These have sporadic timeouts in real hardware,
+# and fail with aborts on QEMU.  (not yet analyzed)
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 
 # AArch64 target failures (not yet analyzed)
 FAIL: gcc.target/aarch64/extend.c scan-assembler sub\tw[0-9]+,.*sxth #?1
@@ -99,14 +116,22 @@ flaky | FAIL: g++.dg/tls/thread_local6.C -std=c++11 execution test
 flaky | FAIL: g++.dg/tls/thread_local6.C -std=c++1y execution test
 flaky | FAIL: g++.dg/tls/thread_local6g.C -std=c++11 execution test
 flaky | FAIL: g++.dg/tls/thread_local6g.C -std=c++1y execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
-flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 flaky | FAIL: gcc.dg/cleanup-10.c execution test
 flaky | FAIL: gcc.dg/cleanup-11.c execution test
 flaky | FAIL: gcc.dg/cleanup-8.c execution test
 flaky | FAIL: gcc.dg/cleanup-9.c execution test
+flaky | FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 0" 2
+flaky | FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 2" 1
+flaky | FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 3" 1
+
+
+# SSH-related failures because we don't yet transfer files back to the host.
+flaky | UNRESOLVED: gcc.dg/pr47793.c scan-file .
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O0   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O1   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O2   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer -funroll-loops   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -O3 -g   scan-file All kinds rounded to nearest
+flaky | UNRESOLVED: gfortran.dg/fmt_en.f90 -Os   scan-file All kinds rounded to nearest
