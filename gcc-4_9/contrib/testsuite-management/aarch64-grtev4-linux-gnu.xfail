@@ -22,9 +22,6 @@ FAIL: gcc.dg/wself-assign-1.c (test for warnings, line 22)
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 FAIL: g++.dg/ipa/devirt-24.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++98  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++11  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
-FAIL: g++.dg/ipa/devirt-11.C -std=gnu++1y  scan-ipa-dump-times inline "Discovered a virtual call to a known target" 1
 
 # AArch64-specific; appear to be missing "loop turned into non-loop; it never loops" output.
 FAIL: gcc.dg/unroll_1.c (test for warnings, line 14)
@@ -36,20 +33,12 @@ FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O0  execution test
 FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O1  execution test
 FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-partition=none  execution test
 FAIL: gcc.dg/di-sync-multithread.c execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O1  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O2  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O3 -fomit-frame-pointer  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O3 -g  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -Os  -fpic  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O1  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O2  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O3 -fomit-frame-pointer  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -O3 -g  -fPIC  execution test
-FAIL: gcc.dg/torture/tls/tls-reload-1.c -Os  -fPIC  execution test
+FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 0" 2
+FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 2" 1
+FAIL: gcc.dg/tree-prof/time-profiler-2.c scan-ipa-dump-times profile "Read tp_first_run: 3" 1
 FAIL: gcc.dg/unroll_2.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
 FAIL: gcc.dg/unroll_3.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
 FAIL: gcc.dg/unroll_4.c scan-rtl-dump-times loop2_unroll "loop turned into non-loop; it never loops" 1
-
 
 # AArch64 target failures (not yet analyzed)
 FAIL: gcc.target/aarch64/extend.c scan-assembler sub\tw[0-9]+,.*sxth #?1
@@ -79,3 +68,45 @@ FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finl
 FAIL: gfortran.dg/bessel_7.f90 -O3 -g  execution test
 FAIL: gfortran.dg/bessel_7.f90 -Os  execution test
 FAIL: gfortran.dg/pr45636.f90 -O   scan-tree-dump-times forwprop2 "memset" 0
+
+
+# QEMU-related failures that don't show up on real hardware, only in QEMU user-mode tests.
+# We mark these as "flaky" so they don't become "expected results not present".
+flaky | FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/abi/forced.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/abi/forced.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/ext/cleanup-10.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/cleanup-10.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/cleanup-10.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/ext/cleanup-11.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/cleanup-11.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/cleanup-11.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/ext/cleanup-8.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/cleanup-8.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/cleanup-8.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/ext/cleanup-9.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/cleanup-9.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/cleanup-9.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/sync-4.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local5.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local5.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/tls/thread_local5g.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local5g.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/tls/thread_local6.C -std=c++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local6.C -std=c++1y execution test
+flaky | FAIL: g++.dg/tls/thread_local6g.C -std=c++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local6g.C -std=c++1y execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-loops  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O3 -g  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -Os  execution test
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
+flaky | FAIL: gcc.dg/cleanup-10.c execution test
+flaky | FAIL: gcc.dg/cleanup-11.c execution test
+flaky | FAIL: gcc.dg/cleanup-8.c execution test
+flaky | FAIL: gcc.dg/cleanup-9.c execution test
