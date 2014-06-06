@@ -79,16 +79,15 @@ struct dyn_cgraph
   unsigned num_nodes_executed;
   /* used by new algorithm  */
   struct modu_node *modu_nodes;
-  /* Set indexed by lineno_checksum, returns another dyn_pointer_set*,
-     indexed by cfg_checksum.  That returns a checksum_alias_info struct.  */
+  /* Set indexed by lineno_checksum, returns a linked list of
+     checksum_alias_info structs.  */
   struct dyn_pointer_set *lineno_pointer_sets;
 };
 
 /* Struct holding information for functions with the same lineno_checksum.  */
 struct lineno_checksum_alias
 {
-  /* Set indexed by cfg_checksum, holding a checksum_alias_info struct.  */
-  struct dyn_pointer_set *cfg_pointer_set;
+  struct checksum_alias_info *cfg_checksum_list;
   unsigned lineno_checksum;
 };
 
@@ -96,6 +95,7 @@ struct lineno_checksum_alias
    checksums.  */
 struct checksum_alias_info
 {
+  struct checksum_alias_info *next_cfg_checksum;
   struct checksum_alias *alias_list;
   unsigned cfg_checksum;
 };
@@ -205,6 +205,7 @@ pointer_set_create (unsigned (*get_key) (const void *));
 static struct dyn_cgraph the_dyn_call_graph;
 static int total_zero_count = 0;
 static int total_insane_count = 0;
+static int fixup_type = 0;
 
 enum GROUPING_ALGORITHM
 {
@@ -374,14 +375,6 @@ lineno_checksum_get_key (const void *p)
   return ((const struct lineno_checksum_alias *) p)->lineno_checksum;
 }
 
-/* The cfg_checksum value in P is the key for a cfg_pointer_set.  */
-
-static inline unsigned
-cfg_checksum_get_key (const void *p)
-{
-  return ((const struct checksum_alias_info *) p)->cfg_checksum;
-}
-
 /* Create a new checksum_alias struct for function with GUID, FI_PTR,
    and ZERO_COUNTS flag.  Prepends to list NEXT and returns new struct.  */
 
@@ -398,28 +391,44 @@ new_checksum_alias (gcov_type guid, const struct gcov_fn_info *fi_ptr,
   return alias;
 }
 
-/* Insert a new checksum_alias struct into pointer set P for function with
+/* Locate the checksum_alias_info in LIST that matches CFG_CHECKSUM.  */
+
+static struct checksum_alias_info *
+find_cfg_checksum (struct checksum_alias_info *list, unsigned cfg_checksum)
+{
+  for (; list; list = list->next_cfg_checksum)
+    {
+      if (list->cfg_checksum == cfg_checksum)
+        return list;
+    }
+  return NULL;
+}
+
+/* Insert a new checksum_alias struct into LIST for function with
    CFG_CHECKSUM and associated GUID, FI_PTR, and ZERO_COUNTS flag.  */
 
-static void
-cfg_checksum_set_insert (struct dyn_pointer_set *p, unsigned cfg_checksum,
-                         gcov_type guid, const struct gcov_fn_info *fi_ptr,
-                         int zero_counts)
+static struct checksum_alias_info *
+cfg_checksum_insert (unsigned cfg_checksum, gcov_type guid,
+                     const struct gcov_fn_info *fi_ptr, int zero_counts,
+                     struct checksum_alias_info *list)
 {
-  struct checksum_alias_info **m = (struct checksum_alias_info **)
-    pointer_set_find_or_insert (p, cfg_checksum);
-  if (*m)
+  struct checksum_alias_info *alias_info;
+  alias_info = find_cfg_checksum (list, cfg_checksum);
+  if (alias_info)
     {
-      gcc_assert ((*m)->alias_list);
-      (*m)->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts,
-                                             (*m)->alias_list);
+      gcc_assert (alias_info->alias_list);
+      alias_info->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts,
+                                                   alias_info->alias_list);
+      return list;
     }
   else
     {
-      *m = XNEW (struct checksum_alias_info);
-      (*m)->cfg_checksum = cfg_checksum;
-      (*m)->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts, NULL);
-      p->n_elements++;
+      alias_info = XNEW (struct checksum_alias_info);
+      alias_info->next_cfg_checksum = list;
+      alias_info->cfg_checksum = cfg_checksum;
+      alias_info->alias_list = new_checksum_alias (guid, fi_ptr, zero_counts,
+                                                   NULL);
+      return alias_info;
     }
 }
 
@@ -440,16 +449,16 @@ checksum_set_insert (unsigned lineno_checksum, unsigned cfg_checksum,
     pointer_set_find_or_insert (p, lineno_checksum);
   if (*m)
     {
-      cfg_checksum_set_insert ((*m)->cfg_pointer_set, cfg_checksum, guid,
-                               fi_ptr, zero_counts);
+      (*m)->cfg_checksum_list = cfg_checksum_insert (cfg_checksum, guid,
+                                                     fi_ptr, zero_counts,
+                                                     (*m)->cfg_checksum_list);
     }
   else
     {
       *m = XNEW (struct lineno_checksum_alias);
       (*m)->lineno_checksum = lineno_checksum;
-      (*m)->cfg_pointer_set = pointer_set_create (cfg_checksum_get_key);
-      cfg_checksum_set_insert ((*m)->cfg_pointer_set, cfg_checksum, guid,
-                               fi_ptr, zero_counts);
+      (*m)->cfg_checksum_list = cfg_checksum_insert (cfg_checksum, guid,
+                                                     fi_ptr, zero_counts, NULL);
       p->n_elements++;
     }
 }
@@ -844,9 +853,10 @@ gcov_build_callgraph (void)
                     total_arc_count += ci_ptr->values[arc];
                   if (total_arc_count != 0)
                     the_dyn_call_graph.num_nodes_executed++;
-                  checksum_set_insert (fi_ptr->lineno_checksum,
-                                       fi_ptr->cfg_checksum, caller->guid,
-                                       fi_ptr, total_arc_count == 0);
+                  if (fixup_type)
+                    checksum_set_insert (fi_ptr->lineno_checksum,
+                                         fi_ptr->cfg_checksum, caller->guid,
+                                         fi_ptr, total_arc_count == 0);
                 }
               ci_ptr++;
             }
@@ -2454,10 +2464,10 @@ gcov_find_new_ic_target (gcov_type caller_guid, gcov_type callee_guid)
   struct lineno_checksum_alias **line_alias = (struct lineno_checksum_alias **)
     pointer_set_find_or_insert (p, callee_fi_ptr->lineno_checksum);
   gcc_assert (*line_alias);
-  struct checksum_alias_info **cfg_alias = (struct checksum_alias_info **)
-    pointer_set_find_or_insert ((*line_alias)->cfg_pointer_set,
-                                callee_fi_ptr->cfg_checksum);
-  gcc_assert (*cfg_alias);
+  struct checksum_alias_info *cfg_alias
+      = find_cfg_checksum ((*line_alias)->cfg_checksum_list,
+                           callee_fi_ptr->cfg_checksum);
+  gcc_assert (cfg_alias);
 
 
   /* Scan the list of checksum aliases for one that is located in caller's
@@ -2465,7 +2475,7 @@ gcov_find_new_ic_target (gcov_type caller_guid, gcov_type callee_guid)
   gcov_type new_guid = 0;
   unsigned caller_mod_id = get_module_ident_from_func_glob_uid (caller_guid);
   struct checksum_alias *alias;
-  for (alias = (*cfg_alias)->alias_list; alias;
+  for (alias = cfg_alias->alias_list; alias;
        alias = alias->next_alias)
     {
       if (get_module_ident_from_func_glob_uid (alias->guid)
@@ -2901,24 +2911,18 @@ merge_ctrs (struct gcov_ctr_info *dest_ctrs,
 }
 
 /* Walks the set of functions that have the same lineno and cfg checksum, and
-   performs counter merging.  VALUE contains the checksum_alias_info structure
-   for a given lineno and cfg checksum combination, and DATA1 contains a pointer
+   performs counter merging.  INFO contains the checksum_alias_info structure
+   for a given lineno and cfg checksum combination. CHANGED points
    to a flag that should be set to 1 if any fixups were applied.  */
 
 static int
-gcov_fixup_counters_checksum (const void *value,
-                              void *data1,
-                              void *data2 ATTRIBUTE_UNUSED,
-                              void *data3 ATTRIBUTE_UNUSED)
+gcov_fixup_counters_checksum (const struct checksum_alias_info *info,
+                              int *changed)
 {
-  const struct checksum_alias_info *a
-      = (const struct checksum_alias_info*) value;
-  int *changed = (int *) data1;
-
   /* See if there are any zero count functions to fix.  */
   int found = 0;
   struct checksum_alias *alias;
-  for (alias = a->alias_list; alias;
+  for (alias = info->alias_list; alias;
        alias = alias->next_alias)
     {
       if (alias->zero_counts)
@@ -2933,7 +2937,7 @@ gcov_fixup_counters_checksum (const void *value,
   /* Walk the aliases and merge the non-zero counters into a dummy copy.  */
   struct gcov_ctr_info *merged_ctrs = init_merged_ctrs ();
   found = 0;
-  for (alias = a->alias_list; alias;
+  for (alias = info->alias_list; alias;
        alias = alias->next_alias)
     {
       if (alias->zero_counts)
@@ -2951,7 +2955,7 @@ gcov_fixup_counters_checksum (const void *value,
   *changed = 1;
 
   /* Walk them again and copy the merged counters into 0-count copies.  */
-  for (alias = a->alias_list; alias;
+  for (alias = info->alias_list; alias;
        alias = alias->next_alias)
     {
       if (!alias->zero_counts)
@@ -2977,9 +2981,11 @@ gcov_fixup_counters_lineno (const void *value,
   const struct lineno_checksum_alias *a
       = (const struct lineno_checksum_alias*) value;
   int *changed = (int *) data1;
-  pointer_set_traverse (a->cfg_pointer_set,
-                        gcov_fixup_counters_checksum,
-                        changed, 0, 0);
+  struct checksum_alias_info *cfg_alias_list = a->cfg_checksum_list;
+  for (; cfg_alias_list; cfg_alias_list = cfg_alias_list->next_cfg_checksum)
+    {
+      gcov_fixup_counters_checksum (cfg_alias_list, changed);
+    }
   return 1;
 }
 
@@ -3046,6 +3052,12 @@ __gcov_compute_module_groups (void)
       return 0;
     }
 
+  const char *do_fixup = 0;
+  fixup_type = __gcov_lipo_comdat_algorithm;
+  do_fixup = getenv ("GCOV_DYN_DO_FIXUP");
+  if (do_fixup)
+    fixup_type = atoi (do_fixup);
+
   /* First compute dynamic call graph.  */
   gcov_build_callgraph ();
 
@@ -3054,12 +3066,6 @@ __gcov_compute_module_groups (void)
   gcov_compute_module_groups (cut_off_count);
 
   gcov_dump_callgraph (cut_off_count);
-
-  const char *do_fixup = 0;
-  int fixup_type = __gcov_lipo_comdat_algorithm;
-  do_fixup = getenv ("GCOV_DYN_DO_FIXUP");
-  if (do_fixup)
-    fixup_type = atoi (do_fixup);
 
   int changed = 0;
   if (fixup_type & 0x2)
