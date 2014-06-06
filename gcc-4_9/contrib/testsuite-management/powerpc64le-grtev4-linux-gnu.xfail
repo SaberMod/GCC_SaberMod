@@ -68,6 +68,52 @@ FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fno-use-linker-plugin -flto-p
 FAIL: gcc.dg/atomic/c11-atomic-exec-5.c -O2 -flto -fuse-linker-plugin -fno-fat-lto-objects  execution test
 FAIL: gcc.dg/vect/vect-nop-move.c execution test
 
+# PPCle-specific segfaults occurring under QEMU with -cpu POWER8 only.
+flaky | FAIL: c-c++-common/dfp/convert-bfp-11.c -std=c++98 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-11.c -std=c++11 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-11.c -std=c++1y execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-11.c execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-6.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-6.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-6.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-6.c execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-7.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-7.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-7.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-7.c execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-8.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-8.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-8.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-8.c execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-9.c -std=gnu++98 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-9.c -std=gnu++11 execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-9.c -std=gnu++1y execution test
+flaky | FAIL: c-c++-common/dfp/convert-bfp-9.c execution test
+flaky | FAIL: g++.dg/ext/cleanup-5.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/ext/cleanup-5.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/ext/cleanup-5.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/init/array16.C -std=gnu++98 execution test
+flaky | FAIL: g++.dg/init/array16.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/init/array16.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/init/array5.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/array5.C -std=c++11 execution test
+flaky | FAIL: g++.dg/init/array5.C -std=c++1y execution test
+flaky | FAIL: g++.dg/init/ctor1.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/ctor1.C -std=c++11 execution test
+flaky | FAIL: g++.dg/init/ctor1.C -std=c++1y execution test
+flaky | FAIL: g++.dg/init/new36.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/new36.C -std=c++11 execution test
+flaky | FAIL: g++.dg/init/new36.C -std=c++1y execution test
+flaky | FAIL: g++.dg/init/new39.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/new39.C -std=c++11 execution test
+flaky | FAIL: g++.dg/init/new39.C -std=c++1y execution test
+flaky | FAIL: g++.dg/init/new40.C execution test
+flaky | FAIL: g++.dg/init/placement2.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/placement2.C -std=c++11 execution test
+flaky | FAIL: g++.dg/init/placement2.C -std=c++1y execution test
+flaky | FAIL: g++.dg/init/ref9.C -std=c++98 execution test
+flaky | FAIL: g++.dg/init/ref9.C -std=c++11 execution test
+
 
 # *** g++:
 

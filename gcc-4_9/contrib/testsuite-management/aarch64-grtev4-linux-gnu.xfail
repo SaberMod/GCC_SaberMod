@@ -87,6 +87,13 @@ FAIL: gfortran.dg/bessel_7.f90 -Os  execution test
 FAIL: gfortran.dg/pr45636.f90 -O   scan-tree-dump-times forwprop2 "memset" 0
 
 
+# AArch64-specific targets that occasionally time out at compile time:
+flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -g  (test for excess errors)
+flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -g  compilation failed to produce executable
+flaky | FAIL: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
+flaky | UNRESOLVED: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
+
+
 # QEMU-related failures that don't show up on real hardware, only in QEMU user-mode tests.
 # We mark these as "flaky" so they don't become "expected results not present".
 flaky | FAIL: g++.dg/abi/forced.C -std=gnu++98 execution test
