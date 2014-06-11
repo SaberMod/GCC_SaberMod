@@ -1,3 +1,32 @@
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* tree-ssa-sccvn.c (visit_phi): Remove pointless setting of
+	expr and has_constants in case we found a leader.
+	(simplify_binary_expression): Always valueize operands first.
+	(simplify_unary_expression): Likewise.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61456
+	* tree-ssa-alias.c (nonoverlapping_component_refs_of_decl_p):
+	Do not use the main variant for the type comparison.
+
+2014-06-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* doc/arm-acle-intrinsics.texi: Specify when CRC32 intrinsics are
+	available.
+	Simplify description of __crc32d and __crc32cd intrinsics.
+	* doc/extend.texi (ARM ACLE Intrinsics): Remove comment about CRC32
+	availability.
+
+2014-06-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-ssa-tail-merge.c (same_succ_hash): Hash the static chain of a
+	call statement, if any.
+	(gimple_equal_p) <GIMPLE_CALL>: Compare the static chain of the call
+	statements, if any.  Tidy up.
+
 2014-06-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from trunk
