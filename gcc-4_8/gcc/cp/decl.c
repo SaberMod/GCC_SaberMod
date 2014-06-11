@@ -5783,6 +5783,13 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
   if (extra_init)
     init_code = add_stmt_to_compound (extra_init, init_code);
 
+  if (init_code)
+    {
+      /* We might have set these in cp_finish_decl.  */
+      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = false;
+      TREE_CONSTANT (decl) = false;
+    }
+
   if (init_code && DECL_IN_AGGR_P (decl))
     {
       static int explained = 0;
