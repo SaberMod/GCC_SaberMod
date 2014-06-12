@@ -1,3 +1,74 @@
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* gcc.dg/torture/pr61452.c: New testcase.
+
+2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61456
+	* g++.dg/opt/pr61456.C: New testcase.
+
+2014-06-09  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/61406
+	* gfortran.dg/associate_17.f90 : New test
+
+2014-06-07  Jerry DeLisle  <jvdelisle@gcc.gnu>
+
+	Backport from trunk.
+	PR libfortran/61173
+	* gfortran.dg/arrayio_14.f90: New test.
+
+2014-06-07  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt38.adb: New test.
+	* gnat.dg/opt38_pkg.ad[sb]: New helper.
+
+2014-06-04  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61383
+	* gcc.dg/torture/pr61383-1.c: New testcase.
+
+2014-06-04  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/58942
+	* c-c++-common/cilk-plus/AN/pr58942.c: Check for correct handling of
+	the case with a pointer.
+
+2014-06-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61053
+	* gcc.dg/pr61053.c: New test.
+
+2014-06-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-1.C: New test.
+
+2014-06-03  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2014-05-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/60866
+	* gcc.dg/pr60866.c: New test.
+
+2014-06-03  Andrey Belevantsev  <abel@ispras.ru>
+
+	Backport from mainline
+	2014-05-14  Andrey Belevantsev  <abel@ispras.ru>
+
+	PR rtl-optimization/60901
+	* gcc.target/i386/pr60901.c: New test.
+
+2014-06-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/pr60969.C (dg-do compile): Change ilp32 target to ia32.
+
 2014-05-29  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR rtl-optimization/61325
