@@ -61,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "cilk.h"
 #include "wide-int.h"
+#include "builtins.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -2018,8 +2019,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	 We want to issue an error if the sections conflict but that must be
 	 done later in decl_attributes since we are called before attributes
 	 are assigned.  */
-      if (DECL_SECTION_NAME (newdecl) == NULL_TREE)
-	DECL_SECTION_NAME (newdecl) = DECL_SECTION_NAME (olddecl);
+      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
+	  && DECL_SECTION_NAME (newdecl) == NULL
+	  && DECL_SECTION_NAME (olddecl) != NULL)
+	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
 
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
 	{
@@ -5293,19 +5296,18 @@ reshape_init_class (tree type, reshape_iter *d, bool first_initializer_p,
 	  if (d->cur->index == error_mark_node)
 	    return error_mark_node;
 
-	  if (TREE_CODE (d->cur->index) == INTEGER_CST)
+	  if (TREE_CODE (d->cur->index) == FIELD_DECL)
+	    /* We already reshaped this.  */
+	    gcc_assert (d->cur->index == field);
+	  else if (TREE_CODE (d->cur->index) == IDENTIFIER_NODE)
+	    field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
+	  else
 	    {
 	      if (complain & tf_error)
 		error ("%<[%E] =%> used in a GNU-style designated initializer"
 		       " for class %qT", d->cur->index, type);
 	      return error_mark_node;
 	    }
-
-	  if (TREE_CODE (d->cur->index) == FIELD_DECL)
-	    /* We already reshaped this.  */
-	    gcc_assert (d->cur->index == field);
-	  else
-	    field = lookup_field_1 (type, d->cur->index, /*want_type=*/false);
 
 	  if (!field || TREE_CODE (field) != FIELD_DECL)
 	    {
@@ -5758,6 +5760,16 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 		check_narrowing (type, init);
 	    }
 	}
+      else if (TREE_CODE (init) == TREE_LIST
+	       && TREE_TYPE (init) != unknown_type_node
+	       && !MAYBE_CLASS_TYPE_P (type))
+	{
+	  gcc_assert (TREE_CODE (decl) != RESULT_DECL);
+
+	  /* We get here with code like `int a (2);' */
+	  init = build_x_compound_expr_from_list (init, ELK_INIT,
+						  tf_warning_or_error);
+	}
 
       /* If DECL has an array type without a specific bound, deduce the
 	 array size from the initializer.  */
@@ -5848,6 +5860,13 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 
   if (init && init != error_mark_node)
     init_code = build2 (INIT_EXPR, type, decl, init);
+
+  if (init_code)
+    {
+      /* We might have set these in cp_finish_decl.  */
+      DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (decl) = false;
+      TREE_CONSTANT (decl) = false;
+    }
 
   if (init_code && DECL_IN_AGGR_P (decl))
     {
@@ -9667,7 +9686,7 @@ grokdeclarator (const cp_declarator *declarator,
 	    if (ctype == NULL_TREE
 		&& decl_context == FIELD
 		&& funcdecl_p
-		&& (friendp == 0 || dname == current_class_name))
+		&& friendp == 0)
 	      ctype = current_class_type;
 
 	    if (ctype && (sfk == sfk_constructor

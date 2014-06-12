@@ -1,3 +1,33 @@
+2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-family/c-common.c (handle_section_attribute): Update handling for
+	section names that are no longer trees.
+
+2014-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/60928
+	* c-pragma.c (omp_pragmas_simd): Move PRAGMA_OMP_TASK...
+	(omp_pragmas): ... back here.
+
+2014-06-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/49706
+	* c-common.c (warn_logical_not_parentheses): New function.
+	* c-common.h (warn_logical_not_parentheses): Declare.
+	* c.opt (Wlogical-not-parentheses): New option.
+
+2014-06-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/30020
+	* c-common.c (check_case_bounds): Add location parameter.
+	Use it.
+	(c_add_case_label): Pass loc to check_case_bounds.
+
+2014-06-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c.opt (Wswitch-bool): New option.
+
 2014-05-22  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-common.h (c_omp_sharing_predetermined, c_omp_remap_decl):

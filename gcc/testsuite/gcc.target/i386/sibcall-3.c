@@ -1,5 +1,4 @@
-/* { dg-do compile } */
-/* { dg-require-effective-target ia32 } */
+/* { dg-do compile { target ia32 } } */
 /* { dg-options "-O2" } */
 
 extern 
@@ -13,4 +12,4 @@ void bar (int a)
   return foo (a);
 }
 
-/* { dg-final { scan-assembler-not "jmp[ \t]*.%eax" } } */
+/* { dg-final { scan-assembler-not "jmp\[ \t\]*.%eax" } } */
