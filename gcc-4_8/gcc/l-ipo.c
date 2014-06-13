@@ -1542,6 +1542,18 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
       gcc_assert (decl1_defined);
       add_define_module (*slot, decl2);
 
+      /* Pick the node that cannot be removed, to avoid a situation
+         where we remove the resolved node and later try to access
+         it for the remaining non-removable copy.  E.g. one may be
+         extern and the other weak, only the extern copy can be removed.  */
+      if (cgraph_can_remove_if_no_direct_calls_and_refs_p ((*slot)->rep_node)
+          && !cgraph_can_remove_if_no_direct_calls_and_refs_p (node))
+        {
+          (*slot)->rep_node = node;
+          (*slot)->rep_decl = decl2;
+          return;
+        }
+
       has_prof1 = has_profile_info (decl1);
       bool is_aux1 = cgraph_is_auxiliary (decl1);
       bool is_aux2 = cgraph_is_auxiliary (decl2);

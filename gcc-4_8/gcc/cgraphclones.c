@@ -94,6 +94,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "except.h"
+#include "l-ipo.h"
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
@@ -118,7 +119,11 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
 
       if (call_stmt && (decl = gimple_call_fndecl (call_stmt)))
 	{
-	  struct cgraph_node *callee = cgraph_get_node (decl);
+          struct cgraph_node *callee;
+          if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+            callee = cgraph_lipo_get_resolved_node (decl);
+          else
+            callee = cgraph_get_node (decl);
 	  gcc_checking_assert (callee);
 	  new_edge = cgraph_create_edge (n, callee, call_stmt, count, freq);
 	}
