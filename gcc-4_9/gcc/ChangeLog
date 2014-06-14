@@ -1,3 +1,122 @@
+2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+
+	2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+	PR target/61415
+	* config/rs6000/rs6000-builtin.def (BU_MISC_1): Delete.
+	(BU_MISC_2): Rename to ...
+	(BU_LDBL128_2): ... this.
+	* config/rs6000/rs6000.h (RS6000_BTM_LDBL128): New define.
+	(RS6000_BTM_COMMON): Add RS6000_BTM_LDBL128.
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Handle
+	RS6000_BTM_LDBL128.
+	(rs6000_invalid_builtin): Add long double 128-bit builtin support.
+	(rs6000_builtin_mask_names): Add RS6000_BTM_LDBL128.
+	* config/rs6000/rs6000.md (unpacktf_0): Remove define)expand.
+	(unpacktf_1): Likewise.
+	* doc/extend.texi (__builtin_longdouble_dw0): Remove documentation.
+	(__builtin_longdouble_dw1): Likewise.
+	* doc/sourcebuild.texi (longdouble128): Document.
+
+2014-06-13  Jeff Law  <law@redhat.com>
+
+	Backports from mainline:
+	2014-06-13  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/61094
+	PR rtl-optimization/61446
+	* ree.c (combine_reaching_defs): Get the mode for the copy from
+	the extension insn rather than the defining insn.
+
+	2014-06-02  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/61094
+	* ree.c (combine_reaching_defs): Do not reextend an insn if it
+	was marked as do_no_reextend.  If a copy is needed to eliminate
+	an extension, then mark it as do_not_reextend.
+
+2014-06-13  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61186
+	* ipa-devirt.c (possible_polymorphic_call_targets): Store NULL to
+	cache_token if returning early.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* gimplify.c (struct gimplify_omp_ctx): Add distribute field.
+	(gimplify_adjust_omp_clauses): Don't or in GOVD_LASTPRIVATE
+	if outer combined construct is distribute.
+	(gimplify_omp_for): For OMP_DISTRIBUTE set
+	gimplify_omp_ctxp->distribute.
+	* omp-low.c (scan_sharing_clauses) <case OMP_CLAUSE_SHARED>: For
+	GIMPLE_OMP_TEAMS, if decl isn't global in outer context, record
+	mapping into decl map.
+
+2014-06-12  Jeff Law  <law@redhat.com>
+
+	Backports from mainline:
+
+	2014-06-12  Jeff Law  <law@redhat.com>
+
+        PR tree-optimization/61009
+	* tree-ssa-threadedge.c (thread_through_normal_block): Correct return
+	value when we stop processing a block due to problematic PHIs.
+
+
+	2014-06-05  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61289
+	* tree-ssa-threadedge.c (invalidate_equivalences): Remove SRC_MAP and
+	DST_MAP parameters.   Invalidate by walking all the SSA_NAME_VALUES
+	looking for those which match LHS.  All callers changed.
+	(record_temporary_equivalences_from_phis): Remove SRC_MAP and DST_MAP
+	parameters and code which manipulated them.  All callers changed.
+	(record_temporary_equivalences_from_stmts_at_dest): Remove SRC_MAP
+	and DST_MAP parameters.  Simplify invalidation code by just calling
+	invalidate_equivalences.  All callers changed.
+	(thread_across_edge): Simplify now that we don't need to maintain
+	the map of equivalences to invalidate.
+
+2014-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-core.h (DECL_NONALIASED): Use proper spelling in comment.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-05-14 trunk r210418
+	* config/avr/avr.h (REG_CLASS_CONTENTS): Use unsigned suffix for
+	shifted values to avoid build warning.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-05-09 trunk r210272
+
+	* config/avr/avr-fixed.md (round<mode>3): Use -1U instead of -1 in
+	unsigned int initializers for regno_in, regno_out.
+
+	Backport from 2014-06-12 trunk r211491
+
+	PR target/61443
+	* config/avr/avr.md (push<mode>1): Avoid (subreg(mem)) when
+	loading from address spaces.
+
+2014-06-12  Alan Modra  <amodra@gmail.com>
+
+	PR target/61300
+	* doc/tm.texi.in (INCOMING_REG_PARM_STACK_SPACE): Document.
+	* doc/tm.texi: Regenerate.
+	* function.c (INCOMING_REG_PARM_STACK_SPACE): Provide default.
+	Use throughout in place of REG_PARM_STACK_SPACE.
+	* config/rs6000/rs6000.c (rs6000_reg_parm_stack_space): Add
+	"incoming" param.  Pass to rs6000_function_parms_need_stack.
+	(rs6000_function_parms_need_stack): Add "incoming" param, ignore
+	prototype_p when incoming.  Use function decl when incoming
+	to handle K&R style functions.
+	* config/rs6000/rs6000.h (REG_PARM_STACK_SPACE): Adjust.
+	(INCOMING_REG_PARM_STACK_SPACE): Define.
+
 2014-06-11  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/61452
@@ -2040,10 +2159,10 @@
 
 	PR tree-optimization/60577
 	* tree-core.h (struct tree_base): Document nothrow_flag use
-	in VAR_DECL_NONALIASED.
-	* tree.h (VAR_DECL_NONALIASED): New.
+	in DECL_NONALIASED.
+	* tree.h (DECL_NONALIASED): New.
 	(may_be_aliased): Adjust.
-	* coverage.c (build_var): Set VAR_DECL_NONALIASED.
+	* coverage.c (build_var): Set DECL_NONALIASED.
 
 2014-03-20  Eric Botcazou  <ebotcazou@adacore.com>
 

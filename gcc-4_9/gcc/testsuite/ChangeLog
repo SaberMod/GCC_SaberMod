@@ -1,3 +1,50 @@
+2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+
+	2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+	PR target/61415
+	* lib/target-supports.exp (check_effective_target_longdouble128): New.
+	* gcc.target/powerpc/pack02.c: Use it.
+	* gcc.target/powerpc/tfmode_off.c: Likewise.
+
+2014-06-13  Jeff Law  <law@redhat.com>
+
+	Backports from mainline:
+
+	2014-06-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	PR rtl-optimization/61094
+	PR rtl-optimization/61446
+	* gcc.target/i386/pr61446.c : New.
+
+	2014-06-02  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/61094
+	* g++.dg/pr61094: New test.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* c-c++-common/gomp/pr61486-1.c: New test.
+	* c-c++-common/gomp/pr61486-2.c: New test.
+
+2014-06-12  Jeff Law  <law@redhat.com>
+
+	Backports from mainline:
+	2014-06-05  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61289
+	* g++.dg/pr61289.C: New test.
+	* g++.dg/pr61289-2.C: New test.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-06-12 trunk r211491
+
+	PR target/61443
+	* gcc.target/avr/torture/pr61443.c: New test.
+
 2014-06-11  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/61452
