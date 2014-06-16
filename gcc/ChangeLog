@@ -16,6 +16,12 @@
 	* toplev.c: Replace the checking of HAVE_cloog with the checking
 	of HAVE_isl.
 
+2014-06-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/61430
+	* lra-lives.c (process_bb_lives): Skip creating copy during
+	insn scan when src/dest has constrained to same regno.
+
 2014-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	Backported from mainline
