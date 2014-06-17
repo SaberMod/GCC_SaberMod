@@ -3770,8 +3770,9 @@ ix86_option_override_internal (bool main_args_p)
   else if (TARGET_OMIT_LEAF_FRAME_POINTER)
     flag_omit_frame_pointer = 1;
 
-  if (!global_options_set.x_flag_omit_frame_pointer)
-    flag_shrink_wrap_frame_pointer = 0;
+  /* Turn on flag_shrink_wrap_frame_pointer by default.  */
+  if (!global_options_set.x_flag_shrink_wrap_frame_pointer)
+    flag_shrink_wrap_frame_pointer = 1;
 
   /* -fshrink-wrap-frame-pointer is an optimization based on
      -fno-omit-frame-pointer mode, so it is only effective when
