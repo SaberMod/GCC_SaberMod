@@ -6561,6 +6561,11 @@ move_fp_settings ()
   choose_places (&global_inserts);
   insert_fp_setting (&local_inserts, &global_inserts, &calls);
 
+  /* After we insert fp setting and do fp shrinkwrapping, fp will not be
+     invalidated by call implicitly.  */
+  if (frame_pointer_partially_needed)
+    CLEAR_HARD_REG_BIT (regs_invalidated_by_call, HARD_FRAME_POINTER_REGNUM);
+
   local_inserts.release ();
   global_inserts.release ();
   calls.release ();

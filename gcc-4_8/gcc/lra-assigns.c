@@ -446,7 +446,14 @@ adjust_hard_regno_cost (int hard_regno, int incr)
 }
 
 /* If any insn referencing the REGNO is used in a BB marked as
-   BB_FP_IS_FREE, LRA could allocate fp to this REGNO.  */
+   BB_FP_IS_FREE, LRA could allocate fp to this REGNO.
+
+   If REGNO is used in call insn, it is not allowed to assign
+   fp to the regno -- this is to avoid call (*fp). Or else after
+   framepointer shrinkwrapping transformation, the value of call
+   target register will be wrongly changed by fp setting of
+   frame address.  */
+
 static bool
 fp_is_allowed_p (int regno)
 {
@@ -461,12 +468,11 @@ fp_is_allowed_p (int regno)
       insn = lra_insn_recog_data[uid]->insn;
       if (insn && !DEBUG_INSN_P (insn))
 	{
+	  if (CALL_P (insn))
+	    return false;
           bb = BLOCK_FOR_INSN (insn);
 	  if (bb->flags & BB_FP_IS_FREE)
-	    {
-	      allowed = true;
-	      break;
-	    }
+	    allowed = true;
 	}
     }
   return allowed;

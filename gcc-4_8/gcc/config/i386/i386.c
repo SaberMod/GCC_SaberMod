@@ -11369,9 +11369,10 @@ ix86_expand_epilogue (int style)
 	ix86_emit_restore_reg_using_pop (hard_frame_pointer_rtx);
       /* Leave results in shorter dependency chains on CPUs that are
 	 able to grok it fast.  */
-      else if (TARGET_USE_LEAVE
-	       || optimize_function_for_size_p (cfun)
-	       || !cfun->machine->use_fast_prologue_epilogue)
+      else if (m->fs.fp_valid
+	       && (TARGET_USE_LEAVE
+		   || optimize_function_for_size_p (cfun)
+		   || !cfun->machine->use_fast_prologue_epilogue))
 	ix86_emit_leave ();
       else
         {

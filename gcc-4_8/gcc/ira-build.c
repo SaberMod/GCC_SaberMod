@@ -3359,7 +3359,7 @@ mark_loop_fp_free (ira_loop_tree_node_t lp,
       if (bitmap_bit_p (loop_is_marked, sub_lp->loop_num))
 	{
 	  fpset_cost += sub_lp->fp_is_free
-			? sinfo[sub_lp->loop_num].total_fpset_cost
+			? sinfo->total_fpset_cost
 			: promoted_fpset_cost;
 	  /* For current loop, if its fp_is_free is true and lp_high_pressure
 	     is true, it is very likely fp will be used in current loop.
@@ -3385,7 +3385,7 @@ mark_loop_fp_free (ira_loop_tree_node_t lp,
 	}
       else
 	{
-	  fpset_cost += MIN (sinfo[sub_lp->loop_num].total_fpset_cost,
+	  fpset_cost += MIN (sinfo->total_fpset_cost,
 			     promoted_fpset_cost);
 	}
     }
@@ -3500,9 +3500,13 @@ decide_fp_use_in_loops (FILE *ira_dump_file)
   sorted_loops
     = (ira_loop_tree_node_t *) ira_allocate (sizeof (ira_loop_tree_node_t)
 					     * number_of_loops ());
+  memset (sorted_loops, 0, (sizeof (ira_loop_tree_node_t)
+			    * number_of_loops ()));
   infos
     = (struct fpset_info *) ira_allocate (sizeof (struct fpset_info)
 					  * number_of_loops ());
+  memset (infos, 0, (sizeof (struct fpset_info)
+		     * number_of_loops ()));
   get_fpset_cost (ira_loop_tree_root, sorted_loops, &n, infos);
   loop_is_marked = sbitmap_alloc (number_of_loops ());
   bitmap_clear (loop_is_marked);
