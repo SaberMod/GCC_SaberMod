@@ -6010,6 +6010,7 @@ bb_fpset_local_init (vec<rtx> *local_inserts, vec<rtx> *calls)
   if (dump_file)
     fprintf(dump_file, "\nfpset dump after init:\n");
 
+  any_fp_def = false;
   FOR_EACH_BB_FN (bb, cfun)
     {
       bb_fpsets[bb->index].bb = bb;
@@ -6051,7 +6052,10 @@ bb_fpset_local_init (vec<rtx> *local_inserts, vec<rtx> *calls)
 
 		  if (REG_P (reg)
 		      && REGNO (reg) == HARD_FRAME_POINTER_REGNUM)
-		    fp_def_use = true;
+		    {
+		      fp_def_use = true;
+		      any_fp_def = true;
+		    }
 		}
 
 	      for (df_rec = DF_INSN_USES (insn); *df_rec; df_rec++)
@@ -6222,6 +6226,7 @@ evaluate_promote_fpset_to_bb (
   basic_block child;
   int non_promote_cost, promote_cost;
   int bb_index = bb->index;
+  float promote_fraction;
 
   /* For entry bb, there is nothing to promote.  */
   if (bb_index == 0)
@@ -6295,8 +6300,13 @@ evaluate_promote_fpset_to_bb (
      insns scattered instead of one fp setting insn merged. It means
      larger code size. Introduce PARAM_FPSET_PROMOTE_FRACTION to find
      a balance between performance improvement and code size increase.  */
-  if ((promote_cost <= (non_promote_cost
-			* PARAM_VALUE (PARAM_FPSET_PROMOTE_FRACTION))
+
+  if (profile_status == PROFILE_READ)
+    promote_fraction = 1;
+  else
+    promote_fraction = 1 + PARAM_VALUE (PARAM_FPSET_PROMOTE_FRACTION) * 0.1;
+
+  if ((promote_cost <= (non_promote_cost * promote_fraction)
        && bb_fpsets[bb_index].place_to_move)
       || bb_fpsets[bb_index].has_orig_downexposed_fpset)
     {

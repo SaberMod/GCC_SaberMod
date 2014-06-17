@@ -10606,7 +10606,20 @@ ix86_expand_prologue (void)
       insn = emit_insn (gen_push (hard_frame_pointer_rtx));
       RTX_FRAME_RELATED_P (insn) = 1;
       if (fpset_needed_in_prologue)
-        insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+	{
+	  insn = emit_move_insn (hard_frame_pointer_rtx, stack_pointer_rtx);
+	  /* Using sp as cfa_reg will involve more .cfi_def_cfa_offset for
+	     pushes in prologue, so use fp as cfa_reg to reduce .eh_frame
+	     size when possible.  */
+	  if (!any_fp_def)
+	    {
+	      RTX_FRAME_RELATED_P (insn) = 1;
+	      if (m->fs.cfa_reg == stack_pointer_rtx)
+		m->fs.cfa_reg = hard_frame_pointer_rtx;
+	      m->fs.fp_offset = m->fs.sp_offset;
+	      m->fs.fp_valid = true;
+	    }
+	}
     }
 
   if (!int_registers_saved)
@@ -11140,7 +11153,11 @@ ix86_expand_epilogue (int style)
 	      || m->fs.sp_offset == frame.stack_pointer_offset);
 
   /* The FP must be valid if the frame pointer is present.  */
-  gcc_assert (frame_pointer_needed == m->fs.fp_valid);
+  if (!frame_pointer_partially_needed)
+    gcc_assert (frame_pointer_needed == m->fs.fp_valid);
+  else
+    gcc_assert (!(any_fp_def && m->fs.fp_valid));
+
   gcc_assert (!m->fs.fp_valid
 	      || m->fs.fp_offset == frame.hard_frame_pointer_offset);
 
@@ -11149,9 +11166,6 @@ ix86_expand_epilogue (int style)
 
   /* The DRAP is never valid at this point.  */
   gcc_assert (!m->fs.drap_valid);
-
-  /* If frame_pointer_partially_needed is true,  FP must not be valid.  */
-  gcc_assert (!(frame_pointer_partially_needed && m->fs.fp_valid));
 
   /* See the comment about red zone and frame
      pointer usage in ix86_expand_prologue.  */

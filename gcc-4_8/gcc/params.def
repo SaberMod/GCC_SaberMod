@@ -1328,7 +1328,7 @@ DEFPARAM (PARAM_FPSET_PROMOTE_FRACTION,
 	  "fpset-promote-fraction",
 	  "Adjust the estimation of fpset promotion cost with this fraction in"
 	  "framepointer shrinkwrapping",
-	  1, 1, 100)
+	  1, 0, 100)
 
 /*
 Local variables:
