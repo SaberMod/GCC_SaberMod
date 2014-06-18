@@ -548,7 +548,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
       if (!gi_ptr->build_info)
         {
           gcov_error ("profiling:%s:Mismatched build info sections, expected "
-                      "none, found %u strings)\n", num_strings, gi_filename);
+                      "none, found %u strings)\n", gi_filename, num_strings);
           return -1;
         }
 
