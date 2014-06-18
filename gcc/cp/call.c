@@ -4130,29 +4130,17 @@ build_operator_new_call (tree fnname, vec<tree, va_gc> **args,
    if (*cookie_size)
      {
        bool use_cookie = true;
-       if (!abi_version_at_least (2))
-	 {
-	   /* In G++ 3.2, the check was implemented incorrectly; it
-	      looked at the placement expression, rather than the
-	      type of the function.  */
-	   if ((*args)->length () == 2
-	       && same_type_p (TREE_TYPE ((**args)[1]), ptr_type_node))
-	     use_cookie = false;
-	 }
-       else
-	 {
-	   tree arg_types;
+       tree arg_types;
 
-	   arg_types = TYPE_ARG_TYPES (TREE_TYPE (cand->fn));
-	   /* Skip the size_t parameter.  */
-	   arg_types = TREE_CHAIN (arg_types);
-	   /* Check the remaining parameters (if any).  */
-	   if (arg_types
-	       && TREE_CHAIN (arg_types) == void_list_node
-	       && same_type_p (TREE_VALUE (arg_types),
-			       ptr_type_node))
-	     use_cookie = false;
-	 }
+       arg_types = TYPE_ARG_TYPES (TREE_TYPE (cand->fn));
+       /* Skip the size_t parameter.  */
+       arg_types = TREE_CHAIN (arg_types);
+       /* Check the remaining parameters (if any).  */
+       if (arg_types
+	   && TREE_CHAIN (arg_types) == void_list_node
+	   && same_type_p (TREE_VALUE (arg_types),
+			   ptr_type_node))
+	 use_cookie = false;
        /* If we need a cookie, adjust the number of bytes allocated.  */
        if (use_cookie)
 	 {
@@ -6520,14 +6508,22 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
     arg = null_pointer_node;
   else if (INTEGRAL_OR_ENUMERATION_TYPE_P (arg_type))
     {
-      if (SCOPED_ENUM_P (arg_type) && !abi_version_at_least (6))
+      if (SCOPED_ENUM_P (arg_type))
 	{
-	  if (complain & tf_warning)
-	    warning_at (loc, OPT_Wabi, "scoped enum %qT will not promote to an "
-			"integral type in a future version of GCC", arg_type);
-	  arg = cp_convert (ENUM_UNDERLYING_TYPE (arg_type), arg, complain);
+	  tree prom = cp_convert (ENUM_UNDERLYING_TYPE (arg_type), arg,
+				  complain);
+	  prom = cp_perform_integral_promotions (prom, complain);
+	  if (abi_version_crosses (6)
+	      && TYPE_MODE (TREE_TYPE (prom)) != TYPE_MODE (arg_type)
+	      && (complain & tf_warning))
+	    warning_at (loc, OPT_Wabi, "scoped enum %qT passed through ... as "
+			"%qT before -fabi-version=6, %qT after", arg_type,
+			TREE_TYPE (prom), ENUM_UNDERLYING_TYPE (arg_type));
+	  if (!abi_version_at_least (6))
+	    arg = prom;
 	}
-      arg = cp_perform_integral_promotions (arg, complain);
+      else
+	arg = cp_perform_integral_promotions (arg, complain);
     }
 
   arg = require_complete_type_sfinae (arg, complain);
@@ -9391,7 +9387,7 @@ make_temporary_var_for_ref_to_temp (tree decl, tree type)
       tree name;
 
       TREE_STATIC (var) = TREE_STATIC (decl);
-      DECL_TLS_MODEL (var) = DECL_TLS_MODEL (decl);
+      set_decl_tls_model (var, DECL_TLS_MODEL (decl));
       name = mangle_ref_init_variable (decl);
       DECL_NAME (var) = name;
       SET_DECL_ASSEMBLER_NAME (var, name);

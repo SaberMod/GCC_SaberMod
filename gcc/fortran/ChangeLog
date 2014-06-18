@@ -1,3 +1,67 @@
+2014-06-17  Tobias Burnus  <burnus@net-b.de>
+
+	* check.c (gfc_check_atomic, gfc_check_atomic_def):
+	Use argument for GFC_ISYM_CAF_GET.
+	* resolve.c (resolve_variable): Enable CAF_GET insertion.
+	(resolve_lock_unlock): Remove GFC_ISYM_CAF_GET.
+	(resolve_ordinary_assign): Enable CAF_SEND insertion.
+	* trans-const.c (gfc_build_string_const,
+	gfc_build_wide_string_const): Set TYPE_STRING_FLAG.
+	* trans-decl.c (gfor_fndecl_caf_get, gfor_fndecl_caf_send,
+	gfor_fndecl_caf_sendget): New global variables.
+	(gfc_build_builtin_function_decls): Initialize them;
+	update co_min/max/sum initialization.
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Renamed from
+	get_tree_for_caf_expr and removed static.
+	(gfc_conv_procedure_call): Update call.
+	* trans-intrinsic.c (caf_get_image_index,
+	conv_caf_vector_subscript_elem, conv_caf_vector_subscript,
+	get_caf_token_offset, gfc_conv_intrinsic_caf_get,
+	conv_caf_send): New.
+	(gfc_conv_intrinsic_function, gfc_conv_intrinsic_subroutine,
+	gfc_walk_intrinsic_function): Handle CAF_GET and CAF_SEND.
+	(conv_co_minmaxsum): Update call for remove unused vector
+	subscript.
+	(conv_intrinsic_atomic_def, conv_intrinsic_atomic_ref):
+	Skip a CAF_GET of the argument.
+	* trans-types.c (gfc_get_caf_vector_type): New.
+	* trans-types.h (gfc_get_caf_vector_type): New.
+	* trans.h (gfor_fndecl_caf_get, gfor_fndecl_caf_send,
+	gfor_fndecl_caf_sendget): New global variables.
+	(gfc_get_tree_for_caf_expr): New prototypes.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* trans-common.c (build_common_decl): Use
+	set_decl_tls_model.
+	* trans-decl.c (gfc_finish_var_decl): Likewise.
+	(get_proc_pointer_decl): Likewise.
+
+2014-06-15  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/28484
+	PR fortran/61429
+	* check.c (gfc_check_system_clock): Improve checking of arguments.
+	* intrinsic.texi: Update doc of SYSTEM_CLOCK.
+	* iresolve.c (gfc_resolve_system_clock): Choose library function
+	used depending on argument kinds.
+	* trans-decl.c (gfc_build_intrinsic_function_decls): Build
+	decls for system_clock_4 and system_clock_8.
+	* trans-intrinsic.c (conv_intrinsic_system_clock): New function.
+	(gfc_conv_intrinsic_subroutine): Call conv_intrinsic_system_clock.
+	* trans.h (gfor_fndecl_system_clock4, gfor_fndecl_system_clock8):
+	New variables.
+
+2014-06-12  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_copy_formal_args_intr): Update prototype.
+	* symbol.c (gfc_copy_formal_args_intr): Handle the case
+	that absent optional arguments should be ignored.
+	* trans-intrinsic.c (gfc_get_symbol_for_expr): Ditto.
+	(gfc_conv_intrinsic_funcall,
+	conv_generic_with_optional_char_arg): Update call.
+	* resolve.c (gfc_resolve_intrinsic): Ditto.
+
 2014-06-10  Dominique d'Humieres <dominiq@lps.ens.fr>
 	    Mikael Morin <mikael@gcc.gnu.org>
 

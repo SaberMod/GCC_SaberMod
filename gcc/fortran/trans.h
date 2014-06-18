@@ -418,6 +418,7 @@ tree gfc_conv_scalar_to_descriptor (gfc_se *, tree, symbol_attribute);
 /* trans-expr.c */
 void gfc_conv_scalar_char_value (gfc_symbol *sym, gfc_se *se, gfc_expr **expr);
 tree gfc_string_to_single_character (tree len, tree str, int kind);
+tree gfc_get_tree_for_caf_expr (gfc_expr *);
 
 /* Find the decl containing the auxiliary variables for assigned variables.  */
 void gfc_conv_label_variable (gfc_se * se, gfc_expr * expr);
@@ -697,6 +698,8 @@ extern GTY(()) tree gfor_fndecl_fdate;
 extern GTY(()) tree gfor_fndecl_in_pack;
 extern GTY(()) tree gfor_fndecl_in_unpack;
 extern GTY(()) tree gfor_fndecl_associated;
+extern GTY(()) tree gfor_fndecl_system_clock4;
+extern GTY(()) tree gfor_fndecl_system_clock8;
 
 
 /* Coarray run-time library function decls.  */
@@ -706,6 +709,9 @@ extern GTY(()) tree gfor_fndecl_caf_this_image;
 extern GTY(()) tree gfor_fndecl_caf_num_images;
 extern GTY(()) tree gfor_fndecl_caf_register;
 extern GTY(()) tree gfor_fndecl_caf_deregister;
+extern GTY(()) tree gfor_fndecl_caf_get;
+extern GTY(()) tree gfor_fndecl_caf_send;
+extern GTY(()) tree gfor_fndecl_caf_sendget;
 extern GTY(()) tree gfor_fndecl_caf_critical;
 extern GTY(()) tree gfor_fndecl_caf_end_critical;
 extern GTY(()) tree gfor_fndecl_caf_sync_all;

@@ -1,3 +1,512 @@
+2014-06-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-dfa.h (get_addr_base_and_unit_offset_1): Move from here.
+	* tree-dfa.c (get_addr_base_and_unit_offset_1): To here.
+
+2014-06-17  Xinliang David Li  <davidxl@google.com>
+
+	* tree-pretty-print.c (dump_function_header): Print cgraph uid.
+	* passes.c (pass_init_dump_file): Do not set initialize
+	flag to false unconditionally.
+
+2014-06-17  Richard Biener  <rguenther@suse.de>
+
+	* genopinit.c (main): Use vec<>::qsort method.
+	* tree-ssa-loop-niter.c (discover_iteration_bound_by_body_walk):
+	Likewise.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Likewise.
+
+2014-06-17  Matthew Fortune  <matthew.fortune@imgtec.com>
+
+	* config/mips/mips-protos.h (mips_expand_fcc_reload): Remove.
+	* config/mips/mips.c (mips_expand_fcc_reload): Remove.
+	(mips_move_to_gpr_cost): Remove ST_REGS case.
+	(mips_move_from_gpr_cost): Likewise.
+	(mips_register_move_cost): Likewise.
+	(mips_secondary_reload_class): Likewise.
+
+2014-06-17  Richard Biener  <rguenther@suse.de>
+
+	* passes.def (pass_all_early_optimizations): Remove copy-prop pass.
+	(pass_all_optimizations): Move 3rd copy-prop pass from after
+	fre to before ifcombine/phiopt.
+
+2014-06-17  Richard Biener  <rguenther@suse.de>
+
+	* tree-switch-conversion.c (collect_switch_conv_info): Simplify
+	and allow all blocks to be forwarders.
+
+2014-06-17  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	PR target/61483
+	* config/aarch64/aarch64.c (aarch64_layout_arg): Add new local
+	variable 'size'; calculate 'size' right in the front; use
+	'size' to compute 'nregs' (when 'allocate_ncrn != 0') and
+	pcum->aapcs_stack_words.
+
+2014-06-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.md (mulhisi3): Add a NOP after the DINT.
+	(umulhi3, mulsidi3, umulsidi3): Likewise.
+
+2014-06-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR middle-end/61508
+	* fold-const.c (fold_checksum_tree) <TS_DECL_WITH_VIS>: Remove
+	check for section name.
+
+2014-06-17  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-propagate.c: Include domwalk.h.
+	(substitute_and_fold): Outline main worker into a domwalker ...
+	(substitute_and_fold_dom_walker::before_dom_children): ... here.
+	Schedule stmts we can fully propagate for removal.  Remove
+	poor-mans DCE.
+	(substitute_and_fold): Apply a dominator walk to perform
+	substitution.  Process stmts scheduled for removal here.
+
+2014-06-17  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-loop-im.c (determine_max_movement): Adjust cost
+	of PHI node moving.
+
+2014-06-17  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (arm_atomic_assign_expand_fenv): call
+	default_atomic_assign_expand_fenv for !TARGET_HARD_FLOAT.
+	(arm_init_builtins) : Initialize builtins __builtins_arm_set_fpscr and
+	__builtins_arm_get_fpscr only when TARGET_HARD_FLOAT.
+	* config/arm/vfp.md (set_fpscr): Make pattern conditional on
+	TARGET_HARD_FLOAT.
+	(get_fpscr) : Likewise.
+
+2014-06-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61325
+	* lra-constraints.c (valid_address_p): Add forward declaration.
+	(simplify_operand_subreg): Check address validity before and after
+	alter_reg of memory subreg.
+
+2014-06-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (decide_alg): Correctly handle
+	maximum size of stringop algorithm.
+
+2014-06-16  Yury Gribov  <y.gribov@samsung.com>
+
+	* asan.c (build_check_stmt): Fix maybe-uninitialized warning.
+
+2014-06-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/61522
+	* lra-assigns.c (assign_by_spills): Check null targetm.spill_class.
+
+2014-06-16  Jan Hubicka  <hubicka@ucw.cz>
+
+	Revert:
+	* symtab.c (symtab_node::reset_section): New method.
+	* cgraph.c (cgraph_node_cannot_be_local_p_1): Accept non-local
+	for localization.
+	* cgraph.h (reset_section): Declare.
+	* ipa-inline-analysis.c (do_estimate_growth): Check for comdat groups;
+	do not consider comdat locals.
+	* cgraphclones.c (set_new_clone_decl_and_node_flags): Get section
+	for new symbol.
+	* ipa-visiblity.c (cgraph_externally_visible_p): Cleanup.
+	(update_visibility_by_resolution_info): Consider UNDEF; fix checking;
+	reset sections of symbols dragged out of the comdats.
+	(function_and_variable_visibility): Reset sections of localized symbols.
+
+2014-06-16  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61482
+	* tree-vrp.c (adjust_range_with_scev): Avoid setting of
+	[-INF(OVF), +INF(OVF)] range.
+
+2014-06-16  Ganesh Gopalasubramanian <Ganesh.Gopalasubramanian@amd.com>
+
+	* config/i386/i386.c (ix86_expand_sse2_mulvxdi3): Issue
+	instructions "vpmuludq" and "vpaddq" instead of "vpmacsdql" for
+	handling 32-bit multiplication.
+
+2014-06-16  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	PR middle-end/61430
+	* lra-lives.c (process_bb_lives): Skip creating copy during
+	insn scan when src/dest has constrained to same regno.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vect-data-refs.c (vect_can_force_dr_alignment_p): Check again
+	DECL_IN_CONSTANT_POOL and TREE_ASM_WRITTEN.
+
+2014-06-16  Yury Gribov  <y.gribov@samsung.com>
+
+	* asan.c (check_func): New function.
+	(maybe_create_ssa_name): Likewise.
+	(build_check_stmt_with_calls): Likewise.
+	(use_calls_p): Likewise.
+	(report_error_func): Change interface.
+	(build_check_stmt): Allow non-integer lengths; add support
+	for new parameter.
+	(asan_instrument): Likewise.
+	(instrument_mem_region_access): Moved code to build_check_stmt.
+	(instrument_derefs): Likewise.
+	(instrument_strlen_call): Likewise.
+	* cfgcleanup.c (old_insns_match_p): Add support for new functions.
+	* doc/invoke.texi: Describe new parameter.
+	* params.def: Define new parameter.
+	* params.h: Likewise.
+	* sanitizer.def: Describe new builtins.
+
+2014-06-16  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Make all defs available at the end.
+	(eliminate): If we remove a PHI node schedule cfg-cleanup.
+
+2014-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR plugins/45078
+	* config.gcc (arm*-*-linux-*): Include vxworks-dummy.h in tm_file.
+
+2014-06-16  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR bootstrap/61516
+	* auto-inc-dec.c (merge_in_block): Fix location of insn_info
+	initialization.  Replace remaining use of uid.
+
+2014-06-15  Jan Hubicka  <hubicka@ucw.cz>
+
+	* c-family/c-common.c (handle_tls_model_attribute): Use
+	set_decl_tls_model.
+	* c-family/c-common.c (handle_tls_model_attribute): Use
+	set_decl_tls_model.
+	* cgraph.h (struct varpool_node): Add tls_model.
+	* tree.c (decl_tls_model, set_decl_tls_model): New functions.
+	* tree.h (DECL_TLS_MODEL): Update.
+	(DECL_THREAD_LOCAL_P): Check that variable is static.
+	(decl_tls_model): Declare.
+	(set_decl_tls_model): Declare.
+	* tree-emutls.c (get_emutls_init_templ_addr): First build decl and then
+	set symbol prorperties.
+	(get_emutls_init_templ_addr): Cleanup.
+	(new_emutls_decl): Update.
+	* lto-cgraph.c (lto_output_varpool_node): Stream TLS model
+	(lto_input_varpool_node): Likewise.
+	* lto-streamer-out.c (hash_tree): Likewise.
+	* tree-streamer-in.c (unpack_ts_decl_with_vis_value_fields): Do
+	not stream DECL_TLS_MODEL.
+	* tree-profile.c (init_ic_make_global_vars): Use
+	set_decl_tls_model.
+	* tree-core.h (tree_decl_with_vis): Remove tls_model;
+	update comments.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (DF_REF_REG_USE_P, DF_MWS_REG_USE_P): Remove null checks.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (df_mw_hardreg, df_base_ref): Add a link pointer.
+	(df_insn_info): Turn defs, uses, eq_uses and mw_hardregs into linked
+	lists.
+	(df_scan_bb_info): Likewise artificial_defs and artificial_uses.
+	(DF_REF_NEXT_LOC, DF_MWS_NEXT): New macros.
+	(FOR_EACH_INSN_INFO_DEF, FOR_EACH_INSN_INFO_USE)
+	(FOR_EACH_INSN_INFO_EQ_USE, FOR_EACH_INSN_INFO_MW)
+	(FOR_EACH_ARTIFICIAL_USE, FOR_EACH_ARTIFICIAL_DEF)
+	(df_get_artificial_defs, df_get_artificial_uses)
+	(df_single_def, df_single_use): Update accordingly.
+	(df_refs_chain_dump): Take the first element in a linked list as
+	parameter, rather than a pointer to an array of pointers.
+	* df-core.c (df_refs_chain_dump, df_mws_dump): Likewise.
+	* df-problems.c (df_rd_bb_local_compute_process_def): Likewise.
+	(df_chain_create_bb_process_use): Likewise.
+	(df_md_bb_local_compute_process_def): Likewise.
+	* fwprop.c (process_defs, process_uses): Likewise.
+	(register_active_defs, update_uses): Likewise.
+	(forward_propagate_asm): Update for new df_ref linking.
+	* df-scan.c (df_scan_free_ref_vec, df_scan_free_mws_vec): Delete.
+	(df_null_ref_rec, df_null_mw_rec): Likewise.
+	(df_scan_free_internal): Don't free df_ref and df_mw_hardreg lists
+	explicitly.
+	(df_scan_free_bb_info): Remove check for null artificial_defs.
+	(df_install_ref_incremental): Adjust for new df_ref linking.
+	Use a single-element insertion rather than a full sort.
+	(df_ref_chain_delete_du_chain): Take the first element
+	in a linked list as parameter, rather than a pointer to an array of
+	pointers.
+	(df_ref_chain_delete, df_mw_hardreg_chain_delete): Likewise.
+	(df_add_refs_to_table, df_refs_verify, df_mws_verify): Likewise.
+	(df_insn_info_delete): Remove check for null defs and call to
+	df_scan_free_mws_vec.
+	(df_insn_rescan): Initialize df_ref and df_mw_hardreg lists to
+	null rather than df_null_*_rec.
+	(df_insn_rescan_debug_internal): Likewise, and update null
+	checks in the same way.  Remove check for null defs.
+	(df_ref_change_reg_with_loc_1): Fix choice of list for defs.
+	Move a single element rather doing a full sort.
+	(df_mw_hardreg_chain_delete_eq_uses): Adjust for new df_mw_hardreg
+	linking.
+	(df_notes_rescan): Likewise.  Use a merge rather than a full sort.
+	Initialize df_ref and df_mw_hardreg lists to null rather than
+	df_null_*_rec.
+	(df_ref_compare): Take df_refs as parameter, transferring the
+	old interface to...
+	(df_ref_ptr_compare): ...this new function.
+	(df_sort_and_compress_refs): Update accordingly.
+	(df_mw_compare): Take df_mw_hardregs as parameter, transferring the
+	old interface to...
+	(df_mw_ptr_compare): ...this new function.
+	(df_sort_and_compress_mws): Update accordingly.
+	(df_install_refs, df_install_mws): Return a linked list rather than
+	an array of pointers.
+	(df_refs_add_to_chains): Assert that old lists are empty rather
+	than freeing them.
+	(df_insn_refs_verify): Don't handle null defs speciailly.
+	* web.c (union_match_dups): Update for new df_ref linking.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (df_ref_create, df_ref_remove): Delete.
+	* df-scan.c (df_ref_create, df_ref_compress_rec): Likewise.
+	(df_ref_remove): Likewise.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (df_single_def, df_single_use): New functions.
+	* ira.c (find_moveable_pseudos): Use them.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (FOR_EACH_INSN_INFO_MW): New macro.
+	* df-problems.c (df_note_bb_compute): Use it.
+	* regstat.c (regstat_bb_compute_ri): Likewise.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (FOR_EACH_ARTIFICIAL_USE, FOR_EACH_ARTIFICIAL_DEF): New macros.
+	* cse.c (cse_extended_basic_block): Use them.
+	* dce.c (mark_artificial_use): Likewise.
+	* df-problems.c (df_rd_simulate_artificial_defs_at_top): Likewise.
+	(df_lr_bb_local_compute, df_live_bb_local_compute): Likewise.
+	(df_chain_remove_problem, df_chain_bb_dump): Likewise.
+	(df_word_lr_bb_local_compute, df_note_bb_compute): Likewise.
+	(df_simulate_initialize_backwards): Likewise.
+	(df_simulate_finalize_backwards): Likewise.
+	(df_simulate_initialize_forwards): Likewise.
+	(df_md_simulate_artificial_defs_at_top): Likewise.
+	* df-scan.c (df_reorganize_refs_by_reg_by_insn): Likewise.
+	* regrename.c (init_rename_info): Likewise.
+	* regstat.c (regstat_bb_compute_ri): Likewise.
+	(regstat_bb_compute_calls_crossed): Likewise.
+
+2014-06-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* df.h (DF_INSN_INFO_MWS, FOR_EACH_INSN_INFO_DEF): New macros.
+	(FOR_EACH_INSN_INFO_USE, FOR_EACH_INSN_INFO_EQ_USE): Likewise.
+	(FOR_EACH_INSN_DEF, FOR_EACH_INSN_USE, FOR_EACH_INSN_EQ_USE): Likewise.
+	* auto-inc-dec.c (find_inc, merge_in_block): Use them.
+	* combine.c (create_log_links): Likewise.
+	* compare-elim.c (find_flags_uses_in_insn): Likewise.
+	(try_eliminate_compare): Likewise.
+	* cprop.c (make_set_regs_unavailable, mark_oprs_set): Likewise.
+	* dce.c (deletable_insn_p, find_call_stack_args): Likewise.
+	(remove_reg_equal_equiv_notes_for_defs): Likewise.
+	(reset_unmarked_insns_debug_uses, mark_reg_dependencies): Likewise.
+	(word_dce_process_block, dce_process_block): Likewise.
+	* ddg.c (def_has_ccmode_p): Likewise.
+	* df-core.c (df_bb_regno_first_def_find): Likewise.
+	(df_bb_regno_last_def_find, df_find_def, df_find_use): Likewise.
+	* df-problems.c (df_rd_simulate_one_insn): Likewise.
+	(df_lr_bb_local_compute, df_live_bb_local_compute): Likewise.
+	(df_chain_remove_problem, df_chain_insn_top_dump): Likewise.
+	(df_chain_insn_bottom_dump, df_word_lr_bb_local_compute): Likewise.
+	(df_word_lr_simulate_defs, df_word_lr_simulate_uses): Likewise.
+	(df_remove_dead_eq_notes, df_note_bb_compute): Likewise.
+	(df_simulate_find_defs, df_simulate_find_uses): Likewise.
+	(df_simulate_find_noclobber_defs, df_simulate_defs): Likewise.
+	(df_simulate_uses, df_md_simulate_one_insn): Likewise.
+	* df-scan.c (df_reorganize_refs_by_reg_by_insn): Likewise.
+	* fwprop.c (local_ref_killed_between_p): Likewise.
+	(all_uses_available_at, free_load_extend): Likewise.
+	* gcse.c (update_bb_reg_pressure, calculate_bb_reg_pressure): Likewise.
+	* hw-doloop.c (scan_loop): Likewise.
+	* ifcvt.c (dead_or_predicable): Likewise.
+	* init-regs.c (initialize_uninitialized_regs): Likewise.
+	* ira-lives.c (mark_hard_reg_early_clobbers): Likewise.
+	(process_bb_node_lives): Likewise.
+	* ira.c (compute_regs_asm_clobbered, build_insn_chain): Likewise.
+	(find_moveable_pseudos): Likewise.
+	* loop-invariant.c (check_dependencies, record_uses): Likewise.
+	* recog.c (peep2_find_free_register): Likewise.
+	* ree.c (get_defs): Likewise.
+	* regstat.c (regstat_bb_compute_ri): Likewise.
+	(regstat_bb_compute_calls_crossed): Likewise.
+	* sched-deps.c (find_inc, find_mem): Likewise.
+	* sel-sched-ir.c (maybe_downgrade_id_to_use): Likewise.
+	(maybe_downgrade_id_to_use, setup_id_reg_sets): Likewise.
+	* shrink-wrap.c (requires_stack_frame_p): Likewise.
+	(prepare_shrink_wrap): Likewise.
+	* store-motion.c (compute_store_table, build_store_vectors): Likewise.
+	* web.c (union_defs, pass_web::execute): Likewise.
+	* config/i386/i386.c (increase_distance, insn_defines_reg): Likewise.
+	(insn_uses_reg_mem, ix86_ok_to_clobber_flags): Likewise.
+
+2014-06-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-assign.c (assign_by_spills): Add code to assign vector regs
+	to inheritance pseudos.
+	* config/i386/i386.c (ix86_spill_class): Add check on NO_REGS.
+
+2014-06-13  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/61415
+	* config/rs6000/rs6000-builtin.def (BU_MISC_1): Delete.
+	(BU_MISC_2): Rename to ...
+	(BU_LDBL128_2): ... this.
+	* config/rs6000/rs6000.h (RS6000_BTM_LDBL128): New define.
+	(RS6000_BTM_COMMON): Add RS6000_BTM_LDBL128.
+	* config/rs6000/rs6000.c (rs6000_builtin_mask_calculate): Handle
+	RS6000_BTM_LDBL128.
+	(rs6000_invalid_builtin): Add long double 128-bit builtin support.
+	(rs6000_builtin_mask_names): Add RS6000_BTM_LDBL128.
+	* config/rs6000/rs6000.md (unpacktf_0): Remove define)expand.
+	(unpacktf_1): Likewise.
+	* doc/extend.texi (__builtin_longdouble_dw0): Remove documentation.
+	(__builtin_longdouble_dw1): Likewise.
+	* doc/sourcebuild.texi (longdouble128): Document.
+
+2014-06-13  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/61094
+	PR rtl-optimization/61446
+	* ree.c (combine_reaching_defs): Get the mode for the copy from
+	the extension insn rather than the defining insn.
+
+2014-06-13  Dehao Chen  <dehao@google.com>
+
+	* dwarf2out.c (add_linkage_name): Emit more linkage name.
+
+2014-06-13  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* doc/install.texi (--enable-linker-plugin-configure-flags)
+	(--enable-linker-plugin-flags): Document new flags.
+
+2014-06-13  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61186
+	* ipa-devirt.c (possible_polymorphic_call_targets): Store NULL to
+	cache_token if returning early.
+
+2014-06-13  Nick Clifton  <nickc@redhat.com>
+
+	* config/rx/rx.h (JUMP_ALIGN): Return the log value if user
+	requested alignment is active.
+	(LABEL_ALIGN): Likewise.
+	(LOOP_ALIGN): Likewise.
+
+2014-06-13  Richard Biener  <rguenther@suse.de>
+
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Rewrite to propagate the VN result into all uses where
+	possible and to remove stmts becoming dead because of that.
+	(eliminate): Generalize stmt removal handling, remove in
+	reverse dominator order to support proper debug stmt
+	generation.  Update stmts before removing stmts.
+	* tree-ssa-propagate.c (propagate_tree_value): Remove bogus assert.
+
+2014-06-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/61375
+	* tree-ssa-math-opts.c (init_symbolic_number): Cancel optimization if
+	symbolic number cannot be represented in an uint64_t.
+	(find_bswap_or_nop_1): Likewise.
+
+2014-06-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* symtab.c (symtab_node::reset_section): New method.
+	* cgraph.c (cgraph_node_cannot_be_local_p_1): Accept non-local
+	for localization.
+	* cgraph.h (reset_section): Declare.
+	* ipa-inline-analysis.c (do_estimate_growth): Check for comdat groups;
+	do not consider comdat locals.
+	* cgraphclones.c (set_new_clone_decl_and_node_flags): Get section
+	for new symbol.
+	* ipa-visiblity.c (cgraph_externally_visible_p): Cleanup.
+	(update_visibility_by_resolution_info): Consider UNDEF; fix checking;
+	reset sections of symbols dragged out of the comdats.
+	(function_and_variable_visibility): Reset sections of
+	localized symbols.
+
+2014-06-12  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree-vect-data-refs.c (vect_can_force_dr_alignment_p): Reorg
+	to use symtab and decl_binds_to_current_def_p
+	* tree-vectorizer.c (increase_alignment): Increase alignment
+	of alias target, too.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* gimplify.c (struct gimplify_omp_ctx): Add distribute field.
+	(gimplify_adjust_omp_clauses): Don't or in GOVD_LASTPRIVATE
+	if outer combined construct is distribute.
+	(gimplify_omp_for): For OMP_DISTRIBUTE set
+	gimplify_omp_ctxp->distribute.
+	* omp-low.c (scan_sharing_clauses) <case OMP_CLAUSE_SHARED>: For
+	GIMPLE_OMP_TEAMS, if decl isn't global in outer context, record
+	mapping into decl map.
+
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* common.opt (fabi-version): Change default to 0.
+
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* toplev.c (process_options): Reject -fabi-version=1.
+
+2014-06-12  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61009
+	* tree-ssa-threadedge.c (thread_through_normal_block): Correct return
+	value when we stop processing a block due to problematic PHIs.
+
+2014-06-12  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (vmlaq_n_f64, vmlsq_n_f64, vrsrtsq_f64,
+	vcge_p8, vcgeq_p8, vcgez_p8, vcgez_u8, vcgez_u16, vcgez_u32, vcgez_u64,
+	vcgezq_p8, vcgezq_u8, vcgezq_u16, vcgezq_u32, vcgezq_u64, vcgezd_u64,
+	vcgt_p8, vcgtq_p8, vcgtz_p8, vcgtz_u8, vcgtz_u16, vcgtz_u32, vcgtz_u64,
+	vcgtzq_p8, vcgtzq_u8, vcgtzq_u16, vcgtzq_u32, vcgtzq_u64, vcgtzd_u64,
+	vcle_p8, vcleq_p8, vclez_p8, vclez_u64, vclezq_p8, vclezd_u64, vclt_p8,
+	vcltq_p8, vcltz_p8, vcltzq_p8, vcltzd_u64): Remove functions as they
+	are not in the spec.
+
+2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/59843
+	* config/aarch64/aarch64-modes.def: Add V1DFmode.
+	* config/aarch64/aarch64.c (aarch64_vector_mode_supported_p):
+	Support V1DFmode.
+
+2014-06-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree-core.h (DECL_NONALIASED): Use proper spelling in comment.
+
+2014-06-12  Georg-Johann Lay  <avr@gjlay.de>
+
+	PR target/61443
+	* config/avr/avr.md (push<mode>1): Avoid (subreg(mem)) when
+	loading from address spaces.
+
+2014-06-12  Martin Liska  <mliska@suse.cz>
+
+	PR ipa/61462
+	* ipa-prop.c (ipa_make_edge_direct_to_target): Check that gimple call
+	statement is reachable.
+
 2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
 
 	* symtab.c (section_hash): New hash.
@@ -19,9 +528,9 @@
 	* sdbout.c (sdbout_one_type): Update.
 	* tree-vect-data-refs.c (vect_can_force_dr_alignment_p): Update.
 	* varasm.c (IN_NAMED_SECTION, get_named_section, resolve_unique_section,
-	hot_function_section, get_named_text_section, USE_SELECT_SECTION_FOR_FUNCTIONS,
-	default_function_rodata_section, make_decl_rtl, default_unique_section):
-	Update.
+	hot_function_section, get_named_text_section,
+	USE_SELECT_SECTION_FOR_FUNCTIONS, default_function_rodata_section,
+	make_decl_rtl, default_unique_section): Update.
 	* config/c6x/c6x.c (c6x_in_small_data_p): Update.
 	(c6x_elf_unique_section): Update.
 	* config/nios2/nios2.c (nios2_in_small_data_p): Update.
@@ -47,7 +556,8 @@
 	(bfin_handle_l1_data_attribute): Update.
 	(bfin_handle_l2_attribute): Update.
 	* config/mep/mep.c (mep_unique_section): Update.
-	* config/microblaze/microblaze.c (microblaze_elf_in_small_data_p): Update.
+	* config/microblaze/microblaze.c (microblaze_elf_in_small_data_p):
+	Update.
 	* config/h8300/h8300.c (h8300_handle_eightbit_data_attribute): Update.
 	(h8300_handle_tiny_data_attribute): Update.
 	* config/m32r/m32r.c (m32r_in_small_data_p): Update.
@@ -354,9 +864,8 @@
 
 2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
 
-	* ipa-visibility.c (function_and_variable_visibility): Disable
-	virtual table rewriting temporarily on targets not supporting
-	ONE_ONLY.
+	* ipa-visibility.c (function_and_variable_visibility): Disable virtual
+	table rewriting temporarily on targets not supporting ONE_ONLY.
 
 2014-06-11  Richard Biener  <rguenther@suse.de>
 
@@ -490,8 +999,8 @@
 
 2014-06-10  Jan Hubicka  <hubicka@ucw.cz>
 
-	* ipa-reference.c (is_proper_for_analysis): Exclude addressable and public
-	vars.
+	* ipa-reference.c (is_proper_for_analysis): Exclude addressable
+	and public vars.
 	(intersect_static_var_sets): Remove.
 	(propagate): Do not prune local statics.
 
@@ -520,7 +1029,7 @@
 	PR middle-end/61141
 	* emit-rtl.c (reset_all_used_flags): In a sequence, check that
 	XVECEXP (pat, 0, i) is an INSN before calling reset_insn_used_flags.
-	(verify_rtl_sharing): Likewise.  
+	(verify_rtl_sharing): Likewise.
 
 2014-06-09  Marc Glisse  <marc.glisse@inria.fr>
 
@@ -537,13 +1046,13 @@
 	PR target/61062
 	* config/arm/arm_neon.h (vtrn_s8, vtrn_s16, vtrn_u8, vtrn_u16, vtrn_p8,
 	vtrn_p16, vtrn_s32, vtrn_f32, vtrn_u32, vtrnq_s8, vtrnq_s16, vtrnq_s32,
-	vtrnq_f32, vtrnq_u8, vtrnq_u16, vtrnq_u32, vtrnq_p8, vtrnq_p16, vzip_s8,
-	vzip_s16, vzip_u8, vzip_u16, vzip_p8, vzip_p16, vzip_s32, vzip_f32,
-	vzip_u32, vzipq_s8, vzipq_s16, vzipq_s32, vzipq_f32, vzipq_u8,
-	vzipq_u16, vzipq_u32, vzipq_p8, vzipq_p16, vuzp_s8, vuzp_s16, vuzp_s32,
-	vuzp_f32, vuzp_u8, vuzp_u16, vuzp_u32, vuzp_p8, vuzp_p16, vuzpq_s8,
-	vuzpq_s16, vuzpq_s32, vuzpq_f32, vuzpq_u8, vuzpq_u16, vuzpq_u32,
-	vuzpq_p8, vuzpq_p16): Correct mask for bigendian.
+	vtrnq_f32, vtrnq_u8, vtrnq_u16, vtrnq_u32, vtrnq_p8, vtrnq_p16,
+	vzip_s8, vzip_s16, vzip_u8, vzip_u16, vzip_p8, vzip_p16, vzip_s32,
+	vzip_f32, vzip_u32, vzipq_s8, vzipq_s16, vzipq_s32, vzipq_f32,
+	vzipq_u8, vzipq_u16, vzipq_u32, vzipq_p8, vzipq_p16, vuzp_s8, vuzp_s16,
+	vuzp_s32, vuzp_f32, vuzp_u8, vuzp_u16, vuzp_u32, vuzp_p8, vuzp_p16,
+	vuzpq_s8, vuzpq_s16, vuzpq_s32, vuzpq_f32, vuzpq_u8, vuzpq_u16,
+	vuzpq_u32, vuzpq_p8, vuzpq_p16): Correct mask for bigendian.
 
 2014-06-09  Jan Hubicka  <hubicka@ucw.cz>
 
@@ -565,12 +1074,10 @@
 	* tree.c (decl_comdat_group, decl_comdat_group_id): Constify argument.
 	(decl_section_name, set_decl_section_name): New accessors.
 	(find_decls_types_r): Do not walk section name
-	* tree.h (DECL_SECTION_NAME): Implement using
-	decl_section_name.
+	* tree.h (DECL_SECTION_NAME): Implement using decl_section_name.
 	(decl_comdat_group, decl_comdat_group_id): Constify.
 	(decl_section_name, set_decl_section_name): Update.
-	* varpool.c (varpool_finalize_named_section_flags): Use
-	get_section.
+	* varpool.c (varpool_finalize_named_section_flags): Use get_section.
 	* cgraph.c (cgraph_add_thunk): Reset node instead of rebuilding.
 	(cgraph_make_node_local_1): Clear section and comdat group.
 	* cgraph.h (set_comdat_group): Sanity check.
@@ -578,8 +1085,7 @@
 	* ipa-comdats.c (ipa_comdats): Use get_section.
 	* ipa.c (ipa_discover_readonly_nonaddressable_var): Likewise.
 	* lto-streamer-out.c: Do not follow section names.
-	* c-family/c-common.c (handle_section_attribute):
-	Update.
+	* c-family/c-common.c (handle_section_attribute): Update.
 	* lto-cgraph.c (lto_output_node): Output section.
 	(lto_output_varpool_node): Likewise.
 	(read_comdat_group): Rename to ...
@@ -588,8 +1094,7 @@
 	(input_node, input_varpool_node): Input section names.
 	* tree-emutls.c (get_emutls_init_templ_addr): Update.
 	(new_emutls_decl): Update.
-	(secname_for_decl): Check section names only of static
-	vars.
+	(secname_for_decl): Check section names only of static vars.
 	* config/mep/mep.c (mep_unique_section): Use set_decl_section_name.
 	* config/i386/winnt.c (i386_pe_unique_section): Likewise.
 	* config/i386/i386.c (x86_64_elf_unique_section): Likewise.
@@ -598,7 +1103,7 @@
 	* config/mcore/mcore.c (mcore_unique_section): Likewise.
 	* config/mips/mips.c (mips16_build_function_stub): Likewise.
 	* config/v850/v850.c (v850_insert_attributes): Likewise.
-	* config/h8300/h8300.c: (h8300_handle_eightbit_data_attribute):
+	* config/h8300/h8300.c (h8300_handle_eightbit_data_attribute):
 	Likewise.
 	(h8300_handle_tiny_data_attribute): Likewise.
 	* config/bfin/bfin.c (bfin_handle_l1_text_attribute): Likewise.
@@ -611,8 +1116,8 @@
 
 2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
 
-	* varasm.c (use_blocks_for_decl_p): Check symbol table instead of alias
-	attribute.
+	* varasm.c (use_blocks_for_decl_p): Check symbol table
+	instead of alias attribute.
 	(place_block_symbol): Recurse on aliases.
 
 2014-06-07  Jan Hubicka  <hubicka@ucw.cz>
@@ -627,7 +1132,7 @@
 
 2014-06-07  Steven Bosscher  <steven@gcc.gnu.org>
 
-        * gcse.c (can_assign_to_reg_without_clobbers_p): Do not let pointers
+	* gcse.c (can_assign_to_reg_without_clobbers_p): Do not let pointers
 	from test_insn into GGC space escape via SET_SRC.
 
 2014-06-07  Eric Botcazou  <ebotcazou@adacore.com>
@@ -1063,7 +1568,7 @@
 
 2014-06-04  Matthew Fortune  <matthew.fortune@imgtec.com>
 
-	* regcprop.c (copyprop_hardreg_forward_1): Account for 
+	* regcprop.c (copyprop_hardreg_forward_1): Account for
 	HARD_REGNO_CALL_PART_CLOBBERED.
 
 2014-06-04  Richard Biener  <rguenther@suse.de>
@@ -9389,10 +9894,10 @@
 
 	PR tree-optimization/60577
 	* tree-core.h (struct tree_base): Document nothrow_flag use
-	in VAR_DECL_NONALIASED.
-	* tree.h (VAR_DECL_NONALIASED): New.
+	in DECL_NONALIASED.
+	* tree.h (DECL_NONALIASED): New.
 	(may_be_aliased): Adjust.
-	* coverage.c (build_var): Set VAR_DECL_NONALIASED.
+	* coverage.c (build_var): Set DECL_NONALIASED.
 
 2014-03-20  Eric Botcazou  <ebotcazou@adacore.com>
 

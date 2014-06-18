@@ -1,3 +1,23 @@
+2014-06-16  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60439
+	* c.opt (Wswitch-bool): Add Var.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* c-omp.c (c_omp_split_clauses): Don't crash on firstprivate in
+	#pragma omp target teams or
+	#pragma omp {,target }teams distribute simd.
+
+2014-06-12  Jason Merrill  <jason@redhat.com>
+
+	* c.opt (Wabi=, fabi-compat-version): New.
+	* c-opts.c (c_common_handle_option): Handle -Wabi=.
+	(c_common_post_options): Handle flag_abi_compat_version default.
+	Disallow -fabi-compat-version=1.
+	* c-common.h (abi_version_crosses): New.
+
 2014-06-11  Jan Hubicka  <hubicka@ucw.cz>
 
 	* c-family/c-common.c (handle_section_attribute): Update handling for
