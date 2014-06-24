@@ -1853,7 +1853,9 @@ void
 emit_function_name (void)
 {
   fprintf (stderr, "Module %s FuncId %u Name %s\n",
-           main_input_file_name,
+           (L_IPO_COMP_MODE
+            ? get_module_name (FUNC_DECL_MODULE_ID (cfun))
+            : main_input_file_name),
            FUNC_DECL_FUNC_ID (cfun),
            IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
 }
