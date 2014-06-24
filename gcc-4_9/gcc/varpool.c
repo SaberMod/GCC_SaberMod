@@ -315,7 +315,9 @@ ctor_for_folding (tree decl)
 	  /* The C++ front end creates VAR_DECLs for vtables of typeinfo
 	     classes not defined in the current TU so that it can refer
 	     to them from typeinfo objects.  Avoid returning NULL_TREE.  */
-	  gcc_checking_assert (!COMPLETE_TYPE_P (DECL_CONTEXT (real_decl)));
+	  /* In LIPO mode, the DECL_CONTEXT may have been cleared.  */
+	  if (!L_IPO_COMP_MODE)
+	    gcc_checking_assert (!COMPLETE_TYPE_P (DECL_CONTEXT (real_decl)));
 	  return error_mark_node;
 	}
     }
