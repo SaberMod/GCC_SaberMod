@@ -2709,6 +2709,7 @@ expand_debug_expr (tree exp)
 	{
 	case COND_EXPR:
 	case DOT_PROD_EXPR:
+	case SAD_EXPR:
 	case WIDEN_MULT_PLUS_EXPR:
 	case WIDEN_MULT_MINUS_EXPR:
 	case FMA_EXPR:
