@@ -1,3 +1,7 @@
+2014-06-25  Cong Hou  <congh@google.com>
+
+	* tree-vectorizer.h: Fixing incorrect number of patterns.
+
 2014-06-24  Cong Hou  <congh@google.com>
 
 	* tree-vect-patterns.c (vect_recog_sad_pattern): New function for SAD
