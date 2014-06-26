@@ -1,3 +1,17 @@
+2014-06-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/default_format_denormal_2.f90:  Remove xfail for
+	powerpc*-*-linux*.
+
+2014-06-23  Alan Modra  <amodra@gmail.com>
+
+	* gcc.dg/pr61583.c: New.
+
+2014-06-20  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61540
+        * g++.dg/ipa/pr61540.C: New test.
+
 2014-06-17  Yufeng Zhang  <yufeng.zhang@arm.com>
 
 	PR target/61483

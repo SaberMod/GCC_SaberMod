@@ -886,7 +886,9 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
   if (ctor == error_mark_node)
     return NULL;
 
-  flags |= LOOKUP_NO_NARROWING;
+  /* The conversions within the init-list aren't affected by the enclosing
+     context; they're always simple copy-initialization.  */
+  flags = LOOKUP_IMPLICIT|LOOKUP_NO_NARROWING;
 
   for (; field; field = next_initializable_field (DECL_CHAIN (field)))
     {
@@ -959,6 +961,8 @@ build_array_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
 	return NULL;
     }
 
+  flags = LOOKUP_IMPLICIT|LOOKUP_NO_NARROWING;
+
   FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (ctor), i, val)
     {
       conversion *sub
@@ -1002,6 +1006,8 @@ build_complex_conv (tree type, tree ctor, int flags,
 
   if (len != 2)
     return NULL;
+
+  flags = LOOKUP_IMPLICIT|LOOKUP_NO_NARROWING;
 
   FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (ctor), i, val)
     {
@@ -1994,6 +2000,9 @@ add_function_candidate (struct z_candidate **candidates,
 		     object parameter has reference type.  */
 		  bool rv = FUNCTION_RVALUE_QUALIFIED (TREE_TYPE (fn));
 		  parmtype = cp_build_reference_type (parmtype, rv);
+		  /* The special handling of 'this' conversions in compare_ics
+		     does not apply if there is a ref-qualifier.  */
+		  is_this = false;
 		}
 	      else
 		{
@@ -6760,7 +6769,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
 	  ++nargs;
 	  alcarray = XALLOCAVEC (tree, nargs);
-	  alcarray[0] = first_arg;
+	  alcarray[0] = build_this (first_arg);
 	  FOR_EACH_VEC_SAFE_ELT (args, ix, arg)
 	    alcarray[ix + 1] = arg;
 	  argarray = alcarray;
@@ -8455,10 +8464,11 @@ compare_ics (conversion *ics1, conversion *ics2)
   /* [over.ics.rank]
 
      --S1 and S2 are reference bindings (_dcl.init.ref_) and neither refers
-     to an implicit object parameter, and either S1 binds an lvalue reference
-     to an lvalue and S2 binds an rvalue reference or S1 binds an rvalue
-     reference to an rvalue and S2 binds an lvalue reference
-     (C++0x draft standard, 13.3.3.2)
+     to an implicit object parameter of a non-static member function
+     declared without a ref-qualifier, and either S1 binds an lvalue
+     reference to an lvalue and S2 binds an rvalue reference or S1 binds an
+     rvalue reference to an rvalue and S2 binds an lvalue reference (C++0x
+     draft standard, 13.3.3.2)
 
      --S1 and S2 are reference bindings (_dcl.init.ref_), and the
      types to which the references refer are the same type except for

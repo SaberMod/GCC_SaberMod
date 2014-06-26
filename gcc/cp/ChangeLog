@@ -1,3 +1,34 @@
+2014-06-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61242
+	* call.c (build_aggr_conv): Ignore passed in flags.
+	(build_array_conv, build_complex_conv): Likewise.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): For
+	#pragma omp parallel for simd move lastprivate clause from parallel
+	to for rather than simd.
+
+2014-06-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59296
+	* call.c (add_function_candidate): Avoid special 'this' handling
+	if we have a ref-qualifier.
+
+	PR c++/61556
+	* call.c (build_over_call): Call build_this in template path.
+
+2014-06-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59296
+	* call.c (add_function_candidate): Set LOOKUP_NO_RVAL_BIND
+	|LOOKUP_NO_TEMP_BIND for ref-qualifier handling.
+
+	PR c++/61507
+	* pt.c (resolve_overloaded_unification): Preserve
+	ARGUMENT_PACK_EXPLICIT_ARGS.
+
 2014-06-18  Jason Merrill  <jason@redhat.com>
 
 	PR c++/60605
