@@ -256,8 +256,6 @@ pack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
       bp_pack_value (bp, DECL_CXX_CONSTRUCTOR_P (expr), 1);
       bp_pack_value (bp, DECL_CXX_DESTRUCTOR_P (expr), 1);
     }
-  if (VAR_OR_FUNCTION_DECL_P (expr))
-    bp_pack_var_len_unsigned (bp, DECL_INIT_PRIORITY (expr));
 }
 
 
@@ -291,8 +289,6 @@ pack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, DECL_LOOPING_CONST_OR_PURE_P (expr), 1);
   if (DECL_BUILT_IN_CLASS (expr) != NOT_BUILT_IN)
     bp_pack_value (bp, DECL_FUNCTION_CODE (expr), 11);
-  if (DECL_STATIC_DESTRUCTOR (expr))
-    bp_pack_var_len_unsigned (bp, DECL_FINI_PRIORITY (expr));
 }
 
 
@@ -642,7 +638,6 @@ write_ts_decl_non_common_tree_pointers (struct output_block *ob, tree expr,
 {
   if (TREE_CODE (expr) == TYPE_DECL)
     stream_write_tree (ob, DECL_ORIGINAL_TYPE (expr), ref_p);
-  stream_write_tree (ob, DECL_VINDEX (expr), ref_p);
 }
 
 
@@ -686,6 +681,7 @@ static void
 write_ts_function_decl_tree_pointers (struct output_block *ob, tree expr,
 				      bool ref_p)
 {
+  stream_write_tree (ob, DECL_VINDEX (expr), ref_p);
   /* DECL_STRUCT_FUNCTION is handled by lto_output_function.  FIXME lto,
      maybe it should be handled here?  */
   stream_write_tree (ob, DECL_FUNCTION_PERSONALITY (expr), ref_p);

@@ -158,21 +158,22 @@ static void free_expr_hash_elt (void *);
 
 struct expr_elt_hasher
 {
-  typedef expr_hash_elt value_type;
-  typedef expr_hash_elt compare_type;
-  static inline hashval_t hash (const value_type *);
-  static inline bool equal (const value_type *, const compare_type *);
-  static inline void remove (value_type *);
+  typedef expr_hash_elt *value_type;
+  typedef expr_hash_elt *compare_type;
+  typedef int store_values_directly;
+  static inline hashval_t hash (const value_type &);
+  static inline bool equal (const value_type &, const compare_type &);
+  static inline void remove (value_type &);
 };
 
 inline hashval_t
-expr_elt_hasher::hash (const value_type *p)
+expr_elt_hasher::hash (const value_type &p)
 {
   return p->hash;
 }
 
 inline bool
-expr_elt_hasher::equal (const value_type *p1, const compare_type *p2)
+expr_elt_hasher::equal (const value_type &p1, const compare_type &p2)
 {
   gimple stmt1 = p1->stmt;
   const struct hashable_expr *expr1 = &p1->expr;
@@ -211,7 +212,7 @@ expr_elt_hasher::equal (const value_type *p1, const compare_type *p2)
 /* Delete an expr_hash_elt and reclaim its storage.  */
 
 inline void
-expr_elt_hasher::remove (value_type *element)
+expr_elt_hasher::remove (value_type &element)
 {
   free_expr_hash_elt (element);
 }
@@ -223,7 +224,7 @@ expr_elt_hasher::remove (value_type *element)
    global redundancy elimination).  Similarly as we pass through conditionals
    we record the conditional itself as having either a true or false value
    in this table.  */
-static hash_table <expr_elt_hasher> avail_exprs;
+static hash_table<expr_elt_hasher> *avail_exprs;
 
 /* Stack of dest,src pairs that need to be restored during finalization.
 
@@ -254,7 +255,8 @@ static struct opt_stats_d opt_stats;
 static void optimize_stmt (basic_block, gimple_stmt_iterator);
 static tree lookup_avail_expr (gimple, bool);
 static hashval_t avail_expr_hash (const void *);
-static void htab_statistics (FILE *, hash_table <expr_elt_hasher>);
+static void htab_statistics (FILE *,
+			     const hash_table<expr_elt_hasher> &);
 static void record_cond (cond_equivalence *);
 static void record_const_or_copy (tree, tree);
 static void record_equality (tree, tree);
@@ -876,7 +878,7 @@ pass_dominator::execute (function *fun)
   memset (&opt_stats, 0, sizeof (opt_stats));
 
   /* Create our hash tables.  */
-  avail_exprs.create (1024);
+  avail_exprs = new hash_table<expr_elt_hasher> (1024);
   avail_exprs_stack.create (20);
   const_and_copies_stack.create (20);
   need_eh_cleanup = BITMAP_ALLOC (NULL);
@@ -976,7 +978,8 @@ pass_dominator::execute (function *fun)
   loop_optimizer_finalize ();
 
   /* Delete our main hashtable.  */
-  avail_exprs.dispose ();
+  delete avail_exprs;
+  avail_exprs = NULL;
 
   /* Free asserted bitmaps and stacks.  */
   BITMAP_FREE (need_eh_cleanup);
@@ -1070,9 +1073,9 @@ remove_local_expressions_from_table (void)
           print_expr_hash_elt (dump_file, victim);
         }
 
-      slot = avail_exprs.find_slot_with_hash (victim, victim->hash, NO_INSERT);
+      slot = avail_exprs->find_slot (victim, NO_INSERT);
       gcc_assert (slot && *slot == victim);
-      avail_exprs.clear_slot (slot);
+      avail_exprs->clear_slot (slot);
     }
 }
 
@@ -1351,7 +1354,7 @@ dump_dominator_optimization_stats (FILE *file)
   fprintf (file, "\nHash table statistics:\n");
 
   fprintf (file, "    avail_exprs: ");
-  htab_statistics (file, avail_exprs);
+  htab_statistics (file, *avail_exprs);
 }
 
 
@@ -1367,7 +1370,7 @@ debug_dominator_optimization_stats (void)
 /* Dump statistics for the hash table HTAB.  */
 
 static void
-htab_statistics (FILE *file, hash_table <expr_elt_hasher> htab)
+htab_statistics (FILE *file, const hash_table<expr_elt_hasher> &htab)
 {
   fprintf (file, "size %ld, %ld elements, %f collision/search ratio\n",
 	   (long) htab.size (),
@@ -1388,7 +1391,7 @@ record_cond (cond_equivalence *p)
 
   initialize_hash_element_from_expr (&p->cond, p->value, element);
 
-  slot = avail_exprs.find_slot_with_hash (element, element->hash, INSERT);
+  slot = avail_exprs->find_slot_with_hash (element, element->hash, INSERT);
   if (*slot == NULL)
     {
       *slot = element;
@@ -2551,8 +2554,7 @@ lookup_avail_expr (gimple stmt, bool insert)
     return NULL_TREE;
 
   /* Finally try to find the expression in the main expression hash table.  */
-  slot = avail_exprs.find_slot_with_hash (&element, element.hash,
-					  (insert ? INSERT : NO_INSERT));
+  slot = avail_exprs->find_slot (&element, (insert ? INSERT : NO_INSERT));
   if (slot == NULL)
     {
       free_expr_hash_elt_contents (&element);

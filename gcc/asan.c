@@ -363,18 +363,18 @@ asan_mem_ref_hasher::equal (const asan_mem_ref *m1,
 	  && operand_equal_p (m1->start, m2->start, 0));
 }
 
-static hash_table <asan_mem_ref_hasher> asan_mem_ref_ht;
+static hash_table<asan_mem_ref_hasher> *asan_mem_ref_ht;
 
 /* Returns a reference to the hash table containing memory references.
    This function ensures that the hash table is created.  Note that
    this hash table is updated by the function
    update_mem_ref_hash_table.  */
 
-static hash_table <asan_mem_ref_hasher> &
+static hash_table<asan_mem_ref_hasher> *
 get_mem_ref_hash_table ()
 {
-  if (!asan_mem_ref_ht.is_created ())
-    asan_mem_ref_ht.create (10);
+  if (!asan_mem_ref_ht)
+    asan_mem_ref_ht = new hash_table<asan_mem_ref_hasher> (10);
 
   return asan_mem_ref_ht;
 }
@@ -384,8 +384,8 @@ get_mem_ref_hash_table ()
 static void
 empty_mem_ref_hash_table ()
 {
-  if (asan_mem_ref_ht.is_created ())
-    asan_mem_ref_ht.empty ();
+  if (asan_mem_ref_ht)
+    asan_mem_ref_ht->empty ();
 }
 
 /* Free the memory references hash table.  */
@@ -393,8 +393,8 @@ empty_mem_ref_hash_table ()
 static void
 free_mem_ref_resources ()
 {
-  if (asan_mem_ref_ht.is_created ())
-    asan_mem_ref_ht.dispose ();
+  delete asan_mem_ref_ht;
+  asan_mem_ref_ht = NULL;
 
   if (asan_mem_ref_alloc_pool)
     {
@@ -411,7 +411,7 @@ has_mem_ref_been_instrumented (tree ref, HOST_WIDE_INT access_size)
   asan_mem_ref r;
   asan_mem_ref_init (&r, ref, access_size);
 
-  return (get_mem_ref_hash_table ().find (&r) != NULL);
+  return (get_mem_ref_hash_table ()->find (&r) != NULL);
 }
 
 /* Return true iff the memory reference REF has been instrumented.  */
@@ -858,12 +858,12 @@ has_stmt_been_instrumented_p (gimple stmt)
 static void
 update_mem_ref_hash_table (tree ref, HOST_WIDE_INT access_size)
 {
-  hash_table <asan_mem_ref_hasher> ht = get_mem_ref_hash_table ();
+  hash_table<asan_mem_ref_hasher> *ht = get_mem_ref_hash_table ();
 
   asan_mem_ref r;
   asan_mem_ref_init (&r, ref, access_size);
 
-  asan_mem_ref **slot = ht.find_slot (&r, INSERT);
+  asan_mem_ref **slot = ht->find_slot (&r, INSERT);
   if (*slot == NULL)
     *slot = asan_mem_ref_new (ref, access_size);
 }
@@ -1654,6 +1654,7 @@ build_check_stmt (location_t location, tree base, tree len,
   if (size_in_bytes > 1)
     {
       if ((size_in_bytes & (size_in_bytes - 1)) != 0
+	  || !is_scalar_access
 	  || size_in_bytes > 16)
 	size_in_bytes = -1;
       else if (align && align < size_in_bytes * BITS_PER_UNIT)
@@ -2036,19 +2037,19 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 
   build_check_stmt (loc, gimple_assign_lhs (str_arg_ssa), NULL_TREE, 1, iter,
 		    /*non_zero_len_p*/true, /*before_p=*/true,
-		    /*is_store=*/false, /*is_scalar_access*/false, /*align*/0);
+		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0);
 
-  gimple stmt =
-    gimple_build_assign_with_ops (PLUS_EXPR,
-				  make_ssa_name (TREE_TYPE (len), NULL),
-				  len,
-				  build_int_cst (TREE_TYPE (len), 1));
-  gimple_set_location (stmt, loc);
-  gsi_insert_after (iter, stmt, GSI_NEW_STMT);
+  gimple g =
+    gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
+				  make_ssa_name (cptr_type, NULL),
+				  gimple_assign_lhs (str_arg_ssa),
+				  len);
+  gimple_set_location (g, loc);
+  gsi_insert_after (iter, g, GSI_NEW_STMT);
 
-  build_check_stmt (loc, gimple_assign_lhs (stmt), len, 1, iter,
+  build_check_stmt (loc, gimple_assign_lhs (g), NULL_TREE, 1, iter,
 		    /*non_zero_len_p*/true, /*before_p=*/false,
-		    /*is_store=*/false, /*is_scalar_access*/false, /*align*/0);
+		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0);
 
   return true;
 }
@@ -2761,6 +2762,9 @@ pass_sanopt::execute (function *fun)
 	      case IFN_UBSAN_NULL:
 		ubsan_expand_null_ifn (gsi);
 		break;
+	      case IFN_UBSAN_BOUNDS:
+		ubsan_expand_bounds_ifn (&gsi);
+		break;
 	      default:
 		break;
 	      }
@@ -2771,6 +2775,10 @@ pass_sanopt::execute (function *fun)
 	      print_gimple_stmt (dump_file, stmt, 0, dump_flags);
 	      fprintf (dump_file, "\n");
 	    }
+
+	  /* ubsan_expand_bounds_ifn might move us to the end of the BB.  */
+	  if (gsi_end_p (gsi))
+	    break;
 	}
     }
   return 0;

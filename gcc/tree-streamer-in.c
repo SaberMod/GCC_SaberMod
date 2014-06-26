@@ -288,12 +288,6 @@ unpack_ts_decl_with_vis_value_fields (struct bitpack_d *bp, tree expr)
       DECL_CXX_CONSTRUCTOR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
       DECL_CXX_DESTRUCTOR_P (expr) = (unsigned) bp_unpack_value (bp, 1);
     }
-  if (VAR_OR_FUNCTION_DECL_P (expr))
-    {
-      priority_type p;
-      p = (priority_type) bp_unpack_var_len_unsigned (bp);
-      SET_DECL_INIT_PRIORITY (expr, p);
-    }
 }
 
 
@@ -335,12 +329,6 @@ unpack_ts_function_decl_value_fields (struct bitpack_d *bp, tree expr)
 	  if (!result || result == error_mark_node)
 	    fatal_error ("target specific builtin not available");
 	}
-    }
-  if (DECL_STATIC_DESTRUCTOR (expr))
-    {
-      priority_type p;
-      p = (priority_type) bp_unpack_var_len_unsigned (bp);
-      SET_DECL_FINI_PRIORITY (expr, p);
     }
 }
 
@@ -738,7 +726,6 @@ lto_input_ts_decl_non_common_tree_pointers (struct lto_input_block *ib,
 {
   if (TREE_CODE (expr) == TYPE_DECL)
     DECL_ORIGINAL_TYPE (expr) = stream_read_tree (ib, data_in);
-  DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
 }
 
 
@@ -785,8 +772,8 @@ static void
 lto_input_ts_function_decl_tree_pointers (struct lto_input_block *ib,
 					  struct data_in *data_in, tree expr)
 {
-  /* DECL_STRUCT_FUNCTION is handled by lto_input_function.  FIXME lto,
-     maybe it should be handled here?  */
+  DECL_VINDEX (expr) = stream_read_tree (ib, data_in);
+  /* DECL_STRUCT_FUNCTION is loaded on demand by cgraph_get_body.  */
   DECL_FUNCTION_PERSONALITY (expr) = stream_read_tree (ib, data_in);
   /* DECL_FUNCTION_SPECIFIC_TARGET is regenerated from attributes.  */
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (expr) = stream_read_tree (ib, data_in);

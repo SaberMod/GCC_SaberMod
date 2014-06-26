@@ -138,8 +138,11 @@
 ;; Double vector modes for combines.
 (define_mode_iterator VDIC [V8QI V4HI V2SI])
 
-;; Double vector modes.
-(define_mode_iterator VD_RE [V8QI V4HI V2SI DI DF V2SF])
+;; Double vector modes, inc. V1DF and the DI "vector" mode, for VREINTERPRET.
+(define_mode_iterator VD_RE [V8QI V4HI V2SI DI V1DF V2SF])
+
+;; Double vector modes inc V1DF
+(define_mode_iterator VD1 [V8QI V4HI V2SI V2SF V1DF])
 
 ;; Vector modes except double int.
 (define_mode_iterator VDQIF [V8QI V16QI V4HI V8HI V2SI V4SI V2SF V4SF V2DF])
@@ -410,14 +413,15 @@
 			(SI   "SI") (HI   "HI")
 			(QI   "QI")])
 
-;; Define container mode for lane selection.
-(define_mode_attr VCOND [(V4HI "V4HI") (V8HI "V4HI")
+;; 64-bit container modes the inner or scalar source mode.
+(define_mode_attr VCOND [(HI "V4HI") (SI "V2SI")
+			 (V4HI "V4HI") (V8HI "V4HI")
 			 (V2SI "V2SI") (V4SI "V2SI")
 			 (DI   "DI") (V2DI "DI")
 			 (V2SF "V2SF") (V4SF "V2SF")
 			 (V2DF "DF")])
 
-;; Define container mode for lane selection.
+;; 128-bit container modes the inner or scalar source mode.
 (define_mode_attr VCONQ [(V8QI "V16QI") (V16QI "V16QI")
 			 (V4HI "V8HI") (V8HI "V8HI")
 			 (V2SI "V4SI") (V4SI "V4SI")
@@ -425,15 +429,6 @@
 			 (V2SF "V2SF") (V4SF "V4SF")
 			 (V2DF "V2DF") (SI   "V4SI")
 			 (HI   "V8HI") (QI   "V16QI")])
-
-;; Define container mode for lane selection.
-(define_mode_attr VCON [(V8QI "V16QI") (V16QI "V16QI")
-			(V4HI "V8HI") (V8HI "V8HI")
-			(V2SI "V4SI") (V4SI "V4SI")
-			(DI   "V2DI") (V2DI "V2DI")
-			(V2SF "V4SF") (V4SF "V4SF")
-			(V2DF "V2DF") (SI   "V4SI")
-			(HI   "V8HI") (QI   "V16QI")])
 
 ;; Half modes of all vector modes.
 (define_mode_attr VHALF [(V8QI "V4QI")  (V16QI "V8QI")
