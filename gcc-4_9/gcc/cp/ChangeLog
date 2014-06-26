@@ -1,3 +1,21 @@
+2014-06-26  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/61537
+	* parser.c (cp_parser_elaborated_type_specifier): Only consider template
+	parameter lists outside of function parameter scope.
+
+2014-06-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/61242
+	* call.c (build_aggr_conv): Ignore passed in flags.
+	(build_array_conv, build_complex_conv): Likewise.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): For
+	#pragma omp parallel for simd move lastprivate clause from parallel
+	to for rather than simd.
+
 2014-06-20  Jason Merrill  <jason@redhat.com>
 
 	PR c++/59296
