@@ -108,6 +108,12 @@ static size_t include_cursor;
 
 static bool parsing_done_p = false;
 
+/* Dump files/flags to use during parsing.  */
+static FILE *original_dump_file = NULL;
+static int original_dump_flags;
+static FILE *class_dump_file = NULL;
+static int class_dump_flags;
+
 /* Whether any standard preincluded header has been preincluded.  */
 static bool done_preinclude;
 
@@ -1102,6 +1108,10 @@ c_common_parse_file (void)
   for (;;)
     {
       c_finish_options ();
+      /* Open the dump files to use for the original and class dump output
+         here, to be used during parsing for the current file.  */
+      original_dump_file = dump_begin (TDI_original, &original_dump_flags);
+      class_dump_file = dump_begin (TDI_class, &class_dump_flags);
       pch_init ();
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
@@ -1129,6 +1139,16 @@ c_common_parse_file (void)
       deferred_count = 0;
       this_input_filename
 	= cpp_read_main_file (parse_in, in_fnames[i]);
+      if (original_dump_file)
+        {
+          dump_end (TDI_original, original_dump_file);
+          original_dump_file = NULL;
+        }
+      if (class_dump_file)
+        {
+          dump_end (TDI_class, class_dump_file);
+          class_dump_file = NULL;
+        }
       /* If an input file is missing, abandon further compilation.
 	 cpplib has issued a diagnostic.  */
       if (!this_input_filename)
@@ -1143,6 +1163,23 @@ bool
 is_parsing_done_p (void)
 {
   return parsing_done_p;
+}
+
+/* Returns the appropriate dump file for PHASE to dump with FLAGS.  */
+FILE *
+get_dump_info (int phase, int *flags)
+{
+  gcc_assert (phase == TDI_original || phase == TDI_class);
+  if (phase == TDI_original)
+    {
+      *flags = original_dump_flags;
+      return original_dump_file;
+    }
+  else
+    {
+      *flags = class_dump_flags;
+      return class_dump_file;
+    }
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */
