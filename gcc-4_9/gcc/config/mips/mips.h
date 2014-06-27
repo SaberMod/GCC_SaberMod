@@ -864,9 +864,9 @@ struct mips_cpu_info {
 				 || TARGET_LOONGSON_2EF)
 
 /* ISA has LDC1 and SDC1.  */
-#define ISA_HAS_LDC1_SDC1	(!ISA_MIPS1				\
+#define ISA_HAS_LDC1_SDC1	((!ISA_MIPS1				\
 				 && !TARGET_MIPS5900			\
-				 && !TARGET_MIPS16)
+				 && !TARGET_MIPS16) && TARGET_LDC1_SDC1)
 
 /* ISA has the mips4 FP condition code instructions: FP-compare to CC,
    branch on CC, and move (both FP and non-FP) on CC.  */
@@ -1178,6 +1178,7 @@ struct mips_cpu_info {
 %{mvirt} %{mno-virt} \
 %{msmartmips} %{mno-smartmips} \
 %{mmt} %{mno-mt} \
+%{mmxu} %{mno-mxu} \
 %{mfix-rm7000} %{mno-fix-rm7000} \
 %{mfix-vr4120} %{mfix-vr4130} \
 %{mfix-24k} \

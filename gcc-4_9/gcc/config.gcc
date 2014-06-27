@@ -1994,7 +1994,15 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-linux64"
-	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+	case ${target} in
+		*android*)
+			# Default to ABI_64 for MIPS64 Android
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_64"
+			;;
+		*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+			;;
+	esac
 	case ${target} in
 		mips64el-st-linux-gnu)
 			tm_file="${tm_file} mips/st.h"
@@ -2025,6 +2033,12 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 ;;
         mipsisa32*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+        esac
+	case ${target} in
+	*android*)
+		# Default to little-endian for MIPS Android
+		# tm_defines="${tm_defines} TARGET_ENDIAN_DEFAULT=0"
+		tmake_file="$tmake_file mips/t-linux-android"
         esac
 	;;
 mips*-mti-elf*)
