@@ -1310,16 +1310,9 @@ afdo_propagate_circuit (void)
 		continue;
 	      total++;
 	      only_one = ep;
-	      if (e->probability == 0 && (e->flags & EDGE_ANNOTATED) == 0)
-		{
-		  ep->probability = 0;
-		  ep->count = 0;
-		  ep->flags |= EDGE_ANNOTATED;
-		}
 	    }
 	  if (total == 1 && (only_one->flags & EDGE_ANNOTATED) == 0)
 	    {
-	      only_one->probability = e->probability;
 	      only_one->count = e->count;
 	      only_one->flags |= EDGE_ANNOTATED;
 	    }
