@@ -67,7 +67,8 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef  ASM_SPEC
 #define ASM_SPEC \
-  "--32 %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}}"
+  "--32 %{!mno-sse2avx:%{mavx:-msse2avx}} %{msse2avx:%{!mavx:-msse2avx}} " \
+  LINUX_OR_ANDROID_CC ("", ANDROID_ASM_SPEC)
 
 #undef  SUBTARGET_EXTRA_SPECS_STR
 #define SUBTARGET_EXTRA_SPECS_STR \
