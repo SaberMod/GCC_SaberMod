@@ -10122,7 +10122,7 @@ vqdmulh_n_s32 (int32x2_t a, int32_t b)
   int32x2_t result;
   __asm__ ("sqdmulh %0.2s,%1.2s,%2.s[0]"
            : "=w"(result)
-           : "w"(a), "w"(b)
+           : "w"(a), "x"(b)
            : /* No clobbers */);
   return result;
 }
@@ -10144,7 +10144,7 @@ vqdmulhq_n_s32 (int32x4_t a, int32_t b)
   int32x4_t result;
   __asm__ ("sqdmulh %0.4s,%1.4s,%2.s[0]"
            : "=w"(result)
-           : "w"(a), "w"(b)
+           : "w"(a), "x"(b)
            : /* No clobbers */);
   return result;
 }
