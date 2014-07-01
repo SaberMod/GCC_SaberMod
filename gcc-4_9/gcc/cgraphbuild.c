@@ -389,8 +389,41 @@ mark_address (gimple stmt, tree addr, tree, void *data)
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
     {
+      /* Before possibly creating a new node in cgraph_get_create_node,
+         save the current cgraph node for addr.  */
+      struct cgraph_node *first_clone = cgraph_get_node (addr);
       struct cgraph_node *node = cgraph_get_create_node (addr);
-      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done)
+      /* In LIPO mode we use the resolved node. However, there is
+         a possibility that it may not exist at this point. This
+         can happen in cases of ipa-cp, where this is a reference
+         that will eventually go away during inline_transform when we
+         invoke cgraph_redirect_edge_call_stmt_to_callee to rewrite
+         the call_stmt and skip some arguments. It is possible
+         that earlier during inline_call the references to the original
+         non-cloned resolved node were all eliminated, and it was removed.
+         However, virtual clones may stick around until inline_transform,
+         due to references in other virtual clones, at which point they
+         will all be removed. In between inline_call and inline_transform,
+         however, we will materialize clones which would rebuild references
+         and end up here upon still seeing the reference on the call.
+         Handle this by skipping the resolved node lookup when the first
+         clone was marked global.inlined_to (i.e. it is a virtual clone,
+         the original is gone).
+
+         For example, when this is called after ipa inlining for a call stmt
+         in an ipa cp clone, the call will still look like:
+            foo.isra.3 (pow, ...);
+         while the caller node actually has foo.isra.3.constprop in its
+         callee list. And the original, resolved node for pow would have
+         been eliminated during ipa inlining/virtual cloning if this was
+         the only reference leading to a call.
+
+         Later, during inline_transform, this call statement will be rewritted
+         in cgraph_redirect_edge_call_stmt_to_callee to:
+            foo.isra.3.constprop (...); // pow argument removed
+         */
+      if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done
+          && first_clone && !first_clone->global.inlined_to)
         node = cgraph_lipo_get_resolved_node (addr);
 
       cgraph_mark_address_taken_node (node);
