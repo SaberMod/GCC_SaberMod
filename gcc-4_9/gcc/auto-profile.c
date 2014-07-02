@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "is-a.h"
 #include "gimple-expr.h"
+#include "md5.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -1349,6 +1350,125 @@ afdo_propagate (void)
     }
 }
 
+/* All information parsed from a location_t that will be stored into the ELF
+   section.  */
+
+struct locus_information_t {
+  /* File name of the source file containing the branch.  */
+  const char *filename;
+  /* Line number of the branch location.  */
+  unsigned lineno;
+  /* Hash value calculated from function name, function length, branch site
+     offset and discriminator, used to uniquely identify a branch across
+     different source versions.  */
+  char hash[33];
+};
+
+/* Return true iff file and lineno are available for the provided locus.
+   Fill all fields of li with information about locus.  */
+
+static bool
+get_locus_information (location_t locus, locus_information_t* li) {
+  if (locus == UNKNOWN_LOCATION || !LOCATION_FILE (locus))
+    return false;
+  li->filename = LOCATION_FILE (locus);
+  li->lineno = LOCATION_LINE (locus);
+
+  tree block = LOCATION_BLOCK (locus);
+  inline_stack stack;
+
+  get_inline_stack (locus, &stack);
+  if (stack.empty ())
+    return false;
+
+  tree function_decl = stack[0].first;
+
+  if (!(function_decl && TREE_CODE (function_decl) == FUNCTION_DECL))
+    return false;
+
+  /* Get function_length, branch_offset and discriminator to identify branches
+     across different source versions.  */
+  unsigned function_lineno =
+    LOCATION_LINE (DECL_SOURCE_LOCATION (function_decl));
+  function *f = DECL_STRUCT_FUNCTION (function_decl);
+  unsigned function_length = f? LOCATION_LINE (f->function_end_locus) -
+	function_lineno : 0;
+  unsigned branch_offset = li->lineno - function_lineno;
+  int discriminator = get_discriminator_from_locus (locus);
+
+  const char *fn_name = fndecl_name (function_decl);
+  unsigned char md5_result[16];
+
+  md5_ctx ctx;
+
+  md5_init_ctx (&ctx);
+  md5_process_bytes (fn_name, strlen (fn_name), &ctx);
+  md5_process_bytes (&function_length, sizeof (function_length), &ctx);
+  md5_process_bytes (&branch_offset, sizeof (branch_offset), &ctx);
+  md5_process_bytes (&discriminator, sizeof (discriminator), &ctx);
+  md5_finish_ctx (&ctx, md5_result);
+
+  /* Convert MD5 to hexadecimal representation.  */
+  for (int i = 0; i < 16; ++i)
+    {
+      sprintf (li->hash + i*2, "%02x", md5_result[i]);
+    }
+
+  return true;
+}
+
+/* Record branch prediction comparison for the given edge and actual
+   probability.  */
+static void
+record_branch_prediction_results (edge e, int probability) {
+  basic_block bb = e->src;
+
+  if (bb->succs->length () == 2 &&
+      maybe_hot_count_p (cfun, bb->count) &&
+      bb->count >= check_branch_annotation_threshold)
+    {
+      gimple_stmt_iterator gsi;
+      gimple last = NULL;
+
+      for (gsi = gsi_last_nondebug_bb (bb);
+	   !gsi_end_p (gsi);
+	   gsi_prev_nondebug (&gsi))
+	{
+	  last = gsi_stmt (gsi);
+
+	  if (gimple_has_location (last))
+	    break;
+	}
+
+      struct locus_information_t li;
+      bool annotated;
+
+      if (e->flags & EDGE_PREDICTED_BY_EXPECT)
+	annotated = true;
+      else
+	annotated = false;
+
+      if (get_locus_information (e->goto_locus, &li))
+	;  /* Intentionally do nothing.  */
+      else if (get_locus_information (gimple_location (last), &li))
+	;  /* Intentionally do nothing.  */
+      else
+	return;  /* Can't get locus information, return.  */
+
+      switch_to_section (get_section (
+	  ".gnu.switches.text.branch.annotation",
+	  SECTION_DEBUG | SECTION_MERGE |
+	  SECTION_STRINGS | (SECTION_ENTSIZE & 1),
+	  NULL));
+      char buf[1024];
+      snprintf (buf, 1024, "%s;%u;"
+		HOST_WIDEST_INT_PRINT_DEC";%d;%d;%d;%s",
+		li.filename, li.lineno, bb->count, annotated?1:0,
+		probability, e->probability, li.hash);
+      dw2_asm_output_nstring (buf, (size_t)-1, NULL);
+    }
+}
+
 /* Propagate counts on control flow graph and calculate branch
    probabilities.  */
 
@@ -1388,9 +1508,22 @@ afdo_calculate_branch_prob (void)
 	}
       if (num_unknown_succ == 0 && total_count > 0)
 	{
+	  bool first_edge = true;
+
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    e->probability =
-		(double) e->count * REG_BR_PROB_BASE / total_count;
+	    {
+	      double probability =
+		  (double) e->count * REG_BR_PROB_BASE / total_count;
+
+	      if (first_edge && flag_check_branch_annotation)
+		{
+		  record_branch_prediction_results (
+		      e, static_cast<int> (probability + 0.5));
+		  first_edge = false;
+		}
+
+	      e->probability = probability;
+	    }
 	}
     }
   FOR_ALL_BB_FN (bb, cfun)
@@ -1399,8 +1532,14 @@ afdo_calculate_branch_prob (void)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	e->count =
-		(double) bb->count * e->probability / REG_BR_PROB_BASE;
+	{
+	  e->count =
+		  (double) bb->count * e->probability / REG_BR_PROB_BASE;
+	  if (flag_check_branch_annotation)
+	    {
+	      e->flags &= ~EDGE_PREDICTED_BY_EXPECT;
+	    }
+	}
       bb->aux = NULL;
     }
 
@@ -1529,9 +1668,9 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
   afdo_source_profile->mark_annotated (cfun->function_end_locus);
   if (max_count > 0)
     {
+      profile_status_for_fn (cfun) = PROFILE_READ;
       afdo_calculate_branch_prob ();
       counts_to_freqs ();
-      profile_status_for_fn (cfun) = PROFILE_READ;
     }
   if (flag_value_profile_transformations)
     gimple_value_profile_transformations ();

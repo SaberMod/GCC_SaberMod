@@ -959,6 +959,16 @@ fauto-profile-record-coverage-in-elf
 Common Report Var(flag_auto_profile_record_coverage_in_elf) Optimization
 Whether to record annotation coverage info in elf.
 
+fcheck-branch-annotation
+Common Report Var(flag_check_branch_annotation)
+Compare branch prediction result and autofdo profile information, store the
+result in a section in the generated elf file.
+
+fcheck-branch-annotation-threshold=
+Common Joined UInteger Var(check_branch_annotation_threshold) Init(100)
+The number of executions a basic block needs to reach before GCC dumps its
+branch prediction information with -fcheck-branch-annotation.
+
 ; -fcheck-bounds causes gcc to generate array bounds checks.
 ; For C, C++ and ObjC: defaults off.
 ; For Java: defaults to on.

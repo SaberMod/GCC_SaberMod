@@ -183,6 +183,9 @@ DEF_EDGE_FLAG(TM_ABORT, 16)
 /* Annotated during AutoFDO profile attribution.  */
 DEF_EDGE_FLAG(ANNOTATED, 17)
 
+/* Edge probability predicted by __builtin_expect.  */
+DEF_EDGE_FLAG(PREDICTED_BY_EXPECT, 18)
+
 #endif
 
 /*

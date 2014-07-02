@@ -1035,6 +1035,12 @@ combine_predictions_for_bb (basic_block bb)
     {
       first->probability = combined_probability;
       second->probability = REG_BR_PROB_BASE - combined_probability;
+      if (flag_check_branch_annotation && first_match &&
+	  best_predictor == PRED_BUILTIN_EXPECT)
+	{
+	  first->flags |= EDGE_PREDICTED_BY_EXPECT;
+	  second->flags |= EDGE_PREDICTED_BY_EXPECT;
+	}
     }
 }
 

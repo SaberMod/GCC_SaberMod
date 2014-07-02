@@ -363,7 +363,7 @@ Objective-C and Objective-C++ Dialects}.
 -fassociative-math -fauto-inc-dec -fbranch-probabilities @gol
 -fbranch-target-load-optimize -fbranch-target-load-optimize2 @gol
 -fbtr-bb-exclusive -fcaller-saves @gol
--fcheck-data-deps -fclone-hot-version-paths @gol
+-fcheck-branch-annotation -fcheck-data-deps -fclone-hot-version-paths @gol
 -fcombine-stack-adjustments -fconserve-stack @gol
 -fcompare-elim -fcprop-registers -fcrossjumping @gol
 -fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules @gol
@@ -8938,6 +8938,24 @@ perform a copy-propagation pass to try to reduce scheduling dependencies
 and occasionally eliminate the copy.
 
 Enabled at levels @option{-O}, @option{-O2}, @option{-O3}, @option{-Os}.
+
+@item -fauto-profile
+@itemx -fauto-profile=@var{path}
+@opindex fauto-profile
+Enable auto-profile feedback directed optimizations, and optimizations
+generally profitable only with profile feedback available.
+
+The following options are enabled: @code{-fbranch-probabilities},
+@code{-funroll-loops}, @code{-fpeel-loops}.
+
+If @var{path} is specified, GCC will look at the @var{path} to find
+the profile feedback data files. Otherwise, GCC will find fbdata.afdo
+in the current directory.
+
+@item -fcheck-branch-annotation
+@opindex -fcheck-branch-annotation
+Compare branch prediction result and autofdo profile information, store the
+result in a section in the generated elf file.
 
 @item -fprofile-correction
 @opindex fprofile-correction
