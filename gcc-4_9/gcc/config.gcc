@@ -903,19 +903,17 @@ aarch64*-*-elf)
 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
 	;;
 aarch64*-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h"
-	case $target in
-	aarch64*-*-linux-android*)
-		tm_file="${tm_file} linux-android.h"
-		extra_options="${extra_options} linux-android.opt"
-		;;
-	esac
-
+	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h  linux-android.h glibc-stdint.h"
 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-linux.h"
 	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-linux"
+
 	case $target in
 	aarch64_be-*)
 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
+		;;
+	aarch64*-*-linux-android*)
+		tm_file="${tm_file} aarch64/aarch64-linux-android.h"
+		extra_options="${extra_options} linux-android.opt"
 		;;
 	esac
 	aarch64_multilibs="${with_multilib_list}"

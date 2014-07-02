@@ -28,7 +28,6 @@
 
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
-
 #define LINUX_TARGET_LINK_SPEC  "%{h*}		\
    %{static:-Bstatic}				\
    %{shared:-shared}				\
@@ -39,53 +38,13 @@
    %{mbig-endian:-EB} %{mlittle-endian:-EL}     \
    -maarch64linux%{mbig-endian:b}"
 
-/* Android specific */
-#ifndef LINUX_OR_ANDROID_CC
-#define ANDROID_TARGET_OS_CPP_BUILTINS()
-#endif
+#define LINK_SPEC LINUX_TARGET_LINK_SPEC
 
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
 	GNU_USER_TARGET_OS_CPP_BUILTINS();	\
-	ANDROID_TARGET_OS_CPP_BUILTINS();	\
     }						\
   while (0)
-
-#define LINK_SPEC LINUX_TARGET_LINK_SPEC
-
-/* Android specific macros. Should probably be 
-   moved into android specific header file aarch64-linux-android.h
-   and include it in tm.h (see gcc/config.gcc).  */
-
-#ifdef LINUX_OR_ANDROID_CC
-
-#undef  LINK_SPEC
-#define LINK_SPEC							\
-  LINUX_OR_ANDROID_LD (LINUX_TARGET_LINK_SPEC,				\
-		       LINUX_TARGET_LINK_SPEC " " ANDROID_LINK_SPEC)
-
-#undef  CC1_SPEC
-#define CC1_SPEC							\
-  LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC,			\
-		      GNU_USER_TARGET_CC1_SPEC " " ANDROID_CC1_SPEC("-fpic"))
-
-#define CC1PLUS_SPEC \
-  LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
-
-#undef  LIB_SPEC
-#define LIB_SPEC							\
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_LIB_SPEC,			\
-		    GNU_USER_TARGET_NO_PTHREADS_LIB_SPEC " " ANDROID_LIB_SPEC)
-
-#undef	STARTFILE_SPEC
-#define STARTFILE_SPEC \
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_STARTFILE_SPEC, ANDROID_STARTFILE_SPEC)
-
-#undef	ENDFILE_SPEC
-#define ENDFILE_SPEC \
-  LINUX_OR_ANDROID_LD (GNU_USER_TARGET_ENDFILE_SPEC, ANDROID_ENDFILE_SPEC)
-
-#endif
 
 #endif  /* GCC_AARCH64_LINUX_H */
