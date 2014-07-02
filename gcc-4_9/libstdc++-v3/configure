@@ -78686,7 +78686,7 @@ $as_echo_n "checking for gthreads library... " >&6; }
 
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include "gthr.h"
+#include "gthr-$target_thread_file.h"
 int
 main ()
 {

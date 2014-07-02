@@ -923,6 +923,7 @@ enable_initfini_array
 enable_comdat
 with_glibc_version
 enable_gnu_unique_object
+enable_eh_frame_hdr_for_static
 enable_linker_build_id
 with_long_double_128
 with_gc
@@ -1642,6 +1643,9 @@ Optional Features:
   --enable-gnu-unique-object
                           enable the use of the @gnu_unique_object ELF
                           extension on glibc systems
+  --enable-eh-frame-hdr-for-static
+                          enable linker PT_GNU_EH_FRAME support for static
+                          executable
   --enable-linker-build-id
                           compiler will always pass --build-id to linker
   --enable-maintainer-mode
@@ -17977,7 +17981,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17980 "configure"
+#line 17984 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18083,7 +18087,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18086 "configure"
+#line 18090 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -21825,9 +21829,11 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_readelf=../binutils/readelf$build_exeext
 elif test -x readelf$build_exeext; then
 	gcc_cv_readelf=./readelf$build_exeext
+elif ( set dummy $READELF_FOR_TARGET; test -x $2 ); then
+        gcc_cv_readelf="$READELF_FOR_TARGET"
 else
-        # Extract the first word of "readelf", so it can be a program name with args.
-set dummy readelf; ac_word=$2
+        # Extract the first word of "$READELF_FOR_TARGET", so it can be a program name with args.
+set dummy $READELF_FOR_TARGET; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
 if test "${ac_cv_path_gcc_cv_readelf+set}" = set; then :
@@ -26841,6 +26847,38 @@ if test x"$gcc_cv_ld_eh_frame_hdr" = xyes; then
 
 $as_echo "#define HAVE_LD_EH_FRAME_HDR 1" >>confdefs.h
 
+  # Check whether --enable-eh-frame-hdr-for-static was given.
+if test "${enable_eh_frame_hdr_for_static+set}" = set; then :
+  enableval=$enable_eh_frame_hdr_for_static; case $enable_eh_frame_hdr_for_static in
+    yes | no) ;;
+    *) as_fn_error "'$enable_eh_frame_hdr_for_static' is an invalid
+value for --enable-eh-frame-hdr-for-static.
+Valid choices are 'yes' and 'no'." "$LINENO" 5 ;;
+    esac
+fi
+
+## Only support for glibc 2.3.0 or higher with AT_PHDR/AT_PHNUM from
+## Linux kernel.
+#   [[if test x$host = x$build -a x$host = x$target &&
+#       ldd --version 2>&1 >/dev/null &&
+#       glibcver=`ldd --version 2>/dev/null | sed 's/.* //;q'`; then
+#      glibcmajor=`expr "$glibcver" : "\([0-9]*\)"`
+#      glibcminor=`expr "$glibcver" : "[2-9]*\.\([0-9]*\)"`
+#      glibcnum=`expr $glibcmajor \* 1000 + $glibcminor`
+#      if test "$glibcnum" -ge 2003 ; then
+#	auvx=`LD_SHOW_AUXV=1 ldd 2>/dev/null`
+#	if echo "$auvx" | grep AT_PHDR > /dev/null &&
+#	   echo "$auvx" | grep AT_PHNUM > /dev/null; then
+#	  enable_eh_frame_hdr_for_static=yes
+#	fi
+#      fi
+#    fi]])
+
+  if test x$enable_eh_frame_hdr_for_static = xyes; then
+
+$as_echo "#define USE_EH_FRAME_HDR_FOR_STATIC 1" >>confdefs.h
+
+  fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_eh_frame_hdr" >&5
 $as_echo "$gcc_cv_ld_eh_frame_hdr" >&6; }

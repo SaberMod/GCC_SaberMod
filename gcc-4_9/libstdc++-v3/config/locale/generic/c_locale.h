@@ -63,7 +63,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     if (__old)
       { 
 #endif
-        if __builtin_strcmp(__old, "C")
+        if ((__builtin_strcmp(__old, "C"))
           {
             const size_t __len = __builtin_strlen(__old) + 1;
             __sav = new char[__len];
