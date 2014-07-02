@@ -52,6 +52,8 @@
     }						\
   while (0)
 
+#define LINK_SPEC LINUX_TARGET_LINK_SPEC
+
 /* Android specific macros. Should probably be 
    moved into android specific header file aarch64-linux-android.h
    and include it in tm.h (see gcc/config.gcc).  */
