@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "isa_rev>=1 -mgp32 -mtune=4kc" } */
+/* { dg-options "isa_rev>=1 -mgp32 -mtune=4kc forbid_cpu=mips.*r6" } */
 /* References to X within the loop need to have a higher frequency than
    references to X outside the loop, otherwise there is no reason
    to prefer multiply/accumulator registers over GPRs.  */

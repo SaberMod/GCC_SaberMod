@@ -197,6 +197,10 @@ mfp32
 Target Report RejectNegative InverseMask(FLOAT64)
 Use 32-bit floating-point registers
 
+mfpxx
+Target Report RejectNegative Mask(FLOATXX)
+Follow the O32 FPXX ABI
+
 mfp64
 Target Report RejectNegative Mask(FLOAT64)
 Use 64-bit floating-point registers
@@ -303,6 +307,10 @@ mmicromips
 Target Report Mask(MICROMIPS)
 Use microMIPS instructions
 
+mmsa
+Target Report Var(TARGET_MSA)
+Use MIPS MSA Extension instructions
+
 mmt
 Target Report Var(TARGET_MT)
 Allow the use of MT instructions
@@ -388,6 +396,10 @@ msynci
 Target Report Mask(SYNCI)
 Use synci instruction to invalidate i-cache
 
+mlra
+Target Report Var(mips_lra_flag) Init(1) Save
+Use LRA instead of reload
+
 mtune=
 Target RejectNegative Joined Var(mips_tune_option) ToLower Enum(mips_arch_opt_value)
 -mtune=PROCESSOR	Optimize the output for PROCESSOR
@@ -400,6 +412,10 @@ mvirt
 Target Report Var(TARGET_VIRT)
 Use Virtualization Application Specific instructions
 
+mxpa
+Target Report Var(TARGET_XPA)
+Use eXtended Physical Address (XPA) instructions
+
 mvr4130-align
 Target Report Mask(VR4130_ALIGN)
 Perform VR4130-specific alignment optimizations
@@ -408,5 +424,32 @@ mxgot
 Target Report Var(TARGET_XGOT)
 Lift restrictions on GOT size
 
+modd-spreg
+Target Report Mask(ODD_SPREG)
+Enable use of odd-numbered single-precision registers
+
 noasmopt
 Driver
+
+mclib=
+Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
+Specify the C library to use with this application
+newlib      Use newlib
+small       Use SmallLib
+tiny        Use SmallLib optimised for size
+
+Enum
+Name(mips_lib_setting) Type(enum mips_lib_setting)
+Known MIPS C libraries (for use with the -mclib= option):
+
+EnumValue
+Enum(mips_lib_setting) String(newlib) Value(MIPS_LIB_NEWLIB)
+
+EnumValue
+Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
+
+EnumValue
+Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
+
+msched-weight
+Target Report Var(TARGET_SCHED_WEIGHT) Undocumented

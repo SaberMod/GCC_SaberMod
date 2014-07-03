@@ -4272,6 +4272,17 @@ LCF0:
       [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
 	  [Define if your assembler supports .gnu_attribute.])])
 
+    gcc_GAS_CHECK_FEATURE([.module support],
+      gcc_cv_as_mips_module,,,
+      [.module fp=32],,
+      [AC_DEFINE(HAVE_AS_MODULE, 1,
+	  [Define if yout assembler supports .module.])])
+    if test x$gcc_cv_as_mips_module = xno \
+       && test x$with_fp != x; then
+      AC_MSG_ERROR(
+	[Requesting --with-fp= requires assembler support for .module.])
+    fi
+
     gcc_GAS_CHECK_FEATURE([.micromips support],
       gcc_cv_as_micromips_support,,[--fatal-warnings],
       [.set micromips],,

@@ -23,20 +23,23 @@ along with GCC; see the file COPYING3.  If not see
 #define GNU_USER_LINK_EMULATIONN32 "elf32%{EB:b}%{EL:l}tsmipn32"
 
 #define GLIBC_DYNAMIC_LINKER32 \
-  "%{mnan=2008:/lib/ld-linux-mipsn8.so.1;:/lib/ld.so.1}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib/ld-linux-mipsn8.so.1;:/lib/ld.so.1}"
 #define GLIBC_DYNAMIC_LINKER64 \
-  "%{mnan=2008:/lib64/ld-linux-mipsn8.so.1;:/lib64/ld.so.1}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib64/ld-linux-mipsn8.so.1;:/lib64/ld.so.1}"
 #define GLIBC_DYNAMIC_LINKERN32 \
-  "%{mnan=2008:/lib32/ld-linux-mipsn8.so.1;:/lib32/ld.so.1}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib32/ld-linux-mipsn8.so.1;:/lib32/ld.so.1}"
 
 #undef UCLIBC_DYNAMIC_LINKER32
 #define UCLIBC_DYNAMIC_LINKER32 \
-  "%{mnan=2008:/lib/ld-uClibc-mipsn8.so.0;:/lib/ld-uClibc.so.0}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib/ld-uClibc-mipsn8.so.0;" \
+  ":/lib/ld-uClibc.so.0}"
 #undef UCLIBC_DYNAMIC_LINKER64
 #define UCLIBC_DYNAMIC_LINKER64 \
-  "%{mnan=2008:/lib/ld64-uClibc-mipsn8.so.0;:/lib/ld64-uClibc.so.0}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib/ld64-uClibc-mipsn8.so.0;" \
+  ":/lib/ld64-uClibc.so.0}"
 #define UCLIBC_DYNAMIC_LINKERN32 \
-  "%{mnan=2008:/lib32/ld-uClibc-mipsn8.so.0;:/lib32/ld-uClibc.so.0}"
+  "%{mnan=2008|mips32r6|mips64r6:/lib32/ld-uClibc-mipsn8.so.0;" \
+  ":/lib32/ld-uClibc.so.0}"
 
 #define BIONIC_DYNAMIC_LINKERN32 "/system/bin/linker32"
 #define GNU_USER_DYNAMIC_LINKERN32 \

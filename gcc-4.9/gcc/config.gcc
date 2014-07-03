@@ -422,7 +422,7 @@ microblaze*-*-*)
 mips*-*-*)
 	cpu_type=mips
 	need_64bit_hwint=yes
-	extra_headers="loongson.h"
+	extra_headers="loongson.h msa.h"
 	extra_options="${extra_options} g.opt mips/mips-tables.opt"
 	;;
 nds32*)
@@ -1975,6 +1975,14 @@ mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	tm_file="elfos.h ${tm_file} mips/elf.h netbsd.h netbsd-elf.h mips/netbsd.h"
 	extra_options="${extra_options} netbsd.opt netbsd-elf.opt"
 	;;
+mips*-img-linux*)
+	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h mips/mti-linux.h"
+	extra_options="${extra_options} linux-android.opt"
+	tmake_file="${tmake_file} mips/t-img-linux"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
+	gnu_ld=yes
+	gas=yes
+	;;
 mips*-mti-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h mips/mti-linux.h"
 	extra_options="${extra_options} linux-android.opt"
@@ -1986,7 +1994,6 @@ mips*-mti-linux*)
 mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
-	tmake_file="${tmake_file} mips/t-linux64"
 	case ${target} in
 		*android*)
 			# Default to ABI_64 for MIPS64 Android
@@ -1994,6 +2001,7 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 			;;
 		*)
 			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+			tmake_file="${tmake_file} mips/t-linux64"
 			;;
 	esac
 	case ${target} in
@@ -2004,6 +2012,9 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 		mips64octeon*-*-linux*)
 			tm_defines="${tm_defines} MIPS_CPU_STRING_DEFAULT=\\\"octeon\\\""
 			target_cpu_default=MASK_SOFT_FLOAT_ABI
+			;;
+		mipsisa64r6*-*-linux*)
+			tm_defines="${tm_defines} MIPS_ISA_DEFAULT=69"
 			;;
 		mipsisa64r2*-*-linux*)
 			tm_defines="${tm_defines} MIPS_ISA_DEFAULT=65"
@@ -2021,6 +2032,9 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	fi
 	tm_file="${tm_file} mips/linux-common.h"
 	case ${target} in
+	mipsisa32r6*)
+		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37"
+		;;
         mipsisa32r2*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"
                 ;;
@@ -2038,6 +2052,11 @@ mips*-mti-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 	tmake_file="mips/t-mti-elf"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+	;;
+mips*-img-elf*)
+	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
+	tmake_file="mips/t-img-elf"
+	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
 	;;
 mips*-sde-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h"
@@ -2059,11 +2078,17 @@ mips*-sde-elf*)
 	    ;;
 	esac
 	case ${target} in
+	  mipsisa32r6*)
+	    tm_defines="MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
+	    ;;
 	  mipsisa32r2*)
 	    tm_defines="MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
 	    ;;
 	  mipsisa32*)
 	    tm_defines="MIPS_ISA_DEFAULT=32 MIPS_ABI_DEFAULT=ABI_32"
+	    ;;
+	  mipsisa64r6*)
+	    tm_defines="MIPS_ISA_DEFAULT=69 MIPS_ABI_DEFAULT=ABI_N32"
 	    ;;
 	  mipsisa64r2*)
 	    tm_defines="MIPS_ISA_DEFAULT=65 MIPS_ABI_DEFAULT=ABI_N32"
@@ -2075,16 +2100,24 @@ mips*-sde-elf*)
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \
+mipsisa32r6-*-elf* | mipsisa32r6el-*-elf* | \
 mipsisa64-*-elf* | mipsisa64el-*-elf* | \
-mipsisa64r2-*-elf* | mipsisa64r2el-*-elf*)
+mipsisa64r2-*-elf* | mipsisa64r2el-*-elf* | \
+mipsisa64r6-*-elf* | mipsisa64r6el-*-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h"
 	tmake_file="mips/t-isa3264"
 	case ${target} in
+	  mipsisa32r6*)
+	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37"
+	    ;;
 	  mipsisa32r2*)
 	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33"
 	    ;;
 	  mipsisa32*)
 	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+	    ;;
+	  mipsisa64r6*)
+	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=69"
 	    ;;
 	  mipsisa64r2*)
 	    tm_defines="${tm_defines} MIPS_ISA_DEFAULT=65"
@@ -3797,7 +3830,7 @@ case "${target}" in
 		;;
 
 	mips*-*-*)
-		supported_defaults="abi arch arch_32 arch_64 float fpu nan tune tune_32 tune_64 divide llsc mips-plt synci"
+		supported_defaults="abi arch arch_32 arch_64 float fpu nan fp_32 odd_spreg_32 tune tune_32 tune_64 divide llsc mips-plt synci"
 
 		case ${with_float} in
 		"" | soft | hard)
@@ -3825,6 +3858,32 @@ case "${target}" in
 			;;
 		*)
 			echo "Unknown NaN encoding used in --with-nan=$with_nan" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_fp_32} in
+		"" | 32 | xx | 64)
+			# OK
+			;;
+		*)
+			echo "Unknown FP mode used in --with-fp-32=$with_fp_32" 1>&2
+			exit 1
+			;;
+		esac
+
+		case ${with_odd_spreg_32} in
+		yes)
+			with_odd_spreg_32="odd-spreg"
+			;;
+		no)
+			with_odd_spreg_32="no-odd-spreg"
+			;;
+		"")
+			# OK
+			;;
+		*)
+			echo "Unknown odd-spreg-32 type used in --with-odd-spreg-32=$with_odd_spreg_32" 1>&2
 			exit 1
 			;;
 		esac
@@ -4231,7 +4290,7 @@ case ${target} in
 esac
 
 t=
-all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan divide llsc mips-plt synci tls"
+all_defaults="abi cpu cpu_32 cpu_64 arch arch_32 arch_64 tune tune_32 tune_64 schedule float mode fpu nan fp_32 odd_spreg_32 divide llsc mips-plt synci tls"
 for option in $all_defaults
 do
 	eval "val=\$with_"`echo $option | sed s/-/_/g`

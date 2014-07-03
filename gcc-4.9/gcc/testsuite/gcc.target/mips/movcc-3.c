@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "isa>=4 -mhard-float" } */
+/* { dg-options "isa>=4 -mhard-float forbid_cpu=mips.*r6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\tmovt\t" } } */
 /* { dg-final { scan-assembler "\tmovf\t" } } */
