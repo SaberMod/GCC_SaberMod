@@ -73,6 +73,10 @@ FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++98  scan-tree-dump-times optimized "VD
 FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++11  scan-tree-dump-times optimized "VDEF" 1
 FAIL: g++.dg/tree-ssa/pr53844.C -std=gnu++1y  scan-tree-dump-times optimized "VDEF" 1
 
+# Non-x86.  New test as of 2014-07-02; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61382.
+FAIL: g++.dg/cpp0x/initlist86.C -std=c++11 execution test
+FAIL: g++.dg/cpp0x/initlist86.C -std=c++1y execution test
+
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
@@ -91,6 +95,7 @@ FAIL: gfortran.dg/pr45636.f90 -O   scan-tree-dump-times forwprop2 "memset" 0
 flaky | FAIL: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -g  (test for excess errors)
 flaky | UNRESOLVED: gcc.dg/atomic/c11-atomic-exec-3.c -O3 -g  compilation failed to produce executable
 flaky | FAIL: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-loops  (test for excess errors)
+flaky | FAIL: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
 flaky | UNRESOLVED: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-loops  compilation failed to produce executable
 flaky | FAIL: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  (test for excess errors)
 flaky | UNRESOLVED: gfortran.dg/minlocval_3.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  compilation failed to produce executable
