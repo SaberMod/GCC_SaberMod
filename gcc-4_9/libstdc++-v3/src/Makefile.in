@@ -286,6 +286,7 @@ install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
 libtool_VERSION = @libtool_VERSION@
+libtool_version_info_string = @libtool_version_info_string@
 localedir = @localedir@
 localstatedir = @localstatedir@
 lt_host_flags = @lt_host_flags@
