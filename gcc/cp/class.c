@@ -6405,8 +6405,10 @@ finish_struct_1 (tree t)
 	determine_key_method (t);
 
       /* If a polymorphic class has no key method, we may emit the vtable
-	 in every translation unit where the class definition appears.  */
-      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
+	 in every translation unit where the class definition appears.  If
+	 we're devirtualizing, we can look into the vtable even if we
+	 aren't emitting it.  */
+      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE || flag_devirtualize)
 	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
     }
 
@@ -8077,12 +8079,11 @@ static void
 dump_class_hierarchy (tree t)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (stream)
     {
       dump_class_hierarchy_1 (stream, flags, t);
-      dump_end (TDI_class, stream);
     }
 }
 
@@ -8112,7 +8113,7 @@ static void
 dump_vtable (tree t, tree binfo, tree vtable)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8135,15 +8136,13 @@ dump_vtable (tree t, tree binfo, tree vtable)
       dump_array (stream, vtable);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 static void
 dump_vtt (tree t, tree vtt)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8155,8 +8154,6 @@ dump_vtt (tree t, tree vtt)
       dump_array (stream, vtt);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 /* Dump a function or thunk and its thunkees.  */

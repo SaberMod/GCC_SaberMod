@@ -1,3 +1,283 @@
+2014-07-02  Jan Hubicka  <hubicka@ucw.cz>
+	    Chen Gang <gang.chen.5i5j@gmail.com>
+
+	* gcc.c-torture/compile/section.c: New testcase.
+ 
+2014-07-02  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/29349
+	PR target/53513
+	* gcc.target/sh/fpchg.c: New test.
+
+2014-07-02  Jakub Jelinek  <jakub@redhat.com>
+	    Fritz Reese  <Reese-Fritz@zai.com>
+
+	* gfortran.dg/oldstyle_5.f: New test.
+
+2014-07-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gfortran.dg/ieee/ieee_1.F90 (dg-additional-options): Remove -O0.
+	* gfortran.dg/ieee/ieee_rounding_1.f90 (dg-additional-options): Add.
+
+2014-07-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/variadic-ex10.C: Adjust for inform instead of error.
+	* g++.dg/cpp0x/variadic-ex14.C: Likewise.
+	* g++.dg/parse/error11.C: Likewise.
+	* g++.old-deja/g++.brendan/template17.C: Likewise.
+
+2014-07-02  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.dg/coarray/get_array.f90: Add missing SYNC ALL.
+	* gfortran.dg/coarray/send_array.f90: Ditto.
+	* gfortran.dg/coarray/sendget_array.f90: Ditto.
+
+2014-07-01  James Greenhalgh  <james.greenhalgh@arm.com>
+	    Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/aarch64/aapcs64/aapcs64.exp:
+	(additional_flags_for_func_ret): New variable based on
+	$additional_flags with -fno-use-caller-save.
+	(func-ret-*.c): Use the new variable.
+
+2014-07-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59637
+	* g++.dg/cpp0x/decltype60.C: New.
+
+2014-07-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/simd/vcage_f64.c: New test.
+	* gcc.target/aarch64/simd/vcagt_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcale_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcaled_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcales_f32.c: Likewise.
+	* gcc.target/aarch64/simd/vcalt_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcaltd_f64.c: Likewise.
+	* gcc.target/aarch64/simd/vcalts_f32.c: Likewise.
+
+2014-07-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1y/pr59867.C: Fix target selector.
+
+2014-07-01  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/Wint-conversion.c: New test.
+
+2014-07-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58286
+	* gcc.dg/Wincompatible-pointer-types.c: New test.
+
+2014-06-30  David Holsgrove <david.holsgrove@xilinx.com>
+
+	* gcc/testsuite/lib/scanasm.exp (dg-function-on-line): Add
+	MicroBlaze specific pattern.
+
+2014-06-30  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/58781
+	PR c++/60249
+	PR c++/59867
+	* testsuite/g++.dg/cpp0x/pr58781.C: New.
+	* testsuite/g++.dg/cpp0x/pr60249.C: New.
+	* testsuite/g++.dg/cpp1y/pr59867.C: New.
+
+2014-06-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/round_4.f90: Skip for powerpc*-*-linux* since the
+	test requires greater precision than the current PowerPC long
+	double implementation supports.
+
+2014-06-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54891
+	* g++.dg/cpp0x/lambda/lambda-cast1.C: New.
+
+2014-06-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51400
+	* g++.dg/cpp0x/constexpr-attribute3.C: New.
+
+2014-06-30  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/61607
+	* gcc.dg/tree-ssa/pr61607.c: New test.
+
+2014-06-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/attrib-2.c: New test.
+	* g++.dg/ubsan/return-3.C: New test.
+
+2014-06-30  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/57541
+	* c-c++-common/cilk-plus/AN/pr57541.c: New case added.
+	* c-c++-common/cilk-plus/AN/pr57541-2.c: New test.
+
+2014-06-30  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* gcc.dg/ira-loop-pressure.c: New test.
+
+2014-06-29  Roman Gareev  <gareevroman@gmail.com>
+
+	* gcc.dg/graphite/isl-codegen-loop-dumping.c: New testcase that
+	checks that the dump is generated.
+
+2014-06-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/36275
+	PR fortran/38839
+	* gfortran.dg/binding_label_tests_2.f03: Adjust error messages.
+	* gfortran.dg/binding_label_tests_27.f90: New file.
+
+2014-06-29  Roman Gareev  <gareevroman@gmail.com>
+
+	* gfortran.dg/graphite/pr59586.f: New testcase.
+
+2014-06-29  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* gfortran.dg/ieee/ieee_6.f90: Allow inexact together with underflow.
+
+2014-06-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29383
+	* lib/target-supports.exp (check_effective_target_fortran_ieee):
+	New function.
+	* gfortran.dg/ieee/ieee.exp: New file.
+	* gfortran.dg/ieee/ieee_1.F90: New file.
+	* gfortran.dg/ieee/ieee_2.f90: New file.
+	* gfortran.dg/ieee/ieee_3.f90: New file.
+	* gfortran.dg/ieee/ieee_4.f90: New file.
+	* gfortran.dg/ieee/ieee_5.f90: New file.
+	* gfortran.dg/ieee/ieee_6.f90: New file.
+	* gfortran.dg/ieee/ieee_7.f90: New file.
+	* gfortran.dg/ieee/ieee_rounding_1.f90: New file.
+
+2014-06-28  Jonathan Wakely  <jwakely@redhat.com>
+
+	* g++.dg/cpp0x/elision_conv.C: New.
+
+2014-06-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/nint_2.f90: Don't XFAIL for powerpc64le-*-linux*.
+
+2014-06-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61614
+	* g++.dg/ext/complit14.C: New.
+
+2014-06-27  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-2.C: New test.
+	* g++.dg/ipa/pr61160-3.C: Likewise.
+
+2014-06-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/57233
+	PR tree-optimization/61299
+	* gcc.dg/pr57233.c: New test.
+	* gcc.target/i386/pr57233.c: New test.
+	* gcc.target/i386/sse2-pr57233.c: New test.
+	* gcc.target/i386/avx-pr57233.c: New test.
+	* gcc.target/i386/avx2-pr57233.c: New test.
+	* gcc.target/i386/avx512f-pr57233.c: New test.
+	* gcc.target/i386/xop-pr57233.c: New test.
+
+2014-06-27  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* gcc.dg/typeof-2.c: New testcase.
+
+2014-06-27  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/bounds-2.c: Adjust dg-output.
+	(fn1): Remove store to out-of-bounds location.  Add memory barrier.
+	(fn2): Likewise.
+	(fn5): Likewise.
+	(fn6): Likewise.
+	(fn7): Likewise.
+	(fn8): Likewise.
+	(fn9): Likewise.
+	(fn11): Likewise.
+	* c-c++-common/ubsan/bounds-5.c (fn1): Remove store to out-of-bounds
+	location.  Add memory barrier.
+	(fn2): Likewise.
+	(fn3): Likewise.
+	(fn4): Likewise.
+	(fn5): Likewise.
+	* c-c++-common/ubsan/bounds-7.c: New test.
+
+2014-06-26  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61499
+	gfortran.dg/arrayio_15.f90: New test.
+
+2014-06-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61586
+	* gcc.target/alpha/pr61586.c: New test.
+
+2014-06-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/57573
+	* g++.dg/template/pr57573.C: New.
+
+2014-06-26  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/tree-ssa/interposition.c: New testcase.
+
+2014-06-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56633
+	* g++.dg/cpp0x/deleted8.C: New.
+
+2014-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/simulate-thread/bitfields-2.C: Remove allow-load-data-races
+	parameter.
+	* g++.dg/simulate-thread/bitfields.C: Likewise.
+	* gcc.dg/simulate-thread/strict-align-global.c: Remove
+	allow-packed-store-data-races parameter.
+	* gcc.dg/simulate-thread/subfields.c: Likewise.
+	* gcc.dg/tree-ssa/20050314-1.c: Set parameter allow-store-data-races
+	to one.
+
+2014-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* g++.dg/ipa/pr60600.C: Fix typo.
+	* g++.dg/ipa/devirt-25.C: Likewise.
+
+2014-06-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61607
+	* gcc.dg/tree-ssa/ssa-dom-thread-5.c: New testcase.
+
+2014-06-26  Vidya Praveen  <vidyapraveen@arm.com>
+
+	* gcc.dg/inline-22.c: Add bind_pic_locally.
+	* gcc.dg/inline_4.c: Ditto.
+	* gcc.dg/fail_always_inline.c: Ditto.
+	* g++.dg/ipa/devirt-25.C: Ditto.
+
+2014-06-26  Vidya Praveen  <vidyapraveen@arm.com>
+
+	* lib/target-support.exp (bind_pic_locally): Save the flags to
+	'flags_to_postpone' instead of appending to 'flags'.
+	* lib/gcc.exp (gcc_target_compile): Append board_info's multilib_flags
+	with flags_to_postpone and revert after target_compile.
+	* lib/g++.exp (g++_target_compile): Ditto.
+	* lib/gfortran.exp (gfortran_target_compile): Ditto.
+
+2014-06-26  Nick Clifton  <nickc@redhat.com>
+
+	* lib/target-supports.exp (check_effective_target_trapping): Fix typo.
+
+2014-06-26  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/61537
+	* g++.dg/template/pr61537.C: New testcase.
+
 2014-06-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gfortran.dg/default_format_denormal_2.f90:  Remove xfail for
@@ -191,7 +471,7 @@
 	* gcc.dg/vect/no-tree-sra-bb-slp-pr50730.c: Likewise.
 	* gcc.dg/vect/pr26359.c: Likewise.
 	* gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c: Likewise.
-   
+
 2014-06-23  Marek Polacek  <polacek@redhat.com>
 
 	* c-c++-common/pr49706-2.c: New test.
@@ -200,7 +480,7 @@
 
 	* gcc.dg/pr61583.c: New.
 
-2014-06-19  Alan Lawrence  <alan.lawrence@arm.com>
+2014-06-23  Alan Lawrence  <alan.lawrence@arm.com>
 
 	* g++.dg/abi/mangle-neon-aarch64.C (f22, f23): New tests of
 	[u]int64x1_t.
@@ -246,17 +526,20 @@
 	* gcc.target/aarch64/vdup_lane_1.c, gcc.target/aarch64/vdup_lane_2.c:
 	Remove out-of-bounds tests.
 	* gcc.target/aarch64/vneg_s.c (INDEX*, RUN_TEST): Remove INDEX macro.
+	* gcc.target/aarch64/simd/ext_s64.x (main): Compare elements of vector.
+	* gcc.target/aarch64/simd/ext_u64.x (main): Likewise.
 
-2014-06-19  Alan Lawrence  <alan.lawrence@arm.com>
+2014-06-23  Alan Lawrence  <alan.lawrence@arm.com>
 
 	* g++.dg/abi/mangle-neon-aarch64.C: Also test mangling of float64x1_t.
 	* gcc.target/aarch64/aapcs/test_64x1_1.c: New test.
 	* gcc.target/aarch64/aapcs/func-ret-64x1_1.c: New test.
 	* gcc.target/aarch64/simd/ext_f64_1.c (main): Compare vector elements.
-	* gcc.target/aarch64/vadd_f64.c: Rewrite with macro to use vector types.
+	* gcc.target/aarch64/vadd_f64.c: Rewrite with macro to use
+	vector types.
 	* gcc.target/aarch64/vsub_f64.c: Likewise.
-	* gcc.target/aarch64/vdiv_f.c (INDEX*, RUN_TEST): Remove indexing scheme
-	as now the same for all variants.
+	* gcc.target/aarch64/vdiv_f.c (INDEX*, RUN_TEST): Remove indexing
+	scheme as now the same for all variants.
 	* gcc.target/aarch64/vrnd_f64_1.c (compare_f64): Return float64_t not
 	float64x1_t.
 
@@ -312,7 +595,7 @@
 2014-06-20  Martin Jambor  <mjambor@suse.cz>
 
 	PR ipa/61540
-        * g++.dg/ipa/pr61540.C: New test.
+	* g++.dg/ipa/pr61540.C: New test.
 
 2014-06-20  Yury Gribov  <y.gribov@samsung.com>
 	    Max Ostapenko  <m.ostapenko@partner.samsung.com>

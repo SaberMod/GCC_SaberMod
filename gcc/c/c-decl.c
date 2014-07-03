@@ -2575,7 +2575,14 @@ duplicate_decls (tree newdecl, tree olddecl)
 
   merge_decls (newdecl, olddecl, newtype, oldtype);
 
-  /* The NEWDECL will no longer be needed.  */
+  /* The NEWDECL will no longer be needed.
+
+     Before releasing the node, be sure to remove function from symbol
+     table that might have been inserted there to record comdat group.
+     Be sure to however do not free DECL_STRUCT_FUNCTION because this
+     structure is shared in between NEWDECL and OLDECL.  */
+  if (TREE_CODE (newdecl) == FUNCTION_DECL)
+    DECL_STRUCT_FUNCTION (newdecl) = NULL;
   if (TREE_CODE (newdecl) == FUNCTION_DECL
       || TREE_CODE (newdecl) == VAR_DECL)
     {
@@ -5505,7 +5512,11 @@ grokdeclarator (const struct c_declarator *declarator,
 		    this_size_varies = size_varies = true;
 		    warn_variable_length_array (name, size);
 		    if (flag_sanitize & SANITIZE_VLA
-		        && decl_context == NORMAL)
+		        && decl_context == NORMAL
+			&& current_function_decl != NULL_TREE
+			&& !lookup_attribute ("no_sanitize_undefined",
+					      DECL_ATTRIBUTES
+						(current_function_decl)))
 		      {
 			/* Evaluate the array size only once.  */
 			size = c_save_expr (size);

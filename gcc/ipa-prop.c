@@ -438,11 +438,15 @@ static void
 ipa_set_jf_known_type (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
 		       tree base_type, tree component_type)
 {
-  gcc_assert (TREE_CODE (component_type) == RECORD_TYPE
-	      && TYPE_BINFO (component_type));
+  /* Recording and propagating main variants increases change that types
+     will match.  */
+  base_type = TYPE_MAIN_VARIANT (base_type);
+  component_type = TYPE_MAIN_VARIANT (component_type);
+
+  gcc_assert (contains_polymorphic_type_p (base_type)
+	      && contains_polymorphic_type_p (component_type));
   if (!flag_devirtualize)
     return;
-  gcc_assert (BINFO_VTABLE (TYPE_BINFO (component_type)));
   jfunc->type = IPA_JF_KNOWN_TYPE;
   jfunc->value.known_type.offset = offset,
   jfunc->value.known_type.base_type = base_type;
@@ -529,10 +533,11 @@ ipa_set_ancestor_jf (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
 {
   if (!flag_devirtualize)
     type_preserved = false;
-  gcc_assert (!type_preserved
-	      || (TREE_CODE (type) == RECORD_TYPE
-		  && TYPE_BINFO (type)
-		  && BINFO_VTABLE (TYPE_BINFO (type))));
+  if (!type_preserved)
+    type = NULL_TREE;
+  if (type)
+    type = TYPE_MAIN_VARIANT (type);
+  gcc_assert (!type_preserved || contains_polymorphic_type_p (type));
   jfunc->type = IPA_JF_ANCESTOR;
   jfunc->value.ancestor.formal_id = formal_id;
   jfunc->value.ancestor.offset = offset;
@@ -712,7 +717,9 @@ check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
   if (stmt_may_be_vtbl_ptr_store (stmt))
     {
       tree type;
+
       type = extr_type_from_vtbl_ptr_store (stmt, tci);
+      gcc_assert (!type || TYPE_MAIN_VARIANT (type) == type);
       if (tci->type_maybe_changed
 	  && type != tci->known_current_type)
 	tci->multiple_types_encountered = true;
@@ -743,15 +750,11 @@ detect_type_change (tree arg, tree base, tree comp_type, gimple call,
   gcc_checking_assert (DECL_P (arg)
 		       || TREE_CODE (arg) == MEM_REF
 		       || handled_component_p (arg));
-  /* Const calls cannot call virtual methods through VMT and so type changes do
-     not matter.  */
-  if (!flag_devirtualize || !gimple_vuse (call)
-      /* Be sure expected_type is polymorphic.  */
-      || !comp_type
-      || TREE_CODE (comp_type) != RECORD_TYPE
-      || !TYPE_BINFO (comp_type)
-      || !BINFO_VTABLE (TYPE_BINFO (comp_type)))
-    return true;
+
+  comp_type = TYPE_MAIN_VARIANT (comp_type);
+
+  if (!flag_devirtualize)
+    return false;
 
   /* C++ methods are not allowed to change THIS pointer unless they
      are constructors or destructors.  */
@@ -764,7 +767,20 @@ detect_type_change (tree arg, tree base, tree comp_type, gimple call,
       && !DECL_CXX_DESTRUCTOR_P (current_function_decl)
       && (SSA_NAME_VAR (TREE_OPERAND (base, 0))
 	  == DECL_ARGUMENTS (current_function_decl)))
-    return false;
+    {
+      gcc_assert (comp_type);
+      return false;
+    }
+
+  /* Const calls cannot call virtual methods through VMT and so type changes do
+     not matter.  */
+  if (!flag_devirtualize || !gimple_vuse (call)
+      /* Be sure expected_type is polymorphic.  */
+      || !comp_type
+      || TREE_CODE (comp_type) != RECORD_TYPE
+      || !TYPE_BINFO (TYPE_MAIN_VARIANT (comp_type))
+      || !BINFO_VTABLE (TYPE_BINFO (TYPE_MAIN_VARIANT (comp_type))))
+    return true;
 
   ao_ref_init (&ao, arg);
   ao.base = base;
@@ -1247,8 +1263,9 @@ compute_complex_assign_jump_func (struct func_body_info *fbi,
   index = ipa_get_param_decl_index (info, SSA_NAME_VAR (ssa));
   if (index >= 0 && param_type && POINTER_TYPE_P (param_type))
     {
-      bool type_p = !detect_type_change (op1, base, TREE_TYPE (param_type),
-					 call, jfunc, offset);
+      bool type_p = (contains_polymorphic_type_p (TREE_TYPE (param_type))
+		     && !detect_type_change (op1, base, TREE_TYPE (param_type),
+					     call, jfunc, offset));
       if (type_p || jfunc->type == IPA_JF_UNKNOWN)
 	ipa_set_ancestor_jf (jfunc, offset,
 			     type_p ? TREE_TYPE (param_type) : NULL, index,
@@ -1380,7 +1397,8 @@ compute_complex_ancestor_jump_func (struct func_body_info *fbi,
     }
 
   bool type_p = false;
-  if (param_type && POINTER_TYPE_P (param_type))
+  if (param_type && POINTER_TYPE_P (param_type)
+      && contains_polymorphic_type_p (TREE_TYPE (param_type)))
     type_p = !detect_type_change (obj, expr, TREE_TYPE (param_type),
 				  call, jfunc, offset);
   if (type_p || jfunc->type == IPA_JF_UNKNOWN)
@@ -1404,12 +1422,10 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
 
   if (!flag_devirtualize
       || TREE_CODE (op) != ADDR_EXPR
-      || TREE_CODE (TREE_TYPE (TREE_TYPE (op))) != RECORD_TYPE
+      || !contains_polymorphic_type_p (TREE_TYPE (TREE_TYPE (op)))
       /* Be sure expected_type is polymorphic.  */
       || !expected_type
-      || TREE_CODE (expected_type) != RECORD_TYPE
-      || !TYPE_BINFO (expected_type)
-      || !BINFO_VTABLE (TYPE_BINFO (expected_type)))
+      || !contains_polymorphic_type_p (expected_type))
     return;
 
   op = TREE_OPERAND (op, 0);
@@ -1417,7 +1433,7 @@ compute_known_type_jump_func (tree op, struct ipa_jump_func *jfunc,
   if (!DECL_P (base)
       || max_size == -1
       || max_size != size
-      || TREE_CODE (TREE_TYPE (base)) != RECORD_TYPE
+      || !contains_polymorphic_type_p (TREE_TYPE (base))
       || is_global_var (base))
     return;
 
@@ -2673,17 +2689,11 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 
           if (dump_enabled_p ())
 	    {
-	      const char *fmt = "discovered direct call to non-function in %s/%i, "
-				"making it __builtin_unreachable\n";
-
-	      if (ie->call_stmt)
-		{
-		  location_t loc = gimple_location (ie->call_stmt);
-		  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc, fmt,
-				   ie->caller->name (), ie->caller->order);
-		}
-	      else if (dump_file)
-		fprintf (dump_file, fmt, ie->caller->name (), ie->caller->order);
+	      location_t loc = gimple_location_safe (ie->call_stmt);
+	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
+			       "discovered direct call to non-function in %s/%i, "
+			       "making it __builtin_unreachable\n",
+			       ie->caller->name (), ie->caller->order);
 	    }
 
 	  target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
@@ -2745,18 +2755,11 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
      }
   if (dump_enabled_p ())
     {
-      const char *fmt = "converting indirect call in %s to direct call to %s\n";
+      location_t loc = gimple_location_safe (ie->call_stmt);
 
-      if (ie->call_stmt)
-	{
-	  location_t loc = gimple_location (ie->call_stmt);
-
-	  dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc, fmt,
-			   ie->caller->name (), callee->name ());
-
-	}
-      else if (dump_file)
-	fprintf (dump_file, fmt, ie->caller->name (), callee->name ());
+      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
+		       "converting indirect call in %s to direct call to %s\n",
+		       ie->caller->name (), callee->name ());
     }
   ie = cgraph_make_edge_direct (ie, callee);
   es = inline_edge_summary (ie);
@@ -2915,14 +2918,14 @@ try_make_edge_direct_simple_call (struct cgraph_edge *ie,
 /* Return the target to be used in cases of impossible devirtualization.  IE
    and target (the latter can be NULL) are dumped when dumping is enabled.  */
 
-static tree
-impossible_devirt_target (struct cgraph_edge *ie, tree target)
+tree
+ipa_impossible_devirt_target (struct cgraph_edge *ie, tree target)
 {
   if (dump_file)
     {
       if (target)
 	fprintf (dump_file,
-		 "Type inconsident devirtualization: %s/%i->%s\n",
+		 "Type inconsistent devirtualization: %s/%i->%s\n",
 		 ie->caller->name (), ie->caller->order,
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
       else
@@ -2969,7 +2972,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
 		   && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_get_node (target)))
-		target = impossible_devirt_target (ie, target);
+		target = ipa_impossible_devirt_target (ie, target);
 	      return ipa_make_edge_direct_to_target (ie, target);
 	    }
 	}
@@ -2999,7 +3002,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
       if (targets.length () == 1)
 	target = targets[0]->decl;
       else
-	target = impossible_devirt_target (ie, NULL_TREE);
+	target = ipa_impossible_devirt_target (ie, NULL_TREE);
     }
   else
     {
@@ -3015,7 +3018,7 @@ try_make_edge_direct_virtual_call (struct cgraph_edge *ie,
   if (target)
     {
       if (!possible_polymorphic_call_target_p (ie, cgraph_get_node (target)))
-	target = impossible_devirt_target (ie, target);
+	target = ipa_impossible_devirt_target (ie, target);
       return ipa_make_edge_direct_to_target (ie, target);
     }
   else

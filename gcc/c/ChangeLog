@@ -1,3 +1,41 @@
+2014-07-02  Jan Hubicka  <hubicka@ucw.cz>
+	    Chen Gang <gang.chen.5i5j@gmail.com>
+
+	* c-decl.c (duplicate_decls): CLear DECL_STRUCT_FUNCTION before
+	releasing symbol.
+
+2014-07-01  Marek Polacek  <polacek@redhat.com>
+
+	* c-typeck.c (convert_for_assignment): Pass OPT_Wint_conversion
+	instead of 0 to WARN_FOR_ASSIGNMENT.
+
+2014-07-01  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58286
+	* c-typeck.c (convert_for_assignment): Pass
+	OPT_Wincompatible_pointer_types instead of 0 to WARN_FOR_ASSIGNMENT.
+
+2014-06-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-decl.c (grokdeclarator): Don't instrument VLAs if the function
+	has no_sanitize_undefined attribute.
+
+2014-06-30  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/57541
+	* c-array-notation.c (fix_builtin_array_notation_fn):
+	Check for 0 arguments in builtin call. Check that bultin argument is
+	correct.
+	* c-parser.c (c_parser_array_notation): Check for incorrect initial
+	index.
+
+2014-06-27  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* c-parser.c (c_parser_declaration_or_fndef): Discard all type
+	qualifiers in __auto_type for atomic types.
+	(c_parser_typeof_specifier): Discard all type qualifiers in
+	__typeof__ for atomic types.
+
 2014-06-25  Marek Polacek  <polacek@redhat.com>
 
 	PR c/61162

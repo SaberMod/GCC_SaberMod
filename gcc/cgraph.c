@@ -1986,6 +1986,10 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " only_called_at_exit");
   if (node->tm_clone)
     fprintf (f, " tm_clone");
+  if (DECL_STATIC_CONSTRUCTOR (node->decl))
+    fprintf (f," static_constructor (priority:%i)", node->get_init_priority ());
+  if (DECL_STATIC_DESTRUCTOR (node->decl))
+    fprintf (f," static_destructor (priority:%i)", node->get_fini_priority ());
 
   fprintf (f, "\n");
 
@@ -2194,8 +2198,7 @@ cgraph_for_node_thunks_and_aliases (struct cgraph_node *node,
 				    bool include_overwritable)
 {
   struct cgraph_edge *e;
-  int i;
-  struct ipa_ref *ref = NULL;
+  struct ipa_ref *ref;
 
   if (callback (node, data))
     return true;
@@ -2206,16 +2209,16 @@ cgraph_for_node_thunks_and_aliases (struct cgraph_node *node,
       if (cgraph_for_node_thunks_and_aliases (e->caller, callback, data,
 					      include_overwritable))
 	return true;
-  for (i = 0; node->iterate_referring (i, ref); i++)
-    if (ref->use == IPA_REF_ALIAS)
-      {
-	struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-	if (include_overwritable
-	    || cgraph_function_body_availability (alias) > AVAIL_OVERWRITABLE)
-	  if (cgraph_for_node_thunks_and_aliases (alias, callback, data,
-						  include_overwritable))
-	    return true;
-      }
+
+  FOR_EACH_ALIAS (node, ref)
+    {
+      struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      if (include_overwritable
+	  || cgraph_function_body_availability (alias) > AVAIL_OVERWRITABLE)
+	if (cgraph_for_node_thunks_and_aliases (alias, callback, data,
+						include_overwritable))
+	  return true;
+    }
   return false;
 }
 
@@ -2229,21 +2232,20 @@ cgraph_for_node_and_aliases (struct cgraph_node *node,
 			     void *data,
 			     bool include_overwritable)
 {
-  int i;
-  struct ipa_ref *ref = NULL;
+  struct ipa_ref *ref;
 
   if (callback (node, data))
     return true;
-  for (i = 0; node->iterate_referring (i, ref); i++)
-    if (ref->use == IPA_REF_ALIAS)
-      {
-	struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
-	if (include_overwritable
-	    || cgraph_function_body_availability (alias) > AVAIL_OVERWRITABLE)
-          if (cgraph_for_node_and_aliases (alias, callback, data,
-					   include_overwritable))
-	    return true;
-      }
+
+  FOR_EACH_ALIAS (node, ref)
+    {
+      struct cgraph_node *alias = dyn_cast <cgraph_node *> (ref->referring);
+      if (include_overwritable
+	  || cgraph_function_body_availability (alias) > AVAIL_OVERWRITABLE)
+	if (cgraph_for_node_and_aliases (alias, callback, data,
+					 include_overwritable))
+	  return true;
+    }
   return false;
 }
 
