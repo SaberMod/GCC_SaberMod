@@ -90,6 +90,8 @@ extern unsigned int __gcov_sampling_enabled (void);
 char *(*__gcov_dummy_ref5)(void) = &__gcov_sampling_enabled;
 extern void __gcov_flush (void);
 char *(*__gcov_dummy_ref6)(void) = &__gcov_flush;
+extern unsigned int __gcov_profiling_for_test_coverage (void);
+char *(*__gcov_dummy_ref7)(void) = &__gcov_profiling_for_test_coverage;
 
 /* Default callback function for profile instrumentation callback.  */
 __attribute__((weak)) void

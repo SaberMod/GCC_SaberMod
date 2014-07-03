@@ -220,6 +220,9 @@ static GTY(()) tree gcov_sample_counter_decl = NULL_TREE;
 /* extern gcov_unsigned_t __gcov_profile_prefix  */
 static tree GTY(()) gcov_profile_prefix_decl = NULL_TREE;
 
+/* extern gcov_unsigned_t __gcov_test_coverage  */
+static tree GTY(()) gcov_test_coverage_decl = NULL_TREE;
+
 /* extern gcov_unsigned_t __gcov_sampling_period  */
 static GTY(()) tree gcov_sampling_period_decl = NULL_TREE;
 
@@ -543,6 +546,27 @@ tree_init_instrumentation (void)
 
       DECL_INITIAL (gcov_profile_prefix_decl) = prefix_ptr;
       varpool_finalize_decl (gcov_profile_prefix_decl);
+    }
+
+  if (!gcov_test_coverage_decl)
+    {
+      /* Initialize __gcov_test_coverage to 1 if -ftest-coverage
+         specified, 0 otherwise. Used by libgcov to determine whether
+         a binary was instrumented for coverage or profile optimization.  */
+      gcov_test_coverage_decl = build_decl (
+          UNKNOWN_LOCATION,
+          VAR_DECL,
+          get_identifier ("__gcov_test_coverage"),
+          get_gcov_unsigned_t ());
+      TREE_PUBLIC (gcov_test_coverage_decl) = 1;
+      DECL_ARTIFICIAL (gcov_test_coverage_decl) = 1;
+      DECL_COMDAT_GROUP (gcov_test_coverage_decl)
+          = DECL_ASSEMBLER_NAME (gcov_test_coverage_decl);
+      TREE_STATIC (gcov_test_coverage_decl) = 1;
+      DECL_INITIAL (gcov_test_coverage_decl) = build_int_cst (
+          get_gcov_unsigned_t (),
+          flag_test_coverage ? 1 : 0);
+      varpool_finalize_decl (gcov_test_coverage_decl);
     }
 }
 

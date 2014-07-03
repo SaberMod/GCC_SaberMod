@@ -115,6 +115,20 @@ __gcov_dump (void)
   set_gcov_dump_complete ();
 }
 
+/* Emitted in coverage.c.  */
+extern gcov_unsigned_t __gcov_test_coverage;
+
+unsigned int __gcov_profiling_for_test_coverage (void);
+
+/* Function that can be called from application to distinguish binaries
+   instrumented for coverage from those instrumented for profile
+   optimization (e.g. -fprofile-generate).  */
+
+unsigned int __gcov_profiling_for_test_coverage (void)
+{
+  return __gcov_test_coverage;
+}
+
 #endif /* L_gcov_dump */
 
 #ifdef L_gcov_sampling
