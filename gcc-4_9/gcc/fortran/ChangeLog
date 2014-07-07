@@ -1,3 +1,17 @@
+2014-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61459
+	PR fortran/58883
+	* trans-expr.c (fcncall_realloc_result): Use the natural type
+	for the address expression of 'res_desc'.
+
+2014-07-07  Dominique d'Humieres <dominiq@lps.ens.fr>
+	    Mikael Morin <mikael@gcc.gnu.org>
+
+	PR fortran/41936
+	* trans-expr.c (gfc_conv_expr_reference): Deallocate array
+	components.
+
 2014-07-02  Jakub Jelinek  <jakub@redhat.com>
 	    Fritz Reese  <Reese-Fritz@zai.com>
 
@@ -541,7 +555,7 @@
 	* trans.c (trans_code): Handle EXEC_OMP_CANCEL,
 	EXEC_OMP_CANCELLATION_POINT, EXEC_OMP_DO_SIMD,
 	EXEC_OMP_PARALLEL_DO_SIMD, EXEC_OMP_SIMD and EXEC_OMP_TASKGROUP.
-	* resolve.c (gfc_resolve_blocks): Handle EXEC_OMP_DO_SIMD,  
+	* resolve.c (gfc_resolve_blocks): Handle EXEC_OMP_DO_SIMD,
 	EXEC_OMP_PARALLEL_DO_SIMD, EXEC_OMP_SIMD and EXEC_OMP_TASKGROUP.
 	(resolve_code): Handle EXEC_OMP_CANCEL,
 	EXEC_OMP_CANCELLATION_POINT, EXEC_OMP_DO_SIMD,
