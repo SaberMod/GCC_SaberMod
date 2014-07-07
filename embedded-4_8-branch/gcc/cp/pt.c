@@ -4308,7 +4308,8 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
      in the template-parameter-list of the definition of a member of a
      class template.  */
 
-  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL)
+  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL
+      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_LOCAL_FUNCTION_P (decl)))
     /* You can't have a function template declaration in a local
        scope, nor you can you define a member of a class template in a
        local scope.  */
@@ -14934,7 +14935,7 @@ pack_deducible_p (tree parm, tree fn)
 	continue;
       for (packs = PACK_EXPANSION_PARAMETER_PACKS (type);
 	   packs; packs = TREE_CHAIN (packs))
-	if (TREE_VALUE (packs) == parm)
+	if (template_args_equal (TREE_VALUE (packs), parm))
 	  {
 	    /* The template parameter pack is used in a function parameter
 	       pack.  If this is the end of the parameter list, the
@@ -15502,8 +15503,9 @@ unify_one_argument (tree tparms, tree targs, tree parm, tree arg,
 	maybe_adjust_types_for_deduction (strict, &parm, &arg, arg_expr);
     }
   else
-    gcc_assert ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
-		== (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL));
+    if ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
+	!= (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL))
+      return unify_template_argument_mismatch (explain_p, parm, arg);
 
   /* For deduction from an init-list we need the actual list.  */
   if (arg_expr && BRACE_ENCLOSED_INITIALIZER_P (arg_expr))
@@ -20009,7 +20011,12 @@ type_dependent_expression_p (tree expression)
 	return true;
 
       if (BASELINK_P (expression))
-	expression = BASELINK_FUNCTIONS (expression);
+	{
+	  if (BASELINK_OPTYPE (expression)
+	      && dependent_type_p (BASELINK_OPTYPE (expression)))
+	    return true;
+	  expression = BASELINK_FUNCTIONS (expression);
+	}
 
       if (TREE_CODE (expression) == TEMPLATE_ID_EXPR)
 	{
