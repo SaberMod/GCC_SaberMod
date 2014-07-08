@@ -46,6 +46,8 @@ fixed_point = @fixed_point@
 host_noncanonical = @host_noncanonical@
 target_noncanonical = @target_noncanonical@
 
+is_android = @is_android@
+
 # List of extra object files that should be compiled for this target machine.
 # The rules for compiling them should be in the t-* file for the machine.
 ifeq ($(enable_vtable_verify),yes)
@@ -343,11 +345,23 @@ LIBUNWIND =
 SHLIBUNWIND_LINK =
 SHLIBUNWIND_INSTALL =
 
+ifeq ($(is_android),yes)
+ifneq ($(enable_shared),yes)
+# Some prebuilt libraries for Android link libc.so before libgcc.a, and they
+# rely on libgcc.a to provide those symbols with default visibility to resolve
+# them eventually. The linker order has been fixed in JB maintain releases but
+# may take a while to trickle down to partners to refresh their prebuilt
+# libraries. Therefore we need to maintain the same visibility as older GCC
+# for now.
+vis_hide =
+endif
+else
 # For -fvisibility=hidden.  We need both a -fvisibility=hidden on
 # the command line, and a #define to prevent libgcc2.h etc from
 # overriding that with #pragmas.  This is set before including $(tmake_file)
 # so it can be overridden on a host-specific basis.
 vis_hide = @vis_hide@
+endif
 
 tmake_file = @tmake_file@
 include $(srcdir)/empty.mk $(tmake_file)
