@@ -238,6 +238,10 @@ LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
 		 -fbuilding-libgcc -fno-stack-protector \
 		 $(INHIBIT_LIBC_CFLAGS)
 
+ifeq ($(is_android),yes)
+LIBGCC2_CFLAGS += -funwind-tables
+endif
+
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
 LIBGCC2_INCLUDES =
