@@ -125,9 +125,6 @@ static int last_linenum;
 /* Last discriminator written to assembly.  */
 static int last_discriminator;
 
-/* Discriminator of current block.  */
-static int discriminator;
-
 /* Highest line number in current block.  */
 static int high_block_linenum;
 
@@ -137,9 +134,10 @@ static int high_function_linenum;
 /* Filename of last NOTE.  */
 static const char *last_filename;
 
-/* Override filename and line number.  */
+/* Override filename, line number, and discriminator.  */
 static const char *override_filename;
 static int override_linenum;
+static int override_discriminator;
 
 /* Whether to force emission of a line note before the next insn.  */
 static bool force_source_line = false;
@@ -1738,7 +1736,7 @@ final_start_function (rtx first, FILE *file,
 
   last_filename = LOCATION_FILE (prologue_location);
   last_linenum = LOCATION_LINE (prologue_location);
-  last_discriminator = discriminator = 0;
+  last_discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
 
@@ -2194,8 +2192,6 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 	  if (targetm.asm_out.unwind_emit)
 	    targetm.asm_out.unwind_emit (asm_out_file, insn);
 
-          discriminator = NOTE_BASIC_BLOCK (insn)->discriminator;
-
 	  break;
 
 	case NOTE_INSN_EH_REGION_BEG:
@@ -2288,6 +2284,8 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		{
 		  override_filename = LOCATION_FILE (*locus_ptr);
 		  override_linenum = LOCATION_LINE (*locus_ptr);
+		  override_discriminator =
+		      get_discriminator_from_locus (*locus_ptr);
 		}
 	    }
 	  break;
@@ -2321,11 +2319,14 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
 		{
 		  override_filename = LOCATION_FILE (*locus_ptr);
 		  override_linenum = LOCATION_LINE (*locus_ptr);
+		  override_discriminator =
+		      get_discriminator_from_locus (*locus_ptr);
 		}
 	      else
 		{
 		  override_filename = NULL;
 		  override_linenum = 0;
+		  override_discriminator = 0;
 		}
 	    }
 	  break;
@@ -3008,6 +3009,17 @@ final_scan_insn (rtx insn, FILE *file, int optimize_p ATTRIBUTE_UNUSED,
     }
   return NEXT_INSN (insn);
 }
+
+/* Return discriminator of the statement that produced this insn.  */
+int
+insn_discriminator (const_rtx insn)
+{
+  location_t loc = INSN_LOCATION (insn);
+  if (!loc)
+    return 0;
+  return get_discriminator_from_locus (loc);
+}
+
 
 /* Return whether a source line note needs to be emitted before INSN.
    Sets IS_STMT to TRUE if the line should be marked as a possible
@@ -3018,16 +3030,19 @@ notice_source_line (rtx insn, bool *is_stmt)
 {
   const char *filename;
   int linenum;
+  int discriminator;
 
   if (override_filename)
     {
       filename = override_filename;
       linenum = override_linenum;
+      discriminator = override_discriminator;
     }
   else
     {
       filename = insn_file (insn);
       linenum = insn_line (insn);
+      discriminator = insn_discriminator (insn);
     }
 
   if (filename == NULL)

@@ -108,6 +108,12 @@ static size_t include_cursor;
 
 static bool parsing_done_p = false;
 
+/* Dump files/flags to use during parsing.  */
+static FILE *original_dump_file = NULL;
+static int original_dump_flags;
+static FILE *class_dump_file = NULL;
+static int class_dump_flags;
+
 /* Whether any standard preincluded header has been preincluded.  */
 static bool done_preinclude;
 
@@ -863,6 +869,12 @@ c_common_post_options (const char **pfilename)
   if (flag_objc_exceptions && !flag_objc_sjlj_exceptions)
     flag_exceptions = 1;
 
+  /* If -ffreestanding, -fno-hosted or -fno-builtin then disable
+     pattern recognition.  */
+  if (!global_options_set.x_flag_tree_loop_distribute_patterns
+      && flag_no_builtin)
+    flag_tree_loop_distribute_patterns = 0;
+
   /* -Woverlength-strings is off by default, but is enabled by -Wpedantic.
      It is never enabled in C++, as the minimum limit is not normative
      in that standard.  */
@@ -1096,12 +1108,20 @@ c_common_parse_file (void)
   for (;;)
     {
       c_finish_options ();
-      if (flag_record_gcc_switches_in_elf && i == 0)
-	write_opts_to_asm ();
+      /* Open the dump files to use for the original and class dump output
+         here, to be used during parsing for the current file.  */
+      original_dump_file = dump_begin (TDI_original, &original_dump_flags);
+      class_dump_file = dump_begin (TDI_class, &class_dump_flags);
       pch_init ();
       set_lipo_c_parsing_context (parse_in, i, verbose);
       push_file_scope ();
       c_parse_file ();
+      if (i == 0 && flag_record_compilation_info_in_elf)
+        write_compilation_flags_to_asm ();
+
+      if (i == 0)
+	ggc_total_memory = (ggc_total_allocated () >> 10);
+
       /* In lipo mode, processing too many auxiliary files will cause us
 	 to hit memory limits, and cause thrashing -- prevent this by not
 	 processing any further auxiliary modules if we reach a certain
@@ -1119,12 +1139,21 @@ c_common_parse_file (void)
       deferred_count = 0;
       this_input_filename
 	= cpp_read_main_file (parse_in, in_fnames[i]);
+      if (original_dump_file)
+        {
+          dump_end (TDI_original, original_dump_file);
+          original_dump_file = NULL;
+        }
+      if (class_dump_file)
+        {
+          dump_end (TDI_class, class_dump_file);
+          class_dump_file = NULL;
+        }
       /* If an input file is missing, abandon further compilation.
 	 cpplib has issued a diagnostic.  */
       if (!this_input_filename)
 	break;
     }
-    ggc_total_memory = (ggc_total_allocated () >> 10);
     parsing_done_p = true;
 }
 
@@ -1134,6 +1163,23 @@ bool
 is_parsing_done_p (void)
 {
   return parsing_done_p;
+}
+
+/* Returns the appropriate dump file for PHASE to dump with FLAGS.  */
+FILE *
+get_dump_info (int phase, int *flags)
+{
+  gcc_assert (phase == TDI_original || phase == TDI_class);
+  if (phase == TDI_original)
+    {
+      *flags = original_dump_flags;
+      return original_dump_file;
+    }
+  else
+    {
+      *flags = class_dump_flags;
+      return class_dump_file;
+    }
 }
 
 /* Common finish hook for the C, ObjC and C++ front ends.  */

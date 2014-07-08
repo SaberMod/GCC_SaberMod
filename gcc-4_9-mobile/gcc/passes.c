@@ -1962,7 +1962,6 @@ verify_curr_properties (void *data)
 bool
 pass_init_dump_file (opt_pass *pass)
 {
-  pass->graph_dump_initialized = false;
   /* If a dump file name is present, open it if enabled.  */
   if (pass->static_pass_number != -1)
     {

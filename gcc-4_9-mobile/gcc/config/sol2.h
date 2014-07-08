@@ -183,12 +183,21 @@ along with GCC; see the file COPYING3.  If not see
 #define LINK_LIBGCC_MAPFILE_SPEC ""
 #endif
 
+/* Clear hardware capabilities, either explicitly or with OpenMP:
+   #pragma openmp declare simd creates clones for SSE2, AVX, and AVX2.  */
+#ifdef HAVE_LD_CLEARCAP
+#define LINK_CLEARCAP_SPEC " %{mclear-hwcap|fopenmp*:-M %sclearcap.map}"
+#else
+#define LINK_CLEARCAP_SPEC ""
+#endif
+
 #undef  LINK_SPEC
 #define LINK_SPEC \
   "%{h*} %{v:-V} \
    %{!shared:%{!static:%{rdynamic: " RDYNAMIC_SPEC "}}} \
    %{static:-dn -Bstatic} \
-   %{shared:-G -dy %{!mimpure-text:-z text}} " LINK_LIBGCC_MAPFILE_SPEC " \
+   %{shared:-G -dy %{!mimpure-text:-z text}} " \
+   LINK_LIBGCC_MAPFILE_SPEC LINK_CLEARCAP_SPEC " \
    %{symbolic:-Bsymbolic -G -dy -z text} \
    %(link_arch) \
    %{Qy:} %{!Qn:-Qy}"
@@ -202,7 +211,11 @@ along with GCC; see the file COPYING3.  If not see
 /* Solaris 11 build 135+ implements dl_iterate_phdr.  GNU ld needs
    --eh-frame-hdr to create the required .eh_frame_hdr sections.  */
 #if defined(HAVE_LD_EH_FRAME_HDR) && defined(TARGET_DL_ITERATE_PHDR)
+#ifdef USE_EH_FRAME_HDR_FOR_STATIC
+#define LINK_EH_SPEC "--eh-frame-hdr "
+#else
 #define LINK_EH_SPEC "%{!static:--eh-frame-hdr} "
+#endif
 #endif /* HAVE_LD_EH_FRAME && TARGET_DL_ITERATE_PHDR */
 #endif
 

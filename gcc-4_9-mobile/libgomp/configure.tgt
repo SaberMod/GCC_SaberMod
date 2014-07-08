@@ -18,7 +18,8 @@ if test $gcc_cv_have_tls = yes ; then
 	;;
 
     *-*-linux* | *-*-gnu*)
-	XCFLAGS="${XCFLAGS} -ftls-model=initial-exec"
+	# Google ref b/15780253; b/6368405
+	# XCFLAGS="${XCFLAGS} -ftls-model=initial-exec"
 	;;
   esac
 fi

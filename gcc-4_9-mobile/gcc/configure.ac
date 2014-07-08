@@ -2253,8 +2253,10 @@ if test -f $gcc_cv_binutils_srcdir/configure.in \
 	gcc_cv_readelf=../binutils/readelf$build_exeext
 elif test -x readelf$build_exeext; then
 	gcc_cv_readelf=./readelf$build_exeext
+elif ( set dummy $READELF_FOR_TARGET; test -x $[2] ); then
+        gcc_cv_readelf="$READELF_FOR_TARGET"
 else
-        AC_PATH_PROG(gcc_cv_readelf, readelf)
+        AC_PATH_PROG(gcc_cv_readelf, $READELF_FOR_TARGET)
 fi])
 
 AC_MSG_CHECKING(what readelf to use)
@@ -4585,6 +4587,36 @@ GCC_TARGET_TEMPLATE([HAVE_LD_EH_FRAME_HDR])
 if test x"$gcc_cv_ld_eh_frame_hdr" = xyes; then
 	AC_DEFINE(HAVE_LD_EH_FRAME_HDR, 1,
 [Define if your linker supports .eh_frame_hdr.])
+  AC_ARG_ENABLE(eh-frame-hdr-for-static,
+   [AS_HELP_STRING([--enable-eh-frame-hdr-for-static],
+     [enable linker PT_GNU_EH_FRAME support for static executable])],
+   [case $enable_eh_frame_hdr_for_static in
+    yes | no) ;;
+    *) AC_MSG_ERROR(['$enable_eh_frame_hdr_for_static' is an invalid
+value for --enable-eh-frame-hdr-for-static.
+Valid choices are 'yes' and 'no'.]) ;;
+    esac])
+## Only support for glibc 2.3.0 or higher with AT_PHDR/AT_PHNUM from
+## Linux kernel.
+#   [[if test x$host = x$build -a x$host = x$target &&
+#       ldd --version 2>&1 >/dev/null &&
+#       glibcver=`ldd --version 2>/dev/null | sed 's/.* //;q'`; then
+#      glibcmajor=`expr "$glibcver" : "\([0-9]*\)"`
+#      glibcminor=`expr "$glibcver" : "[2-9]*\.\([0-9]*\)"`
+#      glibcnum=`expr $glibcmajor \* 1000 + $glibcminor`
+#      if test "$glibcnum" -ge 2003 ; then
+#	auvx=`LD_SHOW_AUXV=1 ldd 2>/dev/null`
+#	if echo "$auvx" | grep AT_PHDR > /dev/null &&
+#	   echo "$auvx" | grep AT_PHNUM > /dev/null; then
+#	  enable_eh_frame_hdr_for_static=yes
+#	fi
+#      fi
+#    fi]])
+
+  if test x$enable_eh_frame_hdr_for_static = xyes; then
+    AC_DEFINE(USE_EH_FRAME_HDR_FOR_STATIC, 1,
+[Define if your system supports PT_GNU_EH_FRAME for static executable.])
+  fi
 fi
 AC_MSG_RESULT($gcc_cv_ld_eh_frame_hdr)
 
@@ -4824,6 +4856,21 @@ if test x"$gcc_cv_ld_as_needed" = xyes; then
 	AC_DEFINE_UNQUOTED(LD_NO_AS_NEEDED_OPTION, "$gcc_cv_ld_no_as_needed_option",
 [Define to the linker option to keep unused dependencies.])
 fi
+
+AC_MSG_CHECKING(linker mapfile support for clearing hardware capabilities)
+saved_LDFLAGS="$LDFLAGS"
+for clearcap_map in sol2-clearcapv2.map sol2-clearcap.map; do
+  LDFLAGS="$saved_LDFLAGS -Wl,-M,${srcdir}/config/$clearcap_map"
+  AC_LINK_IFELSE([int main(void) {return 0;}],
+    [gcc_cv_ld_clearcap=yes; break], [gcc_cv_ld_clearcap=no])
+done
+LDFLAGS="$saved_LDFLAGS"
+if test "x$gcc_cv_ld_clearcap" = xyes; then
+  AC_DEFINE([HAVE_LD_CLEARCAP], 1,
+[Define if the linker supports clearing hardware capabilities via mapfile.])
+  AC_CONFIG_LINKS([clearcap.map:${srcdir}/config/$clearcap_map])
+fi
+AC_MSG_RESULT($gcc_cv_ld_clearcap)
 
 case "$target:$tm_file" in
   powerpc64-*-freebsd* | powerpc64*-*-linux* | powerpc*-*-linux*rs6000/biarch64.h*)

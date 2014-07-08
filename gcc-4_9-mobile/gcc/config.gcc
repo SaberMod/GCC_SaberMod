@@ -376,7 +376,7 @@ i[34567]86-*-*)
 		       rtmintrin.h xtestintrin.h rdseedintrin.h prfchwintrin.h
 		       adxintrin.h fxsrintrin.h xsaveintrin.h xsaveoptintrin.h
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
-		       shaintrin.h"
+		       shaintrin.h arm_neon.h"
 	;;
 x86_64-*-*)
 	cpu_type=i386
@@ -393,7 +393,7 @@ x86_64-*-*)
 		       rtmintrin.h xtestintrin.h rdseedintrin.h prfchwintrin.h
 		       adxintrin.h fxsrintrin.h xsaveintrin.h xsaveoptintrin.h
 		       avx512cdintrin.h avx512erintrin.h avx512pfintrin.h
-		       shaintrin.h"
+		       shaintrin.h arm_neon.h"
 	need_64bit_hwint=yes
 	;;
 ia64-*-*)
@@ -903,12 +903,17 @@ aarch64*-*-elf)
 	TM_MULTILIB_CONFIG=`echo $TM_MULTILIB_CONFIG | sed 's/^,//'`
 	;;
 aarch64*-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h glibc-stdint.h"
+	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h  linux-android.h glibc-stdint.h"
 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-linux.h"
 	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-linux"
+
 	case $target in
 	aarch64_be-*)
 		tm_defines="${tm_defines} TARGET_BIG_ENDIAN_DEFAULT=1"
+		;;
+	aarch64*-*-linux-android*)
+		tm_file="${tm_file} aarch64/aarch64-linux-android.h"
+		extra_options="${extra_options} linux-android.opt"
 		;;
 	esac
 	aarch64_multilibs="${with_multilib_list}"
@@ -1021,7 +1026,7 @@ arm*-*-linux-*)			# ARM GNU/Linux with ELF
 	    ;;
 	esac
 	tmake_file="${tmake_file} arm/t-arm arm/t-arm-elf arm/t-bpabi arm/t-linux-eabi"
-	tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h arm/aout.h arm/arm.h"
+	tm_file="$tm_file arm/bpabi.h arm/linux-eabi.h arm/aout.h vxworks-dummy.h arm/arm.h"
 	# Define multilib configuration for arm-linux-androideabi.
 	case ${target} in
 	arm*-*-linux-*eabi)
@@ -1994,7 +1999,15 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-linux64"
-	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+	case ${target} in
+		*android*)
+			# Default to ABI_64 for MIPS64 Android
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_64"
+			;;
+		*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+			;;
+	esac
 	case ${target} in
 		mips64el-st-linux-gnu)
 			tm_file="${tm_file} mips/st.h"
@@ -2025,6 +2038,12 @@ mips*-*-linux*)				# Linux MIPS, either endian.
                 ;;
         mipsisa32*)
 		tm_defines="${tm_defines} MIPS_ISA_DEFAULT=32"
+        esac
+	case ${target} in
+	*android*)
+		# Default to little-endian for MIPS Android
+		# tm_defines="${tm_defines} TARGET_ENDIAN_DEFAULT=0"
+		tmake_file="$tmake_file mips/t-linux-android"
         esac
 	;;
 mips*-mti-elf*)

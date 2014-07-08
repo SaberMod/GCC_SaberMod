@@ -1260,6 +1260,13 @@
 #endif
 
 
+/* Define if the linker supports clearing hardware capabilities via mapfile.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_CLEARCAP
+#endif
+
+
 /* Define if your linker supports --demangle option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_DEMANGLE
@@ -1880,6 +1887,12 @@
    DLL exports wrappers to support libstdc++ function replacement. */
 #ifndef USED_FOR_TARGET
 #undef USE_CYGWIN_LIBSTDCXX_WRAPPERS
+#endif
+
+
+/* Define if your system supports PT_GNU_EH_FRAME for static executable. */
+#ifndef USED_FOR_TARGET
+#undef USE_EH_FRAME_HDR_FOR_STATIC
 #endif
 
 

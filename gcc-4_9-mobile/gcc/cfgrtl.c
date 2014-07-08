@@ -2480,7 +2480,9 @@ rtl_verify_edges (void)
 			    | EDGE_IRREDUCIBLE_LOOP
 			    | EDGE_LOOP_EXIT
 			    | EDGE_CROSSING
-			    | EDGE_PRESERVE)) == 0)
+			    | EDGE_PRESERVE
+			    | EDGE_ANNOTATED
+			    | EDGE_PREDICTED_BY_EXPECT)) == 0)
 	    n_branch++;
 
 	  if (e->flags & EDGE_ABNORMAL_CALL)

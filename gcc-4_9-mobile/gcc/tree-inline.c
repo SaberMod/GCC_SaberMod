@@ -1487,6 +1487,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
       /* Create a new deep copy of the statement.  */
       copy = gimple_copy (stmt);
 
+      /* Clear flags that need revisiting.  */
+      if (is_gimple_call (copy)
+	  && gimple_call_tail_p (copy))
+	gimple_call_set_tail (copy, false);
+
       /* Remap the region numbers for __builtin_eh_{pointer,filter},
 	 RESX and EH_DISPATCH.  */
       if (id->eh_map)
@@ -1981,9 +1986,11 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb,
 	edge new_edge;
 
 	flags = old_edge->flags;
+	flags &= (~EDGE_ANNOTATED);
 
 	/* Return edges do get a FALLTHRU flag when the get inlined.  */
-	if (old_edge->dest->index == EXIT_BLOCK && !old_edge->flags
+	if (old_edge->dest->index == EXIT_BLOCK
+	    && !(old_edge->flags & (EDGE_TRUE_VALUE|EDGE_FALSE_VALUE|EDGE_FAKE))
 	    && old_edge->dest->aux != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	  flags |= EDGE_FALLTHRU;
 	new_edge = make_edge (new_bb, (basic_block) old_edge->dest->aux, flags);
@@ -2643,8 +2650,20 @@ copy_debug_stmt (gimple stmt, copy_body_data *id)
       gimple_debug_bind_set_var (stmt, t);
 
       if (gimple_debug_bind_has_value_p (stmt))
-	walk_tree (gimple_debug_bind_get_value_ptr (stmt),
-		   remap_gimple_op_r, &wi, NULL);
+        {
+          tree v = gimple_debug_bind_get_value (stmt);
+          if (TREE_CODE (v) == ADDR_EXPR)
+            v = TREE_OPERAND (v, 0);
+
+          /* The global var may be deleted  */
+          if (L_IPO_COMP_MODE &&
+              ((TREE_CODE (v) != VAR_DECL)
+               || is_global_var (v)))
+            processing_debug_stmt = -1;
+          else
+            walk_tree (gimple_debug_bind_get_value_ptr (stmt),
+                       remap_gimple_op_r, &wi, NULL);
+        }
 
       /* Punt if any decl couldn't be remapped.  */
       if (processing_debug_stmt < 0)
@@ -3698,6 +3717,7 @@ estimate_operator_cost (enum tree_code code, eni_weights *weights,
     case WIDEN_SUM_EXPR:
     case WIDEN_MULT_EXPR:
     case DOT_PROD_EXPR:
+    case SAD_EXPR:
     case WIDEN_MULT_PLUS_EXPR:
     case WIDEN_MULT_MINUS_EXPR:
     case WIDEN_LSHIFT_EXPR:
@@ -4368,7 +4388,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
      function in any way before this point, as this CALL_EXPR may be
      a self-referential call; if we're calling ourselves, we need to
      duplicate our body before altering anything.  */
-  copy_body (id, bb->count,
+  copy_body (id, cg_edge->callee->count,
   	     GCOV_COMPUTE_SCALE (cg_edge->frequency, CGRAPH_FREQ_BASE),
 	     bb, return_block, NULL);
 

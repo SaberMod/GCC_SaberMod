@@ -92,10 +92,15 @@
 #define CC1_SPEC							\
   LINUX_OR_ANDROID_CC (GNU_USER_TARGET_CC1_SPEC " " ASAN_CC1_SPEC,	\
 		       GNU_USER_TARGET_CC1_SPEC " " ASAN_CC1_SPEC " "	\
-		       ANDROID_CC1_SPEC)
+		       ANDROID_CC1_SPEC("-fpic"))
 
 #define CC1PLUS_SPEC \
   LINUX_OR_ANDROID_CC ("", ANDROID_CC1PLUS_SPEC)
+
+#undef ASM_SPEC
+#define ASM_SPEC \
+  LINUX_OR_ANDROID_CC (DEFAULT_ASM_SPEC, \
+                       DEFAULT_ASM_SPEC  " " ANDROID_ASM_SPEC)
 
 #undef  LIB_SPEC
 #define LIB_SPEC							\

@@ -186,12 +186,21 @@ clone_inlined_nodes (struct cgraph_edge *e, bool duplicate,
       else
 	{
 	  struct cgraph_node *n;
-
+	  if (flag_auto_profile && L_IPO_COMP_MODE
+	      && cgraph_pre_profiling_inlining_done)
+	    {
+	      struct cgraph_node *caller = e->caller;
+	      if (caller->global.inlined_to)
+		caller = caller->global.inlined_to;
+	      if (cgraph_lipo_get_resolved_node (caller->decl) != caller)
+		update_original = false;
+	    }
 	  if (freq_scale == -1)
 	    freq_scale = e->frequency;
 	  n = cgraph_clone_node (e->callee, e->callee->decl,
-				 e->count, freq_scale, update_original,
-				 vNULL, true, inlining_into, NULL);
+				 MIN(e->count, e->callee->count), freq_scale,
+				 update_original, vNULL, true, inlining_into,
+				 NULL);
 	  cgraph_redirect_edge_callee (e, n);
 	}
     }
@@ -349,6 +358,7 @@ dump_inline_decision (struct cgraph_edge *edge)
    it is NULL. If UPDATE_OVERALL_SUMMARY is false, do not bother to recompute overall
    size of caller after inlining. Caller is required to eventually do it via
    inline_update_overall_summary.
+   If callee_removed is non-NULL, set it to true if we removed callee node.
 
    Return true iff any new callgraph edges were discovered as a
    result of inlining.  */
@@ -356,7 +366,8 @@ dump_inline_decision (struct cgraph_edge *edge)
 bool
 inline_call (struct cgraph_edge *e, bool update_original,
 	     vec<cgraph_edge_p> *new_edges,
-	     int *overall_size, bool update_overall_summary)
+	     int *overall_size, bool update_overall_summary,
+	     bool *callee_removed)
 {
   int old_size = 0, new_size = 0;
   struct cgraph_node *to = NULL;
@@ -403,6 +414,8 @@ inline_call (struct cgraph_edge *e, bool update_original,
 	    {
 	      next_alias = cgraph_alias_target (alias);
 	      cgraph_remove_node (alias);
+	      if (callee_removed)
+		*callee_removed = true;
 	      alias = next_alias;
 	    }
 	  else
@@ -444,7 +457,10 @@ inline_call (struct cgraph_edge *e, bool update_original,
 	      || speculation_removed
 	      /* FIXME: a hack.  Edges with false predicate are accounted
 		 wrong, we should remove them from callgraph.  */
-	      || predicated);
+	      || predicated
+              /* FIXME_LIPO -- LIPO is not yet compatible
+                 with ipa devirt. */
+              || flag_dyn_ipa);
 #endif
 
   /* Account the change of overall unit size; external functions will be

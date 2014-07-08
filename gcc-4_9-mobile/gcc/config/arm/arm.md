@@ -8351,8 +8351,8 @@
 
 (define_insn_and_split "*arm_cmpdi_unsigned"
   [(set (reg:CC_CZ CC_REGNUM)
-        (compare:CC_CZ (match_operand:DI 0 "s_register_operand" "l,r,r")
-                       (match_operand:DI 1 "arm_di_operand"     "Py,r,rDi")))]
+        (compare:CC_CZ (match_operand:DI 0 "s_register_operand" "l,r,r,r")
+                       (match_operand:DI 1 "arm_di_operand"     "Py,r,Di,rDi")))]
 
   "TARGET_32BIT"
   "#"   ; "cmp\\t%R0, %R1\;it eq\;cmpeq\\t%Q0, %Q1"
@@ -8372,9 +8372,9 @@
     operands[1] = gen_lowpart (SImode, operands[1]);
   }
   [(set_attr "conds" "set")
-   (set_attr "enabled_for_depr_it" "yes,yes,no")
-   (set_attr "arch" "t2,t2,*")
-   (set_attr "length" "6,6,8")
+   (set_attr "enabled_for_depr_it" "yes,yes,no,*")
+   (set_attr "arch" "t2,t2,t2,a")
+   (set_attr "length" "6,6,10,8")
    (set_attr "type" "multiple")]
 )
 
@@ -9676,7 +9676,7 @@
    (match_operand:SI 2 "const_int_operand" "")	; total range
    (match_operand:SI 3 "" "")			; table label
    (match_operand:SI 4 "" "")]			; Out of range label
-  "TARGET_32BIT || optimize_size || flag_pic"
+  "TARGET_32BIT || ((optimize_size || flag_pic) && !inline_thumb1_jump_table)"
   "
   {
     enum insn_code code;
@@ -9862,6 +9862,7 @@
   "TARGET_32BIT"
   "%i1%?\\t%0, %2, %4%S3"
   [(set_attr "predicable" "yes")
+   (set_attr "predicable_short_it" "no")
    (set_attr "shift" "4")
    (set_attr "arch" "a,t2,t2,a")
    ;; Thumb2 doesn't allow the stack pointer to be used for 

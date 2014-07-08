@@ -205,6 +205,9 @@ struct edge_growth_cache_entry
 extern vec<int> node_growth_cache;
 extern vec<edge_growth_cache_entry> edge_growth_cache;
 
+/* In ipa-inline.c  */
+unsigned int early_inliner (void);
+
 /* In ipa-inline-analysis.c  */
 void debug_inline_summary (struct cgraph_node *);
 void dump_inline_summaries (FILE *f);
@@ -234,7 +237,8 @@ void compute_inline_parameters (struct cgraph_node *, bool);
 bool speculation_useful_p (struct cgraph_edge *e, bool anticipate_inlining);
 
 /* In ipa-inline-transform.c  */
-bool inline_call (struct cgraph_edge *, bool, vec<cgraph_edge_p> *, int *, bool);
+bool inline_call (struct cgraph_edge *, bool, vec<cgraph_edge_p> *, int *, bool,
+		  bool *callee_removed = NULL);
 unsigned int inline_transform (struct cgraph_node *);
 void clone_inlined_nodes (struct cgraph_edge *e, bool, bool, int *,
 			  int freq_scale);

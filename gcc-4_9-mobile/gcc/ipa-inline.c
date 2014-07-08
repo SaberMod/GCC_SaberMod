@@ -124,6 +124,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
+#include "auto-profile.h"
 #include "sreal.h"
 #include "cilk.h"
 
@@ -461,6 +462,8 @@ want_early_inline_function_p (struct cgraph_edge *e)
 
   if (DECL_DISREGARD_INLINE_LIMITS (callee->decl))
     ;
+  else if (flag_auto_profile && afdo_callsite_hot_enough_for_early_inline (e))
+    ;
   else if (!DECL_DECLARED_INLINE_P (callee->decl)
 	   && !flag_inline_small_functions)
     {
@@ -644,6 +647,12 @@ edge_hot_enough_p (struct cgraph_edge *edge)
   if (cgraph_maybe_hot_edge_p (edge))
     return true;
 
+  /* We disable hot-caller heuristic if the callee's entry count is
+     0 because in this case we do not have enough information to
+     calculate the scaling factor.  */
+  if (flag_auto_profile && edge->callee->count == 0
+      && edge->callee->max_bb_count > 0)
+    return false;
   if (use_hot_caller_heuristic)
     {
       struct cgraph_node *where = edge->caller;
@@ -1937,6 +1946,9 @@ inline_small_functions (void)
 	  continue;
 	}
 
+      if (!dbg_cnt (inl))
+         continue;
+
       /* Heuristics for inlining small functions work poorly for
 	 recursive calls where we do effects similar to loop unrolling.
 	 When inlining such edge seems profitable, leave decision on
@@ -2154,6 +2166,8 @@ static bool
 inline_to_all_callers (struct cgraph_node *node, void *data)
 {
   int *num_calls = (int *)data;
+  bool callee_removed = false;
+
   while (node->callers && !node->global.inlined_to)
     {
       struct cgraph_node *caller = node->callers->caller;
@@ -2170,7 +2184,7 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
 		   inline_summary (node->callers->caller)->size);
 	}
 
-      inline_call (node->callers, true, NULL, NULL, true);
+      inline_call (node->callers, true, NULL, NULL, true, &callee_removed);
       if (dump_file)
 	fprintf (dump_file,
 		 " Inlined into %s which now has %i size\n",
@@ -2180,8 +2194,10 @@ inline_to_all_callers (struct cgraph_node *node, void *data)
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "New calls found; giving up.\n");
-	  return true;
+	  return callee_removed;
 	}
+      if (callee_removed)
+	return true;
     }
   return false;
 }
@@ -2300,8 +2316,9 @@ ipa_inline (void)
 	      int num_calls = 0;
 	      cgraph_for_node_and_aliases (node, sum_callers,
 					   &num_calls, true);
-	      cgraph_for_node_and_aliases (node, inline_to_all_callers,
-					   &num_calls, true);
+	      while (cgraph_for_node_and_aliases (node, inline_to_all_callers,
+					          &num_calls, true))
+		;
 	      remove_functions = true;
 	    }
 	}
@@ -2425,7 +2442,7 @@ early_inline_small_functions (struct cgraph_node *node)
 /* Do inlining of small functions.  Doing so early helps profiling and other
    passes to be somewhat more effective and avoids some code duplication in
    later real inlining pass for testcases with very many function calls.  */
-static unsigned int
+unsigned int
 early_inliner (void)
 {
   struct cgraph_node *node = cgraph_get_node (current_function_decl);

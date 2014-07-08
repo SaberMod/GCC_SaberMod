@@ -267,6 +267,10 @@ mips3d
 Target Report RejectNegative Var(TARGET_MIPS3D)
 Use MIPS-3D instructions
 
+mldc1-sdc1
+Target Report Var(TARGET_LDC1_SDC1) Init(1)
+Use ldc1/ldxc1 and sdc1/sdxc1 instruction
+
 mllsc
 Target Report Mask(LLSC)
 Use ll, sc and sync instructions
@@ -302,6 +306,10 @@ Use microMIPS instructions
 mmt
 Target Report Var(TARGET_MT)
 Allow the use of MT instructions
+
+mmxu
+Target Report Var(TARGET_MXU)
+Allow the use of MXU instructions
 
 mno-float
 Target Report RejectNegative Var(TARGET_NO_FLOAT) Condition(TARGET_SUPPORTS_NO_FLOAT)

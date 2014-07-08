@@ -258,7 +258,10 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
         (1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
 #define GCOV_TAG_MODULE_INFO ((gcov_unsigned_t)0xab000000)
-
+#define GCOV_TAG_AFDO_FILE_NAMES ((gcov_unsigned_t)0xaa000000)
+#define GCOV_TAG_AFDO_FUNCTION ((gcov_unsigned_t)0xac000000)
+#define GCOV_TAG_AFDO_MODULE_GROUPING ((gcov_unsigned_t)0xae000000)
+#define GCOV_TAG_AFDO_WORKING_SET ((gcov_unsigned_t)0xaf000000)
 
 /* Counters that are collected.  */
 #define GCOV_COUNTER_ARCS 	0  /* Arc transitions.  */

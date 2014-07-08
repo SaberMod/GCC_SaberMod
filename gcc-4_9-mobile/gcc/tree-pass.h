@@ -460,6 +460,7 @@ extern simple_ipa_opt_pass *make_pass_ipa_lower_emutls (gcc::context *ctxt);
 extern simple_ipa_opt_pass
 							      *make_pass_ipa_function_and_variable_visibility (gcc::context *ctxt);
 extern simple_ipa_opt_pass *make_pass_ipa_tree_profile (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_ipa_auto_profile (gcc::context *ctxt);
 
 extern simple_ipa_opt_pass *make_pass_early_local_passes (gcc::context *ctxt);
 
@@ -506,6 +507,7 @@ extern rtl_opt_pass *make_pass_rtl_hoist (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_store_motion (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_cse_after_global_opts (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_rtl_ifcvt (gcc::context *ctxt);
+extern rtl_opt_pass *make_pass_simplify_got (gcc::context *ctxt);
 
 extern rtl_opt_pass *make_pass_into_cfg_layout_mode (gcc::context *ctxt);
 extern rtl_opt_pass *make_pass_outof_cfg_layout_mode (gcc::context *ctxt);

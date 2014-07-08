@@ -54,6 +54,7 @@ extern void add_sampling_to_edge_counters (void);
 
 extern void compute_working_sets (void);
 extern void get_working_sets (void);
+extern void add_working_set (gcov_working_set_t *);
 
 /* In predict.c.  */
 extern gcov_type get_hot_bb_threshold (void);

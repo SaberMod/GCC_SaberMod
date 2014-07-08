@@ -1,8 +1,9 @@
 /* { dg-do run { target { powerpc*-*-linux* } } } */
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
-/* { dg-require-effective-target vsx_hw } */
-/* { dg-options "-O2" } */
+/* { dg-require-effective-target powerpc_fprs } */
+/* { dg-require-effective-target longdouble128 } */
+/* { dg-options "-O2 -mhard-float" } */
 
 #include <stddef.h>
 #include <stdlib.h>

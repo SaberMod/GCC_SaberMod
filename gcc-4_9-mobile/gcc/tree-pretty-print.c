@@ -500,6 +500,7 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	  pp_string (buffer, "alloc");
 	  break;
 	case OMP_CLAUSE_MAP_TO:
+	case OMP_CLAUSE_MAP_TO_PSET:
 	  pp_string (buffer, "to");
 	  break;
 	case OMP_CLAUSE_MAP_FROM:
@@ -520,6 +521,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
 	      && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_POINTER)
 	    pp_string (buffer, " [pointer assign, bias: ");
+	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (clause) == OMP_CLAUSE_MAP_TO_PSET)
+	    pp_string (buffer, " [pointer set, len: ");
 	  else
 	    pp_string (buffer, " [len: ");
 	  dump_generic_node (buffer, OMP_CLAUSE_SIZE (clause),
@@ -668,6 +672,7 @@ static void
 dump_location (pretty_printer *buffer, location_t loc)
 {
   expanded_location xloc = expand_location (loc);
+  int discriminator = get_discriminator_from_locus (loc);
 
   pp_left_bracket (buffer);
   if (xloc.file)
@@ -676,6 +681,11 @@ dump_location (pretty_printer *buffer, location_t loc)
       pp_string (buffer, " : ");
     }
   pp_decimal_int (buffer, xloc.line);
+  if (discriminator)
+    {
+      pp_string (buffer, " discrim ");
+      pp_decimal_int (buffer, discriminator);
+    }
   pp_string (buffer, "] ");
 }
 
@@ -3449,6 +3459,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
+      fprintf (dump_file, ", cgraph_uid=%d", node->uid);
       fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"

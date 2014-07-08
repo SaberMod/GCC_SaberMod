@@ -2436,6 +2436,41 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   1,                            /* start_end_main_source_file */
   TYPE_SYMTAB_IS_DIE            /* tree_type_symtab_field */
 };
+
+const struct gcc_debug_hooks auto_profile_debug_hooks =
+{
+  debug_nothing_charstar,
+  debug_nothing_charstar,
+  debug_nothing_void,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int,
+  debug_nothing_int_int,                 /* begin_block */
+  debug_nothing_int_int,                 /* end_block */
+  dwarf2out_ignore_block,                 /* ignore_block */
+  debug_nothing_int_charstar_int_bool,   /* source_line */
+  debug_nothing_int_charstar,            /* begin_prologue */
+  debug_nothing_int_charstar,            /* end_prologue */
+  debug_nothing_int_charstar,            /* begin_epilogue */
+  debug_nothing_int_charstar,            /* end_epilogue */
+  debug_nothing_tree,                    /* begin_function */
+  debug_nothing_int,                     /* end_function */
+  debug_nothing_tree,                    /* function_decl */
+  debug_nothing_tree,                    /* global_decl */
+  debug_nothing_tree_int,                /* type_decl */
+  debug_nothing_tree_tree_tree_bool,     /* imported_module_or_decl */
+  debug_nothing_tree,                    /* deferred_inline_function */
+  debug_nothing_tree,                    /* outlining_inline_function */
+  debug_nothing_rtx,                     /* label */
+  debug_nothing_int,                     /* handle_pch */
+  debug_nothing_rtx,                     /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  debug_nothing_tree_tree,               /* set_name */
+  0,                                     /* start_end_main_source_file */
+  TYPE_SYMTAB_IS_ADDRESS                 /* tree_type_symtab_field */
+};
+
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -16623,10 +16658,9 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
-  if (debug_info_level > DINFO_LEVEL_TERSE
+  if (debug_info_level > DINFO_LEVEL_NONE
       && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
       && TREE_PUBLIC (decl)
-      && !DECL_ABSTRACT (decl)
       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
       && die->die_tag != DW_TAG_member)
     {
@@ -18914,12 +18948,16 @@ gen_label_die (tree decl, dw_die_ref context_die)
 static inline void
 add_call_src_coords_attributes (tree stmt, dw_die_ref die)
 {
-  expanded_location s = expand_location (BLOCK_SOURCE_LOCATION (stmt));
+  location_t locus = BLOCK_SOURCE_LOCATION (stmt);
+  expanded_location s = expand_location (locus);
 
   if (dwarf_version >= 3 || !dwarf_strict)
     {
       add_AT_file (die, DW_AT_call_file, lookup_filename (s.file));
       add_AT_unsigned (die, DW_AT_call_line, s.line);
+      unsigned discr = get_discriminator_from_locus (locus);
+      if (discr != 0)
+	add_AT_unsigned (die, DW_AT_GNU_discriminator, discr);
     }
 }
 

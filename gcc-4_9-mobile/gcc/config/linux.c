@@ -39,7 +39,10 @@ linux_libc_has_function (enum function_class fn_class)
   if (OPTION_BIONIC)
     if (fn_class == function_c94
 	|| fn_class == function_c99_misc
-	|| fn_class == function_sincos)
+#if !defined (__ANDROID__)
+	|| fn_class == function_sincos
+#endif
+       )
 	return true;
 
   return false;

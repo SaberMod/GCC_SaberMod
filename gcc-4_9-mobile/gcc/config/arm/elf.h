@@ -16,8 +16,13 @@
    or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
    License for more details.
 
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING3.  If not see
+   Under Section 7 of GPL version 3, you are granted additional
+   permissions described in the GCC Runtime Library Exception, version
+   3.1, as published by the Free Software Foundation.
+
+   You should have received a copy of the GNU General Public License and
+   a copy of the GCC Runtime Library Exception along with this program;
+   see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
 #ifndef OBJECT_FORMAT_ELF
@@ -51,8 +56,7 @@
 #undef SUBSUBTARGET_EXTRA_SPECS
 #define SUBSUBTARGET_EXTRA_SPECS
 
-#ifndef ASM_SPEC
-#define ASM_SPEC "\
+#define DEFAULT_ASM_SPEC "\
 %{mbig-endian:-EB} \
 %{mlittle-endian:-EL} \
 %(asm_cpu_spec) \
@@ -61,6 +65,9 @@
 %{mthumb-interwork:-mthumb-interwork} \
 %{mfloat-abi=*} %{mfpu=*} \
 %(subtarget_extra_asm_spec)"
+
+#ifndef ASM_SPEC
+#define ASM_SPEC DEFAULT_ASM_SPEC
 #endif
 
 /* The ARM uses @ are a comment character so we need to redefine
@@ -99,7 +106,8 @@
    the code more efficient, but for Thumb-1 it's better to put them out of
    band unless we are generating compressed tables.  */
 #define JUMP_TABLES_IN_TEXT_SECTION					\
-   (TARGET_32BIT || (TARGET_THUMB && (optimize_size || flag_pic)))
+   (TARGET_32BIT || (TARGET_THUMB && !inline_thumb1_jump_table		\
+                    && (optimize_size || flag_pic)))
 
 #ifndef LINK_SPEC
 #define LINK_SPEC "%{mbig-endian:-EB} %{mlittle-endian:-EL} -X"

@@ -137,11 +137,10 @@ static bool gimple_divmod_fixed_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_pow2_value_transform (gimple_stmt_iterator *);
 static bool gimple_mod_subtract_transform (gimple_stmt_iterator *);
 static bool gimple_stringops_transform (gimple_stmt_iterator *);
-static bool gimple_ic_transform (gimple_stmt_iterator *);
 
 /* Allocate histogram value.  */
 
-static histogram_value
+histogram_value
 gimple_alloc_histogram_value (struct function *fun ATTRIBUTE_UNUSED,
 			      enum hist_type type, gimple stmt, tree value)
 {
@@ -1465,9 +1464,12 @@ cgraph_init_gid_map (void)
 /* Return cgraph node for function with global id.  */
 
 struct cgraph_node *
-find_func_by_global_id (unsigned HOST_WIDE_INT gid)
+find_func_by_global_id (unsigned HOST_WIDE_INT gid, bool is_auto_fdo)
 {
   func_gid_entry_t ent, *entp;
+
+  if (is_auto_fdo)
+    return cgraph_node_for_asm (get_identifier ((const char *) gid));
 
   gcc_assert (gid_map);
 
@@ -1486,7 +1488,7 @@ find_func_by_global_id (unsigned HOST_WIDE_INT gid)
    may ICE. Here we only do very minimal sanity check just to make compiler happy.
    Returns true if TARGET is considered ok for call CALL_STMT.  */
 
-static bool
+bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;
@@ -1738,7 +1740,8 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
   count1 = histogram->hvalue.counters [2];
   val2 = histogram->hvalue.counters [3];
   count2 = histogram->hvalue.counters [4];
-  bb_all = gimple_bb (stmt)->count;
+  bb_all = flag_auto_profile ? histogram->hvalue.counters[0]
+			     : gimple_bb (stmt)->count;
   all = bb_all;
 
   gimple_remove_histogram_value (cfun, stmt, histogram);
@@ -1777,18 +1780,18 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
   else
     prob1 = prob2 = 0;
 
-  direct_call1 = find_func_by_global_id (val1);
+  direct_call1 = find_func_by_global_id (val1, flag_auto_profile);
 
   if (val2 && (100 * count2 >= all * perc_threshold)
       && count2 > count_threshold)
-    direct_call2 = find_func_by_global_id (val2);
+    direct_call2 = find_func_by_global_id (val2, flag_auto_profile);
 
   locus = (stmt != NULL) ? gimple_location (stmt)
       : DECL_SOURCE_LOCATION (current_function_decl);
   if (direct_call1 == NULL
       || !check_ic_target (stmt, direct_call1))
     {
-      if (dump_enabled_p ())
+      if (dump_enabled_p () && !flag_auto_profile)
         {
           if (!direct_call1)
             dump_printf_loc (MSG_MISSED_OPTIMIZATION, locus,
@@ -1836,9 +1839,12 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
       print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
       fprintf (dump_file, "=> ");
       print_generic_expr (dump_file, direct_call1->decl, TDF_SLIM);
-      fprintf (dump_file, " (module_id:%d, func_id:%d)\n",
-               EXTRACT_MODULE_ID_FROM_GLOBAL_ID (val1),
-               EXTRACT_FUNC_ID_FROM_GLOBAL_ID (val1));
+      if (flag_auto_profile)
+	fprintf (dump_file, " (%s)\n", (char *) val1);
+      else
+	fprintf (dump_file, " (module_id:%d, func_id:%d)\n",
+		 EXTRACT_MODULE_ID_FROM_GLOBAL_ID (val1),
+		 EXTRACT_FUNC_ID_FROM_GLOBAL_ID (val1));
       fprintf (dump_file, "Transformation on insn:\n");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, "==>\n");
@@ -1876,9 +1882,12 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
           print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
           fprintf (dump_file, "=> ");
           print_generic_expr (dump_file, direct_call2->decl, TDF_SLIM);
-          fprintf (dump_file, " (module_id:%d, func_id:%d)\n",
-                   EXTRACT_MODULE_ID_FROM_GLOBAL_ID (val2),
-                   EXTRACT_FUNC_ID_FROM_GLOBAL_ID (val2));
+	  if (flag_auto_profile)
+	    fprintf (dump_file, " (%s)\n", (char *) val2);
+	  else
+	    fprintf (dump_file, " (module_id:%d, func_id:%d)\n",
+                     EXTRACT_MODULE_ID_FROM_GLOBAL_ID (val2),
+                     EXTRACT_FUNC_ID_FROM_GLOBAL_ID (val2));
           fprintf (dump_file, "Transformation on insn\n");
           print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
           fprintf (dump_file, "=>\n");
@@ -1895,7 +1904,7 @@ gimple_ic_transform_mult_targ (gimple stmt, histogram_value histogram)
 /* Perform indirect call (STMT) to guarded direct function call
    transformation using value profile data.  */
 
-static bool
+bool
 gimple_ic_transform (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);

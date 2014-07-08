@@ -758,6 +758,7 @@ extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
 extern void c_apply_type_quals_to_decl (int, tree);
+extern unsigned int min_align_of_type (tree);
 extern tree c_sizeof_or_alignof_type (location_t, tree, bool, bool, int);
 extern tree c_alignof_expr (location_t, tree);
 /* Print an error message for invalid operands to arith operation CODE.
@@ -830,6 +831,7 @@ extern bool c_common_post_options (const char **);
 extern bool c_common_init (void);
 extern void c_common_finish (void);
 extern void c_common_parse_file (void);
+extern FILE *get_dump_info (int, int *);
 extern alias_set_type c_common_get_alias_set (tree);
 extern void c_register_builtin_type (tree, const char*);
 extern bool c_promoting_integer_type_p (const_tree);

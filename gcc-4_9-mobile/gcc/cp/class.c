@@ -1300,7 +1300,7 @@ handle_using_decl (tree using_decl, tree t)
 	old_value = NULL_TREE;
     }
 
-  cp_emit_debug_info_for_using (decl, USING_DECL_SCOPE (using_decl));
+  cp_emit_debug_info_for_using (decl, t);
 
   if (is_overloaded_fn (decl))
     flist = decl;
@@ -8223,12 +8223,11 @@ static void
 dump_class_hierarchy (tree t)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (stream)
     {
       dump_class_hierarchy_1 (stream, flags, t);
-      dump_end (TDI_class, stream);
     }
 }
 
@@ -8258,7 +8257,7 @@ static void
 dump_vtable (tree t, tree binfo, tree vtable)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8281,15 +8280,13 @@ dump_vtable (tree t, tree binfo, tree vtable)
       dump_array (stream, vtable);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 static void
 dump_vtt (tree t, tree vtt)
 {
   int flags;
-  FILE *stream = dump_begin (TDI_class, &flags);
+  FILE *stream = get_dump_info (TDI_class, &flags);
 
   if (!stream)
     return;
@@ -8301,8 +8298,6 @@ dump_vtt (tree t, tree vtt)
       dump_array (stream, vtt);
       fprintf (stream, "\n");
     }
-
-  dump_end (TDI_class, stream);
 }
 
 /* Dump a function or thunk and its thunkees.  */

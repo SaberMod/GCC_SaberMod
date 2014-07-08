@@ -3036,7 +3036,9 @@ rs6000_builtin_mask_calculate (void)
 	  | ((TARGET_P8_VECTOR)		    ? RS6000_BTM_P8_VECTOR : 0)
 	  | ((TARGET_CRYPTO)		    ? RS6000_BTM_CRYPTO	   : 0)
 	  | ((TARGET_HTM)		    ? RS6000_BTM_HTM	   : 0)
-	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0));
+	  | ((TARGET_DFP)		    ? RS6000_BTM_DFP	   : 0)
+	  | ((TARGET_HARD_FLOAT)	    ? RS6000_BTM_HARD_FLOAT : 0)
+	  | ((TARGET_LONG_DOUBLE_128)	    ? RS6000_BTM_LDBL128 : 0));
 }
 
 /* Override command line options.  Mostly we process the processor type and
@@ -3391,6 +3393,13 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+    }
+
+  if (TARGET_DFP && !TARGET_HARD_FLOAT)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_DFP)
+	error ("-mhard-dfp requires -mhard-float");
+      rs6000_isa_flags &= ~OPTION_MASK_DFP;
     }
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
@@ -6110,7 +6119,8 @@ mem_operand_gpr (rtx op, enum machine_mode mode)
     return false;
 
   extra = GET_MODE_SIZE (mode) - UNITS_PER_WORD;
-  gcc_assert (extra >= 0);
+  if (extra < 0)
+    extra = 0;
 
   if (GET_CODE (addr) == LO_SUM)
     /* For lo_sum addresses, we must allow any offset except one that
@@ -10469,35 +10479,65 @@ rs6000_parm_needs_stack (cumulative_args_t args_so_far, tree type)
    list, or passes any parameter in memory.  */
 
 static bool
-rs6000_function_parms_need_stack (tree fun)
+rs6000_function_parms_need_stack (tree fun, bool incoming)
 {
-  function_args_iterator args_iter;
-  tree arg_type;
+  tree fntype, result;
   CUMULATIVE_ARGS args_so_far_v;
   cumulative_args_t args_so_far;
 
   if (!fun)
     /* Must be a libcall, all of which only use reg parms.  */
     return false;
+
+  fntype = fun;
   if (!TYPE_P (fun))
-    fun = TREE_TYPE (fun);
+    fntype = TREE_TYPE (fun);
 
   /* Varargs functions need the parameter save area.  */
-  if (!prototype_p (fun) || stdarg_p (fun))
+  if ((!incoming && !prototype_p (fntype)) || stdarg_p (fntype))
     return true;
 
-  INIT_CUMULATIVE_INCOMING_ARGS (args_so_far_v, fun, NULL_RTX);
+  INIT_CUMULATIVE_INCOMING_ARGS (args_so_far_v, fntype, NULL_RTX);
   args_so_far = pack_cumulative_args (&args_so_far_v);
 
-  if (aggregate_value_p (TREE_TYPE (fun), fun))
+  /* When incoming, we will have been passed the function decl.
+     It is necessary to use the decl to handle K&R style functions,
+     where TYPE_ARG_TYPES may not be available.  */
+  if (incoming)
     {
-      tree type = build_pointer_type (TREE_TYPE (fun));
-      rs6000_parm_needs_stack (args_so_far, type);
+      gcc_assert (DECL_P (fun));
+      result = DECL_RESULT (fun);
+    }
+  else
+    result = TREE_TYPE (fntype);
+
+  if (result && aggregate_value_p (result, fntype))
+    {
+      if (!TYPE_P (result))
+	result = TREE_TYPE (result);
+      result = build_pointer_type (result);
+      rs6000_parm_needs_stack (args_so_far, result);
     }
 
-  FOREACH_FUNCTION_ARGS (fun, arg_type, args_iter)
-    if (rs6000_parm_needs_stack (args_so_far, arg_type))
-      return true;
+  if (incoming)
+    {
+      tree parm;
+
+      for (parm = DECL_ARGUMENTS (fun);
+	   parm && parm != void_list_node;
+	   parm = TREE_CHAIN (parm))
+	if (rs6000_parm_needs_stack (args_so_far, TREE_TYPE (parm)))
+	  return true;
+    }
+  else
+    {
+      function_args_iterator args_iter;
+      tree arg_type;
+
+      FOREACH_FUNCTION_ARGS (fntype, arg_type, args_iter)
+	if (rs6000_parm_needs_stack (args_so_far, arg_type))
+	  return true;
+    }
 
   return false;
 }
@@ -10509,7 +10549,7 @@ rs6000_function_parms_need_stack (tree fun)
    all parameters in registers.  */
 
 int
-rs6000_reg_parm_stack_space (tree fun)
+rs6000_reg_parm_stack_space (tree fun, bool incoming)
 {
   int reg_parm_stack_space;
 
@@ -10527,7 +10567,7 @@ rs6000_reg_parm_stack_space (tree fun)
     case ABI_ELFv2:
       /* ??? Recomputing this every time is a bit expensive.  Is there
 	 a place to cache this information?  */
-      if (rs6000_function_parms_need_stack (fun))
+      if (rs6000_function_parms_need_stack (fun, incoming))
 	reg_parm_stack_space = TARGET_64BIT ? 64 : 32;
       else
 	reg_parm_stack_space = 0;
@@ -13551,11 +13591,17 @@ rs6000_invalid_builtin (enum rs6000_builtins fncode)
   else if ((fnmask & (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
 	   == (RS6000_BTM_DFP | RS6000_BTM_P8_VECTOR))
     error ("Builtin function %s requires the -mhard-dfp and"
-	   "-mpower8-vector options", name);
+	   " -mpower8-vector options", name);
   else if ((fnmask & RS6000_BTM_DFP) != 0)
     error ("Builtin function %s requires the -mhard-dfp option", name);
   else if ((fnmask & RS6000_BTM_P8_VECTOR) != 0)
     error ("Builtin function %s requires the -mpower8-vector option", name);
+  else if ((fnmask & (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+	   == (RS6000_BTM_HARD_FLOAT | RS6000_BTM_LDBL128))
+    error ("Builtin function %s requires the -mhard-float and"
+	   " -mlong-double-128 options", name);
+  else if ((fnmask & RS6000_BTM_HARD_FLOAT) != 0)
+    error ("Builtin function %s requires the -mhard-float option", name);
   else
     error ("Builtin function %s is not supported with the current options",
 	   name);
@@ -13744,7 +13790,10 @@ rs6000_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	return ret;
     }  
 
-  gcc_assert (TARGET_ALTIVEC || TARGET_VSX || TARGET_SPE || TARGET_PAIRED_FLOAT);
+  unsigned attr = rs6000_builtin_info[uns_fcode].attr & RS6000_BTC_TYPE_MASK;
+  gcc_assert (attr == RS6000_BTC_UNARY
+	      || attr == RS6000_BTC_BINARY
+	      || attr == RS6000_BTC_TERNARY);
 
   /* Handle simple unary operations.  */
   d = bdesc_1arg;
@@ -31299,6 +31348,8 @@ static struct rs6000_opt_mask const rs6000_builtin_mask_names[] =
   { "crypto",		 RS6000_BTM_CRYPTO,	false, false },
   { "htm",		 RS6000_BTM_HTM,	false, false },
   { "hard-dfp",		 RS6000_BTM_DFP,	false, false },
+  { "hard-float",	 RS6000_BTM_HARD_FLOAT,	false, false },
+  { "long-double-128",	 RS6000_BTM_LDBL128,	false, false },
 };
 
 /* Option variables that we want to support inside attribute((target)) and

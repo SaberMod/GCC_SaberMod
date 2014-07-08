@@ -645,6 +645,7 @@ GLIBCXX_LDBL_COMPAT_FALSE
 GLIBCXX_LDBL_COMPAT_TRUE
 ENABLE_VISIBILITY_FALSE
 ENABLE_VISIBILITY_TRUE
+libtool_version_info_string
 libtool_VERSION
 ENABLE_SYMVERS_SUN_FALSE
 ENABLE_SYMVERS_SUN_TRUE
@@ -77208,6 +77209,12 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <sys/syscall.h>
 	   int lk;
+#if !defined(SYS_gettid)
+#define SYS_gettid __NR_gettid
+#endif
+#if !defined(SYS_futex)
+#define SYS_futex __NR_futex
+#endif
 int
 main ()
 {
@@ -77266,6 +77273,12 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <sys/syscall.h>
 	   int lk;
+#if !defined(SYS_gettid)
+#define SYS_gettid __NR_gettid
+#endif
+#if !defined(SYS_futex)
+#define SYS_futex __NR_futex
+#endif
 int
 main ()
 {
@@ -78102,6 +78115,10 @@ fi
 $as_echo "$glibcxx_ptrdiff_t_is_i" >&6; }
 
 
+case "$target" in
+    *android*) libtool_version_info_string="-avoid-version" ;;
+    *) libtool_version_info_string="-version-info $libtool_VERSION"
+esac
 
 
  # Check whether --enable-libstdcxx-visibility was given.
@@ -78674,7 +78691,7 @@ $as_echo_n "checking for gthreads library... " >&6; }
 
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
-#include "gthr.h"
+#include "gthr-$target_thread_file.h"
 int
 main ()
 {

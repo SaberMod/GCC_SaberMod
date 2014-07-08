@@ -1891,7 +1891,7 @@ static tree cp_parser_string_literal
 static tree cp_parser_userdef_char_literal
   (cp_parser *);
 static tree cp_parser_userdef_string_literal
-  (cp_token *);
+  (tree);
 static tree cp_parser_userdef_numeric_literal
   (cp_parser *);
 
@@ -3696,8 +3696,7 @@ cp_parser_string_literal (cp_parser *parser, bool translate, bool wide_ok)
 	{
 	  tree literal = build_userdef_literal (suffix_id, value,
 						OT_NONE, NULL_TREE);
-	  tok->u.value = literal;
-	  return cp_parser_userdef_string_literal (tok);
+	  value = cp_parser_userdef_string_literal (literal);
 	}
     }
   else
@@ -3945,9 +3944,8 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
    as arguments.  */
 
 static tree
-cp_parser_userdef_string_literal (cp_token *token)
+cp_parser_userdef_string_literal (tree literal)
 {
-  tree literal = token->u.value;
   tree suffix_id = USERDEF_LITERAL_SUFFIX_ID (literal);
   tree name = cp_literal_operator_id (IDENTIFIER_POINTER (suffix_id));
   tree value = USERDEF_LITERAL_VALUE (literal);
@@ -5835,20 +5833,6 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  }
 	break;
       }
-      
-    case RID_CILK_SYNC:
-      if (flag_cilkplus)
-	{ 
-	  tree sync_expr = build_cilk_sync ();
-	  SET_EXPR_LOCATION (sync_expr, 
-			     cp_lexer_peek_token (parser->lexer)->location);
-	  finish_expr_stmt (sync_expr);
-	}
-      else
-	error_at (token->location, "-fcilkplus must be enabled to use" 
-		  " %<_Cilk_sync%>");
-      cp_lexer_consume_token (parser->lexer);
-      break;
 
     case RID_BUILTIN_SHUFFLE:
       {
@@ -9418,6 +9402,24 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	case RID_RETURN:
 	case RID_GOTO:
 	  statement = cp_parser_jump_statement (parser);
+	  break;
+
+	case RID_CILK_SYNC:
+	  cp_lexer_consume_token (parser->lexer);
+	  if (flag_cilkplus)
+	    {
+	      tree sync_expr = build_cilk_sync ();
+	      SET_EXPR_LOCATION (sync_expr,
+				 token->location);
+	      statement = finish_expr_stmt (sync_expr);
+	    }
+	  else
+	    {
+	      error_at (token->location, "-fcilkplus must be enabled to use"
+			" %<_Cilk_sync%>");
+	      statement = error_mark_node;
+	    }
+	  cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 	  break;
 
 	  /* Objective-C++ exception-handling constructs.  */
@@ -15069,6 +15071,18 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	return cp_parser_make_typename_type (parser, parser->scope,
 					     identifier,
 					     token->location);
+
+      /* Template parameter lists apply only if we are not within a
+	 function parameter list.  */
+      bool template_parm_lists_apply
+	  = parser->num_template_parameter_lists;
+      if (template_parm_lists_apply)
+	for (cp_binding_level *s = current_binding_level;
+	     s && s->kind != sk_template_parms;
+	     s = s->level_chain)
+	  if (s->kind == sk_function_parms)
+	    template_parm_lists_apply = false;
+
       /* Look up a qualified name in the usual way.  */
       if (parser->scope)
 	{
@@ -15111,7 +15125,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 
 	  decl = (cp_parser_maybe_treat_template_as_class
 		  (decl, /*tag_name_p=*/is_friend
-			 && parser->num_template_parameter_lists));
+			 && template_parm_lists_apply));
 
 	  if (TREE_CODE (decl) != TYPE_DECL)
 	    {
@@ -15124,9 +15138,9 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 
 	  if (TREE_CODE (TREE_TYPE (decl)) != TYPENAME_TYPE)
             {
-              bool allow_template = (parser->num_template_parameter_lists
-		                      || DECL_SELF_REFERENCE_P (decl));
-              type = check_elaborated_type_specifier (tag_type, decl, 
+              bool allow_template = (template_parm_lists_apply
+		                     || DECL_SELF_REFERENCE_P (decl));
+              type = check_elaborated_type_specifier (tag_type, decl,
                                                       allow_template);
 
               if (type == error_mark_node)
@@ -15212,15 +15226,16 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
 	    ts = ts_global;
 
 	  template_p =
-	    (parser->num_template_parameter_lists
+	    (template_parm_lists_apply
 	     && (cp_parser_next_token_starts_class_definition_p (parser)
 		 || cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON)));
 	  /* An unqualified name was used to reference this type, so
 	     there were no qualifying templates.  */
-	  if (!cp_parser_check_template_parameters (parser,
-						    /*num_templates=*/0,
-						    token->location,
-						    /*declarator=*/NULL))
+	  if (template_parm_lists_apply
+	      && !cp_parser_check_template_parameters (parser,
+						       /*num_templates=*/0,
+						       token->location,
+						       /*declarator=*/NULL))
 	    return error_mark_node;
 	  type = xref_tag (tag_type, identifier, ts, template_p);
 	}
@@ -17864,7 +17879,7 @@ cp_parser_virt_specifier_seq_opt (cp_parser* parser)
 /* Used by handling of trailing-return-types and NSDMI, in which 'this'
    is in scope even though it isn't real.  */
 
-static void
+void
 inject_this_parameter (tree ctype, cp_cv_quals quals)
 {
   tree this_parm;
@@ -23117,10 +23132,17 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
 	    ok = false;
 	}
       if (!ok)
-	error ("literal operator template %qD has invalid parameter list."
-	       "  Expected non-type template argument pack <char...>"
-	       " or <typename CharT, CharT...>",
-	       decl);
+	{
+	  if (cxx_dialect >= cxx1y)
+	    error ("literal operator template %qD has invalid parameter list."
+		   "  Expected non-type template argument pack <char...>"
+		   " or <typename CharT, CharT...>",
+		   decl);
+	  else
+	    error ("literal operator template %qD has invalid parameter list."
+		   "  Expected non-type template argument pack <char...>",
+		   decl);
+	}
     }
   /* Register member declarations.  */
   if (member_p && !friend_p && decl && !DECL_CLASS_TEMPLATE_P (decl))
@@ -23691,16 +23713,7 @@ cp_parser_late_parse_one_default_arg (cp_parser *parser, tree decl,
 	parsed_arg = check_default_argument (parmtype, parsed_arg,
 					     tf_warning_or_error);
       else
-	{
-	  int flags = LOOKUP_IMPLICIT;
-	  if (BRACE_ENCLOSED_INITIALIZER_P (parsed_arg)
-	      && CONSTRUCTOR_IS_DIRECT_INIT (parsed_arg))
-	    flags = LOOKUP_NORMAL;
-	  parsed_arg = digest_init_flags (TREE_TYPE (decl), parsed_arg, flags);
-	  if (TREE_CODE (parsed_arg) == TARGET_EXPR)
-	    /* This represents the whole initialization.  */
-	    TARGET_EXPR_DIRECT_INIT_P (parsed_arg) = true;
-	}
+	parsed_arg = digest_nsdmi_init (decl, parsed_arg);
     }
 
   /* If the token stream has not been completely used up, then
@@ -29388,9 +29401,17 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 		   change it to shared (decl) in OMP_PARALLEL_CLAUSES.  */
 		tree l = build_omp_clause (loc, OMP_CLAUSE_LASTPRIVATE);
 		OMP_CLAUSE_DECL (l) = real_decl;
-		OMP_CLAUSE_CHAIN (l) = clauses;
 		CP_OMP_CLAUSE_INFO (l) = CP_OMP_CLAUSE_INFO (*c);
-		clauses = l;
+		if (code == OMP_SIMD)
+		  {
+		    OMP_CLAUSE_CHAIN (l) = cclauses[C_OMP_CLAUSE_SPLIT_FOR];
+		    cclauses[C_OMP_CLAUSE_SPLIT_FOR] = l;
+		  }
+		else
+		  {
+		    OMP_CLAUSE_CHAIN (l) = clauses;
+		    clauses = l;
+		  }
 		OMP_CLAUSE_SET_CODE (*c, OMP_CLAUSE_SHARED);
 		CP_OMP_CLAUSE_INFO (*c) = NULL;
 		add_private_clause = false;

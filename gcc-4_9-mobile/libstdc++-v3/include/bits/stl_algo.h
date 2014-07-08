@@ -521,7 +521,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return std::__find_end(__first1, __last1, __first2, __last2,
 			     std::__iterator_category(__first1),
 			     std::__iterator_category(__first2),
-			     __gnu_cxx::__ops::__iter_comp_iter(__CheckedCompare(__comp)));
+			     __gnu_cxx::__ops::__iter_comp_iter(__comp));
     }
 
 #if __cplusplus >= 201103L
@@ -3351,9 +3351,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     inline pair<const _Tp&, const _Tp&>
     minmax(const _Tp& __a, const _Tp& __b, _Compare __comp)
     {
-      return __CheckedCompare(__comp)(__b, __a)
-	? pair<const _Tp&, const _Tp&>(__b, __a)
-	: pair<const _Tp&, const _Tp&>(__a, __b);
+      return __comp(__b, __a) ? pair<const _Tp&, const _Tp&>(__b, __a)
+	                      : pair<const _Tp&, const _Tp&>(__a, __b);
     }
 
   template<typename _ForwardIterator, typename _Compare>
@@ -3465,7 +3464,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __glibcxx_requires_valid_range(__first, __last);
 
       return std::__minmax_element(__first, __last,
-	   __gnu_cxx::__ops::__iter_comp_iter(__CheckedCompare(__comp)));
+	   __gnu_cxx::__ops::__iter_comp_iter(__comp));
     }
 
   // N2722 + DR 915.
@@ -3913,7 +3912,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
 
       for (; __first1 != __last1; ++__first1)
 	for (_ForwardIterator __iter = __first2; __iter != __last2; ++__iter)
-	  if (__CheckedCompare(__comp)(*__first1, *__iter))
+	  if (__comp(*__first1, *__iter))
 	    return __first1;
       return __last1;
     }
@@ -5485,7 +5484,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
       __glibcxx_requires_valid_range(__first, __last);
 
       return _GLIBCXX_STD_A::__min_element(__first, __last,
-		   __gnu_cxx::__ops::__iter_comp_iter(__CheckedCompare(__comp)));
+		   __gnu_cxx::__ops::__iter_comp_iter(__comp));
     }
 
   template<typename _ForwardIterator, typename _Compare>
@@ -5544,7 +5543,7 @@ _GLIBCXX_BEGIN_NAMESPACE_ALGO
       __glibcxx_requires_valid_range(__first, __last);
 
       return _GLIBCXX_STD_A::__max_element(__first, __last,
-	   __gnu_cxx::__ops::__iter_comp_iter(__CheckedCompare(__comp)));
+	   __gnu_cxx::__ops::__iter_comp_iter(__comp));
     }
 
 _GLIBCXX_END_NAMESPACE_ALGO
