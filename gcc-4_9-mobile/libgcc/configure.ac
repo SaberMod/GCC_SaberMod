@@ -407,6 +407,13 @@ tm_file="${tm_file_}"
 AC_SUBST(tm_file)
 AC_SUBST(tm_defines)
 
+
+case "$target" in
+  *android*) is_android="yes" ;;
+  *) is_android="no"
+esac
+AC_SUBST(is_android)
+
 # Map from thread model to thread header.
 GCC_AC_THREAD_HEADER([$target_thread_file])
 

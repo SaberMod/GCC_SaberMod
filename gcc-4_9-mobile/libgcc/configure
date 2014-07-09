@@ -571,6 +571,7 @@ vtv_extra_parts
 extra_parts
 cpu_type
 thread_header
+is_android
 tm_defines
 tm_file
 tmake_file
@@ -4599,7 +4600,10 @@ do
 done
 tm_file="${tm_file_}"
 
-
+case "$target" in
+  *android*) is_android="yes" ;;
+  *) is_android="no"
+esac
 
 # Map from thread model to thread header.
 
