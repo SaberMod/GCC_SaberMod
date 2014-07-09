@@ -147,10 +147,6 @@ FAIL: g++.dg/eh/ppc64-sighandle-cr.C -std=gnu++98 execution test
 FAIL: g++.dg/eh/ppc64-sighandle-cr.C -std=gnu++11 execution test
 FAIL: g++.dg/eh/ppc64-sighandle-cr.C -std=gnu++1y execution test
 
-# Non-x86.  New test as of 2014-07-02; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=61382.
-FAIL: g++.dg/cpp0x/initlist86.C -std=c++11 execution test
-FAIL: g++.dg/cpp0x/initlist86.C -std=c++1y execution test
-
 
 # Fortran failures are not important to us so far.
 # *** gfortran:
