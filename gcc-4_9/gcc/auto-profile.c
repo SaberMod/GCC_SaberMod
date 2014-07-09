@@ -1374,7 +1374,6 @@ get_locus_information (location_t locus, locus_information_t* li) {
   li->filename = LOCATION_FILE (locus);
   li->lineno = LOCATION_LINE (locus);
 
-  tree block = LOCATION_BLOCK (locus);
   inline_stack stack;
 
   get_inline_stack (locus, &stack);
