@@ -67,7 +67,6 @@ FAIL: gcc.dg/vect/pr57741-2.c execution test
 FAIL: gcc.dg/vect/pr57741-2.c -flto -ffat-lto-objects execution test
 FAIL: gcc.dg/vect/pr57741-3.c execution test
 FAIL: gcc.dg/vect/pr57741-3.c -flto -ffat-lto-objects execution test
-FAIL: gcc.dg/vect/vect-nop-move.c execution test
 FAIL: gcc.dg/vmx/3a-03.c -O0  execution test
 FAIL: gcc.dg/vmx/3a-03.c -O1  execution test
 FAIL: gcc.dg/vmx/3a-03.c -O2  execution test
@@ -158,23 +157,6 @@ FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-loops  executio
 FAIL: gfortran.dg/bessel_7.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
 FAIL: gfortran.dg/bessel_7.f90 -O3 -g  execution test
 FAIL: gfortran.dg/bessel_7.f90 -Os  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O0  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O1  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O2  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -O3 -g  execution test
-XPASS: gfortran.dg/default_format_denormal_2.f90 -Os  execution test
-XPASS: gfortran.dg/nint_2.f90 -O0  execution test
-FAIL: gfortran.dg/round_4.f90 -O0  execution test
-FAIL: gfortran.dg/round_4.f90 -O1  execution test
-FAIL: gfortran.dg/round_4.f90 -O2  execution test
-FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer  execution test
-FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-loops  execution test
-FAIL: gfortran.dg/round_4.f90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
-FAIL: gfortran.dg/round_4.f90 -O3 -g  execution test
-FAIL: gfortran.dg/round_4.f90 -Os  execution test
 
 
 # Targets that occasionally time out at compile time:
