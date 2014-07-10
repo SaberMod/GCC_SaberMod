@@ -108,6 +108,10 @@ int x_ix86_dump_tunes
 TargetSave
 int x_ix86_force_align_arg_pointer
 
+;; -mcopyrelocs=
+TargetSave
+int x_ix86_copyrelocs
+
 ;; -mforce-drap= 
 TargetSave
 int x_ix86_force_drap
@@ -290,6 +294,10 @@ Target RejectNegative Joined Undocumented Alias(mtune=) Warn(%<-mcpu=%> is depre
 mfancy-math-387
 Target RejectNegative Report InverseMask(NO_FANCY_MATH_387, USE_FANCY_MATH_387) Save
 Generate sin, cos, sqrt for FPU
+
+mcopyrelocs
+Target Report Var(ix86_pie_copyrelocs) Init(0)
+Assume copy relocations support for pie builds.
 
 mforce-drap
 Target Report Var(ix86_force_drap)

@@ -12903,7 +12903,9 @@ legitimate_pic_address_disp_p (rtx disp)
 		return true;
 	    }
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
-		   && SYMBOL_REF_LOCAL_P (op0)
+	      	   && (SYMBOL_REF_LOCAL_P (op0)
+		       || (TARGET_64BIT && ix86_pie_copyrelocs && flag_pie
+			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;
