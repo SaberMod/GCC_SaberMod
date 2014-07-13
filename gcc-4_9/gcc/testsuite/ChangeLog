@@ -1,3 +1,47 @@
+2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt39.adb: New test.
+
+2014-07-09  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/58155 - -Wliteral-suffix warns about tokens which are skipped
+	g++.dg/cpp0x/pr58155.C: New.
+
+2014-07-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r211369 from trunk.
+	2014-06-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/61062
+	* gcc.target/arm/pr48252.c (main): Expect same result as endian-neutral.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/61673
+	* gcc.c-torture/execute/pr61673.c: New test.
+
+2014-07-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61680
+	* gcc.dg/vect/pr61680.c: New testcase.
+
+	PR tree-optimization/61681
+	* gcc.dg/torture/pr61681.c: New testcase.
+
+2014-07-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+        Backport r211502 from mainline.
+        2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/59843
+	* gcc.dg/vect/vect-singleton_1.c: New file.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/61725
+	* gcc.dg/tree-ssa/vrp93.c: New test.
+	* gcc.c-torture/execute/pr61725.c: New test.
+
 2014-07-07  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/61459

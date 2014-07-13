@@ -1,3 +1,112 @@
+2014-07-10  Cary Coutant  <ccoutant@google.com>
+
+        Backport from trunk at r212211.
+
+	* dwarf2out.c (remove_addr_table_entry): Remove unnecessary hash table
+        lookup.
+	(resolve_addr_in_expr): When replacing the rtx in a location list
+        entry, get a new address table entry.
+	(dwarf2out_finish): Call index_location_lists even if there are no
+        addr_index_table entries yet.
+
+2014-07-10  Tom G. Christensen  <tgc@jupiterrise.com>
+
+	* doc/install.texi: Remove links to defunct package providers for
+	Solaris.
+
+2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/53590
+	* function.c (allocate_struct_function): Revert r188667 change.
+
+	* gimple-low.c (lower_builtin_setjmp): Use properly-typed constant.
+
+2014-07-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r211369 from trunk.
+	2014-06-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/61062
+	* config/arm/arm_neon.h (vtrn_s8, vtrn_s16, vtrn_u8, vtrn_u16, vtrn_p8,
+	vtrn_p16, vtrn_s32, vtrn_f32, vtrn_u32, vtrnq_s8, vtrnq_s16, vtrnq_s32,
+	vtrnq_f32, vtrnq_u8, vtrnq_u16, vtrnq_u32, vtrnq_p8, vtrnq_p16, vzip_s8,
+	vzip_s16, vzip_u8, vzip_u16, vzip_p8, vzip_p16, vzip_s32, vzip_f32,
+	vzip_u32, vzipq_s8, vzipq_s16, vzipq_s32, vzipq_f32, vzipq_u8,
+	vzipq_u16, vzipq_u32, vzipq_p8, vzipq_p16, vuzp_s8, vuzp_s16, vuzp_s32,
+	vuzp_f32, vuzp_u8, vuzp_u16, vuzp_u32, vuzp_p8, vuzp_p16, vuzpq_s8,
+	vuzpq_s16, vuzpq_s32, vuzpq_f32, vuzpq_u8, vuzpq_u16, vuzpq_u32,
+	vuzpq_p8, vuzpq_p16): Correct mask for bigendian.
+
+
+2014-07-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r210219 from trunk.
+	2014-05-08  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* config/arm/arm_neon.h: Update comment.
+	* config/arm/neon-docgen.ml: Delete.
+	* config/arm/neon-gen.ml: Delete.
+	* doc/arm-neon-intrinsics.texi: Update comment.
+
+2014-07-09  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	Backport r211775 from trunk.
+	2014-06-18  Terry Guo  <terry.guo@arm.com>
+
+	PR target/61544
+	* config/arm/arm.c (thumb1_reorg): Move to next basic block if we
+	reach the head.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/61673
+	* combine.c (simplify_comparison): Test just mode's sign bit
+	in tmode rather than the sign bit and any bits above it.
+
+2014-07-08  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport r212298 from trunk.
+	2014-07-04  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd.md (move_lo_quad_internal_<mode>): New.
+	(move_lo_quad_internal_be_<mode>): Likewise.
+	(move_lo_quad_<mode>): Convert to define_expand.
+	(aarch64_simd_move_hi_quad_<mode>): Gate on BYTES_BIG_ENDIAN.
+	(aarch64_simd_move_hi_quad_be_<mode>): New.
+	(move_hi_quad_<mode>): Use appropriate insn for BYTES_BIG_ENDIAN.
+	(aarch64_combinez<mode>): Gate on BYTES_BIG_ENDIAN.
+	(aarch64_combinez_be<mode>): New.
+	(aarch64_combine<mode>): Convert to define_expand.
+	(aarch64_combine_internal<mode>): New.
+	(aarch64_simd_combine<mode>): Remove bogus RTL description.
+
+2014-07-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61680
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence):
+	Handle properly all read-write dependences with group accesses.
+
+	PR tree-optimization/61681
+	* tree-ssa-structalias.c (find_what_var_points_to): Expand
+	NONLOCAL inside ESCAPED.
+
+2014-07-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r211502 from mainline.
+	2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/59843
+	* config/aarch64/aarch64-modes.def: Add V1DFmode.
+	* config/aarch64/aarch64.c (aarch64_vector_mode_supported_p):
+	Support V1DFmode.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/61725
+	* tree-vrp.c (extract_range_basic): Don't assume vr0 is unsigned
+	range, use range_includes_zerop_p instead of integer_zerop on
+	vr0->min, only use log2 of max if min is not negative.
+
 2014-07-06  Gerald Pfeifer  <gerald@pfeifer.com>
 
 	* doc/install.texi (Specific, aarch64*-*-*): Fix markup.  Reword a bit.
