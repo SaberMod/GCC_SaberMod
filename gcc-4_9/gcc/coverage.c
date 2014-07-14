@@ -584,9 +584,9 @@ static void
 reorder_module_groups (const char *imports_file, unsigned max_group)
 {
   FILE *f;
-  int n, order = 0;
-  size_t len;
-  char *line = NULL;
+  int order = 0;
+  const int max_line_size = (1 << 16);
+  char line[max_line_size];
 
   module_name_tab.create (20);
 
@@ -594,20 +594,23 @@ reorder_module_groups (const char *imports_file, unsigned max_group)
   if (!f)
     error ("Can't open file %s", imports_file);
 
-  while ((n = getline (&line, &len, f)) != -1)
+  while (fgets (line, max_line_size, f))
     {
+      size_t n = strlen (line);
+      gcc_assert (n < max_line_size - 1);
+      if (line[n - 1] == '\n')
+	line[n - 1] = '\0';
+
       module_name_entry **slot;
       module_name_entry *m_e = XCNEW (module_name_entry);
 
-      line[n - 1] = '\0';
-      m_e->source_name = line;
+      m_e->source_name = xstrdup (line);
       m_e->order = order;
 
       slot = module_name_tab.find_slot (m_e, INSERT);
       gcc_assert (!*slot);
       *slot = m_e;
 
-      line = NULL;
       order++;
     }
 
