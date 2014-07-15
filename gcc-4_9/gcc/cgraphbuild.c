@@ -424,7 +424,14 @@ mark_address (gimple stmt, tree addr, tree, void *data)
          */
       if (L_IPO_COMP_MODE && cgraph_pre_profiling_inlining_done
           && first_clone && !first_clone->global.inlined_to)
-        node = cgraph_lipo_get_resolved_node (addr);
+        {
+          /* We now fix up address references to function decls after the LIPO
+             link, so any existing node that isn't an inline clone should be
+             the resolved node.  */
+          struct cgraph_node *resolved = cgraph_lipo_get_resolved_node (addr);
+          gcc_assert (resolved == first_clone);
+          gcc_assert (resolved == node);
+        }
 
       cgraph_mark_address_taken_node (node);
       ipa_record_reference ((symtab_node *)data,
@@ -658,6 +665,56 @@ record_references_in_initializer (tree decl, bool only_vars)
   pointer_set_destroy (visited_nodes);
 }
 
+/* Update any function decl references in base ADDR of operand OP to refer to
+   the resolved node.  */
+
+static bool
+fixup_ref (gimple, tree addr, tree op)
+{
+  addr = get_base_address (addr);
+  if (addr && TREE_CODE (addr) == FUNCTION_DECL)
+    {
+      gcc_assert (TREE_CODE (op) == ADDR_EXPR);
+      gcc_assert (TREE_OPERAND (op,0) == addr);
+      struct cgraph_node *real_callee;
+      real_callee = cgraph_lipo_get_resolved_node (addr);
+      if (addr == real_callee->decl)
+        return false;
+      TREE_OPERAND (op,0) = real_callee->decl;
+    }
+  return false;
+}
+
+/* Update any function decl references in base ADDR of operand OP from address
+   STMT operand OP to refer to the resolved node.  */
+
+static bool
+fixup_address (gimple stmt, tree addr, tree op, void *)
+{
+  return fixup_ref (stmt, addr, op);
+}
+
+/* Update any function decl references in base ADDR of operand OP from load
+   STMT operand OP to refer to the resolved node.  See comments in mark_load
+   on when a load may have a function decl reference.  */
+
+static bool
+fixup_load (gimple stmt, tree addr, tree op, void *)
+{
+  return fixup_ref (stmt, addr, op);
+}
+
+/* After the LIPO link, references to function decls should be updated
+   to the resolved node, so that the correct references are added to the
+   cgraph.  Update all references in STMT.  */
+
+void
+lipo_fixup_load_addr_ops (gimple stmt)
+{
+  walk_stmt_load_store_addr_ops (stmt, NULL, fixup_load, NULL,
+				 fixup_address);
+}
+
 /* In LIPO mode, before tree_profiling, the call graph edge
    needs to be built with the original target node to make
    sure consistent early inline decisions between profile
@@ -730,7 +787,10 @@ lipo_link_and_fixup ()
 		  gimple stmt = gsi_stmt (gsi);
 		  if (is_gimple_call (stmt))
 		    lipo_fixup_cgraph_edge_call_target (stmt);
+		  lipo_fixup_load_addr_ops (stmt);
 		}
+	      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	        lipo_fixup_load_addr_ops (gsi_stmt (gsi));
 	    }
 	  update_ssa (TODO_update_ssa);
 	}
