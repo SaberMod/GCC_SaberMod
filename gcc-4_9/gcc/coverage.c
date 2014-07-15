@@ -1009,7 +1009,11 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
 {
   counts_entry_t *entry, elt;
 
-  elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  else
+    elt.ident = coverage_compute_profile_id (cgraph_get_node (func->decl));
+
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
 
@@ -1113,7 +1117,10 @@ get_coverage_counts_no_warn (struct function *f, unsigned counter, unsigned *n_c
   if (!counts_hash.is_created () || !f)
     return NULL;
 
-  elt.ident = FUNC_DECL_GLOBAL_ID (f);
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    elt.ident = FUNC_DECL_GLOBAL_ID (f);
+  else
+    elt.ident = coverage_compute_profile_id (cgraph_get_node (f->decl));
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
   if (!entry)
@@ -1326,12 +1333,13 @@ coverage_compute_profile_id (struct cgraph_node *n)
 {
   expanded_location xloc
     = expand_location (DECL_SOURCE_LOCATION (n->decl));
-  unsigned chksum = xloc.line;
+  bool use_name_only = (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) == 0);
+  unsigned chksum = (use_name_only ? 0 : xloc.line);
 
   chksum = coverage_checksum_string (chksum, xloc.file);
   chksum = coverage_checksum_string
     (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
-  if (first_global_object_name)
+  if (!use_name_only && first_global_object_name)
     chksum = coverage_checksum_string
       (chksum, first_global_object_name);
   chksum = coverage_checksum_string
@@ -1427,7 +1435,16 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	{
 	  item = ggc_alloc_coverage_data ();
 	  
-	  item->ident = FUNC_DECL_FUNC_ID (cfun);
+	  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+	    item->ident = FUNC_DECL_FUNC_ID (cfun);
+	  else
+	    {
+	      if (flag_dyn_ipa)
+		error ("param=profile-func-internal-id=0 is not"
+		       " supported in LIPO mode.  ");
+	      item->ident = coverage_compute_profile_id (
+	        cgraph_get_node (cfun->decl));
+	    }
 	  item->lineno_checksum = lineno_checksum;
 	  item->cfg_checksum = cfg_checksum;
 
