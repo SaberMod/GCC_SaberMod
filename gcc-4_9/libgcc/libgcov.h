@@ -32,6 +32,13 @@
 #ifndef xcalloc
 #define xcalloc calloc
 #endif
+#ifndef xrealloc
+#define xrealloc realloc
+#endif
+
+#ifndef IN_GCOV_TOOL
+/* About the target.  */
+/* This path will be used by libgcov runtime.  */
 
 #include "tconfig.h"
 #include "tsystem.h"
@@ -96,6 +103,55 @@ typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define GCOV_TYPE_ATOMIC_FETCH_ADD BUILT_IN_ATOMIC_FETCH_ADD_4
 #endif
 
+#if defined (TARGET_POSIX_IO)
+#define GCOV_LOCKED 1
+#else
+#define GCOV_LOCKED 0
+#endif
+
+#else /* IN_GCOV_TOOL */
+/* About the host.  */
+/* This path will be compiled for the host and linked into
+   gcov-tool binary.  */
+
+#include "config.h"
+#include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+
+typedef unsigned gcov_unsigned_t;
+typedef unsigned gcov_position_t;
+/* gcov_type is typedef'd elsewhere for the compiler */
+#if defined (HOST_HAS_F_SETLKW)
+#define GCOV_LOCKED 1
+#else
+#define GCOV_LOCKED 0
+#endif
+
+/* xur??? */
+#define FUNC_ID_WIDTH 32
+#define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
+
+/* Some Macros specific to gcov-tool.  */
+
+#define L_gcov 1
+#define L_gcov_merge_add 1
+#define L_gcov_merge_single 1
+#define L_gcov_merge_delta 1
+#define L_gcov_merge_ior 1
+#define L_gcov_merge_time_profile 1
+#define L_gcov_merge_icall_topn 1
+#define L_gcov_merge_dc 1
+
+/* Make certian internal functions/variables in libgcov available for
+   gcov-tool access.  */
+#define GCOV_TOOL_LINKAGE 
+
+extern gcov_type gcov_read_counter_mem ();
+extern unsigned gcov_get_merge_weight ();
+
+#endif /* !IN_GCOV_TOOL */
+
 #undef EXTRACT_MODULE_ID_FROM_GLOBAL_ID
 #undef EXTRACT_FUNC_ID_FROM_GLOBAL_ID
 #undef GEN_FUNC_GLOBAL_ID
@@ -104,13 +160,6 @@ typedef unsigned gcov_type_unsigned __attribute__ ((mode (QI)));
 #define EXTRACT_FUNC_ID_FROM_GLOBAL_ID(gid) \
                 (gcov_unsigned_t)((gid) & FUNC_ID_MASK)
 #define GEN_FUNC_GLOBAL_ID(m,f) ((((gcov_type) (m)) << FUNC_ID_WIDTH) | (f))
-
-
-#if defined (TARGET_POSIX_IO)
-#define GCOV_LOCKED 1
-#else
-#define GCOV_LOCKED 0
-#endif
 
 #if defined(inhibit_libc)
 #define IN_LIBGCOV (-1)
@@ -176,7 +225,7 @@ struct gcov_fn_info
   gcov_unsigned_t ident;                /* unique ident of function */
   gcov_unsigned_t lineno_checksum;      /* function lineo_checksum */
   gcov_unsigned_t cfg_checksum; /* function cfg checksum */
-  struct gcov_ctr_info ctrs[0];         /* instrumented counters */
+  struct gcov_ctr_info ctrs[1];         /* instrumented counters */
 };
 
 /* Type of function used to merge counters.  */
@@ -196,8 +245,13 @@ struct gcov_info
                                           unused) */
 
   unsigned n_functions;         /* number of functions */
+
+#ifndef IN_GCOV_TOOL
   const struct gcov_fn_info *const *functions; /* pointer to pointers
                                                   to function information  */
+#else
+  const struct gcov_fn_info **functions;
+#endif /* !IN_GCOV_TOOL */
 };
 
 /* Information about a single imported module.  */
@@ -284,6 +338,46 @@ GCOV_LINKAGE const struct dyn_imp_mod **
 gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE inline void gcov_rewrite (void);
+
+/* "Counts" stored in gcda files can be a real counter value, or
+   an target address. When differentiate these two types because
+   when manipulating counts, we should only change real counter values,
+   rather target addresses.  */
+
+static inline gcov_type
+gcov_get_counter (void)
+{
+#ifndef IN_GCOV_TOOL
+  /* This version is for reading count values in libgcov runtime:
+     we read from gcda files.  */
+
+  return gcov_read_counter ();
+#else
+  /* This version is for gcov-tool. We read the value from memory and
+     multiply it by the merge weight.  */
+
+  return gcov_read_counter_mem () * gcov_get_merge_weight ();
+#endif
+}
+
+/* Similar function as gcov_get_counter(), but handles target address
+   counters.  */
+
+static inline gcov_type
+gcov_get_counter_target (void)
+{
+#ifndef IN_GCOV_TOOL
+  /* This version is for reading count target values in libgcov runtime:
+     we read from gcda files.  */
+
+  return gcov_read_counter ();
+#else
+  /* This version is for gcov-tool.  We read the value from memory and we do NOT
+     multiply it by the merge weight.  */
+
+  return gcov_read_counter_mem ();
+#endif
+}
 
 #endif /* !inhibit_libc */
 

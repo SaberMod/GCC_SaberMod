@@ -65,6 +65,7 @@ extern int get_gcov_dump_complete (void) ATTRIBUTE_HIDDEN;
 extern void set_gcov_list (struct gcov_info *) ATTRIBUTE_HIDDEN;
 __attribute__((weak)) void __coverage_callback (gcov_type, int); 
 
+#ifndef IN_GCOV_TOOL
 /* Create a strong reference to these symbols so that they are
    unconditionally pulled into the instrumented binary, even when
    the only reference is a weak reference. This is necessary because
@@ -92,6 +93,7 @@ extern void __gcov_flush (void);
 char *(*__gcov_dummy_ref6)(void) = &__gcov_flush;
 extern unsigned int __gcov_profiling_for_test_coverage (void);
 char *(*__gcov_dummy_ref7)(void) = &__gcov_profiling_for_test_coverage;
+#endif
 
 /* Default callback function for profile instrumentation callback.  */
 __attribute__((weak)) void
@@ -126,7 +128,11 @@ set_gcov_list (struct gcov_info *head)
 }
 
 /* Size of the longest file name. */
-static size_t gcov_max_filename = 0;
+/* We need to expose this static variable when compiling for gcov-tool.  */
+#ifndef IN_GCOV_TOOL
+static
+#endif
+size_t gcov_max_filename = 0;
 
 /* Flag when the profile has already been dumped via __gcov_dump().  */
 static int gcov_dump_complete;
@@ -1065,7 +1071,7 @@ gcov_clear (void)
 void
 __gcov_init (struct gcov_info *info)
 {
-
+#ifndef IN_GCOV_TOOL
    if (!gcov_sampling_period_initialized)
     {
       const char* env_value_str = getenv ("GCOV_SAMPLING_PERIOD");
@@ -1101,6 +1107,7 @@ __gcov_init (struct gcov_info *info)
       __gcov_list = info;
     }
   info->version = 0;
+#endif
 }
 
 #endif /* L_gcov */

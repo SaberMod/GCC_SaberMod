@@ -64,14 +64,22 @@ GCOV_LINKAGE struct gcov_var
 } gcov_var;
 
 /* Save the current position in the gcov file.  */
-static inline gcov_position_t
+/* We need to expose this function when compiling for gcov-tool.  */
+#ifndef IN_GCOV_TOOL
+static inline
+#endif
+gcov_position_t
 gcov_position (void)
 {
   return gcov_var.start + gcov_var.offset;
 }
 
 /* Return nonzero if the error flag is set.  */
-static inline int 
+/* We need to expose this function when compiling for gcov-tool.  */
+#ifndef IN_GCOV_TOOL
+static inline
+#endif
+int
 gcov_is_error (void)
 {
   return gcov_var.file ? gcov_var.error : 1;
@@ -559,11 +567,13 @@ gcov_read_counter (void)
   return value;
 }
 
+/* We need to expose the below function when compiling for gcov-tool.  */
+
+#if !IN_LIBGCOV || defined (IN_GCOV_TOOL)
 /* Read string from coverage file. Returns a pointer to a static
    buffer, or NULL on empty string. You must copy the string before
    calling another gcov function.  */
 
-#if !IN_LIBGCOV
 GCOV_LINKAGE const char *
 gcov_read_string (void)
 {
@@ -693,7 +703,9 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
 }
 #endif
 
-#if !IN_LIBGCOV
+/* We need to expose the below function when compiling for gcov-tool.  */
+
+#if !IN_LIBGCOV || defined (IN_GCOV_TOOL)
 /* Reset to a known position.  BASE should have been obtained from
    gcov_position, LENGTH should be a record length.  */
 
