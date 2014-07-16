@@ -2586,7 +2586,10 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	    }
 	  /* Perform the overflow check.  */
 	  tree errval = TYPE_MAX_VALUE (sizetype);
-	  if (cxx_dialect >= cxx11 && flag_exceptions)
+	  if (cxx_dialect >= cxx11 && flag_exceptions
+              /* ANDROID - temporarily disable __cxa_throw_bad_array_new_length
+                 call. */
+              && !TARGET_ANDROID)
 	    errval = throw_bad_array_new_length ();
 	  if (outer_nelts_check != NULL_TREE)
             size = fold_build3 (COND_EXPR, sizetype, outer_nelts_check,
