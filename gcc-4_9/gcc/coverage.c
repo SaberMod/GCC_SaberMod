@@ -1408,7 +1408,12 @@ coverage_begin_function (unsigned lineno_checksum, unsigned cfg_checksum)
 
   /* Announce function */
   offset = gcov_write_tag (GCOV_TAG_FUNCTION);
-  gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  else 
+    gcov_write_unsigned (coverage_compute_profile_id (
+      cgraph_get_node (cfun->decl)));
+
   gcov_write_unsigned (lineno_checksum);
   gcov_write_unsigned (cfg_checksum);
   gcov_write_string (IDENTIFIER_POINTER
