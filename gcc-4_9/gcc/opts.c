@@ -802,6 +802,13 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 			     opts->x_param_values, opts_set->x_param_values);
     }
 
+  /* External id is not supported in LIPO mode.  */
+  if (opts->x_flag_dyn_ipa)
+    {
+      maybe_set_param_value (PARAM_PROFILE_FUNC_INTERNAL_ID, 1,
+                             opts->x_param_values, opts_set->x_param_values);
+    }
+
   if (opts->x_flag_lto)
     {
 #ifdef ENABLE_LTO

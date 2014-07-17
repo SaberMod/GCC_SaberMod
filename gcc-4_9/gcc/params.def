@@ -973,7 +973,7 @@ DEFPARAM (PARAM_ALWAYS_INLINE_ICALL_TARGET,
 DEFPARAM (PARAM_PROFILE_FUNC_INTERNAL_ID,
 	  "profile-func-internal-id",
 	  "use internal function id in profile lookup",
-          1, 0, 1)
+          0, 0, 1)
 
 /* Do not check the icall target count distribution, but use
    hotness info to decide if promotion should be done.  */
