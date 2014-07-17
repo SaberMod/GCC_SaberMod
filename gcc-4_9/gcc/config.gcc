@@ -905,6 +905,7 @@ aarch64*-*-elf)
 aarch64*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h gnu-user.h linux.h  linux-android.h glibc-stdint.h"
 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-linux.h"
+	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} aarch64/t-aarch64 aarch64/t-aarch64-linux"
 
 	case $target in
@@ -913,7 +914,6 @@ aarch64*-*-linux*)
 		;;
 	aarch64*-*-linux-android*)
 		tm_file="${tm_file} aarch64/aarch64-linux-android.h"
-		extra_options="${extra_options} linux-android.opt"
 		;;
 	esac
 	aarch64_multilibs="${with_multilib_list}"
@@ -2316,6 +2316,7 @@ powerpc-*-rtems*)
 powerpc*-*-linux*)
 	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
+	extra_options="${extra_options} linux-android.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
 	extra_objs="$extra_objs rs6000-linux.o"
 	case ${target} in
