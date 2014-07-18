@@ -2391,6 +2391,10 @@ read_modu_groups_from_imports_files (void)
 	{
           char *line = NULL;
           size_t linecap = 0;
+#define MAX_MODU_SIZE 200000
+          int w = MAX_MODU_SIZE;
+          int i = 0;
+
           while (getline (&line, &linecap, fd) != -1)
             {
               unsigned mod_id = 0;
@@ -2403,7 +2407,8 @@ read_modu_groups_from_imports_files (void)
            	  if (mod_idx == m_ix)
            	    continue;
            	  imp_mod_info = get_module_info (mod_idx + 1);
-           	  imp_mod_set_insert (imp_modules, imp_mod_info, 1.0);
+                  i++;
+                  imp_mod_set_insert (imp_modules, imp_mod_info, w - i);
                 }
               free (line);
               line = NULL;
