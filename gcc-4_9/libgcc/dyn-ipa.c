@@ -182,6 +182,7 @@ enum GROUPING_ALGORITHM
 static int flag_alg_mode;
 static int flag_modu_merge_edges;
 static int flag_weak_inclusion;
+static int flag_use_existing_grouping;
 static gcov_unsigned_t mem_threshold;
 
 /* Returns 0 if no dump is enabled. Returns 1 if text form graph
@@ -363,6 +364,7 @@ static void
 init_dyn_call_graph (void)
 {
   unsigned num_modules = 0;
+  unsigned max_module_id = 0;
   struct gcov_info *gi_ptr;
   const char *env_str;
   int do_dump = (do_cgraph_dump () != 0);
@@ -379,12 +381,22 @@ init_dyn_call_graph (void)
   gi_ptr = __gcov_list;
 
   for (; gi_ptr; gi_ptr = gi_ptr->next)
-    num_modules++;
+    {
+      unsigned mod_id = get_module_ident (gi_ptr);
+      num_modules++;
+      if (max_module_id < mod_id)
+        max_module_id = mod_id;
+    }
+
+  if (num_modules < max_module_id)
+    num_modules = max_module_id;
 
   the_dyn_call_graph.num_modules = num_modules;
 
   the_dyn_call_graph.modules
     = XNEWVEC (struct gcov_info *, num_modules);
+  memset (the_dyn_call_graph.modules, 0,
+          num_modules * sizeof (struct gcov_info*));
 
   the_dyn_call_graph.sup_modules
     = XNEWVEC (struct dyn_module_info, num_modules);
@@ -474,13 +486,16 @@ void
 __gcov_finalize_dyn_callgraph (void)
 {
   unsigned i;
-  struct gcov_info *gi_ptr;
 
   for (i = 0; i < the_dyn_call_graph.num_modules; i++)
     {
-      gi_ptr = the_dyn_call_graph.modules[i];
+      struct gcov_info *gi_ptr = the_dyn_call_graph.modules[i];
       const struct gcov_fn_info *fi_ptr;
       unsigned f_ix;
+
+      if (gi_ptr == NULL)
+        continue;
+
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
         {
           struct dyn_cgraph_node *node;
@@ -649,6 +664,8 @@ gcov_build_callgraph (void)
       unsigned f_ix, i;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
         {
@@ -899,6 +916,8 @@ gcov_compute_cutoff_count (void)
       unsigned f_ix;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	{
@@ -1237,7 +1256,8 @@ gcov_process_cgraph_node (struct dyn_cgraph_node *node,
             {
               struct gcov_info *callee_mod_info
                   = get_module_info (callee_mod_id);
-              imp_mod_set_insert (imp_modules, callee_mod_info, callee_mod_wt);
+              if (callee_mod_info)
+                imp_mod_set_insert (imp_modules, callee_mod_info, callee_mod_wt);
             }
         }
 
@@ -1627,6 +1647,8 @@ build_modu_graph (gcov_type cutoff_count)
       unsigned f_ix;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
       modu_nodes[m_ix].module = gi_ptr;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
@@ -1948,6 +1970,8 @@ gcov_compute_module_groups_eager_propagation (gcov_type cutoff_count)
       unsigned f_ix;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	{
@@ -1970,6 +1994,8 @@ gcov_compute_module_groups_eager_propagation (gcov_type cutoff_count)
       unsigned f_ix;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	{
@@ -2034,7 +2060,8 @@ gcov_compute_random_module_groups (unsigned max_group_size)
 	  if (mod_idx == m_ix)
 	    continue;
 	  imp_mod_info = get_module_info (mod_idx + 1);
-	  if (!imp_mod_set_insert (imp_modules, imp_mod_info, 1.0))
+          if (imp_mod_info &&
+	      !imp_mod_set_insert (imp_modules, imp_mod_info, 1.0))
 	    i++;
 	}
     }
@@ -2153,6 +2180,117 @@ gcov_write_module_infos (struct gcov_info *mod_info)
     }
 }
 
+/* Set to use module grouping from existing imports files in
+   the profile directory.  */
+void set_use_existing_grouping (void);
+
+void
+set_use_existing_grouping (void)
+{
+  flag_use_existing_grouping = 1;
+}
+
+#ifdef IN_GCOV_TOOL
+extern const char *get_source_profile_dir (void);
+
+/* find and open the imports files based on da_filename
+   in GI_PTR.  */
+
+static FILE *
+open_imports_file (struct gcov_info *gi_ptr)
+{
+  const char *gcda_name;
+  char *imports_name;
+  const char *source_dir = "";
+
+  if (gi_ptr == NULL || gi_ptr->mod_info == NULL)
+    return NULL;
+
+  gcda_name = gi_ptr->mod_info->da_filename;
+  gcc_assert (gcda_name);
+
+  source_dir = get_source_profile_dir ();
+  gcc_assert (source_dir);
+  imports_name = (char *) alloca (strlen (gcda_name) + strlen (source_dir) +
+                                  strlen (".gcda.imports") + 2);
+  strcpy (imports_name, source_dir);
+  strcat (imports_name, "/");
+  strcat (imports_name, gcda_name);
+  strcat (imports_name, ".gcda.imports");
+  return fopen (imports_name, "r");
+}
+
+extern int get_module_id_from_name (const char *);
+
+#endif /* IN_GCOV_TOOL */
+
+/* Use the module grouping from existing imports files in
+   the profile directory.  */
+
+static void
+read_modu_groups_from_imports_files (void)
+{
+#ifdef IN_GCOV_TOOL
+  unsigned m_ix;
+
+  init_dyn_call_graph ();
+
+  for (m_ix = 0; m_ix < the_dyn_call_graph.num_modules; m_ix++)
+    {
+      struct gcov_info *gi_ptr = the_dyn_call_graph.modules[m_ix];
+      FILE *fd;
+      struct dyn_pointer_set *imp_modules;
+
+      if (gi_ptr == NULL)
+        continue;
+
+      imp_modules = gcov_get_module_imp_module_set
+                      (&the_dyn_call_graph.sup_modules[m_ix]);
+
+      if ((fd = open_imports_file (gi_ptr)) != NULL)
+	{
+          char *line = NULL;
+          size_t linecap = 0;
+#define MAX_MODU_SIZE 200000
+          int w = MAX_MODU_SIZE;
+          int i = 0;
+
+          while (getline (&line, &linecap, fd) != -1)
+            {
+              unsigned mod_id = 0;
+              char *name = strtok (line, " \t\n");
+
+              if (name && (mod_id = get_module_id_from_name (name)))
+                {
+                  struct gcov_info *imp_mod_info;
+           	  unsigned mod_idx = mod_id - 1;
+           	  if (mod_idx == m_ix)
+           	    continue;
+           	  imp_mod_info = get_module_info (mod_idx + 1);
+                  i++;
+           	  imp_mod_set_insert (imp_modules, imp_mod_info, w - i);
+                }
+              free (line);
+              line = NULL;
+            }
+          fclose (fd);
+	}
+    }
+
+  /* Now compute the export attribute  */
+  for (m_ix = 0; m_ix < the_dyn_call_graph.num_modules; m_ix++)
+    {
+      struct dyn_module_info *mi
+	= &the_dyn_call_graph.sup_modules[m_ix];
+      if (mi->imported_modules)
+        pointer_set_traverse (mi->imported_modules,
+                              gcov_mark_export_modules, 0, 0, 0);
+    }
+#else /* !IN_GCOV_TOOL */
+  gcc_assert (0);
+#endif /* IN_GCOV_TOOL */
+}
+
 /* Compute module groups needed for L-IPO compilation.  */
 
 void
@@ -2187,6 +2325,12 @@ __gcov_compute_module_groups (void)
           fprintf (stderr, " Creating random grouping with %s:%s\n",
                    seed, max_group_size);
         }
+      return;
+    }
+
+  if (flag_use_existing_grouping)
+    {
+      read_modu_groups_from_imports_files ();
       return;
     }
 
@@ -2331,6 +2475,8 @@ gcov_dump_callgraph (gcov_type cutoff_count)
       unsigned f_ix;
 
       gi_ptr = the_dyn_call_graph.modules[m_ix];
+      if (gi_ptr == NULL)
+        continue;
 
       for (f_ix = 0; f_ix < gi_ptr->n_functions; f_ix++)
 	{

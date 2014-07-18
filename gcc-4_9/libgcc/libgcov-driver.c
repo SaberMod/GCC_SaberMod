@@ -44,9 +44,11 @@ void __gcov_init (struct gcov_info *p __attribute__ ((unused))) {}
 #ifdef L_gcov
 #include "gcov-io.c"
 
+#ifndef IN_GCOV_TOOL
 extern gcov_unsigned_t __gcov_sampling_period;
 extern gcov_unsigned_t __gcov_has_sampling;
 static int gcov_sampling_period_initialized = 0;
+#endif
 
 /* Unique identifier assigned to each module (object file).  */
 static gcov_unsigned_t gcov_cur_module_id = 0;
@@ -1083,6 +1085,7 @@ __gcov_init (struct gcov_info *info)
         }
       gcov_sampling_period_initialized = 1;
     }
+#endif
 
   if (!info->version || !info->n_functions)
     return;
@@ -1107,7 +1110,6 @@ __gcov_init (struct gcov_info *info)
       __gcov_list = info;
     }
   info->version = 0;
-#endif
 }
 
 #endif /* L_gcov */

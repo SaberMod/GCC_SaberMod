@@ -650,7 +650,7 @@ gcov_read_summary (struct gcov_summary *summary)
     }
 }
 
-#if !IN_LIBGCOV && IN_GCOV != 1
+#if (!IN_LIBGCOV && IN_GCOV != 1) || defined (IN_GCOV_TOOL)
 /* Read LEN words (unsigned type) and construct MOD_INFO.  */
 
 GCOV_LINKAGE void
