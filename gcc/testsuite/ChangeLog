@@ -1,3 +1,113 @@
+2014-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61794
+	* gcc.target/i386/pr61794.c: New test.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-07-10  Richard Biener  <rguenther@suse.de>
+
+	PR c-family/61741
+	* c-c++-common/torture/pr61741.c: Use signed char.
+
+	2014-07-09  Richard Biener  <rguenther@suse.de>
+
+	PR c-family/61741
+	* c-c++-common/torture/pr61741.c: New testcase.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61779
+	* gcc.dg/tree-ssa/ssa-copyprop-2.c: New testcase.
+
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
+2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt39.adb: New test.
+
+2014-07-09  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/58155 - -Wliteral-suffix warns about tokens which are skipped
+	g++.dg/cpp0x/pr58155.C: New.
+
+2014-07-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r211369 from trunk.
+	2014-06-09  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/61062
+	* gcc.target/arm/pr48252.c (main): Expect same result as
+	endian-neutral.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/61673
+	* gcc.c-torture/execute/pr61673.c: New test.
+
+2014-07-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61680
+	* gcc.dg/vect/pr61680.c: New testcase.
+
+	PR tree-optimization/61681
+	* gcc.dg/torture/pr61681.c: New testcase.
+
+2014-07-08  Alan Lawrence  <alan.lawrence@arm.com>
+
+        Backport r211502 from mainline.
+        2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR target/59843
+	* gcc.dg/vect/vect-singleton_1.c: New file.
+
+2014-07-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/61725
+	* gcc.dg/tree-ssa/vrp93.c: New test.
+	* gcc.c-torture/execute/pr61725.c: New test.
+
+2014-07-07  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/61459
+	PR fortran/58883
+	* gfortran.dg/allocatable_function_8.f90 : New test
+
+2014-07-07  Dominique d'Humieres <dominiq@lps.ens.fr>
+	    Mikael Morin <mikael@gcc.gnu.org>
+
+	PR fortran/41936
+	* gfortran.dg/class_array_15.f03: Check memory leaks.
+
+2014-07-06  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	Backport from mainline.
+	PR libgfortran/61640
+	* gfortran.dg/arrayio_16.f90: New test.
+
+2014-07-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61654
+	* g++.dg/opt/pr61654.C: New test.
+
+	PR tree-optimization/61684
+	* gcc.c-torture/compile/pr61684.c: New test.
+
+	PR c++/61382
+	Backport from mainline
+	2014-06-05  Andreas Schwab  <schwab@suse.de>
+
+	* g++.dg/cpp0x/initlist86.C (main): Initialize i.
+
 2014-07-02  Jakub Jelinek  <jakub@redhat.com>
 	    Fritz Reese  <Reese-Fritz@zai.com>
 
