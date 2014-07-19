@@ -189,7 +189,8 @@ in the following sections.
 -fno-pretty-templates @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-backtrace-limit=@var{n} @gol
 -ftemplate-depth=@var{n} @gol
--fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
+-fno-threadsafe-statics  -fno-use-all-virtuals  -fuse-cxa-atexit @gol
+-fno-weak  -nostdinc++ @gol
 -fvisibility-inlines-hidden @gol
 -fvtable-verify=@var{std|preinit|none} @gol
 -fvtv-counts -fvtv-debug @gol
@@ -257,16 +258,16 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
--Wmain -Wmaybe-uninitialized -Wmissing-braces  -Wmissing-field-initializers @gol
--Wmissing-include-dirs @gol
--Wno-multichar  -Wnonnull  -Wno-overflow -Wopenmp-simd @gol
+-Wmain -Wmaybe-uninitialized -Wmemset-transposed-args -Wmissing-braces @gol
+-Wmissing-field-initializers -Wmissing-include-dirs @gol
+-Wno-multichar  -Wnonnull  -Wodr  -Wno-overflow  -Wopenmp-simd @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
 -Wpointer-arith  -Wno-pointer-to-int-cast @gol
 -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wsign-compare  -Wsign-conversion -Wfloat-conversion @gol
--Wsizeof-pointer-memaccess @gol
+-Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
 -Wstrict-aliasing=n @gol -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
@@ -463,7 +464,7 @@ Objective-C and Objective-C++ Dialects}.
 -static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
--u @var{symbol}}
+-u @var{symbol} -z @var{keyword}}
 
 @item Directory Options
 @xref{Directory Options,,Options for Directory Search}.
@@ -518,7 +519,7 @@ Objective-C and Objective-C++ Dialects}.
 -mapcs-float  -mno-apcs-float @gol
 -mapcs-reentrant  -mno-apcs-reentrant @gol
 -msched-prolog  -mno-sched-prolog @gol
--mlittle-endian  -mbig-endian  -mwords-little-endian @gol
+-mlittle-endian  -mbig-endian @gol
 -mfloat-abi=@var{name} @gol
 -mfp16-format=@var{name}
 -mthumb-interwork  -mno-thumb-interwork @gol
@@ -2317,6 +2318,16 @@ Do not emit the extra code to use the routines specified in the C++
 ABI for thread-safe initialization of local statics.  You can use this
 option to reduce code size slightly in code that doesn't need to be
 thread-safe.
+
+@item -fno-use-all-virtuals
+@opindex fno-use-all-virtuals
+By default, G++ now treats all virtual functions declared in a
+translation unit as odr-used, so they will be instantiated or
+synthesized if possible even if they are not needed for the final
+output.  This is done so that such functions can be inlined after
+devirtualization changes an indirect call into a direct call.  If this
+instantiation and synthesis prevents your code from compiling
+successfully, you can disable it with this option.
 
 @item -fuse-cxa-atexit
 @opindex fuse-cxa-atexit
@@ -4676,6 +4687,25 @@ but a pointer, and suggests a possible fix, or about
 @code{memcpy (&foo, ptr, sizeof (&foo));}.  This warning is enabled by
 @option{-Wall}.
 
+@item -Wsizeof-array-argument
+@opindex Wsizeof-array-argument
+@opindex Wno-sizeof-array-argument
+Warn when the @code{sizeof} operator is applied to a parameter that is
+declared as an array in a function definition.  This warning is enabled by
+default for C and C++ programs.
+
+@item -Wmemset-transposed-args
+@opindex Wmemset-transposed-args
+@opindex Wno-memset-transposed-args
+Warn for suspicious calls to the @code{memset} built-in function, if the
+second argument is not zero and the third argument is zero.  This warns e.g.@
+about @code{memset (buf, sizeof buf, 0)} where most probably
+@code{memset (buf, 0, sizeof buf)} was meant instead.  The diagnostics
+is only emitted if the third argument is literal zero, if it is some expression
+that is folded to zero, or e.g. a cast of zero to some type etc., it
+is far less likely that user has mistakenly exchanged the arguments and
+no warning is emitted.  This warning is enabled by @option{-Wall}.
+
 @item -Waddress
 @opindex Waddress
 @opindex Wno-address
@@ -4896,6 +4926,12 @@ attribute.
 @opindex Wno-overflow
 @opindex Woverflow
 Do not warn about compile-time overflow in constant expressions.
+
+@opindex Wodr
+@opindex Wno-odr
+@opindex Wodr
+Warn about One Definition Rule violations during link time optimization.
+Require @option{-flto-odr-type-merging} to be enabled. Enabled by default
 
 @item -Wopenmp-simd
 @opindex Wopenm-simd
@@ -5400,26 +5436,22 @@ at runtime.  Current suboptions are:
 
 @item -fsanitize=shift
 @opindex fsanitize=shift
-
 This option enables checking that the result of a shift operation is
 not undefined.  Note that what exactly is considered undefined differs
 slightly between C and C++, as well as between ISO C90 and C99, etc.
 
 @item -fsanitize=integer-divide-by-zero
 @opindex fsanitize=integer-divide-by-zero
-
 Detect integer division by zero as well as @code{INT_MIN / -1} division.
 
 @item -fsanitize=unreachable
 @opindex fsanitize=unreachable
-
 With this option, the compiler will turn the @code{__builtin_unreachable}
 call into a diagnostics message call instead.  When reaching the
 @code{__builtin_unreachable} call, the behavior is undefined.
 
 @item -fsanitize=vla-bound
 @opindex fsanitize=vla-bound
-
 This option instructs the compiler to check that the size of a variable
 length array is positive.  This option does not have any effect in
 @option{-std=c++1y} mode, as the standard requires the exception be thrown
@@ -5427,7 +5459,6 @@ instead.
 
 @item -fsanitize=null
 @opindex fsanitize=null
-
 This option enables pointer checking.  Particularly, the application
 built with this option turned on will issue an error message when it
 tries to dereference a NULL pointer, or if a reference (possibly an
@@ -5435,7 +5466,6 @@ rvalue reference) is bound to a NULL pointer.
 
 @item -fsanitize=return
 @opindex fsanitize=return
-
 This option enables return statement checking.  Programs
 built with this option turned on will issue an error message
 when the end of a non-void function is reached without actually
@@ -5443,7 +5473,6 @@ returning a value.  This option works in C++ only.
 
 @item -fsanitize=signed-integer-overflow
 @opindex fsanitize=signed-integer-overflow
-
 This option enables signed integer overflow checking.  We check that
 the result of @code{+}, @code{*}, and both unary and binary @code{-}
 does not overflow in the signed arithmetics.  Note, integer promotion
@@ -5456,20 +5485,12 @@ a++;
 
 @item -fsanitize=bounds
 @opindex fsanitize=bounds
-
 This option enables instrumentation of array bounds.  Various out of bounds
-accesses are detected.  Flexible array members are not instrumented, as well
-as initializers of variables with static storage.
-
-@end table
-
-While @option{-ftrapv} causes traps for signed overflows to be emitted,
-@option{-fsanitize=undefined} gives a diagnostic message.
-This currently works only for the C family of languages.
+accesses are detected.  Flexible array members and initializers of variables
+with static storage are not instrumented.
 
 @item -fsanitize=float-divide-by-zero
 @opindex fsanitize=float-divide-by-zero
-
 Detect floating-point division by zero.  Unlike other similar options,
 @option{-fsanitize=float-divide-by-zero} is not enabled by
 @option{-fsanitize=undefined}, since floating-point division by zero can
@@ -5477,10 +5498,15 @@ be a legitimate way of obtaining infinities and NaNs.
 
 @item -fsanitize=float-cast-overflow
 @opindex fsanitize=float-cast-overflow
-
 This option enables floating-point type to integer conversion checking.
 We check that the result of the conversion does not overflow.
 This option does not work well with @code{FE_INVALID} exceptions enabled.
+
+@end table
+
+While @option{-ftrapv} causes traps for signed overflows to be emitted,
+@option{-fsanitize=undefined} gives a diagnostic message.
+This currently works only for the C family of languages.
 
 @item -fsanitize-recover
 @opindex fsanitize-recover
@@ -10667,6 +10693,12 @@ linker.  When using the GNU linker, you can also get the same effect with
 Pretend the symbol @var{symbol} is undefined, to force linking of
 library modules to define it.  You can use @option{-u} multiple times with
 different symbols to force loading of additional library modules.
+
+@item -z @var{keyword}
+@opindex z
+@option{-z} is passed directly on to the linker along with the keyword
+@var{keyword}. See the section in the documentation of your linker for
+permitted values and their meanings.
 @end table
 
 @node Directory Options
@@ -12404,15 +12436,6 @@ the default for all standard configurations.
 @opindex mbig-endian
 Generate code for a processor running in big-endian mode; the default is
 to compile code for a little-endian processor.
-
-@item -mwords-little-endian
-@opindex mwords-little-endian
-This option only applies when generating code for big-endian processors.
-Generate code for a little-endian word order but a big-endian byte
-order.  That is, a byte order of the form @samp{32107654}.  Note: this
-option should only be used if you require compatibility with code for
-big-endian ARM processors generated by versions of the compiler prior to
-2.8.  This option is now deprecated.
 
 @item -march=@var{name}
 @opindex march

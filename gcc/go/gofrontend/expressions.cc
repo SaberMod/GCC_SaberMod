@@ -9065,6 +9065,15 @@ Call_expression::result(size_t i) const
   return (*this->results_)[i];
 }
 
+// Set the number of results expected from a call expression.
+
+void
+Call_expression::set_expected_result_count(size_t count)
+{
+  go_assert(this->expected_result_count_ == 0);
+  this->expected_result_count_ = count;
+}
+
 // Return whether this is a call to the predeclared function recover.
 
 bool
@@ -9252,6 +9261,15 @@ Call_expression::do_check_types(Gogo*)
       return;
     }
 
+  if (this->expected_result_count_ != 0
+      && this->expected_result_count_ != this->result_count())
+    {
+      if (this->issue_error())
+	this->report_error(_("function result count mismatch"));
+      this->set_is_error();
+      return;
+    }
+
   bool is_method = fntype->is_method();
   if (is_method)
     {
@@ -9300,6 +9318,20 @@ Call_expression::do_check_types(Gogo*)
   else if (parameters == NULL)
     {
       if (!is_method || this->args_->size() > 1)
+	this->report_error(_("too many arguments"));
+    }
+  else if (this->args_->size() == 1
+	   && this->args_->front()->call_expression() != NULL
+	   && this->args_->front()->call_expression()->result_count() > 1)
+    {
+      // This is F(G()) when G returns more than one result.  If the
+      // results can be matched to parameters, it would have been
+      // lowered in do_lower.  If we get here we know there is a
+      // mismatch.
+      if (this->args_->front()->call_expression()->result_count()
+	  < parameters->size())
+	this->report_error(_("not enough arguments"));
+      else
 	this->report_error(_("too many arguments"));
     }
   else
@@ -10218,7 +10250,8 @@ Array_index_expression::do_get_backend(Translate_context* context)
   Location loc = this->location();
   Gogo* gogo = context->gogo();
 
-  Btype* int_btype = Type::lookup_integer_type("int")->get_backend(gogo);
+  Type* int_type = Type::lookup_integer_type("int");
+  Btype* int_btype = int_type->get_backend(gogo);
 
   // We need to convert the length and capacity to the Go "int" type here
   // because the length of a fixed-length array could be of type "uintptr"
@@ -10259,8 +10292,15 @@ Array_index_expression::do_get_backend(Translate_context* context)
 		 : RUNTIME_ERROR_SLICE_SLICE_OUT_OF_BOUNDS));
   Bexpression* crash = gogo->runtime_error(code, loc)->get_backend(context);
 
+  if (this->start_->type()->integer_type() == NULL
+      && !Type::are_convertible(int_type, this->start_->type(), NULL))
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
+  Expression* start_expr = Expression::make_cast(int_type, this->start_, loc);
   Bexpression* bad_index =
-    Expression::check_bounds(this->start_, loc)->get_backend(context);
+    Expression::check_bounds(start_expr, loc)->get_backend(context);
 
   Bexpression* start = this->start_->get_backend(context);
   start = gogo->backend()->convert_expression(int_btype, start, loc);

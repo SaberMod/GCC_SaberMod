@@ -2026,6 +2026,7 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 
   location_t loc = gimple_location (call);
   tree str_arg = gimple_call_arg (call, 0);
+  bool start_instrumented = has_mem_ref_been_instrumented (str_arg, 1);
 
   tree cptr_type = build_pointer_type (char_type_node);
   gimple str_arg_ssa =
@@ -2037,7 +2038,8 @@ instrument_strlen_call (gimple_stmt_iterator *iter)
 
   build_check_stmt (loc, gimple_assign_lhs (str_arg_ssa), NULL_TREE, 1, iter,
 		    /*non_zero_len_p*/true, /*before_p=*/true,
-		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0);
+		    /*is_store=*/false, /*is_scalar_access*/true, /*align*/0,
+		    start_instrumented, start_instrumented);
 
   gimple g =
     gimple_build_assign_with_ops (POINTER_PLUS_EXPR,
@@ -2593,7 +2595,7 @@ asan_finish_file (void)
       TREE_CONSTANT (ctor) = 1;
       TREE_STATIC (ctor) = 1;
       DECL_INITIAL (var) = ctor;
-      varpool_assemble_decl (varpool_node_for_decl (var));
+      varpool_finalize_decl (var);
 
       fn = builtin_decl_implicit (BUILT_IN_ASAN_REGISTER_GLOBALS);
       tree gcount_tree = build_int_cst (pointer_sized_int_node, gcount);
@@ -2642,7 +2644,6 @@ const pass_data pass_data_asan =
   GIMPLE_PASS, /* type */
   "asan", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */
@@ -2680,7 +2681,6 @@ const pass_data pass_data_asan_O0 =
   GIMPLE_PASS, /* type */
   "asan0", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */
@@ -2719,7 +2719,6 @@ const pass_data pass_data_sanopt =
   GIMPLE_PASS, /* type */
   "sanopt", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_NONE, /* tv_id */
   ( PROP_ssa | PROP_cfg | PROP_gimple_leh ), /* properties_required */
   0, /* properties_provided */

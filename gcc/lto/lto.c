@@ -236,7 +236,7 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
 
   ix = *data++;
   decl = streamer_tree_cache_get_tree (data_in->reader_cache, ix);
-  if (TREE_CODE (decl) != FUNCTION_DECL)
+  if (!VAR_OR_FUNCTION_DECL_P (decl))
     {
       gcc_assert (decl == void_type_node);
       decl = NULL_TREE;
@@ -775,7 +775,6 @@ mentions_vars_p_decl_non_common (tree t)
 {
   if (mentions_vars_p_decl_with_vis (t))
     return true;
-  CHECK_NO_VAR (DECL_ARGUMENT_FLD (t));
   CHECK_NO_VAR (DECL_RESULT_FLD (t));
   return false;
 }
@@ -787,6 +786,7 @@ mentions_vars_p_function (tree t)
 {
   if (mentions_vars_p_decl_non_common (t))
     return true;
+  CHECK_NO_VAR (DECL_ARGUMENTS (t));
   CHECK_NO_VAR (DECL_VINDEX (t));
   CHECK_VAR (DECL_FUNCTION_PERSONALITY (t));
   return false;
@@ -2711,11 +2711,11 @@ lto_fixup_prevailing_decls (tree t)
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_DECL_NON_COMMON))
 	{
-	  LTO_NO_PREVAIL (DECL_ARGUMENT_FLD (t));
 	  LTO_NO_PREVAIL (DECL_RESULT_FLD (t));
 	}
       if (CODE_CONTAINS_STRUCT (code, TS_FUNCTION_DECL))
 	{
+	  LTO_NO_PREVAIL (DECL_ARGUMENTS (t));
 	  LTO_SET_PREVAIL (DECL_FUNCTION_PERSONALITY (t));
 	  LTO_NO_PREVAIL (DECL_VINDEX (t));
 	}
@@ -3094,12 +3094,9 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   timevar_pop (TV_IPA_LTO_CGRAPH_MERGE);
 
-  timevar_push (TV_IPA_LTO_DECL_INIT_IO);
-
   /* Indicate that the cgraph is built and ready.  */
   cgraph_function_flags_ready = true;
 
-  timevar_pop (TV_IPA_LTO_DECL_INIT_IO);
   ggc_free (all_file_decl_data);
   all_file_decl_data = NULL;
 }
@@ -3117,9 +3114,6 @@ materialize_cgraph (void)
     fprintf (stderr,
 	     flag_wpa ? "Materializing decls:" : "Reading function bodies:");
 
-  /* Now that we have input the cgraph, we need to clear all of the aux
-     nodes and read the functions if we are not running in WPA mode.  */
-  timevar_push (TV_IPA_LTO_GIMPLE_IN);
 
   FOR_EACH_FUNCTION (node)
     {
@@ -3130,7 +3124,6 @@ materialize_cgraph (void)
 	}
     }
 
-  timevar_pop (TV_IPA_LTO_GIMPLE_IN);
 
   /* Start the appropriate timer depending on the mode that we are
      operating in.  */

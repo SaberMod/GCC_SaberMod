@@ -127,7 +127,7 @@
 ; for ARM or Thumb-2 with arm_arch6, and nov6 for ARM without
 ; arm_arch6.  This attribute is used to compute attribute "enabled",
 ; use type "any" to enable an alternative in all cases.
-(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,neon_for_64bits,avoid_neon_for_64bits,iwmmxt,iwmmxt2"
+(define_attr "arch" "any,a,t,32,t1,t2,v6,nov6,neon_for_64bits,avoid_neon_for_64bits,iwmmxt,iwmmxt2,armv6_or_vfpv3"
   (const_string "any"))
 
 (define_attr "arch_enabled" "no,yes"
@@ -174,7 +174,12 @@
 
 	 (and (eq_attr "arch" "iwmmxt2")
 	      (match_test "TARGET_REALLY_IWMMXT2"))
-	 (const_string "yes")]
+	 (const_string "yes")
+
+	 (and (eq_attr "arch" "armv6_or_vfpv3")
+	      (match_test "arm_arch6 || TARGET_VFP3"))
+	 (const_string "yes")
+	]
 
 	(const_string "no")))
 
@@ -315,8 +320,8 @@
 ; than one on the main cpu execution unit.
 (define_attr "core_cycles" "single,multi"
   (if_then_else (eq_attr "type"
-    "adc_imm, adc_reg, adcs_imm, adcs_reg, adr, alu_ext, alu_imm, alu_reg,\
-    alu_shift_imm, alu_shift_reg, alus_ext, alus_imm, alus_reg,\
+    "adc_imm, adc_reg, adcs_imm, adcs_reg, adr, alu_ext, alu_imm, alu_sreg,\
+    alu_shift_imm, alu_shift_reg, alu_dsp_reg, alus_ext, alus_imm, alus_sreg,\
     alus_shift_imm, alus_shift_reg, bfm, csel, rev, logic_imm, logic_reg,\
     logic_shift_imm, logic_shift_reg, logics_imm, logics_reg,\
     logics_shift_imm, logics_shift_reg, extend, shift_imm, float, fcsel,\
@@ -597,7 +602,7 @@
    (set_attr "arch" "t2,t2,t2,t2,*,*,*,t2,t2,*,*,a,t2,t2,*")
    (set (attr "type") (if_then_else (match_operand 2 "const_int_operand" "")
 		      (const_string "alu_imm")
-		      (const_string "alu_reg")))
+		      (const_string "alu_sreg")))
  ]
 )
 
@@ -615,7 +620,7 @@
    sub%.\\t%0, %1, #%n2
    add%.\\t%0, %1, %2"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*addsi3_compare0_scratch"
@@ -631,7 +636,7 @@
    cmn%?\\t%0, %1"
   [(set_attr "conds" "set")
    (set_attr "predicable" "yes")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_negsi_si"
@@ -646,7 +651,7 @@
    (set_attr "arch" "t2,*")
    (set_attr "length" "2,4")
    (set_attr "predicable_short_it" "yes,no")
-   (set_attr "type" "alus_reg")]
+   (set_attr "type" "alus_sreg")]
 )
 
 ;; This is the canonicalization of addsi3_compare0_for_combiner when the
@@ -664,7 +669,7 @@
    add%.\\t%0, %1, %3
    sub%.\\t%0, %1, #%n3"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_reg")]
+   (set_attr "type" "alus_sreg")]
 )
 
 ;; Convert the sequence
@@ -722,7 +727,7 @@
    sub%.\\t%0, %1, #%n2
    add%.\\t%0, %1, %2"
   [(set_attr "conds" "set")
-   (set_attr "type"  "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type"  "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*addsi3_compare_op2"
@@ -739,7 +744,7 @@
    add%.\\t%0, %1, %2
    sub%.\\t%0, %1, #%n2"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_addsi2_op0"
@@ -760,7 +765,7 @@
    (set_attr "arch" "t2,t2,*,*,*")
    (set_attr "predicable_short_it" "yes,yes,no,no,no")
    (set_attr "length" "2,2,4,4,4")
-   (set_attr "type" "alus_imm,alus_reg,alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_imm,alus_imm,alus_sreg")]
 )
 
 (define_insn "*compare_addsi2_op1"
@@ -781,7 +786,7 @@
    (set_attr "arch" "t2,t2,*,*,*")
    (set_attr "predicable_short_it" "yes,yes,no,no,no")
    (set_attr "length" "2,2,4,4,4")
-   (set_attr "type" "alus_imm,alus_reg,alus_imm,alus_imm,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_imm,alus_imm,alus_sreg")]
  )
 
 (define_insn "*addsi3_carryin_<optab>"
@@ -1196,7 +1201,7 @@
    (set_attr "arch" "t2,t2,t2,t2,*,*,*,*,*")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "yes,yes,yes,yes,no,no,no,no,no")
-   (set_attr "type" "alu_reg,alu_reg,alu_reg,alu_reg,alu_imm,alu_imm,alu_reg,alu_reg,multiple")]
+   (set_attr "type" "alu_sreg,alu_sreg,alu_sreg,alu_sreg,alu_imm,alu_imm,alu_sreg,alu_sreg,multiple")]
 )
 
 (define_peephole2
@@ -1226,7 +1231,7 @@
    sub%.\\t%0, %1, %2
    rsb%.\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type"  "alus_imm,alus_reg,alus_reg")]
+   (set_attr "type"  "alus_imm,alus_sreg,alus_sreg")]
 )
 
 (define_insn "subsi3_compare"
@@ -1241,7 +1246,7 @@
    sub%.\\t%0, %1, %2
    rsb%.\\t%0, %2, %1"
   [(set_attr "conds" "set")
-   (set_attr "type" "alus_imm,alus_reg,alus_reg")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_sreg")]
 )
 
 (define_expand "subsf3"
@@ -4147,7 +4152,7 @@
 (define_insn "unaligned_loadhis"
   [(set (match_operand:SI 0 "s_register_operand" "=l,r")
 	(sign_extend:SI
-	  (unspec:HI [(match_operand:HI 1 "memory_operand" "Uw,m")]
+	  (unspec:HI [(match_operand:HI 1 "memory_operand" "Uw,Uh")]
 		     UNSPEC_UNALIGNED_LOAD)))]
   "unaligned_access && TARGET_32BIT"
   "ldr%(sh%)\t%0, %1\t@ unaligned"
@@ -4361,7 +4366,7 @@
    (set_attr "predicable_short_it" "yes,no")
    (set_attr "arch" "t2,*")
    (set_attr "length" "4")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_expand "negsf2"
@@ -4959,7 +4964,7 @@
 
 (define_insn "*arm_zero_extendhisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+	(zero_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,Uh")))]
   "TARGET_ARM && arm_arch6"
   "@
    uxth%?\\t%0, %1
@@ -5030,7 +5035,7 @@
 
 (define_insn "*arm_zero_extendqisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+	(zero_extend:SI (match_operand:QI 1 "nonimmediate_operand" "r,Uh")))]
   "TARGET_ARM && arm_arch6"
   "@
    uxtb%(%)\\t%0, %1
@@ -5190,31 +5195,27 @@
 
 (define_insn "*arm_extendhisi2"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,Uh")))]
   "TARGET_ARM && arm_arch4 && !arm_arch6"
   "@
    #
    ldr%(sh%)\\t%0, %1"
   [(set_attr "length" "8,4")
    (set_attr "type" "alu_shift_reg,load_byte")
-   (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,256")
-   (set_attr "neg_pool_range" "*,244")]
+   (set_attr "predicable" "yes")]
 )
 
 ;; ??? Check Thumb-2 pool range
 (define_insn "*arm_extendhisi2_v6"
   [(set (match_operand:SI 0 "s_register_operand" "=r,r")
-	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,m")))]
+	(sign_extend:SI (match_operand:HI 1 "nonimmediate_operand" "r,Uh")))]
   "TARGET_32BIT && arm_arch6"
   "@
    sxth%?\\t%0, %1
    ldr%(sh%)\\t%0, %1"
   [(set_attr "type" "extend,load_byte")
    (set_attr "predicable" "yes")
-   (set_attr "predicable_short_it" "no")
-   (set_attr "pool_range" "*,256")
-   (set_attr "neg_pool_range" "*,244")]
+   (set_attr "predicable_short_it" "no")]
 )
 
 (define_insn "*arm_extendhisi2addsi"
@@ -5257,9 +5258,7 @@
   "TARGET_ARM && arm_arch4"
   "ldr%(sb%)\\t%0, %1"
   [(set_attr "type" "load_byte")
-   (set_attr "predicable" "yes")
-   (set_attr "pool_range" "256")
-   (set_attr "neg_pool_range" "244")]
+   (set_attr "predicable" "yes")]
 )
 
 (define_expand "extendqisi2"
@@ -5299,9 +5298,7 @@
    ldr%(sb%)\\t%0, %1"
   [(set_attr "length" "8,4")
    (set_attr "type" "alu_shift_reg,load_byte")
-   (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,256")
-   (set_attr "neg_pool_range" "*,244")]
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*arm_extendqisi_v6"
@@ -5313,9 +5310,7 @@
    sxtb%?\\t%0, %1
    ldr%(sb%)\\t%0, %1"
   [(set_attr "type" "extend,load_byte")
-   (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,256")
-   (set_attr "neg_pool_range" "*,244")]
+   (set_attr "predicable" "yes")]
 )
 
 (define_insn "*arm_extendqisi2addsi"
@@ -5833,7 +5828,7 @@
   return \"add\\t%0, %|pc\";
   "
   [(set_attr "length" "2")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "pic_add_dot_plus_eight"
@@ -5849,7 +5844,7 @@
     return \"add%?\\t%0, %|pc, %1\";
   "
   [(set_attr "predicable" "yes")
-   (set_attr "type" "alu_reg")]
+   (set_attr "type" "alu_sreg")]
 )
 
 (define_insn "tls_load_dot_plus_eight"
@@ -6291,7 +6286,7 @@
 ;; Pattern to recognize insn generated default case above
 (define_insn "*movhi_insn_arch4"
   [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")
-	(match_operand:HI 1 "general_operand"      "rI,K,r,mi"))]
+	(match_operand:HI 1 "general_operand"      "rIk,K,r,mi"))]
   "TARGET_ARM
    && arm_arch4
    && (register_operand (operands[0], HImode)
@@ -6315,7 +6310,7 @@
 
 (define_insn "*movhi_bytes"
   [(set (match_operand:HI 0 "s_register_operand" "=r,r,r")
-	(match_operand:HI 1 "arm_rhs_operand"  "I,r,K"))]
+	(match_operand:HI 1 "arm_rhs_operand"  "I,rk,K"))]
   "TARGET_ARM"
   "@
    mov%?\\t%0, %1\\t%@ movhi
@@ -6430,7 +6425,7 @@
 
 (define_insn "*arm_movqi_insn"
   [(set (match_operand:QI 0 "nonimmediate_operand" "=r,r,r,l,r,l,Uu,r,m")
-	(match_operand:QI 1 "general_operand" "r,r,I,Py,K,Uu,l,m,r"))]
+	(match_operand:QI 1 "general_operand" "rk,rk,I,Py,K,Uu,l,m,r"))]
   "TARGET_32BIT
    && (   register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
@@ -6862,7 +6857,7 @@
    (set_attr "length" "2,2,4,4,4")
    (set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "yes,yes,yes,no,no")
-   (set_attr "type" "alus_imm,alus_reg,alus_reg,alus_imm,alus_imm")]
+   (set_attr "type" "alus_imm,alus_sreg,alus_sreg,alus_imm,alus_imm")]
 )
 
 (define_insn "*cmpsi_shiftsi"
@@ -9435,10 +9430,10 @@
    (set_attr_alternative "type"
                          [(if_then_else (match_operand 3 "const_int_operand" "")
                                         (const_string "alu_imm" )
-                                        (const_string "alu_reg"))
+                                        (const_string "alu_sreg"))
                           (const_string "alu_imm")
-                          (const_string "alu_reg")
-                          (const_string "alu_reg")])]
+                          (const_string "alu_sreg")
+                          (const_string "alu_sreg")])]
 )
 
 (define_insn "*ifcompare_move_plus"
@@ -9475,7 +9470,7 @@
    sub%D4\\t%0, %2, #%n3\;mov%d4\\t%0, %1"
   [(set_attr "conds" "use")
    (set_attr "length" "4,4,8,8")
-   (set_attr "type" "alu_reg,alu_imm,multiple,multiple")]
+   (set_attr "type" "alu_sreg,alu_imm,multiple,multiple")]
 )
 
 (define_insn "*ifcompare_arith_arith"

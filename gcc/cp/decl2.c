@@ -106,6 +106,11 @@ static GTY(()) vec<tree, va_gc> *no_linkage_decls;
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 int at_eof;
+
+/* Nonzero if we've instantiated everything used directly, and now want to
+   mark all virtual functions as used so that they are available for
+   devirtualization.  */
+static int mark_all_virtuals;
 
 
 /* Return a member function type (a METHOD_TYPE), given FNTYPE (a
@@ -2009,11 +2014,15 @@ maybe_emit_vtables (tree ctype)
       if (DECL_COMDAT (primary_vtbl)
 	  && CLASSTYPE_DEBUG_REQUESTED (ctype))
 	note_debug_info_needed (ctype);
-      if (flag_devirtualize)
-	/* Make sure virtual functions get instantiated/synthesized so that
-	   they can be inlined after devirtualization even if the vtable is
-	   never emitted.  */
-	mark_vtable_entries (primary_vtbl);
+      if (mark_all_virtuals && !DECL_ODR_USED (primary_vtbl))
+	{
+	  /* Make sure virtual functions get instantiated/synthesized so that
+	     they can be inlined after devirtualization even if the vtable is
+	     never emitted.  */
+	  mark_used (primary_vtbl);
+	  mark_vtable_entries (primary_vtbl);
+	  return true;
+	}
       return false;
     }
 
@@ -4340,6 +4349,8 @@ cp_write_global_declarations (void)
      instantiated, etc., etc.  */
 
   emit_support_tinfos ();
+  int errs = errorcount + sorrycount;
+  bool explained_devirt = false;
 
   do
     {
@@ -4571,6 +4582,27 @@ cp_write_global_declarations (void)
 	  && wrapup_global_declarations (pending_statics->address (),
 					 pending_statics->length ()))
 	reconsider = true;
+
+      if (flag_use_all_virtuals)
+	{
+	  if (!reconsider && !mark_all_virtuals)
+	    {
+	      mark_all_virtuals = true;
+	      reconsider = true;
+	      errs = errorcount + sorrycount;
+	    }
+	  else if (mark_all_virtuals
+		   && !explained_devirt
+		   && (errorcount + sorrycount > errs))
+	    {
+	      inform (global_dc->last_location, "this error is seen due to "
+		      "instantiation of all virtual functions, which the C++ "
+		      "standard says are always considered used; this is done "
+		      "to support devirtualization optimizations, but can be "
+		      "disabled with -fno-use-all-virtuals");
+	      explained_devirt = true;
+	    }
+	}
 
       retries++;
     }

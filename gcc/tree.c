@@ -707,8 +707,14 @@ tree_code_size (enum tree_code code)
 	    return sizeof (struct tree_function_decl);
 	  case DEBUG_EXPR_DECL:
 	    return sizeof (struct tree_decl_with_rtl);
-	  default:
+	  case TRANSLATION_UNIT_DECL:
+	    return sizeof (struct tree_translation_unit_decl);
+	  case NAMESPACE_DECL:
+	  case IMPORTED_DECL:
+	  case NAMELIST_DECL:
 	    return sizeof (struct tree_decl_non_common);
+	  default:
+	    return lang_hooks.tree_size (code);
 	  }
       }
 
@@ -5304,7 +5310,6 @@ find_decls_types_r (tree *tp, int *ws, void *data)
 	}
       else if (TREE_CODE (t) == TYPE_DECL)
 	{
-	  fld_worklist_push (DECL_ARGUMENT_FLD (t), fld);
 	  fld_worklist_push (DECL_ORIGINAL_TYPE (t), fld);
 	}
       else if (TREE_CODE (t) == FIELD_DECL)
@@ -5718,7 +5723,6 @@ const pass_data pass_data_ipa_free_lang_data =
   SIMPLE_IPA_PASS, /* type */
   "*free_lang_data", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
-  true, /* has_execute */
   TV_IPA_FREE_LANG_DATA, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
@@ -11865,6 +11869,10 @@ obj_type_ref_class (tree ref)
 bool
 type_in_anonymous_namespace_p (const_tree t)
 {
+  /* TREE_PUBLIC of TYPE_STUB_DECL may not be properly set for
+     bulitin types; those have CONTEXT NULL.  */
+  if (!TYPE_CONTEXT (t))
+    return false;
   return (TYPE_STUB_DECL (t) && !TREE_PUBLIC (TYPE_STUB_DECL (t)));
 }
 

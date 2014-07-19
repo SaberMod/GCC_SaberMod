@@ -27,11 +27,14 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    feenableexcept function in fenv.h to set individual exceptions
    (there's nothing to do that in C99).  */
 
-#include <assert.h>
-
 #ifdef HAVE_FENV_H
 #include <fenv.h>
 #endif
+
+
+/* Check we can actually store the FPU state in the allocated size.  */
+_Static_assert (sizeof(fenv_t) <= (size_t) GFC_FPE_STATE_BUFFER_SIZE,
+		"GFC_FPE_STATE_BUFFER_SIZE is too small");
 
 
 void set_fpu_trap_exceptions (int trap, int notrap)
@@ -330,8 +333,9 @@ get_fpu_rounding_mode (void)
       case FE_TOWARDZERO:
 	return GFC_FPE_TOWARDZERO;
 #endif
+
       default:
-	return GFC_FPE_INVALID;
+	return 0; /* Should be unreachable.  */
     }
 }
 
@@ -366,8 +370,9 @@ set_fpu_rounding_mode (int mode)
 	rnd_mode = FE_TOWARDZERO;
 	break;
 #endif
+
       default:
-	return;
+	return; /* Should be unreachable.  */
     }
 
   fesetround (rnd_mode);
@@ -408,7 +413,7 @@ support_fpu_rounding_mode (int mode)
 #endif
 
       default:
-	return 0;
+	return 0; /* Should be unreachable.  */
     }
 }
 
@@ -416,9 +421,6 @@ support_fpu_rounding_mode (int mode)
 void
 get_fpu_state (void *state)
 {
-  /* Check we can actually store the FPU state in the allocated size.  */
-  assert (sizeof(fenv_t) <= GFC_FPE_STATE_BUFFER_SIZE);
-
   fegetenv (state);
 }
 
@@ -426,9 +428,56 @@ get_fpu_state (void *state)
 void
 set_fpu_state (void *state)
 {
-  /* Check we can actually store the FPU state in the allocated size.  */
-  assert (sizeof(fenv_t) <= GFC_FPE_STATE_BUFFER_SIZE);
-
   fesetenv (state);
+}
+
+
+/* Underflow in glibc is currently only supported on alpha, through
+   the FE_MAP_UMZ macro and __ieee_set_fp_control() function call.  */
+
+int
+support_fpu_underflow_control (int kind __attribute__((unused)))
+{
+#if defined(__alpha__) && defined(FE_MAP_UMZ)
+  return (kind == 4 || kind == 8) ? 1 : 0;
+#else
+  return 0;
+#endif
+}
+
+
+int
+get_fpu_underflow_mode (void)
+{
+#if defined(__alpha__) && defined(FE_MAP_UMZ)
+
+  fenv_t state = __ieee_get_fp_control ();
+
+  /* Return 0 for abrupt underflow (flush to zero), 1 for gradual underflow.  */
+  return (state & FE_MAP_UMZ) ? 0 : 1;
+
+#else
+
+  return 0;
+
+#endif
+}
+
+
+void
+set_fpu_underflow_mode (int gradual __attribute__((unused)))
+{
+#if defined(__alpha__) && defined(FE_MAP_UMZ)
+
+  fenv_t state = __ieee_get_fp_control ();
+
+  if (gradual)
+    state &= ~FE_MAP_UMZ;
+  else
+    state |= FE_MAP_UMZ;
+
+  __ieee_set_fp_control (state);
+
+#endif
 }
 
