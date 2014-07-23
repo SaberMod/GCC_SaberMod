@@ -1274,7 +1274,8 @@ tree_profiling (void)
      function body from being deleted) won't be needed.  */
   if (L_IPO_COMP_MODE) 
     lipo_link_and_fixup ();
-  init_node_map (true);
+  else
+    init_node_map (true);
 
 
   FOR_EACH_DEFINED_FUNCTION (node)

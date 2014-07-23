@@ -1023,7 +1023,10 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
   if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
     elt.ident = FUNC_DECL_GLOBAL_ID (func);
   else
-    elt.ident = coverage_compute_profile_id (cgraph_get_node (func->decl));
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      elt.ident = cgraph_get_node (func->decl)->profile_id;
+    }
 
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
@@ -1131,7 +1134,10 @@ get_coverage_counts_no_warn (struct function *f, unsigned counter, unsigned *n_c
   if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
     elt.ident = FUNC_DECL_GLOBAL_ID (f);
   else
-    elt.ident = coverage_compute_profile_id (cgraph_get_node (f->decl));
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      elt.ident = cgraph_get_node (f->decl)->profile_id;
+    }
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
   if (!entry)
@@ -1418,8 +1424,11 @@ coverage_begin_function (unsigned lineno_checksum, unsigned cfg_checksum)
   if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
     gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
   else 
-    gcov_write_unsigned (coverage_compute_profile_id (
-      cgraph_get_node (cfun->decl)));
+   {
+      gcc_assert (coverage_node_map_initialized_p ());
+      gcov_write_unsigned (
+        cgraph_get_node (current_function_decl)->profile_id);
+    }
 
   gcov_write_unsigned (lineno_checksum);
   gcov_write_unsigned (cfg_checksum);
@@ -1465,8 +1474,9 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	      if (flag_dyn_ipa)
 		error ("param=profile-func-internal-id=0 is not"
 		       " supported in LIPO mode.  ");
-	      item->ident = coverage_compute_profile_id (
-	        cgraph_get_node (cfun->decl));
+              gcc_assert (coverage_node_map_initialized_p ());
+              item->ident = cgraph_get_node (cfun->decl)->profile_id;
+
 	    }
 	  item->lineno_checksum = lineno_checksum;
 	  item->cfg_checksum = cfg_checksum;
