@@ -84,7 +84,9 @@ static int k_ctrs_types;
 /* The longest length of all the filenames.  */
 static int max_filename_len;
 
-/* Merge functions for counters.  */
+/* Merge functions for counters.  Similar to __gcov_dyn_ipa_merge_*
+   functions in dyn-ipa.c, which were derived from these, except
+   the versions in dyn-ipa are used when merging from another array.  */
 #define DEF_GCOV_COUNTER(COUNTER, NAME, FN_TYPE) __gcov_merge ## FN_TYPE,
 static gcov_merge_fn ctr_merge_functions[GCOV_COUNTERS] = {
 #include "gcov-counter.def"
