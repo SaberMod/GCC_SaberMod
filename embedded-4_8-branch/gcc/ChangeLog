@@ -1,3 +1,82 @@
+2014-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/elf.h: Define TARGET_UNWIND_TABLES_DEFAULT.
+
+2014-07-24  Kyle McMartin  <kyle@redhat.com>
+
+	* config/aarch64/aarch64-linux.h (TARGET_ASM_FILE_END): Define.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_special_adjust_field_align_p):
+	Add prototype.
+	* config/rs6000/rs6000.c (rs6000_special_adjust_field_align_p): New
+	function.  Issue -Wpsabi warning if future GCC releases will use
+	different field alignment rules for this type.
+	* config/rs6000/sysv4.h (ADJUST_FIELD_ALIGN): Call it.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/freebsd64.h (ADJUST_FIELD_ALIGN): Likewise.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_function_arg_boundary): Issue
+	-Wpsabi note when encountering a type where future GCC releases
+	will apply different alignment requirements.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_function_arg): If a float argument
+	does not fit fully into floating-point registers, and there is still
+	space in the register parameter area, issue -Wpsabi note that the ABI
+	will change in a future GCC release.
+
+2014-07-23  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems-eabi: Add
+	mthumb/march=armv7-r/mfpu=vfpv3-d16/mfloat-abi=hard,
+	mthumb/march=armv7-m/mfpu=fpv4-sp-d16/mfloat-abi=hard,
+	mbig-endian/mthumb/march=armv7-r, and
+	mbig-endian/mthumb/march=armv7-r/mfpu=vfpv3-d16/mfloat-abi=hard
+	multilibs.
+
+2014-07-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/sysv4.h (LIBASAN_EARLY_SPEC): Define.
+	(LIBTSAN_EARLY_SPEC): Likewise.
+	(STATIC_LIBASAN_LIBS): Likewise.
+	(STATIC_LIBTSAN_LIBS): Likewise.
+
+2014-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* toplev.c (output_stack_usage): Adjust the location of the warning.
+
+2014-07-19  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sync.md (*membar_storeload_leon3): New insn.
+	(*membar_storeload): Disable for LEON3.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* sched-deps.c (sched_analyze_2): For ASM_OPERANDS and
+	ASM_INPUT don't set reg_pending_barrier if it appears in a
+	debug-insn.
+
+2014-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (create_omp_child_function): Don't set DECL_NAMELESS
+	on the FUNCTION_DECL.
+
+2014-07-10  Tom G. Christensen  <tgc@jupiterrise.com>
+
+	* doc/install.texi: Remove links to defunct package providers for
+	Solaris.
+
+2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/53590
+	* function.c (allocate_struct_function): Revert r188667 change.
+
 2014-07-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/61684
