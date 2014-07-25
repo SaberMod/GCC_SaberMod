@@ -272,8 +272,15 @@ extern void __gcov_flush (void) ATTRIBUTE_HIDDEN;
 
 /* Function to reset all counters to 0.  */
 extern void __gcov_reset (void);
-/* Function to enable early write of profile information so far.  */
-extern void __gcov_dump (void);
+/* Function to enable early write of profile information so far.
+   __gcov_dump is also used by __gcov_dump_all. The latter
+   depends on __GCOV_DUMP to have hidden or protected visibility
+   so that each library has its own copy of the registered dumper.  */
+extern void __gcov_dump (void) ATTRIBUTE_HIDDEN;
+
+/* Call __gcov_dump registered from each shared library.
+   This function must have default visibility.  */
+void __gcov_dump_all (void);
 
 /* The merge function that just sums the counters.  */
 extern void __gcov_merge_add (gcov_type *, unsigned) ATTRIBUTE_HIDDEN;
