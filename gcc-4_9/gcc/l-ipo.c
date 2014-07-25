@@ -530,7 +530,7 @@ type_addr_hash (const void *ent)
 {
   const struct type_ent *const entry
       = (const struct type_ent *) ent;
-  return (hashval_t) (long) entry->type;
+  return (hashval_t) (uintptr_t) entry->type;
 }
 
 /* Address equality function for type_ent.  */
@@ -858,14 +858,14 @@ equivalent_struct_types_for_tbaa (const_tree t1, const_tree t2)
   t1 = get_norm_type (t1);
   t2 = get_norm_type (t2);
 
-  key.type = (tree) (long) t1;
+  key.type = (tree) (uintptr_t) t1;
   slot = (struct type_ent **)
       htab_find_slot (l_ipo_type_tab, &key, NO_INSERT);
   if (!slot || !*slot)
     return -1;
   tent1 = *slot;
 
-  key.type = (tree) (long) t2;
+  key.type = (tree) (uintptr_t) t2;
   slot = (struct type_ent **)
       htab_find_slot (l_ipo_type_tab, &key, NO_INSERT);
   if (!slot || !*slot)

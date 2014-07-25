@@ -2208,12 +2208,12 @@ gcov_compute_random_module_groups (unsigned max_group_size)
     {
       struct dyn_pointer_set *imp_modules =
 	gcov_get_module_imp_module_set (&the_dyn_call_graph.sup_modules[m_ix]);
-      int cur_group_size = random () % max_group_size;
+      int cur_group_size = rand () % max_group_size;
       int i = 0;
       while (i < cur_group_size)
 	{
 	  struct gcov_info *imp_mod_info;
-	  unsigned mod_idx = random () % the_dyn_call_graph.num_modules;
+	  unsigned mod_idx = rand () % the_dyn_call_graph.num_modules;
 	  if (mod_idx == m_ix)
 	    continue;
 	  imp_mod_info = get_module_info (mod_idx + 1);
@@ -2389,6 +2389,8 @@ read_modu_groups_from_imports_files (void)
 {
 #ifdef IN_GCOV_TOOL
   unsigned m_ix;
+  const int max_line_size = (1 << 12);
+  char line[max_line_size];
 
   init_dyn_call_graph ();
 
@@ -2397,6 +2399,7 @@ read_modu_groups_from_imports_files (void)
       struct gcov_info *gi_ptr = the_dyn_call_graph.modules[m_ix];
       FILE *fd;
       struct dyn_pointer_set *imp_modules;
+      char buf[8192];
 
       if (gi_ptr == NULL)
         continue;
@@ -2406,13 +2409,11 @@ read_modu_groups_from_imports_files (void)
 
       if ((fd = open_imports_file (gi_ptr)) != NULL)
 	{
-          char *line = NULL;
-          size_t linecap = 0;
 #define MAX_MODU_SIZE 200000
           int w = MAX_MODU_SIZE;
           int i = 0;
 
-          while (getline (&line, &linecap, fd) != -1)
+          while (fgets (line, max_line_size, fd) != NULL)
             {
               unsigned mod_id = 0;
               char *name = strtok (line, " \t\n");
@@ -2427,8 +2428,6 @@ read_modu_groups_from_imports_files (void)
                   i++;
            	  imp_mod_set_insert (imp_modules, imp_mod_info, w - i);
                 }
-              free (line);
-              line = NULL;
             }
           fclose (fd);
 	}
@@ -3073,7 +3072,7 @@ __gcov_compute_module_groups (void)
   /* The random group is set via compile time parameter.  */
   if (__gcov_lipo_random_group_size != 0)
     {
-      srandom (__gcov_lipo_random_seed);
+      srand (__gcov_lipo_random_seed);
       init_dyn_call_graph ();
       gcov_compute_random_module_groups (__gcov_lipo_random_group_size);
       if (do_cgraph_dump () != 0)
@@ -3087,7 +3086,7 @@ __gcov_compute_module_groups (void)
     {
       *max_group_size = '\0';
       max_group_size++;
-      srandom (atoi (seed));
+      srand (atoi (seed));
       init_dyn_call_graph ();
       gcov_compute_random_module_groups (atoi (max_group_size));
       if (do_cgraph_dump () != 0)

@@ -36,7 +36,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #include <stdio.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#if !defined(_WIN32)
 #include <ftw.h>
+#endif
 #include <getopt.h>
 #include "params.h"
 #include <string.h>
@@ -75,6 +77,7 @@ static bool verbose;
 
 /* Remove file NAME if it has a gcda suffix. */
 
+#if !defined(_WIN32)
 static int
 unlink_gcda_file (const char *name,
                   const struct stat *status ATTRIBUTE_UNUSED,
@@ -93,14 +96,20 @@ unlink_gcda_file (const char *name,
 
   return ret;
 }
+#endif
 
 /* Remove the gcda files in PATH recursively.  */
 
 static int
 unlink_profile_dir (const char *path)
 {
+#if !defined(_WIN32)
     return nftw(path, unlink_gcda_file, 64, FTW_DEPTH | FTW_PHYS);
+#else
+    return 0;
+#endif
 }
+
 
 /* Output GCOV_INFO lists PROFILE to directory OUT. Note that
    we will remove all the gcda files in OUT.  */
@@ -114,11 +123,7 @@ gcov_output_files (const char *out, struct gcov_info *profile)
   /* Try to make directory if it doesn't already exist.  */
   if (access (out, F_OK) == -1)
     {
-#if !defined(_WIN32)
       if (mkdir (out, S_IRWXU | S_IRWXG | S_IRWXO) == -1 && errno != EEXIST)
-#else
-      if (mkdir (out) == -1 && errno != EEXIST)
-#endif
         fatal_error ("Cannot make directory %s", out);
     } else
       unlink_profile_dir (out);
@@ -329,6 +334,12 @@ module_name_hash_lookup (const char *string, unsigned *id_p, int create)
   return 1;
 }
 
+#if !defined(_WIN32)
+#define STRCASESTR strcasestr
+#else
+#define STRCASESTR strestr
+#endif
+
 /* Return 1 if NAME is of a source type that LIPO targets.
    Return 0 otherwise.  */
 
@@ -337,15 +348,15 @@ is_lipo_source_type (char *name)
 {
   char *p;
 
-  if (strcasestr (name, ".c") ||
-      strcasestr (name, ".cc") ||
-      strcasestr (name, ".cpp") ||
-      strcasestr (name, ".c++"))
+  if (STRCASESTR (name, ".c") ||
+      STRCASESTR (name, ".cc") ||
+      STRCASESTR (name, ".cpp") ||
+      STRCASESTR (name, ".c++"))
     return 1;
 
   /* Replace ".proto" with ".pb.cc". Since the two strings have the same
      length, we simplfy do a strcpy.  */
-  if ((p = strcasestr (name, ".proto")) != NULL)
+  if ((p = STRCASESTR (name, ".proto")) != NULL)
     {
       strcpy (p, ".pb.cc");
       return 1;
@@ -388,8 +399,8 @@ static int
 lipo_process_modu_list (const char *input_file)
 {
   FILE *fd;
-  char *line = NULL;
-  size_t linecap = 0;
+  const int max_line_size = (1 << 12);
+  char line[max_line_size];
   char *name;
 
   set_use_modu_list ();
@@ -401,15 +412,12 @@ lipo_process_modu_list (const char *input_file)
     }
 
   /* Read all the modules */
-  while (getline (&line, &linecap, fd) != -1)
+  while (fgets (line, max_line_size, fd) != NULL)
     {
       name = strtok (line, " \t\n");
       name = lipo_process_name_string (name);
       if (name)
         module_name_hash_lookup (name, 0, 1);
-
-      free (line);
-      line = NULL;
     }
 
   return 0;

@@ -53,7 +53,11 @@ void gcov_set_verbose (void)
 
 #include "obstack.h"
 #include <unistd.h>
+#if !defined (_WIN32)
 #include <ftw.h>
+#else
+#include <windows.h>
+#endif
 
 static void tag_function (unsigned, unsigned);
 static void tag_blocks (unsigned, unsigned);
@@ -535,22 +539,14 @@ set_use_modu_list (void)
   flag_use_modu_list = 1;
 }
 
-
-/* This will be called by ftw(). It opens and read a gcda file FILENAME.
-   Return a non-zero value to stop the tree walk.  */
+/* Handler to open and read a gcda file FILENAME. */
 
 static int
-ftw_read_file (const char *filename,
-               const struct stat *status ATTRIBUTE_UNUSED,
-               int type)
+read_file_handler (const char *filename)
 {
   int filename_len;
   int suffix_len;
   struct gcov_info *obj_info;
-
-  /* Only read regular files.  */
-  if (type != FTW_F)
-    return 0;
 
   filename_len = strlen (filename);
   suffix_len = strlen (GCOV_DATA_SUFFIX);
@@ -588,6 +584,69 @@ ftw_read_file (const char *filename,
 
   return 0;
 }
+
+
+#if !defined(_WIN32)
+/* This will be called by ftw(). It opens and reads a gcda file FILENAME.
+   Return a non-zero value to stop the tree walk.  */
+
+static int
+ftw_read_file (const char *filename,
+               const struct stat *status ATTRIBUTE_UNUSED,
+               int type)
+{
+  /* Only read regular files.  */
+  if (type != FTW_F)
+    return 0;
+
+  return read_file_handler (filename);
+}
+
+#else /* _WIN32 */
+
+/* Funtion to find all the gcda files recursively in DIR.  */
+static void
+myftw (char *dir, char* pattern, int (*handler)(const char *))
+{
+  char buffer[MAX_PATH];
+  WIN32_FIND_DATA filedata;
+  HANDLE ret;
+
+  /* Process the subdirectories.  */
+  sprintf (buffer, "%s\\*", dir);
+  ret = FindFirstFile (buffer, &filedata);
+  if(ret != INVALID_HANDLE_VALUE)
+  {
+    do
+    {
+      if(filedata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+      {
+        if (filedata.cFileName[0] == '.')
+          continue;
+        sprintf (buffer, "%s\\%s", dir, filedata.cFileName);
+        myftw (buffer, pattern, handler);
+      }
+    } while(FindNextFile (ret, &filedata));
+    FindClose(ret);
+  }
+
+  /* Find the matching files.  */
+  sprintf (buffer, "%s\\%s", dir, pattern);
+  ret = FindFirstFile (buffer, &filedata);
+  if(ret != INVALID_HANDLE_VALUE)
+    {
+      do
+        {
+          if(!(filedata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+            {
+              /* Apply action.  */
+              (*handler) (buffer);
+            }
+        } while(FindNextFile (ret, &filedata));
+      FindClose (ret);
+    }
+}
+#endif
 
 /* Source profile directory name.  */
 
@@ -637,7 +696,11 @@ gcov_read_profile_dir (const char* dir_name, int recompute_summary ATTRIBUTE_UNU
     }
   source_profile_dir = getcwd (NULL, 0);
 
+#if !defined(_WIN32)
   ftw (".", ftw_read_file, 50);
+#else
+  myftw (".", "*.gcda",read_file_handler);
+#endif
   ret = chdir (pwd);
   free (pwd);
 
@@ -1088,8 +1151,10 @@ gcov_profile_normalize (struct gcov_info *profile, gcov_type max_val)
       }
 
   scale_factor = (float)max_val / curr_max_val;
+#if !defined (_WIN32)
   if (verbose)
     fnotice (stdout, "max_val is %lld\n", (long long) curr_max_val);
+#endif
 
   return gcov_profile_scale (profile, scale_factor, 0, 0);
 }
