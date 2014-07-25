@@ -428,11 +428,7 @@ read_gcda_file (const char *filename)
   /* Read version.  */
   version = gcov_read_unsigned ();
   if (version != GCOV_VERSION)
-    {
-      fnotice (stderr, "%s:incorrect gcov version %d vs %d \n", filename, version, GCOV_VERSION);
-      gcov_close ();
-      return NULL;
-    }
+    warning (0, "%s:incorrect gcov version %d vs %d \n", filename, version, GCOV_VERSION);
 
   /* Instantiate a gcov_info object.  */
   curr_gcov_info = obj_info = (struct gcov_info *) xcalloc (sizeof (struct gcov_info) +
