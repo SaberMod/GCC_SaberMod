@@ -1288,6 +1288,65 @@ print_specific_help (unsigned int include_flags,
 		       opts->x_help_columns, opts, lang_mask);
 }
 
+/* Set options implied by -f[no-]profile-use[=...]. If RESET is
+   true, it means the profile data is not available, so it is better
+   to turn off the options unless explicitly set. The default
+   values are not checked.  */
+
+void
+set_profile_use_options (struct gcc_options *opts,
+                         struct gcc_options *opts_set,
+                         bool value, bool reset)
+{
+  if (reset)
+    opts->x_flag_profile_use = false;
+
+  if (!opts_set->x_flag_branch_probabilities || reset)
+    opts->x_flag_branch_probabilities = value;
+  if (!opts_set->x_flag_profile_values || reset)
+    opts->x_flag_profile_values = value;
+  if (!opts_set->x_flag_unroll_loops)
+    opts->x_flag_unroll_loops = value;
+  if (!opts_set->x_flag_peel_loops)
+    opts->x_flag_peel_loops = value;
+  if (!opts_set->x_flag_value_profile_transformations || reset)
+    opts->x_flag_value_profile_transformations = value;
+  if (!opts_set->x_flag_inline_functions)
+    opts->x_flag_inline_functions = value;
+  if (!opts_set->x_flag_ipa_cp)
+    opts->x_flag_ipa_cp = value;
+  if (!opts_set->x_flag_ipa_cp_clone
+      && value && opts->x_flag_ipa_cp || reset)
+    opts->x_flag_ipa_cp_clone = value;
+  if (!opts_set->x_flag_predictive_commoning)
+    opts->x_flag_predictive_commoning = value;
+  if (!opts_set->x_flag_unswitch_loops)
+    opts->x_flag_unswitch_loops = value;
+  if (!opts_set->x_flag_gcse_after_reload)
+    opts->x_flag_gcse_after_reload = value;
+  if (!opts_set->x_flag_tree_loop_vectorize
+      && !opts_set->x_flag_tree_vectorize)
+    opts->x_flag_tree_loop_vectorize = value;
+  if (!opts_set->x_flag_tree_loop_distribute_patterns)
+    opts->x_flag_tree_loop_distribute_patterns = value;
+  if (!opts_set->x_flag_profile_reorder_functions || reset)
+    opts->x_flag_profile_reorder_functions = value;
+  /* Indirect call profiling should do all useful transformations
+     speculative devirtualization does.  */
+  if (!opts_set->x_flag_devirtualize_speculatively
+      && opts->x_flag_value_profile_transformations)
+    opts->x_flag_devirtualize_speculatively = false;
+
+  /* See how AUTODECT flag_web is set in toplev.c.  */
+  if (reset && !opts->x_flag_unroll_loops
+      && !opts->x_flag_peel_loops)
+    {
+      if(!opts_set->x_flag_web)
+        opts->x_flag_web = false;
+      if (!opts_set->x_flag_rename_registers)
+        opts->x_flag_rename_registers = false;
+    }
+}
 
 /* Handle target- and language-independent options.  Return zero to
    generate an "unknown option" message.  Only options that need
@@ -1735,41 +1794,7 @@ common_handle_option (struct gcc_options *opts,
       value = true;
       /* No break here - do -fprofile-use processing. */
     case OPT_fprofile_use:
-      if (!opts_set->x_flag_branch_probabilities)
-	opts->x_flag_branch_probabilities = value;
-      if (!opts_set->x_flag_profile_values)
-	opts->x_flag_profile_values = value;
-      if (!opts_set->x_flag_unroll_loops)
-	opts->x_flag_unroll_loops = value;
-      if (!opts_set->x_flag_peel_loops)
-	opts->x_flag_peel_loops = value;
-      if (!opts_set->x_flag_value_profile_transformations)
-	opts->x_flag_value_profile_transformations = value;
-      if (!opts_set->x_flag_inline_functions)
-	opts->x_flag_inline_functions = value;
-      if (!opts_set->x_flag_ipa_cp)
-	opts->x_flag_ipa_cp = value;
-      if (!opts_set->x_flag_ipa_cp_clone
-	  && value && opts->x_flag_ipa_cp)
-	opts->x_flag_ipa_cp_clone = value;
-      if (!opts_set->x_flag_predictive_commoning)
-	opts->x_flag_predictive_commoning = value;
-      if (!opts_set->x_flag_unswitch_loops)
-	opts->x_flag_unswitch_loops = value;
-      if (!opts_set->x_flag_gcse_after_reload)
-	opts->x_flag_gcse_after_reload = value;
-      if (!opts_set->x_flag_tree_loop_vectorize
-          && !opts_set->x_flag_tree_vectorize)
-	opts->x_flag_tree_loop_vectorize = value;
-      if (!opts_set->x_flag_tree_loop_distribute_patterns)
-	opts->x_flag_tree_loop_distribute_patterns = value;
-      if (!opts_set->x_flag_profile_reorder_functions)
-	opts->x_flag_profile_reorder_functions = value;
-      /* Indirect call profiling should do all useful transformations
- 	 speculative devirtualization does.  */
-      if (!opts_set->x_flag_devirtualize_speculatively
-	  && opts->x_flag_value_profile_transformations)
-	opts->x_flag_devirtualize_speculatively = false;
+      set_profile_use_options (opts, opts_set, value, false);
       break;
 
     case OPT_fauto_profile_:

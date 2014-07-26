@@ -720,7 +720,13 @@ read_counts_file (const char *da_file_name, unsigned module_id)
             return;
         }
       else
-        return;
+        {
+          inform (input_location, "file %s not found, disabling profile use",
+                  da_file_name);
+          set_profile_use_options (&global_options, &global_options_set,
+                                   false, true);
+          return;
+        }
     }
 
   if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
