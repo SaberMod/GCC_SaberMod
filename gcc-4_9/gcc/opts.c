@@ -1299,7 +1299,17 @@ set_profile_use_options (struct gcc_options *opts,
                          bool value, bool reset)
 {
   if (reset)
-    opts->x_flag_profile_use = false;
+   {
+      opts->x_flag_profile_use = false;
+      maybe_set_param_value
+	(PARAM_MAX_INLINE_INSNS_SINGLE,
+         default_param_value (PARAM_MAX_INLINE_INSNS_SINGLE),
+	 opts->x_param_values, opts_set->x_param_values);
+      maybe_set_param_value
+	(PARAM_MAX_INLINE_INSNS_AUTO,
+         default_param_value (PARAM_MAX_INLINE_INSNS_AUTO),
+	 opts->x_param_values, opts_set->x_param_values);
+   }
 
   if (!opts_set->x_flag_branch_probabilities || reset)
     opts->x_flag_branch_probabilities = value;
