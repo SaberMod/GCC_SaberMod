@@ -725,6 +725,11 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                   da_file_name);
           set_profile_use_options (&global_options, &global_options_set,
                                    false, true);
+          /* RESET is invoked during covrerage_init when process_options is done.
+            Need to reset optimization_default_node and optimization_current_node.  */
+          /* Save the current optimization options.  */
+          optimization_default_node = build_optimization_node (&global_options);
+          optimization_current_node = optimization_default_node;
           return;
         }
     }

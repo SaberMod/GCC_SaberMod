@@ -190,3 +190,18 @@ get_num_compiler_params (void)
 {
   return num_compiler_params;
 }
+
+/* Dump values of parameters.  */
+
+void
+dump_params (int *params, int *params_set)
+{
+  size_t i;
+
+  /* Scan the parameter table to find a matching entry.  */
+  for (i = 0; i < num_compiler_params; ++i)
+    {
+      fprintf (stderr, "%s\t%d (%s)\n", compiler_params[i].option,
+               params[i], params_set[i] ? "explicit" : "implicit");
+    }
+}
