@@ -1,0 +1,8 @@
+2014-07-29  Terry Guo  <terry.guo@arm.com>
+
+	Backport mainline r211832
+	2014-06-20  Hale Wang  <hale.wang@arm.com>
+
+	PR lto/61123
+	* c.opt (fshort-enums): Add to LTO.
+	* c.opt (fshort-wchar): Likewise.
