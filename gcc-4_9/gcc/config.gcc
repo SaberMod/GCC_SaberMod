@@ -2315,7 +2315,7 @@ powerpc-*-rtems*)
 	tmake_file="${tmake_file} rs6000/t-fprules rs6000/t-rtems rs6000/t-ppccomm"
 	;;
 powerpc*-*-linux*)
-	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h"
+	tm_file="${tm_file} dbxelf.h elfos.h freebsd-spec.h rs6000/sysv4.h linux-android.h"
 	extra_options="${extra_options} rs6000/sysv4.opt"
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="rs6000/t-fprules rs6000/t-ppcos ${tmake_file} rs6000/t-ppccomm"
