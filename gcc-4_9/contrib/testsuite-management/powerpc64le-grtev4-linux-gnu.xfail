@@ -134,6 +134,9 @@ flaky | FAIL: g++.dg/init/placement2.C -std=c++1y execution test
 flaky | FAIL: g++.dg/init/ref9.C -std=c++98 execution test
 flaky | FAIL: g++.dg/init/ref9.C -std=c++11 execution test
 
+# AArch64 and PowerPC64LE failure (new 2014-07-31) 
+FAIL: gcc.dg/tree-prof/crossmodule-indircall-1.c execution,    -fprofile-use -D_PROFILE_USE
+
 
 # *** g++:
 
