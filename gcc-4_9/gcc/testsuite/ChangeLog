@@ -1,3 +1,108 @@
+2014-07-28  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: Fix testcase.
+
+2014-07-28  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: New testcase.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-3.c: New test.
+
+	* gcc.c-torture/execute/20050316-1.x: Add -Wno-psabi.
+	* gcc.c-torture/execute/20050604-1.x: Add -Wno-psabi.
+	* gcc.c-torture/execute/20050316-3.x: New file.  Add -Wno-psabi.
+	* gcc.c-torture/execute/pr23135.x: Likewise.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-2.c: New test.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-1.c: New test.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* g++.dg/compat/struct-layout-1.exp: Load g++-dg.exp.
+
+2014-07-24  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-2.C (main): Return zero.
+	* g++.dg/ipa/pr61160-3.C (main): Likewise.
+
+2014-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-07-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61855
+	* gcc.target/i386/pr61855.c: New test.
+
+2014-07-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack20.ad[sb]: New test.
+	* gnat.dg/pack20_pkg.ads: New helper.
+
+2014-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/stack-usage-2.c: Adjust.
+
+2014-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/61780
+	* gfortran.dg/dependency_44.f90 : New test
+
+2014-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/61794
+	* gcc.target/i386/pr61794.c: New test.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-07-10  Richard Biener  <rguenther@suse.de>
+
+	PR c-family/61741
+	* c-c++-common/torture/pr61741.c: Use signed char.
+
+	2014-07-09  Richard Biener  <rguenther@suse.de>
+
+	PR c-family/61741
+	* c-c++-common/torture/pr61741.c: New testcase.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-07-14  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61779
+	* gcc.dg/tree-ssa/ssa-copyprop-2.c: New testcase.
+
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
 2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt39.adb: New test.
@@ -13,7 +118,8 @@
 	2014-06-09  Alan Lawrence  <alan.lawrence@arm.com>
 
 	PR target/61062
-	* gcc.target/arm/pr48252.c (main): Expect same result as endian-neutral.
+	* gcc.target/arm/pr48252.c (main): Expect same result as
+	endian-neutral.
 
 2014-07-08  Jakub Jelinek  <jakub@redhat.com>
 
@@ -30,8 +136,8 @@
 
 2014-07-08  Alan Lawrence  <alan.lawrence@arm.com>
 
-        Backport r211502 from mainline.
-        2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
+	Backport r211502 from mainline.
+	2014-06-10  Alan Lawrence  <alan.lawrence@arm.com>
 
 	PR target/59843
 	* gcc.dg/vect/vect-singleton_1.c: New file.
