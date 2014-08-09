@@ -1,3 +1,72 @@
+2014-08-08  Guozhi Wei  <carrot@google.com>
+
+	* config/rs6000/rs6000.md (*movdi_internal64): Add a new constraint.
+
+2014-08-07  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/sse.md (vec_extract_lo_<mode><mask_name>): Fix
+	constraint.
+
+2014-08-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/61923
+	* haifa-sched.c (advance_one_cycle): Fix dump.
+	(schedule_block): Don't advance cycle if we are already at the
+	beginning of the cycle.
+
+2014-08-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61320
+	* tree-ssa-loop-ivopts.c (may_be_unaligned_p): Properly
+	handle misaligned loads.
+
+2014-08-04  Rohit  <rohitarulraj@freescale.com>
+
+	PR target/60102
+	* config/rs6000/rs6000.c
+	(rs6000_reg_names): Add SPE high register names.
+	(alt_reg_names): Likewise.
+	(rs6000_dwarf_register_span): For SPE high registers, replace
+	dwarf register numbers with GCC hard register numbers.
+	(rs6000_init_dwarf_reg_sizes_extra): Likewise.
+	(rs6000_dbx_register_number): For SPE high registers, return dwarf
+	register number for the corresponding GCC hard register number.
+	* config/rs6000/rs6000.h
+	(FIRST_PSEUDO_REGISTER): Update based on 32 newly added GCC hard
+	register numbers for SPE high registers.
+	(DWARF_FRAME_REGISTERS):  Likewise.
+	(DWARF_REG_TO_UNWIND_COLUMN): Likewise.
+	(DWARF_FRAME_REGNUM): Likewise.
+	(FIXED_REGISTERS): Likewise.
+	(CALL_USED_REGISTERS): Likewise.
+	(CALL_REALLY_USED_REGISTERS): Likewise.
+	(REG_ALLOC_ORDER): Likewise.
+	(enum reg_class): Likewise.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	(SPE_HIGH_REGNO_P): New macro to identify SPE high registers.
+
+2014-08-01  Vladimir Makarov  <vmakarov@redhat.com>
+
+	* lra-constraints.c (remove_inheritance_pseudos): Process
+	destination pseudo too.
+
+2014-08-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-06-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/61375
+	* tree-ssa-math-opts.c (find_bswap_or_nop_1): Cancel optimization if
+	symbolic number cannot be represented in an unsigned HOST_WIDE_INT.
+	(execute_optimize_bswap): Cancel optimization if CHAR_BIT != 8.
+
+2014-08-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61964
+	* tree-ssa-tail-merge.c (gimple_equal_p): Handle non-SSA LHS solely
+	by structural equality.
+
 2014-07-31  Oleg Endo  <olegendo@gcc.gnu.org>
 
 	Backport from mainline
