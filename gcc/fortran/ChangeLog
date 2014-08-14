@@ -1,3 +1,28 @@
+2014-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/62076
+	* openmp.c (gfc_match_omp_clauses): When failed to match
+	operator name, defined op name or name, set buffer to
+	empty string.  Don't call gfc_find_omp_udr if buffer is empty
+	string.
+	(gfc_match_omp_declare_reduction): Call gfc_undo_symbols ()
+	before calling gfc_free_omp_udr.
+
+2014-08-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/61999
+	* simplify.c (gfc_simplify_dot_product): Convert types of
+	vectors before calculating the result.
+
+2014-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from mainline
+	PR fortran/61780
+	* dependency.c (gfc_dep_resolver): Index the 'reverse' array so
+	that elements are skipped. This then correctly aligns 'reverse'
+	with the scalarizer loops.
+
 2014-07-16  Release Manager
 
 	* GCC 4.9.1 released.
