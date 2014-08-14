@@ -1,3 +1,25 @@
+2014-08-14  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (caf_register_t): Update for critical.
+	(_gfortran_caf_critical, _gfortran_caf_end_critical): Remove.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+	* caf/single.c (_gfortran_caf_register): Handle locking
+	variables.
+	(_gfortran_caf_sendget): Re-name args for consistency.
+	(_gfortran_caf_lock, _gfortran_caf_unlock): Add.
+
+2014-08-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* runtime/memory.c (xmallocarray): Avoid division for the common case.
+
+2014-07-20  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/61632
+	* io/format.c (format_error): Avoid invalid string pointer by
+	using the fortran string length values to generate error string.
+	(parse_format): Allocate the null terminator for the format
+	string.
+
 2014-07-12  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (_gfortran_caf_atomic_define,

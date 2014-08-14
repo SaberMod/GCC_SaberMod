@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "hashtab.h"
 #include "vec.h"
+#include "hash-map.h"
 
 /* In order for the format checking to accept the C++ front end
    diagnostic framework extensions, you must include this file before
@@ -1064,7 +1065,7 @@ struct GTY(()) saved_scope {
   cp_binding_level *class_bindings;
   cp_binding_level *bindings;
 
-  struct pointer_map_t *x_local_specializations;
+  hash_map<tree, tree> *GTY((skip)) x_local_specializations;
 
   struct saved_scope *prev;
 };
@@ -5045,6 +5046,17 @@ class_of_this_parm (const_tree fntype)
   return TREE_TYPE (type_of_this_parm (fntype));
 }
 
+/* True if T designates a variable template declaration.  */
+inline bool
+variable_template_p (tree t)
+{
+  if (TREE_CODE (t) != TEMPLATE_DECL)
+    return false;
+  if (tree r = DECL_TEMPLATE_RESULT (t))
+    return VAR_P (r);
+  return false;
+}
+
 /* A parameter list indicating for a function with no parameters,
    e.g  "int f(void)".  */
 extern cp_parameter_declarator *no_parameters;
@@ -5572,6 +5584,7 @@ extern bool redeclare_class_template		(tree, tree);
 extern tree lookup_template_class		(tree, tree, tree, tree,
 						 int, tsubst_flags_t);
 extern tree lookup_template_function		(tree, tree);
+extern tree lookup_template_variable		(tree, tree);
 extern int uses_template_parms			(tree);
 extern int uses_template_parms_level		(tree, int);
 extern bool in_template_function		(void);
@@ -5834,6 +5847,7 @@ extern tree perform_koenig_lookup		(tree, vec<tree, va_gc> *,
 						 tsubst_flags_t);
 extern tree finish_call_expr			(tree, vec<tree, va_gc> **, bool,
 						 bool, tsubst_flags_t);
+extern tree finish_template_variable	(tree);
 extern tree finish_increment_expr		(tree, enum tree_code);
 extern tree finish_this_expr			(void);
 extern tree finish_pseudo_destructor_expr       (tree, tree, tree, location_t);
@@ -6028,7 +6042,7 @@ extern void verify_stmt_tree			(tree);
 extern linkage_kind decl_linkage		(tree);
 extern duration_kind decl_storage_duration	(tree);
 extern tree cp_walk_subtrees (tree*, int*, walk_tree_fn,
-			      void*, struct pointer_set_t*);
+			      void*, hash_set<tree> *);
 #define cp_walk_tree(tp,func,data,pset) \
 	walk_tree_1 (tp, func, data, pset, cp_walk_subtrees)
 #define cp_walk_tree_without_duplicates(tp,func,data) \
@@ -6200,7 +6214,7 @@ extern int abstract_virtuals_error_sfinae	(tree, tree, tsubst_flags_t);
 extern int abstract_virtuals_error_sfinae	(abstract_class_use, tree, tsubst_flags_t);
 
 extern tree store_init_value			(tree, tree, vec<tree, va_gc>**, int);
-extern void check_narrowing			(tree, tree);
+extern bool check_narrowing			(tree, tree, tsubst_flags_t);
 extern tree digest_init				(tree, tree, tsubst_flags_t);
 extern tree digest_init_flags			(tree, tree, int);
 extern tree digest_nsdmi_init		        (tree, tree);

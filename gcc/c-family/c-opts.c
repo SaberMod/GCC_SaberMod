@@ -1295,6 +1295,7 @@ sanitize_cpp_opts (void)
   cpp_opts->unsigned_char = !flag_signed_char;
   cpp_opts->stdc_0_in_system_headers = STDC_0_IN_SYSTEM_HEADERS;
   cpp_opts->warn_date_time = cpp_warn_date_time;
+  cpp_opts->cpp_warn_c90_c99_compat = warn_c90_c99_compat;
 
   /* Wlong-long is disabled by default. It is enabled by:
       [-Wpedantic | -Wtraditional] -std=[gnu|c]++98 ; or
@@ -1438,6 +1439,12 @@ c_finish_options (void)
 static void
 push_command_line_include (void)
 {
+  /* This can happen if disabled by -imacros for example.
+     Punt so that we don't set "<command-line>" as the filename for
+     the header.  */
+  if (include_cursor > deferred_count)
+    return;
+
   if (!done_preinclude)
     {
       done_preinclude = true;

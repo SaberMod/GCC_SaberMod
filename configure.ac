@@ -1177,6 +1177,9 @@ case "${host}" in
   *-mingw*)
     host_makefile_frag="config/mh-mingw"
     ;;
+  alpha*-*-linux*)
+    host_makefile_frag="config/mh-alpha-linux"
+    ;;
   hppa*-hp-hpux10*)
     host_makefile_frag="config/mh-pa-hpux10"
     ;;
@@ -1661,10 +1664,7 @@ if test "x$with_isl" != "xno" &&
     dnl with user input.
     CLOOG_INIT_FLAGS
     dnl The versions of CLooG that work for Graphite.
-    CLOOG_CHECK_VERSION(0,17,0)
-    if test "${gcc_cv_cloog}" = no ; then
-      CLOOG_CHECK_VERSION(0,18,0)
-    fi
+    CLOOG_CHECK_VERSION(0,18,1)
 
     dnl Only execute fail-action, if CLooG has been requested.
     CLOOG_IF_FAILED([

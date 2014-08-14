@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
-#include "pointer-set.h"
 #include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -1147,7 +1146,7 @@ add_method (tree type, tree method, tree using_decl)
 		  if (DECL_ASSEMBLER_NAME_SET_P (method))
 		    mangle_decl (method);
 		}
-	      record_function_versions (fn, method);
+	      cgraph_node::record_function_versions (fn, method);
 	      continue;
 	    }
 	  if (DECL_INHERITED_CTOR_BASE (method))
@@ -5359,15 +5358,15 @@ finalize_literal_type_property (tree t)
 void
 explain_non_literal_class (tree t)
 {
-  static struct pointer_set_t *diagnosed;
+  static hash_set<tree> *diagnosed;
 
   if (!CLASS_TYPE_P (t))
     return;
   t = TYPE_MAIN_VARIANT (t);
 
   if (diagnosed == NULL)
-    diagnosed = pointer_set_create ();
-  if (pointer_set_insert (diagnosed, t) != 0)
+    diagnosed = new hash_set<tree>;
+  if (diagnosed->add (t))
     /* Already explained.  */
     return;
 
@@ -6408,7 +6407,7 @@ finish_struct_1 (tree t)
 	 in every translation unit where the class definition appears.  If
 	 we're devirtualizing, we can look into the vtable even if we
 	 aren't emitting it.  */
-      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE || flag_use_all_virtuals)
+      if (CLASSTYPE_KEY_METHOD (t) == NULL_TREE)
 	keyed_classes = tree_cons (NULL_TREE, t, keyed_classes);
     }
 

@@ -1,3 +1,31 @@
+2014-08-01  Jiong Wang  <jiong.wang@arm.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-07-28  Anthony Green  <green@moxielogic.com>
+
+	Import from savannah.gnu.org:
+	* config.sub: Update to 2014-07-28 version.
+
+2014-07-27  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* MAINTAINERS: Remove my MIPS maintainer entry.
+
+2014-07-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/47230
+	* configure.ac (alpha*-*-linux*): Use mh-alpha-linux.
+	* configure: Regenerate.
+
+2014-07-24  James Norris  <jnorris@codesourcery.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
+2014-07-20  Roman Gareev  <gareevroman@gmail.com>
+
+	* configure.ac: Accept only CLooG 0.18.1.
+	* configure: Regenerate.
+
 2014-07-17  Roman Gareev  <gareevroman@gmail.com>
 
 	* configure.ac: Don't accept isl 0.11.

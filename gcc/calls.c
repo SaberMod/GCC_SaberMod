@@ -1484,8 +1484,10 @@ precompute_arguments (int num_actuals, struct arg_data *args)
 	      args[i].initial_value
 		= gen_lowpart_SUBREG (mode, args[i].value);
 	      SUBREG_PROMOTED_VAR_P (args[i].initial_value) = 1;
-	      SUBREG_PROMOTED_UNSIGNED_SET (args[i].initial_value,
-					    args[i].unsignedp);
+	      if (promoted_for_signed_and_unsigned_p (args[i].tree_value, mode))
+		SUBREG_PROMOTED_SET (args[i].initial_value, SRP_SIGNED_AND_UNSIGNED);
+	      else
+		SUBREG_PROMOTED_SET (args[i].initial_value, args[i].unsignedp);
 	    }
 	}
     }
@@ -1937,7 +1939,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 
 	  else if (partial == 0 || args[i].pass_on_stack)
 	    {
-	      rtx mem = validize_mem (args[i].value);
+	      rtx mem = validize_mem (copy_rtx (args[i].value));
 
 	      /* Check for overlap with already clobbered argument area,
 	         providing that this has non-zero size.  */
@@ -3365,7 +3367,7 @@ expand_call (tree exp, rtx target, int ignore)
 
 	  target = gen_rtx_SUBREG (TYPE_MODE (type), target, offset);
 	  SUBREG_PROMOTED_VAR_P (target) = 1;
-	  SUBREG_PROMOTED_UNSIGNED_SET (target, unsignedp);
+	  SUBREG_PROMOTED_SET (target, unsignedp);
 	}
 
       /* If size of args is variable or this was a constructor call for a stack
@@ -4014,7 +4016,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 					     argvec[argnum].locate.size.constant
 					     );
 
-		      emit_block_move (validize_mem (argvec[argnum].save_area),
+		      emit_block_move (validize_mem
+				         (copy_rtx (argvec[argnum].save_area)),
 				       stack_area,
 				       GEN_INT (argvec[argnum].locate.size.constant),
 				       BLOCK_OP_CALL_PARM);
@@ -4289,7 +4292,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
 	    if (save_mode == BLKmode)
 	      emit_block_move (stack_area,
-			       validize_mem (argvec[count].save_area),
+			       validize_mem
+			         (copy_rtx (argvec[count].save_area)),
 			       GEN_INT (argvec[count].locate.size.constant),
 			       BLOCK_OP_CALL_PARM);
 	    else
@@ -4433,7 +4437,8 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 		  arg->save_area
 		    = assign_temp (TREE_TYPE (arg->tree_value), 1, 1);
 		  preserve_temp_slots (arg->save_area);
-		  emit_block_move (validize_mem (arg->save_area), stack_area,
+		  emit_block_move (validize_mem (copy_rtx (arg->save_area)),
+				   stack_area,
 				   GEN_INT (arg->locate.size.constant),
 				   BLOCK_OP_CALL_PARM);
 		}
