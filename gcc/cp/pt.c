@@ -907,11 +907,13 @@ maybe_process_partial_specialization (tree type)
 	       t; t = TREE_CHAIN (t))
 	    {
 	      tree inst = TREE_VALUE (t);
-	      if (CLASSTYPE_TEMPLATE_SPECIALIZATION (inst))
+	      if (CLASSTYPE_TEMPLATE_SPECIALIZATION (inst)
+		  || !COMPLETE_OR_OPEN_TYPE_P (inst))
 		{
 		  /* We already have a full specialization of this partial
-		     instantiation.  Reassign it to the new member
-		     specialization template.  */
+		     instantiation, or a full specialization has been
+		     looked up but not instantiated.  Reassign it to the
+		     new member specialization template.  */
 		  spec_entry elt;
 		  spec_entry *entry;
 		  void **slot;
@@ -930,7 +932,7 @@ maybe_process_partial_specialization (tree type)
 		  *entry = elt;
 		  *slot = entry;
 		}
-	      else if (COMPLETE_OR_OPEN_TYPE_P (inst))
+	      else
 		/* But if we've had an implicit instantiation, that's a
 		   problem ([temp.expl.spec]/6).  */
 		error ("specialization %qT after instantiation %qT",
@@ -4573,7 +4575,8 @@ push_template_decl_real (tree decl, bool is_friend)
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_namespace);
 
   /* See if this is a primary template.  */
-  if (is_friend && ctx)
+  if (is_friend && ctx
+      && uses_template_parms_level (ctx, processing_template_decl))
     /* A friend template that specifies a class context, i.e.
          template <typename T> friend void A<T>::f();
        is not primary.  */
@@ -7455,7 +7458,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 	}
 
       /* Let's consider the explicit specialization of a member
-         of a class template specialization that is implicitely instantiated,
+         of a class template specialization that is implicitly instantiated,
 	 e.g.:
 	     template<class T>
 	     struct S
@@ -7553,9 +7556,9 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
       /* Note this use of the partial instantiation so we can check it
 	 later in maybe_process_partial_specialization.  */
-      DECL_TEMPLATE_INSTANTIATIONS (templ)
+      DECL_TEMPLATE_INSTANTIATIONS (found)
 	= tree_cons (arglist, t,
-		     DECL_TEMPLATE_INSTANTIATIONS (templ));
+		     DECL_TEMPLATE_INSTANTIATIONS (found));
 
       if (TREE_CODE (template_type) == ENUMERAL_TYPE && !is_dependent_type)
 	/* Now that the type has been registered on the instantiations
@@ -8290,10 +8293,17 @@ tsubst_friend_function (tree decl, tree args)
 
       if (COMPLETE_TYPE_P (context))
 	{
+	  tree fn = new_friend;
+	  /* do_friend adds the TEMPLATE_DECL for any member friend
+	     template even if it isn't a member template, i.e.
+	       template <class T> friend A<T>::f();
+	     Look through it in that case.  */
+	  if (TREE_CODE (fn) == TEMPLATE_DECL
+	      && !PRIMARY_TEMPLATE_P (fn))
+	    fn = DECL_TEMPLATE_RESULT (fn);
 	  /* Check to see that the declaration is really present, and,
 	     possibly obtain an improved declaration.  */
-	  tree fn = check_classfn (context,
-				   new_friend, NULL_TREE);
+	  fn = check_classfn (context, fn, NULL_TREE);
 
 	  if (fn)
 	    new_friend = fn;

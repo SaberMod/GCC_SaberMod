@@ -1,3 +1,218 @@
+2014-08-13  Felix Yang  <fei.yang0953@gmail.com>
+
+	PR tree-optimization/62073
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Check that DEF1 has
+	a basic block.
+
+2014-08-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gimple-fold.c (fold_ctor_reference): Don't fold in presence of
+	bitfields, that is when size doesn't match the size of type or the
+	size of the constructor.
+
+2014-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport patch from mainline
+	2014-08-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wh constraint): New constraint,
+	for FP registers if direct move is available.
+	(wi constraint): New constraint, for VSX/FP registers that can
+	handle 64-bit integers.
+	(wj constraint): New constraint for VSX/FP registers that can
+	handle 64-bit integers for direct moves.
+	(wk constraint): New constraint for VSX/FP registers that can
+	handle 64-bit doubles for direct moves.
+	(wy constraint): Make documentation match implementation.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add
+	scalar_in_vmx_p field to simplify tests of whether SFmode or
+	DFmode can go in the Altivec registers.
+	(rs6000_hard_regno_mode_ok): Use scalar_in_vmx_p field.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_debug_print_mode): Add debug support for scalar_in_vmx_p
+	field, and wh/wi/wj/wk constraints.
+	(rs6000_init_hard_regno_mode_ok): Setup scalar_in_vmx_p field, and
+	the wh/wi/wj/wk constraints.
+	(rs6000_preferred_reload_class): If SFmode/DFmode can go in the
+	upper registers, prefer VSX registers unless the operation is a
+	memory operation with REG+OFFSET addressing.
+
+	* config/rs6000/vsx.md (VSr mode attribute): Add support for
+	DImode.  Change SFmode to use ww constraint instead of d to allow
+	SF registers in the upper registers.
+	(VSr2): Likewise.
+	(VSr3): Likewise.
+	(VSr5): Fix thinko in comment.
+	(VSa): New mode attribute that is an alternative to wa, that
+	returns the VSX register class that a mode can go in, but may not
+	be the preferred register class.
+	(VS_64dm): New mode attribute for appropriate register classes for
+	referencing 64-bit elements of vectors for direct moves and normal
+	moves.
+	(VS_64reg): Likewise.
+	(vsx_mov<mode>): Change wa constraint to <VSa> to limit the
+	register allocator to only registers the data type can handle.
+	(vsx_le_perm_load_<mode>): Likewise.
+	(vsx_le_perm_store_<mode>): Likewise.
+	(vsx_xxpermdi2_le_<mode>): Likewise.
+	(vsx_xxpermdi4_le_<mode>): Likewise.
+	(vsx_lxvd2x2_le_<mode>): Likewise.
+	(vsx_lxvd2x4_le_<mode>): Likewise.
+	(vsx_stxvd2x2_le_<mode>): Likewise.
+	(vsx_add<mode>3): Likewise.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_tdiv<mode>3_internal): Likewise.
+	(vsx_fre<mode>2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_smax<mode>3): Likewise.
+	(vsx_smin<mode>3): Likewise.
+	(vsx_sqrt<mode>2): Likewise.
+	(vsx_rsqrte<mode>2): Likewise.
+	(vsx_tsqrt<mode>2_internal): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_eq<mode>): Likewise.
+	(vsx_gt<mode>): Likewise.
+	(vsx_ge<mode>): Likewise.
+	(vsx_eq<mode>_p): Likewise.
+	(vsx_gt<mode>_p): Likewise.
+	(vsx_ge<mode>_p): Likewise.
+	(vsx_xxsel<mode>): Likewise.
+	(vsx_xxsel<mode>_uns): Likewise.
+	(vsx_copysign<mode>3): Likewise.
+	(vsx_float<VSi><mode>2): Likewise.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_x<VSv>r<VSs>i): Likewise.
+	(vsx_x<VSv>r<VSs>ic): Likewise.
+	(vsx_btrunc<mode>2): Likewise.
+	(vsx_b2trunc<mode>2): Likewise.
+	(vsx_floor<mode>2): Likewise.
+	(vsx_ceil<mode>2): Likewise.
+	(vsx_<VS_spdp_insn>): Likewise.
+	(vsx_xscvspdp): Likewise.
+	(vsx_xvcvspuxds): Likewise.
+	(vsx_float_fix_<mode>2): Likewise.
+	(vsx_set_<mode>): Likewise.
+	(vsx_extract_<mode>_internal1): Likewise.
+	(vsx_extract_<mode>_internal2): Likewise.
+	(vsx_extract_<mode>_load): Likewise.
+	(vsx_extract_<mode>_store): Likewise.
+	(vsx_splat_<mode>): Likewise.
+	(vsx_xxspltw_<mode>): Likewise.
+	(vsx_xxspltw_<mode>_direct): Likewise.
+	(vsx_xxmrghw_<mode>): Likewise.
+	(vsx_xxmrglw_<mode>): Likewise.
+	(vsx_xxsldwi_<mode>): Likewise.
+	(vsx_xscvdpspn): Tighten constraints to only use register classes
+	the types use.
+	(vsx_xscvspdpn): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add wh, wi,
+	wj, and wk constraints.
+	(GPR_REG_CLASS_P): New helper macro for register classes targeting
+	general purpose registers.
+
+	* config/rs6000/rs6000.md (f32_dm): Use wh constraint for SDmode
+	direct moves.
+	(zero_extendsidi2_lfiwz): Use wj constraint for direct move of
+	DImode instead of wm.  Use wk constraint for direct move of DFmode
+	instead of wm.
+	(extendsidi2_lfiwax): Likewise.
+	(lfiwax): Likewise.
+	(lfiwzx): Likewise.
+	(movdi_internal64): Likewise.
+
+	* doc/md.texi (PowerPC and IBM RS6000): Document wh, wi, wj, and
+	wk constraints. Make the wy constraint documentation match them
+	implementation.
+
+2014-08-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-06-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/61375
+	* tree-ssa-math-opts.c (find_bswap_or_nop_1): Cancel optimization if
+	symbolic number cannot be represented in an unsigned HOST_WIDE_INT.
+	(execute_optimize_bswap): Cancel optimization if CHAR_BIT != 8.
+
+2014-08-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61964
+	* tree-ssa-tail-merge.c (gimple_operand_equal_value_p): New
+	function merged from trunk.
+	(gimple_equal_p): Handle non-SSA LHS solely by structural
+	equality.
+
+2014-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/elf.h: Define TARGET_UNWIND_TABLES_DEFAULT.
+
+2014-07-24  Kyle McMartin  <kyle@redhat.com>
+
+	* config/aarch64/aarch64-linux.h (TARGET_ASM_FILE_END): Define.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_special_adjust_field_align_p):
+	Add prototype.
+	* config/rs6000/rs6000.c (rs6000_special_adjust_field_align_p): New
+	function.  Issue -Wpsabi warning if future GCC releases will use
+	different field alignment rules for this type.
+	* config/rs6000/sysv4.h (ADJUST_FIELD_ALIGN): Call it.
+	* config/rs6000/linux64.h (ADJUST_FIELD_ALIGN): Likewise.
+	* config/rs6000/freebsd64.h (ADJUST_FIELD_ALIGN): Likewise.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_function_arg_boundary): Issue
+	-Wpsabi note when encountering a type where future GCC releases
+	will apply different alignment requirements.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_function_arg): If a float argument
+	does not fit fully into floating-point registers, and there is still
+	space in the register parameter area, issue -Wpsabi note that the ABI
+	will change in a future GCC release.
+
+2014-07-23  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/arm/t-rtems-eabi: Add
+	mthumb/march=armv7-r/mfpu=vfpv3-d16/mfloat-abi=hard,
+	mthumb/march=armv7-m/mfpu=fpv4-sp-d16/mfloat-abi=hard,
+	mbig-endian/mthumb/march=armv7-r, and
+	mbig-endian/mthumb/march=armv7-r/mfpu=vfpv3-d16/mfloat-abi=hard
+	multilibs.
+
+2014-07-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* config/rs6000/sysv4.h (LIBASAN_EARLY_SPEC): Define.
+	(LIBTSAN_EARLY_SPEC): Likewise.
+	(STATIC_LIBASAN_LIBS): Likewise.
+	(STATIC_LIBTSAN_LIBS): Likewise.
+
+2014-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* toplev.c (output_stack_usage): Adjust the location of the warning.
+
+2014-07-19  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sync.md (*membar_storeload_leon3): New insn.
+	(*membar_storeload): Disable for LEON3.
+
 2014-07-17  Richard Biener  <rguenther@suse.de>
 
 	PR rtl-optimization/61801

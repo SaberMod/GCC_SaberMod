@@ -1,3 +1,99 @@
+2014-08-13  Felix Yang  <fei.yang0953@gmail.com>
+
+	PR tree-optimization/62073
+	* gcc.dg/vect/pr62073.c: New test.
+
+2014-08-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-08-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR middle-end/62103
+	* gcc.c-torture/execute/bitfld-6.c: New test.
+
+2014-08-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/61999
+	* gfortran.dg/dot_product_3.f90:  New test case.
+
+2014-08-07  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR tree-optimization/60707
+	* gfortran.dg/pr45636.f90: xfail on 32-bit hppa*-*-*.
+
+2014-08-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: Rewritten.
+
+2014-08-01  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	Backport from mainline
+	2014-06-13  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/61375
+	* gcc.c-torture/execute/pr61375-1.c: New test.
+
+2014-08-01  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61964
+	* gcc.dg/torture/pr61964.c: New testcase.
+	* gcc.dg/pr51879-18.c: XFAIL.
+
+2014-07-28  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: Fix testcase.
+
+2014-07-28  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/61801
+	* gcc.target/i386/pr61801.c: New testcase.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-3.c: New test.
+
+	* gcc.c-torture/execute/20050316-1.x: Add -Wno-psabi.
+	* gcc.c-torture/execute/20050604-1.x: Add -Wno-psabi.
+	* gcc.c-torture/execute/20050316-3.x: New file.  Add -Wno-psabi.
+	* gcc.c-torture/execute/pr23135.x: Likewise.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-2.c: New test.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-warn-1.c: New test.
+
+2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline:
+	2014-07-24  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* g++.dg/compat/struct-layout-1.exp: Load g++-dg.exp.
+
+2014-07-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/stack-usage-2.c: Adjust.
+
+2014-07-19  Paul Thomas  <pault@gcc.gnu.org>
+
+	Backport from trunk.
+	PR fortran/61780
+	* gfortran.dg/dependency_44.f90 : New test
+
 2014-07-10  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt39.adb: New test.
