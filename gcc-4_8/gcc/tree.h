@@ -3201,6 +3201,11 @@ struct GTY(()) tree_parm_decl {
 #define DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE) \
   (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.implicit_section_name_p)
 
+/* Specify whether the section name was explicitly set with decl_attributes. */
+#define DECL_HAS_EXPLICIT_SECTION_NAME_P(NODE) \
+  (DECL_SECTION_NAME(NODE) != NULL_TREE \
+   && !DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE))
+
 struct GTY(()) tree_decl_with_vis {
  struct tree_decl_with_rtl common;
  tree assembler_name;
