@@ -1259,6 +1259,10 @@ fexceptions
 Common Report Var(flag_exceptions) Optimization
 Enable exception handling
 
+fdefault-noexcept
+Common Report Var(flag_default_noexcept) Optimization Init(0)
+Make functions no-throw/noexcept by default
+
 fexpensive-optimizations
 Common Report Var(flag_expensive_optimizations) Optimization
 Perform a number of minor, expensive optimizations

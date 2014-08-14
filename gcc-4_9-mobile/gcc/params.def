@@ -967,6 +967,14 @@ DEFPARAM (PARAM_ALWAYS_INLINE_ICALL_TARGET,
 	  "force inline indirect call target when promoted",
           0, 0, 0)
 
+/* When the parameter is 1, use the internal function id
+   to look up for profile data. Otherwise, use a more stable
+   external id based on assembler name and source location. */
+DEFPARAM (PARAM_PROFILE_FUNC_INTERNAL_ID,
+	  "profile-func-internal-id",
+	  "use internal function id in profile lookup",
+          0, 0, 1)
+
 /* Do not check the icall target count distribution, but use
    hotness info to decide if promotion should be done.  */
 DEFPARAM (PARAM_ICALL_USE_HOTNESS_HEUR,
@@ -1062,6 +1070,17 @@ DEFPARAM (PARAM_LIPO_WEAK_INCLUSION,
 	  "0: force strict inclusion; 1: weak inclusion."
 	  "Default is 0.",
 	  0, 0, 1)
+
+/* Choose different COMDAT profile fixup algorithm.  This only affects
+   LIPO profile-gen.  */
+DEFPARAM (PARAM_LIPO_COMDAT_ALGORITHM,
+	  "lipo-comdat-algorithm",
+	  "Algorithm 0 performs no fixup."
+	  "Algorithm 1 fixes up only indirect call profile targets."
+	  "Algorithm 2 fixes up only missing counters."
+	  "Algorithm 3 (1|2) fixes up both."
+	  "The default algorithm is 3.",
+	  3, 0, 3)
 
 /* In LIPO profile-use, use this parameter to enable the dumping of module id
    in inline message.   */

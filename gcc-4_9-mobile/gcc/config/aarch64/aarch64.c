@@ -5257,6 +5257,20 @@ aarch64_override_options (void)
   aarch64_tune_params = selected_tune->tune;
 
   aarch64_override_options_after_change ();
+
+  if (TARGET_ANDROID)
+    {
+      /* Lower the complete unroll code size limits.
+         Loop unroll needs some tuning in arm and aarch64.  */
+      maybe_set_param_value (PARAM_MAX_DEFAULT_COMPLETELY_PEELED_INSNS, 50,
+                             global_options.x_param_values,
+                             global_options_set.x_param_values);
+
+      /* Disable array_bound warning. Work around isses
+         introduced in complete unroll.  */
+      global_options.x_warn_array_bounds = 0;
+    }
+
 }
 
 /* Implement targetm.override_options_after_change.  */
@@ -6307,7 +6321,8 @@ aarch64_vector_mode_supported_p (enum machine_mode mode)
 	  || mode == V16QImode || mode == V2DImode
 	  || mode == V2SImode  || mode == V4HImode
 	  || mode == V8QImode || mode == V2SFmode
-	  || mode == V4SFmode || mode == V2DFmode))
+	  || mode == V4SFmode || mode == V2DFmode
+	  || mode == V1DFmode))
     return true;
 
   return false;

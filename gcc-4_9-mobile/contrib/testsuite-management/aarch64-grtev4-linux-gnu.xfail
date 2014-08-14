@@ -65,6 +65,9 @@ FAIL: gcc.target/aarch64/fcvt_float_long.c scan-assembler-times fcvtas\tx[0-9]+,
 FAIL: gcc.target/aarch64/vect-abs-compile.c scan-assembler abs\\tv[0-9]+.16b
 FAIL: gcc.target/aarch64/vect-abs-compile.c scan-assembler abs\\tv[0-9]+.8h
 
+# AArch64 and PowerPC64LE failure (new 2014-07-31)
+FAIL: gcc.dg/tree-prof/crossmodule-indircall-1.c execution,    -fprofile-use -D_PROFILE_USE
+
 
 # *** g++:
 

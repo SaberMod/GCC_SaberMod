@@ -92,6 +92,8 @@ enum compiler_param
 #define PARAM_VALUE(ENUM) \
   ((int) global_options.x_param_values[(int) ENUM])
 
+extern void dump_params (int *params, int *params_set);
+
 /* Set the value of the parameter given by NUM to VALUE, implicitly,
    if it has not been set explicitly by the user, in the table PARAMS
    using PARAMS_SET to indicate which have been explicitly set.  */

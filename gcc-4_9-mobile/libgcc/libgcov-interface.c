@@ -129,6 +129,100 @@ unsigned int __gcov_profiling_for_test_coverage (void)
   return __gcov_test_coverage;
 }
 
+typedef void (*gcov_dumper_type) (void);
+struct dumper_entry
+{
+  gcov_dumper_type dumper;
+  struct dumper_entry *next_dumper;
+};
+
+static struct dumper_entry this_dumper = {&__gcov_dump, 0};
+
+/* global dumper list with default visibilty. */
+struct dumper_entry *__gcov_dumper_list;
+
+#ifdef __GTHREAD_MUTEX_INIT
+__gthread_mutex_t __gcov_dump_mx = __GTHREAD_MUTEX_INIT;
+#define init_mx_once()
+#else
+__gthread_mutex_t __gcov_dump_mx;
+
+static void
+init_mx (void)
+{
+  __GTHREAD_MUTEX_INIT_FUNCTION (&__gcov_dump_mx);
+}
+static void
+init_mx_once (void)
+{
+  static __gthread_once_t once = __GTHREAD_ONCE_INIT;
+  __gthread_once (&once, init_mx);
+}
+#endif
+
+/* Register the library private __gcov_dump method
+   to the global list.  */
+
+__attribute__((constructor))
+static void
+register_dumper (void)
+{
+  init_mx_once ();
+  __gthread_mutex_lock (&__gcov_dump_mx);
+  this_dumper.next_dumper = __gcov_dumper_list;
+  __gcov_dumper_list = &this_dumper;
+  __gthread_mutex_unlock (&__gcov_dump_mx);
+}
+
+__attribute__((destructor))
+static void
+unregister_dumper (void)
+{
+  struct dumper_entry *dumper;
+  struct dumper_entry *prev_dumper = 0;
+
+  init_mx_once ();
+  __gthread_mutex_lock (&__gcov_dump_mx);
+  dumper = __gcov_dumper_list;
+
+  while (dumper)
+    {
+      if (dumper->dumper == &__gcov_dump)
+        {
+	  if (prev_dumper)
+	    prev_dumper->next_dumper = dumper->next_dumper;
+ 	  else
+	    __gcov_dumper_list = dumper->next_dumper;
+          break;
+        }
+      prev_dumper = dumper;
+      dumper = dumper->next_dumper;
+    }
+  __gthread_mutex_unlock (&__gcov_dump_mx);
+}
+
+/* Public interface to dump profile data for all shared libraries
+   via registered dumpers from the libraries. This interface
+   has default visibility (unlike gcov_dump which has hidden
+   visbility.  */
+
+void
+__gcov_dump_all (void)
+{
+  struct dumper_entry *dumper;
+
+  init_mx_once ();
+  __gthread_mutex_lock (&__gcov_dump_mx);
+
+  dumper = __gcov_dumper_list;
+  while (dumper)
+   {
+     dumper->dumper ();
+     dumper = dumper->next_dumper;
+   }
+  __gthread_mutex_unlock (&__gcov_dump_mx);
+}
+
 #endif /* L_gcov_dump */
 
 #ifdef L_gcov_sampling

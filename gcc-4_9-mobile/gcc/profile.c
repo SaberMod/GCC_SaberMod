@@ -880,7 +880,11 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
   bool warned[GCOV_N_VALUE_COUNTERS];
-  static const char *const ctr_names[] = GCOV_COUNTER_NAMES;
+#define DEF_GCOV_COUNTER(COUNTER, NAME, FN_TYPE) NAME,
+  const char *const ctr_names[GCOV_COUNTERS] = {
+#include "gcov-counter.def"
+};
+#undef DEF_GCOV_COUNTER
   struct cgraph_node *node;
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)

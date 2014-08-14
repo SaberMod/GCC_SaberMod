@@ -5018,8 +5018,11 @@ ix86_in_large_data_p (tree exp)
       HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
 
       /* If this is an incomplete type with size 0, then we can't put it
-	 in data because it might be too big when completed.  */
-      if (!size || size > ix86_section_threshold)
+	 in data because it might be too big when completed.  Also,
+	 int_size_in_bytes returns -1 if size can vary or is larger than
+	 an integer in which case also it is safer to assume that it goes in
+	 large data.  */
+      if (size <= 0 || size > ix86_section_threshold)
 	return true;
     }
 
@@ -6553,7 +6556,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 					   bit_offset);
 		  if (!num)
 		    return 0;
-		  for (i = 0; i < num; i++)
+		  for (i = 0; i < num && i < words; i++)
 		    classes[i] = merge_classes (subclasses[i], classes[i]);
 		}
 	    }
@@ -12900,7 +12903,9 @@ legitimate_pic_address_disp_p (rtx disp)
 		return true;
 	    }
 	  else if (!SYMBOL_REF_FAR_ADDR_P (op0)
-		   && SYMBOL_REF_LOCAL_P (op0)
+	      	   && (SYMBOL_REF_LOCAL_P (op0)
+		       || (TARGET_64BIT && ix86_pie_copyrelocs && flag_pie
+			   && !SYMBOL_REF_FUNCTION_P (op0)))
 		   && ix86_cmodel != CM_LARGE_PIC)
 	    return true;
 	  break;

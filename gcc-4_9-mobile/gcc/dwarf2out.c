@@ -4258,13 +4258,10 @@ add_addr_table_entry (void *addr, enum ate_kind kind)
 static void
 remove_addr_table_entry (addr_table_entry *entry)
 {
-  addr_table_entry *node;
-
   gcc_assert (dwarf_split_debug_info && addr_index_table);
-  node = (addr_table_entry *) htab_find (addr_index_table, entry);
   /* After an index is assigned, the table is frozen.  */
-  gcc_assert (node->refcount > 0 && node->index == NO_INDEX_ASSIGNED);
-  node->refcount--;
+  gcc_assert (entry->refcount > 0 && entry->index == NO_INDEX_ASSIGNED);
+  entry->refcount--;
 }
 
 /* Given a location list, remove all addresses it refers to from the
@@ -8969,26 +8966,6 @@ add_top_level_skeleton_die_attrs (dw_die_ref die)
   add_AT_lineptr (die, DW_AT_GNU_addr_base, debug_addr_section_label);
 }
 
-/* Return the single type-unit die for skeleton type units.  */
-
-static dw_die_ref
-get_skeleton_type_unit (void)
-{
-  /* For dwarf_split_debug_sections with use_type info, all type units in the
-     skeleton sections have identical dies (but different headers).  This
-     single die will be output many times.  */
-
-  static dw_die_ref skeleton_type_unit = NULL;
-
-  if (skeleton_type_unit == NULL)
-    {
-      skeleton_type_unit = new_die (DW_TAG_type_unit, NULL, NULL);
-      add_top_level_skeleton_die_attrs (skeleton_type_unit);
-      skeleton_type_unit->die_abbrev = SKELETON_TYPE_DIE_ABBREV;
-    }
-  return skeleton_type_unit;
-}
-
 /* Output skeleton debug sections that point to the dwo file.  */
 
 static void
@@ -9027,8 +9004,6 @@ output_skeleton_debug_sections (dw_die_ref comp_unit)
   ASM_OUTPUT_LABEL (asm_out_file, debug_skeleton_abbrev_section_label);
 
   output_die_abbrevs (SKELETON_COMP_DIE_ABBREV, comp_unit);
-  if (use_debug_types)
-    output_die_abbrevs (SKELETON_TYPE_DIE_ABBREV, get_skeleton_type_unit ());
 
   dw2_asm_output_data (1, 0, "end of skeleton .debug_abbrev");
 }
@@ -9090,38 +9065,6 @@ output_comdat_type_unit (comdat_type_node *node)
   output_die (node->root_die);
 
   unmark_dies (node->root_die);
-
-#if defined (OBJECT_FORMAT_ELF)
-  if (dwarf_split_debug_info)
-    {
-      /* Produce the skeleton type-unit header.  */
-      const char *secname = ".debug_types";
-
-      targetm.asm_out.named_section (secname,
-                                     SECTION_DEBUG | SECTION_LINKONCE,
-                                     comdat_key);
-      if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
-        dw2_asm_output_data (4, 0xffffffff,
-          "Initial length escape value indicating 64-bit DWARF extension");
-
-      dw2_asm_output_data (DWARF_OFFSET_SIZE,
-                           DWARF_COMPILE_UNIT_HEADER_SIZE
-                           - DWARF_INITIAL_LENGTH_SIZE
-                           + size_of_die (get_skeleton_type_unit ())
-                           + DWARF_TYPE_SIGNATURE_SIZE + DWARF_OFFSET_SIZE,
-                           "Length of Type Unit Info");
-      dw2_asm_output_data (2, dwarf_version, "DWARF version number");
-      dw2_asm_output_offset (DWARF_OFFSET_SIZE,
-                             debug_skeleton_abbrev_section_label,
-                             debug_abbrev_section,
-                             "Offset Into Abbrev. Section");
-      dw2_asm_output_data (1, DWARF2_ADDR_SIZE, "Pointer Size (in bytes)");
-      output_signature (node->signature, "Type Signature");
-      dw2_asm_output_data (DWARF_OFFSET_SIZE, 0, "Offset to Type DIE");
-
-      output_die (get_skeleton_type_unit ());
-    }
-#endif
 }
 
 /* Return the DWARF2/3 pubname associated with a decl.  */
@@ -23201,11 +23144,16 @@ resolve_addr_in_expr (dw_loc_descr_ref loc)
 	break;
       case DW_OP_GNU_addr_index:
       case DW_OP_GNU_const_index:
-	if ((loc->dw_loc_opc == DW_OP_GNU_addr_index
-	     || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
-	    && resolve_one_addr (&loc->dw_loc_oprnd1.val_entry->addr.rtl,
-				 NULL))
-	  return false;
+	if (loc->dw_loc_opc == DW_OP_GNU_addr_index
+            || (loc->dw_loc_opc == DW_OP_GNU_const_index && loc->dtprel))
+          {
+            rtx rtl = loc->dw_loc_oprnd1.val_entry->addr.rtl;
+            if (resolve_one_addr (&rtl, NULL))
+              return false;
+            remove_addr_table_entry (loc->dw_loc_oprnd1.val_entry);
+            loc->dw_loc_oprnd1.val_entry =
+                add_addr_table_entry (rtl, ate_kind_rtx);
+          }
 	break;
       case DW_OP_const4u:
       case DW_OP_const8u:
@@ -24297,18 +24245,23 @@ dwarf2out_finish (const char *filename)
 		   dwarf_strict ? DW_AT_macro_info : DW_AT_GNU_macros,
 		   macinfo_section_label);
 
-  if (dwarf_split_debug_info && addr_index_table != NULL)
+  if (dwarf_split_debug_info)
     {
       /* optimize_location_lists calculates the size of the lists,
          so index them first, and assign indices to the entries.
          Although optimize_location_lists will remove entries from
          the table, it only does so for duplicates, and therefore
          only reduces ref_counts to 1.  */
-      unsigned int index = 0;
       index_location_lists (comp_unit_die ());
-      htab_traverse_noresize (addr_index_table,
-                              index_addr_table_entry, &index);
+
+      if (addr_index_table != NULL)
+        {
+          unsigned int index = 0;
+          htab_traverse_noresize (addr_index_table,
+                                  index_addr_table_entry, &index);
+        }
     }
+
   if (have_location_lists)
     optimize_location_lists (comp_unit_die ());
 
@@ -24324,7 +24277,6 @@ dwarf2out_finish (const char *filename)
          skeleton die attrs are added when the skeleton type unit is
          created, so ensure it is created by this point.  */
       add_top_level_skeleton_die_attrs (main_comp_unit_die);
-      (void) get_skeleton_type_unit ();
       htab_traverse_noresize (debug_str_hash, index_string, &index);
     }
 

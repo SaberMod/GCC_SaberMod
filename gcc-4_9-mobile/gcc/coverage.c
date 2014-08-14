@@ -150,8 +150,19 @@ static char *da_base_file_name;
 static char *main_input_file_name;
 
 /* The names of merge functions for counters.  */
-static const char *const ctr_merge_functions[GCOV_COUNTERS] = GCOV_MERGE_FUNCTIONS;
-static const char *const ctr_names[GCOV_COUNTERS] = GCOV_COUNTER_NAMES;
+#define STR(str) #str
+#define DEF_GCOV_COUNTER(COUNTER, NAME, FN_TYPE) STR(__gcov_merge ## FN_TYPE),
+static const char *const ctr_merge_functions[GCOV_COUNTERS] = {
+#include "gcov-counter.def"
+};
+#undef DEF_GCOV_COUNTER
+#undef STR
+
+#define DEF_GCOV_COUNTER(COUNTER, NAME, FN_TYPE) NAME,
+static const char *const ctr_names[GCOV_COUNTERS] = {
+#include "gcov-counter.def"
+};
+#undef DEF_GCOV_COUNTER
 
 /* True during the period that counts_hash is being rebuilt.  */
 static bool rebuilding_counts_hash = false;
@@ -709,7 +720,18 @@ read_counts_file (const char *da_file_name, unsigned module_id)
             return;
         }
       else
-        return;
+        {
+          inform (input_location, "file %s not found, disabling profile use",
+                  da_file_name);
+          set_profile_use_options (&global_options, &global_options_set,
+                                   false, true);
+          /* RESET is invoked during covrerage_init when process_options is done.
+            Need to reset optimization_default_node and optimization_current_node.  */
+          /* Save the current optimization options.  */
+          optimization_default_node = build_optimization_node (&global_options);
+          optimization_current_node = optimization_default_node;
+          return;
+        }
     }
 
   if (!gcov_magic (gcov_read_unsigned (), GCOV_DATA_MAGIC))
@@ -1009,7 +1031,14 @@ get_coverage_counts_entry (struct function *func, unsigned counter)
 {
   counts_entry_t *entry, elt;
 
-  elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    elt.ident = FUNC_DECL_GLOBAL_ID (func);
+  else
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      elt.ident = cgraph_get_node (func->decl)->profile_id;
+    }
+
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
 
@@ -1113,7 +1142,13 @@ get_coverage_counts_no_warn (struct function *f, unsigned counter, unsigned *n_c
   if (!counts_hash.is_created () || !f)
     return NULL;
 
-  elt.ident = FUNC_DECL_GLOBAL_ID (f);
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    elt.ident = FUNC_DECL_GLOBAL_ID (f);
+  else
+    {
+      gcc_assert (coverage_node_map_initialized_p ());
+      elt.ident = cgraph_get_node (f->decl)->profile_id;
+    }
   elt.ctr = counter;
   entry = counts_hash.find (&elt);
   if (!entry)
@@ -1307,8 +1342,15 @@ coverage_compute_lineno_checksum (void)
   /* Note: it is a bad design that C++ FE associate the convertion function type
      with the name of the decl. This leads to cross contamination between different
      conversion operators in different modules (If conv_type_names map is cleared
-     at the end of parsing of each module).  */
-  if (flag_dyn_ipa && lang_hooks.user_conv_function_p (current_function_decl))
+     at the end of parsing of each module).
+
+     For LIPO always use the full mangled name to help disambiguate different
+     template instantiations.  This is important for LIPO because we use the
+     checksums to identify matching copies of the same COMDAT to handle
+     missing profiles in the copies not selected by the linker, and to update
+     indirect call profiles when the target COMDAT is a copy that is not
+     in the module group.  */
+  if (flag_dyn_ipa)
     name = DECL_ASSEMBLER_NAME (current_function_decl);
   else
     name = DECL_NAME (current_function_decl);
@@ -1326,12 +1368,13 @@ coverage_compute_profile_id (struct cgraph_node *n)
 {
   expanded_location xloc
     = expand_location (DECL_SOURCE_LOCATION (n->decl));
-  unsigned chksum = xloc.line;
+  bool use_name_only = (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID) == 0);
+  unsigned chksum = (use_name_only ? 0 : xloc.line);
 
   chksum = coverage_checksum_string (chksum, xloc.file);
   chksum = coverage_checksum_string
     (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
-  if (first_global_object_name)
+  if (!use_name_only && first_global_object_name)
     chksum = coverage_checksum_string
       (chksum, first_global_object_name);
   chksum = coverage_checksum_string
@@ -1389,7 +1432,15 @@ coverage_begin_function (unsigned lineno_checksum, unsigned cfg_checksum)
 
   /* Announce function */
   offset = gcov_write_tag (GCOV_TAG_FUNCTION);
-  gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+    gcov_write_unsigned (FUNC_DECL_FUNC_ID (cfun));
+  else 
+   {
+      gcc_assert (coverage_node_map_initialized_p ());
+      gcov_write_unsigned (
+        cgraph_get_node (current_function_decl)->profile_id);
+    }
+
   gcov_write_unsigned (lineno_checksum);
   gcov_write_unsigned (cfg_checksum);
   gcov_write_string (IDENTIFIER_POINTER
@@ -1427,7 +1478,17 @@ coverage_end_function (unsigned lineno_checksum, unsigned cfg_checksum)
 	{
 	  item = ggc_alloc_coverage_data ();
 	  
-	  item->ident = FUNC_DECL_FUNC_ID (cfun);
+	  if (PARAM_VALUE (PARAM_PROFILE_FUNC_INTERNAL_ID))
+	    item->ident = FUNC_DECL_FUNC_ID (cfun);
+	  else
+	    {
+	      if (flag_dyn_ipa)
+		error ("param=profile-func-internal-id=0 is not"
+		       " supported in LIPO mode.  ");
+              gcc_assert (coverage_node_map_initialized_p ());
+              item->ident = cgraph_get_node (cfun->decl)->profile_id;
+
+	    }
 	  item->lineno_checksum = lineno_checksum;
 	  item->cfg_checksum = cfg_checksum;
 

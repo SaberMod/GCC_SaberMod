@@ -417,4 +417,6 @@ extern bool opt_enum_arg_to_value (size_t opt_index, const char *arg,
 				   int *value, unsigned int lang_mask);
 extern void write_compilation_info_to_asm (void);
 extern void write_compilation_flags_to_asm (void);
+extern void set_profile_use_options (struct gcc_options *,
+                                     struct gcc_options *, bool, bool);
 #endif
