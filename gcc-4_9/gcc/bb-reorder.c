@@ -2554,7 +2554,7 @@ gate_handle_partition_blocks (void)
 	     we are going to omit the reordering.  */
 	  && optimize_function_for_speed_p (cfun)
 	  && !DECL_ONE_ONLY (current_function_decl)
-	  && !DECL_SECTION_NAME (current_function_decl));
+	  && !DECL_HAS_EXPLICIT_SECTION_NAME_P(current_function_decl));
 }
 
 /* This function is the main 'entrance' for the optimization that

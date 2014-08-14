@@ -2405,6 +2405,11 @@ extern void decl_value_expr_insert (tree, tree);
 #define DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE) \
   (DECL_WITH_VIS_CHECK (NODE)->decl_with_vis.implicit_section_name_p)
 
+/* Specify whether the section name was explicitly set with decl_attributes. */
+#define DECL_HAS_EXPLICIT_SECTION_NAME_P(NODE) \
+  (DECL_SECTION_NAME(NODE) != NULL_TREE \
+   && !DECL_HAS_IMPLICIT_SECTION_NAME_P(NODE))
+
 extern tree decl_debug_expr_lookup (tree);
 extern void decl_debug_expr_insert (tree, tree);
 
