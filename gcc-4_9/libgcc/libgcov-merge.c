@@ -95,8 +95,8 @@ __gcov_merge_dc (gcov_type *counters, unsigned n_counters)
   gcc_assert (!(n_counters % 2));
   for (i = 0; i < n_counters; i += 2)
     {
-      gcov_type global_id = gcov_read_counter ();
-      gcov_type call_count = gcov_read_counter ();
+      gcov_type global_id = gcov_get_counter_target ();
+      gcov_type call_count = gcov_get_counter ();
 
       /* Note that global id counter may never have been set if no calls were
 	 made from this call-site.  */
@@ -108,7 +108,10 @@ __gcov_merge_dc (gcov_type *counters, unsigned n_counters)
           else if (__gcov_is_gid_insane (global_id))
             global_id = counters[i];
 
-          gcc_assert (counters[i] == global_id);
+          /* In the case of inconsistency, use the src's target.  */
+          if (counters[i] != global_id)
+            fprintf (stderr, "Warning: Inconsistent call targets in"
+                     " direct-call profile.\n");
         }
       else if (global_id)
 	counters[i] = global_id;
@@ -158,12 +161,12 @@ __gcov_merge_icall_topn (gcov_type *counters, unsigned n_counters)
         }
 
       /* Skip the number_of_eviction entry.  */
-      gcov_read_counter ();
+      gcov_get_counter ();
       for (k = 0; k < GCOV_ICALL_TOPN_NCOUNTS - 1; k += 2)
         {
           int found = 0;
-          gcov_type global_id = gcov_read_counter ();
-          gcov_type call_count = gcov_read_counter ();
+          gcov_type global_id = gcov_get_counter_target ();
+          gcov_type call_count = gcov_get_counter ();
           for (m = 0; m < j; m += 2)
             {
               if (tmp_array[m] == global_id)
