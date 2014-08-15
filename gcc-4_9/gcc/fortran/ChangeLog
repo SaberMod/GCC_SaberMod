@@ -1,3 +1,34 @@
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/62131
+	* openmp.c (resolve_omp_atomic): Only complain if code->expr1's attr
+	is allocatable, rather than whenever var->attr.allocatable.
+
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/62107
+	* trans-openmp.c (gfc_omp_finish_clause): Handle scalar pointer
+	or allocatable passed by reference.
+	(gfc_trans_omp_clauses) <case OMP_LIST_MAP>: Likewise.
+
+2014-08-14  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/62076
+	* openmp.c (gfc_match_omp_clauses): When failed to match
+	operator name, defined op name or name, set buffer to
+	empty string.  Don't call gfc_find_omp_udr if buffer is empty
+	string.
+	(gfc_match_omp_declare_reduction): Call gfc_undo_symbols ()
+	before calling gfc_free_omp_udr.
+
+2014-08-10  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/61999
+	* simplify.c (gfc_simplify_dot_product): Convert types of
+	vectors before calculating the result.
+
 2014-07-19  Paul Thomas  <pault@gcc.gnu.org>
 
 	Backport from mainline
