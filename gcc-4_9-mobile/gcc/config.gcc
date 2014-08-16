@@ -1091,7 +1091,9 @@ arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
 	  tmake_file="${tmake_file} arm/t-symbian"
 	  ;;
 	esac
-	tm_file="${tm_file} arm/aout.h vxworks-dummy.h arm/arm.h"
+       tm_defines="${tm_defines} ANDROID_DEFAULT=0"
+       tm_file="${tm_file} arm/aout.h vxworks-dummy.h arm/arm.h linux-android.h"
+       extra_options="${extra_options} linux-android.opt"
 	;;
 avr-*-rtems*)
 	tm_file="elfos.h avr/elf.h avr/avr-arch.h avr/avr.h dbxelf.h avr/rtems.h rtems.h newlib-stdint.h"
