@@ -21,12 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
+#ifdef HAVE_cloog
 #include <cloog/cloog.h>
 #include <cloog/isl/domain.h>
+#endif
 #endif
 
 #include "system.h"
@@ -55,7 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sese.h"
 #include "tree-ssa-propagate.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 #include "graphite-scop-detection.h"
 

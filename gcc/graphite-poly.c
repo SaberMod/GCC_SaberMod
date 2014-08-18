@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
@@ -32,8 +32,10 @@ along with GCC; see the file COPYING3.  If not see
 #if defined(__cplusplus)
 #include <isl/val_gmp.h>
 #endif
+#ifdef HAVE_cloog
 #include <cloog/cloog.h>
 #include <cloog/isl/domain.h>
+#endif
 #endif
 
 #include "system.h"
@@ -56,7 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "sese.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 
 #define OPENSCOP_MAX_STRING 256
