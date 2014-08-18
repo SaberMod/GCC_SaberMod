@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include <isl/aff.h>
 #include <isl/set.h>
 #include <isl/map.h>
@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #if defined(__cplusplus)
 #include <isl/val_gmp.h>
 #endif
+#ifdef HAVE_cloog
 #include <cloog/cloog.h>
 #include <cloog/isl/domain.h>
 #ifdef HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE
@@ -40,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/deprecated/aff_int.h>
 #include <isl/deprecated/ilp_int.h>
 #include <isl/deprecated/constraint_int.h>
+#endif
 #endif
 #endif
 
@@ -53,7 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "sese.h"
 
-#ifdef HAVE_cloog
+#ifdef HAVE_isl
 #include "graphite-poly.h"
 
 /* XXX isl rewrite following comment */

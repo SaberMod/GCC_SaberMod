@@ -7,6 +7,24 @@
 	* config/i386/i386.c (ix86_function_type_abi): Issue an error
 	when ms_abi attribute is used with x32.
 
+2014-08-18 Roman Gareev  <gareevroman@gmail.com>
+
+	* Makefile.in: Add definition of ISLLIBS, HOST_ISLLIBS.
+	* config.in: Add undef of HAVE_isl.
+	* configure: Regenerate.
+	* configure.ac: Add definition of HAVE_isl.
+	* graphite-blocking.c: Add checking of HAVE_isl.
+	* graphite-dependences.c: Likewise.
+	* graphite-interchange.c: Likewise.
+	* graphite-isl-ast-to-gimple.c: Likewise.
+	* graphite-optimize-isl.c: Likewise.
+	* graphite-poly.c: Likewise.
+	* graphite-scop-detection.c: Likewise.
+	* graphite-sese-to-poly.c: Likewise.
+	* graphite.c: Likewise.
+	* toplev.c: Replace the checking of HAVE_cloog with the checking
+	of HAVE_isl.
+
 2014-12-19  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backported from mainline
