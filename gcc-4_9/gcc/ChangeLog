@@ -1,3 +1,121 @@
+2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport fro mainline
+	2014-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/62195
+	* doc/md.texi (Machine Constraints): Update PowerPC wi constraint
+	documentation to state it is only for VSX operations.
+
+	* config/rs6000/rs6000.c (rs6000_init_hard_regno_mode_ok): Make wi
+	constraint only active if VSX.
+
+	* config/rs6000/rs6000.md (lfiwax): Use wj constraint instead of
+	wi cosntraint for ISA 2.07 lxsiwax/lxsiwzx instructions.
+	(lfiwzx): Likewise.
+
+2014-08-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-08-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.md (*ctz<mode>2_falsedep_1): Don't clear
+	destination if it is used in source.
+	(*clz<mode>2_lzcnt_falsedep_1): Likewise.
+	(*popcount<mode>2_falsedep_1): Likewise.
+
+	Backport from mainline
+	2014-08-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/62011
+	* config/i386/x86-tune.def (X86_TUNE_AVOID_FALSE_DEP_FOR_BMI):
+	New tune flag.
+	* config/i386/i386.h (TARGET_AVOID_FALSE_DEP_FOR_BMI): New define.
+	* config/i386/i386.md (unspec) <UNSPEC_INSN_FALSE_DEP>: New unspec.
+	(ffs<mode>2): Do not expand with tzcnt for
+	TARGET_AVOID_FALSE_DEP_FOR_BMI.
+	(ffssi2_no_cmove): Ditto.
+	(*tzcnt<mode>_1): Disable for TARGET_AVOID_FALSE_DEP_FOR_BMI.
+	(ctz<mode>2): New expander.
+	(*ctz<mode>2_falsedep_1): New insn_and_split pattern.
+	(*ctz<mode>2_falsedep): New insn.
+	(*ctz<mode>2): Rename from ctz<mode>2.
+	(clz<mode>2_lzcnt): New expander.
+	(*clz<mode>2_lzcnt_falsedep_1): New insn_and_split pattern.
+	(*clz<mode>2_lzcnt_falsedep): New insn.
+	(*clz<mode>2): Rename from ctz<mode>2.
+	(popcount<mode>2): New expander.
+	(*popcount<mode>2_falsedep_1): New insn_and_split pattern.
+	(*popcount<mode>2_falsedep): New insn.
+	(*popcount<mode>2): Rename from ctz<mode>2.
+	(*popcount<mode>2_cmp): Remove.
+	(*popcountsi2_cmp_zext): Ditto.
+
+2014-08-20  Martin Jambor  <mjambor@suse.cz>
+	    Wei Mi  <wmi@google.com>
+
+	PR ipa/60449
+	PR middle-end/61776
+	* tree-ssa-operands.c (update_stmt_operands): Remove
+	MODIFIED_NORETURN_CALLS.
+	* tree-cfgcleanup.c (cleanup_call_ctrl_altering_flag): New func.
+	(cleanup_control_flow_bb): Use cleanup_call_ctrl_altering_flag.
+	(split_bb_on_noreturn_calls): Renamed from split_bbs_on_noreturn_calls.
+	(cleanup_tree_cfg_1): Use split_bb_on_noreturn_calls.
+	* tree-ssanames.h: Remove MODIFIED_NORETURN_CALLS.
+	* gimple.h (enum gf_mask): Add GF_CALL_CTRL_ALTERING.
+	(gimple_call_set_ctrl_altering): New func.
+	(gimple_call_ctrl_altering_p): Ditto.
+	* tree-cfg.c (gimple_call_initialize_ctrl_altering): Ditto.
+	(make_blocks): Use gimple_call_initialize_ctrl_altering.
+	(is_ctrl_altering_stmt): Use gimple_call_ctrl_altering_p.
+	(execute_fixup_cfg): Use gimple_call_ctrl_altering_p and
+	remove MODIFIED_NORETURN_CALLS.
+
+2014-08-20  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline.
+	2014-08-12  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	PR target/62098
+	* config/arm/vfp.md (*combine_vcvtf2i): Fix constraint.
+	Remove unnecessary attributes.
+
+2014-08-16  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/61641
+	* config/pa/pa-protos.h (pa_output_addr_vec, pa_output_addr_diff_vec):
+	Declare.
+	* config/pa/pa.c (pa_reorg): Remove code to insert brtab marker insns.
+	(pa_output_addr_vec, pa_output_addr_diff_vec): New.
+	* config/pa/pa.h (ASM_OUTPUT_ADDR_VEC, ASM_OUTPUT_ADDR_DIFF_VEC):
+	Define.
+	* config/pa/pa.md (begin_brtab): Delete insn.
+	(end_brtab): Likewise.
+
+2014-08-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline:
+	2014-08-15  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* doc/invoke.texi (SH options): Document missing processor variant
+	options.  Remove references to Hitachi.  Undocument deprecated mspace
+	option.
+
+2014-08-15  Tom de Vries  <tom@codesourcery.com>
+
+	Backport from mainline:
+	2014-08-14  Tom de Vries  <tom@codesourcery.com>
+
+	PR rtl-optimization/62004
+	PR rtl-optimization/62030
+	* ifcvt.c (rtx_interchangeable_p): New function.
+	(noce_try_move, noce_process_if_block): Use rtx_interchangeable_p.
+
+	2014-08-05  Richard Biener  <rguenther@suse.de>
+
+	* emit-rtl.h (mem_attrs_eq_p): Declare.
+	* emit-rtl.c (mem_attrs_eq_p): Export.
+
 2014-08-15  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/62092
@@ -5,6 +123,7 @@
 	OMP_CLAUSE_SHARED for global vars if the global var is mentioned
 	in OMP_CLAUSE_MAP in some outer target region.
 
+>>>>>>> .r214216
 2014-08-14  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
 	Backport from mainline

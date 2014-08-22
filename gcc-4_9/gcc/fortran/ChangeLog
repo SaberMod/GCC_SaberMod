@@ -1,3 +1,28 @@
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/62214
+	* frontend-passes.c (optimize_binop_array_assignment):
+	Do not try to optimize the array assignment for string
+	concatenation.
+
+2014-08-16  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/62142
+	* trans-expr.c (is_runtime_conformable):  Add NULL pointer checks.
+
+2014-08-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	Backport from trunk
+	PR fortran/62106
+	* gfortran.h (symbol_attribute):  Add fe_temp flag.
+	* frontend-passes.c (is_fe_temp):  New function.
+	(create_var):  Don't add a temporary for an already
+	created variable or for a constant.
+	(combine_ARRAY_constructor):  Remove special handling
+	for constants.
+
 2014-08-15  Jakub Jelinek  <jakub@redhat.com>
 	    Tobias Burnus  <burnus@net-b.de>
 
