@@ -1,3 +1,19 @@
+2014-08-26  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58624
+	* pt.c (tsubst_copy_and_build) [VAR_DECL]: Use TLS wrapper.
+	* semantics.c (finish_id_expression): Don't call TLS wrapper in a
+	template.
+
+2014-08-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/62129
+	* class.c (outermost_open_class): New.
+	* cp-tree.h: Declare it.
+	* decl.c (maybe_register_incomplete_var): Use it.
+	(complete_vars): Handle any constant variable.
+	* expr.c (cplus_expand_constant): Handle CONSTRUCTOR.
+
 2014-08-22  Igor Zamyatin  <igor.zamyatin@intel.com>
 
 	PR other/62008
