@@ -1564,6 +1564,15 @@ resolve_cgraph_node (struct cgraph_sym **slot, struct cgraph_node *node)
           (*slot)->rep_decl = decl2;
           return;
         }
+      /* Similarly, pick the non-external symbol, since external
+         symbols may be eliminated by symtab_remove_unreachable_nodes
+         after ipa inlining (see process_references).  */
+      if (DECL_EXTERNAL (decl1) && !DECL_EXTERNAL (decl2))
+        {
+          (*slot)->rep_node = node;
+          (*slot)->rep_decl = decl2;
+          return;
+        }
 
       has_prof1 = has_profile_info (decl1);
       bool is_aux1 = cgraph_is_auxiliary (decl1);
@@ -2304,31 +2313,44 @@ fixup_reference_list (struct varpool_node *node)
   int i;
   struct ipa_ref *ref;
   struct ipa_ref_list *list = &node->ref_list;
-  vec<cgraph_node_ptr> new_refered;
+  vec<symtab_node *> new_refered;
   vec<int> new_refered_type;
-  struct cgraph_node *c;
+  struct symtab_node *sym_node;
   enum ipa_ref_use use_type = IPA_REF_LOAD;
 
   new_refered.create (10);
   new_refered_type.create (10);
   for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
     {
-      if (!is_a <cgraph_node> (ref->referred))
-        continue;
-
-      struct cgraph_node *cnode = ipa_ref_node (ref);
-      struct cgraph_node *r_cnode
-        = cgraph_lipo_get_resolved_node (cnode->decl);
-      if (r_cnode != cnode)
+      if (is_a <cgraph_node> (ref->referred))
         {
+          struct cgraph_node *cnode = ipa_ref_node (ref);
+          struct cgraph_node *r_cnode
+            = cgraph_lipo_get_resolved_node (cnode->decl);
           new_refered.safe_push (r_cnode);
           use_type = ref->use;
           new_refered_type.safe_push ((int) use_type);
+          gcc_assert (use_type != IPA_REF_ADDR
+                      || cnode->global.inlined_to
+                      || cnode->address_taken);
+          if (use_type == IPA_REF_ADDR)
+            cgraph_mark_address_taken_node (r_cnode);
         }
+      else if (is_a <varpool_node> (ref->referred))
+        {
+          struct varpool_node *var = ipa_ref_varpool_node (ref);
+          struct varpool_node *r_var = real_varpool_node (var->decl);
+          new_refered.safe_push (r_var);
+          use_type = ref->use;
+          new_refered_type.safe_push ((int) use_type);
+        }
+      else
+        gcc_assert (false);
     }
-  for (i = 0; new_refered.iterate (i, &c); ++i)
+  ipa_remove_all_references (&node->ref_list);
+  for (i = 0; new_refered.iterate (i, &sym_node); ++i)
     {
-      ipa_record_reference (node, c,
+      ipa_record_reference (node, sym_node,
                             (enum ipa_ref_use) new_refered_type[i], NULL);
     }
 }
