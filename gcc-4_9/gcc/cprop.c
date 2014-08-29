@@ -790,8 +790,11 @@ try_replace_reg (rtx from, rtx to, rtx insn)
   /* REG_EQUAL may get simplified into register.
      We don't allow that. Remove that note. This code ought
      not to happen, because previous code ought to synthesize
-     reg-reg move, but be on the safe side.  */
-  if (note && REG_NOTE_KIND (note) == REG_EQUAL && REG_P (XEXP (note, 0)))
+     reg-reg move, but be on the safe side. The REG_EQUAL note is
+     also removed when the source is a constant.  */
+  if (note && REG_NOTE_KIND (note) == REG_EQUAL
+      && (REG_P (XEXP (note, 0))
+          || (set && CONSTANT_P (SET_SRC (set)))))
     remove_note (insn, note);
 
   return success;
