@@ -31,6 +31,19 @@ along with GCC; see the file COPYING3.  If not see
 #error "gfortran.h must be included after coretypes.h"
 #endif
 
+/* In order for the format checking to accept the Fortran front end
+   diagnostic framework extensions, you must include this file before
+   diagnostic-core.h, not after.  We override the definition of GCC_DIAG_STYLE
+   in c-common.h.  */
+#undef GCC_DIAG_STYLE
+#define GCC_DIAG_STYLE __gcc_gfc__
+#if defined(GCC_DIAGNOSTIC_CORE_H)
+#error \
+In order for the format checking to accept the Fortran front end diagnostic \
+framework extensions, you must include this file before diagnostic-core.h, \
+not after.
+#endif
+
 /* Declarations common to the front-end and library are put in
    libgfortran/libgfortran_frontend.h  */
 #include "libgfortran.h"
@@ -2437,6 +2450,7 @@ typedef struct
   int warn_tabs;
   int warn_underflow;
   int warn_intrinsic_shadow;
+  int warn_use_without_only;
   int warn_intrinsics_std;
   int warn_character_truncation;
   int warn_array_temp;
@@ -2672,12 +2686,15 @@ typedef struct gfc_error_buf
 } gfc_error_buf;
 
 void gfc_error_init_1 (void);
+void gfc_diagnostics_init(void);
 void gfc_buffer_error (int);
 
 const char *gfc_print_wide_char (gfc_char_t);
 
 void gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_warning_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
+
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 

@@ -93,6 +93,8 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
+#include <new>
+
 static void general_init (const char *);
 static void do_compile (void);
 static void process_options (void);
@@ -401,7 +403,7 @@ wrapup_global_declaration_2 (tree decl)
 	needed = false;
       else if (node && node->alias)
 	needed = false;
-      else if (!cgraph_global_info_ready
+      else if (!symtab->global_info_ready
 	       && (TREE_USED (decl)
 		   || TREE_USED (DECL_ASSEMBLER_NAME (decl))))
 	/* needed */;
@@ -1115,11 +1117,6 @@ general_init (const char *argv0)
   /* Set a default printer.  Language specific initializations will
      override it later.  */
   tree_diagnostics_defaults (global_dc);
-  /* FIXME: This should probably be moved to C-family
-     language-specific initializations.  */
-  /* By default print macro expansion contexts in the diagnostic
-     finalizer -- for tokens resulting from macro expansion.  */
-  diagnostic_finalizer (global_dc) = virt_loc_aware_diagnostic_finalizer;
 
   global_dc->show_caret
     = global_options_init.x_flag_diagnostics_show_caret;
@@ -1178,6 +1175,7 @@ general_init (const char *argv0)
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
   g = new gcc::context ();
+  symtab = ggc_cleared_alloc <symbol_table> ();
 
   statistics_early_init ();
   finish_params ();
@@ -1275,15 +1273,15 @@ process_options (void)
   else
     aux_base_name = "gccaux";
 
-#ifndef HAVE_cloog
+#ifndef HAVE_isl
   if (flag_graphite
       || flag_graphite_identity
       || flag_loop_block
       || flag_loop_interchange
       || flag_loop_strip_mine
       || flag_loop_parallelize_all)
-    sorry ("Graphite loop optimizations cannot be used (-fgraphite, "
-	   "-fgraphite-identity, -floop-block, "
+    sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
+	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
 	   "and -ftree-loop-linear)");
 #endif
@@ -1936,7 +1934,7 @@ do_compile (void)
 
           ggc_protect_identifiers = true;
 
-          init_cgraph ();
+	  symtab->initialize ();
           init_final (main_input_filename);
           coverage_init (aux_base_name);
           statistics_init ();

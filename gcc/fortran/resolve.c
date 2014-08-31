@@ -7761,7 +7761,7 @@ resolve_select (gfc_code *code, bool select_type)
 	/* Strip all other unreachable cases.  */
 	if (body->ext.block.case_list)
 	  {
-	    for (cp = body->ext.block.case_list; cp->next; cp = cp->next)
+	    for (cp = body->ext.block.case_list; cp && cp->next; cp = cp->next)
 	      {
 		if (cp->next->unreachable)
 		  {
@@ -8485,13 +8485,14 @@ resolve_critical (gfc_code *code)
   if (gfc_option.coarray != GFC_FCOARRAY_LIB)
     return;
 
-  symtree = gfc_find_symtree (gfc_current_ns->sym_root, "__lock_type@0");
+  symtree = gfc_find_symtree (gfc_current_ns->sym_root,
+			      GFC_PREFIX ("lock_type"));
   if (symtree)
     lock_type = symtree->n.sym;
   else
     {
-      if (gfc_get_sym_tree ("__lock_type@0", gfc_current_ns, &symtree,
-	  false) != 0)
+      if (gfc_get_sym_tree (GFC_PREFIX ("lock_type"), gfc_current_ns, &symtree,
+			    false) != 0)
 	gcc_unreachable ();
       lock_type = symtree->n.sym;
       lock_type->attr.flavor = FL_DERIVED;
@@ -8500,7 +8501,7 @@ resolve_critical (gfc_code *code)
       lock_type->intmod_sym_id = ISOFORTRAN_LOCK_TYPE;
     }
 
-  sprintf(name, "__lock_var@%d",serial++);
+  sprintf(name, GFC_PREFIX ("lock_var") "%d",serial++);
   if (gfc_get_sym_tree (name, gfc_current_ns, &symtree, false) != 0)
     gcc_unreachable ();
 
@@ -11415,6 +11416,10 @@ gfc_resolve_finalizers (gfc_symbol* derived, bool *finalizable)
   bool seen_scalar = false;
   gfc_symbol *vtab;
   gfc_component *c;
+  gfc_symbol *parent = gfc_get_derived_super_type (derived);
+
+  if (parent)
+    gfc_resolve_finalizers (parent, finalizable);
 
   /* Return early when not finalizable. Additionally, ensure that derived-type
      components have a their finalizables resolved.  */

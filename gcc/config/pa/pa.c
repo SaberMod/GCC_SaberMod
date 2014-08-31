@@ -99,8 +99,8 @@ static bool hppa_rtx_costs (rtx, int, int, int, int *, bool);
 static inline rtx force_mode (enum machine_mode, rtx);
 static void pa_reorg (void);
 static void pa_combine_instructions (void);
-static int pa_can_combine_p (rtx, rtx, rtx, int, rtx, rtx, rtx);
-static bool forward_branch_p (rtx);
+static int pa_can_combine_p (rtx, rtx_insn *, rtx_insn *, int, rtx, rtx, rtx);
+static bool forward_branch_p (rtx_insn *);
 static void compute_zdepwi_operands (unsigned HOST_WIDE_INT, unsigned *);
 static void compute_zdepdi_operands (unsigned HOST_WIDE_INT, unsigned *);
 static int compute_movmem_length (rtx);
@@ -117,8 +117,8 @@ static bool pa_function_value_regno_p (const unsigned int);
 static void pa_output_function_prologue (FILE *, HOST_WIDE_INT);
 static void update_total_code_bytes (unsigned int);
 static void pa_output_function_epilogue (FILE *, HOST_WIDE_INT);
-static int pa_adjust_cost (rtx, rtx, rtx, int);
-static int pa_adjust_priority (rtx, int);
+static int pa_adjust_cost (rtx_insn *, rtx, rtx_insn *, int);
+static int pa_adjust_priority (rtx_insn *, int);
 static int pa_issue_rate (void);
 static void pa_som_asm_init_sections (void) ATTRIBUTE_UNUSED;
 static section *pa_som_tm_clone_table_section (void) ATTRIBUTE_UNUSED;
@@ -3217,7 +3217,12 @@ pa_assemble_integer (rtx x, unsigned int size, int aligned_p)
       && aligned_p
       && function_label_operand (x, VOIDmode))
     {
-      fputs (size == 8? "\t.dword\tP%" : "\t.word\tP%", asm_out_file);
+      fputs (size == 8? "\t.dword\t" : "\t.word\t", asm_out_file);
+
+      /* We don't want an OPD when generating fast indirect calls.  */
+      if (!TARGET_FAST_INDIRECT_CALLS)
+	fputs ("P%", asm_out_file);
+
       output_addr_const (asm_out_file, x);
       fputc ('\n', asm_out_file);
       return true;
@@ -3296,7 +3301,7 @@ pa_output_ascii (FILE *file, const char *p, int size)
 static void
 remove_useless_addtr_insns (int check_notes)
 {
-  rtx insn;
+  rtx_insn *insn;
   static int pass = 0;
 
   /* This is fairly cheap, so always run it when optimizing.  */
@@ -3348,7 +3353,8 @@ remove_useless_addtr_insns (int check_notes)
 	 reverse the comparison & the branch to avoid add,tr insns.  */
       for (insn = get_insns (); insn; insn = next_insn (insn))
 	{
-	  rtx tmp, next;
+	  rtx tmp;
+	  rtx_insn *next;
 
 	  /* Ignore anything that isn't an INSN.  */
 	  if (! NONJUMP_INSN_P (insn))
@@ -4137,8 +4143,7 @@ static void
 pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   rtx insn = get_last_insn ();
-
-  last_address = 0;
+  bool extra_nop;
 
   /* pa_expand_epilogue does the dirty work now.  We just need
      to output the assembler directives which denote the end
@@ -4162,8 +4167,10 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
   if (insn && CALL_P (insn))
     {
       fputs ("\tnop\n", file);
-      last_address += 4;
+      extra_nop = true;
     }
+  else
+    extra_nop = false;
 
   fputs ("\t.EXIT\n\t.PROCEND\n", file);
 
@@ -4176,12 +4183,13 @@ pa_output_function_epilogue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
       cfun->machine->in_nsubspa = 2;
     }
 
-  /* Thunks do their own accounting.  */
+  /* Thunks do their own insn accounting.  */
   if (cfun->is_thunk)
     return;
 
   if (INSN_ADDRESSES_SET_P ())
     {
+      last_address = extra_nop ? 4 : 0;
       insn = get_last_nonnote_insn ();
       last_address += INSN_ADDRESSES (INSN_UID (insn));
       if (INSN_P (insn))
@@ -4645,7 +4653,7 @@ pa_emit_bcond_fp (rtx operands[])
    a dependency LINK or INSN on DEP_INSN.  COST is the current cost.  */
 
 static int
-pa_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
+pa_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep_insn, int cost)
 {
   enum attr_type attr_type;
 
@@ -4834,7 +4842,7 @@ pa_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 /* Adjust scheduling priorities.  We use this to try and keep addil
    and the next use of %r1 close together.  */
 static int
-pa_adjust_priority (rtx insn, int priority)
+pa_adjust_priority (rtx_insn *insn, int priority)
 {
   rtx set = single_set (insn);
   rtx src, dest;
@@ -4891,7 +4899,7 @@ pa_issue_rate (void)
    Also compute the length of an inline block move here as it is too
    complicated to express as a length attribute in pa.md.  */
 int
-pa_adjust_insn_length (rtx insn, int length)
+pa_adjust_insn_length (rtx_insn *insn, int length)
 {
   rtx pat = PATTERN (insn);
 
@@ -4899,7 +4907,7 @@ pa_adjust_insn_length (rtx insn, int length)
   if ((unsigned int) length >= INT_MAX)
     {
       if (GET_CODE (pat) == SEQUENCE)
-	insn = XVECEXP (pat, 0, 0);
+	insn = as_a <rtx_insn *> (XVECEXP (pat, 0, 0));
 
       switch (get_attr_type (insn))
 	{
@@ -5691,7 +5699,7 @@ import_milli (enum millicodes code)
    the proper registers.  */
 
 const char *
-pa_output_mul_insn (int unsignedp ATTRIBUTE_UNUSED, rtx insn)
+pa_output_mul_insn (int unsignedp ATTRIBUTE_UNUSED, rtx_insn *insn)
 {
   import_milli (mulI);
   return pa_output_millicode_call (insn, gen_rtx_SYMBOL_REF (Pmode, "$$mulI"));
@@ -5739,7 +5747,7 @@ pa_emit_hpdiv_const (rtx *operands, int unsignedp)
 }
 
 const char *
-pa_output_div_insn (rtx *operands, int unsignedp, rtx insn)
+pa_output_div_insn (rtx *operands, int unsignedp, rtx_insn *insn)
 {
   int divisor;
 
@@ -5793,7 +5801,7 @@ pa_output_div_insn (rtx *operands, int unsignedp, rtx insn)
 /* Output a $$rem millicode to do mod.  */
 
 const char *
-pa_output_mod_insn (int unsignedp, rtx insn)
+pa_output_mod_insn (int unsignedp, rtx_insn *insn)
 {
   if (unsignedp)
     {
@@ -6409,7 +6417,7 @@ use_skip_p (rtx insn)
    parameters.  */
 
 const char *
-pa_output_cbranch (rtx *operands, int negated, rtx insn)
+pa_output_cbranch (rtx *operands, int negated, rtx_insn *insn)
 {
   static char buf[100];
   bool useskip;
@@ -6620,7 +6628,7 @@ pa_output_cbranch (rtx *operands, int negated, rtx insn)
    bytes for the portable runtime, non-PIC and PIC cases, respectively.  */
 
 const char *
-pa_output_lbranch (rtx dest, rtx insn, int xdelay)
+pa_output_lbranch (rtx dest, rtx_insn *insn, int xdelay)
 {
   rtx xoperands[2];
  
@@ -6735,7 +6743,7 @@ pa_output_lbranch (rtx dest, rtx insn, int xdelay)
    above.  it returns the appropriate output template to emit the branch.  */
 
 const char *
-pa_output_bb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
+pa_output_bb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx_insn *insn, int which)
 {
   static char buf[100];
   bool useskip;
@@ -6920,7 +6928,7 @@ pa_output_bb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn, int which)
    branch.  */
 
 const char *
-pa_output_bvb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn,
+pa_output_bvb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx_insn *insn,
 	       int which)
 {
   static char buf[100];
@@ -7103,7 +7111,7 @@ pa_output_bvb (rtx *operands ATTRIBUTE_UNUSED, int negated, rtx insn,
    Note it may perform some output operations on its own before
    returning the final output string.  */
 const char *
-pa_output_dbra (rtx *operands, rtx insn, int which_alternative)
+pa_output_dbra (rtx *operands, rtx_insn *insn, int which_alternative)
 {
   int length = get_attr_length (insn);
 
@@ -7252,7 +7260,7 @@ pa_output_dbra (rtx *operands, rtx insn, int which_alternative)
    Note it may perform some output operations on its own before
    returning the final output string.  */
 const char *
-pa_output_movb (rtx *operands, rtx insn, int which_alternative,
+pa_output_movb (rtx *operands, rtx_insn *insn, int which_alternative,
 	     int reverse_comparison)
 {
   int length = get_attr_length (insn);
@@ -7492,7 +7500,7 @@ length_fp_args (rtx insn)
    over estimate the length than to under estimate it.  */
 
 int
-pa_attr_length_millicode_call (rtx insn)
+pa_attr_length_millicode_call (rtx_insn *insn)
 {
   unsigned long distance = -1;
   unsigned long total = IN_NAMED_SECTION_P (cfun->decl) ? 0 : total_code_bytes;
@@ -7531,7 +7539,7 @@ pa_attr_length_millicode_call (rtx insn)
    CALL_DEST is the routine we are calling.  */
 
 const char *
-pa_output_millicode_call (rtx insn, rtx call_dest)
+pa_output_millicode_call (rtx_insn *insn, rtx call_dest)
 {
   int attr_length = get_attr_length (insn);
   int seq_length = dbr_sequence_length ();
@@ -7649,7 +7657,7 @@ pa_output_millicode_call (rtx insn, rtx call_dest)
      sequence insn's address.  */
   if (INSN_ADDRESSES_SET_P ())
     {
-      seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
+      seq_insn = NEXT_INSN (PREV_INSN (final_sequence->insn (0)));
       distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
 		  - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
 
@@ -7688,7 +7696,7 @@ pa_output_millicode_call (rtx insn, rtx call_dest)
    these sequences.  */
 
 int
-pa_attr_length_call (rtx insn, int sibcall)
+pa_attr_length_call (rtx_insn *insn, int sibcall)
 {
   int local_call;
   rtx call, call_dest;
@@ -7778,7 +7786,7 @@ pa_attr_length_call (rtx insn, int sibcall)
    CALL_DEST is the routine we are calling.  */
 
 const char *
-pa_output_call (rtx insn, rtx call_dest, int sibcall)
+pa_output_call (rtx_insn *insn, rtx call_dest, int sibcall)
 {
   int delay_insn_deleted = 0;
   int delay_slot_filled = 0;
@@ -8036,7 +8044,7 @@ pa_output_call (rtx insn, rtx call_dest, int sibcall)
          sequence insn's address.  This would break the regular call/return@
          relationship assumed by the table based eh unwinder, so only do that
          if the call is not possibly throwing.  */
-      rtx seq_insn = NEXT_INSN (PREV_INSN (XVECEXP (final_sequence, 0, 0)));
+      rtx seq_insn = NEXT_INSN (PREV_INSN (final_sequence->insn (0)));
       int distance = (INSN_ADDRESSES (INSN_UID (JUMP_LABEL (NEXT_INSN (insn))))
 		      - INSN_ADDRESSES (INSN_UID (seq_insn)) - 8);
 
@@ -8067,7 +8075,7 @@ pa_output_call (rtx insn, rtx call_dest, int sibcall)
    the sequence itself.  */
 
 int
-pa_attr_length_indirect_call (rtx insn)
+pa_attr_length_indirect_call (rtx_insn *insn)
 {
   unsigned long distance = -1;
   unsigned long total = IN_NAMED_SECTION_P (cfun->decl) ? 0 : total_code_bytes;
@@ -8100,7 +8108,7 @@ pa_attr_length_indirect_call (rtx insn)
 }
 
 const char *
-pa_output_indirect_call (rtx insn, rtx call_dest)
+pa_output_indirect_call (rtx_insn *insn, rtx call_dest)
 {
   rtx xoperands[1];
 
@@ -8275,12 +8283,16 @@ pa_asm_output_mi_thunk (FILE *file, tree thunk_fndecl, HOST_WIDE_INT delta,
 		   || ((DECL_SECTION_NAME (thunk_fndecl)
 			== DECL_SECTION_NAME (function))
 		       && last_address < 262132)))
+	      /* In this case, we need to be able to reach the start of
+		 the stub table even though the function is likely closer
+		 and can be jumped to directly.  */
 	      || (targetm_common.have_named_sections
 		  && DECL_SECTION_NAME (thunk_fndecl) == NULL
 		  && DECL_SECTION_NAME (function) == NULL
-		  && last_address < 262132)
+		  && total_code_bytes < MAX_PCREL17F_OFFSET)
+	      /* Likewise.  */
 	      || (!targetm_common.have_named_sections
-		  && last_address < 262132))))
+		  && total_code_bytes < MAX_PCREL17F_OFFSET))))
     {
       if (!val_14)
 	output_asm_insn ("addil L'%2,%%r26", xoperands);
@@ -8780,7 +8792,7 @@ pa_shadd_constant_p (int val)
 /* Return TRUE if INSN branches forward.  */
 
 static bool
-forward_branch_p (rtx insn)
+forward_branch_p (rtx_insn *insn)
 {
   rtx lab = JUMP_LABEL (insn);
 
@@ -8803,7 +8815,7 @@ forward_branch_p (rtx insn)
 
 /* Return 1 if INSN is in the delay slot of a call instruction.  */
 int
-pa_jump_in_call_delay (rtx insn)
+pa_jump_in_call_delay (rtx_insn *insn)
 {
 
   if (! JUMP_P (insn))
@@ -8826,7 +8838,7 @@ pa_jump_in_call_delay (rtx insn)
 /* Output an unconditional move and branch insn.  */
 
 const char *
-pa_output_parallel_movb (rtx *operands, rtx insn)
+pa_output_parallel_movb (rtx *operands, rtx_insn *insn)
 {
   int length = get_attr_length (insn);
 
@@ -8866,7 +8878,7 @@ pa_output_parallel_movb (rtx *operands, rtx insn)
 /* Output an unconditional add and branch insn.  */
 
 const char *
-pa_output_parallel_addb (rtx *operands, rtx insn)
+pa_output_parallel_addb (rtx *operands, rtx_insn *insn)
 {
   int length = get_attr_length (insn);
 
@@ -8901,7 +8913,7 @@ pa_output_parallel_addb (rtx *operands, rtx insn)
    the delay slot of the call.  */
 
 int
-pa_following_call (rtx insn)
+pa_following_call (rtx_insn *insn)
 {
   if (! TARGET_JUMP_IN_DELAY)
     return 0;
@@ -8926,40 +8938,15 @@ pa_following_call (rtx insn)
 }
 
 /* We use this hook to perform a PA specific optimization which is difficult
-   to do in earlier passes.
-
-   We surround the jump table itself with BEGIN_BRTAB and END_BRTAB
-   insns.  Those insns mark where we should emit .begin_brtab and
-   .end_brtab directives when using GAS.  This allows for better link
-   time optimizations.  */
+   to do in earlier passes.  */
 
 static void
 pa_reorg (void)
 {
-  rtx insn;
-
   remove_useless_addtr_insns (1);
 
   if (pa_cpu < PROCESSOR_8000)
     pa_combine_instructions ();
-
-    /* Still need brtab marker insns.  FIXME: the presence of these
-       markers disables output of the branch table to readonly memory,
-       and any alignment directives that might be needed.  Possibly,
-       the begin_brtab insn should be output before the label for the
-       table.  This doesn't matter at the moment since the tables are
-       always output in the text section.  */
-    for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-      {
-	/* Find an ADDR_VEC insn.  */
-	if (! JUMP_TABLE_DATA_P (insn))
-	  continue;
-
-	/* Now generate markers for the beginning and end of the
-	   branch table.  */
-	emit_insn_before (gen_begin_brtab (), insn);
-	emit_insn_after (gen_end_brtab (), insn);
-      }
 }
 
 /* The PA has a number of odd instructions which can perform multiple
@@ -9008,7 +8995,8 @@ pa_reorg (void)
 static void
 pa_combine_instructions (void)
 {
-  rtx anchor, new_rtx;
+  rtx_insn *anchor;
+  rtx new_rtx;
 
   /* This can get expensive since the basic algorithm is on the
      order of O(n^2) (or worse).  Only do it for -O2 or higher
@@ -9042,7 +9030,7 @@ pa_combine_instructions (void)
 	  || (anchor_attr == PA_COMBINE_TYPE_UNCOND_BRANCH
 	      && ! forward_branch_p (anchor)))
 	{
-	  rtx floater;
+	  rtx_insn *floater;
 
 	  for (floater = PREV_INSN (anchor);
 	       floater;
@@ -9057,7 +9045,7 @@ pa_combine_instructions (void)
 	      /* Anything except a regular INSN will stop our search.  */
 	      if (! NONJUMP_INSN_P (floater))
 		{
-		  floater = NULL_RTX;
+		  floater = NULL;
 		  break;
 		}
 
@@ -9117,7 +9105,7 @@ pa_combine_instructions (void)
 		  /* Anything except a regular INSN will stop our search.  */
 		  if (! NONJUMP_INSN_P (floater))
 		    {
-		      floater = NULL_RTX;
+		      floater = NULL;
 		      break;
 		    }
 
@@ -9190,11 +9178,12 @@ pa_combine_instructions (void)
 }
 
 static int
-pa_can_combine_p (rtx new_rtx, rtx anchor, rtx floater, int reversed, rtx dest,
+pa_can_combine_p (rtx new_rtx, rtx_insn *anchor, rtx_insn *floater,
+		  int reversed, rtx dest,
 		  rtx src1, rtx src2)
 {
   int insn_code_number;
-  rtx start, end;
+  rtx_insn *start, *end;
 
   /* Create a PARALLEL with the patterns of ANCHOR and
      FLOATER, try to recognize it, then test constraints
@@ -10552,6 +10541,48 @@ pa_legitimize_reload_address (rtx ad, enum machine_mode mode,
     }
 
   return NULL_RTX;
+}
+
+/* Output address vector.  */
+
+void
+pa_output_addr_vec (rtx lab, rtx body)
+{
+  int idx, vlen = XVECLEN (body, 0);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_VEC_ELT
+	(asm_out_file, CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 0, idx), 0)));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
+}
+
+/* Output address difference vector.  */
+
+void
+pa_output_addr_diff_vec (rtx lab, rtx body)
+{
+  rtx base = XEXP (XEXP (body, 0), 0);
+  int idx, vlen = XVECLEN (body, 1);
+
+  targetm.asm_out.internal_label (asm_out_file, "L", CODE_LABEL_NUMBER (lab));
+  if (TARGET_GAS)
+    fputs ("\t.begin_brtab\n", asm_out_file);
+  for (idx = 0; idx < vlen; idx++)
+    {
+      ASM_OUTPUT_ADDR_DIFF_ELT
+	(asm_out_file,
+	 body,
+	 CODE_LABEL_NUMBER (XEXP (XVECEXP (body, 1, idx), 0)),
+	 CODE_LABEL_NUMBER (base));
+    }
+  if (TARGET_GAS)
+    fputs ("\t.end_brtab\n", asm_out_file);
 }
 
 #include "gt-pa.h"

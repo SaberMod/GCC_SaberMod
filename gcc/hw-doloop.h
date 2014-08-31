@@ -66,16 +66,16 @@ struct GTY (()) hwloop_info_d
   basic_block successor;
 
   /* The last instruction in the tail.  */
-  rtx last_insn;
+  rtx_insn *last_insn;
 
   /* The loop_end insn.  */
-  rtx loop_end;
+  rtx_insn *loop_end;
 
   /* The iteration register.  */
   rtx iter_reg;
 
   /* The new label placed at the beginning of the loop. */
-  rtx start_label;
+  rtx_insn *start_label;
 
   /* The new label placed at the end of the loop. */
   rtx end_label;

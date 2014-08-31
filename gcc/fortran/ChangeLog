@@ -1,3 +1,147 @@
+2014-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfc_caf_get_image_index,
+	gfc_get_caf_token_offset): New prototypes.
+	* trans-expr.c (gfc_caf_get_image_index): Moved from
+	trans-intrinsic.c and renamed.
+	(gfc_get_caf_token_offset) Ditto; support offset = NULL
+	with early return.
+	* trans-intrinsic.c (get_caf_token_offset, caf_get_image_index):
+	Moved to trans-expr.
+	(gfc_conv_intrinsic_caf_get, conv_caf_send,
+	conv_intrinsic_atomic_op, conv_intrinsic_atomic_ref,
+	conv_intrinsic_atomic_cas): Update callers.
+
+2014-08-30  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/62278
+	PR fortran/44735
+	PR fortran/60593
+	* dependency.c (gfc_check_dependency): Allow for optimizations
+	in the pointer-alias check.
+
+2014-08-30  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	* module.c (gfc_dump_module): Use ISO C remove() instead of POSIX
+	unlink().
+
+2014-08-29  Jeffrey Armstrong  <jeffrey.armstrong@approximatrix.com>
+
+	PR fortran/62215
+	* module.c (gfc_dump_module): Unlink old module file before
+	renaming new one.
+
+2014-08-26  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	* frontend_passes (expr_array):  Replace by vec template.
+	(expr_size):  Remove.
+	(expr_count):  Remove.
+	(doloop_list):  Replace by vec template.
+	(doloop_size):  Remove.
+	(gfc_run_passes):  Adjust to use of vec template.
+	(cfe_register_funcs):  Likewise.
+	(cfe_expr_0):  Likewise.
+	(doloop_code):  Likewise.
+
+2014-08-22  Steven Bosscher  <steven@gcc.gnu.org>
+
+	PR fortran/62135
+	* resolve.c (resolve_select): Fix list traversal in case the
+	last element of the CASE list was dropped as unreachable code.
+
+2014-08-22  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
+
+	PR fortran/61234
+	* lang.opt (Wuse-without-only): New flag.
+	* gfortran.h (gfc_option_t): Add it.
+	* invoke.texi: Document it.
+	* module.c (gfc_use_module): Warn if needed.
+	* options.c (gfc_init_options,gfc_handle_option): Init accordingly.
+
+2014-08-21  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62214
+	* frontend-passes.c (optimize_binop_array_assignment):
+	Do not try to optimize the array assignment for string
+	concatenation.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (gfc_diagnostic_build_locus_prefix): New function.
+	(gfc_diagnostic_starter): Follow Fortran FE diagnostics.
+	(gfc_diagnostic_finalizer): Do not call default finalizer.
+
+2014-08-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* error.c (gfc_diagnostic_finalizer): Call default finalizer.
+
+2014-08-20  Joost VandeVondele  <Joost.VandeVondele@mat.ethz.ch>
+
+	* options.c (gfc_init_options_struct): assert that the frontend sets
+	flag_errno_math and flag_associative_math.
+
+2014-08-17  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (gfc_resolve_finalizers): Ensure that parents are
+	resolved first.
+
+2014-08-17  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-io.c (gfc_build_io_library_fndecls): Fix decl of
+	IOCALL_SET_NML_VAL.
+	(transfer_namelist_element): Use proper int type as argument.
+
+2014-08-15  Thomas Koenig  <tkoenig@gcc.gnu.org>
+
+	PR fortran/62142
+	* trans-expr.c (is_runtime_conformable):  Add NULL pointer checks.
+
+2014-08-15  Tobias Burnus  <burnus@net-b.de>
+
+	* resolve.c (resolve_critical): Fix name mangling.
+	* trans-stmt.c (gfc_trans_critical): Fix lock call.
+
+2014-08-15  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR fortran/44054
+	* gfortran.h: Define GCC_DIAG_STYLE.
+	(gfc_diagnostics_init,gfc_warning_cmdline): Declare.
+	* trans-array.c: Include gfortran.h before diagnostic-core.h.
+	* trans-expr.c: Likewise.
+	* trans-openmp.c: Likewise.
+	* trans-const.c: Likewise.
+	* trans.c: Likewise.
+	* trans-types.c: Likewise.
+	* f95-lang.c: Likewise.
+	* trans-decl.c: Likewise.
+	* trans-io.c: Likewise.
+	* trans-intrinsic.c: Likewise.
+	* error.c: Include diagnostic.h and diagnostic-color.h.
+	(gfc_diagnostic_build_prefix): New.
+	(gfc_diagnostic_starter): New.
+	(gfc_diagnostic_finalizer): New.
+	(gfc_warning_cmdline): New.
+	(gfc_diagnostics_init): New.
+	* gfc-diagnostic.def: New.
+	* options.c (gfc_init_options): Call gfc_diagnostics_init.
+	(gfc_post_options): Use gfc_warning_cmdline.
+
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+	    Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/62131
+	* openmp.c (resolve_omp_atomic): Only complain if code->expr1's attr
+	is allocatable, rather than whenever var->attr.allocatable.
+
+2014-08-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/62107
+	* trans-openmp.c (gfc_omp_finish_clause): Handle scalar pointer
+	or allocatable passed by reference.
+	(gfc_trans_omp_clauses) <case OMP_LIST_MAP>: Likewise.
+
 2014-08-14  Thomas Koenig  <tkoenig@gcc.gnu.org>
 
 	PR fortran/62106

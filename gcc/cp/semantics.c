@@ -1610,7 +1610,7 @@ tree
 force_paren_expr (tree expr)
 {
   /* This is only needed for decltype(auto) in C++14.  */
-  if (cxx_dialect < cxx1y)
+  if (cxx_dialect < cxx14)
     return expr;
 
   /* If we're in unevaluated context, we can't be deducing a
@@ -3500,6 +3500,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && !processing_template_decl
 	  && (TREE_STATIC (decl) || DECL_EXTERNAL (decl))
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
@@ -3512,6 +3513,7 @@ finish_id_expression (tree id_expression,
 	       && variable_template_p (TREE_OPERAND (decl, 0)))
 	{
 	  decl = finish_template_variable (decl);
+	  mark_used (decl);
 	}
       else if (scope)
 	{
@@ -4055,7 +4057,7 @@ expand_or_defer_fn (tree fn)
       function_depth++;
 
       /* Expand or defer, at the whim of the compilation unit manager.  */
-      cgraph_finalize_function (fn, function_depth > 1);
+      cgraph_node::finalize_function (fn, function_depth > 1);
       emit_associated_thunks (fn);
 
       function_depth--;
@@ -7063,7 +7065,7 @@ finish_decltype_type (tree expr, bool id_expression_or_member_access_p,
 	}
     }
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type)
+  if (cxx_dialect >= cxx14 && array_of_runtime_bound_p (type)
       && (flag_iso || warn_vla > 0))
     {
       if (complain & tf_warning_or_error)
@@ -8389,7 +8391,9 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
     {
       /* Might be a constexpr function pointer.  */
       fun = cxx_eval_constant_expression (old_call, fun, allow_non_constant,
-					  /*addr*/false, non_constant_p, overflow_p);
+					  /*addr*/false, non_constant_p,
+					  overflow_p);
+      STRIP_NOPS (fun);
       if (TREE_CODE (fun) == ADDR_EXPR)
 	fun = TREE_OPERAND (fun, 0);
     }
