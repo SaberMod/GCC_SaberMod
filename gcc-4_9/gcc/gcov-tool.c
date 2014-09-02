@@ -682,7 +682,7 @@ process_args (int argc, char **argv)
   int opt;
   int ret;
 
-  while ((opt = getopt_long (argc, argv, "+hvA:EWC:M:R:S:DP", options, NULL)) != -1)
+  while ((opt = getopt_long (argc, argv, "+hvA:EWC:M:R:S:DPF:", options, NULL)) != -1)
     {
       switch (opt)
         {
