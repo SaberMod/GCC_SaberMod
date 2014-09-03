@@ -582,18 +582,18 @@ read_file_handler (const char *filename)
       int create = (flag_use_modu_list ? 0 : 1);
 
       if (!source_profile_dir)
-        {    
+        {
           static char resolved_path[PATH_MAX + 1];
           char *abs_path = realpath (filename, resolved_path);
-     
+
           if (abs_path)
             {
               char *p = strstr (abs_path, obj_info->mod_info->da_filename);
-              gcc_assert (p); 
-              *p = 0; 
+              gcc_assert (p);
+              *p = 0;
               source_profile_dir = abs_path;
             }
-        }    
+        }
 
       if (!is_module_available (obj_info->mod_info->source_filename,
                                 &mod_id, create))
