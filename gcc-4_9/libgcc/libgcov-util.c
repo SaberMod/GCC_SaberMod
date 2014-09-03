@@ -539,6 +539,18 @@ set_use_modu_list (void)
   flag_use_modu_list = 1;
 }
 
+/* Source profile directory name.  */
+
+static const char *source_profile_dir;
+
+/* Return Source profile directory name.  */
+
+const char *
+get_source_profile_dir (void)
+{
+  return source_profile_dir;
+}
+
 /* Handler to open and read a gcda file FILENAME. */
 
 static int
@@ -568,6 +580,20 @@ read_file_handler (const char *filename)
     {
       unsigned mod_id = obj_info->mod_info->ident;
       int create = (flag_use_modu_list ? 0 : 1);
+
+      if (!source_profile_dir)
+        {    
+          static char resolved_path[PATH_MAX + 1];
+          char *abs_path = realpath (filename, resolved_path);
+     
+          if (abs_path)
+            {
+              char *p = strstr (abs_path, obj_info->mod_info->da_filename);
+              gcc_assert (p); 
+              *p = 0; 
+              source_profile_dir = abs_path;
+            }
+        }    
 
       if (!is_module_available (obj_info->mod_info->source_filename,
                                 &mod_id, create))
@@ -605,6 +631,7 @@ ftw_read_file (const char *filename,
 #else /* _WIN32 */
 
 /* Funtion to find all the gcda files recursively in DIR.  */
+
 static void
 myftw (char *dir, char* pattern, int (*handler)(const char *))
 {
@@ -648,18 +675,6 @@ myftw (char *dir, char* pattern, int (*handler)(const char *))
 }
 #endif
 
-/* Source profile directory name.  */
-
-static const char *source_profile_dir;
-
-/* Return Source profile directory name.  */
-
-const char *
-get_source_profile_dir (void)
-{
-  return source_profile_dir;
-}
-
 /* Initializer for reading a profile dir.  */
 
 static inline void
@@ -694,7 +709,6 @@ gcov_read_profile_dir (const char* dir_name, int recompute_summary ATTRIBUTE_UNU
       fnotice (stderr, "%s is not a directory\n", dir_name);
       return NULL;
     }
-  source_profile_dir = getcwd (NULL, 0);
 
 #if !defined(_WIN32)
   ftw (".", ftw_read_file, 50);
