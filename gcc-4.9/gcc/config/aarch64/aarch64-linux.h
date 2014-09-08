@@ -25,6 +25,8 @@
 #define RUNTIME_ROOT_PREFIX ""
 #endif
 #define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux-aarch64%{mbig-endian:_be}.so.1"
+#define BIONIC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/system/bin/linker64"
+
 
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
