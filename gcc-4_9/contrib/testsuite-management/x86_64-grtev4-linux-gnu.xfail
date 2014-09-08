@@ -45,3 +45,11 @@ FAIL: gfortran.dg/erf_3.F90 -O3 -fomit-frame-pointer -funroll-loops  execution t
 FAIL: gfortran.dg/erf_3.F90 -O3 -fomit-frame-pointer -funroll-all-loops -finline-functions  execution test
 FAIL: gfortran.dg/erf_3.F90 -O3 -g  execution test
 FAIL: gfortran.dg/erf_3.F90 -Os  execution test
+
+# Sporadic timeouts in nightly testing.
+flaky | FAIL: 23_containers/list/pthread5.cc execution test
+flaky | FAIL: 27_io/basic_ofstream/pthread2.cc execution test
+flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local4g.C -std=gnu++1y execution test
+flaky | FAIL: g++.dg/tls/thread_local4.C -std=gnu++11 execution test
+flaky | FAIL: g++.dg/tls/thread_local4.C -std=gnu++1y execution test
