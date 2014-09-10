@@ -1,3 +1,94 @@
+2014-09-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backported from mainline
+	2014-09-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/vsx-extract-1.c:  Test 0th doubleword
+	regardless of endianness.
+
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-08-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62075
+	* gcc.dg/vect/pr62075.c: New testcase.
+
+	2014-08-14  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/62079
+	* g++.dg/pr62079.C: New testcase.
+
+	2014-08-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62175
+	* g++.dg/torture/pr62175.C: New testcase.
+
+2014-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60196
+	PR tree-optimization/63189
+	* gcc.dg/vect/pr63189.c: New test.
+	* gcc.dg/vect/pr60196-1.c: New test.
+	* gcc.dg/vect/pr60196-2.c: New test.
+
+2014-09-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR testsuite/56194
+	* g++.dg/init/const9.C: Skip scan-assembler-not "rodata" on hppa*-*-*.
+
+2014-09-05  Easwaran Raman  <eraman@google.com>
+
+	Backport from mainline
+	PR rtl-optimization/62146
+	* testsuite/g++.dg/opt/pr62146.C: New.
+
+2014-09-04  Guozhi Wei  <carrot@google.com>
+
+	PR target/62040
+	* gcc.target/aarch64/pr62040.c: New test.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/62015
+	* g++.dg/ipa/pr62015.C: New test.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61986
+	* gcc.dg/ipa/pr61986.c: New test.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-09-02  Marek Polacek  <polacek@redhat.com>
+
+	PR fortran/62270
+	* gfortran.dg/pointer_intent_7.f90: Adjust dg-error.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/62294
+	* gcc.dg/pr56724-1.c: New test.
+	* gcc.dg/pr56724-2.c: New test.
+	* gcc.dg/pr62294.c: New test.
+	* gcc.dg/pr62294.h: New file.
+
+2014-09-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-09-01  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/62312
+	* gcc.c-torture/compile/pr62312.c: New.
+
+2014-09-01  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	Backport from mainline
+	2014-09-01  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* gcc.dg/tree-ssa/loop-19.c: Exclude classic FPU Power targets.
+
 2014-08-27  Guozhi Wei  <carrot@google.com>
 
 	PR target/62262
