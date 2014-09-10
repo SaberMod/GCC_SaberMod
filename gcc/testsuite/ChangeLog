@@ -1,3 +1,75 @@
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* gcc.dg/torture/pr61452.c: New testcase.
+
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-05-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61010
+	* gcc.dg/torture/pr61010.c: New testcase.
+
+	2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61045
+	* gcc.dg/pr61045.c: New testcase.
+
+	2014-08-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62075
+	* gcc.dg/vect/pr62075.c: New testcase.
+
+2014-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60196
+	PR tree-optimization/63189
+	* gcc.dg/vect/pr63189.c: New test.
+	* gcc.dg/vect/pr60196-1.c: New test.
+	* gcc.dg/vect/pr60196-2.c: New test.
+
+	Backported from mainline
+	2013-09-17  Cong Hou  <congh@google.com>
+
+	* gcc.dg/vect/vect-reduc-dot-s16c.c: Add a test case with dot product 
+	on two arrays with short and int types. This should not be recognized
+	as a dot product pattern.
+
+2014-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-08-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/61923
+	* gcc.target/i386/pr61923.c: New test.
+
+2014-09-06  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR testsuite/56194
+	* g++.dg/init/const9.C: Skip scan-assembler-not "rodata" on hppa*-*-*.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-09-02  Marek Polacek  <polacek@redhat.com>
+
+	PR fortran/62270
+	* gfortran.dg/pointer_intent_7.f90: Adjust dg-error.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/62015
+	* g++.dg/ipa/pr62015.C: New test.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61986
+	* gcc.dg/ipa/pr61986.c: New test.
+
 2014-08-26  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
 	* gfortran.dg/bessel_7.f90: Bump allowed precision to avoid

@@ -1,3 +1,102 @@
+2014-09-10  Alan Modra  <amodra@gmail.com>
+
+	PR debug/60655
+	* dwarf2out.c (mem_loc_descriptor <PLUS>): Return NULL if addend
+	can't be output.
+
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-06-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61452
+	* tree-ssa-sccvn.c (visit_phi): Remove pointless setting of
+	expr and has_constants in case we found a leader.
+	(simplify_binary_expression): Always valueize operands first.
+	(simplify_unary_expression): Likewise.
+
+2014-09-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-05-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61010
+	* fold-const.c (fold_binary_loc): Consistently avoid
+	canonicalizing X & CST away from a CST that is the mask
+	of a mode.
+
+	2014-05-28  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/61045
+	* fold-const.c (fold_comparison): When folding
+	X +- C1 CMP Y +- C2 to X CMP Y +- C2 +- C1 also ensure
+	the sign of the remaining constant operand stays the same.
+
+	2014-08-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/62075
+	* tree-vect-slp.c (vect_detect_hybrid_slp_stmts): Properly
+	handle uses in patterns.
+
+2014-09-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2014-09-09  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/invoke.texi (-march): Use GNU/Linux rather than Linux.
+	(-mtune): Likewise.
+	(-mcpu): Likewise.
+
+2014-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/60196
+	PR tree-optimization/63189
+	Backported from mainline
+	2013-09-17  Cong Hou  <congh@google.com>
+
+	* tree-vect-patterns.c (vect_recog_dot_prod_pattern): Fix a bug
+	when checking the dot production pattern. The type of rhs operand
+	of multiply is now checked correctly.
+
+2014-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-08-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/61923
+	* haifa-sched.c (advance_one_cycle): Fix dump.
+	(schedule_block): Don't advance cycle if we are already at the
+	beginning of the cycle.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/62015
+	* ipa-cp.c (intersect_aggregates_with_edge): Handle impermissible
+	pass-trough jump functions correctly.
+
+2014-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61986
+	* ipa-cp.c (find_aggregate_values_for_callers_subset): Chain
+	created replacements in ascending order of offsets.
+	(known_aggs_to_agg_replacement_list): Likewise.
+
+2014-09-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-08-21  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61271
+	* expr.c (is_aligning_offset): Remove logical not.
+
+2014-09-01  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-08-19  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61271
+	* cgraphunit.c (handle_alias_pairs): Fix condition.
+
 2014-08-30  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config/pa/pa.c (pa_assemble_integer): Don't add PLABEL relocation
