@@ -658,7 +658,7 @@ typedef struct {
 
 static vec<mod_id_to_name_t> *mod_names;
 
-static void
+void
 record_module_name (unsigned int mod_id, const char *name)
 {
   mod_id_to_name_t t;

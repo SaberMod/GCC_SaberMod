@@ -1051,6 +1051,7 @@ analyze_functions (void)
 		  struct cgraph_node *origin_node
 	    	  = cgraph_get_node (DECL_ABSTRACT_ORIGIN (decl));
 		  origin_node->used_as_abstract_origin = true;
+		  enqueue_node (origin_node);
 		}
 	    }
 	  else

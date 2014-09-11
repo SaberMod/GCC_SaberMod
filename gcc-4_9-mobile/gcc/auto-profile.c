@@ -958,6 +958,7 @@ read_aux_modules (void)
   module_infos = XCNEWVEC (gcov_module_info *, num_aux_modules + 1);
   module_infos[0] = module;
   primary_module_id = module->ident;
+  record_module_name (module->ident, lbasename (in_fnames[0]));
   if (aux_modules == NULL)
     return;
   unsigned curr_module = 1, max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
@@ -1004,6 +1005,7 @@ read_aux_modules (void)
 	}
       module_infos[curr_module++] = aux_module;
       add_input_filename (*iter);
+      record_module_name (aux_module->ident, lbasename (*iter));
     }
 }
 
