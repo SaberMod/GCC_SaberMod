@@ -773,7 +773,7 @@ set_lipo_default_params (void)
   __gcov_lipo_merge_modu_edges   = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_MERGE_MODU_EDGES);
   __gcov_lipo_weak_inclusion     = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_WEAK_INCLUSION);
   __gcov_lipo_max_mem            = GET_DEFAULT_PARAM_VALUE (PARAM_MAX_LIPO_MEMORY);
-  __gcov_lipo_comdat_algorithm   = 0 /* GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_COMDAT_ALGORITHM)*/;
+  __gcov_lipo_comdat_algorithm   = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_COMDAT_ALGORITHM);
   __gcov_lipo_random_group_size  = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_RANDOM_GROUP_SIZE);
   __gcov_lipo_cutoff             = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_CUTOFF);
   __gcov_lipo_random_seed        = GET_DEFAULT_PARAM_VALUE (PARAM_LIPO_RANDOM_SEED);
