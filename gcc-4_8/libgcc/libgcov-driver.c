@@ -427,12 +427,53 @@ struct gcov_filename_aux{
 /* Including system dependent components. */
 #include "libgcov-driver-system.c"
 
-/* Scan through the current open gcda file corresponding to GI_PTR
-   to locate the end position of the last summary, returned in
-   SUMMARY_END_POS_P.  Return 0 on success, -1 on error.  */
+/* Scan through the build info section at the current position in the
+   open gcda file, assuming its tag has already been written.
+   Return 0 on success, -1 on error.  */
 static int
-gcov_scan_summary_end (struct gcov_info *gi_ptr,
-                       gcov_position_t *summary_end_pos_p)
+scan_build_info (struct gcov_info *gi_ptr)
+{
+  gcov_unsigned_t i, length;
+  gcov_unsigned_t num_strings = 0;
+
+  length = gcov_read_unsigned ();
+  char **build_info_strings = gcov_read_build_info (length, &num_strings);
+  if (!build_info_strings)
+    {
+      gcov_error ("profiling:%s:Error reading build info\n", gi_filename);
+      return -1;
+    }
+  if (!gi_ptr->build_info)
+    {
+      gcov_error ("profiling:%s:Mismatched build info sections, expected "
+                  "none, found %u strings)\n", gi_filename, num_strings);
+      return -1;
+    }
+
+  for (i = 0; i < num_strings; i++)
+    {
+      if (strcmp (build_info_strings[i], gi_ptr->build_info[i]))
+        {
+          gcov_error ("profiling:%s:Mismatched build info string "
+                      "(expected %s, read %s)\n",
+                      gi_filename, gi_ptr->build_info[i],
+                      build_info_strings[i]);
+          return -1;
+        }
+      free (build_info_strings[i]);
+    }
+  free (build_info_strings);
+  return 0;
+}
+
+/* Scan through the current open gcda file corresponding to GI_PTR
+   to locate the end position just before function data should be rewritten,
+   returned in SUMMARY_END_POS_P. E.g. scan past the last summary and other
+   sections that won't be rewritten, like the build info.  Return 0 on success,
+   -1 on error.  */
+static int
+gcov_scan_to_function_data (struct gcov_info *gi_ptr,
+                            gcov_position_t *summary_end_pos_p)
 {
   gcov_unsigned_t tag, version, stamp;
   tag = gcov_read_unsigned ();
@@ -467,6 +508,18 @@ gcov_scan_summary_end (struct gcov_info *gi_ptr,
         return -1;
     }
 
+  /* If there is a build info section, scan past it as well.  */
+  if (tag == GCOV_TAG_BUILD_INFO)
+    {
+      if (scan_build_info (gi_ptr) < 0)
+        return -1;
+
+      *summary_end_pos_p = gcov_position ();
+      tag = gcov_read_unsigned ();
+    }
+  /* The next section should be the function counters.  */
+  gcc_assert (tag == GCOV_TAG_FUNCTION);
+
   return 0;
 }
 
@@ -484,7 +537,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
                       struct gcov_parameter_value **merged_parameters)
 {
   gcov_unsigned_t tag, length, version, stamp;
-  unsigned t_ix, f_ix, i;
+  unsigned t_ix, f_ix;
   int error = 0;
   struct gcov_summary_buffer **sum_tail = &sum_buffer;
 
@@ -539,34 +592,8 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
 
   if (tag == GCOV_TAG_BUILD_INFO)
     {
-      length = gcov_read_unsigned ();
-      gcov_unsigned_t num_strings = 0;
-      char **build_info_strings = gcov_read_build_info (length, &num_strings);
-      if (!build_info_strings)
-        {
-          gcov_error ("profiling:%s:Error reading build info\n", gi_filename);
-          return -1;
-        }
-      if (!gi_ptr->build_info)
-        {
-          gcov_error ("profiling:%s:Mismatched build info sections, expected "
-                      "none, found %u strings)\n", gi_filename, num_strings);
-          return -1;
-        }
-
-      for (i = 0; i < num_strings; i++)
-        {
-          if (strcmp (build_info_strings[i], gi_ptr->build_info[i]))
-            {
-              gcov_error ("profiling:%s:Mismatched build info string "
-                          "(expected %s, read %s)\n",
-                          gi_filename, gi_ptr->build_info[i],
-                          build_info_strings[i]);
-              return -1;
-            }
-          free (build_info_strings[i]);
-        }
-      free (build_info_strings);
+      if (scan_build_info (gi_ptr) < 0)
+        return -1;
 
       /* Since the stamps matched if we got here, this should be from
          the same compilation and the build info strings should match.  */
@@ -1031,10 +1058,10 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
 
       if (changed)
         {
-          /* Scan file to find the end of the summary section, which is
+          /* Scan file to find the start of the function section, which is
              where we will start re-writing the counters.  */
           gcov_position_t summary_end_pos;
-          if (gcov_scan_summary_end (gi_ptr, &summary_end_pos) == -1)
+          if (gcov_scan_to_function_data (gi_ptr, &summary_end_pos) == -1)
             gcov_error ("profiling:%s:Error scanning summaries\n",
                         gi_filename);
           else
