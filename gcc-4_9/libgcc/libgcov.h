@@ -189,6 +189,7 @@ extern unsigned gcov_get_merge_weight ();
 #define gcov_read_unsigned __gcov_read_unsigned
 #define gcov_read_counter __gcov_read_counter
 #define gcov_read_summary __gcov_read_summary
+#define gcov_read_buildinfo __gcov_read_buildinfo
 #define gcov_read_module_info __gcov_read_module_info
 #define gcov_sort_n_vals __gcov_sort_n_vals
 
@@ -252,6 +253,8 @@ struct gcov_info
 #else
   const struct gcov_fn_info **functions;
 #endif /* !IN_GCOV_TOOL */
+  char **build_info;            /* strings to include in BUILD_INFO
+                                   section of gcda file.  */
 };
 
 /* Information about a single imported module.  */

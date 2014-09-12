@@ -1432,6 +1432,15 @@ read_count_file (function_t *fns)
 	  object_runs += summary.ctrs[GCOV_COUNTER_ARCS].runs;
 	  program_count++;
 	}
+      else if (tag == GCOV_TAG_BUILD_INFO)
+        {
+          gcov_unsigned_t num_strings;
+          char **build_info_strings = gcov_read_build_info (length,
+                                                            &num_strings);
+          for (unsigned i = 0; i < num_strings; i++)
+            free (build_info_strings[i]);
+          free (build_info_strings);
+        }
       else if (tag == GCOV_TAG_FUNCTION && !length)
 	; /* placeholder  */
       else if (tag == GCOV_TAG_FUNCTION && length == GCOV_TAG_FUNCTION_LENGTH)
