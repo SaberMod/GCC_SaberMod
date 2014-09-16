@@ -577,9 +577,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *
        * @param __s A pointer to a string containing a regular expression.
        */
-      template<typename _Ch_typeraits, typename _Alloc>
+      template<typename _Ch_traits, typename _Alloc>
 	basic_regex&
-	operator=(const basic_string<_Ch_type, _Ch_typeraits, _Alloc>& __s)
+	operator=(const basic_string<_Ch_type, _Ch_traits, _Alloc>& __s)
 	{ return this->assign(__s, flags()); }
 
       // [7.8.3] assign
@@ -654,9 +654,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        * expression pattern interpreted according to @p __flags.  If
        * regex_error is thrown, *this remains unchanged.
        */
-      template<typename _Ch_typeraits, typename _Alloc>
+      template<typename _Ch_traits, typename _Alloc>
 	basic_regex&
-	assign(const basic_string<_Ch_type, _Ch_typeraits, _Alloc>& __s,
+	assign(const basic_string<_Ch_type, _Ch_traits, _Alloc>& __s,
 	       flag_type __flags = ECMAScript)
 	{
 	  _M_flags = __flags;
@@ -1814,7 +1814,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       /**
        * @pre   ready() == true
        */
-      template<typename _Out_iter, typename _St, typename _Sa>
+      template<typename _St, typename _Sa>
 	basic_string<char_type, _St, _Sa>
 	format(const basic_string<char_type, _St, _Sa>& __fmt,
 	       match_flag_type __flags = regex_constants::format_default) const

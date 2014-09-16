@@ -66,6 +66,12 @@
 ;; Quad vector modes.
 (define_mode_iterator VQ [V16QI V8HI V4SI V2DI V4SF V2DF])
 
+;; VQ without 2 element modes.
+(define_mode_iterator VQ_NO2E [V16QI V8HI V4SI V4SF])
+
+;; Quad vector with only 2 element modes.
+(define_mode_iterator VQ_2E [V2DI V2DF])
+
 ;; All vector modes, except double.
 (define_mode_iterator VQ_S [V8QI V16QI V4HI V8HI V2SI V4SI])
 
@@ -137,9 +143,6 @@
 
 ;; Double vector modes for combines.
 (define_mode_iterator VDIC [V8QI V4HI V2SI])
-
-;; Double vector modes, inc. V1DF and the DI "vector" mode, for VREINTERPRET.
-(define_mode_iterator VD_RE [V8QI V4HI V2SI DI V1DF V2SF])
 
 ;; Double vector modes inc V1DF
 (define_mode_iterator VD1 [V8QI V4HI V2SI V2SF V1DF])

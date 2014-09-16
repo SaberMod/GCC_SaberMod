@@ -990,7 +990,7 @@ vinsn_writes_one_of_regs_p (vinsn_t vi, regset used_regs,
 
    Code adopted from regrename.c::build_def_use.  */
 static enum reg_class
-get_reg_class (rtx insn)
+get_reg_class (rtx_insn *insn)
 {
   int i, n_ops;
 
@@ -4283,7 +4283,7 @@ invoke_aftermath_hooks (fence_t fence, rtx_insn *best_insn, int issue_more)
 
 /* Estimate the cost of issuing INSN on DFA state STATE.  */
 static int
-estimate_insn_cost (rtx insn, state_t state)
+estimate_insn_cost (rtx_insn *insn, state_t state)
 {
   static state_t temp = NULL;
   int cost;

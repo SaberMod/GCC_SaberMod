@@ -629,6 +629,17 @@
   [(set_attr "type" "neon_fp_round_<V_elem_ch><q>")]
 )
 
+(define_insn "neon_vcvt<NEON_VCVT:nvrint_variant><su_optab><VCVTF:mode><v_cmp_result>"
+  [(set (match_operand:<V_cmp_result> 0 "register_operand" "=w")
+	(FIXUORS:<V_cmp_result> (unspec:VCVTF
+			       [(match_operand:VCVTF 1 "register_operand" "w")]
+			       NEON_VCVT)))]
+  "TARGET_NEON && TARGET_FPU_ARMV8"
+  "vcvt<nvrint_variant>.<su>32.f32\\t%<V_reg>0, %<V_reg>1"
+  [(set_attr "type" "neon_fp_to_int_<V_elem_ch><q>")
+   (set_attr "predicable" "no")]
+)
+
 (define_insn "ior<mode>3"
   [(set (match_operand:VDQ 0 "s_register_operand" "=w,w")
 	(ior:VDQ (match_operand:VDQ 1 "s_register_operand" "w,0")
@@ -2568,6 +2579,33 @@
   emit_insn (gen_neg<mode>2 (operands[0], operands[1]));
   DONE;
 })
+
+(define_expand "neon_copysignf<mode>"
+  [(match_operand:VCVTF 0 "register_operand")
+   (match_operand:VCVTF 1 "register_operand")
+   (match_operand:VCVTF 2 "register_operand")]
+  "TARGET_NEON"
+  "{
+     rtx v_bitmask_cast;
+     rtx v_bitmask = gen_reg_rtx (<VCVTF:V_cmp_result>mode);
+     int i, n_elt = GET_MODE_NUNITS (<MODE>mode);
+     rtvec v = rtvec_alloc (n_elt);
+
+     /* Create bitmask for vector select.  */
+     for (i = 0; i < n_elt; ++i)
+       RTVEC_ELT (v, i) = GEN_INT (0x80000000);
+
+     emit_move_insn (v_bitmask,
+		     gen_rtx_CONST_VECTOR (<VCVTF:V_cmp_result>mode, v));
+     emit_move_insn (operands[0], operands[2]);
+     v_bitmask_cast = simplify_gen_subreg (<MODE>mode, v_bitmask,
+					   <VCVTF:V_cmp_result>mode, 0);
+     emit_insn (gen_neon_vbsl<mode> (operands[0], v_bitmask_cast, operands[0],
+				     operands[1]));
+
+     DONE;
+  }"
+)
 
 (define_insn "neon_vqneg<mode>"
   [(set (match_operand:VDQIW 0 "s_register_operand" "=w")

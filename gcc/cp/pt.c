@@ -2471,7 +2471,7 @@ check_explicit_specialization (tree declarator,
 	     template <class T> void f<int>(); */
 
 	  if (uses_template_parms (declarator))
-	    error ("function template partial specialization %qD "
+	    error ("non-type partial specialization %qD "
 		   "is not allowed", declarator);
 	  else
 	    error ("template-id %qD in declaration of primary template",
@@ -2813,7 +2813,8 @@ check_explicit_specialization (tree declarator,
 	    SET_DECL_IMPLICIT_INSTANTIATION (decl);
 	  else if (TREE_CODE (decl) == FUNCTION_DECL)
 	    /* A specialization is not necessarily COMDAT.  */
-	    DECL_COMDAT (decl) = DECL_DECLARED_INLINE_P (decl);
+	    DECL_COMDAT (decl) = (TREE_PUBLIC (decl)
+				  && DECL_DECLARED_INLINE_P (decl));
 	  else if (TREE_CODE (decl) == VAR_DECL)
 	    DECL_COMDAT (decl) = false;
 
@@ -5059,6 +5060,7 @@ template arguments to %qD do not match original template %qD",
 
   if (flag_implicit_templates
       && !is_friend
+      && TREE_PUBLIC (decl)
       && VAR_OR_FUNCTION_DECL_P (decl))
     /* Set DECL_COMDAT on template instantiations; if we force
        them to be emitted by explicit instantiation or -frepo,
@@ -7821,9 +7823,18 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
 
       if (OVERLOAD_TYPE_P (t)
 	  && !DECL_ALIAS_TEMPLATE_P (gen_tmpl))
-	if (tree attributes
-	    = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
-	  TYPE_ATTRIBUTES (t) = attributes;
+	{
+	  if (tree attributes
+	      = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (template_type)))
+	    {
+	      if (!TREE_CHAIN (attributes))
+		TYPE_ATTRIBUTES (t) = attributes;
+	      else
+		TYPE_ATTRIBUTES (t)
+		  = build_tree_list (TREE_PURPOSE (attributes),
+				     TREE_VALUE (attributes));
+	    }
+	}
 
       /* Let's consider the explicit specialization of a member
          of a class template specialization that is implicitly instantiated,
@@ -7947,6 +7958,8 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       /* Possibly limit visibility based on template args.  */
       TREE_PUBLIC (type_decl) = 1;
       determine_visibility (type_decl);
+
+      inherit_targ_abi_tags (t);
 
       return t;
     }
@@ -9911,6 +9924,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	}
     }
 
+  /* If the expansion is just T..., return the matching argument pack.  */
+  if (!unsubstituted_packs
+      && TREE_PURPOSE (packs) == pattern)
+    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
   if (use_pack_expansion_extra_args_p (packs, len, unsubstituted_packs))
@@ -11829,7 +11847,11 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		   gen_elem_of_pack_expansion_instantiation will
 		   build the resulting pack expansion from it.  */
 		if (PACK_EXPANSION_P (arg))
-		  arg = PACK_EXPANSION_PATTERN (arg);
+		  {
+		    /* Make sure we aren't throwing away arg info.  */
+		    gcc_assert (!PACK_EXPANSION_EXTRA_ARGS (arg));
+		    arg = PACK_EXPANSION_PATTERN (arg);
+		  }
 	      }
 	  }
 
@@ -14012,6 +14034,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_FOR:
     case OMP_SIMD:
     case CILK_SIMD:
+    case CILK_FOR:
     case OMP_DISTRIBUTE:
       {
 	tree clauses, body, pre_body;
@@ -15439,7 +15462,8 @@ tsubst_copy_and_build (tree t,
       }
 
     case OFFSETOF_EXPR:
-      RETURN (finish_offsetof (RECUR (TREE_OPERAND (t, 0))));
+      RETURN (finish_offsetof (RECUR (TREE_OPERAND (t, 0)),
+			       EXPR_LOCATION (t)));
 
     case TRAIT_EXPR:
       {
@@ -19995,13 +20019,18 @@ instantiate_decl (tree d, int defer_ok,
 			      args,
 			      tf_warning_or_error, NULL_TREE,
 			      /*integral_constant_expression_p=*/false);
-	  /* Make sure the initializer is still constant, in case of
-	     circular dependency (template/instantiate6.C). */
-	  const_init
-	    = DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
-	  cp_finish_decl (d, init, /*init_const_expr_p=*/const_init,
-			  /*asmspec_tree=*/NULL_TREE,
-			  LOOKUP_ONLYCONVERTING);
+	  /* If instantiating the initializer involved instantiating this
+	     again, don't call cp_finish_decl twice.  */
+	  if (!DECL_INITIAL (d))
+	    {
+	      /* Make sure the initializer is still constant, in case of
+		 circular dependency (template/instantiate6.C). */
+	      const_init
+		= DECL_INITIALIZED_BY_CONSTANT_EXPRESSION_P (code_pattern);
+	      cp_finish_decl (d, init, /*init_const_expr_p=*/const_init,
+			      /*asmspec_tree=*/NULL_TREE,
+			      LOOKUP_ONLYCONVERTING);
+	    }
 	  if (enter_context)
 	    pop_nested_class ();
 	  pop_nested_namespace (ns);

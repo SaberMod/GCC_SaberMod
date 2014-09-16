@@ -785,7 +785,7 @@ reg_mentioned_p (const_rtx reg, const_rtx in)
     return 1;
 
   if (GET_CODE (in) == LABEL_REF)
-    return reg == XEXP (in, 0);
+    return reg == LABEL_REF_LABEL (in);
 
   code = GET_CODE (in);
 
@@ -947,10 +947,9 @@ reg_referenced_p (const_rtx x, const_rtx body)
    FROM_INSN and TO_INSN (exclusive of those two).  */
 
 int
-reg_set_between_p (const_rtx reg, const_rtx uncast_from_insn, const_rtx to_insn)
+reg_set_between_p (const_rtx reg, const rtx_insn *from_insn,
+		   const rtx_insn *to_insn)
 {
-  const rtx_insn *from_insn =
-    safe_as_a <const rtx_insn *> (uncast_from_insn);
   const rtx_insn *insn;
 
   if (from_insn == to_insn)
@@ -987,10 +986,8 @@ reg_set_p (const_rtx reg, const_rtx insn)
    X contains a MEM; this routine does use memory aliasing.  */
 
 int
-modified_between_p (const_rtx x, const_rtx uncast_start, const_rtx end)
+modified_between_p (const_rtx x, const rtx_insn *start, const rtx_insn *end)
 {
-  const rtx_insn *start =
-    safe_as_a <const rtx_insn *> (uncast_start);
   const enum rtx_code code = GET_CODE (x);
   const char *fmt;
   int i, j;
@@ -1185,7 +1182,7 @@ record_hard_reg_uses (rtx *px, void *data)
    will not be used, which we ignore.  */
 
 rtx
-single_set_2 (const_rtx insn, const_rtx pat)
+single_set_2 (const rtx_insn *insn, const_rtx pat)
 {
   rtx set = NULL;
   int set_verified = 1;
@@ -1920,7 +1917,7 @@ find_reg_equal_equiv_note (const_rtx insn)
    return null.  */
 
 rtx
-find_constant_src (const_rtx insn)
+find_constant_src (const rtx_insn *insn)
 {
   rtx note, set, x;
 
@@ -2849,7 +2846,9 @@ rtx_referenced_p (const_rtx x, const_rtx body)
     if (const_rtx y = *iter)
       {
 	/* Check if a label_ref Y refers to label X.  */
-	if (GET_CODE (y) == LABEL_REF && LABEL_P (x) && XEXP (y, 0) == x)
+	if (GET_CODE (y) == LABEL_REF
+	    && LABEL_P (x)
+	    && LABEL_REF_LABEL (y) == x)
 	  return true;
 
 	if (rtx_equal_p (x, y))
@@ -3800,7 +3799,7 @@ find_first_parameter_load (rtx_insn *call_insn, rtx_insn *boundary)
    call instruction.  */
 
 bool
-keep_with_call_p (const_rtx insn)
+keep_with_call_p (const rtx_insn *insn)
 {
   rtx set;
 
@@ -3824,7 +3823,8 @@ keep_with_call_p (const_rtx insn)
 	  /* This CONST_CAST is okay because next_nonnote_insn just
 	     returns its argument and we assign it to a const_rtx
 	     variable.  */
-	  const rtx_insn *i2 = next_nonnote_insn (CONST_CAST_RTX (insn));
+	  const rtx_insn *i2
+	    = next_nonnote_insn (const_cast<rtx_insn *> (insn));
 	  if (i2 && keep_with_call_p (i2))
 	    return true;
 	}
@@ -5321,7 +5321,7 @@ get_condition (rtx_insn *jump, rtx_insn **earliest, int allow_cc_mode,
      the condition.  */
   reverse
     = GET_CODE (XEXP (SET_SRC (set), 2)) == LABEL_REF
-      && XEXP (XEXP (SET_SRC (set), 2), 0) == JUMP_LABEL (jump);
+      && LABEL_REF_LABEL (XEXP (SET_SRC (set), 2)) == JUMP_LABEL (jump);
 
   return canonicalize_condition (jump, cond, reverse, earliest, NULL_RTX,
 				 allow_cc_mode, valid_at_insn_p);
@@ -6073,7 +6073,7 @@ tls_referenced_p (const_rtx x)
     return false;
 
   subrtx_iterator::array_type array;
-  FOR_EACH_SUBRTX (iter, array, x, NONCONST)
+  FOR_EACH_SUBRTX (iter, array, x, ALL)
     if (GET_CODE (*iter) == SYMBOL_REF && SYMBOL_REF_TLS_MODEL (*iter) != 0)
       return true;
   return false;

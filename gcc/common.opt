@@ -604,7 +604,7 @@ Common Var(warn_padded) Warning
 Warn when padding is required to align structure members
 
 Wpedantic
-Common Var(pedantic) Warning
+Common Var(pedantic) Init(0) Warning
 Issue warnings needed for strict compliance to the standard
 
 Wreturn-local-addr
@@ -1559,6 +1559,10 @@ Specify the algorithm to partition symbols and vars at linktime
 flto-compression-level=
 Common Joined RejectNegative UInteger Var(flag_lto_compression_level) Init(-1)
 -flto-compression-level=<number>	Use zlib compression level <number> for IL
+
+flto-odr-type-merging
+Common Report Var(flag_lto_odr_type_mering) Init(1)
+Merge C++ types using One Definition Rule
 
 flto-report
 Common Report Var(flag_lto_report) Init(0)

@@ -281,6 +281,7 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_SECTIONS  */
   0, /* OMP_CLAUSE_TASKGROUP  */
   1, /* OMP_CLAUSE__SIMDUID_  */
+  1, /* OMP_CLAUSE__CILK_FOR_COUNT_  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -324,7 +325,8 @@ const char * const omp_clause_code_name[] =
   "parallel",
   "sections",
   "taskgroup",
-  "_simduid_"
+  "_simduid_",
+  "_Cilk_for_count_"
 };
 
 
@@ -2165,6 +2167,21 @@ integer_onep (const_tree expr)
     default:
       return false;
     }
+}
+
+/* Return 1 if EXPR is the integer constant one.  For complex and vector,
+   return 1 if every piece is the integer constant one.  */
+
+int
+integer_each_onep (const_tree expr)
+{
+  STRIP_NOPS (expr);
+
+  if (TREE_CODE (expr) == COMPLEX_CST)
+    return (integer_onep (TREE_REALPART (expr))
+	    && integer_onep (TREE_IMAGPART (expr)));
+  else
+    return integer_onep (expr);
 }
 
 /* Return 1 if EXPR is an integer containing all 1's in as much precision as
@@ -4568,7 +4585,7 @@ build_block (tree vars, tree subblocks, tree supercontext, tree chain)
 void
 protected_set_expr_location (tree t, location_t loc)
 {
-  if (t && CAN_HAVE_LOCATION_P (t))
+  if (CAN_HAVE_LOCATION_P (t))
     SET_EXPR_LOCATION (t, loc);
 }
 
@@ -4978,6 +4995,16 @@ free_lang_data_in_type (tree type)
 static inline bool
 need_assembler_name_p (tree decl)
 {
+  /* We use DECL_ASSEMBLER_NAME to hold mangled type names for One Definition Rule
+     merging.  */
+  if (flag_lto_odr_type_mering
+      && TREE_CODE (decl) == TYPE_DECL
+      && DECL_NAME (decl)
+      && decl == TYPE_NAME (TREE_TYPE (decl))
+      && !is_lang_specific (TREE_TYPE (decl))
+      && AGGREGATE_TYPE_P (TREE_TYPE (decl))
+      && !type_in_anonymous_namespace_p (TREE_TYPE (decl)))
+    return !DECL_ASSEMBLER_NAME_SET_P (decl);
   /* Only FUNCTION_DECLs and VAR_DECLs are considered.  */
   if (TREE_CODE (decl) != FUNCTION_DECL
       && TREE_CODE (decl) != VAR_DECL)
@@ -11041,6 +11068,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_SIMDLEN:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
+	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
 	  /* FALLTHRU */
 

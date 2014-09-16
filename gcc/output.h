@@ -42,15 +42,17 @@ extern void init_insn_lengths (void);
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its maximum length.  */
-extern int get_attr_length (rtx);
+extern int get_attr_length (rtx_insn *);
 
 /* Obtain the current length of an insn.  If branch shortening has been done,
    get its actual length.  Otherwise, get its minimum length.  */
-extern int get_attr_min_length (rtx);
+extern int get_attr_min_length (rtx_insn *);
 
 /* Make a pass over all insns and compute their actual lengths by shortening
    any branches of variable length if possible.  */
 extern void shorten_branches (rtx_insn *);
+
+const char *get_some_local_dynamic_name ();
 
 /* Output assembler code for the start of a function,
    and initialize some of the variables in this file
@@ -70,7 +72,7 @@ extern void final (rtx_insn *, FILE *, int);
 /* The final scan for one insn, INSN.  Args are same as in `final', except
    that INSN is the insn being scanned.  Value returned is the next insn to
    be scanned.  */
-extern rtx_insn *final_scan_insn (rtx, FILE *, int, int, int *);
+extern rtx_insn *final_scan_insn (rtx_insn *, FILE *, int, int, int *);
 
 /* Replace a SUBREG with a REG or a MEM, based on the thing it is a
    subreg of.  */
@@ -326,7 +328,7 @@ extern rtx_insn *current_output_insn;
 /* Nonzero while outputting an `asm' with operands.
    This means that inconsistencies are the user's fault, so don't die.
    The precise value is the insn being output, to pass to error_for_asm.  */
-extern rtx this_is_asm_operands;
+extern const rtx_insn *this_is_asm_operands;
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */

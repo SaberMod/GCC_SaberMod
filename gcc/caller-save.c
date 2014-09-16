@@ -103,8 +103,8 @@ static GTY(()) rtx savepat;
 static GTY(()) rtx restpat;
 static GTY(()) rtx test_reg;
 static GTY(()) rtx test_mem;
-static GTY(()) rtx saveinsn;
-static GTY(()) rtx restinsn;
+static GTY(()) rtx_insn *saveinsn;
+static GTY(()) rtx_insn *restinsn;
 
 /* Return the INSN_CODE used to save register REG in mode MODE.  */
 static int
@@ -418,7 +418,7 @@ setup_save_areas (void)
   int i, j, k, freq;
   HARD_REG_SET hard_regs_used;
   struct saved_hard_reg *saved_reg;
-  rtx insn;
+  rtx_insn *insn;
   struct insn_chain *chain, *next;
   unsigned int regno;
   HARD_REG_SET hard_regs_to_save, used_regs, this_insn_sets;

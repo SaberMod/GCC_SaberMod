@@ -2922,7 +2922,8 @@ const_hash_1 (const tree exp)
 	    break;
 
 	  case LABEL_REF:
-	    hi = value.offset + CODE_LABEL_NUMBER (XEXP (value.base, 0)) * 13;
+	    hi = (value.offset
+		  + CODE_LABEL_NUMBER (LABEL_REF_LABEL (value.base)) * 13);
 	    break;
 
 	  default:
@@ -3112,8 +3113,8 @@ compare_constant (const tree t1, const tree t2)
 	    break;
 
 	  case LABEL_REF:
-	    ret = (CODE_LABEL_NUMBER (XEXP (value1.base, 0))
-	           == CODE_LABEL_NUMBER (XEXP (value2.base, 0)));
+	    ret = (CODE_LABEL_NUMBER (LABEL_REF_LABEL (value1.base))
+	           == CODE_LABEL_NUMBER (LABEL_REF_LABEL (value2.base)));
 	    break;
 
 	  default:
@@ -3547,7 +3548,7 @@ const_rtx_hash_1 (const_rtx x)
       break;
 
     case LABEL_REF:
-      h = h * 251 + CODE_LABEL_NUMBER (XEXP (x, 0));
+      h = h * 251 + CODE_LABEL_NUMBER (LABEL_REF_LABEL (x));
       break;
 
     case UNSPEC:
@@ -3822,7 +3823,7 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
      CODE_LABEL into a NOTE.  */
   /* ??? This seems completely and utterly wrong.  Certainly it's
      not true for NOTE_INSN_DELETED_LABEL, but I disbelieve proper
-     functioning even with INSN_DELETED_P and friends.  */
+     functioning even with rtx_insn::deleted and friends.  */
 
   tmp = x;
   switch (GET_CODE (tmp))
@@ -3835,8 +3836,8 @@ output_constant_pool_1 (struct constant_descriptor_rtx *desc,
       /* FALLTHRU  */
 
     case LABEL_REF:
-      tmp = XEXP (tmp, 0);
-      gcc_assert (!INSN_DELETED_P (tmp));
+      tmp = LABEL_REF_LABEL (tmp);
+      gcc_assert (!as_a<rtx_insn *> (tmp)->deleted ());
       gcc_assert (!NOTE_P (tmp)
 		  || NOTE_KIND (tmp) != NOTE_INSN_DELETED);
       break;

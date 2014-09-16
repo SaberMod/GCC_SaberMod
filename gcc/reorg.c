@@ -217,10 +217,10 @@ static void note_delay_statistics (int, int);
 #if defined(ANNUL_IFFALSE_SLOTS) || defined(ANNUL_IFTRUE_SLOTS)
 static rtx_insn_list *optimize_skip (rtx_insn *);
 #endif
-static int get_jump_flags (rtx, rtx);
+static int get_jump_flags (const rtx_insn *, rtx);
 static int mostly_true_jump (rtx);
-static rtx get_branch_condition (rtx, rtx);
-static int condition_dominates_p (rtx, rtx);
+static rtx get_branch_condition (const rtx_insn *, rtx);
+static int condition_dominates_p (rtx, const rtx_insn *);
 static int redirect_with_delay_slots_safe_p (rtx_insn *, rtx, rtx);
 static int redirect_with_delay_list_safe_p (rtx_insn *, rtx, rtx_insn_list *);
 static int check_annul_list_true_false (int, rtx);
@@ -272,7 +272,8 @@ static bool
 simplejump_or_return_p (rtx insn)
 {
   return (JUMP_P (insn)
-	  && (simplejump_p (insn) || ANY_RETURN_P (PATTERN (insn))));
+	  && (simplejump_p (as_a <rtx_insn *> (insn))
+	      || ANY_RETURN_P (PATTERN (insn))));
 }
 
 /* Return TRUE if this insn should stop the search for insn to fill delay
@@ -482,8 +483,8 @@ find_end_label (rtx kind)
 	  if (HAVE_return)
 	    {
 	      /* The return we make may have delay slots too.  */
-	      rtx insn = gen_return ();
-	      insn = emit_jump_insn (insn);
+	      rtx pat = gen_return ();
+	      rtx_insn *insn = emit_jump_insn (pat);
 	      set_return_jump_label (insn);
 	      emit_barrier ();
 	      if (num_delay_slots (insn) > 0)
@@ -535,7 +536,7 @@ emit_delay_sequence (rtx_insn *insn, rtx_insn_list *list, int length)
       rtx note, next;
 
       /* Show that this copy of the insn isn't deleted.  */
-      INSN_DELETED_P (tem) = 0;
+      tem->set_undeleted ();
 
       /* Unlink insn from its original place, and re-emit it into
 	 the sequence.  */
@@ -845,7 +846,7 @@ optimize_skip (rtx_insn *insn)
     are predicted as very likely taken.  */
 
 static int
-get_jump_flags (rtx insn, rtx label)
+get_jump_flags (const rtx_insn *insn, rtx label)
 {
   int flags;
 
@@ -907,7 +908,7 @@ mostly_true_jump (rtx jump_insn)
    type of jump, or it doesn't go to TARGET, return 0.  */
 
 static rtx
-get_branch_condition (rtx insn, rtx target)
+get_branch_condition (const rtx_insn *insn, rtx target)
 {
   rtx pat = PATTERN (insn);
   rtx src;
@@ -922,20 +923,20 @@ get_branch_condition (rtx insn, rtx target)
     return 0;
 
   src = SET_SRC (pat);
-  if (GET_CODE (src) == LABEL_REF && XEXP (src, 0) == target)
+  if (GET_CODE (src) == LABEL_REF && LABEL_REF_LABEL (src) == target)
     return const_true_rtx;
 
   else if (GET_CODE (src) == IF_THEN_ELSE
 	   && XEXP (src, 2) == pc_rtx
 	   && ((GET_CODE (XEXP (src, 1)) == LABEL_REF
-	        && XEXP (XEXP (src, 1), 0) == target)
+	        && LABEL_REF_LABEL (XEXP (src, 1)) == target)
 	       || (ANY_RETURN_P (XEXP (src, 1)) && XEXP (src, 1) == target)))
     return XEXP (src, 0);
 
   else if (GET_CODE (src) == IF_THEN_ELSE
 	   && XEXP (src, 1) == pc_rtx
 	   && ((GET_CODE (XEXP (src, 2)) == LABEL_REF
-		&& XEXP (XEXP (src, 2), 0) == target)
+		&& LABEL_REF_LABEL (XEXP (src, 2)) == target)
 	       || (ANY_RETURN_P (XEXP (src, 2)) && XEXP (src, 2) == target)))
     {
       enum rtx_code rev;
@@ -953,7 +954,7 @@ get_branch_condition (rtx insn, rtx target)
    INSN, i.e., if INSN will always branch if CONDITION is true.  */
 
 static int
-condition_dominates_p (rtx condition, rtx insn)
+condition_dominates_p (rtx condition, const rtx_insn *insn)
 {
   rtx other_condition = get_branch_condition (insn, JUMP_LABEL (insn));
   enum rtx_code code = GET_CODE (condition);
@@ -1425,7 +1426,7 @@ try_merge_delay_insns (rtx insn, rtx_insn *thread)
 
 		  update_block (dtrial, thread);
 		  new_rtx = delete_from_delay_slot (dtrial);
-	          if (INSN_DELETED_P (thread))
+	          if (thread->deleted ())
 		    thread = new_rtx;
 		  INSN_FROM_TARGET_P (next_to_match) = 0;
 		}
@@ -1463,7 +1464,7 @@ try_merge_delay_insns (rtx insn, rtx_insn *thread)
 
 	      update_block (merged_insns->insn (), thread);
 	      new_rtx = delete_from_delay_slot (merged_insns->insn ());
-	      if (INSN_DELETED_P (thread))
+	      if (thread->deleted ())
 		thread = new_rtx;
 	    }
 	  else
@@ -1547,12 +1548,12 @@ redundant_insn (rtx insn, rtx_insn *target, rtx delay_list)
 	     correctly.  */
 
 #ifdef INSN_SETS_ARE_DELAYED
-	  if (INSN_SETS_ARE_DELAYED (seq->element (0)))
+	  if (INSN_SETS_ARE_DELAYED (seq->insn (0)))
 	    return 0;
 #endif
 
 #ifdef INSN_REFERENCES_ARE_DELAYED
-	  if (INSN_REFERENCES_ARE_DELAYED (seq->element (0)))
+	  if (INSN_REFERENCES_ARE_DELAYED (seq->insn (0)))
 	    return 0;
 #endif
 
@@ -1640,7 +1641,7 @@ redundant_insn (rtx insn, rtx_insn *target, rtx delay_list)
       if (rtx_sequence *seq = dyn_cast <rtx_sequence *> (pat))
 	{
 	  bool annul_p = false;
-          rtx control = seq->element (0);
+          rtx_insn *control = seq->insn (0);
 
 	  /* If this is a CALL_INSN and its delay slots, it is hard to track
 	     the resource needs properly, so give up.  */
@@ -1899,7 +1900,7 @@ get_label_before (rtx_insn *insn, rtx sibling)
 
   if (label == 0 || !LABEL_P (label))
     {
-      rtx prev = PREV_INSN (insn);
+      rtx_insn *prev = PREV_INSN (insn);
 
       label = gen_label_rtx ();
       emit_label_after (label, prev);
@@ -1946,7 +1947,7 @@ fill_simple_delay_slots (int non_jumps_p)
 
       insn = unfilled_slots_base[i];
       if (insn == 0
-	  || INSN_DELETED_P (insn)
+	  || insn->deleted ()
 	  || (NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) == SEQUENCE)
 	  || (JUMP_P (insn) && non_jumps_p)
@@ -2306,7 +2307,7 @@ fill_simple_delay_slots (int non_jumps_p)
    set *CROSSING to true, otherwise set it to false.  */
 
 static rtx
-follow_jumps (rtx label, rtx jump, bool *crossing)
+follow_jumps (rtx label, rtx_insn *jump, bool *crossing)
 {
   rtx_insn *insn;
   rtx_insn *next;
@@ -2860,7 +2861,7 @@ fill_eager_delay_slots (void)
 
       insn = unfilled_slots_base[i];
       if (insn == 0
-	  || INSN_DELETED_P (insn)
+	  || insn->deleted ()
 	  || !JUMP_P (insn)
 	  || ! (condjump_p (insn) || condjump_in_parallel_p (insn)))
 	continue;
@@ -3134,7 +3135,7 @@ delete_computation (rtx insn)
    if that's what the previous thing was.  */
 
 static void
-delete_jump (rtx insn)
+delete_jump (rtx_insn *insn)
 {
   rtx set = single_set (insn);
 
@@ -3296,7 +3297,7 @@ relax_delay_slots (rtx_insn *first)
 	  && JUMP_P (next)
 	  && PATTERN (next) == PATTERN (delay_insn))
 	{
-	  rtx after;
+	  rtx_insn *after;
 	  int i;
 
 	  /* Delete the RETURN and just execute the delay list insns.
@@ -3320,8 +3321,8 @@ relax_delay_slots (rtx_insn *first)
 	  gcc_assert (GET_CODE (pat) == SEQUENCE);
 	  add_insn_after (delay_insn, trial, NULL);
 	  after = delay_insn;
-	  for (i = 1; i < XVECLEN (pat, 0); i++)
-	    after = emit_copy_of_insn_after (XVECEXP (pat, 0, i), after);
+	  for (i = 1; i < pat->len (); i++)
+	    after = emit_copy_of_insn_after (pat->insn (i), after);
 	  delete_scheduled_jump (delay_insn);
 	  continue;
 	}
@@ -3385,13 +3386,14 @@ relax_delay_slots (rtx_insn *first)
 
       /* Similarly, if it is an unconditional jump with one insn in its
 	 delay list and that insn is redundant, thread the jump.  */
-      if (trial && GET_CODE (PATTERN (trial)) == SEQUENCE
-	  && XVECLEN (PATTERN (trial), 0) == 2
-	  && JUMP_P (XVECEXP (PATTERN (trial), 0, 0))
-	  && simplejump_or_return_p (XVECEXP (PATTERN (trial), 0, 0))
-	  && redundant_insn (XVECEXP (PATTERN (trial), 0, 1), insn, 0))
+      rtx_sequence *trial_seq =
+	trial ? dyn_cast <rtx_sequence *> (PATTERN (trial)) : NULL;
+      if (trial_seq
+	  && trial_seq->len () == 2
+	  && JUMP_P (trial_seq->insn (0))
+	  && simplejump_or_return_p (trial_seq->insn (0))
+	  && redundant_insn (trial_seq->insn (1), insn, 0))
 	{
-	  rtx_sequence *trial_seq = as_a <rtx_sequence *> (PATTERN (trial));
 	  target_label = JUMP_LABEL (trial_seq->insn (0));
 	  if (ANY_RETURN_P (target_label))
 	    target_label = find_end_label (target_label);
@@ -3422,7 +3424,7 @@ relax_delay_slots (rtx_insn *first)
 #endif
 	  )
 	{
-	  rtx after;
+	  rtx_insn *after;
 	  int i;
 
 	  /* All this insn does is execute its delay list and jump to the
@@ -3448,8 +3450,8 @@ relax_delay_slots (rtx_insn *first)
 	  gcc_assert (GET_CODE (pat) == SEQUENCE);
 	  add_insn_after (delay_insn, trial, NULL);
 	  after = delay_insn;
-	  for (i = 1; i < XVECLEN (pat, 0); i++)
-	    after = emit_copy_of_insn_after (XVECEXP (pat, 0, i), after);
+	  for (i = 1; i < pat->len (); i++)
+	    after = emit_copy_of_insn_after (pat->insn (i), after);
 	  delete_scheduled_jump (delay_insn);
 	  continue;
 	}
@@ -3578,18 +3580,23 @@ make_return_insns (rtx_insn *first)
 
       /* Only look at filled JUMP_INSNs that go to the end of function
 	 label.  */
-      if (!NONJUMP_INSN_P (insn)
-	  || GET_CODE (PATTERN (insn)) != SEQUENCE
-	  || !jump_to_label_p (XVECEXP (PATTERN (insn), 0, 0)))
+      if (!NONJUMP_INSN_P (insn))
 	continue;
 
-      if (JUMP_LABEL (XVECEXP (PATTERN (insn), 0, 0)) == function_return_label)
+      if (GET_CODE (PATTERN (insn)) != SEQUENCE)
+	continue;
+
+      rtx_sequence *pat = as_a <rtx_sequence *> (PATTERN (insn));
+
+      if (!jump_to_label_p (pat->insn (0)))
+	continue;
+
+      if (JUMP_LABEL (pat->insn (0)) == function_return_label)
 	{
 	  kind = ret_rtx;
 	  real_label = real_return_label;
 	}
-      else if (JUMP_LABEL (XVECEXP (PATTERN (insn), 0, 0))
-	       == function_simple_return_label)
+      else if (JUMP_LABEL (pat->insn (0)) == function_simple_return_label)
 	{
 	  kind = simple_return_rtx;
 	  real_label = real_simple_return_label;
@@ -3597,7 +3604,6 @@ make_return_insns (rtx_insn *first)
       else
 	continue;
 
-      rtx_sequence *pat = as_a <rtx_sequence *> (PATTERN (insn));
       jump_insn = pat->insn (0);
 
       /* If we can't make the jump into a RETURN, try to redirect it to the best
@@ -3831,7 +3837,7 @@ dbr_schedule (rtx_insn *first)
       memset (total_annul_slots, 0, sizeof total_annul_slots);
       for (insn = first; insn; insn = NEXT_INSN (insn))
 	{
-	  if (! INSN_DELETED_P (insn)
+	  if (! insn->deleted ()
 	      && NONJUMP_INSN_P (insn)
 	      && GET_CODE (PATTERN (insn)) != USE
 	      && GET_CODE (PATTERN (insn)) != CLOBBER)

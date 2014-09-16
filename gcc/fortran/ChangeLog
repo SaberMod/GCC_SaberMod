@@ -1,3 +1,53 @@
+2014-09-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* Make-lang.in (check_gfortran_parallelize): Change to just an upper
+	bound number.
+
+2014-09-13  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/63252
+	* trans-decl.c (gfc_build_builtin_function_decls): Fix
+	caf_unlock declaration.
+
+2014-09-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* trans-types.c (gfc_init_kinds): Check
+	targetm.libgcc_floating_mode_supported_p for floating-point
+	modes.  Check HAVE_TFmode instead of LIBGCC2_HAS_TF_MODE.
+
+2014-09-05  Joost VandeVondele  <vondele@gcc.gnu.org>
+
+	PR fortran/62245
+	* intrinsic.texi (INT): clarify result.
+
+2014-09-03  Fritz Reese  <Reese-Fritz@zai.com>
+
+	PR fortran/62174
+	* decl.c (variable_decl): Don't overwrite typespecs of Cray pointees
+	when matching a component declaration.
+
+2014-09-02  Marek Polacek  <polacek@redhat.com>
+
+	PR fortran/62270
+	* interface.c (compare_parameter): Fix condition.
+	* trans-expr.c (gfc_conv_procedure_call): Likewise.
+
+2014-08-31  Fritz Reese  <Reese-Fritz@zai.com>
+
+	PR fortran/62309
+	* resolve.c (apply_default_init_local): Don't treat variables
+	in RECURSIVE procedures as saved.
+
+2014-08-31  Tobias Burnus  <burnus@net-b.de>
+
+	* trans-decl.c (gfc_build_builtin_function_decls): Add
+	may_require_tmp dummy argument.
+	* trans-intrinsic.c (gfc_conv_intrinsic_caf_get,
+	conv_caf_send): Handle may_require_tmp argument.
+	(gfc_conv_intrinsic_function): Update call.
+	* gfortran.texi (_gfortran_caf_send, _gfortran_caf_get,
+	_gfortran_caf_sendget): Update interface description.
+
 2014-08-30  Tobias Burnus  <burnus@net-b.de>
 
 	* trans.h (gfc_caf_get_image_index,

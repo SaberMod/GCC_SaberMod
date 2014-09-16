@@ -82,8 +82,6 @@ enum aarch64_type_qualifiers
   qualifier_const = 0x2, /* 1 << 1  */
   /* T *foo.  */
   qualifier_pointer = 0x4, /* 1 << 2  */
-  /* const T *foo.  */
-  qualifier_const_pointer = 0x6, /* qualifier_const | qualifier_pointer  */
   /* Used when expanding arguments if an operand could
      be an immediate.  */
   qualifier_immediate = 0x8, /* 1 << 3  */
@@ -98,7 +96,7 @@ enum aarch64_type_qualifiers
   qualifier_map_mode = 0x80, /* 1 << 7  */
   /* qualifier_pointer | qualifier_map_mode  */
   qualifier_pointer_map_mode = 0x84,
-  /* qualifier_const_pointer | qualifier_map_mode  */
+  /* qualifier_const | qualifier_pointer | qualifier_map_mode  */
   qualifier_const_pointer_map_mode = 0x86,
   /* Polynomial types.  */
   qualifier_poly = 0x100
@@ -124,23 +122,6 @@ aarch64_types_unopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_unsigned, qualifier_unsigned };
 #define TYPES_UNOPU (aarch64_types_unopu_qualifiers)
 #define TYPES_CREATE (aarch64_types_unop_qualifiers)
-#define TYPES_REINTERP_SS (aarch64_types_unop_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_su_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_unsigned };
-#define TYPES_REINTERP_SU (aarch64_types_unop_su_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_sp_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_none, qualifier_poly };
-#define TYPES_REINTERP_SP (aarch64_types_unop_sp_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_us_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_unsigned, qualifier_none };
-#define TYPES_REINTERP_US (aarch64_types_unop_us_qualifiers)
-static enum aarch64_type_qualifiers
-aarch64_types_unop_ps_qualifiers[SIMD_MAX_BUILTIN_ARGS]
-  = { qualifier_poly, qualifier_none };
-#define TYPES_REINTERP_PS (aarch64_types_unop_ps_qualifiers)
 static enum aarch64_type_qualifiers
 aarch64_types_binop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_maybe_immediate };
@@ -177,10 +158,10 @@ aarch64_types_ternopu_qualifiers[SIMD_MAX_BUILTIN_ARGS]
 #define TYPES_TERNOPU (aarch64_types_ternopu_qualifiers)
 
 static enum aarch64_type_qualifiers
-aarch64_types_quadop_qualifiers[SIMD_MAX_BUILTIN_ARGS]
+aarch64_types_ternop_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_none, qualifier_none,
-      qualifier_none, qualifier_none };
-#define TYPES_QUADOP (aarch64_types_quadop_qualifiers)
+      qualifier_none, qualifier_immediate };
+#define TYPES_TERNOP_LANE (aarch64_types_ternop_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
 aarch64_types_getlane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
@@ -321,8 +302,6 @@ aarch64_types_storestruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
 	 v4si, v2di, v2sf, v4sf, v2df, di, df)
 #define BUILTIN_VB(T, N, MAP) \
   VAR2 (T, N, MAP, v8qi, v16qi)
-#define BUILTIN_VD(T, N, MAP) \
-  VAR4 (T, N, MAP, v8qi, v4hi, v2si, v2sf)
 #define BUILTIN_VD1(T, N, MAP) \
   VAR5 (T, N, MAP, v8qi, v4hi, v2si, v2sf, v1df)
 #define BUILTIN_VDC(T, N, MAP) \
@@ -862,9 +841,8 @@ typedef enum
 
 static rtx
 aarch64_simd_expand_args (rtx target, int icode, int have_retval,
-			  tree exp, ...)
+			  tree exp, builtin_simd_arg *args)
 {
-  va_list ap;
   rtx pat;
   tree arg[SIMD_MAX_BUILTIN_ARGS];
   rtx op[SIMD_MAX_BUILTIN_ARGS];
@@ -878,11 +856,9 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	  || !(*insn_data[icode].operand[0].predicate) (target, tmode)))
     target = gen_reg_rtx (tmode);
 
-  va_start (ap, exp);
-
   for (;;)
     {
-      builtin_simd_arg thisarg = (builtin_simd_arg) va_arg (ap, int);
+      builtin_simd_arg thisarg = args[argc];
 
       if (thisarg == SIMD_ARG_STOP)
 	break;
@@ -906,8 +882,11 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	    case SIMD_ARG_CONSTANT:
 	      if (!(*insn_data[icode].operand[argc + have_retval].predicate)
 		  (op[argc], mode[argc]))
+	      {
 		error_at (EXPR_LOCATION (exp), "incompatible type for argument %d, "
 		       "expected %<const int%>", argc + 1);
+		return const0_rtx;
+	      }
 	      break;
 
 	    case SIMD_ARG_STOP:
@@ -917,8 +896,6 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	  argc++;
 	}
     }
-
-  va_end (ap);
 
   if (have_retval)
     switch (argc)
@@ -974,7 +951,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
       }
 
   if (!pat)
-    return 0;
+    return NULL_RTX;
 
   emit_insn (pat);
 
@@ -1033,12 +1010,7 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
   /* The interface to aarch64_simd_expand_args expects a 0 if
      the function is void, and a 1 if it is not.  */
   return aarch64_simd_expand_args
-	  (target, icode, !is_void, exp,
-	   args[1],
-	   args[2],
-	   args[3],
-	   args[4],
-	   SIMD_ARG_STOP);
+	  (target, icode, !is_void, exp, &args[1]);
 }
 
 rtx
@@ -1070,8 +1042,9 @@ aarch64_crc32_expand_builtin (int fcode, tree exp, rtx target)
     op1 = copy_to_mode_reg (mode1, op1);
 
   pat = GEN_FCN (icode) (target, op0, op1);
-  if (! pat)
-    return 0;
+  if (!pat)
+    return NULL_RTX;
+
   emit_insn (pat);
   return target;
 }
@@ -1123,7 +1096,7 @@ aarch64_expand_builtin (tree exp,
   else if (fcode >= AARCH64_CRC32_BUILTIN_BASE && fcode <= AARCH64_CRC32_BUILTIN_MAX)
     return aarch64_crc32_expand_builtin (fcode, exp, target);
 
-  return NULL_RTX;
+  gcc_unreachable ();
 }
 
 tree
@@ -1288,40 +1261,6 @@ aarch64_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED, tree *args,
       BUILTIN_VALLDI (UNOP, abs, 2)
 	return fold_build1 (ABS_EXPR, type, args[0]);
 	break;
-      BUILTIN_VALLDI (BINOP, cmge, 0)
-	return fold_build2 (GE_EXPR, type, args[0], args[1]);
-	break;
-      BUILTIN_VALLDI (BINOP, cmgt, 0)
-	return fold_build2 (GT_EXPR, type, args[0], args[1]);
-	break;
-      BUILTIN_VALLDI (BINOP, cmeq, 0)
-	return fold_build2 (EQ_EXPR, type, args[0], args[1]);
-	break;
-      BUILTIN_VSDQ_I_DI (BINOP, cmtst, 0)
-	{
-	  tree and_node = fold_build2 (BIT_AND_EXPR, type, args[0], args[1]);
-	  tree vec_zero_node = build_zero_cst (type);
-	  return fold_build2 (NE_EXPR, type, and_node, vec_zero_node);
-	  break;
-	}
-      VAR1 (REINTERP_SS, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv2si, 0, v1df)
-      VAR1 (REINTERP_SS, reinterpretv2sf, 0, v1df)
-      BUILTIN_VD (REINTERP_SS, reinterpretv1df, 0)
-      BUILTIN_VD (REINTERP_SU, reinterpretv1df, 0)
-      VAR1 (REINTERP_US, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv2si, 0, v1df)
-      VAR1 (REINTERP_US, reinterpretv2sf, 0, v1df)
-      BUILTIN_VD (REINTERP_SP, reinterpretv1df, 0)
-      VAR1 (REINTERP_PS, reinterpretdi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv8qi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv4hi, 0, v1df)
-      VAR1 (REINTERP_PS, reinterpretv2sf, 0, v1df)
-	return fold_build1 (VIEW_CONVERT_EXPR, type, args[0]);
       VAR1 (UNOP, floatv2si, 2, v2sf)
       VAR1 (UNOP, floatv4si, 2, v4sf)
       VAR1 (UNOP, floatv2di, 2, v2df)
@@ -1513,7 +1452,6 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef BUILTIN_V2F
 #undef BUILTIN_VALL
 #undef BUILTIN_VB
-#undef BUILTIN_VD
 #undef BUILTIN_VD1
 #undef BUILTIN_VDC
 #undef BUILTIN_VDIC

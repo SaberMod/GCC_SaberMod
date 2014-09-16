@@ -636,6 +636,12 @@ default_options_optimization (struct gcc_options *opts,
 			   default_param_value (PARAM_MIN_CROSSJUMP_INSNS),
 			   opts->x_param_values, opts_set->x_param_values);
 
+  /* Restrict the amount of work combine does at -Og while retaining
+     most of its useful transforms.  */
+  if (opts->x_optimize_debug)
+    maybe_set_param_value (PARAM_MAX_COMBINE_INSNS, 2,
+			   opts->x_param_values, opts_set->x_param_values);
+
   /* Allow default optimizations to be specified on a per-machine basis.  */
   maybe_default_options (opts, opts_set,
 			 targetm_common.option_optimization_table,
@@ -1493,6 +1499,11 @@ common_handle_option (struct gcc_options *opts,
 		sizeof "float-cast-overflow" - 1 },
 	      { "bounds", SANITIZE_BOUNDS, sizeof "bounds" - 1 },
 	      { "alignment", SANITIZE_ALIGNMENT, sizeof "alignment" - 1 },
+	      { "nonnull-attribute", SANITIZE_NONNULL_ATTRIBUTE,
+		sizeof "nonnull-attribute" - 1 },
+	      { "returns-nonnull-attribute",
+		SANITIZE_RETURNS_NONNULL_ATTRIBUTE,
+		sizeof "returns-nonnull-attribute" - 1 },
 	      { NULL, 0, 0 }
 	    };
 	    const char *comma;
@@ -1536,7 +1547,8 @@ common_handle_option (struct gcc_options *opts,
 
 	/* When instrumenting the pointers, we don't want to remove
 	   the null pointer checks.  */
-	if (flag_sanitize & SANITIZE_NULL)
+	if (flag_sanitize & (SANITIZE_NULL | SANITIZE_NONNULL_ATTRIBUTE
+			     | SANITIZE_RETURNS_NONNULL_ATTRIBUTE))
 	  opts->x_flag_delete_null_pointer_checks = 0;
 
 	/* Kernel ASan implies normal ASan but does not yet support

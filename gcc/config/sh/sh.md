@@ -869,9 +869,9 @@
 
 (define_insn "*cmp_div0s_0"
   [(set (reg:SI T_REG)
-	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand")
+	(eq:SI (lshiftrt:SI (match_operand:SI 0 "arith_reg_operand" "%r")
 			    (const_int 31))
-	       (ge:SI (match_operand:SI 1 "arith_reg_operand")
+	       (ge:SI (match_operand:SI 1 "arith_reg_operand" "r")
 		      (const_int 0))))]
   "TARGET_SH1"
   "div0s	%0,%1"
@@ -1566,7 +1566,8 @@
   [(set (match_dup 0) (match_dup 3))
    (set (match_dup 4) (match_dup 5))]
 {
-  rtx set1, set2, insn2;
+  rtx set1, set2;
+  rtx_insn *insn2;
   rtx replacements[4];
 
   /* We want to replace occurrences of operands[0] with operands[1] and
@@ -3335,7 +3336,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3364,7 +3366,8 @@ label:
 	(reg:SI MACL_REG))]
   "TARGET_SH1"
 {
-  rtx insn, macl;
+  rtx_insn *insn;
+  rtx macl;
 
   macl = gen_rtx_REG (SImode, MACL_REG);
   start_sequence ();
@@ -3612,7 +3615,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();
@@ -3658,7 +3662,8 @@ label:
 	(reg:SI MACH_REG))]
   "TARGET_SH2"
 {
-  rtx insn, mach;
+  rtx_insn *insn;
+  rtx mach;
 
   mach = gen_rtx_REG (SImode, MACH_REG);
   start_sequence ();

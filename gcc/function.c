@@ -1933,7 +1933,7 @@ instantiate_virtual_regs (void)
 	else
 	  instantiate_virtual_regs_in_insn (insn);
 
-	if (INSN_DELETED_P (insn))
+	if (insn->deleted ())
 	  continue;
 
 	instantiate_virtual_regs_in_rtx (&REG_NOTES (insn));
@@ -4555,6 +4555,9 @@ allocate_struct_function (tree fndecl, bool abstract_p)
          but is this worth the hassle?  */
       cfun->can_throw_non_call_exceptions = flag_non_call_exceptions;
       cfun->can_delete_dead_exceptions = flag_delete_dead_exceptions;
+
+      if (!profile_flag && !flag_instrument_function_entry_exit)
+	DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (fndecl) = 1;
     }
 }
 
@@ -4661,7 +4664,7 @@ void
 stack_protect_epilogue (void)
 {
   tree guard_decl = targetm.stack_protect_guard ();
-  rtx label = gen_label_rtx ();
+  rtx_code_label *label = gen_label_rtx ();
   rtx x, y, tmp;
 
   x = expand_normal (crtl->stack_protect_guard);
@@ -5460,7 +5463,7 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
 
   FOR_EACH_VEC_ELT (src_bbs, i, bb)
     {
-      rtx jump = BB_END (bb);
+      rtx_insn *jump = BB_END (bb);
 
       if (!JUMP_P (jump) || JUMP_LABEL (jump) != label)
 	continue;
@@ -6093,14 +6096,10 @@ used_types_insert_helper (tree type, struct function *func)
 {
   if (type != NULL && func != NULL)
     {
-      void **slot;
-
       if (func->used_types_hash == NULL)
-	func->used_types_hash = htab_create_ggc (37, htab_hash_pointer,
-						 htab_eq_pointer, NULL);
-      slot = htab_find_slot (func->used_types_hash, type, INSERT);
-      if (*slot == NULL)
-	*slot = type;
+	func->used_types_hash = hash_set<tree>::create_ggc (37);
+
+      func->used_types_hash->add (type);
     }
 }
 

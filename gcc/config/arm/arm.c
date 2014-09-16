@@ -255,9 +255,9 @@ static void arm_asm_trampoline_template (FILE *);
 static void arm_trampoline_init (rtx, tree, rtx);
 static rtx arm_trampoline_adjust_address (rtx);
 static rtx arm_pic_static_addr (rtx orig, rtx reg);
-static bool cortex_a9_sched_adjust_cost (rtx, rtx, rtx, int *);
-static bool xscale_sched_adjust_cost (rtx, rtx, rtx, int *);
-static bool fa726te_sched_adjust_cost (rtx, rtx, rtx, int *);
+static bool cortex_a9_sched_adjust_cost (rtx_insn *, rtx, rtx_insn *, int *);
+static bool xscale_sched_adjust_cost (rtx_insn *, rtx, rtx_insn *, int *);
+static bool fa726te_sched_adjust_cost (rtx_insn *, rtx, rtx_insn *, int *);
 static bool arm_array_mode_supported_p (enum machine_mode,
 					unsigned HOST_WIDE_INT);
 static enum machine_mode arm_preferred_simd_mode (enum machine_mode);
@@ -1698,7 +1698,9 @@ const struct tune_params arm_slowmul_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_fastmul_tune =
@@ -1715,7 +1717,9 @@ const struct tune_params arm_fastmul_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 /* StrongARM has early execution of branches, so a sequence that is worth
@@ -1735,7 +1739,9 @@ const struct tune_params arm_strongarm_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_xscale_tune =
@@ -1752,7 +1758,9 @@ const struct tune_params arm_xscale_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_9e_tune =
@@ -1769,7 +1777,9 @@ const struct tune_params arm_9e_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_v6t2_tune =
@@ -1786,7 +1796,9 @@ const struct tune_params arm_v6t2_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 /* Generic Cortex tuning.  Use more specific tunings if appropriate.  */
@@ -1804,7 +1816,9 @@ const struct tune_params arm_cortex_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a8_tune =
@@ -1821,7 +1835,9 @@ const struct tune_params arm_cortex_a8_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  true,						/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a7_tune =
@@ -1838,7 +1854,9 @@ const struct tune_params arm_cortex_a7_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,			/* Vectorizer costs.  */
   false,					/* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  true,						/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a15_tune =
@@ -1855,7 +1873,9 @@ const struct tune_params arm_cortex_a15_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  true, true                                    /* Prefer 32-bit encodings.  */
+  true, true,                                   /* Prefer 32-bit encodings.  */
+  true,						/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a53_tune =
@@ -1872,7 +1892,9 @@ const struct tune_params arm_cortex_a53_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,			/* Vectorizer costs.  */
   false,					/* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a57_tune =
@@ -1889,7 +1911,9 @@ const struct tune_params arm_cortex_a57_tune =
   {true, true},                                /* Prefer non short circuit.  */
   &arm_default_vec_cost,                       /* Vectorizer costs.  */
   false,                                       /* Prefer Neon for 64-bits bitops.  */
-  true, true                                   /* Prefer 32-bit encodings.  */
+  true, true,                                  /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 /* Branches can be dual-issued on Cortex-A5, so conditional execution is
@@ -1909,7 +1933,9 @@ const struct tune_params arm_cortex_a5_tune =
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  true,						/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a9_tune =
@@ -1926,7 +1952,9 @@ const struct tune_params arm_cortex_a9_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_cortex_a12_tune =
@@ -1943,7 +1971,9 @@ const struct tune_params arm_cortex_a12_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  true,						/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 /* armv7m tuning.  On Cortex-M4 cores for example, MOVW/MOVT take a single
@@ -1967,7 +1997,9 @@ const struct tune_params arm_v7m_tune =
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
@@ -1986,7 +2018,9 @@ const struct tune_params arm_v6m_tune =
   {false, false},				/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 const struct tune_params arm_fa726te_tune =
@@ -2003,7 +2037,9 @@ const struct tune_params arm_fa726te_tune =
   {true, true},					/* Prefer non short circuit.  */
   &arm_default_vec_cost,                        /* Vectorizer costs.  */
   false,                                        /* Prefer Neon for 64-bits bitops.  */
-  false, false                                  /* Prefer 32-bit encodings.  */
+  false, false,                                 /* Prefer 32-bit encodings.  */
+  false,					/* Prefer Neon for stringops.  */
+  8						/* Maximum insns to inline memset.  */
 };
 
 
@@ -11404,7 +11440,7 @@ arm_address_cost (rtx x, enum machine_mode mode ATTRIBUTE_UNUSED,
 
 /* Adjust cost hook for XScale.  */
 static bool
-xscale_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
+xscale_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int * cost)
 {
   /* Some true dependencies can have a higher cost depending
      on precisely how certain input operands are used.  */
@@ -11465,7 +11501,7 @@ xscale_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
 
 /* Adjust cost hook for Cortex A9.  */
 static bool
-cortex_a9_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
+cortex_a9_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int * cost)
 {
   switch (REG_NOTE_KIND (link))
     {
@@ -11538,7 +11574,7 @@ cortex_a9_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
 
 /* Adjust cost hook for FA726TE.  */
 static bool
-fa726te_sched_adjust_cost (rtx insn, rtx link, rtx dep, int * cost)
+fa726te_sched_adjust_cost (rtx_insn *insn, rtx link, rtx_insn *dep, int * cost)
 {
   /* For FA726TE, true dependency on CPSR (i.e. set cond followed by predicated)
      have penalty of 3.  */
@@ -11707,7 +11743,7 @@ arm_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
 
 /* Return true if and only if this insn can dual-issue only as older.  */
 static bool
-cortexa7_older_only (rtx insn)
+cortexa7_older_only (rtx_insn *insn)
 {
   if (recog_memoized (insn) < 0)
     return false;
@@ -11759,7 +11795,7 @@ cortexa7_older_only (rtx insn)
 
 /* Return true if and only if this insn can dual-issue as younger.  */
 static bool
-cortexa7_younger (FILE *file, int verbose, rtx insn)
+cortexa7_younger (FILE *file, int verbose, rtx_insn *insn)
 {
   if (recog_memoized (insn) < 0)
     {
@@ -14490,7 +14526,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 			       unsigned int interleave_factor,
 			       HOST_WIDE_INT bytes_per_iter)
 {
-  rtx label, src_reg, dest_reg, final_src, test;
+  rtx src_reg, dest_reg, final_src, test;
   HOST_WIDE_INT leftover;
   
   leftover = length % bytes_per_iter;
@@ -14506,7 +14542,7 @@ arm_block_move_unaligned_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 				   0, 0, OPTAB_WIDEN);
 
   /* Emit the start of the loop.  */
-  label = gen_label_rtx ();
+  rtx_code_label *label = gen_label_rtx ();
   emit_label (label);
   
   /* Emit the loop body.  */
@@ -16108,7 +16144,7 @@ struct minipool_fixup
 
 static Mnode *	minipool_vector_head;
 static Mnode *	minipool_vector_tail;
-static rtx	minipool_vector_label;
+static rtx_code_label	*minipool_vector_label;
 static int	minipool_pad;
 
 /* The linked list of all minipool fixes required for this function.  */
@@ -16903,6 +16939,14 @@ arm_const_double_inline_cost (rtx val)
 			      NULL_RTX, NULL_RTX, 0, 0));
 }
 
+/* Cost of loading a SImode constant.  */
+static inline int
+arm_const_inline_cost (enum rtx_code code, rtx val)
+{
+  return arm_gen_constant (code, SImode, NULL_RTX, INTVAL (val),
+                           NULL_RTX, NULL_RTX, 1, 0);
+}
+
 /* Return true if it is worthwhile to split a 64-bit constant into two
    32-bit operations.  This is the case if optimizing for size, or
    if we have load delay slots, or if one 32-bit part can be done with
@@ -17495,24 +17539,7 @@ arm_reorg (void)
 
 /* Routines to output assembly language.  */
 
-/* If the rtx is the correct value then return the string of the number.
-   In this way we can ensure that valid double constants are generated even
-   when cross compiling.  */
-const char *
-fp_immediate_constant (rtx x)
-{
-  REAL_VALUE_TYPE r;
-
-  if (!fp_consts_inited)
-    init_fp_table ();
-
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-
-  gcc_assert (REAL_VALUES_EQUAL (r, value_fp0));
-  return "0";
-}
-
-/* As for fp_immediate_constant, but value is passed directly, not in rtx.  */
+/* Return string representation of passed in real value.  */
 static const char *
 fp_const_from_val (REAL_VALUE_TYPE *r)
 {
@@ -17603,14 +17630,22 @@ arm_output_multireg_pop (rtx *operands, bool return_pc, rtx cond, bool reverse,
 /* Output the assembly for a store multiple.  */
 
 const char *
-vfp_output_fstmd (rtx * operands)
+vfp_output_vstmd (rtx * operands)
 {
   char pattern[100];
   int p;
   int base;
   int i;
+  rtx addr_reg = REG_P (XEXP (operands[0], 0))
+		   ? XEXP (operands[0], 0)
+		   : XEXP (XEXP (operands[0], 0), 0);
+  bool push_p =  REGNO (addr_reg) == SP_REGNUM;
 
-  strcpy (pattern, "fstmfdd%?\t%m0!, {%P1");
+  if (push_p)
+    strcpy (pattern, "vpush%?.64\t{%P1");
+  else
+    strcpy (pattern, "vstmdb%?.64\t%m0!, {%P1");
+
   p = strlen (pattern);
 
   gcc_assert (REG_P (operands[1]));
@@ -18428,19 +18463,19 @@ output_move_vfp (rtx *operands)
   switch (GET_CODE (addr))
     {
     case PRE_DEC:
-      templ = "f%smdb%c%%?\t%%0!, {%%%s1}%s";
+      templ = "v%smdb%%?.%s\t%%0!, {%%%s1}%s";
       ops[0] = XEXP (addr, 0);
       ops[1] = reg;
       break;
 
     case POST_INC:
-      templ = "f%smia%c%%?\t%%0!, {%%%s1}%s";
+      templ = "v%smia%%?.%s\t%%0!, {%%%s1}%s";
       ops[0] = XEXP (addr, 0);
       ops[1] = reg;
       break;
 
     default:
-      templ = "f%s%c%%?\t%%%s0, %%1%s";
+      templ = "v%sr%%?.%s\t%%%s0, %%1%s";
       ops[0] = reg;
       ops[1] = mem;
       break;
@@ -18448,7 +18483,7 @@ output_move_vfp (rtx *operands)
 
   sprintf (buff, templ,
 	   load ? "ld" : "st",
-	   dp ? 'd' : 's',
+	   dp ? "64" : "32",
 	   dp ? "P" : "",
 	   integer_p ? "\t%@ int" : "");
   output_asm_insn (buff, ops);
@@ -18555,6 +18590,20 @@ output_move_neon (rtx *operands)
       /* FIXME: Not currently enabled in neon_vector_mem_operand.  */
       gcc_unreachable ();
 
+    case REG:
+      /* We have to use vldm / vstm for too-large modes.  */
+      if (nregs > 1)
+	{
+	  if (nregs > 4)
+	    templ = "v%smia%%?\t%%m0, %%h1";
+	  else
+	    templ = "v%s1.64\t%%h1, %%A0";
+
+	  ops[0] = mem;
+	  ops[1] = reg;
+	  break;
+	}
+      /* Fall through.  */
     case LABEL_REF:
     case PLUS:
       {
@@ -18588,14 +18637,7 @@ output_move_neon (rtx *operands)
       }
 
     default:
-      /* We have to use vldm / vstm for too-large modes.  */
-      if (nregs > 4)
-	templ = "v%smia%%?\t%%m0, %%h1";
-      else
-	templ = "v%s1.64\t%%h1, %%A0";
-
-      ops[0] = mem;
-      ops[1] = reg;
+      gcc_unreachable ();
     }
 
   sprintf (buff, templ, load ? "ld" : "st");
@@ -18607,7 +18649,7 @@ output_move_neon (rtx *operands)
 /* Compute and return the length of neon_mov<mode>, where <mode> is
    one of VSTRUCT modes: EI, OI, CI or XI.  */
 int
-arm_attr_length_move_neon (rtx insn)
+arm_attr_length_move_neon (rtx_insn *insn)
 {
   rtx reg, mem, addr;
   int load;
@@ -18658,7 +18700,7 @@ arm_attr_length_move_neon (rtx insn)
    return zero.  */
 
 int
-arm_address_offset_is_imm (rtx insn)
+arm_address_offset_is_imm (rtx_insn *insn)
 {
   rtx mem, addr;
 
@@ -22097,15 +22139,12 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  break;
 
 	case CONST_DOUBLE:
-          if (TARGET_NEON)
-            {
-              char fpstr[20];
-              real_to_decimal (fpstr, CONST_DOUBLE_REAL_VALUE (x),
-			       sizeof (fpstr), 0, 1);
-              fprintf (stream, "#%s", fpstr);
-            }
-          else
-	    fprintf (stream, "#%s", fp_immediate_constant (x));
+	  {
+            char fpstr[20];
+            real_to_decimal (fpstr, CONST_DOUBLE_REAL_VALUE (x),
+			      sizeof (fpstr), 0, 1);
+            fprintf (stream, "#%s", fpstr);
+	  }
 	  break;
 
 	default:
@@ -23254,6 +23293,7 @@ typedef enum {
   NEON_SETLANE,
   NEON_CREATE,
   NEON_RINT,
+  NEON_COPYSIGNF,
   NEON_DUP,
   NEON_DUPLANE,
   NEON_COMBINE,
@@ -24248,6 +24288,22 @@ arm_init_neon_builtins (void)
 	    ftype = build_function_type_list (eltype, eltype, NULL);
 	    break;
 	}
+	case NEON_COPYSIGNF:
+	  {
+	    tree eltype = NULL_TREE;
+	    switch (insn_data[d->code].operand[1].mode)
+	      {
+	      case V2SFmode:
+		eltype = V2SF_type_node;
+		break;
+	      case V4SFmode:
+		eltype = V4SF_type_node;
+		break;
+	      default: gcc_unreachable ();
+	      }
+	    ftype = build_function_type_list (eltype, eltype, NULL);
+	    break;
+	  }
 	default:
 	  gcc_unreachable ();
 	}
@@ -25451,6 +25507,7 @@ arm_expand_neon_builtin (int fcode, tree exp, rtx target)
       return arm_expand_neon_args (target, icode, 1, type_mode, exp, fcode,
         NEON_ARG_COPY_TO_REG, NEON_ARG_STOP);
 
+    case NEON_COPYSIGNF:
     case NEON_COMBINE:
     case NEON_VTBL:
       return arm_expand_neon_args (target, icode, 1, type_mode, exp, fcode,
@@ -29970,6 +30027,7 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
 {
   enum machine_mode in_mode, out_mode;
   int in_n, out_n;
+  bool out_unsigned_p = TYPE_UNSIGNED (type_out);
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE)
@@ -30015,29 +30073,66 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
             return ARM_FIND_VRINT_VARIANT (vrintz);
           case BUILT_IN_ROUNDF:
             return ARM_FIND_VRINT_VARIANT (vrinta);
+#undef ARM_CHECK_BUILTIN_MODE_1
+#define ARM_CHECK_BUILTIN_MODE_1(C) \
+  (out_mode == SImode && out_n == C \
+   && in_mode == SFmode && in_n == C)
+
+#define ARM_FIND_VCVT_VARIANT(N) \
+  (ARM_CHECK_BUILTIN_MODE (2) \
+   ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##v2sfv2si, false) \
+   : (ARM_CHECK_BUILTIN_MODE (4) \
+     ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##v4sfv4si, false) \
+     : NULL_TREE))
+
+#define ARM_FIND_VCVTU_VARIANT(N) \
+  (ARM_CHECK_BUILTIN_MODE (2) \
+   ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##uv2sfv2si, false) \
+   : (ARM_CHECK_BUILTIN_MODE (4) \
+     ? arm_builtin_decl(ARM_BUILTIN_NEON_##N##uv4sfv4si, false) \
+     : NULL_TREE))
+          case BUILT_IN_LROUNDF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvta)
+                     : ARM_FIND_VCVT_VARIANT (vcvta);
+          case BUILT_IN_LCEILF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvtp)
+                     : ARM_FIND_VCVT_VARIANT (vcvtp);
+          case BUILT_IN_LFLOORF:
+            return out_unsigned_p
+                     ? ARM_FIND_VCVTU_VARIANT (vcvtm)
+                     : ARM_FIND_VCVT_VARIANT (vcvtm);
 #undef ARM_CHECK_BUILTIN_MODE
 #define ARM_CHECK_BUILTIN_MODE(C, N) \
-  (out_mode == N##Imode && out_n == C \
-   && in_mode == N##Imode && in_n == C)
+  (out_mode == N##mode && out_n == C \
+   && in_mode == N##mode && in_n == C)
           case BUILT_IN_BSWAP16:
-            if (ARM_CHECK_BUILTIN_MODE (4, H))
+            if (ARM_CHECK_BUILTIN_MODE (4, HI))
               return arm_builtin_decl (ARM_BUILTIN_NEON_bswapv4hi, false);
-            else if (ARM_CHECK_BUILTIN_MODE (8, H))
+            else if (ARM_CHECK_BUILTIN_MODE (8, HI))
               return arm_builtin_decl (ARM_BUILTIN_NEON_bswapv8hi, false);
             else
               return NULL_TREE;
           case BUILT_IN_BSWAP32:
-            if (ARM_CHECK_BUILTIN_MODE (2, S))
+            if (ARM_CHECK_BUILTIN_MODE (2, SI))
               return arm_builtin_decl (ARM_BUILTIN_NEON_bswapv2si, false);
-            else if (ARM_CHECK_BUILTIN_MODE (4, S))
+            else if (ARM_CHECK_BUILTIN_MODE (4, SI))
               return arm_builtin_decl (ARM_BUILTIN_NEON_bswapv4si, false);
             else
               return NULL_TREE;
           case BUILT_IN_BSWAP64:
-            if (ARM_CHECK_BUILTIN_MODE (2, D))
+            if (ARM_CHECK_BUILTIN_MODE (2, DI))
               return arm_builtin_decl (ARM_BUILTIN_NEON_bswapv2di, false);
             else
               return NULL_TREE;
+	  case BUILT_IN_COPYSIGNF:
+	    if (ARM_CHECK_BUILTIN_MODE (2, SF))
+              return arm_builtin_decl (ARM_BUILTIN_NEON_copysignfv2sf, false);
+	    else if (ARM_CHECK_BUILTIN_MODE (4, SF))
+              return arm_builtin_decl (ARM_BUILTIN_NEON_copysignfv4sf, false);
+	    else
+	      return NULL_TREE;
 
           default:
             return NULL_TREE;
@@ -30045,8 +30140,11 @@ arm_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
     }
   return NULL_TREE;
 }
+#undef ARM_FIND_VCVT_VARIANT
+#undef ARM_FIND_VCVTU_VARIANT
 #undef ARM_CHECK_BUILTIN_MODE
 #undef ARM_FIND_VRINT_VARIANT
+
 
 /* The AAPCS sets the maximum alignment of a vector to 64 bits.  */
 static HOST_WIDE_INT
@@ -31568,6 +31666,519 @@ arm_validize_comparison (rtx *comparison, rtx * op1, rtx * op2)
 
   return false;
 
+}
+
+/* Maximum number of instructions to set block of memory.  */
+static int
+arm_block_set_max_insns (void)
+{
+  if (optimize_function_for_size_p (cfun))
+    return 4;
+  else
+    return current_tune->max_insns_inline_memset;
+}
+
+/* Return TRUE if it's profitable to set block of memory for
+   non-vectorized case.  VAL is the value to set the memory
+   with.  LENGTH is the number of bytes to set.  ALIGN is the
+   alignment of the destination memory in bytes.  UNALIGNED_P
+   is TRUE if we can only set the memory with instructions
+   meeting alignment requirements.  USE_STRD_P is TRUE if we
+   can use strd to set the memory.  */
+static bool
+arm_block_set_non_vect_profit_p (rtx val,
+				 unsigned HOST_WIDE_INT length,
+				 unsigned HOST_WIDE_INT align,
+				 bool unaligned_p, bool use_strd_p)
+{
+  int num = 0;
+  /* For leftovers in bytes of 0-7, we can set the memory block using
+     strb/strh/str with minimum instruction number.  */
+  const int leftover[8] = {0, 1, 1, 2, 1, 2, 2, 3};
+
+  if (unaligned_p)
+    {
+      num = arm_const_inline_cost (SET, val);
+      num += length / align + length % align;
+    }
+  else if (use_strd_p)
+    {
+      num = arm_const_double_inline_cost (val);
+      num += (length >> 3) + leftover[length & 7];
+    }
+  else
+    {
+      num = arm_const_inline_cost (SET, val);
+      num += (length >> 2) + leftover[length & 3];
+    }
+
+  /* We may be able to combine last pair STRH/STRB into a single STR
+     by shifting one byte back.  */
+  if (unaligned_access && length > 3 && (length & 3) == 3)
+    num--;
+
+  return (num <= arm_block_set_max_insns ());
+}
+
+/* Return TRUE if it's profitable to set block of memory for
+   vectorized case.  LENGTH is the number of bytes to set.
+   ALIGN is the alignment of destination memory in bytes.
+   MODE is the vector mode used to set the memory.  */
+static bool
+arm_block_set_vect_profit_p (unsigned HOST_WIDE_INT length,
+			     unsigned HOST_WIDE_INT align,
+			     enum machine_mode mode)
+{
+  int num;
+  bool unaligned_p = ((align & 3) != 0);
+  unsigned int nelt = GET_MODE_NUNITS (mode);
+
+  /* Instruction loading constant value.  */
+  num = 1;
+  /* Instructions storing the memory.  */
+  num += (length + nelt - 1) / nelt;
+  /* Instructions adjusting the address expression.  Only need to
+     adjust address expression if it's 4 bytes aligned and bytes
+     leftover can only be stored by mis-aligned store instruction.  */
+  if (!unaligned_p && (length & 3) != 0)
+    num++;
+
+  /* Store the first 16 bytes using vst1:v16qi for the aligned case.  */
+  if (!unaligned_p && mode == V16QImode)
+    num--;
+
+  return (num <= arm_block_set_max_insns ());
+}
+
+/* Set a block of memory using vectorization instructions for the
+   unaligned case.  We fill the first LENGTH bytes of the memory
+   area starting from DSTBASE with byte constant VALUE.  ALIGN is
+   the alignment requirement of memory.  Return TRUE if succeeded.  */
+static bool
+arm_block_set_unaligned_vect (rtx dstbase,
+			      unsigned HOST_WIDE_INT length,
+			      unsigned HOST_WIDE_INT value,
+			      unsigned HOST_WIDE_INT align)
+{
+  unsigned int i, j, nelt_v16, nelt_v8, nelt_mode;
+  rtx dst, mem;
+  rtx val_elt, val_vec, reg;
+  rtx rval[MAX_VECT_LEN];
+  rtx (*gen_func) (rtx, rtx);
+  enum machine_mode mode;
+  unsigned HOST_WIDE_INT v = value;
+
+  gcc_assert ((align & 0x3) != 0);
+  nelt_v8 = GET_MODE_NUNITS (V8QImode);
+  nelt_v16 = GET_MODE_NUNITS (V16QImode);
+  if (length >= nelt_v16)
+    {
+      mode = V16QImode;
+      gen_func = gen_movmisalignv16qi;
+    }
+  else
+    {
+      mode = V8QImode;
+      gen_func = gen_movmisalignv8qi;
+    }
+  nelt_mode = GET_MODE_NUNITS (mode);
+  gcc_assert (length >= nelt_mode);
+  /* Skip if it isn't profitable.  */
+  if (!arm_block_set_vect_profit_p (length, align, mode))
+    return false;
+
+  dst = copy_addr_to_reg (XEXP (dstbase, 0));
+  mem = adjust_automodify_address (dstbase, mode, dst, 0);
+
+  v = sext_hwi (v, BITS_PER_WORD);
+  val_elt = GEN_INT (v);
+  for (j = 0; j < nelt_mode; j++)
+    rval[j] = val_elt;
+
+  reg = gen_reg_rtx (mode);
+  val_vec = gen_rtx_CONST_VECTOR (mode, gen_rtvec_v (nelt_mode, rval));
+  /* Emit instruction loading the constant value.  */
+  emit_move_insn (reg, val_vec);
+
+  /* Handle nelt_mode bytes in a vector.  */
+  for (i = 0; (i + nelt_mode <= length); i += nelt_mode)
+    {
+      emit_insn ((*gen_func) (mem, reg));
+      if (i + 2 * nelt_mode <= length)
+	emit_insn (gen_add2_insn (dst, GEN_INT (nelt_mode)));
+    }
+
+  /* If there are not less than nelt_v8 bytes leftover, we must be in
+     V16QI mode.  */
+  gcc_assert ((i + nelt_v8) > length || mode == V16QImode);
+
+  /* Handle (8, 16) bytes leftover.  */
+  if (i + nelt_v8 < length)
+    {
+      emit_insn (gen_add2_insn (dst, GEN_INT (length - i)));
+      /* We are shifting bytes back, set the alignment accordingly.  */
+      if ((length & 1) != 0 && align >= 2)
+	set_mem_align (mem, BITS_PER_UNIT);
+
+      emit_insn (gen_movmisalignv16qi (mem, reg));
+    }
+  /* Handle (0, 8] bytes leftover.  */
+  else if (i < length && i + nelt_v8 >= length)
+    {
+      if (mode == V16QImode)
+	{
+	  reg = gen_lowpart (V8QImode, reg);
+	  mem = adjust_automodify_address (dstbase, V8QImode, dst, 0);
+	}
+      emit_insn (gen_add2_insn (dst, GEN_INT ((length - i)
+					      + (nelt_mode - nelt_v8))));
+      /* We are shifting bytes back, set the alignment accordingly.  */
+      if ((length & 1) != 0 && align >= 2)
+	set_mem_align (mem, BITS_PER_UNIT);
+
+      emit_insn (gen_movmisalignv8qi (mem, reg));
+    }
+
+  return true;
+}
+
+/* Set a block of memory using vectorization instructions for the
+   aligned case.  We fill the first LENGTH bytes of the memory area
+   starting from DSTBASE with byte constant VALUE.  ALIGN is the
+   alignment requirement of memory.  Return TRUE if succeeded.  */
+static bool
+arm_block_set_aligned_vect (rtx dstbase,
+			    unsigned HOST_WIDE_INT length,
+			    unsigned HOST_WIDE_INT value,
+			    unsigned HOST_WIDE_INT align)
+{
+  unsigned int i, j, nelt_v8, nelt_v16, nelt_mode;
+  rtx dst, addr, mem;
+  rtx val_elt, val_vec, reg;
+  rtx rval[MAX_VECT_LEN];
+  enum machine_mode mode;
+  unsigned HOST_WIDE_INT v = value;
+
+  gcc_assert ((align & 0x3) == 0);
+  nelt_v8 = GET_MODE_NUNITS (V8QImode);
+  nelt_v16 = GET_MODE_NUNITS (V16QImode);
+  if (length >= nelt_v16 && unaligned_access && !BYTES_BIG_ENDIAN)
+    mode = V16QImode;
+  else
+    mode = V8QImode;
+
+  nelt_mode = GET_MODE_NUNITS (mode);
+  gcc_assert (length >= nelt_mode);
+  /* Skip if it isn't profitable.  */
+  if (!arm_block_set_vect_profit_p (length, align, mode))
+    return false;
+
+  dst = copy_addr_to_reg (XEXP (dstbase, 0));
+
+  v = sext_hwi (v, BITS_PER_WORD);
+  val_elt = GEN_INT (v);
+  for (j = 0; j < nelt_mode; j++)
+    rval[j] = val_elt;
+
+  reg = gen_reg_rtx (mode);
+  val_vec = gen_rtx_CONST_VECTOR (mode, gen_rtvec_v (nelt_mode, rval));
+  /* Emit instruction loading the constant value.  */
+  emit_move_insn (reg, val_vec);
+
+  i = 0;
+  /* Handle first 16 bytes specially using vst1:v16qi instruction.  */
+  if (mode == V16QImode)
+    {
+      mem = adjust_automodify_address (dstbase, mode, dst, 0);
+      emit_insn (gen_movmisalignv16qi (mem, reg));
+      i += nelt_mode;
+      /* Handle (8, 16) bytes leftover using vst1:v16qi again.  */
+      if (i + nelt_v8 < length && i + nelt_v16 > length)
+	{
+	  emit_insn (gen_add2_insn (dst, GEN_INT (length - nelt_mode)));
+	  mem = adjust_automodify_address (dstbase, mode, dst, 0);
+	  /* We are shifting bytes back, set the alignment accordingly.  */
+	  if ((length & 0x3) == 0)
+	    set_mem_align (mem, BITS_PER_UNIT * 4);
+	  else if ((length & 0x1) == 0)
+	    set_mem_align (mem, BITS_PER_UNIT * 2);
+	  else
+	    set_mem_align (mem, BITS_PER_UNIT);
+
+	  emit_insn (gen_movmisalignv16qi (mem, reg));
+	  return true;
+	}
+      /* Fall through for bytes leftover.  */
+      mode = V8QImode;
+      nelt_mode = GET_MODE_NUNITS (mode);
+      reg = gen_lowpart (V8QImode, reg);
+    }
+
+  /* Handle 8 bytes in a vector.  */
+  for (; (i + nelt_mode <= length); i += nelt_mode)
+    {
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, mode, addr, i);
+      emit_move_insn (mem, reg);
+    }
+
+  /* Handle single word leftover by shifting 4 bytes back.  We can
+     use aligned access for this case.  */
+  if (i + UNITS_PER_WORD == length)
+    {
+      addr = plus_constant (Pmode, dst, i - UNITS_PER_WORD);
+      mem = adjust_automodify_address (dstbase, mode,
+				       addr, i - UNITS_PER_WORD);
+      /* We are shifting 4 bytes back, set the alignment accordingly.  */
+      if (align > UNITS_PER_WORD)
+	set_mem_align (mem, BITS_PER_UNIT * UNITS_PER_WORD);
+
+      emit_move_insn (mem, reg);
+    }
+  /* Handle (0, 4), (4, 8) bytes leftover by shifting bytes back.
+     We have to use unaligned access for this case.  */
+  else if (i < length)
+    {
+      emit_insn (gen_add2_insn (dst, GEN_INT (length - nelt_mode)));
+      mem = adjust_automodify_address (dstbase, mode, dst, 0);
+      /* We are shifting bytes back, set the alignment accordingly.  */
+      if ((length & 1) == 0)
+	set_mem_align (mem, BITS_PER_UNIT * 2);
+      else
+	set_mem_align (mem, BITS_PER_UNIT);
+
+      emit_insn (gen_movmisalignv8qi (mem, reg));
+    }
+
+  return true;
+}
+
+/* Set a block of memory using plain strh/strb instructions, only
+   using instructions allowed by ALIGN on processor.  We fill the
+   first LENGTH bytes of the memory area starting from DSTBASE
+   with byte constant VALUE.  ALIGN is the alignment requirement
+   of memory.  */
+static bool
+arm_block_set_unaligned_non_vect (rtx dstbase,
+				  unsigned HOST_WIDE_INT length,
+				  unsigned HOST_WIDE_INT value,
+				  unsigned HOST_WIDE_INT align)
+{
+  unsigned int i;
+  rtx dst, addr, mem;
+  rtx val_exp, val_reg, reg;
+  enum machine_mode mode;
+  HOST_WIDE_INT v = value;
+
+  gcc_assert (align == 1 || align == 2);
+
+  if (align == 2)
+    v |= (value << BITS_PER_UNIT);
+
+  v = sext_hwi (v, BITS_PER_WORD);
+  val_exp = GEN_INT (v);
+  /* Skip if it isn't profitable.  */
+  if (!arm_block_set_non_vect_profit_p (val_exp, length,
+					align, true, false))
+    return false;
+
+  dst = copy_addr_to_reg (XEXP (dstbase, 0));
+  mode = (align == 2 ? HImode : QImode);
+  val_reg = force_reg (SImode, val_exp);
+  reg = gen_lowpart (mode, val_reg);
+
+  for (i = 0; (i + GET_MODE_SIZE (mode) <= length); i += GET_MODE_SIZE (mode))
+    {
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, mode, addr, i);
+      emit_move_insn (mem, reg);
+    }
+
+  /* Handle single byte leftover.  */
+  if (i + 1 == length)
+    {
+      reg = gen_lowpart (QImode, val_reg);
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, QImode, addr, i);
+      emit_move_insn (mem, reg);
+      i++;
+    }
+
+  gcc_assert (i == length);
+  return true;
+}
+
+/* Set a block of memory using plain strd/str/strh/strb instructions,
+   to permit unaligned copies on processors which support unaligned
+   semantics for those instructions.  We fill the first LENGTH bytes
+   of the memory area starting from DSTBASE with byte constant VALUE.
+   ALIGN is the alignment requirement of memory.  */
+static bool
+arm_block_set_aligned_non_vect (rtx dstbase,
+				unsigned HOST_WIDE_INT length,
+				unsigned HOST_WIDE_INT value,
+				unsigned HOST_WIDE_INT align)
+{
+  unsigned int i;
+  rtx dst, addr, mem;
+  rtx val_exp, val_reg, reg;
+  unsigned HOST_WIDE_INT v;
+  bool use_strd_p;
+
+  use_strd_p = (length >= 2 * UNITS_PER_WORD && (align & 3) == 0
+		&& TARGET_LDRD && current_tune->prefer_ldrd_strd);
+
+  v = (value | (value << 8) | (value << 16) | (value << 24));
+  if (length < UNITS_PER_WORD)
+    v &= (0xFFFFFFFF >> (UNITS_PER_WORD - length) * BITS_PER_UNIT);
+
+  if (use_strd_p)
+    v |= (v << BITS_PER_WORD);
+  else
+    v = sext_hwi (v, BITS_PER_WORD);
+
+  val_exp = GEN_INT (v);
+  /* Skip if it isn't profitable.  */
+  if (!arm_block_set_non_vect_profit_p (val_exp, length,
+					align, false, use_strd_p))
+    {
+      if (!use_strd_p)
+	return false;
+
+      /* Try without strd.  */
+      v = (v >> BITS_PER_WORD);
+      v = sext_hwi (v, BITS_PER_WORD);
+      val_exp = GEN_INT (v);
+      use_strd_p = false;
+      if (!arm_block_set_non_vect_profit_p (val_exp, length,
+					    align, false, use_strd_p))
+	return false;
+    }
+
+  i = 0;
+  dst = copy_addr_to_reg (XEXP (dstbase, 0));
+  /* Handle double words using strd if possible.  */
+  if (use_strd_p)
+    {
+      val_reg = force_reg (DImode, val_exp);
+      reg = val_reg;
+      for (; (i + 8 <= length); i += 8)
+	{
+	  addr = plus_constant (Pmode, dst, i);
+	  mem = adjust_automodify_address (dstbase, DImode, addr, i);
+	  emit_move_insn (mem, reg);
+	}
+    }
+  else
+    val_reg = force_reg (SImode, val_exp);
+
+  /* Handle words.  */
+  reg = (use_strd_p ? gen_lowpart (SImode, val_reg) : val_reg);
+  for (; (i + 4 <= length); i += 4)
+    {
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, SImode, addr, i);
+      if ((align & 3) == 0)
+	emit_move_insn (mem, reg);
+      else
+	emit_insn (gen_unaligned_storesi (mem, reg));
+    }
+
+  /* Merge last pair of STRH and STRB into a STR if possible.  */
+  if (unaligned_access && i > 0 && (i + 3) == length)
+    {
+      addr = plus_constant (Pmode, dst, i - 1);
+      mem = adjust_automodify_address (dstbase, SImode, addr, i - 1);
+      /* We are shifting one byte back, set the alignment accordingly.  */
+      if ((align & 1) == 0)
+	set_mem_align (mem, BITS_PER_UNIT);
+
+      /* Most likely this is an unaligned access, and we can't tell at
+	 compilation time.  */
+      emit_insn (gen_unaligned_storesi (mem, reg));
+      return true;
+    }
+
+  /* Handle half word leftover.  */
+  if (i + 2 <= length)
+    {
+      reg = gen_lowpart (HImode, val_reg);
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, HImode, addr, i);
+      if ((align & 1) == 0)
+	emit_move_insn (mem, reg);
+      else
+	emit_insn (gen_unaligned_storehi (mem, reg));
+
+      i += 2;
+    }
+
+  /* Handle single byte leftover.  */
+  if (i + 1 == length)
+    {
+      reg = gen_lowpart (QImode, val_reg);
+      addr = plus_constant (Pmode, dst, i);
+      mem = adjust_automodify_address (dstbase, QImode, addr, i);
+      emit_move_insn (mem, reg);
+    }
+
+  return true;
+}
+
+/* Set a block of memory using vectorization instructions for both
+   aligned and unaligned cases.  We fill the first LENGTH bytes of
+   the memory area starting from DSTBASE with byte constant VALUE.
+   ALIGN is the alignment requirement of memory.  */
+static bool
+arm_block_set_vect (rtx dstbase,
+		    unsigned HOST_WIDE_INT length,
+		    unsigned HOST_WIDE_INT value,
+		    unsigned HOST_WIDE_INT align)
+{
+  /* Check whether we need to use unaligned store instruction.  */
+  if (((align & 3) != 0 || (length & 3) != 0)
+      /* Check whether unaligned store instruction is available.  */
+      && (!unaligned_access || BYTES_BIG_ENDIAN))
+    return false;
+
+  if ((align & 3) == 0)
+    return arm_block_set_aligned_vect (dstbase, length, value, align);
+  else
+    return arm_block_set_unaligned_vect (dstbase, length, value, align);
+}
+
+/* Expand string store operation.  Firstly we try to do that by using
+   vectorization instructions, then try with ARM unaligned access and
+   double-word store if profitable.  OPERANDS[0] is the destination,
+   OPERANDS[1] is the number of bytes, operands[2] is the value to
+   initialize the memory, OPERANDS[3] is the known alignment of the
+   destination.  */
+bool
+arm_gen_setmem (rtx *operands)
+{
+  rtx dstbase = operands[0];
+  unsigned HOST_WIDE_INT length;
+  unsigned HOST_WIDE_INT value;
+  unsigned HOST_WIDE_INT align;
+
+  if (!CONST_INT_P (operands[2]) || !CONST_INT_P (operands[1]))
+    return false;
+
+  length = UINTVAL (operands[1]);
+  if (length > 64)
+    return false;
+
+  value = (UINTVAL (operands[2]) & 0xFF);
+  align = UINTVAL (operands[3]);
+  if (TARGET_NEON && length >= 8
+      && current_tune->string_ops_prefer_neon
+      && arm_block_set_vect (dstbase, length, value, align))
+    return true;
+
+  if (!unaligned_access && (align & 3) != 0)
+    return arm_block_set_unaligned_non_vect (dstbase, length, value, align);
+
+  return arm_block_set_aligned_non_vect (dstbase, length, value, align);
 }
 
 /* Implement the TARGET_ASAN_SHADOW_OFFSET hook.  */

@@ -385,8 +385,6 @@ struct GTY(()) control_flow_graph {
 /* The two blocks that are always in the cfg.  */
 #define NUM_FIXED_BLOCKS (2)
 
-#define set_block_for_insn(INSN, BB)  (BLOCK_FOR_INSN (INSN) = BB)
-
 extern void compute_bb_for_insn (void);
 extern unsigned int free_bb_for_insn (void);
 extern void update_bb_for_insn (basic_block);
@@ -823,7 +821,7 @@ extern bool delete_unreachable_blocks (void);
 
 extern void update_br_prob_note (basic_block);
 extern bool inside_basic_block_p (const rtx_insn *);
-extern bool control_flow_insn_p (const_rtx);
+extern bool control_flow_insn_p (const rtx_insn *);
 extern rtx_insn *get_last_bb_insn (basic_block);
 
 /* In dominance.c */

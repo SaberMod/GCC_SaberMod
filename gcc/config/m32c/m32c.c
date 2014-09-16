@@ -3819,7 +3819,8 @@ m32c_prepare_shift (rtx * operands, int scale, int shift_code)
 	 undefined to skip one of the comparisons.  */
 
       rtx count;
-      rtx label, insn, tempvar;
+      rtx label, tempvar;
+      rtx_insn *insn;
 
       emit_move_insn (operands[0], operands[1]);
 
@@ -4292,11 +4293,12 @@ flags_needed_for_conditional (rtx cond)
 /* Returns true if a compare insn is redundant because it would only
    set flags that are already set correctly.  */
 static bool
-m32c_compare_redundant (rtx cmp, rtx *operands)
+m32c_compare_redundant (rtx_insn *cmp, rtx *operands)
 {
   int flags_needed;
   int pflags;
-  rtx prev, pp, next;
+  rtx_insn *prev;
+  rtx pp, next;
   rtx op0, op1;
 #if DEBUG_CMP
   int prev_icode, i;
@@ -4507,7 +4509,7 @@ m32c_compare_redundant (rtx cmp, rtx *operands)
    the compare is redundant, else a normal pattern is returned.  Thus,
    the assembler output says where the compare would have been.  */
 char *
-m32c_output_compare (rtx insn, rtx *operands)
+m32c_output_compare (rtx_insn *insn, rtx *operands)
 {
   static char templ[] = ";cmp.b\t%1,%0";
   /*                             ^ 5  */

@@ -68,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "cfgexpand.h"
 #include "builtins.h"
-#include "tree-ssa.h"
 
 #ifndef STACK_PUSH_CODE
 #ifdef STACK_GROWS_DOWNWARD
@@ -3830,7 +3829,7 @@ mem_autoinc_base (rtx mem)
    cannot be trivially extracted, the return value is INT_MIN.  */
 
 HOST_WIDE_INT
-find_args_size_adjust (rtx insn)
+find_args_size_adjust (rtx_insn *insn)
 {
   rtx dest, set, pat;
   int i;
@@ -3953,9 +3952,8 @@ find_args_size_adjust (rtx insn)
 }
 
 int
-fixup_args_size_notes (rtx prev, rtx uncast_last, int end_args_size)
+fixup_args_size_notes (rtx_insn *prev, rtx_insn *last, int end_args_size)
 {
-  rtx_insn *last = safe_as_a <rtx_insn *> (uncast_last);
   int args_size = end_args_size;
   bool saw_unknown = false;
   rtx_insn *insn;
@@ -9251,35 +9249,6 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 }
 #undef REDUCE_BIT_FIELD
 
-/* Return TRUE if value in SSA is zero and sign extended for wider mode MODE
-   using value range information stored.  Return FALSE otherwise.
-
-   This is used to check if SUBREG is zero and sign extended and to set
-   promoted mode SRP_SIGNED_AND_UNSIGNED to SUBREG.  */
-
-bool
-promoted_for_signed_and_unsigned_p (tree ssa, enum machine_mode mode)
-{
-  wide_int min, max;
-
-  if (ssa == NULL_TREE
-      || TREE_CODE (ssa) != SSA_NAME
-      || !INTEGRAL_TYPE_P (TREE_TYPE (ssa))
-      || (TYPE_PRECISION (TREE_TYPE (ssa)) != GET_MODE_PRECISION (mode)))
-    return false;
-
-  /* Return FALSE if value_range is not recorded for SSA.  */
-  if (get_range_info (ssa, &min, &max) != VR_RANGE)
-    return false;
-
-  /* Return true (to set SRP_SIGNED_AND_UNSIGNED to SUBREG) if MSB of the
-     smaller mode is not set (i.e.  MSB of ssa is not set).  */
-  if (!wi::neg_p (min, SIGNED) && !wi::neg_p(max, SIGNED))
-    return true;
-  else
-    return false;
-
-}
 
 /* Return TRUE if expression STMT is suitable for replacement.  
    Never consider memory loads as replaceable, because those don't ever lead 
@@ -9583,10 +9552,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
 	  SUBREG_PROMOTED_VAR_P (temp) = 1;
-	  if (promoted_for_signed_and_unsigned_p (ssa_name, mode))
-	    SUBREG_PROMOTED_SET (temp, SRP_SIGNED_AND_UNSIGNED);
-	  else
-	    SUBREG_PROMOTED_SET (temp, unsignedp);
+	  SUBREG_PROMOTED_SET (temp, unsignedp);
 	  return temp;
 	}
 

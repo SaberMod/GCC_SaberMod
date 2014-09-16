@@ -294,7 +294,8 @@ xstormy16_split_cbranch (enum machine_mode mode, rtx label, rtx comparison,
    INSN is the insn.  */
 
 char *
-xstormy16_output_cbranch_hi (rtx op, const char *label, int reversed, rtx insn)
+xstormy16_output_cbranch_hi (rtx op, const char *label, int reversed,
+			     rtx_insn *insn)
 {
   static char string[64];
   int need_longbranch = (op != NULL_RTX
@@ -367,7 +368,8 @@ xstormy16_output_cbranch_hi (rtx op, const char *label, int reversed, rtx insn)
    INSN is the insn.  */
 
 char *
-xstormy16_output_cbranch_si (rtx op, const char *label, int reversed, rtx insn)
+xstormy16_output_cbranch_si (rtx op, const char *label, int reversed,
+			     rtx_insn *insn)
 {
   static char string[64];
   int need_longbranch = get_attr_length (insn) >= 8;
@@ -2393,10 +2395,11 @@ combine_bnp (rtx_insn *insn)
 {
   int insn_code, regno, need_extend;
   unsigned int mask;
-  rtx cond, reg, and_insn, load, qireg, mem;
+  rtx cond, reg, qireg, mem;
+  rtx_insn *and_insn, *load;
   enum machine_mode load_mode = QImode;
   enum machine_mode and_mode = QImode;
-  rtx shift = NULL_RTX;
+  rtx_insn *shift = NULL;
 
   insn_code = recog_memoized (insn);
   if (insn_code != CODE_FOR_cbranchhi
@@ -2501,7 +2504,7 @@ combine_bnp (rtx_insn *insn)
 	      if (reg_mentioned_p (reg, shift)
 		  || (! NOTE_P (shift) && ! NONJUMP_INSN_P (shift)))
 		{
-		  shift = NULL_RTX;
+		  shift = NULL;
 		  break;
 		}
 	    }

@@ -387,9 +387,6 @@ struct GTY(()) machine_function
   /* True if we may need to perform branch splitting.  */
   bool split_branches_pending_p;
 
-  /* Some local-dynamic TLS symbol name.  */
-  const char *some_ld_name;
-
   bool has_landing_pad_p;
 
   /* True if the current function may contain a tbegin clobbering
@@ -498,21 +495,22 @@ static const struct attribute_spec s390_attribute_table[] = {
 int
 s390_label_align (rtx label)
 {
-  rtx prev_insn = prev_active_insn (label);
+  rtx_insn *prev_insn = prev_active_insn (label);
+  rtx set, src;
 
   if (prev_insn == NULL_RTX)
     goto old;
 
-  prev_insn = single_set (prev_insn);
+  set = single_set (prev_insn);
 
-  if (prev_insn == NULL_RTX)
+  if (set == NULL_RTX)
     goto old;
 
-  prev_insn = SET_SRC (prev_insn);
+  src = SET_SRC (set);
 
   /* Don't align literal pool base labels.  */
-  if (GET_CODE (prev_insn) == UNSPEC
-      && XINT (prev_insn, 1) == UNSPEC_MAIN_BASE)
+  if (GET_CODE (src) == UNSPEC
+      && XINT (src, 1) == UNSPEC_MAIN_BASE)
     return 0;
 
  old:
@@ -1696,7 +1694,7 @@ const enum reg_class regclass_map[FIRST_PSEUDO_REGISTER] =
 /* Return attribute type of insn.  */
 
 static enum attr_type
-s390_safe_attr_type (rtx insn)
+s390_safe_attr_type (rtx_insn *insn)
 {
   if (recog_memoized (insn) >= 0)
     return get_attr_type (insn);
@@ -4078,9 +4076,9 @@ s390_expand_movmem (rtx dst, rtx src, rtx len)
   else
     {
       rtx dst_addr, src_addr, count, blocks, temp;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4203,9 +4201,9 @@ s390_expand_setmem (rtx dst, rtx len, rtx val)
   else
     {
       rtx dst_addr, count, blocks, temp, dstp1 = NULL_RTX;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4329,9 +4327,9 @@ s390_expand_cmpmem (rtx target, rtx op0, rtx op1, rtx len)
   else
     {
       rtx addr0, addr1, count, blocks, temp;
-      rtx loop_start_label = gen_label_rtx ();
-      rtx loop_end_label = gen_label_rtx ();
-      rtx end_label = gen_label_rtx ();
+      rtx_code_label *loop_start_label = gen_label_rtx ();
+      rtx_code_label *loop_end_label = gen_label_rtx ();
+      rtx_code_label *end_label = gen_label_rtx ();
       enum machine_mode mode;
 
       mode = GET_MODE (len);
@@ -4886,7 +4884,7 @@ s390_expand_cs_hqi (enum machine_mode mode, rtx btarget, rtx vtarget, rtx mem,
   struct alignment_context ac;
   rtx cmpv, newv, val, cc, seq0, seq1, seq2, seq3;
   rtx res = gen_reg_rtx (SImode);
-  rtx csloop = NULL, csend = NULL;
+  rtx_code_label *csloop = NULL, *csend = NULL;
 
   gcc_assert (MEM_P (mem));
 
@@ -4969,7 +4967,7 @@ s390_expand_atomic (enum machine_mode mode, enum rtx_code code,
   rtx cmp;
   rtx new_rtx = gen_reg_rtx (SImode);
   rtx orig = gen_reg_rtx (SImode);
-  rtx csloop = gen_label_rtx ();
+  rtx_code_label *csloop = gen_label_rtx ();
 
   gcc_assert (!target || register_operand (target, VOIDmode));
   gcc_assert (MEM_P (mem));
@@ -5195,48 +5193,6 @@ print_shift_count_operand (FILE *file, rtx op)
   fprintf (file, HOST_WIDE_INT_PRINT_DEC, offset & ((1 << 12) - 1));
   if (base)
     fprintf (file, "(%s)", reg_names[REGNO (base)]);
-}
-
-/* See 'get_some_local_dynamic_name'.  */
-
-static int
-get_some_local_dynamic_name_1 (rtx *px, void *data ATTRIBUTE_UNUSED)
-{
-  rtx x = *px;
-
-  if (GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x))
-    {
-      x = get_pool_constant (x);
-      return for_each_rtx (&x, get_some_local_dynamic_name_1, 0);
-    }
-
-  if (GET_CODE (x) == SYMBOL_REF
-      && tls_symbolic_operand (x) == TLS_MODEL_LOCAL_DYNAMIC)
-    {
-      cfun->machine->some_ld_name = XSTR (x, 0);
-      return 1;
-    }
-
-  return 0;
-}
-
-/* Locate some local-dynamic symbol still in use by this function
-   so that we can print its name in local-dynamic base patterns.  */
-
-static const char *
-get_some_local_dynamic_name (void)
-{
-  rtx_insn *insn;
-
-  if (cfun->machine->some_ld_name)
-    return cfun->machine->some_ld_name;
-
-  for (insn = get_insns (); insn ; insn = NEXT_INSN (insn))
-    if (INSN_P (insn)
-        && for_each_rtx (&PATTERN (insn), get_some_local_dynamic_name_1, 0))
-      return cfun->machine->some_ld_name;
-
-  gcc_unreachable ();
 }
 
 /* Returns -1 if the function should not be made hotpatchable.  Otherwise it
@@ -5508,7 +5464,9 @@ print_operand (FILE *file, rtx x, int code)
       else if (GET_CODE (x) == UNSPEC && XINT (x, 1) == UNSPEC_TLSLDM)
 	{
 	  fprintf (file, "%s", ":tls_ldcall:");
-	  assemble_name (file, get_some_local_dynamic_name ());
+	  const char *name = get_some_local_dynamic_name ();
+	  gcc_assert (name);
+	  assemble_name (file, name);
 	}
       else
 	output_operand_lossage ("invalid reference for 'J' output modifier");
@@ -5796,7 +5754,7 @@ reg_used_in_mem_p (int regno, rtx x)
    used by instruction INSN to address memory.  */
 
 static bool
-addr_generation_dependency_p (rtx dep_rtx, rtx insn)
+addr_generation_dependency_p (rtx dep_rtx, rtx_insn *insn)
 {
   rtx target, pat;
 
@@ -5836,7 +5794,7 @@ addr_generation_dependency_p (rtx dep_rtx, rtx insn)
 /* Return 1, if dep_insn sets register used in insn in the agen unit.  */
 
 int
-s390_agen_dep_p (rtx dep_insn, rtx insn)
+s390_agen_dep_p (rtx_insn *dep_insn, rtx_insn *insn)
 {
   rtx dep_rtx = PATTERN (dep_insn);
   int i;
@@ -9903,7 +9861,7 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
 {
   rtx retry_plus_two = gen_reg_rtx (SImode);
   rtx retry_reg = gen_reg_rtx (SImode);
-  rtx retry_label = NULL_RTX;
+  rtx_code_label *retry_label = NULL;
 
   if (retry != NULL_RTX)
     {
@@ -11082,7 +11040,7 @@ s390_fix_long_loop_prediction (rtx_insn *insn)
 {
   rtx set = single_set (insn);
   rtx code_label, label_ref, new_label;
-  rtx uncond_jump;
+  rtx_insn *uncond_jump;
   rtx_insn *cur_insn;
   rtx tmp;
   int distance;
@@ -11198,13 +11156,13 @@ s390_swap_cmp (rtx cond, rtx *op0, rtx *op1, rtx_insn *insn)
 
   if (cond == NULL_RTX)
     {
-      rtx jump = find_cond_jump (NEXT_INSN (insn));
-      jump = jump ? single_set (jump) : NULL_RTX;
+      rtx_insn *jump = find_cond_jump (NEXT_INSN (insn));
+      rtx set = jump ? single_set (jump) : NULL_RTX;
 
-      if (jump == NULL_RTX)
+      if (set == NULL_RTX)
 	return;
 
-      cond = XEXP (XEXP (jump, 1), 0);
+      cond = XEXP (SET_SRC (set), 0);
     }
 
   *op0 = *op1;
@@ -11448,7 +11406,7 @@ s390_reorg (void)
 
 /* Return true if INSN is a fp load insn writing register REGNO.  */
 static inline bool
-s390_fpload_toreg (rtx insn, unsigned int regno)
+s390_fpload_toreg (rtx_insn *insn, unsigned int regno)
 {
   rtx set;
   enum attr_type flag = s390_safe_attr_type (insn);
@@ -11546,7 +11504,7 @@ static int s390_sched_state;
 #define S390_OOO_SCHED_ATTR_MASK_GROUPALONE 0x8
 
 static unsigned int
-s390_get_sched_attrmask (rtx insn)
+s390_get_sched_attrmask (rtx_insn *insn)
 {
   unsigned int mask = 0;
 
@@ -11565,7 +11523,7 @@ s390_get_sched_attrmask (rtx insn)
    better.  The score is calculated from the OOO scheduling attributes
    of INSN and the scheduling state s390_sched_state.  */
 static int
-s390_sched_score (rtx insn)
+s390_sched_score (rtx_insn *insn)
 {
   unsigned int mask = s390_get_sched_attrmask (insn);
   int score = 0;

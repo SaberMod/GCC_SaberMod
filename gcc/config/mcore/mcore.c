@@ -97,7 +97,7 @@ cond_type;
 
 static void       output_stack_adjust           (int, int);
 static int        calc_live_regs                (int *);
-static int        try_constant_tricks           (long, HOST_WIDE_INT *, HOST_WIDE_INT *);
+static int        try_constant_tricks           (HOST_WIDE_INT, HOST_WIDE_INT *, HOST_WIDE_INT *);
 static const char *     output_inline_const     (enum machine_mode, rtx *);
 static void       layout_mcore_frame            (struct mcore_frame *);
 static void       mcore_setup_incoming_varargs	(cumulative_args_t, enum machine_mode, tree, int *, int);
@@ -122,9 +122,9 @@ static bool       mcore_print_operand_punct_valid_p (unsigned char code);
 static void       mcore_unique_section	        (tree, int);
 static void mcore_encode_section_info		(tree, rtx, int);
 static const char *mcore_strip_name_encoding	(const char *);
-static int        mcore_const_costs            	(rtx, RTX_CODE);
-static int        mcore_and_cost               	(rtx);
-static int        mcore_ior_cost               	(rtx);
+static int        mcore_const_costs             (rtx, RTX_CODE);
+static int        mcore_and_cost                (rtx);
+static int        mcore_ior_cost                (rtx);
 static bool       mcore_rtx_costs		(rtx, int, int, int,
 						 int *, bool);
 static void       mcore_external_libcall	(rtx);
@@ -2536,7 +2536,7 @@ conditionalize_block (rtx_insn *first)
     {
       rtx_insn *newinsn;
 
-      if (INSN_DELETED_P (insn))
+      if (insn->deleted ())
 	continue;
       
       /* Try to form a conditional variant of the instruction and emit it.  */
