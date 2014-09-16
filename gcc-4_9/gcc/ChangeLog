@@ -1,3 +1,9 @@
+2014-09-15  Sharad Singhai  <singhai@google.com>
+
+	Google Ref b/17114943
+
+	* l-ipo.c (promote_static_var_func): Update RTL with the unique name.
+
 2014-08-26  Joel Sherrill <joel.sherrill@oarcorp.com>
 
 	* doc/invoke.texi: -fno-cxa-atexit should be -fno-use-cxa-atexit.

@@ -47,6 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "vec.h"
 #include "params.h"
+#include "rtl.h"
+#include "varasm.h"
 
 unsigned ggc_total_memory; /* in KB */
 
@@ -1909,6 +1911,9 @@ promote_static_var_func (unsigned module_id, tree decl, bool is_extern)
         }
       varpool_link_node (node);
       insert_to_assembler_name_hash (node, false);
+      /* Possibly update the RTL name as well. */
+      if (DECL_RTL_SET_P (decl))
+        XSTR (XEXP (DECL_RTL (decl), 0), 0) = IDENTIFIER_POINTER (assemb_id);
     }
 
   if (is_extern)

@@ -1,3 +1,9 @@
+2014-09-15  Sharad Singhai  <singhai@google.com>
+
+	* g++.dg/tree-prof/lipo/static1_0.C: New test.
+	* g++.dg/tree-prof/lipo/static1_1.C: New file.
+	* g++.dg/tree-prof/lipo/static1_2.C: New file.
+
 2014-08-26  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
 	* gfortran.dg/bessel_7.f90: Bump allowed precision to avoid
