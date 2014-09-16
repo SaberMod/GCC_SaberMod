@@ -1,3 +1,112 @@
+2014-09-15  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	* doc/install.texi (Options specification): add 
+	--disable-libsanitizer item.
+
+2014-09-12  DJ Delorie  <dj@redhat.com>
+
+	* config/msp430/msp430.md (extendhipsi2): Use 20-bit form of RLAM/RRAM.
+	(extend_and_shift1_hipsi2): Likewise.
+	(extend_and_shift2_hipsi2): Likewise.
+			
+2014-09-12  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61654
+	* cgraph.h (cgraph_analyze_function): Declare.
+	* cgraphunit.c: (analyze_function): Remove forward declaration,
+	rename to cgraph_analyze_function, made external.
+	* cgraphclones.c (duplicate_thunk_for_node): Copy arguments of the
+        new decl properly.  Analyze the new thunk if it is expanded.
+
+2014-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2014-09-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/63228
+	* config/i386/i386.c (ix86_option_override_internal): Also turn
+	off OPTION_MASK_ABI_X32 for -m16.
+
+2014-09-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from mainline.
+	2014-09-11  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/arm_neon.h (vmull_high_lane_s16): Fix argument
+	types.
+	(vmull_high_lane_s32): Likewise.
+	(vmull_high_lane_u16): Likewise.
+	(vmull_high_lane_u32): Likewise.
+
+2014-09-11  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r214946 from mainline
+	2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.md (adddi3_aarch64): Set type to neon_add.
+
+2014-09-11  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Backport r214953 from mainline
+	2014-09-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/arm_neon.h (int32x1_t, int16x1_t, int8x1_t,
+	uint32x1_t, uint16x1_t, uint8x1_t): Remove typedefs.
+
+	(vqabsb_s8, vqabsh_s16, vqabss_s32, vqaddb_s8, vqaddh_s16, vqadds_s32,
+	vqaddb_u8, vqaddh_u16, vqadds_u32, vqdmlalh_s16, vqdmlalh_lane_s16,
+	vqdmlals_s32, vqdmlslh_s16, vqdmlslh_lane_s16, vqdmlsls_s32,
+	vqdmulhh_s16, vqdmulhh_lane_s16, vqdmulhs_s32, vqdmulhs_lane_s32,
+	vqdmullh_s16, vqdmullh_lane_s16, vqdmulls_s32, vqdmulls_lane_s32,
+	vqmovnh_s16, vqmovns_s32, vqmovnd_s64, vqmovnh_u16, vqmovns_u32,
+	vqmovnd_u64, vqmovunh_s16, vqmovuns_s32, vqmovund_s64, vqnegb_s8,
+	vqnegh_s16, vqnegs_s32, vqrdmulhh_s16, vqrdmulhh_lane_s16,
+	vqrdmulhs_s32, vqrdmulhs_lane_s32, vqrshlb_s8, vqrshlh_s16,
+	vqrshls_s32, vqrshlb_u8, vqrshlh_u16, vqrshls_u32, vqrshrnh_n_s16,
+	vqrshrns_n_s32, vqrshrnd_n_s64, vqrshrnh_n_u16, vqrshrns_n_u32,
+	vqrshrnd_n_u64, vqrshrunh_n_s16, vqrshruns_n_s32, vqrshrund_n_s64,
+	vqshlb_s8, vqshlh_s16, vqshls_s32, vqshlb_u8, vqshlh_u16, vqshls_u32,
+	vqshlb_n_s8, vqshlh_n_s16, vqshls_n_s32, vqshlb_n_u8, vqshlh_n_u16,
+	vqshls_n_u32, vqshlub_n_s8, vqshluh_n_s16, vqshlus_n_s32,
+	vqshrnh_n_s16, vqshrns_n_s32, vqshrnd_n_s64, vqshrnh_n_u16,
+	vqshrns_n_u32, vqshrnd_n_u64, vqshrunh_n_s16, vqshruns_n_s32,
+	vqshrund_n_s64, vqsubb_s8, vqsubh_s16, vqsubs_s32, vqsubb_u8,
+	vqsubh_u16, vqsubs_u32, vsqaddb_u8, vsqaddh_u16, vsqadds_u32,
+	vuqaddb_s8, vuqaddh_s16, vuqadds_s32): Replace all int{32,16,8}x1_t
+	with int{32,16,8}_t.
+
+2014-09-11  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58678
+	* ipa-devirt.c (ipa_devirt): Don't check DECL_COMDAT.
+
+2014-09-11  Georg-Johann Lay  <avr@gjlay.de>
+
+	Backport from 2014-09-11 trunk r215152.
+
+	PR target/63223
+	* config/avr/avr.md (*tablejump.3byte-pc): New insn.
+	(*tablejump): Restrict to !AVR_HAVE_EIJMP_EICALL.  Add void clobber.
+	(casesi): Expand to *tablejump.3byte-pc if AVR_HAVE_EIJMP_EICALL.
+
+2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_fmav4sf4): Use correct constraints for
+	V2DF, V4SF, DF, and DI modes.
+	(vsx_fmav2df2): Likewise.
+	(vsx_float_fix_<mode>2): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v2df_scalar): Likewise.
+
+2014-09-10  Xinliang David Li  <davidxl@google.com>
+
+	Backport from mainline
+	PR target/63209
+	* config/arm/arm.md (movcond_addsi): Handle case where source
+	and target operands are the same.
+
 2014-09-10  Alan Modra  <amodra@gmail.com>
 
 	PR debug/60655
