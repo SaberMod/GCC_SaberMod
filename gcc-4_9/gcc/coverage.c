@@ -820,6 +820,14 @@ read_counts_file (const char *da_file_name, unsigned module_id)
             free (build_info_strings[i]);
           free (build_info_strings);
         }
+      else if (tag == GCOV_TAG_COMDAT_ZERO_FIXUP)
+        {
+          /* Zero-profile fixup flags are not used by the compiler, read and
+             ignore.  */
+          gcov_unsigned_t num_fn;
+          int *zero_fixup_flags = gcov_read_comdat_zero_fixup (length, &num_fn);
+          free (zero_fixup_flags);
+        }
       else if (GCOV_TAG_IS_COUNTER (tag) && fn_ident)
 	{
 	  counts_entry_t **slot, *entry, elt;

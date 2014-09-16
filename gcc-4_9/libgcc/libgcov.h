@@ -349,6 +349,9 @@ gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE inline void gcov_rewrite (void);
 
+extern void set_gcov_fn_fixed_up (int fixed_up);
+extern int get_gcov_fn_fixed_up (void);
+
 /* "Counts" stored in gcda files can be a real counter value, or
    an target address. When differentiate these two types because
    when manipulating counts, we should only change real counter values,
@@ -361,7 +364,13 @@ gcov_get_counter (void)
   /* This version is for reading count values in libgcov runtime:
      we read from gcda files.  */
 
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   /* This version is for gcov-tool. We read the value from memory and
      multiply it by the merge weight.  */
@@ -380,7 +389,13 @@ gcov_get_counter_target (void)
   /* This version is for reading count target values in libgcov runtime:
      we read from gcda files.  */
 
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   /* This version is for gcov-tool.  We read the value from memory and we do NOT
      multiply it by the merge weight.  */

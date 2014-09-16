@@ -129,7 +129,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    blocks they are for.
 
    The data file contains the following records.
-        data: {unit summary:program* build_info function-data*}*
+        data: {unit summary:program* build_info zero_fixup function-data*}*
 	unit: header int32:checksum
         function-data:	announce_function present counts
 	announce_function: header int32:ident
@@ -142,6 +142,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
         histogram: {int32:bitvector}8 histogram-buckets*
         histogram-buckets: int32:num int64:min int64:sum
         build_info: string:info*
+        zero_fixup: int32:num int32:bitvector*
 
    The ANNOUNCE_FUNCTION record is the same as that in the note file,
    but without the source location.  The COUNTS gives the
@@ -157,6 +158,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    to include in the data file information about the profile generate
    build.  For example, it can be used to include source revision
    information that is useful in diagnosing profile mis-matches.
+
+   ZERO_FIXUP record contains a count of functions in the gcda file
+   and an array of bitvectors indexed by the function index's in the
+   function-data section. Each bit flags whether the function was a
+   COMDAT that had all-zero profiles that was fixed up by dyn-ipa
+   using profiles from functions with matching checksums in other modules.
 
    This file is included by both the compiler, gcov tools and the
    runtime support library libgcov. IN_LIBGCOV and IN_GCOV are used to
@@ -261,6 +268,9 @@ typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 #define GCOV_TAG_COUNTER_NUM(LENGTH) ((LENGTH) / 2)
 #define GCOV_TAG_OBJECT_SUMMARY  ((gcov_unsigned_t)0xa1000000) /* Obsolete */
 #define GCOV_TAG_PROGRAM_SUMMARY ((gcov_unsigned_t)0xa3000000)
+#define GCOV_TAG_COMDAT_ZERO_FIXUP ((gcov_unsigned_t)0xa9000000)
+/* Ceiling divide by 32 bit word size, plus one word to hold NUM.  */
+#define GCOV_TAG_COMDAT_ZERO_FIXUP_LENGTH(NUM) (1 + (NUM + 31) / 32)
 #define GCOV_TAG_SUMMARY_LENGTH(NUM)  \
         (1 + GCOV_COUNTERS_SUMMABLE * (10 + 3 * 2) + (NUM) * 5)
 #define GCOV_TAG_BUILD_INFO ((gcov_unsigned_t)0xa7000000)
@@ -441,6 +451,9 @@ GCOV_LINKAGE int gcov_close (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE gcov_unsigned_t gcov_read_unsigned (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE gcov_type gcov_read_counter (void) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_read_summary (struct gcov_summary *) ATTRIBUTE_HIDDEN;
+GCOV_LINKAGE int *gcov_read_comdat_zero_fixup (gcov_unsigned_t,
+                                               gcov_unsigned_t *)
+    ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE char **gcov_read_build_info (gcov_unsigned_t, gcov_unsigned_t *)
   ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const char *gcov_read_string (void);

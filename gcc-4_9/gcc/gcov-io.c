@@ -691,6 +691,36 @@ gcov_read_summary (struct gcov_summary *summary)
     }
 }
 
+/* Read LENGTH words (unsigned type) from a zero profile fixup record with the
+   number of function flags saved in NUM_FNS.  Returns the int flag array, which
+   should be deallocated by caller, or NULL on error.  */
+
+GCOV_LINKAGE int *
+gcov_read_comdat_zero_fixup (gcov_unsigned_t length,
+                             gcov_unsigned_t *num_fns)
+{
+  unsigned ix, f_ix;
+  gcov_unsigned_t num = gcov_read_unsigned ();
+  /* The length consists of 1 word to hold the number of functions,
+     plus enough 32-bit words to hold 1 bit/function.  */
+  gcc_assert ((num + 31) / 32 + 1 == length);
+  int *zero_fixup_flags = (int *) xcalloc (num, sizeof (int));
+  for (ix = 0; ix < length - 1; ix++)
+    {
+      gcov_unsigned_t bitvector = gcov_read_unsigned ();
+      f_ix = ix * 32;
+      while (bitvector)
+        {
+          if (bitvector & 0x1)
+            zero_fixup_flags[f_ix] = 1;
+          f_ix++;
+          bitvector >>= 1;
+        }
+    }
+  *num_fns = num;
+  return zero_fixup_flags;
+}
+
 /* Read NUM_STRINGS strings (as an unsigned array) in STRING_ARRAY, and return
    the number of words read.  */
 

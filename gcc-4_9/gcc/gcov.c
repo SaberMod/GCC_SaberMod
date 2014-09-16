@@ -1441,6 +1441,12 @@ read_count_file (function_t *fns)
             free (build_info_strings[i]);
           free (build_info_strings);
         }
+      else if (tag == GCOV_TAG_COMDAT_ZERO_FIXUP)
+        {
+          gcov_unsigned_t num_fn;
+          int *zero_fixup_flags = gcov_read_comdat_zero_fixup (length, &num_fn);
+          free (zero_fixup_flags);
+        }
       else if (tag == GCOV_TAG_FUNCTION && !length)
 	; /* placeholder  */
       else if (tag == GCOV_TAG_FUNCTION && length == GCOV_TAG_FUNCTION_LENGTH)
