@@ -1214,6 +1214,10 @@ fripa
 Common Report Var(flag_dyn_ipa)
 Perform Dynamic Inter-Procedural Analysis.
 
+fripa-allow-debug
+Common Report Var(flag_dyn_ipa_allow_debug) Init(0)
+Allow -g enablement for -fripa -fprofile-generate compiles.
+
 fripa-disallow-asm-modules
 Common Report Var(flag_ripa_disallow_asm_modules)
 Don't import an auxiliary module if it contains asm statements

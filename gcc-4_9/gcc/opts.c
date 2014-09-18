@@ -907,6 +907,26 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
   /* Turn on -ffunction-sections when -freorder-functions=* is used.  */
   if (opts->x_flag_reorder_functions > 1)
     opts->x_flag_function_sections = 1;
+
+  /* LIPO module grouping depends on the memory consumed by the profile-gen
+     parsing phase, recorded in a per-module ggc_memory field of the module
+     info struct. This will be higher when debug generation is on via
+     -g/-gmlt, which causes the FE to generate debug structures that will
+     increase the ggc_total_memory. This could in theory cause the module
+     groups to be slightly more conservative. Disable -g/-gmlt under
+     -fripa -fprofile-generate, but provide an option to override this
+     in case we actually need to debug an instrumented binary.  */
+  if (opts->x_profile_arc_flag
+      && opts->x_flag_dyn_ipa
+      && opts->x_debug_info_level != DINFO_LEVEL_NONE
+      && !opts->x_flag_dyn_ipa_allow_debug)
+    {
+      inform (loc,
+	      "Debug generation via -g option disabled under -fripa "
+              "-fprofile-generate (use -fripa-allow-debug to override)");
+      set_debug_level (NO_DEBUG, DEFAULT_GDB_EXTENSIONS, "0", opts, opts_set,
+                       loc);
+    }
 }
 
 #define LEFT_COLUMN	27
