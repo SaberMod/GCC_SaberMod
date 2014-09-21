@@ -14713,8 +14713,11 @@ fn_type_unification (tree fn,
 
       /* If we're looking for an exact match, check that what we got
 	 is indeed an exact match.  It might not be if some template
-	 parameters are used in non-deduced contexts.  */
-      if (strict == DEDUCE_EXACT)
+	 parameters are used in non-deduced contexts.  But don't check
+	 for an exact match if we have dependent template arguments;
+	 in that case we're doing partial ordering, and we already know
+	 that we have two candidates that will provide the actual type.  */
+      if (strict == DEDUCE_EXACT && !any_dependent_template_arguments_p (targs))
 	{
 	  unsigned int i;
 
@@ -18090,6 +18093,10 @@ maybe_instantiate_noexcept (tree fn)
 {
   tree fntype, spec, noex, clone;
 
+  /* Don't instantiate a noexcept-specification from template context.  */
+  if (processing_template_decl)
+    return;
+
   if (DECL_CLONED_FUNCTION_P (fn))
     fn = DECL_CLONED_FUNCTION (fn);
   fntype = TREE_TYPE (fn);
@@ -18184,6 +18191,7 @@ instantiate_decl (tree d, int defer_ok,
      if the variable has a constant value the referring expression can
      take advantage of that fact.  */
   if (TREE_CODE (d) == VAR_DECL
+      || decl_function_context (d)
       || DECL_DECLARED_CONSTEXPR_P (d))
     defer_ok = 0;
 
