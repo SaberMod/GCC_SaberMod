@@ -786,8 +786,9 @@ typedef struct
   unsigned alloc_comp:1, pointer_comp:1, proc_pointer_comp:1,
 	   private_comp:1, zero_comp:1, coarray_comp:1, lock_comp:1;
 
-  /* This is a temporary selector for SELECT TYPE.  */
-  unsigned select_type_temporary:1;
+  /* This is a temporary selector for SELECT TYPE or an associate
+     variable for SELECT_TYPE or ASSOCIATE.  */
+  unsigned select_type_temporary:1, associate_var:1;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;
@@ -2795,6 +2796,7 @@ void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_implicit_pure (gfc_symbol *);
+void gfc_unset_implicit_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);
 gfc_try gfc_resolve_iterator (gfc_iterator *, bool);
 gfc_try find_forall_index (gfc_expr *, gfc_symbol *, int);
