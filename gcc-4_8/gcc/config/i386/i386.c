@@ -11695,7 +11695,7 @@ ix86_output_function_nops_prologue_epilogue (FILE *file,
   fprintf (file, "\n");
 
   /* Switching back to text section.  */
-  switch_to_section (function_section (current_function_decl));
+  switch_to_section (current_function_section ());
   return true;
 }
 
