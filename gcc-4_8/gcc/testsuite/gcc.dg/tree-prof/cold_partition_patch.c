@@ -1,8 +1,7 @@
 /* Check if patching works with function splitting. */
-/* { dg-do compile { target x86_64-*-* } } */
 /* { dg-require-effective-target freorder } */
-/* { dg-options "-O2 -freorder-blocks-and-partition -save-temps -mpatch-functions-for-instrumentation -fno-optimize-sibling-calls " } */
-
+/* { dg-options "-O2 -freorder-blocks-and-partition -save-temps " { target { ! x86_64-*-* } } }
+/* { dg-options "-O2 -freorder-blocks-and-partition -save-temps -mpatch-functions-for-instrumentation -fno-optimize-sibling-calls " { target x86_64-*-* } } */
 #define SIZE 10000
 
 const char *sarr[SIZE];
