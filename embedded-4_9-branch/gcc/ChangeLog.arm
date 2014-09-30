@@ -1,3 +1,8 @@
+2014-09-30  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c (arm_option_override): Disable loop2_invariant
+	pass when optimize_size and ira-loop-pressure is not enabled.
+
 2014-05-12  Terry Guo  <terry.guo@arm.com>
 
 	* config.gcc (--with-multilib-list): Accept arm embedded cores.

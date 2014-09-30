@@ -2818,6 +2818,13 @@ arm_option_override (void)
   if (TARGET_APCS_FRAME)
     flag_shrink_wrap = false;
 
+  /* Do not move invariants out of loops since it tends to increase register
+     pressure.  The heuristic to estimate register pressure does not fit for
+     ARM.  -fira-loop-pressure tends to get more precise estimation.  But it
+     still need more tuning.  */
+  if (optimize_function_for_size_p (cfun) && !flag_ira_loop_pressure)
+    flag_move_loop_invariants = 0;
+
   /* We only support -mslow-flash-data on armv7-m targets.  */
   if (target_slow_flash_data
       && ((!(arm_arch7 && !arm_arch_notm) && !arm_arch7em)
