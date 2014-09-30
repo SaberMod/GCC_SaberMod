@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "expr.h"
 #include "tree-dfa.h"
+#include "opts.h"
 
 /* FIXME: Only for PROP_loops, but cgraph shouldn't have to know about this.  */
 #include "tree-pass.h"
@@ -546,6 +547,7 @@ cgraph_create_node (tree decl)
       node->next_nested = node->origin->nested;
       node->origin->nested = node;
     }
+  pattern_match_function_attributes (decl);
   return node;
 }
 
