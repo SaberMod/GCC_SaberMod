@@ -5230,6 +5230,12 @@ output_constructor (tree exp, unsigned HOST_WIDE_INT size,
 static void
 mark_weak (tree decl)
 {
+  if (DECL_WEAK (decl))
+    return;
+
+  struct symtab_node *n = symtab_node::get (decl);
+  if (n && n->refuse_visibility_changes)
+    error ("%+D declared weak after being used", decl);
   DECL_WEAK (decl) = 1;
 
   if (DECL_RTL_SET_P (decl)
@@ -6063,6 +6069,7 @@ default_section_type_flags (tree decl, const char *name, int reloc)
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
+      || strcmp (name, ".persistent.bss") == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
       || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)

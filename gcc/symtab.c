@@ -831,6 +831,8 @@ symtab_node::dump_base (FILE *f)
     fprintf (f, " forced_by_abi");
   if (externally_visible)
     fprintf (f, " externally_visible");
+  if (no_reorder)
+    fprintf (f, " no_reorder");
   if (resolution != LDPR_UNKNOWN)
     fprintf (f, " %s",
  	     ld_plugin_symbol_resolution_names[(int)resolution]);
@@ -1764,7 +1766,7 @@ symtab_node::get_partitioning_class (void)
      This include external delcarations.   */
   cgraph_node *cnode = dyn_cast <cgraph_node *> (this);
 
-  if (DECL_ABSTRACT (decl))
+  if (DECL_ABSTRACT_P (decl))
     return SYMBOL_EXTERNAL;
 
   if (cnode && cnode->global.inlined_to)
@@ -1811,9 +1813,9 @@ bool
 symtab_node::nonzero_address ()
 {
   /* Weakrefs may be NULL when their target is not defined.  */
-  if (this->alias && this->weakref)
+  if (alias && weakref)
     {
-      if (this->analyzed)
+      if (analyzed)
 	{
 	  symtab_node *target = ultimate_alias_target ();
 
@@ -1828,7 +1830,7 @@ symtab_node::nonzero_address ()
 	     could be useful to eliminate the NULL pointer checks in LTO
 	     programs.  */
 	  if (target->definition && !DECL_EXTERNAL (target->decl))
-	    return true;
+	      return true;
 	  if (target->resolution != LDPR_UNKNOWN
 	      && target->resolution != LDPR_UNDEF
 	      && flag_delete_null_pointer_checks)
@@ -1847,22 +1849,28 @@ symtab_node::nonzero_address ()
      Those are handled by later check for definition.
 
      When parsing, beware the cases when WEAK attribute is added later.  */
-  if (!DECL_WEAK (this->decl)
-      && flag_delete_null_pointer_checks
-      && symtab->state > PARSING)
-    return true;
+  if (!DECL_WEAK (decl)
+      && flag_delete_null_pointer_checks)
+    {
+      refuse_visibility_changes = true;
+      return true;
+    }
 
   /* If target is defined and not extern, we know it will be output and thus
      it will bind to non-NULL.
      Play safe for flag_delete_null_pointer_checks where weak definition maye
      be re-defined by NULL.  */
-  if (this->definition && !DECL_EXTERNAL (this->decl)
-      && (flag_delete_null_pointer_checks || !DECL_WEAK (this->decl)))
-    return true;
+  if (definition && !DECL_EXTERNAL (decl)
+      && (flag_delete_null_pointer_checks || !DECL_WEAK (decl)))
+    {
+      if (!DECL_WEAK (decl))
+        refuse_visibility_changes = true;
+      return true;
+    }
 
   /* As the last resort, check the resolution info.  */
-  if (this->resolution != LDPR_UNKNOWN
-      && this->resolution != LDPR_UNDEF
+  if (resolution != LDPR_UNKNOWN
+      && resolution != LDPR_UNDEF
       && flag_delete_null_pointer_checks)
     return true;
   return false;

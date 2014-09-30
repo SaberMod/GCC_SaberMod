@@ -328,6 +328,8 @@ static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
 						 bool *);
+static tree handle_no_reorder_attribute (tree *, tree, tree, int,
+						 bool *);
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_transparent_union_attribute (tree *, tree, tree,
 						int, bool *);
@@ -652,6 +654,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_unused_attribute, false },
   { "externally_visible",     0, 0, true,  false, false,
 			      handle_externally_visible_attribute, false },
+  { "no_reorder",	      0, 0, true, false, false,
+                              handle_no_reorder_attribute, false },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
 			      handle_const_attribute, false },
@@ -6953,6 +6957,30 @@ handle_externally_visible_attribute (tree *pnode, tree name,
   return NULL_TREE;
 }
 
+/* Handle the "no_reorder" attribute. Arguments as in
+   struct attribute_spec.handler. */
+
+static tree
+handle_no_reorder_attribute (tree *pnode,
+			     tree name,
+			     tree,
+			     int,
+			     bool *no_add_attrs)
+{
+  tree node = *pnode;
+
+  if ((TREE_CODE (node) != FUNCTION_DECL && TREE_CODE (node) != VAR_DECL)
+	&& !(TREE_STATIC (node) || DECL_EXTERNAL (node)))
+    {
+      warning (OPT_Wattributes,
+		"%qE attribute only affects top level objects",
+		name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "const" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -7757,6 +7785,19 @@ handle_alias_ifunc_attribute (bool is_alias, tree *node, tree name, tree args,
       *no_add_attrs = true;
     }
 
+  if (decl_in_symtab_p (*node))
+    {
+      struct symtab_node *n = symtab_node::get (decl);
+      if (n && n->refuse_visibility_changes)
+	{
+	  if (is_alias)
+	    error ("%+D declared alias after being used", decl);
+	  else
+	    error ("%+D declared ifunc after being used", decl);
+	}
+    }
+
+
   return NULL_TREE;
 }
 
@@ -7831,6 +7872,13 @@ handle_weakref_attribute (tree *node, tree ARG_UNUSED (name), tree args,
 	 and that isn't supported; and because it wants to add it to
 	 the list of weak decls, which isn't helpful.  */
       DECL_WEAK (*node) = 1;
+    }
+
+  if (decl_in_symtab_p (*node))
+    {
+      struct symtab_node *n = symtab_node::get (*node);
+      if (n && n->refuse_visibility_changes)
+	error ("%+D declared weakref after being used", *node);
     }
 
   return NULL_TREE;

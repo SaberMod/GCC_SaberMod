@@ -2821,7 +2821,8 @@ warn_hidden (tree t)
       for (fn = fns; fn; fn = OVL_NEXT (fn))
 	{
 	  fndecl = OVL_CURRENT (fn);
-	  if (DECL_VINDEX (fndecl))
+	  if (TREE_CODE (fndecl) == FUNCTION_DECL
+	      && DECL_VINDEX (fndecl))
 	    {
 	      tree *prev = &base_fndecls;
 
@@ -4581,7 +4582,7 @@ clone_function_decl (tree fn, int update_method_vec_p)
     }
 
   /* Note that this is an abstract function that is never emitted.  */
-  DECL_ABSTRACT (fn) = 1;
+  DECL_ABSTRACT_P (fn) = true;
 }
 
 /* DECL is an in charge constructor, which is being defined. This will
@@ -6506,7 +6507,8 @@ finish_struct_1 (tree t)
   /* This warning does not make sense for Java classes, since they
      cannot have destructors.  */
   if (!TYPE_FOR_JAVA (t) && warn_nonvdtor
-      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t))
+      && TYPE_POLYMORPHIC_P (t) && accessible_nvdtor_p (t)
+      && !CLASSTYPE_FINAL (t))
     warning (OPT_Wnon_virtual_dtor,
 	     "%q#T has virtual functions and accessible"
 	     " non-virtual destructor", t);

@@ -145,6 +145,7 @@ tree gfor_fndecl_caf_atomic_cas;
 tree gfor_fndecl_caf_atomic_op;
 tree gfor_fndecl_caf_lock;
 tree gfor_fndecl_caf_unlock;
+tree gfor_fndecl_co_broadcast;
 tree gfor_fndecl_co_max;
 tree gfor_fndecl_co_min;
 tree gfor_fndecl_co_sum;
@@ -3424,6 +3425,11 @@ gfc_build_builtin_function_decls (void)
 	void_type_node, 6, pvoid_type_node, size_type_node, integer_type_node,
 	pint_type, pchar_type_node, integer_type_node);
 
+      gfor_fndecl_co_broadcast = gfc_build_library_function_decl_with_spec (
+	get_identifier (PREFIX("caf_co_broadcast")), "W.WW",
+	void_type_node, 5, pvoid_type_node, integer_type_node,
+	pint_type, pchar_type_node, integer_type_node);
+
       gfor_fndecl_co_max = gfc_build_library_function_decl_with_spec (
 	get_identifier (PREFIX("caf_co_max")), "W.WW",
 	void_type_node, 6, pvoid_type_node, integer_type_node,
@@ -3651,7 +3657,7 @@ gfc_init_default_dt (gfc_symbol * sym, stmtblock_t * block, bool dealloc)
 
 /* Initialize INTENT(OUT) derived type dummies.  As well as giving
    them their default initializer, if they do not have allocatable
-   components, they have their allocatable components deallocated. */
+   components, they have their allocatable components deallocated.  */
 
 static void
 init_intent_out_dt (gfc_symbol * proc_sym, gfc_wrapped_block * block)
@@ -5350,7 +5356,7 @@ create_main_function (tree fndecl)
 
   gfc_init_block (&body);
 
-  /* Call some libgfortran initialization routines, call then MAIN__(). */
+  /* Call some libgfortran initialization routines, call then MAIN__().  */
 
   /* Call _gfortran_caf_init (*argc, ***argv).  */
   if (gfc_option.coarray == GFC_FCOARRAY_LIB)
@@ -5413,7 +5419,7 @@ create_main_function (tree fndecl)
     /* TODO: This is the -frange-check option, which no longer affects
        library behavior; when bumping the library ABI this slot can be
        reused for something else. As it is the last element in the
-       array, we can instead leave it out altogether. */
+       array, we can instead leave it out altogether.  */
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,
                             build_int_cst (integer_type_node, 0));
     CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,

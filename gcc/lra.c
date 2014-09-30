@@ -933,7 +933,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
       nalt = 1;
       if (nop < 0)
 	{
-	  /* Its is a special insn like USE or CLOBBER.  We should
+	  /* It is a special insn like USE or CLOBBER.  We should
 	     recognize any regular insn otherwise LRA can do nothing
 	     with this insn.  */
 	  gcc_assert (GET_CODE (PATTERN (insn)) == USE
@@ -2134,6 +2134,11 @@ lra (FILE *f)
 #endif
 
   lra_in_progress = 1;
+
+  /* The enable attributes can change their values as LRA starts
+     although it is a bad practice.  To prevent reuse of the outdated
+     values, clear them.  */
+  recog_init ();
 
   lra_live_range_iter = lra_coalesce_iter = 0;
   lra_constraint_iter = lra_constraint_iter_after_spill = 0;

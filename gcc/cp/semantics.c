@@ -1127,7 +1127,8 @@ finish_switch_cond (tree cond, tree switch_stmt)
 	  error ("switch quantity not an integer");
 	  cond = error_mark_node;
 	}
-      orig_type = TREE_TYPE (cond);
+      /* We want unlowered type here to handle enum bit-fields.  */
+      orig_type = unlowered_expr_type (cond);
       if (cond != error_mark_node)
 	{
 	  /* Warn if the condition has boolean value.  */
@@ -1685,17 +1686,17 @@ finish_non_static_data_member (tree decl, tree object, tree qualifying_scope)
   if (object == error_mark_node)
     return error_mark_node;
 
-  /* DR 613: Can use non-static data members without an associated
+  /* DR 613/850: Can use non-static data members without an associated
      object in sizeof/decltype/alignof.  */
   if (is_dummy_object (object) && cp_unevaluated_operand == 0
       && (!processing_template_decl || !current_class_ref))
     {
       if (current_function_decl
 	  && DECL_STATIC_FUNCTION_P (current_function_decl))
-	error ("invalid use of member %q+D in static member function", decl);
+	error ("invalid use of member %qD in static member function", decl);
       else
-	error ("invalid use of non-static data member %q+D", decl);
-      error ("from this location");
+	error ("invalid use of non-static data member %qD", decl);
+      inform (DECL_SOURCE_LOCATION (decl), "declared here");
 
       return error_mark_node;
     }
@@ -4290,6 +4291,10 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		length);
       return error_mark_node;
     }
+  if (low_bound)
+    low_bound = mark_rvalue_use (low_bound);
+  if (length)
+    length = mark_rvalue_use (length);
   if (low_bound
       && TREE_CODE (low_bound) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (low_bound))
@@ -5668,7 +5673,9 @@ finish_omp_clauses (tree clauses)
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!cp_omp_mappable_type (TREE_TYPE (t)))
+		  if (TREE_CODE (t) != TREE_LIST
+		      && !type_dependent_expression_p (t)
+		      && !cp_omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -5708,6 +5715,7 @@ finish_omp_clauses (tree clauses)
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))

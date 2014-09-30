@@ -610,7 +610,7 @@ gfc_init_kinds (void)
 
   /* We only have two character kinds: ASCII and UCS-4.
      ASCII corresponds to a 8-bit integer type, if one is available.
-     UCS-4 corresponds to a 32-bit integer type, if one is available. */
+     UCS-4 corresponds to a 32-bit integer type, if one is available.  */
   i_index = 0;
   if ((kind = get_int_kind_from_width (8)) > 0)
     {
@@ -3041,8 +3041,10 @@ gfc_get_array_descr_info (const_tree type, struct array_descr_info *info)
   base_decl = GFC_TYPE_ARRAY_BASE_DECL (type, indirect);
   if (!base_decl)
     {
-      base_decl = build_decl (input_location, VAR_DECL, NULL_TREE,
-			      indirect ? build_pointer_type (ptype) : ptype);
+      base_decl = make_node (DEBUG_EXPR_DECL);
+      DECL_ARTIFICIAL (base_decl) = 1;
+      TREE_TYPE (base_decl) = indirect ? build_pointer_type (ptype) : ptype;
+      DECL_MODE (base_decl) = TYPE_MODE (TREE_TYPE (base_decl));
       GFC_TYPE_ARRAY_BASE_DECL (type, indirect) = base_decl;
     }
   info->base_decl = base_decl;
