@@ -1,3 +1,81 @@
+2014-09-29  James Clarke  <jrtc27@jrtc27.com>
+
+	PR target/61407
+	* gcc.dg/darwin-minversion-1.c: Fixed formatting
+	* gcc.dg/darwin-minversion-2.c: Fixed formatting
+	* gcc.dg/darwin-minversion-3.c: Fixed formatting
+	* gcc.dg/darwin-minversion-4.c: Added test for OS X 10.10
+
+2014-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1_generate.c: Add -Wno-abi
+	to default options.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r215559
+	2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* gcc.target/powerpc/pr63335.c: New test.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63341
+	* gcc.dg/vect/pr63341-1.c: New test.
+	* gcc.dg/vect/pr63341-2.c: New test.
+
+	PR c++/63249
+	* g++.dg/gomp/pr63249.C: New test.
+	* c-c++-common/gomp/pr63249.c: New test.
+
+2014-09-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/62219
+	* g++.dg/cpp0x/lambda/lambda-template14.C: New.
+
+2014-09-22  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-05-21  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/61272
+	* g++.dg/ubsan/pr61272.C: New test.
+
+2014-09-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63328
+	* c-c++-common/gomp/pr63328.c: New test.
+
+2014-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2014-09-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.dg/pr61053.c: Updated for x32.
+
+2014-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/62017
+	* g++.dg/asan/pr62017.C: New test.
+
+	PR testsuite/63292
+	* gcc.dg/vect/pr59594.c (b): Increase size to N + 2 elements.
+
+2014-09-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-exact-underflow.c: New test.
+
+2014-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63284
+	* gcc.dg/pr63284.c: New test.
+
+2014-09-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63241
+	* g++.dg/cpp0x/constexpr-63241.C: New.
+
 2014-09-12  Martin Jambor  <mjambor@suse.cz>
 
 	PR ipa/61654
