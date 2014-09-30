@@ -21,6 +21,7 @@ MULTILIB_MATCHES  += march?armv6s-m=mcpu?cortex-m1
 MULTILIB_MATCHES  += march?armv6s-m=march?armv6-m
 MULTILIB_MATCHES  += march?armv7-m=mcpu?cortex-m3
 MULTILIB_MATCHES  += march?armv7e-m=mcpu?cortex-m4
+MULTILIB_MATCHES  += march?armv7e-m=mcpu?cortex-m7
 MULTILIB_MATCHES  += march?armv7=march?armv7-r
 MULTILIB_MATCHES  += march?armv7=march?armv7-a
 MULTILIB_MATCHES  += march?armv7=mcpu?cortex-r4
@@ -32,6 +33,8 @@ MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a7
 MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a8
 MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a9
 MULTILIB_MATCHES  += march?armv7=mcpu?cortex-a15
+MULTILIB_MATCHES  += mfpu?fpv4-sp-d16=mfpu?fpv5-sp-d16
+MULTILIB_MATCHES  += mfpu?fpv4-sp-d16=mfpu?fpv5-d16
 MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3
 MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3-fp16
 MULTILIB_MATCHES  += mfpu?vfpv3-d16=mfpu?vfpv3-d16-fp16

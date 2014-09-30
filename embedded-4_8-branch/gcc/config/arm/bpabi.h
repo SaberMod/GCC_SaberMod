@@ -62,7 +62,7 @@
    |mcpu=marvell-pj4					\
    |mcpu=generic-armv7-a                                \
    |march=armv7-m|mcpu=cortex-m3                        \
-   |march=armv7e-m|mcpu=cortex-m4                       \
+   |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
    :%{!r:--be8}}}"
@@ -74,7 +74,7 @@
    |mcpu=marvell-pj4					\
    |mcpu=generic-armv7-a                                \
    |march=armv7-m|mcpu=cortex-m3                        \
-   |march=armv7e-m|mcpu=cortex-m4                       \
+   |march=armv7e-m|mcpu=cortex-m4|mcpu=cortex-m7        \
    |march=armv6-m|mcpu=cortex-m0                        \
    |march=armv8-a					\
    :%{!r:--be8}}}"
