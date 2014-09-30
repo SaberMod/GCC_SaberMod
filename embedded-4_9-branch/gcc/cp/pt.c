@@ -4423,15 +4423,18 @@ check_default_tmpl_args (tree decl, tree parms, bool is_primary,
      in the template-parameter-list of the definition of a member of a
      class template.  */
 
-  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL)
+  if (TREE_CODE (CP_DECL_CONTEXT (decl)) == FUNCTION_DECL
+      || (TREE_CODE (decl) == FUNCTION_DECL && DECL_LOCAL_FUNCTION_P (decl)))
     /* You can't have a function template declaration in a local
        scope, nor you can you define a member of a class template in a
        local scope.  */
     return true;
 
-  if (TREE_CODE (decl) == TYPE_DECL
-      && TREE_TYPE (decl)
-      && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+  if ((TREE_CODE (decl) == TYPE_DECL
+       && TREE_TYPE (decl)
+       && LAMBDA_TYPE_P (TREE_TYPE (decl)))
+      || (TREE_CODE (decl) == FUNCTION_DECL
+	  && LAMBDA_FUNCTION_P (decl)))
     /* A lambda doesn't have an explicit declaration; don't complain
        about the parms of the enclosing class.  */
     return true;
@@ -4695,6 +4698,9 @@ push_template_decl_real (tree decl, bool is_friend)
     /* A friend template that specifies a class context, i.e.
          template <typename T> friend void A<T>::f();
        is not primary.  */
+    is_primary = false;
+  else if (TREE_CODE (decl) == TYPE_DECL
+	   && LAMBDA_TYPE_P (TREE_TYPE (decl)))
     is_primary = false;
   else
     is_primary = template_parm_scope_p ();
@@ -5344,6 +5350,10 @@ check_valid_ptrmem_cst_expr (tree type, tree expr,
   if (expr && (null_ptr_cst_p (expr) || TREE_CODE (expr) == PTRMEM_CST))
     return true;
   if (cxx_dialect >= cxx11 && null_member_pointer_value_p (expr))
+    return true;
+  if (processing_template_decl
+      && TREE_CODE (expr) == ADDR_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 0)) == OFFSET_REF)
     return true;
   if (complain & tf_error)
     {
@@ -9130,6 +9140,11 @@ instantiate_class_template_1 (tree type)
 		  && DECL_OMP_DECLARE_REDUCTION_P (r))
 		cp_check_omp_declare_reduction (r);
 	    }
+	  else if (DECL_CLASS_TEMPLATE_P (t)
+		   && LAMBDA_TYPE_P (TREE_TYPE (t)))
+	    /* A closure type for a lambda in a default argument for a
+	       member template.  Ignore it; it will be instantiated with
+	       the default argument.  */;
 	  else
 	    {
 	      /* Build new TYPE_FIELDS.  */
@@ -9802,6 +9817,11 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
 	  unsubstituted_packs = true;
 	}
     }
+
+  /* If the expansion is just T..., return the matching argument pack.  */
+  if (!unsubstituted_packs
+      && TREE_PURPOSE (packs) == pattern)
+    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
 
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
@@ -10663,6 +10683,9 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	      /* We instantiated this while substituting into
 		 the type earlier (template/friend54.C).  */
 	      RETURN (new_r);
+
+	    if (!DECL_FRIEND_P (r))
+	      note_comdat_fn (r);
 
 	    /* We're not supposed to instantiate default arguments
 	       until they are called, for a template.  But, for a
@@ -13847,13 +13870,27 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OMP_SECTIONS:
     case OMP_SINGLE:
     case OMP_TEAMS:
-    case OMP_TARGET_DATA:
-    case OMP_TARGET:
       tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
 				args, complain, in_decl);
       stmt = push_stmt_list ();
       RECUR (OMP_BODY (t));
       stmt = pop_stmt_list (stmt);
+
+      t = copy_node (t);
+      OMP_BODY (t) = stmt;
+      OMP_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_TARGET_DATA:
+    case OMP_TARGET:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+				args, complain, in_decl);
+      keep_next_level (true);
+      stmt = begin_omp_structured_block ();
+
+      RECUR (OMP_BODY (t));
+      stmt = finish_omp_structured_block (stmt);
 
       t = copy_node (t);
       OMP_BODY (t) = stmt;
@@ -15180,6 +15217,16 @@ tsubst_copy_and_build (tree t,
     case PARM_DECL:
       {
 	tree r = tsubst_copy (t, args, complain, in_decl);
+	if (TREE_CODE (r) == VAR_DECL
+	    && !processing_template_decl
+	    && !cp_unevaluated_operand
+	    && DECL_THREAD_LOCAL_P (r))
+	  {
+	    if (tree wrap = get_tls_wrapper_fn (r))
+	      /* Replace an evaluated use of the thread_local variable with
+		 a call to its wrapper.  */
+	      r = build_cxx_call (wrap, 0, NULL, tf_warning_or_error);
+	  }
 
 	if (TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE)
 	  /* If the original type was a reference, we'll be wrapped in
@@ -15636,7 +15683,7 @@ pack_deducible_p (tree parm, tree fn)
 	continue;
       for (packs = PACK_EXPANSION_PARAMETER_PACKS (type);
 	   packs; packs = TREE_CHAIN (packs))
-	if (TREE_VALUE (packs) == parm)
+	if (template_args_equal (TREE_VALUE (packs), parm))
 	  {
 	    /* The template parameter pack is used in a function parameter
 	       pack.  If this is the end of the parameter list, the
@@ -16360,8 +16407,9 @@ unify_one_argument (tree tparms, tree targs, tree parm, tree arg,
 	maybe_adjust_types_for_deduction (strict, &parm, &arg, arg_expr);
     }
   else
-    gcc_assert ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
-		== (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL));
+    if ((TYPE_P (parm) || TREE_CODE (parm) == TEMPLATE_DECL)
+	!= (TYPE_P (arg) || TREE_CODE (arg) == TEMPLATE_DECL))
+      return unify_template_argument_mismatch (explain_p, parm, arg);
 
   /* For deduction from an init-list we need the actual list.  */
   if (arg_expr && BRACE_ENCLOSED_INITIALIZER_P (arg_expr))
@@ -16697,7 +16745,16 @@ resolve_overloaded_unification (tree tparms,
       int i = TREE_VEC_LENGTH (targs);
       for (; i--; )
 	if (TREE_VEC_ELT (tempargs, i))
-	  TREE_VEC_ELT (targs, i) = TREE_VEC_ELT (tempargs, i);
+	  {
+	    tree old = TREE_VEC_ELT (targs, i);
+	    tree new_ = TREE_VEC_ELT (tempargs, i);
+	    if (new_ && old && ARGUMENT_PACK_P (old)
+		&& ARGUMENT_PACK_EXPLICIT_ARGS (old))
+	      /* Don't forget explicit template arguments in a pack.  */
+	      ARGUMENT_PACK_EXPLICIT_ARGS (new_)
+		= ARGUMENT_PACK_EXPLICIT_ARGS (old);
+	    TREE_VEC_ELT (targs, i) = new_;
+	  }
     }
   if (good)
     return true;
@@ -20936,7 +20993,12 @@ type_dependent_expression_p (tree expression)
 	return true;
 
       if (BASELINK_P (expression))
-	expression = BASELINK_FUNCTIONS (expression);
+	{
+	  if (BASELINK_OPTYPE (expression)
+	      && dependent_type_p (BASELINK_OPTYPE (expression)))
+	    return true;
+	  expression = BASELINK_FUNCTIONS (expression);
+	}
 
       if (TREE_CODE (expression) == TEMPLATE_ID_EXPR)
 	{

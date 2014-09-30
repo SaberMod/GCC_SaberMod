@@ -2600,7 +2600,6 @@ finish_compound_literal (tree type, tree compound_literal,
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
-      && !cp_unevaluated_operand
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);
@@ -3491,6 +3490,7 @@ finish_id_expression (tree id_expression,
       tree wrap;
       if (VAR_P (decl)
 	  && !cp_unevaluated_operand
+	  && !processing_template_decl
 	  && DECL_THREAD_LOCAL_P (decl)
 	  && (wrap = get_tls_wrapper_fn (decl)))
 	{
@@ -3867,6 +3867,7 @@ simplify_aggr_init_expr (tree *tp)
 				    aggr_init_expr_nargs (aggr_init_expr),
 				    AGGR_INIT_EXPR_ARGP (aggr_init_expr));
   TREE_NOTHROW (call_expr) = TREE_NOTHROW (aggr_init_expr);
+  CALL_EXPR_LIST_INIT_P (call_expr) = CALL_EXPR_LIST_INIT_P (aggr_init_expr);
 
   if (style == ctor)
     {
@@ -4261,6 +4262,10 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		length);
       return error_mark_node;
     }
+  if (low_bound)
+    low_bound = mark_rvalue_use (low_bound);
+  if (length)
+    length = mark_rvalue_use (length);
   if (low_bound
       && TREE_CODE (low_bound) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (low_bound))
@@ -5283,6 +5288,8 @@ finish_omp_clauses (tree clauses)
 			  break;
 			}
 		    }
+		  else
+		    t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (c)), t);
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
 	    }
@@ -5624,7 +5631,9 @@ finish_omp_clauses (tree clauses)
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!cp_omp_mappable_type (TREE_TYPE (t)))
+		  if (TREE_CODE (t) != TREE_LIST
+		      && !type_dependent_expression_p (t)
+		      && !cp_omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -5664,6 +5673,7 @@ finish_omp_clauses (tree clauses)
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
+		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
@@ -8511,11 +8521,24 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 bool
 reduced_constant_expression_p (tree t)
 {
-  if (TREE_CODE (t) == PTRMEM_CST)
-    /* Even if we can't lower this yet, it's constant.  */
-    return true;
-  /* FIXME are we calling this too much?  */
-  return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+  switch (TREE_CODE (t))
+    {
+    case PTRMEM_CST:
+      /* Even if we can't lower this yet, it's constant.  */
+      return true;
+
+    case CONSTRUCTOR:
+      /* And we need to handle PTRMEM_CST wrapped in a CONSTRUCTOR.  */
+      tree elt; unsigned HOST_WIDE_INT idx;
+      FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, elt)
+	if (!reduced_constant_expression_p (elt))
+	  return false;
+      return true;
+
+    default:
+      /* FIXME are we calling this too much?  */
+      return initializer_constant_valid_p (t, TREE_TYPE (t)) != NULL_TREE;
+    }
 }
 
 /* Some expressions may have constant operands but are not constant
@@ -8940,7 +8963,9 @@ cxx_eval_bare_aggregate (const constexpr_call *call, tree t,
 	  constructor_elt *inner = base_field_constructor_elt (n, ce->index);
 	  inner->value = elt;
 	}
-      else if (ce->index && TREE_CODE (ce->index) == NOP_EXPR)
+      else if (ce->index
+	       && (TREE_CODE (ce->index) == NOP_EXPR
+		   || TREE_CODE (ce->index) == POINTER_PLUS_EXPR))
 	{
 	  /* This is an initializer for an empty base; now that we've
 	     checked that it's constant, we can ignore it.  */
@@ -10163,6 +10188,11 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
             designates an object with thread or automatic storage
             duration;  */
       t = TREE_OPERAND (t, 0);
+
+      if (TREE_CODE (t) == OFFSET_REF && PTRMEM_OK_P (t))
+	/* A pointer-to-member constant.  */
+	return true;
+
 #if 0
       /* FIXME adjust when issue 1197 is fully resolved.  For now don't do
          any checking here, as we might dereference the pointer later.  If

@@ -1,3 +1,85 @@
+2014-09-25  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR c++/63249
+	* c-parser.c (c_parser_omp_variable_list): Call mark_exp_read
+	on low_bound and length.
+
+2014-09-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/62294
+	* c-typeck.c (convert_arguments): Get location of a parameter.  Change
+	error and warning calls to error_at and warning_at.  Pass location of
+	a parameter to it.
+	(convert_for_assignment): Add parameter to WARN_FOR_ASSIGNMENT and
+	WARN_FOR_QUALIFIERS.  Pass expr_loc to those.
+
+2014-08-22  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/62008
+	* c-parser.c (c_parser_array_notation): Check for correct
+	type of an array added.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/61455
+	* c-array-notation.c (expand_array_notations): Handling
+	of DECL_EXPR added.
+
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
+2014-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-06-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Make sure
+	OMP_CLAUSE_LINEAR_STEP has correct type.
+
+2014-06-30  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* c-parser.c (c_parser_declaration_or_fndef): Discard all type
+	qualifiers in __auto_type for atomic types.
+	(c_parser_typeof_specifier): Discard all type qualifiers in
+	__typeof__ for atomic types.
+
+2014-06-30  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/57541
+	* c-array-notation.c (fix_builtin_array_notation_fn):
+	Check for 0 arguments in builtin call. Check that bultin argument is
+	correct.
+	* c-parser.c (c_parser_array_notation): Check for incorrect initial
+	index.
+
+2014-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): For
+	#pragma omp parallel for simd move lastprivate clause from parallel
+	to for rather than simd.
+
+2014-06-04  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/58942
+	* c-array-notation.c (fix_builtin_array_notation_fn): Handle the case
+	with a pointer.
+
+2014-06-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61053
+	* c-decl.c (grokdeclarator): Use min_align_of_type instead of
+	TYPE_ALIGN_UNIT.
+
+2014-05-26  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c/61191
+	* c-array-notation.c (fix_builtin_array_notation_fn): Check invalid
+	function parameters.
+
 2014-04-24  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_atomic): Allow seq_cst before

@@ -3258,12 +3258,13 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
      {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
-        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
-        | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
-        | PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+	| PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
+	| PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
 	| PTA_FMA4 | PTA_XOP | PTA_LWP | PTA_BMI | PTA_BMI2 
 	| PTA_TBM | PTA_F16C | PTA_FMA | PTA_PRFCHW | PTA_FXSR 
-	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE},
+	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE | PTA_RDRND
+	| PTA_MOVBE},
       {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
@@ -3331,8 +3332,9 @@ ix86_option_override_internal (bool main_args_p,
       /* When TARGET_BI_ARCH == 2, by default, OPTION_MASK_ABI_X32 is
 	 on and OPTION_MASK_ABI_64 is off.  We turn off
 	 OPTION_MASK_ABI_X32 if OPTION_MASK_ABI_64 is turned on by
-	 -m64.  */
-      if (TARGET_LP64_P (opts->x_ix86_isa_flags))
+	 -m64 or OPTION_MASK_CODE16 is turned on by -m16.  */
+      if (TARGET_LP64_P (opts->x_ix86_isa_flags)
+	  || TARGET_16BIT_P (opts->x_ix86_isa_flags))
 	opts->x_ix86_isa_flags &= ~OPTION_MASK_ABI_X32;
 #endif
     }
@@ -6552,7 +6554,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 					   bit_offset);
 		  if (!num)
 		    return 0;
-		  for (i = 0; i < num; i++)
+		  for (i = 0; i < num && i < words; i++)
 		    classes[i] = merge_classes (subclasses[i], classes[i]);
 		}
 	    }
@@ -21507,7 +21509,7 @@ ix86_expand_vec_perm (rtx operands[])
 	  t1 = gen_reg_rtx (V32QImode);
 	  t2 = gen_reg_rtx (V32QImode);
 	  t3 = gen_reg_rtx (V32QImode);
-	  vt2 = GEN_INT (128);
+	  vt2 = GEN_INT (-128);
 	  for (i = 0; i < 32; i++)
 	    vec[i] = vt2;
 	  vt = gen_rtx_CONST_VECTOR (V32QImode, gen_rtvec_v (32, vec));
@@ -23794,7 +23796,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 {
   const struct stringop_algs * algs;
   bool optimize_for_speed;
-  int max = -1;
+  int max = 0;
   const struct processor_costs *cost;
   int i;
   bool any_alg_usable_p = false;
@@ -23832,7 +23834,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
   /* If expected size is not known but max size is small enough
      so inline version is a win, set expected size into
      the range.  */
-  if (max > 1 && (unsigned HOST_WIDE_INT) max >= max_size
+  if (((max > 1 && (unsigned HOST_WIDE_INT) max >= max_size) || max == -1)
       && expected_size == -1)
     expected_size = min_size / 2 + max_size / 2;
 
@@ -23921,7 +23923,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
             *dynamic_check = 128;
           return loop_1_byte;
         }
-      if (max == -1)
+      if (max <= 0)
 	max = 4096;
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
 			zero_memset, dynamic_check, noalign);
@@ -24151,8 +24153,13 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
     align = MEM_ALIGN (dst) / BITS_PER_UNIT;
 
   if (CONST_INT_P (count_exp))
-    min_size = max_size = probable_max_size = count = expected_size
-      = INTVAL (count_exp);
+    {
+      min_size = max_size = probable_max_size = count = expected_size
+	= INTVAL (count_exp);
+      /* When COUNT is 0, there is nothing to do.  */
+      if (!count)
+	return true;
+    }
   else
     {
       if (min_size_exp)
@@ -24161,7 +24168,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	max_size = INTVAL (max_size_exp);
       if (probable_max_size_exp)
 	probable_max_size = INTVAL (probable_max_size_exp);
-      if (CONST_INT_P (expected_size_exp) && count == 0)
+      if (CONST_INT_P (expected_size_exp))
 	expected_size = INTVAL (expected_size_exp);
      }
 
@@ -26233,13 +26240,17 @@ ix86_dependencies_evaluation_hook (rtx head, rtx tail)
 	      {
 		edge e;
 		edge_iterator ei;
-		/* Assume that region is SCC, i.e. all immediate predecessors
-	           of non-head block are in the same region.  */
+
+		/* Regions are SCCs with the exception of selective
+		   scheduling with pipelining of outer blocks enabled.
+		   So also check that immediate predecessors of a non-head
+		   block are in the same region.  */
 		FOR_EACH_EDGE (e, ei, bb->preds)
 		  {
 		    /* Avoid creating of loop-carried dependencies through
-		       using topological odering in region.  */
-		    if (BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
+		       using topological ordering in the region.  */
+		    if (rgn == CONTAINING_RGN (e->src->index)
+			&& BLOCK_TO_BB (bb->index) > BLOCK_TO_BB (e->src->index))
 		      add_dependee_for_func_arg (first_arg, e->src); 
 		  }
 	      }
@@ -37797,10 +37808,10 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
       else if (TARGET_64BIT && !x86_64_zext_immediate_operand (x, VOIDmode))
 	*total = 2;
       else if (flag_pic && SYMBOLIC_CONST (x)
-	       && (!TARGET_64BIT
-		   || (!GET_CODE (x) != LABEL_REF
-		       && (GET_CODE (x) != SYMBOL_REF
-		           || !SYMBOL_REF_LOCAL_P (x)))))
+	       && !(TARGET_64BIT
+		    && (GET_CODE (x) == LABEL_REF
+			|| (GET_CODE (x) == SYMBOL_REF
+			    && SYMBOL_REF_LOCAL_P (x)))))
 	*total = 1;
       else
 	*total = 0;
@@ -45083,8 +45094,10 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
       /* t4: ((B*E)+(A*F))<<32, ((D*G)+(C*H))<<32 */
       emit_insn (gen_ashlv2di3 (t4, t3, GEN_INT (32)));
 
-      /* op0: (((B*E)+(A*F))<<32)+(B*F), (((D*G)+(C*H))<<32)+(D*H) */
-      emit_insn (gen_xop_pmacsdql (op0, op1, op2, t4));
+      /* Multiply lower parts and add all */
+      t5 = gen_reg_rtx (V2DImode);
+      emit_insn (gen_vec_widen_umult_even_v4si (t5, gen_lowpart (V4SImode, op1), gen_lowpart (V4SImode, op2)));
+      op0 = expand_binop (mode, add_optab, t5, t4, op0, 1, OPTAB_DIRECT);
     }
   else
     {

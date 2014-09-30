@@ -433,6 +433,8 @@ determine_versionability (struct cgraph_node *node)
   else if (!opt_for_fn (node->decl, optimize)
 	   || !opt_for_fn (node->decl, flag_ipa_cp))
     reason = "non-optimized function";
+  else if (node->tm_clone)
+    reason = "transactional memory clone";
   else if (lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (node->decl)))
     {
       /* Ideally we should clone the SIMD clones themselves and create
@@ -1587,15 +1589,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 		   && DECL_FUNCTION_CODE (target) == BUILT_IN_UNREACHABLE)
 		  || !possible_polymorphic_call_target_p
 		       (ie, cgraph_get_node (target)))
-		{
-		  if (dump_file)
-		    fprintf (dump_file,
-			     "Type inconsident devirtualization: %s/%i->%s\n",
-			     ie->caller->name (), ie->caller->order,
-			     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
-		  target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-		  cgraph_get_create_node (target);
-		}
+		target = ipa_impossible_devirt_target (ie, target);
 	      return target;
 	    }
 	}
@@ -1629,7 +1623,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
       if (targets.length () == 1)
 	target = targets[0]->decl;
       else
-	target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
+	target = ipa_impossible_devirt_target (ie, NULL_TREE);
     }
   else
     {
@@ -1643,15 +1637,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
 
   if (target && !possible_polymorphic_call_target_p (ie,
 						     cgraph_get_node (target)))
-    {
-      if (dump_file)
-	fprintf (dump_file,
-		 "Type inconsident devirtualization: %s/%i->%s\n",
-		 ie->caller->name (), ie->caller->order,
-		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (target)));
-      target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
-      cgraph_get_create_node (target);
-    }
+    target = ipa_impossible_devirt_target (ie, target);
 
   return target;
 }
@@ -2482,7 +2468,8 @@ cgraph_edge_brings_value_p (struct cgraph_edge *cs,
 			    struct ipcp_value_source *src)
 {
   struct ipa_node_params *caller_info = IPA_NODE_REF (cs->caller);
-  struct ipa_node_params *dst_info = IPA_NODE_REF (cs->callee);
+  cgraph_node *real_dest = cgraph_function_node (cs->callee);
+  struct ipa_node_params *dst_info = IPA_NODE_REF (real_dest);
 
   if ((dst_info->ipcp_orig_node && !dst_info->is_all_contexts_clone)
       || caller_info->node_dead)
@@ -3045,6 +3032,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		intersect_with_agg_replacements (cs->caller, src_idx,
 						 &inter, 0);
 	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
+	    }
 	}
       else
 	{
@@ -3059,6 +3051,11 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
 		inter = copy_plats_to_inter (src_plats, 0);
 	      else
 		intersect_with_plats (src_plats, &inter, 0);
+	    }
+	  else
+	    {
+	      inter.release ();
+	      return vNULL;
 	    }
 	}
     }
@@ -3143,7 +3140,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 					  vec<cgraph_edge_p> callers)
 {
   struct ipa_node_params *dest_info = IPA_NODE_REF (node);
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct cgraph_edge *cs;
   int i, j, count = ipa_get_param_count (dest_info);
 
@@ -3187,14 +3185,15 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 	  v->offset = item->offset;
 	  v->value = item->value;
 	  v->by_ref = plats->aggs_by_ref;
-	  v->next = res;
-	  res = v;
+	  *tail = v;
+	  tail = &v->next;
 	}
 
     next_param:
       if (inter.exists ())
 	inter.release ();
     }
+  *tail = NULL;
   return res;
 }
 
@@ -3203,7 +3202,8 @@ find_aggregate_values_for_callers_subset (struct cgraph_node *node,
 static struct ipa_agg_replacement_value *
 known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 {
-  struct ipa_agg_replacement_value *res = NULL;
+  struct ipa_agg_replacement_value *res;
+  struct ipa_agg_replacement_value **tail = &res;
   struct ipa_agg_jump_function *aggjf;
   struct ipa_agg_jf_item *item;
   int i, j;
@@ -3217,9 +3217,10 @@ known_aggs_to_agg_replacement_list (vec<ipa_agg_jump_function> known_aggs)
 	v->offset = item->offset;
 	v->value = item->value;
 	v->by_ref = aggjf->by_ref;
-	v->next = res;
-	res = v;
+	*tail = v;
+	tail = &v->next;
       }
+  *tail = NULL;
   return res;
 }
 

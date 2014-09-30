@@ -1,3 +1,246 @@
+2014-09-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/63219
+	* include/bits/regex.h (match_results::format): Remove stray template
+	parameter.
+
+2014-08-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-08-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/basic_string.h (getline): Qualify call to prevent ADL
+	and add overloads for rvalue streams.
+	* testsuite/21_strings/basic_string/inserters_extractors/char/12.cc:
+	New.
+	* testsuite/21_strings/basic_string/inserters_extractors/wchar_t/12.cc:
+	New.
+
+2014-08-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/62264
+	* include/experimental/string_view: Fix inconsistent exception specs.
+
+2014-08-09  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/61667
+	* include/bits/hashtable.h (_Hashtable<>::__rehash_policy): Use
+	_M_need_rehash to initialize the rehash policy and check if a rehash is
+	needed.
+	* testsuite/23_containers/unordered_map/modifiers/61667.cc: New.
+
+2014-08-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61946
+	* include/ext/rope (rope::rope(char_producer<_CharT>*, size_t, bool,
+	const allocator_type&)): Pass non-const allocator to
+	_S_new_RopeFunction.
+	* testsuite/ext/rope/61946.cc: New.
+
+2014-08-04  Zifei Tong  <zifeitong@gmail.com>
+
+	* libsupc++/atexit_thread.cc (HAVE___CXA_THREAD_ATEXIT_IMPL): Add
+	_GLIBCXX_ prefix to macro.
+
+2014-08-04  Samuel Bronson  <naesten@gmail.com>
+
+	Backport r212453 from trunk
+	2014-07-11  Samuel Bronson  <naesten@gmail.com>
+		    Matthias Klose  <doko@ubuntu.com>
+
+	PR libstdc++/58962
+	* python/libstdcxx/v6/printers.py: Port to Python 2+3
+	(imap): New compat function.
+	(izip): Likewise.
+	(Iterator): New mixin to allow writing iterators in Python 3 style
+	regardless of which version we're running on.
+	[Python3] (long) New compat alias for "int".
+	* testsuite/lib/gdb-test.exp: Port to Python 2+3 (print syntax)
+
+	Backport r210625 from trunk
+	2014-05-19  Jonathan Wakely  <jwakely@redhat.com>
+
+	* python/libstdcxx/v6/printers.py: Use Python3 raise syntax.
+
+2014-08-04  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backported from mainline
+	2014-06-10  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61390
+	* include/ext/pb_ds/detail/bin_search_tree_/traits.hpp
+	(bin_search_tree_traits): Do not redeclare template-parameters.
+	* testsuite/util/testsuite_iterators.h (test_container): Likewise.
+
+	Backported from mainline
+	2014-06-02  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/condition_variable (condition_variable_any::_Unlock): Do
+	not swallow __forced_unwind.
+	* include/std/future (__future_base::_Task_setter): Likewise.
+	(__future_base::_Async_state_impl): Turn __forced_unwind into broken
+	promise and rethrow.
+	* include/std/mutex (try_lock): Likewise.
+	* testsuite/30_threads/async/forced_unwind.cc: New.
+	* testsuite/30_threads/packaged_task/forced_unwind.cc: New.
+
+	Backported from mainline
+	2014-06-01  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61374
+	* include/experimental/string_view (operator basic_string): Correct
+	order of arguments.
+	(to_string): Replace with member function.
+	Add inline specifiers. Remove unused header. Remove _S_empty_rep and
+	allow _M_str to be null.
+	* testsuite/experimental/string_view/cons/char/1.cc: Adjust to new
+	default constructor semantics.
+	* testsuite/experimental/string_view/cons/wchar_t/1.cc: Likewise.
+	* testsuite/experimental/string_view/operations/copy/char/1.cc: Fix
+	copyright dates. Remove unused header.
+	* testsuite/experimental/string_view/operations/copy/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/data/char/1.cc:
+	Fix copyright dates. Adjust to new default constructor semantics.
+	* testsuite/experimental/string_view/operations/data/wchar_t/1.cc:
+	Likewise.
+	* testsuite/experimental/string_view/operations/to_string/1.cc: New.
+
+	Backported from mainline
+	2014-04-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/atomic_base.h (__atomic_base<_PTp*>::_M_type_size): Add
+	const to constexpr member functions.
+
+2014-07-29  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/60037 - SIGFPE in std::generate_canonical<unsigned int...>
+	* include/bits/random.h (_Adaptor): static_assert for non floating-point
+	result type.
+	* include/bits/random.tcc (generate_canonical): Ditto.
+	* include/ext/random.tcc (hypergeometric_distribution::operator()):
+	Use double as a rng result type.
+	* testsuite/26_numerics/random/pr60037-neg.cc: New.
+	* testsuite/ext/random/hypergeometric_distribution/pr60037.cc: New.
+
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
+2014-06-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61532
+	* testsuite/20_util/make_signed/requirements/typedefs-1.cc: Do not
+	apply the signed specifier to wchar_t.
+	* testsuite/20_util/make_signed/requirements/typedefs-2.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: Do not
+	apply the unsigned specifier to wchar_t.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Likewise.
+
+2014-06-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	PR libstdc++/60326
+	* include/std/type_traits (__make_unsigned, __make_signed): Define
+	specializations for wchar_t, char16_t and char32_t.
+	* testsuite/20_util/make_signed/requirements/typedefs-4.cc: New.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-1.cc: Correct
+	test for make_unsigned<volatile wchar_t>.
+	* testsuite/20_util/make_unsigned/requirements/typedefs-2.cc:
+	Likewise.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error
+	line number.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+	Backport from mainline
+	PR libstdc++/61269
+	* include/std/type_traits: Move include outside namespace std.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust dg-error.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Likewise.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+
+	* include/std/tuple (tuple_size<cv _Tp>): Implement LWG 2313.
+	(get<_Tp>(tuple<_Types...>&&)): Use forward instead of move.
+	* testsuite/20_util/tuple/element_access/get_by_type.cc: Test rvalues.
+
+2014-06-07  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Backport from mainline
+	DR 2344 - std::quoted doesn't respect padding
+	* include/std/iomanip: Allow for padding in quoted inserters.
+	* testsuite/27_io/manipulators/standard/char/dr2344.cc: New.
+	* testsuite/27_io/manipulators/standard/wchar_t/dr2344.cc: New.
+
+2014-06-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/regex_executor.tcc (_Executor<>::_M_main): Move instead
+	of copying.
+
+2014-06-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	Backport from mainline
+	2014-04-15  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60734
+	* include/bits/stl_tree.h (_Rb_tree::_M_end): Fix invalid cast.
+
+	Backport from mainline
+	2014-04-24  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex_automaton.tcc (_StateSeq<>::_M_clone()):
+	Do _M_alt before _M_next.
+	* testsuite/28_regex/basic_regex/multiple_quantifiers.cc: Add testcases.
+
+	Backport from mainline
+	2014-05-20  Tim Shen  <timshen91@gmail.com>
+
+	PR libstdc++/61227
+	* include/bits/regex_compiler.h
+	(_BracketMatcher<>::_M_add_character_class): Add negative character
+	class support.
+	* include/bits/regex_compiler.tcc (_BracketMatcher<>::_M_apply):
+	Likewise.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/quoted_char.cc:
+	Add more testcases.
+
+2014-05-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/tr2/bool_set: Use UTF-8 for accented characters.
+	* scripts/run_doxygen: Handle Doxygen 1.8.x change.
+
+2014-05-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/61329
+	* include/bits/regex_automaton.tcc (_State_base::_M_print): Add
+	inline specifier.
+	(_State_base::_M_dot): Likewise.
+
+2014-05-23  François Dumont  <fdumont@gcc.gnu.org>
+
+	PR libstdc++/61143
+	* include/bits/hashtable.h: Fix move semantic to leave hashtable in a
+	usable state.
+	* testsuite/23_containers/unordered_set/61143.cc: New.
+	* testsuite/23_containers/unordered_set/modifiers/swap.cc: New.
+
+2014-05-17  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/60966
+	* include/std/future (__future_base::_State_baseV2::_M_set_result):
+	Signal condition variable after call_once returns.
+	(__future_base::_State_baseV2::_M_do_set): Do not signal here.
+	(promise::set_value, promise::set_exception): Increment the reference
+	count on the shared state until the function returns.
+	* testsuite/30_threads/promise/60966.cc: New.
+
 2014-05-08  Joshua Gay  <jgay@gnu.org>
 
 	PR libstdc++/61117

@@ -1,3 +1,55 @@
+2014-08-12  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR other/61962
+	* array-notation-common.c (find_rank): Added handling for other
+	types of references.
+
+2014-08-01  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR middle-end/61455
+	* array-notation-common.c (extract_array_notation_exprs): Handling
+	of DECL_EXPR added.
+
+2014-07-17  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2014-07-09  Richard Biener  <rguenther@suse.de>
+
+	PR c-family/61741
+	* c-gimplify.c (c_gimplify_expr): Gimplify self-modify expressions
+	using unsigned arithmetic if overflow does not wrap instead of
+	if overflow is undefined.
+
+2014-07-16  Release Manager
+
+	* GCC 4.9.1 released.
+
+2014-06-30  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/60928
+	* c-pragma.c (omp_pragmas_simd): Move PRAGMA_OMP_TASK...
+	(omp_pragmas): ... back here.
+
+2014-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/61486
+	* c-omp.c (c_omp_split_clauses): Don't crash on firstprivate in
+	#pragma omp target teams or
+	#pragma omp {,target }teams distribute simd.
+
+2014-06-04  Marek Polacek  <polacek@redhat.com>
+
+	Backport from mainline
+	2014-05-08  Marek Polacek  <polacek@redhat.com>
+
+	PR c/61053
+	* c-common.c (min_align_of_type): New function factored out from...
+	(c_sizeof_or_alignof_type): ...here.
+	* c-common.h (min_align_of_type): Declare.
+
 2014-05-06  Richard Biener  <rguenther@suse.de>
 
 	* c-opts.c (c_common_post_options): For -freestanding,

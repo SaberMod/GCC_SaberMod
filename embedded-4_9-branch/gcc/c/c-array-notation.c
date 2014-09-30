@@ -214,6 +214,13 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
   if (an_type == BUILT_IN_NONE)
     return NULL_TREE;
 
+  /* Builtin call should contain at least one argument.  */
+  if (call_expr_nargs (an_builtin_fn) == 0)
+    {
+      error_at (EXPR_LOCATION (an_builtin_fn), "Invalid builtin arguments");
+      return error_mark_node;
+    }
+
   if (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE
       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MUTATING)
     {
@@ -229,6 +236,8 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
   /* Fully fold any EXCESSIVE_PRECISION EXPR that can occur in the function
      parameter.  */
   func_parm = c_fully_fold (func_parm, false, NULL);
+  if (func_parm == error_mark_node)
+    return error_mark_node;
   
   location = EXPR_LOCATION (an_builtin_fn);
   
@@ -236,7 +245,10 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
     return error_mark_node;
  
   if (rank == 0)
-    return an_builtin_fn;
+    {
+      error_at (location, "Invalid builtin arguments");
+      return error_mark_node;
+    }
   else if (rank > 1 
 	   && (an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MAX_IND
 	       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND))
@@ -308,7 +320,9 @@ fix_builtin_array_notation_fn (tree an_builtin_fn, tree *new_var)
       || an_type == BUILT_IN_CILKPLUS_SEC_REDUCE_MIN_IND)
     array_ind_value = build_decl (location, VAR_DECL, NULL_TREE, 
 				  TREE_TYPE (func_parm));
-  array_op0 = (*array_operand)[0];			      
+  array_op0 = (*array_operand)[0];
+  if (TREE_CODE (array_op0) == INDIRECT_REF)
+    array_op0 = TREE_OPERAND (array_op0, 0);
   switch (an_type)
     {
     case BUILT_IN_CILKPLUS_SEC_REDUCE_ADD:
@@ -1249,6 +1263,25 @@ expand_array_notations (tree *tp, int *walk_subtrees, void *)
 	  UNKNOWN_LOCATION;
 	*tp = build_array_notation_expr (loc, lhs, TREE_TYPE (lhs), NOP_EXPR,
 					 rhs_loc, rhs, TREE_TYPE (rhs));
+      }
+      break;
+    case DECL_EXPR:
+      {
+	tree x = DECL_EXPR_DECL (*tp);
+	if (DECL_INITIAL (x))
+	  {
+	    location_t loc = DECL_SOURCE_LOCATION (x);
+	    tree lhs = x;
+	    tree rhs = DECL_INITIAL (x);
+	    DECL_INITIAL (x) = NULL;
+	    tree new_modify_expr = build_modify_expr (loc, lhs,
+						      TREE_TYPE (lhs),
+						      NOP_EXPR,
+						      loc, rhs,
+						      TREE_TYPE(rhs));
+	    expand_array_notations (&new_modify_expr, walk_subtrees, NULL);
+	    *tp = new_modify_expr;
+	  }
       }
       break;
     case CALL_EXPR:

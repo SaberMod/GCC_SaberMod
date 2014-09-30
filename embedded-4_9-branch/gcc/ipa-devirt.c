@@ -1449,6 +1449,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = false;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -1459,6 +1461,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = true;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -1472,6 +1476,8 @@ possible_polymorphic_call_targets (tree otr_type,
     {
       if (completep)
 	*completep = false;
+      if (cache_token)
+	*cache_token = NULL;
       if (nonconstruction_targetsp)
 	*nonconstruction_targetsp = 0;
       return nodes;
@@ -1863,8 +1869,7 @@ ipa_devirt (void)
 	    /* Don't use an implicitly-declared destructor (c++/58678).  */
 	    struct cgraph_node *non_thunk_target
 	      = cgraph_function_node (likely_target);
-	    if (DECL_ARTIFICIAL (non_thunk_target->decl)
-		&& DECL_COMDAT (non_thunk_target->decl))
+	    if (DECL_ARTIFICIAL (non_thunk_target->decl))
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Target is artificial\n\n");

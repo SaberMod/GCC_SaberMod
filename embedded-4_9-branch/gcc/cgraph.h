@@ -723,6 +723,7 @@ enum symbol_partitioning_class
 /* In symtab.c  */
 void symtab_register_node (symtab_node *);
 void symtab_unregister_node (symtab_node *);
+void symtab_remove_from_same_comdat_group (symtab_node *);
 void symtab_remove_node (symtab_node *);
 symtab_node *symtab_get_node (const_tree);
 symtab_node *symtab_node_for_asm (const_tree asmname);
@@ -796,6 +797,7 @@ void cgraph_unnest_node (struct cgraph_node *);
 
 enum availability cgraph_function_body_availability (struct cgraph_node *);
 void cgraph_add_new_function (tree, bool);
+void cgraph_analyze_function (struct cgraph_node *);
 const char* cgraph_inline_failed_string (cgraph_inline_failed_t);
 cgraph_inline_failed_type_t cgraph_inline_failed_type (cgraph_inline_failed_t);
 

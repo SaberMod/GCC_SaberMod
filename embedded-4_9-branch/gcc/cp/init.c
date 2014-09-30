@@ -522,6 +522,49 @@ perform_target_ctor (tree init)
     }
 }
 
+/* Return the non-static data initializer for FIELD_DECL MEMBER.  */
+
+tree
+get_nsdmi (tree member, bool in_ctor)
+{
+  tree init;
+  tree save_ccp = current_class_ptr;
+  tree save_ccr = current_class_ref;
+  if (!in_ctor)
+    inject_this_parameter (DECL_CONTEXT (member), TYPE_UNQUALIFIED);
+  if (DECL_LANG_SPECIFIC (member) && DECL_TEMPLATE_INFO (member))
+    {
+      /* Do deferred instantiation of the NSDMI.  */
+      init = (tsubst_copy_and_build
+	      (DECL_INITIAL (DECL_TI_TEMPLATE (member)),
+	       DECL_TI_ARGS (member),
+	       tf_warning_or_error, member, /*function_p=*/false,
+	       /*integral_constant_expression_p=*/false));
+
+      init = digest_nsdmi_init (member, init);
+    }
+  else
+    {
+      init = DECL_INITIAL (member);
+      if (init && TREE_CODE (init) == DEFAULT_ARG)
+	{
+	  error ("constructor required before non-static data member "
+		 "for %qD has been parsed", member);
+	  DECL_INITIAL (member) = error_mark_node;
+	  init = NULL_TREE;
+	}
+      /* Strip redundant TARGET_EXPR so we don't need to remap it, and
+	 so the aggregate init code below will see a CONSTRUCTOR.  */
+      if (init && TREE_CODE (init) == TARGET_EXPR
+	  && !VOID_TYPE_P (TREE_TYPE (TARGET_EXPR_INITIAL (init))))
+	init = TARGET_EXPR_INITIAL (init);
+      init = break_out_target_exprs (init);
+    }
+  current_class_ptr = save_ccp;
+  current_class_ref = save_ccr;
+  return init;
+}
+
 /* Initialize MEMBER, a FIELD_DECL, with INIT, a TREE_LIST of
    arguments.  If TREE_LIST is void_type_node, an empty initializer
    list was given; if NULL_TREE no initializer was given.  */
@@ -535,31 +578,7 @@ perform_member_init (tree member, tree init)
   /* Use the non-static data member initializer if there was no
      mem-initializer for this field.  */
   if (init == NULL_TREE)
-    {
-      if (DECL_LANG_SPECIFIC (member) && DECL_TEMPLATE_INFO (member))
-	/* Do deferred instantiation of the NSDMI.  */
-	init = (tsubst_copy_and_build
-		(DECL_INITIAL (DECL_TI_TEMPLATE (member)),
-		 DECL_TI_ARGS (member),
-		 tf_warning_or_error, member, /*function_p=*/false,
-		 /*integral_constant_expression_p=*/false));
-      else
-	{
-	  init = DECL_INITIAL (member);
-	  if (init && TREE_CODE (init) == DEFAULT_ARG)
-	    {
-	      error ("constructor required before non-static data member "
-		     "for %qD has been parsed", member);
-	      init = NULL_TREE;
-	    }
-	  /* Strip redundant TARGET_EXPR so we don't need to remap it, and
-	     so the aggregate init code below will see a CONSTRUCTOR.  */
-	  if (init && TREE_CODE (init) == TARGET_EXPR
-	      && !VOID_TYPE_P (TREE_TYPE (TARGET_EXPR_INITIAL (init))))
-	    init = TARGET_EXPR_INITIAL (init);
-	  init = break_out_target_exprs (init);
-	}
-    }
+    init = get_nsdmi (member, /*ctor*/true);
 
   if (init == error_mark_node)
     return;
@@ -3538,19 +3557,11 @@ build_vec_init (tree base, tree maxindex, tree init,
       try_block = begin_try_block ();
     }
 
-  /* If the initializer is {}, then all elements are initialized from {}.
-     But for non-classes, that's the same as value-initialization.  */
+  bool empty_list = false;
   if (init && BRACE_ENCLOSED_INITIALIZER_P (init)
       && CONSTRUCTOR_NELTS (init) == 0)
-    {
-      if (CLASS_TYPE_P (type))
-	/* Leave init alone.  */;
-      else
-	{
-	  init = NULL_TREE;
-	  explicit_value_init_p = true;
-	}
-    }
+    /* Skip over the handling of non-empty init lists.  */
+    empty_list = true;
 
   /* Maybe pull out constant value when from_array? */
 
@@ -3670,14 +3681,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 	    vec_free (new_vec);
 	}
 
-      /* Any elements without explicit initializers get {}.  */
-      if (cxx_dialect >= cxx11 && AGGREGATE_TYPE_P (type))
-	init = build_constructor (init_list_type_node, NULL);
-      else
-	{
-	  init = NULL_TREE;
-	  explicit_value_init_p = true;
-	}
+      /* Any elements without explicit initializers get T{}.  */
+      empty_list = true;
     }
   else if (from_array)
     {
@@ -3722,6 +3727,26 @@ build_vec_init (tree base, tree maxindex, tree init,
       finish_for_expr (elt_init, for_stmt);
 
       to = build1 (INDIRECT_REF, type, base);
+
+      /* If the initializer is {}, then all elements are initialized from T{}.
+	 But for non-classes, that's the same as value-initialization.  */
+      if (empty_list)
+	{
+	  if (cxx_dialect >= cxx11 && AGGREGATE_TYPE_P (type))
+	    {
+	      if (BRACE_ENCLOSED_INITIALIZER_P (init)
+		  && CONSTRUCTOR_NELTS (init) == 0)
+		/* Reuse it.  */;
+	      else
+		init = build_constructor (init_list_type_node, NULL);
+	      CONSTRUCTOR_IS_DIRECT_INIT (init) = true;
+	    }
+	  else
+	    {
+	      init = NULL_TREE;
+	      explicit_value_init_p = true;
+	    }
+	}
 
       if (from_array)
 	{
@@ -3827,6 +3852,13 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   stmt_expr = finish_init_stmts (is_global, stmt_expr, compound_stmt);
 
+  current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
+
+  if (errors)
+    return error_mark_node;
+  if (const_init)
+    return build2 (INIT_EXPR, atype, obase, const_init);
+
   /* Now make the result have the correct type.  */
   if (TREE_CODE (atype) == ARRAY_TYPE)
     {
@@ -3836,12 +3868,6 @@ build_vec_init (tree base, tree maxindex, tree init,
       TREE_NO_WARNING (stmt_expr) = 1;
     }
 
-  current_stmt_tree ()->stmts_are_full_exprs_p = destroy_temps;
-
-  if (const_init)
-    return build2 (INIT_EXPR, atype, obase, const_init);
-  if (errors)
-    return error_mark_node;
   return stmt_expr;
 }
 

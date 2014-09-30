@@ -1097,6 +1097,22 @@ digest_init_flags (tree type, tree init, int flags)
 {
   return digest_init_r (type, init, false, flags, tf_warning_or_error);
 }
+
+/* Process the initializer INIT for an NSDMI DECL (a FIELD_DECL).  */
+tree
+digest_nsdmi_init (tree decl, tree init)
+{
+  gcc_assert (TREE_CODE (decl) == FIELD_DECL);
+
+  int flags = LOOKUP_IMPLICIT;
+  if (DIRECT_LIST_INIT_P (init))
+    flags = LOOKUP_NORMAL;
+  init = digest_init_flags (TREE_TYPE (decl), init, flags);
+  if (TREE_CODE (init) == TARGET_EXPR)
+    /* This represents the whole initialization.  */
+    TARGET_EXPR_DIRECT_INIT_P (init) = true;
+  return init;
+}
 
 /* Set of flags used within process_init_constructor to describe the
    initializers.  */
@@ -1221,8 +1237,9 @@ process_init_constructor_array (tree type, tree init,
 	  {
 	    /* If this type needs constructors run for default-initialization,
 	       we can't rely on the back end to do it for us, so make the
-	       initialization explicit by list-initializing from {}.  */
+	       initialization explicit by list-initializing from T{}.  */
 	    next = build_constructor (init_list_type_node, NULL);
+	    CONSTRUCTOR_IS_DIRECT_INIT (next) = true;
 	    next = massage_init_elt (TREE_TYPE (type), next, complain);
 	    if (initializer_zerop (next))
 	      /* The default zero-initialization is fine for us; don't
