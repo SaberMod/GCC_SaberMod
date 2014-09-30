@@ -1,3 +1,122 @@
+2014-09-29  Charles Baylis  <charles.baylis@linaro.org>
+
+	Backport from mainline r212303
+	PR target/49423
+	* config/arm/arm-protos.h (arm_legitimate_address_p,
+	arm_is_constant_pool_ref): Add prototypes.
+	* config/arm/arm.c (arm_legitimate_address_p): Remove static.
+	(arm_is_constant_pool_ref) New function.
+	* config/arm/arm.md (unaligned_loadhis, arm_zero_extendhisi2_v6,
+	arm_zero_extendqisi2_v6): Use Uh constraint for memory operand.
+	(arm_extendhisi2, arm_extendhisi2_v6): Use Uh constraint for memory
+	operand and remove pool_range and neg_pool_range attributes.
+	(arm_extendqihi_insn, arm_extendqisi, arm_extendqisi_v6): Remove
+	pool_range and neg_pool_range attributes.
+	* config/arm/constraints.md (Uh): New constraint. (Uq): Don't allow
+	constant pool references.
+
+2014-09-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_output_function_epilogue): Only update
+	last_address when a nonnote insn is found.
+
+2014-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-09-25  Nick Clifton  <nickc@redhat.com>
+	2014-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/62218
+	* config/sh/sync.md (atomic_fetch_nand<mode>_soft_imask,
+	atomic_test_and_set_soft_imask): Fix typo in instruction sequence.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r215559
+	2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* config/rs6000/rs6000-c.c (altivec_build_resolved_builtin):
+	Exclude VSX_BUILTIN_XVCMPGEDP_P from special handling.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63341
+	* tree-vectorizer.h (vect_create_data_ref_ptr,
+	vect_create_addr_base_for_vector_ref): Add another tree argument
+	defaulting to NULL_TREE.
+	* tree-vect-data-refs.c (vect_create_data_ref_ptr): Add byte_offset
+	argument, pass it down to vect_create_addr_base_for_vector_ref.
+	(vect_create_addr_base_for_vector_ref): Add byte_offset argument,
+	add that to base_offset too if non-NULL.
+	* tree-vect-stmts.c (vectorizable_load): Add byte_offset variable,
+	for dr_explicit_realign_optimized set it to vector byte size
+	- 1 instead of setting offset, pass byte_offset down to
+	vect_create_data_ref_ptr.
+
+2014-09-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk:
+	2014-09-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (f32_vsx): New mode attributes to
+	refine the constraints used on 32/64-bit floating point moves.
+	(f32_av): Likewise.
+	(f64_vsx): Likewise.
+	(f64_dm): Likewise.
+	(f64_av): Likewise.
+	(BOOL_REGS_OUTPUT): Use wt constraint for TImode instead of wa.
+	(BOOL_REGS_OP1): Likewise.
+	(BOOL_REGS_OP2): Likewise.
+	(BOOL_REGS_UNARY): Likewise.
+	(mov<mode>_hardfloat, SFmode/SDmode): Tighten down constraints for
+	32/64-bit floating point moves.  Do not use wa, instead use ww/ws
+	for moves involving VSX registers.  Do not use constraints that
+	target VSX registers for decimal types.
+	(mov<mode>_hardfloat32, DFmode/DDmode): Likewise.
+	(mov<mode>_hardfloat64, DFmode/DDmode): Likewise.
+
+2014-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk:
+	2014-09-19  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (fusion_gpr_mem_load): Move testing
+	for base_reg_operand to be common between LO_SUM and PLUS.
+	(fusion_gpr_mem_combo): New predicate to match a fused address
+	that combines the addis and memory offset address.
+
+	* config/rs6000/rs6000-protos.h (fusion_gpr_load_p): Change
+	calling signature.
+	(emit_fusion_gpr_load): Likewise.
+
+	* config/rs6000/rs6000.c (fusion_gpr_load_p): Change calling
+	signature to pass each argument separately, rather than
+	using an operands array.  Rewrite the insns found by peephole2 to
+	be a single insn, rather than hoping the insns will still be
+	together when the peephole pass is done.  Drop being called via a
+	normal peephole.
+	(emit_fusion_gpr_load): Change calling signature to be called from
+	the fusion_gpr_load_<mode> insns with a combined memory address
+	instead of the peephole pass passing the addis and offset
+	separately.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_GPR): New unspec for GPR
+	fusion.
+	(power8 fusion peephole): Drop support for doing power8 via a
+	normal peephole that was created by the peephole2 pass.
+	(power8 fusion peephole2): Create a new insn with the fused
+	address, so that the fused operation is kept together after
+	register allocation is done.
+	(fusion_gpr_load_<mode>): Likewise.
+
+2014-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63284
+	* tree-cfgcleanup.c (fixup_noreturn_call): Don't split block
+	if there are only debug stmts after the noreturn call, instead
+	remove the debug stmts.
+
 2014-09-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vsx.md (vsx_fmav4sf4): Use correct constraints for

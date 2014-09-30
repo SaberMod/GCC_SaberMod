@@ -1,3 +1,31 @@
+2014-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/compat/struct-layout-1_generate.c: Add -Wno-abi
+	to default options.
+
+2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r215559
+	2014-09-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/63335
+	* gcc.target/powerpc/pr63335.c: New test.
+
+2014-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63341
+	* gcc.dg/vect/pr63341-1.c: New test.
+	* gcc.dg/vect/pr63341-2.c: New test.
+
+2014-09-18  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-exact-underflow.c: New test.
+
+2014-09-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63284
+	* gcc.dg/pr63284.c: New test.
+
 2014-09-09  Richard Biener  <rguenther@suse.de>
 
 	Backport from mainline
