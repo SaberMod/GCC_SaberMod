@@ -1146,12 +1146,15 @@ function_and_variable_visibility (bool whole_program)
       if (node->callers && can_replace_by_local_alias (node))
 	{
 	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias (node));
+	  struct cgraph_edge *e, *next_caller;
 
 	  if (alias && alias != node)
 	    {
-	      while (node->callers)
+              for (e = node->callers; e; e = next_caller)
 		{
-		  struct cgraph_edge *e = node->callers;
+                  next_caller = e->next_caller;
+		  if (L_IPO_COMP_MODE && cgraph_is_fake_indirect_call_edge (e))
+		    continue;
 
 		  cgraph_redirect_edge_callee (e, alias);
 		  if (gimple_has_body_p (e->caller->decl))
