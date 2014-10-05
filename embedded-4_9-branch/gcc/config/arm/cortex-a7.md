@@ -135,9 +135,9 @@
 ;; with a younger immediate-based instruction.
 (define_insn_reservation "cortex_a7_alu_reg" 2
   (and (eq_attr "tune" "cortexa7")
-       (eq_attr "type" "alu_reg,alus_reg,logic_reg,logics_reg,\
+       (eq_attr "type" "alu_sreg,alus_sreg,logic_reg,logics_reg,\
                         adc_imm,adcs_imm,adc_reg,adcs_reg,\
-                        bfm,rev,\
+                        bfm,rev,alu_dsp_reg,\
                         shift_imm,shift_reg,mov_reg,mvn_reg"))
   "cortex_a7_ex1")
 
