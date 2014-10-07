@@ -177,7 +177,10 @@ static inline bool
 polymorphic_type_binfo_p (tree binfo)
 {
   /* See if BINFO's type has an virtual table associtated with it.  */
-  return BINFO_VTABLE (TYPE_BINFO (BINFO_TYPE (binfo)));
+  tree type_binfo = TYPE_BINFO (BINFO_TYPE (binfo));
+  if (L_IPO_COMP_MODE && !type_binfo)
+    return false;
+  return BINFO_VTABLE (type_binfo);
 }
 
 /* One Definition Rule hashtable helpers.  */
