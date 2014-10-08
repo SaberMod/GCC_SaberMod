@@ -1,3 +1,17 @@
+2014-10-08  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	2014-09-30  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	Backport from mainline r213691
+	2014-08-07  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* tree-ssa-loop-ivopts.c (get_address_cost): Try aligned offset.
+
+	testsuite/ChangeLog
+	2014-08-07  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.target/arm/get_address_cost_aligned_max_offset.c: New test.
+
 2014-10-06  Terry Guo  <terry.guo@arm.com>
 
 	Backport from mainline r215711
