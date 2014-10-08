@@ -1,5 +1,13 @@
 2014-10-08  Zhenqiang Chen  <zhenqiang.chen@arm.com>
 
+	Backport from mainline r215444
+	2014-09-22  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c: #include "tm-constrs.h"
+	(thumb1_size_rtx_costs): Adjust rtx costs.
+
+2014-10-08  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
 	Backport from mainline r215540
 	2014-09-24  Zhenqiang Chen  <zhenqiang.chen@arm.com>
 
