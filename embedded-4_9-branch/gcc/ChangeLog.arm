@@ -1,6 +1,17 @@
 2014-10-08  Zhenqiang Chen  <zhenqiang.chen@arm.com>
 
-	2014-09-30  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+	Backport from mainline r215540
+	2014-09-24  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* ira-color.c (assign_hard_reg): Ignore conflict cost if the
+	HARD_REGNO is not availabe for CONFLICT_A.
+
+	testsuite/ChangeLog:
+	2014-09-24  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.target/arm/pr63210.c: New test.
+
+2014-10-08  Zhenqiang Chen  <zhenqiang.chen@arm.com>
 
 	Backport from mainline r213691
 	2014-08-07  Zhenqiang Chen  <zhenqiang.chen@arm.com>
