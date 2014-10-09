@@ -1,3 +1,131 @@
+2014-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/61969
+	* tree-nrv.c (pass_nrv::execute): Properly test for automatic
+	variables.
+
+2014-10-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-10-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/57003
+	* regcprop.c (copyprop_hardreg_forward_1): If ksvd.ignore_set_reg,
+	also check CALL_INSN_FUNCTION_USAGE for clobbers again after
+	killing regs_invalidated_by_call.
+
+2014-10-08  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	Backport from mainline
+	2014-10-08  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52941
+	* config/sh/sync.md (atomic_exchangesi_hard, atomic_exchange<mode>_hard,
+	atomic_fetch_<fetchop_name>si_hard,
+	atomic_fetch_<fetchop_name><mode>_hard, atomic_fetch_nandsi_hard,
+	atomic_fetch_nand<mode>_hard, atomic_<fetchop_name>_fetchsi_hard,
+	atomic_<fetchop_name>_fetch<mode>_hard, atomic_nand_fetchsi_hard,
+	atomic_nand_fetch<mode>_hard): Add missing set of T_REG.
+
+2014-10-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/61144
+	* varpool.c (ctor_for_folding): Do not fold WEAK symbols.
+
+2014-10-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/62121
+	* ipa-devirt.c (restrict_to_inner_class): Do not ICE when type is
+	unknown.
+
+2014-10-03  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR lto/62026
+	* lto-streamer-out.c (lto_output): Handle thunks correctly.
+	* cgraphclones.c (duplicate_thunk_for_node): Get thunk's arguments.
+
+2014-10-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/61200
+	* omp-low.c (taskreg_contexts): New variable.
+	(scan_omp_parallel): Push newly created context into taskreg_contexts
+	vector and move record layout code to finish_taskreg_scan.
+	(scan_omp_task): Likewise.
+	(finish_taskreg_scan): New function.
+	(execute_lower_omp): Call finish_taskreg_scan on all taskreg_contexts
+	vector elements and release it.
+
+2014-10-02  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/63375
+	* tree-sra.c (build_access_from_expr_1): Disqualify volatile
+	references.
+
+2014-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63342
+	* dwarf2out.c (loc_list_from_tree): Handle TARGET_MEM_REF and
+	SSA_NAME.
+
+	PR target/63428
+	* config/i386/i386.c (expand_vec_perm_pshufb): Fix up rperm[0]
+	argument to avx2_permv2ti.
+
+	PR c++/63306
+	Backported from mainline
+	2014-08-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR regression/61510
+	* cgraphunit.c (analyze_functions): Use get_create rather than get
+	for decls which are clones of abstract functions.
+
+2014-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2014-09-18  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR debug/63285
+	* haifa-sched.c (schedule_block): Advance cycle at the end of BB
+	if advance != 0.
+
+	2014-09-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/63186
+	* ipa-split.c (test_nonssa_use): Skip nonforced labels.
+	(mark_nonssa_use): Likewise.
+	(verify_non_ssa_vars): Verify all header blocks for label
+	definitions.
+
+2014-10-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2014-10-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.md (*store_minmaxsi): Disable for arm_restrict_it.
+
+2014-10-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2014-09-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (fmodxf3): Enable for flag_finite_math_only only.
+	(fmod<mode>3): Ditto.
+	(fpremxf4_i387): Ditto.
+	(reminderxf3): Ditto.
+	(reminder<mode>3): Ditto.
+	(fprem1xf4_i387): Ditto.
+
+2014-09-30  David Malcolm  <dmalcolm@redhat.com>
+
+	PR plugins/63410
+	* Makefile.in (PLUGIN_HEADERS): Add pass-instances.def.
+
+2014-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/63282
+	* ifcvt.c (dead_or_predicable): Don't call redirect_jump_1
+	or invert_jump_1 if jump isn't any_condjump_p.
+
 2014-09-29  James Clarke  <jrtc27@jrtc27.com>
 	    Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
