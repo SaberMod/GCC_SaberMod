@@ -1598,6 +1598,7 @@ iterative_hash_template_arg (tree arg, hashval_t val)
     case CONSTRUCTOR:
       {
 	tree field, value;
+	iterative_hash_template_arg (TREE_TYPE (arg), val);
 	FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (arg), i, field, value)
 	  {
 	    val = iterative_hash_template_arg (field, val);
@@ -8347,37 +8348,37 @@ static GTY(()) struct tinst_level *last_error_tinst_level;
 /* We're starting to instantiate D; record the template instantiation context
    for diagnostics and to restore it later.  */
 
-int
+bool
 push_tinst_level (tree d)
+{
+  return push_tinst_level_loc (d, input_location);
+}
+
+/* We're starting to instantiate D; record the template instantiation context
+   at LOC for diagnostics and to restore it later.  */
+
+bool
+push_tinst_level_loc (tree d, location_t loc)
 {
   struct tinst_level *new_level;
 
   if (tinst_depth >= max_tinst_depth)
     {
-      last_error_tinst_level = current_tinst_level;
-      if (TREE_CODE (d) == TREE_LIST)
-	error ("template instantiation depth exceeds maximum of %d (use "
-	       "-ftemplate-depth= to increase the maximum) substituting %qS",
-	       max_tinst_depth, d);
-      else
-	error ("template instantiation depth exceeds maximum of %d (use "
-	       "-ftemplate-depth= to increase the maximum) instantiating %qD",
-	       max_tinst_depth, d);
-
-      print_instantiation_context ();
-
-      return 0;
+      fatal_error ("template instantiation depth exceeds maximum of %d"
+                   " (use -ftemplate-depth= to increase the maximum)",
+                   max_tinst_depth);
+      return false;
     }
 
   /* If the current instantiation caused problems, don't let it instantiate
      anything else.  Do allow deduction substitution and decls usable in
      constant expressions.  */
   if (limit_bad_template_recursion (d))
-    return 0;
+    return false;
 
   new_level = ggc_alloc<tinst_level> ();
   new_level->decl = d;
-  new_level->locus = input_location;
+  new_level->locus = loc;
   new_level->errors = errorcount+sorrycount;
   new_level->in_system_header_p = in_system_header_at (input_location);
   new_level->next = current_tinst_level;
@@ -8387,7 +8388,7 @@ push_tinst_level (tree d)
   if (GATHER_STATISTICS && (tinst_depth > depth_reached))
     depth_reached = tinst_depth;
 
-  return 1;
+  return true;
 }
 
 /* We're done instantiating this template; return to the instantiation
@@ -9929,7 +9930,13 @@ tsubst_pack_expansion (tree t, tree args, tsubst_flags_t complain,
   /* If the expansion is just T..., return the matching argument pack.  */
   if (!unsubstituted_packs
       && TREE_PURPOSE (packs) == pattern)
-    return ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+    {
+      tree args = ARGUMENT_PACK_ARGS (TREE_VALUE (packs));
+      if (TREE_CODE (t) == TYPE_PACK_EXPANSION
+	  || pack_expansion_args_count (args))
+	return args;
+      /* Otherwise use the normal path so we get convert_from_reference.  */
+    }
 
   /* We cannot expand this expansion expression, because we don't have
      all of the argument packs we need.  */
@@ -14769,11 +14776,13 @@ tsubst_copy_and_build (tree t,
       op1 = TREE_OPERAND (t, 0);
       ++cp_unevaluated_operand;
       ++c_inhibit_evaluation_warnings;
+      ++cp_noexcept_operand;
       op1 = tsubst_copy_and_build (op1, args, complain, in_decl,
 				   /*function_p=*/false,
 				   /*integral_constant_expression_p=*/false);
       --cp_unevaluated_operand;
       --c_inhibit_evaluation_warnings;
+      --cp_noexcept_operand;
       RETURN (finish_noexcept_expr (op1, complain));
 
     case MODOP_EXPR:
@@ -15487,7 +15496,9 @@ tsubst_copy_and_build (tree t,
 			     complain, in_decl);
 
 	tree type2 = TRAIT_EXPR_TYPE2 (t);
-	if (type2)
+	if (type2 && TREE_CODE (type2) == TREE_LIST)
+	  type2 = RECUR (type2);
+	else if (type2)
 	  type2 = tsubst (type2, args, complain, in_decl);
 	
 	RETURN (finish_trait_expr (TRAIT_EXPR_KIND (t), type1, type2));
@@ -20291,10 +20302,10 @@ instantiate_pending_templates (int retries)
     {
       tree decl = pending_templates->tinst->decl;
 
-      error ("template instantiation depth exceeds maximum of %d"
-	     " instantiating %q+D, possibly from virtual table generation"
-	     " (use -ftemplate-depth= to increase the maximum)",
-	     max_tinst_depth, decl);
+      fatal_error ("template instantiation depth exceeds maximum of %d"
+                   " instantiating %q+D, possibly from virtual table generation"
+                   " (use -ftemplate-depth= to increase the maximum)",
+                   max_tinst_depth, decl);
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	/* Pretend that we defined it.  */
 	DECL_INITIAL (decl) = error_mark_node;
@@ -20627,7 +20638,7 @@ get_mostly_instantiated_function_type (tree decl)
 
 /* Return truthvalue if we're processing a template different from
    the last one involved in diagnostics.  */
-int
+bool
 problematic_instantiation_changed (void)
 {
   return current_tinst_level != last_error_tinst_level;
@@ -21052,6 +21063,8 @@ value_dependent_expression_p (tree expression)
       {
 	unsigned ix;
 	tree val;
+	if (dependent_type_p (TREE_TYPE (expression)))
+	  return true;
 	FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (expression), ix, val)
 	  if (value_dependent_expression_p (val))
 	    return true;

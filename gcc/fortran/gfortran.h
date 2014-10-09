@@ -1655,6 +1655,9 @@ typedef struct gfc_namespace
   /* Set to 1 if namespace is an interface body with "IMPORT" used.  */
   unsigned has_import_set:1;
 
+  /* Set to 1 if the namespace uses "IMPLICT NONE (export)".  */
+  unsigned has_implicit_none_export:1;
+
   /* Set to 1 if resolved has been called for this namespace.
      Holds -1 during resolution.  */
   signed resolved:2;
@@ -2695,12 +2698,14 @@ const char *gfc_print_wide_char (gfc_char_t);
 
 void gfc_warning (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_warning_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
-void gfc_warning_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
+bool gfc_warning_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
+bool gfc_warning_cmdline (int opt, const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(2,3);
 
 void gfc_clear_warning (void);
 void gfc_warning_check (void);
 
 void gfc_error (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
+void gfc_error_cmdline (const char *gmsgid, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_error_now (const char *, ...) ATTRIBUTE_GCC_GFC(1,2);
 void gfc_fatal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
 void gfc_internal_error (const char *, ...) ATTRIBUTE_NORETURN ATTRIBUTE_GCC_GFC(1,2);
@@ -2754,7 +2759,7 @@ extern int gfc_character_storage_size;
 void gfc_clear_new_implicit (void);
 bool gfc_add_new_implicit_range (int, int);
 bool gfc_merge_new_implicit (gfc_typespec *);
-void gfc_set_implicit_none (void);
+void gfc_set_implicit_none (bool, bool);
 void gfc_check_function_type (gfc_namespace *);
 bool gfc_is_intrinsic_typename (const char *);
 
