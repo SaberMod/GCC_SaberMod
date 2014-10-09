@@ -1,3 +1,25 @@
+2014-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/63342
+	* gcc.dg/pr63342.c: New test.
+
+	PR target/63428
+	* gcc.dg/torture/vshuf-4.inc: Move test 122 from EXPTESTS
+	to test 24 in TESTS.
+
+2014-10-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2013-11-07  Joseph Myers  <joseph@codesourcery.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_fenv_exceptions): New function.
+
+2014-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR inline-asm/63282
+	* gcc.c-torture/compile/pr63282.c: New test.
+
 2014-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/compat/struct-layout-1_generate.c: Add -Wno-abi
