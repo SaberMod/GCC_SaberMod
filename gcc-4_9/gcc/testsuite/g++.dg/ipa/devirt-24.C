@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O3 -fno-ipa-sra -fdump-ipa-inline -fdump-ipa-cp"  } */
+/* { dg-options "-O3 -fno-ipa-sra -fdump-ipa-inline -fdump-ipa-cp --param=early-inlining-insns-comdat=0"  } */
 void pad(void);
 class A {};
 class B {
