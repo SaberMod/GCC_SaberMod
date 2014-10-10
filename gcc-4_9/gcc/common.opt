@@ -322,6 +322,9 @@ Common Alias(Wpedantic)
 -pedantic-errors
 Common Alias(pedantic-errors)
 
+-no-pie
+Driver Alias(no-pie)
+
 -pie
 Driver Alias(pie)
 
@@ -2857,7 +2860,7 @@ x
 Driver Joined Separate
 
 shared
-Driver RejectNegative Negative(pie)
+Driver RejectNegative Negative(no-pie)
 Create a shared library
 
 shared-libgcc
@@ -2900,6 +2903,10 @@ Driver
 
 symbolic
 Driver
+
+no-pie
+Driver RejectNegative Negative(pie)
+Create a position dependent executable
 
 pie
 Driver RejectNegative Negative(shared)

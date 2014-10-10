@@ -672,9 +672,9 @@ proper position among the other output files.  */
 
 #ifndef LINK_PIE_SPEC
 #ifdef HAVE_LD_PIE
-#define LINK_PIE_SPEC "%{pie:-pie} "
+#define LINK_PIE_SPEC "%{pie:-pie} %{no-pie:}"
 #else
-#define LINK_PIE_SPEC "%{pie:} "
+#define LINK_PIE_SPEC "%{pie:} %{no-pie:}"
 #endif
 #endif
 
@@ -3136,6 +3136,7 @@ display_help (void)
   fputs (_("  -c                       Compile and assemble, but do not link\n"), stdout);
   fputs (_("  -o <file>                Place the output into <file>\n"), stdout);
   fputs (_("  -pie                     Create a position independent executable\n"), stdout);
+  fputs (_("  -no-pie                  Create a position dependent executable\n"), stdout);
   fputs (_("  -shared                  Create a shared library\n"), stdout);
   fputs (_("\
   -x <language>            Specify the language of the following input files\n\
