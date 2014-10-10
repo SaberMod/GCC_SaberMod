@@ -1278,7 +1278,8 @@ gcov_exit (void)
 
       /* The IS_PRIMARY field is overloaded to indicate if this module
        is FDO/LIPO.  */
-      dump_module_info |= gi_ptr->mod_info->is_primary;
+      if (gi_ptr->mod_info)
+        dump_module_info |= gi_ptr->mod_info->is_primary;
     }
   run_accounted = 1;
 
