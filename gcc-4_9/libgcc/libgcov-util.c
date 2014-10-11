@@ -974,6 +974,7 @@ gcov_profile_merge (struct gcov_info *tgt_profile, struct gcov_info *src_profile
       tgt_tail->next = gi_ptr;
       tgt_tail = gi_ptr;
     }
+  tgt_tail->next = 0;
 
   return 0;
 }
