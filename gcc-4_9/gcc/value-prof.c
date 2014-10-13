@@ -2355,7 +2355,10 @@ gimple_find_values_to_profile (histogram_values *values)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       gimple_values_to_profile (gsi_stmt (gsi), values);
 
-  values->safe_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_TIME_PROFILE, 0, 0));
+  if (PARAM_VALUE (PARAM_PROFILE_VALUES_TIME))
+    values->safe_push (gimple_alloc_histogram_value (cfun,
+                                                     HIST_TYPE_TIME_PROFILE,
+                                                     0, 0));
 
   FOR_EACH_VEC_ELT (*values, i, hist)
     {
