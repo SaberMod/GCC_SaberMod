@@ -870,6 +870,19 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 opts->x_param_values, opts_set->x_param_values);
     }
 
+  if (!(opts->x_flag_auto_profile
+        || (opts->x_profile_arc_flag || opts->x_flag_branch_probabilities)))
+    {
+      /* In plain mode, we relax the limit to allow funcs not declared as
+	 inline but with big_speedup or good inline hints to be inline candidates
+	 in plain mode. This change will improve some performance but also
+	 increase code size. PARAM_INLINE_UNIT_GROWTH is used to trim down code
+	 size without affecting the improved performance.  */
+      maybe_set_param_value
+	(PARAM_INLINE_UNIT_GROWTH, 15,
+	 opts->x_param_values, opts_set->x_param_values);
+    }
+
   /* Tune vectorization related parametees according to cost model.  */
   if (opts->x_flag_vect_cost_model == VECT_COST_MODEL_CHEAP)
     {

@@ -728,13 +728,25 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
       else if (!DECL_DECLARED_INLINE_P (callee->decl)
 	       && !flag_inline_functions)
 	{
-	  /* growth_likely_positive is expensive, always test it last.  */
-          if (growth >= MAX_INLINE_INSNS_SINGLE
-	      || growth_likely_positive (callee, growth))
-	    {
+	  /* For functions not declared inline, if it has big_speedup
+	     or has good hints for performance and the size growth is
+	     small, they are profitable to inline.  */
+          if (big_speedup
+              || (hints & (INLINE_HINT_indirect_call
+                           | INLINE_HINT_loop_iterations
+                           | INLINE_HINT_array_index
+                           | INLINE_HINT_loop_stride)))
+            {
+              if (growth >= MAX_GROUP_AUTO_INLINE_FUNC)
+                want_inline = false;
+            }
+          /* growth_likely_positive is expensive, always test it last.  */
+          else if (growth >= MAX_INLINE_INSNS_SINGLE
+              || growth_likely_positive (callee, growth))
+            {
               e->inline_failed = CIF_NOT_DECLARED_INLINED;
-	      want_inline = false;
- 	    }
+              want_inline = false;
+            }
 	}
       /* Apply MAX_INLINE_INSNS_AUTO limit for functions not declared inline
 	 Upgrade it to MAX_INLINE_INSNS_SINGLE when hints suggests that
