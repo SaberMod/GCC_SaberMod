@@ -343,7 +343,7 @@ DEFPARAM(PARAM_MAX_COMPLETELY_PEELED_INSNS,
 DEFPARAM(PARAM_MAX_DEFAULT_COMPLETELY_PEELED_INSNS,
 	"max-default-completely-peeled-insns",
 	"The maximum number of insns of a completely peeled loop",
-	200, 0, 0)
+	100, 0, 0)
 /* The maximum number of peelings of a single loop that is peeled completely.  */
 DEFPARAM(PARAM_MAX_COMPLETELY_PEEL_TIMES,
 	"max-completely-peel-times",
