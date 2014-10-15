@@ -8638,6 +8638,10 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
 #define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
   aarch64_autovectorize_vector_sizes
 
+#undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+#define TARGET_ATOMIC_ASSIGN_EXPAND_FENV \
+  aarch64_atomic_assign_expand_fenv
+
 /* Section anchor support.  */
 
 #undef TARGET_MIN_ANCHOR_OFFSET

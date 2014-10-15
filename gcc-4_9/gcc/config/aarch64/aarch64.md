@@ -107,6 +107,10 @@
 
 (define_c_enum "unspecv" [
     UNSPECV_EH_RETURN		; Represent EH_RETURN
+    UNSPECV_GET_FPCR		; Represent fetch of FPCR content.
+    UNSPECV_SET_FPCR		; Represent assign of FPCR content.
+    UNSPECV_GET_FPSR		; Represent fetch of FPSR content.
+    UNSPECV_SET_FPSR		; Represent assign of FPSR content.
   ]
 )
 
@@ -3640,6 +3644,37 @@
     emit_move_insn (operands[0], tmp);
   DONE;
 })
+
+;; Write Floating-point Control Register.
+(define_insn "set_fpcr"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")] UNSPECV_SET_FPCR)]
+  ""
+  "msr\\tfpcr, %0\;isb"
+  [(set_attr "type" "mrs")])
+
+;; Read Floating-point Control Register.
+(define_insn "get_fpcr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec_volatile:SI [(const_int 0)] UNSPECV_GET_FPCR))]
+  ""
+  "mrs\\t%0, fpcr"
+  [(set_attr "type" "mrs")])
+
+;; Write Floating-point Status Register.
+(define_insn "set_fpsr"
+  [(unspec_volatile [(match_operand:SI 0 "register_operand" "r")] UNSPECV_SET_FPSR)]
+  ""
+  "msr\\tfpsr, %0"
+  [(set_attr "type" "mrs")])
+
+;; Read Floating-point Status Register.
+(define_insn "get_fpsr"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+        (unspec_volatile:SI [(const_int 0)] UNSPECV_GET_FPSR))]
+  ""
+  "mrs\\t%0, fpsr"
+  [(set_attr "type" "mrs")])
+
 
 ;; AdvSIMD Stuff
 (include "aarch64-simd.md")
