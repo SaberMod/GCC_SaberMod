@@ -1,3 +1,15 @@
+2014-10-15  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/dyncast.cc (__dynamic_cast): Handle mid-destruction
+	dynamic_cast more gracefully.
+
+2014-10-14  Kai Tietz  <ktietz@redhat.com>
+
+	PR libstdc++/57440
+	* config/os/mingw32/os_defines.h (_GTHREAD_USE_MUTEX_INIT_FUNC):
+	Define to avoid leak.
+	* config/os/mingw32-w64/os_defines.h: Likewise.
+
 2014-10-03  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/63449
