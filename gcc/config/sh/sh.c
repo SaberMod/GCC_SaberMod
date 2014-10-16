@@ -818,7 +818,7 @@ sh_option_override (void)
       assembler_dialect = 1;
       sh_cpu = PROCESSOR_SH4;
     }
-  if (TARGET_SH4A_ARCH)
+  if (TARGET_SH4A)
     {
       assembler_dialect = 1;
       sh_cpu = PROCESSOR_SH4A;
@@ -2281,20 +2281,20 @@ sh_eval_treg_value (rtx op)
   return t ^ (cmpval == cmpop);
 }
 
-/* Emit INSN, possibly in a PARALLEL with an USE of fpscr for SH4.  */
-
+/* Emit INSN, possibly in a PARALLEL with an USE/CLOBBER of FPSCR bits in case
+   of floating-point comparisons.  */
 static void
 sh_emit_set_t_insn (rtx insn, enum machine_mode mode)
 {
-  if ((TARGET_SH4 || TARGET_SH2A) && GET_MODE_CLASS (mode) == MODE_FLOAT)
+  if (TARGET_FPU_ANY && GET_MODE_CLASS (mode) == MODE_FLOAT
+      && GET_CODE (insn) != PARALLEL)
     {
       insn = gen_rtx_PARALLEL (VOIDmode,
-		       gen_rtvec (2, insn,
-			          gen_rtx_USE (VOIDmode, get_fpscr_rtx ())));
-      (mode == SFmode ? emit_sf_insn : emit_df_insn) (insn);
+	  gen_rtvec (3, insn,
+	      gen_rtx_CLOBBER (VOIDmode, gen_rtx_REG (SImode, FPSCR_STAT_REG)),
+	      gen_rtx_USE (VOIDmode, gen_rtx_REG (SImode, FPSCR_MODES_REG))));
     }
-  else
-    emit_insn (insn);
+  emit_insn (insn);
 }
 
 /* Prepare the operands for an scc instruction; make sure that the
@@ -7250,6 +7250,7 @@ calc_live_regs (HARD_REG_SET *live_regs_mask)
 	     && reg != STACK_POINTER_REGNUM && reg != ARG_POINTER_REGNUM
 	     && reg != RETURN_ADDRESS_POINTER_REGNUM
 	     && reg != T_REG && reg != GBR_REG
+	     && reg != FPSCR_MODES_REG && reg != FPSCR_STAT_REG
 	     /* Push fpscr only on targets which have FPU */
 	     && (reg != FPSCR_REG || TARGET_FPU_ANY))
 	  : (/* Only push those regs which are used and need to be saved.  */
@@ -9874,19 +9875,6 @@ fp_one_operand (rtx op)
   return REAL_VALUES_EQUAL (r, dconst1);
 }
 
-/* In general mode switching is used.  If we are
-   compiling without -mfmovd, movsf_ie isn't taken into account for
-   mode switching.  We could check in machine_dependent_reorg for
-   cases where we know we are in single precision mode, but there is
-   interface to find that out during reload, so we must avoid
-   choosing an fldi alternative during reload and thus failing to
-   allocate a scratch register for the constant loading.  */
-bool
-fldi_ok (void)
-{
-  return true;
-}
-
 /* Return the TLS type for TLS symbols.  */
 enum tls_model
 tls_symbolic_operand (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
@@ -10069,44 +10057,6 @@ emit_fpu_switch (rtx scratch, int index)
 
   dst = get_fpscr_rtx ();
   emit_move_insn (dst, src);
-}
-
-void
-emit_sf_insn (rtx pat)
-{
-  emit_insn (pat);
-}
-
-void
-emit_df_insn (rtx pat)
-{
-  emit_insn (pat);
-}
-
-void
-expand_sf_unop (rtx (*fun) (rtx, rtx, rtx), rtx *operands)
-{
-  emit_sf_insn ((*fun) (operands[0], operands[1], get_fpscr_rtx ()));
-}
-
-void
-expand_sf_binop (rtx (*fun) (rtx, rtx, rtx, rtx), rtx *operands)
-{
-  emit_sf_insn ((*fun) (operands[0], operands[1], operands[2],
-			 get_fpscr_rtx ()));
-}
-
-void
-expand_df_unop (rtx (*fun) (rtx, rtx, rtx), rtx *operands)
-{
-  emit_df_insn ((*fun) (operands[0], operands[1], get_fpscr_rtx ()));
-}
-
-void
-expand_df_binop (rtx (*fun) (rtx, rtx, rtx, rtx), rtx *operands)
-{
-  emit_df_insn ((*fun) (operands[0], operands[1], operands[2],
-			get_fpscr_rtx ()));
 }
 
 static rtx get_free_reg (HARD_REG_SET);
@@ -11597,7 +11547,7 @@ sh_trampoline_init (rtx tramp_mem, tree fndecl, rtx cxt)
   if (TARGET_HARD_SH4 || TARGET_SH5)
     {
       if (!TARGET_INLINE_IC_INVALIDATE
-	  || (!(TARGET_SH4A_ARCH || TARGET_SH4_300) && TARGET_USERMODE))
+	  || (!(TARGET_SH4A || TARGET_SH4_300) && TARGET_USERMODE))
 	emit_library_call (function_symbol (NULL, "__ic_invalidate",
 					    FUNCTION_ORDINARY),
 			   LCT_NORMAL, VOIDmode, 1, tramp, SImode);
@@ -13143,8 +13093,7 @@ sh_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
       if (REGCLASS_HAS_FP_REG (rclass)
 	  && ! TARGET_SHMEDIA
 	  && immediate_operand ((x), mode)
-	  && ! ((fp_zero_operand (x) || fp_one_operand (x))
-		&& mode == SFmode && fldi_ok ()))
+	  && ! ((fp_zero_operand (x) || fp_one_operand (x)) && mode == SFmode))
 	switch (mode)
 	  {
 	  case SFmode:
@@ -13308,6 +13257,9 @@ sh_conditional_register_usage (void)
     for (regno = FIRST_GENERAL_REG; regno <= LAST_GENERAL_REG; regno++)
       if (! fixed_regs[regno] && call_really_used_regs[regno])
 	SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);
+
+  call_really_used_regs[FPSCR_MODES_REG] = 0;
+  call_really_used_regs[FPSCR_STAT_REG] = 0;
 }
 
 /* Implement TARGET_LEGITIMATE_CONSTANT_P
@@ -13421,11 +13373,10 @@ base_reg_disp::disp (void) const
 }
 
 /* Find the base register and calculate the displacement for a given
-   address rtx 'x'.
-   This is done by walking the insn list backwards and following SET insns
-   that set the value of the specified reg 'x'.  */
+   address rtx 'x'.  */
 static base_reg_disp
-sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
+sh_find_base_reg_disp (rtx_insn* insn, rtx x, disp_t disp = 0,
+		       rtx base_reg = NULL)
 {
   if (REG_P (x))
     {
@@ -13439,31 +13390,37 @@ sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
       if (REGNO (x) < FIRST_PSEUDO_REGISTER)
 	return base_reg_disp (base_reg != NULL ? base_reg : x, disp);
 
-      /* Try to find the previous insn that sets the reg.  */
-      for (rtx i = prev_nonnote_insn (insn); i != NULL;
-	   i = prev_nonnote_insn (i))
+      /* Find the def of the reg and trace it.  If there are more than one
+	 defs and they are not the same, assume it's not safe to proceed.  */
+      rtx_insn* last_i = NULL;
+      rtx last_set = NULL;
+      for (df_ref d = DF_REG_DEF_CHAIN (REGNO (x)); d != NULL;
+	   d = DF_REF_NEXT_REG (d))
 	{
-	  if (REGNO_REG_SET_P (regs_invalidated_by_call_regset, GBR_REG)
-	      && CALL_P (i))
-	    break;
+	  rtx set = const_cast<rtx> (set_of (x, DF_REF_INSN (d)));
 
-	  if (!NONJUMP_INSN_P (i))
-	    continue;
-
-	  rtx p = PATTERN (i);
-	  if (p != NULL && GET_CODE (p) == SET && REG_P (XEXP (p, 0))
-	      && REGNO (XEXP (p, 0)) == REGNO (x))
+	  /* Accept multiple defs, as long as they are equal.  */
+	  if (last_set == NULL || rtx_equal_p (last_set, set))
 	    {
-	      /* If the recursion can't find out any more details about the
-		 source of the set, then this reg becomes our new base reg.  */
-	      return sh_find_base_reg_disp (i, XEXP (p, 1), disp, XEXP (p, 0));
+	      last_i = DF_REF_INSN (d);
+	      last_set = set;
+	    }
+	  else
+	    {
+	      last_i = NULL;
+	      last_set = NULL;
+	      break;
 	    }
 	}
 
-    /* When here, no previous insn was found that sets the reg.
-       The input reg is already the base reg.  */
-    return base_reg_disp (x, disp);
-  }
+      if (last_set != NULL && last_i != NULL)
+	return sh_find_base_reg_disp (last_i, XEXP (last_set, 1), disp,
+				      XEXP (last_set, 0));
+
+      /* When here, no previous insn was found that sets the reg.
+	 The input reg is already the base reg.  */
+      return base_reg_disp (x, disp);
+    }
 
   else if (GET_CODE (x) == PLUS)
     {
@@ -13493,19 +13450,47 @@ sh_find_base_reg_disp (rtx insn, rtx x, disp_t disp = 0, rtx base_reg = NULL)
    based memory address and return the corresponding new memory address.
    Return NULL_RTX if not found.  */
 rtx
-sh_find_equiv_gbr_addr (rtx insn, rtx mem)
+sh_find_equiv_gbr_addr (rtx_insn* insn, rtx mem)
 {
-  if (!MEM_P (mem))
+  if (!MEM_P (mem) || gbr_address_mem (mem, GET_MODE (mem)))
     return NULL_RTX;
 
   /* Leave post/pre inc/dec or any other side effect addresses alone.  */
   if (side_effects_p (XEXP (mem, 0)))
     return NULL_RTX;
 
+  /* When not optimizing there might be no dataflow available.  */
+  if (df == NULL)
+    return NULL_RTX;
+
   base_reg_disp gbr_disp = sh_find_base_reg_disp (insn, XEXP (mem, 0));
 
   if (gbr_disp.is_reg () && REGNO (gbr_disp.reg ()) == GBR_REG)
     {
+      /* If GBR is marked as call clobbered we bail out if we see a call.
+	 FIXME: Actually should check if this mem refers to the gbr value
+	 before or after the call.  If there is a store_gbr preceeding this
+	 mem, it's safe to use GBR for this mem.
+
+	 If GBR is not marked as call clobbered, but there is some other
+	 def than a call, it's probably a load_gbr upon which we also
+	 bail out to be on the safe side.
+	 FIXME: Should check if we have a use-after-def case, such as
+	 the call case above.  */
+      for (df_ref d = DF_REG_DEF_CHAIN (GBR_REG); d != NULL;
+	   d = DF_REF_NEXT_REG (d))
+	{
+	  if (CALL_P (DF_REF_INSN (d)))
+	    {
+	      if (REGNO_REG_SET_P (regs_invalidated_by_call_regset, GBR_REG))
+		return NULL_RTX;
+	      else
+		continue;
+	    }
+	  else
+	    return NULL_RTX;
+	}
+
       rtx disp = GEN_INT (gbr_disp.disp ());
       if (gbr_displacement (disp, GET_MODE (mem)))
 	return gen_rtx_PLUS (SImode, gen_rtx_REG (SImode, GBR_REG), disp);
@@ -13626,7 +13611,7 @@ sh_try_omit_signzero_extend (rtx extended_op, rtx insn)
 
 static void
 sh_emit_mode_set (int entity ATTRIBUTE_UNUSED, int mode,
-		  int prev_mode, HARD_REG_SET regs_live)
+		  int prev_mode, HARD_REG_SET regs_live ATTRIBUTE_UNUSED)
 {
   if ((TARGET_SH4A_FP || TARGET_SH4_300)
       && prev_mode != FP_MODE_NONE && prev_mode != mode)
@@ -13635,8 +13620,36 @@ sh_emit_mode_set (int entity ATTRIBUTE_UNUSED, int mode,
       if (TARGET_FMOVD)
 	emit_insn (gen_toggle_sz ());
     }
-  else
-    fpscr_set_from_mem (mode, regs_live);
+  else if (mode != FP_MODE_NONE)
+    {
+      rtx tmp0 = gen_reg_rtx (PSImode);
+      rtx tmp1 = gen_reg_rtx (SImode);
+
+      emit_move_insn (tmp0, get_fpscr_rtx ());
+      emit_insn (gen_extend_psi_si (tmp1, tmp0));
+
+      rtx i = NULL;
+
+      const unsigned HOST_WIDE_INT fpbits =
+	  TARGET_FMOVD ? (FPSCR_PR | FPSCR_SZ) : FPSCR_PR;
+
+      if (prev_mode != FP_MODE_NONE && prev_mode != mode)
+	i = gen_xorsi3 (tmp1, tmp1,
+			force_reg (SImode, GEN_INT (fpbits)));
+      else if (mode == FP_MODE_SINGLE)
+	i = gen_andsi3 (tmp1, tmp1,
+			force_reg (SImode, GEN_INT (~fpbits)));
+      else if (mode == FP_MODE_DOUBLE)
+	i = gen_iorsi3 (tmp1, tmp1,
+			force_reg (SImode, GEN_INT (fpbits)));
+      else
+	gcc_unreachable ();
+
+      emit_insn (i);
+
+      emit_insn (gen_truncate_si_psi (tmp0, tmp1));
+      emit_move_insn (get_fpscr_rtx (), tmp0);
+    }
 }
 
 static int

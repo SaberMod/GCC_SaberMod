@@ -382,7 +382,7 @@ Objective-C and Objective-C++ Dialects}.
 -fif-conversion2 -findirect-inlining @gol
 -finline-functions -finline-functions-called-once -finline-limit=@var{n} @gol
 -finline-small-functions -fipa-cp -fipa-cp-clone @gol
--fipa-pta -fipa-profile -fipa-pure-const -fipa-reference @gol
+-fipa-pta -fipa-profile -fipa-pure-const -fipa-reference -fipa-icf @gol
 -fira-algorithm=@var{algorithm} @gol
 -fira-region=@var{region} -fira-hoist-pressure @gol
 -fira-loop-pressure -fno-ira-share-save-slots @gol
@@ -489,6 +489,7 @@ Objective-C and Objective-C++ Dialects}.
 -mstrict-align @gol
 -momit-leaf-frame-pointer  -mno-omit-leaf-frame-pointer @gol
 -mtls-dialect=desc  -mtls-dialect=traditional @gol
+-mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
 
 @emph{Adapteva Epiphany Options}
@@ -1692,8 +1693,7 @@ interfaces) and L (Analyzability).  The name @samp{c1x} is deprecated.
 
 @item gnu90
 @itemx gnu89
-GNU dialect of ISO C90 (including some C99 features). This
-is the default for C code.
+GNU dialect of ISO C90 (including some C99 features).
 
 @item gnu99
 @itemx gnu9x
@@ -1701,8 +1701,8 @@ GNU dialect of ISO C99.  The name @samp{gnu9x} is deprecated.
 
 @item gnu11
 @itemx gnu1x
-GNU dialect of ISO C11.  This is intended to become the default in a
-future release of GCC.  The name @samp{gnu1x} is deprecated.
+GNU dialect of ISO C11.  This is the default for C code.
+The name @samp{gnu1x} is deprecated.
 
 @item c++98
 @itemx c++03
@@ -5577,6 +5577,12 @@ This option enables checking of alignment of pointers when they are
 dereferenced, or when a reference is bound to insufficiently aligned target,
 or when a method or constructor is invoked on insufficiently aligned object.
 
+@item -fsanitize=object-size
+@opindex fsanitize=object-size
+This option enables instrumentation of memory references using the
+@code{__builtin_object_size} function.  Various out of bounds pointer
+accesses are detected.
+
 @item -fsanitize=float-divide-by-zero
 @opindex fsanitize=float-divide-by-zero
 Detect floating-point division by zero.  Unlike other similar options,
@@ -7136,6 +7142,7 @@ also turns on the following optimization flags:
 -findirect-inlining @gol
 -fipa-cp @gol
 -fipa-sra @gol
+-fipa-icf @gol
 -fisolate-erroneous-paths-dereference @gol
 -foptimize-sibling-calls @gol
 -foptimize-strlen @gol
@@ -8080,6 +8087,19 @@ Because this optimization can create multiple copies of functions,
 it may significantly increase code size
 (see @option{--param ipcp-unit-growth=@var{value}}).
 This flag is enabled by default at @option{-O3}.
+
+@item -fipa-icf
+@opindex fipa-icf
+Perform Identical Code Folding for functions and read-only variables.
+The optimization reduces code size and may disturb unwind stacks by replacing
+a function by equivalent one with a different name. The optimization works
+more effectively with link time optimization enabled.
+
+Nevertheless the behavior is similar to Gold Linker ICF optimization, GCC ICF
+works on different levels and thus the optimizations are not same - there are
+equivalences that are found only by GCC and equivalences found only by Gold.
+
+This flag is enabled by default at @option{-O2} and @option{-Os}.
 
 @item -fisolate-erroneous-paths-dereference
 Detect paths which trigger erroneous or undefined behaviour due to
@@ -11759,6 +11779,14 @@ of TLS variables.  This is the default.
 @opindex mtls-dialect=traditional
 Use traditional TLS as the thread-local storage mechanism for dynamic accesses
 of TLS variables.
+
+@item -mfix-cortex-a53-835769
+@itemx -mno-fix-cortex-a53-835769
+@opindex -mfix-cortex-a53-835769
+@opindex -mno-fix-cortex-a53-835769
+Enable or disable the workaround for the ARM Cortex-A53 erratum number 835769.
+This will involve inserting a NOP instruction between memory instructions and
+64-bit integer multiply-accumulate instructions.
 
 @item -march=@var{name}
 @opindex march

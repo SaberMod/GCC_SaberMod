@@ -153,7 +153,7 @@ along with GCC; see the file COPYING3.  If not see
          calculates its initial (non-accumulated) cost of memory and
          each hard-register of its allocno class (file ira-cost.c).
 
-       * IRA creates live ranges of each allocno, calulates register
+       * IRA creates live ranges of each allocno, calculates register
          pressure for each pressure class in each region, sets up
          conflict hard registers for each allocno and info about calls
          the allocno lives through (file ira-lives.c).
@@ -245,7 +245,7 @@ along with GCC; see the file COPYING3.  If not see
          hard-register for allocnos conflicting with given allocno.
 
        * Chaitin-Briggs coloring assigns as many pseudos as possible
-         to hard registers.  After coloringh we try to improve
+         to hard registers.  After coloring we try to improve
          allocation with cost point of view.  We improve the
          allocation by spilling some allocnos and assigning the freed
          hard registers to other allocnos if it decreases the overall
@@ -307,7 +307,7 @@ along with GCC; see the file COPYING3.  If not see
        rebuilding would be, but is much faster.
 
      o After IR flattening, IRA tries to assign hard registers to all
-       spilled allocnos.  This is impelemented by a simple and fast
+       spilled allocnos.  This is implemented by a simple and fast
        priority coloring algorithm (see function
        ira_reassign_conflict_allocnos::ira-color.c).  Here new allocnos
        created during the code change pass can be assigned to hard
@@ -328,7 +328,7 @@ along with GCC; see the file COPYING3.  If not see
          in places where the pseudo-register lives.
 
    IRA uses a lot of data representing the target processors.  These
-   data are initilized in file ira.c.
+   data are initialized in file ira.c.
 
    If function has no loops (or the loops are ignored when
    -fira-algorithm=CB is used), we have classic Chaitin-Briggs
@@ -898,7 +898,7 @@ setup_pressure_classes (void)
 	  IOR_HARD_REG_SET (temp_hard_regset, reg_class_contents[cl]);
       }
     for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-      /* Some targets (like SPARC with ICC reg) have alocatable regs
+      /* Some targets (like SPARC with ICC reg) have allocatable regs
 	 for which no reg class is defined.  */
       if (REGNO_REG_CLASS (i) == NO_REGS)
 	SET_HARD_REG_BIT (ignore_hard_regs, i);
@@ -959,7 +959,7 @@ setup_uniform_class_p (void)
 /* Set up IRA_ALLOCNO_CLASSES, IRA_ALLOCNO_CLASSES_NUM,
    IRA_IMPORTANT_CLASSES, and IRA_IMPORTANT_CLASSES_NUM.
 
-   Target may have many subtargets and not all target hard regiters can
+   Target may have many subtargets and not all target hard registers can
    be used for allocation, e.g. x86 port in 32-bit mode can not use
    hard registers introduced in x86-64 like r8-r15).  Some classes
    might have the same allocatable hard registers, e.g.  INDEX_REGS
@@ -1019,7 +1019,7 @@ setup_allocno_and_important_classes (void)
   classes[n] = LIM_REG_CLASSES;
 
   /* Set up classes which can be used for allocnos as classes
-     conatining non-empty unique sets of allocatable hard
+     containing non-empty unique sets of allocatable hard
      registers.  */
   ira_allocno_classes_num = 0;
   for (i = 0; (cl = classes[i]) != LIM_REG_CLASSES; i++)
@@ -1313,7 +1313,7 @@ setup_reg_class_relations (void)
 	      if (important_class_p[cl3]
 		  && hard_reg_set_subset_p (temp_hard_regset, union_set))
 		{
-		  /* CL3 allocatbale hard register set is inside of
+		  /* CL3 allocatable hard register set is inside of
 		     union of allocatable hard register sets of CL1
 		     and CL2.  */
 		  COPY_HARD_REG_SET
@@ -1366,7 +1366,7 @@ setup_reg_class_relations (void)
     }
 }
 
-/* Output all unifrom and important classes into file F.  */
+/* Output all uniform and important classes into file F.  */
 static void
 print_unform_and_important_classes (FILE *f)
 {
@@ -2774,7 +2774,7 @@ setup_preferred_alternate_classes_for_new_pseudos (int start)
 }
 
 
-/* The number of entries allocated in teg_info.  */
+/* The number of entries allocated in reg_info.  */
 static int allocated_reg_info_size;
 
 /* Regional allocation can create new pseudo-registers.  This function
@@ -2890,16 +2890,26 @@ struct equivalence
      e.g. by reload.  */
   rtx replacement;
   rtx *src_p;
-  /* The list of each instruction which initializes this register.  */
-  rtx init_insns;
+
+  /* The list of each instruction which initializes this register.
+
+     NULL indicates we know nothing about this register's equivalence
+     properties.
+
+     An INSN_LIST with a NULL insn indicates this pseudo is already
+     known to not have a valid equivalence.  */
+  rtx_insn_list *init_insns;
+
   /* Loop depth is used to recognize equivalences which appear
      to be present within the same loop (or in an inner loop).  */
-  int loop_depth;
+  short loop_depth;
   /* Nonzero if this had a preexisting REG_EQUIV note.  */
-  int is_arg_equivalence;
+  unsigned char is_arg_equivalence : 1;
   /* Set when an attempt should be made to replace a register
      with the associated src_p entry.  */
-  char replace;
+  unsigned char replace : 1;
+  /* Set if this register has no known equivalence.  */
+  unsigned char no_equiv : 1;
 };
 
 /* reg_equiv[N] (where N is a pseudo reg number) is the equivalence
@@ -3242,15 +3252,16 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
 	  void *data ATTRIBUTE_UNUSED)
 {
   int regno;
-  rtx list;
+  rtx_insn_list *list;
 
   if (!REG_P (reg))
     return;
   regno = REGNO (reg);
+  reg_equiv[regno].no_equiv = 1;
   list = reg_equiv[regno].init_insns;
-  if (list == const0_rtx)
+  if (list && list->insn () == NULL)
     return;
-  reg_equiv[regno].init_insns = const0_rtx;
+  reg_equiv[regno].init_insns = gen_rtx_INSN_LIST (VOIDmode, NULL_RTX, NULL);
   reg_equiv[regno].replacement = NULL_RTX;
   /* This doesn't matter for equivalences made for argument registers, we
      should keep their initialization insns.  */
@@ -3258,9 +3269,9 @@ no_equiv (rtx reg, const_rtx store ATTRIBUTE_UNUSED,
     return;
   ira_reg_equiv[regno].defined_p = false;
   ira_reg_equiv[regno].init_insns = NULL;
-  for (; list; list =  XEXP (list, 1))
+  for (; list; list = list->next ())
     {
-      rtx insn = XEXP (list, 0);
+      rtx_insn *insn = list->insn ();
       remove_note (insn, find_reg_note (insn, REG_EQUIV, NULL_RTX));
     }
 }
@@ -3338,7 +3349,7 @@ update_equiv_regs (void)
   init_alias_analysis ();
 
   /* Scan insns and set pdx_subregs[regno] if the reg is used in a
-     paradoxical subreg. Don't set such reg sequivalent to a mem,
+     paradoxical subreg. Don't set such reg equivalent to a mem,
      because lra will not substitute such equiv memory in order to
      prevent access beyond allocated memory for paradoxical memory subreg.  */
   FOR_EACH_BB_FN (bb, cfun)
@@ -3373,7 +3384,7 @@ update_equiv_regs (void)
 
 	  /* If this insn contains more (or less) than a single SET,
 	     only mark all destinations as having no known equivalence.  */
-	  if (set == 0)
+	  if (set == NULL_RTX)
 	    {
 	      note_stores (PATTERN (insn), no_equiv, NULL);
 	      continue;
@@ -3437,7 +3448,8 @@ update_equiv_regs (void)
 
 	  if (!REG_P (dest)
 	      || (regno = REGNO (dest)) < FIRST_PSEUDO_REGISTER
-	      || reg_equiv[regno].init_insns == const0_rtx
+	      || (reg_equiv[regno].init_insns
+		  && reg_equiv[regno].init_insns->insn () == NULL)
 	      || (targetm.class_likely_spilled_p (reg_preferred_class (regno))
 		  && MEM_P (src) && ! reg_equiv[regno].is_arg_equivalence))
 	    {
@@ -3467,16 +3479,49 @@ update_equiv_regs (void)
 	  if (note && GET_CODE (XEXP (note, 0)) == EXPR_LIST)
 	    note = NULL_RTX;
 
-	  if (DF_REG_DEF_COUNT (regno) != 1
-	      && (! note
+	  if (DF_REG_DEF_COUNT (regno) != 1)
+	    {
+	      bool equal_p = true;
+	      rtx_insn_list *list;
+
+	      /* If we have already processed this pseudo and determined it
+		 can not have an equivalence, then honor that decision.  */
+	      if (reg_equiv[regno].no_equiv)
+		continue;
+
+	      if (! note
 		  || rtx_varies_p (XEXP (note, 0), 0)
 		  || (reg_equiv[regno].replacement
 		      && ! rtx_equal_p (XEXP (note, 0),
-					reg_equiv[regno].replacement))))
-	    {
-	      no_equiv (dest, set, NULL);
-	      continue;
+					reg_equiv[regno].replacement)))
+		{
+		  no_equiv (dest, set, NULL);
+		  continue;
+		}
+
+	      list = reg_equiv[regno].init_insns;
+	      for (; list; list = list->next ())
+		{
+		  rtx note_tmp;
+		  rtx_insn *insn_tmp;
+
+		  insn_tmp = list->insn ();
+		  note_tmp = find_reg_note (insn_tmp, REG_EQUAL, NULL_RTX);
+		  gcc_assert (note_tmp);
+		  if (! rtx_equal_p (XEXP (note, 0), XEXP (note_tmp, 0)))
+		    {
+		      equal_p = false;
+		      break;
+		    }
+		}
+
+	      if (! equal_p)
+		{
+		  no_equiv (dest, set, NULL);
+		  continue;
+		}
 	    }
+
 	  /* Record this insn as initializing this register.  */
 	  reg_equiv[regno].init_insns
 	    = gen_rtx_INSN_LIST (VOIDmode, insn, reg_equiv[regno].init_insns);
@@ -3505,10 +3550,9 @@ update_equiv_regs (void)
 	     a register used only in one basic block from a MEM.  If so, and the
 	     MEM remains unchanged for the life of the register, add a REG_EQUIV
 	     note.  */
-
 	  note = find_reg_note (insn, REG_EQUIV, NULL_RTX);
 
-	  if (note == 0 && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
+	  if (note == NULL_RTX && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
 	      && MEM_P (SET_SRC (set))
 	      && validate_equiv_mem (insn, dest, SET_SRC (set)))
 	    note = set_unique_reg_note (insn, REG_EQUIV, copy_rtx (SET_SRC (set)));
@@ -3538,7 +3582,7 @@ update_equiv_regs (void)
 
 	      reg_equiv[regno].replacement = x;
 	      reg_equiv[regno].src_p = &SET_SRC (set);
-	      reg_equiv[regno].loop_depth = loop_depth;
+	      reg_equiv[regno].loop_depth = (short) loop_depth;
 
 	      /* Don't mess with things live during setjmp.  */
 	      if (REG_LIVE_LENGTH (regno) >= 0 && optimize)
@@ -3608,8 +3652,8 @@ update_equiv_regs (void)
 	  && (regno = REGNO (src)) >= FIRST_PSEUDO_REGISTER
 	  && REG_BASIC_BLOCK (regno) >= NUM_FIXED_BLOCKS
 	  && DF_REG_DEF_COUNT (regno) == 1
-	  && reg_equiv[regno].init_insns != 0
-	  && reg_equiv[regno].init_insns != const0_rtx
+	  && reg_equiv[regno].init_insns != NULL
+	  && reg_equiv[regno].init_insns->insn () != NULL
 	  && ! find_reg_note (XEXP (reg_equiv[regno].init_insns, 0),
 			      REG_EQUIV, NULL_RTX)
 	  && ! contains_replace_regs (XEXP (dest, 0))
@@ -3668,7 +3712,7 @@ update_equiv_regs (void)
 		  rtx equiv_insn;
 
 		  if (! reg_equiv[regno].replace
-		      || reg_equiv[regno].loop_depth < loop_depth
+		      || reg_equiv[regno].loop_depth < (short) loop_depth
 		      /* There is no sense to move insns if live range
 			 shrinkage or register pressure-sensitive
 			 scheduling were done because it will not
@@ -3728,7 +3772,7 @@ update_equiv_regs (void)
 		      delete_insn (equiv_insn);
 
 		      reg_equiv[regno].init_insns
-			= XEXP (reg_equiv[regno].init_insns, 1);
+			= reg_equiv[regno].init_insns->next ();
 
 		      ira_reg_equiv[regno].init_insns = NULL;
 		      bitmap_set_bit (cleared_regs, regno);
@@ -4732,7 +4776,7 @@ interesting_dest_for_shprep_1 (rtx set, basic_block call_dom)
   return dest;
 }
 
-/* If insn is interesting for parameter range-splitting shring-wrapping
+/* If insn is interesting for parameter range-splitting shrink-wrapping
    preparation, i.e. it is a single set from a hard register to a pseudo, which
    is live at CALL_DOM (if non-NULL, otherwise this check is omitted), or a
    parallel statement with only one such statement, return the destination.
@@ -4887,7 +4931,7 @@ split_live_ranges_for_shrink_wrap (void)
   FOR_BB_INSNS (first, insn)
     {
       rtx dest = interesting_dest_for_shprep (insn, call_dom);
-      if (!dest)
+      if (!dest || dest == pic_offset_table_rtx)
 	continue;
 
       rtx newreg = NULL_RTX;
@@ -5038,6 +5082,9 @@ ira (FILE *f)
   int rebuild_p;
   bool saved_flag_caller_saves = flag_caller_saves;
   enum ira_region saved_flag_ira_region = flag_ira_region;
+
+  /* Perform target specific PIC register initialization.  */
+  targetm.init_pic_reg ();
 
   ira_conflicts_p = optimize > 0;
 
@@ -5290,9 +5337,17 @@ do_reload (void)
 {
   basic_block bb;
   bool need_dce;
+  unsigned pic_offset_table_regno = INVALID_REGNUM;
 
   if (flag_ira_verbose < 10)
     ira_dump_file = dump_file;
+
+  /* If pic_offset_table_rtx is a pseudo register, then keep it so
+     after reload to avoid possible wrong usages of hard reg assigned
+     to it.  */
+  if (pic_offset_table_rtx
+      && REGNO (pic_offset_table_rtx) >= FIRST_PSEUDO_REGISTER)
+    pic_offset_table_regno = REGNO (pic_offset_table_rtx);
 
   timevar_push (TV_RELOAD);
   if (ira_use_lra_p)
@@ -5397,6 +5452,9 @@ do_reload (void)
                 "frame pointer required, but reserved");
       inform (DECL_SOURCE_LOCATION (decl), "for %qD", decl);
     }
+
+  if (pic_offset_table_regno != INVALID_REGNUM)
+    pic_offset_table_rtx = gen_rtx_REG (Pmode, pic_offset_table_regno);
 
   timevar_pop (TV_IRA);
 }

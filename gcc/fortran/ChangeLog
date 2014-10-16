@@ -1,3 +1,34 @@
+2014-10-12  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* trans-decl.c, trans.c, trans.h: Use hash_table instead of hashtab.
+
+2014-10-11  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/48979
+	* simplify.c (gfc_simplify_atan): Use mpfr_zero_p to check for zeros.
+	(gfc_simplify_log): Likewise.
+	(gfc_simplify_scale): Likewise.
+	(gfc_simplify_exponent): Handle infinities and NaNs.
+	(gfc_simplify_fraction): Handle infinities.
+	(gfc_simplify_rrspacing): Handle signed zeros and NaNs.
+	(gfc_simplify_set_exponent): Handle infinities and NaNs.
+	(gfc_simplify_spacing): Handle zeros, infinities and NaNs.
+
+2014-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR fortran/59488
+	* trans-openmp.c (gfc_omp_predetermined_sharing): Return
+	OMP_CLAUSE_DEFAULT_SHARED for parameters or vtables.
+
+2014-10-10  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_set_implicit_none): Update prototype.
+	* symbol.c (gfc_set_implicit_none): Take and
+	use error location. Move diagnostic from here to ...
+	* decl.c (gfc_match_implicit_none): ... here. And
+	update call. Handle empty implicit-none-spec.
+	(gfc_match_implicit): Handle statement-separator ";".
+
 2014-10-09  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	* f95-lang.c (gfc_init_builtin_functions): Add more floating-point

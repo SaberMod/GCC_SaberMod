@@ -1632,6 +1632,62 @@ gimple_fold_builtin_strcat_chk (gimple_stmt_iterator *gsi)
   return true;
 }
 
+/* Fold a call to the __strncat_chk builtin with arguments DEST, SRC,
+   LEN, and SIZE.  */
+
+static bool 
+gimple_fold_builtin_strncat_chk (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree dest = gimple_call_arg (stmt, 0);
+  tree src = gimple_call_arg (stmt, 1);
+  tree len = gimple_call_arg (stmt, 2);
+  tree size = gimple_call_arg (stmt, 3);
+  tree fn;
+  const char *p;
+
+  p = c_getstr (src);
+  /* If the SRC parameter is "" or if LEN is 0, return DEST.  */
+  if ((p && *p == '\0')
+      || integer_zerop (len))
+    {
+      replace_call_with_value (gsi, dest);
+      return true;
+    }
+
+  if (! tree_fits_uhwi_p (size))
+    return false;
+
+  if (! integer_all_onesp (size))
+    {
+      tree src_len = c_strlen (src, 1);
+      if (src_len
+	  && tree_fits_uhwi_p (src_len)
+	  && tree_fits_uhwi_p (len)
+	  && ! tree_int_cst_lt (len, src_len))
+	{
+	  /* If LEN >= strlen (SRC), optimize into __strcat_chk.  */
+	  fn = builtin_decl_explicit (BUILT_IN_STRCAT_CHK);
+	  if (!fn)
+	    return false;
+
+	  gimple repl = gimple_build_call (fn, 3, dest, src, size);
+	  replace_call_with_call_and_fold (gsi, repl);
+	  return true;
+	}
+      return false;
+    }
+
+  /* If __builtin_strncat_chk is used, assume strncat is available.  */
+  fn = builtin_decl_explicit (BUILT_IN_STRNCAT);
+  if (!fn)
+    return false;
+
+  gimple repl = gimple_build_call (fn, 3, dest, src, len);
+  replace_call_with_call_and_fold (gsi, repl);
+  return true;
+}
+
 /* Fold a call to the fputs builtin.  ARG0 and ARG1 are the arguments
    to the call.  IGNORE is true if the value returned
    by the builtin will be ignored.  UNLOCKED is true is true if this
@@ -2457,6 +2513,8 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
       return gimple_fold_builtin_sprintf_chk (gsi, DECL_FUNCTION_CODE (callee));
     case BUILT_IN_STRCAT_CHK:
       return gimple_fold_builtin_strcat_chk (gsi);
+    case BUILT_IN_STRNCAT_CHK:
+      return gimple_fold_builtin_strncat_chk (gsi);
     case BUILT_IN_STRLEN:
       return gimple_fold_builtin_strlen (gsi);
     case BUILT_IN_STRCPY:
@@ -2629,7 +2687,11 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 		      gsi_insert_before (gsi, new_stmt, GSI_NEW_STMT);
 		    }
 		  else
-		    gsi_replace (gsi, new_stmt, true);
+		    {
+		      gimple_set_vuse (new_stmt, gimple_vuse (stmt));
+		      gimple_set_vdef (new_stmt, gimple_vdef (stmt));
+		      gsi_replace (gsi, new_stmt, false);
+		    }
 		  return true;
 		}
 	    }
@@ -2661,6 +2723,19 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 					gimple_call_arg (stmt, 0),
 					gimple_call_arg (stmt, 1),
 					gimple_call_arg (stmt, 2));
+	  break;
+	case IFN_UBSAN_OBJECT_SIZE:
+	  if (integer_all_onesp (gimple_call_arg (stmt, 2))
+	      || (TREE_CODE (gimple_call_arg (stmt, 1)) == INTEGER_CST
+		  && TREE_CODE (gimple_call_arg (stmt, 2)) == INTEGER_CST
+		  && tree_int_cst_le (gimple_call_arg (stmt, 1),
+				      gimple_call_arg (stmt, 2))))
+	    {
+	      gsi_replace (gsi, gimple_build_nop (), true);
+	      unlink_stmt_vdef (stmt);
+	      release_defs (stmt);
+	      return true;
+	    }
 	  break;
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;
@@ -5281,4 +5356,21 @@ rewrite_to_defined_overflow (gimple stmt)
   gimple_seq_add_stmt (&stmts, cvt);
 
   return stmts;
+}
+
+/* Return OP converted to TYPE by emitting a conversion statement on SEQ
+   if required using location LOC.  Note that OP will be returned
+   unmodified if GIMPLE does not require an explicit conversion between
+   its type and TYPE.  */
+
+tree
+gimple_convert (gimple_seq *seq, location_t loc, tree type, tree op)
+{
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    return op;
+  op = fold_convert_loc (loc, type, op);
+  gimple_seq stmts = NULL;
+  op = force_gimple_operand (op, &stmts, true, NULL_TREE);
+  gimple_seq_add_seq_without_update (seq, stmts);
+  return op;
 }
