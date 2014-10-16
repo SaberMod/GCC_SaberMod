@@ -1140,8 +1140,11 @@ cgraph_is_aux_decl_external (struct cgraph_node *node)
 
   /* Comdat or weak functions in aux modules are not external --
      there is no guarantee that the definitition will be emitted
-     in the primary compilation of this auxiliary module.  */
-  if (DECL_COMDAT (decl) || DECL_WEAK (decl))
+     in the primary compilation of this auxiliary module.
+     Functions marked artificial (e.g. an implicitly instantiated virtual
+     destructor) are also not guaranteed to be available in the primary module,
+     as they are not promoted by process_module_scope_static_func.  */
+  if (DECL_COMDAT (decl) || DECL_WEAK (decl) || DECL_ARTIFICIAL (decl))
     return false;
 
   /* virtual functions won't be deleted in the primary module.  */
