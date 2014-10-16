@@ -1674,7 +1674,14 @@ afdo_annotate_cfg (const stmt_set &promoted_stmts)
       counts_to_freqs ();
     }
   if (flag_value_profile_transformations)
-    gimple_value_profile_transformations ();
+    {
+      gimple_value_profile_transformations ();
+      free_dominance_info (CDI_DOMINATORS);
+      free_dominance_info (CDI_POST_DOMINATORS);
+      calculate_dominance_info (CDI_POST_DOMINATORS);
+      calculate_dominance_info (CDI_DOMINATORS);
+      update_ssa (TODO_update_ssa);
+    }
 }
 
 /* Wrapper function to invoke early inliner.  */
@@ -1756,7 +1763,6 @@ auto_profile (void)
       early_inline ();
       autofdo::afdo_annotate_cfg (promoted_stmts);
       compute_function_frequency ();
-      update_ssa (TODO_update_ssa);
 
       /* Local pure-const may imply need to fixup the cfg.  */
       if (execute_fixup_cfg () & TODO_cleanup_cfg)
