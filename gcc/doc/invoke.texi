@@ -479,6 +479,7 @@ Objective-C and Objective-C++ Dialects}.
 -mstrict-align @gol
 -momit-leaf-frame-pointer  -mno-omit-leaf-frame-pointer @gol
 -mtls-dialect=desc  -mtls-dialect=traditional @gol
+-mfix-cortex-a53-835769  -mno-fix-cortex-a53-835769 @gol
 -march=@var{name}  -mcpu=@var{name}  -mtune=@var{name}}
 
 @emph{Adapteva Epiphany Options}
@@ -5284,6 +5285,11 @@ more details.  The run-time behavior can be influenced using the
 @env{ASAN_OPTIONS} environment variable; see
 @url{https://code.google.com/p/address-sanitizer/wiki/Flags#Run-time_flags} for
 a list of supported options.
+
+@item -fsanitize=kernel-address
+@opindex fsanitize=kernel-address
+Enable AddressSanitizer for Linux kernel.
+See @uref{http://code.google.com/p/address-sanitizer/wiki/AddressSanitizerForKernel} for more details.
 
 @item -fsanitize=thread
 @opindex fsanitize=thread
@@ -10136,6 +10142,12 @@ is enabled by default when using @option{-fsanitize=address} option.
 To disable use-after-return detection use 
 @option{--param asan-use-after-return=0}.
 
+@item asan-instrumentation-with-call-threshold
+If number of memory accesses in function being instrumented
+is greater or equal to this number, use callbacks instead of inline checks.
+E.g. to disable inline code use
+@option{--param asan-instrumentation-with-call-threshold=0}.
+
 @end table
 @end table
 
@@ -11409,6 +11421,14 @@ of TLS variables.  This is the default.
 @opindex mtls-dialect=traditional
 Use traditional TLS as the thread-local storage mechanism for dynamic accesses
 of TLS variables.
+
+@item -mfix-cortex-a53-835769
+@itemx -mno-fix-cortex-a53-835769
+@opindex -mfix-cortex-a53-835769
+@opindex -mno-fix-cortex-a53-835769
+Enable or disable the workaround for the ARM Cortex-A53 erratum number 835769.
+This will involve inserting a NOP instruction between memory instructions and
+64-bit integer multiply-accumulate instructions.
 
 @item -march=@var{name}
 @opindex march
