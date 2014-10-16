@@ -78,8 +78,8 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 	  "The maximum number of instructions when automatically inlining",
 	  40, 0, 0)
 
-DEFPARAM (PARAM_MAX_GROUP_AUTO_INLINE_FUNC,
-	  "max-group-auto-inline-func",
+DEFPARAM (PARAM_MAX_GROWTH_AUTO_INLINE_FUNC,
+	  "max-growth-auto-inline-func",
 	  "The maximum size growth when inlining functions without inline declared in plain mode",
 	  30, 0, 0)
 
