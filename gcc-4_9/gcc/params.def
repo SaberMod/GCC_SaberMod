@@ -81,7 +81,7 @@ DEFPARAM (PARAM_MAX_INLINE_INSNS_AUTO,
 DEFPARAM (PARAM_MAX_GROWTH_AUTO_INLINE_FUNC,
 	  "max-growth-auto-inline-func",
 	  "The maximum size growth when inlining functions without inline declared in plain mode",
-	  30, 0, 0)
+	  25, 0, 0)
 
 DEFPARAM (PARAM_MAX_INLINE_INSNS_RECURSIVE,
 	  "max-inline-insns-recursive",

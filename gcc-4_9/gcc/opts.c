@@ -879,7 +879,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 increase code size. PARAM_INLINE_UNIT_GROWTH is used to trim down code
 	 size without affecting the improved performance.  */
       maybe_set_param_value
-	(PARAM_INLINE_UNIT_GROWTH, 15,
+	(PARAM_INLINE_UNIT_GROWTH, 25,
 	 opts->x_param_values, opts_set->x_param_values);
     }
 
