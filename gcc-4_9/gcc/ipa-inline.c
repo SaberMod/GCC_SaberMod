@@ -737,7 +737,7 @@ want_inline_small_function_p (struct cgraph_edge *e, bool report)
                            | INLINE_HINT_array_index
                            | INLINE_HINT_loop_stride)))
             {
-              if (growth >= MAX_GROUP_AUTO_INLINE_FUNC)
+              if (growth >= MAX_GROWTH_AUTO_INLINE_FUNC)
                 want_inline = false;
             }
           /* growth_likely_positive is expensive, always test it last.  */
