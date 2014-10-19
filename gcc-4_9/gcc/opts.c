@@ -869,6 +869,14 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	 opts->x_param_values, opts_set->x_param_values);
     }
 
+  if (opts->x_profile_arc_flag
+      || opts->x_flag_branch_probabilities)
+    {
+      maybe_set_param_value
+	(PARAM_EARLY_INLINER_MAX_ITERATIONS, 2,
+	 opts->x_param_values, opts_set->x_param_values);
+    }
+
   if (!(opts->x_flag_auto_profile
         || (opts->x_profile_arc_flag || opts->x_flag_branch_probabilities)))
     {
