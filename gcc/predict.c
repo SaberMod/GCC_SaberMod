@@ -40,7 +40,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "regs.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "input.h"
 #include "function.h"
+#include "profile.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "recog.h"
@@ -2522,6 +2528,7 @@ struct edge_prob_info
 };
 
 #define BLOCK_INFO(B)	((block_info *) (B)->aux)
+#undef EDGE_INFO
 #define EDGE_INFO(E)	((edge_prob_info *) (E)->aux)
 
 /* Helper function for estimate_bb_frequencies.

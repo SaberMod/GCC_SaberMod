@@ -38,6 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-inline.h"
 #include "flags.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
 #include "function.h"
 #include "c-tree.h"
 #include "toplev.h"
@@ -59,7 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "hash-table.h"
 #include "langhooks-def.h"
-#include "hash-set.h"
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
@@ -2293,22 +2297,10 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 
   /* Merge the threadprivate attribute.  */
   if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
-    {
-      set_decl_tls_model (newdecl, DECL_TLS_MODEL (olddecl));
-      C_DECL_THREADPRIVATE_P (newdecl) = 1;
-    }
+    C_DECL_THREADPRIVATE_P (newdecl) = 1;
 
   if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
     {
-      /* Merge the section attribute.
-	 We want to issue an error if the sections conflict but that
-	 must be done later in decl_attributes since we are called
-	 before attributes are assigned.  */
-      if ((DECL_EXTERNAL (olddecl) || TREE_PUBLIC (olddecl) || TREE_STATIC (olddecl))
-	  && DECL_SECTION_NAME (newdecl) == NULL
-	  && DECL_SECTION_NAME (olddecl))
-	set_decl_section_name (newdecl, DECL_SECTION_NAME (olddecl));
-
       /* Copy the assembler name.
 	 Currently, it can only be defined in the prototype.  */
       COPY_DECL_ASSEMBLER_NAME (olddecl, newdecl);
@@ -2518,6 +2510,20 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 		  (char *) newdecl + sizeof (struct tree_decl_common),
 		  tree_code_size (TREE_CODE (olddecl)) - sizeof (struct tree_decl_common));
 	  olddecl->decl_with_vis.symtab_node = snode;
+
+	  if ((DECL_EXTERNAL (olddecl)
+	       || TREE_PUBLIC (olddecl)
+	       || TREE_STATIC (olddecl))
+	      && DECL_SECTION_NAME (newdecl) != NULL)
+	    set_decl_section_name (olddecl, DECL_SECTION_NAME (newdecl));
+
+	  /* This isn't quite correct for something like
+		int __thread x attribute ((tls_model ("local-exec")));
+		extern int __thread x;
+	     as we'll lose the "local-exec" model.  */
+	  if (TREE_CODE (olddecl) == VAR_DECL
+	      && DECL_THREAD_LOCAL_P (newdecl))
+	    set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
 	  break;
 	}
 
@@ -5324,11 +5330,11 @@ grokdeclarator (const struct c_declarator *declarator,
       else
 	{
 	  if (name)
-	    warn_defaults_to (loc, flag_isoc99 ? 0 : OPT_Wimplicit_int,
+	    warn_defaults_to (loc, OPT_Wimplicit_int,
 			      "type defaults to %<int%> in declaration "
 			      "of %qE", name);
 	  else
-	    warn_defaults_to (loc, flag_isoc99 ? 0 : OPT_Wimplicit_int,
+	    warn_defaults_to (loc, OPT_Wimplicit_int,
 			      "type defaults to %<int%> in type name");
 	}
     }
@@ -8114,7 +8120,7 @@ start_function (struct c_declspecs *declspecs, struct c_declarator *declarator,
     }
 
   if (warn_about_return_type)
-    warn_defaults_to (loc, flag_isoc99 ? 0
+    warn_defaults_to (loc, flag_isoc99 ? OPT_Wimplicit_int
 			   : (warn_return_type ? OPT_Wreturn_type
 			      : OPT_Wimplicit_int),
 		      "return type defaults to %<int%>");
@@ -8423,7 +8429,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 
 	  if (flag_isoc99)
 	    pedwarn (DECL_SOURCE_LOCATION (decl),
-		     0, "type of %qD defaults to %<int%>", decl);
+		     OPT_Wimplicit_int, "type of %qD defaults to %<int%>",
+		     decl);
 	  else
 	    warning_at (DECL_SOURCE_LOCATION (decl),
 			OPT_Wmissing_parameter_type,

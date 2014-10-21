@@ -2990,7 +2990,7 @@ package Einfo is
 --       vtable (i.e. the one to be extended by derivation).
 
 --    Is_Tagged_Type (Flag55)
---       Defined in all entities. Set for an entity for a tagged type.
+--       Defined in all entities. Set for an entity that is a tagged type.
 
 --    Is_Task_Interface (synthesized)
 --       Defined in types that are interfaces. True if interface is declared as
@@ -3361,20 +3361,6 @@ package Einfo is
 --       Empty if applied to the last literal. This is actually a synonym
 --       for Next, but its use is preferred in this context.
 
---    Non_Binary_Modulus (Flag58) [base type only]
---       Defined in all subtype and type entities. Set for modular integer
---       types if the modulus value is other than a power of 2.
-
---    Non_Limited_View (Node17)
---       Defined in abstract states and incomplete types that act as shadow
---       entities created when analysing a limited with clause (Ada 2005:
---       AI-50217). Points to the defining entity of the original declaration.
-
---    Nonzero_Is_True (Flag162) [base type only]
---       Defined in enumeration types. Set if any non-zero value is to be
---       interpreted as true. Currently this is set for derived Boolean
---       types which have a convention of C, C++ or Fortran.
-
 --    No_Dynamic_Predicate_On_Actual (Flag276)
 --       Defined in discrete types. Set for generic formal types that are used
 --       in loops and quantified expressions. The corresponing actual cannot
@@ -3395,6 +3381,35 @@ package Einfo is
 --    No_Return (Flag113)
 --       Defined in all entities. Always false except in the case of procedures
 --       and generic procedures for which a pragma No_Return is given.
+
+--    No_Strict_Aliasing (Flag136) [base type only]
+--       Defined in access types. Set to direct the backend to avoid any
+--       optimizations based on an assumption about the aliasing status of
+--       objects designated by the access type. For the case of the gcc
+--       backend, the effect is as though all references to objects of
+--       the type were compiled with -fno-strict-aliasing. This flag is
+--       set if an unchecked conversion with the access type as a target
+--       type occurs in the same source unit as the declaration of the
+--       access type, or if an explicit pragma No_Strict_Aliasing applies.
+
+--    No_Tagged_Streams_Pragma (Node32)
+--       Present in  all subtype and type entities. Set for tagged types and
+--       subtypes (i.e. entities with Is_Tagged_Type set True) if a valid
+--       pragma/aspect applies to the type.
+
+--    Non_Binary_Modulus (Flag58) [base type only]
+--       Defined in all subtype and type entities. Set for modular integer
+--       types if the modulus value is other than a power of 2.
+
+--    Non_Limited_View (Node17)
+--       Defined in abstract states and incomplete types that act as shadow
+--       entities created when analysing a limited with clause (Ada 2005:
+--       AI-50217). Points to the defining entity of the original declaration.
+
+--    Nonzero_Is_True (Flag162) [base type only]
+--       Defined in enumeration types. Set if any non-zero value is to be
+--       interpreted as true. Currently this is set for derived Boolean
+--       types which have a convention of C, C++ or Fortran.
 
 --    Normalized_First_Bit (Uint8)
 --       Defined in components and discriminants. Indicates the normalized
@@ -3418,16 +3433,6 @@ package Einfo is
 --       This is used by Layout in front end layout mode to properly computed
 --       the maximum size such records (needed for allocation purposes when
 --       there are default discriminants, and also for the 'Size value).
-
---    No_Strict_Aliasing (Flag136) [base type only]
---       Defined in access types. Set to direct the backend to avoid any
---       optimizations based on an assumption about the aliasing status of
---       objects designated by the access type. For the case of the gcc
---       backend, the effect is as though all references to objects of
---       the type were compiled with -fno-strict-aliasing. This flag is
---       set if an unchecked conversion with the access type as a target
---       type occurs in the same source unit as the declaration of the
---       access type, or if an explicit pragma No_Strict_Aliasing applies.
 
 --    Number_Dimensions (synthesized)
 --       Applies to array types and subtypes. Returns the number of dimensions
@@ -4081,14 +4086,16 @@ package Einfo is
 --       avoid multiple elaboration warnings for the same variable.
 
 --    Suppress_Initialization (Flag105)
---       Defined in all type and subtype entities. If set for the base type,
---       then the generation of initialization procedures is suppressed for the
---       type. Any other implicit initialiation (e.g. from the use of pragma
---       Initialize_Scalars) is also suppressed if this flag is set either for
---       the subtype in question, or for the base type. Set by use of pragma
---       Suppress_Initialization and also for internal entities where we know
---       that no initialization is required. For example, enumeration image
---       table entities set it.
+--       Defined in all variable, type and subtype entities. If set for a base
+--       type, then the generation of initialization procedures is suppressed
+--       for the type. Any other implicit initialiation (e.g. from the use of
+--       pragma Initialize_Scalars) is also suppressed if this flag is set for
+--       either the subtype in question, or for the base type. For variables,
+--       this flag suppresses all implicit initialization for the object, even
+--       if the type would normally require initialization. Set by use of
+--       pragma Suppress_Initialization and also for internal entities where
+--       we know that no initialization is required. For example, enumeration
+--       image table entities set it.
 
 --    Suppress_Style_Checks (Flag165)
 --       Defined in all entities. Suppresses any style checks specifically
@@ -4481,8 +4488,8 @@ package Einfo is
       --  is created for the base type, and this is the first named subtype).
 
       E_Ordinary_Fixed_Point_Type,
-      --  Ordinary fixed type, used for the anonymous base type of the
-      --  fixed subtype created by an ordinary fixed point type declaration.
+      --  Ordinary fixed type, used for the anonymous base type of the fixed
+      --  subtype created by an ordinary fixed point type declaration.
 
       E_Ordinary_Fixed_Point_Subtype,
       --  Ordinary fixed point subtype, created by either an ordinary fixed
@@ -4603,19 +4610,18 @@ package Einfo is
       --  A record subtype, created by a record subtype declaration
 
       E_Record_Type_With_Private,
-      --  Used for types defined by a private extension declaration, and
-      --  for tagged private types. Includes the fields for both private
-      --  types and for record types (with the sole exception of
-      --  Corresponding_Concurrent_Type which is obviously not needed).
-      --  This entity is considered to be both a record type and
-      --  a private type.
+      --  Used for types defined by a private extension declaration,
+      --  and for tagged private types. Includes the fields for both
+      --  private types and for record types (with the sole exception of
+      --  Corresponding_Concurrent_Type which is obviously not needed). This
+      --  entity is considered to be both a record type and a private type.
 
       E_Record_Subtype_With_Private,
       --  A subtype of a type defined by a private extension declaration
 
       E_Private_Type,
-      --  A private type, created by a private type declaration
-      --  that has neither the keyword limited nor the keyword tagged.
+      --  A private type, created by a private type declaration that has
+      --  neither the keyword limited nor the keyword tagged.
 
       E_Private_Subtype,
       --  A subtype of a private type, created by a subtype declaration used
@@ -4662,10 +4668,10 @@ package Einfo is
       --  The type of an exception created by an exception declaration
 
       E_Subprogram_Type,
-      --  This is the designated type of an Access_To_Subprogram. Has type
-      --  and signature like a subprogram entity, so can appear in calls,
-      --  which are resolved like regular calls, except that such an entity
-      --  is not overloadable.
+      --  This is the designated type of an Access_To_Subprogram. Has type and
+      --  signature like a subprogram entity, so can appear in calls, which
+      --  are resolved like regular calls, except that such an entity is not
+      --  overloadable.
 
       ---------------------------
       -- Overloadable Entities --
@@ -4681,9 +4687,9 @@ package Einfo is
 
       E_Operator,
       --  A predefined operator, appearing in Standard, or an implicitly
-      --  defined concatenation operator created whenever an array is
-      --  declared. We do not make normal derived operators explicit in
-      --  the tree, but the concatenation operators are made explicit.
+      --  defined concatenation operator created whenever an array is declared.
+      --  We do not make normal derived operators explicit in the tree, but the
+      --  concatenation operators are made explicit.
 
       E_Procedure,
       --  A procedure, created by a procedure declaration or a procedure
@@ -5260,6 +5266,7 @@ package Einfo is
    --    Current_Use_Clause                  (Node27)
    --    Subprograms_For_Type                (Node29)
    --    Derived_Type_Link                   (Node31)
+   --    No_Tagged_Streams_Pragma            (Node32)
    --    Linker_Section_Pragma               (Node33)
 
    --    Depends_On_Private                  (Flag14)
@@ -6238,6 +6245,7 @@ package Einfo is
    --    OK_To_Rename                        (Flag247)
    --    Optimize_Alignment_Space            (Flag241)
    --    Optimize_Alignment_Time             (Flag242)
+   --    Suppress_Initialization             (Flag105)
    --    Treat_As_Volatile                   (Flag41)
    --    Address_Clause                      (synth)
    --    Alignment_Clause                    (synth)
@@ -6812,6 +6820,7 @@ package Einfo is
    function No_Predicate_On_Actual              (Id : E) return B;
    function No_Return                           (Id : E) return B;
    function No_Strict_Aliasing                  (Id : E) return B;
+   function No_Tagged_Streams_Pragma            (Id : E) return N;
    function Non_Binary_Modulus                  (Id : E) return B;
    function Non_Limited_View                    (Id : E) return E;
    function Nonzero_Is_True                     (Id : E) return B;
@@ -7456,6 +7465,7 @@ package Einfo is
    procedure Set_No_Predicate_On_Actual          (Id : E; V : B := True);
    procedure Set_No_Return                       (Id : E; V : B := True);
    procedure Set_No_Strict_Aliasing              (Id : E; V : B := True);
+   procedure Set_No_Tagged_Streams_Pragma        (Id : E; V : N);
    procedure Set_Non_Binary_Modulus              (Id : E; V : B := True);
    procedure Set_Non_Limited_View                (Id : E; V : E);
    procedure Set_Nonzero_Is_True                 (Id : E; V : B := True);
@@ -8249,6 +8259,7 @@ package Einfo is
    pragma Inline (No_Predicate_On_Actual);
    pragma Inline (No_Return);
    pragma Inline (No_Strict_Aliasing);
+   pragma Inline (No_Tagged_Streams_Pragma);
    pragma Inline (Non_Binary_Modulus);
    pragma Inline (Non_Limited_View);
    pragma Inline (Nonzero_Is_True);
@@ -8691,6 +8702,7 @@ package Einfo is
    pragma Inline (Set_No_Predicate_On_Actual);
    pragma Inline (Set_No_Return);
    pragma Inline (Set_No_Strict_Aliasing);
+   pragma Inline (Set_No_Tagged_Streams_Pragma);
    pragma Inline (Set_Non_Binary_Modulus);
    pragma Inline (Set_Non_Limited_View);
    pragma Inline (Set_Nonzero_Is_True);
@@ -8794,12 +8806,12 @@ package Einfo is
 
    --  END XEINFO INLINES
 
-   --  The following Inline pragmas are *not* read by xeinfo when building
-   --  the C version of this interface automatically (so the C version will
-   --  end up making out of line calls). The pragma scan in xeinfo will be
-   --  terminated on encountering the END XEINFO INLINES line. We inline
-   --  things here which are small, but not of the canonical attribute
-   --  access/set format that can be handled by xeinfo.
+   --  The following Inline pragmas are *not* read by xeinfo when building the
+   --  C version of this interface automatically (so the C version will end up
+   --  making out of line calls). The pragma scan in xeinfo will be terminated
+   --  on encountering the END XEINFO INLINES line. We inline things here which
+   --  are small, but not of the canonical attribute access/set format that can
+   --  be handled by xeinfo.
 
    pragma Inline (Base_Type);
    pragma Inline (Is_Base_Type);

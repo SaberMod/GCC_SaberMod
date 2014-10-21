@@ -26,6 +26,7 @@
 with Makeutl;  use Makeutl;
 with MLib.Tgt;
 with Opt;      use Opt;
+with Osint;    use Osint;
 with Output;   use Output;
 with Prj.Env;
 with Prj.Err;
@@ -659,6 +660,10 @@ package body Prj.Conf is
       --  If Target_Name is empty, get the specified target in the project
       --  file, if any.
 
+      procedure Get_Project_Runtimes;
+      --  Get the various Runtime (<lang>) in the project file or any project
+      --  it extends, if any are specified.
+
       function Get_Config_Switches return Argument_List_Access;
       --  Return the --config switches to use for gprconfig
 
@@ -832,6 +837,36 @@ package body Prj.Conf is
          end if;
       end Get_Project_Target;
 
+      --------------------------
+      -- Get_Project_Runtimes --
+      --------------------------
+
+      procedure Get_Project_Runtimes is
+         Element : Array_Element;
+         Id      : Array_Element_Id;
+         Lang    : Name_Id;
+         Proj    : Project_Id;
+
+      begin
+         Proj := Project;
+         while Proj /= No_Project loop
+            Id := Value_Of (Name_Runtime, Proj.Decl.Arrays, Shared);
+            while Id /= No_Array_Element loop
+               Element := Shared.Array_Elements.Table (Id);
+               Lang := Element.Index;
+
+               if not Runtime_Name_Set_For (Lang) then
+                  Set_Runtime_For
+                    (Lang, RTS_Name => Get_Name_String (Element.Value.Value));
+               end if;
+
+               Id := Element.Next;
+            end loop;
+
+            Proj := Proj.Extends;
+         end loop;
+      end Get_Project_Runtimes;
+
       -----------------------
       -- Default_File_Name --
       -----------------------
@@ -931,8 +966,7 @@ package body Prj.Conf is
 
          declare
             Obj_Dir         : constant String := Name_Buffer (1 .. Name_Len);
-            Config_Switches : Argument_List_Access :=
-                                new Argument_List'(1 .. 0 => null);
+            Config_Switches : Argument_List_Access;
             Db_Switches     : Argument_List_Access;
             Args            : Argument_List (1 .. 5);
             Arg_Last        : Positive;
@@ -980,13 +1014,10 @@ package body Prj.Conf is
                end case;
             end if;
 
-            --  If not in Codepeer mode, get the config switches. This should
-            --  be done only now, as some runtimes may have been found if the
-            --  Builder switches.
+            --  Get the config switches. This should be done only now, as some
+            --  runtimes may have been found in the Builder switches.
 
-            if not CodePeer_Mode then
-               Config_Switches := Get_Config_Switches;
-            end if;
+            Config_Switches := Get_Config_Switches;
 
             --  Get eventual --db switches
 
@@ -1306,7 +1337,11 @@ package body Prj.Conf is
                Runtime_Name : constant String := Runtime_Name_For (Name);
 
             begin
-               if Variable = Nil_Variable_Value
+               --  In CodePeer mode, we do not take into account any compiler
+               --  command from the package IDE.
+
+               if CodePeer_Mode
+                 or else Variable = Nil_Variable_Value
                  or else Length_Of_Name (Variable.Value) = 0
                then
                   Result (Count) :=
@@ -1383,6 +1418,7 @@ package body Prj.Conf is
       Config := No_Project;
 
       Get_Project_Target;
+      Get_Project_Runtimes;
       Check_Builder_Switches;
 
       --  Do not attempt to find a configuration project file when
@@ -1526,11 +1562,12 @@ package body Prj.Conf is
 
       function Is_Base_Name (Path : String) return Boolean is
       begin
-         for I in Path'Range loop
-            if Path (I) = Directory_Separator or else Path (I) = '/' then
+         for J in Path'Range loop
+            if Is_Directory_Separator (Path (J)) then
                return False;
             end if;
          end loop;
+
          return True;
       end Is_Base_Name;
 
@@ -1582,8 +1619,23 @@ package body Prj.Conf is
       Implicit_Project           : Boolean := False;
       On_New_Tree_Loaded         : Prj.Proc.Tree_Loaded_Callback := null)
    is
+      Success : Boolean := False;
+      Try_Again : Boolean := True;
+
    begin
       pragma Assert (Prj.Env.Is_Initialized (Env.Project_Path));
+
+      --  Record Target_Value and Target_Origin.
+
+      if Target_Name = "" then
+         Opt.Target_Value  := new String'(Normalized_Hostname);
+         Opt.Target_Origin := Default;
+      else
+         Opt.Target_Value  := new String'(Target_Name);
+         Opt.Target_Origin := Specified;
+      end if;
+
+      <<Parse_Again>>
 
       --  Parse the user project tree
 
@@ -1607,6 +1659,55 @@ package body Prj.Conf is
          return;
       end if;
 
+      --  If --target was not specified on the command line, then do Phase 1 to
+      --  check if attribute Target is declared in the main project.
+
+      if Opt.Target_Origin /= Specified then
+         Main_Project := No_Project;
+         Process_Project_Tree_Phase_1
+           (In_Tree                => Project_Tree,
+            Project                => Main_Project,
+            Packages_To_Check      => Packages_To_Check,
+            Success                => Success,
+            From_Project_Node      => User_Project_Node,
+            From_Project_Node_Tree => Project_Node_Tree,
+            Env                    => Env,
+            Reset_Tree             => True,
+            On_New_Tree_Loaded     => On_New_Tree_Loaded);
+
+         if not Success then
+            Main_Project := No_Project;
+            return;
+         end if;
+
+         declare
+            Variable : constant Variable_Value :=
+              Value_Of
+                (Name_Target,
+                 Main_Project.Decl.Attributes,
+                 Project_Tree.Shared);
+         begin
+            if Variable /= Nil_Variable_Value
+              and then not Variable.Default
+              and then
+                Get_Name_String (Variable.Value) /= Opt.Target_Value.all
+            then
+               if Try_Again then
+                  Opt.Target_Value :=
+                    new String'(Get_Name_String (Variable.Value));
+                  Try_Again := False;
+                  goto Parse_Again;
+
+               else
+                  Fail_Program
+                    (Project_Tree,
+                     "inconsistent value of attribute Target");
+               end if;
+            end if;
+         end;
+
+      end if;
+
       Process_Project_And_Apply_Config
         (Main_Project               => Main_Project,
          User_Project_Node          => User_Project_Node,
@@ -1622,7 +1723,8 @@ package body Prj.Conf is
          Target_Name                => Target_Name,
          Normalized_Hostname        => Normalized_Hostname,
          On_Load_Config             => On_Load_Config,
-         On_New_Tree_Loaded         => On_New_Tree_Loaded);
+         On_New_Tree_Loaded         => On_New_Tree_Loaded,
+         Do_Phase_1                 => Opt.Target_Origin = Specified);
    end Parse_Project_And_Apply_Config;
 
    --------------------------------------
@@ -1645,7 +1747,8 @@ package body Prj.Conf is
       Normalized_Hostname        : String;
       On_Load_Config             : Config_File_Hook := null;
       Reset_Tree                 : Boolean := True;
-      On_New_Tree_Loaded         : Prj.Proc.Tree_Loaded_Callback := null)
+      On_New_Tree_Loaded         : Prj.Proc.Tree_Loaded_Callback := null;
+      Do_Phase_1                 : Boolean := True)
    is
       Shared              : constant Shared_Project_Tree_Data_Access :=
                               Project_Tree.Shared;
@@ -1690,23 +1793,25 @@ package body Prj.Conf is
    --  Start of processing for Process_Project_And_Apply_Config
 
    begin
-      Main_Project := No_Project;
       Automatically_Generated := False;
 
-      Process_Project_Tree_Phase_1
-        (In_Tree                => Project_Tree,
-         Project                => Main_Project,
-         Packages_To_Check      => Packages_To_Check,
-         Success                => Success,
-         From_Project_Node      => User_Project_Node,
-         From_Project_Node_Tree => Project_Node_Tree,
-         Env                    => Env,
-         Reset_Tree             => Reset_Tree,
-         On_New_Tree_Loaded     => On_New_Tree_Loaded);
-
-      if not Success then
+      if Do_Phase_1 then
          Main_Project := No_Project;
-         return;
+         Process_Project_Tree_Phase_1
+           (In_Tree                => Project_Tree,
+            Project                => Main_Project,
+            Packages_To_Check      => Packages_To_Check,
+            Success                => Success,
+            From_Project_Node      => User_Project_Node,
+            From_Project_Node_Tree => Project_Node_Tree,
+            Env                    => Env,
+            Reset_Tree             => Reset_Tree,
+            On_New_Tree_Loaded     => On_New_Tree_Loaded);
+
+         if not Success then
+            Main_Project := No_Project;
+            return;
+         end if;
       end if;
 
       if Project_Tree.Source_Info_File_Name /= null then

@@ -38,10 +38,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h" /* get_random_seed */
-#include "hashtab.h"
 #include "inchash.h"
 #include "filenames.h"
 #include "output.h"
@@ -7380,6 +7385,8 @@ commutative_ternary_tree_code (enum tree_code code)
     {
     case WIDEN_MULT_PLUS_EXPR:
     case WIDEN_MULT_MINUS_EXPR:
+    case DOT_PROD_EXPR:
+    case FMA_EXPR:
       return true;
 
     default:

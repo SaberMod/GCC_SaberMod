@@ -1878,7 +1878,7 @@ Inc_dec_statement::do_lower(Gogo*, Named_object*, Block*, Statement_inserter*)
 
   mpz_t oval;
   mpz_init_set_ui(oval, 1UL);
-  Expression* oexpr = Expression::make_integer(&oval, NULL, loc);
+  Expression* oexpr = Expression::make_integer(&oval, this->expr_->type(), loc);
   mpz_clear(oval);
 
   Operator op = this->is_inc_ ? OPERATOR_PLUSEQ : OPERATOR_MINUSEQ;
@@ -2376,6 +2376,8 @@ Thunk_statement::build_thunk(Gogo* gogo, const std::string& thunk_name)
 						  location);
       s->determine_types();
       gogo->add_statement(s);
+
+      function->func_value()->set_calls_defer_retaddr();
     }
 
   // Get a reference to the parameter.

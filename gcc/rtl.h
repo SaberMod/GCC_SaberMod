@@ -2641,15 +2641,6 @@ extern enum machine_mode get_pool_mode (const_rtx);
 extern rtx simplify_subtraction (rtx);
 extern void decide_function_section (tree);
 
-/* In function.c  */
-extern rtx assign_stack_local (enum machine_mode, HOST_WIDE_INT, int);
-#define ASLK_REDUCE_ALIGN 1
-#define ASLK_RECORD_PAD 2
-extern rtx assign_stack_local_1 (enum machine_mode, HOST_WIDE_INT, int, int);
-extern rtx assign_stack_temp (enum machine_mode, HOST_WIDE_INT);
-extern rtx assign_stack_temp_for_type (enum machine_mode, HOST_WIDE_INT, tree);
-extern rtx assign_temp (tree, int, int);
-
 /* In emit-rtl.c */
 extern rtx_insn *emit_insn_before (rtx, rtx);
 extern rtx_insn *emit_insn_before_noloc (rtx, rtx_insn *, basic_block);
@@ -2921,6 +2912,7 @@ extern rtx_insn *find_first_parameter_load (rtx_insn *, rtx_insn *);
 extern bool keep_with_call_p (const rtx_insn *);
 extern bool label_is_jump_target_p (const_rtx, const rtx_insn *);
 extern int insn_rtx_cost (rtx, bool);
+extern unsigned seq_cost (const rtx_insn *, bool);
 
 /* Given an insn and condition, return a canonical description of
    the test being made.  */
@@ -3381,12 +3373,7 @@ extern void add_insn_before (rtx, rtx, basic_block);
 extern void add_insn_after (rtx, rtx, basic_block);
 extern void remove_insn (rtx);
 extern rtx_insn *emit (rtx);
-extern void delete_insn (rtx);
-extern rtx_insn *entry_of_function (void);
 extern void emit_insn_at_entry (rtx);
-extern void delete_insn_chain (rtx, rtx, bool);
-extern rtx_insn *unlink_insn_chain (rtx_insn *, rtx_insn *);
-extern void delete_insn_and_edges (rtx_insn *);
 extern rtx gen_lowpart_SUBREG (enum machine_mode, rtx);
 extern rtx gen_const_mem (enum machine_mode, rtx);
 extern rtx gen_frame_mem (enum machine_mode, rtx);
@@ -3441,14 +3428,6 @@ extern void print_insn (pretty_printer *, const_rtx, int);
 extern void rtl_dump_bb_for_graph (pretty_printer *, basic_block);
 extern const char *str_pattern_slim (const_rtx);
 
-/* In function.c */
-extern void reposition_prologue_and_epilogue_notes (void);
-extern int prologue_epilogue_contains (const_rtx);
-extern int sibcall_epilogue_contains (const_rtx);
-extern void update_temp_slot_address (rtx, rtx);
-extern void maybe_copy_prologue_epilogue_insn (rtx, rtx);
-extern void set_return_jump_label (rtx);
-
 /* In stmt.c */
 extern void expand_null_return (void);
 extern void expand_naked_return (void);
@@ -3459,10 +3438,6 @@ extern rtx move_by_pieces (rtx, rtx, unsigned HOST_WIDE_INT,
 			   unsigned int, int);
 extern HOST_WIDE_INT find_args_size_adjust (rtx_insn *);
 extern int fixup_args_size_notes (rtx_insn *, rtx_insn *, int);
-
-/* In cfgrtl.c */
-extern void print_rtl_with_bb (FILE *, const rtx_insn *, int);
-extern rtx_insn *duplicate_insn_chain (rtx_insn *, rtx_insn *);
 
 /* In expmed.c */
 extern void init_expmed (void);

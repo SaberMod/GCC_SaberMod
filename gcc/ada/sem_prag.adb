@@ -3201,6 +3201,8 @@ package body Sem_Prag is
       function Is_Static_String_Expression (Arg : Node_Id) return Boolean;
       --  Analyzes the argument, and determines if it is a static string
       --  expression, returns True if so, False if non-static or not String.
+      --  A special case is that a string literal returns True in Ada 83 mode
+      --  (which has no such thing as static string expressions).
 
       procedure Pragma_Misplaced;
       pragma No_Return (Pragma_Misplaced);
@@ -6220,11 +6222,25 @@ package body Sem_Prag is
 
       function Is_Static_String_Expression (Arg : Node_Id) return Boolean is
          Argx : constant Node_Id := Get_Pragma_Arg (Arg);
+         Lit  : constant Boolean := Nkind (Argx) = N_String_Literal;
 
       begin
          Analyze_And_Resolve (Argx);
-         return Is_OK_Static_Expression (Argx)
-           and then Nkind (Argx) = N_String_Literal;
+
+         --  Special case Ada 83, where the expression will never be static,
+         --  but we will return true if we had a string literal to start with.
+
+         if Ada_Version = Ada_83 then
+            return Lit;
+
+         --  Normal case, true only if we end up with a string literal that
+         --  is marked as being the result of evaluating a static expression.
+
+         else
+            return Is_OK_Static_Expression (Argx)
+              and then Nkind (Argx) = N_String_Literal;
+         end if;
+
       end Is_Static_String_Expression;
 
       ----------------------
@@ -16400,12 +16416,19 @@ package body Sem_Prag is
 
             Set_No_Elab_Code_All (Current_Sem_Unit);
 
-            --  Set restriction No_Elaboration_Code, including adding it to the
-            --  set of configuration restrictions so it will apply to all units
-            --  in the extended main source.
+            --  Set restriction No_Elaboration_Code
 
             Set_Restriction (No_Elaboration_Code, N);
-            Add_To_Config_Boolean_Restrictions (No_Elaboration_Code);
+
+            --  If we are in the main unit or in an extended main source unit,
+            --  then we also add it to the configuration restrictions so that
+            --  it will apply to all units in the extended main source.
+
+            if Current_Sem_Unit = Main_Unit
+              or else In_Extended_Main_Source_Unit (N)
+            then
+               Add_To_Config_Boolean_Restrictions (No_Elaboration_Code);
+            end if;
 
             --  If in main extended unit, activate transitive with test
 
@@ -16525,6 +16548,58 @@ package body Sem_Prag is
             Set_Restriction (No_Exception_Handlers, N);
             Set_Restriction (Max_Tasks, N, 0);
             Set_Restriction (No_Tasking, N);
+
+            -----------------------
+            -- No_Tagged_Streams --
+            -----------------------
+
+            --  pragma No_Tagged_Streams;
+            --  pragma No_Tagged_Streams ([Entity => ]tagged_type_local_NAME);
+
+         when Pragma_No_Tagged_Streams => No_Tagged_Strms : declare
+            E_Id : Node_Id;
+            E    : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_At_Most_N_Arguments (1);
+
+            --  One argument case
+
+            if Arg_Count = 1 then
+               Check_Optional_Identifier (Arg1, Name_Entity);
+               Check_Arg_Is_Local_Name (Arg1);
+               E_Id := Get_Pragma_Arg (Arg1);
+
+               if Etype (E_Id) = Any_Type then
+                  return;
+               end if;
+
+               E := Entity (E_Id);
+
+               Check_Duplicate_Pragma (E);
+
+               if not Is_Tagged_Type (E) or else Is_Derived_Type (E) then
+                  Error_Pragma_Arg
+                    ("argument for pragma% must be root tagged type", Arg1);
+               end if;
+
+               if Rep_Item_Too_Early (E, N)
+                    or else
+                  Rep_Item_Too_Late (E, N)
+               then
+                  return;
+               else
+                  Set_No_Tagged_Streams_Pragma (E, N);
+               end if;
+
+            --  Zero argument case
+
+            else
+               Check_Is_In_Decl_Part_Or_Package_Spec;
+               No_Tagged_Streams := N;
+            end if;
+         end No_Tagged_Strms;
 
          ------------------------
          -- No_Strict_Aliasing --
@@ -19911,8 +19986,9 @@ package body Sem_Prag is
 
             E := Entity (E_Id);
 
-            if not Is_Type (E) then
-               Error_Pragma_Arg ("pragma% requires type or subtype", Arg1);
+            if not Is_Type (E) and then Ekind (E) /= E_Variable then
+               Error_Pragma_Arg
+                 ("pragma% requires variable, type or subtype", Arg1);
             end if;
 
             if Rep_Item_Too_Early (E, N)
@@ -19937,7 +20013,7 @@ package body Sem_Prag is
             elsif Is_First_Subtype (E) then
                Set_Suppress_Initialization (Base_Type (E));
 
-            --  For other than first subtype, set flag on subtype itself
+            --  For other than first subtype, set flag on subtype or variable
 
             else
                Set_Suppress_Initialization (E);
@@ -21917,9 +21993,11 @@ package body Sem_Prag is
       Analyze_Depends_In_Decl_Part (N);
 
       --  Do not match dependencies against refinements if Refined_Depends is
-      --  illegal to avoid emitting misleading error.
+      --  illegal to avoid emitting misleading error. Matching is disabled in
+      --  ASIS because clauses are not normalized as this is a tree altering
+      --  activity similar to expansion.
 
-      if Serious_Errors_Detected = Errors then
+      if Serious_Errors_Detected = Errors and then not ASIS_Mode then
 
          --  Multiple dependency clauses appear as component associations of an
          --  aggregate. Note that the clauses are copied because the algorithm
@@ -24887,6 +24965,7 @@ package body Sem_Prag is
       Pragma_No_Inline                      =>  0,
       Pragma_No_Run_Time                    => -1,
       Pragma_No_Strict_Aliasing             => -1,
+      Pragma_No_Tagged_Streams              =>  0,
       Pragma_Normalize_Scalars              =>  0,
       Pragma_Obsolescent                    =>  0,
       Pragma_Optimize                       =>  0,

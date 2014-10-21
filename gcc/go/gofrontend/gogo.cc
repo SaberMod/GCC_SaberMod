@@ -953,13 +953,14 @@ Find_var::expression(Expression** pexpr)
 	}
     }
 
-  // We traverse the code of any function we see.  Note that this
-  // means that we will traverse the code of a function whose address
-  // is taken even if it is not called.
+  // We traverse the code of any function or bound method we see.  Note that
+  // this means that we will traverse the code of a function or bound method
+  // whose address is taken even if it is not called.
   Func_expression* fe = e->func_expression();
-  if (fe != NULL)
+  Bound_method_expression* bme = e->bound_method_expression();
+  if (fe != NULL || bme != NULL)
     {
-      const Named_object* f = fe->named_object();
+      const Named_object* f = fe != NULL ? fe->named_object() : bme->function();
       if (f->is_function() && f->package() == NULL)
 	{
 	  std::pair<Seen_objects::iterator, bool> ins =
@@ -4195,21 +4196,18 @@ Build_method_tables::type(Type* type)
 Expression*
 Gogo::allocate_memory(Type* type, Location location)
 {
-  Btype* btype = type->get_backend(this);
-  size_t size = this->backend()->type_size(btype);
-  mpz_t size_val;
-  mpz_init_set_ui(size_val, size);
-  Type* uintptr = Type::lookup_integer_type("uintptr");
-  Expression* size_expr =
-    Expression::make_integer(&size_val, uintptr, location);
+  Expression* td = Expression::make_type_descriptor(type, location);
+  Expression* size =
+    Expression::make_type_info(type, Expression::TYPE_INFO_SIZE);
 
-  // If the package imports unsafe, then it may play games with
-  // pointers that look like integers.
+  // If this package imports unsafe, then it may play games with
+  // pointers that look like integers.  We should be able to determine
+  // whether or not to use new pointers in libgo/go-new.c.  FIXME.
   bool use_new_pointers = this->imported_unsafe_ || type->has_pointer();
   return Runtime::make_call((use_new_pointers
 			     ? Runtime::NEW
 			     : Runtime::NEW_NOPOINTERS),
-                            location, 1, size_expr);
+			    location, 2, td, size);
 }
 
 // Traversal class used to check for return statements.
@@ -4944,6 +4942,14 @@ Function::get_or_make_decl(Gogo* gogo, Named_object* no)
       // recovered, we can't inline it, because that will mess up
       // our return address comparison.
       bool is_inlinable = !(this->calls_recover_ || this->is_recover_thunk_);
+
+      // If a function calls __go_set_defer_retaddr, then mark it as
+      // uninlinable.  This prevents the GCC backend from splitting
+      // the function; splitting the function is a bad idea because we
+      // want the return address label to be in the same function as
+      // the call.
+      if (this->calls_defer_retaddr_)
+	is_inlinable = false;
 
       // If this is a thunk created to call a function which calls
       // the predeclared recover function, we need to disable

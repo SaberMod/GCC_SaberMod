@@ -378,7 +378,7 @@ package body Exp_Ch3 is
    --  type. The rules for inheritance of stream attributes by type extensions
    --  are enforced by this function. Furthermore, various restrictions prevent
    --  the generation of these operations, as a useful optimization or for
-   --  certification purposes.
+   --  certification purposes and to save unnecessary generated code.
 
    --------------------------
    -- Adjust_Discriminants --
@@ -3720,10 +3720,12 @@ package body Exp_Ch3 is
             end if;
          end if;
 
+         --  The aspect is type-specific, so retrieve it from the base type
+
          Call :=
            Make_Procedure_Call_Statement (Loc,
              Name                   =>
-               New_Occurrence_Of (Invariant_Procedure (Typ), Loc),
+               New_Occurrence_Of (Invariant_Procedure (Base_Type (Typ)), Loc),
              Parameter_Associations => New_List (Sel_Comp));
 
          if Is_Access_Type (Etype (Comp)) then
@@ -5082,9 +5084,10 @@ package body Exp_Ch3 is
          --  known to be imported (i.e. whose declaration specifies the Import
          --  aspect). Note that for objects with a pragma Import, we generate
          --  initialization here, and then remove it downstream when processing
-         --  the pragma.
+         --  the pragma. It is also suppressed for variables for which a pragma
+         --  Suppress_Initialization has been explicitly given
 
-         if Is_Imported (Def_Id) then
+         if Is_Imported (Def_Id) or else Suppress_Initialization (Def_Id) then
             return;
          end if;
 
@@ -5871,6 +5874,29 @@ package body Exp_Ch3 is
 
                Set_Expression (N, Empty);
                return;
+
+            --  Handle initialization of limited tagged types
+
+            elsif Is_Tagged_Type (Typ)
+              and then Is_Class_Wide_Type (Typ)
+              and then Is_Limited_Record (Typ)
+            then
+               --  Given that the type is limited we cannot perform a copy. If
+               --  Expr_Q is the reference to a variable we mark the variable
+               --  as OK_To_Rename to expand this declaration into a renaming
+               --  declaration (see bellow).
+
+               if Is_Entity_Name (Expr_Q) then
+                  Set_OK_To_Rename (Entity (Expr_Q));
+
+               --  If we cannot convert the expression into a renaming we must
+               --  consider it an internal error because the backend does not
+               --  have support to handle it.
+
+               else
+                  pragma Assert (False);
+                  raise Program_Error;
+               end if;
 
             --  For discrete types, set the Is_Known_Valid flag if the
             --  initializing value is known to be valid. Only do this for
@@ -9982,7 +10008,9 @@ package body Exp_Ch3 is
 
       --  Bodies for Dispatching stream IO routines. We need these only for
       --  non-limited types (in the limited case there is no dispatching).
-      --  We also skip them if dispatching or finalization are not available.
+      --  We also skip them if dispatching or finalization are not available
+      --  or if stream operations are prohibited by restriction No_Streams or
+      --  from use of pragma/aspect No_Tagged_Streams.
 
       if Stream_Operation_OK (Tag_Typ, TSS_Stream_Read)
         and then No (TSS (Tag_Typ, TSS_Stream_Read))
@@ -10283,6 +10311,7 @@ package body Exp_Ch3 is
                 or else Is_Synchronized_Interface (Typ)))
         and then not Restriction_Active (No_Streams)
         and then not Restriction_Active (No_Dispatch)
+        and then No (No_Tagged_Streams_Pragma (Typ))
         and then not No_Run_Time_Mode
         and then RTE_Available (RE_Tag)
         and then No (Type_Without_Stream_Operation (Typ))

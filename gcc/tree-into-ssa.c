@@ -27,6 +27,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "langhooks.h"
 #include "basic-block.h"
+#include "hashtab.h"
+#include "hash-set.h"
+#include "vec.h"
+#include "machmode.h"
+#include "hard-reg-set.h"
+#include "input.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
 #include "hash-table.h"
@@ -573,9 +579,9 @@ static inline bool
 is_old_name (tree name)
 {
   unsigned ver = SSA_NAME_VERSION (name);
-  if (!new_ssa_names)
+  if (!old_ssa_names)
     return false;
-  return (ver < SBITMAP_SIZE (new_ssa_names)
+  return (ver < SBITMAP_SIZE (old_ssa_names)
 	  && bitmap_bit_p (old_ssa_names, ver));
 }
 

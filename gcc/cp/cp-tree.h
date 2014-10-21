@@ -22,9 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_CP_TREE_H
 
 #include "ggc.h"
-#include "function.h"
 #include "hashtab.h"
+#include "hash-set.h"
 #include "vec.h"
+#include "machmode.h"
+#include "tm.h"
+#include "hard-reg-set.h"
+#include "input.h"
+#include "function.h"
 #include "hash-map.h"
 
 /* In order for the format checking to accept the C++ front end
@@ -5956,6 +5961,7 @@ extern bool is_normal_capture_proxy             (tree);
 extern void register_capture_members		(tree);
 extern tree lambda_expr_this_capture            (tree, bool);
 extern tree maybe_resolve_dummy			(tree, bool);
+extern tree current_nonlambda_function		(void);
 extern tree nonlambda_method_basetype		(void);
 extern void maybe_add_lambda_conv_op            (tree);
 extern bool is_lambda_ignored_entity            (tree);
