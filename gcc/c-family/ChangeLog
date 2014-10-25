@@ -1,3 +1,25 @@
+2014-10-24  Marek Polacek  <polacek@redhat.com>
+
+	PR c/56980
+	* c-pretty-print.c (c_pretty_printer::simple_type_specifier): Don't
+	print "struct"/"union"/"enum" for typedefed names.
+
+2014-10-23  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c (ubsan_instrument_shift): Perform the MINUS_EXPR
+	in unsigned type.
+
+2014-10-22  Jakub Jelinek  <jakub@redhat.com>
+	    Yury Gribov  <y.gribov@samsung.com>
+
+	* c-ubsan.c (ubsan_instrument_division, ubsan_instrument_shift,
+	ubsan_instrument_vla): Check bits in flag_sanitize_recover bitmask
+	instead of flag_sanitize_recover as bool flag.
+
+2014-10-21  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* cilk.c: Revert previous change.
+
 2014-10-20  Igor Zamyatin  <igor.zamyatin@intel.com>
 
 	PR c/63307

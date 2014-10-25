@@ -5346,6 +5346,14 @@ package body Exp_Ch3 is
          return;
       end if;
 
+      --  The type of the object cannot be abstract. This is diagnosed at the
+      --  point the object is frozen, which happens after the declaration is
+      --  fully expanded, so simply return now.
+
+      if Is_Abstract_Type (Typ) then
+         return;
+      end if;
+
       --  First we do special processing for objects of a tagged type where
       --  this is the point at which the type is frozen. The creation of the
       --  dispatch table and the initialization procedure have to be deferred
@@ -5358,9 +5366,9 @@ package body Exp_Ch3 is
         and then Static_Dispatch_Tables
         and then Is_Library_Level_Entity (Def_Id)
         and then Is_Library_Level_Tagged_Type (Base_Typ)
-        and then (Ekind (Base_Typ) = E_Record_Type
-                   or else Ekind (Base_Typ) = E_Protected_Type
-                   or else Ekind (Base_Typ) = E_Task_Type)
+        and then Ekind_In (Base_Typ, E_Record_Type,
+                                     E_Protected_Type,
+                                     E_Task_Type)
         and then not Has_Dispatch_Table (Base_Typ)
       then
          declare

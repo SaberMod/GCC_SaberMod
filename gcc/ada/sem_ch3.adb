@@ -6671,7 +6671,8 @@ package body Sem_Ch3 is
       Loc       : constant Source_Ptr := Sloc (N);
       Par_Base  : constant Entity_Id  := Base_Type (Parent_Type);
       Par_Scope : constant Entity_Id  := Scope (Par_Base);
-      Full_Der  : Entity_Id           := Empty;
+      Full_N    : constant Node_Id    := New_Copy_Tree (N);
+      Full_Der  : Entity_Id           := New_Copy (Derived_Type);
       Full_P    : Entity_Id;
 
       procedure Build_Full_Derivation;
@@ -6718,7 +6719,6 @@ package body Sem_Ch3 is
       --------------------
 
       procedure Copy_And_Build is
-         Full_N      : Node_Id;
          Full_Parent : Entity_Id := Parent_Type;
 
       begin
@@ -6755,8 +6755,6 @@ package body Sem_Ch3 is
             --  is originally a private declaration. Indicate that full view
             --  is internally generated.
 
-            Full_N := New_Copy_Tree (N);
-            Full_Der := New_Copy (Derived_Type);
             Set_Comes_From_Source (Full_N, False);
             Set_Comes_From_Source (Full_Der, False);
             Set_Parent (Full_Der, Full_N);
@@ -6944,6 +6942,16 @@ package body Sem_Ch3 is
          return;
 
       elsif Has_Discriminants (Parent_Type) then
+
+         --  Build partial view of derived type from partial view of parent.
+         --  This must be done before building the full derivation because the
+         --  second derivation will modify the discriminants of the first and
+         --  the discriminants are chained with the rest of the components in
+         --  the full derivation.
+
+         Build_Derived_Record_Type
+           (N, Parent_Type, Derived_Type, Derive_Subps);
+
          --  Build the full derivation if this is not the anonymous derived
          --  base type created by Build_Derived_Record_Type in the constrained
          --  case (see point 5. of its head comment) since we build it for the
@@ -6954,15 +6962,6 @@ package body Sem_Ch3 is
            and then not Is_Itype (Derived_Type)
            and then not (Ekind (Full_View (Parent_Type)) in Protected_Kind)
          then
-            Build_Full_Derivation;
-         end if;
-
-         --  Build partial view of derived type from partial view of parent
-
-         Build_Derived_Record_Type
-           (N, Parent_Type, Derived_Type, Derive_Subps);
-
-         if Present (Full_Der) then
             declare
                Der_Base   : constant Entity_Id := Base_Type (Derived_Type);
                Discr      : Entity_Id;
@@ -6974,6 +6973,8 @@ package body Sem_Ch3 is
                --  But if this is a completion, the derived private type
                --  being built is a full view and the full derivation can
                --  only be its underlying full view.
+
+               Build_Full_Derivation;
 
                if not Is_Completion then
                   Set_Full_View (Derived_Type, Full_Der);
@@ -8696,61 +8697,9 @@ package body Sem_Ch3 is
          Set_Has_Predicates (Derived_Type);
       end if;
 
-      --  The derived type inherits the representation clauses of the parent.
-      --  However, for a private type that is completed by a derivation, there
-      --  may be operation attributes that have been specified already (stream
-      --  attributes and External_Tag) and those must be provided. Finally, if
-      --  the partial view is a private extension, the representation items of
-      --  the parent have been inherited already, and should not be chained
-      --  twice to the derived type.
+      --  The derived type inherits the representation clauses of the parent
 
-      --  Historic note: The guard below used to check whether the parent type
-      --  is tagged. This is no longer needed because an untagged derived type
-      --  may carry rep items of its own as a result of certain SPARK pragmas.
-      --  With the old guard in place, the rep items of the derived type were
-      --  clobbered.
-
-      if Present (First_Rep_Item (Derived_Type)) then
-         declare
-            Par_Item  : constant Node_Id := First_Rep_Item (Parent_Type);
-            Inherited : Boolean := False;
-            Item      : Node_Id;
-            Last_Item : Node_Id;
-
-         begin
-            --  Inspect the rep item chain of the derived type and perform the
-            --  following two functions:
-            --    1) Determine whether the derived type already inherited the
-            --       rep items of the parent type.
-            --    2) Find the last rep item of the derived type
-
-            Item := First_Rep_Item (Derived_Type);
-            Last_Item := Item;
-            while Present (Item) loop
-               if Item = Par_Item then
-                  Inherited := True;
-                  exit;
-               end if;
-
-               Last_Item := Item;
-               Item := Next_Rep_Item (Item);
-            end loop;
-
-            --  Nothing to do if the derived type already inherited the rep
-            --  items from the parent type, otherwise append the parent rep
-            --  item chain to that of the derived type.
-
-            if not Inherited then
-               Set_Next_Rep_Item (Last_Item, Par_Item);
-            end if;
-         end;
-
-      --  Otherwise the derived type lacks rep items and directly inherits the
-      --  rep items of the parent type.
-
-      else
-         Set_First_Rep_Item (Derived_Type, First_Rep_Item (Parent_Type));
-      end if;
+      Inherit_Rep_Item_Chain (Derived_Type, Parent_Type);
 
       --  Propagate the attributes related to pragma Default_Initial_Condition
       --  from the parent type to the private extension. A derived type always
@@ -11750,6 +11699,20 @@ package body Sem_Ch3 is
          Set_Full_View (Prev, Id);
          Set_Etype (Id, Any_Type);
 
+         --  A deferred constant whose type is an anonymous array is always
+         --  illegal (unless imported). A detailed error message might be
+         --  helpful for Ada beginners.
+
+         if Nkind (Object_Definition (Parent (Prev)))
+            = N_Constrained_Array_Definition
+           and then Nkind (Object_Definition (N))
+              = N_Constrained_Array_Definition
+         then
+            Error_Msg_N ("\each anonymous array is a distinct type", N);
+            Error_Msg_N ("a deferred constant must have a named type",
+              Object_Definition (Parent (Prev)));
+         end if;
+
       elsif
         Null_Exclusion_Present (Parent (Prev))
           and then not Null_Exclusion_Present (N)
@@ -13381,17 +13344,17 @@ package body Sem_Ch3 is
    begin
       Set_Size_Info (T1, T2);
 
-      Set_First_Index          (T1, First_Index           (T2));
-      Set_Is_Aliased           (T1, Is_Aliased            (T2));
-      Set_Is_Volatile          (T1, Is_Volatile           (T2));
-      Set_Treat_As_Volatile    (T1, Treat_As_Volatile     (T2));
-      Set_Is_Constrained       (T1, Is_Constrained        (T2));
-      Set_Depends_On_Private   (T1, Has_Private_Component (T2));
-      Set_First_Rep_Item       (T1, First_Rep_Item        (T2));
-      Set_Convention           (T1, Convention            (T2));
-      Set_Is_Limited_Composite (T1, Is_Limited_Composite  (T2));
-      Set_Is_Private_Composite (T1, Is_Private_Composite  (T2));
-      Set_Packed_Array_Impl_Type    (T1, Packed_Array_Impl_Type     (T2));
+      Set_First_Index            (T1, First_Index            (T2));
+      Set_Is_Aliased             (T1, Is_Aliased             (T2));
+      Set_Is_Volatile            (T1, Is_Volatile            (T2));
+      Set_Treat_As_Volatile      (T1, Treat_As_Volatile      (T2));
+      Set_Is_Constrained         (T1, Is_Constrained         (T2));
+      Set_Depends_On_Private     (T1, Has_Private_Component  (T2));
+      Inherit_Rep_Item_Chain     (T1,                         T2);
+      Set_Convention             (T1, Convention             (T2));
+      Set_Is_Limited_Composite   (T1, Is_Limited_Composite   (T2));
+      Set_Is_Private_Composite   (T1, Is_Private_Composite   (T2));
+      Set_Packed_Array_Impl_Type (T1, Packed_Array_Impl_Type (T2));
    end Copy_Array_Subtype_Attributes;
 
    -----------------------------------
@@ -13899,17 +13862,19 @@ package body Sem_Ch3 is
          Set_Fixed_Range (T, Loc, -Bound_Val, Bound_Val);
       end if;
 
-      --  Complete entity for first subtype
+      --  Complete entity for first subtype. The inheritance of the rep item
+      --  chain ensures that SPARK-related pragmas are not clobbered when the
+      --  decimal fixed point type acts as a full view of a private type.
 
-      Set_Ekind          (T, E_Decimal_Fixed_Point_Subtype);
-      Set_Etype          (T, Implicit_Base);
-      Set_Size_Info      (T, Implicit_Base);
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Digits_Value   (T, Digs_Val);
-      Set_Delta_Value    (T, Delta_Val);
-      Set_Small_Value    (T, Delta_Val);
-      Set_Scale_Value    (T, Scale_Val);
-      Set_Is_Constrained (T);
+      Set_Ekind              (T, E_Decimal_Fixed_Point_Subtype);
+      Set_Etype              (T, Implicit_Base);
+      Set_Size_Info          (T, Implicit_Base);
+      Inherit_Rep_Item_Chain (T, Implicit_Base);
+      Set_Digits_Value       (T, Digs_Val);
+      Set_Delta_Value        (T, Delta_Val);
+      Set_Small_Value        (T, Delta_Val);
+      Set_Scale_Value        (T, Scale_Val);
+      Set_Is_Constrained     (T);
    end Decimal_Fixed_Point_Type_Declaration;
 
    -----------------------------------
@@ -16710,24 +16675,25 @@ package body Sem_Ch3 is
          Set_Scalar_Range (T, Scalar_Range (Base_Typ));
       end if;
 
-      --  Complete definition of implicit base and declared first subtype
+      --  Complete definition of implicit base and declared first subtype. The
+      --  inheritance of the rep item chain ensures that SPARK-related pragmas
+      --  are not clobbered when the floating point type acts as a full view of
+      --  a private type.
 
-      Set_Etype          (Implicit_Base, Base_Typ);
+      Set_Etype              (Implicit_Base,                 Base_Typ);
+      Set_Scalar_Range       (Implicit_Base, Scalar_Range   (Base_Typ));
+      Set_Size_Info          (Implicit_Base,                 Base_Typ);
+      Set_RM_Size            (Implicit_Base, RM_Size        (Base_Typ));
+      Set_First_Rep_Item     (Implicit_Base, First_Rep_Item (Base_Typ));
+      Set_Digits_Value       (Implicit_Base, Digits_Value   (Base_Typ));
+      Set_Float_Rep          (Implicit_Base, Float_Rep      (Base_Typ));
 
-      Set_Scalar_Range   (Implicit_Base, Scalar_Range   (Base_Typ));
-      Set_Size_Info      (Implicit_Base,                (Base_Typ));
-      Set_RM_Size        (Implicit_Base, RM_Size        (Base_Typ));
-      Set_First_Rep_Item (Implicit_Base, First_Rep_Item (Base_Typ));
-      Set_Digits_Value   (Implicit_Base, Digits_Value   (Base_Typ));
-      Set_Float_Rep      (Implicit_Base, Float_Rep      (Base_Typ));
-
-      Set_Ekind          (T, E_Floating_Point_Subtype);
-      Set_Etype          (T, Implicit_Base);
-
-      Set_Size_Info      (T,                (Implicit_Base));
-      Set_RM_Size        (T, RM_Size        (Implicit_Base));
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Digits_Value   (T, Digs_Val);
+      Set_Ekind              (T, E_Floating_Point_Subtype);
+      Set_Etype              (T,          Implicit_Base);
+      Set_Size_Info          (T,          Implicit_Base);
+      Set_RM_Size            (T, RM_Size (Implicit_Base));
+      Inherit_Rep_Item_Chain (T,          Implicit_Base);
+      Set_Digits_Value       (T, Digs_Val);
    end Floating_Point_Type_Declaration;
 
    ----------------------------
@@ -18421,15 +18387,17 @@ package body Sem_Ch3 is
       Set_Fixed_Range (Implicit_Base, Loc, Low_Val, High_Val);
       Set_Fixed_Range (T, Loc, Low_Val, High_Val);
 
-      --  Complete definition of first subtype
+      --  Complete definition of first subtype. The inheritance of the rep item
+      --  chain ensures that SPARK-related pragmas are not clobbered when the
+      --  ordinary fixed point type acts as a full view of a private type.
 
-      Set_Ekind          (T, E_Ordinary_Fixed_Point_Subtype);
-      Set_Etype          (T, Implicit_Base);
-      Init_Size_Align    (T);
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Small_Value    (T, Small_Val);
-      Set_Delta_Value    (T, Delta_Val);
-      Set_Is_Constrained (T);
+      Set_Ekind              (T, E_Ordinary_Fixed_Point_Subtype);
+      Set_Etype              (T, Implicit_Base);
+      Init_Size_Align        (T);
+      Inherit_Rep_Item_Chain (T, Implicit_Base);
+      Set_Small_Value        (T, Small_Val);
+      Set_Delta_Value        (T, Delta_Val);
+      Set_Is_Constrained     (T);
    end Ordinary_Fixed_Point_Type_Declaration;
 
    ----------------------------------
@@ -19075,7 +19043,6 @@ package body Sem_Ch3 is
          --  ELSE.
 
          else
-
             --  In formal mode, when completing a private extension the type
             --  named in the private part must be exactly the same as that
             --  named in the visible part.
@@ -19734,16 +19701,29 @@ package body Sem_Ch3 is
          Lo := Low_Bound (R);
          Hi := High_Bound (R);
 
-         --  We need to ensure validity of the bounds here, because if we
-         --  go ahead and do the expansion, then the expanded code will get
-         --  analyzed with range checks suppressed and we miss the check.
          --  Validity checks on the range of a quantified expression are
          --  delayed until the construct is transformed into a loop.
 
-         if Nkind (Parent (R)) /= N_Loop_Parameter_Specification
-           or else Nkind (Parent (Parent (R))) /= N_Quantified_Expression
+         if Nkind (Parent (R)) = N_Loop_Parameter_Specification
+           and then Nkind (Parent (Parent (R))) = N_Quantified_Expression
          then
-            Validity_Check_Range (R);
+            null;
+
+         --  We need to ensure validity of the bounds here, because if we
+         --  go ahead and do the expansion, then the expanded code will get
+         --  analyzed with range checks suppressed and we miss the check.
+
+         --  WARNING: The capture of the range bounds with xxx_FIRST/_LAST and
+         --  the temporaries generated by routine Remove_Side_Effects by means
+         --  of validity checks must use the same names. When a range appears
+         --  in the parent of a generic, the range is processed with checks
+         --  disabled as part of the generic context and with checks enabled
+         --  for code generation purposes. This leads to link issues as the
+         --  generic contains references to xxx_FIRST/_LAST, but the inlined
+         --  template sees the temporaries generated by Remove_Side_Effects.
+
+         else
+            Validity_Check_Range (R, Subtyp);
          end if;
 
          --  If there were errors in the declaration, try and patch up some
@@ -19784,16 +19764,16 @@ package body Sem_Ch3 is
          if Nkind (Lo) = N_String_Literal then
             Rewrite (Lo,
               Make_Attribute_Reference (Sloc (Lo),
-                Attribute_Name => Name_First,
-                Prefix => New_Occurrence_Of (T, Sloc (Lo))));
+                Prefix         => New_Occurrence_Of (T, Sloc (Lo)),
+                Attribute_Name => Name_First));
             Analyze_And_Resolve (Lo);
          end if;
 
          if Nkind (Hi) = N_String_Literal then
             Rewrite (Hi,
               Make_Attribute_Reference (Sloc (Hi),
-                Attribute_Name => Name_First,
-                Prefix => New_Occurrence_Of (T, Sloc (Hi))));
+                Prefix         => New_Occurrence_Of (T, Sloc (Hi)),
+                Attribute_Name => Name_First));
             Analyze_And_Resolve (Hi);
          end if;
 
@@ -21187,23 +21167,24 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  Complete both implicit base and declared first subtype entities
+      --  Complete both implicit base and declared first subtype entities. The
+      --  inheritance of the rep item chain ensures that SPARK-related pragmas
+      --  are not clobbered when the signed integer type acts as a full view of
+      --  a private type.
 
       Set_Etype          (Implicit_Base,                 Base_Typ);
-      Set_Size_Info      (Implicit_Base,                (Base_Typ));
+      Set_Size_Info      (Implicit_Base,                 Base_Typ);
       Set_RM_Size        (Implicit_Base, RM_Size        (Base_Typ));
       Set_First_Rep_Item (Implicit_Base, First_Rep_Item (Base_Typ));
+      Set_Scalar_Range   (Implicit_Base, Scalar_Range   (Base_Typ));
 
-      Set_Ekind          (T, E_Signed_Integer_Subtype);
-      Set_Etype          (T, Implicit_Base);
-
-      Set_Scalar_Range (Implicit_Base, Scalar_Range (Base_Typ));
-
-      Set_Size_Info      (T,                (Implicit_Base));
-      Set_First_Rep_Item (T, First_Rep_Item (Implicit_Base));
-      Set_Scalar_Range   (T, Def);
-      Set_RM_Size        (T, UI_From_Int (Minimum_Size (T)));
-      Set_Is_Constrained (T);
+      Set_Ekind              (T, E_Signed_Integer_Subtype);
+      Set_Etype              (T, Implicit_Base);
+      Set_Size_Info          (T, Implicit_Base);
+      Inherit_Rep_Item_Chain (T, Implicit_Base);
+      Set_Scalar_Range       (T, Def);
+      Set_RM_Size            (T, UI_From_Int (Minimum_Size (T)));
+      Set_Is_Constrained     (T);
    end Signed_Integer_Type_Declaration;
 
 end Sem_Ch3;

@@ -1,4 +1,64 @@
-2014-10-16  Jonathan Wakely  <jwakely@redhat.com>
+2014-10-25  François Dumont  <fdumont@gcc.gnu.org>
+
+	* doc/xml/manual/status_cxx2011.xml: Update unordered container
+	specific behavior.
+
+2014-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/18_support/headers/cstdbool/macros.cc: New.
+
+2014-10-24  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* include/bits/atomic_base.h: Avoid including <stdbool.h>.
+	* include/std/atomic: When __cplusplus < 201103L skip the rest of
+	the header.
+	* testsuite/29_atomics/headers/atomic/std_c++0x_neg.cc: Adjust.
+
+2014-10-23  François Dumont  <fdumont@gcc.gnu.org>
+
+	* testsuite/25_algorithms/make_heap/complexity.cc: Add missing test
+	variable.
+	* testsuite/25_algorithms/sort_heap/complexity.cc: Likewise and use
+	log2. Now require cmath support.
+	* testsuite/25_algorithms/pop_heap/complexity.cc: Likewise and require
+	normal mode.
+	* testsuite/25_algorithms/push_heap/complexity.cc: Likewise.
+
+2014-10-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Update status.
+	* doc/xml/manual/status_cxx2014.xml: Update TS status.
+
+2014-10-23  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/63497
+	include/bits/regex_executor.h (_Executor::_M_word_boundary): Remove
+	unused parameter.
+	include/bits/regex_executor.tcc (_Executor::_M_dfs,
+	_Executor::_M_word_boundary): Avoid dereferecing _M_current at _M_end
+	or other invalid position.
+
+2014-10-21  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	* testsuite/util/io/prog_bar.cc: Qualify size_t.
+	* testsuite/util/io/prog_bar.hpp: Likewise.
+	* testsuite/util/io/verified_cmd_line_input.hpp: Likewise.
+
+2014-10-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement more Library Fundamentals v1 variable templates.
+	* include/Makefile.am: Add ratio, chrono and system_error.
+	* include/Makefile.in: Regenerate.
+	* include/experimental/chrono: New.
+	* include/experimental/ratio: Likewise.
+	* include/experimental/system_error: Likewise.
+	* include/experimental/tuple (tuple_size_v): Likewise.
+	* testsuite/experimental/chrono/value.cc: Likewise.
+	* testsuite/experimental/ratio/value.cc: Likewise.
+	* testsuite/experimental/system_error/value.cc: Likewise.
+	* testsuite/experimental/tuple/tuple_size.cc: Likewise.
+
+2014-10-20  Jonathan Wakely  <jwakely@redhat.com>
 
 	* src/c++98/Makefile.am: Move ctype.cc, ctype_configure_char.cc and
 	ctype_members.cc to ...

@@ -1,3 +1,264 @@
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_eval.adb (Check_Non_Static_Context): Do not set
+	Is_Machine_Number on a literal of a fixed-point type.
+
+2014-10-23  Robert Dewar  <dewar@adacore.com>
+
+	* mlib-prj.adb, sem_ch4.adb, exp_ch3.adb: Minor reformatting.
+
+2014-10-23  Pierre-Marie Derodat  <derodat@adacore.com>
+
+	* exp_dbug.ads: Update ___XA parallel type specification.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch3.adb (Copy_Array_Subtype_Attributes): Inherit the rep
+	chain of the source type.
+	* sem_ch13.adb (Analyze_Aspect_Specifications): Minor
+	reformatting of an error message.
+	* sem_util.adb (Inherit_Rep_Item_Chain): Do not inherit a rep
+	chain that has been inherited already.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Analyze_Expression_Function): Simplify analysis
+	in generic context, and generate body in this case as well,
+	to simplify ASIS traversals on the construct.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Complete_Object_Operation): Indicate that the
+	scope of the operation (s) is referenced, to prevent spurious
+	warnings about unused units.
+
+2014-10-23  Johannes Kanig  <kanig@adacore.com>
+
+	* errout.adb (Error_Msg_Internal): Copy check flag, increment
+	check msg count.
+	* erroutc.adb (Delete_Msg) adjust check msg count.
+	(Output_Msg_Text) handle check msg case (do nothing).
+	(Prescan_Message) recognize check messages with severity prefixes.
+	* errutil.adb (Error_Msg) handle check flag, adjust counter.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_eval.adb (Subtypes_Statically_Match): For a generic actual
+	type, check for the presence of discriminants in its parent type,
+	against the presence of discriminants in the context type.
+
+2014-10-23  Tristan Gingold  <gingold@adacore.com>
+
+	* adaint.c: __gnat_get_file_names_case_sensitive: Default is
+	true on arm-darwin.
+
+2014-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* pprint.adb (Expression_Image): Add handling of quantifiers.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_pakd.adb (Expand_Packed_Element_Reference): If the
+	prefix is a source entity, generate a reference to it before
+	transformation, because rewritten node might not generate a
+	proper reference, leading to spurious warnings.
+
+2014-10-23  Tristan Gingold  <gingold@adacore.com>
+
+	* init.c: Fix thinko in previous patch.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch3.adb (Decimal_Fixed_Point_Type_Declaration):
+	Inherit the rep chain of the implicit base type.
+	(Floating_Point_Type_Declaration): Inherit the rep chain of the
+	implicit base type.
+	(Ordinary_Fixed_Point_Type_Declaration): Inherit the rep chain of the
+	implicit base type.
+	(Signed_Integer_Type_Declaration): Inherit the rep chain of the
+	implicit base type.
+	* sem_util.ads, sem_util.adb (Inherit_Rep_Item_Chain): New routine.
+
+2014-10-23  Pascal Obry  <obry@adacore.com>
+
+	* g-regist.adb, g-regist.ads: Add support for reading 32bit or 64bit
+	view of the registry.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch3.adb (Expand_N_Object_Declaration): If type is abstract,
+	return without expanding expression, to prevent subsequent crash.
+	* freeze.adb: better error message for illegal declaration.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sysdep.c (__gnat_localtime_tzoff): Properly delimit the
+	substring which represents the time zone on VxWorks.
+
+2014-10-23  Vincent Celier  <celier@adacore.com>
+
+	* gnatls.adb: If --RTS= was not used, check if there is a default
+	runtime. If there is none, in verbose mode, indicate that the
+	default runtime is not available and show only the current
+	directory in the source and the object search paths.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Process_Formals): A thunk procedure with a
+	parameter of a limited view does not need a freeze node.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch7.adb (Analyze_Package_Body_Helper):
+	The logic which hides local entities from external
+	visibility is now contained in routine Hide_Public_Entities.
+	(Hide_Public_Entities): New routine. Object and subprogram
+	renamings are now hidden from external visibility the same way
+	objects are.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_attr.adb (Analyze_Attribute): The prefix of attribute Elaborated
+	does not require freezing, in particular if it denotes a generic
+	function.
+
+2014-10-23  Yannick Moy  <moy@adacore.com>
+
+	* sem_prag.adb (Analyze_Pragma/Pragma_Inline & Pragma_Inline_Always):
+	Disable analysis in GNATprove mode.
+
+2014-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* mlib-prj.adb: Remove obsolete references to libdecgnat (VMS only).
+
+2014-10-23  Arnaud Charlet  <charlet@adacore.com>
+
+	* gnat1drv.adb (Adjust_Global_Switches): Ignore style check
+	pragmas in codepeer mode.
+
+2014-10-23  Gary Dismukes  <dismukes@adacore.com>
+
+	* gnat_rm.texi: Minor syntax fix for pragma Annotate (missing ',').
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch12.adb (Inline_Instance_Body): Alphabetize
+	local variables and constants. Add constants Save_SM and Save_SMP
+	to capture SPARK_Mode-related attributes.  Compile the inlined
+	body with the SPARK_Mode of the enclosing context.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sinfo.adb (Elaboration_Boolean): Removed.
+	(Set_Elaboration_Boolean): Removed.
+	* sinfo.ads Remove attribute Elaboration_Boolean along with its
+	occurrence in nodes.
+	(Elaboration_Boolean): Removed along with pragma Inline.
+	(Set_Elaboration_Boolean): Removed along with pragma Inline.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Constant_Redeclaration): Make error message more
+	explicit on a deferred constant whose object_definition is an
+	anonymous array.
+
+2014-10-23  Vincent Celier  <celier@adacore.com>
+
+	* gnatls.adb: Never call Targparm.Get_Target_Parameters.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch6.adb (Analyze_Expression_Function): In a generic
+	context do not create a body, and only pre-analyze the expression,
+	which may include incomplete views.
+
+2014-10-23  Robert Dewar  <dewar@adacore.com>
+
+	* sem_type.adb: Minor code reorganization (use Nkind_In, Ekind_In).
+	* sem_ch3.adb: Minor reformatting.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Analyze_Associations): If an actual for a formal
+	object is a call to a parameterless expression function, add
+	the function to the list of actuals to freeze.
+	* freeze.adb (Check_Expression_Function): Create freeze nodes of
+	outer types that may be references in the body of the expression.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_util.ads, checks.ads: Minor comment reformatting.
+
+2014-10-23  Javier Miranda  <miranda@adacore.com>
+
+	* sem_eval (Test_In_Range): Disable removal of range_check for
+	VM targets.
+
+2014-10-23  Robert Dewar  <dewar@adacore.com>
+
+	* erroutc.adb (Validate_Specific_Warnings): Fix test for -W
+	messages, which got disabled when we unconditionally added an
+	asterisk at the start of the string.
+
+2014-10-23  Vincent Celier  <celier@adacore.com>
+
+	* gnatls.adb: Ensure that "gnatls -l" works even when there is
+	no default runtime.
+
+2014-10-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* sem_ch3.adb (Build_Derived_Private_Type): When the parent is
+	untagged and has discriminants, build the implicit full view after
+	building the derived type. Capture original declaration and type
+	here instead of...
+	(Copy_And_Build): ...here.
+	* sem_type.adb (Full_View_Covers): Handle the Underlying_Full_View.
+
+2014-10-23  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* checks.adb (Ensure_Valid): Update the subprogram
+	profile. Propagate the contex attributes to Insert_Valid_Check.
+	(Insert_Valid_Check): Update the subprogram profile. Propagate
+	the attributes of the context to Duplicate_Subexpr_No_Checks.
+	(Validity_Check_Range): Update the subprogram profile. Propagate
+	the context attribute to Ensure_Valid.
+	* checks.ads (Ensure_Valid): Update the subprogram profile
+	along with the comment on usage.
+	(Insert_Valid_Check): Update the subprogram profile along with the
+	comment on usage.
+	(Validity_Check_Range): Update the subprogram profile along with
+	the comment on usage.
+	* exp_util.adb (Build_Temporary): New routine.
+	(Duplicate_Subexpr_No_Checks): Update the subprogram
+	profile. Propagate the attributes of the context to Remove_Side_Effects.
+	(Remove_Side_Effects): Update the subprogram profile. Update all calls
+	to Make_Temporary to invoke Build_Temporary.
+	* exp_util.ads (Duplicate_Subexpr_No_Checks): Update
+	the subprogram profile along with the comment on usage.
+	(Remove_Side_Effects): Update the subprogram profile along with
+	the comment on usage.
+	* sem_ch3.adb (Process_Range_Expr_In_Decl): Pass the subtype
+	to the validity check machinery.  Explain the reason for this
+	propagation.
+
+2014-10-23  Robert Dewar  <dewar@adacore.com>
+
+	* a-strsea.adb: Minor reformatting.
+
+2014-10-23  Thomas Quinot  <quinot@adacore.com>
+
+	* bcheck.adb (Check_Consistent_SSO_Default): Exclude internal
+	units from consistency check.
+	* gnat_rm.texi (Default_Scalar_Storage_Order): Document that
+	consistency check excludes run-time units.
+
+2014-10-23  Ed Schonberg  <schonberg@adacore.com>
+
+	* a-strsea.adb (Find_Token): Enable constraint checking in this
+	procedure, so that even when compiling with checks suppressed, as is
+	the case for the run-time, an exception is raised in this routine when
+	the input meets the conditions described in RM 2005 A.4.3 (68/1).
+
 2014-10-20  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* sem_ch3.adb (Build_Derived_Private_Type): When the parent
