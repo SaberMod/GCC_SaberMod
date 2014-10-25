@@ -1,3 +1,36 @@
+2014-10-25  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63638
+	* asan.c (enum asan_check_flags): Fixed ASAN_CHECK_LAST.
+
+2014-10-24  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR bootstrap/63632
+	* collect2.c (main): Filter out -fno-lto.
+
+2014-10-22  Richard Biener  <rguenther@suse.de>
+	    Tobias Burnus <burnus@net-b.de>
+
+	PR lto/63603
+	* gcc.c (LINK_COMMAND_SPEC): Add %{fno-lto}.
+
+2014-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63563
+	* tree-vect-data-refs.c (vect_analyze_data_ref_accesses): Bail out
+	if either dra or drb stmts are not normal loads/stores.
+
+2014-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* asan.c (instrument_derefs): Allow instrumentation of odd-sized
+	accesses even for -fsanitize=address.
+	(execute_sanopt): Only allow use_calls for -fsanitize=kernel-address.
+
+	PR tree-optimization/63302
+	* tree-ssa-reassoc.c (optimize_range_tests_xor,
+	optimize_range_tests_diff): Use !integer_pow2p () instead of
+	tree_log2 () < 0.
+
 2014-10-16  Yury Gribov  <y.gribov@samsung.com>
 
 	* asan.c (instrument_derefs): Enable unaligned path for KASan.

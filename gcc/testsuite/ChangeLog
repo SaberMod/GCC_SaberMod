@@ -1,3 +1,35 @@
+2014-10-25  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/63638
+    	* c-c++-common/asan/pr63638.c: New test.
+
+2014-10-24  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR bootstrap/63632
+	* g++.dg/torture/pr63632.C: New test.
+
+2014-10-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/63563
+	* gcc.target/i386/pr63563.c: New test.
+
+2014-10-20  Yury Gribov  <y.gribov@samsung.com>
+
+	Backported from mainline
+	2014-05-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/asan/misalign-1.c: New test.
+	* c-c++-common/asan/misalign-2.c: New test.
+
+2014-10-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/asan/instrument-with-calls-1.c: Add
+	-fno-sanitize=address -fsanitize=kernel-address to dg-options.
+	* c-c++-common/asan/instrument-with-calls-2.c: Likewise.
+
+	PR tree-optimization/63302
+	* gcc.c-torture/execute/pr63302.c: New test.
+
 2014-10-16  Yury Gribov  <y.gribov@samsung.com>
 
 	Backport from mainline
