@@ -789,6 +789,14 @@ compute_alignments (void)
 	      max_log = log;
 	      max_skip = targetm.asm_out.loop_align_max_skip (label);
 	    }
+	  /* For small size loop, let them align more strictly.  */
+	  if (bb->loop_father->num
+	      && (bb->loop_father->ninsns
+		  <= PARAM_VALUE (PARAM_ALIGN_LOOP_SIZE)))
+	    {
+	      max_log = max_log + 1;
+	      max_skip = max_skip * 2;
+	    }
 	}
       LABEL_TO_ALIGNMENT (label) = max_log;
       LABEL_TO_MAX_SKIP (label) = max_skip;

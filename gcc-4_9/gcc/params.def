@@ -459,6 +459,11 @@ DEFPARAM (PARAM_ALIGN_LOOP_ITERATIONS,
 	  "Loops iterating at least selected number of iterations will get loop alignement.",
 	  4, 0, 0)
 
+DEFPARAM (PARAM_ALIGN_LOOP_SIZE,
+	  "align-loop-size",
+	  "For loop small enough, try to align them more strictly.",
+	  10, 0, 0)
+
 /* For guessed profiles, the loops having unknown number of iterations
    are predicted to iterate relatively few (10) times at average.
    For functions containing one loop with large known number of iterations
