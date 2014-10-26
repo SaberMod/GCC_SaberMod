@@ -568,6 +568,8 @@ struct ira_allocno_copy
      case the copy frequency is smaller than the corresponding insn
      execution frequency.  */
   rtx insn;
+  /* list of copies generated from the same insn.  */
+  ira_copy_t copy_list;
   /* All copies with the same allocno as FIRST are linked by the two
      following members.  */
   ira_copy_t prev_first_allocno_copy, next_first_allocno_copy;
@@ -1008,6 +1010,7 @@ extern ira_copy_t ira_create_copy (ira_allocno_t, ira_allocno_t,
 				   int, bool, rtx, ira_loop_tree_node_t);
 extern ira_copy_t ira_add_allocno_copy (ira_allocno_t, ira_allocno_t, int,
 					bool, rtx, ira_loop_tree_node_t);
+extern ira_copy_t find_alternate_copy (ira_copy_t cp, ira_allocno_t connect);
 
 extern int *ira_allocate_cost_vector (reg_class_t);
 extern void ira_free_cost_vector (int *, reg_class_t);

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "sparseset.h"
 #include "ira-int.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
+#include "hash-table.h"
 
 static ira_copy_t find_allocno_copy (ira_allocno_t, ira_allocno_t, rtx,
 				     ira_loop_tree_node_t);
@@ -1368,6 +1369,33 @@ static alloc_pool copy_pool;
    container of array ira_copies.  */
 static vec<ira_copy_t> copy_vec;
 
+struct ira_copy_hasher : typed_free_remove <ira_copy_t>
+{
+  typedef ira_copy_t value_type;
+  typedef ira_copy_t compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
+};
+
+inline hashval_t
+ira_copy_hasher::hash (const value_type *item)
+{
+  return INSN_UID((*item)->insn);
+}
+
+/* Equality function for ira_copy_hasher.  A and B
+   point to the two hash table entries to compare.  */
+
+inline bool
+ira_copy_hasher::equal (const value_type *a, const compare_type *b)
+{
+  return INSN_UID((*a)->insn) == INSN_UID((*b)->insn);
+}
+
+/* Hash table mapping from insn to the list of ira_copy_t
+   generated from the insn.  */
+static hash_table <ira_copy_hasher> copy_list_table;
+
 /* The function initializes data concerning allocno copies.  */
 static void
 initiate_copies (void)
@@ -1375,6 +1403,7 @@ initiate_copies (void)
   copy_pool
     = create_alloc_pool ("copies", sizeof (struct ira_allocno_copy), 100);
   copy_vec.create (get_max_uid ());
+  copy_list_table.create (get_max_uid ());
   ira_copies = NULL;
   ira_copies_num = 0;
 }
@@ -1424,6 +1453,7 @@ ira_create_copy (ira_allocno_t first, ira_allocno_t second, int freq,
   cp->second = second;
   cp->freq = freq;
   cp->constraint_p = constraint_p;
+  cp->copy_list = NULL;
   cp->insn = insn;
   cp->loop_tree_node = loop_tree_node;
   copy_vec.safe_push (cp);
@@ -1437,6 +1467,7 @@ static void
 add_allocno_copy_to_list (ira_copy_t cp)
 {
   ira_allocno_t first = cp->first, second = cp->second;
+  ira_copy_t **slot;
 
   cp->prev_first_allocno_copy = NULL;
   cp->prev_second_allocno_copy = NULL;
@@ -1458,6 +1489,20 @@ add_allocno_copy_to_list (ira_copy_t cp)
     }
   ALLOCNO_COPIES (first) = cp;
   ALLOCNO_COPIES (second) = cp;
+
+  /* Add copy to corresponding list in copy_list_table.  */
+  slot = copy_list_table.find_slot_with_hash (
+		&cp, INSN_UID (cp->insn), INSERT);
+  if ((*slot) == HTAB_EMPTY_ENTRY)
+    {
+      (*slot) = XNEW (ira_copy_t);
+      (**slot) = cp;
+    }
+  else
+    {
+      cp->copy_list = (**slot);
+      (**slot) = cp;
+    }
 }
 
 /* Make a copy CP a canonical copy where number of the
@@ -1506,6 +1551,30 @@ ira_add_allocno_copy (ira_allocno_t first, ira_allocno_t second, int freq,
   add_allocno_copy_to_list (cp);
   swap_allocno_copy_ends_if_necessary (cp);
   return cp;
+}
+
+/* For insn like "a = b * c", if b and c are dead immediately
+   after a, copy (a, b) and copy (a, c) are alternate copies
+   and a is the connecting allocno. If CP has alternate copy,
+   return the first one in copy_list_table connecting with CP
+   via CONNECT.  */
+ira_copy_t
+find_alternate_copy (ira_copy_t cp, ira_allocno_t connect)
+{
+  ira_copy_t list;
+  ira_copy_t *found = copy_list_table.find_with_hash (&cp,
+					INSN_UID (cp->insn));
+  if (found == NULL)
+    return NULL;
+  list = (*found);
+  while (list)
+    {
+      if ((list->first == connect || list->second == connect)
+	  && list != cp)
+	return list;
+      list = list->copy_list;
+    }
+  return NULL;
 }
 
 /* Print info about copy CP into file F.  */
@@ -1628,6 +1697,7 @@ finish_copies (void)
   FOR_EACH_COPY (cp, ci)
     finish_copy (cp);
   copy_vec.release ();
+  copy_list_table.dispose ();
   free_alloc_pool (copy_pool);
 }
 
