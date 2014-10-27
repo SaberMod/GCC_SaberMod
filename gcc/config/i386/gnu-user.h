@@ -67,7 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #undef ANDROID_TARGET_CC1_SPEC
 #define ANDROID_TARGET_CC1_SPEC \
-  " -mstackrealign -mssse3 -fno-short-enums " \
+  " -mssse3 -fno-short-enums " \
 
 #undef  ASM_SPEC
 #define ASM_SPEC \
