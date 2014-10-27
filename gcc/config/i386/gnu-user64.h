@@ -48,7 +48,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #undef ANDROID_TARGET_CC1_SPEC
 #define ANDROID_TARGET_CC1_SPEC \
-  "%{m32:-mstackrealign -mssse3 -fno-short-enums}" \
+  "%{m32: -mssse3 -fno-short-enums}" \
   "%{!m32:-msse4.2 -mpopcnt}"
 
 #undef ASM_SPEC
