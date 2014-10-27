@@ -47474,6 +47474,8 @@ adjacent_mem_locations (rtx mem1, rtx mem2)
 #define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
   ix86_float_exceptions_rounding_supported_p
 
+#undef TARGET_STRICT_ALIGN
+#define TARGET_STRICT_ALIGN true
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-i386.h"

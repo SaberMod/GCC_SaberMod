@@ -9514,6 +9514,10 @@ True if sched2 is not to be run at its normal place.  This usually means it will
 True if vartrack is not to be run at its normal place.  This usually means it will be run as part of machine-specific reorg.
 @end deftypevr
 
+@deftypevr {Target Hook} bool TARGET_STRICT_ALIGN
+True if it is beneficial to try stricter function  or loop alignment on the target.
+@end deftypevr
+
 @defmac ASM_OUTPUT_DWARF_DELTA (@var{stream}, @var{size}, @var{label1}, @var{label2})
 A C statement to issue assembly directives that create a difference
 @var{lab1} minus @var{lab2}, using an integer of the given @var{size}.

@@ -5388,6 +5388,12 @@ DEFHOOKPOD
 This usually means it will be run as part of machine-specific reorg.",
 bool, false)
 
+DEFHOOKPOD
+(strict_align,
+ "True if it is beneficial to try stricter function \
+ or loop alignment on the target.",
+ bool, false)
+
 /* Leave the boolean fields at the end.  */
 
 /* Close the 'struct gcc_target' definition.  */

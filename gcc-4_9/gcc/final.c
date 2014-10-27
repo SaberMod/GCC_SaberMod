@@ -790,7 +790,8 @@ compute_alignments (void)
 	      max_skip = targetm.asm_out.loop_align_max_skip (label);
 	    }
 	  /* For small size loop, let them align more strictly.  */
-	  if (bb->loop_father->num
+	  if (targetm.strict_align
+	      && bb->loop_father->num
 	      && (bb->loop_father->ninsns
 		  <= PARAM_VALUE (PARAM_ALIGN_LOOP_SIZE)))
 	    {
