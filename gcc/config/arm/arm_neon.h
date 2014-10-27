@@ -27,10 +27,6 @@
 #ifndef _GCC_ARM_NEON_H
 #define _GCC_ARM_NEON_H 1
 
-#ifndef __ARM_NEON__
-#error You must enable NEON instructions (e.g. -mfloat-abi=softfp -mfpu=neon) to use arm_neon.h
-#else
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -13836,6 +13832,5 @@ vmull_high_p64 (poly64x2_t __a, poly64x2_t __b)
 #endif
 #ifdef __cplusplus
 }
-#endif
 #endif
 #endif
