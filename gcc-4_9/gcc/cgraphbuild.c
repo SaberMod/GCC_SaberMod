@@ -665,6 +665,45 @@ record_references_in_initializer (tree decl, bool only_vars)
   pointer_set_destroy (visited_nodes);
 }
 
+typedef struct _fixup_decl_info {
+  tree orig_decl;
+  tree new_decl;
+} fixup_decl_info;
+
+/* Check the tree at TP to see if it contains the original decl stored in
+   DATA and if so replace it with the new decl. If original decl is
+   found set WALK_SUBTREES to 0 so the subtree under TP is not traversed.
+   Returns the updated parent tree T or NULL if no update performed.  */
+
+static tree
+fixup_all_refs_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  tree t = *tp;
+  fixup_decl_info *info = (fixup_decl_info *) data;
+
+  /* The original function decl is always the first tree operand.  */
+  if (TREE_OPERAND (t,0) == info->orig_decl)
+    {
+      TREE_OPERAND (t,0) = info->new_decl;
+      *walk_subtrees = 0;
+      return t;
+    }
+  return NULL_TREE;
+}
+
+/* Walk the whole tree rooted at TP and invoke fixup_all_refs_1 to
+   replace any references to the original decl with the new decl
+   stored in INFO.  */
+
+static inline void
+fixup_all_refs (tree *tp, fixup_decl_info *info)
+{
+  tree t = walk_tree (tp, fixup_all_refs_1, info, NULL);
+  /* This is invoked when we found the original decl, so we expect
+     to have replaced a reference.  */
+  gcc_assert (t != NULL_TREE);
+}
+
 /* Update any function decl references in base ADDR of operand OP to refer to
    the resolved node.  */
 
@@ -674,13 +713,16 @@ fixup_ref (gimple, tree addr, tree op)
   addr = get_base_address (addr);
   if (addr && TREE_CODE (addr) == FUNCTION_DECL)
     {
-      gcc_assert (TREE_CODE (op) == ADDR_EXPR);
-      gcc_assert (TREE_OPERAND (op,0) == addr);
       struct cgraph_node *real_callee;
       real_callee = cgraph_lipo_get_resolved_node (addr);
       if (addr == real_callee->decl)
         return false;
-      TREE_OPERAND (op,0) = real_callee->decl;
+      /* We need to locate and update the tree operand within OP
+         that contains ADDR and update it to the real callee's decl.  */
+      fixup_decl_info info;
+      info.orig_decl = addr;
+      info.new_decl = real_callee->decl;
+      fixup_all_refs (&op, &info);
     }
   return false;
 }
