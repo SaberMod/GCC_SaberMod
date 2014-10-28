@@ -23,8 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "linux-protos.h"
 
-/* Android does not support GNU indirect functions.  */
-
 bool
 linux_has_ifunc_p (void)
 {
