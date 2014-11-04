@@ -31,10 +31,6 @@
 extern "C" {
 #endif
 
-#ifndef __ARM_NEON__
-#error You must enable NEON instructions (e.g. -mfloat-abi=softfp -mfpu=neon) to use arm_neon.h
-#else
-
 #include <stdint.h>
 
 typedef __builtin_neon_qi int8x8_t	__attribute__ ((__vector_size__ (8)));
@@ -13812,6 +13808,5 @@ vmull_high_p64 (poly64x2_t __a, poly64x2_t __b)
 #endif
 #ifdef __cplusplus
 }
-#endif
 #endif
 #endif
