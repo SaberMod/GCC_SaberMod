@@ -1725,6 +1725,24 @@ const struct tune_params arm_v7m_tune =
   false                                         /* Prefer Neon for 64-bits bitops.  */
 };
 
+/* Cortex-M7 tuning.  */
+
+const struct tune_params arm_cortex_m7_tune =
+{
+  arm_9e_rtx_costs,
+  &v7m_extra_costs,
+  NULL,						/* Sched adj cost.  */
+  0,						/* Constant limit.  */
+  0,						/* Max cond insns.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  true,						/* Prefer constant pool.  */
+  arm_cortex_m_branch_cost,
+  false,					/* Prefer LDRD/STRD.  */
+  {true, true},					/* Prefer non short circuit.  */
+  &arm_default_vec_cost,                        /* Vectorizer costs.  */
+  false                                         /* Prefer Neon for 64-bits bitops.  */
+};
+
 /* The arm_v6m_tune is duplicated from arm_cortex_tune, rather than
    arm_v6t2_tune. It is used for cortex-m0, cortex-m1 and cortex-m0plus.  */
 const struct tune_params arm_v6m_tune =
