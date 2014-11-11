@@ -1,5 +1,8 @@
 2014-11-10  Hale Wang  <hale.wang@arm.com>
 
+	Backport from mainline r217175
+	2014-11-06  Hale Wang  <hale.wang@arm.com>
+
 	* config/arm/arm-cores.def: Add support for
 	-mcpu=cortex-m0.small-multiply,cortex-m0plus.small-multiply,
 	cortex-m1.small-multiply.
@@ -14,6 +17,9 @@
 	cortex-m1.small-multiply.
 
 2014-11-10  Hale Wang  <hale.wang@arm.com>
+
+	Backport from mainline r217173
+	2014-11-06  Hale Wang  <hale.wang@arm.com>
 
 	* config/arm/arm.c: Add cortex-m7 tune.
 	* config/arm/arm-cores.def: Use cortex-m7 tune.
