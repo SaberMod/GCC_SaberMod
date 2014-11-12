@@ -49,7 +49,13 @@ static inline gcov_type
 gcov_get_counter (void)
 {
 #ifndef IN_GCOV_TOOL
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   return gcov_read_counter_mem () * gcov_get_merge_weight ();
 #endif
@@ -59,7 +65,13 @@ static inline gcov_type
 gcov_get_counter_target (void)
 {
 #ifndef IN_GCOV_TOOL
-  return gcov_read_counter ();
+  if (get_gcov_fn_fixed_up ())
+    {
+      gcov_read_counter ();
+      return 0;
+    }
+  else
+    return gcov_read_counter ();
 #else
   return gcov_read_counter_mem ();
 #endif

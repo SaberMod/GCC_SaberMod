@@ -70,6 +70,7 @@ static void tag_lines (unsigned, unsigned);
 static void tag_counters (unsigned, unsigned);
 static void tag_summary (unsigned, unsigned);
 static void tag_module_info (unsigned, unsigned);
+static void tag_zero_fixup (unsigned, unsigned);
 
 /* The gcov_info for the first module.  */
 static struct gcov_info *curr_gcov_info;
@@ -91,6 +92,8 @@ static struct gcov_ctr_info k_ctrs[GCOV_COUNTERS];
 static int k_ctrs_types;
 /* The longest length of all the filenames.  */
 static int max_filename_len;
+
+static int *zero_fixup_flags = NULL;
 
 /* Merge functions for counters.  Similar to __gcov_dyn_ipa_merge_*
    functions in dyn-ipa.c, which were derived from these, except
@@ -148,6 +151,7 @@ static const tag_format_t tag_table[] =
   {GCOV_TAG_OBJECT_SUMMARY, "OBJECT_SUMMARY", tag_summary},
   {GCOV_TAG_PROGRAM_SUMMARY, "PROGRAM_SUMMARY", tag_summary},
   {GCOV_TAG_MODULE_INFO, "MODULE INFO", tag_module_info},
+  {GCOV_TAG_COMDAT_ZERO_FIXUP, "ZERO FIXUP", tag_zero_fixup},
   {0, NULL, NULL}
 };
 
@@ -174,14 +178,18 @@ tag_function (unsigned tag ATTRIBUTE_UNUSED, unsigned length ATTRIBUTE_UNUSED)
      k_ctrs[i].num = 0;
   k_ctrs_types = 0;
 
+  if (zero_fixup_flags)
+    {
+      set_gcov_fn_fixed_up (zero_fixup_flags[num_fn_info]);
+      if (get_gcov_fn_fixed_up () && verbose)
+        fprintf (stderr, "Function id=%d fixed up\n", curr_fn_info->ident);
+    }
+
   curr_fn_info->key = curr_gcov_info;
   curr_fn_info->ident = gcov_read_unsigned ();
   curr_fn_info->lineno_checksum = gcov_read_unsigned ();
   curr_fn_info->cfg_checksum = gcov_read_unsigned ();
   num_fn_info++;
-
-  if (verbose)
-    fprintf (stdout, "tag one function id=%d\n", curr_fn_info->ident);
 }
 
 /* Handler for reading block tag.  */
@@ -228,7 +236,13 @@ tag_counters (unsigned tag, unsigned length)
   gcc_assert (values);
 
   for (ix = 0; ix != n_counts; ix++)
-    values[ix] = gcov_read_counter ();
+    {
+      gcov_type val = gcov_read_counter ();
+      if (!get_gcov_fn_fixed_up ())
+        values[ix] = val;
+      else
+        values[ix] = 0;
+    }
 }
 
 /* Handler for reading summary tag.  */
@@ -325,7 +339,7 @@ lipo_process_substitute_string_1 (char *input_str,
       char *t;
 
       if (verbose)
-        printf ("Substitute: %s \n", input_str);
+        fprintf (stderr, "Substitute: %s \n", input_str);
       t = (char*) xmalloc (strlen (input_str) + 1
           + strlen (new_str) - strlen (cur_str));
       *p = 0;
@@ -334,7 +348,7 @@ lipo_process_substitute_string_1 (char *input_str,
       strcat (t, new_str);
       strcat (t, p + strlen (cur_str));
       if (verbose)
-        printf ("       -->  %s\n", t);
+        fprintf (stderr, "       -->  %s\n", t);
       return t;
     }
 
@@ -397,6 +411,16 @@ tag_module_info (unsigned tag ATTRIBUTE_UNUSED, unsigned length)
     }
   else
     free (mod_info);
+}
+
+/* Handler for reading the COMDAT zero-profile fixup section.  */
+
+static void
+tag_zero_fixup (unsigned tag ATTRIBUTE_UNUSED, unsigned length)
+{
+  gcov_unsigned_t num_fns = 0;
+  zero_fixup_flags = gcov_read_comdat_zero_fixup (length, &num_fns);
+  gcc_assert (zero_fixup_flags);
 }
 
 /* Read the content of a gcda file FILENAME, and return a gcov_info data structure.
@@ -526,6 +550,7 @@ read_gcda_file (const char *filename)
     }
 
   read_gcda_finalize (obj_info);
+  free (zero_fixup_flags);
   gcov_close ();
 
   return obj_info;
@@ -1015,7 +1040,7 @@ gcov_profile_scale (struct gcov_info *profile, float scale_factor, int n, int d)
   unsigned f_ix;
 
   if (verbose)
-    fprintf (stdout, "scale_factor is %f\n", scale_factor);
+    fprintf (stderr, "scale_factor is %f\n", scale_factor);
 
   /* Scaling the counters.  */
   for (gi_ptr = profile; gi_ptr; gi_ptr = gi_ptr->next)
@@ -1082,7 +1107,7 @@ gcov_profile_normalize (struct gcov_info *profile, gcov_type max_val)
 
   scale_factor = (float)max_val / curr_max_val;
   if (verbose)
-    fprintf (stdout, "max_val is %lld\n", (long long) curr_max_val);
+    fprintf (stderr, "max_val is %lld\n", (long long) curr_max_val);
 
   return gcov_profile_scale (profile, scale_factor, 0, 0);
 }

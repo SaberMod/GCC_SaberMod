@@ -41,6 +41,7 @@ static void tag_counters (const char *, unsigned, unsigned);
 static void tag_summary (const char *, unsigned, unsigned);
 static void tag_parameters (const char *, unsigned, unsigned);
 static void tag_build_info (const char *, unsigned, unsigned);
+static void tag_zero_fixup (const char *, unsigned, unsigned);
 static void dump_working_sets (const char *filename ATTRIBUTE_UNUSED,
                                const struct gcov_ctr_summary *summary);
 static void tag_module_info (const char *, unsigned, unsigned);
@@ -57,6 +58,9 @@ static int flag_dump_contents = 0;
 static int flag_dump_positions = 0;
 static int flag_dump_working_sets = 0;
 static int flag_dump_aux_modules_only = 0;
+
+static unsigned num_fn_info;
+static int *zero_fixup_flags = NULL;
 
 static const struct option options[] =
 {
@@ -81,6 +85,7 @@ static const tag_format_t tag_table[] =
   {GCOV_TAG_PROGRAM_SUMMARY, "PROGRAM_SUMMARY", tag_summary},
   {GCOV_TAG_PARAMETERS, "PARAMETERS", tag_parameters},
   {GCOV_TAG_MODULE_INFO, "MODULE INFO", tag_module_info},
+  {GCOV_TAG_COMDAT_ZERO_FIXUP, "ZERO FIXUP", tag_zero_fixup},
   {GCOV_TAG_BUILD_INFO, "BUILD INFO", tag_build_info},
   {0, NULL, NULL}
 };
@@ -276,6 +281,8 @@ dump_gcov_file (const char *filename)
     printf ("%s:stamp %lu\n", filename, (unsigned long)stamp);
   }
 
+  num_fn_info = 0;
+
   while (1)
     {
       gcov_position_t base, position = gcov_position ();
@@ -343,6 +350,7 @@ dump_gcov_file (const char *filename)
 	  break;
 	}
     }
+  free (zero_fixup_flags);
   gcov_close ();
 }
 
@@ -356,7 +364,9 @@ tag_function (const char *filename ATTRIBUTE_UNUSED,
     printf (" placeholder");
   else
     {
-      printf (" ident=%u", gcov_read_unsigned ());
+      int had_fixup = zero_fixup_flags && zero_fixup_flags[num_fn_info];
+      printf (" ident=%u%s", gcov_read_unsigned (),
+              had_fixup ? " (Was 0-count COMDAT)" : "");
       printf (", lineno_checksum=0x%08x", gcov_read_unsigned ());
       printf (", cfg_checksum=0x%08x", gcov_read_unsigned ());
 
@@ -371,6 +381,7 @@ tag_function (const char *filename ATTRIBUTE_UNUSED,
 	  printf (":%u", gcov_read_unsigned ());
 	}
     }
+  num_fn_info++;
 }
 
 static void
@@ -594,6 +605,32 @@ tag_module_info (const char *filename ATTRIBUTE_UNUSED,
       printf (": %s (ident=%u) [%s%s%s]", mod_info->source_filename,
               mod_info->ident, primary_suffix, export_suffix,
               include_all_suffix);
+    }
+}
+
+static void
+tag_zero_fixup (const char *filename,
+                unsigned tag ATTRIBUTE_UNUSED, unsigned length)
+{
+  gcov_unsigned_t num_fns = 0;
+  zero_fixup_flags = gcov_read_comdat_zero_fixup (length, &num_fns);
+  if (!zero_fixup_flags)
+    {
+      printf ("%s:error reading zero fixup flags\n", filename);
+      return;
+    }
+  printf (" num_fns=%u", num_fns);
+  for (unsigned i = 0; i < num_fns; i++)
+    {
+      if (!(i % 32))
+        {
+          printf ("\n");
+          print_prefix (filename, 0, 0);
+          printf ("\t\t");
+        }
+      if (!(i % 8))
+        printf ("%s%4u:", (i%32)?" ":"", i);
+      printf ("%u", zero_fixup_flags[i]);
     }
 }
 

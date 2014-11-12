@@ -160,6 +160,24 @@ get_gcov_list (void)
   return __gcov_list;
 }
 
+/* Flag if the current function being read was marked as having fixed-up
+   zero counters.  */
+static int __gcov_curr_fn_fixed_up;
+
+/* Set function fixed up flag.  */
+void
+set_gcov_fn_fixed_up (int fixed_up)
+{
+  __gcov_curr_fn_fixed_up = fixed_up;
+}
+
+/* Return function fixed up flag.  */
+int
+get_gcov_fn_fixed_up (void)
+{
+  return __gcov_curr_fn_fixed_up;
+}
+
 /* Size of the longest file name. */
 static size_t gcov_max_filename = 0;
 
@@ -173,7 +191,7 @@ static int gcov_sampling_period_initialized = 0;
 static gcov_unsigned_t gcov_cur_module_id = 0;
 
 /* Dynamic call graph build and form module groups.  */
-int __gcov_compute_module_groups (void) ATTRIBUTE_HIDDEN;
+int __gcov_compute_module_groups (char **zero_counts) ATTRIBUTE_HIDDEN;
 void __gcov_finalize_dyn_callgraph (void) ATTRIBUTE_HIDDEN;
 
 /* Add an unsigned value to the current crc */
@@ -540,6 +558,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
   unsigned t_ix, f_ix;
   int error = 0;
   struct gcov_summary_buffer **sum_tail = &sum_buffer;
+  int *zero_fixup_flags = NULL;
 
   version = gcov_read_unsigned ();
   if (!gcov_version (gi_ptr, version, gi_filename))
@@ -609,6 +628,21 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
       tag = gcov_read_unsigned ();
     }
 
+  if (tag == GCOV_TAG_COMDAT_ZERO_FIXUP)
+    {
+      length = gcov_read_unsigned ();
+      gcov_unsigned_t num_fns = 0;
+      zero_fixup_flags = gcov_read_comdat_zero_fixup (length, &num_fns);
+      if (!zero_fixup_flags)
+        {
+          gcov_error ("profiling:%s:Error reading zero fixup flags\n",
+                      gi_filename);
+          return -1;
+        }
+
+      tag = gcov_read_unsigned ();
+    }
+
   /* Merge execution counts for each function.  */
   for (f_ix = 0; f_ix != gi_ptr->n_functions;
        f_ix++, tag = gcov_read_unsigned ())
@@ -618,6 +652,9 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
 
       if (tag != GCOV_TAG_FUNCTION)
         goto read_mismatch;
+
+      if (zero_fixup_flags)
+        set_gcov_fn_fixed_up (zero_fixup_flags[f_ix]);
 
       length = gcov_read_unsigned ();
       if (!length)
@@ -662,6 +699,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
                   gi_filename, f_ix + 1 ? "function" : "summaries");
       return -1;
     }
+  free (zero_fixup_flags);
 
   return 0;
 
@@ -671,6 +709,34 @@ read_error:;
   return -1;
 }
 
+
+
+/* Write NUM_FNS ZERO_COUNTS fixup flags to a gcda file starting from its
+   current location.  */
+
+static void
+gcov_write_comdat_zero_fixup (char *zero_counts, unsigned num_fns)
+{
+  unsigned f_ix;
+  gcov_unsigned_t len = GCOV_TAG_COMDAT_ZERO_FIXUP_LENGTH (num_fns);
+  gcov_write_tag_length (GCOV_TAG_COMDAT_ZERO_FIXUP, len);
+
+  gcov_write_unsigned (num_fns);
+  gcov_unsigned_t bitvector = 0, b_ix = 0;
+  for (f_ix = 0; f_ix != num_fns; f_ix++)
+    {
+      if (zero_counts[f_ix])
+        bitvector |= 1 << b_ix;
+      if (++b_ix == 32)
+        {
+          gcov_write_unsigned (bitvector);
+          b_ix = 0;
+          bitvector = 0;
+        }
+    }
+  if (b_ix > 0)
+    gcov_write_unsigned (bitvector);
+}
 
 /* Write build_info strings from GI_PTR to a gcda file starting from its current
    location.  */
@@ -1044,9 +1110,24 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
 {
   struct gcov_info *gi_ptr;
 
+  unsigned max_module_id = 0;
+  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+    {
+      unsigned mod_id = gi_ptr->mod_info->ident;
+      if (max_module_id < mod_id)
+        max_module_id = mod_id;
+    }
+  char **zero_counts = (char **) xcalloc (max_module_id, sizeof (char *));
+  for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
+    {
+      unsigned mod_id = gi_ptr->mod_info->ident;
+      zero_counts[mod_id-1] = (char *) xcalloc (gi_ptr->n_functions,
+                                               sizeof (char));
+    }
+
   /* Compute the module groups and record whether there were any
      counter fixups applied that require rewriting the counters.  */
-  int changed = __gcov_compute_module_groups ();
+  int changed = __gcov_compute_module_groups (zero_counts);
 
   /* Now write out module group info.  */
   for (gi_ptr = __gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
@@ -1069,8 +1150,15 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
               gcov_position_t eof_pos = gi_ptr->eof_pos;
               gcov_rewrite ();
               gcov_seek (summary_end_pos);
+
+              unsigned mod_id = gi_ptr->mod_info->ident;
+              gcov_write_comdat_zero_fixup (zero_counts[mod_id-1],
+                                            gi_ptr->n_functions);
+              gcov_position_t zero_fixup_eof_pos = gcov_position ();
+
               gcov_write_func_counters (gi_ptr);
-              gcc_assert (eof_pos == gi_ptr->eof_pos);
+              gcc_assert (eof_pos + (zero_fixup_eof_pos - summary_end_pos)
+                          == gi_ptr->eof_pos);
             }
         }
       else
@@ -1089,7 +1177,10 @@ gcov_dump_module_info (struct gcov_filename_aux *gf)
                                      "profiling:%s:Error writing\n",
                                      gi_filename);
       gcov_write_import_file (gi_filename, gi_ptr);
+      free (zero_counts[gi_ptr->mod_info->ident-1]);
     }
+
+  free (zero_counts);
 
   __gcov_finalize_dyn_callgraph ();
 }

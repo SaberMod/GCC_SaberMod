@@ -333,6 +333,9 @@ gcov_get_sorted_import_module_array (struct gcov_info *mod_info, unsigned *len)
 /*staic void gcov_rewrite (void); */
 GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_truncate (void) ATTRIBUTE_HIDDEN;
+ 
+extern void set_gcov_fn_fixed_up (int fixed_up);
+extern int get_gcov_fn_fixed_up (void);
 
 #endif /* !inhibit_libc */
 
