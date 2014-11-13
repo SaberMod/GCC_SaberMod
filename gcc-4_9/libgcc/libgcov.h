@@ -25,6 +25,7 @@
 #ifndef GCC_LIBGCOV_H
 #define GCC_LIBGCOV_H
 
+#ifndef __KERNEL__
 /* work around the poisoned malloc/calloc in system.h.  */
 #ifndef xmalloc
 #define xmalloc malloc
@@ -35,16 +36,24 @@
 #ifndef xrealloc
 #define xrealloc realloc
 #endif
+#ifndef xfree
+#define xfree free
+#endif
+#else /* __KERNEL__ */
+#include "libgcov-kernel.h"
+#endif /* __KERNEL__ */
 
 #ifndef IN_GCOV_TOOL
 /* About the target.  */
 /* This path will be used by libgcov runtime.  */
 
+#ifndef __KERNEL__
 #include "tconfig.h"
 #include "tsystem.h"
 #include "coretypes.h"
 #include "tm.h"
 #include "libgcc_tm.h"
+#endif /* __KERNEL__ */
 
 #undef FUNC_ID_WIDTH
 #undef FUNC_ID_MASK
@@ -128,7 +137,6 @@ typedef unsigned gcov_position_t;
 #define GCOV_LOCKED 0
 #endif
 
-/* xur??? */
 #define FUNC_ID_WIDTH 32
 #define FUNC_ID_MASK ((1ll << FUNC_ID_WIDTH) - 1)
 
@@ -247,11 +255,13 @@ struct gcov_info
 
   unsigned n_functions;         /* number of functions */
 
-#ifndef IN_GCOV_TOOL
+#if !defined (IN_GCOV_TOOL) && !defined (__KERNEL__)
   const struct gcov_fn_info *const *functions; /* pointer to pointers
                                                   to function information  */
-#else
+#elif defined (IN_GCOV_TOOL)
   const struct gcov_fn_info **functions;
+#else
+  struct gcov_fn_info **functions;
 #endif /* !IN_GCOV_TOOL */
   char **build_info;            /* strings to include in BUILD_INFO
                                    section of gcda file.  */
@@ -342,6 +352,8 @@ GCOV_LINKAGE void gcov_write_summary (gcov_unsigned_t /*tag*/,
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_seek (gcov_position_t /*position*/) ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_truncate (void) ATTRIBUTE_HIDDEN;
+void gcov_write_module_info (const struct gcov_info *, unsigned)
+    ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE void gcov_write_module_infos (struct gcov_info *mod_info)
     ATTRIBUTE_HIDDEN;
 GCOV_LINKAGE const struct dyn_imp_mod **

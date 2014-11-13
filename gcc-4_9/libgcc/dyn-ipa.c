@@ -2257,6 +2257,7 @@ gcov_compute_random_module_groups (unsigned max_group_size)
     }
 }
 
+#if 0
 /* Write out MOD_INFO into the gcda file. IS_PRIMARY is a flag
    indicating if the module is the primary module in the group.  */
 
@@ -2315,6 +2316,7 @@ gcov_write_module_info (const struct gcov_info *mod_info,
   /* Now write the string array.  */
   gcov_write_string_array (module_info->string_array, num_strings);
 }
+#endif
 
 /* Write out MOD_INFO and its imported modules into gcda file.  */
 
@@ -2324,6 +2326,8 @@ gcov_write_module_infos (struct gcov_info *mod_info)
   unsigned imp_len = 0;
   const struct dyn_imp_mod **imp_mods;
 
+  if (flag_alg_mode == INCLUSION_BASED_PRIORITY_ALGORITHM)
+    SET_MODULE_INCLUDE_ALL_AUX (mod_info->mod_info);
   gcov_write_module_info (mod_info, 1);
 
   imp_mods = gcov_get_sorted_import_module_array (mod_info, &imp_len);

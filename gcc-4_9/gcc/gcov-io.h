@@ -177,6 +177,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #ifndef GCC_GCOV_IO_H
 #define GCC_GCOV_IO_H
 
+#ifndef __KERNEL__
+# define _GCOV_FILE      FILE
+# define _GCOV_fclose    fclose
+# define _GCOV_ftell     ftell
+# define _GCOV_fseek     fseek
+# define _GCOV_ftruncate ftruncate
+# define _GCOV_fread     fread
+# define _GCOV_fwrite    fwrite
+# define _GCOV_fread     fread
+# define _GCOV_fileno    fileno
+#endif
+
 #ifndef IN_LIBGCOV
 /* About the host */
 

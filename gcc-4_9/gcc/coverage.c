@@ -2986,6 +2986,10 @@ coverage_finish (void)
   da_file_name = NULL;
 }
 
+extern bool is_kernel_build;
+
+#define KERNEL_BUILD_PREDEF_STRING "__KERNEL__"
+
 /* Copies the macro def or undef CPP_DEF and saves the copy
    in a list. IS_DEF is a flag indicating if CPP_DEF represents
    a -D or -U.  */
@@ -2998,6 +3002,11 @@ coverage_note_define (const char *cpp_def, bool is_def)
   strcpy (s + 1, cpp_def);
   str_list_append (&cpp_defines_head, &cpp_defines_tail, s);
   num_cpp_defines++;
+
+  /* When -D__KERNEL__ is in the option list, we assume this is
+     compilation for Linux Kernel.  */
+  if (!strcmp(cpp_def, KERNEL_BUILD_PREDEF_STRING))
+    is_kernel_build = is_def;
 }
 
 /* Copies the -imacro/-include FILENAME and saves the copy in a list.  */
