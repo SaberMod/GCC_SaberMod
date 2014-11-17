@@ -1771,6 +1771,7 @@ auto_profile (void)
       free_dominance_info (CDI_DOMINATORS);
       free_dominance_info (CDI_POST_DOMINATORS);
       rebuild_cgraph_edges ();
+      compute_inline_parameters (cgraph_get_node (current_function_decl), true);
       pop_cfun ();
     }
 

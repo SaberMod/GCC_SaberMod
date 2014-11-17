@@ -501,7 +501,7 @@ want_early_inline_function_p (struct cgraph_edge *e)
 		     growth);
 	  want_inline = false;
 	}
-      else if (DECL_COMDAT (callee->decl)
+      else if (!flag_auto_profile && DECL_COMDAT (callee->decl)
                && growth <= PARAM_VALUE (PARAM_EARLY_INLINING_INSNS_COMDAT))
         ;
       else if ((n = num_calls (callee)) != 0
